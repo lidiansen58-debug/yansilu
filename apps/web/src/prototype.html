@@ -127,6 +127,17 @@
       font-weight: 700;
       box-shadow: inset 2px 0 0 #159a60, 0 10px 20px rgba(23, 34, 33, 0.08);
     }
+    .rail-btn.has-unread::before {
+      content: "";
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #0f766e;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+    }
     .quick-entry.current-root {
       background: #ffffff;
       border-color: #d7e3db;
@@ -1188,6 +1199,76 @@
       border-color: #0d6f47;
       background: linear-gradient(180deg, #239b6c 0%, #157a53 100%);
       color: #ffffff;
+    }
+    .system-message-modal .modal {
+      width: min(640px, 100%);
+    }
+    .system-message-modal .modal-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .system-message-modal .modal-head::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #0f766e;
+      box-shadow: 0 0 0 5px rgba(20, 184, 166, 0.12);
+      flex: 0 0 auto;
+    }
+    .system-message-list {
+      display: grid;
+      gap: 10px;
+      max-height: 52vh;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .system-message-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px 12px;
+      padding: 12px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdfe 100%);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+    }
+    .system-message-item.is-unread {
+      border-color: rgba(15, 118, 110, 0.28);
+      background:
+        linear-gradient(90deg, rgba(20, 184, 166, 0.12), transparent 8px),
+        linear-gradient(180deg, #f8fffd 0%, #ffffff 100%);
+    }
+    .system-message-title {
+      font-weight: 800;
+      color: #10202a;
+      line-height: 1.35;
+      align-self: center;
+    }
+    .system-message-body {
+      grid-column: 1 / -1;
+      color: #475569;
+      line-height: 1.65;
+      font-size: 13px;
+    }
+    .system-message-meta {
+      grid-column: 1;
+      color: #64748b;
+      font-size: 12px;
+    }
+    .system-message-actions {
+      grid-column: 2;
+      grid-row: 1;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .system-message-actions .mini-btn {
+      min-height: 34px;
+      white-space: nowrap;
     }
 
     /* Editor area */
@@ -8080,6 +8161,62 @@
     .floating-notice .tb {
       display: none;
     }
+    .selection-ai-action {
+      position: fixed;
+      z-index: 52;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      max-width: min(420px, calc(100vw - 32px));
+      padding: 9px;
+      border: 1px solid rgba(15, 118, 110, 0.28);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(20, 184, 166, 0.1), transparent 18px),
+        rgba(248, 253, 251, 0.98);
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+      backdrop-filter: blur(14px) saturate(118%);
+    }
+    .selection-ai-action.hidden {
+      display: none;
+    }
+    .selection-ai-action-text {
+      min-width: 0;
+      max-width: 220px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .selection-ai-action-button {
+      min-height: 34px;
+      border: 1px solid #0f766e;
+      border-radius: 7px;
+      padding: 0 12px;
+      background: #0f766e;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 8px 18px rgba(15, 118, 110, 0.18);
+      transition: background-color .12s ease, border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+    }
+    .selection-ai-action-button:hover,
+    .selection-ai-action-button:focus-visible {
+      background: #0d6f66;
+      border-color: #0d6f66;
+      box-shadow: 0 10px 22px rgba(15, 118, 110, 0.22);
+    }
+    .selection-ai-action-button:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring), 0 10px 22px rgba(15, 118, 110, 0.22);
+    }
+    .selection-ai-action-button:active {
+      transform: translateY(1px);
+    }
     .floating-notice-head {
       display: flex;
       align-items: center;
@@ -9192,6 +9329,36 @@
       gap: 6px;
       flex-wrap: wrap;
     }
+    .relation-followup-suggestion {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(15, 118, 110, 0.24);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(20, 184, 166, 0.1), transparent 18px),
+        #f7fcfa;
+      padding: 10px 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    }
+    .relation-followup-suggestion-text {
+      min-width: 0;
+      color: #12333c;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+    .relation-followup-suggestion-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .relation-followup-suggestion-actions .mini-btn {
+      min-height: 34px;
+    }
     .semantic-relation-groups {
       display: grid;
       gap: 10px;
@@ -9199,6 +9366,21 @@
     .semantic-relation-group {
       display: grid;
       gap: 6px;
+    }
+    .semantic-relation-group[data-fleeting-cleanup-prompt] {
+      border: 1px solid rgba(15, 118, 110, 0.22);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background:
+        linear-gradient(90deg, rgba(20, 184, 166, 0.1), transparent 18px),
+        #f7fcfa;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    }
+    .semantic-relation-group[data-fleeting-cleanup-prompt] .related-empty {
+      background: transparent;
+      border-color: transparent;
+      padding: 0;
+      color: #475569;
     }
     .semantic-relation-group-head {
       display: flex;
@@ -11684,6 +11866,112 @@
       border-color: #f0b8b3;
       background: #fff1f0;
       color: #b42318;
+    }
+    .save-ai-suggestion {
+      position: fixed;
+      right: 22px;
+      bottom: 18px;
+      z-index: 42;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 10px;
+      width: min(520px, calc(100vw - 44px));
+      padding: 12px 12px 12px 16px;
+      border: 1px solid rgba(15, 118, 110, 0.28);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(20, 184, 166, 0.12), transparent 20px),
+        rgba(248, 253, 251, 0.97);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.13);
+      backdrop-filter: blur(12px);
+    }
+    .save-ai-suggestion.hidden {
+      display: none;
+    }
+    .save-ai-suggestion-text {
+      min-width: 0;
+      color: #12333c;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+    .save-ai-suggestion-primary,
+    .save-ai-suggestion-secondary {
+      min-height: 34px;
+      border-radius: 7px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: background-color .12s ease, border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+    }
+    .save-ai-suggestion-primary {
+      border: 1px solid #0f766e;
+      background: #0f766e;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(15, 118, 110, 0.18);
+    }
+    .save-ai-suggestion-primary:hover,
+    .save-ai-suggestion-primary:focus-visible {
+      background: #0d6f66;
+      border-color: #0d6f66;
+      box-shadow: 0 10px 22px rgba(15, 118, 110, 0.22);
+    }
+    .save-ai-suggestion-secondary {
+      border: 1px solid transparent;
+      background: transparent;
+      color: #5b6b7d;
+    }
+    .save-ai-suggestion-secondary:hover,
+    .save-ai-suggestion-secondary:focus-visible {
+      border-color: rgba(100, 116, 139, 0.18);
+      background: rgba(255, 255, 255, 0.86);
+      color: #334155;
+    }
+    .save-ai-suggestion-primary:focus-visible,
+    .save-ai-suggestion-secondary:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+    .save-ai-suggestion-primary:focus-visible {
+      box-shadow: var(--focus-ring), 0 10px 22px rgba(15, 118, 110, 0.22);
+    }
+    .save-ai-suggestion-primary:active,
+    .save-ai-suggestion-secondary:active {
+      transform: translateY(1px);
+    }
+    @media (max-width: 640px) {
+      .save-ai-suggestion {
+        right: 12px;
+        bottom: 12px;
+        width: calc(100vw - 24px);
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+      }
+      .save-ai-suggestion-primary,
+      .save-ai-suggestion-secondary {
+        width: 100%;
+      }
+      .selection-ai-action {
+        max-width: calc(100vw - 24px);
+        flex-wrap: wrap;
+      }
+      .selection-ai-action-text {
+        max-width: none;
+        flex: 1 1 160px;
+      }
+      .relation-followup-suggestion,
+      .system-message-item {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .relation-followup-suggestion-actions,
+      .system-message-actions,
+      .system-message-meta {
+        grid-column: 1;
+        grid-row: auto;
+        justify-content: flex-start;
+      }
     }
     .editor-helper {
       position: fixed;
@@ -15360,6 +15648,12 @@
             <path d="M2.8 9.1h3.05l.75 1.15h2.8l.75-1.15h3.05M5.35 5.75h5.3M5.95 7.55h4.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
+        <button class="rail-btn" id="systemMessagesButton" data-action="open-system-messages" title="系统消息" data-tip="系统消息" aria-label="系统消息">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3.2 3.1h9.6a1.2 1.2 0 0 1 1.2 1.2v6.2a1.2 1.2 0 0 1-1.2 1.2H6.1l-2.9 2v-9.4a1.2 1.2 0 0 1 1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
+            <path d="M5.6 6.1h4.8M5.6 8.4h3.2" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
+          </svg>
+        </button>
         <button class="rail-btn" data-module="distillation" title="观点提纯" data-tip="观点提纯" aria-label="观点提纯">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M3.2 3.4h9.6M3.2 6.25h7.2M3.2 9.1h5.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/>
@@ -15537,6 +15831,10 @@
               <button class="tb" id="btnCloseOriginalityNotice" type="button">关闭</button>
             </div>
             <div class="floating-notice-body" id="originalityNoticeBody">这里会对永久笔记提示原创性风险和下一步建议。</div>
+          </div>
+          <div class="selection-ai-action hidden" id="selectionAiAction" aria-live="polite">
+            <span class="selection-ai-action-text" id="selectionAiActionText">可提炼当前选区</span>
+            <button class="selection-ai-action-button" id="btnSelectionAiDistill" type="button" data-selection-ai-action="distill-claim">提炼观点</button>
           </div>
           <div class="panel md-panel" id="markdownPanel">
             <div class="panel-head compact editor-intent">
@@ -16473,9 +16771,28 @@
       <div class="status" id="statusBar">
         <span id="statusText" class="status-pill">就绪</span>
       </div>
+      <div class="save-ai-suggestion hidden" id="saveAiSuggestion" aria-live="polite" role="status">
+        <div class="save-ai-suggestion-text" id="saveAiSuggestionText"></div>
+        <button class="save-ai-suggestion-primary" id="btnSaveAiSuggestionPrimary" type="button">立即处理</button>
+        <button class="save-ai-suggestion-secondary" id="btnSaveAiSuggestionLater" type="button">稍后</button>
+      </div>
     </main>
   </div>
   <div id="contextMenu" class="ctx-menu hidden"></div>
+  <div id="systemMessageModal" class="modal-mask system-message-modal hidden" role="dialog" aria-modal="true" aria-labelledby="systemMessageModalTitle" aria-describedby="systemMessageModalNote">
+    <div class="modal">
+      <div class="modal-head" id="systemMessageModalTitle">系统消息</div>
+      <div class="modal-body">
+        <div class="modal-note" id="systemMessageModalNote">AI 建议、关系提醒和系统提示会保留在这里，方便之后回看。</div>
+        <div class="system-message-list" id="systemMessageList" aria-label="系统消息列表" aria-live="polite"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">打开 AI 建议待办</button>
+        <button class="mini-btn" id="btnSystemMessageMarkRead" type="button">全部标记已读</button>
+        <button class="mini-btn primary" id="btnSystemMessageClose" type="button">关闭</button>
+      </div>
+    </div>
+  </div>
   <div id="newBoxModal" class="modal-mask hidden">
     <div class="modal">
       <div class="modal-head">新建卡片盒目录</div>

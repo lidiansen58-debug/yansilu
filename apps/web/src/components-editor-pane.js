@@ -79,6 +79,14 @@ function titleFromBody(body) {
   return lines[0].replace(/^#+\s*/, "").slice(0, 60) || UNTITLED_NOTE_TITLE;
 }
 
+function selectionDistillationDraft(text = "") {
+  return String(text || "")
+    .replace(/^\s*[-*>\d.)]+\s*/gm, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
 function normalizePlaceholderTitleBody(body = "") {
   const text = String(body || "").replace(/\r\n/g, "\n");
   return text.replace(new RegExp(`^#\\s*${escapeRegExp(UNTITLED_NOTE_TITLE)}(?=\\S)`), "# ");
@@ -2058,6 +2066,45 @@ function renderRelationQualityMeter(rationale = "", insightQuestion = "") {
   `;
 }
 
+function relationFollowupSuggestionForDraft({
+  noteId = "",
+  relationId = "",
+  relationType = "",
+  rationale = "",
+  insightQuestion = "",
+  targetTitle = ""
+} = {}) {
+  const cleanNoteId = String(noteId || "").trim();
+  const cleanRelationId = String(relationId || "").trim();
+  if (!cleanNoteId || !cleanRelationId) return null;
+  const cleanType = String(relationType || "").trim().toLowerCase();
+  const quality = relationQualityEvaluation(rationale, insightQuestion);
+  if (quality.level === "strong") return null;
+
+  const missingQuestion = !String(insightQuestion || "").trim();
+  const thinReason = quality.level === "empty" || quality.level === "basic";
+  const bridgeLike = RELATION_BRIDGE_TYPES.has(cleanType);
+  const target = String(targetTitle || "").trim();
+  const targetSuffix = target ? `：${target}` : "";
+  const text = bridgeLike
+    ? `这条桥接关系建议补一个边界${targetSuffix}`
+    : missingQuestion
+      ? `这条关系还可以补一个后续问题${targetSuffix}`
+      : thinReason
+        ? `这条关系理由还需要再具体一点${targetSuffix}`
+        : `这条关系可以再补证据或边界${targetSuffix}`;
+
+  return {
+    noteId: cleanNoteId,
+    relationId: cleanRelationId,
+    text,
+    actionLabel: "补理由",
+    laterLabel: "稍后",
+    focusSelector: '[data-edit-relation-form] textarea[name="rationale"]',
+    qualityLevel: quality.level
+  };
+}
+
 function excerptFromBody(body = "", fallbackTitle = "") {
   const lines = String(body || "")
     .replace(/\r\n/g, "\n")
@@ -2161,8 +2208,10 @@ export class EditorPane {
       selectedTemplateVariant: "",
       rememberedTemplateVariantLabel: ""
     };
+    this.relationFollowupSuggestion = null;
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
+    this.fleetingCleanupDismissedNoteIds = new Set();
     this.noteAiAnalysisByNoteId = new Map();
     this.noteAiSuggestionsState = {
       noteId: "",
@@ -2186,6 +2235,12 @@ export class EditorPane {
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
+    this.selectionAiActionState = {
+      noteId: "",
+      selectedText: "",
+      from: 0,
+      to: 0
+    };
     this.bottomNoticeTimer = null;
     this.lastBottomNoticeKey = "";
     this.lastThinkingStatusNoticeKey = "";
@@ -2304,6 +2359,17 @@ export class EditorPane {
       return "先选一个永久笔记盒目录，再把这条随笔写成一条自己愿意长期保留的判断。";
     }
     return "先选一个永久笔记盒目录，再继续创建永久笔记。";
+  }
+
+  shouldShowFleetingCleanupPrompt(note = this.activeNote()) {
+    if (!note?.id || this.resolvedNoteType(note) !== "fleeting" || this.hasGeneratedOriginal(note)) return false;
+    return !this.fleetingCleanupDismissedNoteIds?.has?.(note.id);
+  }
+
+  dismissFleetingCleanupPrompt(note = this.activeNote()) {
+    if (!note?.id) return;
+    if (!this.fleetingCleanupDismissedNoteIds) this.fleetingCleanupDismissedNoteIds = new Set();
+    this.fleetingCleanupDismissedNoteIds.add(note.id);
   }
 
   async pickPermanentDirectoryForNote(note = this.activeNote()) {
@@ -2721,6 +2787,80 @@ export class EditorPane {
     if (rect) return rect;
     const host = (this.isSourceMode() ? this.els.editorHost : this.els.wysiwygHost) || this.els.body;
     return host?.getBoundingClientRect?.() || null;
+  }
+
+  currentSelectedEditorText() {
+    if (this.isStructuredWorkspaceActive()) return "";
+    const value = this.getEditorValue();
+    const range = this.normalizedSelectionRangeForValue(value, this.editorSelection());
+    if (!range || range.to <= range.from) return "";
+    return String(value || "").slice(range.from, range.to).trim();
+  }
+
+  selectionAiActionCandidate() {
+    const note = this.activeNote();
+    if (!note?.id) return null;
+    const noteType = this.resolvedNoteType(note);
+    if (noteType !== "permanent" && noteType !== "original") return null;
+    const value = this.getEditorValue();
+    const range = this.normalizedSelectionRangeForValue(value, this.editorSelection());
+    if (!range || range.to <= range.from) return null;
+    const selectedText = String(value || "").slice(range.from, range.to).trim();
+    if (selectedText.replace(/\s+/g, "").length < 6) return null;
+    return {
+      noteId: note.id,
+      selectedText,
+      from: range.from,
+      to: range.to
+    };
+  }
+
+  hideSelectionAiAction() {
+    this.selectionAiActionState = {
+      noteId: "",
+      selectedText: "",
+      from: 0,
+      to: 0
+    };
+    const root = this.els.selectionAiAction;
+    if (!root) return;
+    root.classList.add("hidden");
+    root.style.left = "";
+    root.style.top = "";
+  }
+
+  updateSelectionAiAction() {
+    const root = this.els.selectionAiAction;
+    if (!root) return;
+    const candidate = this.selectionAiActionCandidate();
+    if (!candidate) {
+      this.hideSelectionAiAction();
+      return;
+    }
+    this.selectionAiActionState = candidate;
+    root.classList.remove("hidden");
+    root.dataset.noteId = candidate.noteId;
+    root.dataset.selectionFrom = String(candidate.from);
+    root.dataset.selectionTo = String(candidate.to);
+    if (this.els.selectionAiActionText) {
+      this.els.selectionAiActionText.textContent = `已选 ${candidate.selectedText.replace(/\s+/g, "").length} 字`;
+    }
+    this.positionSelectionAiAction();
+  }
+
+  positionSelectionAiAction() {
+    const root = this.els.selectionAiAction;
+    if (!root || root.classList.contains("hidden")) return;
+    const rect = this.currentSelectionRect();
+    if (!rect) return;
+    const width = Math.min(root.offsetWidth || 260, window.innerWidth - 24);
+    const height = root.offsetHeight || 46;
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
+    const preferredTop = rect.top - height - 8;
+    const fallbackTop = rect.bottom + 8;
+    const top = preferredTop >= 12 ? preferredTop : Math.min(fallbackTop, window.innerHeight - height - 12);
+    root.style.left = `${Math.round(left)}px`;
+    root.style.top = `${Math.round(Math.max(12, top))}px`;
   }
 
   editorScrollNodes() {
@@ -3462,6 +3602,23 @@ export class EditorPane {
           </div>
           <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
         </div>
+        ${
+          this.shouldShowFleetingCleanupPrompt(note)
+            ? `
+              <div class="semantic-relation-group" data-fleeting-cleanup-prompt>
+                <div class="semantic-relation-group-head">
+                  <strong>随笔清理</strong>
+                  <span>建议处理</span>
+                </div>
+                <div class="related-empty">随笔应定期清理，或沉淀为永久笔记。</div>
+                <div class="semantic-relation-actions">
+                  <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">提炼为永久笔记</button>
+                  <button class="mini-btn" type="button" data-source-note-action="dismiss-fleeting-cleanup">标记稍后清理</button>
+                </div>
+              </div>
+            `
+            : ""
+        }
         <div class="related-empty">${escapeHtml(detail)}</div>
         <div class="semantic-relation-status">
           <span class="inspector-chip">${escapeHtml(noteTypeText(noteType))}</span>
@@ -3809,6 +3966,7 @@ export class EditorPane {
     const mode = String(this.state.previewMode || "wysiwyg");
     const pendingSelection = this.pendingEditorSelection;
     this.pendingEditorSelection = null;
+    this.hideSelectionAiAction();
     const split = this.els.markdownSplit;
     if (split) {
       split.classList.remove("editor-mode-wysiwyg", "editor-mode-source");
@@ -5332,6 +5490,7 @@ export class EditorPane {
       btn.classList.toggle("active", Boolean(active[type]));
     });
     this.renderContextualToolbarState();
+    this.updateSelectionAiAction();
   }
 
   scopedLinkCandidates() {
@@ -5981,6 +6140,28 @@ export class EditorPane {
     };
   }
 
+  setRelationFollowupSuggestion(suggestion = null) {
+    this.relationFollowupSuggestion = suggestion?.noteId && suggestion?.relationId ? suggestion : null;
+  }
+
+  clearRelationFollowupSuggestion() {
+    this.relationFollowupSuggestion = null;
+  }
+
+  renderRelationFollowupSuggestion(noteId = "") {
+    const suggestion = this.relationFollowupSuggestion;
+    if (!suggestion || String(suggestion.noteId || "") !== String(noteId || "")) return "";
+    return `
+      <div class="relation-followup-suggestion" data-relation-followup-suggestion data-relation-id="${escapeHtml(suggestion.relationId)}">
+        <div class="relation-followup-suggestion-text">${escapeHtml(suggestion.text || "这条关系还可以补理由。")}</div>
+        <div class="relation-followup-suggestion-actions">
+          <button class="mini-btn primary" type="button" data-relation-action="open-followup-reason" data-relation-id="${escapeHtml(suggestion.relationId)}">${escapeHtml(suggestion.actionLabel || "补理由")}</button>
+          <button class="mini-btn is-ghost" type="button" data-relation-action="dismiss-followup">${escapeHtml(suggestion.laterLabel || "稍后")}</button>
+        </div>
+      </div>
+    `;
+  }
+
   renderSemanticRelationItem(link, direction) {
     const endpoint = this.relationEndpoint(link, direction);
     const type = String(link?.relationType || "").trim().toLowerCase();
@@ -6325,6 +6506,7 @@ export class EditorPane {
           <span class="inspector-chip">桥接 ${bridgeCount}</span>
           ${markdownCount ? `<span class="inspector-chip">wikilink ${markdownCount}</span>` : ""}
         </div>
+        ${this.renderRelationFollowupSuggestion(noteId)}
         ${
           explicitLinks.length
             ? `
@@ -6735,11 +6917,13 @@ export class EditorPane {
     const result = await this.onStateChange("run-note-ai-analysis", {
       noteId: note.id,
       relatedNoteIds: this.relatedPermanentNoteIds(note),
-      persistArtifacts: true
+      persistArtifacts: true,
+      openInbox: false
     });
     if (result) {
       this.noteAiAnalysisByNoteId.set(note.id, result);
       this.renderRelated();
+      void this.refreshNoteAiSuggestions(note.id);
     }
   }
 
@@ -6834,7 +7018,7 @@ export class EditorPane {
                 }
               </div>
             `
-            : `<div class="related-empty">分析结果会进入 AI Inbox；这里先显示摘要，不会自动确认关系、主题或改写笔记。</div>`
+            : `<div class="related-empty">分析结果会留在当前笔记的 AI 建议区；需要完整记录时也可以打开审阅中心，不会自动确认关系、主题或改写笔记。</div>`
         }
       </section>
     `;
@@ -7992,6 +8176,55 @@ export class EditorPane {
     }
   }
 
+  applySelectionDistillationDraft() {
+    const note = this.activeNote();
+    const noteType = this.resolvedNoteType(note);
+    if (!note?.id || (noteType !== "permanent" && noteType !== "original")) {
+      this.onStatus("选区提炼只支持永久笔记", "warn");
+      this.hideSelectionAiAction();
+      return false;
+    }
+    const selectedText = String(this.selectionAiActionState.selectedText || this.currentSelectedEditorText()).trim();
+    const draft = selectionDistillationDraft(selectedText);
+    if (!draft) {
+      this.onStatus("先选中一段可提炼的正文", "warn");
+      this.hideSelectionAiAction();
+      return false;
+    }
+
+    this.hideSelectionAiAction();
+    this.setInspectorVisible(true);
+    this.renderRelated("选区提炼");
+
+    window.setTimeout(() => {
+      const form = this.els.result?.querySelector?.("[data-note-distillation-form]");
+      if (!form) {
+        this.onStatus("当前笔记还没有观点提纯区域", "warn");
+        return;
+      }
+      const thesis = form.querySelector('textarea[name="thesis"]');
+      const summaryTargets = [1, 2, 3]
+        .map((idx) => form.querySelector(`textarea[name="summary${idx}"]`))
+        .filter(Boolean);
+      const target =
+        thesis && !String(thesis.value || "").trim()
+          ? thesis
+          : summaryTargets.find((item) => !String(item.value || "").trim()) || summaryTargets[0] || thesis;
+      if (!target) return;
+      const targetName = String(target.getAttribute("name") || "thesis");
+      target.value = draft;
+      const status = form.querySelector('select[name="distillationStatus"]');
+      if (status && String(status.value || "") === "missing") status.value = "draft";
+      this.refreshDistillationQuality(form);
+      this.jumpToInspectorSection("[data-note-distillation-section]", {
+        focus: true,
+        focusSelector: `[data-note-distillation-form] textarea[name="${targetName}"]`
+      });
+      this.onStatus("已把选中文本带入观点提纯区，请确认后保存观点", "ok");
+    }, 40);
+    return true;
+  }
+
   refreshDistillationQuality(form) {
     const note = this.activeNote();
     const mount = form?.querySelector?.("[data-note-distillation-quality]");
@@ -8265,6 +8498,16 @@ export class EditorPane {
           : `关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`,
         "ok"
       );
+      this.setRelationFollowupSuggestion(
+        relationFollowupSuggestionForDraft({
+          noteId: note.id,
+          relationId: relation?.id || relation?.relationId || "",
+          relationType,
+          rationale,
+          insightQuestion,
+          targetTitle: target?.title || toNoteId
+        })
+      );
       this.resetRelationPanelState(note.id);
       this.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已建立。");
     } catch (error) {
@@ -8293,7 +8536,7 @@ export class EditorPane {
       return;
     }
     try {
-      await createNoteRelation(note.id, {
+      const relation = await createNoteRelation(note.id, {
         toNoteId: target.id,
         relationType: draft.relationType,
         rationale: draft.rationale,
@@ -8307,6 +8550,16 @@ export class EditorPane {
       this.handleEditorInput();
       await this.saveActiveNote({ autoSave: true, trigger: "promote-inline-relation", skipOriginalityCheck: true });
       this.onStatus(`已升级为正式关系：${note.title || note.id} -> ${target.title || target.id}`, "ok");
+      this.setRelationFollowupSuggestion(
+        relationFollowupSuggestionForDraft({
+          noteId: note.id,
+          relationId: relation?.id || relation?.relationId || "",
+          relationType: draft.relationType,
+          rationale: draft.rationale,
+          insightQuestion: "",
+          targetTitle: target.title || target.id
+        })
+      );
       this.resetRelationPanelState(note.id);
       this.renderRelated("已升级为正式语义关系。");
     } catch (error) {
@@ -8461,6 +8714,7 @@ export class EditorPane {
                 note,
                 this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "loading" })
               )}
+              ${this.renderPermanentNoteAiAnalysisSection(note)}
               ${this.renderPermanentNoteDistillationSection(note)}
               ${this.renderInlineDraftRelationSection(note, tab)}
               ${this.renderCurrentRelationSection(note.id, {
@@ -8930,6 +9184,25 @@ export class EditorPane {
       if (relationAction) {
         const action = relationAction.dataset.relationAction;
         if (action === "open-create") this.openCreateRelationForm();
+        if (action === "open-followup-reason") {
+          const relationId = relationAction.dataset.relationId || this.relationFollowupSuggestion?.relationId || "";
+          this.openEditRelationForm(relationId, {
+            entryHint: "这条关系已经建立。现在补一句更具体的理由，后面写作时会更容易复用。"
+          });
+          window.setTimeout(() => {
+            this.jumpToInspectorSection("[data-edit-relation-form]", {
+              focus: true,
+              focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
+            });
+          }, 40);
+          this.clearRelationFollowupSuggestion();
+          return;
+        }
+        if (action === "dismiss-followup") {
+          this.clearRelationFollowupSuggestion();
+          this.renderRelated();
+          return;
+        }
         if (action === "cancel-create") {
           this.resetRelationPanelState();
           this.renderRelated();
@@ -8983,6 +9256,11 @@ export class EditorPane {
         const action = String(sourceNoteAction.getAttribute("data-source-note-action") || "").trim();
         if (action === "record-permanent") {
           this.els.recordPermanent?.click?.();
+        }
+        if (action === "dismiss-fleeting-cleanup") {
+          this.dismissFleetingCleanupPrompt(this.activeNote());
+          this.renderRelated();
+          this.onStatus("已标记为稍后清理", "ok");
         }
         return;
       }
@@ -9524,6 +9802,13 @@ export class EditorPane {
 
     this.els.body.addEventListener("keyup", () => this.updateToolbarFormattingState());
     this.els.body.addEventListener("mouseup", () => this.updateToolbarFormattingState());
+    this.els.selectionAiAction?.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
+    this.els.selectionAiDistill?.addEventListener("click", (event) => {
+      event.preventDefault();
+      this.applySelectionDistillationDraft();
+    });
 
     document.addEventListener("selectionchange", () => {
       const active = document.activeElement;
@@ -9555,6 +9840,7 @@ export class EditorPane {
 
   handleEditorInput() {
        if (this.suppressEditorChange) return;
+      this.hideSelectionAiAction();
       const tab = this.activeTab();
       if (!tab) return;
       const previousValue = this.lastEditorValue || "";

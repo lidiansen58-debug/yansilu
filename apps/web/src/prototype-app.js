@@ -889,6 +889,11 @@ let statusHoldPriority = 0;
 let editorHelperDismissed = false;
 const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
 let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
+let saveAiSuggestion = null;
+const dismissedSaveAiSuggestionKeys = new Set();
+const SYSTEM_MESSAGES_KEY = "yansilu:system-messages:v1";
+const SYSTEM_MESSAGES_LIMIT = 80;
+let systemMessages = readStoredSystemMessages();
 let startupAutoOpenSuppressed = false;
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
@@ -1147,6 +1152,123 @@ function setStatus(text, cls = "", options = {}) {
     statusHoldPriority = 0;
   }
   return true;
+}
+
+function normalizeSystemMessage(item = {}) {
+  const id = String(item.id || "").trim() || `sys_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const createdAt = String(item.createdAt || item.created_at || "").trim() || new Date().toISOString();
+  return {
+    id,
+    createdAt,
+    type: String(item.type || "system").trim() || "system",
+    title: String(item.title || "系统消息").trim() || "系统消息",
+    body: String(item.body || "").trim(),
+    action: String(item.action || "").trim(),
+    actionLabel: String(item.actionLabel || "").trim(),
+    noteId: String(item.noteId || "").trim(),
+    artifactCount: Math.max(0, Number(item.artifactCount || 0) || 0),
+    read: item.read === true
+  };
+}
+
+function readStoredSystemMessages() {
+  try {
+    const raw = window.localStorage?.getItem(SYSTEM_MESSAGES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeSystemMessage).slice(0, SYSTEM_MESSAGES_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function persistSystemMessages() {
+  try {
+    window.localStorage?.setItem(SYSTEM_MESSAGES_KEY, JSON.stringify(systemMessages.slice(0, SYSTEM_MESSAGES_LIMIT)));
+  } catch {}
+}
+
+function systemMessageActionLabel(message = {}) {
+  if (message.actionLabel) return message.actionLabel;
+  if (message.action === "open-ai-inbox") return "查看 AI 建议";
+  if (message.action === "open-note") return "打开笔记";
+  return "";
+}
+
+function renderSystemMessages() {
+  const list = $("systemMessageList");
+  const button = $("systemMessagesButton");
+  const markReadButton = $("btnSystemMessageMarkRead");
+  const unreadCount = systemMessages.filter((item) => item.read !== true).length;
+  button?.classList.toggle("has-unread", unreadCount > 0);
+  if (button) {
+    button.title = unreadCount ? `系统消息（${unreadCount} 条未读）` : "系统消息";
+    button.dataset.tip = unreadCount ? `系统消息 ${unreadCount}` : "系统消息";
+    button.setAttribute("aria-label", unreadCount ? `系统消息，${unreadCount} 条未读` : "系统消息");
+  }
+  if (markReadButton) {
+    markReadButton.disabled = unreadCount === 0;
+    markReadButton.title = unreadCount === 0 ? "没有未读系统消息" : "全部标记已读";
+  }
+  if (!list) return;
+  if (!systemMessages.length) {
+    list.innerHTML = `<div class="modal-note">还没有系统消息。AI 提醒、关系建议和重要状态会出现在这里。</div>`;
+    return;
+  }
+  list.innerHTML = systemMessages
+    .map((message) => {
+      const actionLabel = systemMessageActionLabel(message);
+      return `
+        <article class="system-message-item${message.read ? "" : " is-unread"}" data-system-message-id="${escapeHtml(message.id)}">
+          <div class="system-message-title">${escapeHtml(message.title)}</div>
+          <div class="system-message-body">${escapeHtml(message.body || "没有更多内容。")}</div>
+          <div class="system-message-meta">${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
+          ${
+            actionLabel
+              ? `<div class="system-message-actions"><button class="mini-btn primary" type="button" data-system-message-action="${escapeHtml(message.action)}" data-system-message-id="${escapeHtml(message.id)}">${escapeHtml(actionLabel)}</button></div>`
+              : ""
+          }
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function openSystemMessages({ latestOnly = false } = {}) {
+  const modal = $("systemMessageModal");
+  if (!modal) return;
+  const note = $("systemMessageModalNote");
+  if (note) {
+    note.textContent = latestOnly
+      ? "刚刚产生了一条需要你看的 AI 提醒，稍后也可以从系统消息入口回看。"
+      : "AI 建议、关系提醒和系统提示会保留在这里，方便之后回看。";
+  }
+  modal.classList.remove("hidden");
+  renderSystemMessages();
+}
+
+function closeSystemMessages() {
+  $("systemMessageModal")?.classList.add("hidden");
+}
+
+function isSystemMessageModalOpen() {
+  const modal = $("systemMessageModal");
+  return !!modal && !modal.classList.contains("hidden");
+}
+
+function markSystemMessagesRead() {
+  systemMessages = systemMessages.map((message) => ({ ...message, read: true }));
+  persistSystemMessages();
+  renderSystemMessages();
+}
+
+function addSystemMessage(message = {}, { interrupt = false } = {}) {
+  const normalized = normalizeSystemMessage(message);
+  systemMessages = [normalized, ...systemMessages.filter((item) => item.id !== normalized.id)].slice(0, SYSTEM_MESSAGES_LIMIT);
+  persistSystemMessages();
+  renderSystemMessages();
+  if (interrupt) openSystemMessages({ latestOnly: true });
+  return normalized;
 }
 
 function readStoredBoolean(key, fallback = false) {
@@ -5649,6 +5771,15 @@ async function syncLoadedNotesForDirectories(directoryIds = []) {
   }
 }
 
+async function syncNotesForDirectoryTree(rootDirectoryId) {
+  const rootId = String(rootDirectoryId || "").trim();
+  if (!rootId) return;
+  const directoryIds = descendantDirectoryIds(rootId).filter((id) => folderById(state, id));
+  for (const directoryId of directoryIds) {
+    await syncNotesForDirectory(directoryId);
+  }
+}
+
 function descendantDirectoryIds(directoryId) {
   const result = [];
   const queue = [directoryId];
@@ -6220,6 +6351,87 @@ function distillationStageLabel(stage = "") {
   return labels[String(stage || "").trim()] || "全部";
 }
 
+function saveAiSuggestionKey(note = null, action = "") {
+  const noteId = String(note?.id || "").trim();
+  const body = String(note?.body || "");
+  const contentFingerprint = `${body.length}:${body.slice(0, 80)}`;
+  const savedAt = String(note?.updatedAt || note?.updated_at || contentFingerprint).trim();
+  return `${noteId}:${savedAt}:${String(action || "").trim()}`;
+}
+
+function saveAiSuggestionForNote(note = null) {
+  if (!note?.id || state.module !== "explorer") return null;
+  const activeNote = activeEditorNote();
+  if (!activeNote || activeNote.id !== note.id) return null;
+  if (isEmptyUntitledMarkdown(note.body || activeEditorBody(), note.folderId)) return null;
+
+  if (isOriginalRecordableSource(note) && !noteHasGeneratedOriginal(note)) {
+    const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
+    const action = "record-permanent";
+    const fleeting = noteType === "fleeting";
+    return {
+      key: saveAiSuggestionKey(note, action),
+      noteId: note.id,
+      action,
+      text: fleeting ? "已保存，记得清理或沉淀为永久笔记" : "已保存，可提炼为永久笔记",
+      primaryLabel: fleeting ? "提炼为永久笔记" : "立即处理",
+      laterLabel: fleeting ? "稍后清理" : "稍后"
+    };
+  }
+
+  if (isPermanentLikeNote(note) && distillationStatusOf(note) !== "confirmed") {
+    const action = "open-distillation";
+    return {
+      key: saveAiSuggestionKey(note, action),
+      noteId: note.id,
+      action,
+      text: "已保存，可继续提炼观点",
+      primaryLabel: "立即处理",
+      laterLabel: "稍后"
+    };
+  }
+
+  return null;
+}
+
+function clearSaveAiSuggestion() {
+  saveAiSuggestion = null;
+  renderSaveAiSuggestion();
+}
+
+function showSaveAiSuggestionForNote(note = null) {
+  const suggestion = saveAiSuggestionForNote(note);
+  if (!suggestion || dismissedSaveAiSuggestionKeys.has(suggestion.key)) {
+    if (saveAiSuggestion?.noteId === note?.id) clearSaveAiSuggestion();
+    return null;
+  }
+  saveAiSuggestion = suggestion;
+  renderSaveAiSuggestion();
+  return suggestion;
+}
+
+function renderSaveAiSuggestion() {
+  const root = $("saveAiSuggestion");
+  if (!root) return;
+  const text = $("saveAiSuggestionText");
+  const primary = $("btnSaveAiSuggestionPrimary");
+  const later = $("btnSaveAiSuggestionLater");
+  const activeNote = activeEditorNote();
+  const visible =
+    Boolean(saveAiSuggestion?.noteId) &&
+    state.module === "explorer" &&
+    activeNote?.id === saveAiSuggestion.noteId;
+
+  root.classList.toggle("hidden", !visible);
+  if (!visible) return;
+
+  if (text) text.textContent = saveAiSuggestion.text;
+  if (primary) primary.textContent = saveAiSuggestion.primaryLabel || "立即处理";
+  if (later) later.textContent = saveAiSuggestion.laterLabel || "稍后";
+  root.dataset.action = saveAiSuggestion.action || "";
+  root.dataset.noteId = saveAiSuggestion.noteId || "";
+}
+
 function distillationQueueFilters(counts = {}) {
   return [
     ["all", "全部", counts.all || 0],
@@ -6754,6 +6966,8 @@ function renderAll() {
   applyFocusModeChrome();
   renderStatusMeta();
   renderWorkspaceStatusHint();
+  renderSaveAiSuggestion();
+  renderSystemMessages();
 }
 
 function explorerQuickAction(rootId = state.browserRootId) {
@@ -15777,6 +15991,7 @@ async function refreshDirectoryGraph() {
   graphState.error = "";
   renderGraphPanel();
   try {
+    await syncNotesForDirectoryTree(networkDirectoryId);
     const [graph, conflicts, reviewQueue] = await Promise.all([
       fetchDirectoryGraph(networkDirectoryId, { includeDescendants: true, timeoutMs: 15000 }),
       fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => null),
@@ -16665,18 +16880,41 @@ async function handleStateChange(reason, payload = {}) {
         persistArtifacts: payload.persistArtifacts !== false
       });
       const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
-      aiInboxState.filters = normalizeAiInboxFilters({
-        ...aiInboxState.filters,
-        view: "pending",
-        sourceNoteId: noteId
-      });
-      aiInboxState.detail = null;
-      aiInboxState.selectedArtifactId = "";
-      activateModule("aiInbox");
-      await openAiInboxModule();
+      if (artifactCount > 0) {
+        const relationCount = Number(result?.analysis?.relationCandidates?.length || 0);
+        const noteTitle = state.notes.find((item) => item.id === noteId)?.title || noteId;
+        addSystemMessage(
+          {
+            id: `ai-analysis:${noteId}:${Date.now()}`,
+            type: "ai",
+            title: "AI 产生了待审建议",
+            body: relationCount
+              ? `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议，其中包含潜在关联建议。请先审阅理由，再决定是否采纳。`
+              : `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议。请先审阅，再决定是否采纳。`,
+            action: "open-ai-inbox",
+            actionLabel: "查看 AI 建议",
+            noteId,
+            artifactCount
+          },
+          { interrupt: true }
+        );
+      }
+      if (payload.openInbox !== false) {
+        aiInboxState.filters = normalizeAiInboxFilters({
+          ...aiInboxState.filters,
+          view: "pending",
+          sourceNoteId: noteId
+        });
+        aiInboxState.detail = null;
+        aiInboxState.selectedArtifactId = "";
+        activateModule("aiInbox");
+        await openAiInboxModule();
+      }
       setStatus(
         artifactCount
-          ? `已生成 ${artifactCount} 条待审核 AI 建议，已按当前笔记打开 AI Inbox`
+          ? payload.openInbox === false
+            ? `已生成 ${artifactCount} 条待审 AI 建议，可在当前笔记里处理`
+            : `已生成 ${artifactCount} 条待审核 AI 建议，已按当前笔记打开 AI Inbox`
           : "本地 AI 分析完成，暂时没有新的待审核建议",
         artifactCount ? "ok" : "warn"
       );
@@ -16929,10 +17167,12 @@ async function handleStateChange(reason, payload = {}) {
           }
           syncExplorerContextToNote(note);
           setStatus("已同步到 Markdown", "ok");
+          showSaveAiSuggestionForNote(note);
           if (state.module === "graph") await refreshDirectoryGraph();
 	        } catch (error) {
             const feedback = noteSaveFailureFeedback(error);
 	          setStatus(feedback.statusMessage, feedback.statusTone);
+            if (saveAiSuggestion?.noteId === note.id) clearSaveAiSuggestion();
             renderAll();
             return feedback;
 	        }
@@ -17208,6 +17448,9 @@ const editor = new EditorPane({
     originalityNoticeTitle: $("originalityNoticeTitle"),
     originalityNoticeBody: $("originalityNoticeBody"),
     closeOriginalityNotice: $("btnCloseOriginalityNotice"),
+    selectionAiAction: $("selectionAiAction"),
+    selectionAiActionText: $("selectionAiActionText"),
+    selectionAiDistill: $("btnSelectionAiDistill"),
     insertLink: $("btnInsertLink"),
     insertImage: $("btnInsertImage"),
     insertTag: $("btnInsertTag"),
@@ -17288,6 +17531,55 @@ $("btnEditorHelperAction")?.addEventListener("click", () => {
     return;
   }
   setStatus("已记录当前建议，你可以继续编辑", "ok", { requireModule: "explorer" });
+});
+
+$("btnSaveAiSuggestionLater")?.addEventListener("click", () => {
+  if (saveAiSuggestion?.key) dismissedSaveAiSuggestionKeys.add(saveAiSuggestion.key);
+  clearSaveAiSuggestion();
+});
+
+$("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {
+  const suggestion = saveAiSuggestion;
+  clearSaveAiSuggestion();
+  if (!suggestion?.noteId) return;
+  const note = state.notes.find((item) => item.id === suggestion.noteId) || null;
+  if (!note) {
+    setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
+    return;
+  }
+
+  try {
+    if (suggestion.action === "record-permanent") {
+      activateModule("explorer");
+      const opened = openNoteById(note.id, { preferTitleSelection: false });
+      if (!opened) {
+        setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
+        return;
+      }
+      window.setTimeout(() => {
+        const button = editor?.els?.recordPermanent;
+        if (!button || button.disabled) {
+          setStatus("当前笔记暂时不能创建永久笔记", "warn", { requireModule: "explorer" });
+          return;
+        }
+        button.click();
+      }, 30);
+      return;
+    }
+
+    if (suggestion.action === "open-distillation") {
+      await handleStateChange("open-note-main-route", {
+        noteId: note.id,
+        action: "writing",
+        mode: "distillation"
+      });
+      return;
+    }
+
+    setStatus("这条建议暂时没有可执行动作", "warn", { requireModule: "explorer" });
+  } catch (error) {
+    setStatus(`处理建议失败：${String(error?.message || error)}`, "bad", { requireModule: "explorer" });
+  }
 });
 
 $("settingsRefreshVault")?.addEventListener("click", async () => {
@@ -19364,6 +19656,59 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	  });
 	});
 
+$("systemMessagesButton")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  openSystemMessages();
+});
+
+$("btnSystemMessageClose")?.addEventListener("click", () => {
+  closeSystemMessages();
+});
+
+$("btnSystemMessageMarkRead")?.addEventListener("click", () => {
+  markSystemMessagesRead();
+  setStatus("系统消息已全部标记为已读", "ok");
+});
+
+$("btnSystemMessageOpenAiInbox")?.addEventListener("click", async () => {
+  closeSystemMessages();
+  activateModule("aiInbox");
+  await openAiInboxModule();
+  setStatus("已打开 AI 建议待办", "ok");
+});
+
+$("systemMessageModal")?.addEventListener("click", async (event) => {
+  if (event.target?.id === "systemMessageModal") {
+    closeSystemMessages();
+    return;
+  }
+  const actionButton = event.target.closest("[data-system-message-action]");
+  if (!actionButton) return;
+  const messageId = String(actionButton.dataset.systemMessageId || "").trim();
+  const action = String(actionButton.dataset.systemMessageAction || "").trim();
+  systemMessages = systemMessages.map((message) => (message.id === messageId ? { ...message, read: true } : message));
+  persistSystemMessages();
+  if (action === "open-ai-inbox") {
+    const message = systemMessages.find((item) => item.id === messageId) || null;
+    if (message?.noteId) {
+      aiInboxState.filters = normalizeAiInboxFilters({
+        ...aiInboxState.filters,
+        view: "pending",
+        sourceNoteId: message.noteId
+      });
+      aiInboxState.detail = null;
+      aiInboxState.selectedArtifactId = "";
+    }
+    closeSystemMessages();
+    activateModule("aiInbox");
+    await openAiInboxModule();
+    setStatus("已打开这条 AI 提醒对应的建议待办", "ok");
+    return;
+  }
+  renderSystemMessages();
+});
+
 $("distillationPanel")?.addEventListener("click", async (event) => {
   const refresh = event.target.closest("#btnDistillationRefresh");
   if (refresh) {
@@ -19430,7 +19775,7 @@ $("btnMobileNewNote")?.addEventListener("click", () => {
 });
 
 document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
-  btn.addEventListener("click", (event) => {
+  btn.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
     const action = btn.dataset.action;
@@ -19457,6 +19802,7 @@ document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
     }
     state.module = "explorer";
     state.selectedFileId = null;
+    await syncNotesForDirectoryTree(state.browserRootId);
     syncRailSelectionState();
     setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
     renderAll();
@@ -19472,6 +19818,12 @@ document.querySelectorAll("[data-action='open-handoff']").forEach((btn) => {
 });
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isSystemMessageModalOpen()) {
+    closeSystemMessages();
+    e.preventDefault();
+    return;
+  }
+
   const tag = (e.target?.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable || e.isComposing) return;
 
@@ -19774,7 +20126,7 @@ async function bootstrap() {
   try {
     await refreshVaultSettings();
     await syncDirectoriesFromApi();
-    await syncNotesForDirectory(state.selectedFolderId);
+    await syncNotesForDirectoryTree(state.browserRootId);
     setStatus(`已连接 API：${getApiBase()}`, "ok");
   } catch (error) {
     const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;

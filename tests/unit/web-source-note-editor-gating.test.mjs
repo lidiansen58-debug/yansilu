@@ -185,11 +185,38 @@ test("editor inspector shows source-note promote flow instead of relation panels
 
   assert.match(pane.els.result.innerHTML, /创建永久笔记/);
   assert.match(pane.els.result.innerHTML, /只有永久笔记才会显示关联与主路径/);
+  assert.match(pane.els.result.innerHTML, /随笔应定期清理，或沉淀为永久笔记/);
+  assert.match(pane.els.result.innerHTML, /data-source-note-action="record-permanent"[\s\S]*>提炼为永久笔记</);
+  assert.match(pane.els.result.innerHTML, /data-source-note-action="dismiss-fleeting-cleanup"[\s\S]*>标记稍后清理</);
   assert.match(pane.els.result.innerHTML, /先选永久笔记盒目录/);
   assert.doesNotMatch(pane.els.result.innerHTML, /建立语义关系/);
   assert.equal(relationRefreshes, 0);
   assert.equal(aiRefreshes, 0);
   assert.equal(pane.semanticRelationsState, "idle");
+});
+
+test("fleeting cleanup prompt can be dismissed without mutating the note", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const note = {
+    id: "fn_cleanup",
+    title: "随笔清理",
+    folderId: "dir_fleeting_default",
+    noteType: "",
+    body: "# 随笔清理\n\n一个稍后再处理的想法。"
+  };
+
+  pane.state = state;
+  pane.activeNote = () => note;
+
+  assert.equal(pane.shouldShowFleetingCleanupPrompt(note), true);
+  assert.match(pane.renderSourceNoteFlowSection(note), /data-fleeting-cleanup-prompt/);
+
+  pane.dismissFleetingCleanupPrompt(note);
+
+  assert.equal(pane.shouldShowFleetingCleanupPrompt(note), false);
+  assert.doesNotMatch(pane.renderSourceNoteFlowSection(note), /data-fleeting-cleanup-prompt/);
+  assert.equal(note.body, "# 随笔清理\n\n一个稍后再处理的想法。");
 });
 
 test("editor suppresses originality notice for source notes", () => {
