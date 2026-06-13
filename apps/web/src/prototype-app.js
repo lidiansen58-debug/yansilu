@@ -891,6 +891,9 @@ const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
 let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
 let saveAiSuggestion = null;
 const dismissedSaveAiSuggestionKeys = new Set();
+const SYSTEM_MESSAGES_KEY = "yansilu:system-messages:v1";
+const SYSTEM_MESSAGES_LIMIT = 80;
+let systemMessages = readStoredSystemMessages();
 let startupAutoOpenSuppressed = false;
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
@@ -1149,6 +1152,112 @@ function setStatus(text, cls = "", options = {}) {
     statusHoldPriority = 0;
   }
   return true;
+}
+
+function normalizeSystemMessage(item = {}) {
+  const id = String(item.id || "").trim() || `sys_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const createdAt = String(item.createdAt || item.created_at || "").trim() || new Date().toISOString();
+  return {
+    id,
+    createdAt,
+    type: String(item.type || "system").trim() || "system",
+    title: String(item.title || "系统消息").trim() || "系统消息",
+    body: String(item.body || "").trim(),
+    action: String(item.action || "").trim(),
+    actionLabel: String(item.actionLabel || "").trim(),
+    noteId: String(item.noteId || "").trim(),
+    artifactCount: Math.max(0, Number(item.artifactCount || 0) || 0),
+    read: item.read === true
+  };
+}
+
+function readStoredSystemMessages() {
+  try {
+    const raw = window.localStorage?.getItem(SYSTEM_MESSAGES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeSystemMessage).slice(0, SYSTEM_MESSAGES_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function persistSystemMessages() {
+  try {
+    window.localStorage?.setItem(SYSTEM_MESSAGES_KEY, JSON.stringify(systemMessages.slice(0, SYSTEM_MESSAGES_LIMIT)));
+  } catch {}
+}
+
+function systemMessageActionLabel(message = {}) {
+  if (message.actionLabel) return message.actionLabel;
+  if (message.action === "open-ai-inbox") return "查看 AI 建议";
+  if (message.action === "open-note") return "打开笔记";
+  return "";
+}
+
+function renderSystemMessages() {
+  const list = $("systemMessageList");
+  const button = $("systemMessagesButton");
+  const unreadCount = systemMessages.filter((item) => item.read !== true).length;
+  button?.classList.toggle("has-unread", unreadCount > 0);
+  if (button) {
+    button.title = unreadCount ? `系统消息（${unreadCount} 条未读）` : "系统消息";
+    button.dataset.tip = unreadCount ? `系统消息 ${unreadCount}` : "系统消息";
+  }
+  if (!list) return;
+  if (!systemMessages.length) {
+    list.innerHTML = `<div class="modal-note">还没有系统消息。AI 提醒、关系建议和重要状态会出现在这里。</div>`;
+    return;
+  }
+  list.innerHTML = systemMessages
+    .map((message) => {
+      const actionLabel = systemMessageActionLabel(message);
+      return `
+        <article class="system-message-item${message.read ? "" : " is-unread"}" data-system-message-id="${escapeHtml(message.id)}">
+          <div class="system-message-title">${escapeHtml(message.title)}</div>
+          <div class="system-message-body">${escapeHtml(message.body || "没有更多内容。")}</div>
+          <div class="system-message-meta">${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
+          ${
+            actionLabel
+              ? `<div class="system-message-actions"><button class="mini-btn primary" type="button" data-system-message-action="${escapeHtml(message.action)}" data-system-message-id="${escapeHtml(message.id)}">${escapeHtml(actionLabel)}</button></div>`
+              : ""
+          }
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function openSystemMessages({ latestOnly = false } = {}) {
+  const modal = $("systemMessageModal");
+  if (!modal) return;
+  const note = $("systemMessageModalNote");
+  if (note) {
+    note.textContent = latestOnly
+      ? "刚刚产生了一条需要你看的 AI 提醒，稍后也可以从系统消息入口回看。"
+      : "AI 建议、关系提醒和系统提示会保留在这里，方便之后回看。";
+  }
+  modal.classList.remove("hidden");
+  renderSystemMessages();
+}
+
+function closeSystemMessages() {
+  $("systemMessageModal")?.classList.add("hidden");
+}
+
+function markSystemMessagesRead() {
+  systemMessages = systemMessages.map((message) => ({ ...message, read: true }));
+  persistSystemMessages();
+  renderSystemMessages();
+}
+
+function addSystemMessage(message = {}, { interrupt = false } = {}) {
+  const normalized = normalizeSystemMessage(message);
+  systemMessages = [normalized, ...systemMessages.filter((item) => item.id !== normalized.id)].slice(0, SYSTEM_MESSAGES_LIMIT);
+  persistSystemMessages();
+  renderSystemMessages();
+  if (interrupt) openSystemMessages({ latestOnly: true });
+  return normalized;
 }
 
 function readStoredBoolean(key, fallback = false) {
@@ -6847,6 +6956,7 @@ function renderAll() {
   renderStatusMeta();
   renderWorkspaceStatusHint();
   renderSaveAiSuggestion();
+  renderSystemMessages();
 }
 
 function explorerQuickAction(rootId = state.browserRootId) {
@@ -16759,6 +16869,25 @@ async function handleStateChange(reason, payload = {}) {
         persistArtifacts: payload.persistArtifacts !== false
       });
       const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
+      if (artifactCount > 0) {
+        const relationCount = Number(result?.analysis?.relationCandidates?.length || 0);
+        const noteTitle = state.notes.find((item) => item.id === noteId)?.title || noteId;
+        addSystemMessage(
+          {
+            id: `ai-analysis:${noteId}:${Date.now()}`,
+            type: "ai",
+            title: "AI 产生了待审建议",
+            body: relationCount
+              ? `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议，其中包含潜在关联建议。请先审阅理由，再决定是否采纳。`
+              : `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议。请先审阅，再决定是否采纳。`,
+            action: "open-ai-inbox",
+            actionLabel: "查看 AI 建议",
+            noteId,
+            artifactCount
+          },
+          { interrupt: true }
+        );
+      }
       if (payload.openInbox !== false) {
         aiInboxState.filters = normalizeAiInboxFilters({
           ...aiInboxState.filters,
@@ -19515,6 +19644,59 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	    }
 	  });
 	});
+
+$("systemMessagesButton")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  openSystemMessages();
+});
+
+$("btnSystemMessageClose")?.addEventListener("click", () => {
+  closeSystemMessages();
+});
+
+$("btnSystemMessageMarkRead")?.addEventListener("click", () => {
+  markSystemMessagesRead();
+  setStatus("系统消息已全部标记为已读", "ok");
+});
+
+$("btnSystemMessageOpenAiInbox")?.addEventListener("click", async () => {
+  closeSystemMessages();
+  activateModule("aiInbox");
+  await openAiInboxModule();
+  setStatus("已打开 AI 建议待办", "ok");
+});
+
+$("systemMessageModal")?.addEventListener("click", async (event) => {
+  if (event.target?.id === "systemMessageModal") {
+    closeSystemMessages();
+    return;
+  }
+  const actionButton = event.target.closest("[data-system-message-action]");
+  if (!actionButton) return;
+  const messageId = String(actionButton.dataset.systemMessageId || "").trim();
+  const action = String(actionButton.dataset.systemMessageAction || "").trim();
+  systemMessages = systemMessages.map((message) => (message.id === messageId ? { ...message, read: true } : message));
+  persistSystemMessages();
+  if (action === "open-ai-inbox") {
+    const message = systemMessages.find((item) => item.id === messageId) || null;
+    if (message?.noteId) {
+      aiInboxState.filters = normalizeAiInboxFilters({
+        ...aiInboxState.filters,
+        view: "pending",
+        sourceNoteId: message.noteId
+      });
+      aiInboxState.detail = null;
+      aiInboxState.selectedArtifactId = "";
+    }
+    closeSystemMessages();
+    activateModule("aiInbox");
+    await openAiInboxModule();
+    setStatus("已打开这条 AI 提醒对应的建议待办", "ok");
+    return;
+  }
+  renderSystemMessages();
+});
 
 $("distillationPanel")?.addEventListener("click", async (event) => {
   const refresh = event.target.closest("#btnDistillationRefresh");
