@@ -33,7 +33,10 @@ test("save-after AI suggestion keeps one executable suggestion for the active sa
   assert.match(suggestionSource, /activeNote\.id !== note\.id/);
   assert.match(suggestionSource, /isEmptyUntitledMarkdown/);
   assert.match(suggestionSource, /isOriginalRecordableSource\(note\) && !noteHasGeneratedOriginal\(note\)/);
-  assert.match(suggestionSource, /text: "已保存，可提炼为永久笔记"/);
+  assert.match(suggestionSource, /noteType === "fleeting"/);
+  assert.match(suggestionSource, /text: fleeting \? "已保存，记得清理或沉淀为永久笔记" : "已保存，可提炼为永久笔记"/);
+  assert.match(suggestionSource, /primaryLabel: fleeting \? "提炼为永久笔记" : "立即处理"/);
+  assert.match(suggestionSource, /laterLabel: fleeting \? "稍后清理" : "稍后"/);
   assert.match(suggestionSource, /isPermanentLikeNote\(note\) && distillationStatusOf\(note\) !== "confirmed"/);
   assert.match(suggestionSource, /text: "已保存，可继续提炼观点"/);
 });

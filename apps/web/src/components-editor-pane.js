@@ -2211,6 +2211,7 @@ export class EditorPane {
     this.relationFollowupSuggestion = null;
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
+    this.fleetingCleanupDismissedNoteIds = new Set();
     this.noteAiAnalysisByNoteId = new Map();
     this.noteAiSuggestionsState = {
       noteId: "",
@@ -2358,6 +2359,17 @@ export class EditorPane {
       return "先选一个永久笔记盒目录，再把这条随笔写成一条自己愿意长期保留的判断。";
     }
     return "先选一个永久笔记盒目录，再继续创建永久笔记。";
+  }
+
+  shouldShowFleetingCleanupPrompt(note = this.activeNote()) {
+    if (!note?.id || this.resolvedNoteType(note) !== "fleeting" || this.hasGeneratedOriginal(note)) return false;
+    return !this.fleetingCleanupDismissedNoteIds?.has?.(note.id);
+  }
+
+  dismissFleetingCleanupPrompt(note = this.activeNote()) {
+    if (!note?.id) return;
+    if (!this.fleetingCleanupDismissedNoteIds) this.fleetingCleanupDismissedNoteIds = new Set();
+    this.fleetingCleanupDismissedNoteIds.add(note.id);
   }
 
   async pickPermanentDirectoryForNote(note = this.activeNote()) {
@@ -3590,6 +3602,23 @@ export class EditorPane {
           </div>
           <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
         </div>
+        ${
+          this.shouldShowFleetingCleanupPrompt(note)
+            ? `
+              <div class="semantic-relation-group" data-fleeting-cleanup-prompt>
+                <div class="semantic-relation-group-head">
+                  <strong>随笔清理</strong>
+                  <span>建议处理</span>
+                </div>
+                <div class="related-empty">随笔应定期清理，或沉淀为永久笔记。</div>
+                <div class="semantic-relation-actions">
+                  <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">提炼为永久笔记</button>
+                  <button class="mini-btn" type="button" data-source-note-action="dismiss-fleeting-cleanup">标记稍后清理</button>
+                </div>
+              </div>
+            `
+            : ""
+        }
         <div class="related-empty">${escapeHtml(detail)}</div>
         <div class="semantic-relation-status">
           <span class="inspector-chip">${escapeHtml(noteTypeText(noteType))}</span>
@@ -9227,6 +9256,11 @@ export class EditorPane {
         const action = String(sourceNoteAction.getAttribute("data-source-note-action") || "").trim();
         if (action === "record-permanent") {
           this.els.recordPermanent?.click?.();
+        }
+        if (action === "dismiss-fleeting-cleanup") {
+          this.dismissFleetingCleanupPrompt(this.activeNote());
+          this.renderRelated();
+          this.onStatus("已标记为稍后清理", "ok");
         }
         return;
       }

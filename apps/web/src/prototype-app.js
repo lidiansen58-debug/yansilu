@@ -6246,14 +6246,16 @@ function saveAiSuggestionForNote(note = null) {
   if (isEmptyUntitledMarkdown(note.body || activeEditorBody(), note.folderId)) return null;
 
   if (isOriginalRecordableSource(note) && !noteHasGeneratedOriginal(note)) {
+    const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
     const action = "record-permanent";
+    const fleeting = noteType === "fleeting";
     return {
       key: saveAiSuggestionKey(note, action),
       noteId: note.id,
       action,
-      text: "已保存，可提炼为永久笔记",
-      primaryLabel: "立即处理",
-      laterLabel: "稍后"
+      text: fleeting ? "已保存，记得清理或沉淀为永久笔记" : "已保存，可提炼为永久笔记",
+      primaryLabel: fleeting ? "提炼为永久笔记" : "立即处理",
+      laterLabel: fleeting ? "稍后清理" : "稍后"
     };
   }
 
