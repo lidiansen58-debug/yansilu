@@ -244,6 +244,140 @@ test("provider config store validates configs and indexes by provider id", () =>
   }), { code: "AI_PROVIDER_CONFIG_INVALID" });
 });
 
+test("provider config store clears explicit empty remote overrides", () => {
+  const store = createInMemoryAiProviderConfigStore();
+  store.setProviderConfig({
+    providerId: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_china_gateway",
+    endpointUrl: "https://china-gateway.example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "china_optimized_gateway:standard": "qwen-plus"
+    },
+    healthCheck: {
+      enabled: true,
+      endpointUrl: "https://china-gateway.example.test/health",
+      method: "GET",
+      timeoutMs: 2000,
+      expectedStatus: 200,
+      intervalSeconds: 60
+    }
+  });
+
+  const cleared = store.setProviderConfig({
+    providerId: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    status: "disabled",
+    secretRef: "",
+    endpointUrl: "",
+    runtimeModelMap: {},
+    healthCheck: {
+      enabled: false,
+      endpointUrl: "",
+      method: "GET",
+      timeoutMs: 5000,
+      expectedStatus: 200,
+      intervalSeconds: 300
+    }
+  });
+
+  assert.equal(cleared.status, "disabled");
+  assert.equal(cleared.secretRef, "");
+  assert.equal(cleared.endpointUrl, "");
+  assert.deepEqual(cleared.runtimeModelMap, {});
+  assert.equal(cleared.healthCheck.enabled, false);
+  assert.equal(cleared.healthCheck.endpointUrl, "");
+});
+
+test("provider config store clears explicit empty snake-case remote overrides", () => {
+  const store = createInMemoryAiProviderConfigStore();
+  store.setProviderConfig({
+    providerId: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_china_gateway",
+    endpointUrl: "https://china-gateway.example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "china_optimized_gateway:standard": "qwen-plus"
+    },
+    healthCheck: {
+      enabled: true,
+      endpointUrl: "https://china-gateway.example.test/health",
+      method: "GET",
+      timeoutMs: 2000,
+      expectedStatus: 200,
+      intervalSeconds: 60
+    }
+  });
+
+  const cleared = store.setProviderConfig({
+    provider_id: "china_optimized_gateway",
+    auth_mode: "workspace_managed",
+    status: "disabled",
+    secret_ref: "",
+    endpoint_url: "",
+    runtime_model_map: {},
+    health_check: {
+      enabled: false,
+      endpoint_url: "",
+      method: "GET",
+      timeout_ms: 5000,
+      expected_status: 200,
+      interval_seconds: 300
+    }
+  });
+
+  assert.equal(cleared.status, "disabled");
+  assert.equal(cleared.secretRef, "");
+  assert.equal(cleared.endpointUrl, "");
+  assert.deepEqual(cleared.runtimeModelMap, {});
+  assert.equal(cleared.healthCheck.enabled, false);
+  assert.equal(cleared.healthCheck.endpointUrl, "");
+});
+
+test("disabled provider config descriptor does not restore preset runtime details", () => {
+  const disabledOllama = assertValidAiProviderConfig({
+    providerId: "ollama_local_gateway",
+    authMode: "local_no_key",
+    status: "disabled",
+    endpointUrl: "",
+    runtimeModelMap: {},
+    healthCheck: {
+      enabled: false,
+      endpointUrl: "",
+      method: "GET",
+      timeoutMs: 5000,
+      expectedStatus: 200,
+      intervalSeconds: 300
+    }
+  });
+  const disabledRemote = assertValidAiProviderConfig({
+    providerId: "minicpm_remote_gateway",
+    authMode: "workspace_managed",
+    status: "disabled",
+    secretRef: "",
+    endpointUrl: "",
+    runtimeModelMap: {},
+    healthCheck: {
+      enabled: false,
+      endpointUrl: "",
+      method: "GET",
+      timeoutMs: 5000,
+      expectedStatus: 200,
+      intervalSeconds: 300
+    }
+  });
+
+  const ollamaDescriptor = providerConfigToSettingsInput(disabledOllama).providerDescriptor;
+  const remoteDescriptor = providerConfigToSettingsInput(disabledRemote).providerDescriptor;
+
+  assert.equal(ollamaDescriptor.status, "disabled");
+  assert.equal(ollamaDescriptor.endpointUrl, "");
+  assert.deepEqual(ollamaDescriptor.runtimeModelMap, {});
+  assert.equal(remoteDescriptor.status, "disabled");
+  assert.equal(remoteDescriptor.endpointUrl, "");
+  assert.deepEqual(remoteDescriptor.runtimeModelMap, {});
+});
+
 test("sqlite provider config store persists configs without raw secrets", async (t) => {
   if (!(await hasNodeSqlite())) {
     t.skip("node:sqlite is not available in current runtime");

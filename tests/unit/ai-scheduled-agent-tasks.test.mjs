@@ -354,6 +354,75 @@ test("scheduled task runner skips down provider before model calls", async () =>
   assert.equal(task.nextRunAt, "2026-05-11T09:30:00.000Z");
 });
 
+test("scheduled task runner skips disabled provider config before harness run", async () => {
+  const provider = createMockProviderAdapter();
+  const harness = createAiHarness({ providerAdapter: provider });
+  const providerConfigStore = createInMemoryAiProviderConfigStore();
+  providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    status: "disabled",
+    secretRef: "",
+    endpointUrl: "",
+    runtimeModelMap: {},
+    healthCheck: {
+      enabled: false,
+      endpointUrl: "",
+      method: "GET",
+      timeoutMs: 5000,
+      expectedStatus: 200,
+      intervalSeconds: 300
+    }
+  });
+  const scheduledTaskStore = createInMemoryScheduledAgentTaskStore({
+    tasks: [
+      {
+        scheduledTaskId: "sched_disabled_provider_config",
+        status: "active",
+        taskType: "reflection_prompt",
+        agentId: "reflection_agent",
+        schedule: { type: "interval", intervalMinutes: 30 },
+        model: { userMode: "Auto", modelPack: "Global Optimized", maxTier: "standard" },
+        budget: { maxRunsPerPeriod: 2, runsThisPeriod: 0, maxEstimatedCostPerPeriod: 1, spentThisPeriod: 0 },
+        nextRunAt: "2026-05-11T08:00:00.000Z"
+      }
+    ]
+  });
+
+  const summary = await runDueScheduledAgentTasks({
+    harness,
+    scheduledTaskStore,
+    providerConfigStore,
+    now: "2026-05-11T09:00:00.000Z",
+    buildInput(task) {
+      return {
+        ...buildScheduledTaskHarnessInput(task),
+        currentNote: {
+          id: "note_disabled_provider_config",
+          title: "Disabled provider config note",
+          body: "This should not enter the harness when the configured provider is disabled."
+        }
+      };
+    }
+  });
+  const task = scheduledTaskStore.getScheduledTask("sched_disabled_provider_config");
+
+  assert.equal(summary.total, 1);
+  assert.equal(summary.skipped, 1);
+  assert.equal(provider.callCount, 0);
+  assert.equal(summary.runs[0].harnessInput, null);
+  assert.equal(summary.runs[0].providerHealthPreflight.allowed, false);
+  assert.equal(summary.runs[0].providerHealthPreflight.reason, "provider_config_disabled");
+  assert.equal(summary.runs[0].providerHealthPreflight.providerConfigId, "provider_openai_compatible_gateway");
+  assert.equal(summary.runs[0].result.run.status, "skipped");
+  assert.equal(summary.runs[0].result.run.error.errorType, "AI_SCHEDULED_TASK_PROVIDER_HEALTH_SKIPPED");
+  assert.equal(summary.runs[0].result.run.events[0].summary.reason, "provider_config_disabled");
+  assert.equal(task.lastRunStatus, "skipped");
+  assert.equal(task.lastRunReason, "provider_config_disabled");
+  assert.equal(task.failureCount, 0);
+  assert.equal(task.budget.runsThisPeriod, 0);
+});
+
 test("scheduled task runner can route through a healthy fallback provider", async () => {
   const harness = createAiHarness();
   const scheduledTaskStore = createInMemoryScheduledAgentTaskStore({

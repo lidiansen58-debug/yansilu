@@ -1165,6 +1165,53 @@ test("harness applies stored provider config to runtime adapter selection", asyn
   assert.equal(providerConfigStore.getProviderConfig({ providerId: "openai_compatible_gateway" }).secretRef, "secret_gateway");
 });
 
+test("harness blocks disabled stored provider config before model call", async () => {
+  const aiPreferencesStore = createInMemoryAiPreferencesStore();
+  aiPreferencesStore.setUserPreferences({
+    userId: "user_provider_config_disabled",
+    workspaceId: "workspace_provider_config_disabled",
+    modelPack: "Global Optimized",
+    budget: { monthlyLimit: 10, confirmationThresholdPerRun: 10 }
+  });
+  const providerConfigStore = createInMemoryAiProviderConfigStore();
+  providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    status: "disabled",
+    secretRef: "",
+    endpointUrl: "",
+    runtimeModelMap: {},
+    healthCheck: {
+      enabled: false,
+      endpointUrl: "",
+      method: "GET",
+      timeoutMs: 5000,
+      expectedStatus: 200,
+      intervalSeconds: 300
+    }
+  });
+  const harness = createAiHarness({ aiPreferencesStore, providerConfigStore });
+
+  const result = await harness.runTask({
+    taskId: "task_provider_config_disabled",
+    userId: "user_provider_config_disabled",
+    workspaceId: "workspace_provider_config_disabled",
+    currentNote: {
+      id: "note_provider_config_disabled",
+      title: "Disabled provider config note",
+      body: "Disabled provider config note\n\nA disabled provider config should block runtime calls."
+    }
+  });
+  const guardEvent = result.run.events.find((event) => event.eventType === "run_guardrail");
+  const failedEvent = result.run.events.find((event) => event.eventType === "run_failed");
+  const modelCallEvent = result.run.events.find((event) => event.eventType === "model_call");
+
+  assert.equal(result.run.status, "blocked");
+  assert.equal(guardEvent?.error?.errorType, "AI_PROVIDER_CONFIG_DISABLED");
+  assert.equal(failedEvent?.summary?.code, "AI_PROVIDER_CONFIG_DISABLED");
+  assert.equal(modelCallEvent, undefined);
+});
+
 test("harness can switch provider adapters between users", async () => {
   const aiPreferencesStore = createInMemoryAiPreferencesStore({
     preferences: [
