@@ -5497,6 +5497,15 @@ async function syncLoadedNotesForDirectories(directoryIds = []) {
   }
 }
 
+async function syncNotesForDirectoryTree(rootDirectoryId) {
+  const rootId = String(rootDirectoryId || "").trim();
+  if (!rootId) return;
+  const directoryIds = descendantDirectoryIds(rootId).filter((id) => folderById(state, id));
+  for (const directoryId of directoryIds) {
+    await syncNotesForDirectory(directoryId);
+  }
+}
+
 function descendantDirectoryIds(directoryId) {
   const result = [];
   const queue = [directoryId];
@@ -15425,6 +15434,7 @@ async function refreshDirectoryGraph() {
   graphState.error = "";
   renderGraphPanel();
   try {
+    await syncNotesForDirectoryTree(networkDirectoryId);
     const [graph, conflicts, reviewQueue] = await Promise.all([
       fetchDirectoryGraph(networkDirectoryId, { includeDescendants: true, timeoutMs: 15000 }),
       fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => null),
@@ -19002,7 +19012,7 @@ $("btnMobileNewNote")?.addEventListener("click", () => {
 });
 
 document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
-  btn.addEventListener("click", (event) => {
+  btn.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
     const action = btn.dataset.action;
@@ -19029,6 +19039,7 @@ document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
     }
     state.module = "explorer";
     state.selectedFileId = null;
+    await syncNotesForDirectoryTree(state.browserRootId);
     syncRailSelectionState();
     setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
     renderAll();
@@ -19346,7 +19357,7 @@ async function bootstrap() {
   try {
     await refreshVaultSettings();
     await syncDirectoriesFromApi();
-    await syncNotesForDirectory(state.selectedFolderId);
+    await syncNotesForDirectoryTree(state.browserRootId);
     setStatus(`已连接 API：${getApiBase()}`, "ok");
   } catch (error) {
     const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;
