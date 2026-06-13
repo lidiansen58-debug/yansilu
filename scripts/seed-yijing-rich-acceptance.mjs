@@ -100,6 +100,18 @@ function literatureBody(note) {
     "## 候选主题",
     ...(Array.isArray(note.candidateTopics) ? note.candidateTopics.map((topic) => `- ${topic}`) : []),
     "",
+    "## 阅读焦点",
+    ...(Array.isArray(note.readingFocus) ? note.readingFocus.map((item) => `- ${item}`) : []),
+    "",
+    "## 提炼计划",
+    ...(Array.isArray(note.extractionPlan) ? note.extractionPlan.map((item) => `- ${item}`) : []),
+    "",
+    "## Demo 用途",
+    note.demoUse || "",
+    "",
+    "## 候选永久笔记",
+    ...(Array.isArray(note.candidateNoteIds) ? note.candidateNoteIds.map((noteId) => `- ${noteId}`) : []),
+    "",
     "#易经 #文献笔记"
   ].join("\n");
 }
@@ -181,6 +193,15 @@ async function upsertRelation(vaultPath, relation, counters) {
     status: relation.status || "confirmed",
     createdBy: relation.createdBy || "user"
   };
+
+  try {
+    await updateNoteRelation(vaultPath, payload.id, payload);
+    counters.updatedRelations += 1;
+    return payload.id;
+  } catch (error) {
+    if (error?.code !== "RELATION_NOT_FOUND") throw error;
+  }
+
   const item = await createNoteRelation(vaultPath, relation.from, payload);
   if (item?.created === false) {
     counters.updatedRelations += 1;

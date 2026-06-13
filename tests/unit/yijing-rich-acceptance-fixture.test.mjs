@@ -31,11 +31,24 @@ test("Yijing rich acceptance fixture relations and traces reference existing not
 
   assert.equal(originalIds.size, fixture.counts.original_notes);
 
+  for (const note of fixture.literature_notes) {
+    assert.ok(note.demoUse, `${note.id} should explain demo usage`);
+    assert.ok(note.readingFocus.length >= 2, `${note.id} should include reading focus`);
+    assert.ok(note.extractionPlan.length >= 2, `${note.id} should include an extraction plan`);
+    assert.ok(note.candidateNoteIds.length >= 4, `${note.id} should point to candidate permanent notes`);
+  }
+
   for (const note of fixture.original_notes) {
     assert.ok(note.thesis, `${note.id} should have a thesis`);
     assert.equal(note.threeLineSummary.length, 3, `${note.id} should have three-line summary`);
+    assert.equal(note.template_version, "permanent-note-v2", `${note.id} should use the current permanent note template`);
+    assert.ok(note.boundary_or_counterpoint, `${note.id} should preserve a boundary or counterpoint`);
     assert.match(note.body, /## 一句话论点/);
     assert.match(note.body, /## 三句话压缩/);
+    assert.match(note.body, /## 问题来源/);
+    assert.match(note.body, /## 边界与反例/);
+    assert.match(note.body, /## 关联理由写法/);
+    assert.match(note.body, /## 可进入的使用场景/);
     for (const sourceId of note.from_literature_note_ids || []) {
       assert.ok(literatureIds.has(sourceId), `${note.id} references missing literature note ${sourceId}`);
     }
@@ -46,6 +59,9 @@ test("Yijing rich acceptance fixture relations and traces reference existing not
     assert.ok(originalIds.has(relation.to), `relation ${relation.id} has missing to note`);
     assert.notEqual(relation.from, relation.to, `relation ${relation.id} links a note to itself`);
     assert.ok(relation.rationale.length >= 8, `relation ${relation.id} should explain the link`);
+    assert.ok(relation.relationTypeLabel, `relation ${relation.id} should expose a readable type label`);
+    assert.ok(relation.reviewHint, `relation ${relation.id} should include a demo review hint`);
+    assert.match(relation.rationale, /这条边不是弱相关/);
     const key = `${relation.from}->${relation.to}:${relation.relationType}`;
     assert.equal(seenRelationKeys.has(key), false, `duplicate relation key ${key}`);
     seenRelationKeys.add(key);

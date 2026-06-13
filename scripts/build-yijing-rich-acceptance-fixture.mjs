@@ -43,7 +43,17 @@ const literatureNotes = [
     paraphrase:
       "卦爻辞并不是把一个问题直接化成答案，而是先提供情境结构：整体卦象、局部爻位、行动状态和结果评价相互配合。乾坤尤其适合做基础样本，因为它们把创生、承载、进退、边界这些问题放在同一个判断框架里。",
     questions: ["同一行动为什么在不同爻位上意义不同？", "乾坤是否应该被理解为互补关系，而不是强弱关系？"],
-    candidateTopics: ["时位判断", "乾坤互补", "行动边界"]
+    candidateTopics: ["时位判断", "乾坤互补", "行动边界"],
+    readingFocus: [
+      "先把卦、爻、辞分开看，再观察它们如何共同限制一个判断。",
+      "不要急着把吉凶翻译成结果好坏，要追问行动和位置是否相称。"
+    ],
+    extractionPlan: [
+      "抽取“卦是情境模型”“爻位提供阶段差异”“吉凶是时位反馈”三组永久笔记。",
+      "每条永久笔记都要带一个现代验收场景，方便在图谱、写作篮和关系面板中检查。"
+    ],
+    demoUse: "用于展示文献笔记如何被拆成多个可复用的永久笔记，而不是直接变成文章段落。",
+    candidateNoteIds: ["YJ-A02", "YJ-A04", "YJ-A05", "YJ-A07", "YJ-A08"]
   },
   {
     id: "ln_yj_002",
@@ -57,7 +67,17 @@ const literatureNotes = [
     paraphrase:
       "《系辞传》把《易》的重点从单个占辞提升到变化哲学：世界不是先稳定再偶尔变化，而是在不断变化中形成相对稳定的关系。阴阳不是两个实体阵营，而是一套互相规定、互相转化的关系词。",
     questions: ["变化如果是常态，稳定性该如何重新定义？", "象为什么能帮助判断，而不只是修辞？"],
-    candidateTopics: ["变化常态", "阴阳关系", "象与判断"]
+    candidateTopics: ["变化常态", "阴阳关系", "象与判断"],
+    readingFocus: [
+      "把“变化”读成默认背景，而不是意外扰动。",
+      "把阴阳、象、通变都放回关系判断，避免把它们当成神秘标签。"
+    ],
+    extractionPlan: [
+      "抽取“变化不是扰动”“阴阳不是善恶二分”“象是观察入口”等基础节点。",
+      "用这些节点连接现代决策、慢读、复盘和多路径理解。"
+    ],
+    demoUse: "用于展示抽象文献如何变成网络中心节点，并支撑跨主题的多跳路径。",
+    candidateNoteIds: ["YJ-A01", "YJ-A03", "YJ-A06", "YJ-A10", "YJ-E07", "YJ-E08"]
   },
   {
     id: "ln_yj_003",
@@ -71,7 +91,17 @@ const literatureNotes = [
     paraphrase:
       "义理传统提醒我们，《易经》不能只被缩减为预测技术。它也可以被读作处境判断、行动修正和德性养成的文本。这个传统并不消除象数，而是要求象数最后回到可解释、可承担的判断上。",
     questions: ["去神秘化是否会损失经典的开放性？", "义理解释如何避免把卦象讲成空泛道德？"],
-    candidateTopics: ["去神秘化", "义理解释", "经典开放性"]
+    candidateTopics: ["去神秘化", "义理解释", "经典开放性"],
+    readingFocus: [
+      "把去神秘化理解为把责任带回判断者，而不是把经典讲空。",
+      "检查义理解释是否仍能落回行动边界、反例和可追溯来源。"
+    ],
+    extractionPlan: [
+      "抽取“占问暴露问题框架”“神秘化让判断外包”“去神秘化不等于去意义”等解释边界笔记。",
+      "让反工具化、反对意见和写作追溯进入关系网络，避免 demo 只展示单向支持。"
+    ],
+    demoUse: "用于展示经典主题如何被转化为面向普通用户的解释型写作项目。",
+    candidateNoteIds: ["YJ-C01", "YJ-C02", "YJ-C03", "YJ-C07", "YJ-E03", "YJ-E10"]
   }
 ];
 
@@ -187,6 +217,55 @@ const originalNoteSeed = [
   ["YJ-E15", "后续问题要声明承接关系", "后续问题不是随意延伸，而要说明它从哪条判断自然推出。", "follows 关系帮助写作者把图谱中的下一步写清楚：后续不是另起炉灶，而是从已确认判断中推出的新问题、新场景或新行动。", "用于验收前提和后续关系能形成可读路径。", [], "idx_yj_writing"]
 ];
 
+const indexProfiles = {
+  idx_yj_core: {
+    category: "卦象与变化模型",
+    perspective: "从经典文本里抽出可复用的判断模型，重点不是解释每一卦，而是说明卦、爻、象、吉凶怎样共同把处境变得可讨论。",
+    boundary: "不要把模型误读成答案机器；每条笔记都必须保留时位、处境和行动者责任。",
+    reuse: "适合放在图谱中心、导入主题索引，并进入解释型文章的基础论证段。",
+    nextQuestion: "这条判断在什么条件下会失效，或者需要被另一条笔记限定？"
+  },
+  idx_yj_action: {
+    category: "时位中的行动者",
+    perspective: "把《易经》里的进退、等待、戒惧、谦、复归改写成行动判断，而不是道德标签。",
+    boundary: "不要把中正、君子、小人固定成身份评价；它们在 demo 中应表现为可观察的行动模式。",
+    reuse: "适合进入关系面板、风险讨论和现代决策写作项目。",
+    nextQuestion: "这条笔记怎样帮助用户判断当前应该进、守、等、退还是复盘？"
+  },
+  idx_yj_interpretation: {
+    category: "去神秘化与解释边界",
+    perspective: "把占问、仪式、含混性和义理解释转成可追问的解释纪律。",
+    boundary: "去神秘化不能把经典讲成空泛常识，也不能把不确定性包装成不可质疑。",
+    reuse: "适合验收冲突关系、限定关系、反对意见和解释边界的展示。",
+    nextQuestion: "这条解释保留了哪些不确定性，又排除了哪些任意联想？"
+  },
+  idx_yj_modern: {
+    category: "现代决策训练",
+    perspective: "把时位、关系、反馈和复盘转成产品、组织与个人选择都能理解的判断流程。",
+    boundary: "现代化不能把《易经》变成管理捷径、心理测试或万能工具。",
+    reuse: "适合给用户演示从经典笔记到现实场景迁移的全过程。",
+    nextQuestion: "这条笔记对应的现代场景是什么，它改变了用户哪一步判断？"
+  },
+  idx_yj_writing: {
+    category: "从笔记网络到写作",
+    perspective: "展示永久笔记如何通过关系理由、主题索引、写作篮和段落追溯进入文章。",
+    boundary: "写作不是堆材料；没有边界、反例和承接关系的笔记不能直接承担论证。",
+    reuse: "适合验收写作项目、draft scaffold、关系质量和来源追溯。",
+    nextQuestion: "这条笔记在文章里承担证据、转折、反例、定义还是过渡？"
+  }
+};
+
+const literatureNotesById = new Map(literatureNotes.map((note) => [note.id, note]));
+
+function sourceTraceLines(literatureNoteIds) {
+  if (!literatureNoteIds.length) return ["- 主题综合或写作反思：这条笔记不是直接摘录，而是从多条已有判断中抽出的写作型永久笔记。"];
+  return literatureNoteIds.map((noteId) => {
+    const source = literatureNotesById.get(noteId);
+    if (!source) return `- ${noteId}`;
+    return `- ${noteId}：${source.title}；来源为${source.source}，位置为${source.location}。`;
+  });
+}
+
 function buildOriginalNote([id, title, thesis, why, testUse, literatureNoteIds, indexCardId]) {
   const tags = ["易经", "原创笔记"];
   if (id.startsWith("YJ-A")) tags.push("卦象模型");
@@ -199,6 +278,7 @@ function buildOriginalNote([id, title, thesis, why, testUse, literatureNoteIds, 
     why,
     testUse
   ];
+  const profile = indexProfiles[indexCardId] || indexProfiles.idx_yj_core;
   return {
     id,
     note_type: "permanent",
@@ -206,6 +286,11 @@ function buildOriginalNote([id, title, thesis, why, testUse, literatureNoteIds, 
     thesis,
     threeLineSummary,
     status: "draft",
+    template_version: "permanent-note-v2",
+    category: profile.category,
+    demo_use: testUse,
+    boundary_or_counterpoint: profile.boundary,
+    next_question: profile.nextQuestion,
     originality_status: "pass",
     authorship: { user_confirmed: true, ai_assisted: false },
     tags,
@@ -222,10 +307,28 @@ function buildOriginalNote([id, title, thesis, why, testUse, literatureNoteIds, 
       `2. ${threeLineSummary[1]}`,
       `3. ${threeLineSummary[2]}`,
       "",
+      "## 问题来源",
+      profile.perspective,
+      "",
+      ...sourceTraceLines(literatureNoteIds),
+      "",
       "## 展开",
       why,
       "",
-      "这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。",
+      "这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。读者应能单独读懂它，也能在图谱中看见它为什么连接到其他判断。",
+      "",
+      "## 边界与反例",
+      profile.boundary,
+      "",
+      `在验收时，如果这条笔记只能产生“同主题”关系，而说不清支持、限定、反驳、桥接或反例，它就还不够成熟。可以先追问：${profile.nextQuestion}`,
+      "",
+      "## 关联理由写法",
+      `- 与同索引卡 ${indexCardId} 中的笔记相连时，必须写清它是在提供证据、限定边界、提出反例，还是作为后续问题。`,
+      "- 关系理由不应只写“相关”，而要说明两条永久笔记在论证链中的动作。",
+      "- 洞察问题要能推动下一次阅读、复盘或写作，而不是重复标题。",
+      "",
+      "## 可进入的使用场景",
+      profile.reuse,
       "",
       "## 可测试点",
       `- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：${thesis}`,
@@ -242,14 +345,37 @@ function buildOriginalNote([id, title, thesis, why, testUse, literatureNoteIds, 
 
 const originalNotes = originalNoteSeed.map(buildOriginalNote);
 
+const relationTypeLabels = {
+  supports: "支持",
+  extends: "推进",
+  complements: "补充",
+  contradicts: "反驳",
+  contrasts: "对照",
+  restates: "重述",
+  qualifies: "限定",
+  reframes: "改写",
+  bridges: "桥接",
+  example_of: "例子",
+  precedes: "前置",
+  follows: "后续",
+  same_topic: "同主题",
+  unexpected_connection: "意外相关",
+  counterexample_to: "反例",
+  appears_in_draft: "进入写作"
+};
+
 function rel(from, to, relationType, rationale, insightQuestion, confidence = 0.9) {
+  const relationTypeLabel = relationTypeLabels[relationType] || relationType;
   return {
     id: `lnk_${from}_${to}_${relationType}`.replace(/[^a-z0-9_-]+/gi, "_").slice(0, 96),
     from,
     to,
     relationType,
-    rationale,
+    relationTypeLabel,
+    rationale: `${relationTypeLabel}：${rationale} 这条边不是弱相关，而是标明两条永久笔记在论证中的具体动作、证据位置和边界。`,
+    relationReason: rationale,
     insightQuestion,
+    reviewHint: "验收时应能在关系面板看到关系类型、理由和洞察问题；若理由只剩“相关”，说明数据退化。",
     confidence,
     status: "confirmed",
     createdBy: "user"
@@ -341,7 +467,15 @@ const relations = [
   rel("YJ-D08", "YJ-E02", "supports", "模型作为提问器，支持关联说明必须写出为什么。", "一条关系线应回答什么问题？"),
   rel("YJ-E06", "YJ-E02", "supports", "丰富笔记要求论点、理由和用途可复用，支持关联必须写出为什么。", "笔记自身的丰富度如何影响关系质量？"),
   rel("YJ-B09", "YJ-D05", "supports", "履险中的距离感支持风险管理要持续阅读边界。", "风险管理如何把礼转化为操作性边界？"),
-  rel("YJ-C04", "YJ-D01", "supports", "占筮仪式的停顿机制支持复杂决策前先暂停和框定问题。", "仪式性停顿能否被现代工作流吸收？")
+  rel("YJ-C04", "YJ-D01", "supports", "占筮仪式的停顿机制支持复杂决策前先暂停和框定问题。", "仪式性停顿能否被现代工作流吸收？"),
+  rel("YJ-B04", "YJ-D06", "supports", "把“小人”理解为不承担关系后果的行动模式，能直接支持冲突处理中先辨互补条件；否则冲突会退化成贴标签。", "一旦把冲突双方先标签化，会错过哪些本来可以互补的条件？"),
+  rel("YJ-B08", "YJ-B09", "supports", "谦不是自我贬低，支持履险需要礼的距离感：真正的谦会帮助行动者在危险处境里守住分寸。", "如果把谦误解成退缩，为什么反而更难在危险处境里保持礼的距离？"),
+  rel("YJ-C03", "YJ-C09", "supports", "去神秘化不等于去意义，支持解释必须保留不确定性：拒绝外包判断，不等于把意义压平为唯一答案。", "去神秘化如何同时拒绝答案崇拜和意义清空？"),
+  rel("YJ-D04", "YJ-D07", "complements", "个人成长不是线性加法，补充复盘要问位置是否变了；前者说明成长模型，后者给出修正动作。", "如果只保留成长模型或复盘动作其中一条，整套判断会缺掉哪一面？"),
+  rel("YJ-E11", "YJ-E01", "supports", "同主题不是关系完成，支持笔记网络应该保留张力：只有继续区分支持、限定和反驳，主题网络才不会塌成同义词堆。", "同主题关系什么时候会遮蔽真实张力？"),
+  rel("YJ-E12", "YJ-E07", "supports", "意外相关之所以值得保留，是因为它经常把理解从单一路径推进到多条路径。", "什么样的意外相关会扩展理解路径，什么样的只会制造噪音？"),
+  rel("YJ-E13", "YJ-E09", "supports", "反例让边界可见，支持反对意见成为网络的一部分：没有反例，反对意见只会停留在口头姿态。", "为什么一张没有反例的知识网络，很难真正容纳反对意见？"),
+  rel("YJ-E15", "YJ-E05", "supports", "后续问题必须声明承接关系，支持写作方案显示来源追溯：段落推进需要看得见上一条判断从哪里来。", "如果承接关系不明，写作方案里的来源追溯会在哪些地方断掉？")
 ];
 
 const writingProjects = [

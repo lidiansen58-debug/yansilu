@@ -340,6 +340,14 @@ async function upsertRelation(vaultPath, relation, counters, noteIdSet) {
   if (!payload.fromNoteId || !payload.toNoteId) return null;
   if (noteIdSet && (!noteIdSet.has(payload.fromNoteId) || !noteIdSet.has(payload.toNoteId))) return null;
 
+  try {
+    await updateNoteRelation(vaultPath, payload.id, payload);
+    counters.updatedRelations += 1;
+    return payload.id;
+  } catch (error) {
+    if (error?.code !== "RELATION_NOT_FOUND") throw error;
+  }
+
   const created = await createNoteRelation(vaultPath, payload.fromNoteId, payload);
   if (created?.created) {
     counters.createdRelations += 1;
@@ -535,5 +543,4 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     process.exit(1);
   });
 }
-
 

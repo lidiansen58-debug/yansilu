@@ -17495,6 +17495,7 @@ window.__prototypeImport = {
 window.__prototypeGraph = {
   openFollowupNote: openGraphFollowupNote,
   openNoteById,
+  runAiAnalysis: runGraphAiAnalysis,
   getSelectedFileId: () => state.selectedFileId,
   getActiveModule: () => state.module
 };

@@ -10,19 +10,22 @@ const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 
 const REQUIRED_RELATION_TYPES = [
   "supports",
+  "complements",
   "extends",
   "contrasts",
-  "tension",
-  "gap",
-  "leads_to",
-  "evidence_for",
+  "contradicts",
+  "qualifies",
+  "precedes",
+  "follows",
   "example_of",
   "counterexample_to",
-  "depends_on",
-  "duplicates_or_overlaps",
-  "refines",
-  "source_gap",
-  "writing_move"
+  "same_topic",
+  "unexpected_connection",
+  "bridges",
+  "restates",
+  "reframes",
+  "appears_in_draft",
+  "duplicates"
 ];
 
 test("smart notes product demo fixture keeps the requested scope", () => {
