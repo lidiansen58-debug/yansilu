@@ -10424,12 +10424,12 @@
     }
     .settings-ai-setup-choice {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
       gap: 12px;
       min-width: 0;
     }
     .settings-ai-setup-card {
-      min-height: 132px;
+      min-height: 118px;
       padding: 14px;
       border: 1px solid rgba(214, 223, 232, 0.94);
       border-radius: 14px;
@@ -10449,13 +10449,17 @@
       transform: translateY(-1px);
     }
     .settings-ai-setup-card.is-local {
-      background: linear-gradient(180deg, rgba(248, 253, 250, 0.98), rgba(241, 249, 245, 0.98));
+      min-height: 164px;
+      border-color: #bbf7d0;
+      background: #f5fff8;
     }
     .settings-ai-setup-card.is-remote {
-      background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(241, 246, 252, 0.98));
+      min-height: 92px;
+      grid-template-rows: auto auto;
+      background: #f8fafc;
     }
     .settings-ai-setup-card-title {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 850;
       line-height: 1.35;
     }
@@ -10465,6 +10469,45 @@
       color: #526274;
       overflow-wrap: anywhere;
     }
+    .settings-ai-local-home-steps {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .settings-ai-local-home-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .settings-ai-local-home-step::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      flex: 0 0 auto;
+    }
+    .settings-ai-local-home-step.is-complete {
+      color: #166534;
+      font-weight: 800;
+    }
+    .settings-ai-local-home-step.is-complete::before {
+      border-color: #22c55e;
+      background: #22c55e;
+    }
+    .settings-ai-local-home-step.is-current {
+      color: #92400e;
+      font-weight: 800;
+    }
+    .settings-ai-local-home-step.is-current::before {
+      border-color: #f59e0b;
+      background: #fbbf24;
+    }
     .settings-ai-section-label {
       font-size: 12px;
       font-weight: 850;
@@ -10472,7 +10515,7 @@
     }
     .settings-ai-compact-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
       gap: 10px;
       min-width: 0;
     }
@@ -10592,23 +10635,22 @@
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 14px;
       align-items: center;
-      padding: 14px;
+      padding: 14px 16px;
       border: 1px solid #cfe0ea;
-      border-radius: 14px;
-      background: linear-gradient(180deg, #f8fcff, #eef7fb);
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+      border-radius: 12px;
+      background: #f8fcff;
     }
     .settings-ai-local-guide[data-state="blocked"] {
       border-color: #fed7aa;
-      background: linear-gradient(180deg, #fffaf2, #fff4df);
+      background: #fffaf2;
     }
     .settings-ai-local-guide[data-state="ready"] {
       border-color: #bbf7d0;
-      background: linear-gradient(180deg, #f5fff8, #ecfdf3);
+      background: #f5fff8;
     }
     .settings-ai-local-guide-copy {
       display: grid;
-      gap: 6px;
+      gap: 4px;
       min-width: 0;
     }
     .settings-ai-local-guide-title {
@@ -10627,6 +10669,9 @@
     .settings-ai-local-guide-hint {
       color: #64748b;
     }
+    .settings-ai-local-guide-hint:empty {
+      display: none;
+    }
     .settings-ai-local-guide-actions {
       display: flex;
       flex-wrap: wrap;
@@ -10637,6 +10682,52 @@
     .settings-ai-local-guide-actions .mini-btn {
       min-height: 36px;
       white-space: nowrap;
+    }
+    .settings-ai-local-recommendations {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid #dde6ef;
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+    .settings-ai-local-recommendations-head {
+      color: #172033;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .settings-ai-local-recommendation-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .settings-ai-local-recommendation {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 4px 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .settings-ai-local-recommendation.is-installed {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+    }
+    .settings-ai-local-recommendation strong {
+      color: #172033;
+      font-weight: 850;
+    }
+    .settings-ai-local-recommendation-status {
+      color: #0f766e;
+      font-weight: 800;
     }
     .settings-ai-wizard-list {
       display: grid;
@@ -10886,6 +10977,9 @@
       gap: 12px;
       padding: 0 12px 12px;
     }
+    .settings-ai-advanced-body .settings-ai-compact-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     .settings-kv {
       display: grid;
       gap: 10px;
@@ -10951,13 +11045,13 @@
     }
     .settings-route-preview {
       border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      background: #fff;
-      padding: 9px 11px;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 14px 16px;
       display: grid;
-      gap: 3px;
-      font-size: 11px;
-      line-height: 1.5;
+      gap: 8px;
+      font-size: 13px;
+      line-height: 1.55;
       color: #475569;
       word-break: break-word;
     }
@@ -10967,6 +11061,27 @@
     }
     .settings-route-preview div {
       min-width: 0;
+    }
+    .settings-route-preview-title {
+      color: #172033;
+      font-size: 16px;
+      font-weight: 850;
+      line-height: 1.35;
+    }
+    .settings-route-preview-copy {
+      color: #475569;
+    }
+    .settings-route-preview-meta {
+      color: #64748b;
+      font-size: 12px;
+    }
+    .settings-route-preview-action {
+      margin-top: 2px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
     }
     .settings-footnote {
       border-top: 1px solid #e5e7eb;
@@ -11020,6 +11135,12 @@
       line-height: 1.55;
       color: #64748b;
     }
+    .settings-ai-popover-head-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
     .settings-ai-popover-close {
       min-width: 36px;
       min-height: 36px;
@@ -11035,6 +11156,62 @@
       display: grid;
       gap: 12px;
       padding: 16px;
+    }
+    .settings-ai-remote-help {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid #dbe6f0;
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+    .settings-ai-remote-help-title {
+      font-size: 13px;
+      font-weight: 850;
+      line-height: 1.35;
+      color: #172033;
+    }
+    .settings-ai-remote-help-copy {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .settings-ai-remote-help-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 10px;
+    }
+    .settings-ai-remote-help-group {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .settings-ai-remote-provider-list {
+      display: grid;
+      gap: 6px;
+    }
+    .settings-ai-remote-provider {
+      display: grid;
+      gap: 3px;
+      padding: 8px 9px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .settings-ai-remote-provider a {
+      color: #174d74;
+      font-size: 12px;
+      font-weight: 850;
+      text-decoration: none;
+    }
+    .settings-ai-remote-provider a:hover {
+      text-decoration: underline;
+    }
+    .settings-ai-remote-provider span {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.45;
     }
     .settings-mini-list {
       margin: 0;
@@ -12533,6 +12710,7 @@
       .settings-ai-primary-head,
       .settings-ai-setup-choice,
       .settings-ai-compact-grid,
+      .settings-ai-advanced-body .settings-ai-compact-grid,
       .settings-ai-quick-actions {
         grid-template-columns: minmax(0, 1fr);
       }
@@ -16416,24 +16594,20 @@
                           <section class="settings-ai-primary" aria-label="AI 主要设置">
                             <div class="settings-ai-primary-head">
                               <div>
-                                <div class="settings-ai-primary-title">先选择要配置的大模型</div>
-                                <div class="settings-ai-primary-note">第一次使用先从下面两个入口开始；配置好之后再调整日常使用方式。</div>
+                                <div class="settings-ai-primary-title">先把本地 AI 跑起来</div>
+                                <div class="settings-ai-primary-note">第一次使用先完成本地环境：安装 Ollama、安装推荐模型、试运行。远程模型可以稍后再设置。</div>
                               </div>
                               <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                             </div>
                             <div class="settings-ai-setup-choice" aria-label="大模型配置入口">
                               <button class="settings-ai-setup-card is-local" type="button" data-settings-ai-dialog-open="local">
-                                <span class="settings-ai-setup-card-title">设置本地大模型</span>
-                                <span class="settings-ai-setup-card-note">适合敏感资料、离线研究。按提示检测 Ollama 并选择本地模型。</span>
+                                <span class="settings-ai-setup-card-title">安装本地 AI</span>
+                                <span class="settings-ai-setup-card-note">按提示完成基础推理能力：Ollama、推荐模型、试运行。</span>
+                                <span class="settings-ai-local-home-steps" id="settingsAiLocalHomeSteps" aria-live="polite"></span>
                                 <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
                               </button>
-                              <button class="settings-ai-setup-card is-remote" type="button" data-settings-ai-dialog-open="remote">
-                                <span class="settings-ai-setup-card-title">设置远程大模型</span>
-                                <span class="settings-ai-setup-card-note">适合团队网关或云端模型。填写模型名、密钥名称和服务地址。</span>
-                                <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
-                              </button>
                             </div>
-                            <div class="settings-ai-section-label">日常使用</div>
+                            <div class="settings-ai-section-label">本地 AI 可用后再调整</div>
                             <div class="settings-ai-compact-grid">
                               <div class="settings-ai-field">
                                 <label for="settingsAiRuntimeMode">AI 使用方式</label>
@@ -16441,31 +16615,6 @@
                                   <option value="auto">自动（推荐）</option>
                                   <option value="local_only">仅本地</option>
                                   <option value="cloud_only">仅远程</option>
-                                  <option value="hybrid">混合</option>
-                                </select>
-                              </div>
-                              <div class="settings-ai-field">
-                                <label for="settingsAiModelPack">AI 方案</label>
-                                <select id="settingsAiModelPack">
-                                  <option value="Starter Auto">默认自动：日常研究</option>
-                                  <option value="Low Cost Research">低成本研究</option>
-                                  <option value="Deep Work">深度工作</option>
-                                  <option value="China Optimized">国内优化</option>
-                                  <option value="Global Optimized">全球网关</option>
-                                  <option value="Privacy First">本地私密</option>
-                                  <option value="Ollama Local">Ollama 本地</option>
-                                  <option value="MiniCPM Local">MiniCPM 本地</option>
-                                  <option value="MiniCPM Remote">MiniCPM 远程</option>
-                                </select>
-                              </div>
-                              <div class="settings-ai-field">
-                                <label for="settingsAiUserMode">使用偏好</label>
-                                <select id="settingsAiUserMode">
-                                  <option value="Auto">自动安排</option>
-                                  <option value="Economy">节省成本</option>
-                                  <option value="Balanced">均衡质量</option>
-                                  <option value="Deep Thinking">深度思考</option>
-                                  <option value="Local / Private">本地 / 私密</option>
                                 </select>
                               </div>
                             </div>
@@ -16476,6 +16625,48 @@
                                 <span class="settings-stat-badge muted" id="settingsAiLabBadge">等待运行</span>
                               </button>
                             </div>
+                            <details class="settings-ai-advanced" id="settingsAiAdvancedOptions">
+                              <summary class="settings-ai-advanced-summary">
+                                <span class="settings-ai-advanced-copy">
+                                  <span class="settings-ai-advanced-title">高级设置</span>
+                                  <span class="settings-ai-advanced-meta">远程模型、AI 方案和使用偏好都放在这里。</span>
+                                </span>
+                                <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
+                              </summary>
+                              <div class="settings-ai-advanced-body">
+                                <div class="settings-ai-compact-grid">
+                                  <div class="settings-ai-field">
+                                    <label for="settingsAiModelPack">AI 方案</label>
+                                    <select id="settingsAiModelPack">
+                                      <option value="Starter Auto">默认自动：日常研究</option>
+                                      <option value="Low Cost Research">低成本研究</option>
+                                      <option value="Deep Work">深度工作</option>
+                                      <option value="China Optimized">国内优化</option>
+                                      <option value="Global Optimized">全球网关</option>
+                                      <option value="Privacy First">本地私密</option>
+                                      <option value="Ollama Local">Ollama 本地</option>
+                                      <option value="MiniCPM Remote">MiniCPM 远程</option>
+                                    </select>
+                                  </div>
+                                  <div class="settings-ai-field">
+                                    <label for="settingsAiUserMode">使用偏好</label>
+                                    <select id="settingsAiUserMode">
+                                      <option value="Auto">自动安排</option>
+                                      <option value="Economy">节省成本</option>
+                                      <option value="Balanced">均衡质量</option>
+                                      <option value="Deep Thinking">深度思考</option>
+                                      <option value="Local / Private">本地 / 私密</option>
+                                    </select>
+                                  </div>
+                                  <div class="settings-ai-field">
+                                    <label>本地优先</label>
+                                    <button class="mini-btn is-subtle" id="settingsAiHybridToggle" type="button">启用本地优先</button>
+                                    <div class="settings-field-note">高级模式：简单任务可用本地，其他任务可能使用远程；敏感资料请用“仅本地”。</div>
+                                  </div>
+                                </div>
+                                <button class="mini-btn is-subtle" type="button" data-settings-ai-dialog-open="remote">设置远程模型</button>
+                              </div>
+                            </details>
                             <div class="settings-ai-compact-preview">
                               <div class="settings-stat-row" id="settingsAiSetupBadges">
                                 <span class="settings-stat-badge warn">等待同步</span>
@@ -16487,14 +16678,14 @@
                             </div>
                           </section>
 
-                          <div class="settings-footnote">建议第一次先完成“本地大模型”或“远程大模型”其中一个入口；之后保持“自动”即可。</div>
+                          <div class="settings-footnote">建议第一次先完成“安装本地 AI”。需要更强模型或团队服务时，再打开高级设置里的远程模型。</div>
                         </div>
                         <div class="settings-ai-popover hidden" id="settingsAiLocalDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiLocalDialogTitle">
                           <div class="settings-ai-popover-panel">
                             <div class="settings-ai-popover-head">
                               <div>
                                 <div class="settings-ai-popover-title" id="settingsAiLocalDialogTitle">设置本地大模型</div>
-                                <div class="settings-ai-popover-note">按 3 步完成：切换本地模式，检测 Ollama，选择模型。</div>
+                                <div class="settings-ai-popover-note" id="settingsAiLocalDialogNote">未安装时按提示完成；已就绪后直接选择模型。</div>
                               </div>
                               <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
                             </div>
@@ -16509,11 +16700,13 @@
                                 <div class="settings-ai-local-guide-actions" aria-label="本地大模型设置操作">
                                   <button class="mini-btn primary" id="settingsAiUseLocalSetup" type="button" data-settings-ai-quick-setup="local">使用本地大模型</button>
                                   <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
+                                  <button class="mini-btn primary hidden" id="settingsAiStartOllama" type="button">启动 Ollama</button>
+                                  <button class="mini-btn is-subtle hidden" id="settingsAiStopOllama" type="button">停止 Ollama</button>
                                   <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
-                                  <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
+                                  <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载推荐模型</button>
                                 </div>
                               </div>
-                              <div class="settings-ai-wizard-list">
+                              <div class="settings-ai-wizard-list" id="settingsAiLocalWizard">
                                 <div class="settings-ai-wizard-step">
                                   <span class="settings-ai-wizard-index">1</span>
                                   <div class="settings-ai-wizard-copy">
@@ -16541,8 +16734,9 @@
                                 <select id="settingsAiLocalModel">
                                   <option value="">检测 Ollama 后选择</option>
                                 </select>
-                                <div class="settings-field-note">只在“仅本地”或“混合”时需要；日常自动模式可以跳过。</div>
+                                <div class="settings-field-note">只在“仅本地”或“本地优先”时需要；日常自动模式可以跳过。</div>
                               </div>
+                              <div class="settings-ai-local-recommendations hidden" id="settingsAiLocalModelRecommendations" aria-live="polite"></div>
                               <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示 Ollama 检测和模型选择。</div>
                               <div class="settings-ai-step-list" id="settingsAiSetupSteps"></div>
                             </div>
@@ -16556,9 +16750,40 @@
                                 <div class="settings-ai-popover-title" id="settingsAiRemoteDialogTitle">设置远程大模型</div>
                                 <div class="settings-ai-popover-note">按 3 步完成：切换远程模式，填写服务信息，保存并测试。</div>
                               </div>
-                              <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
+                              <div class="settings-ai-popover-head-actions">
+                                <button class="mini-btn is-subtle" id="settingsAiRemoteHelpToggle" type="button" aria-expanded="false" aria-controls="settingsAiRemoteHelp">帮助</button>
+                                <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
+                              </div>
                             </div>
                             <div class="settings-ai-popover-body">
+                              <div class="settings-ai-remote-help hidden" id="settingsAiRemoteHelp">
+                                <div>
+                                  <div class="settings-ai-remote-help-title">远程大模型怎么填</div>
+                                  <p class="settings-ai-remote-help-copy">先到服务商控制台创建 API Key；研思录里只填写“密钥名称”或环境变量引用，不粘贴真实密钥。模型名、服务地址以服务商官方文档和控制台为准，保存后用一句短句测试连接。</p>
+                                </div>
+                                <div class="settings-ai-remote-help-grid">
+                                  <div class="settings-ai-remote-help-group">
+                                    <div class="settings-ai-remote-help-title">国内常用</div>
+                                    <div class="settings-ai-remote-provider-list">
+                                      <div class="settings-ai-remote-provider"><a href="https://platform.deepseek.com/" target="_blank" rel="noreferrer">DeepSeek</a><span>性价比高，适合日常摘要、整理和推理；模型名常见 deepseek-chat / deepseek-reasoner。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://www.aliyun.com/product/bailian" target="_blank" rel="noreferrer">阿里云百炼 / 通义千问</a><span>企业云接入方便，适合中文写作和团队统一管理；模型名按百炼控制台选择。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://platform.moonshot.ai/" target="_blank" rel="noreferrer">Kimi / Moonshot</a><span>长文本体验好，适合文献、访谈、报告等长材料处理。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://bigmodel.cn/" target="_blank" rel="noreferrer">智谱 GLM</a><span>适合中文研究、结构化整理和通用助手场景；模型名以 BigModel 控制台为准。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://cloud.baidu.com/product-s/qianfan_home" target="_blank" rel="noreferrer">百度千帆 / 文心</a><span>适合已有百度云资源或企业账号的团队接入。</span></div>
+                                    </div>
+                                  </div>
+                                  <div class="settings-ai-remote-help-group">
+                                    <div class="settings-ai-remote-help-title">国外常用</div>
+                                    <div class="settings-ai-remote-provider-list">
+                                      <div class="settings-ai-remote-provider"><a href="https://developers.openai.com/api/docs/models" target="_blank" rel="noreferrer">OpenAI</a><span>综合能力强，适合默认远程模型、复杂写作和多语言任务。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://platform.claude.com/docs/en/about-claude/models/overview" target="_blank" rel="noreferrer">Anthropic Claude</a><span>长文档阅读和稳健写作表现好，适合研究资料分析。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noreferrer">Google Gemini</a><span>多模态和长上下文选择多，适合图文资料和跨语言任务。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://docs.mistral.ai/" target="_blank" rel="noreferrer">Mistral AI</a><span>欧洲服务商，适合需要开源生态、部署弹性或企业方案的团队。</span></div>
+                                      <div class="settings-ai-remote-provider"><a href="https://docs.cohere.com/docs/models" target="_blank" rel="noreferrer">Cohere</a><span>适合企业文本处理、检索增强和分类整理场景。</span></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                               <div class="settings-ai-wizard-list">
                                 <div class="settings-ai-wizard-step">
                                   <span class="settings-ai-wizard-index">1</span>
