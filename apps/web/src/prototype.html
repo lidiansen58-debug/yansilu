@@ -8080,6 +8080,45 @@
     .floating-notice .tb {
       display: none;
     }
+    .selection-ai-action {
+      position: fixed;
+      z-index: 52;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: min(420px, calc(100vw - 32px));
+      padding: 8px;
+      border: 1px solid rgba(20, 184, 166, 0.36);
+      border-radius: 8px;
+      background: rgba(248, 253, 251, 0.97);
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+      backdrop-filter: blur(14px) saturate(118%);
+    }
+    .selection-ai-action.hidden {
+      display: none;
+    }
+    .selection-ai-action-text {
+      min-width: 0;
+      max-width: 220px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .selection-ai-action-button {
+      min-height: 30px;
+      border: 1px solid #0f766e;
+      border-radius: 7px;
+      padding: 0 12px;
+      background: #0f766e;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+    }
     .floating-notice-head {
       display: flex;
       align-items: center;
@@ -15583,6 +15622,10 @@
               <button class="tb" id="btnCloseOriginalityNotice" type="button">关闭</button>
             </div>
             <div class="floating-notice-body" id="originalityNoticeBody">这里会对永久笔记提示原创性风险和下一步建议。</div>
+          </div>
+          <div class="selection-ai-action hidden" id="selectionAiAction" aria-live="polite">
+            <span class="selection-ai-action-text" id="selectionAiActionText">可提炼当前选区</span>
+            <button class="selection-ai-action-button" id="btnSelectionAiDistill" type="button" data-selection-ai-action="distill-claim">提炼观点</button>
           </div>
           <div class="panel md-panel" id="markdownPanel">
             <div class="panel-head compact editor-intent">

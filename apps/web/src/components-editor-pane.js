@@ -79,6 +79,14 @@ function titleFromBody(body) {
   return lines[0].replace(/^#+\s*/, "").slice(0, 60) || UNTITLED_NOTE_TITLE;
 }
 
+function selectionDistillationDraft(text = "") {
+  return String(text || "")
+    .replace(/^\s*[-*>\d.)]+\s*/gm, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
 function normalizePlaceholderTitleBody(body = "") {
   const text = String(body || "").replace(/\r\n/g, "\n");
   return text.replace(new RegExp(`^#\\s*${escapeRegExp(UNTITLED_NOTE_TITLE)}(?=\\S)`), "# ");
@@ -2186,6 +2194,12 @@ export class EditorPane {
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
+    this.selectionAiActionState = {
+      noteId: "",
+      selectedText: "",
+      from: 0,
+      to: 0
+    };
     this.bottomNoticeTimer = null;
     this.lastBottomNoticeKey = "";
     this.lastThinkingStatusNoticeKey = "";
@@ -2721,6 +2735,80 @@ export class EditorPane {
     if (rect) return rect;
     const host = (this.isSourceMode() ? this.els.editorHost : this.els.wysiwygHost) || this.els.body;
     return host?.getBoundingClientRect?.() || null;
+  }
+
+  currentSelectedEditorText() {
+    if (this.isStructuredWorkspaceActive()) return "";
+    const value = this.getEditorValue();
+    const range = this.normalizedSelectionRangeForValue(value, this.editorSelection());
+    if (!range || range.to <= range.from) return "";
+    return String(value || "").slice(range.from, range.to).trim();
+  }
+
+  selectionAiActionCandidate() {
+    const note = this.activeNote();
+    if (!note?.id) return null;
+    const noteType = this.resolvedNoteType(note);
+    if (noteType !== "permanent" && noteType !== "original") return null;
+    const value = this.getEditorValue();
+    const range = this.normalizedSelectionRangeForValue(value, this.editorSelection());
+    if (!range || range.to <= range.from) return null;
+    const selectedText = String(value || "").slice(range.from, range.to).trim();
+    if (selectedText.replace(/\s+/g, "").length < 6) return null;
+    return {
+      noteId: note.id,
+      selectedText,
+      from: range.from,
+      to: range.to
+    };
+  }
+
+  hideSelectionAiAction() {
+    this.selectionAiActionState = {
+      noteId: "",
+      selectedText: "",
+      from: 0,
+      to: 0
+    };
+    const root = this.els.selectionAiAction;
+    if (!root) return;
+    root.classList.add("hidden");
+    root.style.left = "";
+    root.style.top = "";
+  }
+
+  updateSelectionAiAction() {
+    const root = this.els.selectionAiAction;
+    if (!root) return;
+    const candidate = this.selectionAiActionCandidate();
+    if (!candidate) {
+      this.hideSelectionAiAction();
+      return;
+    }
+    this.selectionAiActionState = candidate;
+    root.classList.remove("hidden");
+    root.dataset.noteId = candidate.noteId;
+    root.dataset.selectionFrom = String(candidate.from);
+    root.dataset.selectionTo = String(candidate.to);
+    if (this.els.selectionAiActionText) {
+      this.els.selectionAiActionText.textContent = `已选 ${candidate.selectedText.replace(/\s+/g, "").length} 字`;
+    }
+    this.positionSelectionAiAction();
+  }
+
+  positionSelectionAiAction() {
+    const root = this.els.selectionAiAction;
+    if (!root || root.classList.contains("hidden")) return;
+    const rect = this.currentSelectionRect();
+    if (!rect) return;
+    const width = Math.min(root.offsetWidth || 260, window.innerWidth - 24);
+    const height = root.offsetHeight || 46;
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
+    const preferredTop = rect.top - height - 8;
+    const fallbackTop = rect.bottom + 8;
+    const top = preferredTop >= 12 ? preferredTop : Math.min(fallbackTop, window.innerHeight - height - 12);
+    root.style.left = `${Math.round(left)}px`;
+    root.style.top = `${Math.round(Math.max(12, top))}px`;
   }
 
   editorScrollNodes() {
@@ -3809,6 +3897,7 @@ export class EditorPane {
     const mode = String(this.state.previewMode || "wysiwyg");
     const pendingSelection = this.pendingEditorSelection;
     this.pendingEditorSelection = null;
+    this.hideSelectionAiAction();
     const split = this.els.markdownSplit;
     if (split) {
       split.classList.remove("editor-mode-wysiwyg", "editor-mode-source");
@@ -5332,6 +5421,7 @@ export class EditorPane {
       btn.classList.toggle("active", Boolean(active[type]));
     });
     this.renderContextualToolbarState();
+    this.updateSelectionAiAction();
   }
 
   scopedLinkCandidates() {
@@ -7992,6 +8082,55 @@ export class EditorPane {
     }
   }
 
+  applySelectionDistillationDraft() {
+    const note = this.activeNote();
+    const noteType = this.resolvedNoteType(note);
+    if (!note?.id || (noteType !== "permanent" && noteType !== "original")) {
+      this.onStatus("选区提炼只支持永久笔记", "warn");
+      this.hideSelectionAiAction();
+      return false;
+    }
+    const selectedText = String(this.selectionAiActionState.selectedText || this.currentSelectedEditorText()).trim();
+    const draft = selectionDistillationDraft(selectedText);
+    if (!draft) {
+      this.onStatus("先选中一段可提炼的正文", "warn");
+      this.hideSelectionAiAction();
+      return false;
+    }
+
+    this.hideSelectionAiAction();
+    this.setInspectorVisible(true);
+    this.renderRelated("选区提炼");
+
+    window.setTimeout(() => {
+      const form = this.els.result?.querySelector?.("[data-note-distillation-form]");
+      if (!form) {
+        this.onStatus("当前笔记还没有观点提纯区域", "warn");
+        return;
+      }
+      const thesis = form.querySelector('textarea[name="thesis"]');
+      const summaryTargets = [1, 2, 3]
+        .map((idx) => form.querySelector(`textarea[name="summary${idx}"]`))
+        .filter(Boolean);
+      const target =
+        thesis && !String(thesis.value || "").trim()
+          ? thesis
+          : summaryTargets.find((item) => !String(item.value || "").trim()) || summaryTargets[0] || thesis;
+      if (!target) return;
+      const targetName = String(target.getAttribute("name") || "thesis");
+      target.value = draft;
+      const status = form.querySelector('select[name="distillationStatus"]');
+      if (status && String(status.value || "") === "missing") status.value = "draft";
+      this.refreshDistillationQuality(form);
+      this.jumpToInspectorSection("[data-note-distillation-section]", {
+        focus: true,
+        focusSelector: `[data-note-distillation-form] textarea[name="${targetName}"]`
+      });
+      this.onStatus("已把选中文本带入观点提纯区，请确认后保存观点", "ok");
+    }, 40);
+    return true;
+  }
+
   refreshDistillationQuality(form) {
     const note = this.activeNote();
     const mount = form?.querySelector?.("[data-note-distillation-quality]");
@@ -9524,6 +9663,13 @@ export class EditorPane {
 
     this.els.body.addEventListener("keyup", () => this.updateToolbarFormattingState());
     this.els.body.addEventListener("mouseup", () => this.updateToolbarFormattingState());
+    this.els.selectionAiAction?.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
+    this.els.selectionAiDistill?.addEventListener("click", (event) => {
+      event.preventDefault();
+      this.applySelectionDistillationDraft();
+    });
 
     document.addEventListener("selectionchange", () => {
       const active = document.activeElement;
@@ -9555,6 +9701,7 @@ export class EditorPane {
 
   handleEditorInput() {
        if (this.suppressEditorChange) return;
+      this.hideSelectionAiAction();
       const tab = this.activeTab();
       if (!tab) return;
       const previousValue = this.lastEditorValue || "";
