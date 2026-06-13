@@ -889,6 +889,8 @@ let statusHoldPriority = 0;
 let editorHelperDismissed = false;
 const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
 let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
+let saveAiSuggestion = null;
+const dismissedSaveAiSuggestionKeys = new Set();
 let startupAutoOpenSuppressed = false;
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
@@ -6229,6 +6231,85 @@ function distillationStageLabel(stage = "") {
   return labels[String(stage || "").trim()] || "全部";
 }
 
+function saveAiSuggestionKey(note = null, action = "") {
+  const noteId = String(note?.id || "").trim();
+  const body = String(note?.body || "");
+  const contentFingerprint = `${body.length}:${body.slice(0, 80)}`;
+  const savedAt = String(note?.updatedAt || note?.updated_at || contentFingerprint).trim();
+  return `${noteId}:${savedAt}:${String(action || "").trim()}`;
+}
+
+function saveAiSuggestionForNote(note = null) {
+  if (!note?.id || state.module !== "explorer") return null;
+  const activeNote = activeEditorNote();
+  if (!activeNote || activeNote.id !== note.id) return null;
+  if (isEmptyUntitledMarkdown(note.body || activeEditorBody(), note.folderId)) return null;
+
+  if (isOriginalRecordableSource(note) && !noteHasGeneratedOriginal(note)) {
+    const action = "record-permanent";
+    return {
+      key: saveAiSuggestionKey(note, action),
+      noteId: note.id,
+      action,
+      text: "已保存，可提炼为永久笔记",
+      primaryLabel: "立即处理",
+      laterLabel: "稍后"
+    };
+  }
+
+  if (isPermanentLikeNote(note) && distillationStatusOf(note) !== "confirmed") {
+    const action = "open-distillation";
+    return {
+      key: saveAiSuggestionKey(note, action),
+      noteId: note.id,
+      action,
+      text: "已保存，可继续提炼观点",
+      primaryLabel: "立即处理",
+      laterLabel: "稍后"
+    };
+  }
+
+  return null;
+}
+
+function clearSaveAiSuggestion() {
+  saveAiSuggestion = null;
+  renderSaveAiSuggestion();
+}
+
+function showSaveAiSuggestionForNote(note = null) {
+  const suggestion = saveAiSuggestionForNote(note);
+  if (!suggestion || dismissedSaveAiSuggestionKeys.has(suggestion.key)) {
+    if (saveAiSuggestion?.noteId === note?.id) clearSaveAiSuggestion();
+    return null;
+  }
+  saveAiSuggestion = suggestion;
+  renderSaveAiSuggestion();
+  return suggestion;
+}
+
+function renderSaveAiSuggestion() {
+  const root = $("saveAiSuggestion");
+  if (!root) return;
+  const text = $("saveAiSuggestionText");
+  const primary = $("btnSaveAiSuggestionPrimary");
+  const later = $("btnSaveAiSuggestionLater");
+  const activeNote = activeEditorNote();
+  const visible =
+    Boolean(saveAiSuggestion?.noteId) &&
+    state.module === "explorer" &&
+    activeNote?.id === saveAiSuggestion.noteId;
+
+  root.classList.toggle("hidden", !visible);
+  if (!visible) return;
+
+  if (text) text.textContent = saveAiSuggestion.text;
+  if (primary) primary.textContent = saveAiSuggestion.primaryLabel || "立即处理";
+  if (later) later.textContent = saveAiSuggestion.laterLabel || "稍后";
+  root.dataset.action = saveAiSuggestion.action || "";
+  root.dataset.noteId = saveAiSuggestion.noteId || "";
+}
+
 function distillationQueueFilters(counts = {}) {
   return [
     ["all", "全部", counts.all || 0],
@@ -6763,6 +6844,7 @@ function renderAll() {
   applyFocusModeChrome();
   renderStatusMeta();
   renderWorkspaceStatusHint();
+  renderSaveAiSuggestion();
 }
 
 function explorerQuickAction(rootId = state.browserRootId) {
@@ -16939,10 +17021,12 @@ async function handleStateChange(reason, payload = {}) {
           }
           syncExplorerContextToNote(note);
           setStatus("已同步到 Markdown", "ok");
+          showSaveAiSuggestionForNote(note);
           if (state.module === "graph") await refreshDirectoryGraph();
 	        } catch (error) {
             const feedback = noteSaveFailureFeedback(error);
 	          setStatus(feedback.statusMessage, feedback.statusTone);
+            if (saveAiSuggestion?.noteId === note.id) clearSaveAiSuggestion();
             renderAll();
             return feedback;
 	        }
@@ -17298,6 +17382,55 @@ $("btnEditorHelperAction")?.addEventListener("click", () => {
     return;
   }
   setStatus("已记录当前建议，你可以继续编辑", "ok", { requireModule: "explorer" });
+});
+
+$("btnSaveAiSuggestionLater")?.addEventListener("click", () => {
+  if (saveAiSuggestion?.key) dismissedSaveAiSuggestionKeys.add(saveAiSuggestion.key);
+  clearSaveAiSuggestion();
+});
+
+$("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {
+  const suggestion = saveAiSuggestion;
+  clearSaveAiSuggestion();
+  if (!suggestion?.noteId) return;
+  const note = state.notes.find((item) => item.id === suggestion.noteId) || null;
+  if (!note) {
+    setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
+    return;
+  }
+
+  try {
+    if (suggestion.action === "record-permanent") {
+      activateModule("explorer");
+      const opened = openNoteById(note.id, { preferTitleSelection: false });
+      if (!opened) {
+        setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
+        return;
+      }
+      window.setTimeout(() => {
+        const button = editor?.els?.recordPermanent;
+        if (!button || button.disabled) {
+          setStatus("当前笔记暂时不能创建永久笔记", "warn", { requireModule: "explorer" });
+          return;
+        }
+        button.click();
+      }, 30);
+      return;
+    }
+
+    if (suggestion.action === "open-distillation") {
+      await handleStateChange("open-note-main-route", {
+        noteId: note.id,
+        action: "writing",
+        mode: "distillation"
+      });
+      return;
+    }
+
+    setStatus("这条建议暂时没有可执行动作", "warn", { requireModule: "explorer" });
+  } catch (error) {
+    setStatus(`处理建议失败：${String(error?.message || error)}`, "bad", { requireModule: "explorer" });
+  }
 });
 
 $("settingsRefreshVault")?.addEventListener("click", async () => {
