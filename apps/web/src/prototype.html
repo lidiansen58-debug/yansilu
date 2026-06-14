@@ -676,8 +676,19 @@
       color: #22405f;
     }
     .file-row.is-disconnected {
-      border-color: rgba(52, 182, 201, 0.18);
-      background: rgba(255, 255, 255, 0.58);
+      border-color: rgba(15, 118, 110, 0.3);
+      background:
+        linear-gradient(90deg, rgba(15, 118, 110, 0.12), rgba(255, 255, 255, 0.72) 48%),
+        rgba(255, 255, 255, 0.64);
+      box-shadow:
+        inset 3px 0 0 rgba(15, 118, 110, 0.46),
+        0 8px 18px rgba(15, 118, 110, 0.05);
+    }
+    .file-row.is-disconnected:not(.active):hover {
+      border-color: rgba(15, 118, 110, 0.44);
+      background:
+        linear-gradient(90deg, rgba(15, 118, 110, 0.16), rgba(255, 255, 255, 0.82) 48%),
+        #ffffff;
     }
     .file-row.is-disconnected-start {
       margin-top: 12px;
@@ -703,7 +714,12 @@
     }
     .file-row.is-disconnected .name,
     .file-row.is-disconnected .icon {
-      color: #195e76;
+      color: #0f5f62;
+    }
+    .file-row.is-disconnected .item-badge-warning {
+      border-color: rgba(15, 118, 110, 0.36);
+      background: rgba(240, 253, 250, 0.96);
+      color: #0f766e;
     }
     .file-row.is-disconnected .name strong::after {
       content: none;
@@ -741,6 +757,10 @@
       background: linear-gradient(180deg, #0f8f82, #0f766e);
       color: #ffffff;
       box-shadow: 0 8px 16px rgba(15, 118, 110, 0.16);
+    }
+    .file-row.is-disconnected .item-inline-action.warn {
+      min-width: 42px;
+      min-height: 24px;
     }
     .item-inline-action.warn:hover,
     .item-inline-action.warn:focus-visible {
@@ -1201,7 +1221,7 @@
       color: #ffffff;
     }
     .system-message-modal .modal {
-      width: min(640px, 100%);
+      width: min(840px, 100%);
     }
     .system-message-modal .modal-head {
       display: flex;
@@ -1217,22 +1237,34 @@
       box-shadow: 0 0 0 5px rgba(20, 184, 166, 0.12);
       flex: 0 0 auto;
     }
+    .system-message-layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.35fr);
+      gap: 12px;
+      min-height: 320px;
+    }
     .system-message-list {
       display: grid;
-      gap: 10px;
+      align-content: start;
+      gap: 8px;
       max-height: 52vh;
       overflow: auto;
       padding-right: 2px;
     }
     .system-message-item {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 6px 12px;
-      padding: 12px 14px;
+      gap: 5px;
+      padding: 10px 12px;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       background: linear-gradient(180deg, #ffffff 0%, #fbfdfe 100%);
       box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+    }
+    .system-message-item.is-selected {
+      border-color: rgba(15, 118, 110, 0.42);
+      box-shadow:
+        inset 3px 0 0 rgba(15, 118, 110, 0.48),
+        0 10px 20px rgba(15, 118, 110, 0.08);
     }
     .system-message-item.is-unread {
       border-color: rgba(15, 118, 110, 0.28);
@@ -1241,29 +1273,77 @@
         linear-gradient(180deg, #f8fffd 0%, #ffffff 100%);
     }
     .system-message-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 34px;
+      border: 0;
+      padding: 0;
+      background: transparent;
       font-weight: 800;
       color: #10202a;
+      text-align: left;
       line-height: 1.35;
       align-self: center;
+      cursor: pointer;
+    }
+    .system-message-title:hover,
+    .system-message-title:focus-visible {
+      color: #0f766e;
+      outline: none;
+    }
+    .system-message-title:focus-visible {
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+      border-radius: 6px;
+    }
+    .system-message-unread-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #0f766e;
+      flex: 0 0 auto;
+      box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12);
+    }
+    .system-message-detail {
+      min-height: 0;
+    }
+    .system-message-detail-card {
+      min-height: 100%;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      padding: 14px 16px;
+      border: 1px solid #dbe7ee;
+      border-radius: 10px;
+      background: #fbfdff;
+    }
+    .system-message-detail-card h3 {
+      margin: 0;
+      color: #10202a;
+      font-size: 17px;
+      line-height: 1.45;
+    }
+    .system-message-detail-kicker {
+      color: #0f766e;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
     }
     .system-message-body {
-      grid-column: 1 / -1;
       color: #475569;
       line-height: 1.65;
       font-size: 13px;
+      white-space: pre-wrap;
     }
     .system-message-meta {
-      grid-column: 1;
       color: #64748b;
       font-size: 12px;
     }
     .system-message-actions {
-      grid-column: 2;
-      grid-row: 1;
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      justify-content: flex-end;
+      justify-content: flex-start;
       align-items: center;
     }
     .system-message-actions .mini-btn {
@@ -9382,6 +9462,26 @@
       padding: 0;
       color: #475569;
     }
+    .semantic-relation-group[data-note-network-alert] {
+      border: 1px solid rgba(15, 118, 110, 0.24);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background:
+        linear-gradient(90deg, rgba(15, 118, 110, 0.12), transparent 20px),
+        #f7fcfa;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+    }
+    .semantic-relation-group[data-note-network-alert] .related-empty {
+      margin: 0;
+      background: transparent;
+      border-color: transparent;
+      padding: 0;
+      color: #475569;
+    }
+    .semantic-relation-group[data-note-network-alert] .semantic-relation-actions {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
     .semantic-relation-group-head {
       display: flex;
       align-items: center;
@@ -12141,6 +12241,13 @@
       .relation-followup-suggestion,
       .system-message-item {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .system-message-layout {
+        grid-template-columns: minmax(0, 1fr);
+        min-height: 0;
+      }
+      .system-message-list {
+        max-height: 28vh;
       }
       .relation-followup-suggestion-actions,
       .system-message-actions,
@@ -17009,7 +17116,10 @@
       <div class="modal-head" id="systemMessageModalTitle">系统消息</div>
       <div class="modal-body">
         <div class="modal-note" id="systemMessageModalNote">AI 建议、关系提醒和系统提示会保留在这里，方便之后回看。</div>
-        <div class="system-message-list" id="systemMessageList" aria-label="系统消息列表" aria-live="polite"></div>
+        <div class="system-message-layout">
+          <div class="system-message-list" id="systemMessageList" aria-label="系统消息列表" aria-live="polite"></div>
+          <div class="system-message-detail" id="systemMessageDetail" aria-label="系统消息详情" aria-live="polite"></div>
+        </div>
       </div>
       <div class="modal-foot">
         <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">打开 AI 建议待办</button>

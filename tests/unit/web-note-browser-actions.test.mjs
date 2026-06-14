@@ -437,7 +437,7 @@ test("note browser only tracks whether a folder subtree still has isolated perma
   assert.equal(explorer.folderHasDisconnectedNotes("dir_literature_default"), false);
 });
 
-test("permanent note browser keeps isolated notes inline without a top action queue", () => {
+test("permanent note browser keeps isolated notes inline with direct relation actions", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
 
@@ -460,8 +460,8 @@ test("permanent note browser keeps isolated notes inline without a top action qu
   const html = explorer.els.listArea.innerHTML;
 
   assert.doesNotMatch(html, /tree-disconnected-queue/);
-  assert.doesNotMatch(html, /data-associate-note="perm_queue_iso_a"/);
-  assert.doesNotMatch(html, /data-associate-note="perm_queue_iso_b"/);
+  assert.match(html, /data-associate-note="perm_queue_iso_a"/);
+  assert.match(html, /data-associate-note="perm_queue_iso_b"/);
   assert.doesNotMatch(html, /data-associate-note="perm_queue_connected"/);
   assert.match(html, /data-id="perm_queue_iso_a"/);
   assert.match(html, /data-id="perm_queue_iso_b"/);
@@ -638,10 +638,10 @@ test("note browsers keep disconnected notes visually behind connected notes insi
   assert.ok(disconnectedIndex >= 0, "expected disconnected note row to render");
   assert.ok(connectedIndex < disconnectedIndex, "expected connected note rows to appear before disconnected ones");
   assert.match(html, /data-note-state="permanent-isolated"/);
-  assert.doesNotMatch(html, /data-associate-note="perm_disconnected"/);
+  assert.match(html, /data-associate-note="perm_disconnected"/);
 });
 
-test("permanent note browser surfaces isolated notes with icon state only", () => {
+test("permanent note browser surfaces isolated notes with direct relation action", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
 
@@ -657,10 +657,10 @@ test("permanent note browser surfaces isolated notes with icon state only", () =
   }, 0);
 
   assert.match(html, /data-note-state="permanent-isolated"/);
-  assert.doesNotMatch(html, /item-badge-warning/);
-  assert.doesNotMatch(html, /data-associate-note="pn_001"/);
-  assert.doesNotMatch(html, /item-inline-action warn/);
-  assert.doesNotMatch(html, /接入网络/);
+  assert.match(html, /item-badge-warning/);
+  assert.match(html, /未入关系网/);
+  assert.match(html, /data-associate-note="pn_001"/);
+  assert.match(html, /item-inline-action warn/);
   assert.doesNotMatch(html, /item-badge-thinking/);
   assert.doesNotMatch(html, /item-badge-original-record/);
 });
@@ -810,10 +810,31 @@ test("note browsers keep richer note actions and thinking badges outside simplif
     thinkingStatus: { label: "待补推理", nextAction: "补一条关系", severity: "next", status: "open" }
   }, 0);
 
-  assert.match(html, /孤立笔记/);
+  assert.match(html, /未入关系网/);
   assert.match(html, /item-badge-thinking/);
   assert.match(html, /data-associate-note="perm_custom"/);
-  assert.match(html, /关联笔记/);
+  assert.match(html, /关联/);
+});
+
+test("isolated permanent note detail prompts relations or a temporary independent reason", () => {
+  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+
+  assert.match(source, /data-note-network-alert="isolated"/);
+  assert.match(source, /未入关系网络/);
+  assert.match(source, /data-note-main-route-action="relations">关联笔记/);
+  assert.match(source, /data-note-isolated-hold/);
+  assert.match(source, /暂时独立：/);
+  assert.match(source, /textarea\[name="boundaryOrCounterpoint"\]/);
+});
+
+test("graph isolated keep and hold actions focus boundary drafts instead of only opening notes", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(source, /openGraphFollowupNote\(cleanNoteId, cleanAction === "keep" \? "isolate-keep" : "isolate-hold"\)/);
+  assert.match(source, /cleanAction === "isolate-keep" \|\| cleanAction === "isolate-hold"/);
+  assert.match(source, /暂时独立：这条判断现在先不连线/);
+  assert.match(source, /暂存观察：这条笔记现在还缺少稳定判断/);
+  assert.match(source, /focusBoundaryField\(\);/);
 });
 
 test("note browsers keep generated-original badges for notes explicitly marked as literature", () => {

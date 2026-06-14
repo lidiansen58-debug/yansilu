@@ -898,6 +898,7 @@ const dismissedSaveAiSuggestionKeys = new Set();
 const SYSTEM_MESSAGES_KEY = "yansilu:system-messages:v1";
 const SYSTEM_MESSAGES_LIMIT = 80;
 let systemMessages = readStoredSystemMessages();
+let selectedSystemMessageId = systemMessages[0]?.id || "";
 let startupAutoOpenSuppressed = false;
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
@@ -1218,6 +1219,7 @@ function systemMessageActionLabel(message = {}) {
 
 function renderSystemMessages() {
   const list = $("systemMessageList");
+  const detail = $("systemMessageDetail");
   const button = $("systemMessagesButton");
   const markReadButton = $("btnSystemMessageMarkRead");
   const unreadCount = systemMessages.filter((item) => item.read !== true).length;
@@ -1234,25 +1236,44 @@ function renderSystemMessages() {
   if (!list) return;
   if (!systemMessages.length) {
     list.innerHTML = `<div class="modal-note">还没有系统消息。AI 提醒、关系建议和重要状态会出现在这里。</div>`;
+    if (detail) {
+      detail.innerHTML = `<div class="modal-note">选择一条系统消息后，这里会显示完整内容。</div>`;
+    }
     return;
   }
+  if (!systemMessages.some((message) => message.id === selectedSystemMessageId)) {
+    selectedSystemMessageId = systemMessages[0]?.id || "";
+  }
+  const selectedMessage = systemMessages.find((message) => message.id === selectedSystemMessageId) || systemMessages[0];
   list.innerHTML = systemMessages
     .map((message) => {
-      const actionLabel = systemMessageActionLabel(message);
+      const selected = message.id === selectedMessage?.id;
       return `
-        <article class="system-message-item${message.read ? "" : " is-unread"}" data-system-message-id="${escapeHtml(message.id)}">
-          <div class="system-message-title">${escapeHtml(message.title)}</div>
-          <div class="system-message-body">${escapeHtml(message.body || "没有更多内容。")}</div>
+        <article class="system-message-item${message.read ? "" : " is-unread"}${selected ? " is-selected" : ""}" data-system-message-id="${escapeHtml(message.id)}">
+          <button class="system-message-title" type="button" data-system-message-select="${escapeHtml(message.id)}" aria-current="${selected ? "true" : "false"}">
+            ${message.read ? "" : `<span class="system-message-unread-dot" aria-label="未读"></span>`}
+            <span>${escapeHtml(message.title)}</span>
+          </button>
           <div class="system-message-meta">${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
-          ${
-            actionLabel
-              ? `<div class="system-message-actions"><button class="mini-btn primary" type="button" data-system-message-action="${escapeHtml(message.action)}" data-system-message-id="${escapeHtml(message.id)}">${escapeHtml(actionLabel)}</button></div>`
-              : ""
-          }
         </article>
       `;
     })
     .join("");
+  if (!detail || !selectedMessage) return;
+  const actionLabel = systemMessageActionLabel(selectedMessage);
+  detail.innerHTML = `
+    <article class="system-message-detail-card" data-system-message-detail-id="${escapeHtml(selectedMessage.id)}">
+      <div class="system-message-detail-kicker">${selectedMessage.read ? "已读" : "未读"}</div>
+      <h3>${escapeHtml(selectedMessage.title)}</h3>
+      <div class="system-message-body">${escapeHtml(selectedMessage.body || "没有更多内容。")}</div>
+      <div class="system-message-meta">${escapeHtml(new Date(selectedMessage.createdAt).toLocaleString())}</div>
+      ${
+        actionLabel
+          ? `<div class="system-message-actions"><button class="mini-btn primary" type="button" data-system-message-action="${escapeHtml(selectedMessage.action)}" data-system-message-id="${escapeHtml(selectedMessage.id)}">${escapeHtml(actionLabel)}</button></div>`
+          : ""
+      }
+    </article>
+  `;
 }
 
 function openSystemMessages({ latestOnly = false } = {}) {
@@ -1263,6 +1284,9 @@ function openSystemMessages({ latestOnly = false } = {}) {
     note.textContent = latestOnly
       ? "刚刚产生了一条需要你看的 AI 提醒，稍后也可以从系统消息入口回看。"
       : "AI 建议、关系提醒和系统提示会保留在这里，方便之后回看。";
+  }
+  if (latestOnly || !systemMessages.some((message) => message.id === selectedSystemMessageId)) {
+    selectedSystemMessageId = systemMessages[0]?.id || "";
   }
   modal.classList.remove("hidden");
   renderSystemMessages();
@@ -1286,6 +1310,7 @@ function markSystemMessagesRead() {
 function addSystemMessage(message = {}, { interrupt = false } = {}) {
   const normalized = normalizeSystemMessage(message);
   systemMessages = [normalized, ...systemMessages.filter((item) => item.id !== normalized.id)].slice(0, SYSTEM_MESSAGES_LIMIT);
+  if (interrupt || !selectedSystemMessageId) selectedSystemMessageId = normalized.id;
   persistSystemMessages();
   renderSystemMessages();
   if (interrupt) openSystemMessages({ latestOnly: true });
@@ -12911,6 +12936,9 @@ function openGraphIsolatedDecisionAction(noteId = "", action = "") {
   if (cleanAction === "bridge") {
     return openGraphFollowupNote(cleanNoteId, "bridge", { relationType: "bridges" });
   }
+  if (cleanAction === "keep" || cleanAction === "hold") {
+    return openGraphFollowupNote(cleanNoteId, cleanAction === "keep" ? "isolate-keep" : "isolate-hold");
+  }
   activateModule("explorer");
   openNoteById(cleanNoteId, { focusDistillation: cleanAction === "rewrite", preferTitleSelection: false });
   state.inspectorVisible = true;
@@ -12946,7 +12974,7 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
       key: "keep",
       title: "保留独立",
       text: "当它是清楚但暂时没有邻居的判断时，独立本身是有价值的。",
-      actionLabel: "补独立理由",
+      actionLabel: "记录独立理由",
       active: decision.tone === "keep"
     },
     {
@@ -12960,7 +12988,7 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
       key: "hold",
       title: "暂存观察",
       text: "当它还只是材料或灵感时，先别放进永久关系网里。",
-      actionLabel: "先暂存",
+      actionLabel: "写暂存说明",
       active: decision.tone === "hold"
     },
     {
@@ -16860,6 +16888,17 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
     setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok", followupStatusOptions);
     return true;
   }
+  if (cleanAction === "isolate-keep" || cleanAction === "isolate-hold") {
+    focusBoundaryField();
+    setStatus(
+      cleanAction === "isolate-keep"
+        ? "已打开笔记，请在边界里写下为什么暂时保持独立"
+        : "已打开笔记，请先写下暂存观察说明",
+      cleanAction === "isolate-hold" ? "warn" : "ok",
+      followupStatusOptions
+    );
+    return true;
+  }
   if (cleanAction === "boundary" || cleanAction === "tension") {
     focusBoundaryField();
     setStatus("已从图谱打开笔记，继续补反例、边界或例外条件", "ok", followupStatusOptions);
@@ -16972,6 +17011,52 @@ function graphFollowupDraftTemplates({ action = "", sourceLabel = "", targetLabe
         }
       ],
       `这条判断在________条件下成立；一旦遇到________情况，就需要收窄、改写，或补上一条明确的反例。`
+    );
+  }
+  if (cleanAction === "isolate-keep") {
+    return withVariants(
+      "argument",
+      [
+        {
+          key: "argument",
+          label: "论证版",
+          boundaryDraft: `暂时独立：这条判断现在先不连线，因为________。如果未来出现________笔记，再考虑把它作为支持、反驳、限定或桥接关系接入。`
+        },
+        {
+          key: "writing",
+          label: "写作版",
+          boundaryDraft: `暂时独立：这条判断目前更像一段独立论证，不强行接入现有段落，因为________。等写作主题推进到________时，再决定它是否需要成为过渡或反方。`
+        },
+        {
+          key: "product",
+          label: "产品版",
+          boundaryDraft: `暂时独立：这条判断对应的使用场景还没有和现有产品线索稳定连接，因为________。等出现________场景证据后，再补成正式关系。`
+        }
+      ],
+      `暂时独立：这条判断现在先不连线，因为________。如果未来出现________笔记，再考虑把它作为支持、反驳、限定或桥接关系接入。`
+    );
+  }
+  if (cleanAction === "isolate-hold") {
+    return withVariants(
+      "argument",
+      [
+        {
+          key: "argument",
+          label: "论证版",
+          boundaryDraft: `暂存观察：这条笔记现在还缺少稳定判断，暂不接入关系网。下一步先补清________，再判断它应该支持、反驳、限定还是桥接哪条笔记。`
+        },
+        {
+          key: "writing",
+          label: "写作版",
+          boundaryDraft: `暂存观察：这条笔记暂时只是一段材料或灵感，还不能直接放进文章结构。等它回答了________这个问题，再决定要不要进入写作篮或关系图谱。`
+        },
+        {
+          key: "product",
+          label: "产品版",
+          boundaryDraft: `暂存观察：这条笔记还没有对应到清楚的用户场景或决策点。先补________，再判断它是否需要和现有产品判断建立关系。`
+        }
+      ],
+      `暂存观察：这条笔记现在还缺少稳定判断，暂不接入关系网。下一步先补清________，再判断它应该支持、反驳、限定还是桥接哪条笔记。`
     );
   }
   if (cleanAction === "tension") {
@@ -20070,10 +20155,19 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
     closeSystemMessages();
     return;
   }
+  const selectButton = event.target.closest("[data-system-message-select]");
+  if (selectButton) {
+    selectedSystemMessageId = String(selectButton.dataset.systemMessageSelect || "").trim();
+    systemMessages = systemMessages.map((message) => (message.id === selectedSystemMessageId ? { ...message, read: true } : message));
+    persistSystemMessages();
+    renderSystemMessages();
+    return;
+  }
   const actionButton = event.target.closest("[data-system-message-action]");
   if (!actionButton) return;
   const messageId = String(actionButton.dataset.systemMessageId || "").trim();
   const action = String(actionButton.dataset.systemMessageAction || "").trim();
+  selectedSystemMessageId = messageId || selectedSystemMessageId;
   systemMessages = systemMessages.map((message) => (message.id === messageId ? { ...message, read: true } : message));
   persistSystemMessages();
   if (action === "open-ai-inbox") {
@@ -20092,6 +20186,16 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
     await openAiInboxModule();
     setStatus("已打开这条 AI 提醒对应的建议待办", "ok");
     return;
+  }
+  if (action === "open-note") {
+    const message = systemMessages.find((item) => item.id === messageId) || null;
+    if (message?.noteId) {
+      closeSystemMessages();
+      activateModule("explorer");
+      openNoteById(message.noteId, { preferTitleSelection: false });
+      setStatus("已打开这条系统消息对应的笔记", "ok");
+      return;
+    }
   }
   renderSystemMessages();
 });

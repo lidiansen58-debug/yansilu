@@ -162,7 +162,7 @@ function thinkingStatusBadge(note = null) {
 }
 
 function disconnectedNoteBadge() {
-  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有加入关系网络。">孤立笔记</span>`;
+  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有加入关系网络。建议补一条支持、反驳、限定或桥接关系。">未入关系网</span>`;
 }
 
 function sourcePermanentBadge(state = "", sourceKind = "") {
@@ -1020,12 +1020,12 @@ export class ExplorerPane {
     const currentBadge = fileIsCurrent && !fileIsSelected
       ? `<span class="item-badge item-badge-current" title="当前编辑中的笔记。">当前</span>`
       : "";
-    const showAssociateButton = disconnected && (this.state.module === "graph" || !permanentSimplifiedScope);
+    const showAssociateButton = disconnected;
     const associateButton = showAssociateButton
-      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="关联笔记：选择相关笔记，并写下它们为什么有关">关联笔记</button>`
+      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="关联笔记：选择相关笔记，并写下它们为什么有关">关联</button>`
       : "";
     const trail = permanentSimplifiedScope
-      ? this.state.module === "graph" ? associateButton : ""
+      ? `${disconnectedBadge}${associateButton}`
       : sourceSimplifiedScope
         ? sourcePermanentBadge(sourceState, noteType)
       : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;

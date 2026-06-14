@@ -7892,6 +7892,51 @@ export class EditorPane {
     boundary?.focus?.();
   }
 
+  noteNeedsRelationNetworkPrompt(note) {
+    const explicitStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
+    if (explicitStatus === "isolated") return true;
+    if (explicitStatus === "connected") return false;
+    return this.currentExplicitRelationCount() === 0;
+  }
+
+  renderRelationNetworkPrompt(note) {
+    if (!this.noteNeedsRelationNetworkPrompt(note)) return "";
+    return `
+      <div class="semantic-relation-group note-network-alert" data-note-network-alert="isolated">
+        <div class="semantic-relation-group-head">
+          <strong>未入关系网络</strong>
+          <span>建议补关联</span>
+        </div>
+        <p class="related-empty">这条永久笔记还没有进入图谱。补一条支持、反驳、限定或桥接关系；如果暂时独立，也在边界里留下理由。</p>
+        <div class="semantic-relation-actions">
+          <button class="mini-btn primary" type="button" data-note-main-route-action="relations">关联笔记</button>
+          <button class="mini-btn" type="button" data-note-isolated-hold>暂时独立</button>
+        </div>
+      </div>
+    `;
+  }
+
+  focusTemporaryIsolatedBoundary() {
+    const sectionSelector = "[data-note-distillation-section]";
+    const focusSelector = '[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]';
+    const applyDraft = () => {
+      const section = this.els.result?.querySelector?.(sectionSelector);
+      const textarea = section?.querySelector?.(focusSelector);
+      if (!textarea) return false;
+      if (!String(textarea.value || "").trim()) {
+        textarea.value = "暂时独立：";
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+        const form = textarea.closest("[data-note-distillation-form]");
+        if (form) this.refreshDistillationQuality(form);
+      }
+      textarea.focus?.();
+      return true;
+    };
+    this.jumpToInspectorSection(sectionSelector, { focus: true, focusSelector });
+    if (!applyDraft()) window.setTimeout(applyDraft, 40);
+    this.onStatus("已定位到边界说明：写明为什么暂时不建立关系。", "ok");
+  }
+
   renderPermanentNoteDistillationSection(note) {
     const noteType = this.resolvedNoteType(note);
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
@@ -7938,6 +7983,7 @@ export class EditorPane {
               <div class="semantic-relation-card"><strong>写作可用性</strong><span>${escapeHtml(writingReady ? "可进入稳定写作" : "仍需审阅确认")}</span></div>
             </div>
           </div>
+          ${this.renderRelationNetworkPrompt(note)}
           <label>
             一句话判断
             <textarea name="thesis" rows="3" placeholder="这条永久笔记到底主张什么？">${escapeHtml(thesis)}</textarea>
@@ -9262,6 +9308,12 @@ export class EditorPane {
           this.renderRelated();
           this.onStatus("已标记为稍后清理", "ok");
         }
+        return;
+      }
+
+      const isolatedHoldButton = e.target.closest("[data-note-isolated-hold]");
+      if (isolatedHoldButton) {
+        this.focusTemporaryIsolatedBoundary();
         return;
       }
 
