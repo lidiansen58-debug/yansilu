@@ -15927,22 +15927,10 @@
             <path d="M5.3 2.8v7.3M5.3 10.1l-2.1-2.1M5.3 10.1l2.1-2.1M10.7 13.2V5.9M10.7 5.9L8.6 8M10.7 5.9l2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-        <button class="rail-btn" data-module="aiInbox" title="AI 建议待办" data-tip="AI 建议" aria-label="AI 建议待办">
-          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M2.6 9.1l1.15-5.6h8.5l1.15 5.6v2.45a1.25 1.25 0 0 1-1.25 1.25h-8.3a1.25 1.25 0 0 1-1.25-1.25z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
-            <path d="M2.8 9.1h3.05l.75 1.15h2.8l.75-1.15h3.05M5.35 5.75h5.3M5.95 7.55h4.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="rail-btn" id="systemMessagesButton" data-action="open-system-messages" title="系统消息" data-tip="系统消息" aria-label="系统消息">
+        <button class="rail-btn" id="systemMessagesButton" data-action="open-system-messages" title="系统消息与 AI 建议" data-tip="系统消息" aria-label="系统消息与 AI 建议">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M3.2 3.1h9.6a1.2 1.2 0 0 1 1.2 1.2v6.2a1.2 1.2 0 0 1-1.2 1.2H6.1l-2.9 2v-9.4a1.2 1.2 0 0 1 1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
             <path d="M5.6 6.1h4.8M5.6 8.4h3.2" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <button class="rail-btn" data-module="distillation" title="观点提纯" data-tip="观点提纯" aria-label="观点提纯">
-          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M3.2 3.4h9.6M3.2 6.25h7.2M3.2 9.1h5.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/>
-            <path d="M10.8 8.1l1.8 1.8-3.2 3.2H7.6v-1.8z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
           </svg>
         </button>
         <button class="rail-btn" data-module="graph" title="关系图谱" data-tip="关系图谱" aria-label="关系图谱">
@@ -16257,7 +16245,7 @@
           </div>
           <div class="panel hidden" id="distillationPanel"></div>
           <div class="panel hidden" id="aiInboxPanel">
-            <div class="ai-inbox-empty">AI 建议待办会显示 AI 发现的关联、问题和写作线索。建议默认不会改动笔记，必须人工确认后才会落地。</div>
+            <div class="ai-inbox-empty">系统消息会汇总 AI 发现的关联、问题和写作线索。建议默认不会改动笔记，必须人工确认后才会落地。</div>
           </div>
           <div class="panel graph-panel hidden" id="graphPanel">
           <div class="graph-head">
@@ -16342,7 +16330,7 @@
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">强模型写作分析</div>
-                      <div class="writing-section-note">仅在你明确确认后准备远程模型请求；输出进入 AI Inbox，不直接写草稿。</div>
+                      <div class="writing-section-note">仅在你明确确认后准备远程模型请求；返回待审结果时会进入系统消息中的 AI 建议复核，不直接写草稿。</div>
                     </div>
                     <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">先加入写作篮</button>
                   </div>
@@ -16542,7 +16530,7 @@
                         </span>
                         <span class="settings-nav-body">
                           <span class="settings-nav-title">自动化</span>
-                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">定时任务、AI 待办与运行记录</span>
+                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">定时任务、AI 建议复核与运行记录</span>
                         </span>
                         <span class="settings-stat-badge" id="settingsNavAutomationBadge">0</span>
                       </button>
@@ -16983,7 +16971,7 @@
                         <div class="settings-pane-kicker">Automation</div>
                         <div class="settings-pane-title">自动处理</div>
                       </div>
-                      <div class="settings-pane-note">定时任务、AI 待办与运行记录。</div>
+                      <div class="settings-pane-note">定时任务、AI 建议复核与运行记录。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAutomationBody">
                       <section class="settings-card" id="settingsCardAutomation">
@@ -16994,7 +16982,7 @@
 
                       <section class="settings-card" id="settingsCardAutomationSuggestions">
                         <div id="settingsAiSuggestionsPanel">
-                          <div class="scheduled-task-empty">AI 待办区域已准备好，等待加载。</div>
+                          <div class="scheduled-task-empty">AI 建议复核区域已准备好，等待加载。</div>
                         </div>
                       </section>
 
@@ -17122,7 +17110,7 @@
         </div>
       </div>
       <div class="modal-foot">
-        <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">打开 AI 建议待办</button>
+        <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">查看 AI 建议复核</button>
         <button class="mini-btn" id="btnSystemMessageMarkRead" type="button">全部标记已读</button>
         <button class="mini-btn primary" id="btnSystemMessageClose" type="button">关闭</button>
       </div>

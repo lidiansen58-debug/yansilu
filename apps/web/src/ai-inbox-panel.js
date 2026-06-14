@@ -850,7 +850,7 @@ export function renderAiInboxPanel(state = {}) {
     <div class="ai-inbox-shell">
       <header class="ai-inbox-topline">
         <div>
-          <div class="import-card-kicker">AI 建议待办</div>
+          <div class="import-card-kicker">AI 建议复核</div>
           <strong>${escapeHtml(viewLabel(summary.view))}：当前显示 ${escapeHtml(summary.visible)} 条，共 ${escapeHtml(summary.viewCount)} 条</strong>
           <p>这里不是聊天窗口，而是“AI 给出的待确认建议”：关联、问题、冲突和写作线索都要经过你确认才会进入笔记或图谱。</p>
         </div>

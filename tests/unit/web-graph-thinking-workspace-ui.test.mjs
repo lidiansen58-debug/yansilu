@@ -197,7 +197,24 @@ test("graph AI analysis opens the question workbench instead of navigating away"
   assert.match(match[1], /graphState\.thinkingFilter = "all";/);
   assert.match(match[1], /graphState\.workbenchPanelOpen = true;/);
   assert.match(match[1], /graphState\.workbenchPanelTab = "questions";/);
+  assert.match(match[1], /addSystemMessage\(\{/);
+  assert.match(match[1], /graphState\.aiReviewSystemMessageId = messageId;/);
   assert.doesNotMatch(match[1], /openAiInboxModule/, "graph scan should not auto-navigate away from the graph");
+});
+
+test("graph AI review action opens system messages instead of the AI review module directly", () => {
+  const source = readPrototypeApp();
+  const start = source.indexOf('  const graphAiInboxButton = event.target.closest("[data-open-ai-inbox-from-graph]");');
+  const end = source.indexOf('  const retryButton = event.target.closest("[data-graph-retry]");', start);
+  assert.ok(start >= 0 && end > start, "expected graph AI review action handler");
+  const handler = source.slice(start, end);
+
+  assert.match(handler, /const graphMessageId = String\(graphState\.aiReviewSystemMessageId \|\| ""\)\.trim\(\)/);
+  assert.match(handler, /selectedSystemMessageId = selectedGraphMessage/);
+  assert.match(handler, /openSystemMessages\(\)/);
+  assert.doesNotMatch(handler, /openSystemMessages\(\{ latestOnly: true \}\)/);
+  assert.doesNotMatch(handler, /activateModule\("aiInbox"\)/);
+  assert.doesNotMatch(handler, /openAiInboxModule\(\)/);
 });
 
 test("graph demo startup resets presentation state for a stable first screen", () => {

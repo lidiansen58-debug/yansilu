@@ -137,7 +137,8 @@ test("editor-triggered note AI analysis stays in the current note workspace", ()
   assert.ok(handlerStart >= 0 && handlerEnd > handlerStart, "expected run-note-ai-analysis handler to exist");
   const handlerSource = appSource.slice(handlerStart, handlerEnd);
 
-  assert.match(handlerSource, /if \(payload\.openInbox !== false\)/);
-  assert.match(handlerSource, /activateModule\("aiInbox"\)/);
+  assert.match(handlerSource, /if \(artifactCount > 0 && payload\.openInbox !== false\)/);
+  assert.match(handlerSource, /openSystemMessages\(\{ latestOnly: true \}\)/);
+  assert.doesNotMatch(handlerSource, /activateModule\("aiInbox"\)/);
   assert.match(handlerSource, /可在当前笔记里处理/);
 });

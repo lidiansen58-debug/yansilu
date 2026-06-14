@@ -51,7 +51,7 @@ test("AI inbox panel renders filters, list, detail, feedback, and accept-link ac
     detail: { item, artifact }
   });
 
-  assert.match(html, /AI 建议待办/);
+  assert.match(html, /AI 建议复核/);
   assert.match(html, /处理质量/);
   assert.match(html, /建议数/);
   assert.match(html, /待判断/);

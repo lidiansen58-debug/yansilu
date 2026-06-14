@@ -31,7 +31,7 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   });
 
   assert.match(html, /计划代理任务/);
-  assert.match(html, /输出会停留在 AI 建议待办/);
+  assert.match(html, /输出会停留在系统消息里/);
   assert.match(html, /id="scheduledTaskStatusFilter"/);
   assert.match(html, /id="scheduledTaskTypeFilter"/);
   assert.match(html, /id="btnScheduledTasksRunDue"/);

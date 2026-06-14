@@ -237,6 +237,7 @@ const graphState = {
   aiAnalysis: null,
   aiAnalysisLoading: false,
   aiAnalysisError: "",
+  aiReviewSystemMessageId: "",
   loading: false,
   error: "",
   lastErrorAt: "",
@@ -539,7 +540,7 @@ function settingsSectionChromeMap() {
     },
     automation: {
       badge: String(automationCount),
-      meta: `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 待办 ${Number(settingsState.ai.suggestionsTotal || 0)}`
+      meta: `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 建议复核 ${Number(settingsState.ai.suggestionsTotal || 0)}`
     },
     support: {
       badge: FEEDBACK_REPOSITORY_READY ? "GitHub" : "待绑定",
@@ -696,7 +697,7 @@ function settingsItemSummary(itemId = "") {
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
     "ai-settings": "从本地大模型或远程大模型入口开始配置。",
-    automation: "查看定时任务、AI 待办和运行记录。",
+    automation: "查看定时任务、AI 建议复核和运行记录。",
     "desktop-help": "查看本地文件、路径和切换规则。",
     feedback: "提交问题、功能想法，或复制问题信息。"
   };
@@ -747,10 +748,10 @@ function settingsSectionGuidanceMap() {
       ]
     },
     automation: {
-      focus: "把定时任务、AI 待办和运行记录放在一起核对，先分清什么会执行、什么只是建议。",
+      focus: "把定时任务、AI 建议复核和运行记录放在一起核对，先分清什么会执行、什么只是建议。",
       notes: [
         "定时任务和待办计数只反映入口量，不会直接改写笔记。",
-        "AI 待办默认停留在待确认层，需要你显式采纳。",
+        "AI 建议复核默认停留在待确认层，需要你显式采纳。",
         "运行记录更适合排查连接状态和待办堆积。"
       ]
     },
@@ -1179,6 +1180,9 @@ function setStatus(text, cls = "", options = {}) {
 function normalizeSystemMessage(item = {}) {
   const id = String(item.id || "").trim() || `sys_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = String(item.createdAt || item.created_at || "").trim() || new Date().toISOString();
+  const aiInboxFilters = item.aiInboxFilters && typeof item.aiInboxFilters === "object" && !Array.isArray(item.aiInboxFilters)
+    ? normalizeAiInboxFilters(item.aiInboxFilters)
+    : null;
   return {
     id,
     createdAt,
@@ -1189,6 +1193,7 @@ function normalizeSystemMessage(item = {}) {
     actionLabel: String(item.actionLabel || "").trim(),
     noteId: String(item.noteId || "").trim(),
     artifactCount: Math.max(0, Number(item.artifactCount || 0) || 0),
+    ...(aiInboxFilters ? { aiInboxFilters } : {}),
     read: item.read === true
   };
 }
@@ -1212,7 +1217,7 @@ function persistSystemMessages() {
 
 function systemMessageActionLabel(message = {}) {
   if (message.actionLabel) return message.actionLabel;
-  if (message.action === "open-ai-inbox") return "查看 AI 建议";
+  if (message.action === "open-ai-inbox") return "查看 AI 建议复核";
   if (message.action === "open-note") return "打开笔记";
   return "";
 }
@@ -1225,9 +1230,10 @@ function renderSystemMessages() {
   const unreadCount = systemMessages.filter((item) => item.read !== true).length;
   button?.classList.toggle("has-unread", unreadCount > 0);
   if (button) {
-    button.title = unreadCount ? `系统消息（${unreadCount} 条未读）` : "系统消息";
+    const systemMessageLabel = "系统消息与 AI 建议";
+    button.title = unreadCount ? `${systemMessageLabel}（${unreadCount} 条未读）` : systemMessageLabel;
     button.dataset.tip = unreadCount ? `系统消息 ${unreadCount}` : "系统消息";
-    button.setAttribute("aria-label", unreadCount ? `系统消息，${unreadCount} 条未读` : "系统消息");
+    button.setAttribute("aria-label", unreadCount ? `${systemMessageLabel}，${unreadCount} 条未读` : systemMessageLabel);
   }
   if (markReadButton) {
     markReadButton.disabled = unreadCount === 0;
@@ -1315,6 +1321,27 @@ function addSystemMessage(message = {}, { interrupt = false } = {}) {
   renderSystemMessages();
   if (interrupt) openSystemMessages({ latestOnly: true });
   return normalized;
+}
+
+function aiInboxFiltersForSystemMessage(message = {}) {
+  const filters = message?.aiInboxFilters && typeof message.aiInboxFilters === "object" ? message.aiInboxFilters : {};
+  const hasSourceNote = String(message?.noteId || filters.sourceNoteId || "").trim();
+  return normalizeAiInboxFilters({
+    view: String(filters.view || "pending").trim() || "pending",
+    type: String(filters.type || "all").trim() || "all",
+    privacyMode: String(filters.privacyMode || "").trim(),
+    sourceNoteId: hasSourceNote
+  });
+}
+
+function scheduledTaskReviewArtifactCount(summary = {}) {
+  return (Array.isArray(summary?.runs) ? summary.runs : []).reduce((total, run) => {
+    const result = run?.result || {};
+    const artifacts = Array.isArray(result.artifacts) ? result.artifacts.length : 0;
+    const storedIds = Array.isArray(result.reviewItems?.storedArtifactIds) ? result.reviewItems.storedArtifactIds.length : 0;
+    const reviewArtifacts = Array.isArray(result.reviewItems?.artifacts) ? result.reviewItems.artifacts.length : 0;
+    return total + Math.max(artifacts, storedIds, reviewArtifacts);
+  }, 0);
 }
 
 function readStoredBoolean(key, fallback = false) {
@@ -4534,7 +4561,7 @@ async function setScheduledTaskStatus(scheduledTaskId, status) {
 }
 
 async function runDueScheduledTasksFromUi() {
-  const confirmed = window.confirm("现在运行到期的 AI 任务吗？新的输出会先进入 AI 建议待办，等待你确认。");
+  const confirmed = window.confirm("现在运行到期的 AI 任务吗？新的输出会先进入系统消息，等待你确认。");
   if (!confirmed) return null;
   settingsState.ai.scheduledTaskActionLoading = true;
   settingsState.ai.scheduledTasksError = "";
@@ -4547,6 +4574,29 @@ async function runDueScheduledTasksFromUi() {
       refreshAiInbox({ silent: true, preserveDetail: true }),
       refreshAiInboxEvaluationSummary({ silent: true })
     ]);
+    const artifactCount = scheduledTaskReviewArtifactCount(summary);
+    if (artifactCount > 0) {
+      aiInboxState.filters = normalizeAiInboxFilters({
+        ...aiInboxState.filters,
+        view: "pending",
+        sourceNoteId: ""
+      });
+      aiInboxState.detail = null;
+      aiInboxState.selectedArtifactId = "";
+      addSystemMessage(
+        {
+          id: `scheduled-ai:${Date.now()}`,
+          type: "ai",
+          title: "计划任务产生了待审建议",
+          body: `计划任务生成了 ${artifactCount} 条 AI 待审建议。请先在系统消息里查看，再决定是否采纳到笔记或图谱。`,
+          action: "open-ai-inbox",
+          actionLabel: "查看 AI 建议复核",
+          artifactCount,
+          aiInboxFilters: { view: "pending", sourceNoteId: "" }
+        },
+        { interrupt: true }
+      );
+    }
     setStatus(`Scheduled tasks run: ${summary?.succeeded || 0} succeeded, ${summary?.skipped || 0} skipped, ${summary?.failed || 0} failed`, "ok");
     return summary;
   } catch (error) {
@@ -6331,11 +6381,11 @@ function currentModuleUi() {
       sidebarHtml: ""
     },
     aiInbox: {
-      sidebarTitle: "AI 建议待办",
-      sidebarSubtitle: "AI 只给建议，是否落地由你确认。",
-      sidebarFoot: "AI 建议默认不会改动笔记。只有你点击采纳、建立关系或生成草稿后，才会进入笔记系统。",
-      title: "AI 建议待办",
-      summary: "这里集中处理 AI 发现的关联、问题、冲突和写作线索。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
+      sidebarTitle: "AI 建议复核",
+      sidebarSubtitle: "从系统消息进入，是否落地由你确认。",
+      sidebarFoot: "系统消息会先承接 AI 建议。只有你点击采纳、建立关系或生成草稿后，才会进入笔记系统。",
+      title: "AI 建议复核",
+      summary: "这里处理系统消息中的 AI 关联、问题、冲突和写作线索。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>它用来做什么</h3>
@@ -6498,7 +6548,7 @@ function moduleLabel(moduleName = "") {
   const labels = {
     explorer: "笔记编辑",
     imports: "导入导出",
-    aiInbox: "AI 建议",
+    aiInbox: "AI 建议复核",
     distillation: "观点提纯",
     graph: "关系图谱",
     writing: "写作中心",
@@ -8463,7 +8513,7 @@ function renderSettingsWorkbenchChrome() {
   if (aiRoute) aiRoute.textContent = aiSummary.value;
   if (aiMeta) aiMeta.textContent = aiSummary.meta || "当前使用的模型、服务和连接状态。";
   if (automationValue) automationValue.textContent = `${automationCount} 个入口项`;
-  if (automationMeta) automationMeta.textContent = `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 待办 ${Number(settingsState.ai.suggestionsTotal || 0)}`;
+  if (automationMeta) automationMeta.textContent = `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 建议复核 ${Number(settingsState.ai.suggestionsTotal || 0)}`;
 }
 
 function renderSettingsSidebarColumn() {
@@ -10192,11 +10242,27 @@ async function prepareWritingStrongModelAnalysis() {
       writingGoal: String($("writingGoal")?.value || writingState.project?.goal || "").trim(),
       audience: String($("writingAudience")?.value || writingState.project?.audience || "").trim(),
       noteIds,
-      persistArtifacts: false
+      persistArtifacts: true
     });
     if (writingState.strongModelRevision !== requestRevision) return;
     writingState.strongModelResult = result;
     const model = result?.request?.model?.model || "strong_model";
+    const artifactCount = Number(result?.result?.storedArtifactIds?.length || result?.result?.summary?.artifactCount || result?.result?.artifacts?.length || 0);
+    if (artifactCount > 0) {
+      addSystemMessage(
+        {
+          id: `writing-ai-analysis:${writingState.project?.id || noteIds.join("-") || "basket"}:${Date.now()}`,
+          type: "ai",
+          title: "写作分析产生了待审建议",
+          body: `写作强模型分析生成了 ${artifactCount} 条待审建议。请先在系统消息里查看，再决定是否采纳到写作项目。`,
+          action: "open-ai-inbox",
+          actionLabel: "查看 AI 建议复核",
+          artifactCount,
+          aiInboxFilters: { view: "pending", type: "all", sourceNoteId: "" }
+        },
+        { interrupt: true }
+      );
+    }
     setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
   } catch (error) {
     if (writingState.strongModelRevision !== requestRevision) return;
@@ -10917,7 +10983,7 @@ function renderWritingPanel() {
       strongModelSummary.textContent = "正在准备强模型分析请求...";
     } else if (request) {
       strongModelSummary.textContent = result?.result
-        ? `已归一化 ${artifactCount} 条写作待审建议，全部进入 AI Inbox 后再决定是否采用。`
+        ? `已归一化 ${artifactCount} 条写作待审建议，全部进入系统消息中的 AI 建议复核后再决定是否采用。`
         : `已准备 ${request.model?.model || "strong_model"} 请求包；当前没有直接调用远程模型。`;
     } else {
       strongModelSummary.textContent = describeWritingStrongModelIdleSummary({
@@ -15343,7 +15409,7 @@ function renderGraphAiAnalysisCard(options = {}) {
             : analysis
               ? `
                 <div class="graph-metrics" aria-label="AI 图谱初判摘要">
-                  ${renderGraphMetricCard("待审项", pendingCount, "进入 AI Inbox 复核", pendingCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("待审项", pendingCount, "系统消息中复核", pendingCount ? "warn" : "good")}
                   ${renderGraphMetricCard("主题候选", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
                   ${renderGraphMetricCard("关系候选", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
                   ${renderGraphMetricCard("潜在关联/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
@@ -15352,7 +15418,7 @@ function renderGraphAiAnalysisCard(options = {}) {
                   <strong>待审优先级</strong>
                   <small>${escapeHtml(
                     pendingCount
-                      ? "先在图谱里判断结构是否成立；需要逐条采纳时再去 AI 建议待办。"
+                      ? "先在图谱里判断结构是否成立；需要逐条采纳时再到系统消息里复核 AI 建议。"
                       : "当前没有新的图谱候选。"
                   )}</small>
                 </div>
@@ -15802,9 +15868,9 @@ function renderGraphThinkingReviewNote(summary = {}) {
     <div class="graph-thinking-review-note">
       <div>
         <strong>已保存 ${escapeHtml(String(artifactCount))} 项待审</strong>
-        <span>先在图谱里判断哪些关系真的有用；需要逐条采纳时，再进入 AI 建议待办。</span>
+        <span>先在图谱里判断哪些关系真的有用；需要逐条采纳时，再到系统消息里复核 AI 建议。</span>
       </div>
-      <button class="graph-thinking-review-action" type="button" data-open-ai-inbox-from-graph aria-label="打开图谱生成的 AI 建议待办">去待审复核</button>
+      <button class="graph-thinking-review-action" type="button" data-open-ai-inbox-from-graph aria-label="打开系统消息中的图谱 AI 建议">去待审复核</button>
     </div>
   `;
 }
@@ -16410,6 +16476,22 @@ async function runGraphAiAnalysis() {
     });
     graphState.aiAnalysis = result;
     const count = Number(result?.reviewItems?.summary?.artifactCount || 0);
+    if (count > 0) {
+      const messageId = `graph-ai-analysis:${directoryId || "root"}:${Date.now()}`;
+      addSystemMessage({
+        id: messageId,
+        type: "ai",
+        title: "图谱扫描产生了待审建议",
+        body: `当前图谱生成了 ${count} 项待审候选。先判断结构是否成立，再决定是否采纳关系、主题或桥接建议。`,
+        action: "open-ai-inbox",
+        actionLabel: "查看 AI 建议复核",
+        artifactCount: count,
+        aiInboxFilters: { view: "pending", sourceNoteId: "" }
+      });
+      graphState.aiReviewSystemMessageId = messageId;
+    } else {
+      graphState.aiReviewSystemMessageId = "";
+    }
     graphState.thinkingPanelVisible = true;
     graphState.thinkingPanelOpen = true;
     graphState.thinkingFilter = "all";
@@ -17316,14 +17398,14 @@ async function handleStateChange(reason, payload = {}) {
               ? `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议，其中包含潜在关联建议。请先审阅理由，再决定是否采纳。`
               : `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议。请先审阅，再决定是否采纳。`,
             action: "open-ai-inbox",
-            actionLabel: "查看 AI 建议",
+            actionLabel: "查看 AI 建议复核",
             noteId,
             artifactCount
           },
           { interrupt: true }
         );
       }
-      if (payload.openInbox !== false) {
+      if (artifactCount > 0 && payload.openInbox !== false) {
         aiInboxState.filters = normalizeAiInboxFilters({
           ...aiInboxState.filters,
           view: "pending",
@@ -17331,14 +17413,13 @@ async function handleStateChange(reason, payload = {}) {
         });
         aiInboxState.detail = null;
         aiInboxState.selectedArtifactId = "";
-        activateModule("aiInbox");
-        await openAiInboxModule();
+        openSystemMessages({ latestOnly: true });
       }
       setStatus(
         artifactCount
           ? payload.openInbox === false
             ? `已生成 ${artifactCount} 条待审 AI 建议，可在当前笔记里处理`
-            : `已生成 ${artifactCount} 条待审核 AI 建议，已按当前笔记打开 AI Inbox`
+            : `已生成 ${artifactCount} 条待审核 AI 建议，已放入系统消息`
           : "本地 AI 分析完成，暂时没有新的待审核建议",
         artifactCount ? "ok" : "warn"
       );
@@ -17361,7 +17442,7 @@ async function handleStateChange(reason, payload = {}) {
     aiInboxState.selectedArtifactId = "";
     activateModule("aiInbox");
     await openAiInboxModule();
-    setStatus("已打开当前笔记的待审 AI 建议", "ok");
+    setStatus("已打开当前笔记的 AI 建议复核", "ok");
     return true;
   }
 
@@ -19601,9 +19682,13 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     aiInboxState.detail = null;
     aiInboxState.selectedArtifactId = "";
     graphState.thinkingPanelOpen = false;
-    activateModule("aiInbox");
-    await openAiInboxModule();
-    setStatus("已打开图谱生成的待审 AI 建议；建议只采纳能说清理由的关系。", "ok");
+    const graphMessageId = String(graphState.aiReviewSystemMessageId || "").trim();
+    const selectedGraphMessage = graphMessageId && systemMessages.some((message) => message.id === graphMessageId)
+      ? graphMessageId
+      : systemMessages.find((message) => String(message.id || "").startsWith("graph-ai-analysis:"))?.id || "";
+    if (selectedGraphMessage) selectedSystemMessageId = selectedGraphMessage;
+    openSystemMessages();
+    setStatus("已打开系统消息中的图谱 AI 建议；建议只采纳能说清理由的关系。", "ok");
     return;
   }
   const retryButton = event.target.closest("[data-graph-retry]");
@@ -20109,7 +20194,7 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	    }
 	    if (targetModule === "aiInbox" && state.module === "aiInbox") {
 	      await openAiInboxModule();
-	      if (state.module === "aiInbox") setStatus("已打开 AI 建议待办", "ok");
+	      if (state.module === "aiInbox") setStatus("已打开 AI 建议复核", "ok");
 	    }
 	    if (targetModule === "settings" && state.module === "settings") {
 	      try {
@@ -20144,10 +20229,19 @@ $("btnSystemMessageMarkRead")?.addEventListener("click", () => {
 });
 
 $("btnSystemMessageOpenAiInbox")?.addEventListener("click", async () => {
+  aiInboxState.filters = normalizeAiInboxFilters({
+    ...aiInboxState.filters,
+    view: "pending",
+    type: "all",
+    privacyMode: "",
+    sourceNoteId: ""
+  });
+  aiInboxState.detail = null;
+  aiInboxState.selectedArtifactId = "";
   closeSystemMessages();
   activateModule("aiInbox");
   await openAiInboxModule();
-  setStatus("已打开 AI 建议待办", "ok");
+  setStatus("已从系统消息打开 AI 建议复核", "ok");
 });
 
 $("systemMessageModal")?.addEventListener("click", async (event) => {
@@ -20172,19 +20266,16 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
   persistSystemMessages();
   if (action === "open-ai-inbox") {
     const message = systemMessages.find((item) => item.id === messageId) || null;
-    if (message?.noteId) {
-      aiInboxState.filters = normalizeAiInboxFilters({
-        ...aiInboxState.filters,
-        view: "pending",
-        sourceNoteId: message.noteId
-      });
+    const messageFilters = aiInboxFiltersForSystemMessage(message);
+    if (messageFilters) {
+      aiInboxState.filters = messageFilters;
       aiInboxState.detail = null;
       aiInboxState.selectedArtifactId = "";
     }
     closeSystemMessages();
     activateModule("aiInbox");
     await openAiInboxModule();
-    setStatus("已打开这条 AI 提醒对应的建议待办", "ok");
+    setStatus("已从系统消息打开这条 AI 提醒对应的建议复核", "ok");
     return;
   }
   if (action === "open-note") {

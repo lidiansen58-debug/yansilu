@@ -85,7 +85,7 @@ function renderTaskForm(state = {}) {
       <div class="scheduled-task-form-head">
         <div>
           <div class="settings-card-title">${editing ? "编辑计划任务" : "创建计划任务"}</div>
-          <div class="settings-card-note">只使用安全模板。新的输出会先进入 AI 建议待办，等待人工确认。</div>
+          <div class="settings-card-note">只使用安全模板。新的输出会先进入系统消息，等待人工确认。</div>
         </div>
         <div class="settings-stat-row">
           ${editing ? badge(`编辑中 ${form.scheduledTaskId}`, "warn") : badge("草稿", "muted")}
@@ -259,7 +259,7 @@ export function renderScheduledTasksPanel(state = {}) {
       <div class="scheduled-task-head">
         <div>
           <div class="settings-card-title">计划代理任务</div>
-          <div class="settings-card-note">手动运行到期的 AI 任务。输出会停留在 AI 建议待办，确认后才进入笔记或图谱。</div>
+          <div class="settings-card-note">手动运行到期的 AI 任务。输出会停留在系统消息里，确认后才进入笔记或图谱。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
