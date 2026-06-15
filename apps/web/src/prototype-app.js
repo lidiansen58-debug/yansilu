@@ -1492,16 +1492,19 @@ function normalizeNoteTemplateSource(text = "", kind = "") {
   return normalized || defaultTemplateSourceForKind(kind);
 }
 
+function normalizeStoredNoteTemplateSource(text = "", kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const normalized = normalizeNoteTemplateSource(text, cleanKind);
+  if (cleanKind !== "permanent") return normalized;
+  return normalized.replace(/\r\n/g, "\n").trim() === legacyPermanentTemplateSource().replace(/\r\n/g, "\n").trim()
+    ? defaultTemplateSourceForKind(cleanKind)
+    : normalized;
+}
+
 function effectiveSavedNoteTemplateSource(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const savedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
-  if (cleanKind !== "literature") {
-    const normalizedSaved = savedSource.replace(/\r\n/g, "\n").trim();
-    if (normalizedSaved === legacyPermanentTemplateSource().replace(/\r\n/g, "\n").trim()) {
-      return defaultTemplateSourceForKind(cleanKind);
-    }
-    return savedSource;
-  }
+  const savedSource = normalizeStoredNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
+  if (cleanKind !== "literature") return savedSource;
   const validation = validateLiteratureTemplateSource(savedSource);
   return validation.ok ? savedSource : defaultTemplateSourceForKind(cleanKind);
 }
@@ -1627,8 +1630,11 @@ function loadNoteTemplateSettingsFromStorage() {
   for (const kind of ["permanent", "literature"]) {
     const entry = settingsState.noteTemplates[kind];
     const previousScope = String(entry?.scope || "");
-    const savedTextBeforeLoad = normalizeNoteTemplateSource(entry?.text, kind);
-    const draftTextBeforeLoad = normalizeDraftBuffer(entry?.draftText || "");
+    const savedTextBeforeLoad = normalizeStoredNoteTemplateSource(entry?.text, kind);
+    const rawDraftTextBeforeLoad = normalizeDraftBuffer(entry?.draftText || "");
+    const draftTextBeforeLoad = rawDraftTextBeforeLoad.trim()
+      ? normalizeStoredNoteTemplateSource(rawDraftTextBeforeLoad, kind)
+      : rawDraftTextBeforeLoad;
     const hasUnsavedDraft =
       previousScope === scope &&
       entry?.draftActive === true &&
@@ -1644,7 +1650,7 @@ function loadNoteTemplateSettingsFromStorage() {
     const shouldMigrateLegacy = scope !== "global" && !String(scopedText || "").trim() && String(legacyText || "").trim();
     const resolvedText = shouldMigrateLegacy ? legacyText : scopedText || (scope === "global" ? legacyText : "");
     const resolvedHistory = shouldMigrateLegacy ? legacyHistory : scopedHistory || (scope === "global" ? legacyHistory : "");
-    const normalizedText = normalizeNoteTemplateSource(resolvedText, kind);
+    const normalizedText = normalizeStoredNoteTemplateSource(resolvedText, kind);
     settingsState.noteTemplates[kind].text = normalizedText;
     settingsState.noteTemplates[kind].scope = scope;
     if (!hasUnsavedDraft) {
@@ -8844,7 +8850,7 @@ function openNoteTemplatePreview(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   const stateEntry = settingsState.noteTemplates?.[cleanKind];
   if (!stateEntry) return;
-  const source = normalizeNoteTemplateSource(
+  const source = normalizeStoredNoteTemplateSource(
     stateEntry.draftActive ? stateEntry.draftText : stateEntry.text,
     cleanKind
   );
@@ -8926,12 +8932,19 @@ function updateNoteTemplatePreviewFromEditor(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   const editorField = $(noteTemplateEditorElementId(cleanKind));
   const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
+  const feedback = $(noteTemplateFeedbackElementId(cleanKind));
+  const feedbackText = $(noteTemplateFeedbackTextElementId(cleanKind));
   const draftSource = normalizeDraftBuffer(editorField?.value || "");
   settingsState.noteTemplates[cleanKind].draftText = draftSource;
   settingsState.noteTemplates[cleanKind].draftActive = true;
   const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(draftSource, cleanKind));
   settingsState.noteTemplates[cleanKind].feedbackTone = "warn";
   settingsState.noteTemplates[cleanKind].feedbackText = validation.ok ? "有未保存修改。" : `当前内容还不能保存：${validation.message}`;
+  if (feedback && feedbackText) {
+    feedback.classList.add("is-visible", "warn");
+    feedback.classList.remove("ok");
+    feedbackText.textContent = settingsState.noteTemplates[cleanKind].feedbackText;
+  }
   if (saveButton) {
     saveButton.disabled = !validation.ok;
     saveButton.title = validation.ok ? "" : validation.message;
@@ -8957,7 +8970,7 @@ function renderNoteTemplateSettingsCard(kind = "") {
     feedbackText: ""
   };
   const copy = noteTemplateCardCopy(cleanKind);
-  const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
+  const savedSource = normalizeStoredNoteTemplateSource(stateEntry.text, cleanKind);
   const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
   const visibleSource = stateEntry.draftActive === true ? draftSource : savedSource;
   const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(visibleSource, cleanKind));

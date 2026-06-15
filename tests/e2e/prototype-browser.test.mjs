@@ -390,7 +390,13 @@ async function openSettingsModule(page, section = "workspace") {
   }, 5000);
   const normalizedSection = String(section || "workspace").trim() || "workspace";
   const navButton = page.locator(`#settingsSectionNav [data-settings-section="${normalizedSection}"]`);
-  await navButton.click();
+  try {
+    await navButton.click({ timeout: 1200 });
+  } catch {
+    await page.evaluate((targetSection) => {
+      document.querySelector(`#settingsSectionNav [data-settings-section="${targetSection}"]`)?.click();
+    }, normalizedSection);
+  }
   await waitFor(async () => {
     assert.equal(await navButton.getAttribute("aria-pressed"), "true");
     assert.equal(await page.locator(settingsPaneId(normalizedSection)).isVisible(), true);
@@ -4405,6 +4411,66 @@ test("prototype settings exposes the permanent note template entry", async (t) =
   await page.locator("#settingsTemplatePreviewClose").click();
   await waitFor(async () => {
     assert.equal(await page.locator("#settingsTemplatePreviewModal").getAttribute("aria-hidden"), "true");
+  }, 5000);
+});
+
+test("prototype migrates the legacy default permanent template before settings render", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const legacyPermanentTemplate = `# {{title}}
+
+## 核心观点
+
+> 写成一句可被反驳、可被引用、值得保留的判断。
+## 为什么成立
+
+> 说明这条判断依赖的理由、证据或经验。
+## 证据 / 来源
+
+- 来自哪条文献笔记、经验、案例或观察？
+
+## 关联线索
+
+- 它连接到哪些已有笔记、主题或写作项目？
+
+## 边界 / 反例
+
+- 这条判断在什么条件下不成立？
+`;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.addInitScript(({ permanent }) => {
+        window.localStorage.setItem("yansilu:settings:note-template:permanent", permanent);
+      }, {
+        permanent: legacyPermanentTemplate
+      });
+    }
+  });
+  if (!stack) return;
+  const { page } = stack;
+
+  await openSettingsModule(page, "templates");
+  await waitFor(async () => {
+    const value = await page.locator("#settingsPermanentTemplateEditor").inputValue();
+    assert.match(value, /## 核心观点\n\n写成一句可被反驳、可被引用、值得保留的判断。/);
+    assert.doesNotMatch(value, /^> 写成一句/m);
+    assert.doesNotMatch(value, /^- 来自哪条文献/m);
+  }, 5000);
+
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /## 核心观点\n\n写成一句可被反驳、可被引用、值得保留的判断。/);
+    assert.doesNotMatch(value, /^> 写成一句/m);
+    assert.doesNotMatch(value, /^- 来自哪条文献/m);
   }, 5000);
 });
 
