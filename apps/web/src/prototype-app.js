@@ -16887,12 +16887,13 @@ async function ensureNoteBodyLoaded(noteId) {
 }
 
 function openNoteById(id, options = {}) {
+  const note = state.notes.find((n) => n.id === id);
+  if (!note) return false;
   const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
   if (activeTab?.dirty && activeTab.noteId !== id) {
     editor.updateActiveTabFromEditor();
     void editor.autoSaveTabById(activeTab.id, "switch-note");
   }
-  const note = state.notes.find((n) => n.id === id);
   const focusedIds = Array.isArray(state.literatureQueueFocusNoteIds) ? state.literatureQueueFocusNoteIds : [];
   if (focusedIds.length) {
     const keepFocus =
@@ -20515,10 +20516,12 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
   if (action === "open-note") {
     const message = systemMessages.find((item) => item.id === messageId) || null;
     if (message?.noteId) {
-      closeSystemMessages();
-      activateModule("explorer");
-      openNoteById(message.noteId, { preferTitleSelection: false });
-      setStatus("已打开这条系统消息对应的笔记", "ok");
+      const opened = openNoteById(message.noteId, { preferTitleSelection: false });
+      if (opened) {
+        closeSystemMessages();
+        activateModule("explorer");
+      }
+      setStatus(opened ? "已打开这条系统消息对应的笔记" : "没有找到这条系统消息对应的笔记", opened ? "ok" : "warn");
       return;
     }
   }

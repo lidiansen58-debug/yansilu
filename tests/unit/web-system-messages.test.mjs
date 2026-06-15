@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -9,6 +10,20 @@ const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 
 function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
+}
+
+function extractBlockBody(source, signature) {
+  const start = source.indexOf(signature);
+  assert.ok(start >= 0, `expected signature to exist: ${signature}`);
+  let depth = 1;
+  const bodyStart = start + signature.length;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") depth -= 1;
+    if (depth === 0) return source.slice(bodyStart, index);
+  }
+  assert.fail(`expected block body to close: ${signature}`);
 }
 
 test("prototype exposes a system messages entry and history modal", () => {
@@ -63,6 +78,70 @@ test("system messages are persisted, readable, and actionable", () => {
   assert.match(source, /action === "open-ai-inbox"/);
   assert.match(source, /function aiInboxFiltersForSystemMessage\(message = \{\}\)/);
   assert.match(source, /const messageFilters = aiInboxFiltersForSystemMessage\(message\)/);
+});
+
+test("system message note actions report missing notes instead of optimistic success", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const openNoteStart = source.indexOf("function openNoteById(id, options = {}) {");
+  const openNoteEnd = source.indexOf("function openNoteRelationEditor", openNoteStart);
+  const openNoteHelper = source.slice(openNoteStart, openNoteEnd);
+
+  assert.ok(openNoteStart >= 0 && openNoteEnd > openNoteStart, "expected openNoteById() to exist");
+  assert.match(openNoteHelper, /const note = state\.notes\.find\(\(n\) => n\.id === id\)/);
+  assert.match(openNoteHelper, /if \(!note\) return false/);
+
+  const modalStart = source.indexOf('$("systemMessageModal")?.addEventListener("click"');
+  const modalEnd = source.indexOf('$("distillationPanel")?.addEventListener', modalStart);
+  const modalHandler = source.slice(modalStart, modalEnd);
+
+  assert.ok(modalStart >= 0 && modalEnd > modalStart, "expected system message modal handler");
+  assert.match(modalHandler, /if \(action === "open-note"\)/);
+  assert.match(modalHandler, /const opened = openNoteById\(message\.noteId, \{ preferTitleSelection: false \}\)/);
+  assert.match(modalHandler, /if \(opened\) \{[\s\S]*?closeSystemMessages\(\);[\s\S]*?activateModule\("explorer"\);[\s\S]*?\}/);
+  assert.match(modalHandler, /setStatus\(opened \? "[^"]+" : "[^"]+", opened \? "ok" : "warn"\)/);
+});
+
+test("system message note action keeps the modal open when the target note is missing", async () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const handlerBody = extractBlockBody(source, '$("systemMessageModal")?.addEventListener("click", async (event) => {');
+  const calls = [];
+  const statuses = [];
+  const context = {
+    selectedSystemMessageId: "",
+    systemMessages: [{ id: "message-1", action: "open-note", noteId: "missing-note", read: false }],
+    aiInboxState: {},
+    closeSystemMessages: () => calls.push("closeSystemMessages"),
+    activateModule: (module) => calls.push(`activateModule:${module}`),
+    openNoteById: (noteId) => {
+      calls.push(`openNoteById:${noteId}`);
+      return false;
+    },
+    persistSystemMessages: () => calls.push("persistSystemMessages"),
+    openAiInboxModule: async () => calls.push("openAiInboxModule"),
+    aiInboxFiltersForSystemMessage: () => null,
+    openSystemMessageWorkflow: async () => false,
+    setStatus: (message, type) => statuses.push({ message, type }),
+    renderSystemMessages: () => calls.push("renderSystemMessages")
+  };
+  const handler = vm.runInNewContext(`(async (event) => {${handlerBody}})`, context);
+  const actionButton = {
+    dataset: {
+      systemMessageId: "message-1",
+      systemMessageAction: "open-note"
+    }
+  };
+  const event = {
+    target: {
+      id: "",
+      closest: (selector) => (selector === "[data-system-message-action]" ? actionButton : null)
+    }
+  };
+
+  await handler(event);
+
+  assert.deepEqual(calls, ["persistSystemMessages", "openNoteById:missing-note"]);
+  assert.equal(context.systemMessages[0].read, true);
+  assert.deepEqual(statuses, [{ message: "没有找到这条系统消息对应的笔记", type: "warn" }]);
 });
 
 test("system message AI review action defaults to global pending filters", () => {
