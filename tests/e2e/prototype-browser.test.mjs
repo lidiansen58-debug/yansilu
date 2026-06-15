@@ -1163,12 +1163,15 @@ test("prototype editor inserts Chinese text at the clicked permanent-note field 
     assert.doesNotMatch(editorValue, /^- 来自哪条文献/m);
   }, 7000);
 
-  const visibleParagraphs = page.locator("#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents p");
+  const coreClaimParagraph = page.locator(
+    "#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents p",
+    { hasText: "写成一句可被反驳、可被引用、值得保留的判断。" }
+  );
   await waitFor(async () => {
-    assert.ok((await visibleParagraphs.count()) >= 5);
+    assert.equal(await coreClaimParagraph.count(), 1);
   }, 7000);
 
-  await visibleParagraphs.nth(0).click();
+  await coreClaimParagraph.click();
   await page.keyboard.type("中文观点不会跑到末尾");
 
   await waitFor(async () => {
