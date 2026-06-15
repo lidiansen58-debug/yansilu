@@ -2193,6 +2193,7 @@ export class EditorPane {
     onOpenNote,
     onChromeChange,
     resolveNoteWritingContinuation,
+    notifyWorkflowReminder,
     selectPermanentDirectory,
     resolveLiteratureSectionLabels,
     resolveLiteratureSectionLabelCandidates
@@ -2206,6 +2207,7 @@ export class EditorPane {
     this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
     this.resolveNoteWritingContinuation =
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
+    this.notifyWorkflowReminder = typeof notifyWorkflowReminder === "function" ? notifyWorkflowReminder : () => {};
     this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
     this.resolveLiteratureSectionLabels =
       typeof resolveLiteratureSectionLabels === "function" ? resolveLiteratureSectionLabels : () => ({});
@@ -6696,7 +6698,9 @@ export class EditorPane {
       const tab = this.activeTab();
       if (note?.id === noteId && tab) {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
-        this.refreshMainPathSection(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations, relationState: "loaded" }));
+        const overview = this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations, relationState: "loaded" });
+        this.refreshMainPathSection(note, overview);
+        this.notifyWorkflowReminder({ kind: "relation-network", note, overview });
         this.refreshInspectorLinkSummaryNote();
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");

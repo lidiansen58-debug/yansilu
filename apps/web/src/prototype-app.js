@@ -1183,17 +1183,32 @@ function normalizeSystemMessage(item = {}) {
   const aiInboxFilters = item.aiInboxFilters && typeof item.aiInboxFilters === "object" && !Array.isArray(item.aiInboxFilters)
     ? normalizeAiInboxFilters(item.aiInboxFilters)
     : null;
+  const workflowRoute = item.workflowRoute && typeof item.workflowRoute === "object" && !Array.isArray(item.workflowRoute)
+    ? {
+        module: String(item.workflowRoute.module || "explorer").trim() || "explorer",
+        focus: String(item.workflowRoute.focus || "").trim(),
+        mode: String(item.workflowRoute.mode || "").trim(),
+        relationAction: String(item.workflowRoute.relationAction || "").trim(),
+        source: String(item.workflowRoute.source || "").trim()
+      }
+    : null;
   return {
     id,
     createdAt,
     type: String(item.type || "system").trim() || "system",
+    category: String(item.category || "").trim(),
     title: String(item.title || "系统消息").trim() || "系统消息",
     body: String(item.body || "").trim(),
     action: String(item.action || "").trim(),
     actionLabel: String(item.actionLabel || "").trim(),
     noteId: String(item.noteId || "").trim(),
+    sourceNoteId: String(item.sourceNoteId || item.source_note_id || "").trim(),
+    targetNoteId: String(item.targetNoteId || item.target_note_id || "").trim(),
+    dedupeKey: String(item.dedupeKey || item.dedupe_key || "").trim(),
+    resolvedAt: String(item.resolvedAt || item.resolved_at || "").trim(),
     artifactCount: Math.max(0, Number(item.artifactCount || 0) || 0),
     ...(aiInboxFilters ? { aiInboxFilters } : {}),
+    ...(workflowRoute ? { workflowRoute } : {}),
     read: item.read === true
   };
 }
@@ -1216,9 +1231,11 @@ function persistSystemMessages() {
 }
 
 function systemMessageActionLabel(message = {}) {
+  if (message.resolvedAt) return "";
   if (message.actionLabel) return message.actionLabel;
   if (message.action === "open-ai-inbox") return "查看 AI 建议复核";
   if (message.action === "open-note") return "打开笔记";
+  if (message.action === "open-note-workflow") return "打开并处理";
   return "";
 }
 
@@ -1269,7 +1286,7 @@ function renderSystemMessages() {
   const actionLabel = systemMessageActionLabel(selectedMessage);
   detail.innerHTML = `
     <article class="system-message-detail-card" data-system-message-detail-id="${escapeHtml(selectedMessage.id)}">
-      <div class="system-message-detail-kicker">${selectedMessage.read ? "已读" : "未读"}</div>
+      <div class="system-message-detail-kicker">${selectedMessage.resolvedAt ? "已完成" : selectedMessage.read ? "已读" : "未读"}</div>
       <h3>${escapeHtml(selectedMessage.title)}</h3>
       <div class="system-message-body">${escapeHtml(selectedMessage.body || "没有更多内容。")}</div>
       <div class="system-message-meta">${escapeHtml(new Date(selectedMessage.createdAt).toLocaleString())}</div>
@@ -1321,6 +1338,41 @@ function addSystemMessage(message = {}, { interrupt = false } = {}) {
   renderSystemMessages();
   if (interrupt) openSystemMessages({ latestOnly: true });
   return normalized;
+}
+
+function upsertSystemMessage(message = {}, { interrupt = false, preserveRead = true } = {}) {
+  const requested = normalizeSystemMessage(message);
+  const existing = systemMessages.find((item) => item.id === requested.id || (requested.dedupeKey && item.dedupeKey === requested.dedupeKey));
+  const reactivated = Boolean(existing?.resolvedAt && !requested.resolvedAt);
+  const normalized = normalizeSystemMessage({
+    ...(existing || {}),
+    ...requested,
+    id: existing?.id || requested.id,
+    createdAt: existing?.createdAt || requested.createdAt,
+    read: reactivated ? false : preserveRead && existing ? existing.read === true : requested.read === true
+  });
+  systemMessages = [normalized, ...systemMessages.filter((item) => item.id !== normalized.id)].slice(0, SYSTEM_MESSAGES_LIMIT);
+  if (interrupt || !selectedSystemMessageId) selectedSystemMessageId = normalized.id;
+  persistSystemMessages();
+  renderSystemMessages();
+  if (interrupt) openSystemMessages({ latestOnly: true });
+  return normalized;
+}
+
+function resolveSystemMessageByDedupeKey(dedupeKey = "") {
+  const cleanKey = String(dedupeKey || "").trim();
+  if (!cleanKey) return null;
+  const existing = systemMessages.find((item) => item.dedupeKey === cleanKey);
+  if (!existing || existing.resolvedAt) return existing || null;
+  const resolved = normalizeSystemMessage({
+    ...existing,
+    read: true,
+    resolvedAt: new Date().toISOString()
+  });
+  systemMessages = systemMessages.map((item) => (item.id === resolved.id ? resolved : item));
+  persistSystemMessages();
+  renderSystemMessages();
+  return resolved;
 }
 
 function aiInboxFiltersForSystemMessage(message = {}) {
@@ -6710,6 +6762,84 @@ function saveAiSuggestionForNote(note = null) {
   }
 
   return null;
+}
+
+function workflowMessageDedupeKey(noteId = "", category = "", focus = "") {
+  return [String(category || "").trim(), String(noteId || "").trim(), String(focus || "").trim()].filter(Boolean).join(":");
+}
+
+function sourcePromotionWorkflowMessageForNote(note = null, suggestion = null) {
+  if (!note?.id || !isOriginalRecordableSource(note) || noteHasGeneratedOriginal(note)) return null;
+  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
+  const focus = "record-permanent";
+  const dedupeKey = workflowMessageDedupeKey(note.id, "source-promotion", focus);
+  const isLiterature = noteType === "literature";
+  const actionLabel = isLiterature ? "提炼为永久笔记" : "提炼为永久笔记";
+  const title = isLiterature ? "文献笔记可以进入永久笔记流程" : "随笔可以沉淀为永久笔记";
+  const body = isLiterature
+    ? `“${note.title || note.id}”已经保存。打开它后可以继续整理来源、转述和判断种子，并把成熟材料提炼为永久笔记。`
+    : `“${note.title || note.id}”已经保存。随笔只是线索；如果它值得长期保留，下一步是把它写成一条自己愿意承担的永久判断。`;
+  return {
+    id: `workflow:${dedupeKey}`,
+    type: "workflow",
+    category: "source-promotion",
+    title,
+    body: suggestion?.text ? `${body}\n\n当前提示：${suggestion.text}` : body,
+    action: "open-note-workflow",
+    actionLabel,
+    noteId: note.id,
+    sourceNoteId: note.id,
+    dedupeKey,
+    workflowRoute: {
+      module: "explorer",
+      focus,
+      source: "system-message"
+    }
+  };
+}
+
+function syncSourcePromotionSystemMessageForNote(note = null, suggestion = null) {
+  if (!note?.id || !isOriginalRecordableSource(note)) return null;
+  const dedupeKey = workflowMessageDedupeKey(note.id, "source-promotion", "record-permanent");
+  if (noteHasGeneratedOriginal(note)) return resolveSystemMessageByDedupeKey(dedupeKey);
+  const message = sourcePromotionWorkflowMessageForNote(note, suggestion);
+  if (!message) return null;
+  return upsertSystemMessage(message, { preserveRead: true });
+}
+
+function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {
+  if (!note?.id || !isPermanentLikeNote(note)) return null;
+  if (distillationStatusOf(note) !== "confirmed") return null;
+  const relationState = String(overview?.relationState || "").trim().toLowerCase();
+  const explicitRelationCount = Number(overview?.explicitRelationCount || 0) || 0;
+  const dedupeKey = workflowMessageDedupeKey(note.id, "relation-network", "relations");
+  if (relationState === "loaded" && explicitRelationCount > 0) {
+    return { resolved: true, dedupeKey };
+  }
+  if (relationState && relationState !== "loaded") return null;
+  return {
+    id: `workflow:${dedupeKey}`,
+    type: "workflow",
+    category: "relation-network",
+    title: "永久笔记还没有进入图谱",
+    body: `“${note.title || note.id}”已经是一条永久笔记，但还没有显式关系。打开它后先补一条支持、反驳、限定或桥接关系；如果暂时独立，也在边界里写下理由。`,
+    action: "open-note-workflow",
+    actionLabel: "补第一条关系",
+    noteId: note.id,
+    dedupeKey,
+    workflowRoute: {
+      module: "explorer",
+      focus: "relations",
+      source: "system-message"
+    }
+  };
+}
+
+function syncRelationNetworkSystemMessageForNote(note = null, overview = {}) {
+  const message = relationNetworkWorkflowMessageForNote(note, overview);
+  if (!message) return null;
+  if (message.resolved) return resolveSystemMessageByDedupeKey(message.dedupeKey);
+  return upsertSystemMessage(message, { preserveRead: true });
 }
 
 function clearSaveAiSuggestion() {
@@ -16828,6 +16958,55 @@ function openNoteRelationEditor(noteId = "", options = {}) {
   return true;
 }
 
+async function openRecordPermanentWorkflowFromCurrentNote(options = {}) {
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(0, options.timeoutMs) : 600;
+  const intervalMs = Number.isFinite(options.intervalMs) ? Math.max(10, options.intervalMs) : 50;
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= timeoutMs) {
+    const button = editor?.els?.recordPermanent;
+    if (button && !button.disabled) {
+      button.click?.();
+      return true;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
+  }
+  setStatus("当前笔记暂时不能创建永久笔记", "warn", { requireModule: "explorer" });
+  return false;
+}
+
+async function openSystemMessageWorkflow(message = {}) {
+  const noteId = String(message.noteId || message.sourceNoteId || "").trim();
+  if (!noteId) return false;
+  if (!state.notes.some((note) => note.id === noteId)) return false;
+  const route = message.workflowRoute && typeof message.workflowRoute === "object" ? message.workflowRoute : {};
+  const focus = String(route.focus || "").trim();
+  if (focus === "relations") {
+    closeSystemMessages();
+    return openNoteRelationEditor(noteId, { source: route.source || "system-message" });
+  }
+  if (focus === "boundary") {
+    closeSystemMessages();
+    return openGraphFollowupNote(noteId, "isolate-hold", { source: route.source || "system-message" });
+  }
+  if (focus === "distillation") {
+    closeSystemMessages();
+    const opened = await handleStateChange("open-note-main-route", {
+      noteId,
+      action: "writing",
+      mode: route.mode || "distillation"
+    });
+    return Boolean(opened);
+  }
+  closeSystemMessages();
+  activateModule("explorer");
+  const opened = openNoteById(noteId, { preferTitleSelection: false });
+  if (!opened) return false;
+  if (focus === "record-permanent") {
+    return openRecordPermanentWorkflowFromCurrentNote();
+  }
+  return true;
+}
+
 function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   const cleanNoteId = String(noteId || "").trim();
   const cleanAction = String(action || "").trim().toLowerCase();
@@ -17336,6 +17515,7 @@ async function handleStateChange(reason, payload = {}) {
           const nextSourceBody = withGeneratedOriginalMarker(sourceBodyWithVisibleReference, note.id);
         sourceNote.body = nextSourceBody;
         sourceNote.generatedOriginalNoteId = note.id;
+        syncSourcePromotionSystemMessageForNote(sourceNote);
         sourceNote.tags = parseTags(nextSourceBody);
         sourceNote.links = parseLinks(nextSourceBody);
         sourceNote.updatedAt = new Date().toISOString();
@@ -17720,7 +17900,8 @@ async function handleStateChange(reason, payload = {}) {
           }
           syncExplorerContextToNote(note);
           setStatus("已同步到 Markdown", "ok");
-          showSaveAiSuggestionForNote(note);
+          const suggestion = showSaveAiSuggestionForNote(note);
+          syncSourcePromotionSystemMessageForNote(note, suggestion);
           if (state.module === "graph") await refreshDirectoryGraph();
 	        } catch (error) {
             const feedback = noteSaveFailureFeedback(error);
@@ -18031,6 +18212,11 @@ const editor = new EditorPane({
   onStateChange: handleStateChange,
   onOpenNote: openNoteById,
   resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
+  notifyWorkflowReminder: (event = {}) => {
+    if (event?.kind === "relation-network") {
+      syncRelationNetworkSystemMessageForNote(event.note, event.overview);
+    }
+  },
   selectPermanentDirectory,
   resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
   resolveLiteratureSectionLabelCandidates: literatureTemplateSectionLabelCandidates,
@@ -20335,6 +20521,12 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
       setStatus("已打开这条系统消息对应的笔记", "ok");
       return;
     }
+  }
+  if (action === "open-note-workflow") {
+    const message = systemMessages.find((item) => item.id === messageId) || null;
+    const opened = await openSystemMessageWorkflow(message || {});
+    setStatus(opened ? "已打开这条系统消息对应的后续操作" : "没有找到这条系统消息对应的笔记", opened ? "ok" : "warn");
+    return;
   }
   renderSystemMessages();
 });
