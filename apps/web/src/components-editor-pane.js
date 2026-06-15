@@ -211,6 +211,52 @@ function renderDistillationQualityContent(note = {}) {
   `;
 }
 
+function distillationNextStepGuide(note = {}) {
+  const thesis = String(note?.thesis || "").trim();
+  const summary = [0, 1, 2].map((idx) => String((note?.threeLineSummary || [])[idx] || "").trim());
+  const boundary = String(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "").trim();
+  const status = String(note?.distillationStatus || "").trim().toLowerCase();
+
+  if (!thesis) {
+    return {
+      key: "thesis",
+      title: "先把这条笔记变成一句判断",
+      body: "不要急着建关系。先写出一个可以被反驳、可以被复用的主张，图谱和写作才知道这条笔记在表达什么。",
+      actionLabel: "写一句判断"
+    };
+  }
+  if (summary.some((line) => !line)) {
+    return {
+      key: `summary${Math.max(1, summary.findIndex((line) => !line) + 1)}`,
+      title: "把判断压成三句话",
+      body: "三句话分别回答：它说什么、为什么成立或重要、服务于哪个问题或写作方向。",
+      actionLabel: "补三句话"
+    };
+  }
+  if (!boundary) {
+    return {
+      key: "boundary",
+      title: "补边界或反例",
+      body: "一条能写作的观点需要知道自己在哪里不成立。先补适用条件、反方或最容易误用的地方。",
+      actionLabel: "补边界/反例"
+    };
+  }
+  if (status !== "confirmed") {
+    return {
+      key: "confirm",
+      title: "确认这条观点",
+      body: "判断、三句话和边界已经具备。确认后，它就可以更稳定地进入图谱关系、主题索引和写作篮。",
+      actionLabel: "确认观点"
+    };
+  }
+  return {
+    key: "relations",
+    title: "观点已确认，继续看关系",
+    body: "下一步在图谱或关系区里判断它应该连接到谁。连接理由写清楚后，写作中心会更容易复用。",
+    actionLabel: "去看关系"
+  };
+}
+
 const LITERATURE_SECTION_ALIASES = {
   supportsJudgment: ["支持判断"],
   boundary: ["边界/反例", "边界与反例", "不适用范围"]
@@ -7960,18 +8006,44 @@ export class EditorPane {
     const filledCount = (thesis ? 1 : 0) + summaryLines.filter(Boolean).length;
     const statusLabel = String(note.distillationStatus || "").trim() || (filledCount ? "draft" : "missing");
     const statusValue = ["missing", "draft", "confirmed"].includes(statusLabel) ? statusLabel : filledCount ? "draft" : "missing";
+    const nextGuide = distillationNextStepGuide({
+      ...note,
+      thesis,
+      threeLineSummary: summaryLines,
+      boundaryOrCounterpoint,
+      distillationStatus: statusValue
+    });
+    const distillationPathState =
+      nextGuide.key === "thesis" || nextGuide.key.startsWith("summary")
+        ? "note"
+        : nextGuide.key === "boundary"
+          ? "writing"
+          : "graph";
     const directEvidenceCount = parseLinks(note.body || "").length;
     const writingReady = statusValue === "confirmed" && !qualityWarnings.length;
     return `
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
-        <div class="inspector-section-head">
-          <div>
-            <div class="inspector-section-title">观点提纯</div>
-            <div class="inspector-section-note">手写优先；AI 候选只作为待审建议，不会替你确认判断。</div>
+          <div class="inspector-section-head">
+            <div>
+              <div class="inspector-section-title">观点提纯</div>
+              <div class="inspector-section-note">把笔记先压成可确认的判断，再进入图谱连接和写作准备；AI 候选只作为待审建议。</div>
+            </div>
+            <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
           </div>
-          <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
-        </div>
         <form class="semantic-relation-form" data-note-distillation-form>
+          <div class="distillation-next-card" data-note-distillation-next>
+            <div>
+              <span>当前下一步</span>
+              <strong>${escapeHtml(nextGuide.title)}</strong>
+              <p>${escapeHtml(nextGuide.body)}</p>
+            </div>
+            <button class="mini-btn primary" type="button" data-note-distillation-focus="${escapeHtml(nextGuide.key)}">${escapeHtml(nextGuide.actionLabel)}</button>
+          </div>
+          <div class="distillation-path-strip" aria-label="思想提纯如何接入图谱和写作">
+            <span class="${distillationPathState === "note" ? "is-current" : "is-done"}">笔记内成观点</span>
+            <span class="${distillationPathState === "graph" ? "is-current" : statusValue === "confirmed" ? "is-done" : ""}">图谱里补关系</span>
+            <span class="${distillationPathState === "writing" ? "is-current" : writingReady ? "is-done" : ""}">写作前看边界</span>
+          </div>
           <div class="semantic-relation-group">
             <div class="semantic-relation-group-head"><strong>提纯工作区</strong><span>${escapeHtml(statusValue === "confirmed" ? "稳定" : "进行中")}</span></div>
             <div class="semantic-relation-grid">
@@ -7986,10 +8058,12 @@ export class EditorPane {
           ${this.renderRelationNetworkPrompt(note)}
           <label>
             一句话判断
+            <span class="distillation-field-hint">写成“我认为 X，因为 Y”，而不是把标题重复一遍。</span>
             <textarea name="thesis" rows="3" placeholder="这条永久笔记到底主张什么？">${escapeHtml(thesis)}</textarea>
           </label>
           <label>
             三句话压缩
+            <span class="distillation-field-hint">第一句说观点，第二句说理由，第三句说用途或问题方向。</span>
             <textarea name="summary1" rows="2" placeholder="1. 这条观点在说什么">${escapeHtml(summaryLines[0])}</textarea>
           </label>
           <label>
@@ -8007,6 +8081,7 @@ export class EditorPane {
           )}
           <label>
             边界 / 反方 / 不适用条件
+            <span class="distillation-field-hint">补一条会让这条判断失效的条件，图谱里的冲突和写作反驳会更稳。</span>
             <textarea name="boundaryOrCounterpoint" rows="3" placeholder="这条判断在哪些条件下不成立？最需要防的反例或反方是什么？">${escapeHtml(boundaryOrCounterpoint)}</textarea>
           </label>
           <label>
@@ -9271,6 +9346,32 @@ export class EditorPane {
       const aiAnalysisInboxButton = e.target.closest("[data-note-ai-analysis-open-inbox]");
       if (aiAnalysisInboxButton) {
         this.openPermanentNoteAiInbox();
+        return;
+      }
+
+      const distillationFocusButton = e.target.closest("[data-note-distillation-focus]");
+      if (distillationFocusButton) {
+        const target = String(distillationFocusButton.dataset.noteDistillationFocus || "").trim();
+        if (target === "confirm") {
+          void this.confirmDistillation();
+          return;
+        }
+        if (target === "relations") {
+          this.jumpToInspectorSection("[data-note-relations-section]");
+          return;
+        }
+        const focusSelector =
+          target === "boundary"
+            ? '[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]'
+            : target === "summary2" || target === "summary3"
+              ? `[data-note-distillation-form] textarea[name="${target}"]`
+              : target === "summary1"
+                ? '[data-note-distillation-form] textarea[name="summary1"]'
+                : '[data-note-distillation-form] textarea[name="thesis"]';
+        this.jumpToInspectorSection("[data-note-distillation-section]", {
+          focus: true,
+          focusSelector
+        });
         return;
       }
 

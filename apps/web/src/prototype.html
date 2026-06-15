@@ -9482,6 +9482,73 @@
       justify-content: flex-start;
       flex-wrap: wrap;
     }
+    .distillation-next-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid rgba(15, 118, 110, 0.24);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(15, 118, 110, 0.12), transparent 26px),
+        #f7fcfa;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    }
+    .distillation-next-card span,
+    .distillation-field-hint {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+    .distillation-next-card strong {
+      display: block;
+      margin-top: 2px;
+      color: #10202a;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .distillation-next-card p {
+      margin: 4px 0 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .distillation-next-card .mini-btn {
+      min-height: 34px;
+      white-space: nowrap;
+    }
+    .distillation-path-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .distillation-path-strip span {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 8px;
+      border: 1px solid #dfe8f1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.35;
+      text-align: center;
+    }
+    .distillation-path-strip span.is-current {
+      border-color: rgba(180, 83, 9, 0.32);
+      background: #fffaf0;
+      color: #9a5312;
+    }
+    .distillation-path-strip span.is-done {
+      border-color: rgba(15, 118, 110, 0.28);
+      background: #f0fdfa;
+      color: #0f766e;
+    }
     .semantic-relation-group-head {
       display: flex;
       align-items: center;
@@ -9521,6 +9588,9 @@
       font-size: 11px;
       font-weight: 800;
       line-height: 1.35;
+    }
+    .semantic-relation-form label .distillation-field-hint {
+      font-weight: 600;
     }
     .semantic-relation-form select,
     .semantic-relation-form input,
@@ -12241,6 +12311,13 @@
       .relation-followup-suggestion,
       .system-message-item {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .distillation-next-card,
+      .distillation-path-strip {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .distillation-next-card .mini-btn {
+        width: 100%;
       }
       .system-message-layout {
         grid-template-columns: minmax(0, 1fr);
