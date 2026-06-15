@@ -188,7 +188,7 @@ test("editor inspector shows source-note promote flow instead of relation panels
   assert.match(pane.els.result.innerHTML, /随笔应定期清理，或沉淀为永久笔记/);
   assert.match(pane.els.result.innerHTML, /data-source-note-action="record-permanent"[\s\S]*>提炼为永久笔记</);
   assert.match(pane.els.result.innerHTML, /data-source-note-action="dismiss-fleeting-cleanup"[\s\S]*>标记稍后清理</);
-  assert.match(pane.els.result.innerHTML, /先选永久笔记盒目录/);
+  assert.match(pane.els.result.innerHTML, /选择保存位置/);
   assert.doesNotMatch(pane.els.result.innerHTML, /建立语义关系/);
   assert.equal(relationRefreshes, 0);
   assert.equal(aiRefreshes, 0);

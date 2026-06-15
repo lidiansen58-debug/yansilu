@@ -47,7 +47,7 @@ export class PermanentNoteDialog {
 
   open({
     modalTitle = "创建永久笔记",
-    modalNote = "先选要放入的永久笔记盒目录，再继续创建。这里只保留对当前操作有帮助的信息。",
+    modalNote = "选择保存位置，然后创建永久笔记。",
     sourceType = "",
     sourceTypeLabel = "",
     sourceTitle = "",
@@ -71,7 +71,7 @@ export class PermanentNoteDialog {
     this.sourceTypeEl.textContent = sourceTypeLabel || "来源笔记";
     this.sourceTypeEl.dataset.sourceType = String(sourceType || "").trim().toLowerCase();
     this.sourceTitleEl.textContent = String(sourceTitle || "").trim() || "未命名笔记";
-    this.sourceHintEl.textContent = sourceHint || "先选一个永久笔记盒目录，再继续创建。";
+    this.sourceHintEl.textContent = sourceHint || "把这条材料写成可长期保留的判断。";
     if (this.directoryLabelEl) this.directoryLabelEl.textContent = directoryLabel;
     this.createEl.textContent = actionLabel;
 
@@ -108,7 +108,7 @@ export class PermanentNoteDialog {
   renderDirectoryHint() {
     const option = this.currentOption();
     this.createEl.disabled = !option;
-    this.directoryHintEl.textContent = option?.hint || "先选一个永久笔记盒目录。";
+    this.directoryHintEl.textContent = option?.hint || "选择保存位置。";
   }
 
   close(result = "") {

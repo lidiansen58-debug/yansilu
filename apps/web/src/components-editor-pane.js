@@ -2415,12 +2415,12 @@ export class EditorPane {
   sourceNotePromotionHint(note = this.activeNote()) {
     const noteType = this.resolvedNoteType(note);
     if (noteType === "literature") {
-      return "先选一个永久笔记盒目录，再把这条文献笔记整理成一条可以独立阅读的判断。";
+      return "选择保存位置，把文献整理成可独立阅读的判断。";
     }
     if (noteType === "fleeting") {
-      return "先选一个永久笔记盒目录，再把这条随笔写成一条自己愿意长期保留的判断。";
+      return "选择保存位置，把随笔写成可长期保留的判断。";
     }
-    return "先选一个永久笔记盒目录，再继续创建永久笔记。";
+    return "选择保存位置，然后创建永久笔记。";
   }
 
   shouldShowFleetingCleanupPrompt(note = this.activeNote()) {
@@ -3648,7 +3648,7 @@ export class EditorPane {
         : completion.hint;
       detail = hasGenerated
         ? "文献笔记继续保留出处和转述，不需要在这里重复处理。"
-        : "先选永久笔记盒目录，再把这条材料写成一条可以独立阅读的判断。";
+        : "选择保存位置，把材料写成可独立阅读的判断。";
     } else {
       hint = hasGenerated
         ? "这条随笔已经对应到一条永久笔记，接下来去那条判断继续完善会更顺。"
@@ -3656,7 +3656,7 @@ export class EditorPane {
       statusLabel = hasGenerated ? "已转为永久笔记" : "随笔待转";
       detail = hasGenerated
         ? "这条随笔会继续保留原始线索，不需要在这里重复整理。"
-        : "先选永久笔记盒目录，再把这条想法写成一条自己愿意长期保留的判断。";
+        : "选择保存位置，把想法写成可长期保留的判断。";
     }
 
     return `

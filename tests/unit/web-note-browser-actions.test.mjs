@@ -792,7 +792,7 @@ test("source-note promote flows no longer ask users to type a directory id", () 
   assert.doesNotMatch(explorerSource, /选择永久笔记目录 ID/);
   assert.doesNotMatch(editorSource, /选择永久笔记目录 ID/);
   assert.match(html, /id="permanentNoteModal"/);
-  assert.match(html, /先选要放入的永久笔记盒目录/);
+  assert.match(html, /选择保存位置，然后创建永久笔记/);
 });
 
 test("note browsers keep richer note actions and thinking badges outside simplified scopes", () => {

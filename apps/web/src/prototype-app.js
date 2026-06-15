@@ -1233,7 +1233,7 @@ function persistSystemMessages() {
 function systemMessageActionLabel(message = {}) {
   if (message.resolvedAt) return "";
   if (message.actionLabel) return message.actionLabel;
-  if (message.action === "open-ai-inbox") return "查看 AI 建议复核";
+  if (message.action === "open-ai-inbox") return "打开待审建议";
   if (message.action === "open-note") return "打开笔记";
   if (message.action === "open-note-workflow") return "打开并处理";
   return "";
@@ -1258,9 +1258,14 @@ function renderSystemMessages() {
   }
   if (!list) return;
   if (!systemMessages.length) {
-    list.innerHTML = `<div class="modal-note">还没有系统消息。运行笔记 AI 分析、图谱初判或计划任务后，待审建议会先到这里。</div>`;
+    list.innerHTML = `<div class="system-message-empty-list">暂无消息</div>`;
     if (detail) {
-      detail.innerHTML = `<div class="modal-note">需要主动检查 AI 候选时，使用下方“查看 AI 建议复核”；没有采纳前，它不会改动笔记或图谱。</div>`;
+      detail.innerHTML = `
+        <article class="system-message-detail-card system-message-empty-card">
+          <h3>暂无需要处理的消息</h3>
+          <div class="system-message-body">AI 分析、图谱扫描或计划任务产生待审内容后，会显示在这里；采纳前不会改动笔记或图谱。</div>
+        </article>
+      `;
     }
     return;
   }
@@ -1305,17 +1310,20 @@ function openSystemMessages({ latestOnly = false } = {}) {
   const note = $("systemMessageModalNote");
   if (note) {
     note.textContent = latestOnly
-      ? "刚刚产生了一条需要你看的 AI 提醒，稍后也可以从系统消息入口回看。"
-      : "AI 建议、关系提醒和系统提示会保留在这里，方便之后回看。";
+      ? "有新的系统消息，处理后仍可在这里回看。"
+      : "AI 建议、关系提醒和系统提示会在这里等待确认。";
   }
   if (latestOnly || !systemMessages.some((message) => message.id === selectedSystemMessageId)) {
     selectedSystemMessageId = systemMessages[0]?.id || "";
   }
+  hideEditorHelper();
+  document.body?.classList.add("system-message-modal-open");
   modal.classList.remove("hidden");
   renderSystemMessages();
 }
 
 function closeSystemMessages() {
+  document.body?.classList.remove("system-message-modal-open");
   $("systemMessageModal")?.classList.add("hidden");
 }
 
@@ -4679,7 +4687,7 @@ async function runDueScheduledTasksFromUi() {
           title: "计划任务产生了待审建议",
           body: `计划任务生成了 ${artifactCount} 条 AI 待审建议。请先在系统消息里查看，再决定是否采纳到笔记或图谱。`,
           action: "open-ai-inbox",
-          actionLabel: "查看 AI 建议复核",
+          actionLabel: "打开待审建议",
           artifactCount,
           aiInboxFilters: { view: "pending", sourceNoteId: "" }
         },
@@ -10430,7 +10438,7 @@ async function prepareWritingStrongModelAnalysis() {
           title: "写作分析产生了待审建议",
           body: `写作强模型分析生成了 ${artifactCount} 条待审建议。请先在系统消息里查看，再决定是否采纳到写作项目。`,
           action: "open-ai-inbox",
-          actionLabel: "查看 AI 建议复核",
+          actionLabel: "打开待审建议",
           artifactCount,
           aiInboxFilters: { view: "pending", type: "all", sourceNoteId: "" }
         },
@@ -16658,7 +16666,7 @@ async function runGraphAiAnalysis() {
         title: "图谱扫描产生了待审建议",
         body: `当前图谱生成了 ${count} 项待审候选。先判断结构是否成立，再决定是否采纳关系、主题或桥接建议。`,
         action: "open-ai-inbox",
-        actionLabel: "查看 AI 建议复核",
+        actionLabel: "打开待审建议",
         artifactCount: count,
         aiInboxFilters: { view: "pending", sourceNoteId: "" }
       });
@@ -17627,7 +17635,7 @@ async function handleStateChange(reason, payload = {}) {
               ? `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议，其中包含潜在关联建议。请先审阅理由，再决定是否采纳。`
               : `“${noteTitle}”有 ${artifactCount} 条 AI 待审建议。请先审阅，再决定是否采纳。`,
             action: "open-ai-inbox",
-            actionLabel: "查看 AI 建议复核",
+            actionLabel: "打开待审建议",
             noteId,
             artifactCount
           },
@@ -18083,7 +18091,7 @@ async function selectPermanentDirectory({
     sourceType,
     sourceTypeLabel: sourceNoteTypeLabel(sourceType),
     sourceTitle: sourceTitle || sourceNoteId || "未命名笔记",
-    sourceHint: sourceHint || "先选一个永久笔记盒目录，再继续创建。",
+    sourceHint: sourceHint || "选择保存位置，然后创建永久笔记。",
     directoryOptions: options,
     defaultDirectoryId: defaultPermanentDirectoryId(),
     actionLabel: "在这个目录创建"

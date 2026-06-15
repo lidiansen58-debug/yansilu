@@ -1251,6 +1251,18 @@
       overflow: auto;
       padding-right: 2px;
     }
+    .system-message-empty-list {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      color: #64748b;
+      background: #fbfdff;
+      font-size: 13px;
+      font-weight: 700;
+    }
     .system-message-item {
       display: grid;
       gap: 5px;
@@ -1316,6 +1328,10 @@
       border: 1px solid #dbe7ee;
       border-radius: 10px;
       background: #fbfdff;
+    }
+    .system-message-empty-card {
+      min-height: 160px;
+      align-content: center;
     }
     .system-message-detail-card h3 {
       margin: 0;
@@ -12352,6 +12368,9 @@
       overflow: hidden;
       transition: width .16s ease, border-radius .16s ease, padding .16s ease, box-shadow .16s ease;
     }
+    body.system-message-modal-open .editor-helper {
+      display: none !important;
+    }
     .editor-helper:hover,
     .editor-helper:focus-within {
       width: min(332px, calc(100vw - 44px));
@@ -17180,14 +17199,14 @@
     <div class="modal">
       <div class="modal-head" id="systemMessageModalTitle">系统消息</div>
       <div class="modal-body">
-        <div class="modal-note" id="systemMessageModalNote">AI 建议、关系提醒和系统提示会保留在这里，方便之后回看。</div>
+        <div class="modal-note" id="systemMessageModalNote">AI 建议、关系提醒和系统提示会在这里等待确认。</div>
         <div class="system-message-layout">
           <div class="system-message-list" id="systemMessageList" aria-label="系统消息列表" aria-live="polite"></div>
           <div class="system-message-detail" id="systemMessageDetail" aria-label="系统消息详情" aria-live="polite"></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">查看 AI 建议复核</button>
+        <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">打开待审建议</button>
         <button class="mini-btn" id="btnSystemMessageMarkRead" type="button">全部标记已读</button>
         <button class="mini-btn primary" id="btnSystemMessageClose" type="button">关闭</button>
       </div>
@@ -17234,18 +17253,18 @@
     <div class="modal">
       <div class="modal-head" id="permanentNoteModalTitle">创建永久笔记</div>
       <div class="modal-body">
-        <div class="modal-note" id="permanentNoteModalNote">先选要放入的永久笔记盒目录，再继续创建。这里只保留对当前操作有帮助的信息。</div>
+        <div class="modal-note" id="permanentNoteModalNote">选择保存位置，然后创建永久笔记。</div>
         <div class="permanent-note-source-card" id="permanentNoteSourceCard">
           <div class="permanent-note-source-head">
             <span class="permanent-note-source-badge" id="permanentNoteSourceType">来源笔记</span>
             <div class="permanent-note-source-title" id="permanentNoteSourceTitle">未命名笔记</div>
           </div>
-          <div class="permanent-note-source-note" id="permanentNoteSourceHint">先选一个永久笔记盒目录，再继续创建。</div>
+          <div class="permanent-note-source-note" id="permanentNoteSourceHint">把这条材料写成可长期保留的判断。</div>
         </div>
         <div>
           <label for="permanentNoteTargetFolder" id="permanentNoteTargetFolderLabel">永久笔记盒目录</label>
           <select id="permanentNoteTargetFolder"></select>
-          <div class="modal-field-note" id="permanentNoteTargetHint">创建后会直接打开这条永久笔记，继续完善判断。</div>
+          <div class="modal-field-note" id="permanentNoteTargetHint">创建后会直接打开新笔记。</div>
         </div>
       </div>
       <div class="modal-foot">
