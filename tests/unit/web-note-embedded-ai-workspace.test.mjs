@@ -22,7 +22,8 @@ test("embedded note AI workspace renders clear loading, error, and empty states"
 
   const empty = renderNoteEmbeddedAiWorkspace({ items: [] });
   assert.match(empty, /暂时没有待审 AI 建议/);
-  assert.match(empty, /运行上方的 AI 分析/);
+  assert.match(empty, /运行这条笔记的 AI 分析/);
+  assert.match(empty, /data-note-ai-analysis/);
   assert.match(empty, /由你决定是否采纳/);
 });
 

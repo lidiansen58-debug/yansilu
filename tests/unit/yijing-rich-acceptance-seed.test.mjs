@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { getDirectoryGraph } from "../../packages/domain/src/note-catalog-store.mjs";
+import { getDirectoryGraph, getNoteById } from "../../packages/domain/src/note-catalog-store.mjs";
 import { SQLITE_DB_FILES } from "../../packages/domain/src/sqlite-migrations.mjs";
 import { getDraftScaffold, getWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
 import { seedYijingRichAcceptance } from "../../scripts/seed-yijing-rich-acceptance.mjs";
@@ -105,6 +105,13 @@ test("Yijing rich acceptance seed materializes the fixture into a vault idempote
   const graph = await getDirectoryGraph(vaultPath, "dir_yijing_rich_acceptance_original");
   assert.equal(graph.totalNodes, fixture.counts.original_notes);
   assert.equal(graph.totalEdges, fixture.counts.relations);
+
+  const seededPermanent = await getNoteById(vaultPath, "YJ-A02");
+  const sourcePermanent = fixture.original_notes.find((note) => note.id === "YJ-A02");
+  assert.equal(seededPermanent.status, "active");
+  assert.equal(seededPermanent.distillationStatus, "confirmed");
+  assert.deepEqual(seededPermanent.authorship, { user_confirmed: true, ai_assisted: false });
+  assert.equal(seededPermanent.boundaryOrCounterpoint, sourcePermanent.boundary_or_counterpoint);
 
   const project = await getWritingProject(vaultPath, "wp_yj_answer_machine");
   assert.equal(project.title, "为什么《易经》不是答案机器");

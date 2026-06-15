@@ -92,7 +92,10 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
   if (!items.length) {
     return `
       <div class="related-empty">
-        这条笔记暂时没有待审 AI 建议。可以先运行上方的 AI 分析；生成的候选会留在这里，由你决定是否采纳。
+        这条笔记暂时没有待审 AI 建议。可以先运行这条笔记的 AI 分析；生成的候选会留在这里，由你决定是否采纳。
+        <div class="semantic-relation-actions">
+          <button class="mini-btn" type="button" data-note-ai-analysis>运行这条笔记的 AI 分析</button>
+        </div>
       </div>
     `;
   }

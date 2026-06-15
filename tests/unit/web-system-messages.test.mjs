@@ -54,6 +54,8 @@ test("system messages are persisted, readable, and actionable", () => {
   assert.match(source, /selectedSystemMessageId = String\(selectButton\.dataset\.systemMessageSelect \|\| ""\)\.trim\(\)/);
   assert.match(source, /function markSystemMessagesRead\(\)/);
   assert.match(source, /const systemMessageLabel = "系统消息与 AI 建议"/);
+  assert.match(source, /运行笔记 AI 分析、图谱初判或计划任务后，待审建议会先到这里/);
+  assert.match(source, /没有采纳前，它不会改动笔记或图谱/);
   assert.match(source, /button\.setAttribute\("aria-label", unreadCount \? `\$\{systemMessageLabel\}，\$\{unreadCount\} 条未读` : systemMessageLabel\)/);
   assert.match(source, /markReadButton\.disabled = unreadCount === 0/);
   assert.match(source, /systemMessagesButton"\)\?\.addEventListener\("click"/);

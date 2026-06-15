@@ -160,11 +160,25 @@ async function upsertNote(vaultPath, note, counters) {
     status: note.status || "draft"
   };
   if (noteType === "permanent") {
+    const threeLineSummary = note.threeLineSummary || note.three_line_summary || [];
+    const boundaryOrCounterpoint = cleanText(note.boundaryOrCounterpoint || note.boundary_or_counterpoint);
+    const authorship = note.authorship || { user_confirmed: true, ai_assisted: false };
+    const requestedDistillationStatus = cleanText(note.distillationStatus || note.distillation_status);
+    const readyToConfirm =
+      authorship?.user_confirmed === true &&
+      cleanText(note.thesis) &&
+      Array.isArray(threeLineSummary) &&
+      threeLineSummary.filter((line) => cleanText(line)).length >= 3 &&
+      boundaryOrCounterpoint;
     payload.thesis = note.thesis || "";
-    payload.threeLineSummary = note.threeLineSummary || note.three_line_summary || [];
-    payload.distillationStatus = "draft";
+    payload.threeLineSummary = threeLineSummary;
+    payload.boundaryOrCounterpoint = boundaryOrCounterpoint;
     payload.originalityStatus = note.originality_status || "pass";
-    payload.authorship = note.authorship || { user_confirmed: true, ai_assisted: false };
+    payload.authorship = authorship;
+    payload.distillationStatus = requestedDistillationStatus || (readyToConfirm ? "confirmed" : "draft");
+    if (payload.originalityStatus === "pass" && authorship?.user_confirmed === true) {
+      payload.status = "active";
+    }
   }
 
   const existing = await getExistingNote(vaultPath, note.id);

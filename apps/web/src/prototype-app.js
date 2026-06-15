@@ -1241,9 +1241,9 @@ function renderSystemMessages() {
   }
   if (!list) return;
   if (!systemMessages.length) {
-    list.innerHTML = `<div class="modal-note">还没有系统消息。AI 提醒、关系建议和重要状态会出现在这里。</div>`;
+    list.innerHTML = `<div class="modal-note">还没有系统消息。运行笔记 AI 分析、图谱初判或计划任务后，待审建议会先到这里。</div>`;
     if (detail) {
-      detail.innerHTML = `<div class="modal-note">选择一条系统消息后，这里会显示完整内容。</div>`;
+      detail.innerHTML = `<div class="modal-note">需要主动检查 AI 候选时，使用下方“查看 AI 建议复核”；没有采纳前，它不会改动笔记或图谱。</div>`;
     }
     return;
   }
@@ -15272,7 +15272,7 @@ function renderRelationReviewQueueSection(reviewQueue, options = {}) {
                       const relationGroup = graphRelationGroupMeta(item.relationType);
                       return `
                         <div class="graph-review-card" role="button" tabindex="0" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">
-                          <button class="graph-review-action mini-btn" type="button" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}" aria-label="补关系理由：${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}" title="补关系理由">补理由</button>
+                          <button class="graph-review-action mini-btn" type="button" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}" aria-label="补关系理由：${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}" title="补关系理由"><span>去补关系理由</span></button>
                           <span class="graph-review-main">
                             <span class="graph-review-title">${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}</span>
                             <span class="graph-review-meta">
@@ -16623,7 +16623,11 @@ async function importYijingRichAcceptanceDemo(options = {}) {
       resetGraphDemoPresentationState();
     }
     await refreshDirectoryGraph();
-    renderAll();
+    if (startup) {
+      activateModule("graph");
+    } else {
+      renderAll();
+    }
     const counts = result?.counts || {};
     const summary = result?.summary || {};
     const noteCount = counts.original_notes || summary.createdNotes || summary.updatedNotes || 0;
