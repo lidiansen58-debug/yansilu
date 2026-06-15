@@ -635,7 +635,7 @@ async function focusEditorContent(page) {
 async function waitForEditableNoteSurface(page) {
   await page.waitForFunction(() => {
     const source = document.querySelector("#editorHost .cm-content");
-    const rich = document.querySelector("#wysiwygHost .toastui-editor-contents");
+    const rich = document.querySelector("#wysiwygHost .ProseMirror.toastui-editor-contents");
     const isVisible = (node) =>
       Boolean(
         node &&
@@ -1135,6 +1135,51 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
     assert.match(editorValue, /## 边界 \/ 反例/);
     assert.match(editorValue, /## 关联线索/);
     assert.match(tabTitle || "", /Immediate Title/);
+  }, 7000);
+});
+
+test("prototype editor inserts Chinese text at the clicked permanent-note field instead of the file tail", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.locator("#btnNewNote").click();
+  await ensureNoteMode(page);
+  await waitForActiveNoteBodyLoaded(page);
+  await waitForEditableNoteSurface(page);
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /## 核心观点\n\n写成一句可被反驳、可被引用、值得保留的判断。/);
+    assert.doesNotMatch(editorValue, /^> 写成一句/m);
+    assert.doesNotMatch(editorValue, /^- 来自哪条文献/m);
+  }, 7000);
+
+  const visibleParagraphs = page.locator("#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents p");
+  await waitFor(async () => {
+    assert.ok((await visibleParagraphs.count()) >= 5);
+  }, 7000);
+
+  await visibleParagraphs.nth(0).click();
+  await page.keyboard.type("中文观点不会跑到末尾");
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    const insertedAt = editorValue.indexOf("中文观点不会跑到末尾");
+    const whyTrueAt = editorValue.indexOf("## 为什么成立");
+    const boundaryAt = editorValue.indexOf("## 边界 / 反例");
+    assert.ok(insertedAt > editorValue.indexOf("## 核心观点"), editorValue);
+    assert.ok(insertedAt > 0 && insertedAt < whyTrueAt, editorValue);
+    assert.ok(boundaryAt > insertedAt, editorValue);
+    assert.doesNotMatch(editorValue.slice(boundaryAt), /中文观点不会跑到末尾/);
   }, 7000);
 });
 

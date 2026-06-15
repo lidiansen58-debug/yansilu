@@ -1437,6 +1437,31 @@ function defaultPermanentTemplateSource(title = "{{title}}") {
     "",
     "## 核心观点",
     "",
+    "写成一句可被反驳、可被引用、值得保留的判断。",
+    "## 为什么成立",
+    "",
+    "说明这条判断依赖的理由、证据或经验。",
+    "## 证据 / 来源",
+    "",
+    "来自哪条文献笔记、经验、案例或观察？",
+    "",
+    "## 关联线索",
+    "",
+    "它连接到哪些已有笔记、主题或写作项目？",
+    "",
+    "## 边界 / 反例",
+    "",
+    "这条判断在什么条件下不成立？",
+    ""
+  ].join("\n");
+}
+
+function legacyPermanentTemplateSource(title = "{{title}}") {
+  return [
+    `# ${String(title || "{{title}}").trim() || "{{title}}"}`,
+    "",
+    "## 核心观点",
+    "",
     "> 写成一句可被反驳、可被引用、值得保留的判断。",
     "## 为什么成立",
     "",
@@ -1470,7 +1495,13 @@ function normalizeNoteTemplateSource(text = "", kind = "") {
 function effectiveSavedNoteTemplateSource(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   const savedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
-  if (cleanKind !== "literature") return savedSource;
+  if (cleanKind !== "literature") {
+    const normalizedSaved = savedSource.replace(/\r\n/g, "\n").trim();
+    if (normalizedSaved === legacyPermanentTemplateSource().replace(/\r\n/g, "\n").trim()) {
+      return defaultTemplateSourceForKind(cleanKind);
+    }
+    return savedSource;
+  }
   const validation = validateLiteratureTemplateSource(savedSource);
   return validation.ok ? savedSource : defaultTemplateSourceForKind(cleanKind);
 }
