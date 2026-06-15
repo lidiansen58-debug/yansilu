@@ -2306,9 +2306,15 @@ export class EditorPane {
     const bodySnapshot = String(tab.body || "");
     const titleSnapshot = titleFromBody(bodySnapshot);
     const statusSnapshot = String(note.status || "draft").trim() || "draft";
+    const savingTabId = tab.id;
+    const savingTabIsActive = () => this.state.activeTabId === savingTabId;
+    const setSavingTabUiState = (mode, message = "") => {
+      tab.saveUiState = { mode, message };
+      if (savingTabIsActive()) this.renderSaveHint();
+    };
 
     this.clearAutoSaveTimer();
-    this.setSaveUiState("saving", "当前文件：正在自动同步...");
+    setSavingTabUiState("saving", "当前文件：正在自动同步...");
 
     this.savingPromise = (async () => {
       note.body = bodySnapshot;
@@ -2333,19 +2339,27 @@ export class EditorPane {
       if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
         tab.dirty = true;
         this.writeDraft(tab);
-        this.setSaveUiState(
+        setSavingTabUiState(
           String(saved?.saveMode || "error").trim() || "error",
           String(saved?.saveMessage || "当前文件：同步失败，修改仍保留在编辑器中。")
         );
         return false;
       }
 
-      tab.savedBody = tab.body;
-      tab.savedTitle = tab.title;
+      tab.savedBody = bodySnapshot;
+      tab.savedTitle = titleSnapshot;
       this.syncPlaceholderTitleArmed(tab);
+      if (this.tabBodyChangedSinceSnapshot(tab, bodySnapshot)) {
+        tab.title = titleFromBody(tab.body);
+        this.syncTabDirtyState(tab);
+        if (tab.dirty) this.writeDraft(tab);
+        setSavingTabUiState("dirty", "当前文件：已同步早先修改，仍有未保存编辑");
+        return true;
+      }
+      tab.title = titleSnapshot;
       tab.dirty = false;
       this.clearDraft(tab.noteId);
-      this.setSaveUiState("saved", "当前文件：已自动同步");
+      setSavingTabUiState("saved", "当前文件：已自动同步");
       return true;
     })();
 
@@ -3395,6 +3409,10 @@ export class EditorPane {
     const savedTitle = normalizedNoteTitleText(tab.savedTitle);
     const currentTitle = normalizedNoteTitleText(tab.title);
     tab.dirty = savedBody !== currentBody || savedTitle !== currentTitle;
+  }
+
+  tabBodyChangedSinceSnapshot(tab, bodySnapshot = "") {
+    return normalizedBodyTextForDirtyCheck(tab?.body) !== normalizedBodyTextForDirtyCheck(bodySnapshot);
   }
 
   renderSaveHint() {
@@ -10252,6 +10270,8 @@ export class EditorPane {
     note.updatedAt = new Date().toISOString();
 
     tab.title = note.title;
+    const bodySnapshot = String(note.body || "");
+    const titleSnapshot = String(note.title || titleFromBody(bodySnapshot));
 
     let originality = null;
     let nextStatus = String(note.status || "draft").trim() || "draft";
@@ -10332,8 +10352,10 @@ export class EditorPane {
       );
       return;
     }
+    let savedBody = bodySnapshot;
+    let savedTitle = titleSnapshot;
     if (saved && typeof saved === "object" && String(saved.id || "") === savingNoteId) {
-      const savedBody = typeof saved.body === "string" ? saved.body : tab.body;
+      savedBody = typeof saved.body === "string" ? saved.body : bodySnapshot;
       note.title = saved.title || titleFromBody(savedBody);
       note.body = savedBody;
       note.markdownPath = saved.markdownPath || note.markdownPath;
@@ -10343,12 +10365,23 @@ export class EditorPane {
       note.links = parseLinks(savedBody);
       note.updatedAt = saved.updatedAt || note.updatedAt;
       note.bodyLoaded = true;
-      tab.title = note.title;
-      tab.body = savedBody;
+      savedTitle = note.title;
     }
-    tab.savedBody = tab.body;
-    tab.savedTitle = tab.title;
+    const changedSinceSaveStarted = this.tabBodyChangedSinceSnapshot(tab, bodySnapshot);
+    tab.savedBody = savedBody;
+    tab.savedTitle = savedTitle;
     this.syncPlaceholderTitleArmed(tab);
+    if (changedSinceSaveStarted) {
+      tab.title = titleFromBody(tab.body);
+      this.syncTabDirtyState(tab);
+      if (tab.dirty) this.writeDraft(tab);
+      setSavingTabUiState("dirty", "当前文件：已同步早先修改，仍有未保存编辑");
+      this.renderTabs();
+      this.renderThinkingStatus();
+      return saved || true;
+    }
+    tab.title = savedTitle;
+    tab.body = savedBody;
     tab.dirty = false;
     this.clearDraft(tab.noteId);
     setSavingTabUiState("saved", "当前文件：已自动同步");

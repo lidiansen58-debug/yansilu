@@ -548,6 +548,142 @@ test("saving a note does not repaint the visible editor after switching tabs", a
   assert.equal(tabB.body, noteB.body);
 });
 
+test("saving a note preserves edits typed while the save is still in flight", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const note = {
+    id: "note_inflight",
+    title: "Inflight Note",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    status: "draft",
+    body: "# Inflight Note\n\nold"
+  };
+  const tab = {
+    id: "tab_note_inflight",
+    noteId: note.id,
+    title: note.title,
+    body: "# Inflight Note\n\nfirst edit",
+    savedTitle: note.title,
+    savedBody: note.body,
+    dirty: true,
+    saveUiState: { mode: "dirty", message: "" }
+  };
+  const drafts = [];
+  let repaintedValue = "";
+  let savedPayload = null;
+
+  state.notes = [note];
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.els = {};
+  pane.getEditorValue = () => tab.body;
+  pane.setEditorValue = (value) => {
+    repaintedValue = value;
+  };
+  pane.onStatus = () => {};
+  pane.renderSaveHint = () => {};
+  pane.renderRelated = () => {};
+  pane.renderTabs = () => {};
+  pane.renderThinkingStatus = () => {};
+  pane.writeDraft = (draftTab) => {
+    drafts.push(draftTab.body);
+  };
+  pane.clearDraft = () => {};
+  pane.runOriginalityCheck = async () => {
+    tab.body = "# Inflight Note\n\nsecond edit typed during save";
+    tab.title = "Inflight Note";
+    return { status: "warning", similarity: 0 };
+  };
+  pane.onStateChange = async (_reason, payload) => {
+    savedPayload = payload;
+    return {
+      id: note.id,
+      title: "Inflight Note",
+      body: "# Inflight Note\n\nfirst edit",
+      status: "draft"
+    };
+  };
+
+  const result = await pane.performSaveActiveNote();
+
+  assert.equal(result.id, note.id);
+  assert.equal(savedPayload.noteId, note.id);
+  assert.equal(tab.body, "# Inflight Note\n\nsecond edit typed during save");
+  assert.equal(tab.savedBody, "# Inflight Note\n\nfirst edit");
+  assert.equal(tab.dirty, true);
+  assert.equal(tab.saveUiState.mode, "dirty");
+  assert.deepEqual(drafts, ["# Inflight Note\n\nsecond edit typed during save"]);
+  assert.equal(repaintedValue, "");
+});
+
+test("background autosave keeps its save state on the saved tab when selection changes", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const noteA = {
+    id: "note_autosave_a",
+    title: "Autosave A",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    status: "draft",
+    body: "# Autosave A\n\nold"
+  };
+  const noteB = {
+    id: "note_autosave_b",
+    title: "Autosave B",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    status: "draft",
+    body: "# Autosave B\n\nbody"
+  };
+  const tabA = {
+    id: "tab_note_autosave_a",
+    noteId: noteA.id,
+    title: noteA.title,
+    body: "# Autosave A\n\nfirst edit",
+    savedTitle: noteA.title,
+    savedBody: noteA.body,
+    dirty: true,
+    saveUiState: { mode: "dirty", message: "" }
+  };
+  const tabB = {
+    id: "tab_note_autosave_b",
+    noteId: noteB.id,
+    title: noteB.title,
+    body: noteB.body,
+    savedTitle: noteB.title,
+    savedBody: noteB.body,
+    dirty: false,
+    saveUiState: { mode: "saved", message: "B stays put" }
+  };
+
+  state.notes = [noteA, noteB];
+  state.tabs = [tabA, tabB];
+  state.activeTabId = tabA.id;
+  pane.state = state;
+  pane.els = {};
+  pane.renderSaveHint = () => {};
+  pane.writeDraft = () => {};
+  pane.clearDraft = () => {};
+  pane.clearAutoSaveTimer = () => {};
+  pane.scheduleAutoSave = () => {};
+  pane.onStateChange = async () => {
+    state.activeTabId = tabB.id;
+    tabA.body = "# Autosave A\n\nsecond edit typed after switching back";
+    return true;
+  };
+
+  await pane.autoSaveTabById(tabA.id, "switch-note");
+
+  assert.equal(tabA.savedBody, "# Autosave A\n\nfirst edit");
+  assert.equal(tabA.body, "# Autosave A\n\nsecond edit typed after switching back");
+  assert.equal(tabA.dirty, true);
+  assert.equal(tabA.saveUiState.mode, "dirty");
+  assert.equal(tabB.saveUiState.mode, "saved");
+  assert.equal(tabB.saveUiState.message, "B stays put");
+});
+
 
 test("editor preserves matched historical literature headings when structured fields save back", () => {
   const state = createInitialState();
