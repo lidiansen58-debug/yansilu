@@ -7387,14 +7387,14 @@ export class EditorPane {
     }
     if (relationState === "loading") {
       return {
-        nextStep: "绛夊叧绯诲姞杞藉畬鎴?",
-        summary: "鏄剧ず鍏崇郴杩樺湪璇诲彇涓紝鍏堜笉瑕佹妸褰撳墠璁℃暟褰撴垚鏈€缁堢粨鏋溿€?"
+        nextStep: "等关系加载完成",
+        summary: "显示关系还在读取中，先不要把当前计数当成最终结果。"
       };
     }
     if (relationState === "error") {
       return {
-        nextStep: "鎵嬪姩琛ュ叧绯绘垨绋嶅悗閲嶈瘯",
-        summary: "鏄剧ず鍏崇郴鏆傛椂璇诲彇澶辫触锛屽鏋滀綘鐭ラ亾杩欐潯绗旇搴旇鏈夎繛鎺ワ紝鍙互鍏堟墜鍔ㄨˉ寤烘垨绋嶅悗閲嶈瘯銆?"
+        nextStep: "手动补关系或稍后重试",
+        summary: "显示关系暂时读取失败，如果你知道这条笔记应该有连接，可以先手动补建或稍后重试。"
       };
     }
     if (connectedCount === 0) {
@@ -7418,18 +7418,18 @@ export class EditorPane {
 
     if (relationState === "loading") {
       return {
-        status: "璇诲彇涓?",
-        hint: "鏄剧ず鍏崇郴杩樺湪璇诲彇涓紝涓婚绾跨储鏆傛椂涓嶅仛鏈€缁堝垽鏂€?",
+        status: "读取中",
+        hint: "显示关系还在读取中，主题线索暂时不做最终判断。",
         badge: null,
-        badgeLabel: "璇诲彇涓?"
+        badgeLabel: "读取中"
       };
     }
     if (relationState === "error") {
       return {
-        status: "璇诲彇澶辫触",
-        hint: "鏄剧ず鍏崇郴鏆傛椂璇诲彇涓嶅埌锛屽鏋滄湰鏉ュ簲璇ユ湁涓婚绾跨储锛屽彲浠ュ厛鎵嬪姩琛ュ叧绯绘垨绋嶅悗閲嶈瘯銆?",
+        status: "读取失败",
+        hint: "显示关系暂时读取不到，如果本来应该有主题线索，可以先手动补关系或稍后重试。",
         badge: null,
-        badgeLabel: "璇诲彇澶辫触"
+        badgeLabel: "读取失败"
       };
     }
 
