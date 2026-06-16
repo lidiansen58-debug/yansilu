@@ -1460,7 +1460,28 @@ test("openai-compatible adapter builds request shape without network", () => {
   assert.match(request.body.messages[1].content, /Developer instructions/);
   assert.equal(request.body.tools[0].function.name, "search_notes");
   assert.equal(request.body.response_format.type, "json_schema");
+  assert.equal(request.body.max_tokens, 500);
   assert.equal(request.metadata.allowFallback, true);
+});
+
+test("openai-compatible adapter maps snake_case output token settings at runtime", () => {
+  const request = buildOpenAiCompatibleRequest(
+    {
+      requestId: "req_compatible_snake",
+      agentRunId: "run_compatible_snake",
+      purpose: "agent_reasoning",
+      modelRef: "openai_compatible_gateway:standard",
+      messages: [{ role: "user", content: "User question." }],
+      settings: { stream: false, max_output_tokens: 320 }
+    },
+    {
+      endpointUrl: "https://gateway.example.test/v1/chat/completions",
+      authMode: "byok_advanced",
+      secretRef: "secret_gateway"
+    }
+  );
+
+  assert.equal(request.body.max_tokens, 320);
 });
 
 test("openai-compatible adapter applies runtime model map for MiniCPM gateways", () => {

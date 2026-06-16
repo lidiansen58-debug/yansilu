@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 async function createWritingReadyPermanentNote(baseUrl, directoryId, title, bodyText) {
@@ -7,11 +8,11 @@ async function createWritingReadyPermanentNote(baseUrl, directoryId, title, body
     directoryId,
     title,
     body: `# ${title}\n\n${bodyText}`,
-    thesis: `${title} participates in graph filter guidance.`,
+    thesis: `${title} participates in graph focus guidance.`,
     threeLineSummary: [
-      `${title} participates in graph filter guidance.`,
-      "That matters because the filtered graph view should judge only the current visible slice.",
-      "Hidden isolated notes should not hijack the next action for a focused relation view."
+      `${title} participates in graph focus guidance.`,
+      "That matters because the graph should keep focused relation work readable.",
+      "Unrelated isolated notes should not hijack the current note workflow."
     ],
     distillationStatus: "draft",
     boundaryOrCounterpoint: "This only matters after the notes are mature enough for graph follow-up."
@@ -22,11 +23,11 @@ async function createWritingReadyPermanentNote(baseUrl, directoryId, title, body
     title,
     body: `# ${title}\n\n${bodyText}`,
     status: "active",
-    thesis: `${title} participates in graph filter guidance.`,
+    thesis: `${title} participates in graph focus guidance.`,
     threeLineSummary: [
-      `${title} participates in graph filter guidance.`,
-      "That matters because the filtered graph view should judge only the current visible slice.",
-      "Hidden isolated notes should not hijack the next action for a focused relation view."
+      `${title} participates in graph focus guidance.`,
+      "That matters because the graph should keep focused relation work readable.",
+      "Unrelated isolated notes should not hijack the current note workflow."
     ],
     distillationStatus: "confirmed",
     originalityStatus: "pass",
@@ -39,7 +40,7 @@ async function createWritingReadyPermanentNote(baseUrl, directoryId, title, body
   return updated;
 }
 
-test("prototype filtered graph view ignores hidden isolated notes when choosing the next action", async (t) => {
+test("prototype graph focus keeps full relation workbench while canvas relation filter narrows the map", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -50,76 +51,93 @@ test("prototype filtered graph view ignores hidden isolated notes when choosing 
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, page, vaultPath, webBase } = stack;
 
-  const noteA = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Filtered Graph A", "This note connects to Filtered Graph B with one support edge.");
-  const noteB = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Filtered Graph B", "This note is the visible partner in the filtered slice.");
-  const hiddenIsolated = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Hidden Isolated Graph Note", "This note stays outside the current filtered relation slice.");
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph Focus Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-focus-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
 
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+  const noteA = await createWritingReadyPermanentNote(
+    apiBase,
+    graphDirectoryId,
+    "Filtered Graph A",
+    "This note connects to multiple visible partners in the focused relation slice."
+  );
+  const noteB = await createWritingReadyPermanentNote(
+    apiBase,
+    graphDirectoryId,
+    "Filtered Graph B",
+    "This note stays visible after filtering to same-topic relations."
+  );
+  const noteC = await createWritingReadyPermanentNote(
+    apiBase,
+    graphDirectoryId,
+    "Filtered Graph C",
+    "This note should remain in the right workbench even when the canvas filter hides its edge."
+  );
+  await createWritingReadyPermanentNote(
+    apiBase,
+    graphDirectoryId,
+    "Hidden Isolated Graph Note",
+    "This note stays outside the current focused relation slice."
+  );
+
+  const sameTopicRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
     toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "These two notes form the visible support slice.",
-    insightQuestion: "Should the current filtered slice still be blocked by a hidden isolated note?",
+    relationType: "same_topic",
+    rationale: "These two notes form one visible focused relation slice.",
+    insightQuestion: "Should the current focused slice still be blocked by an unrelated isolated note?",
     confidence: 1
   });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+  assert.equal(sameTopicRelation.status, 201, JSON.stringify(sameTopicRelation.json));
 
-  await page.route("**/api/v1/graph?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        item: {
-          directoryTitle: "永久笔记盒",
-          nodes: [
-            { id: noteA.json.item.id, title: "Filtered Graph A", noteType: "permanent" },
-            { id: noteB.json.item.id, title: "Filtered Graph B", noteType: "permanent" },
-            { id: hiddenIsolated.json.item.id, title: "Hidden Isolated Graph Note", noteType: "permanent" }
-          ],
-          edges: [
-            {
-              id: relation.json.item.id,
-              fromNoteId: noteA.json.item.id,
-              toNoteId: noteB.json.item.id,
-              fromTitle: "Filtered Graph A",
-              toTitle: "Filtered Graph B",
-              relationType: "supports",
-              rationale: "These two notes form the visible support slice.",
-              status: "confirmed",
-              createdBy: "user"
-            }
-          ],
-          insights: {
-            bridgeGaps: [],
-            untypedRelations: []
-          }
-        }
-      })
-    });
+  const supportsRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+    toNoteId: noteC.json.item.id,
+    relationType: "supports",
+    rationale: "This second relation should stay visible in the workbench even when the canvas is filtered.",
+    insightQuestion: "Does the current note still need both relations in view for follow-up work?",
+    confidence: 1
   });
-  await page.route("**/api/v1/graph/conflicts?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ conflicts: [] })
-    });
-  });
-  await page.route("**/api/v1/relations/review-queue?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ items: [], total: 0 })
-    });
-  });
+  assert.equal(supportsRelation.status, 201, JSON.stringify(supportsRelation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.locator("#graphRelationTypeFilter").selectOption("supports");
+
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    assert.match(String(summary || ""), /4\s*条永久笔记/);
+    assert.match(String(summary || ""), /2\s*条关系/);
+  }, 10000);
+
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${noteA.json.item.id}"]`).click();
 
   await waitFor(async () => {
     const panelText = await page.locator("#graphPanel").textContent();
-    assert.doesNotMatch(String(panelText || ""), /先补孤立观点/);
-    assert.match(String(panelText || ""), /进入写作中心|先补关键关系/);
+    assert.match(String(panelText || ""), /Filtered Graph A/);
+    assert.match(String(panelText || ""), /Filtered Graph B/);
+    assert.match(String(panelText || ""), /Filtered Graph C/);
+    assert.doesNotMatch(String(panelText || ""), /加入笔记网络|未入星系笔记整理详情/);
+    assert.equal(await page.locator(".graph-relation-workspace-card").count(), 2);
+  }, 10000);
+
+  await page.locator("#graphRelationTypeFilter").selectOption("same_topic");
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("#graphRelationTypeFilter").inputValue(), "same_topic");
+    assert.equal(await page.locator("#graphCanvas .graph-map-edge-group").count(), 1);
+
+    const panelText = await page.locator("#graphPanel").textContent();
+    assert.match(String(panelText || ""), /Filtered Graph A/);
+    assert.match(String(panelText || ""), /Filtered Graph B/);
+    assert.match(String(panelText || ""), /Filtered Graph C/);
+    assert.doesNotMatch(String(panelText || ""), /加入笔记网络|未入星系笔记整理详情/);
+    assert.equal(await page.locator(".graph-relation-workspace-card").count(), 2);
   }, 10000);
 });

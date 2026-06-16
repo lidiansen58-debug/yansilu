@@ -1485,6 +1485,43 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.ok(permanentStates.some((value) => value === "permanent-isolated"));
 });
 
+test("prototype graph surfaces a continuous isolated-note handling queue", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const created = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    title: "Queue Isolated One",
+    body: "# Queue Isolated One\n\nA permanent note that still needs one explicit relationship."
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-module="graph"]').click();
+  await page.waitForFunction(() => window.__prototypeState?.graphConnectivityReady === true, null, { timeout: 10000 });
+
+  const strip = page.locator(".graph-isolated-queue-strip");
+  await strip.waitFor({ timeout: 10000 });
+  assert.match(String(await strip.textContent()), /待接入/);
+
+  await strip.locator('[data-graph-open-workbench-entry="organize"]').click();
+  await page.locator(".graph-workbench-panel .graph-isolated-queue").waitFor({ timeout: 5000 });
+
+  await strip.locator("[data-graph-select-isolated]").click();
+  await page.locator(".graph-selection-panel").waitFor({ timeout: 5000 });
+  assert.match(String(await page.locator(".graph-selection-panel").textContent()), /未入星系|孤立笔记/);
+  assert.equal(await page.locator(".graph-selection-panel .graph-isolated-queue.is-compact").count(), 1);
+});
+
 
 test("prototype clears stale bottom thinking notice on note switch", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {

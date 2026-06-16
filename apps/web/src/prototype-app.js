@@ -133,6 +133,7 @@ import {
   analyzeDirectoryGraph,
   analyzePermanentNote,
   analyzeWritingWithStrongModel,
+  refinePotentialRelationCandidate,
   bindWritingDraftNote,
   acceptAiInboxLink,
   checkAiProviderHealth,
@@ -1112,18 +1113,20 @@ function isPersistableRelationNetworkStatus(status = "") {
 }
 
 function relationNetworkStatusForNote(note = null, options = {}) {
-  const explicitStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
-  if (explicitStatus === "connected" || explicitStatus === "isolated") return explicitStatus;
-  const storedStatus = readStoredRelationNetworkStatus(note?.id);
-  if (storedStatus === "connected" || storedStatus === "isolated") return storedStatus;
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
-  if (noteType !== "permanent" && noteType !== "original") return "";
+  const permanentLike = noteType === "permanent" || noteType === "original";
   const connectedIds = options.connectedIds instanceof Set
     ? options.connectedIds
     : state.graphConnectedNoteIds instanceof Set
       ? state.graphConnectedNoteIds
       : null;
   const connectivityReady = options.connectivityReady === undefined ? state.graphConnectivityReady === true : options.connectivityReady === true;
+  if (permanentLike && connectivityReady && connectedIds) return connectedIds.has(note?.id) ? "connected" : "isolated";
+  const explicitStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
+  if (explicitStatus === "connected" || explicitStatus === "isolated") return explicitStatus;
+  const storedStatus = readStoredRelationNetworkStatus(note?.id);
+  if (storedStatus === "connected" || storedStatus === "isolated") return storedStatus;
+  if (!permanentLike) return "";
   if (!connectivityReady || !connectedIds) return "unknown";
   return connectedIds.has(note?.id) ? "connected" : "isolated";
 }
@@ -12624,7 +12627,7 @@ function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], 
       : null;
   }
   if (kind === "isolated") {
-    const isolated = resolveGraphIsolatedSelection(selection, isolatedNotes, nodes);
+    const isolated = resolveGraphIsolatedSelection(selection, isolatedNotes, []);
     return isolated
       ? {
           kind: "isolated",
@@ -12633,7 +12636,10 @@ function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], 
           noteId: isolated.noteId,
           title: isolated.title
         }
-      : null;
+      : (() => {
+          const noteId = String(selection?.noteId || selection?.id || "").trim();
+          return noteId && nodes.some((node) => String(node?.id || "").trim() === noteId) ? { kind: "node", nodeId: noteId } : null;
+        })();
   }
   if (kind === "bridge") {
     const bridge = resolveGraphBridgeSelection(selection, bridgeGaps, nodes);
@@ -12928,8 +12934,14 @@ function renderGraphSelectionShell({ className = "", ariaLabel = "", kicker = ""
 function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } = {}) {
   const noteIds = graphThemeNoteIds(topic);
   const noteSet = new Set(noteIds);
-  const memberEdges = (Array.isArray(edges) ? edges : []).filter((edge) => noteSet.has(String(edge?.fromNoteId || "").trim()) && noteSet.has(String(edge?.toNoteId || "").trim()));
+  const memberEdges = (Array.isArray(edges) ? edges : []).filter(
+    (edge) =>
+      graphRelationStatusCountsAsNetworkEdge(edge?.status) &&
+      noteSet.has(String(edge?.fromNoteId || "").trim()) &&
+      noteSet.has(String(edge?.toNoteId || "").trim())
+  );
   const externalEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
     const fromInside = noteSet.has(String(edge?.fromNoteId || "").trim());
     const toInside = noteSet.has(String(edge?.toNoteId || "").trim());
     return (fromInside || toInside) && fromInside !== toInside;
@@ -13285,16 +13297,314 @@ function graphMarkIsolatedNodes(nodes = [], isolatedNotes = []) {
   });
 }
 
+function graphIsolatedQueueItems({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", limit = 8 } = {}) {
+  const cleanCurrentNoteId = String(currentNoteId || "").trim();
+  const limitCount = Math.max(1, Number(limit) || 8);
+  const items = (Array.isArray(isolatedNotes) ? isolatedNotes : [])
+    .map((item, index) => {
+      const noteId = graphNoteIdFromIsolatedItem(item);
+      if (!noteId) return null;
+      const note = nodeMap.get(noteId) || state.notes.find((candidate) => String(candidate?.id || "").trim() === noteId) || {};
+      const decision = graphIsolatedDecisionMeta(item, note);
+      const aiCandidates = graphAiRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
+      const localCandidates = graphLocalRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
+      const candidateCount = aiCandidates.length + localCandidates.length;
+      const firstCandidate = aiCandidates[0] || localCandidates[0] || null;
+      const title = String(item?.title || note?.title || noteId).trim() || noteId;
+      const thesis = String(item?.thesis || note?.thesis || "").trim();
+      const priority =
+        (aiCandidates.length ? 40 : 0) +
+        (localCandidates.length ? 24 : 0) +
+        (decision.tone === "bridge" ? 12 : decision.tone === "rewrite" ? 8 : decision.tone === "keep" ? 4 : 0) -
+        index * 0.01;
+      return {
+        item,
+        index,
+        noteId,
+        isolatedKey: graphIsolatedSelectionKey(item, index),
+        title,
+        thesis,
+        decision,
+        aiCount: aiCandidates.length,
+        localCount: localCandidates.length,
+        candidateCount,
+        firstCandidateTitle: String(firstCandidate?.counterpartTitle || firstCandidate?.targetTitle || "").trim(),
+        priority,
+        current: noteId === cleanCurrentNoteId
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => Number(right.priority || 0) - Number(left.priority || 0) || left.title.localeCompare(right.title, "zh-Hans-CN"));
+  const limitedItems = items.slice(0, limitCount);
+  if (!cleanCurrentNoteId || limitedItems.some((item) => item.noteId === cleanCurrentNoteId)) return limitedItems;
+  const currentItem = items.find((item) => item.noteId === cleanCurrentNoteId);
+  if (!currentItem) return limitedItems;
+  return [...limitedItems.slice(0, Math.max(0, limitCount - 1)), currentItem];
+}
+
+function graphNextIsolatedQueueItem(queueItems = [], currentNoteId = "") {
+  const cleanCurrentNoteId = String(currentNoteId || "").trim();
+  const items = Array.isArray(queueItems) ? queueItems : [];
+  if (!items.length) return null;
+  const currentIndex = items.findIndex((item) => String(item?.noteId || "").trim() === cleanCurrentNoteId);
+  if (currentIndex >= 0) return items[(currentIndex + 1) % items.length] || null;
+  return items[0] || null;
+}
+
+function graphIsolatedQueueItemMeta(item = {}) {
+  const parts = [];
+  if (Number(item.aiCount || 0) > 0) parts.push(`AI ${Number(item.aiCount || 0)}`);
+  if (Number(item.localCount || 0) > 0) parts.push(`线索 ${Number(item.localCount || 0)}`);
+  if (!parts.length) parts.push(item.decision?.label || "待判断");
+  return parts.join(" · ");
+}
+
+function renderGraphIsolatedQueue({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", compact = false, limit = 8, queueItems: providedQueueItems = null } = {}) {
+  const queueItems = Array.isArray(providedQueueItems) ? providedQueueItems : graphIsolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId, limit });
+  if (!queueItems.length) return "";
+  const cleanCurrentNoteId = String(currentNoteId || "").trim();
+  const nextItem = graphNextIsolatedQueueItem(queueItems, cleanCurrentNoteId);
+  const total = Array.isArray(isolatedNotes) ? isolatedNotes.length : queueItems.length;
+  const currentIndex = queueItems.findIndex((item) => item.noteId === cleanCurrentNoteId);
+  const title = compact ? "继续处理" : "待接入队列";
+  const note = compact
+    ? currentIndex >= 0
+      ? `当前是优先队列第 ${currentIndex + 1} 条，处理后继续下一条。`
+      : "从最有候选线索的孤立笔记开始。"
+    : `${total} 条孤立笔记，优先处理已有候选的条目。`;
+  return `
+    <section class="graph-isolated-queue${compact ? " is-compact" : ""}" aria-label="${escapeHtml(title)}">
+      <div class="graph-isolated-queue-head">
+        <div>
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(note)}</span>
+        </div>
+        ${
+          nextItem
+            ? `<button class="graph-selection-action" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">${escapeHtml(cleanCurrentNoteId ? "下一条" : "开始处理")}</button>`
+            : ""
+        }
+      </div>
+      <div class="graph-isolated-queue-list">
+        ${queueItems
+          .map(
+            (item, index) => `
+              <article class="graph-isolated-queue-item${item.current ? " is-current" : ""} is-${escapeHtml(item.decision?.tone || "bridge")}">
+                <button class="graph-isolated-queue-main" type="button" data-graph-select-isolated="${escapeHtml(item.isolatedKey)}">
+                  <span>${escapeHtml(`${index + 1}. ${item.decision?.label || "待判断"}`)}</span>
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <small>${escapeHtml(item.firstCandidateTitle ? `候选：${item.firstCandidateTitle}` : item.thesis || item.decision?.next || "需要判断应当连接、暂存还是重写。")}</small>
+                </button>
+                <em>${escapeHtml(graphIsolatedQueueItemMeta(item))}</em>
+              </article>
+            `
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderGraphIsolatedQueueStrip({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", queueItems: providedQueueItems = null } = {}) {
+  const queueItems = Array.isArray(providedQueueItems) ? providedQueueItems : graphIsolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId, limit: 6 });
+  if (!queueItems.length) return "";
+  const nextItem = graphNextIsolatedQueueItem(queueItems, currentNoteId);
+  if (!nextItem) return "";
+  const total = Array.isArray(isolatedNotes) ? isolatedNotes.length : queueItems.length;
+  return `
+    <div class="graph-isolated-queue-strip" aria-label="未入星系连续整理入口">
+      <div>
+        <strong>待接入 ${escapeHtml(String(total))}</strong>
+        <span>${escapeHtml(nextItem.title)}</span>
+      </div>
+      <button class="graph-selection-action is-primary" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">处理下一条</button>
+      <button class="graph-selection-action" type="button" data-graph-open-workbench-entry="organize">打开队列</button>
+    </div>
+  `;
+}
+
 function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
   return `${String(fromNoteId || "").trim()}->${String(toNoteId || "").trim()}:${String(relationType || "").trim().toLowerCase()}`;
+}
+
+function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
+  const normalized = [String(leftNoteId || "").trim(), String(rightNoteId || "").trim()].filter(Boolean).sort();
+  return normalized.length === 2 ? `${normalized[0]}::${normalized[1]}` : "";
+}
+
+function graphRelationStatusKey(value = "") {
+  return String(value || "confirmed").trim().toLowerCase();
+}
+
+function graphRelationStatusCountsAsNetworkEdge(value = "") {
+  const status = graphRelationStatusKey(value);
+  return status === "suggested" || status === "draft" || status === "confirmed";
 }
 
 function graphExistingRelationKeys(edges = []) {
   return new Set(
     (Array.isArray(edges) ? edges : [])
+      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
       .map((edge) => graphRelationCandidateKey(edge?.fromNoteId, edge?.toNoteId, edge?.relationType))
       .filter((key) => key !== "->:")
   );
+}
+
+function graphExistingRelationPairKeys(edges = []) {
+  return new Set(
+    (Array.isArray(edges) ? edges : [])
+      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
+      .map((edge) => graphRelationPairKey(edge?.fromNoteId, edge?.toNoteId))
+      .filter(Boolean)
+  );
+}
+
+const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
+const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
+
+function graphPreferredPotentialRelationType(candidate = {}) {
+  const aiRelationType = String(candidate.aiRelationType || candidate.ai_relation_type || "").trim().toLowerCase();
+  if (aiRelationType && GRAPH_CONFIRMABLE_RELATION_TYPES.has(aiRelationType) && aiRelationType !== "no_relation") return aiRelationType;
+  return String(candidate.relationType || candidate.relation_type || (candidate.componentBridge ? "bridges" : "associated_with")).trim().toLowerCase() || "associated_with";
+}
+
+function graphPotentialRelationNodeMap() {
+  const items = [
+    ...(Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : []),
+    ...(Array.isArray(state.notes) ? state.notes : [])
+  ];
+  return new Map(items.map((item) => [String(item?.id || "").trim(), item]).filter(([id]) => id));
+}
+
+function graphPotentialRelationActionEndpoints(cleanNoteId = "", sourceNoteId = "", targetNoteId = "", relationType = "") {
+  const currentNoteId = String(cleanNoteId || "").trim();
+  const cleanSourceNoteId = String(sourceNoteId || "").trim();
+  const cleanTargetNoteId = String(targetNoteId || "").trim();
+  const cleanRelationType = String(relationType || "").trim().toLowerCase();
+  if (
+    currentNoteId &&
+    cleanTargetNoteId &&
+    currentNoteId !== cleanSourceNoteId &&
+    GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES.has(cleanRelationType)
+  ) {
+    return {
+      actionSourceNoteId: currentNoteId,
+      actionTargetNoteId: currentNoteId === cleanTargetNoteId ? cleanSourceNoteId : cleanTargetNoteId
+    };
+  }
+  return {
+    actionSourceNoteId: cleanSourceNoteId,
+    actionTargetNoteId: cleanTargetNoteId
+  };
+}
+
+function graphPotentialRelationEvidenceText(candidate = {}) {
+  const explicitEvidenceText = String(candidate.evidenceText || "").trim();
+  if (explicitEvidenceText) return explicitEvidenceText;
+  const evidenceItems = Array.isArray(candidate.evidence) ? candidate.evidence : [];
+  const evidenceText = evidenceItems
+    .map((item) => String(item?.summary || item?.text || item?.excerpt || "").trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" / ");
+  if (evidenceText) return evidenceText;
+  return String(candidate.rationale || "").trim();
+}
+
+function graphPotentialRelationRationaleDraft({
+  relationLabel = "",
+  actionSourceTitle = "",
+  actionTargetTitle = "",
+  aiRationale = "",
+  evidenceText = ""
+} = {}) {
+  const rationaleSeed = aiRationale || evidenceText;
+  const cleanRationaleSeed = String(rationaleSeed || "").replace(/[。！？!?；;：:\s]+$/gu, "").trim();
+  return cleanRationaleSeed
+    ? `我确认“${actionSourceTitle}”和“${actionTargetTitle}”可以建立${relationLabel}，因为${cleanRationaleSeed}。`
+    : `我确认“${actionSourceTitle}”和“${actionTargetTitle}”可以建立${relationLabel}，因为：________。`;
+}
+
+function graphDecoratePotentialRelationCandidate(candidate = {}, { nodeMap = new Map() } = {}) {
+  const sourceNoteId = String(candidate.sourceNoteId || candidate.fromNoteId || "").trim();
+  const targetNoteId = String(candidate.targetNoteId || candidate.toNoteId || "").trim();
+  if (!sourceNoteId || !targetNoteId) return { ...candidate };
+  const relationType = graphPreferredPotentialRelationType(candidate);
+  const relationLabel = graphRelationTypeLabel(relationType);
+  const actionSourceNoteId = String(candidate.actionSourceNoteId || sourceNoteId).trim() || sourceNoteId;
+  const actionTargetNoteId = String(candidate.actionTargetNoteId || targetNoteId).trim() || targetNoteId;
+  const sourceTitle = String(candidate.sourceTitle || graphNodeTitle(nodeMap, sourceNoteId, sourceNoteId || "当前笔记")).trim() || sourceNoteId;
+  const targetTitle = String(candidate.targetTitle || graphNodeTitle(nodeMap, targetNoteId, targetNoteId || "目标笔记")).trim() || targetNoteId;
+  const actionSourceTitle =
+    String(candidate.actionSourceTitle || graphNodeTitle(nodeMap, actionSourceNoteId, sourceTitle || "当前笔记")).trim() || sourceTitle;
+  const actionTargetTitle =
+    String(candidate.actionTargetTitle || graphNodeTitle(nodeMap, actionTargetNoteId, targetTitle || "相关笔记")).trim() || targetTitle;
+  const counterpartNoteId = String(candidate.counterpartNoteId || actionTargetNoteId || targetNoteId).trim() || targetNoteId;
+  const counterpartTitle =
+    String(candidate.counterpartTitle || graphNodeTitle(nodeMap, counterpartNoteId, actionTargetTitle || targetTitle || "相关笔记")).trim() ||
+    actionTargetTitle ||
+    targetTitle;
+  const evidenceText = graphPotentialRelationEvidenceText(candidate);
+  const aiRationale = String(candidate.aiRationale || candidate.ai_rationale || "").trim();
+  const reviewQuestion = String(candidate.reviewQuestion || candidate.review_question || "").trim();
+  return {
+    ...candidate,
+    sourceNoteId,
+    targetNoteId,
+    fromNoteId: String(candidate.fromNoteId || sourceNoteId).trim() || sourceNoteId,
+    toNoteId: String(candidate.toNoteId || targetNoteId).trim() || targetNoteId,
+    actionSourceNoteId,
+    actionTargetNoteId,
+    sourceTitle,
+    targetTitle,
+    actionSourceTitle,
+    actionTargetTitle,
+    counterpartNoteId,
+    counterpartTitle,
+    relationType,
+    relationLabel,
+    evidenceText,
+    rationaleDraft: graphPotentialRelationRationaleDraft({
+      relationLabel,
+      actionSourceTitle,
+      actionTargetTitle,
+      aiRationale,
+      evidenceText
+    }),
+    insightQuestionDraft: reviewQuestion || `这条${relationLabel}会如何改变你对“${actionTargetTitle}”的理解、支撑或边界判断？`
+  };
+}
+
+function graphPotentialRelationMatchKey(candidate = {}) {
+  const id = String(candidate.id || candidate.candidateId || candidate.candidate_id || "").trim();
+  if (id) return `id:${id}`;
+  const fromNoteId = String(candidate.fromNoteId || candidate.from_note_id || candidate.sourceNoteId || candidate.source_note_id || "").trim();
+  const toNoteId = String(candidate.toNoteId || candidate.to_note_id || candidate.targetNoteId || candidate.target_note_id || "").trim();
+  if (!fromNoteId || !toNoteId) return "";
+  return `pair:${graphRelationCandidateKey(fromNoteId, toNoteId, "")}`;
+}
+
+function graphPotentialRelationNeedsConfirmation(candidate = {}) {
+  const code = String(candidate.aiErrorCode || candidate.ai_error_code || "").trim();
+  return code === "AI_ROUTE_CONFIRMATION_REQUIRED" || code === "AI_BUDGET_CONFIRMATION_REQUIRED";
+}
+
+function graphFindPotentialRelationCandidate({ candidateId = "", sourceNoteId = "", targetNoteId = "" } = {}) {
+  const cleanCandidateId = String(candidateId || "").trim();
+  const cleanSourceNoteId = String(sourceNoteId || "").trim();
+  const cleanTargetNoteId = String(targetNoteId || "").trim();
+  const analysis = graphAiAnalysisPayload();
+  const candidates = [
+    ...(Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates : []),
+    ...(Array.isArray(analysis?.bridgeCandidates) ? analysis.bridgeCandidates : [])
+  ];
+  return candidates.find((candidate) => {
+    const id = String(candidate?.id || candidate?.candidateId || candidate?.candidate_id || "").trim();
+    if (cleanCandidateId && id === cleanCandidateId) return true;
+    const fromNoteId = String(candidate?.fromNoteId || candidate?.sourceNoteId || "").trim();
+    const toNoteId = String(candidate?.toNoteId || candidate?.targetNoteId || "").trim();
+    return cleanSourceNoteId && cleanTargetNoteId && fromNoteId === cleanSourceNoteId && toNoteId === cleanTargetNoteId;
+  }) || null;
 }
 
 function graphAiRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), edges = [], limit = 5 } = {}) {
@@ -13305,8 +13615,8 @@ function graphAiRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), ed
     ...(Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates : []),
     ...(Array.isArray(analysis?.bridgeCandidates) ? analysis.bridgeCandidates : [])
   ];
-  const seen = new Set();
-  const existingRelationKeys = graphExistingRelationKeys(edges);
+  const seenPairKeys = new Set();
+  const existingRelationPairKeys = graphExistingRelationPairKeys(edges);
   return rawCandidates
     .map((candidate = {}) => {
       const fromNoteId = String(candidate.fromNoteId || candidate.from_note_id || candidate.sourceNoteId || candidate.source_note_id || candidate.from?.id || "").trim();
@@ -13316,44 +13626,277 @@ function graphAiRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), ed
       const sourceNoteId = fromNoteId;
       const targetNoteId = toNoteId;
       if (!targetNoteId || targetNoteId === sourceNoteId) return null;
-      const relationType = String(candidate.relationType || candidate.relation_type || (candidate.componentBridge ? "bridges" : "associated_with")).trim().toLowerCase() || "associated_with";
-      const key = graphRelationCandidateKey(sourceNoteId, targetNoteId, relationType);
-      if (seen.has(key) || existingRelationKeys.has(key)) return null;
-      seen.add(key);
+      const relationType = graphPreferredPotentialRelationType(candidate);
+      const pairKey = graphRelationPairKey(sourceNoteId, targetNoteId);
+      if (!pairKey || seenPairKeys.has(pairKey) || existingRelationPairKeys.has(pairKey)) return null;
+      seenPairKeys.add(pairKey);
       const counterpartNoteId = fromNoteId === cleanNoteId ? toNoteId : fromNoteId;
+      const { actionSourceNoteId, actionTargetNoteId } = graphPotentialRelationActionEndpoints(
+        cleanNoteId,
+        sourceNoteId,
+        targetNoteId,
+        relationType
+      );
       const sourceTitle = graphNodeTitle(nodeMap, sourceNoteId, "当前笔记");
       const targetTitle = graphNodeTitle(nodeMap, targetNoteId, "目标笔记");
       const counterpartTitle = graphNodeTitle(nodeMap, counterpartNoteId, "相关笔记");
+      const actionSourceTitle = graphNodeTitle(nodeMap, actionSourceNoteId, "当前笔记");
+      const actionTargetTitle = graphNodeTitle(nodeMap, actionTargetNoteId, "相关笔记");
       const relationLabel = graphRelationTypeLabel(relationType);
       const evidence = Array.isArray(candidate.evidence) ? candidate.evidence : [];
-      const evidenceText = evidence
-        .map((item) => String(item?.summary || "").trim())
-        .filter(Boolean)
-        .slice(0, 2)
-        .join(" / ");
-      return {
+      const coarseReasons = Array.isArray(candidate.coarseReasons || candidate.coarse_reasons) ? candidate.coarseReasons || candidate.coarse_reasons : [];
+      const aiRationale = String(candidate.aiRationale || candidate.ai_rationale || "").trim();
+      const reviewQuestion = String(candidate.reviewQuestion || candidate.review_question || "").trim();
+      return graphDecoratePotentialRelationCandidate({
+        id: String(candidate.id || candidate.candidateId || candidate.candidate_id || "").trim(),
         sourceNoteId,
         targetNoteId,
+        fromNoteId,
+        toNoteId,
         counterpartNoteId,
+        actionSourceNoteId,
+        actionTargetNoteId,
         sourceTitle,
         targetTitle,
         counterpartTitle,
-        relationType,
-        relationLabel,
+        actionSourceTitle,
+        actionTargetTitle,
         confidence: Number(candidate.confidence || 0) || 0,
+        coarseScore: Number(candidate.coarseScore ?? candidate.coarse_score ?? 0) || 0,
         componentBridge: candidate.componentBridge === true,
         rationale: String(candidate.rationale || "").trim(),
-        evidenceText,
-        rationaleDraft:
-          `AI 候选：请确认“${sourceTitle}”和“${targetTitle}”是否真的可以建立${relationLabel}。` +
-          (evidenceText ? `线索：${evidenceText}。` : "") +
-          "如果成立，请把具体理由补清楚：________。",
-        insightQuestionDraft: `这条${relationLabel}会如何改变你对“${targetTitle}”的理解、支撑或边界判断？`
-      };
+        evidenceText:
+          evidence
+            .map((item) => String(item?.summary || "").trim())
+            .filter(Boolean)
+            .slice(0, 2)
+            .join(" / ") || String(candidate.rationale || "").trim(),
+        coarseReasons,
+        coarseType: String(candidate.coarseType || candidate.coarse_type || "").trim(),
+        sharedTags: Array.isArray(candidate.sharedTags || candidate.shared_tags) ? candidate.sharedTags || candidate.shared_tags : [],
+        aiDecision: String(candidate.aiDecision || candidate.ai_decision || "").trim(),
+        aiRelationType: String(candidate.aiRelationType || candidate.ai_relation_type || "").trim(),
+        aiConfidence: Number(candidate.aiConfidence ?? candidate.ai_confidence ?? 0) || 0,
+        aiRationale,
+        aiError: String(candidate.aiError || candidate.ai_error || "").trim(),
+        aiErrorCode: String(candidate.aiErrorCode || candidate.ai_error_code || "").trim(),
+        aiNeedsConfirmation: candidate.aiNeedsConfirmation === true || candidate.ai_needs_confirmation === true || graphPotentialRelationNeedsConfirmation(candidate),
+        evidenceA: String(candidate.evidenceA || candidate.evidence_a || "").trim(),
+        evidenceB: String(candidate.evidenceB || candidate.evidence_b || "").trim(),
+        reviewQuestion,
+        sourceContentHash: String(candidate.sourceContentHash || candidate.source_content_hash || "").trim(),
+        targetContentHash: String(candidate.targetContentHash || candidate.target_content_hash || "").trim(),
+        algorithmVersion: String(candidate.algorithmVersion || candidate.algorithm_version || "").trim(),
+        modelName: String(candidate.modelName || candidate.model_name || "").trim(),
+        relationType
+      }, { nodeMap });
     })
     .filter(Boolean)
     .sort((left, right) => Number(right.confidence || 0) - Number(left.confidence || 0))
     .slice(0, Math.max(1, Number(limit) || 5));
+}
+
+function graphReviewSummaryFromAnalysis(analysis = {}, previousSummary = {}) {
+  const topicCandidateCount = Array.isArray(analysis?.topicCandidates) ? analysis.topicCandidates.length : 0;
+  const relationCandidateCount = Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates.length : 0;
+  const bridgeCandidateCount = Array.isArray(analysis?.bridgeCandidates) ? analysis.bridgeCandidates.length : 0;
+  const isolatedNoteCount = Array.isArray(analysis?.isolatedNotes) ? analysis.isolatedNotes.length : 0;
+  const artifactCount = topicCandidateCount + Math.max(0, relationCandidateCount - bridgeCandidateCount) + bridgeCandidateCount + isolatedNoteCount;
+  return {
+    ...(previousSummary && typeof previousSummary === "object" ? previousSummary : {}),
+    artifactCount,
+    topicCandidateCount,
+    relationCandidateCount,
+    bridgeCandidateCount,
+    isolatedNoteCount
+  };
+}
+
+function mergePotentialRelationCandidateIntoGraphAnalysis(refinedCandidate = {}) {
+  const matchKey = graphPotentialRelationMatchKey(refinedCandidate);
+  if (!matchKey || !graphState.aiAnalysis) return false;
+  const analysis = graphAiAnalysisPayload();
+  if (!analysis) return false;
+  const nodeMap = graphPotentialRelationNodeMap();
+  let changed = false;
+  const mergeList = (items = []) =>
+    (Array.isArray(items) ? items : []).map((candidate) => {
+      if (graphPotentialRelationMatchKey(candidate) !== matchKey) return candidate;
+      changed = true;
+      return graphDecoratePotentialRelationCandidate({
+        ...candidate,
+        ...refinedCandidate,
+        fromNoteId: refinedCandidate.fromNoteId || refinedCandidate.sourceNoteId || candidate.fromNoteId,
+        toNoteId: refinedCandidate.toNoteId || refinedCandidate.targetNoteId || candidate.toNoteId,
+        sourceNoteId: refinedCandidate.sourceNoteId || refinedCandidate.fromNoteId || candidate.sourceNoteId,
+        targetNoteId: refinedCandidate.targetNoteId || refinedCandidate.toNoteId || candidate.targetNoteId
+      }, { nodeMap });
+    });
+  const nextAnalysis = {
+    ...analysis,
+    relationCandidates: mergeList(analysis.relationCandidates),
+    bridgeCandidates: mergeList(analysis.bridgeCandidates)
+  };
+  const nextSummary = graphReviewSummaryFromAnalysis(nextAnalysis, graphState.aiAnalysis?.reviewItems?.summary);
+  graphState.aiAnalysis = graphState.aiAnalysis?.analysis
+    ? {
+        ...graphState.aiAnalysis,
+        analysis: nextAnalysis,
+        reviewItems: {
+          ...(graphState.aiAnalysis.reviewItems || {}),
+          summary: nextSummary
+        }
+      }
+    : nextAnalysis;
+  return changed;
+}
+
+function removePotentialRelationCandidateFromGraphAnalysis(candidateToRemove = {}) {
+  const matchKey = graphPotentialRelationMatchKey(candidateToRemove);
+  if (!matchKey || !graphState.aiAnalysis) return false;
+  const analysis = graphAiAnalysisPayload();
+  if (!analysis) return false;
+  const filterList = (items = []) => (Array.isArray(items) ? items : []).filter((candidate) => graphPotentialRelationMatchKey(candidate) !== matchKey);
+  const nextRelationCandidates = filterList(analysis.relationCandidates);
+  const nextBridgeCandidates = filterList(analysis.bridgeCandidates);
+  const changed =
+    nextRelationCandidates.length !== (Array.isArray(analysis.relationCandidates) ? analysis.relationCandidates.length : 0) ||
+    nextBridgeCandidates.length !== (Array.isArray(analysis.bridgeCandidates) ? analysis.bridgeCandidates.length : 0);
+  if (!changed) return false;
+  const nextAnalysis = {
+    ...analysis,
+    relationCandidates: nextRelationCandidates,
+    bridgeCandidates: nextBridgeCandidates
+  };
+  const nextSummary = graphReviewSummaryFromAnalysis(nextAnalysis, graphState.aiAnalysis?.reviewItems?.summary);
+  graphState.aiAnalysis = graphState.aiAnalysis?.analysis
+    ? {
+        ...graphState.aiAnalysis,
+        analysis: nextAnalysis,
+        reviewItems: {
+          ...(graphState.aiAnalysis.reviewItems || {}),
+          summary: nextSummary
+        }
+      }
+    : nextAnalysis;
+  return true;
+}
+
+async function refineGraphPotentialRelationsForNote(noteId = "", candidates = [], { directoryId = "" } = {}) {
+  const cleanNoteId = String(noteId || "").trim();
+  const items = (Array.isArray(candidates) ? candidates : []).filter(Boolean).slice(0, 3);
+  if (!cleanNoteId || !items.length) return;
+  let generatedThisRun = 0;
+  let waitingConfirmationThisRun = 0;
+  let failedThisRun = 0;
+  let removedThisRun = 0;
+  for (const candidate of items) {
+    const refineResult = await refineGraphPotentialRelationCandidate(cleanNoteId, candidate, { directoryId });
+    if (refineResult?.aiReasonGenerated) generatedThisRun += 1;
+    if (refineResult?.removed) {
+      removedThisRun += 1;
+      continue;
+    }
+    if (refineResult?.needsConfirmation) {
+      waitingConfirmationThisRun += 1;
+      break;
+    }
+    if (refineResult?.ok === false) failedThisRun += 1;
+  }
+  if (waitingConfirmationThisRun && generatedThisRun) {
+    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${waitingConfirmationThisRun} 条等待你确认当前 AI 设置后再生成理由`, "warn");
+    return;
+  }
+  if (waitingConfirmationThisRun) {
+    setStatus(`${waitingConfirmationThisRun} 条潜在关联等待你确认当前 AI 设置后再生成理由`, "warn");
+    return;
+  }
+  if (removedThisRun && generatedThisRun) {
+    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${removedThisRun} 条因图谱已变化从候选列表移除`, "warn");
+    return;
+  }
+  if (removedThisRun && failedThisRun) {
+    setStatus(`${failedThisRun} 条潜在关联暂未生成 AI 理由，另有 ${removedThisRun} 条因图谱已变化从候选列表移除`, "warn");
+    return;
+  }
+  if (removedThisRun) {
+    return;
+  }
+  if (failedThisRun && generatedThisRun) {
+    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${failedThisRun} 条暂未生成理由，可稍后重试`, "warn");
+    return;
+  }
+  if (failedThisRun) {
+    setStatus(`${failedThisRun} 条潜在关联暂未生成 AI 理由，可稍后重试`, "warn");
+    return;
+  }
+  if (generatedThisRun) {
+    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由`, "ok");
+  }
+}
+
+async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}, { directoryId = "", confirmationApproved = false } = {}) {
+  const cleanNoteId = String(noteId || candidate?.sourceNoteId || candidate?.fromNoteId || "").trim();
+  if (!cleanNoteId || !candidate) return { ok: false, needsConfirmation: false };
+  try {
+    const refined = await refinePotentialRelationCandidate({
+      directoryId,
+      includeDescendants: true,
+      focusNoteId: cleanNoteId,
+      currentNoteId: cleanNoteId,
+      candidate,
+      timeoutMs: 60000,
+      ...(confirmationApproved ? { confirmationApproved: true, confirmBudget: true } : {})
+    });
+    const merged = Boolean(refined && mergePotentialRelationCandidateIntoGraphAnalysis(refined));
+    if (merged) renderGraphPanel();
+    const aiReason = String(refined?.aiRationale || "").trim();
+    const aiError = String(refined?.aiError || "").trim();
+    const needsConfirmation =
+      refined?.aiNeedsConfirmation === true ||
+      graphPotentialRelationNeedsConfirmation(refined) ||
+      refined?.aiErrorCode === "AI_ROUTE_CONFIRMATION_REQUIRED" ||
+      refined?.aiErrorCode === "AI_BUDGET_CONFIRMATION_REQUIRED";
+    if (needsConfirmation) {
+      setStatus("当前 AI 设置需要确认后才能生成这条关联理由", "warn");
+      return { ok: false, needsConfirmation: true, merged };
+    }
+    if (confirmationApproved && aiReason) {
+      setStatus(
+        merged ? "已确认使用当前 AI 设置，并补充这条潜在关联的复核理由" : "AI 理由已生成，但当前图谱范围已变化，请重新打开这条笔记查看",
+        merged ? "ok" : "warn"
+      );
+      return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: true };
+    }
+    if (aiError) {
+      setStatus(`生成关联理由失败：${aiError}`, "warn");
+      return { ok: false, needsConfirmation: false, merged };
+    }
+    if (confirmationApproved) {
+      setStatus("未生成可用的关联理由，请稍后重试", "warn");
+      return { ok: false, needsConfirmation: false, merged };
+    }
+    return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: Boolean(aiReason) };
+  } catch (error) {
+    const code = String(error?.code || "").trim();
+    if (code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND") {
+      const removed = removePotentialRelationCandidateFromGraphAnalysis(candidate);
+      if (removed) renderGraphPanel();
+      setStatus("这条潜在关联已不在当前图谱范围内，已从候选列表移除", "warn");
+      return { ok: false, needsConfirmation: false, merged: false, removed };
+    }
+    const needsConfirmation = code === "AI_ROUTE_CONFIRMATION_REQUIRED" || code === "AI_BUDGET_CONFIRMATION_REQUIRED";
+    mergePotentialRelationCandidateIntoGraphAnalysis({
+      ...candidate,
+      aiError: needsConfirmation ? "当前 AI 设置需要确认后才能生成理由。" : String(error?.message || error),
+      aiErrorCode: code,
+      aiNeedsConfirmation: needsConfirmation
+    });
+    renderGraphPanel();
+    if (needsConfirmation) setStatus("当前 AI 设置需要确认后才能生成这条关联理由", "warn");
+    else setStatus(`生成关联理由失败：${String(error?.message || error)}`, "warn");
+    return { ok: false, needsConfirmation, merged: true };
+  }
 }
 
 function graphNoteTags(note = {}) {
@@ -13387,6 +13930,7 @@ function graphLocalRelationCandidatesForNote(noteId = "", { nodeMap = new Map(),
   if (!source) return [];
   const connectedIds = new Set(
     (Array.isArray(edges) ? edges : [])
+      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
       .flatMap((edge) => {
         const fromId = String(edge?.fromNoteId || "").trim();
         const toId = String(edge?.toNoteId || "").trim();
@@ -13475,38 +14019,58 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
   const loading = graphState.aiAnalysisLoading === true;
   if (!candidates.length) {
     return `
-      <section class="graph-ai-connect ${hasAnalysis ? "is-empty" : ""}" aria-label="AI 关联候选">
+      <section class="graph-ai-connect ${hasAnalysis ? "is-empty" : ""}" aria-label="待确认潜在关联">
         <div class="graph-ai-connect-head">
-          <strong>AI 候选连接</strong>
+          <strong>待确认潜在关联</strong>
           <span>${loading ? "扫描中" : hasAnalysis ? "暂无候选" : "未扫描"}</span>
         </div>
-        <p>${loading ? "正在从当前图谱范围内寻找可能的连接。" : hasAnalysis ? "这条笔记暂时没有足够清楚的候选关系，可以手工查找或先补清中心判断。" : "先让 AI 根据当前目录的笔记内容和标签找候选，再由你确认是否写入正式关系。"}</p>
+        <p>${loading ? "正在从当前图谱范围内用本地规则寻找可能连接。" : hasAnalysis ? "这条笔记暂时没有足够清楚的候选关系，可以手工查找或先补清中心判断。" : "先运行本地扫描：规则先找候选，AI 只给少量候选补理由，确认后才写入正式关系。"}</p>
       </section>
     `;
   }
   return `
-    <section class="graph-ai-connect" aria-label="AI 关联候选">
+    <section class="graph-ai-connect" aria-label="待确认潜在关联">
       <div class="graph-ai-connect-head">
-        <strong>AI 候选连接</strong>
+        <strong>待确认潜在关联</strong>
         <span>${candidates.length} 条待确认</span>
       </div>
-      <p>这些只是候选线索，确认后才会进入关系表单并写入图谱。</p>
+      <p>规则粗筛先给出候选；AI 理由只作为复核参考。确认后才会进入关系表单并写入图谱。</p>
       <div class="graph-ai-connect-list">
         ${candidates
           .map(
-            (candidate) => `
-              <article class="graph-ai-connect-card">
+            (candidate) => {
+              const reasons = Array.isArray(candidate.coarseReasons) ? candidate.coarseReasons : [];
+              const localReason = reasons.length ? reasons.join("；") : candidate.evidenceText || candidate.rationale || "本地规则发现可复查的概念线索。";
+              const aiReason = String(candidate.aiRationale || "").trim();
+              const needsConfirmation = candidate.aiNeedsConfirmation === true || graphPotentialRelationNeedsConfirmation(candidate);
+              const aiState = aiReason
+                ? `AI 理由：${aiReason}`
+                : needsConfirmation
+                  ? `本地线索：${localReason}。当前 AI 设置需要确认后才能生成理由。`
+                  : candidate.aiError
+                  ? `本地线索：${localReason}。AI 理由生成失败，可先人工判断。`
+                  : `本地线索：${localReason}。AI 理由生成中或尚未生成。`;
+              return `
+                <article class="graph-ai-connect-card">
                 <div>
                   <strong>${escapeHtml(candidate.counterpartTitle || candidate.targetTitle)}</strong>
-                  <span>${escapeHtml(candidate.relationLabel)} · ${escapeHtml(graphAiConfidenceLabel(candidate.confidence))}${candidate.componentBridge ? " · 桥接" : ""}</span>
+                  <span>${escapeHtml(candidate.relationLabel)} · ${escapeHtml(graphAiConfidenceLabel(candidate.confidence))}${candidate.componentBridge ? " · 桥接" : ""}${candidate.aiDecision ? ` · AI ${escapeHtml(candidate.aiDecision)}` : ""}</span>
                 </div>
-                <p>${escapeHtml(candidate.evidenceText || candidate.rationale || "AI 发现两条笔记存在可复查的概念重叠。")}</p>
+                <p>${escapeHtml(aiState)}</p>
                 <div class="graph-ai-connect-actions">
-                  <button class="graph-selection-action is-primary" type="button" data-graph-ai-candidate-apply data-open-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">确认关系</button>
+                  <button class="graph-selection-action is-primary" type="button" data-graph-ai-candidate-apply data-open-note="${escapeHtml(candidate.actionSourceNoteId || candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.actionTargetNoteId || candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">确认关系</button>
+                  ${
+                    needsConfirmation
+                      ? `<button class="graph-selection-action" type="button" data-graph-ai-refine-confirm data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">确认并生成理由</button>`
+                      : candidate.aiError
+                      ? `<button class="graph-selection-action" type="button" data-graph-ai-refine-retry data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">重新生成理由</button>`
+                      : ""
+                  }
                   <button class="graph-selection-action" type="button" data-graph-select-node="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}">查看目标</button>
                 </div>
               </article>
-            `
+              `;
+            }
           )
           .join("")}
       </div>
@@ -13538,6 +14102,7 @@ function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(),
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return "";
   const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
     const fromNoteId = String(edge?.fromNoteId || "").trim();
     const toNoteId = String(edge?.toNoteId || "").trim();
     return fromNoteId === cleanNoteId || toNoteId === cleanNoteId;
@@ -13554,7 +14119,7 @@ function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(),
       <div class="graph-relation-workspace-head">
         <div>
           <strong>${escapeHtml(title)}</strong>
-          <span>先看现有关联，再决定补 AI 候选、手工关系或主题笔记。</span>
+          <span>先看现有关联，再决定补潜在关联、手工关系或主题笔记。</span>
         </div>
         <small>${escapeHtml(String(directEdges.length))} 条关系 · ${escapeHtml(String(aiCandidates.length + localCandidates.length))} 条候选</small>
       </div>
@@ -13589,7 +14154,7 @@ function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(),
             </section>`
           : `<section class="graph-relation-workspace-empty">
               <strong>还没有正式关系</strong>
-              <p>先从 AI 候选或手工搜索里确认一条能说清理由的连接。</p>
+              <p>先从潜在关联或手工搜索里确认一条能说清理由的连接。</p>
             </section>`
       }
       ${renderGraphRelationCandidateCards(localCandidates, {
@@ -13629,9 +14194,10 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
   const localCandidates = graphLocalRelationCandidatesForNote(cleanNoteId, { nodeMap, edges, limit: 3 });
   const loading = graphState.aiAnalysisLoading === true;
   const hasAnalysis = Boolean(graphAiAnalysisPayload()?.analysisMode || graphAiAnalysisPayload()?.relationCandidates || graphAiAnalysisPayload()?.bridgeCandidates);
-  const directEdges = (Array.isArray(edges) ? edges : []).filter(
-    (edge) => String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId
-  );
+  const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
+    return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
+  });
   const stateLabel = directEdges.length
     ? "已有关系"
     : aiCandidates.length
@@ -13708,9 +14274,11 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
   const item = isolated.item || {};
   const thesis = String(item?.thesis || note?.thesis || "").trim();
   const decision = graphIsolatedDecisionMeta(item, note);
-  const visibleEdgeCount = (Array.isArray(edges) ? edges : []).filter(
-    (edge) => String(edge?.fromNoteId || "").trim() === noteId || String(edge?.toNoteId || "").trim() === noteId
-  ).length;
+  const visibleEdgeCount = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
+    return String(edge?.fromNoteId || "").trim() === noteId || String(edge?.toNoteId || "").trim() === noteId;
+  }).length;
+  const isolatedQueueMarkup = renderGraphIsolatedQueue({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 });
   const decisionCards = [
     {
       key: "keep",
@@ -13757,6 +14325,7 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
     roleDetail: decision.detail,
     body: `
       ${renderGraphIsolatedJoinNetworkFlow(noteId, { nodeMap, edges, visibleEdgeCount })}
+      ${isolatedQueueMarkup}
       <section class="graph-selection-reason">
         <small>当前判断</small>
         <p>${escapeHtml(thesis || "这条笔记还没有明显的中心判断。先把自己的判断写出来，再决定要不要建立关系。")}</p>
@@ -13779,7 +14348,7 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
         ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
       </section>
       ${renderGraphRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "孤立笔记关联工作台" })}
-      ${renderGraphAiConnectCandidates(noteId, { nodeMap })}`,
+      ${renderGraphAiConnectCandidates(noteId, { nodeMap, edges })}`,
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-graph-ai-connect-note="${escapeHtml(noteId)}"${noteId && !graphState.aiAnalysisLoading ? "" : " disabled"}>${graphState.aiAnalysisLoading ? "AI 正在找" : "AI 找连接"}</button>
       <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(noteId)}"${noteId ? "" : " disabled"}>打开笔记</button>
@@ -13847,11 +14416,13 @@ function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), edges = [
   const memberIds = uniqueStrings(cluster?.memberIds || []);
   const memberSet = new Set(memberIds);
   const memberEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
     const fromInside = memberSet.has(String(edge?.fromNoteId || "").trim());
     const toInside = memberSet.has(String(edge?.toNoteId || "").trim());
     return fromInside && toInside;
   });
   const externalEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
     const fromInside = memberSet.has(String(edge?.fromNoteId || "").trim());
     const toInside = memberSet.has(String(edge?.toNoteId || "").trim());
     return (fromInside || toInside) && fromInside !== toInside;
@@ -14108,7 +14679,10 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
     const node = nodeMap.get(normalized.nodeId);
     if (!node) return "";
     const title = String(node?.title || normalized.nodeId).trim() || normalized.nodeId;
-    const directEdges = edges.filter((edge) => String(edge?.fromNoteId || "").trim() === normalized.nodeId || String(edge?.toNoteId || "").trim() === normalized.nodeId);
+    const directEdges = edges.filter((edge) => {
+      if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
+      return String(edge?.fromNoteId || "").trim() === normalized.nodeId || String(edge?.toNoteId || "").trim() === normalized.nodeId;
+    });
     const counts = graphRelationGroupCounts(directEdges);
     const role = graphNodeRoleMeta(node, directEdges);
     const prompts = [
@@ -14127,7 +14701,7 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
       roleDetail: role.detail,
       body: `
         ${renderGraphRelationWorkspaceForNote(normalized.nodeId, { nodeMap, edges, title: "关联工作台" })}
-        ${renderGraphAiConnectCandidates(normalized.nodeId, { nodeMap })}
+        ${renderGraphAiConnectCandidates(normalized.nodeId, { nodeMap, edges })}
         <div class="graph-selection-metrics" aria-label="节点关系分布">
           ${renderGraphSelectionMetrics([
             { label: "支持", value: String(counts.support || 0) },
@@ -15044,6 +15618,7 @@ function renderGraphVisualMap({
   clueSummary = null,
   workbenchPanelMarkup = "",
   workbenchEntryMarkup = "",
+  isolatedQueueStripMarkup = "",
   toolbarMarkup = "",
   structureFallback = false
 } = {}) {
@@ -15165,7 +15740,7 @@ function renderGraphVisualMap({
     bridgeGaps,
     lens: readingLens.key
   });
-  const selectionEdges = !filterActive && Array.isArray(relationFilterEdges) ? relationFilterEdges : edges;
+  const selectionEdges = Array.isArray(relationFilterEdges) ? relationFilterEdges : edges;
   const selectionContextMarkup = renderGraphSelectionPanel({
     selection: activeSelection,
     nodeMap: layout.nodeMap,
@@ -15406,6 +15981,7 @@ function renderGraphVisualMap({
                 </div>
               </div>
               ${renderGraphReadingLensControls(readingLens.key, legendOpen, readingLensTrailingMarkup)}
+              ${isolatedQueueStripMarkup}
               ${structureFallback ? `<div class="graph-structure-fallback-note">当前没有主题归属关系，已用星系聚类显示结构星图。</div>` : ""}
               ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
             `
@@ -15550,7 +16126,10 @@ function graphFocusCardActionMeta(edge = {}, contextMode = "argument") {
 function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(), edges = [] } = {}) {
   const focusedTitle = graphNodeTitle(nodeMap, focusedNoteId, focusedNoteId || "当前笔记");
   const contextMode = graphFocusContextModeMeta(graphState.focusContextMode);
-  const directEdges = edges.filter((edge) => String(edge?.fromNoteId || "").trim() === focusedNoteId || String(edge?.toNoteId || "").trim() === focusedNoteId);
+  const directEdges = edges.filter((edge) => {
+    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
+    return String(edge?.fromNoteId || "").trim() === focusedNoteId || String(edge?.toNoteId || "").trim() === focusedNoteId;
+  });
   const grouped = new Map();
   directEdges.forEach((edge) => {
     const visual = graphRelationVisual(edge?.relationType);
@@ -15974,8 +16553,9 @@ function graphAiAnalysisSummaryState() {
   const summary = graphState.aiAnalysis?.reviewItems?.summary || {};
   const pendingCount = Number(summary.artifactCount || 0);
   const topicCount = Number(summary.topicCandidateCount || analysis?.topicCandidates?.length || 0);
-  const relationCount = Number(summary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
   const bridgeCount = Number(summary.bridgeCandidateCount || analysis?.bridgeCandidates?.length || 0);
+  const relationCandidateCount = Number(summary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
+  const relationCount = Math.max(0, relationCandidateCount - bridgeCount);
   const isolatedCount = Number(summary.isolatedNoteCount || analysis?.isolatedNotes?.length || 0);
   return {
     analysis,
@@ -16130,8 +16710,9 @@ function buildGraphQuestionSpotSummary({ reviewQueueTotal = 0, bridgeGaps = [], 
   const analysis = aiAnalysis?.analysis || null;
   const reviewSummary = aiAnalysis?.reviewItems?.summary || {};
   const topicCount = Number(reviewSummary.topicCandidateCount || analysis?.topicCandidates?.length || 0);
-  const relationCandidateCount = Number(reviewSummary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
   const bridgeCandidateCount = Number(reviewSummary.bridgeCandidateCount || analysis?.bridgeCandidates?.length || 0);
+  const relationCandidateCount = Number(reviewSummary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
+  const reviewCandidateCount = Math.max(0, relationCandidateCount - bridgeCandidateCount);
   const isolatedCount = Number(reviewSummary.isolatedNoteCount || analysis?.isolatedNotes?.length || 0);
   const artifactCount = Number(
     reviewSummary.artifactCount ||
@@ -16142,7 +16723,7 @@ function buildGraphQuestionSpotSummary({ reviewQueueTotal = 0, bridgeGaps = [], 
   const categories = [
     { key: "theme", label: "主题候选", count: topicCount },
     { key: "bridge", label: "桥接机会", count: Math.max(Number(bridgeGaps?.length || 0), bridgeCandidateCount) },
-    { key: "review", label: "关系待复核", count: Math.max(Number(reviewQueueTotal || 0), relationCandidateCount) },
+    { key: "review", label: "关系待复核", count: Math.max(Number(reviewQueueTotal || 0), reviewCandidateCount) },
     { key: "conflict", label: "冲突/边界", count: Number(conflictCount || 0) },
     { key: "isolated", label: "未入星系", count: isolatedCount }
   ].filter((item) => Number(item.count || 0) > 0);
@@ -16616,7 +17197,7 @@ function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
   `;
 }
 
-function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [] } = {}) {
+function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [], isolatedQueueMarkup = "" } = {}) {
   const open = graphState.workbenchPanelOpen === true;
   if (!open) return "";
   const activeTab = graphWorkbenchTabMeta(graphState.workbenchPanelTab);
@@ -16673,6 +17254,7 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
           : ""
       }
       <div class="graph-workbench-panel-body">
+        ${isolatedQueueMarkup}
         ${priorityMarkup}
         ${bodyMarkup}
       </div>
@@ -17008,7 +17590,7 @@ function renderGraphPanel() {
     return acc;
   }, {});
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
-  const baseSummary = `${visualNodes.length} 条永久笔记，${edges.length} 条关系`;
+  const baseSummary = `${scopedAllNodes.length} 条永久笔记，${scoped.edges.length} 条关系`;
   if (graphState.loading) {
     notices.push(
       renderGraphInlineNotice({
@@ -17058,6 +17640,36 @@ function renderGraphPanel() {
         aiAnalysis: graphState.aiAnalysis
       })
     : [];
+  const graphScopedNodeMap = new Map(scopedAllNodes.map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
+  const currentGraphQueueNoteId = String(graphState.selection?.noteId || graphState.selection?.nodeId || "").trim();
+  const isolatedQueueItems = !showingFocusedNote
+    ? graphIsolatedQueueItems({
+        isolatedNotes,
+        nodeMap: graphScopedNodeMap,
+        edges: scoped.edges,
+        currentNoteId: currentGraphQueueNoteId,
+        limit: 6
+      })
+    : [];
+  const isolatedQueueMarkup = !showingFocusedNote
+    ? renderGraphIsolatedQueue({
+        isolatedNotes,
+        nodeMap: graphScopedNodeMap,
+        edges: scoped.edges,
+        currentNoteId: currentGraphQueueNoteId,
+        limit: 6,
+        queueItems: isolatedQueueItems
+      })
+    : "";
+  const isolatedQueueStripMarkup = !showingFocusedNote
+    ? renderGraphIsolatedQueueStrip({
+        isolatedNotes,
+        nodeMap: graphScopedNodeMap,
+        edges: scoped.edges,
+        currentNoteId: currentGraphQueueNoteId,
+        queueItems: isolatedQueueItems
+      })
+    : "";
   const supplementalSections = !showingFocusedNote
     ? `
       ${renderGraphBridgeGapSection(bridgeGaps, { open: graphState.sectionOpen["bridge-gaps"] === true })}
@@ -17077,7 +17689,8 @@ function renderGraphPanel() {
         clueSummary,
         questionSummary: questionSpotSummary,
         clueSectionsMarkup: supplementalSections,
-        thinkingItems
+        thinkingItems,
+        isolatedQueueMarkup
       })
     : "";
   const toolbarMarkup = showingFocusedNote
@@ -17106,6 +17719,7 @@ function renderGraphPanel() {
       clueSummary,
       workbenchPanelMarkup,
       workbenchEntryMarkup,
+      isolatedQueueStripMarkup,
       toolbarMarkup,
       structureFallback
     })}
@@ -17156,7 +17770,7 @@ async function refreshDirectoryGraph() {
   } finally {
     if (requestSerial !== graphState.requestSerial) return;
     graphState.loading = false;
-    renderGraphPanel();
+    renderAll();
   }
   return succeeded;
 }
@@ -17170,7 +17784,7 @@ async function runGraphAiAnalysis() {
   try {
     const result = await analyzeDirectoryGraph(directoryId, {
       includeDescendants: true,
-      minRelationConfidence: 0.05,
+      minScore: 0.05,
       persistArtifacts: true
     });
     graphState.aiAnalysis = result;
@@ -17180,8 +17794,8 @@ async function runGraphAiAnalysis() {
       addSystemMessage({
         id: messageId,
         type: "ai",
-        title: "图谱扫描产生了待审建议",
-        body: `当前图谱生成了 ${count} 项待审候选。先判断结构是否成立，再决定是否采纳关系、主题或桥接建议。`,
+        title: "图谱目录扫描产生了待审建议",
+        body: `当前目录批处理生成了 ${count} 项待审候选。先判断结构是否成立，再决定是否采纳关系、主题或桥接建议。`,
         action: "open-ai-inbox",
         actionLabel: "打开待审建议",
         artifactCount: count,
@@ -17197,7 +17811,7 @@ async function runGraphAiAnalysis() {
     graphState.workbenchPanelOpen = true;
     graphState.workbenchPanelTab = "questions";
     setStatus(
-      count ? `AI 图谱初判已生成 ${count} 条待审候选，已在追问中展开` : "AI 图谱初判完成，已打开追问",
+      count ? `目录批处理已生成 ${count} 条待审候选，已在追问中展开` : "目录批处理完成，已打开追问",
       count ? "ok" : ""
     );
   } catch (error) {
@@ -17220,8 +17834,10 @@ async function runGraphAiConnectForNote(noteId = "") {
   try {
     const result = await analyzeDirectoryGraph(directoryId, {
       includeDescendants: true,
-      minRelationConfidence: 0.05,
+      minScore: 0.05,
       relationLimit: 24,
+      focusNoteId: cleanNoteId,
+      currentNoteId: cleanNoteId,
       persistArtifacts: true
     });
     graphState.aiAnalysis = result;
@@ -17241,10 +17857,10 @@ async function runGraphAiConnectForNote(noteId = "") {
       addSystemMessage({
         id: messageId,
         type: "ai",
-        title: "AI 找到了候选关系",
+        title: "孤立笔记发现了潜在关联",
         body: candidates.length
-          ? `当前笔记找到 ${candidates.length} 条候选连接。请只确认能说清理由的关系。`
-          : "当前图谱扫描完成，但这条笔记暂时没有足够清楚的候选连接。",
+          ? `当前笔记按单笔记接入流程找到 ${candidates.length} 条潜在关联。请只确认能说清理由的关系。`
+          : "当前笔记接入扫描完成，但暂时没有足够清楚的候选连接。",
         action: "open-graph",
         actionLabel: "回到图谱",
         noteId: cleanNoteId,
@@ -17254,7 +17870,8 @@ async function runGraphAiConnectForNote(noteId = "") {
       graphState.aiReviewSystemMessageId = messageId;
     }
     graphState.thinkingPanelVisible = true;
-    setStatus(candidates.length ? `AI 找到 ${candidates.length} 条候选连接，请确认后再写入图谱` : "AI 扫描完成，这条笔记暂无清楚候选连接", candidates.length ? "ok" : "warn");
+    setStatus(candidates.length ? `已找到 ${candidates.length} 条潜在关联，请确认后再写入图谱` : "当前笔记接入扫描完成，暂无清楚候选连接", candidates.length ? "ok" : "warn");
+    if (candidates.length) void refineGraphPotentialRelationsForNote(cleanNoteId, candidates, { directoryId });
     return true;
   } catch (error) {
     graphState.aiAnalysisError = String(error?.message || error);
@@ -17281,7 +17898,7 @@ function openGraphCandidateRelation(button = null) {
     source: "graph-ai-connect"
   });
   if (opened) {
-    const sourceLabel = button?.hasAttribute?.("data-graph-ai-candidate-apply") ? "AI 候选" : "候选关系";
+    const sourceLabel = button?.hasAttribute?.("data-graph-ai-candidate-apply") ? "潜在关联" : "候选关系";
     setStatus(`已打开关系表单：请确认${sourceLabel}是否成立，再保存为正式关系`, "ok", {
       priority: 3,
       holdMs: 4200,
@@ -17293,6 +17910,49 @@ function openGraphCandidateRelation(button = null) {
 
 function openGraphAiCandidateRelation(button = null) {
   return openGraphCandidateRelation(button);
+}
+
+async function triggerGraphPotentialRelationRefine(
+  button = null,
+  { confirmationApproved = false, missingStatus = "没有找到这条待确认关联，请重新运行当前笔记的接入扫描", progressStatus = "正在生成关联理由..." } = {}
+) {
+  const candidate = graphFindPotentialRelationCandidate({
+    candidateId: button?.getAttribute?.("data-graph-candidate-id"),
+    sourceNoteId: button?.getAttribute?.("data-graph-source-note"),
+    targetNoteId: button?.getAttribute?.("data-graph-target-note")
+  });
+  if (!candidate) {
+    setStatus(missingStatus, "warn");
+    return false;
+  }
+  const sourceNoteId = String(candidate.sourceNoteId || candidate.fromNoteId || button?.getAttribute?.("data-graph-source-note") || "").trim();
+  setStatus(progressStatus, "warn");
+  const result = await refineGraphPotentialRelationCandidate(sourceNoteId, candidate, {
+    directoryId: graphScopeDirectoryId(),
+    confirmationApproved
+  });
+  if (!confirmationApproved && result?.aiReasonGenerated) {
+    setStatus(
+      result?.merged ? "已重新生成这条潜在关联的 AI 复核理由" : "AI 理由已生成，但当前图谱范围已变化，请重新打开这条笔记查看",
+      result?.merged ? "ok" : "warn"
+    );
+  }
+  return result;
+}
+
+async function confirmGraphPotentialRelationRefine(button = null) {
+  return triggerGraphPotentialRelationRefine(button, {
+    confirmationApproved: true,
+    progressStatus: "正在按当前 AI 设置生成关联理由..."
+  });
+}
+
+async function retryGraphPotentialRelationRefine(button = null) {
+  return triggerGraphPotentialRelationRefine(button, {
+    confirmationApproved: false,
+    missingStatus: "没有找到这条待重试关联，请重新运行当前笔记的接入扫描",
+    progressStatus: "正在重新生成关联理由..."
+  });
 }
 
 function isGraphThemeIndexEligibleNote(note = null) {
@@ -20611,6 +21271,15 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     setStatus("已显示概览", "ok");
     return;
   }
+  const workbenchOpenEntry = event.target.closest("[data-graph-open-workbench-entry]");
+  if (workbenchOpenEntry) {
+    const tab = graphWorkbenchTabMeta(workbenchOpenEntry.getAttribute("data-graph-open-workbench-entry")).key;
+    graphState.workbenchPanelTab = tab;
+    graphState.workbenchPanelOpen = true;
+    renderGraphPanel();
+    setStatus(`已打开${graphWorkbenchTabMeta(tab).label}工作台`, "ok");
+    return;
+  }
   const workbenchEntry = event.target.closest("[data-graph-workbench-entry]");
   if (workbenchEntry) {
     const tab = graphWorkbenchTabMeta(workbenchEntry.getAttribute("data-graph-workbench-entry")).key;
@@ -20798,6 +21467,16 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   const graphAiCandidateButton = event.target.closest("[data-graph-ai-candidate-apply]");
   if (graphAiCandidateButton) {
     openGraphAiCandidateRelation(graphAiCandidateButton);
+    return;
+  }
+  const graphAiRefineConfirmButton = event.target.closest("[data-graph-ai-refine-confirm]");
+  if (graphAiRefineConfirmButton) {
+    await confirmGraphPotentialRelationRefine(graphAiRefineConfirmButton);
+    return;
+  }
+  const graphAiRefineRetryButton = event.target.closest("[data-graph-ai-refine-retry]");
+  if (graphAiRefineRetryButton) {
+    await retryGraphPotentialRelationRefine(graphAiRefineRetryButton);
     return;
   }
   const graphRelationCandidateButton = event.target.closest("[data-graph-relation-candidate-apply]");
@@ -21107,6 +21786,18 @@ $("graphCanvas")?.addEventListener("keydown", async (event) => {
   if (graphAiCandidateButton) {
     event.preventDefault();
     openGraphAiCandidateRelation(graphAiCandidateButton);
+    return;
+  }
+  const graphAiRefineConfirmButton = event.target.closest("[data-graph-ai-refine-confirm]");
+  if (graphAiRefineConfirmButton) {
+    event.preventDefault();
+    await confirmGraphPotentialRelationRefine(graphAiRefineConfirmButton);
+    return;
+  }
+  const graphAiRefineRetryButton = event.target.closest("[data-graph-ai-refine-retry]");
+  if (graphAiRefineRetryButton) {
+    event.preventDefault();
+    await retryGraphPotentialRelationRefine(graphAiRefineRetryButton);
     return;
   }
   const graphRelationCandidateButton = event.target.closest("[data-graph-relation-candidate-apply]");

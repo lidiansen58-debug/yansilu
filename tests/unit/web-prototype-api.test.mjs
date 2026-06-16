@@ -366,6 +366,55 @@ test("prototype API runs directory graph AI analysis through the public endpoint
   }
 });
 
+test("prototype API refines potential relations through the public endpoint", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          id: "prc_1",
+          sourceNoteId: "a",
+          targetNoteId: "b",
+          aiDecision: "uncertain",
+          aiRelationType: "same_topic",
+          aiRationale: "The notes share a topic but need human review."
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("potential-relation-refine", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.refinePotentialRelationCandidate({
+      directoryId: "dir_original_default",
+      focusNoteId: "a",
+      candidate: { id: "prc_1", sourceNoteId: "a", targetNoteId: "b" },
+      timeoutMs: 60000
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/graph/potential-relations/refine");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), {
+      directoryId: "dir_original_default",
+      focusNoteId: "a",
+      candidate: { id: "prc_1", sourceNoteId: "a", targetNoteId: "b" },
+      timeoutMs: 60000
+    });
+    assert.equal(result.aiDecision, "uncertain");
+    assert.equal(result.aiRelationType, "same_topic");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API creates note relations through the public endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];

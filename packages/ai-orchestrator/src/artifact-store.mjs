@@ -116,6 +116,15 @@ export function createInMemoryArtifactStore() {
     countArtifacts(filter = {}) {
       return [...artifacts.values()].filter((artifact) => matchesFilter(artifact, filter)).length;
     },
+    deleteArtifact(artifactId) {
+      const id = cleanText(artifactId);
+      if (!id) {
+        const error = new Error("artifactId is required");
+        error.code = "AI_ARTIFACT_ID_REQUIRED";
+        throw error;
+      }
+      return artifacts.delete(id);
+    },
     replaceArtifact(input = {}, context = {}) {
       const artifact = normalizeArtifact(input, context);
       artifacts.set(artifact.id, clone(artifact));
@@ -131,13 +140,31 @@ export function createInMemoryArtifactStore() {
       }
 
       const now = new Date().toISOString();
-      const next = {
-        ...artifact,
-        ...(Object.prototype.hasOwnProperty.call(updates, "payload") ? { payload: updates.payload || {} } : {}),
-        ...(Object.prototype.hasOwnProperty.call(updates, "provenance") ? { provenance: updates.provenance || {} } : {}),
-        ...(Object.prototype.hasOwnProperty.call(updates, "status") ? { status: updates.status } : {}),
-        updatedAt: cleanText(updates.updatedAt || updates.updated_at) || now
-      };
+      const next = normalizeArtifact(
+        {
+          ...artifact,
+          ...updates,
+          id,
+          createdAt: artifact.createdAt,
+          updatedAt: cleanText(updates.updatedAt || updates.updated_at) || now,
+          agentRunId: cleanText(updates.agentRunId || updates.agent_run_id) || artifact.agentRunId,
+          contextPackId: cleanText(updates.contextPackId || updates.context_pack_id) || artifact.contextPackId,
+          sources: Object.prototype.hasOwnProperty.call(updates, "sources") ? updates.sources || {} : artifact.sources || {},
+          payload: Object.prototype.hasOwnProperty.call(updates, "payload") ? updates.payload || {} : artifact.payload || {},
+          provenance: Object.prototype.hasOwnProperty.call(updates, "provenance") ? updates.provenance || {} : artifact.provenance || {},
+          confidence: Object.prototype.hasOwnProperty.call(updates, "confidence") ? updates.confidence || {} : artifact.confidence || {},
+          privacy: Object.prototype.hasOwnProperty.call(updates, "privacy") ? updates.privacy || {} : artifact.privacy || {},
+          model: Object.prototype.hasOwnProperty.call(updates, "model") ? updates.model || null : artifact.model || null,
+          userDecisions: artifact.userDecisions || []
+        },
+        {
+          now: artifact.createdAt || now,
+          agentRunId: artifact.agentRunId,
+          contextPackId: artifact.contextPackId,
+          model: artifact.model,
+          privacy: artifact.privacy
+        }
+      );
       artifacts.set(id, next);
       return getArtifact(id);
     },

@@ -5948,6 +5948,148 @@
       border-color: #cfe4d9;
       background: #f8fcfa;
     }
+    .graph-isolated-queue-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+      padding: 9px 10px;
+      border: 1px solid #fed7aa;
+      border-radius: 14px;
+      background: linear-gradient(90deg, rgba(255, 251, 235, 0.96), rgba(255, 255, 255, 0.94));
+    }
+    .graph-isolated-queue-strip > div {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+    }
+    .graph-isolated-queue-strip strong {
+      color: #9a3412;
+      font-size: 11px;
+      font-weight: 950;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+    .graph-isolated-queue-strip span {
+      min-width: 0;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 850;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .graph-isolated-queue {
+      display: grid;
+      gap: 10px;
+      padding: 12px 13px;
+      border: 1px solid #dbe7ef;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+    .graph-isolated-queue.is-compact {
+      border-color: #fed7aa;
+      background: linear-gradient(180deg, rgba(255, 251, 235, 0.9), rgba(255, 255, 255, 0.92));
+    }
+    .graph-isolated-queue-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+    }
+    .graph-isolated-queue-head > div {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .graph-isolated-queue-head strong {
+      color: #172033;
+      font-size: 12px;
+      font-weight: 950;
+      line-height: 1.35;
+    }
+    .graph-isolated-queue-head span {
+      color: #526174;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-queue-list {
+      display: grid;
+      gap: 7px;
+    }
+    .graph-isolated-queue-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: stretch;
+      min-height: 58px;
+      border: 1px solid #dce8ef;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.94);
+      overflow: hidden;
+    }
+    .graph-isolated-queue-item.is-current {
+      border-color: #efc66f;
+      box-shadow: inset 4px 0 0 rgba(217, 119, 6, 0.65);
+      background: #fffdf7;
+    }
+    .graph-isolated-queue-main {
+      min-width: 0;
+      min-height: 58px;
+      display: grid;
+      gap: 3px;
+      padding: 9px 10px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+    }
+    .graph-isolated-queue-main:hover,
+    .graph-isolated-queue-main:focus-visible {
+      background: #f3fbf6;
+      outline: none;
+    }
+    .graph-isolated-queue-main span {
+      color: #9a3412;
+      font-size: 10px;
+      font-weight: 950;
+      line-height: 1.2;
+    }
+    .graph-isolated-queue-main strong {
+      color: #172033;
+      font-size: 12px;
+      font-weight: 950;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-queue-main small {
+      color: #64748b;
+      font-size: 10px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-queue-item > em {
+      min-width: 58px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+      border-left: 1px solid #e5edf3;
+      color: #0f6f48;
+      background: #f3fbf6;
+      font-size: 10px;
+      font-style: normal;
+      font-weight: 950;
+      line-height: 1.25;
+      text-align: center;
+      white-space: nowrap;
+    }
     .graph-ai-connect {
       display: grid;
       gap: 9px;
@@ -6036,7 +6178,7 @@
     }
     .graph-ai-connect-actions {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
       gap: 7px;
     }
     .graph-relation-workspace {
@@ -8327,6 +8469,16 @@
       }
       .graph-workbench-entry-group {
         justify-content: flex-start;
+      }
+      .graph-isolated-queue-strip {
+        grid-template-columns: 1fr;
+      }
+      .graph-isolated-queue-strip > div {
+        display: grid;
+        gap: 3px;
+      }
+      .graph-isolated-queue-strip span {
+        white-space: normal;
       }
       .graph-side-stack {
         height: auto;

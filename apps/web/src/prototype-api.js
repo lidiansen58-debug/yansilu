@@ -567,6 +567,16 @@ export async function analyzeDirectoryGraph(directoryId, payload = {}) {
   return json.item || null;
 }
 
+export async function refinePotentialRelationCandidate(payload = {}) {
+  const json = await request("/api/v1/graph/potential-relations/refine", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {}),
+    timeoutMs: payload?.timeoutMs ?? payload?.timeout_ms
+  });
+  return json.item || null;
+}
+
 export async function fetchGraphPath({ fromNoteId, toNoteId, directoryId = "", maxDepth = 4, direction = "outgoing" } = {}) {
   if (!fromNoteId) throw new Error("fromNoteId is required");
   if (!toNoteId) throw new Error("toNoteId is required");

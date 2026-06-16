@@ -5955,6 +5955,31 @@ export class EditorPane {
     }
   }
 
+  applyRelationNetworkStatus(noteId, nextStatus) {
+    const cleanNoteId = String(noteId || "").trim();
+    const status = String(nextStatus || "").trim().toLowerCase();
+    if (!cleanNoteId || (status !== "connected" && status !== "isolated")) return;
+    const connectedIds = this.state.graphConnectedNoteIds instanceof Set ? this.state.graphConnectedNoteIds : new Set();
+    this.state.graphConnectedNoteIds = connectedIds;
+    if (status === "connected") connectedIds.add(cleanNoteId);
+    else connectedIds.delete(cleanNoteId);
+    const note = this.state.notes.find((item) => item.id === cleanNoteId);
+    if (note) note.relationNetworkStatus = status;
+  }
+
+  async refreshRelationNetworkStatuses(...noteIds) {
+    const ids = [...new Set(noteIds.map((item) => String(item || "").trim()).filter(Boolean))];
+    if (!ids.length) return;
+    await Promise.all(
+      ids.map(async (noteId) => {
+        try {
+          const relations = await fetchNoteRelations(noteId);
+          this.applyRelationNetworkStatus(noteId, countExplicitSemanticRelations(relations) > 0 ? "connected" : "isolated");
+        } catch {}
+      })
+    );
+  }
+
   setLinkInsertSubmitting(nextSubmitting) {
     this.isSubmittingLinkInsert = nextSubmitting === true;
     this.updateLinkPickerConfirmButton();
@@ -6934,6 +6959,7 @@ export class EditorPane {
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       this.currentSemanticRelations = relations;
       this.semanticRelationsState = "loaded";
+      this.applyRelationNetworkStatus(noteId, countExplicitSemanticRelations(relations) > 0 ? "connected" : "isolated");
       const note = this.activeNote();
       const tab = this.activeTab();
       if (note?.id === noteId && tab) {
@@ -8885,6 +8911,7 @@ export class EditorPane {
           : `关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`,
         "ok"
       );
+      this.syncRelationNetworkConnected(note.id, toNoteId);
       this.setRelationFollowupSuggestion(
         relationFollowupSuggestionForDraft({
           noteId: note.id,
@@ -8965,6 +8992,10 @@ export class EditorPane {
     const formNoteId = String(form?.dataset?.noteId || "").trim();
     const relationId = String(form?.dataset?.relationId || "").trim();
     if (!note?.id || formNoteId !== note.id || !relationId) return;
+    const existingLink = this.findSemanticRelation(relationId);
+    const peerNoteId = String(
+      existingLink?.fromNoteId === note.id ? existingLink?.toNoteId || "" : existingLink?.fromNoteId || ""
+    ).trim();
 
     const data = new FormData(form);
     const relationType = String(data.get("relationType") || "").trim();
@@ -8988,6 +9019,7 @@ export class EditorPane {
         rationale,
         insightQuestion
       });
+      await this.refreshRelationNetworkStatuses(note.id, peerNoteId);
       this.onStatus("关系已更新", "ok");
       this.resetRelationPanelState(note.id);
       this.renderRelated("关系已更新。");
@@ -9004,11 +9036,14 @@ export class EditorPane {
     const id = String(relationId || "").trim();
     if (!id) return;
     const link = this.findSemanticRelation(id);
+    const activeNoteId = String(this.activeNote()?.id || "").trim();
+    const peerNoteId = String(link?.fromNoteId === activeNoteId ? link?.toNoteId || "" : link?.fromNoteId || "").trim();
     const endpoint = link ? this.relationEndpoint(link, link.fromNoteId === this.activeNote()?.id ? "outgoing" : "incoming") : null;
     const label = endpoint?.title || "这条关系";
     if (!window.confirm(`删除与“${label}”的这条关系？`)) return;
     try {
       await deleteNoteRelation(id);
+      await this.refreshRelationNetworkStatuses(activeNoteId, peerNoteId);
       this.onStatus("关系已删除", "ok");
       this.resetRelationPanelState(this.activeNote()?.id || "");
       this.renderRelated("关系已删除。");

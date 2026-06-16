@@ -341,6 +341,14 @@ test("note browser prefers stored relation-network status for permanent notes", 
   assert.equal(explorer.noteIsDisconnected({ id: "pn_connected", noteType: "permanent", relationNetworkStatus: "connected" }), false);
 });
 
+test("relation edits sync relation-network badges immediately for both source and target notes", () => {
+  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+
+  assert.match(source, /this\.syncRelationNetworkConnected\(note\.id, toNoteId\);/);
+  assert.match(source, /await this\.refreshRelationNetworkStatuses\(note\.id, peerNoteId\);/);
+  assert.match(source, /await this\.refreshRelationNetworkStatuses\(activeNoteId, peerNoteId\);/);
+});
+
 test("note browser still treats literature-folder notes as non-disconnected when noteType is missing", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);

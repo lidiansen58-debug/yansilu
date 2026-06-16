@@ -1,5 +1,6 @@
 import { originalityGuard, similarityScore, tokenizeText } from "../../originality-guard/src/index.mjs";
 import { normalizeArtifact } from "./artifacts.mjs";
+import { buildPotentialRelationCandidates, isPotentialRelationNetworkStatus } from "./potential-relations.mjs";
 import { normalizeSuggestion } from "./suggestions.mjs";
 
 const PRINCIPLE_CHECKS = [
@@ -463,15 +464,31 @@ function artifactOrigin(context = {}) {
   return cleanText(context.origin || context.contentOrigin || context.content_origin) || "system_rule";
 }
 
+function graphCandidateArtifactId(prefix = "artifact_link_suggestion", candidate = {}, context = {}) {
+  const candidateId = cleanText(candidate.id || candidate.candidateId || candidate.candidate_id);
+  if (candidateId) return stableId(prefix, [context.artifactIdSalt, candidateId]);
+  return stableId(prefix, [context.artifactIdSalt, candidate.fromNoteId, candidate.toNoteId, candidate.relationType]);
+}
+
+function graphCandidateArtifactSummary(candidate = {}) {
+  return cleanText(candidate.aiRationale || candidate.ai_rationale || candidate.rationale);
+}
+
+function graphCandidateArtifactBody(candidate = {}, fallback = "") {
+  const aiRationale = cleanText(candidate.aiRationale || candidate.ai_rationale);
+  if (aiRationale) return `AI 已补充复核理由：${aiRationale}`;
+  return fallback;
+}
+
 function relationArtifact(candidate = {}, context = {}) {
   const sources = artifactSources([candidate.fromNoteId, candidate.toNoteId], context);
   return normalizeArtifact(
     {
-      id: stableId("artifact_link_suggestion", [context.artifactIdSalt, candidate.fromNoteId, candidate.toNoteId, candidate.relationType]),
+      id: graphCandidateArtifactId("artifact_link_suggestion", candidate, context),
       type: "LinkSuggestion",
       title: "可能的永久笔记关联",
-      summary: candidate.rationale,
-      body: "本地初判发现一条可能关系。请人工复核后再确认是否写入图谱。",
+      summary: graphCandidateArtifactSummary(candidate),
+      body: graphCandidateArtifactBody(candidate, "本地初判发现一条可能关系。请人工复核后再确认是否写入图谱。"),
       status: "pending_review",
       origin: artifactOrigin(context),
       sources,
@@ -487,6 +504,30 @@ function relationArtifact(candidate = {}, context = {}) {
         relation_type: candidate.relationType,
         rationale: candidate.rationale,
         evidence: candidate.evidence,
+        coarseScore: candidate.coarseScore,
+        coarse_score: candidate.coarseScore,
+        coarseReasons: candidate.coarseReasons,
+        coarse_reasons: candidate.coarseReasons,
+        coarseType: candidate.coarseType,
+        coarse_type: candidate.coarseType,
+        aiDecision: candidate.aiDecision,
+        ai_decision: candidate.aiDecision,
+        aiRelationType: candidate.aiRelationType,
+        ai_relation_type: candidate.aiRelationType,
+        aiConfidence: candidate.aiConfidence,
+        ai_confidence: candidate.aiConfidence,
+        aiRationale: candidate.aiRationale,
+        ai_rationale: candidate.aiRationale,
+        reviewQuestion: candidate.reviewQuestion,
+        review_question: candidate.reviewQuestion,
+        candidateId: candidate.id,
+        candidate_id: candidate.id,
+        sourceContentHash: candidate.sourceContentHash,
+        source_content_hash: candidate.sourceContentHash,
+        targetContentHash: candidate.targetContentHash,
+        target_content_hash: candidate.targetContentHash,
+        algorithmVersion: candidate.algorithmVersion,
+        algorithm_version: candidate.algorithmVersion,
         suggestedAction: candidate.suggestedAction,
         suggested_action: candidate.suggestedAction
       }
@@ -1078,11 +1119,7 @@ export function analyzePermanentNoteGraphLocally(input = {}) {
   const relations = (Array.isArray(input.relations) ? input.relations : [])
     .map(normalizeGraphRelation)
     .filter((relation) => noteIdSet.has(relation.fromNoteId) && noteIdSet.has(relation.toNoteId));
-  const confirmedRelations = relations.filter((relation) => relation.status !== "pending_review" && relation.status !== "suggested");
-  const relationKeySet = new Set(relations.flatMap((relation) => [
-    `${relation.fromNoteId}->${relation.toNoteId}`,
-    `${relation.toNoteId}->${relation.fromNoteId}`
-  ]));
+  const confirmedRelations = relations.filter((relation) => isPotentialRelationNetworkStatus(relation.status));
   const { components, componentByNoteId } = connectedComponents(noteIds, confirmedRelations);
   const degree = new Map(noteIds.map((id) => [id, 0]));
   for (const relation of confirmedRelations) {
@@ -1091,34 +1128,28 @@ export function analyzePermanentNoteGraphLocally(input = {}) {
   }
 
   const options = input.options || {};
-  const minRelationConfidence = Number(options.minRelationConfidence ?? options.min_relation_confidence) || 0.18;
-  const relationLimit = Math.max(1, Math.min(Number(options.relationLimit ?? options.relation_limit) || 12, 50));
-  const relationCandidates = [];
-  for (let leftIndex = 0; leftIndex < notes.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < notes.length; rightIndex += 1) {
-      const left = notes[leftIndex];
-      const right = notes[rightIndex];
-      if (relationKeySet.has(`${left.noteId}->${right.noteId}`)) continue;
-      const score = localRelationScore(textForAnalysis(left), textForAnalysis(right));
-      if (score < minRelationConfidence) continue;
-      relationCandidates.push({
-        fromNoteId: left.noteId,
-        toNoteId: right.noteId,
-        relationType: relationTypeFor(textForAnalysis(left), textForAnalysis(right), score),
-        rationale: "Local graph scan found an unconfirmed conceptual overlap between two permanent notes.",
-        evidence: [
-          { noteId: left.noteId, summary: firstSentence(left.thesis || left.body || left.title, 80) },
-          { noteId: right.noteId, summary: firstSentence(right.thesis || right.body || right.title, 80) }
-        ],
-        confidence: score,
-        status: "suggested",
-        suggestedAction: "review_relation",
-        componentBridge: componentByNoteId.get(left.noteId) !== componentByNoteId.get(right.noteId)
-      });
+  const relationLimit = Math.max(1, Math.min(Number(options.relationLimit ?? options.relation_limit) || 80, 100));
+  const potentialScan = buildPotentialRelationCandidates({
+    notes,
+    relations,
+    options: {
+      minScore: options.minScore ?? options.min_score ?? options.minRelationScore ?? options.min_relation_score,
+      perNoteLimit: options.perNoteLimit ?? options.per_note_limit ?? 5,
+      globalLimit: relationLimit,
+      focusNoteId: options.focusNoteId ?? options.focus_note_id,
+      currentNoteId: options.currentNoteId ?? options.current_note_id,
+      recentNoteIds: options.recentNoteIds ?? options.recent_note_ids
     }
-  }
-  relationCandidates.sort((a, b) => b.confidence - a.confidence);
-  const limitedRelationCandidates = relationCandidates.slice(0, relationLimit);
+  });
+  const limitedRelationCandidates = potentialScan.candidates.map((candidate) => ({
+    ...candidate,
+    potentialStatus: candidate.status,
+    status: "suggested",
+    componentBridge:
+      candidate.componentBridge ||
+      componentByNoteId.get(candidate.fromNoteId) !== componentByNoteId.get(candidate.toNoteId),
+    suggestedAction: "review_potential_relation"
+  }));
   const bridgeCandidates = limitedRelationCandidates.filter((candidate) => candidate.componentBridge);
   const isolatedNotes = notes
     .filter((note) => (degree.get(note.noteId) || 0) === 0)
@@ -1140,6 +1171,8 @@ export function analyzePermanentNoteGraphLocally(input = {}) {
     isolatedNotes,
     relationCandidates: limitedRelationCandidates,
     bridgeCandidates,
+    potentialRelationMetrics: potentialScan.metrics,
+    potentialRelationAlgorithmVersion: potentialScan.algorithmVersion,
     provenance: {
       contentOrigin: "system_rule",
       modelUsed: false,
@@ -1152,11 +1185,11 @@ export function analyzePermanentNoteGraphLocally(input = {}) {
 function graphBridgeArtifact(candidate = {}, context = {}) {
   return normalizeArtifact(
     {
-      id: stableId("artifact_graph_bridge", [context.artifactIdSalt, candidate.fromNoteId, candidate.toNoteId]),
+      id: graphCandidateArtifactId("artifact_graph_bridge", candidate, context),
       type: "BridgeCard",
       title: "Graph bridge candidate",
-      summary: candidate.rationale,
-      body: "Local graph analysis found a possible bridge between separate note clusters. Review before creating any relation.",
+      summary: graphCandidateArtifactSummary(candidate),
+      body: graphCandidateArtifactBody(candidate, "Local graph analysis found a possible bridge between separate note clusters. Review before creating any relation."),
       status: "pending_review",
       origin: artifactOrigin(context),
       sources: artifactSources([candidate.fromNoteId, candidate.toNoteId], context),
@@ -1172,6 +1205,22 @@ function graphBridgeArtifact(candidate = {}, context = {}) {
         relation_type: candidate.relationType,
         rationale: candidate.rationale,
         evidence: candidate.evidence,
+        aiDecision: candidate.aiDecision,
+        ai_decision: candidate.aiDecision,
+        aiRelationType: candidate.aiRelationType,
+        ai_relation_type: candidate.aiRelationType,
+        aiConfidence: candidate.aiConfidence,
+        ai_confidence: candidate.aiConfidence,
+        aiRationale: candidate.aiRationale,
+        ai_rationale: candidate.aiRationale,
+        reviewQuestion: candidate.reviewQuestion,
+        review_question: candidate.reviewQuestion,
+        candidateId: candidate.id,
+        candidate_id: candidate.id,
+        sourceContentHash: candidate.sourceContentHash,
+        source_content_hash: candidate.sourceContentHash,
+        targetContentHash: candidate.targetContentHash,
+        target_content_hash: candidate.targetContentHash,
         suggestedAction: "review_graph_bridge",
         suggested_action: "review_graph_bridge"
       }
@@ -1208,9 +1257,19 @@ function isolatedNoteArtifact(note = {}, context = {}) {
 }
 
 export function buildPermanentNoteGraphReviewItems(graphAnalysis = {}, context = {}) {
+  const bridgeCandidateIds = new Set(
+    (Array.isArray(graphAnalysis.bridgeCandidates) ? graphAnalysis.bridgeCandidates : [])
+      .map((candidate) => cleanText(candidate?.id || `${candidate?.fromNoteId || ""}:${candidate?.toNoteId || ""}:${candidate?.relationType || ""}`))
+      .filter(Boolean)
+  );
   const artifacts = [
     ...(graphAnalysis.topicCandidates || []).map((topic) => topicArtifact({ noteId: "graph_scan" }, topic, context)),
-    ...(graphAnalysis.relationCandidates || []).map((candidate) => relationArtifact(candidate, context)),
+    ...(graphAnalysis.relationCandidates || [])
+      .filter((candidate) => {
+        const candidateId = cleanText(candidate?.id || `${candidate?.fromNoteId || ""}:${candidate?.toNoteId || ""}:${candidate?.relationType || ""}`);
+        return !candidate?.componentBridge && !bridgeCandidateIds.has(candidateId);
+      })
+      .map((candidate) => relationArtifact(candidate, context)),
     ...(graphAnalysis.bridgeCandidates || []).map((candidate) => graphBridgeArtifact(candidate, context)),
     ...(graphAnalysis.isolatedNotes || []).map((note) => isolatedNoteArtifact(note, context))
   ].filter(Boolean);

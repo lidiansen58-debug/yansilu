@@ -367,9 +367,110 @@ test("local graph analysis finds reviewable theme and bridge candidates without 
   assert.ok(analysis.bridgeCandidates.some((candidate) => candidate.componentBridge === true));
   assert.equal(reviewItems.summary.canAutoConfirm, false);
   assert.ok(reviewItems.artifacts.some((item) => item.type === "InsightCard"));
-  assert.ok(reviewItems.artifacts.some((item) => item.type === "LinkSuggestion"));
   assert.ok(reviewItems.artifacts.some((item) => item.type === "BridgeCard"));
   assert.ok(reviewItems.artifacts.some((item) => item.type === "QuestionCard"));
   assert.ok(reviewItems.artifacts.every((item) => item.status === "pending_review"));
   assert.ok(reviewItems.artifacts.every((item) => item.origin === "system_rule"));
+});
+
+test("graph review items do not duplicate bridge candidates as both link suggestions and bridge cards", () => {
+  const bridgeCandidate = {
+    id: "candidate_bridge_1",
+    fromNoteId: "pn_source",
+    toNoteId: "pn_target",
+    relationType: "bridges",
+    rationale: "A bridge note is needed between the source and target notes.",
+    confidence: 0.72,
+    componentBridge: true
+  };
+  const reviewItems = buildPermanentNoteGraphReviewItems(
+    {
+      topicCandidates: [],
+      relationCandidates: [bridgeCandidate],
+      bridgeCandidates: [bridgeCandidate],
+      isolatedNotes: []
+    },
+    {
+      agentRunId: "run_graph_bridge_review",
+      artifactIdSalt: "graph_scope:test",
+      now: "2026-06-17T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(reviewItems.artifacts.length, 1);
+  assert.equal(reviewItems.artifacts[0].type, "BridgeCard");
+});
+
+test("local graph analysis can focus potential relations on one isolated note", () => {
+  const analysis = analyzePermanentNoteGraphLocally({
+    notes: [
+      {
+        noteId: "focus_note",
+        title: "AI relation focus",
+        thesis: "AI relation candidates need strict human confirmation.",
+        tags: ["ai-review"]
+      },
+      {
+        noteId: "target_note",
+        title: "AI relation target",
+        thesis: "AI relation candidates need strict human confirmation before entering the graph.",
+        tags: ["ai-review"]
+      },
+      {
+        noteId: "other_a",
+        title: "Writing focus",
+        thesis: "Writing synthesis needs traceable clusters.",
+        tags: ["writing"]
+      },
+      {
+        noteId: "other_b",
+        title: "Writing target",
+        thesis: "Writing synthesis needs traceable clusters.",
+        tags: ["writing"]
+      }
+    ],
+    relations: [],
+    options: { minScore: 0.1, focusNoteId: "focus_note", relationLimit: 10 }
+  });
+
+  assert.equal(analysis.potentialRelationMetrics.noteCount, 4);
+  assert.ok(analysis.relationCandidates.length > 0);
+  assert.ok(analysis.relationCandidates.every((candidate) => candidate.fromNoteId === "focus_note" || candidate.toNoteId === "focus_note"));
+  assert.equal(analysis.relationCandidates.some((candidate) => candidate.fromNoteId === "other_a" || candidate.toNoteId === "other_a"), false);
+});
+
+test("local graph analysis treats draft relations as connected but ignores dismissed ones", () => {
+  const notes = [
+    {
+      noteId: "a",
+      title: "Draft relation source",
+      thesis: "Draft relations should keep notes inside the working graph.",
+      tags: ["graph-review"]
+    },
+    {
+      noteId: "b",
+      title: "Draft relation target",
+      thesis: "Draft relations should keep notes inside the working graph.",
+      tags: ["graph-review"]
+    }
+  ];
+
+  const withDraft = analyzePermanentNoteGraphLocally({
+    notes,
+    relations: [{ id: "r_draft", fromNoteId: "a", toNoteId: "b", relationType: "same_topic", status: "draft" }],
+    options: { minScore: 0.1 }
+  });
+  const withDismissed = analyzePermanentNoteGraphLocally({
+    notes,
+    relations: [{ id: "r_dismissed", fromNoteId: "a", toNoteId: "b", relationType: "same_topic", status: "dismissed" }],
+    options: { minScore: 0.1 }
+  });
+
+  assert.equal(withDraft.relationCount, 1);
+  assert.equal(withDraft.isolatedNotes.length, 0);
+  assert.equal(withDraft.relationCandidates.length, 0);
+
+  assert.equal(withDismissed.relationCount, 0);
+  assert.equal(withDismissed.isolatedNotes.length, 2);
+  assert.ok(withDismissed.relationCandidates.length > 0);
 });

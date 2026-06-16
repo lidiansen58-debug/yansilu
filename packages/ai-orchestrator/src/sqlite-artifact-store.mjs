@@ -288,6 +288,11 @@ function insertArtifact(db, artifact) {
   }
 }
 
+function replaceSources(db, artifact = {}) {
+  db.prepare("DELETE FROM ai_artifact_sources WHERE artifact_id = ?").run(artifact.id);
+  insertSources(db, artifact);
+}
+
 function listRows(db, filter = {}) {
   const rows = db
     .prepare(
@@ -389,6 +394,23 @@ export async function createSqliteArtifactStore(options = {}) {
     countArtifacts(filter = {}) {
       return listRows(db, { ...filter, limit: 200 }).length;
     },
+    deleteArtifact(artifactId) {
+      const id = cleanText(artifactId);
+      if (!id) {
+        const error = new Error("artifactId is required");
+        error.code = "AI_ARTIFACT_ID_REQUIRED";
+        throw error;
+      }
+      db.exec("BEGIN IMMEDIATE;");
+      try {
+        const result = db.prepare("DELETE FROM ai_artifacts WHERE id = ?").run(id);
+        db.exec("COMMIT;");
+        return Number(result?.changes || 0) > 0;
+      } catch (error) {
+        db.exec("ROLLBACK;");
+        throw error;
+      }
+    },
     updateArtifact(artifactId, updates = {}) {
       const id = cleanText(artifactId || updates.artifactId || updates.artifact_id);
       const existing = getArtifact(id);
@@ -399,20 +421,58 @@ export async function createSqliteArtifactStore(options = {}) {
       }
 
       const now = new Date().toISOString();
-      const payload = Object.prototype.hasOwnProperty.call(updates, "payload") ? updates.payload || {} : existing.payload || {};
-      const provenance = Object.prototype.hasOwnProperty.call(updates, "provenance")
-        ? updates.provenance || {}
-        : existing.provenance || {};
-      const status = cleanText(updates.status) || existing.status;
-      const updatedAt = cleanText(updates.updatedAt || updates.updated_at) || now;
+      const next = normalizeArtifact(
+        {
+          ...existing,
+          ...updates,
+          id,
+          createdAt: existing.createdAt,
+          updatedAt: cleanText(updates.updatedAt || updates.updated_at) || now,
+          agentRunId: cleanText(updates.agentRunId || updates.agent_run_id) || existing.agentRunId,
+          contextPackId: cleanText(updates.contextPackId || updates.context_pack_id) || existing.contextPackId,
+          sources: Object.prototype.hasOwnProperty.call(updates, "sources") ? updates.sources || {} : existing.sources || {},
+          payload: Object.prototype.hasOwnProperty.call(updates, "payload") ? updates.payload || {} : existing.payload || {},
+          provenance: Object.prototype.hasOwnProperty.call(updates, "provenance") ? updates.provenance || {} : existing.provenance || {},
+          confidence: Object.prototype.hasOwnProperty.call(updates, "confidence") ? updates.confidence || {} : existing.confidence || {},
+          privacy: Object.prototype.hasOwnProperty.call(updates, "privacy") ? updates.privacy || {} : existing.privacy || {},
+          model: Object.prototype.hasOwnProperty.call(updates, "model") ? updates.model || null : existing.model || null,
+          userDecisions: existing.userDecisions || []
+        },
+        {
+          now: existing.createdAt || now,
+          agentRunId: existing.agentRunId,
+          contextPackId: existing.contextPackId,
+          model: existing.model,
+          privacy: existing.privacy
+        }
+      );
 
       db.exec("BEGIN IMMEDIATE;");
       try {
         db.prepare(
           `UPDATE ai_artifacts
-           SET status = ?, updated_at = ?, provenance_json = ?, payload_json = ?
+           SET type = ?, title = ?, summary = ?, body_json = ?, status = ?, origin = ?, agent_run_id = ?, context_pack_id = ?,
+               model_json = ?, provenance_json = ?, confidence_json = ?, privacy_mode = ?, privacy_json = ?, payload_json = ?, updated_at = ?
            WHERE id = ?`
-        ).run(status, updatedAt, jsonString(provenance), jsonString(payload), id);
+        ).run(
+          next.type,
+          next.title,
+          next.summary || "",
+          jsonString(next.body),
+          next.status,
+          next.origin,
+          next.agentRunId,
+          next.contextPackId || "",
+          jsonString(next.model),
+          jsonString(next.provenance),
+          jsonString(next.confidence),
+          next.privacy?.mode || "normal",
+          jsonString(next.privacy),
+          jsonString(next.payload),
+          next.updatedAt,
+          id
+        );
+        replaceSources(db, next);
         db.exec("COMMIT;");
         return getArtifact(id);
       } catch (error) {

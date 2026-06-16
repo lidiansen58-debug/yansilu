@@ -32,6 +32,22 @@ test("graph workbench entries live beside reading lenses and legend", () => {
   assert.match(source, /renderGraphReadingLensControls\(readingLens\.key, legendOpen, readingLensTrailingMarkup\)/);
 });
 
+test("live graph connectivity overrides stale persisted relation status once a scope is loaded", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /function relationNetworkStatusForNote\(note = null, options = \{\}\) \{/);
+  assert.match(source, /const permanentLike = noteType === "permanent" \|\| noteType === "original";/);
+  assert.match(source, /if \(permanentLike && connectivityReady && connectedIds\) return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
+  assert.match(source, /const explicitStatus = String\(note\?\.relationNetworkStatus \|\| note\?\.relation_network_status \|\| ""\)\.trim\(\)\.toLowerCase\(\);/);
+});
+
+test("graph refresh repaints the explorer tree after connectivity state changes", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /async function refreshDirectoryGraph\(\) \{/);
+  assert.match(source, /graphState\.loading = false;\s*renderAll\(\);/);
+});
+
 test("graph focus reading panel can be collapsed and restored explicitly", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
@@ -55,7 +71,7 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
 
-  assert.match(source, /function renderGraphWorkbenchPanel\(\{ clueSummary = \{\}, questionSummary = \{\}, clueSectionsMarkup = "", thinkingItems = \[\] \} = \{\}\) \{/);
+  assert.match(source, /function renderGraphWorkbenchPanel\(\{ clueSummary = \{\}, questionSummary = \{\}, clueSectionsMarkup = "", thinkingItems = \[\], isolatedQueueMarkup = "" \} = \{\}\) \{/);
   assert.match(source, /const open = graphState\.workbenchPanelOpen === true;/);
   assert.match(source, /data-graph-workbench-tab="\$\{escapeHtml\(meta\.key\)\}"/);
   assert.match(source, /data-graph-workbench-close/);
@@ -242,37 +258,151 @@ test("isolated graph notes can request AI-assisted relation candidates and confi
 
   assert.match(source, /function graphAiRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
   assert.match(source, /function graphRelationCandidateKey\(fromNoteId = "", toNoteId = "", relationType = ""\) \{/);
-  assert.match(source, /const existingRelationKeys = graphExistingRelationKeys\(edges\);/);
+  assert.match(source, /function graphRelationPairKey\(leftNoteId = "", rightNoteId = ""\) \{/);
+  assert.match(source, /function graphExistingRelationPairKeys\(edges = \[\]\) \{/);
+  assert.match(source, /function graphPotentialRelationNodeMap\(\) \{/);
+  assert.match(source, /function graphPotentialRelationEvidenceText\(candidate = \{\}\) \{/);
+  assert.match(source, /function graphPotentialRelationRationaleDraft\(\{/);
+  assert.match(source, /function graphDecoratePotentialRelationCandidate\(candidate = \{\}, \{ nodeMap = new Map\(\) \} = \{\}\) \{/);
+  assert.match(source, /function graphReviewSummaryFromAnalysis\(analysis = \{\}, previousSummary = \{\}\) \{/);
+  assert.match(source, /const artifactCount = topicCandidateCount \+ Math\.max\(0, relationCandidateCount - bridgeCandidateCount\) \+ bridgeCandidateCount \+ isolatedNoteCount;/);
+  assert.match(source, /const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set\(\["bridges", "same_topic", "associated_with"\]\);/);
+  assert.match(source, /function graphPotentialRelationActionEndpoints\(cleanNoteId = "", sourceNoteId = "", targetNoteId = "", relationType = ""\) \{/);
+  assert.match(source, /const relationType = graphPreferredPotentialRelationType\(candidate\);/);
   assert.match(source, /const sourceNoteId = fromNoteId;/);
   assert.match(source, /const targetNoteId = toNoteId;/);
+  assert.match(source, /id: String\(candidate\.id \|\| candidate\.candidateId \|\| candidate\.candidate_id \|\| ""\)\.trim\(\),/);
+  assert.match(source, /sourceContentHash: String\(candidate\.sourceContentHash \|\| candidate\.source_content_hash \|\| ""\)\.trim\(\),/);
   assert.match(source, /const counterpartNoteId = fromNoteId === cleanNoteId \? toNoteId : fromNoteId;/);
-  assert.match(source, /if \(seen\.has\(key\) \|\| existingRelationKeys\.has\(key\)\) return null;/);
+  assert.match(source, /const \{ actionSourceNoteId, actionTargetNoteId \} = graphPotentialRelationActionEndpoints\(\s*cleanNoteId,\s*sourceNoteId,\s*targetNoteId,\s*relationType\s*\);/);
+  assert.match(source, /const pairKey = graphRelationPairKey\(sourceNoteId, targetNoteId\);/);
+  assert.match(source, /if \(!pairKey \|\| seenPairKeys\.has\(pairKey\) \|\| existingRelationPairKeys\.has\(pairKey\)\) return null;/);
+  assert.match(source, /actionSourceNoteId,/);
+  assert.match(source, /actionTargetNoteId,/);
+  assert.match(source, /async function refineGraphPotentialRelationsForNote\(noteId = "", candidates = \[\], \{ directoryId = "" \} = \{\}\) \{/);
+  assert.match(source, /let generatedThisRun = 0;/);
+  assert.match(source, /let waitingConfirmationThisRun = 0;/);
+  assert.match(source, /let failedThisRun = 0;/);
+  assert.match(source, /let removedThisRun = 0;/);
+  assert.match(source, /const refineResult = await refineGraphPotentialRelationCandidate\(cleanNoteId, candidate, \{ directoryId \}\);/);
+  assert.match(source, /if \(refineResult\?\.aiReasonGenerated\) generatedThisRun \+= 1;/);
+  assert.match(source, /if \(refineResult\?\.removed\) \{/);
+  assert.match(source, /removedThisRun \+= 1;/);
+  assert.match(source, /continue;/);
+  assert.match(source, /if \(refineResult\?\.needsConfirmation\) \{/);
+  assert.match(source, /waitingConfirmationThisRun \+= 1;/);
+  assert.match(source, /if \(refineResult\?\.needsConfirmation\) \{[\s\S]*break;/);
+  assert.match(source, /if \(refineResult\?\.ok === false\) failedThisRun \+= 1;/);
+  assert.match(source, /已补充 \$\{generatedThisRun\} 条潜在关联的 AI 复核理由，另有 \$\{waitingConfirmationThisRun\} 条等待你确认当前 AI 设置后再生成理由/);
+  assert.match(source, /已补充 \$\{generatedThisRun\} 条潜在关联的 AI 复核理由，另有 \$\{failedThisRun\} 条暂未生成理由，可稍后重试/);
+  assert.match(source, /`\$\{failedThisRun\} 条潜在关联暂未生成 AI 理由，可稍后重试`/);
+  assert.match(source, /async function refineGraphPotentialRelationCandidate\(noteId = "", candidate = \{\}, \{ directoryId = "", confirmationApproved = false \} = \{\}\) \{/);
+  assert.match(source, /const refined = await refinePotentialRelationCandidate\(\{/);
+  assert.match(source, /const merged = Boolean\(refined && mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)\);/);
+  assert.match(source, /function removePotentialRelationCandidateFromGraphAnalysis\(candidateToRemove = \{\}\) \{/);
+  assert.match(source, /const nextSummary = graphReviewSummaryFromAnalysis\(nextAnalysis, graphState\.aiAnalysis\?\.reviewItems\?\.summary\);/);
+  assert.match(source, /summary: nextSummary/);
+  assert.match(source, /const aiReason = String\(refined\?\.aiRationale \|\| ""\)\.trim\(\);/);
+  assert.match(source, /const aiError = String\(refined\?\.aiError \|\| ""\)\.trim\(\);/);
+  assert.match(source, /const needsConfirmation =/);
+  assert.match(source, /if \(needsConfirmation\) \{/);
+  assert.match(source, /confirmationApproved: true, confirmBudget: true/);
+  assert.match(source, /return graphDecoratePotentialRelationCandidate\(\{[\s\S]*sourceContentHash: String\(candidate\.sourceContentHash \|\| candidate\.source_content_hash \|\| ""\)\.trim\(\),[\s\S]*relationType[\s\S]*\}, \{ nodeMap \}\);/);
+  assert.match(source, /return graphDecoratePotentialRelationCandidate\(\{[\s\S]*\.\.\.refinedCandidate,[\s\S]*targetNoteId: refinedCandidate\.targetNoteId \|\| refinedCandidate\.toNoteId \|\| candidate\.targetNoteId[\s\S]*\}, \{ nodeMap \}\);/);
+  assert.match(source, /if \(code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND"\) \{/);
+  assert.match(source, /const removed = removePotentialRelationCandidateFromGraphAnalysis\(candidate\);/);
+  assert.match(source, /这条潜在关联已不在当前图谱范围内，已从候选列表移除/);
+  assert.match(source, /else setStatus\(`生成关联理由失败：\$\{String\(error\?\.\message \|\| error\)\}`\, "warn"\);/);
+  assert.match(source, /mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)/);
+  assert.match(source, /function graphPotentialRelationNeedsConfirmation\(candidate = \{\}\) \{/);
+  assert.match(source, /data-graph-ai-refine-confirm/);
+  assert.match(source, /data-graph-ai-refine-retry/);
+  assert.match(source, /已重新生成这条潜在关联的 AI 复核理由/);
+  assert.match(source, /async function triggerGraphPotentialRelationRefine\(/);
+  assert.match(source, /async function confirmGraphPotentialRelationRefine\(button = null\) \{/);
+  assert.match(source, /async function retryGraphPotentialRelationRefine\(button = null\) \{/);
+  assert.match(source, /正在重新生成关联理由/);
+  assert.match(source, /progressStatus: "正在按当前 AI 设置生成关联理由\.\.\."/);
+  assert.doesNotMatch(source, /setStatus\("已确认使用当前 AI 设置，正在生成关联理由", "ok"\);/);
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
   assert.match(source, /aria-label="孤立笔记加入网络"/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(noteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(noteId\)\}"/);
   assert.match(source, /data-graph-followup-action="relations">手工连线<\/button>/);
   assert.match(source, /data-graph-ai-candidate-apply/);
+  assert.match(source, /data-open-note="\$\{escapeHtml\(candidate\.actionSourceNoteId \|\| candidate\.sourceNoteId\)\}"/);
+  assert.match(source, /data-graph-target-note="\$\{escapeHtml\(candidate\.actionTargetNoteId \|\| candidate\.targetNoteId\)\}"/);
+  assert.match(source, /data-graph-relation-type="\$\{escapeHtml\(candidate\.relationType\)\}"/);
   assert.match(source, /data-graph-rationale-draft="\$\{escapeHtml\(candidate\.rationaleDraft\)\}"/);
   assert.match(source, /data-graph-insight-question-draft="\$\{escapeHtml\(candidate\.insightQuestionDraft\)\}"/);
   assert.match(source, /async function runGraphAiConnectForNote\(noteId = ""\) \{/);
   assert.match(source, /relationLimit: 24,/);
+  assert.match(source, /focusNoteId: cleanNoteId,/);
+  assert.match(source, /currentNoteId: cleanNoteId,/);
+  assert.match(source, /if \(candidates\.length\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
   assert.match(source, /const graphSelectionKind = previousSelectionKind === "isolated" \|\| \(!previousSelectionKind && !hasDirectEdge\) \? "isolated" : "node";/);
   assert.match(source, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
   assert.match(source, /function openGraphAiCandidateRelation\(button = null\) \{/);
   assert.match(source, /rationaleDraft,/);
   assert.match(source, /insightQuestionDraft,/);
+  assert.match(source, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{ nodeMap, edges \}\)/);
   assert.match(source, /runAiConnectForNote: runGraphAiConnectForNote/);
   assert.match(source, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
   assert.match(source, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
+  assert.match(source, /const graphAiRefineConfirmButton = event\.target\.closest\("\[data-graph-ai-refine-confirm\]"\);/);
+  assert.match(source, /await confirmGraphPotentialRelationRefine\(graphAiRefineConfirmButton\);/);
+  assert.match(source, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
+  assert.match(source, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
   assert.match(source, /providedRationaleDraft \|\| providedInsightQuestionDraft/);
+  assert.match(source, /sourceLabel = button\?\.hasAttribute\?\.\("data-graph-ai-candidate-apply"\) \? "潜在关联" : "候选关系";/);
 
   assert.match(html, /\.graph-isolated-join \{[\s\S]*display: grid;[\s\S]*border: 1px solid #efc66f;/);
   assert.match(html, /\.graph-isolated-join-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
   assert.match(html, /\.graph-isolated-join-step \{[\s\S]*min-height: 44px;/);
   assert.match(html, /\.graph-ai-connect \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
   assert.match(html, /\.graph-ai-connect-card \{[\s\S]*border-radius: 14px;/);
-  assert.match(html, /\.graph-ai-connect-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(html, /\.graph-ai-connect-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(112px, 1fr\)\);/);
+});
+
+test("graph selection upgrades isolated notes to connected nodes after a saved relation and keeps summary counts scoped instead of filter-limited", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /const isolated = resolveGraphIsolatedSelection\(selection, isolatedNotes, \[\]\);/);
+  assert.match(source, /return noteId && nodes\.some\(\(node\) => String\(node\?\.id \|\| ""\)\.trim\(\) === noteId\) \? \{ kind: "node", nodeId: noteId \} : null;/);
+  assert.match(source, /const baseSummary = `\$\{scopedAllNodes\.length\} 条永久笔记，\$\{scoped\.edges\.length\} 条关系`;/);
+});
+
+test("graph AI candidates prefill relation forms with a usable rationale draft instead of a review prompt", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /function graphPotentialRelationRationaleDraft\(\{/);
+  assert.match(source, /const rationaleSeed = aiRationale \|\| evidenceText;/);
+  assert.match(source, /const cleanRationaleSeed = String\(rationaleSeed \|\| ""\)\.replace\(\/\[。\！？!\?；;：:\\s\]\+\$\/gu, ""\)\.trim\(\);/);
+  assert.match(source, /return cleanRationaleSeed\s*\? `我确认“\$\{actionSourceTitle\}”和“\$\{actionTargetTitle\}”可以建立\$\{relationLabel\}，因为\$\{cleanRationaleSeed\}。`/);
+  assert.match(source, /rationaleDraft: graphPotentialRelationRationaleDraft\(\{/);
+  assert.match(source, /insightQuestionDraft: reviewQuestion \|\| `这条\$\{relationLabel\}会如何改变你对“\$\{actionTargetTitle\}”的理解、支撑或边界判断？`/);
+});
+
+test("graph network-edge status handling keeps suggested links in-network but still lets dismissed history re-enter candidates", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /return status === "suggested" \|\| status === "draft" \|\| status === "confirmed";/);
+  assert.match(source, /graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
+  assert.match(source, /const connectedIds = new Set\(\s*\n\s*\(Array\.isArray\(edges\) \? edges : \[\]\)\s*\n\s*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)/);
+});
+
+test("graph AI summary treats bridge candidates as a subset instead of double counting them", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /function graphAiAnalysisSummaryState\(\) \{/);
+  assert.match(source, /const bridgeCount = Number\(summary\.bridgeCandidateCount \|\| analysis\?\.bridgeCandidates\?\.length \|\| 0\);/);
+  assert.match(source, /const relationCandidateCount = Number\(summary\.relationCandidateCount \|\| analysis\?\.relationCandidates\?\.length \|\| 0\);/);
+  assert.match(source, /const relationCount = Math\.max\(0, relationCandidateCount - bridgeCount\);/);
+  assert.match(source, /totalCandidates: pendingCount \|\| topicCount \+ relationCount \+ bridgeCount \+ isolatedCount/);
+
+  assert.match(source, /function buildGraphQuestionSpotSummary\(\{ reviewQueueTotal = 0, bridgeGaps = \[\], conflictCount = 0, aiAnalysis = null \} = \{\}\) \{/);
+  assert.match(source, /const reviewCandidateCount = Math\.max\(0, relationCandidateCount - bridgeCandidateCount\);/);
+  assert.match(source, /\{ key: "review", label: "关系待复核", count: Math\.max\(Number\(reviewQueueTotal \|\| 0\), reviewCandidateCount\) \}/);
 });
 
 test("directory graph keeps all nodes visible and marks true zero-degree notes as isolated", () => {
@@ -285,9 +415,43 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
   assert.match(source, /graphVisualState: "isolated"/);
   assert.match(source, /let visibleNodes = !showingFocusedNote\s*\?\s*scopedAllNodes/);
   assert.match(source, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
-  assert.match(source, /const selectionEdges = !filterActive && Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
+  assert.match(source, /const selectionEdges = Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
   assert.match(html, /\.graph-map-node\.is-graph-isolated \.graph-map-node-core \{[\s\S]*stroke: #f59e0b;/);
   assert.match(html, /\.graph-local-connect \{[\s\S]*border-color: #fed7aa;/);
+});
+
+test("graph isolated notes are organized into a continuous handling queue", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function graphIsolatedQueueItems\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", limit = 8 \} = \{\}\) \{/);
+  assert.match(source, /const limitCount = Math\.max\(1, Number\(limit\) \|\| 8\);/);
+  assert.match(source, /const aiCandidates = graphAiRelationCandidatesForNote\(noteId, \{ nodeMap, edges, limit: 3 \}\);/);
+  assert.match(source, /const localCandidates = graphLocalRelationCandidatesForNote\(noteId, \{ nodeMap, edges, limit: 3 \}\);/);
+  assert.match(source, /const currentItem = items\.find\(\(item\) => item\.noteId === cleanCurrentNoteId\);/);
+  assert.match(source, /return \[\.\.\.limitedItems\.slice\(0, Math\.max\(0, limitCount - 1\)\), currentItem\];/);
+  assert.match(source, /function graphNextIsolatedQueueItem\(queueItems = \[\], currentNoteId = ""\) \{/);
+  assert.match(source, /function renderGraphIsolatedQueue\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", compact = false, limit = 8, queueItems: providedQueueItems = null \} = \{\}\) \{/);
+  assert.match(source, /function renderGraphIsolatedQueueStrip\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", queueItems: providedQueueItems = null \} = \{\}\) \{/);
+  assert.match(source, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}"/);
+  assert.match(source, /class="graph-isolated-queue-strip"/);
+  assert.match(source, /data-graph-open-workbench-entry="organize"/);
+  assert.match(source, /const workbenchOpenEntry = event\.target\.closest\("\[data-graph-open-workbench-entry\]"\);/);
+  assert.match(source, /const isolatedQueueMarkup = renderGraphIsolatedQueue\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 \}\);/);
+  assert.match(source, /const graphScopedNodeMap = new Map\(scopedAllNodes\.map/);
+  assert.match(source, /const isolatedQueueItems = !showingFocusedNote[\s\S]*graphIsolatedQueueItems\(\{/);
+  assert.match(source, /renderGraphIsolatedQueue\(\{[\s\S]*queueItems: isolatedQueueItems/);
+  assert.match(source, /const isolatedQueueStripMarkup = !showingFocusedNote[\s\S]*renderGraphIsolatedQueueStrip\(\{/);
+  assert.match(source, /renderGraphIsolatedQueueStrip\(\{[\s\S]*queueItems: isolatedQueueItems/);
+  assert.match(source, /renderGraphVisualMap\(\{[\s\S]*isolatedQueueStripMarkup/);
+  assert.match(source, /renderGraphWorkbenchPanel\(\{[\s\S]*isolatedQueueMarkup/);
+  assert.match(source, /function renderGraphWorkbenchPanel\(\{ clueSummary = \{\}, questionSummary = \{\}, clueSectionsMarkup = "", thinkingItems = \[\], isolatedQueueMarkup = "" \} = \{\}\) \{/);
+
+  assert.match(html, /\.graph-isolated-queue-strip \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto auto;/);
+  assert.match(html, /\.graph-isolated-queue \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;/);
+  assert.match(html, /\.graph-isolated-queue-item \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*min-height: 58px;/);
+  assert.match(html, /\.graph-isolated-queue-item\.is-current \{[\s\S]*box-shadow: inset 4px 0 0 rgba\(217, 119, 6, 0\.65\);/);
+  assert.match(html, /\.graph-isolated-queue-main:hover,[\s\S]*\.graph-isolated-queue-main:focus-visible \{/);
 });
 
 test("graph isolated workspace offers non-AI relation candidates from tags and titles", () => {
@@ -338,6 +502,10 @@ test("graph keyboard activation handles workflow actions before generic note ope
 
   assert.match(handler, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
   assert.match(handler, /openGraphAiCandidateRelation\(graphAiCandidateButton\);/);
+  assert.match(handler, /const graphAiRefineConfirmButton = event\.target\.closest\("\[data-graph-ai-refine-confirm\]"\);/);
+  assert.match(handler, /await confirmGraphPotentialRelationRefine\(graphAiRefineConfirmButton\);/);
+  assert.match(handler, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
+  assert.match(handler, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
   assert.match(handler, /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
   assert.match(handler, /await createGraphThemeIndexFromButton\(graphThemeIndexButton\);/);
   assert.match(handler, /const isolatedAction = event\.target\.closest\("\[data-graph-isolated-action\]"\);/);
@@ -345,6 +513,14 @@ test("graph keyboard activation handles workflow actions before generic note ope
   assert.ok(
     handler.indexOf("[data-graph-ai-candidate-apply]") < handler.indexOf('const row = event.target.closest("[data-open-note]")'),
     "AI candidate keyboard action should run before generic note opening"
+  );
+  assert.ok(
+    handler.indexOf("[data-graph-ai-refine-confirm]") < handler.indexOf('const row = event.target.closest("[data-open-note]")'),
+    "AI refine confirmation keyboard action should run before generic note opening"
+  );
+  assert.ok(
+    handler.indexOf("[data-graph-ai-refine-retry]") < handler.indexOf('const row = event.target.closest("[data-open-note]")'),
+    "AI refine retry keyboard action should run before generic note opening"
   );
   assert.ok(
     handler.indexOf("[data-graph-relation-adjustment]") < handler.indexOf('const row = event.target.closest("[data-open-note]")'),

@@ -90,10 +90,15 @@ import {
   analyzePermanentNoteForReview,
   analyzePermanentNoteGraphLocally,
   buildPermanentNoteGraphReviewItems,
+  buildPotentialRelationCandidates,
   buildPermanentNoteLocalModelRequest,
+  assertProviderModelCallAllowed,
   createScheduledTaskFromTemplate,
+  DEFAULT_POTENTIAL_RELATION_MODEL,
   listScheduledAgentTaskTemplates,
+  PotentialRelationAiCache,
   preferencesToSettingsInput,
+  refinePotentialRelationCandidateWithLocalAi,
   providerConfigToSettingsInput,
   assertValidAiProviderConfig,
   resolveAiUserSettings,
@@ -139,6 +144,7 @@ let aiProviderHealthStorePromise = null;
 let aiScheduledTaskStorePromise = null;
 let aiArtifactStorePromise = null;
 let aiSuggestionStorePromise = null;
+const potentialRelationAiCache = new PotentialRelationAiCache();
 
 async function aiPreferencesStore() {
   if (!aiPreferencesStorePromise) {
@@ -1209,6 +1215,221 @@ function stringArray(value) {
   if (Array.isArray(value)) return value.map(cleanText).filter(Boolean);
   if (value === undefined || value === null || value === "") return [];
   return [cleanText(value)].filter(Boolean);
+}
+
+function potentialRelationPairKey(left = "", right = "") {
+  return `${cleanText(left)}::${cleanText(right)}`;
+}
+
+function samePotentialRelationCandidate(left = {}, right = {}) {
+  const leftId = cleanText(left.id || left.candidateId || left.candidate_id);
+  const rightId = cleanText(right.id || right.candidateId || right.candidate_id);
+  if (leftId && rightId && leftId === rightId) return true;
+  const leftSource = cleanText(left.sourceNoteId || left.fromNoteId || left.from_note_id);
+  const leftTarget = cleanText(left.targetNoteId || left.toNoteId || left.to_note_id);
+  const rightSource = cleanText(right.sourceNoteId || right.fromNoteId || right.from_note_id);
+  const rightTarget = cleanText(right.targetNoteId || right.toNoteId || right.to_note_id);
+  return Boolean(leftSource && leftTarget && rightSource && rightTarget && potentialRelationPairKey(leftSource, leftTarget) === potentialRelationPairKey(rightSource, rightTarget));
+}
+
+function resolvePotentialRelationCandidate(scan = {}, requestedCandidate = null) {
+  const scanCandidates = Array.isArray(scan?.candidates) ? scan.candidates : [];
+  const requested = requestedCandidate && typeof requestedCandidate === "object" ? requestedCandidate : null;
+  const scannedMatch = requested ? scanCandidates.find((candidate) => samePotentialRelationCandidate(candidate, requested)) || null : null;
+  if (scannedMatch && requested) return { ...requested, ...scannedMatch };
+  if (requested) return null;
+  return scanCandidates[0] || null;
+}
+
+function graphArtifactScopeKey(body = {}, notes = []) {
+  const directoryId = cleanText(body.directoryId || body.directory_id);
+  if (directoryId) return `graph_scope:${directoryId}`;
+  const focusNoteId = cleanText(body.focusNoteId || body.focus_note_id || body.currentNoteId || body.current_note_id);
+  if (focusNoteId) return `graph_focus:${focusNoteId}`;
+  const noteIds = [...new Set((Array.isArray(notes) ? notes : []).map((note) => cleanText(note?.noteId || note?.id)).filter(Boolean))].sort();
+  return `graph_notes:${noteIds.join(",") || "manual_scope"}`;
+}
+
+function stableArtifactScopePart(value = "") {
+  return cleanText(value).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/giu, "_").replace(/^_+|_+$/g, "").slice(0, 48);
+}
+
+function artifactRefreshSnapshot(artifact = {}) {
+  return JSON.stringify({
+    id: cleanText(artifact.id),
+    type: cleanText(artifact.type),
+    title: cleanText(artifact.title),
+    summary: cleanText(artifact.summary),
+    body: artifact.body ?? "",
+    origin: cleanText(artifact.origin),
+    agentRunId: cleanText(artifact.agentRunId || artifact.agent_run_id),
+    contextPackId: cleanText(artifact.contextPackId || artifact.context_pack_id),
+    model: artifact.model || null,
+    sources: artifact.sources || { noteIds: [], sourceDocIds: [], artifactIds: [], externalUrls: [] },
+    provenance: artifact.provenance || {},
+    confidence: artifact.confidence || {},
+    privacy: artifact.privacy || {},
+    payload: artifact.payload || {}
+  });
+}
+
+function persistArtifactsIdempotently(artifactStore, artifacts = []) {
+  if (!artifactStore) return [];
+  const stored = [];
+  for (const artifact of Array.isArray(artifacts) ? artifacts : []) {
+    try {
+      stored.push(artifactStore.createArtifact(artifact));
+    } catch (error) {
+      if (error?.code !== "AI_ARTIFACT_ALREADY_EXISTS") throw error;
+      const existing = artifactStore.getArtifact(artifact?.id);
+      if (!existing) continue;
+      if (artifactRefreshSnapshot(existing) !== artifactRefreshSnapshot(artifact)) {
+        stored.push(
+          artifactStore.updateArtifact(artifact.id, {
+            ...artifact,
+            status: existing.status || artifact.status,
+            createdAt: existing.createdAt,
+            updatedAt: new Date().toISOString()
+          })
+        );
+        continue;
+      }
+      stored.push(existing);
+    }
+  }
+  return stored.filter(Boolean);
+}
+
+const GRAPH_REVIEW_ARTIFACT_TYPES = new Set(["InsightCard", "LinkSuggestion", "BridgeCard", "QuestionCard"]);
+
+function graphArtifactBelongsToScope(artifact = {}, scopePart = "") {
+  const id = cleanText(artifact?.id);
+  if (!id || !scopePart) return false;
+  return id.includes(`_${scopePart}_`) || id.endsWith(`_${scopePart}`);
+}
+
+function pruneStaleGraphReviewArtifacts(artifactStore, currentArtifacts = [], { body = {}, notes = [] } = {}) {
+  if (!artifactStore || typeof artifactStore.listArtifacts !== "function" || typeof artifactStore.deleteArtifact !== "function") return [];
+  const scopePart = stableArtifactScopePart(graphArtifactScopeKey(body, notes));
+  if (!scopePart) return [];
+  const currentIds = new Set((Array.isArray(currentArtifacts) ? currentArtifacts : []).map((artifact) => cleanText(artifact?.id)).filter(Boolean));
+  const staleArtifacts = artifactStore
+    .listArtifacts({ status: "pending_review", limit: 500 })
+    .filter((artifact) => GRAPH_REVIEW_ARTIFACT_TYPES.has(cleanText(artifact?.type)) && graphArtifactBelongsToScope(artifact, scopePart))
+    .filter((artifact) => !currentIds.has(cleanText(artifact?.id)));
+  for (const artifact of staleArtifacts) {
+    artifactStore.deleteArtifact(artifact.id);
+  }
+  return staleArtifacts.map((artifact) => artifact.id);
+}
+
+function graphReviewArtifactsForCandidate(candidate = {}, context = {}) {
+  const reviewItems = buildPermanentNoteGraphReviewItems(
+    {
+      topicCandidates: [],
+      relationCandidates: candidate?.componentBridge ? [] : [candidate],
+      bridgeCandidates: candidate?.componentBridge ? [candidate] : [],
+      isolatedNotes: []
+    },
+    context
+  );
+  return Array.isArray(reviewItems?.artifacts) ? reviewItems.artifacts : [];
+}
+
+function graphArtifactExecutionContext({ body = {}, notes = [], rid = "", providerExecution = null, modelName = "" } = {}) {
+  const requestedUserMode = cleanText(body.userMode || body.user_mode);
+  if (providerExecution) {
+    return {
+      agentRunId: `run_graph_analysis_${rid}`,
+      contextPackId: `ctx_graph_analysis_${rid}`,
+      artifactIdSalt: graphArtifactScopeKey(body, notes),
+      model: requestModelFromRoute(providerExecution.providerDescriptor, providerExecution.modelRoute, modelName, requestedUserMode),
+      privacy: {
+        mode: cleanText(providerExecution.modelRoute?.privacyMode) || "normal",
+        cloudModelUsed: providerExecution.providerDescriptor?.localExecution !== true
+      }
+    };
+  }
+  return {
+    agentRunId: `run_graph_analysis_${rid}`,
+    contextPackId: `ctx_graph_analysis_${rid}`,
+    artifactIdSalt: graphArtifactScopeKey(body, notes),
+      model: {
+        provider: "ollama_direct",
+        model: cleanText(modelName) || DEFAULT_POTENTIAL_RELATION_MODEL,
+        modelRef: cleanText(modelName) || DEFAULT_POTENTIAL_RELATION_MODEL,
+        tier: "local_private",
+        mode: requestedUserMode || "Local / Private"
+      },
+    privacy: {
+      mode: cleanText(body.privacyMode || body.privacy_mode) || "local_only",
+      cloudModelUsed: false
+    }
+  };
+}
+
+async function callOllamaGenerate(prompt = "", options = {}) {
+  const model = cleanText(options.modelName || options.model || DEFAULT_POTENTIAL_RELATION_MODEL) || DEFAULT_POTENTIAL_RELATION_MODEL;
+  const timeoutMs = Math.max(1, Math.min(Number(options.timeoutMs ?? options.timeout_ms ?? 60000) || 60000, 60000));
+  const controller = new AbortController();
+  function ollamaTimeoutError() {
+    const timeoutError = new Error(`OLLAMA_TIMEOUT_${timeoutMs}`);
+    timeoutError.code = "OLLAMA_TIMEOUT";
+    return timeoutError;
+  }
+  const startedAt = Date.now();
+  async function withOllamaDeadline(promise, remainingMs) {
+    const timeoutWindow = Math.max(1, Number(remainingMs) || 1);
+    let timer = null;
+    try {
+      return await Promise.race([
+        Promise.resolve(promise),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort();
+            reject(ollamaTimeoutError());
+          }, timeoutWindow);
+        })
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  try {
+    const response = await withOllamaDeadline(
+      fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          prompt: String(prompt || ""),
+          stream: false,
+          options: {
+            temperature: Number(options.temperature ?? 0.1),
+            num_predict: Math.max(1, Math.min(Number(options.numPredict ?? options.num_predict ?? 320) || 320, 400))
+          }
+        })
+      }),
+      timeoutMs
+    );
+    let json = {};
+    try {
+      json = await withOllamaDeadline(response.json(), timeoutMs - (Date.now() - startedAt));
+    } catch (error) {
+      if (error?.name === "AbortError") throw ollamaTimeoutError();
+      if (error?.code === "OLLAMA_TIMEOUT") throw error;
+    }
+    if (!response.ok) {
+      const error = new Error(cleanText(json?.error || json?.message) || `Ollama returned HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    return json.response || "";
+  } catch (error) {
+    if (error?.name === "AbortError") throw ollamaTimeoutError();
+    throw error;
+  }
 }
 
 async function loadNotesByIds(noteIds = []) {
@@ -4387,18 +4608,21 @@ const server = http.createServer(async (req, res) => {
           options: body.options || {
             minRelationConfidence: body.minRelationConfidence ?? body.min_relation_confidence,
             relationLimit: body.relationLimit ?? body.relation_limit,
+            focusNoteId: body.focusNoteId ?? body.focus_note_id,
+            currentNoteId: body.currentNoteId ?? body.current_note_id,
             minTopicSize: body.minTopicSize ?? body.min_topic_size
           }
         });
         const reviewItems = buildPermanentNoteGraphReviewItems(analysis, {
           agentRunId: `run_graph_analysis_${rid}`,
           contextPackId: `ctx_graph_analysis_${rid}`,
-          artifactIdSalt: rid,
+          artifactIdSalt: graphArtifactScopeKey(body, notes),
           privacyMode: "local_only"
         });
         const persistArtifacts = body.persistArtifacts !== false && body.persist_artifacts !== false;
         const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
-        const storedArtifacts = persistArtifacts ? artifactStore.createMany(reviewItems.artifacts) : [];
+        const storedArtifacts = persistArtifacts ? persistArtifactsIdempotently(artifactStore, reviewItems.artifacts) : [];
+        if (persistArtifacts) pruneStaleGraphReviewArtifacts(artifactStore, storedArtifacts, { body, notes });
         return sendJson(res, 200, {
           item: {
             directoryId: body.directoryId || null,
@@ -4421,6 +4645,181 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "GRAPH_AI_ANALYSIS_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/graph/potential-relations") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        let notes = Array.isArray(body.notes) ? body.notes : [];
+        let relations = Array.isArray(body.relations) ? body.relations : [];
+        let graph = null;
+        if (!notes.length && body.directoryId) {
+          graph = await getDirectoryGraph(VAULT_PATH, body.directoryId, {
+            includeDescendants: body.includeDescendants === true || body.include_descendants === true
+          });
+          const permanentNodeIds = graph.nodes.filter((node) => node.noteType === "permanent").map((node) => node.id);
+          notes = await loadNotesByIds(permanentNodeIds);
+          relations = graph.edges;
+        }
+        const scan = buildPotentialRelationCandidates({
+          notes,
+          relations,
+          options: body.options || {
+            minScore: body.minScore ?? body.min_score,
+            perNoteLimit: body.perNoteLimit ?? body.per_note_limit,
+            globalLimit: body.globalLimit ?? body.global_limit,
+            focusNoteId: body.focusNoteId ?? body.focus_note_id,
+            currentNoteId: body.currentNoteId ?? body.current_note_id,
+            recentNoteIds: body.recentNoteIds ?? body.recent_note_ids
+          }
+        });
+        return sendJson(res, 200, {
+          item: {
+            directoryId: body.directoryId || null,
+            graphScope: graph
+              ? {
+                  nodeCount: graph.totalNodes,
+                  edgeCount: graph.totalEdges,
+                  includeDescendants: graph.includeDescendants
+                }
+              : null,
+            ...scan
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "POTENTIAL_RELATIONS_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/graph/potential-relations/refine") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        let notes = Array.isArray(body.notes) ? body.notes : [];
+        let relations = Array.isArray(body.relations) ? body.relations : [];
+        if (!notes.length && body.directoryId) {
+          const graph = await getDirectoryGraph(VAULT_PATH, body.directoryId, {
+            includeDescendants: body.includeDescendants === true || body.include_descendants === true
+          });
+          const permanentNodeIds = graph.nodes.filter((node) => node.noteType === "permanent").map((node) => node.id);
+          notes = await loadNotesByIds(permanentNodeIds);
+          relations = graph.edges;
+        }
+        const scan = buildPotentialRelationCandidates({
+          notes,
+          relations,
+          options: {
+            ...(body.options || {}),
+            focusNoteId: body.focusNoteId ?? body.focus_note_id,
+            currentNoteId: body.currentNoteId ?? body.current_note_id,
+            globalLimit: Math.min(Number(body.globalLimit ?? body.global_limit) || 10, 10)
+          }
+        });
+        const candidate = resolvePotentialRelationCandidate(scan, body.candidate);
+        if (!candidate) return sendJson(res, 404, err("POTENTIAL_RELATION_CANDIDATE_NOT_FOUND", "candidate is no longer available in the current scan", rid));
+        const executeWithCurrentSettings = body.providerMode !== "ollama_direct" && body.provider_mode !== "ollama_direct";
+        const providerExecution = executeWithCurrentSettings
+          ? await resolveAnalysisProviderExecution(body, {
+              agentId: "potential_relation_refine_agent",
+              modelTier: body.modelTier ?? body.model_tier ?? "standard",
+              privacyMode: body.privacyMode ?? body.privacy_mode
+            })
+          : null;
+        const timeoutMs = Math.min(Number(body.timeoutMs ?? body.timeout_ms) || 60000, 60000);
+        const modelName = providerExecution
+          ? cleanText(providerExecution.modelRoute?.modelRef) || DEFAULT_POTENTIAL_RELATION_MODEL
+          : cleanText(body.modelName || body.model_name || body.model) || DEFAULT_POTENTIAL_RELATION_MODEL;
+        const item = await refinePotentialRelationCandidateWithLocalAi(candidate, {
+          fingerprints: scan.fingerprints,
+          cache: potentialRelationAiCache,
+          modelName,
+          providerId: providerExecution?.providerDescriptor?.providerId || "ollama_direct",
+          privacyMode: providerExecution?.modelRoute?.privacyMode || cleanText(body.privacyMode || body.privacy_mode) || "local_only",
+          userMode: providerExecution?.modelRoute?.userMode || cleanText(body.userMode || body.user_mode) || "Local / Private",
+          timeoutMs,
+          temperature: Number(body.temperature ?? 0.1),
+          numPredict: Number(body.numPredict ?? body.num_predict ?? 320),
+          confirmationApproved: body.confirmationApproved === true || body.confirmation_approved === true,
+          confirmBudget: body.confirmBudget === true || body.confirm_budget === true,
+          callModel: providerExecution
+            ? async (prompt, options) => {
+                const budgetPrecheck = assertProviderModelCallAllowed({
+                  body,
+                  prompt,
+                  providerExecution,
+                  outputTokenEstimate: options.numPredict
+                });
+                const response = await providerExecution.providerAdapter.complete({
+                  requestId: `${rid}_potential_relation_refine`,
+                  agentRunId: rid,
+                  purpose: "potential_relation_refine",
+                  providerDescriptor: providerExecution.providerDescriptor,
+                  modelRoute: providerExecution.modelRoute,
+                  modelRef: providerExecution.modelRoute.modelRef,
+                  messages: [
+                    { role: "system", content: "You are a strict reviewer of potential note relations. Return only strict JSON." },
+                    { role: "user", content: prompt }
+                  ],
+                  tools: [],
+                  output: { mode: "text" },
+                  settings: {
+                    stream: false,
+                    temperature: options.temperature,
+                    num_predict: options.numPredict,
+                    maxOutputTokens: options.numPredict,
+                    max_output_tokens: options.numPredict
+                  },
+                  policy: {
+                    privacyMode: providerExecution.modelRoute.privacyMode,
+                    allowCloud: providerExecution.modelRoute.cloudAllowed,
+                    allowFallback: providerExecution.modelRoute.fallbackPolicy?.allowSameProviderFallback !== false,
+                    modelRoute: providerExecution.modelRoute,
+                    budgetPrecheck
+                  }
+                });
+                assertProviderResponseSucceeded(response, "POTENTIAL_RELATION_PROVIDER_FAILED");
+                return response?.output?.content || "";
+              }
+            : (prompt, options) => callOllamaGenerate(prompt, { ...options, timeoutMs })
+        });
+        const persistArtifacts = body.persistArtifacts !== false && body.persist_artifacts !== false;
+        const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
+        const artifactContext = graphArtifactExecutionContext({
+          body,
+          notes,
+          rid,
+          providerExecution,
+          modelName
+        });
+        const storedArtifacts = persistArtifacts
+          ? persistArtifactsIdempotently(
+              artifactStore,
+              graphReviewArtifactsForCandidate(item, artifactContext)
+            )
+          : [];
+        return sendJson(res, 200, {
+          item,
+          metrics: {
+            ruleElapsedMs: scan.metrics.elapsedMs,
+            aiElapsedMs: item.aiElapsedMs,
+            cacheHit: item.cacheHit === true,
+            providerId: providerExecution?.providerDescriptor?.providerId || "ollama_direct",
+            modelRef: modelName,
+            mode: scan.mode
+          },
+          reviewItems: {
+            storedArtifactIds: storedArtifacts.map((artifact) => artifact.id),
+            artifactsPersisted: persistArtifacts
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "POTENTIAL_RELATION_REFINE_FAILED", String(error?.message || error), rid, error?.details));
       }
     }
 
