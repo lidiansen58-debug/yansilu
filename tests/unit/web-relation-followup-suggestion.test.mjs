@@ -82,6 +82,9 @@ test("inline relation promotion also creates the relation followup suggestion", 
   assert.ok(start >= 0 && end > start, "expected promoteInlineDraftRelation() to exist");
   const promoteSource = source.slice(start, end);
 
+  assert.match(promoteSource, /const scoped = this\.scopedLinkCandidates\(\);/);
+  assert.match(promoteSource, /const resolved = this\.resolveLinkToken\(draft\.token, scoped\);/);
+  assert.match(promoteSource, /if \(resolved\?\.ambiguous\) \{/);
   assert.match(promoteSource, /const relation = await createNoteRelation\(note\.id,/);
   assert.match(promoteSource, /this\.setRelationFollowupSuggestion\(/);
   assert.match(promoteSource, /relationFollowupSuggestionForDraft\(\{/);

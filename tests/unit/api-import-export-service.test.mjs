@@ -12,6 +12,7 @@ import {
   deleteNoteById,
   initVault,
   listNoteCatalogEntriesByType,
+  listNoteRelations,
   listNotesInDirectoryScope,
   readNote,
   registerMarkdownNoteInCatalog,
@@ -162,6 +163,62 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
   const createdLiteratureBuffer = await fs.readFile(path.join(vaultPath, createdLiteratureFile.path));
   const createdLiteratureHash = createHash("sha1").update(createdLiteratureBuffer).digest("hex");
   assert.equal(createdLiteratureFile.hash, createdLiteratureHash);
+});
+
+test("confirmImport syncs imported wikilinks into relation links after all notes are registered", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-wikilink-relations-");
+  const importRoot = await makeTempDir("yansilu-service-confirm-wikilink-relations-import-");
+  const service = createService(vaultPath);
+
+  await fs.writeFile(
+    path.join(importRoot, "a-source.md"),
+    [
+      "---",
+      "title: Import Source",
+      "---",
+      "",
+      "This imported note points to ;[[Import Target]] before the target is registered."
+    ].join("\n"),
+    "utf8"
+  );
+  await fs.writeFile(
+    path.join(importRoot, "z-target.md"),
+    [
+      "---",
+      "title: Import Target",
+      "---",
+      "",
+      "This imported note is the relation target."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const preview = await service.createPreview("obsidian", { path: importRoot }, { detectWikilinks: true }, "req_wikilink_relations");
+  const record = await service.getImportRecord(preview.importRecordId);
+  assert.equal(record.candidates.literature.length, 2);
+  const sourceCandidate = record.candidates.literature.find((item) => item.title === "Import Source");
+  const targetCandidate = record.candidates.literature.find((item) => item.title === "Import Target");
+  assert.ok(sourceCandidate);
+  assert.ok(targetCandidate);
+  assert.deepEqual(sourceCandidate.wikilink_targets, ["Import Target"]);
+
+  const result = await service.confirmImport(
+    record,
+    { confirm: true, directoryId: "dir_literature_default", overrideOriginality: true },
+    "req_wikilink_relations"
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.result.created.literatureNotes, 2);
+
+  const sourceRelations = await listNoteRelations(vaultPath, sourceCandidate.id);
+  assert.equal(sourceRelations.outgoingLinks.length, 1);
+  assert.equal(sourceRelations.outgoingLinks[0].toNoteId, targetCandidate.id);
+  assert.equal(sourceRelations.outgoingLinks[0].relationType, "associated_with");
+  assert.equal(sourceRelations.outgoingLinks[0].rationale, "markdown_wikilink");
+
+  const targetRelations = await listNoteRelations(vaultPath, targetCandidate.id);
+  assert.equal(targetRelations.backlinks.length, 1);
+  assert.equal(targetRelations.backlinks[0].fromNoteId, sourceCandidate.id);
 });
 
 test("confirmImport copies permanent-note embedded assets even when only permanent candidates are selected", async () => {

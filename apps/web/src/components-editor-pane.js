@@ -29,6 +29,7 @@ import {
 import { aiSuggestionStatusLabel } from "./ai-suggestions-model.js";
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
+const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
 
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
@@ -973,6 +974,57 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function wikilinkTargetFromRaw(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const [targetPart] = raw.split("|");
+  const [pathAndHeading] = String(targetPart || "").split("^");
+  const [targetRaw] = String(pathAndHeading || "").split("#");
+  return String(targetRaw || "").trim();
+}
+
+function wikilinkLabelFromRaw(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const parts = raw.split("|");
+  const alias = parts.length > 1 ? parts.slice(1).join("|").trim() : "";
+  if (alias) return alias;
+  const target = wikilinkTargetFromRaw(raw);
+  const filename = target.replaceAll("\\", "/").split("/").filter(Boolean).pop() || target;
+  return filename.replace(/\.md$/i, "") || target;
+}
+
+function normalizeMarkdownReferencePath(value = "") {
+  return String(value || "").trim().replaceAll("\\", "/").replace(/^\.?\//, "");
+}
+
+function markdownReferencePathCandidates(value = "") {
+  const normalized = normalizeMarkdownReferencePath(value);
+  if (!normalized) return [];
+  if (!normalized.includes("/") && !/\.md$/i.test(normalized)) return [];
+  const withExtension = /\.md$/i.test(normalized) ? normalized : `${normalized}.md`;
+  return [...new Set([normalized, withExtension])];
+}
+
+function noteMatchesMarkdownReferencePath(note = {}, candidatePath = "") {
+  const notePath = normalizeMarkdownReferencePath(note?.markdownPath || "");
+  const candidate = normalizeMarkdownReferencePath(candidatePath);
+  if (!notePath || !candidate) return false;
+  return notePath === candidate || notePath.endsWith(`/${candidate}`);
+}
+
+function wikilinkTokenForNote(note = {}) {
+  const title = String(note?.title || note?.id || UNTITLED_NOTE_TITLE).trim() || UNTITLED_NOTE_TITLE;
+  const markdownPath = normalizeMarkdownReferencePath(note?.markdownPath || "");
+  const target = String(note?.id || "").trim() || markdownPath || title;
+  return `[[${target}|${title}]]`;
+}
+
+function looksLikeStableNoteId(value = "") {
+  const raw = wikilinkTargetFromRaw(value);
+  return /^[a-z]{1,8}_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(raw) || /^local_note_[A-Za-z0-9_-]+$/.test(raw);
+}
+
 export function relationCreateDefaultTypeForNote(note = {}) {
   const body = String(note?.body || "").trim();
   if (/反例|counterexample/i.test(body)) return "counterexample_to";
@@ -985,10 +1037,15 @@ export function relationCreateDefaultTypeForNote(note = {}) {
 }
 
 function resolveRelationCandidateToken(token = "", candidates = []) {
-  const raw = String(token || "").trim();
+  const raw = wikilinkTargetFromRaw(token);
   if (!raw) return null;
   const byId = candidates.find((note) => normalizeText(note.id) === normalizeText(raw));
   if (byId) return byId;
+  const pathCandidates = markdownReferencePathCandidates(raw);
+  for (const candidatePath of pathCandidates) {
+    const byPath = candidates.filter((note) => noteMatchesMarkdownReferencePath(note, candidatePath));
+    if (byPath.length === 1) return byPath[0];
+  }
   const exactTitle = candidates.find((note) => normalizeText(note.title) === normalizeText(raw));
   if (exactTitle) return exactTitle;
   const fuzzy = candidates.find(
@@ -1435,8 +1492,10 @@ function renderInlinePreview(text, options = {}) {
     if (source.startsWith("[[", index)) {
       const close = source.indexOf("]]", index + 2);
       if (close > index + 2) {
-        const label = source.slice(index + 2, close).trim();
-        html += `<button class="preview-wikilink" type="button" data-preview-link="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        const rawLink = source.slice(index + 2, close).trim();
+        const target = wikilinkTargetFromRaw(rawLink);
+        const label = wikilinkLabelFromRaw(rawLink);
+        html += `<button class="preview-wikilink" type="button" data-preview-link="${escapeHtml(target || rawLink)}">${escapeHtml(label || target || rawLink)}</button>`;
         index = close + 2;
         continue;
       }
@@ -3457,21 +3516,22 @@ export class EditorPane {
     el.classList.add("hidden");
     el.innerHTML = "";
     el.dataset.tone = "";
+    if (String(this.lastBottomNoticeKey || "").startsWith("thinking:")) {
+      this.hideBottomNotice();
+    }
     if (!thinkingStatus) {
-      if (String(this.lastBottomNoticeKey || "").startsWith("thinking:")) {
-        this.hideBottomNotice();
-      }
       this.lastThinkingStatusNoticeKey = "";
       return;
     }
-    const noteId = String(this.activeNote()?.id || "").trim();
-    const noticeKey = `thinking:${noteId}:${thinkingStatus.status}:${thinkingStatus.label}:${thinkingStatus.nextAction}:${thinkingStatus.severity}`;
-    if (noticeKey === this.lastThinkingStatusNoticeKey) return;
-    this.lastThinkingStatusNoticeKey = noticeKey;
-    this.showBottomNotice(thinkingStatus.label || "当前提醒", thinkingStatusTone(thinkingStatus), thinkingStatus.nextAction || "继续完善当前笔记。", {
-      autoHideMs: 10000,
-      dedupeKey: noticeKey
-    });
+    const label = thinkingStatus.label || "下一步";
+    const nextAction = thinkingStatus.nextAction || "继续完善当前笔记。";
+    el.dataset.tone = thinkingStatusTone(thinkingStatus);
+    el.classList.remove("hidden");
+    el.innerHTML = `
+      <span class="thinking-status-chip">${escapeHtml(label)}</span>
+      ${nextAction ? `<span class="thinking-status-next">${escapeHtml(nextAction)}</span>` : ""}
+    `;
+    this.lastThinkingStatusNoticeKey = "";
   }
 
   renderAuthorshipPanel() {
@@ -4048,11 +4108,34 @@ export class EditorPane {
         this.els.body && typeof this.els.body.value === "string"
           ? this.els.body.value
           : null;
-      const content = textareaValue ?? (this.isSourceMode()
-        ? this.markdownEditor.getValue()
+      const sourceEditorValue =
+        this.markdownEditor && typeof this.markdownEditor.getValue === "function"
+          ? this.markdownEditor.getValue()
+          : null;
+      const richEditorValue =
+        this.richEditor && typeof this.richEditor.getValue === "function"
+          ? this.richEditor.getValue()
+          : null;
+      const activeTab = typeof this.activeTab === "function" ? this.activeTab() : null;
+      const normalizedTextarea = normalizedBodyTextForDirtyCheck(textareaValue ?? "");
+      const normalizedSource = normalizedBodyTextForDirtyCheck(sourceEditorValue ?? "");
+      const normalizedTabBody = normalizedBodyTextForDirtyCheck(activeTab?.body ?? "");
+      const normalizedSavedBody = normalizedBodyTextForDirtyCheck(activeTab?.savedBody ?? "");
+      const textareaHasCurrentDirtyBody =
+        Boolean(activeTab?.dirty) &&
+        textareaValue !== null &&
+        normalizedTextarea === normalizedTabBody &&
+        normalizedSource === normalizedSavedBody;
+      const shouldKeepTextarea =
+        textareaValue !== null &&
+        (textareaValue === "" || textareaHasCurrentDirtyBody || sourceEditorValue === null || normalizedTextarea === normalizedSource);
+      const content = this.isSourceMode() && sourceEditorValue !== null
+        ? (textareaHasCurrentDirtyBody ? textareaValue : sourceEditorValue)
         : this.isStructuredWorkspaceActive()
-          ? ""
-          : this.richEditor.getValue());
+          ? (textareaValue ?? "")
+          : shouldKeepTextarea
+            ? textareaValue
+            : sourceEditorValue ?? richEditorValue ?? textareaValue ?? "";
       const normalizedPendingSelection = this.normalizedSelectionRangeForValue(content, pendingSelection);
       this.setEditorValue(content);
       if (!this.isStructuredWorkspaceActive()) {
@@ -4396,11 +4479,28 @@ export class EditorPane {
     if (this.isLiteratureWorkspaceActive()) {
       return composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() });
     }
-    if (this.isWysiwygMode()) {
+    if (this.isStructuredWorkspaceActive()) {
       return String(this.els.body.value || "").replace(/\r\n/g, "\n");
     }
-    const editor = this.currentEditor();
-    if (editor?.getValue) return editor.getValue();
+    const editor = this.markdownEditor && typeof this.markdownEditor.getValue === "function"
+      ? this.markdownEditor
+      : this.currentEditor();
+    if (editor?.getValue) {
+      const editorValue = String(editor.getValue() || "").replace(/\r\n/g, "\n");
+      const hasTextareaValue = this.els.body && typeof this.els.body.value === "string";
+      const textareaValue = hasTextareaValue ? String(this.els.body.value || "").replace(/\r\n/g, "\n") : "";
+      const tab = this.activeTab();
+      if (
+        tab?.dirty &&
+        hasTextareaValue &&
+        textareaValue !== editorValue &&
+        normalizedBodyTextForDirtyCheck(editorValue) === normalizedBodyTextForDirtyCheck(tab.savedBody) &&
+        normalizedBodyTextForDirtyCheck(textareaValue) === normalizedBodyTextForDirtyCheck(tab.body)
+      ) {
+        return textareaValue;
+      }
+      return editorValue;
+    }
     return this.els.body.value;
   }
 
@@ -5568,6 +5668,19 @@ export class EditorPane {
     );
   }
 
+  linkResolutionCandidates(options = {}) {
+    let fallbackActiveNote = null;
+    if (!Object.prototype.hasOwnProperty.call(options, "excludeNoteId") && typeof this.activeNote === "function") {
+      try {
+        fallbackActiveNote = this.activeNote();
+      } catch {}
+    }
+    const excludeNoteId = Object.prototype.hasOwnProperty.call(options, "excludeNoteId")
+      ? String(options.excludeNoteId || "").trim()
+      : String(fallbackActiveNote?.id || "").trim();
+    return (Array.isArray(this.state?.notes) ? this.state.notes : []).filter((note) => !excludeNoteId || String(note?.id || "") !== excludeNoteId);
+  }
+
   folderLabel(folderId) {
     const folder = this.state.folders.find((f) => f.id === folderId);
     if (!folder) return "未知目录";
@@ -5578,6 +5691,34 @@ export class EditorPane {
       if (cursor) names.unshift(cursor.name);
     }
     return names.join(" / ");
+  }
+
+  knownFolderLabel(folderId) {
+    const folder = this.state.folders.find((f) => f.id === folderId);
+    if (!folder) return "";
+    const names = [folder.name];
+    let cursor = folder;
+    while (cursor?.parentId) {
+      cursor = this.state.folders.find((f) => f.id === cursor.parentId) || null;
+      if (cursor) names.unshift(cursor.name);
+    }
+    return names.join(" / ");
+  }
+
+  relatedNoteMeta(note, { includeFolder = true } = {}) {
+    const typeLabel = noteTypeText(note?.noteType || typeFromFolder(this.state, note?.folderId || ""));
+    const folderText = includeFolder ? this.knownFolderLabel(note?.folderId || "") : "";
+    return [typeLabel, folderText].filter(Boolean).join(" · ");
+  }
+
+  tagMatchBadges(note, primaryTag = "", limit = 3) {
+    const tags = Array.isArray(note?.tags) && note.tags.length ? note.tags : parseTags(String(note?.body || ""));
+    const primary = normalizeClickedTag(primaryTag);
+    const ordered = [
+      ...(primary ? [primary] : []),
+      ...tags.filter((tag) => tag !== primary)
+    ].slice(0, limit);
+    return ordered;
   }
 
   compactFolderLabel(folderId) {
@@ -5591,12 +5732,19 @@ export class EditorPane {
     return `${this.compactFolderLabel(note.folderId)}/${targetTitle}`;
   }
 
-  resolveLinkToken(token, scopedNotes = this.scopedLinkCandidates()) {
-    const raw = String(token || "").trim();
+  resolveLinkToken(token, scopedNotes = this.linkResolutionCandidates()) {
+    const raw = wikilinkTargetFromRaw(token);
     if (!raw) return null;
 
     const byId = scopedNotes.find((n) => normalizeText(n.id) === normalizeText(raw));
     if (byId) return { note: byId, ambiguous: false, mode: "id" };
+
+    const pathCandidates = markdownReferencePathCandidates(raw);
+    for (const candidatePath of pathCandidates) {
+      const byPath = scopedNotes.filter((n) => noteMatchesMarkdownReferencePath(n, candidatePath));
+      if (byPath.length === 1) return { note: byPath[0], ambiguous: false, mode: "path" };
+      if (byPath.length > 1) return { note: byPath[0], ambiguous: true, mode: "path" };
+    }
 
     const exactTitle = scopedNotes.filter((n) => normalizeText(n.title) === normalizeText(raw));
     if (exactTitle.length === 1) return { note: exactTitle[0], ambiguous: false, mode: "title" };
@@ -5612,7 +5760,10 @@ export class EditorPane {
   hasResolvedLinkToNote(noteId, body = this.getEditorValue(), scopedNotes = this.scopedLinkCandidates()) {
     const targetId = String(noteId || "").trim();
     if (!targetId) return false;
-    return parseLinks(body).some((token) => this.resolveLinkToken(token, scopedNotes)?.note?.id === targetId);
+    return parseLinks(body).some((token) => {
+      const resolved = this.resolveLinkToken(token, scopedNotes);
+      return resolved?.ambiguous !== true && resolved?.note?.id === targetId;
+    });
   }
 
   upsertApiNotes(items = []) {
@@ -5620,7 +5771,7 @@ export class EditorPane {
       const existing = this.state.notes.find((n) => n.id === item.id);
       if (existing) {
         existing.title = item.title || existing.title;
-        existing.folderId = item.directoryId || existing.folderId;
+        existing.folderId = item.directoryId || item.folderId || existing.folderId;
         existing.noteType = item.noteType || existing.noteType;
         existing.markdownPath = item.markdownPath || existing.markdownPath;
         if (Object.prototype.hasOwnProperty.call(item, "thinkingStatus")) {
@@ -5648,7 +5799,7 @@ export class EditorPane {
       this.state.notes.push({
         id: item.id,
         title: item.title || "未命名笔记",
-        folderId: item.directoryId,
+        folderId: item.directoryId || item.folderId,
         noteType: item.noteType || "original",
         markdownPath: item.markdownPath || "",
         thesis: item.thesis || "",
@@ -5662,6 +5813,10 @@ export class EditorPane {
         updatedAt: item.updatedAt || new Date().toISOString()
       });
     }
+  }
+
+  async fetchNoteForResolution(noteId) {
+    return fetchNote(noteId);
   }
 
   detectInlineLinkContext() {
@@ -5772,7 +5927,7 @@ export class EditorPane {
       .split("\n")
       .map((line) =>
         String(line || "")
-          .replace(/\[\[([^[\]]+)\]\]/g, "$1")
+          .replace(/\[\[([^[\]]+)\]\]/g, (_, rawLink) => wikilinkLabelFromRaw(rawLink))
           .replace(/<!--[\s\S]*?-->/g, "")
           .replace(/^#{1,6}\s*/, "")
           .replace(/^>\s*/, "")
@@ -5857,7 +6012,10 @@ export class EditorPane {
       return;
     }
     if (anchorAtCursor) {
-      this.positionFloatingPicker(this.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))));
+      this.positionFloatingPicker(this.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))), {
+        anchorRect: options.anchorRect || null,
+        anchorElement: options.anchorElement || null
+      });
     }
     this.els.linkSearchInput.focus();
     this.els.linkSearchInput.select();
@@ -5931,22 +6089,34 @@ export class EditorPane {
   async insertSelectedLinkNote(noteId) {
     if (!noteId) return;
     if (this.isSubmittingLinkInsert) return;
+    const sourceNote = this.activeNote();
+    const sourceNoteId = String(sourceNote?.id || "").trim();
+    const sourceTabId = String(this.activeTab()?.id || "").trim();
+    if (!sourceNoteId) return;
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
+    const scopedLinkNotes = this.scopedLinkCandidates();
     const inlineInsert = Boolean(this.currentLinkContext);
-    const relationType = "supports";
+    const relationType = "associated_with";
     const rawReason = "手动确认关联。";
     const manualSelection = !inlineInsert
       ? this.normalizedSelectionRange(this.manualLinkReturnSelection) || this.normalizedSelectionRange(this.editorSelection())
       : null;
     const manualScrollState = !inlineInsert ? this.manualLinkReturnScrollState : null;
     const currentBody = this.getEditorValue();
-    const bodyAlreadyLinked = !inlineInsert && this.hasResolvedLinkToNote(target.id, currentBody);
+    const persistedSourceBody = () => {
+      const sourceTab = this.state.tabs.find((tab) => tab.id === sourceTabId) || null;
+      const sourceNoteAfterSave = this.state.notes.find((note) => note.id === sourceNoteId) || null;
+      return String(sourceTab?.savedBody || sourceNoteAfterSave?.body || "");
+    };
+    const editorBodyAlreadyLinked = !inlineInsert && this.hasResolvedLinkToNote(target.id, currentBody, scopedLinkNotes);
+    const savedBodyAlreadyLinked = !inlineInsert && this.hasResolvedLinkToNote(target.id, persistedSourceBody(), scopedLinkNotes);
+    const bodyAlreadyLinked = editorBodyAlreadyLinked;
     const reason = rawReason
       .replace(/\s+/g, " ")
       .replace(/--/g, "- -")
       .slice(0, 280);
-    const token = `[[${target.title}]]`;
+    const token = wikilinkTokenForNote(target);
     const restoreSelection =
       manualSelection && Number.isFinite(manualSelection.from)
         ? bodyAlreadyLinked
@@ -5956,12 +6126,56 @@ export class EditorPane {
     this.setLinkInsertSubmitting(true);
     try {
       let relationCreateResult = null;
+      let relationCreateError = null;
+      const ensureFormalRelation = async () => {
+        try {
+          relationCreateResult = await createNoteRelation(sourceNoteId, {
+            toNoteId: target.id,
+            relationType,
+            rationale: reason,
+            insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER,
+            createdBy: "user",
+            confidence: 1,
+            status: "confirmed"
+          });
+          if (
+            relationCreateResult?.created === false &&
+            relationCreateResult?.id &&
+            String(relationCreateResult.rationale || "").trim() === "markdown_wikilink"
+          ) {
+            relationCreateResult = await updateNoteRelation(relationCreateResult.id, {
+              relationType,
+              rationale: reason,
+              insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER,
+              confidence: 1,
+              status: "confirmed"
+            });
+          }
+          this.syncRelationNetworkConnected(sourceNoteId, target.id);
+        } catch (error) {
+          relationCreateError = error;
+          this.onStatus(`关联已插入，但正式关系创建失败：${String(error?.message || error)}`, "warn");
+        }
+      };
+      const verifySavedLink = () => {
+        const savedBody = persistedSourceBody();
+        return this.hasResolvedLinkToNote(target.id, savedBody, scopedLinkNotes);
+      };
+      const saveInsertedBody = async (trigger) => {
+        const saved = await this.saveActiveNote({ trigger, skipOriginalityCheck: true });
+        if (saved === false || (saved && typeof saved === "object" && saved.ok === false) || !verifySavedLink()) {
+          this.onStatus("关联正文未能同步，已保留在编辑器中，暂未建立正式关系。", "warn");
+          this.renderRelated("正文链接还没有成功保存，请同步后再建立正式关系。");
+          return false;
+        }
+        return true;
+      };
       if (inlineInsert) {
         const { start, end } = this.currentLinkContext;
         if (this.isWysiwygMode()) {
-          this.replaceMarkdownWhileInWysiwyg(start, end, `[[${target.title}]]`);
+          this.replaceMarkdownWhileInWysiwyg(start, end, token);
         } else {
-          this.replaceEditorRange(start, end, `[[${target.title}]]`);
+          this.replaceEditorRange(start, end, token);
         }
       } else if (bodyAlreadyLinked) {
         // Keep the existing wikilink in place and only ensure the semantic relation is tracked.
@@ -5984,29 +6198,28 @@ export class EditorPane {
       this.closeLinkPicker();
       this.focusEditor();
       if (!inlineInsert) {
-        try {
-          relationCreateResult = await createNoteRelation(this.activeNote()?.id || "", {
-            toNoteId: target.id,
-            relationType,
-            rationale: reason,
-            insightQuestion: "",
-            createdBy: "user",
-            confidence: 1,
-            status: "confirmed"
-          });
-          this.syncRelationNetworkConnected(this.activeNote()?.id || "", target.id);
-        } catch (error) {
-          this.onStatus(`关联已插入，但正式关系创建失败：${String(error?.message || error)}`, "warn");
-        }
-        await this.saveActiveNote({ autoSave: true, trigger: "link-insert", skipOriginalityCheck: true });
+        if (!savedBodyAlreadyLinked && !(await saveInsertedBody("link-insert"))) return;
+        await ensureFormalRelation();
         if (restoreSelection) this.setEditorSelectionRange(restoreSelection.from, restoreSelection.to);
         this.scheduleEditorScrollRestore(manualScrollState);
+        if (relationCreateError) {
+          this.renderRelated("正文链接已插入，但正式关系创建失败。");
+          return;
+        }
         const reusedRelation = relationCreateResult?.created === false;
         const feedback = this.manualLinkInsertFeedback(target, this.manualLinkInsertOutcome(bodyAlreadyLinked, reusedRelation));
         this.onStatus(feedback.status, "ok");
         this.renderRelated(feedback.related);
       } else {
-        this.onStatus(`已按你的确认插入关联笔记：${target.title}`, "ok");
+        if (!(await saveInsertedBody("inline-link-insert"))) return;
+        await ensureFormalRelation();
+        if (relationCreateError) {
+          this.renderRelated("正文链接已插入，但正式关系创建失败。");
+          return;
+        }
+        const reusedRelation = relationCreateResult?.created === false;
+        this.onStatus(reusedRelation ? `已插入关联笔记，现有语义关系已复用：${target.title}` : `已插入关联笔记并建立正式关系：${target.title}`, "ok");
+        this.renderRelated(reusedRelation ? "正文链接已插入，现有语义关系已复用。" : "正文链接与正式关系已建立。");
       }
     } finally {
       this.setLinkInsertSubmitting(false);
@@ -6141,27 +6354,54 @@ export class EditorPane {
     this.positionFloatingPicker(this.els.tagPicker, Math.min(320, Math.max(260, Math.floor(window.innerWidth * 0.26))));
   }
 
-  positionFloatingPicker(panel, width) {
+  positionFloatingPicker(panel, width, options = {}) {
     if (!panel) return;
     panel.classList.add("floating");
+    panel.style.width = `${Math.min(width, Math.max(180, window.innerWidth - 24))}px`;
+    panel.style.maxHeight = "";
 
-    let left = 180;
-    let top = 90;
-    const rect = this.currentSelectionRect();
+    const rect = options.anchorRect || options.anchorElement?.getBoundingClientRect?.() || this.currentSelectionRect();
+    const viewport = window.visualViewport || null;
+    const viewportLeft = Number(viewport?.offsetLeft || 0);
+    const viewportTop = Number(viewport?.offsetTop || 0);
+    const viewportWidth = Number(viewport?.width || window.innerWidth || 1024);
+    const viewportHeight = Number(viewport?.height || window.innerHeight || 768);
+    const gutter = 12;
+    const gap = 8;
+    const resolvedWidth = Math.min(width, Math.max(180, viewportWidth - gutter * 2));
+    let left = viewportLeft + 180;
+    let top = viewportTop + 90;
     if (rect) {
       left = rect.left;
-      top = rect.bottom + 8;
+      const naturalHeight = Math.min(panel.scrollHeight || 360, Math.max(140, viewportHeight - gutter * 2));
+      const viewportBottom = viewportTop + viewportHeight - gutter;
+      const belowTop = rect.bottom + gap;
+      const belowSpace = viewportBottom - belowTop;
+      const aboveSpace = rect.top - gap - (viewportTop + gutter);
+      const openAbove = belowSpace < Math.min(naturalHeight, 180) && aboveSpace > belowSpace;
+      const availableHeight = Math.max(
+        120,
+        Math.min(naturalHeight, openAbove ? aboveSpace : belowSpace, viewportHeight - gutter * 2)
+      );
+      top = openAbove ? rect.top - gap - availableHeight : belowTop;
+      if (!openAbove && top + availableHeight > viewportBottom) top = viewportBottom - availableHeight;
+      panel.style.maxHeight = `${Math.floor(availableHeight)}px`;
     }
 
-    const maxLeft = Math.max(12, window.innerWidth - width - 12);
-    const clampedLeft = Math.max(12, Math.min(left, maxLeft));
-    const estimatedHeight = Math.min(panel.scrollHeight || 360, window.innerHeight - 24);
-    const maxTop = Math.max(12, window.innerHeight - estimatedHeight - 12);
-    const clampedTop = Math.max(12, Math.min(top, maxTop));
-    panel.style.width = `${width}px`;
-    panel.style.left = `${clampedLeft}px`;
-    panel.style.top = `${clampedTop}px`;
-    panel.style.maxHeight = `calc(100dvh - ${Math.ceil(clampedTop + 12)}px)`;
+    const maxLeft = Math.max(viewportLeft + gutter, viewportLeft + viewportWidth - resolvedWidth - gutter);
+    const clampedLeft = Math.max(viewportLeft + gutter, Math.min(left, maxLeft));
+    const explicitMaxHeight = Number.parseFloat(panel.style.maxHeight);
+    const panelHeight = Math.min(
+      panel.scrollHeight || 360,
+      Number.isFinite(explicitMaxHeight) ? explicitMaxHeight : viewportHeight - gutter * 2,
+      viewportHeight - gutter * 2
+    );
+    const maxTop = Math.max(viewportTop + gutter, viewportTop + viewportHeight - panelHeight - gutter);
+    const clampedTop = Math.max(viewportTop + gutter, Math.min(top, maxTop));
+    panel.style.width = `${resolvedWidth}px`;
+    panel.style.left = `${Math.round(clampedLeft)}px`;
+    panel.style.top = `${Math.round(clampedTop)}px`;
+    if (!panel.style.maxHeight) panel.style.maxHeight = `${Math.floor(Math.max(120, viewportTop + viewportHeight - clampedTop - gutter))}px`;
   }
 
   insertSelectedTag(tagName = "") {
@@ -7307,17 +7547,21 @@ export class EditorPane {
     const tags = parseTags(tab.body || "");
     const rootId = rootBoxIdFromFolder(this.state, note.folderId);
     const scoped = this.state.notes.filter((n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id);
-    const backlinkCandidates = this.state.notes.filter((n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId);
+    const linkCandidates = this.linkResolutionCandidates({ excludeNoteId: note.id });
+    const backlinkCandidates = this.state.notes;
     const resolvedForwardIds = new Set(
       links
-        .map((token) => this.resolveLinkToken(token, scoped))
-        .filter((x) => x?.note?.id)
+        .map((token) => this.resolveLinkToken(token, linkCandidates))
+        .filter((x) => x?.ambiguous !== true && x?.note?.id)
         .map((x) => x.note.id)
     );
-    const forward = scoped.filter((n) => resolvedForwardIds.has(n.id));
-    const backward = scoped.filter((n) => {
+    const forward = linkCandidates.filter((n) => resolvedForwardIds.has(n.id));
+    const backward = linkCandidates.filter((n) => {
       const refs = parseLinks(n.body || "");
-      return refs.some((token) => this.resolveLinkToken(token, backlinkCandidates)?.note?.id === note.id);
+      return refs.some((token) => {
+        const resolved = this.resolveLinkToken(token, backlinkCandidates);
+        return resolved?.ambiguous !== true && resolved?.note?.id === note.id;
+      });
     });
     const tagRelated = tags.length
       ? scoped
@@ -8673,7 +8917,13 @@ export class EditorPane {
       this.onStatus("没有找到这条临时关联", "warn");
       return;
     }
-    const target = this.resolveLinkToken(draft.token)?.note;
+    const scoped = this.scopedLinkCandidates();
+    const resolved = this.resolveLinkToken(draft.token, scoped);
+    if (resolved?.ambiguous) {
+      this.onStatus(`关联目标不唯一：${draft.token}，请先选择具体笔记。`, "warn");
+      return;
+    }
+    const target = resolved?.note;
     if (!target?.id) {
       this.onStatus(`没有找到关联目标：${draft.token}`, "warn");
       return;
@@ -8900,32 +9150,36 @@ export class EditorPane {
         );
         this.onStatus(`标签 API 不可用，已降级本地检索：${String(error?.message || error)}`, "warn");
       }
+      const renderTagResult = (n) => {
+        const excerpt = excerptFromBody(n.body || "", n.title);
+        const meta = this.relatedNoteMeta(n, { includeFolder: false });
+        const badges = this.tagMatchBadges(n, tag);
+        return `
+          <button class="related-item tag-related-item" data-preview-note="${escapeHtml(n.id)}">
+            <span class="related-item-title">${escapeHtml(n.title || n.id || "未命名笔记")}</span>
+            ${meta ? `<span class="related-item-meta">${escapeHtml(meta)}</span>` : ""}
+            ${excerpt ? `<span class="related-item-preview">${escapeHtml(excerpt)}</span>` : ""}
+            <span class="related-item-badges">
+              ${badges.map((item) => `<span class="related-item-badge">#${escapeHtml(item)}</span>`).join("")}
+            </span>
+          </button>
+        `;
+      };
       this.els.result.innerHTML = `
         <div class="inspector-overview">
           <div class="inspector-overview-head">
-            <div class="inspector-overview-title">标签检索：#${escapeHtml(tag)}</div>
-            <div class="inspector-overview-meta">当前目录范围</div>
+            <div class="inspector-overview-title">同标签笔记：#${escapeHtml(tag)}</div>
+            <div class="inspector-overview-meta">点击笔记查看内容，再决定是否补关系。</div>
           </div>
         </div>
         <div class="inspector-summary">
           <span class="inspector-chip">标签 #${escapeHtml(tag)}</span>
-          <span class="inspector-chip">结果 ${list.length}</span>
+          <span class="inspector-chip">${list.length} 条</span>
         </div>
         ${
           list.length
             ? `<div class="inspector-sections"><section class="inspector-section"><div class="inspector-list">${list
-                .map((n) => `
-                  <button class="related-item" data-preview-note="${n.id}">
-                    <span class="related-item-title">${escapeHtml(n.title)}</span>
-                    <span class="related-item-meta">${escapeHtml(noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId)))} · ${escapeHtml(this.folderLabel(n.folderId))}</span>
-                    ${
-                      excerptFromBody(n.body || "", n.title)
-                        ? `<span class="related-item-preview">${escapeHtml(excerptFromBody(n.body || "", n.title))}</span>`
-                        : ""
-                    }
-                    <span class="related-item-badges"><span class="related-item-badge">#${escapeHtml(tag)}</span></span>
-                  </button>
-                `)
+                .map((n) => renderTagResult(n))
                 .join("")}</div></section></div>`
             : `<div class="related-empty">当前目录下没有更多带 #${escapeHtml(tag)} 的笔记。</div>`
         }
@@ -8939,10 +9193,7 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return;
       const tokenValue = linkMatch[1];
-      const rootId = rootBoxIdFromFolder(this.state, note.folderId);
-      const scoped = this.state.notes.filter(
-        (n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id
-      );
+      const scoped = this.linkResolutionCandidates({ excludeNoteId: note.id });
       const resolved = this.resolveLinkToken(tokenValue, scoped);
       if (resolved?.note) {
         this.setInspectorVisible(true);
@@ -9033,23 +9284,75 @@ export class EditorPane {
     };
   }
 
-  buildOriginalityPayload(note) {
-    const currentBody = this.getEditorValue() || note.body || "";
-    const links = parseLinks(currentBody);
-    const scoped = this.scopedLinkCandidates();
-    const linkedLiterature = links
-      .map((token) => this.resolveLinkToken(token, scoped))
-      .map((x) => x?.note)
-      .filter((x) => x && this.resolvedNoteType(x) === "literature");
-
+  dedupeLinkedLiterature(notes = []) {
     const dedupLiterature = [];
     const seen = new Set();
-    for (const ln of linkedLiterature) {
-      if (seen.has(ln.id)) continue;
+    for (const ln of notes) {
+      if (!ln?.id || seen.has(ln.id)) continue;
       seen.add(ln.id);
       dedupLiterature.push(ln);
     }
+    return dedupLiterature;
+  }
 
+  linkedLiteratureForOriginality(note, links = []) {
+    const scoped = this.linkResolutionCandidates({ excludeNoteId: note?.id || "" });
+    return this.dedupeLinkedLiterature(
+      links
+        .map((token) => this.resolveLinkToken(token, scoped))
+        .filter((x) => x?.note && x.ambiguous !== true)
+        .map((x) => x.note)
+        .filter((x) => x && this.resolvedNoteType(x) === "literature")
+    );
+  }
+
+  async hydrateNoteForResolution(note) {
+    if (!note?.id) return note;
+    if (typeof note.body === "string" && note.bodyLoaded !== false) return note;
+    try {
+      const full = await this.fetchNoteForResolution(note.id);
+      if (!full) return note;
+      this.upsertApiNotes([{ ...full, directoryId: full.directoryId || full.folderId }]);
+      return this.state.notes.find((item) => item.id === note.id) || {
+        ...note,
+        ...full,
+        folderId: full.directoryId || full.folderId || note.folderId,
+        bodyLoaded: typeof full.body === "string"
+      };
+    } catch {
+      return note;
+    }
+  }
+
+  async linkedLiteratureForHydratedOriginality(note, links = []) {
+    const scoped = this.linkResolutionCandidates({ excludeNoteId: note?.id || "" });
+    const linkedLiterature = [];
+    for (const token of links) {
+      const resolved = this.resolveLinkToken(token, scoped);
+      let target = resolved?.ambiguous === true ? null : resolved?.note || null;
+      if (!target && looksLikeStableNoteId(token)) {
+        try {
+          const fetched = await this.fetchNoteForResolution(wikilinkTargetFromRaw(token));
+          if (fetched) {
+            this.upsertApiNotes([{ ...fetched, directoryId: fetched.directoryId || fetched.folderId }]);
+            target = this.state.notes.find((item) => item.id === fetched.id) || {
+              ...fetched,
+              folderId: fetched.directoryId || fetched.folderId,
+              bodyLoaded: typeof fetched.body === "string"
+            };
+          }
+        } catch {
+          target = null;
+        }
+      }
+      const hydrated = target ? await this.hydrateNoteForResolution(target) : null;
+      if (hydrated && this.resolvedNoteType(hydrated) === "literature") linkedLiterature.push(hydrated);
+    }
+    return this.dedupeLinkedLiterature(linkedLiterature);
+  }
+
+  originalityPayloadFromLiterature(note, currentBody, linkedLiterature = []) {
+    const dedupLiterature = this.dedupeLinkedLiterature(linkedLiterature);
     const literature = dedupLiterature.map((ln) => ({
       source_id: `src_from_${ln.id}`,
       quote_text: normalizeFieldText(this.parseLiteratureBody(ln.body || "").originalText || ln.body || "")
@@ -9072,8 +9375,28 @@ export class EditorPane {
     };
   }
 
+  buildOriginalityPayload(note) {
+    const currentBody = this.getEditorValue() || note.body || "";
+    const links = parseLinks(currentBody);
+    return this.originalityPayloadFromLiterature(
+      note,
+      currentBody,
+      this.linkedLiteratureForOriginality(note, links)
+    );
+  }
+
+  async buildHydratedOriginalityPayload(note) {
+    const currentBody = this.getEditorValue() || note.body || "";
+    const links = parseLinks(currentBody);
+    return this.originalityPayloadFromLiterature(
+      note,
+      currentBody,
+      await this.linkedLiteratureForHydratedOriginality(note, links)
+    );
+  }
+
   async runOriginalityCheck(note, { forSave = false } = {}) {
-    const payload = this.buildOriginalityPayload(note);
+    const payload = await this.buildHydratedOriginalityPayload(note);
     const result = await checkOriginality(payload);
     const evalItem = result?.originalityGuard?.evaluations?.[0] || null;
     if (!evalItem) {
@@ -9670,18 +9993,19 @@ export class EditorPane {
       this.renderContextualToolbarState();
       this.focusEditor();
     });
-    this.els.insertLink.addEventListener("click", () => {
+    this.els.insertLink.addEventListener("click", (event) => {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       const candidates = this.scopedLinkCandidates();
       if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
+      const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;
       this.insertAtCursor("[[");
       const inline = this.detectInlineLinkContext();
       if (inline) {
         this.openLinkPicker("", { inlineContext: inline, focusInput: true });
         return;
       }
-      this.openLinkPicker("");
+      this.openLinkPicker("", { anchorAtCursor: true, anchorRect });
     });
 
     this.els.insertImage?.addEventListener("click", () => {
@@ -10228,20 +10552,36 @@ export class EditorPane {
   }
 
   async saveActiveNote(options = {}) {
-    if (this.savingPromise) return this.savingPromise;
+    if (this.savingPromise) {
+      const inFlightSave = this.savingPromise;
+      if (!options?.autoSave) {
+        const activeTabId = this.activeTab()?.id || "";
+        const completed = await inFlightSave.catch(() => false);
+        await Promise.resolve();
+        if (this.savingPromise === inFlightSave) this.savingPromise = null;
+        const tab = this.activeTab();
+        if (tab?.id === activeTabId && tab.dirty) return this.saveActiveNote(options);
+        return completed;
+      }
+      return inFlightSave;
+    }
     this.clearAutoSaveTimer();
     if (!options?.autoSave) {
       this.closeLinkPicker();
       this.closeTagPicker();
     }
     this.setSaveUiState("saving", "当前文件：正在自动同步...");
-    this.savingPromise = this.performSaveActiveNote(options);
-    try {
-      return await this.savingPromise;
-    } finally {
-      this.savingPromise = null;
-      if (this.activeTab()?.dirty) this.scheduleAutoSave();
-    }
+    let wrappedSave;
+    wrappedSave = (async () => {
+      try {
+        return await this.performSaveActiveNote(options);
+      } finally {
+        if (this.savingPromise === wrappedSave) this.savingPromise = null;
+        if (this.activeTab()?.dirty) this.scheduleAutoSave();
+      }
+    })();
+    this.savingPromise = wrappedSave;
+    return await wrappedSave;
   }
 
   async performSaveActiveNote(options = {}) {

@@ -1297,21 +1297,22 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   await page.waitForSelector("#btnMobileNewNote");
   await page.waitForFunction(() => {
     const fab = document.querySelector("#btnMobileNewNote");
-    const thinkingStatus = document.querySelector("#originalityNotice");
+    const bottomNotice = document.querySelector("#originalityNotice");
     const visible = (el) => {
       if (!el) return false;
       const style = window.getComputedStyle(el);
       const box = el.getBoundingClientRect();
       return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
     };
-    return visible(fab) && visible(thinkingStatus);
+    return visible(fab) && !visible(bottomNotice);
   });
 
   const mobileLayout = await page.evaluate(() => {
     const fab = document.querySelector("#btnMobileNewNote");
     const sidebarNew = document.querySelector("#btnNewNote");
     const toolbar = document.querySelector(".editor-stage-shell .toolbar");
-    const thinkingStatus = document.querySelector("#originalityNotice");
+    const thinkingStatus = document.querySelector("#editorThinkingStatus");
+    const bottomNotice = document.querySelector("#originalityNotice");
     const rect = (el) => {
       if (!el) return null;
       const box = el.getBoundingClientRect();
@@ -1334,6 +1335,7 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
         rect: rect(fab)
       },
       thinkingStatus: { visible: isVisible(thinkingStatus), text: thinkingStatus?.textContent?.trim() || "", rect: rect(thinkingStatus) },
+      bottomNotice: { visible: isVisible(bottomNotice), text: bottomNotice?.textContent?.trim() || "", rect: rect(bottomNotice) },
       sidebarNew: { visible: isVisible(sidebarNew), rect: rect(sidebarNew) },
       toolbar: {
         rect: rect(toolbar),
@@ -1347,8 +1349,8 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
 
   assert.equal(mobileLayout.fab.visible, true);
   assert.match(`${mobileLayout.fab.text} ${mobileLayout.fab.label}`.trim(), /永久|新建|笔记/);
-  assert.equal(mobileLayout.thinkingStatus.visible, true);
-  assert.match(mobileLayout.thinkingStatus.text, /待写一句话判断|待写论点|写一句话判断|写一句话看法/);
+  assert.equal(mobileLayout.thinkingStatus.visible, false);
+  assert.equal(mobileLayout.bottomNotice.visible, false);
   assert.equal(mobileLayout.sidebarNew.visible, false);
   assert.equal(mobileLayout.documentWidth <= mobileLayout.viewportWidth + 1, true);
   assert.equal(mobileLayout.bodyWidth <= mobileLayout.viewportWidth + 1, true);
@@ -1520,7 +1522,7 @@ test("prototype clears stale bottom thinking notice on note switch", async (t) =
   await sourceRow.click();
   await waitFor(async () => {
     assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Thinking Notice Source");
-    assert.equal(await page.locator("#originalityNotice").isVisible(), true);
+    assert.equal(await page.locator("#originalityNotice").isVisible(), false);
   }, 7000);
 
   const thinkingUi = await page.evaluate(() => {
@@ -1542,11 +1544,11 @@ test("prototype clears stale bottom thinking notice on note switch", async (t) =
   });
 
   assert.equal(thinkingUi.headerVisible, false);
-  assert.equal(thinkingUi.headerText, "");
-  assert.equal(thinkingUi.headerTone, "");
-  assert.equal(thinkingUi.noticeVisible, true);
-  assert.match(thinkingUi.noticeText, /待写一句话判断|待写论点/);
-  assert.match(thinkingUi.noticeText, /写一句话判断|写一句话看法|继续完善当前笔记/);
+  assert.match(thinkingUi.headerText, /待写一句话判断|待写论点/);
+  assert.match(thinkingUi.headerText, /写一句话判断|写一句话看法|继续完善当前笔记/);
+  assert.ok(thinkingUi.headerTone);
+  assert.equal(thinkingUi.noticeVisible, false);
+  assert.doesNotMatch(thinkingUi.noticeText, /待写一句话判断|待写论点/);
 
   await page.locator('[data-action="quick-fleeting"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_fleeting_default"]').click();
@@ -1555,6 +1557,7 @@ test("prototype clears stale bottom thinking notice on note switch", async (t) =
   await waitFor(async () => {
     assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Thinking Notice Cleared");
     assert.equal(await page.locator("#originalityNotice").isVisible(), false);
+    assert.equal(await page.locator("#editorThinkingStatus").isVisible(), false);
   }, 7000);
 });
 
@@ -3963,7 +3966,7 @@ test("prototype editor opens wikilinks and tag results from wysiwyg tokens", asy
   await waitFor(async () => {
     assert.equal(page.url(), startUrl);
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /标签检索：#thinkingflow/);
+    assert.match(String(relatedText || ""), /同标签笔记：#thinkingflow/);
     assert.match(String(relatedText || ""), /Tag Peer|Token Target/);
   }, 10000);
 
@@ -7514,6 +7517,14 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
 
   const activeEditorText = await page.locator("#editorBody").inputValue();
   assert.match(activeEditorText, /Graph target/);
+
+  const selectionClose = page.locator("[data-graph-selection-close]").first();
+  if (await selectionClose.isVisible().catch(() => false)) await selectionClose.click();
+  await page.locator("#graphFocusContextPanel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
+  await page.locator('[data-graph-focus-context-toggle="close"]').first().click();
+  await page.waitForFunction(() => !document.querySelector("#graphFocusContextPanel"));
+  await page.locator('[data-graph-focus-context-toggle="open"]', { hasText: "显示右侧阅读" }).click();
+  await page.locator("#graphFocusContextPanel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
 });
 
 test("prototype graph panel bridge gap followup opens relation creation on an isolated note", async (t) => {
@@ -7774,6 +7785,188 @@ test("prototype graph ai analysis badge counts candidates and opens on failure",
     const statusText = await currentStatusText(page);
     assert.match(String(statusText || ""), /AI 图谱初判失败/);
   }, 7000);
+});
+
+test("prototype graph AI connect suggests a relation from notes without relation data", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  let sourceNoteId = "";
+  let targetNoteId = "";
+  let graphDirectoryId = "";
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.route("**/api/v1/graph/ai-analysis", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            item: {
+              directoryId: graphDirectoryId,
+              analysis: {
+                analysisMode: "local_graph_rule",
+                relationCount: 0,
+                relationCandidates: [
+                  {
+                    fromNoteId: sourceNoteId,
+                    toNoteId: targetNoteId,
+                    relationType: "supports",
+                    rationale: "Local scan found shared relation-review language.",
+                    evidence: [
+                      { noteId: sourceNoteId, summary: "AI relation candidates should remain reviewable." },
+                      { noteId: targetNoteId, summary: "Human confirmation turns candidates into graph edges." }
+                    ],
+                    confidence: 0.72,
+                    status: "suggested",
+                    componentBridge: true
+                  }
+                ],
+                bridgeCandidates: [],
+                isolatedNotes: [{ noteId: sourceNoteId }]
+              },
+              reviewItems: {
+                summary: {
+                  artifactCount: 1,
+                  relationCandidateCount: 1,
+                  bridgeCandidateCount: 0,
+                  isolatedNoteCount: 1,
+                  canAutoConfirm: false
+                },
+                artifacts: []
+              }
+            }
+          })
+        });
+      });
+    }
+  });
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph AI Connect No Relations",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-ai-connect-no-relations"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  graphDirectoryId = graphDirectory.json.item.id;
+
+  const sourceNote = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# AI Review Source\n\nAI relation candidates should remain reviewable suggestions. #ai-review"
+  });
+  const targetNote = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# AI Review Target\n\nHuman confirmation turns candidates into graph edges. #ai-review"
+  });
+  assert.equal(sourceNote.status, 201, JSON.stringify(sourceNote.json));
+  assert.equal(targetNote.status, 201, JSON.stringify(targetNote.json));
+  sourceNoteId = sourceNote.json.item.id;
+  targetNoteId = targetNote.json.item.id;
+
+  const graphBeforeAnalysis = await fetchJson(
+    apiBase,
+    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(graphDirectoryId)}&includeDescendants=true`
+  );
+  assert.equal(graphBeforeAnalysis.status, 200, JSON.stringify(graphBeforeAnalysis.json));
+  assert.equal(graphBeforeAnalysis.json.item.totalEdges, 0);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator("#graphCanvas").waitFor({ state: "visible", timeout: 7000 });
+  await page.evaluate((noteId) => window.__prototypeGraph?.runAiConnectForNote?.(noteId), sourceNoteId);
+
+  await waitFor(async () => {
+    const panelText = await page.locator(".graph-ai-connect").textContent();
+    assert.match(String(panelText || ""), /AI Review Target/);
+    assert.match(String(panelText || ""), /确认关系/);
+  }, 7000);
+
+  await page.locator("[data-graph-ai-candidate-apply]").first().click();
+  await page.waitForFunction(() => Boolean(document.querySelector("[data-create-relation-form]")));
+  const formText = await page.locator("[data-create-relation-form]").textContent();
+  const rationaleValue = await page.locator('[data-create-relation-form] textarea[name="rationale"]').inputValue();
+  assert.match(String(formText || ""), /AI Review Target/);
+  assert.match(String(rationaleValue || ""), /AI 候选/);
+});
+
+test("prototype graph relation workspace creates a theme index from linked notes", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph Theme Index Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-theme-index-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  const noteA = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Theme Index Source\n\nThis permanent note can become the center of a small theme network."
+  });
+  const noteB = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Theme Index Target\n\nThis permanent note supports the same theme network."
+  });
+  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
+  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+    toNoteId: noteB.json.item.id,
+    relationType: "supports",
+    rationale: "The target note supports the source note as part of one theme network.",
+    insightQuestion: "What central question does this small network answer?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.waitForSelector(`#graphCanvas .graph-map-node[data-node-id="${noteA.json.item.id}"]`, { timeout: 7000 });
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${noteA.json.item.id}"]`).click();
+
+  await waitFor(async () => {
+    const workspaceText = await page.locator(".graph-relation-workspace").textContent();
+    assert.match(String(workspaceText || ""), /关联工作台/);
+    assert.match(String(workspaceText || ""), /创建主题笔记/);
+  }, 7000);
+
+  await page.locator('[data-graph-create-theme-index]:not([disabled])').first().click();
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /已创建主题笔记/);
+  }, 7000);
+
+  const indexes = await fetchJson(
+    apiBase,
+    `/api/v1/index-cards?directoryId=${encodeURIComponent(graphDirectoryId)}&includeDescendants=true&indexType=topic&limit=12`
+  );
+  assert.equal(indexes.status, 200, JSON.stringify(indexes.json));
+  assert.ok((indexes.json.items || []).some((item) => String(item.title || "").includes("主题索引")));
 });
 
 test("prototype graph followup remembers relation template preference after reload", async (t) => {

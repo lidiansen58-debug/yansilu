@@ -13,7 +13,8 @@ test("editor helper rendering guards against partial DOM and keeps note-type mat
 
 test("editor helper markup is not globally hidden by CSS", async () => {
   const html = await readPrototypeHtmlSource();
+  const globallyHiddenEditorHelper = /(?:^|[}\r\n])\s*\.editor-helper\s*\{[^}]*display:\s*none\s*!important;?[^}]*\}/;
 
   assert.match(html, /id="editorHelper"/);
-  assert.doesNotMatch(html, /\.editor-helper\s*\{\s*display:\s*none\s*!important;\s*\}/);
+  assert.doesNotMatch(html, globallyHiddenEditorHelper);
 });

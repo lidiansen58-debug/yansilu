@@ -10,6 +10,12 @@ import { deriveNoteThinkingStatus } from "./thinking-status.mjs";
 import { analyzePermanentNoteDistillation } from "./quality-checks.mjs";
 import { originalityGuard } from "../../originality-guard/src/index.mjs";
 
+const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
+
+function isQuickWikilinkAssociationMarker(value) {
+  return String(value || "").trim() === QUICK_WIKILINK_ASSOCIATION_MARKER;
+}
+
 function catalogDbPath(vaultPath) {
   return path.join(path.resolve(vaultPath), ".yansilu", SQLITE_DB_FILES.catalog);
 }
@@ -454,6 +460,18 @@ function titleCandidatesForWikilinkTarget(target) {
   return [...new Set([normalized, baseName, withoutMarkdown].filter(Boolean))];
 }
 
+function pathCandidatesForWikilinkTarget(target) {
+  const normalized = String(target || "").trim().replaceAll("\\", "/").replace(/^\.?\//, "");
+  if (!normalized) return [];
+  if (!normalized.includes("/") && !/\.md$/i.test(normalized)) return [];
+  const withExtension = /\.md$/i.test(normalized) ? normalized : `${normalized}.md`;
+  return [...new Set([normalized, withExtension].filter(Boolean))];
+}
+
+function escapeSqlLikePattern(value) {
+  return String(value || "").replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 function mapNoteRow(row) {
   return {
     id: row.id,
@@ -745,7 +763,7 @@ function mapRelationLinkRow(row) {
     toNoteId: row.to_note_id,
     relationType: row.relation_type,
     rationale: row.rationale,
-    insightQuestion: row.insight_question || null,
+    insightQuestion: isQuickWikilinkAssociationMarker(row.insight_question) ? null : row.insight_question || null,
     rationaleQualityScore: Number(row.rationale_quality_score || 0),
     rationaleQualityLevel: row.rationale_quality_level || "empty",
     createdBy: row.created_by,
@@ -880,7 +898,7 @@ function mapGraphEdgeRow(row) {
     toTitle: row.to_title,
     relationType: row.relation_type,
     rationale: row.rationale,
-    insightQuestion: row.insight_question || null,
+    insightQuestion: isQuickWikilinkAssociationMarker(row.insight_question) ? null : row.insight_question || null,
     rationaleQualityScore: Number(row.rationale_quality_score || 0),
     rationaleQualityLevel: row.rationale_quality_level || "empty",
     createdBy: row.created_by,
@@ -1198,18 +1216,97 @@ function directoryScopeClause(scopeTable = "directory_scope") {
           )`;
 }
 
-function findNoteByWikilinkTarget(db, target, excludeNoteId) {
+function findNoteByWikilinkTarget(db, target, excludeNoteId, options = {}) {
+  const preferredNoteType = String(options.preferredNoteType || "").trim().toLowerCase();
+  const uniqueRow = (rows = []) => {
+    const byId = new Map((Array.isArray(rows) ? rows : []).map((row) => [row.id, row]));
+    return byId.size === 1 ? [...byId.values()][0] : null;
+  };
+  const pathRowsForCandidate = (candidatePath, noteType = "") => {
+    const likePattern = `%/${escapeSqlLikePattern(candidatePath)}`;
+    return noteType
+      ? db
+          .prepare(
+            `SELECT id, note_type, title, markdown_path
+             FROM notes
+             WHERE id != ? AND note_type = ? AND deleted_at IS NULL
+               AND (REPLACE(markdown_path, '\\', '/') = ? OR REPLACE(markdown_path, '\\', '/') LIKE ? ESCAPE '\\')
+             ORDER BY updated_at DESC`
+          )
+          .all(excludeNoteId, noteType, candidatePath, likePattern)
+      : db
+          .prepare(
+            `SELECT id, note_type, title, markdown_path
+             FROM notes
+             WHERE id != ? AND deleted_at IS NULL
+               AND (REPLACE(markdown_path, '\\', '/') = ? OR REPLACE(markdown_path, '\\', '/') LIKE ? ESCAPE '\\')
+             ORDER BY updated_at DESC`
+          )
+          .all(excludeNoteId, candidatePath, likePattern);
+  };
+  const pathCandidates = pathCandidatesForWikilinkTarget(target);
+  for (const candidatePath of pathCandidates) {
+    if (preferredNoteType) {
+      const preferredPathRows = pathRowsForCandidate(candidatePath, preferredNoteType);
+      const preferredPathRow = uniqueRow(preferredPathRows);
+      if (preferredPathRow) return preferredPathRow;
+      if (preferredPathRows.length > 1) return null;
+    }
+    const pathRows = pathRowsForCandidate(candidatePath);
+    const pathRow = uniqueRow(pathRows);
+    if (pathRow) return pathRow;
+    if (pathRows.length > 1) return null;
+  }
+  const idTarget = String(target || "").trim();
+  if (idTarget) {
+    const idRow = preferredNoteType
+      ? db
+          .prepare(
+            `SELECT id, note_type, title, markdown_path
+             FROM notes
+             WHERE id = ? AND id != ? AND note_type = ? AND deleted_at IS NULL
+             LIMIT 1`
+          )
+          .get(idTarget, excludeNoteId, preferredNoteType)
+      : null;
+    if (idRow) return idRow;
+    const fallbackIdRow = db
+      .prepare(
+        `SELECT id, note_type, title, markdown_path
+         FROM notes
+         WHERE id = ? AND id != ? AND deleted_at IS NULL
+         LIMIT 1`
+      )
+      .get(idTarget, excludeNoteId);
+    if (fallbackIdRow) return fallbackIdRow;
+  }
   for (const title of titleCandidatesForWikilinkTarget(target)) {
-    const row = db
+    if (preferredNoteType) {
+      const preferredRows = db
+        .prepare(
+          `SELECT id, note_type, title, markdown_path
+           FROM notes
+           WHERE title = ? AND id != ? AND note_type = ? AND deleted_at IS NULL
+           ORDER BY updated_at DESC
+           LIMIT 2`
+        )
+        .all(title, excludeNoteId, preferredNoteType);
+      const preferredRow = uniqueRow(preferredRows);
+      if (preferredRow) return preferredRow;
+      if (preferredRows.length > 1) return null;
+    }
+    const rows = db
       .prepare(
         `SELECT id, note_type, title, markdown_path
          FROM notes
          WHERE title = ? AND id != ? AND deleted_at IS NULL
          ORDER BY updated_at DESC
-         LIMIT 1`
+         LIMIT 2`
       )
-      .get(title, excludeNoteId);
+      .all(title, excludeNoteId);
+    const row = uniqueRow(rows);
     if (row) return row;
+    if (rows.length > 1) return null;
   }
   return null;
 }
@@ -1219,7 +1316,7 @@ async function evaluatePermanentOriginality(db, vaultPath, noteId, markdownBody)
   const linkedLiterature = [];
   const seenNoteIds = new Set();
   for (const target of wikilinkTargets) {
-    const linked = findNoteByWikilinkTarget(db, target, noteId || "");
+    const linked = findNoteByWikilinkTarget(db, target, noteId || "", { preferredNoteType: "literature" });
     if (!linked || linked.note_type !== "literature" || seenNoteIds.has(linked.id)) continue;
     seenNoteIds.add(linked.id);
     linkedLiterature.push(linked);
@@ -1277,6 +1374,21 @@ function syncMarkdownRelations(db, noteId, markdownBody) {
   const now = new Date().toISOString();
   const tags = extractMarkdownTags(markdownBody);
   const wikilinkTargets = parseMarkdownWikilinkTargets(markdownBody);
+  const sourceNote = db.prepare("SELECT note_type FROM notes WHERE id = ? LIMIT 1").get(noteId);
+  const preferredNoteType = String(sourceNote?.note_type || "").trim().toLowerCase();
+  const linkedNotesById = new Map();
+  const linkedNoteIds = new Set();
+  const unresolved = [];
+
+  for (const target of wikilinkTargets) {
+    const linkedNote = findNoteByWikilinkTarget(db, target, noteId, { preferredNoteType });
+    if (!linkedNote) {
+      unresolved.push(target);
+      continue;
+    }
+    linkedNotesById.set(linkedNote.id, linkedNote);
+    linkedNoteIds.add(linkedNote.id);
+  }
 
   db.prepare("DELETE FROM note_tags WHERE note_id = ? AND source = 'markdown_body'").run(noteId);
   for (const tagName of tags) {
@@ -1295,13 +1407,20 @@ function syncMarkdownRelations(db, noteId, markdownBody) {
   db.prepare(
     "DELETE FROM links WHERE from_note_id = ? AND created_by = 'user' AND rationale = 'markdown_wikilink'"
   ).run(noteId);
-  const unresolved = [];
-  for (const target of wikilinkTargets) {
-    const linkedNote = findNoteByWikilinkTarget(db, target, noteId);
-    if (!linkedNote) {
-      unresolved.push(target);
-      continue;
-    }
+
+  const quickAssociations = db
+    .prepare(
+      `SELECT id, to_note_id
+       FROM links
+       WHERE from_note_id = ? AND created_by = 'user' AND insight_question = ?`
+    )
+    .all(noteId, QUICK_WIKILINK_ASSOCIATION_MARKER);
+  for (const relation of quickAssociations) {
+    if (linkedNoteIds.has(relation.to_note_id)) continue;
+    db.prepare("DELETE FROM links WHERE id = ?").run(relation.id);
+  }
+
+  for (const linkedNote of linkedNotesById.values()) {
     db.prepare(
       `INSERT OR IGNORE INTO links
        (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at, status, updated_at)

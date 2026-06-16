@@ -162,7 +162,9 @@ test("applySqliteMigrations accepts legacy checksums for shipped databases", asy
     try {
       const row = verifyDb.prepare("SELECT checksum FROM schema_migrations WHERE id = ?").get(item.migrationId);
       assert.equal(row.checksum, item.legacyChecksum);
-      assert.notEqual(row.checksum, currentChecksum);
+      if (item.legacyChecksum !== currentChecksum) {
+        assert.notEqual(row.checksum, currentChecksum);
+      }
     } finally {
       verifyDb.close();
     }

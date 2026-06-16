@@ -300,11 +300,8 @@ test("originality payload keeps linked literature sources by folder root when no
   };
 
   pane.state = state;
+  state.notes = [literatureNote];
   pane.getEditorValue = () => "# Permanent Claim\n\nMy claim cites [[Source Literature]].";
-  pane.scopedLinkCandidates = () => [literatureNote];
-  pane.resolveLinkToken = (token, scoped) => ({
-    note: scoped.find((item) => item.title === token) || null
-  });
   pane.resolvePlanFromWindow = () => ({});
   pane.extractCoreClaimFromBody = (body) => body;
 
@@ -318,6 +315,195 @@ test("originality payload keeps linked literature sources by folder root when no
   assert.deepEqual(payload.literature.map((item) => item.source_id), ["src_from_ln_source"]);
   assert.match(payload.literature[0].quote_text, /Quoted source passage/);
   assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_source" }]);
+});
+
+test("originality payload resolves cross-box literature links by stable note id", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const literatureNote = {
+    id: "ln_source_id",
+    title: "Source By ID",
+    folderId: "dir_literature_default",
+    noteType: "literature",
+    body: [
+      "# Source By ID",
+      "",
+      "## 鍘熸枃",
+      "Quoted source passage by id.",
+      "",
+      "## 杞堪",
+      "A paraphrased source point."
+    ].join("\n")
+  };
+
+  pane.state = state;
+  state.notes = [literatureNote];
+  pane.getEditorValue = () => "# Permanent Claim\n\nMy claim cites [[ln_source_id|Source By ID]].";
+  pane.resolvePlanFromWindow = () => ({});
+  pane.extractCoreClaimFromBody = (body) => body;
+
+  const payload = pane.buildOriginalityPayload({
+    id: "pn_claim",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    body: ""
+  });
+
+  assert.deepEqual(payload.literature.map((item) => item.source_id), ["src_from_ln_source_id"]);
+  assert.match(payload.literature[0].quote_text, /Quoted source passage by id/);
+  assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_source_id" }]);
+});
+
+test("originality payload skips ambiguous literature title links until the target is disambiguated", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+
+  pane.state = state;
+  state.notes = [
+    {
+      id: "ln_duplicate_a",
+      title: "Duplicate Literature",
+      folderId: "dir_literature_default",
+      noteType: "literature",
+      body: "# Duplicate Literature\n\nFirst duplicate passage."
+    },
+    {
+      id: "ln_duplicate_b",
+      title: "Duplicate Literature",
+      folderId: "dir_literature_default",
+      noteType: "literature",
+      body: "# Duplicate Literature\n\nSecond duplicate passage."
+    }
+  ];
+  pane.resolvePlanFromWindow = () => ({});
+  pane.extractCoreClaimFromBody = (body) => body;
+
+  pane.getEditorValue = () => "# Permanent Claim\n\nMy claim cites [[Duplicate Literature]].";
+  const ambiguousPayload = await pane.buildHydratedOriginalityPayload({
+    id: "pn_claim",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    body: ""
+  });
+
+  assert.deepEqual(ambiguousPayload.literature, []);
+  assert.deepEqual(ambiguousPayload.permanent[0].citations, []);
+
+  pane.getEditorValue = () => "# Permanent Claim\n\nMy claim cites [[ln_duplicate_b|Duplicate Literature]].";
+  const idPayload = await pane.buildHydratedOriginalityPayload({
+    id: "pn_claim",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    body: ""
+  });
+
+  assert.deepEqual(idPayload.literature.map((item) => item.source_id), ["src_from_ln_duplicate_b"]);
+  assert.match(idPayload.literature[0].quote_text, /Second duplicate passage/);
+});
+
+test("hydrated originality payload fetches stable id literature that is not loaded", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+
+  pane.state = state;
+  state.notes = [];
+  pane.getEditorValue = () => "# Permanent Claim\n\nMy claim cites [[ln_fetch_source|Fetched Source]].";
+  pane.resolvePlanFromWindow = () => ({});
+  pane.extractCoreClaimFromBody = (body) => body;
+  pane.fetchNoteForResolution = async (noteId) => ({
+    id: noteId,
+    title: "Fetched Source",
+    directoryId: "dir_literature_default",
+    noteType: "literature",
+    body: "# Fetched Source\n\nFetched source passage from full note."
+  });
+
+  const payload = await pane.buildHydratedOriginalityPayload({
+    id: "pn_claim",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    body: ""
+  });
+
+  assert.deepEqual(payload.literature.map((item) => item.source_id), ["src_from_ln_fetch_source"]);
+  assert.match(payload.literature[0].quote_text, /Fetched source passage from full note/);
+  assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_fetch_source" }]);
+});
+
+test("hydrated originality payload replaces unloaded literature summaries with full bodies", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+
+  pane.state = state;
+  state.notes = [
+    {
+      id: "ln_summary_source",
+      title: "Summary Source",
+      folderId: "dir_literature_default",
+      noteType: "literature",
+      body: "# Summary Source\n\nShort list preview only.",
+      bodyLoaded: false
+    }
+  ];
+  pane.getEditorValue = () => "# Permanent Claim\n\nMy claim cites [[Summary Source]].";
+  pane.resolvePlanFromWindow = () => ({});
+  pane.extractCoreClaimFromBody = (body) => body;
+  pane.fetchNoteForResolution = async (noteId) => ({
+    id: noteId,
+    title: "Summary Source",
+    directoryId: "dir_literature_default",
+    noteType: "literature",
+    body: "# Summary Source\n\nFull literature passage that was not in the preview."
+  });
+
+  const payload = await pane.buildHydratedOriginalityPayload({
+    id: "pn_claim",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    body: ""
+  });
+
+  assert.deepEqual(payload.literature.map((item) => item.source_id), ["src_from_ln_summary_source"]);
+  assert.match(payload.literature[0].quote_text, /Full literature passage that was not in the preview/);
+  assert.doesNotMatch(payload.literature[0].quote_text, /Short list preview only/);
+});
+
+test("preview wikilink actions resolve cross-box stable note ids", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  let previewedNoteId = "";
+  let statusText = "";
+
+  pane.state = state;
+  state.notes = [
+    {
+      id: "pn_claim",
+      title: "Permanent Claim",
+      folderId: "dir_original_default",
+      noteType: "permanent",
+      body: "# Permanent Claim\n\n[[ln_source_id|Source By ID]]"
+    },
+    {
+      id: "ln_source_id",
+      title: "Source By ID",
+      folderId: "dir_literature_default",
+      noteType: "literature",
+      body: "# Source By ID\n"
+    }
+  ];
+  pane.activeNote = () => state.notes[0];
+  pane.setInspectorVisible = () => {};
+  pane.showNotePreviewInInspector = async (noteId) => {
+    previewedNoteId = noteId;
+  };
+  pane.onStatus = (message) => {
+    statusText = message;
+  };
+
+  await pane.handleTokenAction("[[ln_source_id|Source By ID]]");
+
+  assert.equal(previewedNoteId, "ln_source_id");
+  assert.match(statusText, /已显示关联笔记/);
 });
 
 test("editor keeps source mode when switching notes unless the tab explicitly prefers the plain editor", () => {
@@ -872,4 +1058,91 @@ test("renderPreviewVisibility prefers the synced textarea value over stale rich-
   assert.equal(nextEditorValue, "# Source truth\n\n## 关联线索\n\n- [[From source mode]]");
   assert.equal(modeEdit.classList.contains("active"), false);
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
+});
+
+test("renderPreviewVisibility keeps source editor edits ahead of stale hidden textarea", () => {
+  const state = createInitialState();
+  state.previewMode = "source";
+  const pane = Object.create(EditorPane.prototype);
+  const split = { classList: createClassList() };
+  const modeEdit = createToolbarButtonStub();
+  const modeSplit = { classList: createClassList() };
+  let nextEditorValue = "";
+
+  pane.state = state;
+  pane.els = {
+    body: { value: "# 未命名笔记\n\nold template" },
+    markdownSplit: split,
+    previewPanel: { classList: createClassList() },
+    modeEdit,
+    modeSplit
+  };
+  pane.activeNote = () => ({ id: "pn_source_race", folderId: "dir_original_default", noteType: "" });
+  pane.pendingEditorSelection = null;
+  pane.richEditor = { getValue: () => "# Stale rich value", focus() {} };
+  pane.markdownEditor = { getValue: () => "# Mode Guard Note\n\nBody before toggle.", focus() {} };
+  pane.normalizedSelectionRangeForValue = () => null;
+  pane.setEditorValue = (value) => {
+    nextEditorValue = value;
+  };
+  pane.clearMarkdownSelectionOverride = () => {};
+  pane.updateModeToggleButton = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderContextualToolbarState = () => {};
+
+  pane.renderPreviewVisibility();
+
+  assert.equal(nextEditorValue, "# Mode Guard Note\n\nBody before toggle.");
+  assert.equal(modeEdit.classList.contains("active"), true);
+  assert.equal(split.classList.contains("editor-mode-source"), true);
+});
+
+test("source mode reads the dirty textarea when the code editor lags behind the active tab", () => {
+  const state = createInitialState();
+  state.previewMode = "source";
+  const pane = Object.create(EditorPane.prototype);
+  const tab = {
+    id: "tab_source_lag",
+    noteId: "pn_source_lag",
+    body: "# Browser E2E note\n\nThis markdown note was edited through the prototype UI.",
+    savedBody: "# 未命名笔记\n\nold template",
+    dirty: true
+  };
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.els = {
+    body: { value: tab.body }
+  };
+  pane.markdownEditor = {
+    getValue: () => tab.savedBody
+  };
+  pane.richEditor = null;
+
+  assert.equal(pane.getEditorValue(), tab.body);
+});
+
+test("source mode accepts an empty dirty textarea when the code editor lags behind", () => {
+  const state = createInitialState();
+  state.previewMode = "source";
+  const pane = Object.create(EditorPane.prototype);
+  const tab = {
+    id: "tab_source_empty",
+    noteId: "pn_source_empty",
+    body: "",
+    savedBody: "# Old markdown\n\nThis should be removed.",
+    dirty: true
+  };
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.els = {
+    body: { value: "" }
+  };
+  pane.markdownEditor = {
+    getValue: () => tab.savedBody
+  };
+  pane.richEditor = null;
+
+  assert.equal(pane.getEditorValue(), "");
 });

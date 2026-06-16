@@ -39,6 +39,15 @@ function createWorkflowOpenerContext(overrides = {}) {
     openNoteRelationEditor: () => true,
     openGraphFollowupNote: () => true,
     handleStateChange: async () => false,
+    graphState: {},
+    renderGraphPanel: () => {},
+    selectWritingThemeIndex: async (indexCardId) => ({ id: indexCardId }),
+    ensureNotesLoaded: async () => {},
+    writingKnownNoteById: (id) => ({ id, noteType: "permanent", status: "active", authorship: { user_confirmed: true } }),
+    isWritingEligibleNote: () => true,
+    continueWritingEntry: () => null,
+    suggestedWritingProjectTitle: () => "主题笔记入口",
+    openWritingModule: async () => true,
     activateModule: (module) => calls.push(["activateModule", module]),
     openNoteById: () => true,
     setStatus: (message, type, options) => statuses.push({ message, type, options }),
@@ -57,6 +66,7 @@ test("workflow system messages persist routing metadata and completion state", (
   const helper = source.slice(start, end);
 
   assert.match(helper, /const workflowRoute = item\.workflowRoute/);
+  assert.match(helper, /graphSelectionKind: String\(item\.workflowRoute\.graphSelectionKind/);
   assert.match(helper, /category: String\(item\.category \|\| ""\)\.trim\(\)/);
   assert.match(helper, /sourceNoteId: String\(item\.sourceNoteId \|\| item\.source_note_id \|\| ""\)\.trim\(\)/);
   assert.match(helper, /targetNoteId: String\(item\.targetNoteId \|\| item\.target_note_id \|\| ""\)\.trim\(\)/);
@@ -131,6 +141,12 @@ test("workflow system message actions open the precise note follow-up route", ()
   assert.match(helper, /focus === "distillation"/);
   assert.match(helper, /handleStateChange\("open-note-main-route"/);
   assert.match(helper, /return Boolean\(opened\)/);
+  assert.match(helper, /focus === "graph"/);
+  assert.match(helper, /action: "graph"/);
+  assert.match(helper, /graphWorkflowSelectionForNote\(noteId, route\)/);
+  assert.match(helper, /focus === "writing"/);
+  assert.match(helper, /await selectWritingThemeIndex\(indexCardId\)/);
+  assert.match(helper, /await openWritingModule\(\{ statusMessage: ".*?", preserveFocusedCandidateScope: true \}\)/);
   assert.match(helper, /focus === "record-permanent"/);
   assert.match(helper, /return openRecordPermanentWorkflowFromCurrentNote\(\)/);
 
@@ -139,6 +155,83 @@ test("workflow system message actions open the precise note follow-up route", ()
   const modalHandler = source.slice(modalStart, modalEnd);
   assert.match(modalHandler, /action === "open-note-workflow"/);
   assert.match(modalHandler, /await openSystemMessageWorkflow\(message \|\| \{\}\)/);
+});
+
+test("graph workflow system messages reopen connected notes as graph nodes", async () => {
+  const { openWorkflow, calls, context } = createWorkflowOpenerContext({
+    handleStateChange: async (reason, payload) => {
+      calls.push(["handleStateChange", reason, payload]);
+      return true;
+    },
+    graphState: {
+      item: {
+        edges: [{ fromNoteId: "note-1", toNoteId: "note-2" }]
+      }
+    },
+    renderGraphPanel: () => calls.push(["renderGraphPanel"]),
+    openNoteRelationEditor: () => assert.fail("graph workflow should not open relation editor"),
+    openNoteById: () => assert.fail("graph workflow should not open explorer note directly")
+  });
+
+  const opened = await openWorkflow({
+    noteId: "note-1",
+    workflowRoute: { focus: "graph", source: "graph-ai-connect", graphSelectionKind: "node" }
+  });
+
+  assert.equal(opened, true);
+  assert.deepEqual(calls[0], ["closeSystemMessages"]);
+  assert.equal(calls[1][0], "handleStateChange");
+  assert.equal(calls[1][1], "open-note-main-route");
+  assert.equal(calls[1][2].noteId, "note-1");
+  assert.equal(calls[1][2].action, "graph");
+  assert.equal(context.graphState.selection.kind, "node");
+  assert.equal(context.graphState.selection.nodeId, "note-1");
+  assert.deepEqual(calls[2], ["renderGraphPanel"]);
+});
+
+test("graph route restores the note directory before refreshing the graph", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const start = source.indexOf('  if (reason === "open-note-main-route") {');
+  const end = source.indexOf('    if (action === "writing") {', start);
+  assert.ok(start >= 0 && end > start, "expected open-note-main-route handler");
+  const handler = source.slice(start, end);
+
+  assert.match(handler, /const noteFolderId = String\(note\.folderId \|\| note\.directoryId \|\| ""\)\.trim\(\)/);
+  assert.match(handler, /state\.browserRootId = rootBoxIdFromFolder\(state, noteFolderId\)/);
+  assert.match(handler, /state\.selectedFolderId = noteFolderId/);
+  assert.match(handler, /await syncNotesForDirectory\(noteFolderId\)/);
+  assert.ok(
+    handler.indexOf("state.selectedFolderId = noteFolderId") < handler.indexOf("await refreshDirectoryGraph()"),
+    "graph refresh should happen after the note directory is restored"
+  );
+});
+
+test("theme workflow system messages can reopen by index card without a loaded source note", async () => {
+  const { openWorkflow, calls } = createWorkflowOpenerContext({
+    state: { notes: [] },
+    selectWritingThemeIndex: async (indexCardId) => {
+      calls.push(["selectWritingThemeIndex", indexCardId]);
+      return { id: indexCardId };
+    },
+    openWritingModule: async (options) => {
+      calls.push(["openWritingModule", options]);
+      return true;
+    },
+    openNoteRelationEditor: () => assert.fail("writing workflow should not require a loaded source note"),
+    openGraphFollowupNote: () => assert.fail("writing workflow should not open graph followup"),
+    openNoteById: () => assert.fail("writing workflow should not open an editor note")
+  });
+
+  const opened = await openWorkflow({
+    noteId: "not-loaded",
+    workflowRoute: { focus: "writing", indexCardId: "idx_theme_1", source: "graph-theme-index" }
+  });
+
+  assert.equal(opened, true);
+  assert.deepEqual(calls[0], ["closeSystemMessages"]);
+  assert.deepEqual(calls[1], ["selectWritingThemeIndex", "idx_theme_1"]);
+  assert.equal(calls[2][0], "openWritingModule");
+  assert.deepEqual(calls[3], ["selectWritingThemeIndex", "idx_theme_1"]);
 });
 
 test("workflow system message actions fail before routing when the note is gone", async () => {

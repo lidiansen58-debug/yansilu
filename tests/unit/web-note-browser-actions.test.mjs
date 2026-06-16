@@ -500,6 +500,26 @@ test("graph note browser keeps isolated permanent notes inline with direct relat
   assert.doesNotMatch(html, /未入星系|接入网络|建立关系/);
 });
 
+test("graph note browser gives isolated notes an explicit warning color", () => {
+  const html = readRepoFile("apps", "web", "src", "prototype.html");
+  const appSource = readRepoFile("apps", "web", "src", "prototype-app.js");
+  const appIndex = html.indexOf('<div class="app">');
+  const listAreaIndex = html.indexOf('id="listArea"', appIndex);
+  const moduleWorkspaceIndex = html.indexOf('id="moduleWorkspace"', appIndex);
+
+  assert.ok(appIndex >= 0, "expected sidebar and module workspace to share the app wrapper");
+  assert.ok(listAreaIndex > appIndex, "expected note browser list to live inside the app wrapper");
+  assert.ok(moduleWorkspaceIndex > listAreaIndex, "expected module workspace to be a sibling after the sidebar list");
+  assert.doesNotMatch(html, /#moduleWorkspace\.graph-mode \.file-row\.is-disconnected/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.42\)/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(245, 158, 11, 0\.2\)/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-badge-warning \{[\s\S]*#9a3412/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-inline-action\.warn \{[\s\S]*#ea580c/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected\.active \{[\s\S]*rgba\(217, 119, 6, 0\.68\)/);
+  assert.match(appSource, /document\.querySelector\("\.app"\)\?\.classList\.toggle\("graph-mode", graphMode\);/);
+});
+
 test("graph browser keeps folder selection ahead of current editor note highlight", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
@@ -607,14 +627,17 @@ test("graph-ready relation sync does not let stale unknown statuses override rec
   assert.match(source, /return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
 });
 
-test("empty thinking status clears only stale thinking notices", () => {
+test("thinking status keeps derived next-step copy out of the bottom notice", () => {
   const source = readRepoFile("apps/web/src/components-editor-pane.js");
-  const match = source.match(/if \(!thinkingStatus\) \{([\s\S]*?)\n\s*return;/);
+  const match = source.match(/renderThinkingStatus\(\) \{([\s\S]*?)\n  \}\n\n  renderAuthorshipPanel/);
 
-  assert.ok(match, "expected empty thinking-status branch to exist");
+  assert.ok(match, "expected thinking-status renderer to exist");
   assert.match(match[1], /lastBottomNoticeKey/);
   assert.match(match[1], /startsWith\("thinking:"\)/);
   assert.match(match[1], /hideBottomNotice\(\)/);
+  assert.match(match[1], /thinking-status-chip/);
+  assert.match(match[1], /thinking-status-next/);
+  assert.doesNotMatch(match[1], /showBottomNotice\(/);
 });
 
 test("note browsers keep disconnected notes visually behind connected notes inside folders", () => {

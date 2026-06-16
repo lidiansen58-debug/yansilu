@@ -65,6 +65,8 @@ test("system messages are persisted, readable, and actionable", () => {
   assert.match(source, /function addSystemMessage\(message = \{\}, \{ interrupt = false \} = \{\}\)/);
   assert.match(source, /if \(interrupt\) openSystemMessages\(\{ latestOnly: true \}\)/);
   assert.match(source, /if \(message\.action === "open-ai-inbox"\) return "打开待审建议"/);
+  assert.match(source, /if \(message\.action === "open-graph"\) return "回到图谱"/);
+  assert.match(source, /if \(message\.action === "open-writing"\) return "继续整理主题"/);
   assert.match(source, /let selectedSystemMessageId = systemMessages\[0\]\?\.id \|\| ""/);
   assert.match(source, /data-system-message-select/);
   assert.match(source, /selectedSystemMessageId = String\(selectButton\.dataset\.systemMessageSelect \|\| ""\)\.trim\(\)/);
@@ -79,8 +81,60 @@ test("system messages are persisted, readable, and actionable", () => {
   assert.match(source, /systemMessagesButton"\)\?\.addEventListener\("click"/);
   assert.match(source, /data-system-message-action/);
   assert.match(source, /action === "open-ai-inbox"/);
+  assert.match(source, /action === "open-graph" \|\| action === "open-writing"/);
   assert.match(source, /function aiInboxFiltersForSystemMessage\(message = \{\}\)/);
   assert.match(source, /const messageFilters = aiInboxFiltersForSystemMessage\(message\)/);
+});
+
+test("system message graph and writing actions route through workflow metadata", async () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const handlerBody = extractBlockBody(source, '$("systemMessageModal")?.addEventListener("click", async (event) => {');
+  const calls = [];
+  const statuses = [];
+  const context = {
+    selectedSystemMessageId: "",
+    systemMessages: [
+      { id: "message-graph", action: "open-graph", noteId: "note-graph", read: false, workflowRoute: { focus: "graph" } },
+      { id: "message-writing", action: "open-writing", read: false, workflowRoute: { focus: "writing", indexCardId: "idx_1" } }
+    ],
+    aiInboxState: {},
+    closeSystemMessages: () => calls.push("closeSystemMessages"),
+    activateModule: (module) => calls.push(`activateModule:${module}`),
+    openNoteById: () => false,
+    persistSystemMessages: () => calls.push("persistSystemMessages"),
+    openAiInboxModule: async () => calls.push("openAiInboxModule"),
+    aiInboxFiltersForSystemMessage: () => null,
+    openSystemMessageWorkflow: async (message) => {
+      calls.push(["openSystemMessageWorkflow", message.id, message.workflowRoute?.focus]);
+      return true;
+    },
+    setStatus: (message, type) => statuses.push({ message, type }),
+    renderSystemMessages: () => calls.push("renderSystemMessages")
+  };
+  const handler = vm.runInNewContext(`(async (event) => {${handlerBody}})`, context);
+  const makeEvent = (messageId, action) => ({
+    target: {
+      id: "",
+      closest: (selector) =>
+        selector === "[data-system-message-action]"
+          ? { dataset: { systemMessageId: messageId, systemMessageAction: action } }
+          : null
+    }
+  });
+
+  await handler(makeEvent("message-graph", "open-graph"));
+  await handler(makeEvent("message-writing", "open-writing"));
+
+  assert.deepEqual(calls, [
+    "persistSystemMessages",
+    ["openSystemMessageWorkflow", "message-graph", "graph"],
+    "persistSystemMessages",
+    ["openSystemMessageWorkflow", "message-writing", "writing"]
+  ]);
+  assert.equal(context.systemMessages[0].read, true);
+  assert.equal(context.systemMessages[1].read, true);
+  assert.equal(statuses.length, 2);
+  assert.ok(statuses.every((item) => item.type === "ok"));
 });
 
 test("system message note actions report missing notes instead of optimistic success", () => {

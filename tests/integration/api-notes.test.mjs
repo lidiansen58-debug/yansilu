@@ -867,6 +867,88 @@ test("notes API syncs markdown wikilinks and tags into note relations", async (t
   assert.deepEqual(originalTagNotesAfterUpdate.json.items.map((item) => item.id), [siblingNote.json.item.id]);
 });
 
+test("notes API removes quick formal relations when the backing wikilink is deleted", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-quick-link-relation-vault-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const createDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "quick-relations",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "quick-relations"),
+    maxNotes: 500
+  });
+  assert.equal(createDir.status, 201);
+  const directoryId = createDir.json.item.id;
+
+  const targetNote = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Quick target\n\nThis note is linked from the source."
+  });
+  assert.equal(targetNote.status, 201);
+
+  const sourceNote = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Quick source\n\nThis source links to [[Quick target]]."
+  });
+  assert.equal(sourceNote.status, 201);
+
+  const sourceRelations = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(sourceNote.json.item.id)}/relations`);
+  assert.equal(sourceRelations.status, 200);
+  assert.equal(sourceRelations.json.item.outgoingLinks.length, 1);
+  const wikilinkRelation = sourceRelations.json.item.outgoingLinks[0];
+  assert.equal(wikilinkRelation.rationale, "markdown_wikilink");
+
+  const upgraded = await patchJson(baseUrl, `/api/v1/relations/${encodeURIComponent(wikilinkRelation.id)}`, {
+    relationType: "associated_with",
+    rationale: "手动确认关联。",
+    insightQuestion: "__yansilu_quick_wikilink_association__",
+    confidence: 1,
+    status: "confirmed"
+  });
+  assert.equal(upgraded.status, 200, JSON.stringify(upgraded.json));
+  assert.equal(upgraded.json.item.rationale, "手动确认关联。");
+  assert.equal(upgraded.json.item.insightQuestion, null);
+
+  const targetRelationsBeforeDelete = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(targetNote.json.item.id)}/relations`);
+  assert.equal(targetRelationsBeforeDelete.status, 200);
+  assert.equal(targetRelationsBeforeDelete.json.item.backlinks.length, 1);
+  assert.equal(targetRelationsBeforeDelete.json.item.backlinks[0].rationale, "手动确认关联。");
+
+  const update = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(sourceNote.json.item.id)}`, {
+    body: "# Quick source\n\nThe linked note was intentionally removed from the body."
+  });
+  assert.equal(update.status, 200);
+
+  const sourceRelationsAfterUpdate = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(sourceNote.json.item.id)}/relations`);
+  assert.equal(sourceRelationsAfterUpdate.status, 200);
+  assert.deepEqual(sourceRelationsAfterUpdate.json.item.outgoingLinks, []);
+
+  const targetRelationsAfterUpdate = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(targetNote.json.item.id)}/relations`);
+  assert.equal(targetRelationsAfterUpdate.status, 200);
+  assert.deepEqual(targetRelationsAfterUpdate.json.item.backlinks, []);
+
+  const graphAfterUpdate = await getJson(baseUrl, `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(directoryId)}`);
+  assert.equal(graphAfterUpdate.status, 200);
+  assert.equal(graphAfterUpdate.json.item.totalNodes, 2);
+  assert.equal(graphAfterUpdate.json.item.totalEdges, 0);
+});
+
 test("graph API finds note paths and duplicate title conflicts", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-graph-tools-vault-");
   const noteRoot = path.join(vaultPath, "notes", "original");
@@ -965,7 +1047,7 @@ test("graph API finds note paths and duplicate title conflicts", async (t) => {
   assert.deepEqual(conflicts.json.item.conflicts[0].noteIds.sort(), [duplicateA.json.item.id, duplicateB.json.item.id].sort());
 });
 
-test("graph AI analysis API returns review-only graph and theme candidates", async (t) => {
+test("graph AI analysis API returns review-only candidates without relation data", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-graph-ai-analysis-vault-");
   const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
@@ -1009,6 +1091,13 @@ test("graph AI analysis API returns review-only graph and theme candidates", asy
   assert.equal(noteA.status, 201);
   assert.equal(noteB.status, 201);
   assert.equal(noteC.status, 201);
+
+  const graphBeforeAnalysis = await getJson(
+    baseUrl,
+    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(directoryId)}&includeDescendants=true`
+  );
+  assert.equal(graphBeforeAnalysis.status, 200, JSON.stringify(graphBeforeAnalysis.json));
+  assert.equal(graphBeforeAnalysis.json.item.totalEdges, 0);
 
   const analysis = await postJson(baseUrl, "/api/v1/graph/ai-analysis", {
     directoryId,

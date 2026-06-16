@@ -86,7 +86,16 @@ export function parseTags(text) {
 }
 
 export function parseLinks(text) {
-  return [...new Set((text.match(/\[\[([^[\]]+)\]\]/g) || []).map((x) => x.slice(2, -2)))];
+  const links = [];
+  for (const match of String(text || "").matchAll(/\[\[([^[\]]+)\]\]/g)) {
+    const raw = String(match[1] || "").trim();
+    const [targetPart] = raw.split("|");
+    const [pathAndHeading] = String(targetPart || "").split("^");
+    const [targetRaw] = String(pathAndHeading || "").split("#");
+    const target = String(targetRaw || "").trim();
+    if (target) links.push(target);
+  }
+  return [...new Set(links)];
 }
 
 export function rootBoxIdFromFolder(state, folderId) {

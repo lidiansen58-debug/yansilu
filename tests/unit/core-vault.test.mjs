@@ -21,6 +21,7 @@ import {
   registerMarkdownNoteInCatalog,
   searchNotes,
   serializeMarkdownWithFrontmatter,
+  updateNoteRelation,
   updateNoteContent,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
@@ -626,6 +627,382 @@ test("relation queries heal stale endpoint metadata without a warm-up read", asy
     targetRelations.backlinks[0].source.markdownPath,
     path.relative(vaultPath, liveSource.path).replaceAll("\\", "/")
   );
+});
+
+test("wikilink relation sync skips ambiguous same-type duplicate titles", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const now = new Date().toISOString();
+
+  const duplicateTargetA = await writeLiteratureNoteIfAbsent(vaultPath, {
+    id: "ln_duplicate_target_a",
+    source_id: "src_duplicate_target_a",
+    title: "Duplicate Target",
+    quote_text: "First possible target.",
+    paraphrase_text: "",
+    status: "draft",
+    created_at: now,
+    updated_at: now
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_duplicate_target_a",
+    noteType: "literature",
+    title: "Duplicate Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, duplicateTargetA.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  const duplicateTargetB = await writeLiteratureNoteIfAbsent(vaultPath, {
+    id: "ln_duplicate_target_b",
+    source_id: "src_duplicate_target_b",
+    title: "Duplicate Target",
+    quote_text: "Second possible target.",
+    paraphrase_text: "",
+    status: "draft",
+    created_at: now,
+    updated_at: now
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_duplicate_target_b",
+    noteType: "literature",
+    title: "Duplicate Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, duplicateTargetB.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  const duplicateSource = await writeLiteratureNoteIfAbsent(vaultPath, {
+    id: "ln_duplicate_source",
+    source_id: "src_duplicate_source",
+    title: "Duplicate source",
+    quote_text: "This should not auto-link [[Duplicate Target]] because the title is ambiguous.",
+    paraphrase_text: "",
+    status: "draft",
+    created_at: now,
+    updated_at: now
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_duplicate_source",
+    noteType: "literature",
+    title: "Duplicate source",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, duplicateSource.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const sourceRelations = await listNoteRelations(vaultPath, "ln_duplicate_source");
+  assert.deepEqual(sourceRelations.outgoingLinks, []);
+});
+
+test("wikilink relation sync can disambiguate duplicate titles by markdown path", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const specialDir = path.join(vaultPath, "notes", "literature", "special");
+  const otherDir = path.join(vaultPath, "notes", "literature", "other");
+  await fs.mkdir(specialDir, { recursive: true });
+  await fs.mkdir(otherDir, { recursive: true });
+
+  const specialTargetPath = path.join(specialDir, "Path Target.md");
+  const otherTargetPath = path.join(otherDir, "Path Target.md");
+  const sourcePath = path.join(vaultPath, "notes", "literature", "path-source.md");
+  await fs.writeFile(
+    specialTargetPath,
+    serializeMarkdownWithFrontmatter({ title: "Path Target", note_type: "literature" }, "Special target body."),
+    "utf8"
+  );
+  await fs.writeFile(
+    otherTargetPath,
+    serializeMarkdownWithFrontmatter({ title: "Path Target", note_type: "literature" }, "Other target body."),
+    "utf8"
+  );
+  await fs.writeFile(
+    sourcePath,
+    serializeMarkdownWithFrontmatter(
+      { title: "Path source", note_type: "literature" },
+      "This path link should resolve [[special/Path Target]]."
+    ),
+    "utf8"
+  );
+
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_path_target_special",
+    noteType: "literature",
+    title: "Path Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, specialTargetPath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_path_target_other",
+    noteType: "literature",
+    title: "Path Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, otherTargetPath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_path_source",
+    noteType: "literature",
+    title: "Path source",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, sourcePath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const sourceRelations = await listNoteRelations(vaultPath, "ln_path_source");
+  assert.equal(sourceRelations.outgoingLinks.length, 1);
+  assert.equal(sourceRelations.outgoingLinks[0].toNoteId, "ln_path_target_special");
+});
+
+test("wikilink relation sync deduplicates different targets that resolve to the same note", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const dedupDir = path.join(vaultPath, "notes", "literature", "dedup");
+  await fs.mkdir(dedupDir, { recursive: true });
+
+  const targetPath = path.join(dedupDir, "Dedup Target.md");
+  const sourcePath = path.join(vaultPath, "notes", "literature", "dedup-source.md");
+  await fs.writeFile(
+    targetPath,
+    serializeMarkdownWithFrontmatter({ title: "Dedup Target", note_type: "literature" }, "Target body."),
+    "utf8"
+  );
+  await fs.writeFile(
+    sourcePath,
+    serializeMarkdownWithFrontmatter(
+      { title: "Dedup source", note_type: "literature" },
+      [
+        "These all point to the same note:",
+        "[[Dedup Target]]",
+        "[[ln_dedup_target|same target by id]]",
+        "[[dedup/Dedup Target.md|same target by path]]."
+      ].join("\n")
+    ),
+    "utf8"
+  );
+
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_dedup_target",
+    noteType: "literature",
+    title: "Dedup Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, targetPath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_dedup_source",
+    noteType: "literature",
+    title: "Dedup source",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, sourcePath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const sourceRelations = await listNoteRelations(vaultPath, "ln_dedup_source");
+  assert.equal(sourceRelations.outgoingLinks.length, 1);
+  assert.equal(sourceRelations.outgoingLinks[0].toNoteId, "ln_dedup_target");
+  assert.equal(sourceRelations.outgoingLinks[0].relationType, "associated_with");
+  assert.equal(sourceRelations.outgoingLinks[0].rationale, "markdown_wikilink");
+
+  const graph = await getDirectoryGraph(vaultPath, "dir_literature_default");
+  assert.equal(graph.totalEdges, 1);
+  assert.equal(graph.edges[0].fromNoteId, "ln_dedup_source");
+  assert.equal(graph.edges[0].toNoteId, "ln_dedup_target");
+});
+
+test("wikilink relation sync treats path wildcard characters as literal text", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const specialDir = path.join(vaultPath, "notes", "literature", "special");
+  await fs.mkdir(specialDir, { recursive: true });
+
+  const wildcardLookalikePath = path.join(specialDir, "PathXTarget.md");
+  const sourcePath = path.join(vaultPath, "notes", "literature", "wildcard-source.md");
+  await fs.writeFile(
+    wildcardLookalikePath,
+    serializeMarkdownWithFrontmatter({ title: "PathXTarget", note_type: "literature" }, "Lookalike target body."),
+    "utf8"
+  );
+  await fs.writeFile(
+    sourcePath,
+    serializeMarkdownWithFrontmatter(
+      { title: "Wildcard source", note_type: "literature" },
+      "This path link should not treat the underscore as SQL wildcard [[special/Path_Target]]."
+    ),
+    "utf8"
+  );
+
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_path_target_x",
+    noteType: "literature",
+    title: "PathXTarget",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, wildcardLookalikePath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_wildcard_source",
+    noteType: "literature",
+    title: "Wildcard source",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, sourcePath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const sourceRelations = await listNoteRelations(vaultPath, "ln_wildcard_source");
+  assert.deepEqual(sourceRelations.outgoingLinks, []);
+});
+
+test("quick wikilink relations stay attached when duplicate titles use a path alias", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const specialDir = path.join(vaultPath, "notes", "literature", "special");
+  const otherDir = path.join(vaultPath, "notes", "literature", "other");
+  await fs.mkdir(specialDir, { recursive: true });
+  await fs.mkdir(otherDir, { recursive: true });
+
+  const specialTargetPath = path.join(specialDir, "Alias Target.md");
+  const otherTargetPath = path.join(otherDir, "Alias Target.md");
+  const sourcePath = path.join(vaultPath, "notes", "literature", "alias-source.md");
+  const sourceBody = "This path alias should keep pointing to [[special/Alias Target|Alias Target]].";
+  await fs.writeFile(
+    specialTargetPath,
+    serializeMarkdownWithFrontmatter({ title: "Alias Target", note_type: "literature" }, "Special alias target body."),
+    "utf8"
+  );
+  await fs.writeFile(
+    otherTargetPath,
+    serializeMarkdownWithFrontmatter({ title: "Alias Target", note_type: "literature" }, "Other alias target body."),
+    "utf8"
+  );
+  await fs.writeFile(
+    sourcePath,
+    serializeMarkdownWithFrontmatter({ title: "Alias source", note_type: "literature" }, sourceBody),
+    "utf8"
+  );
+
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_alias_target_special",
+    noteType: "literature",
+    title: "Alias Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, specialTargetPath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_alias_target_other",
+    noteType: "literature",
+    title: "Alias Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, otherTargetPath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_alias_source",
+    noteType: "literature",
+    title: "Alias source",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, sourcePath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const initialRelations = await listNoteRelations(vaultPath, "ln_alias_source");
+  assert.equal(initialRelations.outgoingLinks.length, 1);
+  assert.equal(initialRelations.outgoingLinks[0].toNoteId, "ln_alias_target_special");
+
+  await updateNoteRelation(vaultPath, initialRelations.outgoingLinks[0].id, {
+    relationType: "associated_with",
+    rationale: "手动确认关联。",
+    insightQuestion: "__yansilu_quick_wikilink_association__",
+    confidence: 1,
+    status: "confirmed"
+  });
+  await updateNoteContent(vaultPath, "ln_alias_source", {
+    body: `# Alias source\n\n${sourceBody}\n\nSaved again.`
+  });
+
+  const sourceRelations = await listNoteRelations(vaultPath, "ln_alias_source");
+  assert.equal(sourceRelations.outgoingLinks.length, 1);
+  assert.equal(sourceRelations.outgoingLinks[0].toNoteId, "ln_alias_target_special");
+  assert.equal(sourceRelations.outgoingLinks[0].rationale, "手动确认关联。");
+});
+
+test("quick wikilink relations stay attached when id aliases survive target rename and move", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const now = new Date().toISOString();
+  const sourceBody = "A stable manual association points to [[ln_id_alias_target|Stable Target]].";
+
+  const targetWrite = await writeLiteratureNoteIfAbsent(vaultPath, {
+    id: "ln_id_alias_target",
+    source_id: "src_id_alias_target",
+    title: "Stable Target",
+    quote_text: "Target body before moving.",
+    paraphrase_text: "",
+    status: "draft",
+    created_at: now,
+    updated_at: now
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_id_alias_target",
+    noteType: "literature",
+    title: "Stable Target",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, targetWrite.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const sourceWrite = await writeLiteratureNoteIfAbsent(vaultPath, {
+    id: "ln_id_alias_source",
+    source_id: "src_id_alias_source",
+    title: "ID alias source",
+    quote_text: sourceBody,
+    paraphrase_text: "",
+    status: "draft",
+    created_at: now,
+    updated_at: now
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_id_alias_source",
+    noteType: "literature",
+    title: "ID alias source",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, sourceWrite.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const initialRelations = await listNoteRelations(vaultPath, "ln_id_alias_source");
+  assert.equal(initialRelations.outgoingLinks.length, 1);
+  assert.equal(initialRelations.outgoingLinks[0].toNoteId, "ln_id_alias_target");
+
+  await updateNoteRelation(vaultPath, initialRelations.outgoingLinks[0].id, {
+    relationType: "associated_with",
+    rationale: "Manual association.",
+    insightQuestion: "__yansilu_quick_wikilink_association__",
+    confidence: 1,
+    status: "confirmed"
+  });
+
+  await updateNoteContent(vaultPath, "ln_id_alias_target", {
+    title: "Renamed Stable Target",
+    body: "# Renamed Stable Target\n\nTarget body after renaming."
+  });
+  const movedDirectory = await createDirectory(vaultPath, {
+    title: "Moved ID Alias Targets",
+    parentDirectoryId: "dir_literature_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "literature", "moved-id-alias-targets")
+  });
+  await moveNoteToDirectory(vaultPath, "ln_id_alias_target", movedDirectory.id);
+
+  await updateNoteContent(vaultPath, "ln_id_alias_source", {
+    body: `# ID alias source\n\n${sourceBody}\n\nSaved after target rename and move.`
+  });
+
+  const sourceRelations = await listNoteRelations(vaultPath, "ln_id_alias_source");
+  assert.equal(sourceRelations.outgoingLinks.length, 1);
+  assert.equal(sourceRelations.outgoingLinks[0].toNoteId, "ln_id_alias_target");
+  assert.equal(sourceRelations.outgoingLinks[0].target.title, "Renamed Stable Target");
+  assert.equal(sourceRelations.outgoingLinks[0].rationale, "Manual association.");
 });
 
 test("directory graph heals stale edge titles before building insights", async () => {

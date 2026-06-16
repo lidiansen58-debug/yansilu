@@ -32,6 +32,25 @@ test("graph workbench entries live beside reading lenses and legend", () => {
   assert.match(source, /renderGraphReadingLensControls\(readingLens\.key, legendOpen, readingLensTrailingMarkup\)/);
 });
 
+test("graph focus reading panel can be collapsed and restored explicitly", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /focusContextCollapsed: false/);
+  assert.match(source, /const focusContextAvailable = filterActive && normalizedFocusedNoteId;/);
+  assert.match(source, /const focusContextMarkup = focusContextAvailable && !focusContextCollapsed/);
+  assert.match(source, /data-graph-focus-context-toggle="\$\{focusContextCollapsed \? "open" : "close"\}"/);
+  assert.match(source, /id="graphFocusContextPanel" class="graph-focus-context"/);
+  assert.match(source, /class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close"/);
+  assert.match(source, /const focusContextToggle = event\.target\.closest\("\[data-graph-focus-context-toggle\]"\);/);
+  assert.match(source, /graphState\.focusContextCollapsed =[\s\S]*action === "open" \? false : action === "close" \? true/);
+  assert.match(source, /setStatus\(graphState\.focusContextCollapsed \? "已收起右侧阅读" : "已显示右侧阅读", "ok"\);/);
+
+  assert.match(html, /\.graph-focus-panel-head \{[\s\S]*justify-content: space-between;/);
+  assert.match(html, /\.graph-focus-panel-toggle \{[\s\S]*min-height: 30px;[\s\S]*cursor: pointer;/);
+  assert.match(html, /\.graph-focus-panel-close \{[\s\S]*position: static;[\s\S]*width: 30px;/);
+});
+
 test("graph workbench panel replaces map-covering clue and question floaters", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
@@ -215,6 +234,122 @@ test("graph AI review action opens system messages instead of the AI review modu
   assert.doesNotMatch(handler, /openSystemMessages\(\{ latestOnly: true \}\)/);
   assert.doesNotMatch(handler, /activateModule\("aiInbox"\)/);
   assert.doesNotMatch(handler, /openAiInboxModule\(\)/);
+});
+
+test("isolated graph notes can request AI-assisted relation candidates and confirm them through the relation form", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function graphAiRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
+  assert.match(source, /function graphRelationCandidateKey\(fromNoteId = "", toNoteId = "", relationType = ""\) \{/);
+  assert.match(source, /const existingRelationKeys = graphExistingRelationKeys\(edges\);/);
+  assert.match(source, /const sourceNoteId = fromNoteId;/);
+  assert.match(source, /const targetNoteId = toNoteId;/);
+  assert.match(source, /const counterpartNoteId = fromNoteId === cleanNoteId \? toNoteId : fromNoteId;/);
+  assert.match(source, /if \(seen\.has\(key\) \|\| existingRelationKeys\.has\(key\)\) return null;/);
+  assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
+  assert.match(source, /aria-label="孤立笔记加入网络"/);
+  assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(noteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
+  assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(noteId\)\}"/);
+  assert.match(source, /data-graph-followup-action="relations">手工连线<\/button>/);
+  assert.match(source, /data-graph-ai-candidate-apply/);
+  assert.match(source, /data-graph-rationale-draft="\$\{escapeHtml\(candidate\.rationaleDraft\)\}"/);
+  assert.match(source, /data-graph-insight-question-draft="\$\{escapeHtml\(candidate\.insightQuestionDraft\)\}"/);
+  assert.match(source, /async function runGraphAiConnectForNote\(noteId = ""\) \{/);
+  assert.match(source, /relationLimit: 24,/);
+  assert.match(source, /const graphSelectionKind = previousSelectionKind === "isolated" \|\| \(!previousSelectionKind && !hasDirectEdge\) \? "isolated" : "node";/);
+  assert.match(source, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
+  assert.match(source, /function openGraphAiCandidateRelation\(button = null\) \{/);
+  assert.match(source, /rationaleDraft,/);
+  assert.match(source, /insightQuestionDraft,/);
+  assert.match(source, /runAiConnectForNote: runGraphAiConnectForNote/);
+  assert.match(source, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
+  assert.match(source, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
+  assert.match(source, /providedRationaleDraft \|\| providedInsightQuestionDraft/);
+
+  assert.match(html, /\.graph-isolated-join \{[\s\S]*display: grid;[\s\S]*border: 1px solid #efc66f;/);
+  assert.match(html, /\.graph-isolated-join-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(html, /\.graph-isolated-join-step \{[\s\S]*min-height: 44px;/);
+  assert.match(html, /\.graph-ai-connect \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
+  assert.match(html, /\.graph-ai-connect-card \{[\s\S]*border-radius: 14px;/);
+  assert.match(html, /\.graph-ai-connect-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+});
+
+test("directory graph keeps all nodes visible and marks true zero-degree notes as isolated", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function graphComputedIsolatedNotes\(nodes = \[\], edges = \[\], aiIsolatedNotes = \[\]\) \{/);
+  assert.match(source, /const linkedIds = new Set\(/);
+  assert.match(source, /function graphMarkIsolatedNodes\(nodes = \[\], isolatedNotes = \[\]\) \{/);
+  assert.match(source, /graphVisualState: "isolated"/);
+  assert.match(source, /let visibleNodes = !showingFocusedNote\s*\?\s*scopedAllNodes/);
+  assert.match(source, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
+  assert.match(source, /const selectionEdges = !filterActive && Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
+  assert.match(html, /\.graph-map-node\.is-graph-isolated \.graph-map-node-core \{[\s\S]*stroke: #f59e0b;/);
+  assert.match(html, /\.graph-local-connect \{[\s\S]*border-color: #fed7aa;/);
+});
+
+test("graph isolated workspace offers non-AI relation candidates from tags and titles", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /function graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
+  assert.match(source, /const connectedIds = new Set\(/);
+  assert.match(source, /graphTitleCharacterOverlap\(sourceTitle, targetTitle\)/);
+  assert.match(source, /renderGraphRelationCandidateCards\(localCandidates/);
+  assert.match(source, /data-graph-relation-candidate-apply/);
+  assert.match(source, /const graphRelationCandidateButton = event\.target\.closest\("\[data-graph-relation-candidate-apply\]"\);/);
+  assert.match(source, /openGraphCandidateRelation\(graphRelationCandidateButton\);/);
+});
+
+test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function renderGraphRelationWorkspaceForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], title = "关联工作台" \} = \{\}\) \{/);
+  assert.match(source, /graphAiRelationCandidatesForNote\(cleanNoteId, \{ nodeMap, edges, limit: 5 \}\)/);
+  assert.match(source, /graphAiRelationCandidatesForNote\(cleanNoteId, \{ nodeMap, edges, limit: 3 \}\)/);
+  assert.match(source, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
+  assert.match(source, /data-graph-create-theme-index/);
+  assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "主题候选", relationCount = 0, tone = "" \} = \{\}\) \{/);
+  assert.match(source, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
+  assert.match(source, /createIndexCard\(\{/);
+  assert.match(source, /centralQuestion: "这组笔记共同回答什么问题？"/);
+  assert.match(source, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
+  assert.match(source, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
+  assert.match(source, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
+  assert.match(source, /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
+  assert.match(source, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
+  assert.match(source, /focus === "writing"/);
+  assert.match(source, /await selectWritingThemeIndex\(indexCardId\)/);
+  assert.match(source, /basketNoteIds: String\(item\.workflowRoute\.basketNoteIds/);
+
+  assert.match(html, /\.graph-selection-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(112px, 1fr\)\);/);
+  assert.match(html, /\.graph-relation-workspace \{[\s\S]*display: grid;[\s\S]*gap: 10px;/);
+  assert.match(html, /\.graph-theme-index-workspace \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;/);
+});
+
+test("graph keyboard activation handles workflow actions before generic note opening", () => {
+  const source = readPrototypeApp();
+  const start = source.indexOf('$("graphCanvas")?.addEventListener("keydown", async (event) => {');
+  const end = source.indexOf('$("graphCanvas")?.addEventListener("change"', start);
+  assert.ok(start >= 0 && end > start, "expected graph keyboard handler");
+  const handler = source.slice(start, end);
+
+  assert.match(handler, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
+  assert.match(handler, /openGraphAiCandidateRelation\(graphAiCandidateButton\);/);
+  assert.match(handler, /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
+  assert.match(handler, /await createGraphThemeIndexFromButton\(graphThemeIndexButton\);/);
+  assert.match(handler, /const isolatedAction = event\.target\.closest\("\[data-graph-isolated-action\]"\);/);
+  assert.match(handler, /const relationAdjustment = event\.target\.closest\("\[data-graph-relation-adjustment\]"\);/);
+  assert.ok(
+    handler.indexOf("[data-graph-ai-candidate-apply]") < handler.indexOf('const row = event.target.closest("[data-open-note]")'),
+    "AI candidate keyboard action should run before generic note opening"
+  );
+  assert.ok(
+    handler.indexOf("[data-graph-relation-adjustment]") < handler.indexOf('const row = event.target.closest("[data-open-note]")'),
+    "relation adjustment keyboard action should run before generic note opening"
+  );
 });
 
 test("graph demo startup resets presentation state for a stable first screen", () => {
