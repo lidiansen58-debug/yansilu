@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { initVault, createNoteInDirectory } from "../../packages/domain/src/index.mjs";
 import { createSqliteScheduledAgentTaskStore } from "../../packages/ai-orchestrator/src/index.mjs";
-import { runScheduledWorkerCycle } from "../../apps/worker/src/worker.mjs";
+import { initVaultWithRetry, runScheduledWorkerCycle } from "../../apps/worker/src/worker.mjs";
 
 async function makeTempVault() {
   return fs.mkdtemp(path.join(os.tmpdir(), "yansilu-worker-scheduled-vault-"));
@@ -50,4 +50,24 @@ test("worker cycle runs due scheduled tasks through sqlite stores and core note 
   const task = scheduledTaskStore.getScheduledTask("sched_worker_reflection");
   assert.equal(task.lastRunStatus, "succeeded");
   assert.equal(task.lastRunAt, "2026-05-11T09:00:00.000Z");
+});
+
+test("worker vault initialization retries transient sqlite lock errors", async () => {
+  let attempts = 0;
+  const result = await initVaultWithRetry("retry-vault", {
+    retries: 3,
+    delayMs: 1,
+    initVault: async (vaultPath) => {
+      attempts += 1;
+      if (attempts < 3) {
+        const error = new Error("database is locked");
+        error.code = "SQLITE_BUSY";
+        throw error;
+      }
+      return { vaultPath };
+    }
+  });
+
+  assert.equal(attempts, 3);
+  assert.deepEqual(result, { vaultPath: "retry-vault" });
 });

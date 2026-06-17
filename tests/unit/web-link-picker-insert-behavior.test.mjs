@@ -16,12 +16,12 @@ test("link picker inserts stable wikilinks instead of inline relation comments",
   assert.doesNotMatch(source, /<!-- rel:type=\$\{escapeHtml\(relationType\)\}/);
 });
 
-test("manual link picker hides the old relation-type and reason block at runtime", async () => {
+test("manual link picker shows relation fields while inline picker hides them", async () => {
   const source = await readComponentsEditorPaneSource();
 
   assert.ok(source.includes('const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");'));
-  assert.ok(source.includes("if (linkPickerMeta) linkPickerMeta.hidden = true;"));
-  assert.ok(source.includes('if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = true;'));
+  assert.ok(source.includes("if (linkPickerMeta) linkPickerMeta.hidden = inlineMode;"));
+  assert.ok(source.includes('if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = inlineMode;'));
   assert.ok(source.includes("const linkSearchSpacer = this.els.linkSearchInput?.nextElementSibling;"));
   assert.ok(source.includes("this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);"));
   assert.ok(source.includes('if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;'));
@@ -56,14 +56,14 @@ test("cross-folder link candidates use a folder-prefixed display label", async (
   assert.ok(source.includes("return `${this.compactFolderLabel(note.folderId)}/${targetTitle}`;"));
 });
 
-test("confirm button stays simple and only depends on selection state", async () => {
+test("confirm button requires a target and manual relation reason", async () => {
   const source = await readComponentsEditorPaneSource();
 
-  assert.ok(source.includes("button.disabled = this.isSubmittingLinkInsert || !selectedNote;"));
-  assert.ok(source.includes('button.textContent = "关联中...";'));
+  assert.ok(source.includes("const selectedNote = this.selectedLinkCandidate();"));
+  assert.ok(source.includes("button.disabled = this.isSubmittingLinkInsert || !selectedNote || (manualMode && !reason);"));
+  assert.ok(source.includes('button.textContent = "先选笔记";'));
+  assert.ok(source.includes('button.textContent = "先写理由";'));
   assert.ok(source.includes('button.textContent = "关联";'));
-  assert.doesNotMatch(source, /先写理由/);
-  assert.doesNotMatch(source, /请先选择一条关联笔记/);
 });
 
 test("clicking a link picker candidate selects it without inserting immediately", async () => {
@@ -108,23 +108,26 @@ test("Enter selects the highlighted candidate before the explicit associate acti
 test("manual link picker binds the explicit associate button to relation creation", async () => {
   const source = await readComponentsEditorPaneSource();
 
-  assert.match(source, /this\.els\.confirmLinkInsert\?\.addEventListener\("click", \(\) => \{[\s\S]*const selectedId = String\(this\.currentPinnedLinkId \|\| ""\)\.trim\(\);[\s\S]*void this\.insertSelectedLinkNote\(selectedId\);/);
+  assert.match(source, /this\.els\.confirmLinkInsert\?\.addEventListener\("click", \(\) => \{[\s\S]*this\.selectedLinkCandidate\(\)\?\.id[\s\S]*void this\.insertSelectedLinkNote\(selectedId\);/);
 });
 
-test("toolbar relation action reuses the inline [[ trigger flow", async () => {
+test("toolbar relation action opens manual picker without writing a stray wikilink trigger", async () => {
   const source = await readComponentsEditorPaneSource();
+  const start = source.indexOf('this.els.insertLink.addEventListener("click", (event) => {');
+  const end = source.indexOf("\n\n    this.els.insertImage", start);
+  assert.ok(start >= 0 && end > start, "expected toolbar link handler");
+  const body = source.slice(start, end);
 
-  assert.match(
-    source,
-    /this\.els\.insertLink\.addEventListener\("click", \(event\) => \{[\s\S]*this\.insertAtCursor\("\[\["\);[\s\S]*const inline = this\.detectInlineLinkContext\(\);[\s\S]*this\.openLinkPicker\("", \{ inlineContext: inline, focusInput: true \}\);/
-  );
+  assert.ok(body.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true });'));
+  assert.doesNotMatch(body, /insertAtCursor\("\[\["\)/);
+  assert.doesNotMatch(body, /inlineContext: inline/);
 });
 
 test("toolbar relation picker anchors to the click target and flips inside the viewport", async () => {
   const source = await readComponentsEditorPaneSource();
 
   assert.ok(source.includes("const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;"));
-  assert.ok(source.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect });'));
+  assert.ok(source.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true });'));
   assert.match(source, /positionFloatingPicker\(panel, width, options = \{\}\) \{/);
   assert.ok(source.includes("const rect = options.anchorRect || options.anchorElement?.getBoundingClientRect?.() || this.currentSelectionRect();"));
   assert.ok(source.includes("const openAbove = belowSpace < Math.min(naturalHeight, 180) && aboveSpace > belowSpace;"));
@@ -185,13 +188,15 @@ test("floating relation picker can use the toolbar button rect as a fallback anc
   assert.ok(Number.parseFloat(panel.style.top) > 120);
 });
 
-test("manual link picker uses a neutral relation for quick association", async () => {
+test("manual link picker saves the user-confirmed relation type and rationale", async () => {
   const source = await readComponentsEditorPaneSource();
 
-  assert.ok(source.includes('const relationType = "associated_with";'));
+  assert.ok(source.includes("currentLinkRelationInput() {"));
+  assert.ok(source.includes('const relationType = String(this.els.linkRelationTypeSelect?.value || "associated_with").trim() || "associated_with";'));
+  assert.ok(source.includes('const reason = String(this.els.linkReasonInput?.value || "")'));
+  assert.ok(source.includes("const { relationType, reason } = this.currentLinkRelationInput();"));
   assert.ok(source.includes('const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";'));
   assert.ok(source.includes("insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER"));
-  assert.ok(source.includes('const rawReason = "手动确认关联。";'));
   assert.ok(source.includes('createdBy: "user"'));
 });
 
@@ -256,7 +261,10 @@ test("confirmed inline wikilink insertion also creates a formal note relation", 
   const body = source.slice(start, end);
 
   assert.ok(body.includes('const sourceNoteId = String(sourceNote?.id || "").trim();'));
-  assert.ok(body.includes("relationCreateResult = await createNoteRelation(sourceNoteId, {"));
+  assert.ok(body.includes("const latestRelations = await fetchNoteRelations(sourceNoteId).catch(() => null);"));
+  assert.ok(body.includes("isMarkdownWikilinkRelation(link)"));
+  assert.ok(body.includes("await updateNoteRelation(wikilinkRelation.id, {"));
+  assert.ok(body.includes("await createNoteRelation(sourceNoteId, {"));
   assert.ok(body.includes('saveInsertedBody("inline-link-insert")'));
   assert.ok(body.includes("已插入关联笔记并建立正式关系"));
   const inlineBranch = body.slice(body.indexOf('saveInsertedBody("inline-link-insert")'));

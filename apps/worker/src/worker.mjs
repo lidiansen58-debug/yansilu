@@ -31,12 +31,41 @@ function summaryLine(result = {}) {
   return `scheduled tasks total=${summary.total || 0} succeeded=${summary.succeeded || 0} skipped=${summary.skipped || 0} failed=${summary.failed || 0}`;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function isRetryableVaultInitError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return code === "SQLITE_BUSY" || message.includes("database is locked") || message.includes("sqlite_busy");
+}
+
+export async function initVaultWithRetry(vaultPath, options = {}) {
+  const initVaultFn = typeof options.initVault === "function" ? options.initVault : initVault;
+  const retries = positiveInteger(options.retries ?? process.env.WORKER_INIT_VAULT_RETRIES, 5);
+  const delayMs = positiveInteger(options.delayMs ?? process.env.WORKER_INIT_VAULT_RETRY_DELAY_MS, 80);
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await initVaultFn(vaultPath);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableVaultInitError(error) || attempt >= retries) throw error;
+      await sleep(delayMs * (attempt + 1));
+    }
+  }
+
+  throw lastError;
+}
+
 export async function runScheduledWorkerCycle(input = {}) {
   const vaultPath = resolveVaultPath(input);
   const now = cleanText(input.now || input.nowAt || input.now_at) || new Date().toISOString();
   let runtime = null;
 
-  await initVault(vaultPath);
+  await initVaultWithRetry(vaultPath, input.initVaultRetry);
   try {
     runtime = await createAiHarnessRuntime({
       ...input,
