@@ -12130,15 +12130,19 @@ function renderGraphReadingLensControls(activeLens = "insight", legendOpen = fal
 const GRAPH_WORKBENCH_TAB_META = {
   clues: {
     key: "clues",
-    label: "线索",
-    emptyLabel: "线索",
-    note: "优先整理待补关系、桥接缺口和理由偏薄的连接。"
+    label: "整理",
+    emptyLabel: "整理",
+    panelTitle: "关系整理",
+    statusLabel: "关系整理",
+    note: "看待补关系、桥接缺口和理由偏薄的连接。"
   },
   questions: {
     key: "questions",
     label: "追问",
     emptyLabel: "追问",
-    note: "优先追问可能成题、存在冲突或还没连起来的地方。"
+    panelTitle: "研究追问",
+    statusLabel: "研究追问",
+    note: "看可能成题、存在冲突或还没连起来的地方。"
   }
 };
 
@@ -12162,10 +12166,10 @@ function graphClueSummaryState({ bridgeGapCount = 0, weakRelationCount = 0, revi
         .slice(0, 3)
         .map((item) => `${item.count} ${item.label}`)
         .join(" · ")
-    : "当前范围暂时没有明显需要整理的关系线索。";
+    : "当前范围暂时没有明显需要先整理的内容。";
   return {
     total,
-    label: total ? `${total} 条关系线索` : "暂无关系线索",
+    label: total ? `${total} 项待整理项` : "暂无待整理项",
     detail: categories.length ? `建议先整理：${detail}` : detail,
     categories
   };
@@ -12179,7 +12183,7 @@ function renderGraphWorkbenchEntryPills({ clueSummary = null, questionSummary = 
     { meta: questionMeta, total: Number(questionSummary?.total || 0) }
   ];
   return `
-    <div class="graph-workbench-entry-group" aria-label="图谱工作台入口">
+    <div class="graph-workbench-entry-group" aria-label="图谱侧栏入口">
       ${entries
         .map(({ meta, total }) => {
           const active = graphState.workbenchPanelOpen === true && graphWorkbenchTabMeta(graphState.workbenchPanelTab).key === meta.key;
@@ -14098,7 +14102,7 @@ function graphThemeCandidateNoteIdsForNode(noteId = "", directEdges = [], aiCand
   return uniqueStrings(relatedIds).slice(0, 10);
 }
 
-function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(), edges = [], title = "关联工作台" } = {}) {
+function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(), edges = [], title = "关联整理" } = {}) {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return "";
   const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
@@ -14115,19 +14119,19 @@ function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(),
   const relationCards = directEdges.slice(0, 4);
   const themeTitle = suggestedThemeIndexTitle(themeNoteIds);
   return `
-    <section class="graph-relation-workspace" aria-label="关联工作台">
+    <section class="graph-relation-workspace" aria-label="关联整理">
       <div class="graph-relation-workspace-head">
         <div>
           <strong>${escapeHtml(title)}</strong>
-          <span>先看现有关联，再决定补潜在关联、手工关系或主题笔记。</span>
+          <span>先看现有关联，再决定补关系、改理由，或整理成主题笔记。</span>
         </div>
-        <small>${escapeHtml(String(directEdges.length))} 条关系 · ${escapeHtml(String(aiCandidates.length + localCandidates.length))} 条候选</small>
+        <small>${escapeHtml(String(directEdges.length))} 条现有关联 · ${escapeHtml(String(aiCandidates.length + localCandidates.length))} 条候选</small>
       </div>
-      <div class="graph-selection-metrics" aria-label="关联工作台关系概览">
+      <div class="graph-selection-metrics" aria-label="关联整理概览">
         ${renderGraphSelectionMetrics([
-          { label: "直接关系", value: `${directEdges.length} 条` },
-          { label: "候选线索", value: `${aiCandidates.length + localCandidates.length} 条` },
-          { label: "边界/张力", value: `${(counts.boundary || 0) + (counts.conflict || 0)} 条` },
+          { label: "现有关联", value: `${directEdges.length} 条` },
+          { label: "待选关系", value: `${aiCandidates.length + localCandidates.length} 条` },
+          { label: "冲突/边界", value: `${(counts.boundary || 0) + (counts.conflict || 0)} 条` },
           { label: "可成题", value: `${themeNoteIds.length} 条`, hint: "可进入主题笔记" }
         ])}
       </div>
@@ -14154,17 +14158,17 @@ function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(),
             </section>`
           : `<section class="graph-relation-workspace-empty">
               <strong>还没有正式关系</strong>
-              <p>先从潜在关联或手工搜索里确认一条能说清理由的连接。</p>
+              <p>先从下面候选里确认一条真正成立的连接。</p>
             </section>`
       }
       ${renderGraphRelationCandidateCards(localCandidates, {
-        title: "同标签/相近标题",
-        note: "这些候选不依赖 AI，只根据当前目录的标签和标题线索生成；保存前仍需要你确认关系理由。"
+        title: "优先复查这些候选",
+        note: "这些候选只依据当前目录里的标签和标题线索生成；保存前仍要你确认关系理由。"
       })}
-      <section class="graph-theme-index-workspace" aria-label="主题笔记入口">
+      <section class="graph-theme-index-workspace" aria-label="主题整理">
         <div>
           <strong>整理成主题笔记</strong>
-          <p>${escapeHtml(themeNoteIds.length >= 2 ? `可把“${sourceTitle}”周围 ${themeNoteIds.length} 条笔记保存为主题索引卡。` : "至少需要两条可用永久笔记，才能创建包含多笔记的主题入口。")}</p>
+          <p>${escapeHtml(themeNoteIds.length >= 2 ? `可把“${sourceTitle}”周围 ${themeNoteIds.length} 条笔记整理成一张主题笔记。` : "至少需要两条可用永久笔记，才能创建包含多笔记的主题入口。")}</p>
         </div>
         <button class="graph-selection-action" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${themeNoteIds.length >= 2 ? "" : " disabled"}>创建主题笔记</button>
       </section>
@@ -14177,9 +14181,9 @@ function renderGraphThemeIndexWorkspace(noteIds = [], { title = "主题候选", 
   const cleanTitle = String(title || suggestedThemeIndexTitle(cleanNoteIds)).trim() || suggestedThemeIndexTitle(cleanNoteIds);
   const canCreate = cleanNoteIds.length >= 2;
   return `
-    <section class="graph-theme-index-workspace is-${escapeHtml(String(tone || "candidate").trim() || "candidate")}" aria-label="主题笔记工作台">
+    <section class="graph-theme-index-workspace is-${escapeHtml(String(tone || "candidate").trim() || "candidate")}" aria-label="主题整理">
       <div>
-        <strong>主题笔记工作台</strong>
+        <strong>主题整理</strong>
         <p>${escapeHtml(canCreate ? `这组已有 ${cleanNoteIds.length} 条可用笔记和 ${Number(relationCount || 0)} 条内部关系，可以先保存成主题索引卡，后续再提炼中心问题。` : "这组还没有足够可用的永久笔记，先补成员或关系，再创建主题笔记。")}</p>
       </div>
       <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(cleanNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(cleanTitle)}"${canCreate ? "" : " disabled"}>创建主题笔记</button>
@@ -14212,6 +14216,9 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
     .filter(Boolean)
     .slice(0, 2)
     .join("、");
+  const candidateHint = candidatePreview
+    ? `下面的关联整理会展开 ${candidatePreview}${aiCandidates.length + localCandidates.length > 2 ? " 等候选" : ""}，可以直接带入关系表单。`
+    : "下面的关联整理会集中列出候选，先看一条最像真正关系的连接。";
   const steps = [
     {
       title: "发现候选",
@@ -14242,10 +14249,7 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
         <button class="graph-selection-action is-primary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${loading ? " disabled" : ""}>${loading ? "AI 正在找" : aiCandidates.length ? "继续找候选" : "AI 找连接"}</button>
         <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(cleanNoteId)}" data-graph-followup-action="relations">手工连线</button>
       </div>
-      ${renderGraphRelationCandidateCards(localCandidates, {
-        title: "先看这些可能相关",
-        note: "这些来自同标签或标题相近线索，可以直接带入关系表单。"
-      })}
+      <p>${escapeHtml(candidateHint)}</p>
       <div class="graph-isolated-join-steps" aria-label="加入网络步骤">
         ${steps
           .map(
@@ -14344,10 +14348,10 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
           .join("")}
       </div>
       <section class="graph-selection-prompts">
-        <strong>整理问题</strong>
+        <strong>先判断角色</strong>
         ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
       </section>
-      ${renderGraphRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "孤立笔记关联工作台" })}
+      ${renderGraphRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "确认候选关系" })}
       ${renderGraphAiConnectCandidates(noteId, { nodeMap, edges })}`,
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-graph-ai-connect-note="${escapeHtml(noteId)}"${noteId && !graphState.aiAnalysisLoading ? "" : " disabled"}>${graphState.aiAnalysisLoading ? "AI 正在找" : "AI 找连接"}</button>
@@ -14561,11 +14565,11 @@ function graphResearchNavigatorState({ nodes = [], edges = [], topicCandidates =
       : "建议先点开最大的星系，确认这组笔记是否在回答同一个问题。"
     : "建议先找两条最相关的永久笔记，补一条有理由的关系。";
   const pendingNote = pendingTotal
-    ? `${pendingTotal} 项待处理线索不是错误，而是系统认为值得以后补关系、补证据或继续追问的地方。`
-    : "当前没有明显待处理线索，可以继续看星系和亮星，寻找下一步判断。";
+    ? `${pendingTotal} 项待整理项不是错误，而是系统认为值得以后补关系、补证据或继续追问的地方。`
+    : "当前没有明显待整理项，可以继续看星系和亮星，寻找下一步判断。";
   const risk =
     Number(bridgeGaps?.length || 0) || clueTotal
-      ? `优先处理桥接/关系线索，会最快让图谱变清楚。`
+      ? `优先处理桥接和待补关系，会最快让图谱变清楚。`
       : relationCounts.total && !relationCounts.conflict && !relationCounts.boundary
         ? "关系已有基础，但反方和边界偏少。"
         : "结构比较安静，可以从亮星继续追问。";
@@ -14608,7 +14612,7 @@ function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandid
           { label: "主题星系", value: `${nav.clusters.length} 个`, hint: "主题团块" },
           { label: "优先亮星", value: `${nav.brightNodes.length} 颗`, hint: "先点开的关键笔记" },
           { label: "论证关系", value: `${nav.argumentRelationTotal} 条`, hint: "支持/反方/边界" },
-          { label: "待处理线索", value: `${nav.pendingTotal} 项`, hint: "待补关系或追问" }
+          { label: "待整理项", value: `${nav.pendingTotal} 项`, hint: "待补关系或追问" }
         ])}
       </div>
       <section class="graph-research-next">
@@ -14654,7 +14658,7 @@ function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandid
         <strong>读图顺序</strong>
         <p>先看主题星系，判断这批笔记主要聚在哪些问题上。</p>
         <p>再点优先亮星，确认哪些判断最值得继续推进。</p>
-        <p>最后处理线索和追问，不需要一开始就追每一条线。</p>
+        <p>最后再看待整理项和追问，不需要一开始就追每一条线。</p>
       </section>
     </aside>
   `;
@@ -14700,7 +14704,7 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
       roleLabel: role.label,
       roleDetail: role.detail,
       body: `
-        ${renderGraphRelationWorkspaceForNote(normalized.nodeId, { nodeMap, edges, title: "关联工作台" })}
+        ${renderGraphRelationWorkspaceForNote(normalized.nodeId, { nodeMap, edges, title: "关联整理" })}
         ${renderGraphAiConnectCandidates(normalized.nodeId, { nodeMap, edges })}
         <div class="graph-selection-metrics" aria-label="节点关系分布">
           ${renderGraphSelectionMetrics([
@@ -16391,7 +16395,7 @@ function applyGraphThinkingHoverState(thinkingElement) {
   });
   const card = $("graphHoverCard");
   if (card) {
-    const title = String(thinkingElement.getAttribute("data-graph-thinking-title") || "待判断线索").trim() || "待判断线索";
+    const title = String(thinkingElement.getAttribute("data-graph-thinking-title") || "待整理项").trim() || "待整理项";
     const kicker = String(thinkingElement.getAttribute("data-graph-thinking-kicker") || "可追问处").trim() || "可追问处";
     const detail = String(thinkingElement.getAttribute("data-graph-thinking-detail") || "").trim();
     const edgeCount = edgeElements.filter((element) => element.classList.contains("is-hovered")).length;
@@ -16807,7 +16811,7 @@ function graphThinkingHighlightAttrs(item = {}) {
   if (!attrs.length) return "";
   attrs.unshift('data-graph-thinking-highlight="true"');
   attrs.push(`data-graph-thinking-kicker="${escapeHtml(item.kicker || "可追问处")}"`);
-  attrs.push(`data-graph-thinking-title="${escapeHtml(item.title || "待判断线索")}"`);
+  attrs.push(`data-graph-thinking-title="${escapeHtml(item.title || "待整理项")}"`);
   attrs.push(`data-graph-thinking-detail="${escapeHtml(item.detail || item.question || "这里值得继续判断。")}"`);
   return attrs.join(" ");
 }
@@ -17061,8 +17065,8 @@ function renderGraphThinkingItems(items = [], filter = "all") {
   if (!filtered.length) {
     return `
       <div class="graph-thinking-empty">
-        <strong>${escapeHtml(meta.key === "theme" ? "还没有主题候选" : meta.key === "organize" ? "还没有整理线索" : "当前没有明显追问")}</strong>
-        <span>${escapeHtml(meta.key === "theme" ? "运行图谱扫描后，可以在这里查看可能成题的聚集。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待判断线索。")}</span>
+        <strong>${escapeHtml(meta.key === "theme" ? "还没有主题候选" : meta.key === "organize" ? "还没有待整理项" : "当前没有明显追问")}</strong>
+        <span>${escapeHtml(meta.key === "theme" ? "运行图谱扫描后，可以在这里查看可能成题的聚集。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待整理项。")}</span>
         <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "扫描追问"}</button>
       </div>
     `;
@@ -17079,12 +17083,12 @@ function renderGraphThinkingItems(items = [], filter = "all") {
             <article class="graph-thinking-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
               <button class="graph-thinking-item-main" type="button" ${item.actionAttrs || ""}>
                 <span class="graph-thinking-kicker">${escapeHtml(item.kicker || "可追问处")}</span>
-                <strong>${escapeHtml(item.title || "待判断线索")}</strong>
+                <strong>${escapeHtml(item.title || "待整理项")}</strong>
                 <small>${escapeHtml(item.meta || "")}</small>
                 <em>${escapeHtml(item.detail || "这里值得继续判断。")}</em>
                 ${item.question ? `<span class="graph-thinking-question"><small>可追问</small>${escapeHtml(item.question)}</span>` : ""}
               </button>
-              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待判断线索")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
+              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待整理项")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
             </article>
           `;
         })
@@ -17105,7 +17109,7 @@ function graphWorkbenchPriorityItems(items = [], activeKey = "questions") {
 function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") {
   const priorityItems = graphWorkbenchPriorityItems(items, activeKey);
   if (!priorityItems.length) return "";
-  const title = activeKey === "clues" ? "最该先处理的 3 条线索" : "最该先追问的 3 处";
+  const title = activeKey === "clues" ? "建议先处理的 3 项" : "最该先追问的 3 处";
   const note = activeKey === "clues"
     ? "先处理这些，图谱会最快变清楚。"
     : "先追问这些，最容易长出下一步判断。";
@@ -17125,10 +17129,10 @@ function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") 
               <article class="graph-priority-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
                 <button class="graph-priority-item-main" type="button" ${item.actionAttrs || ""}>
                   <span>${escapeHtml(`优先 ${index + 1} · ${item.kicker || "待判断"}`)}</span>
-                  <strong>${escapeHtml(item.title || "待判断线索")}</strong>
+                  <strong>${escapeHtml(item.title || "待整理项")}</strong>
                   <small>${escapeHtml(item.question || item.detail || "这里值得继续判断。")}</small>
                 </button>
-                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待判断线索")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
+                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待整理项")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
               </article>
             `;
           })
@@ -17204,11 +17208,11 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
   const guide =
     activeTab.key === "clues"
       ? {
-          title: "这不是错误清单",
-          detail: "这里列的是最值得先补关系、补理由或确认方向的地方。先处理前三条，图谱通常会明显变清楚。"
+          title: "先处理最影响阅读的关系",
+          detail: "这里列的是最值得先补关系、补理由或确认方向的地方。通常先处理前三项，图谱就会明显变清楚。"
         }
       : {
-          title: "把追问当成研究路线",
+          title: "把追问当成下一步研究",
           detail: "这里不是要你全部处理完，而是提示哪些主题、冲突或孤立点最可能长出新判断。"
         };
   const tabs = ["clues", "questions"]
@@ -17223,19 +17227,19 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
   const categories = Array.isArray(summary?.categories) ? summary.categories : [];
   const bodyMarkup =
     activeTab.key === "clues"
-      ? clueSectionsMarkup || `<div class="graph-empty">当前范围暂时没有明显需要整理的关系线索。</div>`
+      ? clueSectionsMarkup || `<div class="graph-empty">当前范围暂时没有明显需要先整理的关系。</div>`
       : renderGraphThinkingPanelContent({ summary: questionSummary, items: thinkingItems, includeSummary: false });
   const priorityMarkup = renderGraphWorkbenchPriorityQueue(thinkingItems, activeTab.key);
   return `
-    <aside class="graph-workbench-panel" aria-label="图谱工作台">
+    <aside class="graph-workbench-panel" aria-label="图谱侧栏">
       <div class="graph-workbench-panel-head">
         <div>
-          <strong>${escapeHtml(activeTab.key === "clues" ? "线索工作台" : "追问工作台")}</strong>
+          <strong>${escapeHtml(activeTab.panelTitle || activeTab.label)}</strong>
           <span>${escapeHtml(summary?.detail || activeTab.note)}</span>
         </div>
-        <button class="graph-overlay-close graph-workbench-panel-close" type="button" data-graph-workbench-close aria-label="收起图谱工作台" title="收起图谱工作台">${renderGraphIcon("close")}</button>
+        <button class="graph-overlay-close graph-workbench-panel-close" type="button" data-graph-workbench-close aria-label="收起图谱侧栏" title="收起图谱侧栏">${renderGraphIcon("close")}</button>
       </div>
-      <div class="graph-workbench-tabs" aria-label="图谱工作台标签">
+      <div class="graph-workbench-tabs" aria-label="图谱侧栏标签">
         ${tabs}
       </div>
       <div class="graph-workbench-summary">
@@ -17280,13 +17284,13 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, r
       <summary class="graph-utility-drawer-summary">
         <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
         <div class="graph-utility-drawer-copy">
-          <strong>${renderGraphIcon("clue")}待判断线索</strong>
-          <span>把可能有启发的关联、理由缺口和主题候选先收起，需要时再展开判断。</span>
+          <strong>${renderGraphIcon("clue")}稍后处理</strong>
+          <span>把暂时不急着处理的候选、理由缺口和主题苗头先收在这里，需要时再展开。</span>
         </div>
         <div class="graph-utility-drawer-meta">
-          ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">线索入口</div>`}
+          ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">稍后再看</div>`}
         </div>
-        <button class="graph-overlay-close graph-utility-drawer-close" type="button" data-graph-utility-close aria-label="关闭待判断线索" title="关闭待判断线索">${renderGraphIcon("close")}</button>
+        <button class="graph-overlay-close graph-utility-drawer-close" type="button" data-graph-utility-close aria-label="关闭稍后处理" title="关闭稍后处理">${renderGraphIcon("close")}</button>
       </summary>
       <div class="graph-utility-drawer-body">
         ${content}
@@ -21277,7 +21281,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     graphState.workbenchPanelTab = tab;
     graphState.workbenchPanelOpen = true;
     renderGraphPanel();
-    setStatus(`已打开${graphWorkbenchTabMeta(tab).label}工作台`, "ok");
+    setStatus(`已打开${graphWorkbenchTabMeta(tab).statusLabel || graphWorkbenchTabMeta(tab).label}`, "ok");
     return;
   }
   const workbenchEntry = event.target.closest("[data-graph-workbench-entry]");
@@ -21287,7 +21291,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     graphState.workbenchPanelTab = tab;
     graphState.workbenchPanelOpen = !sameTab;
     renderGraphPanel();
-    setStatus(graphState.workbenchPanelOpen ? `已打开${graphWorkbenchTabMeta(tab).label}工作台` : "已收起图谱工作台", "ok");
+    setStatus(graphState.workbenchPanelOpen ? `已打开${graphWorkbenchTabMeta(tab).statusLabel || graphWorkbenchTabMeta(tab).label}` : "已收起图谱侧栏", "ok");
     return;
   }
   const workbenchTab = event.target.closest("[data-graph-workbench-tab]");
@@ -21295,14 +21299,14 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     graphState.workbenchPanelOpen = true;
     graphState.workbenchPanelTab = graphWorkbenchTabMeta(workbenchTab.getAttribute("data-graph-workbench-tab")).key;
     renderGraphPanel();
-    setStatus(`已切换到${graphWorkbenchTabMeta(graphState.workbenchPanelTab).label}工作台`, "ok");
+    setStatus(`已切换到${graphWorkbenchTabMeta(graphState.workbenchPanelTab).statusLabel || graphWorkbenchTabMeta(graphState.workbenchPanelTab).label}`, "ok");
     return;
   }
   const workbenchClose = event.target.closest("[data-graph-workbench-close]");
   if (workbenchClose) {
     graphState.workbenchPanelOpen = false;
     renderGraphPanel();
-    setStatus("已收起图谱工作台", "ok");
+    setStatus("已收起图谱侧栏", "ok");
     return;
   }
   if (graphUtilityDrawerDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-utility-drawer")) {
@@ -21317,7 +21321,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     graphState.utilityDrawerVisible = false;
     graphState.utilityDrawerOpen = false;
     renderGraphPanel();
-    setStatus("已隐藏待判断线索", "ok");
+    setStatus("已隐藏稍后处理", "ok");
     return;
   }
   if (event.target.closest("[data-graph-utility-drag-handle]")) {
@@ -21560,7 +21564,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     graphState.utilityDrawerVisible = utilityVisibilityToggle.getAttribute("data-graph-toggle-utility-visibility") !== "hide";
     if (graphState.utilityDrawerVisible) graphState.utilityDrawerOpen = false;
     renderGraphPanel();
-    setStatus(graphState.utilityDrawerVisible ? "已显示待判断线索" : "已隐藏待判断线索", "ok");
+    setStatus(graphState.utilityDrawerVisible ? "已显示稍后处理" : "已隐藏稍后处理", "ok");
     return;
   }
   const thinkingVisibilityToggle = event.target.closest("[data-graph-toggle-thinking-visibility]");

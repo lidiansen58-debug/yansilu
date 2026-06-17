@@ -47,6 +47,8 @@ function renderFileInventory(data = {}) {
 function warningText(item = {}) {
   const code = String(item.code || "").trim();
   const message = String(item.message || "").trim();
+  const detail = String(item.detail || "").trim();
+  if (code && message && detail) return `${code}: ${message} 详情：${detail}`;
   if (code && message) return `${code}: ${message}`;
   return message || code || JSON.stringify(item);
 }

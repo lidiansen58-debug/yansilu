@@ -123,6 +123,68 @@ test("createPreview only accepts obsidian and keeps records in memory", async ()
   assert.equal(record?.state, "preview");
 });
 
+test("confirmImport rejects previews that ended up with zero import candidates", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-empty-preview-");
+  const importRoot = await makeTempDir("yansilu-service-empty-preview-import-");
+  const service = createService(vaultPath);
+
+  const cp1252Hex = "2d2d2d0a7469746c653a20436166e9206e6f74650a2d2d2d0a0a426f64790a";
+  await fs.writeFile(path.join(importRoot, "cp1252.md"), Buffer.from(cp1252Hex, "hex"));
+
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "req_empty_preview");
+  assert.deepEqual(preview.summary, {
+    sources: 0,
+    literatureNotes: 0,
+    permanentNotes: 0,
+    warnings: 1
+  });
+  assert.ok(preview.warnings.some((warning) => warning.code === "IMPORT_MARKDOWN_ENCODING_UNSUPPORTED"));
+
+  const record = await service.getImportRecord(preview.importRecordId);
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_empty_confirm"),
+    { code: "IMPORT_SELECTION_EMPTY" }
+  );
+  assert.equal(record?.state, "preview");
+});
+
+test("confirmImport registers each imported note exactly once", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-single-register-");
+  const importRoot = await makeTempDir("yansilu-service-single-register-import-");
+  const calls = [];
+  const service = createService(vaultPath, new Map(), {
+    registerImportCatalogNote: async (currentVaultPath, candidate, noteType, writeResult, directoryId) => {
+      calls.push({
+        noteId: candidate.id,
+        noteType,
+        directoryId: String(directoryId || "").trim(),
+        filePath: writeResult.path
+      });
+      return registerImportCatalogNote(currentVaultPath, candidate, noteType, writeResult, directoryId);
+    }
+  });
+
+  await fs.writeFile(
+    path.join(importRoot, "single.md"),
+    ["---", "title: Single import note", "---", "", "A simple imported note."].join("\n"),
+    "utf8"
+  );
+
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "req_single_register");
+  const record = await service.getImportRecord(preview.importRecordId);
+  const result = await service.confirmImport(record, { confirm: true, directoryId: "dir_literature_default" }, "req_single_register");
+
+  assert.equal(result.status, "completed");
+  assert.equal(calls.length, 2);
+  assert.deepEqual(
+    calls.map((item) => [item.noteId, item.noteType, item.directoryId]),
+    [
+      [preview.samples.sourceIds[0], "source", ""],
+      [preview.samples.literatureNoteIds[0], "literature", "dir_literature_default"]
+    ]
+  );
+});
+
 test("confirmImport writes obsidian notes and imported assets", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-");
   const importRecords = new Map();

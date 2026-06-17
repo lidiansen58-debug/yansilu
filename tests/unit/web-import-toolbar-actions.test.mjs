@@ -50,7 +50,7 @@ test("import toolbar actions preview assembles params and reports success", asyn
     }
   ]);
   assert.deepEqual(calls[1], ["onPreviewSuccess", "imp_1"]);
-  assert.deepEqual(calls[2], ["setStatus", "Import preview ready: imp_1", "ok"]);
+  assert.deepEqual(calls[2], ["setStatus", "导入预览已生成：imp_1", "ok"]);
 });
 
 test("import toolbar actions confirm with selected candidates and directory", async () => {
@@ -85,7 +85,31 @@ test("import toolbar actions require preview before confirm", async () => {
 
   await actions.handleConfirm();
 
-  assert.deepEqual(calls, [["Preview the import first.", "warn"]]);
+  assert.deepEqual(calls, [["请先完成导入预览。", "warn"]]);
+});
+
+test("import toolbar actions do not confirm when the preview has no candidates", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_empty" }),
+    getFallbackImportRecordId: () => "imp_empty",
+    getActivePreview: () => ({
+      importRecordId: "imp_empty",
+      candidatePreview: { sources: [], literatureNotes: [], permanentNotes: [] }
+    }),
+    selectionSummary: () => ({ selectedIds: new Set(), selectedCount: 0, totalCount: 0 }),
+    confirmImport: async () => {
+      calls.push("confirmImport");
+      return { status: "completed", result: {} };
+    },
+    setStatus: (text, tone) => {
+      calls.push([text, tone]);
+    }
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [["当前预览没有可导入候选。", "warn"]]);
 });
 
 test("import toolbar actions emit stable confirm error payloads", async () => {
@@ -119,7 +143,7 @@ test("import toolbar actions emit stable confirm error payloads", async () => {
     details: null
   });
   assert.deepEqual(calls[1], {
-    text: "Import failed: missing",
+    text: "导入失败：missing",
     tone: "bad"
   });
 });
@@ -151,7 +175,7 @@ test("import toolbar actions refresh and rollback report unsupported mode", asyn
   await actions.handleRollback();
 
   assert.deepEqual(calls, [
-    ["Refresh is not available in the simplified importer.", "warn"],
-    ["Rollback is not available in the simplified importer.", "warn"]
+    ["简化导入模式暂不支持刷新。", "warn"],
+    ["简化导入模式暂不支持回滚。", "warn"]
   ]);
 });

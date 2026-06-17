@@ -237,3 +237,111 @@ test("buildMarkdownCandidates parses realistic nested Obsidian vault with Chines
   assert.ok(permanent.tags.includes("学习/记忆"));
   assert.ok(permanent.from_literature_note_ids[0].startsWith("ln_"));
 });
+
+test("buildMarkdownCandidates decodes GB18030 markdown and warns that non-UTF8 decoding was used", async () => {
+  const sourceDir = await makeTempDir("yansilu-md-engine-gb18030-");
+  const gb18030Hex =
+    "2d2d2d0a7469746c653a20d6d0cec4d4c4b6c1bfa8c6ac0a746167733a0a20202d20d1d0bebf2fb7bdb7a80a2d2d2d0a0ad5fdcec42023b1eac7a9";
+  await fs.writeFile(path.join(sourceDir, "gb18030.md"), Buffer.from(gb18030Hex, "hex"));
+
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: sourceDir }
+  });
+
+  assert.equal(result.sources.length, 1);
+  assert.equal(result.sources[0].title, "中文阅读卡片");
+  assert.ok(result.literature[0].tags.includes("研究/方法"));
+  assert.match(result.literature[0].quote_text, /正文/);
+  assert.ok(result.warnings.some((warning) => warning.code === "IMPORT_NON_UTF8_MARKDOWN_DECODED"));
+});
+
+test("buildMarkdownCandidates keeps GB18030 Chinese body notes even without frontmatter", async () => {
+  const sourceDir = await makeTempDir("yansilu-md-engine-gb18030-plain-body-");
+  const gb18030Hex = "d5e2cac7d2bbb6ced6d0cec4d5fdcec4a3acb2bbbbe1b1bbbaf6c2d4a1a3";
+  await fs.writeFile(path.join(sourceDir, "plain-body.md"), Buffer.from(gb18030Hex, "hex"));
+
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: sourceDir }
+  });
+
+  assert.equal(result.sources.length, 1);
+  assert.equal(result.sources[0].title, "plain-body");
+  assert.match(result.literature[0].quote_text, /这是一段中文正文，不会被忽略。/);
+  assert.ok(result.warnings.some((warning) => warning.code === "IMPORT_NON_UTF8_MARKDOWN_DECODED"));
+});
+
+test("buildMarkdownCandidates normalizes escaped newlines in imported titles", async () => {
+  const sourceDir = await makeTempDir("yansilu-md-engine-title-normalize-");
+  await fs.writeFile(
+    path.join(sourceDir, "picker.md"),
+    ['---', 'title: "Picker Position Source 349681988\\n\\nBody starts here."', "---", "", "Body"].join("\n"),
+    "utf8"
+  );
+
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: sourceDir }
+  });
+
+  assert.equal(result.sources[0].title, "Picker Position Source 349681988 Body starts here.");
+  assert.ok(result.warnings.some((warning) => warning.code === "IMPORT_TITLE_NORMALIZED"));
+});
+
+test("buildMarkdownCandidates warns when imported text looks already corrupted", async () => {
+  const sourceDir = await makeTempDir("yansilu-md-engine-corruption-warning-");
+  await fs.writeFile(
+    path.join(sourceDir, "corrupted.md"),
+    ["---", "title: ???? ae26d5", "---", "", "??????????????????"].join("\n"),
+    "utf8"
+  );
+
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: sourceDir }
+  });
+
+  assert.equal(result.sources[0].title, "???? ae26d5");
+  assert.ok(result.warnings.some((warning) => warning.code === "IMPORT_TEXT_SUSPECT_CORRUPTION"));
+});
+
+test("buildMarkdownCandidates skips legacy files that are neither UTF-8 nor safely decodable as GB18030", async () => {
+  const sourceDir = await makeTempDir("yansilu-md-engine-unsupported-encoding-");
+  const cp1252Hex = "2d2d2d0a7469746c653a20436166e9206e6f74650a2d2d2d0a0a426f64790a";
+  await fs.writeFile(path.join(sourceDir, "cp1252.md"), Buffer.from(cp1252Hex, "hex"));
+
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: sourceDir }
+  });
+
+  assert.equal(result.sources.length, 0);
+  assert.equal(result.literature.length, 0);
+  assert.equal(result.permanent.length, 0);
+  assert.ok(result.warnings.some((warning) => warning.code === "IMPORT_MARKDOWN_ENCODING_UNSUPPORTED"));
+});
+
+test("buildMarkdownCandidates does not flag normal question-heavy notes as corruption", async () => {
+  const sourceDir = await makeTempDir("yansilu-md-engine-question-heavy-");
+  await fs.writeFile(
+    path.join(sourceDir, "questions.md"),
+    [
+      "---",
+      "title: Interview prompts",
+      "---",
+      "",
+      "What changed? Why now? Which user? What evidence? What risk? What boundary? What next?"
+    ].join("\n"),
+    "utf8"
+  );
+
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: sourceDir }
+  });
+
+  assert.equal(result.sources.length, 1);
+  assert.equal(result.literature.length, 1);
+  assert.equal(result.warnings.some((warning) => warning.code === "IMPORT_TEXT_SUSPECT_CORRUPTION"), false);
+});

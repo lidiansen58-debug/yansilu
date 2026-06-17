@@ -54,7 +54,7 @@ export function createImportToolbarActions({
       const preview = await previewImport({ connector, payload, options });
       await onPreviewSuccess?.(preview);
       await refreshImportHistory?.({ silent: true });
-      setStatus?.(`Import preview ready: ${preview.importRecordId}`, "ok");
+      setStatus?.(`导入预览已生成：${preview.importRecordId}`, "ok");
       return preview;
     } catch (error) {
       showImportResult?.({
@@ -63,7 +63,7 @@ export function createImportToolbarActions({
         code: error?.code || null,
         details: error?.details || null
       });
-      setStatus?.(`Import preview failed: ${String(error?.message || error)}`, "bad");
+      setStatus?.(`导入预览失败：${String(error?.message || error)}`, "bad");
       return null;
     }
   }
@@ -72,17 +72,26 @@ export function createImportToolbarActions({
     const values = getToolbarValues();
     const importRecordId = resolveImportRecordId(values, getFallbackImportRecordId?.());
     if (!importRecordId) {
-      setStatus?.("Preview the import first.", "warn");
+      setStatus?.("请先完成导入预览。", "warn");
       return null;
     }
     try {
       const preview = getActivePreview?.() || null;
-      const selectedIds = preview?.candidatePreview ? [...selectionSummary(preview.candidatePreview, importRecordId).selectedIds] : null;
+      const summary = preview?.candidatePreview ? selectionSummary(preview.candidatePreview, importRecordId) : null;
+      const selectedIds = summary ? [...summary.selectedIds] : null;
+      if (summary && selectedIds.length === 0) {
+        const message =
+          Number(summary.totalCount || 0) === 0
+            ? "当前预览没有可导入候选。"
+            : "请先至少选择一个导入候选。";
+        setStatus?.(message, "warn");
+        return null;
+      }
       const confirmPayload = selectedIds ? { selectedCandidateIds: selectedIds } : {};
       const directoryId = String(values.directoryId || "").trim();
       if (directoryId) confirmPayload.directoryId = directoryId;
       const result = await confirmImport(importRecordId, confirmPayload);
-      setStatus?.(`Import completed: ${importRecordId}`, "ok");
+      setStatus?.(`导入完成：${importRecordId}`, "ok");
       await onConfirmSuccess?.({ importRecordId, result, preview });
       await refreshImportHistory?.({ silent: true });
       await refreshImportedNotesView?.();
@@ -95,23 +104,23 @@ export function createImportToolbarActions({
         code: error?.code || null,
         details: error?.details || null
       });
-      setStatus?.(`Import failed: ${String(error?.message || error)}`, "bad");
+      setStatus?.(`导入失败：${String(error?.message || error)}`, "bad");
       return null;
     }
   }
 
   async function handleCancel() {
-    setStatus?.("Cancel is not available in the simplified importer.", "warn");
+    setStatus?.("简化导入模式暂不支持取消。", "warn");
     return null;
   }
 
   async function handleRefresh() {
-    setStatus?.("Refresh is not available in the simplified importer.", "warn");
+    setStatus?.("简化导入模式暂不支持刷新。", "warn");
     return null;
   }
 
   async function handleRollback() {
-    setStatus?.("Rollback is not available in the simplified importer.", "warn");
+    setStatus?.("简化导入模式暂不支持回滚。", "warn");
     return null;
   }
 

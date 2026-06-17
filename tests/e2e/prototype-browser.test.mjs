@@ -5173,6 +5173,48 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   }, 10000);
 });
 
+test("prototype import panel keeps unsupported-encoding previews reviewable but not confirmable", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  const importRoot = await makeTempDir("yansilu-browser-import-unsupported-");
+  const cp1252Hex = "2d2d2d0a7469746c653a20436166e9206e6f74650a2d2d2d0a0a426f64790a";
+  await fs.writeFile(path.join(importRoot, "cp1252.md"), Buffer.from(cp1252Hex, "hex"));
+
+  await openImportsModule(page);
+  await page.fill("#importPath", importRoot);
+  await page.fill("#importPayload", "");
+  await page.fill("#importOptions", "{}");
+  await page.click("#btnImportPreview");
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "preview"') && text.includes("IMPORT_MARKDOWN_ENCODING_UNSUPPORTED");
+  });
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
+  await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
+
+  const previewResultText = await page.locator("#importResult").textContent();
+  assert.match(String(previewResultText || ""), /IMPORT_MARKDOWN_ENCODING_UNSUPPORTED/);
+  assert.match(String(previewResultText || ""), /把源文件转成 UTF-8/);
+  assert.match(String(previewResultText || ""), /当前预览没有可导入候选/);
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("#btnImportConfirm").isDisabled(), true);
+    const label = await page.locator("#btnImportConfirm").textContent();
+    assert.match(String(label || ""), /没有可导入候选/);
+  }, 4000);
+});
+
 test("prototype export panel exports markdown files through real API", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -7936,6 +7978,111 @@ test("prototype graph AI connect suggests a relation from notes without relation
   assert.match(String(rationaleValue || ""), /AI 候选/);
 });
 
+test("prototype graph local candidate save removes isolated state and updates graph", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph Local Candidate Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-local-candidate-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Aaa Local Source\n\nThis note is isolated for now, but it shares #graphlocalbridge with one nearby note."
+  });
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Bbb Local Target\n\nThis note also carries #graphlocalbridge so the graph can suggest a local connection."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const graphBefore = await fetchJson(
+    apiBase,
+    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(graphDirectoryId)}&includeDescendants=true`
+  );
+  assert.equal(graphBefore.status, 200, JSON.stringify(graphBefore.json));
+  assert.equal(graphBefore.json.item.totalEdges, 0);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 7000 });
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator(".graph-selection-panel .graph-isolated-join").count(), 1);
+    const selectionText = await page.locator(".graph-selection-panel").textContent();
+    assert.match(String(selectionText || ""), /Aaa Local Source/);
+    assert.match(String(selectionText || ""), /Bbb Local Target/);
+  }, 7000);
+
+  await page.locator(".graph-selection-panel [data-graph-relation-candidate-apply]").first().click();
+  await page.waitForFunction(() => Boolean(document.querySelector("[data-create-relation-form]")));
+  await waitFor(async () => {
+    assert.equal(await page.locator('[data-create-relation-form] select[name="toNoteId"]').inputValue(), target.json.item.id);
+    assert.equal(await page.locator('[data-create-relation-form] select[name="relationType"]').inputValue(), "same_topic");
+  }, 5000);
+  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill(
+    "These two permanent notes belong in the same local topic cluster because they use the same specific tag and point at one organizing question."
+  );
+  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill(
+    "What central question becomes easier to see once these two notes are grouped into the same topic?"
+  );
+  await page.locator('[data-create-relation-form] button[type="submit"]').click();
+
+  await waitFor(async () => {
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /Bbb Local Target/);
+  }, 10000);
+
+  const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+  assert.equal(relations.status, 200, JSON.stringify(relations.json));
+  assert.equal(relations.json.item.outgoingLinks.length, 1);
+  assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
+  assert.equal(relations.json.item.outgoingLinks[0].relationType, "same_topic");
+
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    assert.ok(edgeCount >= 1, summary || "");
+  }, 10000);
+
+  await waitFor(async () => {
+    const hasIsolatedKey = await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).evaluate((node) =>
+      node.hasAttribute("data-graph-isolated-key")
+    );
+    assert.equal(hasIsolatedKey, false);
+    assert.equal(await page.locator(".graph-isolated-queue-strip").count(), 0);
+  }, 7000);
+
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).click();
+  await waitFor(async () => {
+    assert.equal(await page.locator(".graph-selection-panel .graph-isolated-join").count(), 0);
+    assert.equal(await page.locator(".graph-selection-panel .graph-relation-workspace").count(), 1);
+    const workspaceText = await page.locator(".graph-selection-panel").textContent();
+    assert.match(String(workspaceText || ""), /Bbb Local Target/);
+  }, 7000);
+});
+
 test("prototype graph relation workspace creates a theme index from linked notes", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -7988,7 +8135,7 @@ test("prototype graph relation workspace creates a theme index from linked notes
 
   await waitFor(async () => {
     const workspaceText = await page.locator(".graph-relation-workspace").textContent();
-    assert.match(String(workspaceText || ""), /关联工作台/);
+    assert.match(String(workspaceText || ""), /关联整理/);
     assert.match(String(workspaceText || ""), /创建主题笔记/);
   }, 7000);
 

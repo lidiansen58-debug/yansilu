@@ -7,7 +7,12 @@ import {
   summarizeCandidateSelection,
   summarizeImportCandidates
 } from "../../../packages/connectors/src/index.mjs";
-import { buildNotePathIndex, listDirectories, listNoteCatalogEntriesByType } from "../../../packages/domain/src/index.mjs";
+import {
+  buildNotePathIndex,
+  listDirectories,
+  listNoteCatalogEntriesByType,
+  syncMarkdownNoteCatalogRelations
+} from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
 import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
 import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
@@ -116,6 +121,12 @@ export function buildSelectedImportCandidates(candidates = {}, selectedCandidate
   const permanent = Array.isArray(candidates.permanent) ? candidates.permanent : [];
   const totalCandidates = sources.length + literature.length + permanent.length;
   const byId = bucketFromCandidateId(candidates);
+
+  if (totalCandidates === 0) {
+    const error = new Error("no import candidates available for confirmation");
+    error.code = "IMPORT_SELECTION_EMPTY";
+    throw error;
+  }
 
   if (selectedCandidateIds === undefined) {
     return {
@@ -526,7 +537,7 @@ export function createImportExportService({
     const skipped = { conflicted: 0, invalid: 0 };
     const writtenPaths = new Set();
     const cleanupEntries = [];
-    const importedCatalogNotes = [];
+    const relationRefreshNoteIds = [];
     const assetPlans = await collectObsidianAssetPlans(record, cwd, selected.candidates);
     const assetPathByTarget = new Map([...assetPlans.entries()].map(([key, value]) => [key, value.assetRelativePath]));
 
@@ -544,7 +555,7 @@ export function createImportExportService({
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
         await registerImportCatalogNote(source, "source", result);
-        importedCatalogNotes.push({ candidate: source, noteType: "source", result, directoryId: "" });
+        relationRefreshNoteIds.push(String(source.id || "").trim());
         created.sources += 1;
         writtenPaths.add(path.dirname(result.path));
       }
@@ -563,7 +574,7 @@ export function createImportExportService({
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
         await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId);
-        importedCatalogNotes.push({ candidate: note, noteType: "literature", result, directoryId: literatureTargetDirectoryId });
+        relationRefreshNoteIds.push(String(note.id || "").trim());
         await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
         created.literatureNotes += 1;
         writtenPaths.add(path.dirname(result.path));
@@ -592,14 +603,14 @@ export function createImportExportService({
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
         await registerImportCatalogNote(noteToWrite, "permanent", result, permanentTargetDirectoryId);
-        importedCatalogNotes.push({ candidate: noteToWrite, noteType: "permanent", result, directoryId: permanentTargetDirectoryId });
+        relationRefreshNoteIds.push(String(noteToWrite.id || "").trim());
         await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
         created.permanentNotes += 1;
         writtenPaths.add(path.dirname(result.path));
       }
 
-      for (const item of importedCatalogNotes) {
-        await registerImportCatalogNote(item.candidate, item.noteType, item.result, item.directoryId);
+      for (const noteId of [...new Set(relationRefreshNoteIds.filter(Boolean))]) {
+        await syncMarkdownNoteCatalogRelations(vaultPath(), noteId);
       }
 
       for (const [normalizedTarget, plan] of assetPlans.entries()) {

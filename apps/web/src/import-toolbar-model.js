@@ -12,8 +12,15 @@ export function importConfirmButtonState({ selectedCount = 0, totalCount = 0, ha
     };
   }
 
+  if (totalCount === 0) {
+    return {
+      disabled: true,
+      label: "没有可导入候选"
+    };
+  }
+
   return {
-    disabled: totalCount > 0 && selectedCount === 0,
+    disabled: selectedCount === 0,
     label: `确认导入（${selectedCount}/${totalCount}）`
   };
 }

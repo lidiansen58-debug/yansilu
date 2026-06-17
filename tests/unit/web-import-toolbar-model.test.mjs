@@ -20,6 +20,10 @@ test("import toolbar model derives localized confirm button state", () => {
     disabled: true,
     label: "确认导入（0/3）"
   });
+  assert.deepEqual(importConfirmButtonState({ hasMatchingPreview: true, selectedCount: 0, totalCount: 0 }), {
+    disabled: true,
+    label: "没有可导入候选"
+  });
 });
 
 test("import toolbar model normalizes view values", () => {

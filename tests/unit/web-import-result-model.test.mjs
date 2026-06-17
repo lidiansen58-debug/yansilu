@@ -55,13 +55,70 @@ test("import result model derives warnings and actions from originality and skip
 
   const warnings = warningItems(payload);
   assert.deepEqual(warnings, [
-    { code: "ORIGINALITY_GUARD_BLOCKED", message: "blocked" },
+    { code: "ORIGINALITY_GUARD_BLOCKED", message: "有永久笔记被原创性检查阻止。", detail: "blocked" },
     { code: "ORIGINALITY_WARNING", message: "pn_1：缺少引用定位" }
   ]);
   assert.deepEqual(actionItems(payload, warnings), [
     "先降低与原文的重复度。",
     "补充引用定位或加强转述。",
     "补充页码、章节或时间定位。"
+  ]);
+});
+
+test("import result model maps new import warning codes to concrete actions", () => {
+  const cases = [
+    {
+      code: "IMPORT_NON_UTF8_MARKDOWN_DECODED",
+      expected: "重点核对中文标题、标签和正文，确认不是乱码再导入。"
+    },
+    {
+      code: "IMPORT_MARKDOWN_ENCODING_UNSUPPORTED",
+      expected: "把源文件转成 UTF-8，或修正异常编码后重新预览。"
+    },
+    {
+      code: "IMPORT_TITLE_NORMALIZED",
+      expected: "检查标题是否符合预期，必要时先修正源文件标题。"
+    },
+    {
+      code: "IMPORT_TEXT_SUSPECT_CORRUPTION",
+      expected: "源文件内容疑似已损坏；先修正编码或原文后再导入。"
+    },
+    {
+      code: "IMPORT_SELECTION_EMPTY",
+      expected: "当前预览没有可导入候选；请先处理被跳过的文件或重新预览。"
+    }
+  ];
+
+  for (const item of cases) {
+    const payload = {
+      stage: "preview",
+      summary: { sources: 1, literatureNotes: 0, permanentNotes: 0, warnings: 1 },
+      warnings: [{ code: item.code, message: item.code }]
+    };
+    const warnings = warningItems(payload);
+    assert.deepEqual(actionItems(payload, warnings), [item.expected]);
+  }
+});
+
+test("import result model adds a zero-candidate follow-up action for preview warnings", () => {
+  const payload = {
+    stage: "preview",
+    summary: { sources: 0, literatureNotes: 0, permanentNotes: 0, warnings: 1 },
+    warnings: [{ code: "IMPORT_MARKDOWN_ENCODING_UNSUPPORTED", message: "unsupported encoding" }]
+  };
+
+  assert.equal(resultBrief(payload, resultTone(payload)), "当前没有可确认导入的候选，请先处理警告里的文件问题。");
+  const warnings = warningItems(payload);
+  assert.deepEqual(actionItems(payload, warnings), [
+    "把源文件转成 UTF-8，或修正异常编码后重新预览。",
+    "当前预览没有可导入候选；请先处理被跳过的文件或重新预览。"
+  ]);
+  assert.deepEqual(warnings, [
+    {
+      code: "IMPORT_MARKDOWN_ENCODING_UNSUPPORTED",
+      message: "有笔记编码异常，已被跳过以避免乱码导入。",
+      detail: "unsupported encoding"
+    }
   ]);
 });
 
@@ -151,9 +208,18 @@ test("import result model surfaces failed import records", () => {
     { label: "失败代码", value: "IMPORT_CLEANUP_PRESERVE_FAILED" }
   ]);
   assert.deepEqual(warnings, [
-    { code: "IMPORT_CLEANUP_PRESERVE_FAILED", message: "preserve move failed" }
+    {
+      code: "IMPORT_CLEANUP_PRESERVE_FAILED",
+      message: "失败导入的残留文件没有完全清理。",
+      detail: "preserve move failed"
+    }
   ]);
   assert.deepEqual(actionItems(payload, warnings), [
     "失败导入的已修改文件未能自动迁移，请先手动处理后再重试。"
   ]);
+});
+
+test("import result model does not treat preview placeholders without summary as zero-candidate previews", () => {
+  assert.equal(resultBrief({ stage: "preview" }, "warn"), "可以继续，但建议先处理警告。");
+  assert.deepEqual(actionItems({ stage: "preview" }, []), []);
 });

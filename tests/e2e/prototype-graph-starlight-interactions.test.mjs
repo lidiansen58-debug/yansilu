@@ -131,7 +131,7 @@ test("prototype graph research navigator opens cluster and bright-star explanati
     const copy = await page.locator(".graph-research-navigator").textContent();
     assert.match(copy || "", /图谱概览/);
     assert.match(copy || "", /主题星系/);
-    assert.match(copy || "", /待处理线索/);
+    assert.match(copy || "", /待整理项/);
   }, 3000);
 
   await page.locator('.graph-research-card[data-graph-select-cluster]').first().click();

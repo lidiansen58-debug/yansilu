@@ -1606,6 +1606,40 @@ export async function registerMarkdownNoteInCatalog(vaultPath, input = {}) {
   }
 }
 
+export async function syncMarkdownNoteCatalogRelations(vaultPath, noteId) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = String(noteId || "").trim();
+  if (!id) throw new Error("noteId is required");
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const row = db.prepare("SELECT markdown_path FROM notes WHERE id = ? AND deleted_at IS NULL LIMIT 1").get(id);
+    if (!row?.markdown_path) {
+      const error = new Error(`noteId not found: ${id}`);
+      error.code = "NOTE_NOT_FOUND";
+      throw error;
+    }
+
+    const markdownPath = String(row.markdown_path || "").replaceAll("\\", "/").trim();
+    const absMarkdownPath = path.join(path.resolve(vaultPath), markdownPath);
+    const markdown = await fs.readFile(absMarkdownPath, "utf8");
+    const parsed = parseMarkdownWithFrontmatter(markdown);
+
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      const result = syncMarkdownRelations(db, id, parsed.body);
+      db.exec("COMMIT;");
+      return result;
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
+  } finally {
+    db.close();
+  }
+}
+
 export async function listNotesInDirectory(vaultPath, directoryId) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(directoryId || "").trim();

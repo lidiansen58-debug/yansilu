@@ -2,17 +2,23 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportResultPanel } from "../../apps/web/src/import-result-panel.js";
 
-test("import result panel renders redesigned summary, warnings, actions, and folded details", () => {
+test("import result panel renders localized zero-candidate preview feedback", () => {
   const html = renderImportResultPanel({
     data: { stage: "preview" },
     title: "导入预览已生成",
     subtitle: "imp_1",
-    brief: "检查候选内容，确认后再导入。",
+    brief: "当前没有可确认导入的候选，请先处理警告里的文件问题。",
     tone: "warn",
     statusLabel: "注意",
     metrics: [{ label: "来源", value: "Obsidian 仓库" }],
-    warnings: [{ code: "IMPORT_EMPTY_PAYLOAD", message: "payload missing" }],
-    actions: ["补充导入路径或 Payload。"],
+    warnings: [
+      {
+        code: "IMPORT_MARKDOWN_ENCODING_UNSUPPORTED",
+        message: "有笔记编码异常，已被跳过以避免乱码导入。",
+        detail: "Markdown file is not valid UTF-8 and could not be safely decoded as GB18030."
+      }
+    ],
+    actions: ["把源文件转成 UTF-8，或修正异常编码后重新预览。"],
     writingActionsHtml: '<div class="writing-actions">x</div>',
     skipBreakdownHtml: '<div class="skip-breakdown">y</div>',
     candidatePreviewHtml: '<div class="result-candidates">z</div>',
@@ -23,11 +29,12 @@ test("import result panel renders redesigned summary, warnings, actions, and fol
   assert.match(html, /result-card/);
   assert.match(html, /导入预览已生成/);
   assert.match(html, /注意/);
-  assert.match(html, /检查候选内容，确认后再导入/);
+  assert.match(html, /当前没有可确认导入的候选，请先处理警告里的文件问题/);
   assert.match(html, /result-brief warn/);
   assert.match(html, /需要处理/);
-  assert.match(html, /payload missing/);
-  assert.match(html, /补充导入路径或 Payload/);
+  assert.match(html, /有笔记编码异常，已被跳过以避免乱码导入/);
+  assert.match(html, /详情：Markdown file is not valid UTF-8/);
+  assert.match(html, /把源文件转成 UTF-8，或修正异常编码后重新预览/);
   assert.match(html, /候选详情/);
   assert.match(html, /跳过与保留/);
   assert.match(html, /写作后续/);

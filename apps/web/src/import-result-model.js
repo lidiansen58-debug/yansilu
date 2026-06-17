@@ -56,6 +56,39 @@ function reasonText(reason) {
   return labels[String(reason || "").trim()] || compactValue(reason);
 }
 
+function warningSummaryText(code, fallback = "") {
+  const labels = {
+    IMPORT_EMPTY_PAYLOAD: "缺少导入路径或 Payload。",
+    IMPORT_SOURCE_UNREADABLE: "导入路径无法读取。",
+    IMPORT_MARKDOWN_FILE_UNREADABLE: "有 Markdown 文件无法读取。",
+    IMPORT_MALFORMED_FRONTMATTER: "有笔记的 frontmatter 格式不完整。",
+    IMPORT_NON_UTF8_MARKDOWN_DECODED: "有笔记不是 UTF-8，已按兼容编码读取。",
+    IMPORT_MARKDOWN_ENCODING_UNSUPPORTED: "有笔记编码异常，已被跳过以避免乱码导入。",
+    IMPORT_TITLE_NORMALIZED: "有标题已被规范成单行。",
+    IMPORT_TEXT_SUSPECT_CORRUPTION: "有笔记内容疑似已损坏。",
+    IMPORT_NO_MARKDOWN_FILE: "目录里没有可导入的 Markdown 文件。",
+    IMPORT_SELECTION_EMPTY: "当前预览没有可导入候选。",
+    IMPORT_PAYLOAD_INVALID: "导入参数格式不正确。",
+    IMPORT_RECORD_NOT_FOUND: "没有找到这条导入记录。",
+    IMPORT_STATUS_INVALID: "这条导入记录当前不能继续。",
+    IMPORT_CONFIRM_REQUIRED: "请先预览，再确认导入。",
+    IMPORT_CLEANUP_PRESERVE_FAILED: "失败导入的残留文件没有完全清理。",
+    IMPORT_ROLLBACK_RESTORE_CONFLICT: "回滚时发现原路径已有新内容。",
+    IMPORT_ORIGINALITY_BLOCKED: "永久笔记因原创性检查被阻止。",
+    ORIGINALITY_GUARD_WARNING: "有永久笔记需要先处理原创性警告。",
+    ORIGINALITY_GUARD_BLOCKED: "有永久笔记被原创性检查阻止。",
+    ORIGINALITY_WARNING: "有永久笔记需要补充原创性信息。"
+  };
+  return labels[String(code || "").trim()] || String(fallback || "").trim() || compactValue(code);
+}
+
+function warningDetailText(code, message = "") {
+  const detail = String(message || "").trim();
+  if (!detail) return "";
+  const summary = warningSummaryText(code, "");
+  return detail && detail !== summary ? detail : "";
+}
+
 function targetDirectorySummary(payload = {}) {
   const targetDirectories =
     Array.isArray(payload.result?.targetDirectories) ? payload.result.targetDirectories :
@@ -192,12 +225,27 @@ export function resultMetrics(payload = {}) {
 
 export function warningItems(payload = {}) {
   const warnings = [];
-  if (Array.isArray(payload.warnings)) warnings.push(...payload.warnings);
-  if (payload.code) warnings.push({ code: payload.code, message: payload.message || "" });
+  if (Array.isArray(payload.warnings)) {
+    warnings.push(
+      ...payload.warnings.map((item) => ({
+        ...item,
+        message: warningSummaryText(item?.code, item?.message),
+        detail: warningDetailText(item?.code, item?.message)
+      }))
+    );
+  }
+  if (payload.code) {
+    warnings.push({
+      code: payload.code,
+      message: warningSummaryText(payload.code, payload.message || ""),
+      detail: warningDetailText(payload.code, payload.message || "")
+    });
+  }
   if (payload.importRecord?.failureResult?.code || payload.importRecord?.failureResult?.message) {
     warnings.push({
       code: payload.importRecord.failureResult.code || "IMPORT_FAILED",
-      message: payload.importRecord.failureResult.message || ""
+      message: warningSummaryText(payload.importRecord.failureResult.code || "IMPORT_FAILED", payload.importRecord.failureResult.message || ""),
+      detail: warningDetailText(payload.importRecord.failureResult.code || "IMPORT_FAILED", payload.importRecord.failureResult.message || "")
     });
   }
   const evaluations = payload.originalityGuard?.evaluations;
@@ -221,7 +269,12 @@ function actionableTextForCode(code) {
     IMPORT_SOURCE_UNREADABLE: "检查导入路径是否可读。",
     IMPORT_MARKDOWN_FILE_UNREADABLE: "处理无法读取的 Markdown 文件后再试。",
     IMPORT_MALFORMED_FRONTMATTER: "建议先修正 frontmatter 再导入。",
+    IMPORT_NON_UTF8_MARKDOWN_DECODED: "重点核对中文标题、标签和正文，确认不是乱码再导入。",
+    IMPORT_MARKDOWN_ENCODING_UNSUPPORTED: "把源文件转成 UTF-8，或修正异常编码后重新预览。",
+    IMPORT_TITLE_NORMALIZED: "检查标题是否符合预期，必要时先修正源文件标题。",
+    IMPORT_TEXT_SUSPECT_CORRUPTION: "源文件内容疑似已损坏；先修正编码或原文后再导入。",
     IMPORT_NO_MARKDOWN_FILE: "确认目录里有可导入的 Markdown 文件。",
+    IMPORT_SELECTION_EMPTY: "当前预览没有可导入候选；请先处理被跳过的文件或重新预览。",
     IMPORT_PAYLOAD_INVALID: "检查连接器和 JSON 格式。",
     IMPORT_RECORD_NOT_FOUND: "确认这条记录属于当前 Vault。",
     IMPORT_STATUS_INVALID: "这条记录当前不能执行这个操作。",
@@ -245,6 +298,15 @@ function actionableTextForReason(reason) {
     citation_locator_missing: "补充页码、章节或时间定位。"
   };
   return map[String(reason || "")] || "";
+}
+
+function previewCandidateTotal(payload = {}) {
+  const summary = payload.summary || payload.importRecord?.summary;
+  if (!summary || typeof summary !== "object") return null;
+  const hasCandidateCounts =
+    summary.sources !== undefined || summary.literatureNotes !== undefined || summary.permanentNotes !== undefined;
+  if (!hasCandidateCounts) return null;
+  return Number(summary.sources || 0) + Number(summary.literatureNotes || 0) + Number(summary.permanentNotes || 0);
 }
 
 export function actionItems(payload = {}, warnings = []) {
@@ -278,6 +340,10 @@ export function actionItems(payload = {}, warnings = []) {
     actions.push("补充项目标题后再创建。");
   }
 
+  if (String(payload.stage || "").trim() === "preview" && previewCandidateTotal(payload) === 0) {
+    actions.push("当前预览没有可导入候选；请先处理被跳过的文件或重新预览。");
+  }
+
   return uniqueStrings(actions).slice(0, 3);
 }
 
@@ -292,6 +358,9 @@ export function resultStatusLabel(tone) {
 export function resultBrief(payload = {}, tone = resultTone(payload)) {
   const stage = String(payload.stage || "").trim();
   if (tone === "bad") return "这一步没有完成，请先处理下面的问题。";
+  if (stage === "preview" && previewCandidateTotal(payload) === 0) {
+    return "当前没有可确认导入的候选，请先处理警告里的文件问题。";
+  }
   if (tone === "warn") return "可以继续，但建议先处理警告。";
   const briefs = {
     preview: "检查候选内容，确认后再导入。",

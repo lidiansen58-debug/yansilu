@@ -1914,6 +1914,7 @@ const RELATION_CREATE_TYPES = [
   "example_of",
   "counterexample_to",
   "same_topic",
+  "associated_with",
   "unexpected_connection",
   "bridges",
   "restates",
