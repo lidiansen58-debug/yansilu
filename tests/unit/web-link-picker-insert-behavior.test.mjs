@@ -281,6 +281,15 @@ test("link insertion does not create a formal relation until the wikilink save i
   assert.ok(body.indexOf("if (!savedBodyAlreadyLinked && !(await saveInsertedBody(\"link-insert\"))) return;") < body.indexOf("await ensureFormalRelation();"));
 });
 
+test("inline link picker keyboard handling survives focus leaving the editor host", async () => {
+  const source = await readComponentsEditorPaneSource();
+
+  assert.ok(source.includes("const targetIsEditor ="));
+  assert.ok(source.includes("const targetIsPicker ="));
+  assert.ok(source.includes("const targetIsEmptyPageFocus ="));
+  assert.ok(source.includes("if (!targetIsEditor && !targetIsPicker && !targetIsEmptyPageFocus) return;"));
+});
+
 test("wysiwyg save reads the markdown editor instead of stale sync textarea", async () => {
   const source = await readComponentsEditorPaneSource();
   const start = source.indexOf("getEditorValue() {");

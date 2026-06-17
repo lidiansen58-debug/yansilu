@@ -7023,6 +7023,7 @@ export class EditorPane {
   openCreateRelationForm(options = {}) {
     const note = this.activeNote();
     if (!note?.id) return;
+    this.setInspectorVisible(true);
     this.setRelationPanelState("create", {
       noteId: note.id,
       targetNoteId: options?.targetNoteId,
@@ -7038,6 +7039,10 @@ export class EditorPane {
     section.outerHTML = this.renderCurrentRelationSection(note.id, {
       relations: this.currentSemanticRelations,
       relationState: this.semanticRelationsState
+    });
+    this.jumpToInspectorSection("[data-create-relation-form]", {
+      focus: true,
+      focusSelector: "[data-create-relation-form] [data-relation-target-search]"
     });
     void this.refreshRelationTargetSearch("");
   }
@@ -9635,7 +9640,11 @@ export class EditorPane {
         const tagInlineOpen = !this.els.tagPicker.classList.contains("hidden") && this.currentTagContext;
         if (!linkInlineOpen && !tagInlineOpen) return;
         if (e.target.closest("#linkSearchInput") || e.target.closest("#tagSearchInput")) return;
-        if (!e.target.closest("#editorHost") && !e.target.closest("#wysiwygHost") && !e.target.closest("#editorBody")) return;
+        const targetIsEditor =
+          e.target.closest?.("#editorHost") || e.target.closest?.("#wysiwygHost") || e.target.closest?.("#editorBody");
+        const targetIsPicker = e.target.closest?.("#linkPicker") || e.target.closest?.("#tagPicker");
+        const targetIsEmptyPageFocus = e.target === document.body || e.target === document.documentElement || e.target === document;
+        if (!targetIsEditor && !targetIsPicker && !targetIsEmptyPageFocus) return;
 
         if (e.key === "ArrowDown") {
           if (linkInlineOpen) this.moveLinkCandidate(1);

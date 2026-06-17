@@ -1241,6 +1241,37 @@ function resolvePotentialRelationCandidate(scan = {}, requestedCandidate = null)
   return scanCandidates[0] || null;
 }
 
+async function resolvePotentialRelationScope(body = {}) {
+  let notes = Array.isArray(body.notes) ? body.notes : [];
+  let relations = Array.isArray(body.relations) ? body.relations : [];
+  let graph = null;
+  let directoryId = cleanText(body.directoryId || body.directory_id);
+  const focusNoteId = cleanText(
+    body.focusNoteId ||
+      body.focus_note_id ||
+      body.currentNoteId ||
+      body.current_note_id ||
+      body.noteId ||
+      body.note_id
+  );
+  if (!notes.length) {
+    if (!directoryId && focusNoteId) {
+      const focusNote = await getNoteById(VAULT_PATH, focusNoteId);
+      directoryId = cleanText(focusNote?.folderId || focusNote?.directoryId || focusNote?.directory_id);
+      if (!directoryId) notes = [focusNote];
+    }
+    if (directoryId) {
+      graph = await getDirectoryGraph(VAULT_PATH, directoryId, {
+        includeDescendants: body.includeDescendants === true || body.include_descendants === true
+      });
+      const permanentNodeIds = graph.nodes.filter((node) => node.noteType === "permanent").map((node) => node.id);
+      notes = await loadNotesByIds(permanentNodeIds);
+      relations = graph.edges;
+    }
+  }
+  return { notes, relations, graph, directoryId, focusNoteId };
+}
+
 function graphArtifactScopeKey(body = {}, notes = []) {
   const directoryId = cleanText(body.directoryId || body.directory_id);
   if (directoryId) return `graph_scope:${directoryId}`;
@@ -4652,17 +4683,7 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
-        let notes = Array.isArray(body.notes) ? body.notes : [];
-        let relations = Array.isArray(body.relations) ? body.relations : [];
-        let graph = null;
-        if (!notes.length && body.directoryId) {
-          graph = await getDirectoryGraph(VAULT_PATH, body.directoryId, {
-            includeDescendants: body.includeDescendants === true || body.include_descendants === true
-          });
-          const permanentNodeIds = graph.nodes.filter((node) => node.noteType === "permanent").map((node) => node.id);
-          notes = await loadNotesByIds(permanentNodeIds);
-          relations = graph.edges;
-        }
+        const { notes, relations, graph, directoryId, focusNoteId } = await resolvePotentialRelationScope(body);
         const scan = buildPotentialRelationCandidates({
           notes,
           relations,
@@ -4670,14 +4691,14 @@ const server = http.createServer(async (req, res) => {
             minScore: body.minScore ?? body.min_score,
             perNoteLimit: body.perNoteLimit ?? body.per_note_limit,
             globalLimit: body.globalLimit ?? body.global_limit,
-            focusNoteId: body.focusNoteId ?? body.focus_note_id,
+            focusNoteId: body.focusNoteId ?? body.focus_note_id ?? body.noteId ?? body.note_id ?? focusNoteId,
             currentNoteId: body.currentNoteId ?? body.current_note_id,
             recentNoteIds: body.recentNoteIds ?? body.recent_note_ids
           }
         });
         return sendJson(res, 200, {
           item: {
-            directoryId: body.directoryId || null,
+            directoryId: directoryId || null,
             graphScope: graph
               ? {
                   nodeCount: graph.totalNodes,
@@ -4699,22 +4720,13 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
-        let notes = Array.isArray(body.notes) ? body.notes : [];
-        let relations = Array.isArray(body.relations) ? body.relations : [];
-        if (!notes.length && body.directoryId) {
-          const graph = await getDirectoryGraph(VAULT_PATH, body.directoryId, {
-            includeDescendants: body.includeDescendants === true || body.include_descendants === true
-          });
-          const permanentNodeIds = graph.nodes.filter((node) => node.noteType === "permanent").map((node) => node.id);
-          notes = await loadNotesByIds(permanentNodeIds);
-          relations = graph.edges;
-        }
+        const { notes, relations, focusNoteId } = await resolvePotentialRelationScope(body);
         const scan = buildPotentialRelationCandidates({
           notes,
           relations,
           options: {
             ...(body.options || {}),
-            focusNoteId: body.focusNoteId ?? body.focus_note_id,
+            focusNoteId: body.focusNoteId ?? body.focus_note_id ?? body.noteId ?? body.note_id ?? focusNoteId,
             currentNoteId: body.currentNoteId ?? body.current_note_id,
             globalLimit: Math.min(Number(body.globalLimit ?? body.global_limit) || 10, 10)
           }

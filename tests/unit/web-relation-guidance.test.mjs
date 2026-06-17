@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 import {
   EditorPane,
@@ -8,6 +9,10 @@ import {
   sortRelationTargetCandidatesForNote
 } from "../../apps/web/src/components-editor-pane.js";
 import { createInitialState } from "../../apps/web/src/prototype-store.js";
+
+function readEditorPaneSource() {
+  return fs.readFileSync(new URL("../../apps/web/src/components-editor-pane.js", import.meta.url), "utf8");
+}
 
 function createClassList() {
   const classes = new Set();
@@ -86,6 +91,18 @@ test("relation guidance falls back to supports when no stronger signal exists", 
   assert.match(guidance.questionPlaceholder, /新问题/);
   assert.doesNotMatch(guidance.questionHint, /\$\{/);
   assert.match(guidance.questionHint, /最值得验证的疑问/);
+});
+
+test("opening the create relation form makes the relation sidebar visible and focuses target search", () => {
+  const source = readEditorPaneSource();
+  const start = source.indexOf("openCreateRelationForm(options = {}) {");
+  const end = source.indexOf("\n  currentExplicitRelationCount()", start);
+  assert.ok(start >= 0 && end > start, "expected openCreateRelationForm body");
+  const body = source.slice(start, end);
+
+  assert.ok(body.includes("this.setInspectorVisible(true);"));
+  assert.ok(body.includes('this.jumpToInspectorSection("[data-create-relation-form]"'));
+  assert.ok(body.includes('focusSelector: "[data-create-relation-form] [data-relation-target-search]"'));
 });
 
 test("relation target sorting prioritizes linked notes over tag-only and plain candidates", () => {

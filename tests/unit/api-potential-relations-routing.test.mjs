@@ -37,6 +37,28 @@ test("potential relation refine follows current AI provider settings by default"
   assert.doesNotMatch(endpoint, /confirmationRequired: false/);
 });
 
+test("potential relation endpoints accept noteId as a focus alias and infer its directory", () => {
+  const source = readServer();
+  const helperStart = source.indexOf("async function resolvePotentialRelationScope(body = {})");
+  const helperEnd = source.indexOf("\nfunction graphArtifactScopeKey", helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, "expected potential relation scope helper");
+  const helper = source.slice(helperStart, helperEnd);
+
+  assert.match(helper, /body\.noteId \|\|/);
+  assert.match(helper, /body\.note_id/);
+  assert.match(helper, /const focusNote = await getNoteById\(VAULT_PATH, focusNoteId\);/);
+  assert.match(helper, /focusNote\?\.folderId \|\| focusNote\?\.directoryId \|\| focusNote\?\.directory_id/);
+  assert.match(helper, /getDirectoryGraph\(VAULT_PATH, directoryId/);
+
+  const endpointStart = source.indexOf('url.pathname === "/api/v1/graph/potential-relations"');
+  const endpointEnd = source.indexOf('if (req.method === "POST" && url.pathname === "/api/v1/graph/potential-relations/refine")', endpointStart);
+  assert.ok(endpointStart >= 0 && endpointEnd > endpointStart, "expected potential relation scan endpoint");
+  const endpoint = source.slice(endpointStart, endpointEnd);
+  assert.match(endpoint, /resolvePotentialRelationScope\(body\)/);
+  assert.match(endpoint, /focusNoteId: body\.focusNoteId \?\? body\.focus_note_id \?\? body\.noteId \?\? body\.note_id \?\? focusNoteId/);
+  assert.match(endpoint, /directoryId: directoryId \|\| null/);
+});
+
 test("ollama direct refine aborts the generate call on timeout", () => {
   const source = readServer();
 

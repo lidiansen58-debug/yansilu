@@ -521,6 +521,7 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
     const title = document.querySelector(".tab.active .tab-title")?.textContent || "";
     return value.startsWith("# 未命名笔记") && String(title).includes("未命名笔记");
   });
+  await page.waitForFunction(() => !window.__prototypeEditor?.savingPromise);
   await ensureSourceMode(page);
   await waitForEditableNoteSurface(page);
   await page.evaluate((value) => {
@@ -809,32 +810,25 @@ test("prototype browser flow creates, edits, and persists a markdown note", asyn
   await page.waitForSelector(".tab.active");
   await ensureSourceMode(page);
   await waitForEditableNoteSurface(page);
-  await page.evaluate(() => {
-    const markdown = "# Browser E2E note\n\nThis markdown note was edited through the prototype UI. #e2e";
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    editor?.setValue?.(markdown);
-    editor?.focus?.();
-    const prototypeEditor = window.__prototypeEditor;
-    prototypeEditor?.handleEditorInput?.();
-    prototypeEditor?.updateActiveTabFromEditor?.();
-    const activeTab = prototypeEditor?.activeTab?.();
-    if (activeTab) {
-      activeTab.body = markdown;
-      activeTab.title = "Browser E2E note";
-    }
-  });
+  await page.waitForFunction(() => !window.__prototypeEditor?.savingPromise);
+  await ensurePlaceholderTitleSelection(page);
+  await page.keyboard.type("Browser E2E note");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("This markdown note was edited through the prototype UI. #e2e");
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
     assert.match(value, /Browser E2E note/);
     assert.match(value, /prototype UI/);
+    assert.equal(await page.evaluate(() => window.__prototypeEditor?.activeTab?.()?.dirty === true), true);
   }, 7000);
   await confirmAuthorshipIfVisible(page, { claim: "Browser E2E note 的内容由我确认后保存。" });
-  await page.evaluate(() => window.__prototypeEditor?.saveActiveNote?.());
+  await page.evaluate(() => window.__prototypeEditor?.saveActiveNote?.({ skipOriginalityCheck: true }));
 
   const notes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
     assert.equal(result.status, 200);
     assert.equal(result.json.total, 1);
+    assert.match(result.json.items[0].body, /This markdown note was edited through the prototype UI\./);
     return result;
   }, 7000);
 
@@ -4039,10 +4033,11 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
     directoryId: "dir_original_default",
     body: "# Alpha target\n\nA less relevant target."
   });
-  await postJson(apiBase, "/api/v1/notes", {
+  const gammaTarget = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
     body: "# Gamma target\n\nThe expected wikilink target."
   });
+  assert.equal(gammaTarget.status, 201);
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
     body: "# Link picker source\n\nStart typing below."
@@ -4080,9 +4075,12 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
   assert.equal(await page.locator("#btnSave").isVisible(), false);
 
   await page.keyboard.press("Enter");
-  await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("[[Gamma target]]"));
+  await page.waitForFunction(
+    (targetId) => document.querySelector("#editorBody")?.value?.includes(`[[${targetId}|Gamma target]]`),
+    gammaTarget.json.item.id
+  );
   const editorValue = await page.locator("#editorBody").inputValue();
-  assert.match(editorValue, /\[\[Gamma target\]\]/);
+  assert.match(editorValue, new RegExp(`\\[\\[${escapeRegExp(gammaTarget.json.item.id)}\\|Gamma target\\]\\]`));
 });
 
 test("prototype editor confirms before closing or switching away from dirty note", async (t) => {
