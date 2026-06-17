@@ -5,10 +5,10 @@ This local pack wires Yansilu's OpenAI-compatible provider path to Ollama.
 ## Prerequisites
 
 - Ollama is installed and running on `http://localhost:11434`.
-- A small local model is available, for example:
+- The default local reasoning model is available:
 
 ```powershell
-ollama pull qwen2.5:3b
+ollama pull qwen3:8b
 ```
 
 ## Configure Yansilu
@@ -28,7 +28,7 @@ npm run ai:setup:ollama
 Optional overrides:
 
 ```powershell
-$env:OLLAMA_MODEL="qwen2.5:3b"
+$env:OLLAMA_MODEL="qwen3:8b"
 $env:OLLAMA_BASE_URL="http://localhost:11434"
 $env:API_BASE="http://localhost:3000"
 npm run ai:setup:ollama

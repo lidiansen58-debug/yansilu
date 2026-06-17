@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildPotentialRelationAiBatches,
   buildPotentialRelationCandidates,
   buildPermanentNoteFingerprint,
+  DEFAULT_POTENTIAL_RELATION_MODEL,
   PotentialRelationAiCache,
   potentialRelationCacheKey,
   potentialRelationCandidateToDraftRelation,
@@ -261,7 +263,25 @@ test("AI JSON parse failure preserves the rule candidate", async () => {
   assert.equal(refined.sourceNoteId, "a");
   assert.equal(refined.targetNoteId, "b");
   assert.equal(refined.status, "pending");
+  assert.equal(refined.aiFallbackMode, "rule_candidate_preserved");
+  assert.equal(refined.retryable, true);
   assert.match(refined.aiError, /JSON|Unexpected|FOUND|INVALID/);
+});
+
+test("potential relation AI second stage batches candidates in review-sized chunks", () => {
+  const candidates = Array.from({ length: 11 }, (_, index) => ({
+    id: `candidate_${index}`,
+    sourceNoteId: `a_${index}`,
+    targetNoteId: `b_${index}`
+  }));
+
+  const batches = buildPotentialRelationAiBatches(candidates, { batchSize: 99, timeoutMs: 999999, numPredict: 9999 });
+
+  assert.deepEqual(batches.map((batch) => batch.candidates.length), [5, 5, 1]);
+  assert.equal(batches[0].batchSize, 5);
+  assert.equal(batches[0].timeoutMs, 180000);
+  assert.equal(batches[0].numPredict, 500);
+  assert.equal(batches[0].status, "pending_review");
 });
 
 test("AI refine failures are not cached, so the same candidate can retry later", async () => {
@@ -507,4 +527,33 @@ test("reject/no_relation AI output is not converted into a formal relation draft
   assert.equal(refined.aiDecision, "reject");
   assert.equal(refined.aiRelationType, "no_relation");
   assert.equal(potentialRelationCandidateToDraftRelation(refined), null);
+});
+
+test("same-topic-only AI output remains a potential relation for user review", async () => {
+  const candidate = {
+    id: "c_same_topic_only",
+    sourceNoteId: "a",
+    targetNoteId: "b",
+    sourceContentHash: "ha",
+    targetContentHash: "hb",
+    coarseType: "same_topic",
+    relationType: "same_topic",
+    status: "pending"
+  };
+  const refined = await refinePotentialRelationCandidateWithLocalAi(candidate, {
+    fingerprints: [
+      buildPermanentNoteFingerprint(note("a", "A", "# A")),
+      buildPermanentNoteFingerprint(note("b", "B", "# B"))
+    ],
+    callModel: async (prompt, options) => {
+      assert.equal(options.modelName, DEFAULT_POTENTIAL_RELATION_MODEL);
+      assert.equal(options.numPredict, 400);
+      return '{"decision":"uncertain","relationType":"same_topic","confidence":0.32,"rationale":"同主题但没有明确论证动作","evidenceA":"A","evidenceB":"B","reviewQuestion":"是否只是同主题？"}';
+    },
+    numPredict: 400
+  });
+
+  assert.equal(refined.aiDecision, "uncertain");
+  assert.equal(refined.aiRelationType, "same_topic");
+  assert.equal(refined.status, "pending");
 });

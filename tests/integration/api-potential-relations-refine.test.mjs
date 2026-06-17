@@ -477,9 +477,12 @@ test("potential relation refine executes with current provider settings after co
   assert.equal(response.json.reviewItems.storedArtifactIds.length, 1);
   assert.equal(response.json.metrics.providerId, "local_private_gateway");
   assert.equal(response.json.metrics.modelRef, "local_private_gateway:local_private");
+  assert.equal(response.json.batchPlan.batchSize, 4);
+  assert.equal(response.json.batchPlan.timeoutMs, 120000);
+  assert.equal(response.json.batchPlan.numPredict, 400);
   assert.equal(provider.requests.length, 1);
   assert.equal(provider.requests[0].body.model, "local-runtime-model");
-  assert.equal(provider.requests[0].body.max_tokens, 320);
+  assert.equal(provider.requests[0].body.max_tokens, 400);
 
   const artifactStore = await createSqliteArtifactStore({ vaultPath });
   t.after(() => artifactStore.close());
@@ -718,6 +721,37 @@ test("potential relation refine does not reuse cached AI output across different
   assert.equal(second.json.metrics.cacheHit, false);
   assert.equal(second.json.item.aiRelationType, "qualifies");
   assert.equal(dualProvider.generateRequests.length, 1);
+});
+
+test("potential relation refine applies batch timeout to ollama_direct execution", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-potential-relations-batch-timeout-vault-");
+  const port = await findFreePort();
+  const delayedProvider = await startDelayedOllamaProvider(90);
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath, {
+    OLLAMA_BASE_URL: delayedProvider.baseUrl
+  });
+
+  t.after(() => child.kill());
+  t.after(() => delayedProvider.server.close());
+  await waitForHealth(baseUrl);
+
+  const response = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", {
+    notes: buildRefineNotes(),
+    relations: [],
+    candidate: buildCandidate(),
+    providerMode: "ollama_direct",
+    modelName: "batch-timeout-test-model",
+    timeoutMs: 50,
+    batchTimeoutMs: 120000,
+    persistArtifacts: false
+  });
+
+  assert.equal(response.status, 200, JSON.stringify(response.json));
+  assert.equal(response.json.item.aiDecision, "uncertain");
+  assert.equal(response.json.batchPlan.timeoutMs, 120000);
+  assert.equal(delayedProvider.requests.length, 1);
+  assert.equal(delayedProvider.requests[0].closedEarly, false);
 });
 
 test("potential relation refine returns a timeout error instead of waiting indefinitely for ollama_direct", async (t) => {

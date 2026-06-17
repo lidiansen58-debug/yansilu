@@ -28,14 +28,16 @@ Optional environment variables:
 
 ```powershell
 $env:OLLAMA_BASE_URL='http://127.0.0.1:11434'
-$env:OLLAMA_MODEL='qwen2.5:7b'
+$env:OLLAMA_MODEL='qwen3:8b'
 $env:OLLAMA_EVAL_MIN_PASS='3'
 npm.cmd run eval:ai:ollama
 ```
 
 ## Recommended Starting Models
 
-- `qwen2.5:7b`: current recommended small local default; passed the MVP bar on this machine.
+- `qwen3:8b`: current default local reasoning model for viewpoint distillation, potential relation judgment, and structured AI suggestions. Re-run the eval bar on target machines before release.
+- `qwen2.5:7b`: lightweight option for faster, lower-resource local tasks; previously passed the MVP bar on this machine.
+- `qwen3.5:9b`: high-quality option for deeper analysis when the user accepts slower local runs.
 - `qwen2.5:3b`: lower-resource fallback only; it did not meet the MVP eval bar in the current check.
 - `llama3.1:8b`: solid general fallback.
 - `phi3.5:latest` or `gemma2:2b`: very small baseline for fast checks.
@@ -45,6 +47,20 @@ npm.cmd run eval:ai:ollama
 - Local first: relation scans, tags, short summaries, lightweight classification, and privacy-only work.
 - Cloud preferred: deep reflection, writing bridge, long-context synthesis, and final draft quality work.
 - Hybrid mode must expose which provider/model was used in the run log.
+- Potential relations use a two-stage path: local rules/keywords/graph signals first, then `qwen3:8b` for candidate review in 3-5 item batches.
+- Viewpoint distillation asks for candidate viewpoints only: core viewpoint, evidence anchors, uncertainties, counter-questions, and a permanent-note draft.
+- AI suggestions and relation outputs stay review-only. Malformed local-model JSON must fall back to rule candidates without writing note fields or graph edges.
+
+## Review Gate Fixed Tests
+
+The local AI upgrade must keep these checks green:
+
+- Provider/model defaults: `tests/unit/ai-model-pack-config-contract.test.mjs` and `tests/unit/ai-provider-config-contract.test.mjs`.
+- Ollama missing-model guidance and bootstrap readiness: `tests/integration/api-vault-settings.test.mjs`.
+- Potential relation should-link, same-topic rejection/uncertain state, batch size, and JSON failure fallback: `tests/unit/potential-relations.test.mjs` plus `tests/integration/api-potential-relations-refine.test.mjs`.
+- Viewpoint distillation structured candidate output and malformed JSON fallback: `tests/unit/ai-note-analysis.test.mjs`.
+- AI suggestion review-only queue behavior: `tests/integration/api-vault-settings.test.mjs` and canonical AI suggestion/inbox tests.
+- Background relation scan batch/progress/retry metadata: `tests/unit/ai-scheduled-agent-tasks.test.mjs`.
 
 ## Current Local Runtime Check
 
@@ -57,12 +73,16 @@ Date: 2026-05-14
 
 Current recommended default local model:
 
+- `qwen3:8b`
+
+Historical lightweight validation:
+
 - `qwen2.5:7b`
 
 Validation commands:
 
 ```powershell
-$env:OLLAMA_MODEL='qwen2.5:7b'
+$env:OLLAMA_MODEL='qwen3:8b'
 npm.cmd run smoke:ai:ollama
 npm.cmd run eval:ai:ollama
 ```

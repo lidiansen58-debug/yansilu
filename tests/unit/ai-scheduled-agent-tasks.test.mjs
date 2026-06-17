@@ -13,6 +13,9 @@ import {
   createMockProviderAdapter,
   createScheduledTaskFromTemplate,
   createSqliteScheduledAgentTaskStore,
+  DEFAULT_LOCAL_AI_MODEL,
+  DEFAULT_SCHEDULED_LOCAL_AI_BATCH_SIZE,
+  DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS,
   getProviderPreset,
   getScheduledAgentTaskTemplate,
   listScheduledAgentTaskTemplates,
@@ -55,11 +58,19 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
   assert.equal(linkTask.model.maxTier, "standard");
   assert.equal(linkTask.output.artifactTypes[0], "LinkSuggestion");
   assert.equal(linkTask.budget.maxEstimatedCostPerPeriod, 0.5);
+  assert.equal(linkTask.privacy.mode, "normal");
+  assert.equal(linkTask.privacy.allowCloudModels, true);
   assert.equal(linkTask.privacy.requireConfirmationForPrivateNotes, true);
   assert.equal(linkTask.nextRunAt, "2026-05-18T00:00:00.000Z");
   assert.deepEqual(linkTask.scope.directoryIds, ["dir_original_default"]);
   assert.deepEqual(linkTask.scope.tags, ["writing"]);
-  assert.deepEqual(buildScheduledTaskHarnessInput(linkTask).searchNotes, {
+  const harnessInput = buildScheduledTaskHarnessInput(linkTask);
+  assert.equal(DEFAULT_LOCAL_AI_MODEL, "qwen3:8b");
+  assert.equal(harnessInput.timeoutMs, DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS);
+  assert.equal(harnessInput.batchSize, DEFAULT_SCHEDULED_LOCAL_AI_BATCH_SIZE);
+  assert.equal(harnessInput.reviewOnly, true);
+  assert.equal(harnessInput.progress.retryable, true);
+  assert.deepEqual(harnessInput.searchNotes, {
     query: "model neutrality note links",
     tag: ["writing"],
     rootDirectoryIds: ["dir_original_default"],

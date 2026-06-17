@@ -1,7 +1,11 @@
 import { originalityGuard, similarityScore, tokenizeText } from "../../originality-guard/src/index.mjs";
 import { normalizeArtifact } from "./artifacts.mjs";
+import { DEFAULT_LOCAL_AI_MODEL } from "./local-model-catalog.mjs";
 import { buildPotentialRelationCandidates, isPotentialRelationNetworkStatus } from "./potential-relations.mjs";
 import { normalizeSuggestion } from "./suggestions.mjs";
+
+export const DEFAULT_VIEWPOINT_DISTILLATION_TIMEOUT_MS = 60000;
+export const DEFAULT_VIEWPOINT_DISTILLATION_NUM_PREDICT = 800;
 
 const PRINCIPLE_CHECKS = [
   "judgment_not_material",
@@ -787,9 +791,18 @@ export function buildPermanentNoteLocalModelRequest(input = {}, baseAnalysis = n
       "Only return JSON.",
       "Treat every output as a suggestion that needs human review.",
       "Do not claim a relation, topic, or field is confirmed.",
+      "Return candidate viewpoints only; do not make the final conclusion for the user.",
+      "Bind every suggestion to concrete note evidence anchors.",
       "Prefer concise Chinese output when the note is Chinese."
     ],
     requiredOutputShape: {
+      candidateViewpoint: {
+        coreViewpoint: "string",
+        evidenceAnchors: ["string"],
+        uncertainties: ["string"],
+        counterQuestions: ["string"],
+        permanentNoteDraft: "string"
+      },
       distilledViewpoint: {
         thesis: "string",
         threeLineSummary: ["string", "string", "string"],
@@ -846,7 +859,7 @@ export function buildPermanentNoteLocalModelRequest(input = {}, baseAnalysis = n
     },
     model: context.model || {
       provider: "local_model",
-      model: cleanText(context.localModel || context.local_model) || "local_model",
+      model: cleanText(context.localModel || context.local_model) || DEFAULT_LOCAL_AI_MODEL,
       tier: "local_private",
       mode: "Local / Private"
     },
@@ -862,6 +875,10 @@ export function buildPermanentNoteLocalModelRequest(input = {}, baseAnalysis = n
     ],
     responseContract: payload.requiredOutputShape,
     canAutoConfirm: false,
+    executionDefaults: {
+      timeoutMs: DEFAULT_VIEWPOINT_DISTILLATION_TIMEOUT_MS,
+      numPredict: DEFAULT_VIEWPOINT_DISTILLATION_NUM_PREDICT
+    },
     fallbackAnalysis: analysis
   };
 }
@@ -900,8 +917,15 @@ function normalizeRelationType(value) {
 }
 
 function normalizePermanentNoteModelOutput(response = {}, request = {}, context = {}) {
-  const parsed = extractJsonObject(response?.content ?? response?.text ?? response?.output ?? response);
   const fallbackAnalysis = request?.fallbackAnalysis || {};
+  let parsed = {};
+  let parseError = null;
+  try {
+    parsed = extractJsonObject(response?.content ?? response?.text ?? response?.output ?? response);
+  } catch (error) {
+    parseError = error;
+    parsed = {};
+  }
   const noteId = cleanText(context.noteId || fallbackAnalysis.noteId || parsed.noteId || parsed.note_id);
   if (!noteId) {
     const error = new Error("noteId is required to normalize local model note analysis");
@@ -910,7 +934,12 @@ function normalizePermanentNoteModelOutput(response = {}, request = {}, context 
   }
 
   const viewpoint = parsed.distilledViewpoint || parsed.distilled_viewpoint || {};
-  const thesis = cleanText(viewpoint.thesis || parsed.thesis);
+  const candidateViewpoint = parsed.candidateViewpoint || parsed.candidate_viewpoint || {};
+  const thesis = cleanText(viewpoint.thesis || candidateViewpoint.coreViewpoint || candidateViewpoint.core_viewpoint || parsed.thesis);
+  const evidenceAnchors = stringItems(candidateViewpoint.evidenceAnchors || candidateViewpoint.evidence_anchors || parsed.evidenceAnchors || parsed.evidence_anchors).slice(0, 8);
+  const uncertainties = stringItems(candidateViewpoint.uncertainties || parsed.uncertainties).slice(0, 6);
+  const counterQuestions = stringItems(candidateViewpoint.counterQuestions || candidateViewpoint.counter_questions || parsed.counterQuestions || parsed.counter_questions).slice(0, 6);
+  const permanentNoteDraft = cleanText(candidateViewpoint.permanentNoteDraft || candidateViewpoint.permanent_note_draft || parsed.permanentNoteDraft || parsed.permanent_note_draft);
   const threeLineSummary = stringItems(viewpoint.threeLineSummary || viewpoint.three_line_summary || parsed.threeLineSummary || parsed.three_line_summary).slice(0, 3);
   const relationCandidates = (Array.isArray(parsed.relationCandidates || parsed.relation_candidates)
     ? parsed.relationCandidates || parsed.relation_candidates
@@ -968,9 +997,22 @@ function normalizePermanentNoteModelOutput(response = {}, request = {}, context 
       threeLineSummary,
       confidenceReason: cleanText(viewpoint.confidenceReason || viewpoint.confidence_reason || parsed.confidenceReason)
     },
+    candidateViewpoint: {
+      coreViewpoint: thesis,
+      evidenceAnchors,
+      uncertainties,
+      counterQuestions,
+      permanentNoteDraft
+    },
     relationCandidates,
     topicCandidates,
     principleWarnings,
+    parseError: parseError
+      ? {
+          code: "LOCAL_MODEL_JSON_PARSE_FAILED",
+          message: cleanText(parseError.message || parseError)
+        }
+      : null,
     raw: parsed
   };
 }
@@ -1018,13 +1060,23 @@ export function mergePermanentNoteLocalModelResponse(request = {}, response = {}
     reasons: [...new Set(reasons)],
     confidenceReason: modelOutput.distilledViewpoint.confidenceReason
   };
+  const modelWarnings = modelOutput.parseError
+    ? [
+        {
+          checkId: "local_model_json_parse_failed",
+          status: "warning",
+          message: "Local model output was not valid JSON; kept the rule-based review candidates instead.",
+          recommendedAction: "retry_local_model_or_review_rule_candidates"
+        }
+      ]
+    : [];
   const analysis = {
     ...base,
     noteId: modelOutput.noteId,
     analysisMode: "local_model_assisted",
-    analysisStatus: worstStatus([distillation, base.originality || {}, ...principleChecks]),
+    analysisStatus: worstStatus([distillation, base.originality || {}, ...principleChecks, ...modelWarnings]),
     distillation,
-    principleChecks,
+    principleChecks: [...principleChecks, ...modelWarnings],
     relationCandidates,
     topicCandidates,
     provenance: {
@@ -1033,7 +1085,9 @@ export function mergePermanentNoteLocalModelResponse(request = {}, response = {}
       cloudModelUsed: false,
       canAutoConfirm: false,
       fallbackContentOrigin: base.provenance?.contentOrigin || "system_rule"
-    }
+    },
+    candidateViewpoint: modelOutput.candidateViewpoint,
+    modelParseError: modelOutput.parseError
   };
   const modelContext = {
     ...context,

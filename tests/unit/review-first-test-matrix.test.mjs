@@ -147,11 +147,44 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/integration/api-vault-settings.test.mjs",
     snippets: [
+      'test("AI local runtime bootstrap previews readiness and prepares qwen3 local AI"',
       'test("AI inbox summarize runs current local route and persists summary decision"',
       'const acceptedAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(artifact.id)}/accept-link`, {',
       'const promotedAgain = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_question_promote/promote-note", {',
       'const ignoredAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(ignoredArtifactId)}/decision`, {',
       'const archivedAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(archivedArtifactId)}/decision`, {'
+    ]
+  },
+  {
+    file: "tests/unit/potential-relations.test.mjs",
+    snippets: [
+      'test("potential relation AI second stage batches candidates in review-sized chunks"',
+      'test("AI JSON parse failure preserves the rule candidate"',
+      'test("reject/no_relation AI output is not converted into a formal relation draft"',
+      'test("same-topic-only AI output remains a potential relation for user review"'
+    ]
+  },
+  {
+    file: "tests/integration/api-potential-relations-refine.test.mjs",
+    snippets: [
+      'assert.equal(response.json.batchPlan.batchSize, 4);',
+      'assert.equal(response.json.batchPlan.numPredict, 400);'
+    ]
+  },
+  {
+    file: "tests/unit/ai-note-analysis.test.mjs",
+    snippets: [
+      'test("local model viewpoint distillation accepts structured candidate viewpoint output"',
+      'test("local model viewpoint JSON failure falls back to rule candidates without auto-writing"',
+      'assert.equal(request.executionDefaults.timeoutMs, DEFAULT_VIEWPOINT_DISTILLATION_TIMEOUT_MS);'
+    ]
+  },
+  {
+    file: "tests/unit/ai-scheduled-agent-tasks.test.mjs",
+    snippets: [
+      'assert.equal(harnessInput.timeoutMs, DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS);',
+      'assert.equal(harnessInput.batchSize, DEFAULT_SCHEDULED_LOCAL_AI_BATCH_SIZE);',
+      'assert.equal(harnessInput.progress.retryable, true);'
     ]
   }
 ];

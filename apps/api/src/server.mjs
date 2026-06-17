@@ -91,10 +91,17 @@ import {
   analyzePermanentNoteGraphLocally,
   buildPermanentNoteGraphReviewItems,
   buildPotentialRelationCandidates,
+  buildPotentialRelationAiBatches,
+  DEFAULT_POTENTIAL_RELATION_AI_NUM_PREDICT,
   buildPermanentNoteLocalModelRequest,
   assertProviderModelCallAllowed,
   createScheduledTaskFromTemplate,
   DEFAULT_POTENTIAL_RELATION_MODEL,
+  DEFAULT_LOCAL_AI_MODEL,
+  DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND,
+  LOCAL_AI_MODEL_TIERS,
+  LOCAL_AI_RECOMMENDED_MODELS,
+  localModelProfile,
   listScheduledAgentTaskTemplates,
   PotentialRelationAiCache,
   preferencesToSettingsInput,
@@ -129,9 +136,12 @@ const CWD = process.cwd();
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
 const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures", "knowledge-network", "yijing-network.json");
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
-const OLLAMA_RECOMMENDED_MODEL = "qwen3:4b";
-const OLLAMA_RECOMMENDED_MODELS = ["qwen3:4b", "llama3.2:3b", "gemma3:4b", "qwen2.5:7b", "qwen2.5:3b"];
+const OLLAMA_RECOMMENDED_MODEL = DEFAULT_LOCAL_AI_MODEL;
+const OLLAMA_RECOMMENDED_MODELS = [...LOCAL_AI_RECOMMENDED_MODELS];
 const LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
+const OLLAMA_INSTALL_URL = "https://ollama.com/download";
+const DEFAULT_OLLAMA_GENERATE_TIMEOUT_MS = 60000;
+const MAX_OLLAMA_GENERATE_TIMEOUT_MS = 180000;
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -342,6 +352,69 @@ function normalizeOllamaModel(model = {}) {
   };
 }
 
+function currentPlatformName(platform = process.platform) {
+  if (platform === "win32") return "windows";
+  if (platform === "darwin") return "macos";
+  if (platform === "linux") return "linux";
+  return cleanText(platform) || "unknown";
+}
+
+function ollamaInstallGuide(platform = process.platform) {
+  const osName = currentPlatformName(platform);
+  const guides = {
+    windows: {
+      mode: "guided",
+      installUrl: OLLAMA_INSTALL_URL,
+      commands: [
+        "winget install --id Ollama.Ollama -e --accept-package-agreements --accept-source-agreements"
+      ],
+      steps: [
+        "Download Ollama for Windows, or install it with winget.",
+        "Launch Ollama after installation and keep it running in the background.",
+        "Return to Yansilu and run the local AI bootstrap check again."
+      ]
+    },
+    macos: {
+      mode: "guided",
+      installUrl: OLLAMA_INSTALL_URL,
+      commands: [
+        "brew install ollama"
+      ],
+      steps: [
+        "Download Ollama for macOS, or install it with Homebrew.",
+        "Start Ollama from the app or run `ollama serve`.",
+        "Return to Yansilu and run the local AI bootstrap check again."
+      ]
+    },
+    linux: {
+      mode: "guided",
+      installUrl: OLLAMA_INSTALL_URL,
+      commands: [
+        "curl -fsSL https://ollama.com/install.sh | sh"
+      ],
+      steps: [
+        "Install Ollama with the official Linux install command.",
+        "Start the Ollama service or run `ollama serve`.",
+        "Return to Yansilu and run the local AI bootstrap check again."
+      ]
+    }
+  };
+  return {
+    platform: osName,
+    autoInstallSupported: false,
+    ...(guides[osName] || {
+      mode: "guided",
+      installUrl: OLLAMA_INSTALL_URL,
+      commands: [],
+      steps: [
+        "Install Ollama from the official download page.",
+        "Start Ollama and keep it running in the background.",
+        "Return to Yansilu and run the local AI bootstrap check again."
+      ]
+    })
+  };
+}
+
 function runtimeModelMapForLocalModel(providerId = "ollama_local_gateway", modelName = OLLAMA_RECOMMENDED_MODEL) {
   const cleanProviderId = cleanText(providerId) || "ollama_local_gateway";
   const cleanModel = cleanText(modelName) || OLLAMA_RECOMMENDED_MODEL;
@@ -353,7 +426,7 @@ function preferredOllamaModelNames(models = []) {
     .map((model) => cleanText(model?.name || model?.model || model))
     .filter(Boolean);
   const seen = new Set();
-  return [...installedNames, ...OLLAMA_RECOMMENDED_MODELS].filter((name) => {
+  return [...OLLAMA_RECOMMENDED_MODELS, ...installedNames].filter((name) => {
     const key = name.toLowerCase();
     if (!key || seen.has(key)) return false;
     seen.add(key);
@@ -363,10 +436,15 @@ function preferredOllamaModelNames(models = []) {
 
 function ollamaSetupGuide(status = "unavailable", models = []) {
   const hasModels = Array.isArray(models) && models.length > 0;
+  const hasDefaultModel = (Array.isArray(models) ? models : []).some((model) => {
+    const name = cleanText(model?.name || model?.model || model).toLowerCase();
+    return name === OLLAMA_RECOMMENDED_MODEL.toLowerCase();
+  });
   if (status !== "available") {
     return {
       nextAction: "install_or_start_ollama",
-      installUrl: "https://ollama.com/download",
+      installUrl: OLLAMA_INSTALL_URL,
+      install: ollamaInstallGuide(),
       steps: [
         "下载并安装 Ollama。",
         "启动 Ollama，让它在后台运行。",
@@ -374,24 +452,29 @@ function ollamaSetupGuide(status = "unavailable", models = []) {
       ]
     };
   }
-  if (!hasModels) {
+  if (!hasModels || !hasDefaultModel) {
     return {
       nextAction: "pull_recommended_model",
       recommendedModel: OLLAMA_RECOMMENDED_MODEL,
+      recommendedModelProfile: localModelProfile(OLLAMA_RECOMMENDED_MODEL),
+      downloadCommand: DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND,
       steps: [
         `下载推荐模型 ${OLLAMA_RECOMMENDED_MODEL}。`,
+        `也可以复制命令：${DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND}`,
         "下载完成后，研思录会把它设为本地模型。",
-        "运行一次测试聊天，确认请求走本地模型。"
+        "运行健康检查，确认请求可以走本地模型。"
       ]
     };
   }
   return {
     nextAction: "select_or_test_model",
     recommendedModel: preferredOllamaModelNames(models)[0] || OLLAMA_RECOMMENDED_MODEL,
+    recommendedModelProfile: localModelProfile(preferredOllamaModelNames(models)[0] || OLLAMA_RECOMMENDED_MODEL),
+    downloadCommand: DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND,
     steps: [
       "从已安装模型里选择一个作为本地模型。",
       "保存当前服务配置。",
-      "运行一次测试聊天，确认模型可用。"
+      "运行健康检查，确认模型可用。"
     ]
   };
 }
@@ -557,6 +640,7 @@ async function buildOllamaModelsPreview() {
   const healthEndpointUrl = `${OLLAMA_BASE_URL}/api/tags`;
   const chatEndpointUrl = `${OLLAMA_BASE_URL}/v1/chat/completions`;
   const startedAt = Date.now();
+  const installation = await detectOllamaInstallation();
   try {
     const { response, json } = await fetchJsonWithTimeout(healthEndpointUrl, { timeoutMs: 2500 });
     const models = Array.isArray(json.models) ? json.models.map(normalizeOllamaModel).filter((model) => model.name) : [];
@@ -564,6 +648,8 @@ async function buildOllamaModelsPreview() {
       runtimeId: "ollama",
       displayName: "Ollama",
       status: response.ok ? "available" : "unavailable",
+      installation,
+      installed: installation.installed,
       baseUrl: OLLAMA_BASE_URL,
       chatEndpointUrl,
       healthEndpointUrl,
@@ -571,6 +657,9 @@ async function buildOllamaModelsPreview() {
       models,
       recommendedModels: preferredOllamaModelNames(models).slice(0, 8),
       recommendedModel: preferredOllamaModelNames(models)[0] || OLLAMA_RECOMMENDED_MODEL,
+      modelTiers: LOCAL_AI_MODEL_TIERS,
+      recommendedModelProfile: localModelProfile(preferredOllamaModelNames(models)[0] || OLLAMA_RECOMMENDED_MODEL),
+      downloadCommand: DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND,
       setupGuide: ollamaSetupGuide(response.ok ? "available" : "unavailable", models),
       message: response.ok ? "" : `Ollama returned HTTP ${response.status}`
     };
@@ -579,6 +668,8 @@ async function buildOllamaModelsPreview() {
       runtimeId: "ollama",
       displayName: "Ollama",
       status: "unavailable",
+      installation,
+      installed: installation.installed,
       baseUrl: OLLAMA_BASE_URL,
       chatEndpointUrl,
       healthEndpointUrl,
@@ -586,6 +677,9 @@ async function buildOllamaModelsPreview() {
       models: [],
       recommendedModels: [...OLLAMA_RECOMMENDED_MODELS],
       recommendedModel: OLLAMA_RECOMMENDED_MODEL,
+      modelTiers: LOCAL_AI_MODEL_TIERS,
+      recommendedModelProfile: localModelProfile(OLLAMA_RECOMMENDED_MODEL),
+      downloadCommand: DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND,
       setupGuide: ollamaSetupGuide("unavailable", []),
       message: cleanText(error?.message) || "Ollama is not reachable."
     };
@@ -625,9 +719,65 @@ async function resolveOllamaCommand() {
     const normalized = cleanText(candidate);
     if (!normalized || checked.includes(normalized)) continue;
     checked.push(normalized);
-    if (await fileExists(normalized)) return { command: normalized, checked };
+    if (await fileExists(normalized)) {
+      return {
+        command: normalized,
+        checked,
+        source: explicitBin && normalized === explicitBin ? "env" : "known_path"
+      };
+    }
   }
-  return { command: "ollama", checked };
+  return { command: "ollama", checked, source: "path" };
+}
+
+function execFileQuiet(command, args = [], options = {}) {
+  return new Promise((resolve) => {
+    const child = execFile(
+      command,
+      args,
+      { windowsHide: true, timeout: Math.max(0, Number(options.timeoutMs || 0) || 0) },
+      (error, stdout, stderr) => {
+        resolve({
+          command,
+          args,
+          ok: !error,
+          code: error?.code ?? 0,
+          signal: cleanText(error?.signal),
+          message: cleanText(error?.message || stderr || stdout || ""),
+          stdout: cleanText(stdout),
+          stderr: cleanText(stderr)
+        });
+      }
+    );
+    child.once("error", (error) => {
+      resolve({
+        command,
+        args,
+        ok: false,
+        code: error?.code ?? "ERROR",
+        signal: "",
+        message: cleanText(error?.message || error)
+      });
+    });
+  });
+}
+
+async function detectOllamaInstallation() {
+  const resolved = await resolveOllamaCommand();
+  const versionProbe = await execFileQuiet(resolved.command, ["--version"], { timeoutMs: 2500 });
+  return {
+    runtimeId: "ollama",
+    platform: currentPlatformName(),
+    installed: versionProbe.ok,
+    command: resolved.command,
+    commandSource: resolved.source,
+    checkedPaths: resolved.checked,
+    version: versionProbe.ok ? cleanText(versionProbe.stdout || versionProbe.stderr || versionProbe.message) : "",
+    installGuide: ollamaInstallGuide(),
+    message: versionProbe.ok
+      ? "Ollama CLI is installed."
+      : cleanText(versionProbe.message) || "Ollama CLI was not found."
+  };
 }
 
 async function waitForOllamaRuntimeStatus(targetStatus, timeoutMs = 8000) {
@@ -667,7 +817,8 @@ async function startOllamaRuntime() {
     if (spawnError) throw spawnError;
   } catch (error) {
     error.details = {
-      installUrl: "https://ollama.com/download",
+      installUrl: OLLAMA_INSTALL_URL,
+      installGuide: ollamaInstallGuide(),
       command: `${ollamaCommand.command} serve`,
       checkedPaths: ollamaCommand.checked
     };
@@ -683,20 +834,6 @@ async function startOllamaRuntime() {
       ? "Ollama started."
       : "Ollama start command was sent, but the runtime is not reachable yet."
   };
-}
-
-function execFileQuiet(command, args = []) {
-  return new Promise((resolve) => {
-    execFile(command, args, { windowsHide: true }, (error, stdout, stderr) => {
-      resolve({
-        command,
-        args,
-        ok: !error,
-        code: error?.code ?? 0,
-        message: cleanText(error?.message || stderr || stdout || "")
-      });
-    });
-  });
 }
 
 async function stopOllamaRuntime() {
@@ -759,6 +896,194 @@ async function pullOllamaModel(modelName = OLLAMA_RECOMMENDED_MODEL) {
     latencyMs: Date.now() - startedAt,
     pullEndpointUrl,
     runtime
+  };
+}
+
+function hasOllamaModel(runtime = {}, modelName = "") {
+  const target = cleanText(modelName).toLowerCase();
+  if (!target) return false;
+  return (Array.isArray(runtime.models) ? runtime.models : []).some((model) => {
+    const name = cleanText(model?.name || model?.model || model).toLowerCase();
+    return name === target;
+  });
+}
+
+function configuredLocalModel(providerConfig = null, providerId = "ollama_local_gateway", modelName = "") {
+  if (!providerConfig || cleanText(providerConfig.status) !== "enabled") return false;
+  const model = cleanText(modelName);
+  if (!model) return false;
+  const runtimeModelMap = providerConfig.runtimeModelMap || providerConfig.runtime_model_map || {};
+  return LOCAL_MODEL_TIERS.every((tier) => cleanText(runtimeModelMap[`${providerId}:${tier}`]) === model);
+}
+
+function localAiBootstrapStatus({ runtime = {}, providerConfig = null, health = null, modelName = OLLAMA_RECOMMENDED_MODEL, runtimeMode = "local_only" } = {}) {
+  const model = normalizeOllamaPullModelName(modelName) || OLLAMA_RECOMMENDED_MODEL;
+  const mode = normalizeLocalRuntimeMode(runtimeMode);
+  const providerId = mode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
+  const runtimeAvailable = runtime.status === "available";
+  const installed = runtime.installation?.installed === true || runtimeAvailable;
+  const modelReady = hasOllamaModel(runtime, model);
+  const configReady = configuredLocalModel(providerConfig, providerId, model);
+  const healthStatus = cleanText(health?.status) || "unknown";
+  const healthReady = healthStatus === "healthy";
+  let status = "ready";
+  let nextAction = "none";
+  let message = `Local AI is ready with ${model}.`;
+
+  if (!installed) {
+    status = "needs_install";
+    nextAction = "install_ollama";
+    message = "Ollama is not installed or cannot be found on this computer.";
+  } else if (!runtimeAvailable) {
+    status = "needs_start";
+    nextAction = "start_ollama";
+    message = "Ollama is installed, but the local runtime is not reachable.";
+  } else if (!modelReady) {
+    status = "needs_model";
+    nextAction = "pull_model";
+    message = `${model} is not installed in Ollama yet.`;
+  } else if (!configReady) {
+    status = "needs_config";
+    nextAction = "save_local_ai_config";
+    message = `${model} is installed; save it as the local AI provider model.`;
+  } else if (!healthReady) {
+    status = "needs_health_check";
+    nextAction = "run_health_check";
+    message = "Local AI config is saved; run a provider health check to confirm readiness.";
+  }
+
+  return {
+    status,
+    ready: status === "ready",
+    nextAction,
+    message,
+    runtimeId: "ollama",
+    providerId,
+    model,
+    runtimeMode: mode,
+    checks: {
+      installed,
+      runtimeAvailable,
+      modelReady,
+      configReady,
+      healthReady
+    }
+  };
+}
+
+async function latestLocalAiProviderState(providerId = "ollama_local_gateway") {
+  await initVault(VAULT_PATH);
+  const configStore = await aiProviderConfigStore();
+  const providerConfig = configStore.getProviderConfig({ id: providerId, providerId });
+  const healthStore = await aiProviderHealthStore();
+  const health = healthStore.getLatestProviderHealth({ providerId });
+  return { providerConfig, health };
+}
+
+async function buildOllamaBootstrapPreview(input = {}) {
+  const model = normalizeOllamaPullModelName(input.model || input.modelName || input.model_name) || OLLAMA_RECOMMENDED_MODEL;
+  const runtimeMode = normalizeLocalRuntimeMode(input.runtimeMode || input.runtime_mode);
+  const providerId = runtimeMode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
+  const runtime = await buildOllamaModelsPreview();
+  const { providerConfig, health } = await latestLocalAiProviderState(providerId);
+  return {
+    ...localAiBootstrapStatus({ runtime, providerConfig, health, modelName: model, runtimeMode }),
+    runtime,
+    installation: runtime.installation || null,
+    providerConfig,
+    health: providerHealthPreview(health),
+    modelTiers: LOCAL_AI_MODEL_TIERS,
+    modelProfile: localModelProfile(model),
+    downloadCommand: `ollama pull ${model}`,
+    installGuide: runtime.installation?.installGuide || ollamaInstallGuide()
+  };
+}
+
+async function runOllamaProviderHealth(providerConfig) {
+  const healthStore = await aiProviderHealthStore();
+  const result = await runProviderHealthCheck({
+    providerConfig: providerConfigWithRunnableHealthCheck(providerConfig),
+    providerHealthStore: healthStore,
+    trigger: "bootstrap",
+    networkEnabled: true
+  });
+  return result.record;
+}
+
+async function bootstrapOllamaLocalAi(input = {}) {
+  const model = normalizeOllamaPullModelName(input.model || input.modelName || input.model_name) || OLLAMA_RECOMMENDED_MODEL;
+  const runtimeMode = normalizeLocalRuntimeMode(input.runtimeMode || input.runtime_mode);
+  const autoStart = input.autoStart !== false && input.auto_start !== false;
+  const pullModel = input.pullModel !== false && input.pull_model !== false;
+  const enableConfig = input.enableConfig !== false && input.enable_config !== false;
+  const runHealth = input.healthCheck !== false && input.health_check !== false;
+  const actions = [];
+
+  let runtime = await buildOllamaModelsPreview();
+  if (runtime.status !== "available") {
+    if (runtime.installation?.installed !== true) {
+      const preview = await buildOllamaBootstrapPreview({ model, runtimeMode });
+      return {
+        ...preview,
+        actions,
+        message: "Ollama must be installed before Yansilu can start the local runtime."
+      };
+    }
+    if (autoStart) {
+      const started = await startOllamaRuntime();
+      actions.push({ action: "start_ollama", status: started.status, message: started.message });
+      runtime = started.runtime || await buildOllamaModelsPreview();
+    }
+  }
+
+  if (runtime.status !== "available") {
+    const preview = await buildOllamaBootstrapPreview({ model, runtimeMode });
+    return { ...preview, actions };
+  }
+
+  if (!hasOllamaModel(runtime, model)) {
+    if (!pullModel) {
+      const preview = await buildOllamaBootstrapPreview({ model, runtimeMode });
+      return { ...preview, actions };
+    }
+    const pulled = await pullOllamaModel(model);
+    actions.push({ action: "pull_model", model: pulled.model, status: pulled.status, latencyMs: pulled.latencyMs });
+    runtime = pulled.runtime || await buildOllamaModelsPreview();
+  }
+
+  let enabled = null;
+  let providerConfig = null;
+  let health = null;
+  if (enableConfig) {
+    enabled = await enableOllamaLocalModel(model, { runtimeMode });
+    providerConfig = enabled.providerConfig;
+    actions.push({ action: "save_local_ai_config", providerId: providerConfig.providerId, model });
+  }
+
+  if (runHealth && providerConfig) {
+    health = await runOllamaProviderHealth(providerConfig);
+    actions.push({ action: "run_health_check", status: health.status, message: health.message });
+  }
+
+  const providerId = runtimeMode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
+  if (!providerConfig || !health) {
+    const state = await latestLocalAiProviderState(providerId);
+    providerConfig ||= state.providerConfig;
+    health ||= state.health;
+  }
+
+  return {
+    ...localAiBootstrapStatus({ runtime, providerConfig, health, modelName: model, runtimeMode }),
+    runtime,
+    installation: runtime.installation || null,
+    providerConfig,
+    health: providerHealthPreview(health),
+    modelTiers: LOCAL_AI_MODEL_TIERS,
+    modelProfile: localModelProfile(model),
+    downloadCommand: `ollama pull ${model}`,
+    installGuide: runtime.installation?.installGuide || ollamaInstallGuide(),
+    enabled,
+    actions
   };
 }
 
@@ -1408,7 +1733,13 @@ function graphArtifactExecutionContext({ body = {}, notes = [], rid = "", provid
 
 async function callOllamaGenerate(prompt = "", options = {}) {
   const model = cleanText(options.modelName || options.model || DEFAULT_POTENTIAL_RELATION_MODEL) || DEFAULT_POTENTIAL_RELATION_MODEL;
-  const timeoutMs = Math.max(1, Math.min(Number(options.timeoutMs ?? options.timeout_ms ?? 60000) || 60000, 60000));
+  const timeoutMs = Math.max(
+    1,
+    Math.min(
+      Number(options.timeoutMs ?? options.timeout_ms ?? DEFAULT_OLLAMA_GENERATE_TIMEOUT_MS) || DEFAULT_OLLAMA_GENERATE_TIMEOUT_MS,
+      MAX_OLLAMA_GENERATE_TIMEOUT_MS
+    )
+  );
   const controller = new AbortController();
   function ollamaTimeoutError() {
     const timeoutError = new Error(`OLLAMA_TIMEOUT_${timeoutMs}`);
@@ -3481,6 +3812,37 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/local-runtimes/ollama/bootstrap") {
+      try {
+        const item = await buildOllamaBootstrapPreview({
+          model: url.searchParams.get("model") || "",
+          runtimeMode: url.searchParams.get("runtimeMode") || url.searchParams.get("runtime_mode") || ""
+        });
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, error?.status || 500, err("OLLAMA_BOOTSTRAP_PREVIEW_FAILED", String(error?.message || error), rid, error?.details || {}));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/bootstrap") {
+      try {
+        assertLocalRuntimeControlAllowed(req);
+        const body = await readJson(req);
+        const item = await bootstrapOllamaLocalAi(body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, error?.status || 502, err("OLLAMA_BOOTSTRAP_FAILED", String(error?.message || error), rid, error?.details || {}));
+      }
+    }
+
     if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/start") {
       try {
         assertLocalRuntimeControlAllowed(req);
@@ -4763,7 +5125,17 @@ const server = http.createServer(async (req, res) => {
               privacyMode: body.privacyMode ?? body.privacy_mode
             })
           : null;
-        const timeoutMs = Math.min(Number(body.timeoutMs ?? body.timeout_ms) || 60000, 60000);
+        const batchPlan = buildPotentialRelationAiBatches(scan.candidates, {
+          batchSize: body.batchSize ?? body.batch_size,
+          timeoutMs: body.batchTimeoutMs ?? body.batch_timeout_ms,
+          numPredict: body.numPredict ?? body.num_predict
+        });
+        const hasBatchTimeout =
+          body.batchTimeoutMs !== undefined ||
+          body.batch_timeout_ms !== undefined;
+        const timeoutMs = hasBatchTimeout
+          ? batchPlan[0]?.timeoutMs || 120000
+          : Math.min(Number(body.timeoutMs ?? body.timeout_ms) || 60000, 60000);
         const modelName = providerExecution
           ? cleanText(providerExecution.modelRoute?.modelRef) || DEFAULT_POTENTIAL_RELATION_MODEL
           : cleanText(body.modelName || body.model_name || body.model) || DEFAULT_POTENTIAL_RELATION_MODEL;
@@ -4776,7 +5148,7 @@ const server = http.createServer(async (req, res) => {
           userMode: providerExecution?.modelRoute?.userMode || cleanText(body.userMode || body.user_mode) || "Local / Private",
           timeoutMs,
           temperature: Number(body.temperature ?? 0.1),
-          numPredict: Number(body.numPredict ?? body.num_predict ?? 320),
+          numPredict: Number(body.numPredict ?? body.num_predict ?? DEFAULT_POTENTIAL_RELATION_AI_NUM_PREDICT),
           confirmationApproved: body.confirmationApproved === true || body.confirmation_approved === true,
           confirmBudget: body.confirmBudget === true || body.confirm_budget === true,
           callModel: providerExecution
@@ -4844,6 +5216,13 @@ const server = http.createServer(async (req, res) => {
             providerId: providerExecution?.providerDescriptor?.providerId || "ollama_direct",
             modelRef: modelName,
             mode: scan.mode
+          },
+          batchPlan: {
+            batchSize: batchPlan[0]?.batchSize || 4,
+            timeoutMs: batchPlan[0]?.timeoutMs || 120000,
+            numPredict: batchPlan[0]?.numPredict || DEFAULT_POTENTIAL_RELATION_AI_NUM_PREDICT,
+            totalBatches: batchPlan.length,
+            candidateCount: scan.candidates.length
           },
           reviewItems: {
             storedArtifactIds: storedArtifacts.map((artifact) => artifact.id),

@@ -613,6 +613,9 @@ test("AI local runtime API detects Ollama-compatible models", async (t) => {
   assert.equal(detected.json.item.healthEndpointUrl, `${ollama.baseUrl}/api/tags`);
   assert.equal(detected.json.item.models[0].name, "qwen2.5:3b");
   assert.equal(detected.json.item.models[0].parameterSize, "3B");
+  assert.equal(detected.json.item.recommendedModel, "qwen3:8b");
+  assert.equal(detected.json.item.setupGuide.nextAction, "pull_recommended_model");
+  assert.equal(detected.json.item.setupGuide.downloadCommand, "ollama pull qwen3:8b");
   assert.ok(detected.json.item.recommendedModels.includes("qwen2.5:3b"));
 });
 
@@ -656,6 +659,81 @@ test("AI local runtime API can pull an Ollama model", async (t) => {
   assert.equal(invalid.status, 400, JSON.stringify(invalid.json));
 });
 
+test("AI local runtime bootstrap previews readiness and prepares qwen3 local AI", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-local-bootstrap-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const ollama = await startOllamaProbeServer([]);
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath,
+      OLLAMA_BASE_URL: ollama.baseUrl
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => ollama.close());
+  await waitForHealth(baseUrl);
+
+  const previewBefore = await getJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/bootstrap?model=qwen3:8b&runtimeMode=local_only");
+  assert.equal(previewBefore.status, 200, JSON.stringify(previewBefore.json));
+  assert.equal(previewBefore.json.item.status, "needs_model");
+  assert.equal(previewBefore.json.item.ready, false);
+  assert.equal(previewBefore.json.item.nextAction, "pull_model");
+  assert.equal(previewBefore.json.item.downloadCommand, "ollama pull qwen3:8b");
+  assert.equal(previewBefore.json.item.checks.modelReady, false);
+
+  const configBefore = await getJson(baseUrl, "/api/v1/ai/provider-configs/ollama_local_gateway");
+  assert.equal(configBefore.status, 404, JSON.stringify(configBefore.json));
+
+  const bootstrapped = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/bootstrap", {
+    model: "qwen3:8b",
+    runtimeMode: "local_only"
+  }, {
+    headers: { "x-yansilu-local-runtime-control": "1" }
+  });
+  assert.equal(bootstrapped.status, 200, JSON.stringify(bootstrapped.json));
+  assert.equal(bootstrapped.json.item.status, "ready");
+  assert.equal(bootstrapped.json.item.ready, true);
+  assert.equal(bootstrapped.json.item.model, "qwen3:8b");
+  assert.deepEqual(bootstrapped.json.item.checks, {
+    installed: true,
+    runtimeAvailable: true,
+    modelReady: true,
+    configReady: true,
+    healthReady: true
+  });
+  assert.deepEqual(
+    bootstrapped.json.item.actions.map((action) => action.action),
+    ["pull_model", "save_local_ai_config", "run_health_check"]
+  );
+  assert.equal(bootstrapped.json.item.enabled.preferences.modelPack, "Ollama Local");
+  assert.equal(bootstrapped.json.item.enabled.preferences.advancedSettings.localModel, "qwen3:8b");
+  assert.equal(bootstrapped.json.item.providerConfig.providerId, "ollama_local_gateway");
+  assert.equal(bootstrapped.json.item.providerConfig.runtimeModelMap["ollama_local_gateway:local_private"], "qwen3:8b");
+  assert.equal(bootstrapped.json.item.health.status, "healthy");
+
+  const configAfter = await getJson(baseUrl, "/api/v1/ai/provider-configs/ollama_local_gateway");
+  assert.equal(configAfter.status, 200, JSON.stringify(configAfter.json));
+  assert.equal(configAfter.json.item.runtimeModelMap["ollama_local_gateway:local_private"], "qwen3:8b");
+
+  const previewAfter = await getJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/bootstrap?model=qwen3:8b&runtimeMode=local_only");
+  assert.equal(previewAfter.status, 200, JSON.stringify(previewAfter.json));
+  assert.equal(previewAfter.json.item.status, "ready");
+  assert.equal(previewAfter.json.item.ready, true);
+
+  const routePreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
+  assert.equal(routePreview.status, 200, JSON.stringify(routePreview.json));
+  assert.equal(routePreview.json.item.modelPack, "Ollama Local");
+  assert.equal(routePreview.json.item.provider.providerId, "ollama_local_gateway");
+  assert.equal(routePreview.json.item.route.modelRef, "ollama_local_gateway:qwen3:8b");
+});
+
 test("AI local runtime API can enable a pulled Ollama model", async (t) => {
   const vaultPath = await makeTempDir("yansilu-ai-local-enable-vault-");
   const port = await findFreePort();
@@ -678,23 +756,23 @@ test("AI local runtime API can enable a pulled Ollama model", async (t) => {
   await waitForHealth(baseUrl);
 
   const pulled = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
-    model: "qwen3:4b",
+    model: "qwen3:8b",
     enable: true
   }, {
     headers: { "x-yansilu-local-runtime-control": "1" }
   });
   assert.equal(pulled.status, 200, JSON.stringify(pulled.json));
-  assert.equal(pulled.json.item.model, "qwen3:4b");
+  assert.equal(pulled.json.item.model, "qwen3:8b");
   assert.equal(pulled.json.item.enabled.preferences.modelPack, "Ollama Local");
-  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localModel, "qwen3:4b");
+  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localModel, "qwen3:8b");
   assert.equal(pulled.json.item.enabled.providerConfig.providerId, "ollama_local_gateway");
-  assert.equal(pulled.json.item.enabled.providerConfig.runtimeModelMap["ollama_local_gateway:local_private"], "qwen3:4b");
+  assert.equal(pulled.json.item.enabled.providerConfig.runtimeModelMap["ollama_local_gateway:local_private"], "qwen3:8b");
 
   const preview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
   assert.equal(preview.status, 200, JSON.stringify(preview.json));
   assert.equal(preview.json.item.modelPack, "Ollama Local");
   assert.equal(preview.json.item.provider.providerId, "ollama_local_gateway");
-  assert.equal(preview.json.item.route.modelRef, "ollama_local_gateway:qwen3:4b");
+  assert.equal(preview.json.item.route.modelRef, "ollama_local_gateway:qwen3:8b");
 });
 
 test("AI local runtime API preserves hybrid mode when enabling a pulled Ollama model", async (t) => {
@@ -719,7 +797,7 @@ test("AI local runtime API preserves hybrid mode when enabling a pulled Ollama m
   await waitForHealth(baseUrl);
 
   const pulled = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
-    model: "qwen3:4b",
+    model: "qwen3:8b",
     enable: true,
     runtimeMode: "hybrid"
   }, {
@@ -731,9 +809,9 @@ test("AI local runtime API preserves hybrid mode when enabling a pulled Ollama m
   assert.equal(pulled.json.item.enabled.preferences.privacy.allowCloud, true);
   assert.equal(pulled.json.item.enabled.preferences.advancedSettings.runtimeMode, "hybrid");
   assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localProviderPreset, "local_private_gateway");
-  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localModel, "qwen3:4b");
+  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localModel, "qwen3:8b");
   assert.equal(pulled.json.item.enabled.providerConfig.providerId, "local_private_gateway");
-  assert.equal(pulled.json.item.enabled.providerConfig.runtimeModelMap["local_private_gateway:local_private"], "qwen3:4b");
+  assert.equal(pulled.json.item.enabled.providerConfig.runtimeModelMap["local_private_gateway:local_private"], "qwen3:8b");
 
   const cloudPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
   assert.equal(cloudPreview.status, 200, JSON.stringify(cloudPreview.json));
@@ -747,7 +825,7 @@ test("AI local runtime API preserves hybrid mode when enabling a pulled Ollama m
   assert.equal(localPreview.status, 200, JSON.stringify(localPreview.json));
   assert.equal(localPreview.json.item.modelPack, "Starter Auto");
   assert.equal(localPreview.json.item.provider.providerId, "local_private_gateway");
-  assert.equal(localPreview.json.item.route.modelRef, "local_private_gateway:qwen3:4b");
+  assert.equal(localPreview.json.item.route.modelRef, "local_private_gateway:qwen3:8b");
   assert.equal(localPreview.json.item.access.keyMode, "no_key");
 });
 

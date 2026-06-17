@@ -752,6 +752,83 @@ test("prototype API fetches Ollama local runtime models", async () => {
   }
 });
 
+test("prototype API fetches Ollama bootstrap status with model options", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-bootstrap-status", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          status: "needs_model",
+          nextAction: "pull_model",
+          model: "qwen3:8b"
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const status = await api.fetchOllamaBootstrapStatus({ model: "qwen3:8b", runtimeMode: "local_only" });
+
+    assert.equal(calls.length, 1);
+    const url = new URL(calls[0].url);
+    assert.equal(url.origin, "http://127.0.0.1:3999");
+    assert.equal(url.pathname, "/api/v1/ai/local-runtimes/ollama/bootstrap");
+    assert.equal(url.searchParams.get("model"), "qwen3:8b");
+    assert.equal(url.searchParams.get("runtimeMode"), "local_only");
+    assert.equal(calls[0].options.method, undefined);
+    assert.equal(status.nextAction, "pull_model");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API can run the Ollama local AI bootstrap", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-bootstrap-run", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          status: "ready",
+          ready: true,
+          model: "qwen3:8b",
+          actions: [{ action: "save_local_ai_config" }]
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const result = await api.bootstrapOllamaLocalAi({ model: "qwen3:8b", pullModel: true, runtimeMode: "hybrid" });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/bootstrap");
+    assert.equal(calls[0].options.method, "POST");
+    assert.equal(calls[0].options.headers["X-Yansilu-Local-Runtime-Control"], "1");
+    assert.deepEqual(JSON.parse(calls[0].options.body), { model: "qwen3:8b", pullModel: true, runtimeMode: "hybrid" });
+    assert.equal(result.ready, true);
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API pulls an Ollama local runtime model", async () => {
   const previousFetch = globalThis.fetch;
   const api = await importPrototypeApi("ollama-pull-model", { __API_BASE__: "http://127.0.0.1:3999" });
@@ -874,7 +951,7 @@ test("prototype API can request enabling a pulled Ollama model", async () => {
       JSON.stringify({
         item: {
           runtimeId: "ollama",
-          model: "qwen3:4b",
+          model: "qwen3:8b",
           status: "success",
           enabled: {
             preferences: { modelPack: "Starter Auto" },
@@ -890,11 +967,11 @@ test("prototype API can request enabling a pulled Ollama model", async () => {
   };
 
   try {
-    const result = await api.pullOllamaModel("qwen3:4b", { enable: true, runtimeMode: "hybrid" });
+    const result = await api.pullOllamaModel("qwen3:8b", { enable: true, runtimeMode: "hybrid" });
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/pull-model");
-    assert.deepEqual(JSON.parse(calls[0].options.body), { model: "qwen3:4b", enable: true, runtimeMode: "hybrid" });
+    assert.deepEqual(JSON.parse(calls[0].options.body), { model: "qwen3:8b", enable: true, runtimeMode: "hybrid" });
     assert.equal(result.enabled.preferences.modelPack, "Starter Auto");
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;

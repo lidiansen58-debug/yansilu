@@ -17,6 +17,7 @@ export * from "./harness.mjs";
 export * from "./inbox-review-actions.mjs";
 export * from "./mock-provider-adapter.mjs";
 export * from "./note-analysis.mjs";
+export * from "./local-model-catalog.mjs";
 export * from "./model-pack-config-contract.mjs";
 export * from "./model-packs.mjs";
 export * from "./model-router.mjs";

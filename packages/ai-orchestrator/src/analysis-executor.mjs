@@ -18,6 +18,42 @@ function responsePayload(response = {}) {
   return response;
 }
 
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return undefined;
+}
+
+function executionSettingsFor(request = {}, context = {}) {
+  const executionDefaults = request.executionDefaults || request.execution_defaults || {};
+  const settings = {
+    stream: false,
+    temperature: Number(firstFiniteNumber(executionDefaults.temperature, context.temperature) ?? 0.1)
+  };
+  const tokenLimit = firstFiniteNumber(
+    executionDefaults.numPredict,
+    executionDefaults.num_predict,
+    context.numPredict,
+    context.num_predict
+  );
+  if (tokenLimit !== undefined) {
+    settings.num_predict = tokenLimit;
+    settings.maxOutputTokens = tokenLimit;
+    settings.max_output_tokens = tokenLimit;
+  }
+  const timeoutMs = firstFiniteNumber(
+    executionDefaults.timeoutMs,
+    executionDefaults.timeout_ms,
+    context.timeoutMs,
+    context.timeout_ms
+  );
+  if (timeoutMs !== undefined) settings.timeoutMs = timeoutMs;
+  return settings;
+}
+
 async function executeAnalysisRequest(request = {}, adapter = {}, context = {}) {
   if (!adapter || typeof adapter.complete !== "function") {
     const error = new Error("analysis model execution requires a provider adapter with complete()");
@@ -38,6 +74,7 @@ async function executeAnalysisRequest(request = {}, adapter = {}, context = {}) 
       mode: "json",
       schema: request.responseContract || {}
     },
+    settings: executionSettingsFor(request, context),
     policy: {
       privacyMode,
       allowCloud: request.privacy?.cloudModelAllowed === true || privacyMode !== "local_only",

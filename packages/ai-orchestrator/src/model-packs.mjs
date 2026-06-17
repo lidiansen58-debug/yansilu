@@ -157,7 +157,7 @@ const MODEL_PACKS = {
   ollama_local: {
     modelPackId: "ollama_local",
     modelPack: "Ollama Local",
-    description: "Run eligible AI work through Ollama on localhost with a small local model.",
+    description: "Run eligible AI work through Ollama on localhost with the default local reasoning model.",
     defaultUserMode: "Local / Private",
     providerPreset: "ollama_local_gateway",
     authMode: "local_no_key",

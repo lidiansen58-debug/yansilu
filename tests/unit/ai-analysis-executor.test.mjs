@@ -69,6 +69,8 @@ test("permanent note local model executor runs local adapter and returns review 
   assert.equal(adapter.callCount, 1);
   assert.equal(adapter.lastRequest.policy.privacyMode, "local_only");
   assert.equal(adapter.lastRequest.policy.allowCloud, false);
+  assert.equal(adapter.lastRequest.settings.maxOutputTokens, 800);
+  assert.equal(adapter.lastRequest.settings.timeoutMs, 60000);
   assert.equal(result.providerResponse.status, "succeeded");
   assert.equal(result.analysis.analysisMode, "local_model_assisted");
   assert.equal(result.reviewItems.summary.canAutoConfirm, false);
@@ -124,6 +126,8 @@ test("writing strong model executor requires confirmed request and normalizes ar
   assert.equal(adapter.callCount, 1);
   assert.equal(adapter.lastRequest.policy.privacyMode, "remote_after_confirmation");
   assert.equal(adapter.lastRequest.policy.allowCloud, true);
+  assert.equal(adapter.lastRequest.settings.maxOutputTokens, undefined);
+  assert.equal(adapter.lastRequest.settings.num_predict, undefined);
   assert.equal(result.providerResponse.status, "succeeded");
   assert.equal(result.analysisMode, "remote_strong_model_writing");
   assert.equal(result.summary.canAutoConfirm, false);

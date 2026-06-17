@@ -1,5 +1,6 @@
 import { normalizeProviderDescriptor } from "./provider-adapter.mjs";
 import { resolveAiUserSettings } from "./model-packs.mjs";
+import { DEFAULT_LOCAL_AI_MODEL } from "./local-model-catalog.mjs";
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -165,12 +166,12 @@ const PROVIDER_PRESETS = {
       local_private: "ollama_local_gateway:local_private"
     },
     runtimeModelMap: {
-      "ollama_local_gateway:router_fast": "qwen3:4b",
-      "ollama_local_gateway:cheap_fast": "qwen3:4b",
-      "ollama_local_gateway:standard": "qwen3:4b",
-      "ollama_local_gateway:strong_reasoning": "qwen3:4b",
-      "ollama_local_gateway:guardrail": "qwen3:4b",
-      "ollama_local_gateway:local_private": "qwen3:4b"
+      "ollama_local_gateway:router_fast": DEFAULT_LOCAL_AI_MODEL,
+      "ollama_local_gateway:cheap_fast": DEFAULT_LOCAL_AI_MODEL,
+      "ollama_local_gateway:standard": DEFAULT_LOCAL_AI_MODEL,
+      "ollama_local_gateway:strong_reasoning": DEFAULT_LOCAL_AI_MODEL,
+      "ollama_local_gateway:guardrail": DEFAULT_LOCAL_AI_MODEL,
+      "ollama_local_gateway:local_private": DEFAULT_LOCAL_AI_MODEL
     }
   },
   minicpm_local_gateway: {

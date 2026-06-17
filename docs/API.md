@@ -333,7 +333,7 @@ Request:
   "relationLimit": 5,
   "prepareLocalModelRequest": false,
   "executeLocalModel": false,
-  "localModel": "qwen2.5:7b",
+  "localModel": "qwen3:8b",
   "localModelResponse": null,
   "persistArtifacts": true
 }
@@ -347,6 +347,8 @@ Local model fields:
 - `executeLocalModel: true` sends `item.localModelRequest` through the configured local/private provider adapter. The default route is `Ollama Local` / `ollama_local_gateway`; callers may pass `providerPreset`, `endpointUrl`, `modelPack`, `modelRef`, and provider auth fields to override routing. If provider execution fails, the endpoint falls back to local rules unless `fallbackOnProviderFailure: false` is supplied.
 - `localModelResponse` accepts the JSON returned by a local model and merges it with the local-rule baseline. The merged result uses `analysisMode: "local_model_assisted"` and every generated item remains `pending_review` or `suggested`.
 - `localModel` names the intended local model in the request metadata.
+
+The local model request asks for candidate viewpoints only, not final user conclusions. Its structured contract includes `candidateViewpoint.coreViewpoint`, `evidenceAnchors`, `uncertainties`, `counterQuestions`, and `permanentNoteDraft`, alongside the legacy `distilledViewpoint` fields. Default execution settings are about 60 seconds with `num_predict` around 800. If the local model returns malformed JSON, the endpoint keeps the local-rule review candidates, records a parse warning, and does not auto-write note fields or graph edges.
 
 Response status: `200`
 
@@ -1461,7 +1463,7 @@ Response status: `200`
 
 ### `GET /api/v1/ai/local-runtimes/ollama/models`
 
-Checks a local Ollama runtime and returns the installed model list. This endpoint does not run model inference; it calls Ollama's tag endpoint and normalizes the response for settings UI discovery.
+Checks a local Ollama runtime and returns the installed model list. This endpoint does not run model inference; it probes the Ollama CLI, calls Ollama's tag endpoint, and normalizes the response for settings UI discovery.
 
 Configure the Ollama base URL with `OLLAMA_BASE_URL`. Default: `http://127.0.0.1:11434`.
 
@@ -1473,20 +1475,29 @@ Response status: `200`
     "runtimeId": "ollama",
     "displayName": "Ollama",
     "status": "available",
+    "installed": true,
+    "installation": {
+      "platform": "windows",
+      "installed": true,
+      "command": "ollama",
+      "commandSource": "path",
+      "version": "ollama version is 0.9.0"
+    },
     "baseUrl": "http://127.0.0.1:11434",
     "chatEndpointUrl": "http://127.0.0.1:11434/v1/chat/completions",
     "healthEndpointUrl": "http://127.0.0.1:11434/api/tags",
     "latencyMs": 24,
     "models": [
       {
-        "name": "qwen2.5:7b",
+        "name": "qwen3:8b",
         "modifiedAt": "2026-05-14T00:00:00.000Z",
         "size": 4683087332,
-        "parameterSize": "7.6B",
+        "parameterSize": "8B",
         "quantizationLevel": "Q4_K_M"
       }
     ],
-    "recommendedModels": ["qwen2.5:7b"],
+    "recommendedModels": ["qwen3:8b", "qwen2.5:7b", "qwen3.5:9b"],
+    "downloadCommand": "ollama pull qwen3:8b",
     "message": ""
   },
   "requestId": "req_...",
@@ -1496,15 +1507,83 @@ Response status: `200`
 
 If Ollama is not reachable, the route still returns `200` with `item.status` set to `unavailable`, an empty `models` list, default recommendations, and a diagnostic `message`.
 
-### `POST /api/v1/ai/local-runtimes/ollama/pull-model`
+### `POST /api/v1/graph/potential-relations/refine`
 
-Downloads a local Ollama model through the local Ollama runtime. This is intended for settings flows where the user chooses local or hybrid AI and needs a recommended small model installed before local inference can run.
+Runs the second-stage AI review for one potential relation candidate after the first-stage rule/keyword/graph scan has already produced candidates. This endpoint does not perform all-pairs model comparison and does not create graph edges; refined output remains a potential relation for user review.
+
+Defaults:
+
+- model: `qwen3:8b` through the current local route when local mode is selected.
+- `timeoutMs`: about `60000` for one interactive candidate refinement.
+- `numPredict`: `400`, constrained for relation judgment.
+- `batchPlan`: returned as guidance for background refinement, defaulting to 4 candidates per batch, 120s timeout, and 400 tokens.
+
+If model JSON parsing fails, the rule candidate is preserved with retry metadata rather than being dropped or written as a relation.
+
+### `GET /api/v1/ai/local-runtimes/ollama/bootstrap`
+
+Returns the local AI bootstrap status for a target Ollama model without mutating the machine or saved settings. This endpoint is intended for settings/onboarding flows that need a single readiness object.
+
+Query parameters:
+
+- `model`: target Ollama model. Defaults to `qwen3:8b`.
+- `runtimeMode`: `local_only` or `hybrid`. Defaults to `local_only`.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "runtimeId": "ollama",
+    "status": "needs_model",
+    "ready": false,
+    "nextAction": "pull_model",
+    "providerId": "ollama_local_gateway",
+    "model": "qwen3:8b",
+    "runtimeMode": "local_only",
+    "checks": {
+      "installed": true,
+      "runtimeAvailable": true,
+      "modelReady": false,
+      "configReady": false,
+      "healthReady": false
+    },
+    "installation": {
+      "platform": "windows",
+      "installed": true,
+      "installGuide": {
+        "mode": "guided",
+        "installUrl": "https://ollama.com/download",
+        "autoInstallSupported": false
+      }
+    },
+    "health": {
+      "status": "unknown"
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-06-17T03:00:00.000Z"
+}
+```
+
+Possible status values include `needs_install`, `needs_start`, `needs_model`, `needs_config`, `needs_health_check`, and `ready`.
+
+### `POST /api/v1/ai/local-runtimes/ollama/bootstrap`
+
+Runs the guarded local AI bootstrap flow for a target Ollama model. It can start Ollama when the CLI is installed, pull the requested model, save local AI provider/model config, and run a provider health check. It does not automatically install system software; when Ollama is missing, the response includes guided install commands for Windows, macOS, or Linux.
+
+This mutation endpoint requires the same local runtime guard as the start/stop/pull endpoints: loopback request, allowed local app origin, and `X-Yansilu-Local-Runtime-Control: 1`.
 
 Request:
 
 ```json
 {
-  "model": "qwen2.5:7b"
+  "model": "qwen3:8b",
+  "runtimeMode": "local_only",
+  "autoStart": true,
+  "pullModel": true,
+  "enableConfig": true,
+  "healthCheck": true
 }
 ```
 
@@ -1514,7 +1593,54 @@ Response status: `200`
 {
   "item": {
     "runtimeId": "ollama",
-    "model": "qwen2.5:7b",
+    "status": "ready",
+    "ready": true,
+    "nextAction": "none",
+    "providerId": "ollama_local_gateway",
+    "model": "qwen3:8b",
+    "actions": [
+      {
+        "action": "pull_model",
+        "model": "qwen3:8b",
+        "status": "success"
+      },
+      {
+        "action": "save_local_ai_config",
+        "providerId": "ollama_local_gateway",
+        "model": "qwen3:8b"
+      },
+      {
+        "action": "run_health_check",
+        "status": "healthy"
+      }
+    ]
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-06-17T03:00:00.000Z"
+}
+```
+
+Failures return `502` with `OLLAMA_BOOTSTRAP_FAILED` unless the local runtime guard rejects the request with `403`.
+
+### `POST /api/v1/ai/local-runtimes/ollama/pull-model`
+
+Downloads a local Ollama model through the local Ollama runtime. This is intended for settings flows where the user chooses local or hybrid AI and needs the default local reasoning model installed before local inference can run.
+
+Request:
+
+```json
+{
+  "model": "qwen3:8b"
+}
+```
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "runtimeId": "ollama",
+    "model": "qwen3:8b",
     "status": "success",
     "latencyMs": 145000,
     "pullEndpointUrl": "http://127.0.0.1:11434/api/pull",
@@ -1523,8 +1649,8 @@ Response status: `200`
       "status": "available",
       "models": [
         {
-          "name": "qwen2.5:7b",
-          "parameterSize": "7.6B",
+          "name": "qwen3:8b",
+          "parameterSize": "8B",
           "quantizationLevel": "Q4_K_M"
         }
       ]

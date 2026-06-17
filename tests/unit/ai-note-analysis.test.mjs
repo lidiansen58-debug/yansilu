@@ -10,6 +10,9 @@ import {
   buildPermanentNoteGraphReviewItems,
   createAiInbox,
   createInMemoryArtifactStore,
+  DEFAULT_LOCAL_AI_MODEL,
+  DEFAULT_VIEWPOINT_DISTILLATION_NUM_PREDICT,
+  DEFAULT_VIEWPOINT_DISTILLATION_TIMEOUT_MS,
   mergePermanentNoteLocalModelResponse,
   normalizePermanentNoteAnalysisInput,
   noteAnalysisPrincipleCheckIds,
@@ -205,6 +208,25 @@ test("note analysis field suggestions are visible in AI inbox without mutating s
   assert.deepEqual(inbox.counts({ sourceNoteId: "pn_inbox" }).reviewed, 0);
 });
 
+test("local model request builder defaults permanent note distillation to qwen3 local model", () => {
+  const request = buildPermanentNoteLocalModelRequest({
+    noteId: "pn_default_local_model",
+    title: "Local viewpoint distillation default",
+    body: "Local viewpoint distillation should draft candidate claims without confirming edits."
+  });
+
+  assert.equal(DEFAULT_LOCAL_AI_MODEL, "qwen3:8b");
+  assert.equal(request.requestType, "permanent_note_local_model_analysis");
+  assert.equal(request.model.provider, "local_model");
+  assert.equal(request.model.model, DEFAULT_LOCAL_AI_MODEL);
+  assert.equal(request.canAutoConfirm, false);
+  assert.equal(request.executionDefaults.timeoutMs, DEFAULT_VIEWPOINT_DISTILLATION_TIMEOUT_MS);
+  assert.equal(request.executionDefaults.numPredict, DEFAULT_VIEWPOINT_DISTILLATION_NUM_PREDICT);
+  assert.equal(request.responseContract.candidateViewpoint.coreViewpoint, "string");
+  assert.deepEqual(request.responseContract.candidateViewpoint.evidenceAnchors, ["string"]);
+  assert.match(request.messages[1].content, /candidate viewpoints only/);
+});
+
 test("local model request builder keeps permanent note analysis local-only and review-only", () => {
   const request = buildPermanentNoteLocalModelRequest(
     {
@@ -245,11 +267,96 @@ test("local model request builder keeps permanent note analysis local-only and r
   assert.equal(payload.literatureNotes[0].noteId, "lit_local");
   assert.ok(payload.localRuleBaseline);
   assert.deepEqual(Object.keys(request.responseContract), [
+    "candidateViewpoint",
     "distilledViewpoint",
     "relationCandidates",
     "topicCandidates",
     "principleWarnings"
   ]);
+});
+
+test("local model viewpoint distillation accepts structured candidate viewpoint output", () => {
+  const request = buildPermanentNoteLocalModelRequest({
+    noteId: "pn_structured_viewpoint",
+    title: "Structured viewpoint candidate",
+    body: "A local model should propose a candidate viewpoint with evidence and counter questions."
+  });
+
+  const result = mergePermanentNoteLocalModelResponse(
+    request,
+    {
+      content: JSON.stringify({
+        candidateViewpoint: {
+          coreViewpoint: "Local AI should draft candidate claims, not final conclusions.",
+          evidenceAnchors: ["The note says propose a candidate viewpoint."],
+          uncertainties: ["The user may reject the framing."],
+          counterQuestions: ["What evidence would disprove this claim?"],
+          permanentNoteDraft: "Local AI outputs stay reviewable until the user accepts them."
+        },
+        distilledViewpoint: {
+          thesis: "Local AI should draft candidate claims, not final conclusions.",
+          threeLineSummary: ["Draft only.", "Keep evidence visible.", "Ask counter questions."],
+          confidenceReason: "The note asks for candidate viewpoint output."
+        }
+      })
+    },
+    { agentRunId: "run_structured_viewpoint" }
+  );
+
+  assert.equal(result.analysis.candidateViewpoint.coreViewpoint, "Local AI should draft candidate claims, not final conclusions.");
+  assert.deepEqual(result.analysis.candidateViewpoint.evidenceAnchors, ["The note says propose a candidate viewpoint."]);
+  assert.deepEqual(result.analysis.candidateViewpoint.uncertainties, ["The user may reject the framing."]);
+  assert.deepEqual(result.analysis.candidateViewpoint.counterQuestions, ["What evidence would disprove this claim?"]);
+  assert.equal(result.analysis.candidateViewpoint.permanentNoteDraft, "Local AI outputs stay reviewable until the user accepts them.");
+  assert.ok(result.reviewItems.artifacts.every((item) => item.status === "pending_review"));
+});
+
+test("local model viewpoint JSON failure falls back to rule candidates without auto-writing", () => {
+  const request = buildPermanentNoteLocalModelRequest({
+    noteId: "pn_bad_json",
+    title: "Bad JSON local model output",
+    body: "The fallback should keep review-only rule suggestions if the local model returns malformed JSON."
+  });
+
+  const result = mergePermanentNoteLocalModelResponse(
+    request,
+    { content: "not-json-at-all" },
+    { agentRunId: "run_bad_json" }
+  );
+
+  assert.equal(result.analysis.analysisMode, "local_model_assisted");
+  assert.equal(result.analysis.modelParseError.code, "LOCAL_MODEL_JSON_PARSE_FAILED");
+  assert.ok(result.analysis.principleChecks.some((item) => item.checkId === "local_model_json_parse_failed"));
+  assert.equal(result.analysis.analysisStatus, "warning");
+  assert.equal(result.analysis.provenance.canAutoConfirm, false);
+  assert.ok(result.reviewItems.artifacts.every((item) => item.status === "pending_review"));
+});
+
+test("local model viewpoint JSON failure marks a mature note as warning", () => {
+  const request = buildPermanentNoteLocalModelRequest({
+    noteId: "pn_bad_json_ready",
+    title: "AI candidates need human confirmation",
+    thesis: "AI candidates should only prepare materials for human judgment.",
+    threeLineSummary: [
+      "Candidate viewpoints need evidence anchors.",
+      "They must not rewrite notes before confirmation.",
+      "Parse failures should keep review-only rule candidates."
+    ],
+    boundaryOrCounterpoint: "The boundary is that only the user can confirm the final conclusion.",
+    body: "AI candidates should only prepare materials for human judgment because model output can be unstable.",
+    citations: [{ source_id: "src_review", locator: "review-fixture" }],
+    options: { authorshipConfirmed: true }
+  });
+
+  const result = mergePermanentNoteLocalModelResponse(
+    request,
+    { content: "not-json-at-all" },
+    { agentRunId: "run_bad_json_ready" }
+  );
+
+  assert.equal(result.analysis.analysisStatus, "warning");
+  assert.equal(result.analysis.modelParseError.code, "LOCAL_MODEL_JSON_PARSE_FAILED");
+  assert.ok(result.analysis.principleChecks.some((item) => item.checkId === "local_model_json_parse_failed"));
 });
 
 test("local model response normalization keeps model findings review-only", () => {

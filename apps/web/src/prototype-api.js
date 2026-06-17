@@ -107,6 +107,26 @@ export async function fetchOllamaModels() {
   return json.item || null;
 }
 
+export async function fetchOllamaBootstrapStatus(options = {}) {
+  const params = new URLSearchParams();
+  const model = String(options?.model || options?.modelName || "").trim();
+  const runtimeMode = String(options?.runtimeMode || options?.runtime_mode || "").trim();
+  if (model) params.set("model", model);
+  if (runtimeMode) params.set("runtimeMode", runtimeMode);
+  const suffix = params.toString();
+  const json = await request(`/api/v1/ai/local-runtimes/ollama/bootstrap${suffix ? `?${suffix}` : ""}`);
+  return json.item || null;
+}
+
+export async function bootstrapOllamaLocalAi(options = {}) {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/bootstrap", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...LOCAL_RUNTIME_CONTROL_HEADERS },
+    body: JSON.stringify(options || {})
+  });
+  return json.item || null;
+}
+
 export async function startOllamaRuntime() {
   const json = await request("/api/v1/ai/local-runtimes/ollama/start", {
     method: "POST",

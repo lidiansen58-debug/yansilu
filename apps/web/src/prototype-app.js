@@ -1,4 +1,4 @@
-﻿import {
+import {
   childFolders,
   createInitialState,
   folderById,
@@ -167,6 +167,8 @@ import {
   fetchAiProviderConfigs,
   fetchAiPreferences,
   fetchOllamaModels,
+  fetchOllamaBootstrapStatus,
+  bootstrapOllamaLocalAi,
   pullOllamaModel,
   startOllamaRuntime,
   stopOllamaRuntime,
@@ -921,22 +923,22 @@ const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
 const OLLAMA_CHAT_ENDPOINT_URL = "http://127.0.0.1:11434/v1/chat/completions";
 const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
-const OLLAMA_RECOMMENDED_MODEL = "qwen3:4b";
+const OLLAMA_RECOMMENDED_MODEL = "qwen3:8b";
 const OLLAMA_MODEL_RECOMMENDATIONS = [
   {
     name: "qwen2.5:7b",
-    label: "中文研究首选",
-    note: "适合中文论文、访谈材料、笔记摘要和整理。"
+    label: "轻量",
+    note: "快、省资源，适合快速摘要和低成本候选筛选。"
   },
   {
-    name: "qwen3:4b",
-    label: "轻量日常",
-    note: "适合快速摘要、提纲整理和日常问答，占用更低。"
+    name: "qwen3:8b",
+    label: "默认",
+    note: "适合观点提纯、潜在关联和 AI 建议，质量与速度更均衡。"
   },
   {
-    name: "llama3.2:3b",
-    label: "英文材料备选",
-    note: "适合英文资料阅读、翻译前整理和轻量测试。"
+    name: "qwen3.5:9b",
+    label: "高质量",
+    note: "适合深度分析和复杂材料整理，响应会更慢。"
   }
 ];
 const AI_LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
@@ -2287,22 +2289,7 @@ async function saveLocalOllamaProviderConfig() {
 
 function preferredLocalModelName(models = []) {
   const names = (Array.isArray(models) ? models : []).map((model) => String(model?.name || model || "").trim()).filter(Boolean);
-  const preferred = [
-    /qwen2\.5.*7b/i,
-    /qwen3.*4b/i,
-    /llama3\.2.*3b/i,
-    /gemma3.*4b/i,
-    /qwen.*7b/i,
-    /qwen2\.5.*3b/i,
-    /llama3\.1.*8b/i,
-    /phi.*3\.5/i,
-    /gemma2.*2b/i
-  ];
-  for (const pattern of preferred) {
-    const match = names.find((name) => pattern.test(name));
-    if (match) return match;
-  }
-  return names[0] || "";
+  return names.find((name) => name.toLowerCase() === OLLAMA_RECOMMENDED_MODEL.toLowerCase()) || "";
 }
 
 function modelNameExistsInList(modelName = "", models = []) {
@@ -2365,8 +2352,9 @@ function recommendedOllamaModelName() {
 
 function recommendedOllamaModelNames() {
   const names = [
-    ...OLLAMA_MODEL_RECOMMENDATIONS.map((item) => item.name),
-    recommendedOllamaModelName()
+    recommendedOllamaModelName(),
+    OLLAMA_RECOMMENDED_MODEL,
+    ...OLLAMA_MODEL_RECOMMENDATIONS.map((item) => item.name)
   ].map((name) => String(name || "").trim()).filter(Boolean);
   return [...new Set(names)];
 }
@@ -2414,6 +2402,109 @@ function applyOllamaRuntimePreview(runtime = null) {
   if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
   persistAiSettingsToStorage();
   return models;
+}
+
+function applyOllamaBootstrapResult(result = null) {
+  if (!result || typeof result !== "object") return [];
+  const runtime = result.runtime || null;
+  const models = runtime ? applyOllamaRuntimePreview(runtime) : [];
+  if (result.enabled?.preferences) {
+    applyAiPreferencesToSettingsState(result.enabled.preferences, {
+      applyProviderConfig: false
+    });
+  }
+  if (result.enabled?.providerConfig) upsertAiProviderConfig(result.enabled.providerConfig);
+  if (result.providerConfig) upsertAiProviderConfig(result.providerConfig);
+  if (result.health && String(result.health.status || "").trim() !== "unknown") {
+    settingsState.ai.providerHealthResult = { record: result.health };
+  }
+  const model = String(result.model || "").trim();
+  if (model && modelNameExistsInList(model, settingsState.ai.localRuntimeModels)) {
+    settingsState.ai.localModel = model;
+    applyOllamaLocalModelDefaults();
+  }
+  persistAiSettingsToStorage();
+  return models;
+}
+
+function ollamaBootstrapStatusText(result = null) {
+  const status = String(result?.status || "").trim();
+  const model = String(result?.model || OLLAMA_RECOMMENDED_MODEL).trim();
+  if (result?.ready === true || status === "ready") return `本地 AI 已就绪：${model}`;
+  if (status === "needs_install") return "请先安装 Ollama，然后重新运行本地 AI 引导";
+  if (status === "needs_start") return "Ollama 已安装，但本地服务还没有启动";
+  if (status === "needs_model") return `请先下载本地模型：ollama pull ${model}`;
+  if (status === "needs_config") return `已检测到 ${model}，还需要保存为本地 AI 模型`;
+  if (status === "needs_health_check") return "本地 AI 配置已保存，还需要通过健康检查";
+  return String(result?.message || "本地 AI 引导尚未完成").trim();
+}
+
+async function previewOllamaLocalAiBootstrapFromUi(options = {}) {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  if (!["local_only", "hybrid"].includes(runtimeMode) || !shouldUseOllamaLocalRuntime()) return null;
+  const model = String(options.model || primaryRecommendedOllamaModelName() || OLLAMA_RECOMMENDED_MODEL).trim();
+  settingsState.ai.localRuntimeChecking = true;
+  settingsState.ai.localRuntimeError = "";
+  if (options.render !== false) renderSettingsPanel();
+  try {
+    const result = await fetchOllamaBootstrapStatus({ model, runtimeMode });
+    applyOllamaBootstrapResult(result);
+    if (result?.ready !== true) {
+      settingsState.ai.localRuntimeError = ollamaBootstrapStatusText(result);
+      if (!installedLocalModelReady()) clearLocalOllamaSelectionState();
+    }
+    if (options.silent !== true) {
+      setStatus(ollamaBootstrapStatusText(result), result?.ready === true ? "ok" : "warn");
+    }
+    return result;
+  } catch (error) {
+    settingsState.ai.localRuntimeError = String(error?.message || error);
+    if (options.silent !== true) setStatus(`本地 AI 检查失败：${settingsState.ai.localRuntimeError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.localRuntimeChecking = false;
+    if (options.render !== false) renderSettingsPanel();
+  }
+}
+
+async function bootstrapOllamaLocalAiFromUi(options = {}) {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  if (!["local_only", "hybrid"].includes(runtimeMode) || !shouldUseOllamaLocalRuntime()) return null;
+  const model = String(options.model || primaryRecommendedOllamaModelName() || OLLAMA_RECOMMENDED_MODEL).trim();
+  settingsState.ai.localRuntimeChecking = true;
+  settingsState.ai.localRuntimePulling = options.pullModel === false ? false : true;
+  settingsState.ai.localRuntimeError = "";
+  if (options.render !== false) renderSettingsPanel();
+  if (options.silent !== true) setStatus(`正在准备本地 AI：${model}`, "warn");
+  try {
+    const result = await bootstrapOllamaLocalAi({
+      model,
+      runtimeMode,
+      autoStart: options.autoStart !== false,
+      pullModel: options.pullModel !== false,
+      enableConfig: options.enableConfig !== false,
+      healthCheck: options.healthCheck !== false
+    });
+    applyOllamaBootstrapResult(result);
+    if (result?.ready === true) {
+      await refreshAiRoutePreview({ render: false });
+    } else {
+      settingsState.ai.localRuntimeError = ollamaBootstrapStatusText(result);
+      if (!installedLocalModelReady()) clearLocalOllamaSelectionState();
+    }
+    if (options.silent !== true) {
+      setStatus(ollamaBootstrapStatusText(result), result?.ready === true ? "ok" : "warn");
+    }
+    return result;
+  } catch (error) {
+    settingsState.ai.localRuntimeError = String(error?.message || error);
+    if (options.silent !== true) setStatus(`本地 AI 引导失败：${settingsState.ai.localRuntimeError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.localRuntimeChecking = false;
+    settingsState.ai.localRuntimePulling = false;
+    if (options.render !== false) renderSettingsPanel();
+  }
 }
 
 async function persistOllamaRuntimeSelectionAfterPreview() {
@@ -8540,9 +8631,17 @@ async function applySettingsAiQuickSetup(kind = "") {
   reconcileAiSelectionState({ syncUserMode: true, resetProviderState: true });
   persistAiSettingsToStorage();
   await syncAiSettingsToApi();
+  let localBootstrapResult = null;
+  if (normalized === "local") {
+    localBootstrapResult = await bootstrapOllamaLocalAiFromUi();
+  }
   await refreshAiRoutePreview();
   renderSettingsPanel();
   openSettingsAiDialog(normalized);
+  if (normalized === "local" && localBootstrapResult) {
+    setStatus(ollamaBootstrapStatusText(localBootstrapResult), localBootstrapResult.ready === true ? "ok" : "warn");
+    return;
+  }
   setStatus(normalized === "local" ? "已切换为本地大模型设置流程" : "已切换为远程大模型设置流程", "ok");
 }
 
@@ -11300,7 +11399,7 @@ async function refreshVaultSettings() {
       modelPack: settingsState.ai.modelPack,
       providerId: currentAiProviderId()
     }) && shouldUseOllamaLocalRuntime()) {
-      await detectOllamaModels({ silent: true, render: false });
+      await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
     }
     await refreshAiRoutePreview({ render: false });
     await refreshScheduledTaskTemplates({ silent: true });
@@ -17945,6 +18044,15 @@ async function runGraphAiAnalysis() {
   graphState.aiAnalysisError = "";
   renderGraphPanel();
   try {
+    if (localOllamaSetupActive()) {
+      const bootstrapResult = await bootstrapOllamaLocalAiFromUi({ render: false });
+      if (bootstrapResult?.ready !== true) {
+        graphState.aiAnalysisError = ollamaBootstrapStatusText(bootstrapResult);
+        setStatus(graphState.aiAnalysisError, "warn");
+        return;
+      }
+      renderGraphPanel();
+    }
     const result = await analyzeDirectoryGraph(directoryId, {
       includeDescendants: true,
       minScore: 0.05,
@@ -20057,15 +20165,8 @@ async function applyAiRuntimeModeChange(nextMode = "auto") {
     runtimeMode: settingsState.ai.runtimeMode,
     modelPack: settingsState.ai.modelPack,
     providerId: currentAiProviderId()
-  }) && shouldUseOllamaLocalRuntime() && !settingsState.ai.localRuntimeModels.length) {
-    await detectOllamaModels({ silent: true, render: false });
-  }
-  if (isAiLocalFlowActive({
-    runtimeMode: settingsState.ai.runtimeMode,
-    modelPack: settingsState.ai.modelPack,
-    providerId: currentAiProviderId()
-  }) && shouldUseOllamaLocalRuntime() && installedLocalModelReady()) {
-    await saveLocalOllamaProviderConfig();
+  }) && shouldUseOllamaLocalRuntime()) {
+    await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
   }
   await refreshAiRoutePreview();
   renderSettingsPanel();
@@ -22131,6 +22232,7 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
     if (targetModule === "graph") graphModuleActivationGuardUntil = Date.now() + 1800;
     activateModule(targetModule);
     if (targetModule === "graph" && state.module === "graph") {
+      await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
       await refreshDirectoryGraph();
       if (state.module !== "graph" && Date.now() < graphModuleActivationGuardUntil) {
         activateModule("graph");

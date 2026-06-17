@@ -5,6 +5,9 @@ import { providerHealthCandidateInput } from "./provider-health-store.mjs";
 import { selectProviderForRoute, providerHealthSummary } from "./provider-health-policy.mjs";
 import { resolveProviderDescriptor } from "./provider-presets.mjs";
 
+export const DEFAULT_SCHEDULED_LOCAL_AI_BATCH_SIZE = 4;
+export const DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS = 120000;
+
 const TASK_STATUSES = new Set(["active", "paused", "disabled", "failed"]);
 const TASK_TYPES = new Set([
   "research_scan",
@@ -631,6 +634,14 @@ export function buildScheduledTaskHarnessInput(task = {}, input = {}) {
     modelTier: task.model?.maxTier || "standard",
     privacyMode: task.privacy?.mode || "normal",
     expectedArtifactType: outputArtifactTypes[0],
+    timeoutMs: task.taskType === "relation_scan" ? DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS : undefined,
+    batchSize: task.taskType === "relation_scan" ? DEFAULT_SCHEDULED_LOCAL_AI_BATCH_SIZE : undefined,
+    reviewOnly: true,
+    progress: {
+      status: "queued",
+      label: task.taskType === "relation_scan" ? "Scanning potential relation candidates" : "Running scheduled AI task",
+      retryable: true
+    },
     budget: {
       maxEstimatedCostPerRun: task.budget?.maxEstimatedCostPerRun,
       scheduledTaskHardCap: task.budget?.maxEstimatedCostPerPeriod,

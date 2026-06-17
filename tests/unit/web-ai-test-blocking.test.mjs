@@ -103,6 +103,42 @@ test("AI settings hides unsupported MiniCPM local setup entry", () => {
   assert.match(appSource, /settingsState\.ai\.advancedModelRef = "";/);
 });
 
+test("local AI bootstrap is wired into settings and graph entry points", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const appSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const previewSource = extractFunctionSource(appSource, "async function previewOllamaLocalAiBootstrapFromUi(");
+  const helperSource = extractFunctionSource(appSource, "async function bootstrapOllamaLocalAiFromUi(");
+  const quickSetupSource = extractFunctionSource(appSource, "async function applySettingsAiQuickSetup(");
+  const refreshSettingsSource = extractFunctionSource(appSource, "async function refreshVaultSettings(");
+  const runtimeModeSource = extractFunctionSource(appSource, "async function applyAiRuntimeModeChange(");
+  const graphAnalysisSource = extractFunctionSource(appSource, "async function runGraphAiAnalysis(");
+
+  assert.match(appSource, /fetchOllamaBootstrapStatus,/);
+  assert.match(appSource, /bootstrapOllamaLocalAi,/);
+  assert.match(previewSource, /await fetchOllamaBootstrapStatus\(\{ model, runtimeMode \}\);/);
+  assert.match(helperSource, /await bootstrapOllamaLocalAi\(/);
+  assert.match(helperSource, /\n\s*model,/);
+  assert.match(helperSource, /pullModel:\s*options\.pullModel !== false/);
+  assert.match(quickSetupSource, /localBootstrapResult = await bootstrapOllamaLocalAiFromUi\(\);/);
+  assert.match(quickSetupSource, /ollamaBootstrapStatusText\(localBootstrapResult\)/);
+  assert.match(refreshSettingsSource, /await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);/);
+  assert.match(runtimeModeSource, /await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);/);
+  assert.match(appSource, /targetModule === "graph"[\s\S]*await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);[\s\S]*await refreshDirectoryGraph\(\);/);
+  assert.match(graphAnalysisSource, /const bootstrapResult = await bootstrapOllamaLocalAiFromUi\(\{ render: false \}\);/);
+  assert.match(graphAnalysisSource, /bootstrapResult\?\.ready !== true/);
+});
+
+test("local Ollama eval prefers qwen3 8b by default", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const evalSource = fs.readFileSync(path.join(repoRoot, "scripts/eval-local-ollama.mjs"), "utf8");
+  const smokeSource = fs.readFileSync(path.join(repoRoot, "scripts/smoke-local-ollama.mjs"), "utf8");
+
+  assert.match(evalSource, /\/qwen3\.\*8b\/i, \/qwen2\\\.5\.\*7b\/i, \/qwen3\\\.5\.\*9b\/i/);
+  assert.match(smokeSource, /\/qwen3\.\*8b\/i, \/qwen2\\\.5\.\*7b\/i, \/qwen3\\\.5\.\*9b\/i/);
+});
+
 test("Ollama preview replaces a stale selected local model with an installed recommendation", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -116,22 +152,24 @@ test("Ollama preview replaces a stale selected local model with an installed rec
   const helpers = new Function(
     "settingsState",
     "hasLocalModel",
+    "OLLAMA_RECOMMENDED_MODEL",
     `${helperSource}\nreturn { selectedLocalModelNameForInstalledModels, installedLocalModelReady };`
   );
   const selectedLocalModelNameForInstalledModels = helpers(
     { ai: { localRuntimeStatus: "available" } },
-    () => false
+    () => false,
+    "qwen3:8b"
   ).selectedLocalModelNameForInstalledModels;
 
   assert.equal(
-    selectedLocalModelNameForInstalledModels("qwen3:4b", [{ name: "qwen2.5:7b" }]),
-    "qwen2.5:7b"
+    selectedLocalModelNameForInstalledModels("qwen3:8b", [{ name: "qwen2.5:7b" }]),
+    ""
   );
   assert.equal(
-    selectedLocalModelNameForInstalledModels("qwen3:4b", [{ name: "qwen3:4b" }, { name: "qwen2.5:7b" }]),
-    "qwen3:4b"
+    selectedLocalModelNameForInstalledModels("qwen3:8b", [{ name: "qwen3:8b" }, { name: "qwen2.5:7b" }]),
+    "qwen3:8b"
   );
-  assert.equal(selectedLocalModelNameForInstalledModels("qwen3:4b", []), "");
+  assert.equal(selectedLocalModelNameForInstalledModels("qwen3:8b", []), "");
   assert.match(appSource, /settingsState\.ai\.localModel = "";/);
   assert.match(appSource, /settingsState\.ai\.routePreview = null;/);
   assert.match(appSource, /function persistOllamaRuntimeSelectionAfterPreview\(/);
@@ -156,7 +194,7 @@ test("Ollama preview replaces a stale selected local model with an installed rec
     (modelName = "") => modelName === "qwen2.5:7b"
   ).installedLocalModelReady(), true);
   assert.equal(helpers(
-    { ai: { localRuntimeStatus: "available", localModel: "qwen3:4b" } },
+    { ai: { localRuntimeStatus: "available", localModel: "qwen3:8b" } },
     (modelName = "") => modelName === "qwen2.5:7b"
   ).installedLocalModelReady(), false);
 });
@@ -177,7 +215,7 @@ test("AI test run is blocked until local Ollama runtime and model are ready", ()
   state = createAiState({
     localRuntimeStatus: "available",
     localRuntimeModels: [{ name: "qwen2.5:7b" }],
-    localModel: "qwen3:4b"
+    localModel: "qwen3:8b"
   });
   blockedReason = loadAiTestBlockedReason(state);
   assert.equal(blockedReason(), "请先下载或选择已安装的本地模型");

@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
+import { DEFAULT_LOCAL_AI_MODEL } from "./local-model-catalog.mjs";
 
 export const POTENTIAL_RELATION_ALGORITHM_VERSION = "potential_relation_v1";
-export const DEFAULT_POTENTIAL_RELATION_MODEL = "qwen2.5:7b";
+export const DEFAULT_POTENTIAL_RELATION_MODEL = DEFAULT_LOCAL_AI_MODEL;
+export const DEFAULT_POTENTIAL_RELATION_AI_BATCH_SIZE = 4;
+export const MIN_POTENTIAL_RELATION_AI_BATCH_SIZE = 3;
+export const MAX_POTENTIAL_RELATION_AI_BATCH_SIZE = 5;
+export const DEFAULT_POTENTIAL_RELATION_AI_TIMEOUT_MS = 120000;
+export const DEFAULT_POTENTIAL_RELATION_AI_NUM_PREDICT = 400;
 const POTENTIAL_RELATION_NETWORK_STATUSES = new Set(["suggested", "draft", "confirmed"]);
 
 const BROAD_TAGS = new Set(["永久笔记", "原创笔记", "卡片笔记法", "关键笔记", "知识点主线"]);
@@ -461,6 +467,29 @@ export class PotentialRelationAiCache {
   }
 }
 
+export function normalizePotentialRelationAiBatchSize(value = DEFAULT_POTENTIAL_RELATION_AI_BATCH_SIZE) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return DEFAULT_POTENTIAL_RELATION_AI_BATCH_SIZE;
+  return Math.max(MIN_POTENTIAL_RELATION_AI_BATCH_SIZE, Math.min(MAX_POTENTIAL_RELATION_AI_BATCH_SIZE, Math.floor(number)));
+}
+
+export function buildPotentialRelationAiBatches(candidates = [], options = {}) {
+  const items = (Array.isArray(candidates) ? candidates : []).filter(Boolean);
+  const batchSize = normalizePotentialRelationAiBatchSize(options.batchSize ?? options.batch_size);
+  const batches = [];
+  for (let index = 0; index < items.length; index += batchSize) {
+    batches.push({
+      index: batches.length,
+      batchSize,
+      candidates: items.slice(index, index + batchSize),
+      timeoutMs: Math.max(120000, Math.min(Number(options.timeoutMs ?? options.timeout_ms ?? DEFAULT_POTENTIAL_RELATION_AI_TIMEOUT_MS) || DEFAULT_POTENTIAL_RELATION_AI_TIMEOUT_MS, 180000)),
+      numPredict: Math.max(300, Math.min(Number(options.numPredict ?? options.num_predict ?? DEFAULT_POTENTIAL_RELATION_AI_NUM_PREDICT) || DEFAULT_POTENTIAL_RELATION_AI_NUM_PREDICT, 500)),
+      status: "pending_review"
+    });
+  }
+  return batches;
+}
+
 export function buildPotentialRelationAiPrompt(candidate = {}, fingerprintsById = new Map()) {
   const source = fingerprintsById.get(cleanText(candidate.sourceNoteId || candidate.fromNoteId)) || {};
   const target = fingerprintsById.get(cleanText(candidate.targetNoteId || candidate.toNoteId)) || {};
@@ -593,6 +622,8 @@ export async function refinePotentialRelationCandidateWithLocalAi(candidate = {}
       aiError: cleanText(error?.message || error),
       aiErrorCode: errorCode,
       aiNeedsConfirmation: needsConfirmation,
+      aiFallbackMode: "rule_candidate_preserved",
+      retryable: true,
       updatedAt: new Date().toISOString()
     };
     return {
