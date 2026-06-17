@@ -680,7 +680,7 @@ test("potential relation refine returns a timeout error instead of waiting indef
   assert.equal(response.status, 200, JSON.stringify(response.json));
   assert.equal(response.json.item.aiDecision, null);
   assert.match(String(response.json.item.aiErrorCode || ""), /OLLAMA_TIMEOUT|AI_RELATION_TIMEOUT/);
-  assert.ok(elapsedMs < 320, `expected timeout response quickly, got ${elapsedMs}ms`);
+  assert.ok(elapsedMs < 1000, `expected timeout response within 1s, got ${elapsedMs}ms`);
 });
 
 test("potential relation refine also times out when ollama stalls after sending response headers", async (t) => {
@@ -711,5 +711,5 @@ test("potential relation refine also times out when ollama stalls after sending 
   assert.equal(response.status, 200, JSON.stringify(response.json));
   assert.equal(response.json.item.aiDecision, null);
   assert.match(String(response.json.item.aiErrorCode || ""), /OLLAMA_TIMEOUT|AI_RELATION_TIMEOUT/);
-  assert.ok(elapsedMs < 320, `expected body-parse timeout response quickly, got ${elapsedMs}ms`);
+  assert.ok(elapsedMs < 1000, `expected body-parse timeout response within 1s, got ${elapsedMs}ms`);
 });

@@ -155,10 +155,10 @@ async function getJson(baseUrl, pathname) {
   return { status: res.status, json };
 }
 
-async function postJson(baseUrl, pathname, body) {
+async function postJson(baseUrl, pathname, body, options = {}) {
   const res = await fetch(`${baseUrl}${pathname}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     body: JSON.stringify(body)
   });
   const json = await res.json();
@@ -639,6 +639,8 @@ test("AI local runtime API can pull an Ollama model", async (t) => {
 
   const pulled = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
     model: "qwen2.5:7b"
+  }, {
+    headers: { "x-yansilu-local-runtime-control": "1" }
   });
   assert.equal(pulled.status, 200, JSON.stringify(pulled.json));
   assert.equal(pulled.json.item.status, "success");
@@ -648,6 +650,8 @@ test("AI local runtime API can pull an Ollama model", async (t) => {
 
   const invalid = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
     model: "https://example.test/model"
+  }, {
+    headers: { "x-yansilu-local-runtime-control": "1" }
   });
   assert.equal(invalid.status, 400, JSON.stringify(invalid.json));
 });
@@ -676,6 +680,8 @@ test("AI local runtime API can enable a pulled Ollama model", async (t) => {
   const pulled = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
     model: "qwen3:4b",
     enable: true
+  }, {
+    headers: { "x-yansilu-local-runtime-control": "1" }
   });
   assert.equal(pulled.status, 200, JSON.stringify(pulled.json));
   assert.equal(pulled.json.item.model, "qwen3:4b");
@@ -716,6 +722,8 @@ test("AI local runtime API preserves hybrid mode when enabling a pulled Ollama m
     model: "qwen3:4b",
     enable: true,
     runtimeMode: "hybrid"
+  }, {
+    headers: { "x-yansilu-local-runtime-control": "1" }
   });
   assert.equal(pulled.status, 200, JSON.stringify(pulled.json));
   assert.equal(pulled.json.item.enabled.preferences.modelPack, "Starter Auto");

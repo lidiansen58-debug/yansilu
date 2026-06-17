@@ -1047,7 +1047,7 @@ test("graph API finds note paths and duplicate title conflicts", async (t) => {
   assert.deepEqual(conflicts.json.item.conflicts[0].noteIds.sort(), [duplicateA.json.item.id, duplicateB.json.item.id].sort());
 });
 
-test("graph AI analysis API returns review-only candidates without relation data", async (t) => {
+test("graph AI analysis API returns review-only bridge candidates without relation data", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-graph-ai-analysis-vault-");
   const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
@@ -1110,7 +1110,7 @@ test("graph AI analysis API returns review-only candidates without relation data
   assert.equal(analysis.json.item.reviewItems.artifactsPersisted, false);
   assert.equal(analysis.json.item.reviewItems.summary.canAutoConfirm, false);
   assert.ok(analysis.json.item.analysis.topicCandidates.some((item) => item.title === "ai-review"));
-  assert.ok(analysis.json.item.reviewItems.artifacts.some((item) => item.type === "LinkSuggestion"));
+  assert.ok(analysis.json.item.reviewItems.artifacts.some((item) => item.type === "BridgeCard"));
   assert.ok(analysis.json.item.reviewItems.artifacts.some((item) => item.type === "QuestionCard"));
   assert.ok(analysis.json.item.reviewItems.artifacts.every((item) => item.status === "pending_review"));
 });
