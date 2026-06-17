@@ -156,7 +156,7 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
   const domain = readDomainCatalogStore();
 
   assert.match(source, /function graphLocalizedActionText\(value = "", fallback = ""\) \{/);
-  assert.match(source, /补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。/);
+  assert.match(source, /补一条中间判断，或关联一条能说清理由的笔记，把它接回现有论证。/);
   assert.match(source, /detail: graphLocalizedActionText\(gap\?\.suggestedAction \|\| gap\?\.rationale/);
   assert.match(source, /function graphBridgeGapInNodeScope\(gap = \{\}, nodeIds = new Set\(\)\) \{/);
   assert.match(source, /function graphReviewQueueInNodeScope\(reviewQueue = null, nodeIds = new Set\(\)\) \{/);
@@ -212,7 +212,7 @@ test("graph research details cover nodes and relation gravity lines with next ac
   assert.doesNotMatch(source, /data-graph-selection-close[^>]*>收起<\/button>/);
   assert.match(source, /kicker: "笔记角色"/);
   assert.match(source, /roleLabel: role\.label/);
-  assert.match(source, /补一条关系/);
+  assert.match(source, /关联一条笔记/);
   assert.match(source, /kicker: "关系复核"/);
   assert.match(source, /roleLabel: review\.label/);
   assert.match(source, /<strong>复核问题<\/strong>/);
@@ -325,7 +325,7 @@ test("isolated graph notes can request AI-assisted relation candidates and confi
   assert.match(source, /progressStatus: "正在按当前 AI 设置生成关联理由\.\.\."/);
   assert.doesNotMatch(source, /setStatus\("已确认使用当前 AI 设置，正在生成关联理由", "ok"\);/);
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
-  assert.match(source, /aria-label="孤立笔记加入网络"/);
+  assert.match(source, /aria-label="孤立笔记关联到图谱"/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(noteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(noteId\)\}"/);
   assert.match(source, /data-graph-followup-action="relations">手工关联<\/button>/);
@@ -652,7 +652,7 @@ test("graph module sidebar is labeled as graph scope instead of permanent-note b
 
   assert.match(graphSidebarBranch, /\$\("sidebarTitle"\)\.textContent = "图谱笔记范围";/);
   assert.match(graphSidebarBranch, /这里不是永久笔记页；点目录或笔记是在切换图谱观察范围。/);
-  assert.match(graphSidebarBranch, /孤立笔记会在这里用警示色提醒，点进来就能补第一条关系。/);
+  assert.match(graphSidebarBranch, /孤立笔记会在这里用警示色提醒，点进来就能关联一条笔记。/);
   assert.doesNotMatch(graphSidebarBranch, /永久笔记浏览/);
 });
 

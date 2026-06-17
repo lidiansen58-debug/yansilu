@@ -32,10 +32,11 @@ test("main-path card relation step names the first-relation action for fully iso
 
   assert.match(
     html,
-    /data-note-main-route-action="relations"[^>]*>\u8865\u7b2c\u4e00\u6761\u5173\u7cfb<\/button>/
+    /data-note-main-route-action="relations"[^>]*>\u5173\u8054\u4e00\u6761\u7b14\u8bb0<\/button>/
   );
   assert.doesNotMatch(
     html,
     /data-note-main-route-action="relations"[^>]*>\u5904\u7406\u5173\u7cfb<\/button>/
   );
+  assert.match(html, /\u5148\u5173\u8054\u4e00\u6761\u771f\u6b63\u76f8\u5173\u7684\u6c38\u4e45\u7b14\u8bb0/);
 });

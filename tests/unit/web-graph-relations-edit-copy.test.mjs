@@ -6,8 +6,8 @@ import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
 test("graph relations-edit followup keeps reason-focused status copy", async () => {
   const source = await readPrototypeAppSource();
 
-  assert.match(source, /已从图谱打开笔记，继续补当前关系理由/);
-  assert.match(source, /已从图谱打开笔记，继续补关系理由/);
+  assert.match(source, /已从图谱打开笔记，继续完善当前关联理由/);
+  assert.match(source, /已从图谱打开笔记，继续写关联理由/);
   assert.doesNotMatch(source, /已从图谱打开笔记，继续补当前关系的理由或类型/);
   assert.doesNotMatch(source, /已从图谱打开笔记，继续补关系说明/);
 });

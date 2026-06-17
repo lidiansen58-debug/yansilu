@@ -52,9 +52,9 @@ test("graph next action uses an explicit first-relation action when the graph ha
 
   assert.equal(nextAction.action, "relations");
   assert.equal(nextAction.noteId, "pn_first_edge_1");
-  assert.equal(nextAction.title, "下一步：补第一条关系");
-  assert.equal(nextAction.actionLabel, "去补第一条关系");
-  assert.match(nextAction.note, /第一条显式关系/);
+  assert.equal(nextAction.title, "下一步：关联第一条笔记");
+  assert.equal(nextAction.actionLabel, "去关联笔记");
+  assert.match(nextAction.note, /第一条正式关联/);
   assert.doesNotMatch(nextAction.note, /\[\[关联笔记\]\]/);
 });
 

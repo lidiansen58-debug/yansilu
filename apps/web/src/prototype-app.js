@@ -6421,7 +6421,7 @@ function renderSidebarTitle() {
     if (moduleSidebar) moduleSidebar.innerHTML = "";
     if (sidebarFoot) {
       sidebarFoot.classList.remove("hidden");
-      sidebarFoot.textContent = "孤立笔记会在这里用警示色提醒，点进来就能补第一条关系。";
+      sidebarFoot.textContent = "孤立笔记会在这里用警示色提醒，点进来就能关联一条笔记。";
     }
     return;
   }
@@ -6830,6 +6830,7 @@ function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {
   const relationState = String(overview?.relationState || "").trim().toLowerCase();
   const explicitRelationCount = Number(overview?.explicitRelationCount || 0) || 0;
   const dedupeKey = workflowMessageDedupeKey(note.id, "relation-network", "relations");
+  const noteTitle = String(note.title || note.id || "未命名笔记").trim() || "未命名笔记";
   if (relationState === "loaded" && explicitRelationCount > 0) {
     return { resolved: true, dedupeKey };
   }
@@ -6838,10 +6839,10 @@ function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {
     id: `workflow:${dedupeKey}`,
     type: "workflow",
     category: "relation-network",
-    title: "永久笔记还没有进入图谱",
-    body: `“${note.title || note.id}”已经是一条永久笔记，但还没有显式关系。打开它后先补一条支持、反驳、限定或桥接关系；如果暂时独立，也在边界里写下理由。`,
+    title: `${noteTitle} 还没有进入图谱`,
+    body: `“${noteTitle}”已经是一条永久笔记，但还没有和其他永久笔记建立正式关联。打开它后先关联一条真正相关的笔记，并写清它们是支持、反驳、限定还是桥接；如果暂时独立，也在边界里写下理由。`,
     action: "open-note-workflow",
-    actionLabel: "补第一条关系",
+    actionLabel: "关联一条笔记",
     noteId: note.id,
     dedupeKey,
     workflowRoute: {
@@ -12065,16 +12066,16 @@ function graphLocalizedActionText(value = "", fallback = "") {
   const defaultText = String(fallback || "").trim();
   if (!text) return defaultText;
   if (/Add an intermediate note or an explicit relation/i.test(text)) {
-    return "补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。";
+    return "补一条中间判断，或关联一条能说清理由的笔记，把它接回现有论证。";
   }
   if (/Add a bridge note or an explicit relation/i.test(text)) {
-    return "补一条桥接笔记，或建立一条能把这个星系接回主结构的明确关系。";
+    return "补一条桥接笔记，或关联一条能把这个星系接回主结构的笔记。";
   }
   if (/isolated from the rest/i.test(text)) {
-    return "这条笔记暂时游离在当前图谱之外，需要判断是保留独立，还是补一条关系。";
+    return "这条笔记暂时游离在当前图谱之外，需要判断是保留独立，还是关联到另一条笔记。";
   }
   if (/disconnected from the main note cluster/i.test(text)) {
-    return "这个聚集暂时没有接回主星系，需要判断是否补一条桥接关系。";
+    return "这个聚集暂时没有接回主星系，需要判断是否关联一条桥接笔记。";
   }
   if (/[A-Za-z]/.test(text) && !/[\u4e00-\u9fff]/.test(text)) {
     return defaultText || "这里需要补一句中文判断，再决定是否建立关系。";
@@ -12091,7 +12092,7 @@ const GRAPH_READING_LENS_META = {
   bridge: {
     key: "bridge",
     label: "桥接",
-    hint: "突出还没连起来的笔记，帮你判断哪里需要补一条关系。"
+    hint: "突出还没连起来的笔记，帮你判断哪里需要关联另一条笔记。"
   },
   argument: {
     key: "argument",
@@ -14360,10 +14361,10 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
     }
   ];
   return `
-    <section class="graph-isolated-join" aria-label="孤立笔记加入网络">
+    <section class="graph-isolated-join" aria-label="孤立笔记关联到图谱">
       <div class="graph-isolated-join-head">
         <div>
-          <strong>孤立笔记：先补第一条关系</strong>
+          <strong>孤立笔记：先关联一条笔记</strong>
           <p>先找一条真正成立的连接；确认前不会写入图谱。</p>
         </div>
         <span>${escapeHtml(stateLabel)}</span>
@@ -14373,7 +14374,7 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
         <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(cleanNoteId)}" data-graph-followup-action="relations">手工关联</button>
       </div>
       <p>${escapeHtml(candidateHint)}</p>
-      <div class="graph-isolated-join-steps" aria-label="加入网络步骤">
+      <div class="graph-isolated-join-steps" aria-label="关联到图谱步骤">
         ${steps
           .map(
             (step, index) => `
@@ -18768,8 +18769,8 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   };
 
   if (cleanAction === "relations-edit" && cleanRelationId) {
-    focusExistingRelationEdit(`从图谱进入：继续补清“${sourceLabel}”这条${relationLabel}为什么成立。`);
-    setStatus("已从图谱打开笔记，继续补当前关系理由", "ok", followupStatusOptions);
+    focusExistingRelationEdit(`从图谱进入：继续写清“${sourceLabel}”这条${relationLabel}为什么成立。`);
+    setStatus("已从图谱打开笔记，继续完善当前关联理由", "ok", followupStatusOptions);
     return true;
   }
 
@@ -18779,10 +18780,10 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
         ? '[data-create-relation-form] textarea[name="rationale"]'
         : '[data-create-relation-form] [data-relation-target-search]',
       cleanAction === "bridge"
-        ? `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”补成一条${relationLabel}。`
-        : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”补成带理由的正式关系。`
+        ? `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”关联为一条${relationLabel}。`
+        : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”建立为带理由的正式关联。`
     );
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok", followupStatusOptions);
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续建立桥接关联" : "已从图谱打开笔记，继续写关联理由", "ok", followupStatusOptions);
     return true;
   }
   if (cleanAction === "isolate-keep" || cleanAction === "isolate-hold") {

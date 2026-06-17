@@ -86,6 +86,16 @@ test("system messages are persisted, readable, and actionable", () => {
   assert.match(source, /const messageFilters = aiInboxFiltersForSystemMessage\(message\)/);
 });
 
+test("relation-network system messages name the isolated permanent note", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const helper = extractBlockBody(source, "function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {");
+
+  assert.match(helper, /const noteTitle = String\(note\.title \|\| note\.id \|\| "未命名笔记"\)/);
+  assert.match(helper, /title: `\$\{noteTitle\} 还没有进入图谱`/);
+  assert.match(helper, /actionLabel: "关联一条笔记"/);
+  assert.doesNotMatch(helper, /title: "永久笔记还没有进入图谱"/);
+});
+
 test("system message graph and writing actions route through workflow metadata", async () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
   const handlerBody = extractBlockBody(source, '$("systemMessageModal")?.addEventListener("click", async (event) => {');

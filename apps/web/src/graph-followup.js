@@ -47,11 +47,11 @@ export function graphNextActionForSummary({
 
   if (!hasEdges) {
     return {
-      title: "下一步：补第一条关系",
-      note: "先把两条最相关的永久笔记补成第一条显式关系，再刷新图谱查看局部结构。",
+      title: "下一步：关联第一条笔记",
+      note: "先把两条最相关的永久笔记建立成第一条正式关联，再刷新图谱查看局部结构。",
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补第一条关系"
+      actionLabel: "去关联笔记"
     };
   }
 

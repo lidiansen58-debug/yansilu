@@ -30,6 +30,6 @@ test("main-path card uses an explicit first-relation action for isolated notes",
     }
   );
 
-  assert.match(html, /data-note-main-route-action="relations"[^>]*>补第一条关系<\/button>/);
-  assert.match(html, /先连出第一条关系/);
+  assert.match(html, /data-note-main-route-action="relations"[^>]*>关联一条笔记<\/button>/);
+  assert.match(html, /先关联一条真正相关的永久笔记/);
 });

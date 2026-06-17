@@ -2082,8 +2082,8 @@ function renderRelationTemplateVariantSwitcher(variants = [], selectedKey = "", 
   return `
     <div class="semantic-relation-template-picker" data-relation-template-picker>
       <div class="semantic-relation-template-head">
-        <strong>起手模板</strong>
-        <small>按当前任务切换句式，再在草稿上继续改。</small>
+        <strong>理由模板</strong>
+        <small>可选。只帮你起草理由，不会自动保存关系。</small>
       </div>
       ${
         cleanRemembered
@@ -6692,41 +6692,44 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">新建正式关联</div>
+          <div>
+            <div class="inspector-section-title">关联到另一条永久笔记</div>
+            <div class="inspector-section-note">选择一条笔记，说明它和当前笔记是什么关系。保存后这条连接会进入图谱。</div>
+          </div>
           <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-create">取消</button>
         </div>
-        <div class="semantic-relation-status">
+        <div class="semantic-relation-status relation-create-summary">
           <span class="inspector-chip">范围 ${escapeHtml(scopeFolderLabel)}</span>
-          <span class="inspector-chip">默认 ${escapeHtml(relationTypeLabel(selectedRelationType))}</span>
+          <span class="inspector-chip">当前笔记发起</span>
         </div>
         ${entryHint ? `<div class="inspector-section-note" data-relation-entry-hint>${escapeHtml(entryHint)}</div>` : ""}
         <form class="semantic-relation-form" data-create-relation-form data-note-id="${escapeHtml(noteId)}">
           ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
           <label>
-            <span>目标笔记</span>
+            <span>要关联哪条笔记</span>
             <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入标题关键词" value="${escapeHtml(targetQuery)}" autofocus />
             <input type="hidden" name="toNoteId" data-relation-target-id value="${escapeHtml(selectedTargetId)}" />
             <div class="link-picker-list semantic-relation-target-list" data-relation-target-list hidden>${targetChoices}</div>
             <small class="semantic-relation-target-status" data-relation-target-status>${escapeHtml(targetStatus)}</small>
           </label>
           <label>
-            <span>关系类型</span>
+            <span>它们是什么关系</span>
             <select name="relationType" required>${typeOptions}</select>
           </label>
           <label>
-            <span>连接理由</span>
+            <span>为什么要关联</span>
             <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
-            <span>洞见问题</span>
+            <span>继续追问（可选）</span>
             <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
           ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
           <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit" ${selectedTargetId ? "" : "disabled"}>确认建立</button>
+            <button class="mini-btn primary" type="submit" ${selectedTargetId ? "" : "disabled"}>保存关联</button>
           </div>
         </form>
       </section>
@@ -6776,12 +6779,12 @@ export class EditorPane {
             <select name="status" required>${this.renderRelationStatusOptions(link?.status || "confirmed")}</select>
           </label>
           <label>
-            <span>连接理由</span>
+            <span>为什么要关联</span>
             <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
-            <span>洞见问题</span>
+            <span>继续追问（可选）</span>
             <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
@@ -7402,8 +7405,8 @@ export class EditorPane {
     }
     if (connectedCount === 0) {
       return {
-        nextStep: "补关系，不要让它孤立",
-        summary: "这条笔记已经能成立，但还没有真正接入网络。下一步先补一条有理由的关系。"
+        nextStep: "关联笔记，不要让它孤立",
+        summary: "这条笔记已经能成立，但还没有真正进入图谱。下一步先关联一条有理由的永久笔记。"
       };
     }
     return {
@@ -7695,8 +7698,8 @@ export class EditorPane {
         };
       }
       return {
-        nextStep: "补关系，不要让它孤立",
-        summary: "这条笔记还没真正接入网络，先补第一条有理由的关系。"
+        nextStep: "关联笔记，不要让它孤立",
+        summary: "这条笔记还没真正进入图谱，先关联一条有理由的永久笔记。"
       };
     }
     if (writingInfo.level === "project_ready") {
@@ -7991,7 +7994,7 @@ export class EditorPane {
                       : "已经有正文链接线索，下一步把关系为什么成立写清楚。"
                     : Number(overview.tagRelatedCount || 0) > 0
                       ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
-                      : "先连出第一条关系。",
+                      : "先关联一条真正相关的永久笔记。",
           action: "relations",
           actionLabel:
             thinExplicitRelationCount > 0
@@ -8002,7 +8005,7 @@ export class EditorPane {
                   : "补关系理由"
                 : Number(overview.tagRelatedCount || 0) > 0
                   ? "从标签线索补关系"
-                  : "补第一条关系"
+                  : "关联一条笔记"
         },
       {
         label: "主题索引",
@@ -8276,15 +8279,16 @@ export class EditorPane {
 
   renderRelationNetworkPrompt(note) {
     if (!this.noteNeedsRelationNetworkPrompt(note)) return "";
+    const title = String(note?.title || "这条永久笔记").trim() || "这条永久笔记";
     return `
       <div class="semantic-relation-group note-network-alert" data-note-network-alert="isolated">
         <div class="semantic-relation-group-head">
           <strong>孤立笔记</strong>
-          <span>先补第一条关系</span>
+          <span>${escapeHtml(title)}</span>
         </div>
-        <p class="related-empty">这条永久笔记还没有已保存的正式关系。先补一条真正成立的支持、反驳、限定或桥接关系；如果暂时独立，就把理由写在边界里。</p>
+        <p class="related-empty">还没有和其他永久笔记建立正式关联。先找一条最相关的笔记，说明它们是支持、反驳、限定还是桥接；如果暂时独立，就把理由写在边界里。</p>
         <div class="semantic-relation-actions">
-          <button class="mini-btn primary" type="button" data-note-main-route-action="relations">加入网络</button>
+          <button class="mini-btn primary" type="button" data-note-main-route-action="relations">关联一条笔记</button>
           <button class="mini-btn" type="button" data-note-isolated-hold>记录暂时独立</button>
         </div>
       </div>
@@ -8926,7 +8930,7 @@ export class EditorPane {
     const submit = form.querySelector('button[type="submit"]');
 
     if (!toNoteId || !relationType || !rationale) {
-      if (errorEl) errorEl.textContent = "请选择目标笔记、关系类型，并写下一句连接理由。";
+      if (errorEl) errorEl.textContent = "请选择要关联的笔记、关系类型，并写下一句关联理由。";
       return;
     }
 
@@ -9044,7 +9048,7 @@ export class EditorPane {
     const submit = form.querySelector('button[type="submit"]');
 
     if (!relationType || !status || !rationale) {
-      if (errorEl) errorEl.textContent = "关系类型、状态和连接理由不能为空。";
+      if (errorEl) errorEl.textContent = "关系类型、状态和关联理由不能为空。";
       return;
     }
 

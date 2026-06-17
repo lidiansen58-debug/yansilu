@@ -41,8 +41,9 @@ test("main-path summary calls for first explicit relation once note is confirmed
     }
   );
 
-  assert.equal(result.nextStep, "补关系，不要让它孤立");
-  assert.match(result.summary, /第一条有理由的关系/);
+  assert.equal(result.nextStep, "关联笔记，不要让它孤立");
+  assert.match(result.summary, /进入图谱/);
+  assert.match(result.summary, /关联一条有理由的永久笔记/);
 });
 
 test("main-path summary distinguishes wikilink-only notes from fully isolated notes", () => {

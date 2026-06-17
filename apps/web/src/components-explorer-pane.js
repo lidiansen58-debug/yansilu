@@ -128,13 +128,13 @@ function folderHasPendingSourceNotes(state = {}, folderId = "", getFolderFiles =
 
 function folderStateTitle(state = "") {
   if (state === "source-pending") return "这个目录下还有随笔或文献笔记没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这个目录下还有需要补关系的孤立笔记。";
+  if (state === "permanent-isolated") return "这个目录下还有需要关联的孤立笔记。";
   return "";
 }
 
 function noteIconStateTitle(state = "", sourceKind = "") {
   if (state === "source-pending") return sourceKind === "literature" ? "这条文献笔记还没有创建永久笔记。" : "这条随笔还没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这条永久笔记还是孤立状态，建议先补第一条真正成立的关系。";
+  if (state === "permanent-isolated") return "这条永久笔记还是孤立状态，建议先关联一条真正相关的永久笔记。";
   return "";
 }
 
@@ -1020,7 +1020,7 @@ export class ExplorerPane {
       : "";
     const showAssociateButton = disconnected;
     const associateButton = showAssociateButton
-      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="让这条孤立笔记先补第一条真正成立的关系">加入网络</button>`
+      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="为这条孤立笔记关联一条真正相关的永久笔记">关联</button>`
       : "";
     const trail = permanentSimplifiedScope
       ? `${associateButton}`

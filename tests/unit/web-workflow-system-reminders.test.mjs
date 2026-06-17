@@ -336,7 +336,7 @@ test("isolated confirmed permanent notes are reported as actionable relation rem
   assert.match(helper, /explicitRelationCount > 0/);
   assert.match(helper, /resolved: true, dedupeKey/);
   assert.match(helper, /category: "relation-network"/);
-  assert.match(helper, /actionLabel: "补第一条关系"/);
+  assert.match(helper, /actionLabel: "关联一条笔记"/);
   assert.match(helper, /focus: "relations"/);
 
   const componentSource = readRepoFile("apps/web/src/components-editor-pane.js");

@@ -167,6 +167,11 @@ test("create relation form uses a searchable target field instead of a select bo
   assert.match(html, /type="hidden" name="toNoteId"/);
   assert.doesNotMatch(html, /data-relation-target-select/);
   assert.match(html, /value="Alpha Note"/);
+  assert.match(html, /关联到另一条永久笔记/);
+  assert.match(html, /要关联哪条笔记/);
+  assert.match(html, /为什么要关联/);
+  assert.match(html, /保存关联/);
+  assert.doesNotMatch(html, /新建正式关联|确认建立/);
 });
 
 test("relation target selection writes the chosen title back into the search field", () => {
