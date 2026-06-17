@@ -1275,7 +1275,14 @@ async function resolvePotentialRelationScope(body = {}) {
 function graphArtifactScopeKey(body = {}, notes = []) {
   const directoryId = cleanText(body.directoryId || body.directory_id);
   if (directoryId) return `graph_scope:${directoryId}`;
-  const focusNoteId = cleanText(body.focusNoteId || body.focus_note_id || body.currentNoteId || body.current_note_id);
+  const focusNoteId = cleanText(
+    body.focusNoteId ||
+      body.focus_note_id ||
+      body.currentNoteId ||
+      body.current_note_id ||
+      body.noteId ||
+      body.note_id
+  );
   if (focusNoteId) return `graph_focus:${focusNoteId}`;
   const noteIds = [...new Set((Array.isArray(notes) ? notes : []).map((note) => cleanText(note?.noteId || note?.id)).filter(Boolean))].sort();
   return `graph_notes:${noteIds.join(",") || "manual_scope"}`;
@@ -4687,13 +4694,21 @@ const server = http.createServer(async (req, res) => {
         const scan = buildPotentialRelationCandidates({
           notes,
           relations,
-          options: body.options || {
-            minScore: body.minScore ?? body.min_score,
-            perNoteLimit: body.perNoteLimit ?? body.per_note_limit,
-            globalLimit: body.globalLimit ?? body.global_limit,
-            focusNoteId: body.focusNoteId ?? body.focus_note_id ?? body.noteId ?? body.note_id ?? focusNoteId,
-            currentNoteId: body.currentNoteId ?? body.current_note_id,
-            recentNoteIds: body.recentNoteIds ?? body.recent_note_ids
+          options: {
+            ...(body.options || {}),
+            minScore: body.minScore ?? body.min_score ?? body.options?.minScore ?? body.options?.min_score,
+            perNoteLimit: body.perNoteLimit ?? body.per_note_limit ?? body.options?.perNoteLimit ?? body.options?.per_note_limit,
+            globalLimit: body.globalLimit ?? body.global_limit ?? body.options?.globalLimit ?? body.options?.global_limit,
+            focusNoteId:
+              body.focusNoteId ??
+              body.focus_note_id ??
+              body.noteId ??
+              body.note_id ??
+              body.options?.focusNoteId ??
+              body.options?.focus_note_id ??
+              focusNoteId,
+            currentNoteId: body.currentNoteId ?? body.current_note_id ?? body.options?.currentNoteId ?? body.options?.current_note_id,
+            recentNoteIds: body.recentNoteIds ?? body.recent_note_ids ?? body.options?.recentNoteIds ?? body.options?.recent_note_ids
           }
         });
         return sendJson(res, 200, {
@@ -4726,9 +4741,16 @@ const server = http.createServer(async (req, res) => {
           relations,
           options: {
             ...(body.options || {}),
-            focusNoteId: body.focusNoteId ?? body.focus_note_id ?? body.noteId ?? body.note_id ?? focusNoteId,
-            currentNoteId: body.currentNoteId ?? body.current_note_id,
-            globalLimit: Math.min(Number(body.globalLimit ?? body.global_limit) || 10, 10)
+            focusNoteId:
+              body.focusNoteId ??
+              body.focus_note_id ??
+              body.noteId ??
+              body.note_id ??
+              body.options?.focusNoteId ??
+              body.options?.focus_note_id ??
+              focusNoteId,
+            currentNoteId: body.currentNoteId ?? body.current_note_id ?? body.options?.currentNoteId ?? body.options?.current_note_id,
+            globalLimit: Math.min(Number(body.globalLimit ?? body.global_limit ?? body.options?.globalLimit ?? body.options?.global_limit) || 10, 10)
           }
         });
         const candidate = resolvePotentialRelationCandidate(scan, body.candidate);

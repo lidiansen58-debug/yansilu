@@ -33,7 +33,9 @@ test("potential relation refine follows current AI provider settings by default"
   assert.match(endpoint, /const artifactContext = graphArtifactExecutionContext\(\{/);
   assert.match(endpoint, /providerExecution,/);
   assert.match(endpoint, /modelName/);
-  assert.match(endpoint, /focusNoteId: body\.focusNoteId \?\? body\.focus_note_id/);
+  assert.match(endpoint, /focusNoteId:/);
+  assert.match(endpoint, /body\.focusNoteId/);
+  assert.match(endpoint, /body\.focus_note_id/);
   assert.doesNotMatch(endpoint, /confirmationRequired: false/);
 });
 
@@ -49,13 +51,23 @@ test("potential relation endpoints accept noteId as a focus alias and infer its 
   assert.match(helper, /const focusNote = await getNoteById\(VAULT_PATH, focusNoteId\);/);
   assert.match(helper, /focusNote\?\.folderId \|\| focusNote\?\.directoryId \|\| focusNote\?\.directory_id/);
   assert.match(helper, /getDirectoryGraph\(VAULT_PATH, directoryId/);
+  const scopeStart = source.indexOf("function graphArtifactScopeKey(body = {}, notes = [])");
+  const scopeEnd = source.indexOf("\nfunction stableArtifactScopePart", scopeStart);
+  assert.ok(scopeStart >= 0 && scopeEnd > scopeStart, "expected graph artifact scope helper");
+  const scopeHelper = source.slice(scopeStart, scopeEnd);
+  assert.match(scopeHelper, /body\.noteId \|\|/);
+  assert.match(scopeHelper, /body\.note_id/);
 
   const endpointStart = source.indexOf('url.pathname === "/api/v1/graph/potential-relations"');
   const endpointEnd = source.indexOf('if (req.method === "POST" && url.pathname === "/api/v1/graph/potential-relations/refine")', endpointStart);
   assert.ok(endpointStart >= 0 && endpointEnd > endpointStart, "expected potential relation scan endpoint");
   const endpoint = source.slice(endpointStart, endpointEnd);
   assert.match(endpoint, /resolvePotentialRelationScope\(body\)/);
-  assert.match(endpoint, /focusNoteId: body\.focusNoteId \?\? body\.focus_note_id \?\? body\.noteId \?\? body\.note_id \?\? focusNoteId/);
+  assert.match(endpoint, /\.\.\.\(body\.options \|\| \{\}\)/);
+  assert.match(endpoint, /body\.noteId/);
+  assert.match(endpoint, /body\.note_id/);
+  assert.match(endpoint, /body\.options\?\.focusNoteId/);
+  assert.match(endpoint, /body\.options\?\.focus_note_id/);
   assert.match(endpoint, /directoryId: directoryId \|\| null/);
 });
 

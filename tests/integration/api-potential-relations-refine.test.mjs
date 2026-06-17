@@ -353,6 +353,74 @@ function buildLocalRefineBody(providerBaseUrl) {
   };
 }
 
+test("potential relation scan keeps noteId focus when request also supplies options", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-potential-relations-noteid-options-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const source = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: [
+      "# Focus source note",
+      "",
+      "## One-line thesis",
+      "Focused relation scans should only return candidates touching the opened note.",
+      "",
+      "#focus-scan #relation-review"
+    ].join("\n")
+  });
+  const target = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: [
+      "# Focus target note",
+      "",
+      "## One-line thesis",
+      "Focused relation scans should keep every candidate anchored to the opened note.",
+      "",
+      "#focus-scan #relation-review"
+    ].join("\n")
+  });
+  await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Distractor alpha\n\n## One-line thesis\nDistractor notes share a strong unrelated local concept. #distractor-scan #rare-distractor"
+  });
+  await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Distractor beta\n\n## One-line thesis\nDistractor notes share a strong unrelated local concept. #distractor-scan #rare-distractor"
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const scan = await postJson(baseUrl, "/api/v1/graph/potential-relations", {
+    noteId: source.json.item.id,
+    options: {
+      minScore: 0.1,
+      perNoteLimit: 5,
+      globalLimit: 20
+    }
+  });
+
+  assert.equal(scan.status, 200, JSON.stringify(scan.json));
+  assert.equal(scan.json.item.directoryId, "dir_original_default");
+  assert.ok(scan.json.item.candidates.length > 0, JSON.stringify(scan.json.item));
+  assert.ok(
+    scan.json.item.candidates.every(
+      (candidate) => candidate.sourceNoteId === source.json.item.id || candidate.targetNoteId === source.json.item.id
+    ),
+    JSON.stringify(scan.json.item.candidates, null, 2)
+  );
+  assert.ok(
+    scan.json.item.candidates.some(
+      (candidate) => candidate.sourceNoteId === target.json.item.id || candidate.targetNoteId === target.json.item.id
+    ),
+    JSON.stringify(scan.json.item.candidates, null, 2)
+  );
+});
+
 test("potential relation refine returns confirmation-needed state before remote execution", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-potential-relations-vault-");
   const port = await findFreePort();
