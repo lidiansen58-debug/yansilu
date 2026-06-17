@@ -6536,13 +6536,13 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">语义关系</div>
+          <div class="inspector-section-title">现有关联</div>
           <div class="semantic-relation-head-actions">
-            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">建立关系</button>
+            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">新建关联</button>
             <div class="inspector-count">读取中</div>
           </div>
         </div>
-        <div class="related-empty">正在读取带理由的关系。</div>
+        <div class="related-empty">正在读取已保存的正式关联。</div>
       </section>
     `;
   }
@@ -6584,10 +6584,10 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">刚写入的关联</div>
+          <div class="inspector-section-title">正文里的新关联</div>
           <div class="inspector-count">${drafts.length}</div>
         </div>
-        <div class="inspector-section-note">这些关系已经写进当前笔记正文，并会在后续关系读取完成后进入正式语义关系区。</div>
+        <div class="inspector-section-note">这些链接刚写进正文；确认后会进入现有关联。</div>
         <div class="inspector-list">${items}</div>
       </section>
     `;
@@ -6692,7 +6692,7 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">建立语义关系</div>
+          <div class="inspector-section-title">新建正式关联</div>
           <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-create">取消</button>
         </div>
         <div class="semantic-relation-status">
@@ -6759,7 +6759,7 @@ export class EditorPane {
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">编辑语义关系</div>
+            <div class="inspector-section-title">编辑正式关联</div>
             <div class="inspector-section-note">${escapeHtml(endpoint.title || "未命名笔记")}</div>
           </div>
           <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-edit">取消</button>
@@ -6825,9 +6825,9 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">语义关系</div>
+          <div class="inspector-section-title">现有关联</div>
           <div class="semantic-relation-head-actions">
-            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">建立关系</button>
+            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">新建关联</button>
             <div class="inspector-count">${explicitLinks.length}</div>
           </div>
         </div>
@@ -6847,7 +6847,7 @@ export class EditorPane {
                 ${group("被它连接", "incoming", explicitBacklinks, "还没有其他笔记以带理由的关系指向当前笔记。")}
               </div>
             `
-            : `<div class="related-empty">${markdownCount ? "已有 wikilink 基础关联，带理由的语义关系还没有建立。" : "还没有带理由的语义关系。"}</div>`
+            : `<div class="related-empty">${markdownCount ? "已有正文里的 wikilink 线索，但还没保存成正式关联。" : "还没有已保存的正式关联。"}</div>`
         }
       </section>
     `;
@@ -6909,7 +6909,7 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">语义关系</div>
+          <div class="inspector-section-title">现有关联</div>
           <div class="inspector-count">不可用</div>
         </div>
         <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error || "未知错误"))}</div>
@@ -6968,6 +6968,7 @@ export class EditorPane {
         const overview = this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations, relationState: "loaded" });
         this.refreshMainPathSection(note, overview);
         this.notifyWorkflowReminder({ kind: "relation-network", note, overview });
+        this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
@@ -6990,6 +6991,7 @@ export class EditorPane {
       if (note?.id === noteId && tab) {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
         this.refreshMainPathSection(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "error" }));
+        this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
@@ -7303,12 +7305,12 @@ export class EditorPane {
       <section class="inspector-section semantic-relations-section" data-note-ai-analysis-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">AI 初判</div>
-            <div class="inspector-section-note">${analysis ? "本地规则分析结果，所有输出仍需人工审阅。" : "用本地规则先看关联、原创度和原则缺口。"}</div>
+            <div class="inspector-section-title">AI 候选</div>
+            <div class="inspector-section-note">${analysis ? "AI 只给候选和理由草稿，是否采纳仍由你决定。" : "先用 AI 扫一遍可能的关联、主题和缺口，结果只进入待审。"}</div>
           </div>
           <div class="semantic-relation-head-actions">
             ${analysis ? `<button class="mini-btn is-ghost" type="button" data-note-ai-analysis-open-inbox>查看待审</button>` : ""}
-            <button class="mini-btn is-ghost" type="button" data-note-ai-analysis>${analysis ? "重新分析" : "AI 分析"}</button>
+            <button class="mini-btn is-ghost" type="button" data-note-ai-analysis>${analysis ? "重新扫描" : "扫描候选"}</button>
           </div>
         </div>
         ${
@@ -8094,13 +8096,47 @@ export class EditorPane {
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
           this.semanticRelationsState === "error"
-            ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
+            ? "正文链接和标签还能看，但现有关联读取失败了，请以重试结果为准。"
             : this.semanticRelationsState === "loading"
-              ? "上面这组数字只统计正文里的本地链接；显式关系仍在读取中，稍后会在主路径卡片和语义关系区里更新。"
-              : "上面这组数字只统计正文里的本地链接；显式关系请结合主路径卡片和语义关系区一起判断。"
+              ? "正文链接和标签只是线索；现有关联还在读取。"
+              : "正文链接和标签只是线索；正式关系以“现有关联”为准。"
         }
       </div>
     `;
+  }
+
+  renderInspectorStatusSummary(note, { forward = [], backward = [], tagRelated = [] } = {}) {
+    const localLinkCount = Number((forward?.length || 0) + (backward?.length || 0));
+    const relationCount = Number(this.currentExplicitRelationCount() || 0);
+    const networkStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
+    const relationSummaryLabel =
+      this.semanticRelationsState === "error"
+        ? "现有关联读取失败"
+        : this.semanticRelationsState === "loading"
+          ? "现有关联读取中"
+          : `现有关联 ${relationCount}`;
+    const networkSummaryLabel =
+      networkStatus === "isolated"
+        ? "孤立笔记"
+        : networkStatus === "connected"
+          ? "已接入网络"
+          : "状态待判断";
+    return `
+      <div class="inspector-summary" data-inspector-status-summary>
+        <span class="inspector-chip">${escapeHtml(relationSummaryLabel)}</span>
+        <span class="inspector-chip">正文链接 ${escapeHtml(String(localLinkCount))}</span>
+        <span class="inspector-chip">标签线索 ${escapeHtml(String(tagRelated.length || 0))}</span>
+        <span class="inspector-chip">${escapeHtml(networkSummaryLabel)}</span>
+      </div>
+    `;
+  }
+
+  refreshInspectorStatusSummary(note, tab = this.activeTab()) {
+    if (!note?.id || !tab) return;
+    const mount = this.els.result?.querySelector?.("[data-inspector-status-summary]");
+    if (!mount) return;
+    const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
+    mount.outerHTML = this.renderInspectorStatusSummary(note, { forward, backward, tagRelated });
   }
 
   refreshInspectorLinkSummaryNote() {
@@ -8243,13 +8279,13 @@ export class EditorPane {
     return `
       <div class="semantic-relation-group note-network-alert" data-note-network-alert="isolated">
         <div class="semantic-relation-group-head">
-          <strong>未入关系网络</strong>
-          <span>建议补关联</span>
+          <strong>孤立笔记</strong>
+          <span>先补第一条关系</span>
         </div>
-        <p class="related-empty">这条永久笔记还没有进入图谱。补一条支持、反驳、限定或桥接关系；如果暂时独立，也在边界里留下理由。</p>
+        <p class="related-empty">这条永久笔记还没有已保存的正式关系。先补一条真正成立的支持、反驳、限定或桥接关系；如果暂时独立，就把理由写在边界里。</p>
         <div class="semantic-relation-actions">
-          <button class="mini-btn primary" type="button" data-note-main-route-action="relations">关联笔记</button>
-          <button class="mini-btn" type="button" data-note-isolated-hold>暂时独立</button>
+          <button class="mini-btn primary" type="button" data-note-main-route-action="relations">加入网络</button>
+          <button class="mini-btn" type="button" data-note-isolated-hold>记录暂时独立</button>
         </div>
       </div>
     `;
@@ -8965,6 +9001,7 @@ export class EditorPane {
         confidence: 1,
         status: "confirmed"
       });
+      this.syncRelationNetworkConnected(note.id, target.id);
       const currentBody = this.getEditorValue() || tab.body || "";
       const cleanedBody = currentBody.replace(draft.raw, `[[${draft.token}]]`);
       this.setEditorValue(cleanedBody);
@@ -9116,24 +9153,19 @@ export class EditorPane {
           <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
           <div class="inspector-overview-meta">${escapeHtml(noteTypeText(this.resolvedNoteType(note)))} · ${escapeHtml(this.folderLabel(note.folderId))}</div>
         </div>
-      <div class="inspector-overview-grid">
-        <div class="inspector-overview-row">
-          <span class="inspector-overview-label">标签</span>
-          <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
+        <div class="inspector-overview-grid">
+          <div class="inspector-overview-row">
+            <span class="inspector-overview-label">标签</span>
+            <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
+          </div>
         </div>
       </div>
-      </div>
-      <div class="inspector-section-note" data-inspector-link-summary-note>
-        ${
-          !isPermanentNote
-            ? "当前编辑的是来源笔记。只有永久笔记才会显示关联与主路径；这里优先显示创建永久笔记的下一步。"
-            : this.semanticRelationsState === "error"
-            ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
-            : this.semanticRelationsState === "loading"
-              ? "上面这组数字只统计正文里的本地链接；显式关系仍在读取中，稍后会在主路径卡片和语义关系区里更新。"
-              : "上面这组数字只统计正文里的本地链接；显式关系请结合主路径卡片和语义关系区一起判断。"
-        }
-      </div>
+      ${isPermanentNote ? this.renderInspectorStatusSummary(note, { forward, backward, tagRelated }) : ""}
+      ${
+        !isPermanentNote
+          ? `<div class="inspector-section-note" data-inspector-link-summary-note>当前编辑的是来源笔记。这里只有创建永久笔记的下一步；正式关联整理请在永久笔记里继续。</div>`
+          : this.renderInspectorLinkSummaryNote()
+      }
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
         ${
@@ -9143,13 +9175,13 @@ export class EditorPane {
                 note,
                 this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "loading" })
               )}
-              ${this.renderPermanentNoteAiAnalysisSection(note)}
-              ${this.renderPermanentNoteDistillationSection(note)}
-              ${this.renderInlineDraftRelationSection(note, tab)}
               ${this.renderCurrentRelationSection(note.id, {
                 relations: this.currentSemanticRelations,
                 relationState: this.semanticRelationsState
               })}
+              ${this.renderPermanentNoteAiAnalysisSection(note)}
+              ${this.renderPermanentNoteDistillationSection(note)}
+              ${this.renderInlineDraftRelationSection(note, tab)}
             `
             : isRecordableSource
               ? this.renderSourceNoteFlowSection(note)

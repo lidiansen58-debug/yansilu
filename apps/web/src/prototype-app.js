@@ -6421,7 +6421,7 @@ function renderSidebarTitle() {
     if (moduleSidebar) moduleSidebar.innerHTML = "";
     if (sidebarFoot) {
       sidebarFoot.classList.remove("hidden");
-      sidebarFoot.textContent = "孤立笔记会在这里集中提醒，可逐条关联笔记，加入关系网络。";
+      sidebarFoot.textContent = "孤立笔记会在这里用警示色提醒，点进来就能补第一条关系。";
     }
     return;
   }
@@ -14218,7 +14218,7 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
     .join("、");
   const candidateHint = candidatePreview
     ? `下面的关联整理会展开 ${candidatePreview}${aiCandidates.length + localCandidates.length > 2 ? " 等候选" : ""}，可以直接带入关系表单。`
-    : "下面的关联整理会集中列出候选，先看一条最像真正关系的连接。";
+    : "下面会先列出最值得复查的候选，再决定要不要写成正式关系。";
   const steps = [
     {
       title: "发现候选",
@@ -14240,14 +14240,14 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
     <section class="graph-isolated-join" aria-label="孤立笔记加入网络">
       <div class="graph-isolated-join-head">
         <div>
-          <strong>加入笔记网络</strong>
-          <p>目标不是强行连线，而是为这条笔记找到一条能解释的关系。确认前不会写入图谱。</p>
+          <strong>孤立笔记：先补第一条关系</strong>
+          <p>先找一条真正成立的连接；确认前不会写入图谱。</p>
         </div>
         <span>${escapeHtml(stateLabel)}</span>
       </div>
       <div class="graph-isolated-join-actions">
         <button class="graph-selection-action is-primary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${loading ? " disabled" : ""}>${loading ? "AI 正在找" : aiCandidates.length ? "继续找候选" : "AI 找连接"}</button>
-        <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(cleanNoteId)}" data-graph-followup-action="relations">手工连线</button>
+        <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(cleanNoteId)}" data-graph-followup-action="relations">手工关联</button>
       </div>
       <p>${escapeHtml(candidateHint)}</p>
       <div class="graph-isolated-join-steps" aria-label="加入网络步骤">
@@ -14348,15 +14348,15 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
           .join("")}
       </div>
       <section class="graph-selection-prompts">
-        <strong>先判断角色</strong>
+        <strong>别急着连线</strong>
         ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
       </section>
-      ${renderGraphRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "确认候选关系" })}
+      ${renderGraphRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "现有关联与候选" })}
       ${renderGraphAiConnectCandidates(noteId, { nodeMap, edges })}`,
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-graph-ai-connect-note="${escapeHtml(noteId)}"${noteId && !graphState.aiAnalysisLoading ? "" : " disabled"}>${graphState.aiAnalysisLoading ? "AI 正在找" : "AI 找连接"}</button>
       <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(noteId)}"${noteId ? "" : " disabled"}>打开笔记</button>
-      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(noteId)}" data-graph-followup-action="relations"${noteId ? "" : " disabled"}>手工寻找</button>`
+      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(noteId)}" data-graph-followup-action="relations"${noteId ? "" : " disabled"}>手工关联</button>`
   });
 }
 
@@ -14721,7 +14721,7 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
       actions: `
         <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(normalized.nodeId)}">打开笔记</button>
         <button class="graph-selection-action" type="button" data-graph-ai-connect-note="${escapeHtml(normalized.nodeId)}"${graphState.aiAnalysisLoading ? " disabled" : ""}>${graphState.aiAnalysisLoading ? "AI 正在找" : "AI 找连接"}</button>
-        <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(normalized.nodeId)}" data-graph-followup-action="relations">手工连线</button>`
+        <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(normalized.nodeId)}" data-graph-followup-action="relations">手工关联</button>`
     });
   }
   const edge = edges.find((item) => graphEdgeSelectionKey(item) === normalized.edgeKey);

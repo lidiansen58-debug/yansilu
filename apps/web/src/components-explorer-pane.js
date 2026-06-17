@@ -128,13 +128,13 @@ function folderHasPendingSourceNotes(state = {}, folderId = "", getFolderFiles =
 
 function folderStateTitle(state = "") {
   if (state === "source-pending") return "这个目录下还有随笔或文献笔记没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这个目录下还有未加入关系网络的孤立笔记。";
+  if (state === "permanent-isolated") return "这个目录下还有需要补关系的孤立笔记。";
   return "";
 }
 
 function noteIconStateTitle(state = "", sourceKind = "") {
   if (state === "source-pending") return sourceKind === "literature" ? "这条文献笔记还没有创建永久笔记。" : "这条随笔还没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这条永久笔记还没有加入关系网络。";
+  if (state === "permanent-isolated") return "这条永久笔记还是孤立状态，建议先补第一条真正成立的关系。";
   return "";
 }
 
@@ -159,10 +159,6 @@ function thinkingStatusBadge(note = null) {
   const status = String(thinkingStatus?.status || "").trim();
   const title = nextAction ? `${label}：${nextAction}` : label;
   return `<span class="item-badge item-badge-thinking" data-severity="${escapeHtml(severity)}" data-status="${escapeHtml(status)}" title="${escapeHtml(title)}">${escapeHtml(label)}</span>`;
-}
-
-function disconnectedNoteBadge() {
-  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有加入关系网络。建议补一条支持、反驳、限定或桥接关系。">未入关系网</span>`;
 }
 
 function sourcePermanentBadge(state = "", sourceKind = "") {
@@ -330,7 +326,10 @@ export class ExplorerPane {
         e.preventDefault();
         e.stopPropagation();
         const noteId = String(relationButton.dataset.associateNote || "").trim();
-        if (noteId) this.onStateChange("open-note-relations", { noteId, source: "explorer-browser" });
+        if (noteId) {
+          if (this.state.module === "graph") this.onStateChange("graph-focus-note", { noteId, source: "graph-sidebar-associate" });
+          else this.onStateChange("open-note-relations", { noteId, source: "explorer-browser" });
+        }
         return;
       }
 
@@ -1001,7 +1000,6 @@ export class ExplorerPane {
     const thinkingBadge = thinkingStatusBadge(note);
     const originalBadge = generatedOriginalBadge(this.state, note);
     const disconnected = this.noteIsDisconnected(note);
-    const disconnectedBadge = disconnected ? disconnectedNoteBadge() : "";
     const noteType = resolvedNoteType(this.state, note);
     const sourceState = sourcePermanentState(this.state, note);
     const permanentSimplifiedScope = this.isPermanentNoteBrowserScope(note.folderId);
@@ -1022,13 +1020,13 @@ export class ExplorerPane {
       : "";
     const showAssociateButton = disconnected;
     const associateButton = showAssociateButton
-      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="关联笔记：选择相关笔记，并写下它们为什么有关">关联</button>`
+      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="让这条孤立笔记先补第一条真正成立的关系">加入网络</button>`
       : "";
     const trail = permanentSimplifiedScope
-      ? `${disconnectedBadge}${associateButton}`
+      ? `${associateButton}`
       : sourceSimplifiedScope
         ? sourcePermanentBadge(sourceState, noteType)
-      : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
+      : `${currentBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
       <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
         <div class="left">

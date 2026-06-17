@@ -504,7 +504,7 @@ test("graph note browser keeps isolated permanent notes inline with direct relat
   assert.match(html, /is-disconnected[\s\S]*data-id="perm_graph_isolated"/);
   assert.match(html, /data-note-state="permanent-isolated"/);
   assert.match(html, /data-associate-note="perm_graph_isolated"/);
-  assert.match(html, /关联笔记/);
+  assert.match(html, /加入网络/);
   assert.doesNotMatch(html, /未入星系|接入网络|建立关系/);
 });
 
@@ -561,6 +561,8 @@ test("note browser action buttons stop row click fallthrough", () => {
   const clickBody = source.match(/this\.els\.listArea\.addEventListener\("click", \(e\) => \{([\s\S]*?)\n\s*\}\);/)?.[1] || "";
 
   assert.match(clickBody, /const relationButton = e\.target\.closest\("button\[data-associate-note\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
+  assert.match(clickBody, /if \(this\.state\.module === "graph"\) this\.onStateChange\("graph-focus-note", \{ noteId, source: "graph-sidebar-associate" \}\);/);
+  assert.match(clickBody, /else this\.onStateChange\("open-note-relations", \{ noteId, source: "explorer-browser" \}\);/);
   assert.match(clickBody, /const toggleBtn = e\.target\.closest\("button\[data-toggle-folder\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
 });
 
@@ -688,10 +690,10 @@ test("permanent note browser surfaces isolated notes with direct relation action
   }, 0);
 
   assert.match(html, /data-note-state="permanent-isolated"/);
-  assert.match(html, /item-badge-warning/);
-  assert.match(html, /未入关系网/);
   assert.match(html, /data-associate-note="pn_001"/);
   assert.match(html, /item-inline-action warn/);
+  assert.match(html, /加入网络/);
+  assert.doesNotMatch(html, /未入关系网/);
   assert.doesNotMatch(html, /item-badge-thinking/);
   assert.doesNotMatch(html, /item-badge-original-record/);
 });
@@ -841,19 +843,20 @@ test("note browsers keep richer note actions and thinking badges outside simplif
     thinkingStatus: { label: "待补推理", nextAction: "补一条关系", severity: "next", status: "open" }
   }, 0);
 
-  assert.match(html, /未入关系网/);
   assert.match(html, /item-badge-thinking/);
   assert.match(html, /data-associate-note="perm_custom"/);
-  assert.match(html, /关联/);
+  assert.match(html, /加入网络/);
+  assert.doesNotMatch(html, /未入关系网/);
 });
 
 test("isolated permanent note detail prompts relations or a temporary independent reason", () => {
   const source = readRepoFile("apps/web/src/components-editor-pane.js");
 
   assert.match(source, /data-note-network-alert="isolated"/);
-  assert.match(source, /未入关系网络/);
-  assert.match(source, /data-note-main-route-action="relations">关联笔记/);
+  assert.match(source, /孤立笔记/);
+  assert.match(source, /data-note-main-route-action="relations">加入网络/);
   assert.match(source, /data-note-isolated-hold/);
+  assert.match(source, /记录暂时独立/);
   assert.match(source, /暂时独立：/);
   assert.match(source, /textarea\[name="boundaryOrCounterpoint"\]/);
 });

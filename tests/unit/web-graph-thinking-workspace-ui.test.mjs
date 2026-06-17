@@ -328,7 +328,7 @@ test("isolated graph notes can request AI-assisted relation candidates and confi
   assert.match(source, /aria-label="孤立笔记加入网络"/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(noteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(noteId\)\}"/);
-  assert.match(source, /data-graph-followup-action="relations">手工连线<\/button>/);
+  assert.match(source, /data-graph-followup-action="relations">手工关联<\/button>/);
   assert.match(source, /data-graph-ai-candidate-apply/);
   assert.match(source, /data-open-note="\$\{escapeHtml\(candidate\.actionSourceNoteId \|\| candidate\.sourceNoteId\)\}"/);
   assert.match(source, /data-graph-target-note="\$\{escapeHtml\(candidate\.actionTargetNoteId \|\| candidate\.targetNoteId\)\}"/);
@@ -474,8 +474,8 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(source, /openGraphCandidateRelation\(graphRelationCandidateButton\);/);
   assert.match(joinFlowSource, /const candidateHint = candidatePreview/);
   assert.doesNotMatch(joinFlowSource, /renderGraphRelationCandidateCards\(localCandidates/);
-  assert.match(isolatedSelectionSource, /<strong>先判断角色<\/strong>/);
-  assert.match(isolatedSelectionSource, /title: "确认候选关系"/);
+  assert.match(isolatedSelectionSource, /<strong>别急着连线<\/strong>/);
+  assert.match(isolatedSelectionSource, /title: "现有关联与候选"/);
   assert.doesNotMatch(isolatedSelectionSource, /孤立笔记接入网络/);
 });
 
@@ -610,7 +610,7 @@ test("graph module sidebar is labeled as graph scope instead of permanent-note b
 
   assert.match(graphSidebarBranch, /\$\("sidebarTitle"\)\.textContent = "图谱笔记范围";/);
   assert.match(graphSidebarBranch, /这里不是永久笔记页；点目录或笔记是在切换图谱观察范围。/);
-  assert.match(graphSidebarBranch, /孤立笔记会在这里集中提醒，可逐条关联笔记，加入关系网络。/);
+  assert.match(graphSidebarBranch, /孤立笔记会在这里用警示色提醒，点进来就能补第一条关系。/);
   assert.doesNotMatch(graphSidebarBranch, /永久笔记浏览/);
 });
 
