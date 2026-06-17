@@ -15,7 +15,9 @@ test("explorer keeps a distinct current-note state when the editor still has an 
   assert.ok(source.includes("const fileIsSelected = this.state.selectedFileId === note.id;"));
   assert.match(source, /const fileIsCurrent = [^;]*this\.currentEditorNoteId\(\) === note\.id;/);
   assert.ok(source.includes("item-badge-current"));
-  assert.ok(source.includes('`${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`'));
+  assert.ok(source.includes("const showAssociateButton = disconnected;"));
+  assert.ok(source.includes('const trail = permanentSimplifiedScope'));
+  assert.ok(source.includes('`${currentBadge}${thinkingBadge}${originalBadge}${associateButton}`'));
   assert.ok(source.includes('${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}'));
   assert.ok(html.includes(".item-badge-current {"));
   assert.ok(html.includes(".file-row.is-current-note:not(.active) {"));

@@ -39,6 +39,21 @@ test("potential relation scan ignores broad tags as a dominant signal", () => {
   assert.match(specificPair.coarseReasons.join(" "), /具体标签/);
 });
 
+test("potential relation fingerprints read Chinese note sections without mojibake", () => {
+  const fingerprint = buildPermanentNoteFingerprint(
+    note(
+      "cn",
+      "中文结构笔记",
+      "# 中文结构笔记\n\n## 一句话论点\n关联图谱需要保留人工确认。\n\n## 三句话压缩\n第一句说明观点。\n第二句说明理由。\n第三句说明用途。\n\n#永久笔记 #具体标签"
+    )
+  );
+
+  assert.equal(fingerprint.thesis, "关联图谱需要保留人工确认。");
+  assert.match(fingerprint.summary, /第一句说明观点/);
+  assert.ok(fingerprint.tags.includes("永久笔记"));
+  assert.ok(fingerprint.tags.includes("具体标签"));
+});
+
 test("specific tag IDF lifts rare shared tags above common tags", () => {
   const notes = [
     note("rare1", "Rare One", "# Rare One", { tags: ["稀有概念"] }),

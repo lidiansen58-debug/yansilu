@@ -479,6 +479,48 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.doesNotMatch(isolatedSelectionSource, /孤立笔记接入网络/);
 });
 
+test("graph relation candidates explain reason, possible relation, and review question", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function renderGraphCandidateReviewRows\(candidate = \{\}, \{ aiCandidate = true \} = \{\}\) \{/);
+  assert.match(source, /<span>推荐原因<\/span>/);
+  assert.match(source, /<span>可能关系<\/span>/);
+  assert.match(source, /<span>复核问题<\/span>/);
+  assert.match(source, /graphCandidateRelationReviewQuestion\(candidate\)/);
+  assert.match(source, /renderGraphCandidateReviewRows\(candidate\)/);
+  assert.match(source, /renderGraphCandidateReviewRows\(candidate, \{ aiCandidate: false \}\)/);
+  assert.match(html, /\.graph-candidate-review \{[\s\S]*display: grid;[\s\S]*gap: 6px;/);
+});
+
+test("isolated note panel gives a continuous next step after confirming a relation", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function renderGraphIsolatedNextStepActions\(noteId = "", \{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
+  assert.match(source, /<strong>确认关系后继续<\/strong>/);
+  assert.match(source, /处理下一条/);
+  assert.match(source, /看当前周边/);
+  assert.match(source, /创建主题笔记/);
+  assert.match(source, /const canCreateTheme = directEdges\.length > 0 && themeNoteIds\.length >= 2;/);
+  assert.match(source, /renderGraphIsolatedNextStepActions\(noteId, \{ isolatedNotes, nodeMap, edges \}\)/);
+  assert.match(html, /\.graph-isolated-next-step \{[\s\S]*border: 1px solid #cfe4d9;/);
+});
+
+test("graph node selection summarizes position, relation quality, and next action", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function graphNodeInsightMeta\(node = \{\}, directEdges = \[\], \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
+  assert.match(source, /function renderGraphNodeInsightPanel\(insight = \{\}\) \{/);
+  assert.match(source, /这条笔记的位置/);
+  assert.match(source, /关系质量/);
+  assert.match(source, /下一步/);
+  assert.match(source, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
+  assert.match(source, /renderGraphNodeInsightPanel\(insight\)/);
+  assert.match(html, /\.graph-node-insight \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
+});
+
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();

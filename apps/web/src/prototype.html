@@ -5654,6 +5654,45 @@
       font-weight: 650;
       line-height: 1.35;
     }
+    .graph-node-insight {
+      display: grid;
+      gap: 8px;
+      padding: 12px 13px;
+      border: 1px solid #d8e7ef;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at top right, rgba(56, 163, 201, 0.11), transparent 34%),
+        rgba(255, 255, 255, 0.92);
+    }
+    .graph-node-insight div {
+      display: grid;
+      gap: 3px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e5eef3;
+    }
+    .graph-node-insight div:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+    .graph-node-insight span {
+      color: #195e76;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+    .graph-node-insight strong {
+      color: #172033;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    .graph-node-insight p {
+      margin: 0;
+      color: #526174;
+      font-size: 11px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
     .graph-selection-body {
       display: grid;
       gap: 10px;
@@ -5948,6 +5987,34 @@
       border-color: #cfe4d9;
       background: #f8fcfa;
     }
+    .graph-isolated-next-step {
+      display: grid;
+      gap: 9px;
+      padding: 12px 13px;
+      border: 1px solid #cfe4d9;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at top right, rgba(15, 111, 72, 0.1), transparent 34%),
+        rgba(243, 251, 246, 0.94);
+    }
+    .graph-isolated-next-step strong {
+      color: #0f5132;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    .graph-isolated-next-step p {
+      margin: 4px 0 0;
+      color: #526174;
+      font-size: 11px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-next-step-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+      gap: 7px;
+    }
     .graph-isolated-queue-strip {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto auto;
@@ -6175,6 +6242,32 @@
       font-size: 10px;
       font-weight: 800;
       line-height: 1.35;
+    }
+    .graph-candidate-review {
+      display: grid;
+      gap: 6px;
+    }
+    .graph-candidate-review div {
+      display: grid;
+      gap: 3px;
+      padding: 7px 8px;
+      border: 1px solid #e0ebf1;
+      border-radius: 10px;
+      background: rgba(248, 251, 250, 0.82);
+    }
+    .graph-candidate-review span {
+      width: fit-content;
+      color: #0f6f48;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+    .graph-candidate-review p {
+      margin: 0;
+      color: #526174;
+      font-size: 11px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
     }
     .graph-ai-connect-actions {
       display: grid;
