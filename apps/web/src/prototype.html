@@ -9947,6 +9947,26 @@
       font-size: 11px;
       font-weight: 700;
     }
+    .inspector-chip.is-warning {
+      border-color: #f6d58a;
+      background: #fff8df;
+      color: #8a5a00;
+    }
+    .inspector-chip.is-success {
+      border-color: #acd9cc;
+      background: #eefaf5;
+      color: #0f6b54;
+    }
+    .inspector-summary-compact {
+      margin-top: -2px;
+      margin-bottom: 10px;
+    }
+    .inspector-link-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -10091,6 +10111,133 @@
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
+    }
+    .main-path-next-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid rgba(15, 118, 110, 0.24);
+      border-radius: 10px;
+      background:
+        linear-gradient(90deg, rgba(15, 118, 110, 0.12), transparent 28px),
+        #f8fcfa;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    }
+    .main-path-next-card span {
+      color: #0f766e;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+    .main-path-next-card strong {
+      display: block;
+      margin-top: 2px;
+      color: #10202a;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .main-path-next-card p {
+      margin: 4px 0 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .main-path-next-card .mini-btn {
+      min-height: 34px;
+      white-space: nowrap;
+    }
+    .main-path-progress {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .main-path-progress span {
+      min-width: 0;
+      min-height: 42px;
+      display: grid;
+      align-content: center;
+      gap: 2px;
+      padding: 7px 8px;
+      border: 1px solid #e2ebf3;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    .main-path-progress b,
+    .main-path-progress em {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-style: normal;
+      line-height: 1.25;
+    }
+    .main-path-progress b {
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .main-path-progress em {
+      color: #172033;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .main-path-secondary-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .inspector-deferred-workspace {
+      border-top: 1px solid #eef3f7;
+      padding-top: 10px;
+    }
+    .inspector-deferred-workspace summary {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px solid #e1eaf2;
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 8px 10px;
+      color: #172033;
+      cursor: pointer;
+      list-style: none;
+    }
+    .inspector-deferred-workspace summary::-webkit-details-marker {
+      display: none;
+    }
+    .inspector-deferred-workspace summary::after {
+      content: "展开";
+      flex: 0 0 auto;
+      color: #0f766e;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .inspector-deferred-workspace[open] summary::after {
+      content: "收起";
+    }
+    .inspector-deferred-workspace summary span {
+      color: #172033;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    .inspector-deferred-workspace summary small {
+      min-width: 0;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .inspector-deferred-body {
+      display: grid;
+      gap: 12px;
+      padding-top: 12px;
     }
     .relation-create-summary {
       margin-top: -2px;
@@ -17020,8 +17167,8 @@
           <div class="panel inspector-panel" id="relatedPanel">
             <div class="panel-head">
               <div>
-                <div class="panel-title">关联线索</div>
-                <div class="panel-note">这里看引用、回链和同标签。</div>
+                <div class="panel-title">关系整理</div>
+                <div class="panel-note">先处理当前建议，再确认正式关系。</div>
               </div>
               <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起关联窗口" data-tip="收起关联窗口" aria-label="收起关联窗口">×</button>
             </div>

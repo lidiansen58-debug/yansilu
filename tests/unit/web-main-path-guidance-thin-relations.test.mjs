@@ -57,7 +57,8 @@ test("main-path card keeps relation step on reason follow-up when explicit relat
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /关系连接<\/strong> <span>理由待补 1 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="relations"/);
   assert.match(html, /已经连上关系，但还有理由偏薄的连接/);
   assert.match(html, /data-note-main-route-action="relations"[^>]*>补关系理由<\/button>/);
+  assert.match(html, /<b>关系<\/b> <em>2 条正式关系<\/em>/);
 });

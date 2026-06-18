@@ -111,8 +111,15 @@ test("editor-triggered note AI analysis stays in the current note workspace", ()
   const renderEnd = editorSource.indexOf("  async handleTokenAction(token) {", renderStart);
   assert.ok(renderStart >= 0 && renderEnd > renderStart, "expected renderRelated() to exist");
   const renderSource = editorSource.slice(renderStart, renderEnd);
-  assert.match(renderSource, /this\.renderPermanentNoteAiAnalysisSection\(note\)/);
-  assert.match(renderSource, /this\.renderPermanentNoteDistillationSection\(note\)/);
+  assert.match(renderSource, /this\.renderDeferredNoteWorkspace\(note, tab\)/);
+
+  const deferredStart = editorSource.indexOf("  renderDeferredNoteWorkspace(note, tab) {");
+  const deferredEnd = editorSource.indexOf("  setDistillationPrefill", deferredStart);
+  assert.ok(deferredStart >= 0 && deferredEnd > deferredStart, "expected renderDeferredNoteWorkspace() to exist");
+  const deferredSource = editorSource.slice(deferredStart, deferredEnd);
+  assert.match(deferredSource, /this\.renderPermanentNoteAiAnalysisSection\(note\)/);
+  assert.match(deferredSource, /this\.renderPermanentNoteDistillationSection\(note\)/);
+  assert.match(deferredSource, /data-deferred-workspace/);
 
   const sectionStart = editorSource.indexOf("  renderPermanentNoteAiAnalysisSection(note) {");
   const sectionEnd = editorSource.indexOf("  legacyPermanentNoteMainPathSummary", sectionStart);

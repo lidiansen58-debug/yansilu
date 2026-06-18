@@ -56,6 +56,20 @@ test("cross-folder link candidates use a folder-prefixed display label", async (
   assert.ok(source.includes("return `${this.compactFolderLabel(note.folderId)}/${targetTitle}`;"));
 });
 
+test("wikilink preview avoids low-value match and count metadata", async () => {
+  const source = await readComponentsEditorPaneSource();
+
+  assert.ok(source.includes('mode: "wikilink"'));
+  assert.ok(source.includes('data-open-linked-note="${escapeHtml(note.id)}"'));
+  assert.ok(source.includes("async openLinkedPreviewNote(noteId)"));
+  assert.ok(source.includes("void this.openLinkedPreviewNote(linkedNoteButton.dataset.openLinkedNote);"));
+  assert.ok(source.includes("正文里的这个链接指向这条笔记。"));
+  assert.doesNotMatch(source, /已匹配/);
+  assert.doesNotMatch(source, /重名匹配/);
+  assert.doesNotMatch(source, /关联 \$\{links\.length\}/);
+  assert.doesNotMatch(source, /标签 \$\{tags\.length\}/);
+});
+
 test("confirm button requires a target and manual relation reason", async () => {
   const source = await readComponentsEditorPaneSource();
 

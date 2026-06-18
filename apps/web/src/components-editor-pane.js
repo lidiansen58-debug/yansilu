@@ -3563,7 +3563,7 @@ export class EditorPane {
   toggleInspector(forceValue = null) {
     const nextVisible = typeof forceValue === "boolean" ? forceValue : !this.state.inspectorVisible;
     this.setInspectorVisible(nextVisible);
-    if (nextVisible) this.renderRelated("当前笔记关联总览");
+    if (nextVisible) this.renderRelated();
   }
 
   setFocusMode(enabled) {
@@ -3859,8 +3859,6 @@ export class EditorPane {
       <div class="token-preview-note">
         <div class="token-preview-meta">
           <span>${escapeHtml(badgeText)}</span>
-          <span>${escapeHtml(noteTypeText(this.resolvedNoteType(note) || typeFromFolder(this.state, note?.folderId || "")))}</span>
-          <span>${escapeHtml(this.folderLabel(note?.folderId || ""))}</span>
         </div>
         <div class="markdown-preview token-preview-markdown">${preview}</div>
       </div>
@@ -6580,7 +6578,7 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">现有关联</div>
+          <div class="inspector-section-title">关系网络</div>
           <div class="semantic-relation-head-actions">
             <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">新建关联</button>
             <div class="inspector-count">读取中</div>
@@ -6854,6 +6852,14 @@ export class EditorPane {
     const tensionCount = explicitLinks.filter((link) => relationTone(link) === "tension").length;
     const bridgeCount = explicitLinks.filter((link) => relationTone(link) === "bridge").length;
     const networkState = confirmedCount ? "已接入" : explicitLinks.length ? "待确认" : "未安置";
+    const statusChips = [
+      explicitLinks.length ? `${explicitLinks.length} 条正式关系` : "还没有正式关系",
+      confirmedCount ? `已确认 ${confirmedCount}` : "",
+      tensionCount ? `张力 ${tensionCount}` : "",
+      bridgeCount ? `桥接 ${bridgeCount}` : "",
+      markdownCount ? `正文链接 ${markdownCount}` : "",
+      networkState !== "未安置" ? networkState : ""
+    ].filter(Boolean);
 
     const group = (title, direction, list, emptyText) => `
       <div class="semantic-relation-group">
@@ -6872,18 +6878,17 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">现有关联</div>
+          <div>
+            <div class="inspector-section-title">关系网络</div>
+            <div class="inspector-section-note">已保存的正式关系，图谱以这里为准。</div>
+          </div>
           <div class="semantic-relation-head-actions">
             <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">新建关联</button>
             <div class="inspector-count">${explicitLinks.length}</div>
           </div>
         </div>
         <div class="semantic-relation-status">
-          <span class="inspector-chip">${escapeHtml(networkState)}</span>
-          <span class="inspector-chip">确认 ${confirmedCount}</span>
-          <span class="inspector-chip">张力 ${tensionCount}</span>
-          <span class="inspector-chip">桥接 ${bridgeCount}</span>
-          ${markdownCount ? `<span class="inspector-chip">wikilink ${markdownCount}</span>` : ""}
+          ${statusChips.map((chip) => `<span class="inspector-chip">${escapeHtml(chip)}</span>`).join("")}
         </div>
         ${this.renderRelationFollowupSuggestion(noteId)}
         ${
@@ -6956,7 +6961,7 @@ export class EditorPane {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">现有关联</div>
+          <div class="inspector-section-title">关系网络</div>
           <div class="inspector-count">不可用</div>
         </div>
         <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error || "未知错误"))}</div>
@@ -7589,7 +7594,7 @@ export class EditorPane {
       <section class="inspector-section semantic-relations-section" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">主路径下一步</div>
+            <div class="inspector-section-title">建议下一步</div>
             <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
           </div>
           <span class="inspector-chip">${escapeHtml(nextStep)}</span>
@@ -7989,12 +7994,6 @@ export class EditorPane {
     const distillationInfo = this.permanentNoteDistillationStepV2(note, overview, writingInfo);
     const writingStep = this.permanentNoteWritingStepV2(note, overview, writingInfo);
     const { nextStep, summary: noteSummary } = this.permanentNoteMainPathSummaryV2(note, overview);
-    const relationCountLabel =
-      relationState === "loading"
-        ? "读取中"
-        : relationState === "error"
-          ? "读取失败"
-          : String(explicitRelationCount);
     const primaryAction =
       !thesis || summary.length < 3 || !confirmed
         ? "distillation"
@@ -8072,47 +8071,77 @@ export class EditorPane {
         routeMode: writingStep.routeMode
       }
     ];
+    const primaryStep = steps.find((step) => step.action === primaryAction) || steps[0];
+    const clueCount = Number(overview.wikilinkCount || 0) + Number(overview.tagRelatedCount || 0);
+    const relationProgress =
+      relationState === "loading"
+        ? "读取中"
+        : relationState === "error"
+          ? "读取失败"
+          : explicitRelationCount > 0
+            ? `${explicitRelationCount} 条正式关系`
+            : clueCount > 0
+              ? `${clueCount} 条待确认线索`
+              : "还没有关系";
+    const progressItems = [
+      {
+        label: "观点",
+        value: !thesis ? "待写判断" : summary.length < 3 ? `压缩 ${summary.length}/3` : confirmed ? "已确认" : "待确认"
+      },
+      {
+        label: "关系",
+        value: relationProgress
+      },
+      {
+        label: "去向",
+        value: writingStep.status
+      }
+    ];
+    const secondarySteps = steps
+      .filter((step) => step.action !== primaryAction)
+      .filter((step) => step.action === "relations" || step.action === "graph" || step.action === "writing")
+      .slice(0, 2);
 
     return `
       <section class="inspector-section semantic-relations-section" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">主路径下一步</div>
+            <div class="inspector-section-title">建议下一步</div>
             <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
           </div>
-          <span class="inspector-chip">${escapeHtml(nextStep)}</span>
         </div>
-        <div class="semantic-relation-status">
-          <span class="inspector-chip">判断 ${escapeHtml(thesis ? "已有" : "缺失")}</span>
-          <span class="inspector-chip">压缩 ${summary.length}/3</span>
-          <span class="inspector-chip">关系 ${escapeHtml(relationCountLabel)}</span>
-          <span class="inspector-chip">${escapeHtml(
-            themeInfo.status ||
-              (Number(overview.tagRelatedCount || 0) > 0 && Number(overview.wikilinkCount || 0) > 0
-                ? `混合线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? 0)}`
-                : Number(overview.tagRelatedCount || 0) > 0
-                  ? `标签线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? 0)}`
-                  : `链接线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? 0)}`)
-          )}</span>
+        <div class="main-path-next-card" data-main-path-next-action="${escapeHtml(primaryStep.action)}">
+          <div>
+            <span>当前重点</span>
+            <strong>${escapeHtml(nextStep)}</strong>
+            <p>${escapeHtml(primaryStep.hint || noteSummary)}</p>
+          </div>
+          <button class="mini-btn primary" type="button" data-note-main-route-action="${escapeHtml(primaryStep.action)}"${primaryStep.focusTarget ? ` data-note-main-route-focus="${escapeHtml(primaryStep.focusTarget)}"` : ""}${primaryStep.routeMode ? ` data-note-main-route-mode="${escapeHtml(primaryStep.routeMode)}"` : ""}>${escapeHtml(primaryStep.actionLabel)}</button>
         </div>
-        <div class="semantic-relation-groups">
-          ${steps
+        <div class="main-path-progress" aria-label="整理进度">
+          ${progressItems
             .map(
-              (step) => `
-                <div class="semantic-relation-group">
-                  <div class="semantic-relation-group-head">
-                    <strong>${escapeHtml(step.label)}</strong>
-                    <span>${escapeHtml(step.status)}${step.action === primaryAction ? " · 当前重点" : ""}</span>
-                  </div>
-                  <div class="related-empty">${escapeHtml(step.hint)}</div>
-                  <div class="semantic-relation-actions">
-                    <button class="mini-btn ${step.action === primaryAction ? "primary" : "is-ghost"}" type="button" data-note-main-route-action="${escapeHtml(step.action)}"${step.focusTarget ? ` data-note-main-route-focus="${escapeHtml(step.focusTarget)}"` : ""}${step.routeMode ? ` data-note-main-route-mode="${escapeHtml(step.routeMode)}"` : ""}>${escapeHtml(step.actionLabel)}</button>
-                  </div>
-                </div>
+              (item) => `
+                <span>
+                  <b>${escapeHtml(item.label)}</b>
+                  <em>${escapeHtml(item.value)}</em>
+                </span>
               `
             )
             .join("")}
         </div>
+        ${
+          secondarySteps.length
+            ? `<div class="main-path-secondary-actions">
+                ${secondarySteps
+                  .map(
+                    (step) =>
+                      `<button class="mini-btn is-ghost" type="button" data-note-main-route-action="${escapeHtml(step.action)}"${step.focusTarget ? ` data-note-main-route-focus="${escapeHtml(step.focusTarget)}"` : ""}${step.routeMode ? ` data-note-main-route-mode="${escapeHtml(step.routeMode)}"` : ""}>${escapeHtml(step.actionLabel)}</button>`
+                  )
+                  .join("")}
+              </div>`
+            : ""
+        }
       </section>
     `;
   }
@@ -8148,10 +8177,10 @@ export class EditorPane {
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
           this.semanticRelationsState === "error"
-            ? "正文链接和标签还能看，但现有关联读取失败了，请以重试结果为准。"
+            ? "正式关系读取失败了；正文链接和同标签只作为临时线索，稍后重试后再确认。"
             : this.semanticRelationsState === "loading"
-              ? "正文链接和标签只是线索；现有关联还在读取。"
-              : "正文链接和标签只是线索；正式关系以“现有关联”为准。"
+              ? "正在读取正式关系；先不要把正文链接或同标签当成已经连入图谱。"
+              : "这里按顺序处理：先看建议下一步，再确认正式关系，最后只处理少量待确认线索。"
         }
       </div>
     `;
@@ -8163,21 +8192,23 @@ export class EditorPane {
     const networkStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
     const relationSummaryLabel =
       this.semanticRelationsState === "error"
-        ? "现有关联读取失败"
+        ? "正式关系读取失败"
         : this.semanticRelationsState === "loading"
-          ? "现有关联读取中"
-          : `现有关联 ${relationCount}`;
+          ? "正式关系读取中"
+          : relationCount > 0
+            ? `正式关系 ${relationCount}`
+            : "还没有正式关系";
     const networkSummaryLabel =
       networkStatus === "isolated"
         ? "孤立笔记"
         : networkStatus === "connected"
           ? "已接入网络"
           : "状态待判断";
+    const clueCount = localLinkCount + Number(tagRelated.length || 0);
     return `
-      <div class="inspector-summary" data-inspector-status-summary>
-        <span class="inspector-chip">${escapeHtml(relationSummaryLabel)}</span>
-        <span class="inspector-chip">正文链接 ${escapeHtml(String(localLinkCount))}</span>
-        <span class="inspector-chip">标签线索 ${escapeHtml(String(tagRelated.length || 0))}</span>
+      <div class="inspector-summary inspector-summary-compact" data-inspector-status-summary>
+        <span class="inspector-chip ${relationCount > 0 ? "is-success" : "is-warning"}">${escapeHtml(relationSummaryLabel)}</span>
+        ${clueCount ? `<span class="inspector-chip">待确认线索 ${escapeHtml(String(clueCount))}</span>` : ""}
         <span class="inspector-chip">${escapeHtml(networkSummaryLabel)}</span>
       </div>
     `;
@@ -8195,6 +8226,26 @@ export class EditorPane {
     const mount = this.els.result?.querySelector?.("[data-inspector-link-summary-note]");
     if (!mount) return;
     mount.outerHTML = this.renderInspectorLinkSummaryNote();
+  }
+
+  renderDeferredNoteWorkspace(note, tab) {
+    const content = `
+      ${this.renderPermanentNoteAiAnalysisSection(note)}
+      ${this.renderPermanentNoteDistillationSection(note)}
+      ${this.renderInlineDraftRelationSection(note, tab)}
+    `.trim();
+    if (!content) return "";
+    return `
+      <details class="inspector-deferred-workspace" data-deferred-workspace>
+        <summary>
+          <span>提纯与 AI</span>
+          <small>需要编辑观点、运行候选时再展开。</small>
+        </summary>
+        <div class="inspector-deferred-body">
+          ${content}
+        </div>
+      </details>
+    `;
   }
 
   setDistillationPrefill(noteId = "", options = {}) {
@@ -9200,18 +9251,28 @@ export class EditorPane {
       </section>
     `;
 
+    const overviewMeta = isPermanentNote
+      ? "关系整理工作台：先处理建议下一步，正式关系以关系网络为准。"
+      : `${noteTypeText(this.resolvedNoteType(note))} · ${this.folderLabel(note.folderId)}`;
+    const overviewRows =
+      !isPermanentNote && tags.length
+        ? `
+          <div class="inspector-overview-grid">
+            <div class="inspector-overview-row">
+              <span class="inspector-overview-label">标签</span>
+              <span class="inspector-overview-value">${escapeHtml(tags.map((tag) => `#${tag}`).join(" "))}</span>
+            </div>
+          </div>
+        `
+        : "";
+
     this.els.result.innerHTML = `
       <div class="inspector-overview">
         <div class="inspector-overview-head">
           <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
-          <div class="inspector-overview-meta">${escapeHtml(noteTypeText(this.resolvedNoteType(note)))} · ${escapeHtml(this.folderLabel(note.folderId))}</div>
+          <div class="inspector-overview-meta">${escapeHtml(overviewMeta)}</div>
         </div>
-        <div class="inspector-overview-grid">
-          <div class="inspector-overview-row">
-            <span class="inspector-overview-label">标签</span>
-            <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
-          </div>
-        </div>
+        ${overviewRows}
       </div>
       ${isPermanentNote ? this.renderInspectorStatusSummary(note, { forward, backward, tagRelated }) : ""}
       ${
@@ -9232,9 +9293,7 @@ export class EditorPane {
                 relations: this.currentSemanticRelations,
                 relationState: this.semanticRelationsState
               })}
-              ${this.renderPermanentNoteAiAnalysisSection(note)}
-              ${this.renderPermanentNoteDistillationSection(note)}
-              ${this.renderInlineDraftRelationSection(note, tab)}
+              ${this.renderDeferredNoteWorkspace(note, tab)}
             `
             : isRecordableSource
               ? this.renderSourceNoteFlowSection(note)
@@ -9319,11 +9378,12 @@ export class EditorPane {
       if (resolved?.note) {
         this.setInspectorVisible(true);
         await this.showNotePreviewInInspector(resolved.note.id, {
-          eyebrow: "关联笔记",
-          badge: resolved.ambiguous ? "重名匹配" : "已匹配"
+          eyebrow: "正文链接",
+          mode: "wikilink",
+          ambiguous: resolved.ambiguous === true
         });
         this.onStatus(
-          resolved.ambiguous ? `已显示关联笔记：${resolved.note.title}（存在重名）` : `已显示关联笔记：${resolved.note.title}`,
+          resolved.ambiguous ? `已打开链接笔记预览：${resolved.note.title}（存在重名，请核对）` : `已打开链接笔记预览：${resolved.note.title}`,
           resolved.ambiguous ? "warn" : "ok"
         );
       } else {
@@ -9349,6 +9409,16 @@ export class EditorPane {
     return note;
   }
 
+  async openLinkedPreviewNote(noteId) {
+    const note = await this.loadNoteForPreview(noteId);
+    if (!note?.id) {
+      this.onStatus("没有找到这条关联笔记。", "warn");
+      return;
+    }
+    this.openNoteTab(note.id, { preferTitleSelection: false });
+    this.onStatus("已打开链接笔记", "ok");
+  }
+
   async showNotePreviewInInspector(noteId, options = {}) {
     const note = await this.loadNoteForPreview(noteId);
     if (!note) {
@@ -9356,8 +9426,13 @@ export class EditorPane {
       return;
     }
     const body = typeof note.body === "string" && note.body.trim() ? note.body : `# ${note.title || "未命名笔记"}\n`;
-    const tags = parseTags(body);
-    const links = parseLinks(body);
+    const wikilinkMode = options.mode === "wikilink";
+    const ambiguous = options.ambiguous === true;
+    const helperText = wikilinkMode
+      ? ambiguous
+        ? "正文里的这个链接找到了同名笔记，请先核对标题和内容，再决定是否打开。"
+        : "正文里的这个链接指向这条笔记。需要继续编辑或查看上下文时，直接打开笔记。"
+      : "快速查看这条笔记内容；需要继续处理时再打开笔记。";
     this.setInspectorVisible(true);
     this.els.result.innerHTML = `
       <div class="inspector-overview">
@@ -9365,15 +9440,13 @@ export class EditorPane {
           <div>
             <div class="inspector-overview-meta">${escapeHtml(options.eyebrow || "笔记预览")}</div>
             <div class="inspector-overview-title">${escapeHtml(note.title || "未命名笔记")}</div>
+            <div class="inspector-overview-meta">${escapeHtml(helperText)}</div>
           </div>
-          ${options.badge ? `<span class="inspector-chip">${escapeHtml(options.badge)}</span>` : ""}
+          ${ambiguous ? `<span class="inspector-chip is-warning">存在重名</span>` : ""}
         </div>
-      </div>
-      <div class="inspector-summary">
-        <span class="inspector-chip">${escapeHtml(noteTypeText(this.resolvedNoteType(note)))}</span>
-        <span class="inspector-chip">${escapeHtml(this.folderLabel(note.folderId))}</span>
-        <span class="inspector-chip">关联 ${links.length}</span>
-        <span class="inspector-chip">标签 ${tags.length}</span>
+        <div class="inspector-link-actions">
+          <button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(note.id)}">打开笔记</button>
+        </div>
       </div>
       <section class="inspector-section note-peek-section">
         <div class="markdown-preview note-peek-preview">
@@ -9892,6 +9965,7 @@ export class EditorPane {
       if (mainRouteButton) {
         const action = String(mainRouteButton.dataset.noteMainRouteAction || "").trim();
         if (action === "distillation") {
+          this.els.result?.querySelector?.("[data-deferred-workspace]")?.setAttribute("open", "");
           this.jumpToInspectorSection("[data-note-distillation-section]", {
             focus: true,
             focusSelector:
@@ -9953,6 +10027,11 @@ export class EditorPane {
       const previewRow = e.target.closest("[data-preview-note]");
       if (previewRow) {
         void this.showNotePreviewInInspector(previewRow.dataset.previewNote, { eyebrow: "相关内容" });
+        return;
+      }
+      const linkedNoteButton = e.target.closest("[data-open-linked-note]");
+      if (linkedNoteButton?.dataset.openLinkedNote) {
+        void this.openLinkedPreviewNote(linkedNoteButton.dataset.openLinkedNote);
         return;
       }
       const link = e.target.closest("[data-preview-link]");

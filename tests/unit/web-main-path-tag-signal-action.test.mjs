@@ -30,8 +30,8 @@ test("main-path card relation step keeps tag-only weak signals in relation-build
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /关系连接<\/strong> <span>待建立 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="relations"/);
   assert.match(html, /现在只有标签上的接近/);
-  assert.match(html, /主题索引<\/strong> <span>标签线索 2<\/span>/);
+  assert.match(html, /<b>关系<\/b> <em>2 条待确认线索<\/em>/);
   assert.match(html, /data-note-main-route-action="relations"[^>]*>从标签线索补关系<\/button>/);
 });

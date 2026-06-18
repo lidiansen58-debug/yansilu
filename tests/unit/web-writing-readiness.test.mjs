@@ -159,7 +159,9 @@ test("main-path focuses boundary follow-up once a confirmed note already has an 
     html,
     /data-note-main-route-action="distillation" data-note-main-route-focus="boundary">补边界\/反例<\/button>/
   );
-  assert.match(html, /观点提纯<\/strong> <span>待补边界 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="distillation"/);
+  assert.match(html, /<strong>补边界\/反例<\/strong>/);
+  assert.match(html, /<b>关系<\/b> <em>1 条正式关系<\/em>/);
 });
 
 test("main-path writing action uses project mode once a note is project-ready", () => {
@@ -219,8 +221,9 @@ test("main-path project-ready card aligns chip and writing-step wording to creat
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /<span class="inspector-chip">先创建项目<\/span>/);
-  assert.match(html, /写作中心<\/strong> <span>先创建项目 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="writing"/);
+  assert.match(html, /<strong>先创建项目<\/strong>/);
+  assert.match(html, /<b>去向<\/b> <em>先创建项目<\/em>/);
   assert.match(html, /data-note-main-route-mode="project">创建项目<\/button>/);
 });
 
@@ -251,7 +254,8 @@ test("main-path reframes strong-model-ready notes to create-project wording befo
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
   assert.match(html, /data-note-main-route-mode="project"/);
-  assert.match(html, /写作中心<\/strong> <span>先创建项目 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="writing"/);
+  assert.match(html, /<strong>先创建项目<\/strong>/);
   assert.match(html, />创建项目<\/button>/);
 });
 
@@ -304,7 +308,7 @@ test("main-path basket-ready card labels the writing step as 可加入写作篮"
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /写作中心<\/strong> <span>可加入写作篮<\/span>/);
+  assert.match(html, /<b>去向<\/b> <em>可加入写作篮<\/em>/);
   assert.match(html, /加入写作篮<\/button>/);
 });
 
@@ -331,6 +335,7 @@ test("main-path writing step uses distillation mode when the note still needs di
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /data-note-main-route-mode="distillation"/);
-  assert.match(html, /先确认观点\/三句话/);
+  assert.match(html, /data-main-path-next-action="distillation"/);
+  assert.match(html, /data-note-main-route-focus="thesis"/);
+  assert.match(html, /<b>去向<\/b> <em>先确认观点<\/em>/);
 });

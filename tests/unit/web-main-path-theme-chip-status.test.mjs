@@ -31,8 +31,8 @@ test("main-path header chip reflects link-only theme signal status instead of ge
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /<span class="inspector-chip">链接线索 1<\/span>/);
-  assert.doesNotMatch(html, /<span class="inspector-chip">主题线索 1<\/span>/);
+  assert.match(html, /<b>关系<\/b> <em>1 条待确认线索<\/em>/);
+  assert.doesNotMatch(html, /主题线索 1/);
 });
 
 test("main-path header chip reflects mixed weak-signal status instead of generic theme label", () => {
@@ -58,6 +58,6 @@ test("main-path header chip reflects mixed weak-signal status instead of generic
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /<span class="inspector-chip">混合线索 2<\/span>/);
-  assert.doesNotMatch(html, /<span class="inspector-chip">主题线索 2<\/span>/);
+  assert.match(html, /<b>关系<\/b> <em>2 条待确认线索<\/em>/);
+  assert.doesNotMatch(html, /主题线索 2/);
 });

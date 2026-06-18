@@ -472,6 +472,7 @@ test("preview wikilink actions resolve cross-box stable note ids", async () => {
   const state = createInitialState();
   const pane = Object.create(EditorPane.prototype);
   let previewedNoteId = "";
+  let previewOptions = null;
   let statusText = "";
 
   pane.state = state;
@@ -493,8 +494,9 @@ test("preview wikilink actions resolve cross-box stable note ids", async () => {
   ];
   pane.activeNote = () => state.notes[0];
   pane.setInspectorVisible = () => {};
-  pane.showNotePreviewInInspector = async (noteId) => {
+  pane.showNotePreviewInInspector = async (noteId, options = {}) => {
     previewedNoteId = noteId;
+    previewOptions = options;
   };
   pane.onStatus = (message) => {
     statusText = message;
@@ -503,7 +505,10 @@ test("preview wikilink actions resolve cross-box stable note ids", async () => {
   await pane.handleTokenAction("[[ln_source_id|Source By ID]]");
 
   assert.equal(previewedNoteId, "ln_source_id");
-  assert.match(statusText, /已显示关联笔记/);
+  assert.equal(previewOptions?.mode, "wikilink");
+  assert.equal(previewOptions?.eyebrow, "正文链接");
+  assert.equal(previewOptions?.ambiguous, false);
+  assert.match(statusText, /Source By ID/);
 });
 
 test("editor keeps source mode when switching notes unless the tab explicitly prefers the plain editor", () => {

@@ -31,10 +31,9 @@ test("main-path card labels wikilink-only relation status as a link signal", () 
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /关系连接<\/strong> <span>链接线索 1 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="relations"/);
   assert.match(html, /已经有正文链接线索，下一步把关系为什么成立写清楚。/);
-  assert.match(html, /主题索引<\/strong> <span>链接线索 1<\/span>/);
-  assert.match(html, /已经有正文链接线索，下一步是把这条连接的理由写出来。/);
+  assert.match(html, /<b>关系<\/b> <em>1 条待确认线索<\/em>/);
   assert.match(html, /data-note-main-route-action="relations"[^>]*>补关系理由<\/button>/);
   assert.doesNotMatch(html, /wikilink 1/);
   assert.doesNotMatch(html, /有基础链接，下一步把关系为什么成立写清楚。/);
