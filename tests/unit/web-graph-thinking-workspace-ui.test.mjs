@@ -378,6 +378,9 @@ test("isolated graph notes can request AI-assisted relation candidates and confi
   assert.doesNotMatch(source, /setStatus\("已确认使用当前 AI 设置，正在生成关联理由", "ok"\);/);
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
   assert.match(source, /aria-label="孤立笔记关联到图谱"/);
+  assert.match(source, /先把这条笔记接入关系网/);
+  assert.match(source, /确认关系并保存后，它会退出未关联状态；推荐不会自动写入图谱。/);
+  assert.match(source, /未关联：先补一条能说明理由的关系/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(noteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
   assert.match(source, /data-graph-followup-action="relations">手动建立关系<\/button>/);
@@ -546,6 +549,9 @@ test("graph relation candidates explain reason, possible relation, and review qu
   assert.match(source, /function graphMergeRelationCandidatesForDisplay\(aiCandidates = \[\], localCandidates = \[\], \{ limit = 6 \} = \{\}\) \{/);
   assert.match(source, /return graphRelationPairKey\(/);
   assert.match(connectSource, /const candidates = graphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit: 6 \}\);/);
+  assert.match(connectSource, /确认这条关系/);
+  assert.match(connectSource, /先看目标笔记/);
+  assert.doesNotMatch(connectSource, /用这条建立关系/);
   assert.match(source, /<span>推荐原因<\/span>/);
   assert.match(source, /<span>可能关系<\/span>/);
   assert.match(source, /<span>复核问题<\/span>/);
@@ -600,12 +606,17 @@ test("graph node selection summarizes position, relation quality, and next actio
 
   assert.match(source, /function graphNodeInsightMeta\(node = \{\}, directEdges = \[\], \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphNodeInsightPanel\(insight = \{\}\) \{/);
+  assert.match(source, /function renderGraphSelectionTask\(task = null\) \{/);
+  assert.match(source, /aria-label="当前处理任务"/);
+  assert.match(source, /已接入图谱：检查关系是否能支撑你的判断/);
   assert.match(source, /当前状态/);
   assert.match(source, /建议下一步/);
   assert.match(source, /为什么这样判断/);
   assert.match(source, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
   assert.match(source, /renderGraphNodeInsightPanel\(insight\)/);
+  assert.match(source, /renderGraphNodeInsightPanel\(insight\)[\s\S]*\$\{relationDetails\}[\s\S]*\$\{candidatePanel\}/);
   assert.match(html, /\.graph-node-insight \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
+  assert.match(html, /\.graph-selection-task \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*border-left: 4px solid #38a3c9;/);
   assert.match(html, /\.graph-selection-details summary \{[\s\S]*min-height: 44px;[\s\S]*cursor: pointer;/);
 });
 

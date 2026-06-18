@@ -5858,6 +5858,7 @@
       right: 10px;
     }
     .graph-selection-role,
+    .graph-selection-task,
     .graph-selection-reason,
     .graph-selection-prompts {
       display: grid;
@@ -5900,6 +5901,67 @@
       font-size: 12px;
       line-height: 1.65;
       overflow-wrap: anywhere;
+    }
+    .graph-selection-task {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 10px;
+      border-left: 4px solid #38a3c9;
+      background: #f8fbfc;
+    }
+    .graph-selection-task > div {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .graph-selection-task span {
+      color: #195e76;
+      font-size: 10px;
+      font-weight: 950;
+      line-height: 1.25;
+    }
+    .graph-selection-task strong {
+      color: #172033;
+      font-size: 13px;
+      font-weight: 950;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .graph-selection-task p {
+      margin: 0;
+      color: #526174;
+      font-size: 11px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+    .graph-selection-task small {
+      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #dbe7ef;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #526174;
+      font-size: 10px;
+      font-weight: 950;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+    .graph-selection-task.is-warning {
+      border-left-color: #d97706;
+      background: #fffdf7;
+    }
+    .graph-selection-task.is-warning span,
+    .graph-selection-task.is-warning small {
+      color: #9a3412;
+    }
+    .graph-selection-task.is-ready {
+      border-left-color: #0f6f48;
+      background: #f3fbf6;
+    }
+    .graph-selection-task.is-ready span,
+    .graph-selection-task.is-ready small {
+      color: #0f6f48;
     }
     .graph-selection-reason small,
     .graph-selection-prompts strong {
