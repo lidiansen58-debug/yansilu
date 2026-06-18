@@ -139,7 +139,7 @@ test("prototype graph research navigator opens cluster and bright-star explanati
     assert.ok(await page.locator(".graph-selection-panel.is-cluster").isVisible());
     const copy = await page.locator(".graph-selection-panel.is-cluster").textContent();
     assert.match(copy || "", /主题群摘要/);
-    assert.match(copy || "", /下一步问题/);
+    assert.match(copy || "", /思考提示/);
   }, 3000);
 
   await page.locator("[data-graph-selection-close]").click();
@@ -151,8 +151,8 @@ test("prototype graph research navigator opens cluster and bright-star explanati
   await waitFor(async () => {
     assert.ok(await page.locator(".graph-selection-panel.is-node").isVisible());
     const copy = await page.locator(".graph-selection-panel.is-node").textContent();
-    assert.match(copy || "", /笔记角色/);
-    assert.match(copy || "", /接下来可以问/);
+    assert.match(copy || "", /当前笔记/);
+    assert.match(copy || "", /建议下一步/);
   }, 3000);
 
   await page.locator(".graph-map-edge-group[data-edge-from]").first().focus();
@@ -160,8 +160,8 @@ test("prototype graph research navigator opens cluster and bright-star explanati
   await waitFor(async () => {
     assert.ok(await page.locator(".graph-selection-panel.is-edge").isVisible());
     const copy = await page.locator(".graph-selection-panel.is-edge").textContent();
-    assert.match(copy || "", /关系复核/);
-    assert.match(copy || "", /复核问题/);
+    assert.match(copy || "", /已保存关系/);
+    assert.match(copy || "", /复核提示/);
   }, 3000);
 });
 

@@ -248,7 +248,7 @@ test("graph clusters are selectable research objects with their own summary pane
   assert.match(source, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
   assert.match(source, /kicker: "主题群摘要"/);
   assert.match(source, /roleLabel: meta\.label/);
-  assert.match(source, /补主题关系/);
+  assert.match(source, /补一条主题关系/);
 
   assert.match(html, /\.graph-map-cluster-glows \{[\s\S]*pointer-events: auto;/);
   assert.match(html, /\.graph-map-cluster-glow \{[\s\S]*cursor: pointer;[\s\S]*pointer-events: visiblePainted;/);
@@ -267,7 +267,7 @@ test("graph research details cover nodes and relation gravity lines with next ac
   assert.match(source, /手动建立关系/);
   assert.match(source, /kicker: "已保存关系"/);
   assert.match(source, /roleLabel: review\.label/);
-  assert.match(source, /<strong>复核问题<\/strong>/);
+  assert.match(source, /renderGraphPromptDetails\("复核提示（可选）", prompts\)/);
   assert.match(source, /data-graph-relation-adjustment/);
 
   assert.match(html, /\.graph-selection-close \{[\s\S]*position: absolute;[\s\S]*right: 10px;/);
@@ -530,7 +530,7 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(joinFlowSource, /const candidateHint = candidatePreview/);
   assert.doesNotMatch(joinFlowSource, /renderGraphRelationCandidateCards\(localCandidates/);
   assert.match(isolatedSelectionSource, /<summary>暂不关联时怎么办<\/summary>/);
-  assert.match(isolatedSelectionSource, /<strong>判断提示<\/strong>/);
+  assert.match(isolatedSelectionSource, /renderGraphPromptDetails\("判断提示（可选）", prompts\)/);
   assert.match(isolatedSelectionSource, /title: "已保存的关系"/);
   assert.doesNotMatch(isolatedSelectionSource, /孤立笔记接入网络/);
 });
@@ -549,7 +549,7 @@ test("graph relation candidates explain reason, possible relation, and review qu
   assert.match(source, /function graphMergeRelationCandidatesForDisplay\(aiCandidates = \[\], localCandidates = \[\], \{ limit = 6 \} = \{\}\) \{/);
   assert.match(source, /return graphRelationPairKey\(/);
   assert.match(connectSource, /const candidates = graphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit: 6 \}\);/);
-  assert.match(connectSource, /确认这条关系/);
+  assert.match(connectSource, /确认关系/);
   assert.match(connectSource, /先看目标笔记/);
   assert.doesNotMatch(connectSource, /用这条建立关系/);
   assert.match(source, /<span>推荐原因<\/span>/);

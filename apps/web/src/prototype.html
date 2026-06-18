@@ -6172,6 +6172,9 @@
       border-top: 1px solid rgba(219, 231, 239, 0.9);
       background: transparent;
     }
+    .graph-selection-prompt-details {
+      background: rgba(248, 251, 250, 0.82);
+    }
     .graph-theme-maturity {
       display: grid;
       gap: 8px;
@@ -7050,6 +7053,61 @@
     .graph-selection-action.is-primary:focus-visible {
       background: #0b5d3c;
       color: #ffffff;
+    }
+    .graph-selection-action.is-secondary {
+      border-color: #bedbd0;
+      background: #f3fbf6;
+      color: #0f6f48;
+    }
+    .graph-selection-action.is-secondary:hover,
+    .graph-selection-action.is-secondary:focus-visible {
+      border-color: #8bc5a5;
+      background: #eaf8ef;
+      color: #0b5d3c;
+    }
+    .graph-selection-action.is-quiet {
+      border-color: #dbe7ef;
+      background: #f8fbfc;
+      color: #526174;
+      box-shadow: none;
+    }
+    .graph-selection-action.is-quiet:hover,
+    .graph-selection-action.is-quiet:focus-visible {
+      border-color: #c8d9e3;
+      background: #f1f6f9;
+      color: #172033;
+      box-shadow: none;
+    }
+    .graph-selection-action.is-ai:not(.is-primary) {
+      border-color: #b8dbe8;
+      background: #f4fbff;
+      color: #195e76;
+    }
+    .graph-selection-action.is-ai:not(.is-primary):hover,
+    .graph-selection-action.is-ai:not(.is-primary):focus-visible {
+      border-color: #8ec8dc;
+      background: #eaf8ff;
+      color: #154f65;
+    }
+    .graph-selection-action.is-queue:not(.is-primary) {
+      border-color: #ead7ad;
+      background: #fffaf0;
+      color: #8a5a08;
+    }
+    .graph-selection-action.is-queue:not(.is-primary):hover,
+    .graph-selection-action.is-queue:not(.is-primary):focus-visible {
+      border-color: #dfbd72;
+      background: #fff4d8;
+      color: #7c4a03;
+    }
+    .graph-selection-action.is-primary.is-queue {
+      border-color: #ca8a04;
+      background: #b45309;
+      box-shadow: 0 12px 22px rgba(180, 83, 9, 0.18);
+    }
+    .graph-selection-action.is-primary.is-queue:hover,
+    .graph-selection-action.is-primary.is-queue:focus-visible {
+      background: #92400e;
     }
     .graph-selection-action:disabled,
     .graph-relation-adjustment-card:disabled {
@@ -17569,8 +17627,8 @@
             <div class="floating-notice-body" id="originalityNoticeBody">这里会对永久笔记提示原创性风险和下一步建议。</div>
           </div>
           <div class="selection-ai-action hidden" id="selectionAiAction" aria-live="polite">
-            <span class="selection-ai-action-text" id="selectionAiActionText">可提炼当前选区</span>
-            <button class="selection-ai-action-button" id="btnSelectionAiDistill" type="button" data-selection-ai-action="distill-claim">提炼观点</button>
+            <span class="selection-ai-action-text" id="selectionAiActionText">可整理当前选区</span>
+            <button class="selection-ai-action-button" id="btnSelectionAiDistill" type="button" data-selection-ai-action="distill-claim">整理观点</button>
           </div>
           <div class="panel md-panel" id="markdownPanel">
             <div class="panel-head compact editor-intent">

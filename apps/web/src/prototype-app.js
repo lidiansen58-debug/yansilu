@@ -6462,7 +6462,7 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
         isOriginal
           ? `<div class="sidebar-flow-gaps">${topGaps.length ? topGaps.map((gap) => `<span>${escapeHtml(gap)}</span>`).join("") : `<span>观点链路已清爽</span>`}</div>
              <button class="mini-btn primary sidebar-flow-action" type="button" data-sidebar-flow-action="${escapeHtml(primaryAction)}">${escapeHtml(
-               primaryAction === "continue-distillation" ? "继续观点提纯" : primaryAction === "open-writing" ? "进入写作中心" : "新建永久笔记"
+               primaryAction === "continue-distillation" ? "继续整理观点" : primaryAction === "open-writing" ? "进入写作中心" : "新建永久笔记"
              )}</button>`
           : ""
       }
@@ -6586,10 +6586,10 @@ function currentModuleUi() {
   const rootName = root?.name || "当前目录";
   const configs = {
     distillation: {
-      sidebarTitle: "观点提纯",
+      sidebarTitle: "观点整理",
       sidebarSubtitle: "把永久笔记推进成清晰观点。",
-      sidebarFoot: "观点提纯队列只推动手写字段与确认动作；AI 候选后续仍保持待审，不直接改写笔记。",
-      title: "观点提纯",
+      sidebarFoot: "观点整理队列只推动手写字段与确认动作；AI 候选后续仍保持待审，不直接改写笔记。",
+      title: "观点整理",
       summary: "这里集中处理永久笔记的一句话判断、三句话压缩与确认状态。先让观点变清楚，再进入关系、主题与写作。",
       sidebarHtml: `
         <div class="module-sidebar-card">
@@ -6900,7 +6900,7 @@ function saveAiSuggestionForNote(note = null) {
       key: saveAiSuggestionKey(note, action),
       noteId: note.id,
       action,
-      text: "已保存，可继续提炼观点",
+      text: "已保存，可继续整理观点",
       primaryLabel: "立即处理",
       laterLabel: "稍后"
     };
@@ -7442,10 +7442,10 @@ function renderDistillationPanel() {
       ? `<div class="distillation-empty">当前筛选下没有条目。可以切回“全部”，或继续进入写作中心。</div>`
       : activeCount === 0 && writingReadyCount > 0
         ? `<div class="distillation-empty">当前没有待提纯条目。已确认观点可以进入写作中心。</div>`
-        : `<div class="distillation-empty">还没有可提纯的永久笔记。先新建或导入一条永久笔记。</div>`;
+        : `<div class="distillation-empty">还没有可整理的永久笔记。先新建或导入一条永久笔记。</div>`;
   const nextActiveItem = items.find((item) => item.stage !== "confirmed") || null;
   const primaryAction = nextActiveItem ? "open-next" : writingReadyCount > 0 ? "open-writing" : "create-permanent";
-  const primaryActionLabel = primaryAction === "open-writing" ? "进入写作中心" : primaryAction === "create-permanent" ? "新建永久笔记" : "继续观点提纯";
+  const primaryActionLabel = primaryAction === "open-writing" ? "进入写作中心" : primaryAction === "create-permanent" ? "新建永久笔记" : "继续整理观点";
   const primaryActionAttrs = primaryAction === "open-next"
     ? `data-distillation-open-note="${escapeHtml(nextActiveItem.note.id)}"`
     : `data-distillation-action="${escapeHtml(primaryAction)}"`;
@@ -7453,8 +7453,8 @@ function renderDistillationPanel() {
     <div class="distillation-shell">
       <section class="distillation-card distillation-home">
         <div>
-          <div class="import-card-kicker">Opinion Distillation</div>
-          <strong>先把材料压缩成你愿意确认的观点</strong>
+          <div class="import-card-kicker">观点整理</div>
+          <strong>先把材料整理成你愿意确认的观点</strong>
           <p>${escapeHtml(gapChips.length ? `优先处理：${gapChips.join("，")}。` : writingReadyCount ? "当前观点已经准备进入写作中心。" : "从第一条永久笔记开始写一句判断。")}</p>
         </div>
         <button class="mini-btn primary" type="button" ${primaryActionAttrs}>${escapeHtml(primaryActionLabel)}</button>
@@ -7481,11 +7481,11 @@ function renderDistillationPanel() {
         <div class="distillation-card-head">
           <div>
             <div class="import-card-kicker">Queue</div>
-            <strong>观点提纯队列</strong>
+            <strong>观点整理队列</strong>
           </div>
-          <button class="mini-btn is-ghost" id="btnDistillationRefresh" type="button">刷新队列</button>
+          <button class="mini-btn is-ghost" id="btnDistillationRefresh" type="button">刷新</button>
         </div>
-        <div class="distillation-filters" role="group" aria-label="观点提纯队列筛选">${filtersHtml}</div>
+        <div class="distillation-filters" role="group" aria-label="观点整理队列筛选">${filtersHtml}</div>
         <div class="distillation-queue">${rows}</div>
       </section>
     </div>
@@ -7504,10 +7504,10 @@ async function refreshDistillationNotes() {
 async function openDistillationModule() {
   try {
     await refreshDistillationNotes();
-    setStatus("已打开观点提纯", "ok");
+    setStatus("已打开观点整理", "ok");
   } catch (error) {
     renderDistillationPanel();
-    setStatus(`观点提纯队列刷新失败：${String(error?.message || error)}`, "warn");
+    setStatus(`观点整理队列刷新失败：${String(error?.message || error)}`, "warn");
   }
 }
 
@@ -7523,7 +7523,7 @@ async function openDistillationQueueNote(noteId = "") {
   if (opened) {
     state.inspectorVisible = false;
     editor?.setInspectorVisible?.(false);
-    setStatus("已从观点提纯队列打开笔记", "ok");
+    setStatus("已从观点整理队列打开笔记", "ok");
   }
   renderAll();
   queueMicrotask(() => {
@@ -13176,6 +13176,19 @@ function renderGraphSelectionTask(task = null) {
   `;
 }
 
+function renderGraphPromptDetails(title = "思考提示（可选）", prompts = []) {
+  const items = (Array.isArray(prompts) ? prompts : []).map((prompt) => String(prompt || "").trim()).filter(Boolean);
+  if (!items.length) return "";
+  return `
+    <details class="graph-selection-details graph-selection-prompt-details">
+      <summary>${escapeHtml(title)}</summary>
+      <section class="graph-selection-prompts">
+        ${items.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
+      </section>
+    </details>
+  `;
+}
+
 function renderGraphSelectionShell({ className = "", ariaLabel = "", kicker = "", title = "", meta = "", closeLabel = "收起详情", roleLabel = "", roleDetail = "", task = null, body = "", actions = "" } = {}) {
   const classes = ["graph-selection-panel", String(className || "").trim()].filter(Boolean).join(" ");
   return `
@@ -13422,14 +13435,11 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
           )
           .join("")}
       </section>
-      <section class="graph-selection-prompts">
-        <strong>判断问题</strong>
-        ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
-      </section>`,
+      ${renderGraphPromptDetails("判断提示（可选）", prompts)}`,
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(maturity.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(theme.title)}"${maturity.noteIds.length >= 2 ? "" : " disabled"}>创建主题笔记</button>
-      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开首条笔记</button>
-      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(firstNoteId)}" data-graph-followup-action="relations" data-graph-basket-note-ids="${escapeHtml(maturity.noteIds.join(","))}"${firstNoteId ? "" : " disabled"}>补主题关系</button>`
+      <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(firstNoteId)}" data-graph-followup-action="relations" data-graph-basket-note-ids="${escapeHtml(maturity.noteIds.join(","))}"${firstNoteId ? "" : " disabled"}>补一条主题关系</button>
+      <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开代表笔记</button>`
   });
 }
 
@@ -13653,7 +13663,7 @@ function renderGraphIsolatedQueue({ isolatedNotes = [], nodeMap = new Map(), edg
         </div>
         ${
           nextItem
-            ? `<button class="graph-selection-action" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">${escapeHtml(cleanCurrentNoteId ? "处理下一条" : "开始处理")}</button>`
+            ? `<button class="graph-selection-action is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">${escapeHtml(cleanCurrentNoteId ? "处理下一条" : "开始处理")}</button>`
             : ""
         }
       </div>
@@ -13689,8 +13699,8 @@ function renderGraphIsolatedQueueStrip({ isolatedNotes = [], nodeMap = new Map()
         <strong>${escapeHtml(`${String(total)} 条笔记待关联`)}</strong>
         <span>${escapeHtml(`下一条：${nextItem.title}`)}</span>
       </div>
-      <button class="graph-selection-action is-primary" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">处理下一条</button>
-      <button class="graph-selection-action" type="button" data-graph-open-workbench-entry="organize">查看队列</button>
+      <button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">处理下一条</button>
+      <button class="graph-selection-action is-queue" type="button" data-graph-open-workbench-entry="organize">查看待关联笔记</button>
     </div>
   `;
 }
@@ -14372,8 +14382,8 @@ function renderGraphRelationCandidateCards(candidates = [], { title = "可能相
                   ${renderGraphCandidateReviewRows(candidate, { aiCandidate: false })}
                 </details>
                 <div class="graph-ai-connect-actions">
-                  <button class="graph-selection-action is-primary" type="button" data-graph-relation-candidate-apply data-open-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">确认这条关系</button>
-                  <button class="graph-selection-action" type="button" data-graph-select-node="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}">先看目标笔记</button>
+                  <button class="graph-selection-action is-primary" type="button" data-graph-relation-candidate-apply data-open-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">确认关系</button>
+                  <button class="graph-selection-action is-quiet" type="button" data-graph-select-node="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}">先看目标笔记</button>
                 </div>
               </article>
             `
@@ -14431,15 +14441,15 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
                   ${renderGraphCandidateReviewRows(candidate, { aiCandidate: !isLocal })}
                 </details>
                 <div class="graph-ai-connect-actions">
-                  <button class="graph-selection-action is-primary" type="button" ${applyAttrs} data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">确认这条关系</button>
+                  <button class="graph-selection-action is-primary" type="button" ${applyAttrs} data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">确认关系</button>
                   ${
                     !isLocal && needsConfirmation
-                      ? `<button class="graph-selection-action" type="button" data-graph-ai-refine-confirm data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">生成理由</button>`
+                      ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-confirm data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">生成理由</button>`
                       : !isLocal && candidate.aiError
-                      ? `<button class="graph-selection-action" type="button" data-graph-ai-refine-retry data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">重新生成理由</button>`
+                      ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-retry data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">重新生成理由</button>`
                       : ""
                   }
-                  <button class="graph-selection-action" type="button" data-graph-select-node="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}">先看目标笔记</button>
+                  <button class="graph-selection-action is-quiet" type="button" data-graph-select-node="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}">先看目标笔记</button>
                 </div>
               </article>
               `;
@@ -14537,7 +14547,7 @@ function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(),
           <strong>整理成主题笔记</strong>
           <p>${escapeHtml(themeNoteIds.length >= 2 ? `可把“${sourceTitle}”周围 ${themeNoteIds.length} 条笔记整理成一张主题笔记。` : "至少需要两条可用永久笔记，才能创建包含多笔记的主题入口。")}</p>
         </div>
-        <button class="graph-selection-action" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${themeNoteIds.length >= 2 ? "" : " disabled"}>创建主题笔记</button>
+        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${themeNoteIds.length >= 2 ? "" : " disabled"}>创建主题笔记</button>
       </section>
     </section>
   `;
@@ -14553,7 +14563,7 @@ function renderGraphThemeIndexWorkspace(noteIds = [], { title = "主题候选", 
         <strong>主题整理</strong>
         <p>${escapeHtml(canCreate ? `这组已有 ${cleanNoteIds.length} 条可用笔记和 ${Number(relationCount || 0)} 条内部关系，可以先保存成主题索引卡，后续再提炼中心问题。` : "这组还没有足够可用的永久笔记，先补成员或关系，再创建主题笔记。")}</p>
       </div>
-      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(cleanNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(cleanTitle)}"${canCreate ? "" : " disabled"}>创建主题笔记</button>
+      <button class="graph-selection-action is-primary is-theme" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(cleanNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(cleanTitle)}"${canCreate ? "" : " disabled"}>创建主题笔记</button>
     </section>
   `;
 }
@@ -14596,9 +14606,9 @@ function renderGraphIsolatedJoinNetworkFlow(noteId = "", { nodeMap = new Map(), 
         <span>${escapeHtml(stateLabel)}</span>
       </div>
       <div class="graph-isolated-join-actions">
-        <button class="graph-selection-action is-primary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${loading ? " disabled" : ""}>${loading ? "正在查找" : aiCandidates.length ? "刷新候选" : "AI 找候选"}</button>
-        <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(cleanNoteId)}" data-graph-followup-action="relations">手动建立关系</button>
-        <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(cleanNoteId)}">打开笔记</button>
+        <button class="graph-selection-action is-primary is-ai" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${loading ? " disabled" : ""}>${loading ? "正在查找" : aiCandidates.length ? "刷新候选" : "AI 找候选"}</button>
+        <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(cleanNoteId)}" data-graph-followup-action="relations">手动建立关系</button>
+        <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(cleanNoteId)}">打开笔记</button>
       </div>
       <div class="graph-isolated-join-rule">确认关系并保存后，它会退出未关联状态；推荐不会自动写入图谱。</div>
     </section>
@@ -14628,11 +14638,11 @@ function renderGraphIsolatedNextStepActions(noteId = "", { isolatedNotes = [], n
       <div class="graph-isolated-next-step-actions">
         ${
           nextItem
-            ? `<button class="graph-selection-action is-primary" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">处理下一条</button>`
+            ? `<button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}">处理下一条</button>`
             : ""
         }
-        <button class="graph-selection-action" type="button" data-graph-select-node="${escapeHtml(cleanNoteId)}">看当前周边</button>
-        <button class="graph-selection-action" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>创建主题笔记</button>
+        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>创建主题笔记</button>
+        <button class="graph-selection-action is-quiet" type="button" data-graph-select-node="${escapeHtml(cleanNoteId)}">看当前周边</button>
       </div>
     </section>
   `;
@@ -14728,10 +14738,7 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
             )
             .join("")}
         </div>
-        <section class="graph-selection-prompts">
-          <strong>判断提示</strong>
-          ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
-        </section>
+        ${renderGraphPromptDetails("判断提示（可选）", prompts)}
       </details>
       ${isolatedQueueMarkup}`,
     actions: ""
@@ -14769,13 +14776,10 @@ function renderGraphBridgeSelectionPanel({ selection = null, bridgeGaps = [], no
           { label: "状态", value: "候选，未确认" }
         ])}
       </div>
-      <section class="graph-selection-prompts">
-        <strong>缺少什么连接</strong>
-        ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
-      </section>`,
+      ${renderGraphPromptDetails("缺少什么连接（可选）", prompts)}`,
     actions: `
-      <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(noteId)}"${noteId ? "" : " disabled"}>打开源笔记</button>
-      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(noteId)}" data-graph-followup-action="bridge"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges"${noteId ? "" : " disabled"}>补一条连接</button>`
+      <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(noteId)}" data-graph-followup-action="bridge"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges"${noteId ? "" : " disabled"}>手动建立连接</button>
+      <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(noteId)}"${noteId ? "" : " disabled"}>打开源笔记</button>`
   });
 }
 
@@ -14896,14 +14900,11 @@ function renderGraphClusterSelectionPanel({ selection = null, clusterMeta = [], 
           )
           .join("")}
       </section>
-      <section class="graph-selection-prompts">
-        <strong>下一步问题</strong>
-        ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
-      </section>`,
+      ${renderGraphPromptDetails("思考提示（可选）", prompts)}`,
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(meta.memberIds.join(","))}" data-graph-theme-title="${escapeHtml(normalized.title || cluster.title || "未命名主题群")}"${meta.memberIds.length >= 2 ? "" : " disabled"}>创建主题笔记</button>
-      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开核心笔记</button>
-      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(firstNoteId)}" data-graph-followup-action="relations" data-graph-basket-note-ids="${escapeHtml(meta.memberIds.join(","))}"${firstNoteId ? "" : " disabled"}>补主题关系</button>`
+      <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(firstNoteId)}" data-graph-followup-action="relations" data-graph-basket-note-ids="${escapeHtml(meta.memberIds.join(","))}"${firstNoteId ? "" : " disabled"}>补一条主题关系</button>
+      <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开核心笔记</button>`
   });
 }
 
@@ -15100,13 +15101,9 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
           </div>
         </details>`
       : "";
-    const promptDetails = `
-      <details class="graph-selection-details">
-        <summary>可继续思考的问题</summary>
-        <section class="graph-selection-prompts">
-          ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
-        </section>
-      </details>`;
+    const promptDetails = renderGraphPromptDetails("思考提示（可选）", prompts);
+    const openNoteClass = directEdges.length ? "is-primary" : "is-quiet";
+    const aiConnectClass = directEdges.length ? "is-ai" : "is-primary is-ai";
     return renderGraphSelectionShell({
       className: `is-node is-${role.tone}`,
       ariaLabel: "选中笔记的思考详情",
@@ -15126,9 +15123,9 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
         ${candidatePanel}
         ${promptDetails}`,
       actions: `
-        <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(normalized.nodeId)}">打开笔记</button>
-        <button class="graph-selection-action" type="button" data-graph-ai-connect-note="${escapeHtml(normalized.nodeId)}"${graphState.aiAnalysisLoading ? " disabled" : ""}>${graphState.aiAnalysisLoading ? "正在找候选" : "AI 找候选"}</button>
-        <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(normalized.nodeId)}" data-graph-followup-action="relations">手动建立关系</button>`
+        <button class="graph-selection-action ${openNoteClass}" type="button" data-open-note="${escapeHtml(normalized.nodeId)}">打开笔记</button>
+        <button class="graph-selection-action ${aiConnectClass}" type="button" data-graph-ai-connect-note="${escapeHtml(normalized.nodeId)}"${graphState.aiAnalysisLoading ? " disabled" : ""}>${graphState.aiAnalysisLoading ? "正在找候选" : "AI 找候选"}</button>
+        <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(normalized.nodeId)}" data-graph-followup-action="relations">手动建立关系</button>`
     });
   }
   const edge = edges.find((item) => graphEdgeSelectionKey(item) === normalized.edgeKey);
@@ -15190,13 +15187,10 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
           { label: "来源", value: graphRelationSourceLabel(edge.createdBy) }
         ])}
       </div>
-      <section class="graph-selection-prompts">
-        <strong>复核问题</strong>
-        ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
-      </section>`,
+      ${renderGraphPromptDetails("复核提示（可选）", prompts)}`,
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(sourceId)}">打开源笔记</button>
-      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(sourceId)}" data-graph-followup-action="${escapeHtml(actionMeta.action)}"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}>${escapeHtml(actionMeta.label)}</button>`
+      <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(sourceId)}" data-graph-followup-action="${escapeHtml(actionMeta.action)}"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}>${escapeHtml(actionMeta.label)}</button>`
   });
 }
 

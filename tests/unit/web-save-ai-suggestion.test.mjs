@@ -38,7 +38,7 @@ test("save-after AI suggestion keeps one executable suggestion for the active sa
   assert.match(suggestionSource, /primaryLabel: fleeting \? "提炼为永久笔记" : "立即处理"/);
   assert.match(suggestionSource, /laterLabel: fleeting \? "稍后清理" : "稍后"/);
   assert.match(suggestionSource, /isPermanentLikeNote\(note\) && distillationStatusOf\(note\) !== "confirmed"/);
-  assert.match(suggestionSource, /text: "已保存，可继续提炼观点"/);
+  assert.match(suggestionSource, /text: "已保存，可继续整理观点"/);
 });
 
 test("save-after AI suggestion only appears after note save succeeds", () => {
