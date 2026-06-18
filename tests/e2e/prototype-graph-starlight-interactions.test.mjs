@@ -130,15 +130,15 @@ test("prototype graph research navigator opens cluster and bright-star explanati
     assert.ok(await page.locator(".graph-research-navigator").isVisible());
     const copy = await page.locator(".graph-research-navigator").textContent();
     assert.match(copy || "", /图谱概览/);
-    assert.match(copy || "", /主题星系/);
-    assert.match(copy || "", /待整理项/);
+    assert.match(copy || "", /主题群/);
+    assert.match(copy || "", /待处理/);
   }, 3000);
 
   await page.locator('.graph-research-card[data-graph-select-cluster]').first().click();
   await waitFor(async () => {
     assert.ok(await page.locator(".graph-selection-panel.is-cluster").isVisible());
     const copy = await page.locator(".graph-selection-panel.is-cluster").textContent();
-    assert.match(copy || "", /星系摘要/);
+    assert.match(copy || "", /主题群摘要/);
     assert.match(copy || "", /下一步问题/);
   }, 3000);
 

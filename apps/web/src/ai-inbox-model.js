@@ -61,7 +61,7 @@ export function aiInboxViewOptions() {
 export function aiInboxTypeOptions() {
   return [
     { value: "all", label: "全部建议" },
-    { value: "LinkSuggestion", label: "关联建议" },
+    { value: "LinkSuggestion", label: "关系候选" },
     { value: "ReflectionPrompt", label: "反思提示" },
     { value: "QuestionCard", label: "问题卡片" },
     { value: "ResearchCard", label: "研究卡片" },
@@ -71,7 +71,7 @@ export function aiInboxTypeOptions() {
     { value: "SourceSummary", label: "来源摘要" },
     { value: "ProjectDigest", label: "项目摘要" },
     { value: "InsightCard", label: "洞见卡片" },
-    { value: "BridgeCard", label: "桥接卡片" },
+    { value: "BridgeCard", label: "缺少连接" },
     { value: "TensionCard", label: "张力卡片" },
     { value: "SourceGap", label: "证据缺口" },
     { value: "WritingMove", label: "写作动作" }

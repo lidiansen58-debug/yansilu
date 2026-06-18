@@ -83,7 +83,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "basket_ready",
       status: "可加入写作篮",
-      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成显式关系，才适合创建项目。" : "判断和边界已经具备，但最好补一条关系再建项目。",
+      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成正式关系，才适合创建项目。" : "判断和边界已经具备，但最好补一条关系再建项目。",
       actionLabel: "加入写作篮"
     };
   }
@@ -159,7 +159,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
     return {
       level: "basket_ready",
       status: "可加入写作篮",
-      hint: "显式关系暂时读取失败，先稍后重试或回到笔记里手动确认关系。",
+      hint: "正式关系暂时读取失败，先稍后重试或回到笔记里手动确认关系。",
       actionLabel: "加入写作篮"
     };
   }
@@ -170,7 +170,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
       status: "可加入写作篮",
       hint: boundaryMissing.length
         ? `${boundaryMissing.length} 条笔记还缺边界或反例。`
-        : "当前篮子还缺显式关系，建议补一条关系再建项目。",
+        : "当前篮子还缺正式关系，建议补一条关系再建项目。",
       actionLabel: "加入写作篮"
     };
   }

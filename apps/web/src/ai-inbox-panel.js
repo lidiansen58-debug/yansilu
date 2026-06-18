@@ -56,6 +56,79 @@ function renderBadge(text = "", tone = "") {
   return `<span class="ai-inbox-badge ${cleanTone ? `tone-${escapeHtml(cleanTone)}` : ""}">${escapeHtml(text)}</span>`;
 }
 
+function artifactPayload(value = {}) {
+  return value?.payload && typeof value.payload === "object" ? value.payload : {};
+}
+
+function endpointTitle(endpoint = {}, fallback = "") {
+  return String(endpoint?.title || endpoint?.name || endpoint?.label || endpoint?.id || fallback || "").trim();
+}
+
+function graphReviewEndpointPair(value = {}) {
+  const payload = artifactPayload(value);
+  const from = payload.from || {};
+  const to = payload.to || {};
+  const sourceTitle = String(payload.sourceTitle || payload.source_title || endpointTitle(from)).trim();
+  const targetTitle = String(payload.targetTitle || payload.target_title || endpointTitle(to)).trim();
+  const sourceKind = String(from.kind || from.type || "note").trim().toLowerCase();
+  const targetKind = String(to.kind || to.type || "note").trim().toLowerCase();
+  return {
+    sourceTitle,
+    targetTitle,
+    sourceKind,
+    targetKind,
+    sourceId: String(from.id || payload.fromNoteId || payload.from_note_id || "").trim(),
+    targetId: String(to.id || payload.toNoteId || payload.to_note_id || "").trim()
+  };
+}
+
+function isInternalGraphTitle(title = "") {
+  return ["Graph bridge candidate", "Isolated permanent note"].includes(String(title || "").trim());
+}
+
+function aiInboxReadableTitle(value = {}) {
+  const type = String(value.type || "").trim();
+  const title = String(value.title || "").trim();
+  const summary = String(value.summary || "").trim();
+  const pair = graphReviewEndpointPair(value);
+  if (type === "BridgeCard") {
+    if (pair.sourceTitle && pair.targetTitle) return `缺少连接：${pair.sourceTitle} -> ${pair.targetTitle}`;
+    return summary ? `缺少连接：${summary}` : "缺少连接待确认";
+  }
+  if (type === "QuestionCard" && (isInternalGraphTitle(title) || String(artifactPayload(value).suggestedAction || artifactPayload(value).suggested_action || "").includes("missing_relations"))) {
+    const noteTitle = String(artifactPayload(value).noteTitle || artifactPayload(value).note_title || summary || title || "").trim();
+    return noteTitle ? `未关联笔记：${noteTitle}` : "未关联笔记";
+  }
+  if (type === "LinkSuggestion" && (pair.sourceTitle || pair.targetTitle)) {
+    return `可能关联：${pair.sourceTitle || pair.sourceId || "来源笔记"} -> ${pair.targetTitle || pair.targetId || "目标笔记"}`;
+  }
+  if (isInternalGraphTitle(title)) return summary || aiInboxTypeLabel(type);
+  return title || value.artifactId || value.id || "未命名建议";
+}
+
+function aiInboxReadableSummary(value = {}) {
+  const type = String(value.type || "").trim();
+  const payload = artifactPayload(value);
+  const summary = String(value.summary || "").trim();
+  if (type === "BridgeCard") {
+    return summary || "两条笔记可能需要一条能说清理由的连接。";
+  }
+  if (type === "QuestionCard" && String(payload.suggestedAction || payload.suggested_action || "").includes("missing_relations")) {
+    return "这条永久笔记还没有正式关系，先判断是否需要接入图谱。";
+  }
+  if (type === "LinkSuggestion") {
+    return summary || payload.rationale || "AI 或本地规则发现一条可能关系，确认后才会写入图谱。";
+  }
+  return summary || "打开右侧查看来源、理由和可执行动作。";
+}
+
+function isGraphReviewArtifact(value = {}) {
+  const type = String(value.type || "").trim();
+  const payload = artifactPayload(value);
+  const action = String(payload.suggestedAction || payload.suggested_action || "").trim();
+  return type === "BridgeCard" || type === "LinkSuggestion" || action === "review_missing_relations" || action === "review_graph_bridge";
+}
+
 function viewLabel(value = "") {
   const option = aiInboxViewOptions().find((item) => item.value === String(value || "").trim());
   return option?.label || value || "当前视图";
@@ -65,16 +138,16 @@ function renderWorkflowGuide() {
   return `
     <section class="ai-inbox-guide" aria-label="AI 建议处理流程">
       <div class="ai-inbox-guide-item">
-        <strong>1. 看建议</strong>
-        <span>左侧是 AI 发现的关联、问题、冲突和写作线索。</span>
+        <strong>先看对象</strong>
+        <span>每条建议都要说清是哪条笔记、可能连到哪里。</span>
       </div>
       <div class="ai-inbox-guide-item">
-        <strong>2. 查来源</strong>
-        <span>右侧先看来源笔记和理由，确认它是不是有价值。</span>
+        <strong>再看理由</strong>
+        <span>只处理能说明“为什么相关”的建议。</span>
       </div>
       <div class="ai-inbox-guide-item">
-        <strong>3. 再落地</strong>
-        <span>采纳后才会建立关系或生成草稿；忽略不会改动笔记。</span>
+        <strong>最后确认</strong>
+        <span>确认关系、生成草稿或忽略；默认不会改动笔记。</span>
       </div>
     </section>
   `;
@@ -120,11 +193,11 @@ function renderFilters(filters = {}, counts = {}) {
           </select>
         </label>
         <label>
-          <span>来源笔记 ID</span>
-          <input id="aiInboxSourceNoteFilter" value="${attr(normalizedFilters.sourceNoteId)}" placeholder="例如 note_..." />
+          <span>只看某条笔记</span>
+          <input id="aiInboxSourceNoteFilter" value="${attr(normalizedFilters.sourceNoteId)}" placeholder="输入笔记 ID，可留空" />
         </label>
         <label>
-          <span>运行范围</span>
+          <span>模型来源</span>
           <select id="aiInboxPrivacyFilter">
             <option value="" ${normalizedFilters.privacyMode ? "" : "selected"}>不限</option>
             <option value="normal" ${normalizedFilters.privacyMode === "normal" ? "selected" : ""}>普通</option>
@@ -143,6 +216,8 @@ function renderItem(item = {}, selectedArtifactId = "") {
   const tone = aiInboxStatusTone(item.status);
   const updated = formatDate(item.updatedAt || item.createdAt);
   const feedback = latestFeedbackFlags(item);
+  const title = aiInboxReadableTitle(item);
+  const summary = aiInboxReadableSummary(item);
   const feedbackLabels = [
     feedback.useful ? "有用" : "",
     feedback.noisy ? "噪音" : "",
@@ -158,13 +233,12 @@ function renderItem(item = {}, selectedArtifactId = "") {
       data-ai-inbox-artifact-id="${attr(item.artifactId)}"
     >
       <span class="ai-inbox-item-head">
-        <strong>${escapeHtml(item.title || item.artifactId || "未命名建议")}</strong>
+        <strong>${escapeHtml(title)}</strong>
         ${renderBadge(aiInboxStatusLabel(item.status), tone)}
       </span>
-      <span class="ai-inbox-item-summary">${escapeHtml(item.summary || "没有摘要，打开右侧查看来源和字段。")}</span>
+      <span class="ai-inbox-item-summary">${escapeHtml(summary)}</span>
       <span class="ai-inbox-item-meta">
         <span>${escapeHtml(aiInboxTypeLabel(item.type))}</span>
-        <span>${escapeHtml(item.privacyMode === "local_only" ? "仅本地" : "普通")}</span>
         ${updated ? `<span>${escapeHtml(updated)}</span>` : ""}
       </span>
       ${
@@ -199,8 +273,9 @@ function renderEvaluationSummary(state = {}) {
   }
   const summary = state.evaluationSummary || null;
   if (!summary) {
-    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">还没有处理统计。开始采纳、忽略或归档建议后，这里会显示质量反馈。</div></section>`;
+    return "";
   }
+  if (Number(summary.artifacts?.withDecision || summary.decisions?.total || 0) <= 0) return "";
   const metrics = aiInboxEvaluationMetrics(summary);
   const filter = summary.filter || {};
   const scope = [
@@ -655,6 +730,116 @@ function renderFieldSuggestionAction(artifact = {}, actionLoading = false) {
   `;
 }
 
+function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false) {
+  const active = artifact || item || {};
+  if (!isGraphReviewArtifact(active)) return "";
+  const type = String(active.type || item.type || "").trim();
+  const payload = artifactPayload(active);
+  const pair = graphReviewEndpointPair(active);
+  const isolatedNoteTitle = String(payload.noteTitle || payload.note_title || active.summary || item.summary || "").trim();
+  const relationType = String(payload.relationType || payload.relation_type || "").trim();
+  const reason = String(payload.aiRationale || payload.ai_rationale || payload.rationale || active.summary || item.summary || "").trim();
+  const reviewQuestion = String(payload.reviewQuestion || payload.review_question || "").trim();
+  const isIsolated = type === "QuestionCard" && String(payload.suggestedAction || payload.suggested_action || "").includes("missing_relations");
+  const link = type === "LinkSuggestion" ? linkSuggestionSummary(active) : null;
+  const title = isIsolated
+    ? `未关联笔记：${isolatedNoteTitle || payload.noteId || payload.note_id || "未命名笔记"}`
+    : aiInboxReadableTitle(active);
+  const primaryText = type === "LinkSuggestion"
+    ? "建立为笔记关系"
+    : isIsolated
+      ? "打开笔记处理关联"
+      : "去图谱确认连接";
+  return `
+    <section class="ai-inbox-review-brief" aria-label="建议处理重点">
+      <div class="ai-inbox-review-brief-head">
+        <div>
+          <span>${escapeHtml(isIsolated ? "未入关系网" : type === "BridgeCard" ? "缺少连接" : "关系候选")}</span>
+          <strong>${escapeHtml(title)}</strong>
+        </div>
+        ${renderBadge(aiInboxStatusLabel(active.status || item.status), aiInboxStatusTone(active.status || item.status))}
+      </div>
+      ${
+        !isIsolated && (pair.sourceTitle || pair.targetTitle)
+          ? `<div class="ai-inbox-review-pair">
+              <span>${escapeHtml(pair.sourceTitle || pair.sourceId || "来源笔记")}</span>
+              <strong>${escapeHtml(relationType ? aiInboxTypeLabel(type) : "可能相关")}</strong>
+              <span>${escapeHtml(pair.targetTitle || pair.targetId || "目标笔记")}</span>
+            </div>`
+          : ""
+      }
+      <div class="ai-inbox-review-main">
+        <strong>${escapeHtml(isIsolated ? "为什么提醒" : "推荐理由")}</strong>
+        <p>${escapeHtml(reason || (isIsolated ? "这条永久笔记还没有正式关系，需要判断是否接入图谱。" : "这条建议还没有足够明确的理由，建议谨慎处理。"))}</p>
+      </div>
+      ${
+        reviewQuestion
+          ? `<div class="ai-inbox-review-main is-muted"><strong>复核问题</strong><p>${escapeHtml(reviewQuestion)}</p></div>`
+          : ""
+      }
+      ${
+        link && !link.canAccept
+          ? `<div class="ai-inbox-detail-muted">这条候选不是“笔记到笔记”的关系，不能直接写入图谱。可以打开相关笔记，手工整理成正式关系。</div>`
+          : ""
+      }
+      <div class="ai-inbox-actions">
+        ${
+          type === "LinkSuggestion"
+            ? `<button class="mini-btn primary" type="button" data-ai-inbox-accept-link="${attr(active.id || item.artifactId)}" ${link?.canAccept && !actionLoading ? "" : "disabled"}>${escapeHtml(primaryText)}</button>`
+            : ""
+        }
+        ${
+          !isIsolated && pair.sourceId && pair.sourceKind === "note"
+            ? `<button class="mini-btn" type="button" data-ai-inbox-open-note="${attr(pair.sourceId)}" ${actionLoading ? "disabled" : ""}>打开来源笔记</button>`
+            : ""
+        }
+        ${
+          !isIsolated && pair.targetId && pair.targetKind === "note"
+            ? `<button class="mini-btn" type="button" data-ai-inbox-open-note="${attr(pair.targetId)}" ${actionLoading ? "disabled" : ""}>打开目标笔记</button>`
+            : ""
+        }
+        ${
+          isIsolated
+            ? `<button class="mini-btn primary" type="button" data-ai-inbox-open-note="${attr(payload.noteId || payload.note_id || item.primarySourceNoteId || "")}" ${actionLoading ? "disabled" : ""}>${escapeHtml(primaryText)}</button>`
+            : ""
+        }
+      </div>
+    </section>
+  `;
+}
+
+function renderTechnicalDetails(activeArtifact = {}, item = {}, activeDetail = {}) {
+  const payload = artifactPayload(activeArtifact);
+  const provenance = activeArtifact.provenance || {};
+  const body = typeof activeArtifact.body === "string" ? activeArtifact.body : JSON.stringify(activeArtifact.body || "", null, 2);
+  return `
+    <details class="ai-inbox-technical-details">
+      <summary>查看技术信息</summary>
+      <section class="ai-inbox-detail-section">
+        <h3>运行信息</h3>
+        <dl class="ai-inbox-kv">
+          <dt>任务</dt><dd>${escapeHtml(activeArtifact.agentRunId || item.agentRunId || "未记录")}</dd>
+          <dt>上下文包</dt><dd>${escapeHtml(activeArtifact.contextPackId || item.contextPackId || "未记录")}</dd>
+          <dt>模型来源</dt><dd>${escapeHtml(activeArtifact.privacy?.mode === "local_only" || item.privacyMode === "local_only" ? "仅本地" : activeArtifact.privacy?.mode || item.privacyMode || "普通")}</dd>
+        </dl>
+      </section>
+      <section class="ai-inbox-detail-section">
+        <h3>建议正文</h3>
+        ${body ? `<pre class="ai-inbox-json">${escapeHtml(body)}</pre>` : `<div class="ai-inbox-detail-muted">没有正文。</div>`}
+      </section>
+      <section class="ai-inbox-detail-section">
+        <h3>结构化字段</h3>
+        ${renderPayloadPreview(payload)}
+      </section>
+      ${
+        provenance && Object.keys(provenance).length
+          ? `<section class="ai-inbox-detail-section"><h3>原始运行信息</h3><pre class="ai-inbox-json">${escapeHtml(JSON.stringify(provenance, null, 2))}</pre></section>`
+          : ""
+      }
+    </details>
+  `;
+}
+
 function renderDecisions(decisions = []) {
   const items = Array.isArray(decisions) ? decisions : [];
   if (!items.length) return `<div class="ai-inbox-detail-muted">还没有处理记录。</div>`;
@@ -695,8 +880,8 @@ function renderDetailRefreshGate(item = {}, detailLoading = false, detailError =
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">${escapeHtml(aiInboxTypeLabel(item.type))}</div>
-          <h2>${escapeHtml(item.title || item.artifactId || "未命名建议")}</h2>
-          <p>${escapeHtml(item.summary || "正在加载这条建议的最新详情。")}</p>
+          <h2>${escapeHtml(aiInboxReadableTitle(item))}</h2>
+          <p>${escapeHtml(aiInboxReadableSummary(item) || "正在加载这条建议的最新详情。")}</p>
         </div>
         ${renderBadge(aiInboxStatusLabel(item.status), aiInboxStatusTone(item.status))}
       </header>
@@ -765,10 +950,7 @@ function renderDetail(state = {}) {
 
   const activeArtifact = artifact || item;
   const sourceNoteIds = activeArtifact.sources?.noteIds || item.sourceNoteIds || [];
-  const body = typeof activeArtifact.body === "string" ? activeArtifact.body : JSON.stringify(activeArtifact.body || "", null, 2);
-  const confidence = activeArtifact.confidence || item.confidence || {};
-  const model = activeArtifact.model || {};
-  const provenance = activeArtifact.provenance || {};
+  const graphReview = isGraphReviewArtifact(activeArtifact);
   const artifactActionBusy =
     state.actionLoading === true &&
     actionArtifactId === String(item.artifactId || activeArtifact?.id || "").trim();
@@ -781,64 +963,43 @@ function renderDetail(state = {}) {
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">${escapeHtml(aiInboxTypeLabel(activeArtifact.type || item.type))}</div>
-          <h2>${escapeHtml(activeArtifact.title || item.title || "未命名建议")}</h2>
-          <p>${escapeHtml(activeArtifact.summary || item.summary || "这条建议没有摘要，请重点查看来源和结构化字段。")}</p>
+          <h2>${escapeHtml(aiInboxReadableTitle(activeArtifact.id ? activeArtifact : item))}</h2>
+          <p>${escapeHtml(aiInboxReadableSummary(activeArtifact.id ? activeArtifact : item))}</p>
         </div>
         ${renderBadge(aiInboxStatusLabel(activeArtifact.status || item.status), aiInboxStatusTone(activeArtifact.status || item.status))}
       </header>
 
-      <div class="ai-inbox-detail-grid">
-        <section>
-          <h3>来源笔记</h3>
-          ${renderSourceNotes(sourceNoteIds, artifactActionBusy)}
-        </section>
-        <section>
-          <h3>运行来源</h3>
-          <dl class="ai-inbox-kv">
-            <dt>任务</dt><dd>${escapeHtml(activeArtifact.agentRunId || item.agentRunId || "未知")}</dd>
-            <dt>上下文包</dt><dd>${escapeHtml(activeArtifact.contextPackId || item.contextPackId || "无")}</dd>
-            <dt>范围</dt><dd>${escapeHtml(activeArtifact.privacy?.mode === "local_only" || item.privacyMode === "local_only" ? "仅本地" : activeArtifact.privacy?.mode || item.privacyMode || "普通")}</dd>
-            <dt>模型</dt><dd>${escapeHtml(model.modelRef || model.logicalModelRef || model.providerId || "未记录")}</dd>
-            <dt>可信度</dt><dd>${escapeHtml(confidence.label || confidence.score || "未记录")}</dd>
-          </dl>
-        </section>
-      </div>
+      ${renderGraphReviewBrief(activeArtifact, item, artifactActionBusy)}
+      ${
+        graphReview
+          ? ""
+          : `<section class="ai-inbox-detail-section">
+              <h3>来源笔记</h3>
+              ${renderSourceNotes(sourceNoteIds, artifactActionBusy)}
+            </section>`
+      }
 
-      ${renderLinkSuggestionAction(activeArtifact, artifactActionBusy)}
+      ${graphReview ? "" : renderLinkSuggestionAction(activeArtifact, artifactActionBusy)}
       ${renderNotePromotionAction(activeArtifact, artifactActionBusy)}
       ${renderFieldSuggestionAction(activeArtifact, suggestionActionBusy)}
-      ${renderSuggestionTrace(activeDetail, suggestionActionBusy)}
-      ${renderSuggestionDraftEditingGuide(activeDetail)}
-      ${renderReviewedSuggestionContent(activeDetail, suggestionActionBusy)}
-      ${renderSuggestionProvenance(activeDetail)}
-      ${renderSuggestionHistory(activeDetail)}
+      ${graphReview ? "" : renderSuggestionTrace(activeDetail, suggestionActionBusy)}
+      ${graphReview ? "" : renderSuggestionDraftEditingGuide(activeDetail)}
+      ${graphReview ? "" : renderReviewedSuggestionContent(activeDetail, suggestionActionBusy)}
+      ${graphReview ? "" : renderSuggestionProvenance(activeDetail)}
+      ${graphReview ? "" : renderSuggestionHistory(activeDetail)}
       ${renderSuggestionReviewActions(activeDetail, suggestionActionBusy)}
       ${renderActionError(actionError)}
       ${renderActionNotice(actionNotice, actionNoticeTone)}
-      ${renderAiSummary(state, item, artifactActionBusy)}
-      ${renderRecommendedSummaryAction(state, item, artifactActionBusy)}
+      ${graphReview ? "" : renderAiSummary(state, item, artifactActionBusy)}
+      ${graphReview ? "" : renderRecommendedSummaryAction(state, item, artifactActionBusy)}
       ${renderReviewActions(item, artifactActionBusy)}
-
-      <section class="ai-inbox-detail-section">
-        <h3>建议正文</h3>
-        ${body ? `<pre class="ai-inbox-json">${escapeHtml(body)}</pre>` : `<div class="ai-inbox-detail-muted">没有正文。</div>`}
-      </section>
-
-      <section class="ai-inbox-detail-section">
-        <h3>结构化字段</h3>
-        ${renderPayloadPreview(activeArtifact.payload)}
-      </section>
 
       <section class="ai-inbox-detail-section">
         <h3>处理记录</h3>
         ${renderDecisions(activeArtifact.userDecisions || [])}
       </section>
 
-      ${
-        provenance && Object.keys(provenance).length
-          ? `<section class="ai-inbox-detail-section"><h3>原始运行信息</h3><pre class="ai-inbox-json">${escapeHtml(JSON.stringify(provenance, null, 2))}</pre></section>`
-          : ""
-      }
+      ${renderTechnicalDetails(activeArtifact, item, activeDetail)}
     </article>
   `;
 }
@@ -852,7 +1013,7 @@ export function renderAiInboxPanel(state = {}) {
         <div>
           <div class="import-card-kicker">AI 建议复核</div>
           <strong>${escapeHtml(viewLabel(summary.view))}：当前显示 ${escapeHtml(summary.visible)} 条，共 ${escapeHtml(summary.viewCount)} 条</strong>
-          <p>这里不是聊天窗口，而是“AI 给出的待确认建议”：关联、问题、冲突和写作线索都要经过你确认才会进入笔记或图谱。</p>
+          <p>逐条确认 AI 或本地规则发现的关系、问题和写作建议；未确认前不会改动笔记或图谱。</p>
         </div>
         ${state.actionLoading ? renderBadge("正在处理", "warn") : renderBadge("需人工确认", "ok")}
       </header>

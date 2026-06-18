@@ -44,7 +44,7 @@ test("AI inbox model exposes labels for insight artifact types", () => {
     assert.equal(optionValues.includes(type), true);
   }
   assert.equal(aiInboxTypeLabel("InsightCard"), "洞见卡片");
-  assert.equal(aiInboxTypeLabel("BridgeCard"), "桥接卡片");
+  assert.equal(aiInboxTypeLabel("BridgeCard"), "缺少连接");
   assert.equal(aiInboxTypeLabel("TensionCard"), "张力卡片");
   assert.equal(aiInboxTypeLabel("SourceGap"), "证据缺口");
   assert.equal(aiInboxTypeLabel("WritingMove"), "写作动作");

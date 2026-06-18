@@ -7522,7 +7522,7 @@ export class EditorPane {
         status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
         hint:
           wikilinkCount > 0 && tagRelatedCount > 0
-            ? "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的一条关系写清楚。"
+            ? "已经同时有链接线索和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。"
             : "已经有基础线索，但还需要把“为什么相关”说清楚。",
         badge: themeSignalCount || wikilinkCount + tagRelatedCount,
         badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
@@ -7729,20 +7729,20 @@ export class EditorPane {
     if (connectedCount > 0 && thinExplicitRelationCount > 0) {
       return {
         nextStep: "补关系理由",
-        summary: `已经有 ${explicitRelationCount} 条显式关系，但其中还有 ${thinExplicitRelationCount} 条理由偏薄。先把“为什么成立”写具体，再继续推进主题或写作。`
+        summary: `已经有 ${explicitRelationCount} 条正式关系，但其中还有 ${thinExplicitRelationCount} 条理由偏薄。先把“为什么成立”写具体，再继续推进主题或写作。`
       };
     }
     if (connectedCount === 0) {
       if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
         return {
-          nextStep: "把线索收成显式关系",
-          summary: "已经同时出现正文里的 wikilink 和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成显式关系。"
+          nextStep: "确认成正式关系",
+          summary: "已经同时出现正文里的 wikilink 和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成正式关系。"
         };
       }
       if (wikilinkCount > 0) {
         return {
           nextStep: "补关系理由",
-          summary: "已经有正文里的 wikilink 线索，下一步把“为什么相关”写成显式关系。"
+          summary: "已经有正文里的 wikilink 线索，下一步把“为什么相关”写成正式关系。"
         };
       }
       if (Number(overview.tagRelatedCount || 0) > 0) {
@@ -7917,7 +7917,7 @@ export class EditorPane {
     if (relationState === "loading") {
       return {
         status: "读取中",
-        hint: "显式关系仍在读取中，主题线索暂时不做最终判断。",
+        hint: "正式关系仍在读取中，主题线索暂时不做最终判断。",
         badge: null,
         badgeLabel: "读取中"
       };
@@ -7925,7 +7925,7 @@ export class EditorPane {
     if (relationState === "error") {
       return {
         status: "读取失败",
-        hint: "显式关系暂时读不到；如果本来应该有主题线索，可以先手动补关系或稍后重试。",
+        hint: "正式关系暂时读不到；如果本来应该有主题线索，可以先手动补关系或稍后重试。",
         badge: null,
         badgeLabel: "读取失败"
       };
@@ -7957,7 +7957,7 @@ export class EditorPane {
       if (wikilinkCount > 0 || tagRelatedCount > 0) {
         return {
           status: `混合线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
-          hint: "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的一条关系写清楚。",
+          hint: "已经同时有链接线索和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。",
           badge: themeSignalCount || wikilinkCount + tagRelatedCount,
           badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
         };
@@ -8029,7 +8029,7 @@ export class EditorPane {
                   : "待建立",
         hint:
           relationState === "loading"
-            ? "先等显式关系读取完成。"
+            ? "先等正式关系读取完成。"
             : relationState === "error"
               ? "读取失败，但仍然可以手动补建。"
                 : explicitRelationCount
@@ -8038,7 +8038,7 @@ export class EditorPane {
                     : "已经有带理由的关系。"
                   : wikilinkCount
                     ? Number(overview.tagRelatedCount || 0) > 0
-                      ? "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的关系写出来。"
+                      ? "已经同时有链接线索和标签接近，但还没形成正式关系。先把最关键的关系写出来。"
                       : "已经有正文链接线索，下一步把关系为什么成立写清楚。"
                     : Number(overview.tagRelatedCount || 0) > 0
                       ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
@@ -8049,7 +8049,7 @@ export class EditorPane {
               ? "补关系理由"
               : wikilinkCount > 0
                 ? Number(overview.tagRelatedCount || 0) > 0
-                  ? "把线索收成显式关系"
+                  ? "确认成正式关系"
                   : "补关系理由"
                 : Number(overview.tagRelatedCount || 0) > 0
                   ? "从标签线索补关系"

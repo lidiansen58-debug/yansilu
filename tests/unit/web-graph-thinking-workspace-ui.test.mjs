@@ -18,14 +18,47 @@ function readDomainCatalogStore() {
   return fs.readFileSync(path.join(repoRoot, "packages/domain/src/note-catalog-store.mjs"), "utf8");
 }
 
+function extractFunctionSource(source, name) {
+  const start = source.indexOf(`function ${name}`);
+  assert.ok(start >= 0, `expected ${name}() to exist`);
+  const paramsStart = source.indexOf("(", start);
+  assert.ok(paramsStart > start, `expected ${name}() to have parameters`);
+  let parenDepth = 0;
+  let paramsEnd = -1;
+  for (let index = paramsStart; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "(") parenDepth += 1;
+    if (char === ")") {
+      parenDepth -= 1;
+      if (parenDepth === 0) {
+        paramsEnd = index;
+        break;
+      }
+    }
+  }
+  assert.ok(paramsEnd > paramsStart, `expected ${name}() parameter list to close`);
+  const bodyStart = source.indexOf("{", paramsEnd);
+  assert.ok(bodyStart > start, `expected ${name}() to have a body`);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  assert.fail(`expected to find the end of ${name}()`);
+}
+
 test("graph workbench entries live beside reading lenses and legend", () => {
   const source = readPrototypeApp();
 
   assert.match(source, /function renderGraphReadingLensControls\(activeLens = "insight", legendOpen = false, trailingMarkup = ""\) \{/);
   assert.match(source, /<div class="graph-reading-lens-side">[\s\S]*\$\{trailingMarkup \|\| ""\}[\s\S]*id="graphLegendToggle"/);
   assert.match(source, /function renderGraphWorkbenchEntryPills\(\{ clueSummary = null, questionSummary = null \} = \{\}\) \{/);
-  assert.match(source, /label: "整理"/);
-  assert.match(source, /label: "追问"/);
+  assert.match(source, /label: "关系待办"/);
+  assert.match(source, /label: "思考问题"/);
   assert.match(source, /data-graph-workbench-entry="\$\{escapeHtml\(meta\.key\)\}"/);
   assert.match(source, /const label = total > 0 \? meta\.label : meta\.emptyLabel;/);
   assert.match(source, /const readingLensTrailingMarkup = `\$\{workbenchEntryMarkup\}\$\{researchNavigatorEntryMarkup\}`;/);
@@ -48,7 +81,7 @@ test("graph refresh repaints the explorer tree after connectivity state changes"
   assert.match(source, /graphState\.loading = false;\s*renderAll\(\);/);
 });
 
-test("graph focus reading panel can be collapsed and restored explicitly", () => {
+test("graph focus relation panel can be collapsed and restored explicitly", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
 
@@ -60,11 +93,27 @@ test("graph focus reading panel can be collapsed and restored explicitly", () =>
   assert.match(source, /class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close"/);
   assert.match(source, /const focusContextToggle = event\.target\.closest\("\[data-graph-focus-context-toggle\]"\);/);
   assert.match(source, /graphState\.focusContextCollapsed =[\s\S]*action === "open" \? false : action === "close" \? true/);
-  assert.match(source, /setStatus\(graphState\.focusContextCollapsed \? "已收起右侧阅读" : "已显示右侧阅读", "ok"\);/);
+  assert.match(source, /setStatus\(graphState\.focusContextCollapsed \? "已收起右侧关系" : "已显示右侧关系", "ok"\);/);
 
   assert.match(html, /\.graph-focus-panel-head \{[\s\S]*justify-content: space-between;/);
   assert.match(html, /\.graph-focus-panel-toggle \{[\s\S]*min-height: 30px;[\s\S]*cursor: pointer;/);
   assert.match(html, /\.graph-focus-panel-close \{[\s\S]*position: static;[\s\S]*width: 30px;/);
+});
+
+test("graph focus relation panel uses plain wording and explains relation categories", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /label: "看观点关系"/);
+  assert.match(source, /label: "看写作用途"/);
+  assert.match(source, /<div class="graph-focus-kicker">当前笔记关系<\/div>/);
+  assert.match(source, /只看当前笔记已经保存的正式关系，不包含还没确认的 AI 候选。/);
+  assert.match(source, /支持关系说明/);
+  assert.match(source, /data-graph-focus-help-toggle/);
+  assert.match(source, /graphState\.focusContextHelpOpen = graphState\.focusContextHelpOpen !== true;/);
+
+  assert.match(html, /\.graph-focus-help-toggle \{[\s\S]*min-height: 30px;[\s\S]*cursor: pointer;/);
+  assert.match(html, /\.graph-focus-help\.is-collapsed \{[\s\S]*display: none;/);
 });
 
 test("graph workbench panel replaces map-covering clue and question floaters", () => {
@@ -81,7 +130,7 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
 
   assert.match(html, /\.graph-workbench-panel \{[\s\S]*position: relative;[\s\S]*z-index: 8;/);
   assert.match(html, /\.graph-side-stack \{[\s\S]*display: grid;[\s\S]*align-content: start;/);
-  assert.match(html, /\.graph-workbench-entry \{[\s\S]*min-height: 26px;[\s\S]*padding: 0 8px;/);
+  assert.match(html, /\.graph-workbench-entry \{[\s\S]*min-height: 30px;[\s\S]*padding: 0 10px;/);
   assert.match(html, /\.graph-workbench-entry-group \{[\s\S]*flex-wrap: nowrap;/);
   assert.match(html, /\.graph-side-stack \{[\s\S]*height: var\(--graph-map-height\);[\s\S]*overflow: auto;/);
   assert.match(html, /\.graph-map-stage \{[\s\S]*background: transparent;[\s\S]*overflow: visible;/);
@@ -98,8 +147,8 @@ test("graph research navigator explains the map before users drill into details"
   assert.match(source, /const headline = clusters\.length/);
   assert.match(source, /const nextAction = clusters\.length/);
   assert.match(source, /const pendingNote = pendingTotal/);
-  assert.match(source, /\{ label: "主题星系", value: `\$\{nav\.clusters\.length\} 个`, hint: "主题团块" \}/);
-  assert.match(source, /\{ label: "待整理项", value: `\$\{nav\.pendingTotal\} 项`, hint: "待补关系或追问" \}/);
+  assert.match(source, /\{ label: "主题群", value: `\$\{nav\.clusters\.length\} 个`, hint: "相互靠近的一组笔记" \}/);
+  assert.match(source, /\{ label: "待处理", value: `\$\{nav\.pendingTotal\} 项`, hint: "待补关系或问题" \}/);
   assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(cluster\.clusterKey\)\}"/);
   assert.match(source, /data-graph-select-node="\$\{escapeHtml\(node\.id\)\}"/);
   assert.match(source, /data-graph-research-close/);
@@ -132,8 +181,8 @@ test("graph structure view falls back to galaxy clusters instead of an empty map
   assert.match(source, /function graphStructureFallbackEdges\(edges = \[\], filters = \{\}\) \{/);
   assert.match(source, /const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges\.length && graphHasMeaningfulStructureEdges\(focused\.edges\);/);
   assert.match(source, /filteredEdges = graphStructureFallbackEdges\(focused\.edges, activeFilters\);/);
-  assert.match(source, /当前没有主题归属关系，已用星系聚类显示结构星图。/);
-  assert.match(source, /结构星图（星系聚类）/);
+  assert.match(source, /当前没有主题归属关系，已按笔记之间的关系自动分组。/);
+  assert.match(source, /主题分布（自动分组）/);
   assert.match(html, /\.graph-structure-fallback-note \{[\s\S]*background: rgba\(239, 250, 255, 0\.9\);/);
 });
 
@@ -168,9 +217,11 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
   assert.match(source, /const conflictingRelations = graphMergeRelationsByKey\(insightConflictingRelations, scopedTensionRelations\);/);
   assert.match(source, /fetchRelationReviewQueue\(\{ directoryId, includeDescendants: true, limit: 8 \}\)/);
   assert.match(source, /function renderGraphWorkbenchPriorityQueue\(items = \[\], activeKey = "questions"\) \{/);
-  assert.match(source, /建议先处理的 3 项/);
-  assert.match(source, /最该先追问的 3 处/);
+  assert.match(source, /先处理这 3 条/);
+  assert.match(source, /先看这 3 个问题/);
+  assert.match(source, /<details class="graph-workbench-all"/);
   assert.match(html, /\.graph-priority-queue \{[\s\S]*display: grid;[\s\S]*radial-gradient/);
+  assert.match(html, /\.graph-workbench-all \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;/);
   assert.match(domain, /suggestedAction: "补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。"/);
   assert.doesNotMatch(domain, /Add an intermediate note or an explicit relation/);
 });
@@ -195,9 +246,9 @@ test("graph clusters are selectable research objects with their own summary pane
   assert.match(source, /kind: "cluster"/);
   assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(clusterKey\)\}"/);
   assert.match(source, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
-  assert.match(source, /kicker: "星系摘要"/);
+  assert.match(source, /kicker: "主题群摘要"/);
   assert.match(source, /roleLabel: meta\.label/);
-  assert.match(source, /补星系关系/);
+  assert.match(source, /补主题关系/);
 
   assert.match(html, /\.graph-map-cluster-glows \{[\s\S]*pointer-events: auto;/);
   assert.match(html, /\.graph-map-cluster-glow \{[\s\S]*cursor: pointer;[\s\S]*pointer-events: visiblePainted;/);
@@ -210,10 +261,11 @@ test("graph research details cover nodes and relation gravity lines with next ac
   assert.match(source, /if \(String\(graphState\.selection\?\.kind \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "cluster"\) \{/);
   assert.match(source, /class="graph-overlay-close graph-selection-close"/);
   assert.doesNotMatch(source, /data-graph-selection-close[^>]*>收起<\/button>/);
-  assert.match(source, /kicker: "笔记角色"/);
-  assert.match(source, /roleLabel: role\.label/);
-  assert.match(source, /关联一条笔记/);
-  assert.match(source, /kicker: "关系复核"/);
+  assert.match(source, /kicker: "当前笔记"/);
+  assert.match(source, /renderGraphNodeInsightPanel\(insight\)/);
+  assert.match(source, /已保存关系和更多操作/);
+  assert.match(source, /手动建立关系/);
+  assert.match(source, /kicker: "已保存关系"/);
   assert.match(source, /roleLabel: review\.label/);
   assert.match(source, /<strong>复核问题<\/strong>/);
   assert.match(source, /data-graph-relation-adjustment/);
@@ -327,8 +379,8 @@ test("isolated graph notes can request AI-assisted relation candidates and confi
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
   assert.match(source, /aria-label="孤立笔记关联到图谱"/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(noteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
-  assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(noteId\)\}"/);
-  assert.match(source, /data-graph-followup-action="relations">手工关联<\/button>/);
+  assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
+  assert.match(source, /data-graph-followup-action="relations">手动建立关系<\/button>/);
   assert.match(source, /data-graph-ai-candidate-apply/);
   assert.match(source, /data-open-note="\$\{escapeHtml\(candidate\.actionSourceNoteId \|\| candidate\.sourceNoteId\)\}"/);
   assert.match(source, /data-graph-target-note="\$\{escapeHtml\(candidate\.actionTargetNoteId \|\| candidate\.targetNoteId\)\}"/);
@@ -345,7 +397,7 @@ test("isolated graph notes can request AI-assisted relation candidates and confi
   assert.match(source, /function openGraphAiCandidateRelation\(button = null\) \{/);
   assert.match(source, /rationaleDraft,/);
   assert.match(source, /insightQuestionDraft,/);
-  assert.match(source, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{ nodeMap, edges \}\)/);
+  assert.match(source, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
   assert.match(source, /runAiConnectForNote: runGraphAiConnectForNote/);
   assert.match(source, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
   assert.match(source, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
@@ -356,9 +408,9 @@ test("isolated graph notes can request AI-assisted relation candidates and confi
   assert.match(source, /providedRationaleDraft \|\| providedInsightQuestionDraft/);
   assert.match(source, /sourceLabel = button\?\.hasAttribute\?\.\("data-graph-ai-candidate-apply"\) \? "潜在关联" : "候选关系";/);
 
-  assert.match(html, /\.graph-isolated-join \{[\s\S]*display: grid;[\s\S]*border: 1px solid #efc66f;/);
-  assert.match(html, /\.graph-isolated-join-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
-  assert.match(html, /\.graph-isolated-join-step \{[\s\S]*min-height: 44px;/);
+  assert.match(html, /\.graph-isolated-join \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;[\s\S]*border-left: 4px solid #d97706;/);
+  assert.match(html, /\.graph-isolated-join-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(116px, 1fr\)\);/);
+  assert.match(html, /\.graph-isolated-join-rule \{[\s\S]*border: 1px solid rgba\(234, 215, 173, 0\.9\);/);
   assert.match(html, /\.graph-ai-connect \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
   assert.match(html, /\.graph-ai-connect-card \{[\s\S]*border-radius: 14px;/);
   assert.match(html, /\.graph-ai-connect-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(112px, 1fr\)\);/);
@@ -449,7 +501,7 @@ test("graph isolated notes are organized into a continuous handling queue", () =
 
   assert.match(html, /\.graph-isolated-queue-strip \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto auto;/);
   assert.match(html, /\.graph-isolated-queue \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;/);
-  assert.match(html, /\.graph-isolated-queue-item \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*min-height: 58px;/);
+  assert.match(html, /\.graph-isolated-queue-item \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(76px, auto\);[\s\S]*min-height: 58px;/);
   assert.match(html, /\.graph-isolated-queue-item\.is-current \{[\s\S]*box-shadow: inset 4px 0 0 rgba\(217, 119, 6, 0\.65\);/);
   assert.match(html, /\.graph-isolated-queue-main:hover,[\s\S]*\.graph-isolated-queue-main:focus-visible \{/);
 });
@@ -468,29 +520,63 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(source, /function graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
   assert.match(source, /const connectedIds = new Set\(/);
   assert.match(source, /graphTitleCharacterOverlap\(sourceTitle, targetTitle\)/);
-  assert.match(source, /renderGraphRelationCandidateCards\(localCandidates/);
+  assert.match(source, /const localCandidates = graphLocalRelationCandidatesForNote\(noteId, \{ nodeMap, edges, limit: 5 \}\);/);
   assert.match(source, /data-graph-relation-candidate-apply/);
   assert.match(source, /const graphRelationCandidateButton = event\.target\.closest\("\[data-graph-relation-candidate-apply\]"\);/);
   assert.match(source, /openGraphCandidateRelation\(graphRelationCandidateButton\);/);
   assert.match(joinFlowSource, /const candidateHint = candidatePreview/);
   assert.doesNotMatch(joinFlowSource, /renderGraphRelationCandidateCards\(localCandidates/);
-  assert.match(isolatedSelectionSource, /<strong>别急着连线<\/strong>/);
-  assert.match(isolatedSelectionSource, /title: "现有关联与候选"/);
+  assert.match(isolatedSelectionSource, /<summary>暂不关联时怎么办<\/summary>/);
+  assert.match(isolatedSelectionSource, /<strong>判断提示<\/strong>/);
+  assert.match(isolatedSelectionSource, /title: "已保存的关系"/);
   assert.doesNotMatch(isolatedSelectionSource, /孤立笔记接入网络/);
 });
 
 test("graph relation candidates explain reason, possible relation, and review question", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
+  const connectStart = source.indexOf('function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edges = [], hideEmpty = false } = {}) {');
+  const connectEnd = source.indexOf('function graphOtherRelationEndpoint(', connectStart);
+  assert.ok(connectStart >= 0 && connectEnd > connectStart, "expected renderGraphAiConnectCandidates() to exist");
+  const connectSource = source.slice(connectStart, connectEnd);
 
   assert.match(source, /function renderGraphCandidateReviewRows\(candidate = \{\}, \{ aiCandidate = true \} = \{\}\) \{/);
+  assert.match(source, /function graphCandidateEvidenceText\(candidate = \{\}\) \{/);
+  assert.match(source, /function graphCandidateUndirectedPairKey\(candidate = \{\}\) \{/);
+  assert.match(source, /function graphMergeRelationCandidatesForDisplay\(aiCandidates = \[\], localCandidates = \[\], \{ limit = 6 \} = \{\}\) \{/);
+  assert.match(source, /return graphRelationPairKey\(/);
+  assert.match(connectSource, /const candidates = graphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit: 6 \}\);/);
   assert.match(source, /<span>推荐原因<\/span>/);
   assert.match(source, /<span>可能关系<\/span>/);
   assert.match(source, /<span>复核问题<\/span>/);
   assert.match(source, /graphCandidateRelationReviewQuestion\(candidate\)/);
-  assert.match(source, /renderGraphCandidateReviewRows\(candidate\)/);
+  assert.match(source, /renderGraphCandidateReviewRows\(candidate, \{ aiCandidate: !isLocal \}\)/);
   assert.match(source, /renderGraphCandidateReviewRows\(candidate, \{ aiCandidate: false \}\)/);
   assert.match(html, /\.graph-candidate-review \{[\s\S]*display: grid;[\s\S]*gap: 6px;/);
+  assert.match(html, /\.graph-candidate-details \{[\s\S]*border: 1px solid #e0ebf1;/);
+});
+
+test("graph relation candidate merge deduplicates reversed AI and local pairs", () => {
+  const source = readPrototypeApp();
+  const { graphMergeRelationCandidatesForDisplay } = new Function(`
+    ${extractFunctionSource(source, "graphRelationPairKey")}
+    ${extractFunctionSource(source, "graphCandidateUndirectedPairKey")}
+    ${extractFunctionSource(source, "graphMergeRelationCandidatesForDisplay")}
+    return { graphMergeRelationCandidatesForDisplay };
+  `)();
+
+  const merged = graphMergeRelationCandidatesForDisplay(
+    [{ sourceNoteId: "note-a", targetNoteId: "note-b", targetTitle: "B from AI" }],
+    [
+      { sourceNoteId: "note-b", targetNoteId: "note-a", targetTitle: "A from local" },
+      { sourceNoteId: "note-a", targetNoteId: "note-c", targetTitle: "C from local" }
+    ],
+    { limit: 6 }
+  );
+
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged.map((candidate) => candidate.candidateSource), ["ai", "local"]);
+  assert.deepEqual(merged.map((candidate) => candidate.targetNoteId), ["note-b", "note-c"]);
 });
 
 test("isolated note panel gives a continuous next step after confirming a relation", () => {
@@ -498,6 +584,7 @@ test("isolated note panel gives a continuous next step after confirming a relati
   const html = readPrototypeHtml();
 
   assert.match(source, /function renderGraphIsolatedNextStepActions\(noteId = "", \{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
+  assert.match(source, /if \(!directEdges\.length\) return "";/);
   assert.match(source, /<strong>确认关系后继续<\/strong>/);
   assert.match(source, /处理下一条/);
   assert.match(source, /看当前周边/);
@@ -513,12 +600,13 @@ test("graph node selection summarizes position, relation quality, and next actio
 
   assert.match(source, /function graphNodeInsightMeta\(node = \{\}, directEdges = \[\], \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphNodeInsightPanel\(insight = \{\}\) \{/);
-  assert.match(source, /这条笔记的位置/);
-  assert.match(source, /关系质量/);
-  assert.match(source, /下一步/);
+  assert.match(source, /当前状态/);
+  assert.match(source, /建议下一步/);
+  assert.match(source, /为什么这样判断/);
   assert.match(source, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
   assert.match(source, /renderGraphNodeInsightPanel\(insight\)/);
   assert.match(html, /\.graph-node-insight \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
+  assert.match(html, /\.graph-selection-details summary \{[\s\S]*min-height: 44px;[\s\S]*cursor: pointer;/);
 });
 
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {

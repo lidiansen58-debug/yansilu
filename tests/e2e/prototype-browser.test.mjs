@@ -1505,7 +1505,7 @@ test("prototype graph surfaces a continuous isolated-note handling queue", async
 
   const strip = page.locator(".graph-isolated-queue-strip");
   await strip.waitFor({ timeout: 10000 });
-  assert.match(String(await strip.textContent()), /待接入/);
+  assert.match(String(await strip.textContent()), /笔记待关联/);
 
   await strip.locator('[data-graph-open-workbench-entry="organize"]').click();
   await page.locator(".graph-workbench-panel .graph-isolated-queue").waitFor({ timeout: 5000 });
@@ -7600,7 +7600,7 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   await page.locator("#graphFocusContextPanel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
   await page.locator('[data-graph-focus-context-toggle="close"]').first().click();
   await page.waitForFunction(() => !document.querySelector("#graphFocusContextPanel"));
-  await page.locator('[data-graph-focus-context-toggle="open"]', { hasText: "显示右侧阅读" }).click();
+  await page.locator('[data-graph-focus-context-toggle="open"]', { hasText: "显示右侧关系" }).click();
   await page.locator("#graphFocusContextPanel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
 });
 

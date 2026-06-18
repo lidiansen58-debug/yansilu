@@ -52,8 +52,7 @@ test("AI inbox panel renders filters, list, detail, feedback, and accept-link ac
   });
 
   assert.match(html, /AI 建议复核/);
-  assert.match(html, /处理质量/);
-  assert.match(html, /建议数/);
+  assert.doesNotMatch(html, /处理质量/);
   assert.match(html, /待判断/);
   assert.match(html, /data-ai-inbox-view="pending"/);
   assert.match(html, /id="aiInboxTypeFilter"/);
@@ -83,8 +82,9 @@ test("AI inbox panel disables accept-link for non-note endpoints", () => {
     }
   });
 
-  assert.match(html, /只有“笔记到笔记”的关联建议才能进入图谱关系/);
+  assert.match(html, /不能直接写入图谱/);
   assert.match(html, /data-ai-inbox-accept-link="artifact_link_2"[\s\S]*disabled/);
+  assert.doesNotMatch(html, /data-ai-inbox-open-note="src_1"/);
 });
 
 test("AI inbox panel renders draft note promotion for QuestionCard artifacts", () => {
@@ -497,7 +497,7 @@ test("AI inbox panel does not surface stale review notices after selection has m
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
   assert.doesNotMatch(detailPane, /This reviewed suggestion is already confirmed\./);
-  assert.match(detailPane, /Selected artifact B/);
+  assert.match(detailPane, /data-ai-inbox-accept-link="artifact_b"/);
 });
 
 test("AI inbox panel does not keep rendering stale detail when selection has moved", () => {
@@ -652,7 +652,7 @@ test("AI inbox panel does not surface stale review action errors after selection
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
   assert.doesNotMatch(detailPane, /AI inbox review failed: action boom/);
-  assert.match(detailPane, /Selected artifact B/);
+  assert.match(detailPane, /data-ai-inbox-accept-link="artifact_b"/);
 });
 
 test("AI inbox panel does not surface stale suggestion review errors when the artifact stays selected but the suggestion changes", () => {
@@ -753,10 +753,10 @@ test("AI inbox panel still disables artifact-scoped controls when the artifact s
   assert.match(detailPane, /id="aiInboxDecisionComment"[^>]*disabled/);
   assert.match(detailPane, /data-ai-inbox-feedback="useful"[^>]*disabled/);
   assert.match(detailPane, /data-ai-inbox-open-note="note_a"[^>]*disabled/);
-  assert.match(detailPane, /id="btnAiInboxSummarize"[^>]*disabled/);
   assert.match(detailPane, /data-ai-inbox-decision="accepted"[^>]*disabled/);
   assert.match(detailPane, /data-ai-inbox-accept-link="artifact_same"[\s\S]*disabled/);
-  assert.match(detailPane, /data-ai-inbox-recommended-action="accept_link"[^>]*disabled/);
+  assert.doesNotMatch(detailPane, /id="btnAiInboxSummarize"/);
+  assert.doesNotMatch(detailPane, /data-ai-inbox-recommended-action="accept_link"/);
 });
 
 test("AI inbox panel disables current-item actions while the current artifact action is still in flight", () => {
@@ -790,21 +790,23 @@ test("AI inbox panel disables current-item actions while the current artifact ac
   assert.match(detailPane, /class="ai-inbox-detail is-busy"/);
   assert.match(detailPane, /id="aiInboxDecisionComment"[^>]*disabled/);
   assert.match(detailPane, /data-ai-inbox-feedback="useful"[^>]*disabled/);
-  assert.match(detailPane, /id="aiInboxSuggestionContentEditor"[^>]*disabled/);
-  assert.match(detailPane, /data-ai-inbox-open-note="pn_1"[^>]*disabled/);
-  assert.match(detailPane, /id="btnAiInboxSummarize"[^>]*disabled/);
   assert.match(detailPane, /data-ai-inbox-decision="accepted"[^>]*disabled/);
   assert.match(detailPane, /data-ai-inbox-accept-link="artifact_link_busy"[\s\S]*disabled/);
-  assert.match(detailPane, /data-ai-inbox-recommended-action="accept_link"[^>]*disabled/);
+  assert.match(detailPane, /data-ai-inbox-open-note="note_a"[^>]*disabled/);
+  assert.doesNotMatch(detailPane, /id="aiInboxSuggestionContentEditor"/);
+  assert.doesNotMatch(detailPane, /id="btnAiInboxSummarize"/);
+  assert.doesNotMatch(detailPane, /data-ai-inbox-recommended-action="accept_link"/);
 });
 
-test("AI inbox panel renders an actionable AI summary recommendation", () => {
+test("AI inbox panel renders an actionable AI summary recommendation outside graph review items", () => {
+  const insightItem = { ...item, artifactId: "artifact_insight_summary", type: "InsightCard", title: "Insight summary" };
+  const insightArtifact = { ...artifact, id: "artifact_insight_summary", type: "InsightCard", title: "Insight summary" };
   const html = renderAiInboxPanel({
-    items: [item],
+    items: [insightItem],
     counts: { pending: 1 },
-    selectedArtifactId: "artifact_link_1",
-    detail: { item, artifact },
-    aiSummaryArtifactId: "artifact_link_1",
+    selectedArtifactId: "artifact_insight_summary",
+    detail: { item: insightItem, artifact: insightArtifact },
+    aiSummaryArtifactId: "artifact_insight_summary",
     aiSummary: "Recommended action: accept_link",
     aiSummaryMeta: "local_private_gateway / qwen2.5:3b",
     aiSummaryRecommendedAction: "accept_link"

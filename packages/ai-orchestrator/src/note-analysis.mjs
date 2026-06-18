@@ -486,11 +486,13 @@ function graphCandidateArtifactBody(candidate = {}, fallback = "") {
 
 function relationArtifact(candidate = {}, context = {}) {
   const sources = artifactSources([candidate.fromNoteId, candidate.toNoteId], context);
+  const sourceTitle = cleanText(candidate.sourceTitle || candidate.fromTitle || candidate.source_title);
+  const targetTitle = cleanText(candidate.targetTitle || candidate.toTitle || candidate.target_title);
   return normalizeArtifact(
     {
       id: graphCandidateArtifactId("artifact_link_suggestion", candidate, context),
       type: "LinkSuggestion",
-      title: "可能的永久笔记关联",
+      title: sourceTitle && targetTitle ? `可能关联：${sourceTitle} -> ${targetTitle}` : "可能的永久笔记关联",
       summary: graphCandidateArtifactSummary(candidate),
       body: graphCandidateArtifactBody(candidate, "本地初判发现一条可能关系。请人工复核后再确认是否写入图谱。"),
       status: "pending_review",
@@ -502,8 +504,12 @@ function relationArtifact(candidate = {}, context = {}) {
         reason: "local relation score"
       },
       payload: {
-        from: { id: candidate.fromNoteId, kind: "note" },
-        to: { id: candidate.toNoteId, kind: "note" },
+        from: { id: candidate.fromNoteId, kind: "note", title: sourceTitle },
+        to: { id: candidate.toNoteId, kind: "note", title: targetTitle },
+        sourceTitle,
+        source_title: sourceTitle,
+        targetTitle,
+        target_title: targetTitle,
         relationType: candidate.relationType,
         relation_type: candidate.relationType,
         rationale: candidate.rationale,
@@ -1237,13 +1243,15 @@ export function analyzePermanentNoteGraphLocally(input = {}) {
 }
 
 function graphBridgeArtifact(candidate = {}, context = {}) {
+  const sourceTitle = cleanText(candidate.sourceTitle || candidate.fromTitle || candidate.source_title);
+  const targetTitle = cleanText(candidate.targetTitle || candidate.toTitle || candidate.target_title);
   return normalizeArtifact(
     {
       id: graphCandidateArtifactId("artifact_graph_bridge", candidate, context),
       type: "BridgeCard",
-      title: "Graph bridge candidate",
+      title: sourceTitle && targetTitle ? `缺少连接：${sourceTitle} -> ${targetTitle}` : "缺少连接待确认",
       summary: graphCandidateArtifactSummary(candidate),
-      body: graphCandidateArtifactBody(candidate, "Local graph analysis found a possible bridge between separate note clusters. Review before creating any relation."),
+      body: graphCandidateArtifactBody(candidate, "本地图谱扫描发现两条笔记之间可能缺少一条连接。请先判断理由是否成立，再决定是否建立正式关系。"),
       status: "pending_review",
       origin: artifactOrigin(context),
       sources: artifactSources([candidate.fromNoteId, candidate.toNoteId], context),
@@ -1253,8 +1261,12 @@ function graphBridgeArtifact(candidate = {}, context = {}) {
         reason: "local graph bridge score"
       },
       payload: {
-        from: { id: candidate.fromNoteId, kind: "note" },
-        to: { id: candidate.toNoteId, kind: "note" },
+        from: { id: candidate.fromNoteId, kind: "note", title: sourceTitle },
+        to: { id: candidate.toNoteId, kind: "note", title: targetTitle },
+        sourceTitle,
+        source_title: sourceTitle,
+        targetTitle,
+        target_title: targetTitle,
         relationType: candidate.relationType,
         relation_type: candidate.relationType,
         rationale: candidate.rationale,
@@ -1284,13 +1296,14 @@ function graphBridgeArtifact(candidate = {}, context = {}) {
 }
 
 function isolatedNoteArtifact(note = {}, context = {}) {
+  const noteTitle = cleanText(note.title || note.thesis || note.noteId);
   return normalizeArtifact(
     {
       id: stableId("artifact_isolated_note", [context.artifactIdSalt, note.noteId]),
       type: "QuestionCard",
-      title: "Isolated permanent note",
-      summary: note.title || note.thesis || note.noteId,
-      body: "This permanent note has no confirmed relations in the scanned graph. Review whether it needs links, a theme, or should stay intentionally isolated.",
+      title: noteTitle ? `未关联笔记：${noteTitle}` : "未关联笔记",
+      summary: noteTitle,
+      body: "这条永久笔记在当前图谱里还没有正式关系。请判断它需要关联到哪条笔记，还是应该暂时保留为独立观察。",
       status: "pending_review",
       origin: artifactOrigin(context),
       sources: artifactSources([note.noteId], context),
@@ -1302,6 +1315,8 @@ function isolatedNoteArtifact(note = {}, context = {}) {
       payload: {
         noteId: note.noteId,
         note_id: note.noteId,
+        noteTitle,
+        note_title: noteTitle,
         suggestedAction: note.suggestedAction,
         suggested_action: note.suggestedAction
       }

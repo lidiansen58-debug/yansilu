@@ -119,7 +119,7 @@ test("prototype graph next-action keeps sparse three-note slices in relation-bui
   await waitFor(async () => {
     const panelText = await page.locator("#graphPanel").textContent();
     assert.match(String(panelText || ""), /先补关键关系/);
-    assert.match(String(panelText || ""), /显式关系还太少/);
+    assert.match(String(panelText || ""), /正式关系还太少/);
     assert.doesNotMatch(String(panelText || ""), /带进写作中心/);
   }, 10000);
 

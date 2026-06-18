@@ -118,7 +118,7 @@ test("prototype graph next-action keeps thin-rationale slices in relation-streng
   await waitFor(async () => {
     const panelText = await page.locator("#graphPanel").textContent();
     assert.match(String(panelText || ""), /先补关系理由/);
-    assert.match(String(panelText || ""), /显式关系/);
+    assert.match(String(panelText || ""), /正式关系/);
     assert.doesNotMatch(String(panelText || ""), /带进写作中心/);
   }, 10000);
 });

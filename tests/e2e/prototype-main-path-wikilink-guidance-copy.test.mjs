@@ -103,7 +103,7 @@ test("prototype main-path wikilink guidance asks to explain the relation instead
     const mainPathText = await page.locator("[data-note-main-path-section]").textContent();
     assert.match(String(mainPathText || ""), /补关系理由/);
     assert.match(String(mainPathText || ""), /wikilink/);
-    assert.match(String(mainPathText || ""), /显式关系/);
+    assert.match(String(mainPathText || ""), /正式关系/);
     assert.doesNotMatch(String(mainPathText || ""), /补关系，不要让它孤立/);
   }, 10000);
 

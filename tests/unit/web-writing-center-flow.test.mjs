@@ -531,7 +531,7 @@ test("writing center project entry stays loading until relation counts are ready
 
   assert.equal(entry.canCreateProject, false);
   assert.equal(entry.status, "读取中");
-  assert.match(entry.hint, /正在读取显式关系/);
+  assert.match(entry.hint, /正在读取正式关系/);
 });
 
 test("writing center project entry reports relation fetch failures separately", () => {
@@ -543,7 +543,7 @@ test("writing center project entry reports relation fetch failures separately", 
 
   assert.equal(entry.canCreateProject, false);
   assert.equal(entry.status, "读取失败");
-  assert.match(entry.hint, /显式关系读取失败/);
+  assert.match(entry.hint, /正式关系读取失败/);
 });
 
 test("writing center project entry only opens creation once basket readiness reaches project stage", () => {

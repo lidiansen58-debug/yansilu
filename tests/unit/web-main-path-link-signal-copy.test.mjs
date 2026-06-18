@@ -51,7 +51,7 @@ test("main-path summary labels mixed weak signals without hiding the current wik
     }
   );
 
-  assert.equal(result.nextStep, "把线索收成显式关系");
+  assert.equal(result.nextStep, "确认成正式关系");
   assert.match(result.summary, /正文里的 wikilink/);
   assert.match(result.summary, /标签接近/);
 });

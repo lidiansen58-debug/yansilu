@@ -200,7 +200,7 @@ export function describeWritingProjectEntryState({
     return {
       level: "error",
       status: "读取失败",
-      hint: "显式关系读取失败，先稍后重试或回到笔记里手动确认关系。",
+      hint: "正式关系读取失败，先稍后重试或回到笔记里手动确认关系。",
       actionLabel: "关系读取失败",
       canCreateProject: false
     };
@@ -209,7 +209,7 @@ export function describeWritingProjectEntryState({
     return {
       level: "loading",
       status: "读取中",
-      hint: "正在读取显式关系，再判断是否能建项目。",
+      hint: "正在读取正式关系，再判断是否能建项目。",
       actionLabel: "正在读取关系",
       canCreateProject: false
     };
@@ -582,14 +582,14 @@ export function describeWritingStrongModelStatus({
   if (relationCountsErrored) {
     return {
       status: "读取失败",
-      hint: "显式关系读取失败，先重试或回到笔记里确认关系。",
+      hint: "正式关系读取失败，先重试或回到笔记里确认关系。",
       buttonLabel: "关系读取失败"
     };
   }
   if (!relationCountsReady) {
     return {
       status: "读取中",
-      hint: "正在读取显式关系，等结果回来后再判断是否能进入强模型分析。",
+      hint: "正在读取正式关系，等结果回来后再判断是否能进入强模型分析。",
       buttonLabel: "正在读取关系"
     };
   }

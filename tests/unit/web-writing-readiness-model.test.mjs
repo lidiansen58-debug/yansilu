@@ -115,7 +115,7 @@ test("note writing readiness stays basket-ready when there are only wikilinks bu
   );
 
   assert.equal(readiness.level, "basket_ready");
-  assert.match(readiness.hint, /显式关系/);
+  assert.match(readiness.hint, /正式关系/);
   assert.match(readiness.hint, /创建项目/);
 });
 
