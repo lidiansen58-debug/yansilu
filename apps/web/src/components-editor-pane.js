@@ -1890,7 +1890,7 @@ const RELATION_TYPE_LABELS = {
   asks: "追问",
   duplicates: "重复重叠",
   belongs_to_topic: "归属主题",
-  associated_with: "链接线索",
+  associated_with: "相关",
   free_link: "自由链接"
 };
 
@@ -1922,9 +1922,26 @@ const RELATION_CREATE_TYPES = [
   "appears_in_draft"
 ];
 
+const INLINE_LINK_RELATION_TYPES = [
+  "associated_with",
+  "supports",
+  "complements",
+  "qualifies",
+  "contradicts",
+  "bridges"
+];
+
 function relationCreateTypeOptionsMarkup(selected = "supports") {
   const normalized = String(selected || "supports").trim().toLowerCase() || "supports";
   return RELATION_CREATE_TYPES.map((type) => {
+    const isSelected = type === normalized;
+    return `<option value="${escapeHtml(type)}"${isSelected ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`;
+  }).join("");
+}
+
+function inlineLinkRelationTypeOptionsMarkup(selected = "associated_with") {
+  const normalized = String(selected || "associated_with").trim().toLowerCase() || "associated_with";
+  return INLINE_LINK_RELATION_TYPES.map((type) => {
     const isSelected = type === normalized;
     return `<option value="${escapeHtml(type)}"${isSelected ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`;
   }).join("");
@@ -5904,18 +5921,18 @@ export class EditorPane {
     const reason = String(this.els.linkReasonInput?.value || "").trim();
     button.disabled = this.isSubmittingLinkInsert || !selectedNote || (manualMode && !reason);
     if (this.isSubmittingLinkInsert) {
-      button.textContent = "关联中...";
+      button.textContent = "保存中...";
       return;
     }
     if (!selectedNote) {
-      button.textContent = "先选笔记";
+      button.textContent = "选择笔记";
       return;
     }
     if (manualMode && !reason) {
-      button.textContent = "先写理由";
+      button.textContent = "写一句理由";
       return;
     }
-    button.textContent = "关联";
+    button.textContent = "保存关联";
   }
 
   selectedLinkCandidate() {
@@ -6043,13 +6060,16 @@ export class EditorPane {
       this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);
       if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;
     }
-    this.els.linkSearchInput.placeholder = "输入笔记标题，实时检索...";
+    this.els.linkSearchInput.placeholder = "搜索笔记标题";
     this.els.linkSearchInput.value = initialQuery;
     this.currentPinnedLinkId = "";
     this.manualLinkReturnSelection = inlineMode ? null : this.normalizedSelectionRange(this.editorSelection());
     this.manualLinkReturnScrollState = inlineMode ? null : this.captureEditorScrollState();
     if (!inlineMode) {
-      if (this.els.linkRelationTypeSelect) this.els.linkRelationTypeSelect.value = "supports";
+      if (this.els.linkRelationTypeSelect) {
+        this.els.linkRelationTypeSelect.innerHTML = inlineLinkRelationTypeOptionsMarkup("associated_with");
+        this.els.linkRelationTypeSelect.value = "associated_with";
+      }
       if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     }
     this.currentLinkContext = options.inlineContext || null;

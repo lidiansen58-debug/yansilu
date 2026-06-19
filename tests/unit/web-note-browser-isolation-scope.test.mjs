@@ -15,6 +15,6 @@ test("graph panel derives connected note ids from all loaded graph edges instead
   const source = await readPrototypeAppSource();
 
   assert.match(source, /const allGraphEdges = Array\.isArray\(graph\?\.edges\) \? graph\.edges : \[\];/);
-  assert.match(source, /state\.graphConnectedNoteIds = new Set\(\s*allGraphEdges\.flatMap/);
+  assert.match(source, /state\.graphConnectedNoteIds = new Set\(\s*allGraphEdges\s*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)\s*\.flatMap/);
   assert.doesNotMatch(source, /state\.graphConnectedNoteIds = new Set\(scoped\.nodes\.map\(\(node\) => node\.id\)\);/);
 });

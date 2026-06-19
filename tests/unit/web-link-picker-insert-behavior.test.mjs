@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { parseLinks } from "../../apps/web/src/prototype-store.js";
-import { readComponentsEditorPaneSource } from "./copy-source-helpers.mjs";
+import { readComponentsEditorPaneSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
 
 test("link picker inserts stable wikilinks instead of inline relation comments", async () => {
   const source = await readComponentsEditorPaneSource();
@@ -75,9 +75,26 @@ test("confirm button requires a target and manual relation reason", async () => 
 
   assert.ok(source.includes("const selectedNote = this.selectedLinkCandidate();"));
   assert.ok(source.includes("button.disabled = this.isSubmittingLinkInsert || !selectedNote || (manualMode && !reason);"));
-  assert.ok(source.includes('button.textContent = "先选笔记";'));
-  assert.ok(source.includes('button.textContent = "先写理由";'));
-  assert.ok(source.includes('button.textContent = "关联";'));
+  assert.ok(source.includes('button.textContent = "选择笔记";'));
+  assert.ok(source.includes('button.textContent = "写一句理由";'));
+  assert.ok(source.includes('button.textContent = "保存关联";'));
+});
+
+test("manual link picker keeps only information needed to save a relation", async () => {
+  const html = await readPrototypeHtmlSource();
+  const source = await readComponentsEditorPaneSource();
+
+  assert.match(html, /<strong>建立笔记关联<\/strong>/);
+  assert.match(html, /<label class="link-picker-search-label" for="linkSearchInput">要关联哪条笔记<\/label>/);
+  assert.match(html, /<label for="linkRelationTypeSelect">它们是什么关系<\/label>/);
+  assert.match(html, /<label for="linkReasonInput">为什么关联<\/label>/);
+  assert.match(html, /<button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>选择笔记<\/button>/);
+  assert.match(html, /<option value="associated_with" selected>相关<\/option>/);
+  assert.doesNotMatch(html, /<option value="appears_in_draft">/);
+  assert.match(source, /const INLINE_LINK_RELATION_TYPES = \[[\s\S]*"associated_with",[\s\S]*"supports",[\s\S]*"complements",[\s\S]*"qualifies",[\s\S]*"contradicts",[\s\S]*"bridges"[\s\S]*\];/);
+  assert.doesNotMatch(html, /AI 只提供关联建议/);
+  assert.doesNotMatch(html, /不会替你确认关系/);
+  assert.match(source, /this\.els\.linkSearchInput\.placeholder = "搜索笔记标题";/);
 });
 
 test("clicking a link picker candidate selects it without inserting immediately", async () => {

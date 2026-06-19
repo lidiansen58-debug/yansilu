@@ -4934,6 +4934,65 @@
     .graph-map-stage.has-side-panel::after {
       display: none;
     }
+    .graph-selection-overlay {
+      position: fixed;
+      inset: 84px 24px 24px;
+      z-index: 120;
+      display: grid;
+      place-items: start center;
+      padding: 20px;
+      pointer-events: auto;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.3), transparent 30%),
+        linear-gradient(180deg, rgba(5, 12, 22, 0.34), rgba(5, 12, 22, 0.46));
+      backdrop-filter: blur(2px);
+    }
+    .graph-map-stage.has-selection-overlay .graph-map-canvas,
+    .graph-map-stage.has-selection-overlay .graph-map-viewport {
+      overflow: hidden;
+    }
+    .graph-map-stage.has-selection-overlay .graph-map-viewport {
+      pointer-events: none;
+    }
+    .graph-selection-overlay .graph-selection-panel {
+      pointer-events: auto;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-isolated {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      width: min(1120px, 100%);
+      min-width: 0;
+      height: min(720px, calc(100dvh - 140px));
+      min-height: 480px;
+      max-height: none;
+      overflow: hidden;
+      border: 1px solid #d8e5ec;
+      border-left: 1px solid #d8e5ec;
+      border-radius: 22px;
+      padding: 16px;
+      box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22);
+      background:
+        radial-gradient(circle at 98% 0%, rgba(56, 163, 201, 0.12), transparent 28%),
+        radial-gradient(circle at 0% 8%, rgba(15, 111, 72, 0.11), transparent 24%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 251, 250, 0.97));
+    }
+    .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-head {
+      align-items: center;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-head strong {
+      font-size: 20px;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-body {
+      min-height: 0;
+      max-height: none;
+      overflow: auto;
+      padding-right: 4px;
+      scrollbar-gutter: stable;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-isolated .graph-isolated-workflow {
+      box-shadow: none;
+    }
     .graph-map-empty-canvas {
       min-height: var(--graph-map-height);
       display: grid;
@@ -5816,6 +5875,13 @@
     .graph-map-panel.is-expanded .graph-selection-panel {
       max-height: calc(100vh - 180px);
     }
+    .graph-map-panel.is-expanded .graph-selection-overlay .graph-selection-panel.is-isolated {
+      height: calc(100dvh - 172px);
+      max-height: none;
+    }
+    .graph-map-panel.is-expanded .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-body {
+      max-height: none;
+    }
     .graph-selection-head {
       position: relative;
       display: flex;
@@ -5908,6 +5974,17 @@
       gap: 10px;
       border-left: 4px solid #38a3c9;
       background: #f8fbfc;
+    }
+    .graph-selection-task-actions {
+      display: grid;
+      gap: 7px;
+      justify-items: end;
+      min-width: 92px;
+    }
+    .graph-selection-task-actions .graph-selection-action {
+      min-height: 36px;
+      padding: 0 12px;
+      white-space: nowrap;
     }
     .graph-selection-task > div {
       display: grid;
@@ -6333,14 +6410,172 @@
     .graph-isolated-decision.is-active strong {
       color: #195e76;
     }
-    .graph-isolated-join {
+    .graph-isolated-decision-form {
       display: grid;
       gap: 12px;
-      padding: 13px;
+      padding: 14px;
+      border: 1px solid #d8e7ef;
+      border-radius: 16px;
+      background: #fbfdfc;
+    }
+    .graph-isolated-decision-form-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+    .graph-isolated-decision-form-head > div {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .graph-isolated-decision-form-head small {
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .graph-isolated-decision-form-head strong {
+      color: #172033;
+      font-size: 15px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-decision-form-head > span {
+      border: 1px solid #cfe4d9;
+      border-radius: 999px;
+      background: #f3fbf6;
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 5px 9px;
+      white-space: nowrap;
+    }
+    .graph-isolated-decision-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .graph-isolated-decision-option {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      padding: 10px;
       border: 1px solid #dbe7ef;
-      border-left: 4px solid #d97706;
-      border-radius: 14px;
-      background: #fffdfa;
+      border-radius: 13px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+    .graph-isolated-decision-option input {
+      margin-top: 3px;
+      accent-color: #0f6f48;
+    }
+    .graph-isolated-decision-option span {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .graph-isolated-decision-option strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .graph-isolated-decision-option small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-decision-note {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .graph-isolated-decision-note span {
+      color: #172033;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .graph-isolated-decision-note textarea {
+      width: 100%;
+      min-height: 112px;
+      resize: vertical;
+      border: 1px solid #d5e3ec;
+      border-radius: 13px;
+      background: #ffffff;
+      color: #172033;
+      font: inherit;
+      font-size: 13px;
+      line-height: 1.65;
+      padding: 10px 12px;
+    }
+    .graph-isolated-decision-actions,
+    .graph-isolated-complete-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .graph-isolated-complete-card {
+      display: grid;
+      gap: 8px;
+      padding: 16px;
+      border: 1px solid #b9dcc7;
+      border-radius: 16px;
+      background: #f5fbf7;
+      box-shadow: inset 0 0 0 1px rgba(15, 111, 72, 0.08);
+    }
+    .graph-isolated-complete-card small {
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 950;
+    }
+    .graph-isolated-complete-card strong {
+      color: #172033;
+      font-size: 18px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-complete-card p {
+      margin: 0;
+      color: #526174;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .graph-isolated-complete-empty {
+      color: #526174;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .graph-isolated-remaining {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid #d8e7ef;
+      border-radius: 16px;
+      background: #fbfdfc;
+    }
+    .graph-isolated-remaining > strong {
+      color: #172033;
+      font-size: 14px;
+      font-weight: 950;
+      line-height: 1.35;
+    }
+    .graph-isolated-remaining .graph-ai-connect {
+      margin: 0;
+      border-color: #dbe7ef;
+      box-shadow: none;
+    }
+    .graph-isolated-join {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid #dbe7ef;
+      border-left: 4px solid #0f6f48;
+      border-radius: 16px;
+      background: #ffffff;
       box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
     }
     .graph-isolated-join-head {
@@ -6356,7 +6591,7 @@
     }
     .graph-isolated-join-head strong {
       color: #172033;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 950;
       line-height: 1.3;
     }
@@ -6371,29 +6606,353 @@
       min-height: 24px;
       display: inline-flex;
       align-items: center;
-      border: 1px solid rgba(180, 83, 9, 0.28);
+      border: 1px solid #cfe4d9;
       border-radius: 999px;
-      background: #fff7ed;
-      color: #9a3412;
+      background: #f3fbf6;
+      color: #0f6f48;
       font-size: 10px;
       font-weight: 950;
       padding: 0 8px;
       white-space: nowrap;
     }
-    .graph-isolated-join-actions {
+    .graph-isolated-workflow {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
-      gap: 8px;
+      gap: 12px;
+      padding: 13px;
+      border: 1px solid #d8e7ef;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
     }
-    .graph-isolated-join-rule {
-      padding: 8px 10px;
-      border: 1px solid rgba(234, 215, 173, 0.9);
-      border-radius: 12px;
-      background: rgba(255, 247, 237, 0.8);
-      color: #7c2d12;
+    .graph-isolated-workflow-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+    }
+    .graph-isolated-workflow-head > div {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .graph-isolated-workflow-head strong {
+      color: #172033;
+      font-size: 14px;
+      font-weight: 950;
+      line-height: 1.3;
+    }
+    .graph-isolated-workflow-head p {
+      margin: 0;
+      color: #526174;
       font-size: 11px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-workflow-head > span {
+      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #ead7ad;
+      border-radius: 999px;
+      background: #fffaf0;
+      color: #8a5a08;
+      font-size: 10px;
+      font-weight: 950;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+    .graph-isolated-relation-form {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+    .graph-isolated-mode-switch {
+      width: min(420px, 100%);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px;
+      padding: 4px;
+      border: 1px solid #dbe7ef;
+      border-radius: 14px;
+      background: #f8fbfc;
+    }
+    .graph-isolated-target-panel {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid #dbe7ef;
+      border-radius: 14px;
+      background: #f8fcfa;
+    }
+    .graph-isolated-target-panel[hidden] {
+      display: none;
+    }
+    .graph-isolated-form-grid {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .graph-isolated-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .graph-isolated-field > span {
+      color: #172033;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .graph-isolated-field select,
+    .graph-isolated-field input,
+    .graph-isolated-field textarea {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid #d5e3ec;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #172033;
+      font: inherit;
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 9px 11px;
+    }
+    .graph-isolated-field textarea {
+      min-height: 116px;
+      resize: vertical;
+      line-height: 1.65;
+    }
+    .graph-isolated-field select:focus,
+    .graph-isolated-field input:focus,
+    .graph-isolated-field textarea:focus {
+      border-color: #8fc9ab;
+      box-shadow: 0 0 0 3px rgba(15, 111, 72, 0.12);
+      outline: none;
+    }
+    .graph-manual-target-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      min-width: 0;
+    }
+    .graph-manual-target {
+      min-height: 48px;
+      display: grid;
+      gap: 2px;
+      padding: 9px 10px;
+      border: 1px solid #dbe7ef;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #172033;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+    }
+    .graph-manual-target:hover,
+    .graph-manual-target:focus-visible {
+      border-color: #9fd2b5;
+      background: #f5fbf7;
+      box-shadow: 0 8px 18px rgba(15, 111, 72, 0.08);
+      outline: none;
+    }
+    .graph-manual-target.is-selected {
+      border-color: #0f6f48;
+      background: #f0faf4;
+      box-shadow: inset 0 0 0 1px rgba(15, 111, 72, 0.12);
+    }
+    .graph-manual-target strong {
+      min-width: 0;
+      color: #172033;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .graph-manual-target small {
+      min-width: 0;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .graph-isolated-helper {
+      margin: 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .graph-isolated-form-error {
+      min-height: 18px;
+      color: #b42318;
+      font-size: 12px;
       font-weight: 800;
+      line-height: 1.4;
+    }
+    .graph-isolated-form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding-top: 2px;
+    }
+    .graph-isolated-form-actions .graph-selection-action {
+      width: auto;
+      min-width: 180px;
+    }
+    .graph-isolated-form-actions span {
+      color: #526174;
+      font-size: 12px;
       line-height: 1.45;
+    }
+    .graph-isolated-workflow-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid #dbe7ef;
+      border-radius: 14px;
+      background: #f8fbfc;
+    }
+    .graph-isolated-workflow-tab {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: #526174;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.2;
+      text-align: center;
+      transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+    }
+    .graph-isolated-workflow-tab:hover,
+    .graph-isolated-workflow-tab:focus-visible {
+      border-color: #c8d9e3;
+      background: #ffffff;
+      color: #172033;
+      outline: 2px solid rgba(15, 111, 72, 0.18);
+      outline-offset: 2px;
+    }
+    .graph-isolated-workflow-tab.is-active {
+      border-color: #9fd2b5;
+      background: #ffffff;
+      color: #0f6f48;
+      box-shadow: inset 0 0 0 1px rgba(15, 111, 72, 0.1);
+    }
+    .graph-isolated-workflow-panels {
+      min-width: 0;
+    }
+    .graph-isolated-workflow-panel {
+      gap: 10px;
+    }
+    .graph-isolated-workflow-panel:not([hidden]) {
+      display: grid;
+    }
+    .graph-isolated-workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+      gap: 12px;
+      align-items: start;
+      min-width: 0;
+    }
+    .graph-isolated-workspace-main {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+    .graph-isolated-preview {
+      position: sticky;
+      top: 0;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+      padding: 13px;
+      border: 1px solid #dbe7ef;
+      border-radius: 16px;
+      background: #f8fbfc;
+      color: #526174;
+    }
+    .graph-isolated-preview.is-active {
+      border-color: #b9dcc7;
+      background: #f5fbf7;
+      box-shadow: inset 0 0 0 1px rgba(15, 111, 72, 0.08);
+    }
+    .graph-isolated-preview > div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+    .graph-isolated-preview small {
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .graph-isolated-preview strong {
+      color: #172033;
+      font-size: 14px;
+      font-weight: 950;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-preview span,
+    .graph-isolated-preview p {
+      margin: 0;
+      color: #526174;
+      font-size: 12px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+    .graph-isolated-preview-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .graph-isolated-preview-tags em {
+      border: 1px solid #cfe4d9;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #0f6f48;
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 850;
+      padding: 3px 7px;
+    }
+    .graph-manual-connect-card {
+      display: grid;
+      gap: 10px;
+      padding: 13px;
+      border: 1px solid #dbe7ef;
+      border-radius: 14px;
+      background: #ffffff;
+    }
+    .graph-manual-connect-card strong {
+      color: #172033;
+      font-size: 13px;
+      font-weight: 950;
+      line-height: 1.3;
+    }
+    .graph-manual-connect-card p {
+      margin: 0;
+      color: #526174;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .graph-manual-connect-card > div {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+      gap: 8px;
     }
     .graph-isolated-join-steps {
       display: grid;
@@ -6489,9 +7048,9 @@
       margin-top: 10px;
       padding: 10px 12px;
       border: 1px solid #dbe7ef;
-      border-left: 4px solid #d97706;
+      border-left: 4px solid #0f6f48;
       border-radius: 14px;
-      background: rgba(255, 253, 250, 0.96);
+      background: rgba(248, 252, 250, 0.96);
     }
     .graph-isolated-queue-strip > div {
       display: flex;
@@ -7101,13 +7660,13 @@
       color: #7c4a03;
     }
     .graph-selection-action.is-primary.is-queue {
-      border-color: #ca8a04;
-      background: #b45309;
-      box-shadow: 0 12px 22px rgba(180, 83, 9, 0.18);
+      border-color: #9fd2b5;
+      background: #0f6f48;
+      box-shadow: 0 12px 22px rgba(15, 111, 72, 0.18);
     }
     .graph-selection-action.is-primary.is-queue:hover,
     .graph-selection-action.is-primary.is-queue:focus-visible {
-      background: #92400e;
+      background: #0b5d3c;
     }
     .graph-selection-action:disabled,
     .graph-relation-adjustment-card:disabled {
@@ -9148,6 +9707,18 @@
       .graph-isolated-queue-strip span {
         white-space: normal;
       }
+      .graph-isolated-decision-options {
+        grid-template-columns: 1fr;
+      }
+      .graph-isolated-decision-form-head {
+        display: grid;
+      }
+      .graph-isolated-workspace-grid {
+        grid-template-columns: 1fr;
+      }
+      .graph-isolated-preview {
+        position: static;
+      }
       .graph-side-stack {
         height: auto;
         max-height: none;
@@ -9169,6 +9740,25 @@
       .graph-selection-panel {
         width: auto;
         min-width: 0;
+        max-height: none;
+      }
+      .graph-selection-overlay {
+        inset: 12px;
+        padding: 8px;
+        place-items: start stretch;
+      }
+      .graph-selection-overlay .graph-selection-panel.is-isolated {
+        width: 100%;
+        height: calc(100dvh - 40px);
+        min-height: 360px;
+        max-height: none;
+        border-radius: 18px;
+        padding: 12px;
+      }
+      .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-head strong {
+        font-size: 17px;
+      }
+      .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-body {
         max-height: none;
       }
       .graph-selection-actions {
@@ -11307,9 +11897,18 @@
       font-weight: 800;
       color: #172033;
     }
+    .link-picker-search-label {
+      display: block;
+      margin: 0 0 6px;
+      color: #516074;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
     .link-picker-meta {
       display: grid;
       gap: 10px;
+      margin-top: 10px;
       margin-bottom: 10px;
     }
     .link-picker-meta[hidden],
@@ -11343,6 +11942,9 @@
       max-height: 240px;
       overflow: auto;
       background: #fff;
+    }
+    .link-picker-list:empty {
+      display: none;
     }
     .panel.inline-picker .link-picker-list {
       max-height: 180px;
@@ -11410,6 +12012,13 @@
     }
     .link-picker-item.picked .picker-headline strong {
       color: #0f5c4f;
+    }
+    .link-picker-actions {
+      margin: 0;
+    }
+    .link-picker-actions .mini-btn {
+      width: 100%;
+      min-height: 40px;
     }
     .picker-headline {
       display: flex;
@@ -17570,45 +18179,32 @@
         <div class="editor-wrap">
           <div class="panel hidden" id="linkPicker">
             <div class="link-picker-head">
-              <strong>关联笔记检索</strong>
-              <button class="tb" id="btnCloseLinkPicker">关闭</button>
+              <strong>建立笔记关联</strong>
+              <button class="tb" id="btnCloseLinkPicker" type="button" aria-label="关闭关联笔记窗口">关闭</button>
             </div>
-            <input id="linkSearchInput" placeholder="输入关键词或笔记ID，实时检索..." />
-            <div style="height:8px;"></div>
+            <label class="link-picker-search-label" for="linkSearchInput">要关联哪条笔记</label>
+            <input id="linkSearchInput" placeholder="搜索笔记标题" />
+            <div class="link-picker-list" id="linkSearchList"></div>
             <div class="link-picker-meta">
               <div class="link-picker-field">
-                <label for="linkRelationTypeSelect">关联类型（你确认）</label>
+                <label for="linkRelationTypeSelect">它们是什么关系</label>
                 <select id="linkRelationTypeSelect">
+                  <option value="associated_with" selected>相关</option>
                   <option value="supports">支持</option>
                   <option value="complements">补充</option>
-                  <option value="contrasts">对比</option>
-                  <option value="contradicts">反驳</option>
-                  <option value="extends">推进</option>
-                  <option value="precedes">前提</option>
-                  <option value="follows">后续</option>
                   <option value="qualifies">限定</option>
-                  <option value="example_of">例子</option>
-                  <option value="counterexample_to">反例</option>
-                  <option value="same_topic">同主题</option>
-                  <option value="associated_with">链接线索</option>
-                  <option value="unexpected_connection">意外相关</option>
+                  <option value="contradicts">反驳</option>
                   <option value="bridges">桥接</option>
-                  <option value="restates">重述</option>
-                  <option value="reframes">改写问题</option>
-                  <option value="appears_in_draft">进入草稿</option>
                 </select>
-                <div class="link-picker-field-note">AI 只提供关联建议，最终会按你的确认写入正式关系。</div>
               </div>
               <div class="link-picker-field">
-                <label for="linkReasonInput">关联理由</label>
-                <textarea id="linkReasonInput" placeholder="为什么要建立这条关联？写一句就够。"></textarea>
+                <label for="linkReasonInput">为什么关联</label>
+                <textarea id="linkReasonInput" placeholder="写一句理由，例如：A 支持了 B 的判断边界。"></textarea>
               </div>
             </div>
-            <div class="semantic-relation-quality-guidance" style="margin:0 0 10px;">手动建立的关联默认记为自己，AI 只负责给出建议，不会替你确认关系。</div>
-            <div class="semantic-relation-card-actions" style="margin:0 0 10px;">
-              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>请先选择一条关联笔记</button>
+            <div class="semantic-relation-card-actions link-picker-actions">
+              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>选择笔记</button>
             </div>
-            <div class="link-picker-list" id="linkSearchList"></div>
           </div>
           <div class="panel hidden" id="tagPicker">
             <div class="link-picker-head">
