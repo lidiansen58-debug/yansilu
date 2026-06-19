@@ -8739,6 +8739,8 @@ export class EditorPane {
     const matched = document.querySelector(sectionSelector);
     const section = matched?.matches?.(".inspector-section") ? matched : matched?.closest?.(".inspector-section") || matched;
     if (!section) return;
+    const foldedParent = section.closest?.("details");
+    if (foldedParent && !foldedParent.open) foldedParent.open = true;
     section.scrollIntoView({ block: "start", behavior: "smooth" });
     section.classList.remove("is-jump-target");
     // Restart the highlight animation on repeated clicks.
@@ -8746,7 +8748,10 @@ export class EditorPane {
     section.classList.add("is-jump-target");
     window.setTimeout(() => section.classList.remove("is-jump-target"), 1800);
     if (focus && focusSelector) {
-      window.setTimeout(() => document.querySelector(focusSelector)?.focus?.(), 220);
+      window.setTimeout(() => {
+        const focusTarget = section.querySelector?.(focusSelector) || document.querySelector(focusSelector);
+        focusTarget?.focus?.();
+      }, 220);
     }
   }
 
