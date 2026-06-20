@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { syncWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -447,6 +448,47 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(project.json.item.desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
   assert.equal(project.json.item.thinkingStatus.status, "needs_scaffold");
   assert.equal(project.json.item.basket_notes.length, 2);
+  assert.equal(project.json.item.book_structure.schema_version, 1);
+  assert.equal(project.json.item.book_structure.parts.length, 3);
+  assert.ok(project.json.item.book_structure.parts.every((part) => part.chapters.length > 0));
+  assert.ok(project.json.item.book_structure.parts.every((part) => part.chapters.every((chapter) => chapter.sections.length > 0)));
+  assert.ok(project.json.item.book_structure.pools.cases.length > 0);
+  assert.ok(project.json.item.book_structure.pools.cases.some((item) => item.note_ids.includes(noteA.json.item.id) || item.note_ids.includes(noteB.json.item.id)));
+  assert.ok(project.json.item.book_structure.pools.counterarguments.length > 0);
+  assert.ok(
+    project.json.item.book_structure.pools.counterarguments.some(
+      (item) => item.note_ids.includes(noteA.json.item.id) || item.note_ids.includes(noteB.json.item.id)
+    )
+  );
+
+  const updatedBookStructure = {
+    ...project.json.item.book_structure,
+    direction_ideas: [
+      {
+        id: "idea_judgment_training",
+        title: "Judgment training book",
+        reader: "Knowledge workers",
+        promise: "Teach readers to turn durable notes into decisions.",
+        risk: "Needs concrete cases.",
+        note_ids: [noteA.json.item.id]
+      }
+    ]
+  };
+  const bookStructurePatch = await patchJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/book-structure`, {
+    bookStructure: updatedBookStructure
+  });
+  assert.equal(bookStructurePatch.status, 200, JSON.stringify(bookStructurePatch.json));
+  assert.equal(bookStructurePatch.json.item.book_structure.direction_ideas.length, 1);
+  assert.equal(bookStructurePatch.json.item.book_structure.direction_ideas[0].title, "Judgment training book");
+
+  const emptyBookStructurePatch = await patchJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/book-structure`, {});
+  assert.equal(emptyBookStructurePatch.status, 400, JSON.stringify(emptyBookStructurePatch.json));
+  assert.match(emptyBookStructurePatch.json.error.message, /bookStructure or regenerate is required/);
+
+  const fetchedBookProject = await getJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}`);
+  assert.equal(fetchedBookProject.status, 200, JSON.stringify(fetchedBookProject.json));
+  assert.equal(fetchedBookProject.json.item.book_structure.direction_ideas[0].id, "idea_judgment_training");
+  assert.equal(fetchedBookProject.json.item.book_structure.parts.length, 3);
 
   const scaffold = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
     writingProjectId: project.json.item.id,
@@ -651,6 +693,16 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(filteredByStatus.status, 200, JSON.stringify(filteredByStatus.json));
   assert.ok(filteredByStatus.json.items.some((item) => item.id === project.json.item.id));
   assert.ok(filteredByStatus.json.items.some((item) => item.id === secondProject.json.item.id));
+
+  const syncedProject = await syncWritingProject(vaultPath, project.json.item.id, {
+    title: "Updated writing mainline",
+    goal: "Updated book goal",
+    audience: "Senior editors"
+  });
+  assert.equal(syncedProject.book_structure.mainline, "Updated book goal");
+  assert.equal(syncedProject.book_structure.reader, "Senior editors");
+  assert.equal(syncedProject.book_structure.parts.length, 3);
+  assert.equal(syncedProject.book_structure.direction_ideas[0].id, "idea_judgment_training");
 });
 
 test("core writing flow keeps working when status guidance is ignored", async (t) => {

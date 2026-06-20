@@ -229,6 +229,7 @@ import {
   listProjectScaffolds,
   listWritingProjects,
   setWritingCurrentDraftNote,
+  updateWritingProjectBookStructure,
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote,
   fetchVaultInfo,
@@ -954,7 +955,9 @@ const writingState = {
   strongModelLoading: false,
   strongModelResult: null,
   strongModelError: "",
-  strongModelRevision: 0
+  strongModelRevision: 0,
+  localBookIdeas: [],
+  localBookIdeasGeneratedAt: ""
 };
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
@@ -5675,7 +5678,10 @@ async function createWritingProjectFromCurrentBasket() {
   const title = String($("writingTitle")?.value || "").trim();
   const basketNoteIds = parseWritingBasketIds();
   const relatedIndexIds = uniqueStrings(writingState.sourceIndexIds);
-  const continuation = currentWritingContinuationEntry("当前写作篮");
+  if (writingState.project?.id) {
+    setStatus(`当前项目已创建：${writingState.project.id}。下一步生成草稿骨架或打开当前项目。`, "warn");
+    return writingState.project;
+  }
   if (!title) {
     setStatus("请先填写项目标题", "warn");
     return null;
@@ -5684,21 +5690,14 @@ async function createWritingProjectFromCurrentBasket() {
     setStatus("请先加入至少一条永久笔记", "warn");
     return null;
   }
-  if (continuation?.projectId) {
-    return continueWritingProjectEntry(continuation.projectId, {
-      openDraft: continuation.action === "open-draft",
-      statusMessage:
-        continuation.action === "resume-scaffold"
-          ? `已回到草稿骨架：${continuation.projectId}`
-          : continuation.action === "resume-project"
-            ? `已继续当前项目：${continuation.projectId}`
-            : ""
-    });
-  }
   try {
     const goal = String($("writingGoal")?.value || "").trim();
     const audience = String($("writingAudience")?.value || "").trim();
     const tone = String($("writingTone")?.value || "").trim();
+    const bookStructure = currentWritingBookStructure({
+      notes: basketNoteIds.map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId }),
+      includeLocalIdeas: true
+    });
     const project = await createWritingProject({
       title,
       goal,
@@ -5707,9 +5706,11 @@ async function createWritingProjectFromCurrentBasket() {
       intent: deriveWritingProjectIntent({ title, goal }),
       desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience }),
       basketNoteIds,
-      relatedIndexIds
+      relatedIndexIds,
+      bookStructure
     });
     writingState.project = project;
+    syncWritingLocalBookIdeasFromProject(project);
     writingState.scaffold = null;
     writingState.scaffoldMarkdown = "";
     showWritingResult({
@@ -5886,6 +5887,7 @@ async function createWritingProjectFromImportedPermanentNotes() {
       basketNoteIds: noteIds
     });
     writingState.project = project;
+    syncWritingLocalBookIdeasFromProject(project);
     populateWritingFormFromProject(project);
     showWritingResult({
       stage: "writing_project",
@@ -7866,6 +7868,17 @@ function resetWritingProjectContext({ title = "", goal = "", audience = "", tone
   if ($("writingTone")) $("writingTone").value = tone;
 }
 
+function resetWritingProjectContextForBasketChange() {
+  resetWritingStrongModelState();
+  resetWritingProjectContext({
+    title: String($("writingTitle")?.value || "").trim(),
+    goal: String($("writingGoal")?.value || "").trim(),
+    audience: String($("writingAudience")?.value || "").trim(),
+    tone: String($("writingTone")?.value || "").trim()
+  });
+  resetWritingLocalBookIdeas();
+}
+
 function preferredLocalFallbackNote() {
   return (
     state.notes.find((note) => rootBoxIdFromFolder(state, note.folderId) === "dir_original_default") ||
@@ -7884,6 +7897,7 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
   writingState.strongModelLoading = false;
   writingState.strongModelResult = null;
   writingState.strongModelError = "";
+  resetWritingLocalBookIdeas();
   writingState.relationCounts = {};
   writingState.relationCountErrors = {};
   writingState.loadingRelationCounts = normalizedIds.length > 0;
@@ -7926,6 +7940,7 @@ function continueWritingEntry(noteIds = [], { title = "", source = "writing_cent
   writingState.strongModelLoading = false;
   writingState.strongModelResult = null;
   writingState.strongModelError = "";
+  resetWritingLocalBookIdeas();
   writingState.relationCounts = {};
   writingState.relationCountErrors = {};
   writingState.loadingRelationCounts = plan.basketNoteIds.length > 0;
@@ -9807,6 +9822,10 @@ async function createWritingProjectFromThemeIndex(indexCardId) {
   const goal = String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim();
   const audience = String($("writingAudience")?.value || "").trim();
   const tone = String($("writingTone")?.value || "").trim();
+  const bookStructure = currentWritingBookStructure({
+    notes: noteIds.map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId }),
+    includeLocalIdeas: true
+  });
   const project = await createWritingProject({
     title,
     goal,
@@ -9815,9 +9834,11 @@ async function createWritingProjectFromThemeIndex(indexCardId) {
     intent: deriveWritingProjectIntent({ title, goal, indexCard }),
     desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience, indexCard }),
     basketNoteIds: noteIds,
-    relatedIndexIds: [indexCard.id]
+    relatedIndexIds: [indexCard.id],
+    bookStructure
   });
   writingState.project = project;
+  syncWritingLocalBookIdeasFromProject(project);
   writingState.scaffold = null;
   writingState.scaffoldMarkdown = "";
   populateWritingFormFromProject(project);
@@ -9866,6 +9887,17 @@ function resetWritingStrongModelState() {
   writingState.strongModelLoading = false;
   writingState.strongModelResult = null;
   writingState.strongModelError = "";
+}
+
+function resetWritingLocalBookIdeas() {
+  writingState.localBookIdeas = [];
+  writingState.localBookIdeasGeneratedAt = "";
+}
+
+function syncWritingLocalBookIdeasFromProject(project = null) {
+  const normalized = normalizeWritingBookStructure(project?.book_structure || {});
+  writingState.localBookIdeas = normalized.direction_ideas;
+  writingState.localBookIdeasGeneratedAt = normalized.direction_ideas.length ? normalized.generated_at || "" : "";
 }
 
 function resetWritingProjectForm({ keepTitle = false } = {}) {
@@ -9936,21 +9968,46 @@ function setWritingBasketIds(noteIds) {
 function addWritingBasketIds(noteIds) {
   const merged = [...parseWritingBasketIds(), ...noteIds];
   setWritingBasketIds(merged);
+  resetWritingProjectContextForBasketChange();
   void refreshWritingRelationCounts(merged);
 }
 
 function removeWritingBasketId(noteId) {
   const remaining = parseWritingBasketIds().filter((item) => item !== noteId);
   setWritingBasketIds(remaining);
+  resetWritingProjectContextForBasketChange();
   delete writingState.relationCounts[String(noteId || "").trim()];
   void refreshWritingRelationCounts(remaining);
 }
 
 function clearWritingBasket() {
   setWritingBasketIds([]);
+  resetWritingLocalBookIdeas();
   writingState.relationCounts = {};
   writingState.relationCountErrors = {};
   writingState.loadingRelationCounts = false;
+}
+
+let writingBasketManualRefreshTimer = 0;
+
+function handleWritingBasketManualInput() {
+  const basketIds = parseWritingBasketIds();
+  const title = String($("writingTitle")?.value || "").trim();
+  const goal = String($("writingGoal")?.value || "").trim();
+  const audience = String($("writingAudience")?.value || "").trim();
+  const tone = String($("writingTone")?.value || "").trim();
+  resetWritingStrongModelState();
+  resetWritingLocalBookIdeas();
+  clearWritingSourceIndexIds();
+  resetWritingProjectContext({ title, goal, audience, tone });
+  writingState.relationCounts = {};
+  writingState.relationCountErrors = {};
+  writingState.loadingRelationCounts = basketIds.length > 0;
+  renderWritingPanel();
+  window.clearTimeout(writingBasketManualRefreshTimer);
+  writingBasketManualRefreshTimer = window.setTimeout(() => {
+    void refreshWritingRelationCounts(parseWritingBasketIds());
+  }, 250);
 }
 
 function writingKnownNoteById(noteId) {
@@ -10572,6 +10629,7 @@ function populateWritingFormFromProject(project) {
   if ($("writingTone")) $("writingTone").value = project.tone || "";
   setWritingSourceIndexIds(project.related_index_ids || []);
   setWritingBasketIds(project.basket_note_ids || []);
+  syncWritingLocalBookIdeasFromProject(project);
 }
 
 function currentWritingVersionNote() {
@@ -10786,6 +10844,10 @@ async function prepareWritingStrongModelAnalysis() {
     setStatus("先把永久笔记加入写作篮，再准备强模型分析", "warn");
     return;
   }
+  if (!writingState.project?.id) {
+    setStatus("先创建写作项目，再准备强模型分析", "warn");
+    return;
+  }
   const confirmed =
     typeof window === "undefined" ||
     window.confirm("这会为远程强模型准备写作分析请求。当前实现不会直接调用模型，但请求包包含写作篮笔记摘要。继续？");
@@ -10822,6 +10884,16 @@ async function prepareWritingStrongModelAnalysis() {
           aiInboxFilters: { view: "pending", type: "all", sourceNoteId: "" }
         },
         { interrupt: true }
+      );
+    } else {
+      addSystemMessage(
+        {
+          id: `writing-ai-request:${writingState.project?.id || noteIds.join("-") || "basket"}:${Date.now()}`,
+          type: "ai",
+          title: "强模型写作分析请求包已准备",
+          body: `已为项目 ${writingState.project?.id || "当前写作项目"} 准备 ${model} 请求包。当前没有直接调用远程模型，也没有自动写入笔记；你可以先复核请求范围、写作目标和写作篮材料。`,
+          artifactCount: 0
+        }
       );
     }
     setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
@@ -10915,6 +10987,16 @@ function renderWritingStatusCard(label, value, note, tone = "") {
   `;
 }
 
+function renderWritingToplineMetric(label, value, note, tone = "") {
+  return `
+    <div class="writing-topline-metric" data-tone="${escapeHtml(tone)}">
+      <span>${escapeHtml(label)}</span>
+      <strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong>
+      <small title="${escapeHtml(note)}">${escapeHtml(note)}</small>
+    </div>
+  `;
+}
+
 function renderWritingStatusStrip() {
   const el = $("writingStatusStrip");
   if (!el) return;
@@ -10940,14 +11022,12 @@ function renderWritingStatusStrip() {
         : readiness.level === "needs_basket"
           ? "warn"
           : "warn";
-  const projectEntry =
-    (!hasProject && currentWritingContinuationEntry("当前写作篮")) ||
-    describeWritingProjectEntryState({
-      relationCountsReady,
-      relationCountsErrored,
-      readinessLevel: readiness.level,
-      readinessHint: readiness.hint
-    });
+  const projectEntry = describeWritingProjectEntryState({
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel: readiness.level,
+    readinessHint: readiness.hint
+  });
   const materialStatus = describeWritingMaterialStatus({
     readinessLevel: readiness.level,
     readinessStatus: readiness.status,
@@ -10982,6 +11062,8 @@ function renderWritingStatusStrip() {
       ? projectPreflightSummary.hint || "先澄清项目关键问题，再生成草稿骨架。"
       : hasProject && projectPreflightSummary.level === "has_gaps"
         ? projectPreflightSummary.hint || "先补项目缺口，再生成草稿骨架。"
+        : hasProject
+          ? "项目条件已齐；下一步生成草稿骨架，检查证据、缺口和反方。"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? "当前草稿已经存在。先打开当前草稿继续写作。"
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -10995,6 +11077,8 @@ function renderWritingStatusStrip() {
       ? "先澄清项目问题"
       : hasProject && projectPreflightSummary.level === "has_gaps"
         ? "先补项目缺口"
+        : hasProject
+          ? "可生成"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? "先打开当前草稿"
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -11018,6 +11102,10 @@ function renderWritingStatusStrip() {
       ? "先澄清项目问题"
       : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
         ? "先补项目缺口"
+        : hasProject && hasScaffold
+          ? "可保存"
+          : hasProject
+            ? "先生成草稿骨架"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? projectEntry.status
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -11031,6 +11119,10 @@ function renderWritingStatusStrip() {
       ? projectPreflightSummary.hint || "先澄清项目关键问题，再保存草稿。"
       : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
         ? projectPreflightSummary.hint || "先补项目缺口，再保存草稿。"
+        : hasProject && hasScaffold
+          ? "草稿骨架已生成；确认缺口和反方后保存草稿。"
+          : hasProject
+            ? "先生成草稿骨架，再保存草稿。"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? projectEntry.hint
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -11052,8 +11144,6 @@ function renderWritingStatusStrip() {
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
   });
-  const canContinueProjectedStrongModel =
-    !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && readiness.level === "strong_model_ready";
   const strongModelState = describeWritingStrongModelStatus({
     hasProject,
     relationCountsReady,
@@ -11066,7 +11156,7 @@ function renderWritingStatusStrip() {
     projectPreflightChecksLength: projectPreflightChecks.length,
     strongModelReady
   });
-  const strongModelTone = strongModelReady || canContinueProjectedStrongModel ? "good" : "warn";
+  const strongModelTone = strongModelReady ? "good" : "warn";
   el.innerHTML = [
     renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
     renderWritingStatusCard("项目", projectStatus, projectNote, projectTone),
@@ -11160,6 +11250,460 @@ function renderWritingFlowSteps({
       `;
     })
     .join("");
+}
+
+function writingBookPlainText(note) {
+  return uniqueStrings([
+    note?.title,
+    note?.thesis,
+    ...(Array.isArray(note?.threeLineSummary) ? note.threeLineSummary : []),
+    note?.boundaryOrCounterpoint,
+    note?.boundary_or_counterpoint,
+    note?.body
+  ]).join("\n");
+}
+
+function writingBookShortText(value, limit = 36) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function writingBookMatchesAny(text, keywords = []) {
+  const haystack = String(text || "").toLowerCase();
+  return keywords.some((keyword) => haystack.includes(String(keyword || "").toLowerCase()));
+}
+
+function uniqueWritingBookPoolItems(items = []) {
+  const seen = new Set();
+  return (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      title: String(item?.title || "").trim(),
+      note_ids: uniqueStrings(item?.note_ids || item?.noteIds || []),
+      role: String(item?.role || "").trim()
+    }))
+    .filter((item) => item.title || item.note_ids.length)
+    .filter((item) => {
+      const key = `${item.title}\u0000${item.note_ids.join("\u0000")}\u0000${item.role}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function writingBookProjectTitle() {
+  return String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "AI时代易经与人生";
+}
+
+function writingBookProjectGoal() {
+  return String(writingState.project?.goal || $("writingGoal")?.value || "").trim();
+}
+
+function writingBookProjectAudience() {
+  return String(writingState.project?.audience || $("writingAudience")?.value || "").trim();
+}
+
+function writingBookSectionFromNote(note, fallbackTitle = "") {
+  const thesis = writingBookShortText(note?.thesis || (Array.isArray(note?.threeLineSummary) ? note.threeLineSummary[0] : "") || note?.title || fallbackTitle, 34);
+  const boundary = writingBookShortText(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || (Array.isArray(note?.threeLineSummary) ? note.threeLineSummary[1] : "") || "需要补一个边界、反例或现实场景", 34);
+  return [
+    {
+      title: `节一：${thesis || "核心判断"}`,
+      purpose: "把这一章的核心判断讲清楚。",
+      evidence_note_ids: note?.id ? [note.id] : [],
+      role: "claim"
+    },
+    {
+      title: `节二：${boundary || "证据与边界"}`,
+      purpose: "补足案例、反方或适用边界。",
+      evidence_note_ids: note?.id ? [note.id] : [],
+      role: "boundary"
+    }
+  ];
+}
+
+function normalizeWritingBookStructure(value = {}) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const parts = (Array.isArray(raw.parts) ? raw.parts : []).map((part, partIndex) => ({
+    id: String(part.id || `part_${partIndex + 1}`).trim(),
+    label: String(part.label || `第${partIndex + 1}部`).trim(),
+    title: String(part.title || `第${partIndex + 1}部`).trim(),
+    purpose: String(part.purpose || "").trim(),
+    chapters: (Array.isArray(part.chapters) ? part.chapters : []).map((chapter, chapterIndex) => ({
+      id: String(chapter.id || `chapter_${partIndex + 1}_${chapterIndex + 1}`).trim(),
+      title: String(chapter.title || `第${chapterIndex + 1}章`).trim(),
+      purpose: String(chapter.purpose || "").trim(),
+      evidence_note_ids: uniqueStrings(chapter.evidence_note_ids || chapter.evidenceNoteIds || chapter.noteIds || []),
+      sections: (Array.isArray(chapter.sections) ? chapter.sections : []).map((section, sectionIndex) => {
+        if (typeof section === "string") {
+          return {
+            id: `section_${partIndex + 1}_${chapterIndex + 1}_${sectionIndex + 1}`,
+            title: section,
+            purpose: "",
+            evidence_note_ids: uniqueStrings(chapter.evidence_note_ids || chapter.noteIds || []),
+            role: ""
+          };
+        }
+        return {
+          id: String(section?.id || `section_${partIndex + 1}_${chapterIndex + 1}_${sectionIndex + 1}`).trim(),
+          title: String(section?.title || `第${sectionIndex + 1}节`).trim(),
+          purpose: String(section?.purpose || "").trim(),
+          evidence_note_ids: uniqueStrings(section?.evidence_note_ids || section?.evidenceNoteIds || section?.noteIds || []),
+          role: String(section?.role || "").trim()
+        };
+      })
+    }))
+  }));
+  const pools = raw.pools && typeof raw.pools === "object" && !Array.isArray(raw.pools) ? raw.pools : {};
+  const normalizePoolItems = (items) =>
+    (Array.isArray(items) ? items : [])
+      .map((item) =>
+        typeof item === "string"
+          ? { title: item, note_ids: [], role: "" }
+          : {
+              title: String(item?.title || "").trim(),
+              note_ids: uniqueStrings(item?.note_ids || item?.noteIds || []),
+              role: String(item?.role || "").trim()
+            }
+      )
+      .filter((item) => item.title || item.note_ids.length);
+  const directionIdeas = (Array.isArray(raw.direction_ideas || raw.directionIdeas) ? raw.direction_ideas || raw.directionIdeas : []).map((idea, index) => ({
+    id: String(idea.id || `idea_${index + 1}`).trim(),
+    title: String(idea.title || "").trim(),
+    reader: String(idea.reader || "").trim(),
+    promise: String(idea.promise || "").trim(),
+    risk: String(idea.risk || "").trim(),
+    note_ids: uniqueStrings(idea.note_ids || idea.noteIds || [])
+  })).filter((idea) => idea.title);
+  return {
+    schema_version: Number(raw.schema_version || raw.schemaVersion || 1) || 1,
+    generated_by: String(raw.generated_by || raw.generatedBy || "writing-center-ui").trim(),
+    generated_at: String(raw.generated_at || raw.generatedAt || "").trim(),
+    mainline: String(raw.mainline || "").trim(),
+    reader: String(raw.reader || "").trim(),
+    parts,
+    pools: {
+      cases: normalizePoolItems(pools.cases),
+      counterarguments: normalizePoolItems(pools.counterarguments || pools.counters),
+      open_questions: (Array.isArray(pools.open_questions || pools.questions) ? pools.open_questions || pools.questions : [])
+        .map((item) => String(item?.title || item || "").trim())
+        .filter(Boolean)
+    },
+    direction_ideas: directionIdeas
+  };
+}
+
+function writingBookStructureStats(bookStructure = {}) {
+  const normalized = normalizeWritingBookStructure(bookStructure);
+  return {
+    partCount: normalized.parts.length,
+    chapterCount: normalized.parts.reduce((sum, part) => sum + part.chapters.length, 0),
+    sectionCount: normalized.parts.reduce((sum, part) => sum + part.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.sections.length, 0), 0),
+    caseCount: normalized.pools.cases.length,
+    counterargumentCount: normalized.pools.counterarguments.length,
+    questionCount: normalized.pools.open_questions.length
+  };
+}
+
+function deriveWritingBookDesign({ notes = writingBasketEntries(), project = writingState.project, scaffold = writingState.scaffold } = {}) {
+  const usableNotes = (Array.isArray(notes) ? notes : []).filter(Boolean);
+  const title = writingBookProjectTitle();
+  const goal = writingBookProjectGoal();
+  const audience = writingBookProjectAudience();
+  const mainline =
+    goal ||
+    (title.includes("易经")
+      ? "把易经从神秘答案转译为AI时代的变化判断、行动复盘和人生选择方法。"
+      : `围绕“${title}”建立一条可被案例、反方和章节持续推进的书稿主线。`);
+  const specs = [
+    {
+      label: "第一部",
+      title: "重新理解易经：从占问答案到变化语言",
+      keywords: ["易经", "卦", "象", "占", "神秘", "误用", "答案", "变化", "经典"],
+      fallbackChapters: ["易经到底在处理什么问题", "从符号到判断：不要把卦当成答案"]
+    },
+    {
+      label: "第二部",
+      title: "AI时代的人生判断：时位、关系与行动",
+      keywords: ["AI", "模型", "时代", "人生", "判断", "选择", "行动", "关系", "工作", "学习"],
+      fallbackChapters: ["当模型变强，人还需要什么判断", "把时位感变成可复盘的行动"]
+    },
+    {
+      label: "第三部",
+      title: "把方法落地：案例、反方与长期修正",
+      keywords: ["案例", "复盘", "反方", "边界", "失败", "实践", "方法", "长期", "修正"],
+      fallbackChapters: ["用案例训练变化感", "反方池：这套方法在哪里会失效"]
+    }
+  ];
+  const assigned = specs.map(() => []);
+  const used = new Set();
+  usableNotes.forEach((note) => {
+    const text = writingBookPlainText(note);
+    const index = specs.findIndex((spec) => writingBookMatchesAny(text, spec.keywords));
+    if (index >= 0) {
+      assigned[index].push(note);
+      used.add(note.id);
+    }
+  });
+  usableNotes
+    .filter((note) => !used.has(note.id))
+    .forEach((note, index) => assigned[index % specs.length].push(note));
+  if (usableNotes.length) {
+    assigned.forEach((group) => {
+      if (!group.length) group.push(usableNotes[group.length % usableNotes.length]);
+    });
+  }
+  const parts = specs.map((spec, partIndex) => {
+    const group = assigned[partIndex].slice(0, 4);
+    const chapters = (group.length ? group : spec.fallbackChapters.map((heading) => ({ id: "", title: heading }))).map((note, chapterIndex) => {
+      const chapterTitle = note?.id ? note.title || spec.fallbackChapters[chapterIndex % spec.fallbackChapters.length] : note.title;
+      return {
+        id: `chapter_${partIndex + 1}_${chapterIndex + 1}`,
+        title: `第${chapterIndex + 1}章 ${chapterTitle}`,
+        purpose: note?.id ? `用「${note.title || note.id}」推进这一章的判断。` : "补充章节判断、证据与读者路径。",
+        sections: writingBookSectionFromNote(note, chapterTitle),
+        evidence_note_ids: note?.id ? [note.id] : []
+      };
+    });
+    return {
+      id: spec.label,
+      label: spec.label,
+      title: spec.title,
+      purpose: partIndex === 0 ? "建立读者入口和概念框架。" : partIndex === 1 ? "推进核心判断和行动方法。" : "处理案例、反方和长期修正。",
+      chapters
+    };
+  });
+  const scaffoldQuestions = uniqueStrings([
+    ...(Array.isArray(scaffold?.open_questions) ? scaffold.open_questions : []),
+    ...(Array.isArray(scaffold?.sections) ? scaffold.sections.flatMap((section) => section?.open_questions || []) : [])
+  ]);
+  const scaffoldCounterpoints = uniqueStrings(
+    Array.isArray(scaffold?.sections) ? scaffold.sections.flatMap((section) => section?.counterpoints || []) : []
+  );
+  const casePool = uniqueWritingBookPoolItems(
+    usableNotes
+      .filter((note) => writingBookMatchesAny(writingBookPlainText(note), ["案例", "例子", "AI", "模型", "人生", "决策", "复盘", "工作", "关系", "学习"]))
+      .map((note) => ({ title: `${note.title || note.id}（${note.id}）`, note_ids: note.id ? [note.id] : [], role: "case" }))
+  ).slice(0, 6);
+  const counterPool = uniqueWritingBookPoolItems([
+    ...scaffoldCounterpoints.map((title) => ({ title, note_ids: [], role: "counterargument" })),
+    ...usableNotes
+      .map((note) => ({
+        title: writingBookShortText(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "", 58),
+        note_ids: note?.id ? [note.id] : [],
+        role: "counterargument"
+      }))
+      .filter((item) => item.title),
+    ...usableNotes
+      .filter((note) => writingBookMatchesAny(writingBookPlainText(note), ["反方", "边界", "误用", "失败", "风险", "局限"]))
+      .map((note) => ({ title: `${note.title || note.id}（${note.id}）`, note_ids: note.id ? [note.id] : [], role: "counterargument" }))
+  ]).slice(0, 6);
+  const questionPool = uniqueStrings([
+    ...scaffoldQuestions,
+    audience ? `这本书对${audience}的第一章入口是什么？` : "目标读者最容易误解易经和AI的哪一点？",
+    "哪些卦例、现实案例和反方材料必须补齐，才像一本书而不是长文？",
+    "主线是否需要先去神秘化，再进入AI时代的人生方法？"
+  ]).slice(0, 6);
+  const fallbackCasePool = usableNotes
+    .slice(0, 4)
+    .map((note) => ({ title: `${note.title || note.id}（${note.id}）`, note_ids: note.id ? [note.id] : [], role: "case" }));
+  return normalizeWritingBookStructure({
+    schema_version: 1,
+    generated_by: "writing-center-ui",
+    generated_at: new Date().toISOString(),
+    title,
+    mainline,
+    reader: audience,
+    parts,
+    pools: {
+      cases: casePool.length ? casePool : fallbackCasePool,
+      counterarguments: counterPool.length
+        ? counterPool
+        : [{ title: "还需要主动补充反方：易经是否会被误用成确定性答案？AI是否会削弱人的判断？", note_ids: [], role: "counterargument" }],
+      open_questions: questionPool
+    }
+  });
+}
+
+function deriveWritingLocalBookIdeas({ notes = writingBasketEntries(), project = writingState.project } = {}) {
+  const usableNotes = (Array.isArray(notes) ? notes : []).filter(Boolean);
+  const noteCount = usableNotes.length;
+  const title = String(project?.title || $("writingTitle")?.value || "AI时代易经与人生").trim();
+  const evidence = usableNotes.slice(0, 3).map((note) => note.id);
+  return [
+    {
+      title: "判断力训练型",
+      reader: "给AI时代需要做复杂选择的知识工作者",
+      promise: "把易经当作训练时位感、边界感和复盘能力的方法，而不是求答案的工具。",
+      risk: noteCount < 5 ? "案例还偏少，最好补充3-5个真实决策场景。" : "需要避免章节变成方法清单。",
+      noteIds: evidence
+    },
+    {
+      title: "去神秘化解释型",
+      reader: "给想理解易经但警惕玄学化的现代读者",
+      promise: "先拆掉占卜式误解，再解释卦象如何帮助人描述变化、位置和关系。",
+      risk: "需要保留经典质感，避免只剩现代管理学翻译。",
+      noteIds: evidence
+    },
+    {
+      title: "AI时代人生方法型",
+      reader: "给在模型、职业和生活变化中寻找稳定方法的人",
+      promise: `围绕《${title || "AI时代易经与人生"}》建立一条从技术冲击到人生选择的书稿主线。`,
+      risk: "AI与易经的连接要靠案例和反方检验，不能只做概念类比。",
+      noteIds: evidence
+    }
+  ];
+}
+
+function currentWritingBookStructure({ notes = writingBasketEntries(), includeLocalIdeas = true } = {}) {
+  const persisted = normalizeWritingBookStructure(writingState.project?.book_structure || {});
+  const base = persisted.parts.length ? persisted : deriveWritingBookDesign({ notes });
+  const ideas = includeLocalIdeas && Array.isArray(writingState.localBookIdeas) && writingState.localBookIdeas.length
+    ? writingState.localBookIdeas.map((idea, index) => ({
+        id: idea.id || `idea_${index + 1}`,
+        title: idea.title,
+        reader: idea.reader,
+        promise: idea.promise,
+        risk: idea.risk,
+        note_ids: uniqueStrings(idea.note_ids || idea.noteIds || [])
+      }))
+    : base.direction_ideas;
+  return normalizeWritingBookStructure({
+    ...base,
+    direction_ideas: ideas
+  });
+}
+
+function renderWritingBookDesign() {
+  const summaryEl = $("writingBookDesignSummary");
+  const structureEl = $("writingBookStructure");
+  const poolsEl = $("writingBookPools");
+  const ideasEl = $("writingBookLocalIdeas");
+  const button = $("btnWritingLocalBookIdeas");
+  if (!summaryEl && !structureEl && !poolsEl && !ideasEl) return;
+  const notes = writingBasketEntries();
+  if (button) button.disabled = notes.length === 0;
+  if (!notes.length) {
+    if (summaryEl) summaryEl.textContent = "先把易经材料加入写作篮，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。";
+    if (structureEl) structureEl.innerHTML = `<div class="writing-empty">还没有可用于书稿设计的材料。先加入写作篮，再让本地模型入口生成三种书稿方向。</div>`;
+    if (poolsEl) poolsEl.innerHTML = `<div class="writing-book-pool-kicker">材料池</div><div class="writing-book-pool-title">等待材料</div><div class="writing-section-note">案例池、反方池和开放问题会跟随写作篮刷新。</div>`;
+    if (ideasEl) ideasEl.innerHTML = `<div class="writing-book-pool-kicker">本地建议</div><div class="writing-book-pool-title">等待生成</div><div class="writing-section-note">不会上传材料；只在本机先给三个成书方向。</div>`;
+    return;
+  }
+  const persistedStructure = normalizeWritingBookStructure(writingState.project?.book_structure || {});
+  const design = persistedStructure.parts.length ? persistedStructure : deriveWritingBookDesign({ notes });
+  const stats = writingBookStructureStats(design);
+  if (summaryEl) {
+    summaryEl.textContent = `主线：${design.mainline} 已按书稿级结构保存为 ${stats.partCount} 部、${stats.chapterCount} 章、${stats.sectionCount} 节；材料 ${notes.length} 条。`;
+  }
+  if (structureEl) {
+    structureEl.innerHTML = design.parts
+      .map(
+        (part) => `
+          <article class="writing-book-part">
+            <div class="writing-book-part-head">
+              <div class="writing-book-part-kicker">${escapeHtml(part.label)}</div>
+              <div class="writing-book-part-title">${escapeHtml(part.title)}</div>
+            </div>
+            <ul class="writing-book-chapter-list">
+              ${part.chapters
+                .map(
+                  (chapter) => `
+                    <li>
+                      <strong>${escapeHtml(chapter.title)}</strong>
+                      <small>${escapeHtml(chapter.sections.map((section) => section.title).join(" / "))}</small>
+                      <small>${escapeHtml(chapter.evidence_note_ids.length ? `来源笔记：${chapter.evidence_note_ids.join(", ")}` : "需要补充来源笔记")}</small>
+                    </li>
+                  `
+                )
+                .join("")}
+            </ul>
+          </article>
+        `
+      )
+      .join("");
+  }
+  if (poolsEl) {
+    poolsEl.innerHTML = `
+      <div class="writing-book-pool-kicker">材料池</div>
+      <div class="writing-book-pool-title">案例池、反方池、开放问题</div>
+      <strong>案例池</strong>
+      <ul>${design.pools.cases.map((item) => `<li>${escapeHtml(item.title || item.note_ids.join(", "))}</li>`).join("")}</ul>
+      <strong>反方池</strong>
+      <ul>${design.pools.counterarguments.map((item) => `<li>${escapeHtml(item.title || item.note_ids.join(", "))}</li>`).join("")}</ul>
+      <strong>开放问题</strong>
+      <ul>${design.pools.open_questions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    `;
+  }
+  if (ideasEl) {
+    const ideas = Array.isArray(writingState.localBookIdeas) && writingState.localBookIdeas.length
+      ? writingState.localBookIdeas
+      : Array.isArray(design.direction_ideas) ? design.direction_ideas : [];
+    ideasEl.innerHTML = `
+      <div class="writing-book-pool-kicker">本地建议</div>
+      <div class="writing-book-pool-title">${ideas.length ? "三种成书方向" : "等待本地生成"}</div>
+      ${
+        ideas.length
+          ? `<div class="writing-book-idea-list">${ideas
+              .map(
+                (idea) => `
+                  <div class="writing-book-idea">
+                    <strong>${escapeHtml(idea.title)}</strong>
+                    <small>读者：${escapeHtml(idea.reader)}</small>
+                    <small>承诺：${escapeHtml(idea.promise)}</small>
+                    <small>风险：${escapeHtml(idea.risk)}</small>
+                    <small>依据笔记：${escapeHtml((idea.noteIds || idea.note_ids || []).join(", ") || "当前写作篮")}</small>
+                  </div>
+                `
+              )
+              .join("")}</div>`
+          : `<div class="writing-section-note">点击按钮后，本地规则/模型入口会先给三种书稿方向；这些建议不会自动写入项目，也不会发送到远程模型。</div>`
+      }
+    `;
+  }
+}
+
+function renderWritingStrongModelRequestDetail({ noteIds = parseWritingBasketIds(), strongModelReady = false } = {}) {
+  const el = $("writingStrongModelRequestDetail");
+  if (!el) return;
+  const notes = noteIds.map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId });
+  const result = writingState.strongModelResult;
+  const request = result?.request || null;
+  const modelName = request?.model?.model || "strong_model";
+  const goal = writingBookProjectGoal() || "请强模型检查书稿主线、章节结构、材料缺口和反方压力。";
+  const audience = writingBookProjectAudience() || "尚未填写";
+  if (!notes.length) {
+    el.innerHTML = `
+      <strong>强模型请求包</strong>
+      <div class="writing-section-note">先加入写作篮并创建项目后，这里会显示用了哪些笔记、准备问模型什么，以及哪些内容不会发送。</div>
+    `;
+    return;
+  }
+  const plannedQuestions = [
+    "这组易经材料适合写成哪三种书？各自的读者、主线和风险是什么？",
+    "如果写《AI时代易经与人生》，部 / 章 / 节应该如何重排？",
+    "哪些案例、反方和开放问题必须补齐，才像完整书稿而不是长文大纲？",
+    "哪些材料只适合放入案例池或反方池，不应该进入主线？"
+  ];
+  const notSent = [
+    "不会发送未加入写作篮的其它笔记、其它草稿或整个库。",
+    "不会发送本地设置、系统消息、图谱 UI 状态和无关文件路径。",
+    "不会自动写入笔记、不会自动改图谱，也不会自动采纳模型建议。",
+    "当前实现先准备请求包；只有你确认后才进入远程强模型流程。"
+  ];
+  el.innerHTML = `
+    <strong>强模型请求包${request ? `：${escapeHtml(modelName)}` : ""}</strong>
+    <ul>
+      <li>使用笔记：${escapeHtml(notes.map((note) => `${note.title || note.id}（${note.id}）`).join("；"))}</li>
+      <li>写作目标：${escapeHtml(goal)}</li>
+      <li>目标读者：${escapeHtml(audience)}</li>
+      <li>状态：${escapeHtml(request ? "请求包已准备，可复核后处理返回建议" : strongModelReady ? "条件已满足，可以准备请求包" : "等待项目、关系读取或材料成熟度满足")}</li>
+    </ul>
+    <strong>准备问模型什么</strong>
+    <ul>${plannedQuestions.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}</ul>
+    <strong>不会发送 / 不会自动做</strong>
+    <ul>${notSent.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+  `;
 }
 
 function renderWritingScaffoldPreview() {
@@ -11300,6 +11844,7 @@ function renderWritingPanel() {
   const basketList = $("writingBasketList");
   const candidateSummary = $("writingCandidateSummary");
   const candidateList = $("writingCandidateList");
+  const toplineMetrics = $("writingToplineMetrics");
   const createProjectButton = $("btnWritingCreateProject");
   const createScaffoldButton = $("btnWritingCreateScaffold");
   const openDraftButton = $("btnWritingOpenDraft");
@@ -11416,8 +11961,6 @@ function renderWritingPanel() {
       readinessLevel: basketReadiness.level,
       projectPreflightLevel: projectPreflightSummary.level
     });
-  const canContinueProjectedStrongModel =
-    !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && basketReadiness.level === "strong_model_ready";
   const strongModelState = describeWritingStrongModelStatus({
     hasProject,
     relationCountsReady,
@@ -11430,6 +11973,44 @@ function renderWritingPanel() {
     projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
     strongModelReady
   });
+  if (toplineMetrics) {
+    const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
+    const hasDraft = Boolean(writingState.project?.draft_note_id);
+    const basketMetricTone = basketEntries.length
+      ? relationCountsErrored
+        ? "warn"
+        : relationCountsReady && (basketReadiness.level === "project_ready" || basketReadiness.level === "strong_model_ready")
+          ? "good"
+          : "warn"
+      : "";
+    const projectMetricTone = hasProject || (!hasProject && projectEntry?.projectId) ? "good" : "warn";
+    const projectMetricValue = hasProject
+      ? writingState.project.id
+      : projectEntry?.projectId
+        ? projectEntry.status
+        : "未创建";
+    const projectMetricNote = hasProject
+      ? projectPreflightSummary.level === "ready"
+        ? "项目条件已齐"
+        : projectPreflightSummary.status
+      : projectEntry?.actionLabel || "等待创建";
+    const draftMetricValue = hasDraft ? "已绑定" : hasScaffold ? "待保存" : "未保存";
+    const draftMetricNote = hasDraft
+      ? writingState.project?.draft_note?.title || writingState.project?.draft_note_id || "当前草稿可打开"
+      : hasScaffold
+        ? "确认缺口后保存草稿"
+        : "先生成草稿骨架";
+    toplineMetrics.innerHTML = [
+      renderWritingToplineMetric(
+        "写作篮",
+        basketEntries.length ? `${basketEntries.length} 条` : "0 条",
+        basketEntries.length ? (hasProject ? "材料就绪" : basketReadiness.status) : "先选择材料",
+        basketMetricTone
+      ),
+      renderWritingToplineMetric("项目", projectMetricValue, projectMetricNote, projectMetricTone),
+      renderWritingToplineMetric("草稿", draftMetricValue, draftMetricNote, hasDraft ? "good" : hasScaffold ? "warn" : "")
+    ].join("");
+  }
   if (basketSummary) {
     const sourcePart = sourceIndexSummary ? `可续接的写作入口：${sourceIndexSummary}。` : "可续接的写作入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
@@ -11483,8 +12064,8 @@ function renderWritingPanel() {
           : "暂无草稿";
   }
   if (createProjectButton) {
-    createProjectButton.disabled = !projectEntry.canCreateProject;
-    createProjectButton.textContent = projectEntry.actionLabel;
+    createProjectButton.disabled = hasProject || !projectEntry.canCreateProject;
+    createProjectButton.textContent = hasProject ? "项目已创建" : projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
     const canContinueProjectedProject = Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
@@ -11527,7 +12108,7 @@ function renderWritingPanel() {
   }
   const strongModelBasketIds = basketIds;
   if (strongModelButton) {
-    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !(strongModelReady || canContinueProjectedStrongModel);
+    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
     strongModelButton.textContent = describeWritingStrongModelButtonLabel({
       basketCount: strongModelBasketIds.length,
       loading: writingState.strongModelLoading,
@@ -11553,6 +12134,8 @@ function renderWritingPanel() {
       });
     }
   }
+  renderWritingStrongModelRequestDetail({ noteIds: strongModelBasketIds, strongModelReady });
+  renderWritingBookDesign();
 
   if (projectsHint) {
     const filterSummary = [
@@ -22070,31 +22653,39 @@ $("btnWritingClearBasket")?.addEventListener("click", () => {
   setStatus("已清空写作篮", "ok");
 });
 
+$("writingBasketNoteIds")?.addEventListener("input", handleWritingBasketManualInput);
+
 $("btnWritingStrongModelAnalysis")?.addEventListener("click", async () => {
-  const continuation = !writingState.project?.id ? currentWritingContinuationEntry("当前写作篮") : null;
-  const basketReadiness = currentWritingBasketReadiness();
-  if (continuation?.projectId && basketReadiness.level === "strong_model_ready") {
-    try {
-      await continueWritingProjectEntry(continuation.projectId, {
-        openDraft: continuation.action === "open-draft",
-        statusMessage:
-          continuation.action === "open-draft"
-            ? `已从写作中心打开当前草稿：${continuation.projectId}`
-            : continuation.action === "resume-scaffold"
-              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
-              : continuation.action === "resume-project"
-                ? `已从写作中心继续当前项目：${continuation.projectId}`
-                : ""
-      });
-    } catch (error) {
-      setStatus(
-        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
-        "bad"
-      );
-    }
+  await prepareWritingStrongModelAnalysis();
+});
+
+$("btnWritingLocalBookIdeas")?.addEventListener("click", async () => {
+  const notes = writingBasketEntries();
+  if (!notes.length) {
+    setStatus("先把易经材料加入写作篮，再生成书稿方向建议", "warn");
     return;
   }
-  await prepareWritingStrongModelAnalysis();
+  writingState.localBookIdeas = deriveWritingLocalBookIdeas({ notes, project: writingState.project });
+  writingState.localBookIdeasGeneratedAt = new Date().toISOString();
+  if (writingState.project?.id) {
+    try {
+      writingState.project = await updateWritingProjectBookStructure(writingState.project.id, {
+        bookStructure: currentWritingBookStructure({ notes, includeLocalIdeas: true })
+      });
+      writingState.localBookIdeas = normalizeWritingBookStructure(writingState.project?.book_structure || {}).direction_ideas;
+    } catch (error) {
+      setStatus(`书稿方向已在本地生成，但保存到项目失败：${String(error?.message || error)}`, "warn");
+      renderWritingPanel();
+      return;
+    }
+  }
+  renderWritingPanel();
+  setStatus(
+    writingState.project?.id
+      ? "已生成 3 个书稿方向，并保存到当前项目结构"
+      : "已在本地生成 3 个书稿方向建议；不会上传材料，也不会自动写入项目",
+    "ok"
+  );
 });
 
 $("writingCandidateList")?.addEventListener("click", (event) => {
@@ -22547,31 +23138,9 @@ $("btnWritingRefreshDraftVersions")?.addEventListener("click", async () => {
 });
 
 $("btnWritingCreateProject")?.addEventListener("click", async () => {
-  const continuation = currentWritingContinuationEntry("当前写作篮");
   try {
-    if (continuation?.projectId) {
-      await continueWritingProjectEntry(continuation.projectId, {
-        openDraft: continuation.action === "open-draft",
-        statusMessage:
-          continuation.action === "open-draft"
-            ? `已从写作中心打开当前草稿：${continuation.projectId}`
-            : continuation.action === "resume-scaffold"
-              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
-              : continuation.action === "resume-project"
-                ? `已从写作中心继续当前项目：${continuation.projectId}`
-                : ""
-      });
-      return;
-    }
     await createWritingProjectFromCurrentBasket();
   } catch (error) {
-    if (continuation?.projectId) {
-      setStatus(
-        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
-        "bad"
-      );
-      return;
-    }
     setStatus(`从写作中心创建项目失败：${String(error?.message || error)}`, "bad");
   }
 });

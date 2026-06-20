@@ -910,15 +910,12 @@ test("writing workspace defines hasProject before project list hints use it", ()
   assert.match(match[0], /const projectPreflightSummary = describeWritingProjectPreflight/);
 });
 
-test("writing panel defines canContinueProjectedStrongModel before strong-model button wiring uses it", () => {
+test("writing panel keeps projected continuity out of strong-model button wiring", () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/const strongModelReady =[\s\S]*?const strongModelState = describeWritingStrongModelStatus/);
 
   assert.ok(match, "expected writing panel strong-model block to exist");
-  assert.match(
-    match[0],
-    /const canContinueProjectedStrongModel =\s*!hasProject && Boolean\(projectEntry\?\.projectId\) && Boolean\(projectEntry\?\.actionLabel\) && (?:basketReadiness|readiness)\.level === "strong_model_ready";/
-  );
+  assert.doesNotMatch(match[0], /canContinueProjectedStrongModel/);
 });
 
 test("renderAll repaints explorer before writing panel side-effects can interrupt the tree", () => {
@@ -959,7 +956,8 @@ test("writing strong-model action uses a defined basket readiness helper", () =>
   const source = readRepoFile("apps/web/src/prototype-app.js");
 
   assert.match(source, /function currentWritingBasketReadiness\(\) \{/);
-  assert.match(source, /\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{[\s\S]*const basketReadiness = currentWritingBasketReadiness\(\);/);
+  assert.match(source, /\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{[\s\S]*await prepareWritingStrongModelAnalysis\(\);/);
+  assert.match(source, /async function prepareWritingStrongModelAnalysis\(\) \{[\s\S]*if \(!writingState\.project\?\.id\) \{/);
 });
 
 test("import-result create-writing-project path reuses unified writing entry reset", () => {

@@ -9934,6 +9934,11 @@
       gap: 14px;
       box-shadow: 0 16px 30px rgba(23, 34, 33, 0.05);
     }
+    .writing-topline-main {
+      min-width: 0;
+      display: grid;
+      gap: 12px;
+    }
     .writing-topline strong {
       display: block;
       margin-top: 2px;
@@ -9954,6 +9959,52 @@
       flex-wrap: wrap;
       justify-content: flex-end;
     }
+    .writing-topline-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(132px, 1fr));
+      gap: 8px;
+      max-width: 720px;
+    }
+    .writing-topline-metric {
+      min-width: 0;
+      border: 1px solid #dbe6ea;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.82);
+      padding: 8px 10px;
+      display: grid;
+      gap: 3px;
+    }
+    .writing-topline-metric span {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .writing-topline-metric strong {
+      margin: 0;
+      color: #172033;
+      font-size: 13px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .writing-topline-metric small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .writing-topline-metric[data-tone="good"] {
+      border-color: #bfdcc8;
+      background: #f4fbf7;
+    }
+    .writing-topline-metric[data-tone="warn"] {
+      border-color: #efd28e;
+      background: #fff8e8;
+    }
     .writing-flow-strip {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -9961,7 +10012,7 @@
     }
     .writing-status-strip {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(164px, 1fr));
       gap: 10px;
     }
     .writing-flow-step {
@@ -10018,6 +10069,120 @@
       gap: 16px;
       align-items: start;
     }
+    .writing-book-workbench {
+      margin: 16px 0;
+    }
+    .writing-book-map {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+    .writing-book-part {
+      border: 1px solid #d9e7df;
+      border-radius: 8px;
+      background: #fbfefd;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .writing-book-part-head {
+      display: grid;
+      gap: 3px;
+    }
+    .writing-book-part-kicker,
+    .writing-book-pool-kicker {
+      color: #0f766e;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .writing-book-part-title,
+    .writing-book-pool-title {
+      color: #172033;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .writing-book-chapter-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .writing-book-chapter-list li {
+      border-top: 1px solid #edf3ef;
+      padding-top: 7px;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .writing-book-chapter-list small {
+      display: block;
+      margin-top: 3px;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .writing-book-columns {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+    .writing-book-pool,
+    .writing-strong-request-detail {
+      border: 1px solid #dbe5ef;
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.55;
+      min-width: 0;
+    }
+    .writing-strong-request-detail {
+      background: #f8fbff;
+    }
+    .writing-book-pool ul,
+    .writing-strong-request-detail ul {
+      margin: 6px 0 0;
+      padding-left: 18px;
+    }
+    .writing-book-pool li,
+    .writing-strong-request-detail li {
+      margin: 3px 0;
+      word-break: break-word;
+    }
+    .writing-book-idea-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .writing-book-idea {
+      border-top: 1px solid #edf3ef;
+      padding-top: 8px;
+    }
+    .writing-book-idea:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+    .writing-book-idea strong {
+      display: block;
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .writing-book-idea small {
+      display: block;
+      margin-top: 3px;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.4;
+    }
     .writing-stack {
       display: grid;
       gap: 16px;
@@ -10034,6 +10199,9 @@
       gap: 10px;
       align-content: start;
       box-shadow: 0 16px 30px rgba(23, 34, 33, 0.05);
+    }
+    .writing-output-card {
+      gap: 12px;
     }
     .writing-section-title {
       font-weight: 800;
@@ -10285,6 +10453,34 @@
     .writing-actions-secondary {
       padding-top: 8px;
       border-top: 1px solid #e8eef5;
+    }
+    .writing-ai-card,
+    .writing-theme-detail-panel {
+      border: 1px solid #dbe5ef;
+      border-radius: 12px;
+      background: #fbfdfc;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+    .writing-theme-detail-card {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+    .writing-theme-detail-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+    .writing-theme-detail-card h4 {
+      margin: 0;
+      color: #172033;
+      font-size: 13px;
+      line-height: 1.35;
     }
     .md-panel {
       min-height: 0;
@@ -15209,6 +15405,9 @@
       .writing-topline {
         display: grid;
       }
+      .writing-topline-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
       .writing-flow-strip {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -15216,7 +15415,8 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .writing-project-grid,
-      .writing-main-grid { grid-template-columns: 1fr; }
+      .writing-main-grid,
+      .writing-book-columns { grid-template-columns: 1fr; }
       .editor-helper {
         right: 14px;
         bottom: 58px;
@@ -15281,6 +15481,21 @@
       }
     }
     @media (max-width: 700px) {
+      .writing-topline-metrics,
+      .writing-status-strip {
+        grid-template-columns: 1fr;
+      }
+      .writing-topline-actions,
+      .writing-actions-primary,
+      .writing-actions-secondary,
+      .writing-note-actions {
+        align-items: stretch;
+      }
+      .writing-topline-actions .mini-btn,
+      .writing-actions-primary .mini-btn,
+      .writing-actions-secondary .mini-btn {
+        flex: 1 1 100%;
+      }
       .module-header {
         align-items: stretch;
         flex-direction: column;
@@ -18825,10 +19040,15 @@
           <div class="panel hidden" id="writingPanel">
           <div class="writing-shell">
             <header class="writing-topline">
-              <div>
+              <div class="writing-topline-main">
                 <div class="import-card-kicker">写作中心</div>
                 <strong>写作中心：把永久笔记组织成可推进的项目与草稿骨架</strong>
                 <p>它不是代写终稿，而是帮你把观点、证据、缺口和反方先摆到一张工作台中。</p>
+                <div class="writing-topline-metrics" id="writingToplineMetrics" aria-label="写作中心当前速览">
+                  <div class="writing-topline-metric"><span>写作篮</span><strong>0 条</strong><small>先选择材料</small></div>
+                  <div class="writing-topline-metric"><span>项目</span><strong>未创建</strong><small>明确题目和读者</small></div>
+                  <div class="writing-topline-metric"><span>草稿</span><strong>未保存</strong><small>生成骨架后保存</small></div>
+                </div>
               </div>
               <div class="writing-topline-actions">
                 <button class="mini-btn" id="btnWritingRefreshProjects" type="button">刷新项目</button>
@@ -18842,7 +19062,7 @@
             </div>
             <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
             <div class="writing-project-grid">
-              <section class="writing-section">
+              <section class="writing-section writing-output-card">
                 <div class="writing-section-head">
                   <div>
                     <div class="writing-section-title">项目信息</div>
@@ -18896,9 +19116,25 @@
                     <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">先加入写作篮</button>
                   </div>
                   <div class="writing-summary" id="writingStrongModelSummary">先把永久笔记加入写作篮，再准备强模型分析。</div>
+                  <div class="writing-strong-request-detail" id="writingStrongModelRequestDetail"></div>
                 </div>
               </section>
             </div>
+
+            <section class="writing-section writing-book-workbench" aria-label="书稿设计工作台">
+              <div class="writing-section-head">
+                <div>
+                  <div class="writing-section-title">书稿设计</div>
+                  <div class="writing-section-note" id="writingBookDesignSummary">先把易经材料加入写作篮，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。</div>
+                </div>
+                <button class="mini-btn" id="btnWritingLocalBookIdeas" type="button">本地生成 3 个书稿方向</button>
+              </div>
+              <div class="writing-book-map" id="writingBookStructure"></div>
+              <div class="writing-book-columns">
+                <div class="writing-book-pool" id="writingBookPools"></div>
+                <div class="writing-book-pool" id="writingBookLocalIdeas"></div>
+              </div>
+            </section>
 
             <div class="writing-main-grid">
               <div class="writing-stack">
@@ -18914,7 +19150,7 @@
                     </div>
                   </div>
                   <div class="writing-note-list" id="writingThemeIndexList"></div>
-                  <div class="writing-section" style="margin-top:12px;">
+                  <div class="writing-theme-detail-panel">
                     <div class="writing-section-head">
                       <div>
                         <div class="writing-section-title">主题详情</div>

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { describeWritingMaterialStatus } from "../../apps/web/src/writing-center-flow.js";
 import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
 
-test("writing material status reuses projected project continuity before a project is reopened", () => {
+test("writing material status keeps projected project continuity out of the primary flow", () => {
   const material = describeWritingMaterialStatus({
     readinessLevel: "strong_model_ready",
     readinessStatus: "可进行强模型分析",
@@ -14,18 +14,19 @@ test("writing material status reuses projected project continuity before a proje
     projectEntryActionLabel: "继续当前项目"
   });
 
-  assert.equal(material.status, "先继续当前项目");
-  assert.match(material.hint, /继续当前项目/);
+  assert.equal(material.status, "先创建项目");
+  assert.match(material.hint, /先创建项目/);
+  assert.doesNotMatch(material.hint, /继续当前项目/);
 });
 
-test("writing material status card passes projected continuity into the helper", async () => {
+test("writing material status card uses project-entry readiness without implicit continuation", async () => {
   const source = await readPrototypeAppSource();
-
-  assert.match(
-    source,
-    /const projectEntry =\s*\(!hasProject && currentWritingContinuationEntry\("当前写作篮"\)\) \|\|\s*describeWritingProjectEntryState\(\{[\s\S]*?const materialStatus = describeWritingMaterialStatus\(\{/ 
+  const statusStripBlock = source.slice(
+    source.indexOf("function renderWritingStatusStrip()"),
+    source.indexOf("function renderWritingFlowSteps(")
   );
-  assert.match(source, /const materialStatus = describeWritingMaterialStatus\(\{/);
-  assert.match(source, /projectEntryProjectId: hasProject \? "" : String\(projectEntry\?\.projectId \|\| ""\)\.trim\(\),/);
-  assert.match(source, /projectEntryActionLabel: hasProject \? "" : String\(projectEntry\?\.actionLabel \|\| ""\)\.trim\(\)/);
+
+  assert.match(statusStripBlock, /const projectEntry = describeWritingProjectEntryState\(\{/);
+  assert.doesNotMatch(statusStripBlock, /currentWritingContinuationEntry\("当前写作篮"\)\) \|\|/);
+  assert.match(statusStripBlock, /const materialStatus = describeWritingMaterialStatus\(\{/);
 });

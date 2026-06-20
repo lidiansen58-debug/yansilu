@@ -487,7 +487,7 @@ export function resolveWritingEntryTitle({
 } = {}) {
   const cleanRequestedTitle = String(requestedTitle || "").trim();
   const cleanExistingTitle = String(existingTitle || "").trim();
-  if (String(entryMode || "").trim() === "append" && cleanExistingTitle) return cleanExistingTitle;
+  if (cleanExistingTitle) return cleanExistingTitle;
   return cleanRequestedTitle || cleanExistingTitle;
 }
 
@@ -543,16 +543,22 @@ export function describeWritingMaterialStatus({
   const cleanStatus = String(readinessStatus || "").trim();
   const cleanHint = String(readinessHint || "").trim();
 
-  if (!hasProject && cleanLevel === "strong_model_ready" && String(projectEntryProjectId || "").trim() && String(projectEntryActionLabel || "").trim()) {
-    return {
-      status: `先${String(projectEntryActionLabel || "").trim()}`,
-      hint: `当前材料已经到强模型分析前的就绪阶段；先${String(projectEntryActionLabel || "").trim()}，再继续后续分析。`
-    };
-  }
   if (!hasProject && cleanLevel === "strong_model_ready") {
     return {
       status: "先创建项目",
       hint: "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。"
+    };
+  }
+  if (hasProject && cleanLevel === "strong_model_ready") {
+    return {
+      status: "材料就绪",
+      hint: "材料已经进入当前项目；可以继续生成草稿骨架或准备强模型分析。"
+    };
+  }
+  if (hasProject && cleanLevel === "project_ready") {
+    return {
+      status: "材料就绪",
+      hint: "材料已经进入当前项目；下一步生成草稿骨架。"
     };
   }
 
@@ -591,13 +597,6 @@ export function describeWritingStrongModelStatus({
       status: "读取中",
       hint: "正在读取正式关系，等结果回来后再判断是否能进入强模型分析。",
       buttonLabel: "正在读取关系"
-    };
-  }
-  if (!hasProject && cleanProjectEntryProjectId && cleanProjectEntryActionLabel && cleanReadinessLevel === "strong_model_ready") {
-    return {
-      status: `先${cleanProjectEntryActionLabel}`,
-      hint: `当前材料已经到强模型分析前的就绪阶段；先${cleanProjectEntryActionLabel}，再继续后续分析。`,
-      buttonLabel: `先${cleanProjectEntryActionLabel}`
     };
   }
   if (!hasProject && (cleanReadinessLevel === "project_ready" || cleanReadinessLevel === "strong_model_ready")) {

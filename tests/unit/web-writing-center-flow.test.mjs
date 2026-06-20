@@ -226,11 +226,21 @@ test("writing entry title keeps existing context when appending into a non-empty
   assert.equal(title, "Existing Project Context");
 });
 
-test("writing entry title still uses requested title when starting a fresh basket", () => {
+test("writing entry title protects an existing user title when starting a fresh basket", () => {
   const title = resolveWritingEntryTitle({
     entryMode: "replace",
     requestedTitle: "Fresh Note 写作项目",
-    existingTitle: "Existing Project Context"
+    existingTitle: "AI时代易经与人生"
+  });
+
+  assert.equal(title, "AI时代易经与人生");
+});
+
+test("writing entry title uses requested title when no user title exists", () => {
+  const title = resolveWritingEntryTitle({
+    entryMode: "replace",
+    requestedTitle: "Fresh Note 写作项目",
+    existingTitle: ""
   });
 
   assert.equal(title, "Fresh Note 写作项目");
@@ -306,7 +316,7 @@ test("writing material status reframes strong-model-ready material to create-pro
   assert.match(material.hint, /强模型分析前|先创建项目/);
 });
 
-test("writing material status keeps strong-model wording once a project already exists", () => {
+test("writing material status keeps material wording once a project already exists", () => {
   const material = describeWritingMaterialStatus({
     readinessLevel: "strong_model_ready",
     readinessStatus: "可进行强模型分析",
@@ -314,8 +324,8 @@ test("writing material status keeps strong-model wording once a project already 
     hasProject: true
   });
 
-  assert.equal(material.status, "可进行强模型分析");
-  assert.match(material.hint, /强模型分析/);
+  assert.equal(material.status, "材料就绪");
+  assert.match(material.hint, /生成草稿骨架或准备强模型分析/);
 });
 
 test("writing strong-model status asks to create a project first when material is ready but project is missing", () => {
