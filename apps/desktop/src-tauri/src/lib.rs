@@ -37,6 +37,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![open_in_explorer])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .run(tauri::generate_context!())
         .expect("failed to run yansilu desktop app");
 }

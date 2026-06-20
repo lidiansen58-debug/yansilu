@@ -24,8 +24,7 @@ Current gap:
 
 - no public download page
 - no release metadata page for installers
-- updater plugin needs a real production endpoint and signing-key workflow
-- no release feed for desktop update checks
+- production releases still need repository signing secrets and end-to-end update QA
 
 ## What The Website Needs
 
@@ -172,9 +171,8 @@ V1 does not yet need to do:
 
 ## Next Technical Step
 
-After the website page is in place, the next engineering step should be:
+The next engineering step is operational validation:
 
-1. add Tauri updater dependency
-2. configure update endpoint
-3. add manual `检查更新` entry in the desktop app
-4. test one end-to-end update from an older local build to a newer one
+1. configure repository updater signing secrets
+2. publish a signed GitHub Release with `update-manifest.json` and `latest.json`
+3. test one end-to-end update from an older signed build to a newer signed build

@@ -15,6 +15,7 @@
     "build:desktop:mac": "node ./scripts/build-desktop.mjs app dmg",
     "build:desktop:check": "node ./scripts/desktop-bundle-preflight.mjs",
     "build:desktop:manifest": "node ./scripts/desktop-bundle-manifest.mjs",
+    "release:update-manifest": "node ./scripts/generate-update-manifest.mjs",
     "release:validate": "node ./scripts/release-validate-tag.mjs",
     "dev:web": "node ./apps/web/src/dev-server.mjs",
     "dev:worker": "node ./apps/worker/src/worker.mjs",

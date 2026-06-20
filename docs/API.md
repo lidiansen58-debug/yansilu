@@ -55,6 +55,94 @@ Returns API health and the active vault path.
 }
 ```
 
+## App Version And Updates
+
+### `GET /api/v1/app/version`
+
+Returns the current application version and update manifest configuration.
+
+Response:
+
+```json
+{
+  "item": {
+    "name": "yansilu",
+    "version": "0.1.1-beta.1",
+    "channel": "beta",
+    "manifestUrl": "https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json",
+    "updateStatus": "idle",
+    "updateCheckIntervalHours": 24
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-06-20T03:00:00.000Z"
+}
+```
+
+If `YANSILU_UPDATE_MANIFEST_URL` is not configured, the API uses the default GitHub Release manifest at `https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json`. Set `YANSILU_UPDATE_MANIFEST_URL=disabled` to turn server-side update checks off.
+
+### `POST /api/v1/app/updates/check`
+
+Checks the configured update manifest and compares it with the current application version. This endpoint only reads metadata; it does not download, install, restart, migrate, or modify the user's vault.
+
+By default, the server ignores any client-supplied manifest URL and uses `YANSILU_UPDATE_MANIFEST_URL` (or the built-in GitHub Release URL). For local test harnesses only, set `YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE=true` to allow the request body to override the configured URL.
+
+Manifest fetches use a bounded timeout of 10 seconds by default. Timeout or network failures are reported in the response item with `status: "failed"` instead of blocking the rest of the API.
+
+Optional request when override is explicitly enabled:
+
+```json
+{
+  "manifestUrl": "https://example.com/yansilu/update.json"
+}
+```
+
+Response:
+
+```json
+{
+  "item": {
+    "status": "update-available",
+    "currentVersion": "0.1.1-beta.1",
+    "latestVersion": "0.1.2",
+    "checkedAt": "2026-06-20T03:00:00.000Z",
+    "manifestUrl": "https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json",
+    "updateAvailable": true,
+    "critical": false,
+    "minimumSupported": true,
+    "manifest": {
+      "version": "0.1.2",
+      "releaseDate": "2026-06-20T00:00:00.000Z",
+      "channel": "beta",
+      "changelog": ["Fix update detection."],
+      "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/tag/v0.1.2",
+      "assets": [
+        {
+          "file": "nsis/yansilu_0.1.2_x64-setup.exe",
+          "platform": "windows-x86_64",
+          "bytes": 12345678,
+          "url": "https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.2/yansilu_0.1.2_x64-setup.exe",
+          "checksum": {
+            "algorithm": "sha256",
+            "value": "..."
+          }
+        }
+      ],
+      "minimumSupportedVersion": "",
+      "critical": false,
+      "checksum": {
+        "algorithm": "sha256",
+        "value": "..."
+      }
+    },
+    "error": null
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-06-20T03:00:00.000Z"
+}
+```
+
+`status` can be `disabled`, `failed`, `update-available`, or `up-to-date` for the first version of this endpoint.
+
 ## Vault
 
 ### `GET /api/v1/vault`

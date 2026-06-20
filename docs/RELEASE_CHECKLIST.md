@@ -54,7 +54,7 @@ Use this only after signing, notarization, and update feed checks are ready.
 
 ## Required Repository Secrets
 
-Signed updater artifact generation requires:
+Tagged `desktop-release` builds now generate signed updater artifacts by default. The workflow fails early unless these repository secrets are present:
 
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
@@ -65,6 +65,25 @@ Future production signing should also add:
 
 - Apple Developer ID certificate and notarization credentials for macOS
 - Windows code signing certificate or trusted signing setup for NSIS/MSI
+
+## Signed Rehearsal
+
+After configuring `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, run a non-publishing rehearsal before the first real tag:
+
+```powershell
+gh workflow run desktop-bundles.yml --ref feature/auto-update -f updater_artifacts=true
+```
+
+This builds signed desktop updater artifacts on GitHub runners, collects them, generates `update-manifest.json` and `latest.json`, and uploads `yansilu-release-rehearsal-assets` as a workflow artifact. It does not create or modify a GitHub Release.
+
+Check the downloaded rehearsal artifact for:
+
+- installer files for each platform
+- matching `.sig` files
+- `bundle-manifest.json`
+- `bundle-manifest.sha256.txt`
+- `update-manifest.json`
+- `latest.json`
 
 ## Tag And Build
 
@@ -96,17 +115,28 @@ The `desktop-release` workflow builds:
 - macOS Intel `.app` / `.dmg`
 
 It creates or updates a draft GitHub Release for the tag.
+The draft release includes flattened installer assets, `.sig` files, `bundle-manifest.json`, `bundle-manifest.sha256.txt`, `update-manifest.json`, and `latest.json`.
 
 ## Release Review
 
 Before publishing the draft release:
 
-1. Download every uploaded artifact.
-2. Compare `bundle-manifest.sha256.txt` against the release assets.
-3. Install and launch on each target platform.
-4. Confirm updater artifacts exist only when signed updater generation was intentionally enabled for this release.
-5. Confirm release notes mention known limitations and signing status.
-6. Keep the previous release available for rollback.
+1. Download every uploaded installer artifact.
+2. Compare `bundle-manifest.sha256.txt` against the installer assets listed in `bundle-manifest.json`.
+3. Confirm the workflow generated the app update manifests for the GitHub Release assets. For local reproduction:
+
+```powershell
+npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.0-beta.1 --changelog-file docs/V0_1_0_BETA_1_RELEASE_NOTES.md
+```
+
+4. Confirm `https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json` returns the release `update-manifest.json` after publication.
+5. Confirm `https://github.com/lidiansen58-debug/yansilu/releases/latest/download/latest.json` returns the Tauri updater feed after publication.
+6. Install and launch on each target platform.
+7. From an older build, confirm “Settings -> Version update -> Check update” reports the new GitHub Release.
+8. From an older signed desktop build, confirm “one-click download and install” completes and “restart to finish update” relaunches the app on the new version.
+9. Confirm updater artifacts exist only when signed updater generation was intentionally enabled for this release.
+10. Confirm release notes mention known limitations and signing status.
+11. Keep the previous release available for rollback.
 
 ## macOS Notes
 
@@ -121,10 +151,12 @@ Friend testing can use the NSIS installer, but production distribution should us
 The app currently points at:
 
 ```text
-https://downloads.yansilu.app/updates/latest.json
+https://github.com/lidiansen58-debug/yansilu/releases/latest/download/latest.json
 ```
 
-Do not advertise automatic updates until that endpoint is populated from the release artifacts and tested from an older build to a newer build.
+Do not advertise one-click automatic updates until that endpoint is populated from signed release artifacts and tested from an older build to a newer build.
+
+GitHub Releases host the installer files and the two small static JSON feeds: `update-manifest.json` for the in-app changelog/download prompt, and `latest.json` for Tauri updater installation. The `releases/latest/download` endpoint is suitable for the stable public channel; beta/prerelease channels should use a dedicated endpoint or override `YANSILU_UPDATE_MANIFEST_URL`.
 
 ## References
 

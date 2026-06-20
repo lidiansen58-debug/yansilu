@@ -74,6 +74,11 @@ import {
 import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
 import { seedSmartNotesProductThinking } from "../../../scripts/seed-smart-notes-product-thinking.mjs";
 import {
+  checkForAppUpdate,
+  readPackageVersion,
+  resolveUpdateManifestUrl
+} from "../../../packages/app-update/src/index.mjs";
+import {
   aiInboxItemToCanonical,
   createSqliteAiPreferencesStore,
   createSqliteAiProviderConfigStore,
@@ -134,6 +139,7 @@ const WEB_PORT = Number(process.env.WEB_PORT || 5173);
 const PROTOTYPE_URL = String(process.env.PROTOTYPE_URL || `http://127.0.0.1:${WEB_PORT}/prototype`);
 const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${WEB_PORT}`);
 const CWD = process.cwd();
+const PACKAGE_JSON_PATH = path.join(CWD, "package.json");
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
 const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures", "knowledge-network", "yijing-network.json");
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
@@ -145,6 +151,7 @@ const OLLAMA_INSTALL_URL = "https://ollama.com/download";
 const DEFAULT_OLLAMA_GENERATE_TIMEOUT_MS = 60000;
 const MAX_OLLAMA_GENERATE_TIMEOUT_MS = 180000;
 const managedOllamaProcessIds = new Set();
+const APP_UPDATE_CHANNEL = String(process.env.YANSILU_UPDATE_CHANNEL || "beta").trim() || "beta";
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -158,6 +165,14 @@ let aiScheduledTaskStorePromise = null;
 let aiArtifactStorePromise = null;
 let aiSuggestionStorePromise = null;
 const potentialRelationAiCache = new PotentialRelationAiCache();
+let appVersionPromise = null;
+
+async function currentAppVersion() {
+  if (!appVersionPromise) {
+    appVersionPromise = readPackageVersion(PACKAGE_JSON_PATH).catch(() => "0.0.0");
+  }
+  return appVersionPromise;
+}
 
 async function aiPreferencesStore() {
   if (!aiPreferencesStorePromise) {
@@ -3672,6 +3687,41 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/health") {
       return sendJson(res, 200, { ok: true, service: "api", requestId: rid, vaultPath: VAULT_PATH, time: new Date().toISOString() });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/app/version") {
+      const version = await currentAppVersion();
+      const manifestUrl = resolveUpdateManifestUrl(process.env);
+      return sendJson(res, 200, {
+        item: {
+          name: "yansilu",
+          version,
+          channel: APP_UPDATE_CHANNEL,
+          manifestUrl,
+          updateStatus: manifestUrl ? "idle" : "disabled",
+          updateCheckIntervalHours: 24
+        },
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/app/updates/check") {
+      const body = await readJson(req).catch(() => ({}));
+      const version = await currentAppVersion();
+      const configuredManifestUrl = resolveUpdateManifestUrl(process.env);
+      const requestedManifestUrl = String(body.manifestUrl || body.manifest_url || "").trim();
+      const allowManifestOverride = ["1", "true", "yes", "on"].includes(String(process.env.YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE || "").trim().toLowerCase());
+      const manifestUrl = allowManifestOverride && requestedManifestUrl ? requestedManifestUrl : configuredManifestUrl;
+      const result = await checkForAppUpdate({
+        currentVersion: version,
+        manifestUrl
+      });
+      return sendJson(res, 200, {
+        item: result,
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/auth/start") {

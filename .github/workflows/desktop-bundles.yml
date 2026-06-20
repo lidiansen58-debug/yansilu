@@ -30,10 +30,13 @@ jobs:
               - '.github/workflows/desktop-bundles.yml'
               - '.github/workflows/desktop-release.yml'
               - 'apps/desktop/**'
+              - 'packages/app-update/**'
               - 'package.json'
               - 'package-lock.json'
               - 'scripts/build-desktop.mjs'
+              - 'scripts/collect-release-assets.mjs'
               - 'scripts/desktop-*.mjs'
+              - 'scripts/generate-update-manifest.mjs'
 
   preflight:
     if: github.event_name == 'pull_request'
@@ -88,7 +91,10 @@ jobs:
             artifact_name: yansilu-linux-bundles
           - os: macos-latest
             bundle_env: app,dmg
-            artifact_name: yansilu-macos-bundles
+            artifact_name: yansilu-macos-arm64-bundles
+          - os: macos-15-intel
+            bundle_env: app,dmg
+            artifact_name: yansilu-macos-intel-bundles
 
     runs-on: ${{ matrix.os }}
 
@@ -125,6 +131,20 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Require Tauri updater signing secrets
+        if: github.event_name == 'workflow_dispatch' && inputs.updater_artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for signed updater artifacts."
+            exit 1
+          fi
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY_PASSWORD is required for signed updater artifacts."
+            exit 1
+          fi
+
       - name: Desktop preflight
         run: npm run build:desktop:check
 
@@ -138,4 +158,46 @@ jobs:
           path: |
             apps/desktop/src-tauri/target/release/bundle/**
             !apps/desktop/src-tauri/target/release/bundle/**/*.dSYM/**
+          if-no-files-found: error
+
+  release-rehearsal:
+    needs: build
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.updater_artifacts && needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Download desktop bundle artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+
+      - name: Prepare rehearsal release assets and update feeds
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v${{ github.run_number }}-rehearsal"
+          node ./scripts/collect-release-assets.mjs --dist dist --out release-assets
+          npm run release:update-manifest -- \
+            --bundle-manifest release-assets/bundle-manifest.json \
+            --out release-assets/update-manifest.json \
+            --tauri-out release-assets/latest.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$tag" \
+            --changelog "Signed desktop release rehearsal for ${GITHUB_SHA}."
+          test -f release-assets/update-manifest.json
+          test -f release-assets/latest.json
+
+      - name: Upload rehearsal release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: yansilu-release-rehearsal-assets
+          path: release-assets/**
           if-no-files-found: error

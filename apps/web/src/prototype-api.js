@@ -83,6 +83,20 @@ export async function fetchVaultInfo() {
   return json.item || null;
 }
 
+export async function fetchAppVersion() {
+  const json = await request("/api/v1/app/version");
+  return json.item || null;
+}
+
+export async function checkAppUpdate(payload = {}) {
+  const json = await request("/api/v1/app/updates/check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function fetchAiPreferences() {
   const json = await request("/api/v1/ai/preferences");
   return json.item || null;
