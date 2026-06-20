@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { renderImportToolbarPanel } from "../../apps/web/src/import-toolbar-panel.js";
 
@@ -27,11 +28,13 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.doesNotMatch(html, /普通导入只需要填写来源仓库和导入位置/);
   assert.doesNotMatch(html, /当前任务/);
   assert.match(html, /来源仓库/);
-  assert.match(html, /导入到/);
+  assert.match(html, /默认保存到/);
+  assert.match(html, /默认选永久笔记目录；导入时仍会按笔记类型放入对应盒子。/);
   assert.match(html, /兼容设置（通常不用填）/);
   assert.match(html, /覆盖请求（可选）/);
   assert.match(html, /兼容规则（可选）/);
   assert.match(html, /detectWikilinks/);
+  assert.match(html, /\[\[关联标题\]\]/);
   assert.match(html, /id="importDirectoryId"/);
   assert.match(html, /文献笔记目录/);
   assert.match(html, /永久笔记目录 \/ 写作方法/);
@@ -54,4 +57,34 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.doesNotMatch(html, /id="btnImportCancel"/);
   assert.doesNotMatch(html, /id="btnImportRefresh"/);
   assert.doesNotMatch(html, /id="btnImportRollback"/);
+});
+
+test("import toolbar panel falls back to permanent note directory when directory options are not ready", () => {
+  const html = renderImportToolbarPanel({
+    connector: "obsidian",
+    directoryOptions: []
+  });
+
+  assert.match(html, /<option value="dir_original_default">永久笔记目录<\/option>/);
+  assert.doesNotMatch(html, /<option value="dir_literature_default">文献笔记目录<\/option>/);
+});
+
+test("prototype import directory preference keeps permanent notes as the default landing choice", () => {
+  const source = readFileSync(new URL("../../apps/web/src/prototype-app.js", import.meta.url), "utf8");
+
+  assert.match(
+    source,
+    /return options\.some\(\(folder\) => folder\.id === "dir_original_default"\) \? "dir_original_default" : options\[0\]\?\.id \|\| "";/,
+    "expected import defaults to prefer the permanent note directory"
+  );
+  assert.match(
+    source,
+    /rootBoxIdFromFolder\(state, selectedFolderId\) === "dir_original_default"/,
+    "expected import to inherit only selected permanent-note directories"
+  );
+  assert.doesNotMatch(
+    source,
+    /if \(options\.some\(\(folder\) => folder\.id === selectedFolderId\)\) return selectedFolderId;/,
+    "import should not inherit literature or fleeting selection as its default"
+  );
 });

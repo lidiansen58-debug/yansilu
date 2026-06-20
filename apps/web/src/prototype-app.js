@@ -7247,8 +7247,8 @@ function preferredImportDirectoryId(currentValue = "") {
   const cleanCurrentValue = String(currentValue || "").trim();
   if (options.some((folder) => folder.id === cleanCurrentValue)) return cleanCurrentValue;
   const selectedFolderId = String(state.selectedFolderId || "").trim();
-  if (options.some((folder) => folder.id === selectedFolderId)) return selectedFolderId;
-  return options.some((folder) => folder.id === "dir_literature_default") ? "dir_literature_default" : options[0]?.id || "";
+  if (rootBoxIdFromFolder(state, selectedFolderId) === "dir_original_default" && options.some((folder) => folder.id === selectedFolderId)) return selectedFolderId;
+  return options.some((folder) => folder.id === "dir_original_default") ? "dir_original_default" : options[0]?.id || "";
 }
 
 function confirmedImportTargetDirectoryId(result = {}, fallbackDirectoryId = "") {

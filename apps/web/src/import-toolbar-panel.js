@@ -12,7 +12,7 @@ function escapeHtml(value) {
 function renderDirectoryOptions(options = [], selectedValue = "") {
   const items = Array.isArray(options) && options.length
     ? options
-    : [{ value: "dir_literature_default", label: "文献笔记目录" }];
+    : [{ value: "dir_original_default", label: "永久笔记目录" }];
   return items
     .map((option) => `<option value="${escapeHtml(option.value)}"${option.value === selectedValue ? " selected" : ""}>${escapeHtml(option.label)}</option>`)
     .join("");
@@ -43,11 +43,11 @@ export function renderImportToolbarPanel(input = {}) {
           <div class="import-field-help">例如：<code>E:/Notes/My Obsidian Vault</code>。支持中文和空格路径。</div>
         </section>
         <section class="import-field-panel">
-          <label class="import-field-label" for="importDirectoryId">导入到</label>
+          <label class="import-field-label" for="importDirectoryId">默认保存到</label>
           <select id="importDirectoryId">
             ${renderDirectoryOptions(model.directoryOptions, model.directoryId)}
           </select>
-          <div class="import-field-help">导入后的默认落点目录。</div>
+          <div class="import-field-help">默认选永久笔记目录；导入时仍会按笔记类型放入对应盒子。</div>
         </section>
       </div>
       <details class="import-compat-details">
@@ -61,7 +61,7 @@ export function renderImportToolbarPanel(input = {}) {
           <section class="import-field-panel">
             <label class="import-field-label" for="importOptions">兼容规则（可选）</label>
             <textarea id="importOptions" style="min-height:112px;" placeholder='例如：{"detectWikilinks":true}'>${escapeHtml(model.options)}</textarea>
-            <div class="import-field-help">控制导入时如何处理链接等内容。Obsidian 常见例子：<code>{"detectWikilinks":true}</code>。</div>
+            <div class="import-field-help">开启 <code>detectWikilinks</code> 后，<code>[[关联标题]]</code> 会先作为关联线索匹配；确认导入后再写入可追踪关系。</div>
           </section>
         </div>
       </details>
