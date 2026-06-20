@@ -10,6 +10,7 @@ test("prototype shell loads extracted stylesheet with relative route-safe path",
 
   assert.match(html, /<link rel="stylesheet" href="\.\/vendor\/toastui-editor\.css" \/>/);
   assert.match(html, /<link rel="stylesheet" href="\.\/prototype\.css" \/>/);
+  assert.match(await readPrototypeCssSource(), /@import "\.\/prototype-update\.css";/);
   assert.doesNotMatch(html, /<style>[\s\S]*\.app\s*\{/);
 });
 

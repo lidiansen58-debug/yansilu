@@ -123,6 +123,10 @@ import {
   systemMessageSubjectText
 } from "./prototype-system-messages.js";
 import {
+  createRecordPermanentWorkflowOpener,
+  createSystemMessageWorkflowOpener
+} from "./prototype-system-message-workflow.js";
+import {
   aiInboxDecisionFailedStatusMessage,
   aiInboxDecisionSucceededStatusMessage,
   aiInboxFieldSuggestionDraftAlreadyAppliedNotice,
@@ -19133,169 +19137,42 @@ function openNoteRelationEditor(noteId = "", options = {}) {
   return true;
 }
 
-async function openRecordPermanentWorkflowFromCurrentNote(options = {}) {
-  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(0, options.timeoutMs) : 600;
-  const intervalMs = Number.isFinite(options.intervalMs) ? Math.max(10, options.intervalMs) : 50;
-  const startedAt = Date.now();
-  while (Date.now() - startedAt <= timeoutMs) {
-    const button = editor?.els?.recordPermanent;
-    if (button && !button.disabled) {
-      button.click?.();
-      return true;
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
-  }
-  setStatus("当前笔记暂时不能创建永久笔记", "warn", { requireModule: "explorer" });
-  return false;
-}
+const openRecordPermanentWorkflowFromCurrentNote = createRecordPermanentWorkflowOpener({
+  getRecordPermanentButton: () => editor?.els?.recordPermanent,
+  setStatus,
+  setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+  now: () => Date.now()
+});
 
-function graphWorkflowSelectionForNote(noteId = "", route = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return null;
-  const requestedKind = String(route.graphSelectionKind || route.selectionKind || "").trim().toLowerCase();
-  const edges = Array.isArray(graphState.item?.edges) ? graphState.item.edges : [];
-  const hasDirectEdge = edges.some(
-    (edge) => String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId
-  );
-  if (requestedKind === "isolated" && !hasDirectEdge) return { kind: "isolated", noteId: cleanNoteId };
-  if (requestedKind === "node" || hasDirectEdge) return { kind: "node", nodeId: cleanNoteId };
-  return { kind: "isolated", noteId: cleanNoteId };
-}
-
-function normalizeSystemMessageNoteTitle(value = "") {
-  return String(value || "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function systemMessageWorkflowNoteTitles(message = {}) {
-  const titles = [];
-  const pushTitle = (value = "") => {
-    const title = normalizeSystemMessageNoteTitle(value);
-    if (title && !titles.includes(title)) titles.push(title);
-  };
-  pushTitle(String(message.body || "").match(/“([^”]+)”/)?.[1] || "");
-  if (typeof systemMessageSubjectText === "function") pushTitle(systemMessageSubjectText(message, state.notes));
-  const title = String(message.title || "").trim();
-  pushTitle(
-    title.replace(
-      /\s*(还没有进入图谱|发现了潜在关联|产生了待确认建议|需要处理|待关联|待确认)\s*$/u,
-      ""
-    )
-  );
-  return titles;
-}
-
-async function resolveSystemMessageWorkflowNoteId(message = {}) {
-  const requestedIds = [
-    message.noteId,
-    message.sourceNoteId,
-    message.targetNoteId
-  ].map((id) => String(id || "").trim()).filter(Boolean);
-  for (const noteId of requestedIds) {
-    if (!state.notes.some((note) => note.id === noteId)) await ensureNotesLoaded([noteId]);
-    if (state.notes.some((note) => note.id === noteId)) return noteId;
-  }
-
-  const titleCandidates = systemMessageWorkflowNoteTitles(message);
-  for (const title of titleCandidates) {
-    const loaded = state.notes.find((note) => normalizeSystemMessageNoteTitle(note?.title) === title);
-    if (loaded?.id) return String(loaded.id);
-  }
-
-  if (typeof searchNotes !== "function") return "";
-  for (const title of titleCandidates) {
-    try {
-      const result = await searchNotes({ query: title, limit: 8 });
-      const items = Array.isArray(result?.items) ? result.items : [];
-      const match = items.find((item) => normalizeSystemMessageNoteTitle(item?.title) === title) || items[0] || null;
-      const noteId = String(match?.id || "").trim();
-      if (!noteId) continue;
-      const mapped = typeof mapNoteItem === "function" ? mapNoteItem(match) : match;
-      if (mapped?.id) state.notes = [mapped, ...state.notes.filter((note) => note.id !== mapped.id)];
-      await ensureNotesLoaded([noteId]);
-      if (state.notes.some((note) => note.id === noteId)) return noteId;
-    } catch {}
-  }
-  return "";
-}
-
-async function openSystemMessageWorkflow(message = {}) {
-  const route = message.workflowRoute && typeof message.workflowRoute === "object" ? message.workflowRoute : {};
-  const focus = String(route.focus || "").trim();
-  if (focus === "writing") {
-    closeSystemMessages();
-    const indexCardId = String(route.indexCardId || "").trim();
-    const basketNoteIds = String(route.basketNoteIds || "")
-      .split(",")
-      .map((id) => String(id || "").trim())
-      .filter(Boolean);
-    if (!indexCardId && !basketNoteIds.length) return false;
-    try {
-      if (indexCardId) {
-        const selected = await selectWritingThemeIndex(indexCardId);
-        if (!selected?.id) throw new Error("theme index not found");
-      } else if (basketNoteIds.length) {
-        await ensureNotesLoaded(basketNoteIds);
-        const writingEligibleIds = basketNoteIds.filter((id) => isWritingEligibleNote(writingKnownNoteById(id)));
-        if (writingEligibleIds.length >= 2) {
-          continueWritingEntry(writingEligibleIds, {
-            title: suggestedWritingProjectTitle(writingEligibleIds),
-            source: route.source || "system-message-theme"
-          });
-        }
-      }
-      await openWritingModule({ statusMessage: "已打开主题笔记入口", preserveFocusedCandidateScope: true });
-      if (indexCardId) {
-        const selected = await selectWritingThemeIndex(indexCardId);
-        if (!selected?.id) throw new Error("theme index not found");
-      }
-      return true;
-    } catch (error) {
-      setStatus(`打开主题笔记失败：${String(error?.message || error)}`, "warn");
-      return false;
-    }
-  }
-  const noteId = await resolveSystemMessageWorkflowNoteId(message);
-  if (!noteId) return false;
-  if (focus === "graph") {
-    closeSystemMessages();
-    const opened = await handleStateChange("open-note-main-route", {
-      noteId,
-      action: "graph"
-    });
-    if (opened) {
-      graphState.selection = graphWorkflowSelectionForNote(noteId, route);
-      renderGraphPanel();
-    }
-    return Boolean(opened);
-  }
-  if (focus === "relations") {
-    closeSystemMessages();
-    return openNoteRelationEditor(noteId, { source: route.source || "system-message" });
-  }
-  if (focus === "boundary") {
-    closeSystemMessages();
-    return openGraphFollowupNote(noteId, "isolate-hold", { source: route.source || "system-message" });
-  }
-  if (focus === "distillation") {
-    closeSystemMessages();
-    const opened = await handleStateChange("open-note-main-route", {
-      noteId,
-      action: "writing",
-      mode: route.mode || "distillation"
-    });
-    return Boolean(opened);
-  }
-  closeSystemMessages();
-  activateModule("explorer");
-  const opened = openNoteById(noteId, { preferTitleSelection: false });
-  if (!opened) return false;
-  if (focus === "record-permanent") {
-    return openRecordPermanentWorkflowFromCurrentNote();
-  }
-  return true;
-}
+const openSystemMessageWorkflow = createSystemMessageWorkflowOpener({
+  getNotes: () => state.notes,
+  setNotes: (notes) => {
+    state.notes = Array.isArray(notes) ? notes : state.notes;
+  },
+  ensureNotesLoaded,
+  searchNotes,
+  mapNoteItem,
+  systemMessageSubjectText,
+  closeSystemMessages,
+  selectWritingThemeIndex,
+  isWritingEligibleNote,
+  writingKnownNoteById,
+  continueWritingEntry,
+  suggestedWritingProjectTitle,
+  openWritingModule,
+  setStatus,
+  handleStateChange,
+  getGraphEdges: () => graphState.item?.edges,
+  setGraphSelection: (selection) => {
+    graphState.selection = selection;
+  },
+  renderGraphPanel,
+  openNoteRelationEditor,
+  openGraphFollowupNote,
+  activateModule,
+  openNoteById,
+  openRecordPermanentWorkflowFromCurrentNote
+});
 
 function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   const cleanNoteId = String(noteId || "").trim();

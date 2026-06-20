@@ -2,22 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import {
+  createRecordPermanentWorkflowOpener,
+  createSystemMessageWorkflowOpener
+} from "../../apps/web/src/prototype-system-message-workflow.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 
 function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
-}
-
-function workflowOpenerSource() {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("async function openRecordPermanentWorkflowFromCurrentNote");
-  const end = source.indexOf("function openGraphFollowupNote", start);
-  assert.ok(start >= 0 && end > start, "expected workflow opener helpers to exist");
-  return source.slice(start, end);
 }
 
 function createWorkflowOpenerContext(overrides = {}) {
@@ -54,7 +49,41 @@ function createWorkflowOpenerContext(overrides = {}) {
     setStatus: (message, type, options) => statuses.push({ message, type, options }),
     ...overrides
   };
-  const openWorkflow = vm.runInNewContext(`${workflowOpenerSource()}\nopenSystemMessageWorkflow;`, context);
+  const openRecordPermanentWorkflowFromCurrentNote = createRecordPermanentWorkflowOpener({
+    getRecordPermanentButton: () => context.editor?.els?.recordPermanent,
+    setStatus: context.setStatus,
+    setTimeout: (callback, delay) => context.window.setTimeout(callback, delay),
+    now: () => context.Date.now()
+  });
+  const openWorkflow = createSystemMessageWorkflowOpener({
+    getNotes: () => context.state.notes,
+    setNotes: (notes) => {
+      context.state.notes = Array.isArray(notes) ? notes : context.state.notes;
+    },
+    ensureNotesLoaded: context.ensureNotesLoaded,
+    searchNotes: context.searchNotes,
+    mapNoteItem: context.mapNoteItem,
+    systemMessageSubjectText: context.systemMessageSubjectText,
+    closeSystemMessages: context.closeSystemMessages,
+    selectWritingThemeIndex: context.selectWritingThemeIndex,
+    isWritingEligibleNote: context.isWritingEligibleNote,
+    writingKnownNoteById: context.writingKnownNoteById,
+    continueWritingEntry: context.continueWritingEntry,
+    suggestedWritingProjectTitle: context.suggestedWritingProjectTitle,
+    openWritingModule: context.openWritingModule,
+    setStatus: context.setStatus,
+    handleStateChange: context.handleStateChange,
+    getGraphEdges: () => context.graphState.item?.edges,
+    setGraphSelection: (selection) => {
+      context.graphState.selection = selection;
+    },
+    renderGraphPanel: context.renderGraphPanel,
+    openNoteRelationEditor: context.openNoteRelationEditor,
+    openGraphFollowupNote: context.openGraphFollowupNote,
+    activateModule: context.activateModule,
+    openNoteById: context.openNoteById,
+    openRecordPermanentWorkflowFromCurrentNote
+  });
   return { openWorkflow, context, calls, statuses };
 }
 
@@ -134,12 +163,12 @@ test("save-after source-note reminders are mirrored into system messages", () =>
 });
 
 test("workflow system message actions open the precise note follow-up route", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("async function openSystemMessageWorkflow(message = {}) {");
-  const end = source.indexOf("function openGraphFollowupNote", start);
+  const source = readRepoFile("apps/web/src/prototype-system-message-workflow.js");
+  const appSource = readRepoFile("apps/web/src/prototype-app.js");
+  const start = source.indexOf("return async function openSystemMessageWorkflow(message = {}) {");
 
-  assert.ok(start >= 0 && end > start, "expected openSystemMessageWorkflow() to exist");
-  const helper = source.slice(start, end);
+  assert.ok(start >= 0, "expected openSystemMessageWorkflow() to exist");
+  const helper = source.slice(start);
 
   assert.match(helper, /focus === "relations"/);
   assert.match(helper, /openNoteRelationEditor\(noteId, \{ source: route\.source \|\| "system-message" \}\)/);
@@ -151,16 +180,16 @@ test("workflow system message actions open the precise note follow-up route", ()
   assert.match(helper, /return Boolean\(opened\)/);
   assert.match(helper, /focus === "graph"/);
   assert.match(helper, /action: "graph"/);
-  assert.match(helper, /graphWorkflowSelectionForNote\(noteId, route\)/);
+  assert.match(helper, /graphWorkflowSelectionForNote\(noteId, route, getGraphEdges\(\)\)/);
   assert.match(helper, /focus === "writing"/);
   assert.match(helper, /await selectWritingThemeIndex\(indexCardId\)/);
   assert.match(helper, /await openWritingModule\(\{ statusMessage: ".*?", preserveFocusedCandidateScope: true \}\)/);
   assert.match(helper, /focus === "record-permanent"/);
   assert.match(helper, /return openRecordPermanentWorkflowFromCurrentNote\(\)/);
 
-  const modalStart = source.indexOf('$("systemMessageModal")?.addEventListener("click"');
-  const modalEnd = source.indexOf('$("distillationPanel")?.addEventListener', modalStart);
-  const modalHandler = source.slice(modalStart, modalEnd);
+  const modalStart = appSource.indexOf('$("systemMessageModal")?.addEventListener("click"');
+  const modalEnd = appSource.indexOf('$("distillationPanel")?.addEventListener', modalStart);
+  const modalHandler = appSource.slice(modalStart, modalEnd);
   assert.match(modalHandler, /action === "open-note-workflow"/);
   assert.match(modalHandler, /await openSystemMessageWorkflow\(message \|\| \{\}\)/);
 });

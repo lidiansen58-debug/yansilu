@@ -6,7 +6,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 
 async function readRepoText(...segments) {
-  return fs.readFile(path.join(REPO_ROOT, ...segments), "utf8");
+  const source = await fs.readFile(path.join(REPO_ROOT, ...segments), "utf8");
+  return source.replace(/\r\n/g, "\n");
 }
 
 export function readWritingEngineSource() {
@@ -22,7 +23,16 @@ export function readPrototypeHtmlSource() {
 }
 
 export function readPrototypeCssSource() {
-  return readRepoText("apps", "web", "src", "prototype.css");
+  return readPrototypeCssBundleSource();
+}
+
+async function readPrototypeCssBundleSource() {
+  const entry = await readRepoText("apps", "web", "src", "prototype.css");
+  const imported = await Promise.all(
+    [...entry.matchAll(/@import\s+["']\.\/([^"']+\.css)["'];/g)]
+      .map((match) => readRepoText("apps", "web", "src", match[1]))
+  );
+  return [entry, ...imported].join("\n");
 }
 
 export function readPrototypeWritingWorkspaceSource() {
@@ -32,6 +42,7 @@ export function readPrototypeWritingWorkspaceSource() {
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
+    "editor-autosave-drafts.js",
     "editor-dirty-state.js",
     "editor-link-picker.js",
     "editor-markdown-commands.js",
