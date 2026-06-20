@@ -72,6 +72,17 @@ export function shouldAutoCheckForUpdates(state = {}, options = {}) {
   return nowMs - checkedAt >= intervalMs;
 }
 
+export function shouldShowUpdateAttention(state = {}, options = {}) {
+  const update = { ...createUpdateState(), ...(state || {}) };
+  const latestVersion = cleanText(update.latestVersion || update.manifest?.version);
+  if (update.status !== UPDATE_STATUS.UPDATE_AVAILABLE || !latestVersion) return false;
+  if (cleanText(update.ignoredVersion) === latestVersion) return false;
+  const nowMs = Number(options.nowMs ?? Date.now());
+  const remindAfter = Date.parse(update.remindAfter || "");
+  if (Number.isFinite(remindAfter) && remindAfter > nowMs) return false;
+  return true;
+}
+
 export function updateStateFromVersionInfo(state = {}, versionInfo = {}) {
   const next = { ...createUpdateState(), ...state };
   next.currentVersion = cleanText(versionInfo.version || versionInfo.currentVersion || next.currentVersion);

@@ -11,7 +11,7 @@ test("settings rail shows a restrained update indicator when an update is availa
   const appSource = await fs.readFile(path.join(repoRoot, "apps", "web", "src", "prototype-app.js"), "utf8");
   const htmlSource = await fs.readFile(path.join(repoRoot, "apps", "web", "src", "prototype.html"), "utf8");
 
-  assert.match(appSource, /settingsState\.update\?\.status === UPDATE_STATUS\.UPDATE_AVAILABLE/);
+  assert.match(appSource, /shouldShowUpdateAttention\(settingsState\.update\)/);
   assert.match(appSource, /button\.classList\.toggle\("has-update", updateAvailable\)/);
   assert.match(appSource, /\u8bbe\u7f6e \u00b7 \u6709\u65b0\u7248\u672c/);
   assert.match(htmlSource, /\.rail-btn\.has-update::before/);

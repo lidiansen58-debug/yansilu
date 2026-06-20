@@ -180,6 +180,7 @@ import {
   createUpdateState,
   normalizeUpdateSettings,
   shouldAutoCheckForUpdates,
+  shouldShowUpdateAttention,
   updateStateAutoCheckEnabled,
   updateStateChecking,
   updateStateDownloaded,
@@ -7894,7 +7895,7 @@ function explorerQuickAction(rootId = state.browserRootId) {
 function syncRailSelectionState() {
   const currentQuickAction = explorerQuickAction();
   const explorerActive = state.module === "explorer";
-  const updateAvailable = settingsState.update?.status === UPDATE_STATUS.UPDATE_AVAILABLE;
+  const updateAvailable = shouldShowUpdateAttention(settingsState.update);
   document.querySelectorAll(".quick-entry").forEach((entry) => {
     const isCurrentRoot = entry.dataset.action === currentQuickAction;
     entry.classList.toggle("current-root", explorerActive && isCurrentRoot);

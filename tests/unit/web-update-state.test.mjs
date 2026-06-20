@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   createUpdateState,
   shouldAutoCheckForUpdates,
+  shouldShowUpdateAttention,
   updateStateAutoCheckEnabled,
   updateStateChecking,
   updateStateDownloaded,
@@ -85,13 +86,18 @@ test("web update state suppresses ignored versions during automatic checks", () 
 
 test("web update state can remind later", () => {
   const nowMs = Date.parse("2026-06-20T00:00:00.000Z");
-  const state = updateStateRemindLater(createUpdateState(), {
+  const state = updateStateRemindLater(createUpdateState({
+    status: "update-available",
+    latestVersion: "0.1.2"
+  }), {
     nowMs,
     delayMs: 2 * 60 * 60 * 1000
   });
 
   assert.equal(state.remindAfter, "2026-06-20T02:00:00.000Z");
   assert.equal(shouldAutoCheckForUpdates(state, { nowMs: Date.parse("2026-06-20T01:00:00.000Z") }), false);
+  assert.equal(shouldShowUpdateAttention(state, { nowMs: Date.parse("2026-06-20T01:00:00.000Z") }), false);
+  assert.equal(shouldShowUpdateAttention(state, { nowMs: Date.parse("2026-06-20T03:00:00.000Z") }), true);
 });
 
 test("web update state records ignored latest version", () => {
@@ -101,6 +107,7 @@ test("web update state records ignored latest version", () => {
   }));
 
   assert.equal(state.ignoredVersion, "0.1.2");
+  assert.equal(shouldShowUpdateAttention(state), false);
 });
 
 test("web update state tracks desktop install progress and restart readiness", () => {
