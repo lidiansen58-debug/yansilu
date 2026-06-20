@@ -1,6 +1,6 @@
 # Yansilu v0.1.1-beta.1 Release Status
 
-Updated: 2026-06-17
+Updated: 2026-06-20
 
 ## Release Target
 
@@ -12,7 +12,7 @@ This candidate supersedes the older local v0.1.0 RC artifact and the 2026-05-14 
 
 - Branch: `main`
 - Remote: `origin/main`
-- Commit: `0615484 feat: add local ai bootstrap mvp`
+- Commit: `464cb82 test potential relation batch timeout routing`
 - Version: `0.1.1-beta.1`
 - Release tag to use after manual sign-off: `v0.1.1-beta.1`
 
@@ -25,7 +25,7 @@ This candidate supersedes the older local v0.1.0 RC artifact and the 2026-05-14 
 - Bundle checksum file: `bundle-manifest.sha256.txt`
 - SHA-256: `0AD39A6B4AECE84A7A09CD5FC0B91CC148FC6657D2FF626CE1818CCDDC3555C0`
 
-Important: this archived installer was built from `513ee26`, before `feat/local-ai-bootstrap` was merged. Rebuild the Windows installer from `0615484` before sharing this beta.
+Important: this archived installer was built from `513ee26`, before the local AI bootstrap and the later graph-relation workflow polish were merged. Rebuild the Windows installer from `464cb82` or later before sharing this beta.
 
 Note: the current manifest checksum file still records the NSIS filename with a mojibake display string from the build manifest generator. The copied artifact filename and installed application path were verified with the correct Chinese name.
 
@@ -35,15 +35,17 @@ Note: the current manifest checksum file still records the NSIS filename with a 
 
 - Isolated permanent notes are now treated as first-class cleanup work instead of passive warnings.
 - The graph and permanent note box use clearer isolated-note states and direct relation actions.
-- Users can start from an isolated note, ask for possible connections, review candidate reasons, confirm a relationship, and see the note leave the isolated state.
+- Users can start from an isolated note, ask for possible connections, choose an AI-recommended or manually searched target, enter the relation type and reason, save the relationship, and see the note leave the isolated state.
 - Existing draft relationships are counted as network participation, while dismissed or archived historical candidates do not block rediscovery.
 - Relation creation remains user-confirmed; AI and rules only produce potential links, not automatic formal relationships.
+- The graph relation workflow code has been split into smaller modules for AI candidates, isolated queues, relation forms, drafts, confirmation, local relation matching, and save flow, reducing the blast radius of future UI changes.
 
 ### AI-Assisted Relation Suggestions
 
 - Potential relation discovery now follows a conservative local algorithm: rule-based candidate screening first, AI refinement second, user confirmation last.
 - Focused scans keep the current note as the source when `noteId` and scan options are both supplied.
 - AI refinement uses the active AI provider settings, so local Ollama and configured remote providers follow the same routing contract.
+- Potential relation refinement now covers both the default 60-second single-candidate timeout and the batch timeout path used by review-sized candidate batches.
 - Cached AI judgments are invalidated when note content or provider identity changes.
 - Timeout and parse failures leave rule-based candidates available instead of blocking the UI.
 - Local AI bootstrap now exposes local model catalog and runtime control support so users can check local setup readiness before running AI-heavy note analysis.
@@ -87,6 +89,36 @@ Note: the current manifest checksum file still records the NSIS filename with a 
 - Graph closeout browser regression passed:
   - `npm run test:e2e:browser:relations-graph-closeout`
   - Result: `6/6` passed.
+- 2026-06-20 core workflow regression passed on `464cb82`:
+  - Graph + link picker + relation creation:
+    - `node --test tests\unit\web-graph-*.test.mjs tests\unit\web-link-picker-insert-behavior.test.mjs tests\unit\web-relation-create-type-options.test.mjs tests\unit\web-main-path-isolated-relation-action.test.mjs`
+    - Result: `180/180` passed.
+  - Editor core:
+    - `node --test tests\unit\web-editor-*.test.mjs tests\unit\web-source-note-editor-gating.test.mjs tests\unit\web-note-embedded-ai-workspace.test.mjs tests\unit\web-selection-ai-action.test.mjs`
+    - Result: `69/69` passed.
+  - AI suggestions and AI inbox runtime:
+    - `node --test tests\unit\ai-suggestions.test.mjs tests\unit\web-ai-suggestions-model.test.mjs tests\unit\web-ai-suggestions-panel.test.mjs tests\unit\web-ai-suggestions-runtime.test.mjs tests\unit\web-ai-inbox-model.test.mjs tests\unit\web-ai-inbox-panel.test.mjs tests\unit\web-ai-inbox-actions-runtime.test.mjs tests\unit\web-ai-inbox-stale-state-runtime.test.mjs tests\unit\web-save-ai-suggestion.test.mjs tests\unit\api-ai-accept-link-runtime.test.mjs tests\unit\api-ai-field-adoption-runtime.test.mjs tests\unit\api-ai-promote-note-runtime.test.mjs tests\unit\api-ai-suggestion-reject-runtime.test.mjs`
+    - Result: `164/164` passed.
+  - AI suggestions canonical integration:
+    - `node --test tests\integration\api-ai-suggestions-canonical.test.mjs tests\integration\api-ai-suggestion-reject-consistency.test.mjs tests\integration\api-ai-canonical-contract.test.mjs tests\integration\api-ai-field-adoption-rollback.test.mjs tests\integration\sqlite-suggestion-store.test.mjs`
+    - Result: `8/8` passed.
+  - Potential relation refine, routing, and algorithm:
+    - `node --test tests\integration\api-potential-relations-refine.test.mjs tests\unit\api-potential-relations-routing.test.mjs tests\unit\potential-relations.test.mjs`
+    - Result: `37/37` passed.
+  - Browser graph closeout smoke:
+    - `RUN_BROWSER_E2E=1 npm.cmd run test:e2e:browser:relations-graph-closeout`
+    - Result: `6/6` passed.
+- 2026-06-20 release-readiness checks passed after updating this status document:
+  - Review-first core regression:
+    - `npm.cmd run test:review-first:core`
+    - Result: `164/164` passed.
+  - Obsidian import/export round-trip:
+    - `npm.cmd run accept:obsidian:all`
+    - Source vault: `tests\fixtures\imports\obsidian-realistic-vault`
+    - Imported: `2` source notes, `2` literature notes, `1` permanent note.
+    - Exported: `6` files, including `5` markdown files and `1` asset.
+    - Acceptance checks: `0` errors, `0` warnings.
+    - Round-trip status: `PASSED`.
 - AI inbox, isolated reminder, and potential relation targeted tests passed:
   - `npm test -- tests/unit/web-ai-inbox-panel.test.mjs tests/unit/web-ai-inbox-actions-runtime.test.mjs tests/unit/web-ai-inbox-stale-state-runtime.test.mjs tests/unit/web-main-path-isolated-action.test.mjs tests/unit/web-main-path-isolated-relation-action.test.mjs tests/unit/web-note-embedded-ai-workspace.test.mjs tests/unit/api-potential-relations-routing.test.mjs tests/integration/api-potential-relations-refine.test.mjs`
   - Result: `100/100` passed.
@@ -100,7 +132,7 @@ Note: the current manifest checksum file still records the NSIS filename with a 
   - Provider: `local_private_gateway`
   - Model: `qwen2.5:7b`
   - Output artifact type: `LinkSuggestion`
-- Repository was clean after validation.
+- Repository was clean after the `464cb82` push. The release status document was then updated to capture the latest regression and release-readiness results.
 
 ## Manual Walkthrough Notes
 
@@ -135,7 +167,7 @@ Issues found during manual walkthrough and follow-up status:
 
 ## Required Before Sharing
 
-Complete one manual walkthrough from the installed desktop app.
+Rebuild the installer from `464cb82` or later, then complete one manual walkthrough from the installed desktop app.
 
 The automated data-flow and browser regression coverage has passed. The browser walkthrough relation-picker issues were fixed and rechecked in the browser. The remaining sign-off is the human UI pass through the installed WebView, especially native Windows shell behavior:
 
