@@ -21353,6 +21353,12 @@ $("settingsMobileItemSelect")?.addEventListener("change", (event) => {
   setSettingsItem(event.target.value, { announce: true });
 });
 
+$("settingsPaneSupport")?.addEventListener("click", (event) => {
+  const supportItemButton = event.target.closest("[data-settings-support-item]");
+  if (!supportItemButton) return;
+  setSettingsItem(supportItemButton.getAttribute("data-settings-support-item"), { announce: true });
+});
+
 $("moduleSidebar")?.addEventListener("click", (event) => {
   if (state.module !== "settings") return;
   if (event.target.closest("#settingsSidebarBackToApp")) {
