@@ -159,7 +159,7 @@ jobs:
 
   release-rehearsal:
     needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.updater_artifacts
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.updater_artifacts && needs.build.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
