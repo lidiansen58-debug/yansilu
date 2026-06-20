@@ -59,9 +59,9 @@ function createWorkflowOpenerContext(overrides = {}) {
 }
 
 test("workflow system messages persist routing metadata and completion state", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("function normalizeSystemMessage(item = {}) {");
-  const end = source.indexOf("function readStoredSystemMessages()", start);
+  const source = readRepoFile("apps/web/src/prototype-system-messages.js");
+  const start = source.indexOf("export function normalizeSystemMessage(item = {}) {");
+  const end = source.indexOf("export function systemMessageActionLabel(message = {})", start);
 
   assert.ok(start >= 0 && end > start, "expected normalizeSystemMessage() to exist");
   const helper = source.slice(start, end);
@@ -77,9 +77,9 @@ test("workflow system messages persist routing metadata and completion state", (
 });
 
 test("completed workflow system messages no longer expose executable actions", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("function systemMessageActionLabel(message = {}) {");
-  const end = source.indexOf("function renderSystemMessages()", start);
+  const source = readRepoFile("apps/web/src/prototype-system-messages.js");
+  const start = source.indexOf("export function systemMessageActionLabel(message = {}) {");
+  const end = source.indexOf("export function systemMessagePreviewText(message = {})", start);
 
   assert.ok(start >= 0 && end > start, "expected systemMessageActionLabel() to exist");
   const helper = source.slice(start, end);

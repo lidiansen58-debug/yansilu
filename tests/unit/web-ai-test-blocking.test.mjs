@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  isBuiltInOllamaModel,
+  selectedLocalModelNameForInstalledModels
+} from "../../apps/web/src/prototype-ai-settings-controller.js";
 
 function extractFunctionSource(source, signature) {
   const start = source.indexOf(signature);
@@ -39,35 +43,29 @@ function loadAiTestBlockedReason(state) {
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
   const helperSource = [
-    extractFunctionSource(source, "function ollamaRecommendationForModel("),
-    extractFunctionSource(source, "function ollamaModelRecommendationProfiles("),
-    extractFunctionSource(source, "function isBuiltInOllamaModel("),
+    extractFunctionSource(source, "function currentOllamaModelTiers("),
     extractFunctionSource(source, "function installedLocalModelReady("),
     extractFunctionSource(source, "function aiTestBlockedReason(")
   ].join("\n");
   return new Function(
     "settingsState",
-    "OLLAMA_MODEL_RECOMMENDATIONS",
     "currentAiProviderId",
     "normalizeAiRuntimeMode",
     "isAiLocalFlowActive",
     "shouldUseOllamaLocalRuntime",
     "hasLocalModel",
+    "isBuiltInOllamaModel",
     "isRemoteConfigurableProviderId",
     "authModeForProvider",
     `${helperSource}\nreturn aiTestBlockedReason;`
   )(
     state,
-    [
-      { name: "qwen2.5:7b" },
-      { name: "qwen3:8b" },
-      { name: "qwen3.5:9b" }
-    ],
     () => state.ai.providerId || "",
     (value = "") => String(value || "auto").trim().toLowerCase().replace(/[\s/-]+/g, "_"),
     ({ runtimeMode, modelPack }) => ["local_only", "hybrid"].includes(runtimeMode) || ["Ollama Local", "Privacy First"].includes(modelPack),
     () => state.ai.useOllama !== false,
     (modelName = "") => (state.ai.localRuntimeModels || []).some((item) => String(item.name || item || "") === String(modelName || "")),
+    isBuiltInOllamaModel,
     (providerId = "") => providerId === "openai_compatible_gateway",
     () => state.ai.authMode || "workspace_managed"
   );
@@ -174,7 +172,7 @@ test("local AI setup keeps bootstrap behind explicit settings actions", () => {
   assert.match(appSource, /data-settings-ai-copy-command/);
   assert.match(appSource, /已复制模型下载命令/);
   assert.match(appSource, /window\.confirm\(`下载 \$\{modelNameToPull\}/);
-  assert.match(appSource, /const catalogNames = new Set\(ollamaModelRecommendationProfiles\(\)/);
+  assert.match(appSource, /const catalogNames = new Set\(ollamaModelRecommendationProfiles\(currentOllamaModelTiers\(\)\)/);
   assert.match(appSource, /这个模型不在研思录内置本地模型目录里/);
   assert.match(localRecommendationsSource, /recommendationsEl\.classList\.remove\("hidden"\)/);
   assert.match(localRecommendationsSource, /先启用本地模式，之后在这里下载、选择和试运行/);
@@ -207,31 +205,15 @@ test("Ollama preview replaces a stale selected local model with an installed rec
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const appSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
   const helperSource = [
-    extractFunctionSource(appSource, "function ollamaRecommendationForModel("),
-    extractFunctionSource(appSource, "function ollamaModelRecommendationProfiles("),
-    extractFunctionSource(appSource, "function preferredLocalModelName("),
-    extractFunctionSource(appSource, "function isBuiltInOllamaModel("),
-    extractFunctionSource(appSource, "function modelNameExistsInList("),
-    extractFunctionSource(appSource, "function selectedLocalModelNameForInstalledModels("),
+    extractFunctionSource(appSource, "function currentOllamaModelTiers("),
     extractFunctionSource(appSource, "function installedLocalModelReady(")
   ].join("\n");
   const helpers = new Function(
     "settingsState",
     "hasLocalModel",
-    "OLLAMA_RECOMMENDED_MODEL",
-    "OLLAMA_MODEL_RECOMMENDATIONS",
-    `${helperSource}\nreturn { selectedLocalModelNameForInstalledModels, installedLocalModelReady };`
+    "isBuiltInOllamaModel",
+    `${helperSource}\nreturn { installedLocalModelReady };`
   );
-  const selectedLocalModelNameForInstalledModels = helpers(
-    { ai: { localRuntimeStatus: "available" } },
-    () => false,
-    "qwen3:8b",
-    [
-      { name: "qwen2.5:7b" },
-      { name: "qwen3:8b" },
-      { name: "qwen3.5:9b" }
-    ]
-  ).selectedLocalModelNameForInstalledModels;
 
   assert.equal(
     selectedLocalModelNameForInstalledModels("qwen3:8b", [{ name: "qwen2.5:7b" }]),
@@ -267,32 +249,17 @@ test("Ollama preview replaces a stale selected local model with an installed rec
   assert.equal(helpers(
     { ai: { localRuntimeStatus: "available", localModel: "qwen2.5:7b" } },
     (modelName = "") => modelName === "qwen2.5:7b",
-    "qwen3:8b",
-    [
-      { name: "qwen2.5:7b" },
-      { name: "qwen3:8b" },
-      { name: "qwen3.5:9b" }
-    ]
+    isBuiltInOllamaModel
   ).installedLocalModelReady(), true);
   assert.equal(helpers(
     { ai: { localRuntimeStatus: "available", localModel: "qwen3:8b" } },
     (modelName = "") => modelName === "qwen2.5:7b",
-    "qwen3:8b",
-    [
-      { name: "qwen2.5:7b" },
-      { name: "qwen3:8b" },
-      { name: "qwen3.5:9b" }
-    ]
+    isBuiltInOllamaModel
   ).installedLocalModelReady(), false);
   assert.equal(helpers(
     { ai: { localRuntimeStatus: "available", localModel: "llama3.2:3b" } },
     (modelName = "") => modelName === "llama3.2:3b",
-    "qwen3:8b",
-    [
-      { name: "qwen2.5:7b" },
-      { name: "qwen3:8b" },
-      { name: "qwen3.5:9b" }
-    ]
+    isBuiltInOllamaModel
   ).installedLocalModelReady(), false);
 });
 

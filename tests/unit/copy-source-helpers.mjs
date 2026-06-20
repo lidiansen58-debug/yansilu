@@ -21,6 +21,10 @@ export function readPrototypeHtmlSource() {
   return readRepoText("apps", "web", "src", "prototype.html");
 }
 
+export function readPrototypeWritingWorkspaceSource() {
+  return readRepoText("apps", "web", "src", "prototype-writing-workspace.js");
+}
+
 export function readComponentsEditorPaneSource() {
   return readRepoText("apps", "web", "src", "components-editor-pane.js");
 }

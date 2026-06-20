@@ -67,6 +67,14 @@ import {
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
 import {
+  aiInboxFiltersForSystemMessage,
+  normalizeSystemMessage,
+  systemMessageActionLabel,
+  systemMessageDisplayTitle,
+  systemMessagePreviewText,
+  systemMessageSubjectText
+} from "./prototype-system-messages.js";
+import {
   aiSuggestionDetailFromResponse as suggestionDetailFromResponse,
   aiSuggestionFromCanonical,
   aiSuggestionStatusLabel,
@@ -132,6 +140,11 @@ import {
   graphIsolatedJoinNetworkFormModel
 } from "./graph-isolated-relation-form.js";
 import {
+  graphThemeCandidateNoteIdsForNode as computeGraphThemeCandidateNoteIdsForNode,
+  renderGraphRelationWorkspaceForNote as renderGraphRelationWorkspaceMarkup,
+  renderGraphThemeIndexWorkspace as renderGraphThemeIndexWorkspaceMarkup
+} from "./prototype-graph-workspace.js";
+import {
   describeWritingContinuationAction,
   describeWritingMaterialStatus,
   describeWritingMaterialStepState,
@@ -161,6 +174,21 @@ import {
   describeProjectPreflight
 } from "./writing-readiness.js";
 import {
+  normalizeWritingBookStructure as computeNormalizeWritingBookStructure,
+  normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
+  suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle,
+  suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle,
+  uniqueWritingBookPoolItems as computeUniqueWritingBookPoolItems,
+  writingBookMatchesAny as computeWritingBookMatchesAny,
+  writingBookPlainText as computeWritingBookPlainText,
+  writingBookSectionFromNote as computeWritingBookSectionFromNote,
+  writingBookShortText as computeWritingBookShortText,
+  writingBookStructureStats as computeWritingBookStructureStats,
+  writingSourceIndexSummary as computeWritingSourceIndexSummary,
+  writingThemeLabels as computeWritingThemeLabels,
+  writingThemeSummary as computeWritingThemeSummary
+} from "./prototype-writing-workspace.js";
+import {
   scheduledTaskFormDefaults,
   scheduledTaskFromCanonical,
   scheduledTaskFormFromTask,
@@ -173,32 +201,46 @@ import {
   isAiLocalFlowActive,
   isLocalModelPack,
   localProviderPresetForModelPack,
+  normalizeAiRuntimeMode,
   providerPresetForModelPack,
   shouldUseOllamaLocalRuntimeForSelection
 } from "./ai-settings-state.js";
 import {
+  AI_LOCAL_MODEL_TIERS,
+  AI_REMOTE_MODEL_TIERS,
+  OLLAMA_CHAT_ENDPOINT_URL,
+  OLLAMA_HEALTH_ENDPOINT_URL,
+  OLLAMA_RECOMMENDED_MODEL,
+  aiDefaultsForRuntimeMode,
+  aiFallbackPolicyForRuntimeMode,
+  aiPrivacyPolicyForRuntimeMode,
+  defaultProviderEndpointUrl,
+  defaultProviderHealthEndpointUrl,
+  enabledProviderHealthEndpointUrl,
+  isBuiltInOllamaModel,
+  isRemoteConfigurableProviderId,
+  localModelDisplayProfile,
+  modelNameExistsInList,
+  normalizeOllamaSetupGuide,
+  ollamaBootstrapStatusText,
+  ollamaModelRecommendationProfiles,
+  ollamaRecommendationForModel,
+  preferredLocalModelName,
+  remoteRuntimeModelFromMap,
+  runtimeModelMapForRemoteModel,
+  selectedLocalModelNameForInstalledModels
+} from "./prototype-ai-settings-controller.js";
+import {
   createUpdateState,
-  normalizeUpdateSettings,
-  shouldAutoCheckForUpdates,
   shouldShowUpdateAttention,
   updateStateAutoCheckEnabled,
-  updateStateChecking,
-  updateStateDownloaded,
-  updateStateDownloading,
-  updateStateFailed,
-  updateStateFromCheckResult,
-  updateStateFromVersionInfo,
   updateStateIgnoreLatest,
-  updateStateRemindLater,
-  updateStatusLabel,
-  updateStatusTone,
-  UPDATE_STATUS
+  updateStateRemindLater
 } from "./update-state.js";
 import {
-  downloadAndInstallDesktopUpdate,
-  isDesktopUpdaterAvailable,
-  relaunchDesktopApp
-} from "./desktop-update-adapter.js";
+  createPrototypeUpdateController,
+  renderUpdateSettingsCard
+} from "./prototype-update-controller.js";
 import {
   analyzeDirectoryGraph,
   analyzePermanentNote,
@@ -1023,41 +1065,23 @@ const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint
 const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
-const OLLAMA_CHAT_ENDPOINT_URL = "http://127.0.0.1:11434/v1/chat/completions";
-const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
-const OLLAMA_RECOMMENDED_MODEL = "qwen3:8b";
-const OLLAMA_MODEL_RECOMMENDATIONS = [
-  {
-    name: "qwen2.5:7b",
-    label: "轻量",
-    note: "快、省资源，适合快速摘要和低成本候选筛选。",
-    role: "轻量快速",
-    resource: "资源占用较低",
-    sizeHint: "约 4-5GB",
-    downloadCommand: "ollama pull qwen2.5:7b"
-  },
-  {
-    name: "qwen3:8b",
-    label: "推荐",
-    note: "适合观点提纯、潜在关联和 AI 建议，质量与速度更均衡。",
-    role: "默认推荐",
-    resource: "质量与速度均衡",
-    sizeHint: "约 5-6GB",
-    downloadCommand: "ollama pull qwen3:8b"
-  },
-  {
-    name: "qwen3.5:9b",
-    label: "高质量",
-    note: "适合深度分析和复杂材料整理，响应会更慢。",
-    role: "高质量较慢",
-    resource: "更占资源",
-    sizeHint: "约 6-7GB",
-    downloadCommand: "ollama pull qwen3.5:9b"
-  }
-];
-const AI_LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
-const AI_REMOTE_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail"];
-loadUpdateSettingsFromStorage();
+const updateController = createPrototypeUpdateController({
+  settingsState,
+  readStoredText,
+  writeStoredText,
+  updateSettingsKey: UPDATE_SETTINGS_KEY,
+  updateLastResultKey: UPDATE_LAST_RESULT_KEY,
+  appVersion: APP_VERSION,
+  fetchAppVersion,
+  checkAppUpdate,
+  renderSettingsPanel,
+  renderSystemMessages,
+  setStatus,
+  upsertSystemMessage,
+  desktopCommands,
+  getDirtyTabCount: () => typeof editor?.dirtyTabs === "function" ? editor.dirtyTabs().length : 0
+});
+updateController.loadUpdateSettingsFromStorage();
 loadAiSettingsFromStorage();
 loadNoteTemplateSettingsFromStorage();
 
@@ -1067,230 +1091,6 @@ if (typeof document !== "undefined") {
   };
   document.addEventListener("pointerdown", suppressStartupAutoOpen, true);
   document.addEventListener("keydown", suppressStartupAutoOpen, true);
-}
-
-function loadUpdateSettingsFromStorage() {
-  const settingsRaw = readStoredText(UPDATE_SETTINGS_KEY, "");
-  const resultRaw = readStoredText(UPDATE_LAST_RESULT_KEY, "");
-  let storedSettings = {};
-  let storedResult = {};
-  try {
-    storedSettings = settingsRaw ? JSON.parse(settingsRaw) : {};
-  } catch {
-    storedSettings = {};
-  }
-  try {
-    storedResult = resultRaw ? JSON.parse(resultRaw) : {};
-  } catch {
-    storedResult = {};
-  }
-  const settings = normalizeUpdateSettings(storedSettings);
-  settingsState.update = createUpdateState({
-    ...settingsState.update,
-    ...storedResult,
-    ...settings
-  });
-}
-
-function persistUpdateSettingsToStorage() {
-  writeStoredText(UPDATE_SETTINGS_KEY, JSON.stringify(normalizeUpdateSettings(settingsState.update)));
-}
-
-function persistUpdateLastResultToStorage() {
-  const state = settingsState.update || createUpdateState();
-  writeStoredText(UPDATE_LAST_RESULT_KEY, JSON.stringify({
-    status: state.status,
-    currentVersion: state.currentVersion,
-    latestVersion: state.latestVersion,
-    checkedAt: state.checkedAt,
-    manifestUrl: state.manifestUrl,
-    manifest: state.manifest,
-    changelog: state.changelog,
-    downloadUrl: state.downloadUrl,
-    critical: Boolean(state.critical),
-    minimumSupported: state.minimumSupported !== false,
-    error: state.error,
-    installReadyForRestart: state.installReadyForRestart === true
-  }));
-}
-
-function updateChangelogText(updateState = settingsState.update) {
-  const lines = Array.isArray(updateState?.changelog) ? updateState.changelog : [];
-  return lines.filter(Boolean).join("\n");
-}
-
-function updateSystemMessageId(version = "") {
-  return `app-update:${String(version || "latest").trim() || "latest"}`;
-}
-
-function publishUpdateSystemMessage(updateState = settingsState.update) {
-  if (updateState?.status !== UPDATE_STATUS.UPDATE_AVAILABLE || !updateState.latestVersion) return;
-  const changelog = updateChangelogText(updateState);
-  upsertSystemMessage({
-    id: updateSystemMessageId(updateState.latestVersion),
-    type: "app_update",
-    title: updateState.critical ? "发现重要版本更新" : "发现新版本",
-    body: [
-      `当前版本 ${updateState.currentVersion || APP_VERSION}，最新版本 ${updateState.latestVersion}。`,
-      updateState.critical ? "这是重要更新，请在方便时查看发布说明并手动下载安装。" : "可以稍后处理；研思录不会自动替换程序。",
-      changelog
-    ].filter(Boolean).join("\n\n"),
-    action: "open-settings-update",
-    actionLabel: "查看更新",
-    createdAt: updateState.checkedAt || new Date().toISOString()
-  }, { interrupt: false, preserveRead: true });
-}
-
-async function refreshAppVersionInfo() {
-  try {
-    const info = await fetchAppVersion();
-    settingsState.update = updateStateFromVersionInfo(settingsState.update, info || {});
-    if (!settingsState.update.currentVersion) settingsState.update.currentVersion = APP_VERSION;
-    persistUpdateLastResultToStorage();
-    renderSettingsPanel();
-    return info;
-  } catch (error) {
-    settingsState.update.currentVersion = settingsState.update.currentVersion || APP_VERSION;
-    settingsState.update = updateStateFailed(settingsState.update, error);
-    persistUpdateLastResultToStorage();
-    renderSettingsPanel();
-    return null;
-  }
-}
-
-async function runAppUpdateCheck(options = {}) {
-  if (settingsState.update.autoCheckEnabled === false && options.manual !== true) {
-    settingsState.update = updateStateAutoCheckEnabled(settingsState.update, false);
-    renderSettingsPanel();
-    return settingsState.update;
-  }
-  if (options.manual !== true && !shouldAutoCheckForUpdates(settingsState.update)) {
-    return settingsState.update;
-  }
-  settingsState.update = updateStateChecking(settingsState.update, { manual: options.manual === true });
-  renderSettingsPanel();
-  const requestToken = settingsState.update.requestToken;
-  try {
-    const result = await checkAppUpdate({
-      manifestUrl: settingsState.update.manifestUrl || undefined
-    });
-    if (requestToken !== settingsState.update.requestToken) return settingsState.update;
-    settingsState.update = updateStateFromCheckResult(settingsState.update, result || {}, { manual: options.manual === true });
-    persistUpdateLastResultToStorage();
-    if (settingsState.update.status === UPDATE_STATUS.UPDATE_AVAILABLE) {
-      publishUpdateSystemMessage(settingsState.update);
-      setStatus(settingsState.update.critical ? "发现重要版本更新，请在设置里查看。" : "发现新版本，可在设置里查看。", settingsState.update.critical ? "bad" : "warn");
-    } else if (options.manual === true && settingsState.update.status === UPDATE_STATUS.UP_TO_DATE) {
-      setStatus("当前已经是最新版本。", "ok");
-    } else if (options.manual === true && settingsState.update.status === UPDATE_STATUS.DISABLED) {
-      setStatus("还没有配置更新清单 URL，已跳过检查。", "warn");
-    }
-    renderSettingsPanel();
-    renderSystemMessages();
-    return settingsState.update;
-  } catch (error) {
-    if (requestToken !== settingsState.update.requestToken) return settingsState.update;
-    settingsState.update = updateStateFailed(settingsState.update, error);
-    persistUpdateLastResultToStorage();
-    if (options.manual === true) setStatus(`检查更新失败：${String(error?.message || error)}`, "bad");
-    renderSettingsPanel();
-    return settingsState.update;
-  }
-}
-
-async function openUpdateDownloadUrl() {
-  const url = String(settingsState.update.downloadUrl || settingsState.update.manifest?.downloadUrl || "").trim();
-  if (!url) {
-    setStatus("更新清单里没有下载链接。", "warn");
-    return false;
-  }
-  const opened = await desktopCommands.openExternalUrl(url);
-  if (!opened?.ok && typeof window !== "undefined") {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-  setStatus("已打开更新下载页；安装前请先保存当前工作。", "ok");
-  return true;
-}
-
-function confirmUpdateInstall() {
-  const latest = String(settingsState.update?.latestVersion || settingsState.update?.manifest?.version || "").trim();
-  const message = [
-    latest ? `将下载并安装研思录 ${latest}。` : "将下载并安装研思录更新。",
-    "下载包会由 Tauri updater 使用签名校验；安装完成前不会改写你的笔记库。",
-    "安装完成后需要重启应用。请先保存当前正在编辑的笔记。是否继续？"
-  ].join("\n\n");
-  if (typeof window === "undefined" || typeof window.confirm !== "function") return true;
-  return window.confirm(message);
-}
-
-async function installUpdateFromDesktopUpdater() {
-  if (!isDesktopUpdaterAvailable()) {
-    setStatus("当前环境不支持应用内安装；可以打开下载页手动安装。", "warn");
-    return false;
-  }
-  if (settingsState.update.status !== UPDATE_STATUS.UPDATE_AVAILABLE && settingsState.update.status !== UPDATE_STATUS.FAILED) {
-    setStatus("请先检查到可用更新，再下载安装。", "warn");
-    return false;
-  }
-  if (!confirmUpdateInstall()) return false;
-  settingsState.update = updateStateDownloading(settingsState.update, { phase: "downloading", percent: 0 });
-  renderSettingsPanel();
-
-  try {
-    const result = await downloadAndInstallDesktopUpdate({
-      onProgress(progress) {
-        settingsState.update = updateStateDownloading(settingsState.update, progress);
-        renderSettingsPanel();
-      }
-    });
-    if (result.status === "up-to-date") {
-      settingsState.update = {
-        ...settingsState.update,
-        status: UPDATE_STATUS.UP_TO_DATE,
-        installPhase: "",
-        installProgress: null,
-        installReadyForRestart: false,
-        error: ""
-      };
-      persistUpdateLastResultToStorage();
-      renderSettingsPanel();
-      setStatus("桌面更新源显示当前已是最新版本。", "ok");
-      return true;
-    }
-    settingsState.update = updateStateDownloaded(settingsState.update, {
-      progress: result.progress,
-      message: "更新已安装，重启后生效。"
-    });
-    persistUpdateLastResultToStorage();
-    renderSettingsPanel();
-    setStatus("更新已安装；请在保存工作后重启完成更新。", "ok");
-    return true;
-  } catch (error) {
-    settingsState.update = updateStateFailed(settingsState.update, error);
-    persistUpdateLastResultToStorage();
-    renderSettingsPanel();
-    setStatus(`应用内安装失败：${String(error?.message || error)}`, "bad");
-    return false;
-  }
-}
-
-async function relaunchAfterInstalledUpdate() {
-  if (!settingsState.update?.installReadyForRestart) {
-    setStatus("还没有完成可重启的更新安装。", "warn");
-    return false;
-  }
-  const dirtyCount = typeof editor?.dirtyTabs === "function" ? editor.dirtyTabs().length : 0;
-  const message = dirtyCount
-    ? `还有 ${dirtyCount} 个打开的笔记带着未同步修改。请先保存；仍要现在重启吗？`
-    : "将重启研思录以完成更新。是否现在重启？";
-  if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(message)) return false;
-  try {
-    await relaunchDesktopApp();
-    return true;
-  } catch (error) {
-    setStatus(`重启应用失败：${String(error?.message || error)}`, "bad");
-    return false;
-  }
 }
 
 function feedbackBaseUrl() {
@@ -1470,44 +1270,6 @@ function setStatus(text, cls = "", options = {}) {
   return true;
 }
 
-function normalizeSystemMessage(item = {}) {
-  const id = String(item.id || "").trim() || `sys_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const createdAt = String(item.createdAt || item.created_at || "").trim() || new Date().toISOString();
-  const aiInboxFilters = item.aiInboxFilters && typeof item.aiInboxFilters === "object" && !Array.isArray(item.aiInboxFilters)
-    ? normalizeAiInboxFilters(item.aiInboxFilters)
-    : null;
-  const workflowRoute = item.workflowRoute && typeof item.workflowRoute === "object" && !Array.isArray(item.workflowRoute)
-    ? {
-        module: String(item.workflowRoute.module || "explorer").trim() || "explorer",
-        focus: String(item.workflowRoute.focus || "").trim(),
-        mode: String(item.workflowRoute.mode || "").trim(),
-        relationAction: String(item.workflowRoute.relationAction || "").trim(),
-        source: String(item.workflowRoute.source || "").trim(),
-        graphSelectionKind: String(item.workflowRoute.graphSelectionKind || item.workflowRoute.graph_selection_kind || item.workflowRoute.selectionKind || item.workflowRoute.selection_kind || "").trim(),
-        indexCardId: String(item.workflowRoute.indexCardId || item.workflowRoute.index_card_id || "").trim(),
-        basketNoteIds: String(item.workflowRoute.basketNoteIds || item.workflowRoute.basket_note_ids || "").trim()
-      }
-    : null;
-  return {
-    id,
-    createdAt,
-    type: String(item.type || "system").trim() || "system",
-    category: String(item.category || "").trim(),
-    title: String(item.title || "系统消息").trim() || "系统消息",
-    body: String(item.body || "").trim(),
-    action: String(item.action || "").trim(),
-    actionLabel: String(item.actionLabel || "").trim(),
-    noteId: String(item.noteId || "").trim(),
-    sourceNoteId: String(item.sourceNoteId || item.source_note_id || "").trim(),
-    targetNoteId: String(item.targetNoteId || item.target_note_id || "").trim(),
-    dedupeKey: String(item.dedupeKey || item.dedupe_key || "").trim(),
-    resolvedAt: String(item.resolvedAt || item.resolved_at || "").trim(),
-    artifactCount: Math.max(0, Number(item.artifactCount || 0) || 0),
-    ...(aiInboxFilters ? { aiInboxFilters } : {}),
-    ...(workflowRoute ? { workflowRoute } : {}),
-    read: item.read === true
-  };
-}
 
 function readStoredSystemMessages() {
   try {
@@ -1526,43 +1288,9 @@ function persistSystemMessages() {
   } catch {}
 }
 
-function systemMessageActionLabel(message = {}) {
-  if (message.resolvedAt) return "";
-  if (message.actionLabel) return message.actionLabel;
-  if (message.action === "open-ai-inbox") return "查看待确认建议";
-  if (message.action === "open-graph") return "查看候选并确认关系";
-  if (message.action === "open-writing") return "继续整理主题";
-  if (message.action === "open-note") return "打开笔记";
-  if (message.action === "open-note-workflow") return "打开并处理";
-  if (message.action === "open-settings-update") return "查看更新";
-  return "";
-}
 
-function systemMessagePreviewText(message = {}) {
-  const body = String(message.body || "").replace(/\s+/g, " ").trim();
-  if (body) return body.length > 74 ? `${body.slice(0, 74)}...` : body;
-  if (message.artifactCount) return `${message.artifactCount} 条待确认建议`;
-  return "打开右侧查看详情和下一步操作。";
-}
 
-function systemMessageSubjectText(message = {}) {
-  const noteId = String(message.noteId || message.sourceNoteId || "").trim();
-  const note = noteId ? state.notes.find((item) => item.id === noteId) || null : null;
-  const quotedTitle = String(message.body || "").match(/“([^”]+)”/)?.[1] || "";
-  return String(note?.title || quotedTitle || noteId || "").trim();
-}
 
-function systemMessageDisplayTitle(message = {}) {
-  const title = String(message.title || "").trim();
-  const subject = systemMessageSubjectText(message);
-  if (title === "孤立笔记发现了潜在关联") {
-    return subject ? `${subject} 发现了潜在关联` : title;
-  }
-  if (title === "永久笔记还没有进入图谱") {
-    return subject ? `${subject} 还没有进入图谱` : title;
-  }
-  return title || subject || "系统消息";
-}
 
 function renderSystemMessages() {
   const list = $("systemMessageList");
@@ -1601,9 +1329,9 @@ function renderSystemMessages() {
   list.innerHTML = systemMessages
     .map((message) => {
       const selected = message.id === selectedMessage?.id;
-      const subject = systemMessageSubjectText(message);
+      const subject = systemMessageSubjectText(message, state.notes);
       const preview = systemMessagePreviewText(message);
-      const title = systemMessageDisplayTitle(message);
+      const title = systemMessageDisplayTitle(message, state.notes);
       return `
         <article class="system-message-item${message.read ? "" : " is-unread"}${selected ? " is-selected" : ""}" data-system-message-id="${escapeHtml(message.id)}" data-system-message-select="${escapeHtml(message.id)}" role="button" tabindex="0">
           <button class="system-message-title" type="button" data-system-message-select="${escapeHtml(message.id)}" aria-current="${selected ? "true" : "false"}">
@@ -1622,10 +1350,10 @@ function renderSystemMessages() {
   detail.innerHTML = `
     <article class="system-message-detail-card" data-system-message-detail-id="${escapeHtml(selectedMessage.id)}">
       <div class="system-message-detail-kicker">${selectedMessage.resolvedAt ? "已完成" : selectedMessage.read ? "已读" : "未读"}</div>
-      <h3>${escapeHtml(systemMessageDisplayTitle(selectedMessage))}</h3>
+      <h3>${escapeHtml(systemMessageDisplayTitle(selectedMessage, state.notes))}</h3>
       ${
-        systemMessageSubjectText(selectedMessage)
-          ? `<div class="system-message-focus"><span>相关笔记</span><strong>${escapeHtml(systemMessageSubjectText(selectedMessage))}</strong></div>`
+        systemMessageSubjectText(selectedMessage, state.notes)
+          ? `<div class="system-message-focus"><span>相关笔记</span><strong>${escapeHtml(systemMessageSubjectText(selectedMessage, state.notes))}</strong></div>`
           : ""
       }
       <div class="system-message-body">${escapeHtml(selectedMessage.body || "没有更多内容。")}</div>
@@ -1718,16 +1446,6 @@ function resolveSystemMessageByDedupeKey(dedupeKey = "") {
   return resolved;
 }
 
-function aiInboxFiltersForSystemMessage(message = {}) {
-  const filters = message?.aiInboxFilters && typeof message.aiInboxFilters === "object" ? message.aiInboxFilters : {};
-  const hasSourceNote = String(message?.noteId || filters.sourceNoteId || "").trim();
-  return normalizeAiInboxFilters({
-    view: String(filters.view || "pending").trim() || "pending",
-    type: String(filters.type || "all").trim() || "all",
-    privacyMode: String(filters.privacyMode || "").trim(),
-    sourceNoteId: hasSourceNote
-  });
-}
 
 function scheduledTaskReviewArtifactCount(summary = {}) {
   return (Array.isArray(summary?.runs) ? summary.runs : []).reduce((total, run) => {
@@ -2137,99 +1855,6 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
 }
 
-function defaultProviderEndpointUrl(providerId = "") {
-  const id = String(providerId || "").trim();
-  if (id === "ollama_local_gateway") return OLLAMA_CHAT_ENDPOINT_URL;
-  return "";
-}
-
-function defaultProviderHealthEndpointUrl(providerId = "", endpointUrl = "") {
-  const id = String(providerId || "").trim();
-  if (id === "ollama_local_gateway") return OLLAMA_HEALTH_ENDPOINT_URL;
-  return "";
-}
-
-function isLocalProviderId(providerId = "") {
-  return ["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(String(providerId || "").trim());
-}
-
-function isRemoteConfigurableProviderId(providerId = "") {
-  const id = String(providerId || "").trim();
-  return Boolean(id && id !== "platform_managed_openai" && !isLocalProviderId(id));
-}
-
-function runtimeModelMapForRemoteModel(providerId = "", modelName = "") {
-  const id = String(providerId || "").trim();
-  const model = String(modelName || "").trim();
-  if (!id || !model || !isRemoteConfigurableProviderId(id)) return {};
-  return Object.fromEntries(AI_REMOTE_MODEL_TIERS.map((tier) => [`${id}:${tier}`, model]));
-}
-
-function remoteRuntimeModelFromMap(providerId = "", runtimeModelMap = {}) {
-  const id = String(providerId || "").trim();
-  const map = runtimeModelMap && typeof runtimeModelMap === "object" && !Array.isArray(runtimeModelMap) ? runtimeModelMap : {};
-  const preferredKeys = AI_REMOTE_MODEL_TIERS.map((tier) => `${id}:${tier}`);
-  for (const key of preferredKeys) {
-    const model = String(map[key] || "").trim();
-    if (model) return model;
-  }
-  const first = Object.entries(map).find(([key, value]) => String(key || "").startsWith(`${id}:`) && String(value || "").trim());
-  return first ? String(first[1] || "").trim() : "";
-}
-
-function enabledProviderHealthEndpointUrl(config = null) {
-  const healthCheck = config?.healthCheck || config?.health_check || {};
-  const enabled = healthCheck.enabled === true || healthCheck.enabled === "true";
-  if (!enabled) return "";
-  return String(healthCheck.endpointUrl || healthCheck.endpoint_url || "").trim();
-}
-
-function normalizeAiRuntimeMode(value = "") {
-  const mode = String(value || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
-  if (["local", "local_only", "private"].includes(mode)) return "local_only";
-  if (["cloud", "cloud_only", "remote"].includes(mode)) return "cloud_only";
-  if (["hybrid", "mixed", "local_cloud"].includes(mode)) return "hybrid";
-  return "auto";
-}
-
-function aiPrivacyPolicyForRuntimeMode(runtimeMode = "auto") {
-  const mode = normalizeAiRuntimeMode(runtimeMode);
-  if (mode === "local_only") return { defaultMode: "local_only", allowCloud: false, localPreferred: true };
-  if (mode === "hybrid") return { defaultMode: "normal", allowCloud: true, localPreferred: true };
-  if (mode === "cloud_only") return { defaultMode: "normal", allowCloud: true, localPreferred: false };
-  return {};
-}
-
-function aiFallbackPolicyForRuntimeMode(runtimeMode = "auto") {
-  const mode = normalizeAiRuntimeMode(runtimeMode);
-  if (mode === "local_only") {
-    return {
-      allowSameProviderFallback: true,
-      allowCrossProviderFallback: false,
-      allowCloudFallback: false,
-      requiresConfirmationForCloud: true
-    };
-  }
-  if (mode === "hybrid") {
-    return {
-      allowSameProviderFallback: true,
-      allowCrossProviderFallback: true,
-      allowCloudFallback: true,
-      requiresConfirmationForCloud: false,
-      localPreferred: true
-    };
-  }
-  return {};
-}
-
-function aiDefaultsForRuntimeMode(runtimeMode = "auto") {
-  const mode = normalizeAiRuntimeMode(runtimeMode);
-  if (mode === "local_only") return { modelPack: "Privacy First", userMode: "Local / Private" };
-  if (mode === "cloud_only") return { modelPack: "Starter Auto", userMode: "Balanced" };
-  if (mode === "hybrid") return { modelPack: "Starter Auto", userMode: "Auto" };
-  return { modelPack: "Starter Auto", userMode: "Auto" };
-}
-
 function settingsSupportedModelPack(modelPack = "") {
   const localProviderPreset = localProviderPresetForModelPack(modelPack);
   if (localProviderPreset === "minicpm_local_gateway") return "Starter Auto";
@@ -2598,7 +2223,7 @@ async function syncAiSettingsToApi() {
 
 async function saveLocalOllamaProviderConfig() {
   if (!shouldUseOllamaLocalRuntime()) return null;
-  if (!isBuiltInOllamaModel(settingsState.ai.localModel)) return null;
+  if (!isBuiltInOllamaModel(settingsState.ai.localModel, currentOllamaModelTiers())) return null;
   const endpointUrl = String(settingsState.ai.localRuntimeChatEndpointUrl || OLLAMA_CHAT_ENDPOINT_URL).trim() || OLLAMA_CHAT_ENDPOINT_URL;
   const healthEndpointUrl = String(settingsState.ai.localRuntimeHealthEndpointUrl || OLLAMA_HEALTH_ENDPOINT_URL).trim() || OLLAMA_HEALTH_ENDPOINT_URL;
   const saved = await saveAiProviderConfig(aiProviderConfigPayload({
@@ -2611,29 +2236,10 @@ async function saveLocalOllamaProviderConfig() {
   resetAiProviderDraftTouched();
   return saved;
 }
-
-function preferredLocalModelName(models = []) {
-  const names = (Array.isArray(models) ? models : []).map((model) => String(model?.name || model || "").trim()).filter(Boolean);
-  return names.find((name) => name.toLowerCase() === OLLAMA_RECOMMENDED_MODEL.toLowerCase()) || "";
+function currentOllamaModelTiers() {
+  return Array.isArray(settingsState.ai.localRuntimeModelTiers) ? settingsState.ai.localRuntimeModelTiers : [];
 }
 
-function isBuiltInOllamaModel(modelName = "") {
-  return Boolean(ollamaRecommendationForModel(modelName));
-}
-
-function modelNameExistsInList(modelName = "", models = []) {
-  const target = String(modelName || "").trim().toLowerCase();
-  if (!target) return false;
-  return (Array.isArray(models) ? models : []).some(
-    (model) => String(model?.name || model || "").trim().toLowerCase() === target
-  );
-}
-
-function selectedLocalModelNameForInstalledModels(currentModel = "", models = []) {
-  const current = String(currentModel || "").trim();
-  if (isBuiltInOllamaModel(current) && modelNameExistsInList(current, models)) return current;
-  return preferredLocalModelName(models);
-}
 
 function hasLocalModel(modelName = "") {
   return modelNameExistsInList(modelName, settingsState.ai.localRuntimeModels);
@@ -2643,7 +2249,7 @@ function installedLocalModelReady(modelName = settingsState.ai.localModel) {
   const localModel = String(modelName || "").trim();
   return String(settingsState.ai.localRuntimeStatus || "").trim() === "available"
     && Boolean(localModel)
-    && isBuiltInOllamaModel(localModel)
+    && isBuiltInOllamaModel(localModel, currentOllamaModelTiers())
     && hasLocalModel(localModel);
 }
 
@@ -2658,26 +2264,6 @@ function clearLocalOllamaSelectionState(options = {}) {
   settingsState.ai.routePreview = null;
 }
 
-function normalizeOllamaSetupGuide(guide = null) {
-  if (!guide || typeof guide !== "object" || Array.isArray(guide)) return null;
-  const nextAction = String(guide.nextAction || guide.next_action || "").trim();
-  const steps = Array.isArray(guide.steps)
-    ? guide.steps.map((step) => String(step || "").trim()).filter(Boolean)
-    : [];
-  const install = guide.install && typeof guide.install === "object" ? guide.install : {};
-  const commands = [
-    ...(Array.isArray(guide.commands) ? guide.commands : []),
-    ...(Array.isArray(install.commands) ? install.commands : [])
-  ].map((command) => String(command || "").trim()).filter(Boolean);
-  return {
-    nextAction,
-    installUrl: String(guide.installUrl || guide.install_url || "https://ollama.com/download").trim() || "https://ollama.com/download",
-    recommendedModel: String(guide.recommendedModel || guide.recommended_model || "").trim(),
-    commands,
-    steps
-  };
-}
-
 function currentOllamaSetupGuide() {
   return normalizeOllamaSetupGuide(settingsState.ai.localRuntimeSetupGuide);
 }
@@ -2690,7 +2276,7 @@ function recommendedOllamaModelNames() {
   const names = [
     recommendedOllamaModelName(),
     OLLAMA_RECOMMENDED_MODEL,
-    ...ollamaModelRecommendationProfiles().map((item) => item.name)
+    ...ollamaModelRecommendationProfiles(currentOllamaModelTiers()).map((item) => item.name)
   ].map((name) => String(name || "").trim()).filter(Boolean);
   return [...new Set(names)];
 }
@@ -2703,75 +2289,8 @@ function nextMissingRecommendedOllamaModelName() {
   return recommendedOllamaModelNames().find((name) => !hasLocalModel(name)) || "";
 }
 
-function ollamaRecommendationForModel(modelName = "") {
-  const target = String(modelName || "").trim().toLowerCase();
-  if (!target) return null;
-  return ollamaModelRecommendationProfiles().find((item) => item.name.toLowerCase() === target) || null;
-}
-
-function ollamaModelRecommendationProfiles() {
-  const tiers = Array.isArray(settingsState.ai.localRuntimeModelTiers) ? settingsState.ai.localRuntimeModelTiers : [];
-  const fromRuntime = tiers
-    .map((item) => {
-      const name = String(item?.name || "").trim();
-      if (!name) return null;
-      const label = String(item.label || "").trim();
-      const scenario = String(item.scenario || "").trim();
-      const tier = String(item.tier || "").trim();
-      return {
-        name,
-        label: label || tier || "推荐",
-        role:
-          tier === "default"
-            ? "默认推荐"
-            : tier === "lightweight"
-              ? "轻量快速"
-              : tier === "high_quality"
-                ? "高质量较慢"
-                : label || "推荐模型",
-        note: String(item.note || scenario || "适合本地 AI 运行。").trim(),
-        resource: String(item.resource || item.resourceHint || item.resource_hint || item.sizeHint || item.size_hint || scenario || "").trim(),
-        sizeHint: String(item.sizeHint || item.size_hint || "").trim(),
-        hardwareHint: String(item.hardwareHint || item.hardware_hint || item.machineHint || item.machine_hint || "").trim(),
-        downloadCommand: String(item.downloadCommand || item.download_command || `ollama pull ${name}`).trim(),
-        tier
-      };
-    })
-    .filter(Boolean);
-  return fromRuntime.length ? fromRuntime : OLLAMA_MODEL_RECOMMENDATIONS;
-}
-
-function localModelDisplayProfile(modelName = "") {
-  const name = String(modelName || "").trim();
-  const recommendation = ollamaRecommendationForModel(name);
-  if (recommendation) {
-    return {
-      name,
-      label: recommendation.label,
-      role: recommendation.role || recommendation.label,
-      note: recommendation.note,
-      resource: recommendation.resource || "",
-      sizeHint: recommendation.sizeHint || "",
-      hardwareHint: recommendation.hardwareHint || "",
-      downloadCommand: recommendation.downloadCommand || `ollama pull ${name}`,
-      verified: true
-    };
-  }
-  return {
-    name,
-    label: "已安装",
-    role: "本地模型",
-    note: "这个模型已在本地 AI 中检测到，但还没有进入研思录默认推荐列表。建议先用一句短句试运行。",
-    resource: "未验证",
-    sizeHint: "",
-    hardwareHint: "",
-    downloadCommand: `ollama pull ${name}`,
-    verified: false
-  };
-}
-
 function ollamaRecommendationHintText() {
-  return ollamaModelRecommendationProfiles()
+  return ollamaModelRecommendationProfiles(currentOllamaModelTiers())
     .map((item) => `${item.name}：${item.label}`)
     .join("；");
 }
@@ -2799,7 +2318,7 @@ function applyOllamaRuntimePreview(runtime = null) {
   settingsState.ai.localRuntimeError = settingsState.ai.localRuntimeStatus === "available" ? "" : String(runtime?.message || "");
   if (settingsState.ai.localRuntimeStatus === "available") {
     settingsState.ai.localRuntimeManagedStopPending = false;
-    const nextLocalModel = selectedLocalModelNameForInstalledModels(settingsState.ai.localModel, models);
+    const nextLocalModel = selectedLocalModelNameForInstalledModels(settingsState.ai.localModel, models, currentOllamaModelTiers());
     settingsState.ai.localModel = nextLocalModel;
     if (!nextLocalModel) clearLocalOllamaSelectionState();
   }
@@ -2829,18 +2348,6 @@ function applyOllamaBootstrapResult(result = null) {
   }
   persistAiSettingsToStorage();
   return models;
-}
-
-function ollamaBootstrapStatusText(result = null) {
-  const status = String(result?.status || "").trim();
-  const model = String(result?.model || OLLAMA_RECOMMENDED_MODEL).trim();
-  if (result?.ready === true || status === "ready") return `本地 AI 已就绪：${model}`;
-  if (status === "needs_install") return "请先安装本地 AI 运行环境，然后重新运行引导";
-  if (status === "needs_start") return "本地 AI 已安装，但服务还没有启动";
-  if (status === "needs_model") return `请先下载本地模型：ollama pull ${model}`;
-  if (status === "needs_config") return `已检测到 ${model}，还需要保存为本地 AI 模型`;
-  if (status === "needs_health_check") return "本地 AI 配置已保存，还需要通过健康检查";
-  return String(result?.message || "本地 AI 引导尚未完成").trim();
 }
 
 function ollamaRuntimeStateLabel() {
@@ -3060,7 +2567,7 @@ async function stopOllamaRuntimeFromUi() {
 async function pullRecommendedOllamaModel(modelName = "") {
   const requestedModel = String(modelName || "").trim();
   const modelNameToPull = requestedModel || ollamaPullModelName();
-  const recommendation = ollamaRecommendationForModel(modelNameToPull);
+  const recommendation = ollamaRecommendationForModel(modelNameToPull, currentOllamaModelTiers());
   const command = recommendation?.downloadCommand || `ollama pull ${modelNameToPull}`;
   const confirmed = typeof window === "undefined" || typeof window.confirm !== "function"
     ? true
@@ -3086,7 +2593,7 @@ async function pullRecommendedOllamaModel(modelName = "") {
     if (result?.enabled?.preferences) {
       applyAiPreferencesToSettingsState(result.enabled.preferences);
     } else {
-      settingsState.ai.localModel = selectedLocalModelNameForInstalledModels(modelNameToPull, models);
+      settingsState.ai.localModel = selectedLocalModelNameForInstalledModels(modelNameToPull, models, currentOllamaModelTiers());
     }
     if (!installedLocalModelReady()) clearLocalOllamaSelectionState();
     else applyOllamaLocalModelDefaults();
@@ -3114,7 +2621,7 @@ async function pullRecommendedOllamaModel(modelName = "") {
 
 async function selectInstalledLocalModelFromUi(modelName = "") {
   const requested = String(modelName || "").trim();
-  const inCatalog = Boolean(ollamaRecommendationForModel(requested));
+  const inCatalog = Boolean(ollamaRecommendationForModel(requested, currentOllamaModelTiers()));
   const next = requested && inCatalog && hasLocalModel(requested) ? requested : "";
   settingsState.ai.localModel = next;
   clearLocalOllamaSelectionState({ clearModel: false });
@@ -5730,12 +5237,13 @@ function showExportResult(payload) {
   updateExportTargetHint();
 }
 
+
+function suggestedWritingProjectTitle(noteIds = []) {
+  return computeSuggestedWritingProjectTitle(noteIds, { noteById: writingNoteById });
+}
+
 function normalizeWritingProjectTitleSeed(title = "") {
-  const cleanTitle = String(title || "").trim();
-  if (!cleanTitle) return "未命名项目";
-  if (cleanTitle.endsWith("写作项目")) return `${cleanTitle.slice(0, -"写作项目".length).trim()} 项目`.trim();
-  if (cleanTitle.endsWith("项目")) return cleanTitle;
-  return `${cleanTitle} 项目`;
+  return computeNormalizeWritingProjectTitleSeed(title);
 }
 
 function showWritingResult(payload) {
@@ -6086,13 +5594,6 @@ async function addImportedPermanentNotesToWritingBasket({ openWriting = false } 
   return true;
 }
 
-function suggestedWritingProjectTitle(noteIds = []) {
-  const notes = noteIds.map((id) => writingNoteById(id)).filter(Boolean);
-  if (notes.length === 1) return normalizeWritingProjectTitleSeed(notes[0].title || notes[0].id);
-  const first = notes[0];
-  if (first?.title) return normalizeWritingProjectTitleSeed(`${first.title} 等 ${notes.length} 条笔记`);
-  return `导入笔记项目 ${noteIds.length}`;
-}
 
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
@@ -8927,13 +8428,13 @@ function renderAiLocalModelRecommendations() {
 
   const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
   const installedNames = models.map((model) => String(model?.name || model || "").trim()).filter(Boolean);
-  const catalogProfiles = ollamaModelRecommendationProfiles();
+  const catalogProfiles = ollamaModelRecommendationProfiles(currentOllamaModelTiers());
   const recommendedNames = new Set(catalogProfiles.map((item) => item.name.toLowerCase()));
   const extraInstalledProfiles = installedNames
     .filter((name) => !recommendedNames.has(name.toLowerCase()))
-    .map((name) => localModelDisplayProfile(name));
+    .map((name) => localModelDisplayProfile(name, currentOllamaModelTiers()));
   const profiles = [
-    ...catalogProfiles.map((item) => localModelDisplayProfile(item.name)),
+    ...catalogProfiles.map((item) => localModelDisplayProfile(item.name, currentOllamaModelTiers())),
     ...extraInstalledProfiles
   ];
   const installedCount = profiles.filter((item) => hasLocalModel(item.name)).length;
@@ -9021,7 +8522,7 @@ function renderAiLocalModelControls() {
   if (modelSelect) {
     const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
     const selectedModel = String(settingsState.ai.localModel || "").trim();
-    const catalogNames = new Set(ollamaModelRecommendationProfiles().map((item) => item.name.toLowerCase()));
+    const catalogNames = new Set(ollamaModelRecommendationProfiles(currentOllamaModelTiers()).map((item) => item.name.toLowerCase()));
     const names = models
       .map((model) => String(model?.name || "").trim())
       .filter((name) => name && catalogNames.has(name.toLowerCase()));
@@ -9103,7 +8604,7 @@ function renderAiLocalModelControls() {
   const pullButton = $("settingsAiPullOllamaModel");
   if (pullButton) {
     const modelName = ollamaPullModelName();
-    const recommendation = ollamaRecommendationForModel(modelName);
+    const recommendation = ollamaRecommendationForModel(modelName, currentOllamaModelTiers());
     const installed = hasLocalModel(modelName);
     const hasAnyLocalModel = (Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : []).length > 0;
     pullButton.classList.toggle("hidden", !localSetupActive || !runtimeAvailable || installed);
@@ -9539,143 +9040,6 @@ function renderSettingsDetailFocus() {
   if (paneNote) paneNote.textContent = settingsItemSummary(activeItem.id);
 }
 
-function formatUpdateDateTime(value = "") {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return raw;
-  try {
-    return date.toLocaleString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
-  } catch {
-    return raw;
-  }
-}
-
-function renderUpdateSettingsCard() {
-  const update = settingsState.update || createUpdateState();
-  const statusBadge = $("settingsUpdateStatusBadge");
-  const currentVersion = $("settingsUpdateCurrentVersion");
-  const latestVersion = $("settingsUpdateLatestVersion");
-  const checkedAt = $("settingsUpdateCheckedAt");
-  const manifestUrl = $("settingsUpdateManifestUrl");
-  const errorEl = $("settingsUpdateError");
-  const criticalEl = $("settingsUpdateCriticalNotice");
-  const changelogEl = $("settingsUpdateChangelog");
-  const checkButton = $("settingsCheckUpdate");
-  const downloadButton = $("settingsOpenUpdateDownload");
-  const installButton = $("settingsInstallUpdate");
-  const relaunchButton = $("settingsRelaunchUpdate");
-  const downloadHint = $("settingsUpdateDownloadHint");
-  const installProgress = $("settingsUpdateInstallProgress");
-  const remindLaterButton = $("settingsRemindUpdateLater");
-  const ignoreButton = $("settingsIgnoreUpdateVersion");
-  const autoEnabled = $("settingsAutoUpdateEnabled");
-  const tone = updateStatusTone(update);
-  const latestLabel = update.latestVersion || update.manifest?.version || "";
-  const hasDownload = Boolean(update.downloadUrl || update.manifest?.downloadUrl);
-  const hasUpdate = update.status === UPDATE_STATUS.UPDATE_AVAILABLE;
-  const installing = update.status === UPDATE_STATUS.DOWNLOADING;
-  const installed = update.status === UPDATE_STATUS.DOWNLOADED || update.installReadyForRestart === true;
-  const desktopUpdaterAvailable = isDesktopUpdaterAvailable();
-
-  if (statusBadge) {
-    statusBadge.textContent = updateStatusLabel(update.status);
-    statusBadge.classList.toggle("ok", tone === "ok");
-    statusBadge.classList.toggle("warn", tone === "warn");
-    statusBadge.classList.toggle("bad", tone === "bad");
-    statusBadge.classList.toggle("muted", tone === "muted");
-  }
-  if (currentVersion) currentVersion.textContent = `当前版本：${update.currentVersion || APP_VERSION}`;
-  if (latestVersion) latestVersion.textContent = `最新版本：${latestLabel || "--"}`;
-  if (checkedAt) {
-    checkedAt.textContent = update.checkedAt
-      ? `上次检查：${formatUpdateDateTime(update.checkedAt)}`
-      : "尚未检查。";
-  }
-  if (manifestUrl) {
-    manifestUrl.textContent = update.manifestUrl ? `更新清单：${update.manifestUrl}` : "更新清单：未配置";
-  }
-  if (errorEl) {
-    errorEl.textContent = update.error ? `检查失败：${update.error}` : "";
-    errorEl.classList.toggle("hidden", !update.error);
-  }
-  if (criticalEl) {
-    const text = update.critical && hasUpdate
-      ? "重要更新：请查看更新说明并在保存当前工作后手动下载安装。"
-      : update.minimumSupported === false
-        ? "当前版本低于最低支持版本，请尽快升级。"
-        : "";
-    criticalEl.textContent = text;
-    criticalEl.classList.toggle("hidden", !text);
-  }
-  if (changelogEl) {
-    const changelog = Array.isArray(update.changelog) ? update.changelog : [];
-    changelogEl.innerHTML = changelog.length
-      ? changelog.map((item, index) => `
-        <div class="settings-help-topic">
-          <strong>${index === 0 ? "更新说明" : `变更 ${index + 1}`}</strong>
-          <span>${escapeHtml(item)}</span>
-        </div>
-      `).join("")
-      : `
-        <div class="settings-help-topic">
-          <strong>更新说明</strong>
-          <span>检查更新后显示。</span>
-        </div>
-      `;
-  }
-  if (checkButton) {
-    checkButton.disabled = update.status === UPDATE_STATUS.CHECKING;
-    checkButton.textContent = update.status === UPDATE_STATUS.CHECKING ? "检查中..." : "检查更新";
-  }
-  if (downloadButton) downloadButton.disabled = !hasUpdate || !hasDownload;
-  if (installButton) {
-    installButton.disabled = installing || installed || (!hasUpdate && update.status !== UPDATE_STATUS.FAILED) || !desktopUpdaterAvailable;
-    installButton.textContent = installing
-      ? "安装中..."
-      : installed
-        ? "已安装"
-        : desktopUpdaterAvailable
-          ? "一键下载并安装"
-          : "桌面版可用";
-  }
-  if (relaunchButton) relaunchButton.disabled = !installed || !desktopUpdaterAvailable;
-  if (downloadHint) {
-    downloadHint.textContent = installed
-      ? "更新已安装，重启应用后生效。"
-      : installing
-        ? "正在下载并安装更新，请不要关闭应用。"
-        : hasUpdate
-          ? desktopUpdaterAvailable
-            ? "桌面版可一键下载、签名校验并安装；也可以打开下载页手动安装。"
-            : (hasDownload ? "当前环境不支持应用内安装，可打开下载页手动安装。" : "检测到新版本，但 manifest 没有提供下载链接。")
-          : "有新版本时会显示下载入口。";
-  }
-  if (installProgress) {
-    const progress = update.installProgress || {};
-    const percent = Math.round(Number(progress.percent || 0) || 0);
-    const phase = update.installPhase === "installing"
-      ? "正在安装"
-      : update.installPhase === "installed"
-        ? "已安装，等待重启"
-        : "正在下载";
-    installProgress.textContent = installing || installed
-      ? `${phase}${percent ? `：${percent}%` : ""}`
-      : "";
-    installProgress.classList.toggle("hidden", !(installing || installed));
-  }
-  if (remindLaterButton) remindLaterButton.disabled = update.status === UPDATE_STATUS.CHECKING;
-  if (ignoreButton) ignoreButton.disabled = !hasUpdate || !latestLabel;
-  if (autoEnabled) autoEnabled.checked = update.autoCheckEnabled !== false;
-}
-
 function renderSettingsPanel() {
   syncRailSelectionState();
   ensureSettingsWorkbenchLayout();
@@ -9721,7 +9085,7 @@ function renderSettingsPanel() {
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
 
-  renderUpdateSettingsCard();
+  renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVersion: APP_VERSION });
   renderNoteTemplateSettingsCard("permanent");
   renderNoteTemplateSettingsCard("literature");
 
@@ -10144,25 +9508,14 @@ function writingCandidateNotes() {
     });
 }
 
+
+
 function writingThemeLabels(notes) {
-  const tags = [...new Set(
-    notes
-      .flatMap((note) => {
-        if (Array.isArray(note.tags) && note.tags.length) return note.tags;
-        return parseTags(String(note.body || ""));
-      })
-      .map((tag) => String(tag || "").trim())
-      .filter(Boolean)
-  )];
-  if (tags.length) return tags;
-  return [...new Set(notes.map((note) => String(note.title || "").trim()).filter(Boolean))];
+  return computeWritingThemeLabels(notes, { parseTags });
 }
 
 function writingThemeSummary(notes) {
-  const labels = writingThemeLabels(notes);
-  if (!labels.length) return "\u8fd8\u6ca1\u6709\u6d6e\u73b0\u51fa\u53ef\u8fdb\u5165\u5199\u4f5c\u7684\u4e3b\u9898";
-  const preview = labels.slice(0, 3).join("、");
-  return `\u53ef\u8fdb\u5165\u5199\u4f5c\u7684\u4e3b\u9898\u7ea6 ${labels.length} \u4e2a${preview ? `\uff1a${preview}${labels.length > 3 ? " \u7b49" : ""}` : ""}`;
+  return computeWritingThemeSummary(notes, { parseTags });
 }
 
 function writingThemeIndexById(indexId) {
@@ -10386,21 +9739,14 @@ async function createWritingProjectFromThemeIndex(indexCardId) {
   return project;
 }
 
+
+
 function writingSourceIndexSummary() {
-  const sourceIds = uniqueStrings(writingState.sourceIndexIds);
-  if (!sourceIds.length) return "";
-  const titles = sourceIds.map((id) => writingThemeIndexById(id)?.title || id).filter(Boolean);
-  const preview = titles.slice(0, 2).join("、");
-  return `主题入口：${preview}${titles.length > 2 ? " 等" : ""}`;
+  return computeWritingSourceIndexSummary(writingState.sourceIndexIds, { themeIndexById: writingThemeIndexById });
 }
 
 function suggestedThemeIndexTitle(noteIds = []) {
-  const notes = noteIds.map((id) => writingNoteById(id)).filter(Boolean);
-  const labels = writingThemeLabels(notes);
-  if (labels.length) return `${labels[0]} 主题索引`;
-  const first = notes[0];
-  if (first?.title) return `${first.title} 主题索引`;
-  return "新的主题索引";
+  return computeSuggestedThemeIndexTitle(noteIds, { noteById: writingNoteById, parseTags });
 }
 
 function clearWritingSourceIndexIds() {
@@ -11781,43 +11127,36 @@ function renderWritingFlowSteps({
     .join("");
 }
 
+
+
+
+
 function writingBookPlainText(note) {
-  return uniqueStrings([
-    note?.title,
-    note?.thesis,
-    ...(Array.isArray(note?.threeLineSummary) ? note.threeLineSummary : []),
-    note?.boundaryOrCounterpoint,
-    note?.boundary_or_counterpoint,
-    note?.body
-  ]).join("\n");
+  return computeWritingBookPlainText(note);
 }
 
 function writingBookShortText(value, limit = 36) {
-  const text = String(value || "").replace(/\s+/g, " ").trim();
-  if (!text) return "";
-  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+  return computeWritingBookShortText(value, limit);
 }
 
 function writingBookMatchesAny(text, keywords = []) {
-  const haystack = String(text || "").toLowerCase();
-  return keywords.some((keyword) => haystack.includes(String(keyword || "").toLowerCase()));
+  return computeWritingBookMatchesAny(text, keywords);
 }
 
 function uniqueWritingBookPoolItems(items = []) {
-  const seen = new Set();
-  return (Array.isArray(items) ? items : [])
-    .map((item) => ({
-      title: String(item?.title || "").trim(),
-      note_ids: uniqueStrings(item?.note_ids || item?.noteIds || []),
-      role: String(item?.role || "").trim()
-    }))
-    .filter((item) => item.title || item.note_ids.length)
-    .filter((item) => {
-      const key = `${item.title}\u0000${item.note_ids.join("\u0000")}\u0000${item.role}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  return computeUniqueWritingBookPoolItems(items);
+}
+
+function writingBookSectionFromNote(note, fallbackTitle = "") {
+  return computeWritingBookSectionFromNote(note, fallbackTitle);
+}
+
+function normalizeWritingBookStructure(value = {}) {
+  return computeNormalizeWritingBookStructure(value);
+}
+
+function writingBookStructureStats(bookStructure = {}) {
+  return computeWritingBookStructureStats(bookStructure);
 }
 
 function writingBookProjectTitle() {
@@ -11832,107 +11171,8 @@ function writingBookProjectAudience() {
   return String(writingState.project?.audience || $("writingAudience")?.value || "").trim();
 }
 
-function writingBookSectionFromNote(note, fallbackTitle = "") {
-  const thesis = writingBookShortText(note?.thesis || (Array.isArray(note?.threeLineSummary) ? note.threeLineSummary[0] : "") || note?.title || fallbackTitle, 34);
-  const boundary = writingBookShortText(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || (Array.isArray(note?.threeLineSummary) ? note.threeLineSummary[1] : "") || "需要补一个边界、反例或现实场景", 34);
-  return [
-    {
-      title: `节一：${thesis || "核心判断"}`,
-      purpose: "把这一章的核心判断讲清楚。",
-      evidence_note_ids: note?.id ? [note.id] : [],
-      role: "claim"
-    },
-    {
-      title: `节二：${boundary || "证据与边界"}`,
-      purpose: "补足案例、反方或适用边界。",
-      evidence_note_ids: note?.id ? [note.id] : [],
-      role: "boundary"
-    }
-  ];
-}
 
-function normalizeWritingBookStructure(value = {}) {
-  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const parts = (Array.isArray(raw.parts) ? raw.parts : []).map((part, partIndex) => ({
-    id: String(part.id || `part_${partIndex + 1}`).trim(),
-    label: String(part.label || `第${partIndex + 1}部`).trim(),
-    title: String(part.title || `第${partIndex + 1}部`).trim(),
-    purpose: String(part.purpose || "").trim(),
-    chapters: (Array.isArray(part.chapters) ? part.chapters : []).map((chapter, chapterIndex) => ({
-      id: String(chapter.id || `chapter_${partIndex + 1}_${chapterIndex + 1}`).trim(),
-      title: String(chapter.title || `第${chapterIndex + 1}章`).trim(),
-      purpose: String(chapter.purpose || "").trim(),
-      evidence_note_ids: uniqueStrings(chapter.evidence_note_ids || chapter.evidenceNoteIds || chapter.noteIds || []),
-      sections: (Array.isArray(chapter.sections) ? chapter.sections : []).map((section, sectionIndex) => {
-        if (typeof section === "string") {
-          return {
-            id: `section_${partIndex + 1}_${chapterIndex + 1}_${sectionIndex + 1}`,
-            title: section,
-            purpose: "",
-            evidence_note_ids: uniqueStrings(chapter.evidence_note_ids || chapter.noteIds || []),
-            role: ""
-          };
-        }
-        return {
-          id: String(section?.id || `section_${partIndex + 1}_${chapterIndex + 1}_${sectionIndex + 1}`).trim(),
-          title: String(section?.title || `第${sectionIndex + 1}节`).trim(),
-          purpose: String(section?.purpose || "").trim(),
-          evidence_note_ids: uniqueStrings(section?.evidence_note_ids || section?.evidenceNoteIds || section?.noteIds || []),
-          role: String(section?.role || "").trim()
-        };
-      })
-    }))
-  }));
-  const pools = raw.pools && typeof raw.pools === "object" && !Array.isArray(raw.pools) ? raw.pools : {};
-  const normalizePoolItems = (items) =>
-    (Array.isArray(items) ? items : [])
-      .map((item) =>
-        typeof item === "string"
-          ? { title: item, note_ids: [], role: "" }
-          : {
-              title: String(item?.title || "").trim(),
-              note_ids: uniqueStrings(item?.note_ids || item?.noteIds || []),
-              role: String(item?.role || "").trim()
-            }
-      )
-      .filter((item) => item.title || item.note_ids.length);
-  const directionIdeas = (Array.isArray(raw.direction_ideas || raw.directionIdeas) ? raw.direction_ideas || raw.directionIdeas : []).map((idea, index) => ({
-    id: String(idea.id || `idea_${index + 1}`).trim(),
-    title: String(idea.title || "").trim(),
-    reader: String(idea.reader || "").trim(),
-    promise: String(idea.promise || "").trim(),
-    risk: String(idea.risk || "").trim(),
-    note_ids: uniqueStrings(idea.note_ids || idea.noteIds || [])
-  })).filter((idea) => idea.title);
-  return {
-    schema_version: Number(raw.schema_version || raw.schemaVersion || 1) || 1,
-    generated_by: String(raw.generated_by || raw.generatedBy || "writing-center-ui").trim(),
-    generated_at: String(raw.generated_at || raw.generatedAt || "").trim(),
-    mainline: String(raw.mainline || "").trim(),
-    reader: String(raw.reader || "").trim(),
-    parts,
-    pools: {
-      cases: normalizePoolItems(pools.cases),
-      counterarguments: normalizePoolItems(pools.counterarguments || pools.counters),
-      open_questions: (Array.isArray(pools.open_questions || pools.questions) ? pools.open_questions || pools.questions : [])
-        .map((item) => String(item?.title || item || "").trim())
-        .filter(Boolean)
-    },
-    direction_ideas: directionIdeas
-  };
-}
 
-function writingBookStructureStats(bookStructure = {}) {
-  const normalized = normalizeWritingBookStructure(bookStructure);
-  return {
-    partCount: normalized.parts.length,
-    chapterCount: normalized.parts.reduce((sum, part) => sum + part.chapters.length, 0),
-    sectionCount: normalized.parts.reduce((sum, part) => sum + part.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.sections.length, 0), 0),
-    caseCount: normalized.pools.cases.length,
-    counterargumentCount: normalized.pools.counterarguments.length,
-    questionCount: normalized.pools.open_questions.length
-  };
-}
 
 function deriveWritingBookDesign({ notes = writingBasketEntries(), project = writingState.project, scaffold = writingState.scaffold } = {}) {
   const usableNotes = (Array.isArray(notes) ? notes : []).filter(Boolean);
@@ -15845,110 +15085,32 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
   `;
 }
 
-function graphOtherRelationEndpoint(edge = {}, noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  const fromNoteId = String(edge?.fromNoteId || "").trim();
-  const toNoteId = String(edge?.toNoteId || "").trim();
-  if (fromNoteId === cleanNoteId) return toNoteId;
-  if (toNoteId === cleanNoteId) return fromNoteId;
-  return "";
+
+
+
+
+function graphWorkspaceRenderDeps() {
+  return {
+    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
+    relationGroupCounts: graphRelationGroupCounts,
+    nodeTitle: graphNodeTitle,
+    suggestThemeIndexTitle: suggestedThemeIndexTitle,
+    edgeSelectionKey: graphEdgeSelectionKey,
+    relationTypeLabel: graphRelationTypeLabel,
+    renderSelectionMetrics: renderGraphSelectionMetrics
+  };
 }
 
 function graphThemeCandidateNoteIdsForNode(noteId = "", directEdges = [], aiCandidates = []) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return [];
-  const relatedIds = [
-    cleanNoteId,
-    ...(Array.isArray(directEdges) ? directEdges.map((edge) => graphOtherRelationEndpoint(edge, cleanNoteId)) : []),
-    ...(Array.isArray(aiCandidates) ? aiCandidates.map((candidate) => candidate.counterpartNoteId || candidate.targetNoteId) : [])
-  ];
-  return uniqueStrings(relatedIds).slice(0, 10);
+  return computeGraphThemeCandidateNoteIdsForNode(noteId, directEdges, aiCandidates);
 }
 
 function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(), edges = [], title = "关联整理" } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return "";
-  const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    const fromNoteId = String(edge?.fromNoteId || "").trim();
-    const toNoteId = String(edge?.toNoteId || "").trim();
-    return fromNoteId === cleanNoteId || toNoteId === cleanNoteId;
-  });
-  const counts = graphRelationGroupCounts(directEdges);
-  const themeNoteIds = graphThemeCandidateNoteIdsForNode(cleanNoteId, directEdges, []);
-  const sourceTitle = graphNodeTitle(nodeMap, cleanNoteId, "当前笔记");
-  const relationCards = directEdges.slice(0, 4);
-  const themeTitle = suggestedThemeIndexTitle(themeNoteIds);
-  return `
-    <section class="graph-relation-workspace" aria-label="已保存的关系">
-      <div class="graph-relation-workspace-head">
-        <div>
-          <strong>${escapeHtml(title)}</strong>
-          <span>这里只显示已经保存到图谱的正式关系。新的推荐关系在上方确认后才会进入这里。</span>
-        </div>
-        <small>${escapeHtml(String(directEdges.length))} 条正式关系</small>
-      </div>
-      ${
-        relationCards.length
-          ? `<section class="graph-relation-workspace-list" aria-label="现有关联">
-              <strong>已保存关系</strong>
-              ${relationCards
-                .map((edge) => {
-                  const edgeKey = graphEdgeSelectionKey(edge);
-                  const targetId = graphOtherRelationEndpoint(edge, cleanNoteId);
-                  const targetTitle = graphNodeTitle(nodeMap, targetId, targetId || "关联笔记");
-                  const relationType = String(edge?.relationType || "associated_with").trim().toLowerCase();
-                  const rationale = String(edge?.rationale || "").trim();
-                  return `
-                    <button class="graph-relation-workspace-card" type="button" data-graph-select-edge="${escapeHtml(edgeKey)}" data-graph-select-edge-id="${escapeHtml(String(edge?.id || "").trim())}" data-graph-select-edge-from="${escapeHtml(String(edge?.fromNoteId || "").trim())}" data-graph-select-edge-to="${escapeHtml(String(edge?.toNoteId || "").trim())}" data-graph-select-edge-type="${escapeHtml(relationType)}">
-                      <span>${escapeHtml(graphRelationTypeLabel(relationType))}</span>
-                      <strong>${escapeHtml(targetTitle)}</strong>
-                      <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "还需要补一句关系理由。")}</small>
-                    </button>
-                  `;
-                })
-                .join("")}
-            </section>`
-          : `<section class="graph-relation-workspace-empty">
-              <strong>还没有正式关系</strong>
-              <p>先从上方可选关系里保存一条真正成立的连接。</p>
-            </section>`
-      }
-      <details class="graph-selection-details graph-relation-stats">
-        <summary>已保存关系概览</summary>
-        <div class="graph-selection-metrics" aria-label="关联整理概览">
-          ${renderGraphSelectionMetrics([
-            { label: "支持", value: `${counts.support || 0} 条` },
-            { label: "反方/边界", value: `${(counts.boundary || 0) + (counts.conflict || 0)} 条` },
-            { label: "桥接", value: `${counts.bridge || 0} 条` },
-            { label: "可整理", value: `${themeNoteIds.length} 条`, hint: "当前笔记加上相邻笔记" }
-          ])}
-        </div>
-      </details>
-      <section class="graph-theme-index-workspace" aria-label="主题整理">
-        <div>
-          <strong>整理成主题草稿</strong>
-          <p>${escapeHtml(themeNoteIds.length >= 3 ? `把“${sourceTitle}”和相邻 ${themeNoteIds.length - 1} 条笔记放到一张主题索引卡里，方便之后提炼一个中心问题。` : "先至少保存两条相关关系，再考虑整理成主题草稿。")}</p>
-        </div>
-        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${themeNoteIds.length >= 3 ? "" : " disabled"}>创建主题草稿</button>
-      </section>
-    </section>
-  `;
+  return renderGraphRelationWorkspaceMarkup(noteId, { nodeMap, edges, title, deps: graphWorkspaceRenderDeps() });
 }
 
 function renderGraphThemeIndexWorkspace(noteIds = [], { title = "主题候选", relationCount = 0, tone = "" } = {}) {
-  const cleanNoteIds = uniqueStrings(noteIds);
-  const cleanTitle = String(title || suggestedThemeIndexTitle(cleanNoteIds)).trim() || suggestedThemeIndexTitle(cleanNoteIds);
-  const canCreate = cleanNoteIds.length >= 3;
-  return `
-    <section class="graph-theme-index-workspace is-${escapeHtml(String(tone || "candidate").trim() || "candidate")}" aria-label="主题整理">
-      <div>
-        <strong>整理成主题草稿</strong>
-        <p>${escapeHtml(canCreate ? `这会创建一张主题索引卡，先收纳 ${cleanNoteIds.length} 条相关笔记；之后再提炼中心问题和写作方向。` : "先至少凑齐 3 条相关永久笔记，再整理成主题草稿。")}</p>
-      </div>
-      <button class="graph-selection-action is-primary is-theme" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(cleanNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(cleanTitle)}"${canCreate ? "" : " disabled"}>创建主题草稿</button>
-    </section>
-  `;
+  return renderGraphThemeIndexWorkspaceMarkup(noteIds, { title, relationCount, tone, deps: graphWorkspaceRenderDeps() });
 }
 
 const GRAPH_RELATION_FORM_TYPES = ["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"];
@@ -21075,7 +20237,7 @@ function systemMessageWorkflowNoteTitles(message = {}) {
     if (title && !titles.includes(title)) titles.push(title);
   };
   pushTitle(String(message.body || "").match(/“([^”]+)”/)?.[1] || "");
-  if (typeof systemMessageSubjectText === "function") pushTitle(systemMessageSubjectText(message));
+  if (typeof systemMessageSubjectText === "function") pushTitle(systemMessageSubjectText(message, state.notes));
   const title = String(message.title || "").trim();
   pushTitle(
     title.replace(
@@ -22555,39 +21717,39 @@ $("settingsPaneSupport")?.addEventListener("click", (event) => {
 });
 
 $("settingsCheckUpdate")?.addEventListener("click", async () => {
-  await refreshAppVersionInfo();
-  await runAppUpdateCheck({ manual: true });
+  await updateController.refreshAppVersionInfo();
+  await updateController.runAppUpdateCheck({ manual: true });
 });
 
 $("settingsOpenUpdateDownload")?.addEventListener("click", async () => {
-  await openUpdateDownloadUrl();
+  await updateController.openUpdateDownloadUrl();
 });
 
 $("settingsInstallUpdate")?.addEventListener("click", async () => {
-  await installUpdateFromDesktopUpdater();
+  await updateController.installUpdateFromDesktopUpdater();
 });
 
 $("settingsRelaunchUpdate")?.addEventListener("click", async () => {
-  await relaunchAfterInstalledUpdate();
+  await updateController.relaunchAfterInstalledUpdate();
 });
 
 $("settingsRemindUpdateLater")?.addEventListener("click", () => {
   settingsState.update = updateStateRemindLater(settingsState.update);
-  persistUpdateSettingsToStorage();
+  updateController.persistUpdateSettingsToStorage();
   renderSettingsPanel();
   setStatus("已设置稍后提醒，今天不会自动提醒这个更新。", "ok");
 });
 
 $("settingsIgnoreUpdateVersion")?.addEventListener("click", () => {
   settingsState.update = updateStateIgnoreLatest(settingsState.update);
-  persistUpdateSettingsToStorage();
+  updateController.persistUpdateSettingsToStorage();
   renderSettingsPanel();
   setStatus("已忽略当前检测到的版本；手动检查仍会显示结果。", "ok");
 });
 
 $("settingsAutoUpdateEnabled")?.addEventListener("change", (event) => {
   settingsState.update = updateStateAutoCheckEnabled(settingsState.update, event.target.checked);
-  persistUpdateSettingsToStorage();
+  updateController.persistUpdateSettingsToStorage();
   renderSettingsPanel();
   setStatus(event.target.checked ? "已开启启动后的每日更新检查。" : "已关闭启动后的自动更新检查。", event.target.checked ? "ok" : "warn");
 });
@@ -25506,8 +24668,8 @@ async function bootstrap() {
 
   // Best-effort update check. This only reads metadata and never installs or migrates data.
   setTimeout(async () => {
-    await refreshAppVersionInfo();
-    await runAppUpdateCheck({ manual: false });
+    await updateController.refreshAppVersionInfo();
+    await updateController.runAppUpdateCheck({ manual: false });
   }, 1200);
 }
 

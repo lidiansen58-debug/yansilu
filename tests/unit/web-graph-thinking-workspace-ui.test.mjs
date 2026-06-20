@@ -1729,7 +1729,7 @@ test("graph relation candidates explain reason, possible relation, and review qu
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
   const connectStart = source.indexOf('function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edges = [], hideEmpty = false } = {}) {');
-  const connectEnd = source.indexOf('function graphOtherRelationEndpoint(', connectStart);
+  const connectEnd = source.indexOf('function graphWorkspaceRenderDeps()', connectStart);
   assert.ok(connectStart >= 0 && connectEnd > connectStart, "expected renderGraphAiConnectCandidates() to exist");
   const connectSource = source.slice(connectStart, connectEnd);
 
@@ -1880,15 +1880,17 @@ test("graph node selection summarizes position, relation quality, and next actio
 
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
   const source = readPrototypeApp();
+  const systemMessageSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-messages.js"), "utf8");
+  const workspaceSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-graph-workspace.js"), "utf8");
   const html = readPrototypeHtml();
 
   assert.match(source, /function renderGraphRelationWorkspaceForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], title = "关联整理" \} = \{\}\) \{/);
-  assert.match(source, /graphThemeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\)/);
+  assert.match(workspaceSource, /graphThemeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\)/);
   assert.match(source, /graphAiRelationCandidatesForNote\(cleanNoteId, \{ nodeMap, edges, limit: 3 \}\)/);
   assert.match(source, /graphThemeCandidateNoteIdsForNode\(normalized\.nodeId, directEdges, \[\]\)/);
-  assert.match(source, /data-graph-theme-note-ids="\$\{escapeHtml\(themeNoteIds\.join\(","\)\)\}"/);
-  assert.match(source, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
-  assert.match(source, /data-graph-create-theme-index/);
+  assert.match(workspaceSource, /data-graph-theme-note-ids="\$\{escapeHtml\(themeNoteIds\.join\(","\)\)\}"/);
+  assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
+  assert.match(workspaceSource, /data-graph-create-theme-index/);
   assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "主题候选", relationCount = 0, tone = "" \} = \{\}\) \{/);
   assert.match(source, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
   assert.match(source, /createIndexCard\(\{/);
@@ -1900,7 +1902,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(source, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
   assert.match(source, /focus === "writing"/);
   assert.match(source, /await selectWritingThemeIndex\(indexCardId\)/);
-  assert.match(source, /basketNoteIds: String\(item\.workflowRoute\.basketNoteIds/);
+  assert.match(systemMessageSource, /basketNoteIds: String\(item\.workflowRoute\.basketNoteIds/);
 
   assert.match(html, /\.graph-selection-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(112px, 1fr\)\);/);
   assert.match(html, /\.graph-relation-workspace \{[\s\S]*display: grid;[\s\S]*gap: 10px;/);
