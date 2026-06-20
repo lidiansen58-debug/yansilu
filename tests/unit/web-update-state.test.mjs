@@ -6,7 +6,10 @@ import {
   shouldAutoCheckForUpdates,
   updateStateAutoCheckEnabled,
   updateStateChecking,
+  updateStateDownloaded,
+  updateStateDownloading,
   updateStateFromCheckResult,
+  updateStateFromVersionInfo,
   updateStateIgnoreLatest,
   updateStateRemindLater,
   updateStatusTone
@@ -18,6 +21,22 @@ test("web update state lets users disable automatic checks", () => {
   assert.equal(state.autoCheckEnabled, false);
   assert.equal(state.status, "disabled");
   assert.equal(shouldAutoCheckForUpdates(state, { nowMs: Date.parse("2026-06-20T00:00:00.000Z") }), false);
+});
+
+test("web update state clears restart prompt after the new version is running", () => {
+  const state = updateStateFromVersionInfo(createUpdateState({
+    status: "downloaded",
+    latestVersion: "0.1.2",
+    installReadyForRestart: true,
+    installPhase: "installed",
+    installProgress: { percent: 100 }
+  }), {
+    version: "0.1.2"
+  });
+
+  assert.equal(state.status, "up-to-date");
+  assert.equal(state.installReadyForRestart, false);
+  assert.equal(state.installProgress, null);
 });
 
 test("web update state allows manual checks even after disabled state is visible", () => {
@@ -82,4 +101,28 @@ test("web update state records ignored latest version", () => {
   }));
 
   assert.equal(state.ignoredVersion, "0.1.2");
+});
+
+test("web update state tracks desktop install progress and restart readiness", () => {
+  const downloading = updateStateDownloading(createUpdateState({
+    status: "update-available",
+    latestVersion: "0.1.2"
+  }), {
+    phase: "downloading",
+    downloadedBytes: 40,
+    totalBytes: 100,
+    percent: 40
+  });
+
+  assert.equal(downloading.status, "downloading");
+  assert.equal(downloading.installProgress.percent, 40);
+  assert.equal(downloading.installReadyForRestart, false);
+
+  const downloaded = updateStateDownloaded(downloading, {
+    message: "更新已安装，重启后生效。"
+  });
+
+  assert.equal(downloaded.status, "downloaded");
+  assert.equal(downloaded.installProgress.percent, 100);
+  assert.equal(downloaded.installReadyForRestart, true);
 });

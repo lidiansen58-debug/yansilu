@@ -36,6 +36,41 @@ function scoreBundleItem(item = {}) {
   return 0;
 }
 
+function inferArchFromFile(file = "") {
+  const value = normalizeSlashPath(file).toLowerCase();
+  if (/(aarch64|arm64)/.test(value)) return "aarch64";
+  if (/(i686|x86|ia32)/.test(value) && !/(x86_64|x64)/.test(value)) return "i686";
+  if (/armv7/.test(value)) return "armv7";
+  return "x86_64";
+}
+
+function inferTauriOsFromFile(file = "") {
+  const value = normalizeSlashPath(file).toLowerCase();
+  if (value.includes("/nsis/") || value.includes("/msi/") || value.endsWith(".exe") || value.endsWith(".msi")) return "windows";
+  if (value.includes("/macos/") || value.includes("/dmg/") || value.endsWith(".app.tar.gz") || value.endsWith(".dmg")) return "darwin";
+  if (value.includes("/appimage/") || value.includes("/deb/") || value.endsWith(".appimage") || value.endsWith(".deb")) return "linux";
+  return "";
+}
+
+function scoreTauriUpdaterItem(item = {}) {
+  const file = normalizeSlashPath(item.file).toLowerCase();
+  if (!file || file.endsWith(".sig")) return -1;
+  if (file.includes("/nsis/") && file.endsWith(".exe")) return 100;
+  if (file.endsWith("-setup.exe") || file.endsWith("_setup.exe")) return 95;
+  if (file.endsWith(".msi")) return 80;
+  if (file.endsWith(".app.tar.gz")) return 75;
+  if (file.endsWith(".appimage")) return 70;
+  if (file.endsWith(".deb")) return 50;
+  return -1;
+}
+
+export function tauriPlatformKeyForBundleItem(item = {}) {
+  const file = normalizeSlashPath(item.file);
+  const os = inferTauriOsFromFile(file);
+  if (!os) return "";
+  return `${os}-${inferArchFromFile(file)}`;
+}
+
 export function selectPrimaryBundleItem(bundleManifest = {}, options = {}) {
   const items = Array.isArray(bundleManifest?.items) ? bundleManifest.items : [];
   const requestedFile = normalizeSlashPath(options.file || "");
@@ -103,6 +138,66 @@ export function buildUpdateManifestFromBundleManifest({
           value: cleanText(item.sha256)
         }
       : null
+  };
+}
+
+export function buildTauriStaticUpdateManifestFromBundleManifest({
+  bundleManifest = {},
+  packageVersion = "",
+  repository = "",
+  tag = "",
+  notes = [],
+  releaseDate = "",
+  githubBaseUrl = "https://github.com",
+  signatureByFile = {}
+} = {}) {
+  const version = cleanText(packageVersion || bundleManifest.version);
+  if (!version) throw new Error("Package version is required.");
+  const releaseTag = cleanText(tag || `v${version}`);
+  const items = Array.isArray(bundleManifest?.items) ? bundleManifest.items : [];
+  const signatureMap = signatureByFile && typeof signatureByFile === "object" ? signatureByFile : {};
+  const selectedByPlatform = new Map();
+
+  for (const item of items) {
+    if (scoreTauriUpdaterItem(item) < 0) continue;
+    const file = normalizeSlashPath(item.file);
+    const signatureFile = `${file}.sig`;
+    const signature = cleanText(signatureMap[file] || signatureMap[signatureFile] || item.signature);
+    if (!signature) continue;
+    const platformKey = tauriPlatformKeyForBundleItem(item);
+    if (!platformKey) continue;
+    const existing = selectedByPlatform.get(platformKey);
+    if (!existing || scoreTauriUpdaterItem(item) > scoreTauriUpdaterItem(existing.item)) {
+      selectedByPlatform.set(platformKey, { item, signature });
+    }
+  }
+
+  if (!selectedByPlatform.size) {
+    throw new Error("No signed Tauri updater artifact was found in bundle manifest.");
+  }
+
+  const platforms = {};
+  for (const [platformKey, entry] of [...selectedByPlatform.entries()].sort(([a], [b]) => a.localeCompare(b, "en"))) {
+    platforms[platformKey] = {
+      signature: entry.signature,
+      url: githubReleaseDownloadUrl({
+        repository,
+        tag: releaseTag,
+        file: entry.item.file,
+        githubBaseUrl
+      })
+    };
+  }
+
+  const notesText = Array.isArray(notes)
+    ? notes.map((entry) => cleanText(entry)).filter(Boolean).join("\n")
+    : cleanText(notes);
+
+  return {
+    version,
+    notes: notesText,
+    pub_date: cleanText(releaseDate) || new Date().toISOString(),
+    platforms
   };
 }
 

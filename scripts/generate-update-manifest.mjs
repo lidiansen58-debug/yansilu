@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import {
+  buildTauriStaticUpdateManifestFromBundleManifest,
   buildUpdateManifestFromBundleManifest,
   parseGithubRepositoryFromRemote
 } from "../packages/app-update/src/release-manifest.mjs";
@@ -18,6 +19,8 @@ function printUsage() {
 Options:
   --bundle-manifest <path>          Source bundle manifest JSON.
   --out <path>                      Output update manifest path.
+  --tauri-out <path>                Output Tauri updater feed path.
+  --no-tauri                        Skip Tauri updater feed generation.
   --repo <owner/repo>               GitHub repository. Defaults to GITHUB_REPOSITORY or origin remote.
   --tag <tag>                       GitHub release tag. Defaults to v<package.json version>.
   --channel <channel>               Release channel. Defaults from version prerelease label.
@@ -39,6 +42,7 @@ function parseArgs(argv) {
   const valueOptions = new Set([
     "bundle-manifest",
     "out",
+    "tauri-out",
     "repo",
     "tag",
     "channel",
@@ -57,6 +61,10 @@ function parseArgs(argv) {
     }
     if (raw === "--critical") {
       options.critical = true;
+      continue;
+    }
+    if (raw === "--no-tauri") {
+      options.no_tauri = true;
       continue;
     }
     if (!raw.startsWith("--")) {
@@ -92,6 +100,22 @@ async function readChangelogFile(filePath) {
     .filter((line) => line && !line.startsWith("#"));
 }
 
+async function readTauriSignatures(bundleManifest = {}, bundleManifestPath = "") {
+  const root = path.resolve(
+    repoRoot,
+    bundleManifest.root || path.dirname(bundleManifestPath)
+  );
+  const items = Array.isArray(bundleManifest.items) ? bundleManifest.items : [];
+  const signatures = {};
+  for (const item of items) {
+    const file = String(item?.file || "").replaceAll("\\", "/");
+    if (!file.endsWith(".sig")) continue;
+    const signaturePath = path.resolve(root, file);
+    signatures[file] = (await fs.readFile(signaturePath, "utf8")).trim();
+  }
+  return signatures;
+}
+
 async function resolveRepository(explicitRepository = "") {
   if (explicitRepository) return explicitRepository;
   if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
@@ -124,6 +148,7 @@ async function main() {
       path.join("apps", "desktop", "src-tauri", "target", "release", "bundle", "bundle-manifest.json")
   );
   const outputPath = path.resolve(repoRoot, options.out || path.join("release-artifacts", "update-manifest.json"));
+  const tauriOutputPath = path.resolve(repoRoot, options.tauri_out || path.join("release-artifacts", "latest.json"));
   const changelog = [
     ...options.changelog,
     ...(options.changelog_file ? await readChangelogFile(path.resolve(repoRoot, options.changelog_file)) : [])
@@ -150,6 +175,24 @@ async function main() {
   console.log(`Update manifest written: ${outputPath}`);
   console.log(`Version: ${manifest.version}`);
   console.log(`Download URL: ${manifest.downloadUrl}`);
+
+  if (!options.no_tauri) {
+    const signatureByFile = await readTauriSignatures(bundleManifest, bundleManifestPath);
+    const tauriManifest = buildTauriStaticUpdateManifestFromBundleManifest({
+      bundleManifest,
+      packageVersion: packageJson.version,
+      repository,
+      tag: options.tag || `v${packageJson.version}`,
+      notes: changelog,
+      releaseDate: manifest.releaseDate,
+      githubBaseUrl: options.github_base_url,
+      signatureByFile
+    });
+    await fs.mkdir(path.dirname(tauriOutputPath), { recursive: true });
+    await fs.writeFile(tauriOutputPath, `${JSON.stringify(tauriManifest, null, 2)}\n`, "utf8");
+    console.log(`Tauri updater feed written: ${tauriOutputPath}`);
+    console.log(`Tauri platforms: ${Object.keys(tauriManifest.platforms).join(", ")}`);
+  }
 }
 
 main().catch((error) => {

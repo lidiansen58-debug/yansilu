@@ -2,15 +2,16 @@
 
 ## 工作方式
 
-第一版只实现安全的更新检测闭环：
+当前实现分成两层：
 
 1. API 服务从根 `package.json` 读取当前应用版本。
 2. API 服务读取 `YANSILU_UPDATE_MANIFEST_URL` 指向的远端 JSON manifest。
 3. 服务端比较当前版本和 manifest 的 `version`。
 4. 前端设置页显示当前版本、最新版本、检查时间、更新说明、错误信息和下载入口。
-5. 用户确认后打开 manifest 里的下载页，由用户自行下载和安装。
+5. 浏览器环境或桌面更新源不可用时，用户确认后打开 manifest 里的下载页，由用户自行下载和安装。
+6. Tauri 桌面环境中，如果 `latest.json` 更新 feed、签名和平台安装包都准备好，用户可以在设置页点击“一键下载并安装”，安装完成后再点击“重启完成更新”。
 
-第一版不会静默下载、不会自动安装、不会重启应用，也不会自动迁移或改写用户 Vault。
+应用不会静默下载、不会在没有用户确认时安装或重启，也不会自动迁移或改写用户 Vault。
 
 ## Manifest 格式
 
@@ -59,10 +60,17 @@
 npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.2 --changelog-file docs/V0_1_2_RELEASE_NOTES.md
 ```
 
-默认会读取 `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`，选择 NSIS `.exe` 等主安装包，生成 `release-artifacts/update-manifest.json`。如果需要指定某个平台的产物，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`。
+默认会读取 `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`，并生成两份文件：
 
-5. 上传 manifest 到 `YANSILU_UPDATE_MANIFEST_URL` 指向的 HTTPS 静态地址。
-6. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
+- `release-artifacts/update-manifest.json`：研思录 API 和设置页用于检查更新、展示 changelog、打开下载页的简化 manifest。
+- `release-artifacts/latest.json`：Tauri updater 使用的平台化安装 feed，包含 `platforms.<os-arch>.url` 和 `.sig` 文件内容。
+
+如果需要指定简化 manifest 的主下载包，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`。Tauri feed 会从构建目录里的 `.sig` 文件读取签名；缺少签名时脚本会失败，不会生成可误用的安装 feed。
+
+5. 上传 `update-manifest.json` 到 `YANSILU_UPDATE_MANIFEST_URL` 指向的 HTTPS 静态地址。
+6. 上传 `latest.json` 到 `apps/desktop/src-tauri/tauri.conf.json` 里配置的 updater endpoint，当前是 `https://downloads.yansilu.app/updates/latest.json`。
+7. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
+8. 在签名 updater feed 可用时，继续验证“一键下载并安装 -> 重启完成更新”。
 
 如果最新版安装包放在 GitHub Releases，`downloadUrl` 会形如：
 
@@ -90,16 +98,16 @@ npm run dev:api
 - 手动检查更新。
 - 稍后提醒、忽略当前版本、关闭自动检查。
 - 打开下载页。
+- 桌面环境下由用户确认后调用 Tauri updater 下载、签名校验、安装。
+- 安装完成后由用户再次确认重启。
 
 不支持：
 
-- 静默下载或静默安装。
-- 自动替换程序文件。
-- 自动重启。
+- 静默下载或无确认安装。
+- 安装完成后自动重启。
 - 差分更新。
 - 发布通道灰度策略。
-- 安装包 checksum 强校验。
-- Tauri updater 插件的端到端安装流程。
+- 绕过 Tauri 签名机制的安装包校验。
 
 ## 安全边界
 
@@ -108,13 +116,14 @@ npm run dev:api
 - 自动更新功能不会自动迁移 Vault。
 - 如果未来版本需要数据迁移，必须先展示迁移说明、风险和确认动作。
 - 下载和安装由用户明确触发；应用不会在用户不知情时替换程序。
+- Tauri updater 的安装 feed 必须使用签名 artifact；没有 `.sig` 时发布脚本会报错。
 
 ## 后续接入方向
 
-当桌面安装包和发布源稳定后，可以在此基础上接入 Tauri updater：
+后续仍建议补强：
 
-1. 为 release pipeline 生成 Tauri updater artifacts 和签名。
-2. 将 manifest 扩展为平台化 release feed。
-3. 下载前显示校验、大小和变更摘要。
-4. 用户确认后执行下载，并在安装/重启前再次确认。
-5. 将 checksum 校验和签名验证作为安装前置条件。
+1. 将 `latest.json` 上传纳入 GitHub Actions release pipeline。
+2. 为不同 channel 提供独立 endpoint，例如 beta/stable。
+3. 下载前显示安装包大小、签名 feed 时间和平台信息。
+4. 对需要 Vault 迁移的版本增加迁移确认页和备份提示。
+5. 增加真实打包环境下的端到端升级验收。

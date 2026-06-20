@@ -103,18 +103,20 @@ Before publishing the draft release:
 
 1. Download every uploaded artifact.
 2. Compare `bundle-manifest.sha256.txt` against the release assets.
-3. Generate the app update manifest for the GitHub Release assets:
+3. Generate the app update manifests for the GitHub Release assets:
 
 ```powershell
 npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.0-beta.1 --changelog-file docs/V0_1_0_BETA_1_RELEASE_NOTES.md
 ```
 
 4. Upload `release-artifacts/update-manifest.json` to the stable update endpoint used by `YANSILU_UPDATE_MANIFEST_URL`.
-5. Install and launch on each target platform.
-6. From an older build, confirm “Settings -> Version update -> Check update” reports the new GitHub Release.
-7. Confirm updater artifacts exist only when signed updater generation was intentionally enabled for this release.
-8. Confirm release notes mention known limitations and signing status.
-9. Keep the previous release available for rollback.
+5. Upload `release-artifacts/latest.json` to the Tauri updater endpoint configured in `tauri.conf.json`.
+6. Install and launch on each target platform.
+7. From an older build, confirm “Settings -> Version update -> Check update” reports the new GitHub Release.
+8. From an older signed desktop build, confirm “one-click download and install” completes and “restart to finish update” relaunches the app on the new version.
+9. Confirm updater artifacts exist only when signed updater generation was intentionally enabled for this release.
+10. Confirm release notes mention known limitations and signing status.
+11. Keep the previous release available for rollback.
 
 ## macOS Notes
 
@@ -132,9 +134,9 @@ The app currently points at:
 https://downloads.yansilu.app/updates/latest.json
 ```
 
-Do not advertise automatic updates until that endpoint is populated from the release artifacts and tested from an older build to a newer build.
+Do not advertise one-click automatic updates until that endpoint is populated from signed release artifacts and tested from an older build to a newer build.
 
-GitHub Releases can host the installer files. The app should still read a small static JSON manifest from the update endpoint, because that keeps the runtime update check simple, cacheable, and independent of GitHub API rate limits.
+GitHub Releases can host the installer files. The app still reads small static JSON files from stable update endpoints: `update-manifest.json` for the in-app changelog/download prompt, and `latest.json` for Tauri updater installation. This keeps runtime checks cacheable and independent of GitHub API rate limits.
 
 ## References
 

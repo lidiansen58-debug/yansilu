@@ -40,6 +40,9 @@ export function createUpdateState(overrides = {}) {
     critical: false,
     minimumSupported: true,
     error: "",
+    installPhase: "",
+    installProgress: null,
+    installReadyForRestart: false,
     requestToken: 0,
     autoCheckEnabled: true,
     remindAfter: "",
@@ -73,6 +76,13 @@ export function updateStateFromVersionInfo(state = {}, versionInfo = {}) {
   const next = { ...createUpdateState(), ...state };
   next.currentVersion = cleanText(versionInfo.version || versionInfo.currentVersion || next.currentVersion);
   next.manifestUrl = cleanText(versionInfo.manifestUrl || next.manifestUrl);
+  if (next.installReadyForRestart && next.currentVersion && next.latestVersion && next.currentVersion === next.latestVersion) {
+    next.status = UPDATE_STATUS.UP_TO_DATE;
+    next.installPhase = "";
+    next.installProgress = null;
+    next.installReadyForRestart = false;
+    next.error = "";
+  }
   if (versionInfo.status === UPDATE_STATUS.DISABLED || versionInfo.updateStatus === UPDATE_STATUS.DISABLED) {
     next.status = UPDATE_STATUS.DISABLED;
     next.error = cleanText(versionInfo.message || versionInfo.error || "");
@@ -119,7 +129,43 @@ export function updateStateFailed(state = {}, error = "", options = {}) {
     ...state,
     status: UPDATE_STATUS.FAILED,
     checkedAt: isoNow(options.now),
-    error: cleanText(error?.message || error)
+    error: cleanText(error?.message || error),
+    installPhase: "",
+    installProgress: null,
+    installReadyForRestart: false
+  };
+}
+
+export function updateStateDownloading(state = {}, progress = {}) {
+  const normalizedProgress = progress && typeof progress === "object" ? progress : {};
+  return {
+    ...createUpdateState(),
+    ...state,
+    status: UPDATE_STATUS.DOWNLOADING,
+    error: "",
+    installPhase: cleanText(normalizedProgress.phase) || "downloading",
+    installProgress: {
+      downloadedBytes: Number(normalizedProgress.downloadedBytes || 0) || 0,
+      totalBytes: Number(normalizedProgress.totalBytes || 0) || 0,
+      percent: Math.max(0, Math.min(100, Number(normalizedProgress.percent || 0) || 0))
+    },
+    installReadyForRestart: false
+  };
+}
+
+export function updateStateDownloaded(state = {}, options = {}) {
+  return {
+    ...createUpdateState(),
+    ...state,
+    status: UPDATE_STATUS.DOWNLOADED,
+    error: cleanText(options.message || ""),
+    installPhase: "installed",
+    installProgress: {
+      ...(state.installProgress || {}),
+      ...(options.progress || {}),
+      percent: 100
+    },
+    installReadyForRestart: true
   };
 }
 
@@ -170,6 +216,8 @@ export function updateStatusTone(state = {}) {
   if (state.status === UPDATE_STATUS.UPDATE_AVAILABLE) return "warn";
   if (state.status === UPDATE_STATUS.UP_TO_DATE) return "ok";
   if (state.status === UPDATE_STATUS.FAILED) return "bad";
+  if (state.status === UPDATE_STATUS.DOWNLOADING) return "warn";
+  if (state.status === UPDATE_STATUS.DOWNLOADED) return "ok";
   if (state.status === UPDATE_STATUS.DISABLED) return "muted";
   return "";
 }

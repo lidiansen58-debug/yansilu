@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildTauriStaticUpdateManifestFromBundleManifest,
   buildUpdateManifestFromBundleManifest,
   githubReleaseDownloadUrl,
   inferReleaseChannel,
@@ -31,6 +32,46 @@ test("release manifest selects the NSIS installer as the primary bundle on Windo
 
   assert.equal(item.file, "nsis/研思录_0.1.2_x64-setup.exe");
   assert.equal(item.sha256, "NSIS_HASH");
+});
+
+test("release manifest builds a signed Tauri static updater feed", () => {
+  const feed = buildTauriStaticUpdateManifestFromBundleManifest({
+    bundleManifest: {
+      items: [
+        { file: "nsis/研思录_0.1.2_x64-setup.exe" },
+        { file: "nsis/研思录_0.1.2_x64-setup.exe.sig" },
+        { file: "macos/研思录.app.tar.gz" },
+        { file: "macos/研思录.app.tar.gz.sig" }
+      ]
+    },
+    packageVersion: "0.1.2",
+    repository: "lidiansen58-debug/yansilu",
+    tag: "v0.1.2",
+    notes: ["One-click updater support."],
+    releaseDate: "2026-06-20T00:00:00.000Z",
+    signatureByFile: {
+      "nsis/研思录_0.1.2_x64-setup.exe.sig": "WINDOWS_SIG",
+      "macos/研思录.app.tar.gz.sig": "MAC_SIG"
+    }
+  });
+
+  assert.equal(feed.version, "0.1.2");
+  assert.equal(feed.notes, "One-click updater support.");
+  assert.equal(feed.pub_date, "2026-06-20T00:00:00.000Z");
+  assert.equal(feed.platforms["windows-x86_64"].signature, "WINDOWS_SIG");
+  assert.equal(feed.platforms["darwin-x86_64"].signature, "MAC_SIG");
+  assert.match(feed.platforms["windows-x86_64"].url, /releases\/download\/v0\.1\.2/);
+});
+
+test("release manifest refuses a Tauri updater feed without signatures", () => {
+  assert.throws(
+    () => buildTauriStaticUpdateManifestFromBundleManifest({
+      bundleManifest: { items: [{ file: "nsis/研思录_0.1.2_x64-setup.exe" }] },
+      packageVersion: "0.1.2",
+      repository: "lidiansen58-debug/yansilu"
+    }),
+    /No signed Tauri updater artifact/
+  );
 });
 
 test("release manifest can select an explicit bundle item", () => {

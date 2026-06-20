@@ -13832,6 +13832,16 @@
     .settings-feedback-choice .mini-btn {
       min-width: 96px;
     }
+    .settings-inline-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 180px;
+    }
+    .settings-inline-actions .mini-btn {
+      min-width: 88px;
+    }
     .settings-inline-toggle {
       display: inline-flex;
       align-items: center;
@@ -19615,8 +19625,13 @@
                             <div>
                               <strong>下载与安装</strong>
                               <span id="settingsUpdateDownloadHint">有新版本时会显示下载入口。</span>
+                              <span id="settingsUpdateInstallProgress" class="settings-card-note hidden"></span>
                             </div>
-                            <button class="mini-btn" id="settingsOpenUpdateDownload" type="button" disabled>打开下载页</button>
+                            <div class="settings-inline-actions">
+                              <button class="mini-btn primary" id="settingsInstallUpdate" type="button" disabled>桌面版可用</button>
+                              <button class="mini-btn" id="settingsRelaunchUpdate" type="button" disabled>重启完成更新</button>
+                              <button class="mini-btn" id="settingsOpenUpdateDownload" type="button" disabled>打开下载页</button>
+                            </div>
                           </div>
                           <div class="settings-feedback-choice">
                             <div>
