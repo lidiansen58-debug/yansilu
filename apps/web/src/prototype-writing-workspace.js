@@ -1,6 +1,4 @@
-function uniqueStrings(items = []) {
-  return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
-}
+import { uniqueStrings } from "./prototype-collection-utils.js";
 
 export function normalizeWritingProjectTitleSeed(title = "") {
   const cleanTitle = String(title || "").trim();

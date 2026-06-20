@@ -1,3 +1,5 @@
+export { uniqueStrings } from "./prototype-collection-utils.js";
+
 export function normalizeAuthorshipItem(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return {
@@ -34,8 +36,4 @@ export function renderThinkingStatusBadge(value, { className = "thinking-status-
     ? `${thinkingStatus.label}：${thinkingStatus.nextAction}`
     : thinkingStatus.label;
   return `<span class="${escapeHtml(className)}" data-tone="${escapeHtml(thinkingStatusTone(thinkingStatus))}" title="${escapeHtml(title)}">${escapeHtml(thinkingStatus.label)}</span>`;
-}
-
-export function uniqueStrings(items = []) {
-  return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
 }
