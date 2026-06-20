@@ -110,12 +110,13 @@ test("reactivated workflow system messages become unread again", () => {
 
 test("save-after source-note reminders are mirrored into system messages", () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
+  const helperSource = readRepoFile("apps/web/src/prototype-note-state-helpers.js");
 
   assert.match(source, /function sourcePromotionWorkflowMessageForNote\(note = null, suggestion = null\)/);
-  assert.match(source, /category: "source-promotion"/);
-  assert.match(source, /action: "open-note-workflow"/);
-  assert.match(source, /const focus = "record-permanent"/);
-  assert.match(source, /workflowRoute: \{[\s\S]*?focus,/);
+  assert.match(helperSource, /category: "source-promotion"/);
+  assert.match(helperSource, /action: "open-note-workflow"/);
+  assert.match(helperSource, /const focus = "record-permanent"/);
+  assert.match(helperSource, /workflowRoute: \{[\s\S]*?focus,/);
   assert.match(source, /function syncSourcePromotionSystemMessageForNote\(note = null, suggestion = null\)/);
   assert.match(source, /return resolveSystemMessageByDedupeKey\(dedupeKey\)/);
 
@@ -369,9 +370,11 @@ test("distillation workflow reports the actual route-open result", async () => {
 
 test("isolated confirmed permanent notes are reported as actionable relation reminders", () => {
   const appSource = readRepoFile("apps/web/src/prototype-app.js");
-  const helperStart = appSource.indexOf("function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {");
-  const helperEnd = appSource.indexOf("function syncRelationNetworkSystemMessageForNote", helperStart);
-  const helper = appSource.slice(helperStart, helperEnd);
+  const noteHelperSource = readRepoFile("apps/web/src/prototype-note-state-helpers.js");
+  const helperStart = noteHelperSource.indexOf("export function relationNetworkWorkflowMessageForNote(note = null, overview = {}, {");
+  const nextExport = noteHelperSource.indexOf("\nexport function", helperStart + 1);
+  const helperEnd = nextExport > helperStart ? nextExport : noteHelperSource.length;
+  const helper = noteHelperSource.slice(helperStart, helperEnd);
 
   assert.match(helper, /distillationStatusOf\(note\) !== "confirmed"/);
   assert.match(helper, /explicitRelationCount > 0/);
