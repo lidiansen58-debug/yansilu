@@ -13,9 +13,14 @@ import {
   normalizeRelationTemplateVariants,
   noteTypeGlyph
 } from "./editor-relation-helpers.js";
-
-const AUTO_SAVE_IDLE_MS = 15000;
-const AUTO_SAVE_INTERVAL_MS = 15000;
+import {
+  AUTO_SAVE_IDLE_MS,
+  AUTO_SAVE_INTERVAL_MS,
+  createEditorDraftPayload,
+  editorDraftKey,
+  editorTemplatePreferenceKey,
+  parseEditorDraft
+} from "./editor-autosave-drafts.js";
 
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
@@ -127,12 +132,11 @@ const editorPaneStateMethods = {
   },
 
   draftKey(noteId) {
-    return `yansilu:draft:${noteId}`;
+    return editorDraftKey(noteId);
   },
 
   templatePreferenceKey(kind = "") {
-    const cleanKind = String(kind || "").trim().toLowerCase();
-    return `yansilu:template-variant:${cleanKind || "default"}`;
+    return editorTemplatePreferenceKey(kind);
   },
 
   readTemplateVariantPreference(kind = "", variants = [], fallback = "") {
@@ -201,10 +205,7 @@ const editorPaneStateMethods = {
   readDraft(noteId) {
     try {
       const raw = window.localStorage?.getItem(this.draftKey(noteId));
-      if (!raw) return null;
-      const draft = JSON.parse(raw);
-      if (!draft || typeof draft.body !== "string") return null;
-      return draft;
+      return parseEditorDraft(raw);
     } catch {
       return null;
     }
@@ -217,17 +218,7 @@ const editorPaneStateMethods = {
     try {
       window.localStorage?.setItem(
         this.draftKey(tab.noteId),
-        JSON.stringify({
-          noteId: tab.noteId,
-          title: tab.title,
-          body: tab.body,
-          savedTitle: tab.savedTitle,
-          savedBody: tab.savedBody,
-          authorshipClaim: authorshipState.claim,
-          authorshipConfirmed: authorshipState.confirmed,
-          authorshipConfirmedBody: authorshipState.confirmedBody,
-          updatedAt: new Date().toISOString()
-        })
+        JSON.stringify(createEditorDraftPayload(tab, authorshipState))
       );
     } catch {}
   },
