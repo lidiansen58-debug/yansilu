@@ -139,10 +139,12 @@ const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures"
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
 const OLLAMA_RECOMMENDED_MODEL = DEFAULT_LOCAL_AI_MODEL;
 const OLLAMA_RECOMMENDED_MODELS = [...LOCAL_AI_RECOMMENDED_MODELS];
+const OLLAMA_CATALOG_MODEL_NAMES = new Set(LOCAL_AI_MODEL_TIERS.map((model) => String(model.name || "").trim().toLowerCase()).filter(Boolean));
 const LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
 const OLLAMA_INSTALL_URL = "https://ollama.com/download";
 const DEFAULT_OLLAMA_GENERATE_TIMEOUT_MS = 60000;
 const MAX_OLLAMA_GENERATE_TIMEOUT_MS = 180000;
+const managedOllamaProcessIds = new Set();
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -341,6 +343,117 @@ function normalizeOllamaPullModelName(value = "") {
   if (!model) return "";
   if (!/^[a-z0-9][a-z0-9._:-]{0,80}$/.test(model)) return "";
   return model;
+}
+
+function assertAllowedOllamaCatalogModel(modelName = "") {
+  const model = normalizeOllamaPullModelName(modelName);
+  if (model && OLLAMA_CATALOG_MODEL_NAMES.has(model)) return model;
+  const error = new Error("Ollama model must be one of Yansilu's built-in local model catalog entries.");
+  error.code = "OLLAMA_MODEL_NOT_ALLOWED";
+  error.status = 400;
+  error.details = {
+    allowedModels: [...OLLAMA_CATALOG_MODEL_NAMES],
+    requestedModel: cleanText(modelName)
+  };
+  throw error;
+}
+
+function isOllamaLocalEndpointUrl(value = "") {
+  const endpointUrl = cleanText(value).replace(/\/+$/, "");
+  if (!endpointUrl) return false;
+  return endpointUrl === `${OLLAMA_BASE_URL}/v1/chat/completions` ||
+    endpointUrl === `${OLLAMA_BASE_URL}/api/tags` ||
+    endpointUrl.startsWith(`${OLLAMA_BASE_URL}/`);
+}
+
+function isManagedOllamaProviderConfig(input = {}) {
+  const providerId = cleanText(input.providerId || input.provider_id || input.id);
+  if (providerId === "ollama_local_gateway") return true;
+  if (providerId !== "local_private_gateway") return false;
+  const displayName = cleanText(input.displayName || input.display_name).toLowerCase();
+  const endpointUrl = cleanText(input.endpointUrl || input.endpoint_url);
+  const healthCheck = input.healthCheck || input.health_check || {};
+  const healthEndpointUrl = cleanText(healthCheck?.endpointUrl || healthCheck?.endpoint_url);
+  return displayName === "ollama local" ||
+    isOllamaLocalEndpointUrl(endpointUrl) ||
+    isOllamaLocalEndpointUrl(healthEndpointUrl);
+}
+
+function assertAllowedManagedOllamaProviderConfigModels(input = {}) {
+  if (!isManagedOllamaProviderConfig(input)) return;
+  const runtimeModelMap = input.runtimeModelMap || input.runtime_model_map || {};
+  if (!runtimeModelMap || typeof runtimeModelMap !== "object" || Array.isArray(runtimeModelMap)) return;
+  for (const modelName of Object.values(runtimeModelMap)) {
+    if (!cleanText(modelName)) continue;
+    assertAllowedOllamaCatalogModel(modelName);
+  }
+}
+
+function assertAllowedManagedOllamaProviderConfig(config = null) {
+  if (!config) return config;
+  assertAllowedManagedOllamaProviderConfigModels(config);
+  return config;
+}
+
+function assertAllowedManagedOllamaProviderConfigInput(input = {}, existing = {}) {
+  const providerId = firstOwnValue(input, ["providerId", "provider_id"], firstOwnValue(existing, ["providerId", "provider_id"]));
+  const displayName = firstOwnValue(input, ["displayName", "display_name"], firstOwnValue(existing, ["displayName", "display_name"]));
+  const endpointUrl = firstOwnValue(input, ["endpointUrl", "endpoint_url"], firstOwnValue(existing, ["endpointUrl", "endpoint_url"]));
+  const healthCheck = firstOwnValue(input, ["healthCheck", "health_check"], firstOwnValue(existing, ["healthCheck", "health_check"]));
+  const runtimeModelMap = firstOwnValue(input, ["runtimeModelMap", "runtime_model_map"], firstOwnValue(existing, ["runtimeModelMap", "runtime_model_map"]));
+  assertAllowedManagedOllamaProviderConfigModels({
+    ...existing,
+    ...input,
+    providerId,
+    displayName,
+    endpointUrl,
+    healthCheck,
+    runtimeModelMap
+  });
+}
+
+function settingsInputManagesLocalPrivateOllama(input = {}) {
+  const advancedSettings = advancedSettingsFrom(input);
+  const providerId = cleanText(input.providerPreset || input.provider_preset || advancedSettings.localProviderPreset || advancedSettings.local_provider_preset);
+  const localProviderPreset = cleanText(input.localProviderPreset || input.local_provider_preset || advancedSettings.localProviderPreset || advancedSettings.local_provider_preset);
+  const modelPack = cleanText(input.modelPack || input.model_pack);
+  const modelRef = advancedModelRefFrom(input);
+  const runtimeMode = normalizeLocalRuntimeMode(advancedSettings.runtimeMode || advancedSettings.runtime_mode);
+  const modelRefProvider = cleanText(modelRef).split(":")[0];
+  return modelPack === "Ollama Local" ||
+    (
+      runtimeMode === "hybrid" &&
+      [providerId, localProviderPreset, modelRefProvider].includes("local_private_gateway")
+    );
+}
+
+function assertAllowedManagedOllamaProviderConfigDraft(input = {}, settingsInput = {}) {
+  const providerId = cleanText(input.providerId || input.provider_id || input.id);
+  if (providerId === "local_private_gateway" && !settingsInputManagesLocalPrivateOllama(settingsInput)) return;
+  assertAllowedManagedOllamaProviderConfigModels(input);
+}
+
+function ollamaModelNameFromManagedModelRef(modelRef = "") {
+  const value = cleanText(modelRef);
+  const providerPrefix = ["ollama_local_gateway:", "local_private_gateway:"].find((prefix) => value.startsWith(prefix));
+  if (!providerPrefix) return "";
+  const modelName = value.slice(providerPrefix.length);
+  if (LOCAL_MODEL_TIERS.includes(modelName)) return "";
+  return modelName;
+}
+
+function assertAllowedManagedOllamaSettings(input = {}) {
+  const advancedSettings = advancedSettingsFrom(input);
+  const providerId = cleanText(input.providerPreset || input.provider_preset || advancedSettings.localProviderPreset || advancedSettings.local_provider_preset);
+  const localProviderPreset = cleanText(input.localProviderPreset || input.local_provider_preset || advancedSettings.localProviderPreset || advancedSettings.local_provider_preset);
+  const localModel = localModelFromSettings(input);
+  const modelRef = advancedModelRefFrom(input);
+  const managedByProvider = providerId === "ollama_local_gateway" ||
+    localProviderPreset === "ollama_local_gateway" ||
+    settingsInputManagesLocalPrivateOllama(input);
+  if (managedByProvider && localModel) assertAllowedOllamaCatalogModel(localModel);
+  const managedModelRefModel = ollamaModelNameFromManagedModelRef(modelRef);
+  if (managedModelRefModel && (managedByProvider || modelRef.startsWith("ollama_local_gateway:"))) assertAllowedOllamaCatalogModel(managedModelRefModel);
 }
 
 function normalizeOllamaModel(model = {}) {
@@ -579,7 +692,7 @@ function settingsForHybridRoute({ settingsInput = {}, userSettings = {}, input =
 
 async function enableOllamaLocalModel(modelName = OLLAMA_RECOMMENDED_MODEL, options = {}) {
   await initVault(VAULT_PATH);
-  const model = normalizeOllamaPullModelName(modelName) || OLLAMA_RECOMMENDED_MODEL;
+  const model = assertAllowedOllamaCatalogModel(modelName || OLLAMA_RECOMMENDED_MODEL);
   const runtimeMode = normalizeLocalRuntimeMode(options.runtimeMode || options.runtime_mode);
   const providerId = runtimeMode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
   const modelPack = runtimeMode === "hybrid" ? "Starter Auto" : "Ollama Local";
@@ -645,10 +758,14 @@ async function buildOllamaModelsPreview() {
   try {
     const { response, json } = await fetchJsonWithTimeout(healthEndpointUrl, { timeoutMs: 2500 });
     const models = Array.isArray(json.models) ? json.models.map(normalizeOllamaModel).filter((model) => model.name) : [];
+    const defaultModelInstalled = hasOllamaModel({ models }, OLLAMA_RECOMMENDED_MODEL);
+    const readinessStatus = ollamaReadinessStatus({ responseOk: response.ok, installation, models });
     return {
       runtimeId: "ollama",
       displayName: "Ollama",
       status: response.ok ? "available" : "unavailable",
+      readinessStatus,
+      apiReachable: response.ok,
       installation,
       installed: installation.installed,
       baseUrl: OLLAMA_BASE_URL,
@@ -656,6 +773,7 @@ async function buildOllamaModelsPreview() {
       healthEndpointUrl,
       latencyMs: Date.now() - startedAt,
       models,
+      defaultModelInstalled,
       recommendedModels: preferredOllamaModelNames(models).slice(0, 8),
       recommendedModel: preferredOllamaModelNames(models)[0] || OLLAMA_RECOMMENDED_MODEL,
       modelTiers: LOCAL_AI_MODEL_TIERS,
@@ -665,10 +783,13 @@ async function buildOllamaModelsPreview() {
       message: response.ok ? "" : `Ollama returned HTTP ${response.status}`
     };
   } catch (error) {
+    const readinessStatus = ollamaReadinessStatus({ responseOk: false, installation, models: [], error });
     return {
       runtimeId: "ollama",
       displayName: "Ollama",
       status: "unavailable",
+      readinessStatus,
+      apiReachable: false,
       installation,
       installed: installation.installed,
       baseUrl: OLLAMA_BASE_URL,
@@ -676,6 +797,7 @@ async function buildOllamaModelsPreview() {
       healthEndpointUrl,
       latencyMs: Date.now() - startedAt,
       models: [],
+      defaultModelInstalled: false,
       recommendedModels: [...OLLAMA_RECOMMENDED_MODELS],
       recommendedModel: OLLAMA_RECOMMENDED_MODEL,
       modelTiers: LOCAL_AI_MODEL_TIERS,
@@ -810,6 +932,13 @@ async function startOllamaRuntime() {
       stdio: "ignore",
       windowsHide: true
     });
+    if (Number.isInteger(child.pid) && child.pid > 0) {
+      managedOllamaProcessIds.add(child.pid);
+      const forgetManagedPid = () => managedOllamaProcessIds.delete(child.pid);
+      child.once("exit", forgetManagedPid);
+      child.once("close", forgetManagedPid);
+      child.once("error", forgetManagedPid);
+    }
     child.once("error", (error) => {
       spawnError = error;
     });
@@ -837,9 +966,59 @@ async function startOllamaRuntime() {
   };
 }
 
+function forgetManagedOllamaProcessId(pid) {
+  const processId = Number(pid);
+  if (Number.isInteger(processId) && processId > 0) managedOllamaProcessIds.delete(processId);
+}
+
+function stopResultMeansProcessMissing(result = {}) {
+  const code = cleanText(result?.code).toUpperCase();
+  const message = cleanText(`${result?.message || ""} ${result?.stdout || ""} ${result?.stderr || ""}`).toLowerCase();
+  return code === "ESRCH" ||
+    /not found|no running instance|does not exist|not exist|no such process|cannot find/.test(message);
+}
+
+async function stopManagedOllamaProcess(pid) {
+  const processId = Number(pid);
+  if (!Number.isInteger(processId) || processId <= 0 || !managedOllamaProcessIds.has(processId)) {
+    return {
+      pid,
+      ok: false,
+      message: "Only Ollama processes started by this Yansilu session can be stopped automatically."
+    };
+  }
+  if (process.platform === "win32") {
+    const result = await execFileQuiet("taskkill", ["/PID", String(processId), "/T"], { timeoutMs: 5000 });
+    if (stopResultMeansProcessMissing(result)) forgetManagedOllamaProcessId(processId);
+    return result;
+  }
+  try {
+    process.kill(processId, "SIGTERM");
+    return {
+      pid: processId,
+      ok: true,
+      command: "process.kill",
+      args: [String(processId), "SIGTERM"],
+      message: "SIGTERM sent to the managed Ollama process."
+    };
+  } catch (error) {
+    const result = {
+      pid: processId,
+      ok: false,
+      command: "process.kill",
+      args: [String(processId), "SIGTERM"],
+      code: cleanText(error?.code),
+      message: cleanText(error?.message || error)
+    };
+    if (stopResultMeansProcessMissing(result)) forgetManagedOllamaProcessId(processId);
+    return result;
+  }
+}
+
 async function stopOllamaRuntime() {
   const current = await buildOllamaModelsPreview();
-  if (current.status !== "available") {
+  const managedPids = [...managedOllamaProcessIds].filter((pid) => Number.isInteger(Number(pid)) && Number(pid) > 0);
+  if (current.status !== "available" && !managedPids.length) {
     return {
       runtimeId: "ollama",
       status: "already_stopped",
@@ -848,33 +1027,47 @@ async function stopOllamaRuntime() {
     };
   }
 
-  const commands = process.platform === "win32"
-    ? [
-        ["taskkill", ["/IM", "ollama.exe", "/F", "/T"]],
-        ["taskkill", ["/IM", "ollama app.exe", "/F", "/T"]]
-      ]
-    : [
-        ["pkill", ["-f", "ollama serve"]],
-        ["pkill", ["-x", "ollama"]]
-      ];
-  const results = [];
-  for (const [command, args] of commands) {
-    results.push(await execFileQuiet(command, args));
+  if (!managedPids.length) {
+    return {
+      runtimeId: "ollama",
+      status: "manual_stop_required",
+      runtime: current,
+      message: "Ollama is running, but it was not started by this Yansilu session. Stop or restart it from the Ollama app or your system service manager.",
+      management: {
+        installUrl: OLLAMA_INSTALL_URL,
+        safeStopSupported: false,
+        reason: "Yansilu will not stop unrelated Ollama processes by name."
+      }
+    };
   }
+
+  const results = [];
+  for (const pid of managedPids) results.push(await stopManagedOllamaProcess(pid));
   const runtime = await waitForOllamaRuntimeStatus("unavailable", 6000);
+  const stoppedAfterReachable = current.status === "available" && runtime.status === "unavailable";
+  if (stoppedAfterReachable) {
+    for (const pid of managedPids) managedOllamaProcessIds.delete(pid);
+  }
+  const remainingManagedPids = managedPids.filter((pid) => managedOllamaProcessIds.has(pid));
+  const stopped = stoppedAfterReachable || remainingManagedPids.length === 0;
+  const message = stopped
+    ? "Ollama stopped."
+    : runtime.status === "unavailable"
+      ? "Stop command was sent to the Ollama process started by this Yansilu session, but process exit is not confirmed yet."
+      : "Stop command was sent to the Ollama process started by this Yansilu session, but Ollama is still reachable.";
   return {
     runtimeId: "ollama",
-    status: runtime.status === "unavailable" ? "stopped" : "stopping",
+    status: stopped ? "stopped" : "stopping",
     runtime,
-    message: runtime.status === "unavailable"
-      ? "Ollama stopped."
-      : "Stop command was sent, but Ollama is still reachable.",
+    message,
+    managedPids,
+    remainingManagedPids,
     commands: results
   };
 }
 
 async function pullOllamaModel(modelName = OLLAMA_RECOMMENDED_MODEL) {
-  const model = normalizeOllamaPullModelName(modelName) || OLLAMA_RECOMMENDED_MODEL;
+  const model = assertAllowedOllamaCatalogModel(modelName || OLLAMA_RECOMMENDED_MODEL);
   const startedAt = Date.now();
   const pullEndpointUrl = `${OLLAMA_BASE_URL}/api/pull`;
   const { response, json } = await fetchJsonWithTimeout(pullEndpointUrl, {
@@ -909,6 +1102,20 @@ function hasOllamaModel(runtime = {}, modelName = "") {
   });
 }
 
+function ollamaReadinessStatus({ responseOk = false, installation = {}, models = [], error = null } = {}) {
+  const installedByCli = installation?.installed === true;
+  const apiReachable = responseOk === true;
+  const defaultModelInstalled = hasOllamaModel({ models }, OLLAMA_RECOMMENDED_MODEL);
+  if (error) {
+    if (!installedByCli && !apiReachable) return "not_installed";
+    return "check_failed";
+  }
+  if (apiReachable && defaultModelInstalled) return "ready";
+  if (apiReachable) return "running_missing_model";
+  if (installedByCli) return "installed_not_running";
+  return "not_installed";
+}
+
 function configuredLocalModel(providerConfig = null, providerId = "ollama_local_gateway", modelName = "") {
   if (!providerConfig || cleanText(providerConfig.status) !== "enabled") return false;
   const model = cleanText(modelName);
@@ -918,7 +1125,7 @@ function configuredLocalModel(providerConfig = null, providerId = "ollama_local_
 }
 
 function localAiBootstrapStatus({ runtime = {}, providerConfig = null, health = null, modelName = OLLAMA_RECOMMENDED_MODEL, runtimeMode = "local_only" } = {}) {
-  const model = normalizeOllamaPullModelName(modelName) || OLLAMA_RECOMMENDED_MODEL;
+  const model = assertAllowedOllamaCatalogModel(modelName || OLLAMA_RECOMMENDED_MODEL);
   const mode = normalizeLocalRuntimeMode(runtimeMode);
   const providerId = mode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
   const runtimeAvailable = runtime.status === "available";
@@ -982,7 +1189,7 @@ async function latestLocalAiProviderState(providerId = "ollama_local_gateway") {
 }
 
 async function buildOllamaBootstrapPreview(input = {}) {
-  const model = normalizeOllamaPullModelName(input.model || input.modelName || input.model_name) || OLLAMA_RECOMMENDED_MODEL;
+  const model = assertAllowedOllamaCatalogModel(input.model || input.modelName || input.model_name || OLLAMA_RECOMMENDED_MODEL);
   const runtimeMode = normalizeLocalRuntimeMode(input.runtimeMode || input.runtime_mode);
   const providerId = runtimeMode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
   const runtime = await buildOllamaModelsPreview();
@@ -1012,7 +1219,7 @@ async function runOllamaProviderHealth(providerConfig) {
 }
 
 async function bootstrapOllamaLocalAi(input = {}) {
-  const model = normalizeOllamaPullModelName(input.model || input.modelName || input.model_name) || OLLAMA_RECOMMENDED_MODEL;
+  const model = assertAllowedOllamaCatalogModel(input.model || input.modelName || input.model_name || OLLAMA_RECOMMENDED_MODEL);
   const runtimeMode = normalizeLocalRuntimeMode(input.runtimeMode || input.runtime_mode);
   const autoStart = input.autoStart !== false && input.auto_start !== false;
   const pullModel = input.pullModel !== false && input.pull_model !== false;
@@ -1131,6 +1338,7 @@ async function buildAiRoutePreview(input = {}) {
   };
   const modelRef = advancedModelRefFrom({ ...settingsInput, ...input, advancedSettings });
   if (modelRef) settingsInput.modelRef = modelRef;
+  assertAllowedManagedOllamaSettings(settingsInput);
 
   let userSettings = resolveAiUserSettings(settingsInput);
   const routeAgent = {
@@ -1149,6 +1357,7 @@ async function buildAiRoutePreview(input = {}) {
     throw disabledProviderConfigError(providerConfig);
   }
   if (providerConfig) {
+    assertAllowedManagedOllamaProviderConfig(providerConfig);
     const configSettings = providerConfigToSettingsInput(providerConfig);
     const secretRef = hasDraftSecretRef ? settingsInput.secretRef : settingsInput.secretRef || configSettings.secretRef;
     const endpointUrl = hasDraftEndpointUrl ? settingsInput.endpointUrl : configSettings.endpointUrl || settingsInput.endpointUrl;
@@ -1191,6 +1400,7 @@ async function buildAiRoutePreview(input = {}) {
     if (hasDraftRuntimeModelMap || hasRuntimeModelMapEntries(settingsInput.runtimeModelMap)) {
       draftProviderConfigInput.runtimeModelMap = settingsInput.runtimeModelMap;
     }
+    assertAllowedManagedOllamaProviderConfigDraft(draftProviderConfigInput, settingsInput);
     const draftProviderConfig = assertValidAiProviderConfig(draftProviderConfigInput, providerConfig || {});
     const draftSettings = providerConfigToSettingsInput(draftProviderConfig);
     const secretRef = hasDraftSecretRef ? settingsInput.secretRef : cleanText(settingsInput.secretRef) || draftSettings.secretRef;
@@ -1442,6 +1652,7 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
     },
     advancedSettings
   };
+  assertAllowedManagedOllamaSettings(settingsInput);
 
   const baseUserSettings = resolveAiUserSettings(settingsInput);
   const privacyMode =
@@ -1466,6 +1677,7 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
     error.code = "AI_PROVIDER_CONFIG_INVALID";
     throw error;
   }
+  if (providerConfig) assertAllowedManagedOllamaProviderConfig(providerConfig);
   let providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
   if (providerId && providerId !== "platform_managed_openai" && hasProviderConfigDraft) {
     const draftProviderConfigInput = {
@@ -1478,6 +1690,7 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
     if (hasInputRuntimeModelMap || hasRuntimeModelMapEntries(routedSettingsInput.runtimeModelMap)) {
       draftProviderConfigInput.runtimeModelMap = routedSettingsInput.runtimeModelMap;
     }
+    assertAllowedManagedOllamaProviderConfigDraft(draftProviderConfigInput, settingsInput);
     const draftProviderConfig = assertValidAiProviderConfig(draftProviderConfigInput, providerConfig || {});
     providerSettings = providerConfigToSettingsInput(draftProviderConfig);
   }
@@ -1733,7 +1946,7 @@ function graphArtifactExecutionContext({ body = {}, notes = [], rid = "", provid
 }
 
 async function callOllamaGenerate(prompt = "", options = {}) {
-  const model = cleanText(options.modelName || options.model || DEFAULT_POTENTIAL_RELATION_MODEL) || DEFAULT_POTENTIAL_RELATION_MODEL;
+  const model = assertAllowedOllamaCatalogModel(options.modelName || options.model || DEFAULT_POTENTIAL_RELATION_MODEL);
   const timeoutMs = Math.max(
     1,
     Math.min(
@@ -3877,8 +4090,7 @@ const server = http.createServer(async (req, res) => {
       try {
         assertLocalRuntimeControlAllowed(req);
         const body = await readJson(req);
-        const requestedModel = normalizeOllamaPullModelName(body.model || body.modelName || body.model_name);
-        if (!requestedModel) return sendJson(res, 400, err("OLLAMA_MODEL_REQUIRED", "valid Ollama model name required", rid));
+        const requestedModel = assertAllowedOllamaCatalogModel(body.model || body.modelName || body.model_name);
         const item = await pullOllamaModel(requestedModel);
         if (body.enable === true || body.enable_local === true || body.enableLocal === true) {
           item.enabled = await enableOllamaLocalModel(item.model, {
@@ -3936,6 +4148,10 @@ const server = http.createServer(async (req, res) => {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
         const store = await aiProviderConfigStore();
+        const lookup = cleanText(body.id || body.configId || body.config_id);
+        const providerId = cleanText(body.providerId || body.provider_id);
+        const existing = (lookup || providerId) ? store.getProviderConfig({ id: lookup, providerId }) : null;
+        assertAllowedManagedOllamaProviderConfigInput(body, existing || {});
         const item = store.setProviderConfig(body);
         return sendJson(res, 200, {
           item,
@@ -3943,7 +4159,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("AI_PROVIDER_CONFIG_SAVE_FAILED", String(error?.message || error), rid));
+        return sendJson(res, error?.status || 400, err("AI_PROVIDER_CONFIG_SAVE_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 
@@ -3997,7 +4213,7 @@ const server = http.createServer(async (req, res) => {
         if (error?.code === "AI_PROVIDER_CONFIG_DISABLED") {
           return sendJson(res, 400, err(error.code, String(error?.message || error), rid, error?.details));
         }
-        return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
+        return sendJson(res, error?.status || 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 
@@ -4014,7 +4230,7 @@ const server = http.createServer(async (req, res) => {
         if (error?.code === "AI_PROVIDER_CONFIG_DISABLED") {
           return sendJson(res, 400, err(error.code, String(error?.message || error), rid, error?.details));
         }
-        return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
+        return sendJson(res, error?.status || 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 
@@ -4046,6 +4262,7 @@ const server = http.createServer(async (req, res) => {
             ? mergeRuntimeModelMaps(bodyRuntimeModelMap)
             : mergeRuntimeModelMaps(baseSettingsInput.runtimeModelMap)
         };
+        assertAllowedManagedOllamaSettings(settingsInput);
 
         const baseUserSettings = resolveAiUserSettings(settingsInput);
         const modelTier = body.modelTier ?? body.model_tier ?? "standard";
@@ -4063,6 +4280,7 @@ const server = http.createServer(async (req, res) => {
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
         const hasProviderConfigDraft = hasBodyEndpointUrl || hasBodyRuntimeModelMap || hasBodySecretRef;
+        if (providerConfig) assertAllowedManagedOllamaProviderConfig(providerConfig);
         let providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
         if (
           providerPreset === "platform_managed_openai" &&
@@ -4089,6 +4307,7 @@ const server = http.createServer(async (req, res) => {
           if (hasBodyRuntimeModelMap || hasRuntimeModelMapEntries(routedSettingsInput.runtimeModelMap)) {
             draftProviderConfigInput.runtimeModelMap = routedSettingsInput.runtimeModelMap;
           }
+          assertAllowedManagedOllamaProviderConfigDraft(draftProviderConfigInput, settingsInput);
           const draftProviderConfig = assertValidAiProviderConfig(draftProviderConfigInput, providerConfig || {});
           providerSettings = providerConfigToSettingsInput(draftProviderConfig);
         }
@@ -4179,7 +4398,7 @@ const server = http.createServer(async (req, res) => {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
         const store = await aiPreferencesStore();
-        const updated = store.setUserPreferences({
+        const preferencesInput = {
           workspaceId: "local_workspace",
           userId: "local_user",
           userMode: body.userMode ?? body.user_mode,
@@ -4191,14 +4410,16 @@ const server = http.createServer(async (req, res) => {
           budget: body.budget,
           budgetState: body.budgetState ?? body.budget_state,
           advancedSettings: body.advancedSettings ?? body.advanced_settings
-        });
+        };
+        assertAllowedManagedOllamaSettings(preferencesInput);
+        const updated = store.setUserPreferences(preferencesInput);
         return sendJson(res, 200, {
           item: updated,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("AI_PREFERENCES_SAVE_FAILED", String(error?.message || error), rid));
+        return sendJson(res, error?.status || 400, err("AI_PREFERENCES_SAVE_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 
@@ -5139,7 +5360,7 @@ const server = http.createServer(async (req, res) => {
           : Math.min(Number(body.timeoutMs ?? body.timeout_ms) || 60000, 60000);
         const modelName = providerExecution
           ? cleanText(providerExecution.modelRoute?.modelRef) || DEFAULT_POTENTIAL_RELATION_MODEL
-          : cleanText(body.modelName || body.model_name || body.model) || DEFAULT_POTENTIAL_RELATION_MODEL;
+          : assertAllowedOllamaCatalogModel(body.modelName || body.model_name || body.model || DEFAULT_POTENTIAL_RELATION_MODEL);
         const item = await refinePotentialRelationCandidateWithLocalAi(candidate, {
           fingerprints: scan.fingerprints,
           cache: potentialRelationAiCache,
@@ -5383,6 +5604,7 @@ const server = http.createServer(async (req, res) => {
           secretRef: body.secretRef ?? body.secret_ref ?? baseSettingsInput.secretRef,
           modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef
         };
+        assertAllowedManagedOllamaSettings(settingsInput);
         const artifactPrivacyMode = String(artifact?.privacy?.mode || artifact?.privacy_mode || "").trim();
         const baseUserSettings = resolveAiUserSettings(settingsInput);
         const privacyMode = body.privacyMode ?? body.privacy_mode ?? artifactPrivacyMode ?? baseUserSettings.privacy?.defaultMode ?? "normal";
@@ -5405,6 +5627,7 @@ const server = http.createServer(async (req, res) => {
             providerConfigId: providerConfig?.id || providerConfig?.configId || providerConfig?.config_id
           }));
         }
+        if (providerConfig) assertAllowedManagedOllamaProviderConfig(providerConfig);
         const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
         const mergedSettings = { ...routedSettingsInput, ...providerSettings };
         const providerDescriptor = resolveProviderDescriptor(mergedSettings);
@@ -5818,6 +6041,7 @@ const server = http.createServer(async (req, res) => {
             })
           : null;
         const explicitLocalModel = cleanText(body.localModel || body.local_model);
+        if (prepareLocalModelRequest && explicitLocalModel) assertAllowedOllamaCatalogModel(explicitLocalModel);
         const localModelContext = providerExecution
           ? {
               ...analysisContext,

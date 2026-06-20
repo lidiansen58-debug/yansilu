@@ -1548,6 +1548,16 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(localModelPreview.json.item.localModelRequest.canAutoConfirm, false);
   assert.equal(localModelPreview.json.item.reviewItems.artifactsPersisted, false);
 
+  const rejectedLocalModelPreview = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
+    relatedNoteIds: [target.json.item.id],
+    prepareLocalModelRequest: true,
+    localModel: "llama3.2:3b",
+    persistArtifacts: false
+  });
+  assert.equal(rejectedLocalModelPreview.status, 400, JSON.stringify(rejectedLocalModelPreview.json));
+  assert.equal(rejectedLocalModelPreview.json.error.code, "OLLAMA_MODEL_NOT_ALLOWED");
+  assert.deepEqual(rejectedLocalModelPreview.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+
   const localModelMerge = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
     relatedNoteIds: [target.json.item.id],
     localModel: "qwen2.5:7b",
@@ -1580,6 +1590,20 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.ok(localModelMerge.json.item.reviewItems.artifacts.every((item) => item.status === "pending_review"));
   assert.ok(localModelMerge.json.item.reviewItems.artifacts.every((item) => item.origin === "local_model"));
   assert.ok(localModelMerge.json.item.reviewItems.suggestions.every((item) => item.status === "suggested"));
+
+  const rejectedLocalModelMerge = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
+    relatedNoteIds: [target.json.item.id],
+    localModel: "llama3.2:3b",
+    localModelResponse: {
+      distilledViewpoint: {
+        thesis: "This should not be accepted with a non-catalog model.",
+        threeLineSummary: ["A", "B", "C"]
+      }
+    },
+    persistArtifacts: false
+  });
+  assert.equal(rejectedLocalModelMerge.status, 400, JSON.stringify(rejectedLocalModelMerge.json));
+  assert.equal(rejectedLocalModelMerge.json.error.code, "OLLAMA_MODEL_NOT_ALLOWED");
 
   const draftTarget = await postJson(baseUrl, "/api/v1/notes", {
     directoryId: "dir_original_default",

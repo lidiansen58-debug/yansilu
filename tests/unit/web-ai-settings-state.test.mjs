@@ -136,6 +136,14 @@ test("AI settings state allows Ollama runtime saves for local private routes wit
     providerPreset: "local_private_gateway"
   }), true);
   assert.equal(shouldUseOllamaLocalRuntimeForSelection({
+    runtimeMode: "hybrid",
+    modelPack: "Starter Auto",
+    advancedSettings: {
+      localProviderPreset: "local_private_gateway",
+      localModel: "qwen3:8b"
+    }
+  }), true);
+  assert.equal(shouldUseOllamaLocalRuntimeForSelection({
     runtimeMode: "local_only",
     modelPack: "MiniCPM Local"
   }), false);

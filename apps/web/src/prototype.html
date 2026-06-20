@@ -13033,43 +13033,49 @@
       color: #64748b;
     }
     .settings-ai-flow {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      align-items: center;
+      padding: 7px 10px;
+      border: 1px solid rgba(226, 232, 240, 0.86);
+      border-radius: 999px;
+      background: rgba(248, 250, 252, 0.74);
       min-width: 0;
     }
     .settings-ai-flow-step {
-      display: grid;
-      grid-template-columns: 26px minmax(0, 1fr);
-      gap: 4px 8px;
-      align-items: start;
+      display: inline-grid;
+      grid-template-columns: 22px auto;
+      gap: 2px 7px;
+      align-items: center;
+      flex: 1 1 180px;
       min-width: 0;
-      padding: 10px;
-      border: 1px solid rgba(226, 232, 240, 0.94);
-      border-radius: 12px;
-      background: #fff;
+      position: relative;
     }
     .settings-ai-flow-step span {
       grid-row: span 2;
       display: inline-grid;
       place-items: center;
-      width: 26px;
-      height: 26px;
+      width: 22px;
+      height: 22px;
       border-radius: 999px;
       background: #eef6ff;
       color: #245b80;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 850;
     }
     .settings-ai-flow-step strong {
       color: #172033;
       font-size: 12px;
-      line-height: 1.35;
+      line-height: 1.25;
     }
     .settings-ai-flow-step small {
       color: #64748b;
       font-size: 11px;
-      line-height: 1.45;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .settings-ai-setup-choice {
       display: grid;
@@ -13156,6 +13162,37 @@
     .settings-ai-local-home-step.is-current::before {
       border-color: #f59e0b;
       background: #fbbf24;
+    }
+    .settings-ai-local-control-console {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid rgba(154, 179, 170, 0.72);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(248, 253, 250, 0.98), rgba(242, 248, 245, 0.96));
+      box-shadow: 0 16px 34px rgba(31, 73, 64, 0.09);
+      min-width: 0;
+    }
+    .settings-ai-local-console-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+    .settings-ai-local-console-title {
+      font-size: 17px;
+      line-height: 1.25;
+      font-weight: 900;
+      color: #172033;
+    }
+    .settings-ai-local-console-note {
+      margin-top: 4px;
+      max-width: 68ch;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #526274;
     }
     .settings-ai-section-label {
       font-size: 12px;
@@ -13294,8 +13331,16 @@
       background: #fffaf2;
     }
     .settings-ai-local-guide[data-state="ready"] {
-      border-color: #bbf7d0;
-      background: #f5fff8;
+      padding: 0;
+      border-color: transparent;
+      background: transparent;
+    }
+    .settings-ai-local-guide[data-state="ready"] .settings-ai-local-guide-copy {
+      display: none;
+    }
+    .settings-ai-local-guide[data-state="ready"] .settings-ai-local-guide-actions {
+      justify-content: flex-start;
+      min-width: 0;
     }
     .settings-ai-local-guide-copy {
       display: grid;
@@ -13432,14 +13477,32 @@
       font-size: 11px;
     }
     .settings-ai-local-recommendation-meta span,
-    .settings-ai-local-recommendation-current {
+    .settings-ai-local-recommendation-current,
+    .settings-ai-command-copy {
       display: inline-flex;
       align-items: center;
       min-height: 22px;
       padding: 2px 7px;
       border-radius: 999px;
       background: rgba(226, 232, 240, 0.72);
-      white-space: nowrap;
+      max-width: 100%;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .settings-ai-command-copy {
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      color: #334155;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 750;
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+    .settings-ai-command-copy:hover,
+    .settings-ai-command-copy:focus-visible {
+      background: rgba(240, 253, 250, 0.92);
+      border-color: rgba(20, 184, 166, 0.45);
+      color: #0f766e;
+      outline: none;
     }
     .settings-ai-local-recommendation-current {
       color: #0f766e;
@@ -15600,6 +15663,9 @@
         width: calc(100vw - 24px);
         max-height: calc(100vh - 24px);
         border-radius: 14px;
+      }
+      .settings-ai-local-console-head {
+        display: grid;
       }
       .settings-ai-popover-head,
       .settings-ai-popover-body {
@@ -19491,7 +19557,7 @@
                             <div class="settings-ai-primary-head">
                               <div>
                                 <div class="settings-ai-primary-title">AI 设置</div>
-                                <div class="settings-ai-primary-note">先准备本地 AI，再选择使用方式，最后用一句普通测试话试运行确认。</div>
+                                <div class="settings-ai-primary-note">管理本地模型能力，选择默认使用方式，再用一句普通测试话确认当前路线。</div>
                               </div>
                               <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                             </div>
@@ -19499,7 +19565,7 @@
                               <div class="settings-ai-flow-step">
                                 <span>1</span>
                                 <strong>准备本地 AI</strong>
-                                <small>安装 Ollama，下载或选择本地模型。</small>
+                                <small>安装本地 AI 运行环境，下载或选择本地模型。</small>
                               </div>
                               <div class="settings-ai-flow-step">
                                 <span>2</span>
@@ -19512,14 +19578,43 @@
                                 <small>用一句不含隐私内容的话验证回复。</small>
                               </div>
                             </div>
-                            <div class="settings-ai-setup-choice" aria-label="大模型配置入口">
-                              <button class="settings-ai-setup-card is-local" type="button" data-settings-ai-dialog-open="local">
-                                <span class="settings-ai-setup-card-title">准备或切换本地 AI</span>
-                                <span class="settings-ai-setup-card-note">安装 Ollama、下载推荐模型、选择已安装模型、确认试运行。</span>
-                                <span class="settings-ai-local-home-steps" id="settingsAiLocalHomeSteps" aria-live="polite"></span>
+                            <section class="settings-ai-local-control-console" aria-label="本地 AI 管理">
+                              <div class="settings-ai-local-console-head">
+                                <div>
+                                  <div class="settings-ai-local-console-title">本地 AI 控制台</div>
+                                  <div class="settings-ai-local-console-note">安装运行环境、启动或停止服务、下载模型、切换默认本地模型都在这里完成。</div>
+                                </div>
                                 <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
-                              </button>
-                            </div>
+                              </div>
+                              <span class="settings-ai-local-home-steps" id="settingsAiLocalHomeSteps" aria-live="polite"></span>
+                              <div class="settings-ai-local-guide" id="settingsAiLocalGuide" data-state="idle">
+                                <div class="settings-ai-local-guide-copy">
+                                  <span class="settings-stat-badge muted" id="settingsAiLocalGuideBadge">第 1 步</span>
+                                  <div class="settings-ai-local-guide-title" id="settingsAiLocalGuideTitle">先启用本地大模型</div>
+                                  <div class="settings-ai-local-guide-body" id="settingsAiLocalGuideBody">点击“使用本地大模型”，然后检测这台电脑的本地 AI 环境是否已经安装并运行。</div>
+                                  <div class="settings-ai-local-guide-hint" id="settingsAiLocalGuideHint">没有安装时，会在这里给出官方下载入口。</div>
+                                </div>
+                                <div class="settings-ai-local-guide-actions" aria-label="本地大模型设置操作">
+                                  <button class="mini-btn primary" id="settingsAiUseLocalSetup" type="button" data-settings-ai-quick-setup="local">使用本地大模型</button>
+                                  <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测本地 AI</button>
+                                  <button class="mini-btn primary hidden" id="settingsAiStartOllama" type="button">启动本地 AI</button>
+                                  <button class="mini-btn is-subtle hidden" id="settingsAiStopOllama" type="button">停止本地 AI</button>
+                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载本地 AI 运行环境</a>
+                                  <button class="mini-btn is-subtle hidden" id="settingsAiCopyOllamaInstallCommand" type="button">复制安装命令</button>
+                                  <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载推荐模型</button>
+                                </div>
+                              </div>
+                              <div class="settings-ai-grid">
+                                <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
+                                <select id="settingsAiLocalModel">
+                                  <option value="">检测本地 AI 后选择</option>
+                                </select>
+                                <div class="settings-field-note">只能把研思录内置目录里的已安装模型设为默认；切换后建议试运行一次。</div>
+                              </div>
+                              <div class="settings-ai-local-recommendations hidden" id="settingsAiLocalModelRecommendations" aria-live="polite"></div>
+                              <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示运行环境检测和模型选择。</div>
+                              <div class="settings-ai-step-list" id="settingsAiSetupSteps"></div>
+                            </section>
                             <div class="settings-ai-section-label">使用方式</div>
                             <div class="settings-ai-compact-grid">
                               <div class="settings-ai-field">
@@ -19557,7 +19652,7 @@
                                       <option value="China Optimized">国内优化</option>
                                       <option value="Global Optimized">全球网关</option>
                                       <option value="Privacy First">本地私密</option>
-                                      <option value="Ollama Local">Ollama 本地</option>
+                                      <option value="Ollama Local">本地 AI</option>
                                       <option value="MiniCPM Remote">MiniCPM 远程</option>
                                     </select>
                                   </div>
@@ -19578,84 +19673,20 @@
                                   </div>
                                 </div>
                                 <button class="mini-btn is-subtle" type="button" data-settings-ai-dialog-open="remote">设置远程模型</button>
+                                <div class="settings-ai-compact-preview">
+                                  <div class="settings-stat-row" id="settingsAiSetupBadges">
+                                    <span class="settings-stat-badge warn">等待同步</span>
+                                  </div>
+                                  <div class="settings-stat-row" id="settingsAiRouteStats">
+                                    <span class="settings-stat-badge warn">等待同步</span>
+                                  </div>
+                                  <div class="settings-route-preview" id="settingsAiRoutePreview">显示当前会使用的模型和服务。</div>
+                                </div>
                               </div>
                             </details>
-                            <div class="settings-ai-compact-preview">
-                              <div class="settings-stat-row" id="settingsAiSetupBadges">
-                                <span class="settings-stat-badge warn">等待同步</span>
-                              </div>
-                              <div class="settings-stat-row" id="settingsAiRouteStats">
-                                <span class="settings-stat-badge warn">等待同步</span>
-                              </div>
-                              <div class="settings-route-preview" id="settingsAiRoutePreview">显示当前会使用的模型和服务。</div>
-                            </div>
                           </section>
 
-                          <div class="settings-footnote">默认推荐 qwen3:8b；未来更高质量的 qwen 或其他 Ollama 模型，也在本地 AI 面板里下载、选择和试运行。</div>
                         </div>
-                        <div class="settings-ai-popover hidden" id="settingsAiLocalDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiLocalDialogTitle">
-                          <div class="settings-ai-popover-panel">
-                            <div class="settings-ai-popover-head">
-                              <div>
-                                <div class="settings-ai-popover-title" id="settingsAiLocalDialogTitle">本地 AI 与模型</div>
-                                <div class="settings-ai-popover-note" id="settingsAiLocalDialogNote">安装、运行、下载、切换模型都在这里完成。</div>
-                              </div>
-                              <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
-                            </div>
-                            <div class="settings-ai-popover-body">
-                              <div class="settings-ai-local-guide" id="settingsAiLocalGuide" data-state="idle">
-                                <div class="settings-ai-local-guide-copy">
-                                  <span class="settings-stat-badge muted" id="settingsAiLocalGuideBadge">第 1 步</span>
-                                  <div class="settings-ai-local-guide-title" id="settingsAiLocalGuideTitle">先启用本地大模型</div>
-                                  <div class="settings-ai-local-guide-body" id="settingsAiLocalGuideBody">点击“使用本地大模型”，然后检测这台电脑是否已经安装并启动 Ollama。</div>
-                                  <div class="settings-ai-local-guide-hint" id="settingsAiLocalGuideHint">没有安装时，会在这里给出 Ollama 下载入口。</div>
-                                </div>
-                                <div class="settings-ai-local-guide-actions" aria-label="本地大模型设置操作">
-                                  <button class="mini-btn primary" id="settingsAiUseLocalSetup" type="button" data-settings-ai-quick-setup="local">使用本地大模型</button>
-                                  <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
-                                  <button class="mini-btn primary hidden" id="settingsAiStartOllama" type="button">启动 Ollama</button>
-                                  <button class="mini-btn is-subtle hidden" id="settingsAiStopOllama" type="button">停止 Ollama</button>
-                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
-                                  <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载推荐模型</button>
-                                </div>
-                              </div>
-                              <div class="settings-ai-wizard-list" id="settingsAiLocalWizard">
-                                <div class="settings-ai-wizard-step">
-                                  <span class="settings-ai-wizard-index">1</span>
-                                  <div class="settings-ai-wizard-copy">
-                                    <span class="settings-ai-wizard-title">切换到本地模式</span>
-                                    <span class="settings-ai-wizard-note">研思录会优先把 AI 任务留在这台电脑上。</span>
-                                  </div>
-                                </div>
-                                <div class="settings-ai-wizard-step">
-                                  <span class="settings-ai-wizard-index">2</span>
-                                  <div class="settings-ai-wizard-copy">
-                                    <span class="settings-ai-wizard-title">检测本地 Ollama</span>
-                                    <span class="settings-ai-wizard-note">如果没有安装，可以直接打开下载入口。</span>
-                                  </div>
-                                </div>
-                                <div class="settings-ai-wizard-step">
-                                  <span class="settings-ai-wizard-index">3</span>
-                                  <div class="settings-ai-wizard-copy">
-                                    <span class="settings-ai-wizard-title">下载或选择模型</span>
-                                    <span class="settings-ai-wizard-note">默认推荐 qwen3:8b；也可以选择已安装的其他 Ollama 模型。</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div class="settings-ai-grid">
-                                <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
-                                <select id="settingsAiLocalModel">
-                                  <option value="">检测 Ollama 后选择</option>
-                                </select>
-                                <div class="settings-field-note">切换模型后建议试运行一次；未推荐模型也可以选，但需要自己确认效果。</div>
-                              </div>
-                              <div class="settings-ai-local-recommendations hidden" id="settingsAiLocalModelRecommendations" aria-live="polite"></div>
-                              <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示 Ollama 检测和模型选择。</div>
-                              <div class="settings-ai-step-list" id="settingsAiSetupSteps"></div>
-                            </div>
-                          </div>
-                        </div>
-
                         <div class="settings-ai-popover hidden" id="settingsAiRemoteDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiRemoteDialogTitle">
                           <div class="settings-ai-popover-panel">
                             <div class="settings-ai-popover-head">

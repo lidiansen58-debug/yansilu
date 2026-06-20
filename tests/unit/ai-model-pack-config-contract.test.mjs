@@ -118,6 +118,11 @@ test("local model catalog declares qwen3 8b default capability assumptions", () 
   assert.equal(DEFAULT_LOCAL_AI_MODEL, "qwen3:8b");
   assert.equal(DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND, "ollama pull qwen3:8b");
   assert.deepEqual(tierNames, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+  assert.ok(LOCAL_AI_MODEL_TIERS.every((model) => model.sizeHint));
+  assert.deepEqual(
+    LOCAL_AI_MODEL_TIERS.map((model) => model.downloadCommand),
+    ["ollama pull qwen2.5:7b", "ollama pull qwen3:8b", "ollama pull qwen3.5:9b"]
+  );
   assert.ok(defaultProfile.capabilityTags.includes("适合观点提纯"));
   assert.ok(defaultProfile.capabilityTags.includes("适合潜在关联"));
   assert.ok(defaultProfile.capabilityTags.includes("JSON 输出较稳定"));

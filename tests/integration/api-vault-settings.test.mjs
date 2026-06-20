@@ -7,7 +7,10 @@ import os from "node:os";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { createSqliteArtifactStore } from "../../packages/ai-orchestrator/src/index.mjs";
+import {
+  createSqliteAiProviderConfigStore,
+  createSqliteArtifactStore
+} from "../../packages/ai-orchestrator/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -287,6 +290,90 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(providerConfigs.json.total, 1);
   assert.equal(providerConfigs.json.items[0].providerId, "china_optimized_gateway");
 
+  const rejectedOllamaProviderConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "ollama_local_gateway",
+    authMode: "local_no_key",
+    endpointUrl: "http://127.0.0.1:11434/v1/chat/completions",
+    runtimeModelMap: {
+      "ollama_local_gateway:standard": "llama3.2:3b"
+    }
+  });
+  assert.equal(rejectedOllamaProviderConfig.status, 400, JSON.stringify(rejectedOllamaProviderConfig.json));
+  assert.equal(rejectedOllamaProviderConfig.json.error.code, "AI_PROVIDER_CONFIG_SAVE_FAILED");
+  assert.deepEqual(rejectedOllamaProviderConfig.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+
+  const rejectedOllamaRoutePreviewDraft = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "Ollama Local",
+    userMode: "Local / Private",
+    providerPreset: "ollama_local_gateway",
+    endpointUrl: "http://127.0.0.1:11434/v1/chat/completions",
+    runtimeModelMap: {
+      "ollama_local_gateway:standard": "llama3.2:3b"
+    }
+  });
+  assert.equal(rejectedOllamaRoutePreviewDraft.status, 400, JSON.stringify(rejectedOllamaRoutePreviewDraft.json));
+  assert.equal(rejectedOllamaRoutePreviewDraft.json.error.code, "AI_ROUTE_PREVIEW_FAILED");
+  assert.deepEqual(rejectedOllamaRoutePreviewDraft.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+
+  const rejectedOllamaPreferencesLocalModel = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    modelPack: "Ollama Local",
+    userMode: "Local / Private",
+    advancedSettings: {
+      runtimeMode: "local_only",
+      localProviderPreset: "ollama_local_gateway",
+      localModel: "llama3.2:3b"
+    }
+  });
+  assert.equal(rejectedOllamaPreferencesLocalModel.status, 400, JSON.stringify(rejectedOllamaPreferencesLocalModel.json));
+  assert.equal(rejectedOllamaPreferencesLocalModel.json.error.code, "AI_PREFERENCES_SAVE_FAILED");
+  assert.deepEqual(rejectedOllamaPreferencesLocalModel.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+
+  const rejectedOllamaPreferencesModelRef = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    modelPack: "Starter Auto",
+    userMode: "Auto",
+    advancedSettings: {
+      runtimeMode: "hybrid",
+      modelRef: "ollama_local_gateway:llama3.2:3b"
+    }
+  });
+  assert.equal(rejectedOllamaPreferencesModelRef.status, 400, JSON.stringify(rejectedOllamaPreferencesModelRef.json));
+  assert.equal(rejectedOllamaPreferencesModelRef.json.error.code, "AI_PREFERENCES_SAVE_FAILED");
+
+  const acceptedOllamaProviderConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "ollama_local_gateway",
+    authMode: "local_no_key",
+    endpointUrl: "http://127.0.0.1:11434/v1/chat/completions",
+    runtimeModelMap: {
+      "ollama_local_gateway:standard": "qwen3:8b"
+    }
+  });
+  assert.equal(acceptedOllamaProviderConfig.status, 200, JSON.stringify(acceptedOllamaProviderConfig.json));
+  assert.equal(acceptedOllamaProviderConfig.json.item.runtimeModelMap["ollama_local_gateway:standard"], "qwen3:8b");
+
+  const rejectedOllamaProviderConfigIdOnlyUpdate = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    id: acceptedOllamaProviderConfig.json.item.id,
+    runtimeModelMap: {
+      "ollama_local_gateway:standard": "llama3.2:3b"
+    }
+  });
+  assert.equal(rejectedOllamaProviderConfigIdOnlyUpdate.status, 400, JSON.stringify(rejectedOllamaProviderConfigIdOnlyUpdate.json));
+  assert.equal(rejectedOllamaProviderConfigIdOnlyUpdate.json.error.code, "AI_PROVIDER_CONFIG_SAVE_FAILED");
+  assert.deepEqual(rejectedOllamaProviderConfigIdOnlyUpdate.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+
+  const rejectedOllamaProviderConfigIdOnlySnakeUpdate = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    id: acceptedOllamaProviderConfig.json.item.id,
+    runtime_model_map: {
+      "ollama_local_gateway:standard": "llama3.2:3b"
+    }
+  });
+  assert.equal(rejectedOllamaProviderConfigIdOnlySnakeUpdate.status, 400, JSON.stringify(rejectedOllamaProviderConfigIdOnlySnakeUpdate.json));
+  assert.equal(rejectedOllamaProviderConfigIdOnlySnakeUpdate.json.error.code, "AI_PROVIDER_CONFIG_SAVE_FAILED");
+  assert.deepEqual(rejectedOllamaProviderConfigIdOnlySnakeUpdate.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+
+  const keptOllamaProviderConfig = await getJson(baseUrl, "/api/v1/ai/provider-configs/ollama_local_gateway");
+  assert.equal(keptOllamaProviderConfig.status, 200, JSON.stringify(keptOllamaProviderConfig.json));
+  assert.equal(keptOllamaProviderConfig.json.item.runtimeModelMap["ollama_local_gateway:standard"], "qwen3:8b");
+
   const configuredFromProviderConfig = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "China Optimized",
     userMode: "Auto"
@@ -456,6 +543,46 @@ test("AI test chat validates unsaved provider settings before network execution"
   });
   assert.equal(storedRemoteConfig.status, 200, JSON.stringify(storedRemoteConfig.json));
 
+  const rejectedOllamaTestChatDraft = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "This should not run on a non-catalog managed Ollama model.",
+    modelPack: "Ollama Local",
+    userMode: "Local / Private",
+    providerPreset: "ollama_local_gateway",
+    authMode: "local_no_key",
+    endpointUrl: chatServer.endpointUrl,
+    runtimeModelMap: {
+      "ollama_local_gateway:standard": "llama3.2:3b"
+    }
+  });
+  assert.equal(rejectedOllamaTestChatDraft.status, 400, JSON.stringify(rejectedOllamaTestChatDraft.json));
+  assert.equal(rejectedOllamaTestChatDraft.json.error.code, "OLLAMA_MODEL_NOT_ALLOWED");
+  assert.deepEqual(rejectedOllamaTestChatDraft.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+  assert.equal(chatServer.lastRequest(), null);
+
+  const legacyConfigStore = await createSqliteAiProviderConfigStore({ vaultPath });
+  legacyConfigStore.setProviderConfig({
+    providerId: "ollama_local_gateway",
+    adapterType: "local_gateway",
+    status: "enabled",
+    authMode: "local_no_key",
+    endpointUrl: chatServer.endpointUrl,
+    runtimeModelMap: {
+      "ollama_local_gateway:local_private": "llama3.2:3b",
+      "ollama_local_gateway:standard": "llama3.2:3b"
+    }
+  });
+  legacyConfigStore.close();
+
+  const rejectedLegacyOllamaConfigTestChat = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "This should not run on a legacy non-catalog managed Ollama config.",
+    modelPack: "Ollama Local",
+    userMode: "Local / Private"
+  });
+  assert.equal(rejectedLegacyOllamaConfigTestChat.status, 400, JSON.stringify(rejectedLegacyOllamaConfigTestChat.json));
+  assert.equal(rejectedLegacyOllamaConfigTestChat.json.error.code, "OLLAMA_MODEL_NOT_ALLOWED");
+  assert.deepEqual(rejectedLegacyOllamaConfigTestChat.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+  assert.equal(chatServer.lastRequest(), null);
+
   const clearedPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "Global Optimized",
     providerPreset: "openai_compatible_gateway",
@@ -609,6 +736,9 @@ test("AI local runtime API detects Ollama-compatible models", async (t) => {
   const detected = await getJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/models");
   assert.equal(detected.status, 200, JSON.stringify(detected.json));
   assert.equal(detected.json.item.status, "available");
+  assert.equal(detected.json.item.readinessStatus, "running_missing_model");
+  assert.equal(detected.json.item.apiReachable, true);
+  assert.equal(detected.json.item.defaultModelInstalled, false);
   assert.equal(detected.json.item.chatEndpointUrl, `${ollama.baseUrl}/v1/chat/completions`);
   assert.equal(detected.json.item.healthEndpointUrl, `${ollama.baseUrl}/api/tags`);
   assert.equal(detected.json.item.models[0].name, "qwen2.5:3b");
@@ -657,6 +787,14 @@ test("AI local runtime API can pull an Ollama model", async (t) => {
     headers: { "x-yansilu-local-runtime-control": "1" }
   });
   assert.equal(invalid.status, 400, JSON.stringify(invalid.json));
+
+  const notInCatalog = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
+    model: "llama3.2:3b"
+  }, {
+    headers: { "x-yansilu-local-runtime-control": "1" }
+  });
+  assert.equal(notInCatalog.status, 400, JSON.stringify(notInCatalog.json));
+  assert.deepEqual(notInCatalog.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
 });
 
 test("AI local runtime bootstrap previews readiness and prepares qwen3 local AI", async (t) => {
@@ -827,6 +965,73 @@ test("AI local runtime API preserves hybrid mode when enabling a pulled Ollama m
   assert.equal(localPreview.json.item.provider.providerId, "local_private_gateway");
   assert.equal(localPreview.json.item.route.modelRef, "local_private_gateway:qwen3:8b");
   assert.equal(localPreview.json.item.access.keyMode, "no_key");
+
+  const unsafeManagedLocalConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "local_private_gateway",
+    authMode: "local_no_key",
+    endpointUrl: `${ollama.baseUrl}/v1/chat/completions`,
+    runtimeModelMap: {
+      "local_private_gateway:local_private": "llama3.2:3b"
+    }
+  });
+  assert.equal(unsafeManagedLocalConfig.status, 400, JSON.stringify(unsafeManagedLocalConfig.json));
+  assert.equal(unsafeManagedLocalConfig.json.error.code, "AI_PROVIDER_CONFIG_SAVE_FAILED");
+  assert.equal(unsafeManagedLocalConfig.json.error.details.requestedModel, "llama3.2:3b");
+
+  const acceptedManagedLocalConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "local_private_gateway",
+    authMode: "local_no_key",
+    endpointUrl: `${ollama.baseUrl}/v1/chat/completions`,
+    runtimeModelMap: {
+      "local_private_gateway:local_private": "qwen3:8b"
+    }
+  });
+  assert.equal(acceptedManagedLocalConfig.status, 200, JSON.stringify(acceptedManagedLocalConfig.json));
+
+  const unsafeManagedLocalConfigIdOnlyUpdate = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    id: acceptedManagedLocalConfig.json.item.id,
+    runtimeModelMap: {
+      "local_private_gateway:local_private": "llama3.2:3b"
+    }
+  });
+  assert.equal(unsafeManagedLocalConfigIdOnlyUpdate.status, 400, JSON.stringify(unsafeManagedLocalConfigIdOnlyUpdate.json));
+  assert.equal(unsafeManagedLocalConfigIdOnlyUpdate.json.error.code, "AI_PROVIDER_CONFIG_SAVE_FAILED");
+  assert.equal(unsafeManagedLocalConfigIdOnlyUpdate.json.error.details.requestedModel, "llama3.2:3b");
+
+  const unsafeManagedLocalConfigIdOnlySnakeUpdate = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    id: acceptedManagedLocalConfig.json.item.id,
+    runtime_model_map: {
+      "local_private_gateway:local_private": "llama3.2:3b"
+    }
+  });
+  assert.equal(unsafeManagedLocalConfigIdOnlySnakeUpdate.status, 400, JSON.stringify(unsafeManagedLocalConfigIdOnlySnakeUpdate.json));
+  assert.equal(unsafeManagedLocalConfigIdOnlySnakeUpdate.json.error.code, "AI_PROVIDER_CONFIG_SAVE_FAILED");
+  assert.equal(unsafeManagedLocalConfigIdOnlySnakeUpdate.json.error.details.requestedModel, "llama3.2:3b");
+
+  const unsafeHybridPreferences = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    modelPack: "Starter Auto",
+    userMode: "Auto",
+    advancedSettings: {
+      runtimeMode: "hybrid",
+      localProviderPreset: "local_private_gateway",
+      localModel: "llama3.2:3b"
+    }
+  });
+  assert.equal(unsafeHybridPreferences.status, 400, JSON.stringify(unsafeHybridPreferences.json));
+  assert.equal(unsafeHybridPreferences.json.error.code, "AI_PREFERENCES_SAVE_FAILED");
+  assert.equal(unsafeHybridPreferences.json.error.details.requestedModel, "llama3.2:3b");
+
+  const unsafeHybridModelRefPreferences = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    modelPack: "Starter Auto",
+    userMode: "Auto",
+    advancedSettings: {
+      runtimeMode: "hybrid",
+      modelRef: "local_private_gateway:llama3.2:3b"
+    }
+  });
+  assert.equal(unsafeHybridModelRefPreferences.status, 400, JSON.stringify(unsafeHybridModelRefPreferences.json));
+  assert.equal(unsafeHybridModelRefPreferences.json.error.code, "AI_PREFERENCES_SAVE_FAILED");
+  assert.equal(unsafeHybridModelRefPreferences.json.error.details.requestedModel, "llama3.2:3b");
 });
 
 test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) => {
@@ -1252,9 +1457,9 @@ test("AI inbox summarize runs current local route and persists summary decision"
     authMode: "local_no_key",
     endpointUrl: chatServer.endpointUrl,
     runtimeModelMap: {
-      "ollama_local_gateway:local_private": "qwen2.5:3b",
-      "ollama_local_gateway:cheap_fast": "qwen2.5:3b",
-      "ollama_local_gateway:standard": "qwen2.5:3b"
+      "ollama_local_gateway:local_private": "qwen2.5:7b",
+      "ollama_local_gateway:cheap_fast": "qwen2.5:7b",
+      "ollama_local_gateway:standard": "qwen2.5:7b"
     }
   });
   assert.equal(providerConfig.status, 200, JSON.stringify(providerConfig.json));
@@ -1308,13 +1513,34 @@ test("AI inbox summarize runs current local route and persists summary decision"
     summarized.json.item.artifact.userDecisions.length
   );
 
-  assert.equal(chatServer.lastRequest().model, "qwen2.5:3b");
+  assert.equal(chatServer.lastRequest().model, "qwen2.5:7b");
   assert.ok(chatServer.lastRequest().messages.some((message) => String(message.content || "").includes("Connect these two notes")));
 
   const detail = await getJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary");
   assert.equal(detail.status, 200, JSON.stringify(detail.json));
   assert.equal(detail.json.item.latestDecision.decision, "revised");
   assert.match(detail.json.item.latestDecision.comment, /Recommended action: accept_link/);
+
+  const legacyConfigStore = await createSqliteAiProviderConfigStore({ vaultPath });
+  legacyConfigStore.setProviderConfig({
+    providerId: "ollama_local_gateway",
+    adapterType: "local_gateway",
+    status: "enabled",
+    authMode: "local_no_key",
+    endpointUrl: chatServer.endpointUrl,
+    runtimeModelMap: {
+      "ollama_local_gateway:local_private": "llama3.2:3b",
+      "ollama_local_gateway:cheap_fast": "llama3.2:3b",
+      "ollama_local_gateway:standard": "llama3.2:3b"
+    }
+  });
+  legacyConfigStore.close();
+
+  const blockedLegacySummary = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary/summarize", {});
+  assert.equal(blockedLegacySummary.status, 400, JSON.stringify(blockedLegacySummary.json));
+  assert.equal(blockedLegacySummary.json.error.code, "OLLAMA_MODEL_NOT_ALLOWED");
+  assert.deepEqual(blockedLegacySummary.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+  assert.equal(chatServer.lastRequest().model, "qwen2.5:7b");
 
   const disabledProviderConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
     providerId: "ollama_local_gateway",
