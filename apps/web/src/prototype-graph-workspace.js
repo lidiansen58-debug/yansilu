@@ -1,3 +1,5 @@
+import { uniqueStrings } from "./prototype-collection-utils.js";
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -5,10 +7,6 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-function uniqueStrings(items = []) {
-  return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
 }
 
 export function graphOtherRelationEndpoint(edge = {}, noteId = "") {
