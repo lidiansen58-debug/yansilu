@@ -1884,6 +1884,7 @@ test("graph node selection summarizes position, relation quality, and next actio
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
   const source = readPrototypeApp();
   const systemMessageSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-messages.js"), "utf8");
+  const systemMessageWorkflowSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-message-workflow.js"), "utf8");
   const workspaceSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-graph-workspace.js"), "utf8");
   const html = readPrototypeHtml();
 
@@ -1903,8 +1904,8 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(source, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
   assert.match(source, /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
   assert.match(source, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
-  assert.match(source, /focus === "writing"/);
-  assert.match(source, /await selectWritingThemeIndex\(indexCardId\)/);
+  assert.match(systemMessageWorkflowSource, /focus === "writing"/);
+  assert.match(systemMessageWorkflowSource, /await selectWritingThemeIndex\(indexCardId\)/);
   assert.match(systemMessageSource, /basketNoteIds: String\(item\.workflowRoute\.basketNoteIds/);
 
   assert.match(html, /\.graph-selection-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(112px, 1fr\)\);/);
