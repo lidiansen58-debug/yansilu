@@ -10,22 +10,13 @@ import {
   explorerNewNoteButtonCopy,
   resolveExplorerNewNoteFolderId
 } from "../../apps/web/src/components-explorer-pane.js";
+import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 
 function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
-}
-
-function readEditorSource() {
-  return [
-    "components-editor-pane.js",
-    "editor-dirty-state.js",
-    "editor-link-picker.js",
-    "editor-relation-helpers.js",
-    "editor-template-workspace.js"
-  ].map((file) => readRepoFile("apps/web/src", file)).join("\n");
 }
 
 function createStubButton() {
@@ -651,8 +642,8 @@ test("graph-ready relation sync does not let stale unknown statuses override rec
   assert.match(source, /return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
 });
 
-test("thinking status keeps derived next-step copy out of the bottom notice", () => {
-  const source = readEditorSource();
+test("thinking status keeps derived next-step copy out of the bottom notice", async () => {
+  const source = await readEditorDomainSource();
   const match = source.match(/renderThinkingStatus\(\) \{([\s\S]*?)\n  \},?\n\n  renderAuthorshipPanel/);
 
   assert.ok(match, "expected thinking-status renderer to exist");

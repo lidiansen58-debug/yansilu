@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { readComponentsEditorPaneSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
+import { readEditorDomainSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
 
 test("relation create form keeps associated_with available in the editor source", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.match(source, /const RELATION_CREATE_TYPES = \[[\s\S]*"same_topic",[\s\S]*"associated_with",[\s\S]*"unexpected_connection"/);
   assert.match(source, /associated_with: "相关"/);

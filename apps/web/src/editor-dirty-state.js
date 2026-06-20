@@ -1,3 +1,4 @@
+import { escapeHtml } from "./editor-render-utils.js";
 import { typeFromFolder } from "./prototype-store.js";
 import {
   authorshipSeedFromBody,
@@ -15,15 +16,6 @@ import {
 
 const AUTO_SAVE_IDLE_MS = 15000;
 const AUTO_SAVE_INTERVAL_MS = 15000;
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
@@ -89,7 +81,7 @@ function thinkingStatusTone(thinkingStatus = null) {
 
 
 
-export const editorDirtyStateMethods = {
+const editorPaneStateMethods = {
   defaultSaveUiState(tab = null) {
     if (!tab) return { mode: "idle", message: "" };
     return {
@@ -736,3 +728,7 @@ export const editorDirtyStateMethods = {
     }
   }
 };
+
+export function applyEditorPaneStateMethods(EditorPaneClass) {
+  Object.assign(EditorPaneClass.prototype, editorPaneStateMethods);
+}

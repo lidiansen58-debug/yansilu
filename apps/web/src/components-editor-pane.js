@@ -1,3 +1,4 @@
+import { escapeHtml } from "./editor-render-utils.js";
 ﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import {
   countExplicitSemanticRelations,
@@ -73,7 +74,7 @@ import {
   resolvePreviewableAsset
 } from "./editor-markdown-commands.js";
 import { renderMarkdownPreview } from "./editor-preview-renderer.js";
-import { editorDirtyStateMethods } from "./editor-dirty-state.js";
+import { applyEditorPaneStateMethods } from "./editor-dirty-state.js";
 import {
   highlightMatch,
   linkCandidateBadge,
@@ -122,15 +123,6 @@ import {
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
 const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 export {
   assetMarkdownSnippet,
@@ -8329,4 +8321,4 @@ export class EditorPane {
     this.renderThinkingStatus();
   }
 }
-Object.assign(EditorPane.prototype, editorDirtyStateMethods);
+applyEditorPaneStateMethods(EditorPane);

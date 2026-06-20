@@ -1,16 +1,8 @@
+import { escapeHtml } from "./editor-render-utils.js";
 import { parseLinks, parseTags } from "./prototype-store.js";
 import { noteHasBoundarySignal } from "./editor-template-workspace.js";
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 export function tokenAtCursor(text, cursor) {
   const startChars = [" ", "\n", "\t", "，", "。", ",", ":", "：", "(", ")", "[", "]"];
