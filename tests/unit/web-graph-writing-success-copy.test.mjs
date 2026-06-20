@@ -8,7 +8,7 @@ test("graph writing followup keeps graph-scoped success copy for projected draft
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\n  \}/);
+  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\r?\n  \}/);
 
   assert.ok(match, "expected graph writing followup handler to exist");
   const fnBody = match[1];

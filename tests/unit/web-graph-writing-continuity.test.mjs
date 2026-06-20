@@ -12,7 +12,7 @@ function repoSource() {
 
 test("graph writing followup reuses the projected writing continuity entry when a matching project already exists", () => {
   const source = repoSource();
-  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\n  \}/);
+  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\r?\n  \}/);
 
   assert.ok(match, "expected graph writing followup handler to exist");
   const fnBody = match[1];
@@ -25,7 +25,7 @@ test("graph writing followup reuses the projected writing continuity entry when 
 
 test("graph writing followup keeps action-specific failure copy for continuity actions", () => {
   const source = repoSource();
-  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\n  \}/);
+  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\r?\n  \}/);
 
   assert.ok(match, "expected graph writing followup handler to exist");
   const fnBody = match[1];
@@ -37,7 +37,7 @@ test("graph writing followup keeps action-specific failure copy for continuity a
 
 test("graph writing followup stops before opening the writing center when no candidate note is ready", () => {
   const source = repoSource();
-  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\n  \}/);
+  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\r?\n  \}/);
 
   assert.ok(match, "expected graph writing followup handler to exist");
   const fnBody = match[1];

@@ -3,6 +3,27 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  readGraphIsolatedRelationFormValues,
+  validateGraphIsolatedRelationFormValues
+} from "../../apps/web/src/graph-relation-confirmation.js";
+import {
+  aiCandidateDraftFromSelect,
+  captureGraphIsolatedRelationDraftForState,
+  graphIsolatedRelationDraftForState,
+  isolatedRelationDraftFromForm
+} from "../../apps/web/src/graph-relation-drafts.js";
+import {
+  graphBlockedAiRelationPairKeysForNote as moduleGraphBlockedAiRelationPairKeysForNote,
+  graphMergeRelationCandidatesForDisplay as moduleGraphMergeRelationCandidatesForDisplay,
+  graphPendingAiCandidateCount as moduleGraphPendingAiCandidateCount
+} from "../../apps/web/src/graph-ai-candidates.js";
+import {
+  graphManualRelationTargetsForNote as moduleGraphManualRelationTargetsForNote
+} from "../../apps/web/src/graph-local-relations.js";
+import {
+  graphIsolatedJoinNetworkFormModel
+} from "../../apps/web/src/graph-isolated-relation-form.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -442,7 +463,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /function syncGraphIsolatedAiCandidateForm\(select = null\) \{/);
   assert.match(source, /function markGraphIsolatedRationaleUserEdited\(input = null\) \{/);
   assert.match(source, /function updateGraphIsolatedInlinePreview\(form = null, source = null\) \{/);
-  assert.match(source, /updateGraphIsolatedInlinePreview\(form, option\)/);
+  assert.match(source, /updateGraphIsolatedInlinePreview\(form, nextDraft\.option\)/);
   assert.match(source, /updateGraphIsolatedInlinePreview\(form, button\)/);
   assert.match(source, /const clearButton = panel\.querySelector\("\[data-graph-clear-candidate-preview\]"\);/);
   assert.match(source, /if \(clearButton\) clearButton\.hidden = !title;/);
@@ -460,7 +481,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
   assert.match(source, /graphUpsertMarkdownSection\(nextBody, "关联整理备注"/);
   assert.match(source, /function graphNoteHasSavedIsolationDisposition\(note = \{\}\) \{/);
-  assert.match(source, /if \(graphNoteHasSavedIsolationDisposition\(note\)\) return null;/);
+  assert.match(source, /noteHasSavedIsolationDisposition: graphNoteHasSavedIsolationDisposition/);
   assert.match(source, /\.filter\(\(note\) => !graphNoteHasSavedIsolationDisposition\(graphFullNoteById\(graphNoteIdFromIsolatedItem\(note\), nodeMap\) \|\| note\)\)/);
   assert.doesNotMatch(isolatedWorkflowSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}" data-open-note=/);
   assert.doesNotMatch(isolatedWorkflowSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}"/);
@@ -480,7 +501,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /const returnTo = previousSelectionKind === "isolated" \|\| previousSelectionKind === "isolatedcomplete" \? "isolated" : "";/);
   assert.match(source, /rationale,\s*returnTo\s*\}/);
   assert.match(source, /returnTo: String\(selection\?\.returnTo \|\| ""\)\.trim\(\)\.toLowerCase\(\)/);
-  assert.match(source, /\(previousSelectionKind === "relationform" && String\(previousSelection\?\.returnTo \|\| ""\)\.trim\(\)\.toLowerCase\(\) === "isolated"\)/);
+  assert.match(source, /from "\.\/graph-relation-save-flow\.js";/);
+  assert.match(source, /graphRelationSaveSelection\(\{ previousSelection, button, noteId: cleanNoteId \}\)/);
   assert.match(source, /data-graph-ai-candidate-apply/);
   assert.match(source, /const currentNoteId = String\(noteId \|\| ""\)\.trim\(\);/);
   assert.match(source, /const aiTargetNoteId = String\(candidate\.counterpartNoteId \|\| candidate\.actionTargetNoteId \|\| candidate\.targetNoteId \|\| ""\)\.trim\(\);/);
@@ -507,10 +529,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /const relation = await createNoteRelation\(cleanNoteId, \{/);
   assert.match(source, /if \(cleanNoteId === cleanTargetNoteId\) \{/);
   assert.match(source, /await refreshDirectoryGraph\(\);/);
-  assert.match(source, /const savingFromIsolatedFlow =/);
-  assert.match(source, /previousSelectionKind === "isolated"/);
-  assert.match(source, /previousSelectionKind === "isolatedcomplete"/);
-  assert.match(source, /const nextSelection = savingFromIsolatedFlow \? \{ kind: "isolatedComplete", noteId: cleanNoteId \} : \{ kind: "node", nodeId: cleanNoteId \};/);
+  assert.match(source, /normalizeGraphConfirmedRelationInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
+  assert.match(source, /graphRelationSaveResult\(\{/);
   assert.match(source, /rationaleDraft,/);
   assert.match(source, /insightQuestionDraft,/);
   assert.match(source, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
@@ -573,8 +593,7 @@ test("graph network-edge status handling keeps suggested links in-network but st
 
   assert.match(source, /return status === "suggested" \|\| status === "draft" \|\| status === "confirmed";/);
   assert.match(source, /graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
-  assert.match(source, /const connectedIds = new Set\(\s*\n\s*\(Array\.isArray\(edges\) \? edges : \[\]\)\s*\n\s*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)/);
-  assert.match(source, /function graphComputedIsolatedNotes\(nodes = \[\], edges = \[\], aiIsolatedNotes = \[\]\) \{[\s\S]*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)[\s\S]*\.flatMap\(\(edge\) => \[edge\?\.fromNoteId, edge\?\.toNoteId\]\)/);
+  assert.match(source, /relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge/);
   assert.match(source, /state\.graphConnectedNoteIds = new Set\(\s*allGraphEdges\s*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)\s*\.flatMap/);
 });
 
@@ -582,9 +601,24 @@ test("graph AI summary treats bridge candidates as a subset instead of double co
   const source = readPrototypeApp();
 
   assert.match(source, /function graphPendingAiCandidateCount\(candidates = \[\], \{ existingRelationPairKeys = new Set\(\), excludePairs = new Set\(\), bridgeOnly = false, excludeBridge = false \} = \{\}\) \{/);
-  assert.match(source, /if \(excludeBridge && candidate\.componentBridge === true\) return;/);
-  assert.match(source, /const pairKey = graphCandidateCountKey\(candidate\);/);
-  assert.match(source, /if \(!pairKey \|\| existingRelationPairKeys\.has\(pairKey\) \|\| excludePairs\.has\(pairKey\) \|\| seenPairs\.has\(pairKey\)\) return;/);
+  assert.match(source, /return computeGraphPendingAiCandidateCount\(candidates, \{ existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge \}\);/);
+  const bridgeSubset = moduleGraphPendingAiCandidateCount(
+    [
+      { sourceNoteId: "a", targetNoteId: "b", relationType: "bridges", componentBridge: true },
+      { sourceNoteId: "a", targetNoteId: "b", relationType: "bridges", componentBridge: true },
+      { sourceNoteId: "a", targetNoteId: "c", relationType: "same_topic" }
+    ],
+    { bridgeOnly: true }
+  );
+  const relationSubset = moduleGraphPendingAiCandidateCount(
+    [
+      { sourceNoteId: "a", targetNoteId: "b", relationType: "bridges", componentBridge: true },
+      { sourceNoteId: "a", targetNoteId: "c", relationType: "same_topic" }
+    ],
+    { excludePairs: bridgeSubset.pairKeys, excludeBridge: true }
+  );
+  assert.equal(bridgeSubset.count, 1);
+  assert.equal(relationSubset.count, 1);
   assert.match(source, /function graphLiveAiAnalysisCounts\(aiAnalysis = graphState\.aiAnalysis, \{ nodes = null, edges = null \} = \{\}\) \{/);
   assert.match(source, /const scopedNodeIds = new Set\(graphNodes\.map/);
   assert.match(source, /return scopedNodeIds\.has\(sourceNoteId\) \|\| scopedNodeIds\.has\(targetNoteId\);/);
@@ -676,8 +710,15 @@ test("graph AI live counts stay scoped and classify component bridges correctly"
     function graphCandidateCanSaveRelation(candidate = {}) {
       return String(candidate.relationType || "associated_with").trim() !== "no_relation";
     }
-    ${extractFunctionSource(source, "graphCandidateEndpointIds")}
-    ${extractFunctionSource(source, "graphCandidateCountKey")}
+    function graphCandidateEndpointIds(candidate = {}) {
+      const sourceNoteId = String(candidate.fromNoteId || candidate.sourceNoteId || (Array.isArray(candidate.noteIds) ? candidate.noteIds[0] : "") || "").trim();
+      const targetNoteId = String(candidate.toNoteId || candidate.targetNoteId || (Array.isArray(candidate.targetNoteIds) ? candidate.targetNoteIds[0] : "") || (Array.isArray(candidate.noteIds) ? candidate.noteIds[1] : "") || "").trim();
+      return { sourceNoteId, targetNoteId };
+    }
+    function graphCandidateCountKey(candidate = {}) {
+      const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
+      return graphRelationPairKey(sourceNoteId, targetNoteId);
+    }
     function graphNoteIdFromIsolatedItem(item = {}) {
       return String(item?.noteId || item?.id || "").trim();
     }
@@ -688,7 +729,20 @@ test("graph AI live counts stay scoped and classify component bridges correctly"
     function graphIsolatedQueueItems({ isolatedNotes = [] } = {}) {
       return Array.isArray(isolatedNotes) ? isolatedNotes : [];
     }
-    ${extractFunctionSource(source, "graphPendingAiCandidateCount")}
+    function graphPendingAiCandidateCount(candidates = [], { existingRelationPairKeys = new Set(), excludePairs = new Set(), bridgeOnly = false, excludeBridge = false } = {}) {
+      const seenPairs = new Set();
+      let count = 0;
+      (Array.isArray(candidates) ? candidates : []).forEach((candidate) => {
+        if (!candidate || !graphCandidateCanSaveRelation(candidate)) return;
+        if (bridgeOnly && candidate.componentBridge !== true) return;
+        if (excludeBridge && candidate.componentBridge === true) return;
+        const pairKey = graphCandidateCountKey(candidate);
+        if (!pairKey || existingRelationPairKeys.has(pairKey) || excludePairs.has(pairKey) || seenPairs.has(pairKey)) return;
+        seenPairs.add(pairKey);
+        count += 1;
+      });
+      return { count, pairKeys: seenPairs };
+    }
     ${extractFunctionSource(source, "graphLiveAiAnalysisCounts")}
     ${extractFunctionSource(source, "graphAiAnalysisSummaryState")}
     return { graphAiAnalysisSummaryState };
@@ -710,9 +764,7 @@ test("graph thinking relation tasks only expose savable candidates with normaliz
   const source = readPrototypeApp();
 
   assert.match(source, /function graphCandidateEndpointIds\(candidate = \{\}\) \{/);
-  assert.match(source, /candidate\.fromNoteId \|\|\s*\n\s*candidate\.from_note_id \|\|\s*\n\s*candidate\.sourceNoteId \|\|\s*\n\s*candidate\.source_note_id/);
-  assert.match(source, /\(Array\.isArray\(candidate\.noteIds\) \? candidate\.noteIds\[0\] : ""\)/);
-  assert.match(source, /\(Array\.isArray\(candidate\.targetNoteIds\) \? candidate\.targetNoteIds\[0\] : ""\)/);
+  assert.match(source, /return computeGraphCandidateEndpointIds\(candidate\);/);
   assert.match(source, /\(Array\.isArray\(analysis\?\.relationCandidates\) \? analysis\.relationCandidates : \[\]\)[\s\S]*\.filter\(\(candidate\) => graphCandidateCanSaveRelation\(candidate\)\)[\s\S]*const \{ sourceNoteId, targetNoteId \} = graphCandidateEndpointIds\(candidate\);/);
   assert.match(source, /const relationType = graphPreferredPotentialRelationType\(candidate\);/);
   assert.match(source, /actionAttrs: `data-open-note="\$\{escapeHtml\(sourceNoteId\)\}"`/);
@@ -748,7 +800,12 @@ test("graph thinking relation tasks use scoped nodes for filtering but lookup ma
     function graphThinkingEvidenceText() { return ""; }
     function graphRankThemeCandidates() { return []; }
     ${extractFunctionSource(source, "graphThinkingNoteTitle")}
-    ${extractFunctionSource(source, "graphCandidateEndpointIds")}
+    function graphCandidateEndpointIds(candidate = {}) {
+      return {
+        sourceNoteId: String(candidate.fromNoteId || candidate.sourceNoteId || "").trim(),
+        targetNoteId: String(candidate.toNoteId || candidate.targetNoteId || "").trim()
+      };
+    }
     ${extractFunctionSource(source, "buildGraphThinkingItems")}
     return { buildGraphThinkingItems };
   `)();
@@ -782,9 +839,9 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphComputedIsolatedNotes\(nodes = \[\], edges = \[\], aiIsolatedNotes = \[\]\) \{/);
-  assert.match(source, /const linkedIds = new Set\(/);
+  assert.match(source, /graphComputedIsolatedNotesForGraph\(nodes, edges, aiIsolatedNotes, \{/);
   assert.match(source, /function graphMarkIsolatedNodes\(nodes = \[\], isolatedNotes = \[\]\) \{/);
-  assert.match(source, /graphVisualState: "isolated"/);
+  assert.match(source, /graphMarkIsolatedNodesForGraph\(nodes, isolatedNotes, \{/);
   assert.match(source, /let visibleNodes = !showingFocusedNote\s*\?\s*scopedAllNodes/);
   assert.match(source, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
   assert.match(source, /const contextualSelectionEdges = Array\.isArray\(selectionEdges\) \? selectionEdges : Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
@@ -798,12 +855,12 @@ test("graph isolated notes are organized into a continuous handling queue", () =
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphIsolatedQueueItems\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", limit = 8 \} = \{\}\) \{/);
-  assert.match(source, /const limitCount = Math\.max\(1, Number\(limit\) \|\| 8\);/);
-  assert.match(source, /const aiCandidates = graphAiRelationCandidatesForNote\(noteId, \{ nodeMap, edges, limit: 3 \}\);/);
-  assert.match(source, /const localCandidates = graphLocalRelationCandidatesForNote\(noteId, \{ nodeMap, edges, limit: 3 \}\);/);
-  assert.match(source, /const currentItem = items\.find\(\(item\) => item\.noteId === cleanCurrentNoteId\);/);
-  assert.match(source, /return \[\.\.\.limitedItems\.slice\(0, Math\.max\(0, limitCount - 1\)\), currentItem\];/);
+  assert.match(source, /return graphIsolatedQueueItemsForGraph\(\{/);
+  assert.match(source, /aiRelationCandidatesForNote: graphAiRelationCandidatesForNote/);
+  assert.match(source, /localRelationCandidatesForNote: graphLocalRelationCandidatesForNote/);
+  assert.match(source, /selectionKey: graphIsolatedSelectionKey/);
   assert.match(source, /function graphNextIsolatedQueueItem\(queueItems = \[\], currentNoteId = ""\) \{/);
+  assert.match(source, /return computeGraphNextIsolatedQueueItem\(queueItems, currentNoteId\);/);
   assert.match(source, /function renderGraphIsolatedQueue\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", compact = false, limit = 8, queueItems: providedQueueItems = null \} = \{\}\) \{/);
   assert.match(source, /function renderGraphIsolatedQueueStrip\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", queueItems: providedQueueItems = null \} = \{\}\) \{/);
   assert.match(source, /const total = queueItems\.length;/);
@@ -841,8 +898,8 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   const isolatedSelectionSource = source.slice(isolatedSelectionStart, isolatedSelectionEnd);
 
   assert.match(source, /function graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
-  assert.match(source, /const connectedIds = new Set\(/);
-  assert.match(source, /graphTitleCharacterOverlap\(sourceTitle, targetTitle\)/);
+  assert.match(source, /return computeGraphLocalRelationCandidatesForNote\(/);
+  assert.match(source, /relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge/);
   assert.match(source, /function graphManualRelationTargetsForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 80 \} = \{\}\) \{/);
   assert.match(source, /const manualTargets = graphManualRelationTargetsForNote\(cleanNoteId, \{ nodeMap, edges, limit: 500 \}\);/);
   assert.match(joinFlowSource, /data-graph-manual-target-search/);
@@ -858,7 +915,7 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(source, /data-graph-isolated-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
   assert.match(source, /role="tab" aria-selected="\$\{activeMode === "ai"\}"/);
   assert.match(source, /const relationDraft = graphState\.isolatedRelationDraftByNoteId\?\.\[cleanNoteId\] \|\| \{\};/);
-  assert.match(source, /const activeMode = cleanPreferredTargetNoteId \? "manual" : draftMode \|\| graphIsolatedWorkflowActiveTab\(cleanNoteId\);/);
+  assert.match(source, /graphIsolatedJoinNetworkFormModel\(/);
   assert.match(source, /data-graph-target-panel="ai"/);
   assert.match(source, /data-graph-target-panel="manual"/);
   assert.match(source, /function activateGraphIsolatedWorkflowTab\(tabButton = null, \{ focus = false \} = \{\}\) \{/);
@@ -876,26 +933,25 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
 });
 
 test("graph manual relation targets search all known permanent notes but excludes non-permanent and connected notes", () => {
-  const source = readPrototypeApp();
-  const { graphManualRelationTargetsForNote } = new Function(`
-    function graphRelationStatusCountsAsNetworkEdge(value = "") {
-      const status = String(value || "confirmed").trim().toLowerCase();
-      return status === "suggested" || status === "draft" || status === "confirmed";
+  const targets = moduleGraphManualRelationTargetsForNote(
+    "source",
+    {
+      nodeMap: new Map([
+        ["source", { id: "source", title: "Source", noteType: "permanent" }],
+        ["outside", { id: "outside", title: "Outside Hub", noteType: "permanent" }],
+        ["original", { id: "original", title: "Original Note", noteType: "original" }],
+        ["literature", { id: "literature", title: "Literature Note", noteType: "literature" }],
+        ["connected", { id: "connected", title: "Already Connected", noteType: "permanent" }]
+      ]),
+      edges: [{ fromNoteId: "source", toNoteId: "connected", status: "confirmed" }]
+    },
+    {
+      relationStatusCountsAsNetworkEdge: (value = "") => {
+        const status = String(value || "confirmed").trim().toLowerCase();
+        return status === "suggested" || status === "draft" || status === "confirmed";
+      }
     }
-    ${extractFunctionSource(source, "graphManualRelationTargetsForNote")}
-    return { graphManualRelationTargetsForNote };
-  `)();
-
-  const targets = graphManualRelationTargetsForNote("source", {
-    nodeMap: new Map([
-      ["source", { id: "source", title: "Source", noteType: "permanent" }],
-      ["outside", { id: "outside", title: "Outside Hub", noteType: "permanent" }],
-      ["original", { id: "original", title: "Original Note", noteType: "original" }],
-      ["literature", { id: "literature", title: "Literature Note", noteType: "literature" }],
-      ["connected", { id: "connected", title: "Already Connected", noteType: "permanent" }]
-    ]),
-    edges: [{ fromNoteId: "source", toNoteId: "connected", status: "confirmed" }]
-  });
+  );
 
   assert.deepEqual(targets.map((item) => item.id).sort(), ["original", "outside"]);
 });
@@ -904,6 +960,7 @@ test("graph isolated manual search renders targets beyond the first eighty notes
   const source = readPrototypeApp();
   const { renderGraphIsolatedJoinNetworkFlow } = new Function(`
     const graphState = { aiAnalysisLoading: false };
+    const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
     function escapeHtml(value = "") {
       return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -913,6 +970,10 @@ test("graph isolated manual search renders targets beyond the first eighty notes
     }
     function graphAiRelationCandidatesForNote() { return []; }
     function graphAiAnalysisPayload() { return {}; }
+    function graphIsolatedWorkflowTabKey(value = "") {
+      const key = String(value || "").trim().toLowerCase();
+      return ["ai", "manual"].includes(key) ? key : "ai";
+    }
     function graphIsolatedWorkflowActiveTab() { return "manual"; }
     function graphRelationStatusCountsAsNetworkEdge() { return true; }
     function graphRelationFormTypeOptions(selectedType = "associated_with") {
@@ -924,8 +985,14 @@ test("graph isolated manual search renders targets beyond the first eighty notes
     function graphNotePreviewText(note = {}) { return note.summary || note.title || ""; }
     function graphNoteTags(note = {}) { return Array.isArray(note.tags) ? note.tags : []; }
     function noteTypeLabel(value = "") { return value || "永久笔记"; }
-    ${extractFunctionSource(source, "graphManualRelationTargetsForNote")}
+    function graphManualRelationTargetsForNote(_noteId = "", { nodeMap = new Map(), limit = 500 } = {}) {
+      return [...nodeMap.values()]
+        .filter((note) => note.id !== "source")
+        .map((note) => ({ id: note.id, title: note.title, noteType: note.noteType, folder: "" }))
+        .slice(0, Math.max(1, Number(limit) || 500));
+    }
     ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
+    ${graphIsolatedJoinNetworkFormModel.toString()}
     ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
     return { renderGraphIsolatedJoinNetworkFlow };
   `)();
@@ -964,6 +1031,10 @@ test("graph isolated manual mode does not reuse AI rationale and exposes selecte
       return [{ id: "manual-target", title: "Manual Target", noteType: "permanent" }];
     }
     function graphAiAnalysisPayload() { return {}; }
+    function graphIsolatedWorkflowTabKey(value = "") {
+      const key = String(value || "").trim().toLowerCase();
+      return ["ai", "manual"].includes(key) ? key : "ai";
+    }
     function graphIsolatedWorkflowActiveTab() { return "manual"; }
     function graphRelationStatusCountsAsNetworkEdge() { return false; }
     function graphCandidatePercent() { return 70; }
@@ -977,6 +1048,7 @@ test("graph isolated manual mode does not reuse AI rationale and exposes selecte
     function noteTypeLabel(value = "") { return value || "永久笔记"; }
     function graphIsolatedPreviewTarget() { return null; }
     ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
+    ${graphIsolatedJoinNetworkFormModel.toString()}
     ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
     return { renderGraphIsolatedJoinNetworkFlow };
   `)();
@@ -1015,6 +1087,10 @@ test("graph relation form preserves preferred bridge type and non-isolated save 
       return [{ id: "bridge-target", title: "Bridge Target", summary: "Bridge target preview.", tags: ["bridge"], noteType: "permanent" }];
     }
     function graphAiAnalysisPayload() { return {}; }
+    function graphIsolatedWorkflowTabKey(value = "") {
+      const key = String(value || "").trim().toLowerCase();
+      return ["ai", "manual"].includes(key) ? key : "ai";
+    }
     function graphIsolatedWorkflowActiveTab() { return "manual"; }
     function graphRelationStatusCountsAsNetworkEdge() { return false; }
     function graphRelationFormTypeOptions(selectedType = "associated_with") {
@@ -1027,6 +1103,7 @@ test("graph relation form preserves preferred bridge type and non-isolated save 
     function noteTypeLabel(value = "") { return value || "永久笔记"; }
     function graphIsolatedPreviewTarget() { return null; }
     ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
+    ${graphIsolatedJoinNetworkFormModel.toString()}
     ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
     return { renderGraphIsolatedJoinNetworkFlow };
   `)();
@@ -1079,6 +1156,10 @@ test("graph isolated AI dropdown keeps reverse candidates off self-links", () =>
     }
     function graphManualRelationTargetsForNote() { return []; }
     function graphAiAnalysisPayload() { return {}; }
+    function graphIsolatedWorkflowTabKey(value = "") {
+      const key = String(value || "").trim().toLowerCase();
+      return ["ai", "manual"].includes(key) ? key : "ai";
+    }
     function graphIsolatedWorkflowActiveTab() { return "ai"; }
     function graphRelationStatusCountsAsNetworkEdge() { return false; }
     function graphCandidatePercent() { return 77; }
@@ -1094,6 +1175,7 @@ test("graph isolated AI dropdown keeps reverse candidates off self-links", () =>
     function noteTypeLabel(value = "") { return value || "永久笔记"; }
     function graphIsolatedPreviewTarget() { return null; }
     ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
+    ${graphIsolatedJoinNetworkFormModel.toString()}
     ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
     return { renderGraphIsolatedJoinNetworkFlow };
   `)();
@@ -1144,16 +1226,41 @@ test("graph AI relation candidates hide rejected and no-relation candidates befo
     function graphNodeTitle(nodeMap, noteId, fallback = "") { return nodeMap.get(noteId)?.title || fallback; }
     function graphRelationTypeLabel(type = "") { return type || "相关"; }
     function graphPotentialRelationNeedsConfirmation() { return false; }
-    ${extractFunctionSource(source, "graphPreferredPotentialRelationType")}
+    function graphPreferredPotentialRelationType(candidate = {}) {
+      const aiRelationType = String(candidate.aiRelationType || candidate.ai_relation_type || "").trim().toLowerCase();
+      if (aiRelationType && GRAPH_CONFIRMABLE_RELATION_TYPES.has(aiRelationType) && aiRelationType !== "no_relation") return aiRelationType;
+      const fallback = String(candidate.relationType || candidate.relation_type || (candidate.componentBridge ? "bridges" : "associated_with")).trim().toLowerCase();
+      return GRAPH_CONFIRMABLE_RELATION_TYPES.has(fallback) ? fallback : "associated_with";
+    }
     ${extractFunctionSource(source, "graphCandidateBlocksFormalRelation")}
-    ${extractFunctionSource(source, "graphCandidateCanSaveRelation")}
+    function graphCandidateCanSaveRelation(candidate = {}) {
+      return !graphCandidateBlocksFormalRelation(candidate) && GRAPH_CONFIRMABLE_RELATION_TYPES.has(graphPreferredPotentialRelationType(candidate));
+    }
     ${extractFunctionSource(source, "graphPotentialRelationActionEndpoints")}
     ${extractFunctionSource(source, "graphPotentialRelationEvidenceText")}
     ${extractFunctionSource(source, "graphPotentialRelationRationaleDraft")}
     ${extractFunctionSource(source, "graphDecoratePotentialRelationCandidate")}
     ${extractFunctionSource(source, "graphAiRelationCandidatesForNote")}
-    ${extractFunctionSource(source, "graphCandidateUndirectedPairKey")}
-    ${extractFunctionSource(source, "graphBlockedAiRelationPairKeysForNote")}
+    function graphCandidateUndirectedPairKey(candidate = {}) {
+      return graphRelationPairKey(
+        candidate.sourceNoteId || candidate.fromNoteId || candidate.actionSourceNoteId,
+        candidate.targetNoteId || candidate.toNoteId || candidate.counterpartNoteId || candidate.actionTargetNoteId
+      );
+    }
+    function graphBlockedAiRelationPairKeysForNote(noteId = "") {
+      const analysis = graphAiAnalysisPayload();
+      const cleanNoteId = String(noteId || "").trim();
+      if (!cleanNoteId) return new Set();
+      return new Set(
+        [...(Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates : []), ...(Array.isArray(analysis?.bridgeCandidates) ? analysis.bridgeCandidates : [])]
+          .filter((candidate = {}) => {
+            const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
+            return sourceNoteId && targetNoteId && (sourceNoteId === cleanNoteId || targetNoteId === cleanNoteId) && !graphCandidateCanSaveRelation(candidate);
+          })
+          .map(graphCandidateUndirectedPairKey)
+          .filter(Boolean)
+      );
+    }
     return { graphAiRelationCandidatesForNote, graphBlockedAiRelationPairKeysForNote };
   `)();
 
@@ -1197,6 +1304,8 @@ test("graph isolated relation form keeps placeholder-rationale errors inside the
     function graphIsolatedFormError(form = null, message = "") {
       if (form) form.inlineError = String(message || "");
     }
+    const readGraphIsolatedRelationFormValues = ${readGraphIsolatedRelationFormValues.toString()};
+    const validateGraphIsolatedRelationFormValues = ${validateGraphIsolatedRelationFormValues.toString()};
     ${extractFunctionSource(source, "graphRelationRationaleIsActionable")}
     async function saveGraphConfirmedRelation() {
       confirmed = true;
@@ -1246,6 +1355,8 @@ test("graph isolated relation form keeps invalid relation type errors inside the
     function graphIsolatedFormError(form = null, message = "") {
       if (form) form.inlineError = String(message || "");
     }
+    const readGraphIsolatedRelationFormValues = ${readGraphIsolatedRelationFormValues.toString()};
+    const validateGraphIsolatedRelationFormValues = ${validateGraphIsolatedRelationFormValues.toString()};
     ${extractFunctionSource(source, "graphRelationRationaleIsActionable")}
     async function saveGraphConfirmedRelation() {
       confirmed = true;
@@ -1351,12 +1462,20 @@ test("graph isolated relation rationale user edits are not overwritten by manual
 
 test("graph isolated relation draft keeps AI and manual work separate", () => {
   const source = readPrototypeApp();
+  assert.match(source, /from "\.\/graph-relation-drafts\.js";/);
+  assert.match(source, /function graphIsolatedRelationDraftForNote\(noteId = ""\) \{\s*return graphIsolatedRelationDraftForState\(graphState, noteId\);/);
+  assert.match(source, /function captureGraphIsolatedRelationDraftFromForm\(form = null\) \{\s*return captureGraphIsolatedRelationDraftForState\(graphState, form, \{/);
+  assert.match(source, /const nextDraft = aiCandidateDraftFromSelect\(select, draft\);/);
   const { captureGraphIsolatedRelationDraftFromForm, syncGraphIsolatedAiCandidateForm, graphState } = new Function(`
     const graphState = { isolatedRelationDraftByNoteId: {} };
     function graphIsolatedWorkflowTabKey(value = "") {
       const key = String(value || "").trim().toLowerCase();
       return ["ai", "manual"].includes(key) ? key : "ai";
     }
+    ${graphIsolatedRelationDraftForState.toString()}
+    ${isolatedRelationDraftFromForm.toString()}
+    ${captureGraphIsolatedRelationDraftForState.toString()}
+    ${aiCandidateDraftFromSelect.toString()}
     ${extractFunctionSource(source, "graphIsolatedRelationDraftForNote")}
     function updateGraphIsolatedInlinePreview() {}
     function graphIsolatedFormError(form = null, message = "") {
@@ -1492,6 +1611,7 @@ test("graph isolated relation draft survives panel rerender during AI lookup", (
     function noteTypeLabel(value = "") { return value || "永久笔记"; }
     function graphIsolatedPreviewTarget() { return null; }
     ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
+    ${graphIsolatedJoinNetworkFormModel.toString()}
     ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
     return { renderGraphIsolatedJoinNetworkFlow };
   `)();
@@ -1558,6 +1678,7 @@ test("graph isolated relation draft keeps intentionally cleared rationale empty"
     function noteTypeLabel(value = "") { return value || "永久笔记"; }
     function graphIsolatedPreviewTarget() { return null; }
     ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
+    ${graphIsolatedJoinNetworkFormModel.toString()}
     ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
     return { renderGraphIsolatedJoinNetworkFlow, graphState };
   `)();
@@ -1608,7 +1729,9 @@ test("graph relation candidates explain reason, possible relation, and review qu
   assert.match(source, /function graphCandidateUndirectedPairKey\(candidate = \{\}\) \{/);
   assert.match(source, /function graphBlockedAiRelationPairKeysForNote\(noteId = ""\) \{/);
   assert.match(source, /function graphMergeRelationCandidatesForDisplay\(aiCandidates = \[\], localCandidates = \[\], \{ limit = 6, blockedPairKeys = new Set\(\) \} = \{\}\) \{/);
-  assert.match(source, /return graphRelationPairKey\(/);
+  assert.match(source, /return computeGraphCandidateUndirectedPairKey\(candidate\);/);
+  assert.match(source, /return computeGraphBlockedAiRelationPairKeysForNote\(noteId, graphAiAnalysisPayload\(\)\);/);
+  assert.match(source, /return computeGraphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit, blockedPairKeys \}\);/);
   assert.match(connectSource, /const blockedPairKeys = graphBlockedAiRelationPairKeysForNote\(noteId\);/);
   assert.match(connectSource, /const candidates = graphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit: 6, blockedPairKeys \}\);/);
   assert.match(connectSource, /保存关系/);
@@ -1680,19 +1803,7 @@ test("graph AI candidate card saves reversed candidates from the current note", 
 });
 
 test("graph relation candidate merge deduplicates reversed AI and local pairs", () => {
-  const source = readPrototypeApp();
-  const { graphMergeRelationCandidatesForDisplay } = new Function(`
-    const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
-    ${extractFunctionSource(source, "graphRelationPairKey")}
-    ${extractFunctionSource(source, "graphCandidateUndirectedPairKey")}
-    ${extractFunctionSource(source, "graphPreferredPotentialRelationType")}
-    ${extractFunctionSource(source, "graphCandidateBlocksFormalRelation")}
-    ${extractFunctionSource(source, "graphCandidateCanSaveRelation")}
-    ${extractFunctionSource(source, "graphMergeRelationCandidatesForDisplay")}
-    return { graphMergeRelationCandidatesForDisplay };
-  `)();
-
-  const merged = graphMergeRelationCandidatesForDisplay(
+  const merged = moduleGraphMergeRelationCandidatesForDisplay(
     [{ sourceNoteId: "note-a", targetNoteId: "note-b", targetTitle: "B from AI" }],
     [
       { sourceNoteId: "note-b", targetNoteId: "note-a", targetTitle: "A from local" },
@@ -1705,14 +1816,14 @@ test("graph relation candidate merge deduplicates reversed AI and local pairs", 
   assert.deepEqual(merged.map((candidate) => candidate.candidateSource), ["ai", "local"]);
   assert.deepEqual(merged.map((candidate) => candidate.targetNoteId), ["note-b", "note-c"]);
 
-  const rejectedPair = graphMergeRelationCandidatesForDisplay(
+  const rejectedPair = moduleGraphMergeRelationCandidatesForDisplay(
     [{ sourceNoteId: "note-a", targetNoteId: "note-b", aiDecision: "reject", aiRelationType: "no_relation" }],
     [{ sourceNoteId: "note-b", targetNoteId: "note-a", relationType: "same_topic", targetTitle: "A from local" }],
     { limit: 6 }
   );
   assert.deepEqual(rejectedPair, []);
 
-  const blockedByAiAnalysis = graphMergeRelationCandidatesForDisplay(
+  const blockedByAiAnalysis = moduleGraphMergeRelationCandidatesForDisplay(
     [],
     [{ sourceNoteId: "note-b", targetNoteId: "note-a", relationType: "same_topic", targetTitle: "A from local" }],
     { limit: 6, blockedPairKeys: new Set(["note-a::note-b"]) }
@@ -1916,12 +2027,12 @@ test("note box and graph tree sync all notes under the selected root", () => {
 
 test("graph module sidebar is labeled as graph scope instead of permanent-note browser", () => {
   const source = readPrototypeApp();
-  const graphSidebarBranch = source.match(/if \(state\.module === "graph"\) \{([\s\S]*?)\n\s*return;\n\s*\}/)?.[1] || "";
+  const sidebarSource = extractFunctionSource(source, "renderSidebarTitle");
 
-  assert.match(graphSidebarBranch, /\$\("sidebarTitle"\)\.textContent = "图谱笔记范围";/);
-  assert.match(graphSidebarBranch, /这里不是永久笔记页；点目录或笔记是在切换图谱观察范围。/);
-  assert.match(graphSidebarBranch, /孤立笔记会在这里用警示色提醒，点进来就能关联一条笔记。/);
-  assert.doesNotMatch(graphSidebarBranch, /永久笔记浏览/);
+  assert.match(sidebarSource, /\$\("sidebarTitle"\)\.textContent = "图谱笔记范围";/);
+  assert.match(sidebarSource, /这里不是永久笔记页；点目录或笔记是在切换图谱观察范围。/);
+  assert.match(sidebarSource, /孤立笔记会在这里用警示色提醒，点进来就能关联一条笔记。/);
+  assert.doesNotMatch(sidebarSource, /永久笔记浏览/);
 });
 
 test("graph load failure renders a quiet empty state instead of a red error panel", () => {

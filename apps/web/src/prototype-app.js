@@ -85,6 +85,53 @@ import {
   graphWritingFollowupEntryPlan
 } from "./graph-followup.js";
 import {
+  aiCandidateDraftFromSelect,
+  captureGraphIsolatedRelationDraftForState,
+  clearGraphIsolatedRelationDraftForState,
+  graphIsolatedRelationDraftForState
+} from "./graph-relation-drafts.js";
+import {
+  readGraphIsolatedRelationFormValues,
+  validateGraphIsolatedRelationFormValues
+} from "./graph-relation-confirmation.js";
+import {
+  graphRelationSaveResult,
+  graphRelationSaveSelection,
+  normalizeGraphConfirmedRelationInput
+} from "./graph-relation-save-flow.js";
+import {
+  graphBlockedAiRelationPairKeysForNote as computeGraphBlockedAiRelationPairKeysForNote,
+  graphCandidateCanSaveRelation as computeGraphCandidateCanSaveRelation,
+  graphCandidateCountKey as computeGraphCandidateCountKey,
+  graphCandidateEndpointIds as computeGraphCandidateEndpointIds,
+  graphCandidatePercent as computeGraphCandidatePercent,
+  graphCandidateUndirectedPairKey as computeGraphCandidateUndirectedPairKey,
+  graphMergeRelationCandidatesForDisplay as computeGraphMergeRelationCandidatesForDisplay,
+  graphPendingAiCandidateCount as computeGraphPendingAiCandidateCount,
+  graphPreferredPotentialRelationType as computeGraphPreferredPotentialRelationType,
+  graphRelationPairKey as computeGraphRelationPairKey
+} from "./graph-ai-candidates.js";
+import {
+  graphComputedIsolatedNotesForGraph,
+  graphIsolatedQueueItemsForGraph,
+  graphIsolatedSelectionKeyForItem,
+  graphMarkIsolatedNodesForGraph,
+  graphNextIsolatedQueueItem as computeGraphNextIsolatedQueueItem,
+  graphNoteIdFromIsolatedItem as computeGraphNoteIdFromIsolatedItem
+} from "./graph-isolated-queue.js";
+import {
+  graphFullNoteByIdFromSources,
+  graphIsolatedPreviewTargetForNote,
+  graphLocalRelationCandidatesForNote as computeGraphLocalRelationCandidatesForNote,
+  graphManualRelationTargetsForNote as computeGraphManualRelationTargetsForNote,
+  graphNotePreviewTextForLocalRelation,
+  graphNoteTagsForLocalRelation,
+  graphTitleCharacterOverlap as computeGraphTitleCharacterOverlap
+} from "./graph-local-relations.js";
+import {
+  graphIsolatedJoinNetworkFormModel
+} from "./graph-isolated-relation-form.js";
+import {
   describeWritingContinuationAction,
   describeWritingMaterialStatus,
   describeWritingMaterialStepState,
@@ -12672,8 +12719,7 @@ function resolveGraphThemeSelection(selection = null, topicCandidates = []) {
 }
 
 function graphIsolatedSelectionKey(note = {}, index = 0) {
-  const raw = String(note?.noteId || note?.id || note?.title || index).trim();
-  return raw || `isolated-${index}`;
+  return graphIsolatedSelectionKeyForItem(note, index);
 }
 
 function graphBridgeSelectionKey(gap = {}, index = 0) {
@@ -13633,118 +13679,40 @@ function graphAiConfidenceLabel(value = null) {
 }
 
 function graphNoteIdFromIsolatedItem(item = {}) {
-  return String(item?.noteId || item?.id || "").trim();
+  return computeGraphNoteIdFromIsolatedItem(item);
 }
 
 function graphComputedIsolatedNotes(nodes = [], edges = [], aiIsolatedNotes = []) {
-  const linkedIds = new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .flatMap((edge) => [edge?.fromNoteId, edge?.toNoteId])
-      .map((id) => String(id || "").trim())
-      .filter(Boolean)
-  );
-  const aiMetaById = new Map(
-    (Array.isArray(aiIsolatedNotes) ? aiIsolatedNotes : [])
-      .map((item) => [graphNoteIdFromIsolatedItem(item), item])
-      .filter(([id]) => id)
-  );
-  return (Array.isArray(nodes) ? nodes : [])
-    .filter((node) => {
-      const noteId = String(node?.id || "").trim();
-      return noteId && !linkedIds.has(noteId);
-    })
-    .map((node) => {
-      const noteId = String(node?.id || "").trim();
-      return {
-        ...(aiMetaById.get(noteId) || {}),
-        noteId,
-        id: noteId,
-        title: String(aiMetaById.get(noteId)?.title || node?.title || noteId).trim() || noteId,
-        thesis: String(aiMetaById.get(noteId)?.thesis || node?.thesis || "").trim(),
-        suggestedAction: String(aiMetaById.get(noteId)?.suggestedAction || "review_missing_relations").trim()
-      };
-    });
+  return graphComputedIsolatedNotesForGraph(nodes, edges, aiIsolatedNotes, {
+    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
+  });
 }
 
 function graphMarkIsolatedNodes(nodes = [], isolatedNotes = []) {
-  const isolatedEntries = (Array.isArray(isolatedNotes) ? isolatedNotes : [])
-    .map((item, index) => ({
-      item,
-      index,
-      noteId: graphNoteIdFromIsolatedItem(item)
-    }))
-    .filter((entry) => entry.noteId);
-  const isolatedById = new Map(isolatedEntries.map((entry) => [entry.noteId, entry]));
-  return (Array.isArray(nodes) ? nodes : []).map((node) => {
-    const noteId = String(node?.id || "").trim();
-    const isolated = isolatedById.get(noteId);
-    if (!isolated) return node;
-    const decision = graphIsolatedDecisionMeta(isolated.item, node);
-    return {
-      ...node,
-      graphVisualState: "isolated",
-      isGraphIsolatedCandidate: true,
-      isolatedKey: graphIsolatedSelectionKey(isolated.item, isolated.index),
-      isolatedIndex: isolated.index,
-      isolatedDecisionTone: decision.tone
-    };
+  return graphMarkIsolatedNodesForGraph(nodes, isolatedNotes, {
+    selectionKey: graphIsolatedSelectionKey,
+    decisionMeta: graphIsolatedDecisionMeta
   });
 }
 
 function graphIsolatedQueueItems({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", limit = 8 } = {}) {
-  const cleanCurrentNoteId = String(currentNoteId || "").trim();
-  const limitCount = Math.max(1, Number(limit) || 8);
-  const items = (Array.isArray(isolatedNotes) ? isolatedNotes : [])
-    .map((item, index) => {
-      const noteId = graphNoteIdFromIsolatedItem(item);
-      if (!noteId) return null;
-      const note = graphFullNoteById(noteId, nodeMap) || {};
-      if (graphNoteHasSavedIsolationDisposition(note)) return null;
-      const decision = graphIsolatedDecisionMeta(item, note);
-      const aiCandidates = graphAiRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
-      const localCandidates = graphLocalRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
-      const candidateCount = aiCandidates.length + localCandidates.length;
-      const firstCandidate = aiCandidates[0] || localCandidates[0] || null;
-      const title = String(item?.title || note?.title || noteId).trim() || noteId;
-      const thesis = String(item?.thesis || note?.thesis || "").trim();
-      const priority =
-        (aiCandidates.length ? 40 : 0) +
-        (localCandidates.length ? 24 : 0) +
-        (decision.tone === "bridge" ? 12 : decision.tone === "rewrite" ? 8 : decision.tone === "keep" ? 4 : 0) -
-        index * 0.01;
-      return {
-        item,
-        index,
-        noteId,
-        isolatedKey: graphIsolatedSelectionKey(item, index),
-        title,
-        thesis,
-        decision,
-        aiCount: aiCandidates.length,
-        localCount: localCandidates.length,
-        candidateCount,
-        firstCandidateTitle: String(firstCandidate?.counterpartTitle || firstCandidate?.targetTitle || "").trim(),
-        priority,
-        current: noteId === cleanCurrentNoteId
-      };
-    })
-    .filter(Boolean)
-    .sort((left, right) => Number(right.priority || 0) - Number(left.priority || 0) || left.title.localeCompare(right.title, "zh-Hans-CN"));
-  const limitedItems = items.slice(0, limitCount);
-  if (!cleanCurrentNoteId || limitedItems.some((item) => item.noteId === cleanCurrentNoteId)) return limitedItems;
-  const currentItem = items.find((item) => item.noteId === cleanCurrentNoteId);
-  if (!currentItem) return limitedItems;
-  return [...limitedItems.slice(0, Math.max(0, limitCount - 1)), currentItem];
+  return graphIsolatedQueueItemsForGraph({
+    isolatedNotes,
+    nodeMap,
+    edges,
+    currentNoteId,
+    limit,
+    fullNoteById: graphFullNoteById,
+    noteHasSavedIsolationDisposition: graphNoteHasSavedIsolationDisposition,
+    decisionMeta: graphIsolatedDecisionMeta,
+    aiRelationCandidatesForNote: graphAiRelationCandidatesForNote,
+    localRelationCandidatesForNote: graphLocalRelationCandidatesForNote,
+    selectionKey: graphIsolatedSelectionKey
+  });
 }
 
 function graphNextIsolatedQueueItem(queueItems = [], currentNoteId = "") {
-  const cleanCurrentNoteId = String(currentNoteId || "").trim();
-  const items = Array.isArray(queueItems) ? queueItems : [];
-  if (!items.length) return null;
-  const currentIndex = items.findIndex((item) => String(item?.noteId || "").trim() === cleanCurrentNoteId);
-  if (currentIndex >= 0) return items[(currentIndex + 1) % items.length] || null;
-  return items[0] || null;
+  return computeGraphNextIsolatedQueueItem(queueItems, currentNoteId);
 }
 
 function graphIsolatedQueueItemMeta(item = {}) {
@@ -13824,39 +13792,15 @@ function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType 
 }
 
 function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
-  const normalized = [String(leftNoteId || "").trim(), String(rightNoteId || "").trim()].filter(Boolean).sort();
-  return normalized.length === 2 ? `${normalized[0]}::${normalized[1]}` : "";
+  return computeGraphRelationPairKey(leftNoteId, rightNoteId);
 }
 
 function graphCandidateEndpointIds(candidate = {}) {
-  const sourceNoteId = String(
-    candidate.fromNoteId ||
-    candidate.from_note_id ||
-    candidate.sourceNoteId ||
-    candidate.source_note_id ||
-    candidate.from?.id ||
-    (Array.isArray(candidate.noteIds) ? candidate.noteIds[0] : "") ||
-    ""
-  ).trim();
-  const targetNoteId = String(
-    candidate.toNoteId ||
-    candidate.to_note_id ||
-    candidate.targetNoteId ||
-    candidate.target_note_id ||
-    candidate.to?.id ||
-    (Array.isArray(candidate.targetNoteIds) ? candidate.targetNoteIds[0] : "") ||
-    (Array.isArray(candidate.noteIds) ? candidate.noteIds[1] : "") ||
-    ""
-  ).trim();
-  return { sourceNoteId, targetNoteId };
+  return computeGraphCandidateEndpointIds(candidate);
 }
 
 function graphCandidateCountKey(candidate = {}) {
-  const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
-  const pairKey = graphRelationPairKey(sourceNoteId, targetNoteId);
-  if (pairKey) return pairKey;
-  const id = String(candidate.id || candidate.candidateId || candidate.candidate_id || "").trim();
-  return id ? `candidate:${id}` : "";
+  return computeGraphCandidateCountKey(candidate);
 }
 
 function graphRelationStatusKey(value = "") {
@@ -13890,10 +13834,7 @@ const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qu
 const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
 
 function graphPreferredPotentialRelationType(candidate = {}) {
-  const aiRelationType = String(candidate.aiRelationType || candidate.ai_relation_type || "").trim().toLowerCase();
-  if (aiRelationType && GRAPH_CONFIRMABLE_RELATION_TYPES.has(aiRelationType) && aiRelationType !== "no_relation") return aiRelationType;
-  const fallback = String(candidate.relationType || candidate.relation_type || (candidate.componentBridge ? "bridges" : "associated_with")).trim().toLowerCase();
-  return GRAPH_CONFIRMABLE_RELATION_TYPES.has(fallback) ? fallback : "associated_with";
+  return computeGraphPreferredPotentialRelationType(candidate, GRAPH_CONFIRMABLE_RELATION_TYPES);
 }
 
 function graphCandidateBlocksFormalRelation(candidate = {}) {
@@ -13904,7 +13845,7 @@ function graphCandidateBlocksFormalRelation(candidate = {}) {
 }
 
 function graphCandidateCanSaveRelation(candidate = {}) {
-  return !graphCandidateBlocksFormalRelation(candidate) && GRAPH_CONFIRMABLE_RELATION_TYPES.has(graphPreferredPotentialRelationType(candidate));
+  return computeGraphCandidateCanSaveRelation(candidate, GRAPH_CONFIRMABLE_RELATION_TYPES);
 }
 
 function graphRelationRationaleIsActionable(value = "") {
@@ -14402,84 +14343,23 @@ async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}
 }
 
 function graphNoteTags(note = {}) {
-  const explicitTags = Array.isArray(note?.tags)
-    ? note.tags
-    : Array.isArray(note?.tagNames)
-      ? note.tagNames
-      : [];
-  const parsedTags = explicitTags.length ? explicitTags : parseTags(String(note?.body || note?.markdown || ""));
-  return uniqueStrings(parsedTags.map((tag) => String(tag || "").trim()).filter(Boolean)).slice(0, 12);
+  return graphNoteTagsForLocalRelation(note, { parseTags });
 }
 
 function graphTitleCharacterOverlap(left = "", right = "") {
-  const normalizeChars = (value) =>
-    new Set(
-      [...String(value || "").trim()]
-        .map((char) => char.toLowerCase())
-        .filter((char) => /[\p{L}\p{N}]/u.test(char))
-    );
-  const leftChars = normalizeChars(left);
-  const rightChars = normalizeChars(right);
-  if (!leftChars.size || !rightChars.size) return 0;
-  const shared = [...leftChars].filter((char) => rightChars.has(char)).length;
-  return shared / Math.max(1, Math.min(leftChars.size, rightChars.size));
+  return computeGraphTitleCharacterOverlap(left, right);
 }
 
 function graphLocalRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), edges = [], limit = 5 } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId || !(nodeMap instanceof Map)) return [];
-  const source = nodeMap.get(cleanNoteId);
-  if (!source) return [];
-  const connectedIds = new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .flatMap((edge) => {
-        const fromId = String(edge?.fromNoteId || "").trim();
-        const toId = String(edge?.toNoteId || "").trim();
-        if (fromId === cleanNoteId) return [toId];
-        if (toId === cleanNoteId) return [fromId];
-        return [];
-      })
-      .filter(Boolean)
+  return computeGraphLocalRelationCandidatesForNote(
+    noteId,
+    { nodeMap, edges, limit },
+    {
+      relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
+      noteTags: graphNoteTags,
+      relationTypeLabel: graphRelationTypeLabel
+    }
   );
-  const sourceTags = graphNoteTags(source);
-  const sourceTagSet = new Set(sourceTags);
-  const sourceTitle = String(source.title || cleanNoteId).trim() || cleanNoteId;
-  return [...nodeMap.values()]
-    .filter((candidate) => {
-      const targetId = String(candidate?.id || "").trim();
-      return targetId && targetId !== cleanNoteId && !connectedIds.has(targetId);
-    })
-    .map((candidate) => {
-      const targetId = String(candidate?.id || "").trim();
-      const targetTitle = String(candidate?.title || targetId).trim() || targetId;
-      const targetTags = graphNoteTags(candidate);
-      const sharedTags = targetTags.filter((tag) => sourceTagSet.has(tag));
-      const titleOverlap = graphTitleCharacterOverlap(sourceTitle, targetTitle);
-      const score = sharedTags.length * 3 + titleOverlap * 2;
-      if (score < 0.62) return null;
-      const relationType = sharedTags.length ? "same_topic" : "associated_with";
-      const relationLabel = graphRelationTypeLabel(relationType);
-      const reasonParts = [
-        sharedTags.length ? `共同标签：${sharedTags.slice(0, 3).map((tag) => `#${tag}`).join("、")}` : "",
-        titleOverlap >= 0.62 ? "标题概念接近" : ""
-      ].filter(Boolean);
-      return {
-        sourceNoteId: cleanNoteId,
-        targetNoteId: targetId,
-        sourceTitle,
-        targetTitle,
-        relationType,
-        relationLabel,
-        confidence: Math.min(0.92, 0.38 + score / 8),
-        evidenceText: reasonParts.join("；") || "标题或标签出现相近线索。",
-        rationaleDraft: `我确认“${sourceTitle}”和“${targetTitle}”可以建立${relationLabel}，因为：________。`,
-        insightQuestionDraft: `这条${relationLabel}能帮助我如何理解“${sourceTitle}”在当前主题网络中的位置？`
-      };
-    })
-    .filter(Boolean)
-    .sort((left, right) => Number(right.confidence || 0) - Number(left.confidence || 0) || left.targetTitle.localeCompare(right.targetTitle, "zh-Hans-CN"))
-    .slice(0, Math.max(1, Number(limit) || 5));
 }
 
 function graphCandidateSourceLabel(candidate = {}, fallback = "本地线索") {
@@ -14488,34 +14368,11 @@ function graphCandidateSourceLabel(candidate = {}, fallback = "本地线索") {
 }
 
 function graphCandidateUndirectedPairKey(candidate = {}) {
-  return graphRelationPairKey(
-    candidate.sourceNoteId || candidate.fromNoteId || candidate.actionSourceNoteId,
-    candidate.targetNoteId || candidate.toNoteId || candidate.counterpartNoteId || candidate.actionTargetNoteId
-  );
+  return computeGraphCandidateUndirectedPairKey(candidate);
 }
 
 function graphBlockedAiRelationPairKeysForNote(noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return new Set();
-  const analysis = graphAiAnalysisPayload();
-  const rawCandidates = [
-    ...(Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates : []),
-    ...(Array.isArray(analysis?.bridgeCandidates) ? analysis.bridgeCandidates : [])
-  ];
-  return new Set(
-    rawCandidates
-      .filter((candidate = {}) => {
-        const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
-        return (
-          sourceNoteId &&
-          targetNoteId &&
-          (sourceNoteId === cleanNoteId || targetNoteId === cleanNoteId) &&
-          !graphCandidateCanSaveRelation(candidate)
-        );
-      })
-      .map(graphCandidateUndirectedPairKey)
-      .filter(Boolean)
-  );
+  return computeGraphBlockedAiRelationPairKeysForNote(noteId, graphAiAnalysisPayload());
 }
 
 function graphCandidateEvidenceText(candidate = {}) {
@@ -14528,61 +14385,34 @@ function graphCandidateEvidenceText(candidate = {}) {
 }
 
 function graphMergeRelationCandidatesForDisplay(aiCandidates = [], localCandidates = [], { limit = 6, blockedPairKeys = new Set() } = {}) {
-  const allAiCandidates = Array.isArray(aiCandidates) ? aiCandidates : [];
-  const usableAiCandidates = allAiCandidates.filter((candidate) => graphCandidateCanSaveRelation(candidate));
-  const blockedPairs = blockedPairKeys instanceof Set || Array.isArray(blockedPairKeys) ? Array.from(blockedPairKeys) : [];
-  const seenPairs = new Set([
-    ...blockedPairs,
-    ...allAiCandidates
-      .map(graphCandidateUndirectedPairKey)
-      .filter(Boolean)
-  ]);
-  return [
-    ...usableAiCandidates.map((candidate) => ({ ...candidate, candidateSource: "ai" })),
-    ...(Array.isArray(localCandidates) ? localCandidates : [])
-      .filter((candidate) => {
-        const key = graphCandidateUndirectedPairKey(candidate);
-        if (seenPairs.has(key)) return false;
-        seenPairs.add(key);
-        return true;
-      })
-      .map((candidate) => ({ ...candidate, candidateSource: "local" }))
-  ].slice(0, Math.max(1, Number(limit) || 6));
+  return computeGraphMergeRelationCandidatesForDisplay(aiCandidates, localCandidates, { limit, blockedPairKeys });
 }
 
 function graphNotePreviewText(note = {}) {
-  const text = String(note?.thesis || note?.summary || note?.body || note?.markdown || "").replace(/[#*_`>\-[\]()]/g, " ").replace(/\s+/g, " ").trim();
-  if (!text) return "这条笔记还没有可预览的正文摘要。";
-  return text.length > 120 ? `${text.slice(0, 120)}...` : text;
+  return graphNotePreviewTextForLocalRelation(note);
 }
 
 function graphFullNoteById(noteId = "", nodeMap = new Map()) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return null;
-  const graphNode = nodeMap.get(cleanNoteId) || {};
-  const knownNote = state.notes.find((item) => String(item?.id || "").trim() === cleanNoteId) || {};
-  if (!graphNode.id && !knownNote.id) return null;
-  return {
-    ...graphNode,
-    ...knownNote,
-    id: cleanNoteId,
-    title: String(knownNote.title || graphNode.title || cleanNoteId).trim() || cleanNoteId
-  };
+  return graphFullNoteByIdFromSources(noteId, { nodeMap, notes: state.notes });
 }
 
 function graphIsolatedPreviewTarget(noteId = "", nodeMap = new Map(), preferredTargetNoteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  const targetNoteId = String(preferredTargetNoteId || "").trim() || (cleanNoteId ? String(graphState.isolatedCandidatePreviewByNoteId?.[cleanNoteId] || "").trim() : "");
-  if (!targetNoteId) return null;
-  const note = graphFullNoteById(targetNoteId, nodeMap);
-  if (!note) return null;
-  return {
-    id: targetNoteId,
-    title: graphNodeTitle(nodeMap, targetNoteId, "相关笔记"),
-    type: noteTypeLabel(note.noteType),
-    text: graphNotePreviewText(note),
-    tags: graphNoteTags(note).slice(0, 5)
-  };
+  return graphIsolatedPreviewTargetForNote(
+    noteId,
+    {
+      nodeMap,
+      preferredTargetNoteId,
+      previewTargetByNoteId: graphState.isolatedCandidatePreviewByNoteId,
+      notes: state.notes
+    },
+    {
+      fullNoteById: graphFullNoteByIdFromSources,
+      nodeTitle: graphNodeTitle,
+      noteTypeLabel,
+      notePreviewText: graphNotePreviewText,
+      noteTags: graphNoteTags
+    }
+  );
 }
 
 function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), preferredTargetNoteId = "" } = {}) {
@@ -14839,107 +14669,29 @@ function graphRelationFormTypeOptions(selectedType = "associated_with") {
 }
 
 function graphCandidatePercent(candidate = {}) {
-  const confidence = Number(candidate.aiConfidence ?? candidate.confidence);
-  if (Number.isFinite(confidence) && confidence > 0) {
-    const normalized = confidence > 1 ? Math.round(confidence) : Math.round(confidence * 100);
-    return Math.min(99, Math.max(1, normalized));
-  }
-  const coarseScore = Number(candidate.coarseScore ?? candidate.coarse_score);
-  if (Number.isFinite(coarseScore) && coarseScore > 0) {
-    const normalized = coarseScore <= 1
-      ? Math.round(coarseScore * 100)
-      : Math.round((1 - Math.exp(-coarseScore / 5)) * 100);
-    return Math.min(99, Math.max(1, normalized));
-  }
-  return 45;
+  return computeGraphCandidatePercent(candidate);
 }
 
 function graphManualRelationTargetsForNote(noteId = "", { nodeMap = new Map(), edges = [], limit = 80 } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId || !(nodeMap instanceof Map)) return [];
-  const connectedIds = new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .flatMap((edge) => {
-        const fromId = String(edge?.fromNoteId || "").trim();
-        const toId = String(edge?.toNoteId || "").trim();
-        if (fromId === cleanNoteId) return [toId];
-        if (toId === cleanNoteId) return [fromId];
-        return [];
-      })
-      .filter(Boolean)
+  return computeGraphManualRelationTargetsForNote(
+    noteId,
+    { nodeMap, edges, limit },
+    { relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge }
   );
-  return [...nodeMap.values()]
-    .map((note) => ({
-      id: String(note?.id || "").trim(),
-      title: String(note?.title || note?.id || "").trim(),
-      folder: String(note?.folderPath || note?.folderLabel || note?.folderName || "").trim(),
-      noteType: String(note?.noteType || note?.note_type || "").trim()
-    }))
-    .filter((note) => {
-      const noteType = String(note.noteType || "").trim().toLowerCase();
-      const permanentLike = !noteType || noteType === "permanent" || noteType === "original";
-      return permanentLike && note.id && note.id !== cleanNoteId && !connectedIds.has(note.id);
-    })
-    .sort((left, right) => left.title.localeCompare(right.title, "zh-Hans-CN"))
-    .slice(0, Math.max(1, Number(limit) || 80));
 }
 
 function graphIsolatedRelationDraftForNote(noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  const draft = cleanNoteId ? graphState.isolatedRelationDraftByNoteId?.[cleanNoteId] : null;
-  return draft && typeof draft === "object" ? draft : {};
+  return graphIsolatedRelationDraftForState(graphState, noteId);
 }
 
 function clearGraphIsolatedRelationDraft(noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  if (cleanNoteId && graphState.isolatedRelationDraftByNoteId) {
-    delete graphState.isolatedRelationDraftByNoteId[cleanNoteId];
-  }
+  clearGraphIsolatedRelationDraftForState(graphState, noteId);
 }
 
 function captureGraphIsolatedRelationDraftFromForm(form = null) {
-  if (!form) return false;
-  const noteId = String(form.getAttribute?.("data-source-note") || "").trim();
-  if (!noteId) return false;
-  const previousDraft = graphIsolatedRelationDraftForNote(noteId);
-  const mode = graphIsolatedWorkflowTabKey(form.querySelector?.("[data-graph-relation-source-mode]")?.value || "ai");
-  const aiSelect = form.querySelector?.("[data-graph-ai-candidate-select]");
-  const manualTarget = form.querySelector?.("[data-graph-manual-target-id]");
-  const manualSearch = form.querySelector?.("[data-graph-manual-target-search]");
-  const rationaleInput = form.querySelector?.("[data-graph-isolated-rationale]");
-  const relationSelect = form.querySelector?.("[data-graph-isolated-relation-type]");
-  const questionInput = form.querySelector?.("[data-graph-isolated-insight-question]");
-  const aiTargetNoteId = String(aiSelect?.value || "").trim();
-  const manualTargetNoteId = String(manualTarget?.value || "").trim();
-  const relationType = String(relationSelect?.value || "associated_with").trim().toLowerCase() || "associated_with";
-  const rationale = String(rationaleInput?.value || "").trim();
-  const rationaleSource = String(rationaleInput?.getAttribute?.("data-graph-rationale-source") || "").trim().toLowerCase();
-  const insightQuestion = String(questionInput?.value || "").trim();
-  const targetNoteId = mode === "manual"
-    ? manualTargetNoteId
-    : aiTargetNoteId;
-  graphState.isolatedRelationDraftByNoteId = graphState.isolatedRelationDraftByNoteId || {};
-  graphState.isolatedRelationDraftByNoteId[noteId] = {
-    mode,
-    targetNoteId,
-    aiTargetNoteId: mode === "ai" ? aiTargetNoteId : String(previousDraft.aiTargetNoteId || "").trim(),
-    manualTargetNoteId: mode === "manual" ? manualTargetNoteId : String(previousDraft.manualTargetNoteId || "").trim(),
-    manualSearchText: String(manualSearch?.value || "").trim(),
-    relationType,
-    rationale,
-    rationaleSource,
-    insightQuestion,
-    aiRelationType: mode === "ai" ? relationType : String(previousDraft.aiRelationType || "").trim().toLowerCase(),
-    aiRationale: mode === "ai" ? rationale : String(previousDraft.aiRationale || "").trim(),
-    aiRationaleSource: mode === "ai" ? rationaleSource : String(previousDraft.aiRationaleSource || "").trim().toLowerCase(),
-    aiInsightQuestion: mode === "ai" ? insightQuestion : String(previousDraft.aiInsightQuestion || "").trim(),
-    manualRelationType: mode === "manual" ? relationType : String(previousDraft.manualRelationType || "").trim().toLowerCase(),
-    manualRationale: mode === "manual" ? rationale : String(previousDraft.manualRationale || "").trim(),
-    manualRationaleSource: mode === "manual" ? rationaleSource : String(previousDraft.manualRationaleSource || "").trim().toLowerCase(),
-    manualInsightQuestion: mode === "manual" ? insightQuestion : String(previousDraft.manualInsightQuestion || "").trim()
-  };
-  return true;
+  return captureGraphIsolatedRelationDraftForState(graphState, form, {
+    normalizeMode: graphIsolatedWorkflowTabKey
+  });
 }
 
 function renderGraphIsolatedJoinNetworkFlow(
@@ -14962,101 +14714,43 @@ function renderGraphIsolatedJoinNetworkFlow(
   const manualTargets = graphManualRelationTargetsForNote(cleanNoteId, { nodeMap, edges, limit: 500 });
   const loading = graphState.aiAnalysisLoading === true;
   const hasAnalysis = Boolean(graphAiAnalysisPayload()?.analysisMode || graphAiAnalysisPayload()?.relationCandidates || graphAiAnalysisPayload()?.bridgeCandidates);
-  const cleanPreferredTargetNoteId = String(preferredTargetNoteId || "").trim();
-  const cleanPreferredRelationType = String(preferredRelationType || "").trim().toLowerCase();
-  const cleanPreferredRationale = String(preferredRationale || "").trim();
   const relationDraft = graphState.isolatedRelationDraftByNoteId?.[cleanNoteId] || {};
-  const draftMode = relationDraft.mode || relationDraft.sourceMode ? graphIsolatedWorkflowTabKey(relationDraft.mode || relationDraft.sourceMode) : "";
-  const draftTargetNoteId = String(relationDraft.targetNoteId || "").trim();
-  const draftAiTargetNoteId = String(relationDraft.aiTargetNoteId || (draftMode === "ai" ? draftTargetNoteId : "")).trim();
-  const draftManualTargetNoteId = String(relationDraft.manualTargetNoteId || (draftMode === "manual" ? draftTargetNoteId : "")).trim();
-  const draftOwnsValue = (key = "") => Object.prototype.hasOwnProperty.call(relationDraft, key);
-  const sourceTitle = graphNodeTitle(nodeMap, cleanNoteId, "当前笔记");
-  const activeMode = cleanPreferredTargetNoteId ? "manual" : draftMode || graphIsolatedWorkflowActiveTab(cleanNoteId);
-  const activeRelationTypeKey = activeMode === "manual" ? "manualRelationType" : "aiRelationType";
-  const activeRationaleKey = activeMode === "manual" ? "manualRationale" : "aiRationale";
-  const activeRationaleSourceKey = activeMode === "manual" ? "manualRationaleSource" : "aiRationaleSource";
-  const activeInsightQuestionKey = activeMode === "manual" ? "manualInsightQuestion" : "aiInsightQuestion";
-  const legacyActiveMode = draftMode === activeMode;
-  const hasActiveRelationTypeDraft =
-    draftOwnsValue(activeRelationTypeKey) ||
-    (legacyActiveMode && draftOwnsValue("relationType"));
-  const hasActiveRationaleDraft =
-    draftOwnsValue(activeRationaleKey) ||
-    (legacyActiveMode && draftOwnsValue("rationale"));
-  const hasActiveRationaleSourceDraft =
-    draftOwnsValue(activeRationaleSourceKey) ||
-    (legacyActiveMode && draftOwnsValue("rationaleSource"));
-  const hasActiveInsightQuestionDraft =
-    draftOwnsValue(activeInsightQuestionKey) ||
-    (legacyActiveMode && draftOwnsValue("insightQuestion"));
-  const draftRelationType = String(
-    hasActiveRelationTypeDraft && draftOwnsValue(activeRelationTypeKey)
-      ? relationDraft[activeRelationTypeKey]
-      : legacyActiveMode && draftOwnsValue("relationType")
-        ? relationDraft.relationType
-        : ""
-  ).trim().toLowerCase();
-  const draftRationale = String(
-    hasActiveRationaleDraft && draftOwnsValue(activeRationaleKey)
-      ? relationDraft[activeRationaleKey]
-      : legacyActiveMode && draftOwnsValue("rationale")
-        ? relationDraft.rationale
-        : ""
-  ).trim();
-  const draftRationaleSource = String(
-    hasActiveRationaleSourceDraft && draftOwnsValue(activeRationaleSourceKey)
-      ? relationDraft[activeRationaleSourceKey]
-      : legacyActiveMode && draftOwnsValue("rationaleSource")
-        ? relationDraft.rationaleSource
-        : ""
-  ).trim().toLowerCase();
-  const draftInsightQuestion = String(
-    hasActiveInsightQuestionDraft && draftOwnsValue(activeInsightQuestionKey)
-      ? relationDraft[activeInsightQuestionKey]
-      : legacyActiveMode && draftOwnsValue("insightQuestion")
-        ? relationDraft.insightQuestion
-        : ""
-  ).trim();
-  const effectiveRelationType = cleanPreferredRelationType || draftRelationType;
-  const effectiveRationale = cleanPreferredRationale || (hasActiveRationaleDraft ? draftRationale : "");
-  const activeAiCandidate = activeMode === "ai"
-    ? aiCandidates.find((candidate) => String(candidate.counterpartNoteId || candidate.targetNoteId || "").trim() === draftAiTargetNoteId) || aiCandidates[0] || null
-    : null;
-  const activeRawRelationType = String(activeAiCandidate?.relationType || "associated_with").trim().toLowerCase() || "associated_with";
-  const activeActionSourceNoteId = String(activeAiCandidate?.actionSourceNoteId || activeAiCandidate?.sourceNoteId || "").trim();
-  const activeTargetTitle = String(activeAiCandidate?.counterpartTitle || activeAiCandidate?.targetTitle || activeAiCandidate?.counterpartNoteId || "").trim();
-  const selectedManualTargetNoteId = cleanPreferredTargetNoteId || draftManualTargetNoteId || (activeMode === "manual" ? draftTargetNoteId : "");
-  const selectedManualTarget = selectedManualTargetNoteId
-    ? manualTargets.find((target) => String(target?.id || "").trim() === selectedManualTargetNoteId) || null
-    : null;
-  const selectedManualTitle = String(selectedManualTarget?.title || (selectedManualTargetNoteId ? graphNodeTitle(nodeMap, selectedManualTargetNoteId, selectedManualTargetNoteId) : "")).trim();
-  const manualSearchText = selectedManualTitle || String(relationDraft.manualSearchText || "").trim();
-  const manualDefaultRationale = selectedManualTitle ? `我确认“${sourceTitle}”和“${selectedManualTitle}”应该关联，因为：________。` : "";
-  const aiRelationType =
-    !activeAiCandidate ||
-    !activeActionSourceNoteId ||
-    activeActionSourceNoteId === cleanNoteId ||
-    GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES.has(activeRawRelationType)
-      ? activeRawRelationType
-      : "associated_with";
-  const defaultRelationType = effectiveRelationType || (activeMode === "manual" ? "associated_with" : aiRelationType);
-  const defaultRationale = hasActiveRationaleDraft || cleanPreferredRationale
-    ? effectiveRationale
-    : activeMode === "manual"
-      ? manualDefaultRationale
-      : activeAiCandidate && aiRelationType === activeRawRelationType
-        ? String(activeAiCandidate?.rationaleDraft || "").trim()
-        : "";
-  const defaultRationaleSource = hasActiveRationaleDraft || cleanPreferredRationale
-    ? draftRationaleSource || (defaultRationale ? "user" : "")
-    : activeMode === "manual" && defaultRationale
-      ? "manual"
-      : activeMode === "ai" && defaultRationale
-        ? "ai"
-        : "";
-  const activeAiTargetNoteId = String(activeAiCandidate?.counterpartNoteId || activeAiCandidate?.targetNoteId || "").trim();
-  const previewTargetNoteId = activeMode === "manual" ? selectedManualTargetNoteId : activeAiTargetNoteId;
+  const {
+    sourceTitle,
+    activeMode,
+    activeAiCandidate,
+    activeAiTargetNoteId,
+    activeRawRelationType,
+    activeActionSourceNoteId,
+    selectedManualTargetNoteId,
+    selectedManualTitle,
+    manualSearchText,
+    defaultRelationType,
+    defaultRationale,
+    defaultRationaleSource,
+    previewTargetNoteId,
+    hasActiveInsightQuestionDraft,
+    draftInsightQuestion
+  } = graphIsolatedJoinNetworkFormModel(
+    cleanNoteId,
+    {
+      nodeMap,
+      preferredTargetNoteId,
+      preferredRelationType,
+      preferredRationale,
+      relationDraft,
+      aiCandidates,
+      manualTargets,
+      loading,
+      hasAnalysis
+    },
+    {
+      workflowTabKey: graphIsolatedWorkflowTabKey,
+      activeTabForNote: graphIsolatedWorkflowActiveTab,
+      reversibleRelationTypes: GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES,
+      nodeTitle: graphNodeTitle
+    }
+  );
   const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
     if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
     return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
@@ -15480,36 +15174,19 @@ function updateGraphIsolatedInlinePreview(form = null, source = null) {
 function syncGraphIsolatedAiCandidateForm(select = null) {
   const form = select?.closest?.("[data-graph-isolated-relation-form]");
   if (!form || !select) return false;
-  const option = select.selectedOptions?.[0] || null;
   const noteId = String(form.getAttribute?.("data-source-note") || "").trim();
   const draft = graphIsolatedRelationDraftForNote(noteId);
-  const aiTargetNoteId = String(select.value || "").trim();
-  const draftMatchesTarget = aiTargetNoteId && String(draft.aiTargetNoteId || "").trim() === aiTargetNoteId;
-  const relationType = String(option?.getAttribute?.("data-graph-relation-type") || "associated_with").trim().toLowerCase();
-  const rationale = String(option?.getAttribute?.("data-graph-rationale-draft") || "").trim();
-  const question = String(option?.getAttribute?.("data-graph-insight-question-draft") || "").trim();
+  const nextDraft = aiCandidateDraftFromSelect(select, draft);
   const relationSelect = form.querySelector("[data-graph-isolated-relation-type]");
   const rationaleInput = form.querySelector("[data-graph-isolated-rationale]");
   const questionInput = form.querySelector("[data-graph-isolated-insight-question]");
-  const nextRelationType = draftMatchesTarget && draft.aiRelationType
-    ? String(draft.aiRelationType || "").trim().toLowerCase()
-    : relationType;
-  const nextRationale = draftMatchesTarget
-    ? String(draft.aiRationale || "").trim()
-    : rationale;
-  const nextRationaleSource = draftMatchesTarget
-    ? String(draft.aiRationaleSource || "").trim().toLowerCase()
-    : (rationale ? "ai" : "");
-  const nextQuestion = draftMatchesTarget
-    ? String(draft.aiInsightQuestion || "").trim()
-    : question;
-  if (relationSelect && nextRelationType) relationSelect.value = nextRelationType;
+  if (relationSelect && nextDraft.relationType) relationSelect.value = nextDraft.relationType;
   if (rationaleInput) {
-    rationaleInput.value = nextRationale;
-    rationaleInput.setAttribute("data-graph-rationale-source", nextRationaleSource);
+    rationaleInput.value = nextDraft.rationale;
+    rationaleInput.setAttribute("data-graph-rationale-source", nextDraft.rationaleSource);
   }
-  if (questionInput) questionInput.value = nextQuestion;
-  updateGraphIsolatedInlinePreview(form, option);
+  if (questionInput) questionInput.value = nextDraft.insightQuestion;
+  updateGraphIsolatedInlinePreview(form, nextDraft.option);
   graphIsolatedFormError(form, "");
   captureGraphIsolatedRelationDraftFromForm(form);
   return true;
@@ -15589,11 +15266,13 @@ function pickGraphManualRelationTarget(button = null) {
 }
 
 async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", relationType = "associated_with", rationale = "", insightQuestion = "", button = null } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  const cleanTargetNoteId = String(targetNoteId || "").trim();
-  const cleanRelationType = String(relationType || "associated_with").trim().toLowerCase() || "associated_with";
-  const cleanRationale = String(rationale || "").trim();
-  const cleanInsightQuestion = String(insightQuestion || "").trim();
+  const {
+    noteId: cleanNoteId,
+    targetNoteId: cleanTargetNoteId,
+    relationType: cleanRelationType,
+    rationale: cleanRationale,
+    insightQuestion: cleanInsightQuestion
+  } = normalizeGraphConfirmedRelationInput({ noteId, targetNoteId, relationType, rationale, insightQuestion });
   if (!cleanNoteId || !cleanTargetNoteId) return false;
   if (cleanNoteId === cleanTargetNoteId) {
     setStatus("不能把笔记关联到它自己，请重新选择目标笔记", "warn");
@@ -15612,13 +15291,7 @@ async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", rela
   const targetTitle = graphNodeTitle(nodeMap, cleanTargetNoteId, state.notes.find((note) => note.id === cleanTargetNoteId)?.title || cleanTargetNoteId);
   const relationLabel = graphRelationTypeLabel(cleanRelationType);
   const previousSelection = graphState.selection && typeof graphState.selection === "object" ? { ...graphState.selection } : null;
-  const previousSelectionKind = String(previousSelection?.kind || "").trim().toLowerCase();
-  const savingFromIsolatedFlow =
-    previousSelectionKind === "isolated" ||
-    previousSelectionKind === "isolatedcomplete" ||
-    (previousSelectionKind === "relationform" && String(previousSelection?.returnTo || "").trim().toLowerCase() === "isolated") ||
-    Boolean(button?.closest?.(".graph-selection-panel.is-isolated"));
-  const nextSelection = savingFromIsolatedFlow ? { kind: "isolatedComplete", noteId: cleanNoteId } : { kind: "node", nodeId: cleanNoteId };
+  const nextSelection = graphRelationSaveSelection({ previousSelection, button, noteId: cleanNoteId });
   const previousText = button?.textContent || "";
   if (button) {
     button.disabled = true;
@@ -15634,14 +15307,13 @@ async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", rela
       status: "confirmed"
     });
     graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
-    graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = {
+    graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = graphRelationSaveResult({
       targetNoteId: cleanTargetNoteId,
       targetTitle,
       relationType: cleanRelationType,
       relationLabel,
-      created: relation?.created !== false,
-      savedAt: new Date().toISOString()
-    };
+      relation
+    });
     clearGraphIsolatedRelationDraft(cleanNoteId);
     graphState.selection = nextSelection;
     await refreshDirectoryGraph();
@@ -15662,38 +15334,25 @@ async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", rela
 async function saveGraphIsolatedRelationForm(button = null) {
   const form = button?.closest?.("[data-graph-isolated-relation-form]");
   if (!form) return false;
-  const noteId = String(form.getAttribute("data-source-note") || "").trim();
-  const mode = graphIsolatedWorkflowTabKey(form.querySelector("[data-graph-relation-source-mode]")?.value || "ai");
-  const aiSelect = form.querySelector("[data-graph-ai-candidate-select]");
-  const manualTarget = form.querySelector("[data-graph-manual-target-id]");
-  const targetNoteId = mode === "manual"
-    ? String(manualTarget?.value || "").trim()
-    : String(aiSelect?.value || "").trim();
-  const relationType = String(form.querySelector("[data-graph-isolated-relation-type]")?.value || "associated_with").trim().toLowerCase();
-  const rationale = String(form.querySelector("[data-graph-isolated-rationale]")?.value || "").trim();
-  const insightQuestion = String(form.querySelector("[data-graph-isolated-insight-question]")?.value || "").trim();
-  if (!GRAPH_CONFIRMABLE_RELATION_TYPES.has(relationType) || relationType === "no_relation") {
-    graphIsolatedFormError(form, "请选择一种可以保存为正式关系的类型。");
-    return false;
-  }
-  if (!targetNoteId) {
-    graphIsolatedFormError(form, mode === "manual" ? "请先搜索并选择一条目标笔记。" : "请先选择一条 AI 推荐目标。");
-    return false;
-  }
-  if (targetNoteId === noteId) {
-    graphIsolatedFormError(form, "不能把笔记关联到它自己，请重新选择目标笔记。");
-    return false;
-  }
-  if (!rationale) {
-    graphIsolatedFormError(form, "请写一句关联理由。");
-    return false;
-  }
-  if (!graphRelationRationaleIsActionable(rationale)) {
-    graphIsolatedFormError(form, "请把关联理由写完整，不要保留模板占位。");
+  const values = readGraphIsolatedRelationFormValues(form, { normalizeMode: graphIsolatedWorkflowTabKey });
+  const validation = validateGraphIsolatedRelationFormValues(values, {
+    confirmableRelationTypes: GRAPH_CONFIRMABLE_RELATION_TYPES,
+    rationaleIsActionable: graphRelationRationaleIsActionable
+  });
+  if (!validation.ok) {
+    const messages = {
+      invalid_relation_type: "请选择一种可以保存为正式关系的类型。",
+      missing_manual_target: "请先搜索并选择一条目标笔记。",
+      missing_ai_target: "请先选择一条 AI 推荐目标。",
+      self_relation: "不能把笔记关联到它自己，请重新选择目标笔记。",
+      missing_rationale: "请写一句关联理由。",
+      placeholder_rationale: "请把关联理由写完整，不要保留模板占位。"
+    };
+    graphIsolatedFormError(form, messages[validation.errorKey] || "");
     return false;
   }
   graphIsolatedFormError(form, "");
-  return saveGraphConfirmedRelation({ noteId, targetNoteId, relationType, rationale, insightQuestion, button });
+  return saveGraphConfirmedRelation({ ...values, button });
 }
 
 function openGraphRelationFormInSelection(button = null) {
@@ -18159,18 +17818,7 @@ function renderGraphMetricCard(label, value, note, tone = "") {
 }
 
 function graphPendingAiCandidateCount(candidates = [], { existingRelationPairKeys = new Set(), excludePairs = new Set(), bridgeOnly = false, excludeBridge = false } = {}) {
-  const seenPairs = new Set();
-  let count = 0;
-  (Array.isArray(candidates) ? candidates : []).forEach((candidate) => {
-    if (!candidate || !graphCandidateCanSaveRelation(candidate)) return;
-    if (bridgeOnly && candidate.componentBridge !== true) return;
-    if (excludeBridge && candidate.componentBridge === true) return;
-    const pairKey = graphCandidateCountKey(candidate);
-    if (!pairKey || existingRelationPairKeys.has(pairKey) || excludePairs.has(pairKey) || seenPairs.has(pairKey)) return;
-    seenPairs.add(pairKey);
-    count += 1;
-  });
-  return { count, pairKeys: seenPairs };
+  return computeGraphPendingAiCandidateCount(candidates, { existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge });
 }
 
 function graphLiveAiAnalysisCounts(aiAnalysis = graphState.aiAnalysis, { nodes = null, edges = null } = {}) {
