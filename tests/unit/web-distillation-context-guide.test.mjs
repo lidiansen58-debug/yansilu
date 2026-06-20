@@ -19,38 +19,44 @@ function createPane() {
       boundaryDraft: ""
     }),
     renderRelationNetworkPrompt: () => "",
-    noteAiSuggestionsSummaryLabel: () => "0 条",
+    noteAiSuggestionsSummaryLabel: () => "0",
     noteAiSuggestionsStateForNote: () => ({ items: [], loading: false, error: "" })
   });
 }
 
-test("permanent-note distillation surfaces the current next step in context", () => {
+test("permanent-note distillation shows one next action and a compact readiness checklist", () => {
   const pane = createPane();
   const html = pane.renderPermanentNoteDistillationSection({
     id: "pn_missing_thesis",
-    title: "还没有判断",
-    body: "# 还没有判断",
+    title: "Needs viewpoint",
+    body: "# Needs viewpoint",
     status: "active",
     distillationStatus: "missing"
   });
 
   assert.match(html, /data-note-distillation-next/);
-  assert.match(html, /当前下一步/);
-  assert.match(html, /先把这条笔记变成一句判断/);
   assert.match(html, /data-note-distillation-focus="thesis"/);
-  assert.match(html, /观点提纯如何接入图谱和写作/);
-  assert.match(html, /笔记内成观点/);
-  assert.match(html, /图谱里补关系/);
-  assert.match(html, /写作前看边界/);
-  assert.match(html, /写成“我认为 X，因为 Y”/);
+  assert.match(html, /data-note-distillation-readiness/);
+  assert.match(html, /完成条件/);
+  assert.match(html, /待提纯/);
+  assert.match(html, /一句话判断/);
+  assert.match(html, /三句话压缩/);
+  assert.match(html, /边界或反方/);
+  assert.match(html, /用户确认/);
+  assert.match(html, />保存草稿</);
+  assert.match(html, />确认观点</);
+  assert.doesNotMatch(html, /distillation-path-strip/);
+  assert.doesNotMatch(html, /证据 \/ 来源/);
+  assert.doesNotMatch(html, /写作可用性/);
+  assert.doesNotMatch(html, />missing</);
 });
 
-test("distillation next step moves from boundary to confirmation", () => {
+test("distillation next action moves through summary, boundary, confirmation, and relations", () => {
   const pane = createPane();
   const summaryHtml = pane.renderPermanentNoteDistillationSection({
     id: "pn_needs_summary",
-    title: "需要三句话",
-    body: "# 需要三句话",
+    title: "Needs summary",
+    body: "# Needs summary",
     status: "active",
     thesis: "稳定观点需要知道自己的反例。",
     threeLineSummary: ["观点要能被复用。"],
@@ -58,8 +64,8 @@ test("distillation next step moves from boundary to confirmation", () => {
   });
   const boundaryHtml = pane.renderPermanentNoteDistillationSection({
     id: "pn_needs_boundary",
-    title: "需要边界",
-    body: "# 需要边界",
+    title: "Needs boundary",
+    body: "# Needs boundary",
     status: "active",
     thesis: "稳定观点需要知道自己的反例。",
     threeLineSummary: ["观点要能被复用。", "边界能防止误用。", "写作时可以提前处理反方。"],
@@ -67,28 +73,33 @@ test("distillation next step moves from boundary to confirmation", () => {
   });
   const confirmHtml = pane.renderPermanentNoteDistillationSection({
     id: "pn_needs_confirm",
-    title: "需要确认",
-    body: "# 需要确认",
+    title: "Needs confirm",
+    body: "# Needs confirm",
     status: "active",
     thesis: "稳定观点需要知道自己的反例。",
     threeLineSummary: ["观点要能被复用。", "边界能防止误用。", "写作时可以提前处理反方。"],
     boundaryOrCounterpoint: "如果只是临时观察，就不能直接当作稳定判断。",
     distillationStatus: "draft"
   });
+  const relationsHtml = pane.renderPermanentNoteDistillationSection({
+    id: "pn_confirmed",
+    title: "Confirmed",
+    body: "# Confirmed",
+    status: "active",
+    thesis: "稳定观点需要知道自己的反例。",
+    threeLineSummary: ["观点要能被复用。", "边界能防止误用。", "写作时可以提前处理反方。"],
+    boundaryOrCounterpoint: "如果只是临时观察，就不能直接当作稳定判断。",
+    distillationStatus: "confirmed"
+  });
 
-  assert.match(summaryHtml, /把判断压成三句话/);
-  assert.match(summaryHtml, /<span class="is-current">笔记内成观点<\/span>/);
-  assert.doesNotMatch(summaryHtml, /<span class="is-current">图谱里补关系<\/span>/);
-  assert.match(boundaryHtml, /补边界或反例/);
+  assert.match(summaryHtml, /data-note-distillation-focus="summary2"/);
   assert.match(boundaryHtml, /data-note-distillation-focus="boundary"/);
-  assert.match(boundaryHtml, /<span class="is-current">写作前看边界<\/span>/);
-  assert.doesNotMatch(boundaryHtml, /<span class="is-current">图谱里补关系<\/span>/);
-  assert.match(confirmHtml, /确认这条观点/);
   assert.match(confirmHtml, /data-note-distillation-focus="confirm"/);
-  assert.match(confirmHtml, /<span class="is-current">图谱里补关系<\/span>/);
+  assert.match(relationsHtml, /data-note-distillation-focus="relations"/);
+  assert.match(relationsHtml, /4\/4/);
 });
 
-test("distillation focus action is wired to field focus and existing confirm behavior", () => {
+test("distillation focus action switches to the relations tab before jumping to relations", () => {
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-editor-pane.js"), "utf8");
   const start = source.indexOf('const distillationFocusButton = e.target.closest("[data-note-distillation-focus]")');
   const end = source.indexOf('const distillationConfirmButton = e.target.closest("[data-note-distillation-confirm]")', start);
@@ -99,6 +110,7 @@ test("distillation focus action is wired to field focus and existing confirm beh
   assert.match(handler, /target === "confirm"/);
   assert.match(handler, /void this\.confirmDistillation\(\)/);
   assert.match(handler, /target === "relations"/);
+  assert.match(handler, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.match(handler, /textarea\[name="boundaryOrCounterpoint"\]/);
   assert.match(handler, /textarea\[name="\$\{target\}"\]/);
   assert.match(handler, /textarea\[name="thesis"\]/);

@@ -11664,36 +11664,6 @@
       min-height: 34px;
       white-space: nowrap;
     }
-    .distillation-path-strip {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 6px;
-    }
-    .distillation-path-strip span {
-      min-height: 30px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 5px 8px;
-      border: 1px solid #dfe8f1;
-      border-radius: 8px;
-      background: #ffffff;
-      color: #64748b;
-      font-size: 11px;
-      font-weight: 800;
-      line-height: 1.35;
-      text-align: center;
-    }
-    .distillation-path-strip span.is-current {
-      border-color: rgba(180, 83, 9, 0.32);
-      background: #fffaf0;
-      color: #9a5312;
-    }
-    .distillation-path-strip span.is-done {
-      border-color: rgba(15, 118, 110, 0.28);
-      background: #f0fdfa;
-      color: #0f766e;
-    }
     .semantic-relation-group-head {
       display: flex;
       align-items: center;
@@ -11712,6 +11682,52 @@
       color: #475569;
       font-size: 11px;
       line-height: 1.55;
+    }
+    .distillation-readiness {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid #dfe8f1;
+      border-radius: 10px;
+      background: #ffffff;
+    }
+    .distillation-readiness-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .distillation-readiness-item {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid #ead8be;
+      border-radius: 8px;
+      background: #fffaf0;
+    }
+    .distillation-readiness-item span {
+      color: #9a5312;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+    .distillation-readiness-item strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .distillation-readiness-item small {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .distillation-readiness-item.is-done {
+      border-color: rgba(15, 118, 110, 0.24);
+      background: #f0fdfa;
+    }
+    .distillation-readiness-item.is-done span {
+      color: #0f766e;
     }
     .semantic-relation-actions {
       display: flex;
@@ -14743,7 +14759,7 @@
         grid-template-columns: minmax(0, 1fr);
       }
       .distillation-next-card,
-      .distillation-path-strip {
+      .distillation-readiness-list {
         grid-template-columns: minmax(0, 1fr);
       }
       .distillation-next-card .mini-btn {

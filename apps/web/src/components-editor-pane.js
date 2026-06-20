@@ -212,6 +212,71 @@ function renderDistillationQualityContent(note = {}) {
   `;
 }
 
+function renderDistillationReadinessList({
+  thesis = "",
+  summaryLines = [],
+  boundaryOrCounterpoint = "",
+  statusValue = "",
+  qualityWarnings = []
+} = {}) {
+  const summaryCount = (Array.isArray(summaryLines) ? summaryLines : []).filter(Boolean).length;
+  const items = [
+    {
+      label: "一句话判断",
+      done: Boolean(String(thesis || "").trim()),
+      detail: "说明这条笔记到底主张什么"
+    },
+    {
+      label: "三句话压缩",
+      done: summaryCount === 3,
+      detail: summaryCount === 3 ? "观点、理由、用途都已写出" : `还差 ${Math.max(0, 3 - summaryCount)} 句`
+    },
+    {
+      label: "边界或反方",
+      done: Boolean(String(boundaryOrCounterpoint || "").trim()),
+      detail: "写清楚它在哪里不成立"
+    },
+    {
+      label: "用户确认",
+      done: String(statusValue || "").trim() === "confirmed",
+      detail: "确认后再进入关系和写作"
+    }
+  ];
+  const doneCount = items.filter((item) => item.done).length;
+  const warningText = Array.isArray(qualityWarnings) && qualityWarnings.length
+    ? `还有 ${qualityWarnings.length} 项需要打磨`
+    : "质量提示通过";
+  return `
+    <div class="distillation-readiness" data-note-distillation-readiness>
+      <div class="semantic-relation-group-head">
+        <strong>完成条件</strong>
+        <span>${doneCount}/${items.length} · ${escapeHtml(warningText)}</span>
+      </div>
+      <div class="distillation-readiness-list">
+        ${items
+          .map(
+            (item) => `
+              <div class="distillation-readiness-item ${item.done ? "is-done" : ""}">
+                <span>${escapeHtml(item.done ? "完成" : "待补")}</span>
+                <strong>${escapeHtml(item.label)}</strong>
+                <small>${escapeHtml(item.detail)}</small>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function distillationStatusText(status = "") {
+  const key = String(status || "").trim().toLowerCase();
+  if (key === "confirmed") return "已确认";
+  if (key === "draft") return "待确认";
+  if (key === "missing") return "待提纯";
+  return key || "待提纯";
+}
+
 function distillationNextStepGuide(note = {}) {
   const thesis = String(note?.thesis || "").trim();
   const summary = [0, 1, 2].map((idx) => String((note?.threeLineSummary || [])[idx] || "").trim());
@@ -8556,14 +8621,6 @@ export class EditorPane {
       boundaryOrCounterpoint,
       distillationStatus: statusValue
     });
-    const distillationPathState =
-      nextGuide.key === "thesis" || nextGuide.key.startsWith("summary")
-        ? "note"
-        : nextGuide.key === "boundary"
-          ? "writing"
-          : "graph";
-    const directEvidenceCount = parseLinks(note.body || "").length;
-    const writingReady = statusValue === "confirmed" && !qualityWarnings.length;
     return `
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
           <div class="inspector-section-head">
@@ -8571,7 +8628,7 @@ export class EditorPane {
               <div class="inspector-section-title">观点提纯</div>
               <div class="inspector-section-note">把笔记先压成可确认的判断，再进入图谱连接和写作准备；AI 候选只作为待审建议。</div>
             </div>
-            <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
+            <span class="inspector-chip">${escapeHtml(distillationStatusText(statusValue))}</span>
           </div>
         <form class="semantic-relation-form" data-note-distillation-form>
           <div class="distillation-next-card" data-note-distillation-next>
@@ -8582,22 +8639,13 @@ export class EditorPane {
             </div>
             <button class="mini-btn primary" type="button" data-note-distillation-focus="${escapeHtml(nextGuide.key)}">${escapeHtml(nextGuide.actionLabel)}</button>
           </div>
-          <div class="distillation-path-strip" aria-label="观点提纯如何接入图谱和写作">
-            <span class="${distillationPathState === "note" ? "is-current" : "is-done"}">笔记内成观点</span>
-            <span class="${distillationPathState === "graph" ? "is-current" : statusValue === "confirmed" ? "is-done" : ""}">图谱里补关系</span>
-            <span class="${distillationPathState === "writing" ? "is-current" : writingReady ? "is-done" : ""}">写作前看边界</span>
-          </div>
-          <div class="semantic-relation-group">
-            <div class="semantic-relation-group-head"><strong>提纯工作区</strong><span>${escapeHtml(statusValue === "confirmed" ? "稳定" : "进行中")}</span></div>
-            <div class="semantic-relation-grid">
-              <div class="semantic-relation-card"><strong>一句话判断</strong><span>${escapeHtml(thesis ? "已有" : "缺失")}</span></div>
-              <div class="semantic-relation-card"><strong>三句话压缩</strong><span>${escapeHtml(summaryLines.filter(Boolean).length === 3 ? "完整" : `${summaryLines.filter(Boolean).length}/3`)}</span></div>
-              <div class="semantic-relation-card"><strong>证据 / 来源</strong><span>${escapeHtml(directEvidenceCount ? `${directEvidenceCount} 条正文链接` : "待补证据")}</span></div>
-              <div class="semantic-relation-card"><strong>反证 / 边界</strong><span>${escapeHtml(boundaryOrCounterpoint ? "已有" : "缺失")}</span></div>
-              <div class="semantic-relation-card"><strong>关联建议</strong><span data-note-ai-suggestions-count>${escapeHtml(this.noteAiSuggestionsSummaryLabel(note.id))}</span></div>
-              <div class="semantic-relation-card"><strong>写作可用性</strong><span>${escapeHtml(writingReady ? "可进入稳定写作" : "仍需审阅确认")}</span></div>
-            </div>
-          </div>
+          ${renderDistillationReadinessList({
+            thesis,
+            summaryLines,
+            boundaryOrCounterpoint,
+            statusValue,
+            qualityWarnings
+          })}
           ${this.renderRelationNetworkPrompt(note)}
           <label>
             一句话判断
@@ -8636,11 +8684,11 @@ export class EditorPane {
             </select>
           </label>
           <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit">保存观点</button>
+            <button class="mini-btn primary" type="submit">保存草稿</button>
             <button class="mini-btn" type="button" data-note-distillation-confirm>确认观点</button>
           </div>
           <div class="semantic-relation-group" data-note-distillation-quality>
-            <div class="semantic-relation-group-head"><strong>质量提示</strong><span>${escapeHtml(qualityWarnings.length || "OK")}</span></div>
+            <div class="semantic-relation-group-head"><strong>质量提示</strong><span>${escapeHtml(qualityWarnings.length ? `${qualityWarnings.length} 项` : "OK")}</span></div>
             ${renderDistillationQualityContent({
               title: note.title,
               body: note.body,
@@ -8889,7 +8937,7 @@ export class EditorPane {
         focus: true,
         focusSelector: `[data-note-distillation-form] textarea[name="${targetName}"]`
       });
-      this.onStatus("已把选中文本带入观点提纯区，请确认后保存观点", "ok");
+      this.onStatus("已把选中文本带入观点提纯区，请确认后保存草稿", "ok");
     }, 40);
     return true;
   }
@@ -10021,7 +10069,8 @@ export class EditorPane {
           return;
         }
         if (target === "relations") {
-          this.jumpToInspectorSection("[data-note-relations-section]");
+          this.activatePermanentWorkspaceTab("relations");
+          window.setTimeout(() => this.jumpToInspectorSection("[data-note-relations-section]"), 0);
           return;
         }
         const focusSelector =
