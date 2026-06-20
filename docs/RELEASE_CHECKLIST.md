@@ -66,6 +66,25 @@ Future production signing should also add:
 - Apple Developer ID certificate and notarization credentials for macOS
 - Windows code signing certificate or trusted signing setup for NSIS/MSI
 
+## Signed Rehearsal
+
+After configuring `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, run a non-publishing rehearsal before the first real tag:
+
+```powershell
+gh workflow run desktop-bundles.yml --ref feature/auto-update -f updater_artifacts=true
+```
+
+This builds signed desktop updater artifacts on GitHub runners, collects them, generates `update-manifest.json` and `latest.json`, and uploads `yansilu-release-rehearsal-assets` as a workflow artifact. It does not create or modify a GitHub Release.
+
+Check the downloaded rehearsal artifact for:
+
+- installer files for each platform
+- matching `.sig` files
+- `bundle-manifest.json`
+- `bundle-manifest.sha256.txt`
+- `update-manifest.json`
+- `latest.json`
+
 ## Tag And Build
 
 Create a beta tag:
