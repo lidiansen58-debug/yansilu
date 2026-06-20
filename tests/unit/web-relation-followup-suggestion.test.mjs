@@ -11,9 +11,16 @@ function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
 }
 
+function readEditorSource() {
+  return [
+    "components-editor-pane.js",
+    "editor-relation-helpers.js"
+  ].map((file) => readRepoFile("apps/web/src", file)).join("\n");
+}
+
 test("relation followup suggestion is rendered inside the relation panel", () => {
   const css = readRepoFile("apps/web/src/prototype.css");
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const source = readEditorSource();
 
   assert.match(css, /\.relation-followup-suggestion\s*\{/);
   assert.match(css, /\.relation-followup-suggestion-actions\s*\{/);
@@ -25,7 +32,7 @@ test("relation followup suggestion is rendered inside the relation panel", () =>
 });
 
 test("relation followup suggestion asks for reason work only when a saved relation can be edited", () => {
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const source = readEditorSource();
   const start = source.indexOf("function relationFollowupSuggestionForDraft(");
   const end = source.indexOf("function excerptFromBody", start);
 
@@ -42,7 +49,7 @@ test("relation followup suggestion asks for reason work only when a saved relati
 });
 
 test("relation creation stores a followup suggestion before returning to relation list", () => {
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const source = readEditorSource();
   const start = source.indexOf("  async handleCreateRelationForm(form) {");
   const end = source.indexOf("  async promoteInlineDraftRelation", start);
 
@@ -58,7 +65,7 @@ test("relation creation stores a followup suggestion before returning to relatio
 });
 
 test("relation followup actions focus the edit rationale or dismiss without mutation", () => {
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const source = readEditorSource();
   const clickStart = source.indexOf('      const relationAction = e.target.closest("[data-relation-action]");');
   const clickEnd = source.indexOf('      const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");', clickStart);
 
@@ -75,7 +82,7 @@ test("relation followup actions focus the edit rationale or dismiss without muta
 });
 
 test("inline relation promotion also creates the relation followup suggestion", () => {
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const source = readEditorSource();
   const start = source.indexOf("  async promoteInlineDraftRelation(indexValue = \"\") {");
   const end = source.indexOf("  async handleEditRelationForm(form) {", start);
 
