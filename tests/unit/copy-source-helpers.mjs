@@ -22,7 +22,16 @@ export function readPrototypeHtmlSource() {
 }
 
 export function readPrototypeCssSource() {
-  return readRepoText("apps", "web", "src", "prototype.css");
+  return readPrototypeCssBundleSource();
+}
+
+async function readPrototypeCssBundleSource() {
+  const entry = await readRepoText("apps", "web", "src", "prototype.css");
+  const imported = await Promise.all(
+    [...entry.matchAll(/@import\s+["']\.\/([^"']+\.css)["'];/g)]
+      .map((match) => readRepoText("apps", "web", "src", match[1]))
+  );
+  return [entry, ...imported].join("\n");
 }
 
 export function readPrototypeWritingWorkspaceSource() {

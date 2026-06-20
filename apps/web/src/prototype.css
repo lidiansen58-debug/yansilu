@@ -1,3 +1,5 @@
+@import "./prototype-update.css";
+
     :root {
       --bg: #eef2f1;
       --bg-deep: #e6ece9;
@@ -116,17 +118,6 @@
       border-radius: 999px;
       background: #0f766e;
       box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
-    }
-    .rail-btn.has-update::before {
-      content: "";
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #dc2626;
-      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.96);
     }
     .quick-entry.current-root {
       background: #ffffff;
@@ -14145,9 +14136,6 @@
       width: 16px;
       height: 16px;
       accent-color: var(--brand);
-    }
-    .settings-update-meta {
-      gap: 8px;
     }
     .settings-support-safe-note {
       padding: 9px 10px;

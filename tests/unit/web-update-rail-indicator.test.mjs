@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPrototypeCssSource } from "./copy-source-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
 
 test("settings rail shows a restrained update indicator when an update is available", async () => {
   const appSource = await fs.readFile(path.join(repoRoot, "apps", "web", "src", "prototype-app.js"), "utf8");
-  const cssSource = await fs.readFile(path.join(repoRoot, "apps", "web", "src", "prototype.css"), "utf8");
+  const cssSource = await readPrototypeCssSource();
 
   assert.match(appSource, /shouldShowUpdateAttention\(settingsState\.update\)/);
   assert.match(appSource, /button\.classList\.toggle\("has-update", updateAvailable\)/);
