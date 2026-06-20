@@ -18,6 +18,16 @@ function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
 }
 
+function readEditorSource() {
+  return [
+    "components-editor-pane.js",
+    "editor-dirty-state.js",
+    "editor-link-picker.js",
+    "editor-relation-helpers.js",
+    "editor-template-workspace.js"
+  ].map((file) => readRepoFile("apps/web/src", file)).join("\n");
+}
+
 function createStubButton() {
   return {
     classList: { add() {}, remove() {}, toggle() {} },
@@ -642,8 +652,8 @@ test("graph-ready relation sync does not let stale unknown statuses override rec
 });
 
 test("thinking status keeps derived next-step copy out of the bottom notice", () => {
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
-  const match = source.match(/renderThinkingStatus\(\) \{([\s\S]*?)\n  \}\n\n  renderAuthorshipPanel/);
+  const source = readEditorSource();
+  const match = source.match(/renderThinkingStatus\(\) \{([\s\S]*?)\n  \},?\n\n  renderAuthorshipPanel/);
 
   assert.ok(match, "expected thinking-status renderer to exist");
   assert.match(match[1], /lastBottomNoticeKey/);

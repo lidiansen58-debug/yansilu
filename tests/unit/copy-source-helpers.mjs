@@ -29,8 +29,18 @@ export function readPrototypeWritingWorkspaceSource() {
   return readRepoText("apps", "web", "src", "prototype-writing-workspace.js");
 }
 
-export function readComponentsEditorPaneSource() {
-  return readRepoText("apps", "web", "src", "components-editor-pane.js");
+export async function readComponentsEditorPaneSource() {
+  const files = [
+    "components-editor-pane.js",
+    "editor-dirty-state.js",
+    "editor-link-picker.js",
+    "editor-markdown-commands.js",
+    "editor-preview-renderer.js",
+    "editor-relation-helpers.js",
+    "editor-template-workspace.js"
+  ];
+  const sources = await Promise.all(files.map((file) => readRepoText("apps", "web", "src", file)));
+  return sources.join("\n");
 }
 
 export function readComponentsExplorerPaneSource() {
