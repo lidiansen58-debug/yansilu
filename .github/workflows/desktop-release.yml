@@ -47,7 +47,7 @@ jobs:
 
     env:
       YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
-      YANSILU_DESKTOP_UPDATER_ARTIFACTS: "false"
+      YANSILU_DESKTOP_UPDATER_ARTIFACTS: "true"
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
@@ -78,6 +78,19 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Require Tauri updater signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for signed updater artifacts."
+            exit 1
+          fi
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY_PASSWORD is required for signed updater artifacts."
+            exit 1
+          fi
+
       - name: Desktop preflight
         run: npm run build:desktop:check
 
@@ -99,27 +112,44 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
       - name: Download desktop bundle artifacts
         uses: actions/download-artifact@v8
         with:
           path: dist
+
+      - name: Prepare release assets and update feeds
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          node ./scripts/collect-release-assets.mjs --dist dist --out release-assets
+          npm run release:update-manifest -- \
+            --bundle-manifest release-assets/bundle-manifest.json \
+            --out release-assets/update-manifest.json \
+            --tauri-out release-assets/latest.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$tag" \
+            --changelog "$tag desktop release."
+          test -f release-assets/update-manifest.json
+          test -f release-assets/latest.json
 
       - name: Create or update draft GitHub release
         shell: bash
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          mkdir -p release-assets
-          for artifact_dir in dist/*; do
-            if [ -d "$artifact_dir" ]; then
-              artifact_name="$(basename "$artifact_dir")"
-              (cd "$artifact_dir" && zip -r "../../release-assets/${artifact_name}.zip" .)
-            fi
-          done
-
-          files=(release-assets/*.zip)
+          mapfile -d '' files < <(find release-assets -maxdepth 1 -type f -print0 | sort -z)
           if [ "${#files[@]}" -eq 0 ]; then
-            echo "::error::No release artifacts were downloaded."
+            echo "::error::No release assets were prepared."
             exit 1
           fi
 

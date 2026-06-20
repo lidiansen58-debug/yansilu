@@ -30,10 +30,13 @@ jobs:
               - '.github/workflows/desktop-bundles.yml'
               - '.github/workflows/desktop-release.yml'
               - 'apps/desktop/**'
+              - 'packages/app-update/**'
               - 'package.json'
               - 'package-lock.json'
               - 'scripts/build-desktop.mjs'
+              - 'scripts/collect-release-assets.mjs'
               - 'scripts/desktop-*.mjs'
+              - 'scripts/generate-update-manifest.mjs'
 
   preflight:
     if: github.event_name == 'pull_request'

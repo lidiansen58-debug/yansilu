@@ -54,12 +54,12 @@ Use this only after signing, notarization, and update feed checks are ready.
 
 ## Required Repository Secrets
 
-Signed updater artifact generation requires:
+Tagged `desktop-release` builds now generate signed updater artifacts by default. The workflow fails early unless these repository secrets are present:
 
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
-For v0.1.0, tagged release workflows keep updater artifacts disabled by default. Add these secrets before enabling signed updater artifacts; they sign Tauri updater metadata, not the operating system installer itself.
+These secrets sign Tauri updater metadata, not the operating system installer itself.
 
 Future production signing should also add:
 
@@ -96,21 +96,22 @@ The `desktop-release` workflow builds:
 - macOS Intel `.app` / `.dmg`
 
 It creates or updates a draft GitHub Release for the tag.
+The draft release includes flattened installer assets, `.sig` files, `bundle-manifest.json`, `bundle-manifest.sha256.txt`, `update-manifest.json`, and `latest.json`.
 
 ## Release Review
 
 Before publishing the draft release:
 
-1. Download every uploaded artifact.
-2. Compare `bundle-manifest.sha256.txt` against the release assets.
-3. Generate the app update manifests for the GitHub Release assets:
+1. Download every uploaded installer artifact.
+2. Compare `bundle-manifest.sha256.txt` against the installer assets listed in `bundle-manifest.json`.
+3. Confirm the workflow generated the app update manifests for the GitHub Release assets. For local reproduction:
 
 ```powershell
 npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.0-beta.1 --changelog-file docs/V0_1_0_BETA_1_RELEASE_NOTES.md
 ```
 
-4. Upload `release-artifacts/update-manifest.json` to the stable update endpoint used by `YANSILU_UPDATE_MANIFEST_URL`.
-5. Upload `release-artifacts/latest.json` to the Tauri updater endpoint configured in `tauri.conf.json`.
+4. Upload or sync the release `update-manifest.json` to the stable update endpoint used by `YANSILU_UPDATE_MANIFEST_URL`.
+5. Upload or sync the release `latest.json` to the Tauri updater endpoint configured in `tauri.conf.json`.
 6. Install and launch on each target platform.
 7. From an older build, confirm “Settings -> Version update -> Check update” reports the new GitHub Release.
 8. From an older signed desktop build, confirm “one-click download and install” completes and “restart to finish update” relaunches the app on the new version.

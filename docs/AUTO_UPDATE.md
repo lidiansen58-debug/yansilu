@@ -54,7 +54,8 @@
 1. 完成 release build 和人工验收。
 2. 生成安装包、发布说明和校验和。
 3. 将安装包上传到 GitHub Release。
-4. 生成 update manifest：
+4. tagged `desktop-release` 工作流会自动收集下载到的桌面构建产物，生成 `bundle-manifest.json` / `bundle-manifest.sha256.txt`，再生成并上传 `update-manifest.json` 和 `latest.json` 到 GitHub Release 草稿。
+5. 如果需要本地复现或手工补发 manifest，可以运行：
 
 ```powershell
 npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.2 --changelog-file docs/V0_1_2_RELEASE_NOTES.md
@@ -67,10 +68,10 @@ npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0
 
 如果需要指定简化 manifest 的主下载包，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`。Tauri feed 会从构建目录里的 `.sig` 文件读取签名；缺少签名时脚本会失败，不会生成可误用的安装 feed。
 
-5. 上传 `update-manifest.json` 到 `YANSILU_UPDATE_MANIFEST_URL` 指向的 HTTPS 静态地址。
-6. 上传 `latest.json` 到 `apps/desktop/src-tauri/tauri.conf.json` 里配置的 updater endpoint，当前是 `https://downloads.yansilu.app/updates/latest.json`。
-7. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
-8. 在签名 updater feed 可用时，继续验证“一键下载并安装 -> 重启完成更新”。
+6. 将 GitHub Release 中的 `update-manifest.json` 同步到 `YANSILU_UPDATE_MANIFEST_URL` 指向的 HTTPS 静态地址。
+7. 将 GitHub Release 中的 `latest.json` 同步到 `apps/desktop/src-tauri/tauri.conf.json` 里配置的 updater endpoint，当前是 `https://downloads.yansilu.app/updates/latest.json`。
+8. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
+9. 在签名 updater feed 可用时，继续验证“一键下载并安装 -> 重启完成更新”。
 
 如果最新版安装包放在 GitHub Releases，`downloadUrl` 会形如：
 
@@ -122,7 +123,7 @@ npm run dev:api
 
 后续仍建议补强：
 
-1. 将 `latest.json` 上传纳入 GitHub Actions release pipeline。
+1. 将 GitHub Release 中生成的 `update-manifest.json` 和 `latest.json` 自动同步到 `downloads.yansilu.app`。
 2. 为不同 channel 提供独立 endpoint，例如 beta/stable。
 3. 下载前显示安装包大小、签名 feed 时间和平台信息。
 4. 对需要 Vault 迁移的版本增加迁移确认页和备份提示。
