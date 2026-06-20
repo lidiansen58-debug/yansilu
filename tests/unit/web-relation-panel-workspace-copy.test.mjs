@@ -15,10 +15,16 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /<div class="inspector-section-title">关系网络<\/div>/);
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
-  assert.match(source, /提纯与 AI/);
-  assert.match(source, /querySelector\?\.\("\[data-deferred-workspace\]"\)\?\.setAttribute\("open", ""\)/);
+  assert.match(source, /整理这条永久笔记/);
+  assert.match(source, /\["viewpoint", "观点"/);
+  assert.match(source, /\["relations", "关联"/);
+  assert.match(source, /\["writing", "写作"/);
+  assert.match(source, /data-permanent-workspace-tab="\$\{escapeHtml\(key\)\}"/);
+  assert.match(source, /AI 找可能关联/);
+  assert.match(source, /手动搜索关联/);
   assert.match(source, /待确认线索/);
 
+  assert.doesNotMatch(source, /提纯与 AI/);
   assert.doesNotMatch(source, /renderRelated\("当前笔记关联总览"\)/);
   assert.doesNotMatch(shell, /关联线索<\/div>/);
   assert.doesNotMatch(source, /主路径下一步/);

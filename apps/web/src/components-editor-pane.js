@@ -7354,82 +7354,45 @@ export class EditorPane {
     const analysis = result?.analysis || null;
     const reviewItems = result?.reviewItems || null;
     const relationCount = Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates.length : 0;
-    const topicCandidates = Array.isArray(analysis?.topicCandidates) ? analysis.topicCandidates : [];
-    const warningChecks = Array.isArray(analysis?.principleChecks)
-      ? analysis.principleChecks.filter((item) => String(item?.level || "").toLowerCase() !== "pass")
-      : [];
-    const originalStatus = String(analysis?.originality?.status || "").trim();
-    const distillation = analysis?.distillation || {};
-    const suggestedFields = Array.isArray(reviewItems?.fieldSuggestions) ? reviewItems.fieldSuggestions.length : 0;
     const storedCount = Array.isArray(reviewItems?.storedArtifactIds)
       ? reviewItems.storedArtifactIds.length
       : Array.isArray(reviewItems?.artifacts)
         ? reviewItems.artifacts.length
         : 0;
-    const topTopics = topicCandidates
-      .map((item) => String(item?.topic || item?.label || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const topWarnings = warningChecks
-      .map((item) => String(item?.message || item?.label || item?.checkId || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const actions = Array.isArray(analysis?.recommendedActions)
-      ? analysis.recommendedActions.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
-      : [];
 
     return `
       <section class="inspector-section semantic-relations-section" data-note-ai-analysis-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">AI 候选</div>
-            <div class="inspector-section-note">${analysis ? "AI 只给候选和理由草稿，是否采纳仍由你决定。" : "先用 AI 扫一遍可能的关联、主题和缺口，结果只进入待审。"}</div>
+            <div class="inspector-section-title">AI 辅助找线索</div>
+            <div class="inspector-section-note">${analysis ? "AI 已经给出候选，先看是否有值得确认的关联；是否采纳仍由你决定。" : "用 AI 找可能相关的永久笔记和字段候选。分析结果会留在当前笔记的 AI 建议区，不会自动改写笔记。"}</div>
           </div>
           <div class="semantic-relation-head-actions">
             ${analysis ? `<button class="mini-btn is-ghost" type="button" data-note-ai-analysis-open-inbox>查看待审</button>` : ""}
-            <button class="mini-btn is-ghost" type="button" data-note-ai-analysis>${analysis ? "重新扫描" : "扫描候选"}</button>
+            <button class="mini-btn is-ghost" type="button" data-note-ai-analysis>${analysis ? "重新找候选" : "AI 找可能关联"}</button>
           </div>
         </div>
         ${
           analysis
             ? `
               <div class="semantic-relation-status">
-                <span class="inspector-chip">关联候选 ${relationCount}</span>
-                <span class="inspector-chip">原则提醒 ${warningChecks.length}</span>
-                <span class="inspector-chip">字段建议 ${suggestedFields}</span>
-                <span class="inspector-chip">待审项 ${storedCount}</span>
-                ${originalStatus ? `<span class="inspector-chip">原创度 ${escapeHtml(originalStatus)}</span>` : ""}
+                <span class="inspector-chip">可能关联 ${relationCount}</span>
+                <span class="inspector-chip">待审建议 ${storedCount}</span>
               </div>
-              <div class="semantic-relation-groups">
-                <div class="semantic-relation-group">
-                  <div class="semantic-relation-group-head">
-                    <strong>观点压缩</strong>
-                    <span>${escapeHtml(distillation?.status || "pending")}</span>
-                  </div>
-                  <div class="related-empty">
-                    ${distillation?.thesis ? escapeHtml(distillation.thesis) : "还没有稳定 thesis，建议先补一句自己的判断。"}
-                  </div>
-                  ${
-                    Array.isArray(distillation?.threeLineSummary) && distillation.threeLineSummary.length
-                      ? `<div class="related-empty">${escapeHtml(distillation.threeLineSummary.slice(0, 3).join(" / "))}</div>`
-                      : ""
-                  }
+              <div class="semantic-relation-group">
+                <div class="semantic-relation-group-head">
+                  <strong>怎么处理</strong>
+                  <span>${escapeHtml(storedCount ? "待确认" : "已完成")}</span>
                 </div>
-                ${
-                  topTopics.length
-                    ? `<div class="semantic-relation-group"><div class="semantic-relation-group-head"><strong>主题候选</strong><span>${topTopics.length}</span></div><div class="related-empty">${escapeHtml(topTopics.join(" / "))}</div></div>`
-                    : ""
-                }
-                ${
-                  topWarnings.length
-                    ? `<div class="semantic-relation-group"><div class="semantic-relation-group-head"><strong>优先处理</strong><span>${topWarnings.length}</span></div><div class="related-empty">${escapeHtml(topWarnings.join(" / "))}</div></div>`
-                    : ""
-                }
-                ${
-                  actions.length
-                    ? `<div class="semantic-relation-group"><div class="semantic-relation-group-head"><strong>下一步</strong><span>${actions.length}</span></div><div class="related-empty">${escapeHtml(actions.join(" / "))}</div></div>`
-                    : ""
-                }
+                <div class="related-empty">
+                  ${escapeHtml(
+                    storedCount
+                      ? "打开待审建议，挑选真正有用的一条；确认前先看理由，不会自动写入正式关系。"
+                      : relationCount
+                        ? "已有候选线索。若其中有一条确实相关，可以手动搜索这条笔记并保存关系。"
+                        : "这次没有明显候选。可以换关键词手动搜索，或先记录为什么暂时独立。"
+                  )}
+                </div>
               </div>
             `
             : `<div class="related-empty">分析结果会留在当前笔记的 AI 建议区；需要完整记录时也可以打开审阅中心，不会自动确认关系、主题或改写笔记。</div>`
@@ -8249,22 +8212,132 @@ export class EditorPane {
   }
 
   renderDeferredNoteWorkspace(note, tab) {
+    const relationState = this.semanticRelationsState;
+    const explicitRelationCount = this.currentExplicitRelationCount();
+    const thesis = String(note?.thesis || "").trim();
+    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note?.distillationStatus || "").trim() === "confirmed";
+    const needsViewpoint = !confirmed || !thesis || summary.length < 3;
+    const needsRelation = explicitRelationCount === 0 || relationState === "loading" || relationState === "error";
+    const activeTab = needsViewpoint ? "viewpoint" : needsRelation ? "relations" : "writing";
     const content = `
-      ${this.renderPermanentNoteAiAnalysisSection(note)}
-      ${this.renderPermanentNoteDistillationSection(note)}
+      <div class="permanent-workspace-tabs" role="tablist" aria-label="永久笔记整理步骤">
+        ${[
+          ["viewpoint", "观点", needsViewpoint ? "先完成" : "已确认"],
+          ["relations", "关联", explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待关联"],
+          ["writing", "写作", confirmed && explicitRelationCount > 0 ? "可推进" : "先补齐"]
+        ]
+          .map(([key, label, meta]) => {
+            const active = key === activeTab;
+            return `<button class="permanent-workspace-tab ${active ? "is-active" : ""}" type="button" role="tab" aria-selected="${active ? "true" : "false"}" data-permanent-workspace-tab="${escapeHtml(key)}">
+              <span>${escapeHtml(label)}</span>
+              <small>${escapeHtml(meta)}</small>
+            </button>`;
+          })
+          .join("")}
+      </div>
+      <div class="permanent-workspace-pane ${activeTab === "viewpoint" ? "is-active" : ""}" data-permanent-workspace-pane="viewpoint"${activeTab === "viewpoint" ? "" : " hidden"}>
+        ${this.renderPermanentNoteDistillationSection(note)}
+      </div>
+      <div class="permanent-workspace-pane ${activeTab === "relations" ? "is-active" : ""}" data-permanent-workspace-pane="relations"${activeTab === "relations" ? "" : " hidden"}>
+        ${this.renderPermanentNoteRelationAssistSection(note)}
+        ${this.renderPermanentNoteAiAnalysisSection(note)}
+        ${this.renderCurrentRelationSection(note.id, {
+          relations: this.currentSemanticRelations,
+          relationState: this.semanticRelationsState
+        })}
+      </div>
+      <div class="permanent-workspace-pane ${activeTab === "writing" ? "is-active" : ""}" data-permanent-workspace-pane="writing"${activeTab === "writing" ? "" : " hidden"}>
+        ${this.renderPermanentNoteWritingPrepSection(note)}
+      </div>
       ${this.renderInlineDraftRelationSection(note, tab)}
     `.trim();
     if (!content) return "";
     return `
-      <details class="inspector-deferred-workspace" data-deferred-workspace>
-        <summary>
-          <span>提纯与 AI</span>
-          <small>需要编辑观点、运行候选时再展开。</small>
-        </summary>
+      <section class="inspector-deferred-workspace permanent-note-workspace" data-deferred-workspace data-permanent-note-workspace>
+        <div class="inspector-section-head permanent-workspace-head">
+          <div>
+            <div class="inspector-section-title">整理这条永久笔记</div>
+            <div class="inspector-section-note">按顺序完成：先形成观点，再补一条关系，最后决定是否放入写作篮。</div>
+          </div>
+        </div>
         <div class="inspector-deferred-body">
           ${content}
         </div>
-      </details>
+      </section>
+    `;
+  }
+
+  renderPermanentNoteRelationAssistSection(note) {
+    if (!note?.id) return "";
+    const explicitRelationCount = this.currentExplicitRelationCount();
+    const relationText =
+      explicitRelationCount === null
+        ? "正在读取这条笔记的正式关系。读取完成后可以继续补关系。"
+        : explicitRelationCount > 0
+          ? `已经有 ${explicitRelationCount} 条正式关系。可以继续补更关键的连接，也可以进入写作准备。`
+          : "还没有正式关系。先找一条真正相关的永久笔记，写清楚为什么要连接。";
+    const analysis = this.noteAiAnalysisByNoteId.get(note.id) || null;
+    return `
+      <section class="permanent-workspace-card relation-assist-panel">
+        <div>
+          <strong>${escapeHtml(explicitRelationCount > 0 ? "继续完善关系网" : "把这条笔记接入关系网")}</strong>
+          <p>${escapeHtml(relationText)}</p>
+        </div>
+        <div class="semantic-relation-actions">
+          <button class="mini-btn primary" type="button" data-note-ai-analysis>${escapeHtml(analysis ? "重新找候选" : "AI 找可能关联")}</button>
+          <button class="mini-btn" type="button" data-relation-action="open-create">手动搜索关联</button>
+        </div>
+      </section>
+    `;
+  }
+
+  renderPermanentNoteWritingPrepSection(note) {
+    if (!note?.id) return "";
+    const thesis = String(note.thesis || "").trim();
+    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const boundary = String(note.boundaryOrCounterpoint || note.boundary_or_counterpoint || "").trim();
+    const confirmed = String(note.distillationStatus || "").trim() === "confirmed";
+    const explicitRelationCount = this.currentExplicitRelationCount();
+    const hasRelation = Number(explicitRelationCount || 0) > 0;
+    const checks = [
+      ["一句话判断", Boolean(thesis), "补判断"],
+      ["三句话压缩", summary.length === 3, "补三句话"],
+      ["至少一条正式关系", hasRelation, "去关联"],
+      ["边界或反方", Boolean(boundary), "补边界"]
+    ];
+    const ready = confirmed && hasRelation && Boolean(boundary);
+    const primaryAction = !confirmed ? "distillation" : !hasRelation ? "relations" : "writing";
+    const primaryLabel = !confirmed ? "先确认观点" : !hasRelation ? "先补一条关系" : "加入写作篮";
+    const focusTarget = !confirmed && thesis && summary.length === 3 ? "confirm" : !boundary && confirmed ? "boundary" : "";
+    return `
+      <section class="permanent-workspace-card writing-prep-panel">
+        <div class="semantic-relation-group-head">
+          <strong>写作前检查</strong>
+          <span>${escapeHtml(ready ? "已准备好" : "还差一步")}</span>
+        </div>
+        <p class="related-empty">${escapeHtml(
+          ready
+            ? "这条笔记已经有观点、关系和边界，可以放入写作篮继续组织文章。"
+            : "先把观点和关系补稳，再放入写作篮；这样写作时不会只拿到一条孤立材料。"
+        )}</p>
+        <div class="permanent-workspace-checks">
+          ${checks
+            .map(
+              ([label, ok, actionLabel]) => `
+                <div class="permanent-workspace-check ${ok ? "is-done" : ""}">
+                  <span>${escapeHtml(ok ? "完成" : "待补")}</span>
+                  <strong>${escapeHtml(label)}</strong>
+                  ${ok ? "" : `<small>${escapeHtml(actionLabel)}</small>`}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+        <div class="semantic-relation-actions">
+          <button class="mini-btn primary" type="button" data-note-main-route-action="${escapeHtml(primaryAction)}"${focusTarget ? ` data-note-main-route-focus="${escapeHtml(focusTarget)}"` : ""}>${escapeHtml(primaryLabel)}</button>
+        </div>
+      </section>
     `;
   }
 
@@ -8297,6 +8370,23 @@ export class EditorPane {
       };
     }
     return this.distillationPrefillState;
+  }
+
+  activatePermanentWorkspaceTab(tab = "viewpoint") {
+    const cleanTab = ["viewpoint", "relations", "writing"].includes(String(tab || "").trim()) ? String(tab || "").trim() : "viewpoint";
+    const workspace = this.els.result?.querySelector?.("[data-permanent-note-workspace]");
+    if (!workspace) return false;
+    workspace.querySelectorAll("[data-permanent-workspace-tab]").forEach((button) => {
+      const active = button.getAttribute("data-permanent-workspace-tab") === cleanTab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    workspace.querySelectorAll("[data-permanent-workspace-pane]").forEach((pane) => {
+      const active = pane.getAttribute("data-permanent-workspace-pane") === cleanTab;
+      pane.classList.toggle("is-active", active);
+      pane.hidden = !active;
+    });
+    return true;
   }
 
   showDistillationTemplateMergeChoice(picker, button) {
@@ -9314,10 +9404,6 @@ export class EditorPane {
                 note,
                 this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "loading" })
               )}
-              ${this.renderCurrentRelationSection(note.id, {
-                relations: this.currentSemanticRelations,
-                relationState: this.semanticRelationsState
-              })}
               ${this.renderDeferredNoteWorkspace(note, tab)}
             `
             : isRecordableSource
@@ -9872,7 +9958,10 @@ export class EditorPane {
       const relationAction = e.target.closest("[data-relation-action]");
       if (relationAction) {
         const action = relationAction.dataset.relationAction;
-        if (action === "open-create") this.openCreateRelationForm();
+        if (action === "open-create") {
+          this.activatePermanentWorkspaceTab("relations");
+          this.openCreateRelationForm();
+        }
         if (action === "open-followup-reason") {
           const relationId = relationAction.dataset.relationId || this.relationFollowupSuggestion?.relationId || "";
           this.openEditRelationForm(relationId, {
@@ -9908,12 +9997,19 @@ export class EditorPane {
 
       const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");
       if (aiAnalysisButton) {
+        this.activatePermanentWorkspaceTab("relations");
         void this.runPermanentNoteAnalysis();
         return;
       }
       const aiAnalysisInboxButton = e.target.closest("[data-note-ai-analysis-open-inbox]");
       if (aiAnalysisInboxButton) {
         this.openPermanentNoteAiInbox();
+        return;
+      }
+
+      const permanentWorkspaceTab = e.target.closest("[data-permanent-workspace-tab]");
+      if (permanentWorkspaceTab) {
+        this.activatePermanentWorkspaceTab(permanentWorkspaceTab.getAttribute("data-permanent-workspace-tab"));
         return;
       }
 
@@ -9990,7 +10086,7 @@ export class EditorPane {
       if (mainRouteButton) {
         const action = String(mainRouteButton.dataset.noteMainRouteAction || "").trim();
         if (action === "distillation") {
-          this.els.result?.querySelector?.("[data-deferred-workspace]")?.setAttribute("open", "");
+          this.activatePermanentWorkspaceTab("viewpoint");
           this.jumpToInspectorSection("[data-note-distillation-section]", {
             focus: true,
             focusSelector:
@@ -10001,6 +10097,7 @@ export class EditorPane {
           return;
         }
         if (action === "relations") {
+          this.activatePermanentWorkspaceTab("relations");
           if (this.semanticRelationsState === "loading") {
             this.jumpToInspectorSection("[data-note-relations-section]");
             this.onStatus("关系仍在加载中，先看当前关系区；加载完成后再决定是否新建关系。", "warn");
@@ -10037,6 +10134,7 @@ export class EditorPane {
           return;
         }
         if (action === "graph" || action === "writing") {
+          if (action === "writing") this.activatePermanentWorkspaceTab("writing");
           void this.onStateChange("open-note-main-route", {
             noteId: this.activeNote()?.id || "",
             action,
