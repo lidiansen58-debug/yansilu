@@ -12981,6 +12981,7 @@
       font-size: 12px;
       font-weight: 800;
       min-width: 0;
+      flex-wrap: wrap;
     }
     .settings-ai-local-recommendations-head small {
       color: #64748b;
@@ -12988,6 +12989,7 @@
       font-weight: 650;
       line-height: 1.4;
       text-align: right;
+      min-width: min(100%, 220px);
     }
     .settings-ai-local-recommendation-list {
       display: grid;
@@ -13021,6 +13023,12 @@
     .settings-ai-local-recommendation.is-unverified {
       border-color: #fed7aa;
       background: #fffaf2;
+    }
+    .settings-ai-local-recommendation.is-preview {
+      background: #ffffff;
+    }
+    .settings-ai-local-recommendation.is-preview:not(.is-installed) {
+      border-style: dashed;
     }
     .settings-ai-local-recommendation-main {
       display: grid;
@@ -13077,6 +13085,7 @@
     }
     .settings-ai-local-recommendation-action .mini-btn {
       min-height: 34px;
+      min-width: 86px;
       white-space: nowrap;
     }
     .settings-ai-wizard-list {

@@ -8578,11 +8578,11 @@ function renderAiLocalModelRecommendations() {
     providerId: currentAiProviderId()
   });
   const runtimeAvailable = settingsState.ai.localRuntimeStatus === "available";
-  recommendationsEl.classList.toggle("hidden", !showLocalModel || !runtimeAvailable);
-  if (!showLocalModel || !runtimeAvailable) {
-    recommendationsEl.innerHTML = "";
-    return;
-  }
+  const runtimeBusy = settingsState.ai.localRuntimeChecking
+    || settingsState.ai.localRuntimeStarting
+    || settingsState.ai.localRuntimeStopping
+    || settingsState.ai.localRuntimePulling;
+  recommendationsEl.classList.remove("hidden");
 
   const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
   const installedNames = models.map((model) => String(model?.name || model || "").trim()).filter(Boolean);
@@ -8596,25 +8596,43 @@ function renderAiLocalModelRecommendations() {
   ];
   const installedCount = profiles.filter((item) => hasLocalModel(item.name)).length;
   const selectedModel = String(settingsState.ai.localModel || "").trim();
-  const summaryText = installedCount
-    ? `已检测到 ${installedCount} 个可用模型`
-    : `建议先下载 ${primaryRecommendedOllamaModelName()}`;
+  const summaryText = !showLocalModel
+    ? "可选本地模型"
+    : runtimeAvailable
+      ? installedCount
+        ? `已检测到 ${installedCount} 个可用模型`
+        : `建议先下载 ${primaryRecommendedOllamaModelName()}`
+      : "先检测 Ollama，再下载或切换模型";
+  const helperText = !showLocalModel
+    ? "先启用本地模式，之后在这里下载、选择和试运行。"
+    : runtimeAvailable
+      ? "安装、运行、下载、切换都在这里完成。"
+      : "Ollama 连接后，这些模型会直接变成下载或切换按钮。";
   recommendationsEl.innerHTML = `
     <div class="settings-ai-local-recommendations-head">
       <span>${escapeHtml(summaryText)}</span>
-      <small>安装、运行、下载、切换都在这里完成。</small>
+      <small>${escapeHtml(helperText)}</small>
     </div>
     <div class="settings-ai-local-recommendation-list">
       ${profiles.map((item) => {
         const installed = hasLocalModel(item.name);
         const selected = installed && selectedModel.toLowerCase() === item.name.toLowerCase();
-        const action = installed
-          ? selected
-            ? `<span class="settings-ai-local-recommendation-current">当前使用</span>`
-            : `<button class="mini-btn is-subtle" type="button" data-settings-ai-select-local-model="${escapeHtml(item.name)}">选择</button>`
-          : `<button class="mini-btn is-subtle" type="button" data-settings-ai-pull-local-model="${escapeHtml(item.name)}">下载</button>`;
+        let action = "";
+        if (runtimeBusy) {
+          action = `<button class="mini-btn is-subtle" type="button" disabled>处理中</button>`;
+        } else if (!showLocalModel) {
+          action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-quick-setup="local">启用本地</button>`;
+        } else if (!runtimeAvailable) {
+          action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-detect-ollama>检测 Ollama</button>`;
+        } else if (installed && selected) {
+          action = `<span class="settings-ai-local-recommendation-current">当前使用</span>`;
+        } else if (installed) {
+          action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-select-local-model="${escapeHtml(item.name)}">切换</button>`;
+        } else {
+          action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-pull-local-model="${escapeHtml(item.name)}">下载</button>`;
+        }
         return `
-          <div class="settings-ai-local-recommendation ${installed ? "is-installed" : ""} ${selected ? "is-selected" : ""} ${item.verified ? "" : "is-unverified"}">
+          <div class="settings-ai-local-recommendation ${installed ? "is-installed" : ""} ${selected ? "is-selected" : ""} ${item.verified ? "" : "is-unverified"} ${!runtimeAvailable ? "is-preview" : ""}">
             <div class="settings-ai-local-recommendation-main">
               <div class="settings-ai-local-recommendation-title">
                 <strong>${escapeHtml(item.name)}</strong>
@@ -8622,7 +8640,7 @@ function renderAiLocalModelRecommendations() {
               </div>
               <div class="settings-ai-local-recommendation-note">${escapeHtml(item.note)}</div>
               <div class="settings-ai-local-recommendation-meta">
-                <span>${escapeHtml(installed ? "已安装" : "未安装")}</span>
+                <span>${escapeHtml(installed ? "已安装" : runtimeAvailable ? "未安装" : "待检测")}</span>
                 <span>${escapeHtml(item.resource || (item.verified ? "已推荐" : "未验证"))}</span>
               </div>
             </div>
@@ -19338,15 +19356,8 @@ async function runGraphAiAnalysis() {
   graphState.aiAnalysisError = "";
   renderGraphPanel();
   try {
-    if (localOllamaSetupActive()) {
-      const bootstrapResult = await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
-      if (bootstrapResult?.ready !== true) {
-        graphState.aiAnalysisError = `${ollamaBootstrapStatusText(bootstrapResult)}。请先到 AI 设置完成安装、启动或模型下载。`;
-        setStatus(graphState.aiAnalysisError, "warn");
-        return;
-      }
-      renderGraphPanel();
-    }
+    const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
+    if (!localAiReady) return;
     const result = await analyzeDirectoryGraph(directoryId, {
       includeDescendants: true,
       minScore: 0.05,
@@ -19388,6 +19399,18 @@ async function runGraphAiAnalysis() {
   }
 }
 
+async function ensureGraphLocalAiReadyForAnalysis() {
+  if (!localOllamaSetupActive()) return true;
+  const bootstrapResult = await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
+  if (bootstrapResult?.ready === true) {
+    renderGraphPanel();
+    return true;
+  }
+  graphState.aiAnalysisError = `${ollamaBootstrapStatusText(bootstrapResult)}。请先到 AI 设置完成安装、启动或模型下载。`;
+  setStatus(graphState.aiAnalysisError, "warn");
+  return false;
+}
+
 async function runGraphAiConnectForNote(noteId = "") {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId || graphState.aiAnalysisLoading) return false;
@@ -19398,6 +19421,8 @@ async function runGraphAiConnectForNote(noteId = "") {
   setGraphIsolatedWorkflowActiveTab(cleanNoteId, "candidates");
   renderGraphPanel();
   try {
+    const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
+    if (!localAiReady) return false;
     const result = await analyzeDirectoryGraph(directoryId, {
       includeDescendants: true,
       minScore: 0.05,
@@ -21719,6 +21744,11 @@ $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
   const selectLocalModelButton = event.target.closest("[data-settings-ai-select-local-model]");
   if (selectLocalModelButton) {
     await selectInstalledLocalModelFromUi(selectLocalModelButton.getAttribute("data-settings-ai-select-local-model"));
+    return;
+  }
+  const detectOllamaButton = event.target.closest("[data-settings-ai-detect-ollama]");
+  if (detectOllamaButton) {
+    await detectOllamaModels();
     return;
   }
   const pullLocalModelButton = event.target.closest("[data-settings-ai-pull-local-model]");
