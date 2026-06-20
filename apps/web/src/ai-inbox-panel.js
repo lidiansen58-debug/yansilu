@@ -97,7 +97,7 @@ function aiInboxReadableTitle(value = {}) {
   }
   if (type === "QuestionCard" && (isInternalGraphTitle(title) || String(artifactPayload(value).suggestedAction || artifactPayload(value).suggested_action || "").includes("missing_relations"))) {
     const noteTitle = String(artifactPayload(value).noteTitle || artifactPayload(value).note_title || summary || title || "").trim();
-    return noteTitle ? `未关联笔记：${noteTitle}` : "未关联笔记";
+    return noteTitle ? `待关联笔记：${noteTitle}` : "待关联笔记";
   }
   if (type === "LinkSuggestion" && (pair.sourceTitle || pair.targetTitle)) {
     return `可能关联：${pair.sourceTitle || pair.sourceId || "来源笔记"} -> ${pair.targetTitle || pair.targetId || "目标笔记"}`;
@@ -743,18 +743,18 @@ function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false)
   const isIsolated = type === "QuestionCard" && String(payload.suggestedAction || payload.suggested_action || "").includes("missing_relations");
   const link = type === "LinkSuggestion" ? linkSuggestionSummary(active) : null;
   const title = isIsolated
-    ? `未关联笔记：${isolatedNoteTitle || payload.noteId || payload.note_id || "未命名笔记"}`
+    ? `待关联笔记：${isolatedNoteTitle || payload.noteId || payload.note_id || "未命名笔记"}`
     : aiInboxReadableTitle(active);
   const primaryText = type === "LinkSuggestion"
     ? "建立为笔记关系"
     : isIsolated
-      ? "打开笔记处理关联"
+      ? "处理关联"
       : "去图谱确认连接";
   return `
     <section class="ai-inbox-review-brief" aria-label="建议处理重点">
       <div class="ai-inbox-review-brief-head">
         <div>
-          <span>${escapeHtml(isIsolated ? "未入关系网" : type === "BridgeCard" ? "缺少连接" : "关系候选")}</span>
+          <span>${escapeHtml(isIsolated ? "待关联笔记" : type === "BridgeCard" ? "缺少连接" : "关系候选")}</span>
           <strong>${escapeHtml(title)}</strong>
         </div>
         ${renderBadge(aiInboxStatusLabel(active.status || item.status), aiInboxStatusTone(active.status || item.status))}
@@ -770,7 +770,7 @@ function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false)
       }
       <div class="ai-inbox-review-main">
         <strong>${escapeHtml(isIsolated ? "为什么提醒" : "推荐理由")}</strong>
-        <p>${escapeHtml(reason || (isIsolated ? "这条永久笔记还没有正式关系，需要判断是否接入图谱。" : "这条建议还没有足够明确的理由，建议谨慎处理。"))}</p>
+        <p>${escapeHtml(reason || (isIsolated ? "这条永久笔记还没有正式关系，需要处理关联。" : "这条建议还没有足够明确的理由，建议谨慎处理。"))}</p>
       </div>
       ${
         reviewQuestion

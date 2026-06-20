@@ -2040,7 +2040,7 @@ test("graph module sidebar is labeled as graph scope instead of permanent-note b
 
   assert.match(sidebarSource, /\$\("sidebarTitle"\)\.textContent = "图谱笔记范围";/);
   assert.match(sidebarSource, /这里不是永久笔记页；点目录或笔记是在切换图谱观察范围。/);
-  assert.match(sidebarSource, /孤立笔记会在这里用警示色提醒，点进来就能关联一条笔记。/);
+  assert.match(sidebarSource, /待关联笔记会使用和永久笔记盒一致的提示样式；点进来可以关联一条笔记。/);
   assert.doesNotMatch(sidebarSource, /永久笔记浏览/);
 });
 

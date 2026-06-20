@@ -109,6 +109,45 @@ test("AI inbox panel renders draft note promotion for QuestionCard artifacts", (
   assert.match(html, /data-ai-inbox-promote-note="artifact_question_1"/);
 });
 
+test("AI inbox panel names missing-relation graph messages as pending-relation notes", () => {
+  const missingRelationItem = {
+    ...item,
+    artifactId: "artifact_missing_relation_1",
+    type: "QuestionCard",
+    title: "Isolated permanent note",
+    summary: "Graph note needs a relation",
+    primarySourceNoteId: "pn_missing_relation"
+  };
+  const html = renderAiInboxPanel({
+    items: [missingRelationItem],
+    counts: { pending: 1 },
+    selectedArtifactId: "artifact_missing_relation_1",
+    detail: {
+      item: missingRelationItem,
+      artifact: {
+        ...artifact,
+        id: "artifact_missing_relation_1",
+        type: "QuestionCard",
+        title: "Isolated permanent note",
+        summary: "Graph note needs a relation",
+        payload: {
+          suggestedAction: "review_missing_relations",
+          noteId: "pn_missing_relation",
+          noteTitle: "Graph note needs a relation"
+        }
+      }
+    }
+  });
+
+  assert.ok(html.includes("待关联笔记"));
+  assert.ok(html.includes("Graph note needs a relation"));
+  assert.ok(html.includes("处理关联"));
+  assert.ok(html.includes("这条永久笔记还没有正式关系"));
+  assert.doesNotMatch(html, /未关联笔记/);
+  assert.doesNotMatch(html, /未入关系网/);
+  assert.doesNotMatch(html, /打开笔记处理关联/);
+});
+
 test("AI inbox panel renders field suggestion adoption for InsightCard artifacts", () => {
   const html = renderAiInboxPanel({
     items: [{ ...item, artifactId: "artifact_field_1", type: "InsightCard", title: "字段建议：补充 thesis" }],

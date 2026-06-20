@@ -8572,7 +8572,7 @@ export class EditorPane {
     return `
       <div class="semantic-relation-group note-network-alert" data-note-network-alert="isolated">
         <div class="semantic-relation-group-head">
-          <strong>孤立笔记</strong>
+          <strong>待关联笔记</strong>
           <span>${escapeHtml(title)}</span>
         </div>
         <p class="related-empty">还没有和其他永久笔记建立正式关联。先找一条最相关的笔记，说明它们是支持、反驳、限定还是桥接；如果暂时独立，就把理由写在边界里。</p>

@@ -9,7 +9,7 @@ function folderIconSvg(isRoot = false, state = "") {
       <circle cx="12.4" cy="13.4" r=".35" fill="#fff8ee"/>
     `
     : cleanState === "permanent-isolated"
-      ? `<circle cx="12.2" cy="12.1" r="3.05" fill="none" stroke="#34b6c9" stroke-width="1.25" stroke-dasharray="1.8 1.7"/>`
+      ? `<circle cx="12.2" cy="12.1" r="3.05" fill="none" stroke="#d97706" stroke-width="1.25" stroke-dasharray="1.8 1.7"/>`
       : "";
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -24,9 +24,9 @@ function fileIconSvg(state = "", sourceKind = "") {
   const cleanState = String(state || "").trim();
   const cleanSourceKind = String(sourceKind || "").trim();
   const isPermanent = cleanState === "permanent-isolated";
-  const pageFill = isPermanent ? "#f2fbff" : "#f8fafc";
-  const foldFill = isPermanent ? "#dff7ff" : "#eef2f7";
-  const lineStroke = isPermanent ? "#195e76" : "#7c8796";
+  const pageFill = isPermanent ? "#fffbeb" : "#f8fafc";
+  const foldFill = isPermanent ? "#fdecc8" : "#eef2f7";
+  const lineStroke = isPermanent ? "#92400e" : "#7c8796";
   const sourceOverlay = cleanSourceKind === "literature"
     ? `
       <circle cx="3.7" cy="12.2" r="2.45" fill="#dbeafe" stroke="#3f78a8" stroke-width=".9"/>
@@ -41,8 +41,8 @@ function fileIconSvg(state = "", sourceKind = "") {
   const stateOverlay = cleanState === "source-pending"
     ? `<circle cx="12.35" cy="12.15" r="2.35" fill="#d92d20" stroke="#fff8ee" stroke-width="1.05"/>`
     : cleanState === "permanent-isolated"
-        ? `<circle cx="8" cy="8" r="6.15" fill="none" stroke="#34b6c9" stroke-width="1.05" stroke-dasharray="2 1.8"/>
-           <circle cx="12" cy="4.3" r="1.25" fill="#34d399" stroke="#f2fbff" stroke-width=".55"/>`
+        ? `<circle cx="8" cy="8" r="6.15" fill="none" stroke="#d97706" stroke-width="1.05" stroke-dasharray="2 1.8"/>
+           <circle cx="12" cy="4.3" r="1.25" fill="#0f766e" stroke="#fffbeb" stroke-width=".55"/>`
         : "";
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -128,13 +128,13 @@ function folderHasPendingSourceNotes(state = {}, folderId = "", getFolderFiles =
 
 function folderStateTitle(state = "") {
   if (state === "source-pending") return "这个目录下还有随笔或文献笔记没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这个目录下还有需要关联的孤立笔记。";
+  if (state === "permanent-isolated") return "这个目录下还有待关联的永久笔记。";
   return "";
 }
 
 function noteIconStateTitle(state = "", sourceKind = "") {
   if (state === "source-pending") return sourceKind === "literature" ? "这条文献笔记还没有创建永久笔记。" : "这条随笔还没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这条永久笔记还是孤立状态，建议先关联一条真正相关的永久笔记。";
+  if (state === "permanent-isolated") return "这条永久笔记待关联，建议先关联一条真正相关的永久笔记。";
   return "";
 }
 
@@ -1020,7 +1020,7 @@ export class ExplorerPane {
       : "";
     const showAssociateButton = disconnected;
     const associateButton = showAssociateButton
-      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="为这条孤立笔记关联一条真正相关的永久笔记">关联</button>`
+      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="为这条待关联笔记连接一条真正相关的永久笔记">关联</button>`
       : "";
     const trail = permanentSimplifiedScope
       ? `${associateButton}`

@@ -508,7 +508,7 @@ test("graph note browser keeps isolated permanent notes inline with direct relat
   assert.doesNotMatch(html, /未入星系|接入网络|建立关系/);
 });
 
-test("graph note browser gives isolated notes an explicit warning color", () => {
+test("graph note browser uses the same pending-relation style as permanent note boxes", () => {
   const html = readRepoFile("apps", "web", "src", "prototype.html");
   const appSource = readRepoFile("apps", "web", "src", "prototype-app.js");
   const appIndex = html.indexOf('<div class="app">');
@@ -520,12 +520,14 @@ test("graph note browser gives isolated notes an explicit warning color", () => 
   assert.ok(moduleWorkspaceIndex > listAreaIndex, "expected module workspace to be a sibling after the sidebar list");
   assert.doesNotMatch(html, /#moduleWorkspace\.graph-mode \.file-row\.is-disconnected/);
   assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.42\)/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(245, 158, 11, 0\.2\)/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-badge-warning \{[\s\S]*#9a3412/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-inline-action\.warn \{[\s\S]*#ea580c/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected\.active \{[\s\S]*rgba\(217, 119, 6, 0\.68\)/);
+  assert.match(html, /\.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.38\)/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.38\)/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(245, 158, 11, 0\.18\)/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-badge-warning \{[\s\S]*#92400e/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-inline-action\.warn \{[\s\S]*#0f8a7d/);
+  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected\.active \{[\s\S]*rgba\(20, 184, 166, 0\.58\)/);
   assert.match(appSource, /document\.querySelector\("\.app"\)\?\.classList\.toggle\("graph-mode", graphMode\);/);
+  assert.match(appSource, /待关联笔记会使用和永久笔记盒一致的提示样式/);
 });
 
 test("graph browser keeps folder selection ahead of current editor note highlight", () => {
@@ -853,7 +855,7 @@ test("isolated permanent note detail prompts relations or a temporary independen
   const source = readRepoFile("apps/web/src/components-editor-pane.js");
 
   assert.match(source, /data-note-network-alert="isolated"/);
-  assert.match(source, /孤立笔记/);
+  assert.match(source, /待关联笔记/);
   assert.match(source, /data-note-main-route-action="relations">关联一条笔记/);
   assert.match(source, /data-note-isolated-hold/);
   assert.match(source, /记录暂时独立/);
@@ -864,7 +866,9 @@ test("isolated permanent note detail prompts relations or a temporary independen
 test("graph isolated keep and hold actions focus boundary drafts instead of only opening notes", () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
 
-  assert.match(source, /openGraphFollowupNote\(cleanNoteId, cleanAction === "keep" \? "isolate-keep" : "isolate-hold"\)/);
+  assert.match(source, /function openGraphIsolatedDecisionAction\(noteId = "", action = ""\)/);
+  assert.match(source, /setGraphIsolatedWorkflowActiveTab\(cleanNoteId, "hold"\)/);
+  assert.match(source, /openGraphIsolatedDecisionAction\(noteId, action\);/);
   assert.match(source, /cleanAction === "isolate-keep" \|\| cleanAction === "isolate-hold"/);
   assert.match(source, /暂时独立：这条判断现在先不连线/);
   assert.match(source, /暂存观察：这条笔记现在还缺少稳定判断/);

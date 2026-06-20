@@ -444,9 +444,9 @@
     .explorer-item .tree-state-icon[data-folder-state="permanent-isolated"],
     .explorer-item .tree-state-icon[data-note-state="permanent-isolated"] {
       background:
-        radial-gradient(circle at 78% 20%, rgba(52, 211, 153, 0.22), transparent 36%),
-        rgba(232, 251, 255, 0.86);
-      box-shadow: inset 0 0 0 1px rgba(52, 182, 201, 0.18);
+        radial-gradient(circle at 72% 24%, rgba(251, 191, 36, 0.28), transparent 38%),
+        rgba(255, 251, 235, 0.96);
+      box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.22);
     }
     .type-badge {
       display: none;
@@ -676,18 +676,18 @@
       color: #22405f;
     }
     .file-row.is-disconnected {
-      border-color: rgba(217, 119, 6, 0.42);
+      border-color: rgba(217, 119, 6, 0.38);
       background:
-        linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(255, 251, 235, 0.9) 54%),
-        rgba(255, 255, 255, 0.64);
+        linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(255, 247, 237, 0.96) 62%),
+        rgba(255, 255, 255, 0.88);
       box-shadow:
-        inset 4px 0 0 rgba(217, 119, 6, 0.62),
-        0 10px 22px rgba(180, 83, 9, 0.08);
+        inset 4px 0 0 rgba(217, 119, 6, 0.54),
+        0 10px 22px rgba(180, 83, 9, 0.06);
     }
     .file-row.is-disconnected:not(.active):hover {
-      border-color: rgba(180, 83, 9, 0.58);
+      border-color: rgba(180, 83, 9, 0.48);
       background:
-        linear-gradient(90deg, rgba(245, 158, 11, 0.24), rgba(255, 247, 237, 0.96) 54%),
+        linear-gradient(90deg, rgba(245, 158, 11, 0.22), rgba(255, 247, 237, 0.98) 62%),
         #ffffff;
     }
     .file-row.is-disconnected-start {
@@ -703,9 +703,9 @@
       min-height: 18px;
       padding: 0 8px;
       border-radius: 999px;
-      border: 1px dashed rgba(198, 95, 32, 0.36);
-      background: rgba(255, 244, 236, 0.98);
-      color: #a54816;
+      border: 1px dashed rgba(180, 83, 9, 0.28);
+      background: rgba(255, 251, 235, 0.98);
+      color: #92400e;
       font-size: 10px;
       font-weight: 800;
       letter-spacing: .06em;
@@ -714,21 +714,24 @@
     }
     .file-row.is-disconnected .name,
     .file-row.is-disconnected .icon {
-      color: #7c2d12;
+      color: #5f2c0b;
     }
     .file-row.is-disconnected .item-badge-warning {
-      border-color: rgba(180, 83, 9, 0.48);
-      background: linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(254, 215, 170, 0.82));
-      color: #9a3412;
+      border-color: rgba(180, 83, 9, 0.3);
+      background: rgba(255, 251, 235, 0.92);
+      color: #92400e;
     }
     .file-row.is-disconnected .name strong::after {
       content: none;
     }
     .file-row.is-disconnected.active {
-      border-color: rgba(217, 119, 6, 0.68);
+      border-color: rgba(20, 184, 166, 0.58);
+      background:
+        linear-gradient(90deg, rgba(20, 184, 166, 0.12), rgba(240, 253, 250, 0.98) 58%),
+        #ffffff;
       box-shadow:
-        inset 4px 0 0 rgba(217, 119, 6, 0.82),
-        0 14px 28px rgba(180, 83, 9, 0.12),
+        inset 4px 0 0 rgba(20, 184, 166, 0.72),
+        0 12px 24px rgba(15, 118, 110, 0.08),
         inset 0 1px 0 rgba(255,255,255,0.78);
     }
     .item-inline-action {
@@ -753,10 +756,10 @@
       outline: none;
     }
     .item-inline-action.warn {
-      border-color: rgba(180, 83, 9, 0.72);
-      background: linear-gradient(180deg, #ea580c, #c2410c);
+      border-color: rgba(15, 118, 110, 0.72);
+      background: linear-gradient(180deg, #0f8a7d, #0f766e);
       color: #ffffff;
-      box-shadow: 0 8px 16px rgba(180, 83, 9, 0.18);
+      box-shadow: 0 8px 16px rgba(15, 118, 110, 0.14);
     }
     .file-row.is-disconnected .item-inline-action.warn {
       min-width: 68px;
@@ -764,59 +767,60 @@
     }
     .item-inline-action.warn:hover,
     .item-inline-action.warn:focus-visible {
-      border-color: rgba(154, 52, 18, 0.78);
-      background: linear-gradient(180deg, #f97316, #b45309);
+      border-color: rgba(13, 106, 99, 0.86);
+      background: linear-gradient(180deg, #109987, #0b6f67);
       color: #ffffff;
     }
     .app.graph-mode #listArea .file-row.is-disconnected {
-      border-color: rgba(217, 119, 6, 0.42);
+      border-color: rgba(217, 119, 6, 0.38);
       background:
-        linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(255, 251, 235, 0.92) 54%),
-        rgba(255, 255, 255, 0.74);
+        linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(255, 247, 237, 0.96) 62%),
+        rgba(255, 255, 255, 0.88);
       box-shadow:
-        inset 4px 0 0 rgba(217, 119, 6, 0.7),
-        0 10px 22px rgba(180, 83, 9, 0.08);
+        inset 4px 0 0 rgba(217, 119, 6, 0.54),
+        0 10px 22px rgba(180, 83, 9, 0.06);
     }
     .app.graph-mode #listArea .file-row.is-disconnected:not(.active):hover {
-      border-color: rgba(180, 83, 9, 0.58);
+      border-color: rgba(180, 83, 9, 0.48);
       background:
-        linear-gradient(90deg, rgba(245, 158, 11, 0.26), rgba(255, 247, 237, 0.96) 54%),
+        linear-gradient(90deg, rgba(245, 158, 11, 0.22), rgba(255, 247, 237, 0.98) 62%),
         #ffffff;
     }
     .app.graph-mode #listArea .file-row.is-disconnected .name,
     .app.graph-mode #listArea .file-row.is-disconnected .icon {
-      color: #7c2d12;
+      color: #5f2c0b;
     }
     .app.graph-mode #listArea .file-row.is-disconnected .tree-state-icon[data-note-state="permanent-isolated"] {
       background:
-        radial-gradient(circle at 72% 24%, rgba(251, 191, 36, 0.46), transparent 38%),
-        rgba(255, 237, 213, 0.96);
-      box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.34);
+        radial-gradient(circle at 72% 24%, rgba(251, 191, 36, 0.28), transparent 38%),
+        rgba(255, 251, 235, 0.96);
+      box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.22);
     }
     .app.graph-mode #listArea .file-row.is-disconnected .item-badge-warning {
-      border-color: rgba(180, 83, 9, 0.48);
-      background: linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(254, 215, 170, 0.82));
-      color: #9a3412;
+      border-color: rgba(180, 83, 9, 0.3);
+      background: rgba(255, 251, 235, 0.92);
+      color: #92400e;
     }
     .app.graph-mode #listArea .file-row.is-disconnected .item-inline-action.warn {
-      border-color: rgba(180, 83, 9, 0.72);
-      background: linear-gradient(180deg, #ea580c, #c2410c);
+      border-color: rgba(15, 118, 110, 0.72);
+      background: linear-gradient(180deg, #0f8a7d, #0f766e);
       color: #ffffff;
-      box-shadow: 0 8px 16px rgba(180, 83, 9, 0.18);
+      box-shadow: 0 8px 16px rgba(15, 118, 110, 0.14);
     }
     .app.graph-mode #listArea .file-row.is-disconnected .item-inline-action.warn:hover,
     .app.graph-mode #listArea .file-row.is-disconnected .item-inline-action.warn:focus-visible {
-      border-color: rgba(154, 52, 18, 0.78);
-      background: linear-gradient(180deg, #f97316, #b45309);
+      border-color: rgba(13, 106, 99, 0.86);
+      background: linear-gradient(180deg, #109987, #0b6f67);
+      color: #ffffff;
     }
     .app.graph-mode #listArea .file-row.is-disconnected.active {
-      border-color: rgba(217, 119, 6, 0.68);
+      border-color: rgba(20, 184, 166, 0.58);
       background:
-        linear-gradient(90deg, rgba(245, 158, 11, 0.28), rgba(255, 247, 237, 0.98) 56%),
+        linear-gradient(90deg, rgba(20, 184, 166, 0.12), rgba(240, 253, 250, 0.98) 58%),
         #ffffff;
       box-shadow:
-        inset 4px 0 0 rgba(217, 119, 6, 0.82),
-        0 14px 28px rgba(180, 83, 9, 0.12),
+        inset 4px 0 0 rgba(20, 184, 166, 0.72),
+        0 12px 24px rgba(15, 118, 110, 0.08),
         inset 0 1px 0 rgba(255,255,255,0.78);
     }
     .folder-row-root .name {

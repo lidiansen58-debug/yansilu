@@ -6669,7 +6669,7 @@ function renderSidebarTitle() {
     if (moduleSidebar) moduleSidebar.innerHTML = "";
     if (sidebarFoot) {
       sidebarFoot.classList.remove("hidden");
-      sidebarFoot.textContent = "孤立笔记会在这里用警示色提醒，点进来就能关联一条笔记。";
+      sidebarFoot.textContent = "待关联笔记会使用和永久笔记盒一致的提示样式；点进来可以关联一条笔记。";
     }
     return;
   }
@@ -12107,7 +12107,7 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
     ? "先写几条永久笔记，再用关系把观点连接起来。"
     : !edges.length
       ? bridgeGaps.length
-        ? `当前至少还有 ${bridgeGaps.length} 个缺少连接的地方。先把未关联笔记或断开的主题群连回主结构，再谈图谱阅读和写作路径。`
+        ? `当前至少还有 ${bridgeGaps.length} 个缺少连接的地方。先把待关联笔记或断开的主题群连回主结构，再谈图谱阅读和写作路径。`
         : "当前还没有明确关系，先把两条笔记之间的支持、限定、反驳或桥接写出来。"
     : tensions.length || conflictItems.length
       ? `它不只是收集相近观点，还保留了 ${tensions.length + conflictItems.length} 个反方或边界信号，适合继续追问“这个判断在什么条件下不成立”。`
@@ -12120,7 +12120,7 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
   const prompts = !edges.length
     ? [
         nodes.length > 1 ? "这几条笔记之间最缺的那一步过渡判断是什么？" : "再补一条相关永久笔记，图谱才会开始形成结构。",
-        bridgeGaps.length ? `先从 ${bridgeGaps[0]?.noteTitles?.[0] || "当前孤立笔记"} 开始，给它补一条能回到主结构的桥接关系。` : "先挑两条笔记，写出明确的支持、限定或反驳关系。",
+        bridgeGaps.length ? `先从 ${bridgeGaps[0]?.noteTitles?.[0] || "当前待关联笔记"} 开始，给它补一条能回到主结构的桥接关系。` : "先挑两条笔记，写出明确的支持、限定或反驳关系。",
         "桥接写清后，再回来看哪些关系理由还偏薄。"
       ]
     : [
@@ -12202,7 +12202,7 @@ function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
                   ? `建议先把它和「${targetTitle}」补上一条说得清理由的关联。`
                   : "它现在还挂在主结构外面，先补一条能把它带回来的关联。";
                 const rationale = graphLocalizedActionText(gap?.suggestedAction || gap?.rationale, counterpartSummary);
-                const metaLabel = gapType === "disconnected_cluster" ? "断开的主题群" : "未关联笔记";
+                const metaLabel = gapType === "disconnected_cluster" ? "断开的主题群" : "待关联笔记";
                 const highlightNodeIds = [sourceNoteId, targetNoteId].filter(Boolean).join(",");
                 return `
                   <div class="graph-focus-card graph-bridge-gap-card" data-graph-bridge-gap-id="${escapeHtml(String(gap?.id || sourceNoteId || "").trim())}" data-graph-thinking-highlight="true" data-graph-thinking-node-ids="${escapeHtml(highlightNodeIds)}" data-graph-thinking-title="${escapeHtml(sourceTitle)}" data-graph-thinking-kicker="潜在关联" data-graph-thinking-detail="${escapeHtml(rationale || counterpartSummary)}">
@@ -12526,7 +12526,7 @@ const GRAPH_WORKBENCH_TAB_META = {
     emptyLabel: "暂无关系待办",
     panelTitle: "关系待办",
     statusLabel: "关系待办",
-    note: "优先处理未关联笔记、缺少连接和关系理由太薄的地方。"
+    note: "优先处理待关联笔记、缺少连接和关系理由太薄的地方。"
   },
   questions: {
     key: "questions",
@@ -12930,7 +12930,7 @@ function resolveGraphIsolatedSelection(selection = null, isolatedNotes = [], nod
       isolatedIndex: matchIndex,
       isolatedKey: graphIsolatedSelectionKey(note, matchIndex),
       noteId: resolvedNoteId,
-      title: String(note?.title || resolvedNoteId || "孤立笔记").trim() || "孤立笔记"
+      title: String(note?.title || resolvedNoteId || "待关联笔记").trim() || "待关联笔记"
     };
   }
   if (noteId && nodes.some((node) => String(node?.id || "").trim() === noteId)) {
@@ -12940,7 +12940,7 @@ function resolveGraphIsolatedSelection(selection = null, isolatedNotes = [], nod
       isolatedIndex: -1,
       isolatedKey: noteId,
       noteId,
-      title: String(node?.title || noteId || "孤立笔记").trim() || "孤立笔记"
+      title: String(node?.title || noteId || "待关联笔记").trim() || "待关联笔记"
     };
   }
   return null;
@@ -13130,7 +13130,7 @@ function graphNodeRoleMeta(node = {}, directEdges = []) {
   const degree = Number(node?.degree || directEdges.length || 0);
   if (!degree) {
     return {
-      label: "孤立笔记",
+      label: "待关联笔记",
       tone: "isolated",
       detail: "它暂时还没有进入任何主题群。先判断：这是值得保留的独立观察，还是缺少一条能说清理由的关系。",
       prompt: "它应该暂时独立，还是能连接到一个正在形成的主题？"
@@ -13195,7 +13195,7 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
   let quality = "关系清楚";
   let qualityDetail = "已有关系可以支撑网络阅读，继续检查是否能形成主题。";
   if (!degree) {
-    quality = "还未接入网络";
+    quality = "还没有正式关系";
     qualityDetail = aiCandidates.length || localCandidates.length ? "已有候选，先确认一条真正成立的关系。" : "先找一条能说清理由的连接。";
   } else if (missingReasonCount) {
     quality = "理由待补";
@@ -15045,7 +15045,7 @@ function renderGraphIsolatedNextStepActions(noteId = "", { isolatedNotes = [], n
     <section class="graph-isolated-next-step" aria-label="保存关系后的下一步">
       <div>
         <strong>确认关系后继续</strong>
-        <p>${escapeHtml(nextItem ? `下一条未关联笔记：“${nextItem.title}”。` : "当前范围暂时没有下一条未关联笔记，可以回到这条笔记周边继续阅读。")}</p>
+        <p>${escapeHtml(nextItem ? `下一条待关联笔记：“${nextItem.title}”。` : "当前范围暂时没有下一条待关联笔记，可以回到这条笔记周边继续阅读。")}</p>
       </div>
       <div class="graph-isolated-next-step-actions">
         ${
@@ -15159,7 +15159,7 @@ function renderGraphIsolatedDecisionForm(noteId = "", { note = {}, decision = {}
       <div class="graph-isolated-decision-form-head">
         <div>
           <small>暂不接入时要留下原因</small>
-          <strong>避免之后反复看到同一条孤立笔记</strong>
+          <strong>避免之后反复看到同一条待关联笔记</strong>
         </div>
         <span>保存到当前笔记</span>
       </div>
@@ -15197,7 +15197,7 @@ function renderGraphIsolatedWorkflowTabs({ noteId = "", isolatedQueueMarkup = ""
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return "";
   return `
-    <section class="graph-isolated-workflow" aria-label="未关联笔记处理工作台">
+    <section class="graph-isolated-workflow" aria-label="待关联笔记处理工作台">
       <div class="graph-isolated-workflow-head">
         <div>
           <strong>把这条笔记接入关系网</strong>
@@ -15585,7 +15585,7 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
   if (!isolated) return "";
   const noteId = String(isolated.noteId || "").trim();
   const note = nodeMap.get(noteId) || state.notes.find((item) => String(item?.id || "").trim() === noteId) || {};
-  const title = String(isolated.title || note?.title || noteId || "孤立笔记").trim() || "孤立笔记";
+  const title = String(isolated.title || note?.title || noteId || "待关联笔记").trim() || "待关联笔记";
   const item = isolated.item || {};
   const thesis = String(item?.thesis || note?.thesis || "").trim();
   const decision = graphIsolatedDecisionMeta(item, note);
@@ -15631,11 +15631,11 @@ function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [
   ];
   return renderGraphSelectionShell({
     className: `is-isolated is-${decision.tone}`,
-    ariaLabel: "孤立笔记整理详情",
-    kicker: "孤立笔记",
+    ariaLabel: "待关联笔记整理详情",
+    kicker: "待关联笔记",
     title,
     meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "还没有正式关系",
-    closeLabel: "收起孤立笔记整理",
+    closeLabel: "收起待关联笔记整理",
     roleLabel: "",
     roleDetail: "",
     task: null,
@@ -15662,7 +15662,7 @@ function renderGraphIsolatedCompletePanel({ selection = null, isolatedNotes = []
   }).length;
   return renderGraphSelectionShell({
     className: "is-isolated is-complete",
-    ariaLabel: "未关联笔记已处理",
+    ariaLabel: "待关联笔记已处理",
     kicker: "已接入关系网",
     title,
     meta: `${noteTypeLabel(note.noteType)} · 当前关系 ${directRelationCount} 条`,
@@ -16209,7 +16209,7 @@ function graphNodeAttentionReasons(node = {}, { selected = false, inSelectedThem
   const reasons = [];
   if (selected) reasons.push("当前选中");
   if (node.isFocused) reasons.push("当前焦点");
-  if (node.isGraphIsolatedCandidate || selectedIsolated) reasons.push("孤立笔记");
+  if (node.isGraphIsolatedCandidate || selectedIsolated) reasons.push("待关联笔记");
   if (inSelectedTheme) reasons.push("主题候选成员");
   if (inSelectedBridge) reasons.push("桥接候选两端");
   if (node.isHub && !node.isFocused) reasons.push("关系最密集");
@@ -17263,7 +17263,7 @@ function renderGraphVisualMap({
             : denseDirectoryMode && starRank <= 1
         );
       const neighbors = [...(adjacencyMap.get(node.id) || [])];
-      const metaLabel = node.isGraphIsolatedCandidate ? "孤立笔记" : noteTypeLabel(node.noteType);
+      const metaLabel = node.isGraphIsolatedCandidate ? "待关联笔记" : noteTypeLabel(node.noteType);
       const attentionReasons = graphNodeAttentionReasons(node, { selected, inSelectedTheme, selectedIsolated, inSelectedBridge });
       const attentionText = attentionReasons.length ? `；${attentionReasons.join("、")}` : "";
       const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || selected || inSelectedTheme || selectedIsolated || inSelectedBridge || starRank >= 4;
@@ -17288,7 +17288,7 @@ function renderGraphVisualMap({
       const glintFade = pointLike ? Math.max(0.18, 0.82 - clusterArmDepth * 0.52) : 1;
       const nodeStyle = `--graph-node-core-alpha:${pointFade.toFixed(2)};--graph-node-glint-alpha:${glintFade.toFixed(2)};`;
       return `
-        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" style="${nodeStyle}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立笔记" : "查看笔记角色"} ${escapeHtml(title)}">
+        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" style="${nodeStyle}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理待关联笔记" : "查看笔记角色"} ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
           <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
           ${Number(node.auraRadius || 0) > 0 ? `<circle class="graph-map-node-aura is-${escapeHtml(node.starTier || "minor")}" cx="${node.x}" cy="${node.y}" r="${Number(node.auraRadius || 0)}"></circle>` : ""}
@@ -17503,7 +17503,7 @@ function renderGraphVisualMap({
         }
         ${
           isolatedSelectionOverlayMarkup
-            ? `<div class="graph-selection-overlay" role="dialog" aria-modal="false" aria-label="未关联笔记处理浮层">${isolatedSelectionOverlayMarkup}</div>`
+            ? `<div class="graph-selection-overlay" role="dialog" aria-modal="false" aria-label="待关联笔记处理浮层">${isolatedSelectionOverlayMarkup}</div>`
             : ""
         }
       </div>
@@ -17684,7 +17684,7 @@ function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(),
         ${relationMetricItems || `<span>暂无正式关系</span>`}
       </div>
       <div class="graph-focus-next">${escapeHtml(nextHint)}</div>
-      ${sections || `<div class="graph-empty">当前这条笔记周围还没有正式关系。先从孤立笔记或 AI 候选里确认一条关系，再回来看图谱。</div>`}
+      ${sections || `<div class="graph-empty">当前这条笔记周围还没有正式关系。先从待关联笔记或 AI 候选里确认一条关系，再回来看图谱。</div>`}
     </aside>
   `;
 }
@@ -18135,7 +18135,7 @@ function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()
     <div class="graph-map-card">
       <div class="graph-map-head">
         <strong>结构预览</strong>
-        <small>${escapeHtml(edges.length ? `展示前 ${Math.min(edges.length, 5)} 条关系` : "当前主要是孤立笔记")}</small>
+        <small>${escapeHtml(edges.length ? `展示前 ${Math.min(edges.length, 5)} 条关系` : "当前主要是待关联笔记")}</small>
       </div>
       <div class="graph-map" aria-label="当前图谱结构预览">
         ${rows
@@ -18172,7 +18172,7 @@ function renderGraphAiAnalysisCard(options = {}) {
       <summary class="graph-collapsible-summary">
         <div>
           <div class="graph-section-title">AI 图谱初判</div>
-          <div class="graph-section-note">只生成待审候选：主题、缺少连接、弱关系和未关联笔记都不会直接写入图谱。</div>
+          <div class="graph-section-note">只生成待审候选：主题、缺少连接、弱关系和待关联笔记都不会直接写入图谱。</div>
         </div>
         <span class="graph-collapsible-badge">${loading ? "分析中" : `${totalCandidates} 项`}</span>
       </summary>
@@ -18203,7 +18203,7 @@ function renderGraphAiAnalysisCard(options = {}) {
                   )}</small>
                 </div>
               `
-              : `<div class="graph-empty">运行一次本地图谱扫描，查看可能的主题、缺少连接和未关联笔记。</div>`
+              : `<div class="graph-empty">运行一次本地图谱扫描，查看可能的主题、缺少连接和待关联笔记。</div>`
         }
       </div>
     </details>
@@ -18230,7 +18230,7 @@ function buildGraphQuestionSpotSummary({ reviewQueueTotal = 0, bridgeGaps = [], 
     { key: "bridge", label: "缺少连接", count: Math.max(Number(bridgeGaps?.length || 0), bridgeCandidateCount) },
     { key: "review", label: "关系待复核", count: Math.max(Number(reviewQueueTotal || 0), reviewCandidateCount) },
     { key: "conflict", label: "反方或边界", count: Number(conflictCount || 0) },
-    { key: "isolated", label: "未关联笔记", count: isolatedCount }
+    { key: "isolated", label: "待关联笔记", count: isolatedCount }
   ].filter((item) => Number(item.count || 0) > 0);
   const total = categories.reduce((sum, item) => sum + Number(item.count || 0), 0);
   const detail = categories.length
@@ -18414,7 +18414,7 @@ function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], revi
       tone: "bridge",
       kicker: gapType === "disconnected_cluster" ? "断开的主题群" : "缺少连接",
       title: sourceTitle,
-      meta: targetTitle ? `建议连接到「${targetTitle}」` : "未关联笔记",
+      meta: targetTitle ? `建议连接到「${targetTitle}」` : "待关联笔记",
       detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale, "这条笔记可能需要一条中间判断，才能回到当前结构。"),
       question: targetTitle ? `它和「${targetTitle}」之间缺的是证据、限定、反方，还是一个中间概念？` : "它应当保持独立，还是只是缺少一条能说明理由的连接？",
       actionLabel: "判断连接",
@@ -18509,8 +18509,8 @@ function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], revi
       priority: 64 - index,
       view: "organize",
       tone: "isolated",
-      kicker: "孤立笔记",
-      title: String(note?.title || graphThinkingNoteTitle(nodeMap, noteId, "孤立笔记")).trim() || "孤立笔记",
+      kicker: "待关联笔记",
+      title: String(note?.title || graphThinkingNoteTitle(nodeMap, noteId, "待关联笔记")).trim() || "待关联笔记",
       meta: "暂未进入主题群",
       detail: String(note?.thesis || "判断它应当桥接到现有主题，还是先留在暂存。").trim(),
       question: "它暂时游离，是因为真的独特，还是因为还没有写出关系理由？",
@@ -18751,7 +18751,7 @@ function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
       <div class="graph-thinking-panel-head">
         <div>
           <strong>${escapeHtml(summary.label || "待判断内容")}</strong>
-          <span>${escapeHtml(summary.detail || "按需查看主题、孤立笔记、潜在连接和关系复核。")}</span>
+          <span>${escapeHtml(summary.detail || "按需查看主题、待关联笔记、潜在连接和关系复核。")}</span>
         </div>
         <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭待判断面板" title="关闭待判断内容">${renderGraphIcon("close")}</button>
       </div>
@@ -18768,7 +18768,7 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
     activeTab.key === "clues"
       ? {
           title: "从最影响图谱可读性的地方开始",
-          detail: "先处理未关联笔记和缺少连接；已有关系只在需要补理由时再打开。"
+          detail: "先处理待关联笔记和缺少连接；已有关系只在需要补理由时再打开。"
         }
       : {
           title: "每次只追一个问题",
@@ -23120,7 +23120,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
       const isolatedNoteId = String(isolatedSelection.getAttribute("data-graph-isolated-note") || "").trim();
       if (isolatedNoteId) setGraphIsolatedWorkflowActiveTab(isolatedNoteId, "candidates");
       openGraphSelection({ kind: "isolated", isolatedKey });
-      setStatus("已打开孤立笔记整理", "ok");
+      setStatus("已打开待关联笔记整理", "ok");
     }
     return;
   }
@@ -23352,7 +23352,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     const isolatedKey = String(graphNode.getAttribute("data-graph-isolated-key") || "").trim();
     if (isolatedKey) {
       openGraphSelection({ kind: "isolated", isolatedKey, noteId: nodeId });
-      setStatus(`已打开孤立笔记整理：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
+      setStatus(`已打开待关联笔记整理：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
       return;
     }
     if (nodeId) {
@@ -23627,7 +23627,7 @@ $("graphCanvas")?.addEventListener("keydown", async (event) => {
     const isolatedKey = String(graphNode.getAttribute("data-graph-isolated-key") || "").trim();
     if (isolatedKey) {
       openGraphSelection({ kind: "isolated", isolatedKey, noteId: nodeId });
-      setStatus(`已打开孤立笔记整理：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
+      setStatus(`已打开待关联笔记整理：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
       return;
     }
     if (nodeId) {
