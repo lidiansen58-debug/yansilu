@@ -12495,6 +12495,31 @@
     .settings-detail-column {
       min-width: 0;
     }
+    .settings-mobile-item-switcher {
+      display: none;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(205, 216, 218, 0.94);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+      min-width: 0;
+    }
+    .settings-mobile-item-switcher label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #526273;
+    }
+    .settings-mobile-item-switcher select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid rgba(191, 203, 207, 0.95);
+      border-radius: 10px;
+      padding: 0 12px;
+      background: #fff;
+      color: #172033;
+      font: inherit;
+    }
     .settings-pane {
       display: grid;
       gap: 12px;
@@ -12569,6 +12594,9 @@
       grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
       align-items: start;
     }
+    .settings-support-intro {
+      grid-column: 1 / -1;
+    }
     .settings-card {
       border: 1px solid rgba(210, 220, 217, 0.92);
       border-radius: 16px;
@@ -12634,6 +12662,45 @@
       font-size: 12px;
       line-height: 1.55;
       color: #64748b;
+    }
+    .settings-ai-flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      min-width: 0;
+    }
+    .settings-ai-flow-step {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr);
+      gap: 4px 8px;
+      align-items: start;
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid rgba(226, 232, 240, 0.94);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .settings-ai-flow-step span {
+      grid-row: span 2;
+      display: inline-grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: #eef6ff;
+      color: #245b80;
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .settings-ai-flow-step strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .settings-ai-flow-step small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.45;
     }
     .settings-ai-setup-choice {
       display: grid;
@@ -12897,50 +12964,120 @@
       white-space: nowrap;
     }
     .settings-ai-local-recommendations {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      padding: 10px 12px;
+      display: grid;
+      gap: 10px;
+      padding: 12px;
       border: 1px solid #dde6ef;
       border-radius: 12px;
       background: #f8fafc;
+      min-width: 0;
     }
     .settings-ai-local-recommendations-head {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      justify-content: space-between;
       color: #172033;
       font-size: 12px;
       font-weight: 800;
+      min-width: 0;
+    }
+    .settings-ai-local-recommendations-head small {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 650;
+      line-height: 1.4;
+      text-align: right;
     }
     .settings-ai-local-recommendation-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 8px;
       min-width: 0;
     }
     .settings-ai-local-recommendation {
-      display: inline-flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
-      gap: 6px;
-      min-height: 28px;
-      padding: 4px 8px;
+      gap: 10px;
+      min-height: 112px;
+      padding: 10px;
       border: 1px solid #e2e8f0;
-      border-radius: 999px;
+      border-radius: 12px;
       background: #ffffff;
       color: #475569;
       font-size: 12px;
-      line-height: 1.35;
+      line-height: 1.45;
+      min-width: 0;
     }
     .settings-ai-local-recommendation.is-installed {
       border-color: #bbf7d0;
       background: #f0fdf4;
     }
+    .settings-ai-local-recommendation.is-selected {
+      border-color: #86efac;
+      box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.22);
+    }
+    .settings-ai-local-recommendation.is-unverified {
+      border-color: #fed7aa;
+      background: #fffaf2;
+    }
+    .settings-ai-local-recommendation-main {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .settings-ai-local-recommendation-title {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: baseline;
+      min-width: 0;
+    }
     .settings-ai-local-recommendation strong {
       color: #172033;
       font-weight: 850;
+      overflow-wrap: anywhere;
     }
-    .settings-ai-local-recommendation-status {
+    .settings-ai-local-recommendation-title span {
       color: #0f766e;
       font-weight: 800;
+    }
+    .settings-ai-local-recommendation-note {
+      color: #475569;
+      overflow-wrap: anywhere;
+    }
+    .settings-ai-local-recommendation-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      color: #64748b;
+      font-size: 11px;
+    }
+    .settings-ai-local-recommendation-meta span,
+    .settings-ai-local-recommendation-current {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(226, 232, 240, 0.72);
+      white-space: nowrap;
+    }
+    .settings-ai-local-recommendation-current {
+      color: #0f766e;
+      font-weight: 800;
+      background: rgba(187, 247, 208, 0.72);
+    }
+    .settings-ai-local-recommendation-action {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      min-width: 68px;
+    }
+    .settings-ai-local-recommendation-action .mini-btn {
+      min-height: 34px;
+      white-space: nowrap;
     }
     .settings-ai-wizard-list {
       display: grid;
@@ -13284,9 +13421,40 @@
     .settings-route-preview-copy {
       color: #475569;
     }
+    .settings-route-preview-facts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      min-width: 0;
+    }
+    .settings-route-preview-fact {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid #e5edf3;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .settings-route-preview-fact span {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 750;
+    }
+    .settings-route-preview-fact strong {
+      color: #172033;
+      font-size: 13px;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
     .settings-route-preview-meta {
       color: #64748b;
       font-size: 12px;
+    }
+    .settings-route-preview-privacy {
+      color: #526273;
+      font-size: 12px;
+      line-height: 1.55;
     }
     .settings-route-preview-action {
       margin-top: 2px;
@@ -13452,6 +13620,83 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+    }
+    .settings-support-action-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      min-width: 0;
+    }
+    .settings-support-action {
+      display: grid;
+      gap: 5px;
+      min-height: 82px;
+      padding: 11px;
+      border: 1px solid rgba(226, 232, 240, 0.96);
+      border-radius: 12px;
+      background: #fff;
+      color: inherit;
+      text-decoration: none;
+      transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+    .settings-support-action:hover {
+      border-color: rgba(44, 106, 144, 0.34);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.07);
+      transform: translateY(-1px);
+    }
+    .settings-support-action strong {
+      color: #172033;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .settings-support-action span {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .settings-help-topic-list,
+    .settings-feedback-choice-list {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .settings-help-topic,
+    .settings-feedback-choice {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      padding: 10px 11px;
+      border: 1px solid rgba(226, 232, 240, 0.96);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+    .settings-help-topic strong,
+    .settings-feedback-choice strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .settings-help-topic span,
+    .settings-feedback-choice span {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .settings-feedback-choice {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+    }
+    .settings-feedback-choice .mini-btn {
+      min-width: 96px;
+    }
+    .settings-support-safe-note {
+      padding: 9px 10px;
+      border-radius: 12px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.55;
     }
     .settings-template-editor {
       display: grid;
@@ -14897,6 +15142,9 @@
         grid-column: 2;
         justify-self: flex-start;
       }
+      .settings-mobile-item-switcher {
+        display: grid;
+      }
       .app.settings-desktop-lock {
         grid-template-columns: 56px minmax(0, 1fr);
       }
@@ -14938,6 +15186,7 @@
         grid-template-columns: minmax(0, 1fr);
       }
       .settings-ai-primary-head,
+      .settings-ai-flow,
       .settings-ai-setup-choice,
       .settings-ai-compact-grid,
       .settings-ai-advanced-body .settings-ai-compact-grid,
@@ -14979,6 +15228,19 @@
       .settings-ai-step {
         grid-template-columns: 26px minmax(0, 1fr);
         padding: 10px;
+      }
+      .settings-route-preview-facts {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-support-action-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-feedback-choice {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+      }
+      .settings-feedback-choice .mini-btn {
+        min-width: 0;
       }
       .settings-ai-step-index {
         width: 26px;
@@ -18690,6 +18952,10 @@
                 </aside>
 
                 <div class="settings-detail-column">
+                  <div class="settings-mobile-item-switcher">
+                    <label for="settingsMobileItemSelect">设置项</label>
+                    <select id="settingsMobileItemSelect" aria-label="选择设置项"></select>
+                  </div>
                   <section class="settings-pane" id="settingsPaneWorkspace" data-settings-pane="workspace">
                     <div class="settings-pane-head">
                       <div class="settings-pane-headline">
@@ -18798,7 +19064,7 @@
                         <div class="settings-pane-kicker">AI</div>
                         <div class="settings-pane-title">AI 设置</div>
                       </div>
-                      <div class="settings-pane-note">按顺序准备 AI 环境，再选择使用方式。</div>
+                      <div class="settings-pane-note">把本地 AI 的安装、运行、模型下载和切换集中在这里完成。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAiBody">
                       <section class="settings-card" id="settingsCardAiSettings">
@@ -18806,20 +19072,37 @@
                           <section class="settings-ai-primary" aria-label="AI 主要设置">
                             <div class="settings-ai-primary-head">
                               <div>
-                                <div class="settings-ai-primary-title">先把本地 AI 跑起来</div>
-                                <div class="settings-ai-primary-note">第一次使用先完成本地环境：安装 Ollama、安装推荐模型、试运行。远程模型可以稍后再设置。</div>
+                                <div class="settings-ai-primary-title">AI 设置</div>
+                                <div class="settings-ai-primary-note">先准备本地 AI，再选择使用方式，最后用一句普通话试运行确认。</div>
                               </div>
                               <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                             </div>
+                            <div class="settings-ai-flow" aria-label="AI 设置流程">
+                              <div class="settings-ai-flow-step">
+                                <span>1</span>
+                                <strong>准备本地 AI</strong>
+                                <small>安装 Ollama，下载或选择本地模型。</small>
+                              </div>
+                              <div class="settings-ai-flow-step">
+                                <span>2</span>
+                                <strong>选择使用方式</strong>
+                                <small>自动、仅本地、仅远程三种路线。</small>
+                              </div>
+                              <div class="settings-ai-flow-step">
+                                <span>3</span>
+                                <strong>试运行确认</strong>
+                                <small>用一句不含隐私内容的话验证回复。</small>
+                              </div>
+                            </div>
                             <div class="settings-ai-setup-choice" aria-label="大模型配置入口">
                               <button class="settings-ai-setup-card is-local" type="button" data-settings-ai-dialog-open="local">
-                                <span class="settings-ai-setup-card-title">安装本地 AI</span>
-                                <span class="settings-ai-setup-card-note">按提示完成基础推理能力：Ollama、推荐模型、试运行。</span>
+                                <span class="settings-ai-setup-card-title">准备或切换本地 AI</span>
+                                <span class="settings-ai-setup-card-note">安装 Ollama、下载推荐模型、选择已安装模型、确认试运行。</span>
                                 <span class="settings-ai-local-home-steps" id="settingsAiLocalHomeSteps" aria-live="polite"></span>
                                 <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
                               </button>
                             </div>
-                            <div class="settings-ai-section-label">本地 AI 可用后再调整</div>
+                            <div class="settings-ai-section-label">使用方式</div>
                             <div class="settings-ai-compact-grid">
                               <div class="settings-ai-field">
                                 <label for="settingsAiRuntimeMode">AI 使用方式</label>
@@ -18890,14 +19173,14 @@
                             </div>
                           </section>
 
-                          <div class="settings-footnote">建议第一次先完成“安装本地 AI”。需要更强模型或团队服务时，再打开高级设置里的远程模型。</div>
+                          <div class="settings-footnote">默认推荐 qwen3:8b；未来更高质量的 qwen 或其他 Ollama 模型，也在本地 AI 面板里下载、选择和试运行。</div>
                         </div>
                         <div class="settings-ai-popover hidden" id="settingsAiLocalDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiLocalDialogTitle">
                           <div class="settings-ai-popover-panel">
                             <div class="settings-ai-popover-head">
                               <div>
-                                <div class="settings-ai-popover-title" id="settingsAiLocalDialogTitle">设置本地大模型</div>
-                                <div class="settings-ai-popover-note" id="settingsAiLocalDialogNote">未安装时按提示完成；已就绪后直接选择模型。</div>
+                                <div class="settings-ai-popover-title" id="settingsAiLocalDialogTitle">本地 AI 与模型</div>
+                                <div class="settings-ai-popover-note" id="settingsAiLocalDialogNote">安装、运行、下载、切换模型都在这里完成。</div>
                               </div>
                               <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
                             </div>
@@ -18936,8 +19219,8 @@
                                 <div class="settings-ai-wizard-step">
                                   <span class="settings-ai-wizard-index">3</span>
                                   <div class="settings-ai-wizard-copy">
-                                    <span class="settings-ai-wizard-title">选择本地模型</span>
-                                    <span class="settings-ai-wizard-note">检测成功后，从下面选择一个模型即可。</span>
+                                    <span class="settings-ai-wizard-title">下载或选择模型</span>
+                                    <span class="settings-ai-wizard-note">默认推荐 qwen3:8b；也可以选择已安装的其他 Ollama 模型。</span>
                                   </div>
                                 </div>
                               </div>
@@ -18946,7 +19229,7 @@
                                 <select id="settingsAiLocalModel">
                                   <option value="">检测 Ollama 后选择</option>
                                 </select>
-                                <div class="settings-field-note">只在“仅本地”或“本地优先”时需要；日常自动模式可以跳过。</div>
+                                <div class="settings-field-note">切换模型后建议试运行一次；未推荐模型也可以选，但需要自己确认效果。</div>
                               </div>
                               <div class="settings-ai-local-recommendations hidden" id="settingsAiLocalModelRecommendations" aria-live="polite"></div>
                               <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示 Ollama 检测和模型选择。</div>
@@ -19117,28 +19400,64 @@
                         <div class="settings-pane-kicker">Support</div>
                         <div class="settings-pane-title">帮助与反馈</div>
                       </div>
-                      <div class="settings-pane-note">帮助与反馈。</div>
+                      <div class="settings-pane-note">先确认本地文件规则；遇到问题时，带上必要诊断信息再反馈。</div>
                     </div>
                     <div class="settings-support-grid" id="settingsPaneSupportBody">
+                      <section class="settings-card settings-support-intro" id="settingsSupportIntroCard">
+                        <div class="settings-card-head">
+                          <div>
+                            <div class="settings-card-title">需要帮助时，从这三件事开始</div>
+                            <div class="settings-card-note">把“数据在哪里”“怎么反馈”“要不要带诊断信息”拆开处理，避免一次看太多技术细节。</div>
+                          </div>
+                        </div>
+                        <div class="settings-support-action-grid">
+                          <a class="settings-support-action" href="#settingsDesktopHelpCard">
+                            <strong>本地文件</strong>
+                            <span>了解笔记库、Markdown 和本地数据库。</span>
+                          </a>
+                          <a class="settings-support-action" href="#settingsFeedbackCard">
+                            <strong>问题反馈</strong>
+                            <span>报错、卡住、数据异常走这里。</span>
+                          </a>
+                          <a class="settings-support-action" href="#settingsFeedbackCard">
+                            <strong>功能建议</strong>
+                            <span>流程、交互、模型体验建议走这里。</span>
+                          </a>
+                        </div>
+                      </section>
                       <section class="settings-card" id="settingsDesktopHelpCard">
                         <div class="settings-card-head">
                           <div>
                             <div class="settings-card-title">本地使用说明</div>
-                            <div class="settings-card-note">查看本地文件与路径规则。</div>
+                            <div class="settings-card-note">研思录优先把内容放在你选择的笔记库里，方便备份、迁移和排查。</div>
                           </div>
                         </div>
-                        <ul class="settings-mini-list">
-                          <li>浏览目录：优先调用桌面选择器，浏览器环境自动降级为手动输入。</li>
-                          <li>切换笔记库：重新初始化目录树、标签页和缓存上下文。</li>
-                          <li>主内容来源：Markdown 是主内容源，SQLite 负责关系、索引和查询加速。</li>
-                        </ul>
+                        <div class="settings-help-topic-list">
+                          <div class="settings-help-topic">
+                            <strong>笔记放在哪里</strong>
+                            <span>Markdown 文件是主内容源，默认保存在当前笔记库目录里。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>本地数据库做什么</strong>
+                            <span>SQLite 只负责关系、索引和查询加速，不替代 Markdown 正文。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>切换笔记库会怎样</strong>
+                            <span>会重新读取目录树、标签页和缓存上下文；不会自动删除原目录内容。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>浏览目录不可用时</strong>
+                            <span>桌面版优先打开系统选择器；浏览器环境会降级为手动输入路径。</span>
+                          </div>
+                        </div>
+                        <div class="settings-support-safe-note">隐私提醒：复制诊断信息默认不带笔记库路径；提交反馈前仍建议检查内容里是否有私人信息。</div>
                       </section>
 
                       <section class="settings-card" id="settingsFeedbackCard">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">反馈与帮助</div>
-                            <div class="settings-card-note">提交问题，或提出功能想法。</div>
+                            <div class="settings-card-title">用户反馈</div>
+                            <div class="settings-card-note">选择最接近的反馈类型，研思录会自动带上版本、模块和页面上下文。</div>
                           </div>
                         </div>
                         <div class="settings-help-meta">
@@ -19149,17 +19468,30 @@
                           <div id="settingsFeedbackDetail" class="settings-card-note">当前反馈入口。</div>
                           <a id="settingsFeedbackLink" class="settings-help-link" href="#" target="_blank" rel="noreferrer noopener">查看反馈入口</a>
                         </div>
-                        <div class="settings-help-actions">
-                          <button class="mini-btn" id="settingsOpenBugReport" type="button">反馈问题</button>
-                          <button class="mini-btn" id="settingsOpenFeatureRequest" type="button">功能建议</button>
-                          <button class="mini-btn is-subtle" id="settingsCopyFeedbackDiagnostics" type="button">复制问题信息</button>
+                        <div class="settings-feedback-choice-list" aria-label="反馈类型">
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>遇到问题</strong>
+                              <span>报错、卡住、数据异常、界面异常。</span>
+                            </div>
+                            <button class="mini-btn" id="settingsOpenBugReport" type="button">反馈问题</button>
+                          </div>
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>有改进想法</strong>
+                              <span>流程建议、产品方向、模型体验、交互优化。</span>
+                            </div>
+                            <button class="mini-btn" id="settingsOpenFeatureRequest" type="button">功能建议</button>
+                          </div>
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>需要排查</strong>
+                              <span>复制版本、模块、页面和当前选中对象，不直接带笔记库路径。</span>
+                            </div>
+                            <button class="mini-btn is-subtle" id="settingsCopyFeedbackDiagnostics" type="button">复制问题信息</button>
+                          </div>
                         </div>
-                        <ul class="settings-help-list">
-                          <li>问题反馈：适合报错、卡住、数据异常、界面异常。</li>
-                          <li>功能建议：适合流程建议、产品方向、交互优化。</li>
-                          <li>复制问题信息：默认只带版本、模块、页面和当前选中对象，不直接带笔记库路径。</li>
-                          <li>如果后面切换反馈仓库，只需要更新这一处 owner/repo 配置。</li>
-                        </ul>
+                        <div class="settings-support-safe-note">反馈会打开 GitHub Issue；提交前请删除截图、描述或正文里不想公开的信息。</div>
                       </section>
                     </div>
                   </section>
