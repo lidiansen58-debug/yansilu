@@ -13832,6 +13832,24 @@
     .settings-feedback-choice .mini-btn {
       min-width: 96px;
     }
+    .settings-inline-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #374151;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .settings-inline-toggle input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--brand);
+    }
+    .settings-update-meta {
+      gap: 8px;
+    }
     .settings-support-safe-note {
       padding: 9px 10px;
       border-radius: 12px;
@@ -19561,10 +19579,75 @@
                             <strong>问题反馈</strong>
                             <span>报错、卡住、数据异常走这里。</span>
                           </button>
-                          <button class="settings-support-action" type="button" data-settings-support-item="feedback">
-                            <strong>功能建议</strong>
-                            <span>流程、交互、模型体验建议走这里。</span>
+                          <button class="settings-support-action" type="button" data-settings-support-item="version-update">
+                            <strong>版本更新</strong>
+                            <span>检查新版本、查看说明和打开下载页。</span>
                           </button>
+                        </div>
+                      </section>
+                      <section class="settings-card" id="settingsUpdateCard">
+                        <div class="settings-card-head">
+                          <div>
+                            <div class="settings-card-title">版本更新</div>
+                            <div class="settings-card-note">研思录只检查更新并展示下载入口，不会静默替换程序或迁移你的笔记库。</div>
+                          </div>
+                        </div>
+                        <div class="settings-help-meta settings-update-meta">
+                          <div class="settings-stat-row">
+                            <span class="settings-stat-badge" id="settingsUpdateStatusBadge">等待检查</span>
+                            <span class="settings-stat-badge muted" id="settingsUpdateCurrentVersion">当前版本：--</span>
+                            <span class="settings-stat-badge muted" id="settingsUpdateLatestVersion">最新版本：--</span>
+                          </div>
+                          <div id="settingsUpdateCheckedAt" class="settings-card-note">尚未检查。</div>
+                          <div id="settingsUpdateManifestUrl" class="settings-card-note">更新清单：未配置</div>
+                          <div id="settingsUpdateError" class="settings-support-safe-note hidden"></div>
+                          <div id="settingsUpdateCriticalNotice" class="settings-support-safe-note hidden"></div>
+                        </div>
+                        <div class="settings-feedback-choice-list" aria-label="版本更新操作">
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>手动检查</strong>
+                              <span>立即读取更新清单；失败不会影响主界面。</span>
+                            </div>
+                            <button class="mini-btn primary" id="settingsCheckUpdate" type="button">检查更新</button>
+                          </div>
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>下载与安装</strong>
+                              <span id="settingsUpdateDownloadHint">有新版本时会显示下载入口。</span>
+                            </div>
+                            <button class="mini-btn" id="settingsOpenUpdateDownload" type="button" disabled>打开下载页</button>
+                          </div>
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>稍后提醒</strong>
+                              <span>今天先不处理，明天后再自动提醒。</span>
+                            </div>
+                            <button class="mini-btn is-subtle" id="settingsRemindUpdateLater" type="button">稍后提醒</button>
+                          </div>
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>自动检查</strong>
+                              <span>启动后延迟检查一次，最多每天一次。</span>
+                            </div>
+                            <label class="settings-inline-toggle">
+                              <input id="settingsAutoUpdateEnabled" type="checkbox" checked />
+                              <span>启动后自动检查</span>
+                            </label>
+                          </div>
+                          <div class="settings-feedback-choice">
+                            <div>
+                              <strong>忽略这个版本</strong>
+                              <span>只忽略当前检测到的最新版本；手动检查仍会显示结果。</span>
+                            </div>
+                            <button class="mini-btn is-subtle" id="settingsIgnoreUpdateVersion" type="button" disabled>忽略当前版本</button>
+                          </div>
+                        </div>
+                        <div class="settings-help-topic-list" id="settingsUpdateChangelog">
+                          <div class="settings-help-topic">
+                            <strong>更新说明</strong>
+                            <span>检查更新后显示。</span>
+                          </div>
                         </div>
                       </section>
                       <section class="settings-card" id="settingsDesktopHelpCard">

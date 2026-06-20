@@ -69,6 +69,59 @@ test("prototype API fetches note relations through the public endpoint", async (
   }
 });
 
+test("prototype API fetches app version and checks update manifest", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("app-update-api", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith("/api/v1/app/version")) {
+      return new Response(
+        JSON.stringify({
+          item: {
+            version: "0.1.1-beta.1",
+            channel: "beta",
+            manifestUrl: "https://example.test/update.json",
+            updateStatus: "idle"
+          }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        item: {
+          status: "update-available",
+          currentVersion: "0.1.1-beta.1",
+          latestVersion: "0.1.2",
+          manifest: {
+            version: "0.1.2",
+            downloadUrl: "https://example.test/download"
+          }
+        }
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    const version = await api.fetchAppVersion();
+    const update = await api.checkAppUpdate({ manifestUrl: "https://example.test/update.json" });
+
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/app/version");
+    assert.equal(calls[0].options.method, undefined);
+    assert.equal(version.version, "0.1.1-beta.1");
+    assert.equal(calls[1].url, "http://127.0.0.1:3999/api/v1/app/updates/check");
+    assert.equal(calls[1].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[1].options.body), { manifestUrl: "https://example.test/update.json" });
+    assert.equal(update.status, "update-available");
+    assert.equal(update.latestVersion, "0.1.2");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API runs permanent note analysis through the note endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];

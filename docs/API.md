@@ -55,6 +55,78 @@ Returns API health and the active vault path.
 }
 ```
 
+## App Version And Updates
+
+### `GET /api/v1/app/version`
+
+Returns the current application version and update manifest configuration.
+
+Response:
+
+```json
+{
+  "item": {
+    "name": "yansilu",
+    "version": "0.1.1-beta.1",
+    "channel": "beta",
+    "manifestUrl": "https://example.com/yansilu/update.json",
+    "updateStatus": "idle",
+    "updateCheckIntervalHours": 24
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-06-20T03:00:00.000Z"
+}
+```
+
+If `YANSILU_UPDATE_MANIFEST_URL` is not configured, `manifestUrl` is empty and `updateStatus` is `disabled`.
+
+### `POST /api/v1/app/updates/check`
+
+Checks the configured update manifest and compares it with the current application version. This endpoint only reads metadata; it does not download, install, restart, migrate, or modify the user's vault.
+
+Optional request:
+
+```json
+{
+  "manifestUrl": "https://example.com/yansilu/update.json"
+}
+```
+
+Response:
+
+```json
+{
+  "item": {
+    "status": "update-available",
+    "currentVersion": "0.1.1-beta.1",
+    "latestVersion": "0.1.2",
+    "checkedAt": "2026-06-20T03:00:00.000Z",
+    "manifestUrl": "https://example.com/yansilu/update.json",
+    "updateAvailable": true,
+    "critical": false,
+    "minimumSupported": true,
+    "manifest": {
+      "version": "0.1.2",
+      "releaseDate": "2026-06-20T00:00:00.000Z",
+      "channel": "beta",
+      "changelog": ["Fix update detection."],
+      "downloadUrl": "https://example.com/yansilu-0.1.2-setup.exe",
+      "minimumSupportedVersion": "0.1.1-beta.1",
+      "critical": false,
+      "checksum": {
+        "algorithm": "sha256",
+        "value": "..."
+      }
+    },
+    "error": null
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-06-20T03:00:00.000Z"
+}
+```
+
+`status` can be `disabled`, `failed`, `update-available`, or `up-to-date` for the first version of this endpoint.
+
 ## Vault
 
 ### `GET /api/v1/vault`
