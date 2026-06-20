@@ -13,12 +13,13 @@ function readRepoFile(...segments) {
 
 test("save-after AI suggestion is rendered in the editor feedback area", () => {
   const html = readRepoFile("apps/web/src/prototype.html");
+  const css = readRepoFile("apps/web/src/prototype.css");
 
   assert.match(html, /id="saveAiSuggestion"/);
   assert.match(html, /id="saveAiSuggestionText"/);
   assert.match(html, /id="btnSaveAiSuggestionPrimary"[\s\S]*?>立即处理<\/button>/);
   assert.match(html, /id="btnSaveAiSuggestionLater"[\s\S]*?>稍后<\/button>/);
-  assert.match(html, /\.save-ai-suggestion\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto auto;/);
+  assert.match(css, /\.save-ai-suggestion\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto auto;/);
 });
 
 test("save-after AI suggestion keeps one executable suggestion for the active saved note", () => {

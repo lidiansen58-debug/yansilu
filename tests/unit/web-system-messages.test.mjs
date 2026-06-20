@@ -28,6 +28,7 @@ function extractBlockBody(source, signature) {
 
 test("prototype exposes a system messages entry and history modal", () => {
   const html = readRepoFile("apps/web/src/prototype.html");
+  const css = readRepoFile("apps/web/src/prototype.css");
 
   assert.match(html, /id="systemMessagesButton"/);
   assert.match(html, /id="systemMessagesButton"[^>]*title="[^"]*AI/);
@@ -45,14 +46,14 @@ test("prototype exposes a system messages entry and history modal", () => {
   assert.doesNotMatch(html, /输出进入系统消息中的 AI 建议复核/);
   assert.doesNotMatch(html, /AI 待办/);
   assert.match(html, /这里汇总需要你确认的关系、问题和写作建议/);
-  assert.match(html, /\.rail-btn\.has-unread::before/);
-  assert.match(html, /\.system-message-layout/);
-  assert.match(html, /\.system-message-detail-card/);
-  assert.match(html, /body\.system-message-modal-open \.editor-helper/);
-  assert.match(html, /\.system-message-item\.is-unread/);
-  assert.match(html, /\.system-message-item\.is-selected/);
-  assert.match(html, /\.system-message-title:focus-visible/);
-  assert.match(html, /\.system-message-actions \.mini-btn\s*\{/);
+  assert.match(css, /\.rail-btn\.has-unread::before/);
+  assert.match(css, /\.system-message-layout/);
+  assert.match(css, /\.system-message-detail-card/);
+  assert.match(css, /body\.system-message-modal-open \.editor-helper/);
+  assert.match(css, /\.system-message-item\.is-unread/);
+  assert.match(css, /\.system-message-item\.is-selected/);
+  assert.match(css, /\.system-message-title:focus-visible/);
+  assert.match(css, /\.system-message-actions \.mini-btn\s*\{/);
 });
 
 test("system messages are persisted, readable, and actionable", () => {

@@ -9,10 +9,10 @@ const repoRoot = path.resolve(__dirname, "..", "..");
 
 test("settings rail shows a restrained update indicator when an update is available", async () => {
   const appSource = await fs.readFile(path.join(repoRoot, "apps", "web", "src", "prototype-app.js"), "utf8");
-  const htmlSource = await fs.readFile(path.join(repoRoot, "apps", "web", "src", "prototype.html"), "utf8");
+  const cssSource = await fs.readFile(path.join(repoRoot, "apps", "web", "src", "prototype.css"), "utf8");
 
   assert.match(appSource, /shouldShowUpdateAttention\(settingsState\.update\)/);
   assert.match(appSource, /button\.classList\.toggle\("has-update", updateAvailable\)/);
   assert.match(appSource, /\u8bbe\u7f6e \u00b7 \u6709\u65b0\u7248\u672c/);
-  assert.match(htmlSource, /\.rail-btn\.has-update::before/);
+  assert.match(cssSource, /\.rail-btn\.has-update::before/);
 });

@@ -172,6 +172,7 @@ test("editor toolbar does not render the file attachment button", () => {
 
 test("editor toolbar exposes heading levels as a visible select", () => {
   const html = readRepoFile("apps/web/src/prototype.html");
+  const css = readRepoFile("apps/web/src/prototype.css");
   const headingMarkup = html.match(/<div class="toolbar-segment heading-segment"[\s\S]*?<\/div>/)?.[0] || "";
 
   assert.match(headingMarkup, /id="headingLevelSelect"/);
@@ -181,7 +182,7 @@ test("editor toolbar exposes heading levels as a visible select", () => {
     assert.match(headingMarkup, new RegExp(`<option value="${level}">H${level}<\\/option>`));
   }
   assert.match(
-    html,
+    css,
     /#editorWorkspace \.editor-stage-shell \.heading-level-select[\s\S]*opacity: 1 !important;/
   );
 });
@@ -510,6 +511,7 @@ test("graph note browser keeps isolated permanent notes inline with direct relat
 
 test("graph note browser uses the same pending-relation style as permanent note boxes", () => {
   const html = readRepoFile("apps", "web", "src", "prototype.html");
+  const css = readRepoFile("apps", "web", "src", "prototype.css");
   const appSource = readRepoFile("apps", "web", "src", "prototype-app.js");
   const appIndex = html.indexOf('<div class="app">');
   const listAreaIndex = html.indexOf('id="listArea"', appIndex);
@@ -518,14 +520,14 @@ test("graph note browser uses the same pending-relation style as permanent note 
   assert.ok(appIndex >= 0, "expected sidebar and module workspace to share the app wrapper");
   assert.ok(listAreaIndex > appIndex, "expected note browser list to live inside the app wrapper");
   assert.ok(moduleWorkspaceIndex > listAreaIndex, "expected module workspace to be a sibling after the sidebar list");
-  assert.doesNotMatch(html, /#moduleWorkspace\.graph-mode \.file-row\.is-disconnected/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{/);
-  assert.match(html, /\.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.38\)/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.38\)/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(245, 158, 11, 0\.18\)/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-badge-warning \{[\s\S]*#92400e/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-inline-action\.warn \{[\s\S]*#0f8a7d/);
-  assert.match(html, /\.app\.graph-mode #listArea \.file-row\.is-disconnected\.active \{[\s\S]*rgba\(20, 184, 166, 0\.58\)/);
+  assert.doesNotMatch(css, /#moduleWorkspace\.graph-mode \.file-row\.is-disconnected/);
+  assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{/);
+  assert.match(css, /\.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.38\)/);
+  assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(217, 119, 6, 0\.38\)/);
+  assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \{[\s\S]*rgba\(245, 158, 11, 0\.18\)/);
+  assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-badge-warning \{[\s\S]*#92400e/);
+  assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-inline-action\.warn \{[\s\S]*#0f8a7d/);
+  assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected\.active \{[\s\S]*rgba\(20, 184, 166, 0\.58\)/);
   assert.match(appSource, /document\.querySelector\("\.app"\)\?\.classList\.toggle\("graph-mode", graphMode\);/);
   assert.match(appSource, /待关联笔记会使用和永久笔记盒一致的提示样式/);
 });

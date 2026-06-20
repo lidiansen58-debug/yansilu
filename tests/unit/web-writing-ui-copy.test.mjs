@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   readComponentsEditorPaneSource,
   readPrototypeAppSource,
+  readPrototypeCssSource,
   readPrototypeHtmlSource
 } from "./copy-source-helpers.mjs";
 
@@ -28,10 +29,11 @@ test("writing center static flow placeholder keeps the create-project to 草稿�
 
 test("writing center overview layout supports five status cards and a compact top summary", async () => {
   const html = await readPrototypeHtmlSource();
+  const css = await readPrototypeCssSource();
   const source = await readPrototypeAppSource();
 
   assert.match(html, /id="writingToplineMetrics"/);
-  assert.match(html, /\.writing-status-strip\s*\{[\s\S]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(164px,\s*1fr\)\)/);
+  assert.match(css, /\.writing-status-strip\s*\{[\s\S]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(164px,\s*1fr\)\)/);
   assert.match(html, /class="writing-theme-detail-panel"/);
   assert.match(html, /class="writing-section writing-output-card"/);
   assert.match(source, /function renderWritingToplineMetric/);
