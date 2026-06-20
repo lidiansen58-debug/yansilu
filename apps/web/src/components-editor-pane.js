@@ -8492,7 +8492,7 @@ export class EditorPane {
             </div>
             <button class="mini-btn primary" type="button" data-note-distillation-focus="${escapeHtml(nextGuide.key)}">${escapeHtml(nextGuide.actionLabel)}</button>
           </div>
-          <div class="distillation-path-strip" aria-label="思想提纯如何接入图谱和写作">
+          <div class="distillation-path-strip" aria-label="观点提纯如何接入图谱和写作">
             <span class="${distillationPathState === "note" ? "is-current" : "is-done"}">笔记内成观点</span>
             <span class="${distillationPathState === "graph" ? "is-current" : statusValue === "confirmed" ? "is-done" : ""}">图谱里补关系</span>
             <span class="${distillationPathState === "writing" ? "is-current" : writingReady ? "is-done" : ""}">写作前看边界</span>

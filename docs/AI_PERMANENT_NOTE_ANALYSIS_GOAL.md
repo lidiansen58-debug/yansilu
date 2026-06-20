@@ -210,5 +210,5 @@ Status: partially implemented. `buildWritingStrongModelRequest` creates a remote
 
 长期成功：
 
-1. 研思录从笔记管理工具变成思想提纯与知识创作系统。
+1. 研思录从笔记管理工具变成观点提纯与知识创作系统。
 2. AI 成为思考陪练，而不是代写者。

@@ -38,7 +38,7 @@ test("permanent-note distillation surfaces the current next step in context", ()
   assert.match(html, /当前下一步/);
   assert.match(html, /先把这条笔记变成一句判断/);
   assert.match(html, /data-note-distillation-focus="thesis"/);
-  assert.match(html, /思想提纯如何接入图谱和写作/);
+  assert.match(html, /观点提纯如何接入图谱和写作/);
   assert.match(html, /笔记内成观点/);
   assert.match(html, /图谱里补关系/);
   assert.match(html, /写作前看边界/);

@@ -228,7 +228,7 @@ Success state title:
 
 Success state body:
 
-`你的 Pro 权益正在生效。现在可以继续进入更完整的思想提纯与写作支持流程。`
+`你的 Pro 权益正在生效。现在可以继续进入更完整的观点提纯与写作支持流程。`
 
 ## 8. Billing Page
 
