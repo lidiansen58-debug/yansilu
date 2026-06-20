@@ -106,6 +106,35 @@ test("app update times out stalled manifest requests", async () => {
   }
 });
 
+test("app update times out stalled manifest response bodies", async () => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, options = {}) => ({
+    ok: true,
+    async text() {
+      return new Promise((_resolve, reject) => {
+        options.signal?.addEventListener("abort", () => {
+          const error = new Error("body aborted");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      });
+    }
+  });
+
+  try {
+    await assert.rejects(
+      () => fetchUpdateManifest("https://example.test/update.json", { timeoutMs: 5 }),
+      (error) => {
+        assert.equal(error.code, "UPDATE_MANIFEST_TIMEOUT");
+        assert.equal(error.timeoutMs, 5);
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("app update preserves critical update metadata", () => {
   const result = checkManifestForUpdate({
     currentVersion: "0.1.1-beta.1",

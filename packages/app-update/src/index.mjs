@@ -204,6 +204,7 @@ export async function fetchUpdateManifest(manifestUrl = "", options = {}) {
   let timeoutId = null;
   let timedOut = false;
   let response;
+  let body = "";
   try {
     if (controller) {
       if (externalSignal?.aborted) controller.abort(externalSignal.reason);
@@ -220,6 +221,7 @@ export async function fetchUpdateManifest(manifestUrl = "", options = {}) {
       headers: { Accept: "application/json" },
       signal: controller?.signal || externalSignal
     });
+    body = await response.text();
   } catch (error) {
     if (timedOut) {
       const timeoutError = new Error(`Update manifest request timed out after ${timeoutMs}ms.`);
@@ -236,7 +238,6 @@ export async function fetchUpdateManifest(manifestUrl = "", options = {}) {
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
-  const body = await response.text();
   if (!response.ok) {
     const error = new Error(`Update manifest request failed with HTTP ${response.status}.`);
     error.code = "UPDATE_MANIFEST_FETCH_FAILED";
