@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -11,16 +12,9 @@ function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
 }
 
-function readEditorSource() {
-  return [
-    "components-editor-pane.js",
-    "editor-relation-helpers.js"
-  ].map((file) => readRepoFile("apps/web/src", file)).join("\n");
-}
-
-test("relation followup suggestion is rendered inside the relation panel", () => {
+test("relation followup suggestion is rendered inside the relation panel", async () => {
   const css = readRepoFile("apps/web/src/prototype.css");
-  const source = readEditorSource();
+  const source = await readEditorDomainSource();
 
   assert.match(css, /\.relation-followup-suggestion\s*\{/);
   assert.match(css, /\.relation-followup-suggestion-actions\s*\{/);
@@ -31,8 +25,8 @@ test("relation followup suggestion is rendered inside the relation panel", () =>
   assert.match(source, /data-relation-action="dismiss-followup"/);
 });
 
-test("relation followup suggestion asks for reason work only when a saved relation can be edited", () => {
-  const source = readEditorSource();
+test("relation followup suggestion asks for reason work only when a saved relation can be edited", async () => {
+  const source = await readEditorDomainSource();
   const start = source.indexOf("function relationFollowupSuggestionForDraft(");
   const end = source.indexOf("function excerptFromBody", start);
 
@@ -48,8 +42,8 @@ test("relation followup suggestion asks for reason work only when a saved relati
   assert.match(fnSource, /actionLabel: "补理由"/);
 });
 
-test("relation creation stores a followup suggestion before returning to relation list", () => {
-  const source = readEditorSource();
+test("relation creation stores a followup suggestion before returning to relation list", async () => {
+  const source = await readEditorDomainSource();
   const start = source.indexOf("  async handleCreateRelationForm(form) {");
   const end = source.indexOf("  async promoteInlineDraftRelation", start);
 
@@ -64,8 +58,8 @@ test("relation creation stores a followup suggestion before returning to relatio
   assert.match(handlerSource, /this\.renderRelated\(relation\?\.created === false \? "关系已存在，已复用。" : "关系已建立。"\)/);
 });
 
-test("relation followup actions focus the edit rationale or dismiss without mutation", () => {
-  const source = readEditorSource();
+test("relation followup actions focus the edit rationale or dismiss without mutation", async () => {
+  const source = await readEditorDomainSource();
   const clickStart = source.indexOf('      const relationAction = e.target.closest("[data-relation-action]");');
   const clickEnd = source.indexOf('      const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");', clickStart);
 
@@ -81,8 +75,8 @@ test("relation followup actions focus the edit rationale or dismiss without muta
   assert.doesNotMatch(clickSource, /updateNoteRelation\(/);
 });
 
-test("inline relation promotion also creates the relation followup suggestion", () => {
-  const source = readEditorSource();
+test("inline relation promotion also creates the relation followup suggestion", async () => {
+  const source = await readEditorDomainSource();
   const start = source.indexOf("  async promoteInlineDraftRelation(indexValue = \"\") {");
   const end = source.indexOf("  async handleEditRelationForm(form) {", start);
 

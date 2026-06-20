@@ -1,13 +1,5 @@
 import { assetPreviewUrl } from "./prototype-api.js";
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml } from "./editor-render-utils.js";
 
 export function formatMarkdownLinkDestination(value = "") {
   const target = String(value || "").trim();

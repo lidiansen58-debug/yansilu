@@ -29,13 +29,14 @@ export function readPrototypeWritingWorkspaceSource() {
   return readRepoText("apps", "web", "src", "prototype-writing-workspace.js");
 }
 
-export async function readComponentsEditorPaneSource() {
+export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
     "editor-dirty-state.js",
     "editor-link-picker.js",
     "editor-markdown-commands.js",
     "editor-preview-renderer.js",
+    "editor-render-utils.js",
     "editor-relation-helpers.js",
     "editor-template-workspace.js"
   ];

@@ -17,15 +17,7 @@ import {
   renderHighlightedCode
 } from "./editor-markdown-commands.js";
 import { wikilinkLabelFromRaw, wikilinkTargetFromRaw } from "./editor-link-picker.js";
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml } from "./editor-render-utils.js";
 
 export function renderInlinePreview(text, options = {}) {
   const source = String(text || "");

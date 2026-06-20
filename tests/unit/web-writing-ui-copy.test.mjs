@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  readComponentsEditorPaneSource,
+  readEditorDomainSource,
   readPrototypeAppSource,
   readPrototypeCssSource,
   readPrototypeHtmlSource
@@ -62,7 +62,7 @@ test("writing note cards use 写作篮 wording for add and remove actions", asyn
 
 test("writing entry surfaces consistently use 写作中心, 项目, and 草稿骨架 wording", async () => {
   const appSource = await readPrototypeAppSource();
-  const editorSource = await readComponentsEditorPaneSource();
+  const editorSource = await readEditorDomainSource();
 
   assert.match(appSource, /进入写作中心/);
   assert.match(appSource, /可进入写作中心/);

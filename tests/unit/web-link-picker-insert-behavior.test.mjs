@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { parseLinks } from "../../apps/web/src/prototype-store.js";
-import { readComponentsEditorPaneSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
+import { readEditorDomainSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
 
 test("link picker inserts stable wikilinks instead of inline relation comments", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("const token = wikilinkTokenForNote(target);"));
   assert.ok(source.includes('const target = String(note?.id || "").trim() || markdownPath || title;'));
@@ -17,7 +17,7 @@ test("link picker inserts stable wikilinks instead of inline relation comments",
 });
 
 test("manual link picker shows relation fields while inline picker hides them", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes('const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");'));
   assert.ok(source.includes("if (linkPickerMeta) linkPickerMeta.hidden = inlineMode;"));
@@ -28,7 +28,7 @@ test("manual link picker shows relation fields while inline picker hides them", 
 });
 
 test("closing transient pickers clears toolbar active and focus states", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("resetToolbarTransientButtons() {"));
   assert.ok(source.includes("[this.els.insertLink, this.els.insertTag, this.els.insertImage].forEach((button) => {"));
@@ -38,7 +38,7 @@ test("closing transient pickers clears toolbar active and focus states", async (
 });
 
 test("manual link picker renders a title-first autocomplete list", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.match(source, /filter\(\(n\) => normalizeText\(n\.title\)\.includes\(q\)\)/);
   assert.match(source, /highlightMatch\(this\.linkCandidateDisplayTitle\(n\), q\)/);
@@ -49,7 +49,7 @@ test("manual link picker renders a title-first autocomplete list", async () => {
 });
 
 test("cross-folder link candidates use a folder-prefixed display label", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("compactFolderLabel(folderId) {"));
   assert.ok(source.includes("linkCandidateDisplayTitle(note) {"));
@@ -57,7 +57,7 @@ test("cross-folder link candidates use a folder-prefixed display label", async (
 });
 
 test("wikilink preview avoids low-value match and count metadata", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes('mode: "wikilink"'));
   assert.ok(source.includes('data-open-linked-note="${escapeHtml(note.id)}"'));
@@ -71,7 +71,7 @@ test("wikilink preview avoids low-value match and count metadata", async () => {
 });
 
 test("confirm button requires a target and manual relation reason", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("const selectedNote = this.selectedLinkCandidate();"));
   assert.ok(source.includes("button.disabled = this.isSubmittingLinkInsert || !selectedNote || (manualMode && !reason);"));
@@ -82,7 +82,7 @@ test("confirm button requires a target and manual relation reason", async () => 
 
 test("manual link picker keeps only information needed to save a relation", async () => {
   const html = await readPrototypeHtmlSource();
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.match(html, /<strong>建立笔记关联<\/strong>/);
   assert.match(html, /<label class="link-picker-search-label" for="linkSearchInput">要关联哪条笔记<\/label>/);
@@ -98,7 +98,7 @@ test("manual link picker keeps only information needed to save a relation", asyn
 });
 
 test("clicking a link picker candidate selects it without inserting immediately", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.match(
     source,
@@ -137,13 +137,13 @@ test("Enter selects the highlighted candidate before the explicit associate acti
 });
 
 test("manual link picker binds the explicit associate button to relation creation", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.match(source, /this\.els\.confirmLinkInsert\?\.addEventListener\("click", \(\) => \{[\s\S]*this\.selectedLinkCandidate\(\)\?\.id[\s\S]*void this\.insertSelectedLinkNote\(selectedId\);/);
 });
 
 test("toolbar relation action opens manual picker without writing a stray wikilink trigger", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
   const start = source.indexOf('this.els.insertLink.addEventListener("click", (event) => {');
   const end = source.indexOf("\n\n    this.els.insertImage", start);
   assert.ok(start >= 0 && end > start, "expected toolbar link handler");
@@ -155,7 +155,7 @@ test("toolbar relation action opens manual picker without writing a stray wikili
 });
 
 test("toolbar relation picker anchors to the click target and flips inside the viewport", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;"));
   assert.ok(source.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true });'));
@@ -220,7 +220,7 @@ test("floating relation picker can use the toolbar button rect as a fallback anc
 });
 
 test("manual link picker saves the user-confirmed relation type and rationale", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("currentLinkRelationInput() {"));
   assert.ok(source.includes('const relationType = String(this.els.linkRelationTypeSelect?.value || "associated_with").trim() || "associated_with";'));
@@ -232,7 +232,7 @@ test("manual link picker saves the user-confirmed relation type and rationale", 
 });
 
 test("manual link picker keeps duplicate-submit protection", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("this.isSubmittingLinkInsert = false;"));
   assert.ok(source.includes("setLinkInsertSubmitting(nextSubmitting) {"));
@@ -242,7 +242,7 @@ test("manual link picker keeps duplicate-submit protection", async () => {
 });
 
 test("manual link picker still detects existing wikilinks by resolved note id before inserting again", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("hasResolvedLinkToNote(noteId, body = this.getEditorValue(), scopedNotes = this.scopedLinkCandidates()) {"));
   assert.ok(source.includes("const resolved = this.resolveLinkToken(token, scopedNotes);"));
@@ -254,7 +254,7 @@ test("manual link picker still detects existing wikilinks by resolved note id be
 });
 
 test("inline relation trigger recognizes both [[ and full-width 【【 prefixes", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes('const asciiStart = left.lastIndexOf("[[");'));
   assert.ok(source.includes('const fullWidthStart = left.lastIndexOf("【【");'));
@@ -277,7 +277,7 @@ test("detectInlineLinkContext returns context for full-width 【【 input", () =
 });
 
 test("quick association synchronizes both note endpoints as connected", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("syncRelationNetworkConnected(...noteIds) {"));
   assert.ok(source.includes('if (note) note.relationNetworkStatus = "connected";'));
@@ -285,7 +285,7 @@ test("quick association synchronizes both note endpoints as connected", async ()
 });
 
 test("confirmed inline wikilink insertion also creates a formal note relation", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
   const start = source.indexOf("async insertSelectedLinkNote(noteId) {");
   const end = source.indexOf("\n  moveLinkCandidate(step)", start);
   assert.ok(start >= 0 && end > start, "expected insertSelectedLinkNote body");
@@ -303,7 +303,7 @@ test("confirmed inline wikilink insertion also creates a formal note relation", 
 });
 
 test("link insertion does not create a formal relation until the wikilink save is verified", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
   const start = source.indexOf("async insertSelectedLinkNote(noteId) {");
   const end = source.indexOf("\n  moveLinkCandidate(step)", start);
   assert.ok(start >= 0 && end > start, "expected insertSelectedLinkNote body");
@@ -321,7 +321,7 @@ test("link insertion does not create a formal relation until the wikilink save i
 });
 
 test("inline link picker keyboard handling survives focus leaving the editor host", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("const targetIsEditor ="));
   assert.ok(source.includes("const targetIsPicker ="));
@@ -330,7 +330,7 @@ test("inline link picker keyboard handling survives focus leaving the editor hos
 });
 
 test("wysiwyg save reads the markdown editor instead of stale sync textarea", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
   const start = source.indexOf("getEditorValue() {");
   const end = source.indexOf("\n  setEditorValue(value)", start);
   assert.ok(start >= 0 && end > start, "expected getEditorValue body");
@@ -343,7 +343,7 @@ test("wysiwyg save reads the markdown editor instead of stale sync textarea", as
 });
 
 test("manual link picker remembers the editor selection and scroll position for body insertion flows", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes("this.manualLinkReturnSelection = null;"));
   assert.ok(source.includes("this.manualLinkReturnScrollState = null;"));
@@ -354,7 +354,7 @@ test("manual link picker remembers the editor selection and scroll position for 
 });
 
 test("link picker empty state stays concise", async () => {
-  const source = await readComponentsEditorPaneSource();
+  const source = await readEditorDomainSource();
 
   assert.ok(source.includes('<div class="picker-empty">没有匹配笔记</div>'));
 });

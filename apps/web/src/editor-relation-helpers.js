@@ -1,16 +1,8 @@
+import { escapeHtml } from "./editor-render-utils.js";
 import {
   isHiddenSemanticRelation,
   isMarkdownWikilinkSemanticRelation
 } from "./writing-readiness.js";
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 export function noteTypeGlyph(type) {
   if (type === "fleeting") return "随";
