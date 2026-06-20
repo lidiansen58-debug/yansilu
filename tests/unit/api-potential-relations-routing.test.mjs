@@ -28,7 +28,12 @@ test("potential relation refine follows current AI provider settings by default"
   assert.match(endpoint, /budgetPrecheck/);
   assert.match(endpoint, /maxOutputTokens: options\.numPredict/);
   assert.match(endpoint, /max_output_tokens: options\.numPredict/);
-  assert.match(endpoint, /const timeoutMs = Math\.min\(Number\(body\.timeoutMs \?\? body\.timeout_ms\) \|\| 60000, 60000\);/);
+  assert.match(endpoint, /const hasBatchTimeout =/);
+  assert.match(endpoint, /body\.batchTimeoutMs !== undefined/);
+  assert.match(endpoint, /body\.batch_timeout_ms !== undefined/);
+  assert.match(endpoint, /const timeoutMs = hasBatchTimeout/);
+  assert.match(endpoint, /\? batchPlan\[0\]\?\.timeoutMs \|\| 120000/);
+  assert.match(endpoint, /: Math\.min\(Number\(body\.timeoutMs \?\? body\.timeout_ms\) \|\| 60000, 60000\);/);
   assert.match(endpoint, /callOllamaGenerate\(prompt, \{ \.\.\.options, timeoutMs \}\)/);
   assert.match(endpoint, /const artifactContext = graphArtifactExecutionContext\(\{/);
   assert.match(endpoint, /providerExecution,/);
