@@ -1,6 +1,12 @@
+import {
+  DEFAULT_LOCAL_AI_MODEL,
+  LOCAL_AI_MODEL_TIERS
+} from "../packages/ai-orchestrator/src/index.mjs";
+
 const API_BASE = String(process.env.API_BASE || "http://localhost:3000").replace(/\/+$/, "");
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/+$/, "");
-const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen3:8b").trim();
+const allowedModels = new Set(LOCAL_AI_MODEL_TIERS.map((model) => String(model.name || "").trim()).filter(Boolean));
+const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || DEFAULT_LOCAL_AI_MODEL).trim();
 
 const providerId = "ollama_local_gateway";
 const logicalRefs = [
@@ -34,6 +40,9 @@ async function postJson(pathname, payload = {}) {
 
 async function main() {
   if (!OLLAMA_MODEL) throw new Error("OLLAMA_MODEL must not be empty.");
+  if (!allowedModels.has(OLLAMA_MODEL)) {
+    throw new Error(`OLLAMA_MODEL must be one of: ${[...allowedModels].join(", ")}`);
+  }
 
   await postJson("/api/v1/ai/preferences", {
     modelPack: "Ollama Local",

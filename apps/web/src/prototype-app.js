@@ -440,6 +440,11 @@ const settingsState = {
     localModel: "",
     localRuntimeStatus: "unknown",
     localRuntimeModels: [],
+    localRuntimeModelTiers: [],
+    localRuntimeReadinessStatus: "unknown",
+    localRuntimeDefaultModelInstalled: false,
+    localRuntimeApiReachable: false,
+    localRuntimeManagedStopPending: false,
     localRuntimeSetupGuide: null,
     localRuntimeChatEndpointUrl: "",
     localRuntimeHealthEndpointUrl: "",
@@ -994,21 +999,27 @@ const OLLAMA_MODEL_RECOMMENDATIONS = [
     label: "轻量",
     note: "快、省资源，适合快速摘要和低成本候选筛选。",
     role: "轻量快速",
-    resource: "资源占用较低"
+    resource: "资源占用较低",
+    sizeHint: "约 4-5GB",
+    downloadCommand: "ollama pull qwen2.5:7b"
   },
   {
     name: "qwen3:8b",
-    label: "默认",
+    label: "推荐",
     note: "适合观点提纯、潜在关联和 AI 建议，质量与速度更均衡。",
     role: "默认推荐",
-    resource: "质量与速度均衡"
+    resource: "质量与速度均衡",
+    sizeHint: "约 5-6GB",
+    downloadCommand: "ollama pull qwen3:8b"
   },
   {
     name: "qwen3.5:9b",
     label: "高质量",
     note: "适合深度分析和复杂材料整理，响应会更慢。",
     role: "高质量较慢",
-    resource: "更占资源"
+    resource: "更占资源",
+    sizeHint: "约 6-7GB",
+    downloadCommand: "ollama pull qwen3.5:9b"
   }
 ];
 const AI_LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
@@ -2212,13 +2223,13 @@ function aiTestBlockedReason() {
     const localStatus = String(settingsState.ai.localRuntimeStatus || "").trim();
     const localModel = String(settingsState.ai.localModel || "").trim();
     const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
-    if (settingsState.ai.localRuntimeStarting) return "请等待 Ollama 启动完成";
-    if (settingsState.ai.localRuntimeChecking) return "请等待 Ollama 检测完成";
+    if (settingsState.ai.localRuntimeStarting) return "请等待本地 AI 启动完成";
+    if (settingsState.ai.localRuntimeChecking) return "请等待本地 AI 检测完成";
     if (settingsState.ai.localRuntimePulling) return "请等待本地模型下载完成";
-    if (localStatus !== "available") return "请先启动或检测 Ollama";
+    if (localStatus !== "available") return "请先启动或检测本地 AI";
     if (!models.length) return "请先下载一个本地模型";
     if (!localModel) return "请先选择本地模型";
-    if (!hasLocalModel(localModel)) return "请先下载或选择已安装的本地模型";
+    if (!installedLocalModelReady(localModel)) return "请先下载或选择已安装的本地模型";
     return "";
   }
   if (!isRemoteConfigurableProviderId(providerId)) return "";
@@ -2380,6 +2391,7 @@ async function syncAiSettingsToApi() {
 
 async function saveLocalOllamaProviderConfig() {
   if (!shouldUseOllamaLocalRuntime()) return null;
+  if (!isBuiltInOllamaModel(settingsState.ai.localModel)) return null;
   const endpointUrl = String(settingsState.ai.localRuntimeChatEndpointUrl || OLLAMA_CHAT_ENDPOINT_URL).trim() || OLLAMA_CHAT_ENDPOINT_URL;
   const healthEndpointUrl = String(settingsState.ai.localRuntimeHealthEndpointUrl || OLLAMA_HEALTH_ENDPOINT_URL).trim() || OLLAMA_HEALTH_ENDPOINT_URL;
   const saved = await saveAiProviderConfig(aiProviderConfigPayload({
@@ -2398,6 +2410,10 @@ function preferredLocalModelName(models = []) {
   return names.find((name) => name.toLowerCase() === OLLAMA_RECOMMENDED_MODEL.toLowerCase()) || "";
 }
 
+function isBuiltInOllamaModel(modelName = "") {
+  return Boolean(ollamaRecommendationForModel(modelName));
+}
+
 function modelNameExistsInList(modelName = "", models = []) {
   const target = String(modelName || "").trim().toLowerCase();
   if (!target) return false;
@@ -2408,7 +2424,7 @@ function modelNameExistsInList(modelName = "", models = []) {
 
 function selectedLocalModelNameForInstalledModels(currentModel = "", models = []) {
   const current = String(currentModel || "").trim();
-  if (modelNameExistsInList(current, models)) return current;
+  if (isBuiltInOllamaModel(current) && modelNameExistsInList(current, models)) return current;
   return preferredLocalModelName(models);
 }
 
@@ -2420,6 +2436,7 @@ function installedLocalModelReady(modelName = settingsState.ai.localModel) {
   const localModel = String(modelName || "").trim();
   return String(settingsState.ai.localRuntimeStatus || "").trim() === "available"
     && Boolean(localModel)
+    && isBuiltInOllamaModel(localModel)
     && hasLocalModel(localModel);
 }
 
@@ -2440,10 +2457,16 @@ function normalizeOllamaSetupGuide(guide = null) {
   const steps = Array.isArray(guide.steps)
     ? guide.steps.map((step) => String(step || "").trim()).filter(Boolean)
     : [];
+  const install = guide.install && typeof guide.install === "object" ? guide.install : {};
+  const commands = [
+    ...(Array.isArray(guide.commands) ? guide.commands : []),
+    ...(Array.isArray(install.commands) ? install.commands : [])
+  ].map((command) => String(command || "").trim()).filter(Boolean);
   return {
     nextAction,
     installUrl: String(guide.installUrl || guide.install_url || "https://ollama.com/download").trim() || "https://ollama.com/download",
     recommendedModel: String(guide.recommendedModel || guide.recommended_model || "").trim(),
+    commands,
     steps
   };
 }
@@ -2460,7 +2483,7 @@ function recommendedOllamaModelNames() {
   const names = [
     recommendedOllamaModelName(),
     OLLAMA_RECOMMENDED_MODEL,
-    ...OLLAMA_MODEL_RECOMMENDATIONS.map((item) => item.name)
+    ...ollamaModelRecommendationProfiles().map((item) => item.name)
   ].map((name) => String(name || "").trim()).filter(Boolean);
   return [...new Set(names)];
 }
@@ -2476,7 +2499,39 @@ function nextMissingRecommendedOllamaModelName() {
 function ollamaRecommendationForModel(modelName = "") {
   const target = String(modelName || "").trim().toLowerCase();
   if (!target) return null;
-  return OLLAMA_MODEL_RECOMMENDATIONS.find((item) => item.name.toLowerCase() === target) || null;
+  return ollamaModelRecommendationProfiles().find((item) => item.name.toLowerCase() === target) || null;
+}
+
+function ollamaModelRecommendationProfiles() {
+  const tiers = Array.isArray(settingsState.ai.localRuntimeModelTiers) ? settingsState.ai.localRuntimeModelTiers : [];
+  const fromRuntime = tiers
+    .map((item) => {
+      const name = String(item?.name || "").trim();
+      if (!name) return null;
+      const label = String(item.label || "").trim();
+      const scenario = String(item.scenario || "").trim();
+      const tier = String(item.tier || "").trim();
+      return {
+        name,
+        label: label || tier || "推荐",
+        role:
+          tier === "default"
+            ? "默认推荐"
+            : tier === "lightweight"
+              ? "轻量快速"
+              : tier === "high_quality"
+                ? "高质量较慢"
+                : label || "推荐模型",
+        note: String(item.note || scenario || "适合本地 AI 运行。").trim(),
+        resource: String(item.resource || item.resourceHint || item.resource_hint || item.sizeHint || item.size_hint || scenario || "").trim(),
+        sizeHint: String(item.sizeHint || item.size_hint || "").trim(),
+        hardwareHint: String(item.hardwareHint || item.hardware_hint || item.machineHint || item.machine_hint || "").trim(),
+        downloadCommand: String(item.downloadCommand || item.download_command || `ollama pull ${name}`).trim(),
+        tier
+      };
+    })
+    .filter(Boolean);
+  return fromRuntime.length ? fromRuntime : OLLAMA_MODEL_RECOMMENDATIONS;
 }
 
 function localModelDisplayProfile(modelName = "") {
@@ -2489,21 +2544,27 @@ function localModelDisplayProfile(modelName = "") {
       role: recommendation.role || recommendation.label,
       note: recommendation.note,
       resource: recommendation.resource || "",
+      sizeHint: recommendation.sizeHint || "",
+      hardwareHint: recommendation.hardwareHint || "",
+      downloadCommand: recommendation.downloadCommand || `ollama pull ${name}`,
       verified: true
     };
   }
   return {
     name,
     label: "已安装",
-    role: "Ollama 模型",
-    note: "这个模型已在 Ollama 中检测到，但还没有进入研思录默认推荐列表。建议先用一句短句试运行。",
+    role: "本地模型",
+    note: "这个模型已在本地 AI 中检测到，但还没有进入研思录默认推荐列表。建议先用一句短句试运行。",
     resource: "未验证",
+    sizeHint: "",
+    hardwareHint: "",
+    downloadCommand: `ollama pull ${name}`,
     verified: false
   };
 }
 
 function ollamaRecommendationHintText() {
-  return OLLAMA_MODEL_RECOMMENDATIONS
+  return ollamaModelRecommendationProfiles()
     .map((item) => `${item.name}：${item.label}`)
     .join("；");
 }
@@ -2518,12 +2579,19 @@ function ollamaPullModelName() {
 function applyOllamaRuntimePreview(runtime = null) {
   const models = Array.isArray(runtime?.models) ? runtime.models : [];
   settingsState.ai.localRuntimeStatus = String(runtime?.status || "unknown");
+  settingsState.ai.localRuntimeReadinessStatus = String(runtime?.readinessStatus || runtime?.readiness_status || "unknown").trim() || "unknown";
+  settingsState.ai.localRuntimeApiReachable = runtime?.apiReachable === true || runtime?.api_reachable === true;
+  settingsState.ai.localRuntimeDefaultModelInstalled = runtime?.defaultModelInstalled === true || runtime?.default_model_installed === true;
   settingsState.ai.localRuntimeModels = models;
+  settingsState.ai.localRuntimeModelTiers = Array.isArray(runtime?.modelTiers || runtime?.model_tiers)
+    ? (runtime.modelTiers || runtime.model_tiers)
+    : settingsState.ai.localRuntimeModelTiers;
   settingsState.ai.localRuntimeSetupGuide = normalizeOllamaSetupGuide(runtime?.setupGuide || runtime?.setup_guide);
   settingsState.ai.localRuntimeChatEndpointUrl = String(runtime?.chatEndpointUrl || runtime?.chat_endpoint_url || settingsState.ai.localRuntimeChatEndpointUrl || "").trim();
   settingsState.ai.localRuntimeHealthEndpointUrl = String(runtime?.healthEndpointUrl || runtime?.health_endpoint_url || settingsState.ai.localRuntimeHealthEndpointUrl || "").trim();
   settingsState.ai.localRuntimeError = settingsState.ai.localRuntimeStatus === "available" ? "" : String(runtime?.message || "");
   if (settingsState.ai.localRuntimeStatus === "available") {
+    settingsState.ai.localRuntimeManagedStopPending = false;
     const nextLocalModel = selectedLocalModelNameForInstalledModels(settingsState.ai.localModel, models);
     settingsState.ai.localModel = nextLocalModel;
     if (!nextLocalModel) clearLocalOllamaSelectionState();
@@ -2560,12 +2628,28 @@ function ollamaBootstrapStatusText(result = null) {
   const status = String(result?.status || "").trim();
   const model = String(result?.model || OLLAMA_RECOMMENDED_MODEL).trim();
   if (result?.ready === true || status === "ready") return `本地 AI 已就绪：${model}`;
-  if (status === "needs_install") return "请先安装 Ollama，然后重新运行本地 AI 引导";
-  if (status === "needs_start") return "Ollama 已安装，但本地服务还没有启动";
+  if (status === "needs_install") return "请先安装本地 AI 运行环境，然后重新运行引导";
+  if (status === "needs_start") return "本地 AI 已安装，但服务还没有启动";
   if (status === "needs_model") return `请先下载本地模型：ollama pull ${model}`;
   if (status === "needs_config") return `已检测到 ${model}，还需要保存为本地 AI 模型`;
   if (status === "needs_health_check") return "本地 AI 配置已保存，还需要通过健康检查";
   return String(result?.message || "本地 AI 引导尚未完成").trim();
+}
+
+function ollamaRuntimeStateLabel() {
+  if (settingsState.ai.localRuntimePulling) return "模型下载中";
+  if (settingsState.ai.localRuntimeChecking) return "正在检测本地 AI";
+  const readiness = String(settingsState.ai.localRuntimeReadinessStatus || "").trim();
+  if (readiness === "ready") return "本地 AI 已就绪";
+  if (readiness === "running_missing_model") return "正在运行但缺少模型";
+  if (readiness === "installed_not_running") return "已安装但未运行";
+  if (readiness === "not_installed") return "未检测到本地 AI";
+  if (readiness === "check_failed") return "检测失败";
+  const status = String(settingsState.ai.localRuntimeStatus || "").trim();
+  if (status === "available" && installedLocalModelReady()) return "本地 AI 已就绪";
+  if (status === "available") return "正在运行但缺少模型";
+  if (status === "unavailable") return "未检测到本地 AI";
+  return "等待检测本地 AI";
 }
 
 async function previewOllamaLocalAiBootstrapFromUi(options = {}) {
@@ -2659,21 +2743,24 @@ async function detectOllamaModels(options = {}) {
     if (options.silent !== true) {
       const count = models.length;
       if (settingsState.ai.localRuntimeStatus === "available") {
-        setStatus(count ? `已检测到 ${count} 个 Ollama 本地模型。` : "Ollama 可连接，但还没有本地模型。", count ? "ok" : "warn");
+        setStatus(count ? `已检测到 ${count} 个本地模型。` : "本地 AI 可连接，但还没有本地模型。", count ? "ok" : "warn");
       } else {
-        const message = settingsState.ai.localRuntimeError || "Ollama 当前不可用。";
-        setStatus(`未检测到 Ollama：${message}。请先下载安装并启动 Ollama。`, "warn");
+        const message = settingsState.ai.localRuntimeError || "本地 AI 当前不可用。";
+        setStatus(`未检测到本地 AI：${message}。请先下载安装并启动本地 AI。`, "warn");
       }
     }
     return runtime;
   } catch (error) {
     settingsState.ai.localRuntimeStatus = "unavailable";
     settingsState.ai.localRuntimeModels = [];
+    settingsState.ai.localRuntimeReadinessStatus = "check_failed";
+    settingsState.ai.localRuntimeApiReachable = false;
+    settingsState.ai.localRuntimeDefaultModelInstalled = false;
     settingsState.ai.localRuntimeSetupGuide = null;
     settingsState.ai.localRuntimeChatEndpointUrl = "";
     settingsState.ai.localRuntimeHealthEndpointUrl = "";
     settingsState.ai.localRuntimeError = String(error?.message || error);
-    if (options.silent !== true) setStatus(`Ollama 检测失败：${settingsState.ai.localRuntimeError}。请先下载安装并启动 Ollama。`, "warn");
+    if (options.silent !== true) setStatus(`本地 AI 检测失败：${settingsState.ai.localRuntimeError}。请先下载安装并启动本地 AI。`, "warn");
     return null;
   } finally {
     settingsState.ai.localRuntimeChecking = false;
@@ -2685,24 +2772,27 @@ async function startOllamaRuntimeFromUi() {
   settingsState.ai.localRuntimeStarting = true;
   settingsState.ai.localRuntimeError = "";
   renderSettingsPanel();
-  setStatus("正在启动 Ollama...", "warn");
+  setStatus("正在启动本地 AI...", "warn");
   try {
     const result = await startOllamaRuntime();
     const runtime = result?.runtime || await fetchOllamaModels();
     const models = applyOllamaRuntimePreview(runtime);
     await persistOllamaRuntimeSelectionAfterPreview();
     if (runtime?.status === "available") {
-      setStatus(models.length ? `Ollama 已启动，检测到 ${models.length} 个本地模型。` : "Ollama 已启动，但还没有本地模型。", models.length ? "ok" : "warn");
+      setStatus(models.length ? `本地 AI 已启动，检测到 ${models.length} 个本地模型。` : "本地 AI 已启动，但还没有本地模型。", models.length ? "ok" : "warn");
     } else {
-      settingsState.ai.localRuntimeError = String(runtime?.message || result?.message || "Ollama 还没有响应。");
-      setStatus(`已尝试启动 Ollama：${settingsState.ai.localRuntimeError}`, "warn");
+      settingsState.ai.localRuntimeError = String(runtime?.message || result?.message || "本地 AI 还没有响应。");
+      setStatus(`已尝试启动本地 AI：${settingsState.ai.localRuntimeError}`, "warn");
     }
     return result;
   } catch (error) {
     settingsState.ai.localRuntimeStatus = "unavailable";
     settingsState.ai.localRuntimeModels = [];
+    settingsState.ai.localRuntimeReadinessStatus = "check_failed";
+    settingsState.ai.localRuntimeApiReachable = false;
+    settingsState.ai.localRuntimeDefaultModelInstalled = false;
     settingsState.ai.localRuntimeError = String(error?.message || error);
-    setStatus(`启动 Ollama 失败：${settingsState.ai.localRuntimeError}。如果还没安装，请先下载 Ollama。`, "warn");
+    setStatus(`启动本地 AI 失败：${settingsState.ai.localRuntimeError}。如果还没安装，请先下载本地 AI 运行环境。`, "warn");
     return null;
   } finally {
     settingsState.ai.localRuntimeStarting = false;
@@ -2713,28 +2803,46 @@ async function startOllamaRuntimeFromUi() {
 async function stopOllamaRuntimeFromUi() {
   const confirmed = typeof window === "undefined" || typeof window.confirm !== "function"
     ? true
-    : window.confirm("停止 Ollama 会结束这台电脑上的 Ollama 进程，可能影响其他正在使用本地模型的软件。确定停止吗？");
+    : window.confirm("停止本地 AI 会结束这台电脑上的本地模型服务，可能影响其他正在使用本地模型的软件。确定停止吗？");
   if (!confirmed) return null;
   settingsState.ai.localRuntimeStopping = true;
   settingsState.ai.localRuntimeError = "";
   renderSettingsPanel();
-  setStatus("正在停止 Ollama...", "warn");
+  setStatus("正在停止本地 AI...", "warn");
   try {
     const result = await stopOllamaRuntime();
     const runtime = result?.runtime || await fetchOllamaModels();
+    const stopStatus = String(result?.status || "").trim();
+    const remainingManagedPids = Array.isArray(result?.remainingManagedPids || result?.remaining_managed_pids)
+      ? (result.remainingManagedPids || result.remaining_managed_pids)
+      : [];
     applyOllamaRuntimePreview(runtime);
-    if (runtime?.status === "unavailable") {
+    settingsState.ai.localRuntimeManagedStopPending = stopStatus === "stopping" || remainingManagedPids.length > 0;
+    if (stopStatus === "manual_stop_required") {
+      settingsState.ai.localRuntimeManagedStopPending = false;
+      settingsState.ai.localRuntimeError = String(result?.message || "这个本地 AI 服务不是由研思录启动的，请在本地 AI 应用或系统服务里手动停止或重启。");
+      setStatus(`需要手动管理本地 AI：${settingsState.ai.localRuntimeError}`, "warn");
+    } else if (stopStatus === "stopped") {
+      settingsState.ai.localRuntimeManagedStopPending = false;
       settingsState.ai.localRuntimeModels = [];
       settingsState.ai.localRuntimeError = "";
-      setStatus("Ollama 已停止。需要本地模型时可以再启动。", "ok");
+      setStatus("本地 AI 已停止。需要本地模型时可以再启动。", "ok");
+    } else if (stopStatus === "stopping") {
+      settingsState.ai.localRuntimeError = String(result?.message || "停止命令已发送，正在等待本地 AI 进程退出确认。");
+      setStatus(`停止命令已发送，正在等待确认：${settingsState.ai.localRuntimeError}`, "warn");
+    } else if (runtime?.status === "unavailable") {
+      settingsState.ai.localRuntimeManagedStopPending = false;
+      settingsState.ai.localRuntimeModels = [];
+      settingsState.ai.localRuntimeError = "";
+      setStatus("本地 AI 已停止。需要本地模型时可以再启动。", "ok");
     } else {
-      settingsState.ai.localRuntimeError = String(result?.message || runtime?.message || "Ollama 仍可连接。");
-      setStatus(`已发送停止命令，但 Ollama 仍可连接：${settingsState.ai.localRuntimeError}`, "warn");
+      settingsState.ai.localRuntimeError = String(result?.message || runtime?.message || "本地 AI 仍可连接。");
+      setStatus(`已发送停止命令，但本地 AI 仍可连接：${settingsState.ai.localRuntimeError}`, "warn");
     }
     return result;
   } catch (error) {
     settingsState.ai.localRuntimeError = String(error?.message || error);
-    setStatus(`停止 Ollama 失败：${settingsState.ai.localRuntimeError}`, "warn");
+    setStatus(`停止本地 AI 失败：${settingsState.ai.localRuntimeError}`, "warn");
     return null;
   } finally {
     settingsState.ai.localRuntimeStopping = false;
@@ -2745,6 +2853,12 @@ async function stopOllamaRuntimeFromUi() {
 async function pullRecommendedOllamaModel(modelName = "") {
   const requestedModel = String(modelName || "").trim();
   const modelNameToPull = requestedModel || ollamaPullModelName();
+  const recommendation = ollamaRecommendationForModel(modelNameToPull);
+  const command = recommendation?.downloadCommand || `ollama pull ${modelNameToPull}`;
+  const confirmed = typeof window === "undefined" || typeof window.confirm !== "function"
+    ? true
+    : window.confirm(`下载 ${modelNameToPull} 会获取大模型文件，可能需要较长时间和数 GB 磁盘空间。\n\n命令：${command}\n\n确认开始下载吗？`);
+  if (!confirmed) return null;
   settingsState.ai.localRuntimePulling = true;
   settingsState.ai.localRuntimeError = "";
   renderSettingsPanel();
@@ -2777,7 +2891,7 @@ async function pullRecommendedOllamaModel(modelName = "") {
     setStatus(
       installedLocalModelReady(readyModel)
         ? `本地模型已就绪：${readyModel}`
-        : `模型下载已完成，但还没有在 Ollama 列表里检测到 ${modelNameToPull}。请稍后重新检测。`,
+        : `模型下载已完成，但还没有在本地模型列表里检测到 ${modelNameToPull}。请稍后重新检测。`,
       installedLocalModelReady(readyModel) ? "ok" : "warn"
     );
     return result;
@@ -2793,7 +2907,8 @@ async function pullRecommendedOllamaModel(modelName = "") {
 
 async function selectInstalledLocalModelFromUi(modelName = "") {
   const requested = String(modelName || "").trim();
-  const next = requested && hasLocalModel(requested) ? requested : "";
+  const inCatalog = Boolean(ollamaRecommendationForModel(requested));
+  const next = requested && inCatalog && hasLocalModel(requested) ? requested : "";
   settingsState.ai.localModel = next;
   clearLocalOllamaSelectionState({ clearModel: false });
   if (next) applyOllamaLocalModelDefaults();
@@ -2810,7 +2925,9 @@ async function selectInstalledLocalModelFromUi(modelName = "") {
     next
       ? `本地模型已选择：${next}。建议再试运行一次。`
       : requested
-        ? "这个本地模型没有检测到，请先下载或重新检测 Ollama。"
+        ? inCatalog
+          ? "这个本地模型没有检测到，请先下载或重新检测本地 AI。"
+          : "这个模型不在研思录内置本地模型目录里，不能设为默认模型。"
         : "本地模型选择已清空。",
     next || !requested ? "ok" : "warn"
   );
@@ -6836,7 +6953,7 @@ function renderModuleWorkspaceHeader() {
     : `
       <option value="Starter Auto">默认自动（Starter Auto）</option>
       <option value="Privacy First">本地私密（Privacy First）</option>
-      <option value="Ollama Local">Ollama 本地（Ollama Local）</option>
+      <option value="Ollama Local">本地 AI</option>
     `;
 
   const preview = settingsState.ai.routePreview;
@@ -6856,7 +6973,7 @@ function renderModuleWorkspaceHeader() {
   };
   const statusLabel = localOnly ? "本地" : "云端";
   const statusDetail = providerId
-    ? `${localOnly ? "Ollama" : "AI 服务"}${displayModelRef ? ` / ${displayModelRef}` : ""}`
+    ? `${localOnly ? "本地 AI" : "AI 服务"}${displayModelRef ? ` / ${displayModelRef}` : ""}`
     : displayModelRef
       ? displayModelRef
       : "AI 连接暂不可用";
@@ -8049,7 +8166,7 @@ function renderAiRoutePreview() {
       ].join("");
       detail.innerHTML = `
         <div class="settings-route-preview-title">本地 AI 已就绪</div>
-        <div class="settings-route-preview-copy">研思录会使用你电脑上的 Ollama 运行本地模型。</div>
+        <div class="settings-route-preview-copy">研思录会使用你电脑上的本地 AI 运行模型。</div>
         <div class="settings-route-preview-facts">
           <div class="settings-route-preview-fact">
             <span>使用方式</span>
@@ -8057,7 +8174,7 @@ function renderAiRoutePreview() {
           </div>
           <div class="settings-route-preview-fact">
             <span>运行位置</span>
-            <strong>本机 Ollama</strong>
+            <strong>本机</strong>
           </div>
           <div class="settings-route-preview-fact">
             <span>当前模型</span>
@@ -8091,10 +8208,10 @@ function renderAiRoutePreview() {
     const status = String(settingsState.ai.localRuntimeStatus || "unknown").trim() || "unknown";
     const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
     const selectedModel = String(settingsState.ai.localModel || "").trim();
-    if (status === "available" && selectedModel) return `Ollama 可连接 / ${selectedModel}`;
-    if (status === "available") return `Ollama 可连接 / ${models.length} 个模型`;
-    if (status === "unavailable") return "Ollama 不可用";
-    return "Ollama 未检测";
+    if (status === "available" && selectedModel) return `本地 AI 可连接 / ${selectedModel}`;
+    if (status === "available") return `本地 AI 可连接 / ${models.length} 个模型`;
+    if (status === "unavailable") return "本地 AI 不可用";
+    return "本地 AI 未检测";
   }
 
   const provider = preview.provider || {};
@@ -8118,7 +8235,7 @@ function renderAiRoutePreview() {
     const displayName = String(provider.displayName || "").trim();
     if (providerId === "platform_managed_openai") return "平台托管 OpenAI";
     if (displayName === "Platform Managed OpenAI") return "平台托管 OpenAI";
-    if (displayName === "Ollama Local") return "Ollama 本地";
+    if (displayName === "Ollama Local") return "本地 AI";
     return displayName || providerId || "未知服务";
   }
   function modelPackDisplayLabel(value = "") {
@@ -8130,7 +8247,7 @@ function renderAiRoutePreview() {
       "China Optimized": "国内优化",
       "Global Optimized": "全球网关",
       "Privacy First": "本地私密",
-      "Ollama Local": "Ollama 本地",
+      "Ollama Local": "本地 AI",
       "MiniCPM Local": "MiniCPM 本地",
       "MiniCPM Remote": "MiniCPM 远程"
     };
@@ -8172,7 +8289,7 @@ function renderAiRoutePreview() {
       : runtimeMode === "cloud_only"
         ? "仅远程"
         : "自动";
-  const serviceLabel = route.localOnly ? "Ollama 本地" : providerDisplayLabel();
+  const serviceLabel = route.localOnly ? "本地 AI" : providerDisplayLabel();
   const ready = route.localOnly
     ? installedLocalModelReady(localModel)
     : access.ready === true && (!remoteConfigurable || Boolean(remoteEndpointUrl && remoteRuntimeModel));
@@ -8183,7 +8300,7 @@ function renderAiRoutePreview() {
   const actionText = ready
     ? "下一步：输入一句普通测试话，确认 AI 能正常回复。"
     : route.localOnly
-      ? "下一步：在本地 AI 面板启动 Ollama，并选择或下载一个模型。"
+      ? "下一步：在本地 AI 面板启动本地 AI，并选择或下载一个模型。"
       : "下一步：填写服务地址、模型名和密钥名称，然后保存。";
   const localRuntimeLine = ["local_only", "hybrid"].includes(runtimeMode)
     ? `<div class="settings-route-preview-meta">${escapeHtml(localRuntimeSummaryText())}</div>`
@@ -8191,7 +8308,7 @@ function renderAiRoutePreview() {
   const routeTitle = statusText;
   const routeSummary = route.localOnly
     ? ready
-      ? "研思录会使用你电脑上的 Ollama 运行本地模型，适合处理更私密的研究材料。"
+      ? "研思录会使用你电脑上的本地 AI 运行模型，适合处理更私密的研究材料。"
       : "本地 AI 还没有准备好。安装、运行、下载和切换模型都在本地 AI 面板完成。"
     : ready
       ? "研思录会使用平台托管的在线 AI，不需要你自己填写密钥。"
@@ -8202,7 +8319,7 @@ function renderAiRoutePreview() {
   const factRows = route.localOnly
     ? [
         ["使用方式", modeLabel],
-        ["运行位置", "本机 Ollama"],
+        ["运行位置", "本机"],
         ["当前模型", displayModel]
       ]
     : [
@@ -8267,7 +8384,7 @@ function renderAiSettingsExperience() {
   const providerLabel = providerId === "platform_managed_openai"
     ? "平台托管 OpenAI"
     : providerDisplayName === "Ollama Local"
-      ? "Ollama 本地"
+      ? "本地 AI"
       : providerDisplayName || providerId || "未选择服务";
   const routeModelRef = String(settingsState.ai.routePreview?.route?.modelRef || "").trim();
   const endpointOverride = String(settingsState.ai.providerEndpointUrl || "").trim();
@@ -8301,13 +8418,7 @@ function renderAiSettingsExperience() {
       : runtimeMode === "cloud_only"
         ? "仅远程"
         : "自动";
-  const localRuntimeLabel = localStatus === "available"
-    ? "Ollama 已连接"
-    : localStatus === "unavailable"
-      ? "Ollama 未连接"
-      : settingsState.ai.localRuntimeChecking
-        ? "正在检测 Ollama"
-        : "等待检测 Ollama";
+  const localRuntimeLabel = ollamaRuntimeStateLabel();
 
   const primaryRuntimeModeLabel = runtimeMode === "hybrid" ? "自动" : runtimeModeLabel;
   const badgeItems = [
@@ -8333,92 +8444,97 @@ function renderAiSettingsExperience() {
   let setupTitle = "当前适合日常研究任务";
   let setupBody = "默认设置会自动选择合适的服务，适合阅读、摘要、整理和一般写作辅助。需要处理敏感材料时，请切到“仅本地”。";
   let quickstartLabel = "自动推荐";
-  let helperText = "只有需要本地模型时，才需要安装并检测 Ollama；日常研究可以先保持自动。";
+  let helperText = "只有需要本地模型时，才需要安装并检测本地 AI；日常研究可以先保持自动。";
   let steps = [
     { state: "complete", title: "默认方案已可使用", note: "不需要先理解模型参数，也不需要安装本地环境。" },
     { state: "current", title: "需要私密处理时再切换", note: "把 AI 使用方式改为“仅本地”，再按提示检测本地模型。" },
     { state: "pending", title: "用一句短句试运行", note: "保存设置后，发一句不含敏感内容的测试语确认连接。" }
   ];
   let homeSteps = [
-    { state: "current", title: "安装并启动 Ollama" },
+    { state: "current", title: "安装并启动本地 AI" },
     { state: "pending", title: `安装推荐模型 ${guideRecommendedModel}` },
     { state: "pending", title: "试运行一句短句" }
   ];
 
   if (localFlowActive) {
-    helperText = "本地模式下，推荐顺序是：检测 Ollama，下载或选择模型，最后用一句短句试运行。";
+    helperText = "本地模式下，推荐顺序是：检测本地 AI，下载或选择模型，最后用一句短句试运行。";
     if (settingsState.ai.localRuntimeChecking) {
       setupTitle = "正在检测本地模型环境";
-      setupBody = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型，通常几秒内会返回状态。";
+      setupBody = "研思录正在检查这台电脑上的本地 AI 服务和已安装模型，通常几秒内会返回状态。";
       quickstartLabel = "检测中";
       steps = [
         { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是本地优先模式" : "当前是仅本地模式"}。` },
-        { state: "current", title: "正在检测 Ollama", note: "如果等待过久，先确认 Ollama 应用是否已经启动。" },
+        { state: "current", title: "正在检测本地 AI", note: "如果等待过久，先确认本地 AI 应用是否已经启动。" },
         { state: "pending", title: "检测完成后选择或下载模型", note: `建议优先从 ${guideRecommendedModel} 开始。` }
       ];
     } else if (localStatus !== "available") {
-      setupTitle = "先让 Ollama 在这台电脑上启动";
-      setupBody = "当前还没有连上 Ollama。先安装并启动 Ollama，再回来点“检测 Ollama”。";
-      quickstartLabel = "等待 Ollama";
+      const installedNotRunning = settingsState.ai.localRuntimeReadinessStatus === "installed_not_running";
+      setupTitle = "先让本地 AI 在这台电脑上启动";
+      setupBody = installedNotRunning
+        ? "已检测到本地 AI 运行环境，但服务还没有运行。可以在这里启动本地 AI，或先手动打开本地 AI 应用。"
+        : "当前还没有连上本地 AI。先安装并启动本地 AI，再回来点“检测本地 AI”。";
+      quickstartLabel = installedNotRunning ? "等待启动" : "等待本地 AI";
       steps = [
         { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "本地优先已启用，敏感资料仍建议切到仅本地。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
-        { state: "current", title: "下载并启动 Ollama", note: "如果还没安装，点“下载 Ollama”；安装后保持它在后台运行。" },
-        { state: "pending", title: "回到研思录，点“检测 Ollama”", note: "检测成功后，研思录会自动列出可选的本地模型。" }
+        { state: "current", title: installedNotRunning ? "启动本地 AI" : "下载并启动本地 AI", note: installedNotRunning ? "点击“启动本地 AI”，或手动打开本地 AI 应用。" : "如果还没安装，点“下载本地 AI 运行环境”；安装后保持它在后台运行。" },
+        { state: "pending", title: "回到研思录，点“检测本地 AI”", note: "检测成功后，研思录会自动列出可选的本地模型。" }
       ];
       if (guideAction === "install_or_start_ollama" && guideSteps.length) {
         steps = [
           { state: "complete", title: "已切到本地模型流程", note: runtimeMode === "hybrid" ? "本地优先已启用，敏感资料仍建议切到仅本地。" : "仅本地模式已启用，本地模型就绪前不会默认使用远程服务。" },
-          { state: "current", title: guideSteps[0] || "下载并启动 Ollama", note: guideSteps[1] || "安装后保持 Ollama 在后台运行。" },
+          { state: "current", title: "下载并启动本地 AI", note: "安装后保持本地 AI 在后台运行。" },
           { state: "pending", title: guideSteps[2] || "回到研思录重新检测", note: "检测成功后会显示本地模型列表。" }
         ];
       }
-      helperText = "如果刚装好 Ollama 但仍显示未连接，先确认 Ollama 应用已经启动。";
+      helperText = installedNotRunning
+        ? "启动只会尝试运行已安装的本地 AI，不会安装系统软件。"
+        : "如果刚装好本地 AI 但仍显示未连接，先确认本地 AI 应用已经启动。";
       homeSteps = [
-        { state: "current", title: "安装并启动 Ollama" },
+        { state: "current", title: "安装并启动本地 AI" },
         { state: "pending", title: `安装推荐模型 ${guideRecommendedModel}` },
         { state: "pending", title: "试运行一句短句" }
       ];
     } else if (!models.length) {
-      setupTitle = "Ollama 已连上，还差一个本地模型";
-      setupBody = `Ollama 已经可用，但这台电脑里还没有可运行的模型。直接点“下载 ${guideRecommendedModel}”即可开始。`;
+      setupTitle = "本地 AI 已连上，还差一个本地模型";
+      setupBody = `本地 AI 已经可用，但这台电脑里还没有可运行的模型。直接点“下载 ${guideRecommendedModel}”即可开始。`;
       quickstartLabel = "等待模型";
       steps = [
-        { state: "complete", title: "Ollama 已连接", note: "研思录已经能访问这台电脑上的本地模型服务。" },
+        { state: "complete", title: "本地 AI 已连接", note: "研思录已经能访问这台电脑上的本地模型服务。" },
         { state: "current", title: "下载第一个本地模型", note: `推荐先从 ${guideRecommendedModel} 开始，兼顾效果和资源占用。` },
         { state: "pending", title: "下载后回来选择它并测试", note: "模型下载完成后，下面的本地模型下拉框会自动出现选项。" }
       ];
       if (guideAction === "pull_recommended_model" && guideSteps.length) {
         steps = [
-          { state: "complete", title: "Ollama 已连接", note: "本地推理服务在线。" },
+          { state: "complete", title: "本地 AI 已连接", note: "本地推理服务在线。" },
           { state: "current", title: guideSteps[0] || `下载推荐模型 ${guideRecommendedModel}`, note: guideSteps[1] || "下载完成后会自动设为本地模型。" },
           { state: "pending", title: guideSteps[2] || "运行一次测试聊天", note: "测试通过后即可开始使用本地模型。" }
         ];
       }
       homeSteps = [
-        { state: "complete", title: "Ollama 已启动" },
+        { state: "complete", title: "本地 AI 已启动" },
         { state: "current", title: `安装推荐模型 ${guideRecommendedModel}` },
         { state: "pending", title: "试运行一句短句" }
       ];
     } else if (!installedLocalModelReady(localModel)) {
       setupTitle = "本地模型已经可选，再选一个就能开始";
       setupBody = localModel
-        ? `当前选择的 ${localModel} 没有在 Ollama 模型列表里检测到。请重新检测，或从下拉框里选一个已安装模型。`
-        : "Ollama 和模型都已经准备好了。现在从“本地模型”里选一个即可。";
+        ? `当前选择的 ${localModel} 没有在本地模型列表里检测到。请重新检测，或从下拉框里选一个已安装模型。`
+        : "本地 AI 和模型都已经准备好了。现在从“本地模型”里选一个即可。";
       quickstartLabel = "选择模型";
       steps = [
-        { state: "complete", title: "Ollama 已连接", note: "本地推理服务在线。" },
+        { state: "complete", title: "本地 AI 已连接", note: "本地推理服务在线。" },
         { state: "complete", title: "至少有一个本地模型可用", note: `当前检测到 ${models.length} 个模型。` },
         { state: "current", title: localModel ? "重新选择已安装模型" : "从下拉框里选一个模型", note: "选中后建议试运行一次，确认当前确实走本地。" }
       ];
       if (guideAction === "select_or_test_model" && guideSteps.length) {
         steps = [
-          { state: "complete", title: "Ollama 已连接", note: "本地推理服务在线。" },
+          { state: "complete", title: "本地 AI 已连接", note: "本地推理服务在线。" },
           { state: "current", title: guideSteps[0] || "选择一个本地模型", note: guideSteps[1] || "选择后会保存当前服务配置。" },
           { state: "pending", title: guideSteps[2] || "运行一次测试聊天", note: "确认返回来自当前模型。" }
         ];
       }
       homeSteps = [
-        { state: "complete", title: "Ollama 已启动" },
+        { state: "complete", title: "本地 AI 已启动" },
         { state: "complete", title: "本地模型已安装" },
         { state: "current", title: "选择模型并试运行" }
       ];
@@ -8430,11 +8546,11 @@ function renderAiSettingsExperience() {
       quickstartLabel = "本地已就绪";
       steps = [
         { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是本地优先模式" : "当前是仅本地模式"}。` },
-        { state: "complete", title: "Ollama 和模型都已准备好", note: `当前使用 ${localModel}。` },
+        { state: "complete", title: "本地 AI 和模型都已准备好", note: `当前使用 ${localModel}。` },
         { state: settingsState.ai.testOutput ? "complete" : "current", title: "试运行一次确认连接", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果。" : "现在适合试运行一次，确认内容从本地模型返回。" }
       ];
       homeSteps = [
-        { state: "complete", title: "Ollama 已启动" },
+        { state: "complete", title: "本地 AI 已启动" },
         { state: "complete", title: `本地模型 ${localModel}` },
         { state: settingsState.ai.testOutput ? "complete" : "current", title: "试运行一句短句" }
       ];
@@ -8446,7 +8562,7 @@ function renderAiSettingsExperience() {
   if (quickstartStatus) {
     quickstartStatus.textContent = quickstartLabel;
     quickstartStatus.classList.toggle("ok", quickstartLabel === "本地已就绪");
-    quickstartStatus.classList.toggle("warn", ["等待 Ollama", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
+    quickstartStatus.classList.toggle("warn", ["等待本地 AI", "等待启动", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
     quickstartStatus.classList.toggle("muted", quickstartLabel === "自动推荐");
   }
   if (localHomeSteps) {
@@ -8459,43 +8575,46 @@ function renderAiSettingsExperience() {
   const localGuideTitle = $("settingsAiLocalGuideTitle");
   const localGuideBody = $("settingsAiLocalGuideBody");
   const localGuideHint = $("settingsAiLocalGuideHint");
-  const localDialogNote = $("settingsAiLocalDialogNote");
-  const localWizard = $("settingsAiLocalWizard");
   let localGuideState = "idle";
   let localGuideBadgeText = "第 1 步";
   let localGuideTone = "muted";
   let localGuideTitleText = "先启用本地大模型";
-  let localGuideBodyText = "点击“使用本地大模型”，然后检测这台电脑是否已经安装并启动 Ollama。";
-  let localGuideHintText = "没有安装时，会在这里给出 Ollama 下载入口。";
+  let localGuideBodyText = "点击“使用本地大模型”，然后检测这台电脑的本地 AI 环境是否已经安装并运行。";
+  let localGuideHintText = "没有安装时，会在这里给出官方下载入口。";
   if (localFlowActive) {
     if (settingsState.ai.localRuntimeChecking) {
       localGuideState = "checking";
       localGuideBadgeText = "正在检测";
       localGuideTone = "warn";
-      localGuideTitleText = "正在检查 Ollama 是否可用";
-      localGuideBodyText = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型。";
-      localGuideHintText = "如果长时间没有结果，先确认 Ollama 应用是否已经启动。";
+      localGuideTitleText = "正在检查本地 AI 是否可用";
+      localGuideBodyText = "研思录正在检查这台电脑上的本地 AI 服务和已安装模型。";
+      localGuideHintText = "如果长时间没有结果，先确认本地 AI 应用是否已经启动。";
     } else if (localStatus !== "available") {
+      const installedNotRunning = settingsState.ai.localRuntimeReadinessStatus === "installed_not_running";
       localGuideState = "blocked";
-      localGuideBadgeText = "需要安装";
+      localGuideBadgeText = installedNotRunning ? "需要启动" : "需要安装";
       localGuideTone = "warn";
-      localGuideTitleText = "还没有检测到 Ollama";
-      localGuideBodyText = "先下载并安装 Ollama，安装后保持它在后台运行，再回到这里点“检测 Ollama”。";
-      localGuideHintText = `下载地址：${String(setupGuide?.installUrl || "https://ollama.com/download").trim() || "https://ollama.com/download"}`;
+      localGuideTitleText = installedNotRunning ? "本地 AI 已安装，但还没有运行" : "还没有检测到本地 AI";
+      localGuideBodyText = installedNotRunning
+        ? "可以点击“启动本地 AI”，也可以手动打开本地 AI 应用。研思录不会静默安装系统软件。"
+        : "先下载并安装本地 AI 运行环境，安装后保持它在后台运行，再回到这里点“检测本地 AI”。";
+      localGuideHintText = installedNotRunning
+        ? "启动失败时，请手动打开本地 AI 应用后重新检测。"
+        : `下载地址：${String(setupGuide?.installUrl || "https://ollama.com/download").trim() || "https://ollama.com/download"}`;
     } else if (!models.length) {
       localGuideState = "blocked";
       localGuideBadgeText = "需要模型";
       localGuideTone = "warn";
-      localGuideTitleText = "Ollama 已启动，还缺一个本地模型";
+      localGuideTitleText = "本地 AI 已启动，还缺一个本地模型";
       localGuideBodyText = `点击“下载 ${guideRecommendedModel}”，研思录会把推荐模型下载到这台电脑。`;
       localGuideHintText = `推荐顺序：${ollamaRecommendationHintText()}。下载可能需要几分钟。`;
     } else if (!installedLocalModelReady(localModel)) {
       localGuideState = "idle";
       localGuideBadgeText = "选择模型";
       localGuideTone = "warn";
-      localGuideTitleText = localModel ? "当前选择的模型没有检测到" : "Ollama 已可用，选择一个本地模型";
+      localGuideTitleText = localModel ? "当前选择的模型没有检测到" : "本地 AI 已可用，选择一个本地模型";
       localGuideBodyText = localModel
-        ? `${localModel} 不在当前 Ollama 模型列表里。请重新检测，或从下面选择一个已安装模型。`
+        ? `${localModel} 不在当前本地模型列表里。请重新检测，或从下面选择一个已安装模型。`
         : `当前检测到 ${models.length} 个模型。从下面的“本地模型”下拉框里选一个即可。`;
       localGuideHintText = "选中后建议打开“试运行”，确认返回确实来自本地模型。";
     } else {
@@ -8508,12 +8627,7 @@ function renderAiSettingsExperience() {
     }
   }
   const localSetupReady = localFlowActive && installedLocalModelReady(localModel);
-  if (localDialogNote) {
-    localDialogNote.textContent = localSetupReady
-      ? "本地模型已就绪；运行、切换和试运行仍从这里管理。"
-      : "安装、运行、下载、切换模型都在这里完成。";
-  }
-  localWizard?.classList.toggle("hidden", localSetupReady);
+  if (localHomeSteps) localHomeSteps.classList.toggle("hidden", localSetupReady);
   if (localGuide) localGuide.dataset.state = localGuideState;
   if (localGuideBadge) {
     localGuideBadge.textContent = localGuideBadgeText;
@@ -8586,12 +8700,13 @@ function renderAiLocalModelRecommendations() {
 
   const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
   const installedNames = models.map((model) => String(model?.name || model || "").trim()).filter(Boolean);
-  const recommendedNames = new Set(OLLAMA_MODEL_RECOMMENDATIONS.map((item) => item.name.toLowerCase()));
+  const catalogProfiles = ollamaModelRecommendationProfiles();
+  const recommendedNames = new Set(catalogProfiles.map((item) => item.name.toLowerCase()));
   const extraInstalledProfiles = installedNames
     .filter((name) => !recommendedNames.has(name.toLowerCase()))
     .map((name) => localModelDisplayProfile(name));
   const profiles = [
-    ...OLLAMA_MODEL_RECOMMENDATIONS.map((item) => localModelDisplayProfile(item.name)),
+    ...catalogProfiles.map((item) => localModelDisplayProfile(item.name)),
     ...extraInstalledProfiles
   ];
   const installedCount = profiles.filter((item) => hasLocalModel(item.name)).length;
@@ -8602,12 +8717,12 @@ function renderAiLocalModelRecommendations() {
       ? installedCount
         ? `已检测到 ${installedCount} 个可用模型`
         : `建议先下载 ${primaryRecommendedOllamaModelName()}`
-      : "先检测 Ollama，再下载或切换模型";
+      : "先检测本地 AI，再下载或切换模型";
   const helperText = !showLocalModel
     ? "先启用本地模式，之后在这里下载、选择和试运行。"
     : runtimeAvailable
-      ? "安装、运行、下载、切换都在这里完成。"
-      : "Ollama 连接后，这些模型会直接变成下载或切换按钮。";
+      ? "当前按内置模型目录展示；以后可按语言、模型来源和本机配置自动调整推荐。"
+      : "本地 AI 连接后，这些模型会直接变成下载或切换按钮。";
   recommendationsEl.innerHTML = `
     <div class="settings-ai-local-recommendations-head">
       <span>${escapeHtml(summaryText)}</span>
@@ -8623,14 +8738,17 @@ function renderAiLocalModelRecommendations() {
         } else if (!showLocalModel) {
           action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-quick-setup="local">启用本地</button>`;
         } else if (!runtimeAvailable) {
-          action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-detect-ollama>检测 Ollama</button>`;
+          action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-detect-ollama>检测本地 AI</button>`;
         } else if (installed && selected) {
           action = `<span class="settings-ai-local-recommendation-current">当前使用</span>`;
-        } else if (installed) {
+        } else if (installed && item.verified) {
           action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-select-local-model="${escapeHtml(item.name)}">切换</button>`;
+        } else if (installed) {
+          action = `<span class="settings-ai-local-recommendation-current">仅检测</span>`;
         } else {
           action = `<button class="mini-btn is-subtle" type="button" data-settings-ai-pull-local-model="${escapeHtml(item.name)}">下载</button>`;
         }
+        const command = item.downloadCommand || `ollama pull ${item.name}`;
         return `
           <div class="settings-ai-local-recommendation ${installed ? "is-installed" : ""} ${selected ? "is-selected" : ""} ${item.verified ? "" : "is-unverified"} ${!runtimeAvailable ? "is-preview" : ""}">
             <div class="settings-ai-local-recommendation-main">
@@ -8641,7 +8759,10 @@ function renderAiLocalModelRecommendations() {
               <div class="settings-ai-local-recommendation-note">${escapeHtml(item.note)}</div>
               <div class="settings-ai-local-recommendation-meta">
                 <span>${escapeHtml(installed ? "已安装" : runtimeAvailable ? "未安装" : "待检测")}</span>
-                <span>${escapeHtml(item.resource || (item.verified ? "已推荐" : "未验证"))}</span>
+                <span>${escapeHtml(item.sizeHint || item.resource || (item.verified ? "已推荐" : "未验证"))}</span>
+                ${item.resource && item.resource !== item.sizeHint ? `<span>${escapeHtml(item.resource)}</span>` : ""}
+                ${item.hardwareHint ? `<span>${escapeHtml(item.hardwareHint)}</span>` : ""}
+                <button class="settings-ai-command-copy" type="button" data-settings-ai-copy-command="${escapeHtml(command)}" aria-label="复制 ${escapeHtml(item.name)} 下载命令">复制命令</button>
               </div>
             </div>
             <div class="settings-ai-local-recommendation-action">${action}</div>
@@ -8673,10 +8794,13 @@ function renderAiLocalModelControls() {
   if (modelSelect) {
     const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
     const selectedModel = String(settingsState.ai.localModel || "").trim();
-    const names = models.map((model) => String(model?.name || "").trim()).filter(Boolean);
+    const catalogNames = new Set(ollamaModelRecommendationProfiles().map((item) => item.name.toLowerCase()));
+    const names = models
+      .map((model) => String(model?.name || "").trim())
+      .filter((name) => name && catalogNames.has(name.toLowerCase()));
     const optionNames = selectedModel && !names.includes(selectedModel) ? [selectedModel, ...names] : names;
     if (settingsState.ai.localRuntimeChecking) {
-      modelSelect.innerHTML = `<option value="">正在检测 Ollama...</option>`;
+      modelSelect.innerHTML = `<option value="">正在检测本地 AI...</option>`;
     } else if (optionNames.length) {
       modelSelect.innerHTML = [
         `<option value="">自动选择本地模型</option>`,
@@ -8684,7 +8808,7 @@ function renderAiLocalModelControls() {
       ].join("");
       modelSelect.value = selectedModel;
     } else {
-      modelSelect.innerHTML = `<option value="">未检测到 Ollama 模型</option>`;
+      modelSelect.innerHTML = `<option value="">未检测到本地模型</option>`;
     }
     modelSelect.disabled = !showLocalModel || settingsState.ai.localRuntimeChecking;
   }
@@ -8693,6 +8817,7 @@ function renderAiLocalModelControls() {
   const startButton = $("settingsAiStartOllama");
   const stopButton = $("settingsAiStopOllama");
   const useLocalButton = $("settingsAiUseLocalSetup");
+  const managedStopPending = settingsState.ai.localRuntimeManagedStopPending === true;
   const runtimeBusy = settingsState.ai.localRuntimeChecking
     || settingsState.ai.localRuntimeStarting
     || settingsState.ai.localRuntimeStopping
@@ -8705,26 +8830,31 @@ function renderAiLocalModelControls() {
     useLocalButton.classList.toggle("is-subtle", localSetupActive);
   }
   if (detectButton) {
-    const localModelReady = installedLocalModelReady();
-    detectButton.classList.toggle("hidden", localSetupActive && localModelReady);
+    detectButton.classList.toggle("hidden", !localSetupActive);
     detectButton.disabled = !localSetupActive || runtimeBusy;
     detectButton.textContent = !localSetupActive
       ? "先启用本地模式"
       : settingsState.ai.localRuntimeChecking
-        ? "正在检测 Ollama..."
+        ? "正在检测本地 AI..."
         : runtimeAvailable
-          ? "重新检测 Ollama"
-          : "检测 Ollama";
+          ? "重新检测本地 AI"
+          : "检测本地 AI";
   }
   if (startButton) {
-    startButton.classList.toggle("hidden", !localSetupActive || runtimeAvailable);
-    startButton.disabled = !localSetupActive || runtimeAvailable || runtimeBusy;
-    startButton.textContent = settingsState.ai.localRuntimeStarting ? "正在启动..." : "启动 Ollama";
+    const canStartOllama = settingsState.ai.localRuntimeReadinessStatus === "installed_not_running";
+    startButton.classList.toggle("hidden", !localSetupActive || runtimeAvailable || managedStopPending || !canStartOllama);
+    startButton.disabled = !localSetupActive || runtimeAvailable || managedStopPending || !canStartOllama || runtimeBusy;
+    startButton.textContent = settingsState.ai.localRuntimeStarting ? "正在启动..." : "启动本地 AI";
   }
   if (stopButton) {
-    stopButton.classList.toggle("hidden", !localSetupActive || !runtimeAvailable);
-    stopButton.disabled = !localSetupActive || !runtimeAvailable || runtimeBusy;
-    stopButton.textContent = settingsState.ai.localRuntimeStopping ? "正在停止..." : "停止 Ollama";
+    const canStopOllama = runtimeAvailable || managedStopPending;
+    stopButton.classList.toggle("hidden", !localSetupActive || !canStopOllama);
+    stopButton.disabled = !localSetupActive || !canStopOllama || runtimeBusy;
+    stopButton.textContent = settingsState.ai.localRuntimeStopping
+      ? "正在停止..."
+      : managedStopPending
+        ? "继续停止"
+        : "停止本地 AI";
   }
 
   $("settingsAiDownloadOllama")?.classList.toggle("hidden", !localSetupActive || settingsState.ai.localRuntimeStatus === "available");
@@ -8733,6 +8863,14 @@ function renderAiLocalModelControls() {
     const guide = currentOllamaSetupGuide();
     const installUrl = String(guide?.installUrl || "https://ollama.com/download").trim() || "https://ollama.com/download";
     if (downloadLink.getAttribute("href") !== installUrl) downloadLink.setAttribute("href", installUrl);
+  }
+  const copyInstallCommandButton = $("settingsAiCopyOllamaInstallCommand");
+  if (copyInstallCommandButton) {
+    const guide = currentOllamaSetupGuide();
+    const installCommand = Array.isArray(guide?.commands) ? String(guide.commands[0] || "").trim() : "";
+    copyInstallCommandButton.classList.toggle("hidden", !localSetupActive || runtimeAvailable || !installCommand);
+    copyInstallCommandButton.disabled = !localSetupActive || runtimeAvailable || !installCommand || runtimeBusy;
+    if (installCommand) copyInstallCommandButton.dataset.command = installCommand;
   }
 
   const pullButton = $("settingsAiPullOllamaModel");
@@ -8854,7 +8992,6 @@ function renderAiProviderConfigControls() {
 function settingsAiDialogByName(name = "") {
   const normalized = String(name || "").trim();
   const map = {
-    local: "settingsAiLocalDialog",
     remote: "settingsAiRemoteDialog",
     test: "settingsAiTestDialog"
   };
@@ -8862,7 +8999,7 @@ function settingsAiDialogByName(name = "") {
 }
 
 function closeSettingsAiDialogs() {
-  ["settingsAiLocalDialog", "settingsAiRemoteDialog", "settingsAiTestDialog"].forEach((id) => {
+  ["settingsAiRemoteDialog", "settingsAiTestDialog"].forEach((id) => {
     $(id)?.classList.add("hidden");
   });
 }
@@ -8949,17 +9086,59 @@ function settingsAiAdvancedRuntimeModeLabel(value = "") {
   return normalizeAiRuntimeMode(value || "auto") === "hybrid" ? "本地优先（高级）" : settingsAiRuntimeModeLabel(value);
 }
 
+function settingsAiUserModeDisplayLabel(value = "") {
+  const key = String(value || "").trim();
+  const labels = {
+    Auto: "自动",
+    Economy: "节省成本",
+    Balanced: "均衡质量",
+    "Deep Thinking": "深度思考",
+    "Local / Private": "本地 / 私密"
+  };
+  return labels[key] || key || "自动";
+}
+
+function settingsAiProviderDisplayLabel(value = "") {
+  const key = String(value || "").trim();
+  const labels = {
+    "Ollama Local": "本地 AI",
+    ollama_local_gateway: "本地 AI",
+    local_private_gateway: "本地 AI",
+    "Platform Managed OpenAI": "在线 AI",
+    platform_managed_openai: "在线 AI"
+  };
+  return labels[key] || key || "AI 服务";
+}
+
+function settingsAiModelPackDisplayLabel(value = "") {
+  const key = String(value || "").trim();
+  const labels = {
+    "Starter Auto": "默认自动",
+    "Low Cost Research": "低成本研究",
+    "Deep Work": "深度工作",
+    "China Optimized": "国内优化",
+    "Global Optimized": "全球网关",
+    "Privacy First": "本地私密",
+    "Ollama Local": "本地 AI",
+    "MiniCPM Local": "MiniCPM 本地",
+    "MiniCPM Remote": "MiniCPM 远程"
+  };
+  return labels[key] || key || "默认自动";
+}
+
 function settingsAiOverviewSummary() {
   const preview = settingsState.ai.routePreview || null;
   const providerName = String(preview?.provider?.displayName || preview?.provider?.providerId || "").trim();
   const routeModel = String(preview?.route?.modelRef || "").trim();
   const localModel = String(settingsState.ai.localModel || "").trim();
-  const value = routeModel || localModel || String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
+  const routeModelName = routeModel.includes(":") ? routeModel.slice(routeModel.lastIndexOf(":") + 1) : routeModel;
+  const rawValue = routeModelName || localModel || String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
+  const value = settingsAiModelPackDisplayLabel(rawValue);
   const metaParts = [
     settingsAiRuntimeModeLabel(settingsState.ai.runtimeMode),
-    String(settingsState.ai.userMode || "Auto").trim() || "Auto"
+    settingsAiUserModeDisplayLabel(settingsState.ai.userMode)
   ];
-  if (providerName) metaParts.push(providerName);
+  if (providerName) metaParts.push(settingsAiProviderDisplayLabel(providerName));
   return {
     value,
     meta: metaParts.filter(Boolean).join(" / ")
@@ -21740,6 +21919,17 @@ $("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
   await pullRecommendedOllamaModel();
 });
 
+$("settingsAiCopyOllamaInstallCommand")?.addEventListener("click", async (event) => {
+  const command = String(event?.currentTarget?.dataset?.command || "").trim();
+  if (!command) return setStatus("当前没有可复制的安装命令", "warn");
+  try {
+    await copyTextToClipboard(command);
+    setStatus("已复制安装命令", "ok");
+  } catch {
+    setStatus("复制失败，请手动复制安装命令", "warn");
+  }
+});
+
 $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
   const selectLocalModelButton = event.target.closest("[data-settings-ai-select-local-model]");
   if (selectLocalModelButton) {
@@ -21754,6 +21944,18 @@ $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
   const pullLocalModelButton = event.target.closest("[data-settings-ai-pull-local-model]");
   if (pullLocalModelButton) {
     await pullRecommendedOllamaModel(pullLocalModelButton.getAttribute("data-settings-ai-pull-local-model"));
+    return;
+  }
+  const copyLocalModelCommandButton = event.target.closest("[data-settings-ai-copy-command]");
+  if (copyLocalModelCommandButton) {
+    const command = String(copyLocalModelCommandButton.getAttribute("data-settings-ai-copy-command") || "").trim();
+    if (!command) return;
+    try {
+      await copyTextToClipboard(command);
+      setStatus("已复制模型下载命令", "ok");
+    } catch {
+      setStatus("复制失败，请手动选择命令文本", "warn");
+    }
     return;
   }
   const quickSetupButton = event.target.closest("[data-settings-ai-quick-setup]");

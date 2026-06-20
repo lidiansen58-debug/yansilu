@@ -56,9 +56,14 @@ export function localProviderPresetForModelPack(modelPack = "") {
 
 export function shouldUseOllamaLocalRuntimeForSelection(input = {}) {
   const runtimeMode = normalizeAiRuntimeMode(input.runtimeMode || input.runtime_mode);
+  const advancedSettings = input.advancedSettings || input.advanced_settings || {};
   const providerId = String(
     input.providerPreset ||
       input.provider_preset ||
+      input.localProviderPreset ||
+      input.local_provider_preset ||
+      advancedSettings.localProviderPreset ||
+      advancedSettings.local_provider_preset ||
       localProviderPresetForModelPack(input.modelPack || input.model_pack) ||
       ""
   ).trim();

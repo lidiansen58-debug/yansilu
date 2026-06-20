@@ -698,7 +698,7 @@ test("potential relation refine does not reuse cached AI output across different
 
   const first = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", {
     ...buildLocalRefineBody(dualProvider.baseUrl),
-    modelRef: "shared-runtime-model",
+    modelRef: "qwen3:8b",
     confirmationApproved: true,
     confirmBudget: true,
     persistArtifacts: false
@@ -707,13 +707,14 @@ test("potential relation refine does not reuse cached AI output across different
   assert.equal(first.json.metrics.cacheHit, false);
   assert.equal(first.json.item.aiRelationType, "supports");
   assert.equal(dualProvider.chatRequests.length, 1);
+  assert.equal(dualProvider.chatRequests[0].body.model, "qwen3:8b");
 
   const second = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", {
     notes: buildRefineNotes(),
     relations: [],
     candidate: buildCandidate(),
     providerMode: "ollama_direct",
-    modelName: "shared-runtime-model",
+    modelName: "qwen3:8b",
     timeoutMs: 60000,
     persistArtifacts: false
   });
@@ -721,6 +722,35 @@ test("potential relation refine does not reuse cached AI output across different
   assert.equal(second.json.metrics.cacheHit, false);
   assert.equal(second.json.item.aiRelationType, "qualifies");
   assert.equal(dualProvider.generateRequests.length, 1);
+});
+
+test("potential relation refine rejects non-catalog ollama_direct models", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-potential-relations-direct-catalog-vault-");
+  const port = await findFreePort();
+  const delayedProvider = await startDelayedOllamaProvider(30);
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath, {
+    OLLAMA_BASE_URL: delayedProvider.baseUrl
+  });
+
+  t.after(() => child.kill());
+  t.after(() => delayedProvider.server.close());
+  await waitForHealth(baseUrl);
+
+  const response = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", {
+    notes: buildRefineNotes(),
+    relations: [],
+    candidate: buildCandidate(),
+    providerMode: "ollama_direct",
+    modelName: "llama3.2:3b",
+    timeoutMs: 60000,
+    persistArtifacts: false
+  });
+
+  assert.equal(response.status, 400, JSON.stringify(response.json));
+  assert.equal(response.json.error.code, "OLLAMA_MODEL_NOT_ALLOWED");
+  assert.deepEqual(response.json.error.details.allowedModels, ["qwen2.5:7b", "qwen3:8b", "qwen3.5:9b"]);
+  assert.equal(delayedProvider.requests.length, 0);
 });
 
 test("potential relation refine applies batch timeout to ollama_direct execution", async (t) => {
@@ -741,7 +771,7 @@ test("potential relation refine applies batch timeout to ollama_direct execution
     relations: [],
     candidate: buildCandidate(),
     providerMode: "ollama_direct",
-    modelName: "batch-timeout-test-model",
+    modelName: "qwen3:8b",
     timeoutMs: 50,
     batchTimeoutMs: 120000,
     persistArtifacts: false
@@ -773,7 +803,7 @@ test("potential relation refine returns a timeout error instead of waiting indef
     relations: [],
     candidate: buildCandidate(),
     providerMode: "ollama_direct",
-    modelName: "timeout-test-model",
+    modelName: "qwen3:8b",
     timeoutMs: 50,
     persistArtifacts: false
   });
@@ -804,7 +834,7 @@ test("potential relation refine also times out when ollama stalls after sending 
     relations: [],
     candidate: buildCandidate(),
     providerMode: "ollama_direct",
-    modelName: "timeout-test-model",
+    modelName: "qwen3:8b",
     timeoutMs: 50,
     persistArtifacts: false
   });

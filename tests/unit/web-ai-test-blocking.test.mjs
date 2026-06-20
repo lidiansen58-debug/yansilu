@@ -38,9 +38,16 @@ function loadAiTestBlockedReason(state) {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const helperSource = extractFunctionSource(source, "function aiTestBlockedReason(");
+  const helperSource = [
+    extractFunctionSource(source, "function ollamaRecommendationForModel("),
+    extractFunctionSource(source, "function ollamaModelRecommendationProfiles("),
+    extractFunctionSource(source, "function isBuiltInOllamaModel("),
+    extractFunctionSource(source, "function installedLocalModelReady("),
+    extractFunctionSource(source, "function aiTestBlockedReason(")
+  ].join("\n");
   return new Function(
     "settingsState",
+    "OLLAMA_MODEL_RECOMMENDATIONS",
     "currentAiProviderId",
     "normalizeAiRuntimeMode",
     "isAiLocalFlowActive",
@@ -51,6 +58,11 @@ function loadAiTestBlockedReason(state) {
     `${helperSource}\nreturn aiTestBlockedReason;`
   )(
     state,
+    [
+      { name: "qwen2.5:7b" },
+      { name: "qwen3:8b" },
+      { name: "qwen3.5:9b" }
+    ],
     () => state.ai.providerId || "",
     (value = "") => String(value || "auto").trim().toLowerCase().replace(/[\s/-]+/g, "_"),
     ({ runtimeMode, modelPack }) => ["local_only", "hybrid"].includes(runtimeMode) || ["Ollama Local", "Privacy First"].includes(modelPack),
@@ -137,15 +149,18 @@ test("local AI setup keeps bootstrap behind explicit settings actions", () => {
   assert.match(graphLocalReadySource, /await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);/);
   assert.match(graphLocalReadySource, /请先到 AI 设置完成安装、启动或模型下载/);
   assert.doesNotMatch(graphConnectSource, /bootstrapOllamaLocalAiFromUi\(/);
-  assert.match(htmlSource, /安装、运行、下载、切换模型都在这里完成/);
-  assert.match(htmlSource, /默认推荐 qwen3:8b/);
+  assert.match(htmlSource, /本地 AI 控制台/);
+  assert.match(htmlSource, /安装运行环境、启动或停止服务、下载模型、切换默认本地模型都在这里完成/);
+  assert.match(htmlSource, /settings-ai-local-control-console/);
+  assert.doesNotMatch(htmlSource, /id="settingsAiLocalDialog"/);
+  assert.match(appSource, /当前按内置模型目录展示/);
   assert.match(htmlSource, /settingsMobileItemSelect/);
   assert.match(appSource, /settingsMobileItemOptionsHtml/);
   assert.match(appSource, /在线 AI 已就绪/);
   assert.match(appSource, /模型档位/);
   assert.match(appSource, /数据位置：试运行内容会发送到在线 AI 服务/);
   assert.match(htmlSource, /settings-ai-flow/);
-  assert.match(htmlSource, /先准备本地 AI，再选择使用方式，最后用一句普通测试话试运行确认/);
+  assert.match(htmlSource, /管理本地模型能力，选择默认使用方式，再用一句普通测试话确认当前路线/);
   assert.match(htmlSource, /需要帮助时，从这三件事开始/);
   assert.match(htmlSource, /data-settings-support-item="desktop-help"/);
   assert.match(htmlSource, /data-settings-support-item="feedback"/);
@@ -156,15 +171,25 @@ test("local AI setup keeps bootstrap behind explicit settings actions", () => {
   assert.match(appSource, /data-settings-ai-select-local-model/);
   assert.match(appSource, /data-settings-ai-pull-local-model/);
   assert.match(appSource, /data-settings-ai-detect-ollama/);
+  assert.match(appSource, /data-settings-ai-copy-command/);
+  assert.match(appSource, /已复制模型下载命令/);
+  assert.match(appSource, /window\.confirm\(`下载 \$\{modelNameToPull\}/);
+  assert.match(appSource, /const catalogNames = new Set\(ollamaModelRecommendationProfiles\(\)/);
+  assert.match(appSource, /这个模型不在研思录内置本地模型目录里/);
   assert.match(localRecommendationsSource, /recommendationsEl\.classList\.remove\("hidden"\)/);
   assert.match(localRecommendationsSource, /先启用本地模式，之后在这里下载、选择和试运行/);
-  assert.match(localRecommendationsSource, /先检测 Ollama，再下载或切换模型/);
-  assert.match(localRecommendationsSource, /Ollama 连接后，这些模型会直接变成下载或切换按钮/);
+  assert.match(localRecommendationsSource, /先检测本地 AI，再下载或切换模型/);
+  assert.match(localRecommendationsSource, /本地 AI 连接后，这些模型会直接变成下载或切换按钮/);
   assert.match(localRecommendationsSource, /data-settings-ai-quick-setup="local"/);
   assert.match(localRecommendationsSource, /data-settings-ai-detect-ollama/);
   assert.match(localRecommendationsSource, /data-settings-ai-pull-local-model/);
   assert.match(localRecommendationsSource, /data-settings-ai-select-local-model/);
+  assert.match(localRecommendationsSource, /settings-ai-command-copy/);
+  assert.match(localRecommendationsSource, /仅检测/);
   assert.match(localRecommendationsSource, />切换<\/button>/);
+  assert.match(htmlSource, /settingsAiCopyOllamaInstallCommand/);
+  assert.match(appSource, /已复制安装命令/);
+  assert.match(appSource, /localRuntimeReadinessStatus === "installed_not_running"/);
 });
 
 test("local Ollama eval prefers qwen3 8b by default", () => {
@@ -182,7 +207,10 @@ test("Ollama preview replaces a stale selected local model with an installed rec
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const appSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
   const helperSource = [
+    extractFunctionSource(appSource, "function ollamaRecommendationForModel("),
+    extractFunctionSource(appSource, "function ollamaModelRecommendationProfiles("),
     extractFunctionSource(appSource, "function preferredLocalModelName("),
+    extractFunctionSource(appSource, "function isBuiltInOllamaModel("),
     extractFunctionSource(appSource, "function modelNameExistsInList("),
     extractFunctionSource(appSource, "function selectedLocalModelNameForInstalledModels("),
     extractFunctionSource(appSource, "function installedLocalModelReady(")
@@ -191,12 +219,18 @@ test("Ollama preview replaces a stale selected local model with an installed rec
     "settingsState",
     "hasLocalModel",
     "OLLAMA_RECOMMENDED_MODEL",
+    "OLLAMA_MODEL_RECOMMENDATIONS",
     `${helperSource}\nreturn { selectedLocalModelNameForInstalledModels, installedLocalModelReady };`
   );
   const selectedLocalModelNameForInstalledModels = helpers(
     { ai: { localRuntimeStatus: "available" } },
     () => false,
-    "qwen3:8b"
+    "qwen3:8b",
+    [
+      { name: "qwen2.5:7b" },
+      { name: "qwen3:8b" },
+      { name: "qwen3.5:9b" }
+    ]
   ).selectedLocalModelNameForInstalledModels;
 
   assert.equal(
@@ -206,6 +240,10 @@ test("Ollama preview replaces a stale selected local model with an installed rec
   assert.equal(
     selectedLocalModelNameForInstalledModels("qwen3:8b", [{ name: "qwen3:8b" }, { name: "qwen2.5:7b" }]),
     "qwen3:8b"
+  );
+  assert.equal(
+    selectedLocalModelNameForInstalledModels("llama3.2:3b", [{ name: "llama3.2:3b" }]),
+    ""
   );
   assert.equal(selectedLocalModelNameForInstalledModels("qwen3:8b", []), "");
   assert.match(appSource, /settingsState\.ai\.localModel = "";/);
@@ -221,26 +259,47 @@ test("Ollama preview replaces a stale selected local model with an installed rec
   assert.match(appSource, /\.\.\.\(modelRefAllowed \? \{ modelRef: advancedModelRef \} : \{\}\)/);
   assert.doesNotMatch(appSource, /modelRef: settingsState\.ai\.advancedModelRef/);
   assert.match(appSource, /installedLocalModelReady\(localModel\)/);
-  assert.match(appSource, /const localModelReady = installedLocalModelReady\(\);/);
-  assert.match(appSource, /detectButton\.classList\.toggle\("hidden", localSetupActive && localModelReady\);/);
-  assert.match(appSource, /重新检测 Ollama/);
+  assert.match(appSource, /detectButton\.classList\.toggle\("hidden", !localSetupActive\);/);
+  assert.match(appSource, /重新检测本地 AI/);
   assert.doesNotMatch(appSource, /Boolean\(models\.length && localModel\)/);
-  assert.match(appSource, /模型下载已完成，但还没有在 Ollama 列表里检测到/);
+  assert.match(appSource, /模型下载已完成，但还没有在本地模型列表里检测到/);
 
   assert.equal(helpers(
     { ai: { localRuntimeStatus: "available", localModel: "qwen2.5:7b" } },
-    (modelName = "") => modelName === "qwen2.5:7b"
+    (modelName = "") => modelName === "qwen2.5:7b",
+    "qwen3:8b",
+    [
+      { name: "qwen2.5:7b" },
+      { name: "qwen3:8b" },
+      { name: "qwen3.5:9b" }
+    ]
   ).installedLocalModelReady(), true);
   assert.equal(helpers(
     { ai: { localRuntimeStatus: "available", localModel: "qwen3:8b" } },
-    (modelName = "") => modelName === "qwen2.5:7b"
+    (modelName = "") => modelName === "qwen2.5:7b",
+    "qwen3:8b",
+    [
+      { name: "qwen2.5:7b" },
+      { name: "qwen3:8b" },
+      { name: "qwen3.5:9b" }
+    ]
+  ).installedLocalModelReady(), false);
+  assert.equal(helpers(
+    { ai: { localRuntimeStatus: "available", localModel: "llama3.2:3b" } },
+    (modelName = "") => modelName === "llama3.2:3b",
+    "qwen3:8b",
+    [
+      { name: "qwen2.5:7b" },
+      { name: "qwen3:8b" },
+      { name: "qwen3.5:9b" }
+    ]
   ).installedLocalModelReady(), false);
 });
 
 test("AI test run is blocked until local Ollama runtime and model are ready", () => {
   let state = createAiState();
   let blockedReason = loadAiTestBlockedReason(state);
-  assert.equal(blockedReason(), "请先启动或检测 Ollama");
+  assert.equal(blockedReason(), "请先启动或检测本地 AI");
 
   state = createAiState({ localRuntimeStatus: "available" });
   blockedReason = loadAiTestBlockedReason(state);
@@ -260,11 +319,48 @@ test("AI test run is blocked until local Ollama runtime and model are ready", ()
 
   state = createAiState({
     localRuntimeStatus: "available",
+    localRuntimeModels: [{ name: "llama3.2:3b" }],
+    localModel: "llama3.2:3b"
+  });
+  blockedReason = loadAiTestBlockedReason(state);
+  assert.notEqual(blockedReason(), "");
+
+  state = createAiState({
+    localRuntimeStatus: "available",
     localRuntimeModels: [{ name: "qwen2.5:7b" }],
     localModel: "qwen2.5:7b"
   });
   blockedReason = loadAiTestBlockedReason(state);
   assert.equal(blockedReason(), "");
+});
+
+test("Ollama stop UI treats external runtimes as manual management", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const stopSource = extractFunctionSource(source, "async function stopOllamaRuntimeFromUi(");
+  const controlsSource = extractFunctionSource(source, "function renderAiLocalModelControls(");
+
+  assert.match(stopSource, /stopStatus === "manual_stop_required"/);
+  assert.match(stopSource, /stopStatus === "stopped"/);
+  assert.match(stopSource, /stopStatus === "stopping"/);
+  assert.match(stopSource, /remainingManagedPids/);
+  assert.match(stopSource, /localRuntimeManagedStopPending = stopStatus === "stopping" \|\| remainingManagedPids\.length > 0/);
+  assert.match(stopSource, /需要手动管理本地 AI/);
+  assert.match(stopSource, /不是由研思录启动/);
+  assert.match(stopSource, /正在等待确认/);
+  assert.match(controlsSource, /const managedStopPending = settingsState\.ai\.localRuntimeManagedStopPending === true/);
+  assert.match(controlsSource, /const canStopOllama = runtimeAvailable \|\| managedStopPending/);
+  assert.match(controlsSource, /继续停止/);
+  assert.match(controlsSource, /runtimeAvailable \|\| managedStopPending \|\| !canStartOllama/);
+  assert.ok(
+    stopSource.indexOf('stopStatus === "manual_stop_required"') < stopSource.indexOf("已发送停止命令"),
+    "manual stop result should be handled before the generic stop-sent warning"
+  );
+  assert.ok(
+    stopSource.indexOf('stopStatus === "stopping"') < stopSource.indexOf('runtime?.status === "unavailable"'),
+    "stopping result should not fall through to the unavailable-runtime success branch"
+  );
 });
 
 test("AI test run keeps remote provider setup blocking", () => {
