@@ -12,20 +12,20 @@ This candidate supersedes the older local v0.1.0 RC artifact and the 2026-05-14 
 
 - Branch: `main`
 - Remote: `origin/main`
-- Commit: `464cb82 test potential relation batch timeout routing`
+- Commit: `beb223b docs update beta release status`
 - Version: `0.1.1-beta.1`
 - Release tag to use after manual sign-off: `v0.1.1-beta.1`
 
 ## Build Artifact
 
-- Local archive: `E:\Projects\Thinking in Notes\release-artifacts\v0.1.1-beta.1-current-513ee26-20260617-182837`
+- Local bundle path: `E:\Projects\Thinking in Notes\yansilu\apps\desktop\src-tauri\target\release\bundle`
 - Installer: `研思录_0.1.1-beta.1_x64-setup.exe`
-- Size: `4,102,441` bytes
+- Size: `4,131,373` bytes
 - Bundle manifest: `bundle-manifest.json`
 - Bundle checksum file: `bundle-manifest.sha256.txt`
-- SHA-256: `0AD39A6B4AECE84A7A09CD5FC0B91CC148FC6657D2FF626CE1818CCDDC3555C0`
+- SHA-256: `B9E8B2BA70C3E4B04BEC1F27A7C6E5BF7F6C882674727D2C42944AB5B92F2944`
 
-Important: this archived installer was built from `513ee26`, before the local AI bootstrap and the later graph-relation workflow polish were merged. Rebuild the Windows installer from `464cb82` or later before sharing this beta.
+Current build note: the Windows NSIS installer was rebuilt from `beb223b` on 2026-06-20 with updater artifacts disabled.
 
 Note: the current manifest checksum file still records the NSIS filename with a mojibake display string from the build manifest generator. The copied artifact filename and installed application path were verified with the correct Chinese name.
 
@@ -89,6 +89,15 @@ Note: the current manifest checksum file still records the NSIS filename with a 
 - Graph closeout browser regression passed:
   - `npm run test:e2e:browser:relations-graph-closeout`
   - Result: `6/6` passed.
+- 2026-06-20 desktop rebuild passed on `beb223b`:
+  - `npm.cmd run build:desktop:check`
+    - Result: passed after rerunning with elevated filesystem permissions for `cargo check`.
+  - `YANSILU_DESKTOP_UPDATER_ARTIFACTS=false npm.cmd run build:desktop:nsis`
+    - Result: passed.
+    - Installer: `apps\desktop\src-tauri\target\release\bundle\nsis\研思录_0.1.1-beta.1_x64-setup.exe`
+  - `npm.cmd run build:desktop:manifest`
+    - Result: passed after rerunning with elevated filesystem permissions.
+    - SHA-256: `B9E8B2BA70C3E4B04BEC1F27A7C6E5BF7F6C882674727D2C42944AB5B92F2944`
 - 2026-06-20 core workflow regression passed on `464cb82`:
   - Graph + link picker + relation creation:
     - `node --test tests\unit\web-graph-*.test.mjs tests\unit\web-link-picker-insert-behavior.test.mjs tests\unit\web-relation-create-type-options.test.mjs tests\unit\web-main-path-isolated-relation-action.test.mjs`
@@ -167,7 +176,7 @@ Issues found during manual walkthrough and follow-up status:
 
 ## Required Before Sharing
 
-Rebuild the installer from `464cb82` or later, then complete one manual walkthrough from the installed desktop app.
+Complete one manual walkthrough from the newly rebuilt `beb223b` Windows installer.
 
 The automated data-flow and browser regression coverage has passed. The browser walkthrough relation-picker issues were fixed and rechecked in the browser. The remaining sign-off is the human UI pass through the installed WebView, especially native Windows shell behavior:
 
