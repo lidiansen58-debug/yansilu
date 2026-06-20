@@ -117,26 +117,42 @@ test("editor-triggered note AI analysis stays in the current note workspace", ()
   const deferredEnd = editorSource.indexOf("  setDistillationPrefill", deferredStart);
   assert.ok(deferredStart >= 0 && deferredEnd > deferredStart, "expected renderDeferredNoteWorkspace() to exist");
   const deferredSource = editorSource.slice(deferredStart, deferredEnd);
-  assert.match(deferredSource, /this\.renderPermanentNoteAiAnalysisSection\(note\)/);
+  assert.match(deferredSource, /this\.renderPermanentNoteRelationAssistSection\(note, overview\)/);
   assert.match(deferredSource, /this\.renderPermanentNoteDistillationSection\(note\)/);
   assert.match(deferredSource, /data-deferred-workspace/);
 
-  const sectionStart = editorSource.indexOf("  renderPermanentNoteAiAnalysisSection(note) {");
-  const sectionEnd = editorSource.indexOf("  legacyPermanentNoteMainPathSummary", sectionStart);
-  assert.ok(sectionStart >= 0 && sectionEnd > sectionStart, "expected renderPermanentNoteAiAnalysisSection() to exist");
+  const sectionStart = editorSource.indexOf("  renderPermanentNoteRelationAssistSection(note, overview = {}) {");
+  const sectionEnd = editorSource.indexOf("  renderPermanentNoteWritingPrepSection", sectionStart);
+  assert.ok(sectionStart >= 0 && sectionEnd > sectionStart, "expected renderPermanentNoteRelationAssistSection() to exist");
   const sectionSource = editorSource.slice(sectionStart, sectionEnd);
-  assert.match(sectionSource, /分析结果会留在当前笔记的 AI 建议区/);
+  assert.match(editorSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
+  assert.match(sectionSource, /AI 推荐/);
+  assert.match(sectionSource, /手动关联/);
   assert.doesNotMatch(sectionSource, /分析结果会进入 AI Inbox/);
+  assert.doesNotMatch(editorSource, /renderPermanentNoteAiAnalysisSection/);
+  assert.doesNotMatch(editorSource, /data-note-ai-analysis-open-inbox/);
 
   const analysisStart = editorSource.indexOf("  async runPermanentNoteAnalysis() {");
-  const analysisEnd = editorSource.indexOf("  openPermanentNoteAiInbox()", analysisStart);
+  const analysisEnd = editorSource.indexOf("  legacyPermanentNoteMainPathSummary", analysisStart);
 
   assert.ok(analysisStart >= 0 && analysisEnd > analysisStart, "expected runPermanentNoteAnalysis() to exist");
   const analysisSource = editorSource.slice(analysisStart, analysisEnd);
 
   assert.match(analysisSource, /openInbox: false/);
-  assert.match(analysisSource, /this\.noteAiAnalysisByNoteId\.set\(note\.id, result\)/);
-  assert.match(analysisSource, /void this\.refreshNoteAiSuggestions\(note\.id\)/);
+  assert.match(analysisSource, /this\.noteAiAnalysisByNoteId\.set\(noteId, result\)/);
+  assert.match(analysisSource, /if \(!this\.isActiveNoteId\(noteId\)\) return/);
+  assert.match(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
+  assert.match(analysisSource, /this\.refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
+  assert.match(analysisSource, /void this\.refreshNoteAiSuggestions\(noteId\)/);
+  assert.doesNotMatch(analysisSource, /this\.renderRelated\(\)/);
+
+  const applyStart = editorSource.indexOf("  async applyNoteAiSuggestionAction");
+  const applyEnd = editorSource.indexOf("  jumpToInspectorSection", applyStart);
+  assert.ok(applyStart >= 0 && applyEnd > applyStart, "expected applyNoteAiSuggestionAction() to exist");
+  const applySource = editorSource.slice(applyStart, applyEnd);
+  assert.match(applySource, /await this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
+  assert.match(applySource, /this\.renderEmbeddedAiWorkspaceMount\(noteId\)/);
+  assert.doesNotMatch(applySource, /this\.renderRelated\(\)/);
 
   const appSource = readRepoFile("apps/web/src/prototype-app.js");
   const handlerStart = appSource.indexOf('  if (reason === "run-note-ai-analysis") {');

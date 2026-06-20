@@ -222,6 +222,7 @@ import {
   listIndexCards,
   fetchNote,
   fetchNoteRelations,
+  searchNotes,
   createNoteRelation,
   fetchWritingProject,
   listProjectDraftVersions,
@@ -1311,12 +1312,12 @@ function persistSystemMessages() {
 
 function systemMessageActionLabel(message = {}) {
   if (message.resolvedAt) return "";
+  if (message.actionLabel) return message.actionLabel;
   if (message.action === "open-ai-inbox") return "查看待确认建议";
   if (message.action === "open-graph") return "查看候选并确认关系";
   if (message.action === "open-writing") return "继续整理主题";
   if (message.action === "open-note") return "打开笔记";
   if (message.action === "open-note-workflow") return "打开并处理";
-  if (message.actionLabel) return message.actionLabel;
   return "";
 }
 
@@ -17489,6 +17490,7 @@ function renderGraphVisualMap({
                   <span></span><span></span><span></span>
                 </div>
                 <div class="graph-map-empty-card">
+                  <button class="graph-overlay-close graph-map-empty-close" type="button" data-graph-empty-close aria-label="关闭提示并返回观点关系" title="关闭提示并返回观点关系">${renderGraphIcon("close")}</button>
                   <strong>${escapeHtml(emptyTitle)}</strong>
                   <span>${escapeHtml(emptyMessage)}</span>
                   <div class="graph-map-empty-actions">
@@ -19948,8 +19950,65 @@ function graphWorkflowSelectionForNote(noteId = "", route = {}) {
   return { kind: "isolated", noteId: cleanNoteId };
 }
 
+function normalizeSystemMessageNoteTitle(value = "") {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function systemMessageWorkflowNoteTitles(message = {}) {
+  const titles = [];
+  const pushTitle = (value = "") => {
+    const title = normalizeSystemMessageNoteTitle(value);
+    if (title && !titles.includes(title)) titles.push(title);
+  };
+  pushTitle(String(message.body || "").match(/“([^”]+)”/)?.[1] || "");
+  if (typeof systemMessageSubjectText === "function") pushTitle(systemMessageSubjectText(message));
+  const title = String(message.title || "").trim();
+  pushTitle(
+    title.replace(
+      /\s*(还没有进入图谱|发现了潜在关联|产生了待确认建议|需要处理|待关联|待确认)\s*$/u,
+      ""
+    )
+  );
+  return titles;
+}
+
+async function resolveSystemMessageWorkflowNoteId(message = {}) {
+  const requestedIds = [
+    message.noteId,
+    message.sourceNoteId,
+    message.targetNoteId
+  ].map((id) => String(id || "").trim()).filter(Boolean);
+  for (const noteId of requestedIds) {
+    if (!state.notes.some((note) => note.id === noteId)) await ensureNotesLoaded([noteId]);
+    if (state.notes.some((note) => note.id === noteId)) return noteId;
+  }
+
+  const titleCandidates = systemMessageWorkflowNoteTitles(message);
+  for (const title of titleCandidates) {
+    const loaded = state.notes.find((note) => normalizeSystemMessageNoteTitle(note?.title) === title);
+    if (loaded?.id) return String(loaded.id);
+  }
+
+  if (typeof searchNotes !== "function") return "";
+  for (const title of titleCandidates) {
+    try {
+      const result = await searchNotes({ query: title, limit: 8 });
+      const items = Array.isArray(result?.items) ? result.items : [];
+      const match = items.find((item) => normalizeSystemMessageNoteTitle(item?.title) === title) || items[0] || null;
+      const noteId = String(match?.id || "").trim();
+      if (!noteId) continue;
+      const mapped = typeof mapNoteItem === "function" ? mapNoteItem(match) : match;
+      if (mapped?.id) state.notes = [mapped, ...state.notes.filter((note) => note.id !== mapped.id)];
+      await ensureNotesLoaded([noteId]);
+      if (state.notes.some((note) => note.id === noteId)) return noteId;
+    } catch {}
+  }
+  return "";
+}
+
 async function openSystemMessageWorkflow(message = {}) {
-  const noteId = String(message.noteId || message.sourceNoteId || "").trim();
   const route = message.workflowRoute && typeof message.workflowRoute === "object" ? message.workflowRoute : {};
   const focus = String(route.focus || "").trim();
   if (focus === "writing") {
@@ -19985,9 +20044,8 @@ async function openSystemMessageWorkflow(message = {}) {
       return false;
     }
   }
+  const noteId = await resolveSystemMessageWorkflowNoteId(message);
   if (!noteId) return false;
-  if (!state.notes.some((note) => note.id === noteId)) await ensureNotesLoaded([noteId]);
-  if (!state.notes.some((note) => note.id === noteId)) return false;
   if (focus === "graph") {
     closeSystemMessages();
     const opened = await handleStateChange("open-note-main-route", {
@@ -22929,6 +22987,14 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     graphState.workbenchPanelOpen = false;
     renderGraphPanel();
     setStatus("已收起图谱侧栏", "ok");
+    return;
+  }
+  const graphEmptyClose = event.target.closest("[data-graph-empty-close]");
+  if (graphEmptyClose) {
+    setGraphRelationTypeFilter("meaningful");
+    graphState.selection = null;
+    renderGraphPanel();
+    setStatus("已返回观点关系图", "ok");
     return;
   }
   if (graphUtilityDrawerDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-utility-drawer")) {

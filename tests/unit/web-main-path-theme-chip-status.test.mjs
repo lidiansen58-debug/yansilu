@@ -31,7 +31,7 @@ test("main-path header chip reflects link-only theme signal status instead of ge
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /<b>关系<\/b> <em>1 条待确认线索<\/em>/);
+  assert.match(html, /<b>关联<\/b> <em>候选 1 条<\/em>/);
   assert.doesNotMatch(html, /主题线索 1/);
 });
 
@@ -58,6 +58,6 @@ test("main-path header chip reflects mixed weak-signal status instead of generic
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /<b>关系<\/b> <em>2 条待确认线索<\/em>/);
+  assert.match(html, /<b>关联<\/b> <em>候选 2 条<\/em>/);
   assert.doesNotMatch(html, /主题线索 2/);
 });

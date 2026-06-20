@@ -29,6 +29,6 @@ test("main-path status strip labels tag-only notes as tag clues instead of gener
   };
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
-  assert.match(html, /<b>关系<\/b> <em>2 条待确认线索<\/em>/);
+  assert.match(html, /<b>关联<\/b> <em>候选 2 条<\/em>/);
   assert.doesNotMatch(html, /主题线索 2/);
 });

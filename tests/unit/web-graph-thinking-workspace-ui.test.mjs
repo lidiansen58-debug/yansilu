@@ -207,6 +207,15 @@ test("graph structure view falls back to galaxy clusters instead of an empty map
   assert.match(html, /\.graph-structure-fallback-note \{[\s\S]*background: rgba\(239, 250, 255, 0\.9\);/);
 });
 
+test("graph empty map card can be closed back to argument relations", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /data-graph-empty-close/);
+  assert.match(source, /aria-label="关闭提示并返回观点关系"/);
+  assert.match(source, /const graphEmptyClose = event\.target\.closest\("\[data-graph-empty-close\]"\);/);
+  assert.match(source, /setGraphRelationTypeFilter\("meaningful"\);[\s\S]*setStatus\("已返回观点关系图", "ok"\);/);
+});
+
 test("graph research navigator uses cluster maturity for global verdicts", () => {
   const source = readPrototypeApp();
 

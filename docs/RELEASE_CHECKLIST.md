@@ -59,7 +59,7 @@ Signed updater artifact generation requires:
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
-For v0.1.0, tagged release workflows keep updater artifacts disabled by default. Add these secrets before enabling signed updater artifacts; they sign Tauri updater metadata, not the operating system installer itself.
+Tagged desktop release workflows generate signed updater artifacts by default. These secrets sign Tauri updater metadata, not the operating system installer itself. If the signing key is rotated, update the public key in `apps/desktop/src-tauri/tauri.conf.json` in the same release-prep change.
 
 Future production signing should also add:
 

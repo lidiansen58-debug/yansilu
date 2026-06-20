@@ -161,7 +161,7 @@ test("main-path focuses boundary follow-up once a confirmed note already has an 
   );
   assert.match(html, /data-main-path-next-action="distillation"/);
   assert.match(html, /<strong>补边界\/反例<\/strong>/);
-  assert.match(html, /<b>关系<\/b> <em>1 条正式关系<\/em>/);
+  assert.match(html, /<b>关联<\/b> <em>1 条<\/em>/);
 });
 
 test("main-path writing action uses project mode once a note is project-ready", () => {
@@ -223,7 +223,7 @@ test("main-path project-ready card aligns chip and writing-step wording to creat
 
   assert.match(html, /data-main-path-next-action="writing"/);
   assert.match(html, /<strong>先创建项目<\/strong>/);
-  assert.match(html, /<b>去向<\/b> <em>先创建项目<\/em>/);
+  assert.match(html, /<b>写作准备<\/b> <em>先创建项目<\/em>/);
   assert.match(html, /data-note-main-route-mode="project">创建项目<\/button>/);
 });
 
@@ -308,8 +308,9 @@ test("main-path basket-ready card labels the writing step as 可加入写作篮"
     }
   ).replace(/\s+/g, " ");
 
-  assert.match(html, /<b>去向<\/b> <em>可加入写作篮<\/em>/);
-  assert.match(html, /加入写作篮<\/button>/);
+  assert.match(html, /<b>写作准备<\/b> <em>可加入写作篮<\/em>/);
+  assert.match(html, /data-main-path-next-action="relations"/);
+  assert.match(html, /关联一条笔记<\/button>/);
 });
 
 test("main-path writing step uses distillation mode when the note still needs distillation", () => {
@@ -337,5 +338,5 @@ test("main-path writing step uses distillation mode when the note still needs di
 
   assert.match(html, /data-main-path-next-action="distillation"/);
   assert.match(html, /data-note-main-route-focus="thesis"/);
-  assert.match(html, /<b>去向<\/b> <em>先确认观点<\/em>/);
+  assert.match(html, /<b>写作准备<\/b> <em>先确认观点<\/em>/);
 });

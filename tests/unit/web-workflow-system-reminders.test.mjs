@@ -43,6 +43,7 @@ function createWorkflowOpenerContext(overrides = {}) {
     renderGraphPanel: () => {},
     selectWritingThemeIndex: async (indexCardId) => ({ id: indexCardId }),
     ensureNotesLoaded: async () => {},
+    searchNotes: async () => ({ items: [] }),
     writingKnownNoteById: (id) => ({ id, noteType: "permanent", status: "active", authorship: { user_confirmed: true } }),
     isWritingEligibleNote: () => true,
     continueWritingEntry: () => null,
@@ -84,9 +85,14 @@ test("completed workflow system messages no longer expose executable actions", (
   const helper = source.slice(start, end);
 
   assert.match(helper, /if \(message\.resolvedAt\) return ""/);
+  assert.match(helper, /if \(message\.actionLabel\) return message\.actionLabel/);
   assert.ok(
     helper.indexOf("if (message.resolvedAt) return") < helper.indexOf("if (message.actionLabel) return message.actionLabel"),
     "completed messages should suppress labels before custom action labels are considered"
+  );
+  assert.ok(
+    helper.indexOf("if (message.actionLabel) return message.actionLabel") < helper.indexOf('if (message.action === "open-note-workflow") return "打开并处理"'),
+    "custom workflow labels should stay more specific than the generic fallback"
   );
 });
 
@@ -136,6 +142,7 @@ test("workflow system message actions open the precise note follow-up route", ()
 
   assert.match(helper, /focus === "relations"/);
   assert.match(helper, /openNoteRelationEditor\(noteId, \{ source: route\.source \|\| "system-message" \}\)/);
+  assert.match(helper, /await resolveSystemMessageWorkflowNoteId\(message\)/);
   assert.match(helper, /focus === "boundary"/);
   assert.match(helper, /openGraphFollowupNote\(noteId, "isolate-hold"/);
   assert.match(helper, /focus === "distillation"/);
@@ -155,6 +162,40 @@ test("workflow system message actions open the precise note follow-up route", ()
   const modalHandler = source.slice(modalStart, modalEnd);
   assert.match(modalHandler, /action === "open-note-workflow"/);
   assert.match(modalHandler, /await openSystemMessageWorkflow\(message \|\| \{\}\)/);
+});
+
+test("workflow system message actions can recover old messages by quoted note title", async () => {
+  const loadedNotes = [];
+  const { openWorkflow, calls } = createWorkflowOpenerContext({
+    state: { notes: loadedNotes },
+    ensureNotesLoaded: async (ids) => {
+      for (const id of ids) {
+        if (id === "note-from-search" && !loadedNotes.some((note) => note.id === id)) {
+          loadedNotes.push({ id, title: "图谱的价值在于看见支撑、冲突和缺口" });
+        }
+      }
+    },
+    searchNotes: async ({ query }) => ({
+      items: query === "图谱的价值在于看见支撑、冲突和缺口"
+        ? [{ id: "note-from-search", title: "图谱的价值在于看见支撑、冲突和缺口" }]
+        : []
+    }),
+    openNoteRelationEditor: (noteId, options) => {
+      calls.push(["openNoteRelationEditor", noteId, options]);
+      return true;
+    }
+  });
+
+  const opened = await openWorkflow({
+    title: "图谱的价值在于看见支撑、冲突和缺口 还没有进入图谱",
+    body: "“图谱的价值在于看见支撑、冲突和缺口”已经是一条永久笔记，但没有显式关系。",
+    workflowRoute: { focus: "relations", source: "system-message" }
+  });
+
+  assert.equal(opened, true);
+  assert.deepEqual(calls[0], ["closeSystemMessages"]);
+  assert.equal(calls[1][0], "openNoteRelationEditor");
+  assert.equal(calls[1][1], "note-from-search");
 });
 
 test("graph workflow system messages reopen connected notes as graph nodes", async () => {

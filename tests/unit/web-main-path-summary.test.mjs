@@ -142,6 +142,6 @@ test("main-path card relation badge counts only explicit relations", () => {
     }
   );
 
-  assert.match(html, /<b>关系<\/b>\s*<em>1 条待确认线索<\/em>/);
+  assert.match(html, /<b>关联<\/b>\s*<em>候选 1 条<\/em>/);
   assert.doesNotMatch(html, /正式关系 1/);
 });

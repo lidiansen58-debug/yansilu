@@ -33,7 +33,7 @@ test("main-path card labels wikilink-only relation status as a link signal", () 
 
   assert.match(html, /data-main-path-next-action="relations"/);
   assert.match(html, /已经有正文链接线索，下一步把关系为什么成立写清楚。/);
-  assert.match(html, /<b>关系<\/b> <em>1 条待确认线索<\/em>/);
+  assert.match(html, /<b>关联<\/b> <em>候选 1 条<\/em>/);
   assert.match(html, /data-note-main-route-action="relations"[^>]*>补关系理由<\/button>/);
   assert.doesNotMatch(html, /wikilink 1/);
   assert.doesNotMatch(html, /有基础链接，下一步把关系为什么成立写清楚。/);
