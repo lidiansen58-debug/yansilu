@@ -86,6 +86,8 @@ Checks the configured update manifest and compares it with the current applicati
 
 By default, the server ignores any client-supplied manifest URL and uses `YANSILU_UPDATE_MANIFEST_URL` (or the built-in GitHub Release URL). For local test harnesses only, set `YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE=true` to allow the request body to override the configured URL.
 
+Manifest fetches use a bounded timeout of 10 seconds by default. Timeout or network failures are reported in the response item with `status: "failed"` instead of blocking the rest of the API.
+
 Optional request when override is explicitly enabled:
 
 ```json
@@ -125,7 +127,7 @@ Response:
           }
         }
       ],
-      "minimumSupportedVersion": "0.1.1-beta.1",
+      "minimumSupportedVersion": "",
       "critical": false,
       "checksum": {
         "algorithm": "sha256",

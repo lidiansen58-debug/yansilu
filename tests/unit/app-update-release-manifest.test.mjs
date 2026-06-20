@@ -155,3 +155,14 @@ test("release manifest includes checksum and release metadata", () => {
     value: "NSIS_HASH"
   });
 });
+
+test("release manifest does not mark ordinary releases below the support floor by default", () => {
+  const manifest = buildUpdateManifestFromBundleManifest({
+    bundleManifest,
+    packageVersion: "0.1.2",
+    repository: "lidiansen58-debug/yansilu",
+    tag: "v0.1.2"
+  });
+
+  assert.equal(manifest.minimumSupportedVersion, "");
+});

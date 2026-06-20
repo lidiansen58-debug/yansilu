@@ -13,6 +13,7 @@ export const UPDATE_STATUSES = Object.freeze([
 
 export const DEFAULT_UPDATE_CHANNEL = "beta";
 export const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_UPDATE_MANIFEST_TIMEOUT_MS = 10000;
 export const DEFAULT_GITHUB_UPDATE_REPOSITORY = "lidiansen58-debug/yansilu";
 export const DEFAULT_UPDATE_MANIFEST_URL = `https://github.com/${DEFAULT_GITHUB_UPDATE_REPOSITORY}/releases/latest/download/update-manifest.json`;
 
@@ -197,11 +198,44 @@ export async function fetchUpdateManifest(manifestUrl = "", options = {}) {
     error.code = "UPDATE_MANIFEST_URL_UNSUPPORTED";
     throw error;
   }
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    signal: options.signal
-  });
+  const timeoutMs = Math.max(0, Number(options.timeoutMs ?? DEFAULT_UPDATE_MANIFEST_TIMEOUT_MS) || 0);
+  const externalSignal = options.signal;
+  const controller = timeoutMs > 0 && typeof AbortController === "function" ? new AbortController() : null;
+  let timeoutId = null;
+  let timedOut = false;
+  let response;
+  try {
+    if (controller) {
+      if (externalSignal?.aborted) controller.abort(externalSignal.reason);
+      else if (externalSignal && typeof externalSignal.addEventListener === "function") {
+        externalSignal.addEventListener("abort", () => controller.abort(externalSignal.reason), { once: true });
+      }
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+    }
+    response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller?.signal || externalSignal
+    });
+  } catch (error) {
+    if (timedOut) {
+      const timeoutError = new Error(`Update manifest request timed out after ${timeoutMs}ms.`);
+      timeoutError.code = "UPDATE_MANIFEST_TIMEOUT";
+      timeoutError.timeoutMs = timeoutMs;
+      throw timeoutError;
+    }
+    if (String(error?.name || "") === "AbortError") {
+      const abortError = new Error("Update manifest request was aborted.");
+      abortError.code = "UPDATE_MANIFEST_ABORTED";
+      throw abortError;
+    }
+    throw error;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
   const body = await response.text();
   if (!response.ok) {
     const error = new Error(`Update manifest request failed with HTTP ${response.status}.`);
@@ -219,7 +253,7 @@ export async function fetchUpdateManifest(manifestUrl = "", options = {}) {
   }
 }
 
-export async function checkForAppUpdate({ currentVersion = "", manifestUrl = "", fetchManifest = fetchUpdateManifest, now = () => new Date() } = {}) {
+export async function checkForAppUpdate({ currentVersion = "", manifestUrl = "", fetchManifest = fetchUpdateManifest, now = () => new Date(), timeoutMs = DEFAULT_UPDATE_MANIFEST_TIMEOUT_MS } = {}) {
   const cleanManifestUrl = cleanText(manifestUrl);
   const checkedAt = now().toISOString();
   if (!cleanManifestUrl) {
@@ -239,7 +273,7 @@ export async function checkForAppUpdate({ currentVersion = "", manifestUrl = "",
     };
   }
   try {
-    const manifest = await fetchManifest(cleanManifestUrl);
+    const manifest = await fetchManifest(cleanManifestUrl, { timeoutMs });
     return checkManifestForUpdate({ currentVersion, manifest, manifestUrl: cleanManifestUrl, checkedAt });
   } catch (error) {
     return {

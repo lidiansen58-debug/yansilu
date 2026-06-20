@@ -56,7 +56,7 @@
 - `changelog`：更新说明，可以是字符串数组或单个字符串。
 - `downloadUrl`：GitHub Release 页面或稳定下载页；不要指向某一个平台专用安装包，避免 macOS/Linux 用户被带到 Windows 安装包。
 - `assets`：可选的平台安装包列表，包含 `file`、`platform`、`bytes`、`url`、`checksum`。浏览器回退入口优先打开 `downloadUrl`，桌面一键安装使用 Tauri `latest.json`。
-- `minimumSupportedVersion`：最低支持版本，用于提示用户尽快升级。
+- `minimumSupportedVersion`：最低支持版本，用于提示用户尽快升级；普通更新可留空，只有确实停止支持旧版本时再填写。
 - `critical`：重要更新会在设置页和系统消息里更明显展示，但仍需用户确认。
 - `checksum`：预留校验字段，第一版只展示/传递，不自动校验安装包。
 
@@ -79,7 +79,7 @@ npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0
 - `release-artifacts/update-manifest.json`：研思录 API 和设置页用于检查更新、展示 changelog、打开下载页的简化 manifest。
 - `release-artifacts/latest.json`：Tauri updater 使用的平台化安装 feed，包含 `platforms.<os-arch>.url` 和 `.sig` 文件内容。
 
-如果需要指定简化 manifest 的主校验包，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`；`downloadUrl` 仍会指向 GitHub Release 页面，平台安装包地址会写入 `assets`。Tauri feed 会从构建目录里的 `.sig` 文件读取签名；缺少签名时脚本会失败，不会生成可误用的安装 feed。
+如果需要指定简化 manifest 的主校验包，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`；如果本次发布确实不再支持更老版本，再加 `--minimum-supported-version 0.1.1-beta.1`。`downloadUrl` 仍会指向 GitHub Release 页面，平台安装包地址会写入 `assets`。Tauri feed 会从构建目录里的 `.sig` 文件读取签名；缺少签名时脚本会失败，不会生成可误用的安装 feed。
 
 6. 默认情况下，API 会直接读取 GitHub Release 的 `update-manifest.json`，Tauri updater 会直接读取 GitHub Release 的 `latest.json`。
 7. 如果后续改用 `downloads.yansilu.app`、GitHub Pages 或对象存储 CDN，则将 GitHub Release 中的 `update-manifest.json` 同步到 `YANSILU_UPDATE_MANIFEST_URL` 指向的地址，并将 `latest.json` 同步到 `tauri.conf.json` 配置的 updater endpoint。
@@ -102,7 +102,7 @@ $env:YANSILU_UPDATE_MANIFEST_URL="http://127.0.0.1:8080/update.json"
 npm run dev:api
 ```
 
-默认情况下，`POST /api/v1/app/updates/check` 会忽略请求体里的 `manifestUrl`，只使用服务端配置的地址。只有本地测试需要临时覆盖时，才设置 `YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE=true`。
+默认情况下，`POST /api/v1/app/updates/check` 会忽略请求体里的 `manifestUrl`，只使用服务端配置的地址。manifest 请求默认 10 秒超时；超时会返回 `failed` 状态，不会阻塞主功能。只有本地测试需要临时覆盖时，才设置 `YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE=true`。
 
 如需完全关闭服务端更新检查：
 

@@ -156,7 +156,7 @@ export function buildUpdateManifestFromBundleManifest({
     changelog: normalizedChangelog,
     downloadUrl,
     assets,
-    minimumSupportedVersion: cleanText(minimumSupportedVersion) || version,
+    minimumSupportedVersion: cleanText(minimumSupportedVersion),
     critical: Boolean(critical),
     checksum: item.sha256
       ? {
