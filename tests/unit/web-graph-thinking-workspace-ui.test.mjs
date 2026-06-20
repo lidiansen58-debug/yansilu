@@ -32,7 +32,10 @@ function readPrototypeApp() {
 }
 
 function readPrototypeHtml() {
-  return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8");
+  return [
+    fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8"),
+    fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.css"), "utf8")
+  ].join("\n");
 }
 
 function readDomainCatalogStore() {

@@ -12,11 +12,11 @@ function readRepoFile(...segments) {
 }
 
 test("relation followup suggestion is rendered inside the relation panel", () => {
-  const html = readRepoFile("apps/web/src/prototype.html");
+  const css = readRepoFile("apps/web/src/prototype.css");
   const source = readRepoFile("apps/web/src/components-editor-pane.js");
 
-  assert.match(html, /\.relation-followup-suggestion\s*\{/);
-  assert.match(html, /\.relation-followup-suggestion-actions\s*\{/);
+  assert.match(css, /\.relation-followup-suggestion\s*\{/);
+  assert.match(css, /\.relation-followup-suggestion-actions\s*\{/);
   assert.match(source, /function relationFollowupSuggestionForDraft\(/);
   assert.match(source, /renderRelationFollowupSuggestion\(noteId\)/);
   assert.match(source, /data-relation-followup-suggestion/);
@@ -53,7 +53,7 @@ test("relation creation stores a followup suggestion before returning to relatio
   assert.match(handlerSource, /this\.setRelationFollowupSuggestion\(/);
   assert.match(handlerSource, /relationFollowupSuggestionForDraft\(\{/);
   assert.match(handlerSource, /relationId: relation\?\.id \|\| relation\?\.relationId \|\| ""/);
-  assert.match(handlerSource, /this\.resetRelationPanelState\(note\.id\);/);
+  assert.match(handlerSource, /this\.resetRelationPanelState\(formNoteId\);/);
   assert.match(handlerSource, /this\.renderRelated\(relation\?\.created === false \? "关系已存在，已复用。" : "关系已建立。"\)/);
 });
 

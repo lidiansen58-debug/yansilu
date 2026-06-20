@@ -4,12 +4,14 @@ import assert from "node:assert/strict";
 import {
   readComponentsExplorerPaneSource,
   readPrototypeAppSource,
+  readPrototypeCssSource,
   readPrototypeHtmlSource
 } from "./copy-source-helpers.mjs";
 
 test("explorer keeps a distinct current-note state when the editor still has an active tab", async () => {
   const source = await readComponentsExplorerPaneSource();
   const html = await readPrototypeHtmlSource();
+  const css = await readPrototypeCssSource();
 
   assert.ok(source.includes("currentEditorNoteId() {"));
   assert.ok(source.includes("const fileIsSelected = this.state.selectedFileId === note.id;"));
@@ -19,8 +21,8 @@ test("explorer keeps a distinct current-note state when the editor still has an 
   assert.ok(source.includes('const trail = permanentSimplifiedScope'));
   assert.ok(source.includes('`${currentBadge}${thinkingBadge}${originalBadge}${associateButton}`'));
   assert.ok(source.includes('${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}'));
-  assert.ok(html.includes(".item-badge-current {"));
-  assert.ok(html.includes(".file-row.is-current-note:not(.active) {"));
+  assert.ok(css.includes(".item-badge-current {"));
+  assert.ok(css.includes(".file-row.is-current-note:not(.active) {"));
 });
 
 test("explorer pane emits selection intents instead of mutating shared selection state directly", async () => {
