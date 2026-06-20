@@ -23,6 +23,15 @@ export function githubReleaseDownloadUrl({ repository = "", tag = "", file = "",
   return `${base}/${repo}/releases/download/${encodeURIComponent(releaseTag)}/${assetName}`;
 }
 
+export function githubReleasePageUrl({ repository = "", tag = "", githubBaseUrl = "https://github.com" } = {}) {
+  const repo = cleanText(repository).replace(/^https:\/\/github\.com\//i, "").replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "");
+  const releaseTag = cleanText(tag).replace(/^refs\/tags\//, "");
+  const base = cleanText(githubBaseUrl).replace(/\/+$/, "") || "https://github.com";
+  if (!repo) throw new Error("GitHub repository is required, for example owner/repo.");
+  if (!releaseTag) throw new Error("Release tag is required.");
+  return `${base}/${repo}/releases/tag/${encodeURIComponent(releaseTag)}`;
+}
+
 function scoreBundleItem(item = {}) {
   const file = normalizeSlashPath(item.file).toLowerCase();
   if (!file) return -1;
@@ -113,12 +122,28 @@ export function buildUpdateManifestFromBundleManifest({
   if (!version) throw new Error("Package version is required.");
   const releaseTag = cleanText(tag || `v${version}`);
   const item = selectPrimaryBundleItem(bundleManifest, { file });
-  const downloadUrl = githubReleaseDownloadUrl({
-    repository,
-    tag: releaseTag,
-    file: item.file,
-    githubBaseUrl
-  });
+  const downloadUrl = githubReleasePageUrl({ repository, tag: releaseTag, githubBaseUrl });
+  const items = Array.isArray(bundleManifest?.items) ? bundleManifest.items : [];
+  const assets = items
+    .filter((candidate) => scoreBundleItem(candidate) > 0)
+    .map((candidate) => ({
+      file: normalizeSlashPath(candidate.file),
+      platform: tauriPlatformKeyForBundleItem(candidate) || "",
+      bytes: Number(candidate.bytes || 0) || 0,
+      url: githubReleaseDownloadUrl({
+        repository,
+        tag: releaseTag,
+        file: candidate.file,
+        githubBaseUrl
+      }),
+      checksum: candidate.sha256
+        ? {
+            algorithm: "sha256",
+            value: cleanText(candidate.sha256)
+          }
+        : null
+    }))
+    .sort((a, b) => a.file.localeCompare(b.file, "en"));
   const normalizedChangelog = Array.isArray(changelog)
     ? changelog.map((entry) => cleanText(entry)).filter(Boolean)
     : cleanText(changelog)
@@ -130,6 +155,7 @@ export function buildUpdateManifestFromBundleManifest({
     channel: cleanText(channel) || inferReleaseChannel(version),
     changelog: normalizedChangelog,
     downloadUrl,
+    assets,
     minimumSupportedVersion: cleanText(minimumSupportedVersion) || version,
     critical: Boolean(critical),
     checksum: item.sha256

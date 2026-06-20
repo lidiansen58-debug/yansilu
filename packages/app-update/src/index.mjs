@@ -91,6 +91,28 @@ export function normalizeUpdateManifest(input = {}) {
     : cleanText(source.checksum)
       ? { algorithm: "sha256", value: cleanText(source.checksum) }
       : null;
+  const assets = Array.isArray(source.assets)
+    ? source.assets
+        .filter((asset) => asset && typeof asset === "object")
+        .map((asset) => {
+          const assetChecksum = asset.checksum && typeof asset.checksum === "object"
+            ? {
+                algorithm: cleanText(asset.checksum.algorithm || asset.checksum.alg || "sha256") || "sha256",
+                value: cleanText(asset.checksum.value || asset.checksum.sha256 || asset.checksum.digest)
+              }
+            : cleanText(asset.checksum)
+              ? { algorithm: "sha256", value: cleanText(asset.checksum) }
+              : null;
+          return {
+            file: cleanText(asset.file || asset.name),
+            platform: cleanText(asset.platform),
+            bytes: Number(asset.bytes || asset.size || 0) || 0,
+            url: cleanText(asset.url || asset.downloadUrl || asset.download_url),
+            checksum: assetChecksum?.value ? assetChecksum : null
+          };
+        })
+        .filter((asset) => asset.file || asset.url)
+    : [];
 
   return {
     version: cleanText(source.version || source.latestVersion || source.latest_version),
@@ -101,7 +123,7 @@ export function normalizeUpdateManifest(input = {}) {
     minimumSupportedVersion: cleanText(source.minimumSupportedVersion || source.minimum_supported_version),
     critical: Boolean(source.critical),
     checksum: checksum?.value ? checksum : null,
-    raw: source
+    assets
   };
 }
 

@@ -26,7 +26,19 @@
     "修复更新检查失败时的提示。",
     "改进关系图中的系统消息入口。"
   ],
-  "downloadUrl": "https://example.com/yansilu-0.1.2-setup.exe",
+  "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/tag/v0.1.2",
+  "assets": [
+    {
+      "file": "nsis/yansilu_0.1.2_x64-setup.exe",
+      "platform": "windows-x86_64",
+      "bytes": 12345678,
+      "url": "https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.2/yansilu_0.1.2_x64-setup.exe",
+      "checksum": {
+        "algorithm": "sha256",
+        "value": "..."
+      }
+    }
+  ],
   "minimumSupportedVersion": "0.1.1-beta.1",
   "critical": false,
   "checksum": {
@@ -42,7 +54,8 @@
 - `releaseDate`：发布日期。
 - `channel`：发布通道，例如 `beta`、`stable`。
 - `changelog`：更新说明，可以是字符串数组或单个字符串。
-- `downloadUrl`：下载页或安装包页面。
+- `downloadUrl`：GitHub Release 页面或稳定下载页；不要指向某一个平台专用安装包，避免 macOS/Linux 用户被带到 Windows 安装包。
+- `assets`：可选的平台安装包列表，包含 `file`、`platform`、`bytes`、`url`、`checksum`。浏览器回退入口优先打开 `downloadUrl`，桌面一键安装使用 Tauri `latest.json`。
 - `minimumSupportedVersion`：最低支持版本，用于提示用户尽快升级。
 - `critical`：重要更新会在设置页和系统消息里更明显展示，但仍需用户确认。
 - `checksum`：预留校验字段，第一版只展示/传递，不自动校验安装包。
@@ -66,17 +79,17 @@ npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0
 - `release-artifacts/update-manifest.json`：研思录 API 和设置页用于检查更新、展示 changelog、打开下载页的简化 manifest。
 - `release-artifacts/latest.json`：Tauri updater 使用的平台化安装 feed，包含 `platforms.<os-arch>.url` 和 `.sig` 文件内容。
 
-如果需要指定简化 manifest 的主下载包，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`。Tauri feed 会从构建目录里的 `.sig` 文件读取签名；缺少签名时脚本会失败，不会生成可误用的安装 feed。
+如果需要指定简化 manifest 的主校验包，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`；`downloadUrl` 仍会指向 GitHub Release 页面，平台安装包地址会写入 `assets`。Tauri feed 会从构建目录里的 `.sig` 文件读取签名；缺少签名时脚本会失败，不会生成可误用的安装 feed。
 
 6. 默认情况下，API 会直接读取 GitHub Release 的 `update-manifest.json`，Tauri updater 会直接读取 GitHub Release 的 `latest.json`。
 7. 如果后续改用 `downloads.yansilu.app`、GitHub Pages 或对象存储 CDN，则将 GitHub Release 中的 `update-manifest.json` 同步到 `YANSILU_UPDATE_MANIFEST_URL` 指向的地址，并将 `latest.json` 同步到 `tauri.conf.json` 配置的 updater endpoint。
 8. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
 9. 在签名 updater feed 可用时，继续验证“一键下载并安装 -> 重启完成更新”。
 
-如果最新版安装包放在 GitHub Releases，`downloadUrl` 会形如：
+如果最新版安装包放在 GitHub Releases，`downloadUrl` 会指向发布页，形如：
 
 ```text
-https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.2/%E7%A0%94%E6%80%9D%E5%BD%95_0.1.2_x64-setup.exe
+https://github.com/lidiansen58-debug/yansilu/releases/tag/v0.1.2
 ```
 
 应用不需要直接调用 GitHub API；默认只访问 GitHub Release 的静态下载地址。这个 manifest 也可以放在 GitHub Pages、`downloads.yansilu.app`，或其他稳定 HTTPS 静态地址。
@@ -88,6 +101,8 @@ https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.2/%E7%A0%94%
 $env:YANSILU_UPDATE_MANIFEST_URL="http://127.0.0.1:8080/update.json"
 npm run dev:api
 ```
+
+默认情况下，`POST /api/v1/app/updates/check` 会忽略请求体里的 `manifestUrl`，只使用服务端配置的地址。只有本地测试需要临时覆盖时，才设置 `YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE=true`。
 
 如需完全关闭服务端更新检查：
 

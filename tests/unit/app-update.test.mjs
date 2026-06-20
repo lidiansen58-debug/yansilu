@@ -90,6 +90,36 @@ test("app update tolerates missing optional manifest fields", () => {
   assert.equal(manifest.downloadUrl, "");
   assert.equal(manifest.critical, false);
   assert.equal(manifest.checksum, null);
+  assert.deepEqual(manifest.assets, []);
+  assert.equal(manifest.raw, undefined);
+});
+
+test("app update normalizes manifest assets without exposing the raw response", () => {
+  const manifest = normalizeUpdateManifest({
+    version: "0.1.2",
+    assets: [
+      {
+        file: "nsis/yansilu_0.1.2_x64-setup.exe",
+        platform: "windows-x86_64",
+        bytes: "123",
+        url: "https://example.test/yansilu.exe",
+        checksum: { algorithm: "sha256", value: "abc123" }
+      },
+      "not-an-asset"
+    ],
+    secretDiagnosticPayload: { token: "should-not-be-returned" }
+  });
+
+  assert.deepEqual(manifest.assets, [
+    {
+      file: "nsis/yansilu_0.1.2_x64-setup.exe",
+      platform: "windows-x86_64",
+      bytes: 123,
+      url: "https://example.test/yansilu.exe",
+      checksum: { algorithm: "sha256", value: "abc123" }
+    }
+  ]);
+  assert.equal(manifest.raw, undefined);
 });
 
 test("app update treats manifest without version as failed", () => {

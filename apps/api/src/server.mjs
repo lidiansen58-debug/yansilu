@@ -3495,7 +3495,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/v1/app/updates/check") {
       const body = await readJson(req).catch(() => ({}));
       const version = await currentAppVersion();
-      const manifestUrl = String(body.manifestUrl || body.manifest_url || resolveUpdateManifestUrl(process.env) || "").trim();
+      const configuredManifestUrl = resolveUpdateManifestUrl(process.env);
+      const requestedManifestUrl = String(body.manifestUrl || body.manifest_url || "").trim();
+      const allowManifestOverride = ["1", "true", "yes", "on"].includes(String(process.env.YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE || "").trim().toLowerCase());
+      const manifestUrl = allowManifestOverride && requestedManifestUrl ? requestedManifestUrl : configuredManifestUrl;
       const result = await checkForAppUpdate({
         currentVersion: version,
         manifestUrl

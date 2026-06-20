@@ -78,7 +78,7 @@ async function postJson(baseUrl, pathname, body) {
   return { status: res.status, json };
 }
 
-test("app update API checks configured manifest and keeps API healthy after failures", async (t) => {
+test("app update API checks configured manifest and ignores client URL overrides by default", async (t) => {
   const vaultPath = await makeTempDir("yansilu-app-update-vault-");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -119,6 +119,48 @@ test("app update API checks configured manifest and keeps API healthy after fail
   assert.equal(checked.json.item.latestVersion, "0.1.2");
   assert.equal(checked.json.item.critical, true);
   assert.equal(checked.json.item.manifest.checksum.value, "abc123");
+
+  const ignoredOverride = await postJson(baseUrl, "/api/v1/app/updates/check", {
+    manifestUrl: manifestServer.failingUrl
+  });
+  assert.equal(ignoredOverride.status, 200, JSON.stringify(ignoredOverride.json));
+  assert.equal(ignoredOverride.json.item.status, "update-available");
+  assert.equal(ignoredOverride.json.item.manifestUrl, manifestServer.url);
+
+  const health = await getJson(baseUrl, "/health");
+  assert.equal(health.status, 200, JSON.stringify(health.json));
+  assert.equal(health.json.service, "api");
+});
+
+test("app update API allows manifest URL override only when explicitly enabled", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-app-update-override-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const manifestServer = await startManifestServer({
+    version: "0.1.2",
+    releaseDate: "2026-06-20",
+    channel: "beta",
+    changelog: ["Override smoke test."],
+    downloadUrl: "https://example.test/yansilu-0.1.2.exe",
+    minimumSupportedVersion: "0.1.1-beta.1",
+    critical: false
+  });
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath,
+      YANSILU_UPDATE_MANIFEST_URL: manifestServer.url,
+      YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE: "true"
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => manifestServer.close());
+  await waitForHealth(baseUrl);
 
   const failed = await postJson(baseUrl, "/api/v1/app/updates/check", {
     manifestUrl: manifestServer.failingUrl

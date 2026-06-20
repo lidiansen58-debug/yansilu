@@ -84,7 +84,9 @@ If `YANSILU_UPDATE_MANIFEST_URL` is not configured, the API uses the default Git
 
 Checks the configured update manifest and compares it with the current application version. This endpoint only reads metadata; it does not download, install, restart, migrate, or modify the user's vault.
 
-Optional request:
+By default, the server ignores any client-supplied manifest URL and uses `YANSILU_UPDATE_MANIFEST_URL` (or the built-in GitHub Release URL). For local test harnesses only, set `YANSILU_ALLOW_UPDATE_MANIFEST_OVERRIDE=true` to allow the request body to override the configured URL.
+
+Optional request when override is explicitly enabled:
 
 ```json
 {
@@ -101,7 +103,7 @@ Response:
     "currentVersion": "0.1.1-beta.1",
     "latestVersion": "0.1.2",
     "checkedAt": "2026-06-20T03:00:00.000Z",
-    "manifestUrl": "https://example.com/yansilu/update.json",
+    "manifestUrl": "https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json",
     "updateAvailable": true,
     "critical": false,
     "minimumSupported": true,
@@ -110,7 +112,19 @@ Response:
       "releaseDate": "2026-06-20T00:00:00.000Z",
       "channel": "beta",
       "changelog": ["Fix update detection."],
-      "downloadUrl": "https://example.com/yansilu-0.1.2-setup.exe",
+      "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/tag/v0.1.2",
+      "assets": [
+        {
+          "file": "nsis/yansilu_0.1.2_x64-setup.exe",
+          "platform": "windows-x86_64",
+          "bytes": 12345678,
+          "url": "https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.2/yansilu_0.1.2_x64-setup.exe",
+          "checksum": {
+            "algorithm": "sha256",
+            "value": "..."
+          }
+        }
+      ],
       "minimumSupportedVersion": "0.1.1-beta.1",
       "critical": false,
       "checksum": {

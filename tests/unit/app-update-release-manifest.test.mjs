@@ -5,6 +5,7 @@ import {
   buildTauriStaticUpdateManifestFromBundleManifest,
   buildUpdateManifestFromBundleManifest,
   githubReleaseDownloadUrl,
+  githubReleasePageUrl,
   inferReleaseChannel,
   parseGithubRepositoryFromRemote,
   selectPrimaryBundleItem
@@ -102,6 +103,15 @@ test("release manifest builds an encoded GitHub release asset URL", () => {
   );
 });
 
+test("release manifest builds an encoded GitHub release page URL", () => {
+  const url = githubReleasePageUrl({
+    repository: "https://github.com/lidiansen58-debug/yansilu.git",
+    tag: "refs/tags/v0.1.2-beta.1"
+  });
+
+  assert.equal(url, "https://github.com/lidiansen58-debug/yansilu/releases/tag/v0.1.2-beta.1");
+});
+
 test("release manifest parses GitHub repository names from common remotes", () => {
   assert.equal(
     parseGithubRepositoryFromRemote("https://github.com/lidiansen58-debug/yansilu.git"),
@@ -134,5 +144,14 @@ test("release manifest includes checksum and release metadata", () => {
   assert.equal(manifest.minimumSupportedVersion, "0.1.1-beta.1");
   assert.equal(manifest.checksum.algorithm, "sha256");
   assert.equal(manifest.checksum.value, "NSIS_HASH");
-  assert.match(manifest.downloadUrl, /github\.com\/lidiansen58-debug\/yansilu\/releases\/download/);
+  assert.equal(manifest.downloadUrl, "https://github.com/lidiansen58-debug/yansilu/releases/tag/v0.1.2-beta.1");
+  assert.equal(manifest.assets.length, 3);
+  const nsisAsset = manifest.assets.find((asset) => asset.file.includes("nsis/"));
+  assert.equal(nsisAsset.platform, "windows-x86_64");
+  assert.equal(nsisAsset.bytes, 0);
+  assert.match(nsisAsset.url, /github\.com\/lidiansen58-debug\/yansilu\/releases\/download\/v0\.1\.2-beta\.1/);
+  assert.deepEqual(nsisAsset.checksum, {
+    algorithm: "sha256",
+    value: "NSIS_HASH"
+  });
 });

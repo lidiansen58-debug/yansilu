@@ -91,7 +91,10 @@ jobs:
             artifact_name: yansilu-linux-bundles
           - os: macos-latest
             bundle_env: app,dmg
-            artifact_name: yansilu-macos-bundles
+            artifact_name: yansilu-macos-arm64-bundles
+          - os: macos-15-intel
+            bundle_env: app,dmg
+            artifact_name: yansilu-macos-intel-bundles
 
     runs-on: ${{ matrix.os }}
 
