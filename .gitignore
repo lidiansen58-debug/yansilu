@@ -3,6 +3,7 @@
 .codex-run/
 .playwright-cli/
 output/
+release-artifacts/
 node_modules/
 .DS_Store
 Thumbs.db

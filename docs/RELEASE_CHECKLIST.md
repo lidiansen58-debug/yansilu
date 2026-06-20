@@ -103,10 +103,18 @@ Before publishing the draft release:
 
 1. Download every uploaded artifact.
 2. Compare `bundle-manifest.sha256.txt` against the release assets.
-3. Install and launch on each target platform.
-4. Confirm updater artifacts exist only when signed updater generation was intentionally enabled for this release.
-5. Confirm release notes mention known limitations and signing status.
-6. Keep the previous release available for rollback.
+3. Generate the app update manifest for the GitHub Release assets:
+
+```powershell
+npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.0-beta.1 --changelog-file docs/V0_1_0_BETA_1_RELEASE_NOTES.md
+```
+
+4. Upload `release-artifacts/update-manifest.json` to the stable update endpoint used by `YANSILU_UPDATE_MANIFEST_URL`.
+5. Install and launch on each target platform.
+6. From an older build, confirm “Settings -> Version update -> Check update” reports the new GitHub Release.
+7. Confirm updater artifacts exist only when signed updater generation was intentionally enabled for this release.
+8. Confirm release notes mention known limitations and signing status.
+9. Keep the previous release available for rollback.
 
 ## macOS Notes
 
@@ -125,6 +133,8 @@ https://downloads.yansilu.app/updates/latest.json
 ```
 
 Do not advertise automatic updates until that endpoint is populated from the release artifacts and tested from an older build to a newer build.
+
+GitHub Releases can host the installer files. The app should still read a small static JSON manifest from the update endpoint, because that keeps the runtime update check simple, cacheable, and independent of GitHub API rate limits.
 
 ## References
 

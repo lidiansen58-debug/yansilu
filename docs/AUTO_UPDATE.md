@@ -52,9 +52,25 @@
 
 1. 完成 release build 和人工验收。
 2. 生成安装包、发布说明和校验和。
-3. 将 manifest 更新为新版本号、发布日期、通道、更新说明、下载地址和 checksum。
-4. 上传 manifest 到 `YANSILU_UPDATE_MANIFEST_URL` 指向的 HTTPS 静态地址。
-5. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
+3. 将安装包上传到 GitHub Release。
+4. 生成 update manifest：
+
+```powershell
+npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.2 --changelog-file docs/V0_1_2_RELEASE_NOTES.md
+```
+
+默认会读取 `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`，选择 NSIS `.exe` 等主安装包，生成 `release-artifacts/update-manifest.json`。如果需要指定某个平台的产物，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`。
+
+5. 上传 manifest 到 `YANSILU_UPDATE_MANIFEST_URL` 指向的 HTTPS 静态地址。
+6. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
+
+如果最新版安装包放在 GitHub Releases，`downloadUrl` 会形如：
+
+```text
+https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.2/%E7%A0%94%E6%80%9D%E5%BD%95_0.1.2_x64-setup.exe
+```
+
+应用不需要直接调用 GitHub API；它只需要能访问 `YANSILU_UPDATE_MANIFEST_URL` 配置的 manifest。这个 manifest 可以放在 GitHub Pages、`downloads.yansilu.app`，或其他稳定 HTTPS 静态地址。
 
 本地开发可用：
 
