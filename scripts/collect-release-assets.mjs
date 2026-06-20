@@ -4,6 +4,22 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const SKIPPED_FILE_NAMES = new Set(["bundle-manifest.json", "bundle-manifest.sha256.txt"]);
+const RELEASE_ASSET_EXTENSIONS = [
+  ".app.tar.gz",
+  ".app.tar.gz.sig",
+  ".appimage",
+  ".appimage.sig",
+  ".deb",
+  ".deb.sig",
+  ".dmg",
+  ".dmg.sig",
+  ".exe",
+  ".exe.sig",
+  ".msi",
+  ".msi.sig",
+  ".rpm",
+  ".rpm.sig"
+];
 
 function cleanText(value = "") {
   return String(value ?? "").trim();
@@ -11,6 +27,11 @@ function cleanText(value = "") {
 
 async function pathExists(targetPath) {
   return fs.access(targetPath).then(() => true).catch(() => false);
+}
+
+function isReleaseAssetFile(filePath = "") {
+  const fileName = path.basename(filePath).toLowerCase();
+  return RELEASE_ASSET_EXTENSIONS.some((extension) => fileName.endsWith(extension));
 }
 
 async function collectFiles(rootPath) {
@@ -23,7 +44,7 @@ async function collectFiles(rootPath) {
       files.push(...(await collectFiles(fullPath)));
       continue;
     }
-    if (entry.isFile() && !SKIPPED_FILE_NAMES.has(entry.name)) files.push(fullPath);
+    if (entry.isFile() && !SKIPPED_FILE_NAMES.has(entry.name) && isReleaseAssetFile(fullPath)) files.push(fullPath);
   }
   return files;
 }

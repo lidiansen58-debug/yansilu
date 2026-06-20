@@ -26,6 +26,7 @@ test("release asset collector flattens downloaded desktop artifacts and writes a
     await writeFixtureFile(distDir, "yansilu-windows-nsis/nsis/Yansilu_0.1.2_x64-setup.exe.sig", "WINDOWS_SIG");
     await writeFixtureFile(distDir, "yansilu-linux-bundles/appimage/yansilu.AppImage", "linux appimage");
     await writeFixtureFile(distDir, "yansilu-linux-bundles/appimage/yansilu.AppImage.sig", "LINUX_SIG");
+    await writeFixtureFile(distDir, "yansilu-linux-bundles/appimage/yansilu.AppDir/usr/lib/libignored.so", "runtime lib");
     await writeFixtureFile(distDir, "yansilu-linux-bundles/bundle-manifest.json", "{}");
     await writeFixtureFile(distDir, "yansilu-macos-arm64-bundles/Yansilu.app.dSYM/Contents/ignored", "debug symbols");
 
