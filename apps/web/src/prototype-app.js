@@ -7894,6 +7894,7 @@ function explorerQuickAction(rootId = state.browserRootId) {
 function syncRailSelectionState() {
   const currentQuickAction = explorerQuickAction();
   const explorerActive = state.module === "explorer";
+  const updateAvailable = settingsState.update?.status === UPDATE_STATUS.UPDATE_AVAILABLE;
   document.querySelectorAll(".quick-entry").forEach((entry) => {
     const isCurrentRoot = entry.dataset.action === currentQuickAction;
     entry.classList.toggle("current-root", explorerActive && isCurrentRoot);
@@ -7901,6 +7902,13 @@ function syncRailSelectionState() {
   });
   document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
     button.classList.toggle("active", button.dataset.module === state.module);
+    if (button.dataset.module === "settings") {
+      button.classList.toggle("has-update", updateAvailable);
+      const label = updateAvailable ? "设置 · 有新版本" : "设置";
+      button.setAttribute("title", label);
+      button.setAttribute("data-tip", label);
+      button.setAttribute("aria-label", label);
+    }
   });
 }
 
@@ -9473,6 +9481,7 @@ function renderUpdateSettingsCard() {
 }
 
 function renderSettingsPanel() {
+  syncRailSelectionState();
   ensureSettingsWorkbenchLayout();
   renderSettingsWorkbenchChrome();
   renderSettingsSidebarColumn();
