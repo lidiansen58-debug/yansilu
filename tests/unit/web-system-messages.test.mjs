@@ -93,8 +93,11 @@ test("system messages are persisted, readable, and actionable", () => {
 });
 
 test("relation-network system messages name the isolated permanent note", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const helper = extractBlockBody(source, "function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {");
+  const source = readRepoFile("apps/web/src/prototype-note-state-helpers.js");
+  const helperStart = source.indexOf("export function relationNetworkWorkflowMessageForNote(note = null, overview = {}, {");
+  const nextExport = source.indexOf("\nexport function", helperStart + 1);
+  const helperEnd = nextExport > helperStart ? nextExport : source.length;
+  const helper = source.slice(helperStart, helperEnd);
 
   assert.match(helper, /const noteTitle = String\(note\.title \|\| note\.id \|\| "未命名笔记"\)/);
   assert.match(helper, /title: `\$\{noteTitle\} 还没有进入图谱`/);
