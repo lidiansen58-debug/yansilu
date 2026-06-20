@@ -103,16 +103,21 @@ test("AI settings hides unsupported MiniCPM local setup entry", () => {
   assert.match(appSource, /settingsState\.ai\.advancedModelRef = "";/);
 });
 
-test("local AI bootstrap is wired into settings and graph entry points", () => {
+test("local AI setup keeps bootstrap behind explicit settings actions", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const appSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const htmlSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8");
   const previewSource = extractFunctionSource(appSource, "async function previewOllamaLocalAiBootstrapFromUi(");
   const helperSource = extractFunctionSource(appSource, "async function bootstrapOllamaLocalAiFromUi(");
   const quickSetupSource = extractFunctionSource(appSource, "async function applySettingsAiQuickSetup(");
+  const pullSource = extractFunctionSource(appSource, "async function pullRecommendedOllamaModel(");
   const refreshSettingsSource = extractFunctionSource(appSource, "async function refreshVaultSettings(");
   const runtimeModeSource = extractFunctionSource(appSource, "async function applyAiRuntimeModeChange(");
   const graphAnalysisSource = extractFunctionSource(appSource, "async function runGraphAiAnalysis(");
+  const graphConnectSource = extractFunctionSource(appSource, "async function runGraphAiConnectForNote(");
+  const graphLocalReadySource = extractFunctionSource(appSource, "async function ensureGraphLocalAiReadyForAnalysis(");
+  const localRecommendationsSource = extractFunctionSource(appSource, "function renderAiLocalModelRecommendations(");
 
   assert.match(appSource, /fetchOllamaBootstrapStatus,/);
   assert.match(appSource, /bootstrapOllamaLocalAi,/);
@@ -120,13 +125,46 @@ test("local AI bootstrap is wired into settings and graph entry points", () => {
   assert.match(helperSource, /await bootstrapOllamaLocalAi\(/);
   assert.match(helperSource, /\n\s*model,/);
   assert.match(helperSource, /pullModel:\s*options\.pullModel !== false/);
-  assert.match(quickSetupSource, /localBootstrapResult = await bootstrapOllamaLocalAiFromUi\(\);/);
-  assert.match(quickSetupSource, /ollamaBootstrapStatusText\(localBootstrapResult\)/);
+  assert.match(quickSetupSource, /await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);/);
+  assert.doesNotMatch(quickSetupSource, /bootstrapOllamaLocalAiFromUi\(\)/);
+  assert.match(pullSource, /await pullOllamaModel\(modelNameToPull,/);
   assert.match(refreshSettingsSource, /await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);/);
   assert.match(runtimeModeSource, /await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);/);
   assert.match(appSource, /targetModule === "graph"[\s\S]*await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);[\s\S]*await refreshDirectoryGraph\(\);/);
-  assert.match(graphAnalysisSource, /const bootstrapResult = await bootstrapOllamaLocalAiFromUi\(\{ render: false \}\);/);
-  assert.match(graphAnalysisSource, /bootstrapResult\?\.ready !== true/);
+  assert.match(graphAnalysisSource, /const localAiReady = await ensureGraphLocalAiReadyForAnalysis\(\);/);
+  assert.doesNotMatch(graphAnalysisSource, /bootstrapOllamaLocalAiFromUi\(\{ render: false \}\)/);
+  assert.match(graphConnectSource, /const localAiReady = await ensureGraphLocalAiReadyForAnalysis\(\);/);
+  assert.match(graphLocalReadySource, /await previewOllamaLocalAiBootstrapFromUi\(\{ silent: true, render: false \}\);/);
+  assert.match(graphLocalReadySource, /请先到 AI 设置完成安装、启动或模型下载/);
+  assert.doesNotMatch(graphConnectSource, /bootstrapOllamaLocalAiFromUi\(/);
+  assert.match(htmlSource, /安装、运行、下载、切换模型都在这里完成/);
+  assert.match(htmlSource, /默认推荐 qwen3:8b/);
+  assert.match(htmlSource, /settingsMobileItemSelect/);
+  assert.match(appSource, /settingsMobileItemOptionsHtml/);
+  assert.match(appSource, /在线 AI 已就绪/);
+  assert.match(appSource, /模型档位/);
+  assert.match(appSource, /数据位置：试运行内容会发送到在线 AI 服务/);
+  assert.match(htmlSource, /settings-ai-flow/);
+  assert.match(htmlSource, /先准备本地 AI，再选择使用方式，最后用一句普通测试话试运行确认/);
+  assert.match(htmlSource, /需要帮助时，从这三件事开始/);
+  assert.match(htmlSource, /data-settings-support-item="desktop-help"/);
+  assert.match(htmlSource, /data-settings-support-item="feedback"/);
+  assert.match(appSource, /settingsPaneSupport[\s\S]*data-settings-support-item/);
+  assert.match(htmlSource, /Markdown 文件是主内容源/);
+  assert.match(htmlSource, /复制版本、模块、页面和当前选中对象，不直接带笔记库路径/);
+  assert.match(appSource, /当前会打开公开反馈页，并自动带上版本、模块和页面上下文/);
+  assert.match(appSource, /data-settings-ai-select-local-model/);
+  assert.match(appSource, /data-settings-ai-pull-local-model/);
+  assert.match(appSource, /data-settings-ai-detect-ollama/);
+  assert.match(localRecommendationsSource, /recommendationsEl\.classList\.remove\("hidden"\)/);
+  assert.match(localRecommendationsSource, /先启用本地模式，之后在这里下载、选择和试运行/);
+  assert.match(localRecommendationsSource, /先检测 Ollama，再下载或切换模型/);
+  assert.match(localRecommendationsSource, /Ollama 连接后，这些模型会直接变成下载或切换按钮/);
+  assert.match(localRecommendationsSource, /data-settings-ai-quick-setup="local"/);
+  assert.match(localRecommendationsSource, /data-settings-ai-detect-ollama/);
+  assert.match(localRecommendationsSource, /data-settings-ai-pull-local-model/);
+  assert.match(localRecommendationsSource, /data-settings-ai-select-local-model/);
+  assert.match(localRecommendationsSource, />切换<\/button>/);
 });
 
 test("local Ollama eval prefers qwen3 8b by default", () => {
