@@ -309,6 +309,7 @@ test("writing strong-model analysis persists review artifacts into system messag
   assert.match(handler, /const artifactCount = Number\(result\?\.result\?\.storedArtifactIds\?\.length/);
   assert.match(handler, /if \(artifactCount > 0\)/);
   assert.match(handler, /title: "写作分析产生了待确认建议"/);
+  assert.match(handler, /title: "强模型写作分析请求包已准备"/);
   assert.match(handler, /action: "open-ai-inbox"/);
   assert.match(handler, /actionLabel: "查看待确认建议"/);
   assert.match(handler, /aiInboxFilters: \{ view: "pending", type: "all", sourceNoteId: "" \}/);

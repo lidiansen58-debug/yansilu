@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { describeWritingStrongModelStatus } from "../../apps/web/src/writing-center-flow.js";
 import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
 
-test("writing strong-model status reuses projected project continuity before a project is reopened", () => {
+test("writing strong-model status keeps projected continuity out of the primary flow", () => {
   const strongModel = describeWritingStrongModelStatus({
     hasProject: false,
     relationCountsReady: true,
@@ -18,28 +18,43 @@ test("writing strong-model status reuses projected project continuity before a p
     strongModelReady: false
   });
 
-  assert.equal(strongModel.status, "先继续当前项目");
-  assert.equal(strongModel.buttonLabel, "先继续当前项目");
-  assert.match(strongModel.hint, /继续当前项目/);
+  assert.equal(strongModel.status, "先创建项目");
+  assert.equal(strongModel.buttonLabel, "先创建项目");
+  assert.match(strongModel.hint, /先创建项目/);
+  assert.doesNotMatch(strongModel.hint, /继续当前项目/);
 });
 
-test("writing strong-model button and handler reuse projected continuity before running analysis", async () => {
+test("writing strong-model button and handler require the current project before running analysis", async () => {
   const source = await readPrototypeAppSource();
 
-  assert.match(source, /const canContinueProjectedStrongModel =/);
-  assert.match(source, /basketReadiness\.level === "strong_model_ready"/);
+  assert.doesNotMatch(source, /const canContinueProjectedStrongModel =\s*!hasProject/);
   assert.match(
     source,
-    /strongModelButton\.disabled = writingState\.strongModelLoading \|\| strongModelBasketIds\.length === 0 \|\| !\(strongModelReady \|\| canContinueProjectedStrongModel\);/
+    /strongModelButton\.disabled = writingState\.strongModelLoading \|\| strongModelBasketIds\.length === 0 \|\| !strongModelReady;/
   );
 
   const match = source.match(/\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
   assert.ok(match, "expected writing strong-model handler to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /const continuation = !writingState\.project\?\.id \? currentWritingContinuationEntry\("当前写作篮"\) : null;/);
-  assert.match(fnBody, /const basketReadiness = currentWritingBasketReadiness\(\);/);
-  assert.match(fnBody, /if \(continuation\?\.projectId && basketReadiness\.level === "strong_model_ready"\) \{/);
-  assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId, \{/);
+  assert.doesNotMatch(fnBody, /currentWritingContinuationEntry\(/);
+  assert.doesNotMatch(fnBody, /continueWritingProjectEntry\(/);
   assert.match(fnBody, /await prepareWritingStrongModelAnalysis\(\);/);
+});
+
+test("writing create-project primary action no longer opens an existing continuation", async () => {
+  const source = await readPrototypeAppSource();
+  const createFn = source.match(/async function createWritingProjectFromCurrentBasket\(\) \{([\s\S]*?)\n\}/);
+  const handler = source.match(/\$\("btnWritingCreateProject"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
+
+  assert.ok(createFn, "expected createWritingProjectFromCurrentBasket() to exist");
+  assert.ok(handler, "expected writing create-project handler to exist");
+  assert.doesNotMatch(createFn[1], /currentWritingContinuationEntry\(/);
+  assert.doesNotMatch(createFn[1], /continueWritingProjectEntry\(/);
+  assert.doesNotMatch(handler[1], /currentWritingContinuationEntry\(/);
+  assert.doesNotMatch(handler[1], /continueWritingProjectEntry\(/);
+  assert.match(handler[1], /await createWritingProjectFromCurrentBasket\(\);/);
+  assert.match(source, /if \(writingState\.project\?\.id\) \{/);
+  assert.match(source, /createProjectButton\.disabled = hasProject \|\| !projectEntry\.canCreateProject;/);
+  assert.match(source, /createProjectButton\.textContent = hasProject \? "项目已创建" : projectEntry\.actionLabel;/);
 });

@@ -68,6 +68,7 @@ import {
   setCurrentDraftNote,
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote,
+  updateWritingProjectBookStructure,
   updateWritingProjectIntent
 } from "../../../packages/writing-engine/src/index.mjs";
 import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
@@ -6559,6 +6560,22 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("WRITING_PROJECT_INTENT_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    const writingProjectBookStructureMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)\/book-structure$/);
+    if (req.method === "PATCH" && writingProjectBookStructureMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await updateWritingProjectBookStructure(VAULT_PATH, decodeURIComponent(writingProjectBookStructureMatch[1]), body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("WRITING_PROJECT_BOOK_STRUCTURE_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

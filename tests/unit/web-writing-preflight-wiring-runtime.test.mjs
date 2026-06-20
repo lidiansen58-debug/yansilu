@@ -11,11 +11,12 @@ function sliceBetween(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
-test("writing status strip uses local readiness for projected strong-model continuity", async () => {
+test("writing status strip keeps projected strong-model continuity out of primary readiness", async () => {
   const source = await readPrototypeAppSource();
   const statusStripBlock = sliceBetween(source, "function renderWritingStatusStrip()", "function renderWritingFlowSteps(");
 
-  assert.match(statusStripBlock, /const canContinueProjectedStrongModel =[\s\S]*readiness\.level === "strong_model_ready"/);
+  assert.doesNotMatch(statusStripBlock, /canContinueProjectedStrongModel/);
+  assert.match(statusStripBlock, /const strongModelTone = strongModelReady \? "good" : "warn";/);
   assert.doesNotMatch(statusStripBlock, /basketReadiness\.level === "strong_model_ready"/);
 });
 

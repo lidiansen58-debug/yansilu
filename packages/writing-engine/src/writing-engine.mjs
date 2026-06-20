@@ -39,7 +39,16 @@ function parseJsonStringArray(value) {
   }
 }
 
+function parseJsonObject(value, fallback = {}) {
+  try {
+    const parsed = JSON.parse(String(value || ""));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  } catch {}
+  return fallback;
+}
+
 function mapProjectRow(row, basketNoteIds = []) {
+  const bookStructure = normalizeBookStructure(parseJsonObject(row.book_structure_json, {}));
   const project = {
     id: row.id,
     title: row.title,
@@ -49,6 +58,7 @@ function mapProjectRow(row, basketNoteIds = []) {
     intent: row.intent || "",
     desired_reader_takeaway: row.desired_reader_takeaway || "",
     related_index_ids: parseJsonStringArray(row.related_index_ids_json),
+    book_structure: bookStructure,
     basket_note_ids: basketNoteIds,
     scaffold_id: row.scaffold_id || null,
     draft_note_id: row.draft_note_id || null,
@@ -89,6 +99,7 @@ function mapScaffoldListRow(row) {
 }
 
 function mapProjectListRow(row) {
+  const bookStructure = normalizeBookStructure(parseJsonObject(row.book_structure_json, {}));
   const project = {
     id: row.id,
     title: row.title,
@@ -98,6 +109,7 @@ function mapProjectListRow(row) {
     intent: row.intent || "",
     desired_reader_takeaway: row.desired_reader_takeaway || "",
     related_index_ids: parseJsonStringArray(row.related_index_ids_json),
+    book_structure_summary: summarizeBookStructure(bookStructure),
     scaffold_id: row.scaffold_id || null,
     draft_note_id: row.draft_note_id || null,
     status: row.status,
@@ -135,6 +147,223 @@ function boundarySummary(note) {
   return cleanText(note.boundaryOrCounterpoint)
     .replace(/\s+/g, " ")
     .slice(0, 180);
+}
+
+function shortText(value, limit = 72) {
+  const text = cleanText(value).replace(/\s+/g, " ");
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function textMatchesAny(text, keywords = []) {
+  const haystack = cleanText(text).toLowerCase();
+  return keywords.some((keyword) => haystack.includes(cleanText(keyword).toLowerCase()));
+}
+
+function notePlainText(note) {
+  return [
+    note?.title,
+    note?.thesis,
+    ...(Array.isArray(note?.threeLineSummary) ? note.threeLineSummary : []),
+    note?.boundaryOrCounterpoint,
+    note?.body
+  ]
+    .map((item) => cleanText(item))
+    .filter(Boolean)
+    .join("\n");
+}
+
+function normalizeBookStructure(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const parts = Array.isArray(value.parts)
+    ? value.parts.map((part, partIndex) => ({
+        id: cleanText(part.id) || `part_${partIndex + 1}`,
+        label: cleanText(part.label) || `第${partIndex + 1}部`,
+        title: cleanText(part.title) || `第${partIndex + 1}部`,
+        purpose: cleanText(part.purpose),
+        chapters: (Array.isArray(part.chapters) ? part.chapters : []).map((chapter, chapterIndex) => ({
+          id: cleanText(chapter.id) || `chapter_${partIndex + 1}_${chapterIndex + 1}`,
+          title: cleanText(chapter.title) || `第${chapterIndex + 1}章`,
+          purpose: cleanText(chapter.purpose),
+          sections: (Array.isArray(chapter.sections) ? chapter.sections : []).map((section, sectionIndex) => ({
+            id: cleanText(section.id) || `section_${partIndex + 1}_${chapterIndex + 1}_${sectionIndex + 1}`,
+            title: cleanText(section.title) || `第${sectionIndex + 1}节`,
+            purpose: cleanText(section.purpose),
+            evidence_note_ids: uniqueIds(section.evidence_note_ids || section.evidenceNoteIds || section.noteIds),
+            role: cleanText(section.role)
+          })),
+          evidence_note_ids: uniqueIds(chapter.evidence_note_ids || chapter.evidenceNoteIds || chapter.noteIds)
+        }))
+      }))
+    : [];
+  const pools = value.pools && typeof value.pools === "object" && !Array.isArray(value.pools) ? value.pools : {};
+  return {
+    schema_version: Number(value.schema_version || value.schemaVersion || 1) || 1,
+    generated_by: cleanText(value.generated_by || value.generatedBy) || GENERATED_BY,
+    generated_at: cleanText(value.generated_at || value.generatedAt),
+    mainline: cleanText(value.mainline),
+    reader: cleanText(value.reader),
+    parts,
+    pools: {
+      cases: (Array.isArray(pools.cases) ? pools.cases : []).map((item) => ({
+        title: cleanText(item?.title || item),
+        note_ids: uniqueIds(item?.note_ids || item?.noteIds),
+        role: cleanText(item?.role)
+      })).filter((item) => item.title || item.note_ids.length),
+      counterarguments: (Array.isArray(pools.counterarguments || pools.counters) ? pools.counterarguments || pools.counters : []).map((item) => ({
+        title: cleanText(item?.title || item),
+        note_ids: uniqueIds(item?.note_ids || item?.noteIds),
+        role: cleanText(item?.role)
+      })).filter((item) => item.title || item.note_ids.length),
+      open_questions: (Array.isArray(pools.open_questions || pools.questions) ? pools.open_questions || pools.questions : []).map((item) => cleanText(item?.title || item)).filter(Boolean)
+    },
+    direction_ideas: (Array.isArray(value.direction_ideas || value.directionIdeas) ? value.direction_ideas || value.directionIdeas : []).map((idea, index) => ({
+      id: cleanText(idea.id) || `idea_${index + 1}`,
+      title: cleanText(idea.title),
+      reader: cleanText(idea.reader),
+      promise: cleanText(idea.promise),
+      risk: cleanText(idea.risk),
+      note_ids: uniqueIds(idea.note_ids || idea.noteIds)
+    })).filter((idea) => idea.title)
+  };
+}
+
+function summarizeBookStructure(bookStructure = {}) {
+  const normalized = normalizeBookStructure(bookStructure);
+  return {
+    mainline: normalized.mainline,
+    part_count: normalized.parts.length,
+    chapter_count: normalized.parts.reduce((sum, part) => sum + part.chapters.length, 0),
+    section_count: normalized.parts.reduce(
+      (sum, part) => sum + part.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.sections.length, 0),
+      0
+    ),
+    case_count: normalized.pools.cases.length,
+    counterargument_count: normalized.pools.counterarguments.length,
+    open_question_count: normalized.pools.open_questions.length,
+    direction_idea_count: normalized.direction_ideas.length
+  };
+}
+
+function defaultSectionFromNote(note, fallbackTitle = "", sectionIndex = 0) {
+  const title = shortText(note?.thesis || (Array.isArray(note?.threeLineSummary) ? note.threeLineSummary[0] : "") || note?.title || fallbackTitle, 40);
+  const boundary = shortText(
+    note?.boundaryOrCounterpoint || (Array.isArray(note?.threeLineSummary) ? note.threeLineSummary[1] : "") || "补充证据、场景与边界",
+    52
+  );
+  return [
+    {
+      id: `section_${sectionIndex + 1}_claim`,
+      title: `节一：${title || "核心判断"}`,
+      purpose: "把这一章的核心判断讲清楚。",
+      evidence_note_ids: note?.id ? [note.id] : [],
+      role: "claim"
+    },
+    {
+      id: `section_${sectionIndex + 1}_boundary`,
+      title: `节二：${boundary}`,
+      purpose: "补足案例、反方或适用边界。",
+      evidence_note_ids: note?.id ? [note.id] : [],
+      role: "boundary"
+    }
+  ];
+}
+
+function defaultBookMainline(project = {}) {
+  const goal = cleanText(project.goal);
+  if (goal) return goal;
+  const title = cleanText(project.title);
+  return title.includes("易经")
+    ? "把易经从神秘答案转译为AI时代的变化判断、行动复盘和人生选择方法。"
+    : `围绕「${title || "当前写作项目"}」建立一条可以被案例、反方和章节持续推进的书稿主线。`;
+}
+
+function buildDefaultBookStructure(project = {}, basketNotes = [], options = {}) {
+  const mainline = defaultBookMainline(project);
+  const specs = [
+    {
+      id: "part_reframe",
+      label: "第一部",
+      title: "重新理解：从答案到变化语言",
+      keywords: ["易经", "卦", "象", "占", "神秘", "误用", "答案", "变化", "经典"],
+      fallbackChapters: ["核心问题从哪里开始", "不要把材料当成答案"]
+    },
+    {
+      id: "part_judgment",
+      label: "第二部",
+      title: "判断训练：时位、关系与行动",
+      keywords: ["AI", "模型", "时代", "人生", "判断", "选择", "行动", "关系", "工作", "学习"],
+      fallbackChapters: ["当环境改变，人还需要什么判断", "把判断变成可复盘的行动"]
+    },
+    {
+      id: "part_practice",
+      label: "第三部",
+      title: "落地修正：案例、反方与长期方法",
+      keywords: ["案例", "复盘", "反方", "边界", "失败", "实践", "方法", "长期", "修正"],
+      fallbackChapters: ["用案例训练变化感", "反方池：这套方法在哪里会失效"]
+    }
+  ];
+  const assigned = specs.map(() => []);
+  const usedIds = new Set();
+  for (const note of basketNotes) {
+    const index = specs.findIndex((spec) => textMatchesAny(notePlainText(note), spec.keywords));
+    if (index >= 0) {
+      assigned[index].push(note);
+      usedIds.add(note.id);
+    }
+  }
+  basketNotes.filter((note) => !usedIds.has(note.id)).forEach((note, index) => {
+    assigned[index % specs.length].push(note);
+  });
+  if (basketNotes.length) {
+    assigned.forEach((group, index) => {
+      if (!group.length) group.push(basketNotes[index % basketNotes.length]);
+    });
+  }
+  const parts = specs.map((spec, partIndex) => {
+    const notes = assigned[partIndex].slice(0, 4);
+    const chapters = (notes.length ? notes : spec.fallbackChapters.map((title) => ({ id: "", title }))).map((note, chapterIndex) => ({
+      id: `chapter_${partIndex + 1}_${chapterIndex + 1}`,
+      title: `第${chapterIndex + 1}章 ${cleanText(note.title) || spec.fallbackChapters[chapterIndex % spec.fallbackChapters.length]}`,
+      purpose: note?.id ? purposeFromNote(note) : "补充章节判断、证据与读者路径。",
+      evidence_note_ids: note?.id ? [note.id] : [],
+      sections: defaultSectionFromNote(note, note.title, chapterIndex)
+    }));
+    return {
+      id: spec.id,
+      label: spec.label,
+      title: spec.title,
+      purpose: partIndex === 0 ? "建立读者入口和概念框架。" : partIndex === 1 ? "推进核心判断和行动方法。" : "处理案例、反方和长期修正。",
+      chapters
+    };
+  });
+  const caseItems = basketNotes
+    .filter((note) => textMatchesAny(notePlainText(note), ["案例", "例子", "AI", "模型", "人生", "决策", "复盘", "工作", "关系", "学习"]))
+    .slice(0, 8)
+    .map((note) => ({ title: note.title, note_ids: [note.id], role: "case" }));
+  const counterItems = basketNotes
+    .filter((note) => boundarySummary(note) || textMatchesAny(notePlainText(note), ["反方", "边界", "误用", "失败", "风险", "局限"]))
+    .slice(0, 8)
+    .map((note) => ({ title: boundarySummary(note) || note.title, note_ids: [note.id], role: "counterargument" }));
+  return normalizeBookStructure({
+    schema_version: 1,
+    generated_by: GENERATED_BY,
+    generated_at: new Date().toISOString(),
+    mainline,
+    reader: cleanText(project.audience),
+    parts,
+    pools: {
+      cases: caseItems.length ? caseItems : basketNotes.slice(0, 4).map((note) => ({ title: note.title, note_ids: [note.id], role: "case" })),
+      counterarguments: counterItems.length
+        ? counterItems
+        : [{ title: "还需要主动补充反方：这套主线在哪里可能失效？", note_ids: [], role: "counterargument" }],
+      open_questions: [
+        cleanText(project.audience) ? `这本书对${project.audience}的第一章入口是什么？` : "目标读者最容易误解这组材料的哪一点？",
+        "哪些案例、反方和开放问题必须补齐，才像完整书稿而不是长文大纲？",
+        "哪些材料只适合放入案例池或反方池，不应该进入主线？"
+      ]
+    },
+    direction_ideas: Array.isArray(options.directionIdeas) ? options.directionIdeas : []
+  });
 }
 
 async function loadBasketNotes(vaultPath, noteIds) {
@@ -262,6 +491,11 @@ export async function createWritingProject(vaultPath, input = {}) {
     created_at: now,
     updated_at: now
   };
+  const providedBookStructure = input.bookStructure !== undefined ? input.bookStructure : input.book_structure;
+  const normalizedProvidedBookStructure = providedBookStructure === undefined ? null : normalizeBookStructure(providedBookStructure);
+  const bookStructure = normalizedProvidedBookStructure?.parts?.length
+    ? normalizedProvidedBookStructure
+    : buildDefaultBookStructure(project, basketNotes);
 
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
@@ -270,8 +504,8 @@ export async function createWritingProject(vaultPath, input = {}) {
     try {
       db.prepare(
         `INSERT INTO writing_projects
-          (id, title, goal, audience, tone, intent, desired_reader_takeaway, related_index_ids_json, status, scaffold_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+          (id, title, goal, audience, tone, intent, desired_reader_takeaway, related_index_ids_json, book_structure_json, status, scaffold_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
       ).run(
         project.id,
         project.title,
@@ -281,6 +515,7 @@ export async function createWritingProject(vaultPath, input = {}) {
         project.intent,
         project.desired_reader_takeaway,
         JSON.stringify(project.related_index_ids),
+        JSON.stringify(bookStructure),
         project.status,
         now,
         now
@@ -303,6 +538,7 @@ export async function createWritingProject(vaultPath, input = {}) {
 
   const result = {
     ...project,
+    book_structure: bookStructure,
     basket_note_ids: basketNoteIds,
     scaffold_id: null,
     draft_note_id: null,
@@ -728,6 +964,43 @@ export async function updateWritingProjectIntent(vaultPath, writingProjectId, in
   return getWritingProject(vaultPath, id);
 }
 
+export async function updateWritingProjectBookStructure(vaultPath, writingProjectId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = cleanText(writingProjectId);
+  if (!id) throw new Error("writingProjectId is required");
+
+  const existingProject = await getWritingProject(vaultPath, id);
+  const basketNotes = await loadBasketNotes(vaultPath, existingProject.basket_note_ids);
+  const shouldRegenerate = Boolean(input.regenerate);
+  const providedBookStructure = input.bookStructure !== undefined ? input.bookStructure : input.book_structure;
+  if (!shouldRegenerate && providedBookStructure === undefined) {
+    throw new Error("bookStructure or regenerate is required");
+  }
+  const bookStructure = shouldRegenerate
+    ? buildDefaultBookStructure(existingProject, basketNotes)
+    : normalizeBookStructure(providedBookStructure);
+  if (!bookStructure.parts.length) {
+    throw new Error("bookStructure.parts is required");
+  }
+  const now = new Date().toISOString();
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const exists = db.prepare("SELECT id FROM writing_projects WHERE id = ? LIMIT 1").get(id);
+    if (!exists) throw new Error(`writingProjectId not found: ${id}`);
+    db.prepare(
+      `UPDATE writing_projects
+       SET book_structure_json = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(JSON.stringify(bookStructure), now, id);
+  } finally {
+    db.close();
+  }
+
+  return getWritingProject(vaultPath, id);
+}
+
 export async function syncWritingProject(vaultPath, writingProjectId, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = cleanText(writingProjectId);
@@ -752,6 +1025,25 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
       ? existingProject.desired_reader_takeaway || ""
       : cleanText(input.desiredReaderTakeaway || input.desired_reader_takeaway);
   const status = input.status === undefined ? existingProject.status || "draft" : cleanText(input.status) || "draft";
+  const explicitBookStructure = input.bookStructure !== undefined || input.book_structure !== undefined;
+  const providedBookStructure = input.bookStructure !== undefined ? input.bookStructure : input.book_structure;
+  const basketChanged = uniqueIds(existingProject.basket_note_ids).join("\u0000") !== basketNoteIds.join("\u0000");
+  const existingBookStructure = normalizeBookStructure(existingProject.book_structure);
+  const titleChanged = title !== (existingProject.title || "");
+  const goalChanged = goal !== (existingProject.goal || "");
+  const audienceChanged = audience !== (existingProject.audience || "");
+  const bookStructure = explicitBookStructure
+    ? normalizeBookStructure(providedBookStructure)
+    : basketChanged || !existingBookStructure.parts.length
+      ? buildDefaultBookStructure({ ...existingProject, title, goal, audience, tone, intent, desired_reader_takeaway: desiredReaderTakeaway }, basketNotes)
+      : normalizeBookStructure({
+          ...existingBookStructure,
+          mainline: titleChanged || goalChanged ? defaultBookMainline({ title, goal }) : existingBookStructure.mainline,
+          reader: audienceChanged ? audience : existingBookStructure.reader
+        });
+  if (explicitBookStructure && !bookStructure.parts.length) {
+    throw new Error("bookStructure.parts is required");
+  }
   const now = new Date().toISOString();
 
   const DatabaseSync = await loadDatabaseSync();
@@ -761,9 +1053,9 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
     try {
       db.prepare(
         `UPDATE writing_projects
-         SET title = ?, goal = ?, audience = ?, tone = ?, intent = ?, desired_reader_takeaway = ?, related_index_ids_json = ?, status = ?, updated_at = ?
+         SET title = ?, goal = ?, audience = ?, tone = ?, intent = ?, desired_reader_takeaway = ?, related_index_ids_json = ?, book_structure_json = ?, status = ?, updated_at = ?
          WHERE id = ?`
-      ).run(title, goal, audience, tone, intent, desiredReaderTakeaway, JSON.stringify(relatedIndexIds), status, now, id);
+      ).run(title, goal, audience, tone, intent, desiredReaderTakeaway, JSON.stringify(relatedIndexIds), JSON.stringify(bookStructure), status, now, id);
 
       db.prepare("DELETE FROM writing_basket_items WHERE project_id = ?").run(id);
       basketNoteIds.forEach((noteId, index) => {
