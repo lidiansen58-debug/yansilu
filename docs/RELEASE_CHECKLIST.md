@@ -110,8 +110,8 @@ Before publishing the draft release:
 npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0.1.0-beta.1 --changelog-file docs/V0_1_0_BETA_1_RELEASE_NOTES.md
 ```
 
-4. Upload or sync the release `update-manifest.json` to the stable update endpoint used by `YANSILU_UPDATE_MANIFEST_URL`.
-5. Upload or sync the release `latest.json` to the Tauri updater endpoint configured in `tauri.conf.json`.
+4. Confirm `https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json` returns the release `update-manifest.json` after publication.
+5. Confirm `https://github.com/lidiansen58-debug/yansilu/releases/latest/download/latest.json` returns the Tauri updater feed after publication.
 6. Install and launch on each target platform.
 7. From an older build, confirm “Settings -> Version update -> Check update” reports the new GitHub Release.
 8. From an older signed desktop build, confirm “one-click download and install” completes and “restart to finish update” relaunches the app on the new version.
@@ -132,12 +132,12 @@ Friend testing can use the NSIS installer, but production distribution should us
 The app currently points at:
 
 ```text
-https://downloads.yansilu.app/updates/latest.json
+https://github.com/lidiansen58-debug/yansilu/releases/latest/download/latest.json
 ```
 
 Do not advertise one-click automatic updates until that endpoint is populated from signed release artifacts and tested from an older build to a newer build.
 
-GitHub Releases can host the installer files. The app still reads small static JSON files from stable update endpoints: `update-manifest.json` for the in-app changelog/download prompt, and `latest.json` for Tauri updater installation. This keeps runtime checks cacheable and independent of GitHub API rate limits.
+GitHub Releases host the installer files and the two small static JSON feeds: `update-manifest.json` for the in-app changelog/download prompt, and `latest.json` for Tauri updater installation. The `releases/latest/download` endpoint is suitable for the stable public channel; beta/prerelease channels should use a dedicated endpoint or override `YANSILU_UPDATE_MANIFEST_URL`.
 
 ## References
 

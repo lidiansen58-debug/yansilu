@@ -69,7 +69,7 @@ Response:
     "name": "yansilu",
     "version": "0.1.1-beta.1",
     "channel": "beta",
-    "manifestUrl": "https://example.com/yansilu/update.json",
+    "manifestUrl": "https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json",
     "updateStatus": "idle",
     "updateCheckIntervalHours": 24
   },
@@ -78,7 +78,7 @@ Response:
 }
 ```
 
-If `YANSILU_UPDATE_MANIFEST_URL` is not configured, `manifestUrl` is empty and `updateStatus` is `disabled`.
+If `YANSILU_UPDATE_MANIFEST_URL` is not configured, the API uses the default GitHub Release manifest at `https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json`. Set `YANSILU_UPDATE_MANIFEST_URL=disabled` to turn server-side update checks off.
 
 ### `POST /api/v1/app/updates/check`
 

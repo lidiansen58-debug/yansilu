@@ -13,6 +13,8 @@ export const UPDATE_STATUSES = Object.freeze([
 
 export const DEFAULT_UPDATE_CHANNEL = "beta";
 export const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_GITHUB_UPDATE_REPOSITORY = "lidiansen58-debug/yansilu";
+export const DEFAULT_UPDATE_MANIFEST_URL = `https://github.com/${DEFAULT_GITHUB_UPDATE_REPOSITORY}/releases/latest/download/update-manifest.json`;
 
 function cleanText(value = "") {
   return String(value ?? "").trim();
@@ -143,8 +145,14 @@ export async function readPackageVersion(packageJsonPath) {
   return cleanText(parsed.version);
 }
 
+function updateManifestUrlIsDisabled(value = "") {
+  return /^(disabled|off|none|false)$/i.test(cleanText(value));
+}
+
 export function resolveUpdateManifestUrl(env = process.env) {
-  return cleanText(env.YANSILU_UPDATE_MANIFEST_URL || env.UPDATE_MANIFEST_URL);
+  const explicitUrl = cleanText(env.YANSILU_UPDATE_MANIFEST_URL ?? env.UPDATE_MANIFEST_URL);
+  if (explicitUrl) return updateManifestUrlIsDisabled(explicitUrl) ? "" : explicitUrl;
+  return DEFAULT_UPDATE_MANIFEST_URL;
 }
 
 export async function fetchUpdateManifest(manifestUrl = "", options = {}) {

@@ -39,7 +39,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://downloads.yansilu.app/updates/latest.json"
+        "https://github.com/lidiansen58-debug/yansilu/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlBMzA5RjMyRUVFNkFBOTcKUldTWHF1YnVNcDh3bWdlblJkMlpKc3JUaU8zM1ZQNEVBZWZySlVJTGRuN3pScE45SytnZnF2Y3YK",
       "windows": {

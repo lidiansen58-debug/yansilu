@@ -5,7 +5,7 @@
 当前实现分成两层：
 
 1. API 服务从根 `package.json` 读取当前应用版本。
-2. API 服务读取 `YANSILU_UPDATE_MANIFEST_URL` 指向的远端 JSON manifest。
+2. API 服务读取 `YANSILU_UPDATE_MANIFEST_URL` 指向的远端 JSON manifest；未配置时默认读取 GitHub Release 的 `https://github.com/lidiansen58-debug/yansilu/releases/latest/download/update-manifest.json`。
 3. 服务端比较当前版本和 manifest 的 `version`。
 4. 前端设置页显示当前版本、最新版本、检查时间、更新说明、错误信息和下载入口。
 5. 浏览器环境或桌面更新源不可用时，用户确认后打开 manifest 里的下载页，由用户自行下载和安装。
@@ -68,8 +68,8 @@ npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0
 
 如果需要指定简化 manifest 的主下载包，可以加 `--file "nsis/研思录_0.1.2_x64-setup.exe"`。Tauri feed 会从构建目录里的 `.sig` 文件读取签名；缺少签名时脚本会失败，不会生成可误用的安装 feed。
 
-6. 将 GitHub Release 中的 `update-manifest.json` 同步到 `YANSILU_UPDATE_MANIFEST_URL` 指向的 HTTPS 静态地址。
-7. 将 GitHub Release 中的 `latest.json` 同步到 `apps/desktop/src-tauri/tauri.conf.json` 里配置的 updater endpoint，当前是 `https://downloads.yansilu.app/updates/latest.json`。
+6. 默认情况下，API 会直接读取 GitHub Release 的 `update-manifest.json`，Tauri updater 会直接读取 GitHub Release 的 `latest.json`。
+7. 如果后续改用 `downloads.yansilu.app`、GitHub Pages 或对象存储 CDN，则将 GitHub Release 中的 `update-manifest.json` 同步到 `YANSILU_UPDATE_MANIFEST_URL` 指向的地址，并将 `latest.json` 同步到 `tauri.conf.json` 配置的 updater endpoint。
 8. 用旧版本启动应用，手动点击“设置 -> 版本更新 -> 检查更新”验证结果。
 9. 在签名 updater feed 可用时，继续验证“一键下载并安装 -> 重启完成更新”。
 
@@ -79,12 +79,20 @@ npm.cmd run release:update-manifest -- --repo lidiansen58-debug/yansilu --tag v0
 https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.2/%E7%A0%94%E6%80%9D%E5%BD%95_0.1.2_x64-setup.exe
 ```
 
-应用不需要直接调用 GitHub API；它只需要能访问 `YANSILU_UPDATE_MANIFEST_URL` 配置的 manifest。这个 manifest 可以放在 GitHub Pages、`downloads.yansilu.app`，或其他稳定 HTTPS 静态地址。
+应用不需要直接调用 GitHub API；默认只访问 GitHub Release 的静态下载地址。这个 manifest 也可以放在 GitHub Pages、`downloads.yansilu.app`，或其他稳定 HTTPS 静态地址。
+`releases/latest/download` 适合稳定公开版本；如果要给 beta/prerelease 单独推送更新，需要为 beta 配置独立 endpoint。
 
 本地开发可用：
 
 ```powershell
 $env:YANSILU_UPDATE_MANIFEST_URL="http://127.0.0.1:8080/update.json"
+npm run dev:api
+```
+
+如需完全关闭服务端更新检查：
+
+```powershell
+$env:YANSILU_UPDATE_MANIFEST_URL="disabled"
 npm run dev:api
 ```
 
@@ -123,8 +131,8 @@ npm run dev:api
 
 后续仍建议补强：
 
-1. 将 GitHub Release 中生成的 `update-manifest.json` 和 `latest.json` 自动同步到 `downloads.yansilu.app`。
-2. 为不同 channel 提供独立 endpoint，例如 beta/stable。
+1. 为不同 channel 提供独立 endpoint，例如 beta/stable。
+2. 如果后续使用 `downloads.yansilu.app`，将 GitHub Release 中生成的 `update-manifest.json` 和 `latest.json` 自动同步过去。
 3. 下载前显示安装包大小、签名 feed 时间和平台信息。
 4. 对需要 Vault 迁移的版本增加迁移确认页和备份提示。
 5. 增加真实打包环境下的端到端升级验收。

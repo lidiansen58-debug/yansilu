@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  DEFAULT_UPDATE_MANIFEST_URL,
   checkForAppUpdate,
   checkManifestForUpdate,
   compareVersions,
-  normalizeUpdateManifest
+  normalizeUpdateManifest,
+  resolveUpdateManifestUrl
 } from "../../packages/app-update/src/index.mjs";
 
 test("app update reports up-to-date when current version equals latest version", () => {
@@ -100,6 +102,20 @@ test("app update treats manifest without version as failed", () => {
 
   assert.equal(result.status, "failed");
   assert.equal(result.error.code, "UPDATE_MANIFEST_VERSION_MISSING");
+});
+
+test("app update resolves GitHub release update manifest by default", () => {
+  assert.equal(resolveUpdateManifestUrl({}), DEFAULT_UPDATE_MANIFEST_URL);
+  assert.match(DEFAULT_UPDATE_MANIFEST_URL, /github\.com\/lidiansen58-debug\/yansilu\/releases\/latest\/download\/update-manifest\.json/);
+});
+
+test("app update manifest URL can be overridden or explicitly disabled", () => {
+  assert.equal(
+    resolveUpdateManifestUrl({ YANSILU_UPDATE_MANIFEST_URL: "https://updates.example.test/update-manifest.json" }),
+    "https://updates.example.test/update-manifest.json"
+  );
+  assert.equal(resolveUpdateManifestUrl({ YANSILU_UPDATE_MANIFEST_URL: "disabled" }), "");
+  assert.equal(resolveUpdateManifestUrl({ UPDATE_MANIFEST_URL: "off" }), "");
 });
 
 test("app update compares prerelease versions conservatively", () => {
