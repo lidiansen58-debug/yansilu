@@ -6391,6 +6391,10 @@ export class EditorPane {
   async confirmSelectedLinkCandidate() {
     const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
     if (!chosen) return;
+    if (this.currentLinkContext) {
+      await this.insertSelectedLinkNote(chosen.id);
+      return;
+    }
     this.currentPinnedLinkId = chosen.id;
     this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
     this.els.linkSearchInput.value = this.linkCandidateDisplayTitle(chosen);
@@ -7158,6 +7162,7 @@ export class EditorPane {
     const note = this.activeNote();
     if (!note?.id) return;
     this.setInspectorVisible(true);
+    this.activatePermanentWorkspaceTab("relations");
     this.setRelationPanelState("create", {
       noteId: note.id,
       targetNoteId: options?.targetNoteId,

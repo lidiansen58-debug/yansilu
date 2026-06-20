@@ -76,6 +76,18 @@ test("specific tag IDF lifts rare shared tags above common tags", () => {
   assert.ok(rarePair.coarseScore > commonPair.coarseScore);
 });
 
+test("internal not-but thesis wording does not become a contradiction candidate", () => {
+  const notes = [
+    note("a", "变化是常态", "# A\n\n## 一句话论点\n《易经》不是答案机器，而是一套情境判断训练。 #易经"),
+    note("b", "卦是情境模型", "# B\n\n## 一句话论点\n《易经》不是答案机器，而是一套情境判断训练。 #易经")
+  ];
+
+  const scan = buildPotentialRelationCandidates({ notes, relations: [], options: { minScore: 0.1, globalLimit: 10 } });
+
+  assert.equal(scan.candidates.length, 1);
+  assert.notEqual(scan.candidates[0].coarseType, "contradicts");
+});
+
 test("existing confirmed relations are not recommended again", () => {
   const notes = [
     note("a", "Local AI relation", "# A\n\n## 一句话论点\nAI relation needs review. #AI"),

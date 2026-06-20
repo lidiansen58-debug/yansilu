@@ -1648,7 +1648,7 @@ test("prototype permanent note distillation panel saves thesis and three-line su
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /锟桔碉拷锟街讹拷/);
+    assert.match(String(statusText || ""), /观点字段已保存并确认/);
   }, 10000);
 
   await waitFor(async () => {
@@ -1659,15 +1659,11 @@ test("prototype permanent note distillation panel saves thesis and three-line su
     assert.equal(note.json.item.distillationStatus, "confirmed");
   }, 10000);
 
-  await page.locator('[data-module="distillation"]').click();
-  await page.locator("#distillationPanel .distillation-filter", { hasText: "锟斤拷一锟戒话锟叫讹拷" }).waitFor();
-  await page.locator("#distillationPanel .distillation-filter", { hasText: "锟斤拷锟斤拷锟戒话压锟斤拷" }).waitFor();
-  await page.locator("#distillationPanel .distillation-filter", { hasText: "锟斤拷确锟斤拷" }).waitFor();
-  await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).waitFor();
-  await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).click();
-  await page.locator("[data-note-distillation-section]", { hasText: "锟桔碉拷锟结纯" }).waitFor();
-  await page.locator("[data-note-distillation-quality]", { hasText: "锟斤拷锟斤拷锟斤拷示" }).waitFor();
-  await page.locator("[data-note-distillation-quality]", { hasText: "锟斤拷缺锟竭界、锟斤拷锟斤拷锟津反凤拷" }).waitFor();
+  await page.locator("[data-permanent-workspace-pane='relations']", { hasText: "把这条笔记接入关系网" }).waitFor();
+  await page.locator("[data-permanent-workspace-tab='viewpoint']", { hasText: "已确认" }).click();
+  await page.locator("[data-note-distillation-section]", { hasText: "观点提纯" }).waitFor({ state: "visible" });
+  await page.locator("[data-note-distillation-quality]", { hasText: "质量提示" }).waitFor();
+  await page.locator("[data-note-distillation-quality]", { hasText: "还缺边界、反例或反方" }).waitFor();
   await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').waitFor({ state: "visible" });
   assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
 });
@@ -7607,7 +7603,7 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   }, 7000);
   await page.locator(`#graphCanvas .graph-node[data-node-id="${targetNote.json.item.id}"]`).click();
   await page.locator(".graph-selection-panel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
-  await page.locator(".graph-selection-panel", { hasText: "笔记角色" }).waitFor({ timeout: 3000 });
+  await page.locator(".graph-selection-panel", { hasText: /当前笔记|连接|打开笔记/ }).waitFor({ timeout: 3000 });
   await page.locator(`.graph-selection-action.is-primary[data-open-note="${targetNote.json.item.id}"]`).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
 

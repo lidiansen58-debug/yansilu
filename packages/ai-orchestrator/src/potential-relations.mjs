@@ -11,7 +11,7 @@ export const DEFAULT_POTENTIAL_RELATION_AI_NUM_PREDICT = 400;
 const POTENTIAL_RELATION_NETWORK_STATUSES = new Set(["suggested", "draft", "confirmed"]);
 
 const BROAD_TAGS = new Set(["永久笔记", "原创笔记", "卡片笔记法", "关键笔记", "知识点主线"]);
-const CONTRAST_PATTERN = /反驳|反例|矛盾|冲突|张力|不是.+而是|相反|contradict|conflict|tension|counterexample|not.+but/iu;
+const CONTRAST_PATTERN = /反驳|反例|矛盾|冲突|张力|相反|contradict|conflict|tension|counterexample/iu;
 
 function cleanText(value = "") {
   return String(value || "").replace(/\r\n/g, "\n").trim();
