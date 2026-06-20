@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readPrototypeAppSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
+import { readPrototypeAppSource, readPrototypeHtmlSource, readPrototypeWritingWorkspaceSource } from "./copy-source-helpers.mjs";
 
 test("writing center exposes a book-level workbench between materials and drafts", async () => {
   const html = await readPrototypeHtmlSource();
@@ -15,16 +15,17 @@ test("writing center exposes a book-level workbench between materials and drafts
 
 test("writing center derives book structure with parts, chapters, sections, and pools", async () => {
   const source = await readPrototypeAppSource();
+  const writingWorkspaceSource = await readPrototypeWritingWorkspaceSource();
 
   assert.match(source, /function deriveWritingBookDesign/);
   assert.match(source, /第一部/);
   assert.match(source, /第\$\{chapterIndex \+ 1\}章/);
-  assert.match(source, /节一：/);
+  assert.match(writingWorkspaceSource, /节一：/);
   assert.match(source, /案例池/);
   assert.match(source, /反方池/);
   assert.match(source, /开放问题/);
   assert.match(source, /function uniqueWritingBookPoolItems/);
-  assert.match(source, /note_ids: note\.id \? \[note\.id\] : \[\]/);
+  assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
   assert.match(source, /renderWritingBookDesign\(\);/);
 });
 

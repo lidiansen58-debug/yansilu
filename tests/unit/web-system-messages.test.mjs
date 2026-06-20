@@ -57,21 +57,22 @@ test("prototype exposes a system messages entry and history modal", () => {
 
 test("system messages are persisted, readable, and actionable", () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
+  const helperSource = readRepoFile("apps/web/src/prototype-system-messages.js");
 
   assert.match(source, /const SYSTEM_MESSAGES_KEY = "yansilu:system-messages:v1"/);
   assert.match(source, /function readStoredSystemMessages\(\)/);
-  assert.match(source, /const aiInboxFilters = item\.aiInboxFilters/);
-  assert.match(source, /\.\.\.\(aiInboxFilters \? \{ aiInboxFilters \} : \{\}\)/);
+  assert.match(helperSource, /const aiInboxFilters = item\.aiInboxFilters/);
+  assert.match(helperSource, /\.\.\.\(aiInboxFilters \? \{ aiInboxFilters \} : \{\}\)/);
   assert.match(source, /function addSystemMessage\(message = \{\}, \{ interrupt = false \} = \{\}\)/);
   assert.match(source, /if \(interrupt\) openSystemMessages\(\{ latestOnly: true \}\)/);
-  assert.match(source, /if \(message\.action === "open-ai-inbox"\) return "查看待确认建议"/);
-  assert.match(source, /if \(message\.action === "open-graph"\) return "查看候选并确认关系"/);
-  assert.match(source, /if \(message\.action === "open-writing"\) return "继续整理主题"/);
-  assert.match(source, /function systemMessageDisplayTitle\(message = \{\}\)/);
-  assert.match(source, /title === "孤立笔记发现了潜在关联"/);
-  assert.match(source, /`\$\{subject\} 发现了潜在关联`/);
-  assert.match(source, /title === "永久笔记还没有进入图谱"/);
-  assert.match(source, /`\$\{subject\} 还没有进入图谱`/);
+  assert.match(helperSource, /if \(message\.action === "open-ai-inbox"\) return "查看待确认建议"/);
+  assert.match(helperSource, /if \(message\.action === "open-graph"\) return "查看候选并确认关系"/);
+  assert.match(helperSource, /if \(message\.action === "open-writing"\) return "继续整理主题"/);
+  assert.match(helperSource, /export function systemMessageDisplayTitle\(message = \{\}, notes = \[\]\)/);
+  assert.match(helperSource, /title === "孤立笔记发现了潜在关联"/);
+  assert.match(helperSource, /`\$\{subject\} 发现了潜在关联`/);
+  assert.match(helperSource, /title === "永久笔记还没有进入图谱"/);
+  assert.match(helperSource, /`\$\{subject\} 还没有进入图谱`/);
   assert.match(source, /let selectedSystemMessageId = systemMessages\[0\]\?\.id \|\| ""/);
   assert.match(source, /data-system-message-select/);
   assert.match(source, /selectedSystemMessageId = String\(selectButton\.dataset\.systemMessageSelect \|\| ""\)\.trim\(\)/);
@@ -87,7 +88,7 @@ test("system messages are persisted, readable, and actionable", () => {
   assert.match(source, /data-system-message-action/);
   assert.match(source, /action === "open-ai-inbox"/);
   assert.match(source, /action === "open-graph" \|\| action === "open-writing"/);
-  assert.match(source, /function aiInboxFiltersForSystemMessage\(message = \{\}\)/);
+  assert.match(helperSource, /export function aiInboxFiltersForSystemMessage\(message = \{\}\)/);
   assert.match(source, /const messageFilters = aiInboxFiltersForSystemMessage\(message\)/);
 });
 
@@ -217,9 +218,9 @@ test("system message note action keeps the modal open when the target note is mi
 });
 
 test("system message AI review action defaults to global pending filters", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("function aiInboxFiltersForSystemMessage(message = {}) {");
-  const end = source.indexOf("function scheduledTaskReviewArtifactCount", start);
+  const source = readRepoFile("apps/web/src/prototype-system-messages.js");
+  const start = source.indexOf("export function aiInboxFiltersForSystemMessage(message = {}) {");
+  const end = source.length;
 
   assert.ok(start >= 0 && end > start, "expected aiInboxFiltersForSystemMessage() to exist");
   const helper = source.slice(start, end);
