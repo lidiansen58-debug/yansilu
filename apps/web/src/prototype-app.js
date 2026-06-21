@@ -257,6 +257,9 @@ import {
   graphIsolatedJoinNetworkFormModel
 } from "./graph-isolated-relation-form.js";
 import {
+  renderGraphIsolatedNextStepActionsHtml
+} from "./graph-isolated-next-step.js";
+import {
   graphThemeCandidateNoteIdsForNode as computeGraphThemeCandidateNoteIdsForNode,
   renderGraphRelationWorkspaceForNote as renderGraphRelationWorkspaceMarkup,
   renderGraphThemeIndexWorkspace as renderGraphThemeIndexWorkspaceMarkup
@@ -14231,34 +14234,14 @@ function renderGraphIsolatedJoinNetworkFlow(
 }
 
 function renderGraphIsolatedNextStepActions(noteId = "", { isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return "";
-  const queueItems = graphIsolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId: cleanNoteId, limit: 8 });
-  const nextItem = graphNextIsolatedQueueItem(queueItems, cleanNoteId);
-  const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
+  return renderGraphIsolatedNextStepActionsHtml(noteId, { isolatedNotes, nodeMap, edges }, {
+    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
+    isolatedQueueItems: graphIsolatedQueueItems,
+    nextIsolatedQueueItem: graphNextIsolatedQueueItem,
+    themeCandidateNoteIdsForNode: graphThemeCandidateNoteIdsForNode,
+    suggestThemeIndexTitle: suggestedThemeIndexTitle,
+    escapeHtml
   });
-  if (!directEdges.length) return "";
-  const themeNoteIds = graphThemeCandidateNoteIdsForNode(cleanNoteId, directEdges, []);
-  const themeTitle = suggestedThemeIndexTitle(themeNoteIds);
-  const canCreateTheme = directEdges.length > 0 && themeNoteIds.length >= 3;
-  return `
-    <section class="graph-isolated-next-step" aria-label="保存关系后的下一步">
-      <div>
-        <strong>确认关系后继续</strong>
-        <p>${escapeHtml(nextItem ? `下一条待关联笔记：“${nextItem.title}”。` : "当前范围暂时没有下一条待关联笔记，可以回到这条笔记周边继续阅读。")}</p>
-      </div>
-      <div class="graph-isolated-next-step-actions">
-        ${
-          nextItem
-            ? `<button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条</button>`
-            : ""
-        }
-        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>整理成主题草稿</button>
-      </div>
-    </section>
-  `;
 }
 
 function graphIsolatedWorkflowTabKey(value = "") {
