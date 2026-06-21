@@ -1,26 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-function readPrototypeAppSource() {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-}
+import { describeWritingContinuationAction } from "../../apps/web/src/writing-center-flow.js";
 
-test("writing-center create-project button keeps continuity-aware failure copy", () => {
-  const source = readPrototypeAppSource();
-  const match = source.match(/\$\("btnWritingCreateProject"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
+test("writing continuation actions keep continuity-aware create-project labels", () => {
+  const draft = describeWritingContinuationAction({
+    existingProjectId: "wp_draft",
+    existingProjectHasScaffold: true,
+    existingProjectHasDraft: true,
+    scopeLabel: "当前写作篮"
+  });
+  const scaffold = describeWritingContinuationAction({
+    existingProjectId: "wp_scaffold",
+    existingProjectHasScaffold: true,
+    existingProjectHasDraft: false,
+    scopeLabel: "当前写作篮"
+  });
+  const project = describeWritingContinuationAction({
+    existingProjectId: "wp_project",
+    existingProjectHasScaffold: false,
+    existingProjectHasDraft: false,
+    scopeLabel: "当前写作篮"
+  });
 
-  assert.ok(match, "expected writing create-project handler to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /const continuation = currentWritingContinuationEntry\("当前写作篮"\);/);
-  assert.match(fnBody, /if \(continuation\?\.projectId\) \{/);
-  assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId,/);
-  assert.match(fnBody, /catch \(error\) \{/);
-  assert.match(fnBody, /continuation\.action === "open-draft" \? "从写作中心打开当前草稿" : continuation\.action === "resume-scaffold" \? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"/);
-  assert.match(fnBody, /从写作中心创建项目失败：\$\{String\(error\?\.message \|\| error\)\}/);
+  assert.equal(draft.action, "open-draft");
+  assert.match(draft.actionLabel, /打开当前草稿/);
+  assert.equal(scaffold.action, "resume-scaffold");
+  assert.match(scaffold.actionLabel, /继续草稿骨架/);
+  assert.equal(project.action, "resume-project");
+  assert.match(project.actionLabel, /继续当前项目/);
 });

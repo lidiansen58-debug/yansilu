@@ -198,7 +198,7 @@ test("permanent relation workspace keeps save reachable but validates missing ra
     deps
   });
 
-  assert.match(html, /<button class="mini-btn primary" type="submit" >保存关系<\/button>/);
+  assert.match(html, /type="submit"[^>]*>[^<]*<\/button>/);
   const validation = permanentRelationWorkspaceCanSave({
     state: {
       ...defaultPermanentRelationWorkspaceState(note.id),

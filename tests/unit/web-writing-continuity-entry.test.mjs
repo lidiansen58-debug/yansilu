@@ -4,7 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describeWritingContinuationAction } from "../../apps/web/src/writing-center-flow.js";
+import {
+  describeWritingContinuationAction,
+  describeWritingProjectStepState
+} from "../../apps/web/src/writing-center-flow.js";
 
 function repoSource() {
   const currentFile = fileURLToPath(import.meta.url);
@@ -70,12 +73,25 @@ test("theme detail primary action follows the computed continuity action instead
   assert.match(source, /data-writing-project-id="\$\{escapeHtml\(primaryThemeProjectId\)\}"/);
 });
 
-test("writing-center project entry button reuses current continuity when the basket already maps to a project", () => {
-  const source = repoSource();
+test("writing-center project entry state reuses current continuity when the basket already maps to a project", () => {
+  const entry = describeWritingContinuationAction({
+    existingProjectId: "wp_existing",
+    scopeLabel: "当前写作篮"
+  });
+  const step = describeWritingProjectStepState({
+    basketCount: 3,
+    hasProject: false,
+    projectEntryStatus: entry.status,
+    projectEntryHint: entry.hint,
+    projectEntryProjectId: entry.projectId,
+    projectEntryActionLabel: entry.actionLabel,
+    canCreateProject: true
+  });
 
-  assert.match(source, /const continuation = currentWritingContinuationEntry\(/);
-  assert.match(source, /if \(continuation\?\.projectId\) \{/);
-  assert.match(source, /await continueWritingProjectEntry\(continuation\.projectId,/);
+  assert.equal(entry.projectId, "wp_existing");
+  assert.equal(entry.action, "resume-project");
+  assert.match(step.note, /wp_existing/);
+  assert.match(step.note, /比重新创建项目更连续/);
 });
 
 test("note main-path project entry uses projected note continuity before falling back to project creation", () => {
@@ -126,14 +142,16 @@ test("note main-path continuity preview reuses the same basket-entry planning be
   assert.match(source, /resolveNoteWritingContinuation: \(note\) => noteMainPathWritingContinuationEntry\(note\?\.id \|\| "", "当前笔记"\)/);
 });
 
-test("createWritingProjectFromCurrentBasket resumes an existing project before creating a new one", () => {
-  const source = repoSource();
-  const match = source.match(/async function createWritingProjectFromCurrentBasket\(\) \{([\s\S]*?)\n\}/);
+test("writing continuation action carries the existing project target for callers", () => {
+  const entry = describeWritingContinuationAction({
+    existingProjectId: "wp_existing",
+    existingProjectHasScaffold: true,
+    existingProjectHasDraft: false,
+    scopeLabel: "当前写作篮"
+  });
 
-  assert.ok(match, "expected createWritingProjectFromCurrentBasket() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /const continuation = currentWritingContinuationEntry\(/);
-  assert.match(fnBody, /if \(continuation\?\.projectId\) \{/);
-  assert.match(fnBody, /return continueWritingProjectEntry\(continuation\.projectId,/);
+  assert.equal(entry.projectId, "wp_existing");
+  assert.equal(entry.action, "resume-scaffold");
+  assert.equal(entry.canCreateProject, true);
+  assert.match(entry.hint, /当前写作篮/);
 });

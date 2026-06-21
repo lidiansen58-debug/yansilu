@@ -88,6 +88,30 @@ test("relation save transaction creates confirmed relation payload and standard 
   });
 });
 
+test("relation save transaction returns validation failures before persistence", async () => {
+  const calls = [];
+  const transaction = await saveRelationTransaction(
+    {
+      noteId: "source",
+      targetNoteId: "source",
+      relationType: "supports",
+      rationale: "clear reason"
+    },
+    {
+      confirmableRelationTypes,
+      rationaleIsActionable,
+      createNoteRelation: async () => {
+        calls.push("create");
+        return { id: "rel-1" };
+      }
+    }
+  );
+
+  assert.equal(transaction.ok, false);
+  assert.equal(transaction.reason, "self_relation");
+  assert.deepEqual(calls, []);
+});
+
 test("relation payload keeps confidence only when provided", () => {
   assert.deepEqual(relationPayloadFromTransactionInput({
     targetNoteId: "target",
