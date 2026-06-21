@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { parseLinks } from "../../apps/web/src/prototype-store.js";
@@ -16,15 +17,17 @@ test("link picker inserts stable wikilinks instead of inline relation comments",
   assert.doesNotMatch(source, /<!-- rel:type=\$\{escapeHtml\(relationType\)\}/);
 });
 
-test("manual link picker shows relation fields while inline picker hides them", async () => {
+test("editor link picker shows relation fields for both inline and toolbar entry", async () => {
   const source = await readEditorDomainSource();
+  const css = await fs.readFile(new URL("../../apps/web/src/prototype.css", import.meta.url), "utf8");
 
   assert.ok(source.includes('const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");'));
-  assert.ok(source.includes("if (linkPickerMeta) linkPickerMeta.hidden = inlineMode;"));
-  assert.ok(source.includes('if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = inlineMode;'));
+  assert.ok(source.includes("if (linkPickerMeta) linkPickerMeta.hidden = false;"));
+  assert.ok(source.includes('if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = false;'));
   assert.ok(source.includes("const linkSearchSpacer = this.els.linkSearchInput?.nextElementSibling;"));
   assert.ok(source.includes("this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);"));
   assert.ok(source.includes('if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;'));
+  assert.doesNotMatch(css, /\.panel\.inline-picker\s+\.link-picker-meta\s*\{\s*display:\s*none\b/);
 });
 
 test("closing transient pickers clears toolbar active and focus states", async () => {
@@ -70,11 +73,11 @@ test("wikilink preview avoids low-value match and count metadata", async () => {
   assert.doesNotMatch(source, /标签 \$\{tags\.length\}/);
 });
 
-test("confirm button requires a target and manual relation reason", async () => {
+test("confirm button requires a target and relation reason for inline and toolbar entry", async () => {
   const source = await readEditorDomainSource();
 
   assert.ok(source.includes("const selectedNote = this.selectedLinkCandidate();"));
-  assert.ok(source.includes("button.disabled = this.isSubmittingLinkInsert || !selectedNote || (manualMode && !reason);"));
+  assert.ok(source.includes("button.disabled = this.isSubmittingLinkInsert || !selectedNote || !reason;"));
   assert.ok(source.includes('button.textContent = "选择笔记";'));
   assert.ok(source.includes('button.textContent = "写一句理由";'));
   assert.ok(source.includes('button.textContent = "保存关联";'));
@@ -133,6 +136,36 @@ test("Enter selects the highlighted candidate before the explicit associate acti
   assert.equal(pane.currentPinnedLinkId, "pn_1");
   assert.deepEqual(rerenders, [{ query: "perm", preferredId: "pn_1" }]);
   assert.equal(linkSearchInput.value, "Permanent note");
+  assert.equal(linkSearchList.innerHTML, "");
+});
+
+test("inline link picker Enter also selects before the explicit associate action", async () => {
+  const pane = Object.create(EditorPane.prototype);
+  const rerenders = [];
+  const linkSearchInput = { value: "perm" };
+  const linkSearchList = { innerHTML: "" };
+  let insertedNoteId = "";
+
+  pane.currentLinkCandidates = [{ id: "pn_inline", title: "Inline target", folderId: "dir_original_default" }];
+  pane.currentLinkIndex = 0;
+  pane.currentPinnedLinkId = "";
+  pane.currentLinkContext = { start: 0, end: 2, query: "" };
+  pane.els = { linkSearchInput, linkSearchList };
+  pane.renderLinkCandidates = (query, preferredId) => {
+    rerenders.push({ query, preferredId });
+  };
+  pane.linkCandidateDisplayTitle = (note) => note.title;
+  pane.insertSelectedLinkNote = async (noteId) => {
+    insertedNoteId = noteId;
+  };
+  pane.updateLinkPickerConfirmButton = () => {};
+
+  await pane.confirmSelectedLinkCandidate();
+
+  assert.equal(insertedNoteId, "");
+  assert.equal(pane.currentPinnedLinkId, "pn_inline");
+  assert.deepEqual(rerenders, [{ query: "perm", preferredId: "pn_inline" }]);
+  assert.equal(linkSearchInput.value, "Inline target");
   assert.equal(linkSearchList.innerHTML, "");
 });
 

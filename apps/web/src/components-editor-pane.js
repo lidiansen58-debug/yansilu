@@ -1092,9 +1092,41 @@ export class EditorPane {
       return;
     }
     const note = this.activeNote();
-    this.els.preview.innerHTML = renderMarkdownPreview(this.getEditorValue(), {
+    const previewHtml = renderMarkdownPreview(this.getEditorValue(), {
       noteMarkdownPath: note?.markdownPath || ""
     });
+    this.els.preview.innerHTML = `${previewHtml}${this.renderPreviewRelationLinks(note)}`;
+  }
+
+  renderPreviewRelationLinks(note = this.activeNote()) {
+    if (!note?.id || this.semanticRelationsState !== "loaded" || !this.currentSemanticRelations) return "";
+    const { outgoing, backlinks } = explicitPermanentNoteRelations(this.currentSemanticRelations);
+    const rows = [
+      ...outgoing.map((link) => ({ link, direction: "outgoing" })),
+      ...backlinks.map((link) => ({ link, direction: "incoming" }))
+    ];
+    if (!rows.length) return "";
+    return `
+      <section class="preview-relation-links" data-preview-relation-links data-note-id="${escapeHtml(note.id)}">
+        <div class="preview-relation-links-title">关系链接</div>
+        <div class="preview-relation-links-list">
+          ${rows
+            .map(({ link, direction }) => {
+              const endpoint = this.relationEndpoint(link, direction);
+              const directionLabel = direction === "outgoing" ? "关联到" : "关联自";
+              const rationale = String(link?.rationale || "").trim();
+              return `
+                <button class="preview-relation-link" type="button" data-open-linked-note="${escapeHtml(endpoint.id)}">
+                  <span>${escapeHtml(directionLabel)} · ${escapeHtml(relationTypeLabel(link?.relationType || "associated_with"))}</span>
+                  <strong>${escapeHtml(endpoint.title || endpoint.id)}</strong>
+                  ${rationale ? `<small>${escapeHtml(rationale)}</small>` : ""}
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+      </section>
+    `;
   }
 
   closeTransientPanels({ closeInspector = false } = {}) {
@@ -3194,9 +3226,8 @@ export class EditorPane {
     const button = this.els.confirmLinkInsert;
     if (!button) return;
     const selectedNote = this.selectedLinkCandidate();
-    const manualMode = !this.currentLinkContext;
     const reason = String(this.els.linkReasonInput?.value || "").trim();
-    button.disabled = this.isSubmittingLinkInsert || !selectedNote || (manualMode && !reason);
+    button.disabled = this.isSubmittingLinkInsert || !selectedNote || !reason;
     if (this.isSubmittingLinkInsert) {
       button.textContent = "保存中...";
       return;
@@ -3205,7 +3236,7 @@ export class EditorPane {
       button.textContent = "选择笔记";
       return;
     }
-    if (manualMode && !reason) {
+    if (!reason) {
       button.textContent = "写一句理由";
       return;
     }
@@ -3221,12 +3252,6 @@ export class EditorPane {
   }
 
   currentLinkRelationInput() {
-    if (this.currentLinkContext) {
-      return {
-        relationType: "associated_with",
-        reason: "手动确认关联。"
-      };
-    }
     const relationType = String(this.els.linkRelationTypeSelect?.value || "associated_with").trim() || "associated_with";
     const reason = String(this.els.linkReasonInput?.value || "")
       .replace(/\s+/g, " ")
@@ -3237,7 +3262,7 @@ export class EditorPane {
   }
 
   focusManualLinkReasonInput() {
-    if (this.currentLinkContext || !this.els.linkReasonInput) return;
+    if (!this.els.linkReasonInput) return;
     this.els.linkReasonInput.focus();
     const value = String(this.els.linkReasonInput.value || "");
     this.els.linkReasonInput.setSelectionRange?.(value.length, value.length);
@@ -3329,9 +3354,9 @@ export class EditorPane {
     this.els.linkPicker.style.maxHeight = "";
     this.els.linkPicker.classList.remove("hidden");
     const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");
-    if (linkPickerMeta) linkPickerMeta.hidden = inlineMode;
+    if (linkPickerMeta) linkPickerMeta.hidden = false;
     const linkPickerGuidance = linkPickerMeta?.nextElementSibling;
-    if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = inlineMode;
+    if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = false;
     const linkSearchSpacer = this.els.linkSearchInput?.nextElementSibling;
     if (linkSearchSpacer && linkSearchSpacer !== this.els.linkSearchList) {
       this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);
@@ -3342,13 +3367,11 @@ export class EditorPane {
     this.currentPinnedLinkId = "";
     this.manualLinkReturnSelection = inlineMode ? null : this.normalizedSelectionRange(this.editorSelection());
     this.manualLinkReturnScrollState = inlineMode ? null : this.captureEditorScrollState();
-    if (!inlineMode) {
-      if (this.els.linkRelationTypeSelect) {
-        this.els.linkRelationTypeSelect.innerHTML = inlineLinkRelationTypeOptionsMarkup("associated_with");
-        this.els.linkRelationTypeSelect.value = "associated_with";
-      }
-      if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
+    if (this.els.linkRelationTypeSelect) {
+      this.els.linkRelationTypeSelect.innerHTML = inlineLinkRelationTypeOptionsMarkup("associated_with");
+      this.els.linkRelationTypeSelect.value = "associated_with";
     }
+    if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     this.currentLinkContext = options.inlineContext || null;
     this.lastInlinePickerAnchor = this.currentLinkContext?.end || 0;
     this.renderLinkCandidates(initialQuery, options.preferredId || "");
@@ -3450,7 +3473,7 @@ export class EditorPane {
     const scopedLinkNotes = this.scopedLinkCandidates();
     const inlineInsert = Boolean(this.currentLinkContext);
     const { relationType, reason } = this.currentLinkRelationInput();
-    if (!inlineInsert && !reason) {
+    if (!reason) {
       this.onStatus("请先写一句关联理由，再建立正式关系。", "warn");
       this.focusManualLinkReasonInput();
       this.updateLinkPickerConfirmButton();
@@ -3504,6 +3527,12 @@ export class EditorPane {
           if (!transaction.ok) throw new Error(transaction.error || "关系暂时不能保存");
           relationCreateResult = transaction.relation;
           this.syncRelationNetworkConnected(sourceNoteId, target.id);
+          const relations = await fetchNoteRelations(sourceNoteId).catch(() => null);
+          if (relations && this.isActiveNoteId(sourceNoteId)) {
+            this.currentSemanticRelations = relations;
+            this.semanticRelationsState = "loaded";
+            this.renderPreview();
+          }
         } catch (error) {
           relationCreateError = error;
           this.onStatus(`关联已插入，但正式关系创建失败：${String(error?.message || error)}`, "warn");
@@ -3590,10 +3619,6 @@ export class EditorPane {
   async confirmSelectedLinkCandidate() {
     const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
     if (!chosen) return;
-    if (this.currentLinkContext) {
-      await this.insertSelectedLinkNote(chosen.id);
-      return;
-    }
     this.currentPinnedLinkId = chosen.id;
     this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
     this.els.linkSearchInput.value = this.linkCandidateDisplayTitle(chosen);
@@ -4573,6 +4598,7 @@ export class EditorPane {
         this.currentSemanticRelations = savedRelations;
         this.semanticRelationsState = "loaded";
       }
+      this.renderPreview();
       this.setRelationFollowupSuggestion(
         relationFollowupSuggestionForDraft({
           noteId: note.id,
@@ -4680,6 +4706,7 @@ export class EditorPane {
         this.refreshInspectorLinkSummaryNote();
         this.syncPermanentRelationWorkspaceOverlay();
       }
+      this.renderPreview();
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (section && section.getAttribute("data-note-id") === noteId && !this.shouldPreserveRelationSection(section)) {
         section.outerHTML = this.renderCurrentRelationSection(noteId, {
@@ -4706,6 +4733,7 @@ export class EditorPane {
         this.refreshInspectorLinkSummaryNote();
         this.syncPermanentRelationWorkspaceOverlay();
       }
+      this.renderPreview();
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (section && section.getAttribute("data-note-id") === noteId && !this.shouldPreserveRelationSection(section)) {
         section.outerHTML = this.renderCurrentRelationSection(noteId, {
@@ -7539,6 +7567,7 @@ export class EditorPane {
         const tagInlineOpen = !this.els.tagPicker.classList.contains("hidden") && this.currentTagContext;
         if (!linkInlineOpen && !tagInlineOpen) return;
         if (e.target.closest("#linkSearchInput") || e.target.closest("#tagSearchInput")) return;
+        if (e.target.closest("#linkReasonInput") || e.target.closest("#linkRelationTypeSelect")) return;
         const targetIsEditor =
           e.target.closest?.("#editorHost") || e.target.closest?.("#wysiwygHost") || e.target.closest?.("#editorBody");
         const targetIsPicker = e.target.closest?.("#linkPicker") || e.target.closest?.("#tagPicker");
@@ -7561,8 +7590,7 @@ export class EditorPane {
         }
         if (e.key === "Enter") {
           if (linkInlineOpen) {
-            const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
-            if (chosen) this.insertSelectedLinkNote(chosen.id);
+            void this.confirmSelectedLinkCandidate();
           } else {
             const chosen = this.currentTagCandidates[this.currentTagIndex] || this.currentTagCandidates[0];
             this.insertSelectedTag(chosen?.name || this.els.tagSearchInput.value);

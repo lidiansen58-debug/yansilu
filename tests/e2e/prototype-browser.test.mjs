@@ -4311,12 +4311,28 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
   assert.equal(await page.locator("#btnSave").isVisible(), false);
 
   await page.keyboard.press("Enter");
+  await waitFor(async () => {
+    assert.equal(await page.locator("#linkSearchInput").inputValue(), "Gamma target");
+    assert.equal(await page.locator("#btnConfirmLinkInsert").isDisabled(), true);
+  }, 3000);
+  await page.locator("#linkReasonInput").fill("Gamma target explains the related idea.");
+  await waitFor(async () => {
+    assert.equal(await page.locator("#btnConfirmLinkInsert").isDisabled(), false);
+  }, 3000);
+  await page.locator("#btnConfirmLinkInsert").click();
   await page.waitForFunction(
     (targetId) => document.querySelector("#editorBody")?.value?.includes(`[[${targetId}|Gamma target]]`),
     gammaTarget.json.item.id
   );
   const editorValue = await page.locator("#editorBody").inputValue();
   assert.match(editorValue, new RegExp(`\\[\\[${escapeRegExp(gammaTarget.json.item.id)}\\|Gamma target\\]\\]`));
+  await waitFor(async () => {
+    const relation = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+    assert.equal(relation.status, 200, JSON.stringify(relation.json));
+    const saved = relation.json.item.outgoingLinks.find((item) => item.toNoteId === gammaTarget.json.item.id);
+    assert.ok(saved, JSON.stringify(relation.json));
+    assert.equal(saved.rationale, "Gamma target explains the related idea.");
+  }, 5000);
 });
 
 test("prototype editor confirms before closing or switching away from dirty note", async (t) => {
