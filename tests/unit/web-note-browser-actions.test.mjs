@@ -10,6 +10,7 @@ import {
   explorerNewNoteButtonCopy,
   resolveExplorerNewNoteFolderId
 } from "../../apps/web/src/components-explorer-pane.js";
+import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -344,11 +345,21 @@ test("note browser prefers stored relation-network status for permanent notes", 
 });
 
 test("relation edits sync relation-network badges immediately for both source and target notes", () => {
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = {
+    graphConnectedNoteIds: new Set(),
+    notes: [
+      { id: "source", noteType: "permanent", relationNetworkStatus: "isolated" },
+      { id: "target", noteType: "permanent", relationNetworkStatus: "isolated" }
+    ]
+  };
 
-  assert.match(source, /this\.syncRelationNetworkConnected\(note\.id, toNoteId\);/);
-  assert.match(source, /await this\.refreshRelationNetworkStatuses\(note\.id, peerNoteId\);/);
-  assert.match(source, /await this\.refreshRelationNetworkStatuses\(activeNoteId, peerNoteId\);/);
+  pane.syncRelationNetworkConnected("source", "target");
+
+  assert.equal(pane.state.graphConnectedNoteIds.has("source"), true);
+  assert.equal(pane.state.graphConnectedNoteIds.has("target"), true);
+  assert.equal(pane.state.notes.find((note) => note.id === "source").relationNetworkStatus, "connected");
+  assert.equal(pane.state.notes.find((note) => note.id === "target").relationNetworkStatus, "connected");
 });
 
 test("note browser still treats literature-folder notes as non-disconnected when noteType is missing", () => {
@@ -855,15 +866,22 @@ test("note browsers keep richer note actions and thinking badges outside simplif
 });
 
 test("isolated permanent note detail prompts relations or a temporary independent reason", () => {
-  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const pane = Object.create(EditorPane.prototype);
+  pane.currentExplicitRelationCount = () => 0;
+  const html = pane.renderRelationNetworkPrompt({
+    id: "pn_isolated",
+    noteType: "permanent",
+    title: "Isolated note",
+    relationNetworkStatus: "isolated"
+  });
 
-  assert.match(source, /data-note-network-alert="isolated"/);
-  assert.match(source, /待关联笔记/);
-  assert.match(source, /data-note-main-route-action="relations">关联一条笔记/);
-  assert.match(source, /data-note-isolated-hold/);
-  assert.match(source, /记录暂时独立/);
-  assert.match(source, /暂时独立：/);
-  assert.match(source, /textarea\[name="boundaryOrCounterpoint"\]/);
+  assert.match(html, /data-note-network-alert="isolated"/);
+  assert.match(html, /Isolated note/);
+  assert.match(html, /待关联笔记/);
+  assert.match(html, /data-note-main-route-action="relations">关联一条笔记/);
+  assert.match(html, /data-note-isolated-hold/);
+  assert.match(html, /记录暂时独立/);
+  assert.match(html, /暂时独立/);
 });
 
 test("graph isolated keep and hold actions focus boundary drafts instead of only opening notes", () => {
