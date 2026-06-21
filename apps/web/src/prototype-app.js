@@ -196,6 +196,12 @@ import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
+  mountSettingsAutomationWorkspace
+} from "./settings-automation-workspace.js";
+import {
+  renderSettingsAutomationRunHistory
+} from "./settings-automation-run-history.js";
+import {
   graphFocusCardActionMeta as computeGraphFocusCardActionMeta,
   graphIsolatedNodeIds,
   graphFollowupActionForRelationType,
@@ -690,6 +696,7 @@ const settingsState = {
     scheduledTaskTemplatesLoading: false,
     scheduledTaskTemplatesError: "",
     scheduledTaskForm: scheduledTaskFormDefaults(),
+    scheduledTaskFormOpen: false,
     scheduledTaskFilters: {
       status: "all",
       taskType: "all",
@@ -2664,7 +2671,9 @@ function renderScheduledTasksWorkspace() {
     loading: settingsState.ai.scheduledTasksLoading,
     actionLoading: settingsState.ai.scheduledTaskActionLoading,
     error: settingsState.ai.scheduledTasksError,
-    runSummary: settingsState.ai.scheduledTaskRunSummary
+    runSummary: settingsState.ai.scheduledTaskRunSummary,
+    compact: true,
+    formOpen: settingsState.ai.scheduledTaskFormOpen
   });
 }
 
@@ -3116,14 +3125,16 @@ function scheduledTaskFormFromUi() {
 }
 
 function resetScheduledTaskForm(overrides = {}) {
+  const { formOpen = false, ...formOverrides } = overrides || {};
   settingsState.ai.scheduledTaskForm = {
     ...scheduledTaskFormDefaults({
       templates: settingsState.ai.scheduledTaskTemplates,
       currentNoteId: state.selectedFileId || state.activeTabId || "",
       currentDirectoryId: state.selectedFolderId || ""
     }),
-    ...overrides
+    ...formOverrides
   };
+  settingsState.ai.scheduledTaskFormOpen = Boolean(formOpen);
   renderScheduledTasksWorkspace();
 }
 
@@ -3140,6 +3151,7 @@ function applyScheduledTaskTemplateToForm(templateId = "") {
     dayOfWeek: schedule.dayOfWeek || schedule.day_of_week || settingsState.ai.scheduledTaskForm.dayOfWeek,
     time: schedule.time || settingsState.ai.scheduledTaskForm.time
   };
+  settingsState.ai.scheduledTaskFormOpen = true;
   renderScheduledTasksWorkspace();
 }
 
@@ -3173,6 +3185,7 @@ function scheduledTaskPayloadHasScope(payload = {}) {
 async function saveScheduledTaskFromUi() {
   const form = scheduledTaskFormFromUi();
   settingsState.ai.scheduledTaskForm = form;
+  settingsState.ai.scheduledTaskFormOpen = true;
   const payload = scheduledTaskPayloadFromForm(form);
   if (payload.status === "active" && !scheduledTaskPayloadHasScope(payload)) {
     const confirmed = window.confirm("Create an active scheduled task without a note, directory, tag, or keyword scope?");
@@ -3186,6 +3199,7 @@ async function saveScheduledTaskFromUi() {
     rememberAiDebugSnapshot("scheduledTaskAction", item);
     const canonicalTask = item?.canonical?.item ? scheduledTaskFromCanonical(item.canonical.item) : null;
     settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(canonicalTask || item);
+    settingsState.ai.scheduledTaskFormOpen = false;
     await refreshScheduledTasks({ silent: true });
     setStatus(`Scheduled task saved: ${item?.name || item?.scheduledTaskId || ""}`, "ok");
     return item;
@@ -3203,6 +3217,7 @@ function editScheduledTaskFromList(scheduledTaskId = "") {
   const task = settingsState.ai.scheduledTasks.find((item) => String(item.scheduledTaskId || "").trim() === id);
   if (!task) return setStatus("Scheduled task not found in the current list", "warn");
   settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(task);
+  settingsState.ai.scheduledTaskFormOpen = true;
   renderScheduledTasksWorkspace();
   setStatus(`Editing scheduled task: ${task.name || id}`, "ok");
 }
@@ -7889,7 +7904,7 @@ function renderSettingsWorkbenchChrome() {
   if (overviewLabels.length >= 3) {
     overviewLabels[0].textContent = "工作区";
     overviewLabels[1].textContent = "AI 路线";
-    overviewLabels[2].textContent = "自动化";
+    overviewLabels[2].textContent = "自动处理";
   }
 
   SETTINGS_SECTIONS.forEach((section) => {
@@ -7930,8 +7945,8 @@ function renderSettingsWorkbenchChrome() {
   }
   if (aiRoute) aiRoute.textContent = aiSummary.value;
   if (aiMeta) aiMeta.textContent = aiSummary.meta || "当前使用的模型、服务和连接状态。";
-  if (automationValue) automationValue.textContent = `${automationCount} 个入口项`;
-  if (automationMeta) automationMeta.textContent = `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 建议复核 ${Number(settingsState.ai.suggestionsTotal || 0)}`;
+  if (automationValue) automationValue.textContent = `${automationCount} 个待看项`;
+  if (automationMeta) automationMeta.textContent = `待确认 ${Number(settingsState.ai.suggestionsTotal || 0)} / 后台任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)}`;
 }
 
 function renderSettingsSidebarColumn() {
@@ -8001,6 +8016,7 @@ function renderSettingsDetailFocus() {
 function renderSettingsPanel() {
   syncRailSelectionState();
   ensureSettingsWorkbenchLayout();
+  mountSettingsAutomationWorkspace(document);
   renderSettingsWorkbenchChrome();
   renderSettingsSidebarColumn();
   renderSettingsDetailFocus();
@@ -8394,55 +8410,9 @@ function renderNoteTemplateSettingsCard(kind = "") {
 function renderAiCanonicalDebugPanel() {
   const panel = $("settingsAiCanonicalDebug");
   if (!panel) return;
-
-  function formatSnapshot(snapshot = null) {
-    if (!snapshot) {
-      return `<div class="settings-canonical-empty">还没有捕获到载荷。</div>`;
-    }
-    const capturedAt = new Date(snapshot.capturedAt);
-    const label = Number.isFinite(capturedAt.getTime()) ? capturedAt.toLocaleString("zh-CN") : snapshot.capturedAt;
-    return `
-      <div class="settings-canonical-meta">捕获时间 ${escapeHtml(label)}</div>
-      <div class="settings-canonical-grid">
-        <div class="settings-canonical-block">
-          <div class="settings-canonical-label">运行态</div>
-          <pre class="settings-code settings-canonical-code">${escapeHtml(JSON.stringify(snapshot.runtime, null, 2) || "null")}</pre>
-        </div>
-        <div class="settings-canonical-block">
-          <div class="settings-canonical-label">标准载荷</div>
-          <pre class="settings-code settings-canonical-code">${escapeHtml(JSON.stringify(snapshot.canonical, null, 2) || "null")}</pre>
-        </div>
-      </div>
-    `;
-  }
-
-  const snapshots = settingsState.ai.debugSnapshots || {};
-  const sections = [
-      ["inboxList", "AI 收件箱列表", "最近一次收件箱列表响应，包含可选的标准载荷投影。"],
-      ["inboxDetail", "AI 收件箱详情", "最近一次所选对象的收件箱详情载荷。"],
-      ["inboxDecision", "AI 收件箱决策", "最近一次审阅动作结果，包含标准 adoption-event 数据。"],
-      ["suggestionsList", "AI 建议列表", "最近一次建议列表响应，包含可选的标准载荷投影。"],
-      ["suggestionDetail", "AI 建议详情", "最近一次所选建议的详情载荷。"],
-      ["suggestionDecision", "AI 建议决策", "最近一次建议审阅更新结果，包含标准历史数据。"],
-      ["scheduledTasksList", "计划任务列表", "最近一次计划任务列表响应。"],
-      ["scheduledTaskAction", "计划任务动作", "最近一次保存或状态更新结果。"]
-    ];
-
-  panel.innerHTML = sections
-    .map(
-      ([key, title, note]) => `
-        <section class="settings-canonical-section">
-          <div class="settings-card-head">
-            <div>
-              <div class="settings-card-title">${escapeHtml(title)}</div>
-              <div class="settings-card-note">${escapeHtml(note)}</div>
-            </div>
-          </div>
-          ${formatSnapshot(snapshots[key] || null)}
-        </section>
-      `
-    )
-    .join("");
+  panel.innerHTML = renderSettingsAutomationRunHistory({
+    snapshots: settingsState.ai.debugSnapshots || {}
+  });
 }
 
 function isWritingEligibleNote(note) {
@@ -20360,7 +20330,15 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeSettingsAiDialogs();
 });
 
-$("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
+$("settingsPaneAutomationBody")?.addEventListener("click", async (event) => {
+  if (!event.target.closest("#settingsScheduledTasksPanel")) return;
+  const formSummary = event.target.closest(".scheduled-task-form-details > summary");
+  if (formSummary) {
+    const details = formSummary.closest(".scheduled-task-form-details");
+    settingsState.ai.scheduledTaskFormOpen = !details?.open;
+    return;
+  }
+
   if (event.target.closest("#btnScheduledTasksApplyFilters")) {
     settingsState.ai.scheduledTaskFilters = scheduledTaskFiltersFromUi();
     await refreshScheduledTasks();
@@ -20387,6 +20365,7 @@ $("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
       noteIdsText: noteId,
       directoryIdsText: ""
     };
+    settingsState.ai.scheduledTaskFormOpen = true;
     renderScheduledTasksWorkspace();
     return;
   }
@@ -20399,6 +20378,7 @@ $("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
       noteIdsText: "",
       directoryIdsText: directoryId
     };
+    settingsState.ai.scheduledTaskFormOpen = true;
     renderScheduledTasksWorkspace();
     return;
   }
@@ -20429,20 +20409,25 @@ $("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
   }
 });
 
-$("settingsScheduledTasksPanel")?.addEventListener("input", (event) => {
+$("settingsPaneAutomationBody")?.addEventListener("input", (event) => {
+  if (!event.target.closest("#settingsScheduledTasksPanel")) return;
   if (!event.target.closest("#scheduledTaskForm")) return;
   settingsState.ai.scheduledTaskForm = scheduledTaskFormFromUi();
+  settingsState.ai.scheduledTaskFormOpen = true;
 });
 
-$("settingsScheduledTasksPanel")?.addEventListener("change", (event) => {
+$("settingsPaneAutomationBody")?.addEventListener("change", (event) => {
+  if (!event.target.closest("#settingsScheduledTasksPanel")) return;
   if (!event.target.closest("#scheduledTaskForm")) return;
   settingsState.ai.scheduledTaskForm = scheduledTaskFormFromUi();
+  settingsState.ai.scheduledTaskFormOpen = true;
   if (event.target.closest("#scheduledTaskTemplateSelect")) {
     applyScheduledTaskTemplateToForm(event.target.value);
   }
 });
 
-$("settingsAiSuggestionsPanel")?.addEventListener("click", async (event) => {
+$("settingsPaneAutomationBody")?.addEventListener("click", async (event) => {
+  if (!event.target.closest("#settingsAiSuggestionsPanel")) return;
   if (event.target.closest("#btnAiSuggestionsApplyFilters")) {
     settingsState.ai.suggestionFilters = aiSuggestionFiltersFromUi();
     settingsState.ai.suggestionDetail = null;

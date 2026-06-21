@@ -95,9 +95,9 @@ function renderItem(item = {}, selectedId = "") {
 
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
-  if (state.loading) return `<div class="scheduled-task-empty">正在加载 AI 建议...</div>`;
-  if (state.error) return `<div class="scheduled-task-empty is-bad">AI 建议加载失败：${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的 AI 建议。</div>`;
+  if (state.loading) return `<div class="scheduled-task-empty">正在加载待确认建议...</div>`;
+  if (state.error) return `<div class="scheduled-task-empty is-bad">待确认建议加载失败：${escapeHtml(state.error)}</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的待确认建议。</div>`;
   return `<div class="ai-inbox-list">${items.map((item) => renderItem(item, state.selectedSuggestionId)).join("")}</div>`;
 }
 
@@ -423,8 +423,8 @@ export function renderAiSuggestionsPanel(state = {}) {
     <div class="scheduled-task-panel">
       <div class="scheduled-task-head">
         <div>
-          <div class="settings-card-title">AI 建议</div>
-          <div class="settings-card-note">在字段级和对象级 AI 建议真正进入用户自有成果之前，先在这里完成审阅。</div>
+          <div class="settings-card-title">待确认建议</div>
+          <div class="settings-card-note">先看对象和理由；确认后才写入笔记、图谱或写作项目。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}

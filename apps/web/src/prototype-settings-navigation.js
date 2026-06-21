@@ -28,7 +28,7 @@ export const SETTINGS_SECTIONS = Object.freeze([
   },
   {
     id: "automation",
-    label: "自动化",
+    label: "自动处理",
     paneId: "settingsPaneAutomation",
     buttonId: "settingsNavAutomation",
     badgeId: "settingsNavAutomationBadge",
@@ -125,7 +125,7 @@ export function settingsSectionChromeMap({
     },
     automation: {
       badge: String(automationCount),
-      meta: `定时任务 ${Number(settingsState.ai?.scheduledTasksTotal || 0)} / AI 建议复核 ${Number(settingsState.ai?.suggestionsTotal || 0)}`
+      meta: `待确认 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 后台任务 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`
     },
     support: {
       badge: feedbackRepositoryReady ? "GitHub" : "待绑定",
@@ -272,7 +272,7 @@ export function settingsItemSummary(itemId = "") {
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
     "ai-settings": "从本地大模型或远程大模型入口开始配置。",
-    automation: "查看定时任务、待审 AI 建议和最近运行结果。",
+    automation: "处理待确认建议，必要时再查看后台任务和运行结果。",
     "version-update": "检查新版本，必要时打开下载页。",
     "desktop-help": "说明笔记文件、数据库和笔记库切换规则。",
     feedback: "反馈问题或复制排查信息。"
@@ -324,11 +324,11 @@ export function settingsSectionGuidanceMap({
       ]
     },
     automation: {
-      focus: "把定时任务、AI 建议复核和运行记录放在一起核对，先分清什么会执行、什么只是建议。",
+      focus: "先处理需要你确认的建议；后台任务和运行结果只在需要调整或排查时查看。",
       notes: [
-        "定时任务和待办计数只反映入口量，不会直接改写笔记。",
-        "AI 建议复核默认停留在待确认层，需要你显式采纳。",
-        "运行记录更适合排查连接状态和待办堆积。"
+        "待确认建议不会自动写入笔记或图谱。",
+        "后台任务只负责生成候选结果，最终是否采纳仍由你决定。",
+        "运行结果用于排查失败和确认最近一次处理。"
       ]
     },
     support: {

@@ -30,8 +30,8 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
     runSummary: { total: 1, succeeded: 1, skipped: 0, failed: 0 }
   });
 
-  assert.match(html, /计划代理任务/);
-  assert.match(html, /输出会停留在系统消息里/);
+  assert.match(html, /后台任务/);
+  assert.match(html, /输出会先停在待确认建议里/);
   assert.match(html, /id="scheduledTaskStatusFilter"/);
   assert.match(html, /id="scheduledTaskTypeFilter"/);
   assert.match(html, /id="btnScheduledTasksRunDue"/);
@@ -57,7 +57,27 @@ test("scheduled tasks panel renders resume action and empty states", () => {
   assert.match(pausedHtml, /data-scheduled-task-status="active"/);
   assert.match(pausedHtml, /恢复启用/);
 
-  assert.match(renderScheduledTasksPanel({ loading: true }), /正在加载计划任务/);
-  assert.match(renderScheduledTasksPanel({ error: "boom" }), /计划任务加载失败：boom/);
-  assert.match(renderScheduledTasksPanel({ items: [], total: 0 }), /没有符合这些筛选条件的计划任务/);
+  assert.match(renderScheduledTasksPanel({ loading: true }), /正在加载后台任务/);
+  assert.match(renderScheduledTasksPanel({ error: "boom" }), /后台任务加载失败：boom/);
+  assert.match(renderScheduledTasksPanel({ items: [], total: 0 }), /没有符合这些筛选条件的后台任务/);
+});
+
+test("scheduled tasks panel can collapse creation form in compact mode", () => {
+  const html = renderScheduledTasksPanel({
+    items: [],
+    total: 0,
+    compact: true
+  });
+
+  assert.match(html, /<details class="scheduled-task-form-details">/);
+  assert.match(html, /新建后台任务/);
+  assert.match(html, /没有符合这些筛选条件的后台任务/);
+
+  const openHtml = renderScheduledTasksPanel({
+    items: [],
+    total: 0,
+    compact: true,
+    formOpen: true
+  });
+  assert.match(openHtml, /<details class="scheduled-task-form-details" open>/);
 });

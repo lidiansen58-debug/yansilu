@@ -246,10 +246,22 @@ function renderTask(task = {}, actionLoading = false) {
 
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
-  if (state.loading) return `<div class="scheduled-task-empty">正在加载计划任务...</div>`;
-  if (state.error) return `<div class="scheduled-task-empty is-bad">计划任务加载失败：${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的计划任务。</div>`;
+  if (state.loading) return `<div class="scheduled-task-empty">正在加载后台任务...</div>`;
+  if (state.error) return `<div class="scheduled-task-empty is-bad">后台任务加载失败：${escapeHtml(state.error)}</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的后台任务。</div>`;
   return `<div class="scheduled-task-list">${items.map((item) => renderTask(item, state.actionLoading)).join("")}</div>`;
+}
+
+function renderTaskFormSlot(state = {}) {
+  const form = renderTaskForm(state);
+  if (!state.compact) return form;
+  const openAttr = state.formOpen ? " open" : "";
+  return `
+    <details class="scheduled-task-form-details"${openAttr}>
+      <summary>新建后台任务</summary>
+      ${form}
+    </details>
+  `;
 }
 
 export function renderScheduledTasksPanel(state = {}) {
@@ -258,8 +270,8 @@ export function renderScheduledTasksPanel(state = {}) {
     <div class="scheduled-task-panel">
       <div class="scheduled-task-head">
         <div>
-          <div class="settings-card-title">计划代理任务</div>
-          <div class="settings-card-note">手动运行到期的 AI 任务。输出会停留在系统消息里，确认后才进入笔记或图谱。</div>
+          <div class="settings-card-title">后台任务</div>
+          <div class="settings-card-note">定时或手动生成候选结果；输出会先停在待确认建议里。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
@@ -269,7 +281,7 @@ export function renderScheduledTasksPanel(state = {}) {
         </div>
       </div>
       ${renderControls(state)}
-      ${renderTaskForm(state)}
+      ${renderTaskFormSlot(state)}
       ${renderRunSummary(state.runSummary)}
       ${renderList(state)}
     </div>

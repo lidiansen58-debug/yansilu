@@ -666,8 +666,8 @@
                           </svg>
                         </span>
                         <span class="settings-nav-body">
-                          <span class="settings-nav-title">自动化</span>
-                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">定时任务、AI 建议复核与运行记录</span>
+                          <span class="settings-nav-title">自动处理</span>
+                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">待确认建议、后台任务和运行结果</span>
                         </span>
                         <span class="settings-stat-badge" id="settingsNavAutomationBadge">0</span>
                       </button>
@@ -1074,40 +1074,10 @@
                         <div class="settings-pane-kicker">Automation</div>
                         <div class="settings-pane-title">自动处理</div>
                       </div>
-                      <div class="settings-pane-note">定时任务、AI 建议复核与运行记录。</div>
+                      <div class="settings-pane-note">待确认建议、后台任务和运行结果。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAutomationBody">
-                      <section class="settings-card settings-automation-workspace" id="settingsCardAutomation">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">自动处理</div>
-                            <div class="settings-card-note">只保留会影响你下一步操作的信息：定时任务、待审建议、最近运行。</div>
-                          </div>
-                        </div>
-                        <div class="settings-automation-grid">
-                          <section class="settings-automation-panel">
-                            <div class="settings-automation-panel-title">定时任务</div>
-                            <div id="settingsScheduledTasksPanel">
-                              <div class="scheduled-task-empty">暂无需要处理的定时任务。</div>
-                            </div>
-                          </section>
-                          <section class="settings-automation-panel">
-                            <div class="settings-automation-panel-title">AI 建议复核</div>
-                            <div id="settingsAiSuggestionsPanel">
-                              <div class="scheduled-task-empty">暂无待复核建议。</div>
-                            </div>
-                          </section>
-                          <section class="settings-automation-panel">
-                            <div class="settings-automation-panel-title">最近运行</div>
-                            <div id="settingsAiCanonicalDebug">
-                              <div class="settings-canonical-empty">还没有运行记录。</div>
-                            </div>
-                          </section>
-                        </div>
-                      </section>
-
-                      <section class="settings-card hidden" id="settingsCardAutomationSuggestions"></section>
-                      <section class="settings-card hidden" id="settingsCardAutomationDebug"></section>
+                      <div id="settingsAutomationWorkspaceMount"></div>
                     </div>
                   </section>
 

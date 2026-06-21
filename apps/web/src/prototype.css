@@ -14499,46 +14499,145 @@
     }
     .settings-automation-workspace {
       display: grid;
+      gap: 16px;
+      padding: 18px;
+    }
+    .settings-automation-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      min-width: 0;
+    }
+    .settings-automation-flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      max-width: 100%;
+      padding: 7px 10px;
+      border: 1px solid rgba(187, 218, 207, 0.95);
+      border-radius: 999px;
+      background: rgba(239, 253, 246, 0.86);
+      color: #0f766e;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+    .settings-automation-flow span {
+      width: 14px;
+      height: 1px;
+      background: rgba(15, 118, 110, 0.36);
+    }
+    .settings-automation-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
       gap: 14px;
-    }
-    .settings-automation-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 12px;
-      align-items: stretch;
+      align-items: start;
       min-width: 0;
     }
-    .settings-automation-panel:nth-child(3) {
-      grid-column: 1 / -1;
-    }
-    .settings-automation-panel {
+    .settings-automation-side {
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      gap: 10px;
+      gap: 14px;
       min-width: 0;
-      min-height: 190px;
+    }
+    .settings-automation-section {
+      min-width: 0;
       padding: 14px;
-      border: 1px solid rgba(226, 232, 240, 0.96);
-      border-radius: 12px;
-      background: rgba(248, 250, 252, 0.74);
+      border: 1px solid rgba(214, 226, 232, 0.96);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.88);
       overflow: hidden;
     }
-    .settings-automation-panel-title {
+    .settings-automation-primary {
+      border-color: rgba(153, 213, 190, 0.96);
+      background:
+        linear-gradient(180deg, rgba(246, 253, 249, 0.92), rgba(255, 255, 255, 0.96));
+      box-shadow: inset 4px 0 0 rgba(16, 133, 112, 0.88);
+    }
+    .settings-automation-section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      min-width: 0;
+    }
+    .settings-automation-section-title {
       color: #172033;
       font-size: 14px;
       line-height: 1.35;
       font-weight: 850;
     }
-    .settings-automation-panel .scheduled-task-empty,
-    .settings-automation-panel .settings-canonical-empty {
-      height: 100%;
-      min-height: 150px;
+    .settings-automation-section-note {
+      margin-top: 3px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .settings-automation-section .scheduled-task-panel {
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .settings-automation-section .scheduled-task-empty,
+    .settings-automation-section .settings-canonical-empty {
+      min-height: 92px;
       display: grid;
       place-items: center;
       margin: 0;
-      border-radius: 10px;
+      border-radius: 12px;
+      border: 1px dashed rgba(203, 213, 225, 0.9);
+      background: rgba(248, 250, 252, 0.68);
       color: #64748b;
       text-align: center;
+    }
+    .settings-automation-run-list {
+      display: grid;
+      gap: 10px;
+    }
+    .settings-automation-run-row {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid rgba(226, 232, 240, 0.96);
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.72);
+    }
+    .settings-automation-run-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .settings-automation-run-main strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .settings-automation-run-main span {
+      flex: 0 0 auto;
+      color: #64748b;
+      white-space: nowrap;
+    }
+    .settings-automation-run-diagnostics summary {
+      color: #0f766e;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .settings-automation-run-diagnostics .settings-canonical-grid {
+      margin-top: 8px;
     }
     .settings-template-editor {
       display: grid;
@@ -15000,6 +15099,27 @@
       justify-content: flex-end;
       flex-wrap: wrap;
       gap: 8px;
+    }
+    .scheduled-task-form-details {
+      border: 1px solid rgba(214, 226, 232, 0.96);
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.72);
+      overflow: hidden;
+    }
+    .scheduled-task-form-details summary {
+      padding: 10px 12px;
+      color: #0f766e;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 850;
+      list-style-position: inside;
+    }
+    .scheduled-task-form-details .scheduled-task-form {
+      margin: 0;
+      border: 0;
+      border-top: 1px solid rgba(214, 226, 232, 0.96);
+      border-radius: 0;
+      background: rgba(255, 255, 255, 0.92);
     }
     .scheduled-task-list {
       display: grid;
@@ -16055,8 +16175,15 @@
       .settings-ai-compact-grid,
       .settings-ai-advanced-body .settings-ai-compact-grid,
       .settings-ai-quick-actions,
-      .settings-automation-grid {
+      .settings-automation-layout {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-automation-head {
+        display: grid;
+      }
+      .settings-automation-flow {
+        justify-self: start;
+        white-space: normal;
       }
       .settings-ai-primary-head {
         display: grid;

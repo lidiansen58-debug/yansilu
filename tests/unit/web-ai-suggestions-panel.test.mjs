@@ -23,7 +23,7 @@ test("AI suggestions panel renders filters, list, detail, and review actions", (
     detail: suggestion
   });
 
-  assert.match(html, /AI suggestions|AI 建议/);
+  assert.match(html, /待确认建议/);
   assert.match(html, /id="aiSuggestionStatusFilter"/);
   assert.match(html, /id="aiSuggestionTargetTypeFilter"/);
   assert.match(html, /data-ai-suggestion-id="suggestion_1"/);
@@ -464,6 +464,6 @@ test("AI suggestions panel marks the current suggestion detail busy while its re
 });
 
 test("AI suggestions panel renders loading and empty states", () => {
-  assert.match(renderAiSuggestionsPanel({ loading: true }), /Loading AI suggestions|正在加载 AI 建议/);
-  assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /No AI suggestions match these filters|没有匹配这些筛选条件的 AI 建议|没有符合这些筛选条件的 AI 建议/);
+  assert.match(renderAiSuggestionsPanel({ loading: true }), /正在加载待确认建议/);
+  assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合这些筛选条件的待确认建议/);
 });
