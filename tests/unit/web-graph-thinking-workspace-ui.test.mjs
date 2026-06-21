@@ -15,8 +15,11 @@ import {
 } from "../../apps/web/src/graph-relation-drafts.js";
 import {
   graphBlockedAiRelationPairKeysForNote as moduleGraphBlockedAiRelationPairKeysForNote,
+  graphCandidateBlocksFormalRelation as moduleGraphCandidateBlocksFormalRelation,
   graphMergeRelationCandidatesForDisplay as moduleGraphMergeRelationCandidatesForDisplay,
-  graphPendingAiCandidateCount as moduleGraphPendingAiCandidateCount
+  graphPendingAiCandidateCount as moduleGraphPendingAiCandidateCount,
+  graphRelationRationaleIsActionable as moduleGraphRelationRationaleIsActionable,
+  graphRelationStatusCountsAsNetworkEdge as moduleGraphRelationStatusCountsAsNetworkEdge
 } from "../../apps/web/src/graph-ai-candidates.js";
 import {
   graphManualRelationTargetsForNote as moduleGraphManualRelationTargetsForNote
@@ -603,7 +606,11 @@ test("graph AI candidates prefill relation forms with a usable rationale draft i
 test("graph network-edge status handling keeps suggested links in-network but still lets dismissed history re-enter candidates", () => {
   const source = readPrototypeApp();
 
-  assert.match(source, /return status === "suggested" \|\| status === "draft" \|\| status === "confirmed";/);
+  assert.equal(moduleGraphRelationStatusCountsAsNetworkEdge("suggested"), true);
+  assert.equal(moduleGraphRelationStatusCountsAsNetworkEdge("draft"), true);
+  assert.equal(moduleGraphRelationStatusCountsAsNetworkEdge("confirmed"), true);
+  assert.equal(moduleGraphRelationStatusCountsAsNetworkEdge("dismissed"), false);
+  assert.match(source, /return computeGraphRelationStatusCountsAsNetworkEdge\(value\);/);
   assert.match(source, /graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
   assert.match(source, /relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge/);
   assert.match(source, /state\.graphConnectedNoteIds = new Set\(\s*allGraphEdges\s*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)\s*\.flatMap/);
@@ -1244,7 +1251,7 @@ test("graph AI relation candidates hide rejected and no-relation candidates befo
       const fallback = String(candidate.relationType || candidate.relation_type || (candidate.componentBridge ? "bridges" : "associated_with")).trim().toLowerCase();
       return GRAPH_CONFIRMABLE_RELATION_TYPES.has(fallback) ? fallback : "associated_with";
     }
-    ${extractFunctionSource(source, "graphCandidateBlocksFormalRelation")}
+    const graphCandidateBlocksFormalRelation = ${moduleGraphCandidateBlocksFormalRelation.toString()};
     function graphCandidateCanSaveRelation(candidate = {}) {
       return !graphCandidateBlocksFormalRelation(candidate) && GRAPH_CONFIRMABLE_RELATION_TYPES.has(graphPreferredPotentialRelationType(candidate));
     }
@@ -1292,9 +1299,8 @@ test("graph AI relation candidates hide rejected and no-relation candidates befo
 });
 
 test("graph relation save rejects placeholder rationales", () => {
-  const source = readPrototypeApp();
   const { graphRelationRationaleIsActionable } = new Function(`
-    ${extractFunctionSource(source, "graphRelationRationaleIsActionable")}
+    const graphRelationRationaleIsActionable = ${moduleGraphRelationRationaleIsActionable.toString()};
     return { graphRelationRationaleIsActionable };
   `)();
 
@@ -1318,7 +1324,7 @@ test("graph isolated relation form keeps placeholder-rationale errors inside the
     }
     const readGraphIsolatedRelationFormValues = ${readGraphIsolatedRelationFormValues.toString()};
     const validateGraphIsolatedRelationFormValues = ${validateGraphIsolatedRelationFormValues.toString()};
-    ${extractFunctionSource(source, "graphRelationRationaleIsActionable")}
+    const graphRelationRationaleIsActionable = ${moduleGraphRelationRationaleIsActionable.toString()};
     async function saveGraphConfirmedRelation() {
       confirmed = true;
       return true;
@@ -1369,7 +1375,7 @@ test("graph isolated relation form keeps invalid relation type errors inside the
     }
     const readGraphIsolatedRelationFormValues = ${readGraphIsolatedRelationFormValues.toString()};
     const validateGraphIsolatedRelationFormValues = ${validateGraphIsolatedRelationFormValues.toString()};
-    ${extractFunctionSource(source, "graphRelationRationaleIsActionable")}
+    const graphRelationRationaleIsActionable = ${moduleGraphRelationRationaleIsActionable.toString()};
     async function saveGraphConfirmedRelation() {
       confirmed = true;
       return true;
@@ -1847,15 +1853,17 @@ test("isolated note panel gives a continuous next step after confirming a relati
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
   const nextStepSource = extractFunctionSource(source, "renderGraphIsolatedNextStepActions");
+  const nextStepModuleSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-next-step.js"), "utf8");
 
   assert.match(source, /function renderGraphIsolatedNextStepActions\(noteId = "", \{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
-  assert.match(source, /if \(!directEdges\.length\) return "";/);
-  assert.match(source, /<strong>确认关系后继续<\/strong>/);
-  assert.match(source, /处理下一条/);
-  assert.match(source, /整理成主题草稿/);
+  assert.match(nextStepSource, /return renderGraphIsolatedNextStepActionsHtml\(noteId, \{ isolatedNotes, nodeMap, edges \}, \{/);
+  assert.match(nextStepSource, /themeCandidateNoteIdsForNode: graphThemeCandidateNoteIdsForNode/);
+  assert.match(nextStepModuleSource, /if \(!directEdges\.length\) return "";/);
+  assert.match(nextStepModuleSource, /data-graph-select-isolated/);
+  assert.match(nextStepModuleSource, /data-graph-create-theme-index/);
   assert.doesNotMatch(nextStepSource, /data-graph-select-node/);
-  assert.match(source, /const canCreateTheme = directEdges\.length > 0 && themeNoteIds\.length >= 3;/);
-  assert.match(nextStepSource, /const themeNoteIds = graphThemeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\);/);
+  assert.match(nextStepModuleSource, /const canCreateTheme = directEdges\.length > 0 && themeNoteIds\.length >= 3;/);
+  assert.match(nextStepModuleSource, /const themeNoteIds = themeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\);/);
   assert.doesNotMatch(nextStepSource, /graphAiRelationCandidatesForNote/);
   assert.match(source, /renderGraphIsolatedNextStepActions\(noteId, \{ isolatedNotes, nodeMap, edges \}\)/);
   assert.match(html, /\.graph-isolated-next-step \{[\s\S]*border: 1px solid #cfe4d9;/);

@@ -19,6 +19,22 @@ export function graphFollowupActionForRelationType(type = "") {
   return GRAPH_FOLLOWUP_ACTIONS.relations;
 }
 
+export function graphFocusCardActionMeta(edge = {}, contextMode = "argument") {
+  const relationType = String(edge?.relationType || "").trim().toLowerCase();
+  const baseAction = graphFollowupActionForRelationType(relationType);
+  const hasRelationId = Boolean(String(edge?.id || "").trim());
+  if (contextMode === "writing" && ["appears_in_draft", "precedes", "follows"].includes(relationType)) {
+    return { action: GRAPH_FOLLOWUP_ACTIONS.writing, label: relationType === "appears_in_draft" ? "带入写作" : "继续写作" };
+  }
+  if (baseAction === GRAPH_FOLLOWUP_ACTIONS.boundary) return { action: GRAPH_FOLLOWUP_ACTIONS.boundary, label: "补边界" };
+  if (baseAction === GRAPH_FOLLOWUP_ACTIONS.tension) return { action: GRAPH_FOLLOWUP_ACTIONS.tension, label: "补反方" };
+  if (baseAction === GRAPH_FOLLOWUP_ACTIONS.bridge) return { action: GRAPH_FOLLOWUP_ACTIONS.bridge, label: "补桥接" };
+  return {
+    action: hasRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
+    label: hasRelationId ? "补关系理由" : "补关系"
+  };
+}
+
 export function graphNextActionForSummary({
   hasNodes = false,
   hasEdges = false,

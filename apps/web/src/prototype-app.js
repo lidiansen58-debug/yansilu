@@ -196,6 +196,7 @@ import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
+  graphFocusCardActionMeta as computeGraphFocusCardActionMeta,
   graphIsolatedNodeIds,
   graphFollowupActionForRelationType,
   graphNextActionForSummary,
@@ -219,14 +220,21 @@ import {
 } from "./graph-relation-save-flow.js";
 import {
   graphBlockedAiRelationPairKeysForNote as computeGraphBlockedAiRelationPairKeysForNote,
+  graphCandidateBlocksFormalRelation as computeGraphCandidateBlocksFormalRelation,
   graphCandidateCanSaveRelation as computeGraphCandidateCanSaveRelation,
   graphCandidateCountKey as computeGraphCandidateCountKey,
   graphCandidateEndpointIds as computeGraphCandidateEndpointIds,
   graphCandidatePercent as computeGraphCandidatePercent,
   graphCandidateUndirectedPairKey as computeGraphCandidateUndirectedPairKey,
+  graphExistingRelationKeys as computeGraphExistingRelationKeys,
+  graphExistingRelationPairKeys as computeGraphExistingRelationPairKeys,
   graphMergeRelationCandidatesForDisplay as computeGraphMergeRelationCandidatesForDisplay,
   graphPendingAiCandidateCount as computeGraphPendingAiCandidateCount,
   graphPreferredPotentialRelationType as computeGraphPreferredPotentialRelationType,
+  graphRelationCandidateKey as computeGraphRelationCandidateKey,
+  graphRelationRationaleIsActionable as computeGraphRelationRationaleIsActionable,
+  graphRelationStatusCountsAsNetworkEdge as computeGraphRelationStatusCountsAsNetworkEdge,
+  graphRelationStatusKey as computeGraphRelationStatusKey,
   graphRelationPairKey as computeGraphRelationPairKey
 } from "./graph-ai-candidates.js";
 import {
@@ -249,6 +257,9 @@ import {
 import {
   graphIsolatedJoinNetworkFormModel
 } from "./graph-isolated-relation-form.js";
+import {
+  renderGraphIsolatedNextStepActionsHtml
+} from "./graph-isolated-next-step.js";
 import {
   graphThemeCandidateNoteIdsForNode as computeGraphThemeCandidateNoteIdsForNode,
   renderGraphRelationWorkspaceForNote as renderGraphRelationWorkspaceMarkup,
@@ -13262,7 +13273,7 @@ function renderGraphIsolatedQueueStrip({ isolatedNotes = [], nodeMap = new Map()
 }
 
 function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
-  return `${String(fromNoteId || "").trim()}->${String(toNoteId || "").trim()}:${String(relationType || "").trim().toLowerCase()}`;
+  return computeGraphRelationCandidateKey(fromNoteId, toNoteId, relationType);
 }
 
 function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
@@ -13278,30 +13289,19 @@ function graphCandidateCountKey(candidate = {}) {
 }
 
 function graphRelationStatusKey(value = "") {
-  return String(value || "confirmed").trim().toLowerCase();
+  return computeGraphRelationStatusKey(value);
 }
 
 function graphRelationStatusCountsAsNetworkEdge(value = "") {
-  const status = graphRelationStatusKey(value);
-  return status === "suggested" || status === "draft" || status === "confirmed";
+  return computeGraphRelationStatusCountsAsNetworkEdge(value);
 }
 
 function graphExistingRelationKeys(edges = []) {
-  return new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .map((edge) => graphRelationCandidateKey(edge?.fromNoteId, edge?.toNoteId, edge?.relationType))
-      .filter((key) => key !== "->:")
-  );
+  return computeGraphExistingRelationKeys(edges);
 }
 
 function graphExistingRelationPairKeys(edges = []) {
-  return new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .map((edge) => graphRelationPairKey(edge?.fromNoteId, edge?.toNoteId))
-      .filter(Boolean)
-  );
+  return computeGraphExistingRelationPairKeys(edges);
 }
 
 const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
@@ -13312,10 +13312,7 @@ function graphPreferredPotentialRelationType(candidate = {}) {
 }
 
 function graphCandidateBlocksFormalRelation(candidate = {}) {
-  const decision = String(candidate.aiDecision || candidate.ai_decision || "").trim().toLowerCase();
-  const aiRelationType = String(candidate.aiRelationType || candidate.ai_relation_type || "").trim().toLowerCase();
-  const relationType = String(candidate.relationType || candidate.relation_type || "").trim().toLowerCase();
-  return decision === "reject" || aiRelationType === "no_relation" || relationType === "no_relation";
+  return computeGraphCandidateBlocksFormalRelation(candidate);
 }
 
 function graphCandidateCanSaveRelation(candidate = {}) {
@@ -13323,14 +13320,7 @@ function graphCandidateCanSaveRelation(candidate = {}) {
 }
 
 function graphRelationRationaleIsActionable(value = "") {
-  const text = String(value || "").replace(/\s+/g, " ").trim();
-  if (!text) return false;
-  const compact = text.replace(/\s+/g, "");
-  if (/[_＿]{3,}/u.test(compact)) return false;
-  if (/因为[:：]?$/u.test(compact)) return false;
-  if (/存在需要一起复核的论证或主题联系|存在可说明的论证或主题联系/u.test(text)) return false;
-  if (/请补|待补|TODO|TBD/i.test(text)) return false;
-  return true;
+  return computeGraphRelationRationaleIsActionable(value);
 }
 
 function graphPotentialRelationNodeMap() {
@@ -14245,34 +14235,14 @@ function renderGraphIsolatedJoinNetworkFlow(
 }
 
 function renderGraphIsolatedNextStepActions(noteId = "", { isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return "";
-  const queueItems = graphIsolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId: cleanNoteId, limit: 8 });
-  const nextItem = graphNextIsolatedQueueItem(queueItems, cleanNoteId);
-  const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
+  return renderGraphIsolatedNextStepActionsHtml(noteId, { isolatedNotes, nodeMap, edges }, {
+    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
+    isolatedQueueItems: graphIsolatedQueueItems,
+    nextIsolatedQueueItem: graphNextIsolatedQueueItem,
+    themeCandidateNoteIdsForNode: graphThemeCandidateNoteIdsForNode,
+    suggestThemeIndexTitle: suggestedThemeIndexTitle,
+    escapeHtml
   });
-  if (!directEdges.length) return "";
-  const themeNoteIds = graphThemeCandidateNoteIdsForNode(cleanNoteId, directEdges, []);
-  const themeTitle = suggestedThemeIndexTitle(themeNoteIds);
-  const canCreateTheme = directEdges.length > 0 && themeNoteIds.length >= 3;
-  return `
-    <section class="graph-isolated-next-step" aria-label="保存关系后的下一步">
-      <div>
-        <strong>确认关系后继续</strong>
-        <p>${escapeHtml(nextItem ? `下一条待关联笔记：“${nextItem.title}”。` : "当前范围暂时没有下一条待关联笔记，可以回到这条笔记周边继续阅读。")}</p>
-      </div>
-      <div class="graph-isolated-next-step-actions">
-        ${
-          nextItem
-            ? `<button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条</button>`
-            : ""
-        }
-        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>整理成主题草稿</button>
-      </div>
-    </section>
-  `;
 }
 
 function graphIsolatedWorkflowTabKey(value = "") {
@@ -16744,19 +16714,7 @@ function graphFocusedCounterpartTitle(edge, focusedNoteId = "", nodeMap = new Ma
 }
 
 function graphFocusCardActionMeta(edge = {}, contextMode = "argument") {
-  const relationType = String(edge?.relationType || "").trim().toLowerCase();
-  const baseAction = graphFollowupActionForRelationType(relationType);
-  const hasRelationId = Boolean(String(edge?.id || "").trim());
-  if (contextMode === "writing" && ["appears_in_draft", "precedes", "follows"].includes(relationType)) {
-    return { action: "writing", label: relationType === "appears_in_draft" ? "带入写作" : "继续写作" };
-  }
-  if (baseAction === "boundary") return { action: "boundary", label: "补边界" };
-  if (baseAction === "tension") return { action: "tension", label: "补反方" };
-  if (baseAction === "bridge") return { action: "bridge", label: "补桥接" };
-  return {
-    action: hasRelationId ? "relations-edit" : "relations",
-    label: hasRelationId ? "补关系理由" : "补关系"
-  };
+  return computeGraphFocusCardActionMeta(edge, contextMode);
 }
 
 function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(), edges = [] } = {}) {

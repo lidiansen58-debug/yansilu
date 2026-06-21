@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  graphFocusCardActionMeta,
   graphFollowupActionForRelationType,
   graphIsolatedNodeIds,
   graphNextActionForSummary,
@@ -27,6 +28,33 @@ test("graph followup action maps bridges to bridge followup", () => {
 test("graph followup action defaults ordinary relations to relation followup", () => {
   assert.equal(graphFollowupActionForRelationType("supports"), "relations");
   assert.equal(graphFollowupActionForRelationType("associated_with"), "relations");
+});
+
+test("graph focus card action meta routes focused relation actions", () => {
+  assert.deepEqual(graphFocusCardActionMeta({ relationType: "appears_in_draft" }, "writing"), {
+    action: "writing",
+    label: "带入写作"
+  });
+  assert.deepEqual(graphFocusCardActionMeta({ relationType: "qualifies" }), {
+    action: "boundary",
+    label: "补边界"
+  });
+  assert.deepEqual(graphFocusCardActionMeta({ relationType: "contradicts" }), {
+    action: "tension",
+    label: "补反方"
+  });
+  assert.deepEqual(graphFocusCardActionMeta({ relationType: "bridges" }), {
+    action: "bridge",
+    label: "补桥接"
+  });
+  assert.deepEqual(graphFocusCardActionMeta({ id: "rel_1", relationType: "supports" }), {
+    action: "relations-edit",
+    label: "补关系理由"
+  });
+  assert.deepEqual(graphFocusCardActionMeta({ relationType: "supports" }), {
+    action: "relations",
+    label: "补关系"
+  });
 });
 
 test("graph next action prefers relation followup when graph only has untyped relations", () => {

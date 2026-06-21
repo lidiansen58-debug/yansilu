@@ -9,6 +9,12 @@ import {
   graphCandidatePercent,
   graphMergeRelationCandidatesForDisplay,
   graphPendingAiCandidateCount,
+  graphExistingRelationKeys,
+  graphExistingRelationPairKeys,
+  graphRelationCandidateKey,
+  graphRelationRationaleIsActionable,
+  graphRelationStatusCountsAsNetworkEdge,
+  graphRelationStatusKey,
   graphRelationPairKey
 } from "../../apps/web/src/graph-ai-candidates.js";
 
@@ -31,6 +37,30 @@ test("graph AI candidates reject no-relation or rejected outputs", () => {
   assert.equal(graphCandidateCanSaveRelation({ sourceNoteId: "a", targetNoteId: "b", relationType: "supports" }), true);
   assert.equal(graphCandidateCanSaveRelation({ sourceNoteId: "a", targetNoteId: "b", aiDecision: "reject", relationType: "supports" }), false);
   assert.equal(graphCandidateCanSaveRelation({ sourceNoteId: "a", targetNoteId: "b", aiRelationType: "no_relation" }), false);
+});
+
+test("graph relation pure helpers normalize keys and network-counting statuses", () => {
+  const edges = [
+    { fromNoteId: "a", toNoteId: "b", relationType: "Supports", status: "confirmed" },
+    { fromNoteId: "b", toNoteId: "c", relationType: "bridges", status: "dismissed" },
+    { fromNoteId: "d", toNoteId: "a", relationType: "same_topic", status: "suggested" }
+  ];
+
+  assert.equal(graphRelationCandidateKey(" a ", " b ", "Supports"), "a->b:supports");
+  assert.equal(graphRelationStatusKey(" Draft "), "draft");
+  assert.equal(graphRelationStatusCountsAsNetworkEdge("draft"), true);
+  assert.equal(graphRelationStatusCountsAsNetworkEdge("dismissed"), false);
+  assert.deepEqual([...graphExistingRelationKeys(edges)].sort(), ["a->b:supports", "d->a:same_topic"]);
+  assert.deepEqual([...graphExistingRelationPairKeys(edges)].sort(), ["a::b", "a::d"]);
+});
+
+test("graph relation rationale helper rejects placeholders and accepts actionable text", () => {
+  assert.equal(graphRelationRationaleIsActionable("因为："), false);
+  assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”应该关联，因为：＿＿＿。"), false);
+  assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”可以建立相关关系，因为它们之间存在可说明的论证或主题联系。"), false);
+  assert.equal(graphRelationRationaleIsActionable("请补关系理由"), false);
+  assert.equal(graphRelationRationaleIsActionable("TODO: 补充关系理由"), false);
+  assert.equal(graphRelationRationaleIsActionable("甲能作为乙的边界条件，因为它说明了适用范围。"), true);
 });
 
 test("graph AI candidate percent handles confidence and coarse score", () => {

@@ -1,5 +1,9 @@
 export const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
 
+export function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
+  return `${String(fromNoteId || "").trim()}->${String(toNoteId || "").trim()}:${String(relationType || "").trim().toLowerCase()}`;
+}
+
 export function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
   const normalized = [String(leftNoteId || "").trim(), String(rightNoteId || "").trim()].filter(Boolean).sort();
   return normalized.length === 2 ? `${normalized[0]}::${normalized[1]}` : "";
@@ -58,6 +62,47 @@ export function graphCandidateBlocksFormalRelation(candidate = {}) {
 
 export function graphCandidateCanSaveRelation(candidate = {}, confirmableRelationTypes = GRAPH_CONFIRMABLE_RELATION_TYPES) {
   return !graphCandidateBlocksFormalRelation(candidate) && confirmableRelationTypes.has(graphPreferredPotentialRelationType(candidate, confirmableRelationTypes));
+}
+
+export function graphRelationStatusKey(value = "") {
+  return String(value || "confirmed").trim().toLowerCase();
+}
+
+export function graphRelationStatusCountsAsNetworkEdge(value = "") {
+  const status = graphRelationStatusKey(value);
+  return status === "suggested" || status === "draft" || status === "confirmed";
+}
+
+export function graphExistingRelationKeys(edges = []) {
+  return new Set(
+    (Array.isArray(edges) ? edges : [])
+      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
+      .map((edge) => graphRelationCandidateKey(edge?.fromNoteId, edge?.toNoteId, edge?.relationType))
+      .filter((key) => key !== "->:")
+  );
+}
+
+export function graphExistingRelationPairKeys(edges = []) {
+  return new Set(
+    (Array.isArray(edges) ? edges : [])
+      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
+      .map((edge) => graphRelationPairKey(edge?.fromNoteId, edge?.toNoteId))
+      .filter(Boolean)
+  );
+}
+
+export function graphRelationRationaleIsActionable(value = "") {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return false;
+  const compact = text.replace(/\s+/g, "");
+  if (/[_＿]{3,}/u.test(compact)) return false;
+  if (/^(因为|鍥犱负)[:：锛氶敍姝歖?]*$/u.test(compact)) return false;
+  if (/因为[:：]?$/u.test(compact)) return false;
+  if (text.includes("存在需要一起复核的论证或主题联系")) return false;
+  if (text.includes("存在可说明的论证或主题联系")) return false;
+  if (text.includes("瀛樺湪闇€瑕佷竴璧峰鏍哥殑璁鸿瘉")) return false;
+  if (/请补|补充|待补|璇疯ˉ|寰呰ˉ|TODO|TBD/i.test(text)) return false;
+  return true;
 }
 
 export function graphCandidatePercent(candidate = {}) {
