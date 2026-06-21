@@ -18951,39 +18951,16 @@ function openNoteRelationEditor(noteId = "", options = {}) {
   if (!opened) return false;
   state.inspectorVisible = true;
   editor?.setInspectorVisible?.(true);
-  editor?.renderRelated?.(String(options.source || "关联浏览器"));
-
-  const focusCreateRelationForm = (attempt = 0) => {
-    const form = document.querySelector("[data-create-relation-form]");
-    if (form) {
-      const targetInput = form.querySelector?.("[data-relation-target-search]");
-      editor?.jumpToInspectorSection?.("[data-create-relation-form]", {
-        focus: true,
-        focusSelector: '[data-create-relation-form] [data-relation-target-search]'
-      });
-      window.setTimeout(() => {
-        targetInput?.focus?.();
-        targetInput?.select?.();
-      }, 40);
-      window.setTimeout(() => {
-        targetInput?.focus?.();
-      }, 220);
-      return;
-    }
-    const relationState = String(editor?.semanticRelationsState || "").trim().toLowerCase();
-    if (relationState === "loading" && attempt < 10) {
-      window.setTimeout(() => focusCreateRelationForm(attempt + 1), attempt < 3 ? 80 : 140);
-      return;
-    }
-    editor?.openCreateRelationForm?.();
-    if (attempt >= 10) {
-      editor?.jumpToInspectorSection?.("[data-note-relations-section]");
-      return;
-    }
-    window.setTimeout(() => focusCreateRelationForm(attempt + 1), 80);
-  };
-
-  window.setTimeout(() => focusCreateRelationForm(0), 60);
+  editor?.renderRelated?.();
+  window.setTimeout(() => {
+    editor?.openPermanentRelationWorkspace?.({
+      mode: options.mode || "",
+      targetNoteId: options.targetNoteId || "",
+      relationType: options.relationType || "",
+      rationaleDraft: options.rationaleDraft || "",
+      insightQuestionDraft: options.insightQuestionDraft || ""
+    });
+  }, 60);
   return true;
 }
 
@@ -19118,22 +19095,17 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   editor?.setInspectorVisible?.(true);
   editor?.renderRelated?.("图谱下一步");
 
-  const focusRelationCreate = (focusSelector = '[data-create-relation-form] [data-relation-target-search]', entryHint = "") => {
-    editor?.openCreateRelationForm?.({
+  const focusRelationCreate = (entryHint = "") => {
+    editor?.openPermanentRelationWorkspace?.({
+      mode: cleanTargetNoteId ? "ai" : "manual",
       targetNoteId: cleanTargetNoteId,
       relationType: cleanRelationType,
-      entryHint,
+      notice: entryHint,
       rationaleDraft: relationDrafts.rationaleDraft,
       insightQuestionDraft: relationDrafts.insightQuestionDraft,
       draftVariants: relationDrafts.variants,
       selectedTemplateVariant: relationDrafts.selectedVariant
     });
-    window.setTimeout(() => {
-      editor?.jumpToInspectorSection?.("[data-create-relation-form]", {
-        focus: true,
-        focusSelector
-      });
-    }, 40);
   };
 
   const focusExistingRelationEdit = (entryHint = "") => {
@@ -19212,9 +19184,6 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
 
   if (cleanAction === "relations" || cleanAction === "bridge") {
     focusRelationCreate(
-      cleanAction === "bridge"
-        ? '[data-create-relation-form] textarea[name="rationale"]'
-        : '[data-create-relation-form] [data-relation-target-search]',
       cleanAction === "bridge"
         ? `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”关联为一条${relationLabel}。`
         : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”建立为带理由的正式关联。`

@@ -23,7 +23,7 @@ test("graph insight path items select relations in place instead of jumping to f
   assert.match(helperBody, /data-graph-select-edge-type=/);
 });
 
-test("graph relation followup continues to prefill target and relation type through the relation form entry helper", () => {
+test("graph relation followup continues to prefill target and relation type through the relation workspace", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
@@ -32,7 +32,8 @@ test("graph relation followup continues to prefill target and relation type thro
   assert.ok(match, "expected openGraphFollowupNote() to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /editor\?\.openCreateRelationForm\?\.\(\{/);
+  assert.match(fnBody, /editor\?\.openPermanentRelationWorkspace\?\.\(\{/);
   assert.match(fnBody, /targetNoteId: cleanTargetNoteId,/);
   assert.match(fnBody, /relationType: cleanRelationType,/);
+  assert.doesNotMatch(fnBody, /openCreateRelationForm/);
 });

@@ -77,14 +77,20 @@ export function permanentRelationCandidateEndpoint(candidate = {}, sourceNoteId 
   const sourceId = cleanId(sourceNoteId);
   const rawSource = cleanId(
     candidate.actionSourceNoteId ||
+      candidate.action_source_note_id ||
       candidate.sourceNoteId ||
+      candidate.source_note_id ||
       candidate.fromNoteId ||
       candidate.from_note_id ||
       candidate.from?.id
   );
   const rawTarget = cleanId(
     candidate.counterpartNoteId ||
+      candidate.counterpart_note_id ||
       candidate.targetNoteId ||
+      candidate.target_note_id ||
+      candidate.actionTargetNoteId ||
+      candidate.action_target_note_id ||
       candidate.toNoteId ||
       candidate.to_note_id ||
       candidate.to?.id
@@ -104,14 +110,48 @@ export function normalizePermanentRelationAiCandidates(analysis = null, sourceNo
   return candidates
     .map((candidate) => {
       const targetNoteId = permanentRelationCandidateEndpoint(candidate, sourceNoteId);
-      const relationType = cleanType(candidate.aiRelationType || candidate.relationType || (candidate.componentBridge ? "bridges" : "associated_with")) || "associated_with";
-      const title = cleanText(candidate.counterpartTitle || candidate.targetTitle || candidate.title || targetNoteId);
-      const rationale = cleanText(candidate.rationaleDraft || candidate.rationale || candidate.evidenceText || "");
-      const insightQuestion = cleanText(candidate.insightQuestionDraft || candidate.insightQuestion || "");
-      const decision = cleanType(candidate.aiDecision || "");
+      const relationType = cleanType(
+        candidate.aiRelationType ||
+          candidate.ai_relation_type ||
+          candidate.relationType ||
+          candidate.relation_type ||
+          (candidate.componentBridge ? "bridges" : "associated_with")
+      ) || "associated_with";
+      const title = cleanText(
+        candidate.counterpartTitle ||
+          candidate.counterpart_title ||
+          candidate.targetTitle ||
+          candidate.target_title ||
+          candidate.toTitle ||
+          candidate.to_title ||
+          candidate.title ||
+          targetNoteId
+      );
+      const rationale = cleanText(
+        candidate.rationaleDraft ||
+          candidate.rationale_draft ||
+          candidate.aiRationale ||
+          candidate.ai_rationale ||
+          candidate.rationale ||
+          candidate.evidenceText ||
+          candidate.evidence_text ||
+          ""
+      );
+      const insightQuestion = cleanText(
+        candidate.insightQuestionDraft ||
+          candidate.insight_question_draft ||
+          candidate.insightQuestion ||
+          candidate.insight_question ||
+          candidate.reviewQuestion ||
+          candidate.review_question ||
+          ""
+      );
+      const decision = cleanType(candidate.aiDecision || candidate.ai_decision || "");
       const blocked = decision === "reject" || relationType === "no_relation" || relationType === "appears_in_draft";
+      const aiConfidence = Number(candidate.aiConfidence ?? candidate.ai_confidence);
       return {
         ...candidate,
+        ...(Number.isFinite(aiConfidence) && aiConfidence > 0 ? { aiConfidence } : {}),
         targetNoteId,
         targetTitle: title,
         relationType,
@@ -170,7 +210,8 @@ export function permanentRelationWorkspaceSelectedTarget({
 
 export function permanentRelationWorkspaceCanSave({
   state = {},
-  relations = null
+  relations = null,
+  allowExistingUpdate = false
 } = {}) {
   const normalized = normalizePermanentRelationWorkspaceState(state);
   if (!normalized.noteId) return { ok: false, reason: "missing_note" };
@@ -179,6 +220,7 @@ export function permanentRelationWorkspaceCanSave({
   if (!normalized.relationType) return { ok: false, reason: "missing_type" };
   if (!normalized.rationale) return { ok: false, reason: "missing_rationale" };
   const existing = permanentRelationWorkspaceExistingLink(relations, normalized.noteId, normalized.selectedTargetNoteId);
+  if (existing && allowExistingUpdate) return { ok: true, reason: "update_existing", existing };
   if (existing) return { ok: false, reason: "existing_relation", existing };
   return { ok: true, reason: "" };
 }

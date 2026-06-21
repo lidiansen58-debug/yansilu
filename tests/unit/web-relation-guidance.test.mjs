@@ -93,16 +93,19 @@ test("relation guidance falls back to supports when no stronger signal exists", 
   assert.match(guidance.questionHint, /最值得验证的疑问/);
 });
 
-test("opening the create relation form makes the relation sidebar visible and focuses target search", () => {
+test("opening the create relation form delegates to the large relation workspace", () => {
   const source = readEditorPaneSource();
   const start = source.indexOf("openCreateRelationForm(options = {}) {");
   const end = source.indexOf("\n  currentExplicitRelationCount()", start);
   assert.ok(start >= 0 && end > start, "expected openCreateRelationForm body");
   const body = source.slice(start, end);
 
-  assert.ok(body.includes("this.setInspectorVisible(true);"));
-  assert.ok(body.includes('this.jumpToInspectorSection("[data-create-relation-form]"'));
-  assert.ok(body.includes('focusSelector: "[data-create-relation-form] [data-relation-target-search]"'));
+  assert.match(body, /this\.openPermanentRelationWorkspace\(\{/);
+  assert.match(body, /targetNoteId: options\?\.targetNoteId/);
+  assert.match(body, /relationType: options\?\.relationType/);
+  assert.match(body, /rationaleDraft: options\?\.rationaleDraft/);
+  assert.doesNotMatch(body, /jumpToInspectorSection\("\[data-create-relation-form\]"/);
+  assert.doesNotMatch(body, /renderCurrentRelationSection/);
 });
 
 test("relation target sorting prioritizes linked notes over tag-only and plain candidates", () => {

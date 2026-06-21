@@ -111,6 +111,7 @@ import {
   relationSourceLabel,
   relationStatusLabel,
   relationTone,
+  RELATION_EDIT_STATUSES,
   RELATION_CREATE_TYPES,
   relationTypeGuidance,
   relationTypeLabel,
@@ -4289,7 +4290,12 @@ export class EditorPane {
         }
         if (action === "preview-target") {
           const noteId = actionButton.getAttribute("data-note-id") || "";
-          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
+          if (noteId) {
+            const currentPreviewId = String(this.permanentRelationWorkspaceState.previewTargetNoteId || "").trim();
+            this.patchPermanentRelationWorkspaceState({
+              previewTargetNoteId: currentPreviewId === String(noteId).trim() ? "" : noteId
+            });
+          }
         }
         return;
       }
@@ -4415,10 +4421,10 @@ export class EditorPane {
     }));
   }
 
-  async refreshPermanentRelationManualSearch(query = "") {
+  async refreshPermanentRelationManualSearch(query = "", searchSerial = null) {
     const note = this.activeNote();
     if (!note?.id) return;
-    const serial = ++this.permanentRelationSearchSerial;
+    const serial = Number.isFinite(searchSerial) ? searchSerial : ++this.permanentRelationSearchSerial;
     const cleanQuery = String(query || "").trim();
     this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
       ...this.permanentRelationWorkspaceState,
@@ -4428,10 +4434,6 @@ export class EditorPane {
       error: "",
       notice: ""
     }, note.id);
-    this.syncPermanentRelationWorkspaceOverlay();
-    if (cleanQuery) {
-      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
-    }
     if (!cleanQuery) {
       this.patchPermanentRelationWorkspaceState({ manualTargets: [], searchState: "idle" });
       return;
@@ -4451,22 +4453,42 @@ export class EditorPane {
         searchState: "loaded",
         notice: items.length ? "" : "没有匹配笔记。"
       });
-      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
+      window.setTimeout(() => {
+        const search = this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]");
+        search?.focus?.();
+        const end = String(search?.value || "").length;
+        search?.setSelectionRange?.(end, end);
+      }, 0);
     } catch (error) {
       if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
       this.patchPermanentRelationWorkspaceState({
         searchState: "error",
         error: `搜索失败：${String(error?.message || error)}`
       });
-      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
+      window.setTimeout(() => {
+        const search = this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]");
+        search?.focus?.();
+        const end = String(search?.value || "").length;
+        search?.setSelectionRange?.(end, end);
+      }, 0);
     }
   }
 
   queuePermanentRelationManualSearch(input) {
     window.clearTimeout(this.permanentRelationSearchTimer);
     const query = input?.value || "";
+    const noteId = this.activeNote()?.id || this.permanentRelationWorkspaceState.noteId || "";
+    const serial = ++this.permanentRelationSearchSerial;
+    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+      ...this.permanentRelationWorkspaceState,
+      mode: "manual",
+      manualQuery: String(query || "").trim(),
+      searchState: String(query || "").trim() ? "loading" : "idle",
+      error: "",
+      notice: ""
+    }, noteId);
     this.permanentRelationSearchTimer = window.setTimeout(() => {
-      void this.refreshPermanentRelationManualSearch(query);
+      void this.refreshPermanentRelationManualSearch(query, serial);
     }, 180);
   }
 
@@ -4491,7 +4513,8 @@ export class EditorPane {
     }, note.id);
     const validation = permanentRelationWorkspaceCanSave({
       state,
-      relations: this.currentSemanticRelations
+      relations: this.currentSemanticRelations,
+      allowExistingUpdate: true
     });
     if (!validation.ok) {
       this.patchPermanentRelationWorkspaceState({
@@ -4509,7 +4532,8 @@ export class EditorPane {
       this.semanticRelationsState = "loaded";
       const latestValidation = permanentRelationWorkspaceCanSave({
         state,
-        relations: latestRelations
+        relations: latestRelations,
+        allowExistingUpdate: true
       });
       if (!latestValidation.ok) {
         this.patchPermanentRelationWorkspaceState({
@@ -4520,14 +4544,20 @@ export class EditorPane {
         });
         return;
       }
-      const relation = await createNoteRelation(note.id, {
-        toNoteId: state.selectedTargetNoteId,
+      const relationPayload = {
         relationType: state.relationType,
         rationale: state.rationale,
         insightQuestion: state.insightQuestion,
         confidence: 1,
         status: "confirmed"
-      });
+      };
+      const existingRelationId = latestValidation.existing?.id || latestValidation.existing?.relationId || "";
+      const relation = existingRelationId
+        ? await updateNoteRelation(existingRelationId, relationPayload)
+        : await createNoteRelation(note.id, {
+            ...relationPayload,
+            toNoteId: state.selectedTargetNoteId
+          });
       const target = this.state.notes.find((item) => item.id === state.selectedTargetNoteId) || null;
       this.syncRelationNetworkConnected(note.id, state.selectedTargetNoteId);
       await this.refreshRelationNetworkStatuses(note.id, state.selectedTargetNoteId);
@@ -4557,12 +4587,13 @@ export class EditorPane {
           targetNoteId: state.selectedTargetNoteId,
           targetTitle: target?.title || state.selectedTargetNoteId,
           relationType: state.relationType,
-          created: relation?.created !== false
+          created: !existingRelationId && relation?.created !== false,
+          updated: Boolean(existingRelationId)
         }
       }, note.id);
-      this.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已保存。");
+      this.renderRelated(existingRelationId ? "关系已更新。" : relation?.created === false ? "关系已存在，已复用。" : "关系已保存。");
       this.syncPermanentRelationWorkspaceOverlay();
-      this.onStatus(relation?.created === false ? "关系已存在，已复用。" : "关系已保存。", "ok");
+      this.onStatus(existingRelationId ? "关系已更新。" : relation?.created === false ? "关系已存在，已复用。" : "关系已保存。", "ok");
     } catch (error) {
       if (!this.isActiveNoteId(note.id)) return;
       this.patchPermanentRelationWorkspaceState({
@@ -4716,29 +4747,14 @@ export class EditorPane {
   openCreateRelationForm(options = {}) {
     const note = this.activeNote();
     if (!note?.id) return;
-    this.setInspectorVisible(true);
-    this.activatePermanentWorkspaceTab("relations");
-    this.setRelationPanelState("create", {
-      noteId: note.id,
+    this.openPermanentRelationWorkspace({
+      mode: options?.targetNoteId ? "ai" : "manual",
       targetNoteId: options?.targetNoteId,
       relationType: options?.relationType,
-      entryHint: options?.entryHint,
       rationaleDraft: options?.rationaleDraft,
       insightQuestionDraft: options?.insightQuestionDraft,
-      draftVariants: options?.draftVariants,
-      selectedTemplateVariant: options?.selectedTemplateVariant
+      notice: options?.entryHint
     });
-    const section = this.els.result?.querySelector?.("[data-note-relations-section]");
-    if (!section) return;
-    section.outerHTML = this.renderCurrentRelationSection(note.id, {
-      relations: this.currentSemanticRelations,
-      relationState: this.semanticRelationsState
-    });
-    this.jumpToInspectorSection("[data-create-relation-form]", {
-      focus: true,
-      focusSelector: "[data-create-relation-form] [data-relation-target-search]"
-    });
-    void this.refreshRelationTargetSearch("");
   }
 
   currentExplicitRelationCount() {
@@ -5853,7 +5869,6 @@ export class EditorPane {
       relationState
     });
     const content = `
-      ${this.renderPermanentNoteMainPathSectionV2(note, overview)}
       <div class="permanent-workspace-tabs" role="tablist" aria-label="永久笔记整理步骤">
         ${[
           ["relations", "关联", relationState === "error" ? "读取失败" : explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待建立"],
@@ -5887,12 +5902,6 @@ export class EditorPane {
     if (!content) return "";
     return `
       <section class="inspector-deferred-workspace permanent-note-workspace" data-deferred-workspace data-permanent-note-workspace data-note-id="${escapeHtml(note.id)}">
-        <div class="inspector-section-head permanent-workspace-head">
-          <div>
-            <div class="inspector-section-title">永久笔记整理</div>
-            <div class="inspector-section-note">关联、观点提纯和写作准备分开处理；这里只给一个主动作。</div>
-          </div>
-        </div>
         <div class="inspector-deferred-body">
           ${content}
         </div>
@@ -5907,12 +5916,12 @@ export class EditorPane {
     const tagRelatedCount = Number(overview.tagRelatedCount || 0);
     const relationText =
       explicitRelationCount === null
-        ? "正在读取这条笔记的正式关系。读取完成后可以继续补关系。"
+        ? "正在读取正式关系。"
         : explicitRelationCount > 0
-          ? `已有 ${explicitRelationCount} 条正式关系。可以继续补更关键的连接，或进入写作准备。`
+          ? `已有 ${explicitRelationCount} 条正式关系。`
           : wikilinkCount || tagRelatedCount
-            ? "现在只有正文链接或同标签接近，还不是正式关系。请选一条最关键的连接并写清理由。"
-            : "还没有正式关系。请先关联一条真正相关的永久笔记，并写清为什么相关。";
+            ? "有线索，但还没有正式关系。"
+            : "还没有正式关系。";
     const analysis = this.noteAiAnalysisByNoteId.get(note.id) || null;
     const relationCandidates = Array.isArray(analysis?.analysis?.relationCandidates) ? analysis.analysis.relationCandidates.length : 0;
     const storedCount = Array.isArray(analysis?.reviewItems?.storedArtifactIds)
@@ -5922,17 +5931,17 @@ export class EditorPane {
         : 0;
     return `
       <section class="permanent-workspace-card relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}">
-        <div>
+        <div class="permanent-workspace-card-main">
           <strong>关联</strong>
           <p>${escapeHtml(relationText)}</p>
         </div>
         ${
           analysis
-            ? `<div class="permanent-workspace-ai-note">AI 已找到 ${escapeHtml(String(relationCandidates))} 个候选，${escapeHtml(storedCount ? `${storedCount} 条待你确认` : "没有自动保存关系")}。</div>`
+            ? `<div class="permanent-workspace-ai-note">AI 推荐 ${escapeHtml(String(relationCandidates))} 条${storedCount ? `，${escapeHtml(String(storedCount))} 条待确认` : ""}。</div>`
             : ""
         }
         <div class="semantic-relation-actions">
-          <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai">${escapeHtml(analysis ? "整理关系" : "AI 推荐")}</button>
+          <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai">整理关系</button>
           <button class="mini-btn" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="manual">手动搜索</button>
         </div>
       </section>
@@ -7659,7 +7668,12 @@ export class EditorPane {
         }
         if (action === "preview-target") {
           const noteId = permanentRelationAction.getAttribute("data-note-id") || "";
-          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
+          if (noteId) {
+            const currentPreviewId = String(this.permanentRelationWorkspaceState.previewTargetNoteId || "").trim();
+            this.patchPermanentRelationWorkspaceState({
+              previewTargetNoteId: currentPreviewId === String(noteId).trim() ? "" : noteId
+            });
+          }
           return;
         }
       }
