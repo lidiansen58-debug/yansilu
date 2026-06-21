@@ -226,6 +226,16 @@ test("floating relation picker opens above a low cursor without leaving the view
   assert.ok(top + maxHeight <= 488);
 });
 
+test("floating relation picker panel scrolls within computed short viewport height", async () => {
+  const source = await readEditorDomainSource();
+  const css = await fs.readFile(new URL("../../apps/web/src/prototype.css", import.meta.url), "utf8");
+  const floatingPanelRule = css.match(/\.panel\.floating\s*\{[^}]*\}/)?.[0] || "";
+
+  assert.ok(source.includes("panel.style.maxHeight = `${Math.floor(availableHeight)}px`;"));
+  assert.match(floatingPanelRule, /overflow-y:\s*auto;/);
+  assert.match(floatingPanelRule, /overscroll-behavior:\s*contain;/);
+});
+
 test("floating relation picker can use the toolbar button rect as a fallback anchor", () => {
   const pane = Object.create(EditorPane.prototype);
   const originalWindow = global.window;
