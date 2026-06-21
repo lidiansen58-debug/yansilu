@@ -142,8 +142,6 @@ import {
   RELATION_ENTRY_SOURCES,
   normalizeRelationEntryRoute,
   relationEntryRouteForInlineLink,
-  relationEntryRouteForPermanentWorkspaceContinuation,
-  relationEntryRouteForPermanentWorkspace,
   relationEntryRouteFromElement
 } from "./relation-entry-route.js";
 import {
@@ -161,6 +159,7 @@ import {
   renderPermanentNoteRelationAssistSection as renderPermanentNoteRelationAssistSectionView,
   renderPermanentNoteStatusSummary
 } from "./permanent-note-sidebar-view.js";
+import { PermanentNoteSidebarController } from "./permanent-note-sidebar-controller.js";
 
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
@@ -259,6 +258,7 @@ export class EditorPane {
     this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
     this.permanentRelationSearchSerial = 0;
     this.permanentRelationSearchTimer = null;
+    this.permanentNoteSidebarController = null;
     this.fleetingCleanupDismissedNoteIds = new Set();
     this.noteAiAnalysisByNoteId = new Map();
     this.noteAiSuggestionsState = {
@@ -4391,90 +4391,31 @@ export class EditorPane {
     return true;
   }
 
+  permanentSidebarController() {
+    if (!this.permanentNoteSidebarController) {
+      this.permanentNoteSidebarController = new PermanentNoteSidebarController(this);
+    }
+    return this.permanentNoteSidebarController;
+  }
+
   openPermanentRelationWorkspace(options = {}) {
-    const note = this.activeNote();
-    if (!note?.id) return false;
-    const entryRoute = relationEntryRouteForPermanentWorkspace(note.id, options);
-    this.setInspectorVisible(true);
-    this.activatePermanentWorkspaceTab("relations");
-    const aiCandidates = this.permanentRelationWorkspaceAiCandidates(note.id);
-    const requestedMode = String(entryRoute.mode || "").trim().toLowerCase();
-    const mode = requestedMode === "manual" || (!aiCandidates.length && requestedMode !== "ai") ? "manual" : "ai";
-    const firstCandidate = permanentRelationWorkspaceNextAiCandidate(aiCandidates, this.currentSemanticRelations, note.id) || aiCandidates[0] || null;
-    const selectedTargetNoteId = String(entryRoute.targetNoteId || firstCandidate?.targetNoteId || "").trim();
-    const relationType = String(options.relationType ? entryRoute.relationType : firstCandidate?.relationType || this.relationCreateDefaultType(note) || "associated_with")
-      .trim()
-      .toLowerCase();
-    const rationale = String(entryRoute.rationaleDraft || firstCandidate?.rationaleDraft || "").trim();
-    const insightQuestion = String(entryRoute.insightQuestionDraft || firstCandidate?.insightQuestionDraft || "").trim();
-    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-      ...defaultPermanentRelationWorkspaceState(note.id),
-      open: true,
-      mode,
-      selectedTargetNoteId,
-      relationType,
-      rationale,
-      insightQuestion,
-      manualQuery: "",
-      manualTargets: [],
-      notice: options.notice || "",
-      entryRoute
-    }, note.id);
-    this.syncPermanentRelationWorkspaceOverlay();
-    window.setTimeout(() => {
-      const selector = selectedTargetNoteId
-        ? '[data-permanent-relation-field="rationale"]'
-        : mode === "manual"
-          ? "[data-permanent-relation-target-search]"
-          : "[data-permanent-relation-ai-target]";
-      this.permanentRelationWorkspaceElement()?.querySelector?.(selector)?.focus?.();
-    }, 40);
-    return true;
+    return this.permanentSidebarController().openRelationWorkspace(options);
   }
 
   closePermanentRelationWorkspace() {
-    this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState(this.activeNote()?.id || "");
-    this.syncPermanentRelationWorkspaceOverlay();
+    return this.permanentSidebarController().closeRelationWorkspace();
   }
 
   patchPermanentRelationWorkspaceState(patch = {}) {
-    const noteId = this.activeNote()?.id || this.permanentRelationWorkspaceState.noteId || "";
-    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-      ...this.permanentRelationWorkspaceState,
-      ...patch
-    }, noteId);
-    this.syncPermanentRelationWorkspaceOverlay();
+    return this.permanentSidebarController().patchWorkspaceState(patch);
   }
 
   choosePermanentRelationAiCandidate(targetNoteId = "") {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const targetId = String(targetNoteId || "").trim();
-    const candidate = this.permanentRelationWorkspaceAiCandidates(note.id).find((item) => item.targetNoteId === targetId) || null;
-    if (!candidate) return;
-    this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
-      ...this.permanentRelationWorkspaceState,
-      mode: "ai",
-      selectedTargetNoteId: targetId,
-      relationType: candidate.relationType || "associated_with",
-      rationale: candidate.rationaleDraft || "",
-      insightQuestion: candidate.insightQuestionDraft || ""
-    }));
+    return this.permanentSidebarController().chooseAiCandidate(targetNoteId);
   }
 
   choosePermanentRelationManualTarget(targetNoteId = "") {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const targetId = String(targetNoteId || "").trim();
-    const target = this.permanentRelationWorkspaceState.manualTargets.find((item) => item?.id === targetId) || null;
-    this.upsertApiNotes(target ? [target] : []);
-    this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
-      ...this.permanentRelationWorkspaceState,
-      mode: "manual",
-      selectedTargetNoteId: targetId,
-      relationType: this.permanentRelationWorkspaceState.relationType || "associated_with",
-      rationale: this.permanentRelationWorkspaceState.rationale || ""
-    }));
+    return this.permanentSidebarController().chooseManualTarget(targetNoteId);
   }
 
   async refreshPermanentRelationManualSearch(query = "") {
@@ -4642,12 +4583,11 @@ export class EditorPane {
           targetTitle: target?.title || state.selectedTargetNoteId
         })
       );
-      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-        ...state,
-        open: true,
-        saveState: "saved",
-        error: "",
-        notice: "",
+      const successMessage = existingRelationId ? "关系已更新。" : relation?.created === false ? "关系已存在，已复用。" : "关系已保存。";
+      this.permanentSidebarController().commitSavedRelationWorkspaceResult({
+        noteId: note.id,
+        state,
+        successMessage,
         result: {
           ...(transaction?.result || {
             targetNoteId: state.selectedTargetNoteId,
@@ -4658,10 +4598,7 @@ export class EditorPane {
           }),
           updated: Boolean(existingRelationId)
         }
-      }, note.id);
-      this.renderRelated(existingRelationId ? "关系已更新。" : relation?.created === false ? "关系已存在，已复用。" : "关系已保存。");
-      this.syncPermanentRelationWorkspaceOverlay();
-      this.onStatus(existingRelationId ? "关系已更新。" : relation?.created === false ? "关系已存在，已复用。" : "关系已保存。", "ok");
+      });
     } catch (error) {
       if (!this.isActiveNoteId(note.id)) return;
       this.patchPermanentRelationWorkspaceState({
@@ -4673,33 +4610,7 @@ export class EditorPane {
   }
 
   continuePermanentRelationWorkspace() {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const aiCandidates = this.permanentRelationWorkspaceAiCandidates(note.id);
-    const nextCandidate = permanentRelationWorkspaceNextAiCandidate(
-      aiCandidates,
-      this.currentSemanticRelations,
-      note.id,
-      [this.permanentRelationWorkspaceState.result?.targetNoteId]
-    );
-    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-      ...defaultPermanentRelationWorkspaceState(note.id),
-      open: true,
-      mode: nextCandidate ? "ai" : "manual",
-      selectedTargetNoteId: nextCandidate?.targetNoteId || "",
-      relationType: nextCandidate?.relationType || this.relationCreateDefaultType(note),
-      rationale: nextCandidate?.rationaleDraft || "",
-      insightQuestion: nextCandidate?.insightQuestionDraft || "",
-      entryRoute: relationEntryRouteForPermanentWorkspaceContinuation(note.id, this.permanentRelationWorkspaceState.entryRoute, {
-        mode: nextCandidate ? "ai" : "manual",
-        targetNoteId: nextCandidate?.targetNoteId || "",
-        relationType: nextCandidate?.relationType || this.relationCreateDefaultType(note),
-        rationaleDraft: nextCandidate?.rationaleDraft || "",
-        insightQuestionDraft: nextCandidate?.insightQuestionDraft || ""
-      }),
-      notice: nextCandidate ? "" : "没有新的 AI 推荐，可以手动搜索目标笔记。"
-    }, note.id);
-    this.syncPermanentRelationWorkspaceOverlay();
+    return this.permanentSidebarController().continueRelationWorkspace();
   }
 
   renderSemanticRelationsErrorSection(noteId, error) {

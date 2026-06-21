@@ -17,15 +17,15 @@ export function renderPermanentNoteStatusSummary({
   const thesis = summaryState.viewpoint.thesis;
   const summary = summaryState.viewpoint.summary;
   const confirmed = summaryState.viewpoint.confirmed;
-  const viewpointLabel = !thesis ? "瑙傜偣锛氬緟鎻愮函" : summary.length < 3 ? "瑙傜偣锛氬緟鍘嬬缉" : confirmed ? "瑙傜偣锛氬凡纭" : "瑙傜偣锛氬緟纭";
+  const viewpointLabel = !thesis ? "观点：待提纯" : summary.length < 3 ? "观点：待压缩" : confirmed ? "观点：已确认" : "观点：待确认";
   const relationSummaryLabel =
     relationState === "error"
-      ? "鍏宠仈锛氳鍙栧け璐?"
+      ? "关联：读取失败"
       : relationState === "loading"
-        ? "鍏宠仈锛氳鍙栦腑"
+        ? "关联：读取中"
         : relationCount > 0
-          ? `鍏宠仈锛?{relationCount} 鏉?`
-          : "鍏宠仈锛氬緟寤虹珛";
+          ? `关联：${relationCount} 条`
+          : "关联：待建立";
   return `
     <div class="inspector-summary inspector-summary-compact" data-inspector-status-summary>
       <span class="inspector-chip ${confirmed ? "is-success" : "is-warning"}">${escapeHtml(viewpointLabel)}</span>
@@ -48,17 +48,17 @@ export function permanentNoteRelationAssistViewState({
   });
   const relationText =
     explicitRelationCount === null
-      ? "姝ｅ湪璇诲彇杩欐潯绗旇鐨勬寮忓叧绯汇€傝鍙栧畬鎴愬悗鍙互缁х画琛ュ叧绯汇€?"
+      ? "正在读取这条笔记的正式关系。读取完成后可以继续补关系。"
       : explicitRelationCount > 0
-        ? `宸叉湁 ${explicitRelationCount} 鏉℃寮忓叧绯汇€傚彲浠ョ户缁ˉ鏇村叧閿殑杩炴帴锛屾垨杩涘叆鍐欎綔鍑嗗銆?`
+        ? `已有 ${explicitRelationCount} 条正式关系。可以继续补更关键的连接，或进入写作准备。`
         : wikilinkCount || tagRelatedCount
-          ? "鐜板湪鍙湁姝ｆ枃閾炬帴鎴栧悓鏍囩鎺ヨ繎锛岃繕涓嶆槸姝ｅ紡鍏崇郴銆傝閫変竴鏉℃渶鍏抽敭鐨勮繛鎺ュ苟鍐欐竻鐞嗙敱銆?"
-          : "杩樻病鏈夋寮忓叧绯汇€傝鍏堝叧鑱斾竴鏉＄湡姝ｇ浉鍏崇殑姘镐箙绗旇锛屽苟鍐欐竻涓轰粈涔堢浉鍏炽€?";
+          ? "现在只有正文链接或同标签接近，还不是正式关系。请选择一条最关键的连接并写清理由。"
+          : "还没有正式关系。请先关联一条真正相关的永久笔记，并写清为什么相关。";
   return {
     ...assistState,
     relationText,
-    primaryLabel: analysis ? "鏁寸悊鍏崇郴" : "AI 鎺ㄨ崘",
-    manualLabel: "鎵嬪姩鎼滅储"
+    primaryLabel: analysis ? "整理关系" : "AI 推荐",
+    manualLabel: "手动搜索"
   };
 }
 
@@ -79,12 +79,12 @@ export function renderPermanentNoteRelationAssistSection({
   return `
     <section class="permanent-workspace-card relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}">
       <div>
-        <strong>鍏宠仈</strong>
+        <strong>关联</strong>
         <p>${escapeHtml(assist.relationText)}</p>
       </div>
       ${
         analysis
-          ? `<div class="permanent-workspace-ai-note">AI 宸叉壘鍒?${escapeHtml(String(assist.relationCandidates))} 涓€欓€夛紝${escapeHtml(assist.storedArtifactCount ? `${assist.storedArtifactCount} 鏉″緟浣犵‘璁?` : "娌℃湁鑷姩淇濆瓨鍏崇郴")}銆?</div>`
+          ? `<div class="permanent-workspace-ai-note">AI 已找到 ${escapeHtml(String(assist.relationCandidates))} 个候选，${escapeHtml(assist.storedArtifactCount ? `${assist.storedArtifactCount} 条待你确认` : "没有自动保存关系")}。</div>`
           : ""
       }
       <div class="semantic-relation-actions">

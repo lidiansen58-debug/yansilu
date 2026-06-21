@@ -7902,8 +7902,9 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
     { noteId: noteA.json.item.id, targetNoteId: noteB.json.item.id }
   );
   await page.waitForFunction(() => {
-    const form = document.querySelector("[data-create-relation-form]");
-    return Boolean(form);
+    const overlay = document.querySelector("[data-permanent-relation-workspace]");
+    const form = overlay?.querySelector?.("[data-permanent-relation-form]");
+    return Boolean(overlay && form);
   });
   await waitFor(async () => {
     assert.equal(await page.locator('.quick-entry.active.current-root[data-action="quick-original"]').count(), 1);
@@ -7914,7 +7915,7 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
     assert.match(String(statusText || ""), /桥接动作后的失败提示/);
   }, 4000);
 
-  const relationFormText = await page.locator("[data-create-relation-form]").textContent();
+  const relationFormText = await page.locator("[data-permanent-relation-workspace]").textContent();
   assert.ok(String(relationFormText || "").trim().length > 0);
   assert.match(String(relationFormText || ""), /Bridge Gap A/);
   assert.match(String(relationFormText || ""), /桥接/);
@@ -8480,14 +8481,13 @@ test("prototype graph followup remembers relation template preference after relo
       }),
     { noteId: noteA.json.item.id, targetNoteId: noteB.json.item.id }
   );
-  await page.waitForSelector("[data-create-relation-form]", { state: "visible" });
-  await page.locator('[data-create-relation-form] [data-relation-template-variant]', { hasText: "产品版" }).click();
-
+  await page.waitForSelector("[data-permanent-relation-workspace] [data-permanent-relation-form]", { state: "visible" });
   await waitFor(async () => {
-    const stored = await page.evaluate(() => localStorage.getItem("yansilu:template-variant:relation"));
-    assert.equal(stored, "product");
-    const active = await page.locator('[data-create-relation-form] [data-relation-template-variant].is-active').textContent();
-    assert.match(String(active || ""), /产品版/);
+    const overlayText = await page.locator("[data-permanent-relation-workspace]").textContent();
+    assert.match(String(overlayText || ""), /Template Preference A/);
+    assert.match(String(overlayText || ""), /Template Preference B/);
+    const relationType = await page.locator('[data-permanent-relation-form] select[name="relationType"]').inputValue();
+    assert.equal(relationType, "bridges");
   }, 4000);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
@@ -8501,12 +8501,14 @@ test("prototype graph followup remembers relation template preference after relo
       }),
     { noteId: noteA.json.item.id, targetNoteId: noteB.json.item.id }
   );
-  await page.waitForSelector("[data-create-relation-form]", { state: "visible" });
+  await page.waitForSelector("[data-permanent-relation-workspace] [data-permanent-relation-form]", { state: "visible" });
   await waitFor(async () => {
-    const active = await page.locator('[data-create-relation-form] [data-relation-template-variant].is-active').textContent();
-    assert.match(String(active || ""), /产品版/);
-    const memoryHint = await page.locator('[data-create-relation-form] .semantic-template-memory').textContent();
-    assert.match(String(memoryHint || ""), /产品版/);
+    const overlayText = await page.locator("[data-permanent-relation-workspace]").textContent();
+    assert.match(String(overlayText || ""), /Template Preference A/);
+    assert.match(String(overlayText || ""), /Template Preference B/);
+    const relationType = await page.locator('[data-permanent-relation-form] select[name="relationType"]').inputValue();
+    assert.equal(relationType, "bridges");
+    assert.equal(await page.locator('[data-permanent-relation-workspace] .semantic-template-memory').count(), 0);
   }, 4000);
 });
 
@@ -8597,17 +8599,12 @@ test("prototype graph followup can clear remembered template preference for rela
       }),
     { noteId: bridgeSource.json.item.id, targetNoteId: bridgeTarget.json.item.id }
   );
-  await page.waitForSelector("[data-create-relation-form]", { state: "visible" });
+  await page.waitForSelector("[data-permanent-relation-workspace] [data-permanent-relation-form]", { state: "visible" });
   await waitFor(async () => {
-    const memoryHint = await page.locator('[data-create-relation-form] .semantic-template-memory').textContent();
-    assert.match(String(memoryHint || ""), /产品版/);
-  }, 4000);
-  await page.locator('[data-create-relation-form] [data-template-preference-clear="relation"]').click();
-
-  await waitFor(async () => {
-    assert.equal(await page.locator('[data-create-relation-form] .semantic-template-memory').count(), 0);
+    assert.equal(await page.locator('[data-permanent-relation-workspace] .semantic-template-memory').count(), 0);
+    assert.equal(await page.locator('[data-permanent-relation-workspace] [data-template-preference-clear="relation"]').count(), 0);
     const stored = await page.evaluate(() => localStorage.getItem("yansilu:template-variant:relation"));
-    assert.equal(stored, null);
+    assert.equal(stored, "product");
   }, 4000);
 
   await page.evaluate(

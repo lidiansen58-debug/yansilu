@@ -5,12 +5,14 @@ import { readFile } from "node:fs/promises";
 const sourcePath = new URL("../../apps/web/src/components-editor-pane.js", import.meta.url);
 const sidebarArchitecturePath = new URL("../../apps/web/src/permanent-note-sidebar-architecture.js", import.meta.url);
 const sidebarViewPath = new URL("../../apps/web/src/permanent-note-sidebar-view.js", import.meta.url);
+const sidebarControllerPath = new URL("../../apps/web/src/permanent-note-sidebar-controller.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation side panel uses action-first workspace copy without noisy placeholders", async () => {
   const source = await readFile(sourcePath, "utf8");
   const sidebarArchitecture = await readFile(sidebarArchitecturePath, "utf8");
   const sidebarView = await readFile(sidebarViewPath, "utf8");
+  const sidebarController = await readFile(sidebarControllerPath, "utf8");
   const shell = await readFile(shellPath, "utf8");
 
   assert.match(source, /from "\.\/permanent-note-sidebar-architecture\.js";/);
@@ -38,8 +40,9 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /const latestRelations = await fetchNoteRelations\(note\.id\)/);
   assert.match(source, /const latestValidation = permanentRelationWorkspaceCanSave\(\{/);
   assert.match(source, /const savedRelations = await fetchNoteRelations\(note\.id\)\.catch\(\(\) => null\)/);
-  assert.match(source, /permanentRelationWorkspaceNextAiCandidate\(/);
-  assert.match(source, /relationEntryRouteForPermanentWorkspaceContinuation\(note\.id, this\.permanentRelationWorkspaceState\.entryRoute/);
+  assert.match(source, /permanentSidebarController\(\)\.continueRelationWorkspace\(\)/);
+  assert.match(sidebarController, /permanentRelationWorkspaceNextAiCandidate\(/);
+  assert.match(sidebarController, /relationEntryRouteForPermanentWorkspaceContinuation\(note\.id, host\.permanentRelationWorkspaceState\.entryRoute/);
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
   assert.match(source, /永久笔记整理/);
