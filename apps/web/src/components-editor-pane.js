@@ -79,7 +79,6 @@ import {
   highlightMatch,
   linkCandidateBadge,
   linkCandidateGroupLabel,
-  linkCandidateRank,
   looksLikeStableNoteId,
   markdownReferencePathCandidates,
   normalizeClickedTag,
@@ -92,10 +91,19 @@ import {
   tagCandidateGroupLabel,
   tagCandidateRank,
   tokenAtCursor,
-  wikilinkLabelFromRaw,
   wikilinkTargetFromRaw,
   wikilinkTokenForNote
 } from "./editor-link-picker.js";
+import {
+  editorRelationLinkCandidatePreviewText,
+  editorRelationLinkCandidates,
+  editorRelationLinkConfirmState,
+  editorRelationLinkInsertFeedback,
+  editorRelationLinkInsertOutcome,
+  nextEditorRelationLinkIndex,
+  normalizeEditorRelationLinkInput,
+  selectedEditorRelationLinkCandidate
+} from "./editor-relation-link-model.js";
 import {
   excerptFromBody,
   inlineLinkRelationTypeOptionsMarkup,
@@ -3192,32 +3200,16 @@ export class EditorPane {
   }
 
   renderLinkCandidates(query = "", preferredId = "") {
-    const q = normalizeText(query);
-    const all = this.scopedLinkCandidates();
-    const computed = (q
-      ? all
-          .filter((n) => normalizeText(n.title).includes(q))
-          .sort((a, b) => linkCandidateRank(a, q) - linkCandidateRank(b, q) || a.title.localeCompare(b.title, "zh-CN"))
-      : [...all].sort((a, b) => a.title.localeCompare(b.title, "zh-CN")));
-    const list = q ? computed.slice(0, 50) : [];
-    const selectedId = String(preferredId || this.currentPinnedLinkId || "").trim();
-    this.currentLinkCandidates = list;
-    this.currentLinkIndex = 0;
-    if (selectedId) {
-      const idx = list.findIndex((n) => n.id === selectedId);
-      if (idx >= 0) this.currentLinkIndex = idx;
-    }
-    this.els.linkSearchList.innerHTML = list.length
-      ? list
-          .map((n, idx) => {
-            const selected = idx === this.currentLinkIndex;
-            const pinned = selectedId && n.id === selectedId;
-            return `<button class="link-picker-item ${selected ? "active" : ""} ${pinned ? "picked" : ""}" data-link-note-id="${n.id}" data-link-index="${idx}" aria-selected="${
-              selected ? "true" : "false"
-            }"><strong>${highlightMatch(this.linkCandidateDisplayTitle(n), q)}</strong></button>`;
-          })
-          .join("")
-      : q ? `<div class="picker-empty">没有匹配笔记</div>` : "";
+    const result = editorRelationLinkCandidates({
+      query,
+      candidates: this.scopedLinkCandidates(),
+      preferredId,
+      pinnedId: this.currentPinnedLinkId,
+      displayTitle: (note) => this.linkCandidateDisplayTitle(note)
+    });
+    this.currentLinkCandidates = result.list;
+    this.currentLinkIndex = result.selectedIndex;
+    this.els.linkSearchList.innerHTML = result.html;
     this.scrollActiveLinkCandidateIntoView();
     this.updateLinkPickerConfirmButton();
   }
@@ -3225,40 +3217,29 @@ export class EditorPane {
   updateLinkPickerConfirmButton() {
     const button = this.els.confirmLinkInsert;
     if (!button) return;
-    const selectedNote = this.selectedLinkCandidate();
-    const reason = String(this.els.linkReasonInput?.value || "").trim();
-    button.disabled = this.isSubmittingLinkInsert || !selectedNote || !reason;
-    if (this.isSubmittingLinkInsert) {
-      button.textContent = "保存中...";
-      return;
-    }
-    if (!selectedNote) {
-      button.textContent = "选择笔记";
-      return;
-    }
-    if (!reason) {
-      button.textContent = "写一句理由";
-      return;
-    }
-    button.textContent = "保存关联";
+    const state = editorRelationLinkConfirmState({
+      isSubmitting: this.isSubmittingLinkInsert,
+      selectedNote: this.selectedLinkCandidate(),
+      reason: this.els.linkReasonInput?.value || ""
+    });
+    button.disabled = state.disabled;
+    button.textContent = state.label;
   }
 
   selectedLinkCandidate() {
-    const selectedId = String(this.currentPinnedLinkId || "").trim();
-    if (selectedId) {
-      return this.currentLinkCandidates.find((item) => item.id === selectedId) || this.state.notes.find((item) => item.id === selectedId) || null;
-    }
-    return this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0] || null;
+    return selectedEditorRelationLinkCandidate({
+      pinnedId: this.currentPinnedLinkId,
+      candidates: this.currentLinkCandidates,
+      selectedIndex: this.currentLinkIndex,
+      notes: this.state.notes
+    });
   }
 
   currentLinkRelationInput() {
-    const relationType = String(this.els.linkRelationTypeSelect?.value || "associated_with").trim() || "associated_with";
-    const reason = String(this.els.linkReasonInput?.value || "")
-      .replace(/\s+/g, " ")
-      .replace(/--/g, "- -")
-      .slice(0, 280)
-      .trim();
-    return { relationType, reason };
+    return normalizeEditorRelationLinkInput({
+      relationType: this.els.linkRelationTypeSelect?.value || "associated_with",
+      reason: this.els.linkReasonInput?.value || ""
+    });
   }
 
   focusManualLinkReasonInput() {
@@ -3269,23 +3250,7 @@ export class EditorPane {
   }
 
   linkCandidatePreviewText(note) {
-    const thesis = String(note?.thesis || "").trim();
-    if (thesis) return thesis.slice(0, 96);
-    const lines = String(note?.body || "")
-      .replace(/\r\n/g, "\n")
-      .split("\n")
-      .map((line) =>
-        String(line || "")
-          .replace(/\[\[([^[\]]+)\]\]/g, (_, rawLink) => wikilinkLabelFromRaw(rawLink))
-          .replace(/<!--[\s\S]*?-->/g, "")
-          .replace(/^#{1,6}\s*/, "")
-          .replace(/^>\s*/, "")
-          .replace(/^[-*]\s+/, "")
-          .trim()
-      )
-      .filter((line) => line && !/^#/.test(line) && !/^tag[:：]/i.test(line));
-    const meaningful = lines.find((line) => normalizeText(line).length >= 6) || lines[0] || "";
-    return meaningful ? meaningful.slice(0, 96) : "打开后可查看这条笔记的正文与关联。";
+    return editorRelationLinkCandidatePreviewText(note);
   }
 
   linkCandidateLocationText(note) {
@@ -3429,36 +3394,11 @@ export class EditorPane {
   }
 
   manualLinkInsertOutcome(bodyAlreadyLinked, reusedRelation) {
-    if (bodyAlreadyLinked && reusedRelation) return "body-and-relation-existed";
-    if (bodyAlreadyLinked) return "body-only-existed";
-    if (reusedRelation) return "relation-only-existed";
-    return "created";
+    return editorRelationLinkInsertOutcome(bodyAlreadyLinked, reusedRelation);
   }
 
   manualLinkInsertFeedback(target, outcome) {
-    const title = target?.title || target?.id || "这条笔记";
-    switch (String(outcome || "")) {
-      case "body-and-relation-existed":
-        return {
-          status: `正文已有链接，语义关系也已存在：${title}`,
-          related: "正文链接与现有语义关系均已复用。"
-        };
-      case "body-only-existed":
-        return {
-          status: `正文已有链接，已补建语义关系：${title}`,
-          related: "正文链接已保留，并补建语义关系。"
-        };
-      case "relation-only-existed":
-        return {
-          status: `已插入正文链接，现有语义关系已复用：${title}`,
-          related: "正文链接已插入，现有语义关系已复用。"
-        };
-      default:
-        return {
-          status: `已按你的确认插入关联笔记：${title}`,
-          related: "关联已插入。"
-        };
-    }
+    return editorRelationLinkInsertFeedback(target, outcome);
   }
 
   async insertSelectedLinkNote(noteId) {
@@ -3609,8 +3549,7 @@ export class EditorPane {
 
   moveLinkCandidate(step) {
     if (!this.currentLinkCandidates.length) return;
-    const max = Math.min(this.currentLinkCandidates.length, 50);
-    this.currentLinkIndex = (this.currentLinkIndex + step + max) % max;
+    this.currentLinkIndex = nextEditorRelationLinkIndex(this.currentLinkIndex, this.currentLinkCandidates.length, step);
     const preferredId = this.currentLinkCandidates[this.currentLinkIndex]?.id || "";
     this.renderLinkCandidates(this.els.linkSearchInput.value, preferredId);
     if (this.currentLinkContext) this.positionInlineLinkPicker();

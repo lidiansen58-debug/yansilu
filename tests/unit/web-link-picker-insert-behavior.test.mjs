@@ -6,6 +6,10 @@ import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { parseLinks } from "../../apps/web/src/prototype-store.js";
 import { readEditorDomainSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
 
+async function readEditorRelationLinkModelSource() {
+  return fs.readFile(new URL("../../apps/web/src/editor-relation-link-model.js", import.meta.url), "utf8");
+}
+
 test("link picker inserts stable wikilinks instead of inline relation comments", async () => {
   const source = await readEditorDomainSource();
 
@@ -42,10 +46,12 @@ test("closing transient pickers clears toolbar active and focus states", async (
 
 test("manual link picker renders a title-first autocomplete list", async () => {
   const source = await readEditorDomainSource();
+  const modelSource = await readEditorRelationLinkModelSource();
 
-  assert.match(source, /filter\(\(n\) => normalizeText\(n\.title\)\.includes\(q\)\)/);
-  assert.match(source, /highlightMatch\(this\.linkCandidateDisplayTitle\(n\), q\)/);
-  assert.match(source, /const list = q \? computed\.slice\(0, 50\) : \[\];/);
+  assert.match(modelSource, /filter\(\(note\) => normalizeText\(note\?\.title \|\| ""\)\.includes\(q\)\)/);
+  assert.match(modelSource, /highlightMatch\(displayTitle\(note\), query\)/);
+  assert.match(modelSource, /const list = q \? computed\.slice\(0, 50\) : \[\];/);
+  assert.ok(source.includes("editorRelationLinkCandidates({"));
   assert.doesNotMatch(source, /picker-selection-state/);
   assert.doesNotMatch(source, /picker-preview/);
   assert.doesNotMatch(source, /picker-detail-row/);
@@ -75,12 +81,15 @@ test("wikilink preview avoids low-value match and count metadata", async () => {
 
 test("confirm button requires a target and relation reason for inline and toolbar entry", async () => {
   const source = await readEditorDomainSource();
+  const modelSource = await readEditorRelationLinkModelSource();
 
-  assert.ok(source.includes("const selectedNote = this.selectedLinkCandidate();"));
-  assert.ok(source.includes("button.disabled = this.isSubmittingLinkInsert || !selectedNote || !reason;"));
-  assert.ok(source.includes('button.textContent = "选择笔记";'));
-  assert.ok(source.includes('button.textContent = "写一句理由";'));
-  assert.ok(source.includes('button.textContent = "保存关联";'));
+  assert.ok(source.includes("editorRelationLinkConfirmState({"));
+  assert.ok(source.includes("selectedNote: this.selectedLinkCandidate(),"));
+  assert.ok(source.includes("button.disabled = state.disabled;"));
+  assert.ok(modelSource.includes('if (isSubmitting) return { disabled: true, label: "保存中..." };'));
+  assert.ok(modelSource.includes('if (!selectedNote) return { disabled: true, label: "选择笔记" };'));
+  assert.ok(modelSource.includes('if (!hasReason) return { disabled: true, label: "写一句理由" };'));
+  assert.ok(modelSource.includes('return { disabled: false, label: "保存关联" };'));
 });
 
 test("manual link picker keeps only information needed to save a relation", async () => {
@@ -264,10 +273,13 @@ test("floating relation picker can use the toolbar button rect as a fallback anc
 
 test("manual link picker saves the user-confirmed relation type and rationale", async () => {
   const source = await readEditorDomainSource();
+  const modelSource = await readEditorRelationLinkModelSource();
 
   assert.ok(source.includes("currentLinkRelationInput() {"));
-  assert.ok(source.includes('const relationType = String(this.els.linkRelationTypeSelect?.value || "associated_with").trim() || "associated_with";'));
-  assert.ok(source.includes('const reason = String(this.els.linkReasonInput?.value || "")'));
+  assert.ok(source.includes("normalizeEditorRelationLinkInput({"));
+  assert.ok(modelSource.includes('relationType: String(relationType || "associated_with").trim() || "associated_with",'));
+  assert.ok(modelSource.includes("replace(/\\s+/g, \" \")"));
+  assert.ok(modelSource.includes(".slice(0, 280)"));
   assert.ok(source.includes("const { relationType, reason } = this.currentLinkRelationInput();"));
   assert.ok(source.includes("QUICK_WIKILINK_ASSOCIATION_MARKER,"));
   assert.ok(source.includes("saveOrUpgradeWikilinkRelationTransaction,"));
