@@ -95,11 +95,13 @@ export function graphRelationRationaleIsActionable(value = "") {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (!text) return false;
   const compact = text.replace(/\s+/g, "");
-  if (/_{3,}/u.test(compact)) return false;
-  if (/^(因为|鍥犱负)[:：锛歖?]*$/u.test(compact)) return false;
+  if (/[_＿]{3,}/u.test(compact)) return false;
+  if (/^(因为|鍥犱负)[:：锛氶敍姝歖?]*$/u.test(compact)) return false;
+  if (/因为[:：]?$/u.test(compact)) return false;
   if (text.includes("存在需要一起复核的论证或主题联系")) return false;
+  if (text.includes("存在可说明的论证或主题联系")) return false;
   if (text.includes("瀛樺湪闇€瑕佷竴璧峰鏍哥殑璁鸿瘉")) return false;
-  if (/补充|待补|璇疯ˉ|寰呰ˉ|TODO|TBD/i.test(text)) return false;
+  if (/请补|补充|待补|璇疯ˉ|寰呰ˉ|TODO|TBD/i.test(text)) return false;
   return true;
 }
 
