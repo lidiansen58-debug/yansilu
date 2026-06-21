@@ -228,7 +228,8 @@ test("manual link picker saves the user-confirmed relation type and rationale", 
   assert.ok(source.includes("const { relationType, reason } = this.currentLinkRelationInput();"));
   assert.ok(source.includes("QUICK_WIKILINK_ASSOCIATION_MARKER,"));
   assert.ok(source.includes("saveOrUpgradeWikilinkRelationTransaction,"));
-  assert.ok(source.includes("insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER"));
+  assert.ok(source.includes("insightQuestionDraft: QUICK_WIKILINK_ASSOCIATION_MARKER"));
+  assert.ok(source.includes("insightQuestion: entryRoute.insightQuestionDraft"));
   assert.ok(source.includes("confidence: 1"));
 });
 

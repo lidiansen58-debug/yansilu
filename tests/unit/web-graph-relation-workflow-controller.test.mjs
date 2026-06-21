@@ -42,14 +42,17 @@ test("relation workflow route opens relation form and remembers isolated return"
   assert.equal(route.ok, true);
   assert.equal(route.workflowTab, "manual");
   assert.equal(route.statusText, "已在图谱内打开关系确认表单");
-  assert.deepEqual(route.selection, {
+  assert.deepEqual({ ...route.selection, entryRoute: undefined }, {
     kind: "relationForm",
     noteId: "note-a",
     targetNoteId: "note-b",
     relationType: "bridges",
     rationale: "已有候选理由。",
-    returnTo: "isolated"
+    returnTo: "isolated",
+    entryRoute: undefined
   });
+  assert.equal(route.selection.entryRoute.source, "graph-node");
+  assert.equal(route.selection.entryRoute.returnTo, "graph");
 });
 
 test("relation workflow route keeps isolated selection after AI connect when note is still unconnected", () => {
@@ -102,7 +105,8 @@ test("relation workflow normalizes overlay selections against visible nodes", ()
     targetNoteId: "note-b",
     relationType: "same_topic",
     rationale: "Because",
-    returnTo: "isolated"
+    returnTo: "isolated",
+    entryRoute: null
   });
   assert.equal(graphNormalizeRelationWorkflowSelection({ kind: "isolatedComplete", noteId: "missing" }, { nodes }), null);
 });
@@ -126,13 +130,14 @@ test("relation workflow controller mutates graph state only through route method
     "data-graph-target-note": "note-b"
   })), true);
 
-  assert.deepEqual(graphState.selection, {
+  assert.deepEqual({ ...graphState.selection, entryRoute: undefined }, {
     kind: "relationForm",
     noteId: "note-a",
     targetNoteId: "note-b",
     relationType: "associated_with",
     rationale: "",
-    returnTo: "isolated"
+    returnTo: "isolated",
+    entryRoute: undefined
   });
   assert.deepEqual(calls.map((call) => call[0]), ["tab", "render", "status"]);
 });

@@ -35,6 +35,7 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /const latestValidation = permanentRelationWorkspaceCanSave\(\{/);
   assert.match(source, /const savedRelations = await fetchNoteRelations\(note\.id\)\.catch\(\(\) => null\)/);
   assert.match(source, /permanentRelationWorkspaceNextAiCandidate\(/);
+  assert.match(source, /relationEntryRouteForPermanentWorkspaceContinuation\(note\.id, this\.permanentRelationWorkspaceState\.entryRoute/);
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
   assert.match(source, /永久笔记整理/);

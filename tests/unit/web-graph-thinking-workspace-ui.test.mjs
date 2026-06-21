@@ -567,7 +567,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(workflowControllerSource, /export function graphRelationWorkflowFormSelectionFromAction/);
   assert.match(workflowControllerSource, /kind: "relationForm"/);
   assert.match(workflowControllerSource, /const returnTo = previousSelectionKind === "isolated" \|\| previousSelectionKind === "isolatedcomplete" \? "isolated" : "";/);
-  assert.match(workflowControllerSource, /rationale,\s*returnTo\s*\}/);
+  assert.match(workflowControllerSource, /rationale,\s*returnTo,\s*entryRoute\s*\}/);
   assert.match(workflowControllerSource, /returnTo: cleanKind\(selection\?\.returnTo\)/);
   assert.match(source, /from "\.\/graph-relation-save-controller\.js";/);
   assert.match(source, /createGraphRelationSaveController\(\{/);
