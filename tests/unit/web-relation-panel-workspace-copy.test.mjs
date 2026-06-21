@@ -29,7 +29,7 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /data-permanent-relation-workspace/);
   assert.match(source, /this\.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState\(""\)/);
   assert.match(source, /this\.permanentRelationWorkspaceState\.noteId !== note\.id/);
-  assert.match(source, /this\.syncPermanentRelationWorkspaceOverlay\(\);\s*if \(cleanQuery\)/);
+  assert.match(source, /syncPermanentRelationManualResults\(\)/);
   assert.match(source, /notice: "正在确认现有关系。"/);
   assert.match(source, /const latestRelations = await fetchNoteRelations\(note\.id\)/);
   assert.match(source, /const latestValidation = permanentRelationWorkspaceCanSave\(\{/);
@@ -61,6 +61,24 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.doesNotMatch(source, /主路径下一步/);
   assert.doesNotMatch(source, /<span class="inspector-chip">正文链接 \$\{/);
   assert.doesNotMatch(source, /<span class="inspector-chip">标签线索 \$\{/);
+});
+
+test("permanent relation manual search keeps the search input mounted while updating results", async () => {
+  const source = await readFile(sourcePath, "utf8");
+  const workspaceSource = await readFile(new URL("../../apps/web/src/permanent-relation-workspace.js", import.meta.url), "utf8");
+  const refreshStart = source.indexOf("  async refreshPermanentRelationManualSearch(query = \"\") {");
+  const refreshEnd = source.indexOf("  queuePermanentRelationManualSearch(input) {", refreshStart);
+  assert.ok(refreshStart >= 0 && refreshEnd > refreshStart, "expected refreshPermanentRelationManualSearch() to exist");
+  const refreshSource = source.slice(refreshStart, refreshEnd);
+
+  assert.match(workspaceSource, /data-permanent-relation-manual-results/);
+  assert.match(workspaceSource, /data-permanent-relation-target-preview-slot/);
+  assert.match(source, /renderPermanentRelationManualTargets/);
+  assert.match(source, /renderPermanentRelationTargetPreview/);
+  assert.match(refreshSource, /this\.syncPermanentRelationManualResults\(\)/);
+  assert.match(refreshSource, /this\.syncPermanentRelationTargetPreview\(\)/);
+  assert.doesNotMatch(refreshSource, /this\.syncPermanentRelationWorkspaceOverlay\(\)/);
+  assert.doesNotMatch(refreshSource, /querySelector\?\.\("\[data-permanent-relation-target-search\]"\)\?\.focus/);
 });
 
 test("permanent-note async workflows guard UI refreshes by active note id", async () => {

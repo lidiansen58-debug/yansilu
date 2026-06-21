@@ -119,7 +119,11 @@ import {
   renderRelationTemplateVariantSwitcher,
   relationCreateTypeOptionsMarkup
 } from "./editor-relation-helpers.js";
-import { renderPermanentRelationWorkspace } from "./permanent-relation-workspace.js";
+import {
+  renderPermanentRelationManualTargets,
+  renderPermanentRelationTargetPreview,
+  renderPermanentRelationWorkspace
+} from "./permanent-relation-workspace.js";
 import {
   QUICK_WIKILINK_ASSOCIATION_MARKER,
   saveOrUpgradeWikilinkRelationTransaction,
@@ -4250,16 +4254,57 @@ export class EditorPane {
       relations: this.currentSemanticRelations,
       aiCandidates: this.permanentRelationWorkspaceAiCandidates(note.id),
       notes: this.state.notes,
-      deps: {
-        folderLabel: (folderId) => this.folderLabel(folderId),
-        typeFromFolder: (folderId) => typeFromFolder(this.state, folderId)
-      }
+      deps: this.permanentRelationWorkspaceDeps()
     });
   }
 
   permanentRelationWorkspaceElement() {
     if (typeof document === "undefined") return null;
     return document.querySelector("[data-permanent-relation-workspace]");
+  }
+
+  permanentRelationWorkspaceDeps() {
+    return {
+      folderLabel: (folderId) => this.folderLabel(folderId),
+      typeFromFolder: (folderId) => typeFromFolder(this.state, folderId)
+    };
+  }
+
+  permanentRelationWorkspaceSelectedTargetForPreview() {
+    const targetId = String(this.permanentRelationWorkspaceState.selectedTargetNoteId || "").trim();
+    if (!targetId) return null;
+    const note = this.activeNote();
+    return this.state.notes.find((item) => item?.id === targetId) ||
+      this.permanentRelationWorkspaceState.manualTargets.find((item) => item?.id === targetId) ||
+      this.permanentRelationWorkspaceAiCandidates(note?.id || "").find((item) => item?.targetNoteId === targetId) ||
+      null;
+  }
+
+  syncPermanentRelationManualResults() {
+    const results = this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-manual-results]");
+    if (!results) return false;
+    results.innerHTML = renderPermanentRelationManualTargets({
+      state: this.permanentRelationWorkspaceState,
+      deps: this.permanentRelationWorkspaceDeps()
+    });
+    return true;
+  }
+
+  syncPermanentRelationTargetPreview() {
+    const slot = this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-preview-slot]");
+    if (!slot) return false;
+    const selected = this.permanentRelationWorkspaceSelectedTargetForPreview();
+    const target = selected?.targetNoteId
+      ? {
+          id: selected.targetNoteId,
+          title: selected.targetTitle || selected.targetNoteId,
+          thesis: selected.rationaleDraft || "",
+          body: selected.rationaleDraft || "",
+          candidate: selected
+        }
+      : selected;
+    slot.innerHTML = renderPermanentRelationTargetPreview(target, this.permanentRelationWorkspaceDeps(), this.permanentRelationWorkspaceState);
+    return true;
   }
 
   bindPermanentRelationWorkspaceOverlayEvents(overlay) {
@@ -4440,12 +4485,16 @@ export class EditorPane {
       error: "",
       notice: ""
     }, note.id);
-    this.syncPermanentRelationWorkspaceOverlay();
-    if (cleanQuery) {
-      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
-    }
+    this.syncPermanentRelationManualResults();
     if (!cleanQuery) {
-      this.patchPermanentRelationWorkspaceState({ manualTargets: [], searchState: "idle" });
+      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+        ...this.permanentRelationWorkspaceState,
+        manualTargets: [],
+        selectedTargetNoteId: "",
+        searchState: "idle"
+      }, note.id);
+      this.syncPermanentRelationManualResults();
+      this.syncPermanentRelationTargetPreview();
       return;
     }
     try {
@@ -4458,19 +4507,21 @@ export class EditorPane {
       if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
       const items = Array.isArray(result?.items) ? result.items : [];
       this.upsertApiNotes(items);
-      this.patchPermanentRelationWorkspaceState({
+      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+        ...this.permanentRelationWorkspaceState,
         manualTargets: items,
         searchState: "loaded",
         notice: items.length ? "" : "没有匹配笔记。"
-      });
-      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
+      }, note.id);
+      this.syncPermanentRelationManualResults();
     } catch (error) {
       if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
-      this.patchPermanentRelationWorkspaceState({
+      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+        ...this.permanentRelationWorkspaceState,
         searchState: "error",
         error: `搜索失败：${String(error?.message || error)}`
-      });
-      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
+      }, note.id);
+      this.syncPermanentRelationManualResults();
     }
   }
 

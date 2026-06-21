@@ -73,7 +73,7 @@ function relationWorkspaceTypeOptions(selected = "associated_with") {
   ).join("");
 }
 
-function renderTargetPreview(target = null, deps = {}, state = {}) {
+export function renderPermanentRelationTargetPreview(target = null, deps = {}, state = {}) {
   if (!target) {
     return `
       <section class="permanent-relation-preview is-empty">
@@ -148,8 +148,16 @@ function renderAiCandidates({ state, candidates = [], relations = null, notes = 
   `;
 }
 
-function renderManualTargets({ state, deps = {} } = {}) {
+export function renderPermanentRelationManualTargets({ state, deps = {} } = {}) {
   if (state.searchState === "loading") return `<div class="permanent-relation-empty">正在搜索笔记...</div>`;
+  if (state.searchState === "error") {
+    return `
+      <div class="permanent-relation-empty is-error">
+        <strong>搜索暂时失败</strong>
+        <p>${escapeHtml(state.error || "请稍后重试，或换一个关键词。")}</p>
+      </div>
+    `;
+  }
   const targets = Array.isArray(state.manualTargets) ? state.manualTargets : [];
   if (!cleanText(state.manualQuery)) {
     return `<div class="permanent-relation-empty">输入标题关键词后选择一条笔记。</div>`;
@@ -247,12 +255,16 @@ export function renderPermanentRelationWorkspace({
                     <span>搜索目标笔记</span>
                     <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="输入标题关键词" autocomplete="off" />
                   </label>
-                  ${renderManualTargets({ state: workspaceState, deps })}
+                  <div data-permanent-relation-manual-results>
+                    ${renderPermanentRelationManualTargets({ state: workspaceState, deps })}
+                  </div>
                 `
             }
           </section>
           <form class="permanent-relation-confirm" data-permanent-relation-form>
-            ${renderTargetPreview(selectedTarget, deps, workspaceState)}
+            <div data-permanent-relation-target-preview-slot>
+              ${renderPermanentRelationTargetPreview(selectedTarget, deps, workspaceState)}
+            </div>
             ${existing ? `<div class="permanent-relation-existing">这两条笔记已经有关系。你可以在这里修改关系类型和理由，然后保存修改。</div>` : ""}
             <label>
               <span>它们是什么关系</span>

@@ -293,6 +293,25 @@ test("permanent relation workspace omits unknown directory noise in manual candi
   assert.doesNotMatch(html, /未知目录/);
 });
 
+test("permanent relation manual search shows search errors inside the results area", () => {
+  const html = renderPermanentRelationWorkspace({
+    note,
+    state: {
+      ...defaultPermanentRelationWorkspaceState(note.id),
+      open: true,
+      mode: "manual",
+      manualQuery: "目标",
+      searchState: "error",
+      error: "搜索失败：网络不可用"
+    },
+    deps
+  });
+
+  assert.match(html, /搜索暂时失败/);
+  assert.match(html, /搜索失败：网络不可用/);
+  assert.doesNotMatch(html, /没有匹配笔记/);
+});
+
 test("permanent relation workspace previews target content inside the overlay", () => {
   const html = renderPermanentRelationWorkspace({
     note,
