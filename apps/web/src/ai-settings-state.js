@@ -54,6 +54,12 @@ export function localProviderPresetForModelPack(modelPack = "") {
   return isLocalProviderId(providerId) ? providerId : "";
 }
 
+export function supportedAiSettingsModelPack(modelPack = "") {
+  const localProviderPreset = localProviderPresetForModelPack(modelPack);
+  if (localProviderPreset === "minicpm_local_gateway") return "Starter Auto";
+  return String(modelPack || "").trim();
+}
+
 export function shouldUseOllamaLocalRuntimeForSelection(input = {}) {
   const runtimeMode = normalizeAiRuntimeMode(input.runtimeMode || input.runtime_mode);
   const advancedSettings = input.advancedSettings || input.advanced_settings || {};

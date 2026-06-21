@@ -335,8 +335,14 @@ import {
   localProviderPresetForModelPack,
   normalizeAiRuntimeMode,
   providerPresetForModelPack,
-  shouldUseOllamaLocalRuntimeForSelection
+  shouldUseOllamaLocalRuntimeForSelection,
+  supportedAiSettingsModelPack
 } from "./ai-settings-state.js";
+import {
+  aiTestBlockedReasonForState,
+  currentOllamaModelTiersForState,
+  installedLocalModelReadyForState
+} from "./ai-test-readiness.js";
 import {
   AI_LOCAL_MODEL_TIERS,
   AI_REMOTE_MODEL_TIERS,
@@ -1464,9 +1470,7 @@ function persistAiSettingsToStorage() {
 }
 
 function settingsSupportedModelPack(modelPack = "") {
-  const localProviderPreset = localProviderPresetForModelPack(modelPack);
-  if (localProviderPreset === "minicpm_local_gateway") return "Starter Auto";
-  return String(modelPack || "").trim();
+  return supportedAiSettingsModelPack(modelPack);
 }
 
 function isLocalAdvancedModelRef(value = "") {
@@ -1653,43 +1657,11 @@ function applyActiveAiProviderConfigToState() {
 
 function aiTestBlockedReason() {
   const providerId = currentAiProviderId();
-  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
-  const localFlowActive = isAiLocalFlowActive({
-    runtimeMode,
-    modelPack: settingsState.ai.modelPack,
-    providerId
+  return aiTestBlockedReasonForState(settingsState.ai, {
+    providerId,
+    shouldUseOllamaLocalRuntime: shouldUseOllamaLocalRuntime(),
+    authMode: authModeForProvider(providerId, settingsState.ai.routePreview)
   });
-  if (localFlowActive && shouldUseOllamaLocalRuntime()) {
-    const localStatus = String(settingsState.ai.localRuntimeStatus || "").trim();
-    const localModel = String(settingsState.ai.localModel || "").trim();
-    const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
-    if (settingsState.ai.localRuntimeStarting) return "请等待本地 AI 启动完成";
-    if (settingsState.ai.localRuntimeChecking) return "请等待本地 AI 检测完成";
-    if (settingsState.ai.localRuntimePulling) return "请等待本地模型下载完成";
-    if (localStatus !== "available") return "请先启动或检测本地 AI";
-    if (!models.length) return "请先下载一个本地模型";
-    if (!localModel) return "请先选择本地模型";
-    if (!installedLocalModelReady(localModel)) return "请先下载或选择已安装的本地模型";
-    return "";
-  }
-  if (!isRemoteConfigurableProviderId(providerId)) return "";
-  const endpointUrl = String(settingsState.ai.providerEndpointUrl || "").trim();
-  const remoteRuntimeModel = String(settingsState.ai.remoteRuntimeModel || "").trim();
-  const secretRef = String(settingsState.ai.secretRef || "").trim();
-  const draftTouched = settingsState.ai.providerDraftTouched || {};
-  const access = settingsState.ai.routePreview?.access || {};
-  const authMode = authModeForProvider(providerId, settingsState.ai.routePreview);
-  const requiresSecret = ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(authMode);
-  const secretReady = !requiresSecret
-    ? true
-    : draftTouched.secretRef
-      ? Boolean(secretRef)
-      : access.ready === true || (access.ready !== false && Boolean(secretRef));
-  if (!endpointUrl && !remoteRuntimeModel) return "请先填写远程服务地址和远程模型";
-  if (!endpointUrl) return "请先填写远程服务地址";
-  if (!remoteRuntimeModel) return "请先填写远程模型";
-  if (!secretReady) return "请先填写密钥名称";
-  return "";
 }
 
 function aiSettingsPayload() {
@@ -1845,7 +1817,7 @@ async function saveLocalOllamaProviderConfig() {
   return saved;
 }
 function currentOllamaModelTiers() {
-  return Array.isArray(settingsState.ai.localRuntimeModelTiers) ? settingsState.ai.localRuntimeModelTiers : [];
+  return currentOllamaModelTiersForState(settingsState.ai);
 }
 
 
@@ -1854,11 +1826,7 @@ function hasLocalModel(modelName = "") {
 }
 
 function installedLocalModelReady(modelName = settingsState.ai.localModel) {
-  const localModel = String(modelName || "").trim();
-  return String(settingsState.ai.localRuntimeStatus || "").trim() === "available"
-    && Boolean(localModel)
-    && isBuiltInOllamaModel(localModel, currentOllamaModelTiers())
-    && hasLocalModel(localModel);
+  return installedLocalModelReadyForState(settingsState.ai, modelName);
 }
 
 function localOllamaSetupActive() {
