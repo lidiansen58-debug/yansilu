@@ -154,6 +154,11 @@ import {
   permanentNoteWorkspaceArchitecture,
   permanentRelationAssistState
 } from "./permanent-note-sidebar-architecture.js";
+import {
+  explicitPermanentNoteRelations,
+  permanentNoteSidebarExplicitRelationCount,
+  permanentNoteSidebarOverview
+} from "./permanent-note-sidebar-model.js";
 
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
@@ -4125,9 +4130,7 @@ export class EditorPane {
     const outgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link)) : [];
     const backlinks = Array.isArray(relations?.backlinks) ? relations.backlinks.filter((link) => !isHiddenRelation(link)) : [];
     const visibleLinks = [...outgoing, ...backlinks];
-    const explicitOutgoing = outgoing.filter((link) => !isMarkdownWikilinkRelation(link));
-    const explicitBacklinks = backlinks.filter((link) => !isMarkdownWikilinkRelation(link));
-    const explicitLinks = [...explicitOutgoing, ...explicitBacklinks];
+    const { outgoing: explicitOutgoing, backlinks: explicitBacklinks, all: explicitLinks } = explicitPermanentNoteRelations(relations);
     const markdownCount = visibleLinks.length - explicitLinks.length;
     const confirmedCount = explicitLinks.filter((link) => String(link?.status || "confirmed") === "confirmed").length;
     const tensionCount = explicitLinks.filter((link) => relationTone(link) === "tension").length;
@@ -4849,14 +4852,10 @@ export class EditorPane {
   }
 
   currentExplicitRelationCount() {
-    if (this.semanticRelationsState !== "loaded" || !this.currentSemanticRelations) return null;
-    const outgoing = Array.isArray(this.currentSemanticRelations?.outgoingLinks)
-      ? this.currentSemanticRelations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
-      : [];
-    const backlinks = Array.isArray(this.currentSemanticRelations?.backlinks)
-      ? this.currentSemanticRelations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
-      : [];
-    return outgoing.length + backlinks.length;
+    return permanentNoteSidebarExplicitRelationCount({
+      relationState: this.semanticRelationsState,
+      relations: this.currentSemanticRelations
+    });
   }
 
   openEditRelationForm(relationId, options = {}) {
@@ -5350,27 +5349,13 @@ export class EditorPane {
   }
 
   buildMainPathOverviewV2({ forward = [], backward = [], tagRelated = [], relations = null, relationState = "loaded" } = {}) {
-    const outgoing = Array.isArray(relations?.outgoingLinks)
-      ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
-      : [];
-    const backlinks = Array.isArray(relations?.backlinks)
-      ? relations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
-      : [];
-    const explicitRelations = [...outgoing, ...backlinks];
-    return {
-      relationState: String(relationState || "loaded").trim() || "loaded",
-      explicitRelationCount: explicitRelations.length,
-      thinExplicitRelationCount: explicitRelations.filter(
-        (link) => String(link?.rationaleQualityLevel || "").trim().toLowerCase() === "basic"
-      ).length,
-      wikilinkCount: forward.length + backward.length,
-      tagRelatedCount: tagRelated.length,
-      themeSignalCount: new Set([
-        ...forward.map((item) => item.id),
-        ...backward.map((item) => item.id),
-        ...tagRelated.map((item) => item.id)
-      ]).size
-    };
+    return permanentNoteSidebarOverview({
+      forward,
+      backward,
+      tagRelated,
+      relations,
+      relationState
+    });
   }
 
   permanentNoteMainPathSummaryV2(note, overview = {}) {
