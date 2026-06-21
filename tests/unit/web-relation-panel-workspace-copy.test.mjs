@@ -8,13 +8,20 @@ const sidebarViewPath = new URL("../../apps/web/src/permanent-note-sidebar-view.
 const sidebarControllerPath = new URL("../../apps/web/src/permanent-note-sidebar-controller.js", import.meta.url);
 const semanticRelationsViewPath = new URL("../../apps/web/src/editor-semantic-relations-view.js", import.meta.url);
 const semanticRelationsControllerPath = new URL("../../apps/web/src/editor-semantic-relations-controller.js", import.meta.url);
+const relationEventsPath = new URL("../../apps/web/src/editor-relation-events.js", import.meta.url);
+const distillationControllerPath = new URL("../../apps/web/src/permanent-note-distillation-controller.js", import.meta.url);
+const workspaceControllerPath = new URL("../../apps/web/src/permanent-note-workspace-controller.js", import.meta.url);
+const workspaceViewPath = new URL("../../apps/web/src/permanent-note-workspace-view.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation side panel uses action-first workspace copy without noisy placeholders", async () => {
   const source = [
     await readFile(sourcePath, "utf8"),
     await readFile(semanticRelationsViewPath, "utf8"),
-    await readFile(semanticRelationsControllerPath, "utf8")
+    await readFile(semanticRelationsControllerPath, "utf8"),
+    await readFile(relationEventsPath, "utf8"),
+    await readFile(workspaceControllerPath, "utf8"),
+    await readFile(workspaceViewPath, "utf8")
   ].join("\n");
   const sidebarArchitecture = await readFile(sidebarArchitecturePath, "utf8");
   const sidebarView = await readFile(sidebarViewPath, "utf8");
@@ -52,15 +59,15 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
   assert.match(source, /永久笔记整理/);
-  assert.match(source, /\["relations", "关联"/);
-  assert.match(source, /\["viewpoint", "观点提纯"/);
-  assert.match(source, /\["writing", "写作准备"/);
+  assert.match(source, /key: "relations", label: "关联"/);
+  assert.match(source, /key: "viewpoint", label: "观点提纯"/);
+  assert.match(source, /key: "writing", label: "写作准备"/);
   assert.match(source, /data-permanent-workspace-tab="\$\{escapeHtml\(key\)\}"/);
   assert.match(source, /data-permanent-note-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(source, /refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
   assert.match(source, /shouldPreserveRelationSection\(section\)/);
   assert.match(sidebarView, /data-note-relation-assist-section/);
-  assert.match(source, /String\(workspace\.getAttribute\("data-note-id"\) \|\| ""\)\.trim\(\) !== note\.id/);
+  assert.match(source, /workspaceMatchesNote\(noteId = ""\)/);
   assert.doesNotMatch(source, /workspace\.outerHTML = this\.renderDeferredNoteWorkspace\(note, tab\)/);
   assert.match(source, /AI 推荐/);
   assert.match(source, /手动搜索/);
@@ -97,13 +104,14 @@ test("permanent relation manual search keeps the search input mounted while upda
 test("permanent-note async workflows guard UI refreshes by active note id", async () => {
   const source = await readFile(sourcePath, "utf8");
   const semanticRelationsController = await readFile(semanticRelationsControllerPath, "utf8");
+  const distillationController = await readFile(distillationControllerPath, "utf8");
 
-  const distillationStart = source.indexOf("  async handleDistillationForm(form) {");
-  const distillationEnd = source.indexOf("  async confirmDistillation()", distillationStart);
-  assert.ok(distillationStart >= 0 && distillationEnd > distillationStart, "expected handleDistillationForm() to exist");
-  const distillationSource = source.slice(distillationStart, distillationEnd);
+  const distillationStart = distillationController.indexOf("  async handleForm(form) {");
+  const distillationEnd = distillationController.indexOf("  async confirm()", distillationStart);
+  assert.ok(distillationStart >= 0 && distillationEnd > distillationStart, "expected distillation handleForm() to exist");
+  const distillationSource = distillationController.slice(distillationStart, distillationEnd);
   assert.match(distillationSource, /const noteId = String\(note\?\.id \|\| ""\)\.trim\(\)/);
-  assert.match(distillationSource, /if \(!this\.isActiveNoteId\(noteId\)\) return/);
+  assert.match(distillationSource, /if \(!host\.isActiveNoteId\(noteId\)\) return/);
 
   const createStart = semanticRelationsController.indexOf("  async handleCreateForm(form) {");
   const createEnd = semanticRelationsController.indexOf("  async promoteInlineDraft", createStart);

@@ -107,7 +107,11 @@ test("embedded note AI workspace derives reviewed content from note fields", () 
 
 test("editor-triggered note AI analysis stays in the current note workspace", () => {
   const editorSource = readRepoFile("apps/web/src/components-editor-pane.js");
+  const distillationViewSource = readRepoFile("apps/web/src/permanent-note-distillation-view.js");
   const sidebarViewSource = readRepoFile("apps/web/src/permanent-note-sidebar-view.js");
+  const workspaceControllerSource = readRepoFile("apps/web/src/permanent-note-workspace-controller.js");
+  const workspaceViewSource = readRepoFile("apps/web/src/permanent-note-workspace-view.js");
+  const editorWorkspaceSource = `${editorSource}\n${distillationViewSource}\n${workspaceControllerSource}\n${workspaceViewSource}`;
   const renderStart = editorSource.indexOf("  renderRelated(extraTitle = \"\") {");
   const renderEnd = editorSource.indexOf("  async handleTokenAction(token) {", renderStart);
   assert.ok(renderStart >= 0 && renderEnd > renderStart, "expected renderRelated() to exist");
@@ -118,15 +122,16 @@ test("editor-triggered note AI analysis stays in the current note workspace", ()
   const deferredEnd = editorSource.indexOf("  setDistillationPrefill", deferredStart);
   assert.ok(deferredStart >= 0 && deferredEnd > deferredStart, "expected renderDeferredNoteWorkspace() to exist");
   const deferredSource = editorSource.slice(deferredStart, deferredEnd);
-  assert.match(deferredSource, /this\.renderPermanentNoteRelationAssistSection\(note, overview\)/);
-  assert.match(deferredSource, /this\.renderPermanentNoteDistillationSection\(note\)/);
-  assert.match(deferredSource, /data-deferred-workspace/);
+  assert.match(deferredSource, /this\.permanentNoteWorkspace\(\)\.renderDeferredWorkspace\(note, tab\)/);
+  assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteRelationAssistSection\(note, overview\)/);
+  assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteDistillationSection\(note\)/);
+  assert.match(workspaceViewSource, /data-deferred-workspace/);
 
   const sectionStart = editorSource.indexOf("  renderPermanentNoteRelationAssistSection(note, overview = {}) {");
   const sectionEnd = editorSource.indexOf("  renderPermanentNoteWritingPrepSection", sectionStart);
   assert.ok(sectionStart >= 0 && sectionEnd > sectionStart, "expected renderPermanentNoteRelationAssistSection() to exist");
   const sectionSource = editorSource.slice(sectionStart, sectionEnd);
-  assert.match(editorSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
+  assert.match(editorWorkspaceSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(sectionSource, /renderPermanentNoteRelationAssistSectionView\(\{/);
   assert.match(sidebarViewSource, /AI 推荐/);
   assert.match(sidebarViewSource, /手动搜索/);

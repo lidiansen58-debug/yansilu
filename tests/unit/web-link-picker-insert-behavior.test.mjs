@@ -3,12 +3,22 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
+import { EditorRelationLinkController } from "../../apps/web/src/editor-relation-link-controller.js";
+import {
+  editorRelationLinkCandidatePreviewText,
+  editorRelationLinkCandidates,
+  editorRelationLinkConfirmState,
+  editorRelationLinkEntrySource,
+  normalizeEditorRelationLinkInput,
+  renderEditorRelationLinkCandidateList
+} from "../../apps/web/src/editor-relation-link-model.js";
 import { parseLinks } from "../../apps/web/src/prototype-store.js";
+import {
+  QUICK_WIKILINK_ASSOCIATION_MARKER,
+  saveOrUpgradeWikilinkRelationTransaction
+} from "../../apps/web/src/relation-save-transaction.js";
+import { RELATION_ENTRY_SOURCES } from "../../apps/web/src/relation-entry-route.js";
 import { readEditorDomainSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
-
-async function readEditorRelationLinkModelSource() {
-  return fs.readFile(new URL("../../apps/web/src/editor-relation-link-model.js", import.meta.url), "utf8");
-}
 
 async function readEditorRelationLinkControllerSource() {
   return fs.readFile(new URL("../../apps/web/src/editor-relation-link-controller.js", import.meta.url), "utf8");
@@ -58,17 +68,28 @@ test("closing transient pickers clears toolbar active and focus states", async (
 });
 
 test("manual link picker renders a title-first autocomplete list", async () => {
-  const source = await readEditorDomainSource();
-  const controllerSource = await readEditorRelationLinkControllerSource();
-  const modelSource = await readEditorRelationLinkModelSource();
+  const notes = [
+    { id: "b", title: "Beta relation" },
+    { id: "a", title: "Alpha relation" },
+    { id: "x", title: "Unrelated" },
+    ...Array.from({ length: 60 }, (_, index) => ({ id: `extra-${index}`, title: `relation ${index}` }))
+  ];
 
-  assert.match(modelSource, /filter\(\(note\) => normalizeText\(note\?\.title \|\| ""\)\.includes\(q\)\)/);
-  assert.match(modelSource, /highlightMatch\(displayTitle\(note\), query\)/);
-  assert.match(modelSource, /const list = q \? computed\.slice\(0, 50\) : \[\];/);
-  assert.ok(controllerSource.includes("editorRelationLinkCandidates({"));
-  assert.doesNotMatch(source, /picker-selection-state/);
-  assert.doesNotMatch(source, /picker-preview/);
-  assert.doesNotMatch(source, /picker-detail-row/);
+  const result = editorRelationLinkCandidates({
+    query: "relation",
+    candidates: notes,
+    preferredId: "extra-2",
+    displayTitle: (note) => note.title
+  });
+
+  assert.equal(result.list.length, 50);
+  assert.equal(result.selectedId, "extra-2");
+  assert.equal(result.list[result.selectedIndex].id, "extra-2");
+  assert.match(result.html, /data-link-note-id="extra-2"/);
+  assert.match(result.html, /<mark class="picker-mark">relation<\/mark>/);
+  assert.doesNotMatch(result.html, /picker-selection-state/);
+  assert.doesNotMatch(result.html, /picker-preview/);
+  assert.doesNotMatch(result.html, /picker-detail-row/);
 });
 
 test("cross-folder link candidates use a folder-prefixed display label", async () => {
@@ -81,12 +102,17 @@ test("cross-folder link candidates use a folder-prefixed display label", async (
 
 test("wikilink preview avoids low-value match and count metadata", async () => {
   const source = await readEditorDomainSource();
+  const preview = editorRelationLinkCandidatePreviewText({
+    title: "Preview target",
+    body: "[[Other|alias]] explains the useful claim.\n\n#tag"
+  });
 
   assert.ok(source.includes('mode: "wikilink"'));
   assert.ok(source.includes('data-open-linked-note="${escapeHtml(note.id)}"'));
   assert.ok(source.includes("async openLinkedPreviewNote(noteId)"));
   assert.ok(source.includes("void this.openLinkedPreviewNote(linkedNoteButton.dataset.openLinkedNote);"));
   assert.ok(source.includes("正文里的这个链接指向这条笔记。"));
+  assert.equal(preview, "alias explains the useful claim.");
   assert.doesNotMatch(source, /已匹配/);
   assert.doesNotMatch(source, /重名匹配/);
   assert.doesNotMatch(source, /关联 \$\{links\.length\}/);
@@ -94,16 +120,13 @@ test("wikilink preview avoids low-value match and count metadata", async () => {
 });
 
 test("confirm button requires a target and relation reason for inline and toolbar entry", async () => {
-  const source = await readEditorRelationLinkControllerSource();
-  const modelSource = await readEditorRelationLinkModelSource();
+  assert.equal(editorRelationLinkConfirmState({ isSubmitting: true, selectedNote: { id: "a" }, reason: "reason" }).disabled, true);
+  assert.equal(editorRelationLinkConfirmState({ selectedNote: null, reason: "reason" }).disabled, true);
+  assert.equal(editorRelationLinkConfirmState({ selectedNote: { id: "a" }, reason: "" }).disabled, true);
 
-  assert.ok(source.includes("editorRelationLinkConfirmState({"));
-  assert.ok(source.includes("selectedNote: this.selectedCandidate(),"));
-  assert.ok(source.includes("button.disabled = state.disabled;"));
-  assert.ok(modelSource.includes('if (isSubmitting) return { disabled: true, label: "保存中..." };'));
-  assert.ok(modelSource.includes('if (!selectedNote) return { disabled: true, label: "选择笔记" };'));
-  assert.ok(modelSource.includes('if (!hasReason) return { disabled: true, label: "写一句理由" };'));
-  assert.ok(modelSource.includes('return { disabled: false, label: "保存关联" };'));
+  const ready = editorRelationLinkConfirmState({ selectedNote: { id: "a" }, reason: "clear reason" });
+  assert.equal(ready.disabled, false);
+  assert.match(ready.label, /保存|淇濆瓨/);
 });
 
 test("manual link picker keeps only information needed to save a relation", async () => {
@@ -124,14 +147,42 @@ test("manual link picker keeps only information needed to save a relation", asyn
   assert.match(source, /host\.els\.linkSearchInput\.placeholder = "搜索笔记标题";/);
 });
 
-test("clicking a link picker candidate selects it without inserting immediately", async () => {
-  const source = await readEditorDomainSource();
+test("selecting a link picker candidate pins it without inserting immediately", async () => {
+  const rendered = [];
+  let insertedNoteId = "";
+  const host = {
+    currentLinkCandidates: [{ id: "pn_1", title: "Permanent note" }],
+    currentLinkIndex: 0,
+    currentPinnedLinkId: "",
+    isSubmittingLinkInsert: false,
+    state: { notes: [] },
+    els: {
+      linkSearchInput: { value: "perm" },
+      linkSearchList: {
+        innerHTML: "",
+        querySelector: () => null
+      },
+      confirmLinkInsert: { disabled: true, textContent: "" },
+      linkReasonInput: { value: "clear reason" }
+    },
+    scopedLinkCandidates: () => host.currentLinkCandidates,
+    linkCandidateDisplayTitle: (note) => note.title,
+    insertSelectedLinkNote: async (noteId) => {
+      insertedNoteId = noteId;
+    }
+  };
+  const controller = new EditorRelationLinkController(host);
+  controller.renderCandidates = (query, preferredId) => {
+    rendered.push({ query, preferredId });
+  };
 
-  assert.match(
-    source,
-    /this\.els\.linkSearchList\.addEventListener\("click", \(e\) => \{[\s\S]*this\.currentPinnedLinkId = String\(row\.dataset\.linkNoteId \|\| ""\)\.trim\(\);[\s\S]*this\.renderLinkCandidates\(this\.els\.linkSearchInput\.value, row\.dataset\.linkNoteId \|\| ""\);[\s\S]*this\.els\.linkSearchInput\.value = row\.textContent\?\.trim\(\) \|\| "";\s*this\.els\.linkSearchList\.innerHTML = "";/ 
-  );
-  assert.doesNotMatch(source, /void this\.insertSelectedLinkNote\(row\.dataset\.linkNoteId \|\| ""\);/);
+  await controller.confirmSelectedCandidate();
+
+  assert.equal(insertedNoteId, "");
+  assert.equal(host.currentPinnedLinkId, "pn_1");
+  assert.deepEqual(rendered, [{ query: "perm", preferredId: "pn_1" }]);
+  assert.equal(host.els.linkSearchInput.value, "Permanent note");
+  assert.equal(host.els.linkSearchList.innerHTML, "");
 });
 
 test("Enter selects the highlighted candidate before the explicit associate action", async () => {
@@ -197,10 +248,27 @@ test("inline link picker Enter also selects before the explicit associate action
   assert.equal(linkSearchList.innerHTML, "");
 });
 
-test("manual link picker binds the explicit associate button to relation creation", async () => {
-  const source = await readEditorDomainSource();
+test("manual link picker confirm button reflects selected target and reason", () => {
+  const host = {
+    currentPinnedLinkId: "pn_1",
+    currentLinkCandidates: [{ id: "pn_1", title: "Permanent note" }],
+    currentLinkIndex: 0,
+    isSubmittingLinkInsert: false,
+    state: { notes: [] },
+    els: {
+      confirmLinkInsert: { disabled: true, textContent: "" },
+      linkReasonInput: { value: "clear reason" }
+    }
+  };
+  const controller = new EditorRelationLinkController(host);
 
-  assert.match(source, /this\.els\.confirmLinkInsert\?\.addEventListener\("click", \(\) => \{[\s\S]*this\.selectedLinkCandidate\(\)\?\.id[\s\S]*void this\.insertSelectedLinkNote\(selectedId\);/);
+  controller.updateConfirmButton();
+  assert.equal(host.els.confirmLinkInsert.disabled, false);
+  assert.match(host.els.confirmLinkInsert.textContent, /保存|淇濆瓨/);
+
+  host.els.linkReasonInput.value = "";
+  controller.updateConfirmButton();
+  assert.equal(host.els.confirmLinkInsert.disabled, true);
 });
 
 test("toolbar relation action opens manual picker without writing a stray wikilink trigger", async () => {
@@ -291,23 +359,18 @@ test("floating relation picker can use the toolbar button rect as a fallback anc
 });
 
 test("manual link picker saves the user-confirmed relation type and rationale", async () => {
-  const source = await readEditorDomainSource();
-  const modelSource = await readEditorRelationLinkModelSource();
-  const controllerSource = await readEditorRelationLinkControllerSource();
+  const normalized = normalizeEditorRelationLinkInput({
+    relationType: " supports ",
+    reason: ` first\n\nsecond -- ${"x".repeat(320)}`
+  });
 
-  assert.ok(source.includes("currentLinkRelationInput() {"));
-  assert.ok(controllerSource.includes("normalizeEditorRelationLinkInput({"));
-  assert.ok(modelSource.includes('relationType: String(relationType || "associated_with").trim() || "associated_with",'));
-  assert.ok(modelSource.includes("replace(/\\s+/g, \" \")"));
-  assert.ok(modelSource.includes(".slice(0, 280)"));
-  assert.ok(modelSource.includes("export function editorRelationLinkEntrySource(inlineInsert = false) {"));
-  assert.ok(controllerSource.includes("source: editorRelationLinkEntrySource(inlineInsert),"));
-  assert.ok(controllerSource.includes("const { relationType, reason } = this.currentRelationInput();"));
-  assert.ok(controllerSource.includes("QUICK_WIKILINK_ASSOCIATION_MARKER,"));
-  assert.ok(controllerSource.includes("saveOrUpgradeWikilinkRelationTransaction"));
-  assert.ok(controllerSource.includes("insightQuestionDraft: QUICK_WIKILINK_ASSOCIATION_MARKER"));
-  assert.ok(controllerSource.includes("insightQuestion: entryRoute.insightQuestionDraft"));
-  assert.ok(controllerSource.includes("confidence: 1"));
+  assert.equal(normalized.relationType, "supports");
+  assert.equal(normalized.reason.includes("\n"), false);
+  assert.equal(normalized.reason.includes("--"), false);
+  assert.ok(normalized.reason.length <= 280);
+  assert.match(normalized.reason, /^first second - -/);
+  assert.equal(editorRelationLinkEntrySource(true), RELATION_ENTRY_SOURCES.INLINE_WIKILINK);
+  assert.equal(editorRelationLinkEntrySource(false), RELATION_ENTRY_SOURCES.TOOLBAR_RELATION);
 });
 
 test("manual link picker keeps duplicate-submit protection", async () => {
@@ -322,16 +385,18 @@ test("manual link picker keeps duplicate-submit protection", async () => {
 });
 
 test("manual link picker still detects existing wikilinks by resolved note id before inserting again", async () => {
-  const source = await readEditorDomainSource();
-  const controllerSource = await readEditorRelationLinkControllerSource();
+  const pane = Object.create(EditorPane.prototype);
+  const candidates = [
+    {
+      id: "target",
+      title: "Target Note",
+      markdownPath: "notes/permanent/Target Note.md"
+    }
+  ];
 
-  assert.ok(source.includes("hasResolvedLinkToNote(noteId, body = this.getEditorValue(), scopedNotes = this.scopedLinkCandidates()) {"));
-  assert.ok(source.includes("const resolved = this.resolveLinkToken(token, scopedNotes);"));
-  assert.ok(source.includes("return resolved?.ambiguous !== true && resolved?.note?.id === targetId;"));
-  assert.ok(controllerSource.includes("const editorBodyAlreadyLinked = !inlineInsert && host.hasResolvedLinkToNote(target.id, currentBody, scopedLinkNotes);"));
-  assert.ok(controllerSource.includes("const savedBodyAlreadyLinked = !inlineInsert && host.hasResolvedLinkToNote(target.id, persistedSourceBody(), scopedLinkNotes);"));
-  assert.ok(controllerSource.includes("const bodyAlreadyLinked = editorBodyAlreadyLinked;"));
-  assert.ok(controllerSource.includes("} else if (bodyAlreadyLinked) {"));
+  assert.equal(pane.hasResolvedLinkToNote("target", "[[Target Note]]", candidates), true);
+  assert.equal(pane.hasResolvedLinkToNote("target", "[[notes/permanent/Target Note.md|Target Note]]", candidates), true);
+  assert.equal(pane.hasResolvedLinkToNote("other", "[[Target Note]]", candidates), false);
 });
 
 test("inline relation trigger recognizes both [[ and full-width 【【 prefixes", async () => {
@@ -358,50 +423,80 @@ test("detectInlineLinkContext returns context for full-width 【【 input", () =
 });
 
 test("quick association synchronizes both note endpoints as connected", async () => {
-  const source = await readEditorDomainSource();
-  const controllerSource = await readEditorRelationLinkControllerSource();
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = {
+    graphConnectedNoteIds: new Set(),
+    notes: [{ id: "source" }, { id: "target" }]
+  };
 
-  assert.ok(source.includes("syncRelationNetworkConnected(...noteIds) {"));
-  assert.ok(source.includes('if (note) note.relationNetworkStatus = "connected";'));
-  assert.ok(controllerSource.includes("host.syncRelationNetworkConnected(sourceNoteId, target.id);"));
+  pane.syncRelationNetworkConnected("source", "target");
+
+  assert.equal(pane.state.graphConnectedNoteIds.has("source"), true);
+  assert.equal(pane.state.graphConnectedNoteIds.has("target"), true);
+  assert.equal(pane.state.notes.find((note) => note.id === "source").relationNetworkStatus, "connected");
+  assert.equal(pane.state.notes.find((note) => note.id === "target").relationNetworkStatus, "connected");
 });
 
-test("confirmed inline wikilink insertion also creates a formal note relation", async () => {
-  const source = await readEditorRelationLinkControllerSource();
-  const start = source.indexOf("async insertSelected(noteId) {");
-  const end = source.indexOf("\n  moveCandidate(step)", start);
-  assert.ok(start >= 0 && end > start, "expected insertSelected body");
-  const body = source.slice(start, end);
+test("confirmed wikilink association upgrades to a formal relation transaction", async () => {
+  const calls = [];
+  const transaction = await saveOrUpgradeWikilinkRelationTransaction(
+    {
+      noteId: "source",
+      targetNoteId: "target",
+      relationType: "associated_with",
+      rationale: "clear quick association reason"
+    },
+    {
+      fetchNoteRelations: async () => ({
+        outgoingLinks: [{ id: "wiki-1", toNoteId: "target", rationale: "markdown_wikilink" }]
+      }),
+      createNoteRelation: async () => {
+        calls.push(["create"]);
+        return { id: "new" };
+      },
+      updateNoteRelation: async (relationId, payload) => {
+        calls.push(["update", relationId, payload]);
+        return { id: relationId, created: false, ...payload };
+      }
+    }
+  );
 
-  assert.ok(body.includes('const sourceNoteId = String(sourceNote?.id || "").trim();'));
-  assert.ok(body.includes("const transaction = await saveOrUpgradeWikilinkRelationTransaction({"));
-  assert.ok(body.includes("fetchNoteRelations,"));
-  assert.ok(body.includes("createNoteRelation,"));
-  assert.ok(body.includes("updateNoteRelation,"));
-  assert.ok(body.includes("isMarkdownWikilinkRelation"));
-  assert.ok(body.includes("relationCreateResult = transaction.relation;"));
-  assert.ok(body.includes('saveInsertedBody("inline-link-insert")'));
-  assert.ok(body.includes("已插入关联笔记并建立正式关系"));
-  const inlineBranch = body.slice(body.indexOf('saveInsertedBody("inline-link-insert")'));
-  assert.ok(inlineBranch.indexOf('saveInsertedBody("inline-link-insert")') < inlineBranch.indexOf("await ensureFormalRelation();"));
+  assert.equal(transaction.ok, true);
+  assert.equal(transaction.upgradedWikilink, true);
+  assert.deepEqual(calls.map((call) => call[0]), ["update"]);
+  assert.equal(calls[0][1], "wiki-1");
+  assert.equal(calls[0][2].insightQuestion, QUICK_WIKILINK_ASSOCIATION_MARKER);
+  assert.equal(calls[0][2].confidence, 1);
 });
 
-test("link insertion does not create a formal relation until the wikilink save is verified", async () => {
-  const source = await readEditorRelationLinkControllerSource();
-  const start = source.indexOf("async insertSelected(noteId) {");
-  const end = source.indexOf("\n  moveCandidate(step)", start);
-  assert.ok(start >= 0 && end > start, "expected insertSelected body");
-  const body = source.slice(start, end);
+test("invalid quick association does not call relation persistence", async () => {
+  const calls = [];
+  const transaction = await saveOrUpgradeWikilinkRelationTransaction(
+    {
+      noteId: "source",
+      targetNoteId: "target",
+      relationType: "associated_with",
+      rationale: ""
+    },
+    {
+      fetchNoteRelations: async () => {
+        calls.push(["fetch"]);
+        return { outgoingLinks: [] };
+      },
+      createNoteRelation: async () => {
+        calls.push(["create"]);
+        return { id: "new" };
+      },
+      updateNoteRelation: async () => {
+        calls.push(["update"]);
+        return { id: "updated" };
+      }
+    }
+  );
 
-  assert.ok(body.includes("const sourceTabId = String(host.activeTab()?.id || \"\").trim();"));
-  assert.ok(body.includes("const persistedSourceBody = () => {"));
-  assert.ok(body.includes("const savedBodyAlreadyLinked = !inlineInsert && host.hasResolvedLinkToNote(target.id, persistedSourceBody(), scopedLinkNotes);"));
-  assert.ok(body.includes("const verifySavedLink = () => {"));
-  assert.ok(body.includes("host.hasResolvedLinkToNote(target.id, savedBody, scopedLinkNotes);"));
-  assert.ok(!body.includes("if (bodyAlreadyLinked) return true;"));
-  assert.ok(body.includes("const saved = await host.saveActiveNote({ trigger, skipOriginalityCheck: true });"));
-  assert.ok(body.includes("暂未建立正式关系"));
-  assert.ok(body.indexOf("if (!savedBodyAlreadyLinked && !(await saveInsertedBody(\"link-insert\"))) return;") < body.indexOf("await ensureFormalRelation();"));
+  assert.equal(transaction.ok, false);
+  assert.equal(transaction.reason, "missing_rationale");
+  assert.deepEqual(calls, []);
 });
 
 test("inline link picker keyboard handling survives focus leaving the editor host", async () => {
@@ -439,9 +534,11 @@ test("manual link picker remembers the editor selection and scroll position for 
 });
 
 test("link picker empty state stays concise", async () => {
-  const source = await readEditorRelationLinkModelSource();
+  const html = renderEditorRelationLinkCandidateList({ list: [], query: "missing" });
 
-  assert.ok(source.includes('<div class="picker-empty">没有匹配笔记</div>'));
+  assert.match(html, /picker-empty/);
+  assert.match(html, /没有匹配笔记|娌℃湁鍖归厤绗旇/);
+  assert.doesNotMatch(html, /picker-preview|picker-detail-row/);
 });
 
 test("manual link picker resolves path wikilinks to a specific duplicate-title note", () => {

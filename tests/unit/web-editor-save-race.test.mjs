@@ -62,3 +62,32 @@ test("autosave keeps sharing an in-flight save instead of starting another reque
   assert.equal(pane.saveAttempts, 0);
   assert.equal(tab.dirty, true);
 });
+
+test("clearing autosave cancels both interval and idle timeout handles", () => {
+  const pane = Object.assign(Object.create(EditorPane.prototype), {
+    autoSaveTimer: "interval-handle",
+    autoSaveIdleTimer: "idle-handle"
+  });
+  const clearedIntervals = [];
+  const clearedTimeouts = [];
+  const originalClearInterval = globalThis.clearInterval;
+  const originalClearTimeout = globalThis.clearTimeout;
+  globalThis.clearInterval = (handle) => {
+    clearedIntervals.push(handle);
+  };
+  globalThis.clearTimeout = (handle) => {
+    clearedTimeouts.push(handle);
+  };
+
+  try {
+    pane.clearAutoSaveTimer();
+  } finally {
+    globalThis.clearInterval = originalClearInterval;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+
+  assert.deepEqual(clearedIntervals, ["interval-handle"]);
+  assert.deepEqual(clearedTimeouts, ["interval-handle", "idle-handle"]);
+  assert.equal(pane.autoSaveTimer, null);
+  assert.equal(pane.autoSaveIdleTimer, null);
+});

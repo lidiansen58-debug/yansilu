@@ -27,13 +27,10 @@ import {
 import { aiSuggestionStatusLabel } from "./ai-suggestions-model.js";
 import {
   titleFromBody,
-  collectDistillationWarnings,
   composeLiteratureWorkspace,
   composePermanentWorkspace,
   deriveLiteratureSectionLabelsFromTemplate,
   distillationDraftFromForm,
-  distillationNextStepGuide,
-  distillationStatusText,
   literatureTemplateBody,
   normalizeLiteratureSectionLabelCandidates,
   normalizedLiteratureSectionLabels,
@@ -44,8 +41,6 @@ import {
   parseLiteratureWorkspace,
   parsePermanentWorkspace,
   reflectionQuestionsHint,
-  renderDistillationQualityContent,
-  renderDistillationReadinessList,
   selectionDistillationDraft,
   validateLiteratureTemplateSource
 } from "./editor-template-workspace.js";
@@ -95,12 +90,20 @@ import {
 } from "./editor-link-picker.js";
 import { EditorRelationLinkController } from "./editor-relation-link-controller.js";
 import { EditorSemanticRelationsController } from "./editor-semantic-relations-controller.js";
+import { PermanentNoteDistillationController } from "./permanent-note-distillation-controller.js";
+import { PermanentNoteWorkspaceController } from "./permanent-note-workspace-controller.js";
+import {
+  routeEditorRelationClick,
+  routeEditorRelationFocusIn,
+  routeEditorRelationInput,
+  routeEditorRelationKeydown,
+  routeEditorRelationSubmit
+} from "./editor-relation-events.js";
 import {
   excerptFromBody,
   isHiddenRelation,
   isMarkdownWikilinkRelation,
   noteTypeText,
-  normalizeDistillationTemplateVariants,
   normalizeRelationTemplateVariants,
   parseInlineRelationAnnotations,
   relationFollowupSuggestionForDraft,
@@ -112,7 +115,6 @@ import {
   RELATION_CREATE_TYPES,
   relationTypeGuidance,
   relationTypeLabel,
-  renderDistillationTemplateVariantSwitcher,
   renderRelationQualityMeter,
   renderRelationTemplateVariantSwitcher,
   relationCreateTypeOptionsMarkup
@@ -135,9 +137,7 @@ import {
   resetPermanentRelationWorkspaceResult
 } from "./permanent-relation-workspace-model.js";
 import {
-  RELATION_ENTRY_SOURCES,
-  normalizeRelationEntryRoute,
-  relationEntryRouteFromElement
+  RELATION_ENTRY_SOURCES
 } from "./relation-entry-route.js";
 import {
   permanentNoteRelationState,
@@ -226,6 +226,7 @@ export class EditorPane {
     this.suppressLiteratureWorkspaceChange = false;
     this.savingPromise = null;
     this.autoSaveTimer = null;
+    this.autoSaveIdleTimer = null;
     this.wasEditingTitleLine = false;
     this.lastTitleBlurSaveAt = 0;
     this.lastTitleInputAt = 0;
@@ -255,6 +256,8 @@ export class EditorPane {
     this.permanentRelationSearchTimer = null;
     this.editorRelationLinkController = new EditorRelationLinkController(this);
     this.editorSemanticRelationsController = new EditorSemanticRelationsController(this);
+    this.permanentNoteDistillationController = new PermanentNoteDistillationController(this);
+    this.permanentNoteWorkspaceController = new PermanentNoteWorkspaceController(this);
     this.permanentNoteSidebarController = null;
     this.fleetingCleanupDismissedNoteIds = new Set();
     this.noteAiAnalysisByNoteId = new Map();
@@ -270,13 +273,6 @@ export class EditorPane {
       actionNoticeTone: "muted"
     };
     this.noteAiSuggestionsRequestSerial = 0;
-    this.distillationPrefillState = {
-      noteId: "",
-      boundaryDraft: "",
-      draftVariants: [],
-      selectedTemplateVariant: "",
-      rememberedTemplateVariantLabel: ""
-    };
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
@@ -3198,6 +3194,16 @@ export class EditorPane {
     return this.editorSemanticRelationsController;
   }
 
+  permanentNoteDistillation() {
+    if (!this.permanentNoteDistillationController) this.permanentNoteDistillationController = new PermanentNoteDistillationController(this);
+    return this.permanentNoteDistillationController;
+  }
+
+  permanentNoteWorkspace() {
+    if (!this.permanentNoteWorkspaceController) this.permanentNoteWorkspaceController = new PermanentNoteWorkspaceController(this);
+    return this.permanentNoteWorkspaceController;
+  }
+
   renderLinkCandidates(query = "", preferredId = "") {
     this.editorRelationLink().renderCandidates(query, preferredId);
   }
@@ -3645,64 +3651,13 @@ export class EditorPane {
   bindPermanentRelationWorkspaceOverlayEvents(overlay) {
     if (!overlay) return;
     overlay.onclick = (event) => {
-      const modeButton = event.target.closest("[data-permanent-relation-mode]");
-      if (modeButton && !modeButton.hasAttribute("data-permanent-relation-action")) {
-        const mode = String(modeButton.getAttribute("data-permanent-relation-mode") || "").trim();
-        this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
-          ...this.permanentRelationWorkspaceState,
-          mode,
-          selectedTargetNoteId: mode === "manual" ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId
-        }));
-        return;
-      }
-
-      const aiTarget = event.target.closest("[data-permanent-relation-ai-target]");
-      if (aiTarget) {
-        this.choosePermanentRelationAiCandidate(aiTarget.getAttribute("data-permanent-relation-ai-target"));
-        return;
-      }
-
-      const manualTarget = event.target.closest("[data-permanent-relation-manual-target]");
-      if (manualTarget) {
-        this.choosePermanentRelationManualTarget(manualTarget.getAttribute("data-permanent-relation-manual-target"));
-        return;
-      }
-
-      const actionButton = event.target.closest("[data-permanent-relation-action]");
-      if (actionButton) {
-        const action = String(actionButton.getAttribute("data-permanent-relation-action") || "").trim();
-        if (action === "close" || action === "complete") this.closePermanentRelationWorkspace();
-        if (action === "continue") this.continuePermanentRelationWorkspace();
-        if (action === "run-ai") {
-          this.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
-          void this.runPermanentNoteAnalysis();
-        }
-        if (action === "preview-target") {
-          const noteId = actionButton.getAttribute("data-note-id") || "";
-          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
-        }
-        return;
-      }
-
-      const relationAction = event.target.closest("[data-relation-action]");
-      if (relationAction?.dataset?.relationAction === "open-edit") {
-        this.openEditRelationForm(relationAction.dataset.relationId);
-      }
+      routeEditorRelationClick(this, event);
     };
     overlay.oninput = (event) => {
-      const search = event.target.closest("[data-permanent-relation-target-search]");
-      if (search) {
-        this.queuePermanentRelationManualSearch(search);
-        return;
-      }
-      const field = event.target.closest("[data-permanent-relation-field]");
-      if (field) this.updatePermanentRelationWorkspaceField(field.getAttribute("data-permanent-relation-field"), field.value || "");
+      routeEditorRelationInput(this, event);
     };
     overlay.onsubmit = (event) => {
-      const form = event.target.closest("[data-permanent-relation-form]");
-      if (!form) return;
-      event.preventDefault();
-      void this.handlePermanentRelationWorkspaceSubmit(form);
+      routeEditorRelationSubmit(this, event);
     };
   }
 
@@ -5026,123 +4981,12 @@ export class EditorPane {
     return Boolean(active.closest?.("input, textarea, select, [contenteditable='true']"));
   }
 
-  permanentWorkspaceTabMeta(note) {
-    const relationState = this.semanticRelationsState;
-    const explicitRelationCount = this.currentExplicitRelationCount();
-    const viewpoint = permanentNoteViewpointState(note);
-    const thesis = viewpoint.thesis;
-    const summary = viewpoint.summary;
-    const confirmed = viewpoint.confirmed;
-    return {
-      relations: relationState === "error" ? "读取失败" : explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待建立",
-      viewpoint: !confirmed || !thesis || summary.length < 3 ? "待完成" : "已确认",
-      writing: confirmed && explicitRelationCount > 0 ? "可推进" : "先补齐"
-    };
-  }
-
-  refreshPermanentWorkspaceTabs(note) {
-    const workspace = this.els.result?.querySelector?.("[data-permanent-note-workspace]");
-    if (!workspace || !note?.id) return false;
-    if (String(workspace.getAttribute("data-note-id") || "").trim() !== note.id) return false;
-    const meta = this.permanentWorkspaceTabMeta(note);
-    workspace.querySelectorAll("[data-permanent-workspace-tab]").forEach((button) => {
-      const key = String(button.getAttribute("data-permanent-workspace-tab") || "").trim();
-      const label = button.querySelector?.("small");
-      if (label && Object.prototype.hasOwnProperty.call(meta, key)) label.textContent = meta[key];
-    });
-    return true;
-  }
-
-  refreshPermanentWorkspaceRelationAssist(note, overview = {}) {
-    const section = this.els.result?.querySelector?.("[data-note-relation-assist-section]");
-    if (!section || section.getAttribute("data-note-id") !== note?.id) return false;
-    section.outerHTML = this.renderPermanentNoteRelationAssistSection(note, overview);
-    return true;
-  }
-
   refreshPermanentWorkspaceSnapshot(note, tab = this.activeTab(), overview = null) {
-    if (!note?.id || !tab) return false;
-    const nextOverview =
-      overview ||
-      this.buildMainPathOverviewV2({
-        ...this.buildLocalRelationSignals(note, tab),
-        relations: this.currentSemanticRelations,
-        relationState: this.semanticRelationsState
-      });
-    this.refreshMainPathSection(note, nextOverview);
-    this.refreshPermanentWorkspaceRelationAssist(note, nextOverview);
-    this.refreshPermanentWorkspaceTabs(note);
-    return true;
+    return this.permanentNoteWorkspace().refreshSnapshot(note, tab, overview);
   }
 
   renderDeferredNoteWorkspace(note, tab) {
-    const relationState = this.semanticRelationsState;
-    const explicitRelationCount = this.currentExplicitRelationCount();
-    const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
-    const overview = this.buildMainPathOverviewV2({
-      forward,
-      backward,
-      tagRelated,
-      relations: this.currentSemanticRelations,
-      relationState
-    });
-    const architecture = permanentNoteWorkspaceArchitecture({
-      note,
-      relationState,
-      explicitRelationCount,
-      thinExplicitRelationCount: overview.thinExplicitRelationCount,
-      wikilinkCount: overview.wikilinkCount,
-      tagRelatedCount: overview.tagRelatedCount
-    });
-    const activeTab = architecture.activeTab;
-    const needsViewpoint = architecture.viewpoint.needsViewpoint;
-    const confirmed = architecture.viewpoint.confirmed;
-    const content = `
-      ${this.renderPermanentNoteMainPathSectionV2(note, overview)}
-      <div class="permanent-workspace-tabs" role="tablist" aria-label="永久笔记整理步骤">
-        ${[
-          ["relations", "关联", relationState === "error" ? "读取失败" : explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待建立"],
-          ["viewpoint", "观点提纯", needsViewpoint ? "待完成" : "已确认"],
-          ["writing", "写作准备", confirmed && explicitRelationCount > 0 ? "可推进" : "先补齐"]
-        ]
-          .map(([key, label, meta]) => {
-            const active = key === activeTab;
-            return `<button class="permanent-workspace-tab ${active ? "is-active" : ""}" type="button" role="tab" aria-selected="${active ? "true" : "false"}" data-permanent-workspace-tab="${escapeHtml(key)}">
-              <span>${escapeHtml(label)}</span>
-              <small>${escapeHtml(meta)}</small>
-            </button>`;
-          })
-          .join("")}
-      </div>
-      <div class="permanent-workspace-pane ${activeTab === "viewpoint" ? "is-active" : ""}" data-permanent-workspace-pane="viewpoint"${activeTab === "viewpoint" ? "" : " hidden"}>
-        ${this.renderPermanentNoteDistillationSection(note)}
-      </div>
-      <div class="permanent-workspace-pane ${activeTab === "relations" ? "is-active" : ""}" data-permanent-workspace-pane="relations"${activeTab === "relations" ? "" : " hidden"}>
-        ${this.renderPermanentNoteRelationAssistSection(note, overview)}
-        ${this.renderInlineDraftRelationSection(note, tab)}
-        ${this.renderCurrentRelationSection(note.id, {
-          relations: this.currentSemanticRelations,
-          relationState: this.semanticRelationsState
-        })}
-      </div>
-      <div class="permanent-workspace-pane ${activeTab === "writing" ? "is-active" : ""}" data-permanent-workspace-pane="writing"${activeTab === "writing" ? "" : " hidden"}>
-        ${this.renderPermanentNoteWritingPrepSection(note)}
-      </div>
-    `.trim();
-    if (!content) return "";
-    return `
-      <section class="inspector-deferred-workspace permanent-note-workspace" data-deferred-workspace data-permanent-note-workspace data-note-id="${escapeHtml(note.id)}">
-        <div class="inspector-section-head permanent-workspace-head">
-          <div>
-            <div class="inspector-section-title">永久笔记整理</div>
-            <div class="inspector-section-note">关联、观点提纯和写作准备分开处理；这里只给一个主动作。</div>
-          </div>
-        </div>
-        <div class="inspector-deferred-body">
-          ${content}
-        </div>
-      </section>
-    `;
+    return this.permanentNoteWorkspace().renderDeferredWorkspace(note, tab);
   }
 
   renderPermanentNoteRelationAssistSection(note, overview = {}) {
@@ -5206,142 +5050,27 @@ export class EditorPane {
   }
 
   setDistillationPrefill(noteId = "", options = {}) {
-    const cleanNoteId = String(noteId || "").trim();
-    const preferredTemplateVariant = cleanNoteId
-      ? this.readTemplateVariantPreference("distillation", options?.draftVariants || [], options?.selectedTemplateVariant || "")
-      : "";
-    const rememberedTemplateVariant = cleanNoteId ? this.templateVariantPreferenceMeta("distillation", options?.draftVariants || []) : { key: "", label: "" };
-    const normalized = normalizeDistillationTemplateVariants(options?.draftVariants || [], preferredTemplateVariant);
-    this.distillationPrefillState = {
-      noteId: cleanNoteId,
-      boundaryDraft: cleanNoteId ? String(options?.boundaryDraft || "").trim() : "",
-      draftVariants: cleanNoteId ? normalized.items : [],
-      selectedTemplateVariant: cleanNoteId ? normalized.selectedKey : "",
-      rememberedTemplateVariantLabel:
-        cleanNoteId && rememberedTemplateVariant.key && rememberedTemplateVariant.key === normalized.selectedKey ? rememberedTemplateVariant.label : ""
-    };
+    return this.permanentNoteDistillation().setPrefill(noteId, options);
   }
 
   currentDistillationPrefill(noteId = "") {
-    const cleanNoteId = String(noteId || "").trim();
-    if (!cleanNoteId || this.distillationPrefillState.noteId !== cleanNoteId) {
-      return {
-        noteId: cleanNoteId,
-        boundaryDraft: "",
-        draftVariants: [],
-        selectedTemplateVariant: "",
-        rememberedTemplateVariantLabel: ""
-      };
-    }
-    return this.distillationPrefillState;
+    return this.permanentNoteDistillation().currentPrefill(noteId);
   }
 
   activatePermanentWorkspaceTab(tab = "viewpoint") {
-    const cleanTab = ["viewpoint", "relations", "writing"].includes(String(tab || "").trim()) ? String(tab || "").trim() : "viewpoint";
-    const workspace = this.els.result?.querySelector?.("[data-permanent-note-workspace]");
-    if (!workspace) return false;
-    workspace.querySelectorAll("[data-permanent-workspace-tab]").forEach((button) => {
-      const active = button.getAttribute("data-permanent-workspace-tab") === cleanTab;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    workspace.querySelectorAll("[data-permanent-workspace-pane]").forEach((pane) => {
-      const active = pane.getAttribute("data-permanent-workspace-pane") === cleanTab;
-      pane.classList.toggle("is-active", active);
-      pane.hidden = !active;
-    });
-    return true;
+    return this.permanentNoteWorkspace().activateTab(tab);
   }
 
   showDistillationTemplateMergeChoice(picker, button) {
-    const choiceBox = picker?.querySelector?.("[data-distillation-template-merge-choice]");
-    if (!choiceBox || !button) return;
-    const label = String(button.textContent || "").trim();
-    choiceBox.dataset.pendingVariantKey = String(button.dataset.distillationTemplateVariant || "").trim();
-    choiceBox.dataset.pendingVariantLabel = label;
-    choiceBox.dataset.pendingBoundaryDraft = String(button.dataset.boundaryDraft || "");
-    choiceBox.hidden = false;
-    choiceBox.innerHTML = `
-      <p>你已经改过这段边界草稿了。切到“${escapeHtml(label)}”时，要直接替换，还是先追加成备选？</p>
-      <div class="semantic-template-merge-actions">
-        <button class="mini-btn primary" type="button" data-distillation-template-merge-action="replace">替换当前草稿</button>
-        <button class="mini-btn" type="button" data-distillation-template-merge-action="append">追加为备选</button>
-        <button class="mini-btn is-ghost" type="button" data-distillation-template-merge-action="cancel">先不切</button>
-      </div>
-    `;
+    return this.permanentNoteDistillation().showTemplateMergeChoice(picker, button);
   }
 
   commitDistillationTemplateVariant(choiceBox, action = "replace") {
-    if (!choiceBox) return;
-    if (action === "cancel") {
-      this.clearTemplateMergeChoice(choiceBox);
-      return;
-    }
-    const picker = choiceBox.closest("[data-distillation-template-picker]");
-    const form = picker?.closest?.("[data-note-distillation-form]");
-    if (!picker || !form) return;
-    const cleanKey = String(choiceBox.dataset.pendingVariantKey || "").trim();
-    const label = String(choiceBox.dataset.pendingVariantLabel || "").trim();
-    const boundaryDraft = String(choiceBox.dataset.pendingBoundaryDraft || "");
-    const targetButton =
-      Array.from(picker.querySelectorAll("[data-distillation-template-variant]")).find(
-        (item) => String(item.dataset.distillationTemplateVariant || "").trim() === cleanKey
-      ) || picker.querySelector("[data-distillation-template-variant]");
-    if (!targetButton) {
-      this.clearTemplateMergeChoice(choiceBox);
-      return;
-    }
-    const boundary = form.querySelector('textarea[name="boundaryOrCounterpoint"]');
-    if (boundary) {
-      boundary.value =
-        action === "append"
-          ? this.appendTemplateDraft(boundary.value, boundaryDraft, label, "备选边界视角")
-          : boundaryDraft;
-    }
-    this.toggleTemplateVariantButtons(form.querySelectorAll("[data-distillation-template-variant]"), targetButton);
-    const noteId = String(form.closest("[data-note-distillation-section]")?.getAttribute("data-note-id") || this.activeNote()?.id || "").trim();
-    if (noteId && this.distillationPrefillState.noteId === noteId) {
-      this.distillationPrefillState.selectedTemplateVariant = cleanKey;
-      this.distillationPrefillState.boundaryDraft = boundary?.value || "";
-    }
-    this.writeTemplateVariantPreference("distillation", cleanKey);
-    this.clearTemplateMergeChoice(choiceBox);
-    this.refreshDistillationQuality(form);
-    boundary?.focus?.();
+    return this.permanentNoteDistillation().commitTemplateVariant(choiceBox, action);
   }
 
   applyDistillationTemplateVariant(button) {
-    const cleanKey = String(button?.dataset?.distillationTemplateVariant || "").trim();
-    if (!cleanKey) return;
-    const form = button.closest("[data-note-distillation-form]");
-    if (!form) return;
-    const picker = button.closest("[data-distillation-template-picker]");
-    const activeButton = form.querySelector("[data-distillation-template-variant].is-active");
-    if (activeButton === button) {
-      this.clearTemplateMergeChoice(picker?.querySelector?.("[data-distillation-template-merge-choice]"));
-      return;
-    }
-    const boundary = form.querySelector('textarea[name="boundaryOrCounterpoint"]');
-    const shouldConfirm = this.templateDraftHasConflict(
-      boundary?.value || "",
-      activeButton?.dataset?.boundaryDraft || "",
-      button.dataset.boundaryDraft || ""
-    );
-    if (shouldConfirm) {
-      this.showDistillationTemplateMergeChoice(picker, button);
-      return;
-    }
-    if (boundary) boundary.value = String(button.dataset.boundaryDraft || "");
-    this.toggleTemplateVariantButtons(form.querySelectorAll("[data-distillation-template-variant]"), button);
-    const noteId = String(form.closest("[data-note-distillation-section]")?.getAttribute("data-note-id") || this.activeNote()?.id || "").trim();
-    if (noteId && this.distillationPrefillState.noteId === noteId) {
-      this.distillationPrefillState.selectedTemplateVariant = cleanKey;
-      this.distillationPrefillState.boundaryDraft = boundary?.value || "";
-    }
-    this.writeTemplateVariantPreference("distillation", cleanKey);
-    this.clearTemplateMergeChoice(picker?.querySelector?.("[data-distillation-template-merge-choice]"));
-    this.refreshDistillationQuality(form);
-    boundary?.focus?.();
+    return this.permanentNoteDistillation().applyTemplateVariant(button);
   }
 
   noteNeedsRelationNetworkPrompt(note) {
@@ -5370,138 +5099,15 @@ export class EditorPane {
   }
 
   focusTemporaryIsolatedBoundary() {
-    const sectionSelector = "[data-note-distillation-section]";
-    const focusSelector = '[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]';
-    const applyDraft = () => {
-      const section = this.els.result?.querySelector?.(sectionSelector);
-      const textarea = section?.querySelector?.(focusSelector);
-      if (!textarea) return false;
-      if (!String(textarea.value || "").trim()) {
-        textarea.value = "暂时独立：";
-        textarea.dispatchEvent(new Event("input", { bubbles: true }));
-        const form = textarea.closest("[data-note-distillation-form]");
-        if (form) this.refreshDistillationQuality(form);
-      }
-      textarea.focus?.();
-      return true;
-    };
-    this.jumpToInspectorSection(sectionSelector, { focus: true, focusSelector });
-    if (!applyDraft()) window.setTimeout(applyDraft, 40);
-    this.onStatus("已定位到边界说明：写明为什么暂时不建立关系。", "ok");
+    return this.permanentNoteDistillation().focusTemporaryIsolatedBoundary();
   }
 
   renderPermanentNoteDistillationSection(note) {
-    const noteType = this.resolvedNoteType(note);
-    if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
-    const thesis = String(note.thesis || "").trim();
-    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [];
-    const summaryLines = [0, 1, 2].map((idx) => String(summary[idx] || "").trim());
-    const distillationPrefill = this.currentDistillationPrefill(note.id);
-    const distillationVariants = normalizeDistillationTemplateVariants(
-      distillationPrefill.draftVariants || [],
-      distillationPrefill.selectedTemplateVariant || ""
-    );
-    const rememberedTemplateVariantLabel = String(distillationPrefill.rememberedTemplateVariantLabel || "").trim();
-    const boundaryOrCounterpoint = String(note.boundaryOrCounterpoint || "").trim() || String(distillationPrefill.boundaryDraft || "").trim();
-    const qualityWarnings = collectDistillationWarnings({
-      title: note.title,
-      body: note.body,
-      thesis,
-      threeLineSummary: summaryLines,
-      boundaryOrCounterpoint
-    });
-    const filledCount = (thesis ? 1 : 0) + summaryLines.filter(Boolean).length;
-    const statusLabel = String(note.distillationStatus || "").trim() || (filledCount ? "draft" : "missing");
-    const statusValue = ["missing", "draft", "confirmed"].includes(statusLabel) ? statusLabel : filledCount ? "draft" : "missing";
-    const nextGuide = distillationNextStepGuide({
-      ...note,
-      thesis,
-      threeLineSummary: summaryLines,
-      boundaryOrCounterpoint,
-      distillationStatus: statusValue
-    });
-    return `
-      <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
-          <div class="inspector-section-head">
-            <div>
-              <div class="inspector-section-title">观点提纯</div>
-              <div class="inspector-section-note">把笔记先压成可确认的判断，再进入图谱连接和写作准备；AI 候选只作为待审建议。</div>
-            </div>
-            <span class="inspector-chip">${escapeHtml(distillationStatusText(statusValue))}</span>
-          </div>
-        <form class="semantic-relation-form" data-note-distillation-form>
-          <div class="distillation-next-card" data-note-distillation-next>
-            <div>
-              <span>当前下一步</span>
-              <strong>${escapeHtml(nextGuide.title)}</strong>
-              <p>${escapeHtml(nextGuide.body)}</p>
-            </div>
-            <button class="mini-btn primary" type="button" data-note-distillation-focus="${escapeHtml(nextGuide.key)}">${escapeHtml(nextGuide.actionLabel)}</button>
-          </div>
-          ${renderDistillationReadinessList({
-            thesis,
-            summaryLines,
-            boundaryOrCounterpoint,
-            statusValue,
-            qualityWarnings
-          })}
-          ${this.renderRelationNetworkPrompt(note)}
-          <label>
-            一句话判断
-            <span class="distillation-field-hint">写成“我认为 X，因为 Y”，而不是把标题重复一遍。</span>
-            <textarea name="thesis" rows="3" placeholder="这条永久笔记到底主张什么？">${escapeHtml(thesis)}</textarea>
-          </label>
-          <label>
-            三句话压缩
-            <span class="distillation-field-hint">第一句说观点，第二句说理由，第三句说用途或问题方向。</span>
-            <textarea name="summary1" rows="2" placeholder="1. 这条观点在说什么">${escapeHtml(summaryLines[0])}</textarea>
-          </label>
-          <label>
-            <span class="sr-only">三句话压缩第二句</span>
-            <textarea name="summary2" rows="2" placeholder="2. 为什么它成立或重要">${escapeHtml(summaryLines[1])}</textarea>
-          </label>
-          <label>
-            <span class="sr-only">三句话压缩第三句</span>
-            <textarea name="summary3" rows="2" placeholder="3. 它服务于哪个问题或写作方向">${escapeHtml(summaryLines[2])}</textarea>
-          </label>
-          ${renderDistillationTemplateVariantSwitcher(
-            distillationVariants.items,
-            distillationVariants.selectedKey,
-            rememberedTemplateVariantLabel
-          )}
-          <label>
-            边界 / 反方 / 不适用条件
-            <span class="distillation-field-hint">补一条会让这条判断失效的条件，图谱里的冲突和写作反驳会更稳。</span>
-            <textarea name="boundaryOrCounterpoint" rows="3" placeholder="这条判断在哪些条件下不成立？最需要防的反例或反方是什么？">${escapeHtml(boundaryOrCounterpoint)}</textarea>
-          </label>
-          <label>
-            观点状态
-            <select name="distillationStatus">
-              <option value="missing"${statusValue === "missing" ? " selected" : ""}>待提纯</option>
-              <option value="draft"${statusValue === "draft" ? " selected" : ""}>待确认</option>
-              <option value="confirmed"${statusValue === "confirmed" ? " selected" : ""}>已确认</option>
-            </select>
-          </label>
-          <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit">保存草稿</button>
-            <button class="mini-btn" type="button" data-note-distillation-confirm>确认观点</button>
-          </div>
-          <div class="semantic-relation-group" data-note-distillation-quality>
-            <div class="semantic-relation-group-head"><strong>质量提示</strong><span>${escapeHtml(qualityWarnings.length ? `${qualityWarnings.length} 项` : "OK")}</span></div>
-            ${renderDistillationQualityContent({
-              title: note.title,
-              body: note.body,
-              thesis,
-              threeLineSummary: summaryLines,
-              boundaryOrCounterpoint
-            })}
-          </div>
-          <div data-note-embedded-ai-workspace data-note-id="${escapeHtml(note.id)}">
-            ${renderNoteEmbeddedAiWorkspace(this.noteAiSuggestionsStateForNote(note.id))}
-          </div>
-        </form>
-      </section>
-    `;
+    return this.permanentNoteDistillation().renderSection(note);
+  }
+
+  renderNoteEmbeddedAiWorkspaceForNote(noteId = "") {
+    return renderNoteEmbeddedAiWorkspace(this.noteAiSuggestionsStateForNote(noteId));
   }
 
   noteAiSuggestionsStateForNote(noteId = "") {
@@ -5765,106 +5371,15 @@ export class EditorPane {
   }
 
   refreshDistillationQuality(form) {
-    const note = this.activeNote();
-    const mount = form?.querySelector?.("[data-note-distillation-quality]");
-    if (!note || !mount) return;
-    const draft = distillationDraftFromForm(form, note);
-    const warnings = collectDistillationWarnings(draft);
-    mount.innerHTML = `
-      <div class="semantic-relation-group-head"><strong>质量提示</strong><span>${escapeHtml(warnings.length || "OK")}</span></div>
-      ${renderDistillationQualityContent(draft)}
-    `;
+    return this.permanentNoteDistillation().refreshQuality(form);
   }
 
   async handleDistillationForm(form) {
-    const note = this.activeNote();
-    const noteId = String(note?.id || "").trim();
-    if (!noteId) return;
-    const noteType = this.resolvedNoteType(note);
-    if (noteType !== "permanent" && noteType !== "original") {
-      this.onStatus("观点提纯面板只支持永久笔记", "warn");
-      return;
-    }
-    const thesis = String(form.querySelector('[name="thesis"]')?.value || "").trim();
-    const threeLineSummary = [1, 2, 3]
-      .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
-      .filter(Boolean);
-    const boundaryOrCounterpoint = String(form.querySelector('[name="boundaryOrCounterpoint"]')?.value || "").trim();
-    const selectedStatus = String(form.querySelector('[name="distillationStatus"]')?.value || "").trim();
-    const distillationStatus = ["missing", "draft", "confirmed"].includes(selectedStatus)
-      ? selectedStatus
-      : thesis || threeLineSummary.length
-        ? "draft"
-        : "missing";
-    const savedEditor = await this.autoSaveActiveNote("distillation");
-    if (savedEditor === false) return;
-    if (!this.isActiveNoteId(noteId)) return;
-    const saved = await this.onStateChange("save-note-distillation", {
-      noteId,
-      thesis,
-      threeLineSummary,
-      boundaryOrCounterpoint,
-      distillationStatus,
-      authorship: distillationStatus === "confirmed" ? { user_confirmed: true, ai_assisted: false } : undefined
-    });
-    if (!saved) return;
-    if (!this.isActiveNoteId(noteId)) return;
-    note.thesis = thesis;
-      note.threeLineSummary = threeLineSummary;
-      note.boundaryOrCounterpoint = boundaryOrCounterpoint;
-      note.distillationStatus = distillationStatus;
-      this.setDistillationPrefill(noteId, { boundaryDraft: "" });
-      if (distillationStatus === "confirmed") {
-        note.authorship = { user_confirmed: true, ai_assisted: false };
-      }
-    this.renderThinkingStatus();
-    this.renderRelated();
+    return this.permanentNoteDistillation().handleForm(form);
   }
 
   async confirmDistillation() {
-    const note = this.activeNote();
-    const noteId = String(note?.id || "").trim();
-    if (!noteId) return;
-    const noteType = this.resolvedNoteType(note);
-    if (noteType !== "permanent" && noteType !== "original") {
-      this.onStatus("观点提纯面板只支持永久笔记", "warn");
-      return;
-    }
-    const form = this.els.result?.querySelector?.("[data-note-distillation-form]");
-    if (form) {
-      const thesis = String(form.querySelector('[name="thesis"]')?.value || "").trim();
-      const threeLineSummary = [1, 2, 3]
-        .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
-        .filter(Boolean);
-      const boundaryOrCounterpoint = String(form.querySelector('[name="boundaryOrCounterpoint"]')?.value || "").trim();
-      if (!thesis || threeLineSummary.length !== 3) {
-        this.onStatus("确认前需要补全一句话判断和三句话压缩", "warn");
-        return;
-      }
-      const savedEditor = await this.autoSaveActiveNote("distillation-confirm");
-      if (savedEditor === false) return;
-      if (!this.isActiveNoteId(noteId)) return;
-      const saved = await this.onStateChange("save-note-distillation", {
-        noteId,
-        thesis,
-        threeLineSummary,
-        boundaryOrCounterpoint,
-        distillationStatus: "draft"
-      });
-      if (!saved) return;
-      if (!this.isActiveNoteId(noteId)) return;
-      note.thesis = thesis;
-      note.threeLineSummary = threeLineSummary;
-      note.boundaryOrCounterpoint = boundaryOrCounterpoint;
-      this.setDistillationPrefill(noteId, { boundaryDraft: "" });
-    }
-    const confirmed = await this.onStateChange("confirm-note-distillation", { noteId });
-    if (!confirmed) return;
-    if (!this.isActiveNoteId(noteId)) return;
-    note.distillationStatus = "confirmed";
-    note.authorship = { ...(note.authorship || {}), user_confirmed: true };
-    this.renderThinkingStatus();
-    this.renderRelated();
+    return this.permanentNoteDistillation().confirm();
   }
 
   async refreshRelationTargetSearch(query = "") {
@@ -5928,6 +5443,7 @@ export class EditorPane {
       this.semanticRelationsState = "idle";
       this.resetRelationPanelState("");
       this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
+      this.permanentNoteWorkspace().reset("");
       this.syncPermanentRelationWorkspaceOverlay();
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
       return;
@@ -5945,6 +5461,7 @@ export class EditorPane {
       this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState(isPermanentNote ? note.id : "");
       this.syncPermanentRelationWorkspaceOverlay();
     }
+    if (!isPermanentNote) this.permanentNoteWorkspace().reset("");
 
     const renderNoteItem = (n, badgeText = "") => `
       <button class="related-item" data-preview-note="${n.id}">
@@ -6534,126 +6051,14 @@ export class EditorPane {
         );
         return;
       }
-      const relationTemplateMergeAction = e.target.closest("[data-relation-template-merge-action]");
-      if (relationTemplateMergeAction) {
-        this.commitRelationTemplateVariant(
-          relationTemplateMergeAction.closest("[data-relation-template-merge-choice]"),
-          relationTemplateMergeAction.getAttribute("data-relation-template-merge-action") || "replace"
-        );
-        return;
-      }
       const distillationTemplateButton = e.target.closest("[data-distillation-template-variant]");
       if (distillationTemplateButton) {
         this.applyDistillationTemplateVariant(distillationTemplateButton);
         return;
       }
-      const templateVariantButton = e.target.closest("[data-relation-template-variant]");
-      if (templateVariantButton) {
-        this.applyRelationTemplateVariant(templateVariantButton);
+      if (routeEditorRelationClick(this, e)) {
         return;
       }
-      const permanentRelationMode = e.target.closest("[data-permanent-relation-mode]");
-      if (permanentRelationMode && !permanentRelationMode.hasAttribute("data-permanent-relation-action")) {
-        const mode = String(permanentRelationMode.getAttribute("data-permanent-relation-mode") || "").trim();
-        this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
-          ...this.permanentRelationWorkspaceState,
-          mode,
-          selectedTargetNoteId: mode === "manual" ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId
-        }));
-        return;
-      }
-      const permanentRelationAiTarget = e.target.closest("[data-permanent-relation-ai-target]");
-      if (permanentRelationAiTarget) {
-        this.choosePermanentRelationAiCandidate(permanentRelationAiTarget.getAttribute("data-permanent-relation-ai-target"));
-        return;
-      }
-      const permanentRelationManualTarget = e.target.closest("[data-permanent-relation-manual-target]");
-      if (permanentRelationManualTarget) {
-        this.choosePermanentRelationManualTarget(permanentRelationManualTarget.getAttribute("data-permanent-relation-manual-target"));
-        return;
-      }
-      const permanentRelationAction = e.target.closest("[data-permanent-relation-action]");
-      if (permanentRelationAction) {
-        const action = String(permanentRelationAction.getAttribute("data-permanent-relation-action") || "").trim();
-        if (action === "open") {
-          this.openPermanentRelationWorkspace(relationEntryRouteFromElement(permanentRelationAction, {
-            source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-            noteId: this.activeNote()?.id || ""
-          }));
-          return;
-        }
-        if (action === "close" || action === "complete") {
-          this.closePermanentRelationWorkspace();
-          return;
-        }
-        if (action === "continue") {
-          this.continuePermanentRelationWorkspace();
-          return;
-        }
-        if (action === "run-ai") {
-          this.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
-          void this.runPermanentNoteAnalysis();
-          return;
-        }
-        if (action === "preview-target") {
-          const noteId = permanentRelationAction.getAttribute("data-note-id") || "";
-          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
-          return;
-        }
-      }
-      const relationTargetChoice = e.target.closest("[data-relation-target-choice]");
-      if (relationTargetChoice) {
-        const form = relationTargetChoice.closest("[data-create-relation-form]");
-        this.applyRelationTargetChoice(
-          form,
-          relationTargetChoice.dataset.noteId || "",
-          relationTargetChoice.dataset.noteTitle || ""
-        );
-        return;
-      }
-      const relationAction = e.target.closest("[data-relation-action]");
-      if (relationAction) {
-        const action = relationAction.dataset.relationAction;
-        if (action === "open-create") {
-          this.openPermanentRelationWorkspace({
-            source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-            mode: "manual"
-          });
-          return;
-        }
-        if (action === "open-followup-reason") {
-          const relationId = relationAction.dataset.relationId || this.relationFollowupSuggestion?.relationId || "";
-          this.openEditRelationForm(relationId, {
-            entryHint: "这条关系已经建立。现在补一句更具体的理由，后面写作时会更容易复用。"
-          });
-          window.setTimeout(() => {
-            this.jumpToInspectorSection("[data-edit-relation-form]", {
-              focus: true,
-              focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
-            });
-          }, 40);
-          this.clearRelationFollowupSuggestion();
-          return;
-        }
-        if (action === "dismiss-followup") {
-          this.clearRelationFollowupSuggestion();
-          this.renderRelated();
-          return;
-        }
-        if (action === "cancel-create") {
-          this.resetRelationPanelState();
-          this.renderRelated();
-        }
-        if (action === "open-edit") this.openEditRelationForm(relationAction.dataset.relationId);
-        if (action === "cancel-edit") {
-          this.resetRelationPanelState();
-          this.renderRelated();
-        }
-        if (action === "delete") void this.deleteSemanticRelation(relationAction.dataset.relationId);
-        if (action === "promote-inline") void this.promoteInlineDraftRelation(relationAction.dataset.inlineRelationIndex);
-        return;
-      }
-
       const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");
       if (aiAnalysisButton) {
         this.activatePermanentWorkspaceTab("relations");
@@ -6818,70 +6223,15 @@ export class EditorPane {
         if (form) this.refreshDistillationQuality(form);
         return;
       }
-      const targetSearch = e.target.closest("[data-relation-target-search]");
-      if (targetSearch) {
-        this.queueRelationTargetSearch(targetSearch);
+      if (routeEditorRelationInput(this, e)) {
         return;
-      }
-      const permanentRelationSearch = e.target.closest("[data-permanent-relation-target-search]");
-      if (permanentRelationSearch) {
-        this.queuePermanentRelationManualSearch(permanentRelationSearch);
-        return;
-      }
-      const permanentRelationField = e.target.closest("[data-permanent-relation-field]");
-      if (permanentRelationField) {
-        this.updatePermanentRelationWorkspaceField(
-          permanentRelationField.getAttribute("data-permanent-relation-field"),
-          permanentRelationField.value || ""
-        );
-        return;
-      }
-      const relationTextInput = e.target.closest('textarea[name="rationale"], textarea[name="insightQuestion"]');
-      if (relationTextInput) {
-        const form = relationTextInput.closest("[data-create-relation-form], [data-edit-relation-form]");
-        if (form) this.refreshRelationQualityMeter(form);
       }
     });
     this.els.result.addEventListener("focusin", (e) => {
-      const targetSearch = e.target.closest("[data-relation-target-search]");
-      if (!targetSearch) return;
-      const form = targetSearch.closest("[data-create-relation-form]");
-      if (!form) return;
-      this.openRelationTargetList(form);
+      routeEditorRelationFocusIn(this, e);
     });
     this.els.result.addEventListener("keydown", (e) => {
-      const targetSearch = e.target.closest("[data-relation-target-search]");
-      if (!targetSearch) return;
-      const form = targetSearch.closest("[data-create-relation-form]");
-      if (!form) return;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        this.moveRelationTargetChoice(form, 1);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        this.moveRelationTargetChoice(form, -1);
-        return;
-      }
-      if (e.key === "Enter") {
-        const buttons = this.visibleRelationTargetChoices(form);
-        if (!buttons.length) return;
-        e.preventDefault();
-        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
-        const current = buttons.find((button) => String(button.dataset.noteId || "").trim() === String(hiddenTargetId?.value || "").trim()) || buttons[0];
-        if (current) {
-          this.applyRelationTargetChoice(form, current.dataset.noteId || "", current.dataset.noteTitle || "");
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
-        const selectedTitle = String(hiddenTargetId?.dataset?.targetTitle || "").trim();
-        if (selectedTitle) targetSearch.value = selectedTitle;
-        this.closeRelationTargetList(form);
-      }
+      routeEditorRelationKeydown(this, e);
     });
     this.els.result.addEventListener("submit", (e) => {
       const distillationForm = e.target.closest("[data-note-distillation-form]");
@@ -6890,17 +6240,7 @@ export class EditorPane {
         void this.handleDistillationForm(distillationForm);
         return;
       }
-      const permanentRelationForm = e.target.closest("[data-permanent-relation-form]");
-      if (permanentRelationForm) {
-        e.preventDefault();
-        void this.handlePermanentRelationWorkspaceSubmit(permanentRelationForm);
-        return;
-      }
-      const form = e.target.closest("[data-create-relation-form], [data-edit-relation-form]");
-      if (!form) return;
-      e.preventDefault();
-      if (form.matches("[data-create-relation-form]")) void this.handleCreateRelationForm(form);
-      if (form.matches("[data-edit-relation-form]")) void this.handleEditRelationForm(form);
+      if (routeEditorRelationSubmit(this, e)) return;
     });
     this.els.preview?.addEventListener("click", (e) => {
       const copy = e.target.closest("[data-preview-copy-code]");
