@@ -2,6 +2,10 @@ import {
   isHiddenSemanticRelation,
   isMarkdownWikilinkSemanticRelation
 } from "./writing-readiness.js";
+import {
+  relationWorkspaceExistingEdge,
+  relationWorkspaceNextTargetCandidate
+} from "./relation-workspace-shared.js";
 
 export const PERMANENT_RELATION_WORKSPACE_MODES = new Set(["ai", "manual"]);
 
@@ -132,14 +136,15 @@ export function permanentRelationWorkspaceExistingLinks(relations = null) {
 }
 
 export function permanentRelationWorkspaceExistingLink(relations = null, sourceNoteId = "", targetNoteId = "") {
-  const sourceId = cleanId(sourceNoteId);
-  const targetId = cleanId(targetNoteId);
-  if (!sourceId || !targetId) return null;
-  return permanentRelationWorkspaceExistingLinks(relations).find((link) => {
-    const from = cleanId(link?.fromNoteId);
-    const to = cleanId(link?.toNoteId);
-    return (from === sourceId && to === targetId) || (from === targetId && to === sourceId);
-  }) || null;
+  return relationWorkspaceExistingEdge(permanentRelationWorkspaceExistingLinks(relations), sourceNoteId, targetNoteId);
+}
+
+export function permanentRelationWorkspaceNextAiCandidate(aiCandidates = [], relations = null, sourceNoteId = "", excludeTargetIds = []) {
+  return relationWorkspaceNextTargetCandidate(aiCandidates, {
+    sourceNoteId,
+    edges: permanentRelationWorkspaceExistingLinks(relations),
+    excludeTargetIds
+  });
 }
 
 export function permanentRelationWorkspaceSelectedTarget({

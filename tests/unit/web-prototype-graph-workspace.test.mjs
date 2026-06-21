@@ -62,6 +62,16 @@ test("graph relation workspace renders saved relations and theme action metadata
   assert.doesNotMatch(html, /data-graph-create-theme-index[^>]* disabled/);
 });
 
+test("graph relation workspace reuses shared relation edge helpers", async () => {
+  const source = await import("node:fs/promises").then((fs) =>
+    fs.readFile(new URL("../../apps/web/src/prototype-graph-workspace.js", import.meta.url), "utf8")
+  );
+
+  assert.match(source, /from "\.\/relation-workspace-shared\.js"/);
+  assert.match(source, /return relationWorkspaceOtherEndpoint\(edge, noteId\)/);
+  assert.match(source, /relationWorkspaceDirectEdges\(cleanNoteId, edges/);
+});
+
 test("graph theme workspace disables creation until enough note ids exist", () => {
   const disabled = renderGraphThemeIndexWorkspace(["a", "b"], { deps });
   const enabled = renderGraphThemeIndexWorkspace(["a", "b", "c"], { deps, tone: "ready" });

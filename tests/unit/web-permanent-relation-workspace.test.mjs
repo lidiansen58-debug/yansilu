@@ -7,7 +7,8 @@ import {
   normalizePermanentRelationAiCandidates,
   normalizePermanentRelationWorkspaceState,
   permanentRelationWorkspaceCanSave,
-  permanentRelationWorkspaceExistingLink
+  permanentRelationWorkspaceExistingLink,
+  permanentRelationWorkspaceNextAiCandidate
 } from "../../apps/web/src/permanent-relation-workspace-model.js";
 
 const note = {
@@ -234,6 +235,40 @@ test("AI relation candidates normalize target, type and rationale for the worksp
   assert.equal(candidates[0].targetTitle, target.title);
   assert.equal(candidates[0].relationType, "qualifies");
   assert.match(candidates[0].rationaleDraft, /适用条件/);
+});
+
+test("permanent relation workspace continues with the next unsaved AI candidate", () => {
+  const candidates = [
+    {
+      targetNoteId: "pn_done",
+      targetTitle: "Done",
+      relationType: "supports",
+      rationaleDraft: "already saved"
+    },
+    {
+      targetNoteId: "pn_next",
+      targetTitle: "Next",
+      relationType: "qualifies",
+      rationaleDraft: "next relation"
+    }
+  ];
+  const relations = {
+    outgoingLinks: [
+      {
+        fromNoteId: note.id,
+        toNoteId: "pn_done",
+        relationType: "supports",
+        rationale: "already saved"
+      }
+    ],
+    backlinks: []
+  };
+
+  const next = permanentRelationWorkspaceNextAiCandidate(candidates, relations, note.id);
+
+  assert.equal(next.targetNoteId, "pn_next");
+  assert.equal(next.relationType, "qualifies");
+  assert.equal(permanentRelationWorkspaceNextAiCandidate(candidates, relations, note.id, ["pn_next"]), null);
 });
 
 test("workspace state normalization follows the currently rendered note", () => {

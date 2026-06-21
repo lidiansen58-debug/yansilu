@@ -1732,7 +1732,7 @@ test("prototype main-path card refreshes relation state and does not leak stale 
   }, 10000);
 });
 
-test("prototype main-path relation action opens create form and focuses relation target search", async (t) => {
+test("prototype permanent relation workspace saves manually, refreshes before save, and resets on note switch", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -1747,39 +1747,191 @@ test("prototype main-path relation action opens create form and focuses relation
 
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Main Path Create Target\n\nThis target should appear in the create relation form."
+    status: "active",
+    body: "# Relation Workspace Target\n\nThis target should appear in the permanent relation workspace search results.",
+    thesis: "Relation workspace targets should be selected without leaving the current note.",
+    threeLineSummary: ["The target is searchable.", "The relation needs a reason.", "The current context should stay open."],
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true, ai_assisted: false },
+    boundaryOrCounterpoint: "Only save when the reason is clear."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const nextTarget = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Relation Workspace Next Target\n\nThis note exists so continuing the workflow still has somewhere to go.",
+    thesis: "Continuous relation sorting should leave the user in the same large workspace.",
+    threeLineSummary: ["The next target keeps context.", "The user can continue searching.", "The overlay should remain open."],
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true, ai_assisted: false },
+    boundaryOrCounterpoint: "Do not force navigation after saving."
+  });
+  assert.equal(nextTarget.status, 201, JSON.stringify(nextTarget.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Relation Workspace Source\n\nThis note has no explicit relations yet.",
+    thesis: "Relation sorting works best when target, relation type, and reason stay together.",
+    threeLineSummary: ["The source starts without relations.", "The user should search manually.", "Saving should keep the overlay state."],
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true, ai_assisted: false },
+    boundaryOrCounterpoint: "Avoid mixing this with writing preparation."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Workspace Source" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await page.locator('[data-note-main-path-section] [data-note-main-route-action="relations"]').click();
+
+  const workspace = page.locator("[data-permanent-relation-workspace]");
+  await workspace.waitFor({ state: "visible" });
+  await waitFor(async () => {
+    const focused = await page.evaluate(() => {
+      const active = document.activeElement;
+      return active?.hasAttribute?.("data-permanent-relation-target-search");
+    });
+    assert.equal(focused, true);
+  }, 4000);
+
+  await page.locator("[data-permanent-relation-target-search]").fill("Relation Workspace Target");
+  await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
+  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("supports");
+  await page.locator('[data-permanent-relation-field="rationale"]').fill(
+    "This source should support the target because it states the relation workflow as a clear, reviewable sequence."
+  );
+
+  const relationMethods = [];
+  await page.route(`${apiBase}/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, async (route, request) => {
+    relationMethods.push(request.method());
+    await route.continue();
+  });
+
+  await page.locator("[data-permanent-relation-form] button[type='submit']").click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator(".permanent-relation-result").isVisible(), true);
+    const relation = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+    assert.equal(relation.status, 200);
+    assert.equal(relation.json.item.outgoingLinks.some((link) => link.toNoteId === target.json.item.id && link.relationType === "supports"), true);
+  }, 10000);
+
+  const firstPostIndex = relationMethods.indexOf("POST");
+  assert.equal(firstPostIndex > 0, true);
+  assert.equal(relationMethods.slice(0, firstPostIndex).includes("GET"), true);
+
+  await page.locator('[data-permanent-relation-action="continue"]').click();
+  await waitFor(async () => {
+    assert.equal(await workspace.isVisible(), true);
+    assert.equal(await page.locator("[data-permanent-relation-target-search]").isVisible(), true);
+  }, 5000);
+
+  await page.locator(".explorer-item[data-kind='file']", { hasText: "Relation Workspace Next Target" }).evaluate((element) => element.click());
+  await waitFor(async () => {
+    assert.equal(await page.evaluate(() => window.__prototypeState?.selectedFileId || ""), nextTarget.json.item.id);
+  }, 5000);
+  await waitFor(async () => {
+    assert.equal(await page.locator("[data-permanent-relation-workspace]").count(), 0);
+  }, 5000);
+});
+
+test("prototype permanent relation workspace saves an AI recommended relation in place", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# AI Relation Target\n\nThis note should be returned as an AI relation candidate.",
+    thesis: "AI relation suggestions still need a human-confirmed reason before saving.",
+    threeLineSummary: ["The target is a candidate.", "The relation type is suggested.", "The user confirms the reason."],
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true, ai_assisted: false },
+    boundaryOrCounterpoint: "Do not save rejected candidates."
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Main Path Create Source\n\nThis note has no explicit relations yet."
+    status: "active",
+    body: "# AI Relation Source\n\nThis note should save an AI recommended relation without leaving the current context.",
+    thesis: "AI relation suggestions should become formal relations only after the user confirms why.",
+    threeLineSummary: ["The source starts with no relation.", "AI proposes a target.", "Saving happens in the overlay."],
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true, ai_assisted: false },
+    boundaryOrCounterpoint: "Keep writing preparation out of the relation flow."
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
+  await page.route(`${apiBase}/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        item: {
+          analysis: {
+            relationCandidates: [
+              {
+                actionSourceNoteId: source.json.item.id,
+                counterpartNoteId: target.json.item.id,
+                counterpartTitle: "AI Relation Target",
+                relationType: "qualifies",
+                rationaleDraft: "AI Relation Target qualifies AI Relation Source because it explains the human confirmation boundary.",
+                insightQuestionDraft: "What boundary should stay visible before this relation supports writing?"
+              }
+            ],
+            bridgeCandidates: []
+          },
+          reviewItems: {
+            storedArtifactIds: [],
+            artifacts: []
+          }
+        },
+        requestId: "browser-ai-relation-workspace",
+        timestamp: new Date().toISOString()
+      })
+    });
+  });
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Create Source" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "AI Relation Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
+  await page.locator('[data-permanent-relation-action="open"][data-permanent-relation-mode="ai"]').click();
 
-  await page.locator('[data-note-main-route-action="relations"]').click();
+  const workspace = page.locator("[data-permanent-relation-workspace]");
+  await workspace.waitFor({ state: "visible" });
+  await page.locator('[data-permanent-relation-action="run-ai"]').click();
 
-  await page.locator("[data-create-relation-form]").waitFor();
   await waitFor(async () => {
-    const focused = await page.evaluate(() => {
-      const active = document.activeElement;
-      return active?.hasAttribute?.("data-relation-target-search") || active?.getAttribute?.("name") === "targetQuery";
-    });
-    assert.equal(focused, true);
-  }, 4000);
+    assert.equal(await page.locator(`[data-permanent-relation-ai-target="${target.json.item.id}"]`).isVisible(), true);
+    const workspaceText = await workspace.textContent();
+    assert.match(String(workspaceText || ""), /AI Relation Target/);
+    assert.doesNotMatch(String(workspaceText || ""), /Writing preparation|写作准备/);
+  }, 10000);
 
-  const highlighted = await page.evaluate(() =>
-    document.querySelector("[data-note-relations-section]")?.classList.contains("is-jump-target") || false
-  );
-  assert.equal(highlighted, true);
+  await page.locator(`[data-permanent-relation-ai-target="${target.json.item.id}"]`).click();
+  await page.locator("[data-permanent-relation-form] button[type='submit']").click();
 
-  const createFormText = await page.locator("[data-create-relation-form]").textContent();
-  assert.match(String(createFormText || ""), /Main Path Create Target/);
+  await waitFor(async () => {
+    assert.equal(await page.locator(".permanent-relation-result").isVisible(), true);
+    const relation = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+    assert.equal(relation.status, 200);
+    assert.equal(relation.json.item.outgoingLinks.some((link) => link.toNoteId === target.json.item.id && link.relationType === "qualifies"), true);
+  }, 10000);
 });
 
 test("prototype main-path writing readiness matches writing center basket status for the same note", async (t) => {
@@ -2085,50 +2237,36 @@ test("prototype related inspector can create an explicit semantic relation", asy
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
   await waitFor(async () => {
-    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
-    assert.match(String(actionText || ""), /写|draft|Writing/i);
+    assert.ok((await page.locator('#resultArea [data-relation-action="open-create"]').count()) > 0);
   }, 10000);
-  await page.locator('#resultArea [data-relation-action="open-create"]').click();
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('#resultArea [data-relation-action="open-create"]'));
+    const button = buttons.find((item) => item instanceof HTMLElement && item.offsetParent !== null) || buttons.at(-1);
+    if (!button) throw new Error("Relation create action not found.");
+    button.click();
+  });
 
-  const createFormText = await page.locator("[data-create-relation-form]").textContent();
-  assert.match(String(createFormText || ""), /supports|relation/i);
-  assert.match(String(createFormText || ""), /insight|问题|question/i);
-  assert.match(String(createFormText || ""), /rationale|理由|依据/i);
+  const workspace = page.locator("[data-permanent-relation-workspace]");
+  await workspace.waitFor({ state: "visible" });
+  const workspaceText = await workspace.textContent();
+  assert.match(String(workspaceText || ""), /关系|relation/i);
+  assert.match(String(workspaceText || ""), /理由|reason|rationale/i);
 
-  await page.locator('[data-create-relation-form] select[name="toNoteId"]').selectOption(target.json.item.id);
-  await page.locator('[data-create-relation-form] select[name="relationType"]').selectOption("supports");
-  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("This source note gives the target one explicit supporting reason, with a boundary the draft can keep visible.");
-  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("What makes this support path explicit enough to survive later drafting without being flattened?");
-  const qualityText = await page.locator('[data-create-relation-form] [data-relation-quality]').textContent();
-  assert.ok(String(qualityText || "").trim().length > 0);
-  await page.locator('[data-create-relation-form] button[type="submit"]').click();
+  await page.locator("[data-permanent-relation-target-search]").fill("Writing Target");
+  await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
+  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("supports");
+  await page.locator('[data-permanent-relation-field="rationale"]').fill("This source note gives the target one explicit supporting reason, with a boundary the draft can keep visible.");
+  await page.locator("[data-permanent-relation-form] button[type='submit']").click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /锟斤拷系锟窖斤拷锟斤拷/);
-    assert.match(String(relatedText || ""), /锟斤拷锟斤拷锟斤拷目锟斤拷/);
-    assert.match(String(relatedText || ""), /锟斤拷锟斤拷锟斤拷锟斤拷源为目锟斤拷锟结供锟斤拷一锟斤拷锟斤拷确支锟斤拷/);
-    assert.match(String(relatedText || ""), /锟斤拷锟斤拷锟斤拷锟斤拷/);
+    assert.match(String(relatedText || ""), /Writing Target/);
+    assert.match(String(relatedText || ""), /explicit supporting reason/);
+    assert.match(String(relatedText || ""), /支持|supports/i);
   }, 10000);
 
-  await waitFor(async () => {
-    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
-    assert.match(String(actionText || ""), /锟斤拷锟斤拷锟斤拷目/);
-  }, 10000);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
-  await page.click("#btnWritingUseCurrent");
-
-  await waitFor(async () => {
-    const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(String(statusStripText || ""), /锟斤拷目/);
-    assert.match(String(statusStripText || ""), /锟缴达拷锟斤拷/);
-    assert.match(String(statusStripText || ""), /强模锟斤拷/);
-    assert.match(String(statusStripText || ""), /锟饺诧拷锟斤拷锟斤拷/);
-    const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
-    assert.match(String(createProjectText || ""), /锟斤拷锟斤拷写锟斤拷锟斤拷目/);
-  }, 10000);
+  await page.locator('[data-permanent-relation-action="complete"]').click();
+  await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "detached" });
 
   await page.locator('.rail-btn[data-module="graph"]').click();
   await waitFor(async () => {
@@ -2137,8 +2275,8 @@ test("prototype related inspector can create an explicit semantic relation", asy
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
     const graphText = await page.locator("#graphCanvas").textContent();
-    assert.match(String(graphText || ""), /锟斤拷锟斤拷锟斤拷锟斤拷源/);
-    assert.match(String(graphText || ""), /锟斤拷锟斤拷锟斤拷目锟斤拷/);
+    assert.match(String(graphText || ""), /Writing Source/);
+    assert.match(String(graphText || ""), /Writing Target/);
   }, 10000);
 
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
@@ -2146,7 +2284,7 @@ test("prototype related inspector can create an explicit semantic relation", asy
   assert.equal(relations.json.item.outgoingLinks.length, 1);
   assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
   assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
-  assert.equal(relations.json.item.outgoingLinks[0].rationale, "锟斤拷锟斤拷锟斤拷锟斤拷源为目锟斤拷锟结供锟斤拷一锟斤拷锟斤拷确支锟脚ｏ拷锟斤拷为锟斤拷锟斤拷锟斤拷锟斤拷证锟捷和边界。");
+  assert.equal(relations.json.item.outgoingLinks[0].rationale, "This source note gives the target one explicit supporting reason, with a boundary the draft can keep visible.");
 });
 
 test("prototype related inspector searches unloaded SQLite relation targets", async (t) => {
@@ -2187,25 +2325,32 @@ test("prototype related inspector searches unloaded SQLite relation targets", as
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Search Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
-  await page.locator('#resultArea [data-relation-action="open-create"]').click();
-  await page.locator('[data-relation-target-search]').fill("Remote Relation Target");
+  await waitFor(async () => {
+    assert.ok((await page.locator('#resultArea [data-relation-action="open-create"]').count()) > 0);
+  }, 10000);
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('#resultArea [data-relation-action="open-create"]'));
+    const button = buttons.find((item) => item instanceof HTMLElement && item.offsetParent !== null) || buttons.at(-1);
+    if (!button) throw new Error("Relation create action not found.");
+    button.click();
+  });
+  await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "visible" });
+  await page.locator("[data-permanent-relation-target-search]").fill("Remote Relation Target");
 
   await waitFor(async () => {
-    const options = await page.locator('[data-create-relation-form] select[name="toNoteId"] option').allTextContents();
+    const options = await page.locator("[data-permanent-relation-manual-target]").allTextContents();
     assert.ok(options.some((item) => item.includes("Remote Relation Target")), options.join(" | "));
   }, 10000);
 
-  await page.locator('[data-create-relation-form] select[name="toNoteId"]').selectOption(target.json.item.id);
-  await page.locator('[data-create-relation-form] select[name="relationType"]').selectOption("bridges");
-  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("SQLite 锟斤拷锟斤拷锟矫碉拷前锟绞硷拷锟斤拷锟接碉拷锟斤拷未锟斤拷锟截碉拷目锟疥。");
-  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("锟斤拷目录目锟斤拷锟斤拷锟斤拷锟角凤拷锟姐够锟届？");
-  await page.locator('[data-create-relation-form] button[type="submit"]').click();
+  await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
+  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("bridges");
+  await page.locator('[data-permanent-relation-field="rationale"]').fill("SQLite search can connect the current note to a target that was not loaded in the file list.");
+  await page.locator("[data-permanent-relation-form] button[type='submit']").click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /锟斤拷系锟窖斤拷锟斤拷/);
     assert.match(String(relatedText || ""), /Remote Relation Target/);
-    assert.match(String(relatedText || ""), /SQLite 锟斤拷锟斤拷锟矫碉拷前锟绞硷拷锟斤拷锟接碉拷锟斤拷未锟斤拷锟截碉拷目锟斤拷/);
+    assert.match(String(relatedText || ""), /SQLite search can connect/);
   }, 10000);
 
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
