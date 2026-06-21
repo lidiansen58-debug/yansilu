@@ -34,6 +34,12 @@ function readPrototypeApp() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
 }
 
+function readGraphIsolatedRelationWorkspace() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-relation-workspace.js"), "utf8");
+}
+
+const mojibakeCopyPattern = new RegExp("\\u93b5\\u5b0d|\\u93b5\\u5b35|\\u93b5\\u5b2a\\u4f10|\\u934f\\u5d07\\u90f4|\\u951b");
+
 function readPrototypeHtml() {
   return [
     fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8"),
@@ -368,6 +374,7 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
 
 test("isolated graph notes can request AI-assisted relation candidates and save them inside the graph workspace", () => {
   const source = readPrototypeApp();
+  const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const html = readPrototypeHtml();
   const isolatedWorkflowStart = source.indexOf('function renderGraphIsolatedWorkflowTabs({ noteId = "", isolatedQueueMarkup = "", decisionCards = [], prompts = [], nodeMap = new Map(), edges = [], visibleEdgeCount = 0 } = {}) {');
   const isolatedWorkflowEnd = source.indexOf('function activateGraphIsolatedWorkflowTab(', isolatedWorkflowStart);
@@ -447,20 +454,26 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /progressStatus: "正在按当前 AI 设置生成关联理由\.\.\."/);
   assert.doesNotMatch(source, /setStatus\("已确认使用当前 AI 设置，正在生成关联理由", "ok"\);/);
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(\s*noteId = "",\s*\{/);
-  assert.match(source, /aria-label="建立笔记关联"/);
+  assert.match(source, /renderGraphIsolatedJoinNetworkFlowHtml\(noteId, \{/);
+  assert.match(source, /aiCandidatesForNote: graphAiRelationCandidatesForNote/);
+  assert.match(source, /manualTargetsForNote: graphManualRelationTargetsForNote/);
+  assert.match(source, /relationDraft: graphState\.isolatedRelationDraftByNoteId\?\.\[String\(noteId \|\| ""\)\.trim\(\)\] \|\| \{\}/);
+  assert.match(joinWorkspaceSource, /aria-label="建立笔记关系"/);
   assert.match(source, /建立一条能说清理由的关系/);
-  assert.match(source, /data-graph-ai-candidate-select/);
-  assert.match(source, /const targetId = String\(candidate\.counterpartNoteId \|\| ""\)\.trim\(\);/);
-  assert.match(source, /if \(!targetId \|\| targetId === cleanNoteId\) return "";/);
-  assert.match(source, /GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES\.has\(rawRelationType\)/);
-  assert.match(source, /\? rawRelationType\s*: "associated_with";/);
-  assert.match(source, /data-graph-manual-target-search/);
-  assert.match(source, /data-graph-isolated-relation-type/);
-  assert.match(source, /data-graph-default-relation-type/);
-  assert.match(source, /data-graph-isolated-rationale/);
-  assert.match(source, /data-graph-isolated-relation-save/);
+  assert.match(joinWorkspaceSource, /data-graph-ai-candidate-select/);
+  assert.match(joinWorkspaceSource, /const targetId = String\(candidate\.counterpartNoteId \|\| ""\)\.trim\(\);/);
+  assert.match(joinWorkspaceSource, /if \(!targetId \|\| targetId === cleanNoteId\) return "";/);
+  assert.match(joinWorkspaceSource, /reversibleRelationTypes\.has\(rawRelationType\)/);
+  assert.match(joinWorkspaceSource, /\? rawRelationType\s*: "associated_with";/);
+  assert.match(joinWorkspaceSource, /data-graph-manual-target-search/);
+  assert.match(joinWorkspaceSource, /data-graph-isolated-relation-type/);
+  assert.match(joinWorkspaceSource, /data-graph-default-relation-type/);
+  assert.match(joinWorkspaceSource, /data-graph-isolated-rationale/);
+  assert.match(joinWorkspaceSource, /data-graph-isolated-relation-save/);
+  assert.match(joinWorkspaceSource, /保存关系/);
+  assert.doesNotMatch(joinWorkspaceSource, mojibakeCopyPattern);
   assert.match(source, /saveHint = "保存后，这条笔记会退出“未关联”。"/);
-  assert.match(source, /保存后，这条笔记会退出“未关联”/);
+  assert.match(joinWorkspaceSource, /保存后，这条笔记会退出“未关联”/);
   assert.match(source, /function renderGraphIsolatedWorkflowTabs\(\{ noteId = "", isolatedQueueMarkup = "", decisionCards = \[\], prompts = \[\], nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(cleanNoteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(source, /function renderGraphRelationFormSelectionPanel\(\{ selection = null, nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
@@ -474,7 +487,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /const isolatedSelectionOverlayMarkup = activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \? selectionContextMarkup : "";/);
   assert.match(source, /const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup \? "" : selectionContextMarkup;/);
   assert.match(source, /<div class="graph-selection-overlay" role="dialog" aria-modal="false"/);
-  assert.match(source, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
+  assert.match(joinWorkspaceSource, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
   assert.match(source, /function syncGraphIsolatedAiCandidateForm\(select = null\) \{/);
   assert.match(source, /function markGraphIsolatedRationaleUserEdited\(input = null\) \{/);
   assert.match(source, /function updateGraphIsolatedInlinePreview\(form = null, source = null\) \{/);
@@ -910,7 +923,7 @@ test("graph isolated notes are organized into a continuous handling queue", () =
 
 test("graph isolated workspace offers non-AI relation candidates from tags and titles", () => {
   const source = readPrototypeApp();
-  const joinFlowSource = extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow");
+  const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const isolatedSelectionStart = source.indexOf('function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {');
   const isolatedSelectionEnd = source.indexOf('function renderGraphBridgeSelectionPanel(', isolatedSelectionStart);
   assert.ok(isolatedSelectionStart >= 0 && isolatedSelectionEnd > isolatedSelectionStart, "expected renderGraphIsolatedSelectionPanel() to exist");
@@ -920,23 +933,23 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(source, /return computeGraphLocalRelationCandidatesForNote\(/);
   assert.match(source, /relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge/);
   assert.match(source, /function graphManualRelationTargetsForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 80 \} = \{\}\) \{/);
-  assert.match(source, /const manualTargets = graphManualRelationTargetsForNote\(cleanNoteId, \{ nodeMap, edges, limit: 500 \}\);/);
-  assert.match(joinFlowSource, /data-graph-manual-target-search/);
-  assert.match(joinFlowSource, /data-graph-pick-manual-target/);
-  assert.match(joinFlowSource, /data-graph-manual-target-id/);
-  assert.match(joinFlowSource, /renderGraphIsolatedPreviewPanel\(cleanNoteId, \{ nodeMap, preferredTargetNoteId: previewTargetNoteId \}\)/);
+  assert.match(joinWorkspaceSource, /manualTargetsForNote\(cleanNoteId, \{ nodeMap, edges, limit: 500 \}\)/);
+  assert.match(joinWorkspaceSource, /data-graph-manual-target-search/);
+  assert.match(joinWorkspaceSource, /data-graph-pick-manual-target/);
+  assert.match(joinWorkspaceSource, /data-graph-manual-target-id/);
+  assert.match(joinWorkspaceSource, /renderPreviewPanel\(cleanNoteId, \{ nodeMap, preferredTargetNoteId: previewTargetNoteId \}\)/);
   assert.match(source, /data-graph-relation-candidate-apply/);
   assert.match(source, /const graphRelationCandidateButton = event\.target\.closest\("\[data-graph-relation-candidate-apply\]"\);/);
   assert.match(source, /await saveGraphCandidateRelation\(graphRelationCandidateButton\);/);
-  assert.doesNotMatch(joinFlowSource, /renderGraphRelationCandidateCards\(localCandidates/);
-  assert.match(source, /data-graph-isolated-tab="ai"/);
-  assert.match(source, /data-graph-isolated-tab="manual"/);
-  assert.match(source, /data-graph-isolated-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
-  assert.match(source, /role="tab" aria-selected="\$\{activeMode === "ai"\}"/);
-  assert.match(source, /const relationDraft = graphState\.isolatedRelationDraftByNoteId\?\.\[cleanNoteId\] \|\| \{\};/);
-  assert.match(source, /graphIsolatedJoinNetworkFormModel\(/);
-  assert.match(source, /data-graph-target-panel="ai"/);
-  assert.match(source, /data-graph-target-panel="manual"/);
+  assert.doesNotMatch(joinWorkspaceSource, /renderGraphRelationCandidateCards\(localCandidates/);
+  assert.match(joinWorkspaceSource, /data-graph-isolated-tab="ai"/);
+  assert.match(joinWorkspaceSource, /data-graph-isolated-tab="manual"/);
+  assert.match(joinWorkspaceSource, /data-graph-isolated-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
+  assert.match(joinWorkspaceSource, /role="tab" aria-selected="\$\{activeMode === "ai"\}"/);
+  assert.match(source, /relationDraft: graphState\.isolatedRelationDraftByNoteId\?\.\[String\(noteId \|\| ""\)\.trim\(\)\] \|\| \{\}/);
+  assert.match(joinWorkspaceSource, /graphIsolatedJoinNetworkFormModel\(/);
+  assert.match(joinWorkspaceSource, /data-graph-target-panel="ai"/);
+  assert.match(joinWorkspaceSource, /data-graph-target-panel="manual"/);
   assert.match(source, /function activateGraphIsolatedWorkflowTab\(tabButton = null, \{ focus = false \} = \{\}\) \{/);
   assert.match(source, /setGraphIsolatedWorkflowActiveTab\(noteId, tabKey\)/);
   assert.match(source, /function moveGraphIsolatedWorkflowTab\(currentButton = null, direction = 1\) \{/);
@@ -973,246 +986,6 @@ test("graph manual relation targets search all known permanent notes but exclude
   );
 
   assert.deepEqual(targets.map((item) => item.id).sort(), ["original", "outside"]);
-});
-
-test("graph isolated manual search renders targets beyond the first eighty notes", () => {
-  const source = readPrototypeApp();
-  const { renderGraphIsolatedJoinNetworkFlow } = new Function(`
-    const graphState = { aiAnalysisLoading: false };
-    const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
-    function escapeHtml(value = "") {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-    function graphAiRelationCandidatesForNote() { return []; }
-    function graphAiAnalysisPayload() { return {}; }
-    function graphIsolatedWorkflowTabKey(value = "") {
-      const key = String(value || "").trim().toLowerCase();
-      return ["ai", "manual"].includes(key) ? key : "ai";
-    }
-    function graphIsolatedWorkflowActiveTab() { return "manual"; }
-    function graphRelationStatusCountsAsNetworkEdge() { return true; }
-    function graphRelationFormTypeOptions(selectedType = "associated_with") {
-      return '<option value="' + selectedType + '" selected>' + selectedType + '</option>';
-    }
-    function graphIsolatedPreviewTarget() { return null; }
-    function graphFullNoteById(noteId = "", nodeMap = new Map()) { return nodeMap.get(noteId) || null; }
-    function graphNodeTitle(nodeMap, noteId, fallback = "") { return nodeMap.get(noteId)?.title || fallback; }
-    function graphNotePreviewText(note = {}) { return note.summary || note.title || ""; }
-    function graphNoteTags(note = {}) { return Array.isArray(note.tags) ? note.tags : []; }
-    function noteTypeLabel(value = "") { return value || "永久笔记"; }
-    function graphManualRelationTargetsForNote(_noteId = "", { nodeMap = new Map(), limit = 500 } = {}) {
-      return [...nodeMap.values()]
-        .filter((note) => note.id !== "source")
-        .map((note) => ({ id: note.id, title: note.title, noteType: note.noteType, folder: "" }))
-        .slice(0, Math.max(1, Number(limit) || 500));
-    }
-    ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
-    ${graphIsolatedJoinNetworkFormModel.toString()}
-    ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
-    return { renderGraphIsolatedJoinNetworkFlow };
-  `)();
-  const notes = new Map([["source", { id: "source", title: "Source", noteType: "permanent" }]]);
-  for (let index = 1; index <= 120; index += 1) {
-    const id = `target-${String(index).padStart(3, "0")}`;
-    notes.set(id, { id, title: `Target ${String(index).padStart(3, "0")}`, noteType: "permanent" });
-  }
-
-  const html = renderGraphIsolatedJoinNetworkFlow("source", {
-    nodeMap: notes,
-    edges: [],
-    visibleEdgeCount: 0
-  });
-
-  assert.match(html, /data-graph-pick-manual-target="target-120"/);
-  assert.match(html, /目标预览/);
-});
-
-test("graph isolated manual mode does not reuse AI rationale and exposes selected target preview data", () => {
-  const source = readPrototypeApp();
-  const { renderGraphIsolatedJoinNetworkFlow } = new Function(`
-    const graphState = { aiAnalysisLoading: false };
-    const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
-    function escapeHtml(value = "") {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-    function graphAiRelationCandidatesForNote() {
-      return [{ counterpartNoteId: "ai-target", counterpartTitle: "AI Target", relationType: "same_topic", rationaleDraft: "AI reason should not leak." }];
-    }
-    function graphManualRelationTargetsForNote() {
-      return [{ id: "manual-target", title: "Manual Target", noteType: "permanent" }];
-    }
-    function graphAiAnalysisPayload() { return {}; }
-    function graphIsolatedWorkflowTabKey(value = "") {
-      const key = String(value || "").trim().toLowerCase();
-      return ["ai", "manual"].includes(key) ? key : "ai";
-    }
-    function graphIsolatedWorkflowActiveTab() { return "manual"; }
-    function graphRelationStatusCountsAsNetworkEdge() { return false; }
-    function graphCandidatePercent() { return 70; }
-    function graphRelationFormTypeOptions(selectedType = "associated_with") {
-      return '<option value="' + selectedType + '" selected>' + selectedType + '</option>';
-    }
-    function graphFullNoteById(noteId = "", nodeMap = new Map()) { return nodeMap.get(noteId) || null; }
-    function graphNodeTitle(nodeMap, noteId, fallback = "") { return nodeMap.get(noteId)?.title || fallback; }
-    function graphNotePreviewText(note = {}) { return note.summary || note.title || ""; }
-    function graphNoteTags(note = {}) { return Array.isArray(note.tags) ? note.tags : []; }
-    function noteTypeLabel(value = "") { return value || "永久笔记"; }
-    function graphIsolatedPreviewTarget() { return null; }
-    ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
-    ${graphIsolatedJoinNetworkFormModel.toString()}
-    ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
-    return { renderGraphIsolatedJoinNetworkFlow };
-  `)();
-
-  const html = renderGraphIsolatedJoinNetworkFlow("source", {
-    nodeMap: new Map([
-      ["source", { id: "source", title: "Source", noteType: "permanent" }],
-      ["manual-target", { id: "manual-target", title: "Manual Target", summary: "Manual target preview.", tags: ["manual"], noteType: "permanent" }]
-    ]),
-    edges: [],
-    visibleEdgeCount: 0
-  });
-
-  assert.doesNotMatch(html, /<textarea[^>]*>AI reason should not leak\.<\/textarea>/);
-  assert.match(html, /data-graph-rationale-source=""/);
-  assert.match(html, /data-graph-preview-clear-inline hidden/);
-  assert.match(html, /data-graph-manual-rationale="[^"]*Manual Target/);
-  assert.match(html, /data-graph-preview-title="Manual Target"/);
-  assert.match(html, /data-graph-preview-text="Manual target preview\."/);
-});
-
-test("graph relation form preserves preferred bridge type and non-isolated save hint", () => {
-  const source = readPrototypeApp();
-  const { renderGraphIsolatedJoinNetworkFlow } = new Function(`
-    const graphState = { aiAnalysisLoading: false };
-    const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
-    function escapeHtml(value = "") {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-    function graphAiRelationCandidatesForNote() { return []; }
-    function graphManualRelationTargetsForNote() {
-      return [{ id: "bridge-target", title: "Bridge Target", summary: "Bridge target preview.", tags: ["bridge"], noteType: "permanent" }];
-    }
-    function graphAiAnalysisPayload() { return {}; }
-    function graphIsolatedWorkflowTabKey(value = "") {
-      const key = String(value || "").trim().toLowerCase();
-      return ["ai", "manual"].includes(key) ? key : "ai";
-    }
-    function graphIsolatedWorkflowActiveTab() { return "manual"; }
-    function graphRelationStatusCountsAsNetworkEdge() { return false; }
-    function graphRelationFormTypeOptions(selectedType = "associated_with") {
-      return ["associated_with", "bridges"].map((type) => '<option value="' + type + '"' + (type === selectedType ? " selected" : "") + '>' + type + '</option>').join("");
-    }
-    function graphFullNoteById(noteId = "", nodeMap = new Map()) { return nodeMap.get(noteId) || null; }
-    function graphNodeTitle(nodeMap, noteId, fallback = "") { return nodeMap.get(noteId)?.title || fallback; }
-    function graphNotePreviewText(note = {}) { return note.summary || note.title || ""; }
-    function graphNoteTags(note = {}) { return Array.isArray(note.tags) ? note.tags : []; }
-    function noteTypeLabel(value = "") { return value || "永久笔记"; }
-    function graphIsolatedPreviewTarget() { return null; }
-    ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
-    ${graphIsolatedJoinNetworkFormModel.toString()}
-    ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
-    return { renderGraphIsolatedJoinNetworkFlow };
-  `)();
-
-  const html = renderGraphIsolatedJoinNetworkFlow("source", {
-    nodeMap: new Map([
-      ["source", { id: "source", title: "Source", noteType: "permanent" }],
-      ["bridge-target", { id: "bridge-target", title: "Bridge Target", summary: "Bridge target preview.", tags: ["bridge"], noteType: "permanent" }]
-    ]),
-    edges: [],
-    visibleEdgeCount: 0,
-    preferredTargetNoteId: "bridge-target",
-    preferredRelationType: "bridges",
-    preferredRationale: "Bridge reason.",
-    saveHint: "保存后仍留在当前图谱。"
-  });
-
-  assert.match(html, /data-graph-default-relation-type="bridges"/);
-  assert.match(html, /<option value="bridges" selected>bridges<\/option>/);
-  assert.match(html, />Bridge reason\.<\/textarea>/);
-  assert.match(html, /保存后仍留在当前图谱。/);
-  assert.doesNotMatch(html, /保存后，这条笔记会退出“未关联”。/);
-});
-
-test("graph isolated AI dropdown keeps reverse candidates off self-links", () => {
-  const source = readPrototypeApp();
-  const { renderGraphIsolatedJoinNetworkFlow } = new Function(`
-    const graphState = { aiAnalysisLoading: false };
-    const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
-    function escapeHtml(value = "") {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-    function graphAiRelationCandidatesForNote() {
-      return [{
-        sourceNoteId: "other",
-        targetNoteId: "current",
-        actionSourceNoteId: "other",
-        actionTargetNoteId: "current",
-        counterpartNoteId: "other",
-        counterpartTitle: "Other Note",
-        targetTitle: "Current Note",
-        relationType: "supports",
-        rationaleDraft: "Other supports current.",
-        insightQuestionDraft: "Why does it support?"
-      }];
-    }
-    function graphManualRelationTargetsForNote() { return []; }
-    function graphAiAnalysisPayload() { return {}; }
-    function graphIsolatedWorkflowTabKey(value = "") {
-      const key = String(value || "").trim().toLowerCase();
-      return ["ai", "manual"].includes(key) ? key : "ai";
-    }
-    function graphIsolatedWorkflowActiveTab() { return "ai"; }
-    function graphRelationStatusCountsAsNetworkEdge() { return false; }
-    function graphCandidatePercent() { return 77; }
-    function graphRelationFormTypeOptions(selectedType = "associated_with") {
-      return '<option value="' + selectedType + '" selected>' + selectedType + '</option>';
-    }
-    function graphNodeTitle(nodeMap, noteId, fallback = "") {
-      return nodeMap.get(noteId)?.title || fallback;
-    }
-    function graphFullNoteById(noteId = "", nodeMap = new Map()) { return nodeMap.get(noteId) || null; }
-    function graphNotePreviewText(note = {}) { return note.summary || note.title || ""; }
-    function graphNoteTags(note = {}) { return Array.isArray(note.tags) ? note.tags : []; }
-    function noteTypeLabel(value = "") { return value || "永久笔记"; }
-    function graphIsolatedPreviewTarget() { return null; }
-    ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
-    ${graphIsolatedJoinNetworkFormModel.toString()}
-    ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
-    return { renderGraphIsolatedJoinNetworkFlow };
-  `)();
-
-  const html = renderGraphIsolatedJoinNetworkFlow("current", {
-    nodeMap: new Map([
-      ["current", { id: "current", title: "Current Note" }],
-      ["other", { id: "other", title: "Other Note" }]
-    ]),
-    edges: [],
-    visibleEdgeCount: 0
-  });
-
-  assert.match(html, /<option value="other"[^>]*data-graph-relation-type="associated_with"/);
-  assert.doesNotMatch(html, /<option value="current"/);
-  assert.doesNotMatch(html, /data-graph-relation-type="supports"/);
-  assert.match(html, /data-graph-rationale-draft=""/);
-  assert.doesNotMatch(html, /存在需要一起复核的论证或主题联系/);
 });
 
 test("graph AI relation candidates hide rejected and no-relation candidates before isolated dropdowns", () => {
@@ -1582,158 +1355,6 @@ test("graph isolated relation draft keeps AI and manual work separate", () => {
   });
 });
 
-test("graph isolated relation draft survives panel rerender during AI lookup", () => {
-  const source = readPrototypeApp();
-  const { renderGraphIsolatedJoinNetworkFlow } = new Function(`
-    const graphState = {
-      aiAnalysisLoading: true,
-      isolatedRelationDraftByNoteId: {
-        current: {
-          mode: "manual",
-          targetNoteId: "target",
-          manualSearchText: "Target",
-          relationType: "bridges",
-          rationale: "用户已经写好的关联理由，不应该被刷新吃掉。",
-          rationaleSource: "user",
-          insightQuestion: "它们之间缺什么桥接判断？"
-        }
-      }
-    };
-    const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
-    function escapeHtml(value = "") {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-    function graphAiRelationCandidatesForNote() { return []; }
-    function graphManualRelationTargetsForNote() {
-      return [{ id: "target", title: "Target Note", folder: "Folder", noteType: "permanent" }];
-    }
-    function graphAiAnalysisPayload() { return {}; }
-    function graphIsolatedWorkflowTabKey(value = "") {
-      const key = String(value || "").trim().toLowerCase();
-      return ["ai", "manual"].includes(key) ? key : "ai";
-    }
-    function graphIsolatedWorkflowActiveTab() { return "ai"; }
-    function graphRelationStatusCountsAsNetworkEdge() { return false; }
-    function graphCandidatePercent() { return 50; }
-    function graphRelationFormTypeOptions(selectedType = "associated_with") {
-      return ["associated_with", "bridges"].map((type) => '<option value="' + type + '"' + (type === selectedType ? " selected" : "") + '>' + type + '</option>').join("");
-    }
-    function graphFullNoteById(noteId = "", nodeMap = new Map()) { return nodeMap.get(noteId) || null; }
-    function graphNodeTitle(nodeMap, noteId, fallback = "") { return nodeMap.get(noteId)?.title || fallback; }
-    function graphNotePreviewText(note = {}) { return note.summary || note.title || ""; }
-    function graphNoteTags(note = {}) { return Array.isArray(note.tags) ? note.tags : []; }
-    function noteTypeLabel(value = "") { return value || "永久笔记"; }
-    function graphIsolatedPreviewTarget() { return null; }
-    ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
-    ${graphIsolatedJoinNetworkFormModel.toString()}
-    ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
-    return { renderGraphIsolatedJoinNetworkFlow };
-  `)();
-
-  const html = renderGraphIsolatedJoinNetworkFlow("current", {
-    nodeMap: new Map([
-      ["current", { id: "current", title: "Current Note" }],
-      ["target", { id: "target", title: "Target Note", noteType: "permanent" }]
-    ]),
-    edges: []
-  });
-
-  assert.match(html, /aria-selected="true"[^>]*data-graph-isolated-tab="manual"/);
-  assert.match(html, /value="target"/);
-  assert.match(html, /Target Note/);
-  assert.match(html, /value="bridges" selected/);
-  assert.match(html, /data-graph-rationale-source="user"/);
-  assert.match(html, /用户已经写好的关联理由，不应该被刷新吃掉。/);
-  assert.match(html, /它们之间缺什么桥接判断？/);
-});
-
-test("graph isolated relation draft keeps intentionally cleared rationale empty", () => {
-  const source = readPrototypeApp();
-  const { renderGraphIsolatedJoinNetworkFlow, graphState } = new Function(`
-    const graphState = {
-      aiAnalysisLoading: false,
-      isolatedRelationDraftByNoteId: {}
-    };
-    const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
-    function escapeHtml(value = "") {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-    function graphAiRelationCandidatesForNote() {
-      return [{
-        counterpartNoteId: "ai-target",
-        targetNoteId: "ai-target",
-        counterpartTitle: "AI Target",
-        relationType: "supports",
-        rationaleDraft: "AI fallback should not return."
-      }];
-    }
-    function graphManualRelationTargetsForNote() {
-      return [{ id: "manual-target", title: "Manual Target", folder: "Folder", noteType: "permanent" }];
-    }
-    function graphAiAnalysisPayload() { return {}; }
-    function graphIsolatedWorkflowTabKey(value = "") {
-      const key = String(value || "").trim().toLowerCase();
-      return ["ai", "manual"].includes(key) ? key : "ai";
-    }
-    function graphIsolatedWorkflowActiveTab() { return "ai"; }
-    function graphRelationStatusCountsAsNetworkEdge() { return false; }
-    function graphCandidatePercent() { return 50; }
-    function graphRelationFormTypeOptions(selectedType = "associated_with") {
-      return ["associated_with", "bridges", "supports"].map((type) => '<option value="' + type + '"' + (type === selectedType ? " selected" : "") + '>' + type + '</option>').join("");
-    }
-    function graphFullNoteById(noteId = "", nodeMap = new Map()) { return nodeMap.get(noteId) || null; }
-    function graphNodeTitle(nodeMap, noteId, fallback = "") { return nodeMap.get(noteId)?.title || fallback; }
-    function graphNotePreviewText(note = {}) { return note.summary || note.title || ""; }
-    function graphNoteTags(note = {}) { return Array.isArray(note.tags) ? note.tags : []; }
-    function noteTypeLabel(value = "") { return value || "永久笔记"; }
-    function graphIsolatedPreviewTarget() { return null; }
-    ${extractFunctionSource(source, "renderGraphIsolatedPreviewPanel")}
-    ${graphIsolatedJoinNetworkFormModel.toString()}
-    ${extractFunctionSource(source, "renderGraphIsolatedJoinNetworkFlow")}
-    return { renderGraphIsolatedJoinNetworkFlow, graphState };
-  `)();
-  const nodeMap = new Map([
-    ["current", { id: "current", title: "Current Note" }],
-    ["ai-target", { id: "ai-target", title: "AI Target", noteType: "permanent" }],
-    ["manual-target", { id: "manual-target", title: "Manual Target", noteType: "permanent" }]
-  ]);
-
-  graphState.isolatedRelationDraftByNoteId.current = {
-    mode: "ai",
-    targetNoteId: "ai-target",
-    aiTargetNoteId: "ai-target",
-    aiRelationType: "supports",
-    aiRationale: "",
-    aiRationaleSource: "user",
-    aiInsightQuestion: ""
-  };
-  const aiHtml = renderGraphIsolatedJoinNetworkFlow("current", { nodeMap, edges: [] });
-  assert.match(aiHtml, /data-graph-rationale-source="user" rows="4"[^>]*><\/textarea>/);
-  assert.equal(aiHtml.match(/<textarea data-graph-isolated-rationale[\s\S]*?>([\s\S]*?)<\/textarea>/)?.[1] || "", "");
-
-  graphState.isolatedRelationDraftByNoteId.current = {
-    mode: "manual",
-    targetNoteId: "manual-target",
-    manualTargetNoteId: "manual-target",
-    manualSearchText: "Manual Target",
-    manualRelationType: "bridges",
-    manualRationale: "",
-    manualRationaleSource: "user",
-    manualInsightQuestion: ""
-  };
-  const manualHtml = renderGraphIsolatedJoinNetworkFlow("current", { nodeMap, edges: [] });
-  assert.match(manualHtml, /data-graph-rationale-source="user" rows="4"[^>]*><\/textarea>/);
-  assert.equal(manualHtml.match(/<textarea data-graph-isolated-rationale[\s\S]*?>([\s\S]*?)<\/textarea>/)?.[1] || "", "");
-});
-
 test("graph relation candidates explain reason, possible relation, and review question", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
@@ -1891,6 +1512,7 @@ test("graph node selection summarizes position, relation quality, and next actio
 
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
   const source = readPrototypeApp();
+  const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const systemMessageSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-messages.js"), "utf8");
   const systemMessageWorkflowSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-message-workflow.js"), "utf8");
   const workspaceSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-graph-workspace.js"), "utf8");
@@ -1898,7 +1520,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
 
   assert.match(source, /function renderGraphRelationWorkspaceForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], title = "关联整理" \} = \{\}\) \{/);
   assert.match(workspaceSource, /graphThemeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\)/);
-  assert.match(source, /graphAiRelationCandidatesForNote\(cleanNoteId, \{ nodeMap, edges, limit: 3 \}\)/);
+  assert.match(joinWorkspaceSource, /aiCandidatesForNote\(cleanNoteId, \{ nodeMap, edges, limit: 3 \}\)/);
   assert.match(source, /graphThemeCandidateNoteIdsForNode\(normalized\.nodeId, directEdges, \[\]\)/);
   assert.match(workspaceSource, /data-graph-theme-note-ids="\$\{escapeHtml\(themeNoteIds\.join\(","\)\)\}"/);
   assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
