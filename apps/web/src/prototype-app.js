@@ -255,8 +255,8 @@ import {
   graphTitleCharacterOverlap as computeGraphTitleCharacterOverlap
 } from "./graph-local-relations.js";
 import {
-  graphIsolatedJoinNetworkFormModel
-} from "./graph-isolated-relation-form.js";
+  renderGraphIsolatedJoinNetworkFlowHtml
+} from "./graph-isolated-relation-workspace.js";
 import {
   renderGraphIsolatedNextStepActionsHtml
 } from "./graph-isolated-next-step.js";
@@ -14094,144 +14094,36 @@ function renderGraphIsolatedJoinNetworkFlow(
     saveHint = "保存后，这条笔记会退出“未关联”。"
   } = {}
 ) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return "";
-  const aiCandidates = graphAiRelationCandidatesForNote(cleanNoteId, { nodeMap, edges, limit: 3 });
-  const manualTargets = graphManualRelationTargetsForNote(cleanNoteId, { nodeMap, edges, limit: 500 });
-  const loading = graphState.aiAnalysisLoading === true;
-  const hasAnalysis = Boolean(graphAiAnalysisPayload()?.analysisMode || graphAiAnalysisPayload()?.relationCandidates || graphAiAnalysisPayload()?.bridgeCandidates);
-  const relationDraft = graphState.isolatedRelationDraftByNoteId?.[cleanNoteId] || {};
-  const {
-    sourceTitle,
-    activeMode,
-    activeAiCandidate,
-    activeAiTargetNoteId,
-    activeRawRelationType,
-    activeActionSourceNoteId,
-    selectedManualTargetNoteId,
-    selectedManualTitle,
-    manualSearchText,
-    defaultRelationType,
-    defaultRationale,
-    defaultRationaleSource,
-    previewTargetNoteId,
-    hasActiveInsightQuestionDraft,
-    draftInsightQuestion
-  } = graphIsolatedJoinNetworkFormModel(
-    cleanNoteId,
-    {
-      nodeMap,
-      preferredTargetNoteId,
-      preferredRelationType,
-      preferredRationale,
-      relationDraft,
-      aiCandidates,
-      manualTargets,
-      loading,
-      hasAnalysis
-    },
-    {
-      workflowTabKey: graphIsolatedWorkflowTabKey,
-      activeTabForNote: graphIsolatedWorkflowActiveTab,
-      reversibleRelationTypes: GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES,
-      nodeTitle: graphNodeTitle
-    }
-  );
-  const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
+  return renderGraphIsolatedJoinNetworkFlowHtml(noteId, {
+    nodeMap,
+    edges,
+    visibleEdgeCount,
+    preferredTargetNoteId,
+    preferredRelationType,
+    preferredRationale,
+    heading,
+    helper,
+    saveHint,
+    relationDraft: graphState.isolatedRelationDraftByNoteId?.[String(noteId || "").trim()] || {},
+    loading: graphState.aiAnalysisLoading === true
+  }, {
+    aiCandidatesForNote: graphAiRelationCandidatesForNote,
+    manualTargetsForNote: graphManualRelationTargetsForNote,
+    aiAnalysisPayload: graphAiAnalysisPayload,
+    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
+    workflowTabKey: graphIsolatedWorkflowTabKey,
+    activeTabForNote: graphIsolatedWorkflowActiveTab,
+    reversibleRelationTypes: GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES,
+    nodeTitle: graphNodeTitle,
+    escapeHtml,
+    candidatePercent: graphCandidatePercent,
+    graphFullNoteById,
+    noteTypeLabel,
+    graphNotePreviewText,
+    graphNoteTags,
+    relationFormTypeOptions: graphRelationFormTypeOptions,
+    renderPreviewPanel: renderGraphIsolatedPreviewPanel
   });
-  const aiOptions = aiCandidates.length
-    ? aiCandidates
-        .map((candidate, index) => {
-          const targetId = String(candidate.counterpartNoteId || "").trim();
-          if (!targetId || targetId === cleanNoteId) return "";
-          const targetTitle = String(candidate.counterpartTitle || candidate.targetTitle || targetId).trim() || targetId;
-          const percent = graphCandidatePercent(candidate);
-          const rawRelationType = String(candidate.relationType || "associated_with").trim().toLowerCase() || "associated_with";
-          const actionSourceNoteId = String(candidate.actionSourceNoteId || candidate.sourceNoteId || "").trim();
-          const relationType =
-            !actionSourceNoteId || actionSourceNoteId === cleanNoteId || GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES.has(rawRelationType)
-              ? rawRelationType
-              : "associated_with";
-          const rationaleDraft =
-            relationType === rawRelationType
-              ? String(candidate.rationaleDraft || "").trim()
-              : "";
-          const previewNote = graphFullNoteById(targetId, nodeMap) || {};
-          const selected = activeMode === "ai" ? targetId === activeAiTargetNoteId : index === 0;
-          return `<option value="${escapeHtml(targetId)}" data-graph-relation-type="${escapeHtml(relationType)}" data-graph-rationale-draft="${escapeHtml(rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft || "")}" data-graph-action-source-note="${escapeHtml(actionSourceNoteId)}" data-graph-action-target-note="${escapeHtml(candidate.actionTargetNoteId || candidate.targetNoteId || "")}" data-graph-preview-title="${escapeHtml(targetTitle)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${selected ? " selected" : ""}>${escapeHtml(`${targetTitle} · 相关性 ${percent}%`)}</option>`;
-        })
-        .filter(Boolean)
-        .join("")
-    : "";
-  const manualOptions = manualTargets
-    .map((target, index) => {
-      const label = target.folder ? `${target.title} · ${target.folder}` : target.title;
-      const previewNote = graphFullNoteById(target.id, nodeMap) || target;
-      const selected = String(target.id || "").trim() === selectedManualTargetNoteId;
-      const searchMatch = manualSearchText ? label.toLowerCase().includes(manualSearchText.toLowerCase()) : true;
-      const visible = selected || (searchMatch && index < 8);
-      const manualRationale = `我确认“${sourceTitle}”和“${target.title}”应该关联，因为：________。`;
-      return `<button class="graph-manual-target${selected ? " is-selected" : ""}${visible ? "" : " is-hidden"}" type="button" data-graph-pick-manual-target="${escapeHtml(target.id)}" data-graph-manual-title="${escapeHtml(target.title)}" data-graph-manual-rationale="${escapeHtml(manualRationale)}" data-graph-manual-search-text="${escapeHtml(label.toLowerCase())}" data-graph-preview-title="${escapeHtml(target.title)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${visible ? "" : " hidden"}><strong>${escapeHtml(target.title)}</strong>${target.folder ? `<small>${escapeHtml(target.folder)}</small>` : ""}</button>`;
-    })
-    .join("");
-  return `
-    <section class="graph-isolated-join" aria-label="建立笔记关联">
-      <div class="graph-isolated-join-head">
-        <div>
-          <strong>${escapeHtml(heading)}</strong>
-          <p>${escapeHtml(helper)}</p>
-        </div>
-        <span>${escapeHtml(directEdges.length ? "已有关联" : visibleEdgeCount ? "当前可见" : "未关联")}</span>
-      </div>
-      <form class="graph-isolated-relation-form" data-graph-isolated-relation-form data-source-note="${escapeHtml(cleanNoteId)}" data-source-title="${escapeHtml(sourceTitle)}">
-        <div class="graph-isolated-mode-switch" role="tablist" aria-label="选择目标笔记方式">
-          <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">AI 推荐</button>
-          <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">手工搜索</button>
-        </div>
-        <input type="hidden" data-graph-relation-source-mode value="${escapeHtml(activeMode)}">
-        <div class="graph-isolated-target-panel"${activeMode === "ai" ? "" : " hidden"} data-graph-target-panel="ai">
-          <label class="graph-isolated-field">
-            <span>AI 推荐目标</span>
-            <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${aiCandidates.length ? "" : " disabled"}>
-              ${aiOptions || `<option value="">暂无推荐目标</option>`}
-            </select>
-          </label>
-          <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${loading ? " disabled" : ""}>${escapeHtml(loading ? "正在查找" : aiCandidates.length ? "重新查找推荐" : "查找推荐")}</button>
-          ${!aiCandidates.length && hasAnalysis ? `<p class="graph-isolated-helper">当前没有清楚的 AI 推荐，可以切到手工搜索。</p>` : ""}
-        </div>
-        <div class="graph-isolated-target-panel"${activeMode === "manual" ? "" : " hidden"} data-graph-target-panel="manual">
-          <label class="graph-isolated-field">
-            <span>手工搜索目标</span>
-            <input type="search" data-graph-manual-target-search autocomplete="off" placeholder="输入标题关键词" value="${escapeHtml(manualSearchText)}"${selectedManualTitle ? ` data-selected-title="${escapeHtml(selectedManualTitle)}"` : ""}>
-            <input type="hidden" data-graph-manual-target-id value="${escapeHtml(selectedManualTargetNoteId)}">
-          </label>
-          <div class="graph-manual-target-list" data-graph-manual-target-list>
-            ${manualOptions || `<span class="graph-isolated-helper">当前范围没有可关联的其它永久笔记。</span>`}
-          </div>
-          <p class="graph-isolated-helper" data-graph-manual-target-status>${escapeHtml(selectedManualTitle ? `已选择：${selectedManualTitle}` : manualSearchText ? "继续选择一条搜索结果。" : "输入关键词，选择一条永久笔记。")}</p>
-        </div>
-        <div class="graph-isolated-form-grid">
-          <label class="graph-isolated-field">
-            <span>关系类型</span>
-            <select data-graph-isolated-relation-type data-graph-default-relation-type="${escapeHtml(defaultRelationType)}">${graphRelationFormTypeOptions(defaultRelationType)}</select>
-          </label>
-          <label class="graph-isolated-field">
-            <span>关联理由</span>
-            <textarea data-graph-isolated-rationale data-graph-rationale-source="${escapeHtml(defaultRationaleSource)}" rows="4" placeholder="写一句：为什么这两条笔记应该连在一起。">${escapeHtml(defaultRationale)}</textarea>
-          </label>
-        </div>
-        <input type="hidden" data-graph-isolated-insight-question value="${escapeHtml(hasActiveInsightQuestionDraft ? draftInsightQuestion : activeAiCandidate?.insightQuestionDraft || "")}">
-        <div class="graph-isolated-form-error" data-graph-isolated-form-error></div>
-        <div class="graph-isolated-form-actions">
-          <button class="graph-selection-action is-primary" type="button" data-graph-isolated-relation-save>保存关系</button>
-          <span>${escapeHtml(saveHint)}</span>
-        </div>
-      </form>
-      ${renderGraphIsolatedPreviewPanel(cleanNoteId, { nodeMap, preferredTargetNoteId: previewTargetNoteId })}
-    </section>
-  `;
 }
 
 function renderGraphIsolatedNextStepActions(noteId = "", { isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
