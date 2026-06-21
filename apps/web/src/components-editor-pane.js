@@ -149,16 +149,18 @@ import {
 import {
   permanentNoteRelationState,
   permanentNoteSidebarLayout,
-  permanentNoteStatusSummaryState,
   permanentNoteViewpointState,
-  permanentNoteWorkspaceArchitecture,
-  permanentRelationAssistState
+  permanentNoteWorkspaceArchitecture
 } from "./permanent-note-sidebar-architecture.js";
 import {
   explicitPermanentNoteRelations,
   permanentNoteSidebarExplicitRelationCount,
   permanentNoteSidebarOverview
 } from "./permanent-note-sidebar-model.js";
+import {
+  renderPermanentNoteRelationAssistSection as renderPermanentNoteRelationAssistSectionView,
+  renderPermanentNoteStatusSummary
+} from "./permanent-note-sidebar-view.js";
 
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
@@ -5850,29 +5852,11 @@ export class EditorPane {
 
   renderInspectorStatusSummary(note, { forward = [], backward = [], tagRelated = [] } = {}) {
     const relationCount = Number(this.currentExplicitRelationCount() || 0);
-    const summaryState = permanentNoteStatusSummaryState({
+    return renderPermanentNoteStatusSummary({
       note,
       relationState: this.semanticRelationsState,
       relationCount
     });
-    const thesis = summaryState.viewpoint.thesis;
-    const summary = summaryState.viewpoint.summary;
-    const confirmed = summaryState.viewpoint.confirmed;
-    const viewpointLabel = !thesis ? "观点：待提纯" : summary.length < 3 ? "观点：待压缩" : confirmed ? "观点：已确认" : "观点：待确认";
-    const relationSummaryLabel =
-      this.semanticRelationsState === "error"
-        ? "关联：读取失败"
-        : this.semanticRelationsState === "loading"
-          ? "关联：读取中"
-          : relationCount > 0
-            ? `关联：${relationCount} 条`
-            : "关联：待建立";
-    return `
-      <div class="inspector-summary inspector-summary-compact" data-inspector-status-summary>
-        <span class="inspector-chip ${confirmed ? "is-success" : "is-warning"}">${escapeHtml(viewpointLabel)}</span>
-        <span class="inspector-chip ${relationCount > 0 ? "is-success" : "is-warning"}">${escapeHtml(relationSummaryLabel)}</span>
-      </div>
-    `;
   }
 
   refreshInspectorStatusSummary(note, tab = this.activeTab()) {
@@ -6018,43 +6002,13 @@ export class EditorPane {
 
   renderPermanentNoteRelationAssistSection(note, overview = {}) {
     if (!note?.id) return "";
-    const explicitRelationCount = this.currentExplicitRelationCount();
-    const wikilinkCount = Number(overview.wikilinkCount || 0);
-    const tagRelatedCount = Number(overview.tagRelatedCount || 0);
-    const analysis = this.noteAiAnalysisByNoteId.get(note.id) || null;
-    const assistState = permanentRelationAssistState({
-      explicitRelationCount,
-      wikilinkCount,
-      tagRelatedCount,
-      analysis
+    return renderPermanentNoteRelationAssistSectionView({
+      note,
+      explicitRelationCount: this.currentExplicitRelationCount(),
+      wikilinkCount: Number(overview.wikilinkCount || 0),
+      tagRelatedCount: Number(overview.tagRelatedCount || 0),
+      analysis: this.noteAiAnalysisByNoteId.get(note.id) || null
     });
-    const relationText =
-      explicitRelationCount === null
-        ? "正在读取这条笔记的正式关系。读取完成后可以继续补关系。"
-        : explicitRelationCount > 0
-          ? `已有 ${explicitRelationCount} 条正式关系。可以继续补更关键的连接，或进入写作准备。`
-          : wikilinkCount || tagRelatedCount
-            ? "现在只有正文链接或同标签接近，还不是正式关系。请选一条最关键的连接并写清理由。"
-            : "还没有正式关系。请先关联一条真正相关的永久笔记，并写清为什么相关。";
-    const relationCandidates = assistState.relationCandidates;
-    const storedCount = assistState.storedArtifactCount;
-    return `
-      <section class="permanent-workspace-card relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}">
-        <div>
-          <strong>关联</strong>
-          <p>${escapeHtml(relationText)}</p>
-        </div>
-        ${
-          analysis
-            ? `<div class="permanent-workspace-ai-note">AI 已找到 ${escapeHtml(String(relationCandidates))} 个候选，${escapeHtml(storedCount ? `${storedCount} 条待你确认` : "没有自动保存关系")}。</div>`
-            : ""
-        }
-        <div class="semantic-relation-actions">
-          <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai">${escapeHtml(analysis ? "整理关系" : "AI 推荐")}</button>
-          <button class="mini-btn" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="manual">手动搜索</button>
-        </div>
-      </section>
-    `;
   }
 
   renderPermanentNoteWritingPrepSection(note) {

@@ -4,11 +4,13 @@ import { readFile } from "node:fs/promises";
 
 const sourcePath = new URL("../../apps/web/src/components-editor-pane.js", import.meta.url);
 const sidebarArchitecturePath = new URL("../../apps/web/src/permanent-note-sidebar-architecture.js", import.meta.url);
+const sidebarViewPath = new URL("../../apps/web/src/permanent-note-sidebar-view.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation side panel uses action-first workspace copy without noisy placeholders", async () => {
   const source = await readFile(sourcePath, "utf8");
   const sidebarArchitecture = await readFile(sidebarArchitecturePath, "utf8");
+  const sidebarView = await readFile(sidebarViewPath, "utf8");
   const shell = await readFile(shellPath, "utf8");
 
   assert.match(source, /from "\.\/permanent-note-sidebar-architecture\.js";/);
@@ -24,7 +26,9 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /<div class="inspector-section-title">下一步<\/div>/);
   assert.match(source, /<div class="inspector-section-title">关系网络<\/div>/);
   assert.match(source, /renderPermanentRelationWorkspace/);
-  assert.match(source, /data-permanent-relation-action="open"/);
+  assert.match(source, /from "\.\/permanent-note-sidebar-view\.js";/);
+  assert.match(source, /renderPermanentNoteRelationAssistSectionView\(\{/);
+  assert.match(sidebarView, /data-permanent-relation-action="open"/);
   assert.match(source, /permanentRelationMode && !permanentRelationMode\.hasAttribute\("data-permanent-relation-action"\)/);
   assert.match(source, /data-permanent-relation-workspace/);
   assert.match(source, /this\.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState\(""\)/);
@@ -46,7 +50,7 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /data-permanent-note-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(source, /refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
   assert.match(source, /shouldPreserveRelationSection\(section\)/);
-  assert.match(source, /data-note-relation-assist-section/);
+  assert.match(sidebarView, /data-note-relation-assist-section/);
   assert.match(source, /String\(workspace\.getAttribute\("data-note-id"\) \|\| ""\)\.trim\(\) !== note\.id/);
   assert.doesNotMatch(source, /workspace\.outerHTML = this\.renderDeferredNoteWorkspace\(note, tab\)/);
   assert.match(source, /AI 推荐/);
