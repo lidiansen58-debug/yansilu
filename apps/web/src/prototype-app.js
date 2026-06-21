@@ -193,6 +193,14 @@ import {
   normalizeAiSuggestionFilters
 } from "./ai-suggestions-model.js";
 import {
+  loadAiSuggestionDetailForRuntime,
+  refreshAiSuggestionsForRuntime
+} from "./ai-suggestions-runtime-controller.js";
+import {
+  loadAiInboxDetailForRuntime,
+  refreshAiInboxForRuntime
+} from "./ai-inbox-runtime-controller.js";
+import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
@@ -2670,124 +2678,26 @@ function aiSuggestionFiltersFromUi() {
 }
 
 async function loadAiSuggestionDetail(suggestionId) {
-  const cleanSuggestionId = String(suggestionId || "").trim();
-  if (!cleanSuggestionId) {
-    settingsState.ai.suggestionDetailRequestToken += 1;
-    settingsState.ai.selectedSuggestionId = "";
-    settingsState.ai.suggestionDetail = null;
-    settingsState.ai.suggestionDetailSuggestionId = "";
-    settingsState.ai.suggestionDetailLoading = false;
-    settingsState.ai.suggestionDetailError = "";
-    settingsState.ai.suggestionActionSuggestionId = "";
-    settingsState.ai.suggestionActionNoticeSuggestionId = "";
-    settingsState.ai.suggestionActionNotice = "";
-    settingsState.ai.suggestionActionNoticeTone = "";
-    settingsState.ai.suggestionActionError = "";
-    renderAiSuggestionsWorkspace();
-    return null;
-  }
-  const requestToken = settingsState.ai.suggestionDetailRequestToken + 1;
-  settingsState.ai.suggestionDetailRequestToken = requestToken;
-  settingsState.ai.selectedSuggestionId = cleanSuggestionId;
-  settingsState.ai.suggestionDetail = null;
-  settingsState.ai.suggestionDetailSuggestionId = cleanSuggestionId;
-  settingsState.ai.suggestionDetailLoading = true;
-  settingsState.ai.suggestionDetailError = "";
-  settingsState.ai.suggestionActionSuggestionId = "";
-  settingsState.ai.suggestionActionNoticeSuggestionId = "";
-  settingsState.ai.suggestionActionNotice = "";
-  settingsState.ai.suggestionActionNoticeTone = "";
-  settingsState.ai.suggestionActionError = "";
-  renderAiSuggestionsWorkspace();
-  try {
-    const response = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
-    const detail = suggestionDetailFromResponse(response);
-    if (requestToken !== settingsState.ai.suggestionDetailRequestToken) return null;
-    settingsState.ai.suggestionDetail = detail;
-    rememberAiDebugSnapshot("suggestionDetail", response);
-    settingsState.ai.suggestionDetailError = "";
-    return detail.item;
-  } catch (error) {
-    if (requestToken !== settingsState.ai.suggestionDetailRequestToken) return null;
-    settingsState.ai.suggestionDetailError = String(error?.message || error);
-    setStatus(`AI suggestion detail failed: ${settingsState.ai.suggestionDetailError}`, "warn");
-    return null;
-  } finally {
-    if (requestToken !== settingsState.ai.suggestionDetailRequestToken) return;
-    settingsState.ai.suggestionDetailLoading = false;
-    renderAiSuggestionsWorkspace();
-  }
+  return loadAiSuggestionDetailForRuntime({
+    aiState: settingsState.ai,
+    fetchAiSuggestion,
+    suggestionDetailFromResponse,
+    rememberAiDebugSnapshot,
+    render: renderAiSuggestionsWorkspace,
+    setStatus
+  }, suggestionId);
 }
 
 async function refreshAiSuggestions(options = {}) {
-  settingsState.ai.suggestionFilters = normalizeAiSuggestionFilters(settingsState.ai.suggestionFilters);
-  if (!options.silent) {
-    settingsState.ai.suggestionsLoading = true;
-    settingsState.ai.suggestionsError = "";
-    renderAiSuggestionsWorkspace();
-  }
-  const previousSelectedId = String(settingsState.ai.selectedSuggestionId || "").trim();
-  try {
-    const result = await fetchAiSuggestions({ ...settingsState.ai.suggestionFilters, canonical: true });
-    settingsState.ai.suggestions = result.items;
-    settingsState.ai.suggestionsTotal = result.total;
-    rememberAiDebugSnapshot("suggestionsList", result);
-    settingsState.ai.suggestionsError = "";
-    const selectedListItem = result.items.find((item) => String(item.id || "").trim() === previousSelectedId) || null;
-    const selectedStillVisible = Boolean(selectedListItem);
-    const nextSelectedSuggestionId = selectedStillVisible ? previousSelectedId : result.items[0]?.id || "";
-    const selectionChanged = nextSelectedSuggestionId !== previousSelectedId;
-    const detailItem = settingsState.ai.suggestionDetail?.item || settingsState.ai.suggestionDetail || null;
-    const detailMatchesSelection = String(detailItem?.id || "").trim() === previousSelectedId;
-    const staleDetailWhileSelectedStillVisible =
-      selectedStillVisible &&
-      detailMatchesSelection &&
-      Boolean(selectedListItem) &&
-      (
-        String(selectedListItem.status || "").trim() !== String(detailItem?.status || "").trim() ||
-        String(selectedListItem.updatedAt || "").trim() !== String(detailItem?.updatedAt || "").trim() ||
-        String(selectedListItem.sourceArtifactId || "").trim() !== String(detailItem?.sourceArtifactId || "").trim()
-      );
-    const shouldRealignSelection = !options.preserveDetail || !selectedStillVisible;
-    if (shouldRealignSelection) {
-      settingsState.ai.selectedSuggestionId = nextSelectedSuggestionId;
-    }
-    if (
-      selectionChanged ||
-      staleDetailWhileSelectedStillVisible ||
-      (!selectedStillVisible && !shouldRealignSelection)
-    ) {
-      settingsState.ai.suggestionDetailRequestToken += 1;
-      settingsState.ai.suggestionDetail = null;
-      settingsState.ai.suggestionDetailSuggestionId = "";
-      settingsState.ai.suggestionDetailLoading = false;
-      settingsState.ai.suggestionDetailError = "";
-      settingsState.ai.suggestionActionSuggestionId = "";
-      settingsState.ai.suggestionActionNoticeSuggestionId = "";
-      settingsState.ai.suggestionActionNotice = "";
-      settingsState.ai.suggestionActionNoticeTone = "";
-      settingsState.ai.suggestionActionError = "";
-    }
-    if (!settingsState.ai.selectedSuggestionId && shouldRealignSelection) {
-      settingsState.ai.suggestionDetail = null;
-      settingsState.ai.suggestionDetailSuggestionId = "";
-    }
-    const shouldHydrateSelectedDetail =
-      Boolean(settingsState.ai.selectedSuggestionId) &&
-      !settingsState.ai.suggestionDetail &&
-      !settingsState.ai.suggestionDetailLoading;
-    if (shouldHydrateSelectedDetail) {
-      await loadAiSuggestionDetail(settingsState.ai.selectedSuggestionId);
-    }
-    return result;
-  } catch (error) {
-    settingsState.ai.suggestionsError = String(error?.message || error);
-    setStatus(`AI suggestions failed to load: ${settingsState.ai.suggestionsError}`, "warn");
-    return null;
-  } finally {
-    settingsState.ai.suggestionsLoading = false;
-    renderAiSuggestionsWorkspace();
-  }
+  return refreshAiSuggestionsForRuntime({
+    aiState: settingsState.ai,
+    fetchAiSuggestions,
+    normalizeAiSuggestionFilters,
+    rememberAiDebugSnapshot,
+    render: renderAiSuggestionsWorkspace,
+    setStatus,
+    loadDetail: loadAiSuggestionDetail
+  }, options);
 }
 
 function aiSuggestionReviewedContentFromUi(current = {}) {
@@ -3301,137 +3211,32 @@ function latestArtifactDecision(artifact = null) {
 }
 
 async function loadAiInboxDetail(artifactId) {
-  const cleanArtifactId = String(artifactId || "").trim();
-  if (!cleanArtifactId) {
-    aiInboxState.detailRequestToken += 1;
-    aiInboxState.selectedArtifactId = "";
-    aiInboxState.detail = null;
-    aiInboxState.detailArtifactId = "";
-    aiInboxState.detailLoading = false;
-    aiInboxState.detailError = "";
-    aiInboxState.actionArtifactId = "";
-    aiInboxState.actionSuggestionId = "";
-    aiInboxState.actionError = "";
-    clearAiInboxActionNotice();
-    resetAiInboxSummaryState({ invalidate: true });
-    renderAiInboxWorkspace();
-    return null;
-  }
-  const requestToken = aiInboxState.detailRequestToken + 1;
-  aiInboxState.detailRequestToken = requestToken;
-  aiInboxState.selectedArtifactId = cleanArtifactId;
-  aiInboxState.detailArtifactId = cleanArtifactId;
-  aiInboxState.detailLoading = true;
-  aiInboxState.detailError = "";
-  aiInboxState.actionArtifactId = "";
-  aiInboxState.actionSuggestionId = "";
-  aiInboxState.actionError = "";
-  clearAiInboxActionNotice();
-  resetAiInboxSummaryState({ invalidate: true });
-  renderAiInboxWorkspace();
-  try {
-    const detail = await fetchAiInboxItemWithOptions(cleanArtifactId, { canonical: true });
-    if (requestToken !== aiInboxState.detailRequestToken) return null;
-    const selectionStillMatches = String(aiInboxState.selectedArtifactId || "").trim() === cleanArtifactId;
-    if (selectionStillMatches) {
-      aiInboxState.detail = aiInboxDetailFromResponse(detail);
-      syncAiInboxSummaryFromDetail(detail);
-    }
-    aiInboxState.detailArtifactId = cleanArtifactId;
-    rememberAiDebugSnapshot("inboxDetail", detail);
-    return detail;
-  } catch (error) {
-    if (requestToken !== aiInboxState.detailRequestToken) return null;
-    const selectionStillMatches = String(aiInboxState.selectedArtifactId || "").trim() === cleanArtifactId;
-    if (selectionStillMatches) aiInboxState.detail = null;
-    aiInboxState.detailArtifactId = cleanArtifactId;
-    aiInboxState.detailError = String(error?.message || error);
-    setStatus(`AI 建议详情加载失败：${aiInboxState.detailError}`, "warn");
-    return null;
-  } finally {
-    if (requestToken !== aiInboxState.detailRequestToken) return;
-    aiInboxState.detailLoading = false;
-    renderAiInboxWorkspace();
-  }
+  return loadAiInboxDetailForRuntime({
+    aiInboxState,
+    fetchAiInboxItemWithOptions,
+    aiInboxDetailFromResponse,
+    rememberAiDebugSnapshot,
+    syncAiInboxSummaryFromDetail,
+    resetAiInboxSummaryState,
+    clearAiInboxActionNotice,
+    render: renderAiInboxWorkspace,
+    setStatus
+  }, artifactId);
 }
 
 async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
-  aiInboxState.filters = normalizeAiInboxFilters(aiInboxState.filters);
-  if (!silent) {
-    aiInboxState.loading = true;
-    aiInboxState.error = "";
-    renderAiInboxWorkspace();
-  }
-  const previousSelectedId = String(aiInboxState.selectedArtifactId || "").trim();
-  try {
-    const result = await fetchAiInbox({ ...aiInboxState.filters, canonical: true });
-    const nextItems = Array.isArray(result?.canonical?.items) && result.canonical.items.length
-      ? result.canonical.items.map((item) => aiInboxItemFromCanonical(item))
-      : result.items;
-    aiInboxState.items = nextItems;
-    aiInboxState.counts = result.counts || aiInboxState.counts;
-    aiInboxState.views = result.views || [];
-    rememberAiDebugSnapshot("inboxList", result);
-    aiInboxState.error = "";
-    const selectedListItem = nextItems.find((item) => String(item.artifactId || "").trim() === previousSelectedId) || null;
-    const selectedStillVisible = Boolean(selectedListItem);
-    const nextSelectedArtifactId = selectedStillVisible ? previousSelectedId : nextItems[0]?.artifactId || "";
-    const selectionChanged = nextSelectedArtifactId !== previousSelectedId;
-    const detailItem = aiInboxState.detail?.item || null;
-    const detailMatchesSelection = String(detailItem?.artifactId || "").trim() === previousSelectedId;
-    const listSuggestionId = String(selectedListItem?.suggestionId || "").trim();
-    const detailSuggestionId = String(aiInboxState.detail?.suggestion?.id || "").trim();
-    const staleDetailWhileSelectedStillVisible =
-      selectedStillVisible &&
-      detailMatchesSelection &&
-      Boolean(selectedListItem) &&
-      (
-        String(selectedListItem.status || "").trim() !== String(detailItem?.status || "").trim() ||
-        String(selectedListItem.actionState || "").trim() !== String(detailItem?.actionState || "").trim() ||
-        String(selectedListItem.updatedAt || "").trim() !== String(detailItem?.updatedAt || "").trim() ||
-        Number(selectedListItem.decisionCount || 0) !== Number(detailItem?.decisionCount || 0) ||
-        (Boolean(listSuggestionId) && listSuggestionId !== detailSuggestionId)
-      );
-    const shouldRealignSelection = !preserveDetail || !selectedStillVisible;
-    if (shouldRealignSelection) {
-      aiInboxState.selectedArtifactId = nextSelectedArtifactId;
-    }
-    if (
-      selectionChanged ||
-      staleDetailWhileSelectedStillVisible ||
-      (!selectedStillVisible && !shouldRealignSelection)
-    ) {
-      aiInboxState.detailRequestToken += 1;
-      aiInboxState.detail = null;
-      aiInboxState.detailArtifactId = "";
-      aiInboxState.detailLoading = false;
-      aiInboxState.detailError = "";
-      aiInboxState.actionArtifactId = "";
-      aiInboxState.actionSuggestionId = "";
-      aiInboxState.actionError = "";
-      clearAiInboxActionNotice();
-      resetAiInboxSummaryState({ invalidate: true });
-    }
-    if (!aiInboxState.selectedArtifactId && shouldRealignSelection) {
-      aiInboxState.detail = null;
-      aiInboxState.detailArtifactId = "";
-    }
-    const shouldHydrateSelectedDetail =
-      Boolean(aiInboxState.selectedArtifactId) &&
-      !aiInboxState.detail &&
-      !aiInboxState.detailLoading;
-    if (shouldHydrateSelectedDetail) {
-      await loadAiInboxDetail(aiInboxState.selectedArtifactId);
-    }
-    return result;
-  } catch (error) {
-    aiInboxState.error = String(error?.message || error);
-    setStatus(`AI 建议加载失败：${aiInboxState.error}`, "warn");
-    return null;
-  } finally {
-    aiInboxState.loading = false;
-    renderAiInboxWorkspace();
-  }
+  return refreshAiInboxForRuntime({
+    aiInboxState,
+    fetchAiInbox,
+    normalizeAiInboxFilters,
+    aiInboxItemFromCanonical,
+    rememberAiDebugSnapshot,
+    clearAiInboxActionNotice,
+    resetAiInboxSummaryState,
+    render: renderAiInboxWorkspace,
+    setStatus,
+    loadDetail: loadAiInboxDetail
+  }, { silent, preserveDetail });
 }
 
 async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {

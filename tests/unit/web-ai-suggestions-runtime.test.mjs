@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  loadAiSuggestionDetailForRuntime,
+  refreshAiSuggestionsForRuntime
+} from "../../apps/web/src/ai-suggestions-runtime-controller.js";
 
 function extractAsyncFunctionSource(source, name) {
   const signature = `async function ${name}(`;
@@ -34,12 +38,30 @@ function extractAsyncFunctionSource(source, name) {
   throw new Error(`could not extract ${name}() source`);
 }
 
-test("loadAiSuggestionDetail ignores stale responses and keeps the latest selected suggestion detail", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "loadAiSuggestionDetail");
+function createLoadAiSuggestionDetail(settingsState, deps = {}) {
+  return (suggestionId) => loadAiSuggestionDetailForRuntime({
+    aiState: settingsState.ai,
+    fetchAiSuggestion: deps.fetchAiSuggestion,
+    suggestionDetailFromResponse: deps.suggestionDetailFromResponse || ((item) => ({ item })),
+    rememberAiDebugSnapshot: deps.rememberAiDebugSnapshot || (() => {}),
+    render: deps.renderAiSuggestionsWorkspace || (() => {}),
+    setStatus: deps.setStatus || (() => {})
+  }, suggestionId);
+}
 
+function createRefreshAiSuggestions(settingsState, deps = {}) {
+  return (options = {}) => refreshAiSuggestionsForRuntime({
+    aiState: settingsState.ai,
+    fetchAiSuggestions: deps.fetchAiSuggestions,
+    normalizeAiSuggestionFilters: deps.normalizeAiSuggestionFilters || ((filters) => filters),
+    rememberAiDebugSnapshot: deps.rememberAiDebugSnapshot || (() => {}),
+    render: deps.renderAiSuggestionsWorkspace || (() => {}),
+    setStatus: deps.setStatus || (() => {}),
+    loadDetail: deps.loadAiSuggestionDetail || (async () => null)
+  }, options);
+}
+
+test("loadAiSuggestionDetail ignores stale responses and keeps the latest selected suggestion detail", async () => {
   let resolveFirst;
   let resolveSecond;
   const snapshots = [];
@@ -55,26 +77,15 @@ test("loadAiSuggestionDetail ignores stale responses and keeps the latest select
     }
   };
 
-  const loadAiSuggestionDetail = new Function(
-    "settingsState",
-    "fetchAiSuggestion",
-    "suggestionDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return loadAiSuggestionDetail;`
-  )(
-    settingsState,
-    (suggestionId) =>
+  const loadAiSuggestionDetail = createLoadAiSuggestionDetail(settingsState, {
+    fetchAiSuggestion: (suggestionId) =>
       new Promise((resolve) => {
         if (suggestionId === "suggestion_1") resolveFirst = () => resolve({ id: suggestionId, status: "suggested" });
         else resolveSecond = () => resolve({ id: suggestionId, status: "edited" });
       }),
-    (item) => ({ item }),
-    (key, response) => snapshots.push({ key, response }),
-    () => {},
-    () => {}
-  );
+    suggestionDetailFromResponse: (item) => ({ item }),
+    rememberAiDebugSnapshot: (key, response) => snapshots.push({ key, response })
+  });
 
   const firstPromise = loadAiSuggestionDetail("suggestion_1");
   assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_1");
@@ -98,11 +109,6 @@ test("loadAiSuggestionDetail ignores stale responses and keeps the latest select
 });
 
 test("loadAiSuggestionDetail clears stale errors after a successful retry and when selection is reset", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "loadAiSuggestionDetail");
-
   const settingsState = {
     ai: {
       selectedSuggestionId: "suggestion_old",
@@ -116,22 +122,10 @@ test("loadAiSuggestionDetail clears stale errors after a successful retry and wh
     }
   };
 
-  const loadAiSuggestionDetail = new Function(
-    "settingsState",
-    "fetchAiSuggestion",
-    "suggestionDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return loadAiSuggestionDetail;`
-  )(
-    settingsState,
-    async (suggestionId) => ({ id: suggestionId, status: "edited" }),
-    (item) => ({ item }),
-    () => {},
-    () => {},
-    () => {}
-  );
+  const loadAiSuggestionDetail = createLoadAiSuggestionDetail(settingsState, {
+    fetchAiSuggestion: async (suggestionId) => ({ id: suggestionId, status: "edited" }),
+    suggestionDetailFromResponse: (item) => ({ item })
+  });
 
   const fetched = await loadAiSuggestionDetail("suggestion_retry");
   assert.equal(fetched.id, "suggestion_retry");
@@ -154,11 +148,6 @@ test("loadAiSuggestionDetail clears stale errors after a successful retry and wh
 });
 
 test("loadAiSuggestionDetail stores detail failures separately from list errors", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "loadAiSuggestionDetail");
-
   const settingsState = {
     ai: {
       selectedSuggestionId: "suggestion_old",
@@ -172,24 +161,12 @@ test("loadAiSuggestionDetail stores detail failures separately from list errors"
     }
   };
 
-  const loadAiSuggestionDetail = new Function(
-    "settingsState",
-    "fetchAiSuggestion",
-    "suggestionDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return loadAiSuggestionDetail;`
-  )(
-    settingsState,
-    async () => {
+  const loadAiSuggestionDetail = createLoadAiSuggestionDetail(settingsState, {
+    fetchAiSuggestion: async () => {
       throw new Error("detail boom");
     },
-    (item) => ({ item }),
-    () => {},
-    () => {},
-    () => {}
-  );
+    suggestionDetailFromResponse: (item) => ({ item })
+  });
 
   const fetched = await loadAiSuggestionDetail("suggestion_retry");
   assert.equal(fetched, null);
@@ -201,11 +178,6 @@ test("loadAiSuggestionDetail stores detail failures separately from list errors"
 });
 
 test("loadAiSuggestionDetail keeps a failed detail request bound to the original suggestion after selection moves", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "loadAiSuggestionDetail");
-
   let rejectDetail;
   const settingsState = {
     ai: {
@@ -220,25 +192,13 @@ test("loadAiSuggestionDetail keeps a failed detail request bound to the original
     }
   };
 
-  const loadAiSuggestionDetail = new Function(
-    "settingsState",
-    "fetchAiSuggestion",
-    "suggestionDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return loadAiSuggestionDetail;`
-  )(
-    settingsState,
-    () =>
+  const loadAiSuggestionDetail = createLoadAiSuggestionDetail(settingsState, {
+    fetchAiSuggestion: () =>
       new Promise((_, reject) => {
         rejectDetail = () => reject(new Error("detail boom"));
       }),
-    (item) => ({ item }),
-    () => {},
-    () => {},
-    () => {}
-  );
+    suggestionDetailFromResponse: (item) => ({ item })
+  });
 
   const pending = loadAiSuggestionDetail("suggestion_1");
   settingsState.ai.selectedSuggestionId = "suggestion_2";
@@ -1232,11 +1192,6 @@ test("applyAiSuggestionStatus keeps a failed review action bound to the original
 });
 
 test("refreshAiSuggestions invalidates stale detail state when a list refresh switches the selected suggestion", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
-
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -1256,27 +1211,12 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
     }
   };
 
-  const refreshAiSuggestions = new Function(
-    "settingsState",
-    "normalizeAiSuggestionFilters",
-    "fetchAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiSuggestions;`
-  )(
-    settingsState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
       items: [{ id: "suggestion_2", status: "edited" }],
       total: 1
-    }),
-    async () => null,
-    () => {},
-    () => {},
-    () => {}
-  );
+    })
+  });
 
   await refreshAiSuggestions({ silent: true });
 
@@ -1292,11 +1232,6 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
 });
 
 test("refreshAiSuggestions invalidates stale detail state when the selected suggestion metadata changes", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
-
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -1324,27 +1259,12 @@ test("refreshAiSuggestions invalidates stale detail state when the selected sugg
     }
   };
 
-  const refreshAiSuggestions = new Function(
-    "settingsState",
-    "normalizeAiSuggestionFilters",
-    "fetchAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiSuggestions;`
-  )(
-    settingsState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
       items: [{ id: "suggestion_1", status: "edited", updatedAt: "2026-05-18T12:05:00.000Z", sourceArtifactId: "artifact_1" }],
       total: 1
-    }),
-    async () => null,
-    () => {},
-    () => {},
-    () => {}
-  );
+    })
+  });
 
   await refreshAiSuggestions({ silent: true });
 
@@ -1360,11 +1280,6 @@ test("refreshAiSuggestions invalidates stale detail state when the selected sugg
 });
 
 test("refreshAiSuggestions with preserveDetail keeps selection but invalidates stale detail when metadata changes", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
-
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -1392,27 +1307,12 @@ test("refreshAiSuggestions with preserveDetail keeps selection but invalidates s
     }
   };
 
-  const refreshAiSuggestions = new Function(
-    "settingsState",
-    "normalizeAiSuggestionFilters",
-    "fetchAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiSuggestions;`
-  )(
-    settingsState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
       items: [{ id: "suggestion_1", status: "edited", updatedAt: "2026-05-18T12:05:00.000Z", sourceArtifactId: "artifact_1" }],
       total: 1
-    }),
-    async () => null,
-    () => {},
-    () => {},
-    () => {}
-  );
+    })
+  });
 
   await refreshAiSuggestions({ silent: true, preserveDetail: true });
 
@@ -1427,11 +1327,6 @@ test("refreshAiSuggestions with preserveDetail keeps selection but invalidates s
 });
 
 test("refreshAiSuggestions with preserveDetail realigns selection and clears stale detail when the item disappears", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
-
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -1451,27 +1346,12 @@ test("refreshAiSuggestions with preserveDetail realigns selection and clears sta
     }
   };
 
-  const refreshAiSuggestions = new Function(
-    "settingsState",
-    "normalizeAiSuggestionFilters",
-    "fetchAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiSuggestions;`
-  )(
-    settingsState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
       items: [{ id: "suggestion_2", status: "edited" }],
       total: 1
-    }),
-    async () => null,
-    () => {},
-    () => {},
-    () => {}
-  );
+    })
+  });
 
   await refreshAiSuggestions({ silent: true, preserveDetail: true });
 
@@ -1487,11 +1367,6 @@ test("refreshAiSuggestions with preserveDetail realigns selection and clears sta
 });
 
 test("refreshAiSuggestions captures a suggestionsList debug snapshot", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
-
   const snapshots = [];
   const settingsState = {
     ai: {
@@ -1510,39 +1385,20 @@ test("refreshAiSuggestions captures a suggestionsList debug snapshot", async () 
     }
   };
 
-  const refreshAiSuggestions = new Function(
-    "settingsState",
-    "normalizeAiSuggestionFilters",
-    "fetchAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiSuggestions;`
-  )(
-    settingsState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
       items: [{ id: "suggestion_1", status: "suggested" }],
       total: 1,
       canonical: { items: [{ id: "suggestion_1", status: "suggested" }] }
     }),
-    async () => null,
-    (key, response) => snapshots.push({ key, response }),
-    () => {},
-    () => {}
-  );
+    rememberAiDebugSnapshot: (key, response) => snapshots.push({ key, response })
+  });
 
   await refreshAiSuggestions({ silent: true });
   assert.deepEqual(snapshots.map((entry) => entry.key), ["suggestionsList"]);
 });
 
 test("refreshAiSuggestions rehydrates the selected detail after invalidating stale metadata", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
-
   const detailLoads = [];
   const settingsState = {
     ai: {
@@ -1571,23 +1427,12 @@ test("refreshAiSuggestions rehydrates the selected detail after invalidating sta
     }
   };
 
-  const refreshAiSuggestions = new Function(
-    "settingsState",
-    "normalizeAiSuggestionFilters",
-    "fetchAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "renderAiSuggestionsWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiSuggestions;`
-  )(
-    settingsState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
       items: [{ id: "suggestion_1", status: "edited", updatedAt: "2026-05-18T12:05:00.000Z", sourceArtifactId: "artifact_1" }],
       total: 1
     }),
-    async (suggestionId) => {
+    loadAiSuggestionDetail: async (suggestionId) => {
       detailLoads.push(suggestionId);
       settingsState.ai.suggestionDetail = {
         item: {
@@ -1602,11 +1447,8 @@ test("refreshAiSuggestions rehydrates the selected detail after invalidating sta
       settingsState.ai.suggestionDetailLoading = false;
       settingsState.ai.suggestionDetailError = "";
       return settingsState.ai.suggestionDetail.item;
-    },
-    () => {},
-    () => {},
-    () => {}
-  );
+    }
+  });
 
   await refreshAiSuggestions({ silent: true });
 
