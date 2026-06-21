@@ -193,6 +193,7 @@ import {
   normalizeAiSuggestionFilters
 } from "./ai-suggestions-model.js";
 import {
+  applyAiSuggestionStatusForRuntime,
   loadAiSuggestionDetailForRuntime,
   refreshAiSuggestionsForRuntime
 } from "./ai-suggestions-runtime-controller.js";
@@ -2796,179 +2797,30 @@ function aiSuggestionUpdatedStatusMessage(status = "", suggestionId = "") {
 }
 
 async function applyAiSuggestionStatus(suggestionId, status) {
-  const cleanSuggestionId = String(suggestionId || settingsState.ai.selectedSuggestionId || "").trim();
-  const cleanStatus = String(status || "").trim();
-  if (!cleanSuggestionId || !cleanStatus) return null;
-  const inFlightSuggestionId = String(settingsState.ai.suggestionActionSuggestionId || "").trim();
-  if (settingsState.ai.suggestionActionLoading) {
-    if (!inFlightSuggestionId || inFlightSuggestionId === cleanSuggestionId) return null;
-    const inFlightReviewNotice =
-      typeof aiSuggestionInFlightReviewNotice === "function"
-        ? aiSuggestionInFlightReviewNotice()
-        : "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.";
-    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
-    settingsState.ai.suggestionActionNotice = inFlightReviewNotice;
-    settingsState.ai.suggestionActionNoticeTone = "warn";
-    renderAiSuggestionsWorkspace();
-    setStatus(
-      typeof aiSuggestionInFlightReviewStatusMessage === "function"
-        ? aiSuggestionInFlightReviewStatusMessage()
-        : "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.",
-      "warn"
-    );
-    return null;
-  }
-  const retryNotice =
-    typeof aiSuggestionReviewRetryNotice === "function"
-      ? aiSuggestionReviewRetryNotice()
-      : "Detail changed while you were reviewing. Retry from the latest reviewed item.";
-  const retryStatusMessage =
-    typeof aiSuggestionReviewRetryStatusMessage === "function"
-      ? aiSuggestionReviewRetryStatusMessage()
-      : "AI suggestion detail changed before the review action could run. Retry on the latest detail.";
-  const reviewSafetyNotice =
-    typeof aiSuggestionReviewSafetyNotice === "function"
-      ? aiSuggestionReviewSafetyNotice()
-      : "Load the latest suggestion detail before running review actions.";
-  const reviewSafetyStatusMessage =
-    typeof aiSuggestionReviewSafetyStatusMessage === "function"
-      ? aiSuggestionReviewSafetyStatusMessage()
-      : "AI suggestion detail is not ready yet. Retry after the latest detail loads.";
-  const alreadyAppliedNotice = (value) =>
-    typeof aiSuggestionAlreadyAppliedNotice === "function"
-      ? aiSuggestionAlreadyAppliedNotice(value)
-      : `This reviewed suggestion is already ${String(value || "").trim() || "updated"}.`;
-  const statusMessageValue =
-    typeof aiSuggestionStatusLabel === "function"
-      ? String(aiSuggestionStatusLabel(cleanStatus) || "").trim().toLowerCase() || cleanStatus
-      : cleanStatus;
-  const detail =
-    String(settingsState.ai.suggestionDetail?.item?.id || settingsState.ai.suggestionDetail?.id || "").trim() === cleanSuggestionId
-      ? settingsState.ai.suggestionDetail
-      : null;
-  const listed = settingsState.ai.suggestions.find((item) => String(item.id || "").trim() === cleanSuggestionId) || null;
-  const current = detail?.item || detail || listed || {};
-  const selectedSuggestionId = String(settingsState.ai.selectedSuggestionId || "").trim();
-  const detailSuggestionId = String(settingsState.ai.suggestionDetail?.item?.id || settingsState.ai.suggestionDetail?.id || "").trim();
-  if (selectedSuggestionId && detailSuggestionId && detailSuggestionId !== selectedSuggestionId) {
-    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
-    if (!settingsState.ai.suggestionDetailLoading) await loadAiSuggestionDetail(selectedSuggestionId);
-    settingsState.ai.suggestionActionNotice = retryNotice;
-    settingsState.ai.suggestionActionNoticeTone = "warn";
-    renderAiSuggestionsWorkspace();
-    setStatus(retryStatusMessage, "warn");
-    return null;
-  }
-  if (selectedSuggestionId && selectedSuggestionId === cleanSuggestionId && !detail) {
-    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
-    if (!settingsState.ai.suggestionDetailLoading) await loadAiSuggestionDetail(cleanSuggestionId);
-    settingsState.ai.suggestionActionNotice = reviewSafetyNotice;
-    settingsState.ai.suggestionActionNoticeTone = "warn";
-    renderAiSuggestionsWorkspace();
-    setStatus(reviewSafetyStatusMessage, "warn");
-    return null;
-  }
-  if (String(current.status || "").trim() === cleanStatus) {
-    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
-    settingsState.ai.suggestionActionNotice = alreadyAppliedNotice(statusMessageValue);
-    settingsState.ai.suggestionActionNoticeTone = "ok";
-    renderAiSuggestionsWorkspace();
-    setStatus(
-      typeof aiSuggestionAlreadyAppliedStatusMessage === "function"
-        ? aiSuggestionAlreadyAppliedStatusMessage(statusMessageValue, cleanSuggestionId)
-        : `AI suggestion already ${statusMessageValue}: ${cleanSuggestionId}`,
-      "ok"
-    );
-    return null;
-  }
-  settingsState.ai.suggestionActionSuggestionId = cleanSuggestionId;
-  settingsState.ai.suggestionActionNoticeSuggestionId = "";
-  settingsState.ai.suggestionActionNotice = "";
-  settingsState.ai.suggestionActionNoticeTone = "";
-  settingsState.ai.suggestionActionError = "";
-  let reviewedContent;
-  try {
-    reviewedContent =
-      cleanStatus === "edited" || cleanStatus === "confirmed"
-        ? aiSuggestionReviewedContentFromUi(current)
-        : undefined;
-  } catch (error) {
-    settingsState.ai.suggestionActionError = String(error?.message || error);
-    setStatus(
-      typeof aiSuggestionUpdateFailedStatusMessage === "function"
-        ? aiSuggestionUpdateFailedStatusMessage(error)
-        : `AI suggestion update failed: ${String(error?.message || error)}`,
-      "bad"
-    );
-    renderAiSuggestionsWorkspace();
-    return null;
-  }
-  settingsState.ai.suggestionActionLoading = true;
-  renderAiSuggestionsWorkspace();
-  try {
-    const payload = {
-      status: cleanStatus,
-      actor: "user",
-      userId: "local_user",
-      action:
-        cleanStatus === "adopted_as_draft"
-          ? "adopt_as_draft"
-          : cleanStatus === "edited"
-            ? "edit"
-          : cleanStatus === "confirmed"
-            ? "confirm"
-            : cleanStatus === "rejected"
-              ? "reject"
-              : cleanStatus
-    };
-    if (cleanStatus === "edited" || cleanStatus === "confirmed") {
-      payload.content = reviewedContent;
+  return applyAiSuggestionStatusForRuntime({
+    aiState: settingsState.ai,
+    suggestionDetailFromResponse,
+    aiSuggestionReviewedContent: aiSuggestionReviewedContentFromUi,
+    updateAiSuggestion,
+    refreshAiSuggestions,
+    loadAiSuggestionDetail,
+    rememberAiDebugSnapshot,
+    setStatus,
+    render: renderAiSuggestionsWorkspace,
+    aiSuggestionStatusLabel,
+    messages: {
+      reviewRetryNotice: aiSuggestionReviewRetryNotice,
+      reviewRetryStatusMessage: aiSuggestionReviewRetryStatusMessage,
+      reviewSafetyNotice: aiSuggestionReviewSafetyNotice,
+      reviewSafetyStatusMessage: aiSuggestionReviewSafetyStatusMessage,
+      inFlightReviewNotice: aiSuggestionInFlightReviewNotice,
+      inFlightReviewStatusMessage: aiSuggestionInFlightReviewStatusMessage,
+      alreadyAppliedNotice: aiSuggestionAlreadyAppliedNotice,
+      alreadyAppliedStatusMessage: aiSuggestionAlreadyAppliedStatusMessage,
+      updateFailedStatusMessage: aiSuggestionUpdateFailedStatusMessage,
+      updatedStatusMessage: aiSuggestionUpdatedStatusMessage
     }
-    if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
-    if (cleanStatus === "confirmed") payload.userConfirmed = true;
-    const response = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
-    const detailResult = suggestionDetailFromResponse(response);
-    const item = detailResult.item || {};
-    const selectionChangedDuringAction =
-      String(settingsState.ai.selectedSuggestionId || "").trim() !== cleanSuggestionId;
-    settingsState.ai.suggestions = settingsState.ai.suggestions.map((entry) =>
-      String(entry.id || "").trim() === cleanSuggestionId ? item : entry
-    );
-    if (!selectionChangedDuringAction) {
-      settingsState.ai.suggestionDetail = detailResult;
-      settingsState.ai.selectedSuggestionId = cleanSuggestionId;
-    }
-    await refreshAiSuggestions({ silent: true });
-    const nextSelectedSuggestionId = String(settingsState.ai.selectedSuggestionId || "").trim();
-    if (nextSelectedSuggestionId && !settingsState.ai.suggestionDetail) {
-      await loadAiSuggestionDetail(nextSelectedSuggestionId);
-    }
-    settingsState.ai.suggestionActionSuggestionId = "";
-    rememberAiDebugSnapshot("suggestionDecision", response);
-    settingsState.ai.suggestionActionError = "";
-    settingsState.ai.suggestionActionNoticeSuggestionId = "";
-    settingsState.ai.suggestionActionNotice = "";
-    settingsState.ai.suggestionActionNoticeTone = "";
-    setStatus(
-      typeof aiSuggestionUpdatedStatusMessage === "function"
-        ? aiSuggestionUpdatedStatusMessage(statusMessageValue, cleanSuggestionId)
-        : `AI suggestion ${statusMessageValue}: ${cleanSuggestionId}`,
-      "ok"
-    );
-    return item;
-  } catch (error) {
-    settingsState.ai.suggestionActionError = String(error?.message || error);
-    setStatus(
-      typeof aiSuggestionUpdateFailedStatusMessage === "function"
-        ? aiSuggestionUpdateFailedStatusMessage(error)
-        : `AI suggestion update failed: ${String(error?.message || error)}`,
-      "bad"
-    );
-    return null;
-  } finally {
-    settingsState.ai.suggestionActionLoading = false;
-    renderAiSuggestionsWorkspace();
-  }
+  }, suggestionId, status);
 }
 
 function scheduledTaskFiltersFromUi() {

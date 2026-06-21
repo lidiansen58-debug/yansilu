@@ -155,3 +155,37 @@ export async function refreshAiInboxForRuntime(deps = {}, options = {}) {
     render();
   }
 }
+
+export function aiInboxActionGuardForRuntime(aiInboxState = {}, options = {}) {
+  const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
+  const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
+  const artifactId = String(options.artifactId || selectedArtifactId || detailArtifactId || "").trim();
+  const suggestionId = String(options.suggestionId || "").trim();
+  if (!artifactId) {
+    return { type: "missing_artifact", artifactId: "", suggestionId };
+  }
+  if (selectedArtifactId && selectedArtifactId === artifactId && !aiInboxState.detail) {
+    return { type: "missing_detail", artifactId: selectedArtifactId, suggestionId };
+  }
+  if (aiInboxState.actionLoading) {
+    const inFlightArtifactId = String(aiInboxState.actionArtifactId || "").trim();
+    const inFlightSuggestionId = String(aiInboxState.actionSuggestionId || "").trim();
+    const sameArtifact = Boolean(inFlightArtifactId) && inFlightArtifactId === artifactId;
+    const sameSuggestion =
+      !suggestionId ||
+      !inFlightSuggestionId ||
+      inFlightSuggestionId === suggestionId;
+    if (sameArtifact && sameSuggestion) {
+      return { type: "same_action_in_flight", artifactId, suggestionId };
+    }
+    return { type: "different_action_in_flight", artifactId, suggestionId };
+  }
+  if (selectedArtifactId && detailArtifactId !== selectedArtifactId) {
+    return {
+      type: "stale_detail",
+      artifactId: selectedArtifactId,
+      suggestionId: String(aiInboxState.detail?.suggestion?.id || suggestionId || "").trim()
+    };
+  }
+  return { type: "ready", artifactId, suggestionId };
+}
