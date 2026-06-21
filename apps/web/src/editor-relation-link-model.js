@@ -5,6 +5,7 @@ import {
   normalizeText,
   wikilinkLabelFromRaw
 } from "./editor-link-picker.js";
+import { RELATION_ENTRY_SOURCES } from "./relation-entry-route.js";
 
 export function editorRelationLinkCandidates({
   query = "",
@@ -95,6 +96,10 @@ export function normalizeEditorRelationLinkInput({
       .slice(0, 280)
       .trim()
   };
+}
+
+export function editorRelationLinkEntrySource(inlineInsert = false) {
+  return inlineInsert ? RELATION_ENTRY_SOURCES.INLINE_WIKILINK : RELATION_ENTRY_SOURCES.TOOLBAR_RELATION;
 }
 
 export function editorRelationLinkCandidatePreviewText(note) {
