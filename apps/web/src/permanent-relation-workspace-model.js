@@ -1,0 +1,190 @@
+import {
+  isHiddenSemanticRelation,
+  isMarkdownWikilinkSemanticRelation
+} from "./writing-readiness.js";
+
+export const PERMANENT_RELATION_WORKSPACE_MODES = new Set(["ai", "manual"]);
+
+function cleanText(value = "") {
+  return String(value || "").trim();
+}
+
+function cleanId(value = "") {
+  return cleanText(value);
+}
+
+function cleanType(value = "") {
+  return cleanText(value).toLowerCase();
+}
+
+export function defaultPermanentRelationWorkspaceState(noteId = "") {
+  return {
+    open: false,
+    noteId: cleanId(noteId),
+    mode: "ai",
+    selectedTargetNoteId: "",
+    relationType: "",
+    rationale: "",
+    insightQuestion: "",
+    manualQuery: "",
+    manualTargets: [],
+    searchState: "idle",
+    saveState: "idle",
+    error: "",
+    notice: "",
+    result: null
+  };
+}
+
+export function normalizePermanentRelationWorkspaceState(state = {}, noteId = "") {
+  const base = defaultPermanentRelationWorkspaceState(noteId || state.noteId);
+  const mode = cleanType(state.mode);
+  return {
+    ...base,
+    ...state,
+    open: state.open === true,
+    noteId: cleanId(noteId || state.noteId),
+    mode: PERMANENT_RELATION_WORKSPACE_MODES.has(mode) ? mode : "ai",
+    selectedTargetNoteId: cleanId(state.selectedTargetNoteId),
+    relationType: cleanType(state.relationType),
+    rationale: cleanText(state.rationale),
+    insightQuestion: cleanText(state.insightQuestion),
+    manualQuery: cleanText(state.manualQuery),
+    manualTargets: Array.isArray(state.manualTargets) ? state.manualTargets : [],
+    searchState: cleanType(state.searchState) || "idle",
+    saveState: cleanType(state.saveState) || "idle",
+    error: cleanText(state.error),
+    notice: cleanText(state.notice),
+    result: state.result && typeof state.result === "object" ? state.result : null
+  };
+}
+
+export function resetPermanentRelationWorkspaceResult(state = {}) {
+  return {
+    ...state,
+    saveState: "idle",
+    error: "",
+    notice: "",
+    result: null
+  };
+}
+
+export function permanentRelationCandidateEndpoint(candidate = {}, sourceNoteId = "") {
+  const sourceId = cleanId(sourceNoteId);
+  const rawSource = cleanId(
+    candidate.actionSourceNoteId ||
+      candidate.sourceNoteId ||
+      candidate.fromNoteId ||
+      candidate.from_note_id ||
+      candidate.from?.id
+  );
+  const rawTarget = cleanId(
+    candidate.counterpartNoteId ||
+      candidate.targetNoteId ||
+      candidate.toNoteId ||
+      candidate.to_note_id ||
+      candidate.to?.id
+  );
+  if (rawTarget && rawTarget !== sourceId) return rawTarget;
+  if (rawSource && rawSource !== sourceId) return rawSource;
+  return rawTarget || rawSource || "";
+}
+
+export function normalizePermanentRelationAiCandidates(analysis = null, sourceNoteId = "") {
+  const payload = analysis?.analysis && typeof analysis.analysis === "object" ? analysis.analysis : analysis;
+  const candidates = [
+    ...(Array.isArray(payload?.relationCandidates) ? payload.relationCandidates : []),
+    ...(Array.isArray(payload?.bridgeCandidates) ? payload.bridgeCandidates : [])
+  ];
+  const seen = new Set();
+  return candidates
+    .map((candidate) => {
+      const targetNoteId = permanentRelationCandidateEndpoint(candidate, sourceNoteId);
+      const relationType = cleanType(candidate.aiRelationType || candidate.relationType || (candidate.componentBridge ? "bridges" : "associated_with")) || "associated_with";
+      const title = cleanText(candidate.counterpartTitle || candidate.targetTitle || candidate.title || targetNoteId);
+      const rationale = cleanText(candidate.rationaleDraft || candidate.rationale || candidate.evidenceText || "");
+      const insightQuestion = cleanText(candidate.insightQuestionDraft || candidate.insightQuestion || "");
+      const decision = cleanType(candidate.aiDecision || "");
+      const blocked = decision === "reject" || relationType === "no_relation" || relationType === "appears_in_draft";
+      return {
+        ...candidate,
+        targetNoteId,
+        targetTitle: title,
+        relationType,
+        rationaleDraft: rationale,
+        insightQuestionDraft: insightQuestion,
+        blocked
+      };
+    })
+    .filter((candidate) => candidate.targetNoteId && !candidate.blocked)
+    .filter((candidate) => {
+      if (seen.has(candidate.targetNoteId)) return false;
+      seen.add(candidate.targetNoteId);
+      return true;
+    });
+}
+
+export function permanentRelationWorkspaceExistingLinks(relations = null) {
+  return [
+    ...(Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks : []),
+    ...(Array.isArray(relations?.backlinks) ? relations.backlinks : [])
+  ].filter((link) => !isHiddenSemanticRelation(link) && !isMarkdownWikilinkSemanticRelation(link));
+}
+
+export function permanentRelationWorkspaceExistingLink(relations = null, sourceNoteId = "", targetNoteId = "") {
+  const sourceId = cleanId(sourceNoteId);
+  const targetId = cleanId(targetNoteId);
+  if (!sourceId || !targetId) return null;
+  return permanentRelationWorkspaceExistingLinks(relations).find((link) => {
+    const from = cleanId(link?.fromNoteId);
+    const to = cleanId(link?.toNoteId);
+    return (from === sourceId && to === targetId) || (from === targetId && to === sourceId);
+  }) || null;
+}
+
+export function permanentRelationWorkspaceSelectedTarget({
+  state = {},
+  aiCandidates = [],
+  notes = []
+} = {}) {
+  const targetId = cleanId(state.selectedTargetNoteId);
+  if (!targetId) return null;
+  const knownNote = (Array.isArray(notes) ? notes : []).find((note) => cleanId(note?.id) === targetId) || null;
+  const aiCandidate = (Array.isArray(aiCandidates) ? aiCandidates : []).find((candidate) => cleanId(candidate?.targetNoteId) === targetId) || null;
+  const manualTarget = (Array.isArray(state.manualTargets) ? state.manualTargets : []).find((note) => cleanId(note?.id) === targetId) || null;
+  return {
+    id: targetId,
+    title: cleanText(knownNote?.title || manualTarget?.title || aiCandidate?.targetTitle || targetId),
+    noteType: cleanText(knownNote?.noteType || manualTarget?.noteType || ""),
+    folderId: cleanText(knownNote?.folderId || manualTarget?.folderId || ""),
+    body: cleanText(knownNote?.body || manualTarget?.body || ""),
+    thesis: cleanText(knownNote?.thesis || manualTarget?.thesis || ""),
+    candidate: aiCandidate
+  };
+}
+
+export function permanentRelationWorkspaceCanSave({
+  state = {},
+  relations = null
+} = {}) {
+  const normalized = normalizePermanentRelationWorkspaceState(state);
+  if (!normalized.noteId) return { ok: false, reason: "missing_note" };
+  if (!normalized.selectedTargetNoteId) return { ok: false, reason: "missing_target" };
+  if (normalized.selectedTargetNoteId === normalized.noteId) return { ok: false, reason: "self_relation" };
+  if (!normalized.relationType) return { ok: false, reason: "missing_type" };
+  if (!normalized.rationale) return { ok: false, reason: "missing_rationale" };
+  const existing = permanentRelationWorkspaceExistingLink(relations, normalized.noteId, normalized.selectedTargetNoteId);
+  if (existing) return { ok: false, reason: "existing_relation", existing };
+  return { ok: true, reason: "" };
+}
+
+export function permanentRelationWorkspaceErrorText(reason = "") {
+  const key = cleanType(reason);
+  if (key === "missing_note") return "请先打开一条永久笔记。";
+  if (key === "missing_target") return "请选择要关联的笔记。";
+  if (key === "self_relation") return "不能把笔记关联到自己。";
+  if (key === "missing_type") return "请选择关系类型。";
+  if (key === "missing_rationale") return "请写一句为什么要关联。";
+  if (key === "existing_relation") return "这两条笔记已经有关系。";
+  return "关系暂时不能保存。";
+}
