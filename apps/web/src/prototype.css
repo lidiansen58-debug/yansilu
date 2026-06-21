@@ -13362,6 +13362,16 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .settings-ai-topline {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.42fr) minmax(260px, 0.58fr);
+      gap: 12px;
+      align-items: stretch;
+      min-width: 0;
+    }
+    .settings-ai-topline .settings-ai-tool-button {
+      min-height: 0;
+    }
     .settings-ai-setup-choice {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -14448,6 +14458,49 @@
       color: #475569;
       font-size: 11px;
       line-height: 1.55;
+    }
+    .settings-automation-workspace {
+      display: grid;
+      gap: 14px;
+    }
+    .settings-automation-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+      min-width: 0;
+    }
+    .settings-automation-panel:nth-child(3) {
+      grid-column: 1 / -1;
+    }
+    .settings-automation-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      min-width: 0;
+      min-height: 190px;
+      padding: 14px;
+      border: 1px solid rgba(226, 232, 240, 0.96);
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.74);
+      overflow: hidden;
+    }
+    .settings-automation-panel-title {
+      color: #172033;
+      font-size: 14px;
+      line-height: 1.35;
+      font-weight: 850;
+    }
+    .settings-automation-panel .scheduled-task-empty,
+    .settings-automation-panel .settings-canonical-empty {
+      height: 100%;
+      min-height: 150px;
+      display: grid;
+      place-items: center;
+      margin: 0;
+      border-radius: 10px;
+      color: #64748b;
+      text-align: center;
     }
     .settings-template-editor {
       display: grid;
@@ -15957,10 +16010,12 @@
       }
       .settings-ai-primary-head,
       .settings-ai-flow,
+      .settings-ai-topline,
       .settings-ai-setup-choice,
       .settings-ai-compact-grid,
       .settings-ai-advanced-body .settings-ai-compact-grid,
-      .settings-ai-quick-actions {
+      .settings-ai-quick-actions,
+      .settings-automation-grid {
         grid-template-columns: minmax(0, 1fr);
       }
       .settings-ai-primary-head {

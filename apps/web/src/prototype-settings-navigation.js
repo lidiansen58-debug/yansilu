@@ -51,7 +51,7 @@ export const SETTINGS_DETAIL_ITEMS = Object.freeze([
   { id: "permanent-template", label: "永久笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
   { id: "literature-template", label: "文献笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
   { id: "ai-settings", label: "AI 设置", group: "智能", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
-  { id: "automation", label: "自动处理", group: "智能", sectionId: "automation", cardIds: ["settingsCardAutomation", "settingsCardAutomationSuggestions", "settingsCardAutomationDebug"] },
+  { id: "automation", label: "自动处理", group: "智能", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
   { id: "version-update", label: "版本更新", group: "支持", sectionId: "support", cardIds: ["settingsUpdateCard"] },
   { id: "desktop-help", label: "本地使用说明", group: "支持", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
   { id: "feedback", label: "问题反馈", group: "支持", sectionId: "support", cardIds: ["settingsFeedbackCard"] }
@@ -272,10 +272,10 @@ export function settingsItemSummary(itemId = "") {
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
     "ai-settings": "从本地大模型或远程大模型入口开始配置。",
-    automation: "查看定时任务、AI 建议复核和运行记录。",
-    "version-update": "检查新版本、查看更新说明，并决定是否打开下载页。",
-    "desktop-help": "查看本地文件、路径和切换规则。",
-    feedback: "提交问题、功能想法，或复制问题信息。"
+    automation: "查看定时任务、待审 AI 建议和最近运行结果。",
+    "version-update": "检查新版本，必要时打开下载页。",
+    "desktop-help": "说明笔记文件、数据库和笔记库切换规则。",
+    feedback: "反馈问题或复制排查信息。"
   };
   return summaries[normalizeSettingsItem(itemId)] || "右侧只显示当前点击设置项相关的内容。";
 }
@@ -403,6 +403,6 @@ export function settingsModuleHeaderCopy({ settingsState = {} } = {}) {
   const activeItem = settingsDetailItemConfig(settingsState.activeItem);
   return {
     title: activeItem.label,
-    summary: "仅显示当前设置项。"
+    summary: settingsItemSummary(activeItem.id)
   };
 }
