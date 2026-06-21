@@ -41,8 +41,9 @@ test("main-path project-ready card reuses continuity wording when the note alrea
   assert.match(summary.summary, /wp_existing|当前草稿/);
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
-  assert.match(html, /<span class="inspector-chip">打开当前草稿<\/span>/);
-  assert.match(html, /写作中心<\/strong> <span>打开当前草稿 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="writing"/);
+  assert.match(html, /<span>写作中心<\/span> <strong>打开当前草稿<\/strong>/);
+  assert.match(html, /<b>写作准备<\/b> <em>打开当前草稿<\/em>/);
   assert.match(html, /data-note-main-route-mode="project">打开当前草稿<\/button>/);
 });
 
@@ -80,7 +81,8 @@ test("main-path strong-model-ready card also reuses continuity wording when an e
   assert.match(summary.summary, /wp_existing|继续当前项目/);
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
-  assert.match(html, /<span class="inspector-chip">继续当前项目<\/span>/);
-  assert.match(html, /写作中心<\/strong> <span>继续当前项目 · 当前重点<\/span>/);
+  assert.match(html, /data-main-path-next-action="writing"/);
+  assert.match(html, /<span>写作中心<\/span> <strong>继续当前项目<\/strong>/);
+  assert.match(html, /<b>写作准备<\/b> <em>继续当前项目<\/em>/);
   assert.match(html, /data-note-main-route-mode="project">继续当前项目<\/button>/);
 });
