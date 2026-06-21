@@ -1,4 +1,7 @@
 import { graphDirectNetworkEdgeCount } from "./graph-relation-state-query.js";
+import {
+  relationEntryRouteFromGraphAction
+} from "./relation-entry-route.js";
 
 function cleanText(value = "") {
   return String(value || "").trim();
@@ -32,16 +35,12 @@ export function graphRelationWorkflowIsolatedSelectionFromAction(action = null) 
 }
 
 export function graphRelationWorkflowFormSelectionFromAction(action = null, { currentSelection = null } = {}) {
-  const noteId = cleanText(
-    action?.getAttribute?.("data-graph-relation-source") ||
-    action?.getAttribute?.("data-open-note") ||
-    action?.getAttribute?.("data-node-id") ||
-    action?.noteId
-  );
+  const entryRoute = relationEntryRouteFromGraphAction(action, { currentSelection });
+  const noteId = cleanText(entryRoute.noteId || action?.noteId);
   if (!noteId) return { ok: false, reason: "missing_source_note" };
-  const targetNoteId = cleanText(action?.getAttribute?.("data-graph-target-note") || action?.targetNoteId);
-  const relationType = cleanKind(action?.getAttribute?.("data-graph-relation-type") || action?.relationType || "associated_with") || "associated_with";
-  const rationale = cleanText(action?.getAttribute?.("data-graph-rationale-draft") || action?.rationale);
+  const targetNoteId = cleanText(entryRoute.targetNoteId || action?.targetNoteId);
+  const relationType = cleanKind(entryRoute.relationType || action?.relationType || "associated_with") || "associated_with";
+  const rationale = cleanText(entryRoute.rationaleDraft || action?.rationale);
   const previousSelectionKind = cleanKind(currentSelection?.kind);
   const returnTo = previousSelectionKind === "isolated" || previousSelectionKind === "isolatedcomplete" ? "isolated" : "";
   return {
@@ -56,7 +55,8 @@ export function graphRelationWorkflowFormSelectionFromAction(action = null, { cu
       targetNoteId,
       relationType,
       rationale,
-      returnTo
+      returnTo,
+      entryRoute
     }
   };
 }
@@ -118,7 +118,8 @@ export function graphNormalizeRelationWorkflowSelection(
       targetNoteId: cleanText(selection?.targetNoteId),
       relationType: cleanKind(selection?.relationType || "associated_with") || "associated_with",
       rationale: cleanText(selection?.rationale),
-      returnTo: cleanKind(selection?.returnTo)
+      returnTo: cleanKind(selection?.returnTo),
+      entryRoute: selection?.entryRoute && typeof selection.entryRoute === "object" ? selection.entryRoute : null
     };
   }
   return undefined;

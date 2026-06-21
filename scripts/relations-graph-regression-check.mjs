@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 
 export const RELATIONS_GRAPH_UNIT_TEST_FILES = [
+  "tests/unit/web-relation-entry-route.test.mjs",
   "tests/unit/web-graph-relation-state-query.test.mjs",
   "tests/unit/web-relation-save-transaction.test.mjs",
   "tests/unit/web-graph-relation-workflow-controller.test.mjs",

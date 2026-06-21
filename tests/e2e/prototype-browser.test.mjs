@@ -1934,6 +1934,82 @@ test("prototype permanent relation workspace saves an AI recommended relation in
   }, 10000);
 });
 
+test("prototype right sidebar relation entry saves through overlay and appears in graph", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Sidebar Route Graph Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "sidebar-route-graph-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  const target = await createWritingReadyPermanentNote(apiBase, {
+    directoryId: graphDirectoryId,
+    body: "# Sidebar Route Target\n\nThis permanent note should become visible as the graph target after a sidebar relation save.",
+    thesis: "The graph should show relations saved from the right sidebar overlay.",
+    threeLineSummary: ["The target is searchable.", "The relation is saved in the overlay.", "The graph should show the edge."],
+    boundaryOrCounterpoint: "Do not lose the source context after saving."
+  });
+
+  const source = await createWritingReadyPermanentNote(apiBase, {
+    directoryId: graphDirectoryId,
+    body: "# Sidebar Route Source\n\nThis permanent note starts isolated and should gain a graph edge from the relation overlay.",
+    thesis: "The right sidebar entry should return to the same note and refresh graph visibility after saving.",
+    threeLineSummary: ["The source starts isolated.", "The user opens the large relation overlay.", "The saved edge appears in graph."],
+    boundaryOrCounterpoint: "Relation sorting should stay separate from writing preparation."
+  });
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Sidebar Route Source" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+  await page.locator('[data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]').click();
+
+  const workspace = page.locator("[data-permanent-relation-workspace]");
+  await workspace.waitFor({ state: "visible" });
+  await page.locator("[data-permanent-relation-target-search]").fill("Sidebar Route Target");
+  await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
+  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("supports");
+  await page.locator('[data-permanent-relation-field="rationale"]').fill(
+    "The source supports the target because both describe the same entry route from sidebar overlay to graph visibility."
+  );
+  await page.locator("[data-permanent-relation-form] button[type='submit']").click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator(".permanent-relation-result").isVisible(), true);
+    const relation = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+    assert.equal(relation.status, 200);
+    assert.equal(relation.json.item.outgoingLinks.some((link) => link.toNoteId === target.json.item.id && link.relationType === "supports"), true);
+  }, 10000);
+
+  await page.locator('[data-permanent-relation-action="complete"]').click();
+  await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "detached" });
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await waitFor(async () => {
+    await page.locator(`#graphCanvas .graph-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 2000 });
+    await page.locator(`#graphCanvas .graph-node[data-node-id="${target.json.item.id}"]`).waitFor({ timeout: 2000 });
+    await page.locator(
+      `#graphCanvas .graph-map-edge-group[data-edge-from="${source.json.item.id}"][data-edge-to="${target.json.item.id}"][data-edge-relation-type="supports"]`
+    ).waitFor({ timeout: 2000 });
+  }, 10000);
+});
+
 test("prototype main-path writing readiness matches writing center basket status for the same note", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

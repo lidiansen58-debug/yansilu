@@ -18681,6 +18681,8 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
 
   const focusRelationCreate = (focusSelector = '[data-create-relation-form] [data-relation-target-search]', entryHint = "") => {
     editor?.openCreateRelationForm?.({
+      source: "graph-node",
+      returnTo: "graph",
       targetNoteId: cleanTargetNoteId,
       relationType: cleanRelationType,
       entryHint,
