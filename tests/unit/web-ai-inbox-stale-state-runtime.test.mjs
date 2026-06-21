@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  aiInboxActionGuardForRuntime,
   loadAiInboxDetailForRuntime,
   refreshAiInboxForRuntime
 } from "../../apps/web/src/ai-inbox-runtime-controller.js";
@@ -66,6 +67,51 @@ function createRefreshAiInbox(aiInboxState, deps = {}) {
     loadDetail: deps.loadAiInboxDetail || (async () => null)
   }, options);
 }
+
+test("aiInboxActionGuardForRuntime classifies shared inbox action guard states", () => {
+  assert.deepEqual(
+    aiInboxActionGuardForRuntime({ selectedArtifactId: "", detail: null }),
+    { type: "missing_artifact", artifactId: "", suggestionId: "" }
+  );
+  assert.deepEqual(
+    aiInboxActionGuardForRuntime({ selectedArtifactId: "artifact_1", detail: null }),
+    { type: "missing_detail", artifactId: "artifact_1", suggestionId: "" }
+  );
+  assert.deepEqual(
+    aiInboxActionGuardForRuntime({
+      selectedArtifactId: "artifact_1",
+      detail: { item: { artifactId: "artifact_1" }, suggestion: { id: "suggestion_1" } },
+      actionLoading: true,
+      actionArtifactId: "artifact_1",
+      actionSuggestionId: "suggestion_1"
+    }, { suggestionId: "suggestion_1" }),
+    { type: "same_action_in_flight", artifactId: "artifact_1", suggestionId: "suggestion_1" }
+  );
+  assert.deepEqual(
+    aiInboxActionGuardForRuntime({
+      selectedArtifactId: "artifact_2",
+      detail: { item: { artifactId: "artifact_2" }, suggestion: { id: "suggestion_2" } },
+      actionLoading: true,
+      actionArtifactId: "artifact_1",
+      actionSuggestionId: "suggestion_1"
+    }, { suggestionId: "suggestion_2" }),
+    { type: "different_action_in_flight", artifactId: "artifact_2", suggestionId: "suggestion_2" }
+  );
+  assert.deepEqual(
+    aiInboxActionGuardForRuntime({
+      selectedArtifactId: "artifact_2",
+      detail: { item: { artifactId: "artifact_1" }, suggestion: { id: "suggestion_old" } }
+    }, { suggestionId: "suggestion_clicked" }),
+    { type: "stale_detail", artifactId: "artifact_2", suggestionId: "suggestion_old" }
+  );
+  assert.deepEqual(
+    aiInboxActionGuardForRuntime({
+      selectedArtifactId: "artifact_2",
+      detail: { item: { artifactId: "artifact_2" }, suggestion: { id: "suggestion_2" } }
+    }, { suggestionId: "suggestion_2" }),
+    { type: "ready", artifactId: "artifact_2", suggestionId: "suggestion_2" }
+  );
+});
 
 test("loadAiInboxDetail ignores stale responses and keeps the latest selected artifact detail", async () => {
   let resolveFirst;
