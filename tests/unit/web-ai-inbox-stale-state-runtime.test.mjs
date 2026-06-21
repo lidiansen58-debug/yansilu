@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  loadAiInboxDetailForRuntime,
+  refreshAiInboxForRuntime
+} from "../../apps/web/src/ai-inbox-runtime-controller.js";
 
 function extractAsyncFunctionSource(source, name) {
   const signature = `async function ${name}(`;
@@ -34,12 +38,36 @@ function extractAsyncFunctionSource(source, name) {
   throw new Error(`could not extract ${name}() source`);
 }
 
-test("loadAiInboxDetail ignores stale responses and keeps the latest selected artifact detail", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "loadAiInboxDetail");
+function createLoadAiInboxDetail(aiInboxState, deps = {}) {
+  return (artifactId) => loadAiInboxDetailForRuntime({
+    aiInboxState,
+    fetchAiInboxItemWithOptions: deps.fetchAiInboxItemWithOptions,
+    aiInboxDetailFromResponse: deps.aiInboxDetailFromResponse || ((response) => ({ item: response.item })),
+    rememberAiDebugSnapshot: deps.rememberAiDebugSnapshot || (() => {}),
+    syncAiInboxSummaryFromDetail: deps.syncAiInboxSummaryFromDetail || (() => {}),
+    resetAiInboxSummaryState: deps.resetAiInboxSummaryState || (() => {}),
+    clearAiInboxActionNotice: deps.clearAiInboxActionNotice || (() => {}),
+    render: deps.renderAiInboxWorkspace || (() => {}),
+    setStatus: deps.setStatus || (() => {})
+  }, artifactId);
+}
 
+function createRefreshAiInbox(aiInboxState, deps = {}) {
+  return (options = {}) => refreshAiInboxForRuntime({
+    aiInboxState,
+    fetchAiInbox: deps.fetchAiInbox,
+    normalizeAiInboxFilters: deps.normalizeAiInboxFilters || ((filters) => filters),
+    aiInboxItemFromCanonical: deps.aiInboxItemFromCanonical || ((item) => item),
+    rememberAiDebugSnapshot: deps.rememberAiDebugSnapshot || (() => {}),
+    resetAiInboxSummaryState: deps.resetAiInboxSummaryState || (() => {}),
+    clearAiInboxActionNotice: deps.clearAiInboxActionNotice || (() => {}),
+    render: deps.renderAiInboxWorkspace || (() => {}),
+    setStatus: deps.setStatus || (() => {}),
+    loadDetail: deps.loadAiInboxDetail || (async () => null)
+  }, options);
+}
+
+test("loadAiInboxDetail ignores stale responses and keeps the latest selected artifact detail", async () => {
   let resolveFirst;
   let resolveSecond;
   const fetchCalls = [];
@@ -52,20 +80,8 @@ test("loadAiInboxDetail ignores stale responses and keeps the latest selected ar
     detailRequestToken: 0
   };
 
-  const loadAiInboxDetail = new Function(
-    "aiInboxState",
-    "fetchAiInboxItemWithOptions",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "syncAiInboxSummaryFromDetail",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return loadAiInboxDetail;`
-  )(
-    aiInboxState,
-    (artifactId) => {
+  const loadAiInboxDetail = createLoadAiInboxDetail(aiInboxState, {
+    fetchAiInboxItemWithOptions: (artifactId) => {
       fetchCalls.push(artifactId);
       if (artifactId === "artifact_1") {
         return new Promise((resolve) => {
@@ -76,14 +92,8 @@ test("loadAiInboxDetail ignores stale responses and keeps the latest selected ar
         resolveSecond = () => resolve({ item: { artifactId }, canonical: {} });
       });
     },
-    (response) => ({ item: response.item }),
-    () => {},
-    () => {},
-    () => {},
-    () => {},
-    () => {},
-    () => {}
-  );
+    aiInboxDetailFromResponse: (response) => ({ item: response.item })
+  });
 
   const firstPromise = loadAiInboxDetail("artifact_1");
   const secondPromise = loadAiInboxDetail("artifact_2");
@@ -101,11 +111,6 @@ test("loadAiInboxDetail ignores stale responses and keeps the latest selected ar
 });
 
 test("loadAiInboxDetail clears stale errors after a successful retry and when selection is reset", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "loadAiInboxDetail");
-
   const aiInboxState = {
     selectedArtifactId: "artifact_old",
     detail: { item: { artifactId: "artifact_old" } },
@@ -117,28 +122,10 @@ test("loadAiInboxDetail clears stale errors after a successful retry and when se
     detailRequestToken: 0
   };
 
-  const loadAiInboxDetail = new Function(
-    "aiInboxState",
-    "fetchAiInboxItemWithOptions",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "syncAiInboxSummaryFromDetail",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return loadAiInboxDetail;`
-  )(
-    aiInboxState,
-    async (artifactId) => ({ item: { artifactId }, canonical: {} }),
-    (response) => ({ item: response.item }),
-    () => {},
-    () => {},
-    () => {},
-    () => {},
-    () => {},
-    () => {}
-  );
+  const loadAiInboxDetail = createLoadAiInboxDetail(aiInboxState, {
+    fetchAiInboxItemWithOptions: async (artifactId) => ({ item: { artifactId }, canonical: {} }),
+    aiInboxDetailFromResponse: (response) => ({ item: response.item })
+  });
 
   const fetched = await loadAiInboxDetail("artifact_retry");
   assert.equal(fetched.item.artifactId, "artifact_retry");
@@ -161,11 +148,6 @@ test("loadAiInboxDetail clears stale errors after a successful retry and when se
 });
 
 test("loadAiInboxDetail keeps a failed detail request bound to the original artifact after selection moves", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "loadAiInboxDetail");
-
   let rejectDetail;
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -178,31 +160,13 @@ test("loadAiInboxDetail keeps a failed detail request bound to the original arti
     detailRequestToken: 0
   };
 
-  const loadAiInboxDetail = new Function(
-    "aiInboxState",
-    "fetchAiInboxItemWithOptions",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "syncAiInboxSummaryFromDetail",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return loadAiInboxDetail;`
-  )(
-    aiInboxState,
-    () =>
+  const loadAiInboxDetail = createLoadAiInboxDetail(aiInboxState, {
+    fetchAiInboxItemWithOptions: () =>
       new Promise((_, reject) => {
         rejectDetail = () => reject(new Error("detail boom"));
       }),
-    (response) => ({ item: response.item }),
-    () => {},
-    () => {},
-    () => {},
-    () => {},
-    () => {},
-    () => {}
-  );
+    aiInboxDetailFromResponse: (response) => ({ item: response.item })
+  });
 
   const pending = loadAiInboxDetail("artifact_1");
   aiInboxState.selectedArtifactId = "artifact_2";
@@ -686,11 +650,6 @@ test("applyAiInboxRecommendedAction forwards the summary suggestion id when adop
 });
 
 test("refreshAiInbox invalidates stale detail state when a list refresh switches the selected artifact", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
-
   const aiInboxState = {
     filters: { view: "pending", type: "all" },
     items: [{ artifactId: "artifact_1", title: "Old selection" }],
@@ -710,22 +669,8 @@ test("refreshAiInbox invalidates stale detail state when a list refresh switches
     aiSummaryError: "stale summary error"
   };
 
-  const refreshAiInbox = new Function(
-    "aiInboxState",
-    "normalizeAiInboxFilters",
-    "fetchAiInbox",
-    "aiInboxItemFromCanonical",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiInbox;`
-  )(
-    aiInboxState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiInbox = createRefreshAiInbox(aiInboxState, {
+    fetchAiInbox: async () => ({
       items: [{ artifactId: "artifact_2", title: "New selection" }],
       counts: { pending: 1, reviewed: 0, archived: 0, all: 1 },
       views: ["pending"],
@@ -733,19 +678,14 @@ test("refreshAiInbox invalidates stale detail state when a list refresh switches
         items: [{ artifact_id: "artifact_2", title: "New selection" }]
       }
     }),
-    (item) => ({ artifactId: item.artifact_id, title: item.title }),
-    async () => null,
-    () => {},
-    () => {
+    aiInboxItemFromCanonical: (item) => ({ artifactId: item.artifact_id, title: item.title }),
+    resetAiInboxSummaryState: () => {
       aiInboxState.aiSummary = "";
       aiInboxState.aiSummaryMeta = "";
       aiInboxState.aiSummaryRecommendedAction = "";
       aiInboxState.aiSummaryError = "";
-    },
-    () => {},
-    () => {},
-    () => {}
-  );
+    }
+  });
 
   await refreshAiInbox({ silent: true });
 
@@ -762,11 +702,6 @@ test("refreshAiInbox invalidates stale detail state when a list refresh switches
 });
 
 test("refreshAiInbox invalidates stale detail state when the selected artifact metadata changes", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
-
   const aiInboxState = {
     filters: { view: "pending", type: "all" },
     items: [{ artifactId: "artifact_1", title: "Old selection", status: "pending_review", updatedAt: "2026-05-18T12:00:00.000Z" }],
@@ -795,22 +730,8 @@ test("refreshAiInbox invalidates stale detail state when the selected artifact m
     aiSummaryError: "stale summary error"
   };
 
-  const refreshAiInbox = new Function(
-    "aiInboxState",
-    "normalizeAiInboxFilters",
-    "fetchAiInbox",
-    "aiInboxItemFromCanonical",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiInbox;`
-  )(
-    aiInboxState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiInbox = createRefreshAiInbox(aiInboxState, {
+    fetchAiInbox: async () => ({
       items: [{ artifactId: "artifact_1", title: "Old selection", status: "ignored", actionState: "reviewed", updatedAt: "2026-05-18T12:05:00.000Z", decisionCount: 1 }],
       counts: { pending: 0, reviewed: 1, archived: 0, all: 1 },
       views: ["pending", "reviewed"],
@@ -825,7 +746,7 @@ test("refreshAiInbox invalidates stale detail state when the selected artifact m
         }]
       }
     }),
-    (item) => ({
+    aiInboxItemFromCanonical: (item) => ({
       artifactId: item.artifact_id,
       title: item.title,
       status: item.status,
@@ -833,18 +754,13 @@ test("refreshAiInbox invalidates stale detail state when the selected artifact m
       updatedAt: item.updated_at,
       decisionCount: item.decision_count
     }),
-    async () => null,
-    () => {},
-    () => {
+    resetAiInboxSummaryState: () => {
       aiInboxState.aiSummary = "";
       aiInboxState.aiSummaryMeta = "";
       aiInboxState.aiSummaryRecommendedAction = "";
       aiInboxState.aiSummaryError = "";
-    },
-    () => {},
-    () => {},
-    () => {}
-  );
+    }
+  });
 
   await refreshAiInbox({ silent: true });
 
@@ -861,11 +777,6 @@ test("refreshAiInbox invalidates stale detail state when the selected artifact m
 });
 
 test("refreshAiInbox realigns selection even when preserveDetail was requested but the current artifact left the filtered list", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
-
   const aiInboxState = {
     filters: { view: "reviewed", type: "all" },
     items: [{ artifactId: "artifact_1", title: "Old reviewed selection" }],
@@ -885,22 +796,8 @@ test("refreshAiInbox realigns selection even when preserveDetail was requested b
     aiSummaryError: "stale summary error"
   };
 
-  const refreshAiInbox = new Function(
-    "aiInboxState",
-    "normalizeAiInboxFilters",
-    "fetchAiInbox",
-    "aiInboxItemFromCanonical",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiInbox;`
-  )(
-    aiInboxState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiInbox = createRefreshAiInbox(aiInboxState, {
+    fetchAiInbox: async () => ({
       items: [{ artifactId: "artifact_2", title: "Remaining reviewed item" }],
       counts: { pending: 0, reviewed: 1, archived: 0, all: 1 },
       views: ["reviewed"],
@@ -908,19 +805,14 @@ test("refreshAiInbox realigns selection even when preserveDetail was requested b
         items: [{ artifact_id: "artifact_2", title: "Remaining reviewed item" }]
       }
     }),
-    (item) => ({ artifactId: item.artifact_id, title: item.title }),
-    async () => null,
-    () => {},
-    () => {
+    aiInboxItemFromCanonical: (item) => ({ artifactId: item.artifact_id, title: item.title }),
+    resetAiInboxSummaryState: () => {
       aiInboxState.aiSummary = "";
       aiInboxState.aiSummaryMeta = "";
       aiInboxState.aiSummaryRecommendedAction = "";
       aiInboxState.aiSummaryError = "";
-    },
-    () => {},
-    () => {},
-    () => {}
-  );
+    }
+  });
 
   await refreshAiInbox({ silent: true, preserveDetail: true });
 
@@ -937,11 +829,6 @@ test("refreshAiInbox realigns selection even when preserveDetail was requested b
 });
 
 test("refreshAiInbox invalidates stale reviewed detail even when preserveDetail keeps the current selection", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
-
   const aiInboxState = {
     filters: { view: "reviewed", type: "all" },
     items: [{ artifactId: "artifact_1", title: "Reviewed selection", status: "ignored", actionState: "reviewed", updatedAt: "2026-05-18T12:00:00.000Z", decisionCount: 1 }],
@@ -970,22 +857,8 @@ test("refreshAiInbox invalidates stale reviewed detail even when preserveDetail 
     aiSummaryError: "stale summary error"
   };
 
-  const refreshAiInbox = new Function(
-    "aiInboxState",
-    "normalizeAiInboxFilters",
-    "fetchAiInbox",
-    "aiInboxItemFromCanonical",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiInbox;`
-  )(
-    aiInboxState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiInbox = createRefreshAiInbox(aiInboxState, {
+    fetchAiInbox: async () => ({
       items: [{ artifactId: "artifact_1", title: "Reviewed selection", status: "archived", actionState: "reviewed", updatedAt: "2026-05-18T12:10:00.000Z", decisionCount: 2 }],
       counts: { pending: 0, reviewed: 0, archived: 1, all: 1 },
       views: ["reviewed", "archived"],
@@ -1000,7 +873,7 @@ test("refreshAiInbox invalidates stale reviewed detail even when preserveDetail 
         }]
       }
     }),
-    (item) => ({
+    aiInboxItemFromCanonical: (item) => ({
       artifactId: item.artifact_id,
       title: item.title,
       status: item.status,
@@ -1008,18 +881,13 @@ test("refreshAiInbox invalidates stale reviewed detail even when preserveDetail 
       updatedAt: item.updated_at,
       decisionCount: item.decision_count
     }),
-    async () => null,
-    () => {},
-    () => {
+    resetAiInboxSummaryState: () => {
       aiInboxState.aiSummary = "";
       aiInboxState.aiSummaryMeta = "";
       aiInboxState.aiSummaryRecommendedAction = "";
       aiInboxState.aiSummaryError = "";
-    },
-    () => {},
-    () => {},
-    () => {}
-  );
+    }
+  });
 
   await refreshAiInbox({ silent: true, preserveDetail: true });
 
@@ -1036,11 +904,6 @@ test("refreshAiInbox invalidates stale reviewed detail even when preserveDetail 
 });
 
 test("refreshAiInbox invalidates and rehydrates detail when the linked suggestion changes under the same artifact", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
-
   const detailLoads = [];
   const aiInboxState = {
     filters: { view: "reviewed", type: "all" },
@@ -1071,22 +934,8 @@ test("refreshAiInbox invalidates and rehydrates detail when the linked suggestio
     aiSummaryError: "stale summary error"
   };
 
-  const refreshAiInbox = new Function(
-    "aiInboxState",
-    "normalizeAiInboxFilters",
-    "fetchAiInbox",
-    "aiInboxItemFromCanonical",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiInbox;`
-  )(
-    aiInboxState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiInbox = createRefreshAiInbox(aiInboxState, {
+    fetchAiInbox: async () => ({
       items: [{ artifactId: "artifact_1", title: "Reviewed selection", suggestionId: "suggestion_new" }],
       counts: { pending: 0, reviewed: 1, archived: 0, all: 1 },
       views: ["reviewed"],
@@ -1102,7 +951,7 @@ test("refreshAiInbox invalidates and rehydrates detail when the linked suggestio
         }]
       }
     }),
-    (item) => ({
+    aiInboxItemFromCanonical: (item) => ({
       artifactId: item.artifact_id,
       title: item.title,
       status: item.status,
@@ -1111,7 +960,7 @@ test("refreshAiInbox invalidates and rehydrates detail when the linked suggestio
       suggestionId: item.suggestion_id,
       decisionCount: item.decision_count
     }),
-    async (artifactId) => {
+    loadAiInboxDetail: async (artifactId) => {
       detailLoads.push(artifactId);
       aiInboxState.detail = {
         item: {
@@ -1126,17 +975,13 @@ test("refreshAiInbox invalidates and rehydrates detail when the linked suggestio
       };
       return aiInboxState.detail;
     },
-    () => {},
-    () => {
+    resetAiInboxSummaryState: () => {
       aiInboxState.aiSummary = "";
       aiInboxState.aiSummaryMeta = "";
       aiInboxState.aiSummaryRecommendedAction = "";
       aiInboxState.aiSummaryError = "";
-    },
-    () => {},
-    () => {},
-    () => {}
-  );
+    }
+  });
 
   await refreshAiInbox({ silent: true, preserveDetail: true });
 
@@ -1153,11 +998,6 @@ test("refreshAiInbox invalidates and rehydrates detail when the linked suggestio
 });
 
 test("refreshAiInbox rehydrates the selected detail after invalidating stale metadata", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
-
   const detailLoads = [];
   const aiInboxState = {
     filters: { view: "pending", type: "all" },
@@ -1187,22 +1027,8 @@ test("refreshAiInbox rehydrates the selected detail after invalidating stale met
     aiSummaryError: "stale summary error"
   };
 
-  const refreshAiInbox = new Function(
-    "aiInboxState",
-    "normalizeAiInboxFilters",
-    "fetchAiInbox",
-    "aiInboxItemFromCanonical",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "resetAiInboxSummaryState",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiInbox;`
-  )(
-    aiInboxState,
-    (filters) => filters,
-    async () => ({
+  const refreshAiInbox = createRefreshAiInbox(aiInboxState, {
+    fetchAiInbox: async () => ({
       items: [{ artifactId: "artifact_1", title: "Old selection", status: "ignored", actionState: "reviewed", updatedAt: "2026-05-18T12:05:00.000Z", decisionCount: 1 }],
       counts: { pending: 0, reviewed: 1, archived: 0, all: 1 },
       views: ["pending", "reviewed"],
@@ -1217,7 +1043,7 @@ test("refreshAiInbox rehydrates the selected detail after invalidating stale met
         }]
       }
     }),
-    (item) => ({
+    aiInboxItemFromCanonical: (item) => ({
       artifactId: item.artifact_id,
       title: item.title,
       status: item.status,
@@ -1225,7 +1051,7 @@ test("refreshAiInbox rehydrates the selected detail after invalidating stale met
       updatedAt: item.updated_at,
       decisionCount: item.decision_count
     }),
-    async (artifactId) => {
+    loadAiInboxDetail: async (artifactId) => {
       detailLoads.push(artifactId);
       aiInboxState.detail = {
         item: {
@@ -1241,17 +1067,13 @@ test("refreshAiInbox rehydrates the selected detail after invalidating stale met
       aiInboxState.detailError = "";
       return aiInboxState.detail.item;
     },
-    () => {},
-    () => {
+    resetAiInboxSummaryState: () => {
       aiInboxState.aiSummary = "";
       aiInboxState.aiSummaryMeta = "";
       aiInboxState.aiSummaryRecommendedAction = "";
       aiInboxState.aiSummaryError = "";
-    },
-    () => {},
-    () => {},
-    () => {}
-  );
+    }
+  });
 
   await refreshAiInbox({ silent: true });
 
