@@ -110,7 +110,7 @@ test("distillation focus action opens the relation workspace instead of jumping 
   assert.match(handler, /target === "confirm"/);
   assert.match(handler, /void this\.confirmDistillation\(\)/);
   assert.match(handler, /target === "relations"/);
-  assert.match(handler, /this\.openPermanentRelationWorkspace\(\)/);
+  assert.match(handler, /this\.openPermanentRelationWorkspace\(\{/);
   assert.doesNotMatch(handler, /jumpToInspectorSection\("\[data-note-relations-section\]"\)/);
   assert.match(handler, /textarea\[name="boundaryOrCounterpoint"\]/);
   assert.match(handler, /textarea\[name="\$\{target\}"\]/);

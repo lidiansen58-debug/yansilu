@@ -107,7 +107,9 @@ test("embedded note AI workspace derives reviewed content from note fields", () 
 
 test("editor-triggered note AI analysis stays in the current note workspace", () => {
   const editorSource = readRepoFile("apps/web/src/components-editor-pane.js");
+  const distillationViewSource = readRepoFile("apps/web/src/permanent-note-distillation-view.js");
   const sidebarViewSource = readRepoFile("apps/web/src/permanent-note-sidebar-view.js");
+  const editorWorkspaceSource = `${editorSource}\n${distillationViewSource}`;
   const renderStart = editorSource.indexOf("  renderRelated(extraTitle = \"\") {");
   const renderEnd = editorSource.indexOf("  async handleTokenAction(token) {", renderStart);
   assert.ok(renderStart >= 0 && renderEnd > renderStart, "expected renderRelated() to exist");
@@ -126,7 +128,7 @@ test("editor-triggered note AI analysis stays in the current note workspace", ()
   const sectionEnd = editorSource.indexOf("  renderPermanentNoteWritingPrepSection", sectionStart);
   assert.ok(sectionStart >= 0 && sectionEnd > sectionStart, "expected renderPermanentNoteRelationAssistSection() to exist");
   const sectionSource = editorSource.slice(sectionStart, sectionEnd);
-  assert.match(editorSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
+  assert.match(editorWorkspaceSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(sectionSource, /renderPermanentNoteRelationAssistSectionView\(\{/);
   assert.match(sidebarViewSource, /AI 推荐/);
   assert.match(sidebarViewSource, /手动搜索/);

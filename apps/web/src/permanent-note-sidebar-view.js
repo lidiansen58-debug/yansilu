@@ -79,7 +79,7 @@ export function renderPermanentNoteRelationAssistSection({
   return `
     <section class="permanent-workspace-card relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}">
       <div>
-        <strong>关联</strong>
+        <strong>把这条笔记接入关系网</strong>
         <p>${escapeHtml(assist.relationText)}</p>
       </div>
       ${

@@ -196,8 +196,14 @@ const editorPaneStateMethods = {
     if (cleanKind === "relation" && this.relationPanelState) {
       this.relationPanelState.rememberedTemplateVariantLabel = "";
     }
-    if (cleanKind === "distillation" && this.distillationPrefillState) {
-      this.distillationPrefillState.rememberedTemplateVariantLabel = "";
+    if (cleanKind === "distillation" && typeof this.currentDistillationPrefill === "function" && typeof this.setDistillationPrefill === "function") {
+      const noteId = this.activeNote?.()?.id || "";
+      const current = this.currentDistillationPrefill(noteId);
+      this.setDistillationPrefill(noteId, {
+        boundaryDraft: current.boundaryDraft,
+        draftVariants: current.draftVariants,
+        selectedTemplateVariant: current.selectedTemplateVariant
+      });
     }
     this.onStatus(`已清除${cleanKind === "distillation" ? "边界模板" : "关系模板"}偏好，下次会按任务默认视角打开`, "ok");
   },
@@ -231,10 +237,15 @@ const editorPaneStateMethods = {
   },
 
   clearAutoSaveTimer() {
-    if (!this.autoSaveTimer) return;
-    clearTimeout(this.autoSaveTimer);
-    clearInterval(this.autoSaveTimer);
+    if (this.autoSaveTimer) {
+      clearInterval(this.autoSaveTimer);
+      clearTimeout(this.autoSaveTimer);
+    }
+    if (this.autoSaveIdleTimer) {
+      clearTimeout(this.autoSaveIdleTimer);
+    }
     this.autoSaveTimer = null;
+    this.autoSaveIdleTimer = null;
   },
 
   scheduleAutoSave() {
@@ -246,7 +257,7 @@ const editorPaneStateMethods = {
       void this.autoSaveActiveNote("interval");
     };
     this.autoSaveTimer = setInterval(kickoff, AUTO_SAVE_INTERVAL_MS);
-    setTimeout(kickoff, AUTO_SAVE_IDLE_MS);
+    this.autoSaveIdleTimer = setTimeout(kickoff, AUTO_SAVE_IDLE_MS);
   },
 
   async autoSaveActiveNote(trigger = "idle") {
