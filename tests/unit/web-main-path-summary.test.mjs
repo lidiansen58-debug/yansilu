@@ -67,7 +67,8 @@ test("main-path summary distinguishes wikilink-only notes from fully isolated no
   );
 
   assert.equal(result.nextStep, "补关系理由");
-  assert.match(result.summary, /wikilink/);
+  assert.match(result.summary, /正文链接/);
+  assert.doesNotMatch(result.summary, /wikilink/);
   assert.match(result.summary, /正式关系/);
 });
 

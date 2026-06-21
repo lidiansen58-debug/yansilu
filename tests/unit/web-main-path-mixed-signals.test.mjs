@@ -28,7 +28,8 @@ test("main-path summary distinguishes mixed wikilink and tag signals from explic
   );
 
   assert.equal(result.nextStep, "确认成正式关系");
-  assert.match(result.summary, /wikilink/);
+  assert.match(result.summary, /正文链接/);
+  assert.doesNotMatch(result.summary, /wikilink/);
   assert.match(result.summary, /标签/);
   assert.match(result.summary, /正式关系/);
 });

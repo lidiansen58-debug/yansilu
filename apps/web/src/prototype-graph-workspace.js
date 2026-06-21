@@ -1,4 +1,8 @@
 import { uniqueStrings } from "./prototype-collection-utils.js";
+import {
+  relationWorkspaceDirectEdges,
+  relationWorkspaceOtherEndpoint
+} from "./relation-workspace-shared.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -10,12 +14,7 @@ function escapeHtml(value) {
 }
 
 export function graphOtherRelationEndpoint(edge = {}, noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  const fromNoteId = String(edge?.fromNoteId || "").trim();
-  const toNoteId = String(edge?.toNoteId || "").trim();
-  if (fromNoteId === cleanNoteId) return toNoteId;
-  if (toNoteId === cleanNoteId) return fromNoteId;
-  return "";
+  return relationWorkspaceOtherEndpoint(edge, noteId);
 }
 
 export function graphThemeCandidateNoteIdsForNode(noteId = "", directEdges = [], aiCandidates = []) {
@@ -41,11 +40,8 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
   } = deps && typeof deps === "object" ? deps : {};
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return "";
-  const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!relationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    const fromNoteId = String(edge?.fromNoteId || "").trim();
-    const toNoteId = String(edge?.toNoteId || "").trim();
-    return fromNoteId === cleanNoteId || toNoteId === cleanNoteId;
+  const directEdges = relationWorkspaceDirectEdges(cleanNoteId, edges, {
+    edgeCounts: (edge) => relationStatusCountsAsNetworkEdge(edge?.status)
   });
   const counts = relationGroupCounts(directEdges);
   const themeNoteIds = graphThemeCandidateNoteIdsForNode(cleanNoteId, directEdges, []);

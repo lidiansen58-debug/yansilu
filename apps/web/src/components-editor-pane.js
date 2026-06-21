@@ -126,6 +126,7 @@ import {
   normalizePermanentRelationWorkspaceState,
   permanentRelationWorkspaceCanSave,
   permanentRelationWorkspaceErrorText,
+  permanentRelationWorkspaceNextAiCandidate,
   resetPermanentRelationWorkspaceResult
 } from "./permanent-relation-workspace-model.js";
 
@@ -3818,7 +3819,7 @@ export class EditorPane {
     const folderText = endpoint.folderId ? this.folderLabel(endpoint.folderId) : noteTypeText(endpoint.noteType);
     const insightQuestion = String(link?.insightQuestion || "").trim();
     const rationale = String(link?.rationale || "").trim();
-    const preview = isMarkdownWikilinkRelation(link) ? "由 [[wikilink]] 建立的基础关联。" : rationale;
+    const preview = isMarkdownWikilinkRelation(link) ? "由正文链接建立的基础关联。" : rationale;
 
     return `
       <article class="related-item semantic-relation-item" data-relation-tone="${escapeHtml(relationTone(link))}" data-relation-id="${escapeHtml(link?.id || "")}">
@@ -4167,7 +4168,7 @@ export class EditorPane {
                 ${group("被它连接", "incoming", explicitBacklinks, "还没有其他笔记以带理由的关系指向当前笔记。")}
               </div>
             `
-            : `<div class="related-empty">${markdownCount ? "已有正文里的 wikilink 线索，但还没保存成正式关联。" : "还没有已保存的正式关联。"}</div>`
+            : `<div class="related-empty">${markdownCount ? "已有正文链接线索，但还没保存成正式关联。" : "还没有已保存的正式关联。"}</div>`
         }
       </section>
     `;
@@ -4338,7 +4339,7 @@ export class EditorPane {
     const aiCandidates = this.permanentRelationWorkspaceAiCandidates(note.id);
     const requestedMode = String(options.mode || "").trim().toLowerCase();
     const mode = requestedMode === "manual" || (!aiCandidates.length && requestedMode !== "ai") ? "manual" : "ai";
-    const firstCandidate = aiCandidates[0] || null;
+    const firstCandidate = permanentRelationWorkspaceNextAiCandidate(aiCandidates, this.currentSemanticRelations, note.id) || aiCandidates[0] || null;
     const selectedTargetNoteId = String(options.targetNoteId || firstCandidate?.targetNoteId || "").trim();
     const relationType = String(options.relationType || firstCandidate?.relationType || this.relationCreateDefaultType(note) || "associated_with")
       .trim()
@@ -4500,8 +4501,25 @@ export class EditorPane {
       });
       return;
     }
-    this.patchPermanentRelationWorkspaceState({ ...state, saveState: "saving", error: "", notice: "" });
+    this.patchPermanentRelationWorkspaceState({ ...state, saveState: "saving", error: "", notice: "正在确认现有关系。" });
     try {
+      const latestRelations = await fetchNoteRelations(note.id);
+      if (!this.isActiveNoteId(note.id)) return;
+      this.currentSemanticRelations = latestRelations;
+      this.semanticRelationsState = "loaded";
+      const latestValidation = permanentRelationWorkspaceCanSave({
+        state,
+        relations: latestRelations
+      });
+      if (!latestValidation.ok) {
+        this.patchPermanentRelationWorkspaceState({
+          ...state,
+          saveState: "idle",
+          error: permanentRelationWorkspaceErrorText(latestValidation.reason),
+          notice: ""
+        });
+        return;
+      }
       const relation = await createNoteRelation(note.id, {
         toNoteId: state.selectedTargetNoteId,
         relationType: state.relationType,
@@ -4514,6 +4532,11 @@ export class EditorPane {
       this.syncRelationNetworkConnected(note.id, state.selectedTargetNoteId);
       await this.refreshRelationNetworkStatuses(note.id, state.selectedTargetNoteId);
       if (!this.isActiveNoteId(note.id)) return;
+      const savedRelations = await fetchNoteRelations(note.id).catch(() => null);
+      if (savedRelations) {
+        this.currentSemanticRelations = savedRelations;
+        this.semanticRelationsState = "loaded";
+      }
       this.setRelationFollowupSuggestion(
         relationFollowupSuggestionForDraft({
           noteId: note.id,
@@ -4553,11 +4576,22 @@ export class EditorPane {
   continuePermanentRelationWorkspace() {
     const note = this.activeNote();
     if (!note?.id) return;
+    const aiCandidates = this.permanentRelationWorkspaceAiCandidates(note.id);
+    const nextCandidate = permanentRelationWorkspaceNextAiCandidate(
+      aiCandidates,
+      this.currentSemanticRelations,
+      note.id,
+      [this.permanentRelationWorkspaceState.result?.targetNoteId]
+    );
     this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
       ...defaultPermanentRelationWorkspaceState(note.id),
       open: true,
-      mode: this.permanentRelationWorkspaceAiCandidates(note.id).length ? "ai" : "manual",
-      relationType: this.relationCreateDefaultType(note)
+      mode: nextCandidate ? "ai" : "manual",
+      selectedTargetNoteId: nextCandidate?.targetNoteId || "",
+      relationType: nextCandidate?.relationType || this.relationCreateDefaultType(note),
+      rationale: nextCandidate?.rationaleDraft || "",
+      insightQuestion: nextCandidate?.insightQuestionDraft || "",
+      notice: nextCandidate ? "" : "没有新的 AI 推荐，可以手动搜索目标笔记。"
     }, note.id);
     this.syncPermanentRelationWorkspaceOverlay();
   }
@@ -4946,7 +4980,8 @@ export class EditorPane {
       });
       this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
       if (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId === noteId) {
-        const firstCandidate = this.permanentRelationWorkspaceAiCandidates(noteId)[0] || null;
+        const aiCandidates = this.permanentRelationWorkspaceAiCandidates(noteId);
+        const firstCandidate = permanentRelationWorkspaceNextAiCandidate(aiCandidates, this.currentSemanticRelations, noteId) || aiCandidates[0] || null;
         this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
           ...this.permanentRelationWorkspaceState,
           mode: "ai",
@@ -5116,7 +5151,7 @@ export class EditorPane {
       },
       {
         label: "关系连接",
-        status: explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
+        status: explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `文中链接 ${wikilinkCount}` : "待建立",
         hint: explicitRelationCount ? "已经有带理由的关系" : wikilinkCount ? "有基础链接，值得补理由" : "先连出第一条关系",
         action: "relations",
         actionLabel: "处理关系"
@@ -5283,13 +5318,13 @@ export class EditorPane {
       if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
         return {
           nextStep: "确认成正式关系",
-          summary: "已经同时出现正文里的 wikilink 和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成正式关系。"
+          summary: "已经同时出现正文链接和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成正式关系。"
         };
       }
       if (wikilinkCount > 0) {
         return {
           nextStep: "补关系理由",
-          summary: "已经有正文里的 wikilink 线索，下一步把“为什么相关”写成正式关系。"
+          summary: "已经有正文链接线索，下一步把“为什么相关”写成正式关系。"
         };
       }
       if (Number(overview.tagRelatedCount || 0) > 0) {
