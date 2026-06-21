@@ -32,6 +32,10 @@ function readGraphIsolatedRelationController() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-relation-controller.js"), "utf8");
 }
 
+function readGraphIsolatedWorkflowShell() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-workflow-shell.js"), "utf8");
+}
+
 function readGraphRelationSaveController() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-relation-save-controller.js"), "utf8");
 }
@@ -374,12 +378,12 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const source = readPrototypeApp();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
+  const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
   const saveControllerSource = readGraphRelationSaveController();
   const html = readPrototypeHtml();
-  const isolatedWorkflowStart = source.indexOf('function renderGraphIsolatedWorkflowTabs({ noteId = "", isolatedQueueMarkup = "", decisionCards = [], prompts = [], nodeMap = new Map(), edges = [], visibleEdgeCount = 0 } = {}) {');
-  const isolatedWorkflowEnd = source.indexOf('function activateGraphIsolatedWorkflowTab(', isolatedWorkflowStart);
-  assert.ok(isolatedWorkflowStart >= 0 && isolatedWorkflowEnd > isolatedWorkflowStart, "expected isolated workflow renderer");
-  const isolatedWorkflowSource = source.slice(isolatedWorkflowStart, isolatedWorkflowEnd);
+  assert.match(source, /from "\.\/graph-isolated-workflow-shell\.js";/);
+  assert.match(source, /createGraphIsolatedWorkflowShellRenderer\(\{/);
+  assert.match(source, /renderJoinNetworkFlow: renderGraphIsolatedJoinNetworkFlow/);
 
   assert.match(source, /function graphAiRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
   assert.match(source, /function graphRelationCandidateKey\(fromNoteId = "", toNoteId = "", relationType = ""\) \{/);
@@ -475,14 +479,16 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /saveHint = "保存后，这条笔记会退出“未关联”。"/);
   assert.match(joinWorkspaceSource, /保存后，这条笔记会退出“未关联”/);
   assert.match(source, /function renderGraphIsolatedWorkflowTabs\(\{ noteId = "", isolatedQueueMarkup = "", decisionCards = \[\], prompts = \[\], nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
-  assert.match(source, /renderGraphIsolatedJoinNetworkFlow\(cleanNoteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
+  assert.match(source, /return graphIsolatedWorkflowShell\.renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount \}\);/);
+  assert.match(isolatedWorkflowShellSource, /renderJoinNetworkFlow\(cleanNoteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(source, /function renderGraphRelationFormSelectionPanel\(\{ selection = null, nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /kind: "relationForm"/);
   assert.match(source, /preferredTargetNoteId: targetNoteId/);
   assert.match(source, /saveHint: "保存后仍留在当前图谱。"/);
   assert.match(source, /data-graph-open-relation-form/);
-  assert.match(source, /renderGraphIsolatedWorkflowTabs\(\{ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount \}\)/);
-  assert.match(source, /task: null,/);
+  assert.match(source, /return graphIsolatedWorkflowShell\.renderSelectionPanel\(\{ selection, isolatedNotes, nodeMap, edges \}\);/);
+  assert.match(isolatedWorkflowShellSource, /renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, nodeMap, edges, visibleEdgeCount \}\)/);
+  assert.match(isolatedWorkflowShellSource, /task: null,/);
   assert.doesNotMatch(source, /"开始处理"/);
   assert.match(source, /const isolatedSelectionOverlayMarkup = activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \? selectionContextMarkup : "";/);
   assert.match(source, /const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup \? "" : selectionContextMarkup;/);
@@ -517,11 +523,11 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /function graphNoteHasSavedIsolationDisposition\(note = \{\}\) \{/);
   assert.match(source, /noteHasSavedIsolationDisposition: graphNoteHasSavedIsolationDisposition/);
   assert.match(source, /\.filter\(\(note\) => !graphNoteHasSavedIsolationDisposition\(graphFullNoteById\(graphNoteIdFromIsolatedItem\(note\), nodeMap\) \|\| note\)\)/);
-  assert.doesNotMatch(isolatedWorkflowSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}" data-open-note=/);
-  assert.doesNotMatch(isolatedWorkflowSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}"/);
-  assert.doesNotMatch(isolatedWorkflowSource, /data-graph-followup-action="relations">手动建立关系<\/button>/);
-  assert.doesNotMatch(isolatedWorkflowSource, /暂不处理/);
-  assert.doesNotMatch(isolatedWorkflowSource, /其它待处理/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}" data-open-note=/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}"/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /data-graph-followup-action="relations">手动建立关系<\/button>/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /暂不处理/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /其它待处理/);
   const isolatedDecisionStart = source.indexOf('function openGraphIsolatedDecisionAction(noteId = "", action = "") {');
   const isolatedDecisionEnd = source.indexOf('function graphAiAnalysisPayload(', isolatedDecisionStart);
   assert.ok(isolatedDecisionStart >= 0 && isolatedDecisionEnd > isolatedDecisionStart, "expected isolated decision action");
@@ -589,9 +595,11 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.doesNotMatch(isolatedCompleteSource, /data-graph-select-node/);
   assert.doesNotMatch(isolatedCompleteSource, /renderGraphAiConnectCandidates/);
   assert.doesNotMatch(isolatedCompleteSource, /继续确认这条笔记的其它可选目标/);
-  assert.match(isolatedCompleteSource, /const queueItems = graphIsolatedQueueItems\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 \}\);/);
-  assert.match(isolatedCompleteSource, /const nextItem = graphNextIsolatedQueueItem\(queueItems, noteId\);/);
-  assert.doesNotMatch(isolatedCompleteSource, /Array\.isArray\(isolatedNotes\) \? isolatedNotes : \[\]/);
+  assert.match(isolatedCompleteSource, /return graphIsolatedWorkflowShell\.renderCompletePanel\(\{/);
+  assert.match(isolatedCompleteSource, /saveResult: graphState\.isolatedRelationSaveResultByNoteId\?\.\[noteId\] \|\| \{\}/);
+  assert.match(isolatedWorkflowShellSource, /const queueItems = isolatedQueueItems\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 \}\);/);
+  assert.match(isolatedWorkflowShellSource, /const nextItem = nextIsolatedQueueItem\(queueItems, noteId\);/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /Array\.isArray\(isolatedNotes\) \? isolatedNotes : \[\]/);
   assert.match(saveControllerSource, /关系已保存，当前笔记已接入关系网/);
   assert.doesNotMatch(source, /继续给这条补关系/);
 
@@ -897,6 +905,7 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
 
 test("graph isolated notes are organized into a continuous handling queue", () => {
   const source = readPrototypeApp();
+  const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphIsolatedQueueItems\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", limit = 8 \} = \{\}\) \{/);
@@ -908,13 +917,15 @@ test("graph isolated notes are organized into a continuous handling queue", () =
   assert.match(source, /return computeGraphNextIsolatedQueueItem\(queueItems, currentNoteId\);/);
   assert.match(source, /function renderGraphIsolatedQueue\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", compact = false, limit = 8, queueItems: providedQueueItems = null \} = \{\}\) \{/);
   assert.match(source, /function renderGraphIsolatedQueueStrip\(\{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\], currentNoteId = "", queueItems: providedQueueItems = null \} = \{\}\) \{/);
-  assert.match(source, /const total = queueItems\.length;/);
-  assert.doesNotMatch(source, /const total = Array\.isArray\(isolatedNotes\) \? isolatedNotes\.length : queueItems\.length;/);
-  assert.match(source, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}"/);
-  assert.match(source, /class="graph-isolated-queue-strip"/);
-  assert.match(source, /data-graph-open-workbench-entry="organize"/);
+  assert.match(source, /return graphIsolatedWorkflowShell\.renderQueue\(\{ isolatedNotes, nodeMap, edges, currentNoteId, compact, limit, queueItems: providedQueueItems \}\);/);
+  assert.match(source, /return graphIsolatedWorkflowShell\.renderQueueStrip\(\{ isolatedNotes, nodeMap, edges, currentNoteId, queueItems: providedQueueItems \}\);/);
+  assert.match(isolatedWorkflowShellSource, /const total = queueItems\.length;/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /const total = Array\.isArray\(isolatedNotes\) \? isolatedNotes\.length : queueItems\.length;/);
+  assert.match(isolatedWorkflowShellSource, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}"/);
+  assert.match(isolatedWorkflowShellSource, /class="graph-isolated-queue-strip"/);
+  assert.match(isolatedWorkflowShellSource, /data-graph-open-workbench-entry="organize"/);
   assert.match(source, /const workbenchOpenEntry = event\.target\.closest\("\[data-graph-open-workbench-entry\]"\);/);
-  assert.match(source, /const isolatedQueueMarkup = renderGraphIsolatedQueue\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 \}\);/);
+  assert.match(isolatedWorkflowShellSource, /const isolatedQueueMarkup = renderQueue\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 \}\);/);
   assert.match(source, /const graphRelationTargetNodeMap = graphPotentialRelationNodeMap\(\);/);
   assert.match(source, /nodeMap: graphRelationTargetNodeMap/);
   assert.match(source, /const isolatedQueueItems = !showingFocusedNote[\s\S]*graphIsolatedQueueItems\(\{/);
@@ -938,10 +949,10 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   const source = readPrototypeApp();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
+  const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
   const isolatedSelectionStart = source.indexOf('function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {');
   const isolatedSelectionEnd = source.indexOf('function renderGraphBridgeSelectionPanel(', isolatedSelectionStart);
   assert.ok(isolatedSelectionStart >= 0 && isolatedSelectionEnd > isolatedSelectionStart, "expected renderGraphIsolatedSelectionPanel() to exist");
-  const isolatedSelectionSource = source.slice(isolatedSelectionStart, isolatedSelectionEnd);
 
   assert.match(source, /function graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
   assert.match(source, /return computeGraphLocalRelationCandidatesForNote\(/);
@@ -971,14 +982,14 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(source, /function moveGraphIsolatedWorkflowTab\(currentButton = null, direction = 1\) \{/);
   assert.match(source, /return graphIsolatedRelationController\.moveWorkflowTab\(currentButton, direction\);/);
   assert.match(source, /isolatedWorkflowTabsByNoteId: \{\},/);
-  assert.match(source, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(nextItem\.noteId\)\}"/);
+  assert.match(isolatedWorkflowShellSource, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(nextItem\.noteId\)\}"/);
   assert.match(source, /actionAttrs: `data-graph-select-isolated="\$\{escapeHtml\(isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(noteId\)\}"`/);
   assert.match(source, /const isolatedWorkflowTab = event\.target\.closest\("\[data-graph-isolated-tab\]"\);/);
   assert.match(source, /if \(event\.key === "ArrowRight" \|\| event\.key === "ArrowDown"\) \{/);
   assert.match(source, /const graphManualTargetButton = event\.target\.closest\("\[data-graph-pick-manual-target\]"\);/);
   assert.match(source, /await saveGraphIsolatedRelationForm\(graphIsolatedRelationSaveButton\);/);
-  assert.match(isolatedSelectionSource, /title: "已保存的关系"/);
-  assert.doesNotMatch(isolatedSelectionSource, /孤立笔记接入网络/);
+  assert.match(isolatedWorkflowShellSource, /title: "已保存的关系"/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /孤立笔记接入网络/);
 });
 
 test("graph manual relation targets search all known permanent notes but excludes non-permanent and connected notes", () => {
@@ -1221,6 +1232,7 @@ test("isolated note panel gives a continuous next step after confirming a relati
   const html = readPrototypeHtml();
   const nextStepSource = extractFunctionSource(source, "renderGraphIsolatedNextStepActions");
   const nextStepModuleSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-next-step.js"), "utf8");
+  const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
 
   assert.match(source, /function renderGraphIsolatedNextStepActions\(noteId = "", \{ isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(nextStepSource, /return renderGraphIsolatedNextStepActionsHtml\(noteId, \{ isolatedNotes, nodeMap, edges \}, \{/);
@@ -1232,7 +1244,7 @@ test("isolated note panel gives a continuous next step after confirming a relati
   assert.match(nextStepModuleSource, /const canCreateTheme = directEdges\.length > 0 && themeNoteIds\.length >= 3;/);
   assert.match(nextStepModuleSource, /const themeNoteIds = themeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\);/);
   assert.doesNotMatch(nextStepSource, /graphAiRelationCandidatesForNote/);
-  assert.match(source, /renderGraphIsolatedNextStepActions\(noteId, \{ isolatedNotes, nodeMap, edges \}\)/);
+  assert.match(isolatedWorkflowShellSource, /renderNextStepActions\(noteId, \{ isolatedNotes, nodeMap, edges \}\)/);
   assert.match(html, /\.graph-isolated-next-step \{[\s\S]*border: 1px solid #cfe4d9;/);
 });
 
