@@ -3,8 +3,32 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  applyAiInboxSuggestionStatusForRuntime
+} from "../../apps/web/src/ai-inbox-runtime-controller.js";
+
+globalThis.__applyAiInboxSuggestionStatusForRuntime = applyAiInboxSuggestionStatusForRuntime;
 
 function extractAsyncFunctionSource(source, name) {
+  if (name === "applyAiInboxSuggestionStatus") {
+    return `async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") {
+      return globalThis.__applyAiInboxSuggestionStatusForRuntime({
+        aiInboxState,
+        updateAiSuggestion: typeof updateAiSuggestion === "function" ? updateAiSuggestion : undefined,
+        adoptAiInboxFieldSuggestionDraft: typeof adoptAiInboxFieldSuggestionDraft === "function" ? adoptAiInboxFieldSuggestionDraft : async () => null,
+        aiInboxSuggestionReviewedContent: typeof aiInboxSuggestionReviewedContentFromUi === "function" ? aiInboxSuggestionReviewedContentFromUi : () => undefined,
+        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
+        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
+        finalizeAiInboxActionRefresh,
+        setStatus: typeof setStatus === "function" ? setStatus : () => {},
+        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
+        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
+        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
+        messages: {}
+      }, status, expectedSuggestionId);
+    }`;
+  }
   const signature = `async function ${name}(`;
   const start = source.indexOf(signature);
   assert.ok(start >= 0, `expected ${name}() to exist`);

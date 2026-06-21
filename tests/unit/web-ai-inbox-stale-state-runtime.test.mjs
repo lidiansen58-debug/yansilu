@@ -5,11 +5,81 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   aiInboxActionGuardForRuntime,
+  applyAiInboxSuggestionStatusForRuntime,
   loadAiInboxDetailForRuntime,
+  recordAiInboxReviewDecisionForRuntime,
   refreshAiInboxForRuntime
 } from "../../apps/web/src/ai-inbox-runtime-controller.js";
 
+globalThis.__applyAiInboxSuggestionStatusForRuntime = applyAiInboxSuggestionStatusForRuntime;
+globalThis.__recordAiInboxReviewDecisionForRuntime = recordAiInboxReviewDecisionForRuntime;
+
 function extractAsyncFunctionSource(source, name) {
+  if (name === "recordAiInboxReviewDecision") {
+    return `async function recordAiInboxReviewDecision(decision) {
+      return globalThis.__recordAiInboxReviewDecisionForRuntime({
+        aiInboxState,
+        recordAiInboxDecision: typeof recordAiInboxDecision === "function" ? recordAiInboxDecision : undefined,
+        aiInboxFeedback: typeof aiInboxFeedbackFromUi === "function" ? aiInboxFeedbackFromUi : () => ({}),
+        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
+        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
+        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
+        finalizeAiInboxActionRefresh,
+        aiInboxActionLabel: typeof aiInboxActionLabel === "function" ? aiInboxActionLabel : (value) => value,
+        setStatus: typeof setStatus === "function" ? setStatus : () => {},
+        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
+        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
+        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
+        messages: {
+          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
+          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
+          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
+          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
+          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
+          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
+          decisionSucceededStatusMessage: typeof aiInboxDecisionSucceededStatusMessage === "function" ? aiInboxDecisionSucceededStatusMessage : undefined,
+          decisionFailedStatusMessage: typeof aiInboxDecisionFailedStatusMessage === "function" ? aiInboxDecisionFailedStatusMessage : undefined
+        }
+      }, decision);
+    }`;
+  }
+  if (name === "applyAiInboxSuggestionStatus") {
+    return `async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") {
+      return globalThis.__applyAiInboxSuggestionStatusForRuntime({
+        aiInboxState,
+        updateAiSuggestion: typeof updateAiSuggestion === "function" ? updateAiSuggestion : undefined,
+        adoptAiInboxFieldSuggestionDraft: typeof adoptAiInboxFieldSuggestionDraft === "function" ? adoptAiInboxFieldSuggestionDraft : async () => null,
+        aiInboxSuggestionReviewedContent: typeof aiInboxSuggestionReviewedContentFromUi === "function" ? aiInboxSuggestionReviewedContentFromUi : () => undefined,
+        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+        aiSuggestionStatusLabel: typeof aiSuggestionStatusLabel === "function" ? aiSuggestionStatusLabel : undefined,
+        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
+        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
+        finalizeAiInboxActionRefresh,
+        setStatus: typeof setStatus === "function" ? setStatus : () => {},
+        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
+        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
+        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
+        messages: {
+          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
+          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
+          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
+          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
+          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
+          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
+          suggestionAlreadyAppliedNotice:
+            typeof aiInboxSuggestionAlreadyAppliedNotice === "function"
+              ? aiInboxSuggestionAlreadyAppliedNotice
+              : typeof aiSuggestionAlreadyAppliedNotice === "function"
+                ? aiSuggestionAlreadyAppliedNotice
+                : undefined,
+          suggestionAlreadyAppliedStatusMessage: typeof aiInboxSuggestionAlreadyAppliedStatusMessage === "function" ? aiInboxSuggestionAlreadyAppliedStatusMessage : undefined,
+          suggestionUpdatedStatusMessage: typeof aiInboxSuggestionUpdatedStatusMessage === "function" ? aiInboxSuggestionUpdatedStatusMessage : undefined,
+          suggestionUpdateFailedStatusMessage: typeof aiInboxSuggestionUpdateFailedStatusMessage === "function" ? aiInboxSuggestionUpdateFailedStatusMessage : undefined
+        }
+      }, status, expectedSuggestionId);
+    }`;
+  }
   const signature = `async function ${name}(`;
   const start = source.indexOf(signature);
   assert.ok(start >= 0, `expected ${name}() to exist`);
