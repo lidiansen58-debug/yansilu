@@ -10,8 +10,8 @@ import {
 } from "../../apps/web/src/components-editor-pane.js";
 import { createInitialState } from "../../apps/web/src/prototype-store.js";
 
-function readEditorPaneSource() {
-  return fs.readFileSync(new URL("../../apps/web/src/components-editor-pane.js", import.meta.url), "utf8");
+function readSemanticRelationsControllerSource() {
+  return fs.readFileSync(new URL("../../apps/web/src/editor-semantic-relations-controller.js", import.meta.url), "utf8");
 }
 
 function createClassList() {
@@ -94,13 +94,13 @@ test("relation guidance falls back to supports when no stronger signal exists", 
 });
 
 test("opening the create relation form delegates to the large relation workspace", () => {
-  const source = readEditorPaneSource();
-  const start = source.indexOf("openCreateRelationForm(options = {}) {");
-  const end = source.indexOf("\n  currentExplicitRelationCount()", start);
-  assert.ok(start >= 0 && end > start, "expected openCreateRelationForm body");
+  const source = readSemanticRelationsControllerSource();
+  const start = source.indexOf("openCreateForm(options = {}) {");
+  const end = source.indexOf("\n  openInlineCreateForm", start);
+  assert.ok(start >= 0 && end > start, "expected openCreateForm body");
   const body = source.slice(start, end);
 
-  assert.match(body, /this\.openPermanentRelationWorkspace\(\{/);
+  assert.match(body, /host\.openPermanentRelationWorkspace\(\{/);
   assert.match(body, /targetNoteId: options\?\.targetNoteId/);
   assert.match(body, /relationType: options\?\.relationType/);
   assert.match(body, /rationaleDraft: options\?\.rationaleDraft/);

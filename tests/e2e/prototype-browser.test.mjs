@@ -2326,7 +2326,7 @@ test("prototype related inspector can create an explicit semantic relation", asy
   await workspace.waitFor({ state: "visible" });
   const workspaceText = await workspace.textContent();
   assert.match(String(workspaceText || ""), /关系|relation/i);
-  assert.match(String(workspaceText || ""), /理由|reason|rationale/i);
+  assert.match(String(workspaceText || ""), /为什么|理由|reason|rationale/i);
 
   await page.locator("[data-permanent-relation-target-search]").fill("Writing Target");
   await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
@@ -2474,26 +2474,36 @@ test("prototype related inspector can edit and delete an explicit semantic relat
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "锟缴编辑锟斤拷源" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
-  await page.locator('#resultArea [data-relation-action="open-edit"]').click();
+  await page.locator("#relatedPanel").waitFor({ state: "visible" });
+  await waitFor(async () => {
+    assert.ok((await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').count()) > 0);
+  }, 10000);
+  await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').click();
+  await waitFor(async () => {
+    assert.ok((await page.locator('#relatedPanel [data-relation-action="open-edit"]:visible').count()) > 0);
+  }, 10000);
+  await page.locator('#relatedPanel [data-relation-action="open-edit"]:visible').click();
 
-  const editFormText = await page.locator("[data-edit-relation-form]").textContent();
+  const editForm = page.locator("[data-edit-relation-form]:visible");
+  await editForm.waitFor({ state: "visible" });
+  const editFormText = await editForm.textContent();
   assert.ok(String(editFormText || "").trim().length > 0);
-  assert.match(String(editFormText || ""), /锟斤拷一锟斤拷要锟斤拷证锟斤拷锟斤拷锟斤拷/);
-  assert.match(String(editFormText || ""), /锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷/);
+  assert.match(String(editFormText || ""), /为什么要关联/);
+  assert.match(String(editFormText || ""), /继续追问/);
 
-  await page.locator('[data-edit-relation-form] select[name="relationType"]').selectOption("qualifies");
-  await page.locator('[data-edit-relation-form] select[name="status"]').selectOption("draft");
-  await page.locator('[data-edit-relation-form] textarea[name="rationale"]').fill("锟洁辑锟斤拷锟斤拷锟斤拷砂锟斤拷锟斤拷帽呓锟剿碉拷锟斤拷锟斤拷锟斤拷为锟斤拷锟睫讹拷锟斤拷证锟捷筹拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷");
-  await page.locator('[data-edit-relation-form] textarea[name="insightQuestion"]').fill("锟竭斤拷锟斤拷锟斤拷锟斤拷什么锟斤拷");
-  const editQualityText = await page.locator('[data-edit-relation-form] [data-relation-quality]').textContent();
-  assert.match(String(editQualityText || ""), /锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟缴革拷锟斤拷/);
-  await page.locator('[data-edit-relation-form] button[type="submit"]').click();
+  await editForm.locator('select[name="relationType"]').selectOption("qualifies");
+  await editForm.locator('select[name="status"]').selectOption("draft");
+  await editForm.locator('textarea[name="rationale"]').fill("锟洁辑锟斤拷锟斤拷锟斤拷砂锟斤拷锟斤拷帽呓锟剿碉拷锟斤拷锟斤拷锟斤拷为锟斤拷锟睫讹拷锟斤拷证锟捷筹拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷");
+  await editForm.locator('textarea[name="insightQuestion"]').fill("锟竭斤拷锟斤拷锟斤拷锟斤拷什么锟斤拷");
+  const editQualityText = await editForm.locator("[data-relation-quality]").textContent();
+  assert.match(String(editQualityText || ""), /理由质量/);
+  await editForm.locator('button[type="submit"]').click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /锟斤拷系锟窖革拷锟斤拷/);
-    assert.match(String(relatedText || ""), /锟睫讹拷/);
-    assert.match(String(relatedText || ""), /锟捷革拷/);
+    assert.match(String(relatedText || ""), /关系已更新/);
+    assert.match(String(relatedText || ""), /限定/);
+    assert.match(String(relatedText || ""), /草稿/);
     assert.match(String(relatedText || ""), /锟洁辑锟斤拷锟斤拷锟斤拷砂锟斤拷锟斤拷帽呓锟剿碉拷锟斤拷/);
     assert.match(String(relatedText || ""), /锟竭斤拷锟斤拷锟斤拷锟斤拷什么/);
   }, 10000);
@@ -2505,14 +2515,21 @@ test("prototype related inspector can edit and delete an explicit semantic relat
   assert.equal(updatedRelations.json.item.outgoingLinks[0].rationale, "锟洁辑锟斤拷锟斤拷锟斤拷砂锟斤拷锟斤拷帽呓锟剿碉拷锟斤拷锟斤拷锟斤拷为锟斤拷锟睫讹拷锟斤拷证锟捷筹拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷");
 
   page.once("dialog", async (dialog) => {
-    assert.match(dialog.message(), /删锟斤拷/);
+    assert.match(dialog.message(), /删除|删锟斤拷/);
     await dialog.accept();
   });
-  await page.locator('#resultArea [data-relation-action="delete"]').click();
+  await waitFor(async () => {
+    assert.ok((await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').count()) > 0);
+  }, 10000);
+  await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').click();
+  await waitFor(async () => {
+    assert.ok((await page.locator('#relatedPanel [data-relation-action="delete"]:visible').count()) > 0);
+  }, 10000);
+  await page.locator('#relatedPanel [data-relation-action="delete"]:visible').click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /锟斤拷系锟斤拷删锟斤拷/);
+    assert.match(String(relatedText || ""), /关系已删除/);
     assert.doesNotMatch(String(relatedText || ""), /锟洁辑锟斤拷锟斤拷锟斤拷砂锟斤拷锟斤拷帽呓锟剿碉拷锟斤拷/);
   }, 10000);
 

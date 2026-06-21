@@ -94,6 +94,7 @@ import {
   wikilinkTargetFromRaw
 } from "./editor-link-picker.js";
 import { EditorRelationLinkController } from "./editor-relation-link-controller.js";
+import { EditorSemanticRelationsController } from "./editor-semantic-relations-controller.js";
 import {
   excerptFromBody,
   isHiddenRelation,
@@ -253,6 +254,7 @@ export class EditorPane {
     this.permanentRelationSearchSerial = 0;
     this.permanentRelationSearchTimer = null;
     this.editorRelationLinkController = new EditorRelationLinkController(this);
+    this.editorSemanticRelationsController = new EditorSemanticRelationsController(this);
     this.permanentNoteSidebarController = null;
     this.fleetingCleanupDismissedNoteIds = new Set();
     this.noteAiAnalysisByNoteId = new Map();
@@ -3191,6 +3193,11 @@ export class EditorPane {
     return this.editorRelationLinkController;
   }
 
+  semanticRelations() {
+    if (!this.editorSemanticRelationsController) this.editorSemanticRelationsController = new EditorSemanticRelationsController(this);
+    return this.editorSemanticRelationsController;
+  }
+
   renderLinkCandidates(query = "", preferredId = "") {
     this.editorRelationLink().renderCandidates(query, preferredId);
   }
@@ -3493,16 +3500,7 @@ export class EditorPane {
   }
 
   relationEndpoint(link, direction) {
-    const endpointId = direction === "outgoing" ? link?.toNoteId : link?.fromNoteId;
-    const apiNote = direction === "outgoing" ? link?.target : link?.source;
-    const cached = this.state.notes.find((item) => item.id === endpointId) || null;
-    return {
-      id: endpointId || apiNote?.id || "",
-      title: apiNote?.title || cached?.title || endpointId || "未命名笔记",
-      noteType: apiNote?.noteType || cached?.noteType || "original",
-      folderId: cached?.folderId || "",
-      status: apiNote?.status || cached?.status || ""
-    };
+    return this.semanticRelations().relationEndpoint(link, direction);
   }
 
   setRelationFollowupSuggestion(suggestion = null) {
@@ -3514,438 +3512,67 @@ export class EditorPane {
   }
 
   renderRelationFollowupSuggestion(noteId = "") {
-    const suggestion = this.relationFollowupSuggestion;
-    if (!suggestion || String(suggestion.noteId || "") !== String(noteId || "")) return "";
-    return `
-      <div class="relation-followup-suggestion" data-relation-followup-suggestion data-relation-id="${escapeHtml(suggestion.relationId)}">
-        <div class="relation-followup-suggestion-text">${escapeHtml(suggestion.text || "这条关系还可以补理由。")}</div>
-        <div class="relation-followup-suggestion-actions">
-          <button class="mini-btn primary" type="button" data-relation-action="open-followup-reason" data-relation-id="${escapeHtml(suggestion.relationId)}">${escapeHtml(suggestion.actionLabel || "补理由")}</button>
-          <button class="mini-btn is-ghost" type="button" data-relation-action="dismiss-followup">${escapeHtml(suggestion.laterLabel || "稍后")}</button>
-        </div>
-      </div>
-    `;
+    return this.semanticRelations().renderRelationFollowupSuggestion(noteId);
   }
 
   renderSemanticRelationItem(link, direction) {
-    const endpoint = this.relationEndpoint(link, direction);
-    const type = String(link?.relationType || "").trim().toLowerCase();
-    const directionLabel = direction === "outgoing" ? "当前指向" : "指向当前";
-    const createdBy = String(link?.createdBy || "user").trim();
-    const createdByLabel = relationSourceLabel(createdBy);
-    const confidence =
-      link?.confidence === null || link?.confidence === undefined || link?.confidence === ""
-        ? ""
-        : `可信度 ${Math.round(Number(link.confidence) * 100)}%`;
-    const qualityLabel = relationQualityLabel(link?.rationaleQualityLevel);
-    const folderText = endpoint.folderId ? this.folderLabel(endpoint.folderId) : noteTypeText(endpoint.noteType);
-    const insightQuestion = String(link?.insightQuestion || "").trim();
-    const rationale = String(link?.rationale || "").trim();
-    const preview = isMarkdownWikilinkRelation(link) ? "由正文链接建立的基础关联。" : rationale;
-
-    return `
-      <article class="related-item semantic-relation-item" data-relation-tone="${escapeHtml(relationTone(link))}" data-relation-id="${escapeHtml(link?.id || "")}">
-        <button class="semantic-relation-open" type="button" data-preview-note="${escapeHtml(endpoint.id)}">
-          <span class="related-item-title">${escapeHtml(endpoint.title)}</span>
-          <span class="related-item-meta">${escapeHtml(directionLabel)} · ${escapeHtml(relationTypeLabel(type))} · ${escapeHtml(relationStatusLabel(link?.status))} · ${escapeHtml(folderText)}</span>
-          ${preview ? `<span class="related-item-preview">${escapeHtml(preview)}</span>` : ""}
-          ${insightQuestion ? `<span class="relation-question">${escapeHtml(insightQuestion)}</span>` : ""}
-        </button>
-        <div class="related-item-badges">
-          <span class="related-item-badge">${escapeHtml(relationTypeLabel(type))}</span>
-          <span class="related-item-badge">${escapeHtml(createdByLabel)}</span>
-          <span class="related-item-badge">${escapeHtml(qualityLabel)}</span>
-          ${confidence ? `<span class="related-item-badge">${escapeHtml(confidence)}</span>` : ""}
-        </div>
-        <div class="semantic-relation-card-actions">
-          <button class="mini-btn is-ghost" type="button" data-relation-action="open-edit" data-relation-id="${escapeHtml(link?.id || "")}">编辑</button>
-          <button class="mini-btn is-ghost" type="button" data-relation-action="delete" data-relation-id="${escapeHtml(link?.id || "")}">删除</button>
-        </div>
-      </article>
-    `;
+    return this.semanticRelations().renderSemanticRelationItem(link, direction);
   }
 
   renderSemanticRelationsLoadingSection(noteId) {
-    return `
-      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
-        <div class="inspector-section-head">
-          <div class="inspector-section-title">关系网络</div>
-          <div class="semantic-relation-head-actions">
-            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">新建关联</button>
-            <div class="inspector-count">读取中</div>
-          </div>
-        </div>
-        <div class="related-empty">正在读取已保存的正式关联。</div>
-      </section>
-    `;
+    return this.semanticRelations().renderSemanticRelationsLoadingSection(noteId);
   }
 
   renderInlineDraftRelationSection(note, tab) {
-    const drafts = parseInlineRelationAnnotations(tab?.body || "");
-    if (!drafts.length) return "";
-    const scoped = this.scopedLinkCandidates();
-    const items = drafts
-      .map((draft, index) => {
-        const resolved = this.resolveLinkToken(draft.token, scoped);
-        const endpoint = resolved?.note || {
-          id: draft.token,
-          title: draft.token,
-          noteType: "original",
-          folderId: ""
-        };
-        const createdByLabel = relationSourceLabel(draft.manager);
-        const quality = relationQualityEvaluation(draft.rationale, "");
-        return `
-          <article class="related-item semantic-relation-item" data-relation-tone="${escapeHtml(relationTone({ relationType: draft.relationType }))}" data-inline-relation-index="${index}">
-            <button class="semantic-relation-open" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">
-              <span class="related-item-title">${escapeHtml(endpoint.title || draft.token)}</span>
-              <span class="related-item-meta">${escapeHtml("刚写入正文")} · ${escapeHtml(relationTypeLabel(draft.relationType))} · ${escapeHtml(endpoint.folderId ? this.folderLabel(endpoint.folderId) : noteTypeText(endpoint.noteType))}</span>
-              ${draft.rationale ? `<span class="related-item-preview">${escapeHtml(draft.rationale)}</span>` : ""}
-            </button>
-        <div class="related-item-badges">
-          <span class="related-item-badge">${escapeHtml(relationTypeLabel(draft.relationType))}</span>
-          <span class="related-item-badge">${escapeHtml(createdByLabel)}</span>
-          <span class="related-item-badge">${escapeHtml(relationQualityLabel(quality.level))}</span>
-        </div>
-        <div class="semantic-relation-card-actions">
-          <button class="mini-btn primary" type="button" data-relation-action="promote-inline" data-inline-relation-index="${index}">升级为正式关系</button>
-        </div>
-      </article>
-    `;
-      })
-      .join("");
-    return `
-      <section class="inspector-section semantic-relations-section">
-        <div class="inspector-section-head">
-          <div class="inspector-section-title">正文里的新关联</div>
-          <div class="inspector-count">${drafts.length}</div>
-        </div>
-        <div class="inspector-section-note">这些链接刚写进正文；确认后会进入现有关联。</div>
-        <div class="inspector-list">${items}</div>
-      </section>
-    `;
+    return this.semanticRelations().renderInlineDraftRelationSection(note, tab);
   }
 
   relationCreateDefaultType(note = this.activeNote()) {
-    return relationCreateDefaultTypeForNote(note);
+    return this.semanticRelations().relationCreateDefaultType(note);
   }
 
   sortRelationTargetCandidates(candidates = [], note = this.activeNote()) {
-    return sortRelationTargetCandidatesForNote(candidates, note);
+    return this.semanticRelations().sortRelationTargetCandidates(candidates, note);
   }
 
   renderRelationTargetOptions(candidates = [], selectedId = "") {
-    const selected = String(selectedId || "").trim();
-    const selectedNote = selected ? this.state.notes.find((item) => item?.id === selected) || null : null;
-    const sorted = this.sortRelationTargetCandidates(candidates);
-    const items = selected && !sorted.some((candidate) => candidate?.id === selected)
-      ? [
-          ...(selectedNote ? [selectedNote] : []),
-          ...sorted
-        ]
-      : sorted;
-    return items
-      .filter(Boolean)
-      .map((n) => {
-        const meta = `${noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId))} · ${this.folderLabel(n.folderId)}`;
-        return `<option value="${escapeHtml(n.id)}"${n.id === selected ? " selected" : ""}>${escapeHtml(n.title || n.id)} · ${escapeHtml(meta)}</option>`;
-      })
-      .join("");
+    return this.semanticRelations().renderRelationTargetOptions(candidates, selectedId);
   }
 
   renderRelationTargetChoices(candidates = [], selectedId = "", query = "", activeId = "") {
-    const selected = String(selectedId || "").trim();
-    const active = String(activeId || "").trim();
-    const selectedNote = selected ? this.state.notes.find((item) => item?.id === selected) || null : null;
-    const q = String(query || "").trim().toLowerCase();
-    const sorted = this.sortRelationTargetCandidates(candidates);
-    const filtered = q
-      ? sorted.filter((candidate) => {
-          const title = String(candidate?.title || "").toLowerCase();
-          return title.includes(q);
-        })
-      : sorted;
-    const items = selected && !filtered.some((candidate) => candidate?.id === selected)
-      ? [
-          ...(selectedNote ? [selectedNote] : []),
-          ...filtered
-        ]
-      : filtered;
-    if (!items.length) return `<div class="picker-empty">没有匹配笔记</div>`;
-    return items
-      .slice(0, 10)
-      .map((candidate) => {
-        const isActive = candidate?.id === active;
-        const resolvedType = noteTypeText(candidate?.noteType || typeFromFolder(this.state, candidate?.folderId || ""));
-        const location = this.folderLabel(candidate?.folderId || "");
-        return `
-          <button
-            class="link-picker-item ${isActive ? "active" : ""}"
-            type="button"
-            data-relation-target-choice
-            data-note-id="${escapeHtml(candidate?.id || "")}"
-            data-note-title="${escapeHtml(candidate?.title || candidate?.id || "")}"
-            aria-selected="${isActive ? "true" : "false"}"
-            title="${escapeHtml(`${candidate?.title || candidate?.id || ""} · ${resolvedType} · ${location}`)}"
-          >
-            <span class="picker-headline">
-              <strong>${highlightMatch(candidate?.title || candidate?.id || "", q)}</strong>
-            </span>
-          </button>
-        `;
-      })
-      .join("");
+    return this.semanticRelations().renderRelationTargetChoices(candidates, selectedId, query, activeId);
   }
 
   renderCreateRelationFormSection(noteId, prefill = {}) {
-    const activeNote = this.activeNote();
-    const candidates = this.scopedLinkCandidates();
-    const defaultType = this.relationCreateDefaultType(activeNote);
-    const selectedTargetId = String(prefill?.targetNoteId || "").trim();
-    const selectedTarget = selectedTargetId ? this.state.notes.find((item) => item?.id === selectedTargetId) || null : null;
-    const selectedRelationType = String(prefill?.relationType || "").trim().toLowerCase() || defaultType;
-    const targetQuery = String(prefill?.targetQuery || selectedTarget?.title || "").trim();
-    const entryHint = String(prefill?.entryHint || "").trim();
-    const rationaleDraft = String(prefill?.rationaleDraft || "").trim();
-    const insightQuestionDraft = String(prefill?.insightQuestionDraft || "").trim();
-    const templateVariants = normalizeRelationTemplateVariants(prefill?.draftVariants || [], prefill?.selectedTemplateVariant || "");
-    const rememberedTemplateVariantLabel = String(prefill?.rememberedTemplateVariantLabel || "").trim();
-    const defaultGuidance = relationTypeGuidance(selectedRelationType);
-    const scopeFolderLabel = activeNote?.folderId ? this.folderLabel(activeNote.folderId) : "当前目录";
-    const typeOptions = RELATION_CREATE_TYPES.map(
-      (type) => `<option value="${escapeHtml(type)}"${type === selectedRelationType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
-    ).join("");
-    const targetChoices = this.renderRelationTargetChoices(candidates, selectedTargetId, targetQuery, selectedTargetId);
-    const targetStatus = selectedTarget
-      ? `已选：${selectedTarget.title || selectedTarget.id}`
-      : candidates.length
-        ? "输入标题后选择一条笔记"
-        : "当前范围没有可连接笔记";
-
-    return `
-      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
-        <div class="inspector-section-head">
-          <div>
-            <div class="inspector-section-title">关联到另一条永久笔记</div>
-            <div class="inspector-section-note">选择一条笔记，说明它和当前笔记是什么关系。保存后这条连接会进入图谱。</div>
-          </div>
-          <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-create">取消</button>
-        </div>
-        <div class="semantic-relation-status relation-create-summary">
-          <span class="inspector-chip">范围 ${escapeHtml(scopeFolderLabel)}</span>
-          <span class="inspector-chip">当前笔记发起</span>
-        </div>
-        ${entryHint ? `<div class="inspector-section-note" data-relation-entry-hint>${escapeHtml(entryHint)}</div>` : ""}
-        <form class="semantic-relation-form" data-create-relation-form data-note-id="${escapeHtml(noteId)}">
-          ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
-          <label>
-            <span>要关联哪条笔记</span>
-            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入标题关键词" value="${escapeHtml(targetQuery)}" autofocus />
-            <input type="hidden" name="toNoteId" data-relation-target-id value="${escapeHtml(selectedTargetId)}" />
-            <div class="link-picker-list semantic-relation-target-list" data-relation-target-list hidden>${targetChoices}</div>
-            <small class="semantic-relation-target-status" data-relation-target-status>${escapeHtml(targetStatus)}</small>
-          </label>
-          <label>
-            <span>它们是什么关系</span>
-            <select name="relationType" required>${typeOptions}</select>
-          </label>
-          <label>
-            <span>为什么要关联</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">${escapeHtml(defaultGuidance.rationaleHint)}</small>
-          </label>
-          <label>
-            <span>继续追问（可选）</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">${escapeHtml(defaultGuidance.questionHint)}</small>
-          </label>
-          ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
-          <div class="semantic-relation-form-error" data-relation-form-error></div>
-          <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit" ${selectedTargetId ? "" : "disabled"}>保存关联</button>
-          </div>
-        </form>
-      </section>
-    `;
+    return this.semanticRelations().renderCreateRelationFormSection(noteId, prefill);
   }
 
   renderRelationTypeOptions(selectedType = "") {
-    const selected = String(selectedType || "").trim().toLowerCase();
-    return RELATION_CREATE_TYPES.map(
-      (type) => `<option value="${escapeHtml(type)}"${type === selected ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
-    ).join("");
+    return this.semanticRelations().renderRelationTypeOptions(selectedType);
   }
 
   renderRelationStatusOptions(selectedStatus = "confirmed") {
-    const selected = String(selectedStatus || "confirmed").trim().toLowerCase();
-    return RELATION_EDIT_STATUSES.map(
-      (status) => `<option value="${escapeHtml(status)}"${status === selected ? " selected" : ""}>${escapeHtml(relationStatusLabel(status))}</option>`
-    ).join("");
+    return this.semanticRelations().renderRelationStatusOptions(selectedStatus);
   }
 
   renderEditRelationFormSection(noteId, link, context = {}) {
-    const endpoint = this.relationEndpoint(link, link?.fromNoteId === noteId ? "outgoing" : "incoming");
-    const defaultGuidance = relationTypeGuidance(link?.relationType || "supports");
-    const entryHint = String(context?.entryHint || "").trim();
-    const rationaleDraft = String(link?.rationale || "").trim() || String(context?.rationaleDraft || "").trim();
-    const insightQuestionDraft = String(link?.insightQuestion || "").trim() || String(context?.insightQuestionDraft || "").trim();
-    const templateVariants = normalizeRelationTemplateVariants(context?.draftVariants || [], context?.selectedTemplateVariant || "");
-    const rememberedTemplateVariantLabel = String(context?.rememberedTemplateVariantLabel || "").trim();
-    return `
-      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
-        <div class="inspector-section-head">
-          <div>
-            <div class="inspector-section-title">编辑正式关联</div>
-            <div class="inspector-section-note">${escapeHtml(endpoint.title || "未命名笔记")}</div>
-          </div>
-          <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-edit">取消</button>
-        </div>
-        ${entryHint ? `<div class="inspector-section-note" data-relation-entry-hint>${escapeHtml(entryHint)}</div>` : ""}
-        <form class="semantic-relation-form" data-edit-relation-form data-note-id="${escapeHtml(noteId)}" data-relation-id="${escapeHtml(link?.id || "")}">
-          ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
-          <label>
-            <span>关系类型</span>
-            <select name="relationType" required>${this.renderRelationTypeOptions(link?.relationType || "supports")}</select>
-          </label>
-          <label>
-            <span>关系状态</span>
-            <select name="status" required>${this.renderRelationStatusOptions(link?.status || "confirmed")}</select>
-          </label>
-          <label>
-            <span>为什么要关联</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">${escapeHtml(defaultGuidance.rationaleHint)}</small>
-          </label>
-          <label>
-            <span>继续追问（可选）</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">${escapeHtml(defaultGuidance.questionHint)}</small>
-          </label>
-          ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
-          <div class="semantic-relation-form-error" data-relation-form-error></div>
-          <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit">保存修改</button>
-          </div>
-        </form>
-      </section>
-    `;
+    return this.semanticRelations().renderEditRelationFormSection(noteId, link, context);
   }
 
   renderSemanticRelationsSection(relations, noteId) {
-    const outgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link)) : [];
-    const backlinks = Array.isArray(relations?.backlinks) ? relations.backlinks.filter((link) => !isHiddenRelation(link)) : [];
-    const visibleLinks = [...outgoing, ...backlinks];
-    const { outgoing: explicitOutgoing, backlinks: explicitBacklinks, all: explicitLinks } = explicitPermanentNoteRelations(relations);
-    const markdownCount = visibleLinks.length - explicitLinks.length;
-    const confirmedCount = explicitLinks.filter((link) => String(link?.status || "confirmed") === "confirmed").length;
-    const tensionCount = explicitLinks.filter((link) => relationTone(link) === "tension").length;
-    const bridgeCount = explicitLinks.filter((link) => relationTone(link) === "bridge").length;
-    const networkState = confirmedCount ? "已接入" : explicitLinks.length ? "待确认" : "未安置";
-    const statusChips = [
-      explicitLinks.length ? `${explicitLinks.length} 条正式关系` : "还没有正式关系",
-      confirmedCount ? `已确认 ${confirmedCount}` : "",
-      tensionCount ? `张力 ${tensionCount}` : "",
-      bridgeCount ? `桥接 ${bridgeCount}` : "",
-      markdownCount ? `正文链接 ${markdownCount}` : "",
-      networkState !== "未安置" ? networkState : ""
-    ].filter(Boolean);
-
-    const group = (title, direction, list, emptyText) => `
-      <div class="semantic-relation-group">
-        <div class="semantic-relation-group-head">
-          <span>${escapeHtml(title)}</span>
-          <span>${list.length}</span>
-        </div>
-        ${
-          list.length
-            ? `<div class="inspector-list">${list.map((link) => this.renderSemanticRelationItem(link, direction)).join("")}</div>`
-            : `<div class="related-empty">${escapeHtml(emptyText)}</div>`
-        }
-      </div>
-    `;
-
-    return `
-      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
-        <div class="inspector-section-head">
-          <div>
-            <div class="inspector-section-title">关系网络</div>
-            <div class="inspector-section-note">已保存的正式关系，图谱以这里为准。</div>
-          </div>
-          <div class="semantic-relation-head-actions">
-            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">新建关联</button>
-            <div class="inspector-count">${explicitLinks.length}</div>
-          </div>
-        </div>
-        <div class="semantic-relation-status">
-          ${statusChips.map((chip) => `<span class="inspector-chip">${escapeHtml(chip)}</span>`).join("")}
-        </div>
-        ${this.renderRelationFollowupSuggestion(noteId)}
-        ${
-          explicitLinks.length
-            ? `
-              <div class="semantic-relation-groups">
-                ${group("向外连接", "outgoing", explicitOutgoing, "当前笔记还没有向外建立带理由的关系。")}
-                ${group("被它连接", "incoming", explicitBacklinks, "还没有其他笔记以带理由的关系指向当前笔记。")}
-              </div>
-            `
-            : `<div class="related-empty">${markdownCount ? "已有正文链接线索，但还没保存成正式关联。" : "还没有已保存的正式关联。"}</div>`
-        }
-      </section>
-    `;
+    return this.semanticRelations().renderSemanticRelationsSection(relations, noteId);
   }
 
   setRelationPanelState(mode = "list", options = {}) {
-    const cleanMode = ["list", "create", "edit"].includes(String(mode || "").trim()) ? String(mode || "").trim() : "list";
-    const noteId = String(options.noteId || this.activeNote()?.id || "").trim();
-    const preferredTemplateVariant =
-      cleanMode === "list"
-        ? ""
-        : this.readTemplateVariantPreference("relation", options.draftVariants || [], options.selectedTemplateVariant || "");
-    const rememberedTemplateVariant = cleanMode === "list" ? { key: "", label: "" } : this.templateVariantPreferenceMeta("relation", options.draftVariants || []);
-    const normalizedTemplates =
-      cleanMode === "list"
-        ? { items: [], selectedKey: "" }
-        : normalizeRelationTemplateVariants(options.draftVariants || [], preferredTemplateVariant);
-    this.relationPanelState = {
-      noteId,
-      mode: cleanMode,
-      relationId: cleanMode === "edit" ? String(options.relationId || "").trim() : "",
-      targetNoteId: cleanMode === "create" ? String(options.targetNoteId || "").trim() : "",
-      relationType: cleanMode === "create" ? String(options.relationType || "").trim().toLowerCase() : "",
-      entryHint: cleanMode === "list" ? "" : String(options.entryHint || "").trim(),
-      rationaleDraft: cleanMode === "list" ? "" : String(options.rationaleDraft || "").trim(),
-      insightQuestionDraft: cleanMode === "list" ? "" : String(options.insightQuestionDraft || "").trim(),
-      draftVariants: normalizedTemplates.items,
-      selectedTemplateVariant: normalizedTemplates.selectedKey,
-      rememberedTemplateVariantLabel:
-        rememberedTemplateVariant.key && rememberedTemplateVariant.key === normalizedTemplates.selectedKey ? rememberedTemplateVariant.label : "",
-      entryRoute: cleanMode === "list" ? null : (options.entryRoute && typeof options.entryRoute === "object" ? options.entryRoute : null)
-    };
+    this.semanticRelations().setPanelState(mode, options);
   }
 
-  resetRelationPanelState(noteId = this.activeNote()?.id || "") {
-    this.setRelationPanelState("list", { noteId });
+  resetRelationPanelState(noteId = "") {
+    this.semanticRelations().resetPanelState(noteId);
   }
 
-  currentRelationPanelState(noteId = this.activeNote()?.id || "") {
-    const cleanNoteId = String(noteId || "").trim();
-    if (!cleanNoteId || this.relationPanelState.noteId !== cleanNoteId) {
-      return {
-        noteId: cleanNoteId,
-        mode: "list",
-        relationId: "",
-        targetNoteId: "",
-        relationType: "",
-        entryHint: "",
-        rationaleDraft: "",
-        insightQuestionDraft: "",
-        draftVariants: [],
-        selectedTemplateVariant: "",
-        rememberedTemplateVariantLabel: "",
-        entryRoute: null
-      };
-    }
-    return this.relationPanelState;
+  currentRelationPanelState(noteId = "") {
+    return this.semanticRelations().currentPanelState(noteId);
   }
 
   permanentRelationWorkspaceAiCandidates(noteId = this.activeNote()?.id || "") {
@@ -4318,52 +3945,11 @@ export class EditorPane {
   }
 
   renderSemanticRelationsErrorSection(noteId, error) {
-    return `
-      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
-        <div class="inspector-section-head">
-          <div class="inspector-section-title">关系网络</div>
-          <div class="inspector-count">不可用</div>
-        </div>
-        <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error || "未知错误"))}</div>
-      </section>
-    `;
+    return this.semanticRelations().renderSemanticRelationsErrorSection(noteId, error);
   }
 
-  renderCurrentRelationSection(noteId, { relations = this.currentSemanticRelations, relationState = this.semanticRelationsState, error = null } = {}) {
-    const panelState = this.currentRelationPanelState(noteId);
-    if (panelState.mode === "create") {
-      return this.renderCreateRelationFormSection(noteId, {
-        targetNoteId: panelState.targetNoteId,
-        relationType: panelState.relationType,
-        entryHint: panelState.entryHint,
-        rationaleDraft: panelState.rationaleDraft,
-        insightQuestionDraft: panelState.insightQuestionDraft,
-        draftVariants: panelState.draftVariants,
-        selectedTemplateVariant: panelState.selectedTemplateVariant,
-        rememberedTemplateVariantLabel: panelState.rememberedTemplateVariantLabel
-      });
-    }
-    if (panelState.mode === "edit") {
-      const link =
-        relationState === "loaded" && relations
-          ? [...(Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks : []), ...(Array.isArray(relations?.backlinks) ? relations.backlinks : [])].find(
-              (item) => item?.id === panelState.relationId
-            ) || null
-          : this.findSemanticRelation(panelState.relationId);
-      if (link) {
-        return this.renderEditRelationFormSection(noteId, link, {
-          entryHint: panelState.entryHint,
-          rationaleDraft: panelState.rationaleDraft,
-          insightQuestionDraft: panelState.insightQuestionDraft,
-          draftVariants: panelState.draftVariants,
-          selectedTemplateVariant: panelState.selectedTemplateVariant,
-          rememberedTemplateVariantLabel: panelState.rememberedTemplateVariantLabel
-        });
-      }
-    }
-    if (relationState === "error") return this.renderSemanticRelationsErrorSection(noteId, error);
-    if (relationState !== "loaded" || !relations) return this.renderSemanticRelationsLoadingSection(noteId);
-    return this.renderSemanticRelationsSection(relations, noteId);
+  renderCurrentRelationSection(noteId, { relations, relationState, error } = {}) {
+    return this.semanticRelations().renderCurrentRelationSection(noteId, { relations, relationState, error });
   }
 
   async refreshSemanticRelations(noteId, requestSerial) {
@@ -4429,77 +4015,19 @@ export class EditorPane {
   }
 
   findSemanticRelation(relationId) {
-    const id = String(relationId || "").trim();
-    if (!id) return null;
-    const outgoing = Array.isArray(this.currentSemanticRelations?.outgoingLinks) ? this.currentSemanticRelations.outgoingLinks : [];
-    const backlinks = Array.isArray(this.currentSemanticRelations?.backlinks) ? this.currentSemanticRelations.backlinks : [];
-    return [...outgoing, ...backlinks].find((link) => link?.id === id) || null;
+    return this.semanticRelations().findRelation(relationId);
   }
 
   openCreateRelationForm(options = {}) {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const entryRoute = normalizeRelationEntryRoute(options.entryRoute || options, {
-      source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-      noteId: note.id,
-      returnTo: "right-sidebar"
-    });
-    this.setInspectorVisible(true);
-    this.activatePermanentWorkspaceTab("relations");
-    this.setRelationPanelState("create", {
-      noteId: note.id,
-      targetNoteId: entryRoute.targetNoteId,
-      relationType: options?.relationType || options?.entryRoute?.relationType ? entryRoute.relationType : "",
-      entryHint: entryRoute.entryHint,
-      rationaleDraft: entryRoute.rationaleDraft,
-      insightQuestionDraft: entryRoute.insightQuestionDraft,
-      draftVariants: options?.draftVariants,
-      selectedTemplateVariant: options?.selectedTemplateVariant,
-      entryRoute
-    });
-    const section = this.els.result?.querySelector?.("[data-note-relations-section]");
-    if (!section) return;
-    section.outerHTML = this.renderCurrentRelationSection(note.id, {
-      relations: this.currentSemanticRelations,
-      relationState: this.semanticRelationsState
-    });
-    this.jumpToInspectorSection("[data-create-relation-form]", {
-      focus: true,
-      focusSelector: "[data-create-relation-form] [data-relation-target-search]"
-    });
-    void this.refreshRelationTargetSearch("");
+    return this.semanticRelations().openCreateForm(options);
   }
 
   currentExplicitRelationCount() {
-    return permanentNoteSidebarExplicitRelationCount({
-      relationState: this.semanticRelationsState,
-      relations: this.currentSemanticRelations
-    });
+    return this.semanticRelations().currentExplicitRelationCount();
   }
 
   openEditRelationForm(relationId, options = {}) {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const link = this.findSemanticRelation(relationId);
-    if (!link) {
-      this.onStatus("这条关系还没有加载完成", "warn");
-      return;
-    }
-    const section = this.els.result?.querySelector?.("[data-note-relations-section]");
-    if (!section) return;
-    this.setRelationPanelState("edit", {
-      noteId: note.id,
-      relationId,
-      entryHint: options?.entryHint,
-      rationaleDraft: options?.rationaleDraft,
-      insightQuestionDraft: options?.insightQuestionDraft,
-      draftVariants: options?.draftVariants,
-      selectedTemplateVariant: options?.selectedTemplateVariant
-    });
-    section.outerHTML = this.renderCurrentRelationSection(note.id, {
-      relations: this.currentSemanticRelations,
-      relationState: this.semanticRelationsState
-    });
+    return this.semanticRelations().openEditForm(relationId, options);
   }
 
   normalizeTemplateDraftValue(value = "") {
@@ -4647,7 +4175,7 @@ export class EditorPane {
   }
 
   relationTargetSearchRootId(note = this.activeNote()) {
-    return rootBoxIdFromFolder(this.state, note?.folderId);
+    return this.semanticRelations().relationTargetSearchRootId(note);
   }
 
   relatedPermanentNoteIds(note = this.activeNote(), limit = 40) {
@@ -6340,349 +5868,51 @@ export class EditorPane {
   }
 
   async refreshRelationTargetSearch(query = "") {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const form = this.els.result?.querySelector?.("[data-create-relation-form]");
-    if (!form || form.dataset.noteId !== note.id) return;
-
-    const serial = ++this.relationTargetSearchSerial;
-    const searchInput = form.querySelector("[data-relation-target-search]");
-    const hiddenTargetId = form.querySelector("[data-relation-target-id]");
-    const list = form.querySelector("[data-relation-target-list]");
-    const status = form.querySelector("[data-relation-target-status]");
-    const submit = form.querySelector('button[type="submit"]');
-    const selectedBefore = String(hiddenTargetId?.value || "").trim();
-    const highlightBefore = String(form.dataset.relationTargetHighlightId || "").trim();
-    if (status) status.textContent = "正在搜索 SQLite 笔记目录...";
-
-    try {
-      const result = await searchNotes({
-        query,
-        rootDirectoryId: this.relationTargetSearchRootId(note),
-        excludeNoteId: note.id,
-        limit: 30
-      });
-      if (serial !== this.relationTargetSearchSerial || this.activeNote()?.id !== note.id) return;
-      const items = Array.isArray(result?.items) ? result.items : [];
-      this.upsertApiNotes(items);
-      if (!form.isConnected) return;
-      const selectedNote = selectedBefore ? this.state.notes.find((item) => item?.id === selectedBefore) || null : null;
-      const cleanQuery = String(query || "").trim();
-      let nextHighlightId = highlightBefore && items.some((item) => item?.id === highlightBefore) ? highlightBefore : "";
-      if (!nextHighlightId) {
-        if (cleanQuery) nextHighlightId = items[0]?.id || "";
-        else if (selectedBefore && items.some((item) => item?.id === selectedBefore)) nextHighlightId = selectedBefore;
-        else nextHighlightId = items[0]?.id || "";
-      }
-      form.dataset.relationTargetHighlightId = nextHighlightId;
-      if (list) list.innerHTML = this.renderRelationTargetChoices(items, selectedBefore, query, nextHighlightId);
-      if (submit) submit.disabled = !selectedBefore;
-      if (status) {
-        status.textContent = selectedNote
-          ? `已选：${selectedNote.title || selectedNote.id}`
-          : items.length
-            ? `${cleanQuery ? `已筛选 ${items.length} 条` : "输入关键词后选择一条笔记"}`
-            : cleanQuery
-              ? "没有匹配笔记"
-              : "当前范围没有可连接笔记";
-      }
-      if (searchInput && selectedNote && !String(searchInput.value || "").trim()) {
-        searchInput.value = selectedNote.title || selectedNote.id || "";
-      }
-    } catch (error) {
-      if (serial !== this.relationTargetSearchSerial || this.activeNote()?.id !== note.id) return;
-      if (status) status.textContent = `目标搜索失败：${String(error?.message || error)}`;
-      if (submit && !String(hiddenTargetId?.value || "").trim()) submit.disabled = true;
-    }
+    return this.semanticRelations().refreshTargetSearch(query);
   }
 
   queueRelationTargetSearch(input) {
-    const form = input?.closest?.("[data-create-relation-form]");
-    const hiddenTargetId = form?.querySelector?.("[data-relation-target-id]");
-    const selectedNote = hiddenTargetId?.value
-      ? this.state.notes.find((item) => item?.id === String(hiddenTargetId.value || "").trim()) || null
-      : null;
-    if (hiddenTargetId && selectedNote && normalizeText(input?.value || "") !== normalizeText(selectedNote?.title || selectedNote?.id || "")) {
-      hiddenTargetId.value = "";
-      delete hiddenTargetId.dataset.targetTitle;
-      const submit = form?.querySelector?.('button[type="submit"]');
-      if (submit) submit.disabled = true;
-    }
-    if (form) form.dataset.relationTargetHighlightId = "";
-    window.clearTimeout(this.relationTargetSearchTimer);
-    this.relationTargetSearchTimer = window.setTimeout(() => {
-      void this.refreshRelationTargetSearch(input?.value || "");
-    }, 180);
+    this.semanticRelations().queueTargetSearch(input);
   }
 
   openRelationTargetList(form) {
-    const list = form?.querySelector?.("[data-relation-target-list]");
-    if (list) list.hidden = false;
+    this.semanticRelations().openTargetList(form);
   }
 
   closeRelationTargetList(form) {
-    const list = form?.querySelector?.("[data-relation-target-list]");
-    if (list) list.hidden = true;
+    this.semanticRelations().closeTargetList(form);
   }
 
   visibleRelationTargetChoices(form) {
-    return Array.from(form?.querySelectorAll?.("[data-relation-target-choice]") || []).filter(Boolean);
+    return this.semanticRelations().visibleTargetChoices(form);
   }
 
   moveRelationTargetChoice(form, step = 1) {
-    const buttons = this.visibleRelationTargetChoices(form);
-    if (!buttons.length) return;
-    this.openRelationTargetList(form);
-    const hiddenTargetId = form?.querySelector?.("[data-relation-target-id]");
-    const currentId = String(form?.dataset?.relationTargetHighlightId || hiddenTargetId?.value || "").trim();
-    let index = buttons.findIndex((button) => String(button.dataset.noteId || "").trim() === currentId);
-    if (index < 0) index = step > 0 ? -1 : 0;
-    const next = buttons[(index + step + buttons.length) % buttons.length];
-    if (!next) return;
-    form.dataset.relationTargetHighlightId = String(next.dataset.noteId || "").trim();
-    buttons.forEach((button) => {
-      const active = button === next;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    next.scrollIntoView?.({ block: "nearest" });
+    this.semanticRelations().moveTargetChoice(form, step);
   }
 
   applyRelationTargetChoice(form, noteId = "", noteTitle = "", options = {}) {
-    const cleanNoteId = String(noteId || "").trim();
-    if (!form || !cleanNoteId) return;
-    const hiddenTargetId = form.querySelector("[data-relation-target-id]");
-    const searchInput = form.querySelector("[data-relation-target-search]");
-    const status = form.querySelector("[data-relation-target-status]");
-    const submit = form.querySelector('button[type="submit"]');
-    if (hiddenTargetId) {
-      hiddenTargetId.value = cleanNoteId;
-      hiddenTargetId.dataset.targetTitle = String(noteTitle || "").trim();
-    }
-    form.dataset.relationTargetHighlightId = cleanNoteId;
-    if (searchInput) searchInput.value = String(noteTitle || "").trim();
-    if (submit) submit.disabled = false;
-    if (status) status.textContent = `已选：${noteTitle || cleanNoteId}`;
-    if (options.keepOpen) this.openRelationTargetList(form);
-    else this.closeRelationTargetList(form);
-    void this.refreshRelationTargetSearch(String(noteTitle || "").trim());
-    if (options.focusReason !== false) {
-      const rationale = form.querySelector('textarea[name="rationale"]');
-      rationale?.focus?.();
-    }
+    this.semanticRelations().applyTargetChoice(form, noteId, noteTitle, options);
   }
 
   refreshRelationQualityMeter(form) {
-    const meter = form?.querySelector?.("[data-relation-quality]");
-    if (!meter) return;
-    const rationale = form.querySelector('textarea[name="rationale"]')?.value || "";
-    const insightQuestion = form.querySelector('textarea[name="insightQuestion"]')?.value || "";
-    meter.outerHTML = renderRelationQualityMeter(rationale, insightQuestion);
+    this.semanticRelations().refreshQualityMeter(form);
   }
 
   async handleCreateRelationForm(form) {
-    const note = this.activeNote();
-    const formNoteId = String(form?.dataset?.noteId || "").trim();
-    if (!note?.id || formNoteId !== note.id) return;
-
-    const data = new FormData(form);
-    const toNoteId = String(data.get("toNoteId") || "").trim();
-    const relationType = String(data.get("relationType") || "").trim();
-    const rationale = String(data.get("rationale") || "").trim();
-    const insightQuestion = String(data.get("insightQuestion") || "").trim();
-    const errorEl = form.querySelector("[data-relation-form-error]");
-    const submit = form.querySelector('button[type="submit"]');
-
-    if (!toNoteId || !relationType || !rationale) {
-      if (errorEl) errorEl.textContent = "请选择要关联的笔记、关系类型，并写下一句关联理由。";
-      return;
-    }
-
-    if (submit) submit.disabled = true;
-    if (errorEl) errorEl.textContent = "";
-    try {
-      const target = this.state.notes.find((item) => item.id === toNoteId);
-      const transaction = await saveRelationTransaction({
-        noteId: note.id,
-        targetNoteId: toNoteId,
-        relationType,
-        rationale,
-        insightQuestion,
-        confidence: 1,
-        status: "confirmed"
-      }, {
-        createNoteRelation,
-        targetTitle: target?.title || toNoteId,
-        relationLabel: relationTypeLabel(relationType)
-      });
-      if (!transaction.ok) {
-        if (errorEl) errorEl.textContent = transaction.error;
-        return;
-      }
-      const relation = transaction.relation;
-      this.syncRelationNetworkConnected(note.id, toNoteId);
-      if (!this.isActiveNoteId(formNoteId)) return;
-      this.onStatus(
-        relation?.created === false
-          ? `关系已存在，已复用：${note.title || note.id} -> ${target?.title || toNoteId}`
-          : `关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`,
-        "ok"
-      );
-      this.setRelationFollowupSuggestion(
-        relationFollowupSuggestionForDraft({
-          noteId: note.id,
-          relationId: relation?.id || relation?.relationId || "",
-          relationType,
-          rationale,
-          insightQuestion,
-          targetTitle: target?.title || toNoteId
-        })
-      );
-      this.resetRelationPanelState(formNoteId);
-      this.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已建立。");
-    } catch (error) {
-      if (!this.isActiveNoteId(formNoteId)) return;
-      const message = String(error?.message || error);
-      if (errorEl) errorEl.textContent = message;
-      this.onStatus(`关系创建失败：${message}`, "warn");
-    } finally {
-      if (submit && this.isActiveNoteId(formNoteId)) submit.disabled = false;
-    }
+    return this.semanticRelations().handleCreateForm(form);
   }
 
   async promoteInlineDraftRelation(indexValue = "") {
-    const note = this.activeNote();
-    const tab = this.activeTab();
-    const noteId = String(note?.id || "").trim();
-    if (!noteId || !tab) return;
-    const drafts = parseInlineRelationAnnotations(this.getEditorValue() || tab.body || "");
-    const index = Number(indexValue);
-    const draft = Number.isInteger(index) ? drafts[index] : null;
-    if (!draft) {
-      this.onStatus("没有找到这条临时关联", "warn");
-      return;
-    }
-    const scoped = this.scopedLinkCandidates();
-    const resolved = this.resolveLinkToken(draft.token, scoped);
-    if (resolved?.ambiguous) {
-      this.onStatus(`关联目标不唯一：${draft.token}，请先选择具体笔记。`, "warn");
-      return;
-    }
-    const target = resolved?.note;
-    if (!target?.id) {
-      this.onStatus(`没有找到关联目标：${draft.token}`, "warn");
-      return;
-    }
-    try {
-      const transaction = await saveRelationTransaction({
-        noteId: note.id,
-        targetNoteId: target.id,
-        relationType: draft.relationType,
-        rationale: draft.rationale,
-        insightQuestion: "",
-        confidence: 1,
-        status: "confirmed"
-      }, {
-        createNoteRelation,
-        targetTitle: target.title || target.id,
-        relationLabel: relationTypeLabel(draft.relationType)
-      });
-      if (!transaction.ok) throw new Error(transaction.error || "关系暂时不能保存");
-      const relation = transaction.relation;
-      this.syncRelationNetworkConnected(note.id, target.id);
-      if (!this.isActiveNoteId(noteId)) return;
-      const currentBody = this.getEditorValue() || tab.body || "";
-      const cleanedBody = currentBody.replace(draft.raw, `[[${draft.token}]]`);
-      this.setEditorValue(cleanedBody);
-      this.handleEditorInput();
-      await this.saveActiveNote({ autoSave: true, trigger: "promote-inline-relation", skipOriginalityCheck: true });
-      if (!this.isActiveNoteId(noteId)) return;
-      this.onStatus(`已升级为正式关系：${note.title || note.id} -> ${target.title || target.id}`, "ok");
-      this.setRelationFollowupSuggestion(
-        relationFollowupSuggestionForDraft({
-          noteId: note.id,
-          relationId: relation?.id || relation?.relationId || "",
-          relationType: draft.relationType,
-          rationale: draft.rationale,
-          insightQuestion: "",
-          targetTitle: target.title || target.id
-        })
-      );
-      this.resetRelationPanelState(noteId);
-      this.renderRelated("已升级为正式语义关系。");
-    } catch (error) {
-      if (!this.isActiveNoteId(noteId)) return;
-      this.onStatus(`正式关系创建失败：${String(error?.message || error)}`, "warn");
-    }
+    return this.semanticRelations().promoteInlineDraft(indexValue);
   }
 
   async handleEditRelationForm(form) {
-    const note = this.activeNote();
-    const formNoteId = String(form?.dataset?.noteId || "").trim();
-    const relationId = String(form?.dataset?.relationId || "").trim();
-    if (!note?.id || formNoteId !== note.id || !relationId) return;
-    const existingLink = this.findSemanticRelation(relationId);
-    const peerNoteId = String(
-      existingLink?.fromNoteId === note.id ? existingLink?.toNoteId || "" : existingLink?.fromNoteId || ""
-    ).trim();
-
-    const data = new FormData(form);
-    const relationType = String(data.get("relationType") || "").trim();
-    const status = String(data.get("status") || "").trim();
-    const rationale = String(data.get("rationale") || "").trim();
-    const insightQuestion = String(data.get("insightQuestion") || "").trim();
-    const errorEl = form.querySelector("[data-relation-form-error]");
-    const submit = form.querySelector('button[type="submit"]');
-
-    if (!relationType || !status || !rationale) {
-      if (errorEl) errorEl.textContent = "关系类型、状态和关联理由不能为空。";
-      return;
-    }
-
-    if (submit) submit.disabled = true;
-    if (errorEl) errorEl.textContent = "";
-    try {
-      await updateNoteRelation(relationId, {
-        relationType,
-        status,
-        rationale,
-        insightQuestion
-      });
-      await this.refreshRelationNetworkStatuses(note.id, peerNoteId);
-      if (!this.isActiveNoteId(formNoteId)) return;
-      this.onStatus("关系已更新", "ok");
-      this.resetRelationPanelState(formNoteId);
-      this.renderRelated("关系已更新。");
-    } catch (error) {
-      if (!this.isActiveNoteId(formNoteId)) return;
-      const message = String(error?.message || error);
-      if (errorEl) errorEl.textContent = message;
-      this.onStatus(`关系更新失败：${message}`, "warn");
-    } finally {
-      if (submit && this.isActiveNoteId(formNoteId)) submit.disabled = false;
-    }
+    return this.semanticRelations().handleEditForm(form);
   }
 
   async deleteSemanticRelation(relationId) {
-    const id = String(relationId || "").trim();
-    if (!id) return;
-    const link = this.findSemanticRelation(id);
-    const activeNoteId = String(this.activeNote()?.id || "").trim();
-    const peerNoteId = String(link?.fromNoteId === activeNoteId ? link?.toNoteId || "" : link?.fromNoteId || "").trim();
-    const endpoint = link ? this.relationEndpoint(link, link.fromNoteId === this.activeNote()?.id ? "outgoing" : "incoming") : null;
-    const label = endpoint?.title || "这条关系";
-    if (!window.confirm(`删除与“${label}”的这条关系？`)) return;
-    try {
-      await deleteNoteRelation(id);
-      await this.refreshRelationNetworkStatuses(activeNoteId, peerNoteId);
-      if (!this.isActiveNoteId(activeNoteId)) return;
-      this.onStatus("关系已删除", "ok");
-      this.resetRelationPanelState(activeNoteId);
-      this.renderRelated("关系已删除。");
-    } catch (error) {
-      if (!this.isActiveNoteId(activeNoteId)) return;
-      this.onStatus(`关系删除失败：${String(error?.message || error)}`, "warn");
-    }
+    return this.semanticRelations().deleteRelation(relationId);
   }
 
   renderRelated(extraTitle = "") {

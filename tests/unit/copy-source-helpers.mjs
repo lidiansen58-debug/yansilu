@@ -48,6 +48,9 @@ export async function readEditorDomainSource() {
     "editor-markdown-commands.js",
     "editor-preview-renderer.js",
     "editor-render-utils.js",
+    "editor-semantic-relations-controller.js",
+    "editor-semantic-relations-model.js",
+    "editor-semantic-relations-view.js",
     "editor-relation-helpers.js",
     "editor-template-workspace.js"
   ];

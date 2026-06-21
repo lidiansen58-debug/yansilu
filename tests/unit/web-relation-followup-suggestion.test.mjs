@@ -44,20 +44,20 @@ test("relation followup suggestion asks for reason work only when a saved relati
 
 test("relation creation stores a followup suggestion before returning to relation list", async () => {
   const source = await readEditorDomainSource();
-  const start = source.indexOf("  async handleCreateRelationForm(form) {");
-  const end = source.indexOf("  async promoteInlineDraftRelation", start);
+  const start = source.indexOf("  async handleCreateForm(form) {");
+  const end = source.indexOf("  async promoteInlineDraft", start);
 
-  assert.ok(start >= 0 && end > start, "expected handleCreateRelationForm() to exist");
+  assert.ok(start >= 0 && end > start, "expected handleCreateForm() to exist");
   const handlerSource = source.slice(start, end);
 
   assert.match(handlerSource, /const transaction = await saveRelationTransaction\(\{/);
   assert.match(handlerSource, /const relation = transaction\.relation;/);
   assert.doesNotMatch(handlerSource, /await createNoteRelation\(note\.id,/);
-  assert.match(handlerSource, /this\.setRelationFollowupSuggestion\(/);
+  assert.match(handlerSource, /host\.setRelationFollowupSuggestion\(/);
   assert.match(handlerSource, /relationFollowupSuggestionForDraft\(\{/);
   assert.match(handlerSource, /relationId: relation\?\.id \|\| relation\?\.relationId \|\| ""/);
-  assert.match(handlerSource, /this\.resetRelationPanelState\(formNoteId\);/);
-  assert.match(handlerSource, /this\.renderRelated\(relation\?\.created === false \? "关系已存在，已复用。" : "关系已建立。"\)/);
+  assert.match(handlerSource, /this\.resetPanelState\(formNoteId\);/);
+  assert.match(handlerSource, /host\.renderRelated\(relation\?\.created === false \?/);
 });
 
 test("relation followup actions focus the edit rationale or dismiss without mutation", async () => {
@@ -79,19 +79,19 @@ test("relation followup actions focus the edit rationale or dismiss without muta
 
 test("inline relation promotion also creates the relation followup suggestion", async () => {
   const source = await readEditorDomainSource();
-  const start = source.indexOf("  async promoteInlineDraftRelation(indexValue = \"\") {");
-  const end = source.indexOf("  async handleEditRelationForm(form) {", start);
+  const start = source.indexOf("  async promoteInlineDraft(indexValue = \"\") {");
+  const end = source.indexOf("  async handleEditForm(form) {", start);
 
-  assert.ok(start >= 0 && end > start, "expected promoteInlineDraftRelation() to exist");
+  assert.ok(start >= 0 && end > start, "expected promoteInlineDraft() to exist");
   const promoteSource = source.slice(start, end);
 
-  assert.match(promoteSource, /const scoped = this\.scopedLinkCandidates\(\);/);
-  assert.match(promoteSource, /const resolved = this\.resolveLinkToken\(draft\.token, scoped\);/);
+  assert.match(promoteSource, /const scoped = host\.scopedLinkCandidates\(\);/);
+  assert.match(promoteSource, /const resolved = host\.resolveLinkToken\(draft\.token, scoped\);/);
   assert.match(promoteSource, /if \(resolved\?\.ambiguous\) \{/);
   assert.match(promoteSource, /const transaction = await saveRelationTransaction\(\{/);
   assert.match(promoteSource, /const relation = transaction\.relation;/);
   assert.doesNotMatch(promoteSource, /await createNoteRelation\(note\.id,/);
-  assert.match(promoteSource, /this\.syncRelationNetworkConnected\(note\.id, target\.id\);/);
-  assert.match(promoteSource, /this\.setRelationFollowupSuggestion\(/);
+  assert.match(promoteSource, /host\.syncRelationNetworkConnected\(note\.id, target\.id\);/);
+  assert.match(promoteSource, /host\.setRelationFollowupSuggestion\(/);
   assert.match(promoteSource, /relationFollowupSuggestionForDraft\(\{/);
 });

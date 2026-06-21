@@ -6,10 +6,16 @@ const sourcePath = new URL("../../apps/web/src/components-editor-pane.js", impor
 const sidebarArchitecturePath = new URL("../../apps/web/src/permanent-note-sidebar-architecture.js", import.meta.url);
 const sidebarViewPath = new URL("../../apps/web/src/permanent-note-sidebar-view.js", import.meta.url);
 const sidebarControllerPath = new URL("../../apps/web/src/permanent-note-sidebar-controller.js", import.meta.url);
+const semanticRelationsViewPath = new URL("../../apps/web/src/editor-semantic-relations-view.js", import.meta.url);
+const semanticRelationsControllerPath = new URL("../../apps/web/src/editor-semantic-relations-controller.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation side panel uses action-first workspace copy without noisy placeholders", async () => {
-  const source = await readFile(sourcePath, "utf8");
+  const source = [
+    await readFile(sourcePath, "utf8"),
+    await readFile(semanticRelationsViewPath, "utf8"),
+    await readFile(semanticRelationsControllerPath, "utf8")
+  ].join("\n");
   const sidebarArchitecture = await readFile(sidebarArchitecturePath, "utf8");
   const sidebarView = await readFile(sidebarViewPath, "utf8");
   const sidebarController = await readFile(sidebarControllerPath, "utf8");
@@ -90,6 +96,7 @@ test("permanent relation manual search keeps the search input mounted while upda
 
 test("permanent-note async workflows guard UI refreshes by active note id", async () => {
   const source = await readFile(sourcePath, "utf8");
+  const semanticRelationsController = await readFile(semanticRelationsControllerPath, "utf8");
 
   const distillationStart = source.indexOf("  async handleDistillationForm(form) {");
   const distillationEnd = source.indexOf("  async confirmDistillation()", distillationStart);
@@ -98,29 +105,29 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   assert.match(distillationSource, /const noteId = String\(note\?\.id \|\| ""\)\.trim\(\)/);
   assert.match(distillationSource, /if \(!this\.isActiveNoteId\(noteId\)\) return/);
 
-  const createStart = source.indexOf("  async handleCreateRelationForm(form) {");
-  const createEnd = source.indexOf("  async promoteInlineDraftRelation", createStart);
-  assert.ok(createStart >= 0 && createEnd > createStart, "expected handleCreateRelationForm() to exist");
-  const createSource = source.slice(createStart, createEnd);
-  assert.match(createSource, /if \(!this\.isActiveNoteId\(formNoteId\)\) return/);
-  assert.match(createSource, /if \(submit && this\.isActiveNoteId\(formNoteId\)\) submit\.disabled = false/);
+  const createStart = semanticRelationsController.indexOf("  async handleCreateForm(form) {");
+  const createEnd = semanticRelationsController.indexOf("  async promoteInlineDraft", createStart);
+  assert.ok(createStart >= 0 && createEnd > createStart, "expected handleCreateForm() to exist");
+  const createSource = semanticRelationsController.slice(createStart, createEnd);
+  assert.match(createSource, /if \(!host\.isActiveNoteId\(formNoteId\)\) return/);
+  assert.match(createSource, /if \(submit && host\.isActiveNoteId\(formNoteId\)\) submit\.disabled = false/);
 
-  const editStart = source.indexOf("  async handleEditRelationForm(form) {");
-  const editEnd = source.indexOf("  async deleteSemanticRelation", editStart);
-  assert.ok(editStart >= 0 && editEnd > editStart, "expected handleEditRelationForm() to exist");
-  const editSource = source.slice(editStart, editEnd);
-  assert.match(editSource, /if \(!this\.isActiveNoteId\(formNoteId\)\) return/);
-  assert.match(editSource, /if \(submit && this\.isActiveNoteId\(formNoteId\)\) submit\.disabled = false/);
+  const editStart = semanticRelationsController.indexOf("  async handleEditForm(form) {");
+  const editEnd = semanticRelationsController.indexOf("  async deleteRelation", editStart);
+  assert.ok(editStart >= 0 && editEnd > editStart, "expected handleEditForm() to exist");
+  const editSource = semanticRelationsController.slice(editStart, editEnd);
+  assert.match(editSource, /if \(!host\.isActiveNoteId\(formNoteId\)\) return/);
+  assert.match(editSource, /if \(submit && host\.isActiveNoteId\(formNoteId\)\) submit\.disabled = false/);
 
-  const promoteStart = source.indexOf("  async promoteInlineDraftRelation");
-  const promoteEnd = source.indexOf("  async handleEditRelationForm", promoteStart);
-  assert.ok(promoteStart >= 0 && promoteEnd > promoteStart, "expected promoteInlineDraftRelation() to exist");
-  const promoteSource = source.slice(promoteStart, promoteEnd);
-  assert.match(promoteSource, /this\.syncRelationNetworkConnected\(note\.id, target\.id\);\s*if \(!this\.isActiveNoteId\(noteId\)\) return;/);
+  const promoteStart = semanticRelationsController.indexOf("  async promoteInlineDraft");
+  const promoteEnd = semanticRelationsController.indexOf("  async handleEditForm", promoteStart);
+  assert.ok(promoteStart >= 0 && promoteEnd > promoteStart, "expected promoteInlineDraft() to exist");
+  const promoteSource = semanticRelationsController.slice(promoteStart, promoteEnd);
+  assert.match(promoteSource, /host\.syncRelationNetworkConnected\(note\.id, target\.id\);\s*if \(!host\.isActiveNoteId\(noteId\)\) return;/);
 
-  const deleteStart = source.indexOf("  async deleteSemanticRelation(relationId) {");
-  const deleteEnd = source.indexOf("  renderRelated(extraTitle = \"\") {", deleteStart);
-  assert.ok(deleteStart >= 0 && deleteEnd > deleteStart, "expected deleteSemanticRelation() to exist");
-  const deleteSource = source.slice(deleteStart, deleteEnd);
-  assert.match(deleteSource, /if \(!this\.isActiveNoteId\(activeNoteId\)\) return/);
+  const deleteStart = semanticRelationsController.indexOf("  async deleteRelation(relationId) {");
+  const deleteEnd = semanticRelationsController.indexOf("\n}", deleteStart);
+  assert.ok(deleteStart >= 0 && deleteEnd > deleteStart, "expected deleteRelation() to exist");
+  const deleteSource = semanticRelationsController.slice(deleteStart, deleteEnd);
+  assert.match(deleteSource, /if \(!host\.isActiveNoteId\(activeNoteId\)\) return/);
 });
