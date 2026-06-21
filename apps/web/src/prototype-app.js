@@ -213,6 +213,9 @@ import {
   createGraphRelationSaveController
 } from "./graph-relation-save-controller.js";
 import {
+  createGraphIsolatedWorkflowShellRenderer
+} from "./graph-isolated-workflow-shell.js";
+import {
   graphBlockedAiRelationPairKeysForNote as computeGraphBlockedAiRelationPairKeysForNote,
   graphCandidateBlocksFormalRelation as computeGraphCandidateBlocksFormalRelation,
   graphCandidateCanSaveRelation as computeGraphCandidateCanSaveRelation,
@@ -13194,76 +13197,12 @@ function graphNextIsolatedQueueItem(queueItems = [], currentNoteId = "") {
   return computeGraphNextIsolatedQueueItem(queueItems, currentNoteId);
 }
 
-function graphIsolatedQueueItemMeta(item = {}) {
-  const parts = [];
-  if (Number(item.aiCount || 0) > 0) parts.push(`AI 候选 ${Number(item.aiCount || 0)}`);
-  if (Number(item.localCount || 0) > 0) parts.push(`本地线索 ${Number(item.localCount || 0)}`);
-  if (!parts.length) parts.push(item.decision?.label || "待关联");
-  return parts.join(" · ");
-}
-
 function renderGraphIsolatedQueue({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", compact = false, limit = 8, queueItems: providedQueueItems = null } = {}) {
-  const queueItems = Array.isArray(providedQueueItems) ? providedQueueItems : graphIsolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId, limit });
-  if (!queueItems.length) return "";
-  const cleanCurrentNoteId = String(currentNoteId || "").trim();
-  const nextItem = graphNextIsolatedQueueItem(queueItems, cleanCurrentNoteId);
-  const total = queueItems.length;
-  const currentIndex = queueItems.findIndex((item) => item.noteId === cleanCurrentNoteId);
-  const title = compact ? "继续处理待关联笔记" : "待关联的永久笔记";
-  const note = compact
-    ? currentIndex >= 0
-      ? `当前第 ${currentIndex + 1} 条。确认关系后，再处理下一条。`
-      : "先从最可能找到关系的笔记开始。"
-    : `${total} 条永久笔记还需要确认关系。优先处理已有候选线索的笔记。`;
-  return `
-    <section class="graph-isolated-queue${compact ? " is-compact" : ""}" aria-label="${escapeHtml(title)}">
-      <div class="graph-isolated-queue-head">
-        <div>
-          <strong>${escapeHtml(title)}</strong>
-          <span>${escapeHtml(note)}</span>
-        </div>
-        ${
-          nextItem
-            ? `<button class="graph-selection-action is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">${escapeHtml(cleanCurrentNoteId ? "处理下一条" : "处理第一条")}</button>`
-            : ""
-        }
-      </div>
-      <div class="graph-isolated-queue-list">
-        ${queueItems
-          .map(
-            (item, index) => `
-              <article class="graph-isolated-queue-item${item.current ? " is-current" : ""} is-${escapeHtml(item.decision?.tone || "bridge")}">
-                <button class="graph-isolated-queue-main" type="button" data-graph-select-isolated="${escapeHtml(item.isolatedKey)}" data-graph-isolated-note="${escapeHtml(item.noteId)}">
-                  <span>${escapeHtml(`第 ${index + 1} 条待关联`)}</span>
-                  <strong>${escapeHtml(item.title)}</strong>
-                  <small>${escapeHtml(item.firstCandidateTitle ? `可能关联到：${item.firstCandidateTitle}` : item.thesis || item.decision?.next || "需要判断：建立关系、暂存观察，还是先重写这条笔记。")}</small>
-                </button>
-                <em>${escapeHtml(graphIsolatedQueueItemMeta(item))}</em>
-              </article>
-            `
-          )
-          .join("")}
-      </div>
-    </section>
-  `;
+  return graphIsolatedWorkflowShell.renderQueue({ isolatedNotes, nodeMap, edges, currentNoteId, compact, limit, queueItems: providedQueueItems });
 }
 
 function renderGraphIsolatedQueueStrip({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", queueItems: providedQueueItems = null } = {}) {
-  const queueItems = Array.isArray(providedQueueItems) ? providedQueueItems : graphIsolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId, limit: 6 });
-  if (!queueItems.length) return "";
-  const nextItem = graphNextIsolatedQueueItem(queueItems, currentNoteId);
-  if (!nextItem) return "";
-  const total = queueItems.length;
-  return `
-    <div class="graph-isolated-queue-strip" aria-label="待关联笔记连续整理入口">
-      <div>
-        <strong>${escapeHtml(`${String(total)} 条笔记待关联`)}</strong>
-        <span>${escapeHtml(`下一条：${nextItem.title}`)}</span>
-      </div>
-      <button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条</button>
-      <button class="graph-selection-action is-queue" type="button" data-graph-open-workbench-entry="organize">查看待关联笔记</button>
-    </div>
-  `;
+  return graphIsolatedWorkflowShell.renderQueueStrip({ isolatedNotes, nodeMap, edges, currentNoteId, queueItems: providedQueueItems });
 }
 
 function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
@@ -14288,21 +14227,25 @@ function setGraphIsolatedWorkflowActiveTab(noteId = "", tabKey = "") {
   return cleanTabKey;
 }
 
+const graphIsolatedWorkflowShell = createGraphIsolatedWorkflowShellRenderer({
+  escapeHtml,
+  isolatedQueueItems: graphIsolatedQueueItems,
+  nextIsolatedQueueItem: graphNextIsolatedQueueItem,
+  resolveIsolatedSelection: resolveGraphIsolatedSelection,
+  allNotes: () => state.notes,
+  fullNoteById: graphFullNoteById,
+  nodeTitle: graphNodeTitle,
+  noteTypeLabel,
+  decisionMeta: graphIsolatedDecisionMeta,
+  relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
+  renderSelectionShell: renderGraphSelectionShell,
+  renderRelationWorkspaceForNote: renderGraphRelationWorkspaceForNote,
+  renderJoinNetworkFlow: renderGraphIsolatedJoinNetworkFlow,
+  renderNextStepActions: renderGraphIsolatedNextStepActions
+});
+
 function renderGraphIsolatedWorkflowTabs({ noteId = "", isolatedQueueMarkup = "", decisionCards = [], prompts = [], nodeMap = new Map(), edges = [], visibleEdgeCount = 0 } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return "";
-  return `
-    <section class="graph-isolated-workflow" aria-label="待关联笔记处理工作台">
-      <div class="graph-isolated-workflow-head">
-        <div>
-          <strong>把这条笔记接入关系网</strong>
-          <p>只做一件事：选目标笔记、选关系类型、写理由，然后保存。</p>
-        </div>
-        <span>${escapeHtml(visibleEdgeCount ? "已有关联" : "未关联")}</span>
-      </div>
-      ${renderGraphIsolatedJoinNetworkFlow(cleanNoteId, { nodeMap, edges, visibleEdgeCount })}
-    </section>
-  `;
+  return graphIsolatedWorkflowShell.renderWorkflowTabs({ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount });
 }
 
 function activateGraphIsolatedWorkflowTab(tabButton = null, { focus = false } = {}) {
@@ -14421,107 +14364,19 @@ function focusGraphRelationAdjustmentInPlace(button = null) {
 }
 
 function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
-  const isolated = resolveGraphIsolatedSelection(selection, isolatedNotes, [...nodeMap.values()]);
-  if (!isolated) return "";
-  const noteId = String(isolated.noteId || "").trim();
-  const note = nodeMap.get(noteId) || state.notes.find((item) => String(item?.id || "").trim() === noteId) || {};
-  const title = String(isolated.title || note?.title || noteId || "待关联笔记").trim() || "待关联笔记";
-  const item = isolated.item || {};
-  const thesis = String(item?.thesis || note?.thesis || "").trim();
-  const decision = graphIsolatedDecisionMeta(item, note);
-  const visibleEdgeCount = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === noteId || String(edge?.toNoteId || "").trim() === noteId;
-  }).length;
-  const isolatedQueueMarkup = renderGraphIsolatedQueue({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 });
-  const decisionCards = [
-    {
-      key: "keep",
-      title: "保留独立",
-      text: "当它是清楚但暂时没有邻居的判断时，独立本身是有价值的。",
-      actionLabel: "记录独立理由",
-      active: decision.tone === "keep"
-    },
-    {
-      key: "bridge",
-      title: "补桥接",
-      text: "当它能支撑、限制或反驳某个主题时，补一条有理由的关系。",
-      actionLabel: "寻找关联",
-      active: decision.tone === "bridge"
-    },
-    {
-      key: "hold",
-      title: "暂存观察",
-      text: "当它还只是材料或灵感时，先别放进永久关系网里。",
-      actionLabel: "写暂存说明",
-      active: decision.tone === "hold"
-    },
-    {
-      key: "rewrite",
-      title: "拆分重写",
-      text: "当它混合多个意思时，先拆成更清楚的判断，再谈连接。",
-      actionLabel: "重写判断",
-      active: decision.tone === "rewrite"
-    }
-  ];
-  const prompts = [
-    "它暂时游离，是因为真的独特，还是因为还没有写出关系理由？",
-    "它最可能连接的是支撑、反方、边界，还是桥接关系？",
-    "如果暂时不连线，这条笔记需要留下什么说明，未来的你才不会误删它？"
-  ];
-  return renderGraphSelectionShell({
-    className: `is-isolated is-${decision.tone}`,
-    ariaLabel: "待关联笔记整理详情",
-    kicker: "待关联笔记",
-    title,
-    meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "还没有正式关系",
-    closeLabel: "收起待关联笔记整理",
-    roleLabel: "",
-    roleDetail: "",
-    task: null,
-    body: `
-      ${thesis ? `<section class="graph-selection-reason"><small>当前判断</small><p>${escapeHtml(thesis)}</p></section>` : ""}
-      ${visibleEdgeCount
-        ? `${renderGraphRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "已保存的关系" })}${renderGraphIsolatedNextStepActions(noteId, { isolatedNotes, nodeMap, edges })}`
-        : renderGraphIsolatedWorkflowTabs({ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount })}`,
-    actions: ""
-  });
+  return graphIsolatedWorkflowShell.renderSelectionPanel({ selection, isolatedNotes, nodeMap, edges });
 }
 
 function renderGraphIsolatedCompletePanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
   const noteId = String(selection?.noteId || selection?.nodeId || "").trim();
-  if (!noteId) return "";
-  const note = graphFullNoteById(noteId, nodeMap) || {};
-  const title = graphNodeTitle(nodeMap, noteId, note.title || "当前笔记");
-  const result = graphState.isolatedRelationSaveResultByNoteId?.[noteId] || {};
-  const queueItems = graphIsolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 });
-  const nextItem = graphNextIsolatedQueueItem(queueItems, noteId);
-  const directRelationCount = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === noteId || String(edge?.toNoteId || "").trim() === noteId;
-  }).length;
-  return renderGraphSelectionShell({
-    className: "is-isolated is-complete",
-    ariaLabel: "待关联笔记已处理",
-    kicker: "已接入关系网",
-    title,
-    meta: `${noteTypeLabel(note.noteType)} · 当前关系 ${directRelationCount} 条`,
-    closeLabel: "收起处理结果",
-    body: `
-      <section class="graph-isolated-complete-card">
-        <small>关系已保存</small>
-        <strong>${escapeHtml(result.targetTitle ? `已关联到：${result.targetTitle}` : "这条笔记已退出未关联状态")}</strong>
-        <p>${escapeHtml(result.relationLabel ? `关系类型：${result.relationLabel}。现在可以继续处理下一条，或者查看当前笔记周边关系。` : "现在可以继续处理下一条，或者查看当前笔记周边关系。")}</p>
-      </section>
-      <div class="graph-isolated-complete-actions">
-        ${
-          nextItem
-            ? `<button class="graph-selection-action is-primary" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条：${escapeHtml(nextItem.title)}</button>`
-            : `<span class="graph-isolated-complete-empty">当前范围没有其它待关联笔记。</span>`
-        }
-      </div>
-      ${renderGraphRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "已保存关系" })}`,
-    actions: ""
+  return graphIsolatedWorkflowShell.renderCompletePanel({
+    selection: {
+      ...selection,
+      saveResult: graphState.isolatedRelationSaveResultByNoteId?.[noteId] || {}
+    },
+    isolatedNotes,
+    nodeMap,
+    edges
   });
 }
 
