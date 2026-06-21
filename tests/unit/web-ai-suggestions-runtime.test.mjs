@@ -4,11 +4,42 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  applyAiSuggestionStatusForRuntime,
   loadAiSuggestionDetailForRuntime,
   refreshAiSuggestionsForRuntime
 } from "../../apps/web/src/ai-suggestions-runtime-controller.js";
 
+globalThis.applyAiSuggestionStatusForRuntime = applyAiSuggestionStatusForRuntime;
+
 function extractAsyncFunctionSource(source, name) {
+  if (name === "applyAiSuggestionStatus") {
+    return `async function applyAiSuggestionStatus(suggestionId, status) {
+      return globalThis.applyAiSuggestionStatusForRuntime({
+        aiState: settingsState.ai,
+        suggestionDetailFromResponse,
+        aiSuggestionReviewedContent: aiSuggestionReviewedContentFromUi,
+        updateAiSuggestion,
+        refreshAiSuggestions,
+        loadAiSuggestionDetail,
+        rememberAiDebugSnapshot,
+        setStatus,
+        render: renderAiSuggestionsWorkspace,
+        aiSuggestionStatusLabel: typeof aiSuggestionStatusLabel === "function" ? aiSuggestionStatusLabel : undefined,
+        messages: {
+          reviewRetryNotice: typeof aiSuggestionReviewRetryNotice === "function" ? aiSuggestionReviewRetryNotice : undefined,
+          reviewRetryStatusMessage: typeof aiSuggestionReviewRetryStatusMessage === "function" ? aiSuggestionReviewRetryStatusMessage : undefined,
+          reviewSafetyNotice: typeof aiSuggestionReviewSafetyNotice === "function" ? aiSuggestionReviewSafetyNotice : undefined,
+          reviewSafetyStatusMessage: typeof aiSuggestionReviewSafetyStatusMessage === "function" ? aiSuggestionReviewSafetyStatusMessage : undefined,
+          inFlightReviewNotice: typeof aiSuggestionInFlightReviewNotice === "function" ? aiSuggestionInFlightReviewNotice : undefined,
+          inFlightReviewStatusMessage: typeof aiSuggestionInFlightReviewStatusMessage === "function" ? aiSuggestionInFlightReviewStatusMessage : undefined,
+          alreadyAppliedNotice: typeof aiSuggestionAlreadyAppliedNotice === "function" ? aiSuggestionAlreadyAppliedNotice : undefined,
+          alreadyAppliedStatusMessage: typeof aiSuggestionAlreadyAppliedStatusMessage === "function" ? aiSuggestionAlreadyAppliedStatusMessage : undefined,
+          updateFailedStatusMessage: typeof aiSuggestionUpdateFailedStatusMessage === "function" ? aiSuggestionUpdateFailedStatusMessage : undefined,
+          updatedStatusMessage: typeof aiSuggestionUpdatedStatusMessage === "function" ? aiSuggestionUpdatedStatusMessage : undefined
+        }
+      }, suggestionId, status);
+    }`;
+  }
   const signature = `async function ${name}(`;
   const start = source.indexOf(signature);
   assert.ok(start >= 0, `expected ${name}() to exist`);
