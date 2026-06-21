@@ -219,14 +219,21 @@ import {
 } from "./graph-relation-save-flow.js";
 import {
   graphBlockedAiRelationPairKeysForNote as computeGraphBlockedAiRelationPairKeysForNote,
+  graphCandidateBlocksFormalRelation as computeGraphCandidateBlocksFormalRelation,
   graphCandidateCanSaveRelation as computeGraphCandidateCanSaveRelation,
   graphCandidateCountKey as computeGraphCandidateCountKey,
   graphCandidateEndpointIds as computeGraphCandidateEndpointIds,
   graphCandidatePercent as computeGraphCandidatePercent,
   graphCandidateUndirectedPairKey as computeGraphCandidateUndirectedPairKey,
+  graphExistingRelationKeys as computeGraphExistingRelationKeys,
+  graphExistingRelationPairKeys as computeGraphExistingRelationPairKeys,
   graphMergeRelationCandidatesForDisplay as computeGraphMergeRelationCandidatesForDisplay,
   graphPendingAiCandidateCount as computeGraphPendingAiCandidateCount,
   graphPreferredPotentialRelationType as computeGraphPreferredPotentialRelationType,
+  graphRelationCandidateKey as computeGraphRelationCandidateKey,
+  graphRelationRationaleIsActionable as computeGraphRelationRationaleIsActionable,
+  graphRelationStatusCountsAsNetworkEdge as computeGraphRelationStatusCountsAsNetworkEdge,
+  graphRelationStatusKey as computeGraphRelationStatusKey,
   graphRelationPairKey as computeGraphRelationPairKey
 } from "./graph-ai-candidates.js";
 import {
@@ -13262,7 +13269,7 @@ function renderGraphIsolatedQueueStrip({ isolatedNotes = [], nodeMap = new Map()
 }
 
 function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
-  return `${String(fromNoteId || "").trim()}->${String(toNoteId || "").trim()}:${String(relationType || "").trim().toLowerCase()}`;
+  return computeGraphRelationCandidateKey(fromNoteId, toNoteId, relationType);
 }
 
 function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
@@ -13278,30 +13285,19 @@ function graphCandidateCountKey(candidate = {}) {
 }
 
 function graphRelationStatusKey(value = "") {
-  return String(value || "confirmed").trim().toLowerCase();
+  return computeGraphRelationStatusKey(value);
 }
 
 function graphRelationStatusCountsAsNetworkEdge(value = "") {
-  const status = graphRelationStatusKey(value);
-  return status === "suggested" || status === "draft" || status === "confirmed";
+  return computeGraphRelationStatusCountsAsNetworkEdge(value);
 }
 
 function graphExistingRelationKeys(edges = []) {
-  return new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .map((edge) => graphRelationCandidateKey(edge?.fromNoteId, edge?.toNoteId, edge?.relationType))
-      .filter((key) => key !== "->:")
-  );
+  return computeGraphExistingRelationKeys(edges);
 }
 
 function graphExistingRelationPairKeys(edges = []) {
-  return new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .map((edge) => graphRelationPairKey(edge?.fromNoteId, edge?.toNoteId))
-      .filter(Boolean)
-  );
+  return computeGraphExistingRelationPairKeys(edges);
 }
 
 const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
@@ -13312,10 +13308,7 @@ function graphPreferredPotentialRelationType(candidate = {}) {
 }
 
 function graphCandidateBlocksFormalRelation(candidate = {}) {
-  const decision = String(candidate.aiDecision || candidate.ai_decision || "").trim().toLowerCase();
-  const aiRelationType = String(candidate.aiRelationType || candidate.ai_relation_type || "").trim().toLowerCase();
-  const relationType = String(candidate.relationType || candidate.relation_type || "").trim().toLowerCase();
-  return decision === "reject" || aiRelationType === "no_relation" || relationType === "no_relation";
+  return computeGraphCandidateBlocksFormalRelation(candidate);
 }
 
 function graphCandidateCanSaveRelation(candidate = {}) {
@@ -13323,14 +13316,7 @@ function graphCandidateCanSaveRelation(candidate = {}) {
 }
 
 function graphRelationRationaleIsActionable(value = "") {
-  const text = String(value || "").replace(/\s+/g, " ").trim();
-  if (!text) return false;
-  const compact = text.replace(/\s+/g, "");
-  if (/[_＿]{3,}/u.test(compact)) return false;
-  if (/因为[:：]?$/u.test(compact)) return false;
-  if (/存在需要一起复核的论证或主题联系|存在可说明的论证或主题联系/u.test(text)) return false;
-  if (/请补|待补|TODO|TBD/i.test(text)) return false;
-  return true;
+  return computeGraphRelationRationaleIsActionable(value);
 }
 
 function graphPotentialRelationNodeMap() {
