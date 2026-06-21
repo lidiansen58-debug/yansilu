@@ -8,13 +8,15 @@ const sidebarViewPath = new URL("../../apps/web/src/permanent-note-sidebar-view.
 const sidebarControllerPath = new URL("../../apps/web/src/permanent-note-sidebar-controller.js", import.meta.url);
 const semanticRelationsViewPath = new URL("../../apps/web/src/editor-semantic-relations-view.js", import.meta.url);
 const semanticRelationsControllerPath = new URL("../../apps/web/src/editor-semantic-relations-controller.js", import.meta.url);
+const relationEventsPath = new URL("../../apps/web/src/editor-relation-events.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation side panel uses action-first workspace copy without noisy placeholders", async () => {
   const source = [
     await readFile(sourcePath, "utf8"),
     await readFile(semanticRelationsViewPath, "utf8"),
-    await readFile(semanticRelationsControllerPath, "utf8")
+    await readFile(semanticRelationsControllerPath, "utf8"),
+    await readFile(relationEventsPath, "utf8")
   ].join("\n");
   const sidebarArchitecture = await readFile(sidebarArchitecturePath, "utf8");
   const sidebarView = await readFile(sidebarViewPath, "utf8");

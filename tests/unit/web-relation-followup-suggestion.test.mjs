@@ -62,18 +62,18 @@ test("relation creation stores a followup suggestion before returning to relatio
 
 test("relation followup actions focus the edit rationale or dismiss without mutation", async () => {
   const source = await readEditorDomainSource();
-  const clickStart = source.indexOf('      const relationAction = e.target.closest("[data-relation-action]");');
-  const clickEnd = source.indexOf('      const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");', clickStart);
+  const clickStart = source.indexOf('  const relationAction = target.closest("[data-relation-action]");');
+  const clickEnd = source.indexOf("export function routeEditorRelationInput", clickStart);
 
-  assert.ok(clickStart >= 0 && clickEnd > clickStart, "expected relation action click handler to exist");
+  assert.ok(clickStart >= 0 && clickEnd > clickStart, "expected relation action event route to exist");
   const clickSource = source.slice(clickStart, clickEnd);
 
   assert.match(clickSource, /action === "open-followup-reason"/);
-  assert.match(clickSource, /this\.openEditRelationForm\(relationId, \{/);
+  assert.match(clickSource, /host\.openEditRelationForm\(relationId, \{/);
   assert.match(clickSource, /focusSelector: '\[data-edit-relation-form\] textarea\[name="rationale"\]'/);
-  assert.match(clickSource, /this\.clearRelationFollowupSuggestion\(\);/);
+  assert.match(clickSource, /host\.clearRelationFollowupSuggestion\(\);/);
   assert.match(clickSource, /action === "dismiss-followup"/);
-  assert.match(clickSource, /this\.renderRelated\(\);/);
+  assert.match(clickSource, /host\.renderRelated\(\);/);
   assert.doesNotMatch(clickSource, /updateNoteRelation\(/);
 });
 

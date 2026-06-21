@@ -96,6 +96,13 @@ import {
 import { EditorRelationLinkController } from "./editor-relation-link-controller.js";
 import { EditorSemanticRelationsController } from "./editor-semantic-relations-controller.js";
 import {
+  routeEditorRelationClick,
+  routeEditorRelationFocusIn,
+  routeEditorRelationInput,
+  routeEditorRelationKeydown,
+  routeEditorRelationSubmit
+} from "./editor-relation-events.js";
+import {
   excerptFromBody,
   isHiddenRelation,
   isMarkdownWikilinkRelation,
@@ -135,9 +142,7 @@ import {
   resetPermanentRelationWorkspaceResult
 } from "./permanent-relation-workspace-model.js";
 import {
-  RELATION_ENTRY_SOURCES,
-  normalizeRelationEntryRoute,
-  relationEntryRouteFromElement
+  RELATION_ENTRY_SOURCES
 } from "./relation-entry-route.js";
 import {
   permanentNoteRelationState,
@@ -3645,64 +3650,13 @@ export class EditorPane {
   bindPermanentRelationWorkspaceOverlayEvents(overlay) {
     if (!overlay) return;
     overlay.onclick = (event) => {
-      const modeButton = event.target.closest("[data-permanent-relation-mode]");
-      if (modeButton && !modeButton.hasAttribute("data-permanent-relation-action")) {
-        const mode = String(modeButton.getAttribute("data-permanent-relation-mode") || "").trim();
-        this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
-          ...this.permanentRelationWorkspaceState,
-          mode,
-          selectedTargetNoteId: mode === "manual" ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId
-        }));
-        return;
-      }
-
-      const aiTarget = event.target.closest("[data-permanent-relation-ai-target]");
-      if (aiTarget) {
-        this.choosePermanentRelationAiCandidate(aiTarget.getAttribute("data-permanent-relation-ai-target"));
-        return;
-      }
-
-      const manualTarget = event.target.closest("[data-permanent-relation-manual-target]");
-      if (manualTarget) {
-        this.choosePermanentRelationManualTarget(manualTarget.getAttribute("data-permanent-relation-manual-target"));
-        return;
-      }
-
-      const actionButton = event.target.closest("[data-permanent-relation-action]");
-      if (actionButton) {
-        const action = String(actionButton.getAttribute("data-permanent-relation-action") || "").trim();
-        if (action === "close" || action === "complete") this.closePermanentRelationWorkspace();
-        if (action === "continue") this.continuePermanentRelationWorkspace();
-        if (action === "run-ai") {
-          this.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
-          void this.runPermanentNoteAnalysis();
-        }
-        if (action === "preview-target") {
-          const noteId = actionButton.getAttribute("data-note-id") || "";
-          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
-        }
-        return;
-      }
-
-      const relationAction = event.target.closest("[data-relation-action]");
-      if (relationAction?.dataset?.relationAction === "open-edit") {
-        this.openEditRelationForm(relationAction.dataset.relationId);
-      }
+      routeEditorRelationClick(this, event);
     };
     overlay.oninput = (event) => {
-      const search = event.target.closest("[data-permanent-relation-target-search]");
-      if (search) {
-        this.queuePermanentRelationManualSearch(search);
-        return;
-      }
-      const field = event.target.closest("[data-permanent-relation-field]");
-      if (field) this.updatePermanentRelationWorkspaceField(field.getAttribute("data-permanent-relation-field"), field.value || "");
+      routeEditorRelationInput(this, event);
     };
     overlay.onsubmit = (event) => {
-      const form = event.target.closest("[data-permanent-relation-form]");
-      if (!form) return;
-      event.preventDefault();
-      void this.handlePermanentRelationWorkspaceSubmit(form);
+      routeEditorRelationSubmit(this, event);
     };
   }
 
@@ -6534,126 +6488,14 @@ export class EditorPane {
         );
         return;
       }
-      const relationTemplateMergeAction = e.target.closest("[data-relation-template-merge-action]");
-      if (relationTemplateMergeAction) {
-        this.commitRelationTemplateVariant(
-          relationTemplateMergeAction.closest("[data-relation-template-merge-choice]"),
-          relationTemplateMergeAction.getAttribute("data-relation-template-merge-action") || "replace"
-        );
-        return;
-      }
       const distillationTemplateButton = e.target.closest("[data-distillation-template-variant]");
       if (distillationTemplateButton) {
         this.applyDistillationTemplateVariant(distillationTemplateButton);
         return;
       }
-      const templateVariantButton = e.target.closest("[data-relation-template-variant]");
-      if (templateVariantButton) {
-        this.applyRelationTemplateVariant(templateVariantButton);
+      if (routeEditorRelationClick(this, e)) {
         return;
       }
-      const permanentRelationMode = e.target.closest("[data-permanent-relation-mode]");
-      if (permanentRelationMode && !permanentRelationMode.hasAttribute("data-permanent-relation-action")) {
-        const mode = String(permanentRelationMode.getAttribute("data-permanent-relation-mode") || "").trim();
-        this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
-          ...this.permanentRelationWorkspaceState,
-          mode,
-          selectedTargetNoteId: mode === "manual" ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId
-        }));
-        return;
-      }
-      const permanentRelationAiTarget = e.target.closest("[data-permanent-relation-ai-target]");
-      if (permanentRelationAiTarget) {
-        this.choosePermanentRelationAiCandidate(permanentRelationAiTarget.getAttribute("data-permanent-relation-ai-target"));
-        return;
-      }
-      const permanentRelationManualTarget = e.target.closest("[data-permanent-relation-manual-target]");
-      if (permanentRelationManualTarget) {
-        this.choosePermanentRelationManualTarget(permanentRelationManualTarget.getAttribute("data-permanent-relation-manual-target"));
-        return;
-      }
-      const permanentRelationAction = e.target.closest("[data-permanent-relation-action]");
-      if (permanentRelationAction) {
-        const action = String(permanentRelationAction.getAttribute("data-permanent-relation-action") || "").trim();
-        if (action === "open") {
-          this.openPermanentRelationWorkspace(relationEntryRouteFromElement(permanentRelationAction, {
-            source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-            noteId: this.activeNote()?.id || ""
-          }));
-          return;
-        }
-        if (action === "close" || action === "complete") {
-          this.closePermanentRelationWorkspace();
-          return;
-        }
-        if (action === "continue") {
-          this.continuePermanentRelationWorkspace();
-          return;
-        }
-        if (action === "run-ai") {
-          this.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
-          void this.runPermanentNoteAnalysis();
-          return;
-        }
-        if (action === "preview-target") {
-          const noteId = permanentRelationAction.getAttribute("data-note-id") || "";
-          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
-          return;
-        }
-      }
-      const relationTargetChoice = e.target.closest("[data-relation-target-choice]");
-      if (relationTargetChoice) {
-        const form = relationTargetChoice.closest("[data-create-relation-form]");
-        this.applyRelationTargetChoice(
-          form,
-          relationTargetChoice.dataset.noteId || "",
-          relationTargetChoice.dataset.noteTitle || ""
-        );
-        return;
-      }
-      const relationAction = e.target.closest("[data-relation-action]");
-      if (relationAction) {
-        const action = relationAction.dataset.relationAction;
-        if (action === "open-create") {
-          this.openPermanentRelationWorkspace({
-            source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-            mode: "manual"
-          });
-          return;
-        }
-        if (action === "open-followup-reason") {
-          const relationId = relationAction.dataset.relationId || this.relationFollowupSuggestion?.relationId || "";
-          this.openEditRelationForm(relationId, {
-            entryHint: "这条关系已经建立。现在补一句更具体的理由，后面写作时会更容易复用。"
-          });
-          window.setTimeout(() => {
-            this.jumpToInspectorSection("[data-edit-relation-form]", {
-              focus: true,
-              focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
-            });
-          }, 40);
-          this.clearRelationFollowupSuggestion();
-          return;
-        }
-        if (action === "dismiss-followup") {
-          this.clearRelationFollowupSuggestion();
-          this.renderRelated();
-          return;
-        }
-        if (action === "cancel-create") {
-          this.resetRelationPanelState();
-          this.renderRelated();
-        }
-        if (action === "open-edit") this.openEditRelationForm(relationAction.dataset.relationId);
-        if (action === "cancel-edit") {
-          this.resetRelationPanelState();
-          this.renderRelated();
-        }
-        if (action === "delete") void this.deleteSemanticRelation(relationAction.dataset.relationId);
-        if (action === "promote-inline") void this.promoteInlineDraftRelation(relationAction.dataset.inlineRelationIndex);
-        return;
-      }
-
       const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");
       if (aiAnalysisButton) {
         this.activatePermanentWorkspaceTab("relations");
@@ -6818,70 +6660,15 @@ export class EditorPane {
         if (form) this.refreshDistillationQuality(form);
         return;
       }
-      const targetSearch = e.target.closest("[data-relation-target-search]");
-      if (targetSearch) {
-        this.queueRelationTargetSearch(targetSearch);
+      if (routeEditorRelationInput(this, e)) {
         return;
-      }
-      const permanentRelationSearch = e.target.closest("[data-permanent-relation-target-search]");
-      if (permanentRelationSearch) {
-        this.queuePermanentRelationManualSearch(permanentRelationSearch);
-        return;
-      }
-      const permanentRelationField = e.target.closest("[data-permanent-relation-field]");
-      if (permanentRelationField) {
-        this.updatePermanentRelationWorkspaceField(
-          permanentRelationField.getAttribute("data-permanent-relation-field"),
-          permanentRelationField.value || ""
-        );
-        return;
-      }
-      const relationTextInput = e.target.closest('textarea[name="rationale"], textarea[name="insightQuestion"]');
-      if (relationTextInput) {
-        const form = relationTextInput.closest("[data-create-relation-form], [data-edit-relation-form]");
-        if (form) this.refreshRelationQualityMeter(form);
       }
     });
     this.els.result.addEventListener("focusin", (e) => {
-      const targetSearch = e.target.closest("[data-relation-target-search]");
-      if (!targetSearch) return;
-      const form = targetSearch.closest("[data-create-relation-form]");
-      if (!form) return;
-      this.openRelationTargetList(form);
+      routeEditorRelationFocusIn(this, e);
     });
     this.els.result.addEventListener("keydown", (e) => {
-      const targetSearch = e.target.closest("[data-relation-target-search]");
-      if (!targetSearch) return;
-      const form = targetSearch.closest("[data-create-relation-form]");
-      if (!form) return;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        this.moveRelationTargetChoice(form, 1);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        this.moveRelationTargetChoice(form, -1);
-        return;
-      }
-      if (e.key === "Enter") {
-        const buttons = this.visibleRelationTargetChoices(form);
-        if (!buttons.length) return;
-        e.preventDefault();
-        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
-        const current = buttons.find((button) => String(button.dataset.noteId || "").trim() === String(hiddenTargetId?.value || "").trim()) || buttons[0];
-        if (current) {
-          this.applyRelationTargetChoice(form, current.dataset.noteId || "", current.dataset.noteTitle || "");
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
-        const selectedTitle = String(hiddenTargetId?.dataset?.targetTitle || "").trim();
-        if (selectedTitle) targetSearch.value = selectedTitle;
-        this.closeRelationTargetList(form);
-      }
+      routeEditorRelationKeydown(this, e);
     });
     this.els.result.addEventListener("submit", (e) => {
       const distillationForm = e.target.closest("[data-note-distillation-form]");
@@ -6890,17 +6677,7 @@ export class EditorPane {
         void this.handleDistillationForm(distillationForm);
         return;
       }
-      const permanentRelationForm = e.target.closest("[data-permanent-relation-form]");
-      if (permanentRelationForm) {
-        e.preventDefault();
-        void this.handlePermanentRelationWorkspaceSubmit(permanentRelationForm);
-        return;
-      }
-      const form = e.target.closest("[data-create-relation-form], [data-edit-relation-form]");
-      if (!form) return;
-      e.preventDefault();
-      if (form.matches("[data-create-relation-form]")) void this.handleCreateRelationForm(form);
-      if (form.matches("[data-edit-relation-form]")) void this.handleEditRelationForm(form);
+      if (routeEditorRelationSubmit(this, e)) return;
     });
     this.els.preview?.addEventListener("click", (e) => {
       const copy = e.target.closest("[data-preview-copy-code]");
