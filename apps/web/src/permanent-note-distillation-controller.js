@@ -205,6 +205,7 @@ export class PermanentNoteDistillationController {
     });
     this.setPrefill(noteId, { boundaryDraft: "" });
     host.renderThinkingStatus();
+    host.permanentNoteWorkspace?.().reset(noteId);
     host.renderRelated();
   }
 

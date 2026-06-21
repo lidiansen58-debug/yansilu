@@ -91,6 +91,7 @@ import {
 import { EditorRelationLinkController } from "./editor-relation-link-controller.js";
 import { EditorSemanticRelationsController } from "./editor-semantic-relations-controller.js";
 import { PermanentNoteDistillationController } from "./permanent-note-distillation-controller.js";
+import { PermanentNoteWorkspaceController } from "./permanent-note-workspace-controller.js";
 import {
   routeEditorRelationClick,
   routeEditorRelationFocusIn,
@@ -256,6 +257,7 @@ export class EditorPane {
     this.editorRelationLinkController = new EditorRelationLinkController(this);
     this.editorSemanticRelationsController = new EditorSemanticRelationsController(this);
     this.permanentNoteDistillationController = new PermanentNoteDistillationController(this);
+    this.permanentNoteWorkspaceController = new PermanentNoteWorkspaceController(this);
     this.permanentNoteSidebarController = null;
     this.fleetingCleanupDismissedNoteIds = new Set();
     this.noteAiAnalysisByNoteId = new Map();
@@ -3197,6 +3199,11 @@ export class EditorPane {
     return this.permanentNoteDistillationController;
   }
 
+  permanentNoteWorkspace() {
+    if (!this.permanentNoteWorkspaceController) this.permanentNoteWorkspaceController = new PermanentNoteWorkspaceController(this);
+    return this.permanentNoteWorkspaceController;
+  }
+
   renderLinkCandidates(query = "", preferredId = "") {
     this.editorRelationLink().renderCandidates(query, preferredId);
   }
@@ -4974,123 +4981,12 @@ export class EditorPane {
     return Boolean(active.closest?.("input, textarea, select, [contenteditable='true']"));
   }
 
-  permanentWorkspaceTabMeta(note) {
-    const relationState = this.semanticRelationsState;
-    const explicitRelationCount = this.currentExplicitRelationCount();
-    const viewpoint = permanentNoteViewpointState(note);
-    const thesis = viewpoint.thesis;
-    const summary = viewpoint.summary;
-    const confirmed = viewpoint.confirmed;
-    return {
-      relations: relationState === "error" ? "读取失败" : explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待建立",
-      viewpoint: !confirmed || !thesis || summary.length < 3 ? "待完成" : "已确认",
-      writing: confirmed && explicitRelationCount > 0 ? "可推进" : "先补齐"
-    };
-  }
-
-  refreshPermanentWorkspaceTabs(note) {
-    const workspace = this.els.result?.querySelector?.("[data-permanent-note-workspace]");
-    if (!workspace || !note?.id) return false;
-    if (String(workspace.getAttribute("data-note-id") || "").trim() !== note.id) return false;
-    const meta = this.permanentWorkspaceTabMeta(note);
-    workspace.querySelectorAll("[data-permanent-workspace-tab]").forEach((button) => {
-      const key = String(button.getAttribute("data-permanent-workspace-tab") || "").trim();
-      const label = button.querySelector?.("small");
-      if (label && Object.prototype.hasOwnProperty.call(meta, key)) label.textContent = meta[key];
-    });
-    return true;
-  }
-
-  refreshPermanentWorkspaceRelationAssist(note, overview = {}) {
-    const section = this.els.result?.querySelector?.("[data-note-relation-assist-section]");
-    if (!section || section.getAttribute("data-note-id") !== note?.id) return false;
-    section.outerHTML = this.renderPermanentNoteRelationAssistSection(note, overview);
-    return true;
-  }
-
   refreshPermanentWorkspaceSnapshot(note, tab = this.activeTab(), overview = null) {
-    if (!note?.id || !tab) return false;
-    const nextOverview =
-      overview ||
-      this.buildMainPathOverviewV2({
-        ...this.buildLocalRelationSignals(note, tab),
-        relations: this.currentSemanticRelations,
-        relationState: this.semanticRelationsState
-      });
-    this.refreshMainPathSection(note, nextOverview);
-    this.refreshPermanentWorkspaceRelationAssist(note, nextOverview);
-    this.refreshPermanentWorkspaceTabs(note);
-    return true;
+    return this.permanentNoteWorkspace().refreshSnapshot(note, tab, overview);
   }
 
   renderDeferredNoteWorkspace(note, tab) {
-    const relationState = this.semanticRelationsState;
-    const explicitRelationCount = this.currentExplicitRelationCount();
-    const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
-    const overview = this.buildMainPathOverviewV2({
-      forward,
-      backward,
-      tagRelated,
-      relations: this.currentSemanticRelations,
-      relationState
-    });
-    const architecture = permanentNoteWorkspaceArchitecture({
-      note,
-      relationState,
-      explicitRelationCount,
-      thinExplicitRelationCount: overview.thinExplicitRelationCount,
-      wikilinkCount: overview.wikilinkCount,
-      tagRelatedCount: overview.tagRelatedCount
-    });
-    const activeTab = architecture.activeTab;
-    const needsViewpoint = architecture.viewpoint.needsViewpoint;
-    const confirmed = architecture.viewpoint.confirmed;
-    const content = `
-      ${this.renderPermanentNoteMainPathSectionV2(note, overview)}
-      <div class="permanent-workspace-tabs" role="tablist" aria-label="永久笔记整理步骤">
-        ${[
-          ["relations", "关联", relationState === "error" ? "读取失败" : explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待建立"],
-          ["viewpoint", "观点提纯", needsViewpoint ? "待完成" : "已确认"],
-          ["writing", "写作准备", confirmed && explicitRelationCount > 0 ? "可推进" : "先补齐"]
-        ]
-          .map(([key, label, meta]) => {
-            const active = key === activeTab;
-            return `<button class="permanent-workspace-tab ${active ? "is-active" : ""}" type="button" role="tab" aria-selected="${active ? "true" : "false"}" data-permanent-workspace-tab="${escapeHtml(key)}">
-              <span>${escapeHtml(label)}</span>
-              <small>${escapeHtml(meta)}</small>
-            </button>`;
-          })
-          .join("")}
-      </div>
-      <div class="permanent-workspace-pane ${activeTab === "viewpoint" ? "is-active" : ""}" data-permanent-workspace-pane="viewpoint"${activeTab === "viewpoint" ? "" : " hidden"}>
-        ${this.renderPermanentNoteDistillationSection(note)}
-      </div>
-      <div class="permanent-workspace-pane ${activeTab === "relations" ? "is-active" : ""}" data-permanent-workspace-pane="relations"${activeTab === "relations" ? "" : " hidden"}>
-        ${this.renderPermanentNoteRelationAssistSection(note, overview)}
-        ${this.renderInlineDraftRelationSection(note, tab)}
-        ${this.renderCurrentRelationSection(note.id, {
-          relations: this.currentSemanticRelations,
-          relationState: this.semanticRelationsState
-        })}
-      </div>
-      <div class="permanent-workspace-pane ${activeTab === "writing" ? "is-active" : ""}" data-permanent-workspace-pane="writing"${activeTab === "writing" ? "" : " hidden"}>
-        ${this.renderPermanentNoteWritingPrepSection(note)}
-      </div>
-    `.trim();
-    if (!content) return "";
-    return `
-      <section class="inspector-deferred-workspace permanent-note-workspace" data-deferred-workspace data-permanent-note-workspace data-note-id="${escapeHtml(note.id)}">
-        <div class="inspector-section-head permanent-workspace-head">
-          <div>
-            <div class="inspector-section-title">永久笔记整理</div>
-            <div class="inspector-section-note">关联、观点提纯和写作准备分开处理；这里只给一个主动作。</div>
-          </div>
-        </div>
-        <div class="inspector-deferred-body">
-          ${content}
-        </div>
-      </section>
-    `;
+    return this.permanentNoteWorkspace().renderDeferredWorkspace(note, tab);
   }
 
   renderPermanentNoteRelationAssistSection(note, overview = {}) {
@@ -5162,20 +5058,7 @@ export class EditorPane {
   }
 
   activatePermanentWorkspaceTab(tab = "viewpoint") {
-    const cleanTab = ["viewpoint", "relations", "writing"].includes(String(tab || "").trim()) ? String(tab || "").trim() : "viewpoint";
-    const workspace = this.els.result?.querySelector?.("[data-permanent-note-workspace]");
-    if (!workspace) return false;
-    workspace.querySelectorAll("[data-permanent-workspace-tab]").forEach((button) => {
-      const active = button.getAttribute("data-permanent-workspace-tab") === cleanTab;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    workspace.querySelectorAll("[data-permanent-workspace-pane]").forEach((pane) => {
-      const active = pane.getAttribute("data-permanent-workspace-pane") === cleanTab;
-      pane.classList.toggle("is-active", active);
-      pane.hidden = !active;
-    });
-    return true;
+    return this.permanentNoteWorkspace().activateTab(tab);
   }
 
   showDistillationTemplateMergeChoice(picker, button) {
@@ -5560,6 +5443,7 @@ export class EditorPane {
       this.semanticRelationsState = "idle";
       this.resetRelationPanelState("");
       this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
+      this.permanentNoteWorkspace().reset("");
       this.syncPermanentRelationWorkspaceOverlay();
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
       return;
@@ -5577,6 +5461,7 @@ export class EditorPane {
       this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState(isPermanentNote ? note.id : "");
       this.syncPermanentRelationWorkspaceOverlay();
     }
+    if (!isPermanentNote) this.permanentNoteWorkspace().reset("");
 
     const renderNoteItem = (n, badgeText = "") => `
       <button class="related-item" data-preview-note="${n.id}">

@@ -83,6 +83,13 @@ test("distillation controller confirms authorship after a confirmed save", async
     renderThinkingStatus() {
       calls.push(["thinking"]);
     },
+    permanentNoteWorkspace() {
+      return {
+        reset(noteId) {
+          calls.push(["workspace-reset", noteId]);
+        }
+      };
+    },
     renderRelated() {
       calls.push(["related"]);
     },
@@ -102,7 +109,7 @@ test("distillation controller confirms authorship after a confirmed save", async
   assert.deepEqual(note.authorship, { ai_assisted: false, user_confirmed: true });
   assert.equal(calls[0][0], "save-note-distillation");
   assert.deepEqual(calls[0][1].authorship, { user_confirmed: true, ai_assisted: false });
-  assert.deepEqual(calls.slice(-2), [["thinking"], ["related"]]);
+  assert.deepEqual(calls.slice(-3), [["thinking"], ["workspace-reset", "pn1"], ["related"]]);
 });
 
 test("distillation controller leaves note and writing status alone when save fails", async () => {

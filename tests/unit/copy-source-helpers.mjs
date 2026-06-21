@@ -56,6 +56,8 @@ export async function readEditorDomainSource() {
     "permanent-note-distillation-controller.js",
     "permanent-note-distillation-model.js",
     "permanent-note-distillation-view.js",
+    "permanent-note-workspace-controller.js",
+    "permanent-note-workspace-view.js",
     "editor-template-workspace.js"
   ];
   const sources = await Promise.all(files.map((file) => readRepoText("apps", "web", "src", file)));
