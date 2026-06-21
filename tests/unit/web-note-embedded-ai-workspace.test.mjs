@@ -127,7 +127,7 @@ test("editor-triggered note AI analysis stays in the current note workspace", ()
   const sectionSource = editorSource.slice(sectionStart, sectionEnd);
   assert.match(editorSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(sectionSource, /AI 推荐/);
-  assert.match(sectionSource, /手动关联/);
+  assert.match(sectionSource, /手动搜索/);
   assert.doesNotMatch(sectionSource, /分析结果会进入 AI Inbox/);
   assert.doesNotMatch(editorSource, /renderPermanentNoteAiAnalysisSection/);
   assert.doesNotMatch(editorSource, /data-note-ai-analysis-open-inbox/);

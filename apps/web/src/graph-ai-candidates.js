@@ -1,42 +1,24 @@
+import {
+  graphCandidateEndpointIds,
+  graphExistingRelationKeys,
+  graphExistingRelationPairKeys,
+  graphRelationCandidateKey,
+  graphRelationPairKey,
+  graphRelationStatusCountsAsNetworkEdge,
+  graphRelationStatusKey
+} from "./graph-relation-state-query.js";
+
 export const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
 
-export function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
-  return `${String(fromNoteId || "").trim()}->${String(toNoteId || "").trim()}:${String(relationType || "").trim().toLowerCase()}`;
-}
-
-export function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
-  const normalized = [String(leftNoteId || "").trim(), String(rightNoteId || "").trim()].filter(Boolean).sort();
-  return normalized.length === 2 ? `${normalized[0]}::${normalized[1]}` : "";
-}
-
-export function graphCandidateEndpointIds(candidate = {}) {
-  const sourceNoteId = String(
-    candidate.fromNoteId ||
-    candidate.from_note_id ||
-    candidate.sourceNoteId ||
-    candidate.source_note_id ||
-    candidate.actionSourceNoteId ||
-    candidate.action_source_note_id ||
-    candidate.from?.id ||
-    (Array.isArray(candidate.noteIds) ? candidate.noteIds[0] : "") ||
-    ""
-  ).trim();
-  const targetNoteId = String(
-    candidate.toNoteId ||
-    candidate.to_note_id ||
-    candidate.targetNoteId ||
-    candidate.target_note_id ||
-    candidate.actionTargetNoteId ||
-    candidate.action_target_note_id ||
-    candidate.counterpartNoteId ||
-    candidate.counterpart_note_id ||
-    candidate.to?.id ||
-    (Array.isArray(candidate.targetNoteIds) ? candidate.targetNoteIds[0] : "") ||
-    (Array.isArray(candidate.noteIds) ? candidate.noteIds[1] : "") ||
-    ""
-  ).trim();
-  return { sourceNoteId, targetNoteId };
-}
+export {
+  graphCandidateEndpointIds,
+  graphExistingRelationKeys,
+  graphExistingRelationPairKeys,
+  graphRelationCandidateKey,
+  graphRelationPairKey,
+  graphRelationStatusCountsAsNetworkEdge,
+  graphRelationStatusKey
+};
 
 export function graphCandidateCountKey(candidate = {}) {
   const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
@@ -62,33 +44,6 @@ export function graphCandidateBlocksFormalRelation(candidate = {}) {
 
 export function graphCandidateCanSaveRelation(candidate = {}, confirmableRelationTypes = GRAPH_CONFIRMABLE_RELATION_TYPES) {
   return !graphCandidateBlocksFormalRelation(candidate) && confirmableRelationTypes.has(graphPreferredPotentialRelationType(candidate, confirmableRelationTypes));
-}
-
-export function graphRelationStatusKey(value = "") {
-  return String(value || "confirmed").trim().toLowerCase();
-}
-
-export function graphRelationStatusCountsAsNetworkEdge(value = "") {
-  const status = graphRelationStatusKey(value);
-  return status === "suggested" || status === "draft" || status === "confirmed";
-}
-
-export function graphExistingRelationKeys(edges = []) {
-  return new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .map((edge) => graphRelationCandidateKey(edge?.fromNoteId, edge?.toNoteId, edge?.relationType))
-      .filter((key) => key !== "->:")
-  );
-}
-
-export function graphExistingRelationPairKeys(edges = []) {
-  return new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => graphRelationStatusCountsAsNetworkEdge(edge?.status))
-      .map((edge) => graphRelationPairKey(edge?.fromNoteId, edge?.toNoteId))
-      .filter(Boolean)
-  );
 }
 
 export function graphRelationRationaleIsActionable(value = "") {

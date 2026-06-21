@@ -1,4 +1,5 @@
 import { graphIsolatedJoinNetworkFormModel } from "./graph-isolated-relation-form.js";
+import { graphDirectNetworkEdgesForNote } from "./graph-relation-state-query.js";
 
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
@@ -10,12 +11,7 @@ function defaultEscapeHtml(value = "") {
 }
 
 export function graphIsolatedDirectRelationEdges(noteId = "", edges = [], { relationStatusCountsAsNetworkEdge = () => true } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return [];
-  return (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!relationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
-  });
+  return graphDirectNetworkEdgesForNote(noteId, edges, { relationStatusCountsAsNetworkEdge });
 }
 
 export function graphIsolatedJoinNetworkWorkspaceModel(

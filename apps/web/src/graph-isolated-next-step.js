@@ -1,3 +1,5 @@
+import { graphDirectNetworkEdgesForNote as queryGraphDirectNetworkEdgesForNote } from "./graph-relation-state-query.js";
+
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -8,12 +10,7 @@ function defaultEscapeHtml(value = "") {
 }
 
 export function graphDirectNetworkEdgesForNote(noteId = "", edges = [], { relationStatusCountsAsNetworkEdge = () => true } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return [];
-  return (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!relationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
-  });
+  return queryGraphDirectNetworkEdgesForNote(noteId, edges, { relationStatusCountsAsNetworkEdge });
 }
 
 export function renderGraphIsolatedNextStepActionsHtml(
@@ -57,4 +54,3 @@ export function renderGraphIsolatedNextStepActionsHtml(
     </section>
   `;
 }
-

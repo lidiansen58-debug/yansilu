@@ -121,6 +121,11 @@ import {
 } from "./editor-relation-helpers.js";
 import { renderPermanentRelationWorkspace } from "./permanent-relation-workspace.js";
 import {
+  QUICK_WIKILINK_ASSOCIATION_MARKER,
+  saveOrUpgradeWikilinkRelationTransaction,
+  saveRelationTransaction
+} from "./relation-save-transaction.js";
+import {
   defaultPermanentRelationWorkspaceState,
   normalizePermanentRelationAiCandidates,
   normalizePermanentRelationWorkspaceState,
@@ -129,10 +134,17 @@ import {
   permanentRelationWorkspaceNextAiCandidate,
   resetPermanentRelationWorkspaceResult
 } from "./permanent-relation-workspace-model.js";
+import {
+  permanentNoteRelationState,
+  permanentNoteSidebarLayout,
+  permanentNoteStatusSummaryState,
+  permanentNoteViewpointState,
+  permanentNoteWorkspaceArchitecture,
+  permanentRelationAssistState
+} from "./permanent-note-sidebar-architecture.js";
 
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
-const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
 
 export {
   assetMarkdownSnippet,
@@ -3450,40 +3462,21 @@ export class EditorPane {
       let relationCreateError = null;
       const ensureFormalRelation = async () => {
         try {
-          const latestRelations = await fetchNoteRelations(sourceNoteId).catch(() => null);
-          const wikilinkRelation = (Array.isArray(latestRelations?.outgoingLinks) ? latestRelations.outgoingLinks : []).find(
-            (link) => String(link?.toNoteId || "").trim() === target.id && isMarkdownWikilinkRelation(link)
-          );
-          relationCreateResult = wikilinkRelation?.id
-            ? await updateNoteRelation(wikilinkRelation.id, {
-                relationType,
-                rationale: reason,
-                insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER,
-                confidence: 1,
-                status: "confirmed"
-              })
-            : await createNoteRelation(sourceNoteId, {
-                toNoteId: target.id,
-                relationType,
-                rationale: reason,
-                insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER,
-                createdBy: "user",
-                confidence: 1,
-                status: "confirmed"
-              });
-          if (
-            relationCreateResult?.created === false &&
-            relationCreateResult?.id &&
-            String(relationCreateResult.rationale || "").trim() === "markdown_wikilink"
-          ) {
-            relationCreateResult = await updateNoteRelation(relationCreateResult.id, {
-              relationType,
-              rationale: reason,
-              insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER,
-              confidence: 1,
-              status: "confirmed"
-            });
-          }
+          const transaction = await saveOrUpgradeWikilinkRelationTransaction({
+            noteId: sourceNoteId,
+            targetNoteId: target.id,
+            relationType,
+            rationale: reason,
+            insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER,
+            confidence: 1
+          }, {
+            fetchNoteRelations,
+            createNoteRelation,
+            updateNoteRelation,
+            isMarkdownWikilinkRelation
+          });
+          if (!transaction.ok) throw new Error(transaction.error || "关系暂时不能保存");
+          relationCreateResult = transaction.relation;
           this.syncRelationNetworkConnected(sourceNoteId, target.id);
         } catch (error) {
           relationCreateError = error;
@@ -4520,15 +4513,30 @@ export class EditorPane {
         });
         return;
       }
-      const relation = await createNoteRelation(note.id, {
-        toNoteId: state.selectedTargetNoteId,
+      const target = this.state.notes.find((item) => item.id === state.selectedTargetNoteId) || null;
+      const transaction = await saveRelationTransaction({
+        noteId: note.id,
+        targetNoteId: state.selectedTargetNoteId,
         relationType: state.relationType,
         rationale: state.rationale,
         insightQuestion: state.insightQuestion,
         confidence: 1,
-        status: "confirmed"
+        createdBy: ""
+      }, {
+        createNoteRelation,
+        targetTitle: target?.title || state.selectedTargetNoteId,
+        relationLabel: relationTypeLabel(state.relationType)
       });
-      const target = this.state.notes.find((item) => item.id === state.selectedTargetNoteId) || null;
+      if (!transaction.ok) {
+        this.patchPermanentRelationWorkspaceState({
+          ...state,
+          saveState: "idle",
+          error: transaction.error,
+          notice: ""
+        });
+        return;
+      }
+      const relation = transaction.relation;
       this.syncRelationNetworkConnected(note.id, state.selectedTargetNoteId);
       await this.refreshRelationNetworkStatuses(note.id, state.selectedTargetNoteId);
       if (!this.isActiveNoteId(note.id)) return;
@@ -4554,10 +4562,7 @@ export class EditorPane {
         error: "",
         notice: "",
         result: {
-          targetNoteId: state.selectedTargetNoteId,
-          targetTitle: target?.title || state.selectedTargetNoteId,
-          relationType: state.relationType,
-          created: relation?.created !== false
+          ...transaction.result
         }
       }, note.id);
       this.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已保存。");
@@ -5267,14 +5272,16 @@ export class EditorPane {
   }
 
   permanentNoteMainPathSummaryV2(note, overview = {}) {
-    const thesis = String(note?.thesis || "").trim();
-    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const viewpoint = permanentNoteViewpointState(note);
+    const thesis = viewpoint.thesis;
+    const summary = viewpoint.summary;
+    const confirmed = viewpoint.confirmed;
     const writingInfo = this.noteWritingReadinessV2(note, overview);
     const writingContinuation = this.noteWritingContinuationV2(note, overview);
-    const relationState = String(overview.relationState || "loaded").trim();
-    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
-    const thinExplicitRelationCount = Number(overview.thinExplicitRelationCount || 0);
+    const relation = permanentNoteRelationState(overview);
+    const relationState = relation.relationState;
+    const explicitRelationCount = Number(relation.explicitRelationCount || 0);
+    const thinExplicitRelationCount = relation.thinExplicitRelationCount;
     const wikilinkCount = Number(overview.wikilinkCount || 0);
     const connectedCount = explicitRelationCount;
 
@@ -5375,11 +5382,13 @@ export class EditorPane {
   }
 
   permanentNoteDistillationStepV2(note, overview = {}, writingInfo = null) {
-    const thesis = String(note?.thesis || "").trim();
-    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
-    const relationState = String(overview.relationState || "loaded").trim();
-    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const viewpoint = permanentNoteViewpointState(note);
+    const thesis = viewpoint.thesis;
+    const summary = viewpoint.summary;
+    const confirmed = viewpoint.confirmed;
+    const relation = permanentNoteRelationState(overview);
+    const relationState = relation.relationState;
+    const explicitRelationCount = Number(relation.explicitRelationCount || 0);
     const readiness = writingInfo || this.noteWritingReadinessV2(note, overview);
 
     if (!thesis) {
@@ -5564,13 +5573,22 @@ export class EditorPane {
   renderPermanentNoteMainPathSectionV2(note, overview = {}) {
     const noteType = this.resolvedNoteType(note);
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
-    const thesis = String(note.thesis || "").trim();
-    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-    const confirmed = String(note.distillationStatus || "").trim().toLowerCase() === "confirmed";
-    const relationState = String(overview.relationState || "loaded").trim();
-    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const architecture = permanentNoteWorkspaceArchitecture({
+      note,
+      relationState: overview.relationState,
+      explicitRelationCount: overview.explicitRelationCount,
+      thinExplicitRelationCount: overview.thinExplicitRelationCount,
+      wikilinkCount: overview.wikilinkCount,
+      tagRelatedCount: overview.tagRelatedCount
+    });
+    const { viewpoint } = architecture;
+    const thesis = viewpoint.thesis;
+    const summary = viewpoint.summary;
+    const confirmed = viewpoint.confirmed;
+    const relationState = architecture.relation.relationState;
+    const explicitRelationCount = Number(architecture.relation.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
-    const thinExplicitRelationCount = Number(overview.thinExplicitRelationCount || 0);
+    const thinExplicitRelationCount = architecture.relation.thinExplicitRelationCount;
     const themeInfo = this.noteThemeSignalSummaryV2(note, overview);
     const writingInfo = this.noteWritingReadinessV2(note, overview);
     const distillationInfo = this.permanentNoteDistillationStepV2(note, overview, writingInfo);
@@ -5745,9 +5763,14 @@ export class EditorPane {
 
   renderInspectorStatusSummary(note, { forward = [], backward = [], tagRelated = [] } = {}) {
     const relationCount = Number(this.currentExplicitRelationCount() || 0);
-    const thesis = String(note?.thesis || "").trim();
-    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const summaryState = permanentNoteStatusSummaryState({
+      note,
+      relationState: this.semanticRelationsState,
+      relationCount
+    });
+    const thesis = summaryState.viewpoint.thesis;
+    const summary = summaryState.viewpoint.summary;
+    const confirmed = summaryState.viewpoint.confirmed;
     const viewpointLabel = !thesis ? "观点：待提纯" : summary.length < 3 ? "观点：待压缩" : confirmed ? "观点：已确认" : "观点：待确认";
     const relationSummaryLabel =
       this.semanticRelationsState === "error"
@@ -5790,9 +5813,10 @@ export class EditorPane {
   permanentWorkspaceTabMeta(note) {
     const relationState = this.semanticRelationsState;
     const explicitRelationCount = this.currentExplicitRelationCount();
-    const thesis = String(note?.thesis || "").trim();
-    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-    const confirmed = String(note?.distillationStatus || "").trim() === "confirmed";
+    const viewpoint = permanentNoteViewpointState(note);
+    const thesis = viewpoint.thesis;
+    const summary = viewpoint.summary;
+    const confirmed = viewpoint.confirmed;
     return {
       relations: relationState === "error" ? "读取失败" : explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待建立",
       viewpoint: !confirmed || !thesis || summary.length < 3 ? "待完成" : "已确认",
@@ -5838,12 +5862,6 @@ export class EditorPane {
   renderDeferredNoteWorkspace(note, tab) {
     const relationState = this.semanticRelationsState;
     const explicitRelationCount = this.currentExplicitRelationCount();
-    const thesis = String(note?.thesis || "").trim();
-    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-    const confirmed = String(note?.distillationStatus || "").trim() === "confirmed";
-    const needsViewpoint = !confirmed || !thesis || summary.length < 3;
-    const needsRelation = explicitRelationCount === 0 || relationState === "loading" || relationState === "error";
-    const activeTab = needsViewpoint ? "viewpoint" : needsRelation ? "relations" : "writing";
     const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
     const overview = this.buildMainPathOverviewV2({
       forward,
@@ -5852,6 +5870,17 @@ export class EditorPane {
       relations: this.currentSemanticRelations,
       relationState
     });
+    const architecture = permanentNoteWorkspaceArchitecture({
+      note,
+      relationState,
+      explicitRelationCount,
+      thinExplicitRelationCount: overview.thinExplicitRelationCount,
+      wikilinkCount: overview.wikilinkCount,
+      tagRelatedCount: overview.tagRelatedCount
+    });
+    const activeTab = architecture.activeTab;
+    const needsViewpoint = architecture.viewpoint.needsViewpoint;
+    const confirmed = architecture.viewpoint.confirmed;
     const content = `
       ${this.renderPermanentNoteMainPathSectionV2(note, overview)}
       <div class="permanent-workspace-tabs" role="tablist" aria-label="永久笔记整理步骤">
@@ -5905,6 +5934,13 @@ export class EditorPane {
     const explicitRelationCount = this.currentExplicitRelationCount();
     const wikilinkCount = Number(overview.wikilinkCount || 0);
     const tagRelatedCount = Number(overview.tagRelatedCount || 0);
+    const analysis = this.noteAiAnalysisByNoteId.get(note.id) || null;
+    const assistState = permanentRelationAssistState({
+      explicitRelationCount,
+      wikilinkCount,
+      tagRelatedCount,
+      analysis
+    });
     const relationText =
       explicitRelationCount === null
         ? "正在读取这条笔记的正式关系。读取完成后可以继续补关系。"
@@ -5913,13 +5949,8 @@ export class EditorPane {
           : wikilinkCount || tagRelatedCount
             ? "现在只有正文链接或同标签接近，还不是正式关系。请选一条最关键的连接并写清理由。"
             : "还没有正式关系。请先关联一条真正相关的永久笔记，并写清为什么相关。";
-    const analysis = this.noteAiAnalysisByNoteId.get(note.id) || null;
-    const relationCandidates = Array.isArray(analysis?.analysis?.relationCandidates) ? analysis.analysis.relationCandidates.length : 0;
-    const storedCount = Array.isArray(analysis?.reviewItems?.storedArtifactIds)
-      ? analysis.reviewItems.storedArtifactIds.length
-      : Array.isArray(analysis?.reviewItems?.artifacts)
-        ? analysis.reviewItems.artifacts.length
-        : 0;
+    const relationCandidates = assistState.relationCandidates;
+    const storedCount = assistState.storedArtifactCount;
     return `
       <section class="permanent-workspace-card relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}">
         <div>
@@ -6812,15 +6843,25 @@ export class EditorPane {
     if (submit) submit.disabled = true;
     if (errorEl) errorEl.textContent = "";
     try {
-      const relation = await createNoteRelation(note.id, {
-        toNoteId,
+      const target = this.state.notes.find((item) => item.id === toNoteId);
+      const transaction = await saveRelationTransaction({
+        noteId: note.id,
+        targetNoteId: toNoteId,
         relationType,
         rationale,
         insightQuestion,
         confidence: 1,
         status: "confirmed"
+      }, {
+        createNoteRelation,
+        targetTitle: target?.title || toNoteId,
+        relationLabel: relationTypeLabel(relationType)
       });
-      const target = this.state.notes.find((item) => item.id === toNoteId);
+      if (!transaction.ok) {
+        if (errorEl) errorEl.textContent = transaction.error;
+        return;
+      }
+      const relation = transaction.relation;
       this.syncRelationNetworkConnected(note.id, toNoteId);
       if (!this.isActiveNoteId(formNoteId)) return;
       this.onStatus(
@@ -6875,14 +6916,21 @@ export class EditorPane {
       return;
     }
     try {
-      const relation = await createNoteRelation(note.id, {
-        toNoteId: target.id,
+      const transaction = await saveRelationTransaction({
+        noteId: note.id,
+        targetNoteId: target.id,
         relationType: draft.relationType,
         rationale: draft.rationale,
         insightQuestion: "",
         confidence: 1,
         status: "confirmed"
+      }, {
+        createNoteRelation,
+        targetTitle: target.title || target.id,
+        relationLabel: relationTypeLabel(draft.relationType)
       });
+      if (!transaction.ok) throw new Error(transaction.error || "关系暂时不能保存");
+      const relation = transaction.relation;
       this.syncRelationNetworkConnected(note.id, target.id);
       if (!this.isActiveNoteId(noteId)) return;
       const currentBody = this.getEditorValue() || tab.body || "";
@@ -7004,6 +7052,7 @@ export class EditorPane {
     const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
     const isPermanentNote = this.isOriginalNote(note);
     const isRecordableSource = this.isOriginalRecordableSource(note);
+    const sidebarLayout = permanentNoteSidebarLayout({ isPermanentNote, isRecordableSource, tags });
     if (!isPermanentNote || (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId && this.permanentRelationWorkspaceState.noteId !== note.id)) {
       this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState(isPermanentNote ? note.id : "");
       this.syncPermanentRelationWorkspaceOverlay();
@@ -7046,7 +7095,7 @@ export class EditorPane {
       ? `${noteTypeText(this.resolvedNoteType(note))} · ${this.folderLabel(note.folderId)}`
       : `${noteTypeText(this.resolvedNoteType(note))} · ${this.folderLabel(note.folderId)}`;
     const overviewRows =
-      !isPermanentNote && tags.length
+      sidebarLayout.showOverviewTags
         ? `
           <div class="inspector-overview-grid">
             <div class="inspector-overview-row">
@@ -7065,18 +7114,18 @@ export class EditorPane {
         </div>
         ${overviewRows}
       </div>
-      ${isPermanentNote ? this.renderInspectorStatusSummary(note, { forward, backward, tagRelated }) : ""}
+      ${sidebarLayout.showStatusSummary ? this.renderInspectorStatusSummary(note, { forward, backward, tagRelated }) : ""}
       ${
-        !isPermanentNote
+        sidebarLayout.showSourceGuidance
           ? `<div class="inspector-section-note" data-inspector-link-summary-note>当前编辑的是来源笔记。这里只有创建永久笔记的下一步；正式关联整理请在永久笔记里继续。</div>`
           : ""
       }
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
         ${
-          isPermanentNote
+          sidebarLayout.showDeferredWorkspace
             ? this.renderDeferredNoteWorkspace(note, tab)
-            : isRecordableSource
+            : sidebarLayout.showSourceFlow
               ? this.renderSourceNoteFlowSection(note)
               : ""
         }

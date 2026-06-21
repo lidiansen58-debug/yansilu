@@ -1,3 +1,5 @@
+import { graphIsolatedNodeIdsForGraph } from "./graph-relation-state-query.js";
+
 export function graphIsolatedSelectionKeyForItem(note = {}, index = 0) {
   const raw = String(note?.noteId || note?.id || note?.title || index).trim();
   return raw || `isolated-${index}`;
@@ -13,13 +15,7 @@ export function graphComputedIsolatedNotesForGraph(
   aiIsolatedNotes = [],
   { relationStatusCountsAsNetworkEdge = () => true } = {}
 ) {
-  const linkedIds = new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => relationStatusCountsAsNetworkEdge(edge?.status))
-      .flatMap((edge) => [edge?.fromNoteId, edge?.toNoteId])
-      .map((id) => String(id || "").trim())
-      .filter(Boolean)
-  );
+  const isolatedNodeIds = graphIsolatedNodeIdsForGraph(nodes, edges, { relationStatusCountsAsNetworkEdge });
   const aiMetaById = new Map(
     (Array.isArray(aiIsolatedNotes) ? aiIsolatedNotes : [])
       .map((item) => [graphNoteIdFromIsolatedItem(item), item])
@@ -28,7 +24,7 @@ export function graphComputedIsolatedNotesForGraph(
   return (Array.isArray(nodes) ? nodes : [])
     .filter((node) => {
       const noteId = String(node?.id || "").trim();
-      return noteId && !linkedIds.has(noteId);
+      return noteId && isolatedNodeIds.has(noteId);
     })
     .map((node) => {
       const noteId = String(node?.id || "").trim();

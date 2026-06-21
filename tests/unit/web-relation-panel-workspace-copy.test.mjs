@@ -3,11 +3,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const sourcePath = new URL("../../apps/web/src/components-editor-pane.js", import.meta.url);
+const sidebarArchitecturePath = new URL("../../apps/web/src/permanent-note-sidebar-architecture.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation side panel uses action-first workspace copy without noisy placeholders", async () => {
   const source = await readFile(sourcePath, "utf8");
+  const sidebarArchitecture = await readFile(sidebarArchitecturePath, "utf8");
   const shell = await readFile(shellPath, "utf8");
+
+  assert.match(source, /from "\.\/permanent-note-sidebar-architecture\.js";/);
+  assert.match(source, /permanentNoteSidebarLayout\(\{ isPermanentNote, isRecordableSource, tags \}\)/);
+  assert.match(source, /permanentNoteWorkspaceArchitecture\(\{/);
+  assert.match(sidebarArchitecture, /export function permanentNoteSidebarLayout/);
+  assert.match(sidebarArchitecture, /export function permanentNoteWorkspaceArchitecture/);
+  assert.match(sidebarArchitecture, /showDeferredWorkspace/);
+  assert.match(sidebarArchitecture, /activeTab/);
 
   assert.match(shell, /<div class="panel-title">关系整理<\/div>/);
   assert.match(shell, /先选要关联的笔记，再写清为什么。/);

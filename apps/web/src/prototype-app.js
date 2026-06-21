@@ -213,6 +213,10 @@ import {
   createGraphRelationSaveController
 } from "./graph-relation-save-controller.js";
 import {
+  createGraphRelationWorkflowController,
+  graphNormalizeRelationWorkflowSelection
+} from "./graph-relation-workflow-controller.js";
+import {
   createGraphIsolatedWorkflowShellRenderer
 } from "./graph-isolated-workflow-shell.js";
 import {
@@ -223,17 +227,21 @@ import {
   graphCandidateEndpointIds as computeGraphCandidateEndpointIds,
   graphCandidatePercent as computeGraphCandidatePercent,
   graphCandidateUndirectedPairKey as computeGraphCandidateUndirectedPairKey,
-  graphExistingRelationKeys as computeGraphExistingRelationKeys,
-  graphExistingRelationPairKeys as computeGraphExistingRelationPairKeys,
   graphMergeRelationCandidatesForDisplay as computeGraphMergeRelationCandidatesForDisplay,
   graphPendingAiCandidateCount as computeGraphPendingAiCandidateCount,
   graphPreferredPotentialRelationType as computeGraphPreferredPotentialRelationType,
   graphRelationCandidateKey as computeGraphRelationCandidateKey,
   graphRelationRationaleIsActionable as computeGraphRelationRationaleIsActionable,
-  graphRelationStatusCountsAsNetworkEdge as computeGraphRelationStatusCountsAsNetworkEdge,
-  graphRelationStatusKey as computeGraphRelationStatusKey,
-  graphRelationPairKey as computeGraphRelationPairKey
 } from "./graph-ai-candidates.js";
+import {
+  graphDirectNetworkEdgeCount as computeGraphDirectNetworkEdgeCount,
+  graphExistingRelationKeys as computeGraphExistingRelationKeys,
+  graphExistingRelationPairKeys as computeGraphExistingRelationPairKeys,
+  graphRelationPairKey as computeGraphRelationPairKey,
+  graphRelationSaveResultForNote,
+  graphRelationStatusCountsAsNetworkEdge as computeGraphRelationStatusCountsAsNetworkEdge,
+  graphRelationStatusKey as computeGraphRelationStatusKey
+} from "./graph-relation-state-query.js";
 import {
   graphComputedIsolatedNotesForGraph,
   graphIsolatedQueueItemsForGraph,
@@ -12324,39 +12332,12 @@ function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], 
         }
       : null;
   }
-  if (kind === "isolated") {
-    const isolated = resolveGraphIsolatedSelection(selection, isolatedNotes, []);
-    return isolated
-      ? {
-          kind: "isolated",
-          isolatedKey: isolated.isolatedKey,
-          isolatedIndex: isolated.isolatedIndex,
-          noteId: isolated.noteId,
-          title: isolated.title
-        }
-      : (() => {
-          const noteId = String(selection?.noteId || selection?.id || "").trim();
-          return noteId && nodes.some((node) => String(node?.id || "").trim() === noteId) ? { kind: "node", nodeId: noteId } : null;
-        })();
-  }
-  if (kind === "isolatedcomplete") {
-    const noteId = String(selection?.noteId || selection?.nodeId || selection?.id || "").trim();
-    return noteId && nodes.some((node) => String(node?.id || "").trim() === noteId)
-      ? { kind: "isolatedComplete", noteId }
-      : null;
-  }
-  if (kind === "relationform") {
-    const noteId = String(selection?.noteId || selection?.nodeId || selection?.id || "").trim();
-    if (!noteId || !nodes.some((node) => String(node?.id || "").trim() === noteId)) return null;
-    return {
-      kind: "relationForm",
-      noteId,
-      targetNoteId: String(selection?.targetNoteId || "").trim(),
-      relationType: String(selection?.relationType || "associated_with").trim().toLowerCase() || "associated_with",
-      rationale: String(selection?.rationale || "").trim(),
-      returnTo: String(selection?.returnTo || "").trim().toLowerCase()
-    };
-  }
+  const relationWorkflowSelection = graphNormalizeRelationWorkflowSelection(selection, {
+    nodes,
+    isolatedNotes,
+    resolveIsolatedSelection: resolveGraphIsolatedSelection
+  });
+  if (relationWorkflowSelection !== undefined) return relationWorkflowSelection;
   if (kind === "bridge") {
     const bridge = resolveGraphBridgeSelection(selection, bridgeGaps, nodes);
     return bridge
@@ -14018,6 +13999,14 @@ const graphRelationSaveController = createGraphRelationSaveController({
   openRelationFormInSelection: openGraphRelationFormInSelection
 });
 
+const graphRelationWorkflowController = createGraphRelationWorkflowController({
+  graphState,
+  setWorkflowActiveTab: setGraphIsolatedWorkflowActiveTab,
+  openGraphSelection,
+  renderGraphPanel,
+  setStatus
+});
+
 const graphIsolatedRelationController = createGraphIsolatedRelationController({
   graphState,
   normalizeMode: graphIsolatedWorkflowTabKey,
@@ -14319,30 +14308,7 @@ async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", rela
 }
 
 function openGraphRelationFormInSelection(button = null) {
-  const noteId = String(
-    button?.getAttribute?.("data-graph-relation-source") ||
-    button?.getAttribute?.("data-open-note") ||
-    button?.getAttribute?.("data-node-id") ||
-    ""
-  ).trim();
-  if (!noteId) return false;
-  const targetNoteId = String(button?.getAttribute?.("data-graph-target-note") || "").trim();
-  const relationType = String(button?.getAttribute?.("data-graph-relation-type") || "associated_with").trim().toLowerCase() || "associated_with";
-  const rationale = String(button?.getAttribute?.("data-graph-rationale-draft") || "").trim();
-  const previousSelectionKind = String(graphState.selection?.kind || "").trim().toLowerCase();
-  const returnTo = previousSelectionKind === "isolated" || previousSelectionKind === "isolatedcomplete" ? "isolated" : "";
-  setGraphIsolatedWorkflowActiveTab(noteId, targetNoteId ? "manual" : "manual");
-  graphState.selection = {
-    kind: "relationForm",
-    noteId,
-    targetNoteId,
-    relationType,
-    rationale,
-    returnTo
-  };
-  renderGraphPanel();
-  setStatus(targetNoteId ? "已在图谱内打开关系确认表单" : "已在图谱内打开手工关联表单", "ok");
-  return true;
+  return graphRelationWorkflowController.openRelationFormFromAction(button);
 }
 
 function focusGraphRelationAdjustmentInPlace(button = null) {
@@ -14372,7 +14338,7 @@ function renderGraphIsolatedCompletePanel({ selection = null, isolatedNotes = []
   return graphIsolatedWorkflowShell.renderCompletePanel({
     selection: {
       ...selection,
-      saveResult: graphState.isolatedRelationSaveResultByNoteId?.[noteId] || {}
+      saveResult: graphRelationSaveResultForNote(noteId, graphState.isolatedRelationSaveResultByNoteId)
     },
     isolatedNotes,
     nodeMap,
@@ -14387,10 +14353,9 @@ function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new
   const title = graphNodeTitle(nodeMap, noteId, note.title || "当前笔记");
   const targetNoteId = String(selection?.targetNoteId || "").trim();
   const targetTitle = targetNoteId ? graphNodeTitle(nodeMap, targetNoteId, targetNoteId) : "";
-  const visibleEdgeCount = (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === noteId || String(edge?.toNoteId || "").trim() === noteId;
-  }).length;
+  const visibleEdgeCount = computeGraphDirectNetworkEdgeCount(noteId, edges, {
+    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
+  });
   return renderGraphSelectionShell({
     className: "is-node is-relation-form",
     ariaLabel: "建立笔记关系",
@@ -18103,8 +18068,7 @@ async function runGraphAiConnectForNote(noteId = "") {
   const previousSelection = graphState.selection;
   graphState.aiAnalysisLoading = true;
   graphState.aiAnalysisError = "";
-  setGraphIsolatedWorkflowActiveTab(cleanNoteId, "candidates");
-  renderGraphPanel();
+  graphRelationWorkflowController.startAiConnectForNote(cleanNoteId);
   try {
     const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
     if (!localAiReady) return false;
@@ -18117,14 +18081,15 @@ async function runGraphAiConnectForNote(noteId = "") {
       persistArtifacts: true
     });
     graphState.aiAnalysis = result;
-    graphState.selection = previousSelection || { kind: "isolated", noteId: cleanNoteId };
     const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
     const currentEdges = Array.isArray(graphState.item?.edges) ? graphState.item.edges : [];
-    const previousSelectionKind = String(previousSelection?.kind || "").trim().toLowerCase();
-    const hasDirectEdge = currentEdges.some(
-      (edge) => String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId
-    );
-    const graphSelectionKind = previousSelectionKind === "isolated" || (!previousSelectionKind && !hasDirectEdge) ? "isolated" : "node";
+    const route = graphRelationWorkflowController.applyAiConnectRoute({
+      noteId: cleanNoteId,
+      previousSelection,
+      edges: currentEdges,
+      relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
+    });
+    const graphSelectionKind = route?.graphSelectionKind || "isolated";
     const nodeMap = new Map(nodes.map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
     const candidates = graphAiRelationCandidatesForNote(cleanNoteId, { nodeMap, edges: currentEdges, limit: 5 });
     const firstTargetId = String(candidates[0]?.counterpartNoteId || candidates[0]?.targetNoteId || "").trim();
@@ -21697,13 +21662,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   }
   const isolatedSelection = event.target.closest("[data-graph-select-isolated]");
   if (isolatedSelection) {
-    const isolatedKey = String(isolatedSelection.getAttribute("data-graph-select-isolated") || "").trim();
-    if (isolatedKey) {
-      const isolatedNoteId = String(isolatedSelection.getAttribute("data-graph-isolated-note") || "").trim();
-      if (isolatedNoteId) setGraphIsolatedWorkflowActiveTab(isolatedNoteId, "candidates");
-      openGraphSelection({ kind: "isolated", isolatedKey });
-      setStatus("已打开待关联笔记整理", "ok");
-    }
+    graphRelationWorkflowController.openIsolatedFromAction(isolatedSelection);
     return;
   }
   const bridgeSelection = event.target.closest("[data-graph-select-bridge]");

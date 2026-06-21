@@ -226,9 +226,10 @@ test("manual link picker saves the user-confirmed relation type and rationale", 
   assert.ok(source.includes('const relationType = String(this.els.linkRelationTypeSelect?.value || "associated_with").trim() || "associated_with";'));
   assert.ok(source.includes('const reason = String(this.els.linkReasonInput?.value || "")'));
   assert.ok(source.includes("const { relationType, reason } = this.currentLinkRelationInput();"));
-  assert.ok(source.includes('const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";'));
+  assert.ok(source.includes("QUICK_WIKILINK_ASSOCIATION_MARKER,"));
+  assert.ok(source.includes("saveOrUpgradeWikilinkRelationTransaction,"));
   assert.ok(source.includes("insightQuestion: QUICK_WIKILINK_ASSOCIATION_MARKER"));
-  assert.ok(source.includes('createdBy: "user"'));
+  assert.ok(source.includes("confidence: 1"));
 });
 
 test("manual link picker keeps duplicate-submit protection", async () => {
@@ -292,10 +293,12 @@ test("confirmed inline wikilink insertion also creates a formal note relation", 
   const body = source.slice(start, end);
 
   assert.ok(body.includes('const sourceNoteId = String(sourceNote?.id || "").trim();'));
-  assert.ok(body.includes("const latestRelations = await fetchNoteRelations(sourceNoteId).catch(() => null);"));
-  assert.ok(body.includes("isMarkdownWikilinkRelation(link)"));
-  assert.ok(body.includes("await updateNoteRelation(wikilinkRelation.id, {"));
-  assert.ok(body.includes("await createNoteRelation(sourceNoteId, {"));
+  assert.ok(body.includes("const transaction = await saveOrUpgradeWikilinkRelationTransaction({"));
+  assert.ok(body.includes("fetchNoteRelations,"));
+  assert.ok(body.includes("createNoteRelation,"));
+  assert.ok(body.includes("updateNoteRelation,"));
+  assert.ok(body.includes("isMarkdownWikilinkRelation"));
+  assert.ok(body.includes("relationCreateResult = transaction.relation;"));
   assert.ok(body.includes('saveInsertedBody("inline-link-insert")'));
   assert.ok(body.includes("已插入关联笔记并建立正式关系"));
   const inlineBranch = body.slice(body.indexOf('saveInsertedBody("inline-link-insert")'));
