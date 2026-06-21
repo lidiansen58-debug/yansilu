@@ -1,3 +1,5 @@
+import { graphDirectNetworkEdgeCount } from "./graph-relation-state-query.js";
+
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -13,15 +15,6 @@ function isolatedQueueItemMeta(item = {}) {
   if (Number(item.localCount || 0) > 0) parts.push(`本地线索 ${Number(item.localCount || 0)}`);
   if (!parts.length) parts.push(item.decision?.label || "待关联");
   return parts.join(" · ");
-}
-
-function directNetworkEdgeCount(noteId = "", edges = [], relationStatusCountsAsNetworkEdge = () => true) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return 0;
-  return (Array.isArray(edges) ? edges : []).filter((edge) => {
-    if (!relationStatusCountsAsNetworkEdge(edge?.status)) return false;
-    return String(edge?.fromNoteId || "").trim() === cleanNoteId || String(edge?.toNoteId || "").trim() === cleanNoteId;
-  }).length;
 }
 
 export function createGraphIsolatedWorkflowShellRenderer({
@@ -139,7 +132,7 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const item = isolated.item || {};
     const thesis = String(item?.thesis || note?.thesis || "").trim();
     const decision = decisionMeta(item, note);
-    const visibleEdgeCount = directNetworkEdgeCount(noteId, edges, relationStatusCountsAsNetworkEdge);
+    const visibleEdgeCount = graphDirectNetworkEdgeCount(noteId, edges, { relationStatusCountsAsNetworkEdge });
     const isolatedQueueMarkup = renderQueue({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 });
     return renderSelectionShell({
       className: `is-isolated is-${decision.tone}`,
@@ -168,7 +161,7 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const result = selection?.saveResult || {};
     const queueItems = isolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 });
     const nextItem = nextIsolatedQueueItem(queueItems, noteId);
-    const directRelationCount = directNetworkEdgeCount(noteId, edges, relationStatusCountsAsNetworkEdge);
+    const directRelationCount = graphDirectNetworkEdgeCount(noteId, edges, { relationStatusCountsAsNetworkEdge });
     return renderSelectionShell({
       className: "is-isolated is-complete",
       ariaLabel: "待关联笔记已处理",

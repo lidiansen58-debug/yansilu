@@ -1,8 +1,11 @@
 import {
-  graphRelationSaveResult,
-  graphRelationSaveSelection,
-  normalizeGraphConfirmedRelationInput
+  graphRelationSaveSelection
 } from "./graph-relation-save-flow.js";
+import {
+  normalizeRelationSaveTransactionInput,
+  relationSaveTransactionErrorText,
+  saveRelationTransaction
+} from "./relation-save-transaction.js";
 
 function graphNodeMapForState(graphState = {}) {
   const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
@@ -48,18 +51,18 @@ export function createGraphRelationSaveController({
       relationType: cleanRelationType,
       rationale: cleanRationale,
       insightQuestion: cleanInsightQuestion
-    } = normalizeGraphConfirmedRelationInput({ noteId, targetNoteId, relationType, rationale, insightQuestion });
+    } = normalizeRelationSaveTransactionInput({ noteId, targetNoteId, relationType, rationale, insightQuestion });
     if (!cleanNoteId || !cleanTargetNoteId) return false;
     if (cleanNoteId === cleanTargetNoteId) {
-      setStatus("不能把笔记关联到它自己，请重新选择目标笔记", "warn");
+      setStatus(relationSaveTransactionErrorText("self_relation"), "warn");
       return false;
     }
     if (!confirmableRelationTypes.has(cleanRelationType) || cleanRelationType === "no_relation") {
-      setStatus("请选择一种可以保存为正式关系的类型", "warn");
+      setStatus(relationSaveTransactionErrorText("unsupported_type"), "warn");
       return false;
     }
     if (!rationaleIsActionable(cleanRationale)) {
-      setStatus("请先把关联理由写完整，再保存关系", "warn");
+      setStatus(relationSaveTransactionErrorText("missing_rationale"), "warn");
       return false;
     }
     const nodeMap = graphNodeMapForState(graphState);
@@ -73,28 +76,35 @@ export function createGraphRelationSaveController({
       button.textContent = "正在保存";
     }
     try {
-      const relation = await createNoteRelation(cleanNoteId, {
-        toNoteId: cleanTargetNoteId,
+      const transaction = await saveRelationTransaction({
+        noteId: cleanNoteId,
+        targetNoteId: cleanTargetNoteId,
         relationType: cleanRelationType,
         rationale: cleanRationale,
-        insightQuestion: cleanInsightQuestion,
-        createdBy: "user",
-        status: "confirmed"
-      });
-      graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
-      graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = graphRelationSaveResult({
-        targetNoteId: cleanTargetNoteId,
+        insightQuestion: cleanInsightQuestion
+      }, {
+        confirmableRelationTypes,
+        rationaleIsActionable,
+        createNoteRelation,
         targetTitle,
-        relationType: cleanRelationType,
-        relationLabel,
-        relation
+        relationLabel
       });
+      if (!transaction.ok) {
+        setStatus(transaction.error, "warn");
+        if (button) {
+          button.disabled = false;
+          button.textContent = previousText || "保存关系";
+        }
+        return false;
+      }
+      graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
+      graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = transaction.result;
       clearIsolatedRelationDraft(cleanNoteId);
       graphState.selection = nextSelection;
       await refreshDirectoryGraph();
       graphState.selection = nextSelection;
       renderGraphPanel();
-      setStatus(relation?.created === false ? "这条关系已经存在，已保留在当前处理结果" : "关系已保存，当前笔记已接入关系网", "ok");
+      setStatus(transaction.relation?.created === false ? "这条关系已经存在，已保留在当前处理结果" : "关系已保存，当前笔记已接入关系网", "ok");
       return true;
     } catch (error) {
       setStatus(`保存关系失败：${String(error?.message || error)}`, "bad");

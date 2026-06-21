@@ -36,8 +36,20 @@ function readGraphIsolatedWorkflowShell() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-workflow-shell.js"), "utf8");
 }
 
+function readGraphRelationStateQuery() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-relation-state-query.js"), "utf8");
+}
+
 function readGraphRelationSaveController() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-relation-save-controller.js"), "utf8");
+}
+
+function readGraphRelationWorkflowController() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-relation-workflow-controller.js"), "utf8");
+}
+
+function readRelationSaveTransaction() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/relation-save-transaction.js"), "utf8");
 }
 
 const mojibakeCopyPattern = new RegExp("\\u93b5\\u5b0d|\\u93b5\\u5b35|\\u93b5\\u5b2a\\u4f10|\\u934f\\u5d07\\u90f4|\\u951b");
@@ -379,11 +391,24 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
   const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
+  const relationStateQuerySource = readGraphRelationStateQuery();
   const saveControllerSource = readGraphRelationSaveController();
+  const workflowControllerSource = readGraphRelationWorkflowController();
+  const relationSaveTransactionSource = readRelationSaveTransaction();
   const html = readPrototypeHtml();
   assert.match(source, /from "\.\/graph-isolated-workflow-shell\.js";/);
+  assert.match(source, /from "\.\/graph-relation-state-query\.js";/);
+  assert.match(source, /from "\.\/graph-relation-workflow-controller\.js";/);
   assert.match(source, /createGraphIsolatedWorkflowShellRenderer\(\{/);
+  assert.match(source, /createGraphRelationWorkflowController\(\{/);
   assert.match(source, /renderJoinNetworkFlow: renderGraphIsolatedJoinNetworkFlow/);
+  assert.match(source, /graphDirectNetworkEdgeCount as computeGraphDirectNetworkEdgeCount/);
+  assert.match(source, /graphRelationSaveResultForNote\(noteId, graphState\.isolatedRelationSaveResultByNoteId\)/);
+  assert.match(relationStateQuerySource, /export function graphDirectNetworkEdgesForNote/);
+  assert.match(relationStateQuerySource, /export function graphConnectedNoteIdsForNote/);
+  assert.match(relationStateQuerySource, /export function graphIsolatedNodeIdsForGraph/);
+  assert.match(isolatedWorkflowShellSource, /graphDirectNetworkEdgeCount/);
+  assert.doesNotMatch(isolatedWorkflowShellSource, /function directNetworkEdgeCount/);
 
   assert.match(source, /function graphAiRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
   assert.match(source, /function graphRelationCandidateKey\(fromNoteId = "", toNoteId = "", relationType = ""\) \{/);
@@ -482,7 +507,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /return graphIsolatedWorkflowShell\.renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount \}\);/);
   assert.match(isolatedWorkflowShellSource, /renderJoinNetworkFlow\(cleanNoteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(source, /function renderGraphRelationFormSelectionPanel\(\{ selection = null, nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
-  assert.match(source, /kind: "relationForm"/);
+  assert.match(workflowControllerSource, /kind: "relationForm"/);
   assert.match(source, /preferredTargetNoteId: targetNoteId/);
   assert.match(source, /saveHint: "保存后仍留在当前图谱。"/);
   assert.match(source, /data-graph-open-relation-form/);
@@ -537,15 +562,19 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.doesNotMatch(isolatedDecisionSource, /openNoteById\(cleanNoteId/);
   assert.match(source, /createNoteRelation,/);
   assert.match(source, /function openGraphRelationFormInSelection\(button = null\) \{/);
-  assert.match(source, /graphState\.selection = \{\s*kind: "relationForm"/);
-  assert.match(source, /const returnTo = previousSelectionKind === "isolated" \|\| previousSelectionKind === "isolatedcomplete" \? "isolated" : "";/);
-  assert.match(source, /rationale,\s*returnTo\s*\}/);
-  assert.match(source, /returnTo: String\(selection\?\.returnTo \|\| ""\)\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(source, /return graphRelationWorkflowController\.openRelationFormFromAction\(button\);/);
+  assert.match(source, /graphNormalizeRelationWorkflowSelection\(selection, \{/);
+  assert.match(workflowControllerSource, /export function graphRelationWorkflowFormSelectionFromAction/);
+  assert.match(workflowControllerSource, /kind: "relationForm"/);
+  assert.match(workflowControllerSource, /const returnTo = previousSelectionKind === "isolated" \|\| previousSelectionKind === "isolatedcomplete" \? "isolated" : "";/);
+  assert.match(workflowControllerSource, /rationale,\s*returnTo\s*\}/);
+  assert.match(workflowControllerSource, /returnTo: cleanKind\(selection\?\.returnTo\)/);
   assert.match(source, /from "\.\/graph-relation-save-controller\.js";/);
   assert.match(source, /createGraphRelationSaveController\(\{/);
   assert.match(source, /saveConfirmedRelation: saveGraphConfirmedRelation/);
   assert.match(source, /openRelationFormInSelection: openGraphRelationFormInSelection/);
   assert.match(saveControllerSource, /from "\.\/graph-relation-save-flow\.js";/);
+  assert.match(saveControllerSource, /from "\.\/relation-save-transaction\.js";/);
   assert.match(saveControllerSource, /graphRelationSaveSelection\(\{ previousSelection, button, noteId: cleanNoteId \}\)/);
   assert.match(source, /data-graph-ai-candidate-apply/);
   assert.match(source, /const currentNoteId = String\(noteId \|\| ""\)\.trim\(\);/);
@@ -561,7 +590,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /focusNoteId: cleanNoteId,/);
   assert.match(source, /currentNoteId: cleanNoteId,/);
   assert.match(source, /if \(candidates\.length\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
-  assert.match(source, /const graphSelectionKind = previousSelectionKind === "isolated" \|\| \(!previousSelectionKind && !hasDirectEdge\) \? "isolated" : "node";/);
+  assert.match(source, /graphRelationWorkflowController\.startAiConnectForNote\(cleanNoteId\);/);
+  assert.match(source, /graphRelationWorkflowController\.applyAiConnectRoute\(\{/);
+  assert.match(workflowControllerSource, /const visibleEdgeCount = graphDirectNetworkEdgeCount\(cleanNoteId, edges,/);
+  assert.match(workflowControllerSource, /const graphSelectionKind = previousSelectionKind === "isolated" \|\| \(!previousSelectionKind && visibleEdgeCount === 0\) \? "isolated" : "node";/);
   assert.match(source, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
   assert.match(source, /async function saveGraphAiCandidateRelation\(button = null\) \{/);
   assert.match(source, /async function saveGraphCandidateRelation\(button = null\) \{/);
@@ -573,11 +605,13 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(saveControllerSource, /if \(!rationaleIsActionable\(cleanRationale\)\) \{/);
   assert.match(saveControllerSource, /const rationale = rationaleIsActionable\(rationaleDraft\) \? rationaleDraft : "";/);
   assert.match(saveControllerSource, /openRelationFormInSelection\(button\);/);
-  assert.match(saveControllerSource, /const relation = await createNoteRelation\(cleanNoteId, \{/);
+  assert.match(saveControllerSource, /const transaction = await saveRelationTransaction\(\{/);
+  assert.match(saveControllerSource, /graphState\.isolatedRelationSaveResultByNoteId\[cleanNoteId\] = transaction\.result;/);
+  assert.match(saveControllerSource, /transaction\.relation\?\.created === false/);
+  assert.doesNotMatch(saveControllerSource, /await createNoteRelation\(cleanNoteId, \{/);
   assert.match(saveControllerSource, /if \(cleanNoteId === cleanTargetNoteId\) \{/);
   assert.match(saveControllerSource, /await refreshDirectoryGraph\(\);/);
-  assert.match(saveControllerSource, /normalizeGraphConfirmedRelationInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
-  assert.match(saveControllerSource, /graphRelationSaveResult\(\{/);
+  assert.match(saveControllerSource, /normalizeRelationSaveTransactionInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
   assert.match(source, /rationaleDraft,/);
   assert.match(source, /insightQuestionDraft,/);
   assert.match(source, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
@@ -588,7 +622,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /await confirmGraphPotentialRelationRefine\(graphAiRefineConfirmButton\);/);
   assert.match(source, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
   assert.match(source, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
-  assert.match(saveControllerSource, /status: "confirmed"/);
+  assert.match(relationSaveTransactionSource, /status = "confirmed"/);
   assert.match(saveControllerSource, /graphState\.selection = nextSelection;/);
   assert.match(source, /function renderGraphIsolatedCompletePanel\(\{ selection = null, isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   const isolatedCompleteSource = extractFunctionSource(source, "renderGraphIsolatedCompletePanel");
@@ -596,7 +630,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.doesNotMatch(isolatedCompleteSource, /renderGraphAiConnectCandidates/);
   assert.doesNotMatch(isolatedCompleteSource, /继续确认这条笔记的其它可选目标/);
   assert.match(isolatedCompleteSource, /return graphIsolatedWorkflowShell\.renderCompletePanel\(\{/);
-  assert.match(isolatedCompleteSource, /saveResult: graphState\.isolatedRelationSaveResultByNoteId\?\.\[noteId\] \|\| \{\}/);
+  assert.match(isolatedCompleteSource, /saveResult: graphRelationSaveResultForNote\(noteId, graphState\.isolatedRelationSaveResultByNoteId\)/);
   assert.match(isolatedWorkflowShellSource, /const queueItems = isolatedQueueItems\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 \}\);/);
   assert.match(isolatedWorkflowShellSource, /const nextItem = nextIsolatedQueueItem\(queueItems, noteId\);/);
   assert.doesNotMatch(isolatedWorkflowShellSource, /Array\.isArray\(isolatedNotes\) \? isolatedNotes : \[\]/);
@@ -620,9 +654,11 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
 
 test("graph selection upgrades isolated notes to connected nodes after a saved relation and keeps summary counts scoped instead of filter-limited", () => {
   const source = readPrototypeApp();
+  const workflowControllerSource = readGraphRelationWorkflowController();
 
-  assert.match(source, /const isolated = resolveGraphIsolatedSelection\(selection, isolatedNotes, \[\]\);/);
-  assert.match(source, /return noteId && nodes\.some\(\(node\) => String\(node\?\.id \|\| ""\)\.trim\(\) === noteId\) \? \{ kind: "node", nodeId: noteId \} : null;/);
+  assert.match(source, /graphNormalizeRelationWorkflowSelection\(selection, \{/);
+  assert.match(workflowControllerSource, /const isolated = resolveIsolatedSelection\(selection, isolatedNotes, \[\]\);/);
+  assert.match(workflowControllerSource, /return hasNode\(nodes, noteId\) \? \{ kind: "node", nodeId: noteId \} : null;/);
   assert.match(source, /const baseSummary = `\$\{scopedAllNodes\.length\} 条永久笔记，\$\{scoped\.edges\.length\} 条关系`;/);
 });
 

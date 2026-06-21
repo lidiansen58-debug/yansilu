@@ -50,7 +50,9 @@ test("relation creation stores a followup suggestion before returning to relatio
   assert.ok(start >= 0 && end > start, "expected handleCreateRelationForm() to exist");
   const handlerSource = source.slice(start, end);
 
-  assert.match(handlerSource, /const relation = await createNoteRelation\(note\.id,/);
+  assert.match(handlerSource, /const transaction = await saveRelationTransaction\(\{/);
+  assert.match(handlerSource, /const relation = transaction\.relation;/);
+  assert.doesNotMatch(handlerSource, /await createNoteRelation\(note\.id,/);
   assert.match(handlerSource, /this\.setRelationFollowupSuggestion\(/);
   assert.match(handlerSource, /relationFollowupSuggestionForDraft\(\{/);
   assert.match(handlerSource, /relationId: relation\?\.id \|\| relation\?\.relationId \|\| ""/);
@@ -86,7 +88,9 @@ test("inline relation promotion also creates the relation followup suggestion", 
   assert.match(promoteSource, /const scoped = this\.scopedLinkCandidates\(\);/);
   assert.match(promoteSource, /const resolved = this\.resolveLinkToken\(draft\.token, scoped\);/);
   assert.match(promoteSource, /if \(resolved\?\.ambiguous\) \{/);
-  assert.match(promoteSource, /const relation = await createNoteRelation\(note\.id,/);
+  assert.match(promoteSource, /const transaction = await saveRelationTransaction\(\{/);
+  assert.match(promoteSource, /const relation = transaction\.relation;/);
+  assert.doesNotMatch(promoteSource, /await createNoteRelation\(note\.id,/);
   assert.match(promoteSource, /this\.syncRelationNetworkConnected\(note\.id, target\.id\);/);
   assert.match(promoteSource, /this\.setRelationFollowupSuggestion\(/);
   assert.match(promoteSource, /relationFollowupSuggestionForDraft\(\{/);

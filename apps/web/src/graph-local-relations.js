@@ -1,3 +1,5 @@
+import { graphConnectedNoteIdsForNote as queryGraphConnectedNoteIdsForNote } from "./graph-relation-state-query.js";
+
 export function graphNoteTagsForLocalRelation(note = {}, { parseTags = () => [] } = {}) {
   const explicitTags = Array.isArray(note?.tags)
     ? note.tags
@@ -23,19 +25,7 @@ export function graphTitleCharacterOverlap(left = "", right = "") {
 }
 
 export function graphConnectedNoteIdsForNote(noteId = "", edges = [], { relationStatusCountsAsNetworkEdge = () => true } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  return new Set(
-    (Array.isArray(edges) ? edges : [])
-      .filter((edge) => relationStatusCountsAsNetworkEdge(edge?.status))
-      .flatMap((edge) => {
-        const fromId = String(edge?.fromNoteId || "").trim();
-        const toId = String(edge?.toNoteId || "").trim();
-        if (fromId === cleanNoteId) return [toId];
-        if (toId === cleanNoteId) return [fromId];
-        return [];
-      })
-      .filter(Boolean)
-  );
+  return queryGraphConnectedNoteIdsForNote(noteId, edges, { relationStatusCountsAsNetworkEdge });
 }
 
 function graphPermanentLikeNote(note = {}) {
