@@ -196,6 +196,7 @@ import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
+  graphFocusCardActionMeta as computeGraphFocusCardActionMeta,
   graphIsolatedNodeIds,
   graphFollowupActionForRelationType,
   graphNextActionForSummary,
@@ -16713,19 +16714,7 @@ function graphFocusedCounterpartTitle(edge, focusedNoteId = "", nodeMap = new Ma
 }
 
 function graphFocusCardActionMeta(edge = {}, contextMode = "argument") {
-  const relationType = String(edge?.relationType || "").trim().toLowerCase();
-  const baseAction = graphFollowupActionForRelationType(relationType);
-  const hasRelationId = Boolean(String(edge?.id || "").trim());
-  if (contextMode === "writing" && ["appears_in_draft", "precedes", "follows"].includes(relationType)) {
-    return { action: "writing", label: relationType === "appears_in_draft" ? "带入写作" : "继续写作" };
-  }
-  if (baseAction === "boundary") return { action: "boundary", label: "补边界" };
-  if (baseAction === "tension") return { action: "tension", label: "补反方" };
-  if (baseAction === "bridge") return { action: "bridge", label: "补桥接" };
-  return {
-    action: hasRelationId ? "relations-edit" : "relations",
-    label: hasRelationId ? "补关系理由" : "补关系"
-  };
+  return computeGraphFocusCardActionMeta(edge, contextMode);
 }
 
 function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(), edges = [] } = {}) {
