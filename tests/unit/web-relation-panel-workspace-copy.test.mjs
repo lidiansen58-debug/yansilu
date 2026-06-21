@@ -10,12 +10,19 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   const shell = await readFile(shellPath, "utf8");
 
   assert.match(shell, /<div class="panel-title">关系整理<\/div>/);
-  assert.match(shell, /先处理当前建议，再确认正式关系。/);
-  assert.match(source, /<div class="inspector-section-title">当前建议<\/div>/);
+  assert.match(shell, /先选要关联的笔记，再写清为什么。/);
+  assert.match(source, /<div class="inspector-section-title">下一步<\/div>/);
   assert.match(source, /<div class="inspector-section-title">关系网络<\/div>/);
+  assert.match(source, /renderPermanentRelationWorkspace/);
+  assert.match(source, /data-permanent-relation-action="open"/);
+  assert.match(source, /permanentRelationMode && !permanentRelationMode\.hasAttribute\("data-permanent-relation-action"\)/);
+  assert.match(source, /data-permanent-relation-workspace/);
+  assert.match(source, /this\.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState\(""\)/);
+  assert.match(source, /this\.permanentRelationWorkspaceState\.noteId !== note\.id/);
+  assert.match(source, /this\.syncPermanentRelationWorkspaceOverlay\(\);\s*if \(cleanQuery\)/);
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
-  assert.match(source, /永久笔记工作台/);
+  assert.match(source, /永久笔记整理/);
   assert.match(source, /\["relations", "关联"/);
   assert.match(source, /\["viewpoint", "观点提纯"/);
   assert.match(source, /\["writing", "写作准备"/);
@@ -27,12 +34,13 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /String\(workspace\.getAttribute\("data-note-id"\) \|\| ""\)\.trim\(\) !== note\.id/);
   assert.doesNotMatch(source, /workspace\.outerHTML = this\.renderDeferredNoteWorkspace\(note, tab\)/);
   assert.match(source, /AI 推荐/);
-  assert.match(source, /手动关联/);
+  assert.match(source, /手动搜索/);
   assert.match(source, /候选 \$\{Number\(overview\.wikilinkCount/);
   assert.match(source, /relationState === "error" \? "读取失败" : explicitRelationCount === null \? "读取中"/);
 
   assert.doesNotMatch(source, /提纯与 AI/);
   assert.doesNotMatch(source, /renderRelated\("当前笔记关联总览"\)/);
+  assert.doesNotMatch(source, /永久笔记工作台/);
   assert.doesNotMatch(shell, /关联线索<\/div>/);
   assert.doesNotMatch(source, /主路径下一步/);
   assert.doesNotMatch(source, /<span class="inspector-chip">正文链接 \$\{/);

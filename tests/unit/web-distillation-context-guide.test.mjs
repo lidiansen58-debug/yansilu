@@ -99,7 +99,7 @@ test("distillation next action moves through summary, boundary, confirmation, an
   assert.match(relationsHtml, /4\/4/);
 });
 
-test("distillation focus action switches to the relations tab before jumping to relations", () => {
+test("distillation focus action opens the relation workspace instead of jumping inside the side panel", () => {
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-editor-pane.js"), "utf8");
   const start = source.indexOf('const distillationFocusButton = e.target.closest("[data-note-distillation-focus]")');
   const end = source.indexOf('const distillationConfirmButton = e.target.closest("[data-note-distillation-confirm]")', start);
@@ -110,7 +110,8 @@ test("distillation focus action switches to the relations tab before jumping to 
   assert.match(handler, /target === "confirm"/);
   assert.match(handler, /void this\.confirmDistillation\(\)/);
   assert.match(handler, /target === "relations"/);
-  assert.match(handler, /this\.activatePermanentWorkspaceTab\("relations"\)/);
+  assert.match(handler, /this\.openPermanentRelationWorkspace\(\)/);
+  assert.doesNotMatch(handler, /jumpToInspectorSection\("\[data-note-relations-section\]"\)/);
   assert.match(handler, /textarea\[name="boundaryOrCounterpoint"\]/);
   assert.match(handler, /textarea\[name="\$\{target\}"\]/);
   assert.match(handler, /textarea\[name="thesis"\]/);

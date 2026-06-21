@@ -119,6 +119,15 @@ import {
   renderRelationTemplateVariantSwitcher,
   relationCreateTypeOptionsMarkup
 } from "./editor-relation-helpers.js";
+import { renderPermanentRelationWorkspace } from "./permanent-relation-workspace.js";
+import {
+  defaultPermanentRelationWorkspaceState,
+  normalizePermanentRelationAiCandidates,
+  normalizePermanentRelationWorkspaceState,
+  permanentRelationWorkspaceCanSave,
+  permanentRelationWorkspaceErrorText,
+  resetPermanentRelationWorkspaceResult
+} from "./permanent-relation-workspace-model.js";
 
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
@@ -214,6 +223,9 @@ export class EditorPane {
     this.relationFollowupSuggestion = null;
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
+    this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
+    this.permanentRelationSearchSerial = 0;
+    this.permanentRelationSearchTimer = null;
     this.fleetingCleanupDismissedNoteIds = new Set();
     this.noteAiAnalysisByNoteId = new Map();
     this.noteAiSuggestionsState = {
@@ -4213,6 +4225,343 @@ export class EditorPane {
     return this.relationPanelState;
   }
 
+  permanentRelationWorkspaceAiCandidates(noteId = this.activeNote()?.id || "") {
+    const cleanNoteId = String(noteId || "").trim();
+    return normalizePermanentRelationAiCandidates(this.noteAiAnalysisByNoteId.get(cleanNoteId) || null, cleanNoteId);
+  }
+
+  renderPermanentRelationWorkspaceOverlay(note = this.activeNote()) {
+    if (!note?.id) return "";
+    const state = normalizePermanentRelationWorkspaceState(this.permanentRelationWorkspaceState, note.id);
+    return renderPermanentRelationWorkspace({
+      note,
+      state,
+      relations: this.currentSemanticRelations,
+      aiCandidates: this.permanentRelationWorkspaceAiCandidates(note.id),
+      notes: this.state.notes,
+      deps: {
+        folderLabel: (folderId) => this.folderLabel(folderId),
+        typeFromFolder: (folderId) => typeFromFolder(this.state, folderId)
+      }
+    });
+  }
+
+  permanentRelationWorkspaceElement() {
+    if (typeof document === "undefined") return null;
+    return document.querySelector("[data-permanent-relation-workspace]");
+  }
+
+  bindPermanentRelationWorkspaceOverlayEvents(overlay) {
+    if (!overlay) return;
+    overlay.onclick = (event) => {
+      const modeButton = event.target.closest("[data-permanent-relation-mode]");
+      if (modeButton && !modeButton.hasAttribute("data-permanent-relation-action")) {
+        const mode = String(modeButton.getAttribute("data-permanent-relation-mode") || "").trim();
+        this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+          ...this.permanentRelationWorkspaceState,
+          mode,
+          selectedTargetNoteId: mode === "manual" ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId
+        }));
+        return;
+      }
+
+      const aiTarget = event.target.closest("[data-permanent-relation-ai-target]");
+      if (aiTarget) {
+        this.choosePermanentRelationAiCandidate(aiTarget.getAttribute("data-permanent-relation-ai-target"));
+        return;
+      }
+
+      const manualTarget = event.target.closest("[data-permanent-relation-manual-target]");
+      if (manualTarget) {
+        this.choosePermanentRelationManualTarget(manualTarget.getAttribute("data-permanent-relation-manual-target"));
+        return;
+      }
+
+      const actionButton = event.target.closest("[data-permanent-relation-action]");
+      if (actionButton) {
+        const action = String(actionButton.getAttribute("data-permanent-relation-action") || "").trim();
+        if (action === "close" || action === "complete") this.closePermanentRelationWorkspace();
+        if (action === "continue") this.continuePermanentRelationWorkspace();
+        if (action === "run-ai") {
+          this.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
+          void this.runPermanentNoteAnalysis();
+        }
+        if (action === "preview-target") {
+          const noteId = actionButton.getAttribute("data-note-id") || "";
+          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
+        }
+        return;
+      }
+
+      const relationAction = event.target.closest("[data-relation-action]");
+      if (relationAction?.dataset?.relationAction === "open-edit") {
+        this.openEditRelationForm(relationAction.dataset.relationId);
+      }
+    };
+    overlay.oninput = (event) => {
+      const search = event.target.closest("[data-permanent-relation-target-search]");
+      if (search) {
+        this.queuePermanentRelationManualSearch(search);
+        return;
+      }
+      const field = event.target.closest("[data-permanent-relation-field]");
+      if (field) this.updatePermanentRelationWorkspaceField(field.getAttribute("data-permanent-relation-field"), field.value || "");
+    };
+    overlay.onsubmit = (event) => {
+      const form = event.target.closest("[data-permanent-relation-form]");
+      if (!form) return;
+      event.preventDefault();
+      void this.handlePermanentRelationWorkspaceSubmit(form);
+    };
+  }
+
+  syncPermanentRelationWorkspaceOverlay() {
+    if (typeof document === "undefined") return false;
+    const note = this.activeNote();
+    const existing = this.permanentRelationWorkspaceElement();
+    const html = note?.id ? this.renderPermanentRelationWorkspaceOverlay(note) : "";
+    if (!html) {
+      existing?.remove?.();
+      return false;
+    }
+    if (existing) existing.outerHTML = html;
+    else document.body?.insertAdjacentHTML?.("beforeend", html);
+    this.bindPermanentRelationWorkspaceOverlayEvents(this.permanentRelationWorkspaceElement());
+    return true;
+  }
+
+  openPermanentRelationWorkspace(options = {}) {
+    const note = this.activeNote();
+    if (!note?.id) return false;
+    this.setInspectorVisible(true);
+    this.activatePermanentWorkspaceTab("relations");
+    const aiCandidates = this.permanentRelationWorkspaceAiCandidates(note.id);
+    const requestedMode = String(options.mode || "").trim().toLowerCase();
+    const mode = requestedMode === "manual" || (!aiCandidates.length && requestedMode !== "ai") ? "manual" : "ai";
+    const firstCandidate = aiCandidates[0] || null;
+    const selectedTargetNoteId = String(options.targetNoteId || firstCandidate?.targetNoteId || "").trim();
+    const relationType = String(options.relationType || firstCandidate?.relationType || this.relationCreateDefaultType(note) || "associated_with")
+      .trim()
+      .toLowerCase();
+    const rationale = String(options.rationaleDraft || firstCandidate?.rationaleDraft || "").trim();
+    const insightQuestion = String(options.insightQuestionDraft || firstCandidate?.insightQuestionDraft || "").trim();
+    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+      ...defaultPermanentRelationWorkspaceState(note.id),
+      open: true,
+      mode,
+      selectedTargetNoteId,
+      relationType,
+      rationale,
+      insightQuestion,
+      manualQuery: "",
+      manualTargets: [],
+      notice: options.notice || ""
+    }, note.id);
+    this.syncPermanentRelationWorkspaceOverlay();
+    window.setTimeout(() => {
+      const selector = selectedTargetNoteId
+        ? '[data-permanent-relation-field="rationale"]'
+        : mode === "manual"
+          ? "[data-permanent-relation-target-search]"
+          : "[data-permanent-relation-ai-target]";
+      this.permanentRelationWorkspaceElement()?.querySelector?.(selector)?.focus?.();
+    }, 40);
+    return true;
+  }
+
+  closePermanentRelationWorkspace() {
+    this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState(this.activeNote()?.id || "");
+    this.syncPermanentRelationWorkspaceOverlay();
+  }
+
+  patchPermanentRelationWorkspaceState(patch = {}) {
+    const noteId = this.activeNote()?.id || this.permanentRelationWorkspaceState.noteId || "";
+    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+      ...this.permanentRelationWorkspaceState,
+      ...patch
+    }, noteId);
+    this.syncPermanentRelationWorkspaceOverlay();
+  }
+
+  choosePermanentRelationAiCandidate(targetNoteId = "") {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const targetId = String(targetNoteId || "").trim();
+    const candidate = this.permanentRelationWorkspaceAiCandidates(note.id).find((item) => item.targetNoteId === targetId) || null;
+    if (!candidate) return;
+    this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+      ...this.permanentRelationWorkspaceState,
+      mode: "ai",
+      selectedTargetNoteId: targetId,
+      relationType: candidate.relationType || "associated_with",
+      rationale: candidate.rationaleDraft || "",
+      insightQuestion: candidate.insightQuestionDraft || ""
+    }));
+  }
+
+  choosePermanentRelationManualTarget(targetNoteId = "") {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const targetId = String(targetNoteId || "").trim();
+    const target = this.permanentRelationWorkspaceState.manualTargets.find((item) => item?.id === targetId) || null;
+    this.upsertApiNotes(target ? [target] : []);
+    this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+      ...this.permanentRelationWorkspaceState,
+      mode: "manual",
+      selectedTargetNoteId: targetId,
+      relationType: this.permanentRelationWorkspaceState.relationType || "associated_with",
+      rationale: this.permanentRelationWorkspaceState.rationale || ""
+    }));
+  }
+
+  async refreshPermanentRelationManualSearch(query = "") {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const serial = ++this.permanentRelationSearchSerial;
+    const cleanQuery = String(query || "").trim();
+    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+      ...this.permanentRelationWorkspaceState,
+      mode: "manual",
+      manualQuery: cleanQuery,
+      searchState: cleanQuery ? "loading" : "idle",
+      error: "",
+      notice: ""
+    }, note.id);
+    this.syncPermanentRelationWorkspaceOverlay();
+    if (cleanQuery) {
+      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
+    }
+    if (!cleanQuery) {
+      this.patchPermanentRelationWorkspaceState({ manualTargets: [], searchState: "idle" });
+      return;
+    }
+    try {
+      const result = await searchNotes({
+        query: cleanQuery,
+        rootDirectoryId: this.relationTargetSearchRootId(note),
+        excludeNoteId: note.id,
+        limit: 30
+      });
+      if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
+      const items = Array.isArray(result?.items) ? result.items : [];
+      this.upsertApiNotes(items);
+      this.patchPermanentRelationWorkspaceState({
+        manualTargets: items,
+        searchState: "loaded",
+        notice: items.length ? "" : "没有匹配笔记。"
+      });
+      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
+    } catch (error) {
+      if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
+      this.patchPermanentRelationWorkspaceState({
+        searchState: "error",
+        error: `搜索失败：${String(error?.message || error)}`
+      });
+      window.setTimeout(() => this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-search]")?.focus?.(), 0);
+    }
+  }
+
+  queuePermanentRelationManualSearch(input) {
+    window.clearTimeout(this.permanentRelationSearchTimer);
+    const query = input?.value || "";
+    this.permanentRelationSearchTimer = window.setTimeout(() => {
+      void this.refreshPermanentRelationManualSearch(query);
+    }, 180);
+  }
+
+  updatePermanentRelationWorkspaceField(field = "", value = "") {
+    const key = String(field || "").trim();
+    if (!["relationType", "rationale", "insightQuestion"].includes(key)) return;
+    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+      ...this.permanentRelationWorkspaceState,
+      [key]: String(value || "").trim()
+    }), this.activeNote()?.id || this.permanentRelationWorkspaceState.noteId || "");
+  }
+
+  async handlePermanentRelationWorkspaceSubmit(form = null) {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const data = new FormData(form);
+    const state = normalizePermanentRelationWorkspaceState({
+      ...this.permanentRelationWorkspaceState,
+      relationType: data.get("relationType"),
+      rationale: data.get("rationale"),
+      insightQuestion: data.get("insightQuestion")
+    }, note.id);
+    const validation = permanentRelationWorkspaceCanSave({
+      state,
+      relations: this.currentSemanticRelations
+    });
+    if (!validation.ok) {
+      this.patchPermanentRelationWorkspaceState({
+        ...state,
+        error: permanentRelationWorkspaceErrorText(validation.reason),
+        notice: ""
+      });
+      return;
+    }
+    this.patchPermanentRelationWorkspaceState({ ...state, saveState: "saving", error: "", notice: "" });
+    try {
+      const relation = await createNoteRelation(note.id, {
+        toNoteId: state.selectedTargetNoteId,
+        relationType: state.relationType,
+        rationale: state.rationale,
+        insightQuestion: state.insightQuestion,
+        confidence: 1,
+        status: "confirmed"
+      });
+      const target = this.state.notes.find((item) => item.id === state.selectedTargetNoteId) || null;
+      this.syncRelationNetworkConnected(note.id, state.selectedTargetNoteId);
+      await this.refreshRelationNetworkStatuses(note.id, state.selectedTargetNoteId);
+      if (!this.isActiveNoteId(note.id)) return;
+      this.setRelationFollowupSuggestion(
+        relationFollowupSuggestionForDraft({
+          noteId: note.id,
+          relationId: relation?.id || relation?.relationId || "",
+          relationType: state.relationType,
+          rationale: state.rationale,
+          insightQuestion: state.insightQuestion,
+          targetTitle: target?.title || state.selectedTargetNoteId
+        })
+      );
+      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+        ...state,
+        open: true,
+        saveState: "saved",
+        error: "",
+        notice: "",
+        result: {
+          targetNoteId: state.selectedTargetNoteId,
+          targetTitle: target?.title || state.selectedTargetNoteId,
+          relationType: state.relationType,
+          created: relation?.created !== false
+        }
+      }, note.id);
+      this.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已保存。");
+      this.syncPermanentRelationWorkspaceOverlay();
+      this.onStatus(relation?.created === false ? "关系已存在，已复用。" : "关系已保存。", "ok");
+    } catch (error) {
+      if (!this.isActiveNoteId(note.id)) return;
+      this.patchPermanentRelationWorkspaceState({
+        saveState: "error",
+        error: `保存失败：${String(error?.message || error)}`
+      });
+      this.onStatus(`关系保存失败：${String(error?.message || error)}`, "warn");
+    }
+  }
+
+  continuePermanentRelationWorkspace() {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+      ...defaultPermanentRelationWorkspaceState(note.id),
+      open: true,
+      mode: this.permanentRelationWorkspaceAiCandidates(note.id).length ? "ai" : "manual",
+      relationType: this.relationCreateDefaultType(note)
+    }, note.id);
+    this.syncPermanentRelationWorkspaceOverlay();
+  }
+
   renderSemanticRelationsErrorSection(noteId, error) {
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
@@ -4278,6 +4627,7 @@ export class EditorPane {
         this.notifyWorkflowReminder({ kind: "relation-network", note, overview });
         this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
+        this.syncPermanentRelationWorkspaceOverlay();
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (section && section.getAttribute("data-note-id") === noteId && !this.shouldPreserveRelationSection(section)) {
@@ -4303,6 +4653,7 @@ export class EditorPane {
         this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
         this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
+        this.syncPermanentRelationWorkspaceOverlay();
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (section && section.getAttribute("data-note-id") === noteId && !this.shouldPreserveRelationSection(section)) {
@@ -4594,7 +4945,22 @@ export class EditorPane {
         relationState: this.semanticRelationsState
       });
       this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
-      this.onStatus("AI 推荐已更新，请在当前关联区选择是否保存。", "ok");
+      if (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId === noteId) {
+        const firstCandidate = this.permanentRelationWorkspaceAiCandidates(noteId)[0] || null;
+        this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+          ...this.permanentRelationWorkspaceState,
+          mode: "ai",
+          selectedTargetNoteId: firstCandidate?.targetNoteId || this.permanentRelationWorkspaceState.selectedTargetNoteId,
+          relationType: firstCandidate?.relationType || this.permanentRelationWorkspaceState.relationType,
+          rationale: firstCandidate?.rationaleDraft || this.permanentRelationWorkspaceState.rationale,
+          insightQuestion: firstCandidate?.insightQuestionDraft || this.permanentRelationWorkspaceState.insightQuestion,
+          saveState: "idle",
+          error: "",
+          notice: firstCandidate ? "" : "暂时没有推荐，可以手动搜索。"
+        }, noteId);
+        this.syncPermanentRelationWorkspaceOverlay();
+      }
+      this.onStatus("AI 推荐已更新，请确认是否保存关系。", "ok");
       void this.refreshNoteAiSuggestions(noteId);
     }
   }
@@ -5272,7 +5638,7 @@ export class EditorPane {
       <section class="inspector-section permanent-workspace-current" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">当前建议</div>
+            <div class="inspector-section-title">下一步</div>
             <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
           </div>
         </div>
@@ -5488,8 +5854,8 @@ export class EditorPane {
       <section class="inspector-deferred-workspace permanent-note-workspace" data-deferred-workspace data-permanent-note-workspace data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head permanent-workspace-head">
           <div>
-            <div class="inspector-section-title">永久笔记工作台</div>
-            <div class="inspector-section-note">关联、观点提纯和写作准备分开处理；当前建议只给一个主动作。</div>
+            <div class="inspector-section-title">永久笔记整理</div>
+            <div class="inspector-section-note">关联、观点提纯和写作准备分开处理；这里只给一个主动作。</div>
           </div>
         </div>
         <div class="inspector-deferred-body">
@@ -5531,8 +5897,8 @@ export class EditorPane {
             : ""
         }
         <div class="semantic-relation-actions">
-          <button class="mini-btn primary" type="button" data-note-ai-analysis>${escapeHtml(analysis ? "重新推荐" : "AI 推荐")}</button>
-          <button class="mini-btn" type="button" data-relation-action="open-create">手动关联</button>
+          <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai">${escapeHtml(analysis ? "整理关系" : "AI 推荐")}</button>
+          <button class="mini-btn" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="manual">手动搜索</button>
         </div>
       </section>
     `;
@@ -6590,6 +6956,8 @@ export class EditorPane {
       this.currentSemanticRelations = null;
       this.semanticRelationsState = "idle";
       this.resetRelationPanelState("");
+      this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
+      this.syncPermanentRelationWorkspaceOverlay();
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
       return;
     }
@@ -6601,6 +6969,10 @@ export class EditorPane {
     const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
     const isPermanentNote = this.isOriginalNote(note);
     const isRecordableSource = this.isOriginalRecordableSource(note);
+    if (!isPermanentNote || (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId && this.permanentRelationWorkspaceState.noteId !== note.id)) {
+      this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState(isPermanentNote ? note.id : "");
+      this.syncPermanentRelationWorkspaceOverlay();
+    }
 
     const renderNoteItem = (n, badgeText = "") => `
       <button class="related-item" data-preview-note="${n.id}">
@@ -7208,6 +7580,54 @@ export class EditorPane {
         this.applyRelationTemplateVariant(templateVariantButton);
         return;
       }
+      const permanentRelationMode = e.target.closest("[data-permanent-relation-mode]");
+      if (permanentRelationMode && !permanentRelationMode.hasAttribute("data-permanent-relation-action")) {
+        const mode = String(permanentRelationMode.getAttribute("data-permanent-relation-mode") || "").trim();
+        this.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+          ...this.permanentRelationWorkspaceState,
+          mode,
+          selectedTargetNoteId: mode === "manual" ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId
+        }));
+        return;
+      }
+      const permanentRelationAiTarget = e.target.closest("[data-permanent-relation-ai-target]");
+      if (permanentRelationAiTarget) {
+        this.choosePermanentRelationAiCandidate(permanentRelationAiTarget.getAttribute("data-permanent-relation-ai-target"));
+        return;
+      }
+      const permanentRelationManualTarget = e.target.closest("[data-permanent-relation-manual-target]");
+      if (permanentRelationManualTarget) {
+        this.choosePermanentRelationManualTarget(permanentRelationManualTarget.getAttribute("data-permanent-relation-manual-target"));
+        return;
+      }
+      const permanentRelationAction = e.target.closest("[data-permanent-relation-action]");
+      if (permanentRelationAction) {
+        const action = String(permanentRelationAction.getAttribute("data-permanent-relation-action") || "").trim();
+        if (action === "open") {
+          this.openPermanentRelationWorkspace({
+            mode: permanentRelationAction.getAttribute("data-permanent-relation-mode") || ""
+          });
+          return;
+        }
+        if (action === "close" || action === "complete") {
+          this.closePermanentRelationWorkspace();
+          return;
+        }
+        if (action === "continue") {
+          this.continuePermanentRelationWorkspace();
+          return;
+        }
+        if (action === "run-ai") {
+          this.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
+          void this.runPermanentNoteAnalysis();
+          return;
+        }
+        if (action === "preview-target") {
+          const noteId = permanentRelationAction.getAttribute("data-note-id") || "";
+          if (noteId) void this.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
+          return;
+        }
+      }
       const relationTargetChoice = e.target.closest("[data-relation-target-choice]");
       if (relationTargetChoice) {
         const form = relationTargetChoice.closest("[data-create-relation-form]");
@@ -7222,8 +7642,8 @@ export class EditorPane {
       if (relationAction) {
         const action = relationAction.dataset.relationAction;
         if (action === "open-create") {
-          this.activatePermanentWorkspaceTab("relations");
-          this.openCreateRelationForm();
+          this.openPermanentRelationWorkspace({ mode: "manual" });
+          return;
         }
         if (action === "open-followup-reason") {
           const relationId = relationAction.dataset.relationId || this.relationFollowupSuggestion?.relationId || "";
@@ -7278,8 +7698,7 @@ export class EditorPane {
           return;
         }
         if (target === "relations") {
-          this.activatePermanentWorkspaceTab("relations");
-          window.setTimeout(() => this.jumpToInspectorSection("[data-note-relations-section]"), 0);
+          this.openPermanentRelationWorkspace();
           return;
         }
         const focusSelector =
@@ -7355,40 +7774,14 @@ export class EditorPane {
           return;
         }
         if (action === "relations") {
-          this.activatePermanentWorkspaceTab("relations");
-          if (this.semanticRelationsState === "loading") {
-            this.jumpToInspectorSection("[data-note-relations-section]");
-            this.onStatus("关系仍在加载中，先看当前关系区；加载完成后再决定是否新建关系。", "warn");
-            return;
-          }
-          if (this.semanticRelationsState === "error") {
-            this.openCreateRelationForm();
-            window.setTimeout(() => {
-              this.jumpToInspectorSection("[data-create-relation-form]", {
-                focus: true,
-                focusSelector: '[data-create-relation-form] [data-relation-target-search]'
-              });
-            }, 40);
-            this.onStatus("关系读取失败，已切到手动新建关系，你仍然可以继续补这条连接。", "warn");
-            return;
-          }
-          const explicitRelationCount = this.currentExplicitRelationCount();
-          if (explicitRelationCount === null) {
-            this.jumpToInspectorSection("[data-note-relations-section]");
-            this.onStatus("关系仍在加载中，先看当前关系区；加载完成后再决定是否新建关系。", "warn");
-            return;
-          }
-          if (explicitRelationCount === 0) {
-            this.openCreateRelationForm();
-            window.setTimeout(() => {
-              this.jumpToInspectorSection("[data-create-relation-form]", {
-                focus: true,
-                focusSelector: '[data-create-relation-form] [data-relation-target-search]'
-              });
-            }, 40);
-            return;
-          }
-          this.jumpToInspectorSection("[data-note-relations-section]");
+          this.openPermanentRelationWorkspace({
+            notice:
+              this.semanticRelationsState === "loading"
+                ? "关系还在读取，可以先选择目标，保存前会再次确认。"
+                : this.semanticRelationsState === "error"
+                  ? "关系读取失败，你仍然可以先手动补一条确定的连接。"
+                  : ""
+          });
           return;
         }
         if (action === "graph" || action === "writing") {
@@ -7451,6 +7844,19 @@ export class EditorPane {
         this.queueRelationTargetSearch(targetSearch);
         return;
       }
+      const permanentRelationSearch = e.target.closest("[data-permanent-relation-target-search]");
+      if (permanentRelationSearch) {
+        this.queuePermanentRelationManualSearch(permanentRelationSearch);
+        return;
+      }
+      const permanentRelationField = e.target.closest("[data-permanent-relation-field]");
+      if (permanentRelationField) {
+        this.updatePermanentRelationWorkspaceField(
+          permanentRelationField.getAttribute("data-permanent-relation-field"),
+          permanentRelationField.value || ""
+        );
+        return;
+      }
       const relationTextInput = e.target.closest('textarea[name="rationale"], textarea[name="insightQuestion"]');
       if (relationTextInput) {
         const form = relationTextInput.closest("[data-create-relation-form], [data-edit-relation-form]");
@@ -7503,6 +7909,12 @@ export class EditorPane {
       if (distillationForm) {
         e.preventDefault();
         void this.handleDistillationForm(distillationForm);
+        return;
+      }
+      const permanentRelationForm = e.target.closest("[data-permanent-relation-form]");
+      if (permanentRelationForm) {
+        e.preventDefault();
+        void this.handlePermanentRelationWorkspaceSubmit(permanentRelationForm);
         return;
       }
       const form = e.target.closest("[data-create-relation-form], [data-edit-relation-form]");
