@@ -4,16 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  readGraphIsolatedRelationFormValues,
-  validateGraphIsolatedRelationFormValues
-} from "../../apps/web/src/graph-relation-confirmation.js";
-import {
-  aiCandidateDraftFromSelect,
-  captureGraphIsolatedRelationDraftForState,
-  graphIsolatedRelationDraftForState,
-  isolatedRelationDraftFromForm
-} from "../../apps/web/src/graph-relation-drafts.js";
-import {
   graphBlockedAiRelationPairKeysForNote as moduleGraphBlockedAiRelationPairKeysForNote,
   graphCandidateBlocksFormalRelation as moduleGraphCandidateBlocksFormalRelation,
   graphMergeRelationCandidatesForDisplay as moduleGraphMergeRelationCandidatesForDisplay,
@@ -36,6 +26,10 @@ function readPrototypeApp() {
 
 function readGraphIsolatedRelationWorkspace() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-relation-workspace.js"), "utf8");
+}
+
+function readGraphIsolatedRelationController() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-relation-controller.js"), "utf8");
 }
 
 const mojibakeCopyPattern = new RegExp("\\u93b5\\u5b0d|\\u93b5\\u5b35|\\u93b5\\u5b2a\\u4f10|\\u934f\\u5d07\\u90f4|\\u951b");
@@ -375,6 +369,7 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
 test("isolated graph notes can request AI-assisted relation candidates and save them inside the graph workspace", () => {
   const source = readPrototypeApp();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
+  const relationControllerSource = readGraphIsolatedRelationController();
   const html = readPrototypeHtml();
   const isolatedWorkflowStart = source.indexOf('function renderGraphIsolatedWorkflowTabs({ noteId = "", isolatedQueueMarkup = "", decisionCards = [], prompts = [], nodeMap = new Map(), edges = [], visibleEdgeCount = 0 } = {}) {');
   const isolatedWorkflowEnd = source.indexOf('function activateGraphIsolatedWorkflowTab(', isolatedWorkflowStart);
@@ -489,21 +484,27 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /<div class="graph-selection-overlay" role="dialog" aria-modal="false"/);
   assert.match(joinWorkspaceSource, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
   assert.match(source, /function syncGraphIsolatedAiCandidateForm\(select = null\) \{/);
+  assert.match(source, /return graphIsolatedRelationController\.syncAiCandidateForm\(select\);/);
   assert.match(source, /function markGraphIsolatedRationaleUserEdited\(input = null\) \{/);
+  assert.match(source, /return graphIsolatedRelationController\.markRationaleUserEdited\(input\);/);
   assert.match(source, /function updateGraphIsolatedInlinePreview\(form = null, source = null\) \{/);
-  assert.match(source, /updateGraphIsolatedInlinePreview\(form, nextDraft\.option\)/);
-  assert.match(source, /updateGraphIsolatedInlinePreview\(form, button\)/);
-  assert.match(source, /const clearButton = panel\.querySelector\("\[data-graph-clear-candidate-preview\]"\);/);
-  assert.match(source, /if \(clearButton\) clearButton\.hidden = !title;/);
-  assert.match(source, /delete graphState\.isolatedCandidatePreviewByNoteId\[noteId\];/);
+  assert.match(source, /return graphIsolatedRelationController\.updateInlinePreview\(form, source\);/);
+  assert.match(relationControllerSource, /updateInlinePreview\(form, nextDraft\.option\)/);
+  assert.match(relationControllerSource, /updateInlinePreview\(form, button\)/);
+  assert.match(relationControllerSource, /const clearButton = panel\.querySelector\("\[data-graph-clear-candidate-preview\]"\);/);
+  assert.match(relationControllerSource, /if \(clearButton\) clearButton\.hidden = !title;/);
+  assert.match(relationControllerSource, /delete graphState\.isolatedCandidatePreviewByNoteId\[noteId\];/);
   assert.match(source, /function filterGraphManualRelationTargets\(input = null\) \{/);
+  assert.match(source, /return graphIsolatedRelationController\.filterManualRelationTargets\(input\);/);
   assert.match(source, /function pickGraphManualRelationTarget\(button = null\) \{/);
+  assert.match(source, /return graphIsolatedRelationController\.pickManualRelationTarget\(button\);/);
   assert.doesNotMatch(source, /if \(relationSelect\) relationSelect\.value = "associated_with";/);
-  assert.match(source, /input\.removeAttribute\("data-selected-title"\)/);
-  assert.match(source, /rationaleInput\.setAttribute\("data-graph-rationale-source", "manual"\)/);
-  assert.match(source, /button\.classList\.remove\("is-selected"\)/);
-  assert.match(source, /input\.setAttribute\("data-selected-title", title\)/);
+  assert.match(relationControllerSource, /input\.removeAttribute\("data-selected-title"\)/);
+  assert.match(relationControllerSource, /rationaleInput\.setAttribute\("data-graph-rationale-source", "manual"\)/);
+  assert.match(relationControllerSource, /button\.classList\.remove\("is-selected"\)/);
+  assert.match(relationControllerSource, /input\.setAttribute\("data-selected-title", title\)/);
   assert.match(source, /async function saveGraphIsolatedRelationForm\(button = null\) \{/);
+  assert.match(source, /return graphIsolatedRelationController\.saveRelationForm\(button\);/);
   assert.match(source, /const rationaleInput = event\.target\.closest\("\[data-graph-isolated-rationale\]"\);/);
   assert.match(source, /markGraphIsolatedRationaleUserEdited\(rationaleInput\);/);
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
@@ -924,6 +925,7 @@ test("graph isolated notes are organized into a continuous handling queue", () =
 test("graph isolated workspace offers non-AI relation candidates from tags and titles", () => {
   const source = readPrototypeApp();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
+  const relationControllerSource = readGraphIsolatedRelationController();
   const isolatedSelectionStart = source.indexOf('function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {');
   const isolatedSelectionEnd = source.indexOf('function renderGraphBridgeSelectionPanel(', isolatedSelectionStart);
   assert.ok(isolatedSelectionStart >= 0 && isolatedSelectionEnd > isolatedSelectionStart, "expected renderGraphIsolatedSelectionPanel() to exist");
@@ -951,8 +953,11 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(joinWorkspaceSource, /data-graph-target-panel="ai"/);
   assert.match(joinWorkspaceSource, /data-graph-target-panel="manual"/);
   assert.match(source, /function activateGraphIsolatedWorkflowTab\(tabButton = null, \{ focus = false \} = \{\}\) \{/);
-  assert.match(source, /setGraphIsolatedWorkflowActiveTab\(noteId, tabKey\)/);
+  assert.match(source, /return graphIsolatedRelationController\.activateWorkflowTab\(tabButton, \{ focus \}\);/);
+  assert.match(source, /setWorkflowActiveTab: setGraphIsolatedWorkflowActiveTab/);
+  assert.match(relationControllerSource, /setWorkflowActiveTab\(noteId, tabKey\)/);
   assert.match(source, /function moveGraphIsolatedWorkflowTab\(currentButton = null, direction = 1\) \{/);
+  assert.match(source, /return graphIsolatedRelationController\.moveWorkflowTab\(currentButton, direction\);/);
   assert.match(source, /isolatedWorkflowTabsByNoteId: \{\},/);
   assert.match(source, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(nextItem\.noteId\)\}"/);
   assert.match(source, /actionAttrs: `data-graph-select-isolated="\$\{escapeHtml\(isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(noteId\)\}"`/);
@@ -1082,277 +1087,6 @@ test("graph relation save rejects placeholder rationales", () => {
   assert.equal(graphRelationRationaleIsActionable("因为："), false);
   assert.equal(graphRelationRationaleIsActionable("TODO: 补充关系理由"), false);
   assert.equal(graphRelationRationaleIsActionable("甲能作为乙的边界条件，因为它说明了适用范围。"), true);
-});
-
-test("graph isolated relation form keeps placeholder-rationale errors inside the overlay", async () => {
-  const source = readPrototypeApp();
-  const { saveGraphIsolatedRelationForm, wasConfirmed } = new Function(`
-    let confirmed = false;
-    const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
-    function graphIsolatedWorkflowTabKey(value = "") {
-      return String(value || "").trim().toLowerCase() === "manual" ? "manual" : "ai";
-    }
-    function graphIsolatedFormError(form = null, message = "") {
-      if (form) form.inlineError = String(message || "");
-    }
-    const readGraphIsolatedRelationFormValues = ${readGraphIsolatedRelationFormValues.toString()};
-    const validateGraphIsolatedRelationFormValues = ${validateGraphIsolatedRelationFormValues.toString()};
-    const graphRelationRationaleIsActionable = ${moduleGraphRelationRationaleIsActionable.toString()};
-    async function saveGraphConfirmedRelation() {
-      confirmed = true;
-      return true;
-    }
-    ${extractFunctionSource(source, "saveGraphIsolatedRelationForm")}
-    return { saveGraphIsolatedRelationForm, wasConfirmed: () => confirmed };
-  `)();
-  const controls = new Map([
-    ["[data-graph-relation-source-mode]", { value: "manual" }],
-    ["[data-graph-ai-candidate-select]", { value: "" }],
-    ["[data-graph-manual-target-id]", { value: "target-note" }],
-    ["[data-graph-isolated-relation-type]", { value: "associated_with" }],
-    ["[data-graph-isolated-rationale]", { value: "我确认“甲”和“乙”应该关联，因为：________。" }],
-    ["[data-graph-isolated-insight-question]", { value: "" }]
-  ]);
-  const form = {
-    inlineError: "",
-    getAttribute(name) {
-      return name === "data-source-note" ? "source-note" : "";
-    },
-    querySelector(selector) {
-      return controls.get(selector) || null;
-    }
-  };
-  const button = {
-    closest(selector) {
-      return selector === "[data-graph-isolated-relation-form]" ? form : null;
-    }
-  };
-
-  const saved = await saveGraphIsolatedRelationForm(button);
-
-  assert.equal(saved, false);
-  assert.equal(wasConfirmed(), false);
-  assert.match(form.inlineError, /请把关联理由写完整/);
-});
-
-test("graph isolated relation form keeps invalid relation type errors inside the overlay", async () => {
-  const source = readPrototypeApp();
-  const { saveGraphIsolatedRelationForm, wasConfirmed } = new Function(`
-    let confirmed = false;
-    const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
-    function graphIsolatedWorkflowTabKey(value = "") {
-      return String(value || "").trim().toLowerCase() === "manual" ? "manual" : "ai";
-    }
-    function graphIsolatedFormError(form = null, message = "") {
-      if (form) form.inlineError = String(message || "");
-    }
-    const readGraphIsolatedRelationFormValues = ${readGraphIsolatedRelationFormValues.toString()};
-    const validateGraphIsolatedRelationFormValues = ${validateGraphIsolatedRelationFormValues.toString()};
-    const graphRelationRationaleIsActionable = ${moduleGraphRelationRationaleIsActionable.toString()};
-    async function saveGraphConfirmedRelation() {
-      confirmed = true;
-      return true;
-    }
-    ${extractFunctionSource(source, "saveGraphIsolatedRelationForm")}
-    return { saveGraphIsolatedRelationForm, wasConfirmed: () => confirmed };
-  `)();
-  const controls = new Map([
-    ["[data-graph-relation-source-mode]", { value: "manual" }],
-    ["[data-graph-ai-candidate-select]", { value: "" }],
-    ["[data-graph-manual-target-id]", { value: "target-note" }],
-    ["[data-graph-isolated-relation-type]", { value: "no_relation" }],
-    ["[data-graph-isolated-rationale]", { value: "甲能作为乙的边界条件，因为它说明了适用范围。" }],
-    ["[data-graph-isolated-insight-question]", { value: "" }]
-  ]);
-  const form = {
-    inlineError: "",
-    getAttribute(name) {
-      return name === "data-source-note" ? "source-note" : "";
-    },
-    querySelector(selector) {
-      return controls.get(selector) || null;
-    }
-  };
-  const button = {
-    closest(selector) {
-      return selector === "[data-graph-isolated-relation-form]" ? form : null;
-    }
-  };
-
-  const saved = await saveGraphIsolatedRelationForm(button);
-
-  assert.equal(saved, false);
-  assert.equal(wasConfirmed(), false);
-  assert.match(form.inlineError, /请选择一种可以保存为正式关系的类型/);
-});
-
-test("graph isolated relation rationale user edits are not overwritten by manual target picking", () => {
-  const source = readPrototypeApp();
-  const { pickGraphManualRelationTarget, markGraphIsolatedRationaleUserEdited } = new Function(`
-    function graphIsolatedFormError(form = null, message = "") {
-      if (form) form.inlineError = String(message || "");
-    }
-    function updateGraphIsolatedInlinePreview() {}
-    function captureGraphIsolatedRelationDraftFromForm() {}
-    ${extractFunctionSource(source, "markGraphIsolatedRationaleUserEdited")}
-    ${extractFunctionSource(source, "pickGraphManualRelationTarget")}
-    return { pickGraphManualRelationTarget, markGraphIsolatedRationaleUserEdited };
-  `)();
-  const rationaleInput = {
-    value: "用户自己写好的关系理由。",
-    attrs: new Map([["data-graph-rationale-source", "manual"]]),
-    getAttribute(name) {
-      return this.attrs.get(name) || "";
-    },
-    setAttribute(name, value) {
-      this.attrs.set(name, String(value));
-    },
-    closest(selector) {
-      return selector === "[data-graph-isolated-relation-form]" ? form : null;
-    }
-  };
-  const controls = new Map([
-    ["[data-graph-manual-target-id]", { value: "" }],
-    ["[data-graph-manual-target-search]", { value: "", setAttribute() {} }],
-    ["[data-graph-manual-target-status]", { textContent: "" }],
-    ["[data-graph-isolated-rationale]", rationaleInput],
-    ["[data-graph-isolated-relation-type]", { value: "associated_with", getAttribute() { return "associated_with"; } }],
-    ["[data-graph-isolated-insight-question]", { value: "old question" }]
-  ]);
-  const form = {
-    inlineError: "",
-    querySelector(selector) {
-      return controls.get(selector) || null;
-    },
-    querySelectorAll(selector) {
-      return selector === "[data-graph-pick-manual-target]" ? [button] : [];
-    }
-  };
-  const button = {
-    classList: { toggle() {} },
-    textContent: "目标笔记",
-    closest(selector) {
-      return selector === "[data-graph-isolated-relation-form]" ? form : null;
-    },
-    getAttribute(name) {
-      const attrs = {
-        "data-graph-pick-manual-target": "target-note",
-        "data-graph-manual-title": "目标笔记",
-        "data-graph-manual-rationale": "系统模板理由，不应该覆盖。"
-      };
-      return attrs[name] || "";
-    }
-  };
-
-  markGraphIsolatedRationaleUserEdited(rationaleInput);
-  pickGraphManualRelationTarget(button);
-
-  assert.equal(rationaleInput.value, "用户自己写好的关系理由。");
-  assert.equal(rationaleInput.getAttribute("data-graph-rationale-source"), "user");
-});
-
-test("graph isolated relation draft keeps AI and manual work separate", () => {
-  const source = readPrototypeApp();
-  assert.match(source, /from "\.\/graph-relation-drafts\.js";/);
-  assert.match(source, /function graphIsolatedRelationDraftForNote\(noteId = ""\) \{\s*return graphIsolatedRelationDraftForState\(graphState, noteId\);/);
-  assert.match(source, /function captureGraphIsolatedRelationDraftFromForm\(form = null\) \{\s*return captureGraphIsolatedRelationDraftForState\(graphState, form, \{/);
-  assert.match(source, /const nextDraft = aiCandidateDraftFromSelect\(select, draft\);/);
-  const { captureGraphIsolatedRelationDraftFromForm, syncGraphIsolatedAiCandidateForm, graphState } = new Function(`
-    const graphState = { isolatedRelationDraftByNoteId: {} };
-    function graphIsolatedWorkflowTabKey(value = "") {
-      const key = String(value || "").trim().toLowerCase();
-      return ["ai", "manual"].includes(key) ? key : "ai";
-    }
-    ${graphIsolatedRelationDraftForState.toString()}
-    ${isolatedRelationDraftFromForm.toString()}
-    ${captureGraphIsolatedRelationDraftForState.toString()}
-    ${aiCandidateDraftFromSelect.toString()}
-    ${extractFunctionSource(source, "graphIsolatedRelationDraftForNote")}
-    function updateGraphIsolatedInlinePreview() {}
-    function graphIsolatedFormError(form = null, message = "") {
-      if (form) form.inlineError = String(message || "");
-    }
-    ${extractFunctionSource(source, "captureGraphIsolatedRelationDraftFromForm")}
-    ${extractFunctionSource(source, "syncGraphIsolatedAiCandidateForm")}
-    return { captureGraphIsolatedRelationDraftFromForm, syncGraphIsolatedAiCandidateForm, graphState };
-  `)();
-  const modeInput = { value: "manual" };
-  const aiOption = {
-    getAttribute(name) {
-      const attrs = {
-        "data-graph-relation-type": "supports",
-        "data-graph-rationale-draft": "AI 生成的理由，不应该覆盖用户输入。",
-        "data-graph-insight-question-draft": "AI question"
-      };
-      return attrs[name] || "";
-    }
-  };
-  const aiSelect = {
-    value: "ai-target",
-    selectedOptions: [aiOption],
-    closest(selector) {
-      return selector === "[data-graph-isolated-relation-form]" ? form : null;
-    }
-  };
-  const manualTarget = { value: "manual-target" };
-  const manualSearch = { value: "Manual Target" };
-  const relationSelect = { value: "bridges" };
-  const rationaleInput = {
-    value: "用户已经写好的关联理由，不应该被 AI 覆盖。",
-    attrs: new Map([["data-graph-rationale-source", "user"]]),
-    getAttribute(name) {
-      return this.attrs.get(name) || "";
-    },
-    setAttribute(name, value) {
-      this.attrs.set(name, String(value));
-    }
-  };
-  const questionInput = { value: "manual question" };
-  const controls = new Map([
-    ["[data-graph-relation-source-mode]", modeInput],
-    ["[data-graph-ai-candidate-select]", aiSelect],
-    ["[data-graph-manual-target-id]", manualTarget],
-    ["[data-graph-manual-target-search]", manualSearch],
-    ["[data-graph-isolated-rationale]", rationaleInput],
-    ["[data-graph-isolated-relation-type]", relationSelect],
-    ["[data-graph-isolated-insight-question]", questionInput]
-  ]);
-  const form = {
-    inlineError: "",
-    getAttribute(name) {
-      return name === "data-source-note" ? "current" : "";
-    },
-    querySelector(selector) {
-      return controls.get(selector) || null;
-    }
-  };
-
-  captureGraphIsolatedRelationDraftFromForm(form);
-  modeInput.value = "ai";
-  syncGraphIsolatedAiCandidateForm(aiSelect);
-
-  assert.equal(relationSelect.value, "supports");
-  assert.equal(rationaleInput.value, "AI 生成的理由，不应该覆盖用户输入。");
-  assert.equal(rationaleInput.getAttribute("data-graph-rationale-source"), "ai");
-  assert.deepEqual(graphState.isolatedRelationDraftByNoteId.current, {
-    mode: "ai",
-    targetNoteId: "ai-target",
-    aiTargetNoteId: "ai-target",
-    manualTargetNoteId: "manual-target",
-    manualSearchText: "Manual Target",
-    relationType: "supports",
-    rationale: "AI 生成的理由，不应该覆盖用户输入。",
-    rationaleSource: "ai",
-    insightQuestion: "AI question",
-    aiRelationType: "supports",
-    aiRationale: "AI 生成的理由，不应该覆盖用户输入。",
-    aiRationaleSource: "ai",
-    aiInsightQuestion: "AI question",
-    manualRelationType: "bridges",
-    manualRationale: "用户已经写好的关联理由，不应该被 AI 覆盖。",
-    manualRationaleSource: "user",
-    manualInsightQuestion: "manual question"
-  });
 });
 
 test("graph relation candidates explain reason, possible relation, and review question", () => {
