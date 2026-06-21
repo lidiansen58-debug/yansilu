@@ -32,6 +32,10 @@ function readGraphIsolatedRelationController() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-relation-controller.js"), "utf8");
 }
 
+function readGraphRelationSaveController() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-relation-save-controller.js"), "utf8");
+}
+
 const mojibakeCopyPattern = new RegExp("\\u93b5\\u5b0d|\\u93b5\\u5b35|\\u93b5\\u5b2a\\u4f10|\\u934f\\u5d07\\u90f4|\\u951b");
 
 function readPrototypeHtml() {
@@ -370,6 +374,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const source = readPrototypeApp();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
+  const saveControllerSource = readGraphRelationSaveController();
   const html = readPrototypeHtml();
   const isolatedWorkflowStart = source.indexOf('function renderGraphIsolatedWorkflowTabs({ noteId = "", isolatedQueueMarkup = "", decisionCards = [], prompts = [], nodeMap = new Map(), edges = [], visibleEdgeCount = 0 } = {}) {');
   const isolatedWorkflowEnd = source.indexOf('function activateGraphIsolatedWorkflowTab(', isolatedWorkflowStart);
@@ -530,8 +535,12 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /const returnTo = previousSelectionKind === "isolated" \|\| previousSelectionKind === "isolatedcomplete" \? "isolated" : "";/);
   assert.match(source, /rationale,\s*returnTo\s*\}/);
   assert.match(source, /returnTo: String\(selection\?\.returnTo \|\| ""\)\.trim\(\)\.toLowerCase\(\)/);
-  assert.match(source, /from "\.\/graph-relation-save-flow\.js";/);
-  assert.match(source, /graphRelationSaveSelection\(\{ previousSelection, button, noteId: cleanNoteId \}\)/);
+  assert.match(source, /from "\.\/graph-relation-save-controller\.js";/);
+  assert.match(source, /createGraphRelationSaveController\(\{/);
+  assert.match(source, /saveConfirmedRelation: saveGraphConfirmedRelation/);
+  assert.match(source, /openRelationFormInSelection: openGraphRelationFormInSelection/);
+  assert.match(saveControllerSource, /from "\.\/graph-relation-save-flow\.js";/);
+  assert.match(saveControllerSource, /graphRelationSaveSelection\(\{ previousSelection, button, noteId: cleanNoteId \}\)/);
   assert.match(source, /data-graph-ai-candidate-apply/);
   assert.match(source, /const currentNoteId = String\(noteId \|\| ""\)\.trim\(\);/);
   assert.match(source, /const aiTargetNoteId = String\(candidate\.counterpartNoteId \|\| candidate\.actionTargetNoteId \|\| candidate\.targetNoteId \|\| ""\)\.trim\(\);/);
@@ -550,16 +559,19 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
   assert.match(source, /async function saveGraphAiCandidateRelation\(button = null\) \{/);
   assert.match(source, /async function saveGraphCandidateRelation\(button = null\) \{/);
-  assert.match(source, /if \(!GRAPH_CONFIRMABLE_RELATION_TYPES\.has\(relationType\) \|\| relationType === "no_relation"\) \{/);
+  assert.match(source, /return graphRelationSaveController\.saveAiCandidateRelation\(button\);/);
+  assert.match(source, /return graphRelationSaveController\.saveCandidateRelation\(button\);/);
+  assert.match(saveControllerSource, /if \(!confirmableRelationTypes\.has\(relationType\) \|\| relationType === "no_relation"\) \{/);
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
-  assert.match(source, /if \(!graphRelationRationaleIsActionable\(cleanRationale\)\) \{/);
-  assert.match(source, /const rationale = graphRelationRationaleIsActionable\(rationaleDraft\) \? rationaleDraft : "";/);
-  assert.match(source, /openGraphRelationFormInSelection\(button\);/);
-  assert.match(source, /const relation = await createNoteRelation\(cleanNoteId, \{/);
-  assert.match(source, /if \(cleanNoteId === cleanTargetNoteId\) \{/);
-  assert.match(source, /await refreshDirectoryGraph\(\);/);
-  assert.match(source, /normalizeGraphConfirmedRelationInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
-  assert.match(source, /graphRelationSaveResult\(\{/);
+  assert.match(source, /return graphRelationSaveController\.saveConfirmedRelation\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion, button \}\);/);
+  assert.match(saveControllerSource, /if \(!rationaleIsActionable\(cleanRationale\)\) \{/);
+  assert.match(saveControllerSource, /const rationale = rationaleIsActionable\(rationaleDraft\) \? rationaleDraft : "";/);
+  assert.match(saveControllerSource, /openRelationFormInSelection\(button\);/);
+  assert.match(saveControllerSource, /const relation = await createNoteRelation\(cleanNoteId, \{/);
+  assert.match(saveControllerSource, /if \(cleanNoteId === cleanTargetNoteId\) \{/);
+  assert.match(saveControllerSource, /await refreshDirectoryGraph\(\);/);
+  assert.match(saveControllerSource, /normalizeGraphConfirmedRelationInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
+  assert.match(saveControllerSource, /graphRelationSaveResult\(\{/);
   assert.match(source, /rationaleDraft,/);
   assert.match(source, /insightQuestionDraft,/);
   assert.match(source, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
@@ -570,8 +582,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /await confirmGraphPotentialRelationRefine\(graphAiRefineConfirmButton\);/);
   assert.match(source, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
   assert.match(source, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
-  assert.match(source, /status: "confirmed"/);
-  assert.match(source, /graphState\.selection = nextSelection;/);
+  assert.match(saveControllerSource, /status: "confirmed"/);
+  assert.match(saveControllerSource, /graphState\.selection = nextSelection;/);
   assert.match(source, /function renderGraphIsolatedCompletePanel\(\{ selection = null, isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   const isolatedCompleteSource = extractFunctionSource(source, "renderGraphIsolatedCompletePanel");
   assert.doesNotMatch(isolatedCompleteSource, /data-graph-select-node/);
@@ -580,7 +592,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(isolatedCompleteSource, /const queueItems = graphIsolatedQueueItems\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 \}\);/);
   assert.match(isolatedCompleteSource, /const nextItem = graphNextIsolatedQueueItem\(queueItems, noteId\);/);
   assert.doesNotMatch(isolatedCompleteSource, /Array\.isArray\(isolatedNotes\) \? isolatedNotes : \[\]/);
-  assert.match(source, /关系已保存，当前笔记已接入关系网/);
+  assert.match(saveControllerSource, /关系已保存，当前笔记已接入关系网/);
   assert.doesNotMatch(source, /继续给这条补关系/);
 
   assert.match(html, /\.graph-isolated-join \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;[\s\S]*border-left: 4px solid #0f6f48;/);

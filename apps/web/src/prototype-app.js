@@ -207,13 +207,11 @@ import {
   clearGraphIsolatedRelationDraftForState
 } from "./graph-relation-drafts.js";
 import {
-  graphRelationSaveResult,
-  graphRelationSaveSelection,
-  normalizeGraphConfirmedRelationInput
-} from "./graph-relation-save-flow.js";
-import {
   createGraphIsolatedRelationController
 } from "./graph-isolated-relation-controller.js";
+import {
+  createGraphRelationSaveController
+} from "./graph-relation-save-controller.js";
 import {
   graphBlockedAiRelationPairKeysForNote as computeGraphBlockedAiRelationPairKeysForNote,
   graphCandidateBlocksFormalRelation as computeGraphCandidateBlocksFormalRelation,
@@ -14066,6 +14064,21 @@ function clearGraphIsolatedRelationDraft(noteId = "") {
   clearGraphIsolatedRelationDraftForState(graphState, noteId);
 }
 
+const graphRelationSaveController = createGraphRelationSaveController({
+  graphState,
+  getNotes: () => state.notes,
+  confirmableRelationTypes: GRAPH_CONFIRMABLE_RELATION_TYPES,
+  rationaleIsActionable: graphRelationRationaleIsActionable,
+  createNoteRelation,
+  refreshDirectoryGraph,
+  renderGraphPanel,
+  setStatus,
+  graphNodeTitle,
+  relationTypeLabel: graphRelationTypeLabel,
+  clearIsolatedRelationDraft: clearGraphIsolatedRelationDraft,
+  openRelationFormInSelection: openGraphRelationFormInSelection
+});
+
 const graphIsolatedRelationController = createGraphIsolatedRelationController({
   graphState,
   normalizeMode: graphIsolatedWorkflowTabKey,
@@ -14359,69 +14372,7 @@ async function saveGraphIsolatedRelationForm(button = null) {
 }
 
 async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", relationType = "associated_with", rationale = "", insightQuestion = "", button = null } = {}) {
-  const {
-    noteId: cleanNoteId,
-    targetNoteId: cleanTargetNoteId,
-    relationType: cleanRelationType,
-    rationale: cleanRationale,
-    insightQuestion: cleanInsightQuestion
-  } = normalizeGraphConfirmedRelationInput({ noteId, targetNoteId, relationType, rationale, insightQuestion });
-  if (!cleanNoteId || !cleanTargetNoteId) return false;
-  if (cleanNoteId === cleanTargetNoteId) {
-    setStatus("不能把笔记关联到它自己，请重新选择目标笔记", "warn");
-    return false;
-  }
-  if (!GRAPH_CONFIRMABLE_RELATION_TYPES.has(cleanRelationType) || cleanRelationType === "no_relation") {
-    setStatus("请选择一种可以保存为正式关系的类型", "warn");
-    return false;
-  }
-  if (!graphRelationRationaleIsActionable(cleanRationale)) {
-    setStatus("请先把关联理由写完整，再保存关系", "warn");
-    return false;
-  }
-  const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
-  const nodeMap = new Map(nodes.map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
-  const targetTitle = graphNodeTitle(nodeMap, cleanTargetNoteId, state.notes.find((note) => note.id === cleanTargetNoteId)?.title || cleanTargetNoteId);
-  const relationLabel = graphRelationTypeLabel(cleanRelationType);
-  const previousSelection = graphState.selection && typeof graphState.selection === "object" ? { ...graphState.selection } : null;
-  const nextSelection = graphRelationSaveSelection({ previousSelection, button, noteId: cleanNoteId });
-  const previousText = button?.textContent || "";
-  if (button) {
-    button.disabled = true;
-    button.textContent = "正在保存";
-  }
-  try {
-    const relation = await createNoteRelation(cleanNoteId, {
-      toNoteId: cleanTargetNoteId,
-      relationType: cleanRelationType,
-      rationale: cleanRationale,
-      insightQuestion: cleanInsightQuestion,
-      createdBy: "user",
-      status: "confirmed"
-    });
-    graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
-    graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = graphRelationSaveResult({
-      targetNoteId: cleanTargetNoteId,
-      targetTitle,
-      relationType: cleanRelationType,
-      relationLabel,
-      relation
-    });
-    clearGraphIsolatedRelationDraft(cleanNoteId);
-    graphState.selection = nextSelection;
-    await refreshDirectoryGraph();
-    graphState.selection = nextSelection;
-    renderGraphPanel();
-    setStatus(relation?.created === false ? "这条关系已经存在，已保留在当前处理结果" : "关系已保存，当前笔记已接入关系网", "ok");
-    return true;
-  } catch (error) {
-    setStatus(`保存关系失败：${String(error?.message || error)}`, "bad");
-    if (button) {
-      button.disabled = false;
-      button.textContent = previousText || "保存关系";
-    }
-    return false;
-  }
+  return graphRelationSaveController.saveConfirmedRelation({ noteId, targetNoteId, relationType, rationale, insightQuestion, button });
 }
 
 function openGraphRelationFormInSelection(button = null) {
@@ -18365,32 +18316,11 @@ async function runGraphAiConnectForNote(noteId = "") {
 }
 
 async function saveGraphCandidateRelation(button = null) {
-  const noteId = String(button?.getAttribute?.("data-open-note") || "").trim();
-  const targetNoteId = String(button?.getAttribute?.("data-graph-target-note") || "").trim();
-  const relationType = String(button?.getAttribute?.("data-graph-relation-type") || "associated_with").trim().toLowerCase() || "associated_with";
-  const rationaleDraft = String(button?.getAttribute?.("data-graph-rationale-draft") || "").trim();
-  const insightQuestionDraft = String(button?.getAttribute?.("data-graph-insight-question-draft") || "").trim();
-  if (!noteId || !targetNoteId) return false;
-  if (!GRAPH_CONFIRMABLE_RELATION_TYPES.has(relationType) || relationType === "no_relation") {
-    setStatus("这条可选关系不能保存为正式关系，请重新选择一条能说明理由的关联", "warn");
-    return false;
-  }
-  const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
-  const nodeMap = new Map(nodes.map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
-  const sourceTitle = graphNodeTitle(nodeMap, noteId, state.notes.find((note) => note.id === noteId)?.title || noteId);
-  const targetTitle = graphNodeTitle(nodeMap, targetNoteId, state.notes.find((note) => note.id === targetNoteId)?.title || targetNoteId);
-  const relationLabel = graphRelationTypeLabel(relationType);
-  const rationale = graphRelationRationaleIsActionable(rationaleDraft) ? rationaleDraft : "";
-  if (!rationale) {
-    openGraphRelationFormInSelection(button);
-    setStatus(`请先补一句“${sourceTitle}”和“${targetTitle}”为什么能建立${relationLabel}`, "warn");
-    return false;
-  }
-  return saveGraphConfirmedRelation({ noteId, targetNoteId, relationType, rationale, insightQuestion: insightQuestionDraft, button });
+  return graphRelationSaveController.saveCandidateRelation(button);
 }
 
 async function saveGraphAiCandidateRelation(button = null) {
-  return saveGraphCandidateRelation(button);
+  return graphRelationSaveController.saveAiCandidateRelation(button);
 }
 
 async function triggerGraphPotentialRelationRefine(
