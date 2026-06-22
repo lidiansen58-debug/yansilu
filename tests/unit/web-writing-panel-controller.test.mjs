@@ -6,7 +6,9 @@ import {
   renderWritingFlowStepsDom,
   renderWritingScaffoldPreviewDom,
   renderWritingStatusStripDom,
-  renderWritingStrongModelRequestDetailDom
+  renderWritingStrongModelRequestDetailDom,
+  renderWritingThemeDetailDom,
+  renderWritingThemeIndexCardDom
 } from "../../apps/web/src/writing-panel-controller.js";
 
 const escapeHtml = (value) => String(value ?? "")
@@ -300,4 +302,90 @@ test("writing panel controller renders book design structure pools and ideas", (
   assert.match(nodes.get("writingBookStructure").innerHTML, /Part &lt;one&gt;/);
   assert.match(nodes.get("writingBookPools").innerHTML, /Case One/);
   assert.match(nodes.get("writingBookLocalIdeas").innerHTML, /Idea One/);
+});
+
+test("writing panel controller renders theme index card continuation actions", () => {
+  const html = renderWritingThemeIndexCardDom({
+    writingState: {
+      sourceIndexIds: ["theme-1"],
+      selectedThemeIndexId: ""
+    },
+    writingThemeIndexNoteIds: () => ["n1", "n2"],
+    findExistingWritingProjectForTheme: () => ({
+      id: "project-1",
+      scaffold_id: "scaffold-1",
+      draft_note_id: ""
+    }),
+    describeWritingContinuationAction: () => ({
+      projectId: "project-1",
+      action: "resume-scaffold",
+      actionLabel: "Resume scaffold"
+    }),
+    renderThinkingStatusBadge: () => "<b>status</b>",
+    escapeHtml
+  }, {
+    id: "theme-1",
+    title: "Theme <one>",
+    index_type: "topic",
+    directory_title: "Dir",
+    summary: "Summary",
+    items: [
+      { note_id: "n1", short_label: "First" },
+      { note_id: "n2", note: { title: "Second" } }
+    ],
+    note_count: 3
+  });
+
+  assert.match(html, /writing-note-card selected/);
+  assert.match(html, /Theme &lt;one&gt;/);
+  assert.match(html, /data-writing-index-action="use"/);
+  assert.match(html, /data-writing-index-action="resume-scaffold"/);
+  assert.match(html, /project-1/);
+  assert.match(html, /<b>status<\/b>/);
+});
+
+test("writing panel controller renders theme detail form and note actions", () => {
+  const empty = renderWritingThemeDetailDom({
+    writingThemeProjectEntry: () => ({ noteIds: [], readiness: {}, projectEntry: {} }),
+    writingKnownNoteById: () => null,
+    renderThinkingStatusBadge: () => "",
+    escapeHtml
+  }, null);
+  assert.match(empty, /writing-empty/);
+
+  const html = renderWritingThemeDetailDom({
+    writingThemeProjectEntry: () => ({
+      noteIds: ["n1"],
+      readiness: { hint: "Ready" },
+      projectEntry: {
+        action: "create-project",
+        projectId: "",
+        canCreateProject: true,
+        actionLabel: "Create project",
+        status: "Project ready",
+        hint: "Ready to create"
+      }
+    }),
+    writingKnownNoteById: () => ({ id: "n1", title: "Note <one>" }),
+    renderThinkingStatusBadge: () => "<b>theme</b>",
+    escapeHtml
+  }, {
+    id: "theme-1",
+    title: "Theme",
+    index_type: "topic",
+    note_count: 1,
+    summary: "Summary",
+    thesis: "Thesis",
+    central_question: "Question",
+    three_line_summary: ["One", "Two", "Three"],
+    items: [{ note_id: "n1", rationale: "Because" }]
+  });
+
+  assert.match(html, /data-writing-theme-id="theme-1"/);
+  assert.match(html, /data-writing-theme-action="create-project"/);
+  assert.match(html, /writingThemeDetailTitle/);
+  assert.match(html, /Note &lt;one&gt;/);
+  assert.match(html, /Because/);
+  assert.match(html, /data-writing-theme-action="open-note"/);
+  assert.match(html, /<b>theme<\/b>/);
 });

@@ -135,10 +135,10 @@ test("prototype keeps the public demo writing theme detail renderer", async (t) 
   const html = await prototype.text();
   assert.match(html, /prototype-app\.js/);
 
-  const app = await fetch(`${webBase}/prototype-app.js`);
-  assert.equal(app.status, 200);
-  const source = await app.text();
-  assert.match(source, /function renderWritingThemeDetail/);
+  const controller = await fetch(`${webBase}/writing-panel-controller.js`);
+  assert.equal(controller.status, 200);
+  const source = await controller.text();
+  assert.match(source, /function renderWritingThemeDetailDom/);
   assert.match(source, /writingThemeDetailTitle/);
   assert.match(source, /data-writing-theme-action="\$\{escapeHtml\(primaryThemeAction\)\}"/);
 });

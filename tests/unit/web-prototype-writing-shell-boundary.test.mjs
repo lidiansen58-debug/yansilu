@@ -41,6 +41,10 @@ test("prototype writing shell delegates panel state building to writing workspac
   assert.match(panelControllerSource, /function renderWritingStatusStripDom/);
   assert.match(panelControllerSource, /renderWritingStatusStripDom\(deps\)/);
   assert.doesNotMatch(source, /function renderWritingStatusStrip/);
+  assert.match(panelControllerSource, /function renderWritingThemeIndexCardDom/);
+  assert.match(panelControllerSource, /function renderWritingThemeDetailDom/);
+  assert.doesNotMatch(source, /function renderWritingThemeIndexCard/);
+  assert.doesNotMatch(source, /function renderWritingThemeDetail/);
   assert.doesNotMatch(panelControllerSource, /const candidateFocusSourceIds = uniqueStrings/);
 });
 
