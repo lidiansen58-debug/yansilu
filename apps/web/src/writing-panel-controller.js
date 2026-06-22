@@ -1,3 +1,29 @@
+import {
+  renderWritingFlowStepsView,
+  writingFlowStepItems
+} from "./writing-workspace-view.js";
+
+export function renderWritingFlowStepsDom(deps = {}, {
+  basketCount = 0,
+  hasProject = false,
+  projectEntry = null
+} = {}) {
+  const {
+    $,
+    writingState = {},
+    escapeHtml = String
+  } = deps;
+  const el = $("writingFlowSteps");
+  if (!el) return;
+  const steps = writingFlowStepItems({
+    basketCount,
+    hasProject,
+    projectEntry,
+    writingState
+  });
+  el.innerHTML = renderWritingFlowStepsView(steps, { escapeHtml });
+}
+
 export function renderWritingPanelDom(deps = {}) {
   const {
     $,
@@ -45,7 +71,6 @@ export function renderWritingPanelDom(deps = {}) {
     renderDraftVersionCard,
     describeWritingStrongModelIdleSummary,
     escapeHtml,
-    renderWritingFlowSteps,
     renderWritingScaffoldPreview
   } = deps;
   const current = $("writingCurrentNote");
@@ -375,7 +400,7 @@ export function renderWritingPanelDom(deps = {}) {
     }
   }
 
-  renderWritingFlowSteps({
+  renderWritingFlowStepsDom(deps, {
     basketCount: basketEntries.length,
     hasProject: Boolean(writingState.project?.id),
     projectId: writingState.project?.id || "",

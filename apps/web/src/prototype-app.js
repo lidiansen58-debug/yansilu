@@ -438,12 +438,10 @@ import {
 } from "./graph-visual-node-view.js";
 import {
   renderDraftVersionCardView,
-  renderWritingFlowStepsView,
   renderScaffoldVersionCardView,
   renderWritingProjectCardView,
   renderWritingStatusCardView,
-  renderWritingToplineMetricView,
-  writingFlowStepItems
+  renderWritingToplineMetricView
 } from "./writing-workspace-view.js";
 import {
   renderWritingPanelDom
@@ -9031,26 +9029,6 @@ function renderWritingStatusStrip() {
   ].join("");
 }
 
-function renderWritingFlowSteps({
-  basketCount = 0,
-  hasProject = false,
-  projectEntry = null
-} = {}) {
-  const el = $("writingFlowSteps");
-  if (!el) return;
-  const steps = writingFlowStepItems({
-    basketCount,
-    hasProject,
-    projectEntry,
-    writingState
-  });
-  el.innerHTML = renderWritingFlowStepsView(steps, { escapeHtml });
-}
-
-
-
-
-
 function writingBookPlainText(note) {
   return computeWritingBookPlainText(note);
 }
@@ -9569,7 +9547,6 @@ function writingPanelDomDeps() {
     renderDraftVersionCard,
     describeWritingStrongModelIdleSummary,
     escapeHtml,
-    renderWritingFlowSteps,
     renderWritingScaffoldPreview
   };
 }
