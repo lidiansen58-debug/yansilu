@@ -90,6 +90,15 @@ test("prototype graph shell delegates node and edge selection bodies to panel mo
   assert.doesNotMatch(source, /class="graph-relation-adjustment-card/);
 });
 
+test("prototype graph shell delegates cluster selection body to a panel module", async () => {
+  const source = await readPrototypeAppSource();
+
+  assert.match(source, /from "\.\/graph-cluster-selection-panel\.js"/);
+  assert.match(source, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges \}/);
+  assert.doesNotMatch(source, /renderGraphThemeIndexWorkspace\(meta\.memberIds/);
+  assert.doesNotMatch(source, /className: "is-cluster"/);
+});
+
 test("prototype graph shell delegates panel state building to a graph module", async () => {
   const source = await readPrototypeAppSource();
   const panelShellSource = await readGraphPanelShellSource();

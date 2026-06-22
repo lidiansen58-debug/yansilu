@@ -192,6 +192,10 @@ function readGraphEdgeSelectionPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-edge-selection-panel.js"), "utf8");
 }
 
+function readGraphClusterSelectionPanel() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-cluster-selection-panel.js"), "utf8");
+}
+
 function readRelationSaveTransaction() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/relation-save-transaction.js"), "utf8");
 }
@@ -767,6 +771,7 @@ test("graph map side panel does not stretch a second dark canvas below the map",
 test("graph clusters are selectable research objects with their own summary panel", () => {
   const source = readPrototypeApp();
   const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
+  const clusterSelectionPanelSource = readGraphClusterSelectionPanel();
   const html = readPrototypeHtml();
   const clusterGlow = renderGraphClusterGlowView([
     { clusterKey: "cluster-alpha", title: "Alpha", tone: "teal", cx: 1, cy: 2, rx: 3, ry: 4 }
@@ -774,6 +779,7 @@ test("graph clusters are selectable research objects with their own summary pane
 
   assert.match(source, /function graphClusterResearchMeta\(cluster = \{\}, \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphClusterSelectionPanel\(\{ selection = null, clusterMeta = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
+  assert.match(source, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges \}/);
   assert.equal(renderGraphSelectionByKind(
     { selection: { kind: "cluster", clusterKey: "cluster-alpha" }, clusterMeta: [{ clusterKey: "cluster-alpha" }] },
     { renderClusterPanel: ({ selection }) => `cluster:${selection.clusterKey}` }
@@ -782,9 +788,9 @@ test("graph clusters are selectable research objects with their own summary pane
   assert.match(clusterGlow, /role="button"/);
   assert.match(clusterGlow, /aria-label="View cluster summary: Alpha"/);
   assert.match(graphCanvasEventRouterSource, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
-  assert.match(source, /kicker: "主题群摘要"/);
-  assert.match(source, /roleLabel: meta\.label/);
-  assert.match(source, /补一条主题关系/);
+  assert.match(clusterSelectionPanelSource, /kicker: "主题群摘要"/);
+  assert.match(clusterSelectionPanelSource, /roleLabel: meta\.label/);
+  assert.match(clusterSelectionPanelSource, /补一条主题关系/);
 
   assert.match(html, /\.graph-map-cluster-glows \{[\s\S]*pointer-events: auto;/);
   assert.match(html, /\.graph-map-cluster-glow \{[\s\S]*cursor: pointer;[\s\S]*pointer-events: visiblePainted;/);
