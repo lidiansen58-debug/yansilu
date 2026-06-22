@@ -17,6 +17,9 @@ import {
 import {
   handleOpenNoteMainRouteStateChange
 } from "../../apps/web/src/app-shell-note-main-route-actions.js";
+import {
+  handleSaveNoteStateChange
+} from "../../apps/web/src/app-shell-save-note-state-actions.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -169,11 +172,21 @@ test("save-after source-note reminders are mirrored into system messages", async
   assert.match(source, /function syncSourcePromotionSystemMessageForNote\(note = null, suggestion = null\)/);
   assert.match(source, /return resolveSystemMessageByDedupeKey\(dedupeKey\)/);
 
-  const saveStart = source.indexOf('  if (reason === "save-note") {');
-  const saveEnd = source.indexOf('  if (reason === "note-move") {', saveStart);
-  const saveSource = source.slice(saveStart, saveEnd);
-  assert.match(saveSource, /const suggestion = showSaveAiSuggestionForNote\(note\);/);
-  assert.match(saveSource, /syncSourcePromotionSystemMessageForNote\(note, suggestion\);/);
+  const saveCalls = [];
+  await handleSaveNoteStateChange({ noteId: "source-1" }, {
+    state: { notes: [{ id: "source-1", body: "body", status: "draft" }], tabs: [] },
+    updateNote: async (_noteId, patch) => patch,
+    showSaveAiSuggestionForNote: (note) => {
+      saveCalls.push(["suggestion", note.id]);
+      return { id: "suggestion-1" };
+    },
+    syncSourcePromotionSystemMessageForNote: (note, suggestion) => saveCalls.push(["sync-source-promotion", note.id, suggestion.id]),
+    renderAll: () => {}
+  });
+  assert.deepEqual(saveCalls, [
+    ["suggestion", "source-1"],
+    ["sync-source-promotion", "source-1", "suggestion-1"]
+  ]);
 
   const sourceNote = { id: "source-1", title: "Source", body: "body", folderId: "lit" };
   const calls = [];

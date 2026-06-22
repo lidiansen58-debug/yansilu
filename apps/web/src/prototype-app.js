@@ -70,6 +70,9 @@ import {
   handleRecordOriginalFromNoteStateChange
 } from "./app-shell-state-note-creation-actions.js";
 import {
+  handleSaveNoteStateChange
+} from "./app-shell-save-note-state-actions.js";
+import {
   handleOpenNoteMainRouteStateChange
 } from "./app-shell-note-main-route-actions.js";
 import {
@@ -14783,74 +14786,29 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "save-note") {
-    const noteId = payload.noteId || state.tabs.find((t) => t.id === state.activeTabId)?.noteId || null;
-    let savedNote = null;
-    let noteForExplorerSync = null;
-    if (noteId) {
-      const note = state.notes.find((n) => n.id === noteId);
-      if (note && payload.title) {
-        note.title = payload.title;
-        note.body = replaceFirstMarkdownTitle(note.body, payload.title);
-        const tab = state.tabs.find((t) => t.noteId === note.id);
-        if (tab) {
-          tab.title = note.title;
-          tab.body = note.body;
-          if (state.activeTabId === tab.id) editor.fillEditorFromTab();
-        }
-      }
-      if (note) {
-        noteForExplorerSync = note;
-        try {
-          note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(note) || generatedOriginalNoteIdFromBody(note.body);
-          const resolvedStatus =
-            String(payload.status || "").trim() ||
-            (payload.originalityStatus === "pass" ? "active" : note.status || "draft");
-          note.status = resolvedStatus;
-          const updated = await updateNote(note.id, {
-            title: note.title,
-            body: note.body,
-            status: resolvedStatus,
-            ...notePersistenceFieldsForSave(note),
-            originalityStatus: payload.originalityStatus,
-            originalitySimilarity: payload.originalitySimilarity,
-            authorship: isPermanentLikeNote(note) ? note.authorship : undefined
-          });
-          if (updated) {
-            note.title = updated.title || note.title;
-            note.body = updated.body || note.body;
-            note.status = updated.status || note.status;
-            note.markdownPath = updated.markdownPath || note.markdownPath;
-            note.originalityStatus = updated.originalityStatus || note.originalityStatus;
-            note.originalitySimilarity = normalizeOptionalNumber(updated.originalitySimilarity ?? note.originalitySimilarity);
-            note.authorship = normalizeAuthorshipItem(updated.authorship) || note.authorship;
-            note.thesis = updated.thesis || note.thesis || "";
-            note.threeLineSummary = Array.isArray(updated.threeLineSummary) ? updated.threeLineSummary : note.threeLineSummary || [];
-            note.distillationStatus = updated.distillationStatus || note.distillationStatus || "";
-            note.thinkingStatus = normalizeThinkingStatusItem(updated.thinkingStatus) || note.thinkingStatus || null;
-            note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(updated) || note.generatedOriginalNoteId || generatedOriginalNoteIdFromBody(note.body);
-            note.boundaryOrCounterpoint = updated.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
-            note.updatedAt = updated.updatedAt || note.updatedAt;
-            note.bodyLoaded = true;
-            savedNote = updated;
-          }
-          syncExplorerContextToNote(note);
-          setStatus("已同步到 Markdown", "ok");
-          const suggestion = showSaveAiSuggestionForNote(note);
-          syncSourcePromotionSystemMessageForNote(note, suggestion);
-          if (state.module === "graph") await refreshDirectoryGraph();
-	        } catch (error) {
-            const feedback = noteSaveFailureFeedback(error);
-	          setStatus(feedback.statusMessage, feedback.statusTone);
-            if (saveAiSuggestion?.noteId === note.id) clearSaveAiSuggestion();
-            renderAll();
-            return feedback;
-	        }
-	      }
-	    }
-    if (noteForExplorerSync) syncExplorerContextToNote(noteForExplorerSync);
-	    renderAll();
-	    return savedNote || true;
-	  }
+    return handleSaveNoteStateChange(payload, {
+      state,
+      editor,
+      saveAiSuggestion,
+      replaceFirstMarkdownTitle,
+      noteGeneratedOriginalNoteId,
+      generatedOriginalNoteIdFromBody,
+      notePersistenceFieldsForSave,
+      isPermanentLikeNote,
+      updateNote,
+      normalizeOptionalNumber,
+      normalizeAuthorshipItem,
+      normalizeThinkingStatusItem,
+      syncExplorerContextToNote,
+      setStatus,
+      showSaveAiSuggestionForNote,
+      syncSourcePromotionSystemMessageForNote,
+      refreshDirectoryGraph,
+      noteSaveFailureFeedback,
+      clearSaveAiSuggestion,
+      renderAll
+    });
+  }
 
   if (reason === "note-move") {
     return handleNoteMoveStateChange(payload, {

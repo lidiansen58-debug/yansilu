@@ -8,6 +8,9 @@ import {
   dismissSaveAiSuggestionForLater,
   saveAiSuggestionForNoteModel
 } from "../../apps/web/src/save-ai-suggestion-model.js";
+import {
+  handleSaveNoteStateChange
+} from "../../apps/web/src/app-shell-save-note-state-actions.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -63,23 +66,40 @@ test("save-after AI suggestion keeps one executable suggestion for the active sa
   assert.equal(distillationSuggestion.text, "已保存，可继续整理观点");
 });
 
-test("save-after AI suggestion only appears after note save succeeds", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const saveStart = source.indexOf('  if (reason === "save-note") {');
-  const saveEnd = source.indexOf('  if (reason === "note-move") {', saveStart);
+test("save-after AI suggestion only appears after note save succeeds", async () => {
+  const calls = [];
+  await handleSaveNoteStateChange({ noteId: "n1" }, {
+    state: { notes: [{ id: "n1", body: "body", status: "draft" }], tabs: [] },
+    updateNote: async (_noteId, patch) => patch,
+    setStatus: (message, tone) => calls.push(["status", message, tone]),
+    showSaveAiSuggestionForNote: (note) => {
+      calls.push(["suggestion", note.id]);
+      return { id: "suggestion-1" };
+    },
+    syncSourcePromotionSystemMessageForNote: (note, suggestion) => calls.push(["system-message", note.id, suggestion.id]),
+    renderAll: () => calls.push(["render"])
+  });
 
-  assert.ok(saveStart >= 0 && saveEnd > saveStart, "expected save-note handler to exist");
-  const saveSource = source.slice(saveStart, saveEnd);
-  const statusIndex = saveSource.indexOf('setStatus("已同步到 Markdown", "ok");');
-  const suggestionIndex = saveSource.indexOf("showSaveAiSuggestionForNote(note);");
-  const catchIndex = saveSource.indexOf("} catch (error) {");
+  assert.deepEqual(calls, [
+    ["status", "已同步到 Markdown", "ok"],
+    ["suggestion", "n1"],
+    ["system-message", "n1", "suggestion-1"],
+    ["render"]
+  ]);
 
-  assert.ok(statusIndex >= 0, "expected successful save status");
-  assert.ok(suggestionIndex > statusIndex, "expected suggestion after successful save status");
-  assert.ok(suggestionIndex < catchIndex, "expected suggestion outside save failure branch");
-  assert.match(saveSource, /if \(saveAiSuggestion\?\.noteId === note\.id\) clearSaveAiSuggestion\(\);/);
+  const failureCalls = [];
+  await handleSaveNoteStateChange({ noteId: "n1" }, {
+    state: { notes: [{ id: "n1", body: "body" }], tabs: [] },
+    saveAiSuggestion: { noteId: "n1" },
+    updateNote: async () => {
+      throw new Error("disk");
+    },
+    showSaveAiSuggestionForNote: () => failureCalls.push(["suggestion"]),
+    clearSaveAiSuggestion: () => failureCalls.push(["clear"]),
+    renderAll: () => failureCalls.push(["render"])
+  });
+  assert.deepEqual(failureCalls, [["clear"], ["render"]]);
 });
-
 test("save-after AI suggestion actions reuse existing editor routes", () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
   const primaryStart = source.indexOf('$("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {');
