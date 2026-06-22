@@ -54,6 +54,10 @@ import {
   renderSidebarTitleForRuntime
 } from "./app-shell-sidebar-controller.js";
 import {
+  handleConfirmNoteDistillationStateChange,
+  handleSaveNoteDistillationStateChange
+} from "./app-shell-distillation-state-actions.js";
+import {
   handleDirectoryDeleteStateChange,
   handleDirectoryMoveStateChange,
   handleDirectoryUpdateStateChange,
@@ -14757,66 +14761,25 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "save-note-distillation") {
-    const noteId = String(payload.noteId || "").trim();
-    const note = state.notes.find((n) => n.id === noteId);
-    if (!note) return false;
-    try {
-      const requestedStatus = String(payload.distillationStatus || "draft").trim();
-      const shouldConfirm = requestedStatus === "confirmed";
-      const updated = await updatePermanentNoteDistillation(note.id, {
-        thesis: payload.thesis || "",
-        threeLineSummary: Array.isArray(payload.threeLineSummary) ? payload.threeLineSummary : [],
-        boundaryOrCounterpoint: payload.boundaryOrCounterpoint || "",
-        distillationStatus: shouldConfirm ? "draft" : requestedStatus || "draft"
-      });
-      let finalUpdated = updated;
-      if (shouldConfirm) {
-        finalUpdated = await confirmPermanentNoteDistillation(note.id, {
-          aiAssisted: Boolean(payload.authorship?.ai_assisted ?? note.authorship?.ai_assisted)
-        });
-      }
-      if (finalUpdated) {
-        Object.assign(note, mapNoteItem(finalUpdated), { bodyLoaded: true });
-        const tab = state.tabs.find((item) => item.noteId === note.id);
-        if (tab && typeof finalUpdated.body === "string") {
-          tab.body = finalUpdated.body;
-          tab.savedBody = finalUpdated.body;
-          tab.title = finalUpdated.title || tab.title;
-          tab.savedTitle = tab.title;
-          tab.dirty = false;
-        }
-      }
-      setStatus(
-        shouldConfirm
-          ? "观点字段已保存并确认"
-          : "观点字段已保存",
-        "ok"
-      );
-      renderDistillationPanel();
-      renderAll();
-      return finalUpdated || true;
-    } catch (error) {
-      setStatus(`观点字段保存失败：${String(error?.message || error)}`, "bad");
-      return false;
-    }
+    return handleSaveNoteDistillationStateChange(payload, {
+      state,
+      updatePermanentNoteDistillation,
+      confirmPermanentNoteDistillation,
+      mapNoteItem,
+      setStatus,
+      renderDistillationPanel,
+      renderAll
+    });
   }
 
   if (reason === "confirm-note-distillation") {
-    const noteId = String(payload.noteId || "").trim();
-    const note = state.notes.find((n) => n.id === noteId);
-    if (!note) return false;
-    try {
-      const updated = await confirmPermanentNoteDistillation(note.id, {
-        aiAssisted: Boolean(note.authorship?.ai_assisted)
-      });
-      if (updated) Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
-      setStatus("观点已确认", "ok");
-      renderAll();
-      return updated || true;
-    } catch (error) {
-      setStatus(`观点确认失败：${String(error?.message || error)}`, "bad");
-      return false;
-    }
+    return handleConfirmNoteDistillationStateChange(payload, {
+      state,
+      confirmPermanentNoteDistillation,
+      mapNoteItem,
+      setStatus,
+      renderAll
+    });
   }
 
   if (reason === "save-note") {
