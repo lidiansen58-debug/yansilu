@@ -32,3 +32,15 @@ test("prototype graph shell delegates visual node and edge svg rendering to view
   assert.doesNotMatch(source, /<g class="graph-map-node graph-node/);
   assert.doesNotMatch(source, /<g class="graph-map-edge-group graph-edge/);
 });
+
+test("prototype graph shell delegates visual map chrome to the shell view", async () => {
+  const source = await readPrototypeAppSource();
+
+  assert.match(source, /renderGraphVisualMapShellView/);
+  assert.match(source, /renderGraphZoomStepperView/);
+  assert.match(source, /renderGraphMapSvgDefsView/);
+  assert.doesNotMatch(source, /<div class="graph-map-canvas">/);
+  assert.doesNotMatch(source, /<svg class="graph-map-svg"/);
+  assert.doesNotMatch(source, /<radialGradient id="graph-node-core-fill"/);
+  assert.doesNotMatch(source, /<div class="graph-map-empty-canvas">/);
+});

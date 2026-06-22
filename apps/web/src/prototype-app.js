@@ -335,6 +335,13 @@ import {
   renderGraphStarfieldView
 } from "./graph-visual-map-view.js";
 import {
+  renderGraphMapEmptyStateView,
+  renderGraphMapLegendView,
+  renderGraphMapSvgDefsView,
+  renderGraphVisualMapShellView,
+  renderGraphZoomStepperView
+} from "./graph-visual-map-shell.js";
+import {
   renderGraphVisualEdgeViews
 } from "./graph-visual-edge-view.js";
 import {
@@ -8370,7 +8377,6 @@ function renderWritingNoteCard(note, { selected = false, action = "add", actionL
     </article>
   `;
 }
-
 function writingThemeIndexScopeDirectoryId() {
   if (state.selectedFolderId && isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
   return writingDraftDirectoryId();
@@ -14547,15 +14553,6 @@ function renderGraphVisualMap({
       };
     })
     .filter((item) => item.path);
-  const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
-    .map(
-      ([key, color]) => `
-        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="4.2" markerHeight="4.2" refX="3.5" refY="2.1" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0.8 0.9 L 3.5 2.1 L 0.8 3.3" fill="none" stroke="${escapeHtml(color)}" stroke-opacity="0.48" stroke-width="0.52" stroke-linecap="round" stroke-linejoin="round"></path>
-        </marker>
-      `
-    )
-    .join("");
   const denseDirectoryMode = !filterActive;
   const denseGalaxyMode = graphDenseGalaxyMode({
     nodes: layout.nodes,
@@ -14606,22 +14603,40 @@ function renderGraphVisualMap({
     .filter(Boolean);
   const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
   const zoomIndex = Math.max(0, zoomKeys.indexOf(zoom.key));
-  const zoomControls = Object.entries(GRAPH_VISUAL_ZOOM_OPTIONS)
-    .map(([key, option]) => {
-      const active = zoom.key === key;
-      return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
-    })
-    .join("");
   const starfieldMarkup = renderGraphStarfield(layout.width, layout.height, `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`);
   const nebulaMarkup = renderGraphNebulaField(layout.width, layout.height, `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`);
   const clusterGlowMarkup = renderGraphClusterGlow(layout.clusterMeta);
-  const zoomStepperMarkup = `
-    <button class="graph-zoom-step" type="button" data-graph-zoom-step="-1" aria-label="缩小图谱" title="缩小图谱"${zoomIndex === 0 ? " disabled" : ""}>${renderGraphIcon("zoom-out")}</button>
-    <div class="graph-zoom-preset-group" aria-label="图谱缩放层级">
-      ${zoomControls}
-    </div>
-    <button class="graph-zoom-step" type="button" data-graph-zoom-step="1" aria-label="放大图谱" title="放大图谱"${zoomIndex === zoomKeys.length - 1 ? " disabled" : ""}>${renderGraphIcon("zoom-in")}</button>
-  `;
+  const shellDeps = {
+    escapeHtml,
+    renderGraphIcon,
+    labels: {
+      mapPanel: "图形化笔记关系图谱",
+      canvas: "可缩放关系图画布",
+      mapImage: "永久笔记关系图",
+      tools: "图谱查看工具",
+      zoomControls: "图谱缩放",
+      zoomLevels: "图谱缩放层级",
+      zoomOut: "缩小图谱",
+      zoomIn: "放大图谱",
+      expand: "放大查看",
+      collapse: "退出放大",
+      panCanvas: "拖动画布",
+      panCanvasHint: "按住星图空白处拖动画布",
+      hoverTitle: "拖动、悬停或点击查看局部",
+      hoverDetail: "拖动画布换位置；把鼠标移到笔记或关系上，可以只看它附近的关系。",
+      legend: "关系颜色图例",
+      selectionOverlay: "待关联笔记处理浮层",
+      closeEmpty: "关闭提示并返回观点关系",
+      argumentView: "看观点关系",
+      structureView: "看主题分布"
+    }
+  };
+  const zoomStepperMarkup = renderGraphZoomStepperView({
+    zoomKey: zoom.key,
+    zoomOptions: GRAPH_VISUAL_ZOOM_OPTIONS,
+    zoomIndex
+  }, shellDeps);
+  const svgDefsMarkup = renderGraphMapSvgDefsView({ markerColors: GRAPH_RELATION_MARKER_COLORS }, shellDeps);
   const focusContextAvailable = filterActive && normalizedFocusedNoteId;
   const focusContextCollapsed = graphState.focusContextCollapsed === true;
   const focusContextMarkup = focusContextAvailable && !focusContextCollapsed
@@ -14749,155 +14764,76 @@ function renderGraphVisualMap({
       ? "主题分布只看主题归属和知识分区。如果这里为空，可以切回看观点关系，或先为笔记补充主题归属。"
       : "当前筛选没有留下可读的观点关系。可以切到全部关系，或先从右侧待处理内容里判断潜在关联。";
 
-  return `
-    <section class="graph-map-panel${expanded ? " is-expanded" : ""}${!filterActive && readingLensState.active ? ` has-reading-lens is-reading-lens-${escapeHtml(readingLens.key)}` : ""}${activeSelection?.kind === "node" ? " is-selecting-node" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" || activeSelection?.kind === "isolatedComplete" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
-      <div class="graph-map-head">
-        ${toolbarMarkup}
-        ${
-          filterActive
-            ? `
-              <div>
-                <div class="graph-section-title">当前笔记关系图</div>
-                <div class="graph-section-note">当前笔记固定在中心；当前范围：${focusDepth.label}。可以拖动画布，查看它周围的关系。</div>
-                <div class="graph-focus-depth" aria-label="当前笔记关系范围">
-                  ${["1", "2", "all"]
-                    .map((value) => {
-                      const meta = graphFocusDepthMeta(value);
-                      const active = meta.key === focusDepth.key;
-                      return `<button class="graph-focus-depth-btn${active ? " is-active" : ""}" type="button" data-graph-focus-depth="${escapeHtml(meta.key)}" aria-pressed="${active}" title="${escapeHtml(meta.note)}">${escapeHtml(meta.label)}</button>`;
-                    })
-                    .join("")}
-                  <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
-                  ${
-                    focusContextAvailable
-                      ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}">${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}</button>`
-                      : ""
-                  }
-                </div>
-              </div>
-            `
-            : `
-              <div class="graph-map-primary-row">
-                ${renderGraphViewModeSwitcher(relationType)}
-                <div class="graph-map-primary-actions">
-                  ${compactRelationFilterMarkup}
-                </div>
-              </div>
-              ${renderGraphReadingLensControls(readingLens.key, legendOpen, readingLensTrailingMarkup)}
-              ${isolatedQueueStripMarkup}
-              ${structureFallback ? `<div class="graph-structure-fallback-note">当前没有主题归属关系，已按笔记之间的关系自动分组。</div>` : ""}
-              ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
-            `
-        }
+  const headContentMarkup = filterActive
+    ? `
+      <div>
+        <div class="graph-section-title">当前笔记关系图</div>
+        <div class="graph-section-note">当前笔记固定在中心；当前范围：${focusDepth.label}。可以拖动画布，查看它周围的关系。</div>
+        <div class="graph-focus-depth" aria-label="当前笔记关系范围">
+          ${["1", "2", "all"]
+            .map((value) => {
+              const meta = graphFocusDepthMeta(value);
+              const active = meta.key === focusDepth.key;
+              return `<button class="graph-focus-depth-btn${active ? " is-active" : ""}" type="button" data-graph-focus-depth="${escapeHtml(meta.key)}" aria-pressed="${active}" title="${escapeHtml(meta.note)}">${escapeHtml(meta.label)}</button>`;
+            })
+            .join("")}
+          <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
+          ${
+            focusContextAvailable
+              ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}">${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}</button>`
+              : ""
+          }
+        </div>
       </div>
-      ${
-        legendOpen
-          ? `<div class="graph-map-legend" aria-label="关系颜色图例">
-              <div class="graph-map-legend-note">圆点大小表示当前值得注意的程度，不表示最终价值；虚线表示候选或待确认关系。</div>
-              ${legendGroups
-                .map(
-                  (group) => `
-                    <span>
-                      <i class="${escapeHtml(group.className)}"></i>
-                      <strong>${escapeHtml(group.label)}</strong>
-                      <small>${escapeHtml(group.detail)}</small>
-                    </span>
-                  `
-                )
-                .join("")}
-            </div>`
-          : ""
-      }
-      <div class="graph-map-stage${sidePanelMarkup ? " has-side-panel" : ""}${isolatedSelectionOverlayMarkup ? " has-selection-overlay" : ""}">
-        ${
-          layout.nodes.length
-            ? `
-              <div class="graph-map-body${sidePanelMarkup ? " has-side-panel" : ""}">
-                <div class="graph-map-canvas">
-                  <div class="graph-map-viewport" data-graph-zoom="${escapeHtml(zoom.key)}" aria-label="可缩放关系图画布">
-                    <div class="graph-map-floater" aria-label="图谱查看工具">
-                      <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${expanded ? "退出放大" : "放大查看"}" aria-label="${expanded ? "退出放大" : "放大查看"}">${renderGraphIcon(expanded ? "collapse" : "expand")}</button>
-                      <button class="graph-floater-toggle graph-pan-hint" type="button" disabled aria-disabled="true" title="按住星图空白处拖动画布" aria-label="拖动画布">${renderGraphIcon("hand")}</button>
-                      <div class="graph-zoom-controls" aria-label="图谱缩放">
-                        ${zoomStepperMarkup}
-                      </div>
-                    </div>
-                    <div class="graph-hover-card" id="graphHoverCard" aria-live="polite">
-                      <strong>拖动、悬停或点击查看局部</strong>
-                      <span>拖动画布换位置；把鼠标移到笔记或关系上，可以只看它附近的关系。</span>
-                    </div>
-                    <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoom.key)}" viewBox="0 0 ${layout.width} ${layout.height}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="永久笔记关系图">
-                      <defs>
-                        ${markers}
-                        <radialGradient id="graph-node-core-fill" cx="38%" cy="30%" r="70%">
-                          <stop offset="0%" stop-color="#ffffff"></stop>
-                          <stop offset="52%" stop-color="#edfaff"></stop>
-                          <stop offset="100%" stop-color="#8fe0de"></stop>
-                        </radialGradient>
-                        <radialGradient id="graph-node-literature-fill" cx="38%" cy="30%" r="70%">
-                          <stop offset="0%" stop-color="#ffffff"></stop>
-                          <stop offset="60%" stop-color="#fff7e6"></stop>
-                          <stop offset="100%" stop-color="#f7c885"></stop>
-                        </radialGradient>
-                        <radialGradient id="graph-node-fleeting-fill" cx="38%" cy="30%" r="70%">
-                          <stop offset="0%" stop-color="#ffffff"></stop>
-                          <stop offset="58%" stop-color="#eefaff"></stop>
-                          <stop offset="100%" stop-color="#8ed4f6"></stop>
-                        </radialGradient>
-                        <filter id="graph-soft-node-glow" x="-70%" y="-70%" width="240%" height="240%">
-                          <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#07111c" flood-opacity="0.18"></feDropShadow>
-                          <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#67d8df" flood-opacity="0.2"></feDropShadow>
-                        </filter>
-                        <filter id="graph-soft-edge-glow" x="-30%" y="-30%" width="160%" height="160%">
-                          <feDropShadow dx="0" dy="0" stdDeviation="1.3" flood-color="#38a3c9" flood-opacity="0.1"></feDropShadow>
-                        </filter>
-                        <filter id="graph-nebula-blur" x="-30%" y="-30%" width="160%" height="160%">
-                          <feGaussianBlur stdDeviation="22"></feGaussianBlur>
-                        </filter>
-                        <linearGradient id="graph-map-backdrop-fill" x1="4%" y1="6%" x2="94%" y2="100%">
-                          <stop offset="0%" stop-color="#040912" stop-opacity="0.99"></stop>
-                          <stop offset="46%" stop-color="#07111e" stop-opacity="0.985"></stop>
-                          <stop offset="100%" stop-color="#0b1828" stop-opacity="0.99"></stop>
-                        </linearGradient>
-                      </defs>
-                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
-                      <g class="graph-map-nebulae" filter="url(#graph-nebula-blur)">${nebulaMarkup}</g>
-                      <g class="graph-map-cluster-glows" filter="url(#graph-nebula-blur)">${clusterGlowMarkup}</g>
-                      <g class="graph-map-stars">${starfieldMarkup}</g>
-                      ${themeBoundaryMarkup ? `<g class="graph-map-theme-boundaries">${themeBoundaryMarkup}</g>` : ""}
-                      <g class="graph-map-edges">${edgeMarkup}</g>
-                      <g class="graph-map-nodes">${nodeMarkup}</g>
-                    </svg>
-                  </div>
-                </div>
-                ${sidePanelMarkup}
-              </div>
-            `
-            : `
-              <div class="graph-map-empty-canvas">
-                <div class="graph-map-empty-orbit" aria-hidden="true">
-                  <span></span><span></span><span></span>
-                </div>
-                <div class="graph-map-empty-card">
-                  <button class="graph-overlay-close graph-map-empty-close" type="button" data-graph-empty-close aria-label="关闭提示并返回观点关系" title="关闭提示并返回观点关系">${renderGraphIcon("close")}</button>
-                  <strong>${escapeHtml(emptyTitle)}</strong>
-                  <span>${escapeHtml(emptyMessage)}</span>
-                  <div class="graph-map-empty-actions">
-                    <button class="mini-btn primary" type="button" data-graph-view-mode="argument">看观点关系</button>
-                    <button class="mini-btn" type="button" data-graph-view-mode="structure">看主题分布</button>
-                  </div>
-                </div>
-              </div>
-            `
-        }
-        ${
-          isolatedSelectionOverlayMarkup
-            ? `<div class="graph-selection-overlay" role="dialog" aria-modal="false" aria-label="待关联笔记处理浮层">${isolatedSelectionOverlayMarkup}</div>`
-            : ""
-        }
+    `
+    : `
+      <div class="graph-map-primary-row">
+        ${renderGraphViewModeSwitcher(relationType)}
+        <div class="graph-map-primary-actions">
+          ${compactRelationFilterMarkup}
+        </div>
       </div>
-    </section>
-  `;
+      ${renderGraphReadingLensControls(readingLens.key, legendOpen, readingLensTrailingMarkup)}
+      ${isolatedQueueStripMarkup}
+      ${structureFallback ? `<div class="graph-structure-fallback-note">当前没有主题归属关系，已按笔记之间的关系自动分组。</div>` : ""}
+      ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
+    `;
+  const legendMarkup = renderGraphMapLegendView({
+    open: legendOpen,
+    groups: legendGroups,
+    note: "圆点大小表示当前值得注意的程度，不表示最终价值；虚线表示候选或待确认关系。"
+  }, shellDeps);
+  const emptyStateMarkup = renderGraphMapEmptyStateView({
+    title: emptyTitle,
+    message: emptyMessage
+  }, shellDeps);
+
+  return renderGraphVisualMapShellView({
+    expanded,
+    readingLensActive: !filterActive && readingLensState.active,
+    readingLensKey: readingLens.key,
+    selectionKind: activeSelection?.kind || "",
+    toolbarMarkup,
+    headContentMarkup,
+    legendMarkup,
+    hasNodes: layout.nodes.length > 0,
+    sidePanelMarkup,
+    selectionOverlayMarkup: isolatedSelectionOverlayMarkup,
+    zoomKey: zoom.key,
+    zoomWidth,
+    zoomHeight,
+    layoutWidth: layout.width,
+    layoutHeight: layout.height,
+    zoomStepperMarkup,
+    svgDefsMarkup,
+    nebulaMarkup,
+    clusterGlowMarkup,
+    starfieldMarkup,
+    themeBoundaryMarkup,
+    edgeMarkup,
+    nodeMarkup,
+    emptyStateMarkup
+  }, shellDeps);
 }
 
 function graphFocusedEdgeDirection(edge, focusedNoteId = "") {

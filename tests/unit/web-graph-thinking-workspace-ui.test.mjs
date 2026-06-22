@@ -24,6 +24,12 @@ import {
   renderGraphClusterGlowView
 } from "../../apps/web/src/graph-visual-map-view.js";
 import {
+  renderGraphMapEmptyStateView,
+  renderGraphMapSvgDefsView,
+  renderGraphVisualMapShellView,
+  renderGraphZoomStepperView
+} from "../../apps/web/src/graph-visual-map-shell.js";
+import {
   graphVisualNodeViewState,
   renderGraphVisualNodeView
 } from "../../apps/web/src/graph-visual-node-view.js";
@@ -259,9 +265,13 @@ test("graph structure view falls back to galaxy clusters instead of an empty map
 
 test("graph empty map card can be closed back to argument relations", () => {
   const source = readPrototypeApp();
+  const emptyMarkup = renderGraphMapEmptyStateView(
+    { title: "No notes", message: "Try another mode" },
+    { labels: { closeEmpty: "关闭提示并返回观点关系" } }
+  );
 
-  assert.match(source, /data-graph-empty-close/);
-  assert.match(source, /aria-label="关闭提示并返回观点关系"/);
+  assert.match(emptyMarkup, /data-graph-empty-close/);
+  assert.match(emptyMarkup, /aria-label="关闭提示并返回观点关系"/);
   assert.match(source, /const graphEmptyClose = event\.target\.closest\("\[data-graph-empty-close\]"\);/);
   assert.match(source, /setGraphRelationTypeFilter\("meaningful"\);[\s\S]*setStatus\("已返回观点关系图", "ok"\);/);
 });
@@ -306,10 +316,20 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
 });
 
 test("graph map side panel does not stretch a second dark canvas below the map", () => {
-  const source = readPrototypeApp();
   const html = readPrototypeHtml();
+  const shellMarkup = renderGraphVisualMapShellView({
+    hasNodes: true,
+    sidePanelMarkup: "<aside>side</aside>",
+    selectionOverlayMarkup: "<section>overlay</section>",
+    zoomKey: "fit",
+    layoutWidth: 960,
+    layoutHeight: 520
+  });
 
-  assert.match(source, /<div class="graph-map-stage\$\{sidePanelMarkup \? " has-side-panel" : ""\}\$\{isolatedSelectionOverlayMarkup \? " has-selection-overlay" : ""\}">/);
+  assert.match(shellMarkup, /class="graph-map-stage has-side-panel has-selection-overlay"/);
+  assert.match(shellMarkup, /class="graph-map-body has-side-panel"/);
+  assert.match(shellMarkup, /<aside>side<\/aside>/);
+  assert.match(shellMarkup, /class="graph-selection-overlay"/);
   assert.match(html, /\.graph-map-stage\.has-side-panel \{[\s\S]*min-height: 0;[\s\S]*background: transparent;[\s\S]*overflow: visible;/);
   assert.match(html, /\.graph-map-stage\.has-side-panel::before,[\s\S]*\.graph-map-stage\.has-side-panel::after \{[\s\S]*display: none;/);
   assert.match(html, /\.graph-map-body\.has-side-panel \{[\s\S]*align-items: start;[\s\S]*min-height: 0;/);
@@ -546,7 +566,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.doesNotMatch(source, /"开始处理"/);
   assert.match(source, /const isolatedSelectionOverlayMarkup =\s*activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \|\| selectionNodeNeedsRelationWorkflow\s*\? selectionContextMarkup\s*: "";/);
   assert.match(source, /const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup \? "" : selectionContextMarkup;/);
-  assert.match(source, /<div class="graph-selection-overlay" role="dialog" aria-modal="false"/);
+  assert.match(
+    renderGraphVisualMapShellView({ selectionOverlayMarkup: "<section>overlay</section>" }),
+    /<div class="graph-selection-overlay" role="dialog" aria-modal="false"/
+  );
   assert.match(joinWorkspaceSource, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
   assert.match(source, /function syncGraphIsolatedAiCandidateForm\(select = null\) \{/);
   assert.match(source, /return graphIsolatedRelationController\.syncAiCandidateForm\(select\);/);
@@ -1474,12 +1497,27 @@ test("graph density hint is temporary and does not stay on the map", () => {
 test("graph zoom controls include both stepper directions and preset levels", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
+  const zoomMarkup = renderGraphZoomStepperView({
+    zoomKey: "read",
+    zoomIndex: 1,
+    zoomOptions: {
+      fit: { label: "Fit", note: "Fit note", icon: "fit" },
+      read: { label: "Read", note: "Read note", icon: "read" }
+    }
+  }, {
+    renderGraphIcon: (name) => `<i>${name}</i>`,
+    labels: {
+      zoomOut: "缩小图谱",
+      zoomIn: "放大图谱",
+      zoomLevels: "图谱缩放层级"
+    }
+  });
 
-  assert.match(source, /data-graph-zoom-step="-1" aria-label="缩小图谱"/);
-  assert.match(source, /data-graph-zoom-step="1" aria-label="放大图谱"/);
-  assert.match(source, /data-graph-zoom-option="\$\{escapeHtml\(key\)\}"/);
+  assert.match(zoomMarkup, /data-graph-zoom-step="-1" aria-label="缩小图谱"/);
+  assert.match(zoomMarkup, /data-graph-zoom-step="1" aria-label="放大图谱"/);
+  assert.match(zoomMarkup, /data-graph-zoom-option="read"/);
   assert.match(source, /if \(key === "hand"\) \{/);
-  assert.match(source, /class="graph-floater-toggle graph-pan-hint"[\s\S]*aria-label="拖动画布"[\s\S]*renderGraphIcon\("hand"\)/);
+  assert.match(source, /renderGraphVisualMapShellView/);
   assert.doesNotMatch(source, /graph-pan-hint[\s\S]{0,180}<span>拖动<\/span>/);
   assert.match(html, /\.graph-pan-hint \{[\s\S]*width: 36px;[\s\S]*cursor: grab;/);
   assert.match(source, /const nextZoom = graphZoomStep\(graphState\.zoom, Number\(zoomStepButton\.getAttribute\("data-graph-zoom-step"\) \|\| 0\)\);/);
@@ -1538,11 +1576,11 @@ test("graph load failure renders a quiet empty state instead of a red error pane
 });
 
 test("starfield graph keeps relation lines hairline and arrows quiet", () => {
-  const source = readPrototypeApp();
   const html = readPrototypeHtml();
+  const defsMarkup = renderGraphMapSvgDefsView({ markerColors: { support: "#6abfbd" } });
 
-  assert.match(source, /markerWidth="4\.2" markerHeight="4\.2"/);
-  assert.match(source, /stroke-opacity="0\.48" stroke-width="0\.52"/);
+  assert.match(defsMarkup, /markerWidth="4\.2" markerHeight="4\.2"/);
+  assert.match(defsMarkup, /stroke-opacity="0\.48" stroke-width="0\.52"/);
   assert.match(html, /\.graph-map-svg \{[\s\S]*border-radius: 28px;[\s\S]*linear-gradient\(135deg, #040912 0%, #07111e 48%, #0b1828 100%\);/);
   assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: 0\.3;[\s\S]*opacity: 0\.1;/);
   assert.match(html, /\.graph-map-edge-underlay \{[\s\S]*stroke-width: 0\.82;[\s\S]*opacity: 0\.065;/);
