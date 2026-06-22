@@ -200,6 +200,7 @@ import {
 import {
   acceptAiInboxLinkSuggestionForRuntime,
   adoptAiInboxFieldSuggestionDraftForRuntime,
+  applyAiInboxRecommendedActionForRuntime,
   applyAiInboxSuggestionStatusForRuntime,
   loadAiInboxDetailForRuntime,
   promoteAiInboxArtifactToNoteForRuntime,
@@ -3210,49 +3211,29 @@ async function recordAiInboxReviewDecision(decision) {
 }
 
 async function applyAiInboxRecommendedAction(action = "") {
-  const normalized = String(action || aiInboxState.aiSummaryRecommendedAction || "").trim();
-  const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
-  const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
-  const artifactId = String(selectedArtifactId || detailArtifactId || "").trim();
-  if (!artifactId || !normalized) return setStatus("No AI recommended action to apply", "warn");
-  if (selectedArtifactId && selectedArtifactId === artifactId && !aiInboxState.detail) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(aiInboxReviewSafetyNotice(), "warn", selectedArtifactId);
-    renderAiInboxWorkspace();
-    return setStatus(aiInboxReviewSafetyStatusMessage(), "warn");
-  }
-  if (selectedArtifactId && detailArtifactId !== selectedArtifactId) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(aiInboxReviewRetryNotice(), "warn", selectedArtifactId);
-    renderAiInboxWorkspace();
-    return setStatus(aiInboxReviewRetryStatusMessage(), "warn");
-  }
-  const labels = {
-    accept_link: "create the suggested relation",
-    adopt_field_suggestion: "adopt the field suggestion as a draft",
-    promote_note: "create a draft note",
-    ignore: "mark this item ignored",
-    needs_more_context: "mark this item as needing more context"
-  };
-  const label = labels[normalized] || normalized;
-  if (!window.confirm(`Apply AI recommended action: ${label}?`)) return false;
-
-  if (normalized === "accept_link") return acceptAiInboxLinkSuggestion(artifactId);
-  if (normalized === "adopt_field_suggestion") {
-    return adoptAiInboxFieldSuggestionDraft(
-      artifactId,
-      String(aiInboxState.aiSummarySuggestionId || aiInboxState.detail?.suggestion?.id || "").trim()
-    );
-  }
-  if (normalized === "promote_note") return promoteAiInboxArtifactToNote(artifactId);
-  if (normalized === "ignore") return recordAiInboxReviewDecision("ignored");
-  if (normalized === "needs_more_context") {
-    const comment = `${$("aiInboxDecisionComment")?.value || ""}\n\nAI recommendation: needs_more_context`.trim();
-    const commentEl = $("aiInboxDecisionComment");
-    if (commentEl) commentEl.value = comment;
-    return recordAiInboxReviewDecision("revised");
-  }
-  return setStatus(`Unsupported AI recommended action: ${normalized}`, "warn");
+  return applyAiInboxRecommendedActionForRuntime({
+    aiInboxState,
+    confirm: (message) => window.confirm(message),
+    appendDecisionComment: (comment) => {
+      const commentEl = $("aiInboxDecisionComment");
+      const nextComment = `${commentEl?.value || ""}\n\n${comment}`.trim();
+      if (commentEl) commentEl.value = nextComment;
+    },
+    acceptLink: acceptAiInboxLinkSuggestion,
+    adoptFieldSuggestion: adoptAiInboxFieldSuggestionDraft,
+    promoteNote: promoteAiInboxArtifactToNote,
+    recordDecision: recordAiInboxReviewDecision,
+    loadAiInboxDetail,
+    setAiInboxActionNotice,
+    setStatus,
+    render: renderAiInboxWorkspace,
+    messages: {
+      reviewSafetyNotice: aiInboxReviewSafetyNotice,
+      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
+      reviewRetryNotice: aiInboxReviewRetryNotice,
+      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage
+    }
+  }, action);
 }
 
 async function acceptAiInboxLinkSuggestion(artifactId) {

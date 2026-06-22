@@ -336,6 +336,84 @@ export async function recordAiInboxReviewDecisionForRuntime(deps = {}, decision 
   }
 }
 
+export async function applyAiInboxRecommendedActionForRuntime(deps = {}, action = "") {
+  const {
+    aiInboxState,
+    confirm = () => true,
+    appendDecisionComment = () => {},
+    acceptLink = async () => null,
+    adoptFieldSuggestion = async () => null,
+    promoteNote = async () => null,
+    recordDecision = async () => null,
+    loadAiInboxDetail = async () => {},
+    setAiInboxActionNotice = () => {},
+    setStatus = () => {},
+    render = () => {},
+    messages = {}
+  } = deps;
+  const normalized = String(action || aiInboxState.aiSummaryRecommendedAction || "").trim();
+  const artifactId = selectedAiInboxArtifactId(aiInboxState);
+  if (!artifactId || !normalized) {
+    setStatus("No AI recommended action to apply", "warn");
+    return undefined;
+  }
+  const guard = aiInboxActionGuardForRuntime(aiInboxState, { artifactId });
+  if (guard.type === "missing_detail") {
+    if (!aiInboxState.detailLoading) await loadAiInboxDetail(guard.artifactId);
+    setAiInboxActionNotice(
+      fallbackMessage(messages.reviewSafetyNotice, "Load the latest inbox detail before running review actions."),
+      "warn",
+      guard.artifactId
+    );
+    render();
+    setStatus(
+      fallbackMessage(messages.reviewSafetyStatusMessage, "AI inbox detail is not ready yet. Retry after the latest detail loads."),
+      "warn"
+    );
+    return null;
+  }
+  if (guard.type === "stale_detail") {
+    if (!aiInboxState.detailLoading) await loadAiInboxDetail(guard.artifactId);
+    setAiInboxActionNotice(
+      fallbackMessage(messages.reviewRetryNotice, "Detail changed while you were reviewing. Retry from the latest reviewed item."),
+      "warn",
+      guard.artifactId
+    );
+    render();
+    setStatus(
+      fallbackMessage(messages.reviewRetryStatusMessage, "AI inbox detail changed before the review action could run. Retry on the latest detail."),
+      "warn"
+    );
+    return null;
+  }
+
+  const labels = {
+    accept_link: "create the suggested relation",
+    adopt_field_suggestion: "adopt the field suggestion as a draft",
+    promote_note: "create a draft note",
+    ignore: "mark this item ignored",
+    needs_more_context: "mark this item as needing more context"
+  };
+  const label = labels[normalized] || normalized;
+  if (!confirm(`Apply AI recommended action: ${label}?`)) return false;
+
+  if (normalized === "accept_link") return acceptLink(artifactId);
+  if (normalized === "adopt_field_suggestion") {
+    return adoptFieldSuggestion(
+      artifactId,
+      String(aiInboxState.aiSummarySuggestionId || aiInboxState.detail?.suggestion?.id || "").trim()
+    );
+  }
+  if (normalized === "promote_note") return promoteNote(artifactId);
+  if (normalized === "ignore") return recordDecision("ignored");
+  if (normalized === "needs_more_context") {
+    appendDecisionComment("AI recommendation: needs_more_context");
+    return recordDecision("revised");
+  }
+  setStatus(`Unsupported AI recommended action: ${normalized}`, "warn");
+  return undefined;
+}
+
 export async function applyAiInboxSuggestionStatusForRuntime(deps = {}, status = "", expectedSuggestionId = "") {
   const {
     aiInboxState,

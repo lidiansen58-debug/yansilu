@@ -7,6 +7,7 @@ import {
   acceptAiInboxLinkSuggestionForRuntime,
   adoptAiInboxFieldSuggestionDraftForRuntime,
   aiInboxActionGuardForRuntime,
+  applyAiInboxRecommendedActionForRuntime,
   applyAiInboxSuggestionStatusForRuntime,
   loadAiInboxDetailForRuntime,
   promoteAiInboxArtifactToNoteForRuntime,
@@ -16,11 +17,40 @@ import {
 
 globalThis.__acceptAiInboxLinkSuggestionForRuntime = acceptAiInboxLinkSuggestionForRuntime;
 globalThis.__adoptAiInboxFieldSuggestionDraftForRuntime = adoptAiInboxFieldSuggestionDraftForRuntime;
+globalThis.__applyAiInboxRecommendedActionForRuntime = applyAiInboxRecommendedActionForRuntime;
 globalThis.__applyAiInboxSuggestionStatusForRuntime = applyAiInboxSuggestionStatusForRuntime;
 globalThis.__promoteAiInboxArtifactToNoteForRuntime = promoteAiInboxArtifactToNoteForRuntime;
 globalThis.__recordAiInboxReviewDecisionForRuntime = recordAiInboxReviewDecisionForRuntime;
 
 function extractAsyncFunctionSource(source, name) {
+  if (name === "applyAiInboxRecommendedAction") {
+    return `async function applyAiInboxRecommendedAction(action = "") {
+      return globalThis.__applyAiInboxRecommendedActionForRuntime({
+        aiInboxState,
+        confirm: (message) => (typeof window === "object" && typeof window.confirm === "function" ? window.confirm(message) : true),
+        appendDecisionComment: (comment) => {
+          if (typeof $ !== "function") return;
+          const commentEl = $("aiInboxDecisionComment");
+          const nextComment = \`\${commentEl?.value || ""}\\n\\n\${comment}\`.trim();
+          if (commentEl) commentEl.value = nextComment;
+        },
+        acceptLink: typeof acceptAiInboxLinkSuggestion === "function" ? acceptAiInboxLinkSuggestion : async () => null,
+        adoptFieldSuggestion: typeof adoptAiInboxFieldSuggestionDraft === "function" ? adoptAiInboxFieldSuggestionDraft : async () => null,
+        promoteNote: typeof promoteAiInboxArtifactToNote === "function" ? promoteAiInboxArtifactToNote : async () => null,
+        recordDecision: typeof recordAiInboxReviewDecision === "function" ? recordAiInboxReviewDecision : async () => null,
+        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
+        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
+        setStatus: typeof setStatus === "function" ? setStatus : () => {},
+        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
+        messages: {
+          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
+          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
+          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
+          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined
+        }
+      }, action);
+    }`;
+  }
   if (name === "acceptAiInboxLinkSuggestion") {
     return `async function acceptAiInboxLinkSuggestion(artifactId) {
       return globalThis.__acceptAiInboxLinkSuggestionForRuntime({
@@ -892,6 +922,72 @@ test("applyAiInboxRecommendedAction forwards the summary suggestion id when adop
     { artifactId: "artifact_1", suggestionId: "suggestion_from_summary" }
   ]);
   assert.deepEqual(result, { ok: true, artifactId: "artifact_1", suggestionId: "suggestion_from_summary" });
+});
+
+test("applyAiInboxRecommendedAction routes promote ignore context unsupported and cancelled actions", async () => {
+  const baseState = () => ({
+    selectedArtifactId: "artifact_1",
+    detail: { item: { artifactId: "artifact_1" }, suggestion: { id: "suggestion_1" } },
+    detailLoading: false,
+    aiSummaryRecommendedAction: ""
+  });
+
+  const routed = [];
+  const statuses = [];
+  const comments = [];
+  const depsFor = (aiInboxState, confirm = () => true) => ({
+    aiInboxState,
+    confirm,
+    appendDecisionComment: (comment) => comments.push(comment),
+    acceptLink: async (artifactId) => routed.push(["accept", artifactId]),
+    adoptFieldSuggestion: async (artifactId, suggestionId) => routed.push(["adopt", artifactId, suggestionId]),
+    promoteNote: async (artifactId) => {
+      routed.push(["promote", artifactId]);
+      return { promoted: artifactId };
+    },
+    recordDecision: async (decision) => {
+      routed.push(["record", decision]);
+      return { decision };
+    },
+    loadAiInboxDetail: async () => {
+      throw new Error("loadAiInboxDetail should not run for fresh detail");
+    },
+    setAiInboxActionNotice: () => {},
+    setStatus: (message, tone) => statuses.push({ message, tone }),
+    render: () => {}
+  });
+
+  const promoteState = baseState();
+  assert.deepEqual(
+    await applyAiInboxRecommendedActionForRuntime(depsFor(promoteState), "promote_note"),
+    { promoted: "artifact_1" }
+  );
+  assert.deepEqual(routed.pop(), ["promote", "artifact_1"]);
+
+  const ignoreState = baseState();
+  assert.deepEqual(
+    await applyAiInboxRecommendedActionForRuntime(depsFor(ignoreState), "ignore"),
+    { decision: "ignored" }
+  );
+  assert.deepEqual(routed.pop(), ["record", "ignored"]);
+
+  const contextState = baseState();
+  assert.deepEqual(
+    await applyAiInboxRecommendedActionForRuntime(depsFor(contextState), "needs_more_context"),
+    { decision: "revised" }
+  );
+  assert.deepEqual(comments, ["AI recommendation: needs_more_context"]);
+  assert.deepEqual(routed.pop(), ["record", "revised"]);
+
+  const unsupportedState = baseState();
+  const unsupported = await applyAiInboxRecommendedActionForRuntime(depsFor(unsupportedState), "do_something_else");
+  assert.equal(unsupported, undefined);
+  assert.deepEqual(statuses.at(-1), { message: "Unsupported AI recommended action: do_something_else", tone: "warn" });
+
+  const cancelledState = baseState();
+  const cancelled = await applyAiInboxRecommendedActionForRuntime(depsFor(cancelledState, () => false), "promote_note");
+  assert.equal(cancelled, false);
+  assert.notDeepEqual(routed.at(-1), ["promote", "artifact_1"]);
 });
 
 test("refreshAiInbox invalidates stale detail state when a list refresh switches the selected artifact", async () => {
