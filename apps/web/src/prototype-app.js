@@ -335,6 +335,12 @@ import {
   renderGraphStarfieldView
 } from "./graph-visual-map-view.js";
 import {
+  renderGraphVisualEdgeViews
+} from "./graph-visual-edge-view.js";
+import {
+  renderGraphVisualNodeViews
+} from "./graph-visual-node-view.js";
+import {
   renderDraftVersionCardView,
   renderWritingFlowStepsView,
   renderScaffoldVersionCardView,
@@ -14670,173 +14676,72 @@ function renderGraphVisualMap({
     sideSelectionContextMarkup || focusContextMarkup || researchNavigatorMarkup
   ].filter(Boolean);
   const sidePanelMarkup = sidePanelParts.length ? `<div class="graph-side-stack">${sidePanelParts.join("")}</div>` : "";
-  const nodeMarkup = layout.nodes
-    .map((node, index) => {
-      const typeClass = graphNodeClass(node.noteType);
-      const title = node.title || node.id;
-      const starRank = graphNodeStarRank(node.starTier);
-      const labelLimit = node.isHub ? (zoom.key === "fit" ? 12 : 18) : starRank >= 3 ? (zoom.key === "fit" ? 10 : 15) : zoom.key === "fit" ? 6 : zoom.key === "read" ? 10 : 14;
-      const label = graphShortTitle(title, labelLimit);
-      const labelY = node.y + node.radius + 12;
-      const metaY = labelY + 11;
-      const labelQuota = denseGalaxyMode
-        ? (
-            zoom.key === "detail"
-              ? 3
-              : zoom.key === "read"
-                ? 1
-                : 0
-          )
-        : denseDirectoryMode
-        ? zoom.key === "detail"
-          ? 5
-          : zoom.key === "read"
-            ? 1
-            : 0
-        : zoom.key === "detail"
-          ? 7
-          : zoom.key === "read"
-            ? 2
-          : 0;
-      const inSelectedTheme = selectedThemeNoteIds.has(node.id);
-      const isolatedKey = String(node.isolatedKey || "").trim();
-      const selectedIsolated =
-        selectedIsolatedNodeId === node.id ||
-        (activeSelection?.kind === "isolated" && isolatedKey && activeSelection.isolatedKey === isolatedKey) ||
-        (activeSelection?.kind === "isolatedComplete" && activeSelection.noteId === node.id);
-      const inSelectedBridge = selectedBridgeNoteIds.has(node.id);
-      const selected = selectedNodeId === node.id;
-      const inSelectedNodeNeighborhood = selectedNodeNeighborhood.has(node.id);
-      const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityNodeIds.has(node.id);
-      const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
-      const fitLensLabel = lensPriority && starRank >= 3;
-      const showLabel = zoom.key === "fit"
-        ? (
-            node.isFocused ||
-            node.isHub ||
-            selected ||
-            inSelectedTheme ||
-            selectedIsolated ||
-            inSelectedBridge ||
-            fitLensLabel
-          )
-        : (
-            node.isFocused ||
-            node.isHub ||
-            node.isAnchor ||
-            selected ||
-            inSelectedNodeNeighborhood ||
-            inSelectedTheme ||
-            selectedIsolated ||
-            inSelectedBridge ||
-            lensPriority ||
-            starRank >= 3 ||
-            index < labelQuota
-          );
-      const showMeta = showLabel && zoom.key === "detail" && starRank >= 4 && (node.isHub || node.isFocused || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority);
-      const revealOnly =
-        !showLabel &&
-        !selected &&
-        !inSelectedTheme &&
-        !selectedIsolated &&
-        !inSelectedBridge &&
-        !lensPriority &&
-        (
-          zoom.key === "fit"
-            ? false
-            : denseDirectoryMode && starRank <= 1
-        );
-      const neighbors = [...(adjacencyMap.get(node.id) || [])];
-      const metaLabel = node.isGraphIsolatedCandidate ? "待关联笔记" : noteTypeLabel(node.noteType);
-      const attentionReasons = graphNodeAttentionReasons(node, { selected, inSelectedTheme, selectedIsolated, inSelectedBridge });
-      const attentionText = attentionReasons.length ? `；${attentionReasons.join("、")}` : "";
-      const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || selected || inSelectedTheme || selectedIsolated || inSelectedBridge || starRank >= 4;
-      const haloTone = node.isGraphIsolatedCandidate || selectedIsolated ? "is-isolated" : inSelectedBridge ? "is-bridge" : node.isFocused || selected ? "is-focus" : inSelectedTheme ? "is-theme" : "is-anchor";
-      const hitRadius = Math.max(18, Number(node.radius || 0) + 6);
-      const glintRadius = Math.max(1.2, Number(node.radius || 0) * 0.12);
-      const glintX = Number(node.x || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
-      const glintY = Number(node.y || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
-      const pointLike =
-        graphNodeShowsAsPoint(node) ||
-        (denseGalaxyMode &&
-          zoom.key === "fit" &&
-          !node.isHub &&
-          !node.isFocused &&
-          !selected &&
-          !inSelectedTheme &&
-          !selectedIsolated &&
-          !inSelectedBridge &&
-          starRank <= 2);
-      const clusterArmDepth = Math.max(0, Math.min(1, Number(node.clusterArmDepth || 0)));
-      const pointFade = pointLike ? Math.max(0.36, 0.94 - clusterArmDepth * 0.48) : 1;
-      const glintFade = pointLike ? Math.max(0.18, 0.82 - clusterArmDepth * 0.52) : 1;
-      const nodeStyle = `--graph-node-core-alpha:${pointFade.toFixed(2)};--graph-node-glint-alpha:${glintFade.toFixed(2)};`;
-      return `
-        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" style="${nodeStyle}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理待关联笔记" : "查看笔记角色"} ${escapeHtml(title)}">
-          <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
-          <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
-          ${Number(node.auraRadius || 0) > 0 ? `<circle class="graph-map-node-aura is-${escapeHtml(node.starTier || "minor")}" cx="${node.x}" cy="${node.y}" r="${Number(node.auraRadius || 0)}"></circle>` : ""}
-          ${haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 5.5}"></circle>` : ""}
-          <circle class="graph-map-node-core" cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
-          ${pointLike ? "" : `<circle class="graph-map-node-glint" cx="${glintX}" cy="${glintY}" r="${glintRadius}"></circle>`}
-          ${(showLabel || revealOnly) ? `<text class="graph-map-node-label${revealOnly ? " is-hover-reveal" : ""}" x="${node.x}" y="${labelY}" text-anchor="middle">${escapeHtml(label)}</text>` : ""}
-          ${showMeta ? `<text class="graph-map-node-meta" x="${node.x}" y="${metaY}" text-anchor="middle">${escapeHtml(metaLabel)} · ${Number(node.degree || 0)}</text>` : ""}
-        </g>
-      `;
-    })
-    .join("");
-  const edgeMarkup = visibleEdges
-    .map(({ edge, path, visual, connectsFocus }) => {
-      const sourceTitle = edge.fromTitle || edge.fromNoteId || "源笔记";
-      const targetTitle = edge.toTitle || edge.toNoteId || "目标笔记";
-      const relationLabel = graphRelationTypeLabel(edge.relationType);
-      const rationale = String(edge.rationale || "").trim();
-      const sourceLabel = graphRelationSourceLabel(edge.createdBy);
-      const relationGroup = graphRelationGroupMeta(edge.relationType);
-      const showEdgePin = (filterActive || zoom.key !== "fit") && visual.key !== "index" && !denseGalaxyMode;
-      const edgeKey = graphEdgeSelectionKey(edge);
-      const selected = selectedEdgeKey === edgeKey;
-      const fromId = String(edge?.fromNoteId || "").trim();
-      const toId = String(edge?.toNoteId || "").trim();
-      const inSelectedTheme = selectedThemeNoteIds.has(fromId) && selectedThemeNoteIds.has(toId);
-      const inSelectedBridge = selectedBridgeNoteIds.size > 1 && selectedBridgeNoteIds.has(fromId) && selectedBridgeNoteIds.has(toId);
-      const inSelectedNodeNeighborhood = Boolean(selectedNodeId) && (fromId === selectedNodeId || toId === selectedNodeId);
-      const fromClusterIndex = Number(layout.nodeMap.get(fromId)?.clusterIndex ?? -1);
-      const toClusterIndex = Number(layout.nodeMap.get(toId)?.clusterIndex ?? -1);
-      const intercluster = fromClusterIndex >= 0 && toClusterIndex >= 0 && fromClusterIndex !== toClusterIndex;
-      const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityEdgeKeys.has(edgeKey);
-      const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
-      const fitVisible = graphEdgeVisibleAtFit(edge, layout.nodeMap, {
-        denseMode: denseGalaxyMode,
-        intercluster
-      });
-      const renderEdge = graphEdgeShouldRender({
-        zoomKey: zoom.key,
-        filterActive,
-        relationType,
-        fitVisible,
-        connectsFocus,
-        selected,
-        inSelectedNodeNeighborhood,
-        inSelectedTheme,
-        inSelectedBridge,
-        lensPriority,
-        visualKey: visual.key,
-        denseMode: denseGalaxyMode,
-        intercluster
-      });
-      if (!renderEdge) return "";
-      return `
-        <g class="graph-map-edge-group graph-edge ${fitVisible ? "is-fit-visible" : "is-fit-hidden"} ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${intercluster ? "is-intercluster" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
-          <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationGroup.label)} · ${escapeHtml(relationLabel)}；${escapeHtml(sourceLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
-          <path class="graph-map-edge-underlay ${escapeHtml(visual.className)}" d="${path.d}"></path>
-          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` style="--graph-edge-marker: url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
-          <path class="graph-map-edge-hit" d="${path.d}"></path>
-          ${showEdgePin ? `<circle class="graph-map-edge-pin ${escapeHtml(visual.className)}" cx="${path.titleX}" cy="${path.titleY}" r="3"></circle>` : ""}
-        </g>
-      `;
-    })
-    .join("");
+  const nodeViewContext = {
+    activeSelection,
+    selectedNodeId,
+    selectedNodeNeighborhood,
+    selectedThemeNoteIds,
+    selectedIsolatedNodeId,
+    selectedBridgeNoteIds,
+    adjacencyMap,
+    readingLensState,
+    filterActive,
+    denseGalaxyMode,
+    denseDirectoryMode,
+    zoomKey: zoom.key
+  };
+  const nodeViewDeps = {
+    escapeHtml,
+    graphNodeClass,
+    graphNodeStarRank,
+    graphShortTitle,
+    noteTypeLabel,
+    graphNodeAttentionReasons,
+    graphNodeShowsAsPoint,
+    labels: {
+      isolatedNodeType: "待关联笔记",
+      isolatedNodeAction: "整理待关联笔记",
+      nodeRoleAction: "查看笔记角色",
+      relationCountPrefix: "连接 ",
+      relationCountSuffix: "条",
+      metaSeparator: " · ",
+      attentionPrefix: "（",
+      attentionJoiner: "、",
+      attentionSuffix: "）"
+    }
+  };
+  const edgeViewContext = {
+    layoutNodeMap: layout.nodeMap,
+    selectedEdgeKey,
+    selectedThemeNoteIds,
+    selectedBridgeNoteIds,
+    selectedNodeId,
+    readingLensState,
+    filterActive,
+    denseGalaxyMode,
+    zoomKey: zoom.key,
+    relationType
+  };
+  const edgeViewDeps = {
+    escapeHtml,
+    graphRelationTypeLabel,
+    graphRelationSourceLabel,
+    graphRelationGroupMeta,
+    graphEdgeSelectionKey,
+    graphEdgeVisibleAtFit,
+    graphEdgeShouldRender,
+    labels: {
+      sourceFallback: "源笔记",
+      targetFallback: "目标笔记",
+      reviewRelation: "查看关系复核",
+      directionWord: "到",
+      metaSeparator: " · ",
+      titleArrow: " → ",
+      rationalePrefix: "，"
+    }
+  };
+  const nodeMarkup = renderGraphVisualNodeViews(layout.nodes, nodeViewContext, nodeViewDeps);
+  const edgeMarkup = renderGraphVisualEdgeViews(visibleEdges, edgeViewContext, edgeViewDeps);
   const emptyTitle = filterActive ? "这条笔记周围暂时没有可见关系" : `${modeMeta.label}当前没有可见笔记`;
   const emptyMessage = filterActive
     ? "可能是这条笔记还没有建立正式关系，也可能是当前显示范围太窄。可以先补一条支持、限定或连接关系。"

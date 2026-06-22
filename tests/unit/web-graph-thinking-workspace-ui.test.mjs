@@ -23,6 +23,10 @@ import {
 import {
   renderGraphClusterGlowView
 } from "../../apps/web/src/graph-visual-map-view.js";
+import {
+  graphVisualNodeViewState,
+  renderGraphVisualNodeView
+} from "../../apps/web/src/graph-visual-node-view.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -1547,11 +1551,32 @@ test("starfield graph keeps relation lines hairline and arrows quiet", () => {
 });
 
 test("starfield graph uses point-like low-rank nodes in dense fit view", () => {
-  const source = readPrototypeApp();
   const html = readPrototypeHtml();
+  const node = {
+    id: "low-rank",
+    title: "Low rank",
+    noteType: "permanent",
+    starTier: "minor",
+    x: 10,
+    y: 12,
+    radius: 1.4
+  };
+  const viewState = graphVisualNodeViewState(
+    node,
+    8,
+    { denseGalaxyMode: true, zoomKey: "fit" },
+    { graphNodeShowsAsPoint: () => true, graphNodeStarRank: () => 1 }
+  );
+  const nodeMarkup = renderGraphVisualNodeView(
+    node,
+    8,
+    { denseGalaxyMode: true, zoomKey: "fit" },
+    { graphNodeShowsAsPoint: () => true, graphNodeStarRank: () => 1 }
+  );
 
-  assert.match(source, /const pointLike =[\s\S]*graphNodeShowsAsPoint\(node\)[\s\S]*denseGalaxyMode[\s\S]*zoom\.key === "fit"[\s\S]*starRank <= 2/);
-  assert.match(source, /\$\{pointLike \? "" : `<circle class="graph-map-node-glint"/);
+  assert.equal(viewState.pointLike, true);
+  assert.equal(viewState.showLabel, false);
+  assert.doesNotMatch(nodeMarkup, /graph-map-node-glint/);
   assert.match(html, /\.graph-map-node\.is-star-dust \.graph-map-node-core \{[\s\S]*opacity: 0\.44;/);
   assert.match(html, /\.graph-map-node\.is-star-major \.graph-map-node-core \{[\s\S]*stroke-width: 0\.84;/);
   assert.match(html, /\.graph-map-node\.is-star-core \.graph-map-node-core,[\s\S]*\.graph-map-node\.is-star-focus \.graph-map-node-core \{[\s\S]*stroke-width: 1\.1;/);

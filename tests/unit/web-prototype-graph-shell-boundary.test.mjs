@@ -23,3 +23,12 @@ test("prototype graph shell delegates isolated relation save and workspace rende
   assert.match(source, /renderGraphRelationWorkspaceForNote as renderGraphRelationWorkspaceMarkup/);
   assert.match(source, /renderGraphThemeIndexWorkspace as renderGraphThemeIndexWorkspaceMarkup/);
 });
+
+test("prototype graph shell delegates visual node and edge svg rendering to view modules", async () => {
+  const source = await readPrototypeAppSource();
+
+  assert.match(source, /renderGraphVisualNodeViews/);
+  assert.match(source, /renderGraphVisualEdgeViews/);
+  assert.doesNotMatch(source, /<g class="graph-map-node graph-node/);
+  assert.doesNotMatch(source, /<g class="graph-map-edge-group graph-edge/);
+});
