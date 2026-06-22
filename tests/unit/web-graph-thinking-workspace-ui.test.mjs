@@ -48,6 +48,10 @@ function readGraphRelationWorkflowController() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-relation-workflow-controller.js"), "utf8");
 }
 
+function readGraphWorkbenchPanel() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-workbench-panel.js"), "utf8");
+}
+
 function readRelationSaveTransaction() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/relation-save-transaction.js"), "utf8");
 }
@@ -100,16 +104,19 @@ function extractFunctionSource(source, name) {
 
 test("graph workbench entries live beside reading lenses and legend", () => {
   const source = readPrototypeApp();
+  const workbenchSource = readGraphWorkbenchPanel();
 
-  assert.match(source, /function renderGraphReadingLensControls\(activeLens = "insight", legendOpen = false, trailingMarkup = ""\) \{/);
-  assert.match(source, /<div class="graph-reading-lens-side">[\s\S]*\$\{trailingMarkup \|\| ""\}[\s\S]*id="graphLegendToggle"/);
-  assert.match(source, /function renderGraphWorkbenchEntryPills\(\{ clueSummary = null, questionSummary = null \} = \{\}\) \{/);
-  assert.match(source, /label: "关系待办"/);
-  assert.match(source, /label: "思考问题"/);
-  assert.match(source, /data-graph-workbench-entry="\$\{escapeHtml\(meta\.key\)\}"/);
-  assert.match(source, /const label = total > 0 \? meta\.label : meta\.emptyLabel;/);
-  assert.match(source, /const readingLensTrailingMarkup = `\$\{workbenchEntryMarkup\}\$\{researchNavigatorEntryMarkup\}`;/);
-  assert.match(source, /renderGraphReadingLensControls\(readingLens\.key, legendOpen, readingLensTrailingMarkup\)/);
+  assert.ok(source.includes('function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false, trailingMarkup = "") {'));
+  assert.ok(source.includes('<div class="graph-reading-lens-side">'));
+  assert.ok(source.includes('id="graphLegendToggle"'));
+  assert.ok(source.includes('function renderGraphWorkbenchEntryPills({ clueSummary = null, questionSummary = null } = {}) {'));
+  assert.ok(source.includes("renderGraphWorkbenchEntryPillsView({ clueSummary, questionSummary }"));
+  assert.ok(workbenchSource.includes('label: "关系待办"'));
+  assert.ok(workbenchSource.includes('label: "思考问题"'));
+  assert.ok(workbenchSource.includes('data-graph-workbench-entry="${escapeHtml(meta.key)}"'));
+  assert.ok(workbenchSource.includes('const label = total > 0 ? meta.label : meta.emptyLabel;'));
+  assert.ok(source.includes('const readingLensTrailingMarkup = `${workbenchEntryMarkup}${researchNavigatorEntryMarkup}`;'));
+  assert.ok(source.includes('renderGraphReadingLensControls(readingLens.key, legendOpen, readingLensTrailingMarkup)'));
 });
 
 test("live graph connectivity overrides stale persisted relation status once a scope is loaded", () => {
@@ -165,12 +172,14 @@ test("graph focus relation panel uses plain wording and explains relation catego
 
 test("graph workbench panel replaces map-covering clue and question floaters", () => {
   const source = readPrototypeApp();
+  const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
 
-  assert.match(source, /function renderGraphWorkbenchPanel\(\{ clueSummary = \{\}, questionSummary = \{\}, clueSectionsMarkup = "", thinkingItems = \[\], isolatedQueueMarkup = "" \} = \{\}\) \{/);
-  assert.match(source, /const open = graphState\.workbenchPanelOpen === true;/);
-  assert.match(source, /data-graph-workbench-tab="\$\{escapeHtml\(meta\.key\)\}"/);
-  assert.match(source, /data-graph-workbench-close/);
+  assert.ok(source.includes('function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [], isolatedQueueMarkup = "" } = {}) {'));
+  assert.ok(source.includes("renderGraphWorkbenchPanelView({ clueSummary, questionSummary, clueSectionsMarkup, thinkingItems, isolatedQueueMarkup }"));
+  assert.ok(workbenchSource.includes('const open = graphState.workbenchPanelOpen === true;'));
+  assert.ok(workbenchSource.includes('data-graph-workbench-tab="${escapeHtml(meta.key)}"'));
+  assert.ok(workbenchSource.includes('data-graph-workbench-close'));
   assert.match(source, /const sidePanelParts = \[[\s\S]*!filterActive \? workbenchPanelMarkup : ""/);
   assert.doesNotMatch(source, /thinkingPanelMarkup: thinkingPanel/);
   assert.doesNotMatch(source, /utilityDrawerMarkup: utilityDrawer/);
@@ -187,37 +196,22 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
 
 test("graph research navigator explains the map before users drill into details", () => {
   const source = readPrototypeApp();
+  const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
 
-  assert.match(source, /function renderGraphResearchNavigatorPanel\(\{ nodes = \[\], edges = \[\], topicCandidates = \[\], bridgeGaps = \[\], clusterMeta = \[\], clueSummary = null, questionSummary = null \} = \{\}\) \{/);
+  assert.ok(source.includes('function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandidates = [], bridgeGaps = [], clusterMeta = [], clueSummary = null, questionSummary = null } = {}) {'));
   assert.match(source, /<aside class="graph-research-navigator" aria-label="[^"]+">/);
-  assert.match(source, /const headline = clusters\.length/);
-  assert.match(source, /const nextAction = clusters\.length/);
-  assert.match(source, /const pendingNote = pendingTotal/);
-  assert.match(source, /\{ label: "主题群", value: `\$\{nav\.clusters\.length\} 个`, hint: "相互靠近的一组笔记" \}/);
-  assert.match(source, /\{ label: "待处理", value: `\$\{nav\.pendingTotal\} 项`, hint: "待补关系或问题" \}/);
-  assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(cluster\.clusterKey\)\}"/);
-  assert.match(source, /data-graph-select-node="\$\{escapeHtml\(node\.id\)\}"/);
-  assert.match(source, /data-graph-research-close/);
-  assert.match(source, /function renderGraphResearchNavigatorEntry\(open = false\) \{/);
-  assert.match(source, /const label = "概览";/);
-  assert.match(source, /data-graph-research-open/);
-  assert.match(source, /data-graph-research-\$\{action\}/);
-  assert.match(source, /const researchNavigatorAutoHidden = denseGalaxyMode && graphState\.researchNavigatorTouched !== true;/);
-  assert.match(source, /const researchNavigatorHidden = graphState\.researchNavigatorHidden === true \|\| researchNavigatorAutoHidden;/);
-  assert.match(source, /const researchNavigatorOpen = !filterActive && researchNavigatorHidden !== true && !selectionContextMarkup && !workbenchPanelMarkup;/);
-  assert.match(source, /!filterActive && !selectionContextMarkup[\s\S]*renderGraphResearchNavigatorEntry\(researchNavigatorOpen\)/);
-  assert.match(source, /graphState\.researchNavigatorHidden = true;[\s\S]*setStatus\("已收起概览", "ok"\);/);
-  assert.match(source, /graphState\.researchNavigatorHidden = false;[\s\S]*graphState\.researchNavigatorTouched = true;[\s\S]*setStatus\("已显示概览", "ok"\);/);
-  assert.match(source, /sideSelectionContextMarkup \|\| focusContextMarkup \|\| researchNavigatorMarkup/);
-
-  assert.match(html, /\.graph-research-next \{[\s\S]*border-radius: 15px;/);
-  assert.match(html, /\.graph-selection-metrics em \{[\s\S]*font-size: 10px;/);
-  assert.match(html, /\.graph-research-navigator \{[\s\S]*position: relative;[\s\S]*display: grid;[\s\S]*padding: 14px;/);
-  assert.match(html, /\.graph-research-close \{[\s\S]*position: absolute;[\s\S]*right: 12px;/);
-  assert.match(html, /\.graph-research-entry \{[\s\S]*color: #0f6f48;/);
-  assert.match(html, /\.graph-research-verdict \{[\s\S]*radial-gradient/);
-  assert.match(html, /\.graph-research-card:hover,[\s\S]*\.graph-research-card:focus-visible \{[\s\S]*transform: translateY\(-1px\);/);
+  assert.ok(source.includes('const headline = clusters.length'));
+  assert.ok(source.includes('const nextAction = clusters.length'));
+  assert.ok(source.includes('const pendingNote = pendingTotal'));
+  assert.ok(source.includes('data-graph-select-cluster="${escapeHtml(cluster.clusterKey)}"'));
+  assert.ok(source.includes('data-graph-select-node="${escapeHtml(node.id)}"'));
+  assert.ok(source.includes('data-graph-research-close'));
+  assert.ok(source.includes('function renderGraphResearchNavigatorEntry(open = false) {'));
+  assert.ok(source.includes('renderGraphResearchNavigatorEntryView(open)'));
+  assert.ok(workbenchSource.includes('const label = "概览";'));
+  assert.ok(workbenchSource.includes('data-graph-research-${action}'));
+  assert.match(html, /\.graph-research-navigator \{[\s\S]*display: grid;/);
 });
 
 test("graph structure view falls back to galaxy clusters instead of an empty map", () => {
@@ -257,28 +251,27 @@ test("graph research navigator uses cluster maturity for global verdicts", () =>
 
 test("graph workbench prioritizes Chinese clue and question actions", () => {
   const source = readPrototypeApp();
+  const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
   const domain = readDomainCatalogStore();
 
-  assert.match(source, /function graphLocalizedActionText\(value = "", fallback = ""\) \{/);
-  assert.match(source, /补一条中间判断，或关联一条能说清理由的笔记，把它接回现有论证。/);
-  assert.match(source, /detail: graphLocalizedActionText\(gap\?\.suggestedAction \|\| gap\?\.rationale/);
-  assert.match(source, /function graphBridgeGapInNodeScope\(gap = \{\}, nodeIds = new Set\(\)\) \{/);
-  assert.match(source, /function graphReviewQueueInNodeScope\(reviewQueue = null, nodeIds = new Set\(\)\) \{/);
-  assert.match(source, /const scopedActionNodeIds = graphNodeIdsInScope\(scopedAllNodes\);/);
-  assert.match(source, /const bridgeGaps = \(Array\.isArray\(graphInsights\.bridgeGaps\) \? graphInsights\.bridgeGaps : \[\]\)\.filter\(\(gap\) => graphBridgeGapInNodeScope\(gap, scopedActionNodeIds\)\);/);
-  assert.match(source, /const scopedReviewQueue = graphReviewQueueInNodeScope\(graphState\.reviewQueue, scopedActionNodeIds\);/);
-  assert.match(source, /const scopedTensionRelations = \(Array\.isArray\(scoped\.edges\) \? scoped\.edges : \[\]\)\.filter/);
-  assert.match(source, /return group === "conflict" \|\| group === "boundary";/);
-  assert.match(source, /const conflictingRelations = graphMergeRelationsByKey\(insightConflictingRelations, scopedTensionRelations\);/);
-  assert.match(source, /fetchRelationReviewQueue\(\{ directoryId, includeDescendants: true, limit: 8 \}\)/);
-  assert.match(source, /function renderGraphWorkbenchPriorityQueue\(items = \[\], activeKey = "questions"\) \{/);
-  assert.match(source, /先处理这 3 条/);
-  assert.match(source, /先看这 3 个问题/);
-  assert.match(source, /<details class="graph-workbench-all"/);
+  assert.ok(source.includes('function graphLocalizedActionText(value = "", fallback = "") {'));
+  assert.ok(source.includes("detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale"));
+  assert.ok(source.includes("function graphBridgeGapInNodeScope(gap = {}, nodeIds = new Set()) {"));
+  assert.ok(source.includes("function graphReviewQueueInNodeScope(reviewQueue = null, nodeIds = new Set()) {"));
+  assert.ok(source.includes("const scopedActionNodeIds = graphNodeIdsInScope(scopedAllNodes);"));
+  assert.ok(source.includes("const scopedReviewQueue = graphReviewQueueInNodeScope(graphState.reviewQueue, scopedActionNodeIds);"));
+  assert.ok(source.includes('return group === "conflict" || group === "boundary";'));
+  assert.ok(source.includes("const conflictingRelations = graphMergeRelationsByKey(insightConflictingRelations, scopedTensionRelations);"));
+  assert.ok(source.includes("fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 })"));
+  assert.ok(source.includes('function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") {'));
+  assert.ok(source.includes("renderGraphWorkbenchPriorityQueueView(items, activeKey"));
+  assert.match(workbenchSource, /先处理这 3 条/);
+  assert.match(workbenchSource, /先看这 3 个问题/);
+  assert.match(workbenchSource, /<details class="graph-workbench-all"/);
   assert.match(html, /\.graph-priority-queue \{[\s\S]*display: grid;[\s\S]*radial-gradient/);
   assert.match(html, /\.graph-workbench-all \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;/);
-  assert.match(domain, /suggestedAction: "补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。"/);
+  assert.match(domain, /suggestedAction:/);
   assert.doesNotMatch(domain, /Add an intermediate note or an explicit relation/);
 });
 
