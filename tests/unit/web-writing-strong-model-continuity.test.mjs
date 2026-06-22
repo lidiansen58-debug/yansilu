@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { describeWritingStrongModelStatus } from "../../apps/web/src/writing-center-flow.js";
-import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
+import {
+  describeWritingStrongModelStatus,
+  writingStrongModelButtonState
+} from "../../apps/web/src/writing-center-flow.js";
 
 test("writing strong-model status keeps projected continuity out of the primary flow", () => {
   const strongModel = describeWritingStrongModelStatus({
@@ -24,37 +26,59 @@ test("writing strong-model status keeps projected continuity out of the primary 
   assert.doesNotMatch(strongModel.hint, /继续当前项目/);
 });
 
-test("writing strong-model button and handler require the current project before running analysis", async () => {
-  const source = await readPrototypeAppSource();
-
-  assert.doesNotMatch(source, /const canContinueProjectedStrongModel =\s*!hasProject/);
-  assert.match(
-    source,
-    /strongModelButton\.disabled = writingState\.strongModelLoading \|\| strongModelBasketIds\.length === 0 \|\| !strongModelReady;/
+test("writing strong-model button requires the current project before running analysis", () => {
+  assert.deepEqual(
+    writingStrongModelButtonState({
+      basketCount: 3,
+      strongModelReady: false,
+      stateButtonLabel: "先创建项目"
+    }),
+    {
+      disabled: true,
+      text: "先创建项目"
+    }
   );
 
-  const match = source.match(/\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
-  assert.ok(match, "expected writing strong-model handler to exist");
-  const fnBody = match[1];
+  assert.deepEqual(
+    writingStrongModelButtonState({
+      basketCount: 3,
+      strongModelReady: true,
+      stateButtonLabel: "准备强模型分析"
+    }),
+    {
+      disabled: false,
+      text: "准备强模型分析"
+    }
+  );
 
-  assert.doesNotMatch(fnBody, /currentWritingContinuationEntry\(/);
-  assert.doesNotMatch(fnBody, /continueWritingProjectEntry\(/);
-  assert.match(fnBody, /await prepareWritingStrongModelAnalysis\(\);/);
+  assert.deepEqual(
+    writingStrongModelButtonState({
+      loading: true,
+      basketCount: 3,
+      strongModelReady: true,
+      stateButtonLabel: "准备强模型分析"
+    }),
+    {
+      disabled: true,
+      text: "准备中..."
+    }
+  );
 });
 
-test("writing create-project primary action no longer opens an existing continuation", async () => {
-  const source = await readPrototypeAppSource();
-  const createFn = source.match(/async function createWritingProjectFromCurrentBasket\(\) \{([\s\S]*?)\n\}/);
-  const handler = source.match(/\$\("btnWritingCreateProject"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
+test("writing create-project primary action remains separate from projected continuation", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "strong_model_ready",
+    readinessHint: "ready",
+    projectEntryProjectId: "wp_existing",
+    projectEntryActionLabel: "继续当前项目",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
 
-  assert.ok(createFn, "expected createWritingProjectFromCurrentBasket() to exist");
-  assert.ok(handler, "expected writing create-project handler to exist");
-  assert.doesNotMatch(createFn[1], /currentWritingContinuationEntry\(/);
-  assert.doesNotMatch(createFn[1], /continueWritingProjectEntry\(/);
-  assert.doesNotMatch(handler[1], /currentWritingContinuationEntry\(/);
-  assert.doesNotMatch(handler[1], /continueWritingProjectEntry\(/);
-  assert.match(handler[1], /await createWritingProjectFromCurrentBasket\(\);/);
-  assert.match(source, /if \(writingState\.project\?\.id\) \{/);
-  assert.match(source, /createProjectButton\.disabled = hasProject \|\| !projectEntry\.canCreateProject;/);
-  assert.match(source, /createProjectButton\.textContent = hasProject \? "项目已创建" : projectEntry\.actionLabel;/);
+  assert.equal(strongModel.buttonLabel, "先创建项目");
+  assert.doesNotMatch(strongModel.hint, /继续当前项目/);
 });

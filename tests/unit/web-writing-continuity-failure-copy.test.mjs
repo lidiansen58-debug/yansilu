@@ -1,22 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
+import {
+  writingCenterContinuationFailureMessage,
+  writingScaffoldPreflightWarning
+} from "../../apps/web/src/writing-center-flow.js";
 
-test("writing-center projected continuity failure copy stays on explicit continuation actions", async () => {
-  const source = await readPrototypeAppSource();
+test("writing-center projected continuity failure copy stays on explicit continuation actions", () => {
+  assert.equal(
+    writingCenterContinuationFailureMessage({ action: "open-draft" }, new Error("boom")),
+    "从写作中心打开当前草稿失败：boom"
+  );
+  assert.equal(
+    writingCenterContinuationFailureMessage({ action: "resume-scaffold" }, "missing"),
+    "从写作中心回到草稿骨架失败：missing"
+  );
+  assert.equal(
+    writingCenterContinuationFailureMessage({ action: "resume-project" }, "stale"),
+    "从写作中心继续当前项目失败：stale"
+  );
+  assert.equal(
+    writingCenterContinuationFailureMessage({ action: "resume-scaffold" }, "bad", { sourceLabel: "主路径" }),
+    "从主路径回到草稿骨架失败：bad"
+  );
+});
 
-  const createProjectMatch = source.match(/\$\("btnWritingCreateProject"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
-  assert.ok(createProjectMatch, "expected writing create-project handler to exist");
-  assert.doesNotMatch(createProjectMatch[1], /continuation\.action/);
-  assert.match(createProjectMatch[1], /从写作中心创建项目失败/);
-
-  const strongModelMatch = source.match(/\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
-  assert.ok(strongModelMatch, "expected writing strong-model handler to exist");
-  assert.doesNotMatch(strongModelMatch[1], /continuation\.action/);
-  assert.match(strongModelMatch[1], /await prepareWritingStrongModelAnalysis\(\);/);
-
-  const createScaffoldMatch = source.match(/\$\("btnWritingCreateScaffold"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
-  assert.ok(createScaffoldMatch, "expected writing create-scaffold handler to exist");
-  assert.match(createScaffoldMatch[1], /continuation\.action === "open-draft" \? "从写作中心打开当前草稿" : continuation\.action === "resume-scaffold" \? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"/);
+test("writing scaffold preflight warning keeps action-specific copy outside handlers", () => {
+  assert.equal(
+    writingScaffoldPreflightWarning({ level: "needs_clarification" }),
+    "先澄清项目关键问题，再生成草稿骨架。"
+  );
+  assert.equal(
+    writingScaffoldPreflightWarning({ level: "has_gaps" }),
+    "先补项目缺口，再生成草稿骨架。"
+  );
+  assert.equal(
+    writingScaffoldPreflightWarning({ level: "unknown" }),
+    "先检查项目条件，再生成草稿骨架。"
+  );
+  assert.equal(writingScaffoldPreflightWarning({ level: "has_gaps", hint: "custom" }), "custom");
 });

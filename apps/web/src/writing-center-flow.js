@@ -683,6 +683,93 @@ export function describeWritingStrongModelButtonLabel({
   return String(stateButtonLabel || "").trim() || "先补写作材料";
 }
 
+export function writingCenterContinuationStatusMessage(continuation = {}, { sourceLabel = "写作中心", scaffoldLabel = "草稿骨架" } = {}) {
+  const projectId = String(continuation?.projectId || "").trim();
+  const source = String(sourceLabel || "写作中心").trim() || "写作中心";
+  const scaffold = String(scaffoldLabel || "草稿骨架").trim() || "草稿骨架";
+  if (!projectId) return "";
+  if (continuation?.action === "open-draft") return `已从${source}打开当前草稿：${projectId}`;
+  if (continuation?.action === "resume-scaffold") return `已从${source}回到${scaffold}：${projectId}`;
+  if (continuation?.action === "resume-project") return `已从${source}继续当前项目：${projectId}`;
+  return "";
+}
+
+export function writingCenterContinuationFailureMessage(continuation = {}, error = "", { sourceLabel = "写作中心", scaffoldLabel = "草稿骨架" } = {}) {
+  const detail = String(error?.message || error || "");
+  const source = String(sourceLabel || "写作中心").trim() || "写作中心";
+  const scaffold = String(scaffoldLabel || "草稿骨架").trim() || "草稿骨架";
+  if (continuation?.action === "open-draft") return `从${source}打开当前草稿失败：${detail}`;
+  if (continuation?.action === "resume-scaffold") return `从${source}回到${scaffold}失败：${detail}`;
+  return `从${source}继续当前项目失败：${detail}`;
+}
+
+export function writingOpenDraftButtonState({ hasDraft = false, draftContinuation = null } = {}) {
+  const canContinueProjectedDraft = Boolean(draftContinuation?.projectId) && Boolean(draftContinuation?.actionLabel);
+  return {
+    disabled: !(hasDraft || canContinueProjectedDraft),
+    canContinueProjectedDraft,
+    text: hasDraft
+      ? "打开当前草稿"
+      : draftContinuation?.projectId && draftContinuation?.action === "open-draft"
+        ? "打开当前草稿"
+        : draftContinuation?.projectId && draftContinuation?.actionLabel
+          ? `先${draftContinuation.actionLabel}`
+          : "暂无草稿"
+  };
+}
+
+export function writingScaffoldButtonState({
+  hasProject = false,
+  projectPreflightLevel = "",
+  projectEntry = null
+} = {}) {
+  const canContinueProjectedProject = Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
+  const cleanLevel = String(projectPreflightLevel || "").trim();
+  const canGenerateScaffold = Boolean(hasProject) && cleanLevel === "ready";
+  return {
+    disabled: !(canGenerateScaffold || canContinueProjectedProject),
+    canContinueProjectedProject,
+    canGenerateScaffold,
+    text: hasProject
+      ? cleanLevel === "needs_clarification"
+        ? "先澄清项目问题"
+        : cleanLevel === "has_gaps"
+          ? "先补项目缺口"
+          : "生成草稿骨架"
+      : projectEntry?.projectId && projectEntry?.actionLabel
+        ? `先${projectEntry.actionLabel}`
+        : projectEntry?.actionLabel === "创建项目"
+          ? "先创建项目"
+          : projectEntry?.actionLabel || "先补写作材料"
+  };
+}
+
+export function writingScaffoldPreflightWarning(projectPreflightSummary = {}) {
+  if (projectPreflightSummary?.level === "ready") return "";
+  return projectPreflightSummary?.hint ||
+    (projectPreflightSummary?.level === "needs_clarification"
+      ? "先澄清项目关键问题，再生成草稿骨架。"
+      : projectPreflightSummary?.level === "has_gaps"
+        ? "先补项目缺口，再生成草稿骨架。"
+        : "先检查项目条件，再生成草稿骨架。");
+}
+
+export function writingStrongModelButtonState({
+  loading = false,
+  basketCount = 0,
+  strongModelReady = false,
+  stateButtonLabel = ""
+} = {}) {
+  return {
+    disabled: Boolean(loading) || Number(basketCount || 0) === 0 || !strongModelReady,
+    text: describeWritingStrongModelButtonLabel({
+      basketCount,
+      loading,
+      stateButtonLabel
+    })
+  };
+}
+
 export function describeWritingThemeProjectEntryState({
   notesLoaded = false,
   loadingNoteDetails = false,

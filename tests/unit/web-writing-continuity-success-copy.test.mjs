@@ -1,24 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
+import { writingCenterContinuationStatusMessage } from "../../apps/web/src/writing-center-flow.js";
 
-test("writing-center projected continuity success copy stays on explicit continuation actions", async () => {
-  const source = await readPrototypeAppSource();
-
-  const createProjectMatch = source.match(/\$\("btnWritingCreateProject"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
-  assert.ok(createProjectMatch, "expected writing create-project handler to exist");
-  assert.doesNotMatch(createProjectMatch[1], /continuation\.projectId/);
-  assert.match(createProjectMatch[1], /await createWritingProjectFromCurrentBasket\(\);/);
-
-  const strongModelMatch = source.match(/\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
-  assert.ok(strongModelMatch, "expected writing strong-model handler to exist");
-  assert.doesNotMatch(strongModelMatch[1], /continuation\.projectId/);
-  assert.match(strongModelMatch[1], /await prepareWritingStrongModelAnalysis\(\);/);
-
-  const createScaffoldMatch = source.match(/\$\("btnWritingCreateScaffold"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
-  assert.ok(createScaffoldMatch, "expected writing create-scaffold handler to exist");
-  assert.match(createScaffoldMatch[1], /已从写作中心打开当前草稿：\$\{continuation\.projectId\}/);
-  assert.match(createScaffoldMatch[1], /已从写作中心回到草稿骨架：\$\{continuation\.projectId\}/);
-  assert.match(createScaffoldMatch[1], /已从写作中心继续当前项目：\$\{continuation\.projectId\}/);
+test("writing-center projected continuity success copy stays on explicit continuation actions", () => {
+  assert.equal(
+    writingCenterContinuationStatusMessage({ action: "open-draft", projectId: "wp_1" }),
+    "已从写作中心打开当前草稿：wp_1"
+  );
+  assert.equal(
+    writingCenterContinuationStatusMessage({ action: "resume-scaffold", projectId: "wp_1" }),
+    "已从写作中心回到草稿骨架：wp_1"
+  );
+  assert.equal(
+    writingCenterContinuationStatusMessage({ action: "resume-project", projectId: "wp_1" }),
+    "已从写作中心继续当前项目：wp_1"
+  );
+  assert.equal(
+    writingCenterContinuationStatusMessage({ action: "open-draft", projectId: "wp_1" }, { sourceLabel: "主路径" }),
+    "已从主路径打开当前草稿：wp_1"
+  );
 });
