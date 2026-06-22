@@ -56,3 +56,14 @@ test("prototype graph shell delegates selection kind dispatch to a graph module"
   assert.doesNotMatch(source, /if \(normalized\.kind === "relationForm"\)/);
   assert.doesNotMatch(source, /if \(normalized\.kind === "bridge"\)/);
 });
+
+test("prototype graph shell delegates node and edge selection bodies to panel modules", async () => {
+  const source = await readPrototypeAppSource();
+
+  assert.match(source, /from "\.\/graph-node-selection-panel\.js"/);
+  assert.match(source, /from "\.\/graph-edge-selection-panel\.js"/);
+  assert.match(source, /renderGraphNodeSelectionPanelView\(args/);
+  assert.match(source, /renderGraphEdgeSelectionPanelView\(args/);
+  assert.doesNotMatch(source, /data-graph-ai-connect-note="\$\{escapeHtml\(normalized\.nodeId\)\}"/);
+  assert.doesNotMatch(source, /class="graph-relation-adjustment-card/);
+});

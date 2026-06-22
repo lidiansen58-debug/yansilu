@@ -75,6 +75,14 @@ function readGraphSelectionPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-selection-panel.js"), "utf8");
 }
 
+function readGraphNodeSelectionPanel() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-node-selection-panel.js"), "utf8");
+}
+
+function readGraphEdgeSelectionPanel() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-edge-selection-panel.js"), "utf8");
+}
+
 function readRelationSaveTransaction() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/relation-save-transaction.js"), "utf8");
 }
@@ -367,19 +375,21 @@ test("graph clusters are selectable research objects with their own summary pane
 test("graph research details cover nodes and relation gravity lines with next actions", () => {
   const source = readPrototypeApp();
   const selectionPanelSource = readGraphSelectionPanel();
+  const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
+  const edgeSelectionPanelSource = readGraphEdgeSelectionPanel();
   const html = readPrototypeHtml();
 
   assert.match(source, /if \(String\(graphState\.selection\?\.kind \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "cluster"\) \{/);
   assert.match(selectionPanelSource, /class="graph-overlay-close graph-selection-close"/);
   assert.doesNotMatch(selectionPanelSource, /data-graph-selection-close[^>]*>收起<\/button>/);
-  assert.match(source, /kicker: "当前笔记"/);
-  assert.match(source, /renderGraphNodeInsightPanel\(insight\)/);
-  assert.match(source, /已保存关系和更多操作/);
-  assert.match(source, /直接选择相关笔记/);
-  assert.match(source, /kicker: "已保存关系"/);
-  assert.match(source, /roleLabel: review\.label/);
-  assert.match(source, /renderGraphPromptDetails\("复核提示（可选）", prompts\)/);
-  assert.match(source, /data-graph-relation-adjustment/);
+  assert.match(nodeSelectionPanelSource, /kicker: "当前笔记"/);
+  assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
+  assert.match(nodeSelectionPanelSource, /已保存关系和更多操作/);
+  assert.match(nodeSelectionPanelSource, /直接选择相关笔记/);
+  assert.match(edgeSelectionPanelSource, /kicker: "已保存关系"/);
+  assert.match(edgeSelectionPanelSource, /roleLabel: review\.label/);
+  assert.match(edgeSelectionPanelSource, /renderGraphPromptDetails\("复核提示（可选）", prompts\)/);
+  assert.match(edgeSelectionPanelSource, /data-graph-relation-adjustment/);
 
   assert.match(html, /\.graph-selection-close \{[\s\S]*position: absolute;[\s\S]*right: 10px;/);
   assert.match(html, /\.graph-map-floater \{[\s\S]*position: sticky;[\s\S]*height: 36px;[\s\S]*margin: 12px 0 -48px 12px;[\s\S]*overflow: visible;/);
@@ -443,6 +453,7 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
 
 test("isolated graph notes can request AI-assisted relation candidates and save them inside the graph workspace", () => {
   const source = readPrototypeApp();
+  const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
   const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
@@ -672,7 +683,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(saveControllerSource, /normalizeRelationSaveTransactionInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
   assert.match(source, /rationaleDraft,/);
   assert.match(source, /insightQuestionDraft,/);
-  assert.match(source, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
+  assert.match(nodeSelectionPanelSource, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
   assert.match(source, /runAiConnectForNote: runGraphAiConnectForNote/);
   assert.match(source, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
   assert.match(source, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
@@ -722,6 +733,7 @@ test("graph selection upgrades isolated notes to connected nodes after a saved r
 
 test("graph node clicks without confirmed relations open the large relation workflow", () => {
   const source = readPrototypeApp();
+  const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
 
   assert.match(source, /function graphRelationStatusCountsAsConfirmedEdge\(value = ""\) \{/);
   assert.match(source, /function graphDirectConfirmedRelationCount\(noteId = "", edges = \[\]\) \{/);
@@ -729,7 +741,7 @@ test("graph node clicks without confirmed relations open the large relation work
   assert.match(source, /function graphNodeNeedsRelationWorkflowFromCurrentGraph\(noteId = ""\) \{/);
   assert.match(source, /const selectionNodeNeedsRelationWorkflow =\s*activeSelection\?\.kind === "node" && graphNodeNeedsRelationWorkflow\(activeSelection\.nodeId, contextualSelectionEdges, contextualNodeMap\);/);
   assert.match(source, /activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \|\| selectionNodeNeedsRelationWorkflow/);
-  assert.match(source, /if \(graphNodeNeedsRelationWorkflow\(normalized\.nodeId, edges, nodeMap\)\) \{[\s\S]*return renderGraphIsolatedSelectionPanel\(\{/);
+  assert.match(nodeSelectionPanelSource, /if \(graphNodeNeedsRelationWorkflow\(normalized\.nodeId, edges, nodeMap\)\) \{[\s\S]*return renderGraphIsolatedSelectionPanel\(\{/);
   assert.match(source, /function openGraphNodeSelectionFromElement\(element = null\) \{/);
   assert.match(source, /isolatedKey \|\| graphNodeNeedsRelationWorkflowFromCurrentGraph\(nodeId\)/);
   assert.match(source, /openGraphSelection\(\{[\s\S]*kind: "isolated"[\s\S]*noteId: nodeId[\s\S]*\}\);/);
@@ -1360,19 +1372,20 @@ test("isolated note panel gives a continuous next step after confirming a relati
 test("graph node selection summarizes position, relation quality, and next action", () => {
   const source = readPrototypeApp();
   const selectionPanelSource = readGraphSelectionPanel();
+  const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphNodeInsightMeta\(node = \{\}, directEdges = \[\], \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphNodeInsightPanel\(insight = \{\}\) \{/);
   assert.match(source, /function renderGraphSelectionTask\(task = null\) \{/);
   assert.match(selectionPanelSource, /aria-label="[^"]+"/);
-  assert.match(source, /已接入图谱：检查关系是否能支撑你的判断/);
+  assert.match(nodeSelectionPanelSource, /已接入图谱：检查关系是否能支撑你的判断/);
   assert.match(source, /当前状态/);
   assert.match(source, /建议下一步/);
   assert.match(source, /为什么这样判断/);
-  assert.match(source, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
-  assert.match(source, /renderGraphNodeInsightPanel\(insight\)/);
-  assert.match(source, /renderGraphNodeInsightPanel\(insight\)[\s\S]*\$\{relationDetails\}[\s\S]*\$\{candidatePanel\}/);
+  assert.match(nodeSelectionPanelSource, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
+  assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
+  assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)[\s\S]*\$\{relationDetails\}[\s\S]*\$\{candidatePanel\}/);
   assert.match(html, /\.graph-node-insight \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
   assert.match(html, /\.graph-selection-task \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*border-left: 4px solid #38a3c9;/);
   assert.match(html, /\.graph-selection-details summary \{[\s\S]*min-height: 44px;[\s\S]*cursor: pointer;/);
@@ -1380,6 +1393,7 @@ test("graph node selection summarizes position, relation quality, and next actio
 
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
   const source = readPrototypeApp();
+  const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const systemMessageSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-messages.js"), "utf8");
   const systemMessageWorkflowSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-message-workflow.js"), "utf8");
@@ -1389,7 +1403,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(source, /function renderGraphRelationWorkspaceForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], title = "关联整理" \} = \{\}\) \{/);
   assert.match(workspaceSource, /graphThemeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\)/);
   assert.match(joinWorkspaceSource, /aiCandidatesForNote\(cleanNoteId, \{ nodeMap, edges, limit: 3 \}\)/);
-  assert.match(source, /graphThemeCandidateNoteIdsForNode\(normalized\.nodeId, directEdges, \[\]\)/);
+  assert.match(nodeSelectionPanelSource, /graphThemeCandidateNoteIdsForNode\(normalized\.nodeId, directEdges, \[\]\)/);
   assert.match(workspaceSource, /data-graph-theme-note-ids="\$\{escapeHtml\(themeNoteIds\.join\(","\)\)\}"/);
   assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
   assert.match(workspaceSource, /data-graph-create-theme-index/);
