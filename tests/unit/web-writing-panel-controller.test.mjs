@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   renderWritingFlowStepsDom,
-  renderWritingScaffoldPreviewDom
+  renderWritingScaffoldPreviewDom,
+  renderWritingStrongModelRequestDetailDom
 } from "../../apps/web/src/writing-panel-controller.js";
 
 const escapeHtml = (value) => String(value ?? "")
@@ -127,4 +128,54 @@ test("writing panel controller renders scaffold sections preflight and markdown"
   assert.match(html, /case/);
   assert.match(html, /larger question/);
   assert.match(html, /# Draft/);
+});
+
+test("writing panel controller renders strong model request empty state", () => {
+  const nodes = new Map([
+    ["writingStrongModelRequestDetail", { innerHTML: "" }]
+  ]);
+
+  renderWritingStrongModelRequestDetailDom({
+    $: (id) => nodes.get(id) || null,
+    writingState: {},
+    parseWritingBasketIds: () => [],
+    writingKnownNoteById: () => null,
+    writingBookProjectGoal: () => "",
+    writingBookProjectAudience: () => "",
+    escapeHtml
+  });
+
+  const html = nodes.get("writingStrongModelRequestDetail").innerHTML;
+  assert.match(html, /writing-section-note/);
+});
+
+test("writing panel controller renders strong model request details", () => {
+  const nodes = new Map([
+    ["writingStrongModelRequestDetail", { innerHTML: "" }]
+  ]);
+
+  renderWritingStrongModelRequestDetailDom({
+    $: (id) => nodes.get(id) || null,
+    writingState: {
+      strongModelResult: {
+        request: {
+          model: { model: "gpt-test" }
+        }
+      }
+    },
+    parseWritingBasketIds: () => ["n1"],
+    writingKnownNoteById: (id) => ({ id, title: "Note <one>" }),
+    writingBookProjectGoal: () => "Write <clearly>",
+    writingBookProjectAudience: () => "Readers",
+    escapeHtml
+  }, {
+    strongModelReady: true
+  });
+
+  const html = nodes.get("writingStrongModelRequestDetail").innerHTML;
+  assert.match(html, /gpt-test/);
+  assert.match(html, /Note &lt;one&gt;/);
+  assert.match(html, /Write &lt;clearly&gt;/);
+  assert.match(html, /Readers/);
+  assert.match(html, /<ul>/);
 });

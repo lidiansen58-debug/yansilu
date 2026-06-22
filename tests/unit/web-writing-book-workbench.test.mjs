@@ -59,14 +59,13 @@ test("local book ideas reset on basket changes and sync when opening a project",
 });
 
 test("strong model request package shows included notes, questions, and exclusions", async () => {
-  const source = await readPrototypeAppSource();
+  const panelControllerSource = await readWritingPanelControllerSource();
 
-  assert.match(source, /function renderWritingStrongModelRequestDetail/);
-  assert.match(source, /note_count/);
-  assert.match(source, /const plannedQuestions = \[/);
-  assert.match(source, /const notSent = \[/);
-  assert.match(source, /plannedQuestions\.map/);
-  assert.match(source, /notSent\.map/);
+  assert.match(panelControllerSource, /function renderWritingStrongModelRequestDetailDom/);
+  assert.match(panelControllerSource, /const plannedQuestions = \[/);
+  assert.match(panelControllerSource, /const notSent = \[/);
+  assert.match(panelControllerSource, /plannedQuestions\.map/);
+  assert.match(panelControllerSource, /notSent\.map/);
 });
 
 test("strong model request package history does not interrupt when no artifacts are created", async () => {

@@ -18,7 +18,6 @@ test("prototype writing shell keeps the main writing surfaces wired", async () =
   assert.match(source, /function openWritingModule/);
   assert.match(source, /function continueWritingEntry/);
   assert.match(source, /function renderWritingPanel/);
-  assert.match(source, /function renderWritingStrongModelRequestDetail/);
 });
 
 test("prototype writing shell delegates panel state building to writing workspace helpers", async () => {
@@ -36,6 +35,9 @@ test("prototype writing shell delegates panel state building to writing workspac
   assert.match(panelControllerSource, /function renderWritingScaffoldPreviewDom/);
   assert.match(panelControllerSource, /renderWritingScaffoldPreviewDom\(deps\)/);
   assert.doesNotMatch(source, /function renderWritingScaffoldPreview/);
+  assert.match(panelControllerSource, /function renderWritingStrongModelRequestDetailDom/);
+  assert.match(panelControllerSource, /renderWritingStrongModelRequestDetailDom\(deps,/);
+  assert.doesNotMatch(source, /function renderWritingStrongModelRequestDetail/);
   assert.doesNotMatch(panelControllerSource, /const candidateFocusSourceIds = uniqueStrings/);
   assert.doesNotMatch(panelControllerSource, /const strongModelState = describeWritingStrongModelStatus/);
 });
