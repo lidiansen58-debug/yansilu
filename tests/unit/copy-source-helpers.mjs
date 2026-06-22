@@ -71,6 +71,10 @@ export function readGraphPanelRuntimeDepsSource() {
   return readRepoText("apps", "web", "src", "graph-panel-runtime-deps.js");
 }
 
+export function readGraphPanelRendererSource() {
+  return readRepoText("apps", "web", "src", "graph-panel-renderer.js");
+}
+
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   readGraphFocusContextPanelSource,
+  readGraphPanelRendererSource,
   readGraphPanelRuntimeDepsSource,
   readGraphPanelShellSource,
   readGraphVisualMapControllerSource,
@@ -106,6 +107,7 @@ test("prototype graph shell delegates cluster selection body to a panel module",
 
 test("prototype graph shell delegates panel state building to a graph module", async () => {
   const source = await readPrototypeAppSource();
+  const panelRendererSource = await readGraphPanelRendererSource();
   const panelShellSource = await readGraphPanelShellSource();
   const panelRuntimeDepsSource = await readGraphPanelRuntimeDepsSource();
 
@@ -113,6 +115,9 @@ test("prototype graph shell delegates panel state building to a graph module", a
   assert.match(source, /from "\.\/graph-panel-shell\.js"/);
   assert.match(source, /from "\.\/graph-panel-runtime-deps\.js"/);
   assert.match(source, /from "\.\/graph-panel-renderer\.js"/);
+  assert.match(panelRendererSource, /from "\.\/graph-panel-visual-map-props\.js"/);
+  assert.match(panelRendererSource, /buildGraphPanelVisualMapProps\(panelState/);
+  assert.match(panelRendererSource, /renderGraphPanelFocusedToolbar\(panelState/);
   assert.match(panelShellSource, /buildGraphPanelState\(/);
   assert.match(panelShellSource, /renderGraphPanelForRuntime\(\{ summary, canvas, backButton, panelState \}/);
   assert.match(source, /renderGraphPanelShell\(\{/);
@@ -124,6 +129,8 @@ test("prototype graph shell delegates panel state building to a graph module", a
   assert.doesNotMatch(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
   assert.doesNotMatch(source, /state\.graphConnectivityReady = panelState\.connectivityReady === true;/);
   assert.doesNotMatch(source, /const noticeMarkup = \(panelState\.notices \|\| \[\]\)/);
+  assert.doesNotMatch(panelRendererSource, /relationFilterEdges: panelState\.focused\.edges/);
+  assert.doesNotMatch(panelRendererSource, /class="graph-canvas-toolbar"/);
   assert.doesNotMatch(source, /const scopedNetworkEdges = allGraphEdges\.filter/);
   assert.doesNotMatch(source, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges/);
   assert.doesNotMatch(source, /const structureFallback = effectiveRelationType === "index"/);

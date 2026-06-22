@@ -1,3 +1,8 @@
+import {
+  buildGraphPanelVisualMapProps,
+  renderGraphPanelFocusedToolbar
+} from "./graph-panel-visual-map-props.js";
+
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -91,39 +96,16 @@ export function renderGraphPanelForRuntime({
         isolatedQueueMarkup
       })
     : "";
-  const toolbarMarkup = panelState.showingFocusedNote
-    ? `
-      <div class="graph-canvas-toolbar">
-        <div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>
-        <div class="graph-canvas-toolbar-actions">
-          ${renderGraphRelationTypeFilter(panelState.focused.edges, panelState.effectiveRelationType, false, panelState.focusedRelationTypeStats)}
-        </div>
-      </div>
-    `
-    : "";
+  const toolbarMarkup = renderGraphPanelFocusedToolbar(panelState, { renderGraphRelationTypeFilter });
   const noticeMarkup = (panelState.notices || []).map((notice) => renderGraphInlineNotice(notice)).join("");
   canvas.innerHTML = `
     ${noticeMarkup}
-    ${renderGraphVisualMap({
-      nodes: panelState.visualNodes,
-      edges: panelState.edges,
-      relationFilterEdges: panelState.focused.edges,
-      selectionEdges: panelState.scopedNetworkEdges,
-      selectionNodeMap: panelState.graphRelationTargetNodeMap,
-      filterActive: Boolean(panelState.showingFocusedNote),
-      focusedNoteId: panelState.focused.focusedNoteId,
-      relationType: panelState.effectiveRelationType,
-      questionSpotSummary: panelState.questionSpotSummary,
-      topicCandidates: panelState.topicCandidates,
-      isolatedNotes: panelState.isolatedNotes,
-      bridgeGaps: panelState.bridgeGaps,
-      clueSummary: panelState.clueSummary,
+    ${renderGraphVisualMap(buildGraphPanelVisualMapProps(panelState, {
       workbenchPanelMarkup,
       workbenchEntryMarkup,
       isolatedQueueStripMarkup,
-      toolbarMarkup,
-      structureFallback: panelState.structureFallback
-    })}
+      toolbarMarkup
+    }))}
   `;
   return true;
 }
