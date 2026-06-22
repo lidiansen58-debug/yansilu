@@ -440,6 +440,9 @@ import {
   renderGraphVisualMapForRuntime
 } from "./graph-visual-map-controller.js";
 import {
+  buildGraphVisualMapRuntimeDeps
+} from "./graph-visual-map-runtime-deps.js";
+import {
   bindGraphCanvasEvents
 } from "./graph-canvas-event-router.js";
 import {
@@ -12575,51 +12578,51 @@ function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = n
 }
 
 function renderGraphVisualMap(options = {}) {
-  return renderGraphVisualMapForRuntime(options, {
-    graphState,
-    graphFocusDepthMeta,
-    graphReadingModeMeta,
-    graphViewModeForRelationType,
-    graphBuildVisualLayout,
-    graphZoomOption,
-    graphReadingLensMeta,
-    graphEdgePath,
-    graphRelationVisual,
-    graphDenseGalaxyMode,
-    shouldShowGraphDensityHint,
-    normalizeGraphSelectionForVisibleItems,
-    graphNodeNeedsRelationWorkflow,
-    graphBuildReadingLensState,
-    zoomOptions: GRAPH_VISUAL_ZOOM_OPTIONS,
-    relationGroupMeta: GRAPH_RELATION_GROUP_META,
-    renderGraphRelationTypeFilter,
-    graphThemeBoundaryMeta,
-    renderGraphThemeBoundary,
-    renderGraphStarfield,
-    renderGraphNebulaField,
-    renderGraphClusterGlow,
-    renderGraphFocusContextPanel,
-    renderGraphSelectionPanel,
-    renderGraphResearchNavigatorPanel,
-    renderGraphResearchNavigatorEntry,
+  return renderGraphVisualMapForRuntime(options, buildGraphVisualMapRuntimeDeps({
+    GRAPH_RELATION_GROUP_META,
+    GRAPH_RELATION_MARKER_COLORS,
+    GRAPH_VISUAL_ZOOM_OPTIONS,
     escapeHtml,
-    renderGraphIcon,
-    renderGraphViewModeSwitcher,
-    renderGraphReadingLensControls,
-    markerColors: GRAPH_RELATION_MARKER_COLORS,
-    graphNodeClass,
-    graphNodeStarRank,
-    graphShortTitle,
-    noteTypeLabel,
-    graphNodeAttentionReasons,
-    graphNodeShowsAsPoint,
-    graphRelationTypeLabel,
-    graphRelationSourceLabel,
-    graphRelationGroupMeta,
+    graphBuildReadingLensState,
+    graphBuildVisualLayout,
+    graphClusterGlow: renderGraphClusterGlow,
+    graphDenseGalaxyMode,
+    graphEdgePath,
     graphEdgeSelectionKey,
+    graphEdgeShouldRender,
     graphEdgeVisibleAtFit,
-    graphEdgeShouldRender
-  });
+    graphFocusContextPanel: renderGraphFocusContextPanel,
+    graphFocusDepthMeta,
+    graphIcon: renderGraphIcon,
+    graphNebulaField: renderGraphNebulaField,
+    graphNodeAttentionReasons,
+    graphNodeClass,
+    graphNodeNeedsRelationWorkflow,
+    graphNodeShowsAsPoint,
+    graphNodeStarRank,
+    graphReadingLensControls: renderGraphReadingLensControls,
+    graphReadingLensMeta,
+    graphReadingModeMeta,
+    graphRelationGroupMeta,
+    graphRelationSourceLabel,
+    graphRelationTypeFilter: renderGraphRelationTypeFilter,
+    graphRelationTypeLabel,
+    graphRelationVisual,
+    graphResearchNavigatorEntry: renderGraphResearchNavigatorEntry,
+    graphResearchNavigatorPanel: renderGraphResearchNavigatorPanel,
+    graphSelectionPanel: renderGraphSelectionPanel,
+    graphShortTitle,
+    graphStarfield: renderGraphStarfield,
+    graphState,
+    graphViewModeForRelationType,
+    graphViewModeSwitcher: renderGraphViewModeSwitcher,
+    graphZoomOption,
+    normalizeGraphSelectionForVisibleItems,
+    noteTypeLabel,
+    shouldShowGraphDensityHint,
+    graphThemeBoundary: renderGraphThemeBoundary,
+    graphThemeBoundaryMeta
+  }));
 }
 
 function graphFocusedEdgeDirection(edge, focusedNoteId = "") {

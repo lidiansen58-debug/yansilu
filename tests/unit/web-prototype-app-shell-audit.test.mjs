@@ -57,6 +57,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "ai-runtime-mode-controller.js",
     "graph-canvas-event-router.js",
     "graph-visual-map-controller.js",
+    "graph-visual-map-runtime-deps.js",
     "graph-panel-renderer.js",
     "graph-visual-layout.js"
   ];

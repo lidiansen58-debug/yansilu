@@ -105,8 +105,10 @@ test("prototype graph shell delegates visual map runtime state to a graph module
   const layoutSource = extractFunctionSource(source, "graphBuildVisualLayout");
 
   assert.match(source, /from "\.\/graph-visual-map-controller\.js"/);
+  assert.match(source, /from "\.\/graph-visual-map-runtime-deps\.js"/);
   assert.match(source, /from "\.\/graph-visual-layout\.js"/);
-  assert.match(visualMapSource, /renderGraphVisualMapForRuntime\(options, \{/);
+  assert.match(visualMapSource, /renderGraphVisualMapForRuntime\(options, buildGraphVisualMapRuntimeDeps\(\{/);
+  assert.doesNotMatch(visualMapSource, /zoomOptions: GRAPH_VISUAL_ZOOM_OPTIONS/);
   assert.doesNotMatch(visualMapSource, /buildGraphVisualMapRuntimeState\(/);
   assert.doesNotMatch(visualMapSource, /buildGraphVisualMapChrome\(/);
   assert.doesNotMatch(visualMapSource, /buildGraphVisualMapShellProps\(/);
