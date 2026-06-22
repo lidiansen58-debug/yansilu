@@ -33,6 +33,9 @@ import {
   graphZoomStep as moduleGraphZoomStep
 } from "../../apps/web/src/graph-visual-zoom-model.js";
 import {
+  graphSelectionUsesOverlay
+} from "../../apps/web/src/graph-visual-map-shell-props.js";
+import {
   applyGraphFocusContextModeInteraction,
   applyGraphFocusDepthInteraction,
   applyGraphReadingLensInteraction,
@@ -957,8 +960,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(isolatedWorkflowShellSource, /renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(isolatedWorkflowShellSource, /task: null,/);
   assert.doesNotMatch(source, /"开始处理"/);
-  assert.match(source, /const isolatedSelectionOverlayMarkup =\s*activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \|\| selectionNodeNeedsRelationWorkflow\s*\? selectionContextMarkup\s*: "";/);
-  assert.match(source, /const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup \? "" : selectionContextMarkup;/);
+  assert.equal(graphSelectionUsesOverlay("isolated"), true);
+  assert.equal(graphSelectionUsesOverlay("isolatedComplete"), true);
+  assert.equal(graphSelectionUsesOverlay("node", true), true);
+  assert.equal(graphSelectionUsesOverlay("node", false), false);
   assert.match(
     renderGraphVisualMapShellView({ selectionOverlayMarkup: "<section>overlay</section>" }),
     /<div class="graph-selection-overlay" role="dialog" aria-modal="false"/
@@ -1122,7 +1127,9 @@ test("graph node clicks without confirmed relations open the large relation work
   assert.match(source, /function graphNodeNeedsRelationWorkflow\(noteId = "", edges = \[\], nodeMap = new Map\(\)\) \{/);
   assert.match(source, /function graphNodeNeedsRelationWorkflowFromCurrentGraph\(noteId = ""\) \{/);
   assert.match(runtimeStateSource, /const selectionNodeNeedsRelationWorkflow =\s*activeSelection\?\.kind === "node" && graphNodeNeedsRelationWorkflow\(activeSelection\.nodeId, contextualSelectionEdges, contextualNodeMap\);/);
-  assert.match(source, /activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \|\| selectionNodeNeedsRelationWorkflow/);
+  assert.equal(graphSelectionUsesOverlay("isolated"), true);
+  assert.equal(graphSelectionUsesOverlay("isolatedComplete"), true);
+  assert.equal(graphSelectionUsesOverlay("node", true), true);
   assert.match(nodeSelectionPanelSource, /if \(graphNodeNeedsRelationWorkflow\(normalized\.nodeId, edges, nodeMap\)\) \{[\s\S]*return renderGraphIsolatedSelectionPanel\(\{/);
   assert.match(source, /function openGraphNodeSelectionFromElement\(element = null\) \{/);
   assert.match(source, /isolatedKey \|\| graphNodeNeedsRelationWorkflowFromCurrentGraph\(nodeId\)/);

@@ -94,8 +94,12 @@ test("prototype graph shell delegates visual map runtime state to a graph module
   const visualMapSource = extractFunctionSource(source, "renderGraphVisualMap");
 
   assert.match(source, /from "\.\/graph-visual-map-runtime-state\.js"/);
+  assert.match(source, /from "\.\/graph-visual-map-shell-props\.js"/);
   assert.match(visualMapSource, /buildGraphVisualMapRuntimeState\(/);
+  assert.match(visualMapSource, /buildGraphVisualMapShellProps\(/);
+  assert.match(visualMapSource, /renderGraphVisualMapShellView\(graphShellProps, shellDeps\)/);
   assert.doesNotMatch(visualMapSource, /const adjacencyMap = new Map\(\);[\s\S]*edges\.forEach\(\(edge\) => \{/);
   assert.doesNotMatch(visualMapSource, /const visibleEdges = edges\s*\.map\(\(edge\) => \{/);
   assert.doesNotMatch(visualMapSource, /const selectedNodeNeighborhood = new Set/);
+  assert.doesNotMatch(visualMapSource, /sidePanelParts\.length \? `<div class="graph-side-stack">/);
 });

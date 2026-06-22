@@ -405,6 +405,9 @@ import {
   buildGraphVisualMapRuntimeState
 } from "./graph-visual-map-runtime-state.js";
 import {
+  buildGraphVisualMapShellProps
+} from "./graph-visual-map-shell-props.js";
+import {
   GRAPH_VISUAL_ZOOM_OPTIONS,
   graphZoomOption,
   graphZoomStep
@@ -13411,34 +13414,28 @@ function renderGraphVisualMap({
     bridgeGaps,
     clusterMeta: layout.clusterMeta
   });
-  const isolatedSelectionOverlayMarkup =
-    activeSelection?.kind === "isolated" || activeSelection?.kind === "isolatedComplete" || selectionNodeNeedsRelationWorkflow
-      ? selectionContextMarkup
-      : "";
-  const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup ? "" : selectionContextMarkup;
-  const researchNavigatorOpen = researchNavigatorCanOpen && !selectionContextMarkup;
   const researchNavigatorMarkup =
-    researchNavigatorOpen
-      ? renderGraphResearchNavigatorPanel({
-          nodes: layout.nodes,
-          edges,
-          topicCandidates,
-          bridgeGaps,
-          clusterMeta: layout.clusterMeta,
-          clueSummary,
-          questionSummary: questionSpotSummary
-        })
-      : "";
+    renderGraphResearchNavigatorPanel({
+      nodes: layout.nodes,
+      edges,
+      topicCandidates,
+      bridgeGaps,
+      clusterMeta: layout.clusterMeta,
+      clueSummary,
+      questionSummary: questionSpotSummary
+    });
   const researchNavigatorEntryMarkup =
-    !filterActive && !selectionContextMarkup
-      ? renderGraphResearchNavigatorEntry(researchNavigatorOpen)
-      : "";
-  const readingLensTrailingMarkup = `${workbenchEntryMarkup}${researchNavigatorEntryMarkup}`;
-  const sidePanelParts = [
-    !filterActive ? workbenchPanelMarkup : "",
-    sideSelectionContextMarkup || focusContextMarkup || researchNavigatorMarkup
-  ].filter(Boolean);
-  const sidePanelMarkup = sidePanelParts.length ? `<div class="graph-side-stack">${sidePanelParts.join("")}</div>` : "";
+    renderGraphResearchNavigatorEntry(researchNavigatorCanOpen && !selectionContextMarkup);
+  const graphShellPreviewProps = buildGraphVisualMapShellProps({
+    runtimeState: mapRuntimeState,
+    filterActive,
+    workbenchPanelMarkup,
+    workbenchEntryMarkup,
+    focusContextMarkup,
+    selectionContextMarkup,
+    researchNavigatorMarkup,
+    researchNavigatorEntryMarkup
+  });
   const nodeViewContext = {
     activeSelection,
     selectedNodeId,
@@ -13541,7 +13538,7 @@ function renderGraphVisualMap({
           ${compactRelationFilterMarkup}
         </div>
       </div>
-      ${renderGraphReadingLensControls(readingLens.key, legendOpen, readingLensTrailingMarkup)}
+      ${renderGraphReadingLensControls(readingLens.key, legendOpen, graphShellPreviewProps.readingLensTrailingMarkup)}
       ${isolatedQueueStripMarkup}
       ${structureFallback ? `<div class="graph-structure-fallback-note">当前没有主题归属关系，已按笔记之间的关系自动分组。</div>` : ""}
       ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
@@ -13555,23 +13552,18 @@ function renderGraphVisualMap({
     title: emptyTitle,
     message: emptyMessage
   }, shellDeps);
-
-  return renderGraphVisualMapShellView({
-    expanded,
-    readingLensActive: !filterActive && readingLensState.active,
-    readingLensKey: readingLens.key,
-    selectionKind: activeSelection?.kind || "",
+  const graphShellProps = buildGraphVisualMapShellProps({
+    runtimeState: mapRuntimeState,
+    filterActive,
     toolbarMarkup,
     headContentMarkup,
     legendMarkup,
-    hasNodes: layout.nodes.length > 0,
-    sidePanelMarkup,
-    selectionOverlayMarkup: isolatedSelectionOverlayMarkup,
-    zoomKey: zoom.key,
-    zoomWidth,
-    zoomHeight,
-    layoutWidth: layout.width,
-    layoutHeight: layout.height,
+    workbenchPanelMarkup,
+    workbenchEntryMarkup,
+    focusContextMarkup,
+    selectionContextMarkup,
+    researchNavigatorMarkup,
+    researchNavigatorEntryMarkup,
     zoomStepperMarkup,
     svgDefsMarkup,
     nebulaMarkup,
@@ -13581,7 +13573,9 @@ function renderGraphVisualMap({
     edgeMarkup,
     nodeMarkup,
     emptyStateMarkup
-  }, shellDeps);
+  });
+
+  return renderGraphVisualMapShellView(graphShellProps, shellDeps);
 }
 
 function graphFocusedEdgeDirection(edge, focusedNoteId = "") {
