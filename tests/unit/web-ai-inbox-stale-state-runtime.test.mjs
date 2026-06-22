@@ -1,49 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   acceptAiInboxLinkSuggestionForRuntime,
   adoptAiInboxFieldSuggestionDraftForRuntime,
   aiInboxActionGuardForRuntime,
   applyAiInboxRecommendedActionForRuntime,
   applyAiInboxSuggestionStatusForRuntime,
+  finalizeAiInboxActionRefreshForRuntime,
   loadAiInboxDetailForRuntime,
   promoteAiInboxArtifactToNoteForRuntime,
   recordAiInboxReviewDecisionForRuntime,
-  refreshAiInboxForRuntime
+  refreshAiInboxEvaluationSummaryForRuntime,
+  refreshAiInboxForRuntime,
+  runAiInboxSummaryForRuntime
 } from "../../apps/web/src/ai-inbox-runtime-controller.js";
-
-function extractAsyncFunctionSource(source, name) {
-  const signature = `async function ${name}(`;
-  const start = source.indexOf(signature);
-  assert.ok(start >= 0, `expected ${name}() to exist`);
-  let parenDepth = 0;
-  let bodyStart = -1;
-  for (let index = source.indexOf("(", start); index < source.length; index += 1) {
-    const char = source[index];
-    if (char === "(") parenDepth += 1;
-    if (char === ")") {
-      parenDepth -= 1;
-      if (parenDepth === 0) {
-        bodyStart = source.indexOf("{", index);
-        break;
-      }
-    }
-  }
-  assert.ok(bodyStart >= 0, `expected ${name}() body to exist`);
-  let depth = 0;
-  for (let index = bodyStart; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === "{") depth += 1;
-    if (char === "}") {
-      depth -= 1;
-      if (depth === 0) return source.slice(start, index + 1);
-    }
-  }
-  throw new Error(`could not extract ${name}() source`);
-}
 
 function createLoadAiInboxDetail(aiInboxState, deps = {}) {
   return (artifactId) => loadAiInboxDetailForRuntime({
@@ -75,23 +45,41 @@ function createRefreshAiInbox(aiInboxState, deps = {}) {
 }
 
 function createFinalizeAiInboxActionRefresh(aiInboxState, refreshAiInbox, refreshAiInboxEvaluationSummary, loadAiInboxDetail) {
-  return async ({ preserveDetail = false } = {}) => {
-    await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail }),
-      refreshAiInboxEvaluationSummary({ silent: true })
-    ]);
-    if (aiInboxState.selectedArtifactId) {
-      await loadAiInboxDetail(aiInboxState.selectedArtifactId);
-    } else {
-      aiInboxState.detail = null;
-      aiInboxState.detailArtifactId = "";
-      aiInboxState.detailLoading = false;
-      aiInboxState.detailError = "";
-      aiInboxState.actionArtifactId = "";
-      aiInboxState.actionSuggestionId = "";
-      aiInboxState.actionError = "";
-    }
-  };
+  return (options = {}) => finalizeAiInboxActionRefreshForRuntime({
+    aiInboxState,
+    refreshAiInbox,
+    refreshAiInboxEvaluationSummary,
+    loadAiInboxDetail
+  }, options);
+}
+
+function createRunAiInboxSummary(
+  aiInboxState,
+  {
+    settingsState = { ai: {} },
+    summarizeAiInboxItem,
+    recommendedAiInboxActionFromText = () => "",
+    loadAiInboxDetail = async () => null,
+    setStatus = () => {},
+    renderAiInboxWorkspace = () => {},
+    resetAiInboxSummaryState = () => {}
+  } = {}
+) {
+  return (artifactId) => runAiInboxSummaryForRuntime({
+    aiInboxState,
+    summarizeAiInboxItem,
+    summaryRequestOptions: () => ({
+      userMode: settingsState.ai.userMode,
+      modelPack: settingsState.ai.modelPack,
+      modelTier: "cheap_fast",
+      privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
+    }),
+    recommendedAiInboxActionFromText,
+    resetAiInboxSummaryState,
+    loadAiInboxDetail,
+    setStatus,
+    render: renderAiInboxWorkspace
+  }, artifactId);
 }
 
 function guardMessages(first, second) {
@@ -598,11 +586,6 @@ test("loadAiInboxDetail keeps a failed detail request bound to the original arti
 });
 
 test("finalizeAiInboxActionRefresh realigns refreshed inbox state through the latest selection", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const calls = [];
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -611,13 +594,7 @@ test("finalizeAiInboxActionRefresh realigns refreshed inbox state through the la
     detailError: "old detail error"
   };
 
-  const finalizeAiInboxActionRefresh = new Function(
-    "aiInboxState",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "loadAiInboxDetail",
-    `${fnSource}; return finalizeAiInboxActionRefresh;`
-  )(
+  const finalizeAiInboxActionRefresh = createFinalizeAiInboxActionRefresh(
     aiInboxState,
     async (options) => {
       calls.push(["refresh", options]);
@@ -2932,11 +2909,6 @@ test("applyAiInboxSuggestionStatus reports invalid reviewed content through acti
 });
 
 test("runAiInboxSummary ignores stale failures and keeps the latest summary state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "runAiInboxSummary");
-
   let rejectFirst;
   let resolveSecond;
   const aiInboxState = {
@@ -2952,19 +2924,11 @@ test("runAiInboxSummary ignores stale failures and keeps the latest summary stat
     aiSummaryRequestToken: 0
   };
 
-  const runAiInboxSummary = new Function(
-    "aiInboxState",
-    "settingsState",
-    "summarizeAiInboxItem",
-    "recommendedAiInboxActionFromText",
-    "loadAiInboxDetail",
-    "setStatus",
-    "renderAiInboxWorkspace",
-    `${fnSource}; return runAiInboxSummary;`
-  )(
+  const runAiInboxSummary = createRunAiInboxSummary(
     aiInboxState,
-    { ai: { userMode: "Auto", modelPack: "Starter Auto", routePreview: { privacy: { mode: "normal" } } } },
-    (artifactId) =>
+    {
+      settingsState: { ai: { userMode: "Auto", modelPack: "Starter Auto", routePreview: { privacy: { mode: "normal" } } } },
+      summarizeAiInboxItem: (artifactId) =>
       new Promise((resolve, reject) => {
         if (artifactId === "artifact_1") rejectFirst = () => reject(new Error("old failure"));
         else resolveSecond = () =>
@@ -2977,12 +2941,11 @@ test("runAiInboxSummary ignores stale failures and keeps the latest summary stat
             inboxItem: { artifactId }
           });
       }),
-    (text) => (String(text).includes("context") ? "needs_more_context" : "ignore"),
-    async () => {
-      throw new Error("loadAiInboxDetail should not run when summary returns an artifact");
-    },
-    () => {},
-    () => {}
+      recommendedAiInboxActionFromText: (text) => (String(text).includes("context") ? "needs_more_context" : "ignore"),
+      loadAiInboxDetail: async () => {
+        throw new Error("loadAiInboxDetail should not run when summary returns an artifact");
+      }
+    }
   );
 
   const firstPromise = runAiInboxSummary("artifact_1");
@@ -3005,11 +2968,6 @@ test("runAiInboxSummary ignores stale failures and keeps the latest summary stat
 });
 
 test("runAiInboxSummary resets stale summary binding when no artifact is selected", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "runAiInboxSummary");
-
   const aiInboxState = {
     selectedArtifactId: "",
     detail: null,
@@ -3023,35 +2981,23 @@ test("runAiInboxSummary resets stale summary binding when no artifact is selecte
     aiSummaryRequestToken: 3
   };
 
-  const runAiInboxSummary = new Function(
-    "aiInboxState",
-    "settingsState",
-    "summarizeAiInboxItem",
-    "recommendedAiInboxActionFromText",
-    "loadAiInboxDetail",
-    "setStatus",
-    "renderAiInboxWorkspace",
-    "resetAiInboxSummaryState",
-    `${fnSource}; return runAiInboxSummary;`
-  )(
+  const runAiInboxSummary = createRunAiInboxSummary(
     aiInboxState,
-    { ai: { userMode: "Auto", modelPack: "Starter Auto", routePreview: { privacy: { mode: "normal" } } } },
-    async () => {
-      throw new Error("summary should not run without a selected artifact");
-    },
-    () => "",
-    async () => null,
-    () => {},
-    () => {},
-    ({ invalidate }) => {
-      if (invalidate === true) aiInboxState.aiSummaryRequestToken += 1;
-      aiInboxState.aiSummary = "";
-      aiInboxState.aiSummaryArtifactId = "";
-      aiInboxState.aiSummarySuggestionId = "";
-      aiInboxState.aiSummaryMeta = "";
-      aiInboxState.aiSummaryRecommendedAction = "";
-      aiInboxState.aiSummaryError = "";
-      aiInboxState.aiSummaryLoading = false;
+    {
+      settingsState: { ai: { userMode: "Auto", modelPack: "Starter Auto", routePreview: { privacy: { mode: "normal" } } } },
+      summarizeAiInboxItem: async () => {
+        throw new Error("summary should not run without a selected artifact");
+      },
+      resetAiInboxSummaryState: ({ invalidate }) => {
+        if (invalidate === true) aiInboxState.aiSummaryRequestToken += 1;
+        aiInboxState.aiSummary = "";
+        aiInboxState.aiSummaryArtifactId = "";
+        aiInboxState.aiSummarySuggestionId = "";
+        aiInboxState.aiSummaryMeta = "";
+        aiInboxState.aiSummaryRecommendedAction = "";
+        aiInboxState.aiSummaryError = "";
+        aiInboxState.aiSummaryLoading = false;
+      }
     }
   );
 
@@ -3068,11 +3014,6 @@ test("runAiInboxSummary resets stale summary binding when no artifact is selecte
 });
 
 test("runAiInboxSummary refuses to start while the current artifact review action is still in flight", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "runAiInboxSummary");
-
   const statuses = [];
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -3088,33 +3029,23 @@ test("runAiInboxSummary refuses to start while the current artifact review actio
     aiSummaryRequestToken: 5
   };
 
-  const runAiInboxSummary = new Function(
-    "aiInboxState",
-    "settingsState",
-    "summarizeAiInboxItem",
-    "recommendedAiInboxActionFromText",
-    "loadAiInboxDetail",
-    "setStatus",
-    "renderAiInboxWorkspace",
-    "resetAiInboxSummaryState",
-    `${fnSource}; return runAiInboxSummary;`
-  )(
+  const runAiInboxSummary = createRunAiInboxSummary(
     aiInboxState,
-    { ai: { userMode: "Auto", modelPack: "Starter Auto", routePreview: { privacy: { mode: "normal" } } } },
-    async () => {
-      throw new Error("summary should not start while the current artifact action is busy");
-    },
-    () => "",
-    async () => {
-      throw new Error("loadAiInboxDetail should not run while blocked by an in-flight artifact action");
-    },
-    (message, tone) => {
-      statuses.push({ message, tone });
-      return false;
-    },
-    () => {},
-    () => {
-      throw new Error("resetAiInboxSummaryState should not run while the current artifact action is busy");
+    {
+      settingsState: { ai: { userMode: "Auto", modelPack: "Starter Auto", routePreview: { privacy: { mode: "normal" } } } },
+      summarizeAiInboxItem: async () => {
+        throw new Error("summary should not start while the current artifact action is busy");
+      },
+      loadAiInboxDetail: async () => {
+        throw new Error("loadAiInboxDetail should not run while blocked by an in-flight artifact action");
+      },
+      setStatus: (message, tone) => {
+        statuses.push({ message, tone });
+        return false;
+      },
+      resetAiInboxSummaryState: () => {
+        throw new Error("resetAiInboxSummaryState should not run while the current artifact action is busy");
+      }
     }
   );
 
@@ -3136,11 +3067,6 @@ test("runAiInboxSummary refuses to start while the current artifact review actio
 });
 
 test("refreshAiInboxEvaluationSummary ignores stale failures and keeps the latest evaluation state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "refreshAiInboxEvaluationSummary");
-
   let rejectFirst;
   let resolveSecond;
   const renders = [];
@@ -3152,29 +3078,22 @@ test("refreshAiInboxEvaluationSummary ignores stale failures and keeps the lates
     evaluationRequestToken: 0
   };
 
-  const refreshAiInboxEvaluationSummary = new Function(
-    "aiInboxState",
-    "normalizeAiInboxFilters",
-    "fetchAiInboxEvaluationSummary",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    `${fnSource}; return refreshAiInboxEvaluationSummary;`
-  )(
+  const refreshAiInboxEvaluationSummary = (options = {}) => refreshAiInboxEvaluationSummaryForRuntime({
     aiInboxState,
-    (filters) => filters,
-    () =>
+    normalizeAiInboxFilters: (filters) => filters,
+    fetchAiInboxEvaluationSummary: () =>
       new Promise((resolve, reject) => {
         if (!rejectFirst) rejectFirst = () => reject(new Error("old evaluation failure"));
         else resolveSecond = () => resolve({ filter: { view: "all" }, artifacts: { total: 1 } });
       }),
-    () => {
+    render: () => {
       renders.push({
         evaluationError: aiInboxState.evaluationError,
         evaluationLoading: aiInboxState.evaluationLoading
       });
     },
-    () => {}
-  );
+    setStatus: () => {}
+  }, options);
 
   const firstPromise = refreshAiInboxEvaluationSummary({ silent: false });
   const secondPromise = refreshAiInboxEvaluationSummary({ silent: false });

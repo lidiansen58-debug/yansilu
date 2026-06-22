@@ -156,6 +156,159 @@ export async function refreshAiInboxForRuntime(deps = {}, options = {}) {
   }
 }
 
+export async function finalizeAiInboxActionRefreshForRuntime(deps = {}, options = {}) {
+  const {
+    aiInboxState,
+    refreshAiInbox = async () => null,
+    refreshAiInboxEvaluationSummary = async () => null,
+    loadAiInboxDetail = async () => null
+  } = deps;
+  const { preserveDetail = false } = options;
+  await Promise.all([
+    refreshAiInbox({ silent: true, preserveDetail }),
+    refreshAiInboxEvaluationSummary({ silent: true })
+  ]);
+  if (aiInboxState.selectedArtifactId) {
+    await loadAiInboxDetail(aiInboxState.selectedArtifactId);
+  } else {
+    aiInboxState.detail = null;
+    aiInboxState.detailArtifactId = "";
+    aiInboxState.detailLoading = false;
+    aiInboxState.detailError = "";
+    aiInboxState.actionArtifactId = "";
+    aiInboxState.actionSuggestionId = "";
+    aiInboxState.actionError = "";
+  }
+}
+
+export async function refreshAiInboxEvaluationSummaryForRuntime(deps = {}, options = {}) {
+  const {
+    aiInboxState,
+    fetchAiInboxEvaluationSummary,
+    normalizeAiInboxFilters,
+    render = () => {},
+    setStatus = () => {},
+    messages = {}
+  } = deps;
+  const { silent = false } = options;
+  aiInboxState.filters = normalizeAiInboxFilters(aiInboxState.filters);
+  const requestToken = aiInboxState.evaluationRequestToken + 1;
+  aiInboxState.evaluationRequestToken = requestToken;
+  const hadVisibleError = Boolean(aiInboxState.evaluationError);
+  aiInboxState.evaluationError = "";
+  if (!silent) {
+    aiInboxState.evaluationLoading = true;
+    render();
+  } else if (hadVisibleError) {
+    render();
+  }
+  try {
+    const summary = await fetchAiInboxEvaluationSummary({
+      ...aiInboxState.filters,
+      view: "all"
+    });
+    if (requestToken !== aiInboxState.evaluationRequestToken) return null;
+    aiInboxState.evaluationSummary = summary;
+    aiInboxState.evaluationError = "";
+    return aiInboxState.evaluationSummary;
+  } catch (error) {
+    if (requestToken !== aiInboxState.evaluationRequestToken) return null;
+    aiInboxState.evaluationSummary = null;
+    aiInboxState.evaluationError = String(error?.message || error);
+    setStatus(
+      fallbackMessageWithArgs(
+        messages.evaluationFailedStatusMessage,
+        (nextError) => `AI inbox evaluation summary failed: ${String(nextError?.message || nextError)}`,
+        error
+      ),
+      "warn"
+    );
+    return null;
+  } finally {
+    if (requestToken !== aiInboxState.evaluationRequestToken) return;
+    aiInboxState.evaluationLoading = false;
+    render();
+  }
+}
+
+export async function runAiInboxSummaryForRuntime(deps = {}, artifactId = "") {
+  const {
+    aiInboxState,
+    summarizeAiInboxItem,
+    summaryRequestOptions = () => ({}),
+    recommendedAiInboxActionFromText = () => "",
+    resetAiInboxSummaryState = () => {},
+    loadAiInboxDetail = async () => null,
+    render = () => {},
+    setStatus = () => {},
+    messages = {}
+  } = deps;
+  const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
+  if (!cleanArtifactId) {
+    resetAiInboxSummaryState({ invalidate: true });
+    render();
+    return false;
+  }
+  const inFlightArtifactId = String(aiInboxState.actionArtifactId || "").trim();
+  if (aiInboxState.actionLoading && inFlightArtifactId && inFlightArtifactId === cleanArtifactId) {
+    setStatus(
+      fallbackMessage(
+        messages.summaryActionInFlightStatusMessage,
+        "Wait for the current AI inbox review action to finish before generating a new summary for this item."
+      ),
+      "warn"
+    );
+    return false;
+  }
+  const requestToken = aiInboxState.aiSummaryRequestToken + 1;
+  const currentDetailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
+  const currentDetailSuggestionId = String(aiInboxState.detail?.suggestion?.id || "").trim();
+  aiInboxState.aiSummaryRequestToken = requestToken;
+  aiInboxState.aiSummaryLoading = true;
+  aiInboxState.aiSummaryArtifactId = cleanArtifactId;
+  aiInboxState.aiSummarySuggestionId = currentDetailArtifactId === cleanArtifactId ? currentDetailSuggestionId : "";
+  aiInboxState.aiSummaryError = "";
+  aiInboxState.aiSummaryMeta = "";
+  aiInboxState.aiSummary = "";
+  aiInboxState.aiSummaryRecommendedAction = "";
+  render();
+  try {
+    const result = await summarizeAiInboxItem(cleanArtifactId, summaryRequestOptions());
+    if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
+    aiInboxState.aiSummaryMeta = `${result?.providerId || "provider"} / ${result?.modelRef || "model"}`;
+    aiInboxState.aiSummary = String(result?.output?.content || "").trim();
+    aiInboxState.aiSummaryRecommendedAction =
+      String(result?.recommendedAction || "").trim() || recommendedAiInboxActionFromText(aiInboxState.aiSummary);
+    if (result?.artifact) {
+      aiInboxState.detail = { item: result.inboxItem || aiInboxState.detail?.item || null, artifact: result.artifact };
+    } else {
+      await loadAiInboxDetail(cleanArtifactId);
+      if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
+    }
+    if (!aiInboxState.aiSummarySuggestionId) {
+      aiInboxState.aiSummarySuggestionId = String(aiInboxState.detail?.suggestion?.id || "").trim();
+    }
+    setStatus(fallbackMessage(messages.summarySucceededStatusMessage, "AI summary generated."), "ok");
+    return true;
+  } catch (error) {
+    if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
+    aiInboxState.aiSummaryError = String(error?.message || error);
+    setStatus(
+      fallbackMessageWithArgs(
+        messages.summaryFailedStatusMessage,
+        (nextError) => `AI summary failed: ${String(nextError?.message || nextError)}`,
+        error
+      ),
+      "bad"
+    );
+    return false;
+  } finally {
+    if (requestToken !== aiInboxState.aiSummaryRequestToken) return;
+    aiInboxState.aiSummaryLoading = false;
+    render();
+  }
+}
+
 export function aiInboxActionGuardForRuntime(aiInboxState = {}, options = {}) {
   const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
   const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();

@@ -205,10 +205,13 @@ import {
   adoptAiInboxFieldSuggestionDraftForRuntime,
   applyAiInboxRecommendedActionForRuntime,
   applyAiInboxSuggestionStatusForRuntime,
+  finalizeAiInboxActionRefreshForRuntime,
   loadAiInboxDetailForRuntime,
   promoteAiInboxArtifactToNoteForRuntime,
   recordAiInboxReviewDecisionForRuntime,
-  refreshAiInboxForRuntime
+  refreshAiInboxEvaluationSummaryForRuntime,
+  refreshAiInboxForRuntime,
+  runAiInboxSummaryForRuntime
 } from "./ai-inbox-runtime-controller.js";
 import {
   renderScheduledTasksPanel
@@ -2580,61 +2583,25 @@ function syncAiInboxSummaryFromDetail(detail = null) {
 }
 
 async function runAiInboxSummary(artifactId) {
-  const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
-  if (!cleanArtifactId) {
-    resetAiInboxSummaryState({ invalidate: true });
-    renderAiInboxWorkspace();
-    return false;
-  }
-  const inFlightArtifactId = String(aiInboxState.actionArtifactId || "").trim();
-  if (aiInboxState.actionLoading && inFlightArtifactId && inFlightArtifactId === cleanArtifactId) {
-    setStatus("Wait for the current AI inbox review action to finish before generating a new summary for this item.", "warn");
-    return false;
-  }
-  const requestToken = aiInboxState.aiSummaryRequestToken + 1;
-  const currentDetailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
-  const currentDetailSuggestionId = String(aiInboxState.detail?.suggestion?.id || "").trim();
-  aiInboxState.aiSummaryRequestToken = requestToken;
-  aiInboxState.aiSummaryLoading = true;
-  aiInboxState.aiSummaryArtifactId = cleanArtifactId;
-  aiInboxState.aiSummarySuggestionId = currentDetailArtifactId === cleanArtifactId ? currentDetailSuggestionId : "";
-  aiInboxState.aiSummaryError = "";
-  aiInboxState.aiSummaryMeta = "";
-  aiInboxState.aiSummary = "";
-  aiInboxState.aiSummaryRecommendedAction = "";
-  renderAiInboxWorkspace();
-  try {
-    const result = await summarizeAiInboxItem(cleanArtifactId, {
+  return runAiInboxSummaryForRuntime({
+    aiInboxState,
+    summarizeAiInboxItem,
+    summaryRequestOptions: () => ({
       userMode: settingsState.ai.userMode,
       modelPack: settingsState.ai.modelPack,
       modelTier: "cheap_fast",
       privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
-    });
-    if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
-    aiInboxState.aiSummaryMeta = `${result?.providerId || "provider"} / ${result?.modelRef || "model"}`;
-    aiInboxState.aiSummary = String(result?.output?.content || "").trim();
-    aiInboxState.aiSummaryRecommendedAction = String(result?.recommendedAction || "").trim() || recommendedAiInboxActionFromText(aiInboxState.aiSummary);
-    if (result?.artifact) {
-      aiInboxState.detail = { item: result.inboxItem || aiInboxState.detail?.item || null, artifact: result.artifact };
-    } else {
-      await loadAiInboxDetail(cleanArtifactId);
-      if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
+    }),
+    recommendedAiInboxActionFromText,
+    resetAiInboxSummaryState,
+    loadAiInboxDetail,
+    render: renderAiInboxWorkspace,
+    setStatus,
+    messages: {
+      summarySucceededStatusMessage: () => "AI 摘要已生成",
+      summaryFailedStatusMessage: (error) => `AI 摘要失败：${String(error?.message || error)}`
     }
-    if (!aiInboxState.aiSummarySuggestionId) {
-      aiInboxState.aiSummarySuggestionId = String(aiInboxState.detail?.suggestion?.id || "").trim();
-    }
-    setStatus("AI 摘要已生成", "ok");
-    return true;
-  } catch (error) {
-    if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
-    aiInboxState.aiSummaryError = String(error?.message || error);
-    setStatus(`AI 摘要失败：${aiInboxState.aiSummaryError}`, "bad");
-    return false;
-  } finally {
-    if (requestToken !== aiInboxState.aiSummaryRequestToken) return;
-    aiInboxState.aiSummaryLoading = false;
-    renderAiInboxWorkspace();
-  }
+  }, artifactId);
 }
 
 function renderScheduledTasksWorkspace() {
@@ -3105,37 +3072,16 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
 }
 
 async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {
-  aiInboxState.filters = normalizeAiInboxFilters(aiInboxState.filters);
-  const requestToken = aiInboxState.evaluationRequestToken + 1;
-  aiInboxState.evaluationRequestToken = requestToken;
-  const hadVisibleError = Boolean(aiInboxState.evaluationError);
-  aiInboxState.evaluationError = "";
-  if (!silent) {
-    aiInboxState.evaluationLoading = true;
-    renderAiInboxWorkspace();
-  } else if (hadVisibleError) {
-    renderAiInboxWorkspace();
-  }
-  try {
-    const summary = await fetchAiInboxEvaluationSummary({
-      ...aiInboxState.filters,
-      view: "all"
-    });
-    if (requestToken !== aiInboxState.evaluationRequestToken) return null;
-    aiInboxState.evaluationSummary = summary;
-    aiInboxState.evaluationError = "";
-    return aiInboxState.evaluationSummary;
-  } catch (error) {
-    if (requestToken !== aiInboxState.evaluationRequestToken) return null;
-    aiInboxState.evaluationSummary = null;
-    aiInboxState.evaluationError = String(error?.message || error);
-    setStatus(`AI 建议处理统计加载失败：${aiInboxState.evaluationError}`, "warn");
-    return null;
-  } finally {
-    if (requestToken !== aiInboxState.evaluationRequestToken) return;
-    aiInboxState.evaluationLoading = false;
-    renderAiInboxWorkspace();
-  }
+  return refreshAiInboxEvaluationSummaryForRuntime({
+    aiInboxState,
+    fetchAiInboxEvaluationSummary,
+    normalizeAiInboxFilters,
+    render: renderAiInboxWorkspace,
+    setStatus,
+    messages: {
+      evaluationFailedStatusMessage: (error) => `AI 建议处理统计加载失败：${String(error?.message || error)}`
+    }
+  }, { silent });
 }
 
 async function openAiInboxModule() {
@@ -3175,21 +3121,12 @@ async function openAiInboxNote(noteId = "") {
 }
 
 async function finalizeAiInboxActionRefresh({ preserveDetail = false } = {}) {
-  await Promise.all([
-    refreshAiInbox({ silent: true, preserveDetail }),
-    refreshAiInboxEvaluationSummary({ silent: true })
-  ]);
-  if (aiInboxState.selectedArtifactId) {
-    await loadAiInboxDetail(aiInboxState.selectedArtifactId);
-  } else {
-    aiInboxState.detail = null;
-    aiInboxState.detailArtifactId = "";
-    aiInboxState.detailLoading = false;
-    aiInboxState.detailError = "";
-    aiInboxState.actionArtifactId = "";
-    aiInboxState.actionSuggestionId = "";
-    aiInboxState.actionError = "";
-  }
+  return finalizeAiInboxActionRefreshForRuntime({
+    aiInboxState,
+    refreshAiInbox,
+    refreshAiInboxEvaluationSummary,
+    loadAiInboxDetail
+  }, { preserveDetail });
 }
 
 async function recordAiInboxReviewDecision(decision) {
