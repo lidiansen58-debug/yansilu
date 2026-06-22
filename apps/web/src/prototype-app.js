@@ -103,8 +103,11 @@ import {
 } from "./prototype-note-state-helpers.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
-  renderAiInboxPanel
-} from "./ai-inbox-panel.js";
+  aiInboxFeedbackFromWorkspace,
+  aiInboxFiltersFromWorkspace,
+  bindAiInboxWorkspaceEvents,
+  renderAiInboxWorkspaceView
+} from "./ai-inbox-workspace.js";
 import {
   renderAiSuggestionsPanel
 } from "./ai-suggestions-panel.js";
@@ -2481,13 +2484,9 @@ function setImportWorkspaceTab(tab = "import") {
 }
 
 function renderAiInboxWorkspace() {
-  const el = $("aiInboxPanel");
-  if (!el) return;
-  el.innerHTML = renderAiInboxPanel({
-    ...aiInboxState,
-    actionError: aiInboxState.actionError,
-    actionNotice: aiInboxState.actionNotice,
-    actionNoticeTone: aiInboxState.actionNoticeTone
+  renderAiInboxWorkspaceView({
+    mount: $("aiInboxPanel"),
+    state: aiInboxState
   });
 }
 
@@ -2959,21 +2958,14 @@ function editScheduledTaskFromList(scheduledTaskId = "") {
 }
 
 function aiInboxFiltersFromUi() {
-  return normalizeAiInboxFilters({
-    ...aiInboxState.filters,
-    type: $("aiInboxTypeFilter")?.value || aiInboxState.filters.type,
-    sourceNoteId: $("aiInboxSourceNoteFilter")?.value || "",
-    privacyMode: $("aiInboxPrivacyFilter")?.value || ""
+  return aiInboxFiltersFromWorkspace({
+    getElement: $,
+    state: aiInboxState
   });
 }
 
 function aiInboxFeedbackFromUi() {
-  const feedback = {};
-  document.querySelectorAll("[data-ai-inbox-feedback]").forEach((input) => {
-    const key = String(input.getAttribute("data-ai-inbox-feedback") || "").trim();
-    if (key) feedback[key] = Boolean(input.checked);
-  });
-  return feedback;
+  return aiInboxFeedbackFromWorkspace(document);
 }
 
 function cloneJson(value) {
@@ -3162,6 +3154,24 @@ async function applyAiInboxFiltersFromUi() {
   aiInboxState.selectedArtifactId = "";
   await openAiInboxModule();
   setStatus("AI 建议已刷新", "ok");
+}
+
+async function openAiInboxNote(noteId = "") {
+  const cleanNoteId = String(noteId || "").trim();
+  if (!cleanNoteId) return false;
+  try {
+    if (!state.notes.some((item) => item.id === cleanNoteId)) {
+      const fetched = await fetchNote(cleanNoteId);
+      if (fetched) state.notes = [mapNoteItem(fetched), ...state.notes.filter((item) => item.id !== cleanNoteId)];
+    }
+    activateModule("explorer");
+    openNoteById(cleanNoteId, { focusDistillation: true, preferTitleSelection: false });
+    setStatus(`已回到笔记 ${cleanNoteId}，请在编辑器内继续处理这条建议`, "ok");
+    return true;
+  } catch (error) {
+    setStatus(`打开来源笔记失败：${String(error?.message || error)}`, "warn");
+    return false;
+  }
 }
 
 async function finalizeAiInboxActionRefresh({ preserveDetail = false } = {}) {
@@ -20553,100 +20563,20 @@ $("graphSeedYijingRich")?.addEventListener("click", async () => {
   await importYijingRichAcceptanceDemo();
 });
 
-$("aiInboxPanel")?.addEventListener("click", async (event) => {
-  const viewButton = event.target.closest("[data-ai-inbox-view]");
-  if (viewButton) {
-    aiInboxState.filters = normalizeAiInboxFilters({
-      ...aiInboxState.filters,
-      view: viewButton.getAttribute("data-ai-inbox-view")
-    });
-    aiInboxState.detail = null;
-    aiInboxState.selectedArtifactId = "";
-    await openAiInboxModule();
-    return;
-  }
-
-  if (event.target.closest("#btnAiInboxApplyFilters")) {
-    await applyAiInboxFiltersFromUi();
-    return;
-  }
-
-  if (event.target.closest("#btnAiInboxRefresh")) {
-    await openAiInboxModule();
-    setStatus("AI 建议已刷新", "ok");
-    return;
-  }
-
-  const itemButton = event.target.closest("[data-ai-inbox-artifact-id]");
-  if (itemButton) {
-    await loadAiInboxDetail(itemButton.getAttribute("data-ai-inbox-artifact-id"));
-    return;
-  }
-
-  const noteButton = event.target.closest("[data-ai-inbox-open-note]");
-  if (noteButton) {
-    const noteId = String(noteButton.getAttribute("data-ai-inbox-open-note") || "").trim();
-    if (!noteId) return;
-    try {
-      if (!state.notes.some((item) => item.id === noteId)) {
-        const fetched = await fetchNote(noteId);
-        if (fetched) state.notes = [mapNoteItem(fetched), ...state.notes.filter((item) => item.id !== noteId)];
-      }
-      activateModule("explorer");
-      openNoteById(noteId, { focusDistillation: true, preferTitleSelection: false });
-      setStatus(`已回到笔记 ${noteId}，请在编辑器内继续处理这条建议`, "ok");
-    } catch (error) {
-      setStatus(`打开来源笔记失败：${String(error?.message || error)}`, "warn");
-    }
-    return;
-  }
-
-  const decisionButton = event.target.closest("[data-ai-inbox-decision]");
-  if (decisionButton) {
-    await recordAiInboxReviewDecision(decisionButton.getAttribute("data-ai-inbox-decision"));
-    return;
-  }
-
-  const acceptLinkButton = event.target.closest("[data-ai-inbox-accept-link]");
-  if (acceptLinkButton) {
-    await acceptAiInboxLinkSuggestion(acceptLinkButton.getAttribute("data-ai-inbox-accept-link"));
-    return;
-  }
-
-  const promoteNoteButton = event.target.closest("[data-ai-inbox-promote-note]");
-  if (promoteNoteButton) {
-    await promoteAiInboxArtifactToNote(promoteNoteButton.getAttribute("data-ai-inbox-promote-note"));
-    return;
-  }
-
-  const adoptFieldButton = event.target.closest("[data-ai-inbox-adopt-field]");
-  if (adoptFieldButton) {
-    await adoptAiInboxFieldSuggestionDraft(
-      adoptFieldButton.getAttribute("data-ai-inbox-adopt-field"),
-      adoptFieldButton.getAttribute("data-ai-inbox-suggestion-id")
-    );
-    return;
-  }
-
-  const suggestionStatusButton = event.target.closest("[data-ai-inbox-suggestion-status]");
-  if (suggestionStatusButton) {
-    await applyAiInboxSuggestionStatus(
-      suggestionStatusButton.getAttribute("data-ai-inbox-suggestion-status"),
-      suggestionStatusButton.getAttribute("data-ai-inbox-suggestion-id")
-    );
-    return;
-  }
-
-  if (event.target.closest("#btnAiInboxSummarize")) {
-    await runAiInboxSummary(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "");
-    return;
-  }
-
-  const recommendedActionButton = event.target.closest("[data-ai-inbox-recommended-action]");
-  if (recommendedActionButton) {
-    await applyAiInboxRecommendedAction(recommendedActionButton.getAttribute("data-ai-inbox-recommended-action"));
-    return;
-  }
+bindAiInboxWorkspaceEvents($("aiInboxPanel"), {
+  aiInboxState,
+  openAiInboxModule,
+  applyFiltersFromUi: applyAiInboxFiltersFromUi,
+  loadAiInboxDetail,
+  openNote: openAiInboxNote,
+  recordDecision: recordAiInboxReviewDecision,
+  acceptLink: acceptAiInboxLinkSuggestion,
+  promoteNote: promoteAiInboxArtifactToNote,
+  adoptField: adoptAiInboxFieldSuggestionDraft,
+  applySuggestionStatus: applyAiInboxSuggestionStatus,
+  runSummary: runAiInboxSummary,
+  applyRecommendedAction: applyAiInboxRecommendedAction,
+  setStatus
 });
 
 $("graphCanvas")?.addEventListener("click", async (event) => {
