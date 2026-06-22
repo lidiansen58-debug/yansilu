@@ -3470,7 +3470,7 @@ function noteSaveFailureFeedback(error) {
     saveMode: "error",
     saveMessage: "当前文件：保存失败，修改仍保留在编辑器中。",
     statusTone: "warn",
-    statusMessage: `保存失败（仅本地暂存）：${String(error?.message || error)}`
+    statusMessage: `保存失败（修改已保留在编辑器中）：${String(error?.message || error)}`
   };
 }
 
@@ -4819,7 +4819,7 @@ function currentModuleUi() {
           <h3>处理顺序</h3>
           <ol class="module-sidebar-list">
             <li>先看待判断建议</li>
-            <li>核对来源笔记和关联理由</li>
+            <li>核对来源笔记和关系说明</li>
             <li>确认后再建立关系或生成草稿</li>
           </ol>
         </div>
@@ -4905,8 +4905,8 @@ function renderModuleWorkspaceHeader() {
         .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.textContent || option.value)}</option>`)
         .join("")
     : `
-      <option value="Starter Auto">默认自动（Starter Auto）</option>
-      <option value="Privacy First">本地私密（Privacy First）</option>
+      <option value="Starter Auto">日常整理</option>
+      <option value="Privacy First">本地私密</option>
       <option value="Ollama Local">本地 AI</option>
     `;
 
@@ -5967,7 +5967,7 @@ function renderAiRoutePreview() {
       && installedLocalModelReady(localModel);
     if (localReady) {
       stats.innerHTML = [
-        `<span class="settings-stat-badge ok">${runtimeMode === "hybrid" ? "自动" : "仅本地"}</span>`,
+        `<span class="settings-stat-badge ok">${runtimeMode === "hybrid" ? "自动选择" : "只用本地模型"}</span>`,
         `<span class="settings-stat-badge ok">本地模型已就绪</span>`,
         `<span class="settings-stat-badge muted">待试运行</span>`
       ].join("");
@@ -5977,7 +5977,7 @@ function renderAiRoutePreview() {
         <div class="settings-route-preview-facts">
           <div class="settings-route-preview-fact">
             <span>使用方式</span>
-            <strong>${runtimeMode === "hybrid" ? "自动" : "仅本地"}</strong>
+            <strong>${runtimeMode === "hybrid" ? "自动选择" : "只用本地模型"}</strong>
           </div>
           <div class="settings-route-preview-fact">
             <span>运行位置</span>
@@ -6048,17 +6048,17 @@ function renderAiRoutePreview() {
   function modelPackDisplayLabel(value = "") {
     const key = String(value || "").trim();
     const labels = {
-      "Starter Auto": "默认自动",
+      "Starter Auto": "日常整理",
       "Low Cost Research": "低成本研究",
       "Deep Work": "深度工作",
       "China Optimized": "国内优化",
-      "Global Optimized": "全球网关",
+      "Global Optimized": "远程增强",
       "Privacy First": "本地私密",
       "Ollama Local": "本地 AI",
       "MiniCPM Local": "MiniCPM 本地",
       "MiniCPM Remote": "MiniCPM 远程"
     };
-    return labels[key] || key || "默认自动";
+    return labels[key] || key || "日常整理";
   }
   function routeModelDisplayLabel(value = "") {
     const key = String(value || "").trim();
@@ -6090,12 +6090,12 @@ function renderAiRoutePreview() {
     : String(remoteRuntimeModel || routeModelName || "自动选择").trim();
   const displayModel = routeModelDisplayLabel(rawDisplayModel);
   const modeLabel = runtimeMode === "local_only"
-    ? "仅本地"
+    ? "只用本地模型"
     : runtimeMode === "hybrid"
-      ? "自动"
+      ? "自动选择"
       : runtimeMode === "cloud_only"
-        ? "仅远程"
-        : "自动";
+        ? "只用远程模型"
+        : "自动选择";
   const serviceLabel = route.localOnly ? "本地 AI" : providerDisplayLabel();
   const ready = route.localOnly
     ? installedLocalModelReady(localModel)
@@ -6219,15 +6219,15 @@ function renderAiSettingsExperience() {
   const hasMeaningfulAdvancedOverride = Boolean(settingsState.ai.routePreview?.route?.advancedOverride) && !implicitLocalAdvancedOverride;
 
   const runtimeModeLabel = runtimeMode === "local_only"
-    ? "仅本地"
+    ? "只用本地模型"
     : runtimeMode === "hybrid"
       ? "本地优先"
       : runtimeMode === "cloud_only"
-        ? "仅远程"
-        : "自动";
+        ? "只用远程模型"
+        : "自动选择";
   const localRuntimeLabel = ollamaRuntimeStateLabel();
 
-  const primaryRuntimeModeLabel = runtimeMode === "hybrid" ? "自动" : runtimeModeLabel;
+  const primaryRuntimeModeLabel = runtimeMode === "hybrid" ? "自动选择" : runtimeModeLabel;
   const badgeItems = [
     { tone: localFlowActive ? "ok" : "muted", text: `使用方式 ${primaryRuntimeModeLabel}` }
   ];
@@ -6249,12 +6249,12 @@ function renderAiSettingsExperience() {
     .join("");
 
   let setupTitle = "当前适合日常研究任务";
-  let setupBody = "默认设置会自动选择合适的服务，适合阅读、摘要、整理和一般写作辅助。需要处理敏感材料时，请切到“仅本地”。";
+  let setupBody = "默认设置会自动选择合适的服务，适合阅读、摘要、整理和一般写作辅助。需要处理敏感材料时，请切到“只用本地模型”。";
   let quickstartLabel = "自动推荐";
   let helperText = "只有需要本地模型时，才需要安装并检测本地 AI；日常研究可以先保持自动。";
   let steps = [
     { state: "complete", title: "默认方案已可使用", note: "不需要先理解模型参数，也不需要安装本地环境。" },
-    { state: "current", title: "需要私密处理时再切换", note: "把 AI 使用方式改为“仅本地”，再按提示检测本地模型。" },
+    { state: "current", title: "需要私密处理时再切换", note: "把 AI 使用方式改为“只用本地模型”，再按提示检测本地模型。" },
     { state: "pending", title: "用一句短句试运行", note: "保存设置后，发一句不含敏感内容的测试语确认连接。" }
   ];
   let homeSteps = [
@@ -6270,7 +6270,7 @@ function renderAiSettingsExperience() {
       setupBody = "研思录正在检查这台电脑上的本地 AI 服务和已安装模型，通常几秒内会返回状态。";
       quickstartLabel = "检测中";
       steps = [
-        { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是本地优先模式" : "当前是仅本地模式"}。` },
+        { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是本地优先模式" : "当前只使用本地模型"}。` },
         { state: "current", title: "正在检测本地 AI", note: "如果等待过久，先确认本地 AI 应用是否已经启动。" },
         { state: "pending", title: "检测完成后选择或下载模型", note: `建议优先从 ${guideRecommendedModel} 开始。` }
       ];
@@ -6282,13 +6282,13 @@ function renderAiSettingsExperience() {
         : "当前还没有连上本地 AI。先安装并启动本地 AI，再回来点“检测本地 AI”。";
       quickstartLabel = installedNotRunning ? "等待启动" : "等待本地 AI";
       steps = [
-        { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "本地优先已启用，敏感资料仍建议切到仅本地。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
+        { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "本地优先已启用，敏感资料仍建议切到只用本地模型。" : "AI 任务会尽量留在这台电脑上。"} ` },
         { state: "current", title: installedNotRunning ? "启动本地 AI" : "下载并启动本地 AI", note: installedNotRunning ? "点击“启动本地 AI”，或手动打开本地 AI 应用。" : "如果还没安装，点“下载本地 AI 运行环境”；安装后保持它在后台运行。" },
         { state: "pending", title: "回到研思录，点“检测本地 AI”", note: "检测成功后，研思录会自动列出可选的本地模型。" }
       ];
       if (guideAction === "install_or_start_ollama" && guideSteps.length) {
         steps = [
-          { state: "complete", title: "已切到本地模型流程", note: runtimeMode === "hybrid" ? "本地优先已启用，敏感资料仍建议切到仅本地。" : "仅本地模式已启用，本地模型就绪前不会默认使用远程服务。" },
+          { state: "complete", title: "已切到本地模型流程", note: runtimeMode === "hybrid" ? "本地优先已启用，敏感资料仍建议切到只用本地模型。" : "已切到只用本地模型，本地模型就绪前不会默认使用远程服务。" },
           { state: "current", title: "下载并启动本地 AI", note: "安装后保持本地 AI 在后台运行。" },
           { state: "pending", title: guideSteps[2] || "回到研思录重新检测", note: "检测成功后会显示本地模型列表。" }
         ];
@@ -6348,11 +6348,11 @@ function renderAiSettingsExperience() {
     } else {
       setupTitle = "本地模型已经就绪";
       setupBody = runtimeMode === "hybrid"
-        ? `当前已选中 ${localModel}。本地优先是高级模式，部分任务仍可能使用远程；敏感资料请切换到“仅本地”。`
-        : `当前已选中 ${localModel}。仅本地模式会尽量把 AI 任务留在这台电脑上，不再默认依赖远程服务。`;
+        ? `当前已选中 ${localModel}。本地优先是高级模式，部分任务仍可能使用远程；敏感资料请切换到“只用本地模型”。`
+        : `当前已选中 ${localModel}。AI 任务会尽量留在这台电脑上，不再默认依赖远程服务。`;
       quickstartLabel = "本地已就绪";
       steps = [
-        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是本地优先模式" : "当前是仅本地模式"}。` },
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是本地优先模式" : "当前只使用本地模型"}。` },
         { state: "complete", title: "本地 AI 和模型都已准备好", note: `当前使用 ${localModel}。` },
         { state: settingsState.ai.testOutput ? "complete" : "current", title: "试运行一次确认连接", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果。" : "现在适合试运行一次，确认内容从本地模型返回。" }
       ];
@@ -6874,9 +6874,9 @@ function settingsLeafLabel(value = "", fallback = "默认笔记库") {
 
 function settingsAiRuntimeModeLabel(value = "") {
   const normalized = normalizeAiRuntimeMode(value || "auto");
-  if (normalized === "local_only") return "仅本地";
-  if (normalized === "cloud_only") return "仅远程";
-  return "自动";
+  if (normalized === "local_only") return "只用本地模型";
+  if (normalized === "cloud_only") return "只用远程模型";
+  return "自动选择";
 }
 
 function settingsAiAdvancedRuntimeModeLabel(value = "") {
@@ -6910,17 +6910,17 @@ function settingsAiProviderDisplayLabel(value = "") {
 function settingsAiModelPackDisplayLabel(value = "") {
   const key = String(value || "").trim();
   const labels = {
-    "Starter Auto": "默认自动",
+    "Starter Auto": "日常整理",
     "Low Cost Research": "低成本研究",
     "Deep Work": "深度工作",
     "China Optimized": "国内优化",
-    "Global Optimized": "全球网关",
+    "Global Optimized": "远程增强",
     "Privacy First": "本地私密",
     "Ollama Local": "本地 AI",
     "MiniCPM Local": "MiniCPM 本地",
     "MiniCPM Remote": "MiniCPM 远程"
   };
-  return labels[key] || key || "默认自动";
+  return labels[key] || key || "日常整理";
 }
 
 function settingsAiOverviewSummary() {
@@ -10089,14 +10089,14 @@ function graphRelationStatusLabel(status) {
 }
 
 const GRAPH_RELATION_QUALITY_LABELS = {
-  empty: "缺理由",
-  basic: "待补强",
+  empty: "缺说明",
+  basic: "说明太粗",
   good: "较清楚",
   strong: "清楚"
 };
 
 const GRAPH_RELATION_REVIEW_REASON_LABELS = {
-  missing_rationale: "补关系理由",
+  missing_rationale: "补关系说明",
   thin_rationale: "补证据或边界",
   needs_review: "复查关系"
 };
@@ -10470,12 +10470,12 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
     ? [
         nodes.length > 1 ? "这几条笔记之间最缺的那一步过渡判断是什么？" : "再补一条相关永久笔记，图谱才会开始形成结构。",
         bridgeGaps.length ? `先从 ${bridgeGaps[0]?.noteTitles?.[0] || "当前待关联笔记"} 开始，给它补一条能回到主结构的桥接关系。` : "先挑两条笔记，写出明确的支持、限定或反驳关系。",
-        "桥接写清后，再回来看哪些关系理由还偏薄。"
+        "桥接写清后，再回来看哪些关系说明还偏薄。"
       ]
     : [
         central?.degree ? `为什么「${centralTitle}」会成为连接最多的笔记？它是主题，还是只是材料中转站？` : "哪一条笔记最像这组材料的中心判断？",
         nearestTension ? `「${graphEdgeTitle(nearestTension, nodeMap)}」这条张力能不能变成文章里的反方段落？` : "有没有一条笔记能反驳或限定当前中心观点？",
-        untypedRelations.length ? `${untypedRelations.length} 条关系还缺理由，优先补“为什么相连”，洞见会更容易浮出来。` : "关系理由已经较清楚，可以开始挑一条阅读路径进入写作中心。"
+        untypedRelations.length ? `${untypedRelations.length} 条关系还缺说明，先补一句“为什么相关”，洞见会更容易浮出来。` : "关系说明已经较清楚，可以开始挑一条阅读路径进入写作中心。"
       ];
 
   return {
@@ -10875,7 +10875,7 @@ const GRAPH_WORKBENCH_TAB_META = {
     emptyLabel: "暂无关系待办",
     panelTitle: "关系待办",
     statusLabel: "关系待办",
-    note: "优先处理待关联笔记、缺少连接和关系理由太薄的地方。"
+    note: "优先处理待关联笔记、缺少连接和关系说明太薄的地方。"
   },
   questions: {
     key: "questions",
@@ -11472,7 +11472,7 @@ function graphNodeRoleMeta(node = {}, directEdges = []) {
   return {
     label: "普通关联笔记",
     tone: "neutral",
-    detail: "它已经进入网络，但角色还不明显。适合补一句它与相邻笔记之间的关系理由。",
+    detail: "它已经进入网络，但角色还不明显。适合补一句它与相邻笔记之间为什么相关。",
     prompt: "这条笔记贡献的是定义、例子、证据、反方，还是一个新问题？"
   };
 }
@@ -11565,9 +11565,9 @@ function graphEdgeReviewMeta(edge = {}) {
   const visual = graphRelationVisual(relationType);
   if (!rationale || rationale === "markdown_wikilink") {
     return {
-      label: "缺关系理由",
+      label: "缺关系说明",
       tone: "review",
-      detail: "这条线现在更像链接线索，还没有回答“为什么相连”。先补一句关系理由，再决定是否保留。",
+      detail: "这条线现在更像链接线索，还没有回答“为什么相关”。先补一句关系说明，再决定是否保留。",
       prompt: "如果只能留一句话解释这条关系，它应该是什么？"
     };
   }
@@ -11802,7 +11802,7 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
       score,
       tone: "testing",
       label: "值得继续验证",
-      detail: "这组笔记有成题迹象，但还需要补关系理由、反方或边界，避免过早把相似材料揉成一个主题。",
+      detail: "这组笔记有成题迹象，但还需要补关系说明、反方或边界，避免过早把相似材料揉成一个主题。",
       next: "挑两条最关键的成员笔记，补清它们为什么属于同一个问题。",
       missing,
       noteIds,
@@ -12672,7 +12672,7 @@ async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}
       refined?.aiErrorCode === "AI_ROUTE_CONFIRMATION_REQUIRED" ||
       refined?.aiErrorCode === "AI_BUDGET_CONFIRMATION_REQUIRED";
     if (needsConfirmation) {
-      setStatus("当前 AI 设置需要确认后才能生成这条关联理由", "warn");
+      setStatus("当前 AI 设置需要确认后才能生成这条关系说明", "warn");
       return { ok: false, needsConfirmation: true, merged };
     }
     if (confirmationApproved && aiReason) {
@@ -12683,11 +12683,11 @@ async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}
       return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: true };
     }
     if (aiError) {
-      setStatus(`生成关联理由失败：${aiError}`, "warn");
+      setStatus(`生成关系说明失败：${aiError}`, "warn");
       return { ok: false, needsConfirmation: false, merged };
     }
     if (confirmationApproved) {
-      setStatus("未生成可用的关联理由，请稍后重试", "warn");
+      setStatus("未生成可用的关系说明，请稍后重试", "warn");
       return { ok: false, needsConfirmation: false, merged };
     }
     return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: Boolean(aiReason) };
@@ -12707,8 +12707,8 @@ async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}
       aiNeedsConfirmation: needsConfirmation
     });
     renderGraphPanel();
-    if (needsConfirmation) setStatus("当前 AI 设置需要确认后才能生成这条关联理由", "warn");
-    else setStatus(`生成关联理由失败：${String(error?.message || error)}`, "warn");
+    if (needsConfirmation) setStatus("当前 AI 设置需要确认后才能生成这条关系说明", "warn");
+    else setStatus(`生成关系说明失败：${String(error?.message || error)}`, "warn");
     return { ok: false, needsConfirmation, merged: true };
   }
 }
@@ -13459,7 +13459,7 @@ function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), edges = [
     tone = "testing";
     label = "值得继续验证";
     detail = "这里有明显聚集，但主题边界还不够清楚，容易把相似材料误当成论证。";
-    next = "优先补一条簇内关系理由，确认这组笔记是在支撑同一个问题。";
+    next = "优先补一条簇内关系说明，确认这组笔记是在支撑同一个问题。";
   }
   if (externalEdges.length >= 3) {
     next = "这个主题群和外部连接不少，先判断它是独立主题，还是需要拆成过渡段落。";
@@ -13564,7 +13564,7 @@ function graphResearchNavigatorState({ nodes = [], edges = [], topicCandidates =
   const verdict = clusters.length
     ? promisingClusterCount
       ? `这批笔记聚成 ${clusters.length} 个主题群，其中 ${promisingClusterCount} 个可以继续提炼成研究问题或文章判断。`
-      : `这批笔记已经聚成 ${clusters.length} 个主题群，但关系理由还偏薄，先不要急着定题。`
+      : `这批笔记已经聚成 ${clusters.length} 个主题群，但关系说明还偏薄，先不要急着定题。`
     : "这批笔记还没有明显主题群，先从最关键的笔记补第一批关系。";
   const nextAction = clusters.length
     ? brightNodes.length
@@ -15614,8 +15614,8 @@ function renderRelationReviewQueueSection(reviewQueue, options = {}) {
       <details class="graph-section graph-collapsible-section graph-review-section" data-graph-section="review-queue"${open ? " open" : ""}>
         <summary class="graph-collapsible-summary">
           <div>
-            <div class="graph-section-title">待补关系理由</div>
-            <div class="graph-section-note">这里列出“线已经连上，但为什么连还没说清楚”的关系。优先补这些，图谱才有解释力。</div>
+            <div class="graph-section-title">需要补充说明的关系</div>
+            <div class="graph-section-note">这些关系已经保存，但理由还不够清楚。补一句“为什么相关”，以后看图谱才知道这条线的意义。</div>
           </div>
           <span class="graph-collapsible-badge">${total} 条</span>
         </summary>
@@ -15626,8 +15626,8 @@ function renderRelationReviewQueueSection(reviewQueue, options = {}) {
             : items.length
               ? `
                 <div class="graph-review-summary">
-                  <strong>${total} 条待整理关系</strong>
-                  <small>缺理由 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系理由或追问。</small>
+                  <strong>${total} 条关系需要补充说明</strong>
+                  <small>缺说明 ${emptyCount} 条；说明太粗 ${basicCount} 条。点卡片可以回到源笔记补充说明。</small>
                 </div>
                 <div class="graph-list">
                   ${items
@@ -15655,7 +15655,7 @@ function renderRelationReviewQueueSection(reviewQueue, options = {}) {
                     .join("")}
                 </div>
               `
-              : `<div class="graph-empty">永久笔记范围内没有缺理由或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
+              : `<div class="graph-empty">永久笔记范围内没有缺说明或说明太粗的关系。可以切换关系类型，查看完整结构是否合理。</div>`
         }
         </div>
       </details>
@@ -16177,7 +16177,7 @@ function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], revi
       title: String(note?.title || graphThinkingNoteTitle(nodeMap, noteId, "待关联笔记")).trim() || "待关联笔记",
       meta: "暂未进入主题群",
       detail: String(note?.thesis || "判断它应当桥接到现有主题，还是先留在暂存。").trim(),
-      question: "它暂时游离，是因为真的独特，还是因为还没有写出关系理由？",
+      question: "它暂时游离，是因为真的独特，还是因为还没有写出为什么相关？",
       actionLabel: "整理",
       actionAttrs: `data-graph-select-isolated="${escapeHtml(isolatedKey)}" data-graph-isolated-note="${escapeHtml(noteId)}"`,
       highlightNodeIds: [noteId]
@@ -16327,8 +16327,7 @@ function renderGraphThinkingPanelContent({ summary = {}, items = [], includeSumm
     graphThinkingHighlightAttrs,
     graphCompactActionLabel,
     graphState
-  });
-}
+  });}
 
 function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
   return renderGraphThinkingPanelView({ summary, items }, {
@@ -16364,7 +16363,7 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, r
   const badges = [
     bridgeGapCount > 0 ? `<span>潜在关联 ${escapeHtml(String(bridgeGapCount))}</span>` : "",
     weakRelationCount > 0 ? `<span>待判断关联 ${escapeHtml(String(weakRelationCount))}</span>` : "",
-    reviewCount > 0 ? `<span>待补理由 ${escapeHtml(String(reviewCount))}</span>` : "",
+    reviewCount > 0 ? `<span>待补说明 ${escapeHtml(String(reviewCount))}</span>` : "",
     aiState.totalCandidates > 0 ? `<span>AI 候选 ${escapeHtml(String(aiState.totalCandidates))}</span>` : ""
   ]
     .filter(Boolean)
@@ -16586,7 +16585,7 @@ function renderGraphPanel() {
     state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `正在加载“${folder?.name || "永久笔记盒"}”的永久笔记关系...`;
-    canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记、正式关系和待补理由。</div>`;
+    canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记、正式关系和待补说明。</div>`;
     return;
   }
 
@@ -17033,7 +17032,7 @@ async function saveGraphAiCandidateRelation(button = null) {
 
 async function triggerGraphPotentialRelationRefine(
   button = null,
-  { confirmationApproved = false, missingStatus = "没有找到这条待确认关联，请重新运行当前笔记的接入扫描", progressStatus = "正在生成关联理由..." } = {}
+  { confirmationApproved = false, missingStatus = "没有找到这条待确认关联，请重新运行当前笔记的接入扫描", progressStatus = "正在生成关系说明..." } = {}
 ) {
   const candidate = graphFindPotentialRelationCandidate({
     candidateId: button?.getAttribute?.("data-graph-candidate-id"),
@@ -17062,7 +17061,7 @@ async function triggerGraphPotentialRelationRefine(
 async function confirmGraphPotentialRelationRefine(button = null) {
   return triggerGraphPotentialRelationRefine(button, {
     confirmationApproved: true,
-    progressStatus: "正在按当前 AI 设置生成关联理由..."
+    progressStatus: "正在按当前 AI 设置生成关系说明..."
   });
 }
 
@@ -17070,7 +17069,7 @@ async function retryGraphPotentialRelationRefine(button = null) {
   return triggerGraphPotentialRelationRefine(button, {
     confirmationApproved: false,
     missingStatus: "没有找到这条待重试关联，请重新运行当前笔记的接入扫描",
-    progressStatus: "正在重新生成关联理由..."
+    progressStatus: "正在重新生成关系说明..."
   });
 }
 
@@ -17099,7 +17098,7 @@ async function createGraphThemeIndexFromNoteIds(noteIds = [], { title = "", sour
     directoryId: writingThemeIndexScopeDirectoryId(),
     indexType: "topic",
     title: cleanTitle,
-    summary: "从关联图谱保存的主题草稿入口，用于继续提炼中心问题、关系理由和后续写作。",
+    summary: "从关联图谱保存的主题草稿入口，用于继续提炼中心问题、关系说明和后续写作。",
     centralQuestion: "这组笔记共同回答什么问题？",
     noteIds: eligibleIds,
     items: eligibleIds.map((noteId, index) => ({
@@ -17613,7 +17612,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
 
   if (cleanAction === "relations-edit" && cleanRelationId) {
     focusExistingRelationEdit(`从图谱进入：继续写清“${sourceLabel}”这条${relationLabel}为什么成立。`);
-    setStatus("已从图谱打开笔记，继续完善当前关联理由", "ok", followupStatusOptions);
+    setStatus("已从图谱打开笔记，继续完善当前关系说明", "ok", followupStatusOptions);
     return true;
   }
 
@@ -17623,7 +17622,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
         ? `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”关联为一条${relationLabel}。`
         : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”建立为带理由的正式关联。`
     );
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续建立桥接关联" : "已从图谱打开笔记，继续写关联理由", "ok", followupStatusOptions);
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续建立桥接关联" : "已从图谱打开笔记，继续写关系说明", "ok", followupStatusOptions);
     return true;
   }
   if (cleanAction === "isolate-keep" || cleanAction === "isolate-hold") {

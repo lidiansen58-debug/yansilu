@@ -41,5 +41,5 @@ test("main-path basket-ready card keeps boundary guidance while reusing continui
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
   assert.match(html, /data-main-path-next-action="distillation"/);
   assert.match(html, /data-note-main-route-focus="boundary">补边界\/反例<\/button>/);
-  assert.match(html, /<b>写作准备<\/b> <em>继续草稿骨架<\/em>/);
+  assert.doesNotMatch(html, /main-path-progress/);
 });

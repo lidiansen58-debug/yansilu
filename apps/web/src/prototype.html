@@ -831,7 +831,7 @@
                             <div class="settings-ai-primary-head">
                               <div>
                                 <div class="settings-ai-primary-title">当前 AI 使用方式</div>
-                                <div class="settings-ai-primary-note">不确定时保持自动；处理私密材料时切到仅本地。</div>
+                                <div class="settings-ai-primary-note">不确定时保持自动；处理私密材料时切到“只用本地模型”。</div>
                               </div>
                               <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                             </div>
@@ -839,9 +839,9 @@
                               <div class="settings-ai-field">
                                 <label for="settingsAiRuntimeMode">AI 使用方式</label>
                                 <select id="settingsAiRuntimeMode">
-                                  <option value="auto">自动（推荐）</option>
-                                  <option value="local_only">仅本地</option>
-                                  <option value="cloud_only">仅远程</option>
+                                  <option value="auto">自动选择（推荐）</option>
+                                  <option value="local_only">只用本地模型</option>
+                                  <option value="cloud_only">只用远程模型</option>
                                 </select>
                               </div>
                               <button class="settings-ai-tool-button" type="button" data-settings-ai-dialog-open="test">
@@ -900,11 +900,11 @@
                                   <div class="settings-ai-field">
                                     <label for="settingsAiModelPack">AI 方案</label>
                                     <select id="settingsAiModelPack">
-                                      <option value="Starter Auto">默认自动：日常研究</option>
+                                      <option value="Starter Auto">日常整理</option>
                                       <option value="Low Cost Research">低成本研究</option>
                                       <option value="Deep Work">深度工作</option>
                                       <option value="China Optimized">国内优化</option>
-                                      <option value="Global Optimized">全球网关</option>
+                                      <option value="Global Optimized">远程增强</option>
                                       <option value="Privacy First">本地私密</option>
                                       <option value="Ollama Local">本地 AI</option>
                                       <option value="MiniCPM Remote">MiniCPM 远程</option>
@@ -923,7 +923,7 @@
                                   <div class="settings-ai-field">
                                     <label>本地优先</label>
                                     <button class="mini-btn is-subtle" id="settingsAiHybridToggle" type="button">启用本地优先</button>
-                                    <div class="settings-field-note">高级模式：简单任务可用本地，其他任务可能使用远程；敏感资料请用“仅本地”。</div>
+                                    <div class="settings-field-note">高级模式：简单任务可用本地，其他任务可能使用远程；敏感资料请用“只用本地模型”。</div>
                                   </div>
                                 </div>
                                 <button class="mini-btn is-subtle" type="button" data-settings-ai-dialog-open="remote">设置远程模型</button>

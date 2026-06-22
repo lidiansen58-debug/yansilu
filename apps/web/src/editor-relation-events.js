@@ -162,6 +162,12 @@ export function routeEditorRelationInput(host, event) {
     return true;
   }
 
+  const permanentRelationAiSelect = target.closest("[data-permanent-relation-ai-select]");
+  if (permanentRelationAiSelect) {
+    host.choosePermanentRelationAiCandidate(permanentRelationAiSelect.value || "");
+    return true;
+  }
+
   const permanentRelationField = target.closest("[data-permanent-relation-field]");
   if (permanentRelationField) {
     host.updatePermanentRelationWorkspaceField(

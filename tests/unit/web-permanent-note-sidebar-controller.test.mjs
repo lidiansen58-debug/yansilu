@@ -46,7 +46,7 @@ function host(overrides = {}) {
 test("permanent note sidebar controller chooses stable focus targets", () => {
   assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "note-b", mode: "manual" }), '[data-permanent-relation-field="rationale"]');
   assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "manual" }), "[data-permanent-relation-target-search]");
-  assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "ai" }), "[data-permanent-relation-ai-target]");
+  assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "ai" }), "[data-permanent-relation-ai-select]");
 });
 
 test("permanent note sidebar controller opens relation workspace through a route", () => {

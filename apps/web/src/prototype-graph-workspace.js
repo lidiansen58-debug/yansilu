@@ -72,7 +72,7 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
                     <button class="graph-relation-workspace-card" type="button" data-graph-select-edge="${escapeHtml(edgeKey)}" data-graph-select-edge-id="${escapeHtml(String(edge?.id || "").trim())}" data-graph-select-edge-from="${escapeHtml(String(edge?.fromNoteId || "").trim())}" data-graph-select-edge-to="${escapeHtml(String(edge?.toNoteId || "").trim())}" data-graph-select-edge-type="${escapeHtml(relationType)}">
                       <span>${escapeHtml(relationTypeLabel(relationType))}</span>
                       <strong>${escapeHtml(targetTitle)}</strong>
-                      <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "还需要补一句关系理由。")}</small>
+                      <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "还需要补一句为什么相关。")}</small>
                     </button>
                   `;
                 })

@@ -201,7 +201,7 @@ export class EditorRelationLinkController {
     const inlineInsert = Boolean(host.currentLinkContext);
     const { relationType, reason } = this.currentRelationInput();
     if (!reason) {
-      host.onStatus("请先写一句关联理由，再建立正式关系。", "warn");
+      host.onStatus("请先写一句为什么相关，再建立正式关系。", "warn");
       this.focusReasonInput();
       this.updateConfirmButton();
       return;

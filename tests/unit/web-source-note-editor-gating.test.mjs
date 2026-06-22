@@ -183,12 +183,13 @@ test("editor inspector shows source-note promote flow instead of relation panels
 
   pane.renderRelated();
 
-  assert.match(pane.els.result.innerHTML, /创建永久笔记/);
+  assert.match(pane.els.result.innerHTML, /生成永久笔记/);
   assert.match(pane.els.result.innerHTML, /这里只有创建永久笔记的下一步；正式关联整理请在永久笔记里继续/);
-  assert.match(pane.els.result.innerHTML, /随笔应定期清理，或沉淀为永久笔记/);
-  assert.match(pane.els.result.innerHTML, /data-source-note-action="record-permanent"[\s\S]*>提炼为永久笔记</);
+  assert.match(pane.els.result.innerHTML, /还没有生成永久笔记/);
+  assert.match(pane.els.result.innerHTML, /这条随笔如果值得继续保留，就生成永久笔记/);
+  assert.match(pane.els.result.innerHTML, /data-source-note-action="record-permanent"[\s\S]*>生成永久笔记</);
   assert.match(pane.els.result.innerHTML, /data-source-note-action="dismiss-fleeting-cleanup"[\s\S]*>标记稍后清理</);
-  assert.match(pane.els.result.innerHTML, /选择保存位置/);
+  assert.match(pane.els.result.innerHTML, /可长期保留、可被关联的判断/);
   assert.doesNotMatch(pane.els.result.innerHTML, /建立语义关系/);
   assert.equal(relationRefreshes, 0);
   assert.equal(aiRefreshes, 0);

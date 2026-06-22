@@ -63,7 +63,7 @@ export function validateCreateSemanticRelationForm(values = {}) {
   if (!values.toNoteId || !values.relationType || !values.rationale) {
     return {
       ok: false,
-      error: "请选择要关联的笔记、关系类型，并写下一句关联理由。"
+      error: "请选择要关联的笔记、关系类型，并写下一句为什么相关。"
     };
   }
   return { ok: true, error: "" };
@@ -73,7 +73,7 @@ export function validateEditSemanticRelationForm(values = {}) {
   if (!values.relationType || !values.status || !values.rationale) {
     return {
       ok: false,
-      error: "关系类型、状态和关联理由不能为空。"
+      error: "关系类型、状态和关系说明不能为空。"
     };
   }
   return { ok: true, error: "" };

@@ -201,7 +201,7 @@ function renderFilters(filters = {}, counts = {}) {
           <select id="aiInboxPrivacyFilter">
             <option value="" ${normalizedFilters.privacyMode ? "" : "selected"}>不限</option>
             <option value="normal" ${normalizedFilters.privacyMode === "normal" ? "selected" : ""}>普通</option>
-            <option value="local_only" ${normalizedFilters.privacyMode === "local_only" ? "selected" : ""}>仅本地</option>
+            <option value="local_only" ${normalizedFilters.privacyMode === "local_only" ? "selected" : ""}>只用本地模型</option>
           </select>
         </label>
         <button class="mini-btn" id="btnAiInboxApplyFilters" type="button">应用筛选</button>
@@ -282,7 +282,7 @@ function renderEvaluationSummary(state = {}) {
     filter.view ? viewLabel(filter.view) : "",
     filter.type ? aiInboxTypeLabel(filter.type) : "",
     filter.sourceNoteId ? `来源 ${filter.sourceNoteId}` : "",
-    filter.privacyMode ? (filter.privacyMode === "local_only" ? "仅本地" : filter.privacyMode) : ""
+    filter.privacyMode ? (filter.privacyMode === "local_only" ? "只用本地模型" : filter.privacyMode) : ""
   ].filter(Boolean).join(" / ") || "全部建议";
   return `
     <section class="ai-inbox-evaluation-summary">
@@ -663,7 +663,7 @@ function renderLinkSuggestionAction(artifact = {}, actionLoading = false) {
         <h3>可落地为笔记关系</h3>
         <p>${escapeHtml(link.fromNoteId || "未知来源")} -> ${escapeHtml(link.toNoteId || "未知目标")} / ${escapeHtml(link.relationType)}</p>
       </div>
-      <div class="ai-inbox-detail-muted">${escapeHtml(link.rationale || "这条建议没有写明关联理由，建议先忽略或补充理由。")}</div>
+      <div class="ai-inbox-detail-muted">${escapeHtml(link.rationale || "这条建议没有写明为什么相关，建议先忽略或补充说明。")}</div>
       <button
         class="mini-btn primary"
         type="button"
@@ -820,7 +820,7 @@ function renderTechnicalDetails(activeArtifact = {}, item = {}, activeDetail = {
         <dl class="ai-inbox-kv">
           <dt>任务</dt><dd>${escapeHtml(activeArtifact.agentRunId || item.agentRunId || "未记录")}</dd>
           <dt>上下文包</dt><dd>${escapeHtml(activeArtifact.contextPackId || item.contextPackId || "未记录")}</dd>
-          <dt>模型来源</dt><dd>${escapeHtml(activeArtifact.privacy?.mode === "local_only" || item.privacyMode === "local_only" ? "仅本地" : activeArtifact.privacy?.mode || item.privacyMode || "普通")}</dd>
+          <dt>模型来源</dt><dd>${escapeHtml(activeArtifact.privacy?.mode === "local_only" || item.privacyMode === "local_only" ? "只用本地模型" : activeArtifact.privacy?.mode || item.privacyMode || "普通")}</dd>
         </dl>
       </section>
       <section class="ai-inbox-detail-section">

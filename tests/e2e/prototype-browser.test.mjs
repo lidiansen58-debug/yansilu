@@ -1917,13 +1917,14 @@ test("prototype permanent relation workspace saves an AI recommended relation in
   await page.locator('[data-permanent-relation-action="run-ai"]').click();
 
   await waitFor(async () => {
-    assert.equal(await page.locator(`[data-permanent-relation-ai-target="${target.json.item.id}"]`).isVisible(), true);
+    const selectedValue = await page.locator("[data-permanent-relation-ai-select]").inputValue();
+    assert.equal(selectedValue, target.json.item.id);
     const workspaceText = await workspace.textContent();
     assert.match(String(workspaceText || ""), /AI Relation Target/);
     assert.doesNotMatch(String(workspaceText || ""), /Writing preparation|写作准备/);
   }, 10000);
 
-  await page.locator(`[data-permanent-relation-ai-target="${target.json.item.id}"]`).click();
+  await page.locator("[data-permanent-relation-ai-select]").selectOption(target.json.item.id);
   await page.locator("[data-permanent-relation-form] button[type='submit']").click();
 
   await waitFor(async () => {

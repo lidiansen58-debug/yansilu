@@ -292,7 +292,7 @@ export function formatSettingsUserError(errorMessage = "") {
 export function settingsSectionGuidanceMap({
   settingsState = {},
   settingsLeafLabel = (value = "", fallback = "默认笔记库") => String(value || fallback).trim() || fallback,
-  settingsAiOverviewSummary = () => ({ value: "默认自动" })
+  settingsAiOverviewSummary = () => ({ value: "日常整理" })
 } = {}) {
   const currentVault = settingsState.vault?.vaultPath
     ? settingsLeafLabel(settingsState.vault.vaultPath)

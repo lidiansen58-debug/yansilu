@@ -27,7 +27,7 @@ test("main-path summary labels wikilink-only signals as body link clues", () => 
     }
   );
 
-  assert.equal(result.nextStep, "补关系理由");
+  assert.equal(result.nextStep, "补关系说明");
   assert.match(result.summary, /正文链接线索/);
   assert.doesNotMatch(result.summary, /wikilink/);
 });

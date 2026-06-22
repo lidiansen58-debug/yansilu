@@ -11534,42 +11534,6 @@
       justify-self: start;
       white-space: nowrap;
     }
-    .main-path-progress {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 6px;
-    }
-    .main-path-progress span {
-      min-width: 0;
-      min-height: 42px;
-      display: grid;
-      align-content: center;
-      gap: 2px;
-      padding: 7px 8px;
-      border: 1px solid #e2ebf3;
-      border-radius: 8px;
-      background: #ffffff;
-    }
-    .main-path-progress b,
-    .main-path-progress em {
-      display: block;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-style: normal;
-      line-height: 1.25;
-    }
-    .main-path-progress b {
-      color: #64748b;
-      font-size: 10px;
-      font-weight: 800;
-    }
-    .main-path-progress em {
-      color: #172033;
-      font-size: 11px;
-      font-weight: 800;
-    }
     .main-path-secondary-actions {
       display: flex;
       justify-content: flex-start;
@@ -11891,6 +11855,50 @@
     .permanent-relation-candidate-list {
       display: grid;
       gap: 8px;
+    }
+    .permanent-relation-ai-picker {
+      display: grid;
+      gap: 10px;
+    }
+    .permanent-relation-search select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #d9e4ee;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #172033;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+      padding: 8px 9px;
+    }
+    .permanent-relation-selected-candidate {
+      display: grid;
+      gap: 7px;
+      border: 1px solid #c9e8d7;
+      border-radius: 10px;
+      background: #f4fbf7;
+      padding: 12px;
+      color: #40546b;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .permanent-relation-selected-candidate strong {
+      color: #10202a;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.4;
+    }
+    .permanent-relation-selected-candidate span,
+    .permanent-relation-selected-candidate small {
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 850;
+      line-height: 1.35;
+    }
+    .permanent-relation-selected-candidate p {
+      margin: 0;
     }
     .permanent-relation-candidate {
       min-width: 0;

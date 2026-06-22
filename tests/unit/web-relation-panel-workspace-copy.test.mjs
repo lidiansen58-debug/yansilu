@@ -12,6 +12,7 @@ const relationEventsPath = new URL("../../apps/web/src/editor-relation-events.js
 const distillationControllerPath = new URL("../../apps/web/src/permanent-note-distillation-controller.js", import.meta.url);
 const workspaceControllerPath = new URL("../../apps/web/src/permanent-note-workspace-controller.js", import.meta.url);
 const workspaceViewPath = new URL("../../apps/web/src/permanent-note-workspace-view.js", import.meta.url);
+const permanentRelationWorkspacePath = new URL("../../apps/web/src/permanent-relation-workspace.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation side panel uses action-first workspace copy without noisy placeholders", async () => {
@@ -21,7 +22,8 @@ test("relation side panel uses action-first workspace copy without noisy placeho
     await readFile(semanticRelationsControllerPath, "utf8"),
     await readFile(relationEventsPath, "utf8"),
     await readFile(workspaceControllerPath, "utf8"),
-    await readFile(workspaceViewPath, "utf8")
+    await readFile(workspaceViewPath, "utf8"),
+    await readFile(permanentRelationWorkspacePath, "utf8")
   ].join("\n");
   const sidebarArchitecture = await readFile(sidebarArchitecturePath, "utf8");
   const sidebarView = await readFile(sidebarViewPath, "utf8");
@@ -38,7 +40,7 @@ test("relation side panel uses action-first workspace copy without noisy placeho
 
   assert.match(shell, /<div class="panel-title">关系整理<\/div>/);
   assert.match(shell, /先选要关联的笔记，再写清为什么。/);
-  assert.match(source, /<div class="inspector-section-title">下一步<\/div>/);
+  assert.match(source, /<div class="inspector-section-title">当前建议<\/div>/);
   assert.match(source, /<div class="inspector-section-title">关系网络<\/div>/);
   assert.match(source, /renderPermanentRelationWorkspace/);
   assert.match(source, /from "\.\/permanent-note-sidebar-view\.js";/);
@@ -58,7 +60,8 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(sidebarController, /relationEntryRouteForPermanentWorkspaceContinuation\(note\.id, host\.permanentRelationWorkspaceState\.entryRoute/);
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
-  assert.match(source, /永久笔记整理/);
+  assert.match(source, /永久笔记工作区/);
+  assert.match(source, /一次只处理一个任务/);
   assert.match(source, /key: "relations", label: "关联"/);
   assert.match(source, /key: "viewpoint", label: "观点提纯"/);
   assert.match(source, /key: "writing", label: "写作准备"/);
@@ -68,11 +71,15 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /shouldPreserveRelationSection\(section\)/);
   assert.match(sidebarView, /data-note-relation-assist-section/);
   assert.match(source, /workspaceMatchesNote\(noteId = ""\)/);
+  assert.match(source, /permanentRelationCandidateRationale\(firstCandidate\) \|\| this\.permanentRelationWorkspaceState\.rationale/);
+  assert.doesNotMatch(source, /rationale: firstCandidate\?\.rationaleDraft \|\| this\.permanentRelationWorkspaceState\.rationale/);
   assert.doesNotMatch(source, /workspace\.outerHTML = this\.renderDeferredNoteWorkspace\(note, tab\)/);
   assert.match(source, /AI 推荐/);
   assert.match(source, /手动搜索/);
-  assert.match(source, /候选 \$\{Number\(overview\.wikilinkCount/);
-  assert.match(source, /relationState === "error" \? "读取失败" : explicitRelationCount === null \? "读取中"/);
+  assert.match(source, /data-permanent-relation-ai-select/);
+  assert.match(source, /建立笔记关联/);
+  assert.match(sidebarView, /正在读取这条笔记的正式关系。读取完成后再保存新关系。/);
+  assert.match(sidebarView, /AI 找到 \$\{escapeHtml\(String\(assist\.relationCandidates\)\)\} 条可复核候选。确认前不会自动保存。/);
 
   assert.doesNotMatch(source, /提纯与 AI/);
   assert.doesNotMatch(source, /renderRelated\("当前笔记关联总览"\)/);
