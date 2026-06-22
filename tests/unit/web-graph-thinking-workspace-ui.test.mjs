@@ -30,6 +30,9 @@ import {
   renderGraphZoomStepperView
 } from "../../apps/web/src/graph-visual-map-shell.js";
 import {
+  graphZoomStep as moduleGraphZoomStep
+} from "../../apps/web/src/graph-visual-zoom-model.js";
+import {
   renderGraphSelectionByKind
 } from "../../apps/web/src/graph-selection-dispatcher.js";
 import {
@@ -1693,7 +1696,8 @@ test("graph zoom controls include both stepper directions and preset levels", ()
   assert.match(source, /renderGraphVisualMapShellView/);
   assert.doesNotMatch(source, /graph-pan-hint[\s\S]{0,180}<span>拖动<\/span>/);
   assert.match(html, /\.graph-pan-hint \{[\s\S]*width: 36px;[\s\S]*cursor: grab;/);
-  assert.match(source, /const nextZoom = graphZoomStep\(graphState\.zoom, Number\(zoomStepButton\.getAttribute\("data-graph-zoom-step"\) \|\| 0\)\);/);
+  assert.equal(moduleGraphZoomStep("read", -1).key, "fit");
+  assert.equal(moduleGraphZoomStep("read", 1).key, "detail");
 });
 
 test("graph rail entry does not fall through to note explorer during async refresh", () => {

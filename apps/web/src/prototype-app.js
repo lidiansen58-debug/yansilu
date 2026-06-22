@@ -366,6 +366,11 @@ import {
   buildGraphVisualMapRuntimeState
 } from "./graph-visual-map-runtime-state.js";
 import {
+  GRAPH_VISUAL_ZOOM_OPTIONS,
+  graphZoomOption,
+  graphZoomStep
+} from "./graph-visual-zoom-model.js";
+import {
   graphClusterAnchorAngles,
   renderGraphClusterGlowView,
   renderGraphNebulaFieldView,
@@ -10049,25 +10054,6 @@ const GRAPH_RELATION_GROUP_META = {
     detail: "这条笔记被放入哪个主题或索引结构。"
   }
 };
-
-const GRAPH_VISUAL_ZOOM_OPTIONS = {
-  fit: { label: "全览", scale: 1, note: "看整体结构", icon: "fit" },
-  read: { label: "放大", scale: 1.35, note: "读笔记标题", icon: "read" },
-  detail: { label: "细节", scale: 1.75, note: "检查关系线", icon: "detail" }
-};
-
-function graphZoomOption(value = "") {
-  const key = String(value || "fit").trim().toLowerCase();
-  return GRAPH_VISUAL_ZOOM_OPTIONS[key] ? { key, ...GRAPH_VISUAL_ZOOM_OPTIONS[key] } : { key: "fit", ...GRAPH_VISUAL_ZOOM_OPTIONS.fit };
-}
-
-function graphZoomStep(value = "", direction = 0) {
-  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
-  const currentIndex = Math.max(0, zoomKeys.indexOf(graphZoomOption(value).key));
-  const nextIndex = Math.max(0, Math.min(zoomKeys.length - 1, currentIndex + Number(direction || 0)));
-  const nextKey = zoomKeys[nextIndex] || "fit";
-  return graphZoomOption(nextKey);
-}
 
 function renderGraphIcon(name = "") {
   const key = String(name || "").trim().toLowerCase();
