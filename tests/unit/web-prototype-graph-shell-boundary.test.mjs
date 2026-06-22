@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
+import { readGraphFocusContextPanelSource, readPrototypeAppSource } from "./copy-source-helpers.mjs";
 
 function extractFunctionSource(source, functionName) {
   const start = source.indexOf(`function ${functionName}`);
@@ -11,11 +11,13 @@ function extractFunctionSource(source, functionName) {
 
 test("prototype graph shell keeps review and relation entry wiring without legacy wikilink copy", async () => {
   const source = await readPrototypeAppSource();
+  const focusContextPanelSource = await readGraphFocusContextPanelSource();
 
   assert.match(source, /function renderGraphPanel\(\)/);
   assert.match(source, /renderGraphSelectionPanelViaDispatcher/);
   assert.match(source, /function renderGraphRelationWorkspaceForNote/);
-  assert.match(source, /data-graph-relation-adjustment="strengthen"/);
+  assert.match(source, /renderGraphFocusContextPanelView/);
+  assert.match(focusContextPanelSource, /data-graph-relation-adjustment="strengthen"/);
   assert.match(source, /renderGraphRelationWorkspaceMarkup/);
   assert.doesNotMatch(source, /data-graph-followup-action="relations-edit"/);
   assert.doesNotMatch(source, /Markdown wikilink/);

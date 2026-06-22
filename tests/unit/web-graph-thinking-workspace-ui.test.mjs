@@ -33,6 +33,13 @@ import {
   renderGraphSelectionByKind
 } from "../../apps/web/src/graph-selection-dispatcher.js";
 import {
+  graphFocusContextCollapsedState,
+  graphFocusContextCollapsedStatus,
+  graphFocusHelpOpenState,
+  graphFocusHelpStatus,
+  renderGraphFocusContextPanel
+} from "../../apps/web/src/graph-focus-context-panel.js";
+import {
   graphVisualNodeViewState,
   renderGraphVisualNodeView
 } from "../../apps/web/src/graph-visual-node-view.js";
@@ -141,6 +148,30 @@ function extractFunctionSource(source, name) {
   assert.fail(`expected to find the end of ${name}()`);
 }
 
+function graphFocusPanelTestDeps() {
+  const relationVisualKeys = {
+    supports: "support",
+    counters: "conflict",
+    boundary: "boundary",
+    bridges: "bridge",
+    sequence: "flow"
+  };
+  return {
+    renderGraphIcon: (name) => `<i>${name}</i>`,
+    graphNodeTitle: (nodeMap, id, fallback = "") => nodeMap.get(id)?.title || fallback || id,
+    graphFocusContextModeMeta: (value = "argument") =>
+      value === "writing"
+        ? { key: "writing", label: "看写作用途", note: "按写作用途排序关系。" }
+        : { key: "argument", label: "看观点关系", note: "按观点关系排序关系。" },
+    graphRelationStatusCountsAsNetworkEdge: (status) => status !== "rejected",
+    graphRelationVisual: (relationType) => ({ key: relationVisualKeys[String(relationType || "").trim()] || "neutral" }),
+    graphRelationTypeLabel: (relationType) => String(relationType || "相关关系"),
+    graphFocusedEdgeDirection: () => "指向",
+    graphRelationSourceLabel: () => "手动保存",
+    graphFocusCardActionMeta: () => ({ label: "补强理由" })
+  };
+}
+
 test("graph workbench entries live beside reading lenses and legend", () => {
   const source = readPrototypeApp();
   const workbenchSource = readGraphWorkbenchPanel();
@@ -191,19 +222,31 @@ test("graph refresh repaints the explorer tree after connectivity state changes"
 });
 
 test("graph focus relation panel can be collapsed and restored explicitly", () => {
-  const source = readPrototypeApp();
   const runtimeStateSource = readGraphVisualMapRuntimeState();
   const html = readPrototypeHtml();
+  const panel = renderGraphFocusContextPanel({
+    focusedNoteId: "a",
+    nodeMap: new Map([
+      ["a", { title: "当前笔记" }],
+      ["b", { title: "支持笔记" }]
+    ]),
+    edges: [
+      { id: "r1", fromNoteId: "a", toNoteId: "b", relationType: "supports", status: "accepted", rationale: "支持理由", createdBy: "manual" }
+    ],
+    focusContextMode: "argument",
+    focusContextHelpOpen: false
+  }, graphFocusPanelTestDeps());
 
-  assert.match(source, /focusContextCollapsed: false/);
   assert.match(runtimeStateSource, /const focusContextAvailable = filterActive && normalizedFocusedNoteId;/);
-  assert.match(source, /const focusContextMarkup = focusContextAvailable && !focusContextCollapsed/);
-  assert.match(source, /data-graph-focus-context-toggle="\$\{focusContextCollapsed \? "open" : "close"\}"/);
-  assert.match(source, /id="graphFocusContextPanel" class="graph-focus-context"/);
-  assert.match(source, /class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close"/);
-  assert.match(source, /const focusContextToggle = event\.target\.closest\("\[data-graph-focus-context-toggle\]"\);/);
-  assert.match(source, /graphState\.focusContextCollapsed =[\s\S]*action === "open" \? false : action === "close" \? true/);
-  assert.match(source, /setStatus\(graphState\.focusContextCollapsed \? "已收起右侧关系" : "已显示右侧关系", "ok"\);/);
+  assert.equal(graphFocusContextCollapsedState(false, "close"), true);
+  assert.equal(graphFocusContextCollapsedState(true, "open"), false);
+  assert.equal(graphFocusContextCollapsedState(false, "toggle"), true);
+  assert.equal(graphFocusContextCollapsedStatus(true), "已收起右侧关系");
+  assert.equal(graphFocusContextCollapsedStatus(false), "已显示右侧关系");
+  assert.match(panel, /id="graphFocusContextPanel" class="graph-focus-context"/);
+  assert.match(panel, /class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close"/);
+  assert.match(panel, /data-open-note="b"/);
+  assert.match(panel, /支持理由/);
 
   assert.match(html, /\.graph-focus-panel-head \{[\s\S]*justify-content: space-between;/);
   assert.match(html, /\.graph-focus-panel-toggle \{[\s\S]*min-height: 30px;[\s\S]*cursor: pointer;/);
@@ -211,21 +254,30 @@ test("graph focus relation panel can be collapsed and restored explicitly", () =
 });
 
 test("graph focus relation panel uses plain wording and explains relation categories", () => {
-  const source = readPrototypeApp();
   const html = readPrototypeHtml();
+  const panel = renderGraphFocusContextPanel({
+    focusedNoteId: "a",
+    nodeMap: new Map([["a", { title: "当前笔记" }]]),
+    edges: [],
+    focusContextMode: "writing",
+    focusContextHelpOpen: true
+  }, graphFocusPanelTestDeps());
 
-  assert.match(source, /label: "看观点关系"/);
-  assert.match(source, /label: "看写作用途"/);
-  assert.match(source, /<div class="graph-focus-kicker">当前笔记关系<\/div>/);
-  assert.match(source, /只看当前笔记已经保存的正式关系，不包含还没确认的 AI 候选。/);
-  assert.match(source, /支持关系说明/);
-  assert.match(source, /data-graph-focus-help-toggle/);
-  assert.match(source, /graphState\.focusContextHelpOpen = graphState\.focusContextHelpOpen !== true;/);
+  assert.equal(graphFocusHelpOpenState(false), true);
+  assert.equal(graphFocusHelpOpenState(true), false);
+  assert.equal(graphFocusHelpStatus(true), "已展开关系说明");
+  assert.equal(graphFocusHelpStatus(false), "已收起关系说明");
+  assert.match(panel, /看观点关系/);
+  assert.match(panel, /看写作用途/);
+  assert.match(panel, /<div class="graph-focus-kicker">当前笔记关系<\/div>/);
+  assert.match(panel, /只看当前笔记已经保存的正式关系，不包含还没确认的 AI 候选。/);
+  assert.match(panel, /支持关系说明/);
+  assert.match(panel, /data-graph-focus-help-toggle/);
+  assert.match(panel, /当前这条笔记周围还没有正式关系/);
 
   assert.match(html, /\.graph-focus-help-toggle \{[\s\S]*min-height: 30px;[\s\S]*cursor: pointer;/);
   assert.match(html, /\.graph-focus-help\.is-collapsed \{[\s\S]*display: none;/);
 });
-
 test("graph workbench panel replaces map-covering clue and question floaters", () => {
   const source = readPrototypeApp();
   const workbenchSource = readGraphWorkbenchPanel();

@@ -39,6 +39,10 @@ export function readPrototypeWritingWorkspaceSource() {
   return readRepoText("apps", "web", "src", "prototype-writing-workspace.js");
 }
 
+export function readGraphFocusContextPanelSource() {
+  return readRepoText("apps", "web", "src", "graph-focus-context-panel.js");
+}
+
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
