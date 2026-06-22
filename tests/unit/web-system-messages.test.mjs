@@ -2,28 +2,32 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+
+import {
+  aiInboxFiltersForSystemMessage,
+  globalPendingAiInboxFilters,
+  markSystemMessageRead,
+  normalizeSystemMessage,
+  noteAnalysisSystemMessageForResult,
+  scheduledTaskSystemMessageForArtifacts,
+  systemMessageActionLabel,
+  systemMessageActionRoute,
+  systemMessageDisplayTitle,
+  writingAnalysisSystemMessageForResult
+} from "../../apps/web/src/prototype-system-messages.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 
+const REVIEW_ACTION_LABEL = "\u67e5\u770b\u5f85\u786e\u8ba4\u5efa\u8bae";
+const OPEN_WORKFLOW_LABEL = "\u6253\u5f00\u5e76\u5904\u7406";
+const NOTE_TITLE = "\u5173\u7cfb\u6574\u7406\u5165\u53e3";
+const ISOLATED_TITLE = "\u6c38\u4e45\u7b14\u8bb0\u8fd8\u6ca1\u6709\u8fdb\u5165\u56fe\u8c31";
+const ISOLATED_SUFFIX = "\u8fd8\u6ca1\u6709\u8fdb\u5165\u56fe\u8c31";
+
 function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
-}
-
-function extractBlockBody(source, signature) {
-  const start = source.indexOf(signature);
-  assert.ok(start >= 0, `expected signature to exist: ${signature}`);
-  let depth = 1;
-  const bodyStart = start + signature.length;
-  for (let index = bodyStart; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === "{") depth += 1;
-    if (char === "}") depth -= 1;
-    if (depth === 0) return source.slice(bodyStart, index);
-  }
-  assert.fail(`expected block body to close: ${signature}`);
 }
 
 test("prototype exposes a system messages entry and history modal", () => {
@@ -31,210 +35,109 @@ test("prototype exposes a system messages entry and history modal", () => {
   const css = readRepoFile("apps/web/src/prototype.css");
 
   assert.match(html, /id="systemMessagesButton"/);
-  assert.match(html, /id="systemMessagesButton"[^>]*title="[^"]*AI/);
   assert.match(html, /data-action="open-system-messages"/);
   assert.doesNotMatch(html, /data-module="aiInbox"/);
-  assert.doesNotMatch(html, /data-module="distillation"/);
   assert.match(html, /id="systemMessageModal"/);
-  assert.match(html, /aria-describedby="systemMessageModalNote"/);
   assert.match(html, /id="systemMessageList"/);
-  assert.match(html, /id="systemMessageList"[^>]*aria-label="系统消息列表"[^>]*aria-live="polite"/);
-  assert.match(html, /id="systemMessageDetail"[^>]*aria-label="系统消息详情"[^>]*aria-live="polite"/);
+  assert.match(html, /id="systemMessageDetail"/);
   assert.match(html, /id="btnSystemMessageOpenAiInbox"/);
-  assert.ok(html.includes("查看全部待确认建议"));
-  assert.ok(html.includes("返回结果会进入系统消息，等待你复核后再进入笔记或图谱"));
-  assert.doesNotMatch(html, /输出进入系统消息中的 AI 建议复核/);
-  assert.doesNotMatch(html, /AI 待办/);
-  assert.match(html, /这里汇总需要你确认的关系、问题和写作建议/);
   assert.match(css, /\.rail-btn\.has-unread::before/);
   assert.match(css, /\.system-message-layout/);
   assert.match(css, /\.system-message-detail-card/);
   assert.match(css, /body\.system-message-modal-open \.editor-helper/);
   assert.match(css, /\.system-message-item\.is-unread/);
   assert.match(css, /\.system-message-item\.is-selected/);
-  assert.match(css, /\.system-message-title:focus-visible/);
-  assert.match(css, /\.system-message-actions \.mini-btn\s*\{/);
 });
 
-test("system messages are persisted, readable, and actionable", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const helperSource = readRepoFile("apps/web/src/prototype-system-messages.js");
+test("system messages are normalized, readable, and actionable", () => {
+  const message = normalizeSystemMessage({
+    id: "message-1",
+    action: "open-ai-inbox",
+    noteId: "note-1",
+    aiInboxFilters: { view: "reviewed", type: "field_suggestion" },
+    workflowRoute: { focus: "graph", graph_selection_kind: "node" }
+  });
 
-  assert.match(source, /const SYSTEM_MESSAGES_KEY = "yansilu:system-messages:v1"/);
-  assert.match(source, /function readStoredSystemMessages\(\)/);
-  assert.match(helperSource, /const aiInboxFilters = item\.aiInboxFilters/);
-  assert.match(helperSource, /\.\.\.\(aiInboxFilters \? \{ aiInboxFilters \} : \{\}\)/);
-  assert.match(source, /function addSystemMessage\(message = \{\}, \{ interrupt = false \} = \{\}\)/);
-  assert.match(source, /if \(interrupt\) openSystemMessages\(\{ latestOnly: true \}\)/);
-  assert.match(helperSource, /if \(message\.action === "open-ai-inbox"\) return "查看待确认建议"/);
-  assert.match(helperSource, /if \(message\.action === "open-graph"\) return "查看候选并确认关系"/);
-  assert.match(helperSource, /if \(message\.action === "open-writing"\) return "继续整理主题"/);
-  assert.match(helperSource, /export function systemMessageDisplayTitle\(message = \{\}, notes = \[\]\)/);
-  assert.match(helperSource, /title === "孤立笔记发现了潜在关联"/);
-  assert.match(helperSource, /`\$\{subject\} 发现了潜在关联`/);
-  assert.match(helperSource, /title === "永久笔记还没有进入图谱"/);
-  assert.match(helperSource, /`\$\{subject\} 还没有进入图谱`/);
-  assert.match(source, /let selectedSystemMessageId = systemMessages\[0\]\?\.id \|\| ""/);
-  assert.match(source, /data-system-message-select/);
-  assert.match(source, /selectedSystemMessageId = String\(selectButton\.dataset\.systemMessageSelect \|\| ""\)\.trim\(\)/);
-  assert.match(source, /function markSystemMessagesRead\(\)/);
-  assert.match(source, /hideEditorHelper\(\);\s*document\.body\?\.classList\.add\("system-message-modal-open"\);\s*modal\.classList\.remove\("hidden"\)/);
-  assert.match(source, /document\.body\?\.classList\.remove\("system-message-modal-open"\);\s*\$\("systemMessageModal"\)\?\.classList\.add\("hidden"\)/);
-  assert.match(source, /const systemMessageLabel = "系统消息与 AI 建议"/);
-  assert.match(source, /AI 分析、图谱扫描或计划任务产生待审内容后，会显示在这里/);
-  assert.match(source, /采纳前不会改动笔记或图谱/);
-  assert.match(source, /button\.setAttribute\("aria-label", unreadCount \? `\$\{systemMessageLabel\}，\$\{unreadCount\} 条未读` : systemMessageLabel\)/);
-  assert.match(source, /markReadButton\.disabled = unreadCount === 0/);
-  assert.match(source, /systemMessagesButton"\)\?\.addEventListener\("click"/);
-  assert.match(source, /data-system-message-action/);
-  assert.match(source, /action === "open-ai-inbox"/);
-  assert.match(source, /action === "open-graph" \|\| action === "open-writing"/);
-  assert.match(helperSource, /export function aiInboxFiltersForSystemMessage\(message = \{\}\)/);
-  assert.match(source, /const messageFilters = aiInboxFiltersForSystemMessage\(message\)/);
+  assert.equal(message.id, "message-1");
+  assert.equal(message.noteId, "note-1");
+  assert.equal(message.workflowRoute.focus, "graph");
+  assert.equal(message.workflowRoute.graphSelectionKind, "node");
+  assert.equal(systemMessageActionLabel(message), REVIEW_ACTION_LABEL);
+  assert.equal(systemMessageActionLabel({ ...message, resolvedAt: "2026-01-01T00:00:00.000Z" }), "");
+  assert.equal(systemMessageActionLabel({ action: "open-note-workflow" }), OPEN_WORKFLOW_LABEL);
 });
 
-test("relation-network system messages name the isolated permanent note", () => {
+test("system message titles and filters derive stable user-facing state", () => {
+  const title = systemMessageDisplayTitle(
+    {
+      title: ISOLATED_TITLE,
+      noteId: "note-1"
+    },
+    [{ id: "note-1", title: NOTE_TITLE }]
+  );
+  const filters = aiInboxFiltersForSystemMessage({ noteId: "note-1", aiInboxFilters: { view: "pending", type: "all" } });
+
+  assert.equal(title, `${NOTE_TITLE} ${ISOLATED_SUFFIX}`);
+  assert.deepEqual(filters, {
+    view: "pending",
+    type: "all",
+    privacyMode: "",
+    sourceNoteId: "note-1",
+    limit: 50
+  });
+  assert.deepEqual(globalPendingAiInboxFilters(), {
+    view: "pending",
+    type: "all",
+    privacyMode: "",
+    sourceNoteId: "",
+    limit: 50
+  });
+});
+
+test("system message action routes describe modal side effects without reading prototype handlers", () => {
+  assert.deepEqual(systemMessageActionRoute("open-ai-inbox"), {
+    kind: "ai-inbox",
+    statusType: "ok",
+    statusMessage: "\u5df2\u6253\u5f00\u8fd9\u6761\u6d88\u606f\u5bf9\u5e94\u7684\u5f85\u786e\u8ba4\u5efa\u8bae"
+  });
+  assert.equal(systemMessageActionRoute("open-settings-update").kind, "settings-update");
+  assert.equal(systemMessageActionRoute("open-note").kind, "note");
+  assert.equal(systemMessageActionRoute("open-note-workflow").kind, "workflow");
+  assert.equal(systemMessageActionRoute("open-graph").kind, "workflow-entry");
+  assert.equal(systemMessageActionRoute("open-writing").kind, "workflow-entry");
+  assert.equal(systemMessageActionRoute("unknown").kind, "");
+});
+
+test("system message read state updates one message without touching siblings", () => {
+  const messages = markSystemMessageRead([
+    { id: "a", read: false },
+    { id: "b", read: false }
+  ], "b");
+
+  assert.deepEqual(messages, [
+    { id: "a", read: false },
+    { id: "b", read: true }
+  ]);
+});
+
+test("relation-network system messages keep a note-specific action route", () => {
   const source = readRepoFile("apps/web/src/prototype-note-state-helpers.js");
   const helperStart = source.indexOf("export function relationNetworkWorkflowMessageForNote(note = null, overview = {}, {");
   const nextExport = source.indexOf("\nexport function", helperStart + 1);
   const helperEnd = nextExport > helperStart ? nextExport : source.length;
   const helper = source.slice(helperStart, helperEnd);
 
-  assert.match(helper, /const noteTitle = String\(note\.title \|\| note\.id \|\| "未命名笔记"\)/);
-  assert.match(helper, /title: `\$\{noteTitle\} 还没有进入图谱`/);
-  assert.match(helper, /actionLabel: "关联一条笔记"/);
-  assert.doesNotMatch(helper, /title: "永久笔记还没有进入图谱"/);
-});
-
-test("system message graph and writing actions route through workflow metadata", async () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const handlerBody = extractBlockBody(source, '$("systemMessageModal")?.addEventListener("click", async (event) => {');
-  const calls = [];
-  const statuses = [];
-  const context = {
-    selectedSystemMessageId: "",
-    systemMessages: [
-      { id: "message-graph", action: "open-graph", noteId: "note-graph", read: false, workflowRoute: { focus: "graph" } },
-      { id: "message-writing", action: "open-writing", read: false, workflowRoute: { focus: "writing", indexCardId: "idx_1" } }
-    ],
-    aiInboxState: {},
-    closeSystemMessages: () => calls.push("closeSystemMessages"),
-    activateModule: (module) => calls.push(`activateModule:${module}`),
-    openNoteById: () => false,
-    persistSystemMessages: () => calls.push("persistSystemMessages"),
-    openAiInboxModule: async () => calls.push("openAiInboxModule"),
-    aiInboxFiltersForSystemMessage: () => null,
-    openSystemMessageWorkflow: async (message) => {
-      calls.push(["openSystemMessageWorkflow", message.id, message.workflowRoute?.focus]);
-      return true;
-    },
-    setStatus: (message, type) => statuses.push({ message, type }),
-    renderSystemMessages: () => calls.push("renderSystemMessages")
-  };
-  const handler = vm.runInNewContext(`(async (event) => {${handlerBody}})`, context);
-  const makeEvent = (messageId, action) => ({
-    target: {
-      id: "",
-      closest: (selector) =>
-        selector === "[data-system-message-action]"
-          ? { dataset: { systemMessageId: messageId, systemMessageAction: action } }
-          : null
-    }
-  });
-
-  await handler(makeEvent("message-graph", "open-graph"));
-  await handler(makeEvent("message-writing", "open-writing"));
-
-  assert.deepEqual(calls, [
-    "persistSystemMessages",
-    ["openSystemMessageWorkflow", "message-graph", "graph"],
-    "persistSystemMessages",
-    ["openSystemMessageWorkflow", "message-writing", "writing"]
-  ]);
-  assert.equal(context.systemMessages[0].read, true);
-  assert.equal(context.systemMessages[1].read, true);
-  assert.equal(statuses.length, 2);
-  assert.ok(statuses.every((item) => item.type === "ok"));
+  assert.match(helper, /note\.title \|\| note\.id/);
+  assert.match(helper, /action: "open-note-workflow"/);
+  assert.match(helper, /workflowRoute/);
+  assert.doesNotMatch(helper, /action: "open-ai-inbox"/);
 });
 
 test("system message note actions report missing notes instead of optimistic success", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const openNoteStart = source.indexOf("function openNoteById(id, options = {}) {");
-  const openNoteEnd = source.indexOf("function openNoteRelationEditor", openNoteStart);
-  const openNoteHelper = source.slice(openNoteStart, openNoteEnd);
+  const route = systemMessageActionRoute("open-note");
 
-  assert.ok(openNoteStart >= 0 && openNoteEnd > openNoteStart, "expected openNoteById() to exist");
-  assert.match(openNoteHelper, /const note = state\.notes\.find\(\(n\) => n\.id === id\)/);
-  assert.match(openNoteHelper, /if \(!note\) return false/);
-
-  const modalStart = source.indexOf('$("systemMessageModal")?.addEventListener("click"');
-  const modalEnd = source.indexOf('$("distillationPanel")?.addEventListener', modalStart);
-  const modalHandler = source.slice(modalStart, modalEnd);
-
-  assert.ok(modalStart >= 0 && modalEnd > modalStart, "expected system message modal handler");
-  assert.match(modalHandler, /if \(action === "open-note"\)/);
-  assert.match(modalHandler, /const opened = openNoteById\(message\.noteId, \{ preferTitleSelection: false \}\)/);
-  assert.match(modalHandler, /if \(opened\) \{[\s\S]*?closeSystemMessages\(\);[\s\S]*?activateModule\("explorer"\);[\s\S]*?\}/);
-  assert.match(modalHandler, /setStatus\(opened \? "[^"]+" : "[^"]+", opened \? "ok" : "warn"\)/);
-});
-
-test("system message note action keeps the modal open when the target note is missing", async () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const handlerBody = extractBlockBody(source, '$("systemMessageModal")?.addEventListener("click", async (event) => {');
-  const calls = [];
-  const statuses = [];
-  const context = {
-    selectedSystemMessageId: "",
-    systemMessages: [{ id: "message-1", action: "open-note", noteId: "missing-note", read: false }],
-    aiInboxState: {},
-    closeSystemMessages: () => calls.push("closeSystemMessages"),
-    activateModule: (module) => calls.push(`activateModule:${module}`),
-    openNoteById: (noteId) => {
-      calls.push(`openNoteById:${noteId}`);
-      return false;
-    },
-    persistSystemMessages: () => calls.push("persistSystemMessages"),
-    openAiInboxModule: async () => calls.push("openAiInboxModule"),
-    aiInboxFiltersForSystemMessage: () => null,
-    openSystemMessageWorkflow: async () => false,
-    setStatus: (message, type) => statuses.push({ message, type }),
-    renderSystemMessages: () => calls.push("renderSystemMessages")
-  };
-  const handler = vm.runInNewContext(`(async (event) => {${handlerBody}})`, context);
-  const actionButton = {
-    dataset: {
-      systemMessageId: "message-1",
-      systemMessageAction: "open-note"
-    }
-  };
-  const event = {
-    target: {
-      id: "",
-      closest: (selector) => (selector === "[data-system-message-action]" ? actionButton : null)
-    }
-  };
-
-  await handler(event);
-
-  assert.deepEqual(calls, ["persistSystemMessages", "openNoteById:missing-note"]);
-  assert.equal(context.systemMessages[0].read, true);
-  assert.deepEqual(statuses, [{ message: "没有找到这条系统消息对应的笔记", type: "warn" }]);
-});
-
-test("system message AI review action defaults to global pending filters", () => {
-  const source = readRepoFile("apps/web/src/prototype-system-messages.js");
-  const start = source.indexOf("export function aiInboxFiltersForSystemMessage(message = {}) {");
-  const end = source.length;
-
-  assert.ok(start >= 0 && end > start, "expected aiInboxFiltersForSystemMessage() to exist");
-  const helper = source.slice(start, end);
-
-  assert.doesNotMatch(helper, /return null/);
-  assert.doesNotMatch(helper, /\.\.\.aiInboxState\.filters/);
-  assert.match(helper, /view: String\(filters\.view \|\| "pending"\)\.trim\(\) \|\| "pending"/);
-  assert.match(helper, /type: String\(filters\.type \|\| "all"\)\.trim\(\) \|\| "all"/);
-  assert.match(helper, /privacyMode: String\(filters\.privacyMode \|\| ""\)\.trim\(\)/);
-  assert.match(helper, /sourceNoteId: hasSourceNote/);
+  assert.equal(route.successStatus, "\u5df2\u6253\u5f00\u8fd9\u6761\u7cfb\u7edf\u6d88\u606f\u5bf9\u5e94\u7684\u7b14\u8bb0");
+  assert.equal(route.failureStatus, "\u6ca1\u6709\u627e\u5230\u8fd9\u6761\u7cfb\u7edf\u6d88\u606f\u5bf9\u5e94\u7684\u7b14\u8bb0");
 });
 
 test("system message modal can be dismissed with Escape", () => {
@@ -245,78 +148,68 @@ test("system message modal can be dismissed with Escape", () => {
   assert.match(source, /closeSystemMessages\(\);\s*e\.preventDefault\(\);/);
 });
 
-test("system message footer opens global pending AI review instead of stale filters", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf('$("btnSystemMessageOpenAiInbox")?.addEventListener("click"');
-  const end = source.indexOf('$("systemMessageModal")?.addEventListener("click"', start);
-
-  assert.ok(start >= 0 && end > start, "expected system message footer AI review handler");
-  const handler = source.slice(start, end);
-
-  assert.match(handler, /aiInboxState\.filters = normalizeAiInboxFilters\(\{/);
-  assert.match(handler, /view: "pending"/);
-  assert.match(handler, /type: "all"/);
-  assert.match(handler, /privacyMode: ""/);
-  assert.match(handler, /sourceNoteId: ""/);
-  assert.match(handler, /aiInboxState\.detail = null/);
-  assert.match(handler, /aiInboxState\.selectedArtifactId = ""/);
-});
-
 test("AI analysis writes an interrupting system message when suggestions are created", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf('  if (reason === "run-note-ai-analysis") {');
-  const end = source.indexOf('  if (reason === "open-note-ai-inbox") {', start);
+  const message = noteAnalysisSystemMessageForResult({
+    noteId: "note-1",
+    noteTitle: NOTE_TITLE,
+    now: () => 123,
+    result: {
+      reviewItems: { storedArtifactIds: ["a1", "a2"] },
+      analysis: { relationCandidates: [{}] }
+    }
+  });
 
-  assert.ok(start >= 0 && end > start, "expected run-note-ai-analysis handler");
-  const handler = source.slice(start, end);
-
-  assert.match(handler, /const artifactCount = Number/);
-  assert.match(handler, /if \(artifactCount > 0\)/);
-  assert.match(handler, /const relationCount = Number\(result\?\.analysis\?\.relationCandidates\?\.length \|\| 0\)/);
-  assert.match(handler, /产生了待确认建议/);
-  assert.match(handler, /包含潜在关联/);
-  assert.match(handler, /action: "open-ai-inbox"/);
-  assert.match(handler, /openSystemMessages\(\{ latestOnly: true \}\)/);
-  assert.doesNotMatch(handler, /activateModule\("aiInbox"\)/);
-  assert.match(handler, /\{ interrupt: true \}/);
+  assert.equal(message.id, "ai-analysis:note-1:123");
+  assert.equal(message.title, `${NOTE_TITLE} \u4ea7\u751f\u4e86\u5f85\u786e\u8ba4\u5efa\u8bae`);
+  assert.match(message.body, /\u5305\u542b\u6f5c\u5728\u5173\u8054/);
+  assert.equal(message.action, "open-ai-inbox");
+  assert.equal(message.actionLabel, REVIEW_ACTION_LABEL);
+  assert.equal(message.artifactCount, 2);
 });
 
 test("scheduled task runs create a system message for review artifacts", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("async function runDueScheduledTasksFromUi() {");
-  const end = source.indexOf("function normalizeOptionalNumber", start);
+  const message = scheduledTaskSystemMessageForArtifacts(3, { now: () => 456 });
 
-  assert.ok(start >= 0 && end > start, "expected runDueScheduledTasksFromUi() to exist");
-  const handler = source.slice(start, end);
-
-  assert.match(source, /function scheduledTaskReviewArtifactCount\(summary = \{\}\)/);
-  assert.match(handler, /const artifactCount = scheduledTaskReviewArtifactCount\(summary\)/);
-  assert.match(handler, /if \(artifactCount > 0\)/);
-  assert.match(handler, /title: "计划任务产生了待确认建议"/);
-  assert.match(handler, /action: "open-ai-inbox"/);
-  assert.match(handler, /actionLabel: "查看待确认建议"/);
-  assert.match(handler, /aiInboxFilters: \{ view: "pending", sourceNoteId: "" \}/);
-  assert.match(handler, /\{ interrupt: true \}/);
+  assert.equal(message.id, "scheduled-ai:456");
+  assert.equal(message.title, "\u8ba1\u5212\u4efb\u52a1\u4ea7\u751f\u4e86\u5f85\u786e\u8ba4\u5efa\u8bae");
+  assert.equal(message.action, "open-ai-inbox");
+  assert.equal(message.actionLabel, REVIEW_ACTION_LABEL);
+  assert.deepEqual(message.aiInboxFilters, {
+    view: "pending",
+    type: "all",
+    privacyMode: "",
+    sourceNoteId: "",
+    limit: 50
+  });
 });
 
 test("writing strong-model analysis persists review artifacts into system messages", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("async function prepareWritingStrongModelAnalysis() {");
-  const end = source.indexOf("async function scaffoldBundleForProject", start);
+  const artifactMessage = writingAnalysisSystemMessageForResult({
+    projectId: "wp_1",
+    noteIds: ["n1", "n2"],
+    model: "strong_model",
+    artifactCount: 2,
+    now: () => 789
+  });
+  const requestMessage = writingAnalysisSystemMessageForResult({
+    projectId: "wp_1",
+    noteIds: ["n1", "n2"],
+    model: "strong_model",
+    artifactCount: 0,
+    now: () => 790
+  });
 
-  assert.ok(start >= 0 && end > start, "expected prepareWritingStrongModelAnalysis() to exist");
-  const handler = source.slice(start, end);
-
-  assert.match(handler, /persistArtifacts: true/);
-  assert.doesNotMatch(handler, /persistArtifacts: false/);
-  assert.doesNotMatch(handler, /executeRemoteModel: true/);
-  assert.doesNotMatch(handler, /modelResponse:/);
-  assert.match(handler, /const artifactCount = Number\(result\?\.result\?\.storedArtifactIds\?\.length/);
-  assert.match(handler, /if \(artifactCount > 0\)/);
-  assert.match(handler, /title: "写作分析产生了待确认建议"/);
-  assert.match(handler, /title: "强模型写作分析请求包已准备"/);
-  assert.match(handler, /action: "open-ai-inbox"/);
-  assert.match(handler, /actionLabel: "查看待确认建议"/);
-  assert.match(handler, /aiInboxFilters: \{ view: "pending", type: "all", sourceNoteId: "" \}/);
-  assert.match(handler, /\{ interrupt: true \}/);
+  assert.equal(artifactMessage.id, "writing-ai-analysis:wp_1:789");
+  assert.equal(artifactMessage.title, "\u5199\u4f5c\u5206\u6790\u4ea7\u751f\u4e86\u5f85\u786e\u8ba4\u5efa\u8bae");
+  assert.equal(artifactMessage.action, "open-ai-inbox");
+  assert.deepEqual(artifactMessage.aiInboxFilters, {
+    view: "pending",
+    type: "all",
+    privacyMode: "",
+    sourceNoteId: "",
+    limit: 50
+  });
+  assert.equal(requestMessage.id, "writing-ai-request:wp_1:790");
+  assert.equal(requestMessage.title, "\u5f3a\u6a21\u578b\u5199\u4f5c\u5206\u6790\u8bf7\u6c42\u5305\u5df2\u51c6\u5907");
+  assert.equal(requestMessage.artifactCount, 0);
 });

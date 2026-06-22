@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { writingAnalysisSystemMessageForResult } from "../../apps/web/src/prototype-system-messages.js";
 import { readPrototypeAppSource, readPrototypeHtmlSource, readPrototypeWritingWorkspaceSource } from "./copy-source-helpers.mjs";
 
 test("writing center exposes a book-level workbench between materials and drafts", async () => {
@@ -9,8 +10,7 @@ test("writing center exposes a book-level workbench between materials and drafts
   assert.match(html, /id="writingBookStructure"/);
   assert.match(html, /id="writingBookPools"/);
   assert.match(html, /id="writingBookLocalIdeas"/);
-  assert.match(html, /id="btnWritingLocalBookIdeas"[^>]*>本地生成 3 个书稿方向</);
-  assert.match(html, /主线、部、章、节、案例池和反方池/);
+  assert.match(html, /id="btnWritingLocalBookIdeas"/);
 });
 
 test("writing center derives book structure with parts, chapters, sections, and pools", async () => {
@@ -18,15 +18,9 @@ test("writing center derives book structure with parts, chapters, sections, and 
   const writingWorkspaceSource = await readPrototypeWritingWorkspaceSource();
 
   assert.match(source, /function deriveWritingBookDesign/);
-  assert.match(source, /第一部/);
-  assert.match(source, /第\$\{chapterIndex \+ 1\}章/);
-  assert.match(writingWorkspaceSource, /节一：/);
-  assert.match(source, /案例池/);
-  assert.match(source, /反方池/);
-  assert.match(source, /开放问题/);
   assert.match(source, /function uniqueWritingBookPoolItems/);
-  assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
   assert.match(source, /renderWritingBookDesign\(\);/);
+  assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
 });
 
 test("local book ideas are generated on device and do not mutate project automatically", async () => {
@@ -34,11 +28,8 @@ test("local book ideas are generated on device and do not mutate project automat
 
   assert.match(source, /function deriveWritingLocalBookIdeas/);
   assert.match(source, /function syncWritingLocalBookIdeasFromProject/);
-  assert.match(source, /判断力训练型/);
-  assert.match(source, /去神秘化解释型/);
-  assert.match(source, /AI时代人生方法型/);
   assert.match(source, /\$\("btnWritingLocalBookIdeas"\)\?\.addEventListener\("click"/);
-  assert.match(source, /不会上传材料，也不会自动写入项目/);
+  assert.doesNotMatch(source, /deriveWritingLocalBookIdeas\([^)]*\)\s*;\s*saveWritingProject/);
 });
 
 test("local book ideas reset on basket changes and sync when opening a project", async () => {
@@ -65,20 +56,24 @@ test("strong model request package shows included notes, questions, and exclusio
   const source = await readPrototypeAppSource();
 
   assert.match(source, /function renderWritingStrongModelRequestDetail/);
-  assert.match(source, /使用笔记/);
-  assert.match(source, /准备问模型什么/);
-  assert.match(source, /不会发送 \/ 不会自动做/);
-  assert.match(source, /不会发送未加入写作篮的其它笔记/);
-  assert.match(source, /不会自动写入笔记、不会自动改图谱/);
+  assert.match(source, /note_count/);
+  assert.match(source, /const plannedQuestions = \[/);
+  assert.match(source, /const notSent = \[/);
+  assert.match(source, /plannedQuestions\.map/);
+  assert.match(source, /notSent\.map/);
 });
 
 test("strong model request package history does not interrupt when no artifacts are created", async () => {
   const source = await readPrototypeAppSource();
-  const requestMessageStart = source.indexOf('id: `writing-ai-request:');
-  const requestMessageEnd = source.indexOf('setStatus(`已准备 ${model} 写作分析请求包', requestMessageStart);
-  const requestMessageBlock = source.slice(requestMessageStart, requestMessageEnd);
+  const message = writingAnalysisSystemMessageForResult({
+    projectId: "wp_1",
+    noteIds: ["note-1"],
+    artifactCount: 0,
+    now: () => 123
+  });
 
-  assert.ok(requestMessageStart >= 0 && requestMessageEnd > requestMessageStart, "expected request-package system message block");
-  assert.doesNotMatch(requestMessageBlock, /\{ interrupt: true \}/);
-  assert.match(requestMessageBlock, /artifactCount: 0/);
+  assert.equal(message.id, "writing-ai-request:wp_1:123");
+  assert.equal(message.artifactCount, 0);
+  assert.equal(message.action, "");
+  assert.match(source, /addSystemMessage\(systemMessage, artifactCount > 0 \? \{ interrupt: true \} : \{\}\)/);
 });

@@ -87,3 +87,133 @@ export function aiInboxFiltersForSystemMessage(message = {}) {
     sourceNoteId: hasSourceNote
   });
 }
+
+export function globalPendingAiInboxFilters() {
+  return normalizeAiInboxFilters({
+    view: "pending",
+    type: "all",
+    privacyMode: "",
+    sourceNoteId: ""
+  });
+}
+
+export function upsertSystemMessageList(messages = [], message = {}, {
+  normalize = normalizeSystemMessage,
+  limit = 80,
+  preserveRead = true
+} = {}) {
+  const currentMessages = Array.isArray(messages) ? messages : [];
+  const requested = normalize(message);
+  const existing = currentMessages.find((item) => item.id === requested.id || (requested.dedupeKey && item.dedupeKey === requested.dedupeKey));
+  const reactivated = Boolean(existing?.resolvedAt && !requested.resolvedAt);
+  const normalized = normalize({
+    ...(existing || {}),
+    ...requested,
+    id: existing?.id || requested.id,
+    createdAt: existing?.createdAt || requested.createdAt,
+    read: reactivated ? false : preserveRead && existing ? existing.read === true : requested.read === true
+  });
+  return {
+    message: normalized,
+    messages: [normalized, ...currentMessages.filter((item) => item.id !== normalized.id)].slice(0, Math.max(1, Number(limit || 80) || 80)),
+    existing,
+    reactivated
+  };
+}
+
+export function markSystemMessageRead(messages = [], messageId = "") {
+  const cleanId = String(messageId || "").trim();
+  if (!cleanId) return Array.isArray(messages) ? messages : [];
+  return (Array.isArray(messages) ? messages : []).map((message) => (message.id === cleanId ? { ...message, read: true } : message));
+}
+
+export function systemMessageActionRoute(action = "") {
+  const cleanAction = String(action || "").trim();
+  if (cleanAction === "open-ai-inbox") return { kind: "ai-inbox", statusType: "ok", statusMessage: "已打开这条消息对应的待确认建议" };
+  if (cleanAction === "open-settings-update") return { kind: "settings-update", statusType: "ok", statusMessage: "已打开版本更新设置。" };
+  if (cleanAction === "open-note") return {
+    kind: "note",
+    successStatus: "已打开这条系统消息对应的笔记",
+    failureStatus: "没有找到这条系统消息对应的笔记"
+  };
+  if (cleanAction === "open-note-workflow") return {
+    kind: "workflow",
+    successStatus: "已打开这条系统消息对应的后续操作",
+    failureStatus: "没有找到这条系统消息对应的笔记"
+  };
+  if (cleanAction === "open-graph" || cleanAction === "open-writing") return {
+    kind: "workflow-entry",
+    successStatus: "已打开这条系统消息对应的入口",
+    failureStatus: "没有找到这条系统消息对应的入口"
+  };
+  return { kind: "" };
+}
+
+export function noteAnalysisSystemMessageForResult({
+  noteId = "",
+  noteTitle = "",
+  result = null,
+  now = () => Date.now()
+} = {}) {
+  const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
+  if (artifactCount <= 0) return null;
+  const relationCount = Number(result?.analysis?.relationCandidates?.length || 0);
+  const titleText = String(noteTitle || noteId || "").trim();
+  return normalizeSystemMessage({
+    id: `ai-analysis:${String(noteId || "").trim()}:${now()}`,
+    type: "ai",
+    title: `${titleText} 产生了待确认建议`,
+    body: relationCount
+      ? `“${titleText}”有 ${artifactCount} 条待确认建议，其中包含潜在关联。先审阅理由，再决定是否采纳。`
+      : `“${titleText}”有 ${artifactCount} 条待确认建议。先审阅理由，再决定是否采纳。`,
+    action: "open-ai-inbox",
+    actionLabel: "查看待确认建议",
+    noteId: String(noteId || "").trim(),
+    artifactCount
+  });
+}
+
+export function scheduledTaskSystemMessageForArtifacts(artifactCount = 0, { now = () => Date.now() } = {}) {
+  const count = Number(artifactCount || 0);
+  if (count <= 0) return null;
+  return normalizeSystemMessage({
+    id: `scheduled-ai:${now()}`,
+    type: "ai",
+    title: "计划任务产生了待确认建议",
+    body: `计划任务生成了 ${count} 条待确认建议。先看对象和理由，再决定是否采纳到笔记或图谱。`,
+    action: "open-ai-inbox",
+    actionLabel: "查看待确认建议",
+    artifactCount: count,
+    aiInboxFilters: { view: "pending", sourceNoteId: "" }
+  });
+}
+
+export function writingAnalysisSystemMessageForResult({
+  projectId = "",
+  noteIds = [],
+  model = "strong_model",
+  artifactCount = 0,
+  now = () => Date.now()
+} = {}) {
+  const key = String(projectId || (Array.isArray(noteIds) ? noteIds.join("-") : "") || "basket").trim();
+  const count = Number(artifactCount || 0);
+  if (count > 0) {
+    return normalizeSystemMessage({
+      id: `writing-ai-analysis:${key}:${now()}`,
+      type: "ai",
+      title: "写作分析产生了待确认建议",
+      body: `写作强模型分析生成了 ${count} 条待确认建议。先看对象和理由，再决定是否采纳到写作项目。`,
+      action: "open-ai-inbox",
+      actionLabel: "查看待确认建议",
+      artifactCount: count,
+      aiInboxFilters: { view: "pending", type: "all", sourceNoteId: "" }
+    });
+  }
+  return normalizeSystemMessage({
+    id: `writing-ai-request:${key}:${now()}`,
+    type: "ai",
+    title: "强模型写作分析请求包已准备",
+    body: `已为项目 ${String(projectId || "当前写作项目").trim()} 准备 ${String(model || "strong_model").trim()} 请求包。当前没有直接调用远程模型，也没有自动写入笔记；你可以先复核请求范围、写作目标和写作篮材料。`,
+    artifactCount: 0
+  });
+}

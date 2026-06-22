@@ -122,11 +122,18 @@ import {
 } from "./ai-inbox-model.js";
 import {
   aiInboxFiltersForSystemMessage,
+  globalPendingAiInboxFilters,
+  markSystemMessageRead,
   normalizeSystemMessage,
+  noteAnalysisSystemMessageForResult,
+  scheduledTaskSystemMessageForArtifacts,
   systemMessageActionLabel,
+  systemMessageActionRoute,
   systemMessageDisplayTitle,
   systemMessagePreviewText,
-  systemMessageSubjectText
+  systemMessageSubjectText,
+  upsertSystemMessageList,
+  writingAnalysisSystemMessageForResult
 } from "./prototype-system-messages.js";
 import {
   createRecordPermanentWorkflowOpener,
@@ -1231,22 +1238,17 @@ function addSystemMessage(message = {}, { interrupt = false } = {}) {
 }
 
 function upsertSystemMessage(message = {}, { interrupt = false, preserveRead = true } = {}) {
-  const requested = normalizeSystemMessage(message);
-  const existing = systemMessages.find((item) => item.id === requested.id || (requested.dedupeKey && item.dedupeKey === requested.dedupeKey));
-  const reactivated = Boolean(existing?.resolvedAt && !requested.resolvedAt);
-  const normalized = normalizeSystemMessage({
-    ...(existing || {}),
-    ...requested,
-    id: existing?.id || requested.id,
-    createdAt: existing?.createdAt || requested.createdAt,
-    read: reactivated ? false : preserveRead && existing ? existing.read === true : requested.read === true
+  const result = upsertSystemMessageList(systemMessages, message, {
+    normalize: normalizeSystemMessage,
+    limit: SYSTEM_MESSAGES_LIMIT,
+    preserveRead
   });
-  systemMessages = [normalized, ...systemMessages.filter((item) => item.id !== normalized.id)].slice(0, SYSTEM_MESSAGES_LIMIT);
-  if (interrupt || !selectedSystemMessageId) selectedSystemMessageId = normalized.id;
+  systemMessages = result.messages;
+  if (interrupt || !selectedSystemMessageId) selectedSystemMessageId = result.message.id;
   persistSystemMessages();
   renderSystemMessages();
   if (interrupt) openSystemMessages({ latestOnly: true });
-  return normalized;
+  return result.message;
 }
 
 function resolveSystemMessageByDedupeKey(dedupeKey = "") {
@@ -3372,25 +3374,12 @@ async function runDueScheduledTasksFromUi() {
     const artifactCount = scheduledTaskReviewArtifactCount(summary);
     if (artifactCount > 0) {
       aiInboxState.filters = normalizeAiInboxFilters({
-        ...aiInboxState.filters,
-        view: "pending",
-        sourceNoteId: ""
+        ...globalPendingAiInboxFilters(),
+        type: aiInboxState.filters?.type || "all"
       });
       aiInboxState.detail = null;
       aiInboxState.selectedArtifactId = "";
-      addSystemMessage(
-        {
-          id: `scheduled-ai:${Date.now()}`,
-          type: "ai",
-          title: "计划任务产生了待确认建议",
-          body: `计划任务生成了 ${artifactCount} 条待确认建议。先看对象和理由，再决定是否采纳到笔记或图谱。`,
-          action: "open-ai-inbox",
-          actionLabel: "查看待确认建议",
-          artifactCount,
-          aiInboxFilters: { view: "pending", sourceNoteId: "" }
-        },
-        { interrupt: true }
-      );
+      addSystemMessage(scheduledTaskSystemMessageForArtifacts(artifactCount), { interrupt: true });
     }
     setStatus(`Scheduled tasks run: ${summary?.succeeded || 0} succeeded, ${summary?.skipped || 0} skipped, ${summary?.failed || 0} failed`, "ok");
     return summary;
@@ -8767,31 +8756,13 @@ async function prepareWritingStrongModelAnalysis() {
     writingState.strongModelResult = result;
     const model = result?.request?.model?.model || "strong_model";
     const artifactCount = Number(result?.result?.storedArtifactIds?.length || result?.result?.summary?.artifactCount || result?.result?.artifacts?.length || 0);
-    if (artifactCount > 0) {
-      addSystemMessage(
-        {
-          id: `writing-ai-analysis:${writingState.project?.id || noteIds.join("-") || "basket"}:${Date.now()}`,
-          type: "ai",
-          title: "写作分析产生了待确认建议",
-          body: `写作强模型分析生成了 ${artifactCount} 条待确认建议。先看对象和理由，再决定是否采纳到写作项目。`,
-          action: "open-ai-inbox",
-          actionLabel: "查看待确认建议",
-          artifactCount,
-          aiInboxFilters: { view: "pending", type: "all", sourceNoteId: "" }
-        },
-        { interrupt: true }
-      );
-    } else {
-      addSystemMessage(
-        {
-          id: `writing-ai-request:${writingState.project?.id || noteIds.join("-") || "basket"}:${Date.now()}`,
-          type: "ai",
-          title: "强模型写作分析请求包已准备",
-          body: `已为项目 ${writingState.project?.id || "当前写作项目"} 准备 ${model} 请求包。当前没有直接调用远程模型，也没有自动写入笔记；你可以先复核请求范围、写作目标和写作篮材料。`,
-          artifactCount: 0
-        }
-      );
-    }
+    const systemMessage = writingAnalysisSystemMessageForResult({
+      projectId: writingState.project?.id || "",
+      noteIds,
+      model,
+      artifactCount
+    });
+    addSystemMessage(systemMessage, artifactCount > 0 ? { interrupt: true } : {});
     setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
   } catch (error) {
     if (writingState.strongModelRevision !== requestRevision) return;
@@ -18276,23 +18247,8 @@ async function handleStateChange(reason, payload = {}) {
       });
       const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
       if (artifactCount > 0) {
-        const relationCount = Number(result?.analysis?.relationCandidates?.length || 0);
         const noteTitle = state.notes.find((item) => item.id === noteId)?.title || noteId;
-        addSystemMessage(
-          {
-            id: `ai-analysis:${noteId}:${Date.now()}`,
-            type: "ai",
-            title: `${noteTitle} 产生了待确认建议`,
-            body: relationCount
-              ? `“${noteTitle}”有 ${artifactCount} 条待确认建议，其中包含潜在关联。先审阅理由，再决定是否采纳。`
-              : `“${noteTitle}”有 ${artifactCount} 条待确认建议。先审阅理由，再决定是否采纳。`,
-            action: "open-ai-inbox",
-            actionLabel: "查看待确认建议",
-            noteId,
-            artifactCount
-          },
-          { interrupt: true }
-        );
+        addSystemMessage(noteAnalysisSystemMessageForResult({ noteId, noteTitle, result }), { interrupt: true });
       }
       if (artifactCount > 0 && payload.openInbox !== false) {
         aiInboxState.filters = normalizeAiInboxFilters({
@@ -21239,13 +21195,7 @@ $("btnSystemMessageMarkRead")?.addEventListener("click", () => {
 });
 
 $("btnSystemMessageOpenAiInbox")?.addEventListener("click", async () => {
-  aiInboxState.filters = normalizeAiInboxFilters({
-    ...aiInboxState.filters,
-    view: "pending",
-    type: "all",
-    privacyMode: "",
-    sourceNoteId: ""
-  });
+  aiInboxState.filters = globalPendingAiInboxFilters();
   aiInboxState.detail = null;
   aiInboxState.selectedArtifactId = "";
   closeSystemMessages();
@@ -21262,7 +21212,7 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
   const selectButton = event.target.closest("[data-system-message-select]");
   if (selectButton) {
     selectedSystemMessageId = String(selectButton.dataset.systemMessageSelect || "").trim();
-    systemMessages = systemMessages.map((message) => (message.id === selectedSystemMessageId ? { ...message, read: true } : message));
+    systemMessages = markSystemMessageRead(systemMessages, selectedSystemMessageId);
     persistSystemMessages();
     renderSystemMessages();
     return;
@@ -21272,9 +21222,10 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
   const messageId = String(actionButton.dataset.systemMessageId || "").trim();
   const action = String(actionButton.dataset.systemMessageAction || "").trim();
   selectedSystemMessageId = messageId || selectedSystemMessageId;
-  systemMessages = systemMessages.map((message) => (message.id === messageId ? { ...message, read: true } : message));
+  systemMessages = markSystemMessageRead(systemMessages, messageId);
   persistSystemMessages();
-  if (action === "open-ai-inbox") {
+  const route = systemMessageActionRoute(action);
+  if (route.kind === "ai-inbox") {
     const message = systemMessages.find((item) => item.id === messageId) || null;
     const messageFilters = aiInboxFiltersForSystemMessage(message);
     if (messageFilters) {
@@ -21285,17 +21236,17 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
     closeSystemMessages();
     activateModule("aiInbox");
     await openAiInboxModule();
-    setStatus("已打开这条消息对应的待确认建议", "ok");
+    setStatus(route.statusMessage, route.statusType);
     return;
   }
-  if (action === "open-settings-update") {
+  if (route.kind === "settings-update") {
     closeSystemMessages();
     activateModule("settings");
     setSettingsItem("version-update", { render: true, announce: false });
-    setStatus("已打开版本更新设置。", "ok");
+    setStatus(route.statusMessage, route.statusType);
     return;
   }
-  if (action === "open-note") {
+  if (route.kind === "note") {
     const message = systemMessages.find((item) => item.id === messageId) || null;
     if (message?.noteId) {
       const opened = openNoteById(message.noteId, { preferTitleSelection: false });
@@ -21303,20 +21254,20 @@ $("systemMessageModal")?.addEventListener("click", async (event) => {
         closeSystemMessages();
         activateModule("explorer");
       }
-      setStatus(opened ? "已打开这条系统消息对应的笔记" : "没有找到这条系统消息对应的笔记", opened ? "ok" : "warn");
+      setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
       return;
     }
   }
-  if (action === "open-note-workflow") {
+  if (route.kind === "workflow") {
     const message = systemMessages.find((item) => item.id === messageId) || null;
     const opened = await openSystemMessageWorkflow(message || {});
-    setStatus(opened ? "已打开这条系统消息对应的后续操作" : "没有找到这条系统消息对应的笔记", opened ? "ok" : "warn");
+    setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
     return;
   }
-  if (action === "open-graph" || action === "open-writing") {
+  if (route.kind === "workflow-entry") {
     const message = systemMessages.find((item) => item.id === messageId) || null;
     const opened = await openSystemMessageWorkflow(message || {});
-    setStatus(opened ? "已打开这条系统消息对应的入口" : "没有找到这条系统消息对应的入口", opened ? "ok" : "warn");
+    setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
     return;
   }
   renderSystemMessages();

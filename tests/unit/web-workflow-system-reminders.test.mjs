@@ -7,6 +7,10 @@ import {
   createRecordPermanentWorkflowOpener,
   createSystemMessageWorkflowOpener
 } from "../../apps/web/src/prototype-system-message-workflow.js";
+import {
+  systemMessageActionRoute,
+  upsertSystemMessageList
+} from "../../apps/web/src/prototype-system-messages.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -126,15 +130,25 @@ test("completed workflow system messages no longer expose executable actions", (
 });
 
 test("reactivated workflow system messages become unread again", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf("function upsertSystemMessage(message = {}, { interrupt = false, preserveRead = true } = {}) {");
-  const end = source.indexOf("function resolveSystemMessageByDedupeKey", start);
+  const existing = {
+    id: "message-1",
+    dedupeKey: "workflow:note-1",
+    title: "old",
+    read: true,
+    resolvedAt: "2026-01-01T00:00:00.000Z",
+    createdAt: "2025-01-01T00:00:00.000Z"
+  };
+  const result = upsertSystemMessageList(
+    [existing],
+    { id: "message-2", dedupeKey: "workflow:note-1", title: "new" },
+    { limit: 10 }
+  );
 
-  assert.ok(start >= 0 && end > start, "expected upsertSystemMessage() to exist");
-  const helper = source.slice(start, end);
-
-  assert.match(helper, /const reactivated = Boolean\(existing\?\.resolvedAt && !requested\.resolvedAt\)/);
-  assert.match(helper, /read: reactivated \? false : preserveRead && existing \? existing\.read === true : requested\.read === true/);
+  assert.equal(result.message.id, "message-1");
+  assert.equal(result.message.createdAt, "2025-01-01T00:00:00.000Z");
+  assert.equal(result.message.resolvedAt, "");
+  assert.equal(result.message.read, false);
+  assert.equal(result.reactivated, true);
 });
 
 test("save-after source-note reminders are mirrored into system messages", () => {
@@ -164,7 +178,6 @@ test("save-after source-note reminders are mirrored into system messages", () =>
 
 test("workflow system message actions open the precise note follow-up route", () => {
   const source = readRepoFile("apps/web/src/prototype-system-message-workflow.js");
-  const appSource = readRepoFile("apps/web/src/prototype-app.js");
   const start = source.indexOf("return async function openSystemMessageWorkflow(message = {}) {");
 
   assert.ok(start >= 0, "expected openSystemMessageWorkflow() to exist");
@@ -186,12 +199,7 @@ test("workflow system message actions open the precise note follow-up route", ()
   assert.match(helper, /await openWritingModule\(\{ statusMessage: ".*?", preserveFocusedCandidateScope: true \}\)/);
   assert.match(helper, /focus === "record-permanent"/);
   assert.match(helper, /return openRecordPermanentWorkflowFromCurrentNote\(\)/);
-
-  const modalStart = appSource.indexOf('$("systemMessageModal")?.addEventListener("click"');
-  const modalEnd = appSource.indexOf('$("distillationPanel")?.addEventListener', modalStart);
-  const modalHandler = appSource.slice(modalStart, modalEnd);
-  assert.match(modalHandler, /action === "open-note-workflow"/);
-  assert.match(modalHandler, /await openSystemMessageWorkflow\(message \|\| \{\}\)/);
+  assert.equal(systemMessageActionRoute("open-note-workflow").kind, "workflow");
 });
 
 test("workflow system message actions can recover old messages by quoted note title", async () => {
