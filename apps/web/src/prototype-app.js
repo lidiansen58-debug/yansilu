@@ -198,8 +198,11 @@ import {
   refreshAiSuggestionsForRuntime
 } from "./ai-suggestions-runtime-controller.js";
 import {
+  acceptAiInboxLinkSuggestionForRuntime,
+  adoptAiInboxFieldSuggestionDraftForRuntime,
   applyAiInboxSuggestionStatusForRuntime,
   loadAiInboxDetailForRuntime,
+  promoteAiInboxArtifactToNoteForRuntime,
   recordAiInboxReviewDecisionForRuntime,
   refreshAiInboxForRuntime
 } from "./ai-inbox-runtime-controller.js";
@@ -3253,360 +3256,121 @@ async function applyAiInboxRecommendedAction(action = "") {
 }
 
 async function acceptAiInboxLinkSuggestion(artifactId) {
-  const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
-  const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
-  const cleanArtifactId = String(artifactId || selectedArtifactId || detailArtifactId || "").trim();
-  if (!cleanArtifactId) return setStatus("请先选择一条关联建议", "warn");
-  if (selectedArtifactId && selectedArtifactId === cleanArtifactId && !aiInboxState.detail) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(aiInboxReviewSafetyNotice(), "warn", selectedArtifactId);
-    renderAiInboxWorkspace();
-    setStatus(aiInboxReviewSafetyStatusMessage(), "warn");
-    return null;
-  }
-  if (aiInboxState.actionLoading) {
-    const inFlightArtifactId = String(aiInboxState.actionArtifactId || "").trim();
-    if (inFlightArtifactId && inFlightArtifactId === cleanArtifactId) return null;
-    const inFlightReviewNotice =
-      typeof aiInboxInFlightReviewActionNotice === "function"
-        ? aiInboxInFlightReviewActionNotice()
-        : "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.";
-    setAiInboxActionNotice(inFlightReviewNotice, "warn", cleanArtifactId);
-    renderAiInboxWorkspace();
-    setStatus(
-      typeof aiInboxInFlightReviewActionStatusMessage === "function"
-        ? aiInboxInFlightReviewActionStatusMessage()
-        : "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.",
-      "warn"
-    );
-    return null;
-  }
-  if (selectedArtifactId && detailArtifactId !== selectedArtifactId) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(aiInboxReviewRetryNotice(), "warn", selectedArtifactId);
-    renderAiInboxWorkspace();
-    setStatus(aiInboxReviewRetryStatusMessage(), "warn");
-    return null;
-  }
-  const currentArtifact = currentAiInboxArtifactForSelection(cleanArtifactId);
-  const currentDecision = latestArtifactDecision(currentArtifact);
-  if (
-    String(currentArtifact?.status || "").trim() === "linked_to_note" ||
-    String(currentDecision?.decision || "").trim() === "linked_to_note"
-  ) {
-    setAiInboxActionNotice(
-      typeof aiInboxLinkAlreadyAppliedNotice === "function"
-        ? aiInboxLinkAlreadyAppliedNotice()
-        : "This relation was already created for the current reviewed item.",
-      "ok"
-    );
-    renderAiInboxWorkspace();
-    setStatus(
-      typeof aiInboxLinkAlreadyAppliedStatusMessage === "function"
-        ? aiInboxLinkAlreadyAppliedStatusMessage()
-        : "这条关联建议已经建立过关系",
-      "ok"
-    );
-    return null;
-  }
-  aiInboxState.actionArtifactId = cleanArtifactId;
-  aiInboxState.actionSuggestionId = "";
-  aiInboxState.actionError = "";
-  clearAiInboxActionNotice();
-  aiInboxState.actionLoading = true;
-  renderAiInboxWorkspace();
-  try {
-    const result = await acceptAiInboxLink(cleanArtifactId, {
-      comment: $("aiInboxDecisionComment")?.value || "",
-      canonical: true
-    });
-    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== cleanArtifactId;
-    if (!selectionChangedDuringAction) {
-      aiInboxState.detail = aiInboxDetailFromResponse(result);
-      aiInboxState.selectedArtifactId = cleanArtifactId;
+  return acceptAiInboxLinkSuggestionForRuntime({
+    aiInboxState,
+    currentAiInboxArtifactForSelection,
+    latestArtifactDecision,
+    acceptAiInboxLink,
+    commentText: () => $("aiInboxDecisionComment")?.value || "",
+    aiInboxDetailFromResponse,
+    loadAiInboxDetail,
+    rememberAiDebugSnapshot,
+    finalizeAiInboxActionRefresh,
+    afterFinalize: async () => {
+      if (state.module === "graph") await refreshDirectoryGraph();
+    },
+    setStatus,
+    setAiInboxActionNotice,
+    clearAiInboxActionNotice,
+    render: renderAiInboxWorkspace,
+    messages: {
+      reviewSafetyNotice: aiInboxReviewSafetyNotice,
+      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
+      reviewRetryNotice: aiInboxReviewRetryNotice,
+      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
+      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
+      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
+      linkAlreadyAppliedNotice: aiInboxLinkAlreadyAppliedNotice,
+      linkAlreadyAppliedStatusMessage: aiInboxLinkAlreadyAppliedStatusMessage,
+      linkAcceptedStatusMessage: aiInboxLinkAcceptedStatusMessage,
+      linkAcceptFailedStatusMessage: aiInboxLinkAcceptFailedStatusMessage
     }
-    rememberAiDebugSnapshot("inboxDecision", result);
-    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
-    if (state.module === "graph") await refreshDirectoryGraph();
-    aiInboxState.actionArtifactId = "";
-    aiInboxState.actionSuggestionId = "";
-    aiInboxState.actionError = "";
-    clearAiInboxActionNotice();
-    setStatus(
-      typeof aiInboxLinkAcceptedStatusMessage === "function"
-        ? aiInboxLinkAcceptedStatusMessage(result.relation)
-        : result.relation?.created === false
-          ? "关系已存在，建议已标记为已建立关系"
-          : "已把关联建议建立为笔记关系",
-      "ok"
-    );
-    return result;
-  } catch (error) {
-      aiInboxState.actionError = String(error?.message || error);
-      setStatus(
-        typeof aiInboxLinkAcceptFailedStatusMessage === "function"
-          ? aiInboxLinkAcceptFailedStatusMessage(error)
-          : `LinkSuggestion accept failed: ${String(error?.message || error)}`,
-        "bad"
-      );
-      return null;
-    } finally {
-    aiInboxState.actionLoading = false;
-    renderAiInboxWorkspace();
-  }
+  }, artifactId);
 }
 
 async function promoteAiInboxArtifactToNote(artifactId) {
-  const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
-  const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
-  const cleanArtifactId = String(artifactId || selectedArtifactId || detailArtifactId || "").trim();
-  if (!cleanArtifactId) return setStatus("请先选择一条问题卡片或反思提示", "warn");
-  if (selectedArtifactId && selectedArtifactId === cleanArtifactId && !aiInboxState.detail) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(aiInboxReviewSafetyNotice(), "warn", selectedArtifactId);
-    renderAiInboxWorkspace();
-    setStatus(aiInboxReviewSafetyStatusMessage(), "warn");
-    return null;
-  }
-  if (aiInboxState.actionLoading) {
-    const inFlightArtifactId = String(aiInboxState.actionArtifactId || "").trim();
-    if (inFlightArtifactId && inFlightArtifactId === cleanArtifactId) return null;
-    const inFlightReviewNotice =
-      typeof aiInboxInFlightReviewActionNotice === "function"
-        ? aiInboxInFlightReviewActionNotice()
-        : "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.";
-    setAiInboxActionNotice(inFlightReviewNotice, "warn", cleanArtifactId);
-    renderAiInboxWorkspace();
-    setStatus(
-      typeof aiInboxInFlightReviewActionStatusMessage === "function"
-        ? aiInboxInFlightReviewActionStatusMessage()
-        : "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.",
-      "warn"
-    );
-    return null;
-  }
-  if (selectedArtifactId && detailArtifactId !== selectedArtifactId) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(aiInboxReviewRetryNotice(), "warn", selectedArtifactId);
-    renderAiInboxWorkspace();
-    setStatus(aiInboxReviewRetryStatusMessage(), "warn");
-    return null;
-  }
-  const currentArtifact = currentAiInboxArtifactForSelection(cleanArtifactId);
-  const currentDecision = latestArtifactDecision(currentArtifact);
-  if (
-    String(currentArtifact?.status || "").trim() === "promoted_to_note" ||
-    String(currentDecision?.decision || "").trim() === "promoted_to_note"
-  ) {
-    setAiInboxActionNotice(
-      typeof aiInboxNotePromotionAlreadyAppliedNotice === "function"
-        ? aiInboxNotePromotionAlreadyAppliedNotice()
-        : "This draft note already exists for the current reviewed item.",
-      "ok"
-    );
-    renderAiInboxWorkspace();
-    setStatus(
-      typeof aiInboxNotePromotionAlreadyAppliedStatusMessage === "function"
-        ? aiInboxNotePromotionAlreadyAppliedStatusMessage()
-        : "这条建议已经生成过草稿笔记",
-      "ok"
-    );
-    return null;
-  }
-  aiInboxState.actionArtifactId = cleanArtifactId;
-  aiInboxState.actionSuggestionId = "";
-  aiInboxState.actionError = "";
-  clearAiInboxActionNotice();
-  aiInboxState.actionLoading = true;
-  renderAiInboxWorkspace();
-  try {
-    const result = await promoteAiInboxNote(cleanArtifactId, {
-      comment: $("aiInboxDecisionComment")?.value || "",
-      canonical: true
-    });
-    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== cleanArtifactId;
-    if (!selectionChangedDuringAction) {
-      aiInboxState.detail = aiInboxDetailFromResponse(result);
-      aiInboxState.selectedArtifactId = cleanArtifactId;
+  return promoteAiInboxArtifactToNoteForRuntime({
+    aiInboxState,
+    currentAiInboxArtifactForSelection,
+    latestArtifactDecision,
+    promoteAiInboxNote,
+    commentText: () => $("aiInboxDecisionComment")?.value || "",
+    aiInboxDetailFromResponse,
+    loadAiInboxDetail,
+    rememberAiDebugSnapshot,
+    finalizeAiInboxActionRefresh,
+    beforeFinalize: async (result) => {
+      if (result.note?.id) {
+        state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
+      }
+    },
+    afterFinalize: async (result, context) => {
+      if (result.note?.id && !context.selectionChangedDuringAction) {
+        activateModule("explorer");
+        openNoteById(result.note.id);
+      }
+    },
+    setStatus,
+    setAiInboxActionNotice,
+    clearAiInboxActionNotice,
+    render: renderAiInboxWorkspace,
+    messages: {
+      reviewSafetyNotice: aiInboxReviewSafetyNotice,
+      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
+      reviewRetryNotice: aiInboxReviewRetryNotice,
+      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
+      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
+      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
+      notePromotionAlreadyAppliedNotice: aiInboxNotePromotionAlreadyAppliedNotice,
+      notePromotionAlreadyAppliedStatusMessage: aiInboxNotePromotionAlreadyAppliedStatusMessage,
+      notePromotionSucceededStatusMessage: aiInboxNotePromotionSucceededStatusMessage,
+      notePromotionFailedStatusMessage: aiInboxNotePromotionFailedStatusMessage
     }
-    rememberAiDebugSnapshot("inboxDecision", result);
-    if (result.note?.id) {
-      state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
-    }
-    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
-    if (result.note?.id && !selectionChangedDuringAction) {
-      activateModule("explorer");
-      openNoteById(result.note.id);
-    }
-    aiInboxState.actionArtifactId = "";
-    aiInboxState.actionSuggestionId = "";
-    aiInboxState.actionError = "";
-    clearAiInboxActionNotice();
-    setStatus(
-      typeof aiInboxNotePromotionSucceededStatusMessage === "function"
-        ? aiInboxNotePromotionSucceededStatusMessage(result.note)
-        : result.note?.id
-          ? `已从 AI 建议生成草稿笔记：${result.note.id}`
-          : "AI 建议已生成草稿",
-      "ok"
-    );
-    return result;
-  } catch (error) {
-      aiInboxState.actionError = String(error?.message || error);
-      setStatus(
-        typeof aiInboxNotePromotionFailedStatusMessage === "function"
-          ? aiInboxNotePromotionFailedStatusMessage(error)
-          : `AI note promotion failed: ${String(error?.message || error)}`,
-        "bad"
-      );
-      return null;
-    } finally {
-    aiInboxState.actionLoading = false;
-    renderAiInboxWorkspace();
-  }
+  }, artifactId);
 }
 
 async function adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId = "") {
-  const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
-  const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
-  const cleanArtifactId = String(artifactId || selectedArtifactId || detailArtifactId || "").trim();
-  const clickedSuggestionId = String(expectedSuggestionId || aiInboxState.detail?.suggestion?.id || "").trim();
-  if (!cleanArtifactId) return setStatus("请先选择一条字段建议", "warn");
-  if (selectedArtifactId && selectedArtifactId === cleanArtifactId && !aiInboxState.detail) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(aiInboxReviewSafetyNotice(), "warn", selectedArtifactId, clickedSuggestionId);
-    renderAiInboxWorkspace();
-    setStatus(aiInboxReviewSafetyStatusMessage(), "warn");
-    return null;
-  }
-  if (aiInboxState.actionLoading) {
-    const inFlightArtifactId = String(aiInboxState.actionArtifactId || "").trim();
-    const inFlightSuggestionId = String(aiInboxState.actionSuggestionId || "").trim();
-    if (
-      inFlightArtifactId &&
-      inFlightArtifactId === cleanArtifactId &&
-      (!clickedSuggestionId || !inFlightSuggestionId || inFlightSuggestionId === clickedSuggestionId)
-    ) {
-      return null;
+  return adoptAiInboxFieldSuggestionDraftForRuntime({
+    aiInboxState,
+    currentAiInboxArtifactForSelection,
+    currentAiInboxSuggestionForSelection,
+    latestArtifactDecision,
+    aiSuggestionStatusLabel,
+    adoptAiInboxFieldSuggestion,
+    aiInboxFeedback: aiInboxFeedbackFromUi,
+    commentText: () => $("aiInboxDecisionComment")?.value || "",
+    aiInboxDetailFromResponse,
+    loadAiInboxDetail,
+    rememberAiDebugSnapshot,
+    finalizeAiInboxActionRefresh,
+    beforeFinalize: async (result) => {
+      if (result.note?.id) {
+        state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
+      }
+    },
+    afterFinalize: async (result, context) => {
+      if (result.note?.id && !context.selectionChangedDuringAction) {
+        activateModule("explorer");
+        openNoteById(result.note.id, { focusDistillation: true });
+      }
+    },
+    setStatus,
+    setAiInboxActionNotice,
+    clearAiInboxActionNotice,
+    render: renderAiInboxWorkspace,
+    messages: {
+      reviewSafetyNotice: aiInboxReviewSafetyNotice,
+      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
+      reviewRetryNotice: aiInboxReviewRetryNotice,
+      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
+      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
+      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
+      fieldSuggestionDraftAlreadyAppliedNotice: aiInboxFieldSuggestionDraftAlreadyAppliedNotice,
+      fieldSuggestionDraftAlreadyAppliedStatusMessage: aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage,
+      fieldSuggestionDraftSucceededStatusMessage: aiInboxFieldSuggestionDraftSucceededStatusMessage,
+      fieldSuggestionDraftFailedStatusMessage: aiInboxFieldSuggestionDraftFailedStatusMessage
     }
-    const inFlightReviewNotice =
-      typeof aiInboxInFlightReviewActionNotice === "function"
-        ? aiInboxInFlightReviewActionNotice()
-        : "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.";
-    setAiInboxActionNotice(inFlightReviewNotice, "warn", cleanArtifactId, clickedSuggestionId);
-    renderAiInboxWorkspace();
-    setStatus(
-      typeof aiInboxInFlightReviewActionStatusMessage === "function"
-        ? aiInboxInFlightReviewActionStatusMessage()
-        : "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.",
-      "warn"
-    );
-    return null;
-  }
-  if (selectedArtifactId && detailArtifactId !== selectedArtifactId) {
-    if (!aiInboxState.detailLoading) await loadAiInboxDetail(selectedArtifactId);
-    setAiInboxActionNotice(
-      aiInboxReviewRetryNotice(),
-      "warn",
-      selectedArtifactId,
-      String(aiInboxState.detail?.suggestion?.id || clickedSuggestionId || "").trim()
-    );
-    renderAiInboxWorkspace();
-    setStatus(aiInboxReviewRetryStatusMessage(), "warn");
-    return null;
-  }
-  const currentArtifact = currentAiInboxArtifactForSelection(cleanArtifactId);
-  const currentSuggestion = currentAiInboxSuggestionForSelection(cleanArtifactId);
-  const currentDecision = latestArtifactDecision(currentArtifact);
-  const currentSuggestionId = String(currentSuggestion?.id || "").trim();
-  if (clickedSuggestionId && currentSuggestionId && currentSuggestionId !== clickedSuggestionId) {
-    setAiInboxActionNotice(
-      aiInboxReviewRetryNotice(),
-      "warn",
-      cleanArtifactId,
-      currentSuggestionId
-    );
-    renderAiInboxWorkspace();
-    setStatus(aiInboxReviewRetryStatusMessage(), "warn");
-    return null;
-  }
-  const suggestionStatus = String(currentSuggestion?.status || "").trim();
-  const suggestionStatusLabel = aiSuggestionStatusLabel(suggestionStatus || "adopted_as_draft");
-  const suggestionStatusMessageValue = String(suggestionStatusLabel || "").trim().toLowerCase() || "adopted as draft";
-  if (
-    String(currentArtifact?.status || "").trim() === "adopted_as_draft" ||
-    String(currentDecision?.decision || "").trim() === "adopted_as_draft" ||
-    ["adopted_as_draft", "edited", "confirmed"].includes(suggestionStatus)
-  ) {
-    setAiInboxActionNotice(
-      typeof aiInboxFieldSuggestionDraftAlreadyAppliedNotice === "function"
-        ? aiInboxFieldSuggestionDraftAlreadyAppliedNotice(suggestionStatusMessageValue)
-        : `This field suggestion is already ${suggestionStatusMessageValue}.`,
-      "ok",
-      cleanArtifactId,
-      currentSuggestionId
-    );
-    renderAiInboxWorkspace();
-    setStatus(
-      typeof aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage === "function"
-        ? aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage(suggestionStatusLabel)
-        : `这条字段建议已经是${suggestionStatusLabel}`,
-      "ok"
-    );
-    return null;
-  }
-  aiInboxState.actionArtifactId = cleanArtifactId;
-  aiInboxState.actionSuggestionId = currentSuggestionId;
-  aiInboxState.actionError = "";
-  clearAiInboxActionNotice();
-  aiInboxState.actionLoading = true;
-  renderAiInboxWorkspace();
-  try {
-    const result = await adoptAiInboxFieldSuggestion(cleanArtifactId, {
-      comment: $("aiInboxDecisionComment")?.value || "",
-      feedback: aiInboxFeedbackFromUi(),
-      canonical: true
-    });
-    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== cleanArtifactId;
-    if (!selectionChangedDuringAction) {
-      aiInboxState.detail = aiInboxDetailFromResponse(result);
-      aiInboxState.selectedArtifactId = cleanArtifactId;
-    }
-    rememberAiDebugSnapshot("inboxDecision", result);
-    if (result.note?.id) {
-      state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
-    }
-    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
-    if (result.note?.id && !selectionChangedDuringAction) {
-      activateModule("explorer");
-      openNoteById(result.note.id, { focusDistillation: true });
-    }
-    aiInboxState.actionArtifactId = "";
-    aiInboxState.actionSuggestionId = "";
-    aiInboxState.actionError = "";
-    clearAiInboxActionNotice();
-    setStatus(
-      typeof aiInboxFieldSuggestionDraftSucceededStatusMessage === "function"
-        ? aiInboxFieldSuggestionDraftSucceededStatusMessage(result.note)
-        : result.note?.id
-          ? `已采纳 AI 字段建议为草稿：${result.note.id}`
-          : "AI 字段建议已采纳为草稿",
-      "ok"
-    );
-    return result;
-  } catch (error) {
-      aiInboxState.actionError = String(error?.message || error);
-      setStatus(
-        typeof aiInboxFieldSuggestionDraftFailedStatusMessage === "function"
-          ? aiInboxFieldSuggestionDraftFailedStatusMessage(error)
-          : `AI field suggestion adopt failed: ${String(error?.message || error)}`,
-        "bad"
-      );
-      return null;
-    } finally {
-    aiInboxState.actionLoading = false;
-    renderAiInboxWorkspace();
-  }
+  }, artifactId, expectedSuggestionId);
 }
 
 async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") {

@@ -502,3 +502,283 @@ export async function applyAiInboxSuggestionStatusForRuntime(deps = {}, status =
     render();
   }
 }
+
+function selectedAiInboxArtifactId(aiInboxState = {}, artifactId = "") {
+  const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
+  const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
+  return String(artifactId || selectedArtifactId || detailArtifactId || "").trim();
+}
+
+function inboxArtifactAlreadyDecided(artifact = null, decision = null, expectedDecision = "") {
+  const cleanExpectedDecision = String(expectedDecision || "").trim();
+  return (
+    String(artifact?.status || "").trim() === cleanExpectedDecision ||
+    String(decision?.decision || "").trim() === cleanExpectedDecision
+  );
+}
+
+async function runAiInboxSideEffectActionForRuntime(deps = {}, options = {}) {
+  const {
+    aiInboxState,
+    artifactId = "",
+    suggestionId = "",
+    missingStatusMessage = "Please select an AI inbox item first.",
+    action = async () => null,
+    payload = () => ({}),
+    aiInboxDetailFromResponse = (value) => value,
+    rememberAiDebugSnapshot = () => {},
+    finalizeAiInboxActionRefresh = async () => {},
+    beforeFinalize = async () => {},
+    afterFinalize = async () => {},
+    setStatus = () => {},
+    clearAiInboxActionNotice = () => {},
+    render = () => {},
+    successMessage = () => "AI inbox action completed.",
+    failureMessage = (error) => `AI inbox action failed: ${String(error?.message || error)}`,
+    messages = {}
+  } = deps;
+  const cleanArtifactId = selectedAiInboxArtifactId(aiInboxState, artifactId);
+  const cleanSuggestionId = String(suggestionId || "").trim();
+  if (!cleanArtifactId) {
+    setStatus(missingStatusMessage, "warn");
+    return undefined;
+  }
+  const guard = aiInboxActionGuardForRuntime(aiInboxState, {
+    artifactId: cleanArtifactId,
+    suggestionId: cleanSuggestionId
+  });
+  if (guard.type !== "ready") {
+    const canSubmit = await resolveAiInboxActionGuard({ ...deps, setStatus, render, messages }, guard);
+    if (!canSubmit) return null;
+  }
+  if (typeof options.beforeSubmit === "function") {
+    const beforeSubmitResult = options.beforeSubmit(cleanArtifactId, cleanSuggestionId);
+    if (beforeSubmitResult?.handled) return beforeSubmitResult.value ?? null;
+  }
+
+  aiInboxState.actionArtifactId = cleanArtifactId;
+  aiInboxState.actionSuggestionId = cleanSuggestionId;
+  aiInboxState.actionError = "";
+  clearAiInboxActionNotice();
+  aiInboxState.actionLoading = true;
+  render();
+  try {
+    const result = await action(cleanArtifactId, payload(cleanArtifactId, cleanSuggestionId));
+    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== cleanArtifactId;
+    if (!selectionChangedDuringAction) {
+      aiInboxState.detail = aiInboxDetailFromResponse(result);
+      aiInboxState.selectedArtifactId = cleanArtifactId;
+    }
+    rememberAiDebugSnapshot("inboxDecision", result);
+    await beforeFinalize(result, { artifactId: cleanArtifactId, suggestionId: cleanSuggestionId, selectionChangedDuringAction });
+    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
+    await afterFinalize(result, { artifactId: cleanArtifactId, suggestionId: cleanSuggestionId, selectionChangedDuringAction });
+    aiInboxState.actionArtifactId = "";
+    aiInboxState.actionSuggestionId = "";
+    aiInboxState.actionError = "";
+    clearAiInboxActionNotice();
+    setStatus(successMessage(result), "ok");
+    return result;
+  } catch (error) {
+    aiInboxState.actionError = String(error?.message || error);
+    setStatus(failureMessage(error), "bad");
+    return null;
+  } finally {
+    aiInboxState.actionLoading = false;
+    render();
+  }
+}
+
+export async function acceptAiInboxLinkSuggestionForRuntime(deps = {}, artifactId = "") {
+  const {
+    aiInboxState,
+    currentAiInboxArtifactForSelection = () => null,
+    latestArtifactDecision = () => null,
+    setAiInboxActionNotice = () => {},
+    render = () => {},
+    setStatus = () => {},
+    commentText = () => "",
+    acceptAiInboxLink,
+    messages = {}
+  } = deps;
+  const cleanArtifactId = selectedAiInboxArtifactId(aiInboxState, artifactId);
+  return runAiInboxSideEffectActionForRuntime({
+    ...deps,
+    artifactId: cleanArtifactId,
+    missingStatusMessage: fallbackMessage(messages.linkMissingStatusMessage, "Please select a link suggestion first."),
+    action: acceptAiInboxLink,
+    payload: () => ({ comment: commentText(), canonical: true }),
+    successMessage: (result) =>
+      fallbackMessageWithArgs(
+        messages.linkAcceptedStatusMessage,
+        (relation) => relation?.created === false
+          ? "Relation already exists; suggestion marked linked."
+          : "Relation suggestion accepted.",
+        result?.relation
+      ),
+    failureMessage: (error) =>
+      fallbackMessageWithArgs(
+        messages.linkAcceptFailedStatusMessage,
+        (nextError) => `LinkSuggestion accept failed: ${String(nextError?.message || nextError)}`,
+        error
+      )
+  }, {
+    beforeSubmit: () => {
+      const currentArtifact = currentAiInboxArtifactForSelection(cleanArtifactId);
+      const currentDecision = latestArtifactDecision(currentArtifact);
+      if (!inboxArtifactAlreadyDecided(currentArtifact, currentDecision, "linked_to_note")) return { handled: false };
+      setAiInboxActionNotice(
+        fallbackMessage(messages.linkAlreadyAppliedNotice, "This relation was already created for the current reviewed item."),
+        "ok"
+      );
+      render();
+      setStatus(
+        fallbackMessage(messages.linkAlreadyAppliedStatusMessage, "This relation was already created for the current reviewed item."),
+        "ok"
+      );
+      return { handled: true, value: null };
+    }
+  });
+}
+
+export async function promoteAiInboxArtifactToNoteForRuntime(deps = {}, artifactId = "") {
+  const {
+    aiInboxState,
+    currentAiInboxArtifactForSelection = () => null,
+    latestArtifactDecision = () => null,
+    setAiInboxActionNotice = () => {},
+    render = () => {},
+    setStatus = () => {},
+    commentText = () => "",
+    promoteAiInboxNote,
+    messages = {}
+  } = deps;
+  const cleanArtifactId = selectedAiInboxArtifactId(aiInboxState, artifactId);
+  return runAiInboxSideEffectActionForRuntime({
+    ...deps,
+    artifactId: cleanArtifactId,
+    missingStatusMessage: fallbackMessage(messages.notePromotionMissingStatusMessage, "Please select an AI inbox item first."),
+    action: promoteAiInboxNote,
+    payload: () => ({ comment: commentText(), canonical: true }),
+    successMessage: (result) =>
+      fallbackMessageWithArgs(
+        messages.notePromotionSucceededStatusMessage,
+        (note) => note?.id ? `AI inbox item promoted to note: ${note.id}` : "AI inbox item promoted to note.",
+        result?.note
+      ),
+    failureMessage: (error) =>
+      fallbackMessageWithArgs(
+        messages.notePromotionFailedStatusMessage,
+        (nextError) => `AI note promotion failed: ${String(nextError?.message || nextError)}`,
+        error
+      )
+  }, {
+    beforeSubmit: () => {
+      const currentArtifact = currentAiInboxArtifactForSelection(cleanArtifactId);
+      const currentDecision = latestArtifactDecision(currentArtifact);
+      if (!inboxArtifactAlreadyDecided(currentArtifact, currentDecision, "promoted_to_note")) return { handled: false };
+      setAiInboxActionNotice(
+        fallbackMessage(messages.notePromotionAlreadyAppliedNotice, "This draft note already exists for the current reviewed item."),
+        "ok"
+      );
+      render();
+      setStatus(
+        fallbackMessage(messages.notePromotionAlreadyAppliedStatusMessage, "This draft note already exists for the current reviewed item."),
+        "ok"
+      );
+      return { handled: true, value: null };
+    }
+  });
+}
+
+export async function adoptAiInboxFieldSuggestionDraftForRuntime(deps = {}, artifactId = "", expectedSuggestionId = "") {
+  const {
+    aiInboxState,
+    currentAiInboxArtifactForSelection = () => null,
+    currentAiInboxSuggestionForSelection = () => null,
+    latestArtifactDecision = () => null,
+    aiSuggestionStatusLabel = (value) => value,
+    setAiInboxActionNotice = () => {},
+    render = () => {},
+    setStatus = () => {},
+    commentText = () => "",
+    aiInboxFeedback = () => ({}),
+    adoptAiInboxFieldSuggestion,
+    messages = {}
+  } = deps;
+  const cleanArtifactId = selectedAiInboxArtifactId(aiInboxState, artifactId);
+  const clickedSuggestionId = String(expectedSuggestionId || aiInboxState.detail?.suggestion?.id || "").trim();
+  const currentSuggestion = currentAiInboxSuggestionForSelection(cleanArtifactId);
+  const currentSuggestionId = String(currentSuggestion?.id || "").trim();
+  return runAiInboxSideEffectActionForRuntime({
+    ...deps,
+    artifactId: cleanArtifactId,
+    suggestionId: clickedSuggestionId,
+    missingStatusMessage: fallbackMessage(messages.fieldSuggestionMissingStatusMessage, "Please select a field suggestion first."),
+    action: adoptAiInboxFieldSuggestion,
+    payload: () => ({ comment: commentText(), feedback: aiInboxFeedback(), canonical: true }),
+    successMessage: (result) =>
+      fallbackMessageWithArgs(
+        messages.fieldSuggestionDraftSucceededStatusMessage,
+        (note) => note?.id ? `AI field suggestion adopted as draft: ${note.id}` : "AI field suggestion adopted as draft.",
+        result?.note
+      ),
+    failureMessage: (error) =>
+      fallbackMessageWithArgs(
+        messages.fieldSuggestionDraftFailedStatusMessage,
+        (nextError) => `AI field suggestion adopt failed: ${String(nextError?.message || nextError)}`,
+        error
+      )
+  }, {
+    beforeSubmit: () => {
+      const latestSuggestion = currentAiInboxSuggestionForSelection(cleanArtifactId);
+      const latestSuggestionId = String(latestSuggestion?.id || "").trim();
+      if (clickedSuggestionId && latestSuggestionId && latestSuggestionId !== clickedSuggestionId) {
+        setAiInboxActionNotice(
+          fallbackMessage(messages.reviewRetryNotice, "Detail changed while you were reviewing. Retry from the latest reviewed item."),
+          "warn",
+          cleanArtifactId,
+          latestSuggestionId
+        );
+        render();
+        setStatus(
+          fallbackMessage(messages.reviewRetryStatusMessage, "AI inbox detail changed before the review action could run. Retry on the latest detail."),
+          "warn"
+        );
+        return { handled: true, value: null };
+      }
+      const currentArtifact = currentAiInboxArtifactForSelection(cleanArtifactId);
+      const currentDecision = latestArtifactDecision(currentArtifact);
+      const suggestionStatus = String(latestSuggestion?.status || currentSuggestion?.status || "").trim();
+      const suggestionStatusLabel = aiSuggestionStatusLabel(suggestionStatus || "adopted_as_draft");
+      const suggestionStatusMessageValue = String(suggestionStatusLabel || "").trim().toLowerCase() || "adopted as draft";
+      if (
+        inboxArtifactAlreadyDecided(currentArtifact, currentDecision, "adopted_as_draft") ||
+        ["adopted_as_draft", "edited", "confirmed"].includes(suggestionStatus)
+      ) {
+        setAiInboxActionNotice(
+          fallbackMessageWithArgs(
+            messages.fieldSuggestionDraftAlreadyAppliedNotice,
+            (value) => `This field suggestion is already ${value}.`,
+            suggestionStatusMessageValue
+          ),
+          "ok",
+          cleanArtifactId,
+          latestSuggestionId
+        );
+        render();
+        setStatus(
+          fallbackMessageWithArgs(
+            messages.fieldSuggestionDraftAlreadyAppliedStatusMessage,
+            (value) => `This field suggestion is already ${value}.`,
+            suggestionStatusLabel
+          ),
+          "ok"
+        );
+        return { handled: true, value: null };
+      }
+      aiInboxState.actionSuggestionId = latestSuggestionId;
+      return { handled: false };
+    }
+  });
+}

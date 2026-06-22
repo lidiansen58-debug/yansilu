@@ -4,17 +4,146 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  acceptAiInboxLinkSuggestionForRuntime,
+  adoptAiInboxFieldSuggestionDraftForRuntime,
   aiInboxActionGuardForRuntime,
   applyAiInboxSuggestionStatusForRuntime,
   loadAiInboxDetailForRuntime,
+  promoteAiInboxArtifactToNoteForRuntime,
   recordAiInboxReviewDecisionForRuntime,
   refreshAiInboxForRuntime
 } from "../../apps/web/src/ai-inbox-runtime-controller.js";
 
+globalThis.__acceptAiInboxLinkSuggestionForRuntime = acceptAiInboxLinkSuggestionForRuntime;
+globalThis.__adoptAiInboxFieldSuggestionDraftForRuntime = adoptAiInboxFieldSuggestionDraftForRuntime;
 globalThis.__applyAiInboxSuggestionStatusForRuntime = applyAiInboxSuggestionStatusForRuntime;
+globalThis.__promoteAiInboxArtifactToNoteForRuntime = promoteAiInboxArtifactToNoteForRuntime;
 globalThis.__recordAiInboxReviewDecisionForRuntime = recordAiInboxReviewDecisionForRuntime;
 
 function extractAsyncFunctionSource(source, name) {
+  if (name === "acceptAiInboxLinkSuggestion") {
+    return `async function acceptAiInboxLinkSuggestion(artifactId) {
+      return globalThis.__acceptAiInboxLinkSuggestionForRuntime({
+        aiInboxState,
+        currentAiInboxArtifactForSelection: typeof currentAiInboxArtifactForSelection === "function" ? currentAiInboxArtifactForSelection : () => null,
+        latestArtifactDecision: typeof latestArtifactDecision === "function" ? latestArtifactDecision : () => null,
+        acceptAiInboxLink: typeof acceptAiInboxLink === "function" ? acceptAiInboxLink : async () => null,
+        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
+        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
+        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
+        finalizeAiInboxActionRefresh,
+        afterFinalize: async () => {
+          if (typeof state === "object" && state?.module === "graph" && typeof refreshDirectoryGraph === "function") await refreshDirectoryGraph();
+        },
+        setStatus: typeof setStatus === "function" ? setStatus : () => {},
+        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
+        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
+        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
+        messages: {
+          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
+          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
+          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
+          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
+          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
+          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
+          linkAlreadyAppliedNotice: typeof aiInboxLinkAlreadyAppliedNotice === "function" ? aiInboxLinkAlreadyAppliedNotice : () => "This relation was already created for the current reviewed item.",
+          linkAlreadyAppliedStatusMessage: typeof aiInboxLinkAlreadyAppliedStatusMessage === "function" ? aiInboxLinkAlreadyAppliedStatusMessage : undefined,
+          linkAcceptedStatusMessage: typeof aiInboxLinkAcceptedStatusMessage === "function" ? aiInboxLinkAcceptedStatusMessage : undefined,
+          linkAcceptFailedStatusMessage: typeof aiInboxLinkAcceptFailedStatusMessage === "function" ? aiInboxLinkAcceptFailedStatusMessage : undefined
+        }
+      }, artifactId);
+    }`;
+  }
+  if (name === "promoteAiInboxArtifactToNote") {
+    return `async function promoteAiInboxArtifactToNote(artifactId) {
+      return globalThis.__promoteAiInboxArtifactToNoteForRuntime({
+        aiInboxState,
+        currentAiInboxArtifactForSelection: typeof currentAiInboxArtifactForSelection === "function" ? currentAiInboxArtifactForSelection : () => null,
+        latestArtifactDecision: typeof latestArtifactDecision === "function" ? latestArtifactDecision : () => null,
+        promoteAiInboxNote: typeof promoteAiInboxNote === "function" ? promoteAiInboxNote : async () => null,
+        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
+        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
+        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
+        finalizeAiInboxActionRefresh,
+        beforeFinalize: async (result) => {
+          if (result?.note?.id && typeof state === "object" && Array.isArray(state.notes)) {
+            const nextNote = typeof mapNoteItem === "function" ? mapNoteItem(result.note) : result.note;
+            state.notes = [nextNote, ...state.notes.filter((item) => item.id !== result.note.id)];
+          }
+        },
+        afterFinalize: async (result, context) => {
+          if (result?.note?.id && !context.selectionChangedDuringAction) {
+            if (typeof activateModule === "function") activateModule("explorer");
+            if (typeof openNoteById === "function") openNoteById(result.note.id);
+          }
+        },
+        setStatus: typeof setStatus === "function" ? setStatus : () => {},
+        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
+        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
+        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
+        messages: {
+          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
+          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
+          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
+          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
+          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
+          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
+          notePromotionAlreadyAppliedNotice: typeof aiInboxNotePromotionAlreadyAppliedNotice === "function" ? aiInboxNotePromotionAlreadyAppliedNotice : () => "This draft note already exists for the current reviewed item.",
+          notePromotionAlreadyAppliedStatusMessage: typeof aiInboxNotePromotionAlreadyAppliedStatusMessage === "function" ? aiInboxNotePromotionAlreadyAppliedStatusMessage : undefined,
+          notePromotionSucceededStatusMessage: typeof aiInboxNotePromotionSucceededStatusMessage === "function" ? aiInboxNotePromotionSucceededStatusMessage : undefined,
+          notePromotionFailedStatusMessage: typeof aiInboxNotePromotionFailedStatusMessage === "function" ? aiInboxNotePromotionFailedStatusMessage : undefined
+        }
+      }, artifactId);
+    }`;
+  }
+  if (name === "adoptAiInboxFieldSuggestionDraft") {
+    return `async function adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId = "") {
+      return globalThis.__adoptAiInboxFieldSuggestionDraftForRuntime({
+        aiInboxState,
+        currentAiInboxArtifactForSelection: typeof currentAiInboxArtifactForSelection === "function" ? currentAiInboxArtifactForSelection : () => null,
+        currentAiInboxSuggestionForSelection: typeof currentAiInboxSuggestionForSelection === "function" ? currentAiInboxSuggestionForSelection : () => null,
+        latestArtifactDecision: typeof latestArtifactDecision === "function" ? latestArtifactDecision : () => null,
+        aiSuggestionStatusLabel: typeof aiSuggestionStatusLabel === "function" ? aiSuggestionStatusLabel : (value) => value,
+        adoptAiInboxFieldSuggestion: typeof adoptAiInboxFieldSuggestion === "function" ? adoptAiInboxFieldSuggestion : async () => null,
+        aiInboxFeedback: typeof aiInboxFeedbackFromUi === "function" ? aiInboxFeedbackFromUi : () => ({}),
+        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
+        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
+        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
+        finalizeAiInboxActionRefresh,
+        beforeFinalize: async (result) => {
+          if (result?.note?.id && typeof state === "object" && Array.isArray(state.notes)) {
+            const nextNote = typeof mapNoteItem === "function" ? mapNoteItem(result.note) : result.note;
+            state.notes = [nextNote, ...state.notes.filter((item) => item.id !== result.note.id)];
+          }
+        },
+        afterFinalize: async (result, context) => {
+          if (result?.note?.id && !context.selectionChangedDuringAction) {
+            if (typeof activateModule === "function") activateModule("explorer");
+            if (typeof openNoteById === "function") openNoteById(result.note.id, { focusDistillation: true });
+          }
+        },
+        setStatus: typeof setStatus === "function" ? setStatus : () => {},
+        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
+        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
+        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
+        messages: {
+          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
+          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
+          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
+          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
+          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
+          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
+          fieldSuggestionDraftAlreadyAppliedNotice: typeof aiInboxFieldSuggestionDraftAlreadyAppliedNotice === "function" ? aiInboxFieldSuggestionDraftAlreadyAppliedNotice : undefined,
+          fieldSuggestionDraftAlreadyAppliedStatusMessage: typeof aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage === "function" ? aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage : undefined,
+          fieldSuggestionDraftSucceededStatusMessage: typeof aiInboxFieldSuggestionDraftSucceededStatusMessage === "function" ? aiInboxFieldSuggestionDraftSucceededStatusMessage : undefined,
+          fieldSuggestionDraftFailedStatusMessage: typeof aiInboxFieldSuggestionDraftFailedStatusMessage === "function" ? aiInboxFieldSuggestionDraftFailedStatusMessage : undefined
+        }
+      }, artifactId, expectedSuggestionId);
+    }`;
+  }
   if (name === "recordAiInboxReviewDecision") {
     return `async function recordAiInboxReviewDecision(decision) {
       return globalThis.__recordAiInboxReviewDecisionForRuntime({
@@ -1709,7 +1838,7 @@ test("acceptAiInboxLinkSuggestion is a no-op when the current detail is already 
   const result = await acceptAiInboxLinkSuggestion("artifact_1");
   assert.equal(result, null);
   assert.equal(acceptCalls, 0);
-  assert.deepEqual(statuses, [{ message: "这条关联建议已经建立过关系", tone: "ok" }]);
+  assert.deepEqual(statuses, [{ message: "This relation was already created for the current reviewed item.", tone: "ok" }]);
 });
 
 test("acceptAiInboxLinkSuggestion reloads latest detail instead of submitting from list-only selection state", async () => {
@@ -1939,7 +2068,7 @@ test("promoteAiInboxArtifactToNote is a no-op when the current detail is already
   const result = await promoteAiInboxArtifactToNote("artifact_1");
   assert.equal(result, null);
   assert.equal(promoteCalls, 0);
-  assert.deepEqual(statuses, [{ message: "这条建议已经生成过草稿笔记", tone: "ok" }]);
+  assert.deepEqual(statuses, [{ message: "This draft note already exists for the current reviewed item.", tone: "ok" }]);
 });
 
 test("promoteAiInboxArtifactToNote reloads latest detail instead of submitting from list-only selection state", async () => {
@@ -2195,7 +2324,7 @@ test("adoptAiInboxFieldSuggestionDraft is a no-op when the current detail is alr
   assert.equal(result, null);
   assert.equal(adoptCalls, 0);
   assert.equal(actionNotice, "This field suggestion is already confirmed.");
-  assert.deepEqual(statuses, [{ message: "这条字段建议已经是Confirmed", tone: "ok" }]);
+  assert.deepEqual(statuses, [{ message: "This field suggestion is already Confirmed.", tone: "ok" }]);
 });
 
 test("adoptAiInboxFieldSuggestionDraft reloads latest detail instead of submitting from list-only selection state", async () => {
@@ -2473,6 +2602,81 @@ test("adoptAiInboxFieldSuggestionDraft reloads the selected detail after refresh
   assert.deepEqual(loadCalls, ["artifact_1"]);
   assert.equal(aiInboxState.detailError, "");
   assert.equal(aiInboxState.actionLoading, false);
+});
+
+test("AI inbox side effect controllers store action failures without clearing detail state", async () => {
+  const cases = [
+    {
+      run: acceptAiInboxLinkSuggestionForRuntime,
+      actionName: "acceptAiInboxLink",
+      errorMessage: "accept boom",
+      extraDeps: {}
+    },
+    {
+      run: promoteAiInboxArtifactToNoteForRuntime,
+      actionName: "promoteAiInboxNote",
+      errorMessage: "promote boom",
+      extraDeps: {}
+    },
+    {
+      run: adoptAiInboxFieldSuggestionDraftForRuntime,
+      actionName: "adoptAiInboxFieldSuggestion",
+      errorMessage: "adopt boom",
+      expectedSuggestionId: "suggestion_1",
+      extraDeps: {
+        aiInboxFeedback: () => ({ useful: true }),
+        aiSuggestionStatusLabel: (status) => status
+      }
+    }
+  ];
+
+  for (const item of cases) {
+    const statuses = [];
+    const aiInboxState = {
+      selectedArtifactId: "artifact_1",
+      detail: {
+        item: { artifactId: "artifact_1", title: "Stable detail" },
+        artifact: { id: "artifact_1", status: "pending_review", userDecisions: [] },
+        suggestion: { id: "suggestion_1", status: "suggested" }
+      },
+      actionLoading: false,
+      actionArtifactId: "",
+      actionSuggestionId: "",
+      actionError: "",
+      detailError: "old detail error"
+    };
+    const deps = {
+      aiInboxState,
+      currentAiInboxArtifactForSelection: () => aiInboxState.detail.artifact,
+      currentAiInboxSuggestionForSelection: () => aiInboxState.detail.suggestion,
+      latestArtifactDecision: () => null,
+      commentText: () => "review comment",
+      aiInboxDetailFromResponse: (response) => response,
+      loadAiInboxDetail: async () => null,
+      rememberAiDebugSnapshot: () => {},
+      finalizeAiInboxActionRefresh: async () => {
+        throw new Error("finalize should not run after action failure");
+      },
+      setStatus: (message, tone) => statuses.push({ message, tone }),
+      setAiInboxActionNotice: () => {},
+      clearAiInboxActionNotice: () => {},
+      render: () => {},
+      [item.actionName]: async () => {
+        throw new Error(item.errorMessage);
+      },
+      ...item.extraDeps
+    };
+
+    const result = await item.run(deps, "artifact_1", item.expectedSuggestionId || "");
+    assert.equal(result, null);
+    assert.equal(aiInboxState.detail.item.title, "Stable detail");
+    assert.equal(aiInboxState.detailError, "old detail error");
+    assert.equal(aiInboxState.actionArtifactId, "artifact_1");
+    assert.equal(aiInboxState.actionError, item.errorMessage);
+    assert.equal(aiInboxState.actionLoading, false);
+    assert.equal(statuses.at(-1).tone, "bad");
+    assert.match(statuses.at(-1).message, new RegExp(item.errorMessage));
+  }
 });
 
 test("recordAiInboxReviewDecision does not restore the old artifact when selection changes mid-submit", async () => {
