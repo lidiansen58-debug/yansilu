@@ -67,3 +67,15 @@ test("prototype graph shell delegates node and edge selection bodies to panel mo
   assert.doesNotMatch(source, /data-graph-ai-connect-note="\$\{escapeHtml\(normalized\.nodeId\)\}"/);
   assert.doesNotMatch(source, /class="graph-relation-adjustment-card/);
 });
+
+test("prototype graph shell delegates panel state building to a graph module", async () => {
+  const source = await readPrototypeAppSource();
+
+  assert.match(source, /from "\.\/graph-panel-state-builder\.js"/);
+  assert.match(source, /buildGraphPanelState\(/);
+  assert.match(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
+  assert.match(source, /renderGraphVisualMap\(\{/);
+  assert.doesNotMatch(source, /const scopedNetworkEdges = allGraphEdges\.filter/);
+  assert.doesNotMatch(source, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges/);
+  assert.doesNotMatch(source, /const structureFallback = effectiveRelationType === "index"/);
+});

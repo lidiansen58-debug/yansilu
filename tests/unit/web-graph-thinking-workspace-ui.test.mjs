@@ -71,6 +71,10 @@ function readGraphWorkbenchPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-workbench-panel.js"), "utf8");
 }
 
+function readGraphPanelStateBuilder() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-state-builder.js"), "utf8");
+}
+
 function readGraphSelectionPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-selection-panel.js"), "utf8");
 }
@@ -263,12 +267,13 @@ test("graph research navigator explains the map before users drill into details"
 
 test("graph structure view falls back to galaxy clusters instead of an empty map", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphHasMeaningfulStructureEdges\(edges = \[\]\) \{/);
   assert.match(source, /function graphStructureFallbackEdges\(edges = \[\], filters = \{\}\) \{/);
-  assert.match(source, /const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges\.length && graphHasMeaningfulStructureEdges\(focused\.edges\);/);
-  assert.match(source, /filteredEdges = graphStructureFallbackEdges\(focused\.edges, activeFilters\);/);
+  assert.match(panelStateBuilderSource, /const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges\.length && graphHasMeaningfulStructureEdges\(focused\.edges\);/);
+  assert.match(panelStateBuilderSource, /filteredEdges = graphStructureFallbackEdges\(focused\.edges, activeFilters\);/);
   assert.match(source, /当前没有主题归属关系，已按笔记之间的关系自动分组。/);
   assert.match(source, /主题分布（自动分组）/);
   assert.match(html, /\.graph-structure-fallback-note \{[\s\S]*background: rgba\(239, 250, 255, 0\.9\);/);
@@ -302,6 +307,7 @@ test("graph research navigator uses cluster maturity for global verdicts", () =>
 
 test("graph workbench prioritizes Chinese clue and question actions", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
   const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
   const domain = readDomainCatalogStore();
@@ -310,10 +316,10 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
   assert.ok(source.includes("detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale"));
   assert.ok(source.includes("function graphBridgeGapInNodeScope(gap = {}, nodeIds = new Set()) {"));
   assert.ok(source.includes("function graphReviewQueueInNodeScope(reviewQueue = null, nodeIds = new Set()) {"));
-  assert.ok(source.includes("const scopedActionNodeIds = graphNodeIdsInScope(scopedAllNodes);"));
-  assert.ok(source.includes("const scopedReviewQueue = graphReviewQueueInNodeScope(graphState.reviewQueue, scopedActionNodeIds);"));
-  assert.ok(source.includes('return group === "conflict" || group === "boundary";'));
-  assert.ok(source.includes("const conflictingRelations = graphMergeRelationsByKey(insightConflictingRelations, scopedTensionRelations);"));
+  assert.ok(panelStateBuilderSource.includes("const scopedActionNodeIds = graphNodeIdsInScope(scopedAllNodes);"));
+  assert.ok(panelStateBuilderSource.includes("const scopedReviewQueue = graphReviewQueueInNodeScope(graphState.reviewQueue, scopedActionNodeIds);"));
+  assert.ok(panelStateBuilderSource.includes('return group === "conflict" || group === "boundary";'));
+  assert.ok(panelStateBuilderSource.includes("const conflictingRelations = graphMergeRelationsByKey(insightConflictingRelations, scopedTensionRelations);"));
   assert.ok(source.includes("fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 })"));
   assert.ok(source.includes('function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") {'));
   assert.ok(source.includes("renderGraphWorkbenchPriorityQueueView(items, activeKey"));
@@ -374,12 +380,13 @@ test("graph clusters are selectable research objects with their own summary pane
 
 test("graph research details cover nodes and relation gravity lines with next actions", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
   const selectionPanelSource = readGraphSelectionPanel();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const edgeSelectionPanelSource = readGraphEdgeSelectionPanel();
   const html = readPrototypeHtml();
 
-  assert.match(source, /if \(String\(graphState\.selection\?\.kind \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "cluster"\) \{/);
+  assert.match(panelStateBuilderSource, /String\(graphState\.selection\?\.kind \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "cluster"/);
   assert.match(selectionPanelSource, /class="graph-overlay-close graph-selection-close"/);
   assert.doesNotMatch(selectionPanelSource, /data-graph-selection-close[^>]*>收起<\/button>/);
   assert.match(nodeSelectionPanelSource, /kicker: "当前笔记"/);
@@ -427,6 +434,7 @@ test("graph AI review action opens system messages instead of the AI review modu
 
 test("graph thinking tasks ignore stale AI isolated and relation candidates after the network is already connected", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
 
   assert.match(source, /function buildGraphThinkingItems\(\{ nodes = \[\], edges = \[\], bridgeGaps = \[\], reviewQueue = null, conflictItems = \[\], conflictingRelations = \[\], aiAnalysis = null, isolatedNotes = \[\], nodeLookupMap = null \} = \{\}\) \{/);
   assert.match(source, /const scopedNodeMap = new Map/);
@@ -438,17 +446,17 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
   assert.match(source, /\.filter\(\(candidate\) => graphCandidateTouchesNodeScope\(candidate, scopedNodeIds\)\)/);
   assert.match(source, /const pairKey = graphRelationPairKey\(sourceNoteId, targetNoteId\);/);
   assert.match(source, /return pairKey && !existingRelationPairKeys\.has\(pairKey\);/);
-  assert.match(source, /const scopedNetworkEdges = allGraphEdges\.filter\(\(edge\) => graphRelationTouchesNodeScope\(edge, scopedActionNodeIds\)\);/);
-  assert.match(source, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges, aiIsolatedNotes\)/);
-  assert.match(source, /edges: scopedNetworkEdges,\s*bridgeGaps/);
-  assert.match(source, /aiAnalysis: graphState\.aiAnalysis,\s*isolatedNotes,\s*nodeLookupMap: graphRelationTargetNodeMap/);
-  assert.match(source, /const graphRelationTargetNodeMap = graphPotentialRelationNodeMap\(\);/);
+  assert.match(panelStateBuilderSource, /const scopedNetworkEdges = allGraphEdges\.filter\(\(edge\) => graphRelationTouchesNodeScope\(edge, scopedActionNodeIds\)\);/);
+  assert.match(panelStateBuilderSource, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges, aiIsolatedNotes\)/);
+  assert.match(panelStateBuilderSource, /edges: scopedNetworkEdges,\s*bridgeGaps/);
+  assert.match(panelStateBuilderSource, /aiAnalysis: graphState\.aiAnalysis,\s*isolatedNotes,\s*nodeLookupMap: graphRelationTargetNodeMap/);
+  assert.match(panelStateBuilderSource, /const graphRelationTargetNodeMap = graphPotentialRelationNodeMap\(\);/);
   assert.doesNotMatch(source, /const graphScopedNodeMap = new Map/);
-  assert.match(source, /selectionEdges: scopedNetworkEdges,/);
-  assert.match(source, /selectionNodeMap: graphRelationTargetNodeMap,/);
-  assert.match(source, /renderGraphAiAnalysisCard\(\{ open: graphState\.sectionOpen\["ai-analysis"\] === true, nodes: scopedAllNodes, edges: scopedNetworkEdges \}\)/);
+  assert.match(source, /selectionEdges: panelState\.scopedNetworkEdges,/);
+  assert.match(source, /selectionNodeMap: panelState\.graphRelationTargetNodeMap,/);
+  assert.match(source, /renderGraphAiAnalysisCard\(\{ open: panelState\.sectionOpen\["ai-analysis"\] === true, nodes: panelState\.scopedAllNodes, edges: panelState\.scopedNetworkEdges \}\)/);
   assert.match(source, /function buildGraphQuestionSpotSummaryFromItems\(items = \[\], \{ artifactCount = 0 \} = \{\}\) \{/);
-  assert.match(source, /const questionSpotSummary = !showingFocusedNote\s*\? buildGraphQuestionSpotSummaryFromItems\(thinkingItems,/);
+  assert.match(panelStateBuilderSource, /const questionSpotSummary = !showingFocusedNote\s*\? buildGraphQuestionSpotSummaryFromItems\(thinkingItems,/);
 });
 
 test("isolated graph notes can request AI-assisted relation candidates and save them inside the graph workspace", () => {
@@ -723,12 +731,13 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
 
 test("graph selection upgrades isolated notes to connected nodes after a saved relation and keeps summary counts scoped instead of filter-limited", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
   const workflowControllerSource = readGraphRelationWorkflowController();
 
   assert.match(source, /graphNormalizeRelationWorkflowSelection\(selection, \{/);
   assert.match(workflowControllerSource, /const isolated = resolveIsolatedSelection\(selection, isolatedNotes, \[\]\);/);
   assert.match(workflowControllerSource, /return hasNode\(nodes, noteId\) \? \{ kind: "node", nodeId: noteId \} : null;/);
-  assert.match(source, /const baseSummary = `\$\{scopedAllNodes\.length\} 条永久笔记，\$\{scoped\.edges\.length\} 条关系`;/);
+  assert.match(panelStateBuilderSource, /const baseSummary = `\$\{scopedAllNodes\.length\} 条永久笔记，\$\{scoped\.edges\.length\} 条关系`;/);
 });
 
 test("graph node clicks without confirmed relations open the large relation workflow", () => {
@@ -760,6 +769,7 @@ test("graph AI candidates prefill relation forms with a usable rationale draft i
 
 test("graph network-edge status handling keeps suggested links in-network but still lets dismissed history re-enter candidates", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
 
   assert.equal(moduleGraphRelationStatusCountsAsNetworkEdge("suggested"), true);
   assert.equal(moduleGraphRelationStatusCountsAsNetworkEdge("draft"), true);
@@ -768,11 +778,13 @@ test("graph network-edge status handling keeps suggested links in-network but st
   assert.match(source, /return computeGraphRelationStatusCountsAsNetworkEdge\(value\);/);
   assert.match(source, /graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
   assert.match(source, /relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge/);
-  assert.match(source, /state\.graphConnectedNoteIds = new Set\(\s*allGraphEdges\s*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)\s*\.flatMap/);
+  assert.match(panelStateBuilderSource, /const connectedNoteIds = new Set\(\s*allGraphEdges\s*\.filter\(\(edge\) => graphRelationStatusCountsAsNetworkEdge\(edge\?\.status\)\)\s*\.flatMap/);
+  assert.match(source, /state\.graphConnectedNoteIds = panelState\.connectedNoteIds \|\| new Set\(\);/);
 });
 
 test("graph AI summary treats bridge candidates as a subset instead of double counting them", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
 
   assert.match(source, /function graphPendingAiCandidateCount\(candidates = \[\], \{ existingRelationPairKeys = new Set\(\), excludePairs = new Set\(\), bridgeOnly = false, excludeBridge = false \} = \{\}\) \{/);
   assert.match(source, /return computeGraphPendingAiCandidateCount\(candidates, \{ existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge \}\);/);
@@ -822,8 +834,8 @@ test("graph AI summary treats bridge candidates as a subset instead of double co
   assert.match(source, /const bridgeCandidateCount = Number\(liveCounts\.bridgeCount \|\| 0\);/);
   assert.match(source, /const reviewCandidateCount = Number\(liveCounts\.relationCount \|\| 0\);/);
   assert.match(source, /\{ key: "review", label: "关系待复核", count: Math\.max\(Number\(reviewQueueTotal \|\| 0\), reviewCandidateCount\) \}/);
-  assert.match(source, /renderGraphAiAnalysisCard\(\{ open: graphState\.sectionOpen\["ai-analysis"\] === true, nodes: scopedAllNodes, edges: scopedNetworkEdges \}\)/);
-  assert.match(source, /graphClueSummaryState\(\{[\s\S]*nodes: scopedAllNodes,[\s\S]*edges: scopedNetworkEdges/);
+  assert.match(source, /renderGraphAiAnalysisCard\(\{ open: panelState\.sectionOpen\["ai-analysis"\] === true, nodes: panelState\.scopedAllNodes, edges: panelState\.scopedNetworkEdges \}\)/);
+  assert.match(panelStateBuilderSource, /graphClueSummaryState\(\{[\s\S]*nodes: scopedAllNodes,[\s\S]*edges: scopedNetworkEdges/);
 });
 
 test("graph AI live counts stay scoped and classify component bridges correctly", () => {
@@ -1010,14 +1022,15 @@ test("graph thinking relation tasks use scoped nodes for filtering but lookup ma
 
 test("directory graph keeps all nodes visible and marks true zero-degree notes as isolated", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphComputedIsolatedNotes\(nodes = \[\], edges = \[\], aiIsolatedNotes = \[\]\) \{/);
   assert.match(source, /graphComputedIsolatedNotesForGraph\(nodes, edges, aiIsolatedNotes, \{/);
   assert.match(source, /function graphMarkIsolatedNodes\(nodes = \[\], isolatedNotes = \[\]\) \{/);
   assert.match(source, /graphMarkIsolatedNodesForGraph\(nodes, isolatedNotes, \{/);
-  assert.match(source, /let visibleNodes = !showingFocusedNote\s*\?\s*scopedAllNodes/);
-  assert.match(source, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
+  assert.match(panelStateBuilderSource, /let visibleNodes = !showingFocusedNote\s*\?\s*scopedAllNodes/);
+  assert.match(panelStateBuilderSource, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
   assert.match(source, /const contextualSelectionEdges = Array\.isArray\(selectionEdges\) \? selectionEdges : Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
   assert.match(source, /const contextualNodeMap = selectionNodeMap instanceof Map \? selectionNodeMap : layout\.nodeMap;/);
   assert.match(html, /\.graph-map-node\.is-graph-isolated \.graph-map-node-core \{[\s\S]*stroke: #f59e0b;/);
@@ -1026,6 +1039,7 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
 
 test("graph isolated notes are organized into a continuous handling queue", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
   const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
   const html = readPrototypeHtml();
 
@@ -1047,12 +1061,12 @@ test("graph isolated notes are organized into a continuous handling queue", () =
   assert.match(isolatedWorkflowShellSource, /data-graph-open-workbench-entry="organize"/);
   assert.match(source, /const workbenchOpenEntry = event\.target\.closest\("\[data-graph-open-workbench-entry\]"\);/);
   assert.match(isolatedWorkflowShellSource, /const isolatedQueueMarkup = renderQueue\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 \}\);/);
-  assert.match(source, /const graphRelationTargetNodeMap = graphPotentialRelationNodeMap\(\);/);
-  assert.match(source, /nodeMap: graphRelationTargetNodeMap/);
-  assert.match(source, /const isolatedQueueItems = !showingFocusedNote[\s\S]*graphIsolatedQueueItems\(\{/);
-  assert.match(source, /renderGraphIsolatedQueue\(\{[\s\S]*queueItems: isolatedQueueItems/);
-  assert.match(source, /const isolatedQueueStripMarkup = !showingFocusedNote[\s\S]*renderGraphIsolatedQueueStrip\(\{/);
-  assert.match(source, /renderGraphIsolatedQueueStrip\(\{[\s\S]*queueItems: isolatedQueueItems/);
+  assert.match(panelStateBuilderSource, /const graphRelationTargetNodeMap = graphPotentialRelationNodeMap\(\);/);
+  assert.match(panelStateBuilderSource, /nodeMap: graphRelationTargetNodeMap/);
+  assert.match(panelStateBuilderSource, /const isolatedQueueItems = !showingFocusedNote[\s\S]*graphIsolatedQueueItems\(\{/);
+  assert.match(source, /renderGraphIsolatedQueue\(\{[\s\S]*queueItems: panelState\.isolatedQueueItems/);
+  assert.match(source, /const isolatedQueueStripMarkup = !panelState\.showingFocusedNote[\s\S]*renderGraphIsolatedQueueStrip\(\{/);
+  assert.match(source, /renderGraphIsolatedQueueStrip\(\{[\s\S]*queueItems: panelState\.isolatedQueueItems/);
   assert.match(source, /renderGraphVisualMap\(\{[\s\S]*isolatedQueueStripMarkup/);
   assert.match(source, /renderGraphWorkbenchPanel\(\{[\s\S]*isolatedQueueMarkup/);
   assert.match(source, /function renderGraphWorkbenchPanel\(\{ clueSummary = \{\}, questionSummary = \{\}, clueSectionsMarkup = "", thinkingItems = \[\], isolatedQueueMarkup = "" \} = \{\}\) \{/);
@@ -1579,9 +1593,9 @@ test("graph module sidebar is labeled as graph scope instead of permanent-note b
 
 test("graph load failure renders a quiet empty state instead of a red error panel", () => {
   const source = readPrototypeApp();
+  const panelStateBuilderSource = readGraphPanelStateBuilder();
   const html = readPrototypeHtml();
   const errorState = source.match(/function renderGraphErrorState\(message = ""\) \{([\s\S]*?)\n\}/)?.[1] || "";
-  const hardErrorBranch = source.match(/if \(graphState\.error && !canReuseScopedGraph\) \{([\s\S]*?)\n\s*const graph = canReuseScopedGraph/)?.[1] || "";
 
   assert.match(errorState, /class="graph-empty graph-error-card"/);
   assert.doesNotMatch(errorState, /graph-empty bad/);
@@ -1589,8 +1603,9 @@ test("graph load failure renders a quiet empty state instead of a red error pane
   assert.match(errorState, /图谱暂时没有读出来/);
   assert.match(errorState, /刷新图谱/);
   assert.doesNotMatch(errorState, /Failed to fetch/);
-  assert.match(hardErrorBranch, /summary\.textContent = "图谱暂时无法读取，笔记树仍可正常使用。";/);
-  assert.doesNotMatch(hardErrorBranch, /summary\.textContent = `图谱加载失败/);
+  assert.match(panelStateBuilderSource, /summaryText: "图谱暂时无法读取，笔记树仍可正常使用。"/);
+  assert.match(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
+  assert.doesNotMatch(source, /summary\.textContent = `图谱加载失败/);
   assert.match(html, /\.graph-error-card strong \{[\s\S]*color: #17324d;/);
   assert.match(html, /\.graph-error-card span \{[\s\S]*color: #587086;/);
 });
