@@ -439,7 +439,6 @@ import {
 import {
   renderDraftVersionCardView,
   renderScaffoldVersionCardView,
-  renderWritingProjectCardView,
   renderWritingToplineMetricView
 } from "./writing-workspace-view.js";
 import {
@@ -8383,26 +8382,6 @@ function writingNoteMeta(note) {
     note?.noteType === "permanent" || rootBoxIdFromFolder(state, note?.folderId) === "dir_original_default" ? "永久笔记" : note?.noteType
   ]).join(" · ");
 }
-
-function renderWritingNoteCard(note, { selected = false, action = "add", actionLabel = "加入写作篮" } = {}) {
-  const thinkingBadge = renderThinkingStatusBadge(note?.thinkingStatus, "thinking-status-badge writing-thinking-status");
-  return `
-    <article class="writing-note-card ${selected ? "selected" : ""}" data-writing-note-id="${escapeHtml(note.id)}">
-      <div class="writing-note-card-head">
-        <div>
-          <div class="writing-note-title">${escapeHtml(note.title || note.id)}</div>
-          <div class="writing-note-meta">${escapeHtml(writingNoteMeta(note))}</div>
-        </div>
-        ${thinkingBadge}
-      </div>
-      <div class="writing-note-meta">${escapeHtml(writingNoteExcerpt(note))}</div>
-      <div class="writing-note-actions">
-        <button class="mini-btn" type="button" data-writing-action="${escapeHtml(action)}" data-writing-note-id="${escapeHtml(note.id)}">${escapeHtml(actionLabel)}</button>
-        <button class="mini-btn" type="button" data-writing-action="open" data-writing-note-id="${escapeHtml(note.id)}">打开笔记</button>
-      </div>
-    </article>
-  `;
-}
 function writingThemeIndexScopeDirectoryId() {
   if (state.selectedFolderId && isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
   return writingDraftDirectoryId();
@@ -8454,14 +8433,6 @@ function promptVersionNoteEdit(currentValue, label) {
   const next = window.prompt(`${label}说明`, String(currentValue || ""));
   if (next === null) return null;
   return String(next).trim();
-}
-
-function renderWritingProjectCard(project) {
-  return renderWritingProjectCardView(project, {
-    escapeHtml,
-    renderThinkingStatusBadge,
-    writingProjectStatusLabel
-  });
 }
 
 function renderScaffoldVersionCard(version) {
@@ -8967,6 +8938,9 @@ function writingPanelDomDeps() {
     findExistingWritingProjectForTheme,
     describeWritingContinuationAction,
     renderThinkingStatusBadge,
+    writingNoteMeta,
+    writingNoteExcerpt,
+    writingProjectStatusLabel,
     writingThemeProjectEntry,
     shouldHydrateWritingThemeNotes,
     hydrateWritingThemeNotes,
@@ -8976,8 +8950,6 @@ function writingPanelDomDeps() {
     writingThemeDetailHintText,
     renderWritingToplineMetric,
     writingThemeSummary,
-    renderWritingNoteCard,
-    renderWritingProjectCard,
     renderScaffoldVersionCard,
     renderDraftVersionCard,
     describeWritingStrongModelIdleSummary,

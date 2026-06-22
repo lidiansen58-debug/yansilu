@@ -7,6 +7,8 @@ import {
   renderWritingScaffoldPreviewDom,
   renderWritingStatusStripDom,
   renderWritingStrongModelRequestDetailDom,
+  renderWritingNoteCardDom,
+  renderWritingProjectCardDom,
   renderWritingThemeDetailDom,
   renderWritingThemeIndexCardDom
 } from "../../apps/web/src/writing-panel-controller.js";
@@ -342,6 +344,59 @@ test("writing panel controller renders theme index card continuation actions", (
   assert.match(html, /data-writing-index-action="resume-scaffold"/);
   assert.match(html, /project-1/);
   assert.match(html, /<b>status<\/b>/);
+});
+
+test("writing panel controller renders writing note card actions", () => {
+  const html = renderWritingNoteCardDom({
+    renderThinkingStatusBadge: () => "<b>status</b>",
+    writingNoteMeta: () => "note-1 · Permanent",
+    writingNoteExcerpt: () => "Excerpt <line>",
+    escapeHtml
+  }, {
+    id: "note-1",
+    title: "Note <one>",
+    thinkingStatus: { status: "ready" }
+  }, {
+    selected: true,
+    action: "remove",
+    actionLabel: "Remove <basket>"
+  });
+
+  assert.match(html, /writing-note-card selected/);
+  assert.match(html, /data-writing-note-id="note-1"/);
+  assert.match(html, /Note &lt;one&gt;/);
+  assert.match(html, /note-1 · Permanent/);
+  assert.match(html, /Excerpt &lt;line&gt;/);
+  assert.match(html, /data-writing-action="remove"/);
+  assert.match(html, /Remove &lt;basket&gt;/);
+  assert.match(html, /data-writing-action="open"/);
+  assert.match(html, /<b>status<\/b>/);
+});
+
+test("writing panel controller renders writing project card through workspace view deps", () => {
+  const html = renderWritingProjectCardDom({
+    renderThinkingStatusBadge: () => "<b>project-status</b>",
+    writingProjectStatusLabel: (value) => `status:${value}`,
+    escapeHtml
+  }, {
+    id: "project-1",
+    title: "Project <one>",
+    goal: "Goal",
+    status: "active",
+    basket_count: 2,
+    scaffold_id: "scaffold-1",
+    draft_note_id: "",
+    thinkingStatus: { status: "ready" }
+  });
+
+  assert.match(html, /data-writing-project-id="project-1"/);
+  assert.match(html, /Project &lt;one&gt;/);
+  assert.match(html, /status:active/);
+  assert.match(html, /篮子 2/);
+  assert.match(html, /data-writing-project-action="resume-scaffold"/);
+  assert.match(html, /data-writing-project-action="copy-scaffold"/);
+  assert.match(html, /data-writing-project-action="export-scaffold"/);
+  assert.match(html, /<b>project-status<\/b>/);
 });
 
 test("writing panel controller renders theme detail form and note actions", () => {
