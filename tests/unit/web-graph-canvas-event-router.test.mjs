@@ -28,6 +28,9 @@ function elementWithAttrs(attrs = {}, extra = {}) {
   return {
     dataset: extra.dataset || {},
     closest: extra.closest || (() => null),
+    hasAttribute(name) {
+      return Boolean(attrs[name]);
+    },
     getAttribute(name) {
       return attrs[name] ?? "";
     }
@@ -134,4 +137,78 @@ test("graph canvas event router routes relation filter, manual search and wheel 
   assert.deepEqual(calls.map((call) => call[0]), ["filter", "render", "status", "manual", "prevent", "wheel", "render", "raf", "center"]);
   assert.equal(calls[0][1], graphState);
   assert.equal(calls[0][2], "supports");
+});
+
+test("graph canvas event router consumes click workflow actions before generic note opening", async () => {
+  const graphCanvas = createGraphCanvas();
+  const calls = [];
+  const candidateButton = elementWithAttrs({});
+
+  bindGraphCanvasEvents(graphCanvas, {
+    saveGraphCandidateRelation: async (button) => calls.push(["save-candidate", button]),
+    openNoteById: (noteId) => calls.push(["open-note", noteId])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    preventDefault: () => calls.push(["prevent"]),
+    stopImmediatePropagation: () => calls.push(["stop-immediate"]),
+    target: targetWithClosest({
+      "[data-graph-relation-candidate-apply]": candidateButton,
+      "[data-open-note]": elementWithAttrs({}, { dataset: { openNote: "n1" } })
+    })
+  });
+
+  assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["save-candidate", candidateButton]]);
+});
+
+test("graph canvas event router opens graph AI review in system messages", async () => {
+  const graphCanvas = createGraphCanvas();
+  const graphState = { aiReviewSystemMessageId: "graph-ai-analysis:latest", thinkingPanelOpen: true };
+  const aiInboxState = { filters: { view: "all", type: "relation" }, detail: { id: "old" }, selectedArtifactId: "artifact-1" };
+  const calls = [];
+
+  bindGraphCanvasEvents(graphCanvas, {
+    graphState,
+    aiInboxState,
+    systemMessages: [{ id: "graph-ai-analysis:latest" }],
+    normalizeAiInboxFilters: (filters) => ({ ...filters, normalized: true }),
+    setSelectedSystemMessageId: (messageId) => calls.push(["select-message", messageId]),
+    openSystemMessages: () => calls.push(["open-system-messages"]),
+    setStatus: (message, level) => calls.push(["status", level, message])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    target: targetWithClosest({
+      "[data-open-ai-inbox-from-graph]": elementWithAttrs({})
+    })
+  });
+
+  assert.equal(graphState.thinkingPanelOpen, false);
+  assert.deepEqual(aiInboxState.filters, { view: "pending", type: "relation", sourceNoteId: "", normalized: true });
+  assert.equal(aiInboxState.detail, null);
+  assert.equal(aiInboxState.selectedArtifactId, "");
+  assert.deepEqual(calls.map((call) => call[0]), ["select-message", "open-system-messages", "status"]);
+});
+
+test("graph canvas event router routes map node and relation focus clicks", async () => {
+  const graphCanvas = createGraphCanvas();
+  const calls = [];
+  const graphNode = elementWithAttrs({ "data-node-id": "n1" });
+  const relationAdjustment = elementWithAttrs({});
+
+  bindGraphCanvasEvents(graphCanvas, {
+    openGraphNodeSelectionFromElement: (element) => calls.push(["node", element]),
+    focusGraphRelationAdjustmentInPlace: (element) => calls.push(["adjust", element])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    preventDefault: () => calls.push(["prevent"]),
+    stopImmediatePropagation: () => calls.push(["stop-immediate"]),
+    target: targetWithClosest({ "[data-graph-relation-adjustment]": relationAdjustment })
+  });
+  await graphCanvas.listeners.get("click")[0].handler({
+    target: targetWithClosest({ ".graph-map-node[data-node-id]": graphNode })
+  });
+
+  assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["adjust", relationAdjustment], ["node", graphNode]]);
 });

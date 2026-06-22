@@ -119,6 +119,7 @@ test("prototype graph shell delegates canvas event routing to a graph module", a
 
   assert.match(source, /from "\.\/graph-canvas-event-router\.js"/);
   assert.match(source, /bindGraphCanvasEvents\(\$\("graphCanvas"\), \{/);
+  assert.doesNotMatch(source, /\$\("graphCanvas"\)\?\.addEventListener\("click"/);
   assert.doesNotMatch(source, /function handleGraphHoverIntent/);
   assert.doesNotMatch(source, /function handleGraphHoverExit/);
   assert.doesNotMatch(source, /addEventListener\("mouseover", handleGraphHoverIntent\)/);

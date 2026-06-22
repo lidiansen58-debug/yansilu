@@ -750,6 +750,7 @@ test("graph map side panel does not stretch a second dark canvas below the map",
 
 test("graph clusters are selectable research objects with their own summary panel", () => {
   const source = readPrototypeApp();
+  const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const html = readPrototypeHtml();
   const clusterGlow = renderGraphClusterGlowView([
     { clusterKey: "cluster-alpha", title: "Alpha", tone: "teal", cx: 1, cy: 2, rx: 3, ry: 4 }
@@ -764,7 +765,7 @@ test("graph clusters are selectable research objects with their own summary pane
   assert.match(clusterGlow, /data-graph-select-cluster="cluster-alpha"/);
   assert.match(clusterGlow, /role="button"/);
   assert.match(clusterGlow, /aria-label="View cluster summary: Alpha"/);
-  assert.match(source, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
+  assert.match(graphCanvasEventRouterSource, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
   assert.match(source, /kicker: "主题群摘要"/);
   assert.match(source, /roleLabel: meta\.label/);
   assert.match(source, /补一条主题关系/);
@@ -813,14 +814,14 @@ test("graph AI analysis opens the question workbench instead of navigating away"
 });
 
 test("graph AI review action opens system messages instead of the AI review module directly", () => {
-  const source = readPrototypeApp();
+  const source = readGraphCanvasEventRouter();
   const start = source.indexOf('  const graphAiInboxButton = event.target.closest("[data-open-ai-inbox-from-graph]");');
   const end = source.indexOf('  const retryButton = event.target.closest("[data-graph-retry]");', start);
   assert.ok(start >= 0 && end > start, "expected graph AI review action handler");
   const handler = source.slice(start, end);
 
   assert.match(handler, /const graphMessageId = String\(graphState\.aiReviewSystemMessageId \|\| ""\)\.trim\(\)/);
-  assert.match(handler, /selectedSystemMessageId = selectedGraphMessage/);
+  assert.match(handler, /setSelectedSystemMessageId\(selectedGraphMessage\)/);
   assert.match(handler, /openSystemMessages\(\)/);
   assert.doesNotMatch(handler, /openSystemMessages\(\{ latestOnly: true \}\)/);
   assert.doesNotMatch(handler, /activateModule\("aiInbox"\)/);
@@ -1103,12 +1104,12 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /insightQuestionDraft,/);
   assert.match(nodeSelectionPanelSource, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
   assert.match(source, /runAiConnectForNote: runGraphAiConnectForNote/);
-  assert.match(source, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
-  assert.match(source, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
-  assert.match(source, /const graphAiRefineConfirmButton = event\.target\.closest\("\[data-graph-ai-refine-confirm\]"\);/);
-  assert.match(source, /await confirmGraphPotentialRelationRefine\(graphAiRefineConfirmButton\);/);
-  assert.match(source, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
-  assert.match(source, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
+  assert.match(graphCanvasEventRouterSource, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /const graphAiRefineConfirmButton = event\.target\.closest\("\[data-graph-ai-refine-confirm\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /await confirmGraphPotentialRelationRefine\(graphAiRefineConfirmButton\);/);
+  assert.match(graphCanvasEventRouterSource, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
   assert.match(relationSaveTransactionSource, /status = "confirmed"/);
   assert.match(saveControllerSource, /graphState\.selection = nextSelection;/);
   assert.match(source, /function renderGraphIsolatedCompletePanel\(\{ selection = null, isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
@@ -1442,7 +1443,7 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(joinWorkspaceSource, /renderPreviewPanel\(cleanNoteId, \{ nodeMap, preferredTargetNoteId: previewTargetNoteId \}\)/);
   assert.match(source, /data-graph-relation-candidate-apply/);
   assert.match(graphCanvasEventRouterSource, /const graphRelationCandidateButton = event\.target\.closest\("\[data-graph-relation-candidate-apply\]"\);/);
-  assert.match(source, /await saveGraphCandidateRelation\(graphRelationCandidateButton\);/);
+  assert.match(graphCanvasEventRouterSource, /await saveGraphCandidateRelation\(graphRelationCandidateButton\);/);
   assert.doesNotMatch(joinWorkspaceSource, /renderGraphRelationCandidateCards\(localCandidates/);
   assert.match(joinWorkspaceSource, /data-graph-isolated-tab="ai"/);
   assert.match(joinWorkspaceSource, /data-graph-isolated-tab="manual"/);
@@ -1463,8 +1464,8 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(isolatedThinkingItems[0]?.actionAttrs || "", /data-graph-select-isolated="isolated-a" data-graph-isolated-note="isolated-a"/);
   assert.match(graphCanvasEventRouterSource, /const isolatedWorkflowTab = event\.target\.closest\("\[data-graph-isolated-tab\]"\);/);
   assert.match(graphCanvasEventRouterSource, /if \(event\.key === "ArrowRight" \|\| event\.key === "ArrowDown"\) \{/);
-  assert.match(source, /const graphManualTargetButton = event\.target\.closest\("\[data-graph-pick-manual-target\]"\);/);
-  assert.match(source, /await saveGraphIsolatedRelationForm\(graphIsolatedRelationSaveButton\);/);
+  assert.match(graphCanvasEventRouterSource, /const graphManualTargetButton = event\.target\.closest\("\[data-graph-pick-manual-target\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /await saveGraphIsolatedRelationForm\(graphIsolatedRelationSaveButton\);/);
   assert.match(isolatedWorkflowShellSource, /title: "已保存的关系"/);
   assert.doesNotMatch(isolatedWorkflowShellSource, /孤立笔记接入网络/);
 });
@@ -1713,7 +1714,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(source, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
   assert.match(source, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
   assert.match(source, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
-  assert.match(source, /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
+  assert.match(readGraphCanvasEventRouter(), /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
   assert.match(source, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
   assert.match(systemMessageWorkflowSource, /focus === "writing"/);
   assert.match(systemMessageWorkflowSource, /await selectWritingThemeIndex\(indexCardId\)/);
@@ -1764,9 +1765,9 @@ test("graph keyboard activation handles workflow actions before generic note ope
 });
 
 test("graph click workflow actions consume events before generic note opening", () => {
-  const source = readPrototypeApp();
-  const start = source.indexOf('$("graphCanvas")?.addEventListener("click", async (event) => {');
-  const end = source.indexOf('bindGraphCanvasEvents($("graphCanvas")', start);
+  const source = readGraphCanvasEventRouter();
+  const start = source.indexOf('graphCanvas?.addEventListener("click", async (event) => {');
+  const end = source.indexOf('  function handleGraphHoverIntent(event) {', start);
   assert.ok(start >= 0 && end > start, "expected graph click handler");
   const handler = source.slice(start, end);
 
