@@ -8,6 +8,9 @@ import {
   noteSuggestionReviewContent,
   renderNoteEmbeddedAiWorkspace
 } from "../../apps/web/src/note-embedded-ai-workspace.js";
+import {
+  handleRunNoteAiAnalysisStateChange
+} from "../../apps/web/src/app-shell-graph-state-actions.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -105,7 +108,7 @@ test("embedded note AI workspace derives reviewed content from note fields", () 
   );
 });
 
-test("editor-triggered note AI analysis stays in the current note workspace", () => {
+test("editor-triggered note AI analysis stays in the current note workspace", async () => {
   const editorSource = readRepoFile("apps/web/src/components-editor-pane.js");
   const distillationViewSource = readRepoFile("apps/web/src/permanent-note-distillation-view.js");
   const sidebarViewSource = readRepoFile("apps/web/src/permanent-note-sidebar-view.js");
@@ -161,15 +164,22 @@ test("editor-triggered note AI analysis stays in the current note workspace", ()
   assert.match(applySource, /this\.renderEmbeddedAiWorkspaceMount\(noteId\)/);
   assert.doesNotMatch(applySource, /this\.renderRelated\(\)/);
 
-  const appSource = readRepoFile("apps/web/src/prototype-app.js");
-  const handlerStart = appSource.indexOf('  if (reason === "run-note-ai-analysis") {');
-  const handlerEnd = appSource.indexOf('  if (reason === "open-note-ai-inbox") {', handlerStart);
+  const aiInboxState = { filters: {}, detail: { id: "old" }, selectedArtifactId: "old" };
+  const calls = [];
+  await handleRunNoteAiAnalysisStateChange({ noteId: "n1", openInbox: false }, {
+    state: { notes: [{ id: "n1", title: "Note" }] },
+    aiInboxState,
+    analyzePermanentNote: async () => ({ reviewItems: { artifacts: [{ id: "a1" }] } }),
+    addSystemMessage: () => calls.push("message"),
+    openSystemMessages: () => calls.push("open-system"),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
 
-  assert.ok(handlerStart >= 0 && handlerEnd > handlerStart, "expected run-note-ai-analysis handler to exist");
-  const handlerSource = appSource.slice(handlerStart, handlerEnd);
+  assert.deepEqual(calls, [
+    ["status", "正在运行本地永久笔记 AI 分析...", "warn"],
+    "message",
+    ["status", "已生成 1 条待审 AI 建议，可在当前笔记里处理", "ok"]
+  ]);
+  assert.deepEqual(aiInboxState, { filters: {}, detail: { id: "old" }, selectedArtifactId: "old" });
 
-  assert.match(handlerSource, /if \(artifactCount > 0 && payload\.openInbox !== false\)/);
-  assert.match(handlerSource, /openSystemMessages\(\{ latestOnly: true \}\)/);
-  assert.doesNotMatch(handlerSource, /activateModule\("aiInbox"\)/);
-  assert.match(handlerSource, /可在当前笔记里处理/);
 });
