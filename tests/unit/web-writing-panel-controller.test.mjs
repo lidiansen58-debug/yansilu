@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  renderWritingBookDesignDom,
   renderWritingFlowStepsDom,
   renderWritingScaffoldPreviewDom,
   renderWritingStrongModelRequestDetailDom
@@ -178,4 +179,87 @@ test("writing panel controller renders strong model request details", () => {
   assert.match(html, /Write &lt;clearly&gt;/);
   assert.match(html, /Readers/);
   assert.match(html, /<ul>/);
+});
+
+test("writing panel controller renders book design empty state", () => {
+  const nodes = new Map([
+    ["writingBookDesignSummary", { textContent: "" }],
+    ["writingBookStructure", { innerHTML: "" }],
+    ["writingBookPools", { innerHTML: "" }],
+    ["writingBookLocalIdeas", { innerHTML: "" }],
+    ["btnWritingLocalBookIdeas", { disabled: false }]
+  ]);
+
+  renderWritingBookDesignDom({
+    $: (id) => nodes.get(id) || null,
+    writingState: {},
+    writingBasketEntries: () => [],
+    normalizeWritingBookStructure: () => ({ parts: [] }),
+    deriveWritingBookDesign: () => ({ parts: [], pools: { cases: [], counterarguments: [], open_questions: [] }, direction_ideas: [] }),
+    writingBookStructureStats: () => ({ partCount: 0, chapterCount: 0, sectionCount: 0 }),
+    escapeHtml
+  });
+
+  assert.equal(nodes.get("btnWritingLocalBookIdeas").disabled, true);
+  assert.match(nodes.get("writingBookStructure").innerHTML, /writing-empty/);
+  assert.match(nodes.get("writingBookPools").innerHTML, /writing-book-pool-title/);
+});
+
+test("writing panel controller renders book design structure pools and ideas", () => {
+  const nodes = new Map([
+    ["writingBookDesignSummary", { textContent: "" }],
+    ["writingBookStructure", { innerHTML: "" }],
+    ["writingBookPools", { innerHTML: "" }],
+    ["writingBookLocalIdeas", { innerHTML: "" }],
+    ["btnWritingLocalBookIdeas", { disabled: true }]
+  ]);
+  const design = {
+    mainline: "Main <line>",
+    parts: [
+      {
+        label: "Part A",
+        title: "Part <one>",
+        chapters: [
+          {
+            title: "Chapter One",
+            sections: [{ title: "Section A" }],
+            evidence_note_ids: ["n1"]
+          }
+        ]
+      }
+    ],
+    pools: {
+      cases: [{ title: "Case One", note_ids: ["n1"] }],
+      counterarguments: [{ title: "Counter One", note_ids: ["n2"] }],
+      open_questions: ["Question One"]
+    },
+    direction_ideas: [
+      {
+        title: "Idea One",
+        reader: "Reader",
+        promise: "Promise",
+        risk: "Risk",
+        note_ids: ["n1"]
+      }
+    ]
+  };
+
+  renderWritingBookDesignDom({
+    $: (id) => nodes.get(id) || null,
+    writingState: {
+      project: {},
+      localBookIdeas: []
+    },
+    writingBasketEntries: () => [{ id: "n1" }],
+    normalizeWritingBookStructure: () => ({ parts: [] }),
+    deriveWritingBookDesign: () => design,
+    writingBookStructureStats: () => ({ partCount: 1, chapterCount: 1, sectionCount: 1 }),
+    escapeHtml
+  });
+
+  assert.equal(nodes.get("btnWritingLocalBookIdeas").disabled, false);
+  assert.match(nodes.get("writingBookDesignSummary").textContent, /Main <line>/);
+  assert.match(nodes.get("writingBookStructure").innerHTML, /Part &lt;one&gt;/);
+  assert.match(nodes.get("writingBookPools").innerHTML, /Case One/);
+  assert.match(nodes.get("writingBookLocalIdeas").innerHTML, /Idea One/);
 });

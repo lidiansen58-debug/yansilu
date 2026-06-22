@@ -25,7 +25,8 @@ test("writing center derives book structure with parts, chapters, sections, and 
 
   assert.match(source, /function deriveWritingBookDesign/);
   assert.match(source, /function uniqueWritingBookPoolItems/);
-  assert.match(panelControllerSource, /renderWritingBookDesign\(\);/);
+  assert.match(panelControllerSource, /function renderWritingBookDesignDom/);
+  assert.match(panelControllerSource, /renderWritingBookDesignDom\(deps\);/);
   assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
 });
 
