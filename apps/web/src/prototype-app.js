@@ -54,6 +54,9 @@ import {
   renderSidebarTitleForRuntime
 } from "./app-shell-sidebar-controller.js";
 import {
+  buildAppShellStateChangeDeps
+} from "./app-shell-state-change-deps.js";
+import {
   routeAppShellStateChange
 } from "./app-shell-state-change-router.js";
 import {
@@ -14481,200 +14484,91 @@ function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
 }
 
 function appShellStateChangeDeps() {
-  return {
-    refreshGraph: {
-      graphState,
-      refreshDirectoryGraph,
-      setStatus
-    },
-    createPrimaryNote: {
-      createPrimaryOriginalNote,
-      setStatus
-    },
-    createNoteInSelectedFolder: {
-      state,
-      editor,
-      applyExplorerSelectionContext,
-      createNoteInSelectedFolder,
-      setStatus
-    },
-    recordOriginalFromNote: {
-      state,
-      typeFromFolder,
-      rootBoxIdFromFolder,
-      originalDraftBodyFromSource,
-      titleFromSeedText,
-      createNote,
-      mapNoteItem,
-      syncNoteRelationNetworkStatus,
-      isOriginalRecordableSource,
-      withGeneratedOriginalReference,
-      withGeneratedOriginalMarker,
-      syncSourcePromotionSystemMessageForNote,
-      parseTags,
-      parseLinks,
-      updateNote,
-      activateModule,
-      openNoteById,
-      setStatus
-    },
-    selectFolder: {
-      state,
-      explorer,
-      applyExplorerSelectionContext,
-      expandGraphBrowserTree,
-      refreshDirectoryGraph,
-      syncNotesForDirectory,
-      setStatus,
-      renderAll
-    },
-    graphFocusNote: {
-      state,
-      explorer,
-      graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
-      applyExplorerSelectionContext,
-      setStatus,
-      renderAll
-    },
-    graphAssociateNote: {
-      state,
-      explorer,
-      graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
-      graphRelationWorkflowController,
-      graphAssociateNoteRoute,
-      graphNodeNeedsRelationWorkflowFromCurrentGraph,
-      applyExplorerSelectionContext,
-      setGraphIsolatedWorkflowActiveTab,
-      openGraphSelection,
-      setStatus,
-      handleStateChange
-    },
-    openNoteRelations: {
-      openNoteRelationEditor,
-      setStatus
-    },
-    runNoteAiAnalysis: {
-      state,
-      aiInboxState,
-      analyzePermanentNote,
-      noteAnalysisSystemMessageForResult,
-      addSystemMessage,
-      normalizeAiInboxFilters,
-      openSystemMessages,
-      setStatus
-    },
-    openNoteAiInbox: {
-      aiInboxState,
-      normalizeAiInboxFilters,
-      activateModule,
-      openAiInboxModule,
-      setStatus
-    },
-    openNoteMainRoute: {
-      state,
-      editor,
-      windowRef: window,
-      folderById,
-      rootBoxIdFromFolder,
-      syncNotesForDirectory,
-      refreshDirectoryGraph,
-      activateModule,
-      openNoteById,
-      ensureNoteBodyLoaded,
-      openWritingModule,
-      continueWritingEntry,
-      normalizeWritingProjectTitleSeed,
-      noteMainPathWritingContinuationEntry,
-      continueWritingProjectEntry,
-      createWritingProjectFromCurrentBasket,
-      writingCenterContinuationStatusMessage,
-      writingCenterContinuationFailureMessage,
-      setStatus
-    },
-    saveNoteDistillation: {
-      state,
-      updatePermanentNoteDistillation,
-      confirmPermanentNoteDistillation,
-      mapNoteItem,
-      setStatus,
-      renderDistillationPanel,
-      renderAll
-    },
-    confirmNoteDistillation: {
-      state,
-      confirmPermanentNoteDistillation,
-      mapNoteItem,
-      setStatus,
-      renderAll
-    },
-    saveNote: {
-      state,
-      editor,
-      saveAiSuggestion,
-      replaceFirstMarkdownTitle,
-      noteGeneratedOriginalNoteId,
-      generatedOriginalNoteIdFromBody,
-      notePersistenceFieldsForSave,
-      isPermanentLikeNote,
-      updateNote,
-      normalizeOptionalNumber,
-      normalizeAuthorshipItem,
-      normalizeThinkingStatusItem,
-      syncExplorerContextToNote,
-      setStatus,
-      showSaveAiSuggestionForNote,
-      syncSourcePromotionSystemMessageForNote,
-      refreshDirectoryGraph,
-      noteSaveFailureFeedback,
-      clearSaveAiSuggestion,
-      renderAll
-    },
-    noteMove: {
-      usingLocalFallbackData,
-      moveNote,
-      moveNoteInClientState,
-      setStatus,
-      renderAll
-    },
-    noteDelete: {
-      usingLocalFallbackData,
-      deleteNote,
-      removeNoteFromClientState,
-      setStatus,
-      renderAll
-    },
-    directoryUpdate: {
-      state,
-      descendantDirectoryIds,
-      renamedDirectoryFsPath,
-      rootBoxIdFromFolder,
-      updateDirectory,
-      syncDirectoriesFromApi,
-      syncLoadedNotesForDirectories,
-      setStatus,
-      renderAll
-    },
-    directoryDelete: {
-      state,
-      deleteDirectory,
-      setStatus,
-      renderAll
-    },
-    directoryMove: {
-      state,
-      descendantDirectoryIds,
-      folderById,
-      movedDirectoryFsPath,
-      rootBoxIdFromFolder,
-      updateDirectory,
-      syncDirectoriesFromApi,
-      syncLoadedNotesForDirectories,
-      setStatus,
-      renderAll
-    },
+  return buildAppShellStateChangeDeps({
+    GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
+    activateModule,
+    addSystemMessage,
+    aiInboxState,
+    analyzePermanentNote,
+    applyExplorerSelectionContext,
+    clearSaveAiSuggestion,
+    confirmPermanentNoteDistillation,
+    continueWritingEntry,
+    continueWritingProjectEntry,
+    createNote,
+    createNoteInSelectedFolder,
+    createPrimaryOriginalNote,
+    createWritingProjectFromCurrentBasket,
+    deleteDirectory,
+    deleteNote,
+    descendantDirectoryIds,
+    editor,
+    ensureNoteBodyLoaded,
+    expandGraphBrowserTree,
+    explorer,
+    folderById,
+    generatedOriginalNoteIdFromBody,
+    graphAssociateNoteRoute,
+    graphNodeNeedsRelationWorkflowFromCurrentGraph,
+    graphRelationWorkflowController,
+    graphState,
+    handleStateChange,
+    isOriginalRecordableSource,
+    isPermanentLikeNote,
+    mapNoteItem,
+    moveNote,
+    moveNoteInClientState,
+    movedDirectoryFsPath,
+    noteGeneratedOriginalNoteId,
+    noteMainPathWritingContinuationEntry,
+    notePersistenceFieldsForSave,
+    noteSaveFailureFeedback,
+    normalizeAiInboxFilters,
+    normalizeAuthorshipItem,
+    normalizeOptionalNumber,
+    normalizeThinkingStatusItem,
+    normalizeWritingProjectTitleSeed,
+    noteAnalysisSystemMessageForResult,
+    openAiInboxModule,
+    openGraphSelection,
+    openNoteById,
+    openNoteRelationEditor,
+    openSystemMessages,
+    openWritingModule,
+    originalDraftBodyFromSource,
+    parseLinks,
+    parseTags,
+    refreshDirectoryGraph,
+    removeNoteFromClientState,
+    renamedDirectoryFsPath,
+    renderAll,
+    renderDistillationPanel,
+    replaceFirstMarkdownTitle,
+    rootBoxIdFromFolder,
+    saveAiSuggestion,
+    setGraphIsolatedWorkflowActiveTab,
+    setStatus,
+    showSaveAiSuggestionForNote,
+    state,
     syncExplorerContextToActiveTab,
-    renderAll
-  };
+    syncExplorerContextToNote,
+    syncDirectoriesFromApi,
+    syncLoadedNotesForDirectories,
+    syncNoteRelationNetworkStatus,
+    syncNotesForDirectory,
+    syncSourcePromotionSystemMessageForNote,
+    titleFromSeedText,
+    typeFromFolder,
+    updateDirectory,
+    updateNote,
+    updatePermanentNoteDistillation,
+    usingLocalFallbackData,
+    windowRef: window,
+    withGeneratedOriginalMarker,
+    withGeneratedOriginalReference,
+    writingCenterContinuationFailureMessage,
+    writingCenterContinuationStatusMessage
+  });
 }
 
 async function handleStateChange(reason, payload = {}) {
