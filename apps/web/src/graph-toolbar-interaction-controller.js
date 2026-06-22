@@ -43,3 +43,37 @@ export function applyGraphFocusContextModeInteraction(graphState = {}, modeValue
   const meta = graphFocusContextModeMeta(graphState.focusContextMode);
   return { mode: graphState.focusContextMode, meta };
 }
+
+export function applyGraphRelationTypeFilterInteraction(graphState = {}, relationTypeValue = "", deps = {}) {
+  const setGraphRelationTypeFilter = deps.setGraphRelationTypeFilter || ((value) => {
+    if (!graphState.filters || typeof graphState.filters !== "object") graphState.filters = {};
+    graphState.filters.relationType = String(value || "all").trim() || "all";
+    return graphState.filters.relationType;
+  });
+  const graphRelationTypeLabel = deps.graphRelationTypeLabel || ((value) => String(value || "").trim() || "all");
+  const relationType = setGraphRelationTypeFilter(String(relationTypeValue || "all").trim() || "all");
+  return {
+    relationType,
+    label: relationType === "all" ? "全部关系" : graphRelationTypeLabel(relationType)
+  };
+}
+
+export function applyGraphViewModeInteraction(graphState = {}, modeValue = "", deps = {}) {
+  const mode = String(modeValue || "").trim().toLowerCase();
+  const setGraphRelationTypeFilter = deps.setGraphRelationTypeFilter || (() => "");
+  const graphReadingModeMeta = deps.graphReadingModeMeta || ((value) => ({ key: String(value || "argument").trim() || "argument", label: String(value || "argument").trim() || "argument" }));
+  if (mode === "argument") {
+    setGraphRelationTypeFilter("meaningful");
+  } else if (mode === "structure") {
+    setGraphRelationTypeFilter("index");
+  } else {
+    return { mode, changed: false, meta: graphReadingModeMeta("argument") };
+  }
+  graphState.researchNavigatorHidden = false;
+  graphState.researchNavigatorTouched = false;
+  return { mode, changed: true, meta: graphReadingModeMeta(mode) };
+}
+
+export function applyGraphWheelZoomInteraction(graphState = {}, deltaY = 0, deps = {}) {
+  return applyGraphZoomStepInteraction(graphState, Number(deltaY || 0) > 0 ? -1 : 1, deps);
+}

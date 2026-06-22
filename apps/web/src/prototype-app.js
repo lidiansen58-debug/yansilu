@@ -407,6 +407,9 @@ import {
   applyGraphFocusContextModeInteraction,
   applyGraphFocusDepthInteraction,
   applyGraphReadingLensInteraction,
+  applyGraphRelationTypeFilterInteraction,
+  applyGraphViewModeInteraction,
+  applyGraphWheelZoomInteraction,
   applyGraphZoomOptionInteraction,
   applyGraphZoomStepInteraction
 } from "./graph-toolbar-interaction-controller.js";
@@ -19148,10 +19151,12 @@ $("graphCanvas")?.addEventListener("change", (event) => {
   if (!control) return;
   const key = control.dataset.graphFilter;
   if (key !== "relationType") return;
-  setGraphRelationTypeFilter(String(control.value || "all").trim() || "all");
+  const result = applyGraphRelationTypeFilterInteraction(graphState, control.value, {
+    setGraphRelationTypeFilter,
+    graphRelationTypeLabel
+  });
   renderGraphPanel();
-  const typeText = graphRelationTypeLabel(graphState.filters.relationType);
-  setStatus(`图谱关系筛选已更新：${graphState.filters.relationType === "all" ? "全部关系" : typeText}`, "ok");
+  setStatus(`图谱关系筛选已更新：${result.label}`, "ok");
 });
 
 $("graphCanvas")?.addEventListener("input", (event) => {
@@ -19177,18 +19182,13 @@ $("graphCanvas")?.addEventListener("click", (event) => {
   }
   const toggle = event.target.closest("[data-graph-view-mode]");
   if (!toggle) return;
-  const mode = String(toggle.dataset.graphViewMode || "").trim().toLowerCase();
-  if (mode === "argument") {
-    setGraphRelationTypeFilter("meaningful");
-  } else if (mode === "structure") {
-    setGraphRelationTypeFilter("index");
-  } else {
-    return;
-  }
-  graphState.researchNavigatorHidden = false;
-  graphState.researchNavigatorTouched = false;
+  const result = applyGraphViewModeInteraction(graphState, toggle.dataset.graphViewMode, {
+    setGraphRelationTypeFilter,
+    graphReadingModeMeta
+  });
+  if (!result.changed) return;
   renderGraphPanel();
-  setStatus(`图谱查看方式已切换为：${graphReadingModeMeta(mode).label}`, "ok");
+  setStatus(`图谱查看方式已切换为：${result.meta.label}`, "ok");
 });
 
 $("graphCanvas")?.addEventListener(
@@ -19197,9 +19197,11 @@ $("graphCanvas")?.addEventListener(
     const viewport = event.target.closest(".graph-map-viewport");
     if (!viewport) return;
     event.preventDefault();
-    const nextZoom = graphZoomStep(graphState.zoom, event.deltaY > 0 ? -1 : 1);
-    if (nextZoom.key === graphState.zoom) return;
-    graphState.zoom = nextZoom.key;
+    const result = applyGraphWheelZoomInteraction(graphState, event.deltaY, {
+      graphZoomOption,
+      graphZoomStep
+    });
+    if (!result.changed) return;
     renderGraphPanel();
     requestAnimationFrame(centerGraphViewportIfZoomed);
   },

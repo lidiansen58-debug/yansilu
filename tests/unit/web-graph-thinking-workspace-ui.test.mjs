@@ -36,6 +36,9 @@ import {
   applyGraphFocusContextModeInteraction,
   applyGraphFocusDepthInteraction,
   applyGraphReadingLensInteraction,
+  applyGraphRelationTypeFilterInteraction,
+  applyGraphViewModeInteraction,
+  applyGraphWheelZoomInteraction,
   applyGraphZoomOptionInteraction,
   applyGraphZoomStepInteraction
 } from "../../apps/web/src/graph-toolbar-interaction-controller.js";
@@ -1996,6 +1999,54 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
   }), {
     mode: "writing",
     meta: { key: "writing", label: "看写作用途" }
+  });
+
+  assert.deepEqual(applyGraphRelationTypeFilterInteraction(graphState, "supports", {
+    setGraphRelationTypeFilter: (value) => {
+      graphState.filters = { relationType: value };
+      return value;
+    },
+    graphRelationTypeLabel: (value) => value === "supports" ? "支持" : value
+  }), {
+    relationType: "supports",
+    label: "支持"
+  });
+  assert.equal(graphState.filters.relationType, "supports");
+
+  assert.deepEqual(applyGraphRelationTypeFilterInteraction(graphState, "", {
+    setGraphRelationTypeFilter: (value) => {
+      graphState.filters = { relationType: value };
+      return value;
+    }
+  }), {
+    relationType: "all",
+    label: "全部关系"
+  });
+
+  const viewModeCalls = [];
+  graphState.researchNavigatorHidden = true;
+  graphState.researchNavigatorTouched = true;
+  assert.deepEqual(applyGraphViewModeInteraction(graphState, "structure", {
+    setGraphRelationTypeFilter: (value) => viewModeCalls.push(value),
+    graphReadingModeMeta: (value) => ({ key: value, label: value === "structure" ? "看主题分布" : "看观点关系" })
+  }), {
+    mode: "structure",
+    changed: true,
+    meta: { key: "structure", label: "看主题分布" }
+  });
+  assert.deepEqual(viewModeCalls, ["index"]);
+  assert.equal(graphState.researchNavigatorHidden, false);
+  assert.equal(graphState.researchNavigatorTouched, false);
+
+  assert.equal(applyGraphViewModeInteraction(graphState, "unknown", {
+    graphReadingModeMeta: (value) => ({ key: value, label: value })
+  }).changed, false);
+
+  graphState.zoom = "read";
+  assert.deepEqual(applyGraphWheelZoomInteraction(graphState, -1, zoomDeps), {
+    zoom: "detail",
+    meta: { key: "detail", label: "细看" },
+    changed: true
   });
 });
 
