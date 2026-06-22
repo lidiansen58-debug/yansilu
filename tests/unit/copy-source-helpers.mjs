@@ -51,6 +51,10 @@ export function readSystemMessagesShellSource() {
   return readRepoText("apps", "web", "src", "system-messages-shell.js");
 }
 
+export function readAppShellStateChangeDepsSource() {
+  return readRepoText("apps", "web", "src", "app-shell-state-change-deps.js");
+}
+
 export function readGraphFocusContextPanelSource() {
   return readRepoText("apps", "web", "src", "graph-focus-context-panel.js");
 }
