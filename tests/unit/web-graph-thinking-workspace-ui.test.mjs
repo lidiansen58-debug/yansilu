@@ -160,6 +160,10 @@ function readGraphVisualMapRuntimeState() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-runtime-state.js"), "utf8");
 }
 
+function readGraphVisualMapController() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-controller.js"), "utf8");
+}
+
 function readGraphCanvasEventRouter() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-canvas-event-router.js"), "utf8");
 }
@@ -1897,6 +1901,7 @@ test("graph density hint is temporary and does not stay on the map", () => {
 
 test("graph zoom controls include both stepper directions and preset levels", () => {
   const source = readPrototypeApp();
+  const visualMapControllerSource = readGraphVisualMapController();
   const html = readPrototypeHtml();
   const zoomMarkup = renderGraphZoomStepperView({
     zoomKey: "read",
@@ -1918,7 +1923,7 @@ test("graph zoom controls include both stepper directions and preset levels", ()
   assert.match(zoomMarkup, /data-graph-zoom-step="1" aria-label="放大图谱"/);
   assert.match(zoomMarkup, /data-graph-zoom-option="read"/);
   assert.match(source, /if \(key === "hand"\) \{/);
-  assert.match(source, /renderGraphVisualMapShellView/);
+  assert.match(visualMapControllerSource, /renderGraphVisualMapShellView/);
   assert.doesNotMatch(source, /graph-pan-hint[\s\S]{0,180}<span>拖动<\/span>/);
   assert.match(html, /\.graph-pan-hint \{[\s\S]*width: 36px;[\s\S]*cursor: grab;/);
   assert.equal(moduleGraphZoomStep("read", -1).key, "fit");

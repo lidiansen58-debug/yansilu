@@ -55,6 +55,10 @@ export function readGraphFocusContextPanelSource() {
   return readRepoText("apps", "web", "src", "graph-focus-context-panel.js");
 }
 
+export function readGraphVisualMapControllerSource() {
+  return readRepoText("apps", "web", "src", "graph-visual-map-controller.js");
+}
+
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
