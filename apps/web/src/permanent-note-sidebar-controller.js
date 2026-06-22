@@ -1,6 +1,7 @@
 import {
   defaultPermanentRelationWorkspaceState,
   normalizePermanentRelationWorkspaceState,
+  permanentRelationCandidateRationale,
   permanentRelationWorkspaceNextAiCandidate,
   resetPermanentRelationWorkspaceResult
 } from "./permanent-relation-workspace-model.js";
@@ -16,7 +17,7 @@ export function permanentRelationWorkspaceFocusSelector({
   if (selectedTargetNoteId) return '[data-permanent-relation-field="rationale"]';
   return mode === "manual"
     ? "[data-permanent-relation-target-search]"
-    : "[data-permanent-relation-ai-target]";
+    : "[data-permanent-relation-ai-select]";
 }
 
 export class PermanentNoteSidebarController {
@@ -39,7 +40,7 @@ export class PermanentNoteSidebarController {
     const relationType = String(options.relationType ? entryRoute.relationType : firstCandidate?.relationType || host.relationCreateDefaultType(note) || "associated_with")
       .trim()
       .toLowerCase();
-    const rationale = String(entryRoute.rationaleDraft || firstCandidate?.rationaleDraft || "").trim();
+    const rationale = String(entryRoute.rationaleDraft || permanentRelationCandidateRationale(firstCandidate) || "").trim();
     const insightQuestion = String(entryRoute.insightQuestionDraft || firstCandidate?.insightQuestionDraft || "").trim();
     host.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
       ...defaultPermanentRelationWorkspaceState(note.id),
@@ -92,7 +93,7 @@ export class PermanentNoteSidebarController {
       mode: "ai",
       selectedTargetNoteId: targetId,
       relationType: candidate.relationType || "associated_with",
-      rationale: candidate.rationaleDraft || "",
+      rationale: permanentRelationCandidateRationale(candidate),
       insightQuestion: candidate.insightQuestionDraft || ""
     }));
   }
@@ -130,13 +131,13 @@ export class PermanentNoteSidebarController {
       mode: nextCandidate ? "ai" : "manual",
       selectedTargetNoteId: nextCandidate?.targetNoteId || "",
       relationType: nextCandidate?.relationType || host.relationCreateDefaultType(note),
-      rationale: nextCandidate?.rationaleDraft || "",
+      rationale: permanentRelationCandidateRationale(nextCandidate),
       insightQuestion: nextCandidate?.insightQuestionDraft || "",
       entryRoute: relationEntryRouteForPermanentWorkspaceContinuation(note.id, host.permanentRelationWorkspaceState.entryRoute, {
         mode: nextCandidate ? "ai" : "manual",
         targetNoteId: nextCandidate?.targetNoteId || "",
         relationType: nextCandidate?.relationType || host.relationCreateDefaultType(note),
-        rationaleDraft: nextCandidate?.rationaleDraft || "",
+        rationaleDraft: permanentRelationCandidateRationale(nextCandidate),
         insightQuestionDraft: nextCandidate?.insightQuestionDraft || ""
       }),
       notice: nextCandidate ? "" : "没有新的 AI 推荐，可以手动搜索目标笔记。"

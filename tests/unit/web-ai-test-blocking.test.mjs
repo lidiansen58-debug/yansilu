@@ -129,7 +129,7 @@ test("local AI setup keeps bootstrap behind explicit settings actions", () => {
   assert.match(appSource, /模型档位/);
   assert.match(appSource, /数据位置：试运行内容会发送到在线 AI 服务/);
   assert.match(htmlSource, /settings-ai-topline/);
-  assert.match(htmlSource, /不确定时保持自动；处理私密材料时切到仅本地/);
+  assert.match(htmlSource, /不确定时保持自动；处理私密材料时切到“只用本地模型”/);
   assert.doesNotMatch(htmlSource, /需要帮助时，从这三件事开始/);
   assert.doesNotMatch(htmlSource, /data-settings-support-item="desktop-help"/);
   assert.doesNotMatch(htmlSource, /data-settings-support-item="feedback"/);

@@ -253,8 +253,8 @@ export function createGraphIsolatedRelationController({
         missing_manual_target: "请先搜索并选择一条目标笔记。",
         missing_ai_target: "请先选择一条 AI 推荐目标。",
         self_relation: "不能把笔记关联到它自己，请重新选择目标笔记。",
-        missing_rationale: "请写一句关联理由。",
-        placeholder_rationale: "请把关联理由写完整，不要保留模板占位。"
+        missing_rationale: "请写一句为什么相关。",
+        placeholder_rationale: "请把关系说明写完整，不要保留模板占位。"
       };
       graphIsolatedRelationFormError(form, messages[validation.errorKey] || "");
       return false;

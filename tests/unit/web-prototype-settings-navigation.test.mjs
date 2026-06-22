@@ -39,8 +39,8 @@ test("prototype settings navigation derives chrome from explicit state dependenc
     },
     settingsVaultPathMissing: () => false,
     settingsLeafLabel: (value) => String(value).split("\\").at(-1),
-    settingsAiOverviewSummary: () => ({ value: "本地私密", meta: "仅本地 / 自动" }),
-    settingsAiRuntimeModeLabel: () => "仅本地",
+    settingsAiOverviewSummary: () => ({ value: "本地私密", meta: "只用本地模型 / 自动" }),
+    settingsAiRuntimeModeLabel: () => "只用本地模型",
     feedbackRepository: "owner/repo",
     feedbackRepositoryReady: true
   });
@@ -48,7 +48,7 @@ test("prototype settings navigation derives chrome from explicit state dependenc
   assert.equal(chrome.workspace.badge, "已初始化");
   assert.equal(chrome.workspace.meta, "Main");
   assert.equal(chrome.templates.badge, "1 个草稿");
-  assert.equal(chrome.ai.badge, "仅本地");
+  assert.equal(chrome.ai.badge, "只用本地模型");
   assert.equal(chrome.automation.badge, "5");
   assert.equal(chrome.support.meta, "owner/repo");
 });
@@ -76,7 +76,7 @@ test("prototype settings navigation keeps user-facing helper copy stable", () =>
     settingsSectionGuidanceMap({
       settingsState: { vault: { vaultPath: "/vault/main" } },
       settingsLeafLabel: () => "main",
-      settingsAiOverviewSummary: () => ({ value: "默认自动" })
+      settingsAiOverviewSummary: () => ({ value: "日常整理" })
     }).workspace.focus,
     /main/
   );

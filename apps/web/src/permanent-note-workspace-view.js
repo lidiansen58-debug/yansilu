@@ -26,7 +26,7 @@ export function syncPermanentWorkspaceTabElements(workspace, tab = "viewpoint") 
 export function renderPermanentWorkspaceTabs(tabs = [], activeTab = "viewpoint") {
   const selectedTab = normalizePermanentWorkspaceTab(activeTab);
   return `
-    <div class="permanent-workspace-tabs" role="tablist" aria-label="永久笔记整理步骤">
+    <div class="permanent-workspace-tabs" role="tablist" aria-label="永久笔记工作区">
       ${tabs
         .map(({ key, label, meta }) => {
           const active = key === selectedTab;
@@ -71,8 +71,8 @@ export function renderPermanentNoteWorkspace({
     <section class="inspector-deferred-workspace permanent-note-workspace" data-deferred-workspace data-permanent-note-workspace data-note-id="${escapeHtml(note.id)}">
       <div class="inspector-section-head permanent-workspace-head">
         <div>
-          <div class="inspector-section-title">永久笔记整理</div>
-          <div class="inspector-section-note">关联、观点提纯和写作准备分开处理；这里只给一个主动动作。</div>
+          <div class="inspector-section-title">永久笔记工作区</div>
+          <div class="inspector-section-note">一次只处理一个任务：先选上方标签，再完成当前动作。</div>
         </div>
       </div>
       <div class="inspector-deferred-body">

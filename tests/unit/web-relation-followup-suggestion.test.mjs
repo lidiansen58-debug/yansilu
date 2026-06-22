@@ -36,7 +36,7 @@ test("relation followup suggestion asks for reason work only when a saved relati
   assert.match(fnSource, /if \(!cleanNoteId \|\| !cleanRelationId\) return null;/);
   assert.match(fnSource, /relationQualityEvaluation\(rationale, insightQuestion\)/);
   assert.match(fnSource, /if \(quality\.level === "strong"\) return null;/);
-  assert.match(fnSource, /这条关系理由还需要再具体一点/);
+  assert.match(fnSource, /这条关系说明还需要再具体一点/);
   assert.match(fnSource, /这条关系还可以补一个后续问题/);
   assert.match(fnSource, /这条桥接关系建议补一个边界/);
   assert.match(fnSource, /actionLabel: "补理由"/);

@@ -7,6 +7,7 @@ import {
 } from "./editor-relation-helpers.js";
 import {
   normalizePermanentRelationWorkspaceState,
+  permanentRelationCandidateRationale,
   permanentRelationWorkspaceCanSave,
   permanentRelationWorkspaceExistingLink,
   permanentRelationWorkspaceExistingLinks,
@@ -111,39 +112,40 @@ function renderAiCandidates({ state, candidates = [], relations = null, notes = 
   if (!candidates.length) {
     return `
       <div class="permanent-relation-empty">
-        <strong>暂时没有推荐</strong>
-        <p>可以换用手动搜索，直接选一条你认为相关的笔记。</p>
+        <strong>暂时没有可靠推荐</strong>
+        <p>可以切到“手动搜索”，直接选择你确认相关的笔记。</p>
         <button class="mini-btn" type="button" data-permanent-relation-action="run-ai">重新推荐</button>
       </div>
     `;
   }
+  const selectedId = cleanText(state.selectedTargetNoteId) || cleanText(candidates[0]?.targetNoteId);
+  const selectedCandidate = candidates.find((candidate) => cleanText(candidate.targetNoteId) === selectedId) || candidates[0] || null;
+  const selectedTarget = selectedCandidate ? noteById(notes, selectedCandidate.targetNoteId) : null;
+  const selectedTitle = selectedTarget?.title || selectedCandidate?.targetTitle || selectedCandidate?.targetNoteId || "";
+  const selectedScore = selectedCandidate ? candidateScoreText(selectedCandidate) : "";
+  const selectedReason = selectedCandidate ? candidateReasonText(selectedCandidate) : "";
+  const existing = selectedCandidate ? permanentRelationWorkspaceExistingLink(relations, state.noteId, selectedCandidate.targetNoteId) : null;
   return `
-    <div class="permanent-relation-candidate-list">
-      ${candidates
-        .map((candidate) => {
-          const active = candidate.targetNoteId === state.selectedTargetNoteId;
-          const existing = permanentRelationWorkspaceExistingLink(relations, state.noteId, candidate.targetNoteId);
-          const target = noteById(notes, candidate.targetNoteId);
-          const title = target?.title || candidate.targetTitle || candidate.targetNoteId;
-          const meta = noteMeta(target || candidate, deps);
-          const score = candidateScoreText(candidate);
-          const reason = candidateReasonText(candidate);
-          return `
-            <button class="permanent-relation-candidate ${active ? "is-active" : ""}" type="button" data-permanent-relation-ai-target="${escapeHtml(candidate.targetNoteId)}">
-              <div class="permanent-relation-candidate-top">
-                <strong>${escapeHtml(title)}</strong>
-                ${score ? `<span>${escapeHtml(score)}</span>` : ""}
-              </div>
-              ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
-              <p>${escapeHtml(reason)}</p>
-              <div class="permanent-relation-candidate-tags">
-                <span>建议：${escapeHtml(relationTypeLabel(candidate.relationType))}</span>
-                ${existing ? "<span>已有关联</span>" : ""}
-              </div>
-            </button>
-          `;
-        })
-        .join("")}
+    <div class="permanent-relation-ai-picker">
+      <label class="permanent-relation-search">
+        <span>AI 推荐目标</span>
+        <select data-permanent-relation-ai-select>
+          ${candidates
+            .map((candidate) => {
+              const target = noteById(notes, candidate.targetNoteId);
+              const title = target?.title || candidate.targetTitle || candidate.targetNoteId;
+              const score = candidateScoreText(candidate);
+              return `<option value="${escapeHtml(candidate.targetNoteId)}"${candidate.targetNoteId === selectedId ? " selected" : ""}>${escapeHtml(`${title}${score ? ` · ${score}` : ""}`)}</option>`;
+            })
+            .join("")}
+        </select>
+      </label>
+      <div class="permanent-relation-selected-candidate">
+        <strong>${escapeHtml(selectedTitle)}</strong>
+        ${selectedScore ? `<span>相关性 ${escapeHtml(selectedScore)}</span>` : ""}
+        <p>${escapeHtml(selectedReason)}</p>
+        ${existing ? "<small>这两条笔记已经有正式关系，可以在右侧修改后保存。</small>" : "<small>AI 只提供候选；保存前请确认关系类型和理由。</small>"}
+      </div>
     </div>
   `;
 }
@@ -208,8 +210,20 @@ export function renderPermanentRelationWorkspace({
   notes = [],
   deps = {}
 } = {}) {
-  const workspaceState = normalizePermanentRelationWorkspaceState(state, note?.id);
+  let workspaceState = normalizePermanentRelationWorkspaceState(state, note?.id);
   if (!workspaceState.open || !note?.id) return "";
+  const defaultAiCandidate = workspaceState.mode === "ai" && !workspaceState.selectedTargetNoteId
+    ? aiCandidates[0] || null
+    : null;
+  if (defaultAiCandidate) {
+    workspaceState = normalizePermanentRelationWorkspaceState({
+      ...workspaceState,
+      selectedTargetNoteId: defaultAiCandidate.targetNoteId,
+      relationType: workspaceState.relationType || defaultAiCandidate.relationType || "associated_with",
+      rationale: workspaceState.rationale || permanentRelationCandidateRationale(defaultAiCandidate),
+      insightQuestion: workspaceState.insightQuestion || defaultAiCandidate.insightQuestionDraft || ""
+    }, note.id);
+  }
   const selectedTarget = permanentRelationWorkspaceSelectedTarget({
     state: workspaceState,
     aiCandidates,
@@ -221,14 +235,19 @@ export function renderPermanentRelationWorkspace({
   const softBlockedReasons = new Set(["missing_rationale"]);
   const saveDisabled = workspaceState.saveState === "saving" || (!canSave.ok && !softBlockedReasons.has(canSave.reason));
   const explicitRelationCount = relations ? permanentRelationWorkspaceExistingLinks(relations).length : 0;
+  const explicitRelationText = relations
+    ? explicitRelationCount > 0
+      ? `${explicitRelationCount} 条已保存关系`
+      : "还没有保存关系"
+    : "关系读取中";
 
   return `
     <div class="permanent-relation-overlay" data-permanent-relation-workspace data-note-id="${escapeHtml(note.id)}" role="dialog" aria-modal="true" aria-labelledby="permanentRelationWorkspaceTitle">
       <div class="permanent-relation-panel">
         <header class="permanent-relation-head">
           <div>
-            <strong id="permanentRelationWorkspaceTitle">整理关系</strong>
-            <span>选择目标笔记，说明是什么关系，以及为什么要关联。</span>
+            <strong id="permanentRelationWorkspaceTitle">建立笔记关联</strong>
+            <span>选择目标笔记、关系类型和理由；保存后仍留在这个窗口里继续处理。</span>
           </div>
           <button class="mini-btn is-ghost" type="button" data-permanent-relation-action="close">关闭</button>
         </header>
@@ -239,7 +258,7 @@ export function renderPermanentRelationWorkspace({
             <small>${escapeHtml(noteMeta(note, deps))}</small>
             <p>${escapeHtml(noteSummary(note))}</p>
             <div class="permanent-relation-source-status">
-              <span>${escapeHtml(relations ? `${explicitRelationCount} 条已保存关系` : "关系读取中")}</span>
+              <span>${escapeHtml(explicitRelationText)}</span>
             </div>
           </aside>
           <section class="permanent-relation-picker">

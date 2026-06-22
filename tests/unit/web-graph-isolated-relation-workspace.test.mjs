@@ -113,7 +113,7 @@ test("graph isolated relation workspace preserves manual draft while AI lookup r
         targetNoteId: "target",
         manualSearchText: "Target",
         relationType: "bridges",
-        rationale: "用户已经写好的关联理由，不应该被刷新吃掉。",
+        rationale: "用户已经写好的关系说明，不应该被刷新吃掉。",
         rationaleSource: "user",
         insightQuestion: "它们之间缺什么桥接判断？"
       },
@@ -127,7 +127,7 @@ test("graph isolated relation workspace preserves manual draft while AI lookup r
   assert.match(html, /Target Note/);
   assert.match(html, /value="bridges" selected/);
   assert.match(html, /data-graph-rationale-source="user"/);
-  assert.match(html, /用户已经写好的关联理由，不应该被刷新吃掉。/);
+  assert.match(html, /用户已经写好的关系说明，不应该被刷新吃掉。/);
   assert.match(html, /它们之间缺什么桥接判断？/);
 });
 

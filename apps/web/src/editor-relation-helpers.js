@@ -360,7 +360,7 @@ export function relationFollowupSuggestionForDraft({
     : missingQuestion
       ? `这条关系还可以补一个后续问题${targetSuffix}`
       : thinReason
-        ? `这条关系理由还需要再具体一点${targetSuffix}`
+        ? `这条关系说明还需要再具体一点${targetSuffix}`
         : `这条关系可以再补证据或边界${targetSuffix}`;
 
   return {

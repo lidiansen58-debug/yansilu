@@ -131,6 +131,7 @@ import {
   defaultPermanentRelationWorkspaceState,
   normalizePermanentRelationAiCandidates,
   normalizePermanentRelationWorkspaceState,
+  permanentRelationCandidateRationale,
   permanentRelationWorkspaceCanSave,
   permanentRelationWorkspaceErrorText,
   permanentRelationWorkspaceNextAiCandidate,
@@ -983,35 +984,37 @@ export class EditorPane {
       : null;
     const hasGenerated = Boolean(generatedOriginalId);
 
-    let statusLabel = hasGenerated ? "已转为永久笔记" : "待转永久";
-    let hint = "先把这条材料沉淀成永久笔记，再继续扩展关联和写作。";
-    let detail = "这里只保留下一步最需要做的动作。";
-    let actionLabel = "选择目录并创建";
+    let statusLabel = hasGenerated ? "已生成永久笔记" : "还没有生成永久笔记";
+    let hint = "材料笔记这里只做一件事：判断是否要沉淀成永久笔记。";
+    let detail = "生成后再到永久笔记里做关联、观点提纯和写作准备。";
+    let actionLabel = "生成永久笔记";
 
     if (noteType === "literature") {
       const completion = this.literatureCompletionState(note);
-      statusLabel = hasGenerated ? "已转为永久笔记" : "文献待转";
+      statusLabel = hasGenerated ? "已生成永久笔记" : "还没有生成永久笔记";
       hint = hasGenerated
-        ? "这条文献笔记已经对应到一条永久笔记，接下来去那条判断继续完善会更顺。"
-        : completion.hint;
+        ? "这条文献已经生成永久笔记，后续整理请回到那条判断。"
+        : completion.readyForOriginal
+          ? "这条文献已经具备生成永久笔记的条件。"
+          : completion.hint;
       detail = hasGenerated
         ? "文献笔记继续保留出处和转述，不需要在这里重复处理。"
-        : "选择保存位置，把材料写成可独立阅读的判断。";
+        : "把文献材料写成一条可独立阅读的长期判断。";
     } else {
       hint = hasGenerated
-        ? "这条随笔已经对应到一条永久笔记，接下来去那条判断继续完善会更顺。"
-        : "随笔只负责抓住线索；当它值得保留时，再沉淀成永久笔记。";
-      statusLabel = hasGenerated ? "已转为永久笔记" : "随笔待转";
+        ? "这条随笔已经生成永久笔记，后续整理请回到那条判断。"
+        : "随笔只负责抓住线索；值得保留时，再生成永久笔记。";
+      statusLabel = hasGenerated ? "已生成永久笔记" : "还没有生成永久笔记";
       detail = hasGenerated
         ? "这条随笔会继续保留原始线索，不需要在这里重复整理。"
-        : "选择保存位置，把想法写成可长期保留的判断。";
+        : "把这条想法写成可长期保留、可被关联的判断。";
     }
 
     return `
       <section class="inspector-section semantic-relations-section" data-source-note-flow-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">创建永久笔记</div>
+            <div class="inspector-section-title">${hasGenerated ? "已生成永久笔记" : "生成永久笔记"}</div>
             <div class="inspector-section-note">${escapeHtml(hint)}</div>
           </div>
           <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
@@ -1024,9 +1027,9 @@ export class EditorPane {
                   <strong>随笔清理</strong>
                   <span>建议处理</span>
                 </div>
-                <div class="related-empty">随笔应定期清理，或沉淀为永久笔记。</div>
+                <div class="related-empty">这条随笔如果值得继续保留，就生成永久笔记；如果只是临时记录，可以稍后清理。</div>
                 <div class="semantic-relation-actions">
-                  <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">提炼为永久笔记</button>
+                  <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">生成永久笔记</button>
                   <button class="mini-btn" type="button" data-source-note-action="dismiss-fleeting-cleanup">标记稍后清理</button>
                 </div>
               </div>
@@ -1044,7 +1047,13 @@ export class EditorPane {
         </div>
         ${
           hasGenerated
-            ? ""
+            ? generatedOriginal?.id
+              ? `
+                <div class="semantic-relation-card-actions">
+                  <button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(generatedOriginal.id)}">打开永久笔记</button>
+                </div>
+              `
+              : ""
             : `
               <div class="semantic-relation-card-actions">
                 <button class="mini-btn primary create-original-cta" type="button" data-source-note-action="record-permanent">${escapeHtml(actionLabel)}</button>
@@ -3656,6 +3665,9 @@ export class EditorPane {
     overlay.oninput = (event) => {
       routeEditorRelationInput(this, event);
     };
+    overlay.onchange = (event) => {
+      routeEditorRelationInput(this, event);
+    };
     overlay.onsubmit = (event) => {
       routeEditorRelationSubmit(this, event);
     };
@@ -4075,7 +4087,7 @@ export class EditorPane {
     const rationale = form.querySelector('textarea[name="rationale"]');
     const insight = form.querySelector('textarea[name="insightQuestion"]');
     if (action === "append") {
-      if (rationale) rationale.value = this.appendTemplateDraft(rationale.value, rationaleDraft, label, "备选关系理由");
+      if (rationale) rationale.value = this.appendTemplateDraft(rationale.value, rationaleDraft, label, "备选关系说明");
       if (insight) insight.value = this.appendTemplateDraft(insight.value, insightDraft, label, "备选追问");
     } else {
       if (rationale) rationale.value = rationaleDraft;
@@ -4195,7 +4207,7 @@ export class EditorPane {
           mode: "ai",
           selectedTargetNoteId: firstCandidate?.targetNoteId || this.permanentRelationWorkspaceState.selectedTargetNoteId,
           relationType: firstCandidate?.relationType || this.permanentRelationWorkspaceState.relationType,
-          rationale: firstCandidate?.rationaleDraft || this.permanentRelationWorkspaceState.rationale,
+          rationale: permanentRelationCandidateRationale(firstCandidate) || this.permanentRelationWorkspaceState.rationale,
           insightQuestion: firstCandidate?.insightQuestionDraft || this.permanentRelationWorkspaceState.insightQuestion,
           saveState: "idle",
           error: "",
@@ -4506,7 +4518,7 @@ export class EditorPane {
     }
     if (connectedCount > 0 && thinExplicitRelationCount > 0) {
       return {
-        nextStep: "补关系理由",
+        nextStep: "补关系说明",
         summary: `已经有 ${explicitRelationCount} 条正式关系，但其中还有 ${thinExplicitRelationCount} 条理由偏薄。先把“为什么成立”写具体，再继续推进主题或写作。`
       };
     }
@@ -4519,7 +4531,7 @@ export class EditorPane {
       }
       if (wikilinkCount > 0) {
         return {
-          nextStep: "补关系理由",
+          nextStep: "补关系说明",
           summary: "已经有正文链接线索，下一步把“为什么相关”写成正式关系。"
         };
       }
@@ -4835,11 +4847,11 @@ export class EditorPane {
           action: "relations",
           actionLabel:
             thinExplicitRelationCount > 0
-              ? "补关系理由"
+              ? "补关系说明"
               : wikilinkCount > 0
                 ? Number(overview.tagRelatedCount || 0) > 0
                   ? "确认成正式关系"
-                  : "补关系理由"
+                  : "补关系说明"
                 : Number(overview.tagRelatedCount || 0) > 0
                   ? "从标签线索补关系"
                   : "关联一条笔记"
@@ -4861,26 +4873,11 @@ export class EditorPane {
       }
     ];
     const primaryStep = steps.find((step) => step.action === primaryAction) || steps[0];
-    const viewpointStatus = !thesis ? "待提纯" : summary.length < 3 ? `压缩 ${summary.length}/3` : confirmed ? "已确认" : "待确认";
-    const relationStatus =
-      relationState === "loading"
-        ? "读取中"
-        : relationState === "error"
-          ? "读取失败"
-          : explicitRelationCount > 0
-            ? thinExplicitRelationCount > 0
-              ? `${explicitRelationCount} 条，${thinExplicitRelationCount} 条待补理由`
-              : `${explicitRelationCount} 条`
-            : Number(overview.wikilinkCount || 0) + Number(overview.tagRelatedCount || 0) > 0
-              ? `候选 ${Number(overview.wikilinkCount || 0) + Number(overview.tagRelatedCount || 0)} 条`
-              : "待建立";
-    const writingStatus = writingStep.status;
-
     return `
       <section class="inspector-section permanent-workspace-current" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">下一步</div>
+            <div class="inspector-section-title">当前建议</div>
             <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
           </div>
         </div>
@@ -4891,20 +4888,6 @@ export class EditorPane {
             <p>${escapeHtml(primaryStep.hint || noteSummary)}</p>
           </div>
           <button class="mini-btn primary" type="button" data-note-main-route-action="${escapeHtml(primaryStep.action)}"${primaryStep.focusTarget ? ` data-note-main-route-focus="${escapeHtml(primaryStep.focusTarget)}"` : ""}${primaryStep.routeMode ? ` data-note-main-route-mode="${escapeHtml(primaryStep.routeMode)}"` : ""}>${escapeHtml(primaryStep.actionLabel)}</button>
-        </div>
-        <div class="main-path-progress" aria-label="整理进度">
-          <span>
-            <b>观点提纯</b>
-            <em>${escapeHtml(viewpointStatus)}</em>
-          </span>
-          <span>
-            <b>关联</b>
-            <em>${escapeHtml(relationStatus)}</em>
-          </span>
-          <span>
-            <b>写作准备</b>
-            <em>${escapeHtml(writingStatus)}</em>
-          </span>
         </div>
       </section>
     `;

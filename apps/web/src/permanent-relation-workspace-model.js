@@ -75,6 +75,12 @@ export function resetPermanentRelationWorkspaceResult(state = {}) {
   };
 }
 
+export function permanentRelationCandidateRationale(candidate = {}) {
+  const source = candidate && typeof candidate === "object" ? candidate : {};
+  const rationale = cleanText(source.rationaleDraft || source.rationale || source.aiRationale || source.reviewQuestion);
+  return rationale && !/^本地初判发现/.test(rationale) ? rationale : "";
+}
+
 export function permanentRelationCandidateEndpoint(candidate = {}, sourceNoteId = "") {
   const sourceId = cleanId(sourceNoteId);
   const rawSource = cleanId(

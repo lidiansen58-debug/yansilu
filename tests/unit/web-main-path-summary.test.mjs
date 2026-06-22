@@ -66,7 +66,7 @@ test("main-path summary distinguishes wikilink-only notes from fully isolated no
     }
   );
 
-  assert.equal(result.nextStep, "补关系理由");
+  assert.equal(result.nextStep, "补关系说明");
   assert.match(result.summary, /正文链接/);
   assert.doesNotMatch(result.summary, /wikilink/);
   assert.match(result.summary, /正式关系/);
@@ -143,6 +143,7 @@ test("main-path card relation badge counts only explicit relations", () => {
     }
   );
 
-  assert.match(html, /<b>关联<\/b>\s*<em>候选 1 条<\/em>/);
+  assert.match(html, /data-main-path-next-action="relations"/);
+  assert.doesNotMatch(html, /main-path-progress/);
   assert.doesNotMatch(html, /正式关系 1/);
 });

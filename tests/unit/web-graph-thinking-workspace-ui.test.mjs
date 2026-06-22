@@ -470,7 +470,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /if \(code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND"\) \{/);
   assert.match(source, /const removed = removePotentialRelationCandidateFromGraphAnalysis\(candidate\);/);
   assert.match(source, /这条潜在关联已不在当前图谱范围内，已从候选列表移除/);
-  assert.match(source, /else setStatus\(`生成关联理由失败：\$\{String\(error\?\.\message \|\| error\)\}`\, "warn"\);/);
+  assert.match(source, /else setStatus\(`生成关系说明失败：\$\{String\(error\?\.\message \|\| error\)\}`\, "warn"\);/);
   assert.match(source, /mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)/);
   assert.match(source, /function graphPotentialRelationNeedsConfirmation\(candidate = \{\}\) \{/);
   assert.match(source, /data-graph-ai-refine-confirm/);
@@ -479,9 +479,9 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /async function triggerGraphPotentialRelationRefine\(/);
   assert.match(source, /async function confirmGraphPotentialRelationRefine\(button = null\) \{/);
   assert.match(source, /async function retryGraphPotentialRelationRefine\(button = null\) \{/);
-  assert.match(source, /正在重新生成关联理由/);
-  assert.match(source, /progressStatus: "正在按当前 AI 设置生成关联理由\.\.\."/);
-  assert.doesNotMatch(source, /setStatus\("已确认使用当前 AI 设置，正在生成关联理由", "ok"\);/);
+  assert.match(source, /正在重新生成关系说明/);
+  assert.match(source, /progressStatus: "正在按当前 AI 设置生成关系说明\.\.\."/);
+  assert.doesNotMatch(source, /setStatus\("已确认使用当前 AI 设置，正在生成关系说明", "ok"\);/);
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(\s*noteId = "",\s*\{/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlowHtml\(noteId, \{/);
   assert.match(source, /aiCandidatesForNote: graphAiRelationCandidatesForNote/);
@@ -1159,7 +1159,7 @@ test("graph relation save rejects placeholder rationales", () => {
   assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”应该关联，因为：________。"), false);
   assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”可以建立相关关系，因为它们之间存在需要一起复核的论证或主题联系。"), false);
   assert.equal(graphRelationRationaleIsActionable("因为："), false);
-  assert.equal(graphRelationRationaleIsActionable("TODO: 补充关系理由"), false);
+  assert.equal(graphRelationRationaleIsActionable("TODO: 补充关系说明"), false);
   assert.equal(graphRelationRationaleIsActionable("甲能作为乙的边界条件，因为它说明了适用范围。"), true);
 });
 

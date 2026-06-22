@@ -209,7 +209,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
           <label class="graph-isolated-field">
             <span>AI 推荐目标</span>
             <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
-              ${aiOptions || `<option value="">暂无推荐目标</option>`}
+              ${aiOptions || `<option value="">暂时没有可靠推荐</option>`}
             </select>
           </label>
           <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "重新查找推荐" : "查找推荐")}</button>
@@ -232,7 +232,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
             <select data-graph-isolated-relation-type data-graph-default-relation-type="${escapeHtml(defaultRelationType)}">${relationFormTypeOptions(defaultRelationType)}</select>
           </label>
           <label class="graph-isolated-field">
-            <span>关联理由</span>
+            <span>为什么相关</span>
             <textarea data-graph-isolated-rationale data-graph-rationale-source="${escapeHtml(defaultRationaleSource)}" rows="4" placeholder="写一句：为什么这两条笔记应该连在一起。">${escapeHtml(defaultRationale)}</textarea>
           </label>
         </div>

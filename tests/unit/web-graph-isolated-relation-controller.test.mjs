@@ -113,7 +113,7 @@ test("graph isolated relation controller keeps validation errors inside the over
 
   assert.equal(saved, false);
   assert.equal(confirmed, false);
-  assert.match(form.error.textContent, /请把关联理由写完整/);
+  assert.match(form.error.textContent, /请把关系说明写完整/);
 });
 
 test("graph isolated relation controller rejects invalid relation types before saving", async () => {
@@ -147,7 +147,7 @@ test("graph isolated relation controller does not overwrite user rationale when 
   const graphState = { isolatedRelationDraftByNoteId: {} };
   const controller = baseController({ graphState });
   const rationaleInput = createElement({
-    value: "用户自己写好的关系理由。",
+    value: "用户自己写好的关系说明。",
     attrs: { "data-graph-rationale-source": "manual" }
   });
   const button = createElement({
@@ -180,7 +180,7 @@ test("graph isolated relation controller does not overwrite user rationale when 
   controller.markRationaleUserEdited(rationaleInput);
   controller.pickManualRelationTarget(button);
 
-  assert.equal(rationaleInput.value, "用户自己写好的关系理由。");
+  assert.equal(rationaleInput.value, "用户自己写好的关系说明。");
   assert.equal(rationaleInput.getAttribute("data-graph-rationale-source"), "user");
 });
 
@@ -199,7 +199,7 @@ test("graph isolated relation controller keeps AI and manual drafts separate", (
   aiSelect.selectedOptions = [aiOption];
   const relationSelect = createElement({ value: "bridges" });
   const rationaleInput = createElement({
-    value: "用户已经写好的关联理由，不应该被 AI 覆盖。",
+    value: "用户已经写好的关系说明，不应该被 AI 覆盖。",
     attrs: { "data-graph-rationale-source": "user" }
   });
   const form = createForm({
@@ -237,7 +237,7 @@ test("graph isolated relation controller keeps AI and manual drafts separate", (
     aiRationaleSource: "ai",
     aiInsightQuestion: "AI question",
     manualRelationType: "bridges",
-    manualRationale: "用户已经写好的关联理由，不应该被 AI 覆盖。",
+    manualRationale: "用户已经写好的关系说明，不应该被 AI 覆盖。",
     manualRationaleSource: "user",
     manualInsightQuestion: "manual question"
   });

@@ -49,7 +49,7 @@ test("graph focus card action meta routes focused relation actions", () => {
   });
   assert.deepEqual(graphFocusCardActionMeta({ id: "rel_1", relationType: "supports" }), {
     action: "relations-edit",
-    label: "补关系理由"
+    label: "补关系说明"
   });
   assert.deepEqual(graphFocusCardActionMeta({ relationType: "supports" }), {
     action: "relations",
@@ -68,7 +68,7 @@ test("graph next action prefers relation followup when graph only has untyped re
   assert.equal(nextAction.action, "relations-edit");
   assert.equal(nextAction.noteId, "pn_rel_1");
   assert.equal(nextAction.relationId, "lnk_rel_1");
-  assert.equal(nextAction.actionLabel, "去补关系理由");
+  assert.equal(nextAction.actionLabel, "去补关系说明");
 });
 
 test("graph next action uses an explicit first-relation action when the graph has nodes but no edges", () => {
@@ -203,7 +203,7 @@ test("graph next action prefers strengthening thin rationale before entering the
 
   assert.equal(nextAction.action, "relations");
   assert.equal(nextAction.noteId, "pn_basic_1");
-  assert.equal(nextAction.actionLabel, "先补关系理由");
+  assert.equal(nextAction.actionLabel, "先补关系说明");
   assert.match(nextAction.note, /2/);
   assert.match(nextAction.note, /正式关系/);
   assert.match(nextAction.note, /下一步写作/);
@@ -418,6 +418,6 @@ test("graph next action prefers rationale followup over generic sparse guidance"
 
   assert.equal(nextAction.action, "relations");
   assert.equal(nextAction.noteId, "pn_basic_1");
-  assert.equal(nextAction.actionLabel, "先补关系理由");
+  assert.equal(nextAction.actionLabel, "先补关系说明");
   assert.match(nextAction.note, /理由|写作中心/);
 });

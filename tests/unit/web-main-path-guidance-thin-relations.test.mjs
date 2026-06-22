@@ -28,7 +28,7 @@ test("main-path summary distinguishes thin explicit relations from stable connec
     }
   );
 
-  assert.equal(result.nextStep, "补关系理由");
+  assert.equal(result.nextStep, "补关系说明");
   assert.match(result.summary, /正式关系/);
   assert.match(result.summary, /理由偏薄|写具体/);
 });
@@ -59,6 +59,6 @@ test("main-path card keeps relation step on reason follow-up when explicit relat
 
   assert.match(html, /data-main-path-next-action="relations"/);
   assert.match(html, /已经连上关系，但还有理由偏薄的连接/);
-  assert.match(html, /data-note-main-route-action="relations"[^>]*>补关系理由<\/button>/);
-  assert.match(html, /<b>关联<\/b> <em>2 条，1 条待补理由<\/em>/);
+  assert.match(html, /data-note-main-route-action="relations"[^>]*>补关系说明<\/button>/);
+  assert.doesNotMatch(html, /main-path-progress/);
 });

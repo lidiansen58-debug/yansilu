@@ -31,7 +31,7 @@ export function graphFocusCardActionMeta(edge = {}, contextMode = "argument") {
   if (baseAction === GRAPH_FOLLOWUP_ACTIONS.bridge) return { action: GRAPH_FOLLOWUP_ACTIONS.bridge, label: "补桥接" };
   return {
     action: hasRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
-    label: hasRelationId ? "补关系理由" : "补关系"
+    label: hasRelationId ? "补关系说明" : "补关系"
   };
 }
 
@@ -83,21 +83,21 @@ export function graphNextActionForSummary({
 
   if (thinRationaleFromNoteId) {
     return {
-      title: "先补关系理由",
+      title: "先补关系说明",
       note: `当前已经有 ${Number(thinRationaleCount || 1)} 条正式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再决定下一步写作会更稳。`,
       noteId: String(thinRationaleFromNoteId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "先补关系理由"
+      actionLabel: "先补关系说明"
     };
   }
 
     if (untypedFromNoteId) {
       return {
-        title: "补关系理由",
+        title: "补关系说明",
         note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
         noteId: String(untypedFromNoteId || "").trim(),
         action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
-        actionLabel: "去补关系理由",
+        actionLabel: "去补关系说明",
         relationId: String(untypedRelationId || "").trim()
       };
     }
