@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
+import {
+  readPrototypeAppSource,
+  readWritingPanelControllerSource
+} from "./copy-source-helpers.mjs";
 
 function extractFunctionSource(source, functionName) {
   const start = source.indexOf(`function ${functionName}`);
@@ -22,13 +25,15 @@ test("prototype writing shell keeps the main writing surfaces wired", async () =
 
 test("prototype writing shell delegates panel state building to writing workspace helpers", async () => {
   const source = await readPrototypeAppSource();
+  const panelControllerSource = await readWritingPanelControllerSource();
   const renderWritingPanelSource = extractFunctionSource(source, "renderWritingPanel");
 
   assert.match(source, /buildWritingPanelState/);
-  assert.match(renderWritingPanelSource, /const panelState = buildWritingPanelState\(/);
-  assert.match(renderWritingPanelSource, /toplineMetrics\.innerHTML = panelState\.toplineMetrics/);
-  assert.doesNotMatch(renderWritingPanelSource, /const candidateFocusSourceIds = uniqueStrings/);
-  assert.doesNotMatch(renderWritingPanelSource, /const strongModelState = describeWritingStrongModelStatus/);
+  assert.match(renderWritingPanelSource, /renderWritingPanelDom\(writingPanelDomDeps\(\)\)/);
+  assert.match(panelControllerSource, /const panelState = buildWritingPanelState\(/);
+  assert.match(panelControllerSource, /toplineMetrics\.innerHTML = panelState\.toplineMetrics/);
+  assert.doesNotMatch(panelControllerSource, /const candidateFocusSourceIds = uniqueStrings/);
+  assert.doesNotMatch(panelControllerSource, /const strongModelState = describeWritingStrongModelStatus/);
 });
 
 test("prototype writing shell keeps continuity and scaffold wording boundaries without legacy scaffold labels", async () => {

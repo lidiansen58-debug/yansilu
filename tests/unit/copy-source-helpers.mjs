@@ -39,6 +39,10 @@ export function readPrototypeWritingWorkspaceSource() {
   return readRepoText("apps", "web", "src", "prototype-writing-workspace.js");
 }
 
+export function readWritingPanelControllerSource() {
+  return readRepoText("apps", "web", "src", "writing-panel-controller.js");
+}
+
 export function readGraphFocusContextPanelSource() {
   return readRepoText("apps", "web", "src", "graph-focus-context-panel.js");
 }

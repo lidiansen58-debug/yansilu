@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { writingAnalysisSystemMessageForResult } from "../../apps/web/src/prototype-system-messages.js";
-import { readPrototypeAppSource, readPrototypeHtmlSource, readPrototypeWritingWorkspaceSource } from "./copy-source-helpers.mjs";
+import {
+  readPrototypeAppSource,
+  readPrototypeHtmlSource,
+  readPrototypeWritingWorkspaceSource,
+  readWritingPanelControllerSource
+} from "./copy-source-helpers.mjs";
 
 test("writing center exposes a book-level workbench between materials and drafts", async () => {
   const html = await readPrototypeHtmlSource();
@@ -15,11 +20,12 @@ test("writing center exposes a book-level workbench between materials and drafts
 
 test("writing center derives book structure with parts, chapters, sections, and pools", async () => {
   const source = await readPrototypeAppSource();
+  const panelControllerSource = await readWritingPanelControllerSource();
   const writingWorkspaceSource = await readPrototypeWritingWorkspaceSource();
 
   assert.match(source, /function deriveWritingBookDesign/);
   assert.match(source, /function uniqueWritingBookPoolItems/);
-  assert.match(source, /renderWritingBookDesign\(\);/);
+  assert.match(panelControllerSource, /renderWritingBookDesign\(\);/);
   assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
 });
 
