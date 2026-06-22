@@ -92,18 +92,24 @@ test("prototype graph shell delegates panel state building to a graph module", a
 test("prototype graph shell delegates visual map runtime state to a graph module", async () => {
   const source = await readPrototypeAppSource();
   const visualMapSource = extractFunctionSource(source, "renderGraphVisualMap");
+  const layoutSource = extractFunctionSource(source, "graphBuildVisualLayout");
 
   assert.match(source, /from "\.\/graph-visual-map-runtime-state\.js"/);
   assert.match(source, /from "\.\/graph-visual-map-shell-props\.js"/);
   assert.match(source, /from "\.\/graph-visual-map-chrome\.js"/);
+  assert.match(source, /from "\.\/graph-visual-layout\.js"/);
   assert.match(visualMapSource, /buildGraphVisualMapRuntimeState\(/);
   assert.match(visualMapSource, /buildGraphVisualMapChrome\(/);
   assert.match(visualMapSource, /buildGraphVisualMapShellProps\(/);
   assert.match(visualMapSource, /renderGraphVisualMapShellView\(graphShellProps, shellDeps\)/);
+  assert.match(layoutSource, /graphBuildVisualLayoutForRuntime\(nodes, edges, options/);
+  assert.match(layoutSource, /graphNodeRadiusByTier/);
   assert.doesNotMatch(visualMapSource, /const adjacencyMap = new Map\(\);[\s\S]*edges\.forEach\(\(edge\) => \{/);
   assert.doesNotMatch(visualMapSource, /const visibleEdges = edges\s*\.map\(\(edge\) => \{/);
   assert.doesNotMatch(visualMapSource, /const selectedNodeNeighborhood = new Set/);
   assert.doesNotMatch(visualMapSource, /sidePanelParts\.length \? `<div class="graph-side-stack">/);
   assert.doesNotMatch(visualMapSource, /const emptyTitle = /);
   assert.doesNotMatch(visualMapSource, /const headContentMarkup = filterActive/);
+  assert.doesNotMatch(layoutSource, /clusterAssignments = new Map/);
+  assert.doesNotMatch(layoutSource, /clusterMembers\.forEach/);
 });

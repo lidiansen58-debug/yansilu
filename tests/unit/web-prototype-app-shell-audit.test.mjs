@@ -52,7 +52,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "system-messages-shell.js",
     "graph-visual-map-runtime-state.js",
     "graph-visual-map-chrome.js",
-    "graph-visual-map-shell-props.js"
+    "graph-visual-map-shell-props.js",
+    "graph-visual-layout.js"
   ];
 
   for (const modulePath of requiredImports) {
