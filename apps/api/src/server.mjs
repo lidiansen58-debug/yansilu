@@ -3,11 +3,25 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
-import net from "node:net";
 
 import {
   publicImportRecord,
 } from "../../../packages/connectors/src/index.mjs";
+import {
+  assertLocalRuntimeControlAllowed
+} from "./local-runtime-control.mjs";
+import {
+  LOCAL_MODEL_TIERS,
+  OLLAMA_INSTALL_URL,
+  OLLAMA_RECOMMENDED_MODEL,
+  assertAllowedOllamaCatalogModel,
+  currentPlatformName,
+  hasOllamaModel,
+  localAiBootstrapStatus,
+  normalizeLocalRuntimeMode,
+  ollamaInstallGuide,
+  ollamaReadinessStatus
+} from "./ollama-local-runtime-model.mjs";
 import {
   createDirectory,
   createIndexCard,
@@ -103,7 +117,6 @@ import {
   assertProviderModelCallAllowed,
   createScheduledTaskFromTemplate,
   DEFAULT_POTENTIAL_RELATION_MODEL,
-  DEFAULT_LOCAL_AI_MODEL,
   DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND,
   LOCAL_AI_MODEL_TIERS,
   LOCAL_AI_RECOMMENDED_MODELS,
@@ -143,11 +156,7 @@ const PACKAGE_JSON_PATH = path.join(CWD, "package.json");
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
 const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures", "knowledge-network", "yijing-network.json");
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
-const OLLAMA_RECOMMENDED_MODEL = DEFAULT_LOCAL_AI_MODEL;
 const OLLAMA_RECOMMENDED_MODELS = [...LOCAL_AI_RECOMMENDED_MODELS];
-const OLLAMA_CATALOG_MODEL_NAMES = new Set(LOCAL_AI_MODEL_TIERS.map((model) => String(model.name || "").trim().toLowerCase()).filter(Boolean));
-const LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
-const OLLAMA_INSTALL_URL = "https://ollama.com/download";
 const DEFAULT_OLLAMA_GENERATE_TIMEOUT_MS = 60000;
 const MAX_OLLAMA_GENERATE_TIMEOUT_MS = 180000;
 const managedOllamaProcessIds = new Set();
@@ -353,26 +362,6 @@ async function fetchJsonWithTimeout(url, options = {}) {
   }
 }
 
-function normalizeOllamaPullModelName(value = "") {
-  const model = cleanText(value).toLowerCase();
-  if (!model) return "";
-  if (!/^[a-z0-9][a-z0-9._:-]{0,80}$/.test(model)) return "";
-  return model;
-}
-
-function assertAllowedOllamaCatalogModel(modelName = "") {
-  const model = normalizeOllamaPullModelName(modelName);
-  if (model && OLLAMA_CATALOG_MODEL_NAMES.has(model)) return model;
-  const error = new Error("Ollama model must be one of Yansilu's built-in local model catalog entries.");
-  error.code = "OLLAMA_MODEL_NOT_ALLOWED";
-  error.status = 400;
-  error.details = {
-    allowedModels: [...OLLAMA_CATALOG_MODEL_NAMES],
-    requestedModel: cleanText(modelName)
-  };
-  throw error;
-}
-
 function isOllamaLocalEndpointUrl(value = "") {
   const endpointUrl = cleanText(value).replace(/\/+$/, "");
   if (!endpointUrl) return false;
@@ -481,69 +470,6 @@ function normalizeOllamaModel(model = {}) {
   };
 }
 
-function currentPlatformName(platform = process.platform) {
-  if (platform === "win32") return "windows";
-  if (platform === "darwin") return "macos";
-  if (platform === "linux") return "linux";
-  return cleanText(platform) || "unknown";
-}
-
-function ollamaInstallGuide(platform = process.platform) {
-  const osName = currentPlatformName(platform);
-  const guides = {
-    windows: {
-      mode: "guided",
-      installUrl: OLLAMA_INSTALL_URL,
-      commands: [
-        "winget install --id Ollama.Ollama -e --accept-package-agreements --accept-source-agreements"
-      ],
-      steps: [
-        "Download Ollama for Windows, or install it with winget.",
-        "Launch Ollama after installation and keep it running in the background.",
-        "Return to Yansilu and run the local AI bootstrap check again."
-      ]
-    },
-    macos: {
-      mode: "guided",
-      installUrl: OLLAMA_INSTALL_URL,
-      commands: [
-        "brew install ollama"
-      ],
-      steps: [
-        "Download Ollama for macOS, or install it with Homebrew.",
-        "Start Ollama from the app or run `ollama serve`.",
-        "Return to Yansilu and run the local AI bootstrap check again."
-      ]
-    },
-    linux: {
-      mode: "guided",
-      installUrl: OLLAMA_INSTALL_URL,
-      commands: [
-        "curl -fsSL https://ollama.com/install.sh | sh"
-      ],
-      steps: [
-        "Install Ollama with the official Linux install command.",
-        "Start the Ollama service or run `ollama serve`.",
-        "Return to Yansilu and run the local AI bootstrap check again."
-      ]
-    }
-  };
-  return {
-    platform: osName,
-    autoInstallSupported: false,
-    ...(guides[osName] || {
-      mode: "guided",
-      installUrl: OLLAMA_INSTALL_URL,
-      commands: [],
-      steps: [
-        "Install Ollama from the official download page.",
-        "Start Ollama and keep it running in the background.",
-        "Return to Yansilu and run the local AI bootstrap check again."
-      ]
-    })
-  };
-}
-
 function runtimeModelMapForLocalModel(providerId = "ollama_local_gateway", modelName = OLLAMA_RECOMMENDED_MODEL) {
   const cleanProviderId = cleanText(providerId) || "ollama_local_gateway";
   const cleanModel = cleanText(modelName) || OLLAMA_RECOMMENDED_MODEL;
@@ -606,12 +532,6 @@ function ollamaSetupGuide(status = "unavailable", models = []) {
       "运行健康检查，确认模型可用。"
     ]
   };
-}
-
-function normalizeLocalRuntimeMode(value = "") {
-  const mode = cleanText(value).toLowerCase().replace(/[\s/-]+/g, "_");
-  if (mode === "hybrid" || mode === "mixed" || mode === "local_cloud") return "hybrid";
-  return "local_only";
 }
 
 function normalizeAiRuntimeModeForRouting(value = "") {
@@ -1105,92 +1025,6 @@ async function pullOllamaModel(modelName = OLLAMA_RECOMMENDED_MODEL) {
     latencyMs: Date.now() - startedAt,
     pullEndpointUrl,
     runtime
-  };
-}
-
-function hasOllamaModel(runtime = {}, modelName = "") {
-  const target = cleanText(modelName).toLowerCase();
-  if (!target) return false;
-  return (Array.isArray(runtime.models) ? runtime.models : []).some((model) => {
-    const name = cleanText(model?.name || model?.model || model).toLowerCase();
-    return name === target;
-  });
-}
-
-function ollamaReadinessStatus({ responseOk = false, installation = {}, models = [], error = null } = {}) {
-  const installedByCli = installation?.installed === true;
-  const apiReachable = responseOk === true;
-  const defaultModelInstalled = hasOllamaModel({ models }, OLLAMA_RECOMMENDED_MODEL);
-  if (error) {
-    if (!installedByCli && !apiReachable) return "not_installed";
-    return "check_failed";
-  }
-  if (apiReachable && defaultModelInstalled) return "ready";
-  if (apiReachable) return "running_missing_model";
-  if (installedByCli) return "installed_not_running";
-  return "not_installed";
-}
-
-function configuredLocalModel(providerConfig = null, providerId = "ollama_local_gateway", modelName = "") {
-  if (!providerConfig || cleanText(providerConfig.status) !== "enabled") return false;
-  const model = cleanText(modelName);
-  if (!model) return false;
-  const runtimeModelMap = providerConfig.runtimeModelMap || providerConfig.runtime_model_map || {};
-  return LOCAL_MODEL_TIERS.every((tier) => cleanText(runtimeModelMap[`${providerId}:${tier}`]) === model);
-}
-
-function localAiBootstrapStatus({ runtime = {}, providerConfig = null, health = null, modelName = OLLAMA_RECOMMENDED_MODEL, runtimeMode = "local_only" } = {}) {
-  const model = assertAllowedOllamaCatalogModel(modelName || OLLAMA_RECOMMENDED_MODEL);
-  const mode = normalizeLocalRuntimeMode(runtimeMode);
-  const providerId = mode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
-  const runtimeAvailable = runtime.status === "available";
-  const installed = runtime.installation?.installed === true || runtimeAvailable;
-  const modelReady = hasOllamaModel(runtime, model);
-  const configReady = configuredLocalModel(providerConfig, providerId, model);
-  const healthStatus = cleanText(health?.status) || "unknown";
-  const healthReady = healthStatus === "healthy";
-  let status = "ready";
-  let nextAction = "none";
-  let message = `Local AI is ready with ${model}.`;
-
-  if (!installed) {
-    status = "needs_install";
-    nextAction = "install_ollama";
-    message = "Ollama is not installed or cannot be found on this computer.";
-  } else if (!runtimeAvailable) {
-    status = "needs_start";
-    nextAction = "start_ollama";
-    message = "Ollama is installed, but the local runtime is not reachable.";
-  } else if (!modelReady) {
-    status = "needs_model";
-    nextAction = "pull_model";
-    message = `${model} is not installed in Ollama yet.`;
-  } else if (!configReady) {
-    status = "needs_config";
-    nextAction = "save_local_ai_config";
-    message = `${model} is installed; save it as the local AI provider model.`;
-  } else if (!healthReady) {
-    status = "needs_health_check";
-    nextAction = "run_health_check";
-    message = "Local AI config is saved; run a provider health check to confirm readiness.";
-  }
-
-  return {
-    status,
-    ready: status === "ready",
-    nextAction,
-    message,
-    runtimeId: "ollama",
-    providerId,
-    model,
-    runtimeMode: mode,
-    checks: {
-      installed,
-      runtimeAvailable,
-      modelReady,
-      configReady,
-      healthReady
-    }
   };
 }
 
@@ -2254,77 +2088,6 @@ function sendJson(res, status, body) {
     "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization,X-Yansilu-Local-Runtime-Control"
   });
   res.end(status === 204 ? "" : JSON.stringify(body, null, 2));
-}
-
-function hostWithoutPort(value = "") {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) return "";
-  if (raw.startsWith("[")) return raw.slice(1, raw.indexOf("]") >= 0 ? raw.indexOf("]") : undefined);
-  return raw.split(":")[0] || raw;
-}
-
-function isLoopbackHost(value = "") {
-  const host = hostWithoutPort(value);
-  if (host === "localhost" || host.endsWith(".localhost") || host === "::1") return true;
-  if (host.startsWith("::ffff:")) return isLoopbackHost(host.slice("::ffff:".length));
-  return net.isIP(host) === 4 && host.startsWith("127.");
-}
-
-function isLoopbackRemoteAddress(value = "") {
-  const address = String(value || "").trim().toLowerCase();
-  return address === "::1" || address.startsWith("127.") || address.startsWith("::ffff:127.");
-}
-
-function isAllowedLocalOrigin(origin = "") {
-  const raw = String(origin || "").trim();
-  if (!raw) return true;
-  if (raw === "null") return false;
-  try {
-    const parsed = new URL(raw);
-    return isLoopbackHost(parsed.hostname);
-  } catch {
-    return false;
-  }
-}
-
-function isAllowedLocalRuntimeControlOrigin(origin = "", host = "") {
-  const raw = String(origin || "").trim();
-  if (!raw) return true;
-  if (!isAllowedLocalOrigin(raw)) return false;
-  let parsed;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    return false;
-  }
-  const requestHost = String(host || "").trim().toLowerCase();
-  const originHost = parsed.host.toLowerCase();
-  if (requestHost && originHost === requestHost) return true;
-  const allowedPorts = new Set(
-    String(process.env.YANSILU_LOCAL_APP_PORTS || "3000,5173,5174,5175")
-      .split(",")
-      .map((port) => port.trim())
-      .filter(Boolean)
-  );
-  return allowedPorts.has(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
-}
-
-function assertLocalRuntimeControlAllowed(req) {
-  if (!isLoopbackRemoteAddress(req.socket?.remoteAddress || "")) {
-    const error = new Error("local runtime controls only accept requests from this computer");
-    error.status = 403;
-    throw error;
-  }
-  if (!isAllowedLocalRuntimeControlOrigin(req.headers.origin || "", req.headers.host || "")) {
-    const error = new Error("local runtime controls only accept the Yansilu local app origin");
-    error.status = 403;
-    throw error;
-  }
-  if (String(req.headers["x-yansilu-local-runtime-control"] || "").trim() !== "1") {
-    const error = new Error("local runtime controls require an explicit Yansilu runtime-control header");
-    error.status = 403;
-    throw error;
-  }
 }
 
 function sendBinary(res, status, contentType, body) {

@@ -1,9 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import {
+  assertLocalRuntimeControlAllowed,
+  isAllowedLocalOrigin,
+  isAllowedLocalRuntimeControlOrigin
+} from "../../apps/api/src/local-runtime-control.mjs";
+import {
+  assertAllowedOllamaCatalogModel,
+  localAiBootstrapStatus,
+  ollamaInstallGuide,
+  ollamaReadinessStatus
+} from "../../apps/api/src/ollama-local-runtime-model.mjs";
 
 function extractFunctionSource(source, signature) {
   const start = source.indexOf(signature);
@@ -41,22 +52,7 @@ function loadServerSource() {
   return fs.readFileSync(path.join(repoRoot, "apps/api/src/server.mjs"), "utf8");
 }
 
-function loadLocalRuntimeControlHelpers(processLike = { env: {} }) {
-  const source = loadServerSource();
-  const helperSource = [
-    extractFunctionSource(source, "function hostWithoutPort("),
-    extractFunctionSource(source, "function isLoopbackHost("),
-    extractFunctionSource(source, "function isLoopbackRemoteAddress("),
-    extractFunctionSource(source, "function isAllowedLocalOrigin("),
-    extractFunctionSource(source, "function isAllowedLocalRuntimeControlOrigin("),
-    extractFunctionSource(source, "function assertLocalRuntimeControlAllowed(")
-  ].join("\n");
-  return new Function("net", "process", `${helperSource}\nreturn { isAllowedLocalOrigin, isAllowedLocalRuntimeControlOrigin, assertLocalRuntimeControlAllowed };`)(net, processLike);
-}
-
 test("local runtime control origin guard only accepts real loopback origins", () => {
-  const { isAllowedLocalOrigin } = loadLocalRuntimeControlHelpers();
-
   assert.equal(isAllowedLocalOrigin("http://127.0.0.1:5174"), true);
   assert.equal(isAllowedLocalOrigin("http://localhost:5174"), true);
   assert.equal(isAllowedLocalOrigin("http://app.localhost:5174"), true);
@@ -69,8 +65,6 @@ test("local runtime control origin guard only accepts real loopback origins", ()
 });
 
 test("local runtime control request guard requires loopback socket and local origin", () => {
-  const { assertLocalRuntimeControlAllowed } = loadLocalRuntimeControlHelpers();
-
   assert.doesNotThrow(() => assertLocalRuntimeControlAllowed({
     headers: {
       origin: "http://127.0.0.1:5174",
@@ -111,11 +105,11 @@ test("local runtime control request guard requires loopback socket and local ori
 });
 
 test("local runtime control origin guard rejects arbitrary localhost ports", () => {
-  const { isAllowedLocalRuntimeControlOrigin } = loadLocalRuntimeControlHelpers();
+  const env = { YANSILU_LOCAL_APP_PORTS: "3000,5173,5174,5175" };
 
-  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:3999", "127.0.0.1:3999"), true);
-  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:5174", "127.0.0.1:3999"), true);
-  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:7777", "127.0.0.1:3999"), false);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:3999", "127.0.0.1:3999", env), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:5174", "127.0.0.1:3999", env), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:7777", "127.0.0.1:3999", env), false);
 });
 
 test("Ollama local runtime mutation endpoints are protected by the local runtime guard", () => {
@@ -220,24 +214,37 @@ test("Ollama stop only targets Yansilu-managed process ids", () => {
 
 test("Ollama bootstrap exposes guided install commands for supported platforms", () => {
   const source = loadServerSource();
-  const guideSource = extractFunctionSource(source, "function ollamaInstallGuide(");
   const bootstrapSource = extractFunctionSource(source, "async function bootstrapOllamaLocalAi(");
-  const statusSource = extractFunctionSource(source, "function localAiBootstrapStatus(");
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const configureSource = fs.readFileSync(path.join(repoRoot, "scripts/configure-ollama-local-ai.mjs"), "utf8");
 
-  assert.match(guideSource, /winget install --id Ollama\.Ollama/);
-  assert.match(guideSource, /brew install ollama/);
-  assert.match(guideSource, /curl -fsSL https:\/\/ollama\.com\/install\.sh \| sh/);
-  assert.match(guideSource, /autoInstallSupported: false/);
-  assert.match(statusSource, /needs_install/);
-  assert.match(statusSource, /needs_model/);
-  assert.match(statusSource, /needs_health_check/);
-  assert.match(source, /OLLAMA_CATALOG_MODEL_NAMES/);
-  assert.match(source, /function assertAllowedOllamaCatalogModel/);
-  assert.match(source, /OLLAMA_MODEL_NOT_ALLOWED/);
-  assert.match(source, /allowedModels/);
+  assert.deepEqual(ollamaInstallGuide("win32").commands, [
+    "winget install --id Ollama.Ollama -e --accept-package-agreements --accept-source-agreements"
+  ]);
+  assert.deepEqual(ollamaInstallGuide("darwin").commands, ["brew install ollama"]);
+  assert.deepEqual(ollamaInstallGuide("linux").commands, ["curl -fsSL https://ollama.com/install.sh | sh"]);
+  assert.equal(ollamaInstallGuide("sunos").autoInstallSupported, false);
+  assert.equal(localAiBootstrapStatus({ runtime: { status: "unavailable" } }).status, "needs_install");
+  assert.equal(localAiBootstrapStatus({
+    runtime: { status: "available", models: [] }
+  }).status, "needs_model");
+  assert.equal(localAiBootstrapStatus({
+    runtime: { status: "available", models: [{ name: "qwen3:8b" }] },
+    providerConfig: {
+      status: "enabled",
+      runtimeModelMap: {
+        "ollama_local_gateway:router_fast": "qwen3:8b",
+        "ollama_local_gateway:cheap_fast": "qwen3:8b",
+        "ollama_local_gateway:standard": "qwen3:8b",
+        "ollama_local_gateway:strong_reasoning": "qwen3:8b",
+        "ollama_local_gateway:guardrail": "qwen3:8b",
+        "ollama_local_gateway:local_private": "qwen3:8b"
+      }
+    }
+  }).status, "needs_health_check");
+  assert.equal(assertAllowedOllamaCatalogModel("qwen3:8b"), "qwen3:8b");
+  assert.throws(() => assertAllowedOllamaCatalogModel("not-in-catalog"), /built-in local model catalog/);
   assert.match(source, /function isManagedOllamaProviderConfig/);
   assert.match(source, /providerId !== "local_private_gateway"/);
   assert.match(source, /isOllamaLocalEndpointUrl/);
@@ -264,13 +271,12 @@ test("Ollama bootstrap exposes guided install commands for supported platforms",
 test("Ollama runtime preview exposes recoverable readiness states", () => {
   const source = loadServerSource();
   const previewSource = extractFunctionSource(source, "async function buildOllamaModelsPreview(");
-  const readinessSource = extractFunctionSource(source, "function ollamaReadinessStatus(");
 
-  assert.match(readinessSource, /not_installed/);
-  assert.match(readinessSource, /installed_not_running/);
-  assert.match(readinessSource, /running_missing_model/);
-  assert.match(readinessSource, /ready/);
-  assert.match(readinessSource, /check_failed/);
+  assert.equal(ollamaReadinessStatus({ error: new Error("missing") }), "not_installed");
+  assert.equal(ollamaReadinessStatus({ installation: { installed: true } }), "installed_not_running");
+  assert.equal(ollamaReadinessStatus({ responseOk: true, models: [] }), "running_missing_model");
+  assert.equal(ollamaReadinessStatus({ responseOk: true, models: [{ name: "qwen3:8b" }] }), "ready");
+  assert.equal(ollamaReadinessStatus({ responseOk: true, error: new Error("failed") }), "check_failed");
   assert.match(previewSource, /readinessStatus/);
   assert.match(previewSource, /apiReachable/);
   assert.match(previewSource, /defaultModelInstalled/);
