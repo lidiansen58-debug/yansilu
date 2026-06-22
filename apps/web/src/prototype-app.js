@@ -138,18 +138,15 @@ import {
   normalizeSystemMessage,
   noteAnalysisSystemMessageForResult,
   scheduledTaskSystemMessageForArtifacts,
-  systemMessageActionLabel,
   systemMessageActionRoute,
-  systemMessageDisplayTitle,
-  systemMessagePreviewText,
   systemMessageSubjectText,
   upsertSystemMessageList,
   writingAnalysisSystemMessageForResult
 } from "./prototype-system-messages.js";
 import {
-  openSystemMessagesDom,
-  renderSystemMessagesDom
-} from "./system-messages-controller.js";
+  openSystemMessagesShell,
+  renderSystemMessagesShell
+} from "./system-messages-shell.js";
 import {
   handleMarkSystemMessagesRead,
   handleOpenAllAiInboxFromSystemMessages,
@@ -1282,10 +1279,6 @@ function systemMessagesDomDeps() {
     },
     notes: state.notes,
     escapeHtml,
-    systemMessageActionLabel,
-    systemMessageDisplayTitle,
-    systemMessagePreviewText,
-    systemMessageSubjectText,
     hideEditorHelper,
     renderSystemMessages
   };
@@ -1327,11 +1320,11 @@ function systemMessageEventDeps() {
 }
 
 function renderSystemMessages() {
-  return renderSystemMessagesDom(systemMessagesDomDeps());
+  return renderSystemMessagesShell(systemMessagesDomDeps());
 }
 
 function openSystemMessages({ latestOnly = false } = {}) {
-  return openSystemMessagesDom({ latestOnly }, systemMessagesDomDeps());
+  return openSystemMessagesShell({ latestOnly }, systemMessagesDomDeps());
 }
 
 function closeSystemMessages() {

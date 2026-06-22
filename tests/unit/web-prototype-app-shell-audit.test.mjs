@@ -31,6 +31,10 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /createGraphRelationWorkflowController/);
   assert.match(source, /createPrototypeUpdateController/);
   assert.match(source, /systemMessageActionRoute/);
+  assert.match(source, /renderSystemMessagesShell/);
+  assert.match(source, /openSystemMessagesShell/);
+  assert.doesNotMatch(source, /renderSystemMessagesDom/);
+  assert.doesNotMatch(source, /openSystemMessagesDom/);
 });
 
 test("prototype-app source-string tests stay centralized as architecture boundary checks", () => {
