@@ -122,10 +122,14 @@ test("prototype graph shell delegates panel state building to a graph module", a
   assert.match(panelShellSource, /renderGraphPanelForRuntime\(\{ summary, canvas, backButton, panelState \}/);
   assert.match(source, /renderGraphPanelShell\(\{/);
   assert.match(source, /graphPanelRuntimeDeps\(\)/);
-  assert.match(panelRuntimeDepsSource, /stateBuilderDeps: \{/);
-  assert.match(panelRuntimeDepsSource, /rendererDeps: \{/);
+  assert.match(panelRuntimeDepsSource, /from "\.\/graph-panel-state-builder-deps\.js"/);
+  assert.match(panelRuntimeDepsSource, /from "\.\/graph-panel-renderer-deps\.js"/);
+  assert.match(panelRuntimeDepsSource, /stateBuilderDeps: buildGraphPanelStateBuilderDeps\(deps\)/);
+  assert.match(panelRuntimeDepsSource, /rendererDeps: buildGraphPanelRendererDeps\(deps\)/);
   assert.doesNotMatch(source, /stateBuilderDeps: \{/);
   assert.doesNotMatch(source, /rendererDeps: \{/);
+  assert.doesNotMatch(panelRuntimeDepsSource, /stateBuilderDeps: \{\s*graphRelationStatusCountsAsNetworkEdge/);
+  assert.doesNotMatch(panelRuntimeDepsSource, /rendererDeps: \{\s*escapeHtml/);
   assert.doesNotMatch(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
   assert.doesNotMatch(source, /state\.graphConnectivityReady = panelState\.connectivityReady === true;/);
   assert.doesNotMatch(source, /const noticeMarkup = \(panelState\.notices \|\| \[\]\)/);

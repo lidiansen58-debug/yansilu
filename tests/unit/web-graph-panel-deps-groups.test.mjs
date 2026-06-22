@@ -2,16 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildGraphPanelRuntimeDeps
-} from "../../apps/web/src/graph-panel-runtime-deps.js";
+  buildGraphPanelRendererDeps
+} from "../../apps/web/src/graph-panel-renderer-deps.js";
+import {
+  buildGraphPanelStateBuilderDeps
+} from "../../apps/web/src/graph-panel-state-builder-deps.js";
 
-test("graph panel runtime deps groups shell, state builder, and renderer deps", () => {
+test("graph panel state builder deps keeps graph derivation helpers separate from render helpers", () => {
   const marker = (name) => Object.assign(() => name, { marker: name });
   const deps = {
-    syncGraphDisclosureState: marker("sync-disclosure"),
-    syncAllNoteRelationNetworkStatuses: marker("sync-status"),
-    buildGraphPanelState: marker("build-state"),
-    renderGraphPanelForRuntime: marker("render-panel"),
     graphRelationStatusCountsAsNetworkEdge: marker("status-edge"),
     graphScopedItems: marker("scoped-items"),
     normalizeGraphRelationTypeFilter: marker("normalize-filter"),
@@ -39,6 +38,21 @@ test("graph panel runtime deps groups shell, state builder, and renderer deps", 
     buildGraphThinkingItems: marker("thinking-items"),
     buildGraphQuestionSpotSummaryFromItems: marker("question-summary"),
     graphIsolatedQueueItems: marker("queue-items"),
+    renderGraphVisualMap: marker("visual-map")
+  };
+
+  const grouped = buildGraphPanelStateBuilderDeps(deps);
+
+  assert.equal(grouped.graphScopedItems, deps.graphScopedItems);
+  assert.equal(grouped.graphComputedIsolatedNotes, deps.graphComputedIsolatedNotes);
+  assert.equal(grouped.graphIsolatedQueueItems, deps.graphIsolatedQueueItems);
+  assert.equal(grouped.buildGraphQuestionSpotSummaryFromItems, deps.buildGraphQuestionSpotSummaryFromItems);
+  assert.equal("renderGraphVisualMap" in grouped, false);
+});
+
+test("graph panel renderer deps keeps view helpers separate from graph derivation helpers", () => {
+  const marker = (name) => Object.assign(() => name, { marker: name });
+  const deps = {
     escapeHtml: marker("escape"),
     renderGraphErrorState: marker("error"),
     renderGraphIsolatedQueue: marker("queue"),
@@ -51,23 +65,15 @@ test("graph panel runtime deps groups shell, state builder, and renderer deps", 
     renderGraphWorkbenchPanel: marker("workbench"),
     renderGraphRelationTypeFilter: marker("type-filter"),
     renderGraphInlineNotice: marker("notice"),
-    renderGraphVisualMap: marker("visual-map")
+    renderGraphVisualMap: marker("visual-map"),
+    graphScopedItems: marker("scoped-items")
   };
 
-  const runtimeDeps = buildGraphPanelRuntimeDeps(deps);
+  const grouped = buildGraphPanelRendererDeps(deps);
 
-  assert.equal(runtimeDeps.syncGraphDisclosureState, deps.syncGraphDisclosureState);
-  assert.equal(runtimeDeps.syncAllNoteRelationNetworkStatuses, deps.syncAllNoteRelationNetworkStatuses);
-  assert.equal(runtimeDeps.buildGraphPanelState, deps.buildGraphPanelState);
-  assert.equal(runtimeDeps.renderGraphPanelForRuntime, deps.renderGraphPanelForRuntime);
-  assert.notEqual(runtimeDeps.stateBuilderDeps, deps);
-  assert.notEqual(runtimeDeps.rendererDeps, deps);
-  assert.equal(runtimeDeps.stateBuilderDeps.graphScopedItems, deps.graphScopedItems);
-  assert.equal(runtimeDeps.stateBuilderDeps.graphComputedIsolatedNotes, deps.graphComputedIsolatedNotes);
-  assert.equal(runtimeDeps.stateBuilderDeps.graphIsolatedQueueItems, deps.graphIsolatedQueueItems);
-  assert.equal(runtimeDeps.rendererDeps.renderGraphErrorState, deps.renderGraphErrorState);
-  assert.equal(runtimeDeps.rendererDeps.renderGraphWorkbenchPanel, deps.renderGraphWorkbenchPanel);
-  assert.equal(runtimeDeps.rendererDeps.renderGraphVisualMap, deps.renderGraphVisualMap);
-  assert.equal("renderGraphVisualMap" in runtimeDeps.stateBuilderDeps, false);
-  assert.equal("graphScopedItems" in runtimeDeps.rendererDeps, false);
+  assert.equal(grouped.escapeHtml, deps.escapeHtml);
+  assert.equal(grouped.renderGraphWorkbenchPanel, deps.renderGraphWorkbenchPanel);
+  assert.equal(grouped.renderGraphVisualMap, deps.renderGraphVisualMap);
+  assert.equal(grouped.renderGraphRelationTypeFilter, deps.renderGraphRelationTypeFilter);
+  assert.equal("graphScopedItems" in grouped, false);
 });
