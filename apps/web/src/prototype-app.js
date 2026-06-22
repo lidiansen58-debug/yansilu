@@ -12531,8 +12531,8 @@ function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = n
   };
 }
 
-function renderGraphVisualMap(options = {}) {
-  return renderGraphVisualMapForRuntime(options, buildGraphVisualMapRuntimeDeps({
+function graphVisualMapRuntimeDeps() {
+  return buildGraphVisualMapRuntimeDeps({
     GRAPH_RELATION_GROUP_META,
     GRAPH_RELATION_MARKER_COLORS,
     GRAPH_VISUAL_ZOOM_OPTIONS,
@@ -12576,7 +12576,11 @@ function renderGraphVisualMap(options = {}) {
     shouldShowGraphDensityHint,
     graphThemeBoundary: renderGraphThemeBoundary,
     graphThemeBoundaryMeta
-  }));
+  });
+}
+
+function renderGraphVisualMap(options = {}) {
+  return renderGraphVisualMapForRuntime(options, graphVisualMapRuntimeDeps());
 }
 
 function graphFocusedEdgeDirection(edge, focusedNoteId = "") {
