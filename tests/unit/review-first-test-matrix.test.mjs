@@ -116,7 +116,7 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/unit/web-ai-canonical-debug-panel.test.mjs",
     snippets: [
-      'test("AI canonical debug panel renders suggestion snapshots alongside inbox snapshots"'
+      'test("automation run history renders concise recent activity instead of open JSON blocks"'
     ]
   },
   {
