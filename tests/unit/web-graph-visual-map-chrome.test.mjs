@@ -45,7 +45,7 @@ test("graph visual map chrome keeps shell deps and renders zoom and defs slots",
   assert.equal(chrome.svgDefsMarkup, "defs:support");
   assert.match(chrome.headContentMarkup, /<nav>meaningful<\/nav>/);
   assert.match(chrome.headContentMarkup, /<section>overview:false:<button>trail<\/button><\/section>/);
-  assert.equal(chrome.emptyStateMarkup, "empty:Argument褰撳墠娌℃湁鍙绗旇");
+  assert.equal(chrome.emptyStateMarkup, "empty:Argument当前没有可见笔记");
 });
 
 test("graph visual map chrome renders focused-note controls in filter mode", () => {
@@ -66,7 +66,7 @@ test("graph visual map chrome renders focused-note controls in filter mode", () 
 
   assert.match(chrome.headContentMarkup, /data-graph-focus-depth="2" aria-pressed="true"/);
   assert.match(chrome.headContentMarkup, /data-graph-focus-context-toggle="open"/);
-  assert.match(chrome.emptyStateMarkup, /^杩欐潯绗旇鍛ㄥ洿/);
+  assert.match(chrome.emptyStateMarkup, /^这条笔记周围/);
 });
 
 test("graph visual map empty copy distinguishes structure mode", () => {
@@ -76,6 +76,6 @@ test("graph visual map empty copy distinguishes structure mode", () => {
     graphViewModeForRelationType: () => "structure"
   });
 
-  assert.equal(copy.title, "Structure褰撳墠娌℃湁鍙绗旇");
-  assert.match(copy.message, /涓婚/);
+  assert.equal(copy.title, "Structure当前没有可见笔记");
+  assert.match(copy.message, /主题分布/);
 });

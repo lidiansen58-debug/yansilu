@@ -374,8 +374,8 @@ function graphThinkingModelTestDeps(overrides = {}) {
     graphRankThemeCandidates: () => [],
     graphRelationPairKey: relationPairKey,
     graphRelationQualityLabel: (level = "") => String(level || "寰呰ˉ"),
-    graphRelationReviewReasonLabel: (reason = "") => String(reason || "寰呭鏍?"),
-    graphRelationTypeLabel: (type = "") => String(type || "鐩稿叧"),
+    graphRelationReviewReasonLabel: (reason = "") => String(reason || "待复核"),
+    graphRelationTypeLabel: (type = "") => String(type || "相关"),
     graphSelectEdgeActionAttrs: () => "",
     graphThemeSelectionKey: (topic = {}, index = 0) => String(topic?.id || index),
     ...overrides
@@ -724,7 +724,7 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
     { title: "第四项", view: "theme", tone: "theme", kicker: "不会优先显示", actionAttrs: 'data-open-note="n4"' }
   ], "clues", graphWorkbenchViewTestDeps());
   const bridgeItems = moduleBuildGraphThinkingItemsForGraph({
-    nodes: [{ id: "n1", title: "妗ユ帴" }, { id: "n2", title: "鐩爣" }],
+    nodes: [{ id: "n1", title: "桥接" }, { id: "n2", title: "目标" }],
     bridgeGaps: [{ id: "gap-1", noteIds: ["n1"], targetNoteIds: ["n2"], suggestedAction: "补一条中间判断" }]
   }, graphThinkingModelTestDeps());
 
@@ -1348,27 +1348,27 @@ test("graph thinking relation tasks only expose savable candidates with normaliz
 
 test("graph thinking relation tasks use scoped nodes for filtering but lookup map for outside titles", () => {
   const items = moduleBuildGraphThinkingItemsForGraph({
-    nodes: [{ id: "scope-a", title: "褰撳墠鑼冨洿绗旇" }],
+    nodes: [{ id: "scope-a", title: "当前范围笔记" }],
     edges: [],
     aiAnalysis: {
       analysis: {
         relationCandidates: [
-          { fromNoteId: "scope-a", toNoteId: "outside-a", relationType: "same_topic", rationale: "璺ㄧ洰褰曚絾涓庡綋鍓嶇瑪璁扮浉鍏?" },
-          { fromNoteId: "outside-b", toNoteId: "outside-c", relationType: "same_topic", rationale: "瀹屽叏涓嶅湪褰撳墠鑼冨洿" }
+          { fromNoteId: "scope-a", toNoteId: "outside-a", relationType: "same_topic", rationale: "跨目录但与当前笔记相关" },
+          { fromNoteId: "outside-b", toNoteId: "outside-c", relationType: "same_topic", rationale: "完全不在当前范围" }
         ],
         isolatedNotes: []
       }
     },
     nodeLookupMap: new Map([
-      ["scope-a", { id: "scope-a", title: "褰撳墠鑼冨洿绗旇" }],
-      ["outside-a", { id: "outside-a", title: "鐩綍澶栫洰鏍?" }],
-      ["outside-b", { id: "outside-b", title: "澶栭儴 B" }],
-      ["outside-c", { id: "outside-c", title: "澶栭儴 C" }]
+      ["scope-a", { id: "scope-a", title: "当前范围笔记" }],
+      ["outside-a", { id: "outside-a", title: "目录外目标" }],
+      ["outside-b", { id: "outside-b", title: "外部 B" }],
+      ["outside-c", { id: "outside-c", title: "外部 C" }]
     ])
   }, graphThinkingModelTestDeps());
 
   assert.equal(items.length, 1);
-  assert.equal(items[0].title, "褰撳墠鑼冨洿绗旇 -> 鐩綍澶栫洰鏍?");
+  assert.equal(items[0].title, "当前范围笔记 -> 目录外目标");
 });
 
 test("directory graph keeps all nodes visible and marks true zero-degree notes as isolated", () => {

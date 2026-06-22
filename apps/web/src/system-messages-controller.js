@@ -19,23 +19,23 @@ export function renderSystemMessagesDom(deps = {}) {
   const unreadCount = systemMessages.filter((item) => item.read !== true).length;
   button?.classList.toggle("has-unread", unreadCount > 0);
   if (button) {
-    const systemMessageLabel = "绯荤粺娑堟伅涓?AI 寤鸿";
-    button.title = unreadCount ? `${systemMessageLabel}锛?${unreadCount} 鏉℃湭璇伙級` : systemMessageLabel;
-    button.dataset.tip = unreadCount ? `绯荤粺娑堟伅 ${unreadCount}` : "绯荤粺娑堟伅";
-    button.setAttribute("aria-label", unreadCount ? `${systemMessageLabel}锛?${unreadCount} 鏉℃湭璇?` : systemMessageLabel);
+    const systemMessageLabel = "系统消息与 AI 建议";
+    button.title = unreadCount ? `${systemMessageLabel}（${unreadCount} 条未读）` : systemMessageLabel;
+    button.dataset.tip = unreadCount ? `系统消息 ${unreadCount}` : "系统消息";
+    button.setAttribute("aria-label", unreadCount ? `${systemMessageLabel}（${unreadCount} 条未读）` : systemMessageLabel);
   }
   if (markReadButton) {
     markReadButton.disabled = unreadCount === 0;
-    markReadButton.title = unreadCount === 0 ? "娌℃湁鏈绯荤粺娑堟伅" : "鍏ㄩ儴鏍囪宸茶";
+    markReadButton.title = unreadCount === 0 ? "没有未读系统消息" : "全部标记已读";
   }
   if (!list) return;
   if (!systemMessages.length) {
-    list.innerHTML = `<div class="system-message-empty-list">鏆傛棤娑堟伅</div>`;
+    list.innerHTML = `<div class="system-message-empty-list">暂无消息</div>`;
     if (detail) {
       detail.innerHTML = `
         <article class="system-message-detail-card system-message-empty-card">
-          <h3>鏆傛棤闇€瑕佸鐞嗙殑娑堟伅</h3>
-          <div class="system-message-body">AI 鍒嗘瀽銆佸浘璋辨壂鎻忔垨璁″垝浠诲姟浜х敓寰呭鍐呭鍚庯紝浼氭樉绀哄湪杩欓噷锛涢噰绾冲墠涓嶄細鏀瑰姩绗旇鎴栧浘璋便€?</div>
+          <h3>暂无需要处理的消息</h3>
+          <div class="system-message-body">AI 分析、图谱扫描或计划任务产生待审内容后，会显示在这里；采纳前不会改动笔记或图谱。</div>
         </article>
       `;
     }
@@ -56,12 +56,12 @@ export function renderSystemMessagesDom(deps = {}) {
       return `
         <article class="system-message-item${message.read ? "" : " is-unread"}${selected ? " is-selected" : ""}" data-system-message-id="${escapeHtml(message.id)}" data-system-message-select="${escapeHtml(message.id)}" role="button" tabindex="0">
           <button class="system-message-title" type="button" data-system-message-select="${escapeHtml(message.id)}" aria-current="${selected ? "true" : "false"}">
-            ${message.read ? "" : `<span class="system-message-unread-dot" aria-label="鏈"></span>`}
+            ${message.read ? "" : `<span class="system-message-unread-dot" aria-label="未读"></span>`}
             <span>${escapeHtml(title)}</span>
           </button>
           ${subject ? `<div class="system-message-subject">${escapeHtml(subject)}</div>` : ""}
           <div class="system-message-preview">${escapeHtml(preview)}</div>
-          <div class="system-message-meta">${message.artifactCount ? `${escapeHtml(String(message.artifactCount))} 鏉″缓璁?路 ` : ""}${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
+          <div class="system-message-meta">${message.artifactCount ? `${escapeHtml(String(message.artifactCount))} 条建议 · ` : ""}${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
         </article>
       `;
     })
@@ -70,14 +70,14 @@ export function renderSystemMessagesDom(deps = {}) {
   const actionLabel = systemMessageActionLabel(selectedMessage);
   detail.innerHTML = `
     <article class="system-message-detail-card" data-system-message-detail-id="${escapeHtml(selectedMessage.id)}">
-      <div class="system-message-detail-kicker">${selectedMessage.resolvedAt ? "宸插畬鎴?" : selectedMessage.read ? "宸茶" : "鏈"}</div>
+      <div class="system-message-detail-kicker">${selectedMessage.resolvedAt ? "已完成" : selectedMessage.read ? "已读" : "未读"}</div>
       <h3>${escapeHtml(systemMessageDisplayTitle(selectedMessage, notes))}</h3>
       ${
         systemMessageSubjectText(selectedMessage, notes)
-          ? `<div class="system-message-focus"><span>鐩稿叧绗旇</span><strong>${escapeHtml(systemMessageSubjectText(selectedMessage, notes))}</strong></div>`
+          ? `<div class="system-message-focus"><span>相关笔记</span><strong>${escapeHtml(systemMessageSubjectText(selectedMessage, notes))}</strong></div>`
           : ""
       }
-      <div class="system-message-body">${escapeHtml(selectedMessage.body || "娌℃湁鏇村鍐呭銆?")}</div>
+      <div class="system-message-body">${escapeHtml(selectedMessage.body || "没有更多内容。")}</div>
       <div class="system-message-meta">${escapeHtml(new Date(selectedMessage.createdAt).toLocaleString())}</div>
       ${
         actionLabel
@@ -103,8 +103,8 @@ export function openSystemMessagesDom({ latestOnly = false } = {}, deps = {}) {
   const note = $("systemMessageModalNote");
   if (note) {
     note.textContent = latestOnly
-      ? "鏈夋柊鐨勫緟纭浜嬮」锛屽鐞嗗悗浠嶅彲鍦ㄨ繖閲屽洖鐪嬨€?"
-      : "杩欓噷姹囨€婚渶瑕佷綘纭鐨勫叧绯汇€侀棶棰樺拰鍐欎綔寤鸿銆?";
+      ? "有新的待确认事项，处理后仍可在这里回看。"
+      : "这里汇总需要你确认的关系、问题和写作建议。";
   }
   const systemMessages = getMessages();
   const selectedSystemMessageId = getSelectedMessageId();

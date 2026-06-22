@@ -614,7 +614,7 @@ test("editor returns to wysiwyg once when a new tab explicitly prefers the plain
     noteType: "",
     body: `# Structured note
 
-## 鏍稿績瑙傜偣
+## 核心观点
 
 A stable claim.
 `

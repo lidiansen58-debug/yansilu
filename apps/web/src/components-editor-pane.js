@@ -4351,9 +4351,9 @@ export class EditorPane {
     const { nextStep, summary: noteSummary } = this.legacyPermanentNoteMainPathSummary(note, overview);
     const relationCountLabel =
       relationState === "loading"
-        ? "璇诲彇涓?"
+        ? "读取中"
         : relationState === "error"
-          ? "璇诲彇澶辫触"
+          ? "读取失败"
           : String(explicitRelationCount + wikilinkCount);
     const primaryAction =
       !thesis || summary.length < 3 || !confirmed

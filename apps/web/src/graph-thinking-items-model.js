@@ -158,23 +158,23 @@ export function buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal = 0, br
       0
   );
   const categories = [
-    { key: "theme", label: "涓婚鍊欓€?", count: topicCount },
-    { key: "bridge", label: "缂哄皯杩炴帴", count: Math.max(Number(bridgeGaps?.length || 0), bridgeCandidateCount) },
-    { key: "review", label: "鍏崇郴寰呭鏍?", count: Math.max(Number(reviewQueueTotal || 0), reviewCandidateCount) },
-    { key: "conflict", label: "鍙嶆柟鎴栬竟鐣?", count: Number(conflictCount || 0) },
-    { key: "isolated", label: "寰呭叧鑱旂瑪璁?", count: isolatedCount }
+    { key: "theme", label: "主题候选", count: topicCount },
+    { key: "bridge", label: "缺少连接", count: Math.max(Number(bridgeGaps?.length || 0), bridgeCandidateCount) },
+    { key: "review", label: "关系待复核", count: Math.max(Number(reviewQueueTotal || 0), reviewCandidateCount) },
+    { key: "conflict", label: "反方或边界", count: Number(conflictCount || 0) },
+    { key: "isolated", label: "待关联笔记", count: isolatedCount }
   ].filter((item) => Number(item.count || 0) > 0);
   const total = categories.reduce((sum, item) => sum + Number(item.count || 0), 0);
   const detail = categories.length
     ? categories
         .slice(0, 3)
         .map((item) => `${item.count} ${item.label}`)
-        .join(" 路 ")
-    : "褰撳墠鑼冨洿鏆傛椂娌℃湁鏄庢樉闇€瑕佺户缁拷鐨勯棶棰樸€?";
+        .join("  ·  ")
+    : "当前范围暂时没有明显需要继续追问的问题。";
   return {
     total,
-    label: total ? `${total} 涓彲杩介棶棰?` : "鏆傛棤鍙拷闂",
-    detail: categories.length ? `寤鸿鍏堢湅锛?${detail}` : detail,
+    label: total ? `${total} 个可追问问题` : "暂无可追问问题",
+    detail: categories.length ? `建议先看：${detail}` : detail,
     categories,
     artifactCount
   };
@@ -183,22 +183,22 @@ export function buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal = 0, br
 export function buildGraphQuestionSpotSummaryFromItems(items = [], { artifactCount = 0 } = {}) {
   const list = (Array.isArray(items) ? items : []).filter(Boolean);
   const categories = [
-    { key: "theme", label: "涓婚鍊欓€?", count: list.filter((item) => item.view === "theme").length },
-    { key: "bridge", label: "缂哄皯杩炴帴", count: list.filter((item) => item.tone === "bridge" || item.tone === "isolated").length },
-    { key: "review", label: "鍏崇郴寰呭鏍?", count: list.filter((item) => item.tone === "review").length },
-    { key: "conflict", label: "鍙嶆柟鎴栬竟鐣?", count: list.filter((item) => item.tone === "conflict").length }
+    { key: "theme", label: "主题候选", count: list.filter((item) => item.view === "theme").length },
+    { key: "bridge", label: "缺少连接", count: list.filter((item) => item.tone === "bridge" || item.tone === "isolated").length },
+    { key: "review", label: "关系待复核", count: list.filter((item) => item.tone === "review").length },
+    { key: "conflict", label: "反方或边界", count: list.filter((item) => item.tone === "conflict").length }
   ].filter((item) => Number(item.count || 0) > 0);
   const total = list.length;
   const detail = categories.length
     ? categories
         .slice(0, 3)
         .map((item) => `${item.count} ${item.label}`)
-        .join(" 璺?")
-    : "褰撳墠鑼冨洿鏆傛椂娌℃湁鏄庢樉闇€瑕佺户缁拷鐨勯棶棰樸€?";
+        .join("  · ")
+    : "当前范围暂时没有明显需要继续追问的问题。";
   return {
     total,
-    label: total ? `${total} 涓彲杩介棶棰?` : "鏆傛棤鍙拷闂",
-    detail: categories.length ? `寤鸿鍏堢湅锛?${detail}` : detail,
+    label: total ? `${total} 个可追问问题` : "暂无可追问问题",
+    detail: categories.length ? `建议先看：${detail}` : detail,
     categories,
     artifactCount: Number(artifactCount || 0)
   };
@@ -245,7 +245,7 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: 50,
       view: "organize",
       tone: "neutral",
-      actionLabel: "鏌ョ湅",
+      actionLabel: "查看",
       actionAttrs: "",
       ...item,
       id
@@ -260,12 +260,12 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: Number(quality?.listPriority || 86) - index * 0.1,
       view: "theme",
       tone: "theme",
-      kicker: "涓婚鍊欓€?",
-      title: String(topic?.title || "寰呴獙璇佷富棰?").trim() || "寰呴獙璇佷富棰?",
-      meta: `${noteIds.length || "鑻ュ共"} 鏉＄瑪璁?路 ${quality?.listLabel || "寰呴獙璇佷富棰?"}`,
-      detail: String(topic?.rationale || quality?.detail || "澶氭潯姘镐箙绗旇鍑虹幇鐩歌繎绾跨储锛岄€傚悎鍒ゆ柇鏄惁褰㈡垚鏄庣‘涓婚銆?").trim(),
-      question: quality?.listQuestion || "杩欑粍绗旇鑳藉惁鍐欐垚涓€鍙ュ彲浜夎鐨勫垽鏂紝鑰屼笉鍙槸鍏变韩鍚屼竴涓爣绛撅紵",
-      actionLabel: "璇勪及涓婚",
+      kicker: "主题候选",
+      title: String(topic?.title || "待验证主题").trim() || "待验证主题",
+      meta: `${noteIds.length || "若干"} 条笔记 ·  ${quality?.listLabel || "待验证主题"}`,
+      detail: String(topic?.rationale || quality?.detail || "多条永久笔记出现相近线索，适合判断是否形成明确主题。").trim(),
+      question: quality?.listQuestion || "这组笔记能否写成一句可争论的判断，而不只是共享同一个标签？",
+      actionLabel: "评估主题",
       actionAttrs: `data-graph-select-theme="${escapeHtml(topicKey)}"`,
       highlightNodeIds: noteIds
     });
@@ -273,7 +273,7 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
 
   (Array.isArray(bridgeGaps) ? bridgeGaps : []).filter((gap) => Array.isArray(gap?.noteIds) && gap.noteIds.length).slice(0, 5).forEach((gap, index) => {
     const sourceNoteId = String(gap?.noteIds?.[0] || "").trim();
-    const sourceTitle = String(gap?.noteTitles?.[0] || graphThinkingNoteTitle(nodeMap, sourceNoteId, "褰撳墠绗旇")).trim() || "褰撳墠绗旇";
+    const sourceTitle = String(gap?.noteTitles?.[0] || graphThinkingNoteTitle(nodeMap, sourceNoteId, "当前笔记")).trim() || "当前笔记";
     const targetNoteId = String(gap?.targetNoteIds?.[0] || "").trim();
     const targetTitle = String(gap?.targetNoteTitles?.[0] || graphThinkingNoteTitle(nodeMap, targetNoteId, "")).trim();
     const gapType = String(gap?.gapType || "bridge_gap").trim().toLowerCase();
@@ -283,12 +283,12 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: 84 - index,
       view: "organize",
       tone: "bridge",
-      kicker: gapType === "disconnected_cluster" ? "鏂紑鐨勪富棰樼兢" : "缂哄皯杩炴帴",
+      kicker: gapType === "disconnected_cluster" ? "断开的主题群" : "缺少连接",
       title: sourceTitle,
-      meta: targetTitle ? `寤鸿杩炴帴鍒般€?${targetTitle}銆?` : "寰呭叧鑱旂瑪璁?",
-      detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale, "杩欐潯绗旇鍙兘闇€瑕佷竴鏉′腑闂村垽鏂紝鎵嶈兘鍥炲埌褰撳墠缁撴瀯銆?"),
-      question: targetTitle ? `瀹冨拰銆?${targetTitle}銆嶄箣闂寸己鐨勬槸璇佹嵁銆侀檺瀹氥€佸弽鏂癸紝杩樻槸涓€涓腑闂存蹇碉紵` : "瀹冨簲褰撲繚鎸佺嫭绔嬶紝杩樻槸鍙槸缂哄皯涓€鏉¤兘璇存槑鐞嗙敱鐨勮繛鎺ワ紵",
-      actionLabel: "鍒ゆ柇杩炴帴",
+      meta: targetTitle ? `建议连接到「${targetTitle}」` : "待关联笔记",
+      detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale, "这条笔记可能需要一条中间判断，才能回到当前结构。"),
+      question: targetTitle ? `它和「${targetTitle}」之间缺的是证据、限定、反驳，还是一个中间概念？` : "它应当保持独立，还是只是缺少一条能说明理由的连接？",
+      actionLabel: "判断连接",
       actionAttrs: `data-graph-select-bridge="${escapeHtml(bridgeKey)}" data-graph-bridge-note="${escapeHtml(sourceNoteId)}"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""}`,
       highlightNodeIds: [sourceNoteId, targetNoteId]
     });
@@ -297,8 +297,8 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
   (Array.isArray(reviewQueue?.items) ? reviewQueue.items : []).slice(0, 5).forEach((item, index) => {
     const source = item.source || {};
     const target = item.target || {};
-    const sourceTitle = source.title || graphThinkingNoteTitle(nodeMap, item.fromNoteId, "婧愮瑪璁?");
-    const targetTitle = target.title || graphThinkingNoteTitle(nodeMap, item.toNoteId, "鐩爣绗旇");
+    const sourceTitle = source.title || graphThinkingNoteTitle(nodeMap, item.fromNoteId, "源笔记");
+    const targetTitle = target.title || graphThinkingNoteTitle(nodeMap, item.toNoteId, "目标笔记");
     const rationale = String(item.rationale || "").trim();
     const edgeTarget = {
       id: item.id,
@@ -312,12 +312,12 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: 78 - index,
       view: "organize",
       tone: "review",
-      kicker: "鍏崇郴寰呭鏍?",
+      kicker: "关系待复核",
       title: `${sourceTitle} -> ${targetTitle}`,
-      meta: `${graphRelationReviewReasonLabel(item.reviewReason)} 路 ${graphRelationQualityLabel(item.rationaleQualityLevel)}`,
-      detail: rationale && rationale !== "markdown_wikilink" ? rationale : "杩欐潯鍏崇郴杩樻病鏈夊啓娓呬负浠€涔堟垚绔嬨€?",
-      question: "濡傛灉鍒犳帀杩欐潯绾匡紝鎹熷け鐨勬槸璁鸿瘉缁撴瀯锛岃繕鏄彧鏄皯浜嗕竴涓鑸摼鎺ワ紵",
-      actionLabel: "澶嶆牳鍏崇郴",
+      meta: `${graphRelationReviewReasonLabel(item.reviewReason)}  ·  ${graphRelationQualityLabel(item.rationaleQualityLevel)}`,
+      detail: rationale && rationale !== "markdown_wikilink" ? rationale : "这条关系还没有写清为什么成立。",
+      question: "如果删掉这条线，损失的是论证结构，还是只是少了一个导航链接？",
+      actionLabel: "复核关系",
       actionAttrs: graphSelectEdgeActionAttrs(edgeTarget),
       highlightNodeIds: [edgeTarget.fromNoteId, edgeTarget.toNoteId],
       highlightEdge: edgeTarget
@@ -338,31 +338,31 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: 72 - index,
       view: "organize",
       tone: "conflict",
-      kicker: "鍐茬獊/杈圭晫",
-      title: String(item?.title || "鍏崇郴鍙兘閫犳垚姝т箟").trim() || "鍏崇郴鍙兘閫犳垚姝т箟",
-      meta: String(item?.conflictType || "寰呭鏍?").trim() || "寰呭鏍?",
-      detail: String(item?.rationale || "杩欓噷鍙兘璁╂蹇佃竟鐣屽彉妯＄硦锛岄€傚悎妫€鏌ユ槸鍚﹂渶瑕佹媶鍒嗘垨鏀瑰悕銆?").trim(),
-      question: "杩欓噷鐨勫紶鍔涙槸鍦ㄦ彁绀虹湡瀹炲弽鏂癸紝杩樻槸姒傚康鍛藉悕杩樹笉澶熸竻妤氾紵",
-      actionLabel: noteId ? "鏌ョ湅绗旇" : "缁х画鍒ゆ柇",
+      kicker: "冲突/边界",
+      title: String(item?.title || "关系可能造成歧义").trim() || "关系可能造成歧义",
+      meta: String(item?.conflictType || "待复核").trim() || "待复核",
+      detail: String(item?.rationale || "这里可能让概念边界变模糊，适合检查是否需要拆分或改名。").trim(),
+      question: "这里的张力是在提示真实反驳，还是概念命名还不够清楚？",
+      actionLabel: noteId ? "查看笔记" : "继续判断",
       actionAttrs: noteId ? `data-open-note="${escapeHtml(noteId)}"` : "",
       highlightNodeIds: noteIds
     });
   });
 
   (Array.isArray(conflictingRelations) ? conflictingRelations : []).slice(0, 3).forEach((edge, index) => {
-    const sourceTitle = edge.fromTitle || graphThinkingNoteTitle(nodeMap, edge.fromNoteId, "婧愮瑪璁?");
-    const targetTitle = edge.toTitle || graphThinkingNoteTitle(nodeMap, edge.toNoteId, "鐩爣绗旇");
+    const sourceTitle = edge.fromTitle || graphThinkingNoteTitle(nodeMap, edge.fromNoteId, "源笔记");
+    const targetTitle = edge.toTitle || graphThinkingNoteTitle(nodeMap, edge.toNoteId, "目标笔记");
     addItem({
       id: `tension-${String(edge.id || edge.fromNoteId || index)}-${String(edge.toNoteId || "")}`,
       priority: 68 - index,
       view: "organize",
       tone: "conflict",
-      kicker: "鍙嶆柟/杈圭晫",
+      kicker: "反方/边界",
       title: `${sourceTitle} -> ${targetTitle}`,
       meta: graphRelationTypeLabel(edge.relationType),
-      detail: String(edge.rationale || "杩欐潯鍏崇郴鍙兘淇濈暀浜嗗弽鏂广€侀檺瀹氭垨杈圭晫鏉′欢銆?").trim(),
-      question: "杩欐潯杈圭晫鏉′欢搴斿綋鍐欒繘涓婚鍒ゆ柇锛岃繕鏄媶鎴愪竴鏉＄嫭绔嬬殑鍙嶄緥绗旇锛?",
-      actionLabel: "澶嶆牳杈圭晫",
+      detail: String(edge.rationale || "这条关系可能保留了反驳、限定或边界条件。").trim(),
+      question: "这条边界条件应当写进主题判断，还是拆成一条独立的反例笔记？",
+      actionLabel: "复核边界",
       actionAttrs: graphSelectEdgeActionAttrs(edge),
       highlightNodeIds: [edge.fromNoteId, edge.toNoteId],
       highlightEdge: edge
@@ -380,12 +380,12 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
         priority: 64 - index,
         view: "organize",
         tone: "isolated",
-        kicker: "寰呭叧鑱旂瑪璁?",
-        title: String(note?.title || graphThinkingNoteTitle(nodeMap, noteId, "寰呭叧鑱旂瑪璁?")).trim() || "寰呭叧鑱旂瑪璁?",
-        meta: "鏆傛湭杩涘叆涓婚缇?",
-        detail: String(note?.thesis || "鍒ゆ柇瀹冨簲褰撴ˉ鎺ュ埌鐜版湁涓婚锛岃繕鏄厛鐣欏湪鏆傚瓨銆?").trim(),
-        question: "瀹冩殏鏃舵父绂伙紝鏄洜涓虹湡鐨勭嫭鐗癸紝杩樻槸鍥犱负杩樻病鏈夊啓鍑轰负浠€涔堢浉鍏筹紵",
-        actionLabel: "鏁寸悊",
+        kicker: "待关联笔记",
+        title: String(note?.title || graphThinkingNoteTitle(nodeMap, noteId, "待关联笔记")).trim() || "待关联笔记",
+        meta: "暂未进入主题群",
+        detail: String(note?.thesis || "判断它应当补接到现有主题，还是先留在暂存。").trim(),
+        question: "它暂时游离，是因为真的独特，还是因为还没有写出为什么相关？",
+        actionLabel: "整理",
         actionAttrs: `data-graph-select-isolated="${escapeHtml(isolatedKey)}" data-graph-isolated-note="${escapeHtml(noteId)}"`,
         highlightNodeIds: [noteId]
       });
@@ -403,19 +403,19 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
     .slice(0, 4).forEach((candidate, index) => {
       const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
       const relationType = graphPreferredPotentialRelationType(candidate);
-      const sourceTitle = graphThinkingNoteTitle(nodeMap, sourceNoteId, "婧愮瑪璁?");
-      const targetTitle = graphThinkingNoteTitle(nodeMap, targetNoteId, "鐩爣绗旇");
+      const sourceTitle = graphThinkingNoteTitle(nodeMap, sourceNoteId, "源笔记");
+      const targetTitle = graphThinkingNoteTitle(nodeMap, targetNoteId, "目标笔记");
       addItem({
         id: `candidate-${String(candidate?.id || sourceNoteId || index)}-${String(targetNoteId || "")}`,
         priority: 60 - index,
         view: "organize",
         tone: "review",
-        kicker: "鍏崇郴鍊欓€?",
+        kicker: "关系候选",
         title: `${sourceTitle} -> ${targetTitle}`,
-        meta: `${graphRelationTypeLabel(relationType)} 路 寰呯‘璁?`,
-        detail: String(candidate.rationale || "鏈湴鍥捐氨鎵弿鍙戠幇涓ゆ潯绗旇鍙兘鏈夊叧鑱旓紝闇€瑕佷汉宸ュ垽鏂€?").trim(),
-        question: "杩欐潯鍙€夊叧绯昏兘涓嶈兘璇存竻鈥滀负浠€涔堢浉杩炩€濓紝杩樻槸鍙槸鏍囬鐩镐技锛?",
-        actionLabel: "鏌ョ湅婧愮瑪璁?",
+        meta: `${graphRelationTypeLabel(relationType)}  ·  待确认`,
+        detail: String(candidate.rationale || "本地图谱扫描发现两条笔记可能有关联，需要人工判断。").trim(),
+        question: "这条可选关系能不能说清“为什么相连”，还是只是标题相似？",
+        actionLabel: "查看源笔记",
         actionAttrs: `data-open-note="${escapeHtml(sourceNoteId)}"`,
         highlightNodeIds: [sourceNoteId, targetNoteId]
       });

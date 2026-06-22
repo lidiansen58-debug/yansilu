@@ -1,7 +1,7 @@
 export const GRAPH_VISUAL_ZOOM_OPTIONS = {
-  fit: { label: "鍏ㄨ", scale: 1, note: "鐪嬫暣浣撶粨鏋?", icon: "fit" },
-  read: { label: "鏀惧ぇ", scale: 1.35, note: "璇荤瑪璁版爣棰?", icon: "read" },
-  detail: { label: "缁嗚妭", scale: 1.75, note: "妫€鏌ュ叧绯荤嚎", icon: "detail" }
+  fit: { label: "全览", scale: 1, note: "看整体结构", icon: "fit" },
+  read: { label: "放大", scale: 1.35, note: "读笔记标题", icon: "read" },
+  detail: { label: "细节", scale: 1.75, note: "检查关系线", icon: "detail" }
 };
 
 export function graphZoomOption(value = "", zoomOptions = GRAPH_VISUAL_ZOOM_OPTIONS) {

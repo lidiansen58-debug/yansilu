@@ -39,19 +39,19 @@ export function graphVisualMapEmptyCopy({
 } = {}) {
   if (filterActive) {
     return {
-      title: "杩欐潯绗旇鍛ㄥ洿鏆傛椂娌℃湁鍙鍏崇郴",
-      message: "鍙兘鏄繖鏉＄瑪璁拌繕娌℃湁寤虹珛姝ｅ紡鍏崇郴锛屼篃鍙兘鏄綋鍓嶆樉绀鸿寖鍥村お绐勩€傚彲浠ュ厛琛ヤ竴鏉℃敮鎸併€侀檺瀹氭垨杩炴帴鍏崇郴銆?"
+      title: "这条笔记周围暂时没有可见关系",
+      message: "可能是这条笔记还没有建立正式关系，也可能是当前显示范围太窄。可以先补一条支持、限定或连接关系。"
     };
   }
   if (graphViewModeForRelationType(relationType) === "structure") {
     return {
-      title: `${modeLabel}褰撳墠娌℃湁鍙绗旇`,
-      message: "涓婚鍒嗗竷鍙湅涓婚褰掑睘鍜岀煡璇嗗垎鍖恒€傚鏋滆繖閲屼负绌猴紝鍙互鍒囧洖鐪嬭鐐瑰叧绯伙紝鎴栧厛涓虹瑪璁拌ˉ鍏呬富棰樺綊灞炪€?"
+      title: `${modeLabel}当前没有可见笔记`,
+      message: "主题分布只看主题归属和知识分区。如果这里为空，可以切回看观点关系，或先为笔记补充主题归属。"
     };
   }
   return {
-    title: `${modeLabel}褰撳墠娌℃湁鍙绗旇`,
-    message: "褰撳墠绛涢€夋病鏈夌暀涓嬪彲璇荤殑瑙傜偣鍏崇郴銆傚彲浠ュ垏鍒板叏閮ㄥ叧绯伙紝鎴栧厛浠庡彸渚у緟澶勭悊鍐呭閲屽垽鏂綔鍦ㄥ叧鑱斻€?"
+    title: `${modeLabel}当前没有可见笔记`,
+    message: "当前筛选没有留下可读的观点关系。可以切到全部关系，或先从右侧待处理内容里判断潜在关联。"
   };
 }
 
@@ -98,9 +98,9 @@ export function buildGraphVisualMapChrome({
   const headContentMarkup = filterActive
     ? `
       <div>
-        <div class="graph-section-title">褰撳墠绗旇鍏崇郴鍥?/div>
-        <div class="graph-section-note">褰撳墠绗旇鍥哄畾鍦ㄤ腑蹇冿紱褰撳墠鑼冨洿锛?{focusDepth.label}銆傚彲浠ユ嫋鍔ㄧ敾甯冿紝鏌ョ湅瀹冨懆鍥寸殑鍏崇郴銆?/div>
-        <div class="graph-focus-depth" aria-label="褰撳墠绗旇鍏崇郴鑼冨洿">
+        <div class="graph-section-title">当前笔记关系图</div>
+        <div class="graph-section-note">当前笔记固定在中心；当前范围：${focusDepth.label}。可以拖动画布，查看它周围的关系。</div>
+        <div class="graph-focus-depth" aria-label="当前笔记关系范围">
           ${["1", "2", "all"]
             .map((value) => {
               const meta = graphFocusDepthMeta(value);
@@ -111,7 +111,7 @@ export function buildGraphVisualMapChrome({
           <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
           ${
             focusContextAvailable
-              ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "鏄剧ず鍙充晶鍏崇郴" : "鏀惰捣鍙充晶鍏崇郴"}">${focusContextCollapsed ? "鏄剧ず鍙充晶鍏崇郴" : "鏀惰捣鍙充晶鍏崇郴"}</button>`
+              ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}">${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}</button>`
               : ""
           }
         </div>
@@ -126,8 +126,8 @@ export function buildGraphVisualMapChrome({
       </div>
       ${renderGraphReadingLensControls(readingLens.key, legendOpen, graphShellPreviewProps.readingLensTrailingMarkup)}
       ${isolatedQueueStripMarkup}
-      ${structureFallback ? `<div class="graph-structure-fallback-note">褰撳墠娌℃湁涓婚褰掑睘鍏崇郴锛屽凡鎸夌瑪璁颁箣闂寸殑鍏崇郴鑷姩鍒嗙粍銆?/div>` : ""}
-      ${showDensityHint ? `<div class="graph-density-hint">褰撳墠鍥炬瘮杈冨瘑锛屽缓璁洿鎺ユ嫋鍔ㄥ埌灞€閮ㄥ尯鍩燂紝鍐嶉厤鍚堟偓鍋滄垨鏀惧ぇ缁х画鐪嬨€?/div>` : ""}
+      ${structureFallback ? `<div class="graph-structure-fallback-note">当前没有主题归属关系，已按笔记之间的关系自动分组。</div>` : ""}
+      ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
     `;
   const emptyCopy = graphVisualMapEmptyCopy({
     filterActive,

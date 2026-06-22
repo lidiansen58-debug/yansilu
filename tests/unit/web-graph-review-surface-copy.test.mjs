@@ -28,7 +28,7 @@ test("graph review queue consistently frames missing-rationale work as relation 
   assert.match(source, /没有缺说明或说明太粗的关系/);
   assert.deepEqual(questionSummary.categories.find((item) => item.key === "review"), {
     key: "review",
-    label: "鍏崇郴寰呭鏍?",
+    label: "关系待复核",
     count: 3
   });
   assert.match(source, /reviewCount > 0 \? `<span>待补说明 \$\{escapeHtml\(String\(reviewCount\)\)\}<\/span>` : ""/);
