@@ -20,6 +20,9 @@ import {
 import {
   relationNetworkStatusForNotePolicy
 } from "../../apps/web/src/note-persistence-policy.js";
+import {
+  renderGraphClusterGlowView
+} from "../../apps/web/src/graph-visual-map-view.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -312,11 +315,16 @@ test("graph map side panel does not stretch a second dark canvas below the map",
 test("graph clusters are selectable research objects with their own summary panel", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
+  const clusterGlow = renderGraphClusterGlowView([
+    { clusterKey: "cluster-alpha", title: "Alpha", tone: "teal", cx: 1, cy: 2, rx: 3, ry: 4 }
+  ]);
 
   assert.match(source, /function graphClusterResearchMeta\(cluster = \{\}, \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphClusterSelectionPanel\(\{ selection = null, clusterMeta = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /kind: "cluster"/);
-  assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(clusterKey\)\}"/);
+  assert.match(clusterGlow, /data-graph-select-cluster="cluster-alpha"/);
+  assert.match(clusterGlow, /role="button"/);
+  assert.match(clusterGlow, /aria-label="View cluster summary: Alpha"/);
   assert.match(source, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
   assert.match(source, /kicker: "主题群摘要"/);
   assert.match(source, /roleLabel: meta\.label/);
