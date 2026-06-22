@@ -11,6 +11,9 @@ import {
   systemMessageActionRoute,
   upsertSystemMessageList
 } from "../../apps/web/src/prototype-system-messages.js";
+import {
+  handleRecordOriginalFromNoteStateChange
+} from "../../apps/web/src/app-shell-state-note-creation-actions.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -151,7 +154,7 @@ test("reactivated workflow system messages become unread again", () => {
   assert.equal(result.reactivated, true);
 });
 
-test("save-after source-note reminders are mirrored into system messages", () => {
+test("save-after source-note reminders are mirrored into system messages", async () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
   const helperSource = readRepoFile("apps/web/src/prototype-note-state-helpers.js");
 
@@ -169,11 +172,23 @@ test("save-after source-note reminders are mirrored into system messages", () =>
   assert.match(saveSource, /const suggestion = showSaveAiSuggestionForNote\(note\);/);
   assert.match(saveSource, /syncSourcePromotionSystemMessageForNote\(note, suggestion\);/);
 
-  const createStart = source.indexOf('  if (reason === "record-original-from-note" || reason === "create-original-from-literature") {');
-  const createEnd = source.indexOf('  if (reason === "run-note-ai-analysis") {', createStart);
-  const createSource = source.slice(createStart, createEnd);
-  assert.match(createSource, /sourceNote\.generatedOriginalNoteId = note\.id;/);
-  assert.match(createSource, /syncSourcePromotionSystemMessageForNote\(sourceNote\);/);
+  const sourceNote = { id: "source-1", title: "Source", body: "body", folderId: "lit" };
+  const calls = [];
+  await handleRecordOriginalFromNoteStateChange({ sourceNoteId: "source-1" }, {
+    state: { notes: [sourceNote], tabs: [] },
+    originalDraftBodyFromSource: () => "draft body",
+    titleFromSeedText: () => "Permanent",
+    createNote: async () => ({ id: "note-1", title: "Permanent", body: "draft body" }),
+    mapNoteItem: (item) => item,
+    isOriginalRecordableSource: () => true,
+    withGeneratedOriginalReference: (body) => body,
+    withGeneratedOriginalMarker: (body) => body,
+    syncSourcePromotionSystemMessageForNote: (note) => calls.push(["sync-source-promotion", note.id, note.generatedOriginalNoteId]),
+    updateNote: async () => sourceNote,
+    setStatus: () => {}
+  });
+  assert.equal(sourceNote.generatedOriginalNoteId, "note-1");
+  assert.deepEqual(calls, [["sync-source-promotion", "source-1", "note-1"]]);
 });
 
 test("workflow system message actions open the precise note follow-up route", () => {
