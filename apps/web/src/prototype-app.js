@@ -437,6 +437,9 @@ import {
   buildGraphPanelState
 } from "./graph-panel-state-builder.js";
 import {
+  renderGraphPanelShell
+} from "./graph-panel-shell.js";
+import {
   renderGraphPanelForRuntime
 } from "./graph-panel-renderer.js";
 import {
@@ -13374,70 +13377,64 @@ function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");
-  if (!summary || !canvas) return;
-  syncGraphDisclosureState(canvas);
-
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   const scopeDirectoryId = graphScopeDirectoryId();
-  const panelState = buildGraphPanelState({
+  return renderGraphPanelShell({
     appState: state,
     graphState,
+    dom: { summary, canvas, backButton },
     folder,
     scopeDirectoryId,
     canReuseScopedGraph: graphLoadedScopeCoversDirectory(scopeDirectoryId)
   }, {
-    graphRelationStatusCountsAsNetworkEdge,
-    graphScopedItems,
-    normalizeGraphRelationTypeFilter,
-    graphEdgeMatchesFilters,
-    graphFocusedItems,
-    graphNodeIdsInScope,
-    graphRelationTouchesNodeScope,
-    graphRelationInNodeScope,
-    graphRelationVisual,
-    graphMergeRelationsByKey,
-    graphConflictItemInNodeScope,
-    graphReviewQueueInNodeScope,
-    graphBridgeGapInNodeScope,
-    graphHasMeaningfulStructureEdges,
-    graphStructureFallbackEdges,
-    graphComputedIsolatedNotes,
-    graphMarkIsolatedNodes,
-    graphBuildIsolatedVisualNodes,
-    graphBuildFocusedRelationTypeStats,
-    normalizeGraphSelectionForVisibleItems,
-    formatClockTime,
-    graphPotentialRelationNodeMap,
-    graphWeakRelationClues,
-    graphClueSummaryState,
-    buildGraphThinkingItems,
-    buildGraphQuestionSpotSummaryFromItems,
-    graphIsolatedQueueItems
-  });
-
-  state.graphConnectivityReady = panelState.connectivityReady === true;
-  state.graphConnectedNoteIds = panelState.connectedNoteIds || new Set();
-  state.graphVisibleNoteIds = panelState.visibleNoteIds || new Set();
-  state.graphVisibleNoteIdsReady = panelState.visibleNoteIdsReady !== false;
-  syncAllNoteRelationNetworkStatuses({
-    connectivityReady: state.graphConnectivityReady,
-    connectedIds: state.graphConnectivityReady ? state.graphConnectedNoteIds : null
-  });
-  renderGraphPanelForRuntime({ summary, canvas, backButton, panelState }, {
-    graphState,
-    escapeHtml,
-    renderGraphErrorState,
-    renderGraphIsolatedQueue,
-    renderGraphIsolatedQueueStrip,
-    renderGraphBridgeGapSection,
-    renderGraphWeakRelationClueSection,
-    renderRelationReviewQueueSection,
-    renderGraphAiAnalysisCard,
-    renderGraphWorkbenchEntryPills,
-    renderGraphWorkbenchPanel,
-    renderGraphRelationTypeFilter,
-    renderGraphInlineNotice,
-    renderGraphVisualMap
+    syncGraphDisclosureState,
+    syncAllNoteRelationNetworkStatuses,
+    buildGraphPanelState,
+    renderGraphPanelForRuntime,
+    stateBuilderDeps: {
+      graphRelationStatusCountsAsNetworkEdge,
+      graphScopedItems,
+      normalizeGraphRelationTypeFilter,
+      graphEdgeMatchesFilters,
+      graphFocusedItems,
+      graphNodeIdsInScope,
+      graphRelationTouchesNodeScope,
+      graphRelationInNodeScope,
+      graphRelationVisual,
+      graphMergeRelationsByKey,
+      graphConflictItemInNodeScope,
+      graphReviewQueueInNodeScope,
+      graphBridgeGapInNodeScope,
+      graphHasMeaningfulStructureEdges,
+      graphStructureFallbackEdges,
+      graphComputedIsolatedNotes,
+      graphMarkIsolatedNodes,
+      graphBuildIsolatedVisualNodes,
+      graphBuildFocusedRelationTypeStats,
+      normalizeGraphSelectionForVisibleItems,
+      formatClockTime,
+      graphPotentialRelationNodeMap,
+      graphWeakRelationClues,
+      graphClueSummaryState,
+      buildGraphThinkingItems,
+      buildGraphQuestionSpotSummaryFromItems,
+      graphIsolatedQueueItems
+    },
+    rendererDeps: {
+      escapeHtml,
+      renderGraphErrorState,
+      renderGraphIsolatedQueue,
+      renderGraphIsolatedQueueStrip,
+      renderGraphBridgeGapSection,
+      renderGraphWeakRelationClueSection,
+      renderRelationReviewQueueSection,
+      renderGraphAiAnalysisCard,
+      renderGraphWorkbenchEntryPills,
+      renderGraphWorkbenchPanel,
+      renderGraphRelationTypeFilter,
+      renderGraphInlineNotice,
+      renderGraphVisualMap
+    }
   });
 }
 

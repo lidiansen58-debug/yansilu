@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   readGraphFocusContextPanelSource,
+  readGraphPanelShellSource,
   readGraphVisualMapControllerSource,
   readPrototypeAppSource
 } from "./copy-source-helpers.mjs";
@@ -87,12 +88,18 @@ test("prototype graph shell delegates node and edge selection bodies to panel mo
 
 test("prototype graph shell delegates panel state building to a graph module", async () => {
   const source = await readPrototypeAppSource();
+  const panelShellSource = await readGraphPanelShellSource();
 
   assert.match(source, /from "\.\/graph-panel-state-builder\.js"/);
+  assert.match(source, /from "\.\/graph-panel-shell\.js"/);
   assert.match(source, /from "\.\/graph-panel-renderer\.js"/);
-  assert.match(source, /buildGraphPanelState\(/);
-  assert.match(source, /renderGraphPanelForRuntime\(\{ summary, canvas, backButton, panelState \}/);
+  assert.match(panelShellSource, /buildGraphPanelState\(/);
+  assert.match(panelShellSource, /renderGraphPanelForRuntime\(\{ summary, canvas, backButton, panelState \}/);
+  assert.match(source, /renderGraphPanelShell\(\{/);
+  assert.match(source, /stateBuilderDeps: \{/);
+  assert.match(source, /rendererDeps: \{/);
   assert.doesNotMatch(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
+  assert.doesNotMatch(source, /state\.graphConnectivityReady = panelState\.connectivityReady === true;/);
   assert.doesNotMatch(source, /const noticeMarkup = \(panelState\.notices \|\| \[\]\)/);
   assert.doesNotMatch(source, /const scopedNetworkEdges = allGraphEdges\.filter/);
   assert.doesNotMatch(source, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges/);

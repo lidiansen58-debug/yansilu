@@ -59,6 +59,10 @@ export function readGraphVisualMapControllerSource() {
   return readRepoText("apps", "web", "src", "graph-visual-map-controller.js");
 }
 
+export function readGraphPanelShellSource() {
+  return readRepoText("apps", "web", "src", "graph-panel-shell.js");
+}
+
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
