@@ -1,18 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+
+import { graphRelationWorkspaceRouteForFollowup } from "../../apps/web/src/graph-followup.js";
 
 test("graph bridge followup opens the large relation workspace with target and type prefilled", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const route = graphRelationWorkspaceRouteForFollowup({
+    targetNoteId: "note-b",
+    relationType: "bridges",
+    notice: "补桥接",
+    relationDrafts: {
+      rationaleDraft: "A is the missing bridge into B.",
+      insightQuestionDraft: "What bridge should be made?",
+      variants: [{ id: "bridge-rationale" }],
+      selectedVariant: "bridge-rationale"
+    }
+  });
 
-  assert.match(source, /const focusRelationCreate = \(entryHint = ""\) => \{/);
-  assert.match(source, /editor\?\.openPermanentRelationWorkspace\?\.\(\{/);
-  assert.match(source, /targetNoteId: cleanTargetNoteId,/);
-  assert.match(source, /relationType: cleanRelationType,/);
-  assert.match(source, /rationaleDraft: relationDrafts\.rationaleDraft,/);
-  assert.doesNotMatch(source, /'\[data-create-relation-form\] textarea\[name="rationale"\]'/);
+  assert.equal(route.mode, "ai");
+  assert.equal(route.targetNoteId, "note-b");
+  assert.equal(route.relationType, "bridges");
+  assert.equal(route.rationaleDraft, "A is the missing bridge into B.");
+  assert.equal(route.insightQuestionDraft, "What bridge should be made?");
+  assert.deepEqual(route.draftVariants, [{ id: "bridge-rationale" }]);
+  assert.equal(route.selectedTemplateVariant, "bridge-rationale");
 });

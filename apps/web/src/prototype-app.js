@@ -230,7 +230,12 @@ import {
   graphIsolatedNodeIds,
   graphFollowupActionForRelationType,
   graphNextActionForSummary,
+  graphRelationWorkspaceRouteForFollowup,
+  graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs,
   graphWritingCandidateNoteIds,
+  graphWritingContinuationFailureMessage,
+  graphWritingContinuationInput,
+  graphWritingContinuationStatusMessage,
   graphWritingFollowupEntryPlan
 } from "./graph-followup.js";
 import {
@@ -8177,13 +8182,15 @@ function noteMainPathWritingContinuationEntry(noteId, scopeLabel = "当前笔记
 }
 
 function graphWritingContinuationEntry(candidateNoteIds = [], scopeLabel = "当前图谱切片") {
-  const projectedEntry = planWritingBasketEntry({
-    existingNoteIds: parseWritingBasketIds(),
-    incomingNoteIds: candidateNoteIds
+  const projectedEntry = graphWritingContinuationInput({
+    basketNoteIds: parseWritingBasketIds(),
+    candidateNoteIds,
+    selectedThemeIndexId: writingState.selectedThemeIndexId,
+    sourceIndexIds: writingState.sourceIndexIds
   });
   return writingContinuationEntryForContext({
     basketNoteIds: projectedEntry.basketNoteIds,
-    sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds],
+    sourceIndexIds: projectedEntry.sourceIndexIds,
     scopeLabel
   });
 }
@@ -16096,17 +16103,7 @@ function graphThinkingHighlightAttrs(item = {}) {
 }
 
 function graphSelectEdgeActionAttrs(edge = {}) {
-  const edgeId = String(edge?.id || "").trim();
-  const fromNoteId = String(edge?.fromNoteId || edge?.from || "").trim();
-  const toNoteId = String(edge?.toNoteId || edge?.to || "").trim();
-  const relationType = String(edge?.relationType || "").trim().toLowerCase();
-  const edgeKey = graphEdgeSelectionKey({ id: edgeId, fromNoteId, toNoteId, relationType, createdBy: edge?.createdBy });
-  const attrs = [`data-graph-select-edge="${escapeHtml(edgeKey)}"`];
-  if (edgeId) attrs.push(`data-graph-select-edge-id="${escapeHtml(edgeId)}"`);
-  if (fromNoteId) attrs.push(`data-graph-select-edge-from="${escapeHtml(fromNoteId)}"`);
-  if (toNoteId) attrs.push(`data-graph-select-edge-to="${escapeHtml(toNoteId)}"`);
-  if (relationType) attrs.push(`data-graph-select-edge-type="${escapeHtml(relationType)}"`);
-  return attrs.join(" ");
+  return computeGraphSelectEdgeActionAttrs(edge, { escape: escapeHtml });
 }
 
 function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], reviewQueue = null, conflictItems = [], conflictingRelations = [], aiAnalysis = null, isolatedNotes = [], nodeLookupMap = null } = {}) {
@@ -17701,14 +17698,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
         if (continuation?.projectId) {
           await continueWritingProjectEntry(continuation.projectId, {
             openDraft: continuation.action === "open-draft",
-            statusMessage:
-              continuation.action === "open-draft"
-                ? `已从图谱打开当前草稿：${continuation.projectId}`
-                : continuation.action === "resume-scaffold"
-                  ? `已从图谱回到草稿骨架：${continuation.projectId}`
-                  : continuation.action === "resume-project"
-                  ? `已从图谱继续当前项目：${continuation.projectId}`
-                  : ""
+            statusMessage: graphWritingContinuationStatusMessage(continuation)
           });
           return;
         }
@@ -17724,10 +17714,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
         setStatus(plan.statusMessage, "ok", { requireModule: "writing" });
       } catch (error) {
         if (continuation?.projectId) {
-          setStatus(
-            `${continuation.action === "open-draft" ? "从图谱打开当前草稿" : continuation.action === "resume-scaffold" ? "从图谱回到草稿骨架" : "从图谱继续当前项目"}失败：${String(error?.message || error)}`,
-            "bad"
-          );
+          setStatus(graphWritingContinuationFailureMessage(continuation, error), "bad");
           return;
         }
         setStatus(`从图谱进入写作中心失败：${String(error?.message || error)}`, "bad");
@@ -17763,16 +17750,12 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   editor?.renderRelated?.("图谱下一步");
 
   const focusRelationCreate = (entryHint = "") => {
-    editor?.openPermanentRelationWorkspace?.({
-      mode: cleanTargetNoteId ? "ai" : "manual",
+    editor?.openPermanentRelationWorkspace?.(graphRelationWorkspaceRouteForFollowup({
       targetNoteId: cleanTargetNoteId,
       relationType: cleanRelationType,
       notice: entryHint,
-      rationaleDraft: relationDrafts.rationaleDraft,
-      insightQuestionDraft: relationDrafts.insightQuestionDraft,
-      draftVariants: relationDrafts.variants,
-      selectedTemplateVariant: relationDrafts.selectedVariant
-    });
+      relationDrafts
+    }));
   };
 
   const focusExistingRelationEdit = (entryHint = "") => {

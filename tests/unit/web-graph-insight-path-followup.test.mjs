@@ -1,39 +1,49 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+
+import {
+  graphRelationWorkspaceRouteForFollowup,
+  graphSelectEdgeActionAttrs
+} from "../../apps/web/src/graph-followup.js";
 
 test("graph insight path items select relations in place instead of jumping to followups", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const match = source.match(/function renderGraphInsightCoach\(context = \{\}\) \{([\s\S]*?)\n\}/);
-  const helperMatch = source.match(/function graphSelectEdgeActionAttrs\(edge = \{\}\) \{([\s\S]*?)\n\}/);
+  const attrs = graphSelectEdgeActionAttrs({
+    id: "rel-1",
+    fromNoteId: "note-a",
+    toNoteId: "note-b",
+    relationType: "BRIDGES"
+  });
 
-  assert.ok(match, "expected renderGraphInsightCoach() to exist");
-  assert.ok(helperMatch, "expected graphSelectEdgeActionAttrs() to exist");
-  const fnBody = match[1];
-  const helperBody = helperMatch[1];
-
-  assert.match(fnBody, /graphSelectEdgeActionAttrs\(edge\)/);
-  assert.doesNotMatch(fnBody, /data-graph-followup-action/);
-  assert.doesNotMatch(fnBody, /data-open-note/);
-  assert.match(helperBody, /data-graph-select-edge-to=/);
-  assert.match(helperBody, /data-graph-select-edge-type=/);
+  assert.match(attrs, /data-graph-select-edge="id:rel-1"/);
+  assert.match(attrs, /data-graph-select-edge-id="rel-1"/);
+  assert.match(attrs, /data-graph-select-edge-from="note-a"/);
+  assert.match(attrs, /data-graph-select-edge-to="note-b"/);
+  assert.match(attrs, /data-graph-select-edge-type="bridges"/);
+  assert.doesNotMatch(attrs, /data-graph-followup-action/);
+  assert.doesNotMatch(attrs, /data-open-note/);
 });
 
 test("graph relation followup continues to prefill target and relation type through the relation workspace", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const match = source.match(/function openGraphFollowupNote\(noteId = "", action = "", options = \{\}\) \{([\s\S]*?)\n\}/);
+  const route = graphRelationWorkspaceRouteForFollowup({
+    targetNoteId: "target-1",
+    relationType: "BRIDGES",
+    notice: "补桥接",
+    relationDrafts: {
+      rationaleDraft: "A explains why B matters.",
+      insightQuestionDraft: "Why connect A and B?",
+      variants: [{ id: "bridge" }],
+      selectedVariant: "bridge"
+    }
+  });
 
-  assert.ok(match, "expected openGraphFollowupNote() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /editor\?\.openPermanentRelationWorkspace\?\.\(\{/);
-  assert.match(fnBody, /targetNoteId: cleanTargetNoteId,/);
-  assert.match(fnBody, /relationType: cleanRelationType,/);
-  assert.doesNotMatch(fnBody, /openCreateRelationForm/);
+  assert.deepEqual(route, {
+    mode: "ai",
+    targetNoteId: "target-1",
+    relationType: "bridges",
+    notice: "补桥接",
+    rationaleDraft: "A explains why B matters.",
+    insightQuestionDraft: "Why connect A and B?",
+    draftVariants: [{ id: "bridge" }],
+    selectedTemplateVariant: "bridge"
+  });
 });

@@ -35,6 +35,85 @@ export function graphFocusCardActionMeta(edge = {}, contextMode = "argument") {
   };
 }
 
+export function graphEdgeSelectionKey(edge = {}) {
+  const id = String(edge?.id || "").trim();
+  if (id) return `id:${id}`;
+  return [
+    "pair",
+    String(edge?.fromNoteId || edge?.from || "").trim(),
+    String(edge?.toNoteId || edge?.to || "").trim(),
+    String(edge?.relationType || "associated_with").trim().toLowerCase(),
+    String(edge?.createdBy || "").trim().toLowerCase()
+  ].join("::");
+}
+
+export function graphSelectEdgeActionAttrs(edge = {}, { escape = (value) => String(value ?? "") } = {}) {
+  const edgeId = String(edge?.id || "").trim();
+  const fromNoteId = String(edge?.fromNoteId || edge?.from || "").trim();
+  const toNoteId = String(edge?.toNoteId || edge?.to || "").trim();
+  const relationType = String(edge?.relationType || "").trim().toLowerCase();
+  const edgeKey = graphEdgeSelectionKey({ id: edgeId, fromNoteId, toNoteId, relationType, createdBy: edge?.createdBy });
+  const attrs = [`data-graph-select-edge="${escape(edgeKey)}"`];
+  if (edgeId) attrs.push(`data-graph-select-edge-id="${escape(edgeId)}"`);
+  if (fromNoteId) attrs.push(`data-graph-select-edge-from="${escape(fromNoteId)}"`);
+  if (toNoteId) attrs.push(`data-graph-select-edge-to="${escape(toNoteId)}"`);
+  if (relationType) attrs.push(`data-graph-select-edge-type="${escape(relationType)}"`);
+  return attrs.join(" ");
+}
+
+export function graphRelationWorkspaceRouteForFollowup({
+  targetNoteId = "",
+  relationType = "",
+  notice = "",
+  relationDrafts = {}
+} = {}) {
+  const cleanTargetNoteId = String(targetNoteId || "").trim();
+  return {
+    mode: cleanTargetNoteId ? "ai" : "manual",
+    targetNoteId: cleanTargetNoteId,
+    relationType: String(relationType || "").trim().toLowerCase(),
+    notice: String(notice || ""),
+    rationaleDraft: relationDrafts?.rationaleDraft || "",
+    insightQuestionDraft: relationDrafts?.insightQuestionDraft || "",
+    draftVariants: Array.isArray(relationDrafts?.variants) ? relationDrafts.variants : [],
+    selectedTemplateVariant: relationDrafts?.selectedVariant || ""
+  };
+}
+
+export function graphWritingContinuationInput({
+  basketNoteIds = [],
+  candidateNoteIds = [],
+  selectedThemeIndexId = "",
+  sourceIndexIds = []
+} = {}) {
+  const cleanBasketNoteIds = (basketNoteIds || []).map((id) => String(id || "").trim()).filter(Boolean);
+  const cleanCandidateNoteIds = (candidateNoteIds || []).map((id) => String(id || "").trim()).filter(Boolean);
+  const cleanSourceIndexIds = [
+    String(selectedThemeIndexId || "").trim(),
+    ...(sourceIndexIds || []).map((id) => String(id || "").trim())
+  ].filter(Boolean);
+  return {
+    basketNoteIds: [...new Set([...cleanBasketNoteIds, ...cleanCandidateNoteIds])],
+    sourceIndexIds: [...new Set(cleanSourceIndexIds)]
+  };
+}
+
+export function graphWritingContinuationStatusMessage(continuation = {}) {
+  const projectId = String(continuation?.projectId || "").trim();
+  if (!projectId) return "";
+  if (continuation?.action === "open-draft") return `已从图谱打开当前草稿：${projectId}`;
+  if (continuation?.action === "resume-scaffold") return `已从图谱回到草稿骨架：${projectId}`;
+  if (continuation?.action === "resume-project") return `已从图谱继续当前项目：${projectId}`;
+  return "";
+}
+
+export function graphWritingContinuationFailureMessage(continuation = {}, error = "") {
+  const detail = String(error?.message || error || "");
+  if (continuation?.action === "open-draft") return `从图谱打开当前草稿失败：${detail}`;
+  if (continuation?.action === "resume-scaffold") return `从图谱回到草稿骨架失败：${detail}`;
+  return `从图谱继续当前项目失败：${detail}`;
+}
+
 export function graphNextActionForSummary({
   hasNodes = false,
   hasEdges = false,

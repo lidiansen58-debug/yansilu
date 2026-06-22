@@ -1,16 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-import { graphNextActionForSummary } from "../../apps/web/src/graph-followup.js";
-
-function appSource() {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-}
+import { graphNextActionForSummary, graphWritingFollowupEntryPlan } from "../../apps/web/src/graph-followup.js";
 
 test("graph next action names already-basket writing entry explicitly", () => {
   const nextAction = graphNextActionForSummary({
@@ -106,10 +97,15 @@ test("graph next action previews manual picking when the visible slice is too la
   assert.doesNotMatch(nextAction.note, /在写作中心挑/);
 });
 
-test("graph panel derives the current writing entry plan before continuing from graph follow-up", () => {
-  const source = appSource();
+test("graph follow-up entry plan preloads a small visible slice before continuing", () => {
+  const plan = graphWritingFollowupEntryPlan({
+    basketNoteIds: ["basket-a"],
+    candidateNoteIds: ["basket-a", "visible-b", "visible-c"],
+    scopeNoteIds: ["visible-b", "visible-c"]
+  });
 
-  assert.match(source, /const plan = graphWritingFollowupEntryPlan\(\{/);
-  assert.match(source, /if \(plan\.prefillNoteIds\.length\) \{/);
-  assert.match(source, /if \(plan\.mode === "no-candidates" && !plan\.hasBasket\) \{/);
+  assert.equal(plan.mode, "prefill-visible");
+  assert.equal(plan.hasBasket, true);
+  assert.equal(plan.addedCount, 2);
+  assert.deepEqual(plan.prefillNoteIds, ["visible-b", "visible-c"]);
 });
