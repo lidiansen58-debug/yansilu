@@ -47,6 +47,11 @@ import {
   renderGraphFocusContextPanel
 } from "../../apps/web/src/graph-focus-context-panel.js";
 import {
+  GRAPH_DENSITY_HINT_TIMEOUT_MS,
+  scheduleGraphDensityHintDismissForRuntime,
+  shouldShowGraphDensityHintForRuntime
+} from "../../apps/web/src/graph-density-hint-controller.js";
+import {
   graphResearchNavigatorState,
   renderGraphResearchNavigatorPanelView
 } from "../../apps/web/src/graph-research-navigator.js";
@@ -1692,11 +1697,54 @@ test("graph demo startup resets presentation state for a stable first screen", (
 });
 
 test("graph density hint is temporary and does not stay on the map", () => {
-  const source = readPrototypeApp();
-  assert.match(source, /const GRAPH_DENSITY_HINT_TIMEOUT_MS = 10000;/);
-  assert.match(source, /function scheduleGraphDensityHintDismiss\(\) \{/);
-  assert.match(source, /window\.setTimeout\(\(\) => \{[\s\S]*graphState\.densityHintVisibleUntil = 0;[\s\S]*if \(state\.module === "graph"\) renderGraphPanel\(\);[\s\S]*\}, remaining\)/);
-  assert.match(source, /function shouldShowGraphDensityHint\(\{ dense = false, filterActive = false \} = \{\}\) \{/);
+  let currentTime = 5000;
+  let timeoutCallback = null;
+  let timeoutDelay = 0;
+  let clearedTimer = null;
+  let renderCount = 0;
+  const graphState = {
+    lastLoadedDirectoryId: "dir-a",
+    lastLoadedAt: "loaded-1"
+  };
+  const deps = {
+    graphState,
+    now: () => currentTime,
+    window: {
+      setTimeout: (callback, delay) => {
+        timeoutCallback = callback;
+        timeoutDelay = delay;
+        return 42;
+      },
+      clearTimeout: (timer) => {
+        clearedTimer = timer;
+      }
+    },
+    isGraphModule: () => true,
+    renderGraphPanel: () => {
+      renderCount += 1;
+    }
+  };
+
+  assert.equal(GRAPH_DENSITY_HINT_TIMEOUT_MS, 10000);
+  assert.equal(shouldShowGraphDensityHintForRuntime({ dense: true, filterActive: false }, deps), true);
+  assert.equal(graphState.densityHintVisibleUntil, currentTime + GRAPH_DENSITY_HINT_TIMEOUT_MS);
+  assert.equal(graphState.densityHintTimer, 42);
+  assert.equal(timeoutDelay, GRAPH_DENSITY_HINT_TIMEOUT_MS);
+
+  currentTime += 2500;
+  assert.equal(scheduleGraphDensityHintDismissForRuntime(deps), true);
+  assert.equal(clearedTimer, 42);
+  assert.equal(timeoutDelay, 7500);
+
+  timeoutCallback();
+  assert.equal(graphState.densityHintVisibleUntil, 0);
+  assert.equal(graphState.densityHintTimer, 0);
+  assert.equal(renderCount, 1);
+
+  graphState.densityHintTimer = 77;
+  assert.equal(shouldShowGraphDensityHintForRuntime({ dense: false, filterActive: false }, deps), false);
+  assert.equal(graphState.densityHintKey, "");
+  assert.equal(clearedTimer, 77);
 });
 
 test("graph zoom controls include both stepper directions and preset levels", () => {

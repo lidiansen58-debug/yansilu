@@ -359,6 +359,11 @@ import {
   renderGraphFocusContextPanel as renderGraphFocusContextPanelView
 } from "./graph-focus-context-panel.js";
 import {
+  clearGraphDensityHintTimerForRuntime,
+  scheduleGraphDensityHintDismissForRuntime,
+  shouldShowGraphDensityHintForRuntime
+} from "./graph-density-hint-controller.js";
+import {
   graphClusterResearchMeta as computeGraphClusterResearchMeta,
   graphResearchNavigatorState as computeGraphResearchNavigatorState,
   graphUniqueClusterMeta as computeGraphUniqueClusterMeta,
@@ -14902,52 +14907,26 @@ function endGraphUtilityDrawerDrag(event) {
   graphUtilityDrawerDragState.stage = null;
 }
 
-const GRAPH_DENSITY_HINT_TIMEOUT_MS = 10000;
-
 function clearGraphDensityHintTimer() {
-  if (!graphState.densityHintTimer) return;
-  window.clearTimeout(graphState.densityHintTimer);
-  graphState.densityHintTimer = 0;
+  return clearGraphDensityHintTimerForRuntime({ graphState, window });
 }
 
 function scheduleGraphDensityHintDismiss() {
-  clearGraphDensityHintTimer();
-  const remaining = Number(graphState.densityHintVisibleUntil || 0) - Date.now();
-  if (remaining <= 0) {
-    graphState.densityHintVisibleUntil = 0;
-    return;
-  }
-  graphState.densityHintTimer = window.setTimeout(() => {
-    graphState.densityHintTimer = 0;
-    graphState.densityHintVisibleUntil = 0;
-    if (state.module === "graph") renderGraphPanel();
-  }, remaining);
+  return scheduleGraphDensityHintDismissForRuntime({
+    graphState,
+    window,
+    isGraphModule: () => state.module === "graph",
+    renderGraphPanel
+  });
 }
 
 function shouldShowGraphDensityHint({ dense = false, filterActive = false } = {}) {
-  const hintKey =
-    dense && !filterActive
-      ? `${String(graphState.lastLoadedDirectoryId || "").trim()}::${String(graphState.lastLoadedAt || "").trim()}::dense`
-      : "";
-  if (!hintKey) {
-    graphState.densityHintKey = "";
-    graphState.densityHintVisibleUntil = 0;
-    clearGraphDensityHintTimer();
-    return false;
-  }
-  const now = Date.now();
-  if (graphState.densityHintKey !== hintKey) {
-    graphState.densityHintKey = hintKey;
-    graphState.densityHintVisibleUntil = now + GRAPH_DENSITY_HINT_TIMEOUT_MS;
-    scheduleGraphDensityHintDismiss();
-    return true;
-  }
-  if (Number(graphState.densityHintVisibleUntil || 0) > now) {
-    scheduleGraphDensityHintDismiss();
-    return true;
-  }
-  clearGraphDensityHintTimer();
-  return false;
+  return shouldShowGraphDensityHintForRuntime({ dense, filterActive }, {
+    graphState,
+    window,
+    isGraphModule: () => state.module === "graph",
+    renderGraphPanel
+  });
 }
 
 function renderGraphPanel() {
