@@ -14,6 +14,9 @@ import {
 import {
   handleRecordOriginalFromNoteStateChange
 } from "../../apps/web/src/app-shell-state-note-creation-actions.js";
+import {
+  handleOpenNoteMainRouteStateChange
+} from "../../apps/web/src/app-shell-note-main-route-actions.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -283,21 +286,34 @@ test("graph workflow system messages reopen connected notes as graph nodes", asy
   assert.deepEqual(calls[2], ["renderGraphPanel"]);
 });
 
-test("graph route restores the note directory before refreshing the graph", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const start = source.indexOf('  if (reason === "open-note-main-route") {');
-  const end = source.indexOf('    if (action === "writing") {', start);
-  assert.ok(start >= 0 && end > start, "expected open-note-main-route handler");
-  const handler = source.slice(start, end);
+test("graph route restores the note directory before refreshing the graph", async () => {
+  const calls = [];
+  const state = {
+    notes: [{ id: "note-1", folderId: "folder-1" }],
+    browserRootId: "old-root",
+    selectedFolderId: "old-folder",
+    selectedFileId: ""
+  };
 
-  assert.match(handler, /const noteFolderId = String\(note\.folderId \|\| note\.directoryId \|\| ""\)\.trim\(\)/);
-  assert.match(handler, /state\.browserRootId = rootBoxIdFromFolder\(state, noteFolderId\)/);
-  assert.match(handler, /state\.selectedFolderId = noteFolderId/);
-  assert.match(handler, /await syncNotesForDirectory\(noteFolderId\)/);
-  assert.ok(
-    handler.indexOf("state.selectedFolderId = noteFolderId") < handler.indexOf("await refreshDirectoryGraph()"),
-    "graph refresh should happen after the note directory is restored"
-  );
+  const opened = await handleOpenNoteMainRouteStateChange({ noteId: "note-1", action: "graph" }, {
+    state,
+    folderById: () => ({ id: "folder-1" }),
+    rootBoxIdFromFolder: () => "root-folder-1",
+    syncNotesForDirectory: async (folderId) => calls.push(["sync", folderId, state.selectedFolderId, state.browserRootId]),
+    activateModule: (moduleId) => calls.push(["activate", moduleId, state.selectedFolderId, state.browserRootId]),
+    refreshDirectoryGraph: async () => calls.push(["refresh", state.selectedFolderId, state.browserRootId]),
+    setStatus: () => {}
+  });
+
+  assert.equal(opened, true);
+  assert.equal(state.selectedFolderId, "folder-1");
+  assert.equal(state.browserRootId, "root-folder-1");
+  assert.equal(state.selectedFileId, "note-1");
+  assert.deepEqual(calls, [
+    ["sync", "folder-1", "folder-1", "root-folder-1"],
+    ["activate", "graph", "folder-1", "root-folder-1"],
+    ["refresh", "folder-1", "root-folder-1"]
+  ]);
 });
 
 test("theme workflow system messages can reopen by index card without a loaded source note", async () => {
