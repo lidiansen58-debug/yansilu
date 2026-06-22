@@ -33,6 +33,9 @@ import {
   writingScaffoldButtonState,
   writingThemeIndexContinuationRoute
 } from "../../apps/web/src/writing-center-flow.js";
+import {
+  renderAppShell
+} from "../../apps/web/src/app-shell-render-all.js";
 import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -991,13 +994,14 @@ test("writing panel keeps projected continuity out of strong-model button wiring
 });
 
 test("renderAll repaints explorer before writing panel side-effects can interrupt the tree", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/function renderAll\(\) \{([\s\S]*?)\n\}/);
+  const calls = [];
+  renderAppShell({
+    state: { module: "graph" },
+    explorerRender: () => calls.push("explorer"),
+    renderWritingPanel: () => calls.push("writing")
+  });
 
-  assert.ok(match, "expected renderAll() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /if \(state\.module === "explorer" \|\| state\.module === "graph"\) \{\s*explorer\.render\(\);\s*\}[\s\S]*renderWritingPanel\(\);/);
+  assert.deepEqual(calls, ["explorer", "writing"]);
 });
 
 test("note persistence keeps generated-original and relation-network status fields in save paths", () => {

@@ -45,6 +45,9 @@ import {
   editorSelectionAiActionElements
 } from "./app-shell-editor-elements.js";
 import {
+  renderAppShell
+} from "./app-shell-render-all.js";
+import {
   candidatePreviewItemIds,
   candidatePreviewItems,
   confirmSkipReasonMap,
@@ -5655,25 +5658,26 @@ async function openDistillationQueueNote(noteId = "") {
 }
 
 function renderAll() {
-  ensureSelection();
-  syncRailSelectionState();
-  renderSidebarTitle();
-  renderModulePanels();
-  syncExportDirectoryOptions();
-  renderAiInboxWorkspace();
-  renderDistillationPanel();
-  renderGraphPanel();
-  renderSettingsPanel();
-  if (state.module === "explorer" || state.module === "graph") {
-    explorer.render();
-  }
-  renderWritingPanel();
-  editor.renderTabs();
-  applyFocusModeChrome();
-  renderStatusMeta();
-  renderWorkspaceStatusHint();
-  renderSaveAiSuggestion();
-  renderSystemMessages();
+  return renderAppShell({
+    state,
+    ensureSelection,
+    syncRailSelectionState,
+    renderSidebarTitle,
+    renderModulePanels,
+    syncExportDirectoryOptions,
+    renderAiInboxWorkspace,
+    renderDistillationPanel,
+    renderGraphPanel,
+    renderSettingsPanel,
+    explorerRender: () => explorer.render(),
+    renderWritingPanel,
+    renderEditorTabs: () => editor.renderTabs(),
+    applyFocusModeChrome,
+    renderStatusMeta,
+    renderWorkspaceStatusHint,
+    renderSaveAiSuggestion,
+    renderSystemMessages
+  });
 }
 
 function explorerQuickAction(rootId = state.browserRootId) {
