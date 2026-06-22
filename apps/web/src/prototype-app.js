@@ -327,6 +327,12 @@ import {
   renderGraphWorkbenchPriorityQueueView
 } from "./graph-workbench-panel.js";
 import {
+  applyGraphEmptyCloseInteraction,
+  applyGraphWorkbenchCloseInteraction,
+  applyGraphWorkbenchEntryInteraction,
+  applyGraphWorkbenchTabInteraction
+} from "./graph-workspace-interaction-controller.js";
+import {
   buildGraphQuestionSpotSummaryForGraph,
   buildGraphQuestionSpotSummaryFromItems as computeGraphQuestionSpotSummaryFromItems,
   buildGraphThinkingItemsForGraph,
@@ -18454,33 +18460,34 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   }
   const workbenchEntry = event.target.closest("[data-graph-workbench-entry]");
   if (workbenchEntry) {
-    const tab = graphWorkbenchTabMeta(workbenchEntry.getAttribute("data-graph-workbench-entry")).key;
-    const sameTab = graphState.workbenchPanelOpen === true && graphWorkbenchTabMeta(graphState.workbenchPanelTab).key === tab;
-    graphState.workbenchPanelTab = tab;
-    graphState.workbenchPanelOpen = !sameTab;
+    const result = applyGraphWorkbenchEntryInteraction(graphState, workbenchEntry.getAttribute("data-graph-workbench-entry"), {
+      graphWorkbenchTabMeta
+    });
     renderGraphPanel();
-    setStatus(graphState.workbenchPanelOpen ? `已打开${graphWorkbenchTabMeta(tab).statusLabel || graphWorkbenchTabMeta(tab).label}` : "已收起图谱侧栏", "ok");
+    setStatus(result.open ? `已打开${result.meta.statusLabel || result.meta.label}` : "已收起图谱侧栏", "ok");
     return;
   }
   const workbenchTab = event.target.closest("[data-graph-workbench-tab]");
   if (workbenchTab) {
-    graphState.workbenchPanelOpen = true;
-    graphState.workbenchPanelTab = graphWorkbenchTabMeta(workbenchTab.getAttribute("data-graph-workbench-tab")).key;
+    const result = applyGraphWorkbenchTabInteraction(graphState, workbenchTab.getAttribute("data-graph-workbench-tab"), {
+      graphWorkbenchTabMeta
+    });
     renderGraphPanel();
-    setStatus(`已切换到${graphWorkbenchTabMeta(graphState.workbenchPanelTab).statusLabel || graphWorkbenchTabMeta(graphState.workbenchPanelTab).label}`, "ok");
+    setStatus(`已切换到${result.meta.statusLabel || result.meta.label}`, "ok");
     return;
   }
   const workbenchClose = event.target.closest("[data-graph-workbench-close]");
   if (workbenchClose) {
-    graphState.workbenchPanelOpen = false;
+    applyGraphWorkbenchCloseInteraction(graphState);
     renderGraphPanel();
     setStatus("已收起图谱侧栏", "ok");
     return;
   }
   const graphEmptyClose = event.target.closest("[data-graph-empty-close]");
   if (graphEmptyClose) {
-    setGraphRelationTypeFilter("meaningful");
-    graphState.selection = null;
+    applyGraphEmptyCloseInteraction(graphState, {
+      setRelationTypeFilter: setGraphRelationTypeFilter
+    });
     renderGraphPanel();
     setStatus("已返回观点关系图", "ok");
     return;

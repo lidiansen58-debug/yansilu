@@ -68,6 +68,12 @@ import {
   renderGraphWorkbenchPriorityQueueView
 } from "../../apps/web/src/graph-workbench-panel.js";
 import {
+  applyGraphEmptyCloseInteraction,
+  applyGraphWorkbenchCloseInteraction,
+  applyGraphWorkbenchEntryInteraction,
+  applyGraphWorkbenchTabInteraction
+} from "../../apps/web/src/graph-workspace-interaction-controller.js";
+import {
   buildGraphQuestionSpotSummaryForGraph as moduleBuildGraphQuestionSpotSummaryForGraph,
   buildGraphThinkingItemsForGraph as moduleBuildGraphThinkingItemsForGraph,
   graphAiAnalysisSummaryStateForGraph as moduleGraphAiAnalysisSummaryStateForGraph
@@ -495,16 +501,54 @@ test("graph structure view falls back to galaxy clusters instead of an empty map
 });
 
 test("graph empty map card can be closed back to argument relations", () => {
-  const source = readPrototypeApp();
+  const relationFilterCalls = [];
+  const graphState = { selection: { kind: "cluster", clusterKey: "c1" } };
   const emptyMarkup = renderGraphMapEmptyStateView(
     { title: "No notes", message: "Try another mode" },
     { labels: { closeEmpty: "关闭提示并返回观点关系" } }
   );
 
   assert.match(emptyMarkup, /data-graph-empty-close/);
-  assert.match(emptyMarkup, /aria-label="关闭提示并返回观点关系"/);
-  assert.match(source, /const graphEmptyClose = event\.target\.closest\("\[data-graph-empty-close\]"\);/);
-  assert.match(source, /setGraphRelationTypeFilter\("meaningful"\);[\s\S]*setStatus\("已返回观点关系图", "ok"\);/);
+  assert.match(emptyMarkup, /aria-label="关闭提示并返回观点关系/);
+  assert.deepEqual(applyGraphEmptyCloseInteraction(graphState, {
+    setRelationTypeFilter: (...args) => relationFilterCalls.push(args)
+  }), {
+    relationType: "meaningful",
+    selection: null
+  });
+  assert.deepEqual(relationFilterCalls, [["meaningful"]]);
+  assert.equal(graphState.selection, null);
+});
+
+test("graph workbench interactions toggle entry, tab, and close state", () => {
+  const graphState = {
+    workbenchPanelOpen: false,
+    workbenchPanelTab: "questions"
+  };
+  const deps = {
+    graphWorkbenchTabMeta: (value = "") => {
+      const key = String(value || "clues").trim() || "clues";
+      return { key, label: key === "clues" ? "关系" : "问题", statusLabel: key === "clues" ? "关系待办" : "思考问题" };
+    }
+  };
+
+  assert.deepEqual(applyGraphWorkbenchEntryInteraction(graphState, "clues", deps), {
+    tab: "clues",
+    open: true,
+    meta: { key: "clues", label: "关系", statusLabel: "关系待办" }
+  });
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+
+  assert.equal(applyGraphWorkbenchEntryInteraction(graphState, "clues", deps).open, false);
+  assert.equal(graphState.workbenchPanelOpen, false);
+
+  assert.equal(applyGraphWorkbenchTabInteraction(graphState, "questions", deps).open, true);
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "questions");
+
+  assert.deepEqual(applyGraphWorkbenchCloseInteraction(graphState), { open: false });
+  assert.equal(graphState.workbenchPanelOpen, false);
 });
 
 test("graph research navigator uses cluster maturity for global verdicts", () => {
