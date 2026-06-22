@@ -25,17 +25,46 @@ test("prototype-app stays inside the current shell validation budget", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const lineCount = source.split(/\r?\n/).length;
 
-  assert.ok(lineCount <= 22000, `prototype-app.js should not grow past the shell budget, got ${lineCount} lines`);
+  assert.ok(lineCount <= 19000, `prototype-app.js should not grow past the shell budget, got ${lineCount} lines`);
   assert.match(source, /bindAiInboxWorkspaceEvents/);
   assert.match(source, /bindAiSuggestionsWorkspaceEvents/);
   assert.match(source, /createGraphRelationWorkflowController/);
   assert.match(source, /createPrototypeUpdateController/);
   assert.match(source, /systemMessageActionRoute/);
+  assert.match(source, /renderAppShell/);
   assert.match(source, /currentModuleSidebarUi/);
+  assert.match(source, /renderWritingPanelShell/);
   assert.match(source, /renderSystemMessagesShell/);
   assert.match(source, /openSystemMessagesShell/);
+  assert.match(source, /buildGraphVisualMapRuntimeState/);
+  assert.match(source, /buildGraphVisualMapChrome/);
+  assert.match(source, /buildGraphVisualMapShellProps/);
   assert.doesNotMatch(source, /renderSystemMessagesDom/);
   assert.doesNotMatch(source, /openSystemMessagesDom/);
+});
+
+test("prototype-app keeps shell-era UI responsibilities behind extracted modules", () => {
+  const source = fs.readFileSync(prototypeAppPath, "utf8");
+  const requiredImports = [
+    "app-shell-render-all.js",
+    "app-shell-module-ui.js",
+    "writing-panel-shell.js",
+    "system-messages-shell.js",
+    "graph-visual-map-runtime-state.js",
+    "graph-visual-map-chrome.js",
+    "graph-visual-map-shell-props.js"
+  ];
+
+  for (const modulePath of requiredImports) {
+    assert.match(source, new RegExp(`from "\\./${modulePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  }
+
+  assert.doesNotMatch(source, /function renderWritingFlowSteps/);
+  assert.doesNotMatch(source, /function renderWritingStatusStrip/);
+  assert.doesNotMatch(source, /function renderGraphVisualNode/);
+  assert.doesNotMatch(source, /function renderGraphVisualEdge/);
+  assert.doesNotMatch(source, /function renderSystemMessagesDom/);
+  assert.doesNotMatch(source, /const configs = \{\s*distillation:/);
 });
 
 test("prototype-app source-string tests stay centralized as architecture boundary checks", () => {
@@ -48,7 +77,7 @@ test("prototype-app source-string tests stay centralized as architecture boundar
   const totalReferences = readers.reduce((total, item) => total + item.count, 0);
 
   assert.ok(readers.length <= 20, `expected at most 20 prototype-app source-reading unit files, got ${readers.length}`);
-  assert.ok(totalReferences <= 75, `expected at most 75 prototype-app source references, got ${totalReferences}`);
+  assert.ok(totalReferences <= 50, `expected at most 50 prototype-app source references, got ${totalReferences}`);
   assert.ok(readers.some((item) => item.file.endsWith("web-prototype-graph-shell-boundary.test.mjs")));
   assert.ok(readers.some((item) => item.file.endsWith("web-prototype-writing-shell-boundary.test.mjs")));
 });
