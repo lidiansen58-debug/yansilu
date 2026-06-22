@@ -49,6 +49,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   const requiredImports = [
     "app-shell-render-all.js",
     "app-shell-module-ui.js",
+    "app-shell-module-header.js",
     "app-shell-sidebar-controller.js",
     "app-shell-state-change-deps.js",
     "app-shell-state-change-router.js",

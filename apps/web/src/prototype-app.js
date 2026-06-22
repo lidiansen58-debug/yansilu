@@ -51,6 +51,9 @@ import {
   currentModuleSidebarUi
 } from "./app-shell-module-ui.js";
 import {
+  renderModuleWorkspaceHeaderForRuntime
+} from "./app-shell-module-header.js";
+import {
   renderSidebarTitleForRuntime
 } from "./app-shell-sidebar-controller.js";
 import {
@@ -4825,31 +4828,9 @@ function currentModuleUi() {
 }
 
 function renderModuleWorkspaceHeader() {
-  // module header actions are rendered dynamically
   const moduleTitle = $("moduleTitle");
   const moduleSummary = $("moduleSummary");
   const moduleHeaderActions = $("moduleHeaderActions");
-  if (!moduleTitle || !moduleSummary || !moduleHeaderActions) return;
-  if (state.module === "explorer") {
-    moduleHeaderActions.innerHTML = "";
-    return;
-  }
-  const moduleUi = currentModuleUi();
-  if (state.module === "settings") {
-    const settingsHeader = settingsModuleHeaderCopy();
-    moduleTitle.textContent = settingsHeader.title;
-    moduleSummary.textContent = settingsHeader.summary;
-    moduleHeaderActions.innerHTML = "";
-    return;
-  }
-  moduleTitle.textContent = moduleUi.title;
-  moduleSummary.textContent = moduleUi.summary;
-  if (state.module === "graph") {
-    moduleTitle.textContent = "";
-    moduleSummary.textContent = "";
-    moduleHeaderActions.innerHTML = "";
-    return;
-  }
   const settingsPackSelect = $("settingsAiModelPack");
   const packOptionsHtml = settingsPackSelect
     ? [...settingsPackSelect.querySelectorAll("option")]
@@ -4861,61 +4842,28 @@ function renderModuleWorkspaceHeader() {
       <option value="Ollama Local">本地 AI</option>
     `;
 
-  const preview = settingsState.ai.routePreview;
-  const providerId = String(preview?.provider?.providerId || currentAiProviderId() || "").trim();
-  const modelRef = String(preview?.route?.modelRef || "").trim();
-  const localOnly = Boolean(preview?.route?.localOnly);
-  const healthStatus = String(preview?.health?.status || "").trim();
-  const statusTone = healthStatus === "healthy" ? "ok" : healthStatus ? "warn" : "";
-  const displayModelRef = modelRef.includes(":")
-    ? modelRef.slice(modelRef.lastIndexOf(":") + 1)
-    : modelRef;
-  const headerHealthLabelMap = {
-    healthy: "已连通",
-    degraded: "需检查",
-    down: "不可用",
-    unknown: "待试运行"
-  };
-  const statusLabel = localOnly ? "本地" : "云端";
-  const statusDetail = providerId
-    ? `${localOnly ? "本地 AI" : "AI 服务"}${displayModelRef ? ` / ${displayModelRef}` : ""}`
-    : displayModelRef
-      ? displayModelRef
-      : "AI 连接暂不可用";
-  if (state.module === "imports") {
-    moduleHeaderActions.innerHTML = "";
-    return;
-  }
-  moduleHeaderActions.innerHTML = `
-    <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
-    <span class="settings-stat-badge ${localOnly ? "ok" : ""}">${escapeHtml(statusLabel)}</span>
-    <span class="settings-stat-badge ${statusTone}">${escapeHtml(headerHealthLabelMap[healthStatus] || healthStatus || "未知")}</span>
-    <span class="settings-stat-badge">${escapeHtml(statusDetail)}</span>
-    <span class="module-ai-pack">
-      <strong>AI</strong>
-      <select id="moduleAiModelPack" aria-label="AI 方案">
-        ${packOptionsHtml}
-      </select>
-    </span>
-    <button class="mini-btn" id="moduleAiRefreshRoute" type="button">Refresh</button>
-  `;
-  $("moduleBackToNotes")?.addEventListener("click", () => activateModule("explorer"));
-
-  const modulePack = $("moduleAiModelPack");
-  if (modulePack) {
-    const stored = String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
-    if (modulePack.value !== stored) modulePack.value = stored;
-    modulePack.addEventListener("change", (event) => {
-      const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
-      applyAiModelPackChange(next, { source: "module" });
-    });
-  }
-
-  $("moduleAiRefreshRoute")?.addEventListener("click", async () => {
-    await refreshAiRoutePreview({ render: false });
-    renderModuleWorkspaceHeader();
-    renderSettingsPanel();
-    setStatus("AI 连接信息已刷新", "ok");
+  return renderModuleWorkspaceHeaderForRuntime({
+    state,
+    elements: {
+      moduleTitle,
+      moduleSummary,
+      moduleHeaderActions,
+      moduleBackToNotes: $("moduleBackToNotes"),
+      moduleAiModelPack: $("moduleAiModelPack"),
+      moduleAiRefreshRoute: $("moduleAiRefreshRoute")
+    },
+    settingsState,
+    moduleUi: currentModuleUi(),
+    settingsHeader: settingsModuleHeaderCopy(),
+    settingsPackOptionsHtml: packOptionsHtml,
+    currentAiProviderId,
+    activateModule,
+    applyAiModelPackChange,
+    refreshAiRoutePreview,
+    renderModuleWorkspaceHeader,
+    renderSettingsPanel,
+    setStatus,
+    escapeHtml
   });
 }
 
