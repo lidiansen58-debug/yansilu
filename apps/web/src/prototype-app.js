@@ -407,6 +407,11 @@ import {
   renderGraphSelectionPanelViaDispatcher
 } from "./graph-selection-dispatcher.js";
 import {
+  buildGraphEdgeSelectionRuntimeDeps,
+  buildGraphNodeSelectionRuntimeDeps,
+  buildGraphSelectionDispatcherDeps
+} from "./graph-selection-runtime-deps.js";
+import {
   graphFocusContextCollapsedState,
   graphFocusContextCollapsedStatus,
   graphFocusHelpOpenState,
@@ -12069,6 +12074,17 @@ function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandid
 }
 
 function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [], clusterMeta = [] } = {}) {
+  const { renderers, deps } = buildGraphSelectionDispatcherDeps({
+    renderGraphClusterSelectionPanel,
+    renderGraphThemeSelectionPanel,
+    renderGraphIsolatedSelectionPanel,
+    renderGraphIsolatedCompletePanel,
+    renderGraphRelationFormSelectionPanel,
+    renderGraphBridgeSelectionPanel,
+    renderGraphNodeSelectionPanel,
+    renderGraphEdgeSelectionPanel,
+    normalizeGraphSelectionForVisibleItems
+  });
   return renderGraphSelectionPanelViaDispatcher({
     selection,
     nodeMap,
@@ -12077,22 +12093,11 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
     isolatedNotes,
     bridgeGaps,
     clusterMeta
-  }, {
-    renderClusterPanel: renderGraphClusterSelectionPanel,
-    renderThemePanel: renderGraphThemeSelectionPanel,
-    renderIsolatedPanel: renderGraphIsolatedSelectionPanel,
-    renderIsolatedCompletePanel: renderGraphIsolatedCompletePanel,
-    renderRelationFormPanel: renderGraphRelationFormSelectionPanel,
-    renderBridgePanel: renderGraphBridgeSelectionPanel,
-    renderNodePanel: renderGraphNodeSelectionPanel,
-    renderEdgePanel: renderGraphEdgeSelectionPanel
-  }, {
-    normalizeSelection: normalizeGraphSelectionForVisibleItems
-  });
+  }, renderers, deps);
 }
 
 function renderGraphNodeSelectionPanel(args = {}) {
-  return renderGraphNodeSelectionPanelView(args, {
+  return renderGraphNodeSelectionPanelView(args, buildGraphNodeSelectionRuntimeDeps({
     escapeHtml,
     graphRelationStatusCountsAsNetworkEdge,
     graphNodeNeedsRelationWorkflow,
@@ -12110,11 +12115,11 @@ function renderGraphNodeSelectionPanel(args = {}) {
     renderGraphSelectionShell,
     noteTypeLabel,
     aiAnalysisLoading: graphState.aiAnalysisLoading
-  });
+  }));
 }
 
 function renderGraphEdgeSelectionPanel(args = {}) {
-  return renderGraphEdgeSelectionPanelView(args, {
+  return renderGraphEdgeSelectionPanelView(args, buildGraphEdgeSelectionRuntimeDeps({
     escapeHtml,
     graphEdgeSelectionKey,
     graphNodeTitle,
@@ -12130,7 +12135,7 @@ function renderGraphEdgeSelectionPanel(args = {}) {
     renderGraphSelectionShell,
     focusContextMode: graphState.focusContextMode,
     relationAdjustmentFocusById: graphState.relationAdjustmentFocusById
-  });
+  }));
 }
 
 function graphHash(value = "") {

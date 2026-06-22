@@ -68,9 +68,12 @@ test("prototype graph shell delegates selection kind dispatch to a graph module"
   const source = await readPrototypeAppSource();
 
   assert.match(source, /from "\.\/graph-selection-dispatcher\.js"/);
+  assert.match(source, /from "\.\/graph-selection-runtime-deps\.js"/);
   assert.match(source, /renderGraphSelectionPanelViaDispatcher/);
-  assert.match(source, /renderNodePanel: renderGraphNodeSelectionPanel/);
-  assert.match(source, /renderEdgePanel: renderGraphEdgeSelectionPanel/);
+  assert.match(source, /buildGraphSelectionDispatcherDeps\(\{/);
+  assert.match(source, /\}, renderers, deps\);/);
+  assert.doesNotMatch(source, /renderNodePanel: renderGraphNodeSelectionPanel/);
+  assert.doesNotMatch(source, /renderEdgePanel: renderGraphEdgeSelectionPanel/);
   assert.doesNotMatch(source, /if \(normalized\.kind === "cluster"\)/);
   assert.doesNotMatch(source, /if \(normalized\.kind === "relationForm"\)/);
   assert.doesNotMatch(source, /if \(normalized\.kind === "bridge"\)/);
