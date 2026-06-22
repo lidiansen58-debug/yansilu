@@ -969,7 +969,7 @@ test("fleeting and literature boxes use the same simplified note-browser scope",
 });
 
 test("writing workspace defines hasProject before project list hints use it", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const source = readRepoFile("apps/web/src/writing-panel-controller.js");
   const match = source.match(/const hasProject = Boolean\(writingState\.project\?\.id\);[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
 
   assert.ok(match, "expected writing workspace project-entry block to exist");

@@ -38,17 +38,20 @@ test("prototype writing shell delegates panel state building to writing workspac
   assert.match(panelControllerSource, /function renderWritingStrongModelRequestDetailDom/);
   assert.match(panelControllerSource, /renderWritingStrongModelRequestDetailDom\(deps,/);
   assert.doesNotMatch(source, /function renderWritingStrongModelRequestDetail/);
+  assert.match(panelControllerSource, /function renderWritingStatusStripDom/);
+  assert.match(panelControllerSource, /renderWritingStatusStripDom\(deps\)/);
+  assert.doesNotMatch(source, /function renderWritingStatusStrip/);
   assert.doesNotMatch(panelControllerSource, /const candidateFocusSourceIds = uniqueStrings/);
-  assert.doesNotMatch(panelControllerSource, /const strongModelState = describeWritingStrongModelStatus/);
 });
 
 test("prototype writing shell keeps continuity and scaffold wording boundaries without legacy scaffold labels", async () => {
   const source = await readPrototypeAppSource();
+  const panelControllerSource = await readWritingPanelControllerSource();
 
   assert.match(source, /currentWritingContinuationEntry/);
   assert.match(source, /describeWritingNextActionFromState/);
-  assert.match(source, /projectEntry\?\.projectId && projectEntry\?\.actionLabel/);
-  assert.match(source, /const draftTone =[\s\S]*projectPreflightSummary\.level !== "ready"[\s\S]*"warn"/);
+  assert.match(panelControllerSource, /projectEntry\?\.projectId && projectEntry\?\.actionLabel/);
+  assert.match(panelControllerSource, /const draftTone =[\s\S]*projectPreflightSummary\.level !== "ready"[\s\S]*"warn"/);
   assert.doesNotMatch(source, /WritingProject: \$\{projectId\}/);
   assert.doesNotMatch(source, /DraftScaffold: \$\{scaffoldId\}/);
   assert.doesNotMatch(source, /current scaffold/);

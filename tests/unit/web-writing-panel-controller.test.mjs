@@ -5,6 +5,7 @@ import {
   renderWritingBookDesignDom,
   renderWritingFlowStepsDom,
   renderWritingScaffoldPreviewDom,
+  renderWritingStatusStripDom,
   renderWritingStrongModelRequestDetailDom
 } from "../../apps/web/src/writing-panel-controller.js";
 
@@ -41,6 +42,43 @@ test("writing panel controller renders flow steps into the panel DOM", () => {
   const html = nodes.get("writingFlowSteps").innerHTML;
   assert.match(html, /writing-flow-step is-done/);
   assert.match(html, /writing-flow-step is-active/);
+});
+
+test("writing panel controller renders status strip from injected writing state", () => {
+  const nodes = new Map([
+    ["writingStatusStrip", { innerHTML: "" }]
+  ]);
+
+  renderWritingStatusStripDom({
+    $: (id) => nodes.get(id) || null,
+    writingState: {
+      relationCounts: { n1: 2 },
+      relationCountErrors: {},
+      loadingRelationCounts: false,
+      project: null,
+      scaffold: null
+    },
+    parseWritingBasketIds: () => ["n1"],
+    currentWritingBasketEligibility: () => ({ ineligible: [] }),
+    writingRelationCountsReady: () => true,
+    writingRelationCountsErrored: () => false,
+    deriveBasketWritingReadiness: () => ({ level: "project_ready", status: "Material <ready>", hint: "Can create" }),
+    writingKnownNoteById: (id) => ({ id }),
+    describeWritingProjectPreflight: () => ({ level: "ready", status: "Ready", hint: "" }),
+    describeWritingProjectEntryState: () => ({ status: "Project ready", hint: "Project hint" }),
+    describeWritingMaterialStatus: () => ({ status: "Material <ready>", hint: "Use selected notes" }),
+    writingIneligibleSummary: () => "Ineligible",
+    isWritingStrongModelReady: () => true,
+    describeWritingStrongModelStatus: () => ({ status: "Strong ready", hint: "Strong hint" }),
+    escapeHtml
+  });
+
+  const html = nodes.get("writingStatusStrip").innerHTML;
+  assert.match(html, /writing-status-card/);
+  assert.match(html, /data-tone="good"/);
+  assert.match(html, /Material &lt;ready&gt;/);
+  assert.match(html, /Project ready/);
+  assert.match(html, /Strong ready/);
 });
 
 test("writing panel controller renders scaffold preview empty continuity guidance", () => {
