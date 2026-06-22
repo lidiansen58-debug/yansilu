@@ -8,6 +8,7 @@ const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 const unitDir = path.join(repoRoot, "tests", "unit");
 const prototypeAppPath = path.join(repoRoot, "apps", "web", "src", "prototype-app.js");
+const webSrcDir = path.join(repoRoot, "apps", "web", "src");
 
 function unitTestFiles(dir = unitDir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -19,6 +20,30 @@ function unitTestFiles(dir = unitDir) {
 
 function prototypeSourceReferenceCount(source = "") {
   return (source.match(/readPrototypeAppSource|prototype-app\.js|apps\/web\/src\/prototype-app\.js|apps", "web", "src", "prototype-app\.js/g) || []).length;
+}
+
+function functionLineCount(source = "", name = "") {
+  const start = source.indexOf(`function ${name}`);
+  const asyncStart = source.indexOf(`async function ${name}`);
+  const index = start >= 0 ? start : asyncStart;
+  assert.ok(index >= 0, `expected ${name} to exist`);
+  const bodyStart = source.indexOf("{", index);
+  let depth = 0;
+  for (let cursor = bodyStart; cursor < source.length; cursor += 1) {
+    const char = source[cursor];
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(index, cursor + 1).split(/\r?\n/).length;
+      }
+    }
+  }
+  throw new Error(`expected ${name} body to close`);
+}
+
+function fileLineCount(...segments) {
+  return fs.readFileSync(path.join(webSrcDir, ...segments), "utf8").split(/\r?\n/).length;
 }
 
 test("prototype-app stays inside the current shell validation budget", () => {
@@ -44,6 +69,43 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /renderGraphPanelForRuntime/);
   assert.doesNotMatch(source, /renderSystemMessagesDom/);
   assert.doesNotMatch(source, /openSystemMessagesDom/);
+});
+
+test("prototype-app keeps critical shell wrappers thin", () => {
+  const source = fs.readFileSync(prototypeAppPath, "utf8");
+  const shellWrapperBudgets = {
+    renderGraphVisualMap: 5,
+    renderGraphPanel: 25,
+    renderWritingPanel: 8,
+    renderSystemMessages: 8,
+    openSystemMessages: 8,
+    renderAll: 35,
+    renderSidebarTitle: 35,
+    handleStateChange: 5
+  };
+
+  for (const [name, maxLines] of Object.entries(shellWrapperBudgets)) {
+    const count = functionLineCount(source, name);
+    assert.ok(count <= maxLines, `${name} should stay a shell wrapper under ${maxLines} lines, got ${count}`);
+  }
+});
+
+test("extracted shell modules stay focused on one assembly boundary", () => {
+  const moduleLineBudgets = {
+    "app-shell-render-all.js": 80,
+    "app-shell-sidebar-controller.js": 140,
+    "app-shell-state-change-deps.js": 40,
+    "writing-panel-shell.js": 90,
+    "system-messages-shell.js": 60,
+    "graph-visual-map-runtime-deps.js": 40,
+    "graph-panel-runtime-deps.js": 40,
+    "graph-panel-renderer.js": 150
+  };
+
+  for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
+    const count = fileLineCount(modulePath);
+    assert.ok(count <= maxLines, `${modulePath} should stay under ${maxLines} lines, got ${count}`);
+  }
 });
 
 test("prototype-app keeps shell-era UI responsibilities behind extracted modules", () => {
