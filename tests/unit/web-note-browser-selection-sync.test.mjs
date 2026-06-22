@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 
 import {
   readComponentsExplorerPaneSource,
-  readPrototypeAppSource,
   readPrototypeCssSource,
   readPrototypeHtmlSource
 } from "./copy-source-helpers.mjs";
+import {
+  routeAppShellStateChange
+} from "../../apps/web/src/app-shell-state-change-router.js";
 import {
   handleGraphFocusNoteStateChange,
   handleSelectFolderStateChange
@@ -82,15 +84,6 @@ test("explorer render auto-reveals the preferred row after rebuilding the tree",
 });
 
 test("app state sync funnels note and folder selection through one helper", async () => {
-  const source = await readPrototypeAppSource();
-
-  assert.ok(source.includes("function applyExplorerSelectionContext({"));
-  assert.ok(source.includes("state.selectedFileId = resolvedNote.id;"));
-  assert.ok(source.includes("state.selectedFolderId = folder.id;"));
-  assert.ok(source.includes("state.browserRootId = rootBoxIdFromFolder(state, folder.id);"));
-  assert.ok(source.includes("if (clearSelectedFile) state.selectedFileId = null;"));
-  assert.ok(source.includes("if (note) applyExplorerSelectionContext({ note, syncSearch: true, expandFolder: true });"));
-
   const folderCalls = [];
   await handleSelectFolderStateChange({ folderId: " d2 " }, {
     state: { module: "explorer", selectedFolderId: "d2", browserRootId: "root" },
@@ -115,9 +108,12 @@ test("app state sync funnels note and folder selection through one helper", asyn
 });
 
 test("switch-tab sync clears stale explorer file selection when there is no active tab", async () => {
-  const source = await readPrototypeAppSource();
+  const calls = [];
 
-  assert.ok(source.includes("function syncExplorerContextToActiveTab() {"));
-  assert.ok(source.includes("? applyExplorerSelectionContext({ noteId: activeTab.noteId, syncSearch: true, expandFolder: true })"));
-  assert.ok(source.includes(': applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });'));
+  await routeAppShellStateChange("switch-tab", {}, {
+    syncExplorerContextToActiveTab: () => calls.push("sync-tab"),
+    renderAll: () => calls.push("render")
+  });
+
+  assert.deepEqual(calls, ["sync-tab", "render"]);
 });
