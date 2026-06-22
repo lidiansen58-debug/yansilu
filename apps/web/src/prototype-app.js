@@ -109,8 +109,11 @@ import {
   renderAiInboxWorkspaceView
 } from "./ai-inbox-workspace.js";
 import {
-  renderAiSuggestionsPanel
-} from "./ai-suggestions-panel.js";
+  aiSuggestionFiltersFromWorkspace,
+  aiSuggestionReviewedContentFromWorkspace,
+  bindAiSuggestionsWorkspaceEvents,
+  renderAiSuggestionsWorkspaceView
+} from "./ai-suggestions-workspace.js";
 import {
   aiInboxActionLabel,
   aiArtifactFromCanonical,
@@ -2627,35 +2630,16 @@ function renderScheduledTasksWorkspace() {
 }
 
 function renderAiSuggestionsWorkspace() {
-  const el = $("settingsAiSuggestionsPanel");
-  if (!el) return;
-  el.innerHTML = renderAiSuggestionsPanel({
-    items: settingsState.ai.suggestions,
-    total: settingsState.ai.suggestionsTotal,
-    filters: settingsState.ai.suggestionFilters,
-    selectedSuggestionId: settingsState.ai.selectedSuggestionId,
-    detail: settingsState.ai.suggestionDetail,
-    detailSuggestionId: settingsState.ai.suggestionDetailSuggestionId,
-    detailLoading: settingsState.ai.suggestionDetailLoading,
-    detailError: settingsState.ai.suggestionDetailError,
-    loading: settingsState.ai.suggestionsLoading,
-    actionLoading: settingsState.ai.suggestionActionLoading,
-    actionSuggestionId: settingsState.ai.suggestionActionSuggestionId,
-    actionNoticeSuggestionId: settingsState.ai.suggestionActionNoticeSuggestionId,
-    actionNotice: settingsState.ai.suggestionActionNotice,
-    actionNoticeTone: settingsState.ai.suggestionActionNoticeTone,
-    actionError: settingsState.ai.suggestionActionError,
-    error: settingsState.ai.suggestionsError
+  renderAiSuggestionsWorkspaceView({
+    mount: $("settingsAiSuggestionsPanel"),
+    state: settingsState.ai
   });
 }
 
 function aiSuggestionFiltersFromUi() {
-  return normalizeAiSuggestionFilters({
-    ...settingsState.ai.suggestionFilters,
-    status: $("aiSuggestionStatusFilter")?.value || settingsState.ai.suggestionFilters.status,
-    targetType: $("aiSuggestionTargetTypeFilter")?.value || "",
-    targetId: $("aiSuggestionTargetIdFilter")?.value || "",
-    scope: $("aiSuggestionScopeFilter")?.value || ""
+  return aiSuggestionFiltersFromWorkspace({
+    getElement: $,
+    state: settingsState.ai
   });
 }
 
@@ -2683,26 +2667,10 @@ async function refreshAiSuggestions(options = {}) {
 }
 
 function aiSuggestionReviewedContentFromUi(current = {}) {
-  const editorValue = $("aiSuggestionContentEditor")?.value;
-  if (editorValue === undefined) return current.content;
-  const raw = String(editorValue || "");
-  if (typeof current.content === "string") {
-    const trimmed = raw.trim();
-    if (
-      (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-      (trimmed.startsWith("[") && trimmed.endsWith("]"))
-    ) {
-      try {
-        return JSON.parse(trimmed);
-      } catch {}
-    }
-    return raw;
-  }
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
-  }
+  return aiSuggestionReviewedContentFromWorkspace({
+    getElement: $,
+    current
+  });
 }
 
 function aiInboxSuggestionReviewedContentFromUi(current = {}) {
@@ -19623,50 +19591,25 @@ $("settingsPaneAutomationBody")?.addEventListener("change", (event) => {
   }
 });
 
-$("settingsPaneAutomationBody")?.addEventListener("click", async (event) => {
-  if (!event.target.closest("#settingsAiSuggestionsPanel")) return;
-  if (event.target.closest("#btnAiSuggestionsApplyFilters")) {
-    settingsState.ai.suggestionFilters = aiSuggestionFiltersFromUi();
-    settingsState.ai.suggestionDetail = null;
-    settingsState.ai.selectedSuggestionId = "";
-    await refreshAiSuggestions();
-    setStatus("AI 建议已刷新", "ok");
-    return;
-  }
-
-  if (event.target.closest("#btnAiSuggestionsRefresh")) {
-    await refreshAiSuggestions();
-    setStatus("AI 建议已刷新", "ok");
-    return;
-  }
-
-  const openTargetNoteButton = event.target.closest("[data-ai-suggestion-open-note]");
-  if (openTargetNoteButton) {
-    const noteId = String(openTargetNoteButton.getAttribute("data-ai-suggestion-open-note") || "").trim();
-    if (!noteId) {
+bindAiSuggestionsWorkspaceEvents($("settingsAiSuggestionsPanel"), {
+  settingsAiState: settingsState.ai,
+  getFilters: aiSuggestionFiltersFromUi,
+  refreshAiSuggestions,
+  loadAiSuggestionDetail,
+  applyAiSuggestionStatus,
+  openTargetNote: async (noteId) => {
+    const cleanNoteId = String(noteId || "").trim();
+    if (!cleanNoteId) {
       setStatus("这条建议还没有指向目标笔记", "warn");
-      return;
+      return false;
     }
     activateModule("explorer");
-    openNoteById(noteId, { preferTitleSelection: false });
+    openNoteById(cleanNoteId, { preferTitleSelection: false });
     setStatus("已打开目标笔记，你可以继续审阅这条已采纳的草稿", "ok");
-    return;
-  }
-
-  const statusButton = event.target.closest("[data-ai-suggestion-status]");
-  if (statusButton) {
-    await applyAiSuggestionStatus(
-      statusButton.getAttribute("data-ai-suggestion-id"),
-      statusButton.getAttribute("data-ai-suggestion-status")
-    );
-    return;
-  }
-
-  const suggestionButton = event.target.closest("[data-ai-suggestion-id]");
-  if (suggestionButton) {
-    await loadAiSuggestionDetail(suggestionButton.getAttribute("data-ai-suggestion-id"));
-    return;
-  }
+    return true;
+  },
+  refreshStatusMessage: "AI 建议已刷新",
+  setStatus
 });
 
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {
