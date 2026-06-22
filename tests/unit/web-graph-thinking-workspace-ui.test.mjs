@@ -40,6 +40,10 @@ import {
   renderGraphFocusContextPanel
 } from "../../apps/web/src/graph-focus-context-panel.js";
 import {
+  graphResearchNavigatorState,
+  renderGraphResearchNavigatorPanelView
+} from "../../apps/web/src/graph-research-navigator.js";
+import {
   graphVisualNodeViewState,
   renderGraphVisualNodeView
 } from "../../apps/web/src/graph-visual-node-view.js";
@@ -169,6 +173,23 @@ function graphFocusPanelTestDeps() {
     graphFocusedEdgeDirection: () => "指向",
     graphRelationSourceLabel: () => "手动保存",
     graphFocusCardActionMeta: () => ({ label: "补强理由" })
+  };
+}
+
+function graphResearchNavigatorTestDeps() {
+  const relationVisualKeys = {
+    supports: "support",
+    contradicts: "conflict",
+    qualifies: "boundary",
+    bridges: "bridge",
+    sequence: "flow",
+    part_of: "index"
+  };
+  return {
+    renderGraphIcon: (name) => `<i>${name}</i>`,
+    renderGraphSelectionMetrics: (items = []) => items.map((item) => `<b>${item.label}:${item.value}</b>`).join(""),
+    graphRelationStatusCountsAsNetworkEdge: (status) => status !== "rejected",
+    graphRelationVisual: (relationType) => ({ key: relationVisualKeys[String(relationType || "").trim()] || "neutral" })
   };
 }
 
@@ -303,25 +324,36 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
 });
 
 test("graph research navigator explains the map before users drill into details", () => {
-  const source = readPrototypeApp();
   const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
+  const deps = graphResearchNavigatorTestDeps();
+  const nav = graphResearchNavigatorState({
+    nodes: [
+      { id: "n1", title: "Alpha", degree: 4 },
+      { id: "n2", title: "Beta", degree: 2 },
+      { id: "n3", title: "Gamma", degree: 1 }
+    ],
+    edges: [
+      { fromNoteId: "n1", toNoteId: "n2", relationType: "supports", status: "accepted" },
+      { fromNoteId: "n2", toNoteId: "n3", relationType: "qualifies", status: "accepted" }
+    ],
+    clusterMeta: [{ clusterKey: "c1", title: "主题群 A", memberIds: ["n1", "n2", "n3"] }],
+    clueSummary: { total: 1 },
+    questionSummary: { total: 2 }
+  }, deps);
+  const panel = renderGraphResearchNavigatorPanelView({ nav }, deps);
 
-  assert.ok(source.includes('function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandidates = [], bridgeGaps = [], clusterMeta = [], clueSummary = null, questionSummary = null } = {}) {'));
-  assert.match(source, /<aside class="graph-research-navigator" aria-label="[^"]+">/);
-  assert.ok(source.includes('const headline = clusters.length'));
-  assert.ok(source.includes('const nextAction = clusters.length'));
-  assert.ok(source.includes('const pendingNote = pendingTotal'));
-  assert.ok(source.includes('data-graph-select-cluster="${escapeHtml(cluster.clusterKey)}"'));
-  assert.ok(source.includes('data-graph-select-node="${escapeHtml(node.id)}"'));
-  assert.ok(source.includes('data-graph-research-close'));
-  assert.ok(source.includes('function renderGraphResearchNavigatorEntry(open = false) {'));
-  assert.ok(source.includes('renderGraphResearchNavigatorEntryView(open)'));
-  assert.ok(workbenchSource.includes('const label = "概览";'));
+  assert.equal(nav.clusters.length, 1);
+  assert.equal(nav.brightNodes[0].id, "n1");
+  assert.equal(nav.pendingTotal, 3);
+  assert.match(panel, /class="graph-research-navigator" aria-label="图谱概览"/);
+  assert.match(panel, /先判断能不能形成主题/);
+  assert.match(panel, /data-graph-select-cluster="c1"/);
+  assert.match(panel, /data-graph-select-node="n1"/);
+  assert.match(panel, /data-graph-research-close/);
   assert.ok(workbenchSource.includes('data-graph-research-${action}'));
   assert.match(html, /\.graph-research-navigator \{[\s\S]*display: grid;/);
 });
-
 test("graph structure view falls back to galaxy clusters instead of an empty map", () => {
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
@@ -350,18 +382,36 @@ test("graph empty map card can be closed back to argument relations", () => {
 });
 
 test("graph research navigator uses cluster maturity for global verdicts", () => {
-  const source = readPrototypeApp();
+  const deps = graphResearchNavigatorTestDeps();
+  const nodes = Array.from({ length: 8 }, (_, index) => ({
+    id: `n${index + 1}`,
+    title: `Note ${index + 1}`,
+    degree: 8 - index
+  }));
+  const edges = [
+    { fromNoteId: "n1", toNoteId: "n2", relationType: "supports", status: "accepted" },
+    { fromNoteId: "n2", toNoteId: "n3", relationType: "supports", status: "accepted" },
+    { fromNoteId: "n3", toNoteId: "n4", relationType: "supports", status: "accepted" },
+    { fromNoteId: "n4", toNoteId: "n5", relationType: "qualifies", status: "accepted" },
+    { fromNoteId: "n5", toNoteId: "n6", relationType: "contradicts", status: "accepted" }
+  ];
+  const mature = graphResearchNavigatorState({
+    nodes,
+    edges,
+    clusterMeta: [{ clusterKey: "mature", title: "成熟主题", memberIds: nodes.map((node) => node.id) }]
+  }, deps);
+  const thin = graphResearchNavigatorState({
+    nodes: nodes.slice(0, 3),
+    edges: [],
+    clusterMeta: [{ clusterKey: "thin", title: "薄主题", memberIds: ["n1", "n2", "n3"] }]
+  }, deps);
 
-  assert.match(source, /const matureClusterCount = clusterSummaries\.filter\(\(item\) => item\.meta\?\.tone === "mature"\)\.length;/);
-  assert.match(source, /const testingClusterCount = clusterSummaries\.filter\(\(item\) => item\.meta\?\.tone === "testing"\)\.length;/);
-  assert.match(source, /const promisingClusterCount = matureClusterCount \+ testingClusterCount;/);
-  assert.match(source, /const headline = clusters\.length/);
-  assert.match(source, /const nextAction = clusters\.length/);
-  assert.match(source, /const pendingNote = pendingTotal/);
-  assert.match(source, /其中 \$\{promisingClusterCount\} 个可以继续提炼成研究问题或文章判断。/);
-  assert.doesNotMatch(source, /matureThemeCount/);
+  assert.equal(mature.matureClusterCount, 1);
+  assert.equal(mature.promisingClusterCount, 1);
+  assert.match(mature.verdict, /其中 1 个可以继续提炼成研究问题或文章判断。/);
+  assert.equal(thin.promisingClusterCount, 0);
+  assert.match(thin.headline, /先补关系，再判断成题/);
 });
-
 test("graph workbench prioritizes Chinese clue and question actions", () => {
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
