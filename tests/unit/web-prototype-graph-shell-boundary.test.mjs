@@ -2,6 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
 
+function extractFunctionSource(source, functionName) {
+  const start = source.indexOf(`function ${functionName}`);
+  assert.ok(start >= 0, `expected ${functionName} to exist`);
+  const nextFunction = source.indexOf("\nfunction ", start + 1);
+  return source.slice(start, nextFunction > start ? nextFunction : undefined);
+}
+
 test("prototype graph shell keeps review and relation entry wiring without legacy wikilink copy", async () => {
   const source = await readPrototypeAppSource();
 
@@ -78,4 +85,15 @@ test("prototype graph shell delegates panel state building to a graph module", a
   assert.doesNotMatch(source, /const scopedNetworkEdges = allGraphEdges\.filter/);
   assert.doesNotMatch(source, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges/);
   assert.doesNotMatch(source, /const structureFallback = effectiveRelationType === "index"/);
+});
+
+test("prototype graph shell delegates visual map runtime state to a graph module", async () => {
+  const source = await readPrototypeAppSource();
+  const visualMapSource = extractFunctionSource(source, "renderGraphVisualMap");
+
+  assert.match(source, /from "\.\/graph-visual-map-runtime-state\.js"/);
+  assert.match(visualMapSource, /buildGraphVisualMapRuntimeState\(/);
+  assert.doesNotMatch(visualMapSource, /const adjacencyMap = new Map\(\);[\s\S]*edges\.forEach\(\(edge\) => \{/);
+  assert.doesNotMatch(visualMapSource, /const visibleEdges = edges\s*\.map\(\(edge\) => \{/);
+  assert.doesNotMatch(visualMapSource, /const selectedNodeNeighborhood = new Set/);
 });

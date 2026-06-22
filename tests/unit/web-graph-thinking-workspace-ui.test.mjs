@@ -75,6 +75,10 @@ function readGraphPanelStateBuilder() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-state-builder.js"), "utf8");
 }
 
+function readGraphVisualMapRuntimeState() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-runtime-state.js"), "utf8");
+}
+
 function readGraphSelectionPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-selection-panel.js"), "utf8");
 }
@@ -188,10 +192,11 @@ test("graph refresh repaints the explorer tree after connectivity state changes"
 
 test("graph focus relation panel can be collapsed and restored explicitly", () => {
   const source = readPrototypeApp();
+  const runtimeStateSource = readGraphVisualMapRuntimeState();
   const html = readPrototypeHtml();
 
   assert.match(source, /focusContextCollapsed: false/);
-  assert.match(source, /const focusContextAvailable = filterActive && normalizedFocusedNoteId;/);
+  assert.match(runtimeStateSource, /const focusContextAvailable = filterActive && normalizedFocusedNoteId;/);
   assert.match(source, /const focusContextMarkup = focusContextAvailable && !focusContextCollapsed/);
   assert.match(source, /data-graph-focus-context-toggle="\$\{focusContextCollapsed \? "open" : "close"\}"/);
   assert.match(source, /id="graphFocusContextPanel" class="graph-focus-context"/);
@@ -742,13 +747,14 @@ test("graph selection upgrades isolated notes to connected nodes after a saved r
 
 test("graph node clicks without confirmed relations open the large relation workflow", () => {
   const source = readPrototypeApp();
+  const runtimeStateSource = readGraphVisualMapRuntimeState();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
 
   assert.match(source, /function graphRelationStatusCountsAsConfirmedEdge\(value = ""\) \{/);
   assert.match(source, /function graphDirectConfirmedRelationCount\(noteId = "", edges = \[\]\) \{/);
   assert.match(source, /function graphNodeNeedsRelationWorkflow\(noteId = "", edges = \[\], nodeMap = new Map\(\)\) \{/);
   assert.match(source, /function graphNodeNeedsRelationWorkflowFromCurrentGraph\(noteId = ""\) \{/);
-  assert.match(source, /const selectionNodeNeedsRelationWorkflow =\s*activeSelection\?\.kind === "node" && graphNodeNeedsRelationWorkflow\(activeSelection\.nodeId, contextualSelectionEdges, contextualNodeMap\);/);
+  assert.match(runtimeStateSource, /const selectionNodeNeedsRelationWorkflow =\s*activeSelection\?\.kind === "node" && graphNodeNeedsRelationWorkflow\(activeSelection\.nodeId, contextualSelectionEdges, contextualNodeMap\);/);
   assert.match(source, /activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \|\| selectionNodeNeedsRelationWorkflow/);
   assert.match(nodeSelectionPanelSource, /if \(graphNodeNeedsRelationWorkflow\(normalized\.nodeId, edges, nodeMap\)\) \{[\s\S]*return renderGraphIsolatedSelectionPanel\(\{/);
   assert.match(source, /function openGraphNodeSelectionFromElement\(element = null\) \{/);
@@ -1023,6 +1029,7 @@ test("graph thinking relation tasks use scoped nodes for filtering but lookup ma
 test("directory graph keeps all nodes visible and marks true zero-degree notes as isolated", () => {
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
+  const runtimeStateSource = readGraphVisualMapRuntimeState();
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphComputedIsolatedNotes\(nodes = \[\], edges = \[\], aiIsolatedNotes = \[\]\) \{/);
@@ -1031,8 +1038,8 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
   assert.match(source, /graphMarkIsolatedNodesForGraph\(nodes, isolatedNotes, \{/);
   assert.match(panelStateBuilderSource, /let visibleNodes = !showingFocusedNote\s*\?\s*scopedAllNodes/);
   assert.match(panelStateBuilderSource, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
-  assert.match(source, /const contextualSelectionEdges = Array\.isArray\(selectionEdges\) \? selectionEdges : Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
-  assert.match(source, /const contextualNodeMap = selectionNodeMap instanceof Map \? selectionNodeMap : layout\.nodeMap;/);
+  assert.match(runtimeStateSource, /const contextualSelectionEdges = Array\.isArray\(selectionEdges\) \? selectionEdges : Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
+  assert.match(runtimeStateSource, /const contextualNodeMap = selectionNodeMap instanceof Map \? selectionNodeMap : layout\.nodeMap;/);
   assert.match(html, /\.graph-map-node\.is-graph-isolated \.graph-map-node-core \{[\s\S]*stroke: #f59e0b;/);
   assert.match(html, /\.graph-local-connect \{[\s\S]*border-color: #fed7aa;/);
 });

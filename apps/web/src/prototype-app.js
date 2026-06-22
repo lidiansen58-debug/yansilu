@@ -341,6 +341,9 @@ import {
   buildGraphPanelState
 } from "./graph-panel-state-builder.js";
 import {
+  buildGraphVisualMapRuntimeState
+} from "./graph-visual-map-runtime-state.js";
+import {
   graphClusterAnchorAngles,
   renderGraphClusterGlowView,
   renderGraphNebulaFieldView,
@@ -14412,70 +14415,73 @@ function renderGraphVisualMap({
   toolbarMarkup = "",
   structureFallback = false
 } = {}) {
-  const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
-  const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
-  const modeMeta = graphReadingModeMeta(graphViewModeForRelationType(relationType));
-  const layout = graphBuildVisualLayout(nodes, edges, { focusedNoteId: normalizedFocusedNoteId });
-  const zoom = graphZoomOption(graphState.zoom);
-  const expanded = graphState.expanded === true;
-  const readingLens = graphReadingLensMeta(graphState.readingLens);
-  const zoomWidth = Math.round(layout.width * zoom.scale);
-  const zoomHeight = Math.round(layout.height * zoom.scale);
-  const adjacencyMap = new Map();
-  edges.forEach((edge) => {
-    const fromId = String(edge?.fromNoteId || "").trim();
-    const toId = String(edge?.toNoteId || "").trim();
-    if (!fromId || !toId) return;
-    if (!adjacencyMap.has(fromId)) adjacencyMap.set(fromId, new Set());
-    if (!adjacencyMap.has(toId)) adjacencyMap.set(toId, new Set());
-    adjacencyMap.get(fromId).add(toId);
-    adjacencyMap.get(toId).add(fromId);
-  });
-  const visibleEdges = edges
-    .map((edge) => {
-      const connectsFocus =
-        normalizedFocusedNoteId &&
-        (String(edge?.fromNoteId || "").trim() === normalizedFocusedNoteId ||
-          String(edge?.toNoteId || "").trim() === normalizedFocusedNoteId);
-      return {
-        edge,
-        path: graphEdgePath(edge, layout.nodeMap),
-        visual: graphRelationVisual(edge?.relationType),
-        connectsFocus
-      };
-    })
-    .filter((item) => item.path);
-  const denseDirectoryMode = !filterActive;
-  const denseGalaxyMode = graphDenseGalaxyMode({
-    nodes: layout.nodes,
+  const mapRuntimeState = buildGraphVisualMapRuntimeState({
+    graphState,
+    nodes,
     edges,
-    filterActive
+    relationFilterEdges,
+    selectionEdges,
+    selectionNodeMap,
+    filterActive,
+    focusedNoteId,
+    relationType,
+    topicCandidates,
+    isolatedNotes,
+    bridgeGaps,
+    workbenchPanelMarkup,
+    structureFallback
+  }, {
+    graphFocusDepthMeta,
+    graphReadingModeMeta,
+    graphViewModeForRelationType,
+    graphBuildVisualLayout,
+    graphZoomOption,
+    graphReadingLensMeta,
+    graphEdgePath,
+    graphRelationVisual,
+    graphDenseGalaxyMode,
+    shouldShowGraphDensityHint,
+    normalizeGraphSelectionForVisibleItems,
+    graphNodeNeedsRelationWorkflow,
+    graphBuildReadingLensState,
+    zoomOptions: GRAPH_VISUAL_ZOOM_OPTIONS,
+    relationGroupMeta: GRAPH_RELATION_GROUP_META
   });
-  const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
-  const compactRelationFilterStats = structureFallback
-    ? {
-        structureFallback: true,
-        totalCount: relationFilterEdges.length,
-        meaningfulCount: edges.length,
-        indexCount: 0
-      }
-    : null;
+  const {
+    normalizedFocusedNoteId,
+    focusDepth,
+    modeMeta,
+    layout,
+    zoom,
+    expanded,
+    readingLens,
+    zoomWidth,
+    zoomHeight,
+    adjacencyMap,
+    visibleEdges,
+    denseDirectoryMode,
+    denseGalaxyMode,
+    showDensityHint,
+    compactRelationFilterStats,
+    legendOpen,
+    activeSelection,
+    contextualSelectionEdges,
+    contextualNodeMap,
+    selectionNodeNeedsRelationWorkflow,
+    selectedNodeId,
+    selectedNodeNeighborhood,
+    selectedEdgeKey,
+    selectedThemeNoteIds,
+    selectedIsolatedNodeId,
+    selectedBridgeNoteIds,
+    legendGroups,
+    zoomIndex,
+    focusContextAvailable,
+    focusContextCollapsed,
+    readingLensState,
+    researchNavigatorCanOpen
+  } = mapRuntimeState;
   const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true, compactRelationFilterStats) : "";
-  const legendOpen = graphState.legendOpen === true;
-  const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps, clusterMeta: layout.clusterMeta });
-  const contextualSelectionEdges = Array.isArray(selectionEdges) ? selectionEdges : Array.isArray(relationFilterEdges) ? relationFilterEdges : edges;
-  const contextualNodeMap = selectionNodeMap instanceof Map ? selectionNodeMap : layout.nodeMap;
-  const selectionNodeNeedsRelationWorkflow =
-    activeSelection?.kind === "node" && graphNodeNeedsRelationWorkflow(activeSelection.nodeId, contextualSelectionEdges, contextualNodeMap);
-  const selectedNodeId = activeSelection?.kind === "node" && !selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
-  const selectedNodeNeighborhood = new Set(selectedNodeId ? [selectedNodeId, ...(adjacencyMap.get(selectedNodeId) || [])] : []);
-  const selectedEdgeKey = activeSelection?.kind === "edge" ? activeSelection.edgeKey : "";
-  const selectedThemeNoteIds = new Set(activeSelection?.kind === "theme" ? activeSelection.noteIds || [] : []);
-  const selectedIsolatedNodeId =
-    activeSelection?.kind === "isolated" ? activeSelection.noteId : selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
-  const selectedBridgeNoteIds = new Set(
-    activeSelection?.kind === "bridge" ? [activeSelection.noteId, activeSelection.targetNoteId].map((id) => String(id || "").trim()).filter(Boolean) : []
-  );
   const themeBoundaryMarkup = renderGraphThemeBoundary(
     activeSelection?.kind === "theme"
       ? graphThemeBoundaryMeta({
@@ -14487,14 +14493,6 @@ function renderGraphVisualMap({
         })
       : null
   );
-  const legendGroups = ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"]
-    .map((key) => {
-      const meta = GRAPH_RELATION_GROUP_META[key];
-      return meta ? { key, className: `is-${key}`, ...meta } : null;
-    })
-    .filter(Boolean);
-  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
-  const zoomIndex = Math.max(0, zoomKeys.indexOf(zoom.key));
   const starfieldMarkup = renderGraphStarfield(layout.width, layout.height, `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`);
   const nebulaMarkup = renderGraphNebulaField(layout.width, layout.height, `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`);
   const clusterGlowMarkup = renderGraphClusterGlow(layout.clusterMeta);
@@ -14529,21 +14527,13 @@ function renderGraphVisualMap({
     zoomIndex
   }, shellDeps);
   const svgDefsMarkup = renderGraphMapSvgDefsView({ markerColors: GRAPH_RELATION_MARKER_COLORS }, shellDeps);
-  const focusContextAvailable = filterActive && normalizedFocusedNoteId;
-  const focusContextCollapsed = graphState.focusContextCollapsed === true;
   const focusContextMarkup = focusContextAvailable && !focusContextCollapsed
     ? renderGraphFocusContextPanel({
         focusedNoteId: normalizedFocusedNoteId,
         nodeMap: layout.nodeMap,
         edges
-      })
+    })
     : "";
-  const readingLensState = graphBuildReadingLensState({
-    nodes: layout.nodes,
-    visibleEdges,
-    bridgeGaps,
-    lens: readingLens.key
-  });
   const selectionContextMarkup = renderGraphSelectionPanel({
     selection: activeSelection,
     nodeMap: contextualNodeMap,
@@ -14558,9 +14548,7 @@ function renderGraphVisualMap({
       ? selectionContextMarkup
       : "";
   const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup ? "" : selectionContextMarkup;
-  const researchNavigatorAutoHidden = denseGalaxyMode && graphState.researchNavigatorTouched !== true;
-  const researchNavigatorHidden = graphState.researchNavigatorHidden === true || researchNavigatorAutoHidden;
-  const researchNavigatorOpen = !filterActive && researchNavigatorHidden !== true && !selectionContextMarkup && !workbenchPanelMarkup;
+  const researchNavigatorOpen = researchNavigatorCanOpen && !selectionContextMarkup;
   const researchNavigatorMarkup =
     researchNavigatorOpen
       ? renderGraphResearchNavigatorPanel({
