@@ -3,13 +3,15 @@ import { buildGraphVisualMapRuntimeState } from "./graph-visual-map-runtime-stat
 import { buildGraphVisualMapShellProps } from "./graph-visual-map-shell-props.js";
 import {
   renderGraphMapEmptyStateView,
-  renderGraphMapLegendView,
   renderGraphMapSvgDefsView,
   renderGraphVisualMapShellView,
   renderGraphZoomStepperView
 } from "./graph-visual-map-shell.js";
-import { renderGraphVisualEdgeViews } from "./graph-visual-edge-view.js";
-import { renderGraphVisualNodeViews } from "./graph-visual-node-view.js";
+import {
+  renderGraphVisualEdgeMarkupForRuntime,
+  renderGraphVisualLegendMarkupForRuntime,
+  renderGraphVisualNodeMarkupForRuntime
+} from "./graph-visual-map-view-renderer.js";
 
 export function renderGraphVisualMapForRuntime({
   nodes = [],
@@ -113,26 +115,12 @@ export function renderGraphVisualMapForRuntime({
     normalizedFocusedNoteId,
     layout,
     zoom,
-    adjacencyMap,
-    visibleEdges,
-    denseDirectoryMode,
-    denseGalaxyMode,
     compactRelationFilterStats,
-    legendOpen,
     activeSelection,
     contextualSelectionEdges,
     contextualNodeMap,
-    selectionNodeNeedsRelationWorkflow,
-    selectedNodeId,
-    selectedNodeNeighborhood,
-    selectedEdgeKey,
-    selectedThemeNoteIds,
-    selectedIsolatedNodeId,
-    selectedBridgeNoteIds,
-    legendGroups,
     focusContextAvailable,
     focusContextCollapsed,
-    readingLensState,
     researchNavigatorCanOpen
   } = mapRuntimeState;
   const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true, compactRelationFilterStats) : "";
@@ -214,75 +202,25 @@ export function renderGraphVisualMapForRuntime({
     headContentMarkup,
     emptyStateMarkup
   } = graphChrome;
-  const nodeViewContext = {
-    activeSelection,
-    selectedNodeId,
-    selectedNodeNeighborhood,
-    selectedThemeNoteIds,
-    selectedIsolatedNodeId,
-    selectedBridgeNoteIds,
-    adjacencyMap,
-    readingLensState,
-    filterActive,
-    denseGalaxyMode,
-    denseDirectoryMode,
-    zoomKey: zoom.key
-  };
-  const nodeMarkup = renderGraphVisualNodeViews(layout.nodes, nodeViewContext, {
+  const nodeMarkup = renderGraphVisualNodeMarkupForRuntime(mapRuntimeState, {
     escapeHtml,
     graphNodeClass,
     graphNodeStarRank,
     graphShortTitle,
     noteTypeLabel,
     graphNodeAttentionReasons,
-    graphNodeShowsAsPoint,
-    labels: {
-      isolatedNodeType: "待关联笔记",
-      isolatedNodeAction: "整理待关联笔记",
-      nodeRoleAction: "查看笔记角色",
-      relationCountPrefix: "连接 ",
-      relationCountSuffix: "条",
-      metaSeparator: " · ",
-      attentionPrefix: "（",
-      attentionJoiner: "、",
-      attentionSuffix: "）"
-    }
+    graphNodeShowsAsPoint
   });
-  const edgeViewContext = {
-    layoutNodeMap: layout.nodeMap,
-    selectedEdgeKey,
-    selectedThemeNoteIds,
-    selectedBridgeNoteIds,
-    selectedNodeId,
-    readingLensState,
-    filterActive,
-    denseGalaxyMode,
-    zoomKey: zoom.key,
-    relationType
-  };
-  const edgeMarkup = renderGraphVisualEdgeViews(visibleEdges, edgeViewContext, {
+  const edgeMarkup = renderGraphVisualEdgeMarkupForRuntime(mapRuntimeState, relationType, {
     escapeHtml,
     graphRelationTypeLabel,
     graphRelationSourceLabel,
     graphRelationGroupMeta,
     graphEdgeSelectionKey,
     graphEdgeVisibleAtFit,
-    graphEdgeShouldRender,
-    labels: {
-      sourceFallback: "源笔记",
-      targetFallback: "目标笔记",
-      reviewRelation: "查看关系复核",
-      directionWord: "到",
-      metaSeparator: " · ",
-      titleArrow: " → ",
-      rationalePrefix: "，"
-    }
+    graphEdgeShouldRender
   });
-  const legendMarkup = renderGraphMapLegendView({
-    open: legendOpen,
-    groups: legendGroups,
-    note: "圆点大小表示当前值得注意的程度，不表示最终价值；虚线表示候选或待确认关系。"
-  }, shellDeps);
+  const legendMarkup = renderGraphVisualLegendMarkupForRuntime(mapRuntimeState, shellDeps);
   const graphShellProps = buildGraphVisualMapShellProps({
     runtimeState: mapRuntimeState,
     filterActive,

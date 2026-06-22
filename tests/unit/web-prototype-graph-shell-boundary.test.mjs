@@ -5,6 +5,7 @@ import {
   readGraphPanelRuntimeDepsSource,
   readGraphPanelShellSource,
   readGraphVisualMapControllerSource,
+  readGraphVisualMapViewRendererSource,
   readPrototypeAppSource
 } from "./copy-source-helpers.mjs";
 
@@ -42,12 +43,16 @@ test("prototype graph shell delegates isolated relation save and workspace rende
 test("prototype graph shell delegates visual node and edge svg rendering to view modules", async () => {
   const source = await readPrototypeAppSource();
   const visualMapControllerSource = await readGraphVisualMapControllerSource();
+  const visualMapViewRendererSource = await readGraphVisualMapViewRendererSource();
 
   assert.match(source, /renderGraphVisualMapForRuntime/);
-  assert.match(visualMapControllerSource, /renderGraphVisualNodeViews/);
-  assert.match(visualMapControllerSource, /renderGraphVisualEdgeViews/);
+  assert.match(visualMapControllerSource, /from "\.\/graph-visual-map-view-renderer\.js"/);
+  assert.match(visualMapViewRendererSource, /renderGraphVisualNodeViews/);
+  assert.match(visualMapViewRendererSource, /renderGraphVisualEdgeViews/);
   assert.doesNotMatch(source, /<g class="graph-map-node graph-node/);
   assert.doesNotMatch(source, /<g class="graph-map-edge-group graph-edge/);
+  assert.doesNotMatch(visualMapControllerSource, /renderGraphVisualNodeViews\(layout\.nodes/);
+  assert.doesNotMatch(visualMapControllerSource, /renderGraphVisualEdgeViews\(visibleEdges/);
 });
 
 test("prototype graph shell delegates visual map chrome to the shell view", async () => {
