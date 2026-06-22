@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildWritingPanelState,
   normalizeWritingBookStructure,
   normalizeWritingProjectTitleSeed,
   suggestedThemeIndexTitle,
@@ -43,6 +44,56 @@ test("writing workspace helpers summarize source indexes and theme index titles"
 
   assert.match(writingSourceIndexSummary(["idx1", "idx2", "idx3"], { themeIndexById }), /Index idx1/);
   assert.match(suggestedThemeIndexTitle(["n1", "n2"], { noteById, parseTags }), /thinking/);
+});
+
+test("writing panel state builder derives candidates readiness buttons and topline metrics", () => {
+  const calls = [];
+  const panel = buildWritingPanelState({
+    selectedNote: { id: "n1", title: "Alpha" },
+    scopeFolder: { name: "Folder" },
+    scopeRoot: { name: "Root" },
+    allCandidates: [noteById("n1"), noteById("n2")],
+    basketEntries: [noteById("n1")],
+    basketIds: ["n1"],
+    sourceIndexSummary: "Index"
+  }, {
+    writingState: undefined,
+    planWritingCandidateFocus: ({ candidateNoteIds, focusedNoteIds, focusedScopeLabel }) => {
+      calls.push(["focus", candidateNoteIds, focusedNoteIds, focusedScopeLabel]);
+      return {
+        usingFocusedScope: true,
+        scopeLabel: focusedScopeLabel,
+        noteIds: ["n2", "missing"],
+        addActionLabel: "Add visible"
+      };
+    },
+    writingKnownNoteById: noteById,
+    isWritingEligibleNote: (note) => note.id !== "missing",
+    parseWritingBasketIds: () => ["n1"],
+    writingRelationCountsReady: () => true,
+    writingRelationCountsErrored: () => false,
+    deriveBasketWritingReadiness: () => ({ level: "project_ready", status: "Ready", hint: "Can create" }),
+    describeWritingProjectEntryState: (input) => ({ ...input, canCreateProject: true, actionLabel: "Create project", status: "Project ready" }),
+    describeWritingProjectPreflight: () => ({ level: "ready", status: "Ready", hint: "" }),
+    isWritingStrongModelReady: () => true,
+    describeWritingStrongModelStatus: () => ({ status: "Strong ready", hint: "Use strong model", buttonLabel: "Run strong" }),
+    currentWritingContinuationEntry: () => ({ action: "resume" }),
+    writingOpenDraftButtonState: ({ hasDraft, draftContinuation }) => ({ disabled: hasDraft, text: draftContinuation ? "Resume draft" : "Open draft" }),
+    writingScaffoldButtonState: () => ({ disabled: false, text: "Create scaffold" }),
+    writingStrongModelButtonState: ({ basketCount, strongModelReady }) => ({ disabled: !strongModelReady, text: `Run ${basketCount}` })
+  });
+
+  assert.equal(panel.currentLabel, "Alpha (n1)");
+  assert.equal(panel.scopeLabel, "Root / Folder");
+  assert.deepEqual(panel.candidates.map((note) => note.id), ["n2"]);
+  assert.equal(panel.relationCountsReady, true);
+  assert.equal(panel.projectEntry.canCreateProject, true);
+  assert.equal(panel.strongModelReady, true);
+  assert.equal(panel.openDraftButtonState.text, "Resume draft");
+  assert.equal(panel.scaffoldButtonState.text, "Create scaffold");
+  assert.equal(panel.strongModelButtonState.text, "Run 1");
+  assert.deepEqual(panel.toplineMetrics.map((metric) => metric.label), ["写作篮", "项目", "草稿"]);
+  assert.deepEqual(calls[0][1], ["n1", "n2"]);
 });
 
 test("writing book helpers normalize text, sections, pools, and stats", () => {

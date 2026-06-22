@@ -415,6 +415,7 @@ import {
   describeProjectPreflight
 } from "./writing-readiness.js";
 import {
+  buildWritingPanelState,
   normalizeWritingBookStructure as computeNormalizeWritingBookStructure,
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
   suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle,
@@ -9537,34 +9538,60 @@ function renderWritingPanel() {
   const draftVersionsList = $("writingDraftVersionsList");
   if (!current) return;
   const note = state.notes.find((item) => item.id === state.selectedFileId);
-  current.textContent = note ? `${note.title} (${note.id})` : "尚未选择";
-
   const scopeFolder = folderById(state, state.selectedFolderId);
   const scopeRoot = folderById(state, rootBoxIdFromFolder(state, state.selectedFolderId));
   const allCandidates = writingCandidateNotes();
-  const candidateFocusSourceIds = uniqueStrings([
-    ...allCandidates.map((entry) => entry.id),
-    ...writingState.focusedCandidateNoteIds
-  ]);
-  const candidateFocusPlan = planWritingCandidateFocus({
-    candidateNoteIds: candidateFocusSourceIds,
-    focusedNoteIds: writingState.focusedCandidateNoteIds,
-    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱切片"
+  const sourceIndexSummary = writingSourceIndexSummary();
+  const basketEntries = writingBasketEntries();
+  const basketIds = parseWritingBasketIds();
+  const panelState = buildWritingPanelState({
+    appState: state,
+    writingState,
+    selectedNote: note,
+    scopeFolder,
+    scopeRoot,
+    allCandidates,
+    basketEntries,
+    basketIds,
+    sourceIndexSummary
+  }, {
+    planWritingCandidateFocus,
+    writingKnownNoteById,
+    isWritingEligibleNote,
+    parseWritingBasketIds,
+    writingRelationCountsReady,
+    writingRelationCountsErrored,
+    deriveBasketWritingReadiness,
+    describeWritingProjectEntryState,
+    describeWritingProjectPreflight,
+    isWritingStrongModelReady,
+    describeWritingStrongModelStatus,
+    currentWritingContinuationEntry,
+    writingOpenDraftButtonState,
+    writingScaffoldButtonState,
+    writingStrongModelButtonState
   });
-  const candidateEntriesById = new Map(allCandidates.map((entry) => [entry.id, entry]));
-  const candidates = candidateFocusPlan.usingFocusedScope
-    ? candidateFocusPlan.noteIds
-        .map((id) => writingKnownNoteById(id) || null)
-        .filter((entry) => Boolean(entry) && isWritingEligibleNote(entry))
-    : candidateFocusPlan.noteIds.map((id) => candidateEntriesById.get(id) || null).filter(Boolean);
+  const {
+    candidateFocusPlan,
+    candidates,
+    relationCountsReady,
+    relationCountsErrored,
+    basketReadiness,
+    hasProject,
+    hasScaffold,
+    hasDraft,
+    projectEntry,
+    projectPreflightSummary,
+    strongModelReady,
+    strongModelState
+  } = panelState;
+  current.textContent = panelState.currentLabel;
   if (scopeHint) {
     scopeHint.textContent = candidateFocusPlan.usingFocusedScope
       ? `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱切片进入写作中心的，候选区会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；写作篮和主题索引仍保持当前目录范围。`
       : `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作中心入口默认从已有观点开始。`;
   }
   renderWritingStatusStrip();
-
-  const sourceIndexSummary = writingSourceIndexSummary();
   if (themeIndexesHint) {
     if (writingState.loadingThemeIndexes && writingState.themeIndexes.length) {
       themeIndexesHint.textContent = `正在刷新主题索引... 当前显示 ${writingState.themeIndexes.length} 个。`;
@@ -9615,77 +9642,10 @@ function renderWritingPanel() {
     themeDetail.innerHTML = renderWritingThemeDetail(selectedTheme);
   }
 
-  const basketEntries = writingBasketEntries();
-  const basketIds = parseWritingBasketIds();
-  const relationCountsReady = writingRelationCountsReady(basketIds, writingState.relationCounts || {}) && !writingState.loadingRelationCounts;
-  const relationCountsErrored = writingRelationCountsErrored(basketIds, writingState.relationCountErrors || {});
-  const basketReadiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, writingState.relationCounts || {}, {
-    relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
-  });
-  const hasProject = Boolean(writingState.project?.id);
-  const projectEntry = describeWritingProjectEntryState({
-    relationCountsReady,
-    relationCountsErrored,
-    readinessLevel: basketReadiness.level,
-    readinessHint: basketReadiness.hint
-  });
-  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
-  const strongModelReady =
-    !relationCountsErrored &&
-    relationCountsReady &&
-    isWritingStrongModelReady({
-      readinessLevel: basketReadiness.level,
-      projectPreflightLevel: projectPreflightSummary.level
-    });
-  const strongModelState = describeWritingStrongModelStatus({
-    hasProject,
-    relationCountsReady,
-    relationCountsErrored,
-    readinessLevel: basketReadiness.level,
-    readinessHint: basketReadiness.hint,
-    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
-    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
-    projectPreflightLevel: projectPreflightSummary.level,
-    projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
-    strongModelReady
-  });
   if (toplineMetrics) {
-    const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
-    const hasDraft = Boolean(writingState.project?.draft_note_id);
-    const basketMetricTone = basketEntries.length
-      ? relationCountsErrored
-        ? "warn"
-        : relationCountsReady && (basketReadiness.level === "project_ready" || basketReadiness.level === "strong_model_ready")
-          ? "good"
-          : "warn"
-      : "";
-    const projectMetricTone = hasProject || (!hasProject && projectEntry?.projectId) ? "good" : "warn";
-    const projectMetricValue = hasProject
-      ? writingState.project.id
-      : projectEntry?.projectId
-        ? projectEntry.status
-        : "未创建";
-    const projectMetricNote = hasProject
-      ? projectPreflightSummary.level === "ready"
-        ? "项目条件已齐"
-        : projectPreflightSummary.status
-      : projectEntry?.actionLabel || "等待创建";
-    const draftMetricValue = hasDraft ? "已绑定" : hasScaffold ? "待保存" : "未保存";
-    const draftMetricNote = hasDraft
-      ? writingState.project?.draft_note?.title || writingState.project?.draft_note_id || "当前草稿可打开"
-      : hasScaffold
-        ? "确认缺口后保存草稿"
-        : "先生成草稿骨架";
-    toplineMetrics.innerHTML = [
-      renderWritingToplineMetric(
-        "写作篮",
-        basketEntries.length ? `${basketEntries.length} 条` : "0 条",
-        basketEntries.length ? (hasProject ? "材料就绪" : basketReadiness.status) : "先选择材料",
-        basketMetricTone
-      ),
-      renderWritingToplineMetric("项目", projectMetricValue, projectMetricNote, projectMetricTone),
-      renderWritingToplineMetric("草稿", draftMetricValue, draftMetricNote, hasDraft ? "good" : hasScaffold ? "warn" : "")
-    ].join("");
+    toplineMetrics.innerHTML = panelState.toplineMetrics
+      .map((metric) => renderWritingToplineMetric(metric.label, metric.value, metric.note, metric.tone))
+      .join("");
   }
   if (basketSummary) {
     const sourcePart = sourceIndexSummary ? `可续接的写作入口：${sourceIndexSummary}。` : "可续接的写作入口：尚未记录。";
@@ -9727,24 +9687,16 @@ function renderWritingPanel() {
   }
 
   if (openDraftButton) {
-    const hasDraft = Boolean(writingState.project?.draft_note_id);
-    const draftContinuation = !hasDraft ? currentWritingContinuationEntry("当前写作篮") : null;
-    const draftButtonState = writingOpenDraftButtonState({ hasDraft, draftContinuation });
-    openDraftButton.disabled = draftButtonState.disabled;
-    openDraftButton.textContent = draftButtonState.text;
+    openDraftButton.disabled = panelState.openDraftButtonState.disabled;
+    openDraftButton.textContent = panelState.openDraftButtonState.text;
   }
   if (createProjectButton) {
     createProjectButton.disabled = hasProject || !projectEntry.canCreateProject;
     createProjectButton.textContent = hasProject ? "项目已创建" : projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
-    const scaffoldButtonState = writingScaffoldButtonState({
-      hasProject: Boolean(writingState.project?.id),
-      projectPreflightLevel: projectPreflightSummary.level,
-      projectEntry
-    });
-    createScaffoldButton.disabled = scaffoldButtonState.disabled;
-    createScaffoldButton.textContent = scaffoldButtonState.text;
+    createScaffoldButton.disabled = panelState.scaffoldButtonState.disabled;
+    createScaffoldButton.textContent = panelState.scaffoldButtonState.text;
   }
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
@@ -9771,14 +9723,8 @@ function renderWritingPanel() {
   }
   const strongModelBasketIds = basketIds;
   if (strongModelButton) {
-    const strongModelButtonState = writingStrongModelButtonState({
-      basketCount: strongModelBasketIds.length,
-      loading: writingState.strongModelLoading,
-      strongModelReady,
-      stateButtonLabel: strongModelState.buttonLabel
-    });
-    strongModelButton.disabled = strongModelButtonState.disabled;
-    strongModelButton.textContent = strongModelButtonState.text;
+    strongModelButton.disabled = panelState.strongModelButtonState.disabled;
+    strongModelButton.textContent = panelState.strongModelButtonState.text;
   }
   if (strongModelSummary) {
     const result = writingState.strongModelResult;

@@ -1,5 +1,171 @@
 import { uniqueStrings } from "./prototype-collection-utils.js";
 
+export function buildWritingPanelState({
+  appState = {},
+  writingState = {},
+  selectedNote = null,
+  scopeFolder = null,
+  scopeRoot = null,
+  allCandidates = [],
+  basketEntries = [],
+  basketIds = [],
+  sourceIndexSummary = ""
+} = {}, deps = {}) {
+  const {
+    planWritingCandidateFocus = ({ candidateNoteIds = [] } = {}) => ({ noteIds: candidateNoteIds, usingFocusedScope: false, scopeLabel: "", addActionLabel: "" }),
+    writingKnownNoteById = () => null,
+    isWritingEligibleNote = () => true,
+    parseWritingBasketIds = () => basketIds,
+    writingRelationCountsReady = () => false,
+    writingRelationCountsErrored = () => false,
+    deriveBasketWritingReadiness = () => ({ level: "", status: "", hint: "" }),
+    describeWritingProjectEntryState = () => ({ status: "", hint: "", canCreateProject: false, actionLabel: "" }),
+    describeWritingProjectPreflight = () => ({ level: "", status: "", hint: "" }),
+    isWritingStrongModelReady = () => false,
+    describeWritingStrongModelStatus = () => ({ status: "", hint: "", buttonLabel: "" }),
+    currentWritingContinuationEntry = () => null,
+    writingOpenDraftButtonState = () => ({ disabled: true, text: "" }),
+    writingScaffoldButtonState = () => ({ disabled: true, text: "" }),
+    writingStrongModelButtonState = () => ({ disabled: true, text: "" })
+  } = deps;
+
+  const candidateFocusSourceIds = uniqueStrings([
+    ...allCandidates.map((entry) => entry?.id).filter(Boolean),
+    ...(Array.isArray(writingState.focusedCandidateNoteIds) ? writingState.focusedCandidateNoteIds : [])
+  ]);
+  const candidateFocusPlan = planWritingCandidateFocus({
+    candidateNoteIds: candidateFocusSourceIds,
+    focusedNoteIds: writingState.focusedCandidateNoteIds,
+    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱切片"
+  });
+  const candidateEntriesById = new Map(allCandidates.map((entry) => [entry.id, entry]));
+  const candidates = candidateFocusPlan.usingFocusedScope
+    ? candidateFocusPlan.noteIds
+        .map((id) => writingKnownNoteById(id) || null)
+        .filter((entry) => Boolean(entry) && isWritingEligibleNote(entry))
+    : candidateFocusPlan.noteIds.map((id) => candidateEntriesById.get(id) || null).filter(Boolean);
+  const resolvedBasketIds = parseWritingBasketIds();
+  const relationCountsReady =
+    writingRelationCountsReady(resolvedBasketIds, writingState.relationCounts || {}) && !writingState.loadingRelationCounts;
+  const relationCountsErrored = writingRelationCountsErrored(resolvedBasketIds, writingState.relationCountErrors || {});
+  const basketReadiness = deriveBasketWritingReadiness(resolvedBasketIds, writingKnownNoteById, writingState.relationCounts || {}, {
+    relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
+  });
+  const hasProject = Boolean(writingState.project?.id);
+  const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
+  const hasDraft = Boolean(writingState.project?.draft_note_id);
+  const projectEntry = describeWritingProjectEntryState({
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel: basketReadiness.level,
+    readinessHint: basketReadiness.hint
+  });
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
+  const strongModelReady =
+    !relationCountsErrored &&
+    relationCountsReady &&
+    isWritingStrongModelReady({
+      readinessLevel: basketReadiness.level,
+      projectPreflightLevel: projectPreflightSummary.level
+    });
+  const strongModelState = describeWritingStrongModelStatus({
+    hasProject,
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel: basketReadiness.level,
+    readinessHint: basketReadiness.hint,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
+    projectPreflightLevel: projectPreflightSummary.level,
+    projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
+    strongModelReady
+  });
+  const draftContinuation = !hasDraft ? currentWritingContinuationEntry("当前写作篮") : null;
+  const openDraftButtonState = writingOpenDraftButtonState({ hasDraft, draftContinuation });
+  const scaffoldButtonState = writingScaffoldButtonState({
+    hasProject,
+    projectPreflightLevel: projectPreflightSummary.level,
+    projectEntry
+  });
+  const strongModelButtonState = writingStrongModelButtonState({
+    basketCount: resolvedBasketIds.length,
+    loading: writingState.strongModelLoading,
+    strongModelReady,
+    stateButtonLabel: strongModelState.buttonLabel
+  });
+  const basketMetricTone = basketEntries.length
+    ? relationCountsErrored
+      ? "warn"
+      : relationCountsReady && (basketReadiness.level === "project_ready" || basketReadiness.level === "strong_model_ready")
+        ? "good"
+        : "warn"
+    : "";
+  const projectMetricTone = hasProject || (!hasProject && projectEntry?.projectId) ? "good" : "warn";
+  const projectMetricValue = hasProject
+    ? writingState.project.id
+    : projectEntry?.projectId
+      ? projectEntry.status
+      : "未创建";
+  const projectMetricNote = hasProject
+    ? projectPreflightSummary.level === "ready"
+      ? "项目条件已齐"
+      : projectPreflightSummary.status
+    : projectEntry?.actionLabel || "等待创建";
+  const draftMetricValue = hasDraft ? "已绑定" : hasScaffold ? "待保存" : "未保存";
+  const draftMetricNote = hasDraft
+    ? writingState.project?.draft_note?.title || writingState.project?.draft_note_id || "当前草稿可打开"
+    : hasScaffold
+      ? "确认缺口后保存草稿"
+      : "先生成草稿骨架";
+  const scopeLabel = `${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}`;
+
+  return {
+    selectedNote,
+    currentLabel: selectedNote ? `${selectedNote.title} (${selectedNote.id})` : "尚未选择",
+    scopeFolder,
+    scopeRoot,
+    scopeLabel,
+    sourceIndexSummary,
+    candidateFocusPlan,
+    candidates,
+    basketEntries,
+    basketIds: resolvedBasketIds,
+    relationCountsReady,
+    relationCountsErrored,
+    basketReadiness,
+    hasProject,
+    hasScaffold,
+    hasDraft,
+    projectEntry,
+    projectPreflightSummary,
+    strongModelReady,
+    strongModelState,
+    openDraftButtonState,
+    scaffoldButtonState,
+    strongModelButtonState,
+    toplineMetrics: [
+      {
+        label: "写作篮",
+        value: basketEntries.length ? `${basketEntries.length} 条` : "0 条",
+        note: basketEntries.length ? (hasProject ? "材料就绪" : basketReadiness.status) : "先选择材料",
+        tone: basketMetricTone
+      },
+      {
+        label: "项目",
+        value: projectMetricValue,
+        note: projectMetricNote,
+        tone: projectMetricTone
+      },
+      {
+        label: "草稿",
+        value: draftMetricValue,
+        note: draftMetricNote,
+        tone: hasDraft ? "good" : hasScaffold ? "warn" : ""
+      }
+    ]
+  };
+}
+
 export function normalizeWritingProjectTitleSeed(title = "") {
   const cleanTitle = String(title || "").trim();
   if (!cleanTitle) return "未命名项目";
