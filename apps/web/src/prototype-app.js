@@ -404,6 +404,13 @@ import {
   graphZoomStep
 } from "./graph-visual-zoom-model.js";
 import {
+  applyGraphFocusContextModeInteraction,
+  applyGraphFocusDepthInteraction,
+  applyGraphReadingLensInteraction,
+  applyGraphZoomOptionInteraction,
+  applyGraphZoomStepInteraction
+} from "./graph-toolbar-interaction-controller.js";
+import {
   graphClusterAnchorAngles,
   renderGraphClusterGlowView,
   renderGraphNebulaFieldView,
@@ -18773,37 +18780,44 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   }
   const zoomButton = event.target.closest("[data-graph-zoom-option]");
   if (zoomButton) {
-    graphState.zoom = graphZoomOption(zoomButton.getAttribute("data-graph-zoom-option")).key;
+    const result = applyGraphZoomOptionInteraction(graphState, zoomButton.getAttribute("data-graph-zoom-option"), {
+      graphZoomOption
+    });
     renderGraphPanel();
     requestAnimationFrame(centerGraphViewportIfZoomed);
-    setStatus(`图谱视图已切换为${graphZoomOption(graphState.zoom).label}`, "ok");
+    setStatus("图谱视图已切换为" + result.meta.label, "ok");
     return;
   }
   const zoomStepButton = event.target.closest("[data-graph-zoom-step]");
   if (zoomStepButton) {
-    const nextZoom = graphZoomStep(graphState.zoom, Number(zoomStepButton.getAttribute("data-graph-zoom-step") || 0));
-    if (nextZoom.key !== graphZoomOption(graphState.zoom).key) {
-      graphState.zoom = nextZoom.key;
+    const result = applyGraphZoomStepInteraction(graphState, Number(zoomStepButton.getAttribute("data-graph-zoom-step") || 0), {
+      graphZoomOption,
+      graphZoomStep
+    });
+    if (result.changed) {
       renderGraphPanel();
       requestAnimationFrame(centerGraphViewportIfZoomed);
-      setStatus(`图谱视图已切换为${nextZoom.label}`, "ok");
+      setStatus("图谱视图已切换为" + result.meta.label, "ok");
     }
     return;
   }
   const readingLensButton = event.target.closest("[data-graph-reading-lens]");
   if (readingLensButton) {
-    graphState.readingLens = graphReadingLensMeta(readingLensButton.getAttribute("data-graph-reading-lens")).key;
+    const result = applyGraphReadingLensInteraction(graphState, readingLensButton.getAttribute("data-graph-reading-lens"), {
+      graphReadingLensMeta
+    });
     renderGraphPanel();
-    setStatus(`图谱优先查看已切换为：${graphReadingLensMeta(graphState.readingLens).label}`, "ok");
+    setStatus("图谱优先查看已切换为：" + result.meta.label, "ok");
     return;
   }
   const focusDepthButton = event.target.closest("[data-graph-focus-depth]");
   if (focusDepthButton) {
-    const nextDepth = focusDepthButton.getAttribute("data-graph-focus-depth");
-    setGraphFocusDepth(nextDepth);
+    const result = applyGraphFocusDepthInteraction(graphState, focusDepthButton.getAttribute("data-graph-focus-depth"), {
+      setGraphFocusDepth,
+      graphFocusDepthMeta
+    });
     renderGraphPanel();
-    const meta = graphFocusDepthMeta(graphState.focusDepth);
-    setStatus(`当前笔记关系范围已切换到 ${meta.label}`, "ok");
+    setStatus("当前笔记关系范围已切换到 " + result.meta.label, "ok");
     return;
   }
   const focusContextToggle = event.target.closest("[data-graph-focus-context-toggle]");
@@ -18823,11 +18837,12 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   }
   const contextModeButton = event.target.closest("[data-graph-context-mode]");
   if (contextModeButton) {
-    const nextMode = contextModeButton.getAttribute("data-graph-context-mode");
-    setGraphFocusContextMode(nextMode);
+    const result = applyGraphFocusContextModeInteraction(graphState, contextModeButton.getAttribute("data-graph-context-mode"), {
+      setGraphFocusContextMode,
+      graphFocusContextModeMeta
+    });
     renderGraphPanel();
-    const meta = graphFocusContextModeMeta(graphState.focusContextMode);
-    setStatus(`右侧关系已切换到：${meta.label}`, "ok");
+    setStatus("右侧关系已切换到：" + result.meta.label, "ok");
     return;
   }
   const graphNode = event.target.closest(".graph-map-node[data-node-id]");

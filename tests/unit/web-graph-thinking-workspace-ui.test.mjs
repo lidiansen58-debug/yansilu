@@ -33,6 +33,13 @@ import {
   graphZoomStep as moduleGraphZoomStep
 } from "../../apps/web/src/graph-visual-zoom-model.js";
 import {
+  applyGraphFocusContextModeInteraction,
+  applyGraphFocusDepthInteraction,
+  applyGraphReadingLensInteraction,
+  applyGraphZoomOptionInteraction,
+  applyGraphZoomStepInteraction
+} from "../../apps/web/src/graph-toolbar-interaction-controller.js";
+import {
   renderGraphSelectionByKind
 } from "../../apps/web/src/graph-selection-dispatcher.js";
 import {
@@ -1921,6 +1928,75 @@ test("graph zoom controls include both stepper directions and preset levels", ()
   assert.match(html, /\.graph-pan-hint \{[\s\S]*width: 36px;[\s\S]*cursor: grab;/);
   assert.equal(moduleGraphZoomStep("read", -1).key, "fit");
   assert.equal(moduleGraphZoomStep("read", 1).key, "detail");
+});
+
+test("graph toolbar interactions update zoom, lens, focus depth, and context mode", () => {
+  const graphState = {
+    zoom: "fit",
+    readingLens: "insight",
+    focusDepth: "1",
+    focusContextMode: "argument"
+  };
+  const zoomDeps = {
+    graphZoomOption: (value = "") => {
+      const key = String(value || "fit").trim() || "fit";
+      return { key, label: key === "detail" ? "细看" : key === "read" ? "阅读" : "适配" };
+    },
+    graphZoomStep: (value = "", direction = 0) => {
+      const order = ["fit", "read", "detail"];
+      const index = Math.max(0, order.indexOf(String(value || "fit")));
+      const next = order[Math.max(0, Math.min(order.length - 1, index + Number(direction || 0)))] || "fit";
+      return { key: next, label: next === "detail" ? "细看" : next === "read" ? "阅读" : "适配" };
+    }
+  };
+
+  assert.deepEqual(applyGraphZoomOptionInteraction(graphState, "read", zoomDeps), {
+    zoom: "read",
+    meta: { key: "read", label: "阅读" },
+    changed: true
+  });
+  assert.equal(graphState.zoom, "read");
+
+  assert.deepEqual(applyGraphZoomStepInteraction(graphState, 1, zoomDeps), {
+    zoom: "detail",
+    meta: { key: "detail", label: "细看" },
+    changed: true
+  });
+  assert.equal(graphState.zoom, "detail");
+
+  assert.deepEqual(applyGraphZoomStepInteraction(graphState, 1, zoomDeps), {
+    zoom: "detail",
+    meta: { key: "detail", label: "细看" },
+    changed: false
+  });
+
+  assert.deepEqual(applyGraphReadingLensInteraction(graphState, "bridge", {
+    graphReadingLensMeta: (value = "") => ({ key: String(value || "insight"), label: value === "bridge" ? "找连接" : "重点笔记" })
+  }), {
+    lens: "bridge",
+    meta: { key: "bridge", label: "找连接" }
+  });
+  assert.equal(graphState.readingLens, "bridge");
+
+  assert.deepEqual(applyGraphFocusDepthInteraction(graphState, "all", {
+    setGraphFocusDepth: (value) => {
+      graphState.focusDepth = value;
+    },
+    graphFocusDepthMeta: (value) => ({ key: value, label: value === "all" ? "整个关系网" : "直接关联" })
+  }), {
+    depth: "all",
+    meta: { key: "all", label: "整个关系网" }
+  });
+
+  assert.deepEqual(applyGraphFocusContextModeInteraction(graphState, "writing", {
+    setGraphFocusContextMode: (value) => {
+      graphState.focusContextMode = value;
+    },
+    graphFocusContextModeMeta: (value) => ({ key: value, label: value === "writing" ? "看写作用途" : "看观点关系" })
+  }), {
+    mode: "writing",
+    meta: { key: "writing", label: "看写作用途" }
+  });
 });
 
 test("graph rail entry does not fall through to note explorer during async refresh", () => {
