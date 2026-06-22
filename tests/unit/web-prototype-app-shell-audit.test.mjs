@@ -31,6 +31,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /createGraphRelationWorkflowController/);
   assert.match(source, /createPrototypeUpdateController/);
   assert.match(source, /systemMessageActionRoute/);
+  assert.match(source, /currentModuleSidebarUi/);
   assert.match(source, /renderSystemMessagesShell/);
   assert.match(source, /openSystemMessagesShell/);
   assert.doesNotMatch(source, /renderSystemMessagesDom/);
