@@ -34,13 +34,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /renderAppShell/);
   assert.match(source, /currentModuleSidebarUi/);
   assert.match(source, /renderSidebarTitleForRuntime/);
-  assert.match(source, /handleSaveNoteDistillationStateChange/);
-  assert.match(source, /handleSaveNoteStateChange/);
-  assert.match(source, /handleRunNoteAiAnalysisStateChange/);
-  assert.match(source, /handleCreatePrimaryNoteStateChange/);
-  assert.match(source, /handleOpenNoteMainRouteStateChange/);
-  assert.match(source, /handleNoteMoveStateChange/);
-  assert.match(source, /handleSelectFolderStateChange/);
+  assert.match(source, /routeAppShellStateChange/);
   assert.match(source, /renderWritingPanelShell/);
   assert.match(source, /renderSystemMessagesShell/);
   assert.match(source, /openSystemMessagesShell/);
@@ -55,14 +49,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   const requiredImports = [
     "app-shell-render-all.js",
     "app-shell-module-ui.js",
-    "app-shell-distillation-state-actions.js",
-    "app-shell-graph-state-actions.js",
-    "app-shell-save-note-state-actions.js",
-    "app-shell-note-main-route-actions.js",
     "app-shell-sidebar-controller.js",
-    "app-shell-state-file-actions.js",
-    "app-shell-state-note-creation-actions.js",
-    "app-shell-state-navigation-actions.js",
+    "app-shell-state-change-router.js",
     "writing-panel-shell.js",
     "system-messages-shell.js",
     "ai-runtime-mode-controller.js",

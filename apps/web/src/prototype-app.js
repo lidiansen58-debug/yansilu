@@ -54,38 +54,8 @@ import {
   renderSidebarTitleForRuntime
 } from "./app-shell-sidebar-controller.js";
 import {
-  handleConfirmNoteDistillationStateChange,
-  handleSaveNoteDistillationStateChange
-} from "./app-shell-distillation-state-actions.js";
-import {
-  handleGraphAssociateNoteStateChange,
-  handleRunNoteAiAnalysisStateChange
-} from "./app-shell-graph-state-actions.js";
-import {
-  handleDirectoryDeleteStateChange,
-  handleDirectoryMoveStateChange,
-  handleDirectoryUpdateStateChange,
-  handleNoteDeleteStateChange,
-  handleNoteMoveStateChange
-} from "./app-shell-state-file-actions.js";
-import {
-  handleCreateNoteInSelectedFolderStateChange,
-  handleCreatePrimaryNoteStateChange,
-  handleRecordOriginalFromNoteStateChange
-} from "./app-shell-state-note-creation-actions.js";
-import {
-  handleSaveNoteStateChange
-} from "./app-shell-save-note-state-actions.js";
-import {
-  handleOpenNoteMainRouteStateChange
-} from "./app-shell-note-main-route-actions.js";
-import {
-  handleGraphFocusNoteStateChange,
-  handleOpenNoteAiInboxStateChange,
-  handleOpenNoteRelationsStateChange,
-  handleRefreshGraphStateChange,
-  handleSelectFolderStateChange
-} from "./app-shell-state-navigation-actions.js";
+  routeAppShellStateChange
+} from "./app-shell-state-change-router.js";
 import {
   candidatePreviewItemIds,
   candidatePreviewItems,
@@ -14510,34 +14480,25 @@ function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
   return true;
 }
 
-async function handleStateChange(reason, payload = {}) {
-  if (reason === "refresh-graph") {
-    return handleRefreshGraphStateChange(payload, {
+function appShellStateChangeDeps() {
+  return {
+    refreshGraph: {
       graphState,
       refreshDirectoryGraph,
       setStatus
-    });
-  }
-
-  if (reason === "create-primary-note") {
-    return handleCreatePrimaryNoteStateChange(payload, {
+    },
+    createPrimaryNote: {
       createPrimaryOriginalNote,
       setStatus
-    });
-  }
-
-  if (reason === "create-note-in-selected-folder") {
-    return handleCreateNoteInSelectedFolderStateChange(payload, {
+    },
+    createNoteInSelectedFolder: {
       state,
       editor,
       applyExplorerSelectionContext,
       createNoteInSelectedFolder,
       setStatus
-    });
-  }
-
-  if (reason === "record-original-from-note" || reason === "create-original-from-literature") {
-    return handleRecordOriginalFromNoteStateChange(payload, {
+    },
+    recordOriginalFromNote: {
       state,
       typeFromFolder,
       rootBoxIdFromFolder,
@@ -14556,11 +14517,8 @@ async function handleStateChange(reason, payload = {}) {
       activateModule,
       openNoteById,
       setStatus
-    });
-  }
-
-  if (reason === "select-folder") {
-    return handleSelectFolderStateChange(payload, {
+    },
+    selectFolder: {
       state,
       explorer,
       applyExplorerSelectionContext,
@@ -14569,22 +14527,16 @@ async function handleStateChange(reason, payload = {}) {
       syncNotesForDirectory,
       setStatus,
       renderAll
-    });
-  }
-
-  if (reason === "graph-focus-note") {
-    return handleGraphFocusNoteStateChange(payload, {
+    },
+    graphFocusNote: {
       state,
       explorer,
       graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
       applyExplorerSelectionContext,
       setStatus,
       renderAll
-    });
-  }
-
-  if (reason === "graph-associate-note") {
-    return handleGraphAssociateNoteStateChange(payload, {
+    },
+    graphAssociateNote: {
       state,
       explorer,
       graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
@@ -14596,18 +14548,12 @@ async function handleStateChange(reason, payload = {}) {
       openGraphSelection,
       setStatus,
       handleStateChange
-    });
-  }
-
-  if (reason === "open-note-relations") {
-    return handleOpenNoteRelationsStateChange(payload, {
+    },
+    openNoteRelations: {
       openNoteRelationEditor,
       setStatus
-    });
-  }
-
-  if (reason === "run-note-ai-analysis") {
-    return handleRunNoteAiAnalysisStateChange(payload, {
+    },
+    runNoteAiAnalysis: {
       state,
       aiInboxState,
       analyzePermanentNote,
@@ -14616,21 +14562,15 @@ async function handleStateChange(reason, payload = {}) {
       normalizeAiInboxFilters,
       openSystemMessages,
       setStatus
-    });
-  }
-
-  if (reason === "open-note-ai-inbox") {
-    return handleOpenNoteAiInboxStateChange(payload, {
+    },
+    openNoteAiInbox: {
       aiInboxState,
       normalizeAiInboxFilters,
       activateModule,
       openAiInboxModule,
       setStatus
-    });
-  }
-
-  if (reason === "open-note-main-route") {
-    return handleOpenNoteMainRouteStateChange(payload, {
+    },
+    openNoteMainRoute: {
       state,
       editor,
       windowRef: window,
@@ -14650,11 +14590,8 @@ async function handleStateChange(reason, payload = {}) {
       writingCenterContinuationStatusMessage,
       writingCenterContinuationFailureMessage,
       setStatus
-    });
-  }
-
-  if (reason === "save-note-distillation") {
-    return handleSaveNoteDistillationStateChange(payload, {
+    },
+    saveNoteDistillation: {
       state,
       updatePermanentNoteDistillation,
       confirmPermanentNoteDistillation,
@@ -14662,21 +14599,15 @@ async function handleStateChange(reason, payload = {}) {
       setStatus,
       renderDistillationPanel,
       renderAll
-    });
-  }
-
-  if (reason === "confirm-note-distillation") {
-    return handleConfirmNoteDistillationStateChange(payload, {
+    },
+    confirmNoteDistillation: {
       state,
       confirmPermanentNoteDistillation,
       mapNoteItem,
       setStatus,
       renderAll
-    });
-  }
-
-  if (reason === "save-note") {
-    return handleSaveNoteStateChange(payload, {
+    },
+    saveNote: {
       state,
       editor,
       saveAiSuggestion,
@@ -14697,31 +14628,22 @@ async function handleStateChange(reason, payload = {}) {
       noteSaveFailureFeedback,
       clearSaveAiSuggestion,
       renderAll
-    });
-  }
-
-  if (reason === "note-move") {
-    return handleNoteMoveStateChange(payload, {
+    },
+    noteMove: {
       usingLocalFallbackData,
       moveNote,
       moveNoteInClientState,
       setStatus,
       renderAll
-    });
-  }
-
-  if (reason === "note-delete") {
-    return handleNoteDeleteStateChange(payload, {
+    },
+    noteDelete: {
       usingLocalFallbackData,
       deleteNote,
       removeNoteFromClientState,
       setStatus,
       renderAll
-    });
-  }
-
-  if (reason === "directory-update") {
-    return handleDirectoryUpdateStateChange(payload, {
+    },
+    directoryUpdate: {
       state,
       descendantDirectoryIds,
       renamedDirectoryFsPath,
@@ -14731,20 +14653,14 @@ async function handleStateChange(reason, payload = {}) {
       syncLoadedNotesForDirectories,
       setStatus,
       renderAll
-    });
-  }
-
-  if (reason === "directory-delete") {
-    return handleDirectoryDeleteStateChange(payload, {
+    },
+    directoryDelete: {
       state,
       deleteDirectory,
       setStatus,
       renderAll
-    });
-  }
-
-  if (reason === "directory-move") {
-    return handleDirectoryMoveStateChange(payload, {
+    },
+    directoryMove: {
       state,
       descendantDirectoryIds,
       folderById,
@@ -14755,13 +14671,14 @@ async function handleStateChange(reason, payload = {}) {
       syncLoadedNotesForDirectories,
       setStatus,
       renderAll
-    });
-  }
+    },
+    syncExplorerContextToActiveTab,
+    renderAll
+  };
+}
 
-  if (reason === "switch-tab" || reason === "folder-context-action" || reason === "file-context-action" || reason === "list-context-action") {
-    if (reason === "switch-tab") syncExplorerContextToActiveTab();
-    renderAll();
-  }
+async function handleStateChange(reason, payload = {}) {
+  return routeAppShellStateChange(reason, payload, appShellStateChangeDeps());
 }
 
 const contextMenu = new ContextMenu($("contextMenu"));
