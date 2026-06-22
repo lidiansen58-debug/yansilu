@@ -40,6 +40,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /openSystemMessagesShell/);
   assert.match(source, /renderGraphVisualMapForRuntime/);
   assert.match(source, /renderGraphPanelShell/);
+  assert.match(source, /buildGraphPanelRuntimeDeps/);
   assert.match(source, /renderGraphPanelForRuntime/);
   assert.doesNotMatch(source, /renderSystemMessagesDom/);
   assert.doesNotMatch(source, /openSystemMessagesDom/);
@@ -61,6 +62,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-visual-map-controller.js",
     "graph-visual-map-runtime-deps.js",
     "graph-panel-shell.js",
+    "graph-panel-runtime-deps.js",
     "graph-panel-renderer.js",
     "graph-visual-layout.js"
   ];

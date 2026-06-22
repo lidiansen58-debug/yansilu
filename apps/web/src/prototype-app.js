@@ -440,6 +440,9 @@ import {
   renderGraphPanelShell
 } from "./graph-panel-shell.js";
 import {
+  buildGraphPanelRuntimeDeps
+} from "./graph-panel-runtime-deps.js";
+import {
   renderGraphPanelForRuntime
 } from "./graph-panel-renderer.js";
 import {
@@ -13373,6 +13376,55 @@ function shouldShowGraphDensityHint({ dense = false, filterActive = false } = {}
   });
 }
 
+function graphPanelRuntimeDeps() {
+  return buildGraphPanelRuntimeDeps({
+    syncGraphDisclosureState,
+    syncAllNoteRelationNetworkStatuses,
+    buildGraphPanelState,
+    renderGraphPanelForRuntime,
+    graphRelationStatusCountsAsNetworkEdge,
+    graphScopedItems,
+    normalizeGraphRelationTypeFilter,
+    graphEdgeMatchesFilters,
+    graphFocusedItems,
+    graphNodeIdsInScope,
+    graphRelationTouchesNodeScope,
+    graphRelationInNodeScope,
+    graphRelationVisual,
+    graphMergeRelationsByKey,
+    graphConflictItemInNodeScope,
+    graphReviewQueueInNodeScope,
+    graphBridgeGapInNodeScope,
+    graphHasMeaningfulStructureEdges,
+    graphStructureFallbackEdges,
+    graphComputedIsolatedNotes,
+    graphMarkIsolatedNodes,
+    graphBuildIsolatedVisualNodes,
+    graphBuildFocusedRelationTypeStats,
+    normalizeGraphSelectionForVisibleItems,
+    formatClockTime,
+    graphPotentialRelationNodeMap,
+    graphWeakRelationClues,
+    graphClueSummaryState,
+    buildGraphThinkingItems,
+    buildGraphQuestionSpotSummaryFromItems,
+    graphIsolatedQueueItems,
+    escapeHtml,
+    renderGraphErrorState,
+    renderGraphIsolatedQueue,
+    renderGraphIsolatedQueueStrip,
+    renderGraphBridgeGapSection,
+    renderGraphWeakRelationClueSection,
+    renderRelationReviewQueueSection,
+    renderGraphAiAnalysisCard,
+    renderGraphWorkbenchEntryPills,
+    renderGraphWorkbenchPanel,
+    renderGraphRelationTypeFilter,
+    renderGraphInlineNotice,
+    renderGraphVisualMap
+  });
+}
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
@@ -13386,56 +13438,7 @@ function renderGraphPanel() {
     folder,
     scopeDirectoryId,
     canReuseScopedGraph: graphLoadedScopeCoversDirectory(scopeDirectoryId)
-  }, {
-    syncGraphDisclosureState,
-    syncAllNoteRelationNetworkStatuses,
-    buildGraphPanelState,
-    renderGraphPanelForRuntime,
-    stateBuilderDeps: {
-      graphRelationStatusCountsAsNetworkEdge,
-      graphScopedItems,
-      normalizeGraphRelationTypeFilter,
-      graphEdgeMatchesFilters,
-      graphFocusedItems,
-      graphNodeIdsInScope,
-      graphRelationTouchesNodeScope,
-      graphRelationInNodeScope,
-      graphRelationVisual,
-      graphMergeRelationsByKey,
-      graphConflictItemInNodeScope,
-      graphReviewQueueInNodeScope,
-      graphBridgeGapInNodeScope,
-      graphHasMeaningfulStructureEdges,
-      graphStructureFallbackEdges,
-      graphComputedIsolatedNotes,
-      graphMarkIsolatedNodes,
-      graphBuildIsolatedVisualNodes,
-      graphBuildFocusedRelationTypeStats,
-      normalizeGraphSelectionForVisibleItems,
-      formatClockTime,
-      graphPotentialRelationNodeMap,
-      graphWeakRelationClues,
-      graphClueSummaryState,
-      buildGraphThinkingItems,
-      buildGraphQuestionSpotSummaryFromItems,
-      graphIsolatedQueueItems
-    },
-    rendererDeps: {
-      escapeHtml,
-      renderGraphErrorState,
-      renderGraphIsolatedQueue,
-      renderGraphIsolatedQueueStrip,
-      renderGraphBridgeGapSection,
-      renderGraphWeakRelationClueSection,
-      renderRelationReviewQueueSection,
-      renderGraphAiAnalysisCard,
-      renderGraphWorkbenchEntryPills,
-      renderGraphWorkbenchPanel,
-      renderGraphRelationTypeFilter,
-      renderGraphInlineNotice,
-      renderGraphVisualMap
-    }
-  });
+  }, graphPanelRuntimeDeps());
 }
 
 async function refreshDirectoryGraph() {

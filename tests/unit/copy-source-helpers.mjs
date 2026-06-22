@@ -63,6 +63,10 @@ export function readGraphPanelShellSource() {
   return readRepoText("apps", "web", "src", "graph-panel-shell.js");
 }
 
+export function readGraphPanelRuntimeDepsSource() {
+  return readRepoText("apps", "web", "src", "graph-panel-runtime-deps.js");
+}
+
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
