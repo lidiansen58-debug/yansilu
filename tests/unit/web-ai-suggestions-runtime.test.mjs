@@ -1,72 +1,37 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   applyAiSuggestionStatusForRuntime,
   loadAiSuggestionDetailForRuntime,
   refreshAiSuggestionsForRuntime
 } from "../../apps/web/src/ai-suggestions-runtime-controller.js";
 
-globalThis.applyAiSuggestionStatusForRuntime = applyAiSuggestionStatusForRuntime;
-
-function extractAsyncFunctionSource(source, name) {
-  if (name === "applyAiSuggestionStatus") {
-    return `async function applyAiSuggestionStatus(suggestionId, status) {
-      return globalThis.applyAiSuggestionStatusForRuntime({
-        aiState: settingsState.ai,
-        suggestionDetailFromResponse,
-        aiSuggestionReviewedContent: aiSuggestionReviewedContentFromUi,
-        updateAiSuggestion,
-        refreshAiSuggestions,
-        loadAiSuggestionDetail,
-        rememberAiDebugSnapshot,
-        setStatus,
-        render: renderAiSuggestionsWorkspace,
-        aiSuggestionStatusLabel: typeof aiSuggestionStatusLabel === "function" ? aiSuggestionStatusLabel : undefined,
-        messages: {
-          reviewRetryNotice: typeof aiSuggestionReviewRetryNotice === "function" ? aiSuggestionReviewRetryNotice : undefined,
-          reviewRetryStatusMessage: typeof aiSuggestionReviewRetryStatusMessage === "function" ? aiSuggestionReviewRetryStatusMessage : undefined,
-          reviewSafetyNotice: typeof aiSuggestionReviewSafetyNotice === "function" ? aiSuggestionReviewSafetyNotice : undefined,
-          reviewSafetyStatusMessage: typeof aiSuggestionReviewSafetyStatusMessage === "function" ? aiSuggestionReviewSafetyStatusMessage : undefined,
-          inFlightReviewNotice: typeof aiSuggestionInFlightReviewNotice === "function" ? aiSuggestionInFlightReviewNotice : undefined,
-          inFlightReviewStatusMessage: typeof aiSuggestionInFlightReviewStatusMessage === "function" ? aiSuggestionInFlightReviewStatusMessage : undefined,
-          alreadyAppliedNotice: typeof aiSuggestionAlreadyAppliedNotice === "function" ? aiSuggestionAlreadyAppliedNotice : undefined,
-          alreadyAppliedStatusMessage: typeof aiSuggestionAlreadyAppliedStatusMessage === "function" ? aiSuggestionAlreadyAppliedStatusMessage : undefined,
-          updateFailedStatusMessage: typeof aiSuggestionUpdateFailedStatusMessage === "function" ? aiSuggestionUpdateFailedStatusMessage : undefined,
-          updatedStatusMessage: typeof aiSuggestionUpdatedStatusMessage === "function" ? aiSuggestionUpdatedStatusMessage : undefined
-        }
-      }, suggestionId, status);
-    }`;
-  }
-  const signature = `async function ${name}(`;
-  const start = source.indexOf(signature);
-  assert.ok(start >= 0, `expected ${name}() to exist`);
-  let parenDepth = 0;
-  let bodyStart = -1;
-  for (let index = source.indexOf("(", start); index < source.length; index += 1) {
-    const char = source[index];
-    if (char === "(") parenDepth += 1;
-    if (char === ")") {
-      parenDepth -= 1;
-      if (parenDepth === 0) {
-        bodyStart = source.indexOf("{", index);
-        break;
-      }
-    }
-  }
-  assert.ok(bodyStart >= 0, `expected ${name}() body to exist`);
-  let depth = 0;
-  for (let index = bodyStart; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === "{") depth += 1;
-    if (char === "}") {
-      depth -= 1;
-      if (depth === 0) return source.slice(start, index + 1);
-    }
-  }
-  throw new Error(`could not extract ${name}() source`);
+function createApplyAiSuggestionStatus(
+  _select,
+  settingsState,
+  suggestionDetailFromResponse,
+  aiSuggestionReviewedContentFromUi,
+  updateAiSuggestion,
+  refreshAiSuggestions,
+  loadAiSuggestionDetail,
+  rememberAiDebugSnapshot,
+  setStatus,
+  renderAiSuggestionsWorkspace,
+  aiSuggestionStatusLabel
+) {
+  return (suggestionId, status) => applyAiSuggestionStatusForRuntime({
+    aiState: settingsState.ai,
+    suggestionDetailFromResponse,
+    aiSuggestionReviewedContent: aiSuggestionReviewedContentFromUi,
+    updateAiSuggestion,
+    refreshAiSuggestions,
+    loadAiSuggestionDetail,
+    rememberAiDebugSnapshot,
+    setStatus,
+    render: renderAiSuggestionsWorkspace,
+    aiSuggestionStatusLabel,
+    messages: {}
+  }, suggestionId, status);
 }
 
 function createLoadAiSuggestionDetail(settingsState, deps = {}) {
@@ -248,11 +213,6 @@ test("loadAiSuggestionDetail keeps a failed detail request bound to the original
 });
 
 test("applyAiSuggestionStatus captures edited content before rerender and blocks duplicate submission", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const domState = {
     aiSuggestionContentEditor: { value: "{\"thesis\":\"Edited in settings panel.\"}" }
   };
@@ -270,19 +230,7 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     (id) => domState[id],
     settingsState,
     (item) => ({ item }),
@@ -316,11 +264,6 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
 });
 
 test("applyAiSuggestionStatus warns when another suggestion review is already in flight", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const statuses = [];
   let updateCalls = 0;
   const settingsState = {
@@ -337,19 +280,7 @@ test("applyAiSuggestionStatus warns when another suggestion review is already in
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "" }),
     settingsState,
     (item) => ({ item }),
@@ -385,11 +316,6 @@ test("applyAiSuggestionStatus warns when another suggestion review is already in
 });
 
 test("applyAiSuggestionStatus reloads the latest detail instead of submitting against list-only fallback data", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const statuses = [];
   const loadCalls = [];
   let updateCalls = 0;
@@ -404,19 +330,7 @@ test("applyAiSuggestionStatus reloads the latest detail instead of submitting ag
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "" }),
     settingsState,
     (item) => ({ item }),
@@ -452,11 +366,6 @@ test("applyAiSuggestionStatus reloads the latest detail instead of submitting ag
 });
 
 test("applyAiSuggestionStatus preserves a newer settings suggestion selection while an older submit resolves", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const settingsState = {
     ai: {
       suggestions: [
@@ -474,19 +383,7 @@ test("applyAiSuggestionStatus preserves a newer settings suggestion selection wh
   };
   const snapshots = [];
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Updated old selection.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -518,11 +415,6 @@ test("applyAiSuggestionStatus preserves a newer settings suggestion selection wh
 });
 
 test("applyAiSuggestionStatus realigns filtered settings suggestions after a status change removes the current item", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const refreshCalls = [];
   const settingsState = {
     ai: {
@@ -540,19 +432,7 @@ test("applyAiSuggestionStatus realigns filtered settings suggestions after a sta
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Confirmed and should leave edited filter.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -586,11 +466,6 @@ test("applyAiSuggestionStatus realigns filtered settings suggestions after a sta
 });
 
 test("applyAiSuggestionStatus loads the newly selected filtered suggestion detail after refresh switches selection", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const refreshCalls = [];
   const detailLoads = [];
   const settingsState = {
@@ -609,19 +484,7 @@ test("applyAiSuggestionStatus loads the newly selected filtered suggestion detai
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Confirmed and should leave edited filter.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -660,11 +523,6 @@ test("applyAiSuggestionStatus loads the newly selected filtered suggestion detai
 });
 
 test("applyAiSuggestionStatus keeps selection and detail cleared when refresh leaves no filtered suggestions", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   let detailLoadCount = 0;
   const settingsState = {
     ai: {
@@ -680,19 +538,7 @@ test("applyAiSuggestionStatus keeps selection and detail cleared when refresh le
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Confirmed and should empty edited filter.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -725,11 +571,6 @@ test("applyAiSuggestionStatus keeps selection and detail cleared when refresh le
 });
 
 test("applyAiSuggestionStatus preserves list/detail errors while replacing stale action errors with the latest failure", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const settingsState = {
     ai: {
       suggestions: [{ id: "suggestion_1", status: "edited", content: { thesis: "Original." } }],
@@ -742,19 +583,7 @@ test("applyAiSuggestionStatus preserves list/detail errors while replacing stale
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Edited in settings panel.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -779,11 +608,6 @@ test("applyAiSuggestionStatus preserves list/detail errors while replacing stale
 });
 
 test("applyAiSuggestionStatus reports invalid reviewed content through actionError without starting submit", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   let updateCalls = 0;
   const settingsState = {
     ai: {
@@ -797,19 +621,7 @@ test("applyAiSuggestionStatus reports invalid reviewed content through actionErr
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{not valid json}" }),
     settingsState,
     (item) => ({ item }),
@@ -841,11 +653,6 @@ test("applyAiSuggestionStatus reports invalid reviewed content through actionErr
 });
 
 test("applyAiSuggestionStatus is a no-op when the suggestion already has the requested status", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   let updateCalls = 0;
   const statuses = [];
   const settingsState = {
@@ -863,19 +670,7 @@ test("applyAiSuggestionStatus is a no-op when the suggestion already has the req
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Ignored.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -904,11 +699,6 @@ test("applyAiSuggestionStatus is a no-op when the suggestion already has the req
 });
 
 test("applyAiSuggestionStatus formats adopted_as_draft no-op feedback with a human-readable status label", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   let updateCalls = 0;
   const statuses = [];
   const settingsState = {
@@ -926,20 +716,7 @@ test("applyAiSuggestionStatus formats adopted_as_draft no-op feedback with a hum
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    "aiSuggestionStatusLabel",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Ignored.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -965,11 +742,6 @@ test("applyAiSuggestionStatus formats adopted_as_draft no-op feedback with a hum
 });
 
 test("applyAiSuggestionStatus formats adopted_as_draft success feedback with a human-readable status label", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const statuses = [];
   const settingsState = {
     ai: {
@@ -986,20 +758,7 @@ test("applyAiSuggestionStatus formats adopted_as_draft success feedback with a h
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    "aiSuggestionStatusLabel",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Adopt this draft.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -1021,11 +780,6 @@ test("applyAiSuggestionStatus formats adopted_as_draft success feedback with a h
 });
 
 test("applyAiSuggestionStatus reloads fresh detail instead of submitting against a stale selection", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   let updateCalls = 0;
   const loadCalls = [];
   const statuses = [];
@@ -1047,19 +801,7 @@ test("applyAiSuggestionStatus reloads fresh detail instead of submitting against
     }
   };
 
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Ignored.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -1101,11 +843,6 @@ test("applyAiSuggestionStatus reloads fresh detail instead of submitting against
 });
 
 test("applyAiSuggestionStatus reports the latest failure status while replacing stale action errors", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const settingsState = {
     ai: {
       suggestions: [{ id: "suggestion_1", status: "edited", content: { thesis: "Original." } }],
@@ -1119,19 +856,7 @@ test("applyAiSuggestionStatus reports the latest failure status while replacing 
   };
 
   const statuses = [];
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Edited.\"}" }),
     settingsState,
     (item) => ({ item }),
@@ -1157,11 +882,6 @@ test("applyAiSuggestionStatus reports the latest failure status while replacing 
 });
 
 test("applyAiSuggestionStatus keeps a failed review action bound to the original suggestion after selection moves", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
-
   const settingsState = {
     ai: {
       suggestions: [
@@ -1179,19 +899,7 @@ test("applyAiSuggestionStatus keeps a failed review action bound to the original
   };
 
   const statuses = [];
-  const applyAiSuggestionStatus = new Function(
-    "$",
-    "settingsState",
-    "suggestionDetailFromResponse",
-    "aiSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "refreshAiSuggestions",
-    "loadAiSuggestionDetail",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "renderAiSuggestionsWorkspace",
-    `${fnSource}; return applyAiSuggestionStatus;`
-  )(
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
     () => ({ value: "{\"thesis\":\"Edited.\"}" }),
     settingsState,
     (item) => ({ item }),

@@ -15,230 +15,7 @@ import {
   refreshAiInboxForRuntime
 } from "../../apps/web/src/ai-inbox-runtime-controller.js";
 
-globalThis.__acceptAiInboxLinkSuggestionForRuntime = acceptAiInboxLinkSuggestionForRuntime;
-globalThis.__adoptAiInboxFieldSuggestionDraftForRuntime = adoptAiInboxFieldSuggestionDraftForRuntime;
-globalThis.__applyAiInboxRecommendedActionForRuntime = applyAiInboxRecommendedActionForRuntime;
-globalThis.__applyAiInboxSuggestionStatusForRuntime = applyAiInboxSuggestionStatusForRuntime;
-globalThis.__promoteAiInboxArtifactToNoteForRuntime = promoteAiInboxArtifactToNoteForRuntime;
-globalThis.__recordAiInboxReviewDecisionForRuntime = recordAiInboxReviewDecisionForRuntime;
-
 function extractAsyncFunctionSource(source, name) {
-  if (name === "applyAiInboxRecommendedAction") {
-    return `async function applyAiInboxRecommendedAction(action = "") {
-      return globalThis.__applyAiInboxRecommendedActionForRuntime({
-        aiInboxState,
-        confirm: (message) => (typeof window === "object" && typeof window.confirm === "function" ? window.confirm(message) : true),
-        appendDecisionComment: (comment) => {
-          if (typeof $ !== "function") return;
-          const commentEl = $("aiInboxDecisionComment");
-          const nextComment = \`\${commentEl?.value || ""}\\n\\n\${comment}\`.trim();
-          if (commentEl) commentEl.value = nextComment;
-        },
-        acceptLink: typeof acceptAiInboxLinkSuggestion === "function" ? acceptAiInboxLinkSuggestion : async () => null,
-        adoptFieldSuggestion: typeof adoptAiInboxFieldSuggestionDraft === "function" ? adoptAiInboxFieldSuggestionDraft : async () => null,
-        promoteNote: typeof promoteAiInboxArtifactToNote === "function" ? promoteAiInboxArtifactToNote : async () => null,
-        recordDecision: typeof recordAiInboxReviewDecision === "function" ? recordAiInboxReviewDecision : async () => null,
-        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
-        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
-        setStatus: typeof setStatus === "function" ? setStatus : () => {},
-        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
-        messages: {
-          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
-          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
-          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
-          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined
-        }
-      }, action);
-    }`;
-  }
-  if (name === "acceptAiInboxLinkSuggestion") {
-    return `async function acceptAiInboxLinkSuggestion(artifactId) {
-      return globalThis.__acceptAiInboxLinkSuggestionForRuntime({
-        aiInboxState,
-        currentAiInboxArtifactForSelection: typeof currentAiInboxArtifactForSelection === "function" ? currentAiInboxArtifactForSelection : () => null,
-        latestArtifactDecision: typeof latestArtifactDecision === "function" ? latestArtifactDecision : () => null,
-        acceptAiInboxLink: typeof acceptAiInboxLink === "function" ? acceptAiInboxLink : async () => null,
-        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
-        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
-        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
-        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
-        finalizeAiInboxActionRefresh,
-        afterFinalize: async () => {
-          if (typeof state === "object" && state?.module === "graph" && typeof refreshDirectoryGraph === "function") await refreshDirectoryGraph();
-        },
-        setStatus: typeof setStatus === "function" ? setStatus : () => {},
-        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
-        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
-        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
-        messages: {
-          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
-          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
-          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
-          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
-          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
-          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
-          linkAlreadyAppliedNotice: typeof aiInboxLinkAlreadyAppliedNotice === "function" ? aiInboxLinkAlreadyAppliedNotice : () => "This relation was already created for the current reviewed item.",
-          linkAlreadyAppliedStatusMessage: typeof aiInboxLinkAlreadyAppliedStatusMessage === "function" ? aiInboxLinkAlreadyAppliedStatusMessage : undefined,
-          linkAcceptedStatusMessage: typeof aiInboxLinkAcceptedStatusMessage === "function" ? aiInboxLinkAcceptedStatusMessage : undefined,
-          linkAcceptFailedStatusMessage: typeof aiInboxLinkAcceptFailedStatusMessage === "function" ? aiInboxLinkAcceptFailedStatusMessage : undefined
-        }
-      }, artifactId);
-    }`;
-  }
-  if (name === "promoteAiInboxArtifactToNote") {
-    return `async function promoteAiInboxArtifactToNote(artifactId) {
-      return globalThis.__promoteAiInboxArtifactToNoteForRuntime({
-        aiInboxState,
-        currentAiInboxArtifactForSelection: typeof currentAiInboxArtifactForSelection === "function" ? currentAiInboxArtifactForSelection : () => null,
-        latestArtifactDecision: typeof latestArtifactDecision === "function" ? latestArtifactDecision : () => null,
-        promoteAiInboxNote: typeof promoteAiInboxNote === "function" ? promoteAiInboxNote : async () => null,
-        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
-        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
-        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
-        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
-        finalizeAiInboxActionRefresh,
-        beforeFinalize: async (result) => {
-          if (result?.note?.id && typeof state === "object" && Array.isArray(state.notes)) {
-            const nextNote = typeof mapNoteItem === "function" ? mapNoteItem(result.note) : result.note;
-            state.notes = [nextNote, ...state.notes.filter((item) => item.id !== result.note.id)];
-          }
-        },
-        afterFinalize: async (result, context) => {
-          if (result?.note?.id && !context.selectionChangedDuringAction) {
-            if (typeof activateModule === "function") activateModule("explorer");
-            if (typeof openNoteById === "function") openNoteById(result.note.id);
-          }
-        },
-        setStatus: typeof setStatus === "function" ? setStatus : () => {},
-        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
-        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
-        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
-        messages: {
-          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
-          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
-          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
-          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
-          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
-          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
-          notePromotionAlreadyAppliedNotice: typeof aiInboxNotePromotionAlreadyAppliedNotice === "function" ? aiInboxNotePromotionAlreadyAppliedNotice : () => "This draft note already exists for the current reviewed item.",
-          notePromotionAlreadyAppliedStatusMessage: typeof aiInboxNotePromotionAlreadyAppliedStatusMessage === "function" ? aiInboxNotePromotionAlreadyAppliedStatusMessage : undefined,
-          notePromotionSucceededStatusMessage: typeof aiInboxNotePromotionSucceededStatusMessage === "function" ? aiInboxNotePromotionSucceededStatusMessage : undefined,
-          notePromotionFailedStatusMessage: typeof aiInboxNotePromotionFailedStatusMessage === "function" ? aiInboxNotePromotionFailedStatusMessage : undefined
-        }
-      }, artifactId);
-    }`;
-  }
-  if (name === "adoptAiInboxFieldSuggestionDraft") {
-    return `async function adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId = "") {
-      return globalThis.__adoptAiInboxFieldSuggestionDraftForRuntime({
-        aiInboxState,
-        currentAiInboxArtifactForSelection: typeof currentAiInboxArtifactForSelection === "function" ? currentAiInboxArtifactForSelection : () => null,
-        currentAiInboxSuggestionForSelection: typeof currentAiInboxSuggestionForSelection === "function" ? currentAiInboxSuggestionForSelection : () => null,
-        latestArtifactDecision: typeof latestArtifactDecision === "function" ? latestArtifactDecision : () => null,
-        aiSuggestionStatusLabel: typeof aiSuggestionStatusLabel === "function" ? aiSuggestionStatusLabel : (value) => value,
-        adoptAiInboxFieldSuggestion: typeof adoptAiInboxFieldSuggestion === "function" ? adoptAiInboxFieldSuggestion : async () => null,
-        aiInboxFeedback: typeof aiInboxFeedbackFromUi === "function" ? aiInboxFeedbackFromUi : () => ({}),
-        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
-        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
-        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
-        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
-        finalizeAiInboxActionRefresh,
-        beforeFinalize: async (result) => {
-          if (result?.note?.id && typeof state === "object" && Array.isArray(state.notes)) {
-            const nextNote = typeof mapNoteItem === "function" ? mapNoteItem(result.note) : result.note;
-            state.notes = [nextNote, ...state.notes.filter((item) => item.id !== result.note.id)];
-          }
-        },
-        afterFinalize: async (result, context) => {
-          if (result?.note?.id && !context.selectionChangedDuringAction) {
-            if (typeof activateModule === "function") activateModule("explorer");
-            if (typeof openNoteById === "function") openNoteById(result.note.id, { focusDistillation: true });
-          }
-        },
-        setStatus: typeof setStatus === "function" ? setStatus : () => {},
-        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
-        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
-        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
-        messages: {
-          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
-          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
-          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
-          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
-          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
-          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
-          fieldSuggestionDraftAlreadyAppliedNotice: typeof aiInboxFieldSuggestionDraftAlreadyAppliedNotice === "function" ? aiInboxFieldSuggestionDraftAlreadyAppliedNotice : undefined,
-          fieldSuggestionDraftAlreadyAppliedStatusMessage: typeof aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage === "function" ? aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage : undefined,
-          fieldSuggestionDraftSucceededStatusMessage: typeof aiInboxFieldSuggestionDraftSucceededStatusMessage === "function" ? aiInboxFieldSuggestionDraftSucceededStatusMessage : undefined,
-          fieldSuggestionDraftFailedStatusMessage: typeof aiInboxFieldSuggestionDraftFailedStatusMessage === "function" ? aiInboxFieldSuggestionDraftFailedStatusMessage : undefined
-        }
-      }, artifactId, expectedSuggestionId);
-    }`;
-  }
-  if (name === "recordAiInboxReviewDecision") {
-    return `async function recordAiInboxReviewDecision(decision) {
-      return globalThis.__recordAiInboxReviewDecisionForRuntime({
-        aiInboxState,
-        recordAiInboxDecision: typeof recordAiInboxDecision === "function" ? recordAiInboxDecision : undefined,
-        aiInboxFeedback: typeof aiInboxFeedbackFromUi === "function" ? aiInboxFeedbackFromUi : () => ({}),
-        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
-        aiInboxDetailFromResponse: typeof aiInboxDetailFromResponse === "function" ? aiInboxDetailFromResponse : (value) => value,
-        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
-        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
-        finalizeAiInboxActionRefresh,
-        aiInboxActionLabel: typeof aiInboxActionLabel === "function" ? aiInboxActionLabel : (value) => value,
-        setStatus: typeof setStatus === "function" ? setStatus : () => {},
-        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
-        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
-        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
-        messages: {
-          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
-          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
-          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
-          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
-          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
-          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
-          decisionSucceededStatusMessage: typeof aiInboxDecisionSucceededStatusMessage === "function" ? aiInboxDecisionSucceededStatusMessage : undefined,
-          decisionFailedStatusMessage: typeof aiInboxDecisionFailedStatusMessage === "function" ? aiInboxDecisionFailedStatusMessage : undefined
-        }
-      }, decision);
-    }`;
-  }
-  if (name === "applyAiInboxSuggestionStatus") {
-    return `async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") {
-      return globalThis.__applyAiInboxSuggestionStatusForRuntime({
-        aiInboxState,
-        updateAiSuggestion: typeof updateAiSuggestion === "function" ? updateAiSuggestion : undefined,
-        adoptAiInboxFieldSuggestionDraft: typeof adoptAiInboxFieldSuggestionDraft === "function" ? adoptAiInboxFieldSuggestionDraft : async () => null,
-        aiInboxSuggestionReviewedContent: typeof aiInboxSuggestionReviewedContentFromUi === "function" ? aiInboxSuggestionReviewedContentFromUi : () => undefined,
-        commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
-        aiSuggestionStatusLabel: typeof aiSuggestionStatusLabel === "function" ? aiSuggestionStatusLabel : undefined,
-        loadAiInboxDetail: typeof loadAiInboxDetail === "function" ? loadAiInboxDetail : async () => null,
-        rememberAiDebugSnapshot: typeof rememberAiDebugSnapshot === "function" ? rememberAiDebugSnapshot : () => {},
-        finalizeAiInboxActionRefresh,
-        setStatus: typeof setStatus === "function" ? setStatus : () => {},
-        setAiInboxActionNotice: typeof setAiInboxActionNotice === "function" ? setAiInboxActionNotice : () => {},
-        clearAiInboxActionNotice: typeof clearAiInboxActionNotice === "function" ? clearAiInboxActionNotice : () => {},
-        render: typeof renderAiInboxWorkspace === "function" ? renderAiInboxWorkspace : () => {},
-        messages: {
-          reviewSafetyNotice: typeof aiInboxReviewSafetyNotice === "function" ? aiInboxReviewSafetyNotice : undefined,
-          reviewSafetyStatusMessage: typeof aiInboxReviewSafetyStatusMessage === "function" ? aiInboxReviewSafetyStatusMessage : undefined,
-          reviewRetryNotice: typeof aiInboxReviewRetryNotice === "function" ? aiInboxReviewRetryNotice : undefined,
-          reviewRetryStatusMessage: typeof aiInboxReviewRetryStatusMessage === "function" ? aiInboxReviewRetryStatusMessage : undefined,
-          inFlightReviewActionNotice: typeof aiInboxInFlightReviewActionNotice === "function" ? aiInboxInFlightReviewActionNotice : undefined,
-          inFlightReviewActionStatusMessage: typeof aiInboxInFlightReviewActionStatusMessage === "function" ? aiInboxInFlightReviewActionStatusMessage : undefined,
-          suggestionAlreadyAppliedNotice:
-            typeof aiInboxSuggestionAlreadyAppliedNotice === "function"
-              ? aiInboxSuggestionAlreadyAppliedNotice
-              : typeof aiSuggestionAlreadyAppliedNotice === "function"
-                ? aiSuggestionAlreadyAppliedNotice
-                : undefined,
-          suggestionAlreadyAppliedStatusMessage: typeof aiInboxSuggestionAlreadyAppliedStatusMessage === "function" ? aiInboxSuggestionAlreadyAppliedStatusMessage : undefined,
-          suggestionUpdatedStatusMessage: typeof aiInboxSuggestionUpdatedStatusMessage === "function" ? aiInboxSuggestionUpdatedStatusMessage : undefined,
-          suggestionUpdateFailedStatusMessage: typeof aiInboxSuggestionUpdateFailedStatusMessage === "function" ? aiInboxSuggestionUpdateFailedStatusMessage : undefined
-        }
-      }, status, expectedSuggestionId);
-    }`;
-  }
   const signature = `async function ${name}(`;
   const start = source.indexOf(signature);
   assert.ok(start >= 0, `expected ${name}() to exist`);
@@ -295,6 +72,369 @@ function createRefreshAiInbox(aiInboxState, deps = {}) {
     setStatus: deps.setStatus || (() => {}),
     loadDetail: deps.loadAiInboxDetail || (async () => null)
   }, options);
+}
+
+function createFinalizeAiInboxActionRefresh(aiInboxState, refreshAiInbox, refreshAiInboxEvaluationSummary, loadAiInboxDetail) {
+  return async ({ preserveDetail = false } = {}) => {
+    await Promise.all([
+      refreshAiInbox({ silent: true, preserveDetail }),
+      refreshAiInboxEvaluationSummary({ silent: true })
+    ]);
+    if (aiInboxState.selectedArtifactId) {
+      await loadAiInboxDetail(aiInboxState.selectedArtifactId);
+    } else {
+      aiInboxState.detail = null;
+      aiInboxState.detailArtifactId = "";
+      aiInboxState.detailLoading = false;
+      aiInboxState.detailError = "";
+      aiInboxState.actionArtifactId = "";
+      aiInboxState.actionSuggestionId = "";
+      aiInboxState.actionError = "";
+    }
+  };
+}
+
+function guardMessages(first, second) {
+  return {
+    reviewSafetyNotice: first,
+    reviewSafetyStatusMessage: second,
+    reviewRetryNotice: first,
+    reviewRetryStatusMessage: second,
+    inFlightReviewActionNotice: first,
+    inFlightReviewActionStatusMessage: second
+  };
+}
+
+function createApplyAiInboxRecommendedAction(
+  $,
+  window,
+  aiInboxState,
+  loadAiInboxDetail,
+  setAiInboxActionNotice,
+  renderAiInboxWorkspace,
+  setStatus,
+  acceptAiInboxLinkSuggestion,
+  adoptAiInboxFieldSuggestionDraft,
+  promoteAiInboxArtifactToNote,
+  recordAiInboxReviewDecision,
+  firstMessage,
+  secondMessage
+) {
+  return (action = "") => applyAiInboxRecommendedActionForRuntime({
+    aiInboxState,
+    confirm: (message) => (typeof window === "object" && typeof window.confirm === "function" ? window.confirm(message) : true),
+    appendDecisionComment: (comment) => {
+      const commentEl = typeof $ === "function" ? $("aiInboxDecisionComment") : null;
+      if (!commentEl) return;
+      commentEl.value = `${commentEl.value || ""}\n\n${comment}`.trim();
+    },
+    acceptLink: acceptAiInboxLinkSuggestion || (async () => null),
+    adoptFieldSuggestion: adoptAiInboxFieldSuggestionDraft || (async () => null),
+    promoteNote: promoteAiInboxArtifactToNote || (async () => null),
+    recordDecision: recordAiInboxReviewDecision || (async () => null),
+    loadAiInboxDetail: loadAiInboxDetail || (async () => null),
+    setAiInboxActionNotice: setAiInboxActionNotice || (() => {}),
+    setStatus: setStatus || (() => {}),
+    render: renderAiInboxWorkspace || (() => {}),
+    messages: guardMessages(firstMessage, secondMessage)
+  }, action);
+}
+
+function createRecordAiInboxReviewDecision(
+  $,
+  aiInboxState,
+  recordAiInboxDecision,
+  aiInboxFeedbackFromUi,
+  loadAiInboxDetail,
+  refreshAiInbox,
+  refreshAiInboxEvaluationSummary,
+  rememberAiDebugSnapshot,
+  setStatus,
+  setAiInboxActionNotice,
+  clearAiInboxActionNotice,
+  renderAiInboxWorkspace,
+  aiInboxDetailFromResponse,
+  aiInboxActionLabel
+) {
+  return (decision) => recordAiInboxReviewDecisionForRuntime({
+    aiInboxState,
+    recordAiInboxDecision,
+    aiInboxFeedback: aiInboxFeedbackFromUi || (() => ({})),
+    commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+    aiInboxDetailFromResponse: aiInboxDetailFromResponse || ((value) => value),
+    loadAiInboxDetail: loadAiInboxDetail || (async () => null),
+    rememberAiDebugSnapshot: rememberAiDebugSnapshot || (() => {}),
+    finalizeAiInboxActionRefresh: createFinalizeAiInboxActionRefresh(
+      aiInboxState,
+      refreshAiInbox || (async () => null),
+      refreshAiInboxEvaluationSummary || (async () => null),
+      loadAiInboxDetail || (async () => null)
+    ),
+    aiInboxActionLabel: aiInboxActionLabel || ((value) => value),
+    setStatus: setStatus || (() => {}),
+    setAiInboxActionNotice: setAiInboxActionNotice || (() => {}),
+    clearAiInboxActionNotice: clearAiInboxActionNotice || (() => {}),
+    render: renderAiInboxWorkspace || (() => {}),
+    messages: {}
+  }, decision);
+}
+
+function createRecordDecisionFromPrototypeHarness(...args) {
+  const [
+    $,
+    aiInboxState,
+    recordAiInboxDecision,
+    aiInboxFeedbackFromUi,
+    aiInboxDetailFromResponse,
+    loadAiInboxDetail,
+    rememberAiDebugSnapshot,
+    refreshAiInbox,
+    refreshAiInboxEvaluationSummary,
+    aiInboxActionLabel,
+    setStatus,
+    clearAiInboxActionNotice
+  ] = args;
+  const hasNoticeSetter = args.length >= 14 && typeof args[13] === "function";
+  const setAiInboxActionNotice = hasNoticeSetter ? args[12] : () => {};
+  const renderAiInboxWorkspace = hasNoticeSetter ? args[13] : args[12];
+  const tail = args.slice(hasNoticeSetter ? 14 : 13);
+  return (decision) => recordAiInboxReviewDecisionForRuntime({
+    aiInboxState,
+    recordAiInboxDecision,
+    aiInboxFeedback: aiInboxFeedbackFromUi || (() => ({})),
+    commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+    aiInboxDetailFromResponse: aiInboxDetailFromResponse || ((value) => value),
+    loadAiInboxDetail: loadAiInboxDetail || (async () => null),
+    rememberAiDebugSnapshot: rememberAiDebugSnapshot || (() => {}),
+    finalizeAiInboxActionRefresh: createFinalizeAiInboxActionRefresh(
+      aiInboxState,
+      refreshAiInbox || (async () => null),
+      refreshAiInboxEvaluationSummary || (async () => null),
+      loadAiInboxDetail || (async () => null)
+    ),
+    aiInboxActionLabel: aiInboxActionLabel || ((value) => value),
+    setStatus: setStatus || (() => {}),
+    setAiInboxActionNotice,
+    clearAiInboxActionNotice: clearAiInboxActionNotice || (() => {}),
+    render: renderAiInboxWorkspace || (() => {}),
+    messages: guardMessages(tail[0], tail[1])
+  }, decision);
+}
+
+function createApplyAiInboxSuggestionStatus(...args) {
+  const [
+    $,
+    aiInboxState,
+    adoptAiInboxFieldSuggestionDraft,
+    aiInboxSuggestionReviewedContentFromUi,
+    updateAiSuggestion,
+    loadAiInboxDetail,
+    refreshAiInbox,
+    refreshAiInboxEvaluationSummary,
+    rememberAiDebugSnapshot,
+    setStatus
+  ] = args;
+  const hasClearNotice = args.length >= 13;
+  const clearAiInboxActionNotice = hasClearNotice ? args[10] : () => {};
+  const setAiInboxActionNotice = hasClearNotice ? args[11] : args[10];
+  const renderAiInboxWorkspace = hasClearNotice ? args[12] : args[11];
+  const tail = args.slice(hasClearNotice ? 13 : 12);
+  const aiSuggestionStatusLabel = tail.length === 1 ? tail[0] : tail[3];
+  const messages = tail.length >= 6
+    ? {
+        ...guardMessages(tail[0], tail[1]),
+        suggestionAlreadyAppliedNotice: tail[2],
+        reviewSafetyNotice: tail[4],
+        reviewSafetyStatusMessage: tail[5]
+      }
+    : {};
+  return (status, expectedSuggestionId = "") => applyAiInboxSuggestionStatusForRuntime({
+    aiInboxState,
+    updateAiSuggestion,
+    adoptAiInboxFieldSuggestionDraft: adoptAiInboxFieldSuggestionDraft || (async () => null),
+    aiInboxSuggestionReviewedContent: aiInboxSuggestionReviewedContentFromUi || (() => undefined),
+    commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+    aiSuggestionStatusLabel,
+    loadAiInboxDetail: loadAiInboxDetail || (async () => null),
+    rememberAiDebugSnapshot: rememberAiDebugSnapshot || (() => {}),
+    finalizeAiInboxActionRefresh: createFinalizeAiInboxActionRefresh(
+      aiInboxState,
+      refreshAiInbox || (async () => null),
+      refreshAiInboxEvaluationSummary || (async () => null),
+      loadAiInboxDetail || (async () => null)
+    ),
+    setStatus: setStatus || (() => {}),
+    setAiInboxActionNotice: setAiInboxActionNotice || (() => {}),
+    clearAiInboxActionNotice: clearAiInboxActionNotice || (() => {}),
+    render: renderAiInboxWorkspace || (() => {}),
+    messages
+  }, status, expectedSuggestionId);
+}
+
+function createAcceptAiInboxLinkSuggestion(
+  $,
+  aiInboxState,
+  loadAiInboxDetail,
+  currentAiInboxArtifactForSelection,
+  latestArtifactDecision,
+  setAiInboxActionNotice,
+  acceptAiInboxLink,
+  aiInboxDetailFromResponse,
+  rememberAiDebugSnapshot,
+  refreshAiInbox,
+  refreshAiInboxEvaluationSummary,
+  refreshDirectoryGraph,
+  state,
+  setStatus,
+  clearAiInboxActionNotice,
+  renderAiInboxWorkspace,
+  firstMessage,
+  secondMessage
+) {
+  return (artifactId) => acceptAiInboxLinkSuggestionForRuntime({
+    aiInboxState,
+    currentAiInboxArtifactForSelection: currentAiInboxArtifactForSelection || (() => null),
+    latestArtifactDecision: latestArtifactDecision || (() => null),
+    acceptAiInboxLink: acceptAiInboxLink || (async () => null),
+    commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+    aiInboxDetailFromResponse: aiInboxDetailFromResponse || ((value) => value),
+    loadAiInboxDetail: loadAiInboxDetail || (async () => null),
+    rememberAiDebugSnapshot: rememberAiDebugSnapshot || (() => {}),
+    finalizeAiInboxActionRefresh: createFinalizeAiInboxActionRefresh(
+      aiInboxState,
+      refreshAiInbox || (async () => null),
+      refreshAiInboxEvaluationSummary || (async () => null),
+      loadAiInboxDetail || (async () => null)
+    ),
+    afterFinalize: async () => {
+      if (state?.module === "graph" && typeof refreshDirectoryGraph === "function") await refreshDirectoryGraph();
+    },
+    setStatus: setStatus || (() => {}),
+    setAiInboxActionNotice: setAiInboxActionNotice || (() => {}),
+    clearAiInboxActionNotice: clearAiInboxActionNotice || (() => {}),
+    render: renderAiInboxWorkspace || (() => {}),
+    messages: guardMessages(firstMessage, secondMessage)
+  }, artifactId);
+}
+
+function createPromoteAiInboxArtifactToNote(
+  $,
+  aiInboxState,
+  loadAiInboxDetail,
+  currentAiInboxArtifactForSelection,
+  latestArtifactDecision,
+  setAiInboxActionNotice,
+  promoteAiInboxNote,
+  aiInboxDetailFromResponse,
+  rememberAiDebugSnapshot,
+  refreshAiInbox,
+  refreshAiInboxEvaluationSummary,
+  mapNoteItem,
+  state,
+  activateModule,
+  openNoteById,
+  setStatus,
+  clearAiInboxActionNotice,
+  renderAiInboxWorkspace,
+  firstMessage,
+  secondMessage
+) {
+  return (artifactId) => promoteAiInboxArtifactToNoteForRuntime({
+    aiInboxState,
+    currentAiInboxArtifactForSelection: currentAiInboxArtifactForSelection || (() => null),
+    latestArtifactDecision: latestArtifactDecision || (() => null),
+    promoteAiInboxNote: promoteAiInboxNote || (async () => null),
+    commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+    aiInboxDetailFromResponse: aiInboxDetailFromResponse || ((value) => value),
+    loadAiInboxDetail: loadAiInboxDetail || (async () => null),
+    rememberAiDebugSnapshot: rememberAiDebugSnapshot || (() => {}),
+    finalizeAiInboxActionRefresh: createFinalizeAiInboxActionRefresh(
+      aiInboxState,
+      refreshAiInbox || (async () => null),
+      refreshAiInboxEvaluationSummary || (async () => null),
+      loadAiInboxDetail || (async () => null)
+    ),
+    beforeFinalize: async (result) => {
+      if (result?.note?.id && Array.isArray(state?.notes)) {
+        const nextNote = typeof mapNoteItem === "function" ? mapNoteItem(result.note) : result.note;
+        state.notes = [nextNote, ...state.notes.filter((item) => item.id !== result.note.id)];
+      }
+    },
+    afterFinalize: async (result, context) => {
+      if (result?.note?.id && !context.selectionChangedDuringAction) {
+        if (typeof activateModule === "function") activateModule("explorer");
+        if (typeof openNoteById === "function") openNoteById(result.note.id);
+      }
+    },
+    setStatus: setStatus || (() => {}),
+    setAiInboxActionNotice: setAiInboxActionNotice || (() => {}),
+    clearAiInboxActionNotice: clearAiInboxActionNotice || (() => {}),
+    render: renderAiInboxWorkspace || (() => {}),
+    messages: guardMessages(firstMessage, secondMessage)
+  }, artifactId);
+}
+
+function createAdoptAiInboxFieldSuggestionDraft(
+  $,
+  aiInboxState,
+  loadAiInboxDetail,
+  currentAiInboxArtifactForSelection,
+  currentAiInboxSuggestionForSelection,
+  latestArtifactDecision,
+  aiSuggestionStatusLabel,
+  setAiInboxActionNotice,
+  adoptAiInboxFieldSuggestion,
+  aiInboxFeedbackFromUi,
+  aiInboxDetailFromResponse,
+  rememberAiDebugSnapshot,
+  refreshAiInbox,
+  refreshAiInboxEvaluationSummary,
+  mapNoteItem,
+  state,
+  activateModule,
+  openNoteById,
+  setStatus,
+  clearAiInboxActionNotice,
+  renderAiInboxWorkspace,
+  firstMessage,
+  secondMessage
+) {
+  return (artifactId, expectedSuggestionId = "") => adoptAiInboxFieldSuggestionDraftForRuntime({
+    aiInboxState,
+    currentAiInboxArtifactForSelection: currentAiInboxArtifactForSelection || (() => null),
+    currentAiInboxSuggestionForSelection: currentAiInboxSuggestionForSelection || (() => null),
+    latestArtifactDecision: latestArtifactDecision || (() => null),
+    aiSuggestionStatusLabel: aiSuggestionStatusLabel || ((value) => value),
+    adoptAiInboxFieldSuggestion: adoptAiInboxFieldSuggestion || (async () => null),
+    aiInboxFeedback: aiInboxFeedbackFromUi || (() => ({})),
+    commentText: () => (typeof $ === "function" ? $("aiInboxDecisionComment")?.value || "" : ""),
+    aiInboxDetailFromResponse: aiInboxDetailFromResponse || ((value) => value),
+    loadAiInboxDetail: loadAiInboxDetail || (async () => null),
+    rememberAiDebugSnapshot: rememberAiDebugSnapshot || (() => {}),
+    finalizeAiInboxActionRefresh: createFinalizeAiInboxActionRefresh(
+      aiInboxState,
+      refreshAiInbox || (async () => null),
+      refreshAiInboxEvaluationSummary || (async () => null),
+      loadAiInboxDetail || (async () => null)
+    ),
+    beforeFinalize: async (result) => {
+      if (result?.note?.id && Array.isArray(state?.notes)) {
+        const nextNote = typeof mapNoteItem === "function" ? mapNoteItem(result.note) : result.note;
+        state.notes = [nextNote, ...state.notes.filter((item) => item.id !== result.note.id)];
+      }
+    },
+    afterFinalize: async (result, context) => {
+      if (result?.note?.id && !context.selectionChangedDuringAction) {
+        if (typeof activateModule === "function") activateModule("explorer");
+        if (typeof openNoteById === "function") openNoteById(result.note.id, { focusDistillation: true });
+      }
+    },
+    setStatus: setStatus || (() => {}),
+    setAiInboxActionNotice: setAiInboxActionNotice || (() => {}),
+    clearAiInboxActionNotice: clearAiInboxActionNotice || (() => {}),
+    render: renderAiInboxWorkspace || (() => {}),
+    messages: guardMessages(firstMessage, secondMessage)
+  }, artifactId, expectedSuggestionId);
 }
 
 test("aiInboxActionGuardForRuntime classifies shared inbox action guard states", () => {
@@ -507,28 +647,9 @@ test("finalizeAiInboxActionRefresh realigns refreshed inbox state through the la
 });
 
 test("applyAiInboxSuggestionStatus is a no-op while the same inbox suggestion action is already in flight", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
   const calls = [];
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     {
       selectedArtifactId: "artifact_1",
@@ -562,11 +683,6 @@ test("applyAiInboxSuggestionStatus is a no-op while the same inbox suggestion ac
 });
 
 test("applyAiInboxSuggestionStatus warns when another inbox action is already running for a different suggestion", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
   const statuses = [];
   const calls = [];
   const aiInboxState = {
@@ -581,21 +697,7 @@ test("applyAiInboxSuggestionStatus warns when another inbox action is already ru
     actionError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {
@@ -640,11 +742,6 @@ test("applyAiInboxSuggestionStatus warns when another inbox action is already ru
 });
 
 test("applyAiInboxRecommendedAction reloads fresh detail instead of dispatching against a stale selection", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxRecommendedAction");
-
   const loadCalls = [];
   const notices = [];
   const statuses = [];
@@ -657,22 +754,7 @@ test("applyAiInboxRecommendedAction reloads fresh detail instead of dispatching 
     aiSummaryRecommendedAction: "accept_link"
   };
 
-  const applyAiInboxRecommendedAction = new Function(
-    "$",
-    "window",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    "acceptAiInboxLinkSuggestion",
-    "adoptAiInboxFieldSuggestionDraft",
-    "promoteAiInboxArtifactToNote",
-    "recordAiInboxReviewDecision",
-    "aiInboxReviewRetryNotice",
-    "aiInboxReviewRetryStatusMessage",
-    `${fnSource}; return applyAiInboxRecommendedAction;`
-  )(
+  const applyAiInboxRecommendedAction = createApplyAiInboxRecommendedAction(
     () => ({ value: "" }),
     {
       confirm() {
@@ -722,11 +804,6 @@ test("applyAiInboxRecommendedAction reloads fresh detail instead of dispatching 
 });
 
 test("applyAiInboxRecommendedAction delegates accept_link to the same action handler as the manual button", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxRecommendedAction");
-
   const acceptCalls = [];
   const confirmPrompts = [];
   const aiInboxState = {
@@ -736,20 +813,7 @@ test("applyAiInboxRecommendedAction delegates accept_link to the same action han
     aiSummaryRecommendedAction: "accept_link"
   };
 
-  const applyAiInboxRecommendedAction = new Function(
-    "$",
-    "window",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    "acceptAiInboxLinkSuggestion",
-    "adoptAiInboxFieldSuggestionDraft",
-    "promoteAiInboxArtifactToNote",
-    "recordAiInboxReviewDecision",
-    `${fnSource}; return applyAiInboxRecommendedAction;`
-  )(
+  const applyAiInboxRecommendedAction = createApplyAiInboxRecommendedAction(
     () => ({ value: "" }),
     {
       confirm(message) {
@@ -782,11 +846,6 @@ test("applyAiInboxRecommendedAction delegates accept_link to the same action han
 });
 
 test("applyAiInboxRecommendedAction reloads latest detail instead of dispatching from list-only selection state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxRecommendedAction");
-
   const loadCalls = [];
   const notices = [];
   const statuses = [];
@@ -801,22 +860,7 @@ test("applyAiInboxRecommendedAction reloads latest detail instead of dispatching
     aiSummaryRecommendedAction: "accept_link"
   };
 
-  const applyAiInboxRecommendedAction = new Function(
-    "$",
-    "window",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    "acceptAiInboxLinkSuggestion",
-    "adoptAiInboxFieldSuggestionDraft",
-    "promoteAiInboxArtifactToNote",
-    "recordAiInboxReviewDecision",
-    "aiInboxReviewSafetyNotice",
-    "aiInboxReviewSafetyStatusMessage",
-    `${fnSource}; return applyAiInboxRecommendedAction;`
-  )(
+  const applyAiInboxRecommendedAction = createApplyAiInboxRecommendedAction(
     () => ({ value: "" }),
     {
       confirm() {
@@ -859,11 +903,6 @@ test("applyAiInboxRecommendedAction reloads latest detail instead of dispatching
 });
 
 test("applyAiInboxRecommendedAction forwards the summary suggestion id when adopting a field suggestion", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxRecommendedAction");
-
   const adoptCalls = [];
   const confirmPrompts = [];
   const aiInboxState = {
@@ -877,20 +916,7 @@ test("applyAiInboxRecommendedAction forwards the summary suggestion id when adop
     aiSummarySuggestionId: "suggestion_from_summary"
   };
 
-  const applyAiInboxRecommendedAction = new Function(
-    "$",
-    "window",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "setStatus",
-    "acceptAiInboxLinkSuggestion",
-    "adoptAiInboxFieldSuggestionDraft",
-    "promoteAiInboxArtifactToNote",
-    "recordAiInboxReviewDecision",
-    `${fnSource}; return applyAiInboxRecommendedAction;`
-  )(
+  const applyAiInboxRecommendedAction = createApplyAiInboxRecommendedAction(
     () => ({ value: "" }),
     {
       confirm(message) {
@@ -1426,12 +1452,6 @@ test("refreshAiInbox rehydrates the selected detail after invalidating stale met
 });
 
 test("recordAiInboxReviewDecision stores action failures separately from detail state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
     detail: { item: { artifactId: "artifact_1" } },
@@ -1442,25 +1462,7 @@ test("recordAiInboxReviewDecision stores action failures separately from detail 
     detailError: "old detail error"
   };
 
-  const recordDecision = new Function(
-    "$",
-    "aiInboxState",
-    "recordAiInboxDecision",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "aiInboxActionLabel",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewRetryNotice",
-    "aiInboxReviewRetryStatusMessage",
-    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
-  )(
+  const recordDecision = createRecordDecisionFromPrototypeHarness(
     () => ({ value: "" }),
     aiInboxState,
     async () => {
@@ -1489,11 +1491,6 @@ test("recordAiInboxReviewDecision stores action failures separately from detail 
 });
 
 test("recordAiInboxReviewDecision warns when another inbox action is already running for a different artifact", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
   const statuses = [];
   let decisionCalls = 0;
   const aiInboxState = {
@@ -1504,23 +1501,7 @@ test("recordAiInboxReviewDecision warns when another inbox action is already run
     actionError: ""
   };
 
-  const recordAiInboxReviewDecision = new Function(
-    "$",
-    "aiInboxState",
-    "recordAiInboxDecision",
-    "aiInboxFeedbackFromUi",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "setAiInboxActionNotice",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxDetailFromResponse",
-    "aiInboxActionLabel",
-    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
-  )(
+  const recordAiInboxReviewDecision = createRecordAiInboxReviewDecision(
     () => ({ value: "" }),
     aiInboxState,
     async () => {
@@ -1566,12 +1547,6 @@ test("recordAiInboxReviewDecision warns when another inbox action is already run
 });
 
 test("recordAiInboxReviewDecision keeps a failed action bound to the original artifact after selection moves", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let rejectDecision;
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -1583,25 +1558,7 @@ test("recordAiInboxReviewDecision keeps a failed action bound to the original ar
     detailError: ""
   };
 
-  const recordDecision = new Function(
-    "$",
-    "aiInboxState",
-    "recordAiInboxDecision",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "aiInboxActionLabel",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewRetryNotice",
-    "aiInboxReviewRetryStatusMessage",
-    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
-  )(
+  const recordDecision = createRecordDecisionFromPrototypeHarness(
     () => ({ value: "" }),
     aiInboxState,
     () =>
@@ -1637,12 +1594,6 @@ test("recordAiInboxReviewDecision keeps a failed action bound to the original ar
 });
 
 test("recordAiInboxReviewDecision reloads fresh detail instead of submitting against a stale selection", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let recordCalls = 0;
   const loadCalls = [];
   const statuses = [];
@@ -1654,25 +1605,7 @@ test("recordAiInboxReviewDecision reloads fresh detail instead of submitting aga
     actionError: ""
   };
 
-  const recordDecision = new Function(
-    "$",
-    "aiInboxState",
-    "recordAiInboxDecision",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "aiInboxActionLabel",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewRetryNotice",
-    "aiInboxReviewRetryStatusMessage",
-    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
-  )(
+  const recordDecision = createRecordDecisionFromPrototypeHarness(
     () => ({ value: "" }),
     aiInboxState,
     async () => {
@@ -1715,12 +1648,6 @@ test("recordAiInboxReviewDecision reloads fresh detail instead of submitting aga
 });
 
 test("recordAiInboxReviewDecision reloads latest detail instead of submitting against list-only selection state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let recordCalls = 0;
   const loadCalls = [];
   const statuses = [];
@@ -1733,25 +1660,7 @@ test("recordAiInboxReviewDecision reloads latest detail instead of submitting ag
     actionError: ""
   };
 
-  const recordDecision = new Function(
-    "$",
-    "aiInboxState",
-    "recordAiInboxDecision",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "aiInboxActionLabel",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewSafetyNotice",
-    "aiInboxReviewSafetyStatusMessage",
-    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
-  )(
+  const recordDecision = createRecordDecisionFromPrototypeHarness(
     () => ({ value: "" }),
     aiInboxState,
     async () => {
@@ -1801,12 +1710,6 @@ test("recordAiInboxReviewDecision reloads latest detail instead of submitting ag
 });
 
 test("recordAiInboxReviewDecision clears stale detail when refresh removes the artifact from the current inbox view", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const refreshCalls = [];
   const loadCalls = [];
   const aiInboxState = {
@@ -1818,22 +1721,7 @@ test("recordAiInboxReviewDecision clears stale detail when refresh removes the a
     detailLoading: true
   };
 
-  const recordDecision = new Function(
-    "$",
-    "aiInboxState",
-    "recordAiInboxDecision",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "aiInboxActionLabel",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
-  )(
+  const recordDecision = createRecordDecisionFromPrototypeHarness(
     () => ({ value: "" }),
     aiInboxState,
     async () => ({ item: { artifactId: "artifact_1", title: "Archived action result" } }),
@@ -1868,12 +1756,6 @@ test("recordAiInboxReviewDecision clears stale detail when refresh removes the a
 });
 
 test("acceptAiInboxLinkSuggestion is a no-op when the current detail is already linked", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "acceptAiInboxLinkSuggestion");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let acceptCalls = 0;
   const statuses = [];
   const aiInboxState = {
@@ -1891,25 +1773,7 @@ test("acceptAiInboxLinkSuggestion is a no-op when the current detail is already 
     actionError: ""
   };
 
-  const acceptAiInboxLinkSuggestion = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "latestArtifactDecision",
-    "setAiInboxActionNotice",
-    "acceptAiInboxLink",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "refreshDirectoryGraph",
-    "state",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return acceptAiInboxLinkSuggestion;`
-  )(
+  const acceptAiInboxLinkSuggestion = createAcceptAiInboxLinkSuggestion(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -1938,12 +1802,6 @@ test("acceptAiInboxLinkSuggestion is a no-op when the current detail is already 
 });
 
 test("acceptAiInboxLinkSuggestion reloads latest detail instead of submitting from list-only selection state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "acceptAiInboxLinkSuggestion");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let acceptCalls = 0;
   const loadCalls = [];
   const notices = [];
@@ -1957,27 +1815,7 @@ test("acceptAiInboxLinkSuggestion reloads latest detail instead of submitting fr
     actionError: ""
   };
 
-  const acceptAiInboxLinkSuggestion = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "latestArtifactDecision",
-    "setAiInboxActionNotice",
-    "acceptAiInboxLink",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "refreshDirectoryGraph",
-    "state",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewSafetyNotice",
-    "aiInboxReviewSafetyStatusMessage",
-    `${finalizeSource}; ${fnSource}; return acceptAiInboxLinkSuggestion;`
-  )(
+  const acceptAiInboxLinkSuggestion = createAcceptAiInboxLinkSuggestion(
     () => ({ value: "" }),
     aiInboxState,
     async (artifactId) => {
@@ -2021,12 +1859,6 @@ test("acceptAiInboxLinkSuggestion reloads latest detail instead of submitting fr
 });
 
 test("acceptAiInboxLinkSuggestion reloads the selected detail after refresh to keep canonical detail aligned", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "acceptAiInboxLinkSuggestion");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const loadCalls = [];
   const refreshCalls = [];
   const aiInboxState = {
@@ -2041,25 +1873,7 @@ test("acceptAiInboxLinkSuggestion reloads the selected detail after refresh to k
     detailError: "old detail error"
   };
 
-  const acceptAiInboxLinkSuggestion = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "latestArtifactDecision",
-    "setAiInboxActionNotice",
-    "acceptAiInboxLink",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "refreshDirectoryGraph",
-    "state",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return acceptAiInboxLinkSuggestion;`
-  )(
+  const acceptAiInboxLinkSuggestion = createAcceptAiInboxLinkSuggestion(
     () => ({ value: "" }),
     aiInboxState,
     async (artifactId) => {
@@ -2094,12 +1908,6 @@ test("acceptAiInboxLinkSuggestion reloads the selected detail after refresh to k
 });
 
 test("promoteAiInboxArtifactToNote is a no-op when the current detail is already promoted", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "promoteAiInboxArtifactToNote");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let promoteCalls = 0;
   const statuses = [];
   const aiInboxState = {
@@ -2117,27 +1925,7 @@ test("promoteAiInboxArtifactToNote is a no-op when the current detail is already
     actionError: ""
   };
 
-  const promoteAiInboxArtifactToNote = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "latestArtifactDecision",
-    "setAiInboxActionNotice",
-    "promoteAiInboxNote",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "mapNoteItem",
-    "state",
-    "activateModule",
-    "openNoteById",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return promoteAiInboxArtifactToNote;`
-  )(
+  const promoteAiInboxArtifactToNote = createPromoteAiInboxArtifactToNote(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -2168,12 +1956,6 @@ test("promoteAiInboxArtifactToNote is a no-op when the current detail is already
 });
 
 test("promoteAiInboxArtifactToNote reloads latest detail instead of submitting from list-only selection state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "promoteAiInboxArtifactToNote");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let promoteCalls = 0;
   const loadCalls = [];
   const notices = [];
@@ -2187,29 +1969,7 @@ test("promoteAiInboxArtifactToNote reloads latest detail instead of submitting f
     actionError: ""
   };
 
-  const promoteAiInboxArtifactToNote = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "latestArtifactDecision",
-    "setAiInboxActionNotice",
-    "promoteAiInboxNote",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "mapNoteItem",
-    "state",
-    "activateModule",
-    "openNoteById",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewSafetyNotice",
-    "aiInboxReviewSafetyStatusMessage",
-    `${finalizeSource}; ${fnSource}; return promoteAiInboxArtifactToNote;`
-  )(
+  const promoteAiInboxArtifactToNote = createPromoteAiInboxArtifactToNote(
     () => ({ value: "" }),
     aiInboxState,
     async (artifactId) => {
@@ -2255,12 +2015,6 @@ test("promoteAiInboxArtifactToNote reloads latest detail instead of submitting f
 });
 
 test("promoteAiInboxArtifactToNote reloads the selected detail after refresh to keep canonical detail aligned", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "promoteAiInboxArtifactToNote");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const loadCalls = [];
   const refreshCalls = [];
   const aiInboxState = {
@@ -2275,27 +2029,7 @@ test("promoteAiInboxArtifactToNote reloads the selected detail after refresh to 
     detailError: "old detail error"
   };
 
-  const promoteAiInboxArtifactToNote = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "latestArtifactDecision",
-    "setAiInboxActionNotice",
-    "promoteAiInboxNote",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "mapNoteItem",
-    "state",
-    "activateModule",
-    "openNoteById",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return promoteAiInboxArtifactToNote;`
-  )(
+  const promoteAiInboxArtifactToNote = createPromoteAiInboxArtifactToNote(
     () => ({ value: "" }),
     aiInboxState,
     async (artifactId) => {
@@ -2332,12 +2066,6 @@ test("promoteAiInboxArtifactToNote reloads the selected detail after refresh to 
 });
 
 test("adoptAiInboxFieldSuggestionDraft is a no-op when the current detail is already adopted", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "adoptAiInboxFieldSuggestionDraft");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let adoptCalls = 0;
   let actionNotice = "";
   const statuses = [];
@@ -2360,32 +2088,7 @@ test("adoptAiInboxFieldSuggestionDraft is a no-op when the current detail is alr
     actionError: ""
   };
 
-  const adoptAiInboxFieldSuggestionDraft = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "currentAiInboxSuggestionForSelection",
-    "latestArtifactDecision",
-    "aiSuggestionStatusLabel",
-    "setAiInboxActionNotice",
-    "adoptAiInboxFieldSuggestion",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "mapNoteItem",
-    "state",
-    "activateModule",
-    "openNoteById",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewRetryNotice",
-    "aiInboxReviewRetryStatusMessage",
-    `${finalizeSource}; ${fnSource}; return adoptAiInboxFieldSuggestionDraft;`
-  )(
+  const adoptAiInboxFieldSuggestionDraft = createAdoptAiInboxFieldSuggestionDraft(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -2424,12 +2127,6 @@ test("adoptAiInboxFieldSuggestionDraft is a no-op when the current detail is alr
 });
 
 test("adoptAiInboxFieldSuggestionDraft reloads latest detail instead of submitting from list-only selection state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "adoptAiInboxFieldSuggestionDraft");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let adoptCalls = 0;
   const loadCalls = [];
   const notices = [];
@@ -2443,32 +2140,7 @@ test("adoptAiInboxFieldSuggestionDraft reloads latest detail instead of submitti
     actionError: ""
   };
 
-  const adoptAiInboxFieldSuggestionDraft = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "currentAiInboxSuggestionForSelection",
-    "latestArtifactDecision",
-    "aiSuggestionStatusLabel",
-    "setAiInboxActionNotice",
-    "adoptAiInboxFieldSuggestion",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "mapNoteItem",
-    "state",
-    "activateModule",
-    "openNoteById",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewSafetyNotice",
-    "aiInboxReviewSafetyStatusMessage",
-    `${finalizeSource}; ${fnSource}; return adoptAiInboxFieldSuggestionDraft;`
-  )(
+  const adoptAiInboxFieldSuggestionDraft = createAdoptAiInboxFieldSuggestionDraft(
     () => ({ value: "" }),
     aiInboxState,
     async (artifactId) => {
@@ -2523,12 +2195,6 @@ test("adoptAiInboxFieldSuggestionDraft reloads latest detail instead of submitti
 });
 
 test("adoptAiInboxFieldSuggestionDraft binds retry notices to the latest suggestion after same-artifact detail changes", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "adoptAiInboxFieldSuggestionDraft");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let adoptCalls = 0;
   const statuses = [];
   const aiInboxState = {
@@ -2547,32 +2213,7 @@ test("adoptAiInboxFieldSuggestionDraft binds retry notices to the latest suggest
     actionError: ""
   };
 
-  const adoptAiInboxFieldSuggestionDraft = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "currentAiInboxSuggestionForSelection",
-    "latestArtifactDecision",
-    "aiSuggestionStatusLabel",
-    "setAiInboxActionNotice",
-    "adoptAiInboxFieldSuggestion",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "mapNoteItem",
-    "state",
-    "activateModule",
-    "openNoteById",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewRetryNotice",
-    "aiInboxReviewRetryStatusMessage",
-    `${finalizeSource}; ${fnSource}; return adoptAiInboxFieldSuggestionDraft;`
-  )(
+  const adoptAiInboxFieldSuggestionDraft = createAdoptAiInboxFieldSuggestionDraft(
     () => ({ value: "" }),
     aiInboxState,
     async () => null,
@@ -2617,12 +2258,6 @@ test("adoptAiInboxFieldSuggestionDraft binds retry notices to the latest suggest
 });
 
 test("adoptAiInboxFieldSuggestionDraft reloads the selected detail after refresh to keep canonical detail aligned", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "adoptAiInboxFieldSuggestionDraft");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const loadCalls = [];
   const refreshCalls = [];
   const aiInboxState = {
@@ -2638,30 +2273,7 @@ test("adoptAiInboxFieldSuggestionDraft reloads the selected detail after refresh
     detailError: "old detail error"
   };
 
-  const adoptAiInboxFieldSuggestionDraft = new Function(
-    "$",
-    "aiInboxState",
-    "loadAiInboxDetail",
-    "currentAiInboxArtifactForSelection",
-    "currentAiInboxSuggestionForSelection",
-    "latestArtifactDecision",
-    "aiSuggestionStatusLabel",
-    "setAiInboxActionNotice",
-    "adoptAiInboxFieldSuggestion",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "mapNoteItem",
-    "state",
-    "activateModule",
-    "openNoteById",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return adoptAiInboxFieldSuggestionDraft;`
-  )(
+  const adoptAiInboxFieldSuggestionDraft = createAdoptAiInboxFieldSuggestionDraft(
     () => ({ value: "" }),
     aiInboxState,
     async (artifactId) => {
@@ -2776,12 +2388,6 @@ test("AI inbox side effect controllers store action failures without clearing de
 });
 
 test("recordAiInboxReviewDecision does not restore the old artifact when selection changes mid-submit", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const refreshCalls = [];
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -2791,22 +2397,7 @@ test("recordAiInboxReviewDecision does not restore the old artifact when selecti
     detailError: ""
   };
 
-  const recordDecision = new Function(
-    "$",
-    "aiInboxState",
-    "recordAiInboxDecision",
-    "aiInboxFeedbackFromUi",
-    "aiInboxDetailFromResponse",
-    "loadAiInboxDetail",
-    "rememberAiDebugSnapshot",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "aiInboxActionLabel",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
-  )(
+  const recordDecision = createRecordDecisionFromPrototypeHarness(
     () => ({ value: "" }),
     aiInboxState,
     async () => {
@@ -2838,12 +2429,6 @@ test("recordAiInboxReviewDecision does not restore the old artifact when selecti
 });
 
 test("applyAiInboxSuggestionStatus stores action failures separately from detail state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
     detail: {
@@ -2855,22 +2440,7 @@ test("applyAiInboxSuggestionStatus stores action failures separately from detail
     detailError: "old detail error"
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -2898,12 +2468,6 @@ test("applyAiInboxSuggestionStatus stores action failures separately from detail
 });
 
 test("applyAiInboxSuggestionStatus keeps a failed suggestion action bound to the original suggestion after detail changes within the same artifact", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let rejectAction;
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -2918,22 +2482,7 @@ test("applyAiInboxSuggestionStatus keeps a failed suggestion action bound to the
     detailError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -2969,12 +2518,6 @@ test("applyAiInboxSuggestionStatus keeps a failed suggestion action bound to the
 });
 
 test("applyAiInboxSuggestionStatus is a no-op when the reviewed suggestion already has the requested status", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let updateCalls = 0;
   const statuses = [];
   const aiInboxState = {
@@ -2987,23 +2530,7 @@ test("applyAiInboxSuggestionStatus is a no-op when the reviewed suggestion alrea
     actionError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiSuggestionStatusLabel",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -3038,12 +2565,6 @@ test("applyAiInboxSuggestionStatus is a no-op when the reviewed suggestion alrea
 });
 
 test("applyAiInboxSuggestionStatus formats success feedback with a human-readable status label", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const statuses = [];
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -3055,23 +2576,7 @@ test("applyAiInboxSuggestionStatus formats success feedback with a human-readabl
     actionError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiSuggestionStatusLabel",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -3096,12 +2601,6 @@ test("applyAiInboxSuggestionStatus formats success feedback with a human-readabl
 });
 
 test("applyAiInboxSuggestionStatus forwards the clicked suggestion id when routing adopted_as_draft through inbox draft adoption", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const adoptCalls = [];
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -3113,22 +2612,7 @@ test("applyAiInboxSuggestionStatus forwards the clicked suggestion id when routi
     actionError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async (...args) => {
@@ -3155,12 +2639,6 @@ test("applyAiInboxSuggestionStatus forwards the clicked suggestion id when routi
 });
 
 test("applyAiInboxSuggestionStatus reloads fresh detail instead of submitting against a stale selection", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let updateCalls = 0;
   const loadCalls = [];
   const statuses = [];
@@ -3175,22 +2653,7 @@ test("applyAiInboxSuggestionStatus reloads fresh detail instead of submitting ag
     actionError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -3228,12 +2691,6 @@ test("applyAiInboxSuggestionStatus reloads fresh detail instead of submitting ag
 });
 
 test("applyAiInboxSuggestionStatus reloads latest inbox detail instead of submitting against list-only selection state", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let updateCalls = 0;
   const loadCalls = [];
   const statuses = [];
@@ -3246,28 +2703,7 @@ test("applyAiInboxSuggestionStatus reloads latest inbox detail instead of submit
     actionError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    "aiInboxReviewRetryNotice",
-    "aiInboxReviewRetryStatusMessage",
-    "aiSuggestionAlreadyAppliedNotice",
-    "aiSuggestionStatusLabel",
-    "aiInboxReviewSafetyNotice",
-    "aiInboxReviewSafetyStatusMessage",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -3322,12 +2758,6 @@ test("applyAiInboxSuggestionStatus reloads latest inbox detail instead of submit
 });
 
 test("applyAiInboxSuggestionStatus binds retry notices to the latest suggestion after same-artifact detail changes", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let updateCalls = 0;
   const loadCalls = [];
   const statuses = [];
@@ -3346,22 +2776,7 @@ test("applyAiInboxSuggestionStatus binds retry notices to the latest suggestion 
     actionError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -3420,12 +2835,6 @@ test("applyAiInboxSuggestionStatus binds retry notices to the latest suggestion 
 });
 
 test("applyAiInboxSuggestionStatus reloads the latest inbox detail instead of restoring the old one when selection changes mid-submit", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   const loadCalls = [];
   const refreshCalls = [];
   const aiInboxState = {
@@ -3439,22 +2848,7 @@ test("applyAiInboxSuggestionStatus reloads the latest inbox detail instead of re
     detailError: ""
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "" }),
     aiInboxState,
     async () => {},
@@ -3493,12 +2887,6 @@ test("applyAiInboxSuggestionStatus reloads the latest inbox detail instead of re
 });
 
 test("applyAiInboxSuggestionStatus reports invalid reviewed content through actionError without starting submit", async () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
-  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
-
   let updateCalls = 0;
   const aiInboxState = {
     selectedArtifactId: "artifact_1",
@@ -3511,22 +2899,7 @@ test("applyAiInboxSuggestionStatus reports invalid reviewed content through acti
     detailError: "old detail error"
   };
 
-  const applyAiInboxSuggestionStatus = new Function(
-    "$",
-    "aiInboxState",
-    "adoptAiInboxFieldSuggestionDraft",
-    "aiInboxSuggestionReviewedContentFromUi",
-    "updateAiSuggestion",
-    "loadAiInboxDetail",
-    "refreshAiInbox",
-    "refreshAiInboxEvaluationSummary",
-    "rememberAiDebugSnapshot",
-    "setStatus",
-    "clearAiInboxActionNotice",
-    "setAiInboxActionNotice",
-    "renderAiInboxWorkspace",
-    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
-  )(
+  const applyAiInboxSuggestionStatus = createApplyAiInboxSuggestionStatus(
     () => ({ value: "{not valid json}" }),
     aiInboxState,
     async () => {},
