@@ -323,6 +323,12 @@ import {
   renderGraphWorkbenchPriorityQueueView
 } from "./graph-workbench-panel.js";
 import {
+  renderGraphPromptDetailsView,
+  renderGraphSelectionMetricsView,
+  renderGraphSelectionShellView,
+  renderGraphSelectionTaskView
+} from "./graph-selection-panel.js";
+import {
   describeWritingContinuationAction,
   describeWritingMaterialStatus,
   describeWritingMaterialStepState,
@@ -11682,18 +11688,11 @@ function graphEdgeAdjustmentPlan(edge = {}) {
 }
 
 function renderGraphSelectionMetrics(items = []) {
-  return items
-    .filter((item) => item && String(item.value || "").trim())
-    .map(
-      (item) => `
-        <span>
-          <small>${escapeHtml(item.label)}</small>
-          <strong>${escapeHtml(item.value)}</strong>
-          ${item.hint ? `<em>${escapeHtml(item.hint)}</em>` : ""}
-        </span>
-      `
-    )
-    .join("");
+  return renderGraphSelectionMetricsView(items, {
+    escapeHtml,
+    renderGraphIcon,
+    graphSafeActionAttrs
+  });
 }
 
 function graphSafeActionAttrs(attrs = "") {
@@ -11703,67 +11702,27 @@ function graphSafeActionAttrs(attrs = "") {
 }
 
 function renderGraphSelectionTask(task = null) {
-  if (!task || typeof task !== "object") return "";
-  const tone = String(task.tone || "neutral").trim().toLowerCase() || "neutral";
-  const status = String(task.status || "").trim();
-  const detail = String(task.detail || "").trim();
-  const badge = String(task.badge || "").trim();
-  const actionLabel = String(task.actionLabel || "").trim();
-  const actionAttrs = graphSafeActionAttrs(task.actionAttrs);
-  if (!status && !detail) return "";
-  return `
-    <section class="graph-selection-task is-${escapeHtml(tone)}" aria-label="当前处理任务">
-      <div>
-        <span>当前任务</span>
-        ${status ? `<strong>${escapeHtml(status)}</strong>` : ""}
-        ${detail ? `<p>${escapeHtml(detail)}</p>` : ""}
-      </div>
-      <div class="graph-selection-task-actions">
-        ${badge ? `<small>${escapeHtml(badge)}</small>` : ""}
-        ${actionLabel && actionAttrs ? `<button class="graph-selection-action is-primary" type="button" ${actionAttrs}>${escapeHtml(actionLabel)}</button>` : ""}
-      </div>
-    </section>
-  `;
+  return renderGraphSelectionTaskView(task, {
+    escapeHtml,
+    renderGraphIcon,
+    graphSafeActionAttrs
+  });
 }
 
 function renderGraphPromptDetails(title = "思考提示（可选）", prompts = []) {
-  const items = (Array.isArray(prompts) ? prompts : []).map((prompt) => String(prompt || "").trim()).filter(Boolean);
-  if (!items.length) return "";
-  return `
-    <details class="graph-selection-details graph-selection-prompt-details">
-      <summary>${escapeHtml(title)}</summary>
-      <section class="graph-selection-prompts">
-        ${items.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
-      </section>
-    </details>
-  `;
+  return renderGraphPromptDetailsView(title, prompts, {
+    escapeHtml,
+    renderGraphIcon,
+    graphSafeActionAttrs
+  });
 }
 
 function renderGraphSelectionShell({ className = "", ariaLabel = "", kicker = "", title = "", meta = "", closeLabel = "收起详情", roleLabel = "", roleDetail = "", task = null, body = "", actions = "" } = {}) {
-  const classes = ["graph-selection-panel", String(className || "").trim()].filter(Boolean).join(" ");
-  return `
-    <aside class="${escapeHtml(classes)}" aria-label="${escapeHtml(ariaLabel || title || "图谱思考详情")}">
-      <div class="graph-selection-head">
-        <div>
-          <span class="graph-selection-kicker">${escapeHtml(kicker || "图谱详情")}</span>
-          <strong>${escapeHtml(title || "未命名对象")}</strong>
-          ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
-        </div>
-        <button class="graph-overlay-close graph-selection-close" type="button" data-graph-selection-close aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${renderGraphIcon("close")}</button>
-      </div>
-      ${
-        roleLabel || roleDetail
-          ? `<section class="graph-selection-role">
-              ${roleLabel ? `<span>${escapeHtml(roleLabel)}</span>` : ""}
-              ${roleDetail ? `<p>${escapeHtml(roleDetail)}</p>` : ""}
-            </section>`
-          : ""
-      }
-      ${renderGraphSelectionTask(task)}
-      ${body ? `<div class="graph-selection-body">${body}</div>` : ""}
-      ${actions ? `<div class="graph-selection-actions">${actions}</div>` : ""}
-    </aside>
-  `;
+  return renderGraphSelectionShellView({ className, ariaLabel, kicker, title, meta, closeLabel, roleLabel, roleDetail, task, body, actions }, {
+    escapeHtml,
+    renderGraphIcon,
+    graphSafeActionAttrs
+  });
 }
 
 function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } = {}) {

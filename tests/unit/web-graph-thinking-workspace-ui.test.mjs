@@ -52,6 +52,10 @@ function readGraphWorkbenchPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-workbench-panel.js"), "utf8");
 }
 
+function readGraphSelectionPanel() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-selection-panel.js"), "utf8");
+}
+
 function readRelationSaveTransaction() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/relation-save-transaction.js"), "utf8");
 }
@@ -305,11 +309,12 @@ test("graph clusters are selectable research objects with their own summary pane
 
 test("graph research details cover nodes and relation gravity lines with next actions", () => {
   const source = readPrototypeApp();
+  const selectionPanelSource = readGraphSelectionPanel();
   const html = readPrototypeHtml();
 
   assert.match(source, /if \(String\(graphState\.selection\?\.kind \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "cluster"\) \{/);
-  assert.match(source, /class="graph-overlay-close graph-selection-close"/);
-  assert.doesNotMatch(source, /data-graph-selection-close[^>]*>收起<\/button>/);
+  assert.match(selectionPanelSource, /class="graph-overlay-close graph-selection-close"/);
+  assert.doesNotMatch(selectionPanelSource, /data-graph-selection-close[^>]*>收起<\/button>/);
   assert.match(source, /kicker: "当前笔记"/);
   assert.match(source, /renderGraphNodeInsightPanel\(insight\)/);
   assert.match(source, /已保存关系和更多操作/);
@@ -1294,12 +1299,13 @@ test("isolated note panel gives a continuous next step after confirming a relati
 
 test("graph node selection summarizes position, relation quality, and next action", () => {
   const source = readPrototypeApp();
+  const selectionPanelSource = readGraphSelectionPanel();
   const html = readPrototypeHtml();
 
   assert.match(source, /function graphNodeInsightMeta\(node = \{\}, directEdges = \[\], \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphNodeInsightPanel\(insight = \{\}\) \{/);
   assert.match(source, /function renderGraphSelectionTask\(task = null\) \{/);
-  assert.match(source, /aria-label="当前处理任务"/);
+  assert.match(selectionPanelSource, /aria-label="[^"]+"/);
   assert.match(source, /已接入图谱：检查关系是否能支撑你的判断/);
   assert.match(source, /当前状态/);
   assert.match(source, /建议下一步/);
