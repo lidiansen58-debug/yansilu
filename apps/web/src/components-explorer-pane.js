@@ -327,7 +327,7 @@ export class ExplorerPane {
         e.stopPropagation();
         const noteId = String(relationButton.dataset.associateNote || "").trim();
         if (noteId) {
-          if (this.state.module === "graph") this.onStateChange("graph-focus-note", { noteId, source: "graph-sidebar-associate" });
+          if (this.state.module === "graph") this.onStateChange("graph-associate-note", { noteId, source: "graph-sidebar-associate" });
           else this.onStateChange("open-note-relations", { noteId, source: "explorer-browser" });
         }
         return;
@@ -653,7 +653,8 @@ export class ExplorerPane {
         }
       }
       if (action === "associate-note") {
-        this.onStateChange("open-note-relations", { noteId: n.id, source: "graph-context-menu" });
+        if (this.state.module === "graph") this.onStateChange("graph-associate-note", { noteId: n.id, source: "graph-context-menu" });
+        else this.onStateChange("open-note-relations", { noteId: n.id, source: "graph-context-menu" });
         return;
       }
       if (action === "rename") {

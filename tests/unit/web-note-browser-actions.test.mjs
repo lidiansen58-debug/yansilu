@@ -577,9 +577,21 @@ test("note browser action buttons stop row click fallthrough", () => {
   const clickBody = source.match(/this\.els\.listArea\.addEventListener\("click", \(e\) => \{([\s\S]*?)\n\s*\}\);/)?.[1] || "";
 
   assert.match(clickBody, /const relationButton = e\.target\.closest\("button\[data-associate-note\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
-  assert.match(clickBody, /if \(this\.state\.module === "graph"\) this\.onStateChange\("graph-focus-note", \{ noteId, source: "graph-sidebar-associate" \}\);/);
+  assert.match(clickBody, /if \(this\.state\.module === "graph"\) this\.onStateChange\("graph-associate-note", \{ noteId, source: "graph-sidebar-associate" \}\);/);
   assert.match(clickBody, /else this\.onStateChange\("open-note-relations", \{ noteId, source: "explorer-browser" \}\);/);
   assert.match(clickBody, /const toggleBtn = e\.target\.closest\("button\[data-toggle-folder\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
+});
+
+test("graph associate actions open the in-graph relation workflow instead of only focusing the note", () => {
+  const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const appSource = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(explorerSource, /this\.onStateChange\("graph-associate-note", \{ noteId, source: "graph-sidebar-associate" \}\);/);
+  assert.match(explorerSource, /if \(this\.state\.module === "graph"\) this\.onStateChange\("graph-associate-note", \{ noteId: n\.id, source: "graph-context-menu" \}\);/);
+  assert.match(appSource, /if \(reason === "graph-associate-note"\) \{/);
+  assert.match(appSource, /payload\.source === "graph-context-menu" && !graphNodeNeedsRelationWorkflowFromCurrentGraph\(noteId\)/);
+  assert.match(appSource, /graphRelationWorkflowController\.openRelationFormFromAction\(\{ noteId, relationType: "associated_with" \}\);/);
+  assert.match(appSource, /setGraphIsolatedWorkflowActiveTab\(noteId, "candidates"\);[\s\S]*openGraphSelection\(\{ kind: "isolated", noteId \}\);/);
 });
 
 test("selected note delete key reuses the note delete flow", () => {

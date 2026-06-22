@@ -12607,6 +12607,28 @@ function graphRelationStatusCountsAsNetworkEdge(value = "") {
   return computeGraphRelationStatusCountsAsNetworkEdge(value);
 }
 
+function graphRelationStatusCountsAsConfirmedEdge(value = "") {
+  return String(value || "confirmed").trim().toLowerCase() === "confirmed";
+}
+
+function graphDirectConfirmedRelationCount(noteId = "", edges = []) {
+  return computeGraphDirectNetworkEdgeCount(noteId, edges, {
+    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsConfirmedEdge
+  });
+}
+
+function graphNodeNeedsRelationWorkflow(noteId = "", edges = [], nodeMap = new Map()) {
+  const cleanNoteId = String(noteId || "").trim();
+  if (!cleanNoteId) return false;
+  if (nodeMap instanceof Map && nodeMap.size && !nodeMap.has(cleanNoteId)) return false;
+  return graphDirectConfirmedRelationCount(cleanNoteId, edges) === 0;
+}
+
+function graphNodeNeedsRelationWorkflowFromCurrentGraph(noteId = "") {
+  const edges = Array.isArray(graphState.item?.edges) ? graphState.item.edges : [];
+  return graphNodeNeedsRelationWorkflow(noteId, edges);
+}
+
 function graphExistingRelationKeys(edges = []) {
   return computeGraphExistingRelationKeys(edges);
 }
@@ -14104,6 +14126,14 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
       if (!graphRelationStatusCountsAsNetworkEdge(edge?.status)) return false;
       return String(edge?.fromNoteId || "").trim() === normalized.nodeId || String(edge?.toNoteId || "").trim() === normalized.nodeId;
     });
+    if (graphNodeNeedsRelationWorkflow(normalized.nodeId, edges, nodeMap)) {
+      return renderGraphIsolatedSelectionPanel({
+        selection: { kind: "isolated", noteId: normalized.nodeId, title },
+        isolatedNotes,
+        nodeMap,
+        edges
+      });
+    }
     const counts = graphRelationGroupCounts(directEdges);
     const role = graphNodeRoleMeta(node, directEdges);
     const insight = graphNodeInsightMeta(node, directEdges, { nodeMap, edges });
@@ -15147,11 +15177,16 @@ function renderGraphVisualMap({
   const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true, compactRelationFilterStats) : "";
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps, clusterMeta: layout.clusterMeta });
-  const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
+  const contextualSelectionEdges = Array.isArray(selectionEdges) ? selectionEdges : Array.isArray(relationFilterEdges) ? relationFilterEdges : edges;
+  const contextualNodeMap = selectionNodeMap instanceof Map ? selectionNodeMap : layout.nodeMap;
+  const selectionNodeNeedsRelationWorkflow =
+    activeSelection?.kind === "node" && graphNodeNeedsRelationWorkflow(activeSelection.nodeId, contextualSelectionEdges, contextualNodeMap);
+  const selectedNodeId = activeSelection?.kind === "node" && !selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
   const selectedNodeNeighborhood = new Set(selectedNodeId ? [selectedNodeId, ...(adjacencyMap.get(selectedNodeId) || [])] : []);
   const selectedEdgeKey = activeSelection?.kind === "edge" ? activeSelection.edgeKey : "";
   const selectedThemeNoteIds = new Set(activeSelection?.kind === "theme" ? activeSelection.noteIds || [] : []);
-  const selectedIsolatedNodeId = activeSelection?.kind === "isolated" ? activeSelection.noteId : "";
+  const selectedIsolatedNodeId =
+    activeSelection?.kind === "isolated" ? activeSelection.noteId : selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
   const selectedBridgeNoteIds = new Set(
     activeSelection?.kind === "bridge" ? [activeSelection.noteId, activeSelection.targetNoteId].map((id) => String(id || "").trim()).filter(Boolean) : []
   );
@@ -15205,8 +15240,6 @@ function renderGraphVisualMap({
     bridgeGaps,
     lens: readingLens.key
   });
-  const contextualSelectionEdges = Array.isArray(selectionEdges) ? selectionEdges : Array.isArray(relationFilterEdges) ? relationFilterEdges : edges;
-  const contextualNodeMap = selectionNodeMap instanceof Map ? selectionNodeMap : layout.nodeMap;
   const selectionContextMarkup = renderGraphSelectionPanel({
     selection: activeSelection,
     nodeMap: contextualNodeMap,
@@ -15216,7 +15249,10 @@ function renderGraphVisualMap({
     bridgeGaps,
     clusterMeta: layout.clusterMeta
   });
-  const isolatedSelectionOverlayMarkup = activeSelection?.kind === "isolated" || activeSelection?.kind === "isolatedComplete" ? selectionContextMarkup : "";
+  const isolatedSelectionOverlayMarkup =
+    activeSelection?.kind === "isolated" || activeSelection?.kind === "isolatedComplete" || selectionNodeNeedsRelationWorkflow
+      ? selectionContextMarkup
+      : "";
   const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup ? "" : selectionContextMarkup;
   const researchNavigatorAutoHidden = denseGalaxyMode && graphState.researchNavigatorTouched !== true;
   const researchNavigatorHidden = graphState.researchNavigatorHidden === true || researchNavigatorAutoHidden;
@@ -15817,6 +15853,25 @@ function openGraphSelection(selection = null) {
   graphState.thinkingPanelOpen = false;
   resetGraphHoverState();
   renderGraphPanel();
+}
+
+function openGraphNodeSelectionFromElement(element = null) {
+  const nodeId = String(element?.getAttribute?.("data-graph-select-node") || element?.getAttribute?.("data-node-id") || "").trim();
+  if (!nodeId) return false;
+  const title = String(element?.getAttribute?.("data-node-title") || nodeId).trim() || nodeId;
+  const isolatedKey = String(element?.getAttribute?.("data-graph-isolated-key") || "").trim();
+  if (isolatedKey || graphNodeNeedsRelationWorkflowFromCurrentGraph(nodeId)) {
+    openGraphSelection({
+      kind: "isolated",
+      ...(isolatedKey ? { isolatedKey } : {}),
+      noteId: nodeId
+    });
+    setStatus(`已打开待关联笔记整理：${title}`, "ok");
+    return true;
+  }
+  openGraphSelection({ kind: "node", nodeId });
+  setStatus(`已选中笔记角色：${title}`, "ok");
+  return true;
 }
 
 function graphDataList(element, name = "") {
@@ -18544,6 +18599,29 @@ async function handleStateChange(reason, payload = {}) {
     }
   }
 
+  if (reason === "graph-associate-note") {
+    const noteId = String(payload.noteId || "").trim();
+    if (!noteId) return false;
+    applyExplorerSelectionContext({
+      noteId,
+      syncSearch: false,
+      expandFolder: true
+    });
+    if (state.module === "graph") {
+      explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
+      explorer?.collapseDisconnectedGroup?.(GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, { auto: true });
+      if (payload.source === "graph-context-menu" && !graphNodeNeedsRelationWorkflowFromCurrentGraph(noteId)) {
+        graphRelationWorkflowController.openRelationFormFromAction({ noteId, relationType: "associated_with" });
+        return true;
+      }
+      setGraphIsolatedWorkflowActiveTab(noteId, "candidates");
+      openGraphSelection({ kind: "isolated", noteId });
+      setStatus("已打开待关联笔记整理", "ok");
+      return true;
+    }
+    return handleStateChange("open-note-relations", { noteId, source: payload.source || "explorer-browser" });
+  }
+
   if (reason === "open-note-relations") {
     const noteId = String(payload.noteId || "").trim();
     if (!noteId) return false;
@@ -21019,11 +21097,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   }
   const nodeSelection = event.target.closest("[data-graph-select-node]");
   if (nodeSelection) {
-    const nodeId = String(nodeSelection.getAttribute("data-graph-select-node") || nodeSelection.getAttribute("data-node-id") || "").trim();
-    if (nodeId) {
-      openGraphSelection({ kind: "node", nodeId });
-      setStatus(`已选中笔记角色：${String(nodeSelection.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
-    }
+    openGraphNodeSelectionFromElement(nodeSelection);
     return;
   }
   const themeSelection = event.target.closest("[data-graph-select-theme]");
@@ -21264,17 +21338,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   }
   const graphNode = event.target.closest(".graph-map-node[data-node-id]");
   if (graphNode) {
-    const nodeId = String(graphNode.getAttribute("data-node-id") || "").trim();
-    const isolatedKey = String(graphNode.getAttribute("data-graph-isolated-key") || "").trim();
-    if (isolatedKey) {
-      openGraphSelection({ kind: "isolated", isolatedKey, noteId: nodeId });
-      setStatus(`已打开待关联笔记整理：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
-      return;
-    }
-    if (nodeId) {
-      openGraphSelection({ kind: "node", nodeId });
-      setStatus(`已选中笔记角色：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
-    }
+    openGraphNodeSelectionFromElement(graphNode);
     return;
   }
   const graphEdge = event.target.closest(".graph-map-edge-group[data-edge-from]");
@@ -21529,27 +21593,13 @@ $("graphCanvas")?.addEventListener("keydown", async (event) => {
   const nodeSelection = event.target.closest("[data-graph-select-node]");
   if (nodeSelection) {
     event.preventDefault();
-    const nodeId = String(nodeSelection.getAttribute("data-graph-select-node") || nodeSelection.getAttribute("data-node-id") || "").trim();
-    if (nodeId) {
-      openGraphSelection({ kind: "node", nodeId });
-      setStatus(`已选中笔记角色：${String(nodeSelection.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
-    }
+    openGraphNodeSelectionFromElement(nodeSelection);
     return;
   }
   const graphNode = event.target.closest(".graph-map-node[data-node-id]");
   if (graphNode) {
     event.preventDefault();
-    const nodeId = String(graphNode.getAttribute("data-node-id") || "").trim();
-    const isolatedKey = String(graphNode.getAttribute("data-graph-isolated-key") || "").trim();
-    if (isolatedKey) {
-      openGraphSelection({ kind: "isolated", isolatedKey, noteId: nodeId });
-      setStatus(`已打开待关联笔记整理：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
-      return;
-    }
-    if (nodeId) {
-      openGraphSelection({ kind: "node", nodeId });
-      setStatus(`已选中笔记角色：${String(graphNode.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
-    }
+    openGraphNodeSelectionFromElement(graphNode);
     return;
   }
   const graphEdge = event.target.closest(".graph-map-edge-group[data-edge-from]");

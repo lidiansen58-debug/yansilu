@@ -515,7 +515,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(isolatedWorkflowShellSource, /renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, nodeMap, edges, visibleEdgeCount \}\)/);
   assert.match(isolatedWorkflowShellSource, /task: null,/);
   assert.doesNotMatch(source, /"开始处理"/);
-  assert.match(source, /const isolatedSelectionOverlayMarkup = activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \? selectionContextMarkup : "";/);
+  assert.match(source, /const isolatedSelectionOverlayMarkup =\s*activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \|\| selectionNodeNeedsRelationWorkflow\s*\? selectionContextMarkup\s*: "";/);
   assert.match(source, /const sideSelectionContextMarkup = isolatedSelectionOverlayMarkup \? "" : selectionContextMarkup;/);
   assert.match(source, /<div class="graph-selection-overlay" role="dialog" aria-modal="false"/);
   assert.match(joinWorkspaceSource, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
@@ -660,6 +660,21 @@ test("graph selection upgrades isolated notes to connected nodes after a saved r
   assert.match(workflowControllerSource, /const isolated = resolveIsolatedSelection\(selection, isolatedNotes, \[\]\);/);
   assert.match(workflowControllerSource, /return hasNode\(nodes, noteId\) \? \{ kind: "node", nodeId: noteId \} : null;/);
   assert.match(source, /const baseSummary = `\$\{scopedAllNodes\.length\} 条永久笔记，\$\{scoped\.edges\.length\} 条关系`;/);
+});
+
+test("graph node clicks without confirmed relations open the large relation workflow", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /function graphRelationStatusCountsAsConfirmedEdge\(value = ""\) \{/);
+  assert.match(source, /function graphDirectConfirmedRelationCount\(noteId = "", edges = \[\]\) \{/);
+  assert.match(source, /function graphNodeNeedsRelationWorkflow\(noteId = "", edges = \[\], nodeMap = new Map\(\)\) \{/);
+  assert.match(source, /function graphNodeNeedsRelationWorkflowFromCurrentGraph\(noteId = ""\) \{/);
+  assert.match(source, /const selectionNodeNeedsRelationWorkflow =\s*activeSelection\?\.kind === "node" && graphNodeNeedsRelationWorkflow\(activeSelection\.nodeId, contextualSelectionEdges, contextualNodeMap\);/);
+  assert.match(source, /activeSelection\?\.kind === "isolated" \|\| activeSelection\?\.kind === "isolatedComplete" \|\| selectionNodeNeedsRelationWorkflow/);
+  assert.match(source, /if \(graphNodeNeedsRelationWorkflow\(normalized\.nodeId, edges, nodeMap\)\) \{[\s\S]*return renderGraphIsolatedSelectionPanel\(\{/);
+  assert.match(source, /function openGraphNodeSelectionFromElement\(element = null\) \{/);
+  assert.match(source, /isolatedKey \|\| graphNodeNeedsRelationWorkflowFromCurrentGraph\(nodeId\)/);
+  assert.match(source, /openGraphSelection\(\{[\s\S]*kind: "isolated"[\s\S]*noteId: nodeId[\s\S]*\}\);/);
 });
 
 test("graph AI candidates prefill relation forms with a usable rationale draft instead of a review prompt", () => {
