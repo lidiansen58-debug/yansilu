@@ -27,6 +27,7 @@ test("graph visual map runtime deps maps prototype host render helpers to contro
 
   const deps = buildGraphVisualMapRuntimeDeps(host);
 
+  assert.notEqual(deps, host);
   assert.equal(deps.graphState, host.graphState);
   assert.equal(deps.zoomOptions, host.GRAPH_VISUAL_ZOOM_OPTIONS);
   assert.equal(deps.relationGroupMeta, host.GRAPH_RELATION_GROUP_META);

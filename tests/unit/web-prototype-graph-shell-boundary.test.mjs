@@ -6,6 +6,7 @@ import {
   readGraphPanelRuntimeDepsSource,
   readGraphPanelShellSource,
   readGraphVisualMapControllerSource,
+  readGraphVisualMapRuntimeDepsSource,
   readGraphVisualMapViewRendererSource,
   readPrototypeAppSource
 } from "./copy-source-helpers.mjs";
@@ -142,12 +143,21 @@ test("prototype graph shell delegates panel state building to a graph module", a
 
 test("prototype graph shell delegates visual map runtime state to a graph module", async () => {
   const source = await readPrototypeAppSource();
+  const visualMapRuntimeDepsSource = await readGraphVisualMapRuntimeDepsSource();
   const visualMapSource = extractFunctionSource(source, "renderGraphVisualMap");
   const layoutSource = extractFunctionSource(source, "graphBuildVisualLayout");
 
   assert.match(source, /from "\.\/graph-visual-map-controller\.js"/);
   assert.match(source, /from "\.\/graph-visual-map-runtime-deps\.js"/);
   assert.match(source, /from "\.\/graph-visual-layout\.js"/);
+  assert.match(visualMapRuntimeDepsSource, /from "\.\/graph-visual-map-runtime-state-deps\.js"/);
+  assert.match(visualMapRuntimeDepsSource, /from "\.\/graph-visual-map-chrome-deps\.js"/);
+  assert.match(visualMapRuntimeDepsSource, /from "\.\/graph-visual-map-view-deps\.js"/);
+  assert.match(visualMapRuntimeDepsSource, /\.\.\.buildGraphVisualMapRuntimeStateDeps\(host\)/);
+  assert.match(visualMapRuntimeDepsSource, /\.\.\.buildGraphVisualMapChromeDeps\(host\)/);
+  assert.match(visualMapRuntimeDepsSource, /\.\.\.buildGraphVisualMapViewDeps\(host\)/);
+  assert.doesNotMatch(visualMapRuntimeDepsSource, /renderGraphRelationTypeFilter: graphRelationTypeFilter/);
+  assert.doesNotMatch(visualMapRuntimeDepsSource, /graphNodeClass,\s*graphNodeStarRank/);
   assert.match(source, /function graphVisualMapRuntimeDeps\(\)/);
   assert.match(visualMapSource, /renderGraphVisualMapForRuntime\(options, graphVisualMapRuntimeDeps\(\)\)/);
   assert.doesNotMatch(visualMapSource, /zoomOptions: GRAPH_VISUAL_ZOOM_OPTIONS/);
