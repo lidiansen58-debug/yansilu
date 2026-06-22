@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  buildGraphQuestionSpotSummaryForGraph
+} from "../../apps/web/src/graph-thinking-items-model.js";
 
 function readPrototypeAppSource() {
   const currentFile = fileURLToPath(import.meta.url);
@@ -12,6 +15,10 @@ function readPrototypeAppSource() {
 
 test("graph review queue consistently frames missing-rationale work as relation explanations", () => {
   const source = readPrototypeAppSource();
+  const questionSummary = buildGraphQuestionSpotSummaryForGraph({
+    reviewQueueTotal: 3,
+    aiAnalysis: { analysis: { relationCandidates: [] } }
+  });
 
   assert.match(source, /empty: "缺说明"/);
   assert.match(source, /missing_rationale: "补关系说明"/);
@@ -19,7 +26,11 @@ test("graph review queue consistently frames missing-rationale work as relation 
   assert.match(source, /缺说明 \$\{emptyCount\} 条；说明太粗 \$\{basicCount\} 条/);
   assert.match(source, /点卡片可以回到源笔记补充说明/);
   assert.match(source, /没有缺说明或说明太粗的关系/);
-  assert.match(source, /label: "关系待复核", count: Math\.max\(Number\(reviewQueueTotal \|\| 0\), reviewCandidateCount\)/);
+  assert.deepEqual(questionSummary.categories.find((item) => item.key === "review"), {
+    key: "review",
+    label: "鍏崇郴寰呭鏍?",
+    count: 3
+  });
   assert.match(source, /reviewCount > 0 \? `<span>待补说明 \$\{escapeHtml\(String\(reviewCount\)\)\}<\/span>` : ""/);
   assert.match(source, /<strong>\$\{renderGraphIcon\("clue"\)\}稍后处理<\/strong>/);
   assert.match(source, /<span>把暂时不急着处理的候选、理由缺口和主题苗头先收在这里，需要时再展开。<\/span>/);

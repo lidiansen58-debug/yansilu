@@ -56,6 +56,11 @@ import {
   renderGraphWorkbenchPanelView,
   renderGraphWorkbenchPriorityQueueView
 } from "../../apps/web/src/graph-workbench-panel.js";
+import {
+  buildGraphQuestionSpotSummaryForGraph as moduleBuildGraphQuestionSpotSummaryForGraph,
+  buildGraphThinkingItemsForGraph as moduleBuildGraphThinkingItemsForGraph,
+  graphAiAnalysisSummaryStateForGraph as moduleGraphAiAnalysisSummaryStateForGraph
+} from "../../apps/web/src/graph-thinking-items-model.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -223,6 +228,51 @@ function graphWorkbenchViewTestDeps(overrides = {}) {
     graphThinkingHighlightAttrs: (item = {}) => item.highlight ? `data-test-highlight="${item.highlight}"` : "",
     graphCompactActionLabel: (label = "") => String(label || "查看").slice(0, 2),
     graphState: {},
+    ...overrides
+  };
+}
+
+function graphThinkingModelTestDeps(overrides = {}) {
+  const relationPairKey = (leftNoteId = "", rightNoteId = "") => {
+    const normalized = [String(leftNoteId || "").trim(), String(rightNoteId || "").trim()].filter(Boolean).sort();
+    return normalized.length === 2 ? `${normalized[0]}::${normalized[1]}` : "";
+  };
+  const endpointIds = (candidate = {}) => ({
+    sourceNoteId: String(candidate.fromNoteId || candidate.sourceNoteId || (Array.isArray(candidate.noteIds) ? candidate.noteIds[0] : "") || "").trim(),
+    targetNoteId: String(candidate.toNoteId || candidate.targetNoteId || (Array.isArray(candidate.targetNoteIds) ? candidate.targetNoteIds[0] : "") || (Array.isArray(candidate.noteIds) ? candidate.noteIds[1] : "") || "").trim()
+  });
+  return {
+    escapeHtml: (value = "") => String(value ?? ""),
+    graphAiAnalysisPayload: (result = null) => result?.analysis || result || {},
+    graphBridgeSelectionKey: (gap = {}, index = 0) => String(gap?.id || index),
+    graphCandidateCanSaveRelation: (candidate = {}) => String(candidate.relationType || "associated_with").trim() !== "no_relation",
+    graphCandidateEndpointIds: endpointIds,
+    graphCandidateTouchesNodeScope: (candidate = {}, nodeIds = new Set()) => {
+      if (!nodeIds?.size) return true;
+      const { sourceNoteId, targetNoteId } = endpointIds(candidate);
+      return Boolean((sourceNoteId && nodeIds.has(sourceNoteId)) || (targetNoteId && nodeIds.has(targetNoteId)));
+    },
+    graphComputedIsolatedNotes: (nodes = [], _edges = [], aiIsolatedNotes = []) => {
+      const nodeIds = new Set((Array.isArray(nodes) ? nodes : []).map((node) => String(node?.id || "").trim()).filter(Boolean));
+      return (Array.isArray(aiIsolatedNotes) ? aiIsolatedNotes : []).filter((note) => nodeIds.has(String(note?.noteId || note?.id || "").trim()));
+    },
+    graphExistingRelationPairKeys: (edges = []) => new Set((Array.isArray(edges) ? edges : []).map((edge) => relationPairKey(edge?.fromNoteId, edge?.toNoteId)).filter(Boolean)),
+    graphFullNoteById: (noteId = "", nodeMap = new Map()) => nodeMap.get(noteId) || null,
+    graphIsolatedQueueItems: ({ isolatedNotes = [] } = {}) => (Array.isArray(isolatedNotes) ? isolatedNotes : []),
+    graphIsolatedSelectionKey: (note = {}, index = 0) => String(note?.noteId || note?.id || index),
+    graphLocalizedActionText: (value = "", fallback = "") => String(value || fallback || "").trim(),
+    graphNodeIdsInScope: (nodes = []) => new Set((Array.isArray(nodes) ? nodes : []).map((node) => String(node?.id || "").trim()).filter(Boolean)),
+    graphNoteHasSavedIsolationDisposition: () => false,
+    graphNoteIdFromIsolatedItem: (item = {}) => String(item?.noteId || item?.id || "").trim(),
+    graphPendingAiCandidateCount: moduleGraphPendingAiCandidateCount,
+    graphPreferredPotentialRelationType: (candidate = {}) => String(candidate.relationType || "associated_with").trim() || "associated_with",
+    graphRankThemeCandidates: () => [],
+    graphRelationPairKey: relationPairKey,
+    graphRelationQualityLabel: (level = "") => String(level || "寰呰ˉ"),
+    graphRelationReviewReasonLabel: (reason = "") => String(reason || "寰呭鏍?"),
+    graphRelationTypeLabel: (type = "") => String(type || "鐩稿叧"),
+    graphSelectEdgeActionAttrs: () => "",
+    graphThemeSelectionKey: (topic = {}, index = 0) => String(topic?.id || index),
     ...overrides
   };
 }
@@ -459,9 +509,13 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
     { title: "主题", view: "theme", tone: "theme", kicker: "主题候选", actionAttrs: 'data-open-note="n3"' },
     { title: "第四项", view: "theme", tone: "theme", kicker: "不会优先显示", actionAttrs: 'data-open-note="n4"' }
   ], "clues", graphWorkbenchViewTestDeps());
+  const bridgeItems = moduleBuildGraphThinkingItemsForGraph({
+    nodes: [{ id: "n1", title: "妗ユ帴" }, { id: "n2", title: "鐩爣" }],
+    bridgeGaps: [{ id: "gap-1", noteIds: ["n1"], targetNoteIds: ["n2"], suggestedAction: "补一条中间判断" }]
+  }, graphThinkingModelTestDeps());
 
   assert.ok(source.includes('function graphLocalizedActionText(value = "", fallback = "") {'));
-  assert.ok(source.includes("detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale"));
+  assert.equal(bridgeItems.find((item) => item.id === "bridge-gap-1")?.detail, "补一条中间判断");
   assert.ok(source.includes("function graphBridgeGapInNodeScope(gap = {}, nodeIds = new Set()) {"));
   assert.ok(source.includes("function graphReviewQueueInNodeScope(reviewQueue = null, nodeIds = new Set()) {"));
   assert.ok(panelStateBuilderSource.includes("const scopedActionNodeIds = graphNodeIdsInScope(scopedAllNodes);"));
@@ -582,17 +636,30 @@ test("graph AI review action opens system messages instead of the AI review modu
 test("graph thinking tasks ignore stale AI isolated and relation candidates after the network is already connected", () => {
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
+  const thinkingItems = moduleBuildGraphThinkingItemsForGraph({
+    nodes: [{ id: "scope-a", title: "Scope A" }, { id: "scope-b", title: "Scope B" }],
+    edges: [{ fromNoteId: "scope-a", toNoteId: "scope-b", status: "accepted" }],
+    isolatedNotes: [],
+    aiAnalysis: {
+      analysis: {
+        isolatedNotes: [{ noteId: "scope-a", title: "Stale isolated" }],
+        relationCandidates: [
+          { fromNoteId: "scope-a", toNoteId: "scope-b", relationType: "same_topic", rationale: "already connected" },
+          { fromNoteId: "outside-a", toNoteId: "outside-b", relationType: "same_topic", rationale: "outside scope" },
+          { fromNoteId: "scope-a", toNoteId: "outside-c", relationType: "supports", rationale: "still relevant" }
+        ]
+      }
+    },
+    nodeLookupMap: new Map([
+      ["scope-a", { id: "scope-a", title: "Scope A" }],
+      ["scope-b", { id: "scope-b", title: "Scope B" }],
+      ["outside-c", { id: "outside-c", title: "Outside C" }]
+    ])
+  }, graphThinkingModelTestDeps());
 
-  assert.match(source, /function buildGraphThinkingItems\(\{ nodes = \[\], edges = \[\], bridgeGaps = \[\], reviewQueue = null, conflictItems = \[\], conflictingRelations = \[\], aiAnalysis = null, isolatedNotes = \[\], nodeLookupMap = null \} = \{\}\) \{/);
-  assert.match(source, /const scopedNodeMap = new Map/);
-  assert.match(source, /const nodeMap = nodeLookupMap instanceof Map \? nodeLookupMap : scopedNodeMap;/);
-  assert.match(source, /const scopedNodeIds = graphNodeIdsInScope\(nodes\);/);
-  assert.match(source, /const currentIsolatedIds = new Set\(/);
-  assert.match(source, /\.filter\(\(note\) => currentIsolatedIds\.has\(graphNoteIdFromIsolatedItem\(note\)\)\)/);
-  assert.match(source, /const existingRelationPairKeys = graphExistingRelationPairKeys\(edges\);/);
-  assert.match(source, /\.filter\(\(candidate\) => graphCandidateTouchesNodeScope\(candidate, scopedNodeIds\)\)/);
-  assert.match(source, /const pairKey = graphRelationPairKey\(sourceNoteId, targetNoteId\);/);
-  assert.match(source, /return pairKey && !existingRelationPairKeys\.has\(pairKey\);/);
+  assert.deepEqual(thinkingItems.map((item) => item.title), ["Scope A -> Outside C"]);
+  assert.equal(thinkingItems[0].tone, "review");
+  assert.deepEqual(thinkingItems[0].highlightNodeIds, ["scope-a", "outside-c"]);
   assert.match(panelStateBuilderSource, /const scopedNetworkEdges = allGraphEdges\.filter\(\(edge\) => graphRelationTouchesNodeScope\(edge, scopedActionNodeIds\)\);/);
   assert.match(panelStateBuilderSource, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges, aiIsolatedNotes\)/);
   assert.match(panelStateBuilderSource, /edges: scopedNetworkEdges,\s*bridgeGaps/);
@@ -602,7 +669,6 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
   assert.match(source, /selectionEdges: panelState\.scopedNetworkEdges,/);
   assert.match(source, /selectionNodeMap: panelState\.graphRelationTargetNodeMap,/);
   assert.match(source, /renderGraphAiAnalysisCard\(\{ open: panelState\.sectionOpen\["ai-analysis"\] === true, nodes: panelState\.scopedAllNodes, edges: panelState\.scopedNetworkEdges \}\)/);
-  assert.match(source, /function buildGraphQuestionSpotSummaryFromItems\(items = \[\], \{ artifactCount = 0 \} = \{\}\) \{/);
   assert.match(panelStateBuilderSource, /const questionSpotSummary = !showingFocusedNote\s*\? buildGraphQuestionSpotSummaryFromItems\(thinkingItems,/);
 });
 
@@ -771,7 +837,11 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /graphUpsertMarkdownSection\(nextBody, "关联整理备注"/);
   assert.match(source, /function graphNoteHasSavedIsolationDisposition\(note = \{\}\) \{/);
   assert.match(source, /noteHasSavedIsolationDisposition: graphNoteHasSavedIsolationDisposition/);
-  assert.match(source, /\.filter\(\(note\) => !graphNoteHasSavedIsolationDisposition\(graphFullNoteById\(graphNoteIdFromIsolatedItem\(note\), nodeMap\) \|\| note\)\)/);
+  assert.equal(moduleBuildGraphThinkingItemsForGraph({
+    nodes: [{ id: "handled-isolated", title: "Handled" }],
+    isolatedNotes: [{ noteId: "handled-isolated" }],
+    aiAnalysis: { analysis: { isolatedNotes: [{ noteId: "handled-isolated", title: "Handled" }] } }
+  }, graphThinkingModelTestDeps({ graphNoteHasSavedIsolationDisposition: () => true })).length, 0);
   assert.doesNotMatch(isolatedWorkflowShellSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}" data-open-note=/);
   assert.doesNotMatch(isolatedWorkflowShellSource, /data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}"/);
   assert.doesNotMatch(isolatedWorkflowShellSource, /data-graph-followup-action="relations">手动建立关系<\/button>/);
@@ -934,8 +1004,8 @@ test("graph AI summary treats bridge candidates as a subset instead of double co
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
 
-  assert.match(source, /function graphPendingAiCandidateCount\(candidates = \[\], \{ existingRelationPairKeys = new Set\(\), excludePairs = new Set\(\), bridgeOnly = false, excludeBridge = false \} = \{\}\) \{/);
-  assert.match(source, /return computeGraphPendingAiCandidateCount\(candidates, \{ existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge \}\);/);
+  assert.ok(source.includes("function graphPendingAiCandidateCount(candidates = [], { existingRelationPairKeys = new Set(), excludePairs = new Set(), bridgeOnly = false, excludeBridge = false } = {}) {"));
+  assert.ok(source.includes("return computeGraphPendingAiCandidateCount(candidates, { existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge });"));
   const bridgeSubset = moduleGraphPendingAiCandidateCount(
     [
       { sourceNoteId: "a", targetNoteId: "b", relationType: "bridges", componentBridge: true },
@@ -953,139 +1023,82 @@ test("graph AI summary treats bridge candidates as a subset instead of double co
   );
   assert.equal(bridgeSubset.count, 1);
   assert.equal(relationSubset.count, 1);
-  assert.match(source, /function graphLiveAiAnalysisCounts\(aiAnalysis = graphState\.aiAnalysis, \{ nodes = null, edges = null \} = \{\}\) \{/);
-  assert.match(source, /const scopedNodeIds = new Set\(graphNodes\.map/);
-  assert.match(source, /return scopedNodeIds\.has\(sourceNoteId\) \|\| scopedNodeIds\.has\(targetNoteId\);/);
-  assert.match(source, /const bridgeCandidates = \[/);
-  assert.match(source, /analysis\.bridgeCandidates\.map\(\(candidate\) => \(\{ \.\.\.candidate, componentBridge: true \}\)\)/);
-  assert.match(source, /analysis\.relationCandidates\.filter\(\(candidate\) => candidate\?\.componentBridge === true\)/);
-  assert.match(source, /const relationCandidates = \(Array\.isArray\(analysis\?\.relationCandidates\) \? analysis\.relationCandidates : \[\]\)/);
-  assert.match(source, /\.filter\(\(candidate\) => candidate\?\.componentBridge !== true\)/);
-  assert.match(source, /const bridgeResult = graphPendingAiCandidateCount\(bridgeCandidates, \{ existingRelationPairKeys, bridgeOnly: true \}\);/);
-  assert.match(source, /const relationResult = graphPendingAiCandidateCount\(relationCandidates, \{/);
-  assert.match(source, /excludePairs: bridgeResult\.pairKeys/);
-  assert.match(source, /excludeBridge: true/);
-  assert.match(source, /const scopedIsolatedNotes = \(Array\.isArray\(analysis\?\.isolatedNotes\) \? analysis\.isolatedNotes : \[\]\)\.filter/);
-  assert.match(source, /const computedIsolatedNotes = graphComputedIsolatedNotes\(graphNodes, graphEdges, scopedIsolatedNotes\);/);
-  assert.match(source, /function graphAiAnalysisSummaryState\(options = \{\}\) \{/);
-  assert.match(source, /const liveCounts = graphLiveAiAnalysisCounts\(graphState\.aiAnalysis, options\);/);
-  assert.match(source, /const topicCount = Number\(liveCounts\.topicCount \|\| 0\);/);
-  assert.doesNotMatch(source, /const topicCount = Number\(liveCounts\.topicCount \|\| summary\.topicCandidateCount/);
-  assert.match(source, /const relationCount = Number\(liveCounts\.relationCount \|\| 0\);/);
-  assert.match(source, /const bridgeCount = Number\(liveCounts\.bridgeCount \|\| 0\);/);
-  assert.match(source, /const isolatedCount = Number\(liveCounts\.isolatedCount \|\| 0\);/);
-  assert.match(source, /const pendingCount = topicCount \+ relationCount \+ bridgeCount \+ isolatedCount;/);
-  assert.match(source, /totalCandidates: pendingCount \|\| topicCount \+ relationCount \+ bridgeCount \+ isolatedCount/);
 
-  assert.match(source, /function buildGraphQuestionSpotSummary\(\{ reviewQueueTotal = 0, bridgeGaps = \[\], conflictCount = 0, aiAnalysis = null, nodes = null, edges = null \} = \{\}\) \{/);
-  assert.match(source, /const liveCounts = graphLiveAiAnalysisCounts\(aiAnalysis, \{ nodes, edges \}\);/);
-  assert.match(source, /const bridgeCandidateCount = Number\(liveCounts\.bridgeCount \|\| 0\);/);
-  assert.match(source, /const reviewCandidateCount = Number\(liveCounts\.relationCount \|\| 0\);/);
-  assert.match(source, /\{ key: "review", label: "关系待复核", count: Math\.max\(Number\(reviewQueueTotal \|\| 0\), reviewCandidateCount\) \}/);
-  assert.match(source, /renderGraphAiAnalysisCard\(\{ open: panelState\.sectionOpen\["ai-analysis"\] === true, nodes: panelState\.scopedAllNodes, edges: panelState\.scopedNetworkEdges \}\)/);
+  const summary = moduleGraphAiAnalysisSummaryStateForGraph({
+    aiAnalysis: {
+      analysis: {
+        topicCandidates: [{ noteIds: ["a", "b"] }],
+        bridgeCandidates: [{ sourceNoteId: "a", targetNoteId: "b", relationType: "bridges" }],
+        relationCandidates: [
+          { sourceNoteId: "a", targetNoteId: "b", relationType: "bridges", componentBridge: true },
+          { sourceNoteId: "a", targetNoteId: "c", relationType: "same_topic" }
+        ],
+        isolatedNotes: [{ noteId: "a" }]
+      },
+      reviewItems: { summary: { topicCandidateCount: 9, relationCandidateCount: 9, bridgeCandidateCount: 9, isolatedNoteCount: 9 } }
+    },
+    nodes: [{ id: "a" }, { id: "b" }, { id: "c" }],
+    edges: []
+  }, graphThinkingModelTestDeps());
+  const questionSummary = moduleBuildGraphQuestionSpotSummaryForGraph({
+    reviewQueueTotal: 8,
+    aiAnalysis: {
+      analysis: {
+        relationCandidates: [{ sourceNoteId: "a", targetNoteId: "c", relationType: "same_topic" }]
+      }
+    },
+    nodes: [{ id: "a" }, { id: "c" }],
+    edges: []
+  }, graphThinkingModelTestDeps());
+  assert.deepEqual(
+    {
+      topicCount: summary.topicCount,
+      bridgeCount: summary.bridgeCount,
+      relationCount: summary.relationCount,
+      isolatedCount: summary.isolatedCount,
+      totalCandidates: summary.totalCandidates
+    },
+    { topicCount: 1, bridgeCount: 1, relationCount: 1, isolatedCount: 1, totalCandidates: 4 }
+  );
+  assert.equal(questionSummary.categories.find((item) => item.key === "review")?.count, 8);
+  assert.ok(source.includes('renderGraphAiAnalysisCard({ open: panelState.sectionOpen["ai-analysis"] === true, nodes: panelState.scopedAllNodes, edges: panelState.scopedNetworkEdges })'));
   assert.match(panelStateBuilderSource, /graphClueSummaryState\(\{[\s\S]*nodes: scopedAllNodes,[\s\S]*edges: scopedNetworkEdges/);
 });
 
 test("graph AI live counts stay scoped and classify component bridges correctly", () => {
-  const source = readPrototypeApp();
-  const { graphAiAnalysisSummaryState } = new Function(`
-    const graphState = {
-      aiAnalysis: {
-        analysis: {
-          topicCandidates: [
-            { noteIds: ["scope-a", "scope-b"] },
-            { noteIds: ["outside-a", "outside-b"] }
-          ],
-          relationCandidates: [
-            { fromNoteId: "scope-a", toNoteId: "scope-b", relationType: "bridges", componentBridge: true },
-            { fromNoteId: "outside-a", toNoteId: "outside-b", relationType: "same_topic" },
-            { fromNoteId: "scope-a", toNoteId: "outside-a", relationType: "same_topic" }
-          ],
-          bridgeCandidates: [
-            { noteIds: ["scope-a"], targetNoteIds: ["outside-b"], relationType: "bridges" }
-          ],
-          isolatedNotes: [
-            { noteId: "scope-a" },
-            { noteId: "outside-a" }
-          ]
-        },
-        reviewItems: {
-          summary: {
-            topicCandidateCount: 9,
-            relationCandidateCount: 9,
-            bridgeCandidateCount: 9,
-            isolatedNoteCount: 9,
-            artifactCount: 36
-          }
-        }
-      },
-      item: {
-        nodes: [
-          { id: "scope-a" },
-          { id: "scope-b" },
-          { id: "outside-a" },
-          { id: "outside-b" }
+  const counts = moduleGraphAiAnalysisSummaryStateForGraph({
+    aiAnalysis: {
+      analysis: {
+        topicCandidates: [
+          { noteIds: ["scope-a", "scope-b"] },
+          { noteIds: ["outside-a", "outside-b"] }
         ],
-        edges: []
+        relationCandidates: [
+          { fromNoteId: "scope-a", toNoteId: "scope-b", relationType: "bridges", componentBridge: true },
+          { fromNoteId: "outside-a", toNoteId: "outside-b", relationType: "same_topic" },
+          { fromNoteId: "scope-a", toNoteId: "outside-a", relationType: "same_topic" }
+        ],
+        bridgeCandidates: [
+          { noteIds: ["scope-a"], targetNoteIds: ["outside-b"], relationType: "bridges" }
+        ],
+        isolatedNotes: [
+          { noteId: "scope-a" },
+          { noteId: "outside-a" }
+        ]
+      },
+      reviewItems: {
+        summary: {
+          topicCandidateCount: 9,
+          relationCandidateCount: 9,
+          bridgeCandidateCount: 9,
+          isolatedNoteCount: 9,
+          artifactCount: 36
+        }
       }
-    };
-    function graphAiAnalysisPayload(result = graphState.aiAnalysis) {
-      if (result?.analysis && typeof result.analysis === "object") return result.analysis;
-      return result && typeof result === "object" ? result : {};
-    }
-    function graphRelationStatusCountsAsNetworkEdge() { return true; }
-    function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
-      const normalized = [String(leftNoteId || "").trim(), String(rightNoteId || "").trim()].filter(Boolean).sort();
-      return normalized.length === 2 ? normalized[0] + "::" + normalized[1] : "";
-    }
-    function graphExistingRelationPairKeys(edges = []) {
-      return new Set((Array.isArray(edges) ? edges : []).map((edge) => graphRelationPairKey(edge?.fromNoteId, edge?.toNoteId)).filter(Boolean));
-    }
-    function graphCandidateCanSaveRelation(candidate = {}) {
-      return String(candidate.relationType || "associated_with").trim() !== "no_relation";
-    }
-    function graphCandidateEndpointIds(candidate = {}) {
-      const sourceNoteId = String(candidate.fromNoteId || candidate.sourceNoteId || (Array.isArray(candidate.noteIds) ? candidate.noteIds[0] : "") || "").trim();
-      const targetNoteId = String(candidate.toNoteId || candidate.targetNoteId || (Array.isArray(candidate.targetNoteIds) ? candidate.targetNoteIds[0] : "") || (Array.isArray(candidate.noteIds) ? candidate.noteIds[1] : "") || "").trim();
-      return { sourceNoteId, targetNoteId };
-    }
-    function graphCandidateCountKey(candidate = {}) {
-      const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
-      return graphRelationPairKey(sourceNoteId, targetNoteId);
-    }
-    function graphNoteIdFromIsolatedItem(item = {}) {
-      return String(item?.noteId || item?.id || "").trim();
-    }
-    function graphComputedIsolatedNotes(nodes = [], edges = [], aiIsolatedNotes = []) {
-      const nodeIds = new Set((Array.isArray(nodes) ? nodes : []).map((node) => String(node?.id || "").trim()).filter(Boolean));
-      return (Array.isArray(aiIsolatedNotes) ? aiIsolatedNotes : []).filter((note) => nodeIds.has(graphNoteIdFromIsolatedItem(note)));
-    }
-    function graphIsolatedQueueItems({ isolatedNotes = [] } = {}) {
-      return Array.isArray(isolatedNotes) ? isolatedNotes : [];
-    }
-    function graphPendingAiCandidateCount(candidates = [], { existingRelationPairKeys = new Set(), excludePairs = new Set(), bridgeOnly = false, excludeBridge = false } = {}) {
-      const seenPairs = new Set();
-      let count = 0;
-      (Array.isArray(candidates) ? candidates : []).forEach((candidate) => {
-        if (!candidate || !graphCandidateCanSaveRelation(candidate)) return;
-        if (bridgeOnly && candidate.componentBridge !== true) return;
-        if (excludeBridge && candidate.componentBridge === true) return;
-        const pairKey = graphCandidateCountKey(candidate);
-        if (!pairKey || existingRelationPairKeys.has(pairKey) || excludePairs.has(pairKey) || seenPairs.has(pairKey)) return;
-        seenPairs.add(pairKey);
-        count += 1;
-      });
-      return { count, pairKeys: seenPairs };
-    }
-    ${extractFunctionSource(source, "graphLiveAiAnalysisCounts")}
-    ${extractFunctionSource(source, "graphAiAnalysisSummaryState")}
-    return { graphAiAnalysisSummaryState };
-  `)();
-
-  const counts = graphAiAnalysisSummaryState({
+    },
     nodes: [{ id: "scope-a" }, { id: "scope-b" }],
     edges: []
-  });
+  }, graphThinkingModelTestDeps());
 
   assert.equal(counts.topicCount, 1);
   assert.equal(counts.bridgeCount, 2);
@@ -1095,77 +1108,49 @@ test("graph AI live counts stay scoped and classify component bridges correctly"
 });
 
 test("graph thinking relation tasks only expose savable candidates with normalized endpoints", () => {
-  const source = readPrototypeApp();
-
-  assert.match(source, /function graphCandidateEndpointIds\(candidate = \{\}\) \{/);
-  assert.match(source, /return computeGraphCandidateEndpointIds\(candidate\);/);
-  assert.match(source, /\(Array\.isArray\(analysis\?\.relationCandidates\) \? analysis\.relationCandidates : \[\]\)[\s\S]*\.filter\(\(candidate\) => graphCandidateCanSaveRelation\(candidate\)\)[\s\S]*const \{ sourceNoteId, targetNoteId \} = graphCandidateEndpointIds\(candidate\);/);
-  assert.match(source, /const relationType = graphPreferredPotentialRelationType\(candidate\);/);
-  assert.match(source, /actionAttrs: `data-open-note="\$\{escapeHtml\(sourceNoteId\)\}"`/);
-  assert.match(source, /highlightNodeIds: \[sourceNoteId, targetNoteId\]/);
-});
-
-test("graph thinking relation tasks use scoped nodes for filtering but lookup map for outside titles", () => {
-  const source = readPrototypeApp();
-  const { buildGraphThinkingItems } = new Function(`
-    function escapeHtml(value = "") { return String(value ?? ""); }
-    function graphNodeIdsInScope(nodes = []) {
-      return new Set((Array.isArray(nodes) ? nodes : []).map((node) => String(node?.id || "").trim()).filter(Boolean));
-    }
-    function graphCandidateTouchesNodeScope(candidate = {}, nodeIds = new Set()) {
-      if (!nodeIds?.size) return true;
-      const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
-      return Boolean((sourceNoteId && nodeIds.has(sourceNoteId)) || (targetNoteId && nodeIds.has(targetNoteId)));
-    }
-    function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
-      const normalized = [String(leftNoteId || "").trim(), String(rightNoteId || "").trim()].filter(Boolean).sort();
-      return normalized.length === 2 ? normalized[0] + "::" + normalized[1] : "";
-    }
-    function graphExistingRelationPairKeys() { return new Set(); }
-    function graphCandidateCanSaveRelation(candidate = {}) { return String(candidate.relationType || "associated_with").trim() !== "no_relation"; }
-    function graphPreferredPotentialRelationType(candidate = {}) { return String(candidate.relationType || "associated_with").trim() || "associated_with"; }
-    function graphRelationTypeLabel(type = "") { return type || "相关"; }
-    function graphNoteIdFromIsolatedItem(item = {}) { return String(item?.noteId || item?.id || "").trim(); }
-    function graphFullNoteById(noteId = "", nodeMap = new Map()) { return nodeMap.get(noteId) || null; }
-    function graphNoteHasSavedIsolationDisposition() { return false; }
-    function graphIsolatedSelectionKey(note = {}, index = 0) { return String(note?.noteId || index); }
-    function graphSelectEdgeActionAttrs() { return ""; }
-    function graphThinkingCleanIds(values = []) { return Array.isArray(values) ? values : [values]; }
-    function graphThinkingEvidenceText() { return ""; }
-    function graphRankThemeCandidates() { return []; }
-    ${extractFunctionSource(source, "graphThinkingNoteTitle")}
-    function graphCandidateEndpointIds(candidate = {}) {
-      return {
-        sourceNoteId: String(candidate.fromNoteId || candidate.sourceNoteId || "").trim(),
-        targetNoteId: String(candidate.toNoteId || candidate.targetNoteId || "").trim()
-      };
-    }
-    ${extractFunctionSource(source, "buildGraphThinkingItems")}
-    return { buildGraphThinkingItems };
-  `)();
-
-  const items = buildGraphThinkingItems({
-    nodes: [{ id: "scope-a", title: "当前范围笔记" }],
+  const items = moduleBuildGraphThinkingItemsForGraph({
+    nodes: [{ id: "source", title: "Source" }, { id: "target", title: "Target" }],
     edges: [],
     aiAnalysis: {
       analysis: {
         relationCandidates: [
-          { fromNoteId: "scope-a", toNoteId: "outside-a", relationType: "same_topic", rationale: "跨目录但与当前笔记相关" },
-          { fromNoteId: "outside-b", toNoteId: "outside-c", relationType: "same_topic", rationale: "完全不在当前范围" }
+          { sourceNoteId: "source", targetNoteId: "target", relationType: "no_relation", rationale: "skip" },
+          { sourceNoteId: "source", targetNoteId: "target", relationType: "bridges", componentBridge: true, rationale: "skip bridge" },
+          { fromNoteId: "source", toNoteId: "target", relationType: "supports", rationale: "usable" }
+        ]
+      }
+    }
+  }, graphThinkingModelTestDeps());
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].title, "Source -> Target");
+  assert.match(items[0].actionAttrs, /data-open-note="source"/);
+  assert.deepEqual(items[0].highlightNodeIds, ["source", "target"]);
+});
+
+test("graph thinking relation tasks use scoped nodes for filtering but lookup map for outside titles", () => {
+  const items = moduleBuildGraphThinkingItemsForGraph({
+    nodes: [{ id: "scope-a", title: "褰撳墠鑼冨洿绗旇" }],
+    edges: [],
+    aiAnalysis: {
+      analysis: {
+        relationCandidates: [
+          { fromNoteId: "scope-a", toNoteId: "outside-a", relationType: "same_topic", rationale: "璺ㄧ洰褰曚絾涓庡綋鍓嶇瑪璁扮浉鍏?" },
+          { fromNoteId: "outside-b", toNoteId: "outside-c", relationType: "same_topic", rationale: "瀹屽叏涓嶅湪褰撳墠鑼冨洿" }
         ],
         isolatedNotes: []
       }
     },
     nodeLookupMap: new Map([
-      ["scope-a", { id: "scope-a", title: "当前范围笔记" }],
-      ["outside-a", { id: "outside-a", title: "目录外目标" }],
-      ["outside-b", { id: "outside-b", title: "外部 B" }],
-      ["outside-c", { id: "outside-c", title: "外部 C" }]
+      ["scope-a", { id: "scope-a", title: "褰撳墠鑼冨洿绗旇" }],
+      ["outside-a", { id: "outside-a", title: "鐩綍澶栫洰鏍?" }],
+      ["outside-b", { id: "outside-b", title: "澶栭儴 B" }],
+      ["outside-c", { id: "outside-c", title: "澶栭儴 C" }]
     ])
-  });
+  }, graphThinkingModelTestDeps());
 
   assert.equal(items.length, 1);
-  assert.equal(items[0].title, "当前范围笔记 -> 目录外目标");
+  assert.equal(items[0].title, "褰撳墠鑼冨洿绗旇 -> 鐩綍澶栫洰鏍?");
 });
 
 test("directory graph keeps all nodes visible and marks true zero-degree notes as isolated", () => {
@@ -1236,6 +1221,11 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
   const isolatedSelectionStart = source.indexOf('function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {');
   const isolatedSelectionEnd = source.indexOf('function renderGraphBridgeSelectionPanel(', isolatedSelectionStart);
+  const isolatedThinkingItems = moduleBuildGraphThinkingItemsForGraph({
+    nodes: [{ id: "isolated-a", title: "孤立笔记" }],
+    isolatedNotes: [{ noteId: "isolated-a" }],
+    aiAnalysis: { analysis: { isolatedNotes: [{ noteId: "isolated-a", title: "孤立笔记" }] } }
+  }, graphThinkingModelTestDeps());
   assert.ok(isolatedSelectionStart >= 0 && isolatedSelectionEnd > isolatedSelectionStart, "expected renderGraphIsolatedSelectionPanel() to exist");
 
   assert.match(source, /function graphLocalRelationCandidatesForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], limit = 5 \} = \{\}\) \{/);
@@ -1267,7 +1257,7 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(source, /return graphIsolatedRelationController\.moveWorkflowTab\(currentButton, direction\);/);
   assert.match(source, /isolatedWorkflowTabsByNoteId: \{\},/);
   assert.match(isolatedWorkflowShellSource, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(nextItem\.noteId\)\}"/);
-  assert.match(source, /actionAttrs: `data-graph-select-isolated="\$\{escapeHtml\(isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(noteId\)\}"`/);
+  assert.match(isolatedThinkingItems[0]?.actionAttrs || "", /data-graph-select-isolated="isolated-a" data-graph-isolated-note="isolated-a"/);
   assert.match(source, /const isolatedWorkflowTab = event\.target\.closest\("\[data-graph-isolated-tab\]"\);/);
   assert.match(source, /if \(event\.key === "ArrowRight" \|\| event\.key === "ArrowDown"\) \{/);
   assert.match(source, /const graphManualTargetButton = event\.target\.closest\("\[data-graph-pick-manual-target\]"\);/);
