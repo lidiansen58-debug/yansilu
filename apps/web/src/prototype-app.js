@@ -286,6 +286,9 @@ import {
   graphWritingFollowupEntryPlan
 } from "./graph-followup.js";
 import {
+  graphFollowupOpenedNoteStatus
+} from "./graph-followup-status-messages.js";
+import {
   clearGraphIsolatedRelationDraftForState
 } from "./graph-relation-drafts.js";
 import {
@@ -367,6 +370,12 @@ import {
   renderGraphWorkbenchPanelView,
   renderGraphWorkbenchPriorityQueueView
 } from "./graph-workbench-panel.js";
+import {
+  graphRelationQualityLabel,
+  graphRelationReviewReasonLabel,
+  renderGraphUtilityDrawerView,
+  renderRelationReviewQueueSectionView
+} from "./graph-review-surface-view.js";
 import {
   applyGraphEmptyCloseInteraction,
   applyGraphSectionOpenState,
@@ -8863,19 +8872,6 @@ function graphRelationStatusLabel(status) {
   return GRAPH_RELATION_STATUS_LABELS[key] || key || "已确认";
 }
 
-const GRAPH_RELATION_QUALITY_LABELS = {
-  empty: "缺说明",
-  basic: "说明太粗",
-  good: "较清楚",
-  strong: "清楚"
-};
-
-const GRAPH_RELATION_REVIEW_REASON_LABELS = {
-  missing_rationale: "补关系说明",
-  thin_rationale: "补证据或边界",
-  needs_review: "复查关系"
-};
-
 const GRAPH_RELATION_VISUALS = {
   associated_with: { key: "neutral", className: "is-neutral" },
   belongs_to_topic: { key: "index", className: "is-index" },
@@ -9116,16 +9112,6 @@ function setGraphFocusContextMode(value = "", options = {}) {
   const next = normalizeGraphFocusContextMode(value, "argument");
   graphState.focusContextMode = next;
   if (options.persist !== false) writeStoredText(GRAPH_FOCUS_CONTEXT_MODE_KEY, next);
-}
-
-function graphRelationQualityLabel(level) {
-  const key = String(level || "empty").trim().toLowerCase();
-  return GRAPH_RELATION_QUALITY_LABELS[key] || key || "待整理";
-}
-
-function graphRelationReviewReasonLabel(reason) {
-  const key = String(reason || "needs_review").trim().toLowerCase();
-  return GRAPH_RELATION_REVIEW_REASON_LABELS[key] || key || "复查关系";
 }
 
 function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, conflictCount = 0, bridgeGapCount = 0 } = {}) {
@@ -12697,65 +12683,14 @@ function applyGraphEdgeHoverState(edgeElement) {
 }
 
 function renderRelationReviewQueueSection(reviewQueue, options = {}) {
-  const items = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
-  const total = Number(reviewQueue?.total || items.length || 0);
-  const error = String(reviewQueue?.error || "").trim();
-  if (!error && total <= 0) return "";
-  const open = options.open === true;
-  const summary = reviewQueue?.summary && typeof reviewQueue.summary === "object" ? reviewQueue.summary : {};
-  const byQuality = summary.byQualityLevel && typeof summary.byQualityLevel === "object" ? summary.byQualityLevel : {};
-  const emptyCount = Number(byQuality.empty || 0);
-  const basicCount = Number(byQuality.basic || 0);
-  return `
-      <details class="graph-section graph-collapsible-section graph-review-section" data-graph-section="review-queue"${open ? " open" : ""}>
-        <summary class="graph-collapsible-summary">
-          <div>
-            <div class="graph-section-title">需要补充说明的关系</div>
-            <div class="graph-section-note">这些关系已经保存，但理由还不够清楚。补一句“为什么相关”，以后看图谱才知道这条线的意义。</div>
-          </div>
-          <span class="graph-collapsible-badge">${total} 条</span>
-        </summary>
-        <div class="graph-collapsible-body">
-        ${
-          error
-            ? `<div class="graph-empty bad">整理队列加载失败：${escapeHtml(error)}</div>`
-            : items.length
-              ? `
-                <div class="graph-review-summary">
-                  <strong>${total} 条关系需要补充说明</strong>
-                  <small>缺说明 ${emptyCount} 条；说明太粗 ${basicCount} 条。点卡片可以回到源笔记补充说明。</small>
-                </div>
-                <div class="graph-list">
-                  ${items
-                    .map((item) => {
-                      const source = item.source || {};
-                      const target = item.target || {};
-                      const sourceTitle = source.title || item.fromNoteId || "源笔记";
-                      const targetTitle = target.title || item.toNoteId || "目标笔记";
-                      const rationale = String(item.rationale || "").trim();
-                      const relationGroup = graphRelationGroupMeta(item.relationType);
-                      return `
-                        <div class="graph-review-card" role="button" tabindex="0" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">
-                          <button class="graph-review-action mini-btn" type="button" data-graph-select-edge="${escapeHtml(graphEdgeSelectionKey(item))}" data-graph-select-edge-id="${escapeHtml(item.id || "")}" data-graph-select-edge-from="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-select-edge-to="${escapeHtml(item.toNoteId || target.id || "")}" data-graph-select-edge-type="${escapeHtml(String(item.relationType || "").trim().toLowerCase())}" aria-label="复核关系：${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}" title="复核关系"><span>复核</span></button>
-                          <span class="graph-review-main">
-                            <span class="graph-review-title">${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}</span>
-                            <span class="graph-review-meta">
-                              <span class="graph-relation-badge ${escapeHtml(relationGroup.className)}">${escapeHtml(relationGroup.label)} · ${escapeHtml(graphRelationTypeLabel(item.relationType))}</span>
-                              ${escapeHtml(graphRelationReviewReasonLabel(item.reviewReason))} · ${escapeHtml(graphRelationQualityLabel(item.rationaleQualityLevel))} · ${escapeHtml(graphRelationSourceLabel(item.createdBy))} · ${escapeHtml(graphRelationStatusLabel(item.status))}
-                            </span>
-                            <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
-                          </span>
-                        </div>
-                      `;
-                    })
-                    .join("")}
-                </div>
-              `
-              : `<div class="graph-empty">永久笔记范围内没有缺说明或说明太粗的关系。可以切换关系类型，查看完整结构是否合理。</div>`
-        }
-        </div>
-      </details>
-  `;
+  return renderRelationReviewQueueSectionView(reviewQueue, options, {
+    escapeHtml,
+    graphEdgeSelectionKey,
+    graphRelationGroupMeta,
+    graphRelationSourceLabel,
+    graphRelationStatusLabel,
+    graphRelationTypeLabel
+  });
 }
 
 function renderGraphMetricCard(label, value, note, tone = "") {
@@ -13158,37 +13093,12 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
   });
 }
 
-function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, reviewQueue = null, sectionsMarkup = "", open = false, nodes = null, edges = null } = {}) {
-  const content = String(sectionsMarkup || "").trim();
-  if (!content) return "";
-  const reviewCount = Number(reviewQueue?.total || 0);
-  const aiState = graphAiAnalysisSummaryState({ nodes, edges });
-  const badges = [
-    bridgeGapCount > 0 ? `<span>潜在关联 ${escapeHtml(String(bridgeGapCount))}</span>` : "",
-    weakRelationCount > 0 ? `<span>待判断关联 ${escapeHtml(String(weakRelationCount))}</span>` : "",
-    reviewCount > 0 ? `<span>待补说明 ${escapeHtml(String(reviewCount))}</span>` : "",
-    aiState.totalCandidates > 0 ? `<span>AI 候选 ${escapeHtml(String(aiState.totalCandidates))}</span>` : ""
-  ]
-    .filter(Boolean)
-    .join("");
-  return `
-    <details class="graph-utility-drawer" data-graph-utility-drawer${open ? " open" : ""}>
-      <summary class="graph-utility-drawer-summary">
-        <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
-        <div class="graph-utility-drawer-copy">
-          <strong>${renderGraphIcon("clue")}稍后处理</strong>
-          <span>把暂时不急着处理的候选、理由缺口和主题苗头先收在这里，需要时再展开。</span>
-        </div>
-        <div class="graph-utility-drawer-meta">
-          ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">稍后再看</div>`}
-        </div>
-        <button class="graph-overlay-close graph-utility-drawer-close" type="button" data-graph-utility-close aria-label="关闭稍后处理" title="关闭稍后处理">${renderGraphIcon("close")}</button>
-      </summary>
-      <div class="graph-utility-drawer-body">
-        ${content}
-      </div>
-    </details>
-  `;
+function renderGraphUtilityDrawer(options = {}) {
+  return renderGraphUtilityDrawerView(options, {
+    escapeHtml,
+    graphAiAnalysisSummaryState,
+    renderGraphIcon
+  });
 }
 
 function graphSummaryModeNote(relationType = "all") {
@@ -14166,7 +14076,8 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
 
   if (cleanAction === "relations-edit" && cleanRelationId) {
     focusExistingRelationEdit(`从图谱进入：继续写清“${sourceLabel}”这条${relationLabel}为什么成立。`);
-    setStatus("已从图谱打开笔记，继续完善当前关系说明", "ok", followupStatusOptions);
+    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
+    setStatus(status.message, status.tone, followupStatusOptions);
     return true;
   }
 
@@ -14176,26 +14087,24 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
         ? `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”关联为一条${relationLabel}。`
         : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”建立为带理由的正式关联。`
     );
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续建立桥接关联" : "已从图谱打开笔记，继续写关系说明", "ok", followupStatusOptions);
+    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
+    setStatus(status.message, status.tone, followupStatusOptions);
     return true;
   }
   if (actionRoute.kind === "boundary-draft") {
     focusBoundaryField();
-    setStatus(
-      cleanAction === "isolate-keep"
-        ? "已打开笔记，请在边界里写下为什么暂时保持独立"
-        : "已打开笔记，请先写下暂存观察说明",
-      cleanAction === "isolate-hold" ? "warn" : "ok",
-      followupStatusOptions
-    );
+    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
+    setStatus(status.message, status.tone, followupStatusOptions);
     return true;
   }
   if (cleanAction === "boundary" || cleanAction === "tension") {
     focusBoundaryField();
-    setStatus("已从图谱打开笔记，继续补反例、边界或例外条件", "ok", followupStatusOptions);
+    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
+    setStatus(status.message, status.tone, followupStatusOptions);
     return true;
   }
-  setStatus("已从图谱打开笔记", "ok", followupStatusOptions);
+  const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
+  setStatus(status.message, status.tone, followupStatusOptions);
   return true;
 }
 
