@@ -17,6 +17,9 @@ import {
 import {
   graphIsolatedJoinNetworkFormModel
 } from "../../apps/web/src/graph-isolated-relation-form.js";
+import {
+  relationNetworkStatusForNotePolicy
+} from "../../apps/web/src/note-persistence-policy.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -124,12 +127,28 @@ test("graph workbench entries live beside reading lenses and legend", () => {
 });
 
 test("live graph connectivity overrides stale persisted relation status once a scope is loaded", () => {
-  const source = readPrototypeApp();
+  const connectedIds = new Set(["pn_connected"]);
 
-  assert.match(source, /function relationNetworkStatusForNote\(note = null, options = \{\}\) \{/);
-  assert.match(source, /const permanentLike = noteType === "permanent" \|\| noteType === "original";/);
-  assert.match(source, /if \(permanentLike && connectivityReady && connectedIds\) return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
-  assert.match(source, /const explicitStatus = String\(note\?\.relationNetworkStatus \|\| note\?\.relation_network_status \|\| ""\)\.trim\(\)\.toLowerCase\(\);/);
+  assert.equal(
+    relationNetworkStatusForNotePolicy({
+      note: { id: "pn_connected", relationNetworkStatus: "unknown" },
+      noteType: "permanent",
+      connectedIds,
+      connectivityReady: true,
+      storedStatus: "isolated"
+    }),
+    "connected"
+  );
+  assert.equal(
+    relationNetworkStatusForNotePolicy({
+      note: { id: "pn_isolated", relationNetworkStatus: "connected" },
+      noteType: "permanent",
+      connectedIds,
+      connectivityReady: true,
+      storedStatus: "connected"
+    }),
+    "isolated"
+  );
 });
 
 test("graph refresh repaints the explorer tree after connectivity state changes", () => {

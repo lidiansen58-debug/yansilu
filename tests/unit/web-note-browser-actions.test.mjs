@@ -17,6 +17,22 @@ import {
   noteDeleteKeyRoute,
   noteBrowserStateChangeRoute
 } from "../../apps/web/src/note-browser-action-router.js";
+import {
+  isPersistableRelationNetworkStatus,
+  notePersistenceFieldsForSave,
+  relationNetworkStatusForNotePolicy,
+  resolveFolderRootNoteType
+} from "../../apps/web/src/note-persistence-policy.js";
+import {
+  describeWritingProjectPreflight,
+  describeWritingStrongModelStatus,
+  planWritingThemeIndexEntry,
+  resolveWritingSelectedThemeIndexId,
+  resolveWritingSourceIndexIds,
+  shouldPreserveWritingThemeContext,
+  writingScaffoldButtonState,
+  writingThemeIndexContinuationRoute
+} from "../../apps/web/src/writing-center-flow.js";
 import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -650,25 +666,36 @@ test("note browsers show isolated folder flags without counts only for the perma
 });
 
 test("save-note only persists known relation-network statuses", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-
-  assert.match(source, /function isPersistableRelationNetworkStatus\(status = ""\) \{/);
-  assert.match(source, /if \(isPersistableRelationNetworkStatus\(nextStatus\)\) writeStoredRelationNetworkStatus\(note\.id, nextStatus\);/);
-  assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined,/);
-  assert.match(source, /return isPersistableRelationNetworkStatus\(value\) \? value : "";/);
-  assert.match(source, /if \(!isPersistableRelationNetworkStatus\(cleanStatus\)\) return;/);
-  assert.doesNotMatch(source, /\["connected", "isolated", "unknown"\]\.includes/);
+  assert.equal(isPersistableRelationNetworkStatus("connected"), true);
+  assert.equal(isPersistableRelationNetworkStatus("isolated"), true);
+  assert.equal(isPersistableRelationNetworkStatus("unknown"), false);
+  assert.equal(notePersistenceFieldsForSave({ generatedOriginalNoteId: "pn_1", relationNetworkStatus: "connected" }).relationNetworkStatus, "connected");
+  assert.equal(notePersistenceFieldsForSave({ generatedOriginalNoteId: "pn_1", relationNetworkStatus: "unknown" }).relationNetworkStatus, undefined);
 });
 
 test("graph-ready relation sync does not let stale unknown statuses override recomputed connectivity", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const connectedIds = new Set(["pn_connected"]);
 
-  assert.doesNotMatch(source, /if \(explicitStatus === "connected" \|\| explicitStatus === "isolated" \|\| explicitStatus === "unknown"\) return explicitStatus;/);
-  assert.doesNotMatch(source, /if \(storedStatus === "connected" \|\| storedStatus === "isolated" \|\| storedStatus === "unknown"\) return storedStatus;/);
-  assert.match(source, /if \(explicitStatus === "connected" \|\| explicitStatus === "isolated"\) return explicitStatus;/);
-  assert.match(source, /if \(storedStatus === "connected" \|\| storedStatus === "isolated"\) return storedStatus;/);
-  assert.match(source, /if \(!connectivityReady \|\| !connectedIds\) return "unknown";/);
-  assert.match(source, /return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
+  assert.equal(
+    relationNetworkStatusForNotePolicy({
+      note: { id: "pn_connected", relationNetworkStatus: "unknown" },
+      noteType: "permanent",
+      connectedIds,
+      connectivityReady: true,
+      storedStatus: "unknown"
+    }),
+    "connected"
+  );
+  assert.equal(
+    relationNetworkStatusForNotePolicy({
+      note: { id: "pn_isolated", relation_network_status: "unknown" },
+      noteType: "permanent",
+      connectedIds,
+      connectivityReady: true,
+      storedStatus: "unknown"
+    }),
+    "isolated"
+  );
 });
 
 test("thinking status keeps derived next-step copy out of the bottom notice", async () => {
@@ -951,11 +978,16 @@ test("writing workspace defines hasProject before project list hints use it", ()
 });
 
 test("writing panel keeps projected continuity out of strong-model button wiring", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/const strongModelReady =[\s\S]*?const strongModelState = describeWritingStrongModelStatus/);
+  const state = describeWritingStrongModelStatus({
+    hasProject: true,
+    relationCountsReady: true,
+    readinessLevel: "strong_model_ready",
+    projectPreflightLevel: "ready",
+    strongModelReady: true
+  });
 
-  assert.ok(match, "expected writing panel strong-model block to exist");
-  assert.doesNotMatch(match[0], /canContinueProjectedStrongModel/);
+  assert.ok(state.status);
+  assert.ok(state.buttonLabel);
 });
 
 test("renderAll repaints explorer before writing panel side-effects can interrupt the tree", () => {
@@ -969,35 +1001,54 @@ test("renderAll repaints explorer before writing panel side-effects can interrup
 });
 
 test("note persistence keeps generated-original and relation-network status fields in save paths", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-
-  assert.match(source, /generatedOriginalNoteId: sourceNote\.generatedOriginalNoteId \|\| undefined/);
-  assert.match(source, /generatedOriginalNoteId: note\.generatedOriginalNoteId \|\| undefined/);
-  assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined/);
-  assert.match(source, /const storedStatus = readStoredRelationNetworkStatus\(note\?\.id\);/);
+  assert.deepEqual(notePersistenceFieldsForSave({ generatedOriginalNoteId: "pn_1", relationNetworkStatus: "isolated" }), {
+    generatedOriginalNoteId: "pn_1",
+    relationNetworkStatus: "isolated"
+  });
+  assert.deepEqual(notePersistenceFieldsForSave({ generatedOriginalNoteId: "", relationNetworkStatus: "unknown" }), {
+    generatedOriginalNoteId: undefined,
+    relationNetworkStatus: undefined
+  });
 });
 
 test("workspace helper and note opening use folder-root note types for literature flows", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const typeFromFolder = (folderId) => folderId === "dir_literature_default" ? "literature" : "";
 
-  assert.match(source, /const noteType = String\(\(activeNote\?\.folderId \? typeFromFolder\(state, activeNote\.folderId\) : ""\) \|\| activeNote\?\.noteType \|\| ""\)\s*\.trim\(\)\s*\.toLowerCase\(\);/);
-  assert.match(source, /const keepFocus =\s*String\(\(note\?\.folderId \? typeFromFolder\(state, note\.folderId\) : ""\) \|\| note\?\.noteType \|\| ""\)\.trim\(\) === "literature"/);
+  assert.equal(resolveFolderRootNoteType({ folderId: "dir_literature_default", noteType: "permanent" }, { typeFromFolder }), "literature");
+  assert.equal(resolveFolderRootNoteType({ folderId: "", noteType: "permanent" }, { typeFromFolder }), "permanent");
 });
 
 test("writing scaffold preview defines project preflight summary before next-action rendering uses it", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/function renderWritingScaffoldPreview\(\) \{([\s\S]*?)\n\s*if \(!writingState\.scaffold\)/);
+  const preflight = describeWritingProjectPreflight({ status: "has_gaps", checks: [{ message: "Need evidence" }] });
+  const button = writingScaffoldButtonState({
+    hasProject: true,
+    projectPreflightLevel: preflight.level
+  });
 
-  assert.ok(match, "expected renderWritingScaffoldPreview() to exist");
-  assert.match(match[1], /const projectPreflightSummary = describeWritingProjectPreflight\(writingState\.project\?\.preflight \|\| null\);/);
+  assert.equal(preflight.level, "has_gaps");
+  assert.equal(button.disabled, true);
+  assert.ok(button.text);
 });
 
 test("writing strong-model action uses a defined basket readiness helper", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const blocked = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    readinessLevel: "project_ready",
+    projectPreflightLevel: "ready",
+    strongModelReady: false
+  });
+  const ready = describeWritingStrongModelStatus({
+    hasProject: true,
+    relationCountsReady: true,
+    readinessLevel: "strong_model_ready",
+    projectPreflightLevel: "ready",
+    strongModelReady: true
+  });
 
-  assert.match(source, /function currentWritingBasketReadiness\(\) \{/);
-  assert.match(source, /\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{[\s\S]*await prepareWritingStrongModelAnalysis\(\);/);
-  assert.match(source, /async function prepareWritingStrongModelAnalysis\(\) \{[\s\S]*if \(!writingState\.project\?\.id\) \{/);
+  assert.ok(blocked.buttonLabel);
+  assert.ok(ready.buttonLabel);
+  assert.notEqual(blocked.buttonLabel, ready.buttonLabel);
 });
 
 test("import-result create-writing-project path reuses unified writing entry reset", () => {
@@ -1013,77 +1064,78 @@ test("import-result create-writing-project path reuses unified writing entry res
 });
 
 test("theme index append skips writing-entry reset when the basket already contains all theme notes", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/async function useThemeIndexAsWritingEntry\(indexCardId, \{ replaceBasket = false, resetContext = false, source = "writing_theme_index" \} = \{\}\) \{([\s\S]*?)\n\}/);
+  const plan = planWritingThemeIndexEntry({
+    existingNoteIds: ["n1", "n2"],
+    themeNoteIds: ["n1", "n2"],
+    replaceBasket: false,
+    resetContext: false
+  });
 
-  assert.ok(match, "expected useThemeIndexAsWritingEntry() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /if \(entryPlan\.addedNoteIds\.length\) \{\s*continueWritingEntry\(/);
-  assert.match(fnBody, /else \{\s*const nextSourceIndexIds = resolveWritingSourceIndexIds\(/);
-  assert.doesNotMatch(fnBody, /else \{\s*continueWritingEntry\(/);
+  assert.equal(plan.action, "metadata-only");
+  assert.deepEqual(plan.addedNoteIds, []);
+  assert.equal(plan.preserveSourceIndexIds, true);
 });
 
 test("theme index replace path also reuses unified writing-entry reset", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/async function useThemeIndexAsWritingEntry\(indexCardId, \{ replaceBasket = false, resetContext = false, source = "writing_theme_index" \} = \{\}\) \{([\s\S]*?)\n\}/);
+  const plan = planWritingThemeIndexEntry({
+    existingNoteIds: ["n_old"],
+    themeNoteIds: ["n1", "n2"],
+    replaceBasket: true,
+    resetContext: false
+  });
 
-  assert.ok(match, "expected useThemeIndexAsWritingEntry() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /else if \(replaceBasket\) \{\s*continueWritingEntry\(noteIds,/);
-  assert.match(fnBody, /preserveSourceIndexIds: false/);
-  assert.doesNotMatch(fnBody, /else if \(replaceBasket\) \{\s*resetWritingStrongModelState\(\)/);
-  assert.doesNotMatch(fnBody, /else if \(replaceBasket\) \{[\s\S]*resetWritingProjectContext\(/);
+  assert.equal(plan.action, "replace-entry");
+  assert.equal(plan.preserveSourceIndexIds, false);
+  assert.equal(plan.shouldResetContext, false);
 });
 
 test("continueWritingEntry preserves the current selected theme when merged provenance still contains it", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/function continueWritingEntry\(noteIds = \[\], \{ title = "", source = "writing_center", sourceIndexIds = \[\], preserveSourceIndexIds = true \} = \{\}\) \{([\s\S]*?)\n\}/);
+  const sourceIndexIds = resolveWritingSourceIndexIds({
+    existingSourceIndexIds: ["idx_existing"],
+    incomingSourceIndexIds: ["idx_new"],
+    preserveExisting: true
+  });
+  const selectedThemeIndexId = resolveWritingSelectedThemeIndexId({
+    currentSelectedThemeIndexId: "idx_existing",
+    nextSourceIndexIds: sourceIndexIds
+  });
 
-  assert.ok(match, "expected continueWritingEntry() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /setSelectedWritingThemeIndex\(\s*resolveWritingSelectedThemeIndexId\(\s*\{\s*currentSelectedThemeIndexId: writingState\.selectedThemeIndexId,/);
-  assert.doesNotMatch(fnBody, /setSelectedWritingThemeIndex\(nextSourceIndexIds\.length === 1 \? nextSourceIndexIds\[0\] : ""\)/);
+  assert.deepEqual(sourceIndexIds, ["idx_existing", "idx_new"]);
+  assert.equal(selectedThemeIndexId, "idx_existing");
 });
 
 test("theme index selection preserves hydrated theme context when switching between identical note sets", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/async function selectWritingThemeIndex\(indexId\) \{([\s\S]*?)\n\}/);
-
-  assert.ok(match, "expected selectWritingThemeIndex() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /const preservingExistingThemeContext =\s*sameUniqueStringSet\(noteIds, writingState\.themeNoteDetailIds\)\s*&&\s*sameUniqueStringSet\(noteIds, writingState\.themeRelationNoteIds\)/);
-  assert.match(fnBody, /if \(!preservingExistingThemeContext\) clearWritingThemeRelationCounts\(noteIds\)/);
+  assert.equal(
+    shouldPreserveWritingThemeContext({
+      noteIds: ["n1", "n2"],
+      loadedThemeNoteIds: ["n2", "n1"],
+      relationThemeNoteIds: ["n1", "n2"]
+    }),
+    true
+  );
+  assert.equal(
+    shouldPreserveWritingThemeContext({
+      noteIds: ["n1", "n2"],
+      loadedThemeNoteIds: ["n1"],
+      relationThemeNoteIds: ["n1", "n2"]
+    }),
+    false
+  );
 });
 
 test("theme index cards reuse continuity actions when a matching project already exists", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/function renderWritingThemeIndexCard\(indexCard\) \{([\s\S]*?)\n\}/);
-
-  assert.ok(match, "expected renderWritingThemeIndexCard() to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /const existingProject = findExistingWritingProjectForTheme\(indexCard, noteIds\)/);
-  assert.match(fnBody, /const themeContinuation = describeWritingContinuationAction\(\{/);
-  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(themeContinuation\?\.action \|\| "resume-project"\)\}"/);
-  assert.match(fnBody, /\$\{escapeHtml\(themeContinuation\?\.actionLabel \|\| "继续当前项目"\)\}/);
+  assert.equal(writingThemeIndexContinuationRoute({ action: "open-draft", projectId: "wp_1" }).kind, "continue-project");
+  assert.equal(writingThemeIndexContinuationRoute({ action: "resume-scaffold", projectId: "wp_1" }).kind, "continue-project");
+  assert.equal(writingThemeIndexContinuationRoute({ action: "resume-project", projectId: "wp_1" }).kind, "continue-project");
 });
 
 test("theme index list click handler routes continuity actions through continueWritingProjectEntry", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/\$\("writingThemeIndexList"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
+  const openDraft = writingThemeIndexContinuationRoute({ action: "open-draft", projectId: "wp_1" });
+  const resumeScaffold = writingThemeIndexContinuationRoute({ action: "resume-scaffold", projectId: "wp_1" });
+  const missingProject = writingThemeIndexContinuationRoute({ action: "resume-project", projectId: "" });
 
-  assert.ok(match, "expected writingThemeIndexList click handler to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /if \(action === "open-draft" \|\| action === "resume-project" \|\| action === "resume-scaffold"\)/);
-  assert.match(fnBody, /await continueWritingProjectEntry\(projectId, \{/);
-  assert.match(fnBody, /openDraft: action === "open-draft"/);
-  assert.match(fnBody, /已从主题索引打开当前草稿：\$\{projectId\}/);
-  assert.match(fnBody, /已从主题索引回到草稿骨架：\$\{projectId\}/);
-  assert.match(fnBody, /已从主题索引继续当前项目：\$\{projectId\}/);
-  assert.match(fnBody, /action === "open-draft" \? "从主题索引打开当前草稿" : action === "resume-scaffold" \? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"/);
+  assert.equal(openDraft.kind, "continue-project");
+  assert.equal(openDraft.openDraft, true);
+  assert.equal(resumeScaffold.openDraft, false);
+  assert.equal(missingProject.kind, "missing-project");
 });

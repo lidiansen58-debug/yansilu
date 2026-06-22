@@ -343,6 +343,12 @@ import {
   noteDeleteKeyRoute
 } from "./note-browser-action-router.js";
 import {
+  isPersistableRelationNetworkStatus,
+  notePersistenceFieldsForSave,
+  relationNetworkStatusForNotePolicy,
+  resolveFolderRootNoteType
+} from "./note-persistence-policy.js";
+import {
   describeWritingContinuationAction,
   describeWritingMaterialStatus,
   describeWritingStrongModelIdleSummary,
@@ -354,9 +360,12 @@ import {
   describeWritingNextActionFromState,
   describeWritingProjectPreflight,
   planWritingBasketEntry,
+  planWritingThemeIndexEntry,
   resolveWritingSelectedThemeIndexId,
   resolveWritingSourceIndexIds,
   resolveWritingEntryTitle,
+  shouldPreserveWritingThemeContext,
+  writingThemeIndexContinuationRoute,
   writingCenterContinuationFailureMessage,
   writingCenterContinuationStatusMessage,
   writingOpenDraftButtonState,
@@ -1047,35 +1056,28 @@ function noteHasGeneratedOriginal(note = null) {
   return Boolean(noteGeneratedOriginalNoteId(note));
 }
 
-function isPersistableRelationNetworkStatus(status = "") {
-  const normalized = String(status || "").trim().toLowerCase();
-  return normalized === "connected" || normalized === "isolated";
-}
-
 function relationNetworkStatusForNote(note = null, options = {}) {
-  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
-  const permanentLike = noteType === "permanent" || noteType === "original";
+  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
   const connectedIds = options.connectedIds instanceof Set
     ? options.connectedIds
     : state.graphConnectedNoteIds instanceof Set
       ? state.graphConnectedNoteIds
       : null;
   const connectivityReady = options.connectivityReady === undefined ? state.graphConnectivityReady === true : options.connectivityReady === true;
-  if (permanentLike && connectivityReady && connectedIds) return connectedIds.has(note?.id) ? "connected" : "isolated";
-  const explicitStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
-  if (explicitStatus === "connected" || explicitStatus === "isolated") return explicitStatus;
-  const storedStatus = readStoredRelationNetworkStatus(note?.id);
-  if (storedStatus === "connected" || storedStatus === "isolated") return storedStatus;
-  if (!permanentLike) return "";
-  if (!connectivityReady || !connectedIds) return "unknown";
-  return connectedIds.has(note?.id) ? "connected" : "isolated";
+  return relationNetworkStatusForNotePolicy({
+    note,
+    noteType,
+    connectedIds,
+    connectivityReady,
+    storedStatus: readStoredRelationNetworkStatus(note?.id)
+  });
 }
 
 function syncNoteRelationNetworkStatus(note = null, options = {}) {
   if (!note || typeof note !== "object") return "";
   const nextStatus = relationNetworkStatusForNote(note, options);
   note.relationNetworkStatus = nextStatus;
-  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
+  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
   if (noteType === "permanent" || noteType === "original") {
     if (isPersistableRelationNetworkStatus(nextStatus)) writeStoredRelationNetworkStatus(note.id, nextStatus);
   }
@@ -3925,25 +3927,27 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
   await ensureNotesLoaded(noteIds);
-  const entryPlan = planWritingBasketEntry({
+  const entryPlan = planWritingThemeIndexEntry({
     existingNoteIds: parseWritingBasketIds(),
-    incomingNoteIds: noteIds
+    themeNoteIds: noteIds,
+    resetContext,
+    replaceBasket
   });
-  if (resetContext && replaceBasket) {
+  if (entryPlan.action === "begin-entry") {
     beginWritingEntry(noteIds, {
       title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
       source
     });
     setWritingSourceIndexIds([id]);
-  } else if (replaceBasket) {
+  } else if (entryPlan.action === "replace-entry") {
     continueWritingEntry(noteIds, {
       title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
       source,
       sourceIndexIds: [id],
-      preserveSourceIndexIds: false
+      preserveSourceIndexIds: entryPlan.preserveSourceIndexIds
     });
   } else {
-    if (entryPlan.addedNoteIds.length) {
+    if (entryPlan.action === "append-entry") {
       continueWritingEntry(noteIds, {
         title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
         source,
@@ -7641,9 +7645,12 @@ async function selectWritingThemeIndex(indexId) {
   const fetched = await fetchIndexCard(id);
   if (!fetched?.id) return null;
   const noteIds = writingThemeIndexNoteIds(fetched);
-  const preservingExistingThemeContext =
-    sameUniqueStringSet(noteIds, writingState.themeNoteDetailIds) &&
-    sameUniqueStringSet(noteIds, writingState.themeRelationNoteIds);
+  const preservingExistingThemeContext = shouldPreserveWritingThemeContext({
+    noteIds,
+    loadedThemeNoteIds: writingState.themeNoteDetailIds,
+    relationThemeNoteIds: writingState.themeRelationNoteIds,
+    sameSet: sameUniqueStringSet
+  });
   await ensureNotesLoaded(noteIds);
   upsertWritingThemeIndex(fetched);
   setSelectedWritingThemeIndex(fetched.id);
@@ -18174,8 +18181,7 @@ async function handleStateChange(reason, payload = {}) {
             title: note.title,
             body: note.body,
             status: resolvedStatus,
-            generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
-            relationNetworkStatus: isPersistableRelationNetworkStatus(note.relationNetworkStatus) ? note.relationNetworkStatus : undefined,
+            ...notePersistenceFieldsForSave(note),
             originalityStatus: payload.originalityStatus,
             originalitySimilarity: payload.originalitySimilarity,
             authorship: isPermanentLikeNote(note) ? note.authorship : undefined
@@ -19447,26 +19453,19 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
   const action = String(button.getAttribute("data-writing-index-action") || "");
   const indexId = String(button.getAttribute("data-writing-index-id") || "");
   const projectId = String(button.getAttribute("data-writing-project-id") || "");
-    if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
-      if (!projectId) return;
-      try {
-        await continueWritingProjectEntry(projectId, {
-          openDraft: action === "open-draft",
-          statusMessage:
-            action === "open-draft"
-              ? `已从主题索引打开当前草稿：${projectId}`
-              : action === "resume-scaffold"
-                ? `已从主题索引回到草稿骨架：${projectId}`
-                : `已从主题索引继续当前项目：${projectId}`
-        });
-      } catch (error) {
-        setStatus(
-          `${action === "open-draft" ? "从主题索引打开当前草稿" : action === "resume-scaffold" ? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"}失败：${String(error?.message || error)}`,
-          "bad"
-      );
+  const continuationRoute = writingThemeIndexContinuationRoute({ action, projectId });
+  if (continuationRoute.kind === "continue-project") {
+    try {
+      await continueWritingProjectEntry(continuationRoute.projectId, {
+        openDraft: continuationRoute.openDraft,
+        statusMessage: continuationRoute.statusMessage
+      });
+    } catch (error) {
+      setStatus(`${continuationRoute.failurePrefix}失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
+  if (continuationRoute.kind === "missing-project") return;
   if (!indexId) return;
   if (action === "use") {
     try {

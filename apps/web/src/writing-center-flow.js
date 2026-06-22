@@ -457,6 +457,48 @@ export function planWritingBasketEntry({
   };
 }
 
+export function planWritingThemeIndexEntry({
+  existingNoteIds = [],
+  themeNoteIds = [],
+  resetContext = false,
+  replaceBasket = false
+} = {}) {
+  const entryPlan = planWritingBasketEntry({
+    existingNoteIds,
+    incomingNoteIds: themeNoteIds
+  });
+  if (resetContext && replaceBasket) {
+    return {
+      ...entryPlan,
+      action: "begin-entry",
+      preserveSourceIndexIds: false,
+      shouldResetContext: true
+    };
+  }
+  if (replaceBasket) {
+    return {
+      ...entryPlan,
+      action: "replace-entry",
+      preserveSourceIndexIds: false,
+      shouldResetContext: false
+    };
+  }
+  if (entryPlan.addedNoteIds.length) {
+    return {
+      ...entryPlan,
+      action: "append-entry",
+      preserveSourceIndexIds: true,
+      shouldResetContext: false
+    };
+  }
+  return {
+    ...entryPlan,
+    action: "metadata-only",
+    preserveSourceIndexIds: true,
+    shouldResetContext: false
+  };
+}
+
 export function resolveWritingSourceIndexIds({
   existingSourceIndexIds = [],
   incomingSourceIndexIds = [],
@@ -478,6 +520,51 @@ export function resolveWritingSelectedThemeIndexId({
   if (currentId && sourceIds.includes(currentId)) return currentId;
   if (sourceIds.length === 1) return sourceIds[0];
   return "";
+}
+
+export function shouldPreserveWritingThemeContext({
+  noteIds = [],
+  loadedThemeNoteIds = [],
+  relationThemeNoteIds = [],
+  sameSet = null
+} = {}) {
+  const same = typeof sameSet === "function"
+    ? sameSet
+    : (left = [], right = []) => {
+        const leftIds = [...new Set((left || []).map((id) => String(id || "").trim()).filter(Boolean))].sort();
+        const rightIds = [...new Set((right || []).map((id) => String(id || "").trim()).filter(Boolean))].sort();
+        return leftIds.length === rightIds.length && leftIds.every((id, index) => id === rightIds[index]);
+      };
+  return same(noteIds, loadedThemeNoteIds) && same(noteIds, relationThemeNoteIds);
+}
+
+export function writingThemeIndexContinuationRoute({ action = "", projectId = "" } = {}) {
+  const cleanAction = String(action || "").trim();
+  const cleanProjectId = String(projectId || "").trim();
+  if (cleanAction !== "open-draft" && cleanAction !== "resume-project" && cleanAction !== "resume-scaffold") {
+    return { kind: "ignored", handled: false };
+  }
+  if (!cleanProjectId) return { kind: "missing-project", handled: false };
+  const actionLabel =
+    cleanAction === "open-draft"
+      ? "打开当前草稿"
+      : cleanAction === "resume-scaffold"
+        ? "回到草稿骨架"
+        : "继续当前项目";
+  return {
+    kind: "continue-project",
+    handled: true,
+    action: cleanAction,
+    projectId: cleanProjectId,
+    openDraft: cleanAction === "open-draft",
+    statusMessage:
+      cleanAction === "open-draft"
+        ? `已从主题索引打开当前草稿：${cleanProjectId}`
+        : cleanAction === "resume-scaffold"
+          ? `已从主题索引回到草稿骨架：${cleanProjectId}`
+          : `已从主题索引继续当前项目：${cleanProjectId}`,
+    failurePrefix: `从主题索引${actionLabel}`
+  };
 }
 
 export function resolveWritingEntryTitle({
