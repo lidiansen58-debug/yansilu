@@ -138,3 +138,14 @@ export async function handleSystemMessageModalClick(event, deps = {}) {
   renderSystemMessages();
   return { handled: true, kind: route.kind || "unknown", messageId };
 }
+
+export function handleSystemMessageEscapeKey(event, deps = {}) {
+  const {
+    isSystemMessageModalOpen = () => false,
+    closeSystemMessages = () => {}
+  } = deps;
+  if (event?.key !== "Escape" || !isSystemMessageModalOpen()) return { handled: false };
+  closeSystemMessages();
+  event?.preventDefault?.();
+  return { handled: true };
+}

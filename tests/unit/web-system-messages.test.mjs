@@ -140,14 +140,6 @@ test("system message note actions report missing notes instead of optimistic suc
   assert.equal(route.failureStatus, "\u6ca1\u6709\u627e\u5230\u8fd9\u6761\u7cfb\u7edf\u6d88\u606f\u5bf9\u5e94\u7684\u7b14\u8bb0");
 });
 
-test("system message modal can be dismissed with Escape", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-
-  assert.match(source, /function isSystemMessageModalOpen\(\)/);
-  assert.match(source, /e\.key === "Escape" && isSystemMessageModalOpen\(\)/);
-  assert.match(source, /closeSystemMessages\(\);\s*e\.preventDefault\(\);/);
-});
-
 test("AI analysis writes an interrupting system message when suggestions are created", () => {
   const message = noteAnalysisSystemMessageForResult({
     noteId: "note-1",

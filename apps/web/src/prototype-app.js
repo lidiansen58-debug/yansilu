@@ -116,6 +116,10 @@ import {
   renderAiInboxWorkspaceView
 } from "./ai-inbox-workspace.js";
 import {
+  dismissSaveAiSuggestionForLater,
+  saveAiSuggestionForNoteModel
+} from "./save-ai-suggestion-model.js";
+import {
   aiSuggestionFiltersFromWorkspace,
   aiSuggestionReviewedContentFromWorkspace,
   bindAiSuggestionsWorkspaceEvents,
@@ -149,6 +153,7 @@ import {
 import {
   handleMarkSystemMessagesRead,
   handleOpenAllAiInboxFromSystemMessages,
+  handleSystemMessageEscapeKey,
   handleSystemMessageModalClick,
   handleSystemMessagesButtonClick
 } from "./system-message-events.js";
@@ -1305,6 +1310,7 @@ function systemMessageEventDeps() {
     renderSystemMessages,
     openSystemMessages,
     closeSystemMessages,
+    isSystemMessageModalOpen,
     systemMessageActionRoute,
     aiInboxFiltersForSystemMessage,
     globalPendingAiInboxFilters,
@@ -5081,38 +5087,23 @@ function isPermanentLikeNote(note = null) {
 }
 
 function saveAiSuggestionForNote(note = null) {
-  if (!note?.id || state.module !== "explorer") return null;
-  const activeNote = activeEditorNote();
-  if (!activeNote || activeNote.id !== note.id) return null;
-  if (isEmptyUntitledMarkdown(note.body || activeEditorBody(), note.folderId)) return null;
-
-  if (isOriginalRecordableSource(note) && !noteHasGeneratedOriginal(note)) {
-    const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
-    const action = "record-permanent";
-    const fleeting = noteType === "fleeting";
-    return {
-      key: saveAiSuggestionKey(note, action),
-      noteId: note.id,
-      action,
-      text: fleeting ? "已保存，记得清理或沉淀为永久笔记" : "已保存，可提炼为永久笔记",
-      primaryLabel: fleeting ? "提炼为永久笔记" : "立即处理",
-      laterLabel: fleeting ? "稍后清理" : "稍后"
-    };
-  }
-
-  if (isPermanentLikeNote(note) && distillationStatusOf(note) !== "confirmed") {
-    const action = "open-distillation";
-    return {
-      key: saveAiSuggestionKey(note, action),
-      noteId: note.id,
-      action,
-      text: "已保存，可继续整理观点",
-      primaryLabel: "立即处理",
-      laterLabel: "稍后"
-    };
-  }
-
-  return null;
+  return saveAiSuggestionForNoteModel(
+    note,
+    {
+      currentModule: state.module,
+      activeNote: activeEditorNote(),
+      activeBody: activeEditorBody()
+    },
+    {
+      isEmptyUntitledMarkdown,
+      isOriginalRecordableSource,
+      noteHasGeneratedOriginal,
+      noteTypeForNote: (item) => String((item?.folderId ? typeFromFolder(state, item.folderId) : "") || item?.noteType || "").trim().toLowerCase(),
+      isPermanentLikeNote,
+      distillationStatusOf,
+      saveAiSuggestionKey
+    }
+  );
 }
 
 function sourcePromotionWorkflowMessageForNote(note = null, suggestion = null) {
@@ -16376,7 +16367,7 @@ $("btnEditorHelperAction")?.addEventListener("click", () => {
 });
 
 $("btnSaveAiSuggestionLater")?.addEventListener("click", () => {
-  if (saveAiSuggestion?.key) dismissedSaveAiSuggestionKeys.add(saveAiSuggestion.key);
+  dismissSaveAiSuggestionForLater(saveAiSuggestion, dismissedSaveAiSuggestionKeys);
   clearSaveAiSuggestion();
 });
 
@@ -18785,11 +18776,7 @@ document.querySelectorAll("[data-action='open-handoff']").forEach((btn) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && isSystemMessageModalOpen()) {
-    closeSystemMessages();
-    e.preventDefault();
-    return;
-  }
+  if (handleSystemMessageEscapeKey(e, systemMessageEventDeps()).handled) return;
 
   const tag = (e.target?.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable || e.isComposing) return;

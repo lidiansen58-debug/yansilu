@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   handleMarkSystemMessagesRead,
   handleOpenAllAiInboxFromSystemMessages,
+  handleSystemMessageEscapeKey,
   handleSystemMessageModalClick,
   handleSystemMessagesButtonClick,
   readAllSystemMessages,
@@ -178,4 +179,43 @@ test("system message note and workflow actions route through host deps", async (
 
   assert.deepEqual(calls.at(-2), ["openSystemMessageWorkflow", "m1"]);
   assert.deepEqual(calls.at(-1), ["setStatus", "Workflow opened", "ok"]);
+});
+
+test("system message Escape key closes the modal only when it is open", () => {
+  const calls = [];
+  const preventions = [];
+
+  assert.deepEqual(
+    handleSystemMessageEscapeKey(
+      { key: "Enter", preventDefault: () => preventions.push("prevented") },
+      {
+        isSystemMessageModalOpen: () => true,
+        closeSystemMessages: () => calls.push("close")
+      }
+    ),
+    { handled: false }
+  );
+  assert.deepEqual(
+    handleSystemMessageEscapeKey(
+      { key: "Escape", preventDefault: () => preventions.push("prevented") },
+      {
+        isSystemMessageModalOpen: () => false,
+        closeSystemMessages: () => calls.push("close")
+      }
+    ),
+    { handled: false }
+  );
+  assert.deepEqual(
+    handleSystemMessageEscapeKey(
+      { key: "Escape", preventDefault: () => preventions.push("prevented") },
+      {
+        isSystemMessageModalOpen: () => true,
+        closeSystemMessages: () => calls.push("close")
+      }
+    ),
+    { handled: true }
+  );
+
+  assert.deepEqual(calls, ["close"]);
+  assert.deepEqual(preventions, ["prevented"]);
 });

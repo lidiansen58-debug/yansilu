@@ -4,6 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  dismissSaveAiSuggestionForLater,
+  saveAiSuggestionForNoteModel
+} from "../../apps/web/src/save-ai-suggestion-model.js";
+
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 
@@ -23,23 +28,39 @@ test("save-after AI suggestion is rendered in the editor feedback area", () => {
 });
 
 test("save-after AI suggestion keeps one executable suggestion for the active saved note", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const suggestionStart = source.indexOf("function saveAiSuggestionForNote(note = null) {");
-  const suggestionEnd = source.indexOf("function clearSaveAiSuggestion()", suggestionStart);
+  const note = { id: "n1", noteType: "fleeting", body: "content" };
+  const context = { currentModule: "explorer", activeNote: note, activeBody: "" };
+  const deps = {
+    isOriginalRecordableSource: () => true,
+    noteHasGeneratedOriginal: () => false,
+    noteTypeForNote: () => "fleeting",
+    saveAiSuggestionKey: (item, action) => `${item.id}:${action}`
+  };
 
-  assert.ok(suggestionStart >= 0 && suggestionEnd > suggestionStart, "expected saveAiSuggestionForNote() to exist");
-  const suggestionSource = source.slice(suggestionStart, suggestionEnd);
+  assert.equal(saveAiSuggestionForNoteModel(note, { ...context, currentModule: "graph" }, deps), null);
+  assert.equal(saveAiSuggestionForNoteModel(note, { ...context, activeNote: { id: "other" } }, deps), null);
+  assert.equal(saveAiSuggestionForNoteModel(note, context, { ...deps, isEmptyUntitledMarkdown: () => true }), null);
 
-  assert.match(suggestionSource, /state\.module !== "explorer"/);
-  assert.match(suggestionSource, /activeNote\.id !== note\.id/);
-  assert.match(suggestionSource, /isEmptyUntitledMarkdown/);
-  assert.match(suggestionSource, /isOriginalRecordableSource\(note\) && !noteHasGeneratedOriginal\(note\)/);
-  assert.match(suggestionSource, /noteType === "fleeting"/);
-  assert.match(suggestionSource, /text: fleeting \? "已保存，记得清理或沉淀为永久笔记" : "已保存，可提炼为永久笔记"/);
-  assert.match(suggestionSource, /primaryLabel: fleeting \? "提炼为永久笔记" : "立即处理"/);
-  assert.match(suggestionSource, /laterLabel: fleeting \? "稍后清理" : "稍后"/);
-  assert.match(suggestionSource, /isPermanentLikeNote\(note\) && distillationStatusOf\(note\) !== "confirmed"/);
-  assert.match(suggestionSource, /text: "已保存，可继续整理观点"/);
+  assert.deepEqual(saveAiSuggestionForNoteModel(note, context, deps), {
+    key: "n1:record-permanent",
+    noteId: "n1",
+    action: "record-permanent",
+    text: "已保存，记得清理或沉淀为永久笔记",
+    primaryLabel: "提炼为永久笔记",
+    laterLabel: "稍后清理"
+  });
+
+  const distillationSuggestion = saveAiSuggestionForNoteModel(
+    { id: "p1", noteType: "permanent", body: "claim" },
+    { currentModule: "explorer", activeNote: { id: "p1" }, activeBody: "" },
+    {
+      isPermanentLikeNote: () => true,
+      distillationStatusOf: () => "draft",
+      saveAiSuggestionKey: (item, action) => `${item.id}:${action}`
+    }
+  );
+  assert.equal(distillationSuggestion.action, "open-distillation");
+  assert.equal(distillationSuggestion.text, "已保存，可继续整理观点");
 });
 
 test("save-after AI suggestion only appears after note save succeeds", () => {
@@ -77,14 +98,9 @@ test("save-after AI suggestion actions reuse existing editor routes", () => {
 });
 
 test("save-after AI suggestion can be ignored without mutating the note", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const laterStart = source.indexOf('$("btnSaveAiSuggestionLater")?.addEventListener("click", () => {');
-  const laterEnd = source.indexOf('$("btnSaveAiSuggestionPrimary")?.addEventListener', laterStart);
+  const dismissedKeys = new Set();
+  const nextSuggestion = dismissSaveAiSuggestionForLater({ key: "n1:record-permanent" }, dismissedKeys);
 
-  assert.ok(laterStart >= 0 && laterEnd > laterStart, "expected later suggestion handler to exist");
-  const laterSource = source.slice(laterStart, laterEnd);
-
-  assert.match(laterSource, /dismissedSaveAiSuggestionKeys\.add\(saveAiSuggestion\.key\)/);
-  assert.match(laterSource, /clearSaveAiSuggestion\(\)/);
-  assert.doesNotMatch(laterSource, /updateNote|handleStateChange|recordPermanent|openNoteById/);
+  assert.equal(nextSuggestion, null);
+  assert.equal(dismissedKeys.has("n1:record-permanent"), true);
 });
