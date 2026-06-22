@@ -34,6 +34,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /renderAppShell/);
   assert.match(source, /currentModuleSidebarUi/);
   assert.match(source, /renderSidebarTitleForRuntime/);
+  assert.match(source, /handleNoteMoveStateChange/);
   assert.match(source, /renderWritingPanelShell/);
   assert.match(source, /renderSystemMessagesShell/);
   assert.match(source, /openSystemMessagesShell/);
@@ -48,6 +49,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "app-shell-render-all.js",
     "app-shell-module-ui.js",
     "app-shell-sidebar-controller.js",
+    "app-shell-state-file-actions.js",
     "writing-panel-shell.js",
     "system-messages-shell.js",
     "ai-runtime-mode-controller.js",
