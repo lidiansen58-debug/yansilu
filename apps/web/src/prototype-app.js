@@ -132,6 +132,9 @@ import {
   renderAiSuggestionsWorkspaceView
 } from "./ai-suggestions-workspace.js";
 import {
+  applyAiRuntimeModeChangeForRuntime
+} from "./ai-runtime-mode-controller.js";
+import {
   aiInboxActionLabel,
   aiArtifactFromCanonical,
   aiInboxItemFromCanonical,
@@ -15933,24 +15936,23 @@ $("settingsTemplatePreviewModal")?.addEventListener("click", (event) => {
 });
 
 async function applyAiRuntimeModeChange(nextMode = "auto") {
-  const next = normalizeAiRuntimeMode(nextMode || "auto");
-  const defaults = aiDefaultsForRuntimeMode(next);
-  settingsState.ai.runtimeMode = next;
-  settingsState.ai.userMode = defaults.userMode;
-  settingsState.ai.modelPack = defaults.modelPack;
-  reconcileAiSelectionState({ syncUserMode: true, resetProviderState: true });
-  persistAiSettingsToStorage();
-  await syncAiSettingsToApi();
-  if (isAiLocalFlowActive({
-    runtimeMode: settingsState.ai.runtimeMode,
-    modelPack: settingsState.ai.modelPack,
-    providerId: currentAiProviderId()
-  }) && shouldUseOllamaLocalRuntime()) {
-    await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("runtime_mode_change"));
-  }
-  await refreshAiRoutePreview();
-  renderSettingsPanel();
-  setStatus(`AI 使用方式已切换为：${settingsAiAdvancedRuntimeModeLabel(settingsState.ai.runtimeMode)}`, "ok");
+  return applyAiRuntimeModeChangeForRuntime(nextMode, {
+    settingsState,
+    normalizeAiRuntimeMode,
+    aiDefaultsForRuntimeMode,
+    reconcileAiSelectionState,
+    persistAiSettingsToStorage,
+    syncAiSettingsToApi,
+    isAiLocalFlowActive,
+    shouldUseOllamaLocalRuntime,
+    previewOllamaLocalAiBootstrapFromUi,
+    localAiPreviewOptionsForAction,
+    refreshAiRoutePreview,
+    renderSettingsPanel,
+    setStatus,
+    currentAiProviderId,
+    settingsAiAdvancedRuntimeModeLabel
+  });
 }
 
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {

@@ -50,6 +50,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "app-shell-module-ui.js",
     "writing-panel-shell.js",
     "system-messages-shell.js",
+    "ai-runtime-mode-controller.js",
     "graph-canvas-event-router.js",
     "graph-visual-map-runtime-state.js",
     "graph-visual-map-chrome.js",
@@ -66,6 +67,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function renderGraphVisualNode/);
   assert.doesNotMatch(source, /function renderGraphVisualEdge/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
+  assert.doesNotMatch(source, /async function applyAiRuntimeModeChange\(nextMode = "auto"\) \{\s*const next = normalizeAiRuntimeMode/);
   assert.doesNotMatch(source, /const configs = \{\s*distillation:/);
 });
 
