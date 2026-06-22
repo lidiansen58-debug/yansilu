@@ -546,6 +546,7 @@ test("graph note browser uses the same pending-relation style as permanent note 
   const html = readRepoFile("apps", "web", "src", "prototype.html");
   const css = readRepoFile("apps", "web", "src", "prototype.css");
   const appSource = readRepoFile("apps", "web", "src", "prototype-app.js");
+  const sidebarSource = readRepoFile("apps", "web", "src", "app-shell-sidebar-controller.js");
   const appIndex = html.indexOf('<div class="app">');
   const listAreaIndex = html.indexOf('id="listArea"', appIndex);
   const moduleWorkspaceIndex = html.indexOf('id="moduleWorkspace"', appIndex);
@@ -562,7 +563,7 @@ test("graph note browser uses the same pending-relation style as permanent note 
   assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-inline-action\.warn \{[\s\S]*#0f8a7d/);
   assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected\.active \{[\s\S]*rgba\(20, 184, 166, 0\.58\)/);
   assert.match(appSource, /document\.querySelector\("\.app"\)\?\.classList\.toggle\("graph-mode", graphMode\);/);
-  assert.match(appSource, /待关联笔记会使用和永久笔记盒一致的提示样式/);
+  assert.match(sidebarSource, /待关联笔记会使用和永久笔记盒一致的提示样式/);
 });
 
 test("graph browser keeps folder selection ahead of current editor note highlight", () => {

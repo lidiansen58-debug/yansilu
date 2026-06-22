@@ -168,6 +168,10 @@ function readGraphCanvasEventRouter() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-canvas-event-router.js"), "utf8");
 }
 
+function readAppShellSidebarController() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/app-shell-sidebar-controller.js"), "utf8");
+}
+
 function readGraphSelectionPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-selection-panel.js"), "utf8");
 }
@@ -2072,14 +2076,14 @@ test("note box and graph tree sync all notes under the selected root", () => {
 });
 
 test("graph module sidebar is labeled as graph scope instead of permanent-note browser", () => {
-  const source = readPrototypeApp();
-  const sidebarSource = extractFunctionSource(source, "renderSidebarTitle");
+  const sidebarSource = readAppShellSidebarController();
 
-  assert.match(sidebarSource, /\$\("sidebarTitle"\)\.textContent = "图谱笔记范围";/);
+  assert.match(sidebarSource, /sidebarTitle\) sidebarTitle\.textContent = "图谱笔记范围";/);
   assert.match(sidebarSource, /这里不是永久笔记页；点目录或笔记是在切换图谱观察范围。/);
   assert.match(sidebarSource, /待关联笔记会使用和永久笔记盒一致的提示样式；点进来可以关联一条笔记。/);
   assert.doesNotMatch(sidebarSource, /永久笔记浏览/);
 });
+
 
 test("graph load failure renders a quiet empty state instead of a red error panel", () => {
   const source = readPrototypeApp();
