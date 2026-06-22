@@ -336,6 +336,13 @@ import {
   graphThinkingNoteTitle as computeGraphThinkingNoteTitle
 } from "./graph-thinking-items-model.js";
 import {
+  applyGraphEdgeHoverDomState,
+  applyGraphNodeHoverDomState,
+  applyGraphThinkingHoverDomState,
+  graphThinkingHighlightAttrsForItem,
+  resetGraphHoverDomState
+} from "./graph-thinking-hover-controller.js";
+import {
   renderGraphPromptDetailsView,
   renderGraphSelectionMetricsView,
   renderGraphSelectionShellView,
@@ -14221,22 +14228,7 @@ function endGraphViewportDrag(event) {
 }
 
 function resetGraphHoverState() {
-  const panel = document.querySelector(".graph-map-panel");
-  if (!panel) return;
-  panel.classList.remove("is-hovering-node", "is-hovering-edge", "is-hovering-thinking");
-  panel.querySelectorAll(".graph-map-node.is-dimmed, .graph-map-node.is-hovered").forEach((element) => {
-    element.classList.remove("is-dimmed", "is-hovered");
-  });
-  panel.querySelectorAll(".graph-map-edge-group.is-dimmed, .graph-map-edge-group.is-hovered").forEach((element) => {
-    element.classList.remove("is-dimmed", "is-hovered");
-  });
-  const card = $("graphHoverCard");
-  if (card) {
-    card.innerHTML = `
-      <strong>拖动、悬停或点击查看局部</strong>
-      <span>拖动画布换位置；把鼠标移到笔记或关系上，可以只看它附近的关系。</span>
-    `;
-  }
+  return resetGraphHoverDomState({ document, getHoverCard: () => $("graphHoverCard") });
 }
 
 function openGraphSelection(selection = null) {
@@ -14266,156 +14258,21 @@ function openGraphNodeSelectionFromElement(element = null) {
   return true;
 }
 
-function graphDataList(element, name = "") {
-  return String(element?.getAttribute?.(name) || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-function graphEdgeMatchesThinkingTarget(edgeElement, target = {}) {
-  if (!edgeElement) return false;
-  const edgeKey = String(target.edgeKey || "").trim();
-  const edgeId = String(target.edgeId || "").trim();
-  const fromId = String(target.fromId || "").trim();
-  const toId = String(target.toId || "").trim();
-  const relationType = String(target.relationType || "").trim().toLowerCase();
-  if (edgeKey && String(edgeElement.getAttribute("data-edge-key") || "").trim() === edgeKey) return true;
-  if (edgeId && String(edgeElement.getAttribute("data-edge-id") || "").trim() === edgeId) return true;
-  if (!fromId || !toId) return false;
-  const candidateFrom = String(edgeElement.getAttribute("data-edge-from") || "").trim();
-  const candidateTo = String(edgeElement.getAttribute("data-edge-to") || "").trim();
-  if (candidateFrom !== fromId || candidateTo !== toId) return false;
-  return !relationType || String(edgeElement.getAttribute("data-edge-relation-type") || "").trim().toLowerCase() === relationType;
-}
-
 function applyGraphThinkingHoverState(thinkingElement) {
-  const panel = document.querySelector(".graph-map-panel");
-  if (!panel || !thinkingElement) return;
-  const nodeIds = new Set(graphDataList(thinkingElement, "data-graph-thinking-node-ids"));
-  const edgeTarget = {
-    edgeKey: String(thinkingElement.getAttribute("data-graph-thinking-edge-key") || "").trim(),
-    edgeId: String(thinkingElement.getAttribute("data-graph-thinking-edge-id") || "").trim(),
-    fromId: String(thinkingElement.getAttribute("data-graph-thinking-edge-from") || "").trim(),
-    toId: String(thinkingElement.getAttribute("data-graph-thinking-edge-to") || "").trim(),
-    relationType: String(thinkingElement.getAttribute("data-graph-thinking-edge-type") || "").trim().toLowerCase()
-  };
-  const edgeElements = [...panel.querySelectorAll(".graph-map-edge-group")];
-  const matchedEdges = new Set();
-  edgeElements.forEach((element) => {
-    if (!graphEdgeMatchesThinkingTarget(element, edgeTarget)) return;
-    matchedEdges.add(element);
-    const fromId = String(element.getAttribute("data-edge-from") || "").trim();
-    const toId = String(element.getAttribute("data-edge-to") || "").trim();
-    if (fromId) nodeIds.add(fromId);
-    if (toId) nodeIds.add(toId);
+  return applyGraphThinkingHoverDomState(thinkingElement, {
+    document,
+    getHoverCard: () => $("graphHoverCard"),
+    resetHoverState: resetGraphHoverState,
+    escapeHtml
   });
-  if (!nodeIds.size && !matchedEdges.size) {
-    resetGraphHoverState();
-    return;
-  }
-  panel.classList.add("is-hovering-thinking");
-  panel.classList.toggle("is-hovering-edge", Boolean(matchedEdges.size));
-  panel.classList.toggle("is-hovering-node", !matchedEdges.size);
-  panel.querySelectorAll(".graph-map-node").forEach((element) => {
-    const candidateId = String(element.getAttribute("data-node-id") || "").trim();
-    const hovered = Boolean(candidateId) && nodeIds.has(candidateId);
-    element.classList.toggle("is-hovered", hovered);
-    element.classList.toggle("is-dimmed", Boolean(candidateId) && !hovered);
-  });
-  edgeElements.forEach((element) => {
-    const fromId = String(element.getAttribute("data-edge-from") || "").trim();
-    const toId = String(element.getAttribute("data-edge-to") || "").trim();
-    const connectsHighlightedNodes = nodeIds.size > 1 && nodeIds.has(fromId) && nodeIds.has(toId);
-    const hovered = matchedEdges.has(element) || connectsHighlightedNodes;
-    element.classList.toggle("is-hovered", hovered);
-    element.classList.toggle("is-dimmed", !hovered);
-  });
-  const card = $("graphHoverCard");
-  if (card) {
-    const title = String(thinkingElement.getAttribute("data-graph-thinking-title") || "待处理").trim() || "待处理";
-    const kicker = String(thinkingElement.getAttribute("data-graph-thinking-kicker") || "可追问处").trim() || "可追问处";
-    const detail = String(thinkingElement.getAttribute("data-graph-thinking-detail") || "").trim();
-    const edgeCount = edgeElements.filter((element) => element.classList.contains("is-hovered")).length;
-    card.innerHTML = `
-      <strong>${escapeHtml(kicker)}：${escapeHtml(title)}</strong>
-      <span>已在图中标出 ${escapeHtml(String(nodeIds.size))} 条笔记${edgeCount ? `、${escapeHtml(String(edgeCount))} 条关系` : ""}${detail ? ` · ${escapeHtml(detail)}` : ""}</span>
-    `;
-  }
 }
 
 function applyGraphNodeHoverState(nodeElement) {
-  const panel = document.querySelector(".graph-map-panel");
-  if (!panel || !nodeElement) return;
-  const nodeId = String(nodeElement.getAttribute("data-node-id") || "").trim();
-  if (!nodeId) return;
-  const neighbors = new Set(
-    String(nodeElement.getAttribute("data-node-neighbors") || "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean)
-  );
-  neighbors.add(nodeId);
-  panel.classList.add("is-hovering-node");
-  panel.classList.remove("is-hovering-edge", "is-hovering-thinking");
-  panel.querySelectorAll(".graph-map-node").forEach((element) => {
-    const candidateId = String(element.getAttribute("data-node-id") || "").trim();
-    element.classList.toggle("is-hovered", candidateId === nodeId);
-    element.classList.toggle("is-dimmed", Boolean(candidateId) && !neighbors.has(candidateId));
-  });
-  panel.querySelectorAll(".graph-map-edge-group").forEach((element) => {
-    const fromId = String(element.getAttribute("data-edge-from") || "").trim();
-    const toId = String(element.getAttribute("data-edge-to") || "").trim();
-    const related = fromId === nodeId || toId === nodeId;
-    element.classList.toggle("is-hovered", related);
-    element.classList.toggle("is-dimmed", !related);
-  });
-  const card = $("graphHoverCard");
-  if (card) {
-    const title = String(nodeElement.getAttribute("data-node-title") || nodeId).trim() || nodeId;
-    const type = String(nodeElement.getAttribute("data-node-type") || "笔记").trim() || "笔记";
-    const degree = Number(nodeElement.getAttribute("data-node-degree") || 0) || 0;
-    const neighborCount = Math.max(0, neighbors.size - 1);
-    card.innerHTML = `
-      <strong>${escapeHtml(title)}</strong>
-      <span>${escapeHtml(type)} · 直接连接 ${escapeHtml(String(degree))} 条 · 一跳邻居 ${escapeHtml(String(neighborCount))} 个</span>
-    `;
-  }
+  return applyGraphNodeHoverDomState(nodeElement, { document, getHoverCard: () => $("graphHoverCard"), escapeHtml });
 }
 
 function applyGraphEdgeHoverState(edgeElement) {
-  const panel = document.querySelector(".graph-map-panel");
-  if (!panel || !edgeElement) return;
-  const fromId = String(edgeElement.getAttribute("data-edge-from") || "").trim();
-  const toId = String(edgeElement.getAttribute("data-edge-to") || "").trim();
-  const highlightedNodeIds = new Set([fromId, toId].filter(Boolean));
-  panel.classList.add("is-hovering-edge");
-  panel.classList.remove("is-hovering-node", "is-hovering-thinking");
-  panel.querySelectorAll(".graph-map-node").forEach((element) => {
-    const candidateId = String(element.getAttribute("data-node-id") || "").trim();
-    element.classList.toggle("is-hovered", highlightedNodeIds.has(candidateId));
-    element.classList.toggle("is-dimmed", Boolean(candidateId) && !highlightedNodeIds.has(candidateId));
-  });
-  panel.querySelectorAll(".graph-map-edge-group").forEach((element) => {
-    const candidateFrom = String(element.getAttribute("data-edge-from") || "").trim();
-    const candidateTo = String(element.getAttribute("data-edge-to") || "").trim();
-    const sameEdge = candidateFrom === fromId && candidateTo === toId;
-    element.classList.toggle("is-hovered", sameEdge);
-    element.classList.toggle("is-dimmed", !sameEdge);
-  });
-  const card = $("graphHoverCard");
-  if (card) {
-    const sourceTitle = String(edgeElement.getAttribute("data-edge-source-title") || fromId || "源笔记").trim() || "源笔记";
-    const targetTitle = String(edgeElement.getAttribute("data-edge-target-title") || toId || "目标笔记").trim() || "目标笔记";
-    const relation = String(edgeElement.getAttribute("data-edge-relation") || "关联").trim() || "关联";
-    const group = String(edgeElement.getAttribute("data-edge-group") || "关系").trim() || "关系";
-    const source = String(edgeElement.getAttribute("data-edge-source") || "自己").trim() || "自己";
-    const rationale = String(edgeElement.getAttribute("data-edge-rationale") || "").trim();
-    card.innerHTML = `
-      <strong>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}</strong>
-      <span>${escapeHtml(group)} · ${escapeHtml(relation)} · ${escapeHtml(source)}${rationale ? ` · ${escapeHtml(rationale)}` : ""}</span>
-    `;
-  }
+  return applyGraphEdgeHoverDomState(edgeElement, { document, getHoverCard: () => $("graphHoverCard"), escapeHtml });
 }
 
 function renderRelationReviewQueueSection(reviewQueue, options = {}) {
@@ -14717,28 +14574,11 @@ function graphThinkingCleanIds(values = []) {
 }
 
 function graphThinkingHighlightAttrs(item = {}) {
-  const nodeIds = graphThinkingCleanIds(item.highlightNodeIds);
-  const edge = item.highlightEdge && typeof item.highlightEdge === "object" ? item.highlightEdge : {};
-  const edgeId = String(item.highlightEdgeId || edge.id || "").trim();
-  const edgeFrom = String(item.highlightEdgeFrom || edge.fromNoteId || "").trim();
-  const edgeTo = String(item.highlightEdgeTo || edge.toNoteId || "").trim();
-  const edgeType = String(item.highlightEdgeType || edge.relationType || "").trim().toLowerCase();
-  const edgeKey = String(
-    item.highlightEdgeKey || (edgeId || edgeFrom || edgeTo ? graphEdgeSelectionKey({ id: edgeId, fromNoteId: edgeFrom, toNoteId: edgeTo, relationType: edgeType }) : "")
-  ).trim();
-  const attrs = [];
-  if (nodeIds.length) attrs.push(`data-graph-thinking-node-ids="${escapeHtml(nodeIds.join(","))}"`);
-  if (edgeKey) attrs.push(`data-graph-thinking-edge-key="${escapeHtml(edgeKey)}"`);
-  if (edgeId) attrs.push(`data-graph-thinking-edge-id="${escapeHtml(edgeId)}"`);
-  if (edgeFrom) attrs.push(`data-graph-thinking-edge-from="${escapeHtml(edgeFrom)}"`);
-  if (edgeTo) attrs.push(`data-graph-thinking-edge-to="${escapeHtml(edgeTo)}"`);
-  if (edgeType) attrs.push(`data-graph-thinking-edge-type="${escapeHtml(edgeType)}"`);
-  if (!attrs.length) return "";
-  attrs.unshift('data-graph-thinking-highlight="true"');
-  attrs.push(`data-graph-thinking-kicker="${escapeHtml(item.kicker || "可追问处")}"`);
-  attrs.push(`data-graph-thinking-title="${escapeHtml(item.title || "待处理")}"`);
-  attrs.push(`data-graph-thinking-detail="${escapeHtml(item.detail || item.question || "这里值得继续判断。")}"`);
-  return attrs.join(" ");
+  return graphThinkingHighlightAttrsForItem(item, {
+    escapeHtml,
+    cleanIds: graphThinkingCleanIds,
+    edgeSelectionKey: graphEdgeSelectionKey
+  });
 }
 
 function graphSelectEdgeActionAttrs(edge = {}) {

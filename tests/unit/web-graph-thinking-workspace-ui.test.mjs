@@ -64,6 +64,10 @@ import {
   buildGraphThinkingItemsForGraph as moduleBuildGraphThinkingItemsForGraph,
   graphAiAnalysisSummaryStateForGraph as moduleGraphAiAnalysisSummaryStateForGraph
 } from "../../apps/web/src/graph-thinking-items-model.js";
+import {
+  applyGraphThinkingHoverDomState,
+  graphThinkingHighlightAttrsForItem
+} from "../../apps/web/src/graph-thinking-hover-controller.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -167,6 +171,31 @@ function extractFunctionSource(source, name) {
     }
   }
   assert.fail(`expected to find the end of ${name}()`);
+}
+
+function createGraphHoverTestElement(attrs = {}, children = {}) {
+  const classes = new Set(String(attrs.class || "").split(/\s+/).filter(Boolean));
+  return {
+    attrs: { ...attrs },
+    innerHTML: "",
+    classList: {
+      add: (...names) => names.forEach((name) => classes.add(name)),
+      remove: (...names) => names.forEach((name) => classes.delete(name)),
+      contains: (name) => classes.has(name),
+      toggle: (name, force) => {
+        const next = force === undefined ? !classes.has(name) : Boolean(force);
+        if (next) classes.add(name);
+        else classes.delete(name);
+        return next;
+      }
+    },
+    getAttribute(name) {
+      return this.attrs[name] ?? "";
+    },
+    querySelectorAll(selector) {
+      return children[selector] || [];
+    }
+  };
 }
 
 function graphFocusPanelTestDeps() {
@@ -1810,12 +1839,54 @@ test("starfield graph reduces continuous motion when users prefer reduced motion
 });
 
 test("graph thinking cards still highlight anchored graph elements", () => {
-  const source = readPrototypeApp();
+  const attrs = graphThinkingHighlightAttrsForItem({
+    title: "Bridge",
+    kicker: "Relation",
+    detail: "Check this edge",
+    highlightNodeIds: ["a"],
+    highlightEdge: { id: "edge-1", fromNoteId: "a", toNoteId: "b", relationType: "supports" }
+  }, {
+    edgeSelectionKey: (edge) => `${edge.fromNoteId}->${edge.toNoteId}:${edge.relationType}`
+  });
+  assert.match(attrs, /data-graph-thinking-highlight="true"/);
+  assert.match(attrs, /data-graph-thinking-node-ids="a"/);
+  assert.match(attrs, /data-graph-thinking-edge-key="a-&gt;b:supports"/);
+  assert.match(attrs, /data-graph-thinking-edge-id="edge-1"/);
 
-  assert.match(source, /function graphThinkingHighlightAttrs\(item = \{\}\) \{/);
-  assert.match(source, /data-graph-thinking-node-ids/);
-  assert.match(source, /data-graph-thinking-edge-key/);
-  assert.match(source, /function applyGraphThinkingHoverState\(thinkingElement\) \{/);
-  assert.match(source, /panel\.classList\.add\("is-hovering-thinking"\);/);
-  assert.match(source, /element\.classList\.toggle\("is-hovered", hovered\);/);
+  const nodeA = createGraphHoverTestElement({ class: "graph-map-node", "data-node-id": "a" });
+  const nodeB = createGraphHoverTestElement({ class: "graph-map-node", "data-node-id": "b" });
+  const nodeC = createGraphHoverTestElement({ class: "graph-map-node", "data-node-id": "c" });
+  const edge = createGraphHoverTestElement({
+    class: "graph-map-edge-group",
+    "data-edge-id": "edge-1",
+    "data-edge-from": "a",
+    "data-edge-to": "b",
+    "data-edge-relation-type": "supports"
+  });
+  const panel = createGraphHoverTestElement({ class: "graph-map-panel" }, {
+    ".graph-map-node": [nodeA, nodeB, nodeC],
+    ".graph-map-edge-group": [edge]
+  });
+  const hoverCard = createGraphHoverTestElement();
+  const thinking = createGraphHoverTestElement({
+    "data-graph-thinking-node-ids": "a",
+    "data-graph-thinking-edge-id": "edge-1",
+    "data-graph-thinking-edge-from": "a",
+    "data-graph-thinking-edge-to": "b",
+    "data-graph-thinking-edge-type": "supports",
+    "data-graph-thinking-title": "Bridge",
+    "data-graph-thinking-kicker": "Relation"
+  });
+
+  assert.equal(applyGraphThinkingHoverDomState(thinking, {
+    document: { querySelector: () => panel },
+    getHoverCard: () => hoverCard
+  }), true);
+  assert.equal(panel.classList.contains("is-hovering-thinking"), true);
+  assert.equal(panel.classList.contains("is-hovering-edge"), true);
+  assert.equal(nodeA.classList.contains("is-hovered"), true);
+  assert.equal(nodeB.classList.contains("is-hovered"), true);
+  assert.equal(nodeC.classList.contains("is-dimmed"), true);
+  assert.equal(edge.classList.contains("is-hovered"), true);
+  assert.match(hoverCard.innerHTML, /Bridge/);
 });
