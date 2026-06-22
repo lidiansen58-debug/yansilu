@@ -61,6 +61,13 @@ import {
   handleNoteMoveStateChange
 } from "./app-shell-state-file-actions.js";
 import {
+  handleGraphFocusNoteStateChange,
+  handleOpenNoteAiInboxStateChange,
+  handleOpenNoteRelationsStateChange,
+  handleRefreshGraphStateChange,
+  handleSelectFolderStateChange
+} from "./app-shell-state-navigation-actions.js";
+import {
   candidatePreviewItemIds,
   candidatePreviewItems,
   confirmSkipReasonMap,
@@ -14561,9 +14568,11 @@ function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
 
 async function handleStateChange(reason, payload = {}) {
   if (reason === "refresh-graph") {
-    const refreshed = await refreshDirectoryGraph();
-    setStatus(refreshed ? "永久笔记关系图谱已刷新" : `图谱刷新失败：${graphState.error || "请重试"}`, refreshed ? "ok" : "warn");
-    return refreshed;
+    return handleRefreshGraphStateChange(payload, {
+      graphState,
+      refreshDirectoryGraph,
+      setStatus
+    });
   }
 
   if (reason === "create-primary-note") {
@@ -14689,45 +14698,27 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "select-folder") {
-    if (payload.folderId) {
-      applyExplorerSelectionContext({
-        folderId: String(payload.folderId || "").trim(),
-        clearSelectedFile: true,
-        expandFolder: true
-      });
-    }
-    try {
-      if (state.module === "graph") {
-        applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });
-        explorer?.restoreAutoCollapsedDisconnectedGroups?.();
-        expandGraphBrowserTree();
-        explorer?.render?.();
-      }
-      await syncNotesForDirectory(state.selectedFolderId);
-      if (state.module !== "graph") explorer?.expandCurrentEditorNotePathInRoot?.(state.browserRootId);
-      if (state.module === "graph") await refreshDirectoryGraph();
-    } catch (error) {
-      setStatus(`目录加载失败，保留本地数据：${String(error?.message || error)}`, "warn");
-    }
-    renderAll();
-    return;
+    return handleSelectFolderStateChange(payload, {
+      state,
+      explorer,
+      applyExplorerSelectionContext,
+      expandGraphBrowserTree,
+      refreshDirectoryGraph,
+      syncNotesForDirectory,
+      setStatus,
+      renderAll
+    });
   }
 
   if (reason === "graph-focus-note") {
-    if (payload.noteId) {
-      applyExplorerSelectionContext({
-        noteId: String(payload.noteId || "").trim(),
-        syncSearch: false,
-        expandFolder: true
-      });
-    }
-    if (state.module === "graph") {
-      explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
-      explorer?.collapseDisconnectedGroup?.(GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, { auto: true });
-      renderAll();
-      setStatus("已切换为这条永久笔记的关系视图", "ok");
-      return;
-    }
+    return handleGraphFocusNoteStateChange(payload, {
+      state,
+      explorer,
+      graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
+      applyExplorerSelectionContext,
+      setStatus,
+      renderAll
+    });
   }
 
   if (reason === "graph-associate-note") {
@@ -14760,15 +14751,10 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "open-note-relations") {
-    const noteId = String(payload.noteId || "").trim();
-    if (!noteId) return false;
-    const opened = openNoteRelationEditor(noteId, { source: payload.source || "explorer-browser" });
-    if (opened) {
-      setStatus("已打开这条笔记的关联编辑区", "ok");
-      return true;
-    }
-    setStatus("没有找到这条笔记，无法打开关联编辑区", "warn");
-    return false;
+    return handleOpenNoteRelationsStateChange(payload, {
+      openNoteRelationEditor,
+      setStatus
+    });
   }
 
   if (reason === "run-note-ai-analysis") {
@@ -14811,19 +14797,13 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "open-note-ai-inbox") {
-    const noteId = String(payload.noteId || "").trim();
-    if (!noteId) return false;
-    aiInboxState.filters = normalizeAiInboxFilters({
-      ...aiInboxState.filters,
-      view: "pending",
-      sourceNoteId: noteId
+    return handleOpenNoteAiInboxStateChange(payload, {
+      aiInboxState,
+      normalizeAiInboxFilters,
+      activateModule,
+      openAiInboxModule,
+      setStatus
     });
-    aiInboxState.detail = null;
-    aiInboxState.selectedArtifactId = "";
-    activateModule("aiInbox");
-    await openAiInboxModule();
-    setStatus("已打开当前笔记的 AI 建议复核", "ok");
-    return true;
   }
 
   if (reason === "open-note-main-route") {

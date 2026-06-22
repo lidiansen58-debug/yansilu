@@ -7,6 +7,10 @@ import {
   readPrototypeCssSource,
   readPrototypeHtmlSource
 } from "./copy-source-helpers.mjs";
+import {
+  handleGraphFocusNoteStateChange,
+  handleSelectFolderStateChange
+} from "../../apps/web/src/app-shell-state-navigation-actions.js";
 
 test("explorer keeps a distinct current-note state when the editor still has an active tab", async () => {
   const source = await readComponentsExplorerPaneSource();
@@ -39,13 +43,29 @@ test("explorer pane emits selection intents instead of mutating shared selection
 
 test("selecting a folder expands the current editor note path when it stays in the same root", async () => {
   const explorerSource = await readComponentsExplorerPaneSource();
-  const appSource = await readPrototypeAppSource();
+  const calls = [];
 
   assert.ok(explorerSource.includes("expandCurrentEditorNotePathInRoot(rootId = this.state.browserRootId) {"));
   assert.ok(explorerSource.includes("const currentNoteId = this.currentEditorNoteId();"));
   assert.ok(explorerSource.includes("if (rootBoxIdFromFolder(this.state, note.folderId) !== cleanRootId) return false;"));
   assert.ok(explorerSource.includes("this.expandFolderPath(note.folderId);"));
-  assert.ok(appSource.includes("explorer?.expandCurrentEditorNotePathInRoot?.(state.browserRootId);"));
+
+  await handleSelectFolderStateChange({ folderId: "d2" }, {
+    state: { module: "explorer", selectedFolderId: "d2", browserRootId: "root" },
+    explorer: {
+      expandCurrentEditorNotePathInRoot: (rootId) => calls.push(["expand-current-note", rootId])
+    },
+    applyExplorerSelectionContext: (context) => calls.push(["context", context]),
+    syncNotesForDirectory: async (folderId) => calls.push(["sync-notes", folderId]),
+    renderAll: () => calls.push("render")
+  });
+
+  assert.deepEqual(calls, [
+    ["context", { folderId: "d2", clearSelectedFile: true, expandFolder: true }],
+    ["sync-notes", "d2"],
+    ["expand-current-note", "root"],
+    "render"
+  ]);
 });
 
 test("explorer render auto-reveals the preferred row after rebuilding the tree", async () => {
@@ -70,8 +90,28 @@ test("app state sync funnels note and folder selection through one helper", asyn
   assert.ok(source.includes("state.browserRootId = rootBoxIdFromFolder(state, folder.id);"));
   assert.ok(source.includes("if (clearSelectedFile) state.selectedFileId = null;"));
   assert.ok(source.includes("if (note) applyExplorerSelectionContext({ note, syncSearch: true, expandFolder: true });"));
-  assert.ok(source.includes("applyExplorerSelectionContext({\n        folderId: String(payload.folderId || \"\").trim(),\n        clearSelectedFile: true,\n        expandFolder: true\n      });"));
-  assert.ok(source.includes("applyExplorerSelectionContext({\n        noteId: String(payload.noteId || \"\").trim(),"));
+
+  const folderCalls = [];
+  await handleSelectFolderStateChange({ folderId: " d2 " }, {
+    state: { module: "explorer", selectedFolderId: "d2", browserRootId: "root" },
+    applyExplorerSelectionContext: (context) => folderCalls.push(context),
+    syncNotesForDirectory: async () => {},
+    renderAll: () => {}
+  });
+  assert.equal(folderCalls[0].folderId, "d2");
+  assert.equal(folderCalls[0].clearSelectedFile, true);
+  assert.equal(folderCalls[0].expandFolder, true);
+
+  const noteCalls = [];
+  handleGraphFocusNoteStateChange({ noteId: " n1 " }, {
+    state: { module: "explorer" },
+    applyExplorerSelectionContext: (context) => noteCalls.push(context)
+  });
+  assert.deepEqual(noteCalls[0], {
+    noteId: "n1",
+    syncSearch: false,
+    expandFolder: true
+  });
 });
 
 test("switch-tab sync clears stale explorer file selection when there is no active tab", async () => {
