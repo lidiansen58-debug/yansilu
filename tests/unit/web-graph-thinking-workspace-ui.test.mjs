@@ -30,6 +30,9 @@ import {
   renderGraphZoomStepperView
 } from "../../apps/web/src/graph-visual-map-shell.js";
 import {
+  renderGraphSelectionByKind
+} from "../../apps/web/src/graph-selection-dispatcher.js";
+import {
   graphVisualNodeViewState,
   renderGraphVisualNodeView
 } from "../../apps/web/src/graph-visual-node-view.js";
@@ -345,7 +348,10 @@ test("graph clusters are selectable research objects with their own summary pane
 
   assert.match(source, /function graphClusterResearchMeta\(cluster = \{\}, \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphClusterSelectionPanel\(\{ selection = null, clusterMeta = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
-  assert.match(source, /kind: "cluster"/);
+  assert.equal(renderGraphSelectionByKind(
+    { selection: { kind: "cluster", clusterKey: "cluster-alpha" }, clusterMeta: [{ clusterKey: "cluster-alpha" }] },
+    { renderClusterPanel: ({ selection }) => `cluster:${selection.clusterKey}` }
+  ), "cluster:cluster-alpha");
   assert.match(clusterGlow, /data-graph-select-cluster="cluster-alpha"/);
   assert.match(clusterGlow, /role="button"/);
   assert.match(clusterGlow, /aria-label="View cluster summary: Alpha"/);

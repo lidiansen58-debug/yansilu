@@ -6,7 +6,7 @@ test("prototype graph shell keeps review and relation entry wiring without legac
   const source = await readPrototypeAppSource();
 
   assert.match(source, /function renderGraphPanel\(\)/);
-  assert.match(source, /function renderGraphSelectionPanel/);
+  assert.match(source, /renderGraphSelectionPanelViaDispatcher/);
   assert.match(source, /function renderGraphRelationWorkspaceForNote/);
   assert.match(source, /data-graph-relation-adjustment="strengthen"/);
   assert.match(source, /renderGraphRelationWorkspaceMarkup/);
@@ -43,4 +43,16 @@ test("prototype graph shell delegates visual map chrome to the shell view", asyn
   assert.doesNotMatch(source, /<svg class="graph-map-svg"/);
   assert.doesNotMatch(source, /<radialGradient id="graph-node-core-fill"/);
   assert.doesNotMatch(source, /<div class="graph-map-empty-canvas">/);
+});
+
+test("prototype graph shell delegates selection kind dispatch to a graph module", async () => {
+  const source = await readPrototypeAppSource();
+
+  assert.match(source, /from "\.\/graph-selection-dispatcher\.js"/);
+  assert.match(source, /renderGraphSelectionPanelViaDispatcher/);
+  assert.match(source, /renderNodePanel: renderGraphNodeSelectionPanel/);
+  assert.match(source, /renderEdgePanel: renderGraphEdgeSelectionPanel/);
+  assert.doesNotMatch(source, /if \(normalized\.kind === "cluster"\)/);
+  assert.doesNotMatch(source, /if \(normalized\.kind === "relationForm"\)/);
+  assert.doesNotMatch(source, /if \(normalized\.kind === "bridge"\)/);
 });

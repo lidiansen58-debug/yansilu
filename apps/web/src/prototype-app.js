@@ -329,6 +329,9 @@ import {
   renderGraphSelectionTaskView
 } from "./graph-selection-panel.js";
 import {
+  renderGraphSelectionPanelViaDispatcher
+} from "./graph-selection-dispatcher.js";
+import {
   graphClusterAnchorAngles,
   renderGraphClusterGlowView,
   renderGraphNebulaFieldView,
@@ -13556,28 +13559,31 @@ function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandid
 }
 
 function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [], clusterMeta = [] } = {}) {
-  const normalized = normalizeGraphSelectionForVisibleItems(selection, { nodes: [...nodeMap.values()], edges, topicCandidates, isolatedNotes, bridgeGaps, clusterMeta });
+  return renderGraphSelectionPanelViaDispatcher({
+    selection,
+    nodeMap,
+    edges,
+    topicCandidates,
+    isolatedNotes,
+    bridgeGaps,
+    clusterMeta
+  }, {
+    renderClusterPanel: renderGraphClusterSelectionPanel,
+    renderThemePanel: renderGraphThemeSelectionPanel,
+    renderIsolatedPanel: renderGraphIsolatedSelectionPanel,
+    renderIsolatedCompletePanel: renderGraphIsolatedCompletePanel,
+    renderRelationFormPanel: renderGraphRelationFormSelectionPanel,
+    renderBridgePanel: renderGraphBridgeSelectionPanel,
+    renderNodePanel: renderGraphNodeSelectionPanel,
+    renderEdgePanel: renderGraphEdgeSelectionPanel
+  }, {
+    normalizeSelection: normalizeGraphSelectionForVisibleItems
+  });
+}
+
+function renderGraphNodeSelectionPanel({ selection: normalized = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
   if (!normalized) return "";
-  if (normalized.kind === "cluster") {
-    return renderGraphClusterSelectionPanel({ selection: normalized, clusterMeta, nodeMap, edges });
-  }
-  if (normalized.kind === "theme") {
-    return renderGraphThemeSelectionPanel({ selection: normalized, topicCandidates, nodeMap, edges });
-  }
-  if (normalized.kind === "isolated") {
-    return renderGraphIsolatedSelectionPanel({ selection: normalized, isolatedNotes, nodeMap, edges });
-  }
-  if (normalized.kind === "isolatedComplete") {
-    return renderGraphIsolatedCompletePanel({ selection: normalized, isolatedNotes, nodeMap, edges });
-  }
-  if (normalized.kind === "relationForm") {
-    return renderGraphRelationFormSelectionPanel({ selection: normalized, nodeMap, edges });
-  }
-  if (normalized.kind === "bridge") {
-    return renderGraphBridgeSelectionPanel({ selection: normalized, bridgeGaps, nodeMap });
-  }
-  if (normalized.kind === "node") {
-    const node = nodeMap.get(normalized.nodeId);
+  const node = nodeMap.get(normalized.nodeId);
     if (!node) return "";
     const title = String(node?.title || normalized.nodeId).trim() || normalized.nodeId;
     const directEdges = edges.filter((edge) => {
@@ -13661,7 +13667,10 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
             : ""
         }`
     });
-  }
+}
+
+function renderGraphEdgeSelectionPanel({ selection: normalized = null, nodeMap = new Map(), edges = [] } = {}) {
+  if (!normalized) return "";
   const edge = edges.find((item) => graphEdgeSelectionKey(item) === normalized.edgeKey);
   if (!edge) return "";
   const sourceId = String(edge?.fromNoteId || "").trim();
