@@ -368,6 +368,10 @@ import {
   installedLocalModelReadyForState
 } from "./ai-test-readiness.js";
 import {
+  localAiPreviewOptionsForAction,
+  ollamaStopRuntimeUiOutcome
+} from "./ai-local-runtime-ui-model.js";
+import {
   AI_LOCAL_MODEL_TIERS,
   AI_REMOTE_MODEL_TIERS,
   OLLAMA_CHAT_ENDPOINT_URL,
@@ -2126,31 +2130,21 @@ async function stopOllamaRuntimeFromUi() {
   try {
     const result = await stopOllamaRuntime();
     const runtime = result?.runtime || await fetchOllamaModels();
-    const stopStatus = String(result?.status || "").trim();
-    const remainingManagedPids = Array.isArray(result?.remainingManagedPids || result?.remaining_managed_pids)
-      ? (result.remainingManagedPids || result.remaining_managed_pids)
-      : [];
+    const stopOutcome = ollamaStopRuntimeUiOutcome(result, runtime);
     applyOllamaRuntimePreview(runtime);
-    settingsState.ai.localRuntimeManagedStopPending = stopStatus === "stopping" || remainingManagedPids.length > 0;
-    if (stopStatus === "manual_stop_required") {
-      settingsState.ai.localRuntimeManagedStopPending = false;
-      settingsState.ai.localRuntimeError = String(result?.message || "这个本地 AI 服务不是由研思录启动的，请在本地 AI 应用或系统服务里手动停止或重启。");
+    settingsState.ai.localRuntimeManagedStopPending = stopOutcome.managedStopPending;
+    if (stopOutcome.status === "manual_stop_required") {
+      settingsState.ai.localRuntimeError = stopOutcome.error;
       setStatus(`需要手动管理本地 AI：${settingsState.ai.localRuntimeError}`, "warn");
-    } else if (stopStatus === "stopped") {
-      settingsState.ai.localRuntimeManagedStopPending = false;
+    } else if (stopOutcome.status === "stopped") {
       settingsState.ai.localRuntimeModels = [];
-      settingsState.ai.localRuntimeError = "";
+      settingsState.ai.localRuntimeError = stopOutcome.error;
       setStatus("本地 AI 已停止。需要本地模型时可以再启动。", "ok");
-    } else if (stopStatus === "stopping") {
-      settingsState.ai.localRuntimeError = String(result?.message || "停止命令已发送，正在等待本地 AI 进程退出确认。");
+    } else if (stopOutcome.status === "stopping") {
+      settingsState.ai.localRuntimeError = stopOutcome.error;
       setStatus(`停止命令已发送，正在等待确认：${settingsState.ai.localRuntimeError}`, "warn");
-    } else if (runtime?.status === "unavailable") {
-      settingsState.ai.localRuntimeManagedStopPending = false;
-      settingsState.ai.localRuntimeModels = [];
-      settingsState.ai.localRuntimeError = "";
-      setStatus("本地 AI 已停止。需要本地模型时可以再启动。", "ok");
     } else {
-      settingsState.ai.localRuntimeError = String(result?.message || runtime?.message || "本地 AI 仍可连接。");
+      settingsState.ai.localRuntimeError = stopOutcome.error;
       setStatus(`已发送停止命令，但本地 AI 仍可连接：${settingsState.ai.localRuntimeError}`, "warn");
     }
     return result;
@@ -6828,7 +6822,7 @@ async function applySettingsAiQuickSetup(kind = "") {
   persistAiSettingsToStorage();
   await syncAiSettingsToApi();
   if (normalized === "local") {
-    await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
+    await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("settings_quick_setup"));
   }
   await refreshAiRoutePreview();
   renderSettingsPanel();
@@ -10035,7 +10029,7 @@ async function refreshVaultSettings() {
       modelPack: settingsState.ai.modelPack,
       providerId: currentAiProviderId()
     }) && shouldUseOllamaLocalRuntime()) {
-      await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
+      await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("settings_refresh"));
     }
     await refreshAiRoutePreview({ render: false });
     await refreshScheduledTaskTemplates({ silent: true });
@@ -17163,7 +17157,7 @@ async function runGraphAiAnalysis() {
 
 async function ensureGraphLocalAiReadyForAnalysis() {
   if (!localOllamaSetupActive()) return true;
-  const bootstrapResult = await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
+  const bootstrapResult = await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("graph_analysis"));
   if (bootstrapResult?.ready === true) {
     renderGraphPanel();
     return true;
@@ -19201,7 +19195,7 @@ async function applyAiRuntimeModeChange(nextMode = "auto") {
     modelPack: settingsState.ai.modelPack,
     providerId: currentAiProviderId()
   }) && shouldUseOllamaLocalRuntime()) {
-    await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
+    await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("runtime_mode_change"));
   }
   await refreshAiRoutePreview();
   renderSettingsPanel();
@@ -21260,7 +21254,7 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
     if (targetModule === "graph") graphModuleActivationGuardUntil = Date.now() + 1800;
     activateModule(targetModule);
     if (targetModule === "graph" && state.module === "graph") {
-      await previewOllamaLocalAiBootstrapFromUi({ silent: true, render: false });
+      await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("graph_module_open"));
       await refreshDirectoryGraph();
       if (state.module !== "graph" && Date.now() < graphModuleActivationGuardUntil) {
         activateModule("graph");
