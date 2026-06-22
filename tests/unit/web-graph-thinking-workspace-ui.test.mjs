@@ -69,6 +69,14 @@ import {
 } from "../../apps/web/src/graph-workbench-panel.js";
 import {
   applyGraphEmptyCloseInteraction,
+  applyGraphSectionOpenState,
+  applyGraphThinkingFilterInteraction,
+  applyGraphThinkingHideInteraction,
+  applyGraphThinkingToggleInteraction,
+  applyGraphThinkingVisibilityInteraction,
+  applyGraphUtilityDrawerCloseInteraction,
+  applyGraphUtilityDrawerOpenState,
+  applyGraphUtilityVisibilityInteraction,
   applyGraphWorkbenchCloseInteraction,
   applyGraphWorkbenchEntryInteraction,
   applyGraphWorkbenchTabInteraction
@@ -549,6 +557,59 @@ test("graph workbench interactions toggle entry, tab, and close state", () => {
 
   assert.deepEqual(applyGraphWorkbenchCloseInteraction(graphState), { open: false });
   assert.equal(graphState.workbenchPanelOpen, false);
+});
+
+test("graph workspace interactions keep thinking and utility state predictable", () => {
+  const graphState = {
+    selection: { kind: "node", nodeId: "n1" },
+    thinkingPanelOpen: false,
+    thinkingPanelVisible: false,
+    thinkingFilter: "all",
+    utilityDrawerOpen: true,
+    utilityDrawerVisible: true,
+    sectionOpen: {}
+  };
+  const filterDeps = {
+    graphThinkingFilterMeta: (value = "") => {
+      const key = String(value || "all").trim() || "all";
+      return { key, label: key === "theme" ? "主题" : "全部" };
+    }
+  };
+
+  assert.deepEqual(applyGraphThinkingToggleInteraction(graphState), { open: true, visible: true });
+  assert.equal(graphState.selection, null);
+  assert.equal(graphState.thinkingPanelOpen, true);
+  assert.equal(graphState.thinkingPanelVisible, true);
+
+  assert.deepEqual(applyGraphThinkingHideInteraction(graphState), { open: false, visible: false });
+  assert.equal(graphState.thinkingPanelOpen, false);
+  assert.equal(graphState.thinkingPanelVisible, false);
+
+  graphState.thinkingPanelOpen = true;
+  assert.deepEqual(applyGraphThinkingVisibilityInteraction(graphState, "hide"), { open: false, visible: false });
+  assert.equal(graphState.thinkingPanelOpen, false);
+  assert.equal(graphState.thinkingPanelVisible, false);
+
+  assert.deepEqual(applyGraphThinkingFilterInteraction(graphState, "theme", filterDeps), {
+    filter: "theme",
+    meta: { key: "theme", label: "主题" }
+  });
+  assert.equal(graphState.thinkingFilter, "theme");
+
+  assert.deepEqual(applyGraphUtilityDrawerCloseInteraction(graphState), { open: false, visible: false });
+  assert.equal(graphState.utilityDrawerOpen, false);
+  assert.equal(graphState.utilityDrawerVisible, false);
+
+  graphState.utilityDrawerOpen = true;
+  assert.deepEqual(applyGraphUtilityVisibilityInteraction(graphState, "show"), { open: false, visible: true });
+  assert.equal(graphState.utilityDrawerOpen, false);
+  assert.equal(graphState.utilityDrawerVisible, true);
+
+  assert.deepEqual(applyGraphUtilityDrawerOpenState(graphState, true), { open: true });
+  assert.equal(graphState.utilityDrawerOpen, true);
+
+  assert.deepEqual(applyGraphSectionOpenState(graphState, "ai-analysis", true), { sectionKey: "ai-analysis", open: true });
+  assert.equal(graphState.sectionOpen["ai-analysis"], true);
 });
 
 test("graph research navigator uses cluster maturity for global verdicts", () => {

@@ -328,6 +328,14 @@ import {
 } from "./graph-workbench-panel.js";
 import {
   applyGraphEmptyCloseInteraction,
+  applyGraphSectionOpenState,
+  applyGraphThinkingFilterInteraction,
+  applyGraphThinkingHideInteraction,
+  applyGraphThinkingToggleInteraction,
+  applyGraphThinkingVisibilityInteraction,
+  applyGraphUtilityDrawerCloseInteraction,
+  applyGraphUtilityDrawerOpenState,
+  applyGraphUtilityVisibilityInteraction,
   applyGraphWorkbenchCloseInteraction,
   applyGraphWorkbenchEntryInteraction,
   applyGraphWorkbenchTabInteraction
@@ -18501,8 +18509,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   if (utilityDrawerClose) {
     event.preventDefault();
     event.stopPropagation();
-    graphState.utilityDrawerVisible = false;
-    graphState.utilityDrawerOpen = false;
+    applyGraphUtilityDrawerCloseInteraction(graphState);
     renderGraphPanel();
     setStatus("已隐藏稍后处理", "ok");
     return;
@@ -18517,7 +18524,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     const utilityDrawer = utilityDrawerSummary.closest("[data-graph-utility-drawer]");
     if (utilityDrawer) {
       requestAnimationFrame(() => {
-        graphState.utilityDrawerOpen = utilityDrawer.hasAttribute("open");
+        applyGraphUtilityDrawerOpenState(graphState, utilityDrawer.hasAttribute("open"));
       });
     }
   }
@@ -18527,7 +18534,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     if (section) {
       const sectionKey = String(section.getAttribute("data-graph-section") || "").trim();
       requestAnimationFrame(() => {
-        if (sectionKey) graphState.sectionOpen[sectionKey] = section.hasAttribute("open");
+        applyGraphSectionOpenState(graphState, sectionKey, section.hasAttribute("open"));
       });
     }
   }
@@ -18720,55 +18727,48 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
   }
   const thinkingToggle = event.target.closest("[data-graph-thinking-toggle]");
   if (thinkingToggle) {
-    const nextOpen = graphState.thinkingPanelOpen !== true;
-    graphState.thinkingPanelVisible = true;
-    if (nextOpen) graphState.selection = null;
-    graphState.thinkingPanelOpen = nextOpen;
+    const result = applyGraphThinkingToggleInteraction(graphState);
     renderGraphPanel();
-    setStatus(graphState.thinkingPanelOpen ? "已打开待判断内容" : "已收起待判断内容", "ok");
+    setStatus(result.open ? "已打开待判断内容" : "已收起待判断内容", "ok");
     return;
   }
   const thinkingHide = event.target.closest("[data-graph-thinking-hide]");
   if (thinkingHide) {
     event.preventDefault();
     event.stopPropagation();
-    graphState.thinkingPanelVisible = false;
-    graphState.thinkingPanelOpen = false;
+    applyGraphThinkingHideInteraction(graphState);
     renderGraphPanel();
     setStatus("已隐藏待判断内容", "ok");
     return;
   }
   const thinkingClose = event.target.closest("[data-graph-thinking-close]");
   if (thinkingClose) {
-    graphState.thinkingPanelVisible = false;
-    graphState.thinkingPanelOpen = false;
+    applyGraphThinkingHideInteraction(graphState);
     renderGraphPanel();
     setStatus("已隐藏待判断内容", "ok");
     return;
   }
   const utilityVisibilityToggle = event.target.closest("[data-graph-toggle-utility-visibility]");
   if (utilityVisibilityToggle) {
-    graphState.utilityDrawerVisible = utilityVisibilityToggle.getAttribute("data-graph-toggle-utility-visibility") !== "hide";
-    if (graphState.utilityDrawerVisible) graphState.utilityDrawerOpen = false;
+    const result = applyGraphUtilityVisibilityInteraction(graphState, utilityVisibilityToggle.getAttribute("data-graph-toggle-utility-visibility"));
     renderGraphPanel();
-    setStatus(graphState.utilityDrawerVisible ? "已显示稍后处理" : "已隐藏稍后处理", "ok");
+    setStatus(result.visible ? "已显示稍后处理" : "已隐藏稍后处理", "ok");
     return;
   }
   const thinkingVisibilityToggle = event.target.closest("[data-graph-toggle-thinking-visibility]");
   if (thinkingVisibilityToggle) {
-    graphState.thinkingPanelVisible = thinkingVisibilityToggle.getAttribute("data-graph-toggle-thinking-visibility") !== "hide";
-    if (!graphState.thinkingPanelVisible) {
-      graphState.thinkingPanelOpen = false;
-    }
+    const result = applyGraphThinkingVisibilityInteraction(graphState, thinkingVisibilityToggle.getAttribute("data-graph-toggle-thinking-visibility"));
     renderGraphPanel();
-    setStatus(graphState.thinkingPanelVisible ? "已显示待判断内容" : "已隐藏待判断内容", "ok");
+    setStatus(result.visible ? "已显示待判断内容" : "已隐藏待判断内容", "ok");
     return;
   }
   const thinkingFilter = event.target.closest("[data-graph-thinking-filter]");
   if (thinkingFilter) {
-    graphState.thinkingFilter = graphThinkingFilterMeta(thinkingFilter.getAttribute("data-graph-thinking-filter")).key;
+    const result = applyGraphThinkingFilterInteraction(graphState, thinkingFilter.getAttribute("data-graph-thinking-filter"), {
+      graphThinkingFilterMeta
+    });
     renderGraphPanel();
-    setStatus(`待判断内容已切换为：${graphThinkingFilterMeta(graphState.thinkingFilter).label}`, "ok");
+    setStatus("待判断内容已切换为：" + result.meta.label, "ok");
     return;
   }
   const zoomButton = event.target.closest("[data-graph-zoom-option]");
