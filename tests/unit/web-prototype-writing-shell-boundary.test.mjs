@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   readPrototypeAppSource,
-  readWritingPanelControllerSource
+  readWritingPanelControllerSource,
+  readWritingPanelShellSource
 } from "./copy-source-helpers.mjs";
 
 function extractFunctionSource(source, functionName) {
@@ -22,11 +23,17 @@ test("prototype writing shell keeps the main writing surfaces wired", async () =
 
 test("prototype writing shell delegates panel state building to writing workspace helpers", async () => {
   const source = await readPrototypeAppSource();
+  const panelShellSource = await readWritingPanelShellSource();
   const panelControllerSource = await readWritingPanelControllerSource();
   const renderWritingPanelSource = extractFunctionSource(source, "renderWritingPanel");
 
-  assert.match(source, /buildWritingPanelState/);
-  assert.match(renderWritingPanelSource, /renderWritingPanelDom\(writingPanelDomDeps\(\)\)/);
+  assert.doesNotMatch(source, /renderWritingPanelDom\(writingPanelDomDeps\(\)\)/);
+  assert.doesNotMatch(source, /buildWritingPanelState/);
+  assert.match(renderWritingPanelSource, /renderWritingPanelShell\(writingPanelDomDeps\(\)\)/);
+  assert.match(panelShellSource, /createWritingPanelDomDeps/);
+  assert.match(panelShellSource, /buildWritingPanelState/);
+  assert.match(panelShellSource, /renderWritingPanelDom\(createWritingPanelDomDeps\(host\)\)/);
+  assert.match(panelShellSource, /renderWritingScaffoldPreviewDom\(createWritingPanelDomDeps\(host\)\)/);
   assert.match(panelControllerSource, /const panelState = buildWritingPanelState\(/);
   assert.match(panelControllerSource, /toplineMetrics\.innerHTML = panelState\.toplineMetrics/);
   assert.match(panelControllerSource, /function renderWritingFlowStepsDom/);
@@ -54,10 +61,12 @@ test("prototype writing shell delegates panel state building to writing workspac
 
 test("prototype writing shell keeps continuity and scaffold wording boundaries without legacy scaffold labels", async () => {
   const source = await readPrototypeAppSource();
+  const panelShellSource = await readWritingPanelShellSource();
   const panelControllerSource = await readWritingPanelControllerSource();
 
   assert.match(source, /currentWritingContinuationEntry/);
-  assert.match(source, /describeWritingNextActionFromState/);
+  assert.doesNotMatch(source, /describeWritingNextActionFromState/);
+  assert.match(panelShellSource, /describeWritingNextActionFromState/);
   assert.match(panelControllerSource, /projectEntry\?\.projectId && projectEntry\?\.actionLabel/);
   assert.match(panelControllerSource, /const draftTone =[\s\S]*projectPreflightSummary\.level !== "ready"[\s\S]*"warn"/);
   assert.doesNotMatch(source, /WritingProject: \$\{projectId\}/);

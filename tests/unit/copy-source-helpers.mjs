@@ -43,6 +43,10 @@ export function readWritingPanelControllerSource() {
   return readRepoText("apps", "web", "src", "writing-panel-controller.js");
 }
 
+export function readWritingPanelShellSource() {
+  return readRepoText("apps", "web", "src", "writing-panel-shell.js");
+}
+
 export function readGraphFocusContextPanelSource() {
   return readRepoText("apps", "web", "src", "graph-focus-context-panel.js");
 }

@@ -468,9 +468,9 @@ import {
   renderWritingToplineMetricView
 } from "./writing-workspace-view.js";
 import {
-  renderWritingPanelDom,
-  renderWritingScaffoldPreviewDom
-} from "./writing-panel-controller.js";
+  renderWritingPanelShell,
+  renderWritingScaffoldPreviewShell
+} from "./writing-panel-shell.js";
 import {
   graphAssociateNoteRoute,
   graphFollowupActionRoute,
@@ -484,14 +484,10 @@ import {
 } from "./note-persistence-policy.js";
 import {
   describeWritingContinuationAction,
-  describeWritingMaterialStatus,
-  describeWritingStrongModelIdleSummary,
   describeWritingStrongModelStatus,
   describeWritingBatchAppendStatus,
   planWritingCandidateFocus,
-  describeWritingProjectEntryState,
   describeWritingThemeProjectEntryState,
-  describeWritingNextActionFromState,
   describeWritingProjectPreflight,
   planWritingBasketEntry,
   planWritingThemeIndexEntry,
@@ -502,11 +498,7 @@ import {
   writingThemeIndexContinuationRoute,
   writingCenterContinuationFailureMessage,
   writingCenterContinuationStatusMessage,
-  writingOpenDraftButtonState,
-  writingScaffoldButtonState,
   writingScaffoldPreflightWarning,
-  writingStrongModelButtonState,
-  groupWritingPreflightChecks,
   isWritingStrongModelReady
 } from "./writing-center-flow.js";
 import {
@@ -515,7 +507,6 @@ import {
   describeProjectPreflight
 } from "./writing-readiness.js";
 import {
-  buildWritingPanelState,
   normalizeWritingBookStructure as computeNormalizeWritingBookStructure,
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
   suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle,
@@ -3717,7 +3708,7 @@ function showWritingResult(payload) {
     writingState.scaffoldMarkdown = payload.markdown;
   }
   renderResult($("writingResult"), payload);
-  renderWritingScaffoldPreviewDom(writingPanelDomDeps());
+  renderWritingScaffoldPreviewShell(writingPanelDomDeps());
 }
 
 function syncWritingResultFromCurrentState() {
@@ -8945,32 +8936,17 @@ function writingPanelDomDeps() {
     deriveWritingBookDesign,
     writingBookStructureStats,
     parseWritingBasketIds,
-    buildWritingPanelState,
-    planWritingCandidateFocus,
     writingKnownNoteById,
     isWritingEligibleNote,
     writingRelationCountsReady,
     writingRelationCountsErrored,
-    deriveBasketWritingReadiness,
     currentWritingBasketEligibility,
     writingIneligibleSummary,
-    describeWritingProjectEntryState,
-    describeWritingMaterialStatus,
-    describeWritingProjectPreflight,
-    describeProjectPreflight,
-    groupWritingPreflightChecks,
     writingDraftDirectoryId,
-    describeWritingNextActionFromState,
-    isWritingStrongModelReady,
-    describeWritingStrongModelStatus,
     currentWritingContinuationEntry,
-    writingOpenDraftButtonState,
-    writingScaffoldButtonState,
-    writingStrongModelButtonState,
     selectedWritingThemeIndex,
     writingThemeIndexNoteIds,
     findExistingWritingProjectForTheme,
-    describeWritingContinuationAction,
     renderThinkingStatusBadge,
     writingNoteMeta,
     writingNoteExcerpt,
@@ -8986,7 +8962,6 @@ function writingPanelDomDeps() {
     writingThemeSummary,
     renderScaffoldVersionCard,
     renderDraftVersionCard,
-    describeWritingStrongModelIdleSummary,
     writingBookProjectGoal,
     writingBookProjectAudience,
     escapeHtml
@@ -8994,7 +8969,7 @@ function writingPanelDomDeps() {
 }
 
 function renderWritingPanel() {
-  return renderWritingPanelDom(writingPanelDomDeps());
+  return renderWritingPanelShell(writingPanelDomDeps());
 }
 
 async function refreshVaultSettings() {
