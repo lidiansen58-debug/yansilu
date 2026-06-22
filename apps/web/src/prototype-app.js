@@ -140,6 +140,12 @@ import {
   renderSystemMessagesDom
 } from "./system-messages-controller.js";
 import {
+  handleMarkSystemMessagesRead,
+  handleOpenAllAiInboxFromSystemMessages,
+  handleSystemMessageModalClick,
+  handleSystemMessagesButtonClick
+} from "./system-message-events.js";
+import {
   createRecordPermanentWorkflowOpener,
   createSystemMessageWorkflowOpener
 } from "./prototype-system-message-workflow.js";
@@ -1271,6 +1277,40 @@ function systemMessagesDomDeps() {
     systemMessageSubjectText,
     hideEditorHelper,
     renderSystemMessages
+  };
+}
+
+function systemMessageEventDeps() {
+  return {
+    getMessages: () => systemMessages,
+    setMessages: (messages = []) => {
+      systemMessages = Array.isArray(messages) ? messages : [];
+    },
+    getSelectedMessageId: () => selectedSystemMessageId,
+    setSelectedMessageId: (messageId = "") => {
+      selectedSystemMessageId = String(messageId || "").trim();
+    },
+    markSystemMessageRead,
+    persistSystemMessages,
+    renderSystemMessages,
+    openSystemMessages,
+    closeSystemMessages,
+    systemMessageActionRoute,
+    aiInboxFiltersForSystemMessage,
+    globalPendingAiInboxFilters,
+    setAiInboxFilters: (filters) => {
+      aiInboxState.filters = filters;
+    },
+    resetAiInboxDetail: () => {
+      aiInboxState.detail = null;
+      aiInboxState.selectedArtifactId = "";
+    },
+    activateModule,
+    openAiInboxModule,
+    setSettingsItem,
+    openNoteById,
+    openSystemMessageWorkflow,
+    setStatus
   };
 }
 
@@ -18630,9 +18670,7 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	});
 
 $("systemMessagesButton")?.addEventListener("click", (event) => {
-  event.preventDefault();
-  event.stopPropagation();
-  openSystemMessages();
+  handleSystemMessagesButtonClick(event, systemMessageEventDeps());
 });
 
 $("btnSystemMessageClose")?.addEventListener("click", () => {
@@ -18640,87 +18678,15 @@ $("btnSystemMessageClose")?.addEventListener("click", () => {
 });
 
 $("btnSystemMessageMarkRead")?.addEventListener("click", () => {
-  markSystemMessagesRead();
-  setStatus("系统消息已全部标记为已读", "ok");
+  handleMarkSystemMessagesRead(systemMessageEventDeps());
 });
 
 $("btnSystemMessageOpenAiInbox")?.addEventListener("click", async () => {
-  aiInboxState.filters = globalPendingAiInboxFilters();
-  aiInboxState.detail = null;
-  aiInboxState.selectedArtifactId = "";
-  closeSystemMessages();
-  activateModule("aiInbox");
-  await openAiInboxModule();
-  setStatus("已打开全部待确认建议", "ok");
+  await handleOpenAllAiInboxFromSystemMessages(systemMessageEventDeps());
 });
 
 $("systemMessageModal")?.addEventListener("click", async (event) => {
-  if (event.target?.id === "systemMessageModal") {
-    closeSystemMessages();
-    return;
-  }
-  const selectButton = event.target.closest("[data-system-message-select]");
-  if (selectButton) {
-    selectedSystemMessageId = String(selectButton.dataset.systemMessageSelect || "").trim();
-    systemMessages = markSystemMessageRead(systemMessages, selectedSystemMessageId);
-    persistSystemMessages();
-    renderSystemMessages();
-    return;
-  }
-  const actionButton = event.target.closest("[data-system-message-action]");
-  if (!actionButton) return;
-  const messageId = String(actionButton.dataset.systemMessageId || "").trim();
-  const action = String(actionButton.dataset.systemMessageAction || "").trim();
-  selectedSystemMessageId = messageId || selectedSystemMessageId;
-  systemMessages = markSystemMessageRead(systemMessages, messageId);
-  persistSystemMessages();
-  const route = systemMessageActionRoute(action);
-  if (route.kind === "ai-inbox") {
-    const message = systemMessages.find((item) => item.id === messageId) || null;
-    const messageFilters = aiInboxFiltersForSystemMessage(message);
-    if (messageFilters) {
-      aiInboxState.filters = messageFilters;
-      aiInboxState.detail = null;
-      aiInboxState.selectedArtifactId = "";
-    }
-    closeSystemMessages();
-    activateModule("aiInbox");
-    await openAiInboxModule();
-    setStatus(route.statusMessage, route.statusType);
-    return;
-  }
-  if (route.kind === "settings-update") {
-    closeSystemMessages();
-    activateModule("settings");
-    setSettingsItem("version-update", { render: true, announce: false });
-    setStatus(route.statusMessage, route.statusType);
-    return;
-  }
-  if (route.kind === "note") {
-    const message = systemMessages.find((item) => item.id === messageId) || null;
-    if (message?.noteId) {
-      const opened = openNoteById(message.noteId, { preferTitleSelection: false });
-      if (opened) {
-        closeSystemMessages();
-        activateModule("explorer");
-      }
-      setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
-      return;
-    }
-  }
-  if (route.kind === "workflow") {
-    const message = systemMessages.find((item) => item.id === messageId) || null;
-    const opened = await openSystemMessageWorkflow(message || {});
-    setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
-    return;
-  }
-  if (route.kind === "workflow-entry") {
-    const message = systemMessages.find((item) => item.id === messageId) || null;
-    const opened = await openSystemMessageWorkflow(message || {});
-    setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
-    return;
-  }
-  renderSystemMessages();
+  await handleSystemMessageModalClick(event, systemMessageEventDeps());
 });
 
 $("distillationPanel")?.addEventListener("click", async (event) => {
