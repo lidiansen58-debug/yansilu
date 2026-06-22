@@ -113,3 +113,14 @@ test("prototype graph shell delegates visual map runtime state to a graph module
   assert.doesNotMatch(layoutSource, /clusterAssignments = new Map/);
   assert.doesNotMatch(layoutSource, /clusterMembers\.forEach/);
 });
+
+test("prototype graph shell delegates canvas event routing to a graph module", async () => {
+  const source = await readPrototypeAppSource();
+
+  assert.match(source, /from "\.\/graph-canvas-event-router\.js"/);
+  assert.match(source, /bindGraphCanvasEvents\(\$\("graphCanvas"\), \{/);
+  assert.doesNotMatch(source, /function handleGraphHoverIntent/);
+  assert.doesNotMatch(source, /function handleGraphHoverExit/);
+  assert.doesNotMatch(source, /addEventListener\("mouseover", handleGraphHoverIntent\)/);
+  assert.doesNotMatch(source, /addEventListener\(\s*"wheel",\s*\(event\) =>/);
+});

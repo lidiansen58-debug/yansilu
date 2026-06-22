@@ -160,6 +160,10 @@ function readGraphVisualMapRuntimeState() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-runtime-state.js"), "utf8");
 }
 
+function readGraphCanvasEventRouter() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-canvas-event-router.js"), "utf8");
+}
+
 function readGraphSelectionPanel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-selection-panel.js"), "utf8");
 }
@@ -868,6 +872,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const workflowControllerSource = readGraphRelationWorkflowController();
   const relationSaveTransactionSource = readRelationSaveTransaction();
   const graphAiCandidatesSource = readGraphAiCandidates();
+  const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const html = readPrototypeHtml();
   assert.match(source, /from "\.\/graph-isolated-workflow-shell\.js";/);
   assert.match(source, /from "\.\/graph-relation-state-query\.js";/);
@@ -1019,8 +1024,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(relationControllerSource, /input\.setAttribute\("data-selected-title", title\)/);
   assert.match(source, /async function saveGraphIsolatedRelationForm\(button = null\) \{/);
   assert.match(source, /return graphIsolatedRelationController\.saveRelationForm\(button\);/);
-  assert.match(source, /const rationaleInput = event\.target\.closest\("\[data-graph-isolated-rationale\]"\);/);
-  assert.match(source, /markGraphIsolatedRationaleUserEdited\(rationaleInput\);/);
+  assert.match(graphCanvasEventRouterSource, /const rationaleInput = event\.target\.closest\("\[data-graph-isolated-rationale\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /markGraphIsolatedRationaleUserEdited\(rationaleInput\);/);
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
   assert.match(source, /graphUpsertMarkdownSection\(nextBody, "关联整理备注"/);
   assert.match(source, /function graphNoteHasSavedIsolationDisposition\(note = \{\}\) \{/);
@@ -1416,6 +1421,7 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
   const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
+  const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const isolatedSelectionStart = source.indexOf('function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {');
   const isolatedSelectionEnd = source.indexOf('function renderGraphBridgeSelectionPanel(', isolatedSelectionStart);
   const isolatedThinkingItems = moduleBuildGraphThinkingItemsForGraph({
@@ -1435,7 +1441,7 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(joinWorkspaceSource, /data-graph-manual-target-id/);
   assert.match(joinWorkspaceSource, /renderPreviewPanel\(cleanNoteId, \{ nodeMap, preferredTargetNoteId: previewTargetNoteId \}\)/);
   assert.match(source, /data-graph-relation-candidate-apply/);
-  assert.match(source, /const graphRelationCandidateButton = event\.target\.closest\("\[data-graph-relation-candidate-apply\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /const graphRelationCandidateButton = event\.target\.closest\("\[data-graph-relation-candidate-apply\]"\);/);
   assert.match(source, /await saveGraphCandidateRelation\(graphRelationCandidateButton\);/);
   assert.doesNotMatch(joinWorkspaceSource, /renderGraphRelationCandidateCards\(localCandidates/);
   assert.match(joinWorkspaceSource, /data-graph-isolated-tab="ai"/);
@@ -1455,8 +1461,8 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(source, /isolatedWorkflowTabsByNoteId: \{\},/);
   assert.match(isolatedWorkflowShellSource, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(nextItem\.noteId\)\}"/);
   assert.match(isolatedThinkingItems[0]?.actionAttrs || "", /data-graph-select-isolated="isolated-a" data-graph-isolated-note="isolated-a"/);
-  assert.match(source, /const isolatedWorkflowTab = event\.target\.closest\("\[data-graph-isolated-tab\]"\);/);
-  assert.match(source, /if \(event\.key === "ArrowRight" \|\| event\.key === "ArrowDown"\) \{/);
+  assert.match(graphCanvasEventRouterSource, /const isolatedWorkflowTab = event\.target\.closest\("\[data-graph-isolated-tab\]"\);/);
+  assert.match(graphCanvasEventRouterSource, /if \(event\.key === "ArrowRight" \|\| event\.key === "ArrowDown"\) \{/);
   assert.match(source, /const graphManualTargetButton = event\.target\.closest\("\[data-graph-pick-manual-target\]"\);/);
   assert.match(source, /await saveGraphIsolatedRelationForm\(graphIsolatedRelationSaveButton\);/);
   assert.match(isolatedWorkflowShellSource, /title: "已保存的关系"/);
@@ -1719,9 +1725,9 @@ test("graph relation workspace combines AI candidates, manual relation managemen
 });
 
 test("graph keyboard activation handles workflow actions before generic note opening", () => {
-  const source = readPrototypeApp();
-  const start = source.indexOf('$("graphCanvas")?.addEventListener("keydown", async (event) => {');
-  const end = source.indexOf('$("graphCanvas")?.addEventListener("change"', start);
+  const source = readGraphCanvasEventRouter();
+  const start = source.indexOf('graphCanvas?.addEventListener("keydown", async (event) => {');
+  const end = source.indexOf('graphCanvas?.addEventListener("change"', start);
   assert.ok(start >= 0 && end > start, "expected graph keyboard handler");
   const handler = source.slice(start, end);
 
@@ -1760,7 +1766,7 @@ test("graph keyboard activation handles workflow actions before generic note ope
 test("graph click workflow actions consume events before generic note opening", () => {
   const source = readPrototypeApp();
   const start = source.indexOf('$("graphCanvas")?.addEventListener("click", async (event) => {');
-  const end = source.indexOf('$("graphCanvas")?.addEventListener("keydown"', start);
+  const end = source.indexOf('bindGraphCanvasEvents($("graphCanvas")', start);
   assert.ok(start >= 0 && end > start, "expected graph click handler");
   const handler = source.slice(start, end);
 

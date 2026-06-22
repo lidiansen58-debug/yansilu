@@ -50,6 +50,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "app-shell-module-ui.js",
     "writing-panel-shell.js",
     "system-messages-shell.js",
+    "graph-canvas-event-router.js",
     "graph-visual-map-runtime-state.js",
     "graph-visual-map-chrome.js",
     "graph-visual-map-shell-props.js",
