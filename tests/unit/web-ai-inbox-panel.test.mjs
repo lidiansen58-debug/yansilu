@@ -406,7 +406,7 @@ test("AI inbox panel does not keep rendering stale detail loading after selectio
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.doesNotMatch(detailPane, /姝ｅ湪璇诲彇寤鸿璇︽儏/);
+  assert.doesNotMatch(detailPane, /正在读取建议详情/);
   assert.match(detailPane, /Selected artifact B/);
 });
 

@@ -25,7 +25,7 @@ const EXCLUDED_PARTS = new Set([
 
 const ALLOW_MARKER = "mojibake-risk-allow";
 const REPLACEMENT_PATTERN = /锟|�/g; // mojibake-risk-allow detector marker
-const UTF8_AS_GBK_PATTERN = /(?:[鎴鍏涓绗瑙鐩璇宸澶鏂寮瀹缃鑱姘鏍鐢鎶鐨椂鍙鏄杩][\u4e00-\u9fff]{1,}|锛|銆|€)/g; // mojibake-risk-allow detector marker
+const UTF8_AS_GBK_PATTERN = /(?:[鎴鍏涓绗瑙鐩璇宸澶鏂寮瀹缃鑱姘鏍鐢鎶鐨椂鍙鏄杩][\u4e00-\u9fff]{1,}|鍏ㄨ|鐪嬫|鏁寸悊|鏀惧ぇ|璇荤|缁嗚妭|妫€鏌|寰呭|鐩|绗旇|鍏崇|鍙嶆柟|杈圭晫|锛|銆|€)/g; // mojibake-risk-allow detector marker
 
 function normalizePath(value = "") {
   return String(value || "").replace(/\\/g, "/");

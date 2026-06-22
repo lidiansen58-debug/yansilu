@@ -20,6 +20,14 @@ test("mojibake risk report detects common UTF-8-as-GBK copy", () => {
   assert.equal(result.total >= result.utf8AsGbkCount, true);
 });
 
+
+test("mojibake risk report detects short UTF-8-as-GBK UI labels", () => {
+  const result = classifyMojibakeText("鍏ㄨ / 鐪嬫暣浣撶粨鏋? / 鏁寸悊"); // mojibake-risk-allow test fixture
+
+  assert.equal(result.utf8AsGbkCount >= 3, true);
+  assert.equal(result.total >= result.utf8AsGbkCount, true);
+});
+
 test("mojibake risk report does not flag ordinary Chinese copy", () => {
   const result = classifyMojibakeText("关系已保存，可以继续整理下一条笔记。");
 

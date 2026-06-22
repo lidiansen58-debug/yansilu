@@ -35,7 +35,7 @@ export async function applyAiRuntimeModeChangeForRuntime(nextMode = "auto", deps
   }
   await refreshAiRoutePreview();
   renderSettingsPanel();
-  setStatus(`AI 浣跨敤鏂瑰紡宸插垏鎹负锛?{settingsAiAdvancedRuntimeModeLabel(settingsState.ai.runtimeMode)}`, "ok");
+  setStatus(`AI 使用方式已切换为：${settingsAiAdvancedRuntimeModeLabel(settingsState.ai.runtimeMode)}`, "ok");
   return {
     runtimeMode: settingsState.ai.runtimeMode,
     userMode: settingsState.ai.userMode,

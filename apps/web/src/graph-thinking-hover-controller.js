@@ -53,8 +53,8 @@ export function resetGraphHoverDomState(deps = {}) {
   const card = getHoverCard();
   if (card) {
     card.innerHTML = `
-      <strong>鎷栧姩銆佹偓鍋滄垨鐐瑰嚮鏌ョ湅灞€閮?/strong>
-      <span>鎷栧姩鐢诲竷鎹綅缃紱鎶婇紶鏍囩Щ鍒扮瑪璁版垨鍏崇郴涓婏紝鍙互鍙湅瀹冮檮杩戠殑鍏崇郴銆?/span>
+      <strong>拖动、悬停或点击查看局部关系</strong>
+      <span>拖动画布调整位置；把鼠标移到笔记或关系上，可以只看它附近的关系。</span>
     `;
   }
   return true;
@@ -106,7 +106,7 @@ export function applyGraphThinkingHoverDomState(thinkingElement = null, deps = {
   const card = getHoverCard();
   if (card) {
     const title = String(thinkingElement.getAttribute("data-graph-thinking-title") || "待处理").trim() || "待处理";
-    const kicker = String(thinkingElement.getAttribute("data-graph-thinking-kicker") || "鍙拷闂").trim() || "鍙拷闂";
+    const kicker = String(thinkingElement.getAttribute("data-graph-thinking-kicker") || "可追问处").trim() || "可追问处";
     const detail = String(thinkingElement.getAttribute("data-graph-thinking-detail") || "").trim();
     const edgeCount = edgeElements.filter((element) => element.classList.contains("is-hovered")).length;
     card.innerHTML = `
@@ -142,7 +142,7 @@ export function applyGraphNodeHoverDomState(nodeElement = null, deps = {}) {
   const card = getHoverCard();
   if (card) {
     const title = String(nodeElement.getAttribute("data-node-title") || nodeId).trim() || nodeId;
-    const type = String(nodeElement.getAttribute("data-node-type") || "绗旇").trim() || "绗旇";
+    const type = String(nodeElement.getAttribute("data-node-type") || "笔记").trim() || "笔记";
     const degree = Number(nodeElement.getAttribute("data-node-degree") || 0) || 0;
     const neighborCount = Math.max(0, neighbors.size - 1);
     card.innerHTML = `
@@ -177,10 +177,10 @@ export function applyGraphEdgeHoverDomState(edgeElement = null, deps = {}) {
   const card = getHoverCard();
   if (card) {
     const sourceTitle = String(edgeElement.getAttribute("data-edge-source-title") || fromId || "源笔记").trim() || "源笔记";
-    const targetTitle = String(edgeElement.getAttribute("data-edge-target-title") || toId || "鐩爣绗旇").trim() || "鐩爣绗旇";
-    const relation = String(edgeElement.getAttribute("data-edge-relation") || "鍏宠仈").trim() || "鍏宠仈";
-    const group = String(edgeElement.getAttribute("data-edge-group") || "鍏崇郴").trim() || "鍏崇郴";
-    const source = String(edgeElement.getAttribute("data-edge-source") || "鑷繁").trim() || "鑷繁";
+    const targetTitle = String(edgeElement.getAttribute("data-edge-target-title") || toId || "目标笔记").trim() || "目标笔记";
+    const relation = String(edgeElement.getAttribute("data-edge-relation") || "关联").trim() || "关联";
+    const group = String(edgeElement.getAttribute("data-edge-group") || "关系").trim() || "关系";
+    const source = String(edgeElement.getAttribute("data-edge-source") || "自己").trim() || "自己";
     const rationale = String(edgeElement.getAttribute("data-edge-rationale") || "").trim();
     card.innerHTML = `
       <strong>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}</strong>

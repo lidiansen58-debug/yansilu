@@ -537,7 +537,7 @@ test("link picker empty state stays concise", async () => {
   const html = renderEditorRelationLinkCandidateList({ list: [], query: "missing" });
 
   assert.match(html, /picker-empty/);
-  assert.match(html, /没有匹配笔记|娌℃湁鍖归厤绗旇/);
+  assert.match(html, /没有匹配笔记/);
   assert.doesNotMatch(html, /picker-preview|picker-detail-row/);
 });
 
