@@ -52,6 +52,9 @@ import {
   shouldShowGraphDensityHintForRuntime
 } from "../../apps/web/src/graph-density-hint-controller.js";
 import {
+  resetGraphDemoPresentationStateForRuntime
+} from "../../apps/web/src/graph-demo-presentation-state.js";
+import {
   graphResearchNavigatorState,
   renderGraphResearchNavigatorPanelView
 } from "../../apps/web/src/graph-research-navigator.js";
@@ -1680,20 +1683,58 @@ test("graph click workflow actions consume events before generic note opening", 
 });
 
 test("graph demo startup resets presentation state for a stable first screen", () => {
-  const source = readPrototypeApp();
-  const match = source.match(/function resetGraphDemoPresentationState\(\) \{([\s\S]*?)\n\}/);
-  assert.ok(match, "expected resetGraphDemoPresentationState() to exist");
+  const relationFilterCalls = [];
+  const graphState = {
+    readingLens: "status",
+    focusDepth: "3",
+    selection: { kind: "node", nodeId: "n1" },
+    legendOpen: true,
+    researchNavigatorHidden: true,
+    researchNavigatorTouched: true,
+    zoom: "detail",
+    expanded: true,
+    workbenchPanelOpen: true,
+    workbenchPanelTab: "questions",
+    thinkingPanelOpen: true,
+    thinkingPanelVisible: false,
+    thinkingFilter: "theme",
+    utilityDrawerOpen: true,
+    utilityDrawerVisible: false,
+    utilityDrawerPosition: { x: 10, y: 20 },
+    sectionOpen: {
+      "bridge-gaps": true,
+      "weak-relations": true,
+      "review-queue": true,
+      "ai-analysis": true
+    }
+  };
 
-  assert.match(match[1], /setGraphRelationTypeFilter\("meaningful", \{ persist: false \}\);/);
-  assert.match(match[1], /graphState\.readingLens = "insight";/);
-  assert.match(match[1], /graphState\.focusDepth = "1";/);
-  assert.match(match[1], /graphState\.zoom = "fit";/);
-  assert.match(match[1], /graphState\.researchNavigatorHidden = false;/);
-  assert.match(match[1], /graphState\.researchNavigatorTouched = false;/);
-  assert.match(match[1], /graphState\.workbenchPanelOpen = false;/);
-  assert.match(match[1], /graphState\.thinkingPanelVisible = true;/);
-  assert.match(match[1], /graphState\.utilityDrawerVisible = true;/);
-  assert.match(match[1], /"weak-relations": false/);
+  assert.equal(resetGraphDemoPresentationStateForRuntime(graphState, {
+    setRelationTypeFilter: (...args) => relationFilterCalls.push(args)
+  }), graphState);
+  assert.deepEqual(relationFilterCalls, [["meaningful", { persist: false }]]);
+  assert.equal(graphState.readingLens, "insight");
+  assert.equal(graphState.focusDepth, "1");
+  assert.equal(graphState.selection, null);
+  assert.equal(graphState.legendOpen, false);
+  assert.equal(graphState.researchNavigatorHidden, false);
+  assert.equal(graphState.researchNavigatorTouched, false);
+  assert.equal(graphState.zoom, "fit");
+  assert.equal(graphState.expanded, false);
+  assert.equal(graphState.workbenchPanelOpen, false);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+  assert.equal(graphState.thinkingPanelOpen, false);
+  assert.equal(graphState.thinkingPanelVisible, true);
+  assert.equal(graphState.thinkingFilter, "all");
+  assert.equal(graphState.utilityDrawerOpen, false);
+  assert.equal(graphState.utilityDrawerVisible, true);
+  assert.equal(graphState.utilityDrawerPosition, null);
+  assert.deepEqual(graphState.sectionOpen, {
+    "bridge-gaps": false,
+    "weak-relations": false,
+    "review-queue": false,
+    "ai-analysis": false
+  });
 });
 
 test("graph density hint is temporary and does not stay on the map", () => {
