@@ -338,6 +338,11 @@ import {
   writingFlowStepItems
 } from "./writing-workspace-view.js";
 import {
+  graphAssociateNoteRoute,
+  graphFollowupActionRoute,
+  noteDeleteKeyRoute
+} from "./note-browser-action-router.js";
+import {
   describeWritingContinuationAction,
   describeWritingMaterialStatus,
   describeWritingStrongModelIdleSummary,
@@ -17306,6 +17311,7 @@ const openSystemMessageWorkflow = createSystemMessageWorkflowOpener({
 function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   const cleanNoteId = String(noteId || "").trim();
   const cleanAction = String(action || "").trim().toLowerCase();
+  const actionRoute = graphFollowupActionRoute(cleanAction);
   const cleanRelationId = String(options.relationId || "").trim();
   const cleanTargetNoteId = String(options.targetNoteId || "").trim();
   const cleanRelationType = String(options.relationType || "").trim().toLowerCase();
@@ -17313,7 +17319,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
     .split(",")
     .map((id) => String(id || "").trim())
     .filter(Boolean);
-  if (cleanAction === "writing") {
+  if (actionRoute.kind === "writing") {
     const graphFocusNoteIds = requestedGraphFocusNoteIds.length ? requestedGraphFocusNoteIds : currentGraphVisibleNodeIds();
     const graphBasketNoteIds = graphWritingCandidateNoteIds(graphFocusNoteIds, {
       noteLookup: writingKnownNoteById,
@@ -17479,7 +17485,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
     setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续建立桥接关联" : "已从图谱打开笔记，继续写关系说明", "ok", followupStatusOptions);
     return true;
   }
-  if (cleanAction === "isolate-keep" || cleanAction === "isolate-hold") {
+  if (actionRoute.kind === "boundary-draft") {
     focusBoundaryField();
     setStatus(
       cleanAction === "isolate-keep"
@@ -17877,6 +17883,12 @@ async function handleStateChange(reason, payload = {}) {
   if (reason === "graph-associate-note") {
     const noteId = String(payload.noteId || "").trim();
     if (!noteId) return false;
+    const route = graphAssociateNoteRoute({
+      noteId,
+      source: payload.source,
+      module: state.module,
+      needsRelationWorkflow: graphNodeNeedsRelationWorkflowFromCurrentGraph(noteId)
+    });
     applyExplorerSelectionContext({
       noteId,
       syncSearch: false,
@@ -17885,16 +17897,16 @@ async function handleStateChange(reason, payload = {}) {
     if (state.module === "graph") {
       explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
       explorer?.collapseDisconnectedGroup?.(GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, { auto: true });
-      if (payload.source === "graph-context-menu" && !graphNodeNeedsRelationWorkflowFromCurrentGraph(noteId)) {
-        graphRelationWorkflowController.openRelationFormFromAction({ noteId, relationType: "associated_with" });
+      if (route.kind === "graph-open-relation-form") {
+        graphRelationWorkflowController.openRelationFormFromAction({ noteId: route.noteId, relationType: route.relationType });
         return true;
       }
-      setGraphIsolatedWorkflowActiveTab(noteId, "candidates");
-      openGraphSelection({ kind: "isolated", noteId });
+      setGraphIsolatedWorkflowActiveTab(route.noteId, route.activeTab || "candidates");
+      openGraphSelection({ kind: "isolated", noteId: route.noteId });
       setStatus("已打开待关联笔记整理", "ok");
       return true;
     }
-    return handleStateChange("open-note-relations", { noteId, source: payload.source || "explorer-browser" });
+    return handleStateChange(route.kind, { noteId: route.noteId, source: route.source });
   }
 
   if (reason === "open-note-relations") {
@@ -21081,7 +21093,12 @@ document.addEventListener("keydown", (e) => {
 
   if (e.key === "Delete" && !e.ctrlKey && !e.altKey && !e.metaKey && state.module === "explorer") {
     const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
-    const noteId = String(state.selectedFileId || activeTab?.noteId || "").trim();
+    const route = noteDeleteKeyRoute({
+      module: state.module,
+      selectedFileId: state.selectedFileId,
+      activeTabNoteId: activeTab?.noteId
+    });
+    const noteId = route.handled ? route.noteId : "";
     if (noteId && state.notes.some((note) => note.id === noteId)) {
       void explorer.handleContextAction("delete", { kind: "file", id: noteId });
       e.preventDefault();

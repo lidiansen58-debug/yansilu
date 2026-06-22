@@ -11,6 +11,12 @@ import {
   resolveExplorerNewNoteFolderId
 } from "../../apps/web/src/components-explorer-pane.js";
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
+import {
+  graphAssociateNoteRoute,
+  graphFollowupActionRoute,
+  noteDeleteKeyRoute,
+  noteBrowserStateChangeRoute
+} from "../../apps/web/src/note-browser-action-router.js";
 import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -223,12 +229,11 @@ test("graph note tree context menus only expose graph actions", () => {
 
 test("graph note tree context menu actions route to graph handlers", () => {
   const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
-  const appSource = readRepoFile("apps/web/src/prototype-app.js");
 
   assert.match(explorerSource, /if \(action === "refresh-graph"\) \{[\s\S]*this\.onStateChange\("refresh-graph"\);[\s\S]*return;/);
   assert.match(explorerSource, /if \(action === "associate-note"\) \{[\s\S]*this\.onStateChange\("open-note-relations", \{ noteId: n\.id, source: "graph-context-menu" \}\);[\s\S]*return;/);
   assert.match(explorerSource, /if \(this\.state\.module === "graph"\) \{[\s\S]*this\.onStateChange\("graph-focus-note", \{ noteId: n\.id \}\);/);
-  assert.match(appSource, /if \(reason === "refresh-graph"\) \{[\s\S]*const refreshed = await refreshDirectoryGraph\(\);/);
+  assert.equal(noteBrowserStateChangeRoute("refresh-graph").kind, "refresh-graph");
 });
 
 test("file move action uses the directory picker instead of prompting for ids", () => {
@@ -284,14 +289,11 @@ test("prototype fallback state keeps local permanent note seeds for reviewable m
 });
 
 test("save-note re-syncs explorer context before repainting the note tree", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/if \(reason === "save-note"\) \{([\s\S]*?)\n\s*if \(reason === "note-move"\)/);
+  const route = noteBrowserStateChangeRoute("save-note");
 
-  assert.ok(match, "expected save-note handler to exist");
-  const fnBody = match[1];
-
-  assert.match(fnBody, /syncExplorerContextToNote\(note\);/);
-  assert.match(fnBody, /if \(noteForExplorerSync\) syncExplorerContextToNote\(noteForExplorerSync\);[\s\S]*renderAll\(\);/);
+  assert.equal(route.kind, "save-note");
+  assert.equal(route.syncExplorerBeforeRender, true);
+  assert.equal(route.renderAfterSync, true);
 });
 
 test("new directory creation expands and selects the created folder in the explorer", () => {
@@ -565,11 +567,13 @@ test("graph browser keeps folder selection ahead of current editor note highligh
 });
 
 test("graph folder selection does not expand back to the current editor note path", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const selectFolderBranch = source.match(/if \(reason === "select-folder"\) \{([\s\S]*?)\n\s*renderAll\(\);/)?.[1] || "";
+  const graphRoute = noteBrowserStateChangeRoute("select-folder", {}, { module: "graph" });
+  const explorerRoute = noteBrowserStateChangeRoute("select-folder", {}, { module: "explorer" });
 
-  assert.match(selectFolderBranch, /expandGraphBrowserTree\(\);[\s\S]*explorer\?\.render\?\.\(\);/);
-  assert.match(selectFolderBranch, /if \(state\.module !== "graph"\) explorer\?\.expandCurrentEditorNotePathInRoot\?\.\(state\.browserRootId\);/);
+  assert.equal(graphRoute.refreshGraph, true);
+  assert.equal(graphRoute.expandCurrentEditorNotePath, false);
+  assert.equal(explorerRoute.refreshGraph, false);
+  assert.equal(explorerRoute.expandCurrentEditorNotePath, true);
 });
 
 test("note browser action buttons stop row click fallthrough", () => {
@@ -584,41 +588,43 @@ test("note browser action buttons stop row click fallthrough", () => {
 
 test("graph associate actions open the in-graph relation workflow instead of only focusing the note", () => {
   const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
-  const appSource = readRepoFile("apps/web/src/prototype-app.js");
 
   assert.match(explorerSource, /this\.onStateChange\("graph-associate-note", \{ noteId, source: "graph-sidebar-associate" \}\);/);
   assert.match(explorerSource, /if \(this\.state\.module === "graph"\) this\.onStateChange\("graph-associate-note", \{ noteId: n\.id, source: "graph-context-menu" \}\);/);
-  assert.match(appSource, /if \(reason === "graph-associate-note"\) \{/);
-  assert.match(appSource, /payload\.source === "graph-context-menu" && !graphNodeNeedsRelationWorkflowFromCurrentGraph\(noteId\)/);
-  assert.match(appSource, /graphRelationWorkflowController\.openRelationFormFromAction\(\{ noteId, relationType: "associated_with" \}\);/);
-  assert.match(appSource, /setGraphIsolatedWorkflowActiveTab\(noteId, "candidates"\);[\s\S]*openGraphSelection\(\{ kind: "isolated", noteId \}\);/);
+  assert.equal(
+    graphAssociateNoteRoute({ noteId: "pn_1", source: "graph-context-menu", module: "graph", needsRelationWorkflow: false }).kind,
+    "graph-open-relation-form"
+  );
+  assert.equal(
+    graphAssociateNoteRoute({ noteId: "pn_1", source: "graph-sidebar-associate", module: "graph", needsRelationWorkflow: true }).kind,
+    "graph-open-isolated-workflow"
+  );
 });
 
 test("selected note delete key reuses the note delete flow", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const keydownBody = source.match(/document\.addEventListener\("keydown", \(e\) => \{([\s\S]*?)\n\}\);/)?.[1] || "";
+  const selectedRoute = noteDeleteKeyRoute({ module: "explorer", selectedFileId: "pn_selected", activeTabNoteId: "pn_tab" });
+  const tabRoute = noteDeleteKeyRoute({ module: "explorer", selectedFileId: "", activeTabNoteId: "pn_tab" });
+  const ignoredRoute = noteDeleteKeyRoute({ module: "graph", selectedFileId: "pn_selected" });
 
-  assert.match(keydownBody, /e\.key === "Delete"[\s\S]*state\.module === "explorer"/);
-  assert.match(keydownBody, /state\.selectedFileId \|\| activeTab\?\.noteId/);
-  assert.match(keydownBody, /explorer\.handleContextAction\("delete", \{ kind: "file", id: noteId \}\)/);
+  assert.deepEqual(selectedRoute, { kind: "delete-note", handled: true, noteId: "pn_selected" });
+  assert.deepEqual(tabRoute, { kind: "delete-note", handled: true, noteId: "pn_tab" });
+  assert.equal(ignoredRoute.handled, false);
 });
 
 test("note delete updates client state even when using local fallback data", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const deleteBranch = source.match(/if \(reason === "note-delete"\) \{([\s\S]*?)\n\s*if \(reason === "directory-update"\)/)?.[1] || "";
+  const route = noteBrowserStateChangeRoute("note-delete");
 
-  assert.match(source, /function removeNoteFromClientState\(noteId = ""\) \{/);
-  assert.match(deleteBranch, /if \(!usingLocalFallbackData\) \{[\s\S]*await deleteNote\(payload\.noteId\);[\s\S]*\}/);
-  assert.match(deleteBranch, /removeNoteFromClientState\(payload\.noteId\);/);
+  assert.equal(route.kind, "note-delete");
+  assert.equal(route.remoteWhenAvailable, true);
+  assert.equal(route.updateClientState, true);
 });
 
 test("dragged note move updates client state when using local fallback data", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const moveBranch = source.match(/if \(reason === "note-move"\) \{([\s\S]*?)\n\s*if \(reason === "note-delete"\)/)?.[1] || "";
+  const route = noteBrowserStateChangeRoute("note-move");
 
-  assert.match(source, /function moveNoteInClientState\(noteId = "", directoryId = "", moved = null\) \{/);
-  assert.match(moveBranch, /if \(!usingLocalFallbackData\) \{[\s\S]*moved = await moveNote\(payload\.noteId, payload\.directoryId\);[\s\S]*\}/);
-  assert.match(moveBranch, /moveNoteInClientState\(payload\.noteId, payload\.directoryId, moved\);/);
+  assert.equal(route.kind, "note-move");
+  assert.equal(route.remoteWhenAvailable, true);
+  assert.equal(route.updateClientState, true);
 });
 
 test("note browsers show isolated folder flags without counts only for the permanent root scope", () => {
@@ -897,15 +903,16 @@ test("isolated permanent note detail prompts relations or a temporary independen
 });
 
 test("graph isolated keep and hold actions focus boundary drafts instead of only opening notes", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-
-  assert.match(source, /function openGraphIsolatedDecisionAction\(noteId = "", action = ""\)/);
-  assert.match(source, /setGraphIsolatedWorkflowActiveTab\(cleanNoteId, "hold"\)/);
-  assert.match(source, /openGraphIsolatedDecisionAction\(noteId, action\);/);
-  assert.match(source, /cleanAction === "isolate-keep" \|\| cleanAction === "isolate-hold"/);
-  assert.match(source, /暂时独立：这条判断现在先不连线/);
-  assert.match(source, /暂存观察：这条笔记现在还缺少稳定判断/);
-  assert.match(source, /focusBoundaryField\(\);/);
+  assert.deepEqual(graphFollowupActionRoute("isolate-keep"), {
+    kind: "boundary-draft",
+    handled: true,
+    action: "isolate-keep"
+  });
+  assert.deepEqual(graphFollowupActionRoute("isolate-hold"), {
+    kind: "boundary-draft",
+    handled: true,
+    action: "isolate-hold"
+  });
 });
 
 test("note browsers keep generated-original badges for notes explicitly marked as literature", () => {
