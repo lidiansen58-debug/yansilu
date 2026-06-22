@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 
+import {
+  preferredImportDirectoryIdFromOptions
+} from "../../apps/web/src/import-toolbar-model.js";
 import { renderImportToolbarPanel } from "../../apps/web/src/import-toolbar-panel.js";
 
 test("import toolbar panel renders a simplified obsidian form with tucked-away compatibility settings", () => {
@@ -69,22 +71,35 @@ test("import toolbar panel falls back to permanent note directory when directory
   assert.doesNotMatch(html, /<option value="dir_literature_default">文献笔记目录<\/option>/);
 });
 
-test("prototype import directory preference keeps permanent notes as the default landing choice", () => {
-  const source = readFileSync(new URL("../../apps/web/src/prototype-app.js", import.meta.url), "utf8");
+test("import directory preference keeps permanent notes as the default landing choice", () => {
+  const options = [
+    { id: "dir_literature_default" },
+    { id: "dir_original_default" },
+    { id: "original_child" }
+  ];
+  const rootIdForDirectory = (directoryId = "") =>
+    directoryId === "original_child" || directoryId === "dir_original_default"
+      ? "dir_original_default"
+      : "dir_literature_default";
 
-  assert.match(
-    source,
-    /return options\.some\(\(folder\) => folder\.id === "dir_original_default"\) \? "dir_original_default" : options\[0\]\?\.id \|\| "";/,
-    "expected import defaults to prefer the permanent note directory"
+  assert.equal(
+    preferredImportDirectoryIdFromOptions({ directoryOptions: options, rootIdForDirectory }),
+    "dir_original_default"
   );
-  assert.match(
-    source,
-    /rootBoxIdFromFolder\(state, selectedFolderId\) === "dir_original_default"/,
-    "expected import to inherit only selected permanent-note directories"
+  assert.equal(
+    preferredImportDirectoryIdFromOptions({
+      selectedFolderId: "original_child",
+      directoryOptions: options,
+      rootIdForDirectory
+    }),
+    "original_child"
   );
-  assert.doesNotMatch(
-    source,
-    /if \(options\.some\(\(folder\) => folder\.id === selectedFolderId\)\) return selectedFolderId;/,
-    "import should not inherit literature or fleeting selection as its default"
+  assert.equal(
+    preferredImportDirectoryIdFromOptions({
+      selectedFolderId: "dir_literature_default",
+      directoryOptions: options,
+      rootIdForDirectory
+    }),
+    "dir_original_default"
   );
 });

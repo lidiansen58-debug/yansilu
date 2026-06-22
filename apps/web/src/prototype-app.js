@@ -26,7 +26,8 @@ import {
   renderImportPageMount
 } from "./import-page-mount.js";
 import {
-  importConfirmButtonState
+  importConfirmButtonState,
+  preferredImportDirectoryIdFromOptions
 } from "./import-toolbar-model.js";
 import {
   createImportToolbarActions,
@@ -37,6 +38,12 @@ import {
 import {
   renderImportResultMount
 } from "./import-result-mount.js";
+import {
+  syncRailSelectionDom
+} from "./app-shell-rail.js";
+import {
+  editorSelectionAiActionElements
+} from "./app-shell-editor-elements.js";
 import {
   candidatePreviewItemIds,
   candidatePreviewItems,
@@ -5253,12 +5260,12 @@ function importTargetDirectories() {
 }
 
 function preferredImportDirectoryId(currentValue = "") {
-  const options = importTargetDirectories();
-  const cleanCurrentValue = String(currentValue || "").trim();
-  if (options.some((folder) => folder.id === cleanCurrentValue)) return cleanCurrentValue;
-  const selectedFolderId = String(state.selectedFolderId || "").trim();
-  if (rootBoxIdFromFolder(state, selectedFolderId) === "dir_original_default" && options.some((folder) => folder.id === selectedFolderId)) return selectedFolderId;
-  return options.some((folder) => folder.id === "dir_original_default") ? "dir_original_default" : options[0]?.id || "";
+  return preferredImportDirectoryIdFromOptions({
+    currentValue,
+    selectedFolderId: state.selectedFolderId,
+    directoryOptions: importTargetDirectories(),
+    rootIdForDirectory: (directoryId) => rootBoxIdFromFolder(state, directoryId)
+  });
 }
 
 function confirmedImportTargetDirectoryId(result = {}, fallbackDirectoryId = "") {
@@ -5693,23 +5700,11 @@ function explorerQuickAction(rootId = state.browserRootId) {
 }
 
 function syncRailSelectionState() {
-  const currentQuickAction = explorerQuickAction();
-  const explorerActive = state.module === "explorer";
-  const updateAvailable = shouldShowUpdateAttention(settingsState.update);
-  document.querySelectorAll(".quick-entry").forEach((entry) => {
-    const isCurrentRoot = entry.dataset.action === currentQuickAction;
-    entry.classList.toggle("current-root", explorerActive && isCurrentRoot);
-    entry.classList.toggle("active", explorerActive && isCurrentRoot);
-  });
-  document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.module === state.module);
-    if (button.dataset.module === "settings") {
-      button.classList.toggle("has-update", updateAvailable);
-      const label = updateAvailable ? "设置 · 有新版本" : "设置";
-      button.setAttribute("title", label);
-      button.setAttribute("data-tip", label);
-      button.setAttribute("aria-label", label);
-    }
+  syncRailSelectionDom({
+    document,
+    currentQuickAction: explorerQuickAction(),
+    currentModule: state.module,
+    updateAvailable: shouldShowUpdateAttention(settingsState.update)
   });
 }
 
@@ -16289,9 +16284,7 @@ const editor = new EditorPane({
     originalityNoticeTitle: $("originalityNoticeTitle"),
     originalityNoticeBody: $("originalityNoticeBody"),
     closeOriginalityNotice: $("btnCloseOriginalityNotice"),
-    selectionAiAction: $("selectionAiAction"),
-    selectionAiActionText: $("selectionAiActionText"),
-    selectionAiDistill: $("btnSelectionAiDistill"),
+    ...editorSelectionAiActionElements($),
     insertLink: $("btnInsertLink"),
     insertImage: $("btnInsertImage"),
     insertTag: $("btnInsertTag"),

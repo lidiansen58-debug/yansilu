@@ -25,6 +25,25 @@ export function importConfirmButtonState({ selectedCount = 0, totalCount = 0, ha
   };
 }
 
+export function preferredImportDirectoryIdFromOptions({
+  currentValue = "",
+  selectedFolderId = "",
+  directoryOptions = [],
+  rootIdForDirectory = () => ""
+} = {}) {
+  const options = Array.isArray(directoryOptions) ? directoryOptions : [];
+  const cleanCurrentValue = String(currentValue || "").trim();
+  if (options.some((folder) => folder.id === cleanCurrentValue)) return cleanCurrentValue;
+  const cleanSelectedFolderId = String(selectedFolderId || "").trim();
+  if (
+    rootIdForDirectory(cleanSelectedFolderId) === "dir_original_default" &&
+    options.some((folder) => folder.id === cleanSelectedFolderId)
+  ) {
+    return cleanSelectedFolderId;
+  }
+  return options.some((folder) => folder.id === "dir_original_default") ? "dir_original_default" : options[0]?.id || "";
+}
+
 export function importToolbarViewModel({
   connector = "obsidian",
   directoryId = "",

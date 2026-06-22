@@ -4,6 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  editorSelectionAiActionElements
+} from "../../apps/web/src/app-shell-editor-elements.js";
+
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 
@@ -22,12 +26,19 @@ test("editor renders a lightweight selection AI action near the writing surface"
   assert.match(css, /\.selection-ai-action-button\s*\{[\s\S]*?background: #0f766e;/);
 });
 
-test("prototype passes selection AI action elements into the editor pane", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
+test("app shell passes selection AI action elements into the editor pane", () => {
+  const calls = [];
+  const elements = editorSelectionAiActionElements((id) => {
+    calls.push(id);
+    return { id };
+  });
 
-  assert.match(source, /selectionAiAction: \$\("selectionAiAction"\)/);
-  assert.match(source, /selectionAiActionText: \$\("selectionAiActionText"\)/);
-  assert.match(source, /selectionAiDistill: \$\("btnSelectionAiDistill"\)/);
+  assert.deepEqual(calls, ["selectionAiAction", "selectionAiActionText", "btnSelectionAiDistill"]);
+  assert.deepEqual(elements, {
+    selectionAiAction: { id: "selectionAiAction" },
+    selectionAiActionText: { id: "selectionAiActionText" },
+    selectionAiDistill: { id: "btnSelectionAiDistill" }
+  });
 });
 
 test("selection AI action only appears for selected permanent-note text", () => {
