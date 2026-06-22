@@ -33,6 +33,10 @@ import {
   renderGraphSelectionByKind
 } from "../../apps/web/src/graph-selection-dispatcher.js";
 import {
+  graphReadingLensMeta,
+  renderGraphReadingLensControls
+} from "../../apps/web/src/graph-reading-lens-controls.js";
+import {
   graphFocusContextCollapsedState,
   graphFocusContextCollapsedStatus,
   graphFocusHelpOpenState,
@@ -47,6 +51,11 @@ import {
   graphVisualNodeViewState,
   renderGraphVisualNodeView
 } from "../../apps/web/src/graph-visual-node-view.js";
+import {
+  renderGraphWorkbenchEntryPillsView,
+  renderGraphWorkbenchPanelView,
+  renderGraphWorkbenchPriorityQueueView
+} from "../../apps/web/src/graph-workbench-panel.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -193,23 +202,48 @@ function graphResearchNavigatorTestDeps() {
   };
 }
 
+function graphWorkbenchViewTestDeps(overrides = {}) {
+  return {
+    renderGraphIcon: (name) => `<i>${name}</i>`,
+    graphWorkbenchTabMeta: (value = "clues") => {
+      const meta = {
+        clues: { key: "clues", label: "关系待办", emptyLabel: "关系清楚", panelTitle: "关系待办", note: "先处理关系" },
+        questions: { key: "questions", label: "思考问题", emptyLabel: "暂无问题", panelTitle: "思考问题", note: "继续追问" }
+      };
+      return meta[value] || meta.clues;
+    },
+    graphThinkingFilterMeta: (value = "all") => {
+      const meta = {
+        all: { key: "all", label: "全部", note: "查看全部" },
+        theme: { key: "theme", label: "主题", note: "查看主题" },
+        organize: { key: "organize", label: "关系", note: "查看关系" }
+      };
+      return meta[value] || meta.all;
+    },
+    graphThinkingHighlightAttrs: (item = {}) => item.highlight ? `data-test-highlight="${item.highlight}"` : "",
+    graphCompactActionLabel: (label = "") => String(label || "查看").slice(0, 2),
+    graphState: {},
+    ...overrides
+  };
+}
+
 test("graph workbench entries live beside reading lenses and legend", () => {
-  const source = readPrototypeApp();
-  const workbenchSource = readGraphWorkbenchPanel();
+  const entryMarkup = renderGraphWorkbenchEntryPillsView({
+    clueSummary: { total: 2 },
+    questionSummary: { total: 0 }
+  }, graphWorkbenchViewTestDeps({ graphState: { workbenchPanelOpen: true, workbenchPanelTab: "clues" } }));
+  const lensMarkup = renderGraphReadingLensControls("bridge", true, entryMarkup);
 
-  assert.ok(source.includes('function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false, trailingMarkup = "") {'));
-  assert.ok(source.includes('<div class="graph-reading-lens-side">'));
-  assert.ok(source.includes('id="graphLegendToggle"'));
-  assert.ok(source.includes('function renderGraphWorkbenchEntryPills({ clueSummary = null, questionSummary = null } = {}) {'));
-  assert.ok(source.includes("renderGraphWorkbenchEntryPillsView({ clueSummary, questionSummary }"));
-  assert.ok(workbenchSource.includes('label: "关系待办"'));
-  assert.ok(workbenchSource.includes('label: "思考问题"'));
-  assert.ok(workbenchSource.includes('data-graph-workbench-entry="${escapeHtml(meta.key)}"'));
-  assert.ok(workbenchSource.includes('const label = total > 0 ? meta.label : meta.emptyLabel;'));
-  assert.ok(source.includes('const readingLensTrailingMarkup = `${workbenchEntryMarkup}${researchNavigatorEntryMarkup}`;'));
-  assert.ok(source.includes('renderGraphReadingLensControls(readingLens.key, legendOpen, readingLensTrailingMarkup)'));
+  assert.equal(graphReadingLensMeta("unknown").key, "insight");
+  assert.match(entryMarkup, /data-graph-workbench-entry="clues"/);
+  assert.match(entryMarkup, /data-graph-workbench-entry="questions"/);
+  assert.match(entryMarkup, /关系待办/);
+  assert.match(entryMarkup, /暂无问题/);
+  assert.match(lensMarkup, /class="graph-reading-lens-side"/);
+  assert.match(lensMarkup, /id="graphLegendToggle"/);
+  assert.match(lensMarkup, /data-graph-reading-lens="bridge" aria-pressed="true"/);
+  assert.match(lensMarkup, /data-graph-workbench-entry="clues"/);
 });
-
 test("live graph connectivity overrides stale persisted relation status once a scope is loaded", () => {
   const connectedIds = new Set(["pn_connected"]);
 
@@ -300,18 +334,21 @@ test("graph focus relation panel uses plain wording and explains relation catego
   assert.match(html, /\.graph-focus-help\.is-collapsed \{[\s\S]*display: none;/);
 });
 test("graph workbench panel replaces map-covering clue and question floaters", () => {
-  const source = readPrototypeApp();
-  const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
+  const panel = renderGraphWorkbenchPanelView({
+    clueSummary: { total: 1, detail: "关系待处理" },
+    questionSummary: { total: 2, detail: "问题待处理" },
+    clueSectionsMarkup: "<section>关系列表</section>",
+    thinkingItems: [{ title: "问题一", view: "theme", actionAttrs: 'data-open-note="n1"' }],
+    isolatedQueueMarkup: "<section>孤立队列</section>"
+  }, graphWorkbenchViewTestDeps({ graphState: { workbenchPanelOpen: true, workbenchPanelTab: "clues" } }));
 
-  assert.ok(source.includes('function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [], isolatedQueueMarkup = "" } = {}) {'));
-  assert.ok(source.includes("renderGraphWorkbenchPanelView({ clueSummary, questionSummary, clueSectionsMarkup, thinkingItems, isolatedQueueMarkup }"));
-  assert.ok(workbenchSource.includes('const open = graphState.workbenchPanelOpen === true;'));
-  assert.ok(workbenchSource.includes('data-graph-workbench-tab="${escapeHtml(meta.key)}"'));
-  assert.ok(workbenchSource.includes('data-graph-workbench-close'));
-  assert.match(source, /const sidePanelParts = \[[\s\S]*!filterActive \? workbenchPanelMarkup : ""/);
-  assert.doesNotMatch(source, /thinkingPanelMarkup: thinkingPanel/);
-  assert.doesNotMatch(source, /utilityDrawerMarkup: utilityDrawer/);
+  assert.match(panel, /class="graph-workbench-panel"/);
+  assert.match(panel, /data-graph-workbench-tab="clues"/);
+  assert.match(panel, /data-graph-workbench-tab="questions"/);
+  assert.match(panel, /data-graph-workbench-close/);
+  assert.match(panel, /孤立队列/);
+  assert.match(panel, /关系列表/);
 
   assert.match(html, /\.graph-workbench-panel \{[\s\S]*position: relative;[\s\S]*z-index: 8;/);
   assert.match(html, /\.graph-side-stack \{[\s\S]*display: grid;[\s\S]*align-content: start;/);
@@ -322,7 +359,6 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
   assert.match(html, /\.graph-map-stage::before \{[\s\S]*content: none;/);
   assert.match(html, /\.graph-map-empty-canvas \{[\s\S]*background:[\s\S]*linear-gradient\(180deg, #030812 0%, #060d18 42%, #091423 100%\);/);
 });
-
 test("graph research navigator explains the map before users drill into details", () => {
   const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
@@ -415,9 +451,14 @@ test("graph research navigator uses cluster maturity for global verdicts", () =>
 test("graph workbench prioritizes Chinese clue and question actions", () => {
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
-  const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
   const domain = readDomainCatalogStore();
+  const priorityMarkup = renderGraphWorkbenchPriorityQueueView([
+    { title: "桥接", view: "organize", tone: "bridge", kicker: "缺少连接", actionAttrs: 'data-open-note="n1"' },
+    { title: "复核", view: "organize", tone: "review", kicker: "理由待补", actionAttrs: 'data-open-note="n2"' },
+    { title: "主题", view: "theme", tone: "theme", kicker: "主题候选", actionAttrs: 'data-open-note="n3"' },
+    { title: "第四项", view: "theme", tone: "theme", kicker: "不会优先显示", actionAttrs: 'data-open-note="n4"' }
+  ], "clues", graphWorkbenchViewTestDeps());
 
   assert.ok(source.includes('function graphLocalizedActionText(value = "", fallback = "") {'));
   assert.ok(source.includes("detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale"));
@@ -425,20 +466,19 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
   assert.ok(source.includes("function graphReviewQueueInNodeScope(reviewQueue = null, nodeIds = new Set()) {"));
   assert.ok(panelStateBuilderSource.includes("const scopedActionNodeIds = graphNodeIdsInScope(scopedAllNodes);"));
   assert.ok(panelStateBuilderSource.includes("const scopedReviewQueue = graphReviewQueueInNodeScope(graphState.reviewQueue, scopedActionNodeIds);"));
-  assert.ok(panelStateBuilderSource.includes('return group === "conflict" || group === "boundary";'));
+  assert.ok(panelStateBuilderSource.includes("const scopedNetworkEdges = allGraphEdges.filter((edge) => graphRelationTouchesNodeScope(edge, scopedActionNodeIds));"));
   assert.ok(panelStateBuilderSource.includes("const conflictingRelations = graphMergeRelationsByKey(insightConflictingRelations, scopedTensionRelations);"));
   assert.ok(source.includes("fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 })"));
-  assert.ok(source.includes('function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") {'));
-  assert.ok(source.includes("renderGraphWorkbenchPriorityQueueView(items, activeKey"));
-  assert.match(workbenchSource, /先处理这 3 条/);
-  assert.match(workbenchSource, /先看这 3 个问题/);
-  assert.match(workbenchSource, /<details class="graph-workbench-all"/);
+  assert.match(priorityMarkup, /class="graph-priority-queue"/);
+  assert.match(priorityMarkup, /桥接/);
+  assert.match(priorityMarkup, /复核/);
+  assert.doesNotMatch(priorityMarkup, /第四项/);
+
   assert.match(html, /\.graph-priority-queue \{[\s\S]*display: grid;[\s\S]*radial-gradient/);
   assert.match(html, /\.graph-workbench-all \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;/);
   assert.match(domain, /suggestedAction:/);
   assert.doesNotMatch(domain, /Add an intermediate note or an explicit relation/);
 });
-
 test("graph map side panel does not stretch a second dark canvas below the map", () => {
   const html = readPrototypeHtml();
   const shellMarkup = renderGraphVisualMapShellView({
