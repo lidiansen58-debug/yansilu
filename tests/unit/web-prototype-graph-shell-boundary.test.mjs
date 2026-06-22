@@ -89,9 +89,11 @@ test("prototype graph shell delegates panel state building to a graph module", a
   const source = await readPrototypeAppSource();
 
   assert.match(source, /from "\.\/graph-panel-state-builder\.js"/);
+  assert.match(source, /from "\.\/graph-panel-renderer\.js"/);
   assert.match(source, /buildGraphPanelState\(/);
-  assert.match(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
-  assert.match(source, /renderGraphVisualMap\(\{/);
+  assert.match(source, /renderGraphPanelForRuntime\(\{ summary, canvas, backButton, panelState \}/);
+  assert.doesNotMatch(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
+  assert.doesNotMatch(source, /const noticeMarkup = \(panelState\.notices \|\| \[\]\)/);
   assert.doesNotMatch(source, /const scopedNetworkEdges = allGraphEdges\.filter/);
   assert.doesNotMatch(source, /graphComputedIsolatedNotes\(scopedAllNodes, scopedNetworkEdges/);
   assert.doesNotMatch(source, /const structureFallback = effectiveRelationType === "index"/);

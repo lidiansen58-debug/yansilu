@@ -156,6 +156,10 @@ function readGraphPanelStateBuilder() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-state-builder.js"), "utf8");
 }
 
+function readGraphPanelRenderer() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-renderer.js"), "utf8");
+}
+
 function readGraphVisualMapRuntimeState() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-runtime-state.js"), "utf8");
 }
@@ -2088,6 +2092,7 @@ test("graph module sidebar is labeled as graph scope instead of permanent-note b
 test("graph load failure renders a quiet empty state instead of a red error panel", () => {
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
+  const panelRendererSource = readGraphPanelRenderer();
   const html = readPrototypeHtml();
   const errorState = source.match(/function renderGraphErrorState\(message = ""\) \{([\s\S]*?)\n\}/)?.[1] || "";
 
@@ -2098,7 +2103,8 @@ test("graph load failure renders a quiet empty state instead of a red error pane
   assert.match(errorState, /刷新图谱/);
   assert.doesNotMatch(errorState, /Failed to fetch/);
   assert.match(panelStateBuilderSource, /summaryText: "图谱暂时无法读取，笔记树仍可正常使用。"/);
-  assert.match(source, /summary\.textContent = panelState\.summaryText \|\| "";/);
+  assert.match(source, /renderGraphPanelForRuntime\(\{ summary, canvas, backButton, panelState \}/);
+  assert.match(panelRendererSource, /summary\.textContent = panelState\.summaryText \|\| "";/);
   assert.doesNotMatch(source, /summary\.textContent = `图谱加载失败/);
   assert.match(html, /\.graph-error-card strong \{[\s\S]*color: #17324d;/);
   assert.match(html, /\.graph-error-card span \{[\s\S]*color: #587086;/);
