@@ -536,6 +536,9 @@ import {
   renderWritingScaffoldPreviewShell
 } from "./writing-panel-shell.js";
 import {
+  buildWritingPanelPrototypeHostDeps
+} from "./writing-panel-host-deps.js";
+import {
   buildWritingPanelHostDeps
 } from "./writing-panel-deps.js";
 import {
@@ -8620,7 +8623,7 @@ function currentWritingBookStructure({ notes = writingBasketEntries(), includeLo
 
 
 function writingPanelDomDeps() {
-  return buildWritingPanelHostDeps({
+  return buildWritingPanelHostDeps(buildWritingPanelPrototypeHostDeps({
     $,
     state,
     writingState,
@@ -8662,7 +8665,7 @@ function writingPanelDomDeps() {
     writingBookProjectGoal,
     writingBookProjectAudience,
     escapeHtml
-  });
+  }));
 }
 
 function renderWritingPanel() {
