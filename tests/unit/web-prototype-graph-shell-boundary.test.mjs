@@ -74,9 +74,9 @@ test("prototype graph shell delegates selection kind dispatch to a graph module"
   const source = await readPrototypeAppSource();
 
   assert.match(source, /from "\.\/graph-selection-dispatcher\.js"/);
-  assert.match(source, /from "\.\/graph-selection-runtime-deps\.js"/);
+  assert.match(source, /from "\.\/graph-selection-host-deps\.js"/);
   assert.match(source, /renderGraphSelectionPanelViaDispatcher/);
-  assert.match(source, /buildGraphSelectionDispatcherDeps\(\{/);
+  assert.match(source, /createGraphSelectionDispatcherRuntime\(\{/);
   assert.match(source, /\}, renderers, deps\);/);
   assert.doesNotMatch(source, /renderNodePanel: renderGraphNodeSelectionPanel/);
   assert.doesNotMatch(source, /renderEdgePanel: renderGraphEdgeSelectionPanel/);

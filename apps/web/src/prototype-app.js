@@ -449,10 +449,14 @@ import {
   renderGraphClusterSelectionPanelView
 } from "./graph-cluster-selection-panel.js";
 import {
-  buildGraphEdgeSelectionRuntimeDeps,
-  buildGraphNodeSelectionRuntimeDeps,
-  buildGraphSelectionDispatcherDeps
-} from "./graph-selection-runtime-deps.js";
+  createGraphEdgeSelectionRuntimeDeps,
+  createGraphNodeSelectionRuntimeDeps,
+  createGraphSelectionDispatcherRuntime
+} from "./graph-selection-host-deps.js";
+import {
+  buildGraphWorkspaceRenderDeps,
+  createGraphThinkingModelRuntimeDepsProvider
+} from "./graph-workspace-host-deps.js";
 import {
   graphFocusContextCollapsedState,
   graphFocusContextCollapsedStatus,
@@ -11073,15 +11077,15 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
 
 
 function graphWorkspaceRenderDeps() {
-  return {
-    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
-    relationGroupCounts: graphRelationGroupCounts,
-    nodeTitle: graphNodeTitle,
-    suggestThemeIndexTitle: suggestedThemeIndexTitle,
-    edgeSelectionKey: graphEdgeSelectionKey,
-    relationTypeLabel: graphRelationTypeLabel,
-    renderSelectionMetrics: renderGraphSelectionMetrics
-  };
+  return buildGraphWorkspaceRenderDeps({
+    graphRelationStatusCountsAsNetworkEdge,
+    graphRelationGroupCounts,
+    graphNodeTitle,
+    suggestedThemeIndexTitle,
+    graphEdgeSelectionKey,
+    graphRelationTypeLabel,
+    renderGraphSelectionMetrics
+  });
 }
 
 function graphThemeCandidateNoteIdsForNode(noteId = "", directEdges = [], aiCandidates = []) {
@@ -11596,7 +11600,7 @@ function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandid
 }
 
 function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [], clusterMeta = [] } = {}) {
-  const { renderers, deps } = buildGraphSelectionDispatcherDeps({
+  const { renderers, deps } = createGraphSelectionDispatcherRuntime({
     renderGraphClusterSelectionPanel,
     renderGraphThemeSelectionPanel,
     renderGraphIsolatedSelectionPanel,
@@ -11619,7 +11623,7 @@ function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edge
 }
 
 function renderGraphNodeSelectionPanel(args = {}) {
-  return renderGraphNodeSelectionPanelView(args, buildGraphNodeSelectionRuntimeDeps({
+  return renderGraphNodeSelectionPanelView(args, createGraphNodeSelectionRuntimeDeps({
     escapeHtml,
     graphRelationStatusCountsAsNetworkEdge,
     graphNodeNeedsRelationWorkflow,
@@ -11636,12 +11640,12 @@ function renderGraphNodeSelectionPanel(args = {}) {
     renderGraphPromptDetails,
     renderGraphSelectionShell,
     noteTypeLabel,
-    aiAnalysisLoading: graphState.aiAnalysisLoading
+    graphState
   }));
 }
 
 function renderGraphEdgeSelectionPanel(args = {}) {
-  return renderGraphEdgeSelectionPanelView(args, buildGraphEdgeSelectionRuntimeDeps({
+  return renderGraphEdgeSelectionPanelView(args, createGraphEdgeSelectionRuntimeDeps({
     escapeHtml,
     graphEdgeSelectionKey,
     graphNodeTitle,
@@ -11655,8 +11659,7 @@ function renderGraphEdgeSelectionPanel(args = {}) {
     renderGraphSelectionMetrics,
     renderGraphPromptDetails,
     renderGraphSelectionShell,
-    focusContextMode: graphState.focusContextMode,
-    relationAdjustmentFocusById: graphState.relationAdjustmentFocusById
+    graphState
   }));
 }
 
@@ -12216,8 +12219,7 @@ function graphPendingAiCandidateCount(candidates = [], { existingRelationPairKey
   return computeGraphPendingAiCandidateCount(candidates, { existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge });
 }
 
-function graphThinkingModelRuntimeDeps() {
-  return {
+const graphThinkingModelRuntimeDeps = createGraphThinkingModelRuntimeDepsProvider(() => ({
     escapeHtml,
     graphAiAnalysisPayload,
     graphBridgeSelectionKey,
@@ -12242,8 +12244,7 @@ function graphThinkingModelRuntimeDeps() {
     graphRelationTypeLabel,
     graphSelectEdgeActionAttrs,
     graphThemeSelectionKey
-  };
-}
+}));
 
 function graphLiveAiAnalysisCounts(aiAnalysis = graphState.aiAnalysis, { nodes = null, edges = null } = {}) {
   return graphLiveAiAnalysisCountsForGraph(aiAnalysis, { nodes, edges, graph: graphState.item || {} }, graphThinkingModelRuntimeDeps());

@@ -136,7 +136,9 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-reading-lens-state.js": 180,
     "graph-view-mode-state.js": 140,
     "graph-relation-visual-state.js": 100,
-    "graph-visual-selection-state.js": 45
+    "graph-visual-selection-state.js": 45,
+    "graph-selection-host-deps.js": 80,
+    "graph-workspace-host-deps.js": 60
   };
 
   for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
@@ -169,7 +171,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "system-messages-runtime-controller.js",
     "ai-runtime-mode-controller.js",
     "graph-canvas-event-router.js",
-    "graph-selection-runtime-deps.js",
+    "graph-selection-host-deps.js",
+    "graph-workspace-host-deps.js",
     "graph-cluster-selection-panel.js",
     "graph-visual-map-controller.js",
     "graph-visual-map-host-deps.js",
