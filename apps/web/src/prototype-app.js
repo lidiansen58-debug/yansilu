@@ -549,6 +549,9 @@ import {
   createGraphReadingLensStateController
 } from "./graph-reading-lens-state.js";
 import {
+  GRAPH_INDEX_RELATION_TYPES,
+  GRAPH_LINK_CLUE_RELATION_TYPES,
+  GRAPH_MEANINGFUL_RELATION_TYPES,
   GRAPH_RELATION_TYPE_FILTER_KEY,
   graphHasMeaningfulStructureEdges,
   graphReadingModeMeta,
@@ -559,6 +562,11 @@ import {
   renderGraphViewModeSwitcher as renderGraphViewModeSwitcherForRuntime,
   setGraphRelationTypeFilterForRuntime
 } from "./graph-view-mode-state.js";
+import {
+  graphEdgeSelectionKey,
+  graphRelationGroupMeta,
+  graphRelationVisual
+} from "./graph-relation-visual-state.js";
 import {
   renderDraftVersionCardView,
   renderScaffoldVersionCardView,
@@ -8803,84 +8811,6 @@ function graphRelationStatusLabel(status) {
   return GRAPH_RELATION_STATUS_LABELS[key] || key || "已确认";
 }
 
-const GRAPH_RELATION_VISUALS = {
-  associated_with: { key: "neutral", className: "is-neutral" },
-  belongs_to_topic: { key: "index", className: "is-index" },
-  duplicates: { key: "neutral", className: "is-neutral" },
-  same_topic: { key: "neutral", className: "is-neutral" },
-  asks: { key: "bridge", className: "is-bridge" },
-  supports: { key: "support", className: "is-support" },
-  complements: { key: "support", className: "is-support" },
-  extends: { key: "support", className: "is-support" },
-  example_of: { key: "support", className: "is-support" },
-  follows: { key: "flow", className: "is-flow" },
-  precedes: { key: "flow", className: "is-flow" },
-  appears_in_draft: { key: "flow", className: "is-flow" },
-  contradicts: { key: "conflict", className: "is-conflict" },
-  counterexample_to: { key: "conflict", className: "is-conflict" },
-  contrasts: { key: "conflict", className: "is-conflict" },
-  qualifies: { key: "boundary", className: "is-boundary" },
-  bridges: { key: "bridge", className: "is-bridge" },
-  unexpected_connection: { key: "bridge", className: "is-bridge" },
-  restates: { key: "neutral", className: "is-neutral" },
-  reframes: { key: "bridge", className: "is-bridge" }
-};
-
-const GRAPH_INDEX_RELATION_TYPES = new Set(["belongs_to_topic"]);
-const GRAPH_LINK_CLUE_RELATION_TYPES = new Set(["associated_with", "free_link", "duplicates", "same_topic", "restates"]);
-const GRAPH_NOISY_RELATION_TYPES = new Set([...GRAPH_INDEX_RELATION_TYPES, ...GRAPH_LINK_CLUE_RELATION_TYPES]);
-const GRAPH_MEANINGFUL_RELATION_TYPES = new Set(
-  Object.keys(GRAPH_RELATION_TYPE_LABELS).filter((type) => !GRAPH_NOISY_RELATION_TYPES.has(type))
-);
-
-const GRAPH_RELATION_MARKER_COLORS = {
-  index: "#cbd5e1",
-  neutral: "#8fa0b3",
-  support: "#35b779",
-  flow: "#38a3c9",
-  conflict: "#ef6f6c",
-  boundary: "#d59c2a",
-  bridge: "#a88be8"
-};
-
-const GRAPH_RELATION_GROUP_META = {
-  support: {
-    label: "支持关系",
-    shortLabel: "支持",
-    detail: "支持、补充、推进或举例说明当前笔记。"
-  },
-  conflict: {
-    label: "反方与张力",
-    shortLabel: "反方",
-    detail: "反驳、对比或提供反例，提醒这条判断不能单边成立。"
-  },
-  boundary: {
-    label: "适用边界",
-    shortLabel: "边界",
-    detail: "说明这条笔记在什么条件下成立，或在哪些地方需要限定。"
-  },
-  bridge: {
-    label: "桥接关系",
-    shortLabel: "桥接",
-    detail: "把当前笔记连到另一个主题、问题或过渡概念。"
-  },
-  flow: {
-    label: "写作顺序",
-    shortLabel: "顺序",
-    detail: "前提、后续或进入草稿，帮助把笔记排成文章段落。"
-  },
-  neutral: {
-    label: "普通链接",
-    shortLabel: "链接",
-    detail: "同主题、重述、自由链接或重复线索，只作为辅助参考。"
-  },
-  index: {
-    label: "主题归属",
-    shortLabel: "主题",
-    detail: "这条笔记被放入哪个主题或索引结构。"
-  }
-};
-
 function renderGraphIcon(name = "") {
   const key = String(name || "").trim().toLowerCase();
   if (key === "close") {
@@ -9523,31 +9453,6 @@ function graphEdgeMatchesFilters(edge, filters = {}) {
           ? GRAPH_LINK_CLUE_RELATION_TYPES.has(type)
           : type === filterType;
   return typeMatches && (filterStatus === "all" || status === filterStatus);
-}
-
-function graphRelationVisual(type) {
-  const key = String(type || "associated_with").trim().toLowerCase();
-  return GRAPH_RELATION_VISUALS[key] || GRAPH_RELATION_VISUALS.associated_with;
-}
-
-function graphRelationGroupMeta(type) {
-  const visual = graphRelationVisual(type);
-  return {
-    ...visual,
-    ...(GRAPH_RELATION_GROUP_META[visual.key] || GRAPH_RELATION_GROUP_META.neutral)
-  };
-}
-
-function graphEdgeSelectionKey(edge = {}) {
-  const id = String(edge?.id || "").trim();
-  if (id) return `id:${id}`;
-  return [
-    "pair",
-    String(edge?.fromNoteId || "").trim(),
-    String(edge?.toNoteId || "").trim(),
-    String(edge?.relationType || "associated_with").trim().toLowerCase(),
-    String(edge?.createdBy || "").trim().toLowerCase()
-  ].join("::");
 }
 
 function graphThemeNoteIds(topic = {}) {

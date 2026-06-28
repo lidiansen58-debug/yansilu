@@ -125,7 +125,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-presentation-controller.js": 80,
     "graph-focus-controls-state.js": 90,
     "graph-reading-lens-state.js": 180,
-    "graph-view-mode-state.js": 140
+    "graph-view-mode-state.js": 140,
+    "graph-relation-visual-state.js": 100
   };
 
   for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
@@ -169,6 +170,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-focus-controls-state.js",
     "graph-reading-lens-state.js",
     "graph-view-mode-state.js",
+    "graph-relation-visual-state.js",
     "graph-visual-layout.js"
   ];
 
@@ -207,6 +209,11 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function normalizeGraphRelationTypeFilter/);
   assert.doesNotMatch(source, /function graphReadingModeMeta/);
   assert.doesNotMatch(source, /function graphHasMeaningfulStructureEdges/);
+  assert.doesNotMatch(source, /const GRAPH_RELATION_VISUALS/);
+  assert.doesNotMatch(source, /const GRAPH_RELATION_GROUP_META/);
+  assert.doesNotMatch(source, /function graphRelationVisual/);
+  assert.doesNotMatch(source, /function graphRelationGroupMeta/);
+  assert.doesNotMatch(source, /function graphEdgeSelectionKey/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
   assert.doesNotMatch(source, /function closeSystemMessagesDom/);
   assert.doesNotMatch(source, /function renderSystemMessages/);
