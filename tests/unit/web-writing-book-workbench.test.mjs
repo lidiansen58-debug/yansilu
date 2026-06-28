@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { writingAnalysisSystemMessageForResult } from "../../apps/web/src/prototype-system-messages.js";
 import {
+  deriveWritingBookDesign,
+  deriveWritingLocalBookIdeas,
+  writingBookStructureStats
+} from "../../apps/web/src/prototype-writing-workspace.js";
+import {
   readPrototypeAppSource,
   readPrototypeHtmlSource,
   readPrototypeWritingWorkspaceSource,
@@ -19,21 +24,52 @@ test("writing center exposes a book-level workbench between materials and drafts
 });
 
 test("writing center derives book structure with parts, chapters, sections, and pools", async () => {
-  const source = await readPrototypeAppSource();
   const panelControllerSource = await readWritingPanelControllerSource();
   const writingWorkspaceSource = await readPrototypeWritingWorkspaceSource();
+  const design = deriveWritingBookDesign({
+    title: "AI时代易经与人生",
+    audience: "知识工作者",
+    notes: [
+      { id: "n1", title: "易经不是答案", body: "易经 卦 变化", thesis: "变化判断" },
+      { id: "n2", title: "AI 工作复盘", body: "AI 模型 工作 复盘", boundaryOrCounterpoint: "不能只做类比" },
+      { id: "n3", title: "反方风险", body: "反方 风险 边界" }
+    ],
+    scaffold: {
+      open_questions: ["还缺哪个案例？"],
+      sections: [{ counterpoints: ["不要把模型当答案"] }]
+    }
+  });
+  const stats = writingBookStructureStats(design);
 
-  assert.match(source, /function deriveWritingBookDesign/);
-  assert.match(source, /function uniqueWritingBookPoolItems/);
+  assert.equal(stats.partCount, 3);
+  assert.ok(stats.chapterCount >= 3);
+  assert.ok(stats.sectionCount >= 6);
+  assert.ok(stats.caseCount >= 1);
+  assert.ok(stats.counterargumentCount >= 1);
+  assert.ok(stats.questionCount >= 1);
+  assert.equal(design.reader, "知识工作者");
   assert.match(panelControllerSource, /function renderWritingBookDesignDom/);
   assert.match(panelControllerSource, /renderWritingBookDesignDom\(deps\);/);
   assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
 });
 
-test("local book ideas are generated on device and do not mutate project automatically", async () => {
+test("local book ideas are generated on device and do not mutate project automatically", () => {
+  const ideas = deriveWritingLocalBookIdeas({
+    title: "AI时代易经与人生",
+    notes: [
+      { id: "n1", title: "案例一" },
+      { id: "n2", title: "案例二" }
+    ]
+  });
+
+  assert.equal(ideas.length, 3);
+  assert.deepEqual(ideas[0].noteIds, ["n1", "n2"]);
+  assert.match(ideas[0].risk, /案例/);
+});
+
+test("local book idea generation stays separate from project persistence", async () => {
   const source = await readPrototypeAppSource();
 
-  assert.match(source, /function deriveWritingLocalBookIdeas/);
   assert.match(source, /function syncWritingLocalBookIdeasFromProject/);
   assert.match(source, /\$\("btnWritingLocalBookIdeas"\)\?\.addEventListener\("click"/);
   assert.doesNotMatch(source, /deriveWritingLocalBookIdeas\([^)]*\)\s*;\s*saveWritingProject/);
