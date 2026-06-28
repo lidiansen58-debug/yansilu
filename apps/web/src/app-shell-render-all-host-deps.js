@@ -1,3 +1,7 @@
+import {
+  buildRenderAppShellDeps
+} from "./app-shell-render-all-deps.js";
+
 export function buildRenderAppShellHostDeps(host = {}) {
   return {
     state: host.state,
@@ -19,4 +23,8 @@ export function buildRenderAppShellHostDeps(host = {}) {
     renderSaveAiSuggestion: host.renderSaveAiSuggestion,
     renderSystemMessages: host.renderSystemMessages
   };
+}
+
+export function createRenderAppShellPrototypeDepsProvider(hostProvider = () => ({})) {
+  return () => buildRenderAppShellDeps(buildRenderAppShellHostDeps(hostProvider()));
 }

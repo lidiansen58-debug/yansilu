@@ -52,10 +52,7 @@ import {
   createRenderAppShellController
 } from "./app-shell-render-all.js";
 import {
-  buildRenderAppShellDeps
-} from "./app-shell-render-all-deps.js";
-import {
-  buildRenderAppShellHostDeps
+  createRenderAppShellPrototypeDepsProvider
 } from "./app-shell-render-all-host-deps.js";
 import {
   currentModuleSidebarUi,
@@ -68,10 +65,7 @@ import {
   createSidebarTitleController
 } from "./app-shell-sidebar-controller.js";
 import {
-  buildSidebarTitleRuntimeDeps
-} from "./app-shell-sidebar-deps.js";
-import {
-  buildSidebarTitleHostDeps
+  createSidebarTitlePrototypeDepsProvider
 } from "./app-shell-sidebar-host-deps.js";
 import {
   buildAppShellStateChangeDeps
@@ -4933,7 +4927,7 @@ function syncNewNoteButtons() {
 }
 
 const sidebarTitleController = createSidebarTitleController({
-  depsProvider: () => buildSidebarTitleRuntimeDeps(buildSidebarTitleHostDeps({
+  depsProvider: createSidebarTitlePrototypeDepsProvider(() => ({
     state,
     folderById,
     $,
@@ -5580,7 +5574,7 @@ async function openDistillationQueueNote(noteId = "") {
 }
 
 const renderAppShellController = createRenderAppShellController({
-  depsProvider: () => buildRenderAppShellDeps(buildRenderAppShellHostDeps({
+  depsProvider: createRenderAppShellPrototypeDepsProvider(() => ({
     state,
     explorer,
     editor,

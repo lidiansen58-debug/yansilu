@@ -1,3 +1,7 @@
+import {
+  buildSidebarTitleRuntimeDeps
+} from "./app-shell-sidebar-deps.js";
+
 export function buildSidebarTitleHostDeps(host = {}) {
   const {
     state = {},
@@ -13,4 +17,8 @@ export function buildSidebarTitleHostDeps(host = {}) {
     currentModuleUi: host.currentModuleUi,
     syncNewNoteButtons: host.syncNewNoteButtons
   };
+}
+
+export function createSidebarTitlePrototypeDepsProvider(hostProvider = () => ({})) {
+  return () => buildSidebarTitleRuntimeDeps(buildSidebarTitleHostDeps(hostProvider()));
 }

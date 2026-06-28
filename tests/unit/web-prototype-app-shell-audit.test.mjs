@@ -148,12 +148,10 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const requiredImports = [
     "app-shell-render-all.js",
-    "app-shell-render-all-deps.js",
     "app-shell-render-all-host-deps.js",
     "app-shell-module-ui.js",
     "app-shell-module-header.js",
     "app-shell-sidebar-controller.js",
-    "app-shell-sidebar-deps.js",
     "app-shell-sidebar-host-deps.js",
     "app-shell-state-change-deps.js",
     "app-shell-state-change-router.js",

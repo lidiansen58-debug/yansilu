@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildRenderAppShellHostDeps
+  buildRenderAppShellHostDeps,
+  createRenderAppShellPrototypeDepsProvider
 } from "../../apps/web/src/app-shell-render-all-host-deps.js";
 
 test("render app shell host deps keeps shell render collaborators in one mapping", () => {
@@ -36,4 +37,31 @@ test("render app shell host deps keeps shell render collaborators in one mapping
   for (const key of keys) {
     assert.equal(deps[key], host[key]);
   }
+});
+
+test("render app shell prototype deps provider normalizes current host renderers", () => {
+  const calls = [];
+  let state = { module: "explorer" };
+  const provider = createRenderAppShellPrototypeDepsProvider(() => ({
+    state,
+    explorer: { render: () => calls.push(["explorer", state.module]) },
+    editor: { renderTabs: () => calls.push(["tabs", state.module]) },
+    renderWritingPanel: () => calls.push(["writing", state.module])
+  }));
+
+  const first = provider();
+  state = { module: "writing" };
+  const second = provider();
+
+  assert.notEqual(first, second);
+  assert.equal(first.state.module, "explorer");
+  assert.equal(second.state.module, "writing");
+  second.explorerRender();
+  second.renderEditorTabs();
+  second.renderWritingPanel();
+  assert.deepEqual(calls, [
+    ["explorer", "writing"],
+    ["tabs", "writing"],
+    ["writing", "writing"]
+  ]);
 });
