@@ -592,6 +592,13 @@ import {
   writingScopeDirectoryIdsForRuntime
 } from "./writing-candidate-state.js";
 import {
+  sameUniqueStringSetForRuntime,
+  selectedWritingThemeIndexForRuntime,
+  setSelectedWritingThemeIndexForRuntime,
+  writingThemeIndexByIdForRuntime,
+  writingThemeIndexNoteIdsForRuntime
+} from "./writing-theme-state.js";
+import {
   graphAssociateNoteRoute,
   graphFollowupActionRoute,
   noteDeleteKeyRoute
@@ -7519,35 +7526,23 @@ function writingThemeSummary(notes) {
 }
 
 function writingThemeIndexById(indexId) {
-  return writingState.themeIndexes.find((item) => item.id === indexId) || null;
+  return writingThemeIndexByIdForRuntime(writingState, indexId);
 }
 
 function writingThemeIndexNoteIds(indexCard) {
-  return uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
+  return writingThemeIndexNoteIdsForRuntime(indexCard);
 }
 
 function sameUniqueStringSet(left = [], right = []) {
-  const a = uniqueStrings(left);
-  const b = uniqueStrings(right);
-  return a.length === b.length && a.every((value) => b.includes(value));
+  return sameUniqueStringSetForRuntime(left, right);
 }
 
 function selectedWritingThemeIndex() {
-  const selectedId = String(writingState.selectedThemeIndexId || "").trim();
-  if (selectedId) {
-    const selected = writingThemeIndexById(selectedId);
-    if (selected) return selected;
-  }
-  const sourceId = uniqueStrings(writingState.sourceIndexIds)[0];
-  if (sourceId) {
-    const source = writingThemeIndexById(sourceId);
-    if (source) return source;
-  }
-  return writingState.themeIndexes[0] || null;
+  return selectedWritingThemeIndexForRuntime(writingState, { themeIndexById: writingThemeIndexById });
 }
 
 function setSelectedWritingThemeIndex(indexId = "") {
-  writingState.selectedThemeIndexId = String(indexId || "").trim();
+  return setSelectedWritingThemeIndexForRuntime(writingState, indexId);
 }
 
 function clearWritingThemeRelationCounts(noteIds = []) {
