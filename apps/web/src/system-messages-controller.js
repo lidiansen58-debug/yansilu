@@ -116,3 +116,18 @@ export function openSystemMessagesDom({ latestOnly = false } = {}, deps = {}) {
   modal.classList.remove("hidden");
   renderSystemMessages();
 }
+
+export function closeSystemMessagesDom(deps = {}) {
+  const {
+    $,
+    document
+  } = deps;
+  document?.body?.classList?.remove("system-message-modal-open");
+  $("systemMessageModal")?.classList?.add("hidden");
+}
+
+export function isSystemMessageModalOpenDom(deps = {}) {
+  const { $ } = deps;
+  const modal = $("systemMessageModal");
+  return !!modal && !modal.classList.contains("hidden");
+}

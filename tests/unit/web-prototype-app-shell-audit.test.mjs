@@ -63,12 +63,16 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /renderWritingPanelShell/);
   assert.match(source, /renderSystemMessagesShell/);
   assert.match(source, /openSystemMessagesShell/);
+  assert.match(source, /closeSystemMessagesShell/);
+  assert.match(source, /isSystemMessageModalOpenShell/);
   assert.match(source, /renderGraphVisualMapForRuntime/);
   assert.match(source, /renderGraphPanelShell/);
   assert.match(source, /buildGraphPanelRuntimeDeps/);
   assert.match(source, /renderGraphPanelForRuntime/);
   assert.doesNotMatch(source, /renderSystemMessagesDom/);
   assert.doesNotMatch(source, /openSystemMessagesDom/);
+  assert.doesNotMatch(source, /systemMessageModal"\)\?\.classList\.add\("hidden"\)/);
+  assert.doesNotMatch(source, /classList\.remove\("system-message-modal-open"\)/);
 });
 
 test("prototype-app keeps critical shell wrappers thin", () => {
@@ -79,6 +83,8 @@ test("prototype-app keeps critical shell wrappers thin", () => {
     renderWritingPanel: 8,
     renderSystemMessages: 8,
     openSystemMessages: 8,
+    closeSystemMessages: 5,
+    isSystemMessageModalOpen: 5,
     renderAll: 35,
     renderSidebarTitle: 35,
     handleStateChange: 5
@@ -141,6 +147,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function renderGraphVisualNode/);
   assert.doesNotMatch(source, /function renderGraphVisualEdge/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
+  assert.doesNotMatch(source, /function closeSystemMessagesDom/);
   assert.doesNotMatch(source, /async function applyAiRuntimeModeChange\(nextMode = "auto"\) \{\s*const next = normalizeAiRuntimeMode/);
   assert.doesNotMatch(source, /const configs = \{\s*distillation:/);
 });

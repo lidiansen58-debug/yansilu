@@ -1,4 +1,6 @@
 import {
+  closeSystemMessagesDom,
+  isSystemMessageModalOpenDom,
   openSystemMessagesDom,
   renderSystemMessagesDom
 } from "./system-messages-controller.js";
@@ -25,4 +27,12 @@ export function renderSystemMessagesShell(host = {}) {
 
 export function openSystemMessagesShell(options = {}, host = {}) {
   return openSystemMessagesDom(options, createSystemMessagesDomDeps(host));
+}
+
+export function closeSystemMessagesShell(host = {}) {
+  return closeSystemMessagesDom(createSystemMessagesDomDeps(host));
+}
+
+export function isSystemMessageModalOpenShell(host = {}) {
+  return isSystemMessageModalOpenDom(createSystemMessagesDomDeps(host));
 }

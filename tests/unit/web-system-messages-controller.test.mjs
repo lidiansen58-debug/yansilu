@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  closeSystemMessagesDom,
+  isSystemMessageModalOpenDom,
   openSystemMessagesDom,
   renderSystemMessagesDom
 } from "../../apps/web/src/system-messages-controller.js";
@@ -113,4 +115,18 @@ test("system messages controller opens modal and selects latest message when req
   assert.equal(elements.systemMessageModal.classList.contains("hidden"), false);
   assert.equal(state.renderCount, 1);
   assert.ok(elements.systemMessageModalNote.textContent.length > 0);
+});
+
+test("system messages controller closes modal and reports open state", () => {
+  const { deps, elements } = systemMessageDeps();
+  deps.document.body.classList.add("system-message-modal-open");
+  elements.systemMessageModal.classList.remove("hidden");
+
+  assert.equal(isSystemMessageModalOpenDom(deps), true);
+
+  closeSystemMessagesDom(deps);
+
+  assert.equal(elements.systemMessageModal.classList.contains("hidden"), true);
+  assert.equal(deps.document.body.classList.contains("system-message-modal-open"), false);
+  assert.equal(isSystemMessageModalOpenDom(deps), false);
 });

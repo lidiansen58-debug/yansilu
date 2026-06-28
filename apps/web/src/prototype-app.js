@@ -175,6 +175,8 @@ import {
   writingAnalysisSystemMessageForResult
 } from "./prototype-system-messages.js";
 import {
+  closeSystemMessagesShell,
+  isSystemMessageModalOpenShell,
   openSystemMessagesShell,
   renderSystemMessagesShell
 } from "./system-messages-shell.js";
@@ -1392,13 +1394,11 @@ function openSystemMessages({ latestOnly = false } = {}) {
 }
 
 function closeSystemMessages() {
-  document.body?.classList.remove("system-message-modal-open");
-  $("systemMessageModal")?.classList.add("hidden");
+  return closeSystemMessagesShell(systemMessagesDomDeps());
 }
 
 function isSystemMessageModalOpen() {
-  const modal = $("systemMessageModal");
-  return !!modal && !modal.classList.contains("hidden");
+  return isSystemMessageModalOpenShell(systemMessagesDomDeps());
 }
 
 function systemMessagesRuntimeDeps() {
