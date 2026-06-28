@@ -179,6 +179,12 @@ import {
   renderSystemMessagesShell
 } from "./system-messages-shell.js";
 import {
+  addSystemMessageForRuntime,
+  markSystemMessagesReadForRuntime,
+  resolveSystemMessageByDedupeKeyForRuntime,
+  upsertSystemMessageForRuntime
+} from "./system-messages-runtime-controller.js";
+import {
   handleMarkSystemMessagesRead,
   handleOpenAllAiInboxFromSystemMessages,
   handleSystemMessageEscapeKey,
@@ -1391,50 +1397,39 @@ function isSystemMessageModalOpen() {
   return !!modal && !modal.classList.contains("hidden");
 }
 
+function systemMessagesRuntimeDeps() {
+  return {
+    getMessages: () => systemMessages,
+    setMessages: (messages = []) => {
+      systemMessages = Array.isArray(messages) ? messages : [];
+    },
+    getSelectedMessageId: () => selectedSystemMessageId,
+    setSelectedMessageId: (messageId = "") => {
+      selectedSystemMessageId = String(messageId || "").trim();
+    },
+    normalizeSystemMessage,
+    upsertSystemMessageList,
+    limit: SYSTEM_MESSAGES_LIMIT,
+    persistSystemMessages,
+    renderSystemMessages,
+    openSystemMessages
+  };
+}
+
 function markSystemMessagesRead() {
-  systemMessages = systemMessages.map((message) => ({ ...message, read: true }));
-  persistSystemMessages();
-  renderSystemMessages();
+  return markSystemMessagesReadForRuntime(systemMessagesRuntimeDeps());
 }
 
 function addSystemMessage(message = {}, { interrupt = false } = {}) {
-  const normalized = normalizeSystemMessage(message);
-  systemMessages = [normalized, ...systemMessages.filter((item) => item.id !== normalized.id)].slice(0, SYSTEM_MESSAGES_LIMIT);
-  if (interrupt || !selectedSystemMessageId) selectedSystemMessageId = normalized.id;
-  persistSystemMessages();
-  renderSystemMessages();
-  if (interrupt) openSystemMessages({ latestOnly: true });
-  return normalized;
+  return addSystemMessageForRuntime(message, { interrupt }, systemMessagesRuntimeDeps());
 }
 
 function upsertSystemMessage(message = {}, { interrupt = false, preserveRead = true } = {}) {
-  const result = upsertSystemMessageList(systemMessages, message, {
-    normalize: normalizeSystemMessage,
-    limit: SYSTEM_MESSAGES_LIMIT,
-    preserveRead
-  });
-  systemMessages = result.messages;
-  if (interrupt || !selectedSystemMessageId) selectedSystemMessageId = result.message.id;
-  persistSystemMessages();
-  renderSystemMessages();
-  if (interrupt) openSystemMessages({ latestOnly: true });
-  return result.message;
+  return upsertSystemMessageForRuntime(message, { interrupt, preserveRead }, systemMessagesRuntimeDeps());
 }
 
 function resolveSystemMessageByDedupeKey(dedupeKey = "") {
-  const cleanKey = String(dedupeKey || "").trim();
-  if (!cleanKey) return null;
-  const existing = systemMessages.find((item) => item.dedupeKey === cleanKey);
-  if (!existing || existing.resolvedAt) return existing || null;
-  const resolved = normalizeSystemMessage({
-    ...existing,
-    read: true,
-    resolvedAt: new Date().toISOString()
-  });
-  systemMessages = systemMessages.map((item) => (item.id === resolved.id ? resolved : item));
-  persistSystemMessages();
-  renderSystemMessages();
-  return resolved;
+  return resolveSystemMessageByDedupeKeyForRuntime(dedupeKey, systemMessagesRuntimeDeps());
 }
 
 

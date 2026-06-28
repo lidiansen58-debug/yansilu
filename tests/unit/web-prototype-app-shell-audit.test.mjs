@@ -119,6 +119,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "app-shell-state-change-router.js",
     "writing-panel-shell.js",
     "system-messages-shell.js",
+    "system-messages-runtime-controller.js",
     "ai-runtime-mode-controller.js",
     "graph-canvas-event-router.js",
     "graph-selection-runtime-deps.js",
