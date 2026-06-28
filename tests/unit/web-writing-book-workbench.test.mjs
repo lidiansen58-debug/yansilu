@@ -4,6 +4,8 @@ import { writingAnalysisSystemMessageForResult } from "../../apps/web/src/protot
 import {
   deriveWritingBookDesign,
   deriveWritingLocalBookIdeas,
+  resetWritingLocalBookIdeasState,
+  syncWritingLocalBookIdeasFromProjectState,
   writingBookStructureStats
 } from "../../apps/web/src/prototype-writing-workspace.js";
 import {
@@ -75,24 +77,24 @@ test("local book idea generation stays separate from project persistence", async
   assert.doesNotMatch(source, /deriveWritingLocalBookIdeas\([^)]*\)\s*;\s*saveWritingProject/);
 });
 
-test("local book ideas reset on basket changes and sync when opening a project", async () => {
-  const source = await readPrototypeAppSource();
-  const continueStart = source.indexOf("function continueWritingEntry");
-  const continueEnd = source.indexOf("function applyAiModelPackChange", continueStart);
-  const populateStart = source.indexOf("function populateWritingFormFromProject");
-  const populateEnd = source.indexOf("function currentWritingVersionNote", populateStart);
-  const directBasketStart = source.indexOf("function addWritingBasketIds");
-  const directBasketEnd = source.indexOf("function writingKnownNoteById", directBasketStart);
+test("local book ideas reset on basket changes and sync when opening a project", () => {
+  const writingState = {
+    localBookIdeas: [{ title: "Old", noteIds: ["n0"] }],
+    localBookIdeasGeneratedAt: "old-time"
+  };
 
-  assert.ok(continueStart >= 0 && continueEnd > continueStart, "expected continueWritingEntry() block");
-  assert.ok(populateStart >= 0 && populateEnd > populateStart, "expected populateWritingFormFromProject() block");
-  assert.ok(directBasketStart >= 0 && directBasketEnd > directBasketStart, "expected direct basket mutation block");
-  assert.match(source.slice(continueStart, continueEnd), /resetWritingLocalBookIdeas\(\);/);
-  assert.match(source.slice(populateStart, populateEnd), /syncWritingLocalBookIdeasFromProject\(project\);/);
-  assert.match(source.slice(directBasketStart, directBasketEnd), /resetWritingProjectContextForBasketChange\(\);/);
-  assert.match(source, /function resetWritingProjectContextForBasketChange/);
-  assert.match(source, /function resetWritingProjectContextForBasketChange\(\) \{[\s\S]*resetWritingStrongModelState\(\);/);
-  assert.match(source, /writingState\.localBookIdeas = normalized\.direction_ideas;/);
+  resetWritingLocalBookIdeasState(writingState);
+  assert.deepEqual(writingState.localBookIdeas, []);
+  assert.equal(writingState.localBookIdeasGeneratedAt, "");
+
+  syncWritingLocalBookIdeasFromProjectState(writingState, {
+    book_structure: {
+      generated_at: "2026-01-01T00:00:00.000Z",
+      direction_ideas: [{ title: "Idea", noteIds: ["n1"] }]
+    }
+  });
+  assert.deepEqual(writingState.localBookIdeas, [{ id: "idea_1", title: "Idea", reader: "", promise: "", risk: "", note_ids: ["n1"] }]);
+  assert.equal(writingState.localBookIdeasGeneratedAt, "2026-01-01T00:00:00.000Z");
 });
 
 test("strong model request package shows included notes, questions, and exclusions", async () => {

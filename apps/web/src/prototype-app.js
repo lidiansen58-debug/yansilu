@@ -553,8 +553,10 @@ import {
   deriveWritingLocalBookIdeas as computeDeriveWritingLocalBookIdeas,
   normalizeWritingBookStructure as computeNormalizeWritingBookStructure,
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
+  resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime,
   suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle,
   suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle,
+  syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime,
   uniqueWritingBookPoolItems as computeUniqueWritingBookPoolItems,
   writingBookMatchesAny as computeWritingBookMatchesAny,
   writingBookPlainText as computeWritingBookPlainText,
@@ -7696,14 +7698,11 @@ function resetWritingStrongModelState() {
 }
 
 function resetWritingLocalBookIdeas() {
-  writingState.localBookIdeas = [];
-  writingState.localBookIdeasGeneratedAt = "";
+  return resetWritingLocalBookIdeasForRuntime(writingState);
 }
 
 function syncWritingLocalBookIdeasFromProject(project = null) {
-  const normalized = normalizeWritingBookStructure(project?.book_structure || {});
-  writingState.localBookIdeas = normalized.direction_ideas;
-  writingState.localBookIdeasGeneratedAt = normalized.direction_ideas.length ? normalized.generated_at || "" : "";
+  return syncWritingLocalBookIdeasFromProjectForRuntime(writingState, project);
 }
 
 function resetWritingProjectForm({ keepTitle = false } = {}) {

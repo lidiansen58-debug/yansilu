@@ -517,3 +517,16 @@ export function deriveWritingLocalBookIdeas({ notes = [], project = null, title 
     }
   ];
 }
+
+export function resetWritingLocalBookIdeasState(writingState = {}) {
+  writingState.localBookIdeas = [];
+  writingState.localBookIdeasGeneratedAt = "";
+  return writingState;
+}
+
+export function syncWritingLocalBookIdeasFromProjectState(writingState = {}, project = null) {
+  const normalized = normalizeWritingBookStructure(project?.book_structure || {});
+  writingState.localBookIdeas = normalized.direction_ideas;
+  writingState.localBookIdeasGeneratedAt = normalized.direction_ideas.length ? normalized.generated_at || "" : "";
+  return writingState;
+}
