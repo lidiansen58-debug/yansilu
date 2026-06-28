@@ -163,6 +163,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-visual-geometry.js": 240,
     "graph-icon-view.js": 130,
     "graph-filter-options-view.js": 120,
+    "workspace-status-hint-model.js": 120,
     "graph-selection-host-deps.js": 80,
     "graph-workspace-host-deps.js": 60
   };
@@ -226,7 +227,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-visual-geometry.js",
     "graph-visual-layout.js",
     "graph-icon-view.js",
-    "graph-filter-options-view.js"
+    "graph-filter-options-view.js",
+    "workspace-status-hint-model.js"
   ];
 
   for (const modulePath of requiredImports) {
