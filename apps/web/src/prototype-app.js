@@ -210,6 +210,11 @@ import {
   handleSystemMessagesButtonClick
 } from "./system-message-events.js";
 import {
+  buildSystemMessageEventDeps,
+  buildSystemMessagesRuntimeDeps,
+  createSystemMessageStateAccessors
+} from "./system-message-deps.js";
+import {
   createRecordPermanentWorkflowOpener,
   createSystemMessageWorkflowOpener
 } from "./prototype-system-message-workflow.js";
@@ -1469,16 +1474,20 @@ const {
   isSystemMessageModalOpen
 } = systemMessagesShellController;
 
+const systemMessageStateAccessors = createSystemMessageStateAccessors({
+  getMessagesRef: () => systemMessages,
+  setMessagesRef: (messages = []) => {
+    systemMessages = messages;
+  },
+  getSelectedMessageIdRef: () => selectedSystemMessageId,
+  setSelectedMessageIdRef: (messageId = "") => {
+    selectedSystemMessageId = messageId;
+  }
+});
+
 function systemMessageEventDeps() {
-  return {
-    getMessages: () => systemMessages,
-    setMessages: (messages = []) => {
-      systemMessages = Array.isArray(messages) ? messages : [];
-    },
-    getSelectedMessageId: () => selectedSystemMessageId,
-    setSelectedMessageId: (messageId = "") => {
-      selectedSystemMessageId = String(messageId || "").trim();
-    },
+  return buildSystemMessageEventDeps({
+    stateAccessors: systemMessageStateAccessors,
     markSystemMessageRead,
     persistSystemMessages,
     renderSystemMessages,
@@ -1501,26 +1510,19 @@ function systemMessageEventDeps() {
     openNoteById,
     openSystemMessageWorkflow,
     setStatus
-  };
+  });
 }
 
 function systemMessagesRuntimeDeps() {
-  return {
-    getMessages: () => systemMessages,
-    setMessages: (messages = []) => {
-      systemMessages = Array.isArray(messages) ? messages : [];
-    },
-    getSelectedMessageId: () => selectedSystemMessageId,
-    setSelectedMessageId: (messageId = "") => {
-      selectedSystemMessageId = String(messageId || "").trim();
-    },
+  return buildSystemMessagesRuntimeDeps({
+    stateAccessors: systemMessageStateAccessors,
     normalizeSystemMessage,
     upsertSystemMessageList,
     limit: SYSTEM_MESSAGES_LIMIT,
     persistSystemMessages,
     renderSystemMessages,
     openSystemMessages
-  };
+  });
 }
 
 function markSystemMessagesRead() {
