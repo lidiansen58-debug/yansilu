@@ -602,6 +602,14 @@ import {
   setWritingBasketIdsForRuntime
 } from "./writing-basket-state.js";
 import {
+  clearWritingFocusedCandidateScopeForRuntime,
+  clearWritingSourceIndexIdsForRuntime,
+  clearWritingThemeRelationCountsForRuntime,
+  resetWritingStrongModelStateForRuntime,
+  setWritingFocusedCandidateScopeForRuntime,
+  setWritingSourceIndexIdsForRuntime
+} from "./writing-session-state.js";
+import {
   sameUniqueStringSetForRuntime,
   selectedWritingThemeIndexForRuntime,
   setSelectedWritingThemeIndexForRuntime,
@@ -7557,19 +7565,15 @@ function setSelectedWritingThemeIndex(indexId = "") {
 }
 
 function clearWritingThemeRelationCounts(noteIds = []) {
-  writingState.themeRelationNoteIds = uniqueStrings(noteIds);
-  writingState.themeRelationCounts = {};
-  writingState.themeRelationCountErrors = {};
-  writingState.loadingThemeRelationCounts = false;
+  return clearWritingThemeRelationCountsForRuntime(writingState, noteIds);
 }
 
 function setWritingFocusedCandidateScope(noteIds = [], scopeLabel = "") {
-  writingState.focusedCandidateNoteIds = uniqueStrings(noteIds);
-  writingState.focusedCandidateScopeLabel = String(scopeLabel || "").trim();
+  return setWritingFocusedCandidateScopeForRuntime(writingState, noteIds, scopeLabel);
 }
 
 function clearWritingFocusedCandidateScope() {
-  setWritingFocusedCandidateScope([], "");
+  return clearWritingFocusedCandidateScopeForRuntime(writingState);
 }
 
 function writingThemeNotesLoaded(noteIds = []) {
@@ -7759,18 +7763,15 @@ function suggestedThemeIndexTitle(noteIds = []) {
 }
 
 function clearWritingSourceIndexIds() {
-  writingState.sourceIndexIds = [];
+  return clearWritingSourceIndexIdsForRuntime(writingState);
 }
 
 function setWritingSourceIndexIds(indexIds = []) {
-  writingState.sourceIndexIds = uniqueStrings(indexIds);
+  return setWritingSourceIndexIdsForRuntime(writingState, indexIds);
 }
 
 function resetWritingStrongModelState() {
-  writingState.strongModelRevision += 1;
-  writingState.strongModelLoading = false;
-  writingState.strongModelResult = null;
-  writingState.strongModelError = "";
+  return resetWritingStrongModelStateForRuntime(writingState);
 }
 
 function resetWritingLocalBookIdeas() {
