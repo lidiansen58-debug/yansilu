@@ -1,4 +1,6 @@
 import { buildGraphVisualMapShellProps } from "./graph-visual-map-shell-props.js";
+import { buildGraphVisualMapBackdropMarkup } from "./graph-visual-map-backdrop.js";
+import { buildGraphVisualMapPanelMarkup } from "./graph-visual-map-panels.js";
 
 export function buildGraphVisualMapContextMarkup({
   runtimeState = {},
@@ -30,62 +32,48 @@ export function buildGraphVisualMapContextMarkup({
     renderGraphResearchNavigatorEntry = () => ""
   } = deps;
   const {
-    normalizedFocusedNoteId = "",
     layout = { nodes: [], edges: [], width: 0, height: 0, nodeMap: new Map(), clusterMeta: [] },
-    zoom = { key: "fit" },
     compactRelationFilterStats = null,
-    activeSelection = null,
-    contextualSelectionEdges = [],
-    contextualNodeMap = new Map(),
-    focusContextAvailable = false,
-    focusContextCollapsed = false,
-    researchNavigatorCanOpen = false
   } = runtimeState;
 
   const compactRelationFilterMarkup = !filterActive
     ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true, compactRelationFilterStats)
     : "";
-  const themeBoundaryMarkup = renderGraphThemeBoundary(
-    activeSelection?.kind === "theme"
-      ? graphThemeBoundaryMeta({
-          nodes: layout.nodes,
-          noteIds: activeSelection.noteIds,
-          title: activeSelection.title,
-          layoutWidth: layout.width,
-          layoutHeight: layout.height
-        })
-      : null
-  );
-  const visualSeed = `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`;
-  const starfieldMarkup = renderGraphStarfield(layout.width, layout.height, visualSeed);
-  const nebulaMarkup = renderGraphNebulaField(layout.width, layout.height, visualSeed);
-  const clusterGlowMarkup = renderGraphClusterGlow(layout.clusterMeta);
-  const focusContextMarkup = focusContextAvailable && !focusContextCollapsed
-    ? renderGraphFocusContextPanel({
-        focusedNoteId: normalizedFocusedNoteId,
-        nodeMap: layout.nodeMap,
-        edges
-    })
-    : "";
-  const selectionContextMarkup = renderGraphSelectionPanel({
-    selection: activeSelection,
-    nodeMap: contextualNodeMap,
-    edges: contextualSelectionEdges,
+  const {
+    themeBoundaryMarkup,
+    starfieldMarkup,
+    nebulaMarkup,
+    clusterGlowMarkup
+  } = buildGraphVisualMapBackdropMarkup({
+    runtimeState,
+    graphState,
+    relationType
+  }, {
+    graphThemeBoundaryMeta,
+    renderGraphThemeBoundary,
+    renderGraphStarfield,
+    renderGraphNebulaField,
+    renderGraphClusterGlow
+  });
+  const {
+    focusContextMarkup,
+    selectionContextMarkup,
+    researchNavigatorMarkup,
+    researchNavigatorEntryMarkup
+  } = buildGraphVisualMapPanelMarkup({
+    runtimeState,
+    questionSpotSummary,
     topicCandidates,
     isolatedNotes,
     bridgeGaps,
-    clusterMeta: layout.clusterMeta
-  });
-  const researchNavigatorMarkup = renderGraphResearchNavigatorPanel({
-    nodes: layout.nodes,
-    edges,
-    topicCandidates,
-    bridgeGaps,
-    clusterMeta: layout.clusterMeta,
     clueSummary,
-    questionSummary: questionSpotSummary
+    edges
+  }, {
+    renderGraphFocusContextPanel,
+    renderGraphSelectionPanel,
+    renderGraphResearchNavigatorPanel,
+    renderGraphResearchNavigatorEntry
   });
-  const researchNavigatorEntryMarkup = renderGraphResearchNavigatorEntry(researchNavigatorCanOpen && !selectionContextMarkup);
   const graphShellPreviewProps = buildGraphVisualMapShellProps({
     runtimeState,
     filterActive,

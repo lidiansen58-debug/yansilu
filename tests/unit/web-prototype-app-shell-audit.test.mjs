@@ -111,6 +111,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-visual-map-layout-state.js": 90,
     "graph-visual-map-head.js": 90,
     "graph-visual-map-empty-state.js": 40,
+    "graph-visual-map-backdrop.js": 60,
+    "graph-visual-map-panels.js": 70,
     "graph-panel-runtime-deps.js": 40,
     "graph-panel-renderer.js": 150
   };
