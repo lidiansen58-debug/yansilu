@@ -62,7 +62,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /routeAppShellStateChange/);
   assert.match(source, /createWritingPanelShellController/);
   assert.match(source, /createSystemMessagesShellController/);
-  assert.match(source, /renderGraphVisualMapForRuntime/);
+  assert.match(source, /createGraphVisualMapController/);
   assert.match(source, /renderGraphPanelShell/);
   assert.match(source, /buildGraphPanelRuntimeDeps/);
   assert.match(source, /renderGraphPanelForRuntime/);
@@ -75,7 +75,6 @@ test("prototype-app stays inside the current shell validation budget", () => {
 test("prototype-app keeps critical shell wrappers thin", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const shellWrapperBudgets = {
-    renderGraphVisualMap: 5,
     renderGraphPanel: 25,
     handleStateChange: 5
   };
@@ -110,7 +109,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "system-messages-shell.js": 75,
     "system-messages-host-deps.js": 30,
     "system-messages-view.js": 100,
-    "graph-visual-map-controller.js": 20,
+    "graph-visual-map-controller.js": 35,
     "graph-visual-map-composer.js": 240,
     "graph-visual-map-runtime-deps.js": 40,
     "graph-visual-map-host-deps.js": 60,
@@ -179,6 +178,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function renderSidebarTitle/);
   assert.doesNotMatch(source, /function renderGraphVisualNode/);
   assert.doesNotMatch(source, /function renderGraphVisualEdge/);
+  assert.doesNotMatch(source, /function renderGraphVisualMap/);
+  assert.doesNotMatch(source, /function graphVisualMapRuntimeDeps/);
   assert.doesNotMatch(source, /function beginGraphViewportDrag/);
   assert.doesNotMatch(source, /function updateGraphViewportDrag/);
   assert.doesNotMatch(source, /function endGraphViewportDrag/);

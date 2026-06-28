@@ -5,3 +5,10 @@ export function renderGraphVisualMapForRuntime(options = {}, deps = {}) {
   const { graphShellProps, shellDeps } = composeGraphVisualMapForRuntime(options, deps);
   return renderGraphVisualMapShellView(graphShellProps, shellDeps);
 }
+
+export function createGraphVisualMapController(options = {}) {
+  const depsProvider = options.depsProvider || (() => ({}));
+  return {
+    renderGraphVisualMap: (renderOptions = {}) => renderGraphVisualMapForRuntime(renderOptions, depsProvider())
+  };
+}

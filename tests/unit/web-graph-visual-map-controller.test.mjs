@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderGraphVisualMapForRuntime } from "../../apps/web/src/graph-visual-map-controller.js";
+import {
+  createGraphVisualMapController,
+  renderGraphVisualMapForRuntime
+} from "../../apps/web/src/graph-visual-map-controller.js";
 import { composeGraphVisualMapForRuntime } from "../../apps/web/src/graph-visual-map-composer.js";
 
 function layoutFor(nodes = []) {
@@ -106,6 +109,27 @@ test("graph visual map controller keeps isolated relation workflow in the select
   assert.match(html, /class="graph-selection-overlay"/);
   assert.match(html, /data-test-selection-panel/);
   assert.doesNotMatch(html, /class="graph-side-stack"><section data-test-selection-panel/);
+});
+
+test("graph visual map controller renders from current deps provider", () => {
+  const calls = [];
+  const controller = createGraphVisualMapController({
+    depsProvider: () => {
+      calls.push("deps");
+      return graphMapDeps({
+        graphState: { zoom: "fit", lastLoadedAt: String(calls.length) }
+      });
+    }
+  });
+
+  const html = controller.renderGraphVisualMap({
+    nodes: [{ id: "n1", title: "Alpha", noteType: "permanent" }],
+    edges: [],
+    relationFilterEdges: []
+  });
+
+  assert.match(html, /class="graph-map-node/);
+  assert.deepEqual(calls, ["deps"]);
 });
 
 test("graph visual map composer builds shell props from runtime, chrome, and svg view layers", () => {
