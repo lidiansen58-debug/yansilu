@@ -491,6 +491,9 @@ import {
   renderGraphVisualMapForRuntime
 } from "./graph-visual-map-controller.js";
 import {
+  buildGraphVisualMapHostDeps
+} from "./graph-visual-map-host-deps.js";
+import {
   buildGraphVisualMapRuntimeDeps
 } from "./graph-visual-map-runtime-deps.js";
 import {
@@ -12363,7 +12366,7 @@ function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = n
 }
 
 function graphVisualMapRuntimeDeps() {
-  return buildGraphVisualMapRuntimeDeps({
+  return buildGraphVisualMapRuntimeDeps(buildGraphVisualMapHostDeps({
     GRAPH_RELATION_GROUP_META,
     GRAPH_RELATION_MARKER_COLORS,
     GRAPH_VISUAL_ZOOM_OPTIONS,
@@ -12407,7 +12410,7 @@ function graphVisualMapRuntimeDeps() {
     shouldShowGraphDensityHint,
     graphThemeBoundary: renderGraphThemeBoundary,
     graphThemeBoundaryMeta
-  });
+  }));
 }
 
 function renderGraphVisualMap(options = {}) {
