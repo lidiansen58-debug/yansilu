@@ -549,6 +549,17 @@ import {
   createGraphReadingLensStateController
 } from "./graph-reading-lens-state.js";
 import {
+  GRAPH_RELATION_TYPE_FILTER_KEY,
+  graphHasMeaningfulStructureEdges,
+  graphReadingModeMeta,
+  graphStructureFallbackEdges as graphStructureFallbackEdgesForRuntime,
+  graphViewModeForRelationType,
+  normalizeGraphRelationTypeFilter,
+  renderGraphRelationTypeFilter as renderGraphRelationTypeFilterForRuntime,
+  renderGraphViewModeSwitcher as renderGraphViewModeSwitcherForRuntime,
+  setGraphRelationTypeFilterForRuntime
+} from "./graph-view-mode-state.js";
+import {
   renderDraftVersionCardView,
   renderScaffoldVersionCardView,
   renderWritingToplineMetricView
@@ -769,7 +780,6 @@ import {
 } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
-const GRAPH_RELATION_TYPE_FILTER_KEY = "yansilu:graph:relation-type-filter";
 const state = createInitialState();
 let usingLocalFallbackData = false;
 let lastChosenPermanentDirectoryId = "dir_original_default";
@@ -804,7 +814,7 @@ const graphState = {
   lastErrorAt: "",
   requestSerial: 0,
   filters: {
-    relationType: String(readStoredText(GRAPH_RELATION_TYPE_FILTER_KEY, "meaningful") || "").trim().toLowerCase() || "meaningful",
+    relationType: normalizeGraphRelationTypeFilter(readStoredText(GRAPH_RELATION_TYPE_FILTER_KEY, "meaningful"), "meaningful"),
     status: "all"
   },
   focusDepth: normalizeGraphFocusDepth(readStoredText(GRAPH_FOCUS_DEPTH_KEY, "1"), "1"),
@@ -839,6 +849,13 @@ const graphState = {
     "ai-analysis": false
   }
 };
+function setGraphRelationTypeFilter(value = "", options = {}) {
+  return setGraphRelationTypeFilterForRuntime(graphState, value, {
+    ...options,
+    writeStoredText
+  });
+}
+setGraphRelationTypeFilter(graphState.filters?.relationType, { persist: false });
 const graphViewportController = createGraphViewportController({
   graphState,
   documentRef: document,
@@ -9336,93 +9353,18 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOver
   return `<option value="all"${selected === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${edges.length})</option>${options}`;
 }
 
-function graphViewModeForRelationType(type = "") {
-  const key = String(type || "meaningful").trim().toLowerCase();
-  if (key === "index" || GRAPH_INDEX_RELATION_TYPES.has(key)) return "structure";
-  return "argument";
-}
+const renderGraphViewModeSwitcher = (relationType = "meaningful") =>
+  renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml });
 
-function normalizeGraphRelationTypeFilter(value = "", fallback = "meaningful") {
-  const key = String(value || "").trim().toLowerCase();
-  const normalizedFallback = String(fallback || "meaningful").trim().toLowerCase() || "meaningful";
-  const allowed = new Set(["meaningful", "all", "noisy", "index", ...Object.keys(GRAPH_RELATION_TYPE_LABELS)]);
-  if (GRAPH_INDEX_RELATION_TYPES.has(key)) return "index";
-  return allowed.has(key) ? key : normalizedFallback;
-}
+const renderGraphRelationTypeFilter = (edges = [], selected = "meaningful", compact = false, statsOverride = null) =>
+  renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, {
+    escapeHtml,
+    graphFilterOptions,
+    graphRelationTypeLabel
+  });
 
-function persistGraphSettingsToStorage() {
-  writeStoredText(GRAPH_RELATION_TYPE_FILTER_KEY, normalizeGraphRelationTypeFilter(graphState.filters?.relationType, "meaningful"));
-}
-
-function setGraphRelationTypeFilter(value = "", options = {}) {
-  const next = normalizeGraphRelationTypeFilter(value, "meaningful");
-  graphState.filters.relationType = next;
-  if (options.persist !== false) persistGraphSettingsToStorage();
-  return next;
-}
-
-setGraphRelationTypeFilter(graphState.filters?.relationType, { persist: false });
-
-function graphReadingModeMeta(mode = "argument") {
-  const key = String(mode || "argument").trim().toLowerCase() === "structure" ? "structure" : "argument";
-  if (key === "structure") {
-    return {
-      key,
-      label: "看主题分布",
-      purpose: "用来快速看这批笔记大致聚成哪些主题。",
-      filterHint: "默认只看主题归属；要回到支持、反驳或边界，切回看观点关系。",
-      mapNote: "只保留主题归属和聚集位置。拖动画布，就能快速判断这批笔记主要聚在哪些主题。"
-    };
-  }
-  return {
-    key: "argument",
-    label: "看观点关系",
-    purpose: "用来判断这批笔记之间谁支持谁、谁反对谁、哪里需要限定。",
-    filterHint: "关系类型还能继续收窄，方便只看当前最重要的一类连接。",
-    mapNote: "只保留当前模式最值得看的关系。拖动画布换位置，悬停笔记或关系继续读局部。"
-  };
-}
-
-function renderGraphViewModeSwitcher(relationType = "meaningful") {
-  const mode = graphViewModeForRelationType(relationType);
-  const modes = [graphReadingModeMeta("argument"), graphReadingModeMeta("structure")];
-  return `
-    <div class="graph-view-tabs" aria-label="图谱类型">
-      ${modes
-        .map((item) => {
-          const active = item.key === mode;
-          const purpose = escapeHtml(item.purpose);
-          return `
-            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}" title="${purpose}">
-              <span>${escapeHtml(item.label)}</span>
-            </button>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) {
-  return `
-    <div class="graph-filters graph-filters-single${compact ? " graph-filters-compact" : ""}" data-graph-filters>
-      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
-        ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel, statsOverride)}
-      </select>
-    </div>
-  `;
-}
-
-function graphHasMeaningfulStructureEdges(edges = []) {
-  return (Array.isArray(edges) ? edges : []).some((edge) =>
-    GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())
-  );
-}
-
-function graphStructureFallbackEdges(edges = [], filters = {}) {
-  const baseFilters = { ...filters, relationType: "meaningful" };
-  return (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, baseFilters));
-}
+const graphStructureFallbackEdges = (edges = [], filters = {}) =>
+  graphStructureFallbackEdgesForRuntime(edges, filters, { graphEdgeMatchesFilters });
 
 function graphLocalizedActionText(value = "", fallback = "") {
   const text = String(value || "").trim();

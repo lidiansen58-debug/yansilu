@@ -124,7 +124,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-utility-drawer-controller.js": 160,
     "graph-presentation-controller.js": 80,
     "graph-focus-controls-state.js": 90,
-    "graph-reading-lens-state.js": 180
+    "graph-reading-lens-state.js": 180,
+    "graph-view-mode-state.js": 140
   };
 
   for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
@@ -167,6 +168,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-presentation-controller.js",
     "graph-focus-controls-state.js",
     "graph-reading-lens-state.js",
+    "graph-view-mode-state.js",
     "graph-visual-layout.js"
   ];
 
@@ -201,6 +203,10 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function graphFocusContextModeMeta/);
   assert.doesNotMatch(source, /function graphEdgeMatchesReadingLens/);
   assert.doesNotMatch(source, /function graphBuildReadingLensState/);
+  assert.doesNotMatch(source, /function graphViewModeForRelationType/);
+  assert.doesNotMatch(source, /function normalizeGraphRelationTypeFilter/);
+  assert.doesNotMatch(source, /function graphReadingModeMeta/);
+  assert.doesNotMatch(source, /function graphHasMeaningfulStructureEdges/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
   assert.doesNotMatch(source, /function closeSystemMessagesDom/);
   assert.doesNotMatch(source, /function renderSystemMessages/);
