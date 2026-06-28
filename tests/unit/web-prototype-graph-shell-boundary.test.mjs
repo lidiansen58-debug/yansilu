@@ -9,6 +9,7 @@ import {
   readGraphVisualMapContextSource,
   readGraphVisualMapControlsStateSource,
   readGraphVisualMapControllerSource,
+  readGraphVisualMapRuntimeInputSource,
   readGraphVisualMapRuntimeDepsSource,
   readGraphVisualMapRuntimeStateSource,
   readGraphVisualMapSelectionStateSource,
@@ -146,6 +147,7 @@ test("graph visual map runtime state, chrome, and view deps stay split across gr
   const visualMapComposerSource = await readGraphVisualMapComposerSource();
   const visualMapContextSource = await readGraphVisualMapContextSource();
   const visualMapControlsStateSource = await readGraphVisualMapControlsStateSource();
+  const visualMapRuntimeInputSource = await readGraphVisualMapRuntimeInputSource();
   const visualMapRuntimeStateSource = await readGraphVisualMapRuntimeStateSource();
   const visualMapSelectionStateSource = await readGraphVisualMapSelectionStateSource();
 
@@ -168,7 +170,11 @@ test("graph visual map runtime state, chrome, and view deps stay split across gr
   assert.match(visualMapControlsStateSource, /buildGraphVisualMapControlsState/);
   assert.match(visualMapControlsStateSource, /graphBuildReadingLensState/);
   assert.match(visualMapRuntimeStateSource, /from "\.\/graph-visual-map-layout-state\.js"/);
+  assert.match(visualMapRuntimeStateSource, /from "\.\/graph-visual-map-runtime-input\.js"/);
   assert.match(visualMapRuntimeStateSource, /buildGraphVisualMapLayoutState\(/);
+  assert.match(visualMapRuntimeInputSource, /buildGraphVisualMapLayoutInput/);
+  assert.match(visualMapRuntimeInputSource, /buildGraphVisualMapSelectionInput/);
+  assert.match(visualMapRuntimeInputSource, /buildGraphVisualMapControlsInput/);
   assert.match(visualMapSelectionStateSource, /buildGraphVisualMapSelectionState/);
   assert.match(visualMapSelectionStateSource, /graphNodeNeedsRelationWorkflow/);
   assert.doesNotMatch(visualMapControllerSource, /buildGraphVisualMapRuntimeDeps\(\{/);

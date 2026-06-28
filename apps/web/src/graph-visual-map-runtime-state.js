@@ -7,6 +7,11 @@ import {
 import {
   buildGraphVisualMapLayoutState
 } from "./graph-visual-map-layout-state.js";
+import {
+  buildGraphVisualMapControlsInput,
+  buildGraphVisualMapLayoutInput,
+  buildGraphVisualMapSelectionInput
+} from "./graph-visual-map-runtime-input.js";
 
 export function buildGraphVisualMapRuntimeState({
   graphState = {},
@@ -49,55 +54,43 @@ export function buildGraphVisualMapRuntimeState({
     relationGroupMeta = {}
   } = deps;
 
-  const layoutState = buildGraphVisualMapLayoutState({
+  const layoutState = buildGraphVisualMapLayoutState(buildGraphVisualMapLayoutInput({
     nodes,
     edges,
     relationFilterEdges,
     filterActive,
     focusedNoteId,
     structureFallback
-  }, {
+  }), {
     graphBuildVisualLayout,
     graphEdgePath,
     graphRelationVisual,
     graphDenseGalaxyMode,
     shouldShowGraphDensityHint
   });
-  const {
-    normalizedFocusedNoteId,
-    layout,
-    adjacencyMap,
-    visibleEdges,
-    denseGalaxyMode
-  } = layoutState;
-  const selectionState = buildGraphVisualMapSelectionState({
+  const selectionState = buildGraphVisualMapSelectionState(buildGraphVisualMapSelectionInput({
     graphSelection: graphState.selection,
-    layoutNodes: layout.nodes,
-    layoutEdges: edges,
-    clusterMeta: layout.clusterMeta,
+    graphState,
+    layoutState,
+    edges,
     topicCandidates,
     isolatedNotes,
     bridgeGaps,
     relationFilterEdges,
     selectionEdges,
-    selectionNodeMap,
-    layoutNodeMap: layout.nodeMap,
-    adjacencyMap
-  }, {
+    selectionNodeMap
+  }), {
     normalizeGraphSelectionForVisibleItems,
     graphNodeNeedsRelationWorkflow
   });
-  const controlsState = buildGraphVisualMapControlsState({
+  const controlsState = buildGraphVisualMapControlsState(buildGraphVisualMapControlsInput({
     graphState,
     relationType,
-    layout,
-    visibleEdges,
+    layoutState,
     bridgeGaps,
     filterActive,
-    normalizedFocusedNoteId,
-    denseGalaxyMode,
     workbenchPanelMarkup
-  }, {
+  }), {
     graphFocusDepthMeta,
     graphReadingModeMeta,
     graphViewModeForRelationType,
