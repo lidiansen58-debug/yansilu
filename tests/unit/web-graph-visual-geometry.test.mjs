@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   graphDenseGalaxyMode,
+  graphEdgeShouldRender,
   graphEdgeVisibleAtFit,
   graphHash,
   graphNodeAttentionReasons,
@@ -9,7 +10,9 @@ import {
   graphNodeShowsAsPoint,
   graphNodeStarRank,
   graphNodeStarTier,
-  graphShortTitle
+  graphShortTitle,
+  graphThemeBoundaryMeta,
+  renderGraphThemeBoundary
 } from "../../apps/web/src/graph-visual-geometry.js";
 
 const relationVisual = (relationType = "") => ({
@@ -71,4 +74,58 @@ test("graph visual geometry applies fit visibility from relation group and node 
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "b", toNoteId: "c", relationType: "bridges" }, nodeMap, {}, { graphRelationVisual: relationVisual }), false);
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "b", relationType: "supports" }, nodeMap, { denseMode: true }, { graphRelationVisual: relationVisual }), false);
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "b", relationType: "flows" }, nodeMap, { denseMode: true, intercluster: true }, { graphRelationVisual: relationVisual }), true);
+});
+
+test("graph visual geometry decides edge render visibility from zoom and density policy", () => {
+  const deps = {
+    graphViewModeForRelationType: (relationType) => relationType === "tagged" ? "structure" : "meaningful"
+  };
+  assert.equal(graphEdgeShouldRender({ zoomKey: "detail" }, deps), true);
+  assert.equal(graphEdgeShouldRender({ filterActive: true }, deps), true);
+  assert.equal(graphEdgeShouldRender({ relationType: "tagged", selected: true }, deps), true);
+  assert.equal(graphEdgeShouldRender({ relationType: "tagged", inSelectedNodeNeighborhood: true }, deps), false);
+  assert.equal(graphEdgeShouldRender({ denseMode: true, intercluster: true, connectsFocus: true }, deps), true);
+  assert.equal(graphEdgeShouldRender({ denseMode: true, connectsFocus: true }, deps), false);
+  assert.equal(graphEdgeShouldRender({ lensPriority: true }, deps), true);
+});
+
+test("graph visual geometry builds theme boundary metadata around member nodes", () => {
+  const meta = graphThemeBoundaryMeta({
+    nodes: [
+      { id: "n1", x: 100, y: 100, radius: 8 },
+      { id: "n2", x: 180, y: 140, radius: 10 },
+      { id: "outside", x: 900, y: 900, radius: 20 }
+    ],
+    noteIds: [" n1 ", "n2", ""],
+    title: " 主题 ",
+    layoutWidth: 400,
+    layoutHeight: 300
+  });
+
+  assert.equal(meta.count, 2);
+  assert.equal(meta.title, "主题");
+  assert.equal(meta.label, "小型主题候选");
+  assert.equal(meta.tone, "is-compact");
+  assert.ok(meta.width >= 96);
+  assert.ok(meta.height >= 78);
+});
+
+test("graph visual geometry renders escaped theme boundary markup", () => {
+  const html = renderGraphThemeBoundary({
+    x: 10,
+    y: 12,
+    width: 100,
+    height: 80,
+    rx: 18,
+    labelX: 20,
+    labelY: 30,
+    label: "<主题>",
+    tone: "is-test",
+    count: 3
+  }, {
+    escapeHtml: (value) => String(value).replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+  });
+
+  assert.match(html, /graph-theme-boundary is-test/);
+  assert.match(html, /&lt;主题&gt; · 3 条/);
 });

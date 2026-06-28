@@ -580,6 +580,7 @@ import {
 } from "./graph-relation-visual-state.js";
 import {
   graphDenseGalaxyMode,
+  graphEdgeShouldRender as graphEdgeShouldRenderForRuntime,
   graphEdgeVisibleAtFit as graphEdgeVisibleAtFitForRuntime,
   graphHash,
   graphNodeAttentionReasons,
@@ -587,7 +588,9 @@ import {
   graphNodeShowsAsPoint,
   graphNodeStarRank,
   graphNodeStarTier,
-  graphShortTitle
+  graphShortTitle,
+  graphThemeBoundaryMeta as graphThemeBoundaryMetaForRuntime,
+  renderGraphThemeBoundary as renderGraphThemeBoundaryForRuntime
 } from "./graph-visual-geometry.js";
 import {
   graphBridgeSelectionKey,
@@ -11461,34 +11464,8 @@ function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = {}) {
   return graphEdgeVisibleAtFitForRuntime(edge, nodeMap, options, { graphRelationVisual });
 }
 
-function graphEdgeShouldRender({
-  zoomKey = "fit",
-  filterActive = false,
-  relationType = "meaningful",
-  fitVisible = false,
-  connectsFocus = false,
-  selected = false,
-  inSelectedNodeNeighborhood = false,
-  inSelectedTheme = false,
-  inSelectedBridge = false,
-  lensPriority = false,
-  visualKey = "",
-  denseMode = false,
-  intercluster = false
-} = {}) {
-  if (zoomKey !== "fit") return true;
-  if (filterActive) {
-    // Focused scopes are already trimmed by relation filter + reading depth, so
-    // fit view should not silently hide edges inside that explicit local graph.
-    return true;
-  }
-  if (graphViewModeForRelationType(relationType) === "structure" || visualKey === "index") {
-    return fitVisible || lensPriority || selected || inSelectedTheme || inSelectedBridge;
-  }
-  if (denseMode) {
-    return fitVisible || lensPriority || selected || inSelectedNodeNeighborhood || inSelectedTheme || inSelectedBridge || (intercluster && connectsFocus);
-  }
-  return fitVisible || lensPriority || selected || inSelectedNodeNeighborhood || inSelectedTheme || inSelectedBridge;
+function graphEdgeShouldRender(options = {}) {
+  return graphEdgeShouldRenderForRuntime(options, { graphViewModeForRelationType });
 }
 
 function renderGraphStarfield(layoutWidth = 0, layoutHeight = 0, seed = "") {
@@ -11569,49 +11546,12 @@ function graphEdgePath(edge, nodeMap) {
   };
 }
 
-function graphThemeBoundaryMeta({ nodes = [], noteIds = [], title = "", layoutWidth = 0, layoutHeight = 0 } = {}) {
-  const noteSet = new Set(graphThinkingCleanIds(noteIds));
-  if (!noteSet.size) return null;
-  const members = (Array.isArray(nodes) ? nodes : []).filter((node) => noteSet.has(String(node?.id || "").trim()));
-  if (!members.length) return null;
-  const minX = Math.min(...members.map((node) => Number(node.x || 0) - Number(node.radius || 0)));
-  const maxX = Math.max(...members.map((node) => Number(node.x || 0) + Number(node.radius || 0)));
-  const minY = Math.min(...members.map((node) => Number(node.y || 0) - Number(node.radius || 0)));
-  const maxY = Math.max(...members.map((node) => Number(node.y || 0) + Number(node.radius || 0)));
-  const padding = Math.max(34, Math.min(82, 28 + members.length * 0.55));
-  const safeWidth = Math.max(1, Number(layoutWidth || 0));
-  const safeHeight = Math.max(1, Number(layoutHeight || 0));
-  const x = Math.max(18, Math.round(minX - padding));
-  const y = Math.max(18, Math.round(minY - padding));
-  const width = Math.max(96, Math.min(Math.round(maxX - minX + padding * 2), Math.round(safeWidth - x - 18)));
-  const height = Math.max(78, Math.min(Math.round(maxY - minY + padding * 2), Math.round(safeHeight - y - 18)));
-  const coverage = (width * height) / Math.max(1, safeWidth * safeHeight);
-  const broad = members.length >= Math.max(24, nodes.length * 0.45) || coverage > 0.62;
-  const compact = members.length <= 4 || coverage < 0.18;
-  return {
-    x,
-    y,
-    width,
-    height,
-    rx: Math.round(Math.min(64, Math.max(28, Math.min(width, height) * 0.18))),
-    labelX: Math.round(x + 18),
-    labelY: Math.round(y + 25),
-    count: members.length,
-    title: String(title || "待验证主题").trim() || "待验证主题",
-    tone: broad ? "is-broad" : compact ? "is-compact" : "is-cluster",
-    label: broad ? "松散主题范围" : compact ? "小型主题候选" : "主题候选范围"
-  };
+function graphThemeBoundaryMeta(options = {}) {
+  return graphThemeBoundaryMetaForRuntime(options, { graphThinkingCleanIds });
 }
 
 function renderGraphThemeBoundary(boundary = null) {
-  if (!boundary) return "";
-  return `
-    <g class="graph-theme-boundary ${escapeHtml(boundary.tone)}" data-graph-theme-boundary="true" aria-hidden="true">
-      <rect class="graph-theme-boundary-aura" x="${boundary.x}" y="${boundary.y}" width="${boundary.width}" height="${boundary.height}" rx="${boundary.rx}"></rect>
-      <rect class="graph-theme-boundary-line" x="${boundary.x + 5}" y="${boundary.y + 5}" width="${Math.max(1, boundary.width - 10)}" height="${Math.max(1, boundary.height - 10)}" rx="${Math.max(1, boundary.rx - 5)}"></rect>
-      <text class="graph-theme-boundary-label" x="${boundary.labelX}" y="${boundary.labelY}">${escapeHtml(boundary.label)} · ${escapeHtml(String(boundary.count))} 条</text>
-    </g>
-  `;
+  return renderGraphThemeBoundaryForRuntime(boundary, { escapeHtml });
 }
 
 function graphScopeDirectoryId() {
