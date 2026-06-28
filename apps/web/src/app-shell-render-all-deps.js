@@ -1,0 +1,41 @@
+export function buildRenderAppShellDeps({
+  state = {},
+  explorer = null,
+  editor = null,
+  ensureSelection = () => {},
+  syncRailSelectionState = () => {},
+  renderSidebarTitle = () => {},
+  renderModulePanels = () => {},
+  syncExportDirectoryOptions = () => {},
+  renderAiInboxWorkspace = () => {},
+  renderDistillationPanel = () => {},
+  renderGraphPanel = () => {},
+  renderSettingsPanel = () => {},
+  renderWritingPanel = () => {},
+  applyFocusModeChrome = () => {},
+  renderStatusMeta = () => {},
+  renderWorkspaceStatusHint = () => {},
+  renderSaveAiSuggestion = () => {},
+  renderSystemMessages = () => {}
+} = {}) {
+  return {
+    state,
+    ensureSelection,
+    syncRailSelectionState,
+    renderSidebarTitle,
+    renderModulePanels,
+    syncExportDirectoryOptions,
+    renderAiInboxWorkspace,
+    renderDistillationPanel,
+    renderGraphPanel,
+    renderSettingsPanel,
+    explorerRender: () => explorer?.render?.(),
+    renderWritingPanel,
+    renderEditorTabs: () => editor?.renderTabs?.(),
+    applyFocusModeChrome,
+    renderStatusMeta,
+    renderWorkspaceStatusHint,
+    renderSaveAiSuggestion,
+    renderSystemMessages
+  };
+}

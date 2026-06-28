@@ -85,7 +85,7 @@ test("prototype-app keeps critical shell wrappers thin", () => {
     openSystemMessages: 8,
     closeSystemMessages: 5,
     isSystemMessageModalOpen: 5,
-    renderAll: 35,
+    renderAll: 30,
     renderSidebarTitle: 35,
     handleStateChange: 5
   };
@@ -99,6 +99,7 @@ test("prototype-app keeps critical shell wrappers thin", () => {
 test("extracted shell modules stay focused on one assembly boundary", () => {
   const moduleLineBudgets = {
     "app-shell-render-all.js": 80,
+    "app-shell-render-all-deps.js": 70,
     "app-shell-sidebar-controller.js": 140,
     "app-shell-sidebar-deps.js": 60,
     "app-shell-state-change-deps.js": 40,
@@ -119,6 +120,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const requiredImports = [
     "app-shell-render-all.js",
+    "app-shell-render-all-deps.js",
     "app-shell-module-ui.js",
     "app-shell-module-header.js",
     "app-shell-sidebar-controller.js",

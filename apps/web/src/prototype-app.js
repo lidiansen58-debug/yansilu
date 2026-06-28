@@ -52,6 +52,9 @@ import {
   renderAppShell
 } from "./app-shell-render-all.js";
 import {
+  buildRenderAppShellDeps
+} from "./app-shell-render-all-deps.js";
+import {
   currentModuleSidebarUi,
   syncModuleChromeClassesForRuntime
 } from "./app-shell-module-ui.js";
@@ -5478,8 +5481,10 @@ async function openDistillationQueueNote(noteId = "") {
 }
 
 function renderAll() {
-  return renderAppShell({
+  return renderAppShell(buildRenderAppShellDeps({
     state,
+    explorer,
+    editor,
     ensureSelection,
     syncRailSelectionState,
     renderSidebarTitle,
@@ -5489,15 +5494,13 @@ function renderAll() {
     renderDistillationPanel,
     renderGraphPanel,
     renderSettingsPanel,
-    explorerRender: () => explorer.render(),
     renderWritingPanel,
-    renderEditorTabs: () => editor.renderTabs(),
     applyFocusModeChrome,
     renderStatusMeta,
     renderWorkspaceStatusHint,
     renderSaveAiSuggestion,
     renderSystemMessages
-  });
+  }));
 }
 
 function explorerQuickAction(rootId = state.browserRootId) {
