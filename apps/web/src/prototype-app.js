@@ -752,6 +752,9 @@ import {
   renderTemplateMarkdownPreviewHtmlForRuntime
 } from "./settings-template-preview-view.js";
 import {
+  buildNoteTemplateSettingsCardModel
+} from "./settings-template-card-model.js";
+import {
   renderSettingsDetailFocusForRuntime,
   renderSettingsSidebarColumnForRuntime,
   renderSettingsWorkbenchChromeForRuntime
@@ -6203,58 +6206,40 @@ function updateNoteTemplatePreviewFromEditor(kind = "") {
 }
 
 function renderNoteTemplateSettingsCard(kind = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
-  const stats = $(`settings${capitalizedKind}TemplateStats`);
-  const summary = $(`settings${capitalizedKind}TemplateSummary`);
-  const detail = $(`settings${capitalizedKind}TemplateDetail`);
-  const editorField = $(`settings${capitalizedKind}TemplateEditor`);
-  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
-  const feedback = $(noteTemplateFeedbackElementId(cleanKind));
-  const feedbackText = $(noteTemplateFeedbackTextElementId(cleanKind));
-  const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
-    text: defaultTemplateSourceForKind(cleanKind),
-    draftText: defaultTemplateSourceForKind(cleanKind),
-    draftActive: false,
-    feedbackTone: "",
-    feedbackText: ""
-  };
-  const copy = noteTemplateCardCopy(cleanKind);
-  const savedSource = normalizeStoredNoteTemplateSource(stateEntry.text, cleanKind);
-  const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
-  const visibleSource = stateEntry.draftActive === true ? draftSource : savedSource;
-  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(visibleSource, cleanKind));
-
+  const model = buildNoteTemplateSettingsCardModel(kind, {
+    stateEntry: settingsState.noteTemplates?.[String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent"],
+    defaultTemplateSourceForKind,
+    noteTemplateCardCopy,
+    normalizeStoredNoteTemplateSource,
+    normalizeDraftBuffer,
+    normalizeNoteTemplateSource,
+    noteTemplateDraftValidation
+  });
+  const stats = $(`settings${model.capitalizedKind}TemplateStats`);
+  const summary = $(`settings${model.capitalizedKind}TemplateSummary`);
+  const detail = $(`settings${model.capitalizedKind}TemplateDetail`);
+  const editorField = $(`settings${model.capitalizedKind}TemplateEditor`);
+  const saveButton = $(noteTemplateSaveButtonElementId(model.cleanKind));
+  const feedback = $(noteTemplateFeedbackElementId(model.cleanKind));
+  const feedbackText = $(noteTemplateFeedbackTextElementId(model.cleanKind));
   if (stats) {
-    const draftBadgeText = !validation.ok
-      ? "当前草稿不可保存"
-      : stateEntry.draftActive
-        ? copy.statusClosed
-        : "已保存";
-    stats.innerHTML = `
-      <span class="settings-stat-badge ok">${escapeHtml(copy.stats[0])}</span>
-      <span class="settings-stat-badge">${escapeHtml(copy.stats[1])}</span>
-      <span class="settings-stat-badge ${validation.ok ? (stateEntry.draftActive ? "warn" : "ok") : "warn"}">${escapeHtml(draftBadgeText)}</span>
-    `;
+    stats.innerHTML = model.statsBadges
+      .map((badge) => `<span class="settings-stat-badge ${badge.tone || ""}">${escapeHtml(badge.text)}</span>`)
+      .join("");
   }
-  if (summary) {
-    summary.textContent = validation.ok
-      ? copy.summaryOpen
-      : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`;
-  }
+  if (summary) summary.textContent = model.summaryText;
   if (detail) detail.classList.remove("hidden");
-  if (editorField && String(editorField.value || "") !== visibleSource) editorField.value = visibleSource;
+  if (editorField && String(editorField.value || "") !== model.visibleSource) editorField.value = model.visibleSource;
   if (saveButton) {
-    saveButton.disabled = !validation.ok;
-    saveButton.title = validation.ok ? "" : validation.message;
+    saveButton.disabled = model.saveDisabled;
+    saveButton.title = model.saveTitle;
     saveButton.dataset.tip = saveButton.title;
   }
   if (feedback && feedbackText) {
-    const visibleFeedback = String(stateEntry.feedbackText || "").trim();
-    feedback.classList.toggle("is-visible", Boolean(visibleFeedback));
-    feedback.classList.toggle("ok", stateEntry.feedbackTone === "ok");
-    feedback.classList.toggle("warn", stateEntry.feedbackTone === "warn");
-    feedbackText.textContent = visibleFeedback;
+    feedback.classList.toggle("is-visible", model.feedback.visible);
+    feedback.classList.toggle("ok", model.feedback.ok);
+    feedback.classList.toggle("warn", model.feedback.warn);
+    feedbackText.textContent = model.feedback.text;
   }
 }
 
