@@ -22,14 +22,14 @@ export function renderSystemMessagesDom(deps = {}) {
   const unreadCount = systemMessages.filter((item) => item.read !== true).length;
   button?.classList.toggle("has-unread", unreadCount > 0);
   if (button) {
-    const systemMessageLabel = "绯荤粺娑堟伅涓?AI 寤鸿";
-    button.title = unreadCount ? `${systemMessageLabel}锛?{unreadCount} 鏉℃湭璇伙級` : systemMessageLabel;
-    button.dataset.tip = unreadCount ? `绯荤粺娑堟伅 ${unreadCount}` : "绯荤粺娑堟伅";
-    button.setAttribute("aria-label", unreadCount ? `${systemMessageLabel}锛?{unreadCount} 鏉℃湭璇伙級` : systemMessageLabel);
+    const systemMessageLabel = "系统消息与 AI 建议";
+    button.title = unreadCount ? `${systemMessageLabel}（${unreadCount} 条未读）` : systemMessageLabel;
+    button.dataset.tip = unreadCount ? `系统消息 ${unreadCount}` : "系统消息";
+    button.setAttribute("aria-label", unreadCount ? `${systemMessageLabel}（${unreadCount} 条未读）` : systemMessageLabel);
   }
   if (markReadButton) {
     markReadButton.disabled = unreadCount === 0;
-    markReadButton.title = unreadCount === 0 ? "娌℃湁鏈绯荤粺娑堟伅" : "鍏ㄩ儴鏍囪宸茶";
+    markReadButton.title = unreadCount === 0 ? "没有未读系统消息" : "全部标记已读";
   }
   if (!list) return;
   if (!systemMessages.length) {
@@ -68,8 +68,8 @@ export function openSystemMessagesDom({ latestOnly = false } = {}, deps = {}) {
   const note = $("systemMessageModalNote");
   if (note) {
     note.textContent = latestOnly
-      ? "鏈夋柊鐨勫緟纭浜嬮」锛屽鐞嗗悗浠嶅彲鍦ㄨ繖閲屽洖鐪嬨€?"
-      : "杩欓噷姹囨€婚渶瑕佷綘纭鐨勫叧绯汇€侀棶棰樺拰鍐欎綔寤鸿銆?";
+      ? "有新的待确认事项，处理后仍可在这里回看。"
+      : "这里汇总需要你确认的关系、问题和写作建议。";
   }
   const systemMessages = getMessages();
   const selectedSystemMessageId = getSelectedMessageId();

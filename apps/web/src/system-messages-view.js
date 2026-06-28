@@ -11,14 +11,14 @@ function systemMessagesViewDeps(deps = {}) {
 }
 
 export function renderSystemMessageEmptyListView() {
-  return `<div class="system-message-empty-list">鏆傛棤娑堟伅</div>`;
+  return `<div class="system-message-empty-list">暂无消息</div>`;
 }
 
 export function renderSystemMessageEmptyDetailView() {
   return `
     <article class="system-message-detail-card system-message-empty-card">
-      <h3>鏆傛棤闇€瑕佸鐞嗙殑娑堟伅</h3>
-      <div class="system-message-body">AI 鍒嗘瀽銆佸浘璋辨壂鎻忔垨璁″垝浠诲姟浜х敓寰呭鍐呭鍚庯紝浼氭樉绀哄湪杩欓噷锛涢噰绾冲墠涓嶄細鏀瑰姩绗旇鎴栧浘璋便€?/div>
+      <h3>暂无需要处理的消息</h3>
+      <div class="system-message-body">AI 分析、图谱扫描或计划任务产生待审内容后，会显示在这里；采纳前不会改动笔记或图谱。</div>
     </article>
   `;
 }
@@ -41,12 +41,12 @@ export function renderSystemMessageListView(messages = [], selectedMessage = nul
       return `
         <article class="system-message-item${message.read ? "" : " is-unread"}${selected ? " is-selected" : ""}" data-system-message-id="${escapeHtml(message.id)}" data-system-message-select="${escapeHtml(message.id)}" role="button" tabindex="0">
           <button class="system-message-title" type="button" data-system-message-select="${escapeHtml(message.id)}" aria-current="${selected ? "true" : "false"}">
-            ${message.read ? "" : `<span class="system-message-unread-dot" aria-label="鏈"></span>`}
+            ${message.read ? "" : `<span class="system-message-unread-dot" aria-label="未读"></span>`}
             <span>${escapeHtml(title)}</span>
           </button>
           ${subject ? `<div class="system-message-subject">${escapeHtml(subject)}</div>` : ""}
           <div class="system-message-preview">${escapeHtml(preview)}</div>
-          <div class="system-message-meta">${message.artifactCount ? `${escapeHtml(String(message.artifactCount))} 鏉″缓璁?路 ` : ""}${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
+          <div class="system-message-meta">${message.artifactCount ? `${escapeHtml(String(message.artifactCount))} 条建议 · ` : ""}${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
         </article>
       `;
     })
@@ -70,7 +70,7 @@ export function renderSystemMessageDetailView(message = null, deps = {}) {
       <h3>${escapeHtml(systemMessageDisplayTitle(message, notes))}</h3>
       ${
         subject
-          ? `<div class="system-message-focus"><span>鐩稿叧绗旇</span><strong>${escapeHtml(subject)}</strong></div>`
+          ? `<div class="system-message-focus"><span>相关笔记</span><strong>${escapeHtml(subject)}</strong></div>`
           : ""
       }
       <div class="system-message-body">${escapeHtml(message.body || "\u6ca1\u6709\u66f4\u591a\u5185\u5bb9\u3002")}</div>
