@@ -583,6 +583,7 @@ import {
 } from "./graph-relation-visual-state.js";
 import {
   graphDenseGalaxyMode,
+  graphEdgePath as graphEdgePathForRuntime,
   graphEdgeShouldRender as graphEdgeShouldRenderForRuntime,
   graphEdgeVisibleAtFit as graphEdgeVisibleAtFitForRuntime,
   graphHash,
@@ -11391,59 +11392,7 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   });
 }
 function graphEdgePath(edge, nodeMap) {
-  const from = nodeMap.get(String(edge?.fromNoteId || "").trim());
-  const to = nodeMap.get(String(edge?.toNoteId || "").trim());
-  if (!from || !to) return null;
-
-  if (from.id === to.id) {
-    const loopRadius = from.radius + 18;
-    return {
-      d: `M ${from.x} ${from.y - from.radius - 3} C ${from.x + loopRadius} ${from.y - loopRadius * 2}, ${from.x + loopRadius * 2} ${from.y}, ${from.x + from.radius + 5} ${from.y}`,
-      labelX: from.x + loopRadius + 4,
-      labelY: from.y - loopRadius,
-      titleX: from.x,
-      titleY: from.y
-    };
-  }
-
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const length = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-  const unitX = dx / length;
-  const unitY = dy / length;
-  const startX = from.x + unitX * (from.radius + 5);
-  const startY = from.y + unitY * (from.radius + 5);
-  const endX = to.x - unitX * (to.radius + 8);
-  const endY = to.y - unitY * (to.radius + 8);
-  const relationGroup = graphRelationVisual(edge?.relationType).key;
-  const signedSeed = ((graphHash(`${edge.fromNoteId}:${edge.toNoteId}:${edge.relationType}`) % 11) - 5) / 5;
-  const curveBoost =
-    relationGroup === "bridge"
-      ? 1.34
-      : relationGroup === "flow"
-        ? 1.22
-        : relationGroup === "boundary"
-          ? 1.12
-          : 1;
-  const curveMagnitude = Math.min(78, Math.max(18, length * 0.12 * curveBoost));
-  const curve = signedSeed === 0 ? curveMagnitude * 0.35 : signedSeed * curveMagnitude;
-  const midX = (startX + endX) / 2;
-  const midY = (startY + endY) / 2;
-  const controlOffsetX = -unitY * curve;
-  const controlOffsetY = unitX * curve;
-  const control1X = startX + dx * 0.32 + controlOffsetX;
-  const control1Y = startY + dy * 0.32 + controlOffsetY;
-  const control2X = startX + dx * 0.68 + controlOffsetX;
-  const control2Y = startY + dy * 0.68 + controlOffsetY;
-  const labelX = midX + controlOffsetX * 0.62;
-  const labelY = midY + controlOffsetY * 0.62;
-  return {
-    d: `M ${startX.toFixed(1)} ${startY.toFixed(1)} C ${control1X.toFixed(1)} ${control1Y.toFixed(1)} ${control2X.toFixed(1)} ${control2Y.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`,
-    labelX: Math.round(labelX),
-    labelY: Math.round(labelY - 8),
-    titleX: Math.round(midX),
-    titleY: Math.round(midY)
-  };
+  return graphEdgePathForRuntime(edge, nodeMap, { graphRelationVisual });
 }
 
 function graphThemeBoundaryMeta(options = {}) {

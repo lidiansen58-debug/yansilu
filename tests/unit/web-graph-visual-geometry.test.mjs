@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   graphDenseGalaxyMode,
+  graphEdgePath,
   graphEdgeShouldRender,
   graphEdgeVisibleAtFit,
   graphHash,
@@ -74,6 +75,24 @@ test("graph visual geometry applies fit visibility from relation group and node 
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "b", toNoteId: "c", relationType: "bridges" }, nodeMap, {}, { graphRelationVisual: relationVisual }), false);
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "b", relationType: "supports" }, nodeMap, { denseMode: true }, { graphRelationVisual: relationVisual }), false);
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "b", relationType: "flows" }, nodeMap, { denseMode: true, intercluster: true }, { graphRelationVisual: relationVisual }), true);
+});
+
+test("graph visual geometry builds curved edge paths and self loops", () => {
+  const nodeMap = new Map([
+    ["a", { id: "a", x: 100, y: 120, radius: 8 }],
+    ["b", { id: "b", x: 240, y: 180, radius: 10 }]
+  ]);
+  const path = graphEdgePath({ fromNoteId: "a", toNoteId: "b", relationType: "bridges" }, nodeMap, { graphRelationVisual: relationVisual });
+  assert.match(path.d, /^M \d+\.\d \d+\.\d C /);
+  assert.match(path.d, /\d+\.\d \d+\.\d$/);
+  assert.equal(typeof path.labelX, "number");
+  assert.equal(typeof path.titleY, "number");
+
+  const loop = graphEdgePath({ fromNoteId: "a", toNoteId: "a", relationType: "supports" }, nodeMap, { graphRelationVisual: relationVisual });
+  assert.match(loop.d, /^M 100 109 C /);
+  assert.equal(loop.titleX, 100);
+
+  assert.equal(graphEdgePath({ fromNoteId: "missing", toNoteId: "a" }, nodeMap, { graphRelationVisual: relationVisual }), null);
 });
 
 test("graph visual geometry decides edge render visibility from zoom and density policy", () => {

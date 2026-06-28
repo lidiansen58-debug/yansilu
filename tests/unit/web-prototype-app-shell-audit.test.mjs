@@ -76,6 +76,7 @@ test("prototype-app keeps critical shell wrappers thin", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const shellWrapperBudgets = {
     renderGraphPanel: 25,
+    graphEdgePath: 5,
     renderDistillationPanel: 15,
     handleStateChange: 5
   };
@@ -141,7 +142,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-view-mode-state.js": 140,
     "graph-relation-visual-state.js": 100,
     "graph-visual-selection-state.js": 45,
-    "graph-visual-geometry.js": 180,
+    "graph-visual-geometry.js": 240,
     "graph-selection-host-deps.js": 80,
     "graph-workspace-host-deps.js": 60
   };
