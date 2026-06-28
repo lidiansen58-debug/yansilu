@@ -741,6 +741,9 @@ import {
   renderSettingsWorkbenchChromeForRuntime
 } from "./settings-panel-shell.js";
 import {
+  renderSettingsPanelForRuntime
+} from "./settings-panel-renderer.js";
+import {
   aiTestBlockedReasonForState,
   currentOllamaModelTiersForState,
   installedLocalModelReadyForState
@@ -6210,115 +6213,43 @@ function renderSettingsDetailFocus() {
   renderSettingsDetailFocusForRuntime({ $, settingsState });
 }
 
+function settingsPanelRuntimeDeps() {
+  return {
+    $,
+    document,
+    state,
+    settingsState,
+    appVersion: APP_VERSION,
+    feedbackRepository: FEEDBACK_REPOSITORY,
+    feedbackRepositoryReady: FEEDBACK_REPOSITORY_READY,
+    syncRailSelectionState,
+    ensureSettingsWorkbenchLayout,
+    mountSettingsAutomationWorkspace,
+    renderSettingsWorkbenchChrome,
+    renderSettingsSidebarColumn,
+    renderSettingsDetailFocus,
+    settingsLeafLabel,
+    settingsVaultPathMissing,
+    formatSettingsUserError,
+    feedbackBaseUrl,
+    renderUpdateSettingsCard,
+    renderNoteTemplateSettingsCard,
+    renderAiLocalModelControls,
+    renderAiSettingsExperience,
+    renderAiProviderConfigControls,
+    renderAiRoutePreview,
+    renderScheduledTasksWorkspace,
+    renderAiSuggestionsWorkspace,
+    aiTestBlockedReason,
+    renderAiCanonicalDebugPanel,
+    renderSidebarTitle,
+    renderModuleWorkspaceHeader,
+    escapeHtml
+  };
+}
+
 function renderSettingsPanel() {
-  syncRailSelectionState();
-  ensureSettingsWorkbenchLayout();
-  mountSettingsAutomationWorkspace(document);
-  renderSettingsWorkbenchChrome();
-  renderSettingsSidebarColumn();
-  renderSettingsDetailFocus();
-  const input = $("settingsVaultPath");
-  const switchHint = $("settingsVaultSwitchHint");
-  const switchButton = $("settingsSwitchVault");
-  if (!input || !switchHint || !switchButton) return;
-  const vault = settingsState.vault;
-  if (vault?.vaultPath && !String(input.value || "").trim()) input.value = vault.vaultPath;
-  if (vault) {
-    switchHint.textContent = vault.vaultPath
-      ? `当前使用：${settingsLeafLabel(vault.vaultPath)}${vault.initialized ? " · 已就绪" : ""}`
-      : "选择一个真实存在的笔记库目录。";
-    switchButton.textContent = "切换到这个路径";
-  } else {
-    const missingPath = settingsVaultPathMissing();
-    switchHint.textContent = missingPath
-      ? "当前路径已失效，请重新选一个笔记库目录。"
-      : (formatSettingsUserError(settingsState.error) || "选择一个真实存在的笔记库目录。");
-    switchButton.textContent = "选好后切换";
-  }
-
-  const feedbackBadge = $("settingsFeedbackRepoBadge");
-  const feedbackDetail = $("settingsFeedbackDetail");
-  const feedbackLink = $("settingsFeedbackLink");
-  if (feedbackBadge) {
-    feedbackBadge.textContent = FEEDBACK_REPOSITORY_READY ? FEEDBACK_REPOSITORY : "待绑定仓库";
-    feedbackBadge.classList.toggle("ok", FEEDBACK_REPOSITORY_READY);
-    feedbackBadge.classList.toggle("warn", !FEEDBACK_REPOSITORY_READY);
-  }
-  if (feedbackDetail) {
-    feedbackDetail.textContent = FEEDBACK_REPOSITORY_READY
-      ? "当前会打开公开反馈页，并自动带上版本、模块和页面上下文；提交前请检查是否包含私人信息。"
-      : "仓库名已经建议为 yansilu-feedback。把 prototype-app.js 里的 GitHub owner 补上后即可启用。";
-  }
-  if (feedbackLink) {
-    const href = FEEDBACK_REPOSITORY_READY ? feedbackBaseUrl() : "#";
-    feedbackLink.href = href;
-    feedbackLink.textContent = FEEDBACK_REPOSITORY_READY ? "打开反馈页" : "等待填写真实 GitHub 仓库";
-    feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
-  }
-
-  renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVersion: APP_VERSION });
-  renderNoteTemplateSettingsCard("permanent");
-  renderNoteTemplateSettingsCard("literature");
-
-  renderAiLocalModelControls();
-  renderAiSettingsExperience();
-
-  const aiMode = $("settingsAiUserMode");
-  if (aiMode) {
-    const stored = String(settingsState.ai.userMode || "Auto").trim() || "Auto";
-    if (aiMode.value !== stored) aiMode.value = stored;
-  }
-  const aiPack = $("settingsAiModelPack");
-  if (aiPack) {
-    const stored = String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
-    if (aiPack.value !== stored) aiPack.value = stored;
-  }
-  const aiRef = $("settingsAiAdvancedModelRef");
-  if (aiRef) {
-    const stored = String(settingsState.ai.advancedModelRef || "").trim();
-    if (String(aiRef.value || "") !== stored) aiRef.value = stored;
-  }
-  const aiSecretRef = $("settingsAiSecretRef");
-  if (aiSecretRef) {
-    const stored = String(settingsState.ai.secretRef || "").trim();
-    if (String(aiSecretRef.value || "") !== stored) aiSecretRef.value = stored;
-  }
-  renderAiProviderConfigControls();
-  renderAiRoutePreview();
-  renderScheduledTasksWorkspace();
-  renderAiSuggestionsWorkspace();
-
-  const testPrompt = $("settingsAiTestPrompt");
-  if (testPrompt) {
-    const stored = String(settingsState.ai.testPrompt || "").trim();
-    if (String(testPrompt.value || "") !== stored) testPrompt.value = stored;
-  }
-  const testMeta = $("settingsAiTestChatMeta");
-  const testRunButton = $("btnAiTestChatRun");
-  const testBlockedReason = aiTestBlockedReason();
-  if (testRunButton) {
-    testRunButton.disabled = settingsState.ai.testRunning || Boolean(testBlockedReason);
-    testRunButton.textContent = settingsState.ai.testRunning
-      ? "运行中..."
-      : testBlockedReason
-        ? "先完成设置"
-        : "运行";
-    if (testBlockedReason) testRunButton.setAttribute("title", testBlockedReason);
-    else testRunButton.removeAttribute("title");
-  }
-  if (testMeta) {
-    const meta = settingsState.ai.testRunning ? "运行中..." : settingsState.ai.testMeta || testBlockedReason || "等待运行";
-    testMeta.textContent = meta;
-    testMeta.classList.toggle("warn", settingsState.ai.testRunning || Boolean(testBlockedReason));
-  }
-  const testOutput = $("settingsAiTestChatOutput");
-  if (testOutput) {
-    testOutput.textContent = settingsState.ai.testOutput || "（空）";
-  }
-  renderAiCanonicalDebugPanel();
-  renderSettingsWorkbenchChrome();
-  if (state.module === "settings") renderSidebarTitle();
-  renderModuleWorkspaceHeader();
+  renderSettingsPanelForRuntime(settingsPanelRuntimeDeps());
 }
 
 function noteTemplateFieldMeta(kind = "") {
