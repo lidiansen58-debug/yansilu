@@ -76,6 +76,9 @@ import {
   buildGraphPanelState
 } from "../../apps/web/src/graph-panel-state-builder.js";
 import {
+  refreshDirectoryGraphForRuntime
+} from "../../apps/web/src/graph-refresh-controller.js";
+import {
   graphVisualNodeViewState,
   renderGraphVisualNodeView
 } from "../../apps/web/src/graph-visual-node-view.js";
@@ -432,11 +435,22 @@ test("live graph connectivity overrides stale persisted relation status once a s
   );
 });
 
-test("graph refresh repaints the explorer tree after connectivity state changes", () => {
-  const source = readPrototypeApp();
+test("graph refresh repaints the explorer tree after connectivity state changes", async () => {
+  const calls = [];
+  const graphState = {};
+  await refreshDirectoryGraphForRuntime({
+    graphState,
+    graphScopeDirectoryId: () => "selected-dir",
+    graphOriginalScopeDirectoryId: "original-root",
+    fetchDirectoryGraph: async () => ({ nodes: [], edges: [] }),
+    fetchGraphConflicts: async () => null,
+    fetchRelationReviewQueue: async () => ({ items: [], total: 0 }),
+    renderGraphPanel: () => calls.push("panel"),
+    renderAll: () => calls.push("all")
+  });
 
-  assert.match(source, /async function refreshDirectoryGraph\(\) \{/);
-  assert.match(source, /graphState\.loading = false;\s*renderAll\(\);/);
+  assert.equal(graphState.loading, false);
+  assert.deepEqual(calls, ["panel", "all"]);
 });
 
 test("graph focus relation panel can be collapsed and restored explicitly", () => {
@@ -722,11 +736,12 @@ test("graph research navigator uses cluster maturity for global verdicts", () =>
   assert.equal(thin.promisingClusterCount, 0);
   assert.match(thin.headline, /先补关系，再判断成题/);
 });
-test("graph workbench prioritizes Chinese clue and question actions", () => {
+test("graph workbench prioritizes Chinese clue and question actions", async () => {
   const source = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
   const html = readPrototypeHtml();
   const domain = readDomainCatalogStore();
+  const reviewCalls = [];
   const priorityMarkup = renderGraphWorkbenchPriorityQueueView([
     { title: "桥接", view: "organize", tone: "bridge", kicker: "缺少连接", actionAttrs: 'data-open-note="n1"' },
     { title: "复核", view: "organize", tone: "review", kicker: "理由待补", actionAttrs: 'data-open-note="n2"' },
@@ -746,7 +761,17 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
   assert.ok(panelStateBuilderSource.includes("const scopedReviewQueue = graphReviewQueueInNodeScope(graphState.reviewQueue, scopedActionNodeIds);"));
   assert.ok(panelStateBuilderSource.includes("const scopedNetworkEdges = allGraphEdges.filter((edge) => graphRelationTouchesNodeScope(edge, scopedActionNodeIds));"));
   assert.ok(panelStateBuilderSource.includes("const conflictingRelations = graphMergeRelationsByKey(insightConflictingRelations, scopedTensionRelations);"));
-  assert.ok(source.includes("fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 })"));
+  await refreshDirectoryGraphForRuntime({
+    graphScopeDirectoryId: () => "selected-dir",
+    graphOriginalScopeDirectoryId: "original-root",
+    fetchDirectoryGraph: async () => ({ nodes: [], edges: [] }),
+    fetchGraphConflicts: async () => null,
+    fetchRelationReviewQueue: async (options) => {
+      reviewCalls.push(options);
+      return { items: [], total: 0 };
+    }
+  });
+  assert.deepEqual(reviewCalls, [{ directoryId: "selected-dir", includeDescendants: true, limit: 8 }]);
   assert.match(priorityMarkup, /class="graph-priority-queue"/);
   assert.match(priorityMarkup, /桥接/);
   assert.match(priorityMarkup, /复核/);
@@ -2093,14 +2118,23 @@ test("graph rail entry does not fall through to note explorer during async refre
   assert.match(source, /if \(action === "quick-original" && Date\.now\(\) < graphModuleActivationGuardUntil\) \{[\s\S]*setStatus\("已停留在关系图谱", "ok"\);[\s\S]*return;/);
 });
 
-test("note box and graph tree sync all notes under the selected root", () => {
+test("note box and graph tree sync all notes under the selected root", async () => {
   const source = readPrototypeApp();
+  const calls = [];
 
   assert.match(source, /async function syncNotesForDirectoryTree\(rootDirectoryId\) \{/);
   assert.match(source, /const directoryIds = descendantDirectoryIds\(rootId\)\.filter\(\(id\) => folderById\(state, id\)\);[\s\S]*for \(const directoryId of directoryIds\) \{[\s\S]*await syncNotesForDirectory\(directoryId\);/);
   assert.match(source, /await refreshVaultSettings\(\);[\s\S]*await syncDirectoriesFromApi\(\);[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);/);
   assert.match(source, /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);[\s\S]*syncRailSelectionState\(\);/);
-  assert.match(source, /async function refreshDirectoryGraph\(\) \{[\s\S]*renderGraphPanel\(\);[\s\S]*try \{[\s\S]*await syncNotesForDirectoryTree\(networkDirectoryId\);[\s\S]*const \[graph, conflicts, reviewQueue\] = await Promise\.all/);
+  await refreshDirectoryGraphForRuntime({
+    graphScopeDirectoryId: () => "selected-dir",
+    graphOriginalScopeDirectoryId: "original-root",
+    syncNotesForDirectoryTree: async (directoryId) => calls.push(["sync", directoryId]),
+    fetchDirectoryGraph: async () => ({ nodes: [], edges: [] }),
+    fetchGraphConflicts: async () => null,
+    fetchRelationReviewQueue: async () => ({ items: [], total: 0 })
+  });
+  assert.deepEqual(calls, [["sync", "original-root"]]);
 });
 
 test("graph module sidebar is labeled as graph scope instead of permanent-note browser", () => {

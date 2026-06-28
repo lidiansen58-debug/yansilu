@@ -4,7 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
+import {
+  refreshDirectoryGraphForRuntime
+} from "../../apps/web/src/graph-refresh-controller.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -17,11 +19,37 @@ function readGraphPanelShell() {
 }
 
 test("graph panel keeps explorer isolation badges based on the full original-note network", async () => {
-  const source = await readPrototypeAppSource();
+  const calls = [];
+  const graphState = {};
+  const graph = { nodes: [{ id: "n1" }], edges: [] };
 
-  assert.match(source, /const networkDirectoryId = GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID;/);
-  assert.match(source, /fetchDirectoryGraph\(networkDirectoryId, \{ includeDescendants: true, timeoutMs: 15000 \}\)/);
-  assert.match(source, /graphState\.lastLoadedDirectoryId = graph \? networkDirectoryId : "";/);
+  await refreshDirectoryGraphForRuntime({
+    graphState,
+    graphScopeDirectoryId: () => "scoped-folder",
+    graphOriginalScopeDirectoryId: "original-root",
+    syncNotesForDirectoryTree: async (directoryId) => calls.push(["sync", directoryId]),
+    fetchDirectoryGraph: async (directoryId, options) => {
+      calls.push(["graph", directoryId, options]);
+      return graph;
+    },
+    fetchGraphConflicts: async (options) => {
+      calls.push(["conflicts", options]);
+      return null;
+    },
+    fetchRelationReviewQueue: async (options) => {
+      calls.push(["review", options]);
+      return { items: [], total: 0 };
+    }
+  });
+
+  assert.deepEqual(calls, [
+    ["sync", "original-root"],
+    ["graph", "original-root", { includeDescendants: true, timeoutMs: 15000 }],
+    ["conflicts", { directoryId: "scoped-folder", includeDescendants: true }],
+    ["review", { directoryId: "scoped-folder", includeDescendants: true, limit: 8 }]
+  ]);
+  assert.equal(graphState.lastLoadedDirectoryId, "original-root");
+  assert.equal(graphState.item, graph);
 });
 
 test("graph panel derives connected note ids from all loaded graph edges instead of the current scoped folder", async () => {

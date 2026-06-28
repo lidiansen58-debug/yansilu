@@ -500,6 +500,9 @@ import {
   renderGraphPanelForRuntime
 } from "./graph-panel-renderer.js";
 import {
+  refreshDirectoryGraphForRuntime
+} from "./graph-refresh-controller.js";
+import {
   createGraphVisualMapController
 } from "./graph-visual-map-controller.js";
 import {
@@ -12692,52 +12695,20 @@ function renderGraphPanel() {
 }
 
 async function refreshDirectoryGraph() {
-  const directoryId = graphScopeDirectoryId();
-  const networkDirectoryId = GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID;
-  const requestSerial = (graphState.requestSerial || 0) + 1;
-  const canReuseScopedGraph = graphLoadedScopeCoversDirectory(directoryId);
-  let succeeded = false;
-  graphState.requestSerial = requestSerial;
-  graphState.loading = true;
-  graphState.error = "";
-  renderGraphPanel();
-  try {
-    await syncNotesForDirectoryTree(networkDirectoryId);
-    const [graph, conflicts, reviewQueue] = await Promise.all([
-      fetchDirectoryGraph(networkDirectoryId, { includeDescendants: true, timeoutMs: 15000 }),
-      fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => null),
-      fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 }).catch((error) => ({
-        error: String(error?.message || error),
-        items: [],
-        total: 0
-      }))
-    ]);
-    if (requestSerial !== graphState.requestSerial) return;
-    graphState.item = graph;
-    graphState.lastLoadedDirectoryId = graph ? networkDirectoryId : "";
-    graphState.lastLoadedAt = graph ? new Date().toISOString() : "";
-    graphState.conflicts = conflicts;
-    graphState.reviewQueue = reviewQueue;
-    graphState.lastErrorAt = "";
-    upsertGraphNodeSummaries(Array.isArray(graph?.nodes) ? graph.nodes : []);
-    succeeded = true;
-  } catch (error) {
-    if (requestSerial !== graphState.requestSerial) return;
-    graphState.error = graphLoadErrorMessage(error);
-    graphState.lastErrorAt = new Date().toISOString();
-    if (!canReuseScopedGraph) {
-      graphState.item = null;
-      graphState.lastLoadedDirectoryId = "";
-      graphState.lastLoadedAt = "";
-      graphState.conflicts = null;
-      graphState.reviewQueue = null;
-    }
-  } finally {
-    if (requestSerial !== graphState.requestSerial) return;
-    graphState.loading = false;
-    renderAll();
-  }
-  return succeeded;
+  return refreshDirectoryGraphForRuntime({
+    graphState,
+    graphScopeDirectoryId,
+    graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
+    graphLoadedScopeCoversDirectory,
+    syncNotesForDirectoryTree,
+    fetchDirectoryGraph,
+    fetchGraphConflicts,
+    fetchRelationReviewQueue,
+    upsertGraphNodeSummaries,
+    graphLoadErrorMessage,
+    renderGraphPanel,
+    renderAll
+  });
 }
 
 async function runGraphAiAnalysis() {
