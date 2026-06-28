@@ -90,6 +90,9 @@ import {
   routeAppShellStateChange
 } from "./app-shell-state-change-router.js";
 import {
+  bootstrapAppForRuntime
+} from "./app-startup-controller.js";
+import {
   candidatePreviewItemIds,
   candidatePreviewItems,
   confirmSkipReasonMap,
@@ -150,6 +153,13 @@ import {
   sourceNoteTypeLabel,
   writingProjectStatusLabel
 } from "./prototype-note-state-helpers.js";
+import {
+  ensureNoteBodyLoadedForRuntime
+} from "./note-loading-runtime.js";
+import {
+  loadNoteTemplateSettingsFromStorageForRuntime,
+  refreshUntitledPlaceholderForRuntime
+} from "./note-template-runtime-helpers.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
   aiInboxFeedbackFromWorkspace,
@@ -721,6 +731,13 @@ import {
   noteHasBoundarySignal
 } from "./writing-readiness.js";
 import {
+  currentBasketWritingProjectPlan,
+  importedPermanentNotesWritingProjectPlan,
+  writingProjectFormInput,
+  writingStrongModelAnalysisPlan,
+  writingStrongModelResultMeta
+} from "./writing-project-action-model.js";
+import {
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
   resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime,
   suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle,
@@ -787,14 +804,20 @@ import {
   ollamaStopRuntimeUiOutcome
 } from "./ai-local-runtime-ui-model.js";
 import {
+  buildAiSettingsPayload,
+  isLocalAdvancedModelRefForSettings,
+  ollamaPullModelPlan,
+  ollamaRuntimePreviewFromPullResult,
+  providerHealthCheckPlan,
+  providerHealthResultStatus
+} from "./settings-ai-runtime-actions.js";
+import {
   AI_LOCAL_MODEL_TIERS,
   AI_REMOTE_MODEL_TIERS,
   OLLAMA_CHAT_ENDPOINT_URL,
   OLLAMA_HEALTH_ENDPOINT_URL,
   OLLAMA_RECOMMENDED_MODEL,
   aiDefaultsForRuntimeMode,
-  aiFallbackPolicyForRuntimeMode,
-  aiPrivacyPolicyForRuntimeMode,
   defaultProviderEndpointUrl,
   defaultProviderHealthEndpointUrl,
   enabledProviderHealthEndpointUrl,
@@ -1730,47 +1753,16 @@ function composePermanentTemplateDraft(fields = {}) {
 }
 
 function loadNoteTemplateSettingsFromStorage() {
-  const scope = noteTemplateStorageScope();
-  for (const kind of ["permanent", "literature"]) {
-    const entry = settingsState.noteTemplates[kind];
-    const previousScope = String(entry?.scope || "");
-    const savedTextBeforeLoad = normalizeStoredNoteTemplateSource(entry?.text, kind);
-    const rawDraftTextBeforeLoad = normalizeDraftBuffer(entry?.draftText || "");
-    const draftTextBeforeLoad = rawDraftTextBeforeLoad.trim()
-      ? normalizeStoredNoteTemplateSource(rawDraftTextBeforeLoad, kind)
-      : rawDraftTextBeforeLoad;
-    const hasUnsavedDraft =
-      previousScope === scope &&
-      entry?.draftActive === true &&
-      draftTextBeforeLoad !== normalizeDraftBuffer(savedTextBeforeLoad);
-    const scopedKey = noteTemplateStorageKey(kind);
-    const scopedHistoryKey = noteTemplateStorageKey(kind, { suffix: "history" });
-    const legacyKey = NOTE_TEMPLATE_STORAGE_KEYS[kind];
-    const legacyHistoryKey = `${legacyKey}:history`;
-    const scopedText = readStoredText(scopedKey, "");
-    const legacyText = readStoredText(legacyKey, "");
-    const scopedHistory = readStoredText(scopedHistoryKey, "");
-    const legacyHistory = readStoredText(legacyHistoryKey, "");
-    const shouldMigrateLegacy = scope !== "global" && !String(scopedText || "").trim() && String(legacyText || "").trim();
-    const resolvedText = shouldMigrateLegacy ? legacyText : scopedText || (scope === "global" ? legacyText : "");
-    const resolvedHistory = shouldMigrateLegacy ? legacyHistory : scopedHistory || (scope === "global" ? legacyHistory : "");
-    const normalizedText = normalizeStoredNoteTemplateSource(resolvedText, kind);
-    settingsState.noteTemplates[kind].text = normalizedText;
-    settingsState.noteTemplates[kind].scope = scope;
-    if (!hasUnsavedDraft) {
-      settingsState.noteTemplates[kind].draftText = normalizedText;
-      settingsState.noteTemplates[kind].draftActive = false;
-    }
-    let parsedHistory = [];
-    try {
-      parsedHistory = resolvedHistory ? JSON.parse(resolvedHistory) : [];
-    } catch {}
-    settingsState.noteTemplates[kind].history = normalizeNoteTemplateHistory(parsedHistory, kind);
-    if (shouldMigrateLegacy) {
-      writeStoredText(scopedKey, normalizedText);
-      writeStoredText(scopedHistoryKey, JSON.stringify(settingsState.noteTemplates[kind].history));
-    }
-  }
+  return loadNoteTemplateSettingsFromStorageForRuntime({
+    settingsState,
+    noteTemplateStorageScope,
+    noteTemplateStorageKey,
+    readStoredText,
+    writeStoredText,
+    normalizeStoredNoteTemplateSource,
+    normalizeDraftBuffer,
+    normalizeNoteTemplateHistory
+  });
 }
 
 function persistNoteTemplateSettingsToStorage() {
@@ -1851,7 +1843,7 @@ function settingsSupportedModelPack(modelPack = "") {
 }
 
 function isLocalAdvancedModelRef(value = "") {
-  return /^(local_private_gateway|ollama_local_gateway|minicpm_local_gateway):/i.test(String(value || "").trim());
+  return isLocalAdvancedModelRefForSettings(value);
 }
 
 function preferredLocalProviderPresetForSelection() {
@@ -2042,46 +2034,10 @@ function aiTestBlockedReason() {
 }
 
 function aiSettingsPayload() {
-  const selection = canonicalizeAiSettingsSelection({
-    runtimeMode: settingsState.ai.runtimeMode,
-    modelPack: settingsState.ai.modelPack,
-    userMode: settingsState.ai.userMode,
-    providerPreset: localProviderPresetForModelPack(settingsState.ai.modelPack)
+  return buildAiSettingsPayload(settingsState.ai, {
+    preferredLocalProviderPreset: preferredLocalProviderPresetForSelection(),
+    installedLocalModelReady
   });
-  const localProviderPreset = preferredLocalProviderPresetForSelection();
-  const providerPreset = providerPresetForModelPack(selection.modelPack);
-  const draftTouched = settingsState.ai.providerDraftTouched || {};
-  const endpointUrl = String(settingsState.ai.providerEndpointUrl || "").trim();
-  const secretRef = String(settingsState.ai.secretRef || "").trim();
-  const remoteRuntimeModelMap = runtimeModelMapForRemoteModel(providerPreset, settingsState.ai.remoteRuntimeModel);
-  const shouldSendEndpointUrl = draftTouched.providerEndpointUrl || Boolean(endpointUrl);
-  const shouldSendRemoteRuntimeMap = draftTouched.remoteRuntimeModel || Boolean(Object.keys(remoteRuntimeModelMap).length);
-  const shouldSendSecretRef = draftTouched.secretRef || Boolean(secretRef);
-  const localModelAllowed = ["local_only", "hybrid"].includes(selection.runtimeMode);
-  const localModelReady = localModelAllowed && installedLocalModelReady(settingsState.ai.localModel);
-  const advancedModelRef = String(settingsState.ai.advancedModelRef || "").trim();
-  const advancedModelRefIsLocal = isLocalAdvancedModelRef(advancedModelRef);
-  const modelRefAllowed = Boolean(advancedModelRef) && (
-    advancedModelRefIsLocal
-      ? localModelReady
-      : selection.runtimeMode !== "local_only"
-  );
-  return {
-    userMode: settingsState.ai.userMode,
-    modelPack: selection.modelPack,
-    ...(providerPreset ? { providerPreset } : {}),
-    ...(shouldSendEndpointUrl ? { endpointUrl } : {}),
-    ...(shouldSendRemoteRuntimeMap ? { runtimeModelMap: remoteRuntimeModelMap } : {}),
-    privacy: aiPrivacyPolicyForRuntimeMode(selection.runtimeMode),
-    fallbackPolicy: aiFallbackPolicyForRuntimeMode(selection.runtimeMode),
-    advancedSettings: {
-      runtimeMode: selection.runtimeMode,
-      ...(localModelReady ? { localModel: settingsState.ai.localModel } : {}),
-      ...(localModelReady ? { localProviderPreset } : {}),
-      ...(modelRefAllowed ? { modelRef: advancedModelRef } : {}),
-      ...(shouldSendSecretRef ? { secretRef } : {})
-    }
-  };
 }
 
 function aiProviderConfigPayload(options = {}) {
@@ -2508,10 +2464,14 @@ async function stopOllamaRuntimeFromUi() {
 }
 
 async function pullRecommendedOllamaModel(modelName = "") {
-  const requestedModel = String(modelName || "").trim();
-  const modelNameToPull = requestedModel || ollamaPullModelName();
-  const recommendation = ollamaRecommendationForModel(modelNameToPull, currentOllamaModelTiers());
-  const command = recommendation?.downloadCommand || `ollama pull ${modelNameToPull}`;
+  const pullPlan = ollamaPullModelPlan({
+    requestedModel: modelName,
+    fallbackModelName: ollamaPullModelName(),
+    modelTiers: currentOllamaModelTiers(),
+    runtimeMode: settingsState.ai.runtimeMode
+  });
+  const modelNameToPull = pullPlan.modelName;
+  const command = pullPlan.command;
   const confirmed = typeof window === "undefined" || typeof window.confirm !== "function"
     ? true
     : window.confirm(`下载 ${modelNameToPull} 会获取大模型文件，可能需要较长时间和数 GB 磁盘空间。\n\n命令：${command}\n\n确认开始下载吗？`);
@@ -2521,17 +2481,12 @@ async function pullRecommendedOllamaModel(modelName = "") {
   renderSettingsPanel();
   setStatus(`正在下载本地模型：${modelNameToPull}。这可能需要几分钟。`, "warn");
   try {
-    const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
-    const shouldEnable = ["local_only", "hybrid"].includes(runtimeMode);
     const result = await pullOllamaModel(modelNameToPull, {
-      enable: shouldEnable,
-      runtimeMode
+      enable: pullPlan.shouldEnable,
+      runtimeMode: pullPlan.runtimeMode
     });
     const runtime = result?.runtime || await fetchOllamaModels();
-    const runtimePreview = {
-      ...(runtime || {}),
-      status: runtime?.status || "available"
-    };
+    const runtimePreview = ollamaRuntimePreviewFromPullResult(result, runtime);
     const models = applyOllamaRuntimePreview(runtimePreview);
     if (result?.enabled?.preferences) {
       applyAiPreferencesToSettingsState(result.enabled.preferences);
@@ -2542,7 +2497,7 @@ async function pullRecommendedOllamaModel(modelName = "") {
     else applyOllamaLocalModelDefaults();
     if (result?.enabled?.providerConfig) upsertAiProviderConfig(result.enabled.providerConfig);
     persistAiSettingsToStorage();
-    if (shouldEnable) await persistOllamaRuntimeSelectionAfterPreview();
+    if (pullPlan.shouldEnable) await persistOllamaRuntimeSelectionAfterPreview();
     else await refreshAiRoutePreview({ render: false });
     const readyModel = String(settingsState.ai.localModel || "").trim();
     setStatus(
@@ -2636,12 +2591,13 @@ async function syncAiProviderConfigToApi() {
 
 async function checkCurrentAiProviderHealth() {
   const providerId = currentAiProviderId();
-  if (!providerId || providerId === "platform_managed_openai") return false;
-  const endpointUrl = String(settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
-  const healthEndpointUrl = String(
-    settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || ""
-  ).trim();
-  if (!healthEndpointUrl) {
+  const healthPlan = providerHealthCheckPlan({
+    providerId,
+    endpointUrl: settingsState.ai.providerEndpointUrl,
+    healthEndpointUrl: settingsState.ai.providerHealthEndpointUrl
+  });
+  if (healthPlan.reason === "unsupported_provider") return false;
+  if (healthPlan.reason === "missing_health_endpoint") {
     settingsState.ai.providerConfigError = "";
     settingsState.ai.providerHealthResult = null;
     renderSettingsPanel();
@@ -2656,21 +2612,10 @@ async function checkCurrentAiProviderHealth() {
     upsertAiProviderConfig(saved);
     resetAiProviderDraftTouched();
     applyActiveAiProviderConfigToState();
-    const result = await checkAiProviderHealth(providerId, {
-      networkEnabled: true,
-      healthCheck: {
-        enabled: true,
-        endpointUrl: healthEndpointUrl,
-        method: "GET",
-        timeoutMs: 5000,
-        expectedStatus: 200,
-        intervalSeconds: 300
-      }
-    });
+    const result = await checkAiProviderHealth(healthPlan.providerId, healthPlan.request);
     settingsState.ai.providerHealthResult = result;
-    const record = result?.record || {};
-    const label = record.status === "healthy" ? "连接正常" : `连接状态：${record.status || "未检测"}`;
-    setStatus(`AI 服务 ${label}`, record.status === "healthy" ? "ok" : "warn");
+    const healthStatus = providerHealthResultStatus(result);
+    setStatus(`AI 服务 ${healthStatus.label}`, healthStatus.healthy ? "ok" : "warn");
     return true;
   } catch (error) {
     settingsState.ai.providerHealthResult = null;
@@ -4094,40 +4039,38 @@ async function openWritingModule({
 }
 
 async function createWritingProjectFromCurrentBasket() {
-  const title = String($("writingTitle")?.value || "").trim();
+  const form = writingProjectFormInput({
+    title: $("writingTitle")?.value || "",
+    goal: $("writingGoal")?.value || "",
+    audience: $("writingAudience")?.value || "",
+    tone: $("writingTone")?.value || ""
+  });
   const basketNoteIds = parseWritingBasketIds();
   const relatedIndexIds = uniqueStrings(writingState.sourceIndexIds);
-  if (writingState.project?.id) {
+  const actionPlan = currentBasketWritingProjectPlan({
+    form,
+    basketNoteIds,
+    relatedIndexIds,
+    existingProject: writingState.project
+  });
+  if (actionPlan.reason === "existing_project") {
     setStatus(`当前项目已创建：${writingState.project.id}。下一步生成草稿骨架或打开当前项目。`, "warn");
     return writingState.project;
   }
-  if (!title) {
+  if (actionPlan.reason === "missing_title") {
     setStatus("请先填写项目标题", "warn");
     return null;
   }
-  if (!basketNoteIds.length) {
+  if (actionPlan.reason === "missing_basket") {
     setStatus("请先加入至少一条永久笔记", "warn");
     return null;
   }
   try {
-    const goal = String($("writingGoal")?.value || "").trim();
-    const audience = String($("writingAudience")?.value || "").trim();
-    const tone = String($("writingTone")?.value || "").trim();
     const bookStructure = currentWritingBookStructure({
       notes: basketNoteIds.map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId }),
       includeLocalIdeas: true
     });
-    const project = await createWritingProject({
-      title,
-      goal,
-      audience,
-      tone,
-      intent: deriveWritingProjectIntent({ title, goal }),
-      desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience }),
-      basketNoteIds,
-      relatedIndexIds,
-      bookStructure
-    });
+    const project = await createWritingProject({ ...actionPlan.payload, bookStructure });
     writingState.project = project;
     syncWritingLocalBookIdeasFromProject(project);
     writingState.scaffold = null;
@@ -4284,6 +4227,17 @@ async function createWritingProjectFromImportedPermanentNotes() {
   await ensureNotesLoaded(noteIds);
   const title = suggestedWritingProjectTitle(noteIds);
   const entryPlan = planImportedPermanentNotesWritingEntry({ noteIds, title });
+  const form = writingProjectFormInput({
+    goal: $("writingGoal")?.value || "",
+    audience: $("writingAudience")?.value || "",
+    tone: $("writingTone")?.value || ""
+  });
+  const actionPlan = importedPermanentNotesWritingProjectPlan({
+    noteIds,
+    title,
+    form,
+    entryPlan
+  });
   if (entryPlan.shouldBeginEntry) {
     beginWritingEntry(entryPlan.noteIds, {
       title: entryPlan.title,
@@ -4291,18 +4245,7 @@ async function createWritingProjectFromImportedPermanentNotes() {
     });
   }
   try {
-    const goal = String($("writingGoal")?.value || "").trim();
-    const audience = String($("writingAudience")?.value || "").trim();
-    const tone = String($("writingTone")?.value || "").trim();
-    const project = await createWritingProject({
-      title,
-      goal,
-      audience,
-      tone,
-      intent: deriveWritingProjectIntent({ title, goal }),
-      desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience }),
-      basketNoteIds: noteIds
-    });
+    const project = await createWritingProject(actionPlan.payload);
     writingState.project = project;
     syncWritingLocalBookIdeasFromProject(project);
     populateWritingFormFromProject(project);
@@ -4473,50 +4416,20 @@ function isEmptyUntitledMarkdown(body = "", folderId = "") {
 }
 
 async function refreshUntitledPlaceholderForCurrentTemplate(note) {
-  if (!note || !isUntitledTitle(note.title)) return note;
-  const tab = noteTabFor(note.id);
-  const currentBody = normalizedDefaultUntitledBody(note.folderId);
-  const existingBody = ensureEditableNoteBody(typeof tab?.body === "string" ? tab.body : note.body).replace(/\r\n/g, "\n").trim();
-  if (!existingBody || existingBody === currentBody || !isEmptyUntitledMarkdown(existingBody, note.folderId)) return note;
-
-  const nextBody = ensureEditableNoteBody(initialBodyForFolder(note.folderId));
-  if (isLocalOnlyNote(note)) {
-    note.body = nextBody;
-    note.bodyLoaded = true;
-    note.tags = parseTags(nextBody);
-    note.links = parseLinks(nextBody);
-    note.updatedAt = new Date().toISOString();
-    if (tab) {
-      tab.body = nextBody;
-      tab.savedBody = nextBody;
-      tab.dirty = false;
-    }
-    return note;
-  }
-
-  try {
-    const updated = await updateNote(note.id, {
-      title: note.title,
-      body: nextBody,
-      status: note.status || "draft",
-      generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
-      originalityStatus: note.originalityStatus || undefined,
-      originalitySimilarity: note.originalitySimilarity ?? undefined
-    });
-    if (updated) {
-      Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
-      if (tab) {
-        tab.body = note.body;
-        tab.savedBody = note.body;
-        tab.title = note.title;
-        tab.savedTitle = note.title;
-        tab.dirty = false;
-      }
-    }
-  } catch (error) {
-    setStatus(`未命名占位模板刷新失败，仍打开旧内容：${String(error?.message || error)}`, "warn");
-  }
-  return note;
+  return refreshUntitledPlaceholderForRuntime(note, {
+    noteTabFor,
+    isUntitledTitle,
+    normalizedDefaultUntitledBody,
+    ensureEditableNoteBody,
+    isEmptyUntitledMarkdown,
+    initialBodyForFolder,
+    isLocalOnlyNote,
+    parseTags,
+    parseLinks,
+    updateNote,
+    mapNoteItem,
+    setStatus
+  });
 }
 
 function noteTabFor(noteId = "") {
@@ -7230,18 +7143,32 @@ async function continueWritingProjectEntry(projectId, { openDraft = false, statu
 
 async function prepareWritingStrongModelAnalysis() {
   const noteIds = parseWritingBasketIds();
-  if (!noteIds.length) {
+  const preflightPlan = writingStrongModelAnalysisPlan({
+    noteIds,
+    project: writingState.project,
+    confirmed: true
+  });
+  if (preflightPlan.reason === "missing_basket") {
     setStatus("先把永久笔记加入写作篮，再准备强模型分析", "warn");
     return;
   }
-  if (!writingState.project?.id) {
+  if (preflightPlan.reason === "missing_project") {
     setStatus("先创建写作项目，再准备强模型分析", "warn");
     return;
   }
   const confirmed =
     typeof window === "undefined" ||
     window.confirm("这会为远程强模型准备写作分析请求。当前实现不会直接调用模型，但请求包包含写作篮笔记摘要。继续？");
-  if (!confirmed) return;
+  const actionPlan = writingStrongModelAnalysisPlan({
+    noteIds,
+    project: writingState.project,
+    form: {
+      goal: $("writingGoal")?.value || "",
+      audience: $("writingAudience")?.value || ""
+    },
+    confirmed
+  });
+  if (!actionPlan.ok) return;
   const requestRevision = writingState.strongModelRevision + 1;
   writingState.strongModelRevision = requestRevision;
   writingState.strongModelLoading = true;
@@ -7249,18 +7176,10 @@ async function prepareWritingStrongModelAnalysis() {
   writingState.strongModelError = "";
   renderWritingPanel();
   try {
-    const result = await analyzeWritingWithStrongModel({
-      userConfirmedRemoteModel: true,
-      projectId: writingState.project?.id || "",
-      writingGoal: String($("writingGoal")?.value || writingState.project?.goal || "").trim(),
-      audience: String($("writingAudience")?.value || writingState.project?.audience || "").trim(),
-      noteIds,
-      persistArtifacts: true
-    });
+    const result = await analyzeWritingWithStrongModel(actionPlan.request);
     if (writingState.strongModelRevision !== requestRevision) return;
     writingState.strongModelResult = result;
-    const model = result?.request?.model?.model || "strong_model";
-    const artifactCount = Number(result?.result?.storedArtifactIds?.length || result?.result?.summary?.artifactCount || result?.result?.artifacts?.length || 0);
+    const { model, artifactCount } = writingStrongModelResultMeta(result);
     const systemMessage = writingAnalysisSystemMessageForResult({
       projectId: writingState.project?.id || "",
       noteIds,
@@ -11249,50 +11168,14 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
 }
 
 async function ensureNoteBodyLoaded(noteId) {
-  const note = state.notes.find((n) => n.id === noteId);
-  if (!note || note.bodyLoaded) return;
-  const expectedNoteBody = note.body;
-  const expectedTab = state.tabs.find((t) => t.noteId === note.id);
-  const expectedTabBody = expectedTab?.body;
-  try {
-    const full = await fetchNote(noteId);
-    if (!full) return;
-    const currentTab = state.tabs.find((t) => t.noteId === note.id);
-    if (currentTab?.dirty) {
-      note.bodyLoaded = true;
-      return;
-    }
-    const hasLocalEditorChange = currentTab && currentTab.body !== expectedTabBody;
-    const hasLocalNoteChange = note.body !== expectedNoteBody;
-    if (hasLocalEditorChange || hasLocalNoteChange) {
-      note.bodyLoaded = true;
-      return;
-    }
-    note.body = full.body || note.body;
-    note.title = full.title || note.title;
-    note.status = full.status || note.status;
-    note.markdownPath = full.markdownPath || note.markdownPath;
-    note.originalityStatus = full.originalityStatus || note.originalityStatus;
-    note.originalitySimilarity = normalizeOptionalNumber(full.originalitySimilarity ?? note.originalitySimilarity);
-    note.authorship = normalizeAuthorshipItem(full.authorship) || note.authorship;
-    note.thesis = full.thesis || note.thesis || "";
-    note.threeLineSummary = Array.isArray(full.threeLineSummary) ? full.threeLineSummary : note.threeLineSummary || [];
-    note.distillationStatus = full.distillationStatus || note.distillationStatus || "";
-    note.thinkingStatus = normalizeThinkingStatusItem(full.thinkingStatus) || note.thinkingStatus || null;
-    note.boundaryOrCounterpoint = full.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
-    note.updatedAt = full.updatedAt || note.updatedAt;
-    note.bodyLoaded = true;
-    const tab = state.tabs.find((t) => t.noteId === note.id);
-    if (tab) {
-      tab.body = note.body;
-      tab.title = note.title;
-      tab.savedBody = note.body;
-      tab.savedTitle = note.title;
-      tab.dirty = false;
-      editor.syncTabMetadataFromNote(note.id);
-      if (state.activeTabId === tab.id) editor.fillEditorFromTab();
-    }
-  } catch {}
+  return ensureNoteBodyLoadedForRuntime(noteId, {
+    state,
+    fetchNote,
+    editor,
+    normalizeOptionalNumber,
+    normalizeAuthorshipItem,
+    normalizeThinkingStatusItem
+  });
 }
 
 function openNoteById(id, options = {}) {
@@ -13285,305 +13168,65 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-async function bootstrap() {
-  usingLocalFallbackData = false;
-  renderImportPageShell();
-
-  const importToolbarActions = createImportToolbarActions({
-    getToolbarValues: currentImportToolbarValues,
-    getFallbackImportRecordId: () => importState.importRecordId,
-    getActivePreview: () => activeImportPreviewContext(),
+function appStartupDeps() {
+  return {
+    $,
+    state,
+    importState,
+    desktopCommands,
+    windowRef: typeof window !== "undefined" ? window : undefined,
+    setUsingLocalFallbackData: (value) => { usingLocalFallbackData = value === true; },
+    getUsingLocalFallbackData: () => usingLocalFallbackData,
+    startupAutoOpenSuppressed,
+    renderImportPageShell,
+    createImportToolbarActions,
+    currentImportToolbarValues,
+    activeImportPreviewContext,
     selectionSummary,
-    resolveDirectoryRootId: (directoryId) => rootBoxIdFromFolder(state, directoryId),
+    rootBoxIdFromFolder,
     previewImport,
     confirmImport,
-    onPreviewSuccess: async (preview) => {
-      importState.lastPreview = preview;
-      syncImportSelection(preview.importRecordId, preview.candidatePreview, preview.candidateSelection || null, {
-        selectedIds: defaultSelectedCandidateIds(
-          preview.candidatePreview,
-          preview.candidateSelection || null,
-          preview.originalityGuard || null
-        )
-      });
-      setImportRecordId(preview.importRecordId);
-      showImportResult({
-        stage: "preview",
-        importRecordId: preview.importRecordId,
-        connector: preview.connector,
-        status: preview.status,
-        summary: preview.summary,
-        candidatePreview: preview.candidatePreview,
-        candidateSelection: preview.candidateSelection || null,
-        warnings: preview.warnings,
-        originalityGuard: preview.originalityGuard
-      });
-    },
-    onConfirmSuccess: async ({ importRecordId, result, preview }) => {
-      setImportRecordId(importRecordId);
-      const targetDirectoryId = confirmedImportTargetDirectoryId(result, preferredImportDirectoryId(importState.directoryId));
-      if (targetDirectoryId && folderById(state, targetDirectoryId)) {
-        importState.directoryId = targetDirectoryId;
-        state.selectedFolderId = targetDirectoryId;
-        state.browserRootId = rootBoxIdFromFolder(state, targetDirectoryId);
-        await syncNotesForDirectory(targetDirectoryId);
-      }
-      showImportResult({
-        stage: "confirm",
-        importRecordId,
-        status: result.status,
-        result: result.result,
-        originalityGuard: result.originalityGuard,
-        candidatePreview: preview?.candidatePreview || null
-      });
-      importState.lastPreview = null;
-    },
+    defaultSelectedCandidateIds,
+    setImportRecordId,
     showImportResult,
+    syncImportSelection,
+    confirmedImportTargetDirectoryId,
+    preferredImportDirectoryId,
+    folderById,
+    syncNotesForDirectory,
     refreshImportedNotesView,
+    renderImportToolbar,
+    normalizeImportWorkspaceTab,
+    setImportWorkspaceTab,
+    hideImportOperationResultModal,
+    openImportedLiteratureQueue,
+    addImportedPermanentNotesToWritingBasket,
+    createWritingProjectFromImportedPermanentNotes,
+    setImportResultFocus,
+    applyCandidateSelection,
+    rerenderImportResult,
+    directoryPathLabel,
+    updateExportTargetHint,
+    exportMarkdown,
+    showExportResult,
+    refreshVaultSettings,
+    syncDirectoriesFromApi,
+    syncNotesForDirectoryTree,
+    getApiBase,
+    renderAll,
+    importSmartNotesProductThinkingDemo,
+    importYijingKnowledgeNetworkDemo,
+    importYijingRichAcceptanceDemo,
+    preferredLocalFallbackNote,
+    openNoteById,
+    openStartupUntitledNote,
+    updateController,
     setStatus
-  });
+  };
+}
 
-  renderImportToolbar();
-
-  $("importPageMount")?.addEventListener("click", (event) => {
-    if (event.target?.closest?.("#btnCloseImportOperationResult") || event.target?.id === "importOperationResultModal") {
-      hideImportOperationResultModal();
-      return;
-    }
-
-    const tabButton = event.target?.closest?.(".import-workspace-tab[data-import-workspace-tab]");
-    if (tabButton) {
-      const nextTab = normalizeImportWorkspaceTab(tabButton.getAttribute("data-import-workspace-tab"));
-      if (nextTab !== importState.activeTab) {
-        setImportWorkspaceTab(nextTab);
-        setStatus(`已切换到${nextTab === "export" ? "导出" : "导入"}界面`, "ok");
-      }
-      return;
-    }
-
-    const importWritingButton = event.target?.closest?.("[data-import-writing-action]");
-    if (importWritingButton) {
-      const action = String(importWritingButton.getAttribute("data-import-writing-action") || "").trim();
-      if (action === "open-literature-queue") {
-        void openImportedLiteratureQueue();
-      } else if (action === "add-permanent-notes" || action === "add-permanent-notes-open-writing") {
-        void addImportedPermanentNotesToWritingBasket({ openWriting: action === "add-permanent-notes-open-writing" });
-      } else if (action === "create-writing-project") {
-        void createWritingProjectFromImportedPermanentNotes();
-      }
-      return;
-    }
-    const clearFocusButton = event.target?.closest?.("[data-clear-candidate-focus]");
-    if (clearFocusButton) {
-      setImportResultFocus("");
-      return;
-    }
-    const skipFocusButton = event.target?.closest?.("[data-skip-focus]");
-    if (skipFocusButton) {
-      const nextReason = String(skipFocusButton.getAttribute("data-skip-focus") || "").trim();
-      setImportResultFocus(importState.resultFocusReason === nextReason ? "" : nextReason);
-      return;
-    }
-    const filterButton = event.target?.closest?.("[data-candidate-filter]");
-    if (filterButton) {
-      const nextReason = String(filterButton.getAttribute("data-candidate-filter") || "").trim();
-      setImportResultFocus(importState.resultFocusReason === nextReason ? "" : nextReason);
-      return;
-    }
-    const actionButton = event.target?.closest?.("[data-candidate-action]");
-    if (actionButton) {
-      applyCandidateSelection(String(actionButton.getAttribute("data-candidate-action") || ""));
-      return;
-    }
-
-    if (event.target?.closest?.("#btnImportPreview")) {
-      setImportWorkspaceTab("import");
-      void importToolbarActions.handlePreview();
-      return;
-    }
-    if (event.target?.closest?.("#btnBrowseImportPath")) {
-      void (async () => {
-        const picked = await desktopCommands.browseDirectory({
-          defaultPath: $("importPath")?.value || "",
-          purpose: "导入目录"
-        });
-        if (!picked.path) return;
-        $("importPath").value = picked.path;
-        setStatus(`已选择导入目录（${picked.source}）`, "ok");
-      })();
-      return;
-    }
-    if (event.target?.closest?.("#btnImportConfirm")) {
-      setImportWorkspaceTab("import");
-      void importToolbarActions.handleConfirm();
-      return;
-    }
-    if (event.target?.closest?.("#btnExportMarkdown")) {
-      setImportWorkspaceTab("export");
-      void (async () => {
-        const directoryId = String($("exportDirectoryId")?.value || "").trim();
-        if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
-        let targetPath = String($("exportTargetPath")?.value || "").trim();
-        if (!targetPath) {
-          const picked = await desktopCommands.browseDirectory({
-            defaultPath: "",
-            purpose: "导出目录"
-          });
-          targetPath = String(picked?.path || "").trim();
-          if (targetPath) {
-            $("exportTargetPath").value = targetPath;
-            $("exportAdvanced")?.setAttribute("open", "open");
-            updateExportTargetHint();
-          }
-        }
-        if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
-        try {
-          const result = await exportMarkdown({
-            targetPath,
-            directoryId
-          });
-          showExportResult({
-            stage: "export_markdown",
-            targetPath,
-            directoryId,
-            directoryLabel: directoryPathLabel(directoryId),
-            exportJobId: result.exportJobId,
-            status: result.status,
-            copied: result.copied,
-            copiedBreakdown: result.copiedBreakdown || null
-          });
-          setStatus(`已导出 ${result.copied} 个文件`, "ok");
-        } catch (error) {
-          showExportResult({
-            stage: "export_error",
-            targetPath,
-            directoryId,
-            directoryLabel: directoryPathLabel(directoryId),
-            message: String(error?.message || error),
-            code: error?.code || null,
-            details: error?.details || null
-          });
-          setStatus(`导出失败：${String(error?.message || error)}`, "bad");
-        }
-      })();
-      return;
-    }
-    if (event.target?.closest?.("#btnBrowseExportPath")) {
-      void (async () => {
-        const picked = await desktopCommands.browseDirectory({
-          defaultPath: $("exportTargetPath")?.value || "",
-          purpose: "导出目录"
-        });
-        if (!picked.path) return;
-        $("exportTargetPath").value = picked.path;
-        $("exportAdvanced")?.setAttribute("open", "open");
-        updateExportTargetHint();
-        setStatus("已选择导出目录", "ok");
-      })();
-    }
-  });
-
-  $("importPageMount")?.addEventListener("change", (event) => {
-    const checkbox = event.target?.closest?.(".candidate-checkbox");
-    if (checkbox) {
-      const candidateId = String(checkbox.getAttribute("data-candidate-id") || "").trim();
-      const importRecordId = String(importState.lastPreview?.importRecordId || "").trim();
-      if (!candidateId || !importRecordId) return;
-      if (importState.selectionImportRecordId !== importRecordId) {
-        syncImportSelection(importRecordId, importState.lastPreview?.candidatePreview, importState.lastPreview?.candidateSelection || null, {
-          selectedIds: defaultSelectedCandidateIds(
-            importState.lastPreview?.candidatePreview,
-            importState.lastPreview?.candidateSelection || null,
-            importState.lastPreview?.originalityGuard || null
-          )
-        });
-      }
-      if (checkbox.checked) importState.selectedCandidateIds.add(candidateId);
-      else importState.selectedCandidateIds.delete(candidateId);
-      rerenderImportResult();
-      return;
-    }
-    if (event.target?.closest?.("#importDirectoryId")) {
-      importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
-      setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
-      return;
-    }
-    if (event.target?.closest?.("#exportDirectoryId") || event.target?.closest?.("#exportTargetPath")) {
-      updateExportTargetHint();
-      return;
-    }
-  });
-
-  try {
-    await refreshVaultSettings();
-    await syncDirectoriesFromApi();
-    await syncNotesForDirectoryTree(state.browserRootId);
-    setStatus(`已连接 API：${getApiBase()}`, "ok");
-  } catch (error) {
-    const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;
-    if (tauri) {
-      setStatus(`API 连接失败：${String(error?.message || error)}`, "bad");
-      try {
-        const message =
-          `无法连接到本地 API（${getApiBase()}）。\n\n` +
-          `当前桌面版需要本地 API 服务在后台运行。\n\n` +
-          `解决办法：\n` +
-          `1) 在项目目录运行：npm run dev:api\n` +
-          `2) 保持窗口打开，然后重启桌面应用\n\n` +
-          `如果你是安装包用户，请联系开发者获取“内置 API”的版本。`;
-
-        if (typeof tauri?.dialog?.message === "function") {
-          await tauri.dialog.message(message, { title: "API 未启动", kind: "error" });
-        } else if (typeof tauri?.core?.invoke === "function") {
-          await tauri.core.invoke("plugin:dialog|message", {
-            message,
-            options: { title: "API 未启动", kind: "error" }
-          });
-        }
-      } catch {}
-    } else {
-      usingLocalFallbackData = true;
-      setStatus(`API 连接失败，已回退到本地示例数据：${String(error?.message || error)}`, "warn");
-    }
-  }
-
-  renderAll();
-  const startupParams = new URLSearchParams(window.location.search);
-  const startupDemo = String(startupParams.get("demo") || "").trim().toLowerCase();
-  const explicitNoteId = startupParams.get("note") || "";
-  const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
-  const shouldSkipAutoOpen = () => startupAutoOpenSuppressed || Boolean(state.activeTabId || state.selectedFileId);
-  const openedDemo =
-    startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
-      ? await importSmartNotesProductThinkingDemo({ startup: true })
-      : startupDemo === "yijing-rich" || startupDemo === "yijing"
-        ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo({ startup: true }) : importYijingRichAcceptanceDemo({ startup: true }))
-        : false;
-  if (openedDemo) {
-    renderAll();
-  } else if (initialNote) {
-    state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
-    state.selectedFolderId = initialNote.folderId;
-    openNoteById(explicitNoteId);
-  } else if (usingLocalFallbackData) {
-    const fallbackNote = preferredLocalFallbackNote();
-    if (fallbackNote) {
-      state.browserRootId = rootBoxIdFromFolder(state, fallbackNote.folderId);
-      state.selectedFolderId = fallbackNote.folderId;
-      openNoteById(fallbackNote.id, { preferTitleSelection: false });
-      setStatus(`API 连接失败，已打开本地示例笔记：${fallbackNote.title || fallbackNote.id}`, "warn");
-    } else if (!shouldSkipAutoOpen()) {
-      await openStartupUntitledNote();
-    }
-  } else if (!shouldSkipAutoOpen()) {
-    await openStartupUntitledNote();
-  }
-
-  // Best-effort update check. This only reads metadata and never installs or migrates data.
-  setTimeout(async () => {
-    await updateController.refreshAppVersionInfo();
-    await updateController.runAppUpdateCheck({ manual: false });
-  }, 1200);
+async function bootstrap() {
+  return bootstrapAppForRuntime(appStartupDeps());
 }
 
 bootstrap();
