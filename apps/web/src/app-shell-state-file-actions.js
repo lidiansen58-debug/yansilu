@@ -74,6 +74,52 @@ export async function handleDirectoryUpdateStateChange(payload = {}, deps = {}) 
   return true;
 }
 
+export async function handleCreateDirectoryFromDialog(payload = {}, deps = {}) {
+  const {
+    state = {},
+    folderById = () => null,
+    joinFsPath = (basePath, name) => name || basePath || "",
+    createDirectory = async () => null,
+    mapDirectoryItem = (item) => item,
+    rootBoxIdFromFolder = () => "",
+    explorer = null,
+    dialog = null,
+    setStatus = () => {},
+    renderAll = () => {}
+  } = deps;
+  const name = String(payload.name || "").trim();
+  if (!name) {
+    setStatus("Please enter a directory name", "bad");
+    return false;
+  }
+  const parentId = String(payload.parentId || "").trim();
+  const parentFolder = folderById(state, parentId);
+  const resolvedPath = String(payload.fsPath || "").trim() || joinFsPath(parentFolder?.fsPath || "", name);
+  try {
+    const created = await createDirectory({
+      title: name,
+      parentDirectoryId: parentId || null,
+      directoryType: "custom",
+      fsPath: resolvedPath,
+      maxNotes: Number(payload.maxCards || 0) > 0 ? Number(payload.maxCards || 0) : 500
+    });
+    if (!created) throw new Error("Create directory failed");
+    const folder = mapDirectoryItem(created);
+    state.folders = [...(state.folders || []), folder];
+    state.selectedFolderId = folder.id;
+    state.selectedFileId = null;
+    state.browserRootId = rootBoxIdFromFolder(state, folder.id);
+    explorer?.expandFolderPath?.(folder.id);
+    dialog?.hide?.();
+    setStatus(`Directory "${name}" created at ${resolvedPath}`, "ok");
+    renderAll();
+    return folder;
+  } catch (error) {
+    setStatus(`Create directory failed: ${String(error?.message || error)}`, "bad");
+    return false;
+  }
+}
+
 export async function handleDirectoryDeleteStateChange(payload = {}, deps = {}) {
   const {
     state = {},

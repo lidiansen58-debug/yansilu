@@ -52,7 +52,8 @@ import {
   renderAppShell
 } from "./app-shell-render-all.js";
 import {
-  currentModuleSidebarUi
+  currentModuleSidebarUi,
+  syncModuleChromeClassesForRuntime
 } from "./app-shell-module-ui.js";
 import {
   renderModuleWorkspaceHeaderForRuntime
@@ -63,6 +64,9 @@ import {
 import {
   buildAppShellStateChangeDeps
 } from "./app-shell-state-change-deps.js";
+import {
+  handleCreateDirectoryFromDialog
+} from "./app-shell-state-file-actions.js";
 import {
   routeAppShellStateChange
 } from "./app-shell-state-change-router.js";
@@ -5837,12 +5841,13 @@ function renderModulePanels() {
   const distillationMode = state.module === "distillation";
   const editorMode = !graphMode && !aiInboxMode && !settingsMode && !writingMode && !importsMode && !distillationMode;
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
-  $("moduleWorkspace")?.classList.toggle("hidden", editorMode);
-  $("moduleWorkspace")?.classList.toggle("graph-mode", graphMode);
-  $("moduleWorkspace")?.classList.toggle("imports-mode", importsMode);
-  $("moduleWorkspace")?.classList.toggle("settings-mode", settingsMode);
-  document.querySelector(".app")?.classList.toggle("graph-mode", graphMode);
-  document.querySelector(".app")?.classList.toggle("settings-desktop-lock", settingsMode);
+  const moduleWorkspace = $("moduleWorkspace");
+  moduleWorkspace?.classList.toggle("hidden", editorMode);
+  syncModuleChromeClassesForRuntime({
+    module: state.module,
+    moduleWorkspace,
+    appShell: document.querySelector(".app")
+  });
   $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
@@ -14311,30 +14316,18 @@ const permanentNoteDialog = new PermanentNoteDialog({
 });
 
 createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
-  if (!name) return setStatus("请输入目录名称", "bad");
-  const parentFolder = folderById(state, parentId);
-  const resolvedPath = fsPath || joinFsPath(parentFolder?.fsPath || "", name);
-  try {
-    const created = await createDirectory({
-      title: name,
-      parentDirectoryId: parentId || null,
-      directoryType: "custom",
-      fsPath: resolvedPath,
-      maxNotes: maxCards > 0 ? maxCards : 500
-    });
-    if (!created) throw new Error("创建目录失败");
-    const folder = mapDirectoryItem(created);
-    state.folders.push(folder);
-    state.selectedFolderId = folder.id;
-    state.selectedFileId = null;
-    state.browserRootId = rootBoxIdFromFolder(state, folder.id);
-    explorer.expandFolderPath(folder.id);
-    createBoxDialog.hide();
-    setStatus(`目录“${name}”已创建并落盘，路径：${resolvedPath}`, "ok");
-    renderAll();
-  } catch (error) {
-    setStatus(`创建目录失败：${String(error?.message || error)}`, "bad");
-  }
+  await handleCreateDirectoryFromDialog({ name, parentId, fsPath, maxCards }, {
+    state,
+    folderById,
+    joinFsPath,
+    createDirectory,
+    mapDirectoryItem,
+    rootBoxIdFromFolder,
+    explorer,
+    dialog: createBoxDialog,
+    setStatus,
+    renderAll
+  });
 };
 
 async function selectPermanentDirectory({

@@ -103,3 +103,19 @@ export function currentModuleSidebarUi({
     sidebarHtml: ""
   };
 }
+
+export function syncModuleChromeClassesForRuntime({
+  module = "",
+  moduleWorkspace = null,
+  appShell = null
+} = {}) {
+  const graphMode = module === "graph";
+  const importsMode = module === "imports";
+  const settingsMode = module === "settings";
+  moduleWorkspace?.classList?.toggle?.("graph-mode", graphMode);
+  moduleWorkspace?.classList?.toggle?.("imports-mode", importsMode);
+  moduleWorkspace?.classList?.toggle?.("settings-mode", settingsMode);
+  appShell?.classList?.toggle?.("graph-mode", graphMode);
+  appShell?.classList?.toggle?.("settings-desktop-lock", settingsMode);
+  return { graphMode, importsMode, settingsMode };
+}

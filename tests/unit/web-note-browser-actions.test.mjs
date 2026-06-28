@@ -36,6 +36,15 @@ import {
 import {
   renderAppShell
 } from "../../apps/web/src/app-shell-render-all.js";
+import {
+  renderSidebarTitleForRuntime
+} from "../../apps/web/src/app-shell-sidebar-controller.js";
+import {
+  handleCreateDirectoryFromDialog
+} from "../../apps/web/src/app-shell-state-file-actions.js";
+import {
+  syncModuleChromeClassesForRuntime
+} from "../../apps/web/src/app-shell-module-ui.js";
 import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -147,13 +156,37 @@ test("note boxes use one unified create-note action style", () => {
   assert.equal(metaNode.textContent, "");
 });
 
-test("prototype sidebar sync uses one create action style across note roots", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/function syncNewNoteButtons\(\) \{([\s\S]*?)\n\}/);
+test("sidebar controller syncs the unified create action style in explorer mode", () => {
+  const calls = [];
+  const elements = {
+    sidebarTitle: { textContent: "" },
+    sidebarPrimaryActions: { classList: { remove: (name) => calls.push(["primary-remove", name]), add() {} } },
+    filter: { classList: { toggle: (name, force) => calls.push(["filter-toggle", name, force]), add() {} } },
+    moduleSidebar: { innerHTML: "", classList: { remove: (name) => calls.push(["module-remove", name]) } },
+    sidebarFlow: { innerHTML: "", classList: { add: (name) => calls.push(["flow-add", name]) } },
+    listArea: { classList: { remove: (name) => calls.push(["list-remove", name]), add() {} } },
+    searchToggle: { classList: { toggle() {} } },
+    sidebarSubtitle: { textContent: "", classList: { add: (name) => calls.push(["subtitle-add", name]) } },
+    sidebarFoot: { textContent: "", classList: { add: (name) => calls.push(["foot-add", name]) } },
+    explorerActions: { innerHTML: "", classList: { add: (name) => calls.push(["explorer-add", name]) } }
+  };
+  const quickEntry = {
+    dataset: { action: "quick-fleeting" },
+    classList: { toggle: (name, force) => calls.push(["quick-toggle", name, force]) }
+  };
 
-  assert.ok(match, "expected syncNewNoteButtons() to exist");
-  assert.match(match[1], /button\.dataset\.noteEntryKind = copy\.entryKind \|\| "permanent";/);
-  assert.doesNotMatch(match[1], /is-source-note-entry/);
+  renderSidebarTitleForRuntime({
+    state: { module: "explorer", browserRootId: "dir_fleeting_default" },
+    root: { name: "Fleeting" },
+    elements,
+    documentRef: { querySelectorAll: () => [quickEntry] },
+    displayFolderName: (folder) => folder.name,
+    syncNewNoteButtons: () => calls.push("sync-new-note-buttons")
+  });
+
+  assert.equal(elements.sidebarTitle.textContent, "Fleeting");
+  assert.ok(calls.includes("sync-new-note-buttons"));
+  assert.deepEqual(calls.find((call) => Array.isArray(call) && call[0] === "quick-toggle"), ["quick-toggle", "current-root", true]);
 });
 
 test("note browser new action falls back to current root when selection is stale", () => {
@@ -315,16 +348,45 @@ test("save-note re-syncs explorer context before repainting the note tree", () =
   assert.equal(route.renderAfterSync, true);
 });
 
-test("new directory creation expands and selects the created folder in the explorer", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/createBoxDialog\.onCreate = async \(\{ name, parentId, fsPath, maxCards \}\) => \{([\s\S]*?)\n\};/);
+test("new directory creation expands and selects the created folder in the explorer", async () => {
+  const state = {
+    folders: [{ id: "parent", fsPath: "/vault/Parent" }],
+    selectedFolderId: "",
+    selectedFileId: "note-1",
+    browserRootId: "old-root"
+  };
+  const calls = [];
 
-  assert.ok(match, "expected createBoxDialog.onCreate handler to exist");
-  const fnBody = match[1];
+  const folder = await handleCreateDirectoryFromDialog({ name: "Child", parentId: "parent", maxCards: 12 }, {
+    state,
+    folderById: (_state, id) => state.folders.find((item) => item.id === id),
+    joinFsPath: (base, name) => `${base}/${name}`,
+    createDirectory: async (payload) => {
+      calls.push(["create", payload]);
+      return { id: "child", fsPath: payload.fsPath, title: payload.title };
+    },
+    mapDirectoryItem: (item) => ({ id: item.id, fsPath: item.fsPath, name: item.title }),
+    rootBoxIdFromFolder: (_state, id) => `root:${id}`,
+    explorer: { expandFolderPath: (id) => calls.push(["expand", id]) },
+    dialog: { hide: () => calls.push("hide") },
+    setStatus: (message, tone) => calls.push(["status", tone, message]),
+    renderAll: () => calls.push("render")
+  });
 
-  assert.match(fnBody, /state\.selectedFolderId = folder\.id;/);
-  assert.match(fnBody, /state\.selectedFileId = null;/);
-  assert.match(fnBody, /explorer\.expandFolderPath\(folder\.id\);/);
+  assert.equal(folder.id, "child");
+  assert.equal(state.selectedFolderId, "child");
+  assert.equal(state.selectedFileId, null);
+  assert.equal(state.browserRootId, "root:child");
+  assert.deepEqual(calls[0], ["create", {
+    title: "Child",
+    parentDirectoryId: "parent",
+    directoryType: "custom",
+    fsPath: "/vault/Parent/Child",
+    maxNotes: 12
+  }]);
+  assert.ok(calls.some((call) => Array.isArray(call) && call[0] === "expand" && call[1] === "child"));
+  assert.ok(calls.includes("hide"));
+  assert.ok(calls.includes("render"));
 });
 
 test("explorer keeps the currently selected empty folder visible after directory creation", () => {
@@ -545,11 +607,16 @@ test("graph note browser keeps isolated permanent notes inline with direct relat
 test("graph note browser uses the same pending-relation style as permanent note boxes", () => {
   const html = readRepoFile("apps", "web", "src", "prototype.html");
   const css = readRepoFile("apps", "web", "src", "prototype.css");
-  const appSource = readRepoFile("apps", "web", "src", "prototype-app.js");
   const sidebarSource = readRepoFile("apps", "web", "src", "app-shell-sidebar-controller.js");
   const appIndex = html.indexOf('<div class="app">');
   const listAreaIndex = html.indexOf('id="listArea"', appIndex);
   const moduleWorkspaceIndex = html.indexOf('id="moduleWorkspace"', appIndex);
+  const toggles = [];
+  const element = (name) => ({
+    classList: {
+      toggle: (className, force) => toggles.push([name, className, force])
+    }
+  });
 
   assert.ok(appIndex >= 0, "expected sidebar and module workspace to share the app wrapper");
   assert.ok(listAreaIndex > appIndex, "expected note browser list to live inside the app wrapper");
@@ -562,7 +629,13 @@ test("graph note browser uses the same pending-relation style as permanent note 
   assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-badge-warning \{[\s\S]*#92400e/);
   assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected \.item-inline-action\.warn \{[\s\S]*#0f8a7d/);
   assert.match(css, /\.app\.graph-mode #listArea \.file-row\.is-disconnected\.active \{[\s\S]*rgba\(20, 184, 166, 0\.58\)/);
-  assert.match(appSource, /document\.querySelector\("\.app"\)\?\.classList\.toggle\("graph-mode", graphMode\);/);
+  syncModuleChromeClassesForRuntime({
+    module: "graph",
+    moduleWorkspace: element("module"),
+    appShell: element("app")
+  });
+  assert.ok(toggles.some((call) => call[0] === "app" && call[1] === "graph-mode" && call[2] === true));
+  assert.ok(toggles.some((call) => call[0] === "module" && call[1] === "graph-mode" && call[2] === true));
   assert.match(sidebarSource, /待关联笔记会使用和永久笔记盒一致的提示样式/);
 });
 
