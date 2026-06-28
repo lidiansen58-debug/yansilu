@@ -5,6 +5,7 @@ import {
   sameUniqueStringSetForRuntime,
   selectedWritingThemeIndexForRuntime,
   setSelectedWritingThemeIndexForRuntime,
+  writingThemeIndexScopeDirectoryIdForRuntime,
   writingThemeIndexByIdForRuntime,
   writingThemeIndexNoteIdsForRuntime
 } from "../../apps/web/src/writing-theme-state.js";
@@ -57,4 +58,15 @@ test("writing theme state stores a trimmed selected index id", () => {
   const writingState = {};
   assert.equal(setSelectedWritingThemeIndexForRuntime(writingState, " theme-a "), "theme-a");
   assert.equal(writingState.selectedThemeIndexId, "theme-a");
+});
+
+test("writing theme state scopes index cards to the selected original folder when possible", () => {
+  const deps = {
+    isDirectoryUnderOriginalRoot: (directoryId) => directoryId === "original-child",
+    writingDraftDirectoryId: () => "draft-dir"
+  };
+
+  assert.equal(writingThemeIndexScopeDirectoryIdForRuntime({ selectedFolderId: "original-child" }, deps), "original-child");
+  assert.equal(writingThemeIndexScopeDirectoryIdForRuntime({ selectedFolderId: "other" }, deps), "draft-dir");
+  assert.equal(writingThemeIndexScopeDirectoryIdForRuntime({}, deps), "draft-dir");
 });

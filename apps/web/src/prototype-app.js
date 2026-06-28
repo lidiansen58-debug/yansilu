@@ -596,6 +596,7 @@ import {
   selectedWritingThemeIndexForRuntime,
   setSelectedWritingThemeIndexForRuntime,
   writingThemeIndexByIdForRuntime,
+  writingThemeIndexScopeDirectoryIdForRuntime,
   writingThemeIndexNoteIdsForRuntime
 } from "./writing-theme-state.js";
 import {
@@ -8294,8 +8295,10 @@ function writingNoteMeta(note) {
   ]).join(" · ");
 }
 function writingThemeIndexScopeDirectoryId() {
-  if (state.selectedFolderId && isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
-  return writingDraftDirectoryId();
+  return writingThemeIndexScopeDirectoryIdForRuntime(state, {
+    isDirectoryUnderOriginalRoot,
+    writingDraftDirectoryId
+  });
 }
 
 async function loadWritingThemeIndexes() {

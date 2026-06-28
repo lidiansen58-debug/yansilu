@@ -34,3 +34,11 @@ export function setSelectedWritingThemeIndexForRuntime(writingState = {}, indexI
   writingState.selectedThemeIndexId = String(indexId || "").trim();
   return writingState.selectedThemeIndexId;
 }
+
+export function writingThemeIndexScopeDirectoryIdForRuntime(state = {}, deps = {}) {
+  const isDirectoryUnderOriginalRoot = deps.isDirectoryUnderOriginalRoot || (() => false);
+  const writingDraftDirectoryId = deps.writingDraftDirectoryId || (() => "");
+  const selectedFolderId = String(state.selectedFolderId || "").trim();
+  if (selectedFolderId && isDirectoryUnderOriginalRoot(selectedFolderId)) return selectedFolderId;
+  return writingDraftDirectoryId();
+}
