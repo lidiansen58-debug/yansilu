@@ -589,7 +589,8 @@ import {
 import {
   installWritingPanelBasketEventHandlers,
   installWritingThemeIndexEventHandlers,
-  installWritingThemeDetailEventHandlers
+  installWritingThemeDetailEventHandlers,
+  installWritingProjectListEventHandlers
 } from "./writing-panel-events.js";
 import {
   writingCandidateNotesForRuntime,
@@ -14655,61 +14656,16 @@ installWritingThemeDetailEventHandlers({
   })
 });
 
-$("writingProjectsList")?.addEventListener("click", async (event) => {
-  const button = event.target?.closest?.("[data-writing-project-action]");
-  if (!button) return;
-  const action = String(button.getAttribute("data-writing-project-action") || "");
-  const projectId = String(button.getAttribute("data-writing-project-id") || "");
-  if (!projectId) return;
-  if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
-    try {
-      await continueWritingProjectEntry(projectId, {
-        openDraft: action === "open-draft",
-        statusMessage:
-          action === "open-draft"
-            ? `已从项目列表打开当前草稿：${projectId}`
-            : action === "resume-scaffold"
-              ? `已从项目列表回到草稿骨架：${projectId}`
-              : action === "resume-project"
-                ? `已从项目列表继续当前项目：${projectId}`
-                : ""
-      });
-    } catch (error) {
-      setStatus(
-        `${action === "open-draft" ? "从项目列表打开当前草稿" : action === "resume-scaffold" ? "从项目列表回到草稿骨架" : "从项目列表继续当前项目"}失败：${String(error?.message || error)}`,
-        "bad"
-      );
-    }
-    return;
-  }
-  if (action === "open") {
-    try {
-      await openWritingProject(projectId);
-      setStatus(`已恢复项目：${projectId}`, "ok");
-    } catch (error) {
-      setStatus(`打开项目失败：${String(error?.message || error)}`, "bad");
-    }
-    return;
-  }
-
-  const project = writingState.projects.find((item) => item.id === projectId) || { id: projectId };
-  if (action === "copy-scaffold") {
-    try {
-      const result = await copyWritingScaffold(project);
-      setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
-    } catch (error) {
-      setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
-    }
-    return;
-  }
-  if (action === "export-scaffold") {
-    try {
-      const result = await exportWritingScaffold(project);
-      setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
-    } catch (error) {
-      setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
-    }
-  }
+installWritingProjectListEventHandlers({
+  $,
+  depsProvider: () => ({
+    writingState,
+    continueWritingProjectEntry,
+    openWritingProject,
+    copyWritingScaffold,
+    exportWritingScaffold,
+    setStatus
+  })
 });
 
 $("writingScaffoldVersionsList")?.addEventListener("click", async (event) => {

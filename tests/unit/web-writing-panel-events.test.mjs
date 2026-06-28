@@ -4,10 +4,12 @@ import assert from "node:assert/strict";
 import {
   handleWritingAddVisible,
   handleWritingNoteListClick,
+  handleWritingProjectsListClick,
   handleWritingThemeDetailClick,
   handleWritingThemeIndexListClick,
   handleWritingUseCurrent,
   installWritingPanelBasketEventHandlers,
+  installWritingProjectListEventHandlers,
   installWritingThemeDetailEventHandlers,
   installWritingThemeIndexEventHandlers
 } from "../../apps/web/src/writing-panel-events.js";
@@ -347,4 +349,87 @@ test("writing theme detail handler resumes an existing project before creating a
   });
 
   assert.deepEqual(calls, [["continue", "p1", { openDraft: true, statusMessage: "已从主题打开当前草稿：p1" }]]);
+});
+
+test("writing project list installer wires project actions through latest deps", async () => {
+  const handlers = new Map();
+  let version = "first";
+  const calls = [];
+  const element = {
+    addEventListener: (eventName, handler) => handlers.set(eventName, handler)
+  };
+  const registrations = installWritingProjectListEventHandlers({
+    $: (id) => (id === "writingProjectsList" ? element : null),
+    depsProvider: () => ({
+      openWritingProject: async (projectId) => calls.push(["open", version, projectId]),
+      setStatus: (message, tone) => calls.push(["status", version, message, tone])
+    })
+  });
+
+  assert.deepEqual(registrations.map((item) => item.installed), [true]);
+
+  await handlers.get("click")({
+    target: indexTarget("[data-writing-project-action]", {
+      "data-writing-project-action": "open",
+      "data-writing-project-id": "p1"
+    })
+  });
+  version = "second";
+  await handlers.get("click")({
+    target: indexTarget("[data-writing-project-action]", {
+      "data-writing-project-action": "open",
+      "data-writing-project-id": "p2"
+    })
+  });
+
+  assert.deepEqual(calls[0], ["open", "first", "p1"]);
+  assert.deepEqual(calls[2], ["open", "second", "p2"]);
+});
+
+test("writing project list handler routes continue open copy and export actions", async () => {
+  const calls = [];
+  const deps = {
+    writingState: { projects: [{ id: "p1", title: "Project" }] },
+    continueWritingProjectEntry: async (projectId, options) => calls.push(["continue", projectId, options]),
+    openWritingProject: async (projectId) => calls.push(["open", projectId]),
+    copyWritingScaffold: async (project) => {
+      calls.push(["copy", project.id]);
+      return { fileName: "scaffold.md" };
+    },
+    exportWritingScaffold: async (project) => {
+      calls.push(["export", project.id]);
+      return { fileName: "scaffold.md" };
+    },
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  };
+
+  await handleWritingProjectsListClick({
+    target: indexTarget("[data-writing-project-action]", {
+      "data-writing-project-action": "open-draft",
+      "data-writing-project-id": "p1"
+    })
+  }, deps);
+  await handleWritingProjectsListClick({
+    target: indexTarget("[data-writing-project-action]", {
+      "data-writing-project-action": "open",
+      "data-writing-project-id": "p1"
+    })
+  }, deps);
+  await handleWritingProjectsListClick({
+    target: indexTarget("[data-writing-project-action]", {
+      "data-writing-project-action": "copy-scaffold",
+      "data-writing-project-id": "p1"
+    })
+  }, deps);
+  await handleWritingProjectsListClick({
+    target: indexTarget("[data-writing-project-action]", {
+      "data-writing-project-action": "export-scaffold",
+      "data-writing-project-id": "p1"
+    })
+  }, deps);
+
+  assert.deepEqual(calls[0], ["continue", "p1", { openDraft: true, statusMessage: "已从项目列表打开当前草稿：p1" }]);
+  assert.ok(calls.some((call) => call[0] === "open" && call[1] === "p1"));
+  assert.ok(calls.some((call) => call[0] === "copy" && call[1] === "p1"));
+  assert.ok(calls.some((call) => call[0] === "export" && call[1] === "p1"));
 });
