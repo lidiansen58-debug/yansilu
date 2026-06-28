@@ -7,6 +7,7 @@ import {
   handleSystemMessageEscapeKey,
   handleSystemMessageModalClick,
   handleSystemMessagesButtonClick,
+  installSystemMessageEventHandlers,
   readAllSystemMessages,
   systemMessageById
 } from "../../apps/web/src/system-message-events.js";
@@ -218,4 +219,49 @@ test("system message Escape key closes the modal only when it is open", () => {
 
   assert.deepEqual(calls, ["close"]);
   assert.deepEqual(preventions, ["prevented"]);
+});
+
+test("system message event installer wires modal buttons through the latest deps", async () => {
+  const handlers = new Map();
+  const calls = [];
+  let depsVersion = "first";
+  const elements = new Map([
+    ["systemMessagesButton", {}],
+    ["btnSystemMessageClose", {}],
+    ["btnSystemMessageMarkRead", {}],
+    ["btnSystemMessageOpenAiInbox", {}],
+    ["systemMessageModal", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  const registrations = installSystemMessageEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      ...createDeps({
+        openSystemMessages: () => calls.push(["open", depsVersion]),
+        closeSystemMessages: () => calls.push(["close", depsVersion]),
+        persistSystemMessages: () => calls.push(["persist", depsVersion]),
+        renderSystemMessages: () => calls.push(["render", depsVersion]),
+        setStatus: (text, tone) => calls.push(["status", depsVersion, text, tone]),
+        openAiInboxModule: async () => calls.push(["openInbox", depsVersion])
+      }).deps
+    })
+  });
+
+  assert.equal(registrations.length, 5);
+  assert.equal(registrations.every((item) => item.installed), true);
+
+  handlers.get("systemMessagesButton:click")({ preventDefault() {}, stopPropagation() {} });
+  depsVersion = "second";
+  handlers.get("btnSystemMessageClose:click")();
+  handlers.get("btnSystemMessageMarkRead:click")();
+  await handlers.get("btnSystemMessageOpenAiInbox:click")();
+
+  assert.deepEqual(calls[0], ["open", "first"]);
+  assert.deepEqual(calls[1], ["close", "second"]);
+  assert.ok(calls.some((call) => call[0] === "persist" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "openInbox" && call[1] === "second"));
 });

@@ -197,11 +197,8 @@ import {
   upsertSystemMessageForRuntime
 } from "./system-messages-runtime-controller.js";
 import {
-  handleMarkSystemMessagesRead,
-  handleOpenAllAiInboxFromSystemMessages,
   handleSystemMessageEscapeKey,
-  handleSystemMessageModalClick,
-  handleSystemMessagesButtonClick
+  installSystemMessageEventHandlers
 } from "./system-message-events.js";
 import {
   createSystemMessagePrototypeDepsProviders
@@ -15486,24 +15483,9 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	  });
 	});
 
-$("systemMessagesButton")?.addEventListener("click", (event) => {
-  handleSystemMessagesButtonClick(event, systemMessageEventDeps());
-});
-
-$("btnSystemMessageClose")?.addEventListener("click", () => {
-  closeSystemMessages();
-});
-
-$("btnSystemMessageMarkRead")?.addEventListener("click", () => {
-  handleMarkSystemMessagesRead(systemMessageEventDeps());
-});
-
-$("btnSystemMessageOpenAiInbox")?.addEventListener("click", async () => {
-  await handleOpenAllAiInboxFromSystemMessages(systemMessageEventDeps());
-});
-
-$("systemMessageModal")?.addEventListener("click", async (event) => {
-  await handleSystemMessageModalClick(event, systemMessageEventDeps());
+installSystemMessageEventHandlers({
+  $,
+  depsProvider: systemMessageEventDeps
 });
 
 $("distillationPanel")?.addEventListener("click", async (event) => {

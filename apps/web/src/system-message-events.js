@@ -149,3 +149,35 @@ export function handleSystemMessageEscapeKey(event, deps = {}) {
   event?.preventDefault?.();
   return { handled: true };
 }
+
+export function installSystemMessageEventHandlers(options = {}) {
+  const {
+    $ = () => null,
+    depsProvider = () => ({})
+  } = options;
+  const deps = () => depsProvider();
+  const registrations = [];
+  const add = (id, eventName, handler) => {
+    const element = $(id);
+    element?.addEventListener?.(eventName, handler);
+    registrations.push({ id, eventName, handler, installed: !!element });
+  };
+
+  add("systemMessagesButton", "click", (event) => {
+    handleSystemMessagesButtonClick(event, deps());
+  });
+  add("btnSystemMessageClose", "click", () => {
+    deps().closeSystemMessages?.();
+  });
+  add("btnSystemMessageMarkRead", "click", () => {
+    handleMarkSystemMessagesRead(deps());
+  });
+  add("btnSystemMessageOpenAiInbox", "click", async () => {
+    await handleOpenAllAiInboxFromSystemMessages(deps());
+  });
+  add("systemMessageModal", "click", async (event) => {
+    await handleSystemMessageModalClick(event, deps());
+  });
+
+  return registrations;
+}
