@@ -368,6 +368,12 @@ import {
   graphRelationRationaleIsActionable as computeGraphRelationRationaleIsActionable,
 } from "./graph-ai-candidates.js";
 import {
+  graphAiConnectAnalysisOptions,
+  graphAiConnectArtifactCount,
+  graphAiConnectCandidateTitles,
+  graphAiConnectPreviewTargetId
+} from "./graph-ai-connect-model.js";
+import {
   graphDirectNetworkEdgeCount as computeGraphDirectNetworkEdgeCount,
   graphExistingRelationKeys as computeGraphExistingRelationKeys,
   graphExistingRelationPairKeys as computeGraphExistingRelationPairKeys,
@@ -10975,14 +10981,7 @@ async function runGraphAiConnectForNote(noteId = "") {
   try {
     const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
     if (!localAiReady) return false;
-    const result = await analyzeDirectoryGraph(directoryId, {
-      includeDescendants: true,
-      minScore: 0.05,
-      relationLimit: 24,
-      focusNoteId: cleanNoteId,
-      currentNoteId: cleanNoteId,
-      persistArtifacts: true
-    });
+    const result = await analyzeDirectoryGraph(directoryId, graphAiConnectAnalysisOptions(cleanNoteId));
     graphState.aiAnalysis = result;
     const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
     const currentEdges = Array.isArray(graphState.item?.edges) ? graphState.item.edges : [];
@@ -10995,17 +10994,14 @@ async function runGraphAiConnectForNote(noteId = "") {
     const graphSelectionKind = route?.graphSelectionKind || "isolated";
     const nodeMap = new Map(nodes.map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
     const candidates = graphAiRelationCandidatesForNote(cleanNoteId, { nodeMap, edges: currentEdges, limit: 5 });
-    const firstTargetId = String(candidates[0]?.counterpartNoteId || candidates[0]?.targetNoteId || "").trim();
+    const firstTargetId = graphAiConnectPreviewTargetId(candidates);
     if (firstTargetId) {
       graphState.isolatedCandidatePreviewByNoteId = graphState.isolatedCandidatePreviewByNoteId || {};
       graphState.isolatedCandidatePreviewByNoteId[cleanNoteId] = firstTargetId;
     }
     const noteTitle = graphNodeTitle(nodeMap, cleanNoteId, state.notes.find((note) => note.id === cleanNoteId)?.title || cleanNoteId);
-    const candidateTitles = candidates
-      .map((candidate) => String(candidate.counterpartTitle || candidate.targetTitle || candidate.targetNoteId || "").trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const count = Number(result?.reviewItems?.summary?.artifactCount || 0);
+    const candidateTitles = graphAiConnectCandidateTitles(candidates);
+    const count = graphAiConnectArtifactCount(result);
     if (count > 0) {
       const messageId = `graph-ai-connect:${directoryId || "root"}:${cleanNoteId}:${Date.now()}`;
       addSystemMessage({

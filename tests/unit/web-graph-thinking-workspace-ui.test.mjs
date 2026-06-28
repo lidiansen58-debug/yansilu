@@ -158,6 +158,10 @@ function readGraphAiCandidates() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-ai-candidates.js"), "utf8");
 }
 
+function readGraphAiConnectModel() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-ai-connect-model.js"), "utf8");
+}
+
 function readGraphPanelStateBuilder() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-state-builder.js"), "utf8");
 }
@@ -933,6 +937,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const workflowControllerSource = readGraphRelationWorkflowController();
   const relationSaveTransactionSource = readRelationSaveTransaction();
   const graphAiCandidatesSource = readGraphAiCandidates();
+  const graphAiConnectModelSource = readGraphAiConnectModel();
   const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const html = readPrototypeHtml();
   assert.match(source, /from "\.\/graph-isolated-workflow-shell\.js";/);
@@ -1134,9 +1139,9 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /data-graph-rationale-draft="\$\{escapeHtml\(candidate\.rationaleDraft\)\}"/);
   assert.match(source, /data-graph-insight-question-draft="\$\{escapeHtml\(candidate\.insightQuestionDraft\)\}"/);
   assert.match(source, /async function runGraphAiConnectForNote\(noteId = ""\) \{/);
-  assert.match(source, /relationLimit: 24,/);
-  assert.match(source, /focusNoteId: cleanNoteId,/);
-  assert.match(source, /currentNoteId: cleanNoteId,/);
+  assert.match(graphAiConnectModelSource, /relationLimit: 24,/);
+  assert.match(graphAiConnectModelSource, /focusNoteId: cleanNoteId,/);
+  assert.match(graphAiConnectModelSource, /currentNoteId: cleanNoteId,/);
   assert.match(source, /if \(candidates\.length\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
   assert.match(source, /graphRelationWorkflowController\.startAiConnectForNote\(cleanNoteId\);/);
   assert.match(source, /graphRelationWorkflowController\.applyAiConnectRoute\(\{/);
