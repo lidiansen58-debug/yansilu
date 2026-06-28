@@ -16,9 +16,11 @@ test("prototype writing shell keeps the main writing surfaces wired", async () =
 
   assert.match(source, /function openWritingModule/);
   assert.match(source, /function continueWritingEntry/);
-  assert.match(source, /function renderWritingPanel/);
+  assert.match(source, /createWritingPanelShellController/);
+  assert.match(source, /renderWritingPanel,\s*renderWritingScaffoldPreview/);
   assert.match(source, /buildWritingPanelHostDeps\(/);
-  assert.match(source, /function renderWritingPanel\(\) \{\s*return renderWritingPanelShell\(writingPanelDomDeps\(\)\);\s*\}/);
+  assert.doesNotMatch(source, /function renderWritingPanel/);
+  assert.doesNotMatch(source, /function writingPanelDomDeps/);
   assert.doesNotMatch(source, /renderWritingPanelDom\(writingPanelDomDeps\(\)\)/);
   assert.doesNotMatch(source, /buildWritingPanelState/);
 });
@@ -33,6 +35,7 @@ test("prototype writing shell delegates panel state building to writing workspac
   const themeCardPanelSource = await readWritingThemeCardPanelSource();
 
   assert.match(panelShellSource, /createWritingPanelDomDeps/);
+  assert.match(panelShellSource, /createWritingPanelShellController/);
   assert.match(panelShellSource, /buildWritingPanelState/);
   assert.match(panelShellSource, /renderWritingPanelDom\(createWritingPanelDomDeps\(host\)\)/);
   assert.match(panelShellSource, /from "\.\/writing-scaffold-preview-panel\.js"/);

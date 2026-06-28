@@ -544,8 +544,7 @@ import {
   renderWritingToplineMetricView
 } from "./writing-workspace-view.js";
 import {
-  renderWritingPanelShell,
-  renderWritingScaffoldPreviewShell
+  createWritingPanelShellController
 } from "./writing-panel-shell.js";
 import {
   buildWritingPanelPrototypeHostDeps
@@ -3795,7 +3794,7 @@ function showWritingResult(payload) {
     writingState.scaffoldMarkdown = payload.markdown;
   }
   renderResult($("writingResult"), payload);
-  renderWritingScaffoldPreviewShell(writingPanelDomDeps());
+  renderWritingScaffoldPreview();
 }
 
 function syncWritingResultFromCurrentState() {
@@ -8647,8 +8646,8 @@ function currentWritingBookStructure({ notes = writingBasketEntries(), includeLo
 
 
 
-function writingPanelDomDeps() {
-  return buildWritingPanelHostDeps(buildWritingPanelPrototypeHostDeps({
+const writingPanelController = createWritingPanelShellController({
+  hostProvider: () => buildWritingPanelHostDeps(buildWritingPanelPrototypeHostDeps({
     $,
     state,
     writingState,
@@ -8690,12 +8689,12 @@ function writingPanelDomDeps() {
     writingBookProjectGoal,
     writingBookProjectAudience,
     escapeHtml
-  }));
-}
-
-function renderWritingPanel() {
-  return renderWritingPanelShell(writingPanelDomDeps());
-}
+  }))
+});
+const {
+  renderWritingPanel,
+  renderWritingScaffoldPreview
+} = writingPanelController;
 
 async function refreshVaultSettings() {
   try {

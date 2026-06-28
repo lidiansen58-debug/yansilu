@@ -56,3 +56,11 @@ export function renderWritingPanelShell(host = {}) {
 export function renderWritingScaffoldPreviewShell(host = {}) {
   return renderWritingScaffoldPreviewDom(createWritingPanelDomDeps(host));
 }
+
+export function createWritingPanelShellController(options = {}) {
+  const hostProvider = options.hostProvider || (() => ({}));
+  return {
+    renderWritingPanel: () => renderWritingPanelShell(hostProvider()),
+    renderWritingScaffoldPreview: () => renderWritingScaffoldPreviewShell(hostProvider())
+  };
+}

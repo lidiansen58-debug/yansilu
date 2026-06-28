@@ -60,7 +60,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /currentModuleSidebarUi/);
   assert.match(source, /renderSidebarTitleForRuntime/);
   assert.match(source, /routeAppShellStateChange/);
-  assert.match(source, /renderWritingPanelShell/);
+  assert.match(source, /createWritingPanelShellController/);
   assert.match(source, /renderSystemMessagesShell/);
   assert.match(source, /openSystemMessagesShell/);
   assert.match(source, /closeSystemMessagesShell/);
@@ -80,7 +80,6 @@ test("prototype-app keeps critical shell wrappers thin", () => {
   const shellWrapperBudgets = {
     renderGraphVisualMap: 5,
     renderGraphPanel: 25,
-    renderWritingPanel: 8,
     renderSystemMessages: 8,
     openSystemMessages: 8,
     closeSystemMessages: 5,
@@ -183,6 +182,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
 
   assert.doesNotMatch(source, /function renderWritingFlowSteps/);
   assert.doesNotMatch(source, /function renderWritingStatusStrip/);
+  assert.doesNotMatch(source, /function renderWritingPanel/);
+  assert.doesNotMatch(source, /function writingPanelDomDeps/);
   assert.doesNotMatch(source, /function renderGraphVisualNode/);
   assert.doesNotMatch(source, /function renderGraphVisualEdge/);
   assert.doesNotMatch(source, /function beginGraphViewportDrag/);
