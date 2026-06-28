@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderGraphVisualMapForRuntime } from "../../apps/web/src/graph-visual-map-controller.js";
+import { composeGraphVisualMapForRuntime } from "../../apps/web/src/graph-visual-map-composer.js";
 
 function layoutFor(nodes = []) {
   const visualNodes = nodes.map((node, index) => ({
@@ -21,7 +22,11 @@ function layoutFor(nodes = []) {
 }
 
 function renderMap(args = {}, extraDeps = {}) {
-  return renderGraphVisualMapForRuntime(args, {
+  return renderGraphVisualMapForRuntime(args, graphMapDeps(extraDeps));
+}
+
+function graphMapDeps(extraDeps = {}) {
+  return {
     graphState: {
       zoom: "fit",
       readingLens: "overview",
@@ -60,7 +65,7 @@ function renderMap(args = {}, extraDeps = {}) {
     graphNodeAttentionReasons: () => [],
     graphNodeShowsAsPoint: () => false,
     ...(extraDeps || {})
-  });
+  };
 }
 
 test("graph visual map controller composes runtime state into shell, node, and edge markup", () => {
@@ -101,4 +106,27 @@ test("graph visual map controller keeps isolated relation workflow in the select
   assert.match(html, /class="graph-selection-overlay"/);
   assert.match(html, /data-test-selection-panel/);
   assert.doesNotMatch(html, /class="graph-side-stack"><section data-test-selection-panel/);
+});
+
+test("graph visual map composer builds shell props from runtime, chrome, and svg view layers", () => {
+  const { graphShellProps, shellDeps } = composeGraphVisualMapForRuntime({
+    nodes: [
+      { id: "n1", title: "Alpha", noteType: "permanent" }
+    ],
+    edges: [],
+    relationFilterEdges: [],
+    toolbarMarkup: "<div data-test-toolbar></div>"
+  }, graphMapDeps({
+    graphState: {
+      selection: { kind: "isolated", noteId: "n1" }
+    },
+    normalizeGraphSelectionForVisibleItems: (selection) => selection,
+    renderGraphSelectionPanel: () => "<section data-test-selection-panel></section>"
+  }));
+
+  assert.match(graphShellProps.toolbarMarkup, /data-test-toolbar/);
+  assert.match(graphShellProps.nodeMarkup, /class="graph-map-node/);
+  assert.match(graphShellProps.selectionOverlayMarkup, /data-test-selection-panel/);
+  assert.equal(graphShellProps.sidePanelMarkup.includes("data-test-selection-panel"), false);
+  assert.equal(typeof shellDeps.escapeHtml, "function");
 });

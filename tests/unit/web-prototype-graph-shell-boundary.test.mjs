@@ -5,6 +5,7 @@ import {
   readGraphPanelRendererSource,
   readGraphPanelRuntimeDepsSource,
   readGraphPanelShellSource,
+  readGraphVisualMapComposerSource,
   readGraphVisualMapContextSource,
   readGraphVisualMapControlsStateSource,
   readGraphVisualMapControllerSource,
@@ -41,11 +42,14 @@ test("prototype graph shell delegates isolated relation save and workspace rende
 
 test("prototype graph shell delegates visual node and edge svg rendering to view modules", async () => {
   const visualMapControllerSource = await readGraphVisualMapControllerSource();
+  const visualMapComposerSource = await readGraphVisualMapComposerSource();
   const visualMapViewRendererSource = await readGraphVisualMapViewRendererSource();
 
-  assert.match(visualMapControllerSource, /from "\.\/graph-visual-map-view-renderer\.js"/);
-  assert.match(visualMapControllerSource, /renderGraphVisualNodeMarkupForRuntime\(mapRuntimeState/);
-  assert.match(visualMapControllerSource, /renderGraphVisualEdgeMarkupForRuntime\(mapRuntimeState/);
+  assert.match(visualMapControllerSource, /from "\.\/graph-visual-map-composer\.js"/);
+  assert.doesNotMatch(visualMapControllerSource, /from "\.\/graph-visual-map-view-renderer\.js"/);
+  assert.match(visualMapComposerSource, /from "\.\/graph-visual-map-view-renderer\.js"/);
+  assert.match(visualMapComposerSource, /renderGraphVisualNodeMarkupForRuntime\(mapRuntimeState/);
+  assert.match(visualMapComposerSource, /renderGraphVisualEdgeMarkupForRuntime\(mapRuntimeState/);
   assert.match(visualMapViewRendererSource, /renderGraphVisualNodeViews/);
   assert.match(visualMapViewRendererSource, /renderGraphVisualEdgeViews/);
   assert.doesNotMatch(visualMapControllerSource, /renderGraphVisualNodeViews\(layout\.nodes/);
@@ -54,10 +58,12 @@ test("prototype graph shell delegates visual node and edge svg rendering to view
 
 test("prototype graph shell delegates visual map chrome to the shell view", async () => {
   const visualMapControllerSource = await readGraphVisualMapControllerSource();
+  const visualMapComposerSource = await readGraphVisualMapComposerSource();
 
   assert.match(visualMapControllerSource, /renderGraphVisualMapShellView/);
-  assert.match(visualMapControllerSource, /renderGraphZoomStepperView/);
-  assert.match(visualMapControllerSource, /renderGraphMapSvgDefsView/);
+  assert.match(visualMapControllerSource, /composeGraphVisualMapForRuntime/);
+  assert.match(visualMapComposerSource, /renderGraphZoomStepperView/);
+  assert.match(visualMapComposerSource, /renderGraphMapSvgDefsView/);
   assert.doesNotMatch(visualMapControllerSource, /<div class="graph-map-canvas">/);
   assert.doesNotMatch(visualMapControllerSource, /<svg class="graph-map-svg"/);
   assert.doesNotMatch(visualMapControllerSource, /<radialGradient id="graph-node-core-fill"/);
@@ -137,6 +143,7 @@ test("prototype graph shell delegates panel state building to a graph module", a
 test("graph visual map runtime state, chrome, and view deps stay split across graph modules", async () => {
   const visualMapRuntimeDepsSource = await readGraphVisualMapRuntimeDepsSource();
   const visualMapControllerSource = await readGraphVisualMapControllerSource();
+  const visualMapComposerSource = await readGraphVisualMapComposerSource();
   const visualMapContextSource = await readGraphVisualMapContextSource();
   const visualMapControlsStateSource = await readGraphVisualMapControlsStateSource();
   const visualMapRuntimeStateSource = await readGraphVisualMapRuntimeStateSource();
@@ -150,10 +157,11 @@ test("graph visual map runtime state, chrome, and view deps stay split across gr
   assert.match(visualMapRuntimeDepsSource, /\.\.\.buildGraphVisualMapViewDeps\(host\)/);
   assert.doesNotMatch(visualMapRuntimeDepsSource, /renderGraphRelationTypeFilter: graphRelationTypeFilter/);
   assert.doesNotMatch(visualMapRuntimeDepsSource, /graphNodeClass,\s*graphNodeStarRank/);
-  assert.match(visualMapControllerSource, /buildGraphVisualMapRuntimeState\(/);
-  assert.match(visualMapControllerSource, /buildGraphVisualMapContextMarkup\(/);
-  assert.match(visualMapControllerSource, /buildGraphVisualMapChrome\(/);
-  assert.match(visualMapControllerSource, /buildGraphVisualMapShellProps\(/);
+  assert.match(visualMapControllerSource, /composeGraphVisualMapForRuntime\(options, deps\)/);
+  assert.match(visualMapComposerSource, /buildGraphVisualMapRuntimeState\(/);
+  assert.match(visualMapComposerSource, /buildGraphVisualMapContextMarkup\(/);
+  assert.match(visualMapComposerSource, /buildGraphVisualMapChrome\(/);
+  assert.match(visualMapComposerSource, /buildGraphVisualMapShellProps\(/);
   assert.match(visualMapControllerSource, /renderGraphVisualMapShellView\(graphShellProps, shellDeps\)/);
   assert.match(visualMapContextSource, /renderGraphResearchNavigatorPanel/);
   assert.match(visualMapContextSource, /graphThemeBoundaryMeta/);
