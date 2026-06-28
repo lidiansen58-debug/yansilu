@@ -139,6 +139,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-view-mode-state.js": 140,
     "graph-relation-visual-state.js": 100,
     "graph-visual-selection-state.js": 45,
+    "graph-visual-geometry.js": 120,
     "graph-selection-host-deps.js": 80,
     "graph-workspace-host-deps.js": 60
   };
@@ -192,6 +193,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-view-mode-state.js",
     "graph-relation-visual-state.js",
     "graph-visual-selection-state.js",
+    "graph-visual-geometry.js",
     "graph-visual-layout.js"
   ];
 
@@ -240,6 +242,9 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function graphIsolatedSelectionKey/);
   assert.doesNotMatch(source, /function graphBridgeSelectionKey/);
   assert.doesNotMatch(source, /function graphNodeClass/);
+  assert.doesNotMatch(source, /function graphHash/);
+  assert.doesNotMatch(source, /function graphNodeStarTier/);
+  assert.doesNotMatch(source, /function graphDenseGalaxyMode/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
   assert.doesNotMatch(source, /function closeSystemMessagesDom/);
   assert.doesNotMatch(source, /function renderSystemMessages/);
