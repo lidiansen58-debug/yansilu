@@ -595,6 +595,13 @@ import {
   writingScopeDirectoryIdsForRuntime
 } from "./writing-candidate-state.js";
 import {
+  addWritingBasketIdsForRuntime,
+  clearWritingBasketForRuntime,
+  parseWritingBasketIdsForRuntime,
+  removeWritingBasketIdForRuntime,
+  setWritingBasketIdsForRuntime
+} from "./writing-basket-state.js";
+import {
   sameUniqueStringSetForRuntime,
   selectedWritingThemeIndexForRuntime,
   setSelectedWritingThemeIndexForRuntime,
@@ -7829,37 +7836,38 @@ function writingNoteEligibility(note) {
 }
 
 function parseWritingBasketIds() {
-  const raw = String($("writingBasketNoteIds")?.value || "");
-  return [...new Set(raw.split(/[\s,，]+/).map((item) => item.trim()).filter(Boolean))];
+  return parseWritingBasketIdsForRuntime({ $ });
 }
 
 function setWritingBasketIds(noteIds) {
-  const input = $("writingBasketNoteIds");
-  if (!input) return;
-  input.value = [...new Set(noteIds.filter(Boolean))].join("\n");
+  return setWritingBasketIdsForRuntime(noteIds, { $ });
 }
 
 function addWritingBasketIds(noteIds) {
-  const merged = [...parseWritingBasketIds(), ...noteIds];
-  setWritingBasketIds(merged);
-  resetWritingProjectContextForBasketChange();
-  void refreshWritingRelationCounts(merged);
+  return addWritingBasketIdsForRuntime(noteIds, {
+    parseWritingBasketIds,
+    setWritingBasketIds,
+    resetWritingProjectContextForBasketChange,
+    refreshWritingRelationCounts
+  });
 }
 
 function removeWritingBasketId(noteId) {
-  const remaining = parseWritingBasketIds().filter((item) => item !== noteId);
-  setWritingBasketIds(remaining);
-  resetWritingProjectContextForBasketChange();
-  delete writingState.relationCounts[String(noteId || "").trim()];
-  void refreshWritingRelationCounts(remaining);
+  return removeWritingBasketIdForRuntime(noteId, {
+    writingState,
+    parseWritingBasketIds,
+    setWritingBasketIds,
+    resetWritingProjectContextForBasketChange,
+    refreshWritingRelationCounts
+  });
 }
 
 function clearWritingBasket() {
-  setWritingBasketIds([]);
-  resetWritingLocalBookIdeas();
-  writingState.relationCounts = {};
-  writingState.relationCountErrors = {};
-  writingState.loadingRelationCounts = false;
+  return clearWritingBasketForRuntime({
+    writingState,
+    setWritingBasketIds,
+    resetWritingLocalBookIdeas
+  });
 }
 
 let writingBasketManualRefreshTimer = 0;
