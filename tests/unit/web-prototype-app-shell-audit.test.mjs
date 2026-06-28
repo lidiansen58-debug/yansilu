@@ -76,6 +76,9 @@ test("prototype-app keeps critical shell wrappers thin", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const shellWrapperBudgets = {
     renderGraphPanel: 25,
+    renderSettingsWorkbenchChrome: 15,
+    renderSettingsSidebarColumn: 15,
+    renderSettingsDetailFocus: 5,
     graphEdgePath: 5,
     renderDistillationPanel: 15,
     handleStateChange: 5
@@ -122,6 +125,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "system-message-deps.js": 85,
     "system-message-workflow-sync.js": 70,
     "settings-ai-experience-model.js": 90,
+    "settings-panel-shell.js": 130,
     "graph-visual-map-controller.js": 35,
     "graph-visual-map-composer.js": 240,
     "graph-visual-map-runtime-deps.js": 40,
@@ -182,6 +186,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "system-messages-runtime-controller.js",
     "ai-runtime-mode-controller.js",
     "settings-ai-experience-model.js",
+    "settings-panel-shell.js",
     "graph-canvas-event-router.js",
     "graph-selection-host-deps.js",
     "graph-workspace-host-deps.js",

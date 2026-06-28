@@ -732,6 +732,11 @@ import {
   buildSettingsAiSetupBadges
 } from "./settings-ai-experience-model.js";
 import {
+  renderSettingsDetailFocusForRuntime,
+  renderSettingsSidebarColumnForRuntime,
+  renderSettingsWorkbenchChromeForRuntime
+} from "./settings-panel-shell.js";
+import {
   aiTestBlockedReasonForState,
   currentOllamaModelTiersForState,
   installedLocalModelReadyForState
@@ -6723,107 +6728,27 @@ function ensureSettingsWorkbenchLayout() {
 }
 
 function renderSettingsWorkbenchChrome() {
-  const activeSection = normalizeSettingsSection(settingsState.activeSection);
-  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
-  const vault = settingsState.vault;
-  const chromeMap = settingsSectionChromeMap();
-  const aiSummary = settingsAiOverviewSummary();
-  const automationCount = Number(settingsState.ai.scheduledTasksTotal || 0) + Number(settingsState.ai.suggestionsTotal || 0);
-  const mapStatusValue = $("settingsMapStatusValue");
-  const overviewKicker = document.querySelector("#settingsPanel .settings-overview-kicker");
-  const overviewTitle = document.querySelector("#settingsPanel .settings-overview-title");
-  const overviewBody = document.querySelector("#settingsPanel .settings-overview-body");
-  const overviewLabels = document.querySelectorAll("#settingsPanel .settings-overview-label");
-  const mobileItemSelect = $("settingsMobileItemSelect");
-
-  if (overviewKicker) overviewKicker.textContent = "Current Context";
-  if (overviewTitle) {
-    overviewTitle.textContent = "先看当前工作区与 AI 路线，再直接进入左栏参数入口。";
-  }
-  if (overviewBody) {
-    overviewBody.textContent = "这里保留最小必要的上下文信息，避免重复解释设置结构；真正的参数切换和操作都放在下面的左栏与右侧工作区里。";
-  }
-  if (overviewLabels.length >= 3) {
-    overviewLabels[0].textContent = "工作区";
-    overviewLabels[1].textContent = "AI 路线";
-    overviewLabels[2].textContent = "自动处理";
-  }
-
-  SETTINGS_SECTIONS.forEach((section) => {
-    const pane = $(section.paneId);
-    const button = $(section.buttonId);
-    const badge = $(section.badgeId);
-    const meta = $(section.metaId);
-    const isActive = section.id === activeSection;
-    pane?.classList.toggle("hidden", !isActive);
-    button?.classList.toggle("is-active", isActive);
-    button?.setAttribute("aria-pressed", isActive ? "true" : "false");
-    if (badge) badge.textContent = chromeMap[section.id]?.badge || section.label;
-    if (meta) meta.textContent = chromeMap[section.id]?.meta || section.label;
+  renderSettingsWorkbenchChromeForRuntime({
+    $,
+    document,
+    settingsState,
+    settingsSectionChromeMap,
+    settingsAiOverviewSummary,
+    settingsMobileItemOptionsHtml,
+    settingsLeafLabel,
+    formatSettingsUserError
   });
-
-  if (mapStatusValue) {
-    mapStatusValue.textContent = activeItem.label;
-  }
-  if (mobileItemSelect) {
-    const nextOptionsHtml = settingsMobileItemOptionsHtml();
-    if (mobileItemSelect.innerHTML !== nextOptionsHtml) {
-      mobileItemSelect.innerHTML = nextOptionsHtml;
-    }
-    mobileItemSelect.value = activeItem.id;
-  }
-
-  const workspaceName = $("settingsOverviewWorkspaceName");
-  const workspaceMetaEl = $("settingsOverviewWorkspaceMeta");
-  const aiRoute = $("settingsOverviewAiRoute");
-  const aiMeta = $("settingsOverviewAiMeta");
-  const automationValue = $("settingsOverviewAutomation");
-  const automationMeta = $("settingsOverviewAutomationMeta");
-  if (workspaceName) workspaceName.textContent = vault?.vaultPath ? settingsLeafLabel(vault.vaultPath) : "等待同步";
-  if (workspaceMetaEl) {
-    workspaceMetaEl.textContent = vault
-      ? `${vault.initialized ? "已初始化" : "待初始化"} · ${vault.defaultVaultPath ? `默认：${settingsLeafLabel(vault.defaultVaultPath)}` : "等待默认路径"}`
-      : (formatSettingsUserError(settingsState.error) || "笔记库状态会在这里汇总。");
-  }
-  if (aiRoute) aiRoute.textContent = aiSummary.value;
-  if (aiMeta) aiMeta.textContent = aiSummary.meta || "当前使用的模型、服务和连接状态。";
-  if (automationValue) automationValue.textContent = `${automationCount} 个待看项`;
-  if (automationMeta) automationMeta.textContent = `待确认 ${Number(settingsState.ai.suggestionsTotal || 0)} / 后台任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)}`;
 }
 
 function renderSettingsSidebarColumn() {
-  const activeSection = normalizeSettingsSection(settingsState.activeSection);
-  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
-  const config = settingsSectionConfig(activeSection);
-  const chromeMap = settingsSectionChromeMap();
-  const guidance = settingsSectionGuidanceMap()[activeSection] || {};
-  const entryCard = $("settingsNavEntryCard");
-  const navCardNote = document.querySelector("#settingsSectionNav")?.closest(".settings-nav-card")?.querySelector(".settings-nav-card-note");
-  const introNote = $("settingsSidebarIntroNote");
-  const focusPill = $("settingsSidebarFocusPill");
-  const focusBody = $("settingsSidebarFocusBody");
-  const checklist = $("settingsSidebarChecklist");
-
-  entryCard?.classList.remove("hidden");
-  if (introNote) {
-    introNote.textContent = "先在左侧选中设置项，再在右侧修改这一项的具体参数。";
-  }
-  if (navCardNote) {
-    navCardNote.textContent = "先在左侧选中设置项，再在右侧修改这一项的具体参数。";
-  }
-  if (focusPill) {
-    const badge = chromeMap[activeSection]?.badge || activeItem.label;
-    focusPill.textContent = `${activeItem.label} · ${badge}`;
-  }
-  if (focusBody) {
-    focusBody.textContent = guidance.focus || "先在左栏选中当前参数域，再在右侧完成具体调整。";
-  }
-  if (checklist) {
-    const notes = Array.isArray(guidance.notes) && guidance.notes.length > 0
-      ? guidance.notes
-      : ["当前参数会跟随笔记库同步。", "先确认状态，再执行写入操作。", "右侧区域只显示当前设置项内容。"];
-    checklist.innerHTML = notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
-  }
+  renderSettingsSidebarColumnForRuntime({
+    $,
+    document,
+    settingsState,
+    settingsSectionChromeMap,
+    settingsSectionGuidanceMap,
+    escapeHtml
+  });
 }
 
 function filterSettingsSidebarMenu(query = "") {
@@ -6836,23 +6761,7 @@ function filterSettingsSidebarMenu(query = "") {
 }
 
 function renderSettingsDetailFocus() {
-  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
-  const config = settingsSectionConfig(activeItem.sectionId);
-  const visibleCardIds = new Set(activeItem.cardIds || []);
-  SETTINGS_DETAIL_ITEMS.forEach((item) => {
-    item.cardIds.forEach((cardId) => {
-      const card = $(cardId);
-      if (!card) return;
-      const belongsToActivePane = item.sectionId === config.id;
-      const visible = belongsToActivePane && visibleCardIds.has(cardId);
-      card.classList.toggle("hidden", !visible);
-    });
-  });
-  const pane = $(config.paneId);
-  const paneTitle = pane?.querySelector(".settings-pane-title");
-  const paneNote = pane?.querySelector(".settings-pane-note");
-  if (paneTitle) paneTitle.textContent = activeItem.label;
-  if (paneNote) paneNote.textContent = settingsItemSummary(activeItem.id);
+  renderSettingsDetailFocusForRuntime({ $, settingsState });
 }
 
 function renderSettingsPanel() {
