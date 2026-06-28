@@ -18,7 +18,9 @@ import {
 import {
   readPrototypeAppSource,
   readPrototypeHtmlSource,
+  readWritingBookDesignPanelSource,
   readPrototypeWritingWorkspaceSource,
+  readWritingStrongModelRequestPanelSource,
   readWritingPanelControllerSource
 } from "./copy-source-helpers.mjs";
 
@@ -34,6 +36,7 @@ test("writing center exposes a book-level workbench between materials and drafts
 
 test("writing center derives book structure with parts, chapters, sections, and pools", async () => {
   const panelControllerSource = await readWritingPanelControllerSource();
+  const bookDesignPanelSource = await readWritingBookDesignPanelSource();
   const writingWorkspaceSource = await readPrototypeWritingWorkspaceSource();
   const design = deriveWritingBookDesign({
     title: "AI时代易经与人生",
@@ -57,7 +60,8 @@ test("writing center derives book structure with parts, chapters, sections, and 
   assert.ok(stats.counterargumentCount >= 1);
   assert.ok(stats.questionCount >= 1);
   assert.equal(design.reader, "知识工作者");
-  assert.match(panelControllerSource, /function renderWritingBookDesignDom/);
+  assert.match(bookDesignPanelSource, /function renderWritingBookDesignDom/);
+  assert.match(panelControllerSource, /from "\.\/writing-book-design-panel\.js"/);
   assert.match(panelControllerSource, /renderWritingBookDesignDom\(deps\);/);
   assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
 });
@@ -143,12 +147,14 @@ test("local book ideas reset on basket changes and sync when opening a project",
 
 test("strong model request package shows included notes, questions, and exclusions", async () => {
   const panelControllerSource = await readWritingPanelControllerSource();
+  const strongModelRequestPanelSource = await readWritingStrongModelRequestPanelSource();
 
-  assert.match(panelControllerSource, /function renderWritingStrongModelRequestDetailDom/);
-  assert.match(panelControllerSource, /const plannedQuestions = \[/);
-  assert.match(panelControllerSource, /const notSent = \[/);
-  assert.match(panelControllerSource, /plannedQuestions\.map/);
-  assert.match(panelControllerSource, /notSent\.map/);
+  assert.match(panelControllerSource, /from "\.\/writing-strong-model-request-panel\.js"/);
+  assert.match(strongModelRequestPanelSource, /function renderWritingStrongModelRequestDetailDom/);
+  assert.match(strongModelRequestPanelSource, /const plannedQuestions = \[/);
+  assert.match(strongModelRequestPanelSource, /const notSent = \[/);
+  assert.match(strongModelRequestPanelSource, /plannedQuestions\.map/);
+  assert.match(strongModelRequestPanelSource, /notSent\.map/);
 });
 
 test("strong model request package history does not interrupt when no artifacts are created", () => {

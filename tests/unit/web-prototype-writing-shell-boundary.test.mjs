@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   readPrototypeAppSource,
+  readWritingStrongModelRequestPanelSource,
   readWritingPanelControllerSource,
   readWritingPanelShellSource
 } from "./copy-source-helpers.mjs";
@@ -21,6 +22,7 @@ test("prototype writing shell keeps the main writing surfaces wired", async () =
 test("prototype writing shell delegates panel state building to writing workspace helpers", async () => {
   const panelShellSource = await readWritingPanelShellSource();
   const panelControllerSource = await readWritingPanelControllerSource();
+  const strongModelRequestPanelSource = await readWritingStrongModelRequestPanelSource();
 
   assert.match(panelShellSource, /createWritingPanelDomDeps/);
   assert.match(panelShellSource, /buildWritingPanelState/);
@@ -32,8 +34,9 @@ test("prototype writing shell delegates panel state building to writing workspac
   assert.match(panelControllerSource, /renderWritingFlowStepsDom\(deps,/);
   assert.match(panelControllerSource, /function renderWritingScaffoldPreviewDom/);
   assert.match(panelControllerSource, /renderWritingScaffoldPreviewDom\(deps\)/);
-  assert.match(panelControllerSource, /function renderWritingStrongModelRequestDetailDom/);
   assert.match(panelControllerSource, /renderWritingStrongModelRequestDetailDom\(deps,/);
+  assert.match(panelControllerSource, /from "\.\/writing-strong-model-request-panel\.js"/);
+  assert.match(strongModelRequestPanelSource, /function renderWritingStrongModelRequestDetailDom/);
   assert.match(panelControllerSource, /function renderWritingStatusStripDom/);
   assert.match(panelControllerSource, /renderWritingStatusStripDom\(deps\)/);
   assert.match(panelControllerSource, /function renderWritingThemeIndexCardDom/);

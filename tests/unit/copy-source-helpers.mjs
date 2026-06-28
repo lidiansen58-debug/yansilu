@@ -43,6 +43,14 @@ export function readWritingPanelControllerSource() {
   return readRepoText("apps", "web", "src", "writing-panel-controller.js");
 }
 
+export function readWritingBookDesignPanelSource() {
+  return readRepoText("apps", "web", "src", "writing-book-design-panel.js");
+}
+
+export function readWritingStrongModelRequestPanelSource() {
+  return readRepoText("apps", "web", "src", "writing-strong-model-request-panel.js");
+}
+
 export function readWritingPanelShellSource() {
   return readRepoText("apps", "web", "src", "writing-panel-shell.js");
 }
