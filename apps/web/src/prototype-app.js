@@ -49,7 +49,7 @@ import {
   editorHelperShouldHide
 } from "./editor-helper-model.js";
 import {
-  renderAppShell
+  createRenderAppShellController
 } from "./app-shell-render-all.js";
 import {
   buildRenderAppShellDeps
@@ -65,7 +65,7 @@ import {
   renderModuleWorkspaceHeaderForRuntime
 } from "./app-shell-module-header.js";
 import {
-  renderSidebarTitleForRuntime
+  createSidebarTitleController
 } from "./app-shell-sidebar-controller.js";
 import {
   buildSidebarTitleRuntimeDeps
@@ -4860,8 +4860,8 @@ function syncNewNoteButtons() {
   if (mobileLabel) mobileLabel.textContent = "";
 }
 
-function renderSidebarTitle() {
-  return renderSidebarTitleForRuntime(buildSidebarTitleRuntimeDeps(buildSidebarTitleHostDeps({
+const sidebarTitleController = createSidebarTitleController({
+  depsProvider: () => buildSidebarTitleRuntimeDeps(buildSidebarTitleHostDeps({
     state,
     folderById,
     $,
@@ -4870,8 +4870,11 @@ function renderSidebarTitle() {
     displayFolderName,
     currentModuleUi,
     syncNewNoteButtons
-  })));
-}
+  }))
+});
+const {
+  renderSidebarTitle
+} = sidebarTitleController;
 
 function currentModuleUi() {
   const root = folderById(state, state.browserRootId);
@@ -5504,8 +5507,8 @@ async function openDistillationQueueNote(noteId = "") {
   });
 }
 
-function renderAll() {
-  return renderAppShell(buildRenderAppShellDeps(buildRenderAppShellHostDeps({
+const renderAppShellController = createRenderAppShellController({
+  depsProvider: () => buildRenderAppShellDeps(buildRenderAppShellHostDeps({
     state,
     explorer,
     editor,
@@ -5524,8 +5527,11 @@ function renderAll() {
     renderWorkspaceStatusHint,
     renderSaveAiSuggestion,
     renderSystemMessages
-  })));
-}
+  }))
+});
+const {
+  renderAll
+} = renderAppShellController;
 
 function explorerQuickAction(rootId = state.browserRootId) {
   if (rootId === "dir_fleeting_default") return "quick-fleeting";

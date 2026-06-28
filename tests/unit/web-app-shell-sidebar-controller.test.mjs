@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createSidebarTitleController,
   renderSidebarTitleForRuntime
 } from "../../apps/web/src/app-shell-sidebar-controller.js";
 
@@ -107,4 +108,21 @@ test("app shell sidebar controller hides module sidebar on compact import screen
   assert.equal(elements.moduleSidebar.classList.contains("visible"), false);
   assert.equal(elements.moduleSidebar.innerHTML, "");
   assert.equal(elements.sidebarFoot.classList.contains("hidden"), true);
+});
+
+test("app shell sidebar controller renders through current deps provider", () => {
+  const elements = sidebarElements();
+  const controller = createSidebarTitleController({
+    depsProvider: () => ({
+      state: { module: "explorer", browserRootId: "dir_original_default" },
+      root: { name: "Root" },
+      elements,
+      documentRef: { querySelectorAll: () => [] },
+      displayFolderName: (folder) => `Current ${folder.name}`
+    })
+  });
+
+  controller.renderSidebarTitle();
+
+  assert.equal(elements.sidebarTitle.textContent, "Current Root");
 });

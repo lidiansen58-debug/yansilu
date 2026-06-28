@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createRenderAppShellController,
   renderAppShell
 } from "../../apps/web/src/app-shell-render-all.js";
 
@@ -53,4 +54,21 @@ test("app shell render skips explorer tree for module workspaces", () => {
   assert.equal(calls.includes("explorerRender"), false);
   assert.ok(calls.indexOf("renderWritingPanel") > calls.indexOf("renderSettingsPanel"));
   assert.deepEqual(calls.slice(-3), ["renderWorkspaceStatusHint", "renderSaveAiSuggestion", "renderSystemMessages"]);
+});
+
+test("app shell render controller renders from current deps provider", () => {
+  const calls = [];
+  const controller = createRenderAppShellController({
+    depsProvider: () => ({
+      state: { module: "writing" },
+      ensureSelection: () => calls.push("ensure"),
+      renderSidebarTitle: () => calls.push("sidebar"),
+      renderWritingPanel: () => calls.push("writing"),
+      renderSystemMessages: () => calls.push("messages")
+    })
+  });
+
+  controller.renderAll();
+
+  assert.deepEqual(calls, ["ensure", "sidebar", "writing", "messages"]);
 });

@@ -105,3 +105,10 @@ export function renderSidebarTitleForRuntime({
     }
   }
 }
+
+export function createSidebarTitleController(options = {}) {
+  const depsProvider = options.depsProvider || (() => ({}));
+  return {
+    renderSidebarTitle: () => renderSidebarTitleForRuntime(depsProvider())
+  };
+}

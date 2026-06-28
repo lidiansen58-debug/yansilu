@@ -40,3 +40,10 @@ export function renderAppShell(deps = {}) {
   renderSaveAiSuggestion();
   renderSystemMessages();
 }
+
+export function createRenderAppShellController(options = {}) {
+  const depsProvider = options.depsProvider || (() => ({}));
+  return {
+    renderAll: () => renderAppShell(depsProvider())
+  };
+}
