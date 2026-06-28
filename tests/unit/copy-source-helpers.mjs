@@ -63,6 +63,10 @@ export function readGraphVisualMapControllerSource() {
   return readRepoText("apps", "web", "src", "graph-visual-map-controller.js");
 }
 
+export function readGraphVisualMapContextSource() {
+  return readRepoText("apps", "web", "src", "graph-visual-map-context.js");
+}
+
 export function readGraphVisualMapRuntimeDepsSource() {
   return readRepoText("apps", "web", "src", "graph-visual-map-runtime-deps.js");
 }

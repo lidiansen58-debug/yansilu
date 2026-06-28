@@ -5,6 +5,7 @@ import {
   readGraphPanelRendererSource,
   readGraphPanelRuntimeDepsSource,
   readGraphPanelShellSource,
+  readGraphVisualMapContextSource,
   readGraphVisualMapControllerSource,
   readGraphVisualMapRuntimeDepsSource,
   readGraphVisualMapViewRendererSource,
@@ -133,6 +134,7 @@ test("prototype graph shell delegates panel state building to a graph module", a
 test("graph visual map runtime state, chrome, and view deps stay split across graph modules", async () => {
   const visualMapRuntimeDepsSource = await readGraphVisualMapRuntimeDepsSource();
   const visualMapControllerSource = await readGraphVisualMapControllerSource();
+  const visualMapContextSource = await readGraphVisualMapContextSource();
 
   assert.match(visualMapRuntimeDepsSource, /from "\.\/graph-visual-map-runtime-state-deps\.js"/);
   assert.match(visualMapRuntimeDepsSource, /from "\.\/graph-visual-map-chrome-deps\.js"/);
@@ -143,9 +145,12 @@ test("graph visual map runtime state, chrome, and view deps stay split across gr
   assert.doesNotMatch(visualMapRuntimeDepsSource, /renderGraphRelationTypeFilter: graphRelationTypeFilter/);
   assert.doesNotMatch(visualMapRuntimeDepsSource, /graphNodeClass,\s*graphNodeStarRank/);
   assert.match(visualMapControllerSource, /buildGraphVisualMapRuntimeState\(/);
+  assert.match(visualMapControllerSource, /buildGraphVisualMapContextMarkup\(/);
   assert.match(visualMapControllerSource, /buildGraphVisualMapChrome\(/);
   assert.match(visualMapControllerSource, /buildGraphVisualMapShellProps\(/);
   assert.match(visualMapControllerSource, /renderGraphVisualMapShellView\(graphShellProps, shellDeps\)/);
+  assert.match(visualMapContextSource, /renderGraphResearchNavigatorPanel/);
+  assert.match(visualMapContextSource, /graphThemeBoundaryMeta/);
   assert.doesNotMatch(visualMapControllerSource, /buildGraphVisualMapRuntimeDeps\(\{/);
 });
 
