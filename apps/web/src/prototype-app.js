@@ -45,6 +45,10 @@ import {
   editorSelectionAiActionElements
 } from "./app-shell-editor-elements.js";
 import {
+  editorHelperNoteType,
+  editorHelperShouldHide
+} from "./editor-helper-model.js";
+import {
   renderAppShell
 } from "./app-shell-render-all.js";
 import {
@@ -5207,19 +5211,19 @@ function renderWorkspaceStatusHint() {
   const title = $("editorHelperTitle");
   const body = $("editorHelperBody");
   const action = $("btnEditorHelperAction");
-  if (!kicker || !title || !body || !action) {
-    hideEditorHelper();
-    return;
-  }
-  if (editorHelperDismissed || editorHelperMuted || state.module !== "explorer") {
+  const visibility = editorHelperShouldHide({
+    elementsReady: Boolean(kicker && title && body && action),
+    dismissed: editorHelperDismissed,
+    muted: editorHelperMuted,
+    module: state.module
+  });
+  if (visibility.hide) {
     hideEditorHelper();
     return;
   }
   const activeNote = activeEditorNote();
   const activeBody = activeEditorBody();
-  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "")
-    .trim()
-    .toLowerCase();
+  const noteType = editorHelperNoteType(activeNote, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
   if (!activeNote) {
     action.dataset.helperAction = "noop";
     action.dataset.targetNoteId = "";
