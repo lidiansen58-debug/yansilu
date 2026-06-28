@@ -1,10 +1,12 @@
 import {
-  buildGraphVisualMapAdjacencyMap,
   buildGraphVisualMapSelectionState
 } from "./graph-visual-map-selection-state.js";
 import {
   buildGraphVisualMapControlsState
 } from "./graph-visual-map-controls-state.js";
+import {
+  buildGraphVisualMapLayoutState
+} from "./graph-visual-map-layout-state.js";
 
 export function buildGraphVisualMapRuntimeState({
   graphState = {},
@@ -47,41 +49,27 @@ export function buildGraphVisualMapRuntimeState({
     relationGroupMeta = {}
   } = deps;
 
-  const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
-  const layout = graphBuildVisualLayout(nodes, edges, { focusedNoteId: normalizedFocusedNoteId });
-
-  const adjacencyMap = buildGraphVisualMapAdjacencyMap(edges);
-
-  const visibleEdges = edges
-    .map((edge) => {
-      const connectsFocus =
-        normalizedFocusedNoteId &&
-        (String(edge?.fromNoteId || "").trim() === normalizedFocusedNoteId ||
-          String(edge?.toNoteId || "").trim() === normalizedFocusedNoteId);
-      return {
-        edge,
-        path: graphEdgePath(edge, layout.nodeMap),
-        visual: graphRelationVisual(edge?.relationType),
-        connectsFocus
-      };
-    })
-    .filter((item) => item.path);
-
-  const denseDirectoryMode = !filterActive;
-  const denseGalaxyMode = graphDenseGalaxyMode({
-    nodes: layout.nodes,
+  const layoutState = buildGraphVisualMapLayoutState({
+    nodes,
     edges,
-    filterActive
+    relationFilterEdges,
+    filterActive,
+    focusedNoteId,
+    structureFallback
+  }, {
+    graphBuildVisualLayout,
+    graphEdgePath,
+    graphRelationVisual,
+    graphDenseGalaxyMode,
+    shouldShowGraphDensityHint
   });
-  const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
-  const compactRelationFilterStats = structureFallback
-    ? {
-        structureFallback: true,
-        totalCount: relationFilterEdges.length,
-        meaningfulCount: edges.length,
-        indexCount: 0
-      }
-    : null;
+  const {
+    normalizedFocusedNoteId,
+    layout,
+    adjacencyMap,
+    visibleEdges,
+    denseGalaxyMode
+  } = layoutState;
   const selectionState = buildGraphVisualMapSelectionState({
     graphSelection: graphState.selection,
     layoutNodes: layout.nodes,
@@ -121,14 +109,7 @@ export function buildGraphVisualMapRuntimeState({
   });
 
   return {
-    normalizedFocusedNoteId,
-    layout,
-    adjacencyMap,
-    visibleEdges,
-    denseDirectoryMode,
-    denseGalaxyMode,
-    showDensityHint,
-    compactRelationFilterStats,
+    ...layoutState,
     ...selectionState,
     ...controlsState
   };
