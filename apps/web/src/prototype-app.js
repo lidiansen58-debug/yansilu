@@ -365,7 +365,6 @@ import {
 import {
   graphComputedIsolatedNotesForGraph,
   graphIsolatedQueueItemsForGraph,
-  graphIsolatedSelectionKeyForItem,
   graphMarkIsolatedNodesForGraph,
   graphNextIsolatedQueueItem as computeGraphNextIsolatedQueueItem,
   graphNoteIdFromIsolatedItem as computeGraphNoteIdFromIsolatedItem
@@ -567,6 +566,13 @@ import {
   graphRelationGroupMeta,
   graphRelationVisual
 } from "./graph-relation-visual-state.js";
+import {
+  graphBridgeSelectionKey,
+  graphIsolatedSelectionKey,
+  graphNodeClass,
+  graphThemeNoteIds,
+  graphThemeSelectionKey
+} from "./graph-visual-selection-state.js";
 import {
   renderDraftVersionCardView,
   renderScaffoldVersionCardView,
@@ -9455,17 +9461,6 @@ function graphEdgeMatchesFilters(edge, filters = {}) {
   return typeMatches && (filterStatus === "all" || status === filterStatus);
 }
 
-function graphThemeNoteIds(topic = {}) {
-  return (Array.isArray(topic?.noteIds) ? topic.noteIds : [])
-    .map((id) => String(id || "").trim())
-    .filter(Boolean);
-}
-
-function graphThemeSelectionKey(topic = {}, index = 0) {
-  const raw = String(topic?.id || topic?.title || index).trim();
-  return raw || `topic-${index}`;
-}
-
 function graphThemeTitleLooksGeneric(title = "") {
   const text = String(title || "").trim().toLowerCase();
   if (!text) return true;
@@ -9533,19 +9528,6 @@ function resolveGraphThemeSelection(selection = null, topicCandidates = []) {
     title: String(topic?.title || "待验证主题").trim() || "待验证主题",
     noteIds: resolvedNoteIds
   };
-}
-
-function graphIsolatedSelectionKey(note = {}, index = 0) {
-  return graphIsolatedSelectionKeyForItem(note, index);
-}
-
-function graphBridgeSelectionKey(gap = {}, index = 0) {
-  const explicitId = String(gap?.id || "").trim();
-  if (explicitId) return `id:${explicitId}`;
-  const sourceId = String(gap?.noteIds?.[0] || gap?.sourceNoteId || "").trim();
-  const targetId = String(gap?.targetNoteIds?.[0] || gap?.targetNoteId || "").trim();
-  const title = String(gap?.title || gap?.noteTitles?.[0] || "").trim();
-  return ["bridge", sourceId || title || "source", targetId || "no-target", String(index)].join("::");
 }
 
 function resolveGraphIsolatedSelection(selection = null, isolatedNotes = [], nodes = []) {
@@ -11937,14 +11919,6 @@ function renderGraphThemeBoundary(boundary = null) {
       <text class="graph-theme-boundary-label" x="${boundary.labelX}" y="${boundary.labelY}">${escapeHtml(boundary.label)} · ${escapeHtml(String(boundary.count))} 条</text>
     </g>
   `;
-}
-
-function graphNodeClass(noteType = "") {
-  const type = String(noteType || "").trim().toLowerCase();
-  if (type === "literature") return "is-literature";
-  if (type === "fleeting") return "is-fleeting";
-  if (type === "original" || type === "permanent") return "is-original";
-  return "is-note";
 }
 
 function graphScopeDirectoryId() {
