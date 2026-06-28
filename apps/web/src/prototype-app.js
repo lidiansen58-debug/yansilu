@@ -533,6 +533,9 @@ import {
   renderWritingScaffoldPreviewShell
 } from "./writing-panel-shell.js";
 import {
+  buildWritingPanelHostDeps
+} from "./writing-panel-deps.js";
+import {
   graphAssociateNoteRoute,
   graphFollowupActionRoute,
   noteDeleteKeyRoute
@@ -8610,7 +8613,7 @@ function currentWritingBookStructure({ notes = writingBasketEntries(), includeLo
 
 
 function writingPanelDomDeps() {
-  return {
+  return buildWritingPanelHostDeps({
     $,
     state,
     writingState,
@@ -8652,7 +8655,7 @@ function writingPanelDomDeps() {
     writingBookProjectGoal,
     writingBookProjectAudience,
     escapeHtml
-  };
+  });
 }
 
 function renderWritingPanel() {
