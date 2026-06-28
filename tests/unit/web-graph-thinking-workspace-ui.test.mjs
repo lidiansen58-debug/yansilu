@@ -34,6 +34,9 @@ import {
   graphZoomStep as moduleGraphZoomStep
 } from "../../apps/web/src/graph-visual-zoom-model.js";
 import {
+  renderGraphIconView
+} from "../../apps/web/src/graph-icon-view.js";
+import {
   graphSelectionUsesOverlay
 } from "../../apps/web/src/graph-visual-map-shell-props.js";
 import {
@@ -1979,7 +1982,7 @@ test("graph zoom controls include both stepper directions and preset levels", ()
   assert.match(zoomMarkup, /data-graph-zoom-step="-1" aria-label="缩小图谱"/);
   assert.match(zoomMarkup, /data-graph-zoom-step="1" aria-label="放大图谱"/);
   assert.match(zoomMarkup, /data-graph-zoom-option="read"/);
-  assert.match(source, /if \(key === "hand"\) \{/);
+  assert.match(renderGraphIconView("hand"), /M6\.2 9\.7V6\.1/);
   assert.match(visualMapControllerSource, /renderGraphVisualMapShellView/);
   assert.doesNotMatch(source, /graph-pan-hint[\s\S]{0,180}<span>拖动<\/span>/);
   assert.match(html, /\.graph-pan-hint \{[\s\S]*width: 36px;[\s\S]*cursor: grab;/);

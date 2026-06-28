@@ -85,6 +85,8 @@ test("prototype-app keeps critical shell wrappers thin", () => {
     renderAiLocalModelControls: 5,
     renderAiProviderConfigControls: 5,
     renderAiRoutePreview: 5,
+    renderGraphIcon: 5,
+    graphFilterOptions: 5,
     graphEdgePath: 5,
     renderDistillationPanel: 15,
     handleStateChange: 5
@@ -159,6 +161,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-relation-visual-state.js": 100,
     "graph-visual-selection-state.js": 45,
     "graph-visual-geometry.js": 240,
+    "graph-icon-view.js": 130,
+    "graph-filter-options-view.js": 120,
     "graph-selection-host-deps.js": 80,
     "graph-workspace-host-deps.js": 60
   };
@@ -220,7 +224,9 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-relation-visual-state.js",
     "graph-visual-selection-state.js",
     "graph-visual-geometry.js",
-    "graph-visual-layout.js"
+    "graph-visual-layout.js",
+    "graph-icon-view.js",
+    "graph-filter-options-view.js"
   ];
 
   for (const modulePath of requiredImports) {
