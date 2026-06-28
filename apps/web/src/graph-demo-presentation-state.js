@@ -25,3 +25,13 @@ export function resetGraphDemoPresentationStateForRuntime(graphState = {}, deps 
   };
   return graphState;
 }
+
+export function yijingRichDemoPostImportPlan(options = {}) {
+  const { startup = false } = options;
+  return {
+    resetGraphPresentationState: Boolean(startup),
+    refreshDirectoryGraph: true,
+    activateModule: startup ? "graph" : "",
+    renderAll: !startup
+  };
+}

@@ -441,7 +441,8 @@ import {
   shouldShowGraphDensityHintForRuntime
 } from "./graph-density-hint-controller.js";
 import {
-  resetGraphDemoPresentationStateForRuntime
+  resetGraphDemoPresentationStateForRuntime,
+  yijingRichDemoPostImportPlan
 } from "./graph-demo-presentation-state.js";
 import {
   graphClusterResearchMeta as computeGraphClusterResearchMeta,
@@ -13703,16 +13704,17 @@ async function importYijingRichAcceptanceDemo(options = {}) {
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
     if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
-    if (startup) {
+    const postImportPlan = yijingRichDemoPostImportPlan({ startup });
+    if (postImportPlan.resetGraphPresentationState) {
       // Demo routes should always reopen into a readable, stable first-screen
       // graph state instead of inheriting stale filters or expanded UI state
       // from a previous session.
       resetGraphDemoPresentationState();
     }
-    await refreshDirectoryGraph();
-    if (startup) {
-      activateModule("graph");
-    } else {
+    if (postImportPlan.refreshDirectoryGraph) await refreshDirectoryGraph();
+    if (postImportPlan.activateModule) {
+      activateModule(postImportPlan.activateModule);
+    } else if (postImportPlan.renderAll) {
       renderAll();
     }
     const counts = result?.counts || {};
