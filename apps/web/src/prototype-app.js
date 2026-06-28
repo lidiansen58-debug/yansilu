@@ -62,6 +62,9 @@ import {
   renderSidebarTitleForRuntime
 } from "./app-shell-sidebar-controller.js";
 import {
+  buildSidebarTitleRuntimeDeps
+} from "./app-shell-sidebar-deps.js";
+import {
   buildAppShellStateChangeDeps
 } from "./app-shell-state-change-deps.js";
 import {
@@ -4831,27 +4834,16 @@ function syncNewNoteButtons() {
 }
 
 function renderSidebarTitle() {
-  return renderSidebarTitleForRuntime({
+  return renderSidebarTitleForRuntime(buildSidebarTitleRuntimeDeps({
     state,
     root: folderById(state, state.browserRootId),
-    elements: {
-      sidebarTitle: $("sidebarTitle"),
-      sidebarPrimaryActions: $("sidebarPrimaryActions"),
-      filter: $("searchBar"),
-      moduleSidebar: $("moduleSidebar"),
-      sidebarFlow: $("sidebarFlow"),
-      listArea: $("listArea"),
-      searchToggle: $("btnToggleSearch"),
-      sidebarSubtitle: $("sidebarSubtitle"),
-      sidebarFoot: $("sidebarFoot"),
-      explorerActions: $("explorerActions")
-    },
+    $,
     documentRef: document,
     windowRef: typeof window !== "undefined" ? window : null,
     displayFolderName,
     currentModuleUi,
     syncNewNoteButtons
-  });
+  }));
 }
 
 function currentModuleUi() {

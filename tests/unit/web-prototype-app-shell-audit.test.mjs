@@ -100,6 +100,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
   const moduleLineBudgets = {
     "app-shell-render-all.js": 80,
     "app-shell-sidebar-controller.js": 140,
+    "app-shell-sidebar-deps.js": 60,
     "app-shell-state-change-deps.js": 40,
     "writing-panel-shell.js": 90,
     "system-messages-shell.js": 60,
@@ -121,6 +122,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "app-shell-module-ui.js",
     "app-shell-module-header.js",
     "app-shell-sidebar-controller.js",
+    "app-shell-sidebar-deps.js",
     "app-shell-state-change-deps.js",
     "app-shell-state-change-router.js",
     "writing-panel-shell.js",
