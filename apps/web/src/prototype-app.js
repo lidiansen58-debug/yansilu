@@ -464,14 +464,11 @@ import {
   renderGraphFocusContextPanel as renderGraphFocusContextPanelView
 } from "./graph-focus-context-panel.js";
 import {
-  clearGraphDensityHintTimerForRuntime,
-  scheduleGraphDensityHintDismissForRuntime,
-  shouldShowGraphDensityHintForRuntime
-} from "./graph-density-hint-controller.js";
-import {
-  resetGraphDemoPresentationStateForRuntime,
   yijingRichDemoPostImportPlan
 } from "./graph-demo-presentation-state.js";
+import {
+  createGraphPresentationController
+} from "./graph-presentation-controller.js";
 import {
   graphClusterResearchMeta as computeGraphClusterResearchMeta,
   graphResearchNavigatorState as computeGraphResearchNavigatorState,
@@ -858,6 +855,20 @@ const {
   updateGraphUtilityDrawerDrag,
   endGraphUtilityDrawerDrag
 } = graphUtilityDrawerController;
+const graphPresentationController = createGraphPresentationController({
+  graphState,
+  windowRef: window,
+  isGraphModule: () => state.module === "graph",
+  renderGraphPanel,
+  setRelationTypeFilter: setGraphRelationTypeFilter
+});
+const {
+  syncGraphDisclosureState,
+  clearGraphDensityHintTimer,
+  scheduleGraphDensityHintDismiss,
+  shouldShowGraphDensityHint,
+  resetGraphDemoPresentationState
+} = graphPresentationController;
 const distillationState = {
   filter: "all"
 };
@@ -12952,41 +12963,6 @@ function graphSummaryModeNote(relationType = "all") {
   return `只看${graphRelationTypeLabel(key)}。`;
 }
 
-function syncGraphDisclosureState(root) {
-  if (!root) return;
-  const utilityDrawer = root.querySelector("[data-graph-utility-drawer]");
-  if (utilityDrawer) {
-    graphState.utilityDrawerOpen = utilityDrawer.hasAttribute("open");
-  }
-  root.querySelectorAll("[data-graph-section]").forEach((section) => {
-    const key = String(section.getAttribute("data-graph-section") || "").trim();
-    if (!key) return;
-    graphState.sectionOpen[key] = section.hasAttribute("open");
-  });
-}
-
-function clearGraphDensityHintTimer() {
-  return clearGraphDensityHintTimerForRuntime({ graphState, window });
-}
-
-function scheduleGraphDensityHintDismiss() {
-  return scheduleGraphDensityHintDismissForRuntime({
-    graphState,
-    window,
-    isGraphModule: () => state.module === "graph",
-    renderGraphPanel
-  });
-}
-
-function shouldShowGraphDensityHint({ dense = false, filterActive = false } = {}) {
-  return shouldShowGraphDensityHintForRuntime({ dense, filterActive }, {
-    graphState,
-    window,
-    isGraphModule: () => state.module === "graph",
-    renderGraphPanel
-  });
-}
-
 function graphPanelRuntimeDeps() {
   return buildGraphPanelRuntimeDeps({
     syncGraphDisclosureState,
@@ -13373,12 +13349,6 @@ async function createGraphThemeIndexFromButton(button = null) {
   } finally {
     if (button) button.disabled = previousDisabled;
   }
-}
-
-function resetGraphDemoPresentationState() {
-  return resetGraphDemoPresentationStateForRuntime(graphState, {
-    setRelationTypeFilter: setGraphRelationTypeFilter
-  });
 }
 
 async function importYijingKnowledgeNetworkDemo(options = {}) {

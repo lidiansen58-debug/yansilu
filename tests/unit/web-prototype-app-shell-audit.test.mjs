@@ -132,7 +132,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-panel-runtime-deps.js": 40,
     "graph-panel-renderer.js": 150,
     "graph-viewport-controller.js": 110,
-    "graph-utility-drawer-controller.js": 160
+    "graph-utility-drawer-controller.js": 160,
+    "graph-presentation-controller.js": 80
   };
 
   for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
@@ -172,6 +173,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-panel-renderer.js",
     "graph-viewport-controller.js",
     "graph-utility-drawer-controller.js",
+    "graph-presentation-controller.js",
     "graph-visual-layout.js"
   ];
 
@@ -190,6 +192,10 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function beginGraphUtilityDrawerDrag/);
   assert.doesNotMatch(source, /function updateGraphUtilityDrawerDrag/);
   assert.doesNotMatch(source, /function endGraphUtilityDrawerDrag/);
+  assert.doesNotMatch(source, /function syncGraphDisclosureState/);
+  assert.doesNotMatch(source, /function clearGraphDensityHintTimer/);
+  assert.doesNotMatch(source, /function shouldShowGraphDensityHint/);
+  assert.doesNotMatch(source, /function resetGraphDemoPresentationState/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
   assert.doesNotMatch(source, /function closeSystemMessagesDom/);
   assert.doesNotMatch(source, /async function applyAiRuntimeModeChange\(nextMode = "auto"\) \{\s*const next = normalizeAiRuntimeMode/);
