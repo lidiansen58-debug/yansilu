@@ -84,6 +84,7 @@ test("prototype-app keeps critical shell wrappers thin", () => {
     renderAiLocalModelRecommendations: 5,
     renderAiLocalModelControls: 5,
     renderAiProviderConfigControls: 5,
+    renderAiRoutePreview: 5,
     graphEdgePath: 5,
     renderDistillationPanel: 15,
     handleStateChange: 5
@@ -132,6 +133,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-ai-controls-view.js": 360,
     "settings-ai-experience-model.js": 90,
     "settings-ai-experience-view.js": 340,
+    "settings-ai-route-preview-view.js": 230,
     "settings-panel-shell.js": 130,
     "settings-panel-renderer.js": 180,
     "graph-visual-map-controller.js": 35,
@@ -195,6 +197,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "ai-runtime-mode-controller.js",
     "settings-ai-controls-view.js",
     "settings-ai-experience-view.js",
+    "settings-ai-route-preview-view.js",
     "settings-panel-shell.js",
     "settings-panel-renderer.js",
     "graph-canvas-event-router.js",
