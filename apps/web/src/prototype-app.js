@@ -503,8 +503,8 @@ import {
   renderGraphPanelShell
 } from "./graph-panel-shell.js";
 import {
-  buildGraphPanelRuntimeDeps
-} from "./graph-panel-runtime-deps.js";
+  createGraphPanelPrototypeRuntimeDepsProvider
+} from "./graph-panel-host-deps.js";
 import {
   renderGraphPanelForRuntime
 } from "./graph-panel-renderer.js";
@@ -12638,8 +12638,7 @@ function graphSummaryModeNote(relationType = "all") {
   return `只看${graphRelationTypeLabel(key)}。`;
 }
 
-function graphPanelRuntimeDeps() {
-  return buildGraphPanelRuntimeDeps({
+const graphPanelRuntimeDeps = createGraphPanelPrototypeRuntimeDepsProvider(() => ({
     syncGraphDisclosureState,
     syncAllNoteRelationNetworkStatuses,
     buildGraphPanelState,
@@ -12684,8 +12683,7 @@ function graphPanelRuntimeDeps() {
     renderGraphRelationTypeFilter,
     renderGraphInlineNotice,
     renderGraphVisualMap
-  });
-}
+}));
 
 function renderGraphPanel() {
   const summary = $("graphSummary");

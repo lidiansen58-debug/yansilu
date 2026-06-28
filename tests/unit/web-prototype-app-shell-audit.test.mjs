@@ -64,7 +64,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /createSystemMessagesShellController/);
   assert.match(source, /createGraphVisualMapController/);
   assert.match(source, /renderGraphPanelShell/);
-  assert.match(source, /buildGraphPanelRuntimeDeps/);
+  assert.match(source, /createGraphPanelPrototypeRuntimeDepsProvider/);
   assert.match(source, /renderGraphPanelForRuntime/);
   assert.doesNotMatch(source, /renderSystemMessagesDom/);
   assert.doesNotMatch(source, /openSystemMessagesDom/);
@@ -124,6 +124,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-visual-map-empty-state.js": 40,
     "graph-visual-map-backdrop.js": 60,
     "graph-visual-map-panels.js": 70,
+    "graph-panel-host-deps.js": 70,
     "graph-panel-runtime-deps.js": 40,
     "graph-panel-renderer.js": 150,
     "graph-refresh-controller.js": 90,
@@ -173,8 +174,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-cluster-selection-panel.js",
     "graph-visual-map-controller.js",
     "graph-visual-map-host-deps.js",
+    "graph-panel-host-deps.js",
     "graph-panel-shell.js",
-    "graph-panel-runtime-deps.js",
     "graph-panel-renderer.js",
     "graph-refresh-controller.js",
     "graph-viewport-controller.js",

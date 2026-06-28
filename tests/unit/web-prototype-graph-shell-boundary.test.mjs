@@ -113,7 +113,7 @@ test("prototype graph shell delegates panel state building to a graph module", a
 
   assert.match(source, /from "\.\/graph-panel-state-builder\.js"/);
   assert.match(source, /from "\.\/graph-panel-shell\.js"/);
-  assert.match(source, /from "\.\/graph-panel-runtime-deps\.js"/);
+  assert.match(source, /from "\.\/graph-panel-host-deps\.js"/);
   assert.match(source, /from "\.\/graph-panel-renderer\.js"/);
   assert.match(panelRendererSource, /from "\.\/graph-panel-visual-map-props\.js"/);
   assert.match(panelRendererSource, /buildGraphPanelVisualMapProps\(panelState/);
