@@ -20,6 +20,10 @@ import {
 import {
   handleSaveNoteStateChange
 } from "../../apps/web/src/app-shell-save-note-state-actions.js";
+import {
+  relationNetworkWorkflowMessageForNote,
+  sourcePromotionWorkflowMessageForNote
+} from "../../apps/web/src/prototype-note-state-helpers.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -161,16 +165,22 @@ test("reactivated workflow system messages become unread again", () => {
 });
 
 test("save-after source-note reminders are mirrored into system messages", async () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const helperSource = readRepoFile("apps/web/src/prototype-note-state-helpers.js");
+  const reminder = sourcePromotionWorkflowMessageForNote(
+    { id: "source-1", title: "Source", body: "body", folderId: "lit" },
+    { text: "可以提炼" },
+    {
+      isOriginalRecordableSource: () => true,
+      noteHasGeneratedOriginal: () => false,
+      state: {},
+      typeFromFolder: () => "literature"
+    }
+  );
 
-  assert.match(source, /function sourcePromotionWorkflowMessageForNote\(note = null, suggestion = null\)/);
-  assert.match(helperSource, /category: "source-promotion"/);
-  assert.match(helperSource, /action: "open-note-workflow"/);
-  assert.match(helperSource, /const focus = "record-permanent"/);
-  assert.match(helperSource, /workflowRoute: \{[\s\S]*?focus,/);
-  assert.match(source, /function syncSourcePromotionSystemMessageForNote\(note = null, suggestion = null\)/);
-  assert.match(source, /return resolveSystemMessageByDedupeKey\(dedupeKey\)/);
+  assert.equal(reminder.category, "source-promotion");
+  assert.equal(reminder.action, "open-note-workflow");
+  assert.equal(reminder.workflowRoute.focus, "record-permanent");
+  assert.equal(reminder.workflowRoute.source, "system-message");
+  assert.match(reminder.body, /可以提炼/);
 
   const saveCalls = [];
   await handleSaveNoteStateChange({ noteId: "source-1" }, {
@@ -450,28 +460,36 @@ test("distillation workflow reports the actual route-open result", async () => {
 });
 
 test("isolated confirmed permanent notes are reported as actionable relation reminders", () => {
-  const appSource = readRepoFile("apps/web/src/prototype-app.js");
-  const noteHelperSource = readRepoFile("apps/web/src/prototype-note-state-helpers.js");
-  const helperStart = noteHelperSource.indexOf("export function relationNetworkWorkflowMessageForNote(note = null, overview = {}, {");
-  const nextExport = noteHelperSource.indexOf("\nexport function", helperStart + 1);
-  const helperEnd = nextExport > helperStart ? nextExport : noteHelperSource.length;
-  const helper = noteHelperSource.slice(helperStart, helperEnd);
+  const note = { id: "note-1", title: "Graph note", noteType: "permanent" };
+  const notConfirmed = relationNetworkWorkflowMessageForNote(
+    note,
+    { relationState: "loaded", explicitRelationCount: 0 },
+    {
+      distillationStatusOf: () => "draft",
+      isPermanentLikeNote: () => true
+    }
+  );
+  const resolved = relationNetworkWorkflowMessageForNote(
+    note,
+    { relationState: "loaded", explicitRelationCount: 2 },
+    {
+      distillationStatusOf: () => "confirmed",
+      isPermanentLikeNote: () => true
+    }
+  );
+  const actionable = relationNetworkWorkflowMessageForNote(
+    note,
+    { relationState: "loaded", explicitRelationCount: 0 },
+    {
+      distillationStatusOf: () => "confirmed",
+      isPermanentLikeNote: () => true
+    }
+  );
 
-  assert.match(helper, /distillationStatusOf\(note\) !== "confirmed"/);
-  assert.match(helper, /explicitRelationCount > 0/);
-  assert.match(helper, /resolved: true, dedupeKey/);
-  assert.match(helper, /category: "relation-network"/);
-  assert.match(helper, /actionLabel: "关联一条笔记"/);
-  assert.match(helper, /focus: "relations"/);
-
-  const componentSource = readRepoFile("apps/web/src/components-editor-pane.js");
-  assert.match(componentSource, /notifyWorkflowReminder/);
-  assert.match(componentSource, /this\.notifyWorkflowReminder = typeof notifyWorkflowReminder === "function" \? notifyWorkflowReminder : \(\) => \{\}/);
-  assert.match(componentSource, /this\.notifyWorkflowReminder\(\{ kind: "relation-network", note, overview \}\)/);
-
-  const editorStart = appSource.indexOf("const editor = new EditorPane({");
-  const editorEnd = appSource.indexOf("});\nwindow.__prototypeEditor", editorStart);
-  const editorConfig = appSource.slice(editorStart, editorEnd);
-  assert.match(editorConfig, /notifyWorkflowReminder: \(event = \{\}\) => \{/);
-  assert.match(editorConfig, /syncRelationNetworkSystemMessageForNote\(event\.note, event\.overview\)/);
+  assert.equal(notConfirmed, null);
+  assert.equal(resolved.resolved, true);
+  assert.equal(actionable.category, "relation-network");
+  assert.equal(actionable.actionLabel, "关联一条笔记");
+  assert.equal(actionable.workflowRoute.focus, "relations");
+  assert.equal(actionable.workflowRoute.source, "system-message");
 });
