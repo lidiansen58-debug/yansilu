@@ -61,10 +61,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /renderSidebarTitleForRuntime/);
   assert.match(source, /routeAppShellStateChange/);
   assert.match(source, /createWritingPanelShellController/);
-  assert.match(source, /renderSystemMessagesShell/);
-  assert.match(source, /openSystemMessagesShell/);
-  assert.match(source, /closeSystemMessagesShell/);
-  assert.match(source, /isSystemMessageModalOpenShell/);
+  assert.match(source, /createSystemMessagesShellController/);
   assert.match(source, /renderGraphVisualMapForRuntime/);
   assert.match(source, /renderGraphPanelShell/);
   assert.match(source, /buildGraphPanelRuntimeDeps/);
@@ -80,10 +77,6 @@ test("prototype-app keeps critical shell wrappers thin", () => {
   const shellWrapperBudgets = {
     renderGraphVisualMap: 5,
     renderGraphPanel: 25,
-    renderSystemMessages: 8,
-    openSystemMessages: 8,
-    closeSystemMessages: 5,
-    isSystemMessageModalOpen: 5,
     renderAll: 30,
     renderSidebarTitle: 35,
     handleStateChange: 5
@@ -116,7 +109,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "writing-theme-card-panel.js": 180,
     "writing-status-strip-panel.js": 210,
     "writing-scaffold-preview-panel.js": 160,
-    "system-messages-shell.js": 60,
+    "system-messages-shell.js": 75,
     "system-messages-host-deps.js": 30,
     "system-messages-view.js": 100,
     "graph-visual-map-controller.js": 20,
@@ -199,6 +192,11 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function resetGraphDemoPresentationState/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
   assert.doesNotMatch(source, /function closeSystemMessagesDom/);
+  assert.doesNotMatch(source, /function renderSystemMessages/);
+  assert.doesNotMatch(source, /function openSystemMessages/);
+  assert.doesNotMatch(source, /function closeSystemMessages/);
+  assert.doesNotMatch(source, /function isSystemMessageModalOpen/);
+  assert.doesNotMatch(source, /function systemMessagesDomDeps/);
   assert.doesNotMatch(source, /async function applyAiRuntimeModeChange\(nextMode = "auto"\) \{\s*const next = normalizeAiRuntimeMode/);
   assert.doesNotMatch(source, /const configs = \{\s*distillation:/);
 });

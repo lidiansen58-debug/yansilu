@@ -36,3 +36,13 @@ export function closeSystemMessagesShell(host = {}) {
 export function isSystemMessageModalOpenShell(host = {}) {
   return isSystemMessageModalOpenDom(createSystemMessagesDomDeps(host));
 }
+
+export function createSystemMessagesShellController(options = {}) {
+  const hostProvider = options.hostProvider || (() => ({}));
+  return {
+    renderSystemMessages: () => renderSystemMessagesShell(hostProvider()),
+    openSystemMessages: ({ latestOnly = false } = {}) => openSystemMessagesShell({ latestOnly }, hostProvider()),
+    closeSystemMessages: () => closeSystemMessagesShell(hostProvider()),
+    isSystemMessageModalOpen: () => isSystemMessageModalOpenShell(hostProvider())
+  };
+}

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   closeSystemMessagesShell,
+  createSystemMessagesShellController,
   createSystemMessagesDomDeps
 } from "../../apps/web/src/system-messages-shell.js";
 
@@ -50,4 +51,51 @@ test("system messages shell routes close through injected host deps", () => {
 
   assert.equal(classes.has("system-message-modal-open"), false);
   assert.equal(modalClasses.has("hidden"), true);
+});
+
+test("system messages shell controller routes all modal actions through current host deps", () => {
+  const calls = [];
+  const modalClasses = new Set(["hidden"]);
+  const bodyClasses = new Set();
+  const host = {
+    $: (id) => {
+      calls.push(["select", id]);
+      if (id === "systemMessageModal") {
+        return {
+          classList: {
+            add: (value) => modalClasses.add(value),
+            remove: (value) => modalClasses.delete(value),
+            contains: (value) => modalClasses.has(value)
+          }
+        };
+      }
+      return null;
+    },
+    document: {
+      body: {
+        classList: {
+          add: (value) => bodyClasses.add(value),
+          remove: (value) => bodyClasses.delete(value)
+        }
+      }
+    },
+    getMessages: () => [],
+    getSelectedMessageId: () => "",
+    setSelectedMessageId: (messageId) => calls.push(["select-message", messageId]),
+    notes: [],
+    escapeHtml: (value) => String(value ?? ""),
+    hideEditorHelper: () => calls.push(["hide-helper"])
+  };
+  const controller = createSystemMessagesShellController({
+    hostProvider: () => host
+  });
+
+  controller.renderSystemMessages();
+  controller.openSystemMessages();
+  assert.equal(controller.isSystemMessageModalOpen(), true);
+  controller.closeSystemMessages();
+
+  assert.equal(modalClasses.has("hidden"), true);
+  assert.equal(bodyClasses.has("system-message-modal-open"), false);
+  assert.ok(calls.some(([kind]) => kind === "select"));
 });

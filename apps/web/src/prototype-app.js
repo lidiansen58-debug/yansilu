@@ -187,10 +187,7 @@ import {
   writingAnalysisSystemMessageForResult
 } from "./prototype-system-messages.js";
 import {
-  closeSystemMessagesShell,
-  isSystemMessageModalOpenShell,
-  openSystemMessagesShell,
-  renderSystemMessagesShell
+  createSystemMessagesShellController
 } from "./system-messages-shell.js";
 import {
   buildSystemMessagesPrototypeHostDeps
@@ -1374,8 +1371,8 @@ function persistSystemMessages() {
 
 
 
-function systemMessagesDomDeps() {
-  return buildSystemMessagesPrototypeHostDeps({
+const systemMessagesShellController = createSystemMessagesShellController({
+  hostProvider: () => buildSystemMessagesPrototypeHostDeps({
     $,
     document,
     getMessages: () => systemMessages,
@@ -1387,8 +1384,14 @@ function systemMessagesDomDeps() {
     escapeHtml,
     hideEditorHelper,
     renderSystemMessages
-  });
-}
+  })
+});
+const {
+  renderSystemMessages,
+  openSystemMessages,
+  closeSystemMessages,
+  isSystemMessageModalOpen
+} = systemMessagesShellController;
 
 function systemMessageEventDeps() {
   return {
@@ -1423,22 +1426,6 @@ function systemMessageEventDeps() {
     openSystemMessageWorkflow,
     setStatus
   };
-}
-
-function renderSystemMessages() {
-  return renderSystemMessagesShell(systemMessagesDomDeps());
-}
-
-function openSystemMessages({ latestOnly = false } = {}) {
-  return openSystemMessagesShell({ latestOnly }, systemMessagesDomDeps());
-}
-
-function closeSystemMessages() {
-  return closeSystemMessagesShell(systemMessagesDomDeps());
-}
-
-function isSystemMessageModalOpen() {
-  return isSystemMessageModalOpenShell(systemMessagesDomDeps());
 }
 
 function systemMessagesRuntimeDeps() {
