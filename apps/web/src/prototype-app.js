@@ -68,8 +68,8 @@ import {
   createSidebarTitlePrototypeDepsProvider
 } from "./app-shell-sidebar-host-deps.js";
 import {
-  buildAppShellStateChangeDeps
-} from "./app-shell-state-change-deps.js";
+  createAppShellStateChangePrototypeDepsProvider
+} from "./app-shell-state-change-host-deps.js";
 import {
   handleCreateDirectoryFromDialog
 } from "./app-shell-state-file-actions.js";
@@ -204,9 +204,7 @@ import {
   handleSystemMessagesButtonClick
 } from "./system-message-events.js";
 import {
-  buildSystemMessageEventDeps,
-  buildSystemMessagesRuntimeDeps,
-  createSystemMessageStateAccessors
+  createSystemMessagePrototypeDepsProviders
 } from "./system-message-deps.js";
 import {
   createRecordPermanentWorkflowOpener,
@@ -1462,7 +1460,7 @@ const {
   isSystemMessageModalOpen
 } = systemMessagesShellController;
 
-const systemMessageStateAccessors = createSystemMessageStateAccessors({
+const systemMessageDepsProviders = createSystemMessagePrototypeDepsProviders(() => ({
   getMessagesRef: () => systemMessages,
   setMessagesRef: (messages = []) => {
     systemMessages = messages;
@@ -1470,48 +1468,37 @@ const systemMessageStateAccessors = createSystemMessageStateAccessors({
   getSelectedMessageIdRef: () => selectedSystemMessageId,
   setSelectedMessageIdRef: (messageId = "") => {
     selectedSystemMessageId = messageId;
-  }
-});
-
-function systemMessageEventDeps() {
-  return buildSystemMessageEventDeps({
-    stateAccessors: systemMessageStateAccessors,
-    markSystemMessageRead,
-    persistSystemMessages,
-    renderSystemMessages,
-    openSystemMessages,
-    closeSystemMessages,
-    isSystemMessageModalOpen,
-    systemMessageActionRoute,
-    aiInboxFiltersForSystemMessage,
-    globalPendingAiInboxFilters,
-    setAiInboxFilters: (filters) => {
-      aiInboxState.filters = filters;
-    },
-    resetAiInboxDetail: () => {
-      aiInboxState.detail = null;
-      aiInboxState.selectedArtifactId = "";
-    },
-    activateModule,
-    openAiInboxModule,
-    setSettingsItem,
-    openNoteById,
-    openSystemMessageWorkflow,
-    setStatus
-  });
-}
-
-function systemMessagesRuntimeDeps() {
-  return buildSystemMessagesRuntimeDeps({
-    stateAccessors: systemMessageStateAccessors,
-    normalizeSystemMessage,
-    upsertSystemMessageList,
-    limit: SYSTEM_MESSAGES_LIMIT,
-    persistSystemMessages,
-    renderSystemMessages,
-    openSystemMessages
-  });
-}
+  },
+  markSystemMessageRead,
+  persistSystemMessages,
+  renderSystemMessages,
+  openSystemMessages,
+  closeSystemMessages,
+  isSystemMessageModalOpen,
+  systemMessageActionRoute,
+  aiInboxFiltersForSystemMessage,
+  globalPendingAiInboxFilters,
+  setAiInboxFilters: (filters) => {
+    aiInboxState.filters = filters;
+  },
+  resetAiInboxDetail: () => {
+    aiInboxState.detail = null;
+    aiInboxState.selectedArtifactId = "";
+  },
+  activateModule,
+  openAiInboxModule,
+  setSettingsItem,
+  openNoteById,
+  openSystemMessageWorkflow,
+  setStatus,
+  normalizeSystemMessage,
+  upsertSystemMessageList,
+  limit: SYSTEM_MESSAGES_LIMIT
+}));
+const {
+  eventDeps: systemMessageEventDeps,
+  runtimeDeps: systemMessagesRuntimeDeps
+} = systemMessageDepsProviders;
 
 function markSystemMessagesRead() {
   return markSystemMessagesReadForRuntime(systemMessagesRuntimeDeps());
@@ -13650,8 +13637,7 @@ function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
   return true;
 }
 
-function appShellStateChangeDeps() {
-  return buildAppShellStateChangeDeps({
+const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider(() => ({
     GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
     activateModule,
     addSystemMessage,
@@ -13735,8 +13721,7 @@ function appShellStateChangeDeps() {
     withGeneratedOriginalReference,
     writingCenterContinuationFailureMessage,
     writingCenterContinuationStatusMessage
-  });
-}
+  }));
 
 async function handleStateChange(reason, payload = {}) {
   return routeAppShellStateChange(reason, payload, appShellStateChangeDeps());

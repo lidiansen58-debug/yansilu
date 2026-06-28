@@ -55,3 +55,26 @@ export function buildSystemMessagesRuntimeDeps(host = {}) {
     openSystemMessages: host.openSystemMessages
   };
 }
+
+export function createSystemMessagePrototypeDepsProviders(hostProvider = () => ({})) {
+  const stateAccessors = createSystemMessageStateAccessors({
+    getMessagesRef: () => hostProvider().getMessagesRef?.() || [],
+    setMessagesRef: (messages = []) => {
+      hostProvider().setMessagesRef?.(messages);
+    },
+    getSelectedMessageIdRef: () => hostProvider().getSelectedMessageIdRef?.() || "",
+    setSelectedMessageIdRef: (messageId = "") => {
+      hostProvider().setSelectedMessageIdRef?.(messageId);
+    }
+  });
+  return {
+    eventDeps: () => buildSystemMessageEventDeps({
+      ...hostProvider(),
+      stateAccessors
+    }),
+    runtimeDeps: () => buildSystemMessagesRuntimeDeps({
+      ...hostProvider(),
+      stateAccessors
+    })
+  };
+}
