@@ -28,6 +28,123 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
   return registrations;
 }
 
+export function installWritingThemeIndexEventHandlers(options = {}) {
+  const { $ = () => null, depsProvider = () => ({}) } = options;
+  const deps = () => depsProvider();
+  const registrations = [];
+  const add = (id, eventName, handler) => {
+    const element = $(id);
+    element?.addEventListener?.(eventName, handler);
+    registrations.push({ id, eventName, handler, installed: !!element });
+  };
+
+  add("btnWritingRefreshThemeIndexes", "click", async () => {
+    await handleWritingRefreshThemeIndexes(deps());
+  });
+  add("btnWritingSaveThemeIndex", "click", async () => {
+    await handleWritingSaveThemeIndex(deps());
+  });
+  add("writingThemeIndexList", "click", async (event) => {
+    await handleWritingThemeIndexListClick(event, deps());
+  });
+
+  return registrations;
+}
+
+export async function handleWritingRefreshThemeIndexes(deps = {}) {
+  const {
+    loadWritingThemeIndexes = async () => {},
+    setStatus = () => {}
+  } = deps;
+  try {
+    await loadWritingThemeIndexes();
+    setStatus("已刷新主题索引", "ok");
+  } catch (error) {
+    setStatus(`刷新主题索引失败：${String(error?.message || error)}`, "bad");
+  }
+}
+
+export async function handleWritingSaveThemeIndex(deps = {}) {
+  const {
+    saveWritingBasketAsThemeIndex = async () => null,
+    setStatus = () => {}
+  } = deps;
+  try {
+    const card = await saveWritingBasketAsThemeIndex();
+    if (!card) return;
+    setStatus(`已保存主题索引：${card.title}`, "ok");
+  } catch (error) {
+    setStatus(`保存主题索引失败：${String(error?.message || error)}`, "bad");
+  }
+}
+
+export async function handleWritingThemeIndexListClick(event, deps = {}) {
+  const {
+    selectWritingThemeIndex = async () => {},
+    writingThemeIndexContinuationRoute = () => ({ kind: "" }),
+    continueWritingProjectEntry = async () => {},
+    useThemeIndexAsWritingEntry = async () => ({ indexCard: {}, noteIds: [], addedCount: 0 }),
+    setStatus = () => {}
+  } = deps;
+  const card = event?.target?.closest?.("[data-writing-index-card-id]");
+  const button = event?.target?.closest?.("[data-writing-index-action]");
+  if (!button && card) {
+    const cardId = String(card.getAttribute("data-writing-index-card-id") || "");
+    if (!cardId) return;
+    try {
+      await selectWritingThemeIndex(cardId);
+      setStatus(`已查看主题索引：${cardId}`, "ok");
+    } catch (error) {
+      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
+  if (!button) return;
+  const action = String(button.getAttribute("data-writing-index-action") || "");
+  const indexId = String(button.getAttribute("data-writing-index-id") || "");
+  const projectId = String(button.getAttribute("data-writing-project-id") || "");
+  const continuationRoute = writingThemeIndexContinuationRoute({ action, projectId });
+  if (continuationRoute.kind === "continue-project") {
+    try {
+      await continueWritingProjectEntry(continuationRoute.projectId, {
+        openDraft: continuationRoute.openDraft,
+        statusMessage: continuationRoute.statusMessage
+      });
+    } catch (error) {
+      setStatus(`${continuationRoute.failurePrefix}失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
+  if (continuationRoute.kind === "missing-project") return;
+  if (!indexId) return;
+  if (action === "use") {
+    try {
+      const { indexCard, noteIds, addedCount } = await useThemeIndexAsWritingEntry(indexId, {
+        replaceBasket: false,
+        resetContext: false,
+        source: "writing_theme_index_list"
+      });
+      setStatus(
+        addedCount > 0
+          ? `已从主题索引进入写作篮：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
+          : `主题索引已在写作篮中：${indexCard.title || indexId}`,
+        "ok"
+      );
+    } catch (error) {
+      setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
+  if (action === "open") {
+    try {
+      await selectWritingThemeIndex(indexId);
+      setStatus(`已查看主题索引：${indexId}`, "ok");
+    } catch (error) {
+      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
+    }
+  }
+}
+
 export function handleWritingUseCurrent(deps = {}) {
   const {
     state = {},
