@@ -187,6 +187,9 @@ import {
   renderSystemMessagesShell
 } from "./system-messages-shell.js";
 import {
+  buildSystemMessagesPrototypeHostDeps
+} from "./system-messages-host-deps.js";
+import {
   addSystemMessageForRuntime,
   markSystemMessagesReadForRuntime,
   resolveSystemMessageByDedupeKeyForRuntime,
@@ -1351,7 +1354,7 @@ function persistSystemMessages() {
 
 
 function systemMessagesDomDeps() {
-  return {
+  return buildSystemMessagesPrototypeHostDeps({
     $,
     document,
     getMessages: () => systemMessages,
@@ -1363,7 +1366,7 @@ function systemMessagesDomDeps() {
     escapeHtml,
     hideEditorHelper,
     renderSystemMessages
-  };
+  });
 }
 
 function systemMessageEventDeps() {
