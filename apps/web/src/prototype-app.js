@@ -71,6 +71,9 @@ import {
   buildSidebarTitleRuntimeDeps
 } from "./app-shell-sidebar-deps.js";
 import {
+  buildSidebarTitleHostDeps
+} from "./app-shell-sidebar-host-deps.js";
+import {
   buildAppShellStateChangeDeps
 } from "./app-shell-state-change-deps.js";
 import {
@@ -4856,16 +4859,16 @@ function syncNewNoteButtons() {
 }
 
 function renderSidebarTitle() {
-  return renderSidebarTitleForRuntime(buildSidebarTitleRuntimeDeps({
+  return renderSidebarTitleForRuntime(buildSidebarTitleRuntimeDeps(buildSidebarTitleHostDeps({
     state,
-    root: folderById(state, state.browserRootId),
+    folderById,
     $,
     documentRef: document,
     windowRef: typeof window !== "undefined" ? window : null,
     displayFolderName,
     currentModuleUi,
     syncNewNoteButtons
-  }));
+  })));
 }
 
 function currentModuleUi() {
