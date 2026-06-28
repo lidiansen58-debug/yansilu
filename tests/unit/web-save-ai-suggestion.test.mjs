@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   dismissSaveAiSuggestionForLater,
-  saveAiSuggestionForNoteModel
+  saveAiSuggestionForNoteModel,
+  saveAiSuggestionPrimaryRoute
 } from "../../apps/web/src/save-ai-suggestion-model.js";
 import {
   handleSaveNoteStateChange
@@ -101,20 +102,26 @@ test("save-after AI suggestion only appears after note save succeeds", async () 
   assert.deepEqual(failureCalls, [["clear"], ["render"]]);
 });
 test("save-after AI suggestion actions reuse existing editor routes", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const primaryStart = source.indexOf('$("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {');
-  const primaryEnd = source.indexOf('$("settingsRefreshVault")?.addEventListener', primaryStart);
-
-  assert.ok(primaryStart >= 0 && primaryEnd > primaryStart, "expected primary suggestion handler to exist");
-  const primarySource = source.slice(primaryStart, primaryEnd);
-
-  assert.match(primarySource, /suggestion\.action === "record-permanent"/);
-  assert.match(primarySource, /openNoteById\(note\.id, \{ preferTitleSelection: false \}\)/);
-  assert.match(primarySource, /editor\?\.els\?\.recordPermanent/);
-  assert.match(primarySource, /button\.click\(\)/);
-  assert.match(primarySource, /suggestion\.action === "open-distillation"/);
-  assert.match(primarySource, /handleStateChange\("open-note-main-route"/);
-  assert.match(primarySource, /mode: "distillation"/);
+  assert.deepEqual(saveAiSuggestionPrimaryRoute(null, null), { kind: "noop" });
+  assert.deepEqual(saveAiSuggestionPrimaryRoute({ noteId: "n1", action: "record-permanent" }, null), {
+    kind: "missing-note",
+    noteId: "n1"
+  });
+  assert.deepEqual(saveAiSuggestionPrimaryRoute({ noteId: "n1", action: "record-permanent" }, { id: "n1" }), {
+    kind: "record-permanent",
+    noteId: "n1"
+  });
+  assert.deepEqual(saveAiSuggestionPrimaryRoute({ noteId: "p1", action: "open-distillation" }, { id: "p1" }), {
+    kind: "open-note-main-route",
+    noteId: "p1",
+    action: "writing",
+    mode: "distillation"
+  });
+  assert.deepEqual(saveAiSuggestionPrimaryRoute({ noteId: "x1", action: "unknown-action" }, { id: "x1" }), {
+    kind: "unsupported",
+    noteId: "x1",
+    action: "unknown-action"
+  });
 });
 
 test("save-after AI suggestion can be ignored without mutating the note", () => {

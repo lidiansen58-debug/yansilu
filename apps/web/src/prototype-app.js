@@ -139,7 +139,8 @@ import {
 } from "./ai-inbox-workspace.js";
 import {
   dismissSaveAiSuggestionForLater,
-  saveAiSuggestionForNoteModel
+  saveAiSuggestionForNoteModel,
+  saveAiSuggestionPrimaryRoute
 } from "./save-ai-suggestion-model.js";
 import {
   aiSuggestionFiltersFromWorkspace,
@@ -14679,15 +14680,16 @@ $("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {
   clearSaveAiSuggestion();
   if (!suggestion?.noteId) return;
   const note = state.notes.find((item) => item.id === suggestion.noteId) || null;
-  if (!note) {
+  const route = saveAiSuggestionPrimaryRoute(suggestion, note);
+  if (route.kind === "missing-note") {
     setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
     return;
   }
 
   try {
-    if (suggestion.action === "record-permanent") {
+    if (route.kind === "record-permanent") {
       activateModule("explorer");
-      const opened = openNoteById(note.id, { preferTitleSelection: false });
+      const opened = openNoteById(route.noteId, { preferTitleSelection: false });
       if (!opened) {
         setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
         return;
@@ -14703,11 +14705,11 @@ $("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {
       return;
     }
 
-    if (suggestion.action === "open-distillation") {
+    if (route.kind === "open-note-main-route") {
       await handleStateChange("open-note-main-route", {
-        noteId: note.id,
-        action: "writing",
-        mode: "distillation"
+        noteId: route.noteId,
+        action: route.action,
+        mode: route.mode
       });
       return;
     }

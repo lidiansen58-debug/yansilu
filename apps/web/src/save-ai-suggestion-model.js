@@ -51,3 +51,19 @@ export function dismissSaveAiSuggestionForLater(suggestion = null, dismissedKeys
   if (suggestion?.key) dismissedKeys.add(suggestion.key);
   return null;
 }
+
+export function saveAiSuggestionPrimaryRoute(suggestion = null, note = null) {
+  const noteId = String(suggestion?.noteId || "").trim();
+  if (!noteId) return { kind: "noop" };
+  if (!note) return { kind: "missing-note", noteId };
+  if (suggestion?.action === "record-permanent") return { kind: "record-permanent", noteId };
+  if (suggestion?.action === "open-distillation") {
+    return {
+      kind: "open-note-main-route",
+      noteId,
+      action: "writing",
+      mode: "distillation"
+    };
+  }
+  return { kind: "unsupported", noteId, action: String(suggestion?.action || "").trim() };
+}
