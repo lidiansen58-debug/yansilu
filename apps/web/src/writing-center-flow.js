@@ -457,6 +457,29 @@ export function planWritingBasketEntry({
   };
 }
 
+export function planImportedPermanentNotesWritingEntry({
+  noteIds = [],
+  title = ""
+} = {}) {
+  const normalizedNoteIds = [...new Set((noteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
+  if (!normalizedNoteIds.length) {
+    return {
+      action: "empty",
+      noteIds: [],
+      title: "",
+      source: "import_create_project",
+      shouldBeginEntry: false
+    };
+  }
+  return {
+    action: "begin-entry",
+    noteIds: normalizedNoteIds,
+    title: String(title || "").trim(),
+    source: "import_create_project",
+    shouldBeginEntry: true
+  };
+}
+
 export function planWritingThemeIndexEntry({
   existingNoteIds = [],
   themeNoteIds = [],

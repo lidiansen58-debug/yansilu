@@ -26,6 +26,7 @@ import {
 import {
   describeWritingProjectPreflight,
   describeWritingStrongModelStatus,
+  planImportedPermanentNotesWritingEntry,
   planWritingThemeIndexEntry,
   resolveWritingSelectedThemeIndexId,
   resolveWritingSourceIndexIds,
@@ -1164,16 +1165,28 @@ test("writing strong-model action uses a defined basket readiness helper", () =>
   assert.notEqual(blocked.buttonLabel, ready.buttonLabel);
 });
 
-test("import-result create-writing-project path reuses unified writing entry reset", () => {
-  const source = readRepoFile("apps/web/src/prototype-app.js");
-  const match = source.match(/async function createWritingProjectFromImportedPermanentNotes\(\) \{([\s\S]*?)\n\}/);
+test("import-result create-writing-project path plans a unified writing entry reset", () => {
+  const plan = planImportedPermanentNotesWritingEntry({
+    noteIds: [" n1 ", "", "n2", "n1"],
+    title: " Imported project "
+  });
 
-  assert.ok(match, "expected createWritingProjectFromImportedPermanentNotes() to exist");
-  const fnBody = match[1];
+  assert.equal(plan.action, "begin-entry");
+  assert.deepEqual(plan.noteIds, ["n1", "n2"]);
+  assert.equal(plan.title, "Imported project");
+  assert.equal(plan.source, "import_create_project");
+  assert.equal(plan.shouldBeginEntry, true);
+});
 
-  assert.match(fnBody, /beginWritingEntry\(noteIds,\s*\{/);
-  assert.doesNotMatch(fnBody, /resetWritingProjectContext\(/);
-  assert.doesNotMatch(fnBody, /setWritingBasketIds\(noteIds\)/);
+test("import-result create-writing-project path stays empty without permanent notes", () => {
+  const plan = planImportedPermanentNotesWritingEntry({
+    noteIds: ["", null],
+    title: "Ignored"
+  });
+
+  assert.equal(plan.action, "empty");
+  assert.deepEqual(plan.noteIds, []);
+  assert.equal(plan.shouldBeginEntry, false);
 });
 
 test("theme index append skips writing-entry reset when the basket already contains all theme notes", () => {

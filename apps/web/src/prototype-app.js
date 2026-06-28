@@ -554,6 +554,7 @@ import {
   describeWritingThemeProjectEntryState,
   describeWritingProjectPreflight,
   planWritingBasketEntry,
+  planImportedPermanentNotesWritingEntry,
   planWritingThemeIndexEntry,
   resolveWritingSelectedThemeIndexId,
   resolveWritingSourceIndexIds,
@@ -4168,10 +4169,13 @@ async function createWritingProjectFromImportedPermanentNotes() {
   }
   await ensureNotesLoaded(noteIds);
   const title = suggestedWritingProjectTitle(noteIds);
-  beginWritingEntry(noteIds, {
-    title,
-    source: "import_create_project"
-  });
+  const entryPlan = planImportedPermanentNotesWritingEntry({ noteIds, title });
+  if (entryPlan.shouldBeginEntry) {
+    beginWritingEntry(entryPlan.noteIds, {
+      title: entryPlan.title,
+      source: entryPlan.source
+    });
+  }
   try {
     const goal = String($("writingGoal")?.value || "").trim();
     const audience = String($("writingAudience")?.value || "").trim();
