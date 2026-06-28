@@ -71,6 +71,10 @@ export function readWritingPanelShellSource() {
   return readRepoText("apps", "web", "src", "writing-panel-shell.js");
 }
 
+export function readWritingPanelEventsSource() {
+  return readRepoText("apps", "web", "src", "writing-panel-events.js");
+}
+
 export function readSystemMessagesShellSource() {
   return readRepoText("apps", "web", "src", "system-messages-shell.js");
 }

@@ -19,6 +19,7 @@ import {
   readPrototypeAppSource,
   readPrototypeHtmlSource,
   readWritingBookDesignPanelSource,
+  readWritingPanelEventsSource,
   readPrototypeWritingWorkspaceSource,
   readWritingStrongModelRequestPanelSource,
   readWritingPanelControllerSource
@@ -119,10 +120,13 @@ test("local book ideas are generated on device and do not mutate project automat
 
 test("local book idea generation stays separate from project persistence", async () => {
   const source = await readPrototypeAppSource();
+  const writingPanelEventsSource = await readWritingPanelEventsSource();
 
   assert.match(source, /function syncWritingLocalBookIdeasFromProject/);
-  assert.match(source, /\$\("btnWritingLocalBookIdeas"\)\?\.addEventListener\("click"/);
-  assert.doesNotMatch(source, /deriveWritingLocalBookIdeas\([^)]*\)\s*;\s*saveWritingProject/);
+  assert.match(source, /installWritingPanelBasketEventHandlers\(/);
+  assert.match(writingPanelEventsSource, /btnWritingLocalBookIdeas/);
+  assert.match(writingPanelEventsSource, /handleWritingLocalBookIdeas/);
+  assert.doesNotMatch(writingPanelEventsSource, /deriveWritingLocalBookIdeas\([^)]*\)\s*;\s*saveWritingProject/);
 });
 
 test("local book ideas reset on basket changes and sync when opening a project", () => {
