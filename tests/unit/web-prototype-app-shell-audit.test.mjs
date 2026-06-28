@@ -130,7 +130,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-visual-map-backdrop.js": 60,
     "graph-visual-map-panels.js": 70,
     "graph-panel-runtime-deps.js": 40,
-    "graph-panel-renderer.js": 150
+    "graph-panel-renderer.js": 150,
+    "graph-viewport-controller.js": 110
   };
 
   for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
@@ -168,6 +169,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-panel-shell.js",
     "graph-panel-runtime-deps.js",
     "graph-panel-renderer.js",
+    "graph-viewport-controller.js",
     "graph-visual-layout.js"
   ];
 
@@ -179,6 +181,9 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function renderWritingStatusStrip/);
   assert.doesNotMatch(source, /function renderGraphVisualNode/);
   assert.doesNotMatch(source, /function renderGraphVisualEdge/);
+  assert.doesNotMatch(source, /function beginGraphViewportDrag/);
+  assert.doesNotMatch(source, /function updateGraphViewportDrag/);
+  assert.doesNotMatch(source, /function endGraphViewportDrag/);
   assert.doesNotMatch(source, /function renderSystemMessagesDom/);
   assert.doesNotMatch(source, /function closeSystemMessagesDom/);
   assert.doesNotMatch(source, /async function applyAiRuntimeModeChange\(nextMode = "auto"\) \{\s*const next = normalizeAiRuntimeMode/);

@@ -512,6 +512,9 @@ import {
   graphBuildVisualLayout as graphBuildVisualLayoutForRuntime
 } from "./graph-visual-layout.js";
 import {
+  createGraphViewportController
+} from "./graph-viewport-controller.js";
+import {
   GRAPH_VISUAL_ZOOM_OPTIONS,
   graphZoomOption,
   graphZoomStep
@@ -829,17 +832,18 @@ const graphState = {
     "ai-analysis": false
   }
 };
-const graphViewportDragState = {
-  active: false,
-  moved: false,
-  pointerId: null,
-  viewport: null,
-  startX: 0,
-  startY: 0,
-  startScrollLeft: 0,
-  startScrollTop: 0,
-  suppressClickUntil: 0
-};
+const graphViewportController = createGraphViewportController({
+  graphState,
+  documentRef: document,
+  graphZoomOption
+});
+const {
+  graphViewportDragState,
+  centerGraphViewportIfZoomed,
+  beginGraphViewportDrag,
+  updateGraphViewportDrag,
+  endGraphViewportDrag
+} = graphViewportController;
 const graphUtilityDrawerDragState = {
   active: false,
   moved: false,
@@ -12471,64 +12475,6 @@ function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(),
     relationGroupMeta: GRAPH_RELATION_GROUP_META
   });
 }
-function centerGraphViewportIfZoomed() {
-  const viewport = document.querySelector(".graph-map-viewport");
-  if (!viewport || graphZoomOption(graphState.zoom).key === "fit") return;
-  viewport.scrollLeft = Math.max(0, Math.round((viewport.scrollWidth - viewport.clientWidth) / 2));
-  viewport.scrollTop = Math.max(0, Math.round((viewport.scrollHeight - viewport.clientHeight) / 2));
-}
-
-function beginGraphViewportDrag(viewport, event) {
-  if (!viewport || event.button !== 0) return false;
-  const ignoredTarget = event.target.closest(
-    ".graph-map-floater, .graph-hover-card, .graph-focus-context, .graph-selection-panel, .graph-thinking-panel, .graph-workbench-panel, .graph-research-navigator, .graph-map-node, .graph-map-edge-group, .graph-map-cluster-glow"
-  );
-  if (ignoredTarget) return false;
-  graphViewportDragState.active = true;
-  graphViewportDragState.moved = false;
-  graphViewportDragState.pointerId = event.pointerId;
-  graphViewportDragState.viewport = viewport;
-  graphViewportDragState.startX = event.clientX;
-  graphViewportDragState.startY = event.clientY;
-  graphViewportDragState.startScrollLeft = viewport.scrollLeft;
-  graphViewportDragState.startScrollTop = viewport.scrollTop;
-  viewport.classList.add("is-dragging");
-  try {
-    viewport.setPointerCapture(event.pointerId);
-  } catch {}
-  return true;
-}
-
-function updateGraphViewportDrag(event) {
-  if (!graphViewportDragState.active || !graphViewportDragState.viewport || event.pointerId !== graphViewportDragState.pointerId) return;
-  const deltaX = event.clientX - graphViewportDragState.startX;
-  const deltaY = event.clientY - graphViewportDragState.startY;
-  if (!graphViewportDragState.moved && Math.abs(deltaX) + Math.abs(deltaY) > 5) {
-    graphViewportDragState.moved = true;
-  }
-  if (!graphViewportDragState.moved) return;
-  graphViewportDragState.viewport.scrollLeft = graphViewportDragState.startScrollLeft - deltaX;
-  graphViewportDragState.viewport.scrollTop = graphViewportDragState.startScrollTop - deltaY;
-}
-
-function endGraphViewportDrag(event) {
-  if (!graphViewportDragState.active || event.pointerId !== graphViewportDragState.pointerId) return;
-  const viewport = graphViewportDragState.viewport;
-  if (viewport) {
-    viewport.classList.remove("is-dragging");
-    try {
-      viewport.releasePointerCapture(event.pointerId);
-    } catch {}
-  }
-  graphViewportDragState.active = false;
-  graphViewportDragState.pointerId = null;
-  graphViewportDragState.viewport = null;
-  if (graphViewportDragState.moved) {
-    graphViewportDragState.suppressClickUntil = Date.now() + 250;
-  }
-  graphViewportDragState.moved = false;
-}
-
 function resetGraphHoverState() {
   return resetGraphHoverDomState({ document, getHoverCard: () => $("graphHoverCard") });
 }
