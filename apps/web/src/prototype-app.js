@@ -42,6 +42,9 @@ import {
   renderImportResultMount
 } from "./import-result-mount.js";
 import {
+  renderDistillationPanelView
+} from "./distillation-panel-view.js";
+import {
   syncRailSelectionDom
 } from "./app-shell-rail.js";
 import {
@@ -604,6 +607,9 @@ import {
   renderScaffoldVersionCardView,
   renderWritingToplineMetricView
 } from "./writing-workspace-view.js";
+import {
+  titleFromBody
+} from "./editor-template-workspace.js";
 import {
   createWritingPanelShellController
 } from "./writing-panel-shell.js";
@@ -4936,16 +4942,6 @@ function renderSaveAiSuggestion() {
   root.dataset.noteId = saveAiSuggestion.noteId || "";
 }
 
-function distillationQueueFilters(counts = {}) {
-  return [
-    ["all", "全部", counts.all || 0],
-    ["needs_thesis", "待一句话判断", counts.needs_thesis || 0],
-    ["needs_summary", "待三句话压缩", counts.needs_summary || 0],
-    ["needs_confirm", "待确认", counts.needs_confirm || 0],
-    ["confirmed", "已确认", counts.confirmed || 0]
-  ];
-}
-
 function distillationQueueItems() {
   const rank = { needs_thesis: 0, needs_summary: 1, needs_confirm: 2, confirmed: 3 };
   return state.notes
@@ -5266,110 +5262,14 @@ function applyFocusModeChrome() {
 function renderDistillationPanel() {
   const panel = $("distillationPanel");
   if (!panel) return;
-  const items = distillationQueueItems();
-  const stageCounts = items.reduce(
-    (acc, item) => {
-      acc.all += 1;
-      acc[item.stage] = (acc[item.stage] || 0) + 1;
-      return acc;
-    },
-    { all: 0, needs_thesis: 0, needs_summary: 0, needs_confirm: 0, confirmed: 0 }
-  );
-  const counts = items.reduce(
-    (acc, item) => {
-      acc[item.status] = (acc[item.status] || 0) + 1;
-      return acc;
-    },
-    { missing: 0, draft: 0, confirmed: 0 }
-  );
-  const activeCount = (counts.missing || 0) + (counts.draft || 0);
-  const writingReadyCount = items.filter(({ note, status }) => {
-    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-    return status === "confirmed" && String(note.thesis || "").trim() && summary.length >= 3;
-  }).length;
-  const activeFilter = distillationState.filter || "all";
-  const filteredItems = activeFilter === "all" ? items : items.filter((item) => item.stage === activeFilter);
-  const gapChips = [
-    stageCounts.needs_thesis ? `缺一句话判断 ${stageCounts.needs_thesis}` : "",
-    stageCounts.needs_summary ? `缺三句话压缩 ${stageCounts.needs_summary}` : "",
-    stageCounts.needs_confirm ? `待确认观点 ${stageCounts.needs_confirm}` : ""
-  ].filter(Boolean);
-  const filtersHtml = distillationQueueFilters(stageCounts)
-    .map(([key, label, value]) => {
-      const active = activeFilter === key;
-      return `<button class="distillation-filter ${active ? "active" : ""}" type="button" data-distillation-filter="${escapeHtml(key)}" aria-pressed="${active ? "true" : "false"}">${escapeHtml(label)} <span>${Number(value) || 0}</span></button>`;
-    })
-    .join("");
-  const rows = filteredItems.length
-    ? filteredItems
-        .map(({ note, status, reason }) => {
-          const title = note.title || titleFromBody(note.body || "") || "未命名笔记";
-          const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter(Boolean).slice(0, 3).join(" / ") : "";
-          return `
-            <button class="distillation-queue-item" type="button" data-distillation-open-note="${escapeHtml(note.id)}" data-status="${escapeHtml(status)}">
-              <span class="distillation-queue-main">
-                <strong>${escapeHtml(title)}</strong>
-                <small>${escapeHtml(reason)}</small>
-                ${note.thesis ? `<em>${escapeHtml(note.thesis)}</em>` : ""}
-                ${summary ? `<em>${escapeHtml(summary)}</em>` : ""}
-              </span>
-              <span class="inspector-chip">${escapeHtml(distillationStatusLabel(status))}</span>
-            </button>
-          `;
-        })
-        .join("")
-    : activeFilter !== "all"
-      ? `<div class="distillation-empty">当前筛选下没有条目。可以切回“全部”，或继续进入写作中心。</div>`
-      : activeCount === 0 && writingReadyCount > 0
-        ? `<div class="distillation-empty">当前没有待提纯条目。已确认观点可以进入写作中心。</div>`
-        : `<div class="distillation-empty">还没有可整理的永久笔记。先新建或导入一条永久笔记。</div>`;
-  const nextActiveItem = items.find((item) => item.stage !== "confirmed") || null;
-  const primaryAction = nextActiveItem ? "open-next" : writingReadyCount > 0 ? "open-writing" : "create-permanent";
-  const primaryActionLabel = primaryAction === "open-writing" ? "进入写作中心" : primaryAction === "create-permanent" ? "新建永久笔记" : "继续整理观点";
-  const primaryActionAttrs = primaryAction === "open-next"
-    ? `data-distillation-open-note="${escapeHtml(nextActiveItem.note.id)}"`
-    : `data-distillation-action="${escapeHtml(primaryAction)}"`;
-  panel.innerHTML = `
-    <div class="distillation-shell">
-      <section class="distillation-card distillation-home">
-        <div>
-          <div class="import-card-kicker">观点整理</div>
-          <strong>先把材料整理成你愿意确认的观点</strong>
-          <p>${escapeHtml(gapChips.length ? `优先处理：${gapChips.join("，")}。` : writingReadyCount ? "当前观点已经准备进入写作中心。" : "从第一条永久笔记开始写一句判断。")}</p>
-        </div>
-        <button class="mini-btn primary" type="button" ${primaryActionAttrs}>${escapeHtml(primaryActionLabel)}</button>
-      </section>
-      <section class="distillation-overview">
-        <div>
-          <span>待提纯</span>
-          <strong>${activeCount}</strong>
-        </div>
-        <div>
-          <span>已确认观点</span>
-          <strong>${counts.confirmed || 0}</strong>
-        </div>
-        <div>
-          <span>可进入写作中心</span>
-          <strong>${writingReadyCount}</strong>
-        </div>
-        <div>
-          <span>缺口提醒</span>
-          <strong>${gapChips.length}</strong>
-        </div>
-      </section>
-      <section class="distillation-card">
-        <div class="distillation-card-head">
-          <div>
-            <div class="import-card-kicker">Queue</div>
-            <strong>观点整理队列</strong>
-          </div>
-          <button class="mini-btn is-ghost" id="btnDistillationRefresh" type="button">刷新</button>
-        </div>
-        <div class="distillation-filters" role="group" aria-label="观点整理队列筛选">${filtersHtml}</div>
-        <div class="distillation-queue">${rows}</div>
-      </section>
-    </div>
-  `;
+  panel.innerHTML = renderDistillationPanelView({
+    items: distillationQueueItems(),
+    activeFilter: distillationState.filter || "all"
+  }, {
+    escapeHtml,
+    titleFromBody,
+    distillationStatusLabel
+  });
 }
 
 async function refreshDistillationNotes() {

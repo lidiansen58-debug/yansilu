@@ -76,6 +76,7 @@ test("prototype-app keeps critical shell wrappers thin", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const shellWrapperBudgets = {
     renderGraphPanel: 25,
+    renderDistillationPanel: 15,
     handleStateChange: 5
   };
 
@@ -96,6 +97,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "app-shell-state-change-host-deps.js": 100,
     "app-shell-state-change-deps.js": 40,
     "import-workspace-shell.js": 120,
+    "distillation-panel-view.js": 140,
     "writing-panel-host-deps.js": 60,
     "writing-panel-shell.js": 90,
     "writing-panel-deps.js": 120,
@@ -162,6 +164,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "app-shell-state-change-host-deps.js",
     "app-shell-state-change-router.js",
     "import-workspace-shell.js",
+    "distillation-panel-view.js",
     "writing-panel-host-deps.js",
     "writing-panel-shell.js",
     "writing-candidate-state.js",
