@@ -461,6 +461,16 @@ import {
   renderGraphFocusContextPanel as renderGraphFocusContextPanelView
 } from "./graph-focus-context-panel.js";
 import {
+  GRAPH_FOCUS_CONTEXT_MODE_KEY,
+  GRAPH_FOCUS_DEPTH_KEY,
+  graphFocusContextModeMeta,
+  graphFocusDepthMeta,
+  normalizeGraphFocusContextMode,
+  normalizeGraphFocusDepth,
+  setGraphFocusContextModeForRuntime,
+  setGraphFocusDepthForRuntime
+} from "./graph-focus-controls-state.js";
+import {
   yijingRichDemoPostImportPlan
 } from "./graph-demo-presentation-state.js";
 import {
@@ -757,8 +767,6 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const GRAPH_RELATION_TYPE_FILTER_KEY = "yansilu:graph:relation-type-filter";
-const GRAPH_FOCUS_DEPTH_KEY = "yansilu:graph:focus-depth";
-const GRAPH_FOCUS_CONTEXT_MODE_KEY = "yansilu:graph:focus-context-mode";
 const state = createInitialState();
 let usingLocalFallbackData = false;
 let lastChosenPermanentDirectoryId = "dir_original_default";
@@ -796,8 +804,8 @@ const graphState = {
     relationType: String(readStoredText(GRAPH_RELATION_TYPE_FILTER_KEY, "meaningful") || "").trim().toLowerCase() || "meaningful",
     status: "all"
   },
-  focusDepth: String(readStoredText(GRAPH_FOCUS_DEPTH_KEY, "1") || "").trim().toLowerCase() || "1",
-  focusContextMode: String(readStoredText(GRAPH_FOCUS_CONTEXT_MODE_KEY, "argument") || "").trim().toLowerCase() || "argument",
+  focusDepth: normalizeGraphFocusDepth(readStoredText(GRAPH_FOCUS_DEPTH_KEY, "1"), "1"),
+  focusContextMode: normalizeGraphFocusContextMode(readStoredText(GRAPH_FOCUS_CONTEXT_MODE_KEY, "argument"), "argument"),
   focusContextCollapsed: false,
   focusContextHelpOpen: false,
   zoom: "fit",
@@ -8970,51 +8978,18 @@ function renderGraphIcon(name = "") {
   `;
 }
 
-function normalizeGraphFocusDepth(value = "", fallback = "1") {
-  const key = String(value || "").trim().toLowerCase();
-  if (key === "1" || key === "2" || key === "all") return key;
-  return fallback;
-}
-
-function graphFocusDepthMeta(value = "") {
-  const key = normalizeGraphFocusDepth(value, "1");
-  if (key === "2") return { key, label: "再看一层", note: "除了直接关联，也看这些关联笔记再连到哪里。" };
-  if (key === "all") return { key, label: "整个关系网", note: "显示当前笔记所在的整片关系网络。" };
-  return { key: "1", label: "直接关联", note: "只看和当前笔记直接相连的关系。" };
-}
-
 function setGraphFocusDepth(value = "", options = {}) {
-  const next = normalizeGraphFocusDepth(value, "1");
-  graphState.focusDepth = next;
-  if (options.persist !== false) writeStoredText(GRAPH_FOCUS_DEPTH_KEY, next);
-}
-
-function normalizeGraphFocusContextMode(value = "", fallback = "argument") {
-  const key = String(value || "").trim().toLowerCase();
-  if (key === "argument" || key === "writing") return key;
-  return fallback;
-}
-
-function graphFocusContextModeMeta(value = "") {
-  const key = normalizeGraphFocusContextMode(value, "argument");
-  if (key === "writing") {
-    return {
-      key,
-      label: "看写作用途",
-      note: "优先看桥接、前后顺序和草稿入口，判断这条笔记能放进哪一段。"
-    };
-  }
-  return {
-    key: "argument",
-    label: "看观点关系",
-    note: "优先看谁支持、谁反对、哪里需要限定，判断这条笔记在观点网络里的位置。"
-  };
+  return setGraphFocusDepthForRuntime(graphState, value, {
+    ...options,
+    writeStoredText
+  });
 }
 
 function setGraphFocusContextMode(value = "", options = {}) {
-  const next = normalizeGraphFocusContextMode(value, "argument");
-  graphState.focusContextMode = next;
-  if (options.persist !== false) writeStoredText(GRAPH_FOCUS_CONTEXT_MODE_KEY, next);
+  return setGraphFocusContextModeForRuntime(graphState, value, {
+    ...options,
+    writeStoredText
+  });
 }
 
 function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, conflictCount = 0, bridgeGapCount = 0 } = {}) {
