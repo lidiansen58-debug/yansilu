@@ -71,6 +71,10 @@ export function readGraphVisualMapRuntimeDepsSource() {
   return readRepoText("apps", "web", "src", "graph-visual-map-runtime-deps.js");
 }
 
+export function readGraphVisualMapSelectionStateSource() {
+  return readRepoText("apps", "web", "src", "graph-visual-map-selection-state.js");
+}
+
 export function readGraphVisualMapViewRendererSource() {
   return readRepoText("apps", "web", "src", "graph-visual-map-view-renderer.js");
 }

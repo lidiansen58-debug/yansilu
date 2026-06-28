@@ -8,6 +8,7 @@ import {
   readGraphVisualMapContextSource,
   readGraphVisualMapControllerSource,
   readGraphVisualMapRuntimeDepsSource,
+  readGraphVisualMapSelectionStateSource,
   readGraphVisualMapViewRendererSource,
   readPrototypeAppSource
 } from "./copy-source-helpers.mjs";
@@ -135,6 +136,7 @@ test("graph visual map runtime state, chrome, and view deps stay split across gr
   const visualMapRuntimeDepsSource = await readGraphVisualMapRuntimeDepsSource();
   const visualMapControllerSource = await readGraphVisualMapControllerSource();
   const visualMapContextSource = await readGraphVisualMapContextSource();
+  const visualMapSelectionStateSource = await readGraphVisualMapSelectionStateSource();
 
   assert.match(visualMapRuntimeDepsSource, /from "\.\/graph-visual-map-runtime-state-deps\.js"/);
   assert.match(visualMapRuntimeDepsSource, /from "\.\/graph-visual-map-chrome-deps\.js"/);
@@ -151,6 +153,8 @@ test("graph visual map runtime state, chrome, and view deps stay split across gr
   assert.match(visualMapControllerSource, /renderGraphVisualMapShellView\(graphShellProps, shellDeps\)/);
   assert.match(visualMapContextSource, /renderGraphResearchNavigatorPanel/);
   assert.match(visualMapContextSource, /graphThemeBoundaryMeta/);
+  assert.match(visualMapSelectionStateSource, /buildGraphVisualMapSelectionState/);
+  assert.match(visualMapSelectionStateSource, /graphNodeNeedsRelationWorkflow/);
   assert.doesNotMatch(visualMapControllerSource, /buildGraphVisualMapRuntimeDeps\(\{/);
 });
 

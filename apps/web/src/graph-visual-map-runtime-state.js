@@ -1,6 +1,7 @@
-function defaultSet(values = []) {
-  return new Set((Array.isArray(values) ? values : []).filter(Boolean));
-}
+import {
+  buildGraphVisualMapAdjacencyMap,
+  buildGraphVisualMapSelectionState
+} from "./graph-visual-map-selection-state.js";
 
 export function buildGraphVisualMapRuntimeState({
   graphState = {},
@@ -53,16 +54,7 @@ export function buildGraphVisualMapRuntimeState({
   const zoomWidth = Math.round(layout.width * zoom.scale);
   const zoomHeight = Math.round(layout.height * zoom.scale);
 
-  const adjacencyMap = new Map();
-  edges.forEach((edge) => {
-    const fromId = String(edge?.fromNoteId || "").trim();
-    const toId = String(edge?.toNoteId || "").trim();
-    if (!fromId || !toId) return;
-    if (!adjacencyMap.has(fromId)) adjacencyMap.set(fromId, new Set());
-    if (!adjacencyMap.has(toId)) adjacencyMap.set(toId, new Set());
-    adjacencyMap.get(fromId).add(toId);
-    adjacencyMap.get(toId).add(fromId);
-  });
+  const adjacencyMap = buildGraphVisualMapAdjacencyMap(edges);
 
   const visibleEdges = edges
     .map((edge) => {
@@ -95,27 +87,23 @@ export function buildGraphVisualMapRuntimeState({
       }
     : null;
   const legendOpen = graphState.legendOpen === true;
-  const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, {
-    nodes: layout.nodes,
-    edges,
+  const selectionState = buildGraphVisualMapSelectionState({
+    graphSelection: graphState.selection,
+    layoutNodes: layout.nodes,
+    layoutEdges: edges,
+    clusterMeta: layout.clusterMeta,
     topicCandidates,
     isolatedNotes,
     bridgeGaps,
-    clusterMeta: layout.clusterMeta
+    relationFilterEdges,
+    selectionEdges,
+    selectionNodeMap,
+    layoutNodeMap: layout.nodeMap,
+    adjacencyMap
+  }, {
+    normalizeGraphSelectionForVisibleItems,
+    graphNodeNeedsRelationWorkflow
   });
-  const contextualSelectionEdges = Array.isArray(selectionEdges) ? selectionEdges : Array.isArray(relationFilterEdges) ? relationFilterEdges : edges;
-  const contextualNodeMap = selectionNodeMap instanceof Map ? selectionNodeMap : layout.nodeMap;
-  const selectionNodeNeedsRelationWorkflow =
-    activeSelection?.kind === "node" && graphNodeNeedsRelationWorkflow(activeSelection.nodeId, contextualSelectionEdges, contextualNodeMap);
-  const selectedNodeId = activeSelection?.kind === "node" && !selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
-  const selectedNodeNeighborhood = new Set(selectedNodeId ? [selectedNodeId, ...(adjacencyMap.get(selectedNodeId) || [])] : []);
-  const selectedEdgeKey = activeSelection?.kind === "edge" ? activeSelection.edgeKey : "";
-  const selectedThemeNoteIds = defaultSet(activeSelection?.kind === "theme" ? activeSelection.noteIds || [] : []);
-  const selectedIsolatedNodeId =
-    activeSelection?.kind === "isolated" ? activeSelection.noteId : selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
-  const selectedBridgeNoteIds = defaultSet(
-    activeSelection?.kind === "bridge" ? [activeSelection.noteId, activeSelection.targetNoteId].map((id) => String(id || "").trim()) : []
-  );
   const legendGroups = ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"]
     .map((key) => {
       const meta = relationGroupMeta[key];
@@ -153,16 +141,7 @@ export function buildGraphVisualMapRuntimeState({
     showDensityHint,
     compactRelationFilterStats,
     legendOpen,
-    activeSelection,
-    contextualSelectionEdges,
-    contextualNodeMap,
-    selectionNodeNeedsRelationWorkflow,
-    selectedNodeId,
-    selectedNodeNeighborhood,
-    selectedEdgeKey,
-    selectedThemeNoteIds,
-    selectedIsolatedNodeId,
-    selectedBridgeNoteIds,
+    ...selectionState,
     legendGroups,
     zoomKeys,
     zoomIndex,

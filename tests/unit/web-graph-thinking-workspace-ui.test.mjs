@@ -168,6 +168,10 @@ function readGraphVisualMapRuntimeState() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-runtime-state.js"), "utf8");
 }
 
+function readGraphVisualMapSelectionState() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-selection-state.js"), "utf8");
+}
+
 function readGraphVisualMapController() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-controller.js"), "utf8");
 }
@@ -1176,13 +1180,15 @@ test("graph selection upgrades isolated notes to connected nodes after a saved r
 test("graph node clicks without confirmed relations open the large relation workflow", () => {
   const source = readPrototypeApp();
   const runtimeStateSource = readGraphVisualMapRuntimeState();
+  const selectionStateSource = readGraphVisualMapSelectionState();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
 
   assert.match(source, /function graphRelationStatusCountsAsConfirmedEdge\(value = ""\) \{/);
   assert.match(source, /function graphDirectConfirmedRelationCount\(noteId = "", edges = \[\]\) \{/);
   assert.match(source, /function graphNodeNeedsRelationWorkflow\(noteId = "", edges = \[\], nodeMap = new Map\(\)\) \{/);
   assert.match(source, /function graphNodeNeedsRelationWorkflowFromCurrentGraph\(noteId = ""\) \{/);
-  assert.match(runtimeStateSource, /const selectionNodeNeedsRelationWorkflow =\s*activeSelection\?\.kind === "node" && graphNodeNeedsRelationWorkflow\(activeSelection\.nodeId, contextualSelectionEdges, contextualNodeMap\);/);
+  assert.match(runtimeStateSource, /buildGraphVisualMapSelectionState\(/);
+  assert.match(selectionStateSource, /selectionNodeNeedsRelationWorkflow =\s*activeSelection\?\.kind === "node" && graphNodeNeedsRelationWorkflow\(activeSelection\.nodeId, contextualSelectionEdges, contextualNodeMap\);/);
   assert.equal(graphSelectionUsesOverlay("isolated"), true);
   assert.equal(graphSelectionUsesOverlay("isolatedComplete"), true);
   assert.equal(graphSelectionUsesOverlay("node", true), true);
@@ -1374,6 +1380,7 @@ test("graph thinking relation tasks use scoped nodes for filtering but lookup ma
 test("directory graph keeps all nodes visible and marks true zero-degree notes as isolated", () => {
   const panelStateBuilderSource = readGraphPanelStateBuilder();
   const runtimeStateSource = readGraphVisualMapRuntimeState();
+  const selectionStateSource = readGraphVisualMapSelectionState();
   const html = readPrototypeHtml();
   const nodes = [{ id: "n1" }, { id: "n2" }, { id: "n3", title: "Isolated" }];
   const isolatedNotes = graphComputedIsolatedNotesForGraph(
@@ -1395,8 +1402,9 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
   assert.equal(markedNodes.find((node) => node.id === "n1")?.graphVisualState, undefined);
   assert.match(panelStateBuilderSource, /let visibleNodes = !showingFocusedNote\s*\?\s*scopedAllNodes/);
   assert.match(panelStateBuilderSource, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
-  assert.match(runtimeStateSource, /const contextualSelectionEdges = Array\.isArray\(selectionEdges\) \? selectionEdges : Array\.isArray\(relationFilterEdges\) \? relationFilterEdges : edges;/);
-  assert.match(runtimeStateSource, /const contextualNodeMap = selectionNodeMap instanceof Map \? selectionNodeMap : layout\.nodeMap;/);
+  assert.match(runtimeStateSource, /buildGraphVisualMapSelectionState\(/);
+  assert.match(selectionStateSource, /const contextualSelectionEdges = Array\.isArray\(selectionEdges\)/);
+  assert.match(selectionStateSource, /const contextualNodeMap = selectionNodeMap instanceof Map \? selectionNodeMap : layoutNodeMap;/);
   assert.match(html, /\.graph-map-node\.is-graph-isolated \.graph-map-node-core \{[\s\S]*stroke: #f59e0b;/);
   assert.match(html, /\.graph-local-connect \{[\s\S]*border-color: #fed7aa;/);
 });
