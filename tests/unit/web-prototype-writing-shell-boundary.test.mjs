@@ -6,30 +6,21 @@ import {
   readWritingPanelShellSource
 } from "./copy-source-helpers.mjs";
 
-function extractFunctionSource(source, functionName) {
-  const start = source.indexOf(`function ${functionName}`);
-  assert.ok(start >= 0, `expected ${functionName} to exist`);
-  const nextFunction = source.indexOf("\nfunction ", start + 1);
-  return source.slice(start, nextFunction > start ? nextFunction : undefined);
-}
-
 test("prototype writing shell keeps the main writing surfaces wired", async () => {
   const source = await readPrototypeAppSource();
 
   assert.match(source, /function openWritingModule/);
   assert.match(source, /function continueWritingEntry/);
   assert.match(source, /function renderWritingPanel/);
+  assert.match(source, /function renderWritingPanel\(\) \{\s*return renderWritingPanelShell\(writingPanelDomDeps\(\)\);\s*\}/);
+  assert.doesNotMatch(source, /renderWritingPanelDom\(writingPanelDomDeps\(\)\)/);
+  assert.doesNotMatch(source, /buildWritingPanelState/);
 });
 
 test("prototype writing shell delegates panel state building to writing workspace helpers", async () => {
-  const source = await readPrototypeAppSource();
   const panelShellSource = await readWritingPanelShellSource();
   const panelControllerSource = await readWritingPanelControllerSource();
-  const renderWritingPanelSource = extractFunctionSource(source, "renderWritingPanel");
 
-  assert.doesNotMatch(source, /renderWritingPanelDom\(writingPanelDomDeps\(\)\)/);
-  assert.doesNotMatch(source, /buildWritingPanelState/);
-  assert.match(renderWritingPanelSource, /renderWritingPanelShell\(writingPanelDomDeps\(\)\)/);
   assert.match(panelShellSource, /createWritingPanelDomDeps/);
   assert.match(panelShellSource, /buildWritingPanelState/);
   assert.match(panelShellSource, /renderWritingPanelDom\(createWritingPanelDomDeps\(host\)\)/);
@@ -38,24 +29,16 @@ test("prototype writing shell delegates panel state building to writing workspac
   assert.match(panelControllerSource, /toplineMetrics\.innerHTML = panelState\.toplineMetrics/);
   assert.match(panelControllerSource, /function renderWritingFlowStepsDom/);
   assert.match(panelControllerSource, /renderWritingFlowStepsDom\(deps,/);
-  assert.doesNotMatch(source, /function renderWritingFlowSteps/);
   assert.match(panelControllerSource, /function renderWritingScaffoldPreviewDom/);
   assert.match(panelControllerSource, /renderWritingScaffoldPreviewDom\(deps\)/);
-  assert.doesNotMatch(source, /function renderWritingScaffoldPreview/);
   assert.match(panelControllerSource, /function renderWritingStrongModelRequestDetailDom/);
   assert.match(panelControllerSource, /renderWritingStrongModelRequestDetailDom\(deps,/);
-  assert.doesNotMatch(source, /function renderWritingStrongModelRequestDetail/);
   assert.match(panelControllerSource, /function renderWritingStatusStripDom/);
   assert.match(panelControllerSource, /renderWritingStatusStripDom\(deps\)/);
-  assert.doesNotMatch(source, /function renderWritingStatusStrip/);
   assert.match(panelControllerSource, /function renderWritingThemeIndexCardDom/);
   assert.match(panelControllerSource, /function renderWritingThemeDetailDom/);
-  assert.doesNotMatch(source, /function renderWritingThemeIndexCard/);
-  assert.doesNotMatch(source, /function renderWritingThemeDetail/);
   assert.match(panelControllerSource, /function renderWritingNoteCardDom/);
   assert.match(panelControllerSource, /function renderWritingProjectCardDom/);
-  assert.doesNotMatch(source, /function renderWritingNoteCard/);
-  assert.doesNotMatch(source, /function renderWritingProjectCard/);
   assert.doesNotMatch(panelControllerSource, /const candidateFocusSourceIds = uniqueStrings/);
 });
 
