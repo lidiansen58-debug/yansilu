@@ -1,5 +1,4 @@
 import {
-  renderWritingStatusCardView,
   renderWritingFlowStepsView,
   writingFlowStepItems
 } from "./writing-workspace-view.js";
@@ -26,6 +25,12 @@ import {
   renderWritingThemeDetailDom,
   renderWritingThemeIndexCardDom
 } from "./writing-theme-card-panel.js";
+import {
+  renderWritingStatusStripDom
+} from "./writing-status-strip-panel.js";
+import {
+  renderWritingScaffoldPreviewDom
+} from "./writing-scaffold-preview-panel.js";
 
 export {
   renderWritingBookDesignDom
@@ -41,193 +46,12 @@ export {
   renderWritingThemeDetailDom,
   renderWritingThemeIndexCardDom
 } from "./writing-theme-card-panel.js";
-
-export function renderWritingStatusStripDom(deps = {}) {
-  const {
-    $,
-    writingState,
-    parseWritingBasketIds,
-    currentWritingBasketEligibility,
-    writingRelationCountsReady,
-    writingRelationCountsErrored,
-    deriveBasketWritingReadiness,
-    writingKnownNoteById,
-    describeWritingProjectPreflight,
-    describeWritingProjectEntryState,
-    describeWritingMaterialStatus,
-    writingIneligibleSummary,
-    isWritingStrongModelReady,
-    describeWritingStrongModelStatus,
-    escapeHtml
-  } = deps;
-  const renderWritingStatusCard = (label, value, note, tone = "") => renderWritingStatusCardView(label, value, note, tone, { escapeHtml });
-  const el = $("writingStatusStrip");
-  if (!el) return;
-  const basketIds = parseWritingBasketIds();
-  const eligibility = currentWritingBasketEligibility();
-  const relationCounts = writingState.relationCounts || {};
-  const relationCountErrors = writingState.relationCountErrors || {};
-  const relationCountsReady = writingRelationCountsReady(basketIds, relationCounts) && !writingState.loadingRelationCounts;
-  const relationCountsErrored = writingRelationCountsErrored(basketIds, relationCountErrors);
-  const relationState = relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading";
-  const readiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, relationCounts, { relationState });
-  const hasProject = Boolean(writingState.project?.id);
-  const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
-  const hasDraft = Boolean(writingState.project?.draft_note_id);
-  const projectPreflight = writingState.project?.preflight || null;
-  const projectPreflightSummary = describeWritingProjectPreflight(projectPreflight);
-  const projectPreflightChecks = Array.isArray(projectPreflight?.checks) ? projectPreflight.checks : [];
-  const basketTone =
-    readiness.level === "strong_model_ready" || readiness.level === "project_ready"
-      ? "good"
-      : readiness.level === "basket_ready"
-        ? "warn"
-        : readiness.level === "needs_basket"
-          ? "warn"
-          : "warn";
-  const projectEntry = describeWritingProjectEntryState({
-    relationCountsReady,
-    relationCountsErrored,
-    readinessLevel: readiness.level,
-    readinessHint: readiness.hint
-  });
-  const materialStatus = describeWritingMaterialStatus({
-    readinessLevel: readiness.level,
-    readinessStatus: readiness.status,
-    readinessHint: readiness.hint,
-    hasProject,
-    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
-    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim()
-  });
-  const basketNote = materialStatus.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
-  const canContinueProjectedProjectStatus = !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
-  const projectTone =
-    hasProject && projectPreflightSummary.level !== "ready"
-      ? "warn"
-      : hasProject || canContinueProjectedProjectStatus || readiness.level === "project_ready" || readiness.level === "strong_model_ready"
-        ? "good"
-        : "warn";
-  const projectStatus = hasProject
-    ? projectPreflightSummary.level === "needs_clarification"
-      ? "先澄清项目问题"
-      : projectPreflightSummary.level === "has_gaps"
-        ? "先补项目缺口"
-        : "已创建"
-    : projectEntry.status;
-  const projectNote = hasProject
-    ? projectPreflightSummary.level !== "ready"
-      ? `${writingState.project.id}；${projectPreflightSummary.hint}`
-      : writingState.project.id
-    : projectEntry.hint;
-  const scaffoldNote = hasScaffold
-    ? "章节、证据、缺口已返回"
-    : hasProject && projectPreflightSummary.level === "needs_clarification"
-      ? projectPreflightSummary.hint || "先澄清项目关键问题，再生成草稿骨架。"
-      : hasProject && projectPreflightSummary.level === "has_gaps"
-        ? projectPreflightSummary.hint || "先补项目缺口，再生成草稿骨架。"
-        : hasProject
-          ? "项目条件已齐；下一步生成草稿骨架，检查证据、缺口和反方。"
-    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
-      ? "当前草稿已经存在。先打开当前草稿继续写作。"
-      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
-        ? "先回到草稿骨架，再检查证据、缺口和开放问题。"
-        : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
-          ? `先${projectEntry.actionLabel}，再生成草稿骨架`
-          : projectEntry.hint;
-  const scaffoldStatus = hasScaffold
-    ? "可预览"
-    : hasProject && projectPreflightSummary.level === "needs_clarification"
-      ? "先澄清项目问题"
-      : hasProject && projectPreflightSummary.level === "has_gaps"
-        ? "先补项目缺口"
-        : hasProject
-          ? "可生成"
-    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
-      ? "先打开当前草稿"
-      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
-        ? "先回到草稿骨架"
-        : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
-          ? `先${projectEntry.actionLabel}`
-          : projectEntry.status;
-  const scaffoldTone =
-    hasScaffold
-      ? "good"
-      : hasProject && projectPreflightSummary.level !== "ready"
-        ? "warn"
-        : (!hasProject &&
-      projectEntry?.projectId &&
-      (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
-      ? "good"
-      : "";
-  const draftStatus = hasDraft
-    ? "已绑定"
-    : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
-      ? "先澄清项目问题"
-      : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
-        ? "先补项目缺口"
-        : hasProject && hasScaffold
-          ? "可保存"
-          : hasProject
-            ? "先生成草稿骨架"
-    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
-      ? projectEntry.status
-      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
-        ? projectEntry.status
-        : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
-          ? projectEntry.status
-          : projectEntry.status;
-  const draftNote = hasDraft
-    ? writingState.project?.draft_note?.title || writingState.project.draft_note_id
-    : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
-      ? projectPreflightSummary.hint || "先澄清项目关键问题，再保存草稿。"
-      : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
-        ? projectPreflightSummary.hint || "先补项目缺口，再保存草稿。"
-        : hasProject && hasScaffold
-          ? "草稿骨架已生成；确认缺口和反方后保存草稿。"
-          : hasProject
-            ? "先生成草稿骨架，再保存草稿。"
-    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
-      ? projectEntry.hint
-      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
-        ? "当前草稿骨架已经存在。先回到草稿骨架，再继续保存草稿。"
-        : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
-          ? "当前项目已经存在。先继续当前项目，再生成草稿骨架并保存草稿。"
-          : projectEntry.hint;
-  const draftTone =
-    hasDraft
-      ? "good"
-      : hasProject && hasScaffold && projectPreflightSummary.level !== "ready"
-        ? "warn"
-        : (!hasProject &&
-      projectEntry?.projectId &&
-      (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
-      ? "good"
-      : "";
-  const strongModelReady = isWritingStrongModelReady({
-    readinessLevel: readiness.level,
-    projectPreflightLevel: projectPreflightSummary.level
-  });
-  const strongModelState = describeWritingStrongModelStatus({
-    hasProject,
-    relationCountsReady,
-    relationCountsErrored,
-    readinessLevel: readiness.level,
-    readinessHint: readiness.hint,
-    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
-    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
-    projectPreflightLevel: projectPreflightSummary.level,
-    projectPreflightChecksLength: projectPreflightChecks.length,
-    strongModelReady
-  });
-  const strongModelTone = strongModelReady ? "good" : "warn";
-  el.innerHTML = [
-    renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
-    renderWritingStatusCard("项目", projectStatus, projectNote, projectTone),
-    renderWritingStatusCard("草稿骨架", scaffoldStatus, scaffoldNote, scaffoldTone),
-    renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
-    renderWritingStatusCard("草稿", draftStatus, draftNote, draftTone)
-  ].join("");
-}
+export {
+  renderWritingStatusStripDom
+} from "./writing-status-strip-panel.js";
+export {
+  renderWritingScaffoldPreviewDom
+} from "./writing-scaffold-preview-panel.js";
 
 export function renderWritingFlowStepsDom(deps = {}, {
   basketCount = 0,
@@ -248,147 +72,6 @@ export function renderWritingFlowStepsDom(deps = {}, {
     writingState
   });
   el.innerHTML = renderWritingFlowStepsView(steps, { escapeHtml });
-}
-
-export function renderWritingScaffoldPreviewDom(deps = {}) {
-  const {
-    $,
-    state,
-    writingState,
-    currentWritingContinuationEntry,
-    describeWritingProjectPreflight,
-    describeProjectPreflight,
-    groupWritingPreflightChecks,
-    writingDraftDirectoryId,
-    folderById,
-    parseWritingBasketIds,
-    describeWritingNextActionFromState,
-    escapeHtml
-  } = deps;
-  const el = $("writingScaffoldPreview");
-  if (!el) return;
-  const projectEntry = (!writingState.project?.id && currentWritingContinuationEntry("当前写作篮")) || null;
-  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
-  if (!writingState.scaffold) {
-    el.innerHTML = `
-      <h4>草稿骨架预览</h4>
-      <div class="writing-empty">${
-        projectEntry?.projectId && projectEntry?.actionLabel
-          ? `当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，再回来查看草稿骨架预览。`
-          : `当前写作篮入口：${escapeHtml(projectEntry?.status || "先补写作材料")}。${escapeHtml(projectEntry?.hint || "先补齐写作材料，再回来查看草稿骨架预览。")}`
-      }</div>
-    `;
-    return;
-  }
-
-  const sections = Array.isArray(writingState.scaffold.sections) ? writingState.scaffold.sections : [];
-  const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
-  const preflight = writingState.scaffold.preflight || null;
-  const preflightSummary = describeProjectPreflight(preflight);
-  const { checks: preflightChecks, blocking: blockingChecks, warnings: warningChecks, passes: passingChecks } = groupWritingPreflightChecks(preflight);
-  const markdown = String(writingState.scaffoldMarkdown || "").trim();
-  const targetDirectoryId = writingDraftDirectoryId();
-  const targetFolder = folderById(state, targetDirectoryId);
-  const nextAction = describeWritingNextActionFromState({
-    basketCount: parseWritingBasketIds().length,
-    hasProject: Boolean(writingState.project?.id),
-    hasScaffold: Boolean(writingState.scaffold?.id),
-    hasDraft: Boolean(writingState.project?.draft_note_id),
-    projectEntryProjectId: Boolean(writingState.project?.id) ? "" : String(projectEntry?.projectId || "").trim(),
-    projectEntryAction: Boolean(writingState.project?.id) ? "" : String(projectEntry?.action || "").trim(),
-    projectEntryActionLabel: Boolean(writingState.project?.id) ? "" : String(projectEntry?.actionLabel || "").trim(),
-    projectPreflightLevel: Boolean(writingState.project?.id) ? projectPreflightSummary.level : "",
-    projectPreflightHint: Boolean(writingState.project?.id) ? projectPreflightSummary.hint : "",
-    projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
-    blockingCount: blockingChecks.length,
-    warningCount: warningChecks.length
-  });
-  el.innerHTML = `
-    <h4>草稿骨架预览</h4>
-    <div class="writing-summary">
-      草稿骨架：${escapeHtml(writingState.scaffold.id || "未命名")}；章节 ${escapeHtml(sections.length || 0)} 个；开放问题 ${escapeHtml(questions.length || 0)} 个。
-    </div>
-    <div class="writing-summary">
-      保存草稿时会写入：${escapeHtml(targetFolder?.name || targetDirectoryId)}。
-    </div>
-    <div class="writing-summary">
-      下一步：${escapeHtml(nextAction.title)}。${escapeHtml(nextAction.note)}
-    </div>
-    ${
-      preflightChecks.length
-        ? `<div>
-            <h4>生成前检查</h4>
-            <div class="writing-summary">
-              ${escapeHtml(preflightSummary.level === "ready" ? preflightSummary.status : preflightSummary.hint)}
-            </div>
-            ${
-              warningChecks.length
-                ? `<div class="writing-summary">提醒项：${escapeHtml(String(warningChecks.length))} 个，建议先补齐再保存草稿。</div>`
-                : ""
-            }
-            ${
-              passingChecks.length
-                ? `<div class="writing-summary">已通过：${escapeHtml(String(passingChecks.length))} 项。</div>`
-                : ""
-            }
-            <ul>
-              ${preflightChecks
-                .map(
-                  (check) =>
-                    `<li><strong>${escapeHtml(check.status === "pass" ? "通过" : "提醒")}：${escapeHtml(check.label || "")}</strong> ${escapeHtml(check.message || "")}</li>`
-                )
-                .join("")}
-            </ul>
-          </div>`
-        : ""
-    }
-    <div>
-      <h4>章节结构</h4>
-      ${
-        sections.length
-          ? `<ol>${sections
-              .map((section) => {
-                const gaps = Array.isArray(section.gaps) ? section.gaps : [];
-                const counterpoints = Array.isArray(section.counterpoints) ? section.counterpoints : [];
-                const sectionQuestions = Array.isArray(section.open_questions) ? section.open_questions : [];
-                return `
-                  <li>
-                    <strong>${escapeHtml(section.heading || `Section ${section.order || ""}`)}</strong> ${escapeHtml(section.purpose || "")}
-                    ${
-                      gaps.length
-                        ? `<div class="writing-summary">待补缺口：${escapeHtml(gaps.join(" / "))}</div>`
-                        : ""
-                    }
-                    ${
-                      counterpoints.length
-                        ? `<div class="writing-summary">反方/边界：${escapeHtml(counterpoints.join(" / "))}</div>`
-                        : ""
-                    }
-                    ${
-                      sectionQuestions.length
-                        ? `<div class="writing-summary">待回答问题：${escapeHtml(sectionQuestions.join(" / "))}</div>`
-                        : ""
-                    }
-                  </li>
-                `;
-              })
-              .join("")}</ol>`
-          : `<div class="writing-empty">当前草稿骨架还没有章节。</div>`
-      }
-    </div>
-    <div>
-      <h4>待处理的反方与漏洞</h4>
-      ${
-        questions.length
-          ? `<ul>${questions.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}</ul>`
-          : `<div class="writing-empty">当前草稿骨架还没有开放问题。</div>`
-      }
-    </div>
-    <div>
-      <h4>Markdown 预览</h4>
-      ${markdown ? `<pre>${escapeHtml(markdown)}</pre>` : `<div class="writing-empty">本次返回里还没有 Markdown 内容。</div>`}
-    </div>
-  `;
 }
 
 export function renderWritingPanelDom(deps = {}) {

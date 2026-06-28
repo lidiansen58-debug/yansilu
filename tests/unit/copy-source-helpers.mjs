@@ -59,6 +59,14 @@ export function readWritingThemeCardPanelSource() {
   return readRepoText("apps", "web", "src", "writing-theme-card-panel.js");
 }
 
+export function readWritingStatusStripPanelSource() {
+  return readRepoText("apps", "web", "src", "writing-status-strip-panel.js");
+}
+
+export function readWritingScaffoldPreviewPanelSource() {
+  return readRepoText("apps", "web", "src", "writing-scaffold-preview-panel.js");
+}
+
 export function readWritingPanelShellSource() {
   return readRepoText("apps", "web", "src", "writing-panel-shell.js");
 }

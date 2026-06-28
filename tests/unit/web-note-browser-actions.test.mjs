@@ -45,6 +45,9 @@ import {
 import {
   syncModuleChromeClassesForRuntime
 } from "../../apps/web/src/app-shell-module-ui.js";
+import {
+  buildWritingPanelState
+} from "../../apps/web/src/prototype-writing-workspace.js";
 import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -1045,13 +1048,45 @@ test("fleeting and literature boxes use the same simplified note-browser scope",
   );
 });
 
-test("writing workspace defines hasProject before project list hints use it", () => {
-  const source = readRepoFile("apps/web/src/writing-panel-controller.js");
-  const match = source.match(/const hasProject = Boolean\(writingState\.project\?\.id\);[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
+test("writing panel state resolves project presence before project-dependent hints", () => {
+  let strongModelArgs = null;
+  const panel = buildWritingPanelState({
+    writingState: {
+      project: {
+        id: "project_1",
+        preflight: { level: "has_gaps" }
+      },
+      relationCounts: {}
+    },
+    basketIds: ["n1"]
+  }, {
+    parseWritingBasketIds: () => ["n1"],
+    writingRelationCountsReady: () => true,
+    writingRelationCountsErrored: () => false,
+    deriveBasketWritingReadiness: () => ({ level: "strong_model_ready", status: "Ready", hint: "Relations ready" }),
+    describeWritingProjectEntryState: () => ({
+      projectId: "stale_project",
+      actionLabel: "Resume stale project",
+      status: "Resume",
+      hint: "Should not leak once project exists"
+    }),
+    describeWritingProjectPreflight: (preflight) => ({ level: preflight?.level || "ready", status: "Needs gaps", hint: "Fill gaps" }),
+    isWritingStrongModelReady: ({ projectPreflightLevel }) => projectPreflightLevel === "ready",
+    describeWritingStrongModelStatus: (args) => {
+      strongModelArgs = args;
+      return { status: "Strong model", hint: "Check project", buttonLabel: "Run" };
+    },
+    writingOpenDraftButtonState: () => ({ disabled: false, text: "Open" }),
+    writingScaffoldButtonState: () => ({ disabled: false, text: "Scaffold" }),
+    writingStrongModelButtonState: () => ({ disabled: true, text: "Blocked" })
+  });
 
-  assert.ok(match, "expected writing workspace project-entry block to exist");
-  assert.match(match[0], /const hasProject = Boolean\(writingState\.project\?\.id\);/);
-  assert.match(match[0], /const projectPreflightSummary = describeWritingProjectPreflight/);
+  assert.equal(panel.hasProject, true);
+  assert.equal(panel.projectPreflightSummary.level, "has_gaps");
+  assert.equal(strongModelArgs.hasProject, true);
+  assert.equal(strongModelArgs.projectEntryProjectId, "");
+  assert.equal(strongModelArgs.projectEntryActionLabel, "");
+  assert.equal(strongModelArgs.projectPreflightLevel, "has_gaps");
 });
 
 test("writing panel keeps projected continuity out of strong-model button wiring", () => {

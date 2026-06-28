@@ -1,7 +1,9 @@
 import {
-  renderWritingPanelDom,
-  renderWritingScaffoldPreviewDom
+  renderWritingPanelDom
 } from "./writing-panel-controller.js";
+import {
+  renderWritingScaffoldPreviewDom
+} from "./writing-scaffold-preview-panel.js";
 import {
   describeWritingContinuationAction,
   describeWritingMaterialStatus,

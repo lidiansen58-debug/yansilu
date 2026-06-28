@@ -112,6 +112,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "writing-strong-model-request-panel.js": 70,
     "writing-note-card-panel.js": 45,
     "writing-theme-card-panel.js": 180,
+    "writing-status-strip-panel.js": 210,
+    "writing-scaffold-preview-panel.js": 160,
     "system-messages-shell.js": 60,
     "graph-visual-map-runtime-deps.js": 40,
     "graph-visual-map-layout-state.js": 90,
