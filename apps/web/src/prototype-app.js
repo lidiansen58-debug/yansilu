@@ -190,6 +190,10 @@ import {
   createSystemMessagesShellController
 } from "./system-messages-shell.js";
 import {
+  persistSystemMessagesForRuntime,
+  readStoredSystemMessagesForRuntime
+} from "./system-message-storage.js";
+import {
   buildSystemMessagesPrototypeHostDeps
 } from "./system-messages-host-deps.js";
 import {
@@ -1423,20 +1427,20 @@ function setStatus(text, cls = "", options = {}) {
 
 
 function readStoredSystemMessages() {
-  try {
-    const raw = window.localStorage?.getItem(SYSTEM_MESSAGES_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeSystemMessage).slice(0, SYSTEM_MESSAGES_LIMIT);
-  } catch {
-    return [];
-  }
+  return readStoredSystemMessagesForRuntime({
+    storage: window.localStorage,
+    key: SYSTEM_MESSAGES_KEY,
+    limit: SYSTEM_MESSAGES_LIMIT,
+    normalizeSystemMessage
+  });
 }
 
 function persistSystemMessages() {
-  try {
-    window.localStorage?.setItem(SYSTEM_MESSAGES_KEY, JSON.stringify(systemMessages.slice(0, SYSTEM_MESSAGES_LIMIT)));
-  } catch {}
+  return persistSystemMessagesForRuntime(systemMessages, {
+    storage: window.localStorage,
+    key: SYSTEM_MESSAGES_KEY,
+    limit: SYSTEM_MESSAGES_LIMIT
+  });
 }
 
 
