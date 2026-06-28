@@ -588,6 +588,10 @@ import {
   buildWritingPanelHostDeps
 } from "./writing-panel-deps.js";
 import {
+  writingCandidateNotesForRuntime,
+  writingScopeDirectoryIdsForRuntime
+} from "./writing-candidate-state.js";
+import {
   graphAssociateNoteRoute,
   graphFollowupActionRoute,
   noteDeleteKeyRoute
@@ -7494,20 +7498,14 @@ function isWritingEligibleNote(note) {
 }
 
 function writingScopeDirectoryIds() {
-  const anchorId = state.selectedFolderId || state.browserRootId || "dir_original_default";
-  return descendantDirectoryIds(anchorId);
+  return writingScopeDirectoryIdsForRuntime(state, { descendantDirectoryIds });
 }
 
 function writingCandidateNotes() {
-  const scopedDirectoryIds = new Set(writingScopeDirectoryIds());
-  return state.notes
-    .filter((note) => scopedDirectoryIds.has(note.folderId) && isWritingEligibleNote(note))
-    .sort((a, b) => {
-      const aTime = Date.parse(a.updatedAt || 0) || 0;
-      const bTime = Date.parse(b.updatedAt || 0) || 0;
-      if (bTime !== aTime) return bTime - aTime;
-      return String(a.title || a.id).localeCompare(String(b.title || b.id), "zh-CN");
-    });
+  return writingCandidateNotesForRuntime(state, {
+    writingScopeDirectoryIds,
+    isWritingEligibleNote
+  });
 }
 
 
