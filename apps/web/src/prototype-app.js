@@ -68,6 +68,10 @@ import {
   createSidebarTitlePrototypeDepsProvider
 } from "./app-shell-sidebar-host-deps.js";
 import {
+  installSidebarFlowEventHandler,
+  renderExplorerSidebarFlowForRuntime
+} from "./app-shell-sidebar-flow.js";
+import {
   createAppShellStateChangePrototypeDepsProvider
 } from "./app-shell-state-change-host-deps.js";
 import {
@@ -655,7 +659,8 @@ import {
 import {
   countExplicitSemanticRelations,
   deriveBasketWritingReadiness,
-  describeProjectPreflight
+  describeProjectPreflight,
+  noteHasBoundarySignal
 } from "./writing-readiness.js";
 import {
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
@@ -4756,145 +4761,23 @@ function ensureSelection() {
   createBoxDialog.setOptions(source);
 }
 
-function notesUnderRoot(rootId = "") {
-  const ids = new Set(descendantDirectoryIds(rootId));
-  return state.notes.filter((note) => ids.has(note.folderId));
-}
-
-function noteHasNetworkSignal(note = null) {
-  const bodyLinks = parseLinks(note?.body || "");
-  const bodyTags = parseTags(note?.body || "");
-  return bodyLinks.length > 0 || bodyTags.length > 0;
-}
-
-function noteHasBoundarySignal(note = null) {
-  if (String(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "").trim()) return true;
-  const body = String(note?.body || "");
-  return /边界|反例|不成立|适用条件|counterpoint|boundary|counterexample/i.test(body);
-}
-
-function distillationSummaryForNotes(notes = []) {
-  return notes.reduce(
-    (acc, note) => {
-      const thesis = String(note?.thesis || "").trim();
-      const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
-      const confirmed = distillationStatusOf(note) === "confirmed";
-      if (!thesis) acc.missingThesis += 1;
-      if (summary.length < 3) acc.missingSummary += 1;
-      if (!confirmed && thesis && summary.length >= 3) acc.needsConfirm += 1;
-      if (!noteHasBoundarySignal(note)) acc.missingBoundary += 1;
-      if (!confirmed) acc.pending += 1;
-      if (confirmed) acc.confirmed += 1;
-      if (confirmed && thesis && summary.length >= 3) acc.writingReady += 1;
-      return acc;
-    },
-    {
-      pending: 0,
-      confirmed: 0,
-      writingReady: 0,
-      missingThesis: 0,
-      missingSummary: 0,
-      needsConfirm: 0,
-      missingBoundary: 0
-    }
-  );
-}
-
 function renderExplorerSidebarFlow(rootId = state.browserRootId) {
-  const el = $("sidebarFlow");
-  if (!el) return;
-  const isOriginal = rootId === "dir_original_default";
-  const isFleeting = rootId === "dir_fleeting_default";
-  const isLiterature = rootId === "dir_literature_default";
-  const currentNotes = notesUnderRoot(rootId);
-  const originalNotes = notesUnderRoot("dir_original_default");
-  const linkedOriginalCount = originalNotes.filter(noteHasNetworkSignal).length;
-  const generatedMaterialCount = currentNotes.filter(noteHasGeneratedOriginal).length;
-  const pendingMaterialCount = Math.max(0, currentNotes.length - generatedMaterialCount);
-  const distillation = distillationSummaryForNotes(originalNotes.filter((note) => isPermanentLikeNote(note)));
-  const topGaps = [
-    distillation.missingThesis ? `缺一句话判断 ${distillation.missingThesis}` : "",
-    distillation.missingSummary ? `缺三句话压缩 ${distillation.missingSummary}` : "",
-    distillation.needsConfirm ? `待确认观点 ${distillation.needsConfirm}` : "",
-    distillation.missingBoundary ? `缺边界/反例 ${distillation.missingBoundary}` : ""
-  ].filter(Boolean);
-  const primaryAction = distillation.pending > 0 ? "continue-distillation" : distillation.writingReady > 0 ? "open-writing" : "create-permanent";
-  const title = isOriginal
-    ? "观点形成进度"
-    : isLiterature
-      ? "文献是证据入口"
-      : isFleeting
-        ? "随笔是线索入口"
-        : "当前目录接入主路";
-  const note = isOriginal
-    ? topGaps.length
-      ? `下一步：${topGaps.slice(0, 2).join("，")}。`
-      : distillation.writingReady
-        ? "当前观点已经可以进入写作中心。"
-        : "先写出第一条可以被确认的观点。"
-    : isLiterature
-      ? "先写转述，再记录永久笔记。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
-      : isFleeting
-        ? "先捕捉还不成熟的问题和线索，等它出现判断，再单独沉淀为永久笔记。"
-        : "这一级目录会被放回永久笔记、关系网络、主题索引和写作中心的路径里理解。";
-  const steps = isOriginal
-    ? [
-        ["写一句判断", distillation.missingThesis < originalNotes.length],
-        ["压缩成三句话", distillation.missingSummary < originalNotes.length],
-        ["确认观点", distillation.confirmed > 0],
-        ["写作中心", distillation.writingReady > 0]
-      ]
-    : [
-        ["素材入口", true],
-        ["记录永久笔记", generatedMaterialCount > 0],
-        ["关系网络", linkedOriginalCount > 0],
-        ["写作中心", false]
-      ];
-  const metrics = isOriginal
-    ? [
-        [distillation.pending, "待提纯"],
-        [distillation.confirmed, "已确认观点"],
-        [distillation.writingReady, "可进入写作中心"]
-      ]
-    : [
-        [currentNotes.length, "素材条目"],
-        [generatedMaterialCount, "已生成永久笔记"],
-        [pendingMaterialCount, "待处理"]
-      ];
-
-  el.classList.remove("hidden");
-  el.innerHTML = `
-    <div class="sidebar-flow-card">
-      <div>
-        <div class="sidebar-flow-kicker">${isOriginal ? "Main Route" : "Material Route"}</div>
-        <div class="sidebar-flow-title">${escapeHtml(title)}</div>
-        <div class="sidebar-flow-note">${escapeHtml(note)}</div>
-      </div>
-      <div class="sidebar-flow-steps" aria-label="当前工作路径">
-        ${steps.map(([label, active]) => `<div class="sidebar-flow-step ${active ? "is-active" : ""}">${escapeHtml(label)}</div>`).join("")}
-      </div>
-      <div class="sidebar-flow-metrics">
-        ${metrics
-          .map(
-            ([value, label]) => `
-              <div class="sidebar-flow-metric">
-                <strong>${Number(value) || 0}</strong>
-                <span>${escapeHtml(label)}</span>
-              </div>
-            `
-          )
-          .join("")}
-      </div>
-      ${
-        isOriginal
-          ? `<div class="sidebar-flow-gaps">${topGaps.length ? topGaps.map((gap) => `<span>${escapeHtml(gap)}</span>`).join("") : `<span>观点链路已清爽</span>`}</div>
-             <button class="mini-btn primary sidebar-flow-action" type="button" data-sidebar-flow-action="${escapeHtml(primaryAction)}">${escapeHtml(
-               primaryAction === "continue-distillation" ? "继续整理观点" : primaryAction === "open-writing" ? "进入写作中心" : "新建永久笔记"
-             )}</button>`
-          : ""
-      }
-    </div>
-  `;
+  const directoryIds = new Set(descendantDirectoryIds(rootId));
+  const originalDirectoryIds = new Set(descendantDirectoryIds("dir_original_default"));
+  return renderExplorerSidebarFlowForRuntime({
+    rootId,
+    element: $("sidebarFlow"),
+    currentNotes: state.notes.filter((note) => directoryIds.has(note.folderId)),
+    originalNotes: state.notes.filter((note) => originalDirectoryIds.has(note.folderId))
+  }, {
+    parseLinks,
+    parseTags,
+    noteHasGeneratedOriginal,
+    distillationStatusOf,
+    noteHasBoundarySignal,
+    isPermanentLikeNote,
+    escapeHtml
+  });
 }
 
 function syncNewNoteButtons() {
@@ -14933,25 +14816,15 @@ $("distillationPanel")?.addEventListener("click", async (event) => {
   await openDistillationQueueNote(noteButton.dataset.distillationOpenNote);
 });
 
-$("sidebarFlow")?.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-sidebar-flow-action]");
-  if (!button) return;
-  const action = String(button.dataset.sidebarFlowAction || "").trim();
-  if (action === "continue-distillation") {
-    activateModule("distillation");
-    await openDistillationModule();
-    return;
-  }
-  if (action === "open-writing") {
-    activateModule("writing");
-    await openWritingModule();
-    return;
-  }
-  if (action === "create-permanent") {
-    state.browserRootId = "dir_original_default";
-    state.selectedFolderId = "dir_original_default";
-    await handleStateChange("create-note-in-selected-folder");
-  }
+installSidebarFlowEventHandler({
+  $,
+  depsProvider: () => ({
+    state,
+    activateModule,
+    openDistillationModule,
+    openWritingModule,
+    handleStateChange
+  })
 });
 
 $("btnMobileNewNote")?.addEventListener("click", () => {
