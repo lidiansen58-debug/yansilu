@@ -653,28 +653,18 @@ import {
   describeProjectPreflight
 } from "./writing-readiness.js";
 import {
-  deriveWritingBookDesign as computeDeriveWritingBookDesign,
-  deriveWritingLocalBookIdeas as computeDeriveWritingLocalBookIdeas,
-  currentWritingBookStructureForRuntime as computeCurrentWritingBookStructureForRuntime,
-  normalizeWritingBookStructure as computeNormalizeWritingBookStructure,
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
   resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime,
   suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle,
   suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle,
   syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime,
-  uniqueWritingBookPoolItems as computeUniqueWritingBookPoolItems,
-  writingBookMatchesAny as computeWritingBookMatchesAny,
-  writingBookPlainText as computeWritingBookPlainText,
-  writingBookProjectAudienceForRuntime as computeWritingBookProjectAudienceForRuntime,
-  writingBookProjectGoalForRuntime as computeWritingBookProjectGoalForRuntime,
-  writingBookProjectTitleForRuntime as computeWritingBookProjectTitleForRuntime,
-  writingBookSectionFromNote as computeWritingBookSectionFromNote,
-  writingBookShortText as computeWritingBookShortText,
-  writingBookStructureStats as computeWritingBookStructureStats,
   writingSourceIndexSummary as computeWritingSourceIndexSummary,
   writingThemeLabels as computeWritingThemeLabels,
   writingThemeSummary as computeWritingThemeSummary
 } from "./prototype-writing-workspace.js";
+import {
+  createWritingBookRuntime
+} from "./writing-book-runtime.js";
 import {
   scheduledTaskFormDefaults,
   scheduledTaskFromCanonical,
@@ -8593,86 +8583,25 @@ function renderWritingToplineMetric(label, value, note, tone = "") {
 }
 
 
-function writingBookPlainText(note) {
-  return computeWritingBookPlainText(note);
-}
-
-function writingBookShortText(value, limit = 36) {
-  return computeWritingBookShortText(value, limit);
-}
-
-function writingBookMatchesAny(text, keywords = []) {
-  return computeWritingBookMatchesAny(text, keywords);
-}
-
-function uniqueWritingBookPoolItems(items = []) {
-  return computeUniqueWritingBookPoolItems(items);
-}
-
-function writingBookSectionFromNote(note, fallbackTitle = "") {
-  return computeWritingBookSectionFromNote(note, fallbackTitle);
-}
-
-function normalizeWritingBookStructure(value = {}) {
-  return computeNormalizeWritingBookStructure(value);
-}
-
-function writingBookStructureStats(bookStructure = {}) {
-  return computeWritingBookStructureStats(bookStructure);
-}
-
-function writingBookProjectTitle() {
-  return computeWritingBookProjectTitleForRuntime({
-    projectTitle: writingState.project?.title,
-    inputTitle: $("writingTitle")?.value
-  });
-}
-
-function writingBookProjectGoal() {
-  return computeWritingBookProjectGoalForRuntime({
-    projectGoal: writingState.project?.goal,
-    inputGoal: $("writingGoal")?.value
-  });
-}
-
-function writingBookProjectAudience() {
-  return computeWritingBookProjectAudienceForRuntime({
-    projectAudience: writingState.project?.audience,
-    inputAudience: $("writingAudience")?.value
-  });
-}
-
-
-
-function deriveWritingBookDesign({ notes = writingBasketEntries(), project = writingState.project, scaffold = writingState.scaffold } = {}) {
-  return computeDeriveWritingBookDesign({
-    notes,
-    project,
-    scaffold,
-    title: writingBookProjectTitle(),
-    goal: writingBookProjectGoal(),
-    audience: writingBookProjectAudience()
-  });
-}
-
-function deriveWritingLocalBookIdeas({ notes = writingBasketEntries(), project = writingState.project } = {}) {
-  return computeDeriveWritingLocalBookIdeas({
-    notes,
-    project,
-    title: String($('writingTitle')?.value || '').trim()
-  });
-}
-
-function currentWritingBookStructure({ notes = writingBasketEntries(), includeLocalIdeas = true } = {}) {
-  return computeCurrentWritingBookStructureForRuntime({
-    persistedStructure: writingState.project?.book_structure || {},
-    derivedDesign: deriveWritingBookDesign({ notes }),
-    localBookIdeas: writingState.localBookIdeas,
-    includeLocalIdeas
-  });
-}
-
-
+const writingBookRuntime = createWritingBookRuntime({
+  $,
+  writingState,
+  writingBasketEntries
+});
+const {
+  currentWritingBookStructure,
+  deriveWritingBookDesign,
+  deriveWritingLocalBookIdeas,
+  normalizeWritingBookStructure,
+  uniqueWritingBookPoolItems,
+  writingBookMatchesAny,
+  writingBookPlainText,
+  writingBookProjectAudience,
+  writingBookProjectGoal,
+  writingBookSectionFromNote,
+  writingBookShortText,
+  writingBookStructureStats
+} = writingBookRuntime;
 
 const writingPanelController = createWritingPanelShellController({
   hostProvider: createWritingPanelPrototypeHostProvider(() => ({
