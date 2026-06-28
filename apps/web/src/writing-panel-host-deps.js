@@ -1,3 +1,7 @@
+import {
+  buildWritingPanelHostDeps
+} from "./writing-panel-deps.js";
+
 export function buildWritingPanelPrototypeHostDeps(host = {}) {
   return {
     $: host.$,
@@ -42,4 +46,8 @@ export function buildWritingPanelPrototypeHostDeps(host = {}) {
     writingBookProjectAudience: host.writingBookProjectAudience,
     escapeHtml: host.escapeHtml
   };
+}
+
+export function createWritingPanelPrototypeHostProvider(hostProvider = () => ({})) {
+  return () => buildWritingPanelHostDeps(buildWritingPanelPrototypeHostDeps(hostProvider()));
 }

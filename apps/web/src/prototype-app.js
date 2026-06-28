@@ -515,11 +515,8 @@ import {
   createGraphVisualMapController
 } from "./graph-visual-map-controller.js";
 import {
-  buildGraphVisualMapHostDeps
+  createGraphVisualMapPrototypeDepsProvider
 } from "./graph-visual-map-host-deps.js";
-import {
-  buildGraphVisualMapRuntimeDeps
-} from "./graph-visual-map-runtime-deps.js";
 import {
   bindGraphCanvasEvents
 } from "./graph-canvas-event-router.js";
@@ -594,11 +591,8 @@ import {
   createWritingPanelShellController
 } from "./writing-panel-shell.js";
 import {
-  buildWritingPanelPrototypeHostDeps
+  createWritingPanelPrototypeHostProvider
 } from "./writing-panel-host-deps.js";
-import {
-  buildWritingPanelHostDeps
-} from "./writing-panel-deps.js";
 import {
   writingCandidateNotesForRuntime,
   writingScopeDirectoryIdsForRuntime
@@ -8696,7 +8690,7 @@ function currentWritingBookStructure({ notes = writingBasketEntries(), includeLo
 
 
 const writingPanelController = createWritingPanelShellController({
-  hostProvider: () => buildWritingPanelHostDeps(buildWritingPanelPrototypeHostDeps({
+  hostProvider: createWritingPanelPrototypeHostProvider(() => ({
     $,
     state,
     writingState,
@@ -12076,7 +12070,7 @@ function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = n
 }
 
 const graphVisualMapController = createGraphVisualMapController({
-  depsProvider: () => buildGraphVisualMapRuntimeDeps(buildGraphVisualMapHostDeps({
+  depsProvider: createGraphVisualMapPrototypeDepsProvider(() => ({
     GRAPH_RELATION_GROUP_META,
     GRAPH_RELATION_MARKER_COLORS,
     GRAPH_VISUAL_ZOOM_OPTIONS,

@@ -1,3 +1,7 @@
+import {
+  buildGraphVisualMapRuntimeDeps
+} from "./graph-visual-map-runtime-deps.js";
+
 export function buildGraphVisualMapHostDeps(host = {}) {
   return {
     GRAPH_RELATION_GROUP_META: host.GRAPH_RELATION_GROUP_META,
@@ -44,4 +48,8 @@ export function buildGraphVisualMapHostDeps(host = {}) {
     noteTypeLabel: host.noteTypeLabel,
     shouldShowGraphDensityHint: host.shouldShowGraphDensityHint
   };
+}
+
+export function createGraphVisualMapPrototypeDepsProvider(hostProvider = () => ({})) {
+  return () => buildGraphVisualMapRuntimeDeps(buildGraphVisualMapHostDeps(hostProvider()));
 }

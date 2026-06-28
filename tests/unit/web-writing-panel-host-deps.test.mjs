@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildWritingPanelPrototypeHostDeps
+  buildWritingPanelPrototypeHostDeps,
+  createWritingPanelPrototypeHostProvider
 } from "../../apps/web/src/writing-panel-host-deps.js";
 
 test("writing panel prototype host deps keeps shell-owned writing helpers in one mapping", () => {
@@ -59,4 +60,26 @@ test("writing panel prototype host deps keeps shell-owned writing helpers in one
   for (const key of keys) {
     assert.equal(deps[key], host[key]);
   }
+});
+
+test("writing panel prototype host provider normalizes host deps on each render", () => {
+  let state = { module: "writing" };
+  const provider = createWritingPanelPrototypeHostProvider(() => ({
+    $: (id) => ({ id }),
+    state,
+    writingState: { project: null },
+    writingCandidateNotes: () => ["note"],
+    escapeHtml: (value) => String(value ?? "")
+  }));
+
+  const first = provider();
+  state = { module: "explorer" };
+  const second = provider();
+
+  assert.notEqual(first, second);
+  assert.equal(first.state.module, "writing");
+  assert.equal(second.state.module, "explorer");
+  assert.equal(typeof first.folderById, "function");
+  assert.equal(typeof second.writingBasketEntries, "function");
+  assert.deepEqual(second.writingCandidateNotes(), ["note"]);
 });

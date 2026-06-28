@@ -18,7 +18,7 @@ test("prototype writing shell keeps the main writing surfaces wired", async () =
   assert.match(source, /function continueWritingEntry/);
   assert.match(source, /createWritingPanelShellController/);
   assert.match(source, /renderWritingPanel,\s*renderWritingScaffoldPreview/);
-  assert.match(source, /buildWritingPanelHostDeps\(/);
+  assert.match(source, /createWritingPanelPrototypeHostProvider/);
   assert.doesNotMatch(source, /function renderWritingPanel/);
   assert.doesNotMatch(source, /function writingPanelDomDeps/);
   assert.doesNotMatch(source, /renderWritingPanelDom\(writingPanelDomDeps\(\)\)/);
