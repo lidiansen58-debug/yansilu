@@ -604,6 +604,13 @@ import {
   graphThemeSelectionKey
 } from "./graph-visual-selection-state.js";
 import {
+  graphBuildFocusedRelationTypeStatsForRuntime,
+  graphFocusedItemsForRuntime,
+  graphLoadedScopeCoversDirectoryForRuntime,
+  graphScopedItemsForRuntime,
+  graphScopeDirectoryIdForRuntime
+} from "./graph-scope-state.js";
+import {
   renderDraftVersionCardView,
   renderScaffoldVersionCardView,
   renderWritingToplineMetricView
@@ -11404,16 +11411,14 @@ function renderGraphThemeBoundary(boundary = null) {
 }
 
 function graphScopeDirectoryId() {
-  const selected = String(state.selectedFolderId || "").trim();
-  return selected && isDirectoryUnderOriginalRoot(selected) ? selected : GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID;
+  return graphScopeDirectoryIdForRuntime(state, {
+    graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
+    isDirectoryUnderOriginalRoot
+  });
 }
 
 function graphLoadedScopeCoversDirectory(scopeDirectoryId = "") {
-  const loadedDirectoryId = String(graphState.lastLoadedDirectoryId || "").trim();
-  const targetDirectoryId = String(scopeDirectoryId || "").trim();
-  if (!graphState.item || !loadedDirectoryId || !targetDirectoryId) return false;
-  if (loadedDirectoryId === targetDirectoryId) return true;
-  return descendantDirectoryIds(loadedDirectoryId).includes(targetDirectoryId);
+  return graphLoadedScopeCoversDirectoryForRuntime(graphState, scopeDirectoryId, { descendantDirectoryIds });
 }
 
 function expandGraphBrowserTree() {
@@ -11428,119 +11433,36 @@ function expandGraphBrowserTree() {
 }
 
 function graphScopedItems(graph) {
-  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-  const allEdges = Array.isArray(graph?.edges) ? graph.edges : [];
-  const scopeDirectoryId = graphScopeDirectoryId();
-  const scopedDirectoryIds = new Set(descendantDirectoryIds(scopeDirectoryId));
-  const scopedNodes = nodes.filter((node) => scopedDirectoryIds.has(String(node.directoryId || node.folderId || "").trim()));
-  const focusedNoteId = String(state.selectedFileId || "").trim();
-  if (focusedNoteId && !scopedNodes.some((node) => String(node?.id || "").trim() === focusedNoteId)) {
-    const focusedNote = state.notes.find((note) => String(note?.id || "").trim() === focusedNoteId);
-    const focusedFolderId = String(focusedNote?.folderId || focusedNote?.directoryId || "").trim();
-    if (focusedNote && focusedFolderId && scopedDirectoryIds.has(focusedFolderId)) {
-      scopedNodes.push({
-        id: focusedNoteId,
-        title: String(focusedNote.title || focusedNoteId).trim() || focusedNoteId,
-        folderId: focusedFolderId,
-        directoryId: focusedFolderId,
-        noteType: String(focusedNote.noteType || (focusedFolderId ? typeFromFolder(state, focusedFolderId) : "") || "original").trim() || "original",
-        status: String(focusedNote.status || "draft").trim() || "draft",
-        degree: 0
-      });
-    }
-  }
-  const scopedNodeIds = new Set(scopedNodes.map((node) => node.id));
-  const scopedEdges = allEdges.filter((edge) => scopedNodeIds.has(edge.fromNoteId) && scopedNodeIds.has(edge.toNoteId));
-  const relatedNodeIds = new Set(scopedEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  return {
-    scopeDirectoryId,
-    allNodes: scopedNodes,
-    nodes: scopedNodes.filter((node) => relatedNodeIds.has(node.id)),
-    edges: scopedEdges
-  };
+  return graphScopedItemsForRuntime(graph, {
+    scopeDirectoryId: graphScopeDirectoryId(),
+    focusedNoteId: state.selectedFileId,
+    notes: state.notes
+  }, {
+    descendantDirectoryIds,
+    typeFromFolder: (folderId) => typeFromFolder(state, folderId)
+  });
 }
 
 function graphFocusedItems(nodes = [], edges = [], allNodes = nodes, traversalEdges = edges) {
-  const focusedNoteId = String(state.selectedFileId || "").trim();
-  if (!focusedNoteId) return { focusedNoteId: "", nodes, edges, focused: false };
-  const focusDepth = normalizeGraphFocusDepth(graphState.focusDepth, "1");
-  const adjacency = new Map();
-  traversalEdges.forEach((edge) => {
-    const fromId = String(edge?.fromNoteId || "").trim();
-    const toId = String(edge?.toNoteId || "").trim();
-    if (!fromId || !toId) return;
-    if (!adjacency.has(fromId)) adjacency.set(fromId, new Set());
-    if (!adjacency.has(toId)) adjacency.set(toId, new Set());
-    adjacency.get(fromId).add(toId);
-    adjacency.get(toId).add(fromId);
+  return graphFocusedItemsForRuntime(nodes, edges, allNodes, traversalEdges, {
+    focusedNoteId: state.selectedFileId,
+    focusDepth: graphState.focusDepth
+  }, {
+    normalizeGraphFocusDepth
   });
-  const visibleIds = new Set([focusedNoteId]);
-  const queue = [{ id: focusedNoteId, depth: 0 }];
-  const visited = new Set([focusedNoteId]);
-  const maxDepth = focusDepth === "all" ? Number.POSITIVE_INFINITY : Number(focusDepth || 1) || 1;
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current) continue;
-    if (current.depth >= maxDepth) continue;
-    for (const neighborId of adjacency.get(current.id) || []) {
-      visibleIds.add(neighborId);
-      if (visited.has(neighborId)) continue;
-      visited.add(neighborId);
-      queue.push({ id: neighborId, depth: current.depth + 1 });
-    }
-  }
-  const relatedEdges = edges.filter((edge) => visibleIds.has(edge.fromNoteId) && visibleIds.has(edge.toNoteId));
-  if (!relatedEdges.length) {
-    return {
-      focusedNoteId,
-      nodes: allNodes.filter((node) => node.id === focusedNoteId),
-      edges: [],
-      focused: true,
-      focusDepth
-    };
-  }
-  return {
-    focusedNoteId,
-    nodes: nodes.filter((node) => visibleIds.has(node.id)),
-    edges: relatedEdges,
-    focused: true,
-    focusDepth
-  };
 }
 
 function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = nodes, filters = {}) {
-  const normalizedSelected = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
-  const normalizedStatus = String(filters.status || "all").trim().toLowerCase() || "all";
-  const relationTypes = new Set(
-    (Array.isArray(edges) ? edges : [])
-      .map((edge) => String(edge?.relationType || "associated_with").trim().toLowerCase())
-      .filter(Boolean)
-  );
-  const countFor = (relationType = "all") => {
-    const traversalFilters = { relationType, status: normalizedStatus };
-    const traversalEdges = (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters));
-    const focusedScope = graphFocusedItems(nodes, edges, allNodes, traversalEdges);
-    return focusedScope.edges.filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters)).length;
-  };
-  const counts = {};
-  relationTypes.forEach((relationType) => {
-    const count = countFor(relationType);
-    if (count > 0) counts[relationType] = count;
+  return graphBuildFocusedRelationTypeStatsForRuntime(nodes, edges, allNodes, filters, {
+    focusedNoteId: state.selectedFileId,
+    focusDepth: graphState.focusDepth
+  }, {
+    normalizeGraphRelationTypeFilter,
+    graphEdgeMatchesFilters,
+    graphFocusedItems: (inputNodes, inputEdges, inputAllNodes, inputTraversalEdges, context) =>
+      graphFocusedItemsForRuntime(inputNodes, inputEdges, inputAllNodes, inputTraversalEdges, context, { normalizeGraphFocusDepth }),
+    normalizeGraphFocusDepth
   });
-  if (
-    normalizedSelected &&
-    !["meaningful", "all", "noisy", "index"].includes(normalizedSelected) &&
-    !Object.prototype.hasOwnProperty.call(counts, normalizedSelected)
-  ) {
-    counts[normalizedSelected] = 0;
-  }
-  return {
-    counts,
-    totalCount: countFor("all"),
-    meaningfulCount: countFor("meaningful"),
-    noisyCount: countFor("noisy"),
-    indexCount: countFor("index")
-  };
 }
 
 const graphVisualMapController = createGraphVisualMapController({
