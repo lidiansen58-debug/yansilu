@@ -515,6 +515,9 @@ import {
   createGraphViewportController
 } from "./graph-viewport-controller.js";
 import {
+  createGraphUtilityDrawerController
+} from "./graph-utility-drawer-controller.js";
+import {
   GRAPH_VISUAL_ZOOM_OPTIONS,
   graphZoomOption,
   graphZoomStep
@@ -844,19 +847,17 @@ const {
   updateGraphViewportDrag,
   endGraphViewportDrag
 } = graphViewportController;
-const graphUtilityDrawerDragState = {
-  active: false,
-  moved: false,
-  pointerId: null,
-  handle: null,
-  wrapper: null,
-  stage: null,
-  startX: 0,
-  startY: 0,
-  originX: 0,
-  originY: 0,
-  suppressClickUntil: 0
-};
+const graphUtilityDrawerController = createGraphUtilityDrawerController({
+  graphState,
+  rootProvider: () => $("graphCanvas")
+});
+const {
+  graphUtilityDrawerDragState,
+  applyGraphUtilityDrawerPosition,
+  beginGraphUtilityDrawerDrag,
+  updateGraphUtilityDrawerDrag,
+  endGraphUtilityDrawerDrag
+} = graphUtilityDrawerController;
 const distillationState = {
   filter: "all"
 };
@@ -12962,116 +12963,6 @@ function syncGraphDisclosureState(root) {
     if (!key) return;
     graphState.sectionOpen[key] = section.hasAttribute("open");
   });
-}
-
-function clampGraphUtilityDrawerPosition(position, stage, wrapper) {
-  const nextX = Number(position?.x);
-  const nextY = Number(position?.y);
-  if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !stage || !wrapper) return null;
-  const padding = 10;
-  const maxX = Math.max(padding, stage.clientWidth - wrapper.offsetWidth - padding);
-  const maxY = Math.max(padding, stage.clientHeight - wrapper.offsetHeight - padding);
-  return {
-    x: Math.max(padding, Math.min(maxX, Math.round(nextX))),
-    y: Math.max(padding, Math.min(maxY, Math.round(nextY)))
-  };
-}
-
-function graphUtilityDrawerWrapStyle(root = $("graphCanvas")) {
-  const position = graphState.utilityDrawerPosition;
-  if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return "";
-  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
-  const stage = root?.querySelector(".graph-map-stage");
-  const clamped = wrap && stage ? clampGraphUtilityDrawerPosition(position, stage, wrap) : position;
-  if (clamped) graphState.utilityDrawerPosition = clamped;
-  return ` style="left:${Number(clamped?.x || 0)}px; top:${Number(clamped?.y || 0)}px; right:auto; justify-content:flex-start;"`;
-}
-
-function applyGraphUtilityDrawerPosition(root = $("graphCanvas")) {
-  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
-  const stage = root?.querySelector(".graph-map-stage");
-  const position = graphState.utilityDrawerPosition;
-  if (!wrap || !stage || !position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return;
-  const clamped = clampGraphUtilityDrawerPosition(position, stage, wrap);
-  if (!clamped) return;
-  graphState.utilityDrawerPosition = clamped;
-  wrap.style.left = `${clamped.x}px`;
-  wrap.style.top = `${clamped.y}px`;
-  wrap.style.right = "auto";
-  wrap.style.justifyContent = "flex-start";
-}
-
-function beginGraphUtilityDrawerDrag(handle, event) {
-  const wrapper = handle?.closest(".graph-utility-drawer-wrap");
-  const stage = wrapper?.closest(".graph-map-stage");
-  if (!wrapper || !stage) return;
-  const originX = Number.isFinite(graphState.utilityDrawerPosition?.x) ? graphState.utilityDrawerPosition.x : wrapper.offsetLeft;
-  const originY = Number.isFinite(graphState.utilityDrawerPosition?.y) ? graphState.utilityDrawerPosition.y : wrapper.offsetTop;
-  graphUtilityDrawerDragState.active = true;
-  graphUtilityDrawerDragState.moved = false;
-  graphUtilityDrawerDragState.pointerId = event.pointerId;
-  graphUtilityDrawerDragState.handle = handle;
-  graphUtilityDrawerDragState.wrapper = wrapper;
-  graphUtilityDrawerDragState.stage = stage;
-  graphUtilityDrawerDragState.startX = event.clientX;
-  graphUtilityDrawerDragState.startY = event.clientY;
-  graphUtilityDrawerDragState.originX = originX;
-  graphUtilityDrawerDragState.originY = originY;
-  wrapper.classList.add("is-dragging");
-  try {
-    handle.setPointerCapture(event.pointerId);
-  } catch {}
-  event.preventDefault();
-  event.stopPropagation();
-}
-
-function updateGraphUtilityDrawerDrag(event) {
-  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
-  const deltaX = event.clientX - graphUtilityDrawerDragState.startX;
-  const deltaY = event.clientY - graphUtilityDrawerDragState.startY;
-  if (!graphUtilityDrawerDragState.moved && Math.abs(deltaX) + Math.abs(deltaY) > 4) {
-    graphUtilityDrawerDragState.moved = true;
-  }
-  const wrapper = graphUtilityDrawerDragState.wrapper;
-  const stage = graphUtilityDrawerDragState.stage;
-  if (!wrapper || !stage) return;
-  const nextPosition = clampGraphUtilityDrawerPosition(
-    {
-      x: graphUtilityDrawerDragState.originX + deltaX,
-      y: graphUtilityDrawerDragState.originY + deltaY
-    },
-    stage,
-    wrapper
-  );
-  if (!nextPosition) return;
-  graphState.utilityDrawerPosition = nextPosition;
-  wrapper.style.left = `${nextPosition.x}px`;
-  wrapper.style.top = `${nextPosition.y}px`;
-  wrapper.style.right = "auto";
-  wrapper.style.justifyContent = "flex-start";
-  wrapper.querySelector("[data-graph-utility-reset-position]")?.removeAttribute("disabled");
-  event.preventDefault();
-}
-
-function endGraphUtilityDrawerDrag(event) {
-  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
-  const handle = graphUtilityDrawerDragState.handle;
-  const wrapper = graphUtilityDrawerDragState.wrapper;
-  if (handle?.hasPointerCapture?.(event.pointerId)) {
-    try {
-      handle.releasePointerCapture(event.pointerId);
-    } catch {}
-  }
-  if (wrapper) wrapper.classList.remove("is-dragging");
-  if (graphUtilityDrawerDragState.moved) {
-    graphUtilityDrawerDragState.suppressClickUntil = Date.now() + 250;
-  }
-  graphUtilityDrawerDragState.active = false;
-  graphUtilityDrawerDragState.moved = false;
-  graphUtilityDrawerDragState.pointerId = null;
-  graphUtilityDrawerDragState.handle = null;
-  graphUtilityDrawerDragState.wrapper = null;
-  graphUtilityDrawerDragState.stage = null;
 }
 
 function clearGraphDensityHintTimer() {
