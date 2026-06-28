@@ -194,7 +194,7 @@ import {
   readStoredSystemMessagesForRuntime
 } from "./system-message-storage.js";
 import {
-  buildSystemMessagesPrototypeHostDeps
+  createSystemMessagesPrototypeHostProvider
 } from "./system-messages-host-deps.js";
 import {
   addSystemMessageForRuntime,
@@ -1447,19 +1447,19 @@ function persistSystemMessages() {
 
 
 const systemMessagesShellController = createSystemMessagesShellController({
-  hostProvider: () => buildSystemMessagesPrototypeHostDeps({
+  hostProvider: createSystemMessagesPrototypeHostProvider(() => ({
     $,
     document,
-    getMessages: () => systemMessages,
-    getSelectedMessageId: () => selectedSystemMessageId,
-    setSelectedMessageId: (messageId = "") => {
-      selectedSystemMessageId = String(messageId || "").trim();
+    getMessagesRef: () => systemMessages,
+    getSelectedMessageIdRef: () => selectedSystemMessageId,
+    setSelectedMessageIdRef: (messageId = "") => {
+      selectedSystemMessageId = messageId;
     },
     notes: state.notes,
     escapeHtml,
     hideEditorHelper,
     renderSystemMessages
-  })
+  }))
 });
 const {
   renderSystemMessages,
