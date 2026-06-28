@@ -137,11 +137,8 @@ import {
   mapNoteItem as computeMapNoteItem,
   noteMatchesSearchQuery,
   noteTypeLabel,
-  relationNetworkWorkflowMessageForNote as computeRelationNetworkWorkflowMessageForNote,
   saveAiSuggestionKey,
-  sourcePromotionWorkflowMessageForNote as computeSourcePromotionWorkflowMessageForNote,
   sourceNoteTypeLabel,
-  workflowMessageDedupeKey,
   writingProjectStatusLabel
 } from "./prototype-note-state-helpers.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
@@ -207,6 +204,12 @@ import {
 import {
   createSystemMessagePrototypeDepsProviders
 } from "./system-message-deps.js";
+import {
+  relationNetworkWorkflowMessageForRuntime,
+  sourcePromotionWorkflowMessageForRuntime,
+  syncRelationNetworkSystemMessageForRuntime,
+  syncSourcePromotionSystemMessageForRuntime
+} from "./system-message-workflow-sync.js";
 import {
   createRecordPermanentWorkflowOpener,
   createSystemMessageWorkflowOpener
@@ -4887,7 +4890,7 @@ function saveAiSuggestionForNote(note = null) {
 }
 
 function sourcePromotionWorkflowMessageForNote(note = null, suggestion = null) {
-  return computeSourcePromotionWorkflowMessageForNote(note, suggestion, {
+  return sourcePromotionWorkflowMessageForRuntime(note, suggestion, {
     isOriginalRecordableSource,
     noteHasGeneratedOriginal,
     state,
@@ -4896,26 +4899,30 @@ function sourcePromotionWorkflowMessageForNote(note = null, suggestion = null) {
 }
 
 function syncSourcePromotionSystemMessageForNote(note = null, suggestion = null) {
-  if (!note?.id || !isOriginalRecordableSource(note)) return null;
-  const dedupeKey = workflowMessageDedupeKey(note.id, "source-promotion", "record-permanent");
-  if (noteHasGeneratedOriginal(note)) return resolveSystemMessageByDedupeKey(dedupeKey);
-  const message = sourcePromotionWorkflowMessageForNote(note, suggestion);
-  if (!message) return null;
-  return upsertSystemMessage(message, { preserveRead: true });
+  return syncSourcePromotionSystemMessageForRuntime(note, suggestion, {
+    isOriginalRecordableSource,
+    noteHasGeneratedOriginal,
+    state,
+    typeFromFolder,
+    resolveSystemMessageByDedupeKey,
+    upsertSystemMessage: (message) => upsertSystemMessage(message, { preserveRead: true })
+  });
 }
 
 function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {
-  return computeRelationNetworkWorkflowMessageForNote(note, overview, {
+  return relationNetworkWorkflowMessageForRuntime(note, overview, {
     distillationStatusOf,
     isPermanentLikeNote
   });
 }
 
 function syncRelationNetworkSystemMessageForNote(note = null, overview = {}) {
-  const message = relationNetworkWorkflowMessageForNote(note, overview);
-  if (!message) return null;
-  if (message.resolved) return resolveSystemMessageByDedupeKey(message.dedupeKey);
-  return upsertSystemMessage(message, { preserveRead: true });
+  return syncRelationNetworkSystemMessageForRuntime(note, overview, {
+    distillationStatusOf,
+    isPermanentLikeNote,
+    resolveSystemMessageByDedupeKey,
+    upsertSystemMessage: (message) => upsertSystemMessage(message, { preserveRead: true })
+  });
 }
 
 function clearSaveAiSuggestion() {
