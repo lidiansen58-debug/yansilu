@@ -4,6 +4,9 @@ import {
   renderWritingProjectCardView,
   writingFlowStepItems
 } from "./writing-workspace-view.js";
+import {
+  resolveWritingThemeSelectionForPanel
+} from "./writing-theme-selection-controller.js";
 
 export function renderWritingStatusStripDom(deps = {}) {
   const {
@@ -727,17 +730,10 @@ export function renderWritingPanelDom(deps = {}) {
     writingOpenDraftButtonState,
     writingScaffoldButtonState,
     writingStrongModelButtonState,
-    selectedWritingThemeIndex,
-    writingThemeIndexNoteIds,
     findExistingWritingProjectForTheme,
     describeWritingContinuationAction,
     renderThinkingStatusBadge,
     writingThemeProjectEntry,
-    shouldHydrateWritingThemeNotes,
-    hydrateWritingThemeNotes,
-    shouldRefreshWritingThemeRelationCounts,
-    refreshWritingThemeRelationCounts,
-    clearWritingThemeRelationCounts,
     writingThemeDetailHintText,
     renderWritingToplineMetric,
     writingThemeSummary,
@@ -853,24 +849,7 @@ export function renderWritingPanelDom(deps = {}) {
     }
   }
 
-  const selectedTheme = selectedWritingThemeIndex();
-  if (selectedTheme) {
-    const selectedThemeNoteIds = writingThemeIndexNoteIds(selectedTheme);
-    if (shouldHydrateWritingThemeNotes(selectedThemeNoteIds)) {
-      void hydrateWritingThemeNotes(selectedThemeNoteIds);
-    }
-    if (shouldRefreshWritingThemeRelationCounts(selectedThemeNoteIds)) {
-      void refreshWritingThemeRelationCounts(selectedThemeNoteIds);
-    }
-  } else if (
-    writingState.themeRelationNoteIds.length ||
-    Object.keys(writingState.themeRelationCounts).length ||
-    writingState.themeNoteDetailIds.length
-  ) {
-    writingState.themeNoteDetailIds = [];
-    writingState.loadingThemeNoteDetails = false;
-    clearWritingThemeRelationCounts();
-  }
+  const selectedTheme = resolveWritingThemeSelectionForPanel(deps);
   if (themeDetailHint) {
     themeDetailHint.textContent = selectedTheme
       ? writingThemeDetailHintText(selectedTheme)
