@@ -158,6 +158,10 @@ function readGraphAiCandidates() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-ai-candidates.js"), "utf8");
 }
 
+function readGraphIsolatedDecisionNoteUpdate() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-decision-note-update.js"), "utf8");
+}
+
 function readGraphAiConnectModel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-ai-connect-model.js"), "utf8");
 }
@@ -937,6 +941,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const workflowControllerSource = readGraphRelationWorkflowController();
   const relationSaveTransactionSource = readRelationSaveTransaction();
   const graphAiCandidatesSource = readGraphAiCandidates();
+  const isolatedDecisionNoteUpdateSource = readGraphIsolatedDecisionNoteUpdate();
   const graphAiConnectModelSource = readGraphAiConnectModel();
   const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const html = readPrototypeHtml();
@@ -1093,7 +1098,9 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphCanvasEventRouterSource, /const rationaleInput = event\.target\.closest\("\[data-graph-isolated-rationale\]"\);/);
   assert.match(graphCanvasEventRouterSource, /markGraphIsolatedRationaleUserEdited\(rationaleInput\);/);
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
-  assert.match(source, /graphUpsertMarkdownSection\(nextBody, "关联整理备注"/);
+  assert.match(source, /buildGraphIsolatedDecisionNoteUpdate\(\{ note, mode, text \}/);
+  assert.match(isolatedDecisionNoteUpdateSource, /graphUpsertMarkdownSection\(originalBody, thesisHeading, text\)/);
+  assert.match(isolatedDecisionNoteUpdateSource, /graphUpsertMarkdownSection\(originalBody, relationNoteHeading,/);
   assert.match(source, /function graphNoteHasSavedIsolationDisposition\(note = \{\}\) \{/);
   assert.match(source, /noteHasSavedIsolationDisposition: graphNoteHasSavedIsolationDisposition/);
   assert.equal(moduleBuildGraphThinkingItemsForGraph({

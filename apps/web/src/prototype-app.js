@@ -339,6 +339,12 @@ import {
   createGraphIsolatedRelationController
 } from "./graph-isolated-relation-controller.js";
 import {
+  graphIsolatedDecisionFormInput
+} from "./graph-isolated-decision-form-model.js";
+import {
+  buildGraphIsolatedDecisionNoteUpdate
+} from "./graph-isolated-decision-note-update.js";
+import {
   createGraphRelationSaveController
 } from "./graph-relation-save-controller.js";
 import {
@@ -8821,12 +8827,11 @@ async function loadGraphEditableNote(noteId = "") {
 }
 
 async function saveGraphIsolatedDecision(button = null) {
-  const noteId = String(button?.getAttribute?.("data-graph-isolated-decision-save") || "").trim();
+  const { noteId, mode, text } = graphIsolatedDecisionFormInput(button, {
+    document,
+    graphIsolatedDecisionMode
+  });
   if (!noteId) return false;
-  const panel = button.closest?.(".graph-isolated-decision-form") || document;
-  const escapedNoteId = globalThis.CSS?.escape ? CSS.escape(noteId) : noteId.replace(/["\\]/g, "\\$&");
-  const mode = graphIsolatedDecisionMode(panel.querySelector?.(`input[name="graph-isolated-decision-${escapedNoteId}"]:checked`)?.value);
-  const text = String(panel.querySelector?.(`[data-graph-isolated-decision-text="${escapedNoteId}"]`)?.value || "").trim();
   if (!text) {
     setStatus("请先写一句说明，再保存这个处理决定", "warn");
     return false;
@@ -8839,22 +8844,19 @@ async function saveGraphIsolatedDecision(button = null) {
   const previousText = button.textContent || "";
   button.disabled = true;
   button.textContent = "正在保存";
-  const originalBody = ensureEditableNoteBody(note.body || `# ${note.title || "未命名笔记"}\n`);
-  let nextBody = originalBody;
-  const decisionTitle = graphIsolatedDecisionTitle(mode);
-  if (mode === "rewrite") {
-    nextBody = graphUpsertMarkdownSection(nextBody, "一句话论点", text);
-    nextBody = graphUpsertMarkdownSection(nextBody, "关联整理备注", `已重写中心判断。下一步：根据新的判断再寻找一条能说明理由的关系。`);
-  } else {
-    nextBody = graphUpsertMarkdownSection(nextBody, "关联整理备注", `${decisionTitle}：${text}`);
-  }
+  const decisionUpdate = buildGraphIsolatedDecisionNoteUpdate({ note, mode, text }, {
+    ensureEditableNoteBody,
+    graphUpsertMarkdownSection,
+    graphIsolatedDecisionTitle
+  });
+  const { nextBody, decisionTitle } = decisionUpdate;
   try {
     let updated = null;
     if (isLocalOnlyNote(note)) {
       note.body = nextBody;
       note.tags = parseTags(nextBody);
       note.links = parseLinks(nextBody);
-      note.thesis = mode === "rewrite" ? text : note.thesis || "";
+      note.thesis = decisionUpdate.nextThesis;
       note.updatedAt = new Date().toISOString();
       note.bodyLoaded = true;
       updated = note;
