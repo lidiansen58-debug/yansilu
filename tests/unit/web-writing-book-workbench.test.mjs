@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { writingAnalysisSystemMessageForResult } from "../../apps/web/src/prototype-system-messages.js";
+import {
+  writingAnalysisSystemMessageDeliveryOptions,
+  writingAnalysisSystemMessageForResult
+} from "../../apps/web/src/prototype-system-messages.js";
 import {
   deriveWritingBookDesign,
   deriveWritingLocalBookIdeas,
@@ -107,8 +110,7 @@ test("strong model request package shows included notes, questions, and exclusio
   assert.match(panelControllerSource, /notSent\.map/);
 });
 
-test("strong model request package history does not interrupt when no artifacts are created", async () => {
-  const source = await readPrototypeAppSource();
+test("strong model request package history does not interrupt when no artifacts are created", () => {
   const message = writingAnalysisSystemMessageForResult({
     projectId: "wp_1",
     noteIds: ["note-1"],
@@ -119,5 +121,6 @@ test("strong model request package history does not interrupt when no artifacts 
   assert.equal(message.id, "writing-ai-request:wp_1:123");
   assert.equal(message.artifactCount, 0);
   assert.equal(message.action, "");
-  assert.match(source, /addSystemMessage\(systemMessage, artifactCount > 0 \? \{ interrupt: true \} : \{\}\)/);
+  assert.deepEqual(writingAnalysisSystemMessageDeliveryOptions({ artifactCount: 0 }), {});
+  assert.deepEqual(writingAnalysisSystemMessageDeliveryOptions({ artifactCount: 2 }), { interrupt: true });
 });

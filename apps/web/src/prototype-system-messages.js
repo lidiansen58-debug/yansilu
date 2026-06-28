@@ -217,3 +217,7 @@ export function writingAnalysisSystemMessageForResult({
     artifactCount: 0
   });
 }
+
+export function writingAnalysisSystemMessageDeliveryOptions({ artifactCount = 0 } = {}) {
+  return Number(artifactCount || 0) > 0 ? { interrupt: true } : {};
+}

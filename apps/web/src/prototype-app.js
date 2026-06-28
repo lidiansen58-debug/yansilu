@@ -167,6 +167,7 @@ import {
   systemMessageActionRoute,
   systemMessageSubjectText,
   upsertSystemMessageList,
+  writingAnalysisSystemMessageDeliveryOptions,
   writingAnalysisSystemMessageForResult
 } from "./prototype-system-messages.js";
 import {
@@ -8440,7 +8441,7 @@ async function prepareWritingStrongModelAnalysis() {
       model,
       artifactCount
     });
-    addSystemMessage(systemMessage, artifactCount > 0 ? { interrupt: true } : {});
+    addSystemMessage(systemMessage, writingAnalysisSystemMessageDeliveryOptions({ artifactCount }));
     setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
   } catch (error) {
     if (writingState.strongModelRevision !== requestRevision) return;
