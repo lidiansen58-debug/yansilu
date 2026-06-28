@@ -168,6 +168,10 @@ function readGraphVisualMapRuntimeState() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-runtime-state.js"), "utf8");
 }
 
+function readGraphVisualMapControlsState() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-controls-state.js"), "utf8");
+}
+
 function readGraphVisualMapSelectionState() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-visual-map-selection-state.js"), "utf8");
 }
@@ -437,6 +441,7 @@ test("graph refresh repaints the explorer tree after connectivity state changes"
 
 test("graph focus relation panel can be collapsed and restored explicitly", () => {
   const runtimeStateSource = readGraphVisualMapRuntimeState();
+  const controlsStateSource = readGraphVisualMapControlsState();
   const html = readPrototypeHtml();
   const panel = renderGraphFocusContextPanel({
     focusedNoteId: "a",
@@ -451,7 +456,8 @@ test("graph focus relation panel can be collapsed and restored explicitly", () =
     focusContextHelpOpen: false
   }, graphFocusPanelTestDeps());
 
-  assert.match(runtimeStateSource, /const focusContextAvailable = filterActive && normalizedFocusedNoteId;/);
+  assert.match(runtimeStateSource, /buildGraphVisualMapControlsState\(/);
+  assert.match(controlsStateSource, /const focusContextAvailable = filterActive && normalizedFocusedNoteId;/);
   assert.equal(graphFocusContextCollapsedState(false, "close"), true);
   assert.equal(graphFocusContextCollapsedState(true, "open"), false);
   assert.equal(graphFocusContextCollapsedState(false, "toggle"), true);

@@ -2,6 +2,9 @@ import {
   buildGraphVisualMapAdjacencyMap,
   buildGraphVisualMapSelectionState
 } from "./graph-visual-map-selection-state.js";
+import {
+  buildGraphVisualMapControlsState
+} from "./graph-visual-map-controls-state.js";
 
 export function buildGraphVisualMapRuntimeState({
   graphState = {},
@@ -45,14 +48,7 @@ export function buildGraphVisualMapRuntimeState({
   } = deps;
 
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
-  const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
-  const modeMeta = graphReadingModeMeta(graphViewModeForRelationType(relationType));
   const layout = graphBuildVisualLayout(nodes, edges, { focusedNoteId: normalizedFocusedNoteId });
-  const zoom = graphZoomOption(graphState.zoom);
-  const expanded = graphState.expanded === true;
-  const readingLens = graphReadingLensMeta(graphState.readingLens);
-  const zoomWidth = Math.round(layout.width * zoom.scale);
-  const zoomHeight = Math.round(layout.height * zoom.scale);
 
   const adjacencyMap = buildGraphVisualMapAdjacencyMap(edges);
 
@@ -86,7 +82,6 @@ export function buildGraphVisualMapRuntimeState({
         indexCount: 0
       }
     : null;
-  const legendOpen = graphState.legendOpen === true;
   const selectionState = buildGraphVisualMapSelectionState({
     graphSelection: graphState.selection,
     layoutNodes: layout.nodes,
@@ -104,52 +99,37 @@ export function buildGraphVisualMapRuntimeState({
     normalizeGraphSelectionForVisibleItems,
     graphNodeNeedsRelationWorkflow
   });
-  const legendGroups = ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"]
-    .map((key) => {
-      const meta = relationGroupMeta[key];
-      return meta ? { key, className: `is-${key}`, ...meta } : null;
-    })
-    .filter(Boolean);
-  const zoomKeys = Object.keys(zoomOptions || {});
-  const zoomIndex = Math.max(0, zoomKeys.indexOf(zoom.key));
-  const focusContextAvailable = filterActive && normalizedFocusedNoteId;
-  const focusContextCollapsed = graphState.focusContextCollapsed === true;
-  const readingLensState = graphBuildReadingLensState({
-    nodes: layout.nodes,
+  const controlsState = buildGraphVisualMapControlsState({
+    graphState,
+    relationType,
+    layout,
     visibleEdges,
     bridgeGaps,
-    lens: readingLens.key
+    filterActive,
+    normalizedFocusedNoteId,
+    denseGalaxyMode,
+    workbenchPanelMarkup
+  }, {
+    graphFocusDepthMeta,
+    graphReadingModeMeta,
+    graphViewModeForRelationType,
+    graphZoomOption,
+    graphReadingLensMeta,
+    graphBuildReadingLensState,
+    zoomOptions,
+    relationGroupMeta
   });
-  const researchNavigatorAutoHidden = denseGalaxyMode && graphState.researchNavigatorTouched !== true;
-  const researchNavigatorHidden = graphState.researchNavigatorHidden === true || researchNavigatorAutoHidden;
-  const researchNavigatorCanOpen = !filterActive && researchNavigatorHidden !== true && !workbenchPanelMarkup;
 
   return {
     normalizedFocusedNoteId,
-    focusDepth,
-    modeMeta,
     layout,
-    zoom,
-    expanded,
-    readingLens,
-    zoomWidth,
-    zoomHeight,
     adjacencyMap,
     visibleEdges,
     denseDirectoryMode,
     denseGalaxyMode,
     showDensityHint,
     compactRelationFilterStats,
-    legendOpen,
     ...selectionState,
-    legendGroups,
-    zoomKeys,
-    zoomIndex,
-    focusContextAvailable,
-    focusContextCollapsed,
-    readingLensState,
-    researchNavigatorAutoHidden,
-    researchNavigatorHidden,
-    researchNavigatorCanOpen
+    ...controlsState
   };
 }
