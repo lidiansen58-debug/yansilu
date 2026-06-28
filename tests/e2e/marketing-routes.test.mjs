@@ -137,7 +137,12 @@ test("prototype keeps the public demo writing theme detail renderer", async (t) 
 
   const controller = await fetch(`${webBase}/writing-panel-controller.js`);
   assert.equal(controller.status, 200);
-  const source = await controller.text();
+  const controllerSource = await controller.text();
+  assert.match(controllerSource, /from "\.\/writing-theme-card-panel\.js"/);
+
+  const themePanel = await fetch(`${webBase}/writing-theme-card-panel.js`);
+  assert.equal(themePanel.status, 200);
+  const source = await themePanel.text();
   assert.match(source, /function renderWritingThemeDetailDom/);
   assert.match(source, /writingThemeDetailTitle/);
   assert.match(source, /data-writing-theme-action="\$\{escapeHtml\(primaryThemeAction\)\}"/);

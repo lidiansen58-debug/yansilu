@@ -51,6 +51,14 @@ export function readWritingStrongModelRequestPanelSource() {
   return readRepoText("apps", "web", "src", "writing-strong-model-request-panel.js");
 }
 
+export function readWritingNoteCardPanelSource() {
+  return readRepoText("apps", "web", "src", "writing-note-card-panel.js");
+}
+
+export function readWritingThemeCardPanelSource() {
+  return readRepoText("apps", "web", "src", "writing-theme-card-panel.js");
+}
+
 export function readWritingPanelShellSource() {
   return readRepoText("apps", "web", "src", "writing-panel-shell.js");
 }

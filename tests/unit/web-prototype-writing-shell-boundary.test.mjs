@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   readPrototypeAppSource,
+  readWritingNoteCardPanelSource,
   readWritingStrongModelRequestPanelSource,
+  readWritingThemeCardPanelSource,
   readWritingPanelControllerSource,
   readWritingPanelShellSource
 } from "./copy-source-helpers.mjs";
@@ -22,7 +24,9 @@ test("prototype writing shell keeps the main writing surfaces wired", async () =
 test("prototype writing shell delegates panel state building to writing workspace helpers", async () => {
   const panelShellSource = await readWritingPanelShellSource();
   const panelControllerSource = await readWritingPanelControllerSource();
+  const noteCardPanelSource = await readWritingNoteCardPanelSource();
   const strongModelRequestPanelSource = await readWritingStrongModelRequestPanelSource();
+  const themeCardPanelSource = await readWritingThemeCardPanelSource();
 
   assert.match(panelShellSource, /createWritingPanelDomDeps/);
   assert.match(panelShellSource, /buildWritingPanelState/);
@@ -39,10 +43,12 @@ test("prototype writing shell delegates panel state building to writing workspac
   assert.match(strongModelRequestPanelSource, /function renderWritingStrongModelRequestDetailDom/);
   assert.match(panelControllerSource, /function renderWritingStatusStripDom/);
   assert.match(panelControllerSource, /renderWritingStatusStripDom\(deps\)/);
-  assert.match(panelControllerSource, /function renderWritingThemeIndexCardDom/);
-  assert.match(panelControllerSource, /function renderWritingThemeDetailDom/);
-  assert.match(panelControllerSource, /function renderWritingNoteCardDom/);
-  assert.match(panelControllerSource, /function renderWritingProjectCardDom/);
+  assert.match(panelControllerSource, /from "\.\/writing-note-card-panel\.js"/);
+  assert.match(panelControllerSource, /from "\.\/writing-theme-card-panel\.js"/);
+  assert.match(themeCardPanelSource, /function renderWritingThemeIndexCardDom/);
+  assert.match(themeCardPanelSource, /function renderWritingThemeDetailDom/);
+  assert.match(noteCardPanelSource, /function renderWritingNoteCardDom/);
+  assert.match(noteCardPanelSource, /function renderWritingProjectCardDom/);
   assert.doesNotMatch(panelControllerSource, /const candidateFocusSourceIds = uniqueStrings/);
 });
 
