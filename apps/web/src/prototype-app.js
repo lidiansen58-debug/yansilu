@@ -748,6 +748,10 @@ import {
   renderAiRoutePreviewForRuntime
 } from "./settings-ai-route-preview-view.js";
 import {
+  escapeTemplatePreviewInline,
+  renderTemplateMarkdownPreviewHtmlForRuntime
+} from "./settings-template-preview-view.js";
+import {
   renderSettingsDetailFocusForRuntime,
   renderSettingsSidebarColumnForRuntime,
   renderSettingsWorkbenchChromeForRuntime
@@ -6079,67 +6083,11 @@ function noteTemplateFeedbackTextElementId(kind = "") {
 }
 
 function escapePreviewInline(text = "") {
-  return escapeHtml(String(text || ""))
-    .replace(/\[\[([^\]]+)\]\]/g, '<span class="preview-wikilink">[[$1]]</span>')
-    .replace(/(^|\s)#([^\s#]+)/g, '$1<span class="preview-tag">#$2</span>');
+  return escapeTemplatePreviewInline(text, { escapeHtml });
 }
 
 function renderTemplateMarkdownPreviewHtml(source = "") {
-  const lines = String(source || "").replace(/\r\n/g, "\n").split("\n");
-  const html = [];
-  let paragraph = [];
-  let listItems = [];
-
-  function flushParagraph() {
-    if (!paragraph.length) return;
-    html.push(`<p>${escapePreviewInline(paragraph.join(" "))}</p>`);
-    paragraph = [];
-  }
-
-  function flushList() {
-    if (!listItems.length) return;
-    html.push(`<ul>${listItems.map((item) => `<li>${escapePreviewInline(item)}</li>`).join("")}</ul>`);
-    listItems = [];
-  }
-
-  for (const rawLine of lines) {
-    const line = String(rawLine || "");
-    const trimmed = line.trim();
-    if (!trimmed) {
-      flushParagraph();
-      flushList();
-      continue;
-    }
-    if (/^#\s+/.test(trimmed)) {
-      flushParagraph();
-      flushList();
-      html.push(`<h1>${escapePreviewInline(trimmed.replace(/^#\s+/, ""))}</h1>`);
-      continue;
-    }
-    if (/^##\s+/.test(trimmed)) {
-      flushParagraph();
-      flushList();
-      html.push(`<h2>${escapePreviewInline(trimmed.replace(/^##\s+/, ""))}</h2>`);
-      continue;
-    }
-    if (/^>\s*/.test(trimmed)) {
-      flushParagraph();
-      flushList();
-      html.push(`<blockquote>${escapePreviewInline(trimmed.replace(/^>\s*/, ""))}</blockquote>`);
-      continue;
-    }
-    if (/^-\s+/.test(trimmed)) {
-      flushParagraph();
-      listItems.push(trimmed.replace(/^-\s+/, ""));
-      continue;
-    }
-    flushList();
-    paragraph.push(trimmed);
-  }
-
-  flushParagraph();
-  flushList();
-  return html.join("") || `<div class="markdown-preview-empty">还没有可预览的内容。</div>`;
+  return renderTemplateMarkdownPreviewHtmlForRuntime(source, { escapeHtml });
 }
 
 function noteTemplateDraftValidation(kind = "", source = "") {
