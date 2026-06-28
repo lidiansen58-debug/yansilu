@@ -55,6 +55,9 @@ import {
   buildRenderAppShellDeps
 } from "./app-shell-render-all-deps.js";
 import {
+  buildRenderAppShellHostDeps
+} from "./app-shell-render-all-host-deps.js";
+import {
   currentModuleSidebarUi,
   syncModuleChromeClassesForRuntime
 } from "./app-shell-module-ui.js";
@@ -5497,7 +5500,7 @@ async function openDistillationQueueNote(noteId = "") {
 }
 
 function renderAll() {
-  return renderAppShell(buildRenderAppShellDeps({
+  return renderAppShell(buildRenderAppShellDeps(buildRenderAppShellHostDeps({
     state,
     explorer,
     editor,
@@ -5516,7 +5519,7 @@ function renderAll() {
     renderWorkspaceStatusHint,
     renderSaveAiSuggestion,
     renderSystemMessages
-  }));
+  })));
 }
 
 function explorerQuickAction(rootId = state.browserRootId) {
