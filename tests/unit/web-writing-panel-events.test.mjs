@@ -4,9 +4,11 @@ import assert from "node:assert/strict";
 import {
   handleWritingAddVisible,
   handleWritingNoteListClick,
+  handleWritingThemeDetailClick,
   handleWritingThemeIndexListClick,
   handleWritingUseCurrent,
   installWritingPanelBasketEventHandlers,
+  installWritingThemeDetailEventHandlers,
   installWritingThemeIndexEventHandlers
 } from "../../apps/web/src/writing-panel-events.js";
 
@@ -225,4 +227,124 @@ test("writing theme index list handler uses index cards and continuation routes"
 
   assert.deepEqual(calls[0], ["use", "idx1", { replaceBasket: false, resetContext: false, source: "writing_theme_index_list" }]);
   assert.deepEqual(calls[2], ["continue", "p1", { openDraft: true, statusMessage: "resume" }]);
+});
+
+test("writing theme detail installer wires the detail surface through latest deps", async () => {
+  const handlers = new Map();
+  let version = "first";
+  const calls = [];
+  const element = {
+    addEventListener: (eventName, handler) => handlers.set(eventName, handler)
+  };
+  const registrations = installWritingThemeDetailEventHandlers({
+    $: (id) => (id === "writingThemeDetail" ? element : null),
+    depsProvider: () => ({
+      saveSelectedThemeIndexDetail: async () => {
+        calls.push(["save", version]);
+        return { title: "Theme" };
+      },
+      setStatus: (message, tone) => calls.push(["status", version, message, tone])
+    })
+  });
+
+  assert.deepEqual(registrations.map((item) => item.installed), [true]);
+
+  await handlers.get("click")({
+    target: indexTarget("[data-writing-theme-action]", { "data-writing-theme-action": "save" })
+  });
+  version = "second";
+  await handlers.get("click")({
+    target: indexTarget("[data-writing-theme-action]", { "data-writing-theme-action": "save" })
+  });
+
+  assert.deepEqual(calls[0], ["save", "first"]);
+  assert.deepEqual(calls[2], ["save", "second"]);
+});
+
+test("writing theme detail handler routes use sync note and project actions", async () => {
+  const calls = [];
+  const deps = {
+    saveSelectedThemeIndexDetail: async () => {
+      calls.push(["save"]);
+      return { id: "idx1", title: "Theme" };
+    },
+    useThemeIndexAsWritingEntry: async (indexId, options) => {
+      calls.push(["use", indexId, options]);
+      return { indexCard: { title: "Theme" }, noteIds: ["n1"], addedCount: 1 };
+    },
+    continueWritingProjectEntry: async (projectId, options) => calls.push(["continue", projectId, options]),
+    writingThemeIndexById: () => ({ id: "idx1" }),
+    findExistingWritingProjectForTheme: () => null,
+    writingThemeIndexNoteIds: () => ["n1"],
+    createWritingProjectFromThemeIndex: async (indexId) => {
+      calls.push(["createProject", indexId]);
+      return { id: "p1" };
+    },
+    syncSelectedThemeIndexWithBasket: async (mode) => {
+      calls.push(["sync", mode]);
+      return { id: "idx1", title: "Theme" };
+    },
+    activateModule: (moduleName) => calls.push(["activate", moduleName]),
+    openNoteById: (noteId) => calls.push(["openNote", noteId]),
+    removeNoteFromSelectedThemeIndex: async (noteId) => {
+      calls.push(["removeNote", noteId]);
+      return { id: "idx1", title: "Theme" };
+    },
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  };
+
+  await handleWritingThemeDetailClick({
+    target: indexTarget("[data-writing-theme-action]", {
+      "data-writing-theme-action": "use",
+      "data-writing-theme-id": "idx1"
+    })
+  }, deps);
+  await handleWritingThemeDetailClick({
+    target: indexTarget("[data-writing-theme-action]", {
+      "data-writing-theme-action": "create-project",
+      "data-writing-theme-id": "idx1"
+    })
+  }, deps);
+  await handleWritingThemeDetailClick({
+    target: indexTarget("[data-writing-theme-action]", {
+      "data-writing-theme-action": "append-from-basket"
+    })
+  }, deps);
+  await handleWritingThemeDetailClick({
+    target: indexTarget("[data-writing-theme-action]", {
+      "data-writing-theme-action": "open-note",
+      "data-writing-note-id": "n1"
+    })
+  }, deps);
+  await handleWritingThemeDetailClick({
+    target: indexTarget("[data-writing-theme-action]", {
+      "data-writing-theme-action": "remove-note",
+      "data-writing-note-id": "n1"
+    })
+  }, deps);
+
+  assert.deepEqual(calls[0], ["use", "idx1", { replaceBasket: false, resetContext: false, source: "writing_theme_detail" }]);
+  assert.ok(calls.some((call) => call[0] === "createProject" && call[1] === "idx1"));
+  assert.ok(calls.some((call) => call[0] === "sync" && call[1] === "append"));
+  assert.ok(calls.some((call) => call[0] === "activate" && call[1] === "explorer"));
+  assert.ok(calls.some((call) => call[0] === "removeNote" && call[1] === "n1"));
+});
+
+test("writing theme detail handler resumes an existing project before creating another", async () => {
+  const calls = [];
+
+  await handleWritingThemeDetailClick({
+    target: indexTarget("[data-writing-theme-action]", {
+      "data-writing-theme-action": "create-project",
+      "data-writing-theme-id": "idx1"
+    })
+  }, {
+    writingThemeIndexById: () => ({ id: "idx1" }),
+    findExistingWritingProjectForTheme: () => ({ id: "p1", draft_note_id: "d1" }),
+    writingThemeIndexNoteIds: () => ["n1"],
+    continueWritingProjectEntry: async (projectId, options) => calls.push(["continue", projectId, options]),
+    createWritingProjectFromThemeIndex: async () => calls.push(["create"])
+  });
+
+  assert.deepEqual(calls, [["continue", "p1", { openDraft: true, statusMessage: "已从主题打开当前草稿：p1" }]]);
 });

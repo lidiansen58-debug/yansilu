@@ -588,7 +588,8 @@ import {
 } from "./writing-panel-host-deps.js";
 import {
   installWritingPanelBasketEventHandlers,
-  installWritingThemeIndexEventHandlers
+  installWritingThemeIndexEventHandlers,
+  installWritingThemeDetailEventHandlers
 } from "./writing-panel-events.js";
 import {
   writingCandidateNotesForRuntime,
@@ -14635,95 +14636,23 @@ installWritingThemeIndexEventHandlers({
   })
 });
 
-$("writingThemeDetail")?.addEventListener("click", async (event) => {
-  const actionButton = event.target?.closest?.("[data-writing-theme-action]");
-  if (!actionButton) return;
-  const action = String(actionButton.getAttribute("data-writing-theme-action") || "");
-  const indexId = String(actionButton.getAttribute("data-writing-theme-id") || "");
-  const noteId = String(actionButton.getAttribute("data-writing-note-id") || "");
-  const projectId = String(actionButton.getAttribute("data-writing-project-id") || "");
-  try {
-    if (action === "save") {
-      const item = await saveSelectedThemeIndexDetail();
-      setStatus(`已保存主题：${item.title || item.id}`, "ok");
-      return;
-    }
-    if (action === "use") {
-      const { indexCard, noteIds, addedCount } = await useThemeIndexAsWritingEntry(indexId, {
-        replaceBasket: false,
-        resetContext: false,
-        source: "writing_theme_detail"
-      });
-      setStatus(
-        addedCount > 0
-          ? `已从主题进入写作篮：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
-          : `主题已在写作篮中：${indexCard.title || indexId}`,
-        "ok"
-      );
-      return;
-    }
-    if (action === "open-draft" && projectId) {
-      await continueWritingProjectEntry(projectId, {
-        openDraft: true,
-        statusMessage: `已从主题打开当前草稿：${projectId}`
-      });
-      return;
-    }
-    if ((action === "resume-project" || action === "resume-scaffold") && projectId) {
-      await continueWritingProjectEntry(projectId, {
-        statusMessage: action === "resume-scaffold" ? `已从主题回到草稿骨架：${projectId}` : `已从主题继续当前项目：${projectId}`
-      });
-      return;
-    }
-      if (action === "create-project") {
-        const selectedTheme = writingThemeIndexById(indexId) || (await fetchIndexCard(indexId));
-        const existingProject = findExistingWritingProjectForTheme(selectedTheme, writingThemeIndexNoteIds(selectedTheme));
-        if (existingProject?.id) {
-          await continueWritingProjectEntry(existingProject.id, {
-            openDraft: Boolean(existingProject.draft_note_id),
-            statusMessage: existingProject.draft_note_id
-              ? `已从主题打开当前草稿：${existingProject.id}`
-              : existingProject.scaffold_id
-                ? `已从主题回到草稿骨架：${existingProject.id}`
-                : `已从主题继续当前项目：${existingProject.id}`
-          });
-          return;
-        }
-      const project = await createWritingProjectFromThemeIndex(indexId);
-      setStatus(`已从主题创建项目：${project?.id}`, "ok");
-      return;
-    }
-    if (action === "replace-from-basket") {
-      const item = await syncSelectedThemeIndexWithBasket("replace");
-      setStatus(`已用当前写作篮覆盖主题：${item.title || item.id}`, "ok");
-      return;
-    }
-    if (action === "append-from-basket") {
-      const item = await syncSelectedThemeIndexWithBasket("append");
-      setStatus(`已把当前写作篮加入主题：${item.title || item.id}`, "ok");
-      return;
-    }
-    if (action === "open-note" && noteId) {
-      activateModule("explorer");
-      openNoteById(noteId);
-      setStatus(`已打开主题中的永久笔记：${noteId}`, "ok");
-      return;
-    }
-    if (action === "remove-note" && noteId) {
-      const item = await removeNoteFromSelectedThemeIndex(noteId);
-      setStatus(`已从主题移出笔记：${noteId}（${item.title || item.id}）`, "ok");
-      return;
-    }
-  } catch (error) {
-    if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
-      setStatus(
-        `${action === "open-draft" ? "从主题打开当前草稿" : action === "resume-scaffold" ? "从主题回到草稿骨架" : "从主题继续当前项目"}失败：${String(error?.message || error)}`,
-        "bad"
-      );
-      return;
-    }
-    setStatus(`主题操作失败：${String(error?.message || error)}`, "bad");
-  }
+installWritingThemeDetailEventHandlers({
+  $,
+  depsProvider: () => ({
+    saveSelectedThemeIndexDetail,
+    useThemeIndexAsWritingEntry,
+    continueWritingProjectEntry,
+    writingThemeIndexById,
+    fetchIndexCard,
+    findExistingWritingProjectForTheme,
+    writingThemeIndexNoteIds,
+    createWritingProjectFromThemeIndex,
+    syncSelectedThemeIndexWithBasket,
+    activateModule,
+    openNoteById,
+    removeNoteFromSelectedThemeIndex,
+    setStatus
+  })
 });
 
 $("writingProjectsList")?.addEventListener("click", async (event) => {
