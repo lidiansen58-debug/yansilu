@@ -562,6 +562,7 @@ import {
 import {
   deriveWritingBookDesign as computeDeriveWritingBookDesign,
   deriveWritingLocalBookIdeas as computeDeriveWritingLocalBookIdeas,
+  currentWritingBookStructureForRuntime as computeCurrentWritingBookStructureForRuntime,
   normalizeWritingBookStructure as computeNormalizeWritingBookStructure,
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
   resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime,
@@ -571,6 +572,9 @@ import {
   uniqueWritingBookPoolItems as computeUniqueWritingBookPoolItems,
   writingBookMatchesAny as computeWritingBookMatchesAny,
   writingBookPlainText as computeWritingBookPlainText,
+  writingBookProjectAudienceForRuntime as computeWritingBookProjectAudienceForRuntime,
+  writingBookProjectGoalForRuntime as computeWritingBookProjectGoalForRuntime,
+  writingBookProjectTitleForRuntime as computeWritingBookProjectTitleForRuntime,
   writingBookSectionFromNote as computeWritingBookSectionFromNote,
   writingBookShortText as computeWritingBookShortText,
   writingBookStructureStats as computeWritingBookStructureStats,
@@ -8558,17 +8562,25 @@ function writingBookStructureStats(bookStructure = {}) {
 }
 
 function writingBookProjectTitle() {
-  return String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "AI时代易经与人生";
+  return computeWritingBookProjectTitleForRuntime({
+    projectTitle: writingState.project?.title,
+    inputTitle: $("writingTitle")?.value
+  });
 }
 
 function writingBookProjectGoal() {
-  return String(writingState.project?.goal || $("writingGoal")?.value || "").trim();
+  return computeWritingBookProjectGoalForRuntime({
+    projectGoal: writingState.project?.goal,
+    inputGoal: $("writingGoal")?.value
+  });
 }
 
 function writingBookProjectAudience() {
-  return String(writingState.project?.audience || $("writingAudience")?.value || "").trim();
+  return computeWritingBookProjectAudienceForRuntime({
+    projectAudience: writingState.project?.audience,
+    inputAudience: $("writingAudience")?.value
+  });
 }
-
 
 
 
@@ -8592,24 +8604,13 @@ function deriveWritingLocalBookIdeas({ notes = writingBasketEntries(), project =
 }
 
 function currentWritingBookStructure({ notes = writingBasketEntries(), includeLocalIdeas = true } = {}) {
-  const persisted = normalizeWritingBookStructure(writingState.project?.book_structure || {});
-  const base = persisted.parts.length ? persisted : deriveWritingBookDesign({ notes });
-  const ideas = includeLocalIdeas && Array.isArray(writingState.localBookIdeas) && writingState.localBookIdeas.length
-    ? writingState.localBookIdeas.map((idea, index) => ({
-        id: idea.id || `idea_${index + 1}`,
-        title: idea.title,
-        reader: idea.reader,
-        promise: idea.promise,
-        risk: idea.risk,
-        note_ids: uniqueStrings(idea.note_ids || idea.noteIds || [])
-      }))
-    : base.direction_ideas;
-  return normalizeWritingBookStructure({
-    ...base,
-    direction_ideas: ideas
+  return computeCurrentWritingBookStructureForRuntime({
+    persistedStructure: writingState.project?.book_structure || {},
+    derivedDesign: deriveWritingBookDesign({ notes }),
+    localBookIdeas: writingState.localBookIdeas,
+    includeLocalIdeas
   });
 }
-
 
 
 

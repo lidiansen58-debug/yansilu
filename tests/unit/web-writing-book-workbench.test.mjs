@@ -5,10 +5,14 @@ import {
   writingAnalysisSystemMessageForResult
 } from "../../apps/web/src/prototype-system-messages.js";
 import {
+  currentWritingBookStructureForRuntime,
   deriveWritingBookDesign,
   deriveWritingLocalBookIdeas,
   resetWritingLocalBookIdeasState,
   syncWritingLocalBookIdeasFromProjectState,
+  writingBookProjectAudienceForRuntime,
+  writingBookProjectGoalForRuntime,
+  writingBookProjectTitleForRuntime,
   writingBookStructureStats
 } from "../../apps/web/src/prototype-writing-workspace.js";
 import {
@@ -56,6 +60,43 @@ test("writing center derives book structure with parts, chapters, sections, and 
   assert.match(panelControllerSource, /function renderWritingBookDesignDom/);
   assert.match(panelControllerSource, /renderWritingBookDesignDom\(deps\);/);
   assert.match(writingWorkspaceSource, /evidence_note_ids: note\?\.id \? \[note\.id\] : \[\]/);
+});
+
+test("writing book runtime helpers resolve project fields and local idea overlays", () => {
+  assert.equal(writingBookProjectTitleForRuntime({ projectTitle: "Project", inputTitle: "Input" }), "Project");
+  assert.equal(writingBookProjectTitleForRuntime({ inputTitle: "Input" }), "Input");
+  assert.equal(writingBookProjectTitleForRuntime({ fallbackTitle: "Fallback" }), "Fallback");
+  assert.equal(writingBookProjectGoalForRuntime({ projectGoal: "Goal", inputGoal: "Input" }), "Goal");
+  assert.equal(writingBookProjectAudienceForRuntime({ inputAudience: "Readers" }), "Readers");
+
+  const structure = currentWritingBookStructureForRuntime({
+    persistedStructure: {
+      parts: [{ id: "p1", title: "Part One", chapters: [] }],
+      direction_ideas: [{ title: "Persisted" }]
+    },
+    derivedDesign: {
+      parts: [{ id: "derived", title: "Derived Part", chapters: [] }],
+      direction_ideas: [{ title: "Derived" }]
+    },
+    localBookIdeas: [{ title: "Local", noteIds: ["n1"] }]
+  });
+
+  assert.deepEqual(structure.parts.map((part) => part.id), ["p1"]);
+  assert.deepEqual(structure.direction_ideas.map((idea) => idea.title), ["Local"]);
+  assert.deepEqual(structure.direction_ideas[0].note_ids, ["n1"]);
+
+  const noOverlay = currentWritingBookStructureForRuntime({
+    persistedStructure: {},
+    derivedDesign: {
+      parts: [{ id: "derived", title: "Derived Part", chapters: [] }],
+      direction_ideas: [{ title: "Derived" }]
+    },
+    localBookIdeas: [{ title: "Local", noteIds: ["n1"] }],
+    includeLocalIdeas: false
+  });
+
+  assert.deepEqual(noOverlay.parts.map((part) => part.id), ["derived"]);
+  assert.deepEqual(noOverlay.direction_ideas.map((idea) => idea.title), ["Derived"]);
 });
 
 test("local book ideas are generated on device and do not mutate project automatically", () => {

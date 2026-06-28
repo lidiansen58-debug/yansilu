@@ -361,6 +361,52 @@ export function writingBookStructureStats(bookStructure = {}) {
   };
 }
 
+export function writingBookProjectTitleForRuntime({
+  projectTitle = "",
+  inputTitle = "",
+  fallbackTitle = "AI时代易经与人生"
+} = {}) {
+  return String(projectTitle || inputTitle || "").trim() || fallbackTitle;
+}
+
+export function writingBookProjectGoalForRuntime({
+  projectGoal = "",
+  inputGoal = ""
+} = {}) {
+  return String(projectGoal || inputGoal || "").trim();
+}
+
+export function writingBookProjectAudienceForRuntime({
+  projectAudience = "",
+  inputAudience = ""
+} = {}) {
+  return String(projectAudience || inputAudience || "").trim();
+}
+
+export function currentWritingBookStructureForRuntime({
+  persistedStructure = {},
+  derivedDesign = {},
+  localBookIdeas = [],
+  includeLocalIdeas = true
+} = {}) {
+  const persisted = normalizeWritingBookStructure(persistedStructure);
+  const base = persisted.parts.length ? persisted : normalizeWritingBookStructure(derivedDesign);
+  const ideas = includeLocalIdeas && Array.isArray(localBookIdeas) && localBookIdeas.length
+    ? localBookIdeas.map((idea, index) => ({
+        id: idea.id || `idea_${index + 1}`,
+        title: idea.title,
+        reader: idea.reader,
+        promise: idea.promise,
+        risk: idea.risk,
+        note_ids: uniqueStrings(idea.note_ids || idea.noteIds || [])
+      }))
+    : base.direction_ideas;
+  return normalizeWritingBookStructure({
+    ...base,
+    direction_ideas: ideas
+  });
+}
+
 export function deriveWritingBookDesign({
   notes = [],
   project = null,
