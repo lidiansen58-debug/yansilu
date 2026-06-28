@@ -728,6 +728,10 @@ import {
   supportedAiSettingsModelPack
 } from "./ai-settings-state.js";
 import {
+  buildSettingsAiExperienceBadges,
+  buildSettingsAiSetupBadges
+} from "./settings-ai-experience-model.js";
+import {
   aiTestBlockedReasonForState,
   currentOllamaModelTiersForState,
   installedLocalModelReadyForState
@@ -5977,32 +5981,17 @@ function renderAiSettingsExperience() {
   ].filter(Boolean).length;
   const hasMeaningfulAdvancedOverride = Boolean(settingsState.ai.routePreview?.route?.advancedOverride) && !implicitLocalAdvancedOverride;
 
-  const runtimeModeLabel = runtimeMode === "local_only"
-    ? "只用本地模型"
-    : runtimeMode === "hybrid"
-      ? "本地优先"
-      : runtimeMode === "cloud_only"
-        ? "只用远程模型"
-        : "自动选择";
   const localRuntimeLabel = ollamaRuntimeStateLabel();
-
-  const primaryRuntimeModeLabel = runtimeMode === "hybrid" ? "自动选择" : runtimeModeLabel;
-  const badgeItems = [
-    { tone: localFlowActive ? "ok" : "muted", text: `使用方式 ${primaryRuntimeModeLabel}` }
-  ];
-  if (localFlowActive) {
-    badgeItems.push({
-      tone: localStatus === "available" ? "ok" : localStatus === "unavailable" ? "warn" : "muted",
-      text: localRuntimeLabel
-    });
-    if (localModel) {
-      badgeItems.push({ tone: "ok", text: `本地模型 ${localModel}` });
-    } else if (models.length) {
-      badgeItems.push({ tone: "muted", text: `${models.length} 个本地模型` });
-    }
-  } else {
-    badgeItems.push({ tone: providerId.includes("local") ? "ok" : "", text: providerLabel });
-  }
+  const badgeItems = buildSettingsAiSetupBadges({
+    runtimeMode,
+    localFlowActive,
+    localStatus,
+    localRuntimeLabel,
+    localModel,
+    models,
+    providerId,
+    providerLabel
+  });
   badges.innerHTML = badgeItems
     .map((item) => `<span class="settings-stat-badge ${item.tone ? escapeHtml(item.tone) : ""}">${escapeHtml(item.text)}</span>`)
     .join("");
@@ -6221,29 +6210,27 @@ function renderAiSettingsExperience() {
   localHint.textContent = helperText;
   localHint.classList.toggle("hidden", localSetupReady);
 
-  advancedBadge.textContent = advancedFields
-    ? `${advancedFields} 项已填写`
-    : hasMeaningfulAdvancedOverride
-      ? "已手动指定"
-      : "保持默认";
-  advancedBadge.classList.toggle("warn", advancedFields > 0 || hasMeaningfulAdvancedOverride);
-  advancedBadge.classList.toggle("muted", !(advancedFields > 0 || hasMeaningfulAdvancedOverride));
+  const experienceBadges = buildSettingsAiExperienceBadges({
+    advancedFields,
+    hasMeaningfulAdvancedOverride,
+    testRunning: settingsState.ai.testRunning,
+    testOutput: settingsState.ai.testOutput,
+    runtimeMode
+  });
+  advancedBadge.textContent = experienceBadges.advancedBadge.text;
+  advancedBadge.classList.toggle("warn", experienceBadges.advancedBadge.warn);
+  advancedBadge.classList.toggle("muted", experienceBadges.advancedBadge.muted);
 
-  labBadge.textContent = settingsState.ai.testRunning
-    ? "运行中"
-    : settingsState.ai.testOutput
-      ? "已有结果"
-      : "等待运行";
-  labBadge.classList.toggle("warn", settingsState.ai.testRunning);
-  labBadge.classList.toggle("ok", Boolean(settingsState.ai.testOutput) && !settingsState.ai.testRunning);
-  labBadge.classList.toggle("muted", !settingsState.ai.testRunning && !settingsState.ai.testOutput);
+  labBadge.textContent = experienceBadges.labBadge.text;
+  labBadge.classList.toggle("warn", experienceBadges.labBadge.warn);
+  labBadge.classList.toggle("ok", experienceBadges.labBadge.ok);
+  labBadge.classList.toggle("muted", experienceBadges.labBadge.muted);
 
   const hybridToggle = $("settingsAiHybridToggle");
   if (hybridToggle) {
-    const hybridActive = runtimeMode === "hybrid";
-    hybridToggle.textContent = hybridActive ? "退出本地优先" : "启用本地优先";
-    hybridToggle.classList.toggle("primary", hybridActive);
-    hybridToggle.classList.toggle("is-subtle", !hybridActive);
+    hybridToggle.textContent = experienceBadges.hybridToggle.text;
+    hybridToggle.classList.toggle("primary", experienceBadges.hybridToggle.primary);
+    hybridToggle.classList.toggle("is-subtle", experienceBadges.hybridToggle.subtle);
   }
 }
 
