@@ -3,12 +3,18 @@ import assert from "node:assert/strict";
 
 import {
   handleWritingAddVisible,
+  handleWritingCreateScaffoldClick,
+  handleWritingDraftVersionsListClick,
   handleWritingNoteListClick,
   handleWritingProjectsListClick,
+  handleWritingSaveDraftClick,
+  handleWritingScaffoldVersionsListClick,
   handleWritingThemeDetailClick,
   handleWritingThemeIndexListClick,
   handleWritingUseCurrent,
+  installWritingDraftActionEventHandlers,
   installWritingPanelBasketEventHandlers,
+  installWritingProjectHistoryEventHandlers,
   installWritingProjectListEventHandlers,
   installWritingThemeDetailEventHandlers,
   installWritingThemeIndexEventHandlers
@@ -432,4 +438,278 @@ test("writing project list handler routes continue open copy and export actions"
   assert.ok(calls.some((call) => call[0] === "open" && call[1] === "p1"));
   assert.ok(calls.some((call) => call[0] === "copy" && call[1] === "p1"));
   assert.ok(calls.some((call) => call[0] === "export" && call[1] === "p1"));
+});
+
+test("writing project history installer wires version lists filters and refreshes through latest deps", async () => {
+  const handlers = new Map();
+  let version = "first";
+  const calls = [];
+  const elements = new Map([
+    ["writingScaffoldVersionsList", {}],
+    ["writingDraftVersionsList", {}],
+    ["btnWritingRefreshProjects", {}],
+    ["writingProjectsSearch", {}],
+    ["writingProjectsStatusFilter", {}],
+    ["writingProjectsDraftFilter", {}],
+    ["btnWritingRefreshScaffolds", {}],
+    ["btnWritingRefreshDraftVersions", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => handlers.set(`${id}:${eventName}`, handler);
+  }
+
+  const registrations = installWritingProjectHistoryEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      writingState: { scaffoldVersions: [], draftVersions: [] },
+      syncWritingProjectFiltersFromUi: () => calls.push(["sync", version]),
+      loadWritingProjectsList: async () => calls.push(["projects", version]),
+      loadWritingScaffoldVersions: async () => calls.push(["scaffolds", version]),
+      loadWritingDraftVersions: async () => calls.push(["drafts", version]),
+      setStatus: (message, tone) => calls.push(["status", version, message, tone])
+    })
+  });
+
+  assert.equal(registrations.length, 8);
+  assert.equal(registrations.every((item) => item.installed), true);
+
+  await handlers.get("btnWritingRefreshProjects:click")();
+  version = "second";
+  await handlers.get("writingProjectsSearch:input")();
+  await handlers.get("btnWritingRefreshScaffolds:click")();
+  await handlers.get("btnWritingRefreshDraftVersions:click")();
+
+  assert.deepEqual(calls[0], ["sync", "first"]);
+  assert.ok(calls.some((call) => call[0] === "projects" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "scaffolds" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "drafts" && call[1] === "second"));
+});
+
+test("writing scaffold version handler routes open copy export and note edits", async () => {
+  const calls = [];
+  const writingState = {
+    project: { id: "p1" },
+    scaffold: { id: "s1", version_note: "old" },
+    scaffoldVersions: [{ id: "s1", version_note: "old" }]
+  };
+  const deps = {
+    writingState,
+    openScaffoldVersion: async (id) => calls.push(["open", id]),
+    copyWritingScaffold: async (project) => {
+      calls.push(["copy", project.scaffold_id]);
+      return { fileName: "s.md" };
+    },
+    exportWritingScaffold: async (project) => {
+      calls.push(["export", project.scaffold_id]);
+      return { fileName: "s.md" };
+    },
+    promptVersionNoteEdit: () => "new",
+    updateDraftScaffoldVersionNote: async (id, note) => {
+      calls.push(["updateNote", id, note]);
+      return { version_note: note };
+    },
+    renderWritingPanel: () => calls.push(["render"]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  };
+
+  for (const action of ["open", "copy", "export", "edit-note"]) {
+    await handleWritingScaffoldVersionsListClick({
+      target: indexTarget("[data-writing-scaffold-action]", {
+        "data-writing-scaffold-action": action,
+        "data-writing-scaffold-id": "s1"
+      })
+    }, deps);
+  }
+
+  assert.ok(calls.some((call) => call[0] === "open" && call[1] === "s1"));
+  assert.ok(calls.some((call) => call[0] === "copy" && call[1] === "s1"));
+  assert.ok(calls.some((call) => call[0] === "export" && call[1] === "s1"));
+  assert.deepEqual(calls.find((call) => call[0] === "updateNote"), ["updateNote", "s1", "new"]);
+  assert.equal(writingState.scaffold.version_note, "new");
+  assert.equal(writingState.scaffoldVersions[0].version_note, "new");
+});
+
+test("writing draft version handler updates current draft and opens unloaded notes", async () => {
+  const calls = [];
+  const state = { notes: [] };
+  const writingState = {
+    project: { id: "p1" },
+    draftVersions: [{ id: "v1", version_note: "old" }]
+  };
+  const deps = {
+    state,
+    writingState,
+    promptVersionNoteEdit: () => "new",
+    updateDraftNoteVersionNote: async (id, note) => {
+      calls.push(["updateNote", id, note]);
+      return { version_note: note };
+    },
+    setWritingCurrentDraftNote: async (projectId, noteId) => {
+      calls.push(["setCurrent", projectId, noteId]);
+      return { id: projectId, draft_note_id: noteId };
+    },
+    loadWritingProjectsList: async () => calls.push(["projects"]),
+    loadWritingDraftVersions: async () => calls.push(["drafts"]),
+    renderWritingPanel: () => calls.push(["render"]),
+    writingNoteById: () => null,
+    fetchNote: async (id) => ({ id, title: "Draft" }),
+    mapNoteItem: (note) => ({ ...note, mapped: true }),
+    activateModule: (moduleName) => calls.push(["activate", moduleName]),
+    openNoteById: (noteId) => calls.push(["open", noteId]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  };
+
+  await handleWritingDraftVersionsListClick({
+    target: indexTarget("[data-writing-draft-action]", {
+      "data-writing-draft-action": "edit-note",
+      "data-writing-draft-note-id": "n1",
+      "data-writing-draft-version-id": "v1"
+    })
+  }, deps);
+  await handleWritingDraftVersionsListClick({
+    target: indexTarget("[data-writing-draft-action]", {
+      "data-writing-draft-action": "set-current",
+      "data-writing-draft-note-id": "n1",
+      "data-writing-draft-version-id": "v1"
+    })
+  }, deps);
+  await handleWritingDraftVersionsListClick({
+    target: indexTarget("[data-writing-draft-action]", {
+      "data-writing-draft-action": "open",
+      "data-writing-draft-note-id": "n1",
+      "data-writing-draft-version-id": "v1"
+    })
+  }, deps);
+
+  assert.deepEqual(calls.find((call) => call[0] === "updateNote"), ["updateNote", "v1", "new"]);
+  assert.deepEqual(calls.find((call) => call[0] === "setCurrent"), ["setCurrent", "p1", "n1"]);
+  assert.equal(writingState.project.draft_note_id, "n1");
+  assert.equal(writingState.draftVersions[0].version_note, "new");
+  assert.equal(state.notes[0].mapped, true);
+  assert.ok(calls.some((call) => call[0] === "activate" && call[1] === "explorer"));
+  assert.ok(calls.some((call) => call[0] === "open" && call[1] === "n1"));
+});
+
+test("writing draft action installer wires primary draft buttons through latest deps", async () => {
+  const handlers = new Map();
+  let version = "first";
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingCreateProject", {}],
+    ["btnWritingCreateScaffold", { textContent: "" }],
+    ["btnWritingCopyScaffold", {}],
+    ["btnWritingExportScaffold", {}],
+    ["btnWritingSaveDraft", { textContent: "" }],
+    ["btnWritingOpenDraft", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => handlers.set(`${id}:${eventName}`, handler);
+  }
+
+  const registrations = installWritingDraftActionEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      $: (id) => elements.get(id) || null,
+      writingState: { project: { id: "p1", draft_note_id: "n1" }, scaffold: { id: "s1" }, scaffoldMarkdown: "md" },
+      createWritingProjectFromCurrentBasket: async () => calls.push(["createProject", version]),
+      describeWritingProjectPreflight: () => ({ level: "ready" }),
+      createDraftScaffold: async () => {
+        calls.push(["createScaffold", version]);
+        return { item: { id: "s1" }, export: { markdown: "md" } };
+      },
+      copyWritingScaffold: async () => {
+        calls.push(["copy", version]);
+        return { fileName: "s.md" };
+      },
+      exportWritingScaffold: async () => {
+        calls.push(["export", version]);
+        return { fileName: "s.md" };
+      },
+      openWritingDraftNoteById: async (noteId) => calls.push(["openDraft", version, noteId]),
+      loadWritingProjectsList: async () => calls.push(["projects", version]),
+      loadWritingScaffoldVersions: async () => calls.push(["scaffolds", version]),
+      loadWritingDraftVersions: async () => calls.push(["drafts", version]),
+      renderWritingPanel: () => calls.push(["render", version]),
+      setStatus: (message, tone) => calls.push(["status", version, message, tone])
+    })
+  });
+
+  assert.equal(registrations.length, 6);
+  assert.equal(registrations.every((item) => item.installed), true);
+
+  await handlers.get("btnWritingCreateProject:click")();
+  version = "second";
+  await handlers.get("btnWritingCreateScaffold:click")();
+  await handlers.get("btnWritingCopyScaffold:click")();
+  await handlers.get("btnWritingExportScaffold:click")();
+  await handlers.get("btnWritingOpenDraft:click")();
+
+  assert.deepEqual(calls[0], ["createProject", "first"]);
+  assert.ok(calls.some((call) => call[0] === "createScaffold" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "copy" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "export" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "openDraft" && call[1] === "second" && call[2] === "n1"));
+});
+
+test("writing create scaffold handler resumes continuation before warning about missing project", async () => {
+  const calls = [];
+
+  await handleWritingCreateScaffoldClick({
+    $: () => ({ textContent: "create" }),
+    writingState: {},
+    describeWritingProjectPreflight: () => ({ level: "ready" }),
+    currentWritingContinuationEntry: () => ({ projectId: "p1", action: "open-draft" }),
+    continueWritingProjectEntry: async (projectId, options) => calls.push(["continue", projectId, options]),
+    writingCenterContinuationStatusMessage: () => "resume",
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
+
+  assert.deepEqual(calls, [["continue", "p1", { openDraft: true, statusMessage: "resume" }]]);
+});
+
+test("writing create scaffold and save draft handlers persist generated state", async () => {
+  const calls = [];
+  const state = { notes: [] };
+  const writingState = {
+    project: { id: "p1", preflight: {} }
+  };
+  const sharedDeps = {
+    $: () => ({ textContent: "" }),
+    state,
+    writingState,
+    describeWritingProjectPreflight: () => ({ level: "ready" }),
+    currentWritingVersionNote: () => "note",
+    showWritingResult: (payload) => calls.push(["result", payload.stage, payload.noteId || payload.draftScaffoldId]),
+    loadWritingProjectsList: async () => calls.push(["projects"]),
+    loadWritingScaffoldVersions: async () => calls.push(["scaffolds"]),
+    loadWritingDraftVersions: async () => calls.push(["drafts"]),
+    renderWritingPanel: () => calls.push(["render"]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  };
+
+  await handleWritingCreateScaffoldClick({
+    ...sharedDeps,
+    createDraftScaffold: async () => ({
+      item: { id: "s1", sections: [], writing_project: { scaffold_id: "s1" }, version_note: "note" },
+      export: { markdown: "body" }
+    })
+  });
+
+  await handleWritingSaveDraftClick({
+    ...sharedDeps,
+    writingDraftDirectoryId: () => "dir1",
+    writingDraftBody: () => "body",
+    createNote: async () => ({ id: "n1", title: "Draft" }),
+    bindWritingDraftNote: async (projectId, noteId, scaffoldId, versionNote) => {
+      calls.push(["bind", projectId, noteId, scaffoldId, versionNote]);
+      return { id: projectId, draft_note_id: noteId };
+    },
+    mapNoteItem: (note) => ({ ...note, mapped: true })
+  });
+
+  assert.equal(writingState.scaffold.id, "s1");
+  assert.equal(writingState.scaffoldMarkdown, "body");
+  assert.equal(writingState.project.draft_note_id, "n1");
+  assert.equal(state.notes[0].mapped, true);
+  assert.ok(calls.some((call) => call[0] === "bind" && call[1] === "p1" && call[2] === "n1" && call[3] === "s1"));
 });

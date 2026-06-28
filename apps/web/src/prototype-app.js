@@ -590,7 +590,9 @@ import {
   installWritingPanelBasketEventHandlers,
   installWritingThemeIndexEventHandlers,
   installWritingThemeDetailEventHandlers,
-  installWritingProjectListEventHandlers
+  installWritingProjectListEventHandlers,
+  installWritingProjectHistoryEventHandlers,
+  installWritingDraftActionEventHandlers
 } from "./writing-panel-events.js";
 import {
   writingCandidateNotesForRuntime,
@@ -14668,356 +14670,62 @@ installWritingProjectListEventHandlers({
   })
 });
 
-$("writingScaffoldVersionsList")?.addEventListener("click", async (event) => {
-  const button = event.target?.closest?.("[data-writing-scaffold-action]");
-  if (!button) return;
-  const action = String(button.getAttribute("data-writing-scaffold-action") || "");
-  const scaffoldId = String(button.getAttribute("data-writing-scaffold-id") || "");
-  if (!scaffoldId) return;
-  const version = writingState.scaffoldVersions.find((item) => item.id === scaffoldId) || { id: scaffoldId, writing_project_id: writingState.project?.id };
-
-  if (action === "open") {
-    try {
-      await openScaffoldVersion(scaffoldId);
-      setStatus(`已切换到草稿骨架版本：${scaffoldId}`, "ok");
-    } catch (error) {
-      setStatus(`打开草稿骨架版本失败：${String(error?.message || error)}`, "bad");
-    }
-    return;
-  }
-
-  const projectLike = {
-    ...(writingState.project || {}),
-    id: writingState.project?.id || version.writing_project_id,
-    scaffold_id: scaffoldId
-  };
-  if (action === "copy") {
-    try {
-      const result = await copyWritingScaffold(projectLike);
-      setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
-    } catch (error) {
-      setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
-    }
-    return;
-  }
-  if (action === "export") {
-    try {
-      const result = await exportWritingScaffold(projectLike);
-      setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
-    } catch (error) {
-      setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
-    }
-    return;
-  }
-  if (action === "edit-note") {
-    const nextNote = promptVersionNoteEdit(version?.version_note || "", "草稿骨架版本");
-    if (nextNote === null) return;
-    try {
-      const updated = await updateDraftScaffoldVersionNote(scaffoldId, nextNote);
-      writingState.scaffoldVersions = writingState.scaffoldVersions.map((item) =>
-        item.id === scaffoldId ? { ...item, version_note: updated?.version_note || "" } : item
-      );
-      if (writingState.scaffold?.id === scaffoldId) {
-        writingState.scaffold = {
-          ...writingState.scaffold,
-          version_note: updated?.version_note || ""
-        };
-      }
-      renderWritingPanel();
-      setStatus(`已更新草稿骨架版本说明：${scaffoldId}`, "ok");
-    } catch (error) {
-      setStatus(`更新草稿骨架版本说明失败：${String(error?.message || error)}`, "bad");
-    }
-  }
+installWritingProjectHistoryEventHandlers({
+  $,
+  depsProvider: () => ({
+    state,
+    writingState,
+    openScaffoldVersion,
+    copyWritingScaffold,
+    exportWritingScaffold,
+    promptVersionNoteEdit,
+    updateDraftScaffoldVersionNote,
+    updateDraftNoteVersionNote,
+    setWritingCurrentDraftNote,
+    loadWritingProjectsList,
+    loadWritingDraftVersions,
+    loadWritingScaffoldVersions,
+    renderWritingPanel,
+    writingNoteById,
+    fetchNote,
+    mapNoteItem,
+    activateModule,
+    openNoteById,
+    syncWritingProjectFiltersFromUi,
+    setStatus
+  })
 });
 
-$("writingDraftVersionsList")?.addEventListener("click", async (event) => {
-  const button = event.target?.closest?.("[data-writing-draft-action]");
-  if (!button) return;
-  const action = String(button.getAttribute("data-writing-draft-action") || "");
-  const draftNoteId = String(button.getAttribute("data-writing-draft-note-id") || "");
-  const draftVersionId = String(button.getAttribute("data-writing-draft-version-id") || "");
-  if (!draftNoteId) return;
-  if (action === "edit-note") {
-    const version = writingState.draftVersions.find((item) => item.id === draftVersionId) || null;
-    const nextNote = promptVersionNoteEdit(version?.version_note || "", "草稿版本");
-    if (nextNote === null) return;
-    try {
-      const updated = await updateDraftNoteVersionNote(draftVersionId, nextNote);
-      writingState.draftVersions = writingState.draftVersions.map((item) =>
-        item.id === draftVersionId ? { ...item, version_note: updated?.version_note || "" } : item
-      );
-      renderWritingPanel();
-      setStatus(`已更新草稿版本说明：${draftVersionId}`, "ok");
-    } catch (error) {
-      setStatus(`更新草稿版本说明失败：${String(error?.message || error)}`, "bad");
-    }
-    return;
-  }
-  if (action === "set-current") {
-    try {
-      const project = await setWritingCurrentDraftNote(writingState.project?.id, draftNoteId);
-      writingState.project = project;
-      await loadWritingProjectsList();
-      await loadWritingDraftVersions();
-      renderWritingPanel();
-      setStatus(`已将草稿版本设为当前：${draftNoteId}`, "ok");
-    } catch (error) {
-      setStatus(`设为当前版本失败：${String(error?.message || error)}`, "bad");
-    }
-    return;
-  }
-  if (action === "open") {
-    try {
-      if (!writingNoteById(draftNoteId)) {
-        const fetched = await fetchNote(draftNoteId);
-        if (fetched) state.notes = [mapNoteItem(fetched), ...state.notes.filter((item) => item.id !== draftNoteId)];
-      }
-      activateModule("explorer");
-      openNoteById(draftNoteId);
-      setStatus(`已打开草稿版本：${draftNoteId}`, "ok");
-    } catch (error) {
-      setStatus(`打开草稿版本失败：${String(error?.message || error)}`, "bad");
-    }
-  }
-});
-
-$("btnWritingRefreshProjects")?.addEventListener("click", async () => {
-  try {
-    syncWritingProjectFiltersFromUi();
-    await loadWritingProjectsList();
-    setStatus("已刷新最近项目", "ok");
-  } catch (error) {
-    setStatus(`刷新项目失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("writingProjectsSearch")?.addEventListener("input", async () => {
-  try {
-    syncWritingProjectFiltersFromUi();
-    await loadWritingProjectsList();
-  } catch {}
-});
-
-$("writingProjectsStatusFilter")?.addEventListener("change", async () => {
-  try {
-    syncWritingProjectFiltersFromUi();
-    await loadWritingProjectsList();
-  } catch {}
-});
-
-$("writingProjectsDraftFilter")?.addEventListener("change", async () => {
-  try {
-    syncWritingProjectFiltersFromUi();
-    await loadWritingProjectsList();
-  } catch {}
-});
-
-$("btnWritingRefreshScaffolds")?.addEventListener("click", async () => {
-  try {
-    await loadWritingScaffoldVersions();
-    setStatus("已刷新草稿骨架版本", "ok");
-  } catch (error) {
-    setStatus(`刷新草稿骨架版本失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("btnWritingRefreshDraftVersions")?.addEventListener("click", async () => {
-  try {
-    await loadWritingDraftVersions();
-    setStatus("已刷新草稿版本", "ok");
-  } catch (error) {
-    setStatus(`刷新草稿版本失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("btnWritingCreateProject")?.addEventListener("click", async () => {
-  try {
-    await createWritingProjectFromCurrentBasket();
-  } catch (error) {
-    setStatus(`从写作中心创建项目失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("btnWritingCreateScaffold")?.addEventListener("click", async () => {
-  const writingProjectId = writingState.project?.id;
-  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
-  const continuation = !writingProjectId ? currentWritingContinuationEntry("当前写作篮") : null;
-  const missingProjectLabel = String($("btnWritingCreateScaffold")?.textContent || "").trim();
-  if (!writingProjectId && continuation?.projectId) {
-    try {
-      await continueWritingProjectEntry(continuation.projectId, {
-        openDraft: continuation.action === "open-draft",
-        statusMessage: writingCenterContinuationStatusMessage(continuation)
-      });
-    } catch (error) {
-      setStatus(writingCenterContinuationFailureMessage(continuation, error), "bad");
-    }
-    return;
-  }
-  if (!writingProjectId) return setStatus(missingProjectLabel || "先补写作材料", "warn");
-  if (projectPreflightSummary.level !== "ready") {
-    return setStatus(writingScaffoldPreflightWarning(projectPreflightSummary), "warn");
-  }
-  try {
-    const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
-    writingState.scaffold = result.item || null;
-    writingState.scaffoldMarkdown = result.export?.markdown || "";
-    if (writingState.project) {
-      const returnedProject = result.item?.writing_project || null;
-      writingState.project = {
-        ...writingState.project,
-        ...(returnedProject || {}),
-        scaffold_id: returnedProject?.scaffold_id || result.item?.id || null
-      };
-    }
-    showWritingResult({
-      stage: "draft_scaffold",
-      writingProjectId,
-      draftScaffoldId: result.item?.id,
-      sections: result.item?.sections,
-      markdown: result.export?.markdown,
-      versionNote: result.item?.version_note || ""
-    });
-    await loadWritingProjectsList();
-    await loadWritingScaffoldVersions();
-    await loadWritingDraftVersions();
-    renderWritingPanel();
-    setStatus(`草稿骨架已生成：${result.item?.id}`, "ok");
-  } catch (error) {
-    showWritingResult({
-      stage: "draft_scaffold_error",
-      writingProjectId,
-      message: String(error?.message || error),
-      code: error?.code || null,
-      details: error?.details || null
-    });
-    setStatus(`草稿骨架生成失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("btnWritingCopyScaffold")?.addEventListener("click", async () => {
-  try {
-    const result = await copyWritingScaffold();
-    setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
-  } catch (error) {
-    showWritingResult({
-      stage: "writing_copy_scaffold_error",
-      writingProjectId: writingState.project?.id,
-      draftScaffoldId: writingState.scaffold?.id,
-      message: String(error?.message || error),
-      code: error?.code || null
-    });
-    setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("btnWritingExportScaffold")?.addEventListener("click", async () => {
-  try {
-    const result = await exportWritingScaffold();
-    setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
-  } catch (error) {
-    showWritingResult({
-      stage: "writing_export_scaffold_error",
-      writingProjectId: writingState.project?.id,
-      draftScaffoldId: writingState.scaffold?.id,
-      message: String(error?.message || error),
-      code: error?.code || null
-    });
-    setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("btnWritingSaveDraft")?.addEventListener("click", async () => {
-  const missingScaffoldLabel = String($("btnWritingSaveDraft")?.textContent || "").trim();
-  if (!writingState.scaffold || !String(writingState.scaffoldMarkdown || "").trim()) {
-    showWritingResult({
-      stage: "writing_draft_note_error",
-      message: "scaffold is required before creating a draft note",
-      code: "WRITING_DRAFT_INVALID"
-    });
-    return setStatus(missingScaffoldLabel || "先生成草稿骨架", "warn");
-  }
-  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
-  if (writingState.project?.id && projectPreflightSummary.level !== "ready") {
-    return setStatus(
-      projectPreflightSummary.hint ||
-        (projectPreflightSummary.level === "needs_clarification"
-          ? "先澄清项目关键问题，再保存草稿。"
-          : projectPreflightSummary.level === "has_gaps"
-            ? "先补项目缺口，再保存草稿。"
-            : "先检查项目条件，再保存草稿。"),
-      "warn"
-    );
-  }
-
-  const directoryId = writingDraftDirectoryId();
-  const body = writingDraftBody();
-  try {
-    const created = await createNote({
-      directoryId,
-      status: "draft",
-      body
-    });
-    const project = await bindWritingDraftNote(
-      writingState.project?.id,
-      created?.id,
-      writingState.scaffold?.id,
-      currentWritingVersionNote()
-    );
-    writingState.project = project;
-    const note = mapNoteItem({
-      ...created,
-      body: typeof created?.body === "string" ? created.body : body
-    });
-    state.notes = [note, ...state.notes.filter((item) => item.id !== note.id)];
-    showWritingResult({
-      stage: "writing_draft_note",
-      writingProjectId: project?.id || writingState.project?.id,
-      draftScaffoldId: writingState.scaffold?.id,
-      noteId: note.id,
-      directoryId,
-      title: note.title
-    });
-    await loadWritingProjectsList();
-    await loadWritingScaffoldVersions();
-    await loadWritingDraftVersions();
-    renderWritingPanel();
-    setStatus(`已创建草稿笔记：${note.title}。你可以继续留在写作中心检查版本，或直接打开当前草稿。`, "ok");
-  } catch (error) {
-    showWritingResult({
-      stage: "writing_draft_note_error",
-      writingProjectId: writingState.project?.id,
-      draftScaffoldId: writingState.scaffold?.id,
-      message: String(error?.message || error),
-      code: error?.code || null,
-      details: error?.details || null
-    });
-    setStatus(`草稿笔记创建失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("btnWritingOpenDraft")?.addEventListener("click", async () => {
-  const draftNoteId = String(writingState.project?.draft_note_id || "").trim();
-  const continuation = !draftNoteId ? currentWritingContinuationEntry("当前写作篮") : null;
-  if (!draftNoteId && continuation?.projectId) {
-    try {
-      await continueWritingProjectEntry(continuation.projectId, {
-        openDraft: continuation.action === "open-draft",
-        statusMessage: writingCenterContinuationStatusMessage(continuation)
-      });
-    } catch (error) {
-      setStatus(writingCenterContinuationFailureMessage(continuation, error), "bad");
-    }
-    return;
-  }
-  if (!draftNoteId) return setStatus("当前项目还没有绑定草稿笔记", "warn");
-  try {
-    await openWritingDraftNoteById(draftNoteId);
-    setStatus(`已打开草稿笔记：${draftNoteId}`, "ok");
-  } catch (error) {
-    setStatus(`打开草稿失败：${String(error?.message || error)}`, "bad");
-  }
+installWritingDraftActionEventHandlers({
+  $,
+  depsProvider: () => ({
+    $,
+    state,
+    writingState,
+    createWritingProjectFromCurrentBasket,
+    describeWritingProjectPreflight,
+    currentWritingContinuationEntry,
+    continueWritingProjectEntry,
+    writingCenterContinuationStatusMessage,
+    writingCenterContinuationFailureMessage,
+    writingScaffoldPreflightWarning,
+    createDraftScaffold,
+    currentWritingVersionNote,
+    showWritingResult,
+    loadWritingProjectsList,
+    loadWritingScaffoldVersions,
+    loadWritingDraftVersions,
+    renderWritingPanel,
+    copyWritingScaffold,
+    exportWritingScaffold,
+    writingDraftDirectoryId,
+    writingDraftBody,
+    createNote,
+    bindWritingDraftNote,
+    mapNoteItem,
+    openWritingDraftNoteById,
+    setStatus
+  })
 });
 
 $("graphRefresh")?.addEventListener("click", async () => {
