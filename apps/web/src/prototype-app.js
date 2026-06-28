@@ -36,6 +36,9 @@ import {
   renderImportToolbarMount
 } from "./import-toolbar-mount.js";
 import {
+  createImportWorkspaceShellController
+} from "./import-workspace-shell.js";
+import {
   renderImportResultMount
 } from "./import-result-mount.js";
 import {
@@ -2661,59 +2664,30 @@ function compactValue(value) {
   return String(value);
 }
 
+const importWorkspaceShellController = createImportWorkspaceShellController({
+  getElement: $,
+  importState,
+  renderImportPageMount,
+  renderImportToolbarMount,
+  preferredImportDirectoryId,
+  activeImportPreviewContext,
+  selectionSummary,
+  importConfirmButtonState,
+  importTargetDirectories,
+  directoryPathLabel,
+  mountExportCardIntoImportShell
+});
+
 function currentImportToolbarValues() {
-  return {
-    connector: String($("importConnector")?.value || "obsidian").trim(),
-    directoryId: String($("importDirectoryId")?.value || importState.directoryId || "").trim(),
-    path: String($("importPath")?.value || "").trim(),
-    payload: String($("importPayload")?.value || ""),
-    options: String($("importOptions")?.value || ""),
-    importRecordId: String($("importRecordId")?.value || importState.importRecordId || "").trim()
-  };
+  return importWorkspaceShellController.currentToolbarValues();
 }
 
 function renderImportToolbar() {
-  const el = $("importToolbarMount");
-  if (!el) return;
-  const values = currentImportToolbarValues();
-  importState.directoryId = preferredImportDirectoryId(values.directoryId);
-  const preview = activeImportPreviewContext();
-  const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === values.importRecordId);
-  const summary = hasMatchingPreview
-    ? selectionSummary(preview.candidatePreview, values.importRecordId, null, preview.candidateSelection || null)
-    : { selectedCount: 0, totalCount: 0 };
-  const confirmButton = importConfirmButtonState({
-    hasMatchingPreview,
-    selectedCount: summary.selectedCount,
-    totalCount: summary.totalCount
-  });
-
-  el.innerHTML = renderImportToolbarMount({
-    ...values,
-    directoryId: importState.directoryId,
-    directoryOptions: importTargetDirectories().map((folder) => ({
-      value: folder.id,
-      label: directoryPathLabel(folder.id)
-    })),
-    confirmButton
-  });
+  importWorkspaceShellController.renderToolbar();
 }
 
 function renderImportPageShell() {
-  const el = $("importPageMount");
-  if (!el) return;
-  el.innerHTML = renderImportPageMount({
-    toolbar: currentImportToolbarValues(),
-    activeTab: importState.activeTab,
-    result: importState.lastResultPayload
-      ? {
-          data: importState.lastResultPayload,
-          raw: JSON.stringify(importState.lastResultPayload, null, 2)
-        }
-      : null
-  });
-  mountExportCardIntoImportShell();
-  syncImportWorkspaceTabs();
+  importWorkspaceShellController.renderPage();
 }
 
 function mountExportCardIntoImportShell() {
@@ -2725,30 +2699,15 @@ function mountExportCardIntoImportShell() {
 }
 
 function normalizeImportWorkspaceTab(tab = "import") {
-  return String(tab || "").trim().toLowerCase() === "export" ? "export" : "import";
+  return importWorkspaceShellController.normalizeTab(tab);
 }
 
 function syncImportWorkspaceTabs() {
-  const mount = $("importPageMount");
-  if (!mount) return;
-  const activeTab = normalizeImportWorkspaceTab(importState.activeTab);
-  mount.setAttribute("data-import-workspace-tab", activeTab);
-  mount.querySelectorAll("[data-import-workspace-tab]").forEach((button) => {
-    const buttonTab = normalizeImportWorkspaceTab(button.getAttribute("data-import-workspace-tab"));
-    const isActive = buttonTab === activeTab;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", isActive ? "true" : "false");
-    button.setAttribute("tabindex", isActive ? "0" : "-1");
-  });
-  const importPanel = $("importToolbarMount");
-  const exportPanel = $("exportCardMount");
-  if (importPanel) importPanel.hidden = activeTab !== "import";
-  if (exportPanel) exportPanel.hidden = activeTab !== "export";
+  importWorkspaceShellController.syncTabs();
 }
 
 function setImportWorkspaceTab(tab = "import") {
-  importState.activeTab = normalizeImportWorkspaceTab(tab);
-  syncImportWorkspaceTabs();
+  importWorkspaceShellController.setTab(tab);
 }
 
 function renderAiInboxWorkspace() {
