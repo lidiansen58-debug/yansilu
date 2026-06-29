@@ -729,12 +729,11 @@ import {
   createWritingBookRuntime
 } from "./writing-book-runtime.js";
 import {
-  scheduledTaskFormDefaults,
-  scheduledTaskFromCanonical,
-  scheduledTaskFormFromTask,
-  scheduledTaskPayloadFromForm,
-  normalizeScheduledTaskFilters
+  scheduledTaskFormDefaults
 } from "./scheduled-tasks-model.js";
+import {
+  createScheduledTasksRuntimeController
+} from "./scheduled-tasks-runtime-controller.js";
 import {
   aiSettingsSelectionFromPreferences,
   canonicalizeAiSettingsSelection,
@@ -2637,133 +2636,72 @@ async function applyAiSuggestionStatus(suggestionId, status) {
   }, suggestionId, status);
 }
 
+const scheduledTasksRuntimeController = createScheduledTasksRuntimeController(() => ({
+  addSystemMessage,
+  aiInboxState,
+  fetchAiScheduledTasks,
+  fetchAiScheduledTaskTemplates,
+  getElement: $,
+  globalPendingAiInboxFilters,
+  normalizeAiInboxFilters,
+  refreshAiInbox,
+  refreshAiInboxEvaluationSummary,
+  refreshScheduledTasks,
+  rememberAiDebugSnapshot,
+  render: renderScheduledTasksWorkspace,
+  runDueAiScheduledTasks,
+  saveAiScheduledTask,
+  scheduledTaskReviewArtifactCount,
+  scheduledTaskSystemMessageForArtifacts,
+  setStatus,
+  settingsState,
+  state,
+  updateAiScheduledTaskStatusWithOptions,
+  window
+}));
+
 function scheduledTaskFiltersFromUi() {
-  return normalizeScheduledTaskFilters({
-    ...settingsState.ai.scheduledTaskFilters,
-    status: $("scheduledTaskStatusFilter")?.value || settingsState.ai.scheduledTaskFilters.status,
-    taskType: $("scheduledTaskTypeFilter")?.value || settingsState.ai.scheduledTaskFilters.taskType
-  });
+  return scheduledTasksRuntimeController.filtersFromUi();
 }
 
 function scheduledTaskTemplateById(templateId = "") {
-  const id = String(templateId || "").trim();
-  return settingsState.ai.scheduledTaskTemplates.find((template) => String(template.templateId || "").trim() === id) || null;
+  return scheduledTasksRuntimeController.templateById(templateId);
 }
 
 function scheduledTaskFormFromUi() {
-  return {
-    ...settingsState.ai.scheduledTaskForm,
-    templateId: $("scheduledTaskTemplateSelect")?.value || settingsState.ai.scheduledTaskForm.templateId,
-    name: $("scheduledTaskNameInput")?.value || "",
-    status: $("scheduledTaskStatusSelect")?.value || "paused",
-    scheduleType: $("scheduledTaskScheduleTypeSelect")?.value || "weekly",
-    dayOfWeek: $("scheduledTaskDaySelect")?.value || "monday",
-    time: $("scheduledTaskTimeInput")?.value || "09:00",
-    intervalMinutes: $("scheduledTaskIntervalInput")?.value || 30,
-    noteIdsText: $("scheduledTaskNoteIdsInput")?.value || "",
-    directoryIdsText: $("scheduledTaskDirectoryIdsInput")?.value || "",
-    tagsText: $("scheduledTaskTagsInput")?.value || "",
-    keywordsText: $("scheduledTaskKeywordsInput")?.value || "",
-    includePrivateNotes: $("scheduledTaskIncludePrivateInput")?.checked === true
-  };
+  return scheduledTasksRuntimeController.formFromUi();
 }
 
 function resetScheduledTaskForm(overrides = {}) {
-  const { formOpen = false, ...formOverrides } = overrides || {};
-  settingsState.ai.scheduledTaskForm = {
-    ...scheduledTaskFormDefaults({
-      templates: settingsState.ai.scheduledTaskTemplates,
-      currentNoteId: state.selectedFileId || state.activeTabId || "",
-      currentDirectoryId: state.selectedFolderId || ""
-    }),
-    ...formOverrides
-  };
-  settingsState.ai.scheduledTaskFormOpen = Boolean(formOpen);
-  renderScheduledTasksWorkspace();
+  return scheduledTasksRuntimeController.resetForm(overrides);
 }
 
 function applyScheduledTaskTemplateToForm(templateId = "") {
-  const template = scheduledTaskTemplateById(templateId);
-  if (!template) return;
-  const task = template.task || {};
-  const schedule = task.schedule || {};
-  settingsState.ai.scheduledTaskForm = {
-    ...settingsState.ai.scheduledTaskForm,
-    templateId: template.templateId,
-    name: template.name || settingsState.ai.scheduledTaskForm.name,
-    scheduleType: schedule.type || settingsState.ai.scheduledTaskForm.scheduleType,
-    dayOfWeek: schedule.dayOfWeek || schedule.day_of_week || settingsState.ai.scheduledTaskForm.dayOfWeek,
-    time: schedule.time || settingsState.ai.scheduledTaskForm.time
-  };
-  settingsState.ai.scheduledTaskFormOpen = true;
-  renderScheduledTasksWorkspace();
+  return scheduledTasksRuntimeController.applyTemplateToForm(templateId);
 }
 
 async function refreshScheduledTaskTemplates(options = {}) {
-  if (!options.silent) {
-    settingsState.ai.scheduledTaskTemplatesLoading = true;
-    settingsState.ai.scheduledTaskTemplatesError = "";
-    renderScheduledTasksWorkspace();
-  }
-  try {
-    const result = await fetchAiScheduledTaskTemplates({ implementationReady: true });
-    settingsState.ai.scheduledTaskTemplates = result.items;
-    settingsState.ai.scheduledTaskTemplatesError = "";
-    if (!String(settingsState.ai.scheduledTaskForm.templateId || "").trim()) resetScheduledTaskForm();
-    return result;
-  } catch (error) {
-    settingsState.ai.scheduledTaskTemplatesError = String(error?.message || error);
-    setStatus(`计划任务模板加载失败：${settingsState.ai.scheduledTaskTemplatesError}`, "warn");
-    return null;
-  } finally {
-    settingsState.ai.scheduledTaskTemplatesLoading = false;
-    renderScheduledTasksWorkspace();
-  }
-}
-
-function scheduledTaskPayloadHasScope(payload = {}) {
-  const scope = payload.scope || {};
-  return ["noteIds", "directoryIds", "tags", "keywords"].some((key) => Array.isArray(scope[key]) && scope[key].length);
+  return scheduledTasksRuntimeController.refreshTemplates(options);
 }
 
 async function saveScheduledTaskFromUi() {
-  const form = scheduledTaskFormFromUi();
-  settingsState.ai.scheduledTaskForm = form;
-  settingsState.ai.scheduledTaskFormOpen = true;
-  const payload = scheduledTaskPayloadFromForm(form);
-  if (payload.status === "active" && !scheduledTaskPayloadHasScope(payload)) {
-    const confirmed = window.confirm("Create an active scheduled task without a note, directory, tag, or keyword scope?");
-    if (!confirmed) return null;
-  }
-
-  settingsState.ai.scheduledTaskActionLoading = true;
-  renderScheduledTasksWorkspace();
-  try {
-    const item = await saveAiScheduledTask({ ...payload, canonical: true });
-    rememberAiDebugSnapshot("scheduledTaskAction", item);
-    const canonicalTask = item?.canonical?.item ? scheduledTaskFromCanonical(item.canonical.item) : null;
-    settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(canonicalTask || item);
-    settingsState.ai.scheduledTaskFormOpen = false;
-    await refreshScheduledTasks({ silent: true });
-    setStatus(`Scheduled task saved: ${item?.name || item?.scheduledTaskId || ""}`, "ok");
-    return item;
-  } catch (error) {
-    setStatus(`Scheduled task save failed: ${String(error?.message || error)}`, "bad");
-    return null;
-  } finally {
-    settingsState.ai.scheduledTaskActionLoading = false;
-    renderScheduledTasksWorkspace();
-  }
+  return scheduledTasksRuntimeController.saveFromUi();
 }
 
 function editScheduledTaskFromList(scheduledTaskId = "") {
-  const id = String(scheduledTaskId || "").trim();
-  const task = settingsState.ai.scheduledTasks.find((item) => String(item.scheduledTaskId || "").trim() === id);
-  if (!task) return setStatus("Scheduled task not found in the current list", "warn");
-  settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(task);
-  settingsState.ai.scheduledTaskFormOpen = true;
-  renderScheduledTasksWorkspace();
-  setStatus(`Editing scheduled task: ${task.name || id}`, "ok");
+  return scheduledTasksRuntimeController.editFromList(scheduledTaskId);
+}
+
+async function refreshScheduledTasks(options = {}) {
+  return scheduledTasksRuntimeController.refreshTasks(options);
+}
+
+async function setScheduledTaskStatus(scheduledTaskId, status) {
+  return scheduledTasksRuntimeController.setTaskStatus(scheduledTaskId, status);
+}
+
+async function runDueScheduledTasksFromUi() {
+  return scheduledTasksRuntimeController.runDueFromUi();
 }
 
 function aiInboxFiltersFromUi() {
@@ -3171,93 +3109,6 @@ async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") {
       suggestionUpdateFailedStatusMessage: aiInboxSuggestionUpdateFailedStatusMessage
     }
   }, status, expectedSuggestionId);
-}
-
-async function refreshScheduledTasks(options = {}) {
-  settingsState.ai.scheduledTaskFilters = normalizeScheduledTaskFilters(settingsState.ai.scheduledTaskFilters);
-  if (!options.silent) {
-    settingsState.ai.scheduledTasksLoading = true;
-    settingsState.ai.scheduledTasksError = "";
-    renderScheduledTasksWorkspace();
-  }
-  try {
-    const result = await fetchAiScheduledTasks({ ...settingsState.ai.scheduledTaskFilters, canonical: true });
-    settingsState.ai.scheduledTasks = Array.isArray(result?.canonical?.items) && result.canonical.items.length
-      ? result.canonical.items.map((item) => scheduledTaskFromCanonical(item))
-      : result.items;
-    settingsState.ai.scheduledTasksTotal = result.total;
-    rememberAiDebugSnapshot("scheduledTasksList", result);
-    settingsState.ai.scheduledTasksError = "";
-    return result;
-  } catch (error) {
-    settingsState.ai.scheduledTasksError = String(error?.message || error);
-    setStatus(`Scheduled task load failed: ${settingsState.ai.scheduledTasksError}`, "warn");
-    return null;
-  } finally {
-    settingsState.ai.scheduledTasksLoading = false;
-    renderScheduledTasksWorkspace();
-  }
-}
-
-async function setScheduledTaskStatus(scheduledTaskId, status) {
-  const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
-  const cleanStatus = String(status || "").trim();
-  if (!cleanScheduledTaskId || !cleanStatus) return null;
-  settingsState.ai.scheduledTaskActionLoading = true;
-  renderScheduledTasksWorkspace();
-  try {
-    const item = await updateAiScheduledTaskStatusWithOptions(cleanScheduledTaskId, cleanStatus, { canonical: true });
-    rememberAiDebugSnapshot("scheduledTaskAction", item);
-    const canonicalTask = item?.canonical?.item ? scheduledTaskFromCanonical(item.canonical.item) : null;
-    const nextTask = canonicalTask || item;
-    settingsState.ai.scheduledTasks = settingsState.ai.scheduledTasks.map((task) =>
-      String(task.scheduledTaskId || "").trim() === cleanScheduledTaskId ? nextTask : task
-    );
-    await refreshScheduledTasks({ silent: true });
-    setStatus(`Scheduled task ${cleanStatus}: ${cleanScheduledTaskId}`, "ok");
-    return item;
-  } catch (error) {
-    setStatus(`Scheduled task status failed: ${String(error?.message || error)}`, "bad");
-    return null;
-  } finally {
-    settingsState.ai.scheduledTaskActionLoading = false;
-    renderScheduledTasksWorkspace();
-  }
-}
-
-async function runDueScheduledTasksFromUi() {
-  const confirmed = window.confirm("现在运行到期的 AI 任务吗？新的输出会先进入系统消息，等待你确认。");
-  if (!confirmed) return null;
-  settingsState.ai.scheduledTaskActionLoading = true;
-  settingsState.ai.scheduledTasksError = "";
-  renderScheduledTasksWorkspace();
-  try {
-    const summary = await runDueAiScheduledTasks({ limit: settingsState.ai.scheduledTaskFilters.limit || 50 });
-    settingsState.ai.scheduledTaskRunSummary = summary;
-    await Promise.all([
-      refreshScheduledTasks({ silent: true }),
-      refreshAiInbox({ silent: true, preserveDetail: true }),
-      refreshAiInboxEvaluationSummary({ silent: true })
-    ]);
-    const artifactCount = scheduledTaskReviewArtifactCount(summary);
-    if (artifactCount > 0) {
-      aiInboxState.filters = normalizeAiInboxFilters({
-        ...globalPendingAiInboxFilters(),
-        type: aiInboxState.filters?.type || "all"
-      });
-      aiInboxState.detail = null;
-      aiInboxState.selectedArtifactId = "";
-      addSystemMessage(scheduledTaskSystemMessageForArtifacts(artifactCount), { interrupt: true });
-    }
-    setStatus(`Scheduled tasks run: ${summary?.succeeded || 0} succeeded, ${summary?.skipped || 0} skipped, ${summary?.failed || 0} failed`, "ok");
-    return summary;
-  } catch (error) {
-    setStatus(`Run due scheduled tasks failed: ${String(error?.message || error)}`, "bad");
-    return null;
-  } finally {
-    settingsState.ai.scheduledTaskActionLoading = false;
-    renderScheduledTasksWorkspace();
-  }
 }
 
 function normalizeOptionalNumber(value) {

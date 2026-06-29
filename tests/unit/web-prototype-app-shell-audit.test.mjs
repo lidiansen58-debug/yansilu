@@ -214,6 +214,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "note-loading-runtime.js": 80,
     "note-template-runtime-helpers.js": 150,
     "note-persistence-policy.js": 90,
+    "scheduled-tasks-runtime-controller.js": 340,
     "workspace-status-hint-model.js": 120,
     "settings-template-preview-view.js": 80,
     "settings-template-card-model.js": 80,
