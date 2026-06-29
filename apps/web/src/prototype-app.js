@@ -28,11 +28,12 @@ import { editorSelectionAiActionElements } from "./app-shell-editor-elements.js"
 import { createExplorerPaneHostDeps } from "./explorer-host-deps.js";
 import { createEditorPaneHostDeps } from "./editor-host-deps.js";
 import { editorHelperNoteType, editorHelperShouldHide } from "./editor-helper-model.js";
+import { createDirectoryOptionRuntime } from "./directory-option-runtime.js";
 import { createRenderAppShellController } from "./app-shell-render-all.js";
 import { createRenderAppShellPrototypeDepsProvider } from "./app-shell-render-all-host-deps.js";
 import { buildWorkspaceStatusHintModel } from "./workspace-status-hint-model.js";
-import { currentModuleSidebarUi, syncModuleChromeClassesForRuntime } from "./app-shell-module-ui.js";
-import { renderModuleWorkspaceHeaderForRuntime } from "./app-shell-module-header.js";
+import { syncModuleChromeClassesForRuntime } from "./app-shell-module-ui.js";
+import { createModuleWorkspaceHeaderRuntimeRoutes } from "./app-module-header-runtime-routes.js";
 import { createSidebarTitleController } from "./app-shell-sidebar-controller.js";
 import { createSidebarTitlePrototypeDepsProvider } from "./app-shell-sidebar-host-deps.js";
 import { installSidebarFlowEventHandler, renderExplorerSidebarFlowForRuntime } from "./app-shell-sidebar-flow.js";
@@ -53,7 +54,8 @@ import { createNoteRuntimeController } from "./note-runtime-controller.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxWorkspaceEvents, renderAiInboxWorkspaceView } from "./ai-inbox-workspace.js";
 import { createAiInboxWorkspaceHostDeps } from "./ai-inbox-host-deps.js";
-import { dismissSaveAiSuggestionForLater, saveAiSuggestionForNoteModel, saveAiSuggestionPrimaryRoute } from "./save-ai-suggestion-model.js";
+import { dismissSaveAiSuggestionForLater, saveAiSuggestionPrimaryRoute } from "./save-ai-suggestion-model.js";
+import { createSaveAiSuggestionWorkflowRoutes } from "./save-ai-suggestion-workflow-routes.js";
 import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorkspace, bindAiSuggestionsWorkspaceEvents, renderAiSuggestionsWorkspaceView } from "./ai-suggestions-workspace.js";
 import { createAiSuggestionsWorkspaceHostDeps } from "./ai-suggestions-host-deps.js";
 import { applyAiRuntimeModeChangeForRuntime } from "./ai-runtime-mode-controller.js";
@@ -67,9 +69,7 @@ import { createSystemMessagesPrototypeHostProvider } from "./system-messages-hos
 import { addSystemMessageForRuntime, markSystemMessagesReadForRuntime, resolveSystemMessageByDedupeKeyForRuntime, upsertSystemMessageForRuntime } from "./system-messages-runtime-controller.js";
 import { handleSystemMessageEscapeKey, installSystemMessageEventHandlers } from "./system-message-events.js";
 import { createSystemMessagePrototypeDepsProviders } from "./system-message-deps.js";
-import { createWorkflowReminderController } from "./workflow-reminder-controller.js";
 import { createRecordPermanentWorkflowOpener, createSystemMessageWorkflowOpener } from "./prototype-system-message-workflow.js";
-import { SETTINGS_DETAIL_ITEMS, SETTINGS_SECTIONS, formatSettingsUserError as computeFormatSettingsUserError, normalizeSettingsItem, normalizeSettingsSection, settingsDetailItemConfig, settingsItemSummary as computeSettingsItemSummary, settingsMobileItemOptionsHtml as renderSettingsMobileItemOptionsHtml, settingsModuleHeaderCopy as computeSettingsModuleHeaderCopy, settingsSectionChromeMap as computeSettingsSectionChromeMap, settingsSectionConfig, settingsSectionGuidanceMap as computeSettingsSectionGuidanceMap, settingsSidebarNavigationHtml as renderSettingsSidebarNavigationHtml } from "./prototype-settings-navigation.js";
 import { LITERATURE_TEMPLATE_SETTINGS_FIELDS, NOTE_TEMPLATE_STORAGE_KEYS, PERMANENT_TEMPLATE_SETTINGS_FIELDS, applyTitleToNoteTemplate as computeApplyTitleToNoteTemplate, composePermanentTemplateDraft as computeComposePermanentTemplateDraft, defaultLiteratureTemplateSource as computeDefaultLiteratureTemplateSource, defaultPermanentTemplateSource as computeDefaultPermanentTemplateSource, defaultTemplateSourceForKind as computeDefaultTemplateSourceForKind, legacyPermanentTemplateSource as computeLegacyPermanentTemplateSource, mergeTemplateFieldText as computeMergeTemplateFieldText, normalizeDraftBuffer as computeNormalizeDraftBuffer, normalizeNoteTemplateHistory as computeNormalizeNoteTemplateHistory, normalizeNoteTemplateSource as computeNormalizeNoteTemplateSource, normalizeStoredNoteTemplateSource as computeNormalizeStoredNoteTemplateSource, noteTemplateHistoryWithPrevious as computeNoteTemplateHistoryWithPrevious } from "./prototype-note-templates.js";
 import { aiSuggestionDetailFromResponse as suggestionDetailFromResponse, aiSuggestionFromCanonical, aiSuggestionStatusLabel, aiSuggestionReviewEventFromCanonical as suggestionReviewEventFromCanonical, aiSuggestionTraceFromCanonical as suggestionTraceFromCanonical, normalizeAiSuggestionFilters } from "./ai-suggestions-model.js";
 import { loadAiSuggestionDetailForRuntime, refreshAiSuggestionsForRuntime } from "./ai-suggestions-runtime-controller.js";
@@ -163,8 +163,7 @@ import { renderAiSettingsExperienceForRuntime } from "./settings-ai-experience-v
 import { renderAiRoutePreviewForRuntime } from "./settings-ai-route-preview-view.js";
 import { escapeTemplatePreviewInline, renderTemplateMarkdownPreviewHtmlForRuntime } from "./settings-template-preview-view.js";
 import { createSettingsNoteTemplateRuntime } from "./settings-note-template-runtime.js";
-import { renderSettingsDetailFocusForRuntime, renderSettingsSidebarColumnForRuntime, renderSettingsWorkbenchChromeForRuntime } from "./settings-panel-shell.js";
-import { renderSettingsPanelForRuntime } from "./settings-panel-renderer.js";
+import { createSettingsPanelRuntimeRoutes } from "./settings-panel-runtime-routes.js";
 import { installSettingsEventBindings } from "./settings-event-bindings.js";
 import { installSettingsAiEventBindings } from "./settings-ai-event-bindings.js";
 import { installSettingsFeedbackEventBindings } from "./settings-feedback-event-bindings.js";
@@ -457,43 +456,59 @@ const settingsState = {
   },
   error: ""
 };
-function settingsSectionChromeMap() {
-  return computeSettingsSectionChromeMap({
-    settingsState,
-    settingsVaultPathMissing,
-    settingsLeafLabel,
-    settingsAiOverviewSummary,
-    settingsAiRuntimeModeLabel,
-    feedbackRepository: FEEDBACK_REPOSITORY,
-    feedbackRepositoryReady: FEEDBACK_REPOSITORY_READY
-  });
-}
+const settingsPanelRuntimeRoutes = createSettingsPanelRuntimeRoutes(() => ({
+  $,
+  document,
+  state,
+  settingsState,
+  appVersion: APP_VERSION,
+  feedbackRepository: FEEDBACK_REPOSITORY,
+  feedbackRepositoryReady: FEEDBACK_REPOSITORY_READY,
+  syncRailSelectionState,
+  mountSettingsAutomationWorkspace,
+  feedbackBaseUrl,
+  renderUpdateSettingsCard,
+  renderNoteTemplateSettingsCard,
+  renderAiLocalModelControls,
+  renderAiSettingsExperience,
+  renderAiProviderConfigControls,
+  renderAiRoutePreview,
+  renderScheduledTasksWorkspace,
+  renderAiSuggestionsWorkspace,
+  aiTestBlockedReason,
+  renderAiCanonicalDebugPanel,
+  renderSidebarTitle,
+  renderModuleWorkspaceHeader,
+  escapeHtml,
+  setStatus
+}));
 
-function settingsItemSummary(itemId = "") { return computeSettingsItemSummary(itemId); }
-
-function formatSettingsUserError(errorMessage = "") { return computeFormatSettingsUserError(errorMessage); }
-
-function settingsVaultPathMissing() { return /找不到当前笔记库路径|ENOENT|no such file or directory/i.test(String(settingsState.error || "").trim()); }
-
-function settingsSectionGuidanceMap() {
-  return computeSettingsSectionGuidanceMap({
-    settingsState,
-    settingsLeafLabel,
-    settingsAiOverviewSummary
-  });
-}
-
-function settingsSidebarNavigationHtml() {
-  return renderSettingsSidebarNavigationHtml({
-    settingsState,
-    chromeMap: settingsSectionChromeMap(),
-    escapeHtml
-  });
-}
-
-function settingsMobileItemOptionsHtml() { return renderSettingsMobileItemOptionsHtml({ escapeHtml }); }
-
-function settingsModuleHeaderCopy() { return computeSettingsModuleHeaderCopy({ settingsState }); }
+const {
+  ensureSettingsWorkbenchLayout,
+  filterSettingsSidebarMenu,
+  formatSettingsUserError,
+  renderSettingsDetailFocus,
+  renderSettingsPanel,
+  renderSettingsSidebarColumn,
+  renderSettingsWorkbenchChrome,
+  setSettingsItem,
+  setSettingsSection,
+  settingsAiAdvancedRuntimeModeLabel,
+  settingsAiModelPackDisplayLabel,
+  settingsAiOverviewSummary,
+  settingsAiProviderDisplayLabel,
+  settingsAiRuntimeModeLabel,
+  settingsAiUserModeDisplayLabel,
+  settingsItemSummary,
+  settingsLeafLabel,
+  settingsMobileItemOptionsHtml,
+  settingsModuleHeaderCopy,
+  settingsPanelRuntimeDeps,
+  settingsSectionChromeMap,
+  settingsSectionGuidanceMap,
+  settingsSidebarNavigationHtml,
+  settingsVaultPathMissing
+} = settingsPanelRuntimeRoutes;
 
 const writingState = {
   project: null,
@@ -2739,137 +2754,60 @@ const {
   renderSidebarTitle
 } = sidebarTitleController;
 
-function currentModuleUi() {
-  const root = folderById(state, state.browserRootId);
-  return currentModuleSidebarUi({
-    module: state.module,
-    rootName: root?.name || "当前目录",
-    escapeHtml,
-    settingsSidebarNavigationHtml
-  });
-}
+const moduleWorkspaceHeaderRuntimeRoutes = createModuleWorkspaceHeaderRuntimeRoutes(() => ({
+  $,
+  activateModule,
+  applyAiModelPackChange,
+  currentAiProviderId,
+  escapeHtml,
+  folderById,
+  refreshAiRoutePreview,
+  renderSettingsPanel,
+  settingsModuleHeaderCopy,
+  settingsSidebarNavigationHtml,
+  settingsState,
+  setStatus,
+  state
+}));
 
-function renderModuleWorkspaceHeader() {
-  const moduleTitle = $("moduleTitle");
-  const moduleSummary = $("moduleSummary");
-  const moduleHeaderActions = $("moduleHeaderActions");
-  const settingsPackSelect = $("settingsAiModelPack");
-  const packOptionsHtml = settingsPackSelect
-    ? [...settingsPackSelect.querySelectorAll("option")]
-        .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.textContent || option.value)}</option>`)
-        .join("")
-    : `
-      <option value="Starter Auto">日常整理</option>
-      <option value="Privacy First">本地私密</option>
-      <option value="Ollama Local">本地 AI</option>
-    `;
-
-  return renderModuleWorkspaceHeaderForRuntime({
-    state,
-    elements: {
-      moduleTitle,
-      moduleSummary,
-      moduleHeaderActions,
-      moduleBackToNotes: $("moduleBackToNotes"),
-      moduleAiModelPack: $("moduleAiModelPack"),
-      moduleAiRefreshRoute: $("moduleAiRefreshRoute")
-    },
-    settingsState,
-    moduleUi: currentModuleUi(),
-    settingsHeader: settingsModuleHeaderCopy(),
-    settingsPackOptionsHtml: packOptionsHtml,
-    currentAiProviderId,
-    activateModule,
-    applyAiModelPackChange,
-    refreshAiRoutePreview,
-    renderModuleWorkspaceHeader,
-    renderSettingsPanel,
-    setStatus,
-    escapeHtml
-  });
-}
+const { currentModuleUi, renderModuleWorkspaceHeader } = moduleWorkspaceHeaderRuntimeRoutes;
 
 function isPermanentLikeNote(note = null) {
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
   return noteType === "permanent" || noteType === "original";
 }
 
-function saveAiSuggestionForNote(note = null) {
-  return saveAiSuggestionForNoteModel(
-    note,
-    {
-      currentModule: state.module,
-      activeNote: activeEditorNote(),
-      activeBody: activeEditorBody()
-    },
-    {
-      isEmptyUntitledMarkdown,
-      isOriginalRecordableSource,
-      noteHasGeneratedOriginal,
-      noteTypeForNote: (item) => String((item?.folderId ? typeFromFolder(state, item.folderId) : "") || item?.noteType || "").trim().toLowerCase(),
-      isPermanentLikeNote,
-      distillationStatusOf,
-      saveAiSuggestionKey
-    }
-  );
-}
-
-const workflowReminderController = createWorkflowReminderController(() => ({
+const saveAiSuggestionWorkflowRoutes = createSaveAiSuggestionWorkflowRoutes(() => ({
+  $,
+  activeEditorBody,
+  activeEditorNote,
+  dismissedSaveAiSuggestionKeys,
+  distillationStatusOf,
+  getSaveAiSuggestion: () => saveAiSuggestion,
   isOriginalRecordableSource,
+  isEmptyUntitledMarkdown,
+  isPermanentLikeNote,
   noteHasGeneratedOriginal,
+  saveAiSuggestionKey,
+  setSaveAiSuggestion: (suggestion) => {
+    saveAiSuggestion = suggestion;
+  },
   state,
   typeFromFolder,
-  distillationStatusOf,
-  isPermanentLikeNote,
   resolveSystemMessageByDedupeKey,
   upsertSystemMessage: (message) => upsertSystemMessage(message, { preserveRead: true })
 }));
 
-function sourcePromotionWorkflowMessageForNote(note = null, suggestion = null) { return workflowReminderController.sourcePromotionWorkflowMessageForNote(note, suggestion); }
-
-function syncSourcePromotionSystemMessageForNote(note = null, suggestion = null) { return workflowReminderController.syncSourcePromotionSystemMessageForNote(note, suggestion); }
-
-function relationNetworkWorkflowMessageForNote(note = null, overview = {}) { return workflowReminderController.relationNetworkWorkflowMessageForNote(note, overview); }
-
-function syncRelationNetworkSystemMessageForNote(note = null, overview = {}) { return workflowReminderController.syncRelationNetworkSystemMessageForNote(note, overview); }
-
-function clearSaveAiSuggestion() {
-  saveAiSuggestion = null;
-  renderSaveAiSuggestion();
-}
-
-function showSaveAiSuggestionForNote(note = null) {
-  const suggestion = saveAiSuggestionForNote(note);
-  if (!suggestion || dismissedSaveAiSuggestionKeys.has(suggestion.key)) {
-    if (saveAiSuggestion?.noteId === note?.id) clearSaveAiSuggestion();
-    return null;
-  }
-  saveAiSuggestion = suggestion;
-  renderSaveAiSuggestion();
-  return suggestion;
-}
-
-function renderSaveAiSuggestion() {
-  const root = $("saveAiSuggestion");
-  if (!root) return;
-  const text = $("saveAiSuggestionText");
-  const primary = $("btnSaveAiSuggestionPrimary");
-  const later = $("btnSaveAiSuggestionLater");
-  const activeNote = activeEditorNote();
-  const visible =
-    Boolean(saveAiSuggestion?.noteId) &&
-    state.module === "explorer" &&
-    activeNote?.id === saveAiSuggestion.noteId;
-
-  root.classList.toggle("hidden", !visible);
-  if (!visible) return;
-
-  if (text) text.textContent = saveAiSuggestion.text;
-  if (primary) primary.textContent = saveAiSuggestion.primaryLabel || "立即处理";
-  if (later) later.textContent = saveAiSuggestion.laterLabel || "稍后";
-  root.dataset.action = saveAiSuggestion.action || "";
-  root.dataset.noteId = saveAiSuggestion.noteId || "";
-}
+const {
+  clearSaveAiSuggestion,
+  relationNetworkWorkflowMessageForNote,
+  renderSaveAiSuggestion,
+  saveAiSuggestionForNote,
+  showSaveAiSuggestionForNote,
+  sourcePromotionWorkflowMessageForNote,
+  syncRelationNetworkSystemMessageForNote,
+  syncSourcePromotionSystemMessageForNote
+} = saveAiSuggestionWorkflowRoutes;
 
 function distillationQueueItems() {
   const rank = { needs_thesis: 0, needs_summary: 1, needs_confirm: 2, confirmed: 3 };
@@ -2891,105 +2829,31 @@ function distillationQueueItems() {
 
 function directoryPathLabel(directoryId) { return computeDirectoryPathLabel(directoryId, { folderById, state }); }
 
-function permanentExportDirectories() {
-  return state.folders
-    .filter((folder) => folder?.id && isDirectoryUnderOriginalRoot(folder.id))
-    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
-}
+const directoryOptionRuntime = createDirectoryOptionRuntime(() => ({
+  $,
+  directoryPathLabel,
+  displayFolderName,
+  escapeHtml,
+  folderById,
+  isDirectoryUnderOriginalRoot,
+  lastChosenPermanentDirectoryId: () => lastChosenPermanentDirectoryId,
+  preferredImportDirectoryIdFromOptions,
+  rootBoxIdFromFolder,
+  state
+}));
 
-function defaultPermanentDirectoryId() {
-  if (isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
-  if (isDirectoryUnderOriginalRoot(lastChosenPermanentDirectoryId)) return lastChosenPermanentDirectoryId;
-  return permanentExportDirectories()[0]?.id || "";
-}
-
-function permanentDirectoryDialogOptions() {
-  return permanentExportDirectories().map((folder) => ({
-    id: folder.id,
-    label: directoryPathLabel(folder.id),
-    hint:
-      folder.id === "dir_original_default"
-        ? "会在永久笔记盒根目录创建，之后可以再移动整理。"
-        : `会在这个目录创建，创建后直接打开继续编辑。`
-  }));
-}
-
-function noteMoveDirectoryOptions(currentDirectoryId = "") {
-  const currentFolder = folderById(state, currentDirectoryId);
-  const rootId = currentFolder ? rootBoxIdFromFolder(state, currentFolder.id) : "";
-  return state.folders
-    .filter((folder) => folder?.id && !folder.hidden && folder.id !== currentDirectoryId && rootBoxIdFromFolder(state, folder.id) === rootId)
-    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"))
-    .map((folder) => ({
-      id: folder.id,
-      label: directoryPathLabel(folder.id),
-      hint: `移动后会放到“${displayFolderName(folder)}”目录。`
-    }));
-}
-
-function importTargetDirectories() {
-  return state.folders
-    .filter((folder) => folder?.id && !folder.hidden && ["dir_fleeting_default", "dir_literature_default", "dir_original_default"].includes(rootBoxIdFromFolder(state, folder.id)))
-    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
-}
-
-function preferredImportDirectoryId(currentValue = "") {
-  return preferredImportDirectoryIdFromOptions({
-    currentValue,
-    selectedFolderId: state.selectedFolderId,
-    directoryOptions: importTargetDirectories(),
-    rootIdForDirectory: (directoryId) => rootBoxIdFromFolder(state, directoryId)
-  });
-}
-
-function confirmedImportTargetDirectoryId(result = {}, fallbackDirectoryId = "") {
-  const targetDirectories = Array.isArray(result?.result?.targetDirectories) ? result.result.targetDirectories : [];
-  if (targetDirectories.length === 1) return String(targetDirectories[0]?.directoryId || "").trim();
-  if (targetDirectories.length > 1) {
-    const fallback = String(fallbackDirectoryId || "").trim();
-    if (targetDirectories.some((item) => String(item?.directoryId || "").trim() === fallback)) return fallback;
-    return "";
-  }
-  return "";
-}
-
-function syncExportDirectoryOptions() {
-  const select = $("exportDirectoryId");
-  if (!select) return;
-  const options = permanentExportDirectories();
-  const currentValue = String(select.value || "").trim();
-  const preferredValue =
-    options.some((folder) => folder.id === currentValue)
-      ? currentValue
-      : options.some((folder) => folder.id === String(state.selectedFolderId || "").trim())
-        ? String(state.selectedFolderId || "").trim()
-        : options[0]?.id || "dir_original_default";
-
-  select.innerHTML = options
-    .map((folder) => `<option value="${escapeHtml(folder.id)}">${escapeHtml(directoryPathLabel(folder.id))}</option>`)
-    .join("");
-  if (!options.length) {
-    select.innerHTML = `<option value="dir_original_default">永久笔记盒</option>`;
-  }
-  select.value = preferredValue;
-  updateExportTargetHint();
-}
-
-function selectedExportDirectoryLabel() {
-  const directoryId = String($("exportDirectoryId")?.value || "").trim();
-  if (!directoryId) return "";
-  return directoryPathLabel(directoryId);
-}
-
-function updateExportTargetHint() {
-  const hint = $("exportTargetHint");
-  if (!hint) return;
-  const targetPath = String($("exportTargetPath")?.value || "").trim();
-  const directoryLabel = selectedExportDirectoryLabel() || "永久笔记盒";
-  hint.textContent = targetPath
-    ? `将从 ${directoryLabel} 导出，写入 ${targetPath}。`
-    : `将从 ${directoryLabel} 导出。首次导出时再选择保存位置。`;
-}
+const {
+  confirmedImportTargetDirectoryId,
+  defaultPermanentDirectoryId,
+  importTargetDirectories,
+  noteMoveDirectoryOptions,
+  permanentDirectoryDialogOptions,
+  permanentExportDirectories,
+  preferredImportDirectoryId,
+  selectedExportDirectoryLabel,
+  syncExportDirectoryOptions,
+  updateExportTargetHint
+} = directoryOptionRuntime;
 
 function activeEditorNote() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
@@ -3619,220 +3483,25 @@ function activateModule(moduleName) {
   if (normalizedModule === "imports") renderImportPageShell();
 }
 
-function settingsLeafLabel(value = "", fallback = "默认笔记库") {
-  const text = String(value || "").trim();
-  if (!text) return fallback;
-  const segments = text.split(/[\\/]+/).filter(Boolean);
-  return segments.at(-1) || text || fallback;
-}
-
-function settingsAiRuntimeModeLabel(value = "") {
-  const normalized = normalizeAiRuntimeMode(value || "auto");
-  if (normalized === "local_only") return "只用本地模型";
-  if (normalized === "cloud_only") return "只用远程模型";
-  return "自动选择";
-}
-
-function settingsAiAdvancedRuntimeModeLabel(value = "") { return normalizeAiRuntimeMode(value || "auto") === "hybrid" ? "本地优先（高级）" : settingsAiRuntimeModeLabel(value); }
-
-function settingsAiUserModeDisplayLabel(value = "") {
-  const key = String(value || "").trim();
-  const labels = {
-    Auto: "自动",
-    Economy: "节省成本",
-    Balanced: "均衡质量",
-    "Deep Thinking": "深度思考",
-    "Local / Private": "本地 / 私密"
-  };
-  return labels[key] || key || "自动";
-}
-
-function settingsAiProviderDisplayLabel(value = "") {
-  const key = String(value || "").trim();
-  const labels = {
-    "Ollama Local": "本地 AI",
-    ollama_local_gateway: "本地 AI",
-    local_private_gateway: "本地 AI",
-    "Platform Managed OpenAI": "在线 AI",
-    platform_managed_openai: "在线 AI"
-  };
-  return labels[key] || key || "AI 服务";
-}
-
-function settingsAiModelPackDisplayLabel(value = "") {
-  const key = String(value || "").trim();
-  const labels = {
-    "Starter Auto": "日常整理",
-    "Low Cost Research": "低成本研究",
-    "Deep Work": "深度工作",
-    "China Optimized": "国内优化",
-    "Global Optimized": "远程增强",
-    "Privacy First": "本地私密",
-    "Ollama Local": "本地 AI",
-    "MiniCPM Local": "MiniCPM 本地",
-    "MiniCPM Remote": "MiniCPM 远程"
-  };
-  return labels[key] || key || "日常整理";
-}
-
-function settingsAiOverviewSummary() {
-  const preview = settingsState.ai.routePreview || null;
-  const providerName = String(preview?.provider?.displayName || preview?.provider?.providerId || "").trim();
-  const routeModel = String(preview?.route?.modelRef || "").trim();
-  const localModel = String(settingsState.ai.localModel || "").trim();
-  const routeModelName = routeModel.includes(":") ? routeModel.slice(routeModel.lastIndexOf(":") + 1) : routeModel;
-  const rawValue = routeModelName || localModel || String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
-  const value = settingsAiModelPackDisplayLabel(rawValue);
-  const metaParts = [
-    settingsAiRuntimeModeLabel(settingsState.ai.runtimeMode),
-    settingsAiUserModeDisplayLabel(settingsState.ai.userMode)
-  ];
-  if (providerName) metaParts.push(settingsAiProviderDisplayLabel(providerName));
-  return {
-    value,
-    meta: metaParts.filter(Boolean).join(" / ")
-  };
-}
-
-function setSettingsSection(sectionId = "", options = {}) {
-  const nextSection = normalizeSettingsSection(sectionId);
-  const changed = settingsState.activeSection !== nextSection;
-  settingsState.activeSection = nextSection;
-  const firstItem = SETTINGS_DETAIL_ITEMS.find((item) => item.sectionId === nextSection);
-  if (firstItem) settingsState.activeItem = firstItem.id;
-  if (options.render !== false) {
-    if (state.module === "settings") renderSidebarTitle();
-    renderSettingsPanel();
-  }
-  if (changed && options.announce) {
-    const config = settingsSectionConfig(nextSection);
-    setStatus(`已切换到设置分区：${config.label}`, "ok");
-  }
-}
-
-function setSettingsItem(itemId = "", options = {}) {
-  const nextItem = settingsDetailItemConfig(itemId);
-  const changed = settingsState.activeItem !== nextItem.id;
-  settingsState.activeItem = nextItem.id;
-  settingsState.activeSection = nextItem.sectionId;
-  if (options.render !== false) {
-    if (state.module === "settings") renderSidebarTitle();
-    renderSettingsPanel();
-  }
-  if (changed && options.announce) {
-    setStatus(`已切换到设置项：${nextItem.label}`, "ok");
-  }
-}
-
-function ensureSettingsWorkbenchLayout() {
-  return;
-}
-
-function renderSettingsWorkbenchChrome() {
-  renderSettingsWorkbenchChromeForRuntime({
-    $,
-    document,
-    settingsState,
-    settingsSectionChromeMap,
-    settingsAiOverviewSummary,
-    settingsMobileItemOptionsHtml,
-    settingsLeafLabel,
-    formatSettingsUserError
-  });
-}
-
-function renderSettingsSidebarColumn() {
-  renderSettingsSidebarColumnForRuntime({
-    $,
-    document,
-    settingsState,
-    settingsSectionChromeMap,
-    settingsSectionGuidanceMap,
-    escapeHtml
-  });
-}
-
-function filterSettingsSidebarMenu(query = "") {
-  const normalized = String(query || "").trim().toLowerCase();
-  document.querySelectorAll("#moduleSidebar .settings-sidebar-menu-item[data-settings-search]").forEach((button) => {
-    const searchText = String(button.getAttribute("data-settings-search") || "").toLowerCase();
-    const hidden = normalized && !searchText.includes(normalized);
-    button.classList.toggle("hidden", Boolean(hidden));
-  });
-}
-
-function renderSettingsDetailFocus() {
-  renderSettingsDetailFocusForRuntime({ $, settingsState });
-}
-
-function settingsPanelRuntimeDeps() {
-  return {
-    $,
-    document,
-    state,
-    settingsState,
-    appVersion: APP_VERSION,
-    feedbackRepository: FEEDBACK_REPOSITORY,
-    feedbackRepositoryReady: FEEDBACK_REPOSITORY_READY,
-    syncRailSelectionState,
-    ensureSettingsWorkbenchLayout,
-    mountSettingsAutomationWorkspace,
-    renderSettingsWorkbenchChrome,
-    renderSettingsSidebarColumn,
-    renderSettingsDetailFocus,
-    settingsLeafLabel,
-    settingsVaultPathMissing,
-    formatSettingsUserError,
-    feedbackBaseUrl,
-    renderUpdateSettingsCard,
-    renderNoteTemplateSettingsCard,
-    renderAiLocalModelControls,
-    renderAiSettingsExperience,
-    renderAiProviderConfigControls,
-    renderAiRoutePreview,
-    renderScheduledTasksWorkspace,
-    renderAiSuggestionsWorkspace,
-    aiTestBlockedReason,
-    renderAiCanonicalDebugPanel,
-    renderSidebarTitle,
-    renderModuleWorkspaceHeader,
-    escapeHtml
-  };
-}
-
-function renderSettingsPanel() {
-  renderSettingsPanelForRuntime(settingsPanelRuntimeDeps());
-}
-
-function noteTemplateFieldMeta(kind = "") { return settingsNoteTemplateRuntime.noteTemplateFieldMeta(kind); }
-
-function noteTemplateCardCopy(kind = "") { return settingsNoteTemplateRuntime.noteTemplateCardCopy(kind); }
-
-function noteTemplateEditorElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateEditorElementId(kind); }
-
-function noteTemplateSaveButtonElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateSaveButtonElementId(kind); }
-
-function noteTemplateFeedbackElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateFeedbackElementId(kind); }
-
-function noteTemplateFeedbackTextElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateFeedbackTextElementId(kind); }
+const {
+  closeNoteTemplatePreview,
+  noteTemplateCardCopy,
+  noteTemplateDraftValidation,
+  noteTemplateEditorElementId,
+  noteTemplateFeedbackElementId,
+  noteTemplateFeedbackTextElementId,
+  noteTemplateFieldMeta,
+  noteTemplateSaveButtonElementId,
+  openNoteTemplatePreview,
+  renderNoteTemplateSettingsCard,
+  resetNoteTemplateToDefault,
+  saveNoteTemplateFromEditor,
+  updateNoteTemplatePreviewFromEditor
+} = settingsNoteTemplateRuntime;
 
 function escapePreviewInline(text = "") { return escapeTemplatePreviewInline(text, { escapeHtml }); }
 
 function renderTemplateMarkdownPreviewHtml(source = "") { return renderTemplateMarkdownPreviewHtmlForRuntime(source, { escapeHtml }); }
-
-function noteTemplateDraftValidation(kind = "", source = "") { return settingsNoteTemplateRuntime.noteTemplateDraftValidation(kind, source); }
-
-function openNoteTemplatePreview(kind = "") { return settingsNoteTemplateRuntime.openNoteTemplatePreview(kind); }
-
-function closeNoteTemplatePreview() { return settingsNoteTemplateRuntime.closeNoteTemplatePreview(); }
-
-function saveNoteTemplateFromEditor(kind = "") { return settingsNoteTemplateRuntime.saveNoteTemplateFromEditor(kind); }
-
-function resetNoteTemplateToDefault(kind = "") { return settingsNoteTemplateRuntime.resetNoteTemplateToDefault(kind); }
-
-function updateNoteTemplatePreviewFromEditor(kind = "") { return settingsNoteTemplateRuntime.updateNoteTemplatePreviewFromEditor(kind); }
-
-function renderNoteTemplateSettingsCard(kind = "") { return settingsNoteTemplateRuntime.renderNoteTemplateSettingsCard(kind); }
 
 function renderAiCanonicalDebugPanel() {
   const panel = $("settingsAiCanonicalDebug");

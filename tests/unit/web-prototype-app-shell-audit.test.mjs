@@ -58,14 +58,15 @@ test("prototype-app stays inside the current shell validation budget", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const lineCount = source.split(/\r?\n/).length;
 
-  assert.ok(lineCount <= 7000, `prototype-app.js should not grow past the shell budget, got ${lineCount} lines`);
+  assert.ok(lineCount < 6000, `prototype-app.js should stay under the shell budget, got ${lineCount} lines`);
   assert.match(source, /bindAiInboxWorkspaceEvents/);
   assert.match(source, /bindAiSuggestionsWorkspaceEvents/);
   assert.match(source, /createGraphRelationWorkflowController/);
   assert.match(source, /createPrototypeUpdateController/);
   assert.match(source, /systemMessageActionRoute/);
   assert.match(source, /createRenderAppShellController/);
-  assert.match(source, /currentModuleSidebarUi/);
+  assert.match(source, /createModuleWorkspaceHeaderRuntimeRoutes/);
+  assert.match(source, /syncModuleChromeClassesForRuntime/);
   assert.match(source, /createSidebarTitleController/);
   assert.match(source, /routeAppShellStateChange/);
   assert.match(source, /createWritingPanelShellController/);
@@ -74,6 +75,9 @@ test("prototype-app stays inside the current shell validation budget", () => {
   assert.match(source, /renderGraphPanelShell/);
   assert.match(source, /createGraphPanelPrototypeRuntimeDepsProvider/);
   assert.match(source, /renderGraphPanelForRuntime/);
+  assert.match(source, /createDirectoryOptionRuntime/);
+  assert.match(source, /createSaveAiSuggestionWorkflowRoutes/);
+  assert.match(source, /createSettingsPanelRuntimeRoutes/);
   assert.doesNotMatch(source, /renderSystemMessagesDom/);
   assert.doesNotMatch(source, /openSystemMessagesDom/);
   assert.doesNotMatch(source, /systemMessageModal"\)\?\.classList\.add\("hidden"\)/);
@@ -84,10 +88,6 @@ test("prototype-app keeps critical shell wrappers thin", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const shellWrapperBudgets = {
     renderGraphPanel: 25,
-    renderSettingsWorkbenchChrome: 15,
-    renderSettingsSidebarColumn: 15,
-    renderSettingsDetailFocus: 5,
-    renderSettingsPanel: 5,
     renderAiSettingsExperience: 5,
     renderAiLocalModelRecommendations: 5,
     renderAiLocalModelControls: 5,
@@ -146,6 +146,9 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "dirty-tabs-beforeunload-event-bindings.js": 20,
     "editor-shell-event-bindings.js": 90,
     "save-ai-suggestion-route-events.js": 80,
+    "save-ai-suggestion-workflow-routes.js": 120,
+    "directory-option-runtime.js": 150,
+    "app-module-header-runtime-routes.js": 80,
     "app-startup-seed.js": 70,
     "app-route-initializer.js": 60,
     "import-workspace-shell.js": 120,
@@ -193,6 +196,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-ai-provider-config-actions.js": 70,
     "settings-ai-route-preview-view.js": 230,
     "settings-note-template-runtime.js": 300,
+    "settings-panel-runtime-routes.js": 320,
     "settings-panel-shell.js": 130,
     "settings-panel-renderer.js": 180,
     "settings-event-bindings.js": 320,
@@ -270,7 +274,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "app-shell-render-all.js",
     "app-shell-render-all-host-deps.js",
     "app-shell-module-ui.js",
-    "app-shell-module-header.js",
+    "app-module-header-runtime-routes.js",
     "app-shell-sidebar-controller.js",
     "app-shell-sidebar-host-deps.js",
     "explorer-host-deps.js",
@@ -285,6 +289,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "dirty-tabs-beforeunload-event-bindings.js",
     "editor-shell-event-bindings.js",
     "save-ai-suggestion-route-events.js",
+    "save-ai-suggestion-workflow-routes.js",
+    "directory-option-runtime.js",
     "import-workspace-shell.js",
     "import-result-runtime.js",
     "import-result-host-routes.js",
@@ -305,7 +311,6 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "system-message-storage.js",
     "system-message-route-model.js",
     "system-message-deps.js",
-    "workflow-reminder-controller.js",
     "system-messages-runtime-controller.js",
     "ai-runtime-mode-controller.js",
     "settings-ai-controls-view.js",
@@ -316,8 +321,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "settings-ai-provider-config-actions.js",
     "settings-ai-route-preview-view.js",
     "settings-note-template-runtime.js",
-    "settings-panel-shell.js",
-    "settings-panel-renderer.js",
+    "settings-panel-runtime-routes.js",
     "settings-event-bindings.js",
     "settings-ai-event-bindings.js",
     "settings-feedback-event-bindings.js",
