@@ -176,7 +176,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-ai-experience-model.js": 90,
     "settings-ai-experience-view.js": 340,
     "settings-ai-runtime-actions.js": 130,
-    "settings-ai-runtime-controller.js": 180,
+    "settings-ai-runtime-controller.js": 560,
     "settings-ai-provider-config-actions.js": 70,
     "settings-ai-route-preview-view.js": 230,
     "settings-panel-shell.js": 130,

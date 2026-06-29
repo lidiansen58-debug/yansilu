@@ -63,6 +63,147 @@ test("settings AI runtime controller pulls recommended Ollama model and persists
   assert.equal(calls.some((call) => call[0] === "status" && /qwen3:8b/.test(call[1]) && call[2] === "ok"), true);
 });
 
+test("settings AI runtime controller previews Ollama bootstrap and clears unavailable selection", async () => {
+  const calls = [];
+  const settingsState = { ai: { runtimeMode: "local_only", localModel: "qwen3:8b" } };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaBootstrapResult: (result) => calls.push(["bootstrap", result.ready]),
+    clearLocalOllamaSelectionState: () => {
+      calls.push(["clear"]);
+      settingsState.ai.localModel = "";
+    },
+    fetchOllamaBootstrapStatus: async (request) => {
+      calls.push(["fetch", request]);
+      return { ready: false, message: "missing model" };
+    },
+    installedLocalModelReady: () => false,
+    ollamaBootstrapStatusText: (result) => result.message,
+    primaryRecommendedOllamaModelName: () => "qwen3:8b",
+    renderSettingsPanel: () => calls.push(["render"]),
+    setStatus: (...args) => calls.push(["status", ...args]),
+    settingsState,
+    shouldUseOllamaLocalRuntime: () => true
+  }));
+
+  const result = await controller.previewOllamaLocalAiBootstrapFromUi();
+
+  assert.equal(result.ready, false);
+  assert.equal(settingsState.ai.localRuntimeChecking, false);
+  assert.equal(settingsState.ai.localRuntimeError, "missing model");
+  assert.equal(settingsState.ai.localModel, "");
+  assert.deepEqual(calls.find((call) => call[0] === "fetch"), ["fetch", { model: "qwen3:8b", runtimeMode: "local_only" }]);
+  assert.equal(calls.some((call) => call[0] === "status" && call[2] === "warn"), true);
+});
+
+test("settings AI runtime controller detects Ollama models and persists runtime selection", async () => {
+  const calls = [];
+  const settingsState = { ai: { localRuntimeStatus: "", localRuntimeError: "" } };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaRuntimePreview: (runtime) => {
+      settingsState.ai.localRuntimeStatus = runtime.status;
+      settingsState.ai.localRuntimeModels = runtime.models;
+      calls.push(["preview", runtime.models.length]);
+      return runtime.models;
+    },
+    fetchOllamaModels: async () => ({ status: "available", models: ["qwen3:8b", "llama3.1:8b"] }),
+    persistOllamaRuntimeSelectionAfterPreview: async () => calls.push(["persist-runtime"]),
+    renderSettingsPanel: () => calls.push(["render"]),
+    setStatus: (...args) => calls.push(["status", ...args]),
+    settingsState
+  }));
+
+  const runtime = await controller.detectOllamaModels();
+
+  assert.equal(runtime.status, "available");
+  assert.deepEqual(settingsState.ai.localRuntimeModels, ["qwen3:8b", "llama3.1:8b"]);
+  assert.equal(settingsState.ai.localRuntimeChecking, false);
+  assert.deepEqual(calls.find((call) => call[0] === "preview"), ["preview", 2]);
+  assert.equal(calls.some((call) => call[0] === "persist-runtime"), true);
+  assert.equal(calls.some((call) => call[0] === "status" && call[2] === "ok"), true);
+});
+
+test("settings AI runtime controller selects installed local model and refreshes route", async () => {
+  const calls = [];
+  const settingsState = { ai: { runtimeMode: "hybrid", localModel: "", localRuntimeModels: ["qwen3:8b"] } };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaLocalModelDefaults: () => calls.push(["defaults"]),
+    clearLocalOllamaSelectionState: (options) => calls.push(["clear", options]),
+    currentOllamaModelTiers: () => [{ name: "qwen3:8b" }],
+    hasLocalModel: (model) => model === "qwen3:8b",
+    installedLocalModelReady: () => true,
+    persistAiSettingsToStorage: () => calls.push(["persist"]),
+    refreshAiRoutePreview: async () => calls.push(["route"]),
+    renderSettingsPanel: () => calls.push(["render"]),
+    saveLocalOllamaProviderConfig: async () => calls.push(["save-local-provider"]),
+    setStatus: (...args) => calls.push(["status", ...args]),
+    settingsState,
+    shouldUseOllamaLocalRuntime: () => true,
+    syncAiSettingsToApi: async () => calls.push(["sync"])
+  }));
+
+  const selected = await controller.selectInstalledLocalModelFromUi("qwen3:8b");
+
+  assert.equal(selected, "qwen3:8b");
+  assert.equal(settingsState.ai.localModel, "qwen3:8b");
+  assert.equal(calls.some((call) => call[0] === "save-local-provider"), true);
+  assert.equal(calls.some((call) => call[0] === "route"), true);
+  assert.equal(calls.some((call) => call[0] === "status" && call[2] === "ok"), true);
+});
+
+test("settings AI runtime controller refreshes route preview through injected API", async () => {
+  const calls = [];
+  const settingsState = { ai: { routePreview: null, routePreviewError: "" } };
+  const controller = createSettingsAiRuntimeController(() => ({
+    aiSettingsPayload: () => ({ runtimeMode: "hybrid" }),
+    applyActiveAiProviderConfigToState: () => calls.push(["apply-active"]),
+    previewAiRoute: async (payload) => {
+      calls.push(["preview-route", payload.runtimeMode]);
+      return { route: "local-first" };
+    },
+    renderSettingsPanel: () => calls.push(["render"]),
+    settingsState
+  }));
+
+  const preview = await controller.refreshAiRoutePreview();
+
+  assert.deepEqual(preview, { route: "local-first" });
+  assert.equal(settingsState.ai.routePreviewLoading, false);
+  assert.equal(settingsState.ai.routePreviewError, "");
+  assert.deepEqual(calls.find((call) => call[0] === "preview-route"), ["preview-route", "hybrid"]);
+  assert.equal(calls.some((call) => call[0] === "apply-active"), true);
+});
+
+test("settings AI runtime controller saves provider config and refreshes preview", async () => {
+  const calls = [];
+  const settingsState = { ai: { providerConfigSaving: false, providerConfigError: "" } };
+  const controller = createSettingsAiRuntimeController(() => ({
+    aiProviderConfigPayload: () => ({ providerId: "openai_compatible_gateway" }),
+    applyActiveAiProviderConfigToState: () => calls.push(["apply-active"]),
+    currentAiProviderId: () => "openai_compatible_gateway",
+    persistAiSettingsToStorage: () => calls.push(["persist"]),
+    refreshAiRoutePreview: async (options) => calls.push(["route", options]),
+    renderSettingsPanel: () => calls.push(["render"]),
+    resetAiProviderDraftTouched: () => calls.push(["reset"]),
+    saveAiProviderConfig: async (payload) => {
+      calls.push(["save", payload.providerId]);
+      return { providerId: payload.providerId };
+    },
+    setStatus: (...args) => calls.push(["status", ...args]),
+    settingsState,
+    syncAiSettingsToApi: async () => calls.push(["sync"]),
+    upsertAiProviderConfig: (config) => calls.push(["upsert", config.providerId])
+  }));
+
+  const ok = await controller.syncAiProviderConfigToApi();
+
+  assert.equal(ok, true);
+  assert.equal(settingsState.ai.providerConfigSaving, false);
+  assert.equal(settingsState.ai.providerConfigError, "");
+  assert.deepEqual(calls.find((call) => call[0] === "save"), ["save", "openai_compatible_gateway"]);
+  assert.deepEqual(calls.find((call) => call[0] === "route"), ["route", { render: false }]);
+  assert.equal(calls.some((call) => call[0] === "status" && call[2] === "ok"), true);
+});
+
 test("settings AI runtime controller handles missing provider health endpoint", async () => {
   const calls = [];
   const settingsState = { ai: { providerEndpointUrl: "", providerHealthEndpointUrl: "", providerHealthResult: { record: {} } } };
