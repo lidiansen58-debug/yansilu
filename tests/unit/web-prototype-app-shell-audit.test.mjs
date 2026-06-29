@@ -111,9 +111,7 @@ test("prototype-app keeps critical shell wrappers thin", () => {
 test("prototype-app residual controller and view candidates stay explicit and bounded", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const residualControllerCandidates = {
-    createGraphThemeIndexFromNoteIds: 80,
-    pullRecommendedOllamaModel: 70,
-    checkCurrentAiProviderHealth: 55
+    createGraphThemeIndexFromNoteIds: 80
   };
   const residualViewCandidates = {
     renderGraphAiAnalysisCard: 60,
@@ -178,6 +176,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-ai-experience-model.js": 90,
     "settings-ai-experience-view.js": 340,
     "settings-ai-runtime-actions.js": 130,
+    "settings-ai-runtime-controller.js": 180,
     "settings-ai-provider-config-actions.js": 70,
     "settings-ai-route-preview-view.js": 230,
     "settings-panel-shell.js": 130,
@@ -265,6 +264,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "settings-ai-controls-view.js",
     "settings-ai-experience-view.js",
     "settings-ai-runtime-actions.js",
+    "settings-ai-runtime-controller.js",
     "settings-ai-provider-config-actions.js",
     "settings-ai-route-preview-view.js",
     "settings-panel-shell.js",
