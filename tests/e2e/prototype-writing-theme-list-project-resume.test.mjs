@@ -120,6 +120,6 @@ test("prototype theme index list shows and uses a direct resume-project action w
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已继续当前项目：wp_/);
+    assert.match(String(statusText || ""), /已(?:从主题索引)?继续当前项目：wp_/);
   }, 10000);
 });

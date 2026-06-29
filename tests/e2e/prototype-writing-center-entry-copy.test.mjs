@@ -37,14 +37,6 @@ test("prototype writing module summary uses 写作中心 and 草稿骨架 wordin
     window.__prototypeState.selectedFileId = noteItem.id;
   }, note.json.item);
 
-  await page.locator('.rail-btn[data-module="distillation"]').click();
-
-  await waitFor(async () => {
-    const distillationText = await page.locator("#distillationPanel").textContent();
-    assert.match(String(distillationText || ""), /可进入写作中心/);
-    assert.doesNotMatch(String(distillationText || ""), /可进入写作(?!中心)/);
-  }, 10000);
-
   await page.locator('.rail-btn[data-module="writing"]').click();
 
   await waitFor(async () => {

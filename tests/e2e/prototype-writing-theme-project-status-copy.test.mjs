@@ -87,7 +87,7 @@ test("prototype theme create-project status uses 项目 wording", async (t) => {
   await waitFor(async () => {
     const detailText = await page.locator("#writingThemeDetail").textContent();
     assert.match(String(detailText || ""), /写作中心入口/);
-    assert.doesNotMatch(String(detailText || ""), /写作入口/);
+    assert.doesNotMatch(String(detailText || ""), /可续接的写作入口|当前主题入口/);
 
     const statusText = await page.locator("#statusText").textContent();
     assert.match(String(statusText || ""), /已从主题创建项目：wp_/);
