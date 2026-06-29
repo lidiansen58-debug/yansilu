@@ -12,6 +12,7 @@ import { renderImportToolbarMount } from "./import-toolbar-mount.js";
 import { createImportWorkspaceShellController } from "./import-workspace-shell.js";
 import { renderImportResultMount } from "./import-result-mount.js";
 import { createImportResultRuntime } from "./import-result-runtime.js";
+import { createImportResultHostRoutes } from "./import-result-host-routes.js";
 import { renderDistillationPanelView } from "./distillation-panel-view.js";
 import { installDistillationEventBindings } from "./distillation-event-bindings.js";
 import { openDistillationQueueNoteRoute } from "./distillation-note-route.js";
@@ -46,7 +47,8 @@ import { selectedCandidateIdsForImportAction } from "./import-selection-actions.
 import { candidateIdsForSelection as computeCandidateIdsForSelection, candidatePreviewFromPayload, candidateSelectionFromPayload, createdNoteIdsByTypeFromImportPayload, createdNoteIdsByTypeFromImportRecord, defaultSelectedCandidateIds as computeDefaultSelectedCandidateIds, importPayloadRecordId, literatureBatchSummaryForPayload as computeLiteratureBatchSummaryForPayload, renderImportWritingActions as renderImportWritingActionsHtml, renderWritingResultDetails as renderWritingResultDetailsHtml, selectedCandidateIdsForImportState, selectionSummaryForImportState, summarizeLiteratureBatchFromNotes as computeSummarizeLiteratureBatchFromNotes, syncImportSelectionState } from "./prototype-import-result-helpers.js";
 import { literatureQueueLaneForNote as computeLiteratureQueueLaneForNote, preferredLiteratureQueueNoteId as computePreferredLiteratureQueueNoteId, rankedLiteratureQueueNotes as computeRankedLiteratureQueueNotes } from "./prototype-literature-queue.js";
 import { normalizeAuthorshipItem, normalizeThinkingStatusItem, renderThinkingStatusBadge as renderThinkingStatusBadgeHtml, uniqueStrings } from "./prototype-thinking-status.js";
-import { createLocalDraftNote as computeCreateLocalDraftNote, deriveWritingProjectIntent, deriveWritingProjectTakeaway, directoryPathLabel as computeDirectoryPathLabel, displayFolderName, distillationReasonOf, distillationStageLabel, distillationStageOf, distillationStatusLabel, distillationStatusOf, mapDirectoryItem, moduleLabel, mapNoteItem as computeMapNoteItem, noteMatchesSearchQuery, noteTypeLabel, saveAiSuggestionKey, sourceNoteTypeLabel, writingProjectStatusLabel } from "./prototype-note-state-helpers.js";
+import { deriveWritingProjectIntent, deriveWritingProjectTakeaway, directoryPathLabel as computeDirectoryPathLabel, displayFolderName, distillationReasonOf, distillationStageLabel, distillationStageOf, distillationStatusLabel, distillationStatusOf, mapDirectoryItem, moduleLabel, mapNoteItem as computeMapNoteItem, noteMatchesSearchQuery, noteTypeLabel, saveAiSuggestionKey, sourceNoteTypeLabel, writingProjectStatusLabel } from "./prototype-note-state-helpers.js";
+import { createNotePlaceholderRuntime } from "./note-placeholder-runtime.js";
 import { createNoteRuntimeController } from "./note-runtime-controller.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxWorkspaceEvents, renderAiInboxWorkspaceView } from "./ai-inbox-workspace.js";
@@ -70,7 +72,8 @@ import { createRecordPermanentWorkflowOpener, createSystemMessageWorkflowOpener 
 import { SETTINGS_DETAIL_ITEMS, SETTINGS_SECTIONS, formatSettingsUserError as computeFormatSettingsUserError, normalizeSettingsItem, normalizeSettingsSection, settingsDetailItemConfig, settingsItemSummary as computeSettingsItemSummary, settingsMobileItemOptionsHtml as renderSettingsMobileItemOptionsHtml, settingsModuleHeaderCopy as computeSettingsModuleHeaderCopy, settingsSectionChromeMap as computeSettingsSectionChromeMap, settingsSectionConfig, settingsSectionGuidanceMap as computeSettingsSectionGuidanceMap, settingsSidebarNavigationHtml as renderSettingsSidebarNavigationHtml } from "./prototype-settings-navigation.js";
 import { LITERATURE_TEMPLATE_SETTINGS_FIELDS, NOTE_TEMPLATE_STORAGE_KEYS, PERMANENT_TEMPLATE_SETTINGS_FIELDS, applyTitleToNoteTemplate as computeApplyTitleToNoteTemplate, composePermanentTemplateDraft as computeComposePermanentTemplateDraft, defaultLiteratureTemplateSource as computeDefaultLiteratureTemplateSource, defaultPermanentTemplateSource as computeDefaultPermanentTemplateSource, defaultTemplateSourceForKind as computeDefaultTemplateSourceForKind, legacyPermanentTemplateSource as computeLegacyPermanentTemplateSource, mergeTemplateFieldText as computeMergeTemplateFieldText, normalizeDraftBuffer as computeNormalizeDraftBuffer, normalizeNoteTemplateHistory as computeNormalizeNoteTemplateHistory, normalizeNoteTemplateSource as computeNormalizeNoteTemplateSource, normalizeStoredNoteTemplateSource as computeNormalizeStoredNoteTemplateSource, noteTemplateHistoryWithPrevious as computeNoteTemplateHistoryWithPrevious } from "./prototype-note-templates.js";
 import { aiSuggestionDetailFromResponse as suggestionDetailFromResponse, aiSuggestionFromCanonical, aiSuggestionStatusLabel, aiSuggestionReviewEventFromCanonical as suggestionReviewEventFromCanonical, aiSuggestionTraceFromCanonical as suggestionTraceFromCanonical, normalizeAiSuggestionFilters } from "./ai-suggestions-model.js";
-import { applyAiSuggestionStatusForRuntime, loadAiSuggestionDetailForRuntime, refreshAiSuggestionsForRuntime } from "./ai-suggestions-runtime-controller.js";
+import { loadAiSuggestionDetailForRuntime, refreshAiSuggestionsForRuntime } from "./ai-suggestions-runtime-controller.js";
+import { createAiSuggestionsActionRoutes } from "./ai-suggestions-action-routes.js";
 import { finalizeAiInboxActionRefreshForRuntime, loadAiInboxDetailForRuntime, refreshAiInboxEvaluationSummaryForRuntime, refreshAiInboxForRuntime, runAiInboxSummaryForRuntime } from "./ai-inbox-runtime-controller.js";
 import { createAiInboxActionRoutes } from "./ai-inbox-action-routes.js";
 import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
@@ -159,7 +162,7 @@ import { renderAiLocalModelControlsForRuntime, renderAiLocalModelRecommendations
 import { renderAiSettingsExperienceForRuntime } from "./settings-ai-experience-view.js";
 import { renderAiRoutePreviewForRuntime } from "./settings-ai-route-preview-view.js";
 import { escapeTemplatePreviewInline, renderTemplateMarkdownPreviewHtmlForRuntime } from "./settings-template-preview-view.js";
-import { buildNoteTemplateSettingsCardModel } from "./settings-template-card-model.js";
+import { createSettingsNoteTemplateRuntime } from "./settings-note-template-runtime.js";
 import { renderSettingsDetailFocusForRuntime, renderSettingsSidebarColumnForRuntime, renderSettingsWorkbenchChromeForRuntime } from "./settings-panel-shell.js";
 import { renderSettingsPanelForRuntime } from "./settings-panel-renderer.js";
 import { installSettingsEventBindings } from "./settings-event-bindings.js";
@@ -893,18 +896,9 @@ function effectiveSavedNoteTemplateSource(kind = "") {
 
 function normalizeNoteTemplateHistory(items = [], kind = "") { return computeNormalizeNoteTemplateHistory(items, kind); }
 
-function noteTemplateStorageScope(vaultPath = "") {
-  const cleanPath = String(vaultPath || currentVaultPath() || "").trim().replace(/\//g, "\\").toLowerCase();
-  return cleanPath || "global";
-}
+function noteTemplateStorageScope(vaultPath = "") { return settingsNoteTemplateRuntime.noteTemplateStorageScope(vaultPath); }
 
-function noteTemplateStorageKey(kind = "", options = {}) {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const base = NOTE_TEMPLATE_STORAGE_KEYS[cleanKind];
-  const suffix = String(options?.suffix || "").trim();
-  const scope = noteTemplateStorageScope(options?.vaultPath || "");
-  return `${base}:${scope}${suffix ? `:${suffix}` : ""}`;
-}
+function noteTemplateStorageKey(kind = "", options = {}) { return settingsNoteTemplateRuntime.noteTemplateStorageKey(kind, options); }
 
 function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind = "") { return computeNoteTemplateHistoryWithPrevious(history, previousText, kind); }
 
@@ -916,20 +910,31 @@ function mergeTemplateFieldText(base = "", addition = "") { return computeMergeT
 
 function composePermanentTemplateDraft(fields = {}) { return computeComposePermanentTemplateDraft(fields, { permanentNoteTemplateBody }); }
 
+const settingsNoteTemplateRuntime = createSettingsNoteTemplateRuntime({
+  $,
+  NOTE_TEMPLATE_STORAGE_KEYS,
+  LITERATURE_TEMPLATE_SETTINGS_FIELDS,
+  PERMANENT_TEMPLATE_SETTINGS_FIELDS,
+  applyTitleToNoteTemplate,
+  currentVaultPath,
+  defaultTemplateSourceForKind,
+  escapeHtml,
+  normalizeDraftBuffer,
+  normalizeNoteTemplateHistory,
+  normalizeNoteTemplateSource,
+  normalizeStoredNoteTemplateSource,
+  noteTemplateHistoryWithPrevious,
+  renderSettingsPanel,
+  renderTemplateMarkdownPreviewHtml,
+  settingsState,
+  setStatus,
+  validateLiteratureTemplateSource,
+  writeStoredText
+});
+
 function loadNoteTemplateSettingsFromStorage() { return noteRuntimeController.loadNoteTemplateSettingsFromStorage(); }
 
-function persistNoteTemplateSettingsToStorage() {
-  for (const kind of ["permanent", "literature"]) {
-    writeStoredText(
-      noteTemplateStorageKey(kind),
-      normalizeNoteTemplateSource(settingsState.noteTemplates[kind].text, kind)
-    );
-    writeStoredText(
-      noteTemplateStorageKey(kind, { suffix: "history" }),
-      JSON.stringify(normalizeNoteTemplateHistory(settingsState.noteTemplates[kind].history, kind))
-    );
-  }
-}
+function persistNoteTemplateSettingsToStorage() { return settingsNoteTemplateRuntime.persistNoteTemplateSettingsToStorage(); }
 
 const NOTE_RELATION_STATUS_KEY_PREFIX = "yansilu.noteRelationStatus.";
 
@@ -1709,52 +1714,22 @@ function aiInboxSuggestionReviewedContentFromUi(current = {}) {
   }
 }
 
-function aiSuggestionReviewRetryNotice() { return "Detail changed while you were reviewing. Retry from the latest reviewed item."; }
+const aiSuggestionsActionRoutes = createAiSuggestionsActionRoutes(() => ({
+  aiState: settingsState.ai,
+  suggestionDetailFromResponse,
+  aiSuggestionReviewedContent: aiSuggestionReviewedContentFromUi,
+  updateAiSuggestion,
+  refreshAiSuggestions,
+  loadAiSuggestionDetail,
+  rememberAiDebugSnapshot,
+  setStatus,
+  render: renderAiSuggestionsWorkspace,
+  aiSuggestionStatusLabel
+}));
 
-function aiSuggestionReviewRetryStatusMessage() { return "AI suggestion detail changed before the review action could run. Retry on the latest detail."; }
+function aiSuggestionAlreadyAppliedNotice(status = "") { return aiSuggestionsActionRoutes.aiSuggestionAlreadyAppliedNotice(status); }
 
-function aiSuggestionAlreadyAppliedNotice(status = "") { return `This reviewed suggestion is already ${String(status || "").trim() || "updated"}.`; }
-
-function aiSuggestionReviewSafetyNotice() { return "Load the latest suggestion detail before running review actions."; }
-
-function aiSuggestionReviewSafetyStatusMessage() { return "AI suggestion detail is not ready yet. Retry after the latest detail loads."; }
-
-function aiSuggestionInFlightReviewNotice() { return "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion."; }
-
-function aiSuggestionInFlightReviewStatusMessage() { return "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion."; }
-
-function aiSuggestionAlreadyAppliedStatusMessage(status = "", suggestionId = "") { return `AI suggestion already ${String(status || "").trim() || "updated"}: ${String(suggestionId || "").trim()}`; }
-
-function aiSuggestionUpdateFailedStatusMessage(error) { return `AI suggestion update failed: ${String(error?.message || error)}`; }
-
-function aiSuggestionUpdatedStatusMessage(status = "", suggestionId = "") { return `AI suggestion ${String(status || "").trim() || "updated"}: ${String(suggestionId || "").trim()}`; }
-
-async function applyAiSuggestionStatus(suggestionId, status) {
-  return applyAiSuggestionStatusForRuntime({
-    aiState: settingsState.ai,
-    suggestionDetailFromResponse,
-    aiSuggestionReviewedContent: aiSuggestionReviewedContentFromUi,
-    updateAiSuggestion,
-    refreshAiSuggestions,
-    loadAiSuggestionDetail,
-    rememberAiDebugSnapshot,
-    setStatus,
-    render: renderAiSuggestionsWorkspace,
-    aiSuggestionStatusLabel,
-    messages: {
-      reviewRetryNotice: aiSuggestionReviewRetryNotice,
-      reviewRetryStatusMessage: aiSuggestionReviewRetryStatusMessage,
-      reviewSafetyNotice: aiSuggestionReviewSafetyNotice,
-      reviewSafetyStatusMessage: aiSuggestionReviewSafetyStatusMessage,
-      inFlightReviewNotice: aiSuggestionInFlightReviewNotice,
-      inFlightReviewStatusMessage: aiSuggestionInFlightReviewStatusMessage,
-      alreadyAppliedNotice: aiSuggestionAlreadyAppliedNotice,
-      alreadyAppliedStatusMessage: aiSuggestionAlreadyAppliedStatusMessage,
-      updateFailedStatusMessage: aiSuggestionUpdateFailedStatusMessage,
-      updatedStatusMessage: aiSuggestionUpdatedStatusMessage
-    }
-  }, suggestionId, status);
-}
+async function applyAiSuggestionStatus(suggestionId, status) { return aiSuggestionsActionRoutes.applyAiSuggestionStatus(suggestionId, status); }
 
 const scheduledTasksRuntimeController = createScheduledTasksRuntimeController(() => ({
   addSystemMessage,
@@ -2134,42 +2109,42 @@ function noteSaveFailureFeedback(error) {
 
 function renderThinkingStatusBadge(value, className = "thinking-status-badge") { return renderThinkingStatusBadgeHtml(value, { className, escapeHtml }); }
 
-function candidateIdsForSelection(candidatePreview, candidateSelection = null) { return importResultRuntime.candidateIdsForSelection(candidatePreview, candidateSelection); }
+function candidateIdsForSelection(candidatePreview, candidateSelection = null) { return importResultHostRoutes.candidateIdsForSelection(candidatePreview, candidateSelection); }
 
-function defaultSelectedCandidateIds(candidatePreview, candidateSelection = null, originalityGuard = null) { return importResultRuntime.defaultSelectedCandidateIds(candidatePreview, candidateSelection, originalityGuard); }
+function defaultSelectedCandidateIds(candidatePreview, candidateSelection = null, originalityGuard = null) { return importResultHostRoutes.defaultSelectedCandidateIds(candidatePreview, candidateSelection, originalityGuard); }
 
-function syncImportSelection(importRecordId, candidatePreview, candidateSelection = null, options = {}) { return importResultRuntime.syncImportSelection(importRecordId, candidatePreview, candidateSelection, options); }
+function syncImportSelection(importRecordId, candidatePreview, candidateSelection = null, options = {}) { return importResultHostRoutes.syncImportSelection(importRecordId, candidatePreview, candidateSelection, options); }
 
-function selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection = null) { return importResultRuntime.selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection); }
+function selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection = null) { return importResultHostRoutes.selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection); }
 
-function selectionSummary(candidatePreview, importRecordId, selection = null, candidateSelection = null) { return importResultRuntime.selectionSummary(candidatePreview, importRecordId, selection, candidateSelection); }
+function selectionSummary(candidatePreview, importRecordId, selection = null, candidateSelection = null) { return importResultHostRoutes.selectionSummary(candidatePreview, importRecordId, selection, candidateSelection); }
 
-function renderImportWritingActions(payload = {}) { return importResultRuntime.renderImportWritingActions(payload); }
+function renderImportWritingActions(payload = {}) { return importResultHostRoutes.renderImportWritingActions(payload); }
 
-function summarizeLiteratureBatchFromNotes(notes = []) { return importResultRuntime.summarizeLiteratureBatchFromNotes(notes); }
+function summarizeLiteratureBatchFromNotes(notes = []) { return importResultHostRoutes.summarizeLiteratureBatchFromNotes(notes); }
 
-function literatureBatchSummaryForPayload(payload = {}) { return importResultRuntime.literatureBatchSummaryForPayload(payload); }
+function literatureBatchSummaryForPayload(payload = {}) { return importResultHostRoutes.literatureBatchSummaryForPayload(payload); }
 
-function renderWritingResultDetails(data = {}) { return importResultRuntime.renderWritingResultDetails(data); }
+function renderWritingResultDetails(data = {}) { return importResultHostRoutes.renderWritingResultDetails(data); }
 
-function renderResult(el, payload) { return importResultRuntime.renderResult(el, payload); }
+function renderResult(el, payload) { return importResultHostRoutes.renderResult(el, payload); }
 
-function showImportOperationResultModal(mode = "import", title = "鎿嶄綔缁撴灉") { return importResultRuntime.showImportOperationResultModal(mode, title); }
+function showImportOperationResultModal(mode = "import", title = "操作结果") { return importResultHostRoutes.showImportOperationResultModal(mode, title); }
 
-function hideImportOperationResultModal() { return importResultRuntime.hideImportOperationResultModal(); }
+function hideImportOperationResultModal() { return importResultHostRoutes.hideImportOperationResultModal(); }
 
-function showImportResult(payload) { return importResultRuntime.showImportResult(payload); }
+function showImportResult(payload) { return importResultHostRoutes.showImportResult(payload); }
 
-function showExportResult(payload) { return importResultRuntime.showExportResult(payload); }
+function showExportResult(payload) { return importResultHostRoutes.showExportResult(payload); }
 
 
 function suggestedWritingProjectTitle(noteIds = []) { return computeSuggestedWritingProjectTitle(noteIds, { noteById: writingNoteById }); }
 
 function normalizeWritingProjectTitleSeed(title = "") { return computeNormalizeWritingProjectTitleSeed(title); }
 
-function showWritingResult(payload) { return importResultRuntime.showWritingResult(payload); }
+function showWritingResult(payload) { return importResultHostRoutes.showWritingResult(payload); }
 
-function syncWritingResultFromCurrentState() { return importResultRuntime.syncWritingResultFromCurrentState(); }
+function syncWritingResultFromCurrentState() { return importResultHostRoutes.syncWritingResultFromCurrentState(); }
 
 async function ensureNotesLoaded(noteIds, { force = false } = {}) {
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
@@ -2199,9 +2174,9 @@ async function ensureNotesLoaded(noteIds, { force = false } = {}) {
   }
 }
 
-async function refreshImportLiteratureBatchSummary(payload = {}) { return importResultRuntime.refreshImportLiteratureBatchSummary(payload); }
+async function refreshImportLiteratureBatchSummary(payload = {}) { return importResultHostRoutes.refreshImportLiteratureBatchSummary(payload); }
 
-async function enrichImportHistoryItemsWithLiteratureProgress(items = []) { return importResultRuntime.enrichImportHistoryItemsWithLiteratureProgress(items); }
+async function enrichImportHistoryItemsWithLiteratureProgress(items = []) { return importResultHostRoutes.enrichImportHistoryItemsWithLiteratureProgress(items); }
 
 function literatureQueueLaneForNote(note) {
   return computeLiteratureQueueLaneForNote(note, {
@@ -2230,7 +2205,7 @@ function clearLiteratureQueueFocus() {
   setLiteratureQueueFocus([], "");
 }
 
-async function openImportedLiteratureQueue() { return importResultRuntime.openImportedLiteratureQueue(); }
+async function openImportedLiteratureQueue() { return importResultHostRoutes.openImportedLiteratureQueue(); }
 
 const writingEntryRuntimeController = createWritingEntryRuntimeController(() => ({
   $,
@@ -2291,9 +2266,14 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   writingState
 }));
 
+const importResultHostRoutes = createImportResultHostRoutes(() => ({
+  importResultRuntime,
+  writingProjectRuntimeController
+}));
+
 async function createWritingProjectFromCurrentBasket() { return writingProjectRuntimeController.createWritingProjectFromCurrentBasket(); }
 
-async function addImportedPermanentNotesToWritingBasket(options = {}) { return importResultRuntime.addImportedPermanentNotesToWritingBasket(options); }
+async function addImportedPermanentNotesToWritingBasket(options = {}) { return importResultHostRoutes.addImportedPermanentNotesToWritingBasket(options); }
 
 
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
@@ -2385,7 +2365,7 @@ async function saveWritingBasketAsThemeIndex() {
   return card;
 }
 
-async function createWritingProjectFromImportedPermanentNotes() { return writingProjectRuntimeController.createWritingProjectFromImportedPermanentNotes(); }
+async function createWritingProjectFromImportedPermanentNotes() { return importResultHostRoutes.createWritingProjectFromImportedPermanentNotes(); }
 
 const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   $,
@@ -2430,15 +2410,15 @@ async function refreshWritingProjectState() {
   }
 }
 
-function activeImportPreviewContext() { return importResultRuntime.activeImportPreviewContext(); }
+function activeImportPreviewContext() { return importResultHostRoutes.activeImportPreviewContext(); }
 
-function updateImportConfirmButton() { return importResultRuntime.updateImportConfirmButton(); }
+function updateImportConfirmButton() { return importResultHostRoutes.updateImportConfirmButton(); }
 
-function rerenderImportResult() { return importResultRuntime.rerenderImportResult(); }
+function rerenderImportResult() { return importResultHostRoutes.rerenderImportResult(); }
 
-function setImportResultFocus(reason) { return importResultRuntime.setImportResultFocus(reason); }
+function setImportResultFocus(reason) { return importResultHostRoutes.setImportResultFocus(reason); }
 
-function applyCandidateSelection(action) { return importResultRuntime.applyCandidateSelection(action); }
+function applyCandidateSelection(action) { return importResultHostRoutes.applyCandidateSelection(action); }
 
 async function refreshImportedNotesView() {
   try {
@@ -2462,131 +2442,53 @@ function mapNoteItem(item) {
 
 function isLocalOnlyNote(note) { return Boolean(note?.isLocalOnly); }
 
-function createLocalDraftNote({ folderId, body }) {
-  return computeCreateLocalDraftNote({ folderId, body }, {
-    ensureEditableNoteBody,
-    generatedOriginalNoteIdFromBody,
-    relationNetworkStatusForNote,
-    state,
-    typeFromFolder,
-    uid
-  });
-}
-
 const UNTITLED_NOTE_TITLE = "未命名笔记";
 const STARTUP_NOTE_FOLDER_ID = "dir_original_default";
 
-function isUntitledTitle(title = "") { return String(title || "").trim() === UNTITLED_NOTE_TITLE; }
+const notePlaceholderRuntime = createNotePlaceholderRuntime(() => ({
+  applyTitleToNoteTemplate,
+  deleteNote,
+  ensureEditableNoteBody,
+  fetchNote,
+  generatedOriginalNoteIdFromBody,
+  initialBodyForFolder,
+  isLocalOnlyNote,
+  mapNoteItem,
+  normalizeNoteTemplateHistory,
+  normalizeNoteTemplateSource,
+  noteTabFor,
+  parseWritingBasketIds,
+  relationNetworkStatusForNote,
+  setWritingBasketIds,
+  settingsState,
+  state,
+  typeFromFolder,
+  uid,
+  untitledNoteTitle: UNTITLED_NOTE_TITLE,
+  validateLiteratureTemplateSource
+}));
 
-function normalizedDefaultUntitledBody(folderId = "") { return ensureEditableNoteBody(initialBodyForFolder(folderId)).replace(/\r\n/g, "\n").trim(); }
+function createLocalDraftNote({ folderId, body }) { return notePlaceholderRuntime.createLocalDraftNote({ folderId, body }); }
 
-function historicalUntitledTemplateBodies(folderId = "") {
-  const noteType = String(typeFromFolder(state, folderId) || "").trim().toLowerCase();
-  const kind = noteType === "literature" ? "literature" : noteType === "original" || noteType === "permanent" ? "permanent" : "";
-  if (!kind) return [];
-  const candidates = normalizeNoteTemplateHistory(settingsState.noteTemplates[kind]?.history, kind).map((template) =>
-    applyTitleToNoteTemplate(template, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim()
-  );
-  if (kind === "literature") {
-    const rawSavedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[kind]?.text, kind);
-    if (!validateLiteratureTemplateSource(rawSavedSource).ok) {
-      const rawBody = applyTitleToNoteTemplate(rawSavedSource, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim();
-      if (rawBody && !candidates.includes(rawBody)) candidates.unshift(rawBody);
-    }
-  }
-  return candidates;
-}
+function isUntitledTitle(title = "") { return notePlaceholderRuntime.isUntitledTitle(title); }
 
-function isEmptyUntitledMarkdown(body = "", folderId = "") {
-  const text = String(body || "").replace(/\r\n/g, "\n").trim();
-  if (!text) return true;
-  if (!text.replace(/^#{1,6}\s*未命名笔记\s*/u, "").trim()) return true;
-  const candidates = [normalizedDefaultUntitledBody(folderId), ...historicalUntitledTemplateBodies(folderId)];
-  return candidates.some((candidate) => candidate === text);
-}
+function normalizedDefaultUntitledBody(folderId = "") { return notePlaceholderRuntime.normalizedDefaultUntitledBody(folderId); }
+
+function historicalUntitledTemplateBodies(folderId = "") { return notePlaceholderRuntime.historicalUntitledTemplateBodies(folderId); }
+
+function isEmptyUntitledMarkdown(body = "", folderId = "") { return notePlaceholderRuntime.isEmptyUntitledMarkdown(body, folderId); }
 
 async function refreshUntitledPlaceholderForCurrentTemplate(note) { return noteRuntimeController.refreshUntitledPlaceholderForCurrentTemplate(note); }
 
 function noteTabFor(noteId = "") { return state.tabs.find((item) => item.noteId === noteId) || null; }
 
-function isUntitledPlaceholderNote(note) {
-  if (!note) return false;
-  const tab = noteTabFor(note.id);
-  if (tab?.dirty) return false;
-  if (!tab && !note.bodyLoaded && !isLocalOnlyNote(note)) return false;
-  const title = tab?.title || note.title;
-  const body = typeof tab?.body === "string" ? tab.body : note.body;
-  return isUntitledTitle(title) && isEmptyUntitledMarkdown(body, note.folderId);
-}
+function isUntitledPlaceholderNote(note) { return notePlaceholderRuntime.isUntitledPlaceholderNote(note); }
 
-async function ensureNoteLoadedForPlaceholderCheck(note) {
-  if (!note || note.bodyLoaded || isLocalOnlyNote(note)) return note;
-  try {
-    const full = await fetchNote(note.id);
-    if (!full) return note;
-    Object.assign(note, mapNoteItem(full), { bodyLoaded: typeof full.body === "string" });
-  } catch {}
-  return note;
-}
+async function ensureNoteLoadedForPlaceholderCheck(note) { return notePlaceholderRuntime.ensureNoteLoadedForPlaceholderCheck(note); }
 
-async function cleanupDuplicateUntitledPlaceholders(folderId) {
-  const candidates = state.notes.filter((item) => item.folderId === folderId && isUntitledTitle(item.title));
-  for (const note of candidates) {
-    await ensureNoteLoadedForPlaceholderCheck(note);
-  }
-  const placeholders = candidates.filter(isUntitledPlaceholderNote);
-  if (placeholders.length <= 1) {
-    return { kept: placeholders[0] || null, removed: 0 };
-  }
+async function cleanupDuplicateUntitledPlaceholders(folderId) { return notePlaceholderRuntime.cleanupDuplicateUntitledPlaceholders(folderId); }
 
-  const [kept, ...duplicates] = placeholders;
-  const duplicateIds = new Set(duplicates.map((item) => item.id));
-  for (const note of duplicates) {
-    if (isLocalOnlyNote(note)) continue;
-    try {
-      await deleteNote(note.id);
-    } catch {}
-  }
-  state.notes = state.notes.filter((item) => !duplicateIds.has(item.id));
-  state.tabs = state.tabs.filter((item) => !duplicateIds.has(item.noteId));
-  if (state.activeTabId && !state.tabs.some((item) => item.id === state.activeTabId)) {
-    state.activeTabId = state.tabs[0]?.id || null;
-  }
-  if (duplicateIds.has(state.selectedFileId)) {
-    state.selectedFileId = kept?.id || null;
-  }
-  return { kept, removed: duplicateIds.size };
-}
-
-function replaceLocalNoteIdentity(previousNoteId, savedItem) {
-  const note = state.notes.find((item) => item.id === previousNoteId);
-  if (!note) return null;
-  const mapped = mapNoteItem(savedItem);
-  Object.assign(note, mapped, { bodyLoaded: true, isLocalOnly: false });
-
-  const previousTabId = `tab_${previousNoteId}`;
-  const tab = state.tabs.find((item) => item.noteId === previousNoteId);
-  if (tab) {
-    tab.noteId = note.id;
-    tab.id = `tab_${note.id}`;
-  }
-  if (state.activeTabId === previousTabId && tab) {
-    state.activeTabId = tab.id;
-  }
-  if (state.selectedFileId === previousNoteId) {
-    state.selectedFileId = note.id;
-  }
-  if (Array.isArray(state.literatureQueueFocusNoteIds) && state.literatureQueueFocusNoteIds.length) {
-    state.literatureQueueFocusNoteIds = state.literatureQueueFocusNoteIds.map((item) =>
-      item === previousNoteId ? note.id : item
-    );
-  }
-  const basketIds = parseWritingBasketIds();
-  if (basketIds.includes(previousNoteId)) {
-    setWritingBasketIds(basketIds.map((item) => (item === previousNoteId ? note.id : item)));
-  }
-  return note;
-}
+function replaceLocalNoteIdentity(previousNoteId, savedItem) { return notePlaceholderRuntime.replaceLocalNoteIdentity(previousNoteId, savedItem); }
 
 function upsertNotesForDirectory(folderId, mappedNotes) {
   const keep = state.notes.filter((n) => n.folderId !== folderId);
@@ -3902,210 +3804,35 @@ function renderSettingsPanel() {
   renderSettingsPanelForRuntime(settingsPanelRuntimeDeps());
 }
 
-function noteTemplateFieldMeta(kind = "") {
-  return String(kind || "").trim().toLowerCase() === "literature"
-    ? LITERATURE_TEMPLATE_SETTINGS_FIELDS
-    : PERMANENT_TEMPLATE_SETTINGS_FIELDS;
-}
+function noteTemplateFieldMeta(kind = "") { return settingsNoteTemplateRuntime.noteTemplateFieldMeta(kind); }
 
-function noteTemplateCardCopy(kind = "") {
-  if (String(kind || "").trim().toLowerCase() === "literature") {
-    return {
-      stats: ["文献模板", "普通 Markdown"],
-      summaryClosed: "修改后会用于后续新建文献笔记。",
-      summaryOpen: "修改后会用于后续新建文献笔记。",
-      statusClosed: "待保存修改",
-      statusOpen: "正在编辑",
-      previewTitle: "示例文献笔记"
-    };
-  }
-  return {
-    stats: ["统一骨架", "普通 Markdown"],
-    summaryClosed: "修改后会用于后续新建永久笔记。",
-    summaryOpen: "修改后会用于后续新建永久笔记。",
-    statusClosed: "待保存修改",
-    statusOpen: "正在编辑",
-    previewTitle: "示例永久笔记"
-  };
-}
+function noteTemplateCardCopy(kind = "") { return settingsNoteTemplateRuntime.noteTemplateCardCopy(kind); }
 
-function noteTemplateEditorElementId(kind = "") {
-  return String(kind || "").trim().toLowerCase() === "literature"
-    ? "settingsLiteratureTemplateEditor"
-    : "settingsPermanentTemplateEditor";
-}
+function noteTemplateEditorElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateEditorElementId(kind); }
 
-function noteTemplateSaveButtonElementId(kind = "") {
-  return String(kind || "").trim().toLowerCase() === "literature"
-    ? "settingsSaveLiteratureTemplate"
-    : "settingsSavePermanentTemplate";
-}
+function noteTemplateSaveButtonElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateSaveButtonElementId(kind); }
 
-function noteTemplateFeedbackElementId(kind = "") {
-  return String(kind || "").trim().toLowerCase() === "literature"
-    ? "settingsLiteratureTemplateFeedback"
-    : "settingsPermanentTemplateFeedback";
-}
+function noteTemplateFeedbackElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateFeedbackElementId(kind); }
 
-function noteTemplateFeedbackTextElementId(kind = "") {
-  return String(kind || "").trim().toLowerCase() === "literature"
-    ? "settingsLiteratureTemplateFeedbackText"
-    : "settingsPermanentTemplateFeedbackText";
-}
+function noteTemplateFeedbackTextElementId(kind = "") { return settingsNoteTemplateRuntime.noteTemplateFeedbackTextElementId(kind); }
 
 function escapePreviewInline(text = "") { return escapeTemplatePreviewInline(text, { escapeHtml }); }
 
 function renderTemplateMarkdownPreviewHtml(source = "") { return renderTemplateMarkdownPreviewHtmlForRuntime(source, { escapeHtml }); }
 
-function noteTemplateDraftValidation(kind = "", source = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  if (cleanKind !== "literature") return { ok: true, message: "" };
-  return validateLiteratureTemplateSource(source);
-}
+function noteTemplateDraftValidation(kind = "", source = "") { return settingsNoteTemplateRuntime.noteTemplateDraftValidation(kind, source); }
 
-function openNoteTemplatePreview(kind = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const stateEntry = settingsState.noteTemplates?.[cleanKind];
-  if (!stateEntry) return;
-  const source = normalizeStoredNoteTemplateSource(
-    stateEntry.draftActive ? stateEntry.draftText : stateEntry.text,
-    cleanKind
-  );
-  const validation = noteTemplateDraftValidation(cleanKind, source);
-  const copy = noteTemplateCardCopy(cleanKind);
-  const modal = $("settingsTemplatePreviewModal");
-  const title = $("settingsTemplatePreviewTitle");
-  const note = $("settingsTemplatePreviewNote");
-  const body = $("settingsTemplatePreviewBody");
-  if (!modal || !title || !note || !body) return;
-  title.textContent = cleanKind === "literature" ? "文献笔记模板预览" : "永久笔记模板预览";
-  note.textContent = validation.ok ? "这里会按真实笔记的样子显示。" : `当前内容还不能保存：${validation.message}`;
-  body.innerHTML = validation.ok
-    ? renderTemplateMarkdownPreviewHtml(applyTitleToNoteTemplate(source, copy.previewTitle, cleanKind))
-    : `<div class="markdown-preview-empty">模板当前不能保存：${escapeHtml(validation.message)}</div>`;
-  modal.classList.add("is-open");
-  modal.setAttribute("aria-hidden", "false");
-}
+function openNoteTemplatePreview(kind = "") { return settingsNoteTemplateRuntime.openNoteTemplatePreview(kind); }
 
-function closeNoteTemplatePreview() {
-  const modal = $("settingsTemplatePreviewModal");
-  if (!modal) return;
-  modal.classList.remove("is-open");
-  modal.setAttribute("aria-hidden", "true");
-}
+function closeNoteTemplatePreview() { return settingsNoteTemplateRuntime.closeNoteTemplatePreview(); }
 
-function saveNoteTemplateFromEditor(kind = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const editorField = $(noteTemplateEditorElementId(cleanKind));
-  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
-  const draftSource = String(editorField?.value || settingsState.noteTemplates[cleanKind].draftText || "").replace(/\r\n/g, "\n");
-  const nextSource = normalizeNoteTemplateSource(draftSource, cleanKind);
-  if (cleanKind === "literature") {
-    const validation = validateLiteratureTemplateSource(nextSource);
-    if (!validation.ok) {
-      settingsState.noteTemplates[cleanKind].feedbackTone = "warn";
-      settingsState.noteTemplates[cleanKind].feedbackText = validation.message || "文献模板当前还不能保存。";
-      renderSettingsPanel();
-      setStatus(validation.message || "文献模板当前形状不受支持", "warn");
-      return;
-    }
-  }
-  if (nextSource !== previousSource) {
-    settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
-      settingsState.noteTemplates[cleanKind].history,
-      previousSource,
-      cleanKind
-    );
-  }
-  settingsState.noteTemplates[cleanKind].text = nextSource;
-  settingsState.noteTemplates[cleanKind].draftText = nextSource;
-  settingsState.noteTemplates[cleanKind].draftActive = false;
-  settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
-  settingsState.noteTemplates[cleanKind].feedbackText = "已保存，新建时会使用这个模板。";
-  persistNoteTemplateSettingsToStorage();
-  renderSettingsPanel();
-  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
-}
+function saveNoteTemplateFromEditor(kind = "") { return settingsNoteTemplateRuntime.saveNoteTemplateFromEditor(kind); }
 
-function resetNoteTemplateToDefault(kind = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
-  settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
-    settingsState.noteTemplates[cleanKind].history,
-    previousSource,
-    cleanKind
-  );
-  settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
-  settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
-  settingsState.noteTemplates[cleanKind].draftActive = false;
-  settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
-  settingsState.noteTemplates[cleanKind].feedbackText = "已恢复默认模板。";
-  persistNoteTemplateSettingsToStorage();
-  renderSettingsPanel();
-  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
-}
+function resetNoteTemplateToDefault(kind = "") { return settingsNoteTemplateRuntime.resetNoteTemplateToDefault(kind); }
 
-function updateNoteTemplatePreviewFromEditor(kind = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const editorField = $(noteTemplateEditorElementId(cleanKind));
-  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
-  const feedback = $(noteTemplateFeedbackElementId(cleanKind));
-  const feedbackText = $(noteTemplateFeedbackTextElementId(cleanKind));
-  const draftSource = normalizeDraftBuffer(editorField?.value || "");
-  settingsState.noteTemplates[cleanKind].draftText = draftSource;
-  settingsState.noteTemplates[cleanKind].draftActive = true;
-  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(draftSource, cleanKind));
-  settingsState.noteTemplates[cleanKind].feedbackTone = "warn";
-  settingsState.noteTemplates[cleanKind].feedbackText = validation.ok ? "有未保存修改。" : `当前内容还不能保存：${validation.message}`;
-  if (feedback && feedbackText) {
-    feedback.classList.add("is-visible", "warn");
-    feedback.classList.remove("ok");
-    feedbackText.textContent = settingsState.noteTemplates[cleanKind].feedbackText;
-  }
-  if (saveButton) {
-    saveButton.disabled = !validation.ok;
-    saveButton.title = validation.ok ? "" : validation.message;
-    saveButton.dataset.tip = saveButton.title;
-  }
-}
+function updateNoteTemplatePreviewFromEditor(kind = "") { return settingsNoteTemplateRuntime.updateNoteTemplatePreviewFromEditor(kind); }
 
-function renderNoteTemplateSettingsCard(kind = "") {
-  const model = buildNoteTemplateSettingsCardModel(kind, {
-    stateEntry: settingsState.noteTemplates?.[String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent"],
-    defaultTemplateSourceForKind,
-    noteTemplateCardCopy,
-    normalizeStoredNoteTemplateSource,
-    normalizeDraftBuffer,
-    normalizeNoteTemplateSource,
-    noteTemplateDraftValidation
-  });
-  const stats = $(`settings${model.capitalizedKind}TemplateStats`);
-  const summary = $(`settings${model.capitalizedKind}TemplateSummary`);
-  const detail = $(`settings${model.capitalizedKind}TemplateDetail`);
-  const editorField = $(`settings${model.capitalizedKind}TemplateEditor`);
-  const saveButton = $(noteTemplateSaveButtonElementId(model.cleanKind));
-  const feedback = $(noteTemplateFeedbackElementId(model.cleanKind));
-  const feedbackText = $(noteTemplateFeedbackTextElementId(model.cleanKind));
-  if (stats) {
-    stats.innerHTML = model.statsBadges
-      .map((badge) => `<span class="settings-stat-badge ${badge.tone || ""}">${escapeHtml(badge.text)}</span>`)
-      .join("");
-  }
-  if (summary) summary.textContent = model.summaryText;
-  if (detail) detail.classList.remove("hidden");
-  if (editorField && String(editorField.value || "") !== model.visibleSource) editorField.value = model.visibleSource;
-  if (saveButton) {
-    saveButton.disabled = model.saveDisabled;
-    saveButton.title = model.saveTitle;
-    saveButton.dataset.tip = saveButton.title;
-  }
-  if (feedback && feedbackText) {
-    feedback.classList.toggle("is-visible", model.feedback.visible);
-    feedback.classList.toggle("ok", model.feedback.ok);
-    feedback.classList.toggle("warn", model.feedback.warn);
-    feedbackText.textContent = model.feedback.text;
-  }
-}
+function renderNoteTemplateSettingsCard(kind = "") { return settingsNoteTemplateRuntime.renderNoteTemplateSettingsCard(kind); }
 
 function renderAiCanonicalDebugPanel() {
   const panel = $("settingsAiCanonicalDebug");
