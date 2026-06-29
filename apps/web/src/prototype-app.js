@@ -719,6 +719,9 @@ import {
   createWritingProjectRuntimeController
 } from "./writing-project-runtime-controller.js";
 import {
+  createWritingEntryRuntimeController
+} from "./writing-entry-runtime-controller.js";
+import {
   normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed,
   resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime,
   suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle,
@@ -3602,75 +3605,44 @@ async function openImportedLiteratureQueue() {
   return true;
 }
 
-async function openWritingModule({
-  statusMessage = "已打开写作中心",
-  focusedCandidateNoteIds = null,
-  focusedCandidateScopeLabel = "",
-  preserveFocusedCandidateScope = false
-} = {}) {
-  const normalizedFocusedCandidateNoteIds = Array.isArray(focusedCandidateNoteIds) ? uniqueStrings(focusedCandidateNoteIds) : null;
-  if (normalizedFocusedCandidateNoteIds?.length) {
-    try {
-      await ensureNotesLoaded(normalizedFocusedCandidateNoteIds, { force: true });
-    } catch {}
-  }
-  const statusRevisionAtStart = statusRevision;
-  if (normalizedFocusedCandidateNoteIds) {
-    setWritingFocusedCandidateScope(normalizedFocusedCandidateNoteIds, focusedCandidateScopeLabel || "当前图谱切片");
-  } else if (!preserveFocusedCandidateScope) {
-    clearWritingFocusedCandidateScope();
-  }
-  activateModule("writing");
-  const writingProjectId = String(writingState.project?.id || "").trim();
-  const basketIds = parseWritingBasketIds();
-  writingState.loadingProjects = true;
-  writingState.loadingThemeIndexes = true;
-  writingState.loadingScaffoldVersions = Boolean(writingProjectId);
-  writingState.loadingDraftVersions = Boolean(writingProjectId);
-  writingState.loadingRelationCounts = basketIds.length > 0;
-  renderWritingPanel();
-  try {
-    const [projects, themeIndexes, project, scaffoldVersions, draftVersions, relationPayload] = await Promise.all([
-      listWritingProjects({
-        limit: 8,
-        q: writingState.projectFilters.q,
-        status: writingState.projectFilters.status,
-        hasDraft: writingState.projectFilters.hasDraft
-      }).catch(() => writingState.projects),
-      listIndexCards({
-        directoryId: writingThemeIndexScopeDirectoryId(),
-        includeDescendants: true,
-        indexType: "topic",
-        limit: 12
-      }).catch(() => writingState.themeIndexes),
-      writingProjectId ? fetchWritingProject(writingProjectId).catch(() => writingState.project) : Promise.resolve(null),
-      writingProjectId ? listProjectScaffolds(writingProjectId, 12).catch(() => writingState.scaffoldVersions) : Promise.resolve([]),
-      writingProjectId ? listProjectDraftVersions(writingProjectId, 12).catch(() => writingState.draftVersions) : Promise.resolve([]),
-      refreshWritingRelationCounts(basketIds, { render: false }).catch(() => ({
-        counts: writingState.relationCounts,
-        errors: writingState.relationCountErrors
-      }))
-    ]);
-    writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
-    writingState.themeIndexes = Array.isArray(themeIndexes) ? themeIndexes : writingState.themeIndexes;
-    if (project) writingState.project = project;
-    writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
-    writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;
-    if (relationPayload && typeof relationPayload === "object") {
-      writingState.relationCounts = relationPayload.counts && typeof relationPayload.counts === "object" ? relationPayload.counts : writingState.relationCounts;
-      writingState.relationCountErrors =
-        relationPayload.errors && typeof relationPayload.errors === "object" ? relationPayload.errors : writingState.relationCountErrors;
-    }
-  } finally {
-    writingState.loadingProjects = false;
-    writingState.loadingThemeIndexes = false;
-    writingState.loadingScaffoldVersions = false;
-    writingState.loadingDraftVersions = false;
-    writingState.loadingRelationCounts = false;
-    renderWritingPanel();
-    syncWritingResultFromCurrentState();
-  }
-  if (statusMessage) setStatus(statusMessage, "ok", { skipIfStaleSince: statusRevisionAtStart, requireModule: "writing" });
+const writingEntryRuntimeController = createWritingEntryRuntimeController(() => ({
+  $,
+  activateModule,
+  clearWritingFocusedCandidateScope,
+  clearWritingSourceIndexIds,
+  ensureNotesLoaded,
+  fetchWritingProject,
+  listIndexCards,
+  listProjectDraftVersions,
+  listProjectScaffolds,
+  listWritingProjects,
+  parseWritingBasketIds,
+  refreshWritingRelationCounts,
+  renderWritingPanel,
+  resetWritingLocalBookIdeas,
+  resetWritingProjectContext,
+  setSelectedWritingThemeIndex,
+  setStatus,
+  setWritingBasketIds,
+  setWritingFocusedCandidateScope,
+  setWritingSourceIndexIds,
+  showWritingResult,
+  statusRevision,
+  syncWritingResultFromCurrentState,
+  writingState,
+  writingThemeIndexScopeDirectoryId
+}));
+
+async function openWritingModule(options = {}) {
+  return writingEntryRuntimeController.openWritingModule(options);
+}
+
+function beginWritingEntry(noteIds = [], options = {}) {
+  return writingEntryRuntimeController.beginWritingEntry(noteIds, options);
+}
+
+function continueWritingEntry(noteIds = [], options = {}) {
+  return writingEntryRuntimeController.continueWritingEntry(noteIds, options);
 }
 
 const writingProjectRuntimeController = createWritingProjectRuntimeController(() => ({
@@ -5012,83 +4984,6 @@ function preferredLocalFallbackNote() {
     state.notes[0] ||
     null
   );
-}
-
-function beginWritingEntry(noteIds = [], { title = "", source = "writing_center" } = {}) {
-  const normalizedIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
-  if (!normalizedIds.length) return false;
-  const nextGoal = String($("writingGoal")?.value || "").trim();
-  const nextAudience = String($("writingAudience")?.value || "").trim();
-  const nextTone = String($("writingTone")?.value || "").trim();
-  writingState.strongModelEpoch += 1;
-  writingState.strongModelLoading = false;
-  writingState.strongModelResult = null;
-  writingState.strongModelError = "";
-  resetWritingLocalBookIdeas();
-  writingState.relationCounts = {};
-  writingState.relationCountErrors = {};
-  writingState.loadingRelationCounts = normalizedIds.length > 0;
-  clearWritingSourceIndexIds();
-  setSelectedWritingThemeIndex("");
-  setWritingBasketIds(normalizedIds);
-  resetWritingProjectContext({
-    title: String(title || "").trim(),
-    goal: nextGoal,
-    audience: nextAudience,
-    tone: nextTone
-  });
-  showWritingResult({
-    stage: "writing_entry_from_notes",
-    source,
-    basketNoteIds: normalizedIds
-  });
-  renderWritingPanel();
-  void refreshWritingRelationCounts(normalizedIds);
-  return true;
-}
-
-function continueWritingEntry(noteIds = [], { title = "", source = "writing_center", sourceIndexIds = [], preserveSourceIndexIds = true } = {}) {
-  const plan = writingBasketContinuationPlan({
-    existingNoteIds: parseWritingBasketIds(),
-    incomingNoteIds: noteIds,
-    requestedTitle: title,
-    existingTitle: String($("writingTitle")?.value || "").trim(),
-    existingSourceIndexIds: writingState.sourceIndexIds,
-    incomingSourceIndexIds: sourceIndexIds,
-    preserveSourceIndexIds,
-    currentSelectedThemeIndexId: writingState.selectedThemeIndexId
-  });
-  if (!plan?.basketNoteIds?.length) return null;
-  const nextGoal = String($("writingGoal")?.value || "").trim();
-  const nextAudience = String($("writingAudience")?.value || "").trim();
-  const nextTone = String($("writingTone")?.value || "").trim();
-
-  writingState.strongModelEpoch += 1;
-  writingState.strongModelLoading = false;
-  writingState.strongModelResult = null;
-  writingState.strongModelError = "";
-  resetWritingLocalBookIdeas();
-  writingState.relationCounts = {};
-  writingState.relationCountErrors = {};
-  writingState.loadingRelationCounts = plan.basketNoteIds.length > 0;
-  if (plan.nextSourceIndexIds.length) setWritingSourceIndexIds(plan.nextSourceIndexIds);
-  else clearWritingSourceIndexIds();
-  setSelectedWritingThemeIndex(plan.selectedThemeIndexId);
-  setWritingBasketIds(plan.basketNoteIds);
-  resetWritingProjectContext({
-    title: plan.resolvedTitle,
-    goal: nextGoal,
-    audience: nextAudience,
-    tone: nextTone
-  });
-  showWritingResult({
-    stage: "writing_entry_from_notes",
-    source,
-    basketNoteIds: plan.basketNoteIds
-  });
-  renderWritingPanel();
-  void refreshWritingRelationCounts(plan.basketNoteIds);
-  return plan;
 }
 
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {

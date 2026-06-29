@@ -153,6 +153,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "writing-project-action-model.js": 130,
     "writing-project-runtime-controller.js": 270,
     "writing-entry-route-model.js": 100,
+    "writing-entry-runtime-controller.js": 230,
     "writing-theme-state.js": 50,
     "writing-theme-selection-controller.js": 60,
     "writing-project-history-panel.js": 130,
