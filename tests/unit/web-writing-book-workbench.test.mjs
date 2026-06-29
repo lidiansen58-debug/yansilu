@@ -5,6 +5,9 @@ import {
   writingAnalysisSystemMessageForResult
 } from "../../apps/web/src/prototype-system-messages.js";
 import {
+  handleWritingLocalBookIdeas
+} from "../../apps/web/src/writing-panel-events.js";
+import {
   currentWritingBookStructureForRuntime,
   deriveWritingBookDesign,
   deriveWritingLocalBookIdeas,
@@ -16,10 +19,8 @@ import {
   writingBookStructureStats
 } from "../../apps/web/src/prototype-writing-workspace.js";
 import {
-  readPrototypeAppSource,
   readPrototypeHtmlSource,
   readWritingBookDesignPanelSource,
-  readWritingPanelEventsSource,
   readPrototypeWritingWorkspaceSource,
   readWritingStrongModelRequestPanelSource,
   readWritingPanelControllerSource
@@ -119,14 +120,24 @@ test("local book ideas are generated on device and do not mutate project automat
 });
 
 test("local book idea generation stays separate from project persistence", async () => {
-  const source = await readPrototypeAppSource();
-  const writingPanelEventsSource = await readWritingPanelEventsSource();
+  const calls = [];
+  const writingState = { project: null, localBookIdeas: [], localBookIdeasGeneratedAt: "" };
+  await handleWritingLocalBookIdeas({
+    writingState,
+    writingBasketEntries: () => [{ id: "n1", title: "Note one" }, { id: "n2", title: "Note two" }],
+    deriveWritingLocalBookIdeas: ({ notes }) => [{ title: "Local only", noteIds: notes.map((note) => note.id) }],
+    updateWritingProjectBookStructure: async () => {
+      calls.push("save-project");
+      return null;
+    },
+    renderWritingPanel: () => calls.push("render"),
+    setStatus: (_message, tone) => calls.push(["status", tone])
+  });
 
-  assert.match(source, /function syncWritingLocalBookIdeasFromProject/);
-  assert.match(source, /installWritingPanelBasketEventHandlers\(/);
-  assert.match(writingPanelEventsSource, /btnWritingLocalBookIdeas/);
-  assert.match(writingPanelEventsSource, /handleWritingLocalBookIdeas/);
-  assert.doesNotMatch(writingPanelEventsSource, /deriveWritingLocalBookIdeas\([^)]*\)\s*;\s*saveWritingProject/);
+  assert.deepEqual(writingState.localBookIdeas, [{ title: "Local only", noteIds: ["n1", "n2"] }]);
+  assert.ok(writingState.localBookIdeasGeneratedAt);
+  assert.equal(calls.includes("save-project"), false);
+  assert.ok(calls.some((call) => Array.isArray(call) && call[0] === "status" && call[1] === "ok"));
 });
 
 test("local book ideas reset on basket changes and sync when opening a project", () => {
