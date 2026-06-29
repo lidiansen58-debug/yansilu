@@ -42,6 +42,14 @@ function functionLineCount(source = "", name = "") {
   throw new Error(`expected ${name} body to close`);
 }
 
+function optionalFunctionLineCount(source = "", name = "") {
+  const start = source.indexOf(`function ${name}`);
+  const asyncStart = source.indexOf(`async function ${name}`);
+  const index = start >= 0 ? start : asyncStart;
+  if (index < 0) return null;
+  return functionLineCount(source, name);
+}
+
 function fileLineCount(...segments) {
   return fs.readFileSync(path.join(webSrcDir, ...segments), "utf8").split(/\r?\n/).length;
 }
@@ -97,6 +105,35 @@ test("prototype-app keeps critical shell wrappers thin", () => {
   for (const [name, maxLines] of Object.entries(shellWrapperBudgets)) {
     const count = functionLineCount(source, name);
     assert.ok(count <= maxLines, `${name} should stay a shell wrapper under ${maxLines} lines, got ${count}`);
+  }
+});
+
+test("prototype-app residual controller and view candidates stay explicit and bounded", () => {
+  const source = fs.readFileSync(prototypeAppPath, "utf8");
+  const residualControllerCandidates = {
+    openGraphFollowupNote: 210,
+    saveGraphIsolatedDecision: 80,
+    runGraphAiConnectForNote: 80,
+    refineGraphPotentialRelationCandidate: 80,
+    createGraphThemeIndexFromNoteIds: 80,
+    createWritingProjectFromCurrentBasket: 80,
+    createWritingProjectFromImportedPermanentNotes: 70,
+    pullRecommendedOllamaModel: 70,
+    checkCurrentAiProviderHealth: 55
+  };
+  const residualViewCandidates = {
+    graphFollowupDraftTemplates: 190,
+    renderGraphAiAnalysisCard: 60,
+    renderGraphBridgeGapSection: 60,
+    renderGraphWeakRelationClueSection: 60,
+    renderGraphIsolatedDecisionForm: 60,
+    renderGraphRelationCandidateCards: 50
+  };
+
+  for (const [name, maxLines] of Object.entries({ ...residualControllerCandidates, ...residualViewCandidates })) {
+    const count = optionalFunctionLineCount(source, name);
+    if (count === null) continue;
+    assert.ok(count <= maxLines, `${name} is a known shell residual and should stay under ${maxLines} lines while it remains in prototype-app.js, got ${count}`);
   }
 });
 
