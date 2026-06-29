@@ -48,6 +48,9 @@ import {
   installDistillationEventBindings
 } from "./distillation-event-bindings.js";
 import {
+  openDistillationQueueNoteRoute
+} from "./distillation-note-route.js";
+import {
   syncRailSelectionDom
 } from "./app-shell-rail.js";
 import {
@@ -59,6 +62,18 @@ import {
 import {
   installAppGlobalKeyboardEvents
 } from "./app-global-keyboard-events.js";
+import {
+  installStartupAutoOpenEventBindings
+} from "./startup-auto-open-event-bindings.js";
+import {
+  installDirtyTabsBeforeUnloadEventBindings
+} from "./dirty-tabs-beforeunload-event-bindings.js";
+import {
+  installEditorShellEventBindings
+} from "./editor-shell-event-bindings.js";
+import {
+  installSaveAiSuggestionRouteEventBindings
+} from "./save-ai-suggestion-route-events.js";
 import {
   editorSelectionAiActionElements
 } from "./app-shell-editor-elements.js";
@@ -808,6 +823,9 @@ import {
   installSettingsAiEventBindings
 } from "./settings-ai-event-bindings.js";
 import {
+  installSettingsFeedbackEventBindings
+} from "./settings-feedback-event-bindings.js";
+import {
   aiTestBlockedReasonForState,
   currentOllamaModelTiersForState,
   installedLocalModelReadyForState
@@ -1362,13 +1380,12 @@ updateController.loadUpdateSettingsFromStorage();
 loadAiSettingsFromStorage();
 loadNoteTemplateSettingsFromStorage();
 
-if (typeof document !== "undefined") {
-  const suppressStartupAutoOpen = () => {
+installStartupAutoOpenEventBindings({
+  documentRef: typeof document !== "undefined" ? document : null,
+  suppressStartupAutoOpen: () => {
     startupAutoOpenSuppressed = true;
-  };
-  document.addEventListener("pointerdown", suppressStartupAutoOpen, true);
-  document.addEventListener("keydown", suppressStartupAutoOpen, true);
-}
+  }
+});
 
 function feedbackBaseUrl() {
   return `https://github.com/${FEEDBACK_REPOSITORY}/issues/new`;
@@ -4599,33 +4616,16 @@ async function openDistillationModule() {
 }
 
 async function openDistillationQueueNote(noteId = "") {
-  const id = String(noteId || "").trim();
-  if (!id) return;
-  await ensureNoteBodyLoaded(id);
-  state.module = "explorer";
-  document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.module === "explorer");
-  });
-  const opened = openNoteById(id, { preferTitleSelection: false });
-  if (opened) {
-    state.inspectorVisible = false;
-    editor?.setInspectorVisible?.(false);
-    setStatus("已从观点整理队列打开笔记", "ok");
-  }
-  renderAll();
-  queueMicrotask(() => {
-    const note = state.notes.find((item) => item.id === id) || null;
-    const stage = distillationStageOf(note);
-    const selector =
-      stage === "needs_thesis"
-        ? '[data-note-distillation-form] textarea[name="thesis"]'
-        : stage === "needs_summary"
-          ? '[data-note-distillation-form] textarea[name="summary1"]'
-          : stage === "needs_confirm"
-            ? "[data-note-distillation-confirm]"
-            : "[data-note-distillation-section]";
-    document.querySelector("[data-note-distillation-section]")?.scrollIntoView({ block: "start", behavior: "smooth" });
-    document.querySelector(selector)?.focus?.();
+  return openDistillationQueueNoteRoute(noteId, {
+    documentRef: document,
+    queueMicrotaskRef: queueMicrotask,
+    state,
+    editor,
+    ensureNoteBodyLoaded,
+    openNoteById,
+    distillationStageOf,
+    renderAll,
+    setStatus
   });
 }
 
@@ -10552,88 +10552,41 @@ window.__prototypeGraph = {
   getActiveModule: () => state.module
 };
 
-$("btnFocusMode")?.addEventListener("click", () => {
-  state.focusMode = !state.focusMode;
-  applyFocusModeChrome();
-  editor.setFocusMode(state.focusMode);
-  setStatus(state.focusMode ? "已开启专注模式" : "已退出专注模式", "ok", { requireModule: "explorer" });
-  renderWorkspaceStatusHint();
+installEditorShellEventBindings({
+  $,
+  state,
+  editor,
+  getSaveAiSuggestion: () => saveAiSuggestion,
+  setEditorHelperDismissed: (value) => {
+    editorHelperDismissed = value;
+  },
+  setEditorHelperMuted: (value) => {
+    editorHelperMuted = value;
+  },
+  writeStoredBoolean,
+  editorHelperMuteKey: EDITOR_HELPER_MUTE_KEY,
+  hideEditorHelper,
+  openNoteById,
+  dismissSaveAiSuggestionForLater,
+  dismissedSaveAiSuggestionKeys,
+  clearSaveAiSuggestion,
+  renderWorkspaceStatusHint,
+  applyFocusModeChrome,
+  setStatus
 });
 
-$("btnDismissEditorHelper")?.addEventListener("click", () => {
-  editorHelperDismissed = true;
-  hideEditorHelper();
-});
-
-$("btnEditorHelperAction")?.addEventListener("click", () => {
-  const button = $("btnEditorHelperAction");
-  const helperAction = String(button?.dataset.helperAction || "noop").trim();
-  const targetNoteId = String(button?.dataset.targetNoteId || "").trim();
-  if (helperAction === "noop") {
-    editorHelperDismissed = true;
-    hideEditorHelper();
-    return;
-  }
-  if (helperAction === "open-generated-original" && targetNoteId) {
-    const opened = openNoteById(targetNoteId, { preferTitleSelection: false });
-    if (opened) {
-      setStatus("已打开对应永久笔记", "ok", { requireModule: "explorer" });
-      return;
-    }
-    setStatus("没有找到对应永久笔记", "warn", { requireModule: "explorer" });
-    return;
-  }
-  setStatus("已记录当前建议，你可以继续编辑", "ok", { requireModule: "explorer" });
-});
-
-$("btnSaveAiSuggestionLater")?.addEventListener("click", () => {
-  dismissSaveAiSuggestionForLater(saveAiSuggestion, dismissedSaveAiSuggestionKeys);
-  clearSaveAiSuggestion();
-});
-
-$("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {
-  const suggestion = saveAiSuggestion;
-  clearSaveAiSuggestion();
-  if (!suggestion?.noteId) return;
-  const note = state.notes.find((item) => item.id === suggestion.noteId) || null;
-  const route = saveAiSuggestionPrimaryRoute(suggestion, note);
-  if (route.kind === "missing-note") {
-    setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
-    return;
-  }
-
-  try {
-    if (route.kind === "record-permanent") {
-      activateModule("explorer");
-      const opened = openNoteById(route.noteId, { preferTitleSelection: false });
-      if (!opened) {
-        setStatus("没有找到这条笔记", "warn", { requireModule: "explorer" });
-        return;
-      }
-      window.setTimeout(() => {
-        const button = editor?.els?.recordPermanent;
-        if (!button || button.disabled) {
-          setStatus("当前笔记暂时不能创建永久笔记", "warn", { requireModule: "explorer" });
-          return;
-        }
-        button.click();
-      }, 30);
-      return;
-    }
-
-    if (route.kind === "open-note-main-route") {
-      await handleStateChange("open-note-main-route", {
-        noteId: route.noteId,
-        action: route.action,
-        mode: route.mode
-      });
-      return;
-    }
-
-    setStatus("这条建议暂时没有可执行动作", "warn", { requireModule: "explorer" });
-  } catch (error) {
-    setStatus(`处理建议失败：${String(error?.message || error)}`, "bad", { requireModule: "explorer" });
-  }
+installSaveAiSuggestionRouteEventBindings({
+  $,
+  windowRef: window,
+  state,
+  editor,
+  getSaveAiSuggestion: () => saveAiSuggestion,
+  clearSaveAiSuggestion,
+  saveAiSuggestionPrimaryRoute,
+  activateModule,
+  openNoteById,
+  handleStateChange,
+  setStatus
 });
 
 installSettingsEventBindings({
@@ -10672,14 +10625,6 @@ installSettingsEventBindings({
   setScheduledTaskStatus,
   applyScheduledTaskTemplateToForm
 });
-$("btnEditorHelperMute")?.addEventListener("click", () => {
-  editorHelperDismissed = true;
-  editorHelperMuted = true;
-  writeStoredBoolean(EDITOR_HELPER_MUTE_KEY, true);
-  hideEditorHelper();
-  setStatus("后续将不再显示这类编辑提示", "ok", { requireModule: "explorer" });
-});
-
 async function applyAiRuntimeModeChange(nextMode = "auto") {
   return applyAiRuntimeModeChangeForRuntime(nextMode, {
     settingsState,
@@ -10739,43 +10684,19 @@ bindAiSuggestionsWorkspaceEvents($("settingsAiSuggestionsPanel"), createAiSugges
   openNoteById,
   setStatus
 }));
-$("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {
-  try {
-    await copyTextToClipboard(buildFeedbackDiagnosticText());
-    setStatus("已复制问题信息", "ok");
-  } catch (error) {
-    setStatus(`复制问题信息失败：${String(error?.message || error)}`, "bad");
-  }
+installSettingsFeedbackEventBindings({
+  $,
+  feedbackRepositoryReady: FEEDBACK_REPOSITORY_READY,
+  copyTextToClipboard,
+  buildFeedbackDiagnosticText,
+  buildFeedbackUrl,
+  openFeedbackUrl,
+  setStatus
 });
 
-$("settingsOpenBugReport")?.addEventListener("click", async () => {
-  if (!FEEDBACK_REPOSITORY_READY) {
-    setStatus("反馈仓库还没绑定，先把 FEEDBACK_REPOSITORY 改成真实 owner/repo", "warn");
-    return;
-  }
-  if (await openFeedbackUrl(buildFeedbackUrl("bug"))) {
-    setStatus("已打开问题反馈入口", "ok");
-    return;
-  }
-  setStatus("没有成功打开反馈入口，请检查浏览器是否拦截了新窗口", "warn");
-});
-
-$("settingsOpenFeatureRequest")?.addEventListener("click", async () => {
-  if (!FEEDBACK_REPOSITORY_READY) {
-    setStatus("反馈仓库还没绑定，先把 FEEDBACK_REPOSITORY 改成真实 owner/repo", "warn");
-    return;
-  }
-  if (await openFeedbackUrl(buildFeedbackUrl("feature"))) {
-    setStatus("已打开功能建议入口", "ok");
-    return;
-  }
-  setStatus("没有成功打开建议入口，请检查浏览器是否拦截了新窗口", "warn");
-});
-
-window.addEventListener("beforeunload", (event) => {
-  if (!editor.hasDirtyTabs()) return;
-  event.preventDefault();
-  event.returnValue = "";
+installDirtyTabsBeforeUnloadEventBindings({
+  windowRef: window,
+  editor
 });
 
 installWritingPanelBasketEventHandlers({
