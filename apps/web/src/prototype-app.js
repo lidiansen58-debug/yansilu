@@ -154,12 +154,8 @@ import {
   writingProjectStatusLabel
 } from "./prototype-note-state-helpers.js";
 import {
-  ensureNoteBodyLoadedForRuntime
-} from "./note-loading-runtime.js";
-import {
-  loadNoteTemplateSettingsFromStorageForRuntime,
-  refreshUntitledPlaceholderForRuntime
-} from "./note-template-runtime-helpers.js";
+  createNoteRuntimeController
+} from "./note-runtime-controller.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
   aiInboxFeedbackFromWorkspace,
@@ -684,8 +680,6 @@ import {
   generatedOriginalNoteIdFromBody,
   isPersistableRelationNetworkStatus,
   notePersistenceFieldsForSave,
-  relationNetworkStatusForNotePolicy,
-  resolveFolderRootNoteType,
   stripGeneratedOriginalMarker,
   withGeneratedOriginalMarker,
   withGeneratedOriginalReference
@@ -1401,49 +1395,56 @@ async function openFeedbackUrl(url = "") {
   return Boolean(result?.ok);
 }
 
+const noteRuntimeController = createNoteRuntimeController(() => ({
+  editor,
+  ensureEditableNoteBody,
+  fetchNote,
+  initialBodyForFolder,
+  isEmptyUntitledMarkdown,
+  isLocalOnlyNote,
+  isUntitledTitle,
+  mapNoteItem,
+  normalizeAuthorshipItem,
+  normalizeDraftBuffer,
+  normalizeNoteTemplateHistory,
+  normalizeOptionalNumber,
+  normalizeStoredNoteTemplateSource,
+  normalizeThinkingStatusItem,
+  normalizedDefaultUntitledBody,
+  noteTabFor,
+  noteTemplateStorageKey,
+  noteTemplateStorageScope,
+  parseLinks,
+  parseTags,
+  readStoredRelationNetworkStatus,
+  readStoredText,
+  setStatus,
+  settingsState,
+  state,
+  typeFromFolder,
+  updateNote,
+  writeStoredRelationNetworkStatus,
+  writeStoredText
+}));
+
 function noteGeneratedOriginalNoteId(note = null) {
-  return String(
-    note?.generatedOriginalNoteId ||
-      note?.generated_original_note_id ||
-      generatedOriginalNoteIdFromBody(note?.body || "")
-  ).trim();
+  return noteRuntimeController.noteGeneratedOriginalNoteId(note);
 }
 
 function noteHasGeneratedOriginal(note = null) {
-  return Boolean(noteGeneratedOriginalNoteId(note));
+  return noteRuntimeController.noteHasGeneratedOriginal(note);
 }
 
 function relationNetworkStatusForNote(note = null, options = {}) {
-  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
-  const connectedIds = options.connectedIds instanceof Set
-    ? options.connectedIds
-    : state.graphConnectedNoteIds instanceof Set
-      ? state.graphConnectedNoteIds
-      : null;
-  const connectivityReady = options.connectivityReady === undefined ? state.graphConnectivityReady === true : options.connectivityReady === true;
-  return relationNetworkStatusForNotePolicy({
-    note,
-    noteType,
-    connectedIds,
-    connectivityReady,
-    storedStatus: readStoredRelationNetworkStatus(note?.id)
-  });
+  return noteRuntimeController.relationNetworkStatusForNote(note, options);
 }
 
 function syncNoteRelationNetworkStatus(note = null, options = {}) {
-  if (!note || typeof note !== "object") return "";
-  const nextStatus = relationNetworkStatusForNote(note, options);
-  note.relationNetworkStatus = nextStatus;
-  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
-  if (noteType === "permanent" || noteType === "original") {
-    if (isPersistableRelationNetworkStatus(nextStatus)) writeStoredRelationNetworkStatus(note.id, nextStatus);
-  }
-  else writeStoredRelationNetworkStatus(note.id, "");
-  return nextStatus;
+  return noteRuntimeController.syncNoteRelationNetworkStatus(note, options);
 }
 
 function syncAllNoteRelationNetworkStatuses(options = {}) {
-  for (const note of state.notes) syncNoteRelationNetworkStatus(note, options);
+  return noteRuntimeController.syncAllNoteRelationNetworkStatuses(options);
 }
 
 function isOriginalRecordableSource(note = null) {
@@ -1706,16 +1707,7 @@ function composePermanentTemplateDraft(fields = {}) {
 }
 
 function loadNoteTemplateSettingsFromStorage() {
-  return loadNoteTemplateSettingsFromStorageForRuntime({
-    settingsState,
-    noteTemplateStorageScope,
-    noteTemplateStorageKey,
-    readStoredText,
-    writeStoredText,
-    normalizeStoredNoteTemplateSource,
-    normalizeDraftBuffer,
-    normalizeNoteTemplateHistory
-  });
+  return noteRuntimeController.loadNoteTemplateSettingsFromStorage();
 }
 
 function persistNoteTemplateSettingsToStorage() {
@@ -3941,20 +3933,7 @@ function isEmptyUntitledMarkdown(body = "", folderId = "") {
 }
 
 async function refreshUntitledPlaceholderForCurrentTemplate(note) {
-  return refreshUntitledPlaceholderForRuntime(note, {
-    noteTabFor,
-    isUntitledTitle,
-    normalizedDefaultUntitledBody,
-    ensureEditableNoteBody,
-    isEmptyUntitledMarkdown,
-    initialBodyForFolder,
-    isLocalOnlyNote,
-    parseTags,
-    parseLinks,
-    updateNote,
-    mapNoteItem,
-    setStatus
-  });
+  return noteRuntimeController.refreshUntitledPlaceholderForCurrentTemplate(note);
 }
 
 function noteTabFor(noteId = "") {
@@ -10320,14 +10299,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
 }
 
 async function ensureNoteBodyLoaded(noteId) {
-  return ensureNoteBodyLoadedForRuntime(noteId, {
-    state,
-    fetchNote,
-    editor,
-    normalizeOptionalNumber,
-    normalizeAuthorshipItem,
-    normalizeThinkingStatusItem
-  });
+  return noteRuntimeController.ensureNoteBodyLoaded(noteId);
 }
 
 function openNoteById(id, options = {}) {
