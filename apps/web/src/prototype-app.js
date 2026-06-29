@@ -194,12 +194,14 @@ import {
   normalizeSystemMessage,
   noteAnalysisSystemMessageForResult,
   scheduledTaskSystemMessageForArtifacts,
-  systemMessageActionRoute,
   systemMessageSubjectText,
   upsertSystemMessageList,
   writingAnalysisSystemMessageDeliveryOptions,
   writingAnalysisSystemMessageForResult
 } from "./prototype-system-messages.js";
+import {
+  systemMessageActionRoute
+} from "./system-message-route-model.js";
 import {
   createSystemMessagesShellController
 } from "./system-messages-shell.js";
@@ -224,11 +226,8 @@ import {
   createSystemMessagePrototypeDepsProviders
 } from "./system-message-deps.js";
 import {
-  relationNetworkWorkflowMessageForRuntime,
-  sourcePromotionWorkflowMessageForRuntime,
-  syncRelationNetworkSystemMessageForRuntime,
-  syncSourcePromotionSystemMessageForRuntime
-} from "./system-message-workflow-sync.js";
+  createWorkflowReminderController
+} from "./workflow-reminder-controller.js";
 import {
   createRecordPermanentWorkflowOpener,
   createSystemMessageWorkflowOpener
@@ -4806,40 +4805,31 @@ function saveAiSuggestionForNote(note = null) {
   );
 }
 
+const workflowReminderController = createWorkflowReminderController(() => ({
+  isOriginalRecordableSource,
+  noteHasGeneratedOriginal,
+  state,
+  typeFromFolder,
+  distillationStatusOf,
+  isPermanentLikeNote,
+  resolveSystemMessageByDedupeKey,
+  upsertSystemMessage: (message) => upsertSystemMessage(message, { preserveRead: true })
+}));
+
 function sourcePromotionWorkflowMessageForNote(note = null, suggestion = null) {
-  return sourcePromotionWorkflowMessageForRuntime(note, suggestion, {
-    isOriginalRecordableSource,
-    noteHasGeneratedOriginal,
-    state,
-    typeFromFolder
-  });
+  return workflowReminderController.sourcePromotionWorkflowMessageForNote(note, suggestion);
 }
 
 function syncSourcePromotionSystemMessageForNote(note = null, suggestion = null) {
-  return syncSourcePromotionSystemMessageForRuntime(note, suggestion, {
-    isOriginalRecordableSource,
-    noteHasGeneratedOriginal,
-    state,
-    typeFromFolder,
-    resolveSystemMessageByDedupeKey,
-    upsertSystemMessage: (message) => upsertSystemMessage(message, { preserveRead: true })
-  });
+  return workflowReminderController.syncSourcePromotionSystemMessageForNote(note, suggestion);
 }
 
 function relationNetworkWorkflowMessageForNote(note = null, overview = {}) {
-  return relationNetworkWorkflowMessageForRuntime(note, overview, {
-    distillationStatusOf,
-    isPermanentLikeNote
-  });
+  return workflowReminderController.relationNetworkWorkflowMessageForNote(note, overview);
 }
 
 function syncRelationNetworkSystemMessageForNote(note = null, overview = {}) {
-  return syncRelationNetworkSystemMessageForRuntime(note, overview, {
-    distillationStatusOf,
-    isPermanentLikeNote,
-    resolveSystemMessageByDedupeKey,
-    upsertSystemMessage: (message) => upsertSystemMessage(message, { preserveRead: true })
-  });
+  return workflowReminderController.syncRelationNetworkSystemMessageForNote(note, overview);
 }
 
 function clearSaveAiSuggestion() {

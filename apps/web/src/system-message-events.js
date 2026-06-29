@@ -1,7 +1,8 @@
-export function systemMessageById(messages = [], messageId = "") {
-  const cleanId = String(messageId || "").trim();
-  return messages.find((message) => message.id === cleanId) || null;
-}
+import {
+  handleSystemMessageActionForRuntime
+} from "./system-message-controller.js";
+
+export { systemMessageById } from "./system-message-controller.js";
 
 export function readAllSystemMessages(messages = []) {
   return messages.map((message) => ({ ...message, read: true }));
@@ -56,15 +57,6 @@ export async function handleSystemMessageModalClick(event, deps = {}) {
     persistSystemMessages = () => {},
     renderSystemMessages = () => {},
     closeSystemMessages = () => {},
-    systemMessageActionRoute = () => ({ kind: "" }),
-    aiInboxFiltersForSystemMessage = () => null,
-    setAiInboxFilters = () => {},
-    resetAiInboxDetail = () => {},
-    activateModule = () => {},
-    openAiInboxModule = async () => {},
-    setSettingsItem = () => {},
-    openNoteById = () => false,
-    openSystemMessageWorkflow = async () => false,
     setStatus = () => {}
   } = deps;
 
@@ -88,55 +80,20 @@ export async function handleSystemMessageModalClick(event, deps = {}) {
 
   const messageId = String(actionButton.dataset.systemMessageId || "").trim();
   const action = String(actionButton.dataset.systemMessageAction || "").trim();
-  setSelectedMessageId(messageId || getSelectedMessageId());
-  const readMessages = markSystemMessageRead(getMessages(), messageId);
-  setMessages(readMessages);
-  persistSystemMessages();
-
-  const route = systemMessageActionRoute(action);
-  const message = systemMessageById(readMessages, messageId);
-
-  if (route.kind === "ai-inbox") {
-    const messageFilters = aiInboxFiltersForSystemMessage(message);
-    if (messageFilters) {
-      setAiInboxFilters(messageFilters);
-      resetAiInboxDetail();
-    }
-    closeSystemMessages();
-    activateModule("aiInbox");
-    await openAiInboxModule();
-    setStatus(route.statusMessage, route.statusType);
-    return { handled: true, kind: "ai-inbox", messageId };
-  }
-
-  if (route.kind === "settings-update") {
-    closeSystemMessages();
-    activateModule("settings");
-    setSettingsItem("version-update", { render: true, announce: false });
-    setStatus(route.statusMessage, route.statusType);
-    return { handled: true, kind: "settings-update", messageId };
-  }
-
-  if (route.kind === "note") {
-    if (message?.noteId) {
-      const opened = openNoteById(message.noteId, { preferTitleSelection: false });
-      if (opened) {
-        closeSystemMessages();
-        activateModule("explorer");
-      }
-      setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
-      return { handled: true, kind: "note", messageId, opened };
-    }
-  }
-
-  if (route.kind === "workflow" || route.kind === "workflow-entry") {
-    const opened = await openSystemMessageWorkflow(message || {});
-    setStatus(opened ? route.successStatus : route.failureStatus, opened ? "ok" : "warn");
-    return { handled: true, kind: route.kind, messageId, opened };
-  }
-
-  renderSystemMessages();
-  return { handled: true, kind: route.kind || "unknown", messageId };
+  return handleSystemMessageActionForRuntime({
+    messages: getMessages(),
+    messageId: messageId || getSelectedMessageId(),
+    action
+  }, {
+    ...deps,
+    setStatus,
+    closeSystemMessages,
+    renderSystemMessages,
+    setSelectedMessageId,
+    markSystemMessageRead,
+    setMessages,
+    persistSystemMessages
+  });
 }
 
 export function handleSystemMessageEscapeKey(event, deps = {}) {
