@@ -57,6 +57,7 @@ export function createGraphSelectionResidualView(deps = {}) {
     saveNote,
     graphComputedIsolatedNotesForGraph,
     graphIsolatedQueueItemsForGraph,
+    graphIsolatedWorkflowShell,
     graphMarkIsolatedNodesForGraph,
     computeGraphNextIsolatedQueueItem,
     computeGraphNoteIdFromIsolatedItem,

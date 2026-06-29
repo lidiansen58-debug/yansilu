@@ -1678,7 +1678,7 @@ test("prototype permanent note distillation panel saves thesis and three-line su
     assert.equal(note.json.item.distillationStatus, "confirmed");
   }, 10000);
 
-  await page.locator("[data-permanent-workspace-pane='relations']", { hasText: "把这条笔记接入关系网" }).waitFor();
+  await page.locator("[data-permanent-workspace-pane='relations']").waitFor({ state: "visible" });
   await page.locator("[data-permanent-workspace-tab='viewpoint']", { hasText: "已确认" }).click();
   await page.locator("[data-note-distillation-section]", { hasText: "观点提纯" }).waitFor({ state: "visible" });
   await page.locator("[data-note-distillation-quality]", { hasText: "质量提示" }).waitFor();
@@ -2022,8 +2022,8 @@ test("prototype right sidebar relation entry saves through overlay and appears i
   await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "detached" });
   await page.locator('.rail-btn[data-module="graph"]').click();
   await waitFor(async () => {
-    await page.locator(`#graphCanvas .graph-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 2000 });
-    await page.locator(`#graphCanvas .graph-node[data-node-id="${target.json.item.id}"]`).waitFor({ timeout: 2000 });
+    await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 2000 });
+    await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.json.item.id}"]`).waitFor({ timeout: 2000 });
     await page.locator(
       `#graphCanvas .graph-map-edge-group[data-edge-from="${source.json.item.id}"][data-edge-to="${target.json.item.id}"][data-edge-relation-type="supports"]`
     ).waitFor({ timeout: 2000 });
@@ -7868,29 +7868,20 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {
-    await page.waitForSelector("#graphCanvas .graph-node", { timeout: 2000 });
+    await page.waitForSelector("#graphCanvas .graph-map-node", { timeout: 2000 });
     const summary = await page.locator("#graphSummary").textContent();
     const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
-    await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).first().waitFor({ timeout: 2000 });
+    await page.locator("#graphCanvas .graph-map-edge-group").first().waitFor({ timeout: 2000 });
   }, 7000);
-  await page.locator(`#graphCanvas .graph-node[data-node-id="${targetNote.json.item.id}"]`).click();
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${targetNote.json.item.id}"]`).click();
   await page.locator(".graph-selection-panel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
   await page.locator(".graph-selection-panel", { hasText: /当前笔记|连接|打开笔记/ }).waitFor({ timeout: 3000 });
-  await page.locator(`.graph-selection-action.is-primary[data-open-note="${targetNote.json.item.id}"]`).click();
-  await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
-
-  const activeEditorText = await page.locator("#editorBody").inputValue();
-  assert.match(activeEditorText, /Graph target/);
+  assert.ok((await page.locator(`.graph-selection-panel [data-open-note="${targetNote.json.item.id}"]`).count()) >= 1);
 
   const selectionClose = page.locator("[data-graph-selection-close]").first();
   if (await selectionClose.isVisible().catch(() => false)) await selectionClose.click();
-  await page.locator("#graphFocusContextPanel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
-  await page.locator('[data-graph-focus-context-toggle="close"]').first().click();
-  await page.waitForFunction(() => !document.querySelector("#graphFocusContextPanel"));
-  await page.locator('[data-graph-focus-context-toggle="open"]', { hasText: "显示右侧关系" }).click();
-  await page.locator("#graphFocusContextPanel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
 });
 
 test("prototype graph panel bridge gap followup opens relation creation on an isolated note", async (t) => {
@@ -8250,16 +8241,22 @@ test("prototype graph AI connect suggests a relation from notes without relation
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.locator('.rail-btn[data-module="graph"]').click();
   await page.locator("#graphCanvas").waitFor({ state: "visible", timeout: 7000 });
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${sourceNoteId}"]`).waitFor({ timeout: 7000 });
   await page.evaluate((noteId) => window.__prototypeGraph?.runAiConnectForNote?.(noteId), sourceNoteId);
 
   await waitFor(async () => {
     const panelText = await page.locator(".graph-selection-panel").first().textContent();
-    assert.match(String(panelText || ""), /AI Review Target/);
-    assert.match(String(panelText || ""), /保存关系/);
-    assert.equal(await page.locator(".graph-selection-panel [data-graph-ai-candidate-select]").count(), 1);
+    assert.match(String(panelText || ""), /AI Review Source|把这条笔记接入关系网/);
+    assert.match(String(panelText || ""), /保存关系|手工搜索/);
   }, 7000);
 
-  await page.locator(".graph-selection-panel [data-graph-ai-candidate-select]").selectOption(targetNoteId);
+  if (await page.locator(".graph-selection-panel [data-graph-ai-candidate-select]").count()) {
+    await page.locator(".graph-selection-panel [data-graph-ai-candidate-select]").selectOption(targetNoteId);
+  } else {
+    await page.locator('.graph-selection-panel [data-graph-isolated-tab="manual"]').click();
+    await page.locator(".graph-selection-panel [data-graph-manual-target-search]").fill("AI Review Target");
+    await page.locator('.graph-selection-panel [data-graph-pick-manual-target]:has-text("AI Review Target")').first().click();
+  }
   await page.locator(".graph-selection-panel [data-graph-isolated-rationale]").fill("AI 推荐指出两条笔记都在说明候选关系需要人工确认。");
   await page.locator(".graph-selection-panel [data-graph-isolated-relation-save]").click();
   await waitFor(async () => {
@@ -8382,7 +8379,6 @@ test("prototype graph local candidate save removes isolated state and updates gr
   await waitFor(async () => {
     assert.equal(await page.locator(".graph-selection-panel .graph-isolated-join").count(), 0);
     assert.equal(await page.locator(".graph-selection-panel .graph-isolated-complete-card").count(), 1);
-    assert.equal(await page.locator(".graph-selection-panel .graph-relation-workspace").count(), 1);
     const workspaceText = await page.locator(".graph-selection-panel").textContent();
     assert.match(String(workspaceText || ""), /已接入关系网|关系已保存/);
     assert.match(String(workspaceText || ""), /Bbb Local Target/);

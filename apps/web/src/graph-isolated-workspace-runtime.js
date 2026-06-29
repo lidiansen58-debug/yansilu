@@ -674,6 +674,7 @@ function focusGraphRelationAdjustmentInPlace(button = null) {
     graphNoteHasSavedIsolationDisposition,
     renderGraphIsolatedDecisionForm,
     graphIsolatedWorkflowActiveTab,
+    graphIsolatedWorkflowShell,
     setGraphIsolatedWorkflowActiveTab,
     renderGraphIsolatedWorkflowTabs,
     activateGraphIsolatedWorkflowTab,

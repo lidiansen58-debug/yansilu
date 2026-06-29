@@ -11,29 +11,58 @@ import {
   createGraphThinkingPanelResidualView
 } from "./graph-thinking-panel-residual-view.js";
 import {
-  createGraphAiConnectRuntimeController
-} from "./graph-ai-connect-runtime-controller.js";
-import {
   createGraphVisualMapController
 } from "./graph-visual-map-controller.js";
 import {
   createGraphVisualMapPrototypeDepsProvider
 } from "./graph-visual-map-host-deps.js";
 import {
+  normalizeGraphFocusDepth
+} from "./graph-focus-controls-state.js";
+import {
+  graphFocusedItemsForRuntime,
   graphLoadedScopeCoversDirectoryForRuntime,
+  graphScopedItemsForRuntime,
   graphScopeDirectoryIdForRuntime
 } from "./graph-scope-state.js";
-
 export function createGraphResidualViews(deps = {}) {
   const {
+    GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]),
     GRAPH_CONFLICT_RELATION_TYPES,
     GRAPH_INDEX_RELATION_TYPES,
     GRAPH_LINK_CLUE_RELATION_TYPES,
     GRAPH_MEANINGFUL_RELATION_TYPES,
+    GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]),
     GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default",
     GRAPH_RELATION_GROUP_META,
+    GRAPH_RELATION_MARKER_COLORS = {},
+    GRAPH_VISUAL_ZOOM_OPTIONS = [],
+    applyGraphEdgeHoverDomState = () => {},
+    applyGraphNodeHoverDomState = () => {},
+    computeGraphAiRelationCandidatesForNote = () => [],
+    computeGraphBlockedAiRelationPairKeysForNote = () => new Set(),
+    computeGraphCandidateCanSaveRelation = () => true,
+    computeGraphCandidateUndirectedPairKey = () => "",
+    computeGraphLocalRelationCandidatesForNote = () => [],
+    computeGraphMergeRelationCandidatesForDisplay = (aiCandidates = [], localCandidates = [], { limit = 6 } = {}) =>
+      [...(Array.isArray(aiCandidates) ? aiCandidates : []), ...(Array.isArray(localCandidates) ? localCandidates : [])].slice(0, limit),
+    computeGraphPreferredPotentialRelationType = (candidate = {}) =>
+      String(candidate?.relationType || candidate?.relation_type || "associated_with").trim().toLowerCase() || "associated_with",
+    computeGraphPotentialRelationActionEndpoints = (cleanNoteId = "", sourceNoteId = "", targetNoteId = "") => ({
+      actionSourceNoteId: sourceNoteId || cleanNoteId,
+      actionTargetNoteId: targetNoteId
+    }),
+    computeGraphPotentialRelationEvidenceText = (candidate = {}) => String(candidate?.evidenceText || candidate?.rationale || "").trim(),
+    computeGraphPotentialRelationRationaleDraft = ({ aiRationale = "", evidenceText = "" } = {}) => String(aiRationale || evidenceText || "").trim(),
+    computeGraphDecoratePotentialRelationCandidate = (candidate = {}) => candidate,
     computeGraphReadingLensMeta,
+    computeGraphRelationRationaleIsActionable = (value = "") => Boolean(String(value || "").trim()),
     computeGraphDirectNetworkEdgeCount,
+    computeGraphExistingRelationKeys = () => new Set(),
+    computeGraphExistingRelationPairKeys = () => new Set(),
+    computeGraphRelationPairKey = (left, right) => [left, right].map((value) => String(value || "").trim()).sort().join("::"),
+    computeGraphRelationStatusCountsAsNetworkEdge = () => false,
+    computeGraphSelectEdgeActionAttrs = () => "",
     descendantDirectoryIds = (id) => [id].filter(Boolean),
     createGraphIsolatedWorkflowShellRenderer,
     createGraphReadingLensStateController,
@@ -41,10 +70,25 @@ export function createGraphResidualViews(deps = {}) {
     createGraphRelationWorkflowController,
     escapeHtml,
     graphBridgeSelectionKey,
+    graphDenseGalaxyMode = () => false,
     graphEdgeSelectionKey,
+    graphEdgePathForRuntime = () => "",
+    graphEdgeShouldRenderForRuntime = () => true,
+    graphEdgeVisibleAtFitForRuntime = () => true,
     graphFilterOptionsForRuntime,
+    graphFocusDepthMeta = () => ({}),
+    graphFocusContextModeMeta = () => ({}),
+    graphFullNoteByIdFromSources = (_notes, _relations, noteId) => state.notes?.find?.((note) => note.id === noteId) || null,
+    graphHash = (value) => String(value || "").length,
+    graphIsolatedPreviewTargetForNote = () => null,
     graphIsolatedSelectionKey,
+    graphNodeAttentionReasons = () => [],
+    graphNodeClass = () => "",
+    graphNodeRadiusByTier = () => 4,
+    graphNodeShowsAsPoint = () => false,
     graphNodeStarRank,
+    graphNodeStarTier = () => "minor",
+    graphReadingModeMeta = () => ({}),
     graphNormalizeRelationWorkflowSelection,
     graphRelationGroupMeta,
     graphRelationSourceLabel,
@@ -52,29 +96,54 @@ export function createGraphResidualViews(deps = {}) {
     graphRelationSaveResultForNote,
     graphRelationTypeLabel,
     graphRelationVisual,
+    graphAiConnectRuntimeController = {
+      refineGraphPotentialRelationsForNote: async () => undefined,
+      refineGraphPotentialRelationCandidate: async () => undefined
+    },
+    graphBuildVisualLayoutForRuntime = () => ({ nodes: [], edges: [] }),
     graphState,
     graphStructureFallbackEdgesForRuntime,
+    graphShortTitle = (value) => String(value || ""),
+    graphThemeBoundaryMetaForRuntime = () => null,
     graphThemeNoteIds,
     graphThemeSelectionKey,
+    graphViewModeForRelationType = () => "argument",
+    graphZoomOption = () => ({}),
+    graphZoomStep = () => ({}),
+    getElementById = (id) => document?.getElementById?.(id) || null,
     isDirectoryUnderOriginalRoot = () => false,
     normalizeGraphRelationTypeFilter,
     noteTypeLabel,
+    parseTags = () => [],
+    graphNotePreviewTextForLocalRelation = (note = {}) => String(note?.body || note?.title || "").slice(0, 120),
+    graphNoteTagsForLocalRelation = () => [],
+    computeGraphTitleCharacterOverlap = () => 0,
     renderGraphIconView,
+    renderGraphClusterGlowView = () => "",
+    renderGraphNebulaFieldView = () => "",
     renderGraphReadingLensControlsView,
     renderGraphRelationTypeFilterForRuntime,
     renderGraphResearchNavigatorEntryView,
+    renderGraphPromptDetailsView = () => "",
     renderGraphSelectionMetricsView,
+    renderGraphSelectionShellView = () => "",
+    renderGraphSelectionTaskView = () => "",
+    renderGraphStarfieldView = () => "",
+    renderGraphThemeBoundaryForRuntime = () => "",
     renderGraphViewModeSwitcherForRuntime,
     renderGraphWorkbenchEntryPillsView,
+    renderGraphPanel = () => {},
+    resetGraphHoverDomState = () => {},
+    setStatus = () => {},
     state,
     suggestedThemeIndexTitle,
+    shouldShowGraphDensityHint = () => false,
     titleFromBody,
     uniqueStrings,
     writeStoredText,
     setGraphFocusContextModeForRuntime,
     setGraphFocusDepthForRuntime
   } = deps;
-
 function graphResidualRuntimeDeps(overrides = {}) {
   return {
     ...deps,
@@ -90,6 +159,10 @@ function graphResidualRuntimeDeps(overrides = {}) {
     graphRelationStatusLabel,
     graphRelationTypeLabel,
     graphRelationVisual,
+    renderGraphSelectionMetrics,
+    renderGraphPromptDetails,
+    renderGraphSelectionTask,
+    renderGraphSelectionShell,
     resolveGraphIsolatedSelection,
     graphThemeSelectionKey,
     graphIsolatedSelectionKey,
@@ -101,25 +174,21 @@ function graphResidualRuntimeDeps(overrides = {}) {
     ...overrides
   };
 }
-
 function renderGraphIcon(...args) {
   return renderGraphIconView(...args);
 }
-
 function setGraphFocusDepth(value = "", options = {}) {
   return setGraphFocusDepthForRuntime(graphState, value, {
     ...options,
     writeStoredText
   });
 }
-
 function setGraphFocusContextMode(value = "", options = {}) {
   return setGraphFocusContextModeForRuntime(graphState, value, {
     ...options,
     writeStoredText
   });
 }
-
 function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, conflictCount = 0, bridgeGapCount = 0 } = {}) {
   return `
     <section class="graph-orientation" aria-label="图谱读法">
@@ -149,27 +218,23 @@ function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, c
     </section>
   `;
 }
-
 function graphNodeTitle(nodeMap, id, fallback = "未命名笔记") {
   const key = String(id || "").trim();
   const node = key ? nodeMap.get(key) : null;
   const knownNote = key ? state.notes.find((note) => String(note?.id || "").trim() === key) : null;
   return String(node?.title || node?.label || node?.name || knownNote?.title || key || fallback).trim() || fallback;
 }
-
 function graphEdgeTitle(edge = {}, nodeMap = new Map()) {
   const sourceTitle = edge.fromTitle || graphNodeTitle(nodeMap, edge.fromNoteId, "源笔记");
   const targetTitle = edge.toTitle || graphNodeTitle(nodeMap, edge.toNoteId, "目标笔记");
   return `${sourceTitle} → ${targetTitle}`;
 }
-
 function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], bridgeGaps = [], untypedRelations = [] } = {}) {
   const nodeMap = new Map();
   nodes.forEach((node) => {
     const id = String(node?.id || "").trim();
     if (id) nodeMap.set(id, node);
   });
-
   const degreeMap = new Map(nodes.map((node) => [String(node?.id || ""), 0]));
   edges.forEach((edge) => {
     const fromId = String(edge?.fromNoteId || "").trim();
@@ -177,7 +242,6 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
     if (fromId) degreeMap.set(fromId, (degreeMap.get(fromId) || 0) + 1);
     if (toId) degreeMap.set(toId, (degreeMap.get(toId) || 0) + 1);
   });
-
   const central = [...nodeMap.values()]
     .map((node) => ({ node, degree: degreeMap.get(String(node.id || "")) || 0 }))
     .sort((a, b) => b.degree - a.degree || String(a.node.title || "").localeCompare(String(b.node.title || ""), "zh-Hans-CN"))[0];
@@ -194,7 +258,6 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
   const nearestBridge = bridges.find(isCentralEdge) || bridges[0] || flows.find(isCentralEdge) || flows[0] || null;
   const pathEdges = [nearestSupport, nearestTension, nearestBridge].filter(Boolean);
   const uniquePathEdges = pathEdges.filter((edge, index) => pathEdges.findIndex((item) => item.fromNoteId === edge.fromNoteId && item.toNoteId === edge.toNoteId) === index);
-
   const headline = !nodes.length
     ? "还没有足够笔记形成图谱判断。"
     : !edges.length
@@ -213,7 +276,6 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
         : supports.length
           ? "它已经开始形成证据链，可以把中心观点、支撑笔记和例外条件整理成写作提纲。"
           : "它目前更像主题集合，还需要把相邻笔记写成明确的支持、限定或反驳关系。";
-
   const prompts = !edges.length
     ? [
         nodes.length > 1 ? "这几条笔记之间最缺的那一步过渡判断是什么？" : "再补一条相关永久笔记，图谱才会开始形成结构。",
@@ -225,7 +287,6 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
         nearestTension ? `「${graphEdgeTitle(nearestTension, nodeMap)}」这条张力能不能变成文章里的反方段落？` : "有没有一条笔记能反驳或限定当前中心观点？",
         untypedRelations.length ? `${untypedRelations.length} 条关系还缺说明，先补一句“为什么相关”，洞见会更容易浮出来。` : "关系说明已经较清楚，可以开始挑一条阅读路径进入写作中心。"
       ];
-
   return {
     headline,
     thesis,
@@ -235,7 +296,6 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
     nodeMap
   };
 }
-
 function renderGraphInsightCoach(context = {}) {
   const insight = buildGraphInsightCoach(context);
   const pathMarkup = insight.pathEdges.length
@@ -272,7 +332,6 @@ function renderGraphInsightCoach(context = {}) {
     </section>
   `;
 }
-
 function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
   const items = Array.isArray(bridgeGaps) ? bridgeGaps.filter((item) => Array.isArray(item?.noteIds) && item.noteIds.length) : [];
   if (!items.length) return "";
@@ -318,13 +377,11 @@ function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
       </details>
   `;
 }
-
 function graphWeakRelationClues(edges = [], limit = 6) {
   return (Array.isArray(edges) ? edges : [])
     .filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase()))
     .slice(0, limit);
 }
-
 function renderGraphWeakRelationClueSection(edges = [], options = {}) {
   const items = graphWeakRelationClues(edges, 6);
   if (!items.length) return "";
@@ -366,7 +423,6 @@ function renderGraphWeakRelationClueSection(edges = [], options = {}) {
       </details>
   `;
 }
-
 function graphRelationFilterOptionsDepsForRuntime() {
   return {
     escapeHtml,
@@ -378,24 +434,19 @@ function graphRelationFilterOptionsDepsForRuntime() {
     GRAPH_LINK_CLUE_RELATION_TYPES
   };
 }
-
 function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOverride = null) {
   return graphFilterOptionsForRuntime(edges, field, selected, allLabel, labelFn, statsOverride, graphRelationFilterOptionsDepsForRuntime());
 }
-
 const renderGraphViewModeSwitcher = (relationType = "meaningful") =>
   renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml });
-
 const renderGraphRelationTypeFilter = (edges = [], selected = "meaningful", compact = false, statsOverride = null) =>
   renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, {
     escapeHtml,
     graphFilterOptions,
     graphRelationTypeLabel
   });
-
 const graphStructureFallbackEdges = (edges = [], filters = {}) =>
   graphStructureFallbackEdgesForRuntime(edges, filters, { graphEdgeMatchesFilters });
-
 function graphLocalizedActionText(value = "", fallback = "") {
   const text = String(value || "").trim();
   const defaultText = String(fallback || "").trim();
@@ -417,11 +468,9 @@ function graphLocalizedActionText(value = "", fallback = "") {
   }
   return text;
 }
-
 function graphReadingLensMeta(value = "insight") {
   return computeGraphReadingLensMeta(value);
 }
-
 function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false, trailingMarkup = "") {
   return renderGraphReadingLensControlsView(activeLens, legendOpen, trailingMarkup, { escapeHtml });
 }
@@ -443,12 +492,10 @@ const GRAPH_WORKBENCH_TAB_META = {
     note: "把值得继续追问的主题、冲突和边界放在这里。"
   }
 };
-
 function graphWorkbenchTabMeta(value = "clues") {
   const key = String(value || "clues").trim().toLowerCase();
   return GRAPH_WORKBENCH_TAB_META[key] || GRAPH_WORKBENCH_TAB_META.clues;
 }
-
 function graphClueSummaryState({ bridgeGapCount = 0, weakRelationCount = 0, reviewQueue = null, nodes = null, edges = null } = {}) {
   const reviewCount = Number(reviewQueue?.total || 0);
   const aiState = graphAiAnalysisSummaryState({ nodes, edges });
@@ -472,7 +519,6 @@ function graphClueSummaryState({ bridgeGapCount = 0, weakRelationCount = 0, revi
     categories
   };
 }
-
 function renderGraphWorkbenchEntryPills({ clueSummary = null, questionSummary = null } = {}) {
   return renderGraphWorkbenchEntryPillsView({ clueSummary, questionSummary }, {
     escapeHtml,
@@ -484,11 +530,9 @@ function renderGraphWorkbenchEntryPills({ clueSummary = null, questionSummary = 
     graphState
   });
 }
-
 function renderGraphResearchNavigatorEntry(open = false) {
   return renderGraphResearchNavigatorEntryView(open);
 }
-
 const graphReadingLensStateController = createGraphReadingLensStateController({
   graphReadingLensMeta,
   graphEdgeSelectionKey,
@@ -497,7 +541,6 @@ const graphReadingLensStateController = createGraphReadingLensStateController({
 });
 const graphEdgeMatchesReadingLens = graphReadingLensStateController.graphEdgeMatchesReadingLens;
 const graphBuildReadingLensState = graphReadingLensStateController.graphBuildReadingLensState;
-
 function graphLoadErrorMessage(error) {
   const code = String(error?.code || "").trim().toLowerCase();
   if (code === "request_timeout") {
@@ -505,7 +548,6 @@ function graphLoadErrorMessage(error) {
   }
   return String(error?.message || error || "图谱读取失败");
 }
-
 function renderGraphErrorState(message = "") {
   return `
     <div class="graph-empty graph-error-card">
@@ -517,7 +559,6 @@ function renderGraphErrorState(message = "") {
     </div>
   `;
 }
-
 function renderGraphInlineNotice({ tone = "info", title = "", message = "", retry = false } = {}) {
   const toneClass = tone === "warn" ? "is-warn" : "is-info";
   const safeTitle = String(title || "").trim() || "图谱状态";
@@ -536,7 +577,6 @@ function renderGraphInlineNotice({ tone = "info", title = "", message = "", retr
     </div>
   `;
 }
-
 function graphEdgeMatchesFilters(edge, filters = {}) {
   const type = String(edge?.relationType || "associated_with").trim().toLowerCase();
   const status = String(edge?.status || "confirmed").trim().toLowerCase();
@@ -554,7 +594,6 @@ function graphEdgeMatchesFilters(edge, filters = {}) {
           : type === filterType;
   return typeMatches && (filterStatus === "all" || status === filterStatus);
 }
-
 function graphThemeTitleLooksGeneric(title = "") {
   const text = String(title || "").trim().toLowerCase();
   if (!text) return true;
@@ -575,7 +614,6 @@ function graphThemeTitleLooksGeneric(title = "") {
     /^图谱$/
   ].some((pattern) => pattern.test(text));
 }
-
 function graphThemeBreadthMeta(topic = {}, { totalNodeCount = 0 } = {}) {
   const noteIds = graphThemeNoteIds(topic);
   const total = Math.max(0, Number(totalNodeCount || 0));
@@ -600,7 +638,6 @@ function graphThemeBreadthMeta(topic = {}, { totalNodeCount = 0 } = {}) {
       : ""
   };
 }
-
 function resolveGraphThemeSelection(selection = null, topicCandidates = []) {
   const topicKey = String(selection?.topicKey || selection?.themeKey || "").trim();
   const title = String(selection?.title || "").trim();
@@ -623,7 +660,6 @@ function resolveGraphThemeSelection(selection = null, topicCandidates = []) {
     noteIds: resolvedNoteIds
   };
 }
-
 function resolveGraphIsolatedSelection(selection = null, isolatedNotes = [], nodes = []) {
   const isolatedKey = String(selection?.isolatedKey || selection?.noteKey || "").trim();
   const noteId = String(selection?.noteId || selection?.id || "").trim();
@@ -658,7 +694,6 @@ function resolveGraphIsolatedSelection(selection = null, isolatedNotes = [], nod
   }
   return null;
 }
-
 function resolveGraphBridgeSelection(selection = null, bridgeGaps = [], nodes = []) {
   const bridgeKey = String(selection?.bridgeKey || "").trim();
   const noteId = String(selection?.noteId || selection?.sourceNoteId || "").trim();
@@ -688,7 +723,6 @@ function resolveGraphBridgeSelection(selection = null, bridgeGaps = [], nodes = 
     gapType: String(gap?.gapType || "bridge_gap").trim().toLowerCase()
   };
 }
-
 function graphBuildIsolatedVisualNodes({ isolatedNotes = [], allNodes = [], currentNodes = [], limit = 12 } = {}) {
   const scopedNodeMap = new Map(
     (Array.isArray(allNodes) ? allNodes : [])
@@ -720,7 +754,6 @@ function graphBuildIsolatedVisualNodes({ isolatedNotes = [], allNodes = [], curr
   });
   return visualNodes;
 }
-
 function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [], clusterMeta = [] } = {}) {
   const kind = String(selection?.kind || "").trim().toLowerCase();
   if (kind === "theme") {
@@ -798,7 +831,6 @@ function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], 
   }
   return null;
 }
-
 function graphRelationGroupCounts(edges = []) {
   return edges.reduce(
     (acc, edge) => {
@@ -810,7 +842,6 @@ function graphRelationGroupCounts(edges = []) {
     { total: 0, support: 0, conflict: 0, boundary: 0, bridge: 0, flow: 0, neutral: 0, index: 0 }
   );
 }
-
 function graphNodeRoleMeta(node = {}, directEdges = []) {
   const counts = graphRelationGroupCounts(directEdges);
   const degree = Number(node?.degree || directEdges.length || 0);
@@ -861,7 +892,6 @@ function graphNodeRoleMeta(node = {}, directEdges = []) {
     prompt: "这条笔记贡献的是定义、例子、证据、反方，还是一个新问题？"
   };
 }
-
 function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map(), edges = [] } = {}) {
   const noteId = String(node?.id || "").trim();
   const role = graphNodeRoleMeta(node, directEdges);
@@ -916,7 +946,6 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
     themeNoteCount: themeNoteIds.length
   };
 }
-
 function renderGraphNodeInsightPanel(insight = {}) {
   if (!insight?.position) return "";
   const candidateText = `${Number(insight.candidateCount || 0)} 个可选目标 · ${Number(insight.themeNoteCount || 0)} 条可整理笔记`;
@@ -943,7 +972,6 @@ function renderGraphNodeInsightPanel(insight = {}) {
     </section>
   `;
 }
-
 function graphEdgeReviewMeta(edge = {}) {
   const rationale = String(edge?.rationale || "").trim();
   const relationType = String(edge?.relationType || "associated_with").trim().toLowerCase();
@@ -995,13 +1023,11 @@ function graphEdgeReviewMeta(edge = {}) {
     prompt: "这条线如果删掉，会损失论证，还是只损失导航？"
   };
 }
-
 function graphEdgeRationaleLooksComplex(rationale = "") {
   const text = String(rationale || "").trim();
   if (text.length >= 96) return true;
   return /同时|但是|然而|另一方面|以及|并且|反过来|不过|既.*又/.test(text);
 }
-
 function graphEdgeAdjustmentPlan(edge = {}) {
   const rationale = String(edge?.rationale || "").trim();
   const relationType = String(edge?.relationType || "associated_with").trim().toLowerCase();
@@ -1071,7 +1097,6 @@ function graphEdgeAdjustmentPlan(edge = {}) {
   ].map((card) => ({ ...card, active: card.key === recommendation }));
   return { recommendation, label, detail, cards };
 }
-
 function renderGraphSelectionMetrics(items = []) {
   return renderGraphSelectionMetricsView(items, {
     escapeHtml,
@@ -1079,13 +1104,11 @@ function renderGraphSelectionMetrics(items = []) {
     graphSafeActionAttrs
   });
 }
-
 function graphSafeActionAttrs(attrs = "") {
   const text = String(attrs || "").trim();
   if (!text) return "";
   return /^(?:data-[a-z0-9-]+="[^"<>&]*"\s*)+$/i.test(text) ? text : "";
 }
-
 function renderGraphSelectionTask(task = null) {
   return renderGraphSelectionTaskView(task, {
     escapeHtml,
@@ -1093,7 +1116,6 @@ function renderGraphSelectionTask(task = null) {
     graphSafeActionAttrs
   });
 }
-
 function renderGraphPromptDetails(title = "思考提示（可选）", prompts = []) {
   return renderGraphPromptDetailsView(title, prompts, {
     escapeHtml,
@@ -1101,7 +1123,6 @@ function renderGraphPromptDetails(title = "思考提示（可选）", prompts = 
     graphSafeActionAttrs
   });
 }
-
 function renderGraphSelectionShell({ className = "", ariaLabel = "", kicker = "", title = "", meta = "", closeLabel = "收起详情", roleLabel = "", roleDetail = "", task = null, body = "", actions = "" } = {}) {
   return renderGraphSelectionShellView({ className, ariaLabel, kicker, title, meta, closeLabel, roleLabel, roleDetail, task, body, actions }, {
     escapeHtml,
@@ -1109,7 +1130,6 @@ function renderGraphSelectionShell({ className = "", ariaLabel = "", kicker = ""
     graphSafeActionAttrs
   });
 }
-
 function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } = {}) {
   const noteIds = graphThemeNoteIds(topic);
   const noteSet = new Set(noteIds);
@@ -1211,7 +1231,6 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
     breadth
   };
 }
-
 function graphThemeCandidateQualityMeta(topic = {}, { nodeMap = new Map(), edges = [], index = 0 } = {}) {
   const maturity = graphThemeMaturityMeta(topic, { nodeMap, edges });
   const noteIds = maturity.noteIds || [];
@@ -1251,7 +1270,6 @@ function graphThemeCandidateQualityMeta(topic = {}, { nodeMap = new Map(), edges
     listQuestion
   };
 }
-
 function graphRankThemeCandidates(topicCandidates = [], { nodeMap = new Map(), edges = [] } = {}) {
   return (Array.isArray(topicCandidates) ? topicCandidates : [])
     .map((topic, index) => ({
@@ -1261,7 +1279,6 @@ function graphRankThemeCandidates(topicCandidates = [], { nodeMap = new Map(), e
     }))
     .sort((a, b) => Number(b.quality?.sortScore || 0) - Number(a.quality?.sortScore || 0) || Number(a.originalIndex || 0) - Number(b.originalIndex || 0));
 }
-
 function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = [], nodeMap = new Map(), edges = [] } = {}) {
   const theme = resolveGraphThemeSelection(selection, topicCandidates);
   if (!theme) return "";
@@ -1336,80 +1353,60 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
       <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开代表笔记</button>`
   });
 }
-
 function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
   return computeGraphRelationCandidateKey(fromNoteId, toNoteId, relationType);
 }
-
 function graphRelationPairKey(leftNoteId = "", rightNoteId = "") {
   return computeGraphRelationPairKey(leftNoteId, rightNoteId);
 }
-
 function graphCandidateEndpointIds(candidate = {}) {
   return computeGraphCandidateEndpointIds(candidate);
 }
-
 function graphCandidateCountKey(candidate = {}) {
   return computeGraphCandidateCountKey(candidate);
 }
-
 function graphRelationStatusKey(value = "") {
   return computeGraphRelationStatusKey(value);
 }
-
 function graphRelationStatusCountsAsNetworkEdge(value = "") {
   return computeGraphRelationStatusCountsAsNetworkEdge(value);
 }
-
 function graphRelationStatusCountsAsConfirmedEdge(value = "") {
   return String(value || "confirmed").trim().toLowerCase() === "confirmed";
 }
-
 function graphDirectConfirmedRelationCount(noteId = "", edges = []) {
   return computeGraphDirectNetworkEdgeCount(noteId, edges, {
     relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsConfirmedEdge
   });
 }
-
 function graphNodeNeedsRelationWorkflow(noteId = "", edges = [], nodeMap = new Map()) {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return false;
   if (nodeMap instanceof Map && nodeMap.size && !nodeMap.has(cleanNoteId)) return false;
   return graphDirectConfirmedRelationCount(cleanNoteId, edges) === 0;
 }
-
 function graphNodeNeedsRelationWorkflowFromCurrentGraph(noteId = "") {
   const edges = Array.isArray(graphState.item?.edges) ? graphState.item.edges : [];
   return graphNodeNeedsRelationWorkflow(noteId, edges);
 }
-
 function graphExistingRelationKeys(edges = []) {
   return computeGraphExistingRelationKeys(edges);
 }
-
 function graphExistingRelationPairKeys(edges = []) {
   return computeGraphExistingRelationPairKeys(edges);
 }
-
-const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
-const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
-
 function graphPreferredPotentialRelationType(candidate = {}) {
   return computeGraphPreferredPotentialRelationType(candidate, GRAPH_CONFIRMABLE_RELATION_TYPES);
 }
-
 function graphCandidateBlocksFormalRelation(candidate = {}) {
   return computeGraphCandidateBlocksFormalRelation(candidate);
 }
-
 function graphCandidateCanSaveRelation(candidate = {}) {
   return computeGraphCandidateCanSaveRelation(candidate, GRAPH_CONFIRMABLE_RELATION_TYPES);
 }
-
 function graphRelationRationaleIsActionable(value = "") {
   return computeGraphRelationRationaleIsActionable(value);
 }
-
 function graphPotentialRelationNodeMap() {
   const items = [
     ...(Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : []),
@@ -1417,15 +1414,12 @@ function graphPotentialRelationNodeMap() {
   ];
   return new Map(items.map((item) => [String(item?.id || "").trim(), item]).filter(([id]) => id));
 }
-
 function graphPotentialRelationActionEndpoints(cleanNoteId = "", sourceNoteId = "", targetNoteId = "", relationType = "") {
   return computeGraphPotentialRelationActionEndpoints(cleanNoteId, sourceNoteId, targetNoteId, relationType, GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES);
 }
-
 function graphPotentialRelationEvidenceText(candidate = {}) {
   return computeGraphPotentialRelationEvidenceText(candidate);
 }
-
 function graphPotentialRelationRationaleDraft({
   relationLabel = "",
   actionSourceTitle = "",
@@ -1441,7 +1435,6 @@ function graphPotentialRelationRationaleDraft({
     evidenceText
   });
 }
-
 function graphDecoratePotentialRelationCandidate(candidate = {}, { nodeMap = new Map() } = {}) {
   return computeGraphDecoratePotentialRelationCandidate(candidate, { nodeMap }, {
     graphNodeTitle,
@@ -1451,7 +1444,6 @@ function graphDecoratePotentialRelationCandidate(candidate = {}, { nodeMap = new
     rationaleDraftForCandidate: graphPotentialRelationRationaleDraft
   });
 }
-
 function graphCandidateRelationReviewQuestion(candidate = {}) {
   const explicitQuestion = String(candidate.reviewQuestion || candidate.review_question || "").trim();
   if (explicitQuestion) return explicitQuestion;
@@ -1463,7 +1455,6 @@ function graphCandidateRelationReviewQuestion(candidate = {}) {
   if (relationType === "same_topic") return "它们只是同主题，还是已经有明确论证动作？";
   return "这条关系能说清支持、限定、反驳或桥接动作吗？";
 }
-
 function graphCandidateRelationVerdict(candidate = {}) {
   const decision = String(candidate.aiDecision || candidate.ai_decision || "").trim().toLowerCase();
   const relationType = String(candidate.aiRelationType || candidate.relationType || candidate.coarseType || "associated_with").trim().toLowerCase();
@@ -1474,7 +1465,6 @@ function graphCandidateRelationVerdict(candidate = {}) {
   if (decision === "accept") return `AI 判断：可复核为${relationLabel}`;
   return `建议先按${relationLabel}复核 · ${confidenceLabel}`;
 }
-
 function graphCandidateLocalReason(candidate = {}) {
   const reasons = Array.isArray(candidate.coarseReasons || candidate.coarse_reasons)
     ? candidate.coarseReasons || candidate.coarse_reasons
@@ -1482,7 +1472,6 @@ function graphCandidateLocalReason(candidate = {}) {
   if (reasons.length) return reasons.join("；");
   return String(candidate.evidenceText || candidate.rationale || "").trim() || "本地规则发现可复查的概念线索。";
 }
-
 function renderGraphCandidateReviewRows(candidate = {}, { aiCandidate = true } = {}) {
   const localReason = graphCandidateLocalReason(candidate);
   const aiReason = String(candidate.aiRationale || candidate.ai_rationale || "").trim();
@@ -1505,7 +1494,6 @@ function renderGraphCandidateReviewRows(candidate = {}, { aiCandidate = true } =
     </div>
   `;
 }
-
 function graphPotentialRelationMatchKey(candidate = {}) {
   const id = String(candidate.id || candidate.candidateId || candidate.candidate_id || "").trim();
   if (id) return `id:${id}`;
@@ -1513,12 +1501,10 @@ function graphPotentialRelationMatchKey(candidate = {}) {
   if (!fromNoteId || !toNoteId) return "";
   return `pair:${graphRelationCandidateKey(fromNoteId, toNoteId, "")}`;
 }
-
 function graphPotentialRelationNeedsConfirmation(candidate = {}) {
   const code = String(candidate.aiErrorCode || candidate.ai_error_code || "").trim();
   return code === "AI_ROUTE_CONFIRMATION_REQUIRED" || code === "AI_BUDGET_CONFIRMATION_REQUIRED";
 }
-
 function graphFindPotentialRelationCandidate({ candidateId = "", sourceNoteId = "", targetNoteId = "" } = {}) {
   const cleanCandidateId = String(candidateId || "").trim();
   const cleanSourceNoteId = String(sourceNoteId || "").trim();
@@ -1535,7 +1521,6 @@ function graphFindPotentialRelationCandidate({ candidateId = "", sourceNoteId = 
     return cleanSourceNoteId && cleanTargetNoteId && fromNoteId === cleanSourceNoteId && toNoteId === cleanTargetNoteId;
   }) || null;
 }
-
 function graphAiRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), edges = [], limit = 5 } = {}) {
   return computeGraphAiRelationCandidatesForNote(noteId, {
     analysis: graphAiAnalysisPayload(),
@@ -1553,7 +1538,6 @@ function graphAiRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), ed
     graphPotentialRelationNeedsConfirmation
   });
 }
-
 function graphReviewSummaryFromAnalysis(analysis = {}, previousSummary = {}) {
   const topicCandidateCount = Array.isArray(analysis?.topicCandidates) ? analysis.topicCandidates.length : 0;
   const relationCandidateCount = Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates.length : 0;
@@ -1569,7 +1553,6 @@ function graphReviewSummaryFromAnalysis(analysis = {}, previousSummary = {}) {
     isolatedNoteCount
   };
 }
-
 function mergePotentialRelationCandidateIntoGraphAnalysis(refinedCandidate = {}) {
   const matchKey = graphPotentialRelationMatchKey(refinedCandidate);
   if (!matchKey || !graphState.aiAnalysis) return false;
@@ -1608,7 +1591,6 @@ function mergePotentialRelationCandidateIntoGraphAnalysis(refinedCandidate = {})
     : nextAnalysis;
   return changed;
 }
-
 function removePotentialRelationCandidateFromGraphAnalysis(candidateToRemove = {}) {
   const matchKey = graphPotentialRelationMatchKey(candidateToRemove);
   if (!matchKey || !graphState.aiAnalysis) return false;
@@ -1639,42 +1621,18 @@ function removePotentialRelationCandidateFromGraphAnalysis(candidateToRemove = {
     : nextAnalysis;
   return true;
 }
-
-const graphAiConnectRuntimeController = createGraphAiConnectRuntimeController(() => ({
-  addSystemMessage,
-  analyzeDirectoryGraph,
-  ensureGraphLocalAiReadyForAnalysis,
-  graphAiRelationCandidatesForNote,
-  graphNodeTitle,
-  graphPotentialRelationNeedsConfirmation,
-  graphRelationStatusCountsAsNetworkEdge,
-  graphRelationWorkflowController,
-  graphScopeDirectoryId,
-  graphState,
-  mergePotentialRelationCandidateIntoGraphAnalysis,
-  refinePotentialRelationCandidate,
-  removePotentialRelationCandidateFromGraphAnalysis,
-  renderGraphPanel,
-  setStatus,
-  state
-}));
-
 async function refineGraphPotentialRelationsForNote(noteId = "", candidates = [], options = {}) {
   return graphAiConnectRuntimeController.refineGraphPotentialRelationsForNote(noteId, candidates, options);
 }
-
 async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}, options = {}) {
   return graphAiConnectRuntimeController.refineGraphPotentialRelationCandidate(noteId, candidate, options);
 }
-
 function graphNoteTags(note = {}) {
   return graphNoteTagsForLocalRelation(note, { parseTags });
 }
-
 function graphTitleCharacterOverlap(left = "", right = "") {
   return computeGraphTitleCharacterOverlap(left, right);
 }
-
 function graphLocalRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), edges = [], limit = 5 } = {}) {
   return computeGraphLocalRelationCandidatesForNote(
     noteId,
@@ -1686,20 +1644,16 @@ function graphLocalRelationCandidatesForNote(noteId = "", { nodeMap = new Map(),
     }
   );
 }
-
 function graphCandidateSourceLabel(candidate = {}, fallback = "本地线索") {
   if (candidate.aiDecision || candidate.modelName || candidate.aiRationale) return "AI 候选";
   return fallback;
 }
-
 function graphCandidateUndirectedPairKey(candidate = {}) {
   return computeGraphCandidateUndirectedPairKey(candidate);
 }
-
 function graphBlockedAiRelationPairKeysForNote(noteId = "") {
   return computeGraphBlockedAiRelationPairKeysForNote(noteId, graphAiAnalysisPayload());
 }
-
 function graphCandidateEvidenceText(candidate = {}) {
   const evidenceText = String(candidate.evidenceText || candidate.aiRationale || candidate.rationale || "").trim();
   if (evidenceText) return evidenceText;
@@ -1708,19 +1662,15 @@ function graphCandidateEvidenceText(candidate = {}) {
     : [];
   return reasons.filter(Boolean).slice(0, 2).join("；") || "这是一条待确认的关联线索。";
 }
-
 function graphMergeRelationCandidatesForDisplay(aiCandidates = [], localCandidates = [], { limit = 6, blockedPairKeys = new Set() } = {}) {
   return computeGraphMergeRelationCandidatesForDisplay(aiCandidates, localCandidates, { limit, blockedPairKeys });
 }
-
 function graphNotePreviewText(note = {}) {
   return graphNotePreviewTextForLocalRelation(note);
 }
-
 function graphFullNoteById(noteId = "", nodeMap = new Map()) {
   return graphFullNoteByIdFromSources(noteId, { nodeMap, notes: state.notes });
 }
-
 function graphIsolatedPreviewTarget(noteId = "", nodeMap = new Map(), preferredTargetNoteId = "") {
   return graphIsolatedPreviewTargetForNote(
     noteId,
@@ -1739,7 +1689,6 @@ function graphIsolatedPreviewTarget(noteId = "", nodeMap = new Map(), preferredT
     }
   );
 }
-
 function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), preferredTargetNoteId = "" } = {}) {
   const preview = graphIsolatedPreviewTarget(noteId, nodeMap, preferredTargetNoteId);
   if (!preview) {
@@ -1769,7 +1718,6 @@ function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), pre
     </aside>
   `;
 }
-
 function renderGraphRelationCandidateCards(candidates = [], { title = "可能相关笔记", note = "先复查这些线索，再把能说清理由的关系写入图谱。", sourceLabel = "本地线索" } = {}) {
   const items = Array.isArray(candidates) ? candidates.filter((candidate) => candidate && graphCandidateCanSaveRelation(candidate)) : [];
   if (!items.length) return "";
@@ -1807,7 +1755,6 @@ function renderGraphRelationCandidateCards(candidates = [], { title = "可能相
     </section>
   `;
 }
-
 function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edges = [], hideEmpty = false } = {}) {
   const aiCandidates = graphAiRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 5 });
   const localCandidates = graphLocalRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 5 });
@@ -1877,11 +1824,6 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
     </section>
   `;
 }
-
-
-
-
-
 const graphRelationWorkspaceRuntime = createGraphRelationWorkspaceRuntime(graphResidualRuntimeDeps({
   graphRelationGroupCounts,
   graphNodeTitle,
@@ -1937,6 +1879,7 @@ const {
   graphNoteHasSavedIsolationDisposition,
   renderGraphIsolatedDecisionForm,
   graphIsolatedWorkflowActiveTab,
+  graphIsolatedWorkflowShell,
   setGraphIsolatedWorkflowActiveTab,
   renderGraphIsolatedWorkflowTabs,
   activateGraphIsolatedWorkflowTab,
@@ -1956,7 +1899,7 @@ const {
 } = graphIsolatedWorkspaceRuntime;
 const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
   graphClusterResearchMeta: (...args) => graphClusterResearchMeta(...args),
-  graphIsolatedWorkflowShell: null,
+  graphIsolatedWorkflowShell,
   graphRelationFormTypeOptions,
   graphSelectionPanelRenderer: undefined,
   graphThemeCandidateNoteIdsForNode: (...args) => graphThemeCandidateNoteIdsForNode(...args),
@@ -1980,26 +1923,21 @@ const {
 function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = {}) {
   return graphEdgeVisibleAtFitForRuntime(edge, nodeMap, options, { graphRelationVisual });
 }
-
 function graphEdgeShouldRender(options = {}) {
   return graphEdgeShouldRenderForRuntime(options, { graphViewModeForRelationType });
 }
-
 function renderGraphStarfield(layoutWidth = 0, layoutHeight = 0, seed = "") {
   return renderGraphStarfieldView(layoutWidth, layoutHeight, seed, { hash: graphHash });
 }
-
 function renderGraphNebulaField(layoutWidth = 0, layoutHeight = 0, seed = "") {
   return renderGraphNebulaFieldView(layoutWidth, layoutHeight, seed, { hash: graphHash, escapeHtml });
 }
-
 function renderGraphClusterGlow(clusterMeta = []) {
   return renderGraphClusterGlowView(clusterMeta, {
     escapeHtml,
     formatSummaryLabel: (title) => `查看主题群摘要：${title || "未命名主题群"}`
   });
 }
-
 function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   return graphBuildVisualLayoutForRuntime(nodes, edges, options, {
     graphHash,
@@ -2010,26 +1948,21 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
 function graphEdgePath(edge, nodeMap) {
   return graphEdgePathForRuntime(edge, nodeMap, { graphRelationVisual });
 }
-
 function graphThemeBoundaryMeta(options = {}) {
   return graphThemeBoundaryMetaForRuntime(options, { graphThinkingCleanIds });
 }
-
 function renderGraphThemeBoundary(boundary = null) {
   return renderGraphThemeBoundaryForRuntime(boundary, { escapeHtml });
 }
-
 function graphScopeDirectoryId() {
   return graphScopeDirectoryIdForRuntime(state, {
     graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
     isDirectoryUnderOriginalRoot
   });
 }
-
 function graphLoadedScopeCoversDirectory(scopeDirectoryId = "") {
   return graphLoadedScopeCoversDirectoryForRuntime(graphState, scopeDirectoryId, { descendantDirectoryIds });
 }
-
 function expandGraphBrowserTree() {
   if (typeof explorer === "undefined" || !explorer) return;
   explorer.expandFolderPath(GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
@@ -2040,7 +1973,6 @@ function expandGraphBrowserTree() {
   const scopedFolderId = graphScopeDirectoryId();
   if (scopedFolderId) explorer.expandFolderPath(scopedFolderId);
 }
-
 function graphScopedItems(graph) {
   return graphScopedItemsForRuntime(graph, {
     scopeDirectoryId: graphScopeDirectoryId(),
@@ -2051,7 +1983,6 @@ function graphScopedItems(graph) {
     typeFromFolder: (folderId) => typeFromFolder(state, folderId)
   });
 }
-
 function graphFocusedItems(nodes = [], edges = [], allNodes = nodes, traversalEdges = edges) {
   return graphFocusedItemsForRuntime(nodes, edges, allNodes, traversalEdges, {
     focusedNoteId: state.selectedFileId,
@@ -2060,7 +1991,6 @@ function graphFocusedItems(nodes = [], edges = [], allNodes = nodes, traversalEd
     normalizeGraphFocusDepth
   });
 }
-
 function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = nodes, filters = {}) {
   return graphBuildFocusedRelationTypeStatsForRuntime(nodes, edges, allNodes, filters, {
     focusedNoteId: state.selectedFileId,
@@ -2073,7 +2003,6 @@ function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = n
     normalizeGraphFocusDepth
   });
 }
-
 const graphVisualMapController = createGraphVisualMapController({
   depsProvider: createGraphVisualMapPrototypeDepsProvider(() => ({
     GRAPH_RELATION_GROUP_META,
@@ -2124,13 +2053,11 @@ const graphVisualMapController = createGraphVisualMapController({
 const {
   renderGraphVisualMap
 } = graphVisualMapController;
-
 function graphFocusedEdgeDirection(edge, focusedNoteId = "") {
   const focusedId = String(focusedNoteId || "").trim();
   if (!focusedId) return "相关";
   return String(edge?.fromNoteId || "").trim() === focusedId ? "当前指向" : "指向当前";
 }
-
 function graphFocusedCounterpartTitle(edge, focusedNoteId = "", nodeMap = new Map()) {
   const focusedId = String(focusedNoteId || "").trim();
   const counterpartId =
@@ -2140,11 +2067,9 @@ function graphFocusedCounterpartTitle(edge, focusedNoteId = "", nodeMap = new Ma
     counterpartTitle: graphNodeTitle(nodeMap, counterpartId, counterpartId || "相关笔记")
   };
 }
-
 function graphFocusCardActionMeta(edge = {}, contextMode = "argument") {
   return computeGraphFocusCardActionMeta(edge, contextMode);
 }
-
 function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(), edges = [] } = {}) {
   return renderGraphFocusContextPanelView({
     focusedNoteId,
@@ -2168,9 +2093,8 @@ function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(),
   });
 }
 function resetGraphHoverState() {
-  return resetGraphHoverDomState({ document, getHoverCard: () => $("graphHoverCard") });
+  return resetGraphHoverDomState({ document, getHoverCard: () => getElementById("graphHoverCard") });
 }
-
 function openGraphSelection(selection = null) {
   if (!selection || !String(selection?.kind || "").trim()) return;
   graphState.selection = selection;
@@ -2178,7 +2102,6 @@ function openGraphSelection(selection = null) {
   resetGraphHoverState();
   renderGraphPanel();
 }
-
 function openGraphNodeSelectionFromElement(element = null) {
   const nodeId = String(element?.getAttribute?.("data-graph-select-node") || element?.getAttribute?.("data-node-id") || "").trim();
   if (!nodeId) return false;
@@ -2197,24 +2120,20 @@ function openGraphNodeSelectionFromElement(element = null) {
   setStatus(`已选中笔记角色：${title}`, "ok");
   return true;
 }
-
 function applyGraphThinkingHoverState(thinkingElement) {
   return applyGraphThinkingHoverDomState(thinkingElement, {
     document,
-    getHoverCard: () => $("graphHoverCard"),
+    getHoverCard: () => getElementById("graphHoverCard"),
     resetHoverState: resetGraphHoverState,
     escapeHtml
   });
 }
-
 function applyGraphNodeHoverState(nodeElement) {
-  return applyGraphNodeHoverDomState(nodeElement, { document, getHoverCard: () => $("graphHoverCard"), escapeHtml });
+  return applyGraphNodeHoverDomState(nodeElement, { document, getHoverCard: () => getElementById("graphHoverCard"), escapeHtml });
 }
-
 function applyGraphEdgeHoverState(edgeElement) {
-  return applyGraphEdgeHoverDomState(edgeElement, { document, getHoverCard: () => $("graphHoverCard"), escapeHtml });
+  return applyGraphEdgeHoverDomState(edgeElement, { document, getHoverCard: () => getElementById("graphHoverCard"), escapeHtml });
 }
-
 const graphThinkingPanelResidualView = createGraphThinkingPanelResidualView(graphResidualRuntimeDeps({
   graphComputedIsolatedNotes: (...args) => graphComputedIsolatedNotes(...args),
   graphExistingRelationPairKeys: (...args) => graphExistingRelationPairKeys(...args),

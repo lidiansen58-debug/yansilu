@@ -26,14 +26,14 @@ export function validateGraphIsolatedRelationFormValues(
 ) {
   if (!values) return { ok: false, errorKey: "missing_form" };
   const relationType = String(values.relationType || "").trim().toLowerCase();
-  if (!confirmableRelationTypes.has(relationType) || relationType === "no_relation") {
-    return { ok: false, errorKey: "invalid_relation_type" };
-  }
   if (!values.targetNoteId) {
     return {
       ok: false,
       errorKey: values.mode === "manual" ? "missing_manual_target" : "missing_ai_target"
     };
+  }
+  if (!confirmableRelationTypes.has(relationType) || relationType === "no_relation") {
+    return { ok: false, errorKey: "invalid_relation_type" };
   }
   if (values.targetNoteId === values.noteId) {
     return { ok: false, errorKey: "self_relation" };

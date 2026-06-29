@@ -5,6 +5,7 @@ export function createGraphThinkingPanelResidualView(deps = {}) {
     computeGraphCandidatePercent,
     computeGraphDirectNetworkEdgeCount,
     computeGraphManualRelationTargetsForNote,
+    computeGraphSelectEdgeActionAttrs = () => "",
     computeGraphThemeCandidateNoteIdsForNode,
     buildGraphWorkspaceRenderDeps,
     renderGraphRelationWorkspaceMarkup,
@@ -129,7 +130,6 @@ export function createGraphThinkingPanelResidualView(deps = {}) {
     graphWritingCandidateNoteIds,
     GRAPH_CONFLICT_RELATION_TYPES,
   } = deps;
-
 function renderRelationReviewQueueSection(reviewQueue, options = {}) {
   return renderRelationReviewQueueSectionView(reviewQueue, options, {
     escapeHtml,
@@ -140,7 +140,6 @@ function renderRelationReviewQueueSection(reviewQueue, options = {}) {
     graphRelationTypeLabel
   });
 }
-
 function renderGraphMetricCard(label, value, note, tone = "") {
   return `
     <div class="graph-metric-card" data-tone="${escapeHtml(tone)}">
@@ -150,11 +149,9 @@ function renderGraphMetricCard(label, value, note, tone = "") {
     </div>
   `;
 }
-
 function graphPendingAiCandidateCount(candidates = [], { existingRelationPairKeys = new Set(), excludePairs = new Set(), bridgeOnly = false, excludeBridge = false } = {}) {
   return computeGraphPendingAiCandidateCount(candidates, { existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge });
 }
-
 const graphThinkingModelRuntimeDeps = createGraphThinkingModelRuntimeDepsProvider(() => ({
     escapeHtml,
     graphAiAnalysisPayload,
@@ -181,15 +178,12 @@ const graphThinkingModelRuntimeDeps = createGraphThinkingModelRuntimeDepsProvide
     graphSelectEdgeActionAttrs,
     graphThemeSelectionKey
 }));
-
 function graphLiveAiAnalysisCounts(aiAnalysis = graphState.aiAnalysis, { nodes = null, edges = null } = {}) {
   return graphLiveAiAnalysisCountsForGraph(aiAnalysis, { nodes, edges, graph: graphState.item || {} }, graphThinkingModelRuntimeDeps());
 }
-
 function graphAiAnalysisSummaryState(options = {}) {
   return graphAiAnalysisSummaryStateForGraph({ aiAnalysis: graphState.aiAnalysis, graph: graphState.item || {}, ...options }, graphThinkingModelRuntimeDeps());
 }
-
 function currentGraphVisibleNodeIds() {
   if (state.module === "graph" && state.graphVisibleNoteIdsReady === true && state.graphVisibleNoteIds instanceof Set) {
     return [...state.graphVisibleNoteIds];
@@ -204,14 +198,12 @@ function currentGraphVisibleNodeIds() {
   const visibleNodeIds = new Set(edges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
   return (filterActive ? nodes.filter((node) => visibleNodeIds.has(node.id)) : nodes).map((node) => node.id);
 }
-
 function currentGraphWritingCandidateNoteIds() {
   return graphWritingCandidateNoteIds(currentGraphVisibleNodeIds(), {
     noteLookup: writingKnownNoteById,
     isEligible: isWritingEligibleNote
   });
 }
-
 function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()) {
   return renderGraphMapPreviewView(nodes, edges, linkedNodeIds, {
     escapeHtml,
@@ -219,7 +211,6 @@ function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()
     graphRelationTypeLabel
   });
 }
-
 function renderGraphAiAnalysisCard(options = {}) {
   const { analysis, summary, pendingCount, topicCount, relationCount, bridgeCount, isolatedCount, totalCandidates } = graphAiAnalysisSummaryState(options);
   const loading = graphState.aiAnalysisLoading;
@@ -267,15 +258,12 @@ function renderGraphAiAnalysisCard(options = {}) {
     </details>
   `;
 }
-
 function buildGraphQuestionSpotSummary({ reviewQueueTotal = 0, bridgeGaps = [], conflictCount = 0, aiAnalysis = null, nodes = null, edges = null } = {}) {
   return buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal, bridgeGaps, conflictCount, aiAnalysis, nodes, edges, graph: graphState.item || {} }, graphThinkingModelRuntimeDeps());
 }
-
 function buildGraphQuestionSpotSummaryFromItems(items = [], { artifactCount = 0 } = {}) {
   return computeGraphQuestionSpotSummaryFromItems(items, { artifactCount });
 }
-
 function renderGraphQuestionSpotChip(summary = {}) {
   const total = Number(summary?.total || 0);
   const open = graphState.thinkingPanelOpen === true;
@@ -291,14 +279,12 @@ function renderGraphQuestionSpotChip(summary = {}) {
     </div>
   `;
 }
-
 function graphThinkingFilterMeta(value = "all") {
   const key = String(value || "all").trim().toLowerCase();
   if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成主题或索引卡的聚集。" };
   if (key === "organize") return { key: "organize", label: "整理", note: "只看孤立、桥接、关系复核和错位线索。" };
   return { key: "all", label: "全部", note: "按优先级列出当前最值得继续判断的地方。" };
 }
-
 function graphCompactActionLabel(label = "查看") {
   const text = String(label || "查看").trim() || "查看";
   if (/补.*理由/.test(text)) return "补理由";
@@ -307,15 +293,12 @@ function graphCompactActionLabel(label = "查看") {
   if (/查看/.test(text)) return "查看";
   return text.length > 4 ? text.slice(0, 4) : text;
 }
-
 function graphThinkingNoteTitle(nodeMap = new Map(), id = "", fallback = "相关笔记") {
   return computeGraphThinkingNoteTitle(nodeMap, id, fallback);
 }
-
 function graphThinkingCleanIds(values = []) {
   return computeGraphThinkingCleanIds(values);
 }
-
 function graphThinkingHighlightAttrs(item = {}) {
   return graphThinkingHighlightAttrsForItem(item, {
     escapeHtml,
@@ -323,11 +306,9 @@ function graphThinkingHighlightAttrs(item = {}) {
     edgeSelectionKey: graphEdgeSelectionKey
   });
 }
-
 function graphSelectEdgeActionAttrs(edge = {}) {
   return computeGraphSelectEdgeActionAttrs(edge, { escape: escapeHtml });
 }
-
 function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], reviewQueue = null, conflictItems = [], conflictingRelations = [], aiAnalysis = null, isolatedNotes = [], nodeLookupMap = null } = {}) {
   return buildGraphThinkingItemsForGraph({
     nodes,
@@ -341,36 +322,30 @@ function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], revi
     nodeLookupMap
   }, graphThinkingModelRuntimeDeps());
 }
-
 function graphNodeIdsInScope(nodes = []) {
   return new Set((Array.isArray(nodes) ? nodes : []).map((node) => String(node?.id || "").trim()).filter(Boolean));
 }
-
 function graphRelationInNodeScope(edge = {}, nodeIds = new Set()) {
   const fromId = String(edge?.fromNoteId || edge?.source?.id || "").trim();
   const toId = String(edge?.toNoteId || edge?.target?.id || "").trim();
   return Boolean(fromId && toId && nodeIds.has(fromId) && nodeIds.has(toId));
 }
-
 function graphRelationTouchesNodeScope(edge = {}, nodeIds = new Set()) {
   const fromId = String(edge?.fromNoteId || edge?.source?.id || "").trim();
   const toId = String(edge?.toNoteId || edge?.target?.id || "").trim();
   return Boolean((fromId && nodeIds.has(fromId)) || (toId && nodeIds.has(toId)));
 }
-
 function graphCandidateTouchesNodeScope(candidate = {}, nodeIds = new Set()) {
   if (!nodeIds?.size) return true;
   const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
   return Boolean((sourceNoteId && nodeIds.has(sourceNoteId)) || (targetNoteId && nodeIds.has(targetNoteId)));
 }
-
 function graphBridgeGapInNodeScope(gap = {}, nodeIds = new Set()) {
   const sourceIds = graphThinkingCleanIds(gap?.noteIds);
   const targetIds = graphThinkingCleanIds(gap?.targetNoteIds);
   if (!sourceIds.length || sourceIds.some((id) => !nodeIds.has(id))) return false;
   return !targetIds.length || targetIds.some((id) => nodeIds.has(id));
 }
-
 function graphConflictItemInNodeScope(item = {}, nodeIds = new Set()) {
   const itemIds = graphThinkingCleanIds(
     Array.isArray(item?.noteIds) && item.noteIds.length
@@ -381,7 +356,6 @@ function graphConflictItemInNodeScope(item = {}, nodeIds = new Set()) {
   );
   return !itemIds.length || itemIds.some((id) => nodeIds.has(id));
 }
-
 function graphReviewQueueInNodeScope(reviewQueue = null, nodeIds = new Set()) {
   if (!reviewQueue || typeof reviewQueue !== "object") return reviewQueue;
   const items = (Array.isArray(reviewQueue.items) ? reviewQueue.items : []).filter((item) => graphRelationInNodeScope(item, nodeIds));
@@ -392,7 +366,6 @@ function graphReviewQueueInNodeScope(reviewQueue = null, nodeIds = new Set()) {
     summary: items.length === Number(reviewQueue.total || 0) ? reviewQueue.summary : null
   };
 }
-
 function graphMergeRelationsByKey(...groups) {
   const seen = new Set();
   const merged = [];
@@ -406,7 +379,6 @@ function graphMergeRelationsByKey(...groups) {
   }
   return merged;
 }
-
 function renderGraphThinkingItems(items = [], filter = "all") {
   return renderGraphThinkingItemsView(items, filter, {
     escapeHtml,
@@ -418,7 +390,6 @@ function renderGraphThinkingItems(items = [], filter = "all") {
     graphState
   });
 }
-
 function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") {
   return renderGraphWorkbenchPriorityQueueView(items, activeKey, {
     escapeHtml,
@@ -430,7 +401,6 @@ function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") 
     graphState
   });
 }
-
 function renderGraphThinkingReviewNote(summary = {}) {
   return renderGraphThinkingReviewNoteView(summary, {
     escapeHtml,
@@ -442,7 +412,6 @@ function renderGraphThinkingReviewNote(summary = {}) {
     graphState
   });
 }
-
 function renderGraphThinkingPanelContent({ summary = {}, items = [], includeSummary = true } = {}) {
   return renderGraphThinkingPanelContentView({ summary, items, includeSummary }, {
     escapeHtml,
@@ -453,7 +422,6 @@ function renderGraphThinkingPanelContent({ summary = {}, items = [], includeSumm
     graphCompactActionLabel,
     graphState
   });}
-
 function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
   return renderGraphThinkingPanelView({ summary, items }, {
     escapeHtml,
@@ -465,9 +433,6 @@ function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
     graphState
   });
 }
-
-
-
 function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [], isolatedQueueMarkup = "" } = {}) {
   return renderGraphWorkbenchPanelView({ clueSummary, questionSummary, clueSectionsMarkup, thinkingItems, isolatedQueueMarkup }, {
     escapeHtml,
@@ -479,7 +444,6 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
     graphState
   });
 }
-
 function renderGraphUtilityDrawer(options = {}) {
   return renderGraphUtilityDrawerView(options, {
     escapeHtml,
@@ -487,7 +451,6 @@ function renderGraphUtilityDrawer(options = {}) {
     renderGraphIcon
   });
 }
-
 function graphSummaryModeNote(relationType = "all") {
   const key = String(relationType || "all").trim().toLowerCase();
   if (key === "meaningful") return "先看有解释力的关系。";
@@ -496,9 +459,6 @@ function graphSummaryModeNote(relationType = "all") {
   if (key === "index") return "只看主题归属。";
   return `只看${graphRelationTypeLabel(key)}。`;
 }
-
-
-
   return {
     renderRelationReviewQueueSection,
     renderGraphMetricCard,
