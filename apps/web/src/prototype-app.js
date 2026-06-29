@@ -56,6 +56,7 @@ import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorksp
 import { createAiSuggestionsWorkspaceHostDeps } from "./ai-suggestions-host-deps.js";
 import { applyAiRuntimeModeChangeForRuntime } from "./ai-runtime-mode-controller.js";
 import { aiInboxActionLabel, aiArtifactFromCanonical, aiInboxItemFromCanonical, normalizeAiInboxFilters } from "./ai-inbox-model.js";
+import { createSettingsAiStateRuntime } from "./settings-ai-state-runtime.js";
 import { aiInboxFiltersForSystemMessage, globalPendingAiInboxFilters, markSystemMessageRead, normalizeSystemMessage, noteAnalysisSystemMessageForResult, scheduledTaskSystemMessageForArtifacts, systemMessageSubjectText, upsertSystemMessageList } from "./prototype-system-messages.js";
 import { systemMessageActionRoute } from "./system-message-route-model.js";
 import { createSystemMessagesShellController } from "./system-messages-shell.js";
@@ -66,12 +67,12 @@ import { handleSystemMessageEscapeKey, installSystemMessageEventHandlers } from 
 import { createSystemMessagePrototypeDepsProviders } from "./system-message-deps.js";
 import { createWorkflowReminderController } from "./workflow-reminder-controller.js";
 import { createRecordPermanentWorkflowOpener, createSystemMessageWorkflowOpener } from "./prototype-system-message-workflow.js";
-import { aiInboxDecisionFailedStatusMessage, aiInboxDecisionSucceededStatusMessage, aiInboxFieldSuggestionDraftAlreadyAppliedNotice, aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage, aiInboxFieldSuggestionDraftFailedStatusMessage, aiInboxFieldSuggestionDraftSucceededStatusMessage, aiInboxInFlightReviewActionNotice, aiInboxInFlightReviewActionStatusMessage, aiInboxLinkAcceptFailedStatusMessage, aiInboxLinkAcceptedStatusMessage, aiInboxLinkAlreadyAppliedNotice, aiInboxLinkAlreadyAppliedStatusMessage, aiInboxNotePromotionAlreadyAppliedNotice, aiInboxNotePromotionAlreadyAppliedStatusMessage, aiInboxNotePromotionFailedStatusMessage, aiInboxNotePromotionSucceededStatusMessage, aiInboxReviewRetryNotice, aiInboxReviewRetryStatusMessage, aiInboxReviewSafetyNotice, aiInboxReviewSafetyStatusMessage, aiInboxSuggestionAlreadyAppliedNotice, aiInboxSuggestionAlreadyAppliedStatusMessage, aiInboxSuggestionUpdateFailedStatusMessage, aiInboxSuggestionUpdatedStatusMessage } from "./prototype-ai-inbox-messages.js";
 import { SETTINGS_DETAIL_ITEMS, SETTINGS_SECTIONS, formatSettingsUserError as computeFormatSettingsUserError, normalizeSettingsItem, normalizeSettingsSection, settingsDetailItemConfig, settingsItemSummary as computeSettingsItemSummary, settingsMobileItemOptionsHtml as renderSettingsMobileItemOptionsHtml, settingsModuleHeaderCopy as computeSettingsModuleHeaderCopy, settingsSectionChromeMap as computeSettingsSectionChromeMap, settingsSectionConfig, settingsSectionGuidanceMap as computeSettingsSectionGuidanceMap, settingsSidebarNavigationHtml as renderSettingsSidebarNavigationHtml } from "./prototype-settings-navigation.js";
 import { LITERATURE_TEMPLATE_SETTINGS_FIELDS, NOTE_TEMPLATE_STORAGE_KEYS, PERMANENT_TEMPLATE_SETTINGS_FIELDS, applyTitleToNoteTemplate as computeApplyTitleToNoteTemplate, composePermanentTemplateDraft as computeComposePermanentTemplateDraft, defaultLiteratureTemplateSource as computeDefaultLiteratureTemplateSource, defaultPermanentTemplateSource as computeDefaultPermanentTemplateSource, defaultTemplateSourceForKind as computeDefaultTemplateSourceForKind, legacyPermanentTemplateSource as computeLegacyPermanentTemplateSource, mergeTemplateFieldText as computeMergeTemplateFieldText, normalizeDraftBuffer as computeNormalizeDraftBuffer, normalizeNoteTemplateHistory as computeNormalizeNoteTemplateHistory, normalizeNoteTemplateSource as computeNormalizeNoteTemplateSource, normalizeStoredNoteTemplateSource as computeNormalizeStoredNoteTemplateSource, noteTemplateHistoryWithPrevious as computeNoteTemplateHistoryWithPrevious } from "./prototype-note-templates.js";
 import { aiSuggestionDetailFromResponse as suggestionDetailFromResponse, aiSuggestionFromCanonical, aiSuggestionStatusLabel, aiSuggestionReviewEventFromCanonical as suggestionReviewEventFromCanonical, aiSuggestionTraceFromCanonical as suggestionTraceFromCanonical, normalizeAiSuggestionFilters } from "./ai-suggestions-model.js";
 import { applyAiSuggestionStatusForRuntime, loadAiSuggestionDetailForRuntime, refreshAiSuggestionsForRuntime } from "./ai-suggestions-runtime-controller.js";
-import { acceptAiInboxLinkSuggestionForRuntime, adoptAiInboxFieldSuggestionDraftForRuntime, applyAiInboxRecommendedActionForRuntime, applyAiInboxSuggestionStatusForRuntime, finalizeAiInboxActionRefreshForRuntime, loadAiInboxDetailForRuntime, promoteAiInboxArtifactToNoteForRuntime, recordAiInboxReviewDecisionForRuntime, refreshAiInboxEvaluationSummaryForRuntime, refreshAiInboxForRuntime, runAiInboxSummaryForRuntime } from "./ai-inbox-runtime-controller.js";
+import { finalizeAiInboxActionRefreshForRuntime, loadAiInboxDetailForRuntime, refreshAiInboxEvaluationSummaryForRuntime, refreshAiInboxForRuntime, runAiInboxSummaryForRuntime } from "./ai-inbox-runtime-controller.js";
+import { createAiInboxActionRoutes } from "./ai-inbox-action-routes.js";
 import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
@@ -148,6 +149,7 @@ import { describeWritingContinuationAction, describeWritingStrongModelStatus, de
 import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeProjectPreflight, noteHasBoundarySignal } from "./writing-readiness.js";
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
 import { createWritingEntryRuntimeController } from "./writing-entry-runtime-controller.js";
+import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
 import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
@@ -1123,47 +1125,32 @@ function providerAuthModeRequiresSecret(authMode = "") { return ["workspace_mana
 
 function currentAiProviderId() { return String(settingsState.ai.routePreview?.provider?.providerId || providerPresetForModelPack(settingsState.ai.modelPack)).trim(); }
 
+const settingsAiStateRuntime = createSettingsAiStateRuntime({
+  applyAiPreferencesToSettingsState,
+  activeAiProviderConfig,
+  applyOllamaLocalModelDefaults,
+  clearLocalOllamaSelectionState,
+  currentAiProviderId,
+  currentOllamaModelTiers,
+  defaultProviderEndpointUrl,
+  defaultProviderHealthEndpointUrl,
+  enabledProviderHealthEndpointUrl,
+  isRemoteConfigurableProviderId,
+  modelNameExistsInList,
+  normalizeOllamaSetupGuide,
+  persistAiSettingsToStorage,
+  remoteRuntimeModelFromMap,
+  selectedLocalModelNameForInstalledModels,
+  settingsState,
+  upsertAiProviderConfig
+});
+
 function activeAiProviderConfig() {
   const providerId = currentAiProviderId();
   return settingsState.ai.providerConfigs.find((config) => String(config?.providerId || config?.provider_id || "").trim() === providerId) || null;
 }
 
-function applyActiveAiProviderConfigToState() {
-  const providerId = currentAiProviderId();
-  const config = activeAiProviderConfig();
-  const draftTouched = settingsState.ai.providerDraftTouched || {};
-  if (!config) {
-    const endpointUrl = defaultProviderEndpointUrl(providerId);
-    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl);
-    if (endpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
-    if (healthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
-    if (!isRemoteConfigurableProviderId(providerId)) settingsState.ai.remoteRuntimeModel = "";
-    return;
-  }
-  const configuredEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
-  const configuredHealthEndpointUrl = enabledProviderHealthEndpointUrl(config);
-  const configuredSecretRef = String(config.secretRef || config.secret_ref || "").trim();
-  if (!draftTouched.providerEndpointUrl && !settingsState.ai.providerEndpointUrl && configuredEndpointUrl) {
-    settingsState.ai.providerEndpointUrl = configuredEndpointUrl;
-  }
-  if (!draftTouched.providerHealthEndpointUrl && !settingsState.ai.providerHealthEndpointUrl && configuredHealthEndpointUrl) {
-    settingsState.ai.providerHealthEndpointUrl = configuredHealthEndpointUrl;
-  }
-  if (!draftTouched.secretRef && !settingsState.ai.secretRef && configuredSecretRef) {
-    settingsState.ai.secretRef = configuredSecretRef;
-  }
-  if (isRemoteConfigurableProviderId(providerId)) {
-    const configuredRemoteModel = remoteRuntimeModelFromMap(
-      providerId,
-      config.runtimeModelMap || config.runtime_model_map || {}
-    );
-    if (!draftTouched.remoteRuntimeModel && !settingsState.ai.remoteRuntimeModel && configuredRemoteModel) {
-      settingsState.ai.remoteRuntimeModel = configuredRemoteModel;
-    }
-  } else {
-    settingsState.ai.remoteRuntimeModel = "";
-  }
-}
+function applyActiveAiProviderConfigToState() { return settingsAiStateRuntime.applyActiveAiProviderConfigToState(); }
 
 function aiTestBlockedReason() {
   const providerId = currentAiProviderId();
@@ -1330,53 +1317,9 @@ function ollamaPullModelName() {
   return String(settingsState.ai.localModel || preferredLocalModelName(settingsState.ai.localRuntimeModels) || recommended).trim();
 }
 
-function applyOllamaRuntimePreview(runtime = null) {
-  const models = Array.isArray(runtime?.models) ? runtime.models : [];
-  settingsState.ai.localRuntimeStatus = String(runtime?.status || "unknown");
-  settingsState.ai.localRuntimeReadinessStatus = String(runtime?.readinessStatus || runtime?.readiness_status || "unknown").trim() || "unknown";
-  settingsState.ai.localRuntimeApiReachable = runtime?.apiReachable === true || runtime?.api_reachable === true;
-  settingsState.ai.localRuntimeDefaultModelInstalled = runtime?.defaultModelInstalled === true || runtime?.default_model_installed === true;
-  settingsState.ai.localRuntimeModels = models;
-  settingsState.ai.localRuntimeModelTiers = Array.isArray(runtime?.modelTiers || runtime?.model_tiers)
-    ? (runtime.modelTiers || runtime.model_tiers)
-    : settingsState.ai.localRuntimeModelTiers;
-  settingsState.ai.localRuntimeSetupGuide = normalizeOllamaSetupGuide(runtime?.setupGuide || runtime?.setup_guide);
-  settingsState.ai.localRuntimeChatEndpointUrl = String(runtime?.chatEndpointUrl || runtime?.chat_endpoint_url || settingsState.ai.localRuntimeChatEndpointUrl || "").trim();
-  settingsState.ai.localRuntimeHealthEndpointUrl = String(runtime?.healthEndpointUrl || runtime?.health_endpoint_url || settingsState.ai.localRuntimeHealthEndpointUrl || "").trim();
-  settingsState.ai.localRuntimeError = settingsState.ai.localRuntimeStatus === "available" ? "" : String(runtime?.message || "");
-  if (settingsState.ai.localRuntimeStatus === "available") {
-    settingsState.ai.localRuntimeManagedStopPending = false;
-    const nextLocalModel = selectedLocalModelNameForInstalledModels(settingsState.ai.localModel, models, currentOllamaModelTiers());
-    settingsState.ai.localModel = nextLocalModel;
-    if (!nextLocalModel) clearLocalOllamaSelectionState();
-  }
-  if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
-  persistAiSettingsToStorage();
-  return models;
-}
+function applyOllamaRuntimePreview(runtime = null) { return settingsAiStateRuntime.applyOllamaRuntimePreview(runtime); }
 
-function applyOllamaBootstrapResult(result = null) {
-  if (!result || typeof result !== "object") return [];
-  const runtime = result.runtime || null;
-  const models = runtime ? applyOllamaRuntimePreview(runtime) : [];
-  if (result.enabled?.preferences) {
-    applyAiPreferencesToSettingsState(result.enabled.preferences, {
-      applyProviderConfig: false
-    });
-  }
-  if (result.enabled?.providerConfig) upsertAiProviderConfig(result.enabled.providerConfig);
-  if (result.providerConfig) upsertAiProviderConfig(result.providerConfig);
-  if (result.health && String(result.health.status || "").trim() !== "unknown") {
-    settingsState.ai.providerHealthResult = { record: result.health };
-  }
-  const model = String(result.model || "").trim();
-  if (model && modelNameExistsInList(model, settingsState.ai.localRuntimeModels)) {
-    settingsState.ai.localModel = model;
-    applyOllamaLocalModelDefaults();
-  }
-  persistAiSettingsToStorage();
-  return models;
-}
+function applyOllamaBootstrapResult(result = null) { return settingsAiStateRuntime.applyOllamaBootstrapResult(result); }
 
 function ollamaRuntimeStateLabel() {
   if (settingsState.ai.localRuntimePulling) return "模型下载中";
@@ -2060,208 +2003,69 @@ async function finalizeAiInboxActionRefresh({ preserveDetail = false } = {}) {
   }, { preserveDetail });
 }
 
-async function recordAiInboxReviewDecision(decision) {
-  return recordAiInboxReviewDecisionForRuntime({
-    aiInboxState,
-    recordAiInboxDecision,
-    aiInboxFeedback: aiInboxFeedbackFromUi,
-    commentText: () => $("aiInboxDecisionComment")?.value || "",
-    aiInboxDetailFromResponse,
-    loadAiInboxDetail,
-    rememberAiDebugSnapshot,
-    finalizeAiInboxActionRefresh,
-    aiInboxActionLabel,
-    setStatus,
-    setAiInboxActionNotice,
-    clearAiInboxActionNotice,
-    render: renderAiInboxWorkspace,
-    messages: {
-      reviewSafetyNotice: aiInboxReviewSafetyNotice,
-      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
-      reviewRetryNotice: aiInboxReviewRetryNotice,
-      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
-      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
-      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
-      decisionSucceededStatusMessage: aiInboxDecisionSucceededStatusMessage,
-      decisionFailedStatusMessage: aiInboxDecisionFailedStatusMessage
+const aiInboxActionRoutes = createAiInboxActionRoutes(() => ({
+  aiInboxState,
+  recordAiInboxDecision,
+  aiInboxFeedback: aiInboxFeedbackFromUi,
+  decisionCommentText: () => $("aiInboxDecisionComment")?.value || "",
+  appendDecisionComment: (comment) => {
+    const commentEl = $("aiInboxDecisionComment");
+    const nextComment = `${commentEl?.value || ""}\n\n${comment}`.trim();
+    if (commentEl) commentEl.value = nextComment;
+  },
+  confirm: (message) => window.confirm(message),
+  aiInboxDetailFromResponse,
+  loadAiInboxDetail,
+  rememberAiDebugSnapshot,
+  finalizeAiInboxActionRefresh,
+  aiInboxActionLabel,
+  setStatus,
+  setAiInboxActionNotice,
+  clearAiInboxActionNotice,
+  render: renderAiInboxWorkspace,
+  currentAiInboxArtifactForSelection,
+  latestArtifactDecision,
+  acceptAiInboxLink,
+  promoteAiInboxNote,
+  adoptAiInboxFieldSuggestion,
+  currentAiInboxSuggestionForSelection,
+  aiSuggestionStatusLabel,
+  aiInboxSuggestionReviewedContent: aiInboxSuggestionReviewedContentFromUi,
+  updateAiSuggestion,
+  aiSuggestionAlreadyAppliedNotice,
+  afterAcceptFinalize: async () => {
+    if (state.module === "graph") await refreshDirectoryGraph();
+  },
+  beforeNoteResultFinalize: async (result) => {
+    if (result.note?.id) {
+      state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
     }
-  }, decision);
-}
-
-async function applyAiInboxRecommendedAction(action = "") {
-  return applyAiInboxRecommendedActionForRuntime({
-    aiInboxState,
-    confirm: (message) => window.confirm(message),
-    appendDecisionComment: (comment) => {
-      const commentEl = $("aiInboxDecisionComment");
-      const nextComment = `${commentEl?.value || ""}\n\n${comment}`.trim();
-      if (commentEl) commentEl.value = nextComment;
-    },
-    acceptLink: acceptAiInboxLinkSuggestion,
-    adoptFieldSuggestion: adoptAiInboxFieldSuggestionDraft,
-    promoteNote: promoteAiInboxArtifactToNote,
-    recordDecision: recordAiInboxReviewDecision,
-    loadAiInboxDetail,
-    setAiInboxActionNotice,
-    setStatus,
-    render: renderAiInboxWorkspace,
-    messages: {
-      reviewSafetyNotice: aiInboxReviewSafetyNotice,
-      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
-      reviewRetryNotice: aiInboxReviewRetryNotice,
-      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage
+  },
+  afterPromoteFinalize: async (result, context) => {
+    if (result.note?.id && !context.selectionChangedDuringAction) {
+      activateModule("explorer");
+      openNoteById(result.note.id);
     }
-  }, action);
-}
-
-async function acceptAiInboxLinkSuggestion(artifactId) {
-  return acceptAiInboxLinkSuggestionForRuntime({
-    aiInboxState,
-    currentAiInboxArtifactForSelection,
-    latestArtifactDecision,
-    acceptAiInboxLink,
-    commentText: () => $("aiInboxDecisionComment")?.value || "",
-    aiInboxDetailFromResponse,
-    loadAiInboxDetail,
-    rememberAiDebugSnapshot,
-    finalizeAiInboxActionRefresh,
-    afterFinalize: async () => {
-      if (state.module === "graph") await refreshDirectoryGraph();
-    },
-    setStatus,
-    setAiInboxActionNotice,
-    clearAiInboxActionNotice,
-    render: renderAiInboxWorkspace,
-    messages: {
-      reviewSafetyNotice: aiInboxReviewSafetyNotice,
-      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
-      reviewRetryNotice: aiInboxReviewRetryNotice,
-      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
-      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
-      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
-      linkAlreadyAppliedNotice: aiInboxLinkAlreadyAppliedNotice,
-      linkAlreadyAppliedStatusMessage: aiInboxLinkAlreadyAppliedStatusMessage,
-      linkAcceptedStatusMessage: aiInboxLinkAcceptedStatusMessage,
-      linkAcceptFailedStatusMessage: aiInboxLinkAcceptFailedStatusMessage
+  },
+  afterAdoptFinalize: async (result, context) => {
+    if (result.note?.id && !context.selectionChangedDuringAction) {
+      activateModule("explorer");
+      openNoteById(result.note.id, { focusDistillation: true });
     }
-  }, artifactId);
-}
+  }
+}));
 
-async function promoteAiInboxArtifactToNote(artifactId) {
-  return promoteAiInboxArtifactToNoteForRuntime({
-    aiInboxState,
-    currentAiInboxArtifactForSelection,
-    latestArtifactDecision,
-    promoteAiInboxNote,
-    commentText: () => $("aiInboxDecisionComment")?.value || "",
-    aiInboxDetailFromResponse,
-    loadAiInboxDetail,
-    rememberAiDebugSnapshot,
-    finalizeAiInboxActionRefresh,
-    beforeFinalize: async (result) => {
-      if (result.note?.id) {
-        state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
-      }
-    },
-    afterFinalize: async (result, context) => {
-      if (result.note?.id && !context.selectionChangedDuringAction) {
-        activateModule("explorer");
-        openNoteById(result.note.id);
-      }
-    },
-    setStatus,
-    setAiInboxActionNotice,
-    clearAiInboxActionNotice,
-    render: renderAiInboxWorkspace,
-    messages: {
-      reviewSafetyNotice: aiInboxReviewSafetyNotice,
-      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
-      reviewRetryNotice: aiInboxReviewRetryNotice,
-      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
-      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
-      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
-      notePromotionAlreadyAppliedNotice: aiInboxNotePromotionAlreadyAppliedNotice,
-      notePromotionAlreadyAppliedStatusMessage: aiInboxNotePromotionAlreadyAppliedStatusMessage,
-      notePromotionSucceededStatusMessage: aiInboxNotePromotionSucceededStatusMessage,
-      notePromotionFailedStatusMessage: aiInboxNotePromotionFailedStatusMessage
-    }
-  }, artifactId);
-}
+async function recordAiInboxReviewDecision(decision) { return aiInboxActionRoutes.recordAiInboxReviewDecision(decision); }
 
-async function adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId = "") {
-  return adoptAiInboxFieldSuggestionDraftForRuntime({
-    aiInboxState,
-    currentAiInboxArtifactForSelection,
-    currentAiInboxSuggestionForSelection,
-    latestArtifactDecision,
-    aiSuggestionStatusLabel,
-    adoptAiInboxFieldSuggestion,
-    aiInboxFeedback: aiInboxFeedbackFromUi,
-    commentText: () => $("aiInboxDecisionComment")?.value || "",
-    aiInboxDetailFromResponse,
-    loadAiInboxDetail,
-    rememberAiDebugSnapshot,
-    finalizeAiInboxActionRefresh,
-    beforeFinalize: async (result) => {
-      if (result.note?.id) {
-        state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
-      }
-    },
-    afterFinalize: async (result, context) => {
-      if (result.note?.id && !context.selectionChangedDuringAction) {
-        activateModule("explorer");
-        openNoteById(result.note.id, { focusDistillation: true });
-      }
-    },
-    setStatus,
-    setAiInboxActionNotice,
-    clearAiInboxActionNotice,
-    render: renderAiInboxWorkspace,
-    messages: {
-      reviewSafetyNotice: aiInboxReviewSafetyNotice,
-      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
-      reviewRetryNotice: aiInboxReviewRetryNotice,
-      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
-      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
-      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
-      fieldSuggestionDraftAlreadyAppliedNotice: aiInboxFieldSuggestionDraftAlreadyAppliedNotice,
-      fieldSuggestionDraftAlreadyAppliedStatusMessage: aiInboxFieldSuggestionDraftAlreadyAppliedStatusMessage,
-      fieldSuggestionDraftSucceededStatusMessage: aiInboxFieldSuggestionDraftSucceededStatusMessage,
-      fieldSuggestionDraftFailedStatusMessage: aiInboxFieldSuggestionDraftFailedStatusMessage
-    }
-  }, artifactId, expectedSuggestionId);
-}
+async function applyAiInboxRecommendedAction(action = "") { return aiInboxActionRoutes.applyAiInboxRecommendedAction(action); }
 
-async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") {
-  return applyAiInboxSuggestionStatusForRuntime({
-    aiInboxState,
-    updateAiSuggestion,
-    adoptAiInboxFieldSuggestionDraft,
-    aiInboxSuggestionReviewedContent: aiInboxSuggestionReviewedContentFromUi,
-    commentText: () => $("aiInboxDecisionComment")?.value || "",
-    aiSuggestionStatusLabel,
-    loadAiInboxDetail,
-    rememberAiDebugSnapshot,
-    finalizeAiInboxActionRefresh,
-    setStatus,
-    setAiInboxActionNotice,
-    clearAiInboxActionNotice,
-    render: renderAiInboxWorkspace,
-    messages: {
-      reviewSafetyNotice: aiInboxReviewSafetyNotice,
-      reviewSafetyStatusMessage: aiInboxReviewSafetyStatusMessage,
-      reviewRetryNotice: aiInboxReviewRetryNotice,
-      reviewRetryStatusMessage: aiInboxReviewRetryStatusMessage,
-      inFlightReviewActionNotice: aiInboxInFlightReviewActionNotice,
-      inFlightReviewActionStatusMessage: aiInboxInFlightReviewActionStatusMessage,
-      suggestionAlreadyAppliedNotice: aiInboxSuggestionAlreadyAppliedNotice || aiSuggestionAlreadyAppliedNotice,
-      suggestionAlreadyAppliedStatusMessage: aiInboxSuggestionAlreadyAppliedStatusMessage,
-      suggestionUpdatedStatusMessage: aiInboxSuggestionUpdatedStatusMessage,
-      suggestionUpdateFailedStatusMessage: aiInboxSuggestionUpdateFailedStatusMessage
-    }
-  }, status, expectedSuggestionId);
-}
+async function acceptAiInboxLinkSuggestion(artifactId) { return aiInboxActionRoutes.acceptAiInboxLinkSuggestion(artifactId); }
 
+async function promoteAiInboxArtifactToNote(artifactId) { return aiInboxActionRoutes.promoteAiInboxArtifactToNote(artifactId); }
+
+async function adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId = "") { return aiInboxActionRoutes.adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId); }
+
+async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") { return aiInboxActionRoutes.applyAiInboxSuggestionStatus(status, expectedSuggestionId); }
 function normalizeOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
@@ -2582,6 +2386,36 @@ async function saveWritingBasketAsThemeIndex() {
 }
 
 async function createWritingProjectFromImportedPermanentNotes() { return writingProjectRuntimeController.createWritingProjectFromImportedPermanentNotes(); }
+
+const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
+  $,
+  createWritingProject,
+  currentWritingBookStructure,
+  deriveBasketWritingReadiness,
+  deriveWritingProjectIntent,
+  deriveWritingProjectTakeaway,
+  describeWritingContinuationAction,
+  describeWritingThemeProjectEntryState,
+  findExistingWritingProjectForTheme,
+  isDirectoryUnderOriginalRoot,
+  loadWritingDraftVersions,
+  loadWritingProjectsList,
+  loadWritingScaffoldVersions,
+  normalizeAuthorshipItem,
+  normalizeWritingProjectTitleSeed,
+  populateWritingFormFromProject,
+  renderWritingPanel,
+  sameUniqueStringSet,
+  showWritingResult,
+  syncWritingLocalBookIdeasFromProject,
+  useThemeIndexAsWritingEntry,
+  writingKnownNoteById,
+  writingState,
+  writingThemeIndexNoteIds,
+  writingRelationCountsErrored,
+  writingRelationCountsReady,
+  writingThemeNotesLoaded
+});
 
 async function refreshWritingProjectState() {
   const writingProjectId = String(writingState.project?.id || "").trim();
@@ -4443,50 +4277,7 @@ async function removeNoteFromSelectedThemeIndex(noteId) {
   return item;
 }
 
-async function createWritingProjectFromThemeIndex(indexCardId) {
-  const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexCardId, {
-    replaceBasket: true,
-    resetContext: true,
-    source: "writing_theme_create_project"
-  });
-  const title = String($("writingTitle")?.value || "").trim() || normalizeWritingProjectTitleSeed(indexCard.title || indexCard.id);
-  const goal = String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim();
-  const audience = String($("writingAudience")?.value || "").trim();
-  const tone = String($("writingTone")?.value || "").trim();
-  const bookStructure = currentWritingBookStructure({
-    notes: noteIds.map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId }),
-    includeLocalIdeas: true
-  });
-  const project = await createWritingProject({
-    title,
-    goal,
-    audience,
-    tone,
-    intent: deriveWritingProjectIntent({ title, goal, indexCard }),
-    desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience, indexCard }),
-    basketNoteIds: noteIds,
-    relatedIndexIds: [indexCard.id],
-    bookStructure
-  });
-  writingState.project = project;
-  syncWritingLocalBookIdeasFromProject(project);
-  writingState.scaffold = null;
-  writingState.scaffoldMarkdown = "";
-  populateWritingFormFromProject(project);
-  showWritingResult({
-    stage: "writing_project",
-    writingProjectId: project?.id,
-    title: project?.title,
-    relatedIndexIds: project?.related_index_ids,
-    basketNoteIds: project?.basket_note_ids,
-    basketNotes: project?.basket_notes
-  });
-  await loadWritingProjectsList();
-  await loadWritingScaffoldVersions();
-  await loadWritingDraftVersions();
-  renderWritingPanel();
-  return project;
-}
+async function createWritingProjectFromThemeIndex(indexCardId) { return writingThemeProjectRuntime.createWritingProjectFromThemeIndex(indexCardId); }
 
 
 
@@ -4517,40 +4308,7 @@ function writingCachedNoteById(noteId) { return (writingState.project?.basket_no
 
 function isDirectoryUnderOriginalRoot(directoryId) { return rootBoxIdFromFolder(state, directoryId) === "dir_original_default"; }
 
-function writingNoteEligibility(note) {
-  if (!note) {
-    return {
-      ok: false,
-      key: "missing",
-      message: "还没能读取到这条永久笔记的完整信息。"
-    };
-  }
-  const noteType = String(note.noteType || note.note_type || "").trim().toLowerCase();
-  const inOriginalRoot = noteType === "permanent" || isDirectoryUnderOriginalRoot(note.folderId);
-  if (!inOriginalRoot) {
-    return {
-      ok: false,
-      key: "type",
-      message: "写作篮只接受永久笔记。"
-    };
-  }
-  const authorship = normalizeAuthorshipItem(note.authorship) || { user_confirmed: false, ai_assisted: false };
-  if (!authorship.user_confirmed) {
-    return {
-      ok: false,
-      key: "authorship",
-      message: "这条永久笔记还没完成作者确认。"
-    };
-  }
-  if (String(note.status || "").trim().toLowerCase() !== "active") {
-    return {
-      ok: false,
-      key: "draft",
-      message: "这条永久笔记仍是 draft，先完成原创性检查后再进入写作中心。"
-    };
-  }
-  return { ok: true, key: "ok", message: "" };
-}
+function writingNoteEligibility(note) { return writingThemeProjectRuntime.writingNoteEligibility(note); }
 
 function parseWritingBasketIds() { return parseWritingBasketIdsForRuntime({ $ }); }
 
@@ -4756,55 +4514,7 @@ function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
   return !writingRelationCountsReady(ids, writingState.themeRelationCounts);
 }
 
-function writingThemeProjectEntry(indexCard) {
-  const noteIds = writingThemeIndexNoteIds(indexCard);
-  const notesLoaded = writingThemeNotesLoaded(noteIds);
-  const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
-  const loadingNoteDetails = writingState.loadingThemeNoteDetails && sameUniqueStringSet(noteIds, writingState.themeNoteDetailIds);
-  if (!notesLoaded || loadingNoteDetails) {
-    return {
-      noteIds,
-      readiness: null,
-      projectEntry: describeWritingThemeProjectEntryState({
-        notesLoaded,
-        loadingNoteDetails
-      })
-    };
-  }
-  const hasMatchingCounts = sameUniqueStringSet(noteIds, writingState.themeRelationNoteIds);
-  const relationCounts = hasMatchingCounts ? writingState.themeRelationCounts : {};
-  const relationErrors = hasMatchingCounts ? writingState.themeRelationCountErrors : {};
-  const relationCountsReady =
-    hasMatchingCounts &&
-    writingRelationCountsReady(noteIds, relationCounts) &&
-    !writingState.loadingThemeRelationCounts;
-  const relationCountsErrored = hasMatchingCounts && writingRelationCountsErrored(noteIds, relationErrors);
-  const relationState = relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading";
-  const readiness = deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, { relationState });
-  const themeContinuation = describeWritingContinuationAction({
-    existingProjectId: existingProject?.id || "",
-    existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
-    existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
-    scopeLabel: "当前主题"
-  });
-  return {
-    noteIds,
-    readiness,
-    projectEntry:
-      themeContinuation ||
-      describeWritingThemeProjectEntryState({
-        notesLoaded,
-        loadingNoteDetails,
-        existingProjectId: existingProject?.id || "",
-        existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
-        existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
-        relationCountsReady,
-        relationCountsErrored,
-        readinessLevel: readiness.level,
-        readinessHint: readiness.hint
-      })
-  };
-}
+function writingThemeProjectEntry(indexCard) { return writingThemeProjectRuntime.writingThemeProjectEntry(indexCard); }
 
 function findExistingWritingProjectForTheme(indexCard, noteIds = []) {
   const themeId = String(indexCard?.id || "").trim();
