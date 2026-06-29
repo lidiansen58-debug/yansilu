@@ -527,11 +527,15 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   await page.evaluate((value) => {
     const editor = window.__prototypeEditor;
     const markdownEditor = document.querySelector("#editorHost")?.__markdownEditor;
-    if (markdownEditor?.setValue) {
+    if (editor?.setEditorValue) {
+      editor.setEditorValue(value);
+      editor.focusEditor?.();
+    } else if (markdownEditor?.setValue) {
       markdownEditor.setValue(value);
       markdownEditor.focus?.();
     } else {
-      editor?.setEditorValue?.(value);
+      const textarea = document.querySelector("#editorBody");
+      if (textarea) textarea.value = value;
     }
     editor?.handleEditorInput?.();
     editor?.updateActiveTabFromEditor?.();
@@ -553,6 +557,15 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
     },
     { title: expectedTitle, body: expectedBody.trim() ? expectedBody : "" }
   );
+  await page.waitForFunction(() => !window.__prototypeEditor?.savingPromise);
+  await page.evaluate((value) => {
+    const activeBody = String(window.__prototypeEditor?.activeTab?.()?.body || "");
+    if (activeBody === value) return;
+    const editor = window.__prototypeEditor;
+    editor?.setEditorValue?.(value);
+    editor?.handleEditorInput?.();
+    editor?.updateActiveTabFromEditor?.();
+  }, source);
   if (confirmAuthorship) {
     await confirmAuthorshipIfVisible(page, {
       claim: options.authorshipClaim || `${expectedTitle} 这是一条用于验收的中心判断`
@@ -570,6 +583,12 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
     const combinedValue = snapshot.editorValue || snapshot.bodyValue || snapshot.activeTabBody;
     assert.match(combinedValue, new RegExp(escapeRegExp(expectedTitle)), `before-save ${JSON.stringify(snapshot)}`);
   }, 4000);
+  await page.evaluate((value) => {
+    const editor = window.__prototypeEditor;
+    editor?.setEditorValue?.(value);
+    editor?.handleEditorInput?.();
+    editor?.updateActiveTabFromEditor?.();
+  }, source);
   const editorValueBeforeSave = await page.locator("#editorBody").inputValue();
   if (saveWithShortcut) {
     await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");

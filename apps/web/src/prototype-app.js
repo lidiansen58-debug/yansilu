@@ -611,6 +611,8 @@ import {
   setGraphRelationTypeFilterForRuntime
 } from "./graph-view-mode-state.js";
 import {
+  GRAPH_RELATION_GROUP_META,
+  GRAPH_RELATION_MARKER_COLORS,
   graphEdgeSelectionKey,
   graphRelationGroupMeta,
   graphRelationVisual
@@ -1339,7 +1341,7 @@ const updateController = createPrototypeUpdateController({
   fetchAppVersion,
   checkAppUpdate,
   renderSettingsPanel,
-  renderSystemMessages,
+  renderSystemMessages: (...args) => renderSystemMessages(...args),
   setStatus,
   upsertSystemMessage,
   desktopCommands,
@@ -13177,7 +13179,7 @@ function appStartupDeps() {
     windowRef: typeof window !== "undefined" ? window : undefined,
     setUsingLocalFallbackData: (value) => { usingLocalFallbackData = value === true; },
     getUsingLocalFallbackData: () => usingLocalFallbackData,
-    startupAutoOpenSuppressed,
+    getStartupAutoOpenSuppressed: () => startupAutoOpenSuppressed,
     renderImportPageShell,
     createImportToolbarActions,
     currentImportToolbarValues,

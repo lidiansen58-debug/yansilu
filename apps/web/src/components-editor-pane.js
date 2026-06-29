@@ -55,6 +55,7 @@ import {
   isAllowedAttachmentFile,
   isHorizontalRuleLine,
   isImageFile,
+  isExternalLinkUrl,
   isMarkdownCodeFenceLine,
   isMarkdownTableRow,
   isMarkdownTableSeparator,
@@ -345,7 +346,12 @@ export class EditorPane {
       tab.savedBody = bodySnapshot;
       tab.savedTitle = titleSnapshot;
       this.syncPlaceholderTitleArmed(tab);
-      if (this.tabBodyChangedSinceSnapshot(tab, bodySnapshot)) {
+      const liveBodyAtCompletion = savingTabIsActive() ? this.getEditorValue() : tab.body;
+      if (
+        this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
+        this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot)
+      ) {
+        tab.body = liveBodyAtCompletion;
         tab.title = titleFromBody(tab.body);
         this.syncTabDirtyState(tab);
         if (tab.dirty) this.writeDraft(tab);
@@ -1465,6 +1471,7 @@ export class EditorPane {
             : sourceEditorValue ?? richEditorValue ?? textareaValue ?? "";
       const normalizedPendingSelection = this.normalizedSelectionRangeForValue(content, pendingSelection);
       this.setEditorValue(content);
+      if (this.isWysiwygMode()) this.refreshRichAssetBindings();
       if (!this.isStructuredWorkspaceActive()) {
         if (this.isSourceMode()) this.clearMarkdownSelectionOverride();
         else if (normalizedPendingSelection) this.setMarkdownSelectionOverride(normalizedPendingSelection.from, normalizedPendingSelection.to);
@@ -1586,6 +1593,8 @@ export class EditorPane {
           }
           if (this.extractRichExternalLinkFromEvent(event)) {
             event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
             return;
           }
           if (!this.extractRichTokenFromEvent(event)) return;
@@ -1614,7 +1623,8 @@ export class EditorPane {
           if (externalLink?.url) {
             event.preventDefault();
             event.stopPropagation();
-            void this.openExternalUrl(externalLink.url);
+            event.stopImmediatePropagation?.();
+            if (event.isTrusted) void this.openExternalUrl(externalLink.url);
             return;
           }
           const token = this.extractRichTokenFromEvent(event);
@@ -1694,6 +1704,7 @@ export class EditorPane {
     };
     if (typeof requestAnimationFrame === "function") {
       this.richAssetRefreshTimer = requestAnimationFrame(flush);
+      window.setTimeout(() => this.refreshRichAssetBindings(), 50);
       return;
     }
     this.richAssetRefreshTimer = window.setTimeout(flush, 0);
@@ -1727,7 +1738,23 @@ export class EditorPane {
       if (/^(#|mailto:|tel:|javascript:)/i.test(rawPath)) return;
       const resolved = resolvePreviewableAsset(rawPath, noteMarkdownPath);
       if (!resolved.isVaultAsset) {
-        if (!isExternalLinkUrl(rawPath)) {
+        if (isExternalLinkUrl(rawPath)) {
+          node.setAttribute("target", "_blank");
+          node.setAttribute("rel", "noopener noreferrer");
+          if (node.dataset.externalClickBound !== "true") {
+            node.dataset.externalClickBound = "true";
+            node.addEventListener(
+              "click",
+              (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation?.();
+                if (event.isTrusted) void this.openExternalUrl(String(node.getAttribute("href") || rawPath).trim());
+              },
+              true
+            );
+          }
+        } else {
           node.dataset.previewMissingAsset = rawPath;
           node.setAttribute("href", "#");
           node.setAttribute("role", "button");
@@ -2056,7 +2083,11 @@ export class EditorPane {
   }
 
   extractRichExternalLinkFromEvent(event) {
-    const target = event?.target?.closest?.("a[href]");
+    const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+    const target =
+      event?.target?.closest?.("a[href]") ||
+      path.find((item) => item?.matches?.("a[href]")) ||
+      path.find((item) => item?.closest?.("a[href]"))?.closest?.("a[href]");
     if (!target || target.dataset?.previewAssetUrl) return null;
     const url = String(target.getAttribute("href") || "").trim();
     if (!isExternalLinkUrl(url)) return null;
@@ -5967,6 +5998,32 @@ export class EditorPane {
         if (menu) menu.classList.add("hidden");
       }
     });
+    document.addEventListener(
+      "click",
+      (event) => {
+        if (!this.els.wysiwygHost?.contains?.(event.target)) return;
+        const externalLink = this.extractRichExternalLinkFromEvent(event);
+        if (!externalLink?.url) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        if (event.isTrusted) void this.openExternalUrl(externalLink.url);
+      },
+      true
+    );
+    window.addEventListener(
+      "click",
+      (event) => {
+        if (!this.els.wysiwygHost?.contains?.(event.target)) return;
+        const externalLink = this.extractRichExternalLinkFromEvent(event);
+        if (!externalLink?.url) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        if (event.isTrusted) void this.openExternalUrl(externalLink.url);
+      },
+      true
+    );
 
     document.addEventListener(
       "keydown",
@@ -7006,11 +7063,15 @@ export class EditorPane {
       note.bodyLoaded = true;
       savedTitle = note.title;
     }
-    const changedSinceSaveStarted = this.tabBodyChangedSinceSnapshot(tab, bodySnapshot);
+    const liveBodyAtCompletion = savingTabIsActive() ? this.getEditorValue() : tab.body;
+    const changedSinceSaveStarted =
+      this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
+      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot);
     tab.savedBody = savedBody;
     tab.savedTitle = savedTitle;
     this.syncPlaceholderTitleArmed(tab);
     if (changedSinceSaveStarted) {
+      tab.body = liveBodyAtCompletion;
       tab.title = titleFromBody(tab.body);
       this.syncTabDirtyState(tab);
       if (tab.dirty) this.writeDraft(tab);

@@ -113,3 +113,22 @@ test("startup route opener prioritizes demo then explicit note then fallback not
   assert.equal(fallbackCalls[0][1], "fallback");
   assert.equal(fallbackCalls[1][1], "warn");
 });
+
+test("startup route opener reads late auto-open suppression before creating an untitled note", async () => {
+  let suppressed = false;
+  let created = 0;
+  const route = await openInitialStartupRouteForRuntime({
+    windowRef: { location: { search: "" } },
+    state: { notes: [] },
+    getStartupAutoOpenSuppressed: () => {
+      suppressed = true;
+      return suppressed;
+    },
+    openStartupUntitledNote: async () => {
+      created += 1;
+    }
+  });
+
+  assert.equal(route.route, "skipped");
+  assert.equal(created, 0);
+});

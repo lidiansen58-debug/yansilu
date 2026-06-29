@@ -298,6 +298,10 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function graphRelationVisual/);
   assert.doesNotMatch(source, /function graphRelationGroupMeta/);
   assert.doesNotMatch(source, /function graphEdgeSelectionKey/);
+  assert.match(
+    source,
+    /import\s+\{[\s\S]*GRAPH_RELATION_GROUP_META[\s\S]*GRAPH_RELATION_MARKER_COLORS[\s\S]*graphRelationGroupMeta[\s\S]*\}\s+from "\.\/graph-relation-visual-state\.js";/
+  );
   assert.doesNotMatch(source, /function graphThemeNoteIds/);
   assert.doesNotMatch(source, /function graphThemeSelectionKey/);
   assert.doesNotMatch(source, /function graphIsolatedSelectionKey/);

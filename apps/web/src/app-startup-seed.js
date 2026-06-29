@@ -4,6 +4,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     state = {},
     usingLocalFallbackData = false,
     startupAutoOpenSuppressed = false,
+    getStartupAutoOpenSuppressed = () => startupAutoOpenSuppressed,
     importSmartNotesProductThinkingDemo = async () => false,
     importYijingKnowledgeNetworkDemo = async () => false,
     importYijingRichAcceptanceDemo = async () => false,
@@ -18,7 +19,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
   const startupDemo = String(startupParams.get("demo") || "").trim().toLowerCase();
   const explicitNoteId = startupParams.get("note") || "";
   const initialNote = explicitNoteId ? state.notes?.find((note) => note.id === explicitNoteId) : null;
-  const shouldSkipAutoOpen = () => startupAutoOpenSuppressed || Boolean(state.activeTabId || state.selectedFileId);
+  const shouldSkipAutoOpen = () => getStartupAutoOpenSuppressed() === true || Boolean(state.activeTabId || state.selectedFileId);
   const openedDemo =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
       ? await importSmartNotesProductThinkingDemo({ startup: true })
