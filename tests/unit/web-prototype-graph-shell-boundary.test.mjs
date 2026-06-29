@@ -5,6 +5,8 @@ import {
   readGraphPanelRendererSource,
   readGraphPanelRuntimeDepsSource,
   readGraphPanelShellSource,
+  readGraphSelectionHostDepsSource,
+  readGraphSelectionPanelRendererSource,
   readGraphVisualMapComposerSource,
   readGraphVisualMapContextSource,
   readGraphVisualMapControlsStateSource,
@@ -22,7 +24,7 @@ test("prototype graph shell keeps review and relation entry wiring without legac
   const focusContextPanelSource = await readGraphFocusContextPanelSource();
 
   assert.match(source, /function renderGraphPanel\(\)/);
-  assert.match(source, /renderGraphSelectionPanelViaDispatcher/);
+  assert.match(source, /createGraphSelectionPanelRenderer/);
   assert.match(source, /function renderGraphRelationWorkspaceForNote/);
   assert.match(source, /renderGraphFocusContextPanelView/);
   assert.match(focusContextPanelSource, /data-graph-relation-adjustment="strengthen"/);
@@ -73,12 +75,13 @@ test("prototype graph shell delegates visual map chrome to the shell view", asyn
 
 test("prototype graph shell delegates selection kind dispatch to a graph module", async () => {
   const source = await readPrototypeAppSource();
+  const selectionRendererSource = await readGraphSelectionPanelRendererSource();
 
-  assert.match(source, /from "\.\/graph-selection-dispatcher\.js"/);
-  assert.match(source, /from "\.\/graph-selection-host-deps\.js"/);
-  assert.match(source, /renderGraphSelectionPanelViaDispatcher/);
-  assert.match(source, /createGraphSelectionDispatcherRuntime\(\{/);
-  assert.match(source, /\}, renderers, deps\);/);
+  assert.match(source, /from "\.\/graph-selection-panel-renderer\.js"/);
+  assert.match(source, /createGraphSelectionPanelRenderer\(\(\) => \(\{/);
+  assert.match(selectionRendererSource, /from "\.\/graph-selection-dispatcher\.js"/);
+  assert.match(selectionRendererSource, /renderGraphSelectionPanelViaDispatcher\(context, renderers, deps\)/);
+  assert.match(selectionRendererSource, /createGraphSelectionDispatcherRuntime\(\{/);
   assert.doesNotMatch(source, /renderNodePanel: renderGraphNodeSelectionPanel/);
   assert.doesNotMatch(source, /renderEdgePanel: renderGraphEdgeSelectionPanel/);
   assert.doesNotMatch(source, /if \(normalized\.kind === "cluster"\)/);
@@ -88,11 +91,19 @@ test("prototype graph shell delegates selection kind dispatch to a graph module"
 
 test("prototype graph shell delegates node and edge selection bodies to panel modules", async () => {
   const source = await readPrototypeAppSource();
+  const selectionHostSource = await readGraphSelectionHostDepsSource();
+  const selectionRendererSource = await readGraphSelectionPanelRendererSource();
 
-  assert.match(source, /from "\.\/graph-node-selection-panel\.js"/);
-  assert.match(source, /from "\.\/graph-edge-selection-panel\.js"/);
-  assert.match(source, /renderGraphNodeSelectionPanelView\(args/);
-  assert.match(source, /renderGraphEdgeSelectionPanelView\(args/);
+  assert.doesNotMatch(source, /from "\.\/graph-node-selection-panel\.js"/);
+  assert.doesNotMatch(source, /from "\.\/graph-edge-selection-panel\.js"/);
+  assert.doesNotMatch(source, /renderGraphNodeSelectionPanelView\(args/);
+  assert.doesNotMatch(source, /renderGraphEdgeSelectionPanelView\(args/);
+  assert.match(selectionHostSource, /createGraphNodeSelectionRuntimeDeps/);
+  assert.match(selectionHostSource, /createGraphEdgeSelectionRuntimeDeps/);
+  assert.match(selectionRendererSource, /from "\.\/graph-node-selection-panel\.js"/);
+  assert.match(selectionRendererSource, /from "\.\/graph-edge-selection-panel\.js"/);
+  assert.match(selectionRendererSource, /renderGraphNodeSelectionPanelView\(args/);
+  assert.match(selectionRendererSource, /renderGraphEdgeSelectionPanelView\(args/);
   assert.doesNotMatch(source, /data-graph-ai-connect-note="\$\{escapeHtml\(normalized\.nodeId\)\}"/);
   assert.doesNotMatch(source, /class="graph-relation-adjustment-card/);
 });

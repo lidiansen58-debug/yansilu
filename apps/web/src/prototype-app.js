@@ -478,16 +478,11 @@ import {
   renderGraphSelectionTaskView
 } from "./graph-selection-panel.js";
 import {
-  renderGraphSelectionPanelViaDispatcher
-} from "./graph-selection-dispatcher.js";
-import {
   renderGraphClusterSelectionPanelView
 } from "./graph-cluster-selection-panel.js";
 import {
-  createGraphEdgeSelectionRuntimeDeps,
-  createGraphNodeSelectionRuntimeDeps,
-  createGraphSelectionDispatcherRuntime
-} from "./graph-selection-host-deps.js";
+  createGraphSelectionPanelRenderer
+} from "./graph-selection-panel-renderer.js";
 import {
   buildGraphWorkspaceRenderDeps,
   createGraphThinkingModelRuntimeDepsProvider
@@ -521,12 +516,6 @@ import {
   graphUniqueClusterMeta as computeGraphUniqueClusterMeta,
   renderGraphResearchNavigatorPanelView
 } from "./graph-research-navigator.js";
-import {
-  renderGraphNodeSelectionPanel as renderGraphNodeSelectionPanelView
-} from "./graph-node-selection-panel.js";
-import {
-  renderGraphEdgeSelectionPanel as renderGraphEdgeSelectionPanelView
-} from "./graph-edge-selection-panel.js";
 import {
   buildGraphPanelState
 } from "./graph-panel-state-builder.js";
@@ -678,6 +667,10 @@ import {
   setWritingBasketIdsForRuntime
 } from "./writing-basket-state.js";
 import {
+  writingBasketContinuationPlan,
+  writingProjectContinuationRoute
+} from "./writing-entry-route-model.js";
+import {
   clearWritingFocusedCandidateScopeForRuntime,
   clearWritingSourceIndexIdsForRuntime,
   clearWritingThemeRelationCountsForRuntime,
@@ -699,10 +692,14 @@ import {
   noteDeleteKeyRoute
 } from "./note-browser-action-router.js";
 import {
+  generatedOriginalNoteIdFromBody,
   isPersistableRelationNetworkStatus,
   notePersistenceFieldsForSave,
   relationNetworkStatusForNotePolicy,
-  resolveFolderRootNoteType
+  resolveFolderRootNoteType,
+  stripGeneratedOriginalMarker,
+  withGeneratedOriginalMarker,
+  withGeneratedOriginalReference
 } from "./note-persistence-policy.js";
 import {
   describeWritingContinuationAction,
@@ -1312,7 +1309,6 @@ const SYSTEM_MESSAGES_LIMIT = 80;
 let systemMessages = readStoredSystemMessages();
 let selectedSystemMessageId = systemMessages[0]?.id || "";
 let startupAutoOpenSuppressed = false;
-const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
   Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
@@ -1415,37 +1411,6 @@ function buildFeedbackDiagnosticText() {
 async function openFeedbackUrl(url = "") {
   const result = await desktopCommands.openExternalUrl(url);
   return Boolean(result?.ok);
-}
-
-function generatedOriginalNoteIdFromBody(body = "") {
-  const match = String(body || "").match(GENERATED_ORIGINAL_MARKER_PATTERN);
-  return String(match?.[1] || "").trim();
-}
-
-function stripGeneratedOriginalMarker(body = "") {
-  return String(body || "")
-    .replace(/\n?<!--\s*yansilu:generated-original=[^\s>]+\s*-->\s*\n?/gi, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
-}
-
-function withGeneratedOriginalMarker(body = "", originalNoteId = "") {
-  const cleanId = String(originalNoteId || "").trim();
-  const base = stripGeneratedOriginalMarker(body);
-  if (!cleanId) return base;
-  const separator = base.trim() ? "\n\n" : "";
-  return `${base}${separator}<!-- yansilu:generated-original=${cleanId} -->`;
-}
-
-function withGeneratedOriginalReference(body = "", originalTitle = "") {
-  const cleanTitle = String(originalTitle || "").trim();
-  const base = stripGeneratedOriginalMarker(body);
-  if (!cleanTitle) return base;
-  const visibleLink = `[[${cleanTitle}]]`;
-  const visibleLine = `关联永久笔记：${visibleLink}`;
-  if (base.includes(visibleLine)) return base;
-  const separator = base.trim() ? "\n\n" : "";
-  return `${base}${separator}${visibleLine}`;
 }
 
 function noteGeneratedOriginalNoteId(note = null) {
@@ -5504,17 +5469,17 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
 }
 
 function continueWritingEntry(noteIds = [], { title = "", source = "writing_center", sourceIndexIds = [], preserveSourceIndexIds = true } = {}) {
-  const plan = planWritingBasketEntry({
+  const plan = writingBasketContinuationPlan({
     existingNoteIds: parseWritingBasketIds(),
-    incomingNoteIds: noteIds
-  });
-  if (!plan.basketNoteIds.length) return null;
-
-  const resolvedTitle = resolveWritingEntryTitle({
-    entryMode: plan.entryMode,
+    incomingNoteIds: noteIds,
     requestedTitle: title,
-    existingTitle: String($("writingTitle")?.value || "").trim()
+    existingTitle: String($("writingTitle")?.value || "").trim(),
+    existingSourceIndexIds: writingState.sourceIndexIds,
+    incomingSourceIndexIds: sourceIndexIds,
+    preserveSourceIndexIds,
+    currentSelectedThemeIndexId: writingState.selectedThemeIndexId
   });
+  if (!plan?.basketNoteIds?.length) return null;
   const nextGoal = String($("writingGoal")?.value || "").trim();
   const nextAudience = String($("writingAudience")?.value || "").trim();
   const nextTone = String($("writingTone")?.value || "").trim();
@@ -5527,22 +5492,12 @@ function continueWritingEntry(noteIds = [], { title = "", source = "writing_cent
   writingState.relationCounts = {};
   writingState.relationCountErrors = {};
   writingState.loadingRelationCounts = plan.basketNoteIds.length > 0;
-  const nextSourceIndexIds = resolveWritingSourceIndexIds({
-    existingSourceIndexIds: writingState.sourceIndexIds,
-    incomingSourceIndexIds: sourceIndexIds,
-    preserveExisting: preserveSourceIndexIds
-  });
-  if (nextSourceIndexIds.length) setWritingSourceIndexIds(nextSourceIndexIds);
+  if (plan.nextSourceIndexIds.length) setWritingSourceIndexIds(plan.nextSourceIndexIds);
   else clearWritingSourceIndexIds();
-  setSelectedWritingThemeIndex(
-    resolveWritingSelectedThemeIndexId({
-      currentSelectedThemeIndexId: writingState.selectedThemeIndexId,
-      nextSourceIndexIds
-    })
-  );
+  setSelectedWritingThemeIndex(plan.selectedThemeIndexId);
   setWritingBasketIds(plan.basketNoteIds);
   resetWritingProjectContext({
-    title: resolvedTitle,
+    title: plan.resolvedTitle,
     goal: nextGoal,
     audience: nextAudience,
     tone: nextTone
@@ -7130,14 +7085,10 @@ async function openWritingDraftNoteById(draftNoteId) {
 
 async function continueWritingProjectEntry(projectId, { openDraft = false, statusMessage = "" } = {}) {
   const project = await openWritingProject(projectId);
-  if (openDraft) {
-    const draftNoteId = String(project?.draft_note_id || "").trim();
-    if (!draftNoteId) throw new Error("current project has no draft note");
-    await openWritingDraftNoteById(draftNoteId);
-    setStatus(statusMessage || `已打开当前草稿：${draftNoteId}`, "ok");
-    return project;
-  }
-  setStatus(statusMessage || `已继续当前项目：${projectId}`, "ok");
+  const route = writingProjectContinuationRoute({ projectId, project, openDraft, statusMessage });
+  if (route.kind === "missing-draft" || route.kind === "invalid-project") throw new Error(route.errorMessage);
+  if (route.kind === "open-draft") await openWritingDraftNoteById(route.draftNoteId);
+  setStatus(route.statusMessage, "ok");
   return project;
 }
 
@@ -10024,69 +9975,43 @@ function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandid
   });
 }
 
-function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [], clusterMeta = [] } = {}) {
-  const { renderers, deps } = createGraphSelectionDispatcherRuntime({
-    renderGraphClusterSelectionPanel,
-    renderGraphThemeSelectionPanel,
-    renderGraphIsolatedSelectionPanel,
-    renderGraphIsolatedCompletePanel,
-    renderGraphRelationFormSelectionPanel,
-    renderGraphBridgeSelectionPanel,
-    renderGraphNodeSelectionPanel,
-    renderGraphEdgeSelectionPanel,
-    normalizeGraphSelectionForVisibleItems
-  });
-  return renderGraphSelectionPanelViaDispatcher({
-    selection,
-    nodeMap,
-    edges,
-    topicCandidates,
-    isolatedNotes,
-    bridgeGaps,
-    clusterMeta
-  }, renderers, deps);
-}
-
-function renderGraphNodeSelectionPanel(args = {}) {
-  return renderGraphNodeSelectionPanelView(args, createGraphNodeSelectionRuntimeDeps({
-    escapeHtml,
-    graphRelationStatusCountsAsNetworkEdge,
-    graphNodeNeedsRelationWorkflow,
-    renderGraphIsolatedSelectionPanel,
-    graphRelationGroupCounts,
-    graphNodeRoleMeta,
-    graphNodeInsightMeta,
-    renderGraphNodeInsightPanel,
-    renderGraphRelationWorkspaceForNote,
-    renderGraphAiConnectCandidates,
-    graphThemeCandidateNoteIdsForNode,
-    suggestedThemeIndexTitle,
-    renderGraphSelectionMetrics,
-    renderGraphPromptDetails,
-    renderGraphSelectionShell,
-    noteTypeLabel,
-    graphState
-  }));
-}
-
-function renderGraphEdgeSelectionPanel(args = {}) {
-  return renderGraphEdgeSelectionPanelView(args, createGraphEdgeSelectionRuntimeDeps({
-    escapeHtml,
-    graphEdgeSelectionKey,
-    graphNodeTitle,
-    graphRelationTypeLabel,
-    graphRelationGroupMeta,
-    graphEdgeReviewMeta,
-    graphEdgeAdjustmentPlan,
-    graphFocusCardActionMeta,
-    graphRelationSourceLabel,
-    graphRelationStatusLabel,
-    renderGraphSelectionMetrics,
-    renderGraphPromptDetails,
-    renderGraphSelectionShell,
-    graphState
-  }));
-}
+const graphSelectionPanelRenderer = createGraphSelectionPanelRenderer(() => ({
+  escapeHtml,
+  renderGraphClusterSelectionPanel,
+  renderGraphThemeSelectionPanel,
+  renderGraphIsolatedSelectionPanel,
+  renderGraphIsolatedCompletePanel,
+  renderGraphRelationFormSelectionPanel,
+  renderGraphBridgeSelectionPanel,
+  normalizeGraphSelectionForVisibleItems,
+  graphRelationStatusCountsAsNetworkEdge,
+  graphNodeNeedsRelationWorkflow,
+  graphRelationGroupCounts,
+  graphNodeRoleMeta,
+  graphNodeInsightMeta,
+  renderGraphNodeInsightPanel,
+  renderGraphRelationWorkspaceForNote,
+  renderGraphAiConnectCandidates,
+  graphThemeCandidateNoteIdsForNode,
+  suggestedThemeIndexTitle,
+  renderGraphSelectionMetrics,
+  renderGraphPromptDetails,
+  renderGraphSelectionShell,
+  noteTypeLabel,
+  graphState,
+  graphEdgeSelectionKey,
+  graphNodeTitle,
+  graphRelationTypeLabel,
+  graphRelationGroupMeta,
+  graphEdgeReviewMeta,
+  graphEdgeAdjustmentPlan,
+  graphFocusCardActionMeta,
+  graphRelationSourceLabel,
+  graphRelationStatusLabel
+}));
+const {
+  renderGraphSelectionPanel
+} = graphSelectionPanelRenderer;
 
 function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = {}) {
   return graphEdgeVisibleAtFitForRuntime(edge, nodeMap, options, { graphRelationVisual });

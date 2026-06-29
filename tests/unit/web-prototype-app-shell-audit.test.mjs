@@ -123,6 +123,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "writing-basket-state.js": 80,
     "writing-session-state.js": 80,
     "writing-project-action-model.js": 130,
+    "writing-entry-route-model.js": 100,
     "writing-theme-state.js": 50,
     "writing-theme-selection-controller.js": 60,
     "writing-project-history-panel.js": 130,
@@ -176,11 +177,13 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-isolated-decision-note-update.js": 70,
     "note-loading-runtime.js": 80,
     "note-template-runtime-helpers.js": 150,
+    "note-persistence-policy.js": 90,
     "workspace-status-hint-model.js": 120,
     "settings-template-preview-view.js": 80,
     "settings-template-card-model.js": 80,
     "graph-ai-connect-model.js": 60,
     "graph-selection-host-deps.js": 80,
+    "graph-selection-panel-renderer.js": 60,
     "graph-workspace-host-deps.js": 60
   };
 
@@ -210,6 +213,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "writing-basket-state.js",
     "writing-session-state.js",
     "writing-project-action-model.js",
+    "writing-entry-route-model.js",
     "writing-theme-state.js",
     "system-messages-host-deps.js",
     "system-messages-shell.js",
@@ -225,7 +229,6 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "settings-panel-shell.js",
     "settings-panel-renderer.js",
     "graph-canvas-event-router.js",
-    "graph-selection-host-deps.js",
     "graph-workspace-host-deps.js",
     "graph-cluster-selection-panel.js",
     "graph-visual-map-controller.js",
@@ -252,10 +255,12 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-isolated-decision-note-update.js",
     "note-loading-runtime.js",
     "note-template-runtime-helpers.js",
+    "note-persistence-policy.js",
     "workspace-status-hint-model.js",
     "settings-template-preview-view.js",
     "settings-template-card-model.js",
-    "graph-ai-connect-model.js"
+    "graph-ai-connect-model.js",
+    "graph-selection-panel-renderer.js"
   ];
 
   for (const modulePath of requiredImports) {
@@ -288,6 +293,11 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function normalizeGraphFocusContextMode/);
   assert.doesNotMatch(source, /function graphFocusContextModeMeta/);
   assert.doesNotMatch(source, /function graphEdgeMatchesReadingLens/);
+  assert.doesNotMatch(source, /const GENERATED_ORIGINAL_MARKER_PATTERN/);
+  assert.doesNotMatch(source, /function generatedOriginalNoteIdFromBody/);
+  assert.doesNotMatch(source, /function stripGeneratedOriginalMarker/);
+  assert.doesNotMatch(source, /function withGeneratedOriginalMarker/);
+  assert.doesNotMatch(source, /function withGeneratedOriginalReference/);
   assert.doesNotMatch(source, /function graphBuildReadingLensState/);
   assert.doesNotMatch(source, /function graphViewModeForRelationType/);
   assert.doesNotMatch(source, /function normalizeGraphRelationTypeFilter/);
