@@ -330,17 +330,13 @@ import {
   graphIsolatedNodeIds,
   graphFollowupActionForRelationType,
   graphNextActionForSummary,
-  graphRelationWorkspaceRouteForFollowup,
   graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs,
   graphWritingCandidateNoteIds,
-  graphWritingContinuationFailureMessage,
-  graphWritingContinuationInput,
-  graphWritingContinuationStatusMessage,
-  graphWritingFollowupEntryPlan
+  graphWritingContinuationInput
 } from "./graph-followup.js";
 import {
-  graphFollowupOpenedNoteStatus
-} from "./graph-followup-status-messages.js";
+  createGraphFollowupController
+} from "./graph-followup-controller.js";
 import {
   clearGraphIsolatedRelationDraftForState
 } from "./graph-relation-drafts.js";
@@ -348,11 +344,8 @@ import {
   createGraphIsolatedRelationController
 } from "./graph-isolated-relation-controller.js";
 import {
-  graphIsolatedDecisionFormInput
-} from "./graph-isolated-decision-form-model.js";
-import {
-  buildGraphIsolatedDecisionNoteUpdate
-} from "./graph-isolated-decision-note-update.js";
+  createGraphIsolatedDecisionController
+} from "./graph-isolated-decision-controller.js";
 import {
   createGraphRelationSaveController
 } from "./graph-relation-save-controller.js";
@@ -383,11 +376,8 @@ import {
   graphRelationRationaleIsActionable as computeGraphRelationRationaleIsActionable,
 } from "./graph-ai-candidates.js";
 import {
-  graphAiConnectAnalysisOptions,
-  graphAiConnectArtifactCount,
-  graphAiConnectCandidateTitles,
-  graphAiConnectPreviewTargetId
-} from "./graph-ai-connect-model.js";
+  createGraphAiConnectRuntimeController
+} from "./graph-ai-connect-runtime-controller.js";
 import {
   graphDirectNetworkEdgeCount as computeGraphDirectNetworkEdgeCount,
   graphExistingRelationKeys as computeGraphExistingRelationKeys,
@@ -8647,69 +8637,26 @@ async function loadGraphEditableNote(noteId = "") {
   return note;
 }
 
+const graphIsolatedDecisionController = createGraphIsolatedDecisionController(() => ({
+  document,
+  ensureEditableNoteBody,
+  graphIsolatedDecisionMode,
+  graphIsolatedDecisionTitle,
+  graphUpsertMarkdownSection,
+  isLocalOnlyNote,
+  loadGraphEditableNote,
+  mapNoteItem,
+  noteTabFor,
+  parseLinks,
+  parseTags,
+  renderGraphPanel,
+  setGraphIsolatedWorkflowActiveTab,
+  setStatus,
+  updateNote
+}));
+
 async function saveGraphIsolatedDecision(button = null) {
-  const { noteId, mode, text } = graphIsolatedDecisionFormInput(button, {
-    document,
-    graphIsolatedDecisionMode
-  });
-  if (!noteId) return false;
-  if (!text) {
-    setStatus("请先写一句说明，再保存这个处理决定", "warn");
-    return false;
-  }
-  const note = await loadGraphEditableNote(noteId);
-  if (!note) {
-    setStatus("没有找到这条笔记，无法保存说明", "bad");
-    return false;
-  }
-  const previousText = button.textContent || "";
-  button.disabled = true;
-  button.textContent = "正在保存";
-  const decisionUpdate = buildGraphIsolatedDecisionNoteUpdate({ note, mode, text }, {
-    ensureEditableNoteBody,
-    graphUpsertMarkdownSection,
-    graphIsolatedDecisionTitle
-  });
-  const { nextBody, decisionTitle } = decisionUpdate;
-  try {
-    let updated = null;
-    if (isLocalOnlyNote(note)) {
-      note.body = nextBody;
-      note.tags = parseTags(nextBody);
-      note.links = parseLinks(nextBody);
-      note.thesis = decisionUpdate.nextThesis;
-      note.updatedAt = new Date().toISOString();
-      note.bodyLoaded = true;
-      updated = note;
-    } else {
-      updated = await updateNote(note.id, {
-        title: note.title,
-        body: nextBody,
-        status: note.status || "draft",
-        generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
-        originalityStatus: note.originalityStatus || undefined,
-        originalitySimilarity: note.originalitySimilarity ?? undefined
-      });
-      if (updated) Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
-    }
-    const tab = noteTabFor(note.id);
-    if (tab) {
-      tab.body = note.body;
-      tab.savedBody = note.body;
-      tab.title = note.title;
-      tab.savedTitle = note.title;
-      tab.dirty = false;
-    }
-    setGraphIsolatedWorkflowActiveTab(noteId, "queue");
-    renderGraphPanel();
-    setStatus(`${decisionTitle}已保存到当前笔记`, "ok");
-    return Boolean(updated);
-  } catch (error) {
-    button.disabled = false;
-    button.textContent = previousText || "保存说明";
-    setStatus(`保存说明失败：${String(error?.message || error)}`, "bad");
-    return false;
-  }
+  return graphIsolatedDecisionController.saveGraphIsolatedDecision(button);
 }
 
 function graphAiAnalysisPayload(result = graphState.aiAnalysis) {
@@ -9071,121 +9018,31 @@ function removePotentialRelationCandidateFromGraphAnalysis(candidateToRemove = {
   return true;
 }
 
-async function refineGraphPotentialRelationsForNote(noteId = "", candidates = [], { directoryId = "" } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  const items = (Array.isArray(candidates) ? candidates : []).filter(Boolean).slice(0, 3);
-  if (!cleanNoteId || !items.length) return;
-  let generatedThisRun = 0;
-  let waitingConfirmationThisRun = 0;
-  let failedThisRun = 0;
-  let removedThisRun = 0;
-  for (const candidate of items) {
-    const refineResult = await refineGraphPotentialRelationCandidate(cleanNoteId, candidate, { directoryId });
-    if (refineResult?.aiReasonGenerated) generatedThisRun += 1;
-    if (refineResult?.removed) {
-      removedThisRun += 1;
-      continue;
-    }
-    if (refineResult?.needsConfirmation) {
-      waitingConfirmationThisRun += 1;
-      break;
-    }
-    if (refineResult?.ok === false) failedThisRun += 1;
-  }
-  if (waitingConfirmationThisRun && generatedThisRun) {
-    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${waitingConfirmationThisRun} 条等待你确认当前 AI 设置后再生成理由`, "warn");
-    return;
-  }
-  if (waitingConfirmationThisRun) {
-    setStatus(`${waitingConfirmationThisRun} 条潜在关联等待你确认当前 AI 设置后再生成理由`, "warn");
-    return;
-  }
-  if (removedThisRun && generatedThisRun) {
-    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${removedThisRun} 条因图谱已变化从候选列表移除`, "warn");
-    return;
-  }
-  if (removedThisRun && failedThisRun) {
-    setStatus(`${failedThisRun} 条潜在关联暂未生成 AI 理由，另有 ${removedThisRun} 条因图谱已变化从候选列表移除`, "warn");
-    return;
-  }
-  if (removedThisRun) {
-    return;
-  }
-  if (failedThisRun && generatedThisRun) {
-    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${failedThisRun} 条暂未生成理由，可稍后重试`, "warn");
-    return;
-  }
-  if (failedThisRun) {
-    setStatus(`${failedThisRun} 条潜在关联暂未生成 AI 理由，可稍后重试`, "warn");
-    return;
-  }
-  if (generatedThisRun) {
-    setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由`, "ok");
-  }
+const graphAiConnectRuntimeController = createGraphAiConnectRuntimeController(() => ({
+  addSystemMessage,
+  analyzeDirectoryGraph,
+  ensureGraphLocalAiReadyForAnalysis,
+  graphAiRelationCandidatesForNote,
+  graphNodeTitle,
+  graphPotentialRelationNeedsConfirmation,
+  graphRelationStatusCountsAsNetworkEdge,
+  graphRelationWorkflowController,
+  graphScopeDirectoryId,
+  graphState,
+  mergePotentialRelationCandidateIntoGraphAnalysis,
+  refinePotentialRelationCandidate,
+  removePotentialRelationCandidateFromGraphAnalysis,
+  renderGraphPanel,
+  setStatus,
+  state
+}));
+
+async function refineGraphPotentialRelationsForNote(noteId = "", candidates = [], options = {}) {
+  return graphAiConnectRuntimeController.refineGraphPotentialRelationsForNote(noteId, candidates, options);
 }
 
-async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}, { directoryId = "", confirmationApproved = false } = {}) {
-  const cleanNoteId = String(noteId || candidate?.sourceNoteId || candidate?.fromNoteId || "").trim();
-  if (!cleanNoteId || !candidate) return { ok: false, needsConfirmation: false };
-  try {
-    const refined = await refinePotentialRelationCandidate({
-      directoryId,
-      includeDescendants: true,
-      focusNoteId: cleanNoteId,
-      currentNoteId: cleanNoteId,
-      candidate,
-      timeoutMs: 60000,
-      ...(confirmationApproved ? { confirmationApproved: true, confirmBudget: true } : {})
-    });
-    const merged = Boolean(refined && mergePotentialRelationCandidateIntoGraphAnalysis(refined));
-    if (merged) renderGraphPanel();
-    const aiReason = String(refined?.aiRationale || "").trim();
-    const aiError = String(refined?.aiError || "").trim();
-    const needsConfirmation =
-      refined?.aiNeedsConfirmation === true ||
-      graphPotentialRelationNeedsConfirmation(refined) ||
-      refined?.aiErrorCode === "AI_ROUTE_CONFIRMATION_REQUIRED" ||
-      refined?.aiErrorCode === "AI_BUDGET_CONFIRMATION_REQUIRED";
-    if (needsConfirmation) {
-      setStatus("当前 AI 设置需要确认后才能生成这条关系说明", "warn");
-      return { ok: false, needsConfirmation: true, merged };
-    }
-    if (confirmationApproved && aiReason) {
-      setStatus(
-        merged ? "已确认使用当前 AI 设置，并补充这条潜在关联的复核理由" : "AI 理由已生成，但当前图谱范围已变化，请重新打开这条笔记查看",
-        merged ? "ok" : "warn"
-      );
-      return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: true };
-    }
-    if (aiError) {
-      setStatus(`生成关系说明失败：${aiError}`, "warn");
-      return { ok: false, needsConfirmation: false, merged };
-    }
-    if (confirmationApproved) {
-      setStatus("未生成可用的关系说明，请稍后重试", "warn");
-      return { ok: false, needsConfirmation: false, merged };
-    }
-    return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: Boolean(aiReason) };
-  } catch (error) {
-    const code = String(error?.code || "").trim();
-    if (code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND") {
-      const removed = removePotentialRelationCandidateFromGraphAnalysis(candidate);
-      if (removed) renderGraphPanel();
-      setStatus("这条潜在关联已不在当前图谱范围内，已从候选列表移除", "warn");
-      return { ok: false, needsConfirmation: false, merged: false, removed };
-    }
-    const needsConfirmation = code === "AI_ROUTE_CONFIRMATION_REQUIRED" || code === "AI_BUDGET_CONFIRMATION_REQUIRED";
-    mergePotentialRelationCandidateIntoGraphAnalysis({
-      ...candidate,
-      aiError: needsConfirmation ? "当前 AI 设置需要确认后才能生成理由。" : String(error?.message || error),
-      aiErrorCode: code,
-      aiNeedsConfirmation: needsConfirmation
-    });
-    renderGraphPanel();
-    if (needsConfirmation) setStatus("当前 AI 设置需要确认后才能生成这条关系说明", "warn");
-    else setStatus(`生成关系说明失败：${String(error?.message || error)}`, "warn");
-    return { ok: false, needsConfirmation, merged: true };
-  }
+async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}, options = {}) {
+  return graphAiConnectRuntimeController.refineGraphPotentialRelationCandidate(noteId, candidate, options);
 }
 
 function graphNoteTags(note = {}) {
@@ -10712,67 +10569,7 @@ async function ensureGraphLocalAiReadyForAnalysis() {
 }
 
 async function runGraphAiConnectForNote(noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId || graphState.aiAnalysisLoading) return false;
-  const directoryId = graphScopeDirectoryId();
-  const previousSelection = graphState.selection;
-  graphState.aiAnalysisLoading = true;
-  graphState.aiAnalysisError = "";
-  graphRelationWorkflowController.startAiConnectForNote(cleanNoteId);
-  try {
-    const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
-    if (!localAiReady) return false;
-    const result = await analyzeDirectoryGraph(directoryId, graphAiConnectAnalysisOptions(cleanNoteId));
-    graphState.aiAnalysis = result;
-    const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
-    const currentEdges = Array.isArray(graphState.item?.edges) ? graphState.item.edges : [];
-    const route = graphRelationWorkflowController.applyAiConnectRoute({
-      noteId: cleanNoteId,
-      previousSelection,
-      edges: currentEdges,
-      relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
-    });
-    const graphSelectionKind = route?.graphSelectionKind || "isolated";
-    const nodeMap = new Map(nodes.map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
-    const candidates = graphAiRelationCandidatesForNote(cleanNoteId, { nodeMap, edges: currentEdges, limit: 5 });
-    const firstTargetId = graphAiConnectPreviewTargetId(candidates);
-    if (firstTargetId) {
-      graphState.isolatedCandidatePreviewByNoteId = graphState.isolatedCandidatePreviewByNoteId || {};
-      graphState.isolatedCandidatePreviewByNoteId[cleanNoteId] = firstTargetId;
-    }
-    const noteTitle = graphNodeTitle(nodeMap, cleanNoteId, state.notes.find((note) => note.id === cleanNoteId)?.title || cleanNoteId);
-    const candidateTitles = graphAiConnectCandidateTitles(candidates);
-    const count = graphAiConnectArtifactCount(result);
-    if (count > 0) {
-      const messageId = `graph-ai-connect:${directoryId || "root"}:${cleanNoteId}:${Date.now()}`;
-      addSystemMessage({
-        id: messageId,
-        type: "ai",
-        title: `${noteTitle} 发现了潜在关联`,
-        body: candidates.length
-          ? `“${noteTitle}”找到 ${candidates.length} 个可选目标${candidateTitles.length ? `：${candidateTitles.join("、")}` : ""}。打开后只保存能说清理由的关系。`
-          : `“${noteTitle}”接入扫描完成，但暂时没有足够清楚的候选连接。`,
-        action: "open-graph",
-        actionLabel: "查看候选并确认关系",
-        noteId: cleanNoteId,
-        sourceNoteId: cleanNoteId,
-        artifactCount: candidates.length,
-        workflowRoute: { focus: "graph", source: "graph-ai-connect", graphSelectionKind }
-      });
-      graphState.aiReviewSystemMessageId = messageId;
-    }
-    graphState.thinkingPanelVisible = true;
-    setStatus(candidates.length ? `已找到 ${candidates.length} 条潜在关联，请确认后再写入图谱` : "当前笔记接入扫描完成，暂无清楚候选连接", candidates.length ? "ok" : "warn");
-    if (candidates.length) void refineGraphPotentialRelationsForNote(cleanNoteId, candidates, { directoryId });
-    return true;
-  } catch (error) {
-    graphState.aiAnalysisError = String(error?.message || error);
-    setStatus(`AI 找连接失败：${graphState.aiAnalysisError}`, "warn");
-    return false;
-  } finally {
-    graphState.aiAnalysisLoading = false;
-    renderGraphPanel();
-  }
+  return graphAiConnectRuntimeController.runGraphAiConnectForNote(noteId);
 }
 
 async function saveGraphCandidateRelation(button = null) {
@@ -11141,377 +10938,28 @@ const openSystemMessageWorkflow = createSystemMessageWorkflowOpener({
   openRecordPermanentWorkflowFromCurrentNote
 });
 
+const graphFollowupController = createGraphFollowupController(() => ({
+  activateModule,
+  continueWritingEntry,
+  continueWritingProjectEntry,
+  currentGraphVisibleNodeIds,
+  document,
+  editor,
+  graphRelationTypeLabel,
+  graphWritingContinuationEntry,
+  isWritingEligibleNote,
+  openNoteById,
+  openWritingModule,
+  parseWritingBasketIds,
+  setStatus,
+  state,
+  suggestedWritingProjectTitle,
+  window,
+  writingKnownNoteById
+}));
+
 function openGraphFollowupNote(noteId = "", action = "", options = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  const cleanAction = String(action || "").trim().toLowerCase();
-  const actionRoute = graphFollowupActionRoute(cleanAction);
-  const cleanRelationId = String(options.relationId || "").trim();
-  const cleanTargetNoteId = String(options.targetNoteId || "").trim();
-  const cleanRelationType = String(options.relationType || "").trim().toLowerCase();
-  const requestedGraphFocusNoteIds = String(options.basketNoteIds || "")
-    .split(",")
-    .map((id) => String(id || "").trim())
-    .filter(Boolean);
-  if (actionRoute.kind === "writing") {
-    const graphFocusNoteIds = requestedGraphFocusNoteIds.length ? requestedGraphFocusNoteIds : currentGraphVisibleNodeIds();
-    const graphBasketNoteIds = graphWritingCandidateNoteIds(graphFocusNoteIds, {
-      noteLookup: writingKnownNoteById,
-      isEligible: isWritingEligibleNote
-    });
-    const plan = graphWritingFollowupEntryPlan({
-      basketNoteIds: parseWritingBasketIds(),
-      candidateNoteIds: graphBasketNoteIds,
-      scopeNoteIds: graphFocusNoteIds
-    });
-    if (plan.prefillNoteIds.length) {
-      continueWritingEntry(plan.prefillNoteIds, {
-        title: suggestedWritingProjectTitle(plan.prefillNoteIds),
-        source: "graph_followup_writing"
-      });
-    }
-    const continuation = graphWritingContinuationEntry(graphBasketNoteIds, "当前图谱切片");
-    void (async () => {
-      try {
-        if (continuation?.projectId) {
-          await continueWritingProjectEntry(continuation.projectId, {
-            openDraft: continuation.action === "open-draft",
-            statusMessage: graphWritingContinuationStatusMessage(continuation)
-          });
-          return;
-        }
-        if (plan.mode === "no-candidates" && !plan.hasBasket) {
-          setStatus(plan.statusMessage, "warn");
-          return;
-        }
-        await openWritingModule({
-          statusMessage: "",
-          focusedCandidateNoteIds: graphFocusNoteIds,
-          focusedCandidateScopeLabel: "当前图谱切片"
-        });
-        setStatus(plan.statusMessage, "ok", { requireModule: "writing" });
-      } catch (error) {
-        if (continuation?.projectId) {
-          setStatus(graphWritingContinuationFailureMessage(continuation, error), "bad");
-          return;
-        }
-        setStatus(`从图谱进入写作中心失败：${String(error?.message || error)}`, "bad");
-      }
-    })();
-    return true;
-  }
-  if (!cleanNoteId) return false;
-  const sourceNote = state.notes.find((note) => note?.id === cleanNoteId) || null;
-  const targetNote = cleanTargetNoteId ? state.notes.find((note) => note?.id === cleanTargetNoteId) || null : null;
-  const sourceLabel = sourceNote?.title || cleanNoteId;
-  const targetLabel = targetNote?.title || cleanTargetNoteId;
-  const relationLabel = cleanRelationType ? graphRelationTypeLabel(cleanRelationType) : "关系";
-  const followupStatusOptions = { priority: 2, holdMs: 3200, requireModule: "explorer" };
-  const relationDrafts = graphFollowupDraftTemplates({
-    action: cleanAction,
-    sourceLabel,
-    targetLabel,
-    relationLabel
-  });
-  const providedRationaleDraft = String(options.rationaleDraft || "").trim();
-  const providedInsightQuestionDraft = String(options.insightQuestionDraft || "").trim();
-  if (providedRationaleDraft || providedInsightQuestionDraft) {
-    relationDrafts.rationaleDraft = providedRationaleDraft || relationDrafts.rationaleDraft;
-    relationDrafts.insightQuestionDraft = providedInsightQuestionDraft || relationDrafts.insightQuestionDraft;
-    relationDrafts.variants = [];
-    relationDrafts.selectedVariant = "";
-  }
-  activateModule("explorer");
-  openNoteById(cleanNoteId, { preferTitleSelection: false });
-  state.inspectorVisible = true;
-  editor?.setInspectorVisible?.(true);
-  editor?.renderRelated?.("图谱下一步");
-
-  const focusRelationCreate = (entryHint = "") => {
-    editor?.openPermanentRelationWorkspace?.(graphRelationWorkspaceRouteForFollowup({
-      targetNoteId: cleanTargetNoteId,
-      relationType: cleanRelationType,
-      notice: entryHint,
-      relationDrafts
-    }));
-  };
-
-  const focusExistingRelationEdit = (entryHint = "") => {
-    editor?.setRelationPanelState?.("edit", {
-      noteId: cleanNoteId,
-      relationId: cleanRelationId,
-      entryHint,
-      rationaleDraft: relationDrafts.rationaleDraft,
-      insightQuestionDraft: relationDrafts.insightQuestionDraft,
-      draftVariants: relationDrafts.variants,
-      selectedTemplateVariant: relationDrafts.selectedVariant
-    });
-    editor?.jumpToInspectorSection?.("[data-note-relations-section]");
-    const tryOpen = () => {
-      const relation = editor?.findSemanticRelation?.(cleanRelationId);
-      if (!relation) return false;
-      editor?.openEditRelationForm?.(cleanRelationId, {
-        entryHint,
-        rationaleDraft: relationDrafts.rationaleDraft,
-        insightQuestionDraft: relationDrafts.insightQuestionDraft,
-        draftVariants: relationDrafts.variants,
-        selectedTemplateVariant: relationDrafts.selectedVariant
-      });
-      window.setTimeout(() => {
-        editor?.jumpToInspectorSection?.("[data-edit-relation-form]", {
-          focus: true,
-          focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
-        });
-      }, 40);
-      return true;
-    };
-    if (tryOpen()) return;
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      if (tryOpen() || attempts >= 20) window.clearInterval(timer);
-    }, 120);
-  };
-
-  const focusBoundaryField = () => {
-    editor?.setDistillationPrefill?.(cleanNoteId, {
-      boundaryDraft: relationDrafts.boundaryDraft,
-      draftVariants: relationDrafts.variants,
-      selectedTemplateVariant: relationDrafts.selectedVariant
-    });
-    editor?.renderRelated?.("图谱下一步");
-    const selectorNoteId = cleanNoteId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const tryFocus = () => {
-      const textarea = document.querySelector(
-        `[data-note-distillation-section][data-note-id="${selectorNoteId}"] [data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]`
-      );
-      if (!textarea) return false;
-      if (!String(textarea.value || "").trim() && relationDrafts.boundaryDraft) {
-        textarea.value = relationDrafts.boundaryDraft;
-        textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-      editor?.jumpToInspectorSection?.("[data-note-distillation-section]", {
-        focus: true,
-        focusSelector: '[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]'
-      });
-      return true;
-    };
-    if (tryFocus()) return;
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      if (tryFocus() || attempts >= 20) window.clearInterval(timer);
-    }, 120);
-  };
-
-  if (cleanAction === "relations-edit" && cleanRelationId) {
-    focusExistingRelationEdit(`从图谱进入：继续写清“${sourceLabel}”这条${relationLabel}为什么成立。`);
-    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
-    setStatus(status.message, status.tone, followupStatusOptions);
-    return true;
-  }
-
-  if (cleanAction === "relations" || cleanAction === "bridge") {
-    focusRelationCreate(
-      cleanAction === "bridge"
-        ? `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”关联为一条${relationLabel}。`
-        : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”建立为带理由的正式关联。`
-    );
-    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
-    setStatus(status.message, status.tone, followupStatusOptions);
-    return true;
-  }
-  if (actionRoute.kind === "boundary-draft") {
-    focusBoundaryField();
-    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
-    setStatus(status.message, status.tone, followupStatusOptions);
-    return true;
-  }
-  if (cleanAction === "boundary" || cleanAction === "tension") {
-    focusBoundaryField();
-    const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
-    setStatus(status.message, status.tone, followupStatusOptions);
-    return true;
-  }
-  const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
-  setStatus(status.message, status.tone, followupStatusOptions);
-  return true;
-}
-
-function graphFollowupDraftTemplates({ action = "", sourceLabel = "", targetLabel = "", relationLabel = "" } = {}) {
-  const cleanAction = String(action || "").trim().toLowerCase();
-  const fromLabel = String(sourceLabel || "当前笔记").trim() || "当前笔记";
-  const toLabel = String(targetLabel || "目标笔记").trim() || "目标笔记";
-  const relLabel = String(relationLabel || "关系").trim() || "关系";
-  const withVariants = (selectedVariant = "", variants = [], boundaryDraft = "") => {
-    const cleanVariants = Array.isArray(variants) ? variants.filter((variant) => variant?.key && variant?.label) : [];
-    const picked = cleanVariants.find((variant) => variant.key === selectedVariant) || cleanVariants[0] || null;
-    return {
-      selectedVariant: picked?.key || "",
-      variants: cleanVariants,
-      rationaleDraft: String(picked?.rationaleDraft || "").trim(),
-      insightQuestionDraft: String(picked?.insightQuestionDraft || "").trim(),
-      boundaryDraft: String(boundaryDraft || "").trim()
-    };
-  };
-  if (cleanAction === "bridge") {
-    return withVariants("writing", [
-      {
-        key: "argument",
-        label: "论证版",
-        rationaleDraft: `“${fromLabel}”和“${toLabel}”之间还缺一条可检验的中间判断，因为前者已经说明了________，但后者直接跳到了________。把这条桥接补清后，整段论证才不会像跳步。`,
-        insightQuestionDraft: `如果读者现在还接不上“${fromLabel}”和“${toLabel}”，最可能是中间缺了哪条判断？`
-      },
-      {
-        key: "writing",
-        label: "写作版",
-        rationaleDraft: `“${fromLabel}”和“${toLabel}”之间还缺一小步过渡，因为前者已经说明了________，但后者一下子跳到了________。补上这条桥接后，读者才能顺着同一条思路继续往下走。`,
-        insightQuestionDraft: `如果要把“${fromLabel}”自然带到“${toLabel}”，中间最缺的那句过渡判断是什么？`
-      },
-      {
-        key: "product",
-        label: "产品版",
-        rationaleDraft: `从产品理解上看，“${fromLabel}”和“${toLabel}”之间少了一步用户能感知到的过渡：前者负责________，后者直接要求用户理解________。这条桥接要把中间那步认知转换说清楚。`,
-        insightQuestionDraft: `如果把这条桥接做成产品提示或交互反馈，最该暴露给用户的那一步是什么？`
-      }
-    ]);
-  }
-  if (cleanAction === "relations-edit") {
-    return withVariants("argument", [
-      {
-        key: "argument",
-        label: "论证版",
-        rationaleDraft: `这条${relLabel}成立，因为“${fromLabel}”会把________补给当前目标；如果拿掉它，读者会在________这一步感觉论证断开。`,
-        insightQuestionDraft: `要让这条${relLabel}更可检验，还缺哪条证据、边界或反方？`
-      },
-      {
-        key: "writing",
-        label: "写作版",
-        rationaleDraft: `在写作顺序里，“${fromLabel}”之所以应该放在这里，是因为它负责把________交代清楚；没有它，后文的________会显得来得太快。`,
-        insightQuestionDraft: `如果把这条${relLabel}写成段落过渡，还要补哪一句承上启下的话？`
-      },
-      {
-        key: "product",
-        label: "产品版",
-        rationaleDraft: `从产品体验看，这条${relLabel}成立，因为“${fromLabel}”提供了用户理解下一步所需的________；如果缺它，用户会在________这里失去判断依据。`,
-        insightQuestionDraft: `如果把这条${relLabel}变成界面提示或流程设计，最该补哪一个判断环节？`
-      }
-    ]);
-  }
-  if (cleanAction === "relations") {
-    return withVariants("argument", [
-      {
-        key: "argument",
-        label: "论证版",
-        rationaleDraft: `“${fromLabel}”和“${toLabel}”可以建立${relLabel}，因为前者会把后者所需的________补清楚；这不是简单相关，而是会直接改变读者如何理解目标判断。`,
-        insightQuestionDraft: `如果把这条${relLabel}写得更扎实，还需要补哪条证据、条件或反例？`
-      },
-      {
-        key: "writing",
-        label: "写作版",
-        rationaleDraft: `在文章推进里，“${fromLabel}”和“${toLabel}”适合用${relLabel}连起来，因为前者负责________，后者接着把________往下展开。`,
-        insightQuestionDraft: `如果把这条${relLabel}写进草稿，它更适合放在段落开头、中间还是转折处？`
-      },
-      {
-        key: "product",
-        label: "产品版",
-        rationaleDraft: `从产品判断看，“${fromLabel}”和“${toLabel}”适合建立${relLabel}，因为前者对应的设计选择会直接影响用户如何理解或完成________。`,
-        insightQuestionDraft: `如果要把这条${relLabel}落成产品动作、提示或约束，最该出现在哪一步？`
-      }
-    ]);
-  }
-  if (cleanAction === "boundary") {
-    return withVariants(
-      "argument",
-      [
-        {
-          key: "argument",
-          label: "论证版",
-          boundaryDraft: `这条判断在________条件下成立；一旦遇到________情况，就需要收窄、改写，或补上一条明确的反例。`
-        },
-        {
-          key: "writing",
-          label: "写作版",
-          boundaryDraft: `如果把这条判断放进文章里，最容易让读者误解的地方是________。为了不写得过满，这里至少要补上________这个例外条件。`
-        },
-        {
-          key: "product",
-          label: "产品版",
-          boundaryDraft: `从产品使用场景看，这条判断只在________用户条件下成立；一旦遇到________情境，界面或流程就要明确收窄，而不能默认它总是有效。`
-        }
-      ],
-      `这条判断在________条件下成立；一旦遇到________情况，就需要收窄、改写，或补上一条明确的反例。`
-    );
-  }
-  if (cleanAction === "isolate-keep") {
-    return withVariants(
-      "argument",
-      [
-        {
-          key: "argument",
-          label: "论证版",
-          boundaryDraft: `暂时独立：这条判断现在先不连线，因为________。如果未来出现________笔记，再考虑把它作为支持、反驳、限定或桥接关系接入。`
-        },
-        {
-          key: "writing",
-          label: "写作版",
-          boundaryDraft: `暂时独立：这条判断目前更像一段独立论证，不强行接入现有段落，因为________。等写作主题推进到________时，再决定它是否需要成为过渡或反方。`
-        },
-        {
-          key: "product",
-          label: "产品版",
-          boundaryDraft: `暂时独立：这条判断对应的使用场景还没有和现有产品线索稳定连接，因为________。等出现________场景证据后，再补成正式关系。`
-        }
-      ],
-      `暂时独立：这条判断现在先不连线，因为________。如果未来出现________笔记，再考虑把它作为支持、反驳、限定或桥接关系接入。`
-    );
-  }
-  if (cleanAction === "isolate-hold") {
-    return withVariants(
-      "argument",
-      [
-        {
-          key: "argument",
-          label: "论证版",
-          boundaryDraft: `暂存观察：这条笔记现在还缺少稳定判断，暂不接入关系网。下一步先补清________，再判断它应该支持、反驳、限定还是桥接哪条笔记。`
-        },
-        {
-          key: "writing",
-          label: "写作版",
-          boundaryDraft: `暂存观察：这条笔记暂时只是一段材料或灵感，还不能直接放进文章结构。等它回答了________这个问题，再决定要不要进入写作篮或关系图谱。`
-        },
-        {
-          key: "product",
-          label: "产品版",
-          boundaryDraft: `暂存观察：这条笔记还没有对应到清楚的用户场景或决策点。先补________，再判断它是否需要和现有产品判断建立关系。`
-        }
-      ],
-      `暂存观察：这条笔记现在还缺少稳定判断，暂不接入关系网。下一步先补清________，再判断它应该支持、反驳、限定还是桥接哪条笔记。`
-    );
-  }
-  if (cleanAction === "tension") {
-    return withVariants(
-      "argument",
-      [
-        {
-          key: "argument",
-          label: "论证版",
-          boundaryDraft: `当前最强的反方或反例是________。如果它成立，那么这条判断至少要在________边界内重新表述。`
-        },
-        {
-          key: "writing",
-          label: "写作版",
-          boundaryDraft: `为了不把这条判断写成单边论证，这里最好先承认________这个反方，再交代为什么最终仍然保留________这个主判断。`
-        },
-        {
-          key: "product",
-          label: "产品版",
-          boundaryDraft: `如果用户真的处在________这个反向场景里，当前产品判断就会失效或伤害体验。因此至少要在________这一步给出保护、提示或退出条件。`
-        }
-      ],
-      `当前最强的反方或反例是________。如果它成立，那么这条判断至少要在________边界内重新表述。`
-    );
-  }
-  return withVariants("", [], "");
+  return graphFollowupController.openGraphFollowupNote(noteId, action, options);
 }
 
 function removeNoteFromClientState(noteId = "") {

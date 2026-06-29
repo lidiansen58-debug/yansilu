@@ -111,10 +111,6 @@ test("prototype-app keeps critical shell wrappers thin", () => {
 test("prototype-app residual controller and view candidates stay explicit and bounded", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const residualControllerCandidates = {
-    openGraphFollowupNote: 210,
-    saveGraphIsolatedDecision: 80,
-    runGraphAiConnectForNote: 80,
-    refineGraphPotentialRelationCandidate: 80,
     createGraphThemeIndexFromNoteIds: 80,
     createWritingProjectFromCurrentBasket: 80,
     createWritingProjectFromImportedPermanentNotes: 70,
@@ -122,7 +118,6 @@ test("prototype-app residual controller and view candidates stay explicit and bo
     checkCurrentAiProviderHealth: 55
   };
   const residualViewCandidates = {
-    graphFollowupDraftTemplates: 190,
     renderGraphAiAnalysisCard: 60,
     renderGraphBridgeGapSection: 60,
     renderGraphWeakRelationClueSection: 60,
@@ -223,6 +218,10 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-template-preview-view.js": 80,
     "settings-template-card-model.js": 80,
     "graph-ai-connect-model.js": 60,
+    "graph-ai-connect-runtime-controller.js": 230,
+    "graph-followup-controller.js": 260,
+    "graph-followup-draft-templates.js": 190,
+    "graph-isolated-decision-controller.js": 110,
     "graph-selection-host-deps.js": 80,
     "graph-selection-panel-renderer.js": 60,
     "graph-workspace-host-deps.js": 60
@@ -294,15 +293,15 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-icon-view.js",
     "graph-filter-options-view.js",
     "graph-map-preview-view.js",
-    "graph-isolated-decision-form-model.js",
-    "graph-isolated-decision-note-update.js",
+    "graph-ai-connect-runtime-controller.js",
+    "graph-followup-controller.js",
+    "graph-isolated-decision-controller.js",
     "note-loading-runtime.js",
     "note-template-runtime-helpers.js",
     "note-persistence-policy.js",
     "workspace-status-hint-model.js",
     "settings-template-preview-view.js",
     "settings-template-card-model.js",
-    "graph-ai-connect-model.js",
     "graph-selection-panel-renderer.js"
   ];
 

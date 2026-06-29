@@ -169,6 +169,18 @@ function readGraphAiConnectModel() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-ai-connect-model.js"), "utf8");
 }
 
+function readGraphAiConnectRuntimeController() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-ai-connect-runtime-controller.js"), "utf8");
+}
+
+function readGraphFollowupDraftTemplates() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-followup-draft-templates.js"), "utf8");
+}
+
+function readGraphIsolatedDecisionController() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-decision-controller.js"), "utf8");
+}
+
 function readGraphPanelStateBuilder() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-state-builder.js"), "utf8");
 }
@@ -942,6 +954,9 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const graphAiCandidatesSource = readGraphAiCandidates();
   const isolatedDecisionNoteUpdateSource = readGraphIsolatedDecisionNoteUpdate();
   const graphAiConnectModelSource = readGraphAiConnectModel();
+  const graphAiConnectRuntimeSource = readGraphAiConnectRuntimeController();
+  const graphFollowupDraftTemplatesSource = readGraphFollowupDraftTemplates();
+  const isolatedDecisionControllerSource = readGraphIsolatedDecisionController();
   const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const html = readPrototypeHtml();
   assert.match(source, /from "\.\/graph-isolated-workflow-shell\.js";/);
@@ -985,41 +1000,41 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphAiCandidatesSource, /if \(!pairKey \|\| seenPairKeys\.has\(pairKey\) \|\| existingRelationPairKeys\.has\(pairKey\)\) return null;/);
   assert.match(graphAiCandidatesSource, /actionSourceNoteId,/);
   assert.match(graphAiCandidatesSource, /actionTargetNoteId,/);
-  assert.match(source, /async function refineGraphPotentialRelationsForNote\(noteId = "", candidates = \[\], \{ directoryId = "" \} = \{\}\) \{/);
-  assert.match(source, /let generatedThisRun = 0;/);
-  assert.match(source, /let waitingConfirmationThisRun = 0;/);
-  assert.match(source, /let failedThisRun = 0;/);
-  assert.match(source, /let removedThisRun = 0;/);
-  assert.match(source, /const refineResult = await refineGraphPotentialRelationCandidate\(cleanNoteId, candidate, \{ directoryId \}\);/);
-  assert.match(source, /if \(refineResult\?\.aiReasonGenerated\) generatedThisRun \+= 1;/);
-  assert.match(source, /if \(refineResult\?\.removed\) \{/);
-  assert.match(source, /removedThisRun \+= 1;/);
-  assert.match(source, /continue;/);
-  assert.match(source, /if \(refineResult\?\.needsConfirmation\) \{/);
-  assert.match(source, /waitingConfirmationThisRun \+= 1;/);
-  assert.match(source, /if \(refineResult\?\.needsConfirmation\) \{[\s\S]*break;/);
-  assert.match(source, /if \(refineResult\?\.ok === false\) failedThisRun \+= 1;/);
-  assert.match(source, /已补充 \$\{generatedThisRun\} 条潜在关联的 AI 复核理由，另有 \$\{waitingConfirmationThisRun\} 条等待你确认当前 AI 设置后再生成理由/);
-  assert.match(source, /已补充 \$\{generatedThisRun\} 条潜在关联的 AI 复核理由，另有 \$\{failedThisRun\} 条暂未生成理由，可稍后重试/);
-  assert.match(source, /`\$\{failedThisRun\} 条潜在关联暂未生成 AI 理由，可稍后重试`/);
-  assert.match(source, /async function refineGraphPotentialRelationCandidate\(noteId = "", candidate = \{\}, \{ directoryId = "", confirmationApproved = false \} = \{\}\) \{/);
-  assert.match(source, /const refined = await refinePotentialRelationCandidate\(\{/);
-  assert.match(source, /const merged = Boolean\(refined && mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)\);/);
+  assert.match(graphAiConnectRuntimeSource, /async function refineGraphPotentialRelationsForNote\(noteId = "", candidates = \[\], \{ directoryId = "" \} = \{\}\) \{/);
+  assert.match(graphAiConnectRuntimeSource, /let generatedThisRun = 0;/);
+  assert.match(graphAiConnectRuntimeSource, /let waitingConfirmationThisRun = 0;/);
+  assert.match(graphAiConnectRuntimeSource, /let failedThisRun = 0;/);
+  assert.match(graphAiConnectRuntimeSource, /let removedThisRun = 0;/);
+  assert.match(graphAiConnectRuntimeSource, /const refineResult = await refineGraphPotentialRelationCandidate\(cleanNoteId, candidate, \{ directoryId \}\);/);
+  assert.match(graphAiConnectRuntimeSource, /if \(refineResult\?\.aiReasonGenerated\) generatedThisRun \+= 1;/);
+  assert.match(graphAiConnectRuntimeSource, /if \(refineResult\?\.removed\) \{/);
+  assert.match(graphAiConnectRuntimeSource, /removedThisRun \+= 1;/);
+  assert.match(graphAiConnectRuntimeSource, /continue;/);
+  assert.match(graphAiConnectRuntimeSource, /if \(refineResult\?\.needsConfirmation\) \{/);
+  assert.match(graphAiConnectRuntimeSource, /waitingConfirmationThisRun \+= 1;/);
+  assert.match(graphAiConnectRuntimeSource, /if \(refineResult\?\.needsConfirmation\) \{[\s\S]*break;/);
+  assert.match(graphAiConnectRuntimeSource, /if \(refineResult\?\.ok === false\) failedThisRun \+= 1;/);
+  assert.match(graphAiConnectRuntimeSource, /已补充 \$\{generatedThisRun\} 条潜在关联的 AI 复核理由，另有 \$\{waitingConfirmationThisRun\} 条等待你确认当前 AI 设置后再生成理由/);
+  assert.match(graphAiConnectRuntimeSource, /已补充 \$\{generatedThisRun\} 条潜在关联的 AI 复核理由，另有 \$\{failedThisRun\} 条暂未生成理由，可稍后重试/);
+  assert.match(graphAiConnectRuntimeSource, /`\$\{failedThisRun\} 条潜在关联暂未生成 AI 理由，可稍后重试`/);
+  assert.match(graphAiConnectRuntimeSource, /async function refineGraphPotentialRelationCandidate\(noteId = "", candidate = \{\}, \{ directoryId = "", confirmationApproved = false \} = \{\}\) \{/);
+  assert.match(graphAiConnectRuntimeSource, /const refined = await refinePotentialRelationCandidate\(\{/);
+  assert.match(graphAiConnectRuntimeSource, /const merged = Boolean\(refined && mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)\);/);
   assert.match(source, /function removePotentialRelationCandidateFromGraphAnalysis\(candidateToRemove = \{\}\) \{/);
   assert.match(source, /const nextSummary = graphReviewSummaryFromAnalysis\(nextAnalysis, graphState\.aiAnalysis\?\.reviewItems\?\.summary\);/);
   assert.match(source, /summary: nextSummary/);
-  assert.match(source, /const aiReason = String\(refined\?\.aiRationale \|\| ""\)\.trim\(\);/);
-  assert.match(source, /const aiError = String\(refined\?\.aiError \|\| ""\)\.trim\(\);/);
-  assert.match(source, /const needsConfirmation =/);
-  assert.match(source, /if \(needsConfirmation\) \{/);
-  assert.match(source, /confirmationApproved: true, confirmBudget: true/);
+  assert.match(graphAiConnectRuntimeSource, /const aiReason = String\(refined\?\.aiRationale \|\| ""\)\.trim\(\);/);
+  assert.match(graphAiConnectRuntimeSource, /const aiError = String\(refined\?\.aiError \|\| ""\)\.trim\(\);/);
+  assert.match(graphAiConnectRuntimeSource, /const needsConfirmation =/);
+  assert.match(graphAiConnectRuntimeSource, /if \(needsConfirmation\) \{/);
+  assert.match(graphAiConnectRuntimeSource, /confirmationApproved: true, confirmBudget: true/);
   assert.match(graphAiCandidatesSource, /return decorateCandidate\(\{[\s\S]*sourceContentHash: String\(candidate\.sourceContentHash \|\| candidate\.source_content_hash \|\| ""\)\.trim\(\),[\s\S]*relationType[\s\S]*\}, \{ nodeMap \}/);
   assert.match(source, /return graphDecoratePotentialRelationCandidate\(\{[\s\S]*\.\.\.refinedCandidate,[\s\S]*targetNoteId: refinedCandidate\.targetNoteId \|\| refinedCandidate\.toNoteId \|\| candidate\.targetNoteId[\s\S]*\}, \{ nodeMap \}\);/);
-  assert.match(source, /if \(code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND"\) \{/);
-  assert.match(source, /const removed = removePotentialRelationCandidateFromGraphAnalysis\(candidate\);/);
-  assert.match(source, /这条潜在关联已不在当前图谱范围内，已从候选列表移除/);
-  assert.match(source, /else setStatus\(`生成关系说明失败：\$\{String\(error\?\.\message \|\| error\)\}`\, "warn"\);/);
-  assert.match(source, /mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)/);
+  assert.match(graphAiConnectRuntimeSource, /if \(code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND"\) \{/);
+  assert.match(graphAiConnectRuntimeSource, /const removed = removePotentialRelationCandidateFromGraphAnalysis\(candidate\);/);
+  assert.match(graphAiConnectRuntimeSource, /这条潜在关联已不在当前图谱范围内，已从候选列表移除/);
+  assert.match(graphAiConnectRuntimeSource, /else setStatus\(`生成关系说明失败：\$\{String\(error\?\.\message \|\| error\)\}`\, "warn"\);/);
+  assert.match(graphAiConnectRuntimeSource, /mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)/);
   assert.match(source, /function graphPotentialRelationNeedsConfirmation\(candidate = \{\}\) \{/);
   assert.match(source, /data-graph-ai-refine-confirm/);
   assert.match(source, /data-graph-ai-refine-retry/);
@@ -1097,7 +1112,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphCanvasEventRouterSource, /const rationaleInput = event\.target\.closest\("\[data-graph-isolated-rationale\]"\);/);
   assert.match(graphCanvasEventRouterSource, /markGraphIsolatedRationaleUserEdited\(rationaleInput\);/);
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
-  assert.match(source, /buildGraphIsolatedDecisionNoteUpdate\(\{ note, mode, text \}/);
+  assert.match(isolatedDecisionControllerSource, /buildGraphIsolatedDecisionNoteUpdate\(\{ note, mode, text \}/);
   assert.match(isolatedDecisionNoteUpdateSource, /graphUpsertMarkdownSection\(originalBody, thesisHeading, text\)/);
   assert.match(isolatedDecisionNoteUpdateSource, /graphUpsertMarkdownSection\(originalBody, relationNoteHeading,/);
   assert.match(source, /function graphNoteHasSavedIsolationDisposition\(note = \{\}\) \{/);
@@ -1144,16 +1159,16 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /data-graph-relation-type="\$\{escapeHtml\(candidate\.relationType\)\}"/);
   assert.match(source, /data-graph-rationale-draft="\$\{escapeHtml\(candidate\.rationaleDraft\)\}"/);
   assert.match(source, /data-graph-insight-question-draft="\$\{escapeHtml\(candidate\.insightQuestionDraft\)\}"/);
-  assert.match(source, /async function runGraphAiConnectForNote\(noteId = ""\) \{/);
+  assert.match(graphAiConnectRuntimeSource, /async function runGraphAiConnectForNote\(noteId = ""\) \{/);
   assert.match(graphAiConnectModelSource, /relationLimit: 24,/);
   assert.match(graphAiConnectModelSource, /focusNoteId: cleanNoteId,/);
   assert.match(graphAiConnectModelSource, /currentNoteId: cleanNoteId,/);
-  assert.match(source, /if \(candidates\.length\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
-  assert.match(source, /graphRelationWorkflowController\.startAiConnectForNote\(cleanNoteId\);/);
-  assert.match(source, /graphRelationWorkflowController\.applyAiConnectRoute\(\{/);
+  assert.match(graphAiConnectRuntimeSource, /if \(candidates\.length\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
+  assert.match(graphAiConnectRuntimeSource, /graphRelationWorkflowController\.startAiConnectForNote\(cleanNoteId\);/);
+  assert.match(graphAiConnectRuntimeSource, /graphRelationWorkflowController\.applyAiConnectRoute\(\{/);
   assert.match(workflowControllerSource, /const visibleEdgeCount = graphDirectNetworkEdgeCount\(cleanNoteId, edges,/);
   assert.match(workflowControllerSource, /const graphSelectionKind = previousSelectionKind === "isolated" \|\| \(!previousSelectionKind && visibleEdgeCount === 0\) \? "isolated" : "node";/);
-  assert.match(source, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
+  assert.match(graphAiConnectRuntimeSource, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
   assert.match(source, /async function saveGraphAiCandidateRelation\(button = null\) \{/);
   assert.match(source, /async function saveGraphCandidateRelation\(button = null\) \{/);
   assert.match(source, /return graphRelationSaveController\.saveAiCandidateRelation\(button\);/);
@@ -1171,8 +1186,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(saveControllerSource, /if \(cleanNoteId === cleanTargetNoteId\) \{/);
   assert.match(saveControllerSource, /await refreshDirectoryGraph\(\);/);
   assert.match(saveControllerSource, /normalizeRelationSaveTransactionInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
-  assert.match(source, /rationaleDraft,/);
-  assert.match(source, /insightQuestionDraft,/);
+  assert.match(graphFollowupDraftTemplatesSource, /rationaleDraft:/);
+  assert.match(graphFollowupDraftTemplatesSource, /insightQuestionDraft:/);
   assert.match(nodeSelectionPanelSource, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
   assert.match(source, /runAiConnectForNote: runGraphAiConnectForNote/);
   assert.match(graphCanvasEventRouterSource, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
