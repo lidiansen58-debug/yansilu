@@ -135,6 +135,14 @@ export function readGraphPanelRendererSource() {
   return readRepoText("apps", "web", "src", "graph-panel-renderer.js");
 }
 
+export function readGraphSelectionHostDepsSource() {
+  return readRepoText("apps", "web", "src", "graph-selection-host-deps.js");
+}
+
+export function readGraphSelectionPanelRendererSource() {
+  return readRepoText("apps", "web", "src", "graph-selection-panel-renderer.js");
+}
+
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
