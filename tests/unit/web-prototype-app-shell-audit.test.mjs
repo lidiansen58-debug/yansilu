@@ -58,7 +58,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const lineCount = source.split(/\r?\n/).length;
 
-  assert.ok(lineCount < 6000, `prototype-app.js should stay under the shell budget, got ${lineCount} lines`);
+  assert.ok(lineCount < 5960, `prototype-app.js should stay under the shell budget, got ${lineCount} lines`);
   assert.match(source, /bindAiInboxWorkspaceEvents/);
   assert.match(source, /bindAiSuggestionsWorkspaceEvents/);
   assert.match(source, /createGraphRelationWorkflowController/);

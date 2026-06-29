@@ -743,7 +743,6 @@ function setStatus(text, cls = "", options = {}) {
   return true;
 }
 
-
 function readStoredSystemMessages() {
   return readStoredSystemMessagesForRuntime({
     storage: window.localStorage,
@@ -760,10 +759,6 @@ function persistSystemMessages() {
     limit: SYSTEM_MESSAGES_LIMIT
   });
 }
-
-
-
-
 
 const systemMessagesShellController = createSystemMessagesShellController({
   hostProvider: createSystemMessagesPrototypeHostProvider(() => ({
@@ -834,7 +829,6 @@ function addSystemMessage(message = {}, { interrupt = false } = {}) { return add
 function upsertSystemMessage(message = {}, { interrupt = false, preserveRead = true } = {}) { return upsertSystemMessageForRuntime(message, { interrupt, preserveRead }, systemMessagesRuntimeDeps()); }
 
 function resolveSystemMessageByDedupeKey(dedupeKey = "") { return resolveSystemMessageByDedupeKeyForRuntime(dedupeKey, systemMessagesRuntimeDeps()); }
-
 
 function scheduledTaskReviewArtifactCount(summary = {}) {
   return (Array.isArray(summary?.runs) ? summary.runs : []).reduce((total, run) => {
@@ -1222,7 +1216,20 @@ const settingsAiRuntimeController = createSettingsAiRuntimeController(() => ({
   window
 }));
 
-function aiSettingsPayload() { return settingsAiRuntimeController.aiSettingsPayload(); }
+const {
+  aiSettingsPayload,
+  bootstrapOllamaLocalAiFromUi,
+  checkCurrentAiProviderHealth,
+  detectOllamaModels,
+  persistOllamaRuntimeSelectionAfterPreview,
+  previewOllamaLocalAiBootstrapFromUi,
+  pullRecommendedOllamaModel,
+  refreshAiRoutePreview,
+  selectInstalledLocalModelFromUi,
+  startOllamaRuntimeFromUi,
+  stopOllamaRuntimeFromUi,
+  syncAiProviderConfigToApi
+} = settingsAiRuntimeController;
 
 function aiProviderConfigPayload(options = {}) {
   const providerId = String(options.providerId || currentAiProviderId()).trim();
@@ -1291,7 +1298,6 @@ async function saveLocalOllamaProviderConfig() {
 }
 function currentOllamaModelTiers() { return currentOllamaModelTiersForState(settingsState.ai); }
 
-
 function hasLocalModel(modelName = "") { return modelNameExistsInList(modelName, settingsState.ai.localRuntimeModels); }
 
 function installedLocalModelReady(modelName = settingsState.ai.localModel) { return installedLocalModelReadyForState(settingsState.ai, modelName); }
@@ -1356,28 +1362,6 @@ function ollamaRuntimeStateLabel() {
   if (status === "unavailable") return "未检测到本地 AI";
   return "等待检测本地 AI";
 }
-
-async function previewOllamaLocalAiBootstrapFromUi(options = {}) { return settingsAiRuntimeController.previewOllamaLocalAiBootstrapFromUi(options); }
-
-async function bootstrapOllamaLocalAiFromUi(options = {}) { return settingsAiRuntimeController.bootstrapOllamaLocalAiFromUi(options); }
-
-async function persistOllamaRuntimeSelectionAfterPreview() { return settingsAiRuntimeController.persistOllamaRuntimeSelectionAfterPreview(); }
-
-async function detectOllamaModels(options = {}) { return settingsAiRuntimeController.detectOllamaModels(options); }
-
-async function startOllamaRuntimeFromUi() { return settingsAiRuntimeController.startOllamaRuntimeFromUi(); }
-
-async function stopOllamaRuntimeFromUi() { return settingsAiRuntimeController.stopOllamaRuntimeFromUi(); }
-
-async function selectInstalledLocalModelFromUi(modelName = "") { return settingsAiRuntimeController.selectInstalledLocalModelFromUi(modelName); }
-
-async function refreshAiRoutePreview(options = {}) { return settingsAiRuntimeController.refreshAiRoutePreview(options); }
-
-async function syncAiProviderConfigToApi() { return settingsAiRuntimeController.syncAiProviderConfigToApi(); }
-
-async function pullRecommendedOllamaModel(modelName = "") { return settingsAiRuntimeController.pullRecommendedOllamaModel(modelName); }
-
-async function checkCurrentAiProviderHealth() { return settingsAiRuntimeController.checkCurrentAiProviderHealth(); }
 
 function hideEditorHelper() {
   const helper = $("editorHelper");
@@ -2045,17 +2029,15 @@ const aiInboxActionRoutes = createAiInboxActionRoutes(() => ({
   }
 }));
 
-async function recordAiInboxReviewDecision(decision) { return aiInboxActionRoutes.recordAiInboxReviewDecision(decision); }
+const {
+  acceptAiInboxLinkSuggestion,
+  adoptAiInboxFieldSuggestionDraft,
+  applyAiInboxRecommendedAction,
+  applyAiInboxSuggestionStatus,
+  promoteAiInboxArtifactToNote,
+  recordAiInboxReviewDecision
+} = aiInboxActionRoutes;
 
-async function applyAiInboxRecommendedAction(action = "") { return aiInboxActionRoutes.applyAiInboxRecommendedAction(action); }
-
-async function acceptAiInboxLinkSuggestion(artifactId) { return aiInboxActionRoutes.acceptAiInboxLinkSuggestion(artifactId); }
-
-async function promoteAiInboxArtifactToNote(artifactId) { return aiInboxActionRoutes.promoteAiInboxArtifactToNote(artifactId); }
-
-async function adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId = "") { return aiInboxActionRoutes.adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId); }
-
-async function applyAiInboxSuggestionStatus(status, expectedSuggestionId = "") { return aiInboxActionRoutes.applyAiInboxSuggestionStatus(status, expectedSuggestionId); }
 function normalizeOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
@@ -2124,42 +2106,9 @@ function noteSaveFailureFeedback(error) {
 
 function renderThinkingStatusBadge(value, className = "thinking-status-badge") { return renderThinkingStatusBadgeHtml(value, { className, escapeHtml }); }
 
-function candidateIdsForSelection(candidatePreview, candidateSelection = null) { return importResultHostRoutes.candidateIdsForSelection(candidatePreview, candidateSelection); }
-
-function defaultSelectedCandidateIds(candidatePreview, candidateSelection = null, originalityGuard = null) { return importResultHostRoutes.defaultSelectedCandidateIds(candidatePreview, candidateSelection, originalityGuard); }
-
-function syncImportSelection(importRecordId, candidatePreview, candidateSelection = null, options = {}) { return importResultHostRoutes.syncImportSelection(importRecordId, candidatePreview, candidateSelection, options); }
-
-function selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection = null) { return importResultHostRoutes.selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection); }
-
-function selectionSummary(candidatePreview, importRecordId, selection = null, candidateSelection = null) { return importResultHostRoutes.selectionSummary(candidatePreview, importRecordId, selection, candidateSelection); }
-
-function renderImportWritingActions(payload = {}) { return importResultHostRoutes.renderImportWritingActions(payload); }
-
-function summarizeLiteratureBatchFromNotes(notes = []) { return importResultHostRoutes.summarizeLiteratureBatchFromNotes(notes); }
-
-function literatureBatchSummaryForPayload(payload = {}) { return importResultHostRoutes.literatureBatchSummaryForPayload(payload); }
-
-function renderWritingResultDetails(data = {}) { return importResultHostRoutes.renderWritingResultDetails(data); }
-
-function renderResult(el, payload) { return importResultHostRoutes.renderResult(el, payload); }
-
-function showImportOperationResultModal(mode = "import", title = "操作结果") { return importResultHostRoutes.showImportOperationResultModal(mode, title); }
-
-function hideImportOperationResultModal() { return importResultHostRoutes.hideImportOperationResultModal(); }
-
-function showImportResult(payload) { return importResultHostRoutes.showImportResult(payload); }
-
-function showExportResult(payload) { return importResultHostRoutes.showExportResult(payload); }
-
-
 function suggestedWritingProjectTitle(noteIds = []) { return computeSuggestedWritingProjectTitle(noteIds, { noteById: writingNoteById }); }
 
 function normalizeWritingProjectTitleSeed(title = "") { return computeNormalizeWritingProjectTitleSeed(title); }
-
-function showWritingResult(payload) { return importResultHostRoutes.showWritingResult(payload); }
-
-function syncWritingResultFromCurrentState() { return importResultHostRoutes.syncWritingResultFromCurrentState(); }
 
 async function ensureNotesLoaded(noteIds, { force = false } = {}) {
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
@@ -2189,10 +2138,6 @@ async function ensureNotesLoaded(noteIds, { force = false } = {}) {
   }
 }
 
-async function refreshImportLiteratureBatchSummary(payload = {}) { return importResultHostRoutes.refreshImportLiteratureBatchSummary(payload); }
-
-async function enrichImportHistoryItemsWithLiteratureProgress(items = []) { return importResultHostRoutes.enrichImportHistoryItemsWithLiteratureProgress(items); }
-
 function literatureQueueLaneForNote(note) {
   return computeLiteratureQueueLaneForNote(note, {
     literatureTemplateSectionLabelCandidates,
@@ -2219,8 +2164,6 @@ function setLiteratureQueueFocus(noteIds = [], label = "") {
 function clearLiteratureQueueFocus() {
   setLiteratureQueueFocus([], "");
 }
-
-async function openImportedLiteratureQueue() { return importResultHostRoutes.openImportedLiteratureQueue(); }
 
 const writingEntryRuntimeController = createWritingEntryRuntimeController(() => ({
   $,
@@ -2286,10 +2229,36 @@ const importResultHostRoutes = createImportResultHostRoutes(() => ({
   writingProjectRuntimeController
 }));
 
+const {
+  activeImportPreviewContext,
+  addImportedPermanentNotesToWritingBasket,
+  applyCandidateSelection,
+  candidateIdsForSelection,
+  createWritingProjectFromImportedPermanentNotes,
+  defaultSelectedCandidateIds,
+  enrichImportHistoryItemsWithLiteratureProgress,
+  hideImportOperationResultModal,
+  literatureBatchSummaryForPayload,
+  openImportedLiteratureQueue,
+  refreshImportLiteratureBatchSummary,
+  renderImportWritingActions,
+  renderResult,
+  renderWritingResultDetails,
+  rerenderImportResult,
+  selectedCandidateIdsFor,
+  selectionSummary,
+  setImportResultFocus,
+  showExportResult,
+  showImportOperationResultModal,
+  showImportResult,
+  showWritingResult,
+  summarizeLiteratureBatchFromNotes,
+  syncImportSelection,
+  syncWritingResultFromCurrentState,
+  updateImportConfirmButton
+} = importResultHostRoutes;
+
 async function createWritingProjectFromCurrentBasket() { return writingProjectRuntimeController.createWritingProjectFromCurrentBasket(); }
-
-async function addImportedPermanentNotesToWritingBasket(options = {}) { return importResultHostRoutes.addImportedPermanentNotesToWritingBasket(options); }
-
 
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
@@ -2380,8 +2349,6 @@ async function saveWritingBasketAsThemeIndex() {
   return card;
 }
 
-async function createWritingProjectFromImportedPermanentNotes() { return importResultHostRoutes.createWritingProjectFromImportedPermanentNotes(); }
-
 const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   $,
   createWritingProject,
@@ -2424,16 +2391,6 @@ async function refreshWritingProjectState() {
     return writingState.project;
   }
 }
-
-function activeImportPreviewContext() { return importResultHostRoutes.activeImportPreviewContext(); }
-
-function updateImportConfirmButton() { return importResultHostRoutes.updateImportConfirmButton(); }
-
-function rerenderImportResult() { return importResultHostRoutes.rerenderImportResult(); }
-
-function setImportResultFocus(reason) { return importResultHostRoutes.setImportResultFocus(reason); }
-
-function applyCandidateSelection(action) { return importResultHostRoutes.applyCandidateSelection(action); }
 
 async function refreshImportedNotesView() {
   try {
@@ -3522,8 +3479,6 @@ function writingCandidateNotes() {
   });
 }
 
-
-
 function writingThemeLabels(notes) { return computeWritingThemeLabels(notes, { parseTags }); }
 
 function writingThemeSummary(notes) { return computeWritingThemeSummary(notes, { parseTags }); }
@@ -3674,8 +3629,6 @@ async function removeNoteFromSelectedThemeIndex(noteId) {
 }
 
 async function createWritingProjectFromThemeIndex(indexCardId) { return writingThemeProjectRuntime.createWritingProjectFromThemeIndex(indexCardId); }
-
-
 
 function writingSourceIndexSummary() { return computeWritingSourceIndexSummary(writingState.sourceIndexIds, { themeIndexById: writingThemeIndexById }); }
 
@@ -4141,8 +4094,6 @@ async function loadWritingThemeIndexes() {
   }
 }
 
-
-
 function writingThemeDetailHintText(indexCard) {
   if (!indexCard?.id) return "查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作中心入口。";
   const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
@@ -4354,9 +4305,7 @@ async function exportWritingScaffold(projectLike = null) {
   return { ...bundle, fileName, characters: markdown.length, bytes };
 }
 
-
 function renderWritingToplineMetric(label, value, note, tone = "") { return renderWritingToplineMetricView(label, value, note, tone, { escapeHtml }); }
-
 
 const writingBookRuntime = createWritingBookRuntime({
   $,
