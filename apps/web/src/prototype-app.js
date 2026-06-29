@@ -810,6 +810,9 @@ import {
   providerHealthResultStatus
 } from "./settings-ai-runtime-actions.js";
 import {
+  buildAiProviderConfigPayload
+} from "./settings-ai-provider-config-actions.js";
+import {
   AI_LOCAL_MODEL_TIERS,
   AI_REMOTE_MODEL_TIERS,
   OLLAMA_CHAT_ENDPOINT_URL,
@@ -2008,61 +2011,17 @@ function aiSettingsPayload() {
 
 function aiProviderConfigPayload(options = {}) {
   const providerId = String(options.providerId || currentAiProviderId()).trim();
-  const endpointUrl = String(options.endpointUrl || settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
-  const healthEndpointUrl = String(
-    options.healthEndpointUrl || settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || ""
-  ).trim();
-  const secretRef = String(options.secretRef || settingsState.ai.secretRef || "").trim();
-  const localModel = String(options.localModel || settingsState.ai.localModel || "").trim();
-  const remoteRuntimeModel = String(options.remoteRuntimeModel || settingsState.ai.remoteRuntimeModel || "").trim();
-  const localProviderConfig = Boolean(localModel) && ["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId);
-  const remoteConfigurableProvider = isRemoteConfigurableProviderId(providerId);
-  const remoteRuntimeModelMap = runtimeModelMapForRemoteModel(providerId, remoteRuntimeModel);
-  const authMode = options.authMode || authModeForProvider(providerId, settingsState.ai.routePreview);
-  const secretReady = !providerAuthModeRequiresSecret(authMode) || Boolean(secretRef);
-  const configRunnable = remoteConfigurableProvider
-    ? Boolean(endpointUrl && remoteRuntimeModel && secretReady)
-    : Boolean(endpointUrl);
-  return {
+  return buildAiProviderConfigPayload({
+    ...settingsState.ai,
+    ...options
+  }, {
     providerId,
-    authMode,
-    status: configRunnable ? "enabled" : "disabled",
-    secretRef,
-    endpointUrl,
-    ...(localProviderConfig
-      ? {
-          runtimeModelMap: Object.fromEntries(AI_LOCAL_MODEL_TIERS.map((tier) => [`${providerId}:${tier}`, localModel]))
-        }
-      : {}),
-    ...(!localProviderConfig && remoteConfigurableProvider
-      ? {
-          runtimeModelMap: remoteRuntimeModelMap
-        }
-      : {}),
-    ...(healthEndpointUrl
-      ? {
-          healthCheck: {
-            enabled: true,
-            endpointUrl: healthEndpointUrl,
-            method: "GET",
-            timeoutMs: 5000,
-            expectedStatus: 200,
-            intervalSeconds: 300
-          }
-        }
-      : {
-          healthCheck: {
-            enabled: false,
-            endpointUrl: "",
-            method: "GET",
-            timeoutMs: 5000,
-            expectedStatus: 200,
-            intervalSeconds: 300
-          }
-        })
-  };
+    authMode: options.authMode || authModeForProvider(providerId, settingsState.ai.routePreview),
+    isRemoteConfigurableProvider: isRemoteConfigurableProviderId,
+    providerAuthModeRequiresSecret,
+    localModelTiers: AI_LOCAL_MODEL_TIERS
+  });
 }
-
 function upsertAiProviderConfig(config = null) {
   if (!config) return;
   const providerId = String(config.providerId || config.provider_id || "").trim();

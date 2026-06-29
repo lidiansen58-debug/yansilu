@@ -9,6 +9,9 @@ import {
   providerHealthCheckPlan,
   providerHealthResultStatus
 } from "../../apps/web/src/settings-ai-runtime-actions.js";
+import {
+  buildAiProviderConfigPayload
+} from "../../apps/web/src/settings-ai-provider-config-actions.js";
 
 test("AI settings runtime payload includes ready local model details only when local runtime is ready", () => {
   const payload = buildAiSettingsPayload({
@@ -68,6 +71,54 @@ test("AI settings runtime payload includes touched remote provider configuration
   assert.equal(payload.runtimeModelMap["openai_compatible_gateway:standard"], "deepseek-chat");
   assert.equal(payload.advancedSettings.secretRef, "ai-secret");
   assert.equal(payload.advancedSettings.runtimeMode, "cloud_only");
+});
+
+test("AI provider config payload enables local and remote configs from injected state", () => {
+  const localPayload = buildAiProviderConfigPayload({
+    localModel: "qwen3:8b",
+    providerEndpointUrl: "http://127.0.0.1:11434/v1/chat/completions"
+  }, {
+    providerId: "ollama_local_gateway",
+    authMode: "none",
+    isRemoteConfigurableProvider: () => false,
+    providerAuthModeRequiresSecret: () => false,
+    localModelTiers: ["cheap_fast", "standard"]
+  });
+
+  assert.equal(localPayload.providerId, "ollama_local_gateway");
+  assert.equal(localPayload.status, "enabled");
+  assert.equal(localPayload.runtimeModelMap["ollama_local_gateway:cheap_fast"], "qwen3:8b");
+  assert.equal(localPayload.healthCheck.enabled, true);
+
+  const remotePayload = buildAiProviderConfigPayload({
+    providerEndpointUrl: "https://ai.example/v1",
+    providerHealthEndpointUrl: "https://ai.example/health",
+    remoteRuntimeModel: "deepseek-chat",
+    secretRef: "secret_ref"
+  }, {
+    providerId: "openai_compatible_gateway",
+    authMode: "api_key",
+    isRemoteConfigurableProvider: () => true,
+    providerAuthModeRequiresSecret: () => true
+  });
+
+  assert.equal(remotePayload.status, "enabled");
+  assert.equal(remotePayload.secretRef, "secret_ref");
+  assert.equal(remotePayload.runtimeModelMap["openai_compatible_gateway:standard"], "deepseek-chat");
+  assert.equal(remotePayload.healthCheck.enabled, true);
+
+  const disabledRemote = buildAiProviderConfigPayload({
+    providerEndpointUrl: "https://ai.example/v1",
+    remoteRuntimeModel: "deepseek-chat",
+    secretRef: ""
+  }, {
+    providerId: "openai_compatible_gateway",
+    authMode: "api_key",
+    isRemoteConfigurableProvider: () => true,
+    providerAuthModeRequiresSecret: () => true
+  });
+
+  assert.equal(disabledRemote.status, "disabled");
 });
 
 test("Ollama pull plan derives model command and enable flag from runtime mode", () => {
