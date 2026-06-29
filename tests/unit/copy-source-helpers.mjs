@@ -144,7 +144,13 @@ export function readGraphSelectionPanelRendererSource() {
 }
 
 export function readGraphResidualViewsSource() {
-  return readRepoText("apps", "web", "src", "graph-residual-views.js");
+  return Promise.all([
+    readRepoText("apps", "web", "src", "graph-residual-views.js"),
+    readRepoText("apps", "web", "src", "graph-relation-workspace-runtime.js"),
+    readRepoText("apps", "web", "src", "graph-isolated-workspace-runtime.js"),
+    readRepoText("apps", "web", "src", "graph-selection-residual-view.js"),
+    readRepoText("apps", "web", "src", "graph-thinking-panel-residual-view.js")
+  ]).then((sources) => sources.join("\n"));
 }
 
 export async function readEditorDomainSource() {

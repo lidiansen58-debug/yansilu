@@ -130,7 +130,19 @@ function readPrototypeApp() {
 }
 
 function readGraphResidualViews() {
-  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-residual-views.js"), "utf8");
+  return [
+    "graph-residual-views.js",
+    "graph-relation-workspace-runtime.js",
+    "graph-isolated-workspace-runtime.js",
+    "graph-selection-residual-view.js",
+    "graph-thinking-panel-residual-view.js"
+  ]
+    .map((file) => fs.readFileSync(path.join(repoRoot, "apps/web/src", file), "utf8"))
+    .join("\n");
+}
+
+function readGraphRouteRuntime() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-route-runtime.js"), "utf8");
 }
 
 function readSettingsEventBindings() {
@@ -894,8 +906,8 @@ test("graph research details cover nodes and relation gravity lines with next ac
 });
 
 test("graph AI analysis opens the question workbench instead of navigating away", () => {
-  const source = readPrototypeApp();
-  const match = source.match(/async function runGraphAiAnalysis\(\) \{([\s\S]*?)\n\}/);
+  const source = readGraphRouteRuntime();
+  const match = source.match(/async function runGraphAiAnalysis\(\) \{([\s\S]*?)\n  \}/);
   assert.ok(match, "expected runGraphAiAnalysis() to exist");
 
   assert.match(match[1], /graphState\.thinkingPanelVisible = true;/);
@@ -960,6 +972,7 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
 test("isolated graph notes can request AI-assisted relation candidates and save them inside the graph workspace", () => {
   const source = readGraphResidualViews();
   const appShellSource = readPrototypeApp();
+  const graphRouteSource = readGraphRouteRuntime();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
@@ -1055,13 +1068,13 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /function graphPotentialRelationNeedsConfirmation\(candidate = \{\}\) \{/);
   assert.match(source, /data-graph-ai-refine-confirm/);
   assert.match(source, /data-graph-ai-refine-retry/);
-  assert.match(appShellSource, /已重新生成这条潜在关联的 AI 复核理由/);
-  assert.match(appShellSource, /async function triggerGraphPotentialRelationRefine\(/);
-  assert.match(appShellSource, /async function confirmGraphPotentialRelationRefine\(button = null\) \{/);
-  assert.match(appShellSource, /async function retryGraphPotentialRelationRefine\(button = null\) \{/);
-  assert.match(appShellSource, /正在重新生成关系说明/);
-  assert.match(appShellSource, /progressStatus: "正在按当前 AI 设置生成关系说明\.\.\."/);
-  assert.doesNotMatch(appShellSource, /setStatus\("已确认使用当前 AI 设置，正在生成关系说明", "ok"\);/);
+  assert.match(graphRouteSource, /已重新生成这条潜在关联的 AI 复核理由/);
+  assert.match(graphRouteSource, /async function triggerGraphPotentialRelationRefine\(/);
+  assert.match(graphRouteSource, /async function confirmGraphPotentialRelationRefine\(button = null\) \{/);
+  assert.match(graphRouteSource, /async function retryGraphPotentialRelationRefine\(button = null\) \{/);
+  assert.match(graphRouteSource, /正在重新生成关系说明/);
+  assert.match(graphRouteSource, /progressStatus: "正在按当前 AI 设置生成关系说明\.\.\."/);
+  assert.doesNotMatch(graphRouteSource, /setStatus\("已确认使用当前 AI 设置，正在生成关系说明", "ok"\);/);
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(\s*noteId = "",\s*\{/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlowHtml\(noteId, \{/);
   assert.match(source, /aiCandidatesForNote: graphAiRelationCandidatesForNote/);
@@ -1186,10 +1199,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(workflowControllerSource, /const visibleEdgeCount = graphDirectNetworkEdgeCount\(cleanNoteId, edges,/);
   assert.match(workflowControllerSource, /const graphSelectionKind = previousSelectionKind === "isolated" \|\| \(!previousSelectionKind && visibleEdgeCount === 0\) \? "isolated" : "node";/);
   assert.match(graphAiConnectRuntimeSource, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
-  assert.match(appShellSource, /async function saveGraphAiCandidateRelation\(button = null\) \{/);
-  assert.match(appShellSource, /async function saveGraphCandidateRelation\(button = null\) \{/);
-  assert.match(appShellSource, /return graphRelationSaveController\.saveAiCandidateRelation\(button\);/);
-  assert.match(appShellSource, /return graphRelationSaveController\.saveCandidateRelation\(button\);/);
+  assert.match(graphRouteSource, /async function saveGraphAiCandidateRelation\(button = null\) \{/);
+  assert.match(graphRouteSource, /async function saveGraphCandidateRelation\(button = null\) \{/);
+  assert.match(graphRouteSource, /return graphRelationSaveController\.saveAiCandidateRelation\(button\);/);
+  assert.match(graphRouteSource, /return graphRelationSaveController\.saveCandidateRelation\(button\);/);
   assert.match(saveControllerSource, /if \(!confirmableRelationTypes\.has\(relationType\) \|\| relationType === "no_relation"\) \{/);
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
   assert.match(source, /return graphRelationSaveController\.saveConfirmedRelation\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion, button \}\);/);
@@ -1801,6 +1814,7 @@ test("graph node selection summarizes position, relation quality, and next actio
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
   const source = readGraphResidualViews();
   const appShellSource = readPrototypeApp();
+  const graphRouteSource = readGraphRouteRuntime();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const systemMessageSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-messages.js"), "utf8");
@@ -1816,12 +1830,12 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
   assert.match(workspaceSource, /data-graph-create-theme-index/);
   assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "主题候选", relationCount = 0, tone = "" \} = \{\}\) \{/);
-  assert.match(appShellSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
-  assert.match(appShellSource, /createIndexCard\(\{/);
-  assert.match(appShellSource, /centralQuestion: "杩欑粍绗旇鍏卞悓鍥炵瓟浠€涔堥棶棰橈紵"|centralQuestion: "这组笔记共同回答什么问题？"/);
-  assert.match(appShellSource, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
-  assert.match(appShellSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
-  assert.match(appShellSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
+  assert.match(graphRouteSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
+  assert.match(graphRouteSource, /createIndexCard\(\{/);
+  assert.match(graphRouteSource, /centralQuestion: "杩欑粍绗旇鍏卞悓鍥炵瓟浠€涔堥棶棰橈紵"|centralQuestion: "这组笔记共同回答什么问题？"/);
+  assert.match(graphRouteSource, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
+  assert.match(graphRouteSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
+  assert.match(graphRouteSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
   assert.match(readGraphCanvasEventRouter(), /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
   assert.match(appShellSource, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
   assert.match(systemMessageWorkflowSource, /focus === "writing"/);

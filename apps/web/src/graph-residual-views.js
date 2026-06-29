@@ -1,3 +1,16 @@
+import {
+  createGraphIsolatedWorkspaceRuntime
+} from "./graph-isolated-workspace-runtime.js";
+import {
+  createGraphRelationWorkspaceRuntime
+} from "./graph-relation-workspace-runtime.js";
+import {
+  createGraphSelectionResidualView
+} from "./graph-selection-residual-view.js";
+import {
+  createGraphThinkingPanelResidualView
+} from "./graph-thinking-panel-residual-view.js";
+
 export function createGraphResidualViews(deps = {}) {
   const {
     GRAPH_CONFLICT_RELATION_TYPES,
@@ -45,6 +58,32 @@ export function createGraphResidualViews(deps = {}) {
     setGraphFocusContextModeForRuntime,
     setGraphFocusDepthForRuntime
   } = deps;
+
+function graphResidualRuntimeDeps(overrides = {}) {
+  return {
+    ...deps,
+    escapeHtml,
+    graphState,
+    state,
+    noteTypeLabel,
+    renderGraphIcon,
+    graphNodeTitle,
+    graphEdgeSelectionKey,
+    graphRelationGroupMeta,
+    graphRelationSourceLabel,
+    graphRelationStatusLabel,
+    graphRelationTypeLabel,
+    graphRelationVisual,
+    graphThemeSelectionKey,
+    graphIsolatedSelectionKey,
+    graphBridgeSelectionKey,
+    suggestedThemeIndexTitle,
+    titleFromBody,
+    uniqueStrings,
+    writeStoredText,
+    ...overrides
+  };
+}
 
 function renderGraphIcon(...args) {
   return renderGraphIconView(...args);
@@ -1281,164 +1320,6 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
   });
 }
 
-function graphIsolatedDecisionMeta(isolated = {}, note = {}) {
-  const thesis = String(isolated?.thesis || note?.thesis || "").trim();
-  const body = String(note?.body || note?.content || "").trim();
-  const suggestedAction = String(isolated?.suggestedAction || isolated?.suggested_action || "").trim().toLowerCase();
-  const hasClearThesis = thesis.length >= 18;
-  const hasEnoughMaterial = body.length >= 320 || thesis.length >= 42;
-  if (hasClearThesis && hasEnoughMaterial && suggestedAction !== "review_missing_relations") {
-    return {
-      label: "可先保留独立",
-      tone: "keep",
-      detail: "它可能是一条尚未进入主题的独立观察。现在不必强行连线，先保留它的清晰判断，再等新材料靠近。",
-      next: "给它补一句“暂时独立的理由”，避免日后误判成遗漏关系。"
-    };
-  }
-  if (hasClearThesis) {
-    return {
-      label: "优先寻找桥接",
-      tone: "bridge",
-      detail: "它已经有可读判断，但没有进入关系结构。最值得做的是找一条真实桥接，而不是随便连到相似标题。",
-      next: "先问：它能支撑哪个观点、限制哪个主题，或给哪个问题提供反例？"
-    };
-  }
-  if (body.length < 160 && thesis.length < 12) {
-    return {
-      label: "暂存观察",
-      tone: "hold",
-      detail: "它现在更像材料或灵感片段，还未形成永久笔记应有的判断。先暂存，不急着连进图谱。",
-      next: "补一句自己的判断：这条笔记到底想说明什么？"
-    };
-  }
-  return {
-    label: "先重写判断",
-    tone: "rewrite",
-    detail: "它有一些内容，但图谱还读不出稳定角色。比起连线，先把中心判断写清楚更有价值。",
-    next: "把它改写成一句可被支持、反驳或限定的判断。"
-  };
-}
-
-function openGraphIsolatedDecisionAction(noteId = "", action = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  const cleanAction = String(action || "").trim().toLowerCase();
-  if (!cleanNoteId) return false;
-  if (cleanAction === "bridge") {
-    setGraphIsolatedWorkflowActiveTab(cleanNoteId, "candidates");
-    renderGraphPanel();
-    setStatus("已切到候选关联；先找一条能说明理由的关系，保存后再处理下一条", "ok");
-    return true;
-  }
-  setGraphIsolatedWorkflowActiveTab(cleanNoteId, "hold");
-  renderGraphPanel();
-  const messages = {
-    keep: "当前浮层已切到保留独立：暂不强行连线，可以继续处理下一条",
-    hold: "当前浮层已切到暂存观察：等这条笔记形成更清楚判断后再关联",
-    rewrite: "当前浮层已切到重写判断：先把中心判断写清楚，再回来找关系"
-  };
-  setStatus(messages[cleanAction] || "已在浮窗内记录处理方向", cleanAction === "hold" ? "warn" : "ok", {
-    priority: 2,
-    holdMs: 3600
-  });
-  return true;
-}
-
-async function loadGraphEditableNote(noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return null;
-  let note = state.notes.find((item) => String(item?.id || "").trim() === cleanNoteId) || null;
-  if (note && (note.bodyLoaded || isLocalOnlyNote(note))) return note;
-  try {
-    const full = await fetchNote(cleanNoteId);
-    if (!full) return note;
-    const mapped = mapNoteItem(full);
-    note = note || mapped;
-    Object.assign(note, mapped, { bodyLoaded: typeof full.body === "string" });
-    if (!state.notes.some((item) => item.id === cleanNoteId)) state.notes.unshift(note);
-  } catch (error) {
-    setStatus(`读取笔记失败：${String(error?.message || error)}`, "bad");
-  }
-  return note;
-}
-
-const graphIsolatedDecisionController = createGraphIsolatedDecisionController(() => ({
-  document,
-  ensureEditableNoteBody,
-  graphIsolatedDecisionMode,
-  graphIsolatedDecisionTitle,
-  graphUpsertMarkdownSection,
-  isLocalOnlyNote,
-  loadGraphEditableNote,
-  mapNoteItem,
-  noteTabFor,
-  parseLinks,
-  parseTags,
-  renderGraphPanel,
-  setGraphIsolatedWorkflowActiveTab,
-  setStatus,
-  updateNote
-}));
-
-async function saveGraphIsolatedDecision(button = null) {
-  return graphIsolatedDecisionController.saveGraphIsolatedDecision(button);
-}
-
-function graphAiAnalysisPayload(result = graphState.aiAnalysis) {
-  if (result?.analysis && typeof result.analysis === "object") return result.analysis;
-  return result && typeof result === "object" ? result : {};
-}
-
-function graphAiConfidenceLabel(value = null) {
-  const score = Number(value);
-  if (!Number.isFinite(score) || score <= 0) return "待判断";
-  return `${Math.round(Math.max(0, Math.min(score, 1)) * 100)}%`;
-}
-
-function graphNoteIdFromIsolatedItem(item = {}) {
-  return computeGraphNoteIdFromIsolatedItem(item);
-}
-
-function graphComputedIsolatedNotes(nodes = [], edges = [], aiIsolatedNotes = []) {
-  return graphComputedIsolatedNotesForGraph(nodes, edges, aiIsolatedNotes, {
-    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
-  });
-}
-
-function graphMarkIsolatedNodes(nodes = [], isolatedNotes = []) {
-  return graphMarkIsolatedNodesForGraph(nodes, isolatedNotes, {
-    selectionKey: graphIsolatedSelectionKey,
-    decisionMeta: graphIsolatedDecisionMeta
-  });
-}
-
-function graphIsolatedQueueItems({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", limit = 8 } = {}) {
-  return graphIsolatedQueueItemsForGraph({
-    isolatedNotes,
-    nodeMap,
-    edges,
-    currentNoteId,
-    limit,
-    fullNoteById: graphFullNoteById,
-    noteHasSavedIsolationDisposition: graphNoteHasSavedIsolationDisposition,
-    decisionMeta: graphIsolatedDecisionMeta,
-    aiRelationCandidatesForNote: graphAiRelationCandidatesForNote,
-    localRelationCandidatesForNote: graphLocalRelationCandidatesForNote,
-    selectionKey: graphIsolatedSelectionKey
-  });
-}
-
-function graphNextIsolatedQueueItem(queueItems = [], currentNoteId = "") {
-  return computeGraphNextIsolatedQueueItem(queueItems, currentNoteId);
-}
-
-function renderGraphIsolatedQueue({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", compact = false, limit = 8, queueItems: providedQueueItems = null } = {}) {
-  return graphIsolatedWorkflowShell.renderQueue({ isolatedNotes, nodeMap, edges, currentNoteId, compact, limit, queueItems: providedQueueItems });
-}
-
-function renderGraphIsolatedQueueStrip({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", queueItems: providedQueueItems = null } = {}) {
-  return graphIsolatedWorkflowShell.renderQueueStrip({ isolatedNotes, nodeMap, edges, currentNoteId, queueItems: providedQueueItems });
-}
-
 function graphRelationCandidateKey(fromNoteId = "", toNoteId = "", relationType = "") {
   return computeGraphRelationCandidateKey(fromNoteId, toNoteId, relationType);
 }
@@ -1984,567 +1865,99 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
 
 
 
-function graphWorkspaceRenderDeps() {
-  return buildGraphWorkspaceRenderDeps({
-    graphRelationStatusCountsAsNetworkEdge,
-    graphRelationGroupCounts,
-    graphNodeTitle,
-    suggestedThemeIndexTitle,
-    graphEdgeSelectionKey,
-    graphRelationTypeLabel,
-    renderGraphSelectionMetrics
-  });
-}
-
-function graphThemeCandidateNoteIdsForNode(noteId = "", directEdges = [], aiCandidates = []) {
-  return computeGraphThemeCandidateNoteIdsForNode(noteId, directEdges, aiCandidates);
-}
-
-function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(), edges = [], title = "关联整理" } = {}) {
-  return renderGraphRelationWorkspaceMarkup(noteId, { nodeMap, edges, title, deps: graphWorkspaceRenderDeps() });
-}
-
-function renderGraphThemeIndexWorkspace(noteIds = [], { title = "主题候选", relationCount = 0, tone = "" } = {}) {
-  return renderGraphThemeIndexWorkspaceMarkup(noteIds, { title, relationCount, tone, deps: graphWorkspaceRenderDeps() });
-}
-
-const GRAPH_RELATION_FORM_TYPES = ["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"];
-
-function graphRelationFormTypeOptions(selectedType = "associated_with") {
-  const selected = String(selectedType || "associated_with").trim().toLowerCase() || "associated_with";
-  return GRAPH_RELATION_FORM_TYPES.map(
-    (type) => `<option value="${escapeHtml(type)}"${type === selected ? " selected" : ""}>${escapeHtml(graphRelationTypeLabel(type))}</option>`
-  ).join("");
-}
-
-function graphCandidatePercent(candidate = {}) {
-  return computeGraphCandidatePercent(candidate);
-}
-
-function graphManualRelationTargetsForNote(noteId = "", { nodeMap = new Map(), edges = [], limit = 80 } = {}) {
-  return computeGraphManualRelationTargetsForNote(
-    noteId,
-    { nodeMap, edges, limit },
-    { relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge }
-  );
-}
-
-function clearGraphIsolatedRelationDraft(noteId = "") {
-  clearGraphIsolatedRelationDraftForState(graphState, noteId);
-}
-
-const graphRelationSaveController = createGraphRelationSaveController({
-  graphState,
-  getNotes: () => state.notes,
-  confirmableRelationTypes: GRAPH_CONFIRMABLE_RELATION_TYPES,
-  rationaleIsActionable: graphRelationRationaleIsActionable,
-  createNoteRelation,
-  refreshDirectoryGraph,
-  renderGraphPanel,
-  setStatus,
+const graphRelationWorkspaceRuntime = createGraphRelationWorkspaceRuntime(graphResidualRuntimeDeps({
+  graphRelationGroupCounts,
   graphNodeTitle,
-  relationTypeLabel: graphRelationTypeLabel,
-  clearIsolatedRelationDraft: clearGraphIsolatedRelationDraft,
-  openRelationFormInSelection: openGraphRelationFormInSelection
-});
-
-const graphRelationWorkflowController = createGraphRelationWorkflowController({
-  graphState,
-  setWorkflowActiveTab: setGraphIsolatedWorkflowActiveTab,
-  openGraphSelection,
-  renderGraphPanel,
-  setStatus
-});
-
-const graphIsolatedRelationController = createGraphIsolatedRelationController({
-  graphState,
-  normalizeMode: graphIsolatedWorkflowTabKey,
-  setWorkflowActiveTab: setGraphIsolatedWorkflowActiveTab,
-  confirmableRelationTypes: GRAPH_CONFIRMABLE_RELATION_TYPES,
-  rationaleIsActionable: graphRelationRationaleIsActionable,
-  saveConfirmedRelation: saveGraphConfirmedRelation,
-  escapeHtml
-});
-
-function graphIsolatedRelationDraftForNote(noteId = "") {
-  return graphIsolatedRelationController.relationDraftForNote(noteId);
-}
-
-function captureGraphIsolatedRelationDraftFromForm(form = null) {
-  return graphIsolatedRelationController.captureDraftFromForm(form);
-}
-
-function renderGraphIsolatedJoinNetworkFlow(
-  noteId = "",
-  {
-    nodeMap = new Map(),
-    edges = [],
-    visibleEdgeCount = 0,
-    preferredTargetNoteId = "",
-    preferredRelationType = "",
-    preferredRationale = "",
-    heading = "建立一条能说清理由的关系",
-    helper = "先选目标笔记，再选关系类型并写下理由。保存后才会进入图谱。",
-    saveHint = "保存后，这条笔记会退出“未关联”。"
-  } = {}
-) {
-  return renderGraphIsolatedJoinNetworkFlowHtml(noteId, {
-    nodeMap,
-    edges,
-    visibleEdgeCount,
-    preferredTargetNoteId,
-    preferredRelationType,
-    preferredRationale,
-    heading,
-    helper,
-    saveHint,
-    relationDraft: graphState.isolatedRelationDraftByNoteId?.[String(noteId || "").trim()] || {},
-    loading: graphState.aiAnalysisLoading === true
-  }, {
-    aiCandidatesForNote: graphAiRelationCandidatesForNote,
-    manualTargetsForNote: graphManualRelationTargetsForNote,
-    aiAnalysisPayload: graphAiAnalysisPayload,
-    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
-    workflowTabKey: graphIsolatedWorkflowTabKey,
-    activeTabForNote: graphIsolatedWorkflowActiveTab,
-    reversibleRelationTypes: GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES,
-    nodeTitle: graphNodeTitle,
-    escapeHtml,
-    candidatePercent: graphCandidatePercent,
-    graphFullNoteById,
-    noteTypeLabel,
-    graphNotePreviewText,
-    graphNoteTags,
-    relationFormTypeOptions: graphRelationFormTypeOptions,
-    renderPreviewPanel: renderGraphIsolatedPreviewPanel
-  });
-}
-
-function renderGraphIsolatedNextStepActions(noteId = "", { isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
-  return renderGraphIsolatedNextStepActionsHtml(noteId, { isolatedNotes, nodeMap, edges }, {
-    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
-    isolatedQueueItems: graphIsolatedQueueItems,
-    nextIsolatedQueueItem: graphNextIsolatedQueueItem,
-    themeCandidateNoteIdsForNode: graphThemeCandidateNoteIdsForNode,
-    suggestThemeIndexTitle: suggestedThemeIndexTitle,
-    escapeHtml
-  });
-}
-
-function graphIsolatedWorkflowTabKey(value = "") {
-  const key = String(value || "").trim().toLowerCase();
-  if (key === "candidates" || key === "bridge") return "ai";
-  return ["ai", "manual"].includes(key) ? key : "ai";
-}
-
-function graphIsolatedDecisionMode(value = "") {
-  const key = String(value || "").trim().toLowerCase();
-  return ["keep", "hold", "rewrite"].includes(key) ? key : "keep";
-}
-
-function graphIsolatedDecisionTitle(mode = "") {
-  const key = graphIsolatedDecisionMode(mode);
-  if (key === "hold") return "暂存观察";
-  if (key === "rewrite") return "重写中心判断";
-  return "保留独立";
-}
-
-function graphExtractMarkdownSection(body = "", heading = "") {
-  const cleanHeading = String(heading || "").trim();
-  if (!cleanHeading) return "";
-  const lines = String(body || "").replace(/\r\n/g, "\n").split("\n");
-  const headingPattern = new RegExp(`^##\\s+${cleanHeading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`);
-  const startIndex = lines.findIndex((line) => headingPattern.test(line.trim()));
-  if (startIndex < 0) return "";
-  const sectionLines = [];
-  for (let index = startIndex + 1; index < lines.length; index += 1) {
-    if (/^##\s+/.test(lines[index].trim())) break;
-    sectionLines.push(lines[index]);
-  }
-  return sectionLines.join("\n").trim();
-}
-
-function graphUpsertMarkdownSection(body = "", heading = "", content = "") {
-  const cleanHeading = String(heading || "").trim();
-  const cleanContent = String(content || "").replace(/\r\n/g, "\n").trim();
-  const normalizedBody = String(body || "").replace(/\r\n/g, "\n").trimEnd();
-  if (!cleanHeading || !cleanContent) return normalizedBody;
-  const lines = normalizedBody.split("\n");
-  const headingPattern = new RegExp(`^##\\s+${cleanHeading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`);
-  const startIndex = lines.findIndex((line) => headingPattern.test(line.trim()));
-  const replacement = [`## ${cleanHeading}`, "", cleanContent];
-  if (startIndex < 0) {
-    return `${normalizedBody ? `${normalizedBody}\n\n` : ""}${replacement.join("\n")}`.trimEnd();
-  }
-  let endIndex = lines.length;
-  for (let index = startIndex + 1; index < lines.length; index += 1) {
-    if (/^##\s+/.test(lines[index].trim())) {
-      endIndex = index;
-      break;
-    }
-  }
-  lines.splice(startIndex, endIndex - startIndex, ...replacement);
-  return lines.join("\n").trimEnd();
-}
-
-function graphIsolatedDecisionDefaultText(note = {}, decisionTone = "") {
-  const body = String(note?.body || note?.markdown || "").replace(/\r\n/g, "\n");
-  const mode = graphIsolatedDecisionMode(decisionTone);
-  if (mode === "rewrite") {
-    return graphExtractMarkdownSection(body, "一句话论点") || String(note?.thesis || note?.summary || note?.title || "").trim();
-  }
-  const saved = graphExtractMarkdownSection(body, "关联整理备注");
-  if (saved) return saved;
-  if (mode === "hold") return "暂时只作为材料观察；等它形成清楚判断后，再补一条有理由的关系。";
-  return "这条笔记暂时保持独立；目前还没有找到能说明理由的关系，不强行连入关系网。";
-}
-
-function graphNoteHasSavedIsolationDisposition(note = {}) {
-  const body = String(note?.body || note?.markdown || "").replace(/\r\n/g, "\n");
-  const disposition = graphExtractMarkdownSection(body, "关联整理备注");
-  if (!disposition) return false;
-  return /^(保留独立|暂存观察|重写中心判断)[：:]|^已重写中心判断/.test(disposition.trim());
-}
-
-function renderGraphIsolatedDecisionForm(noteId = "", { note = {}, decision = {}, decisionCards = [], prompts = [] } = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return "";
-  const defaultMode = graphIsolatedDecisionMode(decision?.tone);
-  const defaultText = graphIsolatedDecisionDefaultText(note, defaultMode);
-  const options = decisionCards
-    .filter((card) => ["keep", "hold", "rewrite"].includes(String(card?.key || "").trim()))
-    .map((card) => {
-      const key = graphIsolatedDecisionMode(card.key);
-      return `
-        <label class="graph-isolated-decision-option">
-          <input type="radio" name="graph-isolated-decision-${escapeHtml(cleanNoteId)}" value="${escapeHtml(key)}"${key === defaultMode ? " checked" : ""}>
-          <span>
-            <strong>${escapeHtml(card.title)}</strong>
-            <small>${escapeHtml(card.text)}</small>
-          </span>
-        </label>
-      `;
-    })
-    .join("");
-  return `
-    <section class="graph-isolated-decision-form" aria-label="暂不关联处理">
-      <div class="graph-isolated-decision-form-head">
-        <div>
-          <small>暂不接入时要留下原因</small>
-          <strong>避免之后反复看到同一条待关联笔记</strong>
-        </div>
-        <span>保存到当前笔记</span>
-      </div>
-      <div class="graph-isolated-decision-options">
-        ${options}
-      </div>
-      <label class="graph-isolated-decision-note">
-        <span>说明</span>
-        <textarea data-graph-isolated-decision-text="${escapeHtml(cleanNoteId)}" rows="5">${escapeHtml(defaultText)}</textarea>
-      </label>
-      <div class="graph-isolated-decision-actions">
-        <button class="graph-selection-action is-primary" type="button" data-graph-isolated-decision-save="${escapeHtml(cleanNoteId)}">保存说明</button>
-        <button class="graph-selection-action is-secondary" type="button" data-graph-isolated-tab="candidates" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">返回找相关笔记</button>
-      </div>
-      ${renderGraphPromptDetails("判断提示（可选）", prompts)}
-    </section>
-  `;
-}
-
-function graphIsolatedWorkflowActiveTab(noteId = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  return graphIsolatedWorkflowTabKey(cleanNoteId ? graphState.isolatedWorkflowTabsByNoteId?.[cleanNoteId] : "");
-}
-
-function setGraphIsolatedWorkflowActiveTab(noteId = "", tabKey = "") {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return "candidates";
-  const cleanTabKey = graphIsolatedWorkflowTabKey(tabKey);
-  graphState.isolatedWorkflowTabsByNoteId = graphState.isolatedWorkflowTabsByNoteId || {};
-  graphState.isolatedWorkflowTabsByNoteId[cleanNoteId] = cleanTabKey;
-  return cleanTabKey;
-}
-
-const graphIsolatedWorkflowShell = createGraphIsolatedWorkflowShellRenderer({
-  escapeHtml,
-  isolatedQueueItems: graphIsolatedQueueItems,
-  nextIsolatedQueueItem: graphNextIsolatedQueueItem,
-  resolveIsolatedSelection: resolveGraphIsolatedSelection,
-  allNotes: () => state.notes,
-  fullNoteById: graphFullNoteById,
-  nodeTitle: graphNodeTitle,
-  noteTypeLabel,
-  decisionMeta: graphIsolatedDecisionMeta,
-  relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge,
-  renderSelectionShell: renderGraphSelectionShell,
-  renderRelationWorkspaceForNote: renderGraphRelationWorkspaceForNote,
-  renderJoinNetworkFlow: renderGraphIsolatedJoinNetworkFlow,
-  renderNextStepActions: renderGraphIsolatedNextStepActions
-});
-
-function renderGraphIsolatedWorkflowTabs({ noteId = "", isolatedQueueMarkup = "", decisionCards = [], prompts = [], nodeMap = new Map(), edges = [], visibleEdgeCount = 0 } = {}) {
-  return graphIsolatedWorkflowShell.renderWorkflowTabs({ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount });
-}
-
-function activateGraphIsolatedWorkflowTab(tabButton = null, { focus = false } = {}) {
-  return graphIsolatedRelationController.activateWorkflowTab(tabButton, { focus });
-}
-
-function moveGraphIsolatedWorkflowTab(currentButton = null, direction = 1) {
-  return graphIsolatedRelationController.moveWorkflowTab(currentButton, direction);
-}
-
-function previewGraphCandidateInOverlay(button = null) {
-  const targetNoteId = String(button?.getAttribute?.("data-graph-preview-candidate") || "").trim();
-  const sourceNoteId = String(
-    button?.getAttribute?.("data-graph-preview-source") ||
-      graphState.selection?.noteId ||
-      graphState.selection?.nodeId ||
-      ""
-  ).trim();
-  if (!sourceNoteId || !targetNoteId) return false;
-  graphState.isolatedCandidatePreviewByNoteId = graphState.isolatedCandidatePreviewByNoteId || {};
-  graphState.isolatedCandidatePreviewByNoteId[sourceNoteId] = targetNoteId;
-  renderGraphPanel();
-  setStatus("已在浮窗中预览候选笔记", "ok");
-  return true;
-}
-
-function clearGraphCandidatePreviewInOverlay(button = null) {
-  const sourceNoteId = String(
-    button?.getAttribute?.("data-graph-clear-candidate-preview") ||
-      graphState.selection?.noteId ||
-      graphState.selection?.nodeId ||
-      ""
-  ).trim();
-  if (!sourceNoteId || !graphState.isolatedCandidatePreviewByNoteId) return false;
-  delete graphState.isolatedCandidatePreviewByNoteId[sourceNoteId];
-  renderGraphPanel();
-  setStatus("已收起候选预览", "ok");
-  return true;
-}
-
-function graphIsolatedFormError(form = null, message = "") {
-  return graphIsolatedRelationController.formError(form, message);
-}
-
-function markGraphIsolatedRationaleUserEdited(input = null) {
-  return graphIsolatedRelationController.markRationaleUserEdited(input);
-}
-
-function updateGraphIsolatedInlinePreview(form = null, source = null) {
-  return graphIsolatedRelationController.updateInlinePreview(form, source);
-}
-
-function syncGraphIsolatedAiCandidateForm(select = null) {
-  return graphIsolatedRelationController.syncAiCandidateForm(select);
-}
-
-function filterGraphManualRelationTargets(input = null) {
-  return graphIsolatedRelationController.filterManualRelationTargets(input);
-}
-
-function pickGraphManualRelationTarget(button = null) {
-  return graphIsolatedRelationController.pickManualRelationTarget(button);
-}
-
-async function saveGraphIsolatedRelationForm(button = null) {
-  return graphIsolatedRelationController.saveRelationForm(button);
-}
-
-async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", relationType = "associated_with", rationale = "", insightQuestion = "", button = null } = {}) {
-  return graphRelationSaveController.saveConfirmedRelation({ noteId, targetNoteId, relationType, rationale, insightQuestion, button });
-}
-
-function openGraphRelationFormInSelection(button = null) {
-  return graphRelationWorkflowController.openRelationFormFromAction(button);
-}
-
-function focusGraphRelationAdjustmentInPlace(button = null) {
-  const relationId = String(button?.getAttribute?.("data-graph-relation-id") || "").trim();
-  const adjustment = String(button?.getAttribute?.("data-graph-relation-adjustment") || "").trim().toLowerCase();
-  if (!relationId || !adjustment) return false;
-  graphState.relationAdjustmentFocusById = graphState.relationAdjustmentFocusById || {};
-  graphState.relationAdjustmentFocusById[relationId] = adjustment;
-  renderGraphPanel();
-  const labels = {
-    strengthen: "先补清这条关系为什么成立",
-    "change-type": "先判断这条关系类型是否准确",
-    reverse: "先判断关系方向是否应该反过来",
-    split: "先判断是否应该拆成两条关系",
-    remove: "先判断是否删除或降级为线索"
-  };
-  setStatus(labels[adjustment] || "已在当前浮层标记这条关系的处理方向", "ok");
-  return true;
-}
-
-function renderGraphIsolatedSelectionPanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
-  return graphIsolatedWorkflowShell.renderSelectionPanel({ selection, isolatedNotes, nodeMap, edges });
-}
-
-function renderGraphIsolatedCompletePanel({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) {
-  const noteId = String(selection?.noteId || selection?.nodeId || "").trim();
-  return graphIsolatedWorkflowShell.renderCompletePanel({
-    selection: {
-      ...selection,
-      saveResult: graphRelationSaveResultForNote(noteId, graphState.isolatedRelationSaveResultByNoteId)
-    },
-    isolatedNotes,
-    nodeMap,
-    edges
-  });
-}
-
-function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new Map(), edges = [] } = {}) {
-  const noteId = String(selection?.noteId || selection?.nodeId || "").trim();
-  if (!noteId) return "";
-  const note = graphFullNoteById(noteId, nodeMap) || {};
-  const title = graphNodeTitle(nodeMap, noteId, note.title || "当前笔记");
-  const targetNoteId = String(selection?.targetNoteId || "").trim();
-  const targetTitle = targetNoteId ? graphNodeTitle(nodeMap, targetNoteId, targetNoteId) : "";
-  const visibleEdgeCount = computeGraphDirectNetworkEdgeCount(noteId, edges, {
-    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
-  });
-  return renderGraphSelectionShell({
-    className: "is-node is-relation-form",
-    ariaLabel: "建立笔记关系",
-    kicker: "建立关系",
-    title,
-    meta: targetTitle ? `预选目标：${targetTitle}` : "选择一条目标笔记并保存关系",
-    closeLabel: "收起关系表单",
-    body: renderGraphIsolatedJoinNetworkFlow(noteId, {
-      nodeMap,
-      edges,
-      visibleEdgeCount,
-      preferredTargetNoteId: targetNoteId,
-      preferredRelationType: selection?.relationType || "",
-      preferredRationale: selection?.rationale || "",
-      heading: targetTitle ? "确认这条关系" : "手工选择一条相关笔记",
-      helper: targetTitle
-        ? "目标笔记已带入；只需要确认关系类型和理由，保存后仍留在图谱中。"
-        : "输入关键词选择目标笔记，再写一句为什么相连。保存后仍留在图谱中。",
-      saveHint: "保存后仍留在当前图谱。"
-    }),
-    actions: ""
-  });
-}
-
-function renderGraphBridgeSelectionPanel({ selection = null, bridgeGaps = [], nodeMap = new Map() } = {}) {
-  const bridge = resolveGraphBridgeSelection(selection, bridgeGaps, [...nodeMap.values()]);
-  if (!bridge) return "";
-  const noteId = bridge.noteId;
-  const targetNoteId = bridge.targetNoteId;
-  const targetTitle = bridge.targetTitle || (targetNoteId ? graphNodeTitle(nodeMap, targetNoteId, targetNoteId) : "");
-  const item = bridge.item || {};
-  const gapTypeLabel = bridge.gapType === "disconnected_cluster" ? "断开的主题群" : "缺少连接";
-  const detail = String(item?.suggestedAction || item?.rationale || "这条笔记可能需要一条中间判断，才能回到当前结构。").trim();
-  const prompts = [
-    targetTitle ? `它和「${targetTitle}」之间缺的是证据、限定、反方，还是一个中间概念？` : "它应当保持独立，还是只是缺少一条能说明理由的连接？",
-    "如果补上这条连接，图谱会产生新的论证路径，还是只是多一条导航线？",
-    "这条连接应该写成概念过渡、方法相似，还是问题延伸？"
-  ];
-  return renderGraphSelectionShell({
-    className: "is-bridge",
-    ariaLabel: "缺少连接判断详情",
-    kicker: "缺少连接",
-    title: bridge.title,
-    meta: targetTitle ? `建议连接到 ${targetTitle}` : "等待判断连接方向",
-    closeLabel: "收起缺少连接判断",
-    roleLabel: gapTypeLabel,
-    roleDetail: detail,
-    body: `
-      <div class="graph-selection-metrics" aria-label="桥接两端">
-        ${renderGraphSelectionMetrics([
-          { label: "源笔记", value: bridge.title },
-          { label: "目标", value: targetTitle || "待寻找" },
-          { label: "状态", value: "候选，未确认" }
-        ])}
-      </div>
-      ${renderGraphPromptDetails("缺少什么连接（可选）", prompts)}`,
-    actions: `
-      <button class="graph-selection-action is-primary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(noteId)}"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges"${noteId ? "" : " disabled"}>在这里建立关系</button>
-      <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(noteId)}"${noteId ? "" : " disabled"}>打开源笔记</button>`
-  });
-}
-
-function graphUniqueClusterMeta(clusterMeta = []) {
-  return computeGraphUniqueClusterMeta(clusterMeta);
-}
-
-function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), edges = [] } = {}) {
-  return computeGraphClusterResearchMeta(cluster, { nodeMap, edges }, {
-    graphRelationStatusCountsAsNetworkEdge,
-    graphRelationVisual
-  });
-}
-
-function renderGraphClusterSelectionPanel({ selection = null, clusterMeta = [], nodeMap = new Map(), edges = [] } = {}) {
-  return renderGraphClusterSelectionPanelView({ selection, clusterMeta, nodeMap, edges }, {
-    normalizeGraphSelectionForVisibleItems,
-    graphUniqueClusterMeta,
-    graphClusterResearchMeta,
-    escapeHtml,
-    renderGraphSelectionShell,
-    renderGraphSelectionMetrics,
-    renderGraphThemeIndexWorkspace,
-    renderGraphPromptDetails
-  });
-}
-
-function graphResearchNavigatorState({ nodes = [], edges = [], topicCandidates = [], bridgeGaps = [], clusterMeta = [], clueSummary = null, questionSummary = null } = {}) {
-  return computeGraphResearchNavigatorState({ nodes, edges, topicCandidates, bridgeGaps, clusterMeta, clueSummary, questionSummary }, {
-    graphRelationStatusCountsAsNetworkEdge,
-    graphRelationVisual
-  });
-}
-
-function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandidates = [], bridgeGaps = [], clusterMeta = [], clueSummary = null, questionSummary = null } = {}) {
-  const nav = graphResearchNavigatorState({ nodes, edges, topicCandidates, bridgeGaps, clusterMeta, clueSummary, questionSummary });
-  return renderGraphResearchNavigatorPanelView({ nav }, {
-    escapeHtml,
-    renderGraphIcon,
-    renderGraphSelectionMetrics
-  });
-}
-
-const graphSelectionPanelRenderer = createGraphSelectionPanelRenderer(() => ({
-  escapeHtml,
-  renderGraphClusterSelectionPanel,
-  renderGraphThemeSelectionPanel,
+  renderGraphSelectionMetrics
+}));
+const {
+  graphWorkspaceRenderDeps,
+  graphThemeCandidateNoteIdsForNode,
+  renderGraphRelationWorkspaceForNote,
+  renderGraphThemeIndexWorkspace,
+  graphRelationFormTypeOptions,
+  graphCandidatePercent,
+  graphManualRelationTargetsForNote
+} = graphRelationWorkspaceRuntime;
+const graphIsolatedWorkspaceRuntime = createGraphIsolatedWorkspaceRuntime(graphResidualRuntimeDeps({
+  graphAiAnalysisPayload,
+  graphAiRelationCandidatesForNote,
+  graphCandidatePercent,
+  graphFullNoteById,
+  graphManualRelationTargetsForNote,
+  graphRelationFormTypeOptions,
+  graphRelationRationaleIsActionable,
+  graphThemeCandidateNoteIdsForNode,
+  renderGraphIsolatedPreviewPanel
+}));
+const {
+  graphIsolatedDecisionMeta,
+  openGraphIsolatedDecisionAction,
+  loadGraphEditableNote,
+  saveGraphIsolatedDecision,
+  graphAiAnalysisPayload,
+  graphAiConfidenceLabel,
+  graphNoteIdFromIsolatedItem,
+  graphComputedIsolatedNotes,
+  graphMarkIsolatedNodes,
+  graphIsolatedQueueItems,
+  graphNextIsolatedQueueItem,
+  renderGraphIsolatedQueue,
+  renderGraphIsolatedQueueStrip,
+  clearGraphIsolatedRelationDraft,
+  graphIsolatedRelationDraftForNote,
+  captureGraphIsolatedRelationDraftFromForm,
+  renderGraphIsolatedJoinNetworkFlow,
+  renderGraphIsolatedNextStepActions,
+  graphIsolatedWorkflowTabKey,
+  graphIsolatedDecisionMode,
+  graphIsolatedDecisionTitle,
+  graphExtractMarkdownSection,
+  graphUpsertMarkdownSection,
+  graphIsolatedDecisionDefaultText,
+  graphNoteHasSavedIsolationDisposition,
+  renderGraphIsolatedDecisionForm,
+  graphIsolatedWorkflowActiveTab,
+  setGraphIsolatedWorkflowActiveTab,
+  renderGraphIsolatedWorkflowTabs,
+  activateGraphIsolatedWorkflowTab,
+  moveGraphIsolatedWorkflowTab,
+  previewGraphCandidateInOverlay,
+  clearGraphCandidatePreviewInOverlay,
+  graphIsolatedFormError,
+  markGraphIsolatedRationaleUserEdited,
+  updateGraphIsolatedInlinePreview,
+  syncGraphIsolatedAiCandidateForm,
+  filterGraphManualRelationTargets,
+  pickGraphManualRelationTarget,
+  saveGraphIsolatedRelationForm,
+  saveGraphConfirmedRelation,
+  openGraphRelationFormInSelection,
+  focusGraphRelationAdjustmentInPlace
+} = graphIsolatedWorkspaceRuntime;
+const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
+  graphClusterResearchMeta,
+  graphIsolatedWorkflowShell,
+  graphRelationFormTypeOptions,
+  graphSelectionPanelRenderer: undefined,
+  graphThemeCandidateNoteIdsForNode,
+  renderGraphAiConnectCandidates,
+  renderGraphIsolatedJoinNetworkFlow,
+  renderGraphRelationWorkspaceForNote
+}));
+const {
   renderGraphIsolatedSelectionPanel,
   renderGraphIsolatedCompletePanel,
   renderGraphRelationFormSelectionPanel,
   renderGraphBridgeSelectionPanel,
-  normalizeGraphSelectionForVisibleItems,
-  graphRelationStatusCountsAsNetworkEdge,
-  graphNodeNeedsRelationWorkflow,
-  graphRelationGroupCounts,
-  graphNodeRoleMeta,
-  graphNodeInsightMeta,
-  renderGraphNodeInsightPanel,
-  renderGraphRelationWorkspaceForNote,
-  renderGraphAiConnectCandidates,
-  graphThemeCandidateNoteIdsForNode,
-  suggestedThemeIndexTitle,
-  renderGraphSelectionMetrics,
-  renderGraphPromptDetails,
-  renderGraphSelectionShell,
-  noteTypeLabel,
-  graphState,
-  graphEdgeSelectionKey,
-  graphNodeTitle,
-  graphRelationTypeLabel,
-  graphRelationGroupMeta,
-  graphEdgeReviewMeta,
-  graphEdgeAdjustmentPlan,
-  graphFocusCardActionMeta,
-  graphRelationSourceLabel,
-  graphRelationStatusLabel
-}));
-const {
+  graphUniqueClusterMeta,
+  graphClusterResearchMeta,
+  renderGraphClusterSelectionPanel,
+  graphResearchNavigatorState,
+  renderGraphResearchNavigatorPanel,
+  graphSelectionPanelRenderer,
   renderGraphSelectionPanel
-} = graphSelectionPanelRenderer;
-
+} = graphSelectionResidualView;
 function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = {}) {
   return graphEdgeVisibleAtFitForRuntime(edge, nodeMap, options, { graphRelationVisual });
 }
@@ -2783,373 +2196,53 @@ function applyGraphEdgeHoverState(edgeElement) {
   return applyGraphEdgeHoverDomState(edgeElement, { document, getHoverCard: () => $("graphHoverCard"), escapeHtml });
 }
 
-function renderRelationReviewQueueSection(reviewQueue, options = {}) {
-  return renderRelationReviewQueueSectionView(reviewQueue, options, {
-    escapeHtml,
-    graphEdgeSelectionKey,
-    graphRelationGroupMeta,
-    graphRelationSourceLabel,
-    graphRelationStatusLabel,
-    graphRelationTypeLabel
-  });
-}
-
-function renderGraphMetricCard(label, value, note, tone = "") {
-  return `
-    <div class="graph-metric-card" data-tone="${escapeHtml(tone)}">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
-      <small>${escapeHtml(note)}</small>
-    </div>
-  `;
-}
-
-function graphPendingAiCandidateCount(candidates = [], { existingRelationPairKeys = new Set(), excludePairs = new Set(), bridgeOnly = false, excludeBridge = false } = {}) {
-  return computeGraphPendingAiCandidateCount(candidates, { existingRelationPairKeys, excludePairs, bridgeOnly, excludeBridge });
-}
-
-const graphThinkingModelRuntimeDeps = createGraphThinkingModelRuntimeDepsProvider(() => ({
-    escapeHtml,
-    graphAiAnalysisPayload,
-    graphBridgeSelectionKey,
-    graphCandidateCanSaveRelation,
-    graphCandidateEndpointIds,
-    graphCandidateTouchesNodeScope,
-    graphComputedIsolatedNotes,
-    graphExistingRelationPairKeys,
-    graphFullNoteById,
-    graphIsolatedQueueItems,
-    graphIsolatedSelectionKey,
-    graphLocalizedActionText,
-    graphNodeIdsInScope,
-    graphNoteHasSavedIsolationDisposition,
-    graphNoteIdFromIsolatedItem,
-    graphPendingAiCandidateCount,
-    graphPreferredPotentialRelationType,
-    graphRankThemeCandidates,
-    graphRelationPairKey,
-    graphRelationQualityLabel,
-    graphRelationReviewReasonLabel,
-    graphRelationTypeLabel,
-    graphSelectEdgeActionAttrs,
-    graphThemeSelectionKey
+const graphThinkingPanelResidualView = createGraphThinkingPanelResidualView(graphResidualRuntimeDeps({
+  graphComputedIsolatedNotes,
+  graphExistingRelationPairKeys,
+  graphIsolatedQueueItems,
+  graphNoteHasSavedIsolationDisposition,
+  graphNoteIdFromIsolatedItem,
+  graphNodeIdsInScope,
+  graphPendingAiCandidateCount,
+  graphSelectEdgeActionAttrs
 }));
-
-function graphLiveAiAnalysisCounts(aiAnalysis = graphState.aiAnalysis, { nodes = null, edges = null } = {}) {
-  return graphLiveAiAnalysisCountsForGraph(aiAnalysis, { nodes, edges, graph: graphState.item || {} }, graphThinkingModelRuntimeDeps());
-}
-
-function graphAiAnalysisSummaryState(options = {}) {
-  return graphAiAnalysisSummaryStateForGraph({ aiAnalysis: graphState.aiAnalysis, graph: graphState.item || {}, ...options }, graphThinkingModelRuntimeDeps());
-}
-
-function currentGraphVisibleNodeIds() {
-  if (state.module === "graph" && state.graphVisibleNoteIdsReady === true && state.graphVisibleNoteIds instanceof Set) {
-    return [...state.graphVisibleNoteIds];
-  }
-  const graph = graphState.item;
-  if (!graph) return [];
-  const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
-  const allEdges = Array.isArray(graph.edges) ? graph.edges : [];
-  const filters = graphState.filters || { relationType: "all", status: "all" };
-  const edges = allEdges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
-  const filterActive = filters.relationType !== "all" || filters.status !== "all";
-  const visibleNodeIds = new Set(edges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  return (filterActive ? nodes.filter((node) => visibleNodeIds.has(node.id)) : nodes).map((node) => node.id);
-}
-
-function currentGraphWritingCandidateNoteIds() {
-  return graphWritingCandidateNoteIds(currentGraphVisibleNodeIds(), {
-    noteLookup: writingKnownNoteById,
-    isEligible: isWritingEligibleNote
-  });
-}
-
-function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()) {
-  return renderGraphMapPreviewView(nodes, edges, linkedNodeIds, {
-    escapeHtml,
-    graphRelationGroupMeta,
-    graphRelationTypeLabel
-  });
-}
-
-function renderGraphAiAnalysisCard(options = {}) {
-  const { analysis, summary, pendingCount, topicCount, relationCount, bridgeCount, isolatedCount, totalCandidates } = graphAiAnalysisSummaryState(options);
-  const loading = graphState.aiAnalysisLoading;
-  const error = graphState.aiAnalysisError;
-  const shouldOpen = options.open === true || loading || Boolean(error);
-  return `
-    <details class="graph-section graph-collapsible-section" data-graph-section="ai-analysis"${shouldOpen ? " open" : analysis ? "" : ""} aria-label="AI 图谱初判">
-      <summary class="graph-collapsible-summary">
-        <div>
-          <div class="graph-section-title">AI 图谱初判</div>
-          <div class="graph-section-note">只生成待审候选：主题、缺少连接、弱关系和待关联笔记都不会直接写入图谱。</div>
-        </div>
-        <span class="graph-collapsible-badge">${loading ? "分析中" : `${totalCandidates} 项`}</span>
-      </summary>
-      <div class="graph-collapsible-body">
-        <div class="graph-section-head">
-          <div></div>
-          <button class="secondary-btn small" type="button" data-run-graph-ai-analysis ${loading ? "disabled" : ""}>
-            ${loading ? "分析中..." : analysis ? "重新分析" : "AI 扫描"}
-          </button>
-        </div>
-        ${
-          error
-            ? `<div class="graph-empty bad">AI 图谱初判失败：${escapeHtml(error)}</div>`
-            : analysis
-              ? `
-                <div class="graph-metrics" aria-label="AI 图谱初判摘要">
-                  ${renderGraphMetricCard("待审项", pendingCount, "系统消息中复核", pendingCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("主题候选", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("关系候选", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("潜在关联/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
-                </div>
-                <div class="graph-next-card">
-                  <strong>待审优先级</strong>
-                  <small>${escapeHtml(
-                    pendingCount
-                      ? "先在图谱里判断结构是否成立；需要逐条采纳时再到系统消息里复核 AI 建议。"
-                      : "当前没有新的图谱候选。"
-                  )}</small>
-                </div>
-              `
-              : `<div class="graph-empty">运行一次本地图谱扫描，查看可能的主题、缺少连接和待关联笔记。</div>`
-        }
-      </div>
-    </details>
-  `;
-}
-
-function buildGraphQuestionSpotSummary({ reviewQueueTotal = 0, bridgeGaps = [], conflictCount = 0, aiAnalysis = null, nodes = null, edges = null } = {}) {
-  return buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal, bridgeGaps, conflictCount, aiAnalysis, nodes, edges, graph: graphState.item || {} }, graphThinkingModelRuntimeDeps());
-}
-
-function buildGraphQuestionSpotSummaryFromItems(items = [], { artifactCount = 0 } = {}) {
-  return computeGraphQuestionSpotSummaryFromItems(items, { artifactCount });
-}
-
-function renderGraphQuestionSpotChip(summary = {}) {
-  const total = Number(summary?.total || 0);
-  const open = graphState.thinkingPanelOpen === true;
-  const empty = !total;
-  return `
-    <div class="graph-question-chip-wrap${open ? " is-open" : ""}${empty ? " is-empty" : ""}">
-      <button class="graph-question-chip${open ? " is-open" : ""}${empty ? " is-empty" : ""}" type="button" data-graph-thinking-toggle aria-expanded="${open}" aria-label="${empty ? "打开追问并运行图谱扫描" : "打开追问"}">
-        ${renderGraphIcon("question")}
-        <span>${escapeHtml(summary?.label || "暂无追问")}</span>
-        <small>${escapeHtml(summary?.detail || "当前范围暂时没有明显的待追问结构。")}</small>
-      </button>
-      <button class="graph-overlay-close graph-question-chip-close" type="button" data-graph-thinking-hide aria-label="关闭追问" title="关闭追问">${renderGraphIcon("close")}</button>
-    </div>
-  `;
-}
-
-function graphThinkingFilterMeta(value = "all") {
-  const key = String(value || "all").trim().toLowerCase();
-  if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成主题或索引卡的聚集。" };
-  if (key === "organize") return { key: "organize", label: "整理", note: "只看孤立、桥接、关系复核和错位线索。" };
-  return { key: "all", label: "全部", note: "按优先级列出当前最值得继续判断的地方。" };
-}
-
-function graphCompactActionLabel(label = "查看") {
-  const text = String(label || "查看").trim() || "查看";
-  if (/补.*理由/.test(text)) return "补理由";
-  if (/桥接|复核|评估|判断|核对|整理|改类型|拆分/.test(text)) return "判断";
-  if (/关联/.test(text)) return "关联";
-  if (/查看/.test(text)) return "查看";
-  return text.length > 4 ? text.slice(0, 4) : text;
-}
-
-function graphThinkingNoteTitle(nodeMap = new Map(), id = "", fallback = "相关笔记") {
-  return computeGraphThinkingNoteTitle(nodeMap, id, fallback);
-}
-
-function graphThinkingCleanIds(values = []) {
-  return computeGraphThinkingCleanIds(values);
-}
-
-function graphThinkingHighlightAttrs(item = {}) {
-  return graphThinkingHighlightAttrsForItem(item, {
-    escapeHtml,
-    cleanIds: graphThinkingCleanIds,
-    edgeSelectionKey: graphEdgeSelectionKey
-  });
-}
-
-function graphSelectEdgeActionAttrs(edge = {}) {
-  return computeGraphSelectEdgeActionAttrs(edge, { escape: escapeHtml });
-}
-
-function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], reviewQueue = null, conflictItems = [], conflictingRelations = [], aiAnalysis = null, isolatedNotes = [], nodeLookupMap = null } = {}) {
-  return buildGraphThinkingItemsForGraph({
-    nodes,
-    edges,
-    bridgeGaps,
-    reviewQueue,
-    conflictItems,
-    conflictingRelations,
-    aiAnalysis,
-    isolatedNotes,
-    nodeLookupMap
-  }, graphThinkingModelRuntimeDeps());
-}
-
-function graphNodeIdsInScope(nodes = []) {
-  return new Set((Array.isArray(nodes) ? nodes : []).map((node) => String(node?.id || "").trim()).filter(Boolean));
-}
-
-function graphRelationInNodeScope(edge = {}, nodeIds = new Set()) {
-  const fromId = String(edge?.fromNoteId || edge?.source?.id || "").trim();
-  const toId = String(edge?.toNoteId || edge?.target?.id || "").trim();
-  return Boolean(fromId && toId && nodeIds.has(fromId) && nodeIds.has(toId));
-}
-
-function graphRelationTouchesNodeScope(edge = {}, nodeIds = new Set()) {
-  const fromId = String(edge?.fromNoteId || edge?.source?.id || "").trim();
-  const toId = String(edge?.toNoteId || edge?.target?.id || "").trim();
-  return Boolean((fromId && nodeIds.has(fromId)) || (toId && nodeIds.has(toId)));
-}
-
-function graphCandidateTouchesNodeScope(candidate = {}, nodeIds = new Set()) {
-  if (!nodeIds?.size) return true;
-  const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
-  return Boolean((sourceNoteId && nodeIds.has(sourceNoteId)) || (targetNoteId && nodeIds.has(targetNoteId)));
-}
-
-function graphBridgeGapInNodeScope(gap = {}, nodeIds = new Set()) {
-  const sourceIds = graphThinkingCleanIds(gap?.noteIds);
-  const targetIds = graphThinkingCleanIds(gap?.targetNoteIds);
-  if (!sourceIds.length || sourceIds.some((id) => !nodeIds.has(id))) return false;
-  return !targetIds.length || targetIds.some((id) => nodeIds.has(id));
-}
-
-function graphConflictItemInNodeScope(item = {}, nodeIds = new Set()) {
-  const itemIds = graphThinkingCleanIds(
-    Array.isArray(item?.noteIds) && item.noteIds.length
-      ? item.noteIds
-      : Array.isArray(item?.notes)
-        ? item.notes.map((note) => note?.id)
-        : []
-  );
-  return !itemIds.length || itemIds.some((id) => nodeIds.has(id));
-}
-
-function graphReviewQueueInNodeScope(reviewQueue = null, nodeIds = new Set()) {
-  if (!reviewQueue || typeof reviewQueue !== "object") return reviewQueue;
-  const items = (Array.isArray(reviewQueue.items) ? reviewQueue.items : []).filter((item) => graphRelationInNodeScope(item, nodeIds));
-  return {
-    ...reviewQueue,
-    total: items.length,
-    items,
-    summary: items.length === Number(reviewQueue.total || 0) ? reviewQueue.summary : null
-  };
-}
-
-function graphMergeRelationsByKey(...groups) {
-  const seen = new Set();
-  const merged = [];
-  for (const group of groups) {
-    for (const edge of Array.isArray(group) ? group : []) {
-      const key = String(edge?.id || `${edge?.fromNoteId || ""}->${edge?.toNoteId || ""}:${edge?.relationType || ""}`).trim();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      merged.push(edge);
-    }
-  }
-  return merged;
-}
-
-function renderGraphThinkingItems(items = [], filter = "all") {
-  return renderGraphThinkingItemsView(items, filter, {
-    escapeHtml,
-    renderGraphIcon,
-    graphWorkbenchTabMeta,
-    graphThinkingFilterMeta,
-    graphThinkingHighlightAttrs,
-    graphCompactActionLabel,
-    graphState
-  });
-}
-
-function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") {
-  return renderGraphWorkbenchPriorityQueueView(items, activeKey, {
-    escapeHtml,
-    renderGraphIcon,
-    graphWorkbenchTabMeta,
-    graphThinkingFilterMeta,
-    graphThinkingHighlightAttrs,
-    graphCompactActionLabel,
-    graphState
-  });
-}
-
-function renderGraphThinkingReviewNote(summary = {}) {
-  return renderGraphThinkingReviewNoteView(summary, {
-    escapeHtml,
-    renderGraphIcon,
-    graphWorkbenchTabMeta,
-    graphThinkingFilterMeta,
-    graphThinkingHighlightAttrs,
-    graphCompactActionLabel,
-    graphState
-  });
-}
-
-function renderGraphThinkingPanelContent({ summary = {}, items = [], includeSummary = true } = {}) {
-  return renderGraphThinkingPanelContentView({ summary, items, includeSummary }, {
-    escapeHtml,
-    renderGraphIcon,
-    graphWorkbenchTabMeta,
-    graphThinkingFilterMeta,
-    graphThinkingHighlightAttrs,
-    graphCompactActionLabel,
-    graphState
-  });}
-
-function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
-  return renderGraphThinkingPanelView({ summary, items }, {
-    escapeHtml,
-    renderGraphIcon,
-    graphWorkbenchTabMeta,
-    graphThinkingFilterMeta,
-    graphThinkingHighlightAttrs,
-    graphCompactActionLabel,
-    graphState
-  });
-}
-
-
-
-function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [], isolatedQueueMarkup = "" } = {}) {
-  return renderGraphWorkbenchPanelView({ clueSummary, questionSummary, clueSectionsMarkup, thinkingItems, isolatedQueueMarkup }, {
-    escapeHtml,
-    renderGraphIcon,
-    graphWorkbenchTabMeta,
-    graphThinkingFilterMeta,
-    graphThinkingHighlightAttrs,
-    graphCompactActionLabel,
-    graphState
-  });
-}
-
-function renderGraphUtilityDrawer(options = {}) {
-  return renderGraphUtilityDrawerView(options, {
-    escapeHtml,
-    graphAiAnalysisSummaryState,
-    renderGraphIcon
-  });
-}
-
-function graphSummaryModeNote(relationType = "all") {
-  const key = String(relationType || "all").trim().toLowerCase();
-  if (key === "meaningful") return "先看有解释力的关系。";
-  if (key === "all") return "展开全部关系。";
-  if (key === "noisy") return "只看链接线索。";
-  if (key === "index") return "只看主题归属。";
-  return `只看${graphRelationTypeLabel(key)}。`;
-}
-
+const {
+  renderRelationReviewQueueSection,
+  renderGraphMetricCard,
+  graphPendingAiCandidateCount,
+  graphLiveAiAnalysisCounts,
+  graphAiAnalysisSummaryState,
+  currentGraphVisibleNodeIds,
+  currentGraphWritingCandidateNoteIds,
+  renderGraphMapPreview,
+  renderGraphAiAnalysisCard,
+  buildGraphQuestionSpotSummary,
+  buildGraphQuestionSpotSummaryFromItems,
+  renderGraphQuestionSpotChip,
+  graphThinkingFilterMeta,
+  graphCompactActionLabel,
+  graphThinkingNoteTitle,
+  graphThinkingCleanIds,
+  graphThinkingHighlightAttrs,
+  graphSelectEdgeActionAttrs,
+  buildGraphThinkingItems,
+  graphNodeIdsInScope,
+  graphRelationInNodeScope,
+  graphRelationTouchesNodeScope,
+  graphCandidateTouchesNodeScope,
+  graphBridgeGapInNodeScope,
+  graphConflictItemInNodeScope,
+  graphReviewQueueInNodeScope,
+  graphMergeRelationsByKey,
+  renderGraphThinkingItems,
+  renderGraphWorkbenchPriorityQueue,
+  renderGraphThinkingReviewNote,
+  renderGraphThinkingPanelContent,
+  renderGraphThinkingPanel,
+  renderGraphWorkbenchPanel,
+  renderGraphUtilityDrawer,
+  graphSummaryModeNote
+} = graphThinkingPanelResidualView;
   return {
     renderGraphIcon,
     setGraphFocusDepth,

@@ -58,7 +58,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const lineCount = source.split(/\r?\n/).length;
 
-  assert.ok(lineCount <= 8500, `prototype-app.js should not grow past the shell budget, got ${lineCount} lines`);
+  assert.ok(lineCount <= 7000, `prototype-app.js should not grow past the shell budget, got ${lineCount} lines`);
   assert.match(source, /bindAiInboxWorkspaceEvents/);
   assert.match(source, /bindAiSuggestionsWorkspaceEvents/);
   assert.match(source, /createGraphRelationWorkflowController/);
@@ -149,6 +149,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "app-startup-seed.js": 70,
     "app-route-initializer.js": 60,
     "import-workspace-shell.js": 120,
+    "import-result-runtime.js": 420,
     "distillation-panel-view.js": 140,
     "distillation-event-bindings.js": 60,
     "distillation-note-route.js": 60,
@@ -208,6 +209,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-panel-runtime-deps.js": 40,
     "graph-panel-renderer.js": 150,
     "graph-entry-event-bindings.js": 45,
+    "graph-route-runtime.js": 280,
     "graph-scope-state.js": 160,
     "graph-refresh-controller.js": 90,
     "graph-viewport-controller.js": 110,
@@ -241,7 +243,11 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-selection-host-deps.js": 80,
     "graph-selection-panel-renderer.js": 60,
     "graph-workspace-host-deps.js": 60,
-    "graph-residual-views.js": 3400
+    "graph-residual-views.js": 2500,
+    "graph-relation-workspace-runtime.js": 220,
+    "graph-isolated-workspace-runtime.js": 700,
+    "graph-selection-residual-view.js": 340,
+    "graph-thinking-panel-residual-view.js": 540
   };
 
   for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
@@ -273,6 +279,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "editor-shell-event-bindings.js",
     "save-ai-suggestion-route-events.js",
     "import-workspace-shell.js",
+    "import-result-runtime.js",
     "distillation-panel-view.js",
     "distillation-event-bindings.js",
     "distillation-note-route.js",
@@ -314,6 +321,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "graph-panel-shell.js",
     "graph-panel-renderer.js",
     "graph-entry-event-bindings.js",
+    "graph-route-runtime.js",
     "graph-scope-state.js",
     "graph-refresh-controller.js",
     "graph-viewport-controller.js",
