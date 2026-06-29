@@ -112,8 +112,6 @@ test("prototype-app residual controller and view candidates stay explicit and bo
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const residualControllerCandidates = {
     createGraphThemeIndexFromNoteIds: 80,
-    createWritingProjectFromCurrentBasket: 80,
-    createWritingProjectFromImportedPermanentNotes: 70,
     pullRecommendedOllamaModel: 70,
     checkCurrentAiProviderHealth: 55
   };
@@ -155,6 +153,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "writing-basket-state.js": 80,
     "writing-session-state.js": 80,
     "writing-project-action-model.js": 130,
+    "writing-project-runtime-controller.js": 270,
     "writing-entry-route-model.js": 100,
     "writing-theme-state.js": 50,
     "writing-theme-selection-controller.js": 60,
@@ -252,7 +251,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "writing-candidate-state.js",
     "writing-basket-state.js",
     "writing-session-state.js",
-    "writing-project-action-model.js",
+    "writing-project-runtime-controller.js",
     "writing-entry-route-model.js",
     "writing-theme-state.js",
     "system-messages-host-deps.js",
