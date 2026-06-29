@@ -58,7 +58,7 @@ test("prototype-app stays inside the current shell validation budget", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
   const lineCount = source.split(/\r?\n/).length;
 
-  assert.ok(lineCount <= 19000, `prototype-app.js should not grow past the shell budget, got ${lineCount} lines`);
+  assert.ok(lineCount <= 8500, `prototype-app.js should not grow past the shell budget, got ${lineCount} lines`);
   assert.match(source, /bindAiInboxWorkspaceEvents/);
   assert.match(source, /bindAiSuggestionsWorkspaceEvents/);
   assert.match(source, /createGraphRelationWorkflowController/);
@@ -93,9 +93,6 @@ test("prototype-app keeps critical shell wrappers thin", () => {
     renderAiLocalModelControls: 5,
     renderAiProviderConfigControls: 5,
     renderAiRoutePreview: 5,
-    renderGraphIcon: 5,
-    graphFilterOptions: 5,
-    graphEdgePath: 5,
     renderDistillationPanel: 15,
     handleStateChange: 5,
     bootstrap: 5,
@@ -243,7 +240,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-isolated-decision-controller.js": 110,
     "graph-selection-host-deps.js": 80,
     "graph-selection-panel-renderer.js": 60,
-    "graph-workspace-host-deps.js": 60
+    "graph-workspace-host-deps.js": 60,
+    "graph-residual-views.js": 3400
   };
 
   for (const [modulePath, maxLines] of Object.entries(moduleLineBudgets)) {
@@ -340,7 +338,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "settings-template-preview-view.js",
     "settings-template-card-model.js",
     "editor-host-deps.js",
-    "graph-selection-panel-renderer.js"
+    "graph-selection-panel-renderer.js",
+    "graph-residual-views.js"
   ];
 
   for (const modulePath of requiredImports) {

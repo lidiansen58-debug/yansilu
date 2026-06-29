@@ -129,6 +129,10 @@ function readPrototypeApp() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
 }
 
+function readGraphResidualViews() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-residual-views.js"), "utf8");
+}
+
 function readSettingsEventBindings() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-event-bindings.js"), "utf8");
 }
@@ -838,7 +842,7 @@ test("graph map side panel does not stretch a second dark canvas below the map",
 });
 
 test("graph clusters are selectable research objects with their own summary panel", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
   const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const clusterSelectionPanelSource = readGraphClusterSelectionPanel();
   const html = readPrototypeHtml();
@@ -954,7 +958,8 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
 });
 
 test("isolated graph notes can request AI-assisted relation candidates and save them inside the graph workspace", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
+  const appShellSource = readPrototypeApp();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
@@ -971,13 +976,13 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   const isolatedDecisionControllerSource = readGraphIsolatedDecisionController();
   const graphCanvasEventRouterSource = readGraphCanvasEventRouter();
   const html = readPrototypeHtml();
-  assert.match(source, /from "\.\/graph-isolated-workflow-shell\.js";/);
-  assert.match(source, /from "\.\/graph-relation-state-query\.js";/);
-  assert.match(source, /from "\.\/graph-relation-workflow-controller\.js";/);
+  assert.match(appShellSource, /from "\.\/graph-isolated-workflow-shell\.js";/);
+  assert.match(appShellSource, /from "\.\/graph-relation-state-query\.js";/);
+  assert.match(appShellSource, /from "\.\/graph-relation-workflow-controller\.js";/);
   assert.match(source, /createGraphIsolatedWorkflowShellRenderer\(\{/);
   assert.match(source, /createGraphRelationWorkflowController\(\{/);
   assert.match(source, /renderJoinNetworkFlow: renderGraphIsolatedJoinNetworkFlow/);
-  assert.match(source, /graphDirectNetworkEdgeCount as computeGraphDirectNetworkEdgeCount/);
+  assert.match(appShellSource, /graphDirectNetworkEdgeCount as computeGraphDirectNetworkEdgeCount/);
   assert.match(source, /graphRelationSaveResultForNote\(noteId, graphState\.isolatedRelationSaveResultByNoteId\)/);
   assert.match(relationStateQuerySource, /export function graphDirectNetworkEdgesForNote/);
   assert.match(relationStateQuerySource, /export function graphConnectedNoteIdsForNote/);
@@ -1050,13 +1055,13 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /function graphPotentialRelationNeedsConfirmation\(candidate = \{\}\) \{/);
   assert.match(source, /data-graph-ai-refine-confirm/);
   assert.match(source, /data-graph-ai-refine-retry/);
-  assert.match(source, /已重新生成这条潜在关联的 AI 复核理由/);
-  assert.match(source, /async function triggerGraphPotentialRelationRefine\(/);
-  assert.match(source, /async function confirmGraphPotentialRelationRefine\(button = null\) \{/);
-  assert.match(source, /async function retryGraphPotentialRelationRefine\(button = null\) \{/);
-  assert.match(source, /正在重新生成关系说明/);
-  assert.match(source, /progressStatus: "正在按当前 AI 设置生成关系说明\.\.\."/);
-  assert.doesNotMatch(source, /setStatus\("已确认使用当前 AI 设置，正在生成关系说明", "ok"\);/);
+  assert.match(appShellSource, /已重新生成这条潜在关联的 AI 复核理由/);
+  assert.match(appShellSource, /async function triggerGraphPotentialRelationRefine\(/);
+  assert.match(appShellSource, /async function confirmGraphPotentialRelationRefine\(button = null\) \{/);
+  assert.match(appShellSource, /async function retryGraphPotentialRelationRefine\(button = null\) \{/);
+  assert.match(appShellSource, /正在重新生成关系说明/);
+  assert.match(appShellSource, /progressStatus: "正在按当前 AI 设置生成关系说明\.\.\."/);
+  assert.doesNotMatch(appShellSource, /setStatus\("已确认使用当前 AI 设置，正在生成关系说明", "ok"\);/);
   assert.match(source, /function renderGraphIsolatedJoinNetworkFlow\(\s*noteId = "",\s*\{/);
   assert.match(source, /renderGraphIsolatedJoinNetworkFlowHtml\(noteId, \{/);
   assert.match(source, /aiCandidatesForNote: graphAiRelationCandidatesForNote/);
@@ -1155,7 +1160,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(workflowControllerSource, /const returnTo = previousSelectionKind === "isolated" \|\| previousSelectionKind === "isolatedcomplete" \? "isolated" : "";/);
   assert.match(workflowControllerSource, /rationale,\s*returnTo,\s*entryRoute\s*\}/);
   assert.match(workflowControllerSource, /returnTo: cleanKind\(selection\?\.returnTo\)/);
-  assert.match(source, /from "\.\/graph-relation-save-controller\.js";/);
+  assert.match(appShellSource, /from "\.\/graph-relation-save-controller\.js";/);
   assert.match(source, /createGraphRelationSaveController\(\{/);
   assert.match(source, /saveConfirmedRelation: saveGraphConfirmedRelation/);
   assert.match(source, /openRelationFormInSelection: openGraphRelationFormInSelection/);
@@ -1181,10 +1186,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(workflowControllerSource, /const visibleEdgeCount = graphDirectNetworkEdgeCount\(cleanNoteId, edges,/);
   assert.match(workflowControllerSource, /const graphSelectionKind = previousSelectionKind === "isolated" \|\| \(!previousSelectionKind && visibleEdgeCount === 0\) \? "isolated" : "node";/);
   assert.match(graphAiConnectRuntimeSource, /workflowRoute: \{ focus: "graph", source: "graph-ai-connect", graphSelectionKind \}/);
-  assert.match(source, /async function saveGraphAiCandidateRelation\(button = null\) \{/);
-  assert.match(source, /async function saveGraphCandidateRelation\(button = null\) \{/);
-  assert.match(source, /return graphRelationSaveController\.saveAiCandidateRelation\(button\);/);
-  assert.match(source, /return graphRelationSaveController\.saveCandidateRelation\(button\);/);
+  assert.match(appShellSource, /async function saveGraphAiCandidateRelation\(button = null\) \{/);
+  assert.match(appShellSource, /async function saveGraphCandidateRelation\(button = null\) \{/);
+  assert.match(appShellSource, /return graphRelationSaveController\.saveAiCandidateRelation\(button\);/);
+  assert.match(appShellSource, /return graphRelationSaveController\.saveCandidateRelation\(button\);/);
   assert.match(saveControllerSource, /if \(!confirmableRelationTypes\.has\(relationType\) \|\| relationType === "no_relation"\) \{/);
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
   assert.match(source, /return graphRelationSaveController\.saveConfirmedRelation\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion, button \}\);/);
@@ -1201,7 +1206,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphFollowupDraftTemplatesSource, /rationaleDraft:/);
   assert.match(graphFollowupDraftTemplatesSource, /insightQuestionDraft:/);
   assert.match(nodeSelectionPanelSource, /renderGraphAiConnectCandidates\(normalized\.nodeId, \{[\s\S]*hideEmpty: directEdges\.length > 0[\s\S]*\}\)/);
-  assert.match(source, /runAiConnectForNote: runGraphAiConnectForNote/);
+  assert.match(appShellSource, /runAiConnectForNote: runGraphAiConnectForNote/);
   assert.match(graphCanvasEventRouterSource, /const graphAiConnectButton = event\.target\.closest\("\[data-graph-ai-connect-note\]"\);/);
   assert.match(graphCanvasEventRouterSource, /const graphAiCandidateButton = event\.target\.closest\("\[data-graph-ai-candidate-apply\]"\);/);
   assert.match(graphCanvasEventRouterSource, /const graphAiRefineConfirmButton = event\.target\.closest\("\[data-graph-ai-refine-confirm\]"\);/);
@@ -1519,7 +1524,8 @@ test("graph isolated notes are organized into a continuous handling queue", () =
 });
 
 test("graph isolated workspace offers non-AI relation candidates from tags and titles", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
+  const appShellSource = readPrototypeApp();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const relationControllerSource = readGraphIsolatedRelationController();
   const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
@@ -1560,7 +1566,7 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(relationControllerSource, /setWorkflowActiveTab\(noteId, tabKey\)/);
   assert.match(source, /function moveGraphIsolatedWorkflowTab\(currentButton = null, direction = 1\) \{/);
   assert.match(source, /return graphIsolatedRelationController\.moveWorkflowTab\(currentButton, direction\);/);
-  assert.match(source, /isolatedWorkflowTabsByNoteId: \{\},/);
+  assert.match(appShellSource, /isolatedWorkflowTabsByNoteId: \{\},/);
   assert.match(isolatedWorkflowShellSource, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}" data-graph-isolated-note="\$\{escapeHtml\(nextItem\.noteId\)\}"/);
   assert.match(isolatedThinkingItems[0]?.actionAttrs || "", /data-graph-select-isolated="isolated-a" data-graph-isolated-note="isolated-a"/);
   assert.match(graphCanvasEventRouterSource, /const isolatedWorkflowTab = event\.target\.closest\("\[data-graph-isolated-tab\]"\);/);
@@ -1635,7 +1641,7 @@ test("graph relation save rejects placeholder rationales", () => {
 });
 
 test("graph relation candidates explain reason, possible relation, and review question", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
   const html = readPrototypeHtml();
   const connectStart = source.indexOf('function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edges = [], hideEmpty = false } = {}) {');
   const connectEnd = source.indexOf('function graphWorkspaceRenderDeps()', connectStart);
@@ -1668,7 +1674,7 @@ test("graph relation candidates explain reason, possible relation, and review qu
 });
 
 test("graph AI candidate card saves reversed candidates from the current note", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
   const { renderGraphAiConnectCandidates } = new Function(`
     const graphState = { aiAnalysisLoading: false };
     function escapeHtml(value = "") {
@@ -1750,7 +1756,7 @@ test("graph relation candidate merge deduplicates reversed AI and local pairs", 
 });
 
 test("isolated note panel gives a continuous next step after confirming a relation", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
   const html = readPrototypeHtml();
   const nextStepSource = extractFunctionSource(source, "renderGraphIsolatedNextStepActions");
   const nextStepModuleSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-next-step.js"), "utf8");
@@ -1771,7 +1777,7 @@ test("isolated note panel gives a continuous next step after confirming a relati
 });
 
 test("graph node selection summarizes position, relation quality, and next action", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
   const selectionPanelSource = readGraphSelectionPanel();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const html = readPrototypeHtml();
@@ -1793,7 +1799,8 @@ test("graph node selection summarizes position, relation quality, and next actio
 });
 
 test("graph relation workspace combines AI candidates, manual relation management, and theme index creation", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
+  const appShellSource = readPrototypeApp();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
   const joinWorkspaceSource = readGraphIsolatedRelationWorkspace();
   const systemMessageSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-system-messages.js"), "utf8");
@@ -1809,14 +1816,14 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
   assert.match(workspaceSource, /data-graph-create-theme-index/);
   assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "主题候选", relationCount = 0, tone = "" \} = \{\}\) \{/);
-  assert.match(source, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
-  assert.match(source, /createIndexCard\(\{/);
-  assert.match(source, /centralQuestion: "这组笔记共同回答什么问题？"/);
-  assert.match(source, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
-  assert.match(source, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
-  assert.match(source, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
+  assert.match(appShellSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
+  assert.match(appShellSource, /createIndexCard\(\{/);
+  assert.match(appShellSource, /centralQuestion: "杩欑粍绗旇鍏卞悓鍥炵瓟浠€涔堥棶棰橈紵"|centralQuestion: "这组笔记共同回答什么问题？"/);
+  assert.match(appShellSource, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
+  assert.match(appShellSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
+  assert.match(appShellSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
   assert.match(readGraphCanvasEventRouter(), /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
-  assert.match(source, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
+  assert.match(appShellSource, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
   assert.match(systemMessageWorkflowSource, /focus === "writing"/);
   assert.match(systemMessageWorkflowSource, /await selectWritingThemeIndex\(indexCardId\)/);
   assert.match(systemMessageSource, /basketNoteIds: String\(item\.workflowRoute\.basketNoteIds/);
@@ -2191,7 +2198,8 @@ test("graph module sidebar is labeled as graph scope instead of permanent-note b
 
 
 test("graph load failure renders a quiet empty state instead of a red error panel", () => {
-  const source = readPrototypeApp();
+  const source = readGraphResidualViews();
+  const appShellSource = readPrototypeApp();
   const panelStateBuilderSource = readGraphPanelStateBuilder();
   const panelRendererSource = readGraphPanelRenderer();
   const panelShellSource = readGraphPanelShell();
@@ -2205,7 +2213,7 @@ test("graph load failure renders a quiet empty state instead of a red error pane
   assert.match(errorState, /刷新图谱/);
   assert.doesNotMatch(errorState, /Failed to fetch/);
   assert.match(panelStateBuilderSource, /summaryText: "图谱暂时无法读取，笔记树仍可正常使用。"/);
-  assert.match(source, /renderGraphPanelShell\(\{/);
+  assert.match(appShellSource, /renderGraphPanelShell\(\{/);
   assert.match(panelShellSource, /renderGraphPanelForRuntime\(\{ summary, canvas, backButton, panelState \}/);
   assert.match(panelRendererSource, /summary\.textContent = panelState\.summaryText \|\| "";/);
   assert.doesNotMatch(source, /summary\.textContent = `图谱加载失败/);

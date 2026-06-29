@@ -5,6 +5,7 @@ import {
   readGraphPanelRendererSource,
   readGraphPanelRuntimeDepsSource,
   readGraphPanelShellSource,
+  readGraphResidualViewsSource,
   readGraphSelectionHostDepsSource,
   readGraphSelectionPanelRendererSource,
   readGraphVisualMapComposerSource,
@@ -21,26 +22,30 @@ import {
 
 test("prototype graph shell keeps review and relation entry wiring without legacy wikilink copy", async () => {
   const source = await readPrototypeAppSource();
+  const residualSource = await readGraphResidualViewsSource();
   const focusContextPanelSource = await readGraphFocusContextPanelSource();
 
   assert.match(source, /function renderGraphPanel\(\)/);
-  assert.match(source, /createGraphSelectionPanelRenderer/);
-  assert.match(source, /function renderGraphRelationWorkspaceForNote/);
+  assert.match(source, /createGraphResidualViews\(\{/);
+  assert.match(residualSource, /createGraphSelectionPanelRenderer/);
+  assert.match(residualSource, /function renderGraphRelationWorkspaceForNote/);
   assert.match(source, /renderGraphFocusContextPanelView/);
   assert.match(focusContextPanelSource, /data-graph-relation-adjustment="strengthen"/);
-  assert.match(source, /renderGraphRelationWorkspaceMarkup/);
+  assert.match(residualSource, /renderGraphRelationWorkspaceMarkup/);
   assert.doesNotMatch(source, /data-graph-followup-action="relations-edit"/);
   assert.doesNotMatch(source, /Markdown wikilink/);
 });
 
 test("prototype graph shell delegates isolated relation save and workspace rendering to modules", async () => {
   const source = await readPrototypeAppSource();
+  const residualSource = await readGraphResidualViewsSource();
 
   assert.match(source, /createGraphIsolatedRelationController/);
   assert.match(source, /createGraphRelationSaveController/);
   assert.match(source, /createGraphRelationWorkflowController/);
   assert.match(source, /renderGraphRelationWorkspaceForNote as renderGraphRelationWorkspaceMarkup/);
   assert.match(source, /renderGraphThemeIndexWorkspace as renderGraphThemeIndexWorkspaceMarkup/);
+  assert.match(residualSource, /renderRelationWorkspaceForNote: renderGraphRelationWorkspaceForNote/);
 });
 
 test("prototype graph shell delegates visual node and edge svg rendering to view modules", async () => {
@@ -75,10 +80,11 @@ test("prototype graph shell delegates visual map chrome to the shell view", asyn
 
 test("prototype graph shell delegates selection kind dispatch to a graph module", async () => {
   const source = await readPrototypeAppSource();
+  const residualSource = await readGraphResidualViewsSource();
   const selectionRendererSource = await readGraphSelectionPanelRendererSource();
 
   assert.match(source, /from "\.\/graph-selection-panel-renderer\.js"/);
-  assert.match(source, /createGraphSelectionPanelRenderer\(\(\) => \(\{/);
+  assert.match(residualSource, /createGraphSelectionPanelRenderer\(\(\) => \(\{/);
   assert.match(selectionRendererSource, /from "\.\/graph-selection-dispatcher\.js"/);
   assert.match(selectionRendererSource, /renderGraphSelectionPanelViaDispatcher\(context, renderers, deps\)/);
   assert.match(selectionRendererSource, /createGraphSelectionDispatcherRuntime\(\{/);
@@ -110,9 +116,10 @@ test("prototype graph shell delegates node and edge selection bodies to panel mo
 
 test("prototype graph shell delegates cluster selection body to a panel module", async () => {
   const source = await readPrototypeAppSource();
+  const residualSource = await readGraphResidualViewsSource();
 
   assert.match(source, /from "\.\/graph-cluster-selection-panel\.js"/);
-  assert.match(source, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges \}/);
+  assert.match(residualSource, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges \}/);
   assert.doesNotMatch(source, /renderGraphThemeIndexWorkspace\(meta\.memberIds/);
   assert.doesNotMatch(source, /className: "is-cluster"/);
 });

@@ -143,6 +143,10 @@ export function readGraphSelectionPanelRendererSource() {
   return readRepoText("apps", "web", "src", "graph-selection-panel-renderer.js");
 }
 
+export function readGraphResidualViewsSource() {
+  return readRepoText("apps", "web", "src", "graph-residual-views.js");
+}
+
 export async function readEditorDomainSource() {
   const files = [
     "components-editor-pane.js",
