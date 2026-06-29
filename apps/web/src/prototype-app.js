@@ -45,11 +45,26 @@ import {
   renderDistillationPanelView
 } from "./distillation-panel-view.js";
 import {
+  installDistillationEventBindings
+} from "./distillation-event-bindings.js";
+import {
   syncRailSelectionDom
 } from "./app-shell-rail.js";
 import {
+  installAppRailEventBindings
+} from "./app-rail-event-bindings.js";
+import {
+  installQuickActionEventBindings
+} from "./quick-action-event-bindings.js";
+import {
+  installAppGlobalKeyboardEvents
+} from "./app-global-keyboard-events.js";
+import {
   editorSelectionAiActionElements
 } from "./app-shell-editor-elements.js";
+import {
+  createExplorerPaneHostDeps
+} from "./explorer-host-deps.js";
 import {
   createEditorPaneHostDeps
 } from "./editor-host-deps.js";
@@ -83,6 +98,9 @@ import {
   installSidebarFlowEventHandler,
   renderExplorerSidebarFlowForRuntime
 } from "./app-shell-sidebar-flow.js";
+import {
+  installMobileNoteEventBindings
+} from "./mobile-note-event-bindings.js";
 import {
   createAppShellStateChangePrototypeDepsProvider
 } from "./app-shell-state-change-host-deps.js";
@@ -620,6 +638,9 @@ import {
   graphThemeNoteIds,
   graphThemeSelectionKey
 } from "./graph-visual-selection-state.js";
+import {
+  installGraphEntryEventBindings
+} from "./graph-entry-event-bindings.js";
 import {
   graphBuildFocusedRelationTypeStatsForRuntime,
   graphFocusedItemsForRuntime,
@@ -10485,26 +10506,19 @@ async function selectNoteMoveDirectory({
   });
 }
 
-const explorer = new ExplorerPane({
+const explorer = new ExplorerPane(createExplorerPaneHostDeps({
+  $,
   state,
-  elements: {
-    searchInput: $("searchInput"),
-    toggleSearchBtn: $("btnToggleSearch"),
-    openNewBoxBtn: $("btnOpenNewBoxDialog"),
-    newNoteBtn: $("btnNewNote"),
-    listArea: $("listArea")
-  },
   contextMenu,
   createBoxDialog,
-  onOpenNote: openNoteById,
-  onStatus: setStatus,
-  onStateChange: handleStateChange,
-  pickDirectory: desktopCommands.browseDirectory,
+  desktopCommands,
+  openNoteById,
+  setStatus,
+  handleStateChange,
   selectPermanentDirectory,
   selectNoteMoveDirectory,
-  desktopFile: { revealPath: desktopCommands.revealInFileManager, openPath: desktopCommands.openDirectory },
   resolveNotePath
-});
+}));
 
 const editor = new EditorPane(createEditorPaneHostDeps({
   $,
@@ -10901,27 +10915,16 @@ installWritingDraftActionEventHandlers({
   })
 });
 
-$("graphRefresh")?.addEventListener("click", async () => {
-  const refreshed = await refreshDirectoryGraph();
-  setStatus(
-    refreshed ? "永久笔记关系图谱已刷新" : `图谱刷新失败：${graphState.error || "请重试"}`,
-    refreshed ? "ok" : "warn"
-  );
-});
-
-$("graphBackToDirectory")?.addEventListener("click", () => {
-  state.selectedFileId = null;
-  explorer?.restoreAutoCollapsedDisconnectedGroups?.();
-  renderAll();
-  setStatus("已返回目录关系视图", "ok");
-});
-
-$("graphSeedYijing")?.addEventListener("click", async () => {
-  await importYijingKnowledgeNetworkDemo();
-});
-
-$("graphSeedYijingRich")?.addEventListener("click", async () => {
-  await importYijingRichAcceptanceDemo();
+installGraphEntryEventBindings({
+  $,
+  state,
+  explorer,
+  graphState,
+  refreshDirectoryGraph,
+  importYijingKnowledgeNetworkDemo,
+  importYijingRichAcceptanceDemo,
+  renderAll,
+  setStatus
 });
 
 bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
@@ -11030,79 +11033,40 @@ bindGraphCanvasEvents($("graphCanvas"), {
   centerGraphViewportIfZoomed,
   requestAnimationFrame: window.requestAnimationFrame.bind(window)
 });
-document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
-  btn.addEventListener("click", async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const targetModule = btn.dataset.module;
-    if (targetModule === "graph") graphModuleActivationGuardUntil = Date.now() + 1800;
-    activateModule(targetModule);
-    if (targetModule === "graph" && state.module === "graph") {
-      await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("graph_module_open"));
-      await refreshDirectoryGraph();
-      if (state.module !== "graph" && Date.now() < graphModuleActivationGuardUntil) {
-        activateModule("graph");
-      }
-      if (state.module === "graph") setStatus("已打开永久笔记关系图谱", "ok");
-	    }
-	    if (targetModule === "aiInbox" && state.module === "aiInbox") {
-	      await openAiInboxModule();
-	      if (state.module === "aiInbox") setStatus("已打开 AI 建议复核", "ok");
-	    }
-	    if (targetModule === "settings" && state.module === "settings") {
-	      try {
-	        await refreshVaultSettings();
-	        if (state.module === "settings") setStatus("已打开设置", "ok");
-	      } catch (error) {
-	        if (state.module === "settings") setStatus(`设置加载失败：${String(error?.message || error)}`, "warn");
-	      }
-	    }
-	    if (targetModule === "writing" && state.module === "writing") {
-	      await openWritingModule();
-	    }
-	    if (targetModule === "distillation" && state.module === "distillation") {
-	      await openDistillationModule();
-	    }
-	  });
-	});
+installAppRailEventBindings({
+  documentRef: document,
+  state,
+  getGraphModuleActivationGuardUntil: () => graphModuleActivationGuardUntil,
+  setGraphModuleActivationGuardUntil: (value) => {
+    graphModuleActivationGuardUntil = value;
+  },
+  activateModule,
+  previewOllamaLocalAiBootstrapFromUi,
+  localAiPreviewOptionsForAction,
+  refreshDirectoryGraph,
+  openAiInboxModule,
+  refreshVaultSettings,
+  openWritingModule,
+  openDistillationModule,
+  setStatus
+});
 
 installSystemMessageEventHandlers({
   $,
   depsProvider: systemMessageEventDeps
 });
 
-$("distillationPanel")?.addEventListener("click", async (event) => {
-  const refresh = event.target.closest("#btnDistillationRefresh");
-  if (refresh) {
-    await openDistillationModule();
-    return;
-  }
-  const filterButton = event.target.closest("[data-distillation-filter]");
-  if (filterButton) {
-    distillationState.filter = String(filterButton.dataset.distillationFilter || "all").trim() || "all";
-    renderDistillationPanel();
-    return;
-  }
-  const actionButton = event.target.closest("[data-distillation-action]");
-  if (actionButton) {
-    const action = String(actionButton.dataset.distillationAction || "").trim();
-    if (action === "open-writing") {
-      activateModule("writing");
-      await openWritingModule();
-      return;
-    }
-    if (action === "create-permanent") {
-      activateModule("explorer");
-      state.browserRootId = "dir_original_default";
-      state.selectedFolderId = "dir_original_default";
-      await handleStateChange("create-note-in-selected-folder");
-      renderAll();
-      return;
-    }
-  }
-  const noteButton = event.target.closest("[data-distillation-open-note]");
-  if (!noteButton) return;
-  await openDistillationQueueNote(noteButton.dataset.distillationOpenNote);
+installDistillationEventBindings({
+  $,
+  state,
+  distillationState,
+  openDistillationModule,
+  renderDistillationPanel,
+  activateModule,
+  openWritingModule,
+  handleStateChange,
+  renderAll,
+  openDistillationQueueNote
 });
 
 installSidebarFlowEventHandler({
@@ -11116,137 +11080,45 @@ installSidebarFlowEventHandler({
   })
 });
 
-$("btnMobileNewNote")?.addEventListener("click", () => {
-  const folderId = resolveExplorerNewNoteFolderId(state);
-  if (folderById(state, folderId)) {
-    state.selectedFolderId = folderId;
-    state.browserRootId = rootBoxIdFromFolder(state, folderId);
-    state.selectedFileId = null;
-  }
-  handleStateChange("create-note-in-selected-folder");
+installMobileNoteEventBindings({
+  $,
+  state,
+  resolveExplorerNewNoteFolderId,
+  folderById,
+  rootBoxIdFromFolder,
+  handleStateChange
 });
 
-document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
-  btn.addEventListener("click", async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const action = btn.dataset.action;
-    if (action === "quick-original" && Date.now() < graphModuleActivationGuardUntil) {
-      setStatus("已停留在关系图谱", "ok");
-      return;
-    }
-    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-    if (activeTab?.dirty) {
-      editor.updateActiveTabFromEditor();
-      void editor.autoSaveTabById(activeTab.id, "switch-root");
-    }
-    if (action === "quick-fleeting") {
-      state.browserRootId = "dir_fleeting_default";
-      state.selectedFolderId = "dir_fleeting_default";
-    }
-    if (action === "quick-literature") {
-      state.browserRootId = "dir_literature_default";
-      state.selectedFolderId = "dir_literature_default";
-    }
-    if (action === "quick-original") {
-      state.browserRootId = "dir_original_default";
-      state.selectedFolderId = "dir_original_default";
-    }
-    state.module = "explorer";
-    state.selectedFileId = null;
-    await syncNotesForDirectoryTree(state.browserRootId);
-    syncRailSelectionState();
-    setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
-    renderAll();
-    });
-  });
-
-document.querySelectorAll("[data-action='open-handoff']").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const url = `${window.location.origin}/app/handoff`;
-    window.open(url, "_blank", "noopener,noreferrer");
-    setStatus("已打开工作台交付板", "ok");
-  });
+installQuickActionEventBindings({
+  documentRef: document,
+  windowRef: window,
+  state,
+  editor,
+  getGraphModuleActivationGuardUntil: () => graphModuleActivationGuardUntil,
+  folderById,
+  displayFolderName,
+  syncNotesForDirectoryTree,
+  syncRailSelectionState,
+  renderAll,
+  setStatus
 });
 
-document.addEventListener("keydown", (e) => {
-  if (handleSystemMessageEscapeKey(e, systemMessageEventDeps()).handled) return;
-
-  const tag = (e.target?.tagName || "").toLowerCase();
-  if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable || e.isComposing) return;
-
-  if (e.key === "F2") {
-    if (state.selectedFileId) {
-      explorer.handleContextAction("rename", { kind: "file", id: state.selectedFileId });
-      renderAll();
-      e.preventDefault();
-      return;
-    }
-    if (state.selectedFolderId) {
-      explorer.handleContextAction("rename", { kind: "folder", id: state.selectedFolderId });
-      renderAll();
-      e.preventDefault();
-      return;
-    }
-  }
-
-  if (e.key === "Delete" && !e.ctrlKey && !e.altKey && !e.metaKey && state.module === "explorer") {
-    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
-    const route = noteDeleteKeyRoute({
-      module: state.module,
-      selectedFileId: state.selectedFileId,
-      activeTabNoteId: activeTab?.noteId
-    });
-    const noteId = route.handled ? route.noteId : "";
-    if (noteId && state.notes.some((note) => note.id === noteId)) {
-      void explorer.handleContextAction("delete", { kind: "file", id: noteId });
-      e.preventDefault();
-      return;
-    }
-  }
-
-  if (e.ctrlKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-    const idx = state.tabs.findIndex((t) => t.id === state.activeTabId);
-    if (idx >= 0 && state.tabs.length > 1) {
-      const next = e.key === "ArrowLeft" ? (idx - 1 + state.tabs.length) % state.tabs.length : (idx + 1) % state.tabs.length;
-      state.activeTabId = state.tabs[next].id;
-      editor.fillEditorFromTab();
-      syncExplorerContextToActiveTab();
-      renderAll();
-      e.preventDefault();
-    }
-    return;
-  }
-
-  if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-    if (e.key === "ArrowLeft") {
-      const cur = folderById(state, state.selectedFolderId);
-      if (cur?.parentId) {
-        state.selectedFolderId = cur.parentId;
-        setStatus("已定位到上级目录", "ok");
-      } else {
-        setStatus("当前已在顶层目录", "warn");
-      }
-    } else {
-      const children = childFolders(state, state.selectedFolderId);
-      if (children.length) {
-        state.selectedFolderId = children[0].id;
-        setStatus("已进入子目录", "ok");
-      } else {
-        const files = notesInFolder(state, state.selectedFolderId);
-        if (files.length) {
-          openNoteById(files[0].id);
-          setStatus("已打开当前目录首个文件", "ok");
-        } else {
-          setStatus("当前目录无文件", "warn");
-        }
-      }
-    }
-    renderAll();
-    e.preventDefault();
-  }
+installAppGlobalKeyboardEvents({
+  documentRef: document,
+  state,
+  explorer,
+  editor,
+  handleSystemMessageEscapeKey,
+  systemMessageEventDeps,
+  noteDeleteKeyRoute,
+  syncExplorerContextToActiveTab,
+  folderById,
+  childFolders,
+  notesInFolder,
+  openNoteById,
+  renderAll,
+  setStatus
 });
-
 function appStartupDeps() {
   return {
     $,
@@ -11309,4 +11181,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-

@@ -133,6 +133,14 @@ function readSettingsEventBindings() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-event-bindings.js"), "utf8");
 }
 
+function readAppRailEventBindings() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/app-rail-event-bindings.js"), "utf8");
+}
+
+function readQuickActionEventBindings() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/quick-action-event-bindings.js"), "utf8");
+}
+
 function readGraphIsolatedRelationWorkspace() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-relation-workspace.js"), "utf8");
 }
@@ -2137,19 +2145,20 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
 });
 
 test("graph rail entry does not fall through to note explorer during async refresh", () => {
-  const source = readPrototypeApp();
+  const railSource = readAppRailEventBindings();
+  const quickActionSource = readQuickActionEventBindings();
 
-  assert.match(source, /document\.querySelectorAll\("\.rail-btn\[data-module\]"\)\.forEach\(\(btn\) => \{/);
-  assert.match(source, /btn\.addEventListener\("click", async \(event\) => \{/);
-  assert.match(source, /event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);/);
-  assert.match(source, /const targetModule = btn\.dataset\.module;/);
-  assert.match(source, /if \(targetModule === "graph"\) graphModuleActivationGuardUntil = Date\.now\(\) \+ 1800;/);
-  assert.match(source, /if \(targetModule === "graph" && state\.module === "graph"\) \{[\s\S]*await refreshDirectoryGraph\(\);[\s\S]*if \(state\.module === "graph"\) setStatus\("已打开永久笔记关系图谱", "ok"\);/);
-  assert.match(source, /if \(state\.module !== "graph" && Date\.now\(\) < graphModuleActivationGuardUntil\) \{[\s\S]*activateModule\("graph"\);[\s\S]*\}/);
-  assert.match(source, /document\.querySelectorAll\("\[data-action\^='quick-'\]"\)\.forEach\(\(btn\) => \{[\s\S]*btn\.addEventListener\("click", async \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);/);
-  assert.match(source, /if \(action === "quick-original" && Date\.now\(\) < graphModuleActivationGuardUntil\) \{[\s\S]*setStatus\("已停留在关系图谱", "ok"\);[\s\S]*return;/);
+  assert.ok(railSource.includes('querySelectorAll?.(".rail-btn[data-module]")?.forEach((btn) => {'));
+  assert.ok(railSource.includes('btn.addEventListener("click", async (event) => {'));
+  assert.match(railSource, /event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);/);
+  assert.ok(railSource.includes("const targetModule = btn.dataset.module;"));
+  assert.ok(railSource.includes('if (targetModule === "graph") setGraphModuleActivationGuardUntil(now() + 1800);'));
+  assert.match(railSource, /if \(targetModule === "graph" && state\.module === "graph"\) \{[\s\S]*await refreshDirectoryGraph\(\);[\s\S]*if \(state\.module === "graph"\) setStatus\(/);
+  assert.match(railSource, /if \(state\.module !== "graph" && now\(\) < getGraphModuleActivationGuardUntil\(\)\) \{[\s\S]*activateModule\("graph"\);[\s\S]*\}/);
+  assert.ok(quickActionSource.includes('querySelectorAll?.("[data-action^=\'quick-\']")?.forEach((btn) => {'));
+  assert.match(quickActionSource, /btn\.addEventListener\("click", async \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);/);
+  assert.match(quickActionSource, /if \(action === "quick-original" && now\(\) < getGraphModuleActivationGuardUntil\(\)\) \{[\s\S]*setStatus\([\s\S]*return;/);
 });
-
 test("note box and graph tree sync all notes under the selected root", async () => {
   const source = readPrototypeApp();
   const settingsEventSource = readSettingsEventBindings();
@@ -2159,7 +2168,7 @@ test("note box and graph tree sync all notes under the selected root", async () 
   assert.match(source, /const directoryIds = descendantDirectoryIds\(rootId\)\.filter\(\(id\) => folderById\(state, id\)\);[\s\S]*for \(const directoryId of directoryIds\) \{[\s\S]*await syncNotesForDirectory\(directoryId\);/);
   assert.match(settingsEventSource, /await refreshVaultSettings\(\);/);
   assert.match(settingsEventSource, /await syncDirectoriesFromApi\(\);[\s\S]*await syncNotesForDirectory\(state\.selectedFolderId\);/);
-  assert.match(source, /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);[\s\S]*syncRailSelectionState\(\);/);
+  assert.match(readQuickActionEventBindings(), /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);[\s\S]*syncRailSelectionState\(\);/);
   await refreshDirectoryGraphForRuntime({
     graphScopeDirectoryId: () => "selected-dir",
     graphOriginalScopeDirectoryId: "original-root",
