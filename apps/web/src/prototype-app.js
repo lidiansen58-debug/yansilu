@@ -51,6 +51,9 @@ import {
   editorSelectionAiActionElements
 } from "./app-shell-editor-elements.js";
 import {
+  createEditorPaneHostDeps
+} from "./editor-host-deps.js";
+import {
   editorHelperNoteType,
   editorHelperShouldHide
 } from "./editor-helper-model.js";
@@ -164,6 +167,9 @@ import {
   renderAiInboxWorkspaceView
 } from "./ai-inbox-workspace.js";
 import {
+  createAiInboxWorkspaceHostDeps
+} from "./ai-inbox-host-deps.js";
+import {
   dismissSaveAiSuggestionForLater,
   saveAiSuggestionForNoteModel,
   saveAiSuggestionPrimaryRoute
@@ -174,6 +180,9 @@ import {
   bindAiSuggestionsWorkspaceEvents,
   renderAiSuggestionsWorkspaceView
 } from "./ai-suggestions-workspace.js";
+import {
+  createAiSuggestionsWorkspaceHostDeps
+} from "./ai-suggestions-host-deps.js";
 import {
   applyAiRuntimeModeChangeForRuntime
 } from "./ai-runtime-mode-controller.js";
@@ -771,6 +780,12 @@ import {
 import {
   renderSettingsPanelForRuntime
 } from "./settings-panel-renderer.js";
+import {
+  installSettingsEventBindings
+} from "./settings-event-bindings.js";
+import {
+  installSettingsAiEventBindings
+} from "./settings-ai-event-bindings.js";
 import {
   aiTestBlockedReasonForState,
   currentOllamaModelTiersForState,
@@ -10491,95 +10506,22 @@ const explorer = new ExplorerPane({
   resolveNotePath
 });
 
-const editor = new EditorPane({
+const editor = new EditorPane(createEditorPaneHostDeps({
+  $,
   state,
-  elements: {
-    tabs: $("tabs"),
-    body: $("editorBody"),
-    wysiwygHost: $("wysiwygHost"),
-    editorHost: $("editorHost"),
-    markdownSplit: $("markdownSplit"),
-    emptyStart: $("editorEmptyStart"),
-    literatureWorkspace: $("literatureWorkspace"),
-    literatureQueueSummary: $("literatureQueueSummary"),
-    literatureQueueList: $("literatureQueueList"),
-    literatureQueueNote: $("literatureQueueNote"),
-    literatureOpenNext: $("btnLiteratureOpenNext"),
-    literatureTitle: $("literatureTitleInput"),
-    literatureOriginal: $("literatureOriginalInput"),
-    literatureParaphrase: $("literatureParaphraseInput"),
-    literatureWhyKeep: $("literatureWhyKeepInput"),
-    literatureSupportsJudgment: $("literatureSupportsJudgmentInput"),
-    literatureQuestion: $("literatureQuestionInput"),
-    literatureBoundary: $("literatureBoundaryInput"),
-    previewPanel: $("markdownPreviewPanel"),
-    preview: $("markdownPreview"),
-    editorThinkingStatus: $("editorThinkingStatus"),
-    assetPreviewMask: $("assetPreviewMask"),
-    assetPreviewTitle: $("assetPreviewTitle"),
-    assetPreviewBody: $("assetPreviewBody"),
-    assetPreviewOpenLink: $("assetPreviewOpenLink"),
-    closeAssetPreview: $("btnCloseAssetPreview"),
-    editorWrap: $("markdownPanel")?.closest(".editor-wrap"),
-    editorRelationsBelow: $("editorRelationsBelow"),
-    relatedPanel: $("relatedPanel"),
-    result: $("resultArea"),
-    linkPicker: $("linkPicker"),
-    linkSearchInput: $("linkSearchInput"),
-    linkSearchList: $("linkSearchList"),
-    linkRelationTypeSelect: $("linkRelationTypeSelect"),
-    linkReasonInput: $("linkReasonInput"),
-    confirmLinkInsert: $("btnConfirmLinkInsert"),
-    closeLinkPicker: $("btnCloseLinkPicker"),
-    tagPicker: $("tagPicker"),
-    tagSearchInput: $("tagSearchInput"),
-    tagSearchList: $("tagSearchList"),
-    closeTagPicker: $("btnCloseTagPicker"),
-    originalityNotice: $("originalityNotice"),
-    originalityNoticeTitle: $("originalityNoticeTitle"),
-    originalityNoticeBody: $("originalityNoticeBody"),
-    closeOriginalityNotice: $("btnCloseOriginalityNotice"),
-    ...editorSelectionAiActionElements($),
-    insertLink: $("btnInsertLink"),
-    insertImage: $("btnInsertImage"),
-    insertTag: $("btnInsertTag"),
-    toolbarCommandMenu: $("toolbarCommandMenu"),
-    toolbarCommandList: $("toolbarCommandList"),
-    headingLevel: $("headingLevelSelect"),
-    assetImageInput: $("assetImageInput"),
-    assetFileInput: $("assetFileInput"),
-    modeEdit: $("btnModeToggle"),
-    modeSplit: $("btnModeSplit"),
-    modePreview: $("btnModeToggle"),
-    showRelated: $("btnShowRelated"),
-    hideRelated: $("btnHideRelated"),
-    completeNote: $("btnCompleteNote"),
-    recordPermanent: $("btnRecordPermanent"),
-    save: $("btnSave"),
-    statusHint: $("statusHint"),
-    authorshipPanel: $("authorshipPanel"),
-    authorshipClaimInput: $("authorshipClaimInput"),
-    authorshipConfirm: $("authorshipConfirm"),
-    authorshipHint: $("authorshipHint"),
-    openExternalUrl: desktopCommands.openExternalUrl
-  },
-  onStatus: setStatus,
-  onStateChange: handleStateChange,
-  onOpenNote: openNoteById,
-  resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
-  notifyWorkflowReminder: (event = {}) => {
-    if (event?.kind === "relation-network") {
-      syncRelationNetworkSystemMessageForNote(event.note, event.overview);
-    }
-  },
+  desktopCommands,
+  editorSelectionAiActionElements,
+  setStatus,
+  handleStateChange,
+  openNoteById,
+  noteMainPathWritingContinuationEntry,
+  syncRelationNetworkSystemMessageForNote,
   selectPermanentDirectory,
-  resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
-  resolveLiteratureSectionLabelCandidates: literatureTemplateSectionLabelCandidates,
-  onChromeChange: () => {
-    renderStatusMeta();
-    renderWorkspaceStatusHint();
-  }
-});
+  currentLiteratureTemplateSectionLabels,
+  literatureTemplateSectionLabelCandidates,
+  renderStatusMeta,
+  renderWorkspaceStatusHint
+}));
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
 window.__prototypeImport = {
@@ -10680,171 +10622,48 @@ $("btnSaveAiSuggestionPrimary")?.addEventListener("click", async () => {
   }
 });
 
-$("settingsRefreshVault")?.addEventListener("click", async () => {
-  setSettingsSection("workspace", { render: false });
-  try {
-    await refreshVaultSettings();
-    setStatus("已刷新当前笔记库信息", "ok");
-  } catch (error) {
-    setStatus(`刷新笔记库信息失败：${String(error?.message || error)}`, "bad");
-  }
+installSettingsEventBindings({
+  $,
+  state,
+  settingsState,
+  desktopCommands,
+  editor,
+  updateController,
+  setSettingsSection,
+  setSettingsItem,
+  activateModule,
+  refreshVaultSettings,
+  loadNoteTemplateSettingsFromStorage,
+  syncDirectoriesFromApi,
+  syncNotesForDirectory,
+  renderAll,
+  renderSettingsPanel,
+  renderScheduledTasksWorkspace,
+  setStatus,
+  updateStateRemindLater,
+  updateStateIgnoreLatest,
+  updateStateAutoCheckEnabled,
+  openNoteTemplatePreview,
+  saveNoteTemplateFromEditor,
+  resetNoteTemplateToDefault,
+  updateNoteTemplatePreviewFromEditor,
+  closeNoteTemplatePreview,
+  scheduledTaskFiltersFromUi,
+  scheduledTaskFormFromUi,
+  resetScheduledTaskForm,
+  refreshScheduledTasks,
+  runDueScheduledTasksFromUi,
+  saveScheduledTaskFromUi,
+  editScheduledTaskFromList,
+  setScheduledTaskStatus,
+  applyScheduledTaskTemplateToForm
 });
-
-$("settingsSectionNav")?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-settings-section]");
-  if (!button) return;
-  setSettingsSection(button.getAttribute("data-settings-section"), { announce: true });
-});
-
-$("settingsMobileItemSelect")?.addEventListener("change", (event) => {
-  setSettingsItem(event.target.value, { announce: true });
-});
-
-$("settingsCheckUpdate")?.addEventListener("click", async () => {
-  await updateController.refreshAppVersionInfo();
-  await updateController.runAppUpdateCheck({ manual: true });
-});
-
-$("settingsOpenUpdateDownload")?.addEventListener("click", async () => {
-  await updateController.openUpdateDownloadUrl();
-});
-
-$("settingsInstallUpdate")?.addEventListener("click", async () => {
-  await updateController.installUpdateFromDesktopUpdater();
-});
-
-$("settingsRelaunchUpdate")?.addEventListener("click", async () => {
-  await updateController.relaunchAfterInstalledUpdate();
-});
-
-$("settingsRemindUpdateLater")?.addEventListener("click", () => {
-  settingsState.update = updateStateRemindLater(settingsState.update);
-  updateController.persistUpdateSettingsToStorage();
-  renderSettingsPanel();
-  setStatus("已设置稍后提醒，今天不会自动提醒这个更新。", "ok");
-});
-
-$("settingsIgnoreUpdateVersion")?.addEventListener("click", () => {
-  settingsState.update = updateStateIgnoreLatest(settingsState.update);
-  updateController.persistUpdateSettingsToStorage();
-  renderSettingsPanel();
-  setStatus("已忽略当前检测到的版本；手动检查仍会显示结果。", "ok");
-});
-
-$("settingsAutoUpdateEnabled")?.addEventListener("change", (event) => {
-  settingsState.update = updateStateAutoCheckEnabled(settingsState.update, event.target.checked);
-  updateController.persistUpdateSettingsToStorage();
-  renderSettingsPanel();
-  setStatus(event.target.checked ? "已开启启动后的每日更新检查。" : "已关闭启动后的自动更新检查。", event.target.checked ? "ok" : "warn");
-});
-
-$("moduleSidebar")?.addEventListener("click", (event) => {
-  if (state.module !== "settings") return;
-  if (event.target.closest("#settingsSidebarBackToApp")) {
-    activateModule("explorer");
-    return;
-  }
-  const itemButton = event.target.closest("[data-settings-item]");
-  if (itemButton) {
-    setSettingsItem(itemButton.getAttribute("data-settings-item"), { announce: true });
-    return;
-  }
-  const button = event.target.closest("[data-settings-section]");
-  if (!button) return;
-  setSettingsSection(button.getAttribute("data-settings-section"), { announce: true });
-});
-
 $("btnEditorHelperMute")?.addEventListener("click", () => {
   editorHelperDismissed = true;
   editorHelperMuted = true;
   writeStoredBoolean(EDITOR_HELPER_MUTE_KEY, true);
   hideEditorHelper();
   setStatus("后续将不再显示这类编辑提示", "ok", { requireModule: "explorer" });
-});
-
-$("settingsBrowseVault")?.addEventListener("click", async () => {
-  setSettingsSection("workspace", { render: false });
-  const picked = await desktopCommands.pickVaultDirectory({ defaultPath: $("settingsVaultPath")?.value || settingsState.vault?.vaultPath || "" });
-  if (picked.path) {
-    $("settingsVaultPath").value = picked.path;
-    setStatus(`已选择笔记库路径（${picked.source}）`, "ok");
-  }
-});
-
-$("settingsSwitchVault")?.addEventListener("click", async () => {
-  setSettingsSection("workspace", { render: false });
-  try {
-    const currentInputPath = String($("settingsVaultPath")?.value || "").trim();
-    const defaultPath = currentInputPath || settingsState.vault?.vaultPath || "";
-    let nextPath = currentInputPath;
-    if (!currentInputPath) {
-      const picked = await desktopCommands.pickVaultDirectory({ defaultPath });
-      if (!picked.path) {
-        setStatus("未选择新的笔记库路径", "warn");
-        return;
-      }
-      nextPath = String(picked.path || "").trim();
-      if ($("settingsVaultPath")) $("settingsVaultPath").value = nextPath;
-    }
-    if (!editor.confirmDiscardDirtyTabs("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
-    const nextVault = await desktopCommands.switchVault(nextPath);
-    settingsState.vault = nextVault;
-    loadNoteTemplateSettingsFromStorage();
-    state.notes = [];
-    state.tabs = [];
-    state.activeTabId = null;
-    state.selectedFileId = null;
-    await syncDirectoriesFromApi();
-    state.browserRootId = "dir_original_default";
-    state.selectedFolderId = "dir_original_default";
-    await syncNotesForDirectory(state.selectedFolderId);
-    renderAll();
-    setStatus(`已重新选择并初始化笔记库：${nextVault.vaultPath}`, "ok");
-  } catch (error) {
-    setStatus(`切换笔记库失败：${String(error?.message || error)}`, "bad");
-  }
-});
-
-$("settingsPreviewPermanentTemplate")?.addEventListener("click", () => {
-  setSettingsSection("templates", { render: false });
-  openNoteTemplatePreview("permanent");
-});
-
-$("settingsPreviewLiteratureTemplate")?.addEventListener("click", () => {
-  setSettingsSection("templates", { render: false });
-  openNoteTemplatePreview("literature");
-});
-
-$("settingsSavePermanentTemplate")?.addEventListener("click", () => {
-  saveNoteTemplateFromEditor("permanent");
-});
-
-$("settingsResetPermanentTemplate")?.addEventListener("click", () => {
-  resetNoteTemplateToDefault("permanent");
-});
-
-$("settingsSaveLiteratureTemplate")?.addEventListener("click", () => {
-  saveNoteTemplateFromEditor("literature");
-});
-
-$("settingsResetLiteratureTemplate")?.addEventListener("click", () => {
-  resetNoteTemplateToDefault("literature");
-});
-
-$("settingsPermanentTemplateEditor")?.addEventListener("input", () => {
-  updateNoteTemplatePreviewFromEditor("permanent");
-});
-
-$("settingsLiteratureTemplateEditor")?.addEventListener("input", () => {
-  updateNoteTemplatePreviewFromEditor("literature");
-});
-
-$("settingsTemplatePreviewClose")?.addEventListener("click", () => {
-  closeNoteTemplatePreview();
-});
-
-$("settingsTemplatePreviewModal")?.addEventListener("click", (event) => {
-  if (event.target === $("settingsTemplatePreviewModal")) closeNoteTemplatePreview();
 });
 
 async function applyAiRuntimeModeChange(nextMode = "auto") {
@@ -10867,410 +10686,45 @@ async function applyAiRuntimeModeChange(nextMode = "auto") {
   });
 }
 
-$("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
-  await applyAiRuntimeModeChange(event?.target?.value || "auto");
+installSettingsAiEventBindings({
+  $,
+  settingsState,
+  normalizeAiRuntimeMode,
+  applyAiRuntimeModeChange,
+  persistAiSettingsToStorage,
+  syncAiSettingsToApi,
+  refreshAiRoutePreview,
+  renderSettingsPanel,
+  setStatus,
+  applyAiModelPackChange,
+  selectInstalledLocalModelFromUi,
+  markAiProviderDraftTouched,
+  syncAiProviderConfigToApi,
+  aiTestBlockedReason,
+  currentAiProviderId,
+  aiSettingsPayload,
+  authModeForProvider,
+  runAiTestChat,
+  checkCurrentAiProviderHealth,
+  detectOllamaModels,
+  startOllamaRuntimeFromUi,
+  stopOllamaRuntimeFromUi,
+  pullRecommendedOllamaModel,
+  copyTextToClipboard,
+  applySettingsAiQuickSetup,
+  openSettingsAiDialog,
+  closeSettingsAiDialogs
 });
-
-$("settingsAiHybridToggle")?.addEventListener("click", async () => {
-  const current = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
-  await applyAiRuntimeModeChange(current === "hybrid" ? "auto" : "hybrid");
-});
-
-$("settingsAiUserMode")?.addEventListener("change", (event) => {
-  const next = String(event?.target?.value || "Auto").trim() || "Auto";
-  settingsState.ai.userMode = next;
-  persistAiSettingsToStorage();
-  syncAiSettingsToApi();
-  refreshAiRoutePreview();
-  renderSettingsPanel();
-  setStatus(`AI 模式已切换为：${next}`, "ok");
-});
-
-$("settingsAiModelPack")?.addEventListener("change", (event) => {
-  const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
-  applyAiModelPackChange(next, { source: "settings" });
-});
-
-$("settingsAiLocalModel")?.addEventListener("change", async (event) => {
-  await selectInstalledLocalModelFromUi(event?.target?.value || "");
-});
-
-$("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
-  const next = String(event?.target?.value || "").trim();
-  settingsState.ai.advancedModelRef = next;
-  persistAiSettingsToStorage();
-  syncAiSettingsToApi();
-  refreshAiRoutePreview();
-  renderSettingsPanel();
-  setStatus(next ? "指定模型已保存" : "指定模型已清空（恢复自动选择）", "ok");
-});
-
-$("settingsAiSecretRef")?.addEventListener("blur", async (event) => {
-  const next = String(event?.target?.value || "").trim();
-  markAiProviderDraftTouched("secretRef");
-  settingsState.ai.secretRef = next;
-  persistAiSettingsToStorage();
-  const saved = await syncAiProviderConfigToApi();
-  if (!saved) {
-    renderSettingsPanel();
-    return;
-  }
-  renderSettingsPanel();
-  setStatus(next ? "密钥名称已保存到服务连接" : "密钥名称已清空，服务连接已停用", "ok");
-});
-
-$("settingsAiSecretRef")?.addEventListener("input", (event) => {
-  markAiProviderDraftTouched("secretRef");
-  settingsState.ai.secretRef = String(event?.target?.value || "").trim();
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  persistAiSettingsToStorage();
-  renderSettingsPanel();
-});
-
-$("settingsAiRemoteRuntimeModel")?.addEventListener("input", (event) => {
-  markAiProviderDraftTouched("remoteRuntimeModel");
-  settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  persistAiSettingsToStorage();
-  renderSettingsPanel();
-});
-
-$("settingsAiRemoteRuntimeModel")?.addEventListener("blur", async (event) => {
-  markAiProviderDraftTouched("remoteRuntimeModel");
-  settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
-  persistAiSettingsToStorage();
-  const saved = await syncAiProviderConfigToApi();
-  if (!saved) {
-    renderSettingsPanel();
-    return;
-  }
-  renderSettingsPanel();
-  setStatus(settingsState.ai.remoteRuntimeModel ? "远程模型已保存到服务连接" : "远程模型已清空，服务连接已停用", "ok");
-});
-
-$("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
-  markAiProviderDraftTouched("providerEndpointUrl");
-  settingsState.ai.providerEndpointUrl = String(event?.target?.value || "").trim();
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  persistAiSettingsToStorage();
-  renderSettingsPanel();
-});
-
-$("settingsAiProviderEndpointUrl")?.addEventListener("blur", async (event) => {
-  const next = String(event?.target?.value || "").trim();
-  markAiProviderDraftTouched("providerEndpointUrl");
-  settingsState.ai.providerEndpointUrl = next;
-  persistAiSettingsToStorage();
-  const saved = await syncAiProviderConfigToApi();
-  if (!saved) {
-    renderSettingsPanel();
-    return;
-  }
-  renderSettingsPanel();
-});
-
-$("settingsAiTestPrompt")?.addEventListener("input", (event) => {
-  settingsState.ai.testPrompt = String(event?.target?.value || "");
-  if (settingsState.ai.testMeta === "需要测试内容") {
-    settingsState.ai.testMeta = "";
-    settingsState.ai.testOutput = "";
-    const meta = $("settingsAiTestChatMeta");
-    const output = $("settingsAiTestChatOutput");
-    if (meta) meta.textContent = "等待运行";
-    if (output) output.textContent = "（空）";
-  }
-  persistAiSettingsToStorage();
-});
-
-$("btnAiTestChatRun")?.addEventListener("click", async () => {
-  const promptInput = $("settingsAiTestPrompt");
-  const prompt = String(promptInput?.value || settingsState.ai.testPrompt || "").trim();
-  if (!prompt) {
-    settingsState.ai.testMeta = "需要测试内容";
-    settingsState.ai.testOutput = "请先输入一句不含敏感内容的测试内容。例如：请用一句话总结“研究笔记应该先记录问题，再整理结论”。";
-    renderSettingsPanel();
-    $("settingsAiTestPrompt")?.focus();
-    return setStatus("先输入一条测试内容", "warn");
-  }
-  const blockedReason = aiTestBlockedReason();
-  if (blockedReason) {
-    settingsState.ai.testMeta = blockedReason;
-    settingsState.ai.testOutput = `${blockedReason}，再试运行。`;
-    renderSettingsPanel();
-    return setStatus(`${blockedReason}，再试运行`, "warn");
-  }
-  settingsState.ai.testRunning = true;
-  settingsState.ai.testMeta = "";
-  settingsState.ai.testOutput = "";
-  renderSettingsPanel();
-  try {
-    const providerId = currentAiProviderId();
-    const settingsPayload = aiSettingsPayload();
-    const advancedSettings = settingsPayload.advancedSettings || {};
-    const result = await runAiTestChat({
-      ...settingsPayload,
-      prompt,
-      authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
-      ...(advancedSettings.secretRef ? { secretRef: advancedSettings.secretRef } : {}),
-      ...(advancedSettings.modelRef ? { modelRef: advancedSettings.modelRef } : {}),
-      modelTier: "standard",
-      privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
-    });
-    settingsState.ai.testMeta = `${result?.providerId || "服务"} / ${result?.modelRef || "模型"} (${result?.status || "未检测"})`;
-    settingsState.ai.testOutput = String(result?.output?.content || "").trim() || JSON.stringify(result?.output?.json || result || {}, null, 2);
-    setStatus("AI 试运行已完成", "ok");
-  } catch (error) {
-    settingsState.ai.testMeta = "运行失败";
-    settingsState.ai.testOutput = String(error?.message || error);
-    setStatus(`AI 试运行失败：${settingsState.ai.testOutput}`, "bad");
-  } finally {
-    settingsState.ai.testRunning = false;
-    renderSettingsPanel();
-  }
-});
-
-$("btnAiTestChatCopy")?.addEventListener("click", async () => {
-  const text = String(settingsState.ai.testOutput || "").trim();
-  if (!text) return setStatus("没有可复制的输出", "warn");
-  try {
-    await navigator.clipboard.writeText(text);
-    setStatus("已复制输出", "ok");
-  } catch {
-    setStatus("复制失败（浏览器权限限制）", "warn");
-  }
-});
-
-$("settingsAiProviderHealthEndpointUrl")?.addEventListener("input", (event) => {
-  markAiProviderDraftTouched("providerHealthEndpointUrl");
-  settingsState.ai.providerHealthEndpointUrl = String(event?.target?.value || "").trim();
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  persistAiSettingsToStorage();
-});
-
-$("settingsAiProviderHealthEndpointUrl")?.addEventListener("blur", (event) => {
-  const next = String(event?.target?.value || "").trim();
-  markAiProviderDraftTouched("providerHealthEndpointUrl");
-  settingsState.ai.providerHealthEndpointUrl = next;
-  persistAiSettingsToStorage();
-  renderSettingsPanel();
-});
-
-$("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
-  await syncAiProviderConfigToApi();
-});
-
-$("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
-  await checkCurrentAiProviderHealth();
-});
-
-$("settingsAiRemoteHelpToggle")?.addEventListener("click", () => {
-  const help = $("settingsAiRemoteHelp");
-  const toggle = $("settingsAiRemoteHelpToggle");
-  if (!help || !toggle) return;
-  const shouldShow = help.classList.contains("hidden");
-  help.classList.toggle("hidden", !shouldShow);
-  toggle.setAttribute("aria-expanded", shouldShow ? "true" : "false");
-  toggle.textContent = shouldShow ? "收起帮助" : "帮助";
-});
-
-$("settingsAiDetectOllama")?.addEventListener("click", async () => {
-  await detectOllamaModels();
-});
-
-$("settingsAiStartOllama")?.addEventListener("click", async () => {
-  await startOllamaRuntimeFromUi();
-});
-
-$("settingsAiStopOllama")?.addEventListener("click", async () => {
-  await stopOllamaRuntimeFromUi();
-});
-
-$("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
-  await pullRecommendedOllamaModel();
-});
-
-$("settingsAiCopyOllamaInstallCommand")?.addEventListener("click", async (event) => {
-  const command = String(event?.currentTarget?.dataset?.command || "").trim();
-  if (!command) return setStatus("当前没有可复制的安装命令", "warn");
-  try {
-    await copyTextToClipboard(command);
-    setStatus("已复制安装命令", "ok");
-  } catch {
-    setStatus("复制失败，请手动复制安装命令", "warn");
-  }
-});
-
-$("settingsCardAiSettings")?.addEventListener("click", async (event) => {
-  const selectLocalModelButton = event.target.closest("[data-settings-ai-select-local-model]");
-  if (selectLocalModelButton) {
-    await selectInstalledLocalModelFromUi(selectLocalModelButton.getAttribute("data-settings-ai-select-local-model"));
-    return;
-  }
-  const detectOllamaButton = event.target.closest("[data-settings-ai-detect-ollama]");
-  if (detectOllamaButton) {
-    await detectOllamaModels();
-    return;
-  }
-  const pullLocalModelButton = event.target.closest("[data-settings-ai-pull-local-model]");
-  if (pullLocalModelButton) {
-    await pullRecommendedOllamaModel(pullLocalModelButton.getAttribute("data-settings-ai-pull-local-model"));
-    return;
-  }
-  const copyLocalModelCommandButton = event.target.closest("[data-settings-ai-copy-command]");
-  if (copyLocalModelCommandButton) {
-    const command = String(copyLocalModelCommandButton.getAttribute("data-settings-ai-copy-command") || "").trim();
-    if (!command) return;
-    try {
-      await copyTextToClipboard(command);
-      setStatus("已复制模型下载命令", "ok");
-    } catch {
-      setStatus("复制失败，请手动选择命令文本", "warn");
-    }
-    return;
-  }
-  const quickSetupButton = event.target.closest("[data-settings-ai-quick-setup]");
-  if (quickSetupButton) {
-    await applySettingsAiQuickSetup(quickSetupButton.getAttribute("data-settings-ai-quick-setup"));
-    return;
-  }
-  const openButton = event.target.closest("[data-settings-ai-dialog-open]");
-  if (openButton) {
-    openSettingsAiDialog(openButton.getAttribute("data-settings-ai-dialog-open"));
-    return;
-  }
-  if (event.target.closest("[data-settings-ai-dialog-close]")) {
-    closeSettingsAiDialogs();
-    return;
-  }
-  const popover = event.target.closest(".settings-ai-popover");
-  if (popover && event.target === popover) closeSettingsAiDialogs();
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeSettingsAiDialogs();
-});
-
-$("settingsPaneAutomationBody")?.addEventListener("click", async (event) => {
-  if (!event.target.closest("#settingsScheduledTasksPanel")) return;
-  const formSummary = event.target.closest(".scheduled-task-form-details > summary");
-  if (formSummary) {
-    const details = formSummary.closest(".scheduled-task-form-details");
-    settingsState.ai.scheduledTaskFormOpen = !details?.open;
-    return;
-  }
-
-  if (event.target.closest("#btnScheduledTasksApplyFilters")) {
-    settingsState.ai.scheduledTaskFilters = scheduledTaskFiltersFromUi();
-    await refreshScheduledTasks();
-    setStatus("计划任务已刷新", "ok");
-    return;
-  }
-
-  if (event.target.closest("#btnScheduledTasksRefresh")) {
-    await refreshScheduledTasks();
-    setStatus("计划任务已刷新", "ok");
-    return;
-  }
-
-  if (event.target.closest("#btnScheduledTasksRunDue")) {
-    await runDueScheduledTasksFromUi();
-    return;
-  }
-
-  if (event.target.closest("#btnScheduledTaskUseCurrentNote")) {
-    const noteId = String(state.selectedFileId || state.activeTabId || "").trim();
-    if (!noteId) return setStatus("还没有选中当前笔记", "warn");
-    settingsState.ai.scheduledTaskForm = {
-      ...scheduledTaskFormFromUi(),
-      noteIdsText: noteId,
-      directoryIdsText: ""
-    };
-    settingsState.ai.scheduledTaskFormOpen = true;
-    renderScheduledTasksWorkspace();
-    return;
-  }
-
-  if (event.target.closest("#btnScheduledTaskUseCurrentDirectory")) {
-    const directoryId = String(state.selectedFolderId || "").trim();
-    if (!directoryId) return setStatus("还没有选中当前目录", "warn");
-    settingsState.ai.scheduledTaskForm = {
-      ...scheduledTaskFormFromUi(),
-      noteIdsText: "",
-      directoryIdsText: directoryId
-    };
-    settingsState.ai.scheduledTaskFormOpen = true;
-    renderScheduledTasksWorkspace();
-    return;
-  }
-
-  if (event.target.closest("#btnScheduledTaskClearForm")) {
-    resetScheduledTaskForm();
-    setStatus("计划任务草稿已重置", "ok");
-    return;
-  }
-
-  if (event.target.closest("#btnScheduledTaskSave")) {
-    await saveScheduledTaskFromUi();
-    return;
-  }
-
-  const editButton = event.target.closest("[data-scheduled-task-edit]");
-  if (editButton) {
-    editScheduledTaskFromList(editButton.getAttribute("data-scheduled-task-edit"));
-    return;
-  }
-
-  const statusButton = event.target.closest("[data-scheduled-task-status]");
-  if (statusButton) {
-    await setScheduledTaskStatus(
-      statusButton.getAttribute("data-scheduled-task-id"),
-      statusButton.getAttribute("data-scheduled-task-status")
-    );
-  }
-});
-
-$("settingsPaneAutomationBody")?.addEventListener("input", (event) => {
-  if (!event.target.closest("#settingsScheduledTasksPanel")) return;
-  if (!event.target.closest("#scheduledTaskForm")) return;
-  settingsState.ai.scheduledTaskForm = scheduledTaskFormFromUi();
-  settingsState.ai.scheduledTaskFormOpen = true;
-});
-
-$("settingsPaneAutomationBody")?.addEventListener("change", (event) => {
-  if (!event.target.closest("#settingsScheduledTasksPanel")) return;
-  if (!event.target.closest("#scheduledTaskForm")) return;
-  settingsState.ai.scheduledTaskForm = scheduledTaskFormFromUi();
-  settingsState.ai.scheduledTaskFormOpen = true;
-  if (event.target.closest("#scheduledTaskTemplateSelect")) {
-    applyScheduledTaskTemplateToForm(event.target.value);
-  }
-});
-
-bindAiSuggestionsWorkspaceEvents($("settingsAiSuggestionsPanel"), {
-  settingsAiState: settingsState.ai,
-  getFilters: aiSuggestionFiltersFromUi,
+bindAiSuggestionsWorkspaceEvents($("settingsAiSuggestionsPanel"), createAiSuggestionsWorkspaceHostDeps({
+  settingsState,
+  aiSuggestionFiltersFromUi,
   refreshAiSuggestions,
   loadAiSuggestionDetail,
   applyAiSuggestionStatus,
-  openTargetNote: async (noteId) => {
-    const cleanNoteId = String(noteId || "").trim();
-    if (!cleanNoteId) {
-      setStatus("这条建议还没有指向目标笔记", "warn");
-      return false;
-    }
-    activateModule("explorer");
-    openNoteById(cleanNoteId, { preferTitleSelection: false });
-    setStatus("已打开目标笔记，你可以继续审阅这条已采纳的草稿", "ok");
-    return true;
-  },
-  refreshStatusMessage: "AI 建议已刷新",
+  activateModule,
+  openNoteById,
   setStatus
-});
-
+}));
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {
   try {
     await copyTextToClipboard(buildFeedbackDiagnosticText());
@@ -11470,22 +10924,21 @@ $("graphSeedYijingRich")?.addEventListener("click", async () => {
   await importYijingRichAcceptanceDemo();
 });
 
-bindAiInboxWorkspaceEvents($("aiInboxPanel"), {
+bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   aiInboxState,
   openAiInboxModule,
-  applyFiltersFromUi: applyAiInboxFiltersFromUi,
+  applyAiInboxFiltersFromUi,
   loadAiInboxDetail,
-  openNote: openAiInboxNote,
-  recordDecision: recordAiInboxReviewDecision,
-  acceptLink: acceptAiInboxLinkSuggestion,
-  promoteNote: promoteAiInboxArtifactToNote,
-  adoptField: adoptAiInboxFieldSuggestionDraft,
-  applySuggestionStatus: applyAiInboxSuggestionStatus,
-  runSummary: runAiInboxSummary,
-  applyRecommendedAction: applyAiInboxRecommendedAction,
+  openAiInboxNote,
+  recordAiInboxReviewDecision,
+  acceptAiInboxLinkSuggestion,
+  promoteAiInboxArtifactToNote,
+  adoptAiInboxFieldSuggestionDraft,
+  applyAiInboxSuggestionStatus,
+  runAiInboxSummary,
+  applyAiInboxRecommendedAction,
   setStatus
-});
-
+}));
 bindGraphCanvasEvents($("graphCanvas"), {
   appState: state,
   graphState,
@@ -11856,3 +11309,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+

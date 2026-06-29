@@ -182,6 +182,10 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-ai-route-preview-view.js": 230,
     "settings-panel-shell.js": 130,
     "settings-panel-renderer.js": 180,
+    "settings-event-bindings.js": 320,
+    "settings-ai-event-bindings.js": 450,
+    "ai-inbox-host-deps.js": 45,
+    "ai-suggestions-host-deps.js": 45,
     "graph-visual-map-controller.js": 35,
     "graph-visual-map-composer.js": 240,
     "graph-visual-map-runtime-deps.js": 40,
@@ -218,6 +222,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "workspace-status-hint-model.js": 120,
     "settings-template-preview-view.js": 80,
     "settings-template-card-model.js": 80,
+    "editor-host-deps.js": 130,
     "graph-ai-connect-model.js": 60,
     "graph-ai-connect-runtime-controller.js": 230,
     "graph-followup-controller.js": 260,
@@ -236,6 +241,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
 
 test("prototype-app keeps shell-era UI responsibilities behind extracted modules", () => {
   const source = fs.readFileSync(prototypeAppPath, "utf8");
+  const settingsAiEventSource = fs.readFileSync(path.join(webSrcDir, "settings-ai-event-bindings.js"), "utf8");
   const requiredImports = [
     "app-shell-render-all.js",
     "app-shell-render-all-host-deps.js",
@@ -272,6 +278,10 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "settings-ai-route-preview-view.js",
     "settings-panel-shell.js",
     "settings-panel-renderer.js",
+    "settings-event-bindings.js",
+    "settings-ai-event-bindings.js",
+    "ai-inbox-host-deps.js",
+    "ai-suggestions-host-deps.js",
     "graph-canvas-event-router.js",
     "graph-workspace-host-deps.js",
     "graph-cluster-selection-panel.js",
@@ -303,6 +313,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "workspace-status-hint-model.js",
     "settings-template-preview-view.js",
     "settings-template-card-model.js",
+    "editor-host-deps.js",
     "graph-selection-panel-renderer.js"
   ];
 
@@ -373,6 +384,7 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   assert.doesNotMatch(source, /function closeSystemMessages/);
   assert.doesNotMatch(source, /function isSystemMessageModalOpen/);
   assert.doesNotMatch(source, /function systemMessagesDomDeps/);
+  assert.doesNotMatch(settingsAiEventSource, /settingsPaneAutomationBody/);
   assert.doesNotMatch(source, /async function applyAiRuntimeModeChange\(nextMode = "auto"\) \{\s*const next = normalizeAiRuntimeMode/);
   assert.doesNotMatch(source, /const configs = \{\s*distillation:/);
 });

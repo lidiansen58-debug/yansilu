@@ -129,6 +129,10 @@ function readPrototypeApp() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
 }
 
+function readSettingsEventBindings() {
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-event-bindings.js"), "utf8");
+}
+
 function readGraphIsolatedRelationWorkspace() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-isolated-relation-workspace.js"), "utf8");
 }
@@ -2148,11 +2152,13 @@ test("graph rail entry does not fall through to note explorer during async refre
 
 test("note box and graph tree sync all notes under the selected root", async () => {
   const source = readPrototypeApp();
+  const settingsEventSource = readSettingsEventBindings();
   const calls = [];
 
   assert.match(source, /async function syncNotesForDirectoryTree\(rootDirectoryId\) \{/);
   assert.match(source, /const directoryIds = descendantDirectoryIds\(rootId\)\.filter\(\(id\) => folderById\(state, id\)\);[\s\S]*for \(const directoryId of directoryIds\) \{[\s\S]*await syncNotesForDirectory\(directoryId\);/);
-  assert.match(source, /await refreshVaultSettings\(\);[\s\S]*await syncDirectoriesFromApi\(\);[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);/);
+  assert.match(settingsEventSource, /await refreshVaultSettings\(\);/);
+  assert.match(settingsEventSource, /await syncDirectoriesFromApi\(\);[\s\S]*await syncNotesForDirectory\(state\.selectedFolderId\);/);
   assert.match(source, /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);[\s\S]*syncRailSelectionState\(\);/);
   await refreshDirectoryGraphForRuntime({
     graphScopeDirectoryId: () => "selected-dir",
