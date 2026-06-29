@@ -134,7 +134,7 @@ test("note creation actions record original notes and update the source note mar
     ["activate", "explorer"],
     ["open", "new", { preferTitleSelection: false }]
   ]);
-  assert.equal(status.calls.at(-1).message, "已记录永久笔记：Claim");
+  assert.equal(status.calls.at(-1).message, "已生成并打开永久笔记：Claim");
   assert.equal(status.calls.at(-1).tone, "ok");
 });
 

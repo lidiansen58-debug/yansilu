@@ -156,7 +156,7 @@ export async function handleRecordOriginalFromNoteStateChange(payload = {}, deps
 
     activateModule("explorer");
     openNoteById(note.id, { preferTitleSelection: false });
-    setStatus(`已记录永久笔记：${note.title || title}`, "ok");
+    setStatus(`已生成并打开永久笔记：${note.title || title}`, "ok");
     return note;
   } catch (error) {
     setStatus(`记录永久笔记失败：${String(error?.message || error)}`, "bad");

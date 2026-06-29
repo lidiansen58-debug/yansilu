@@ -31,6 +31,7 @@ import {
   composePermanentWorkspace,
   deriveLiteratureSectionLabelsFromTemplate,
   distillationDraftFromForm,
+  literatureCitationState,
   literatureTemplateBody,
   normalizeLiteratureSectionLabelCandidates,
   normalizedLiteratureSectionLabels,
@@ -157,6 +158,7 @@ import {
   renderPermanentNoteStatusSummary
 } from "./permanent-note-sidebar-view.js";
 import { PermanentNoteSidebarController } from "./permanent-note-sidebar-controller.js";
+import { renderSourceNotePromotionPanel } from "./source-note-promotion-panel.js";
 
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
@@ -988,86 +990,17 @@ export class EditorPane {
     const generatedOriginal = generatedOriginalId
       ? this.state.notes.find((item) => item?.id === generatedOriginalId) || null
       : null;
-    const hasGenerated = Boolean(generatedOriginalId);
-
-    let statusLabel = hasGenerated ? "已生成永久笔记" : "还没有生成永久笔记";
-    let hint = "材料笔记这里只做一件事：判断是否要沉淀成永久笔记。";
-    let detail = "生成后再到永久笔记里做关联、观点提纯和写作准备。";
-    let actionLabel = "生成永久笔记";
-
-    if (noteType === "literature") {
-      const completion = this.literatureCompletionState(note);
-      statusLabel = hasGenerated ? "已生成永久笔记" : "还没有生成永久笔记";
-      hint = hasGenerated
-        ? "这条文献已经生成永久笔记，后续整理请回到那条判断。"
-        : completion.readyForOriginal
-          ? "这条文献已经具备生成永久笔记的条件。"
-          : completion.hint;
-      detail = hasGenerated
-        ? "文献笔记继续保留出处和转述，不需要在这里重复处理。"
-        : "把文献材料写成一条可独立阅读的长期判断。";
-    } else {
-      hint = hasGenerated
-        ? "这条随笔已经生成永久笔记，后续整理请回到那条判断。"
-        : "随笔只负责抓住线索；值得保留时，再生成永久笔记。";
-      statusLabel = hasGenerated ? "已生成永久笔记" : "还没有生成永久笔记";
-      detail = hasGenerated
-        ? "这条随笔会继续保留原始线索，不需要在这里重复整理。"
-        : "把这条想法写成可长期保留、可被关联的判断。";
-    }
-
-    return `
-      <section class="inspector-section semantic-relations-section" data-source-note-flow-section data-note-id="${escapeHtml(note.id)}">
-        <div class="inspector-section-head">
-          <div>
-            <div class="inspector-section-title">${hasGenerated ? "已生成永久笔记" : "生成永久笔记"}</div>
-            <div class="inspector-section-note">${escapeHtml(hint)}</div>
-          </div>
-          <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
-        </div>
-        ${
-          this.shouldShowFleetingCleanupPrompt(note)
-            ? `
-              <div class="semantic-relation-group" data-fleeting-cleanup-prompt>
-                <div class="semantic-relation-group-head">
-                  <strong>随笔清理</strong>
-                  <span>建议处理</span>
-                </div>
-                <div class="related-empty">这条随笔如果值得继续保留，就生成永久笔记；如果只是临时记录，可以稍后清理。</div>
-                <div class="semantic-relation-actions">
-                  <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">生成永久笔记</button>
-                  <button class="mini-btn" type="button" data-source-note-action="dismiss-fleeting-cleanup">标记稍后清理</button>
-                </div>
-              </div>
-            `
-            : ""
-        }
-        <div class="related-empty">${escapeHtml(detail)}</div>
-        <div class="semantic-relation-status">
-          <span class="inspector-chip">${escapeHtml(noteTypeText(noteType))}</span>
-          ${
-            generatedOriginal?.title
-              ? `<span class="inspector-chip">已生成：${escapeHtml(generatedOriginal.title)}</span>`
-              : ""
-          }
-        </div>
-        ${
-          hasGenerated
-            ? generatedOriginal?.id
-              ? `
-                <div class="semantic-relation-card-actions">
-                  <button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(generatedOriginal.id)}">打开永久笔记</button>
-                </div>
-              `
-              : ""
-            : `
-              <div class="semantic-relation-card-actions">
-                <button class="mini-btn primary create-original-cta" type="button" data-source-note-action="record-permanent">${escapeHtml(actionLabel)}</button>
-              </div>
-            `
-        }
-      </section>
-    `;
+    const activeTab = this.activeTab();
+    return renderSourceNotePromotionPanel({
+      note,
+      noteType,
+      generatedOriginal,
+      generatedOriginalId,
+      generatedDirectoryLabel: generatedOriginal?.folderId ? this.folderLabel(generatedOriginal.folderId) : "",
+      isOpen: Boolean(activeTab?.noteId && generatedOriginal?.id && activeTab.noteId === generatedOriginal.id),
+      literatureCompletion: noteType === "literature" ? this.literatureCompletionState(note) : null,
+      showFleetingCleanup: this.shouldShowFleetingCleanupPrompt(note)
+    });
   }
 
   renderLiteratureWorkspace() {

@@ -10,6 +10,19 @@ import {
 import {
   createGraphThinkingPanelResidualView
 } from "./graph-thinking-panel-residual-view.js";
+import {
+  createGraphAiConnectRuntimeController
+} from "./graph-ai-connect-runtime-controller.js";
+import {
+  createGraphVisualMapController
+} from "./graph-visual-map-controller.js";
+import {
+  createGraphVisualMapPrototypeDepsProvider
+} from "./graph-visual-map-host-deps.js";
+import {
+  graphLoadedScopeCoversDirectoryForRuntime,
+  graphScopeDirectoryIdForRuntime
+} from "./graph-scope-state.js";
 
 export function createGraphResidualViews(deps = {}) {
   const {
@@ -17,9 +30,11 @@ export function createGraphResidualViews(deps = {}) {
     GRAPH_INDEX_RELATION_TYPES,
     GRAPH_LINK_CLUE_RELATION_TYPES,
     GRAPH_MEANINGFUL_RELATION_TYPES,
+    GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default",
     GRAPH_RELATION_GROUP_META,
     computeGraphReadingLensMeta,
     computeGraphDirectNetworkEdgeCount,
+    descendantDirectoryIds = (id) => [id].filter(Boolean),
     createGraphIsolatedWorkflowShellRenderer,
     createGraphReadingLensStateController,
     createGraphRelationSaveController,
@@ -41,6 +56,7 @@ export function createGraphResidualViews(deps = {}) {
     graphStructureFallbackEdgesForRuntime,
     graphThemeNoteIds,
     graphThemeSelectionKey,
+    isDirectoryUnderOriginalRoot = () => false,
     normalizeGraphRelationTypeFilter,
     noteTypeLabel,
     renderGraphIconView,
@@ -74,6 +90,7 @@ function graphResidualRuntimeDeps(overrides = {}) {
     graphRelationStatusLabel,
     graphRelationTypeLabel,
     graphRelationVisual,
+    resolveGraphIsolatedSelection,
     graphThemeSelectionKey,
     graphIsolatedSelectionKey,
     graphBridgeSelectionKey,
@@ -1880,7 +1897,7 @@ const {
   graphManualRelationTargetsForNote
 } = graphRelationWorkspaceRuntime;
 const graphIsolatedWorkspaceRuntime = createGraphIsolatedWorkspaceRuntime(graphResidualRuntimeDeps({
-  graphAiAnalysisPayload,
+  graphAiAnalysisPayload: (...args) => graphAiAnalysisPayload(...args),
   graphAiRelationCandidatesForNote,
   graphCandidatePercent,
   graphFullNoteById,
@@ -1895,6 +1912,8 @@ const {
   openGraphIsolatedDecisionAction,
   loadGraphEditableNote,
   saveGraphIsolatedDecision,
+  graphRelationSaveController,
+  graphRelationWorkflowController,
   graphAiAnalysisPayload,
   graphAiConfidenceLabel,
   graphNoteIdFromIsolatedItem,
@@ -1936,14 +1955,14 @@ const {
   focusGraphRelationAdjustmentInPlace
 } = graphIsolatedWorkspaceRuntime;
 const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
-  graphClusterResearchMeta,
-  graphIsolatedWorkflowShell,
+  graphClusterResearchMeta: (...args) => graphClusterResearchMeta(...args),
+  graphIsolatedWorkflowShell: null,
   graphRelationFormTypeOptions,
   graphSelectionPanelRenderer: undefined,
-  graphThemeCandidateNoteIdsForNode,
-  renderGraphAiConnectCandidates,
-  renderGraphIsolatedJoinNetworkFlow,
-  renderGraphRelationWorkspaceForNote
+  graphThemeCandidateNoteIdsForNode: (...args) => graphThemeCandidateNoteIdsForNode(...args),
+  renderGraphAiConnectCandidates: (...args) => renderGraphAiConnectCandidates(...args),
+  renderGraphIsolatedJoinNetworkFlow: (...args) => renderGraphIsolatedJoinNetworkFlow(...args),
+  renderGraphRelationWorkspaceForNote: (...args) => renderGraphRelationWorkspaceForNote(...args)
 }));
 const {
   renderGraphIsolatedSelectionPanel,
@@ -2197,14 +2216,14 @@ function applyGraphEdgeHoverState(edgeElement) {
 }
 
 const graphThinkingPanelResidualView = createGraphThinkingPanelResidualView(graphResidualRuntimeDeps({
-  graphComputedIsolatedNotes,
-  graphExistingRelationPairKeys,
-  graphIsolatedQueueItems,
-  graphNoteHasSavedIsolationDisposition,
-  graphNoteIdFromIsolatedItem,
-  graphNodeIdsInScope,
-  graphPendingAiCandidateCount,
-  graphSelectEdgeActionAttrs
+  graphComputedIsolatedNotes: (...args) => graphComputedIsolatedNotes(...args),
+  graphExistingRelationPairKeys: (...args) => graphExistingRelationPairKeys(...args),
+  graphIsolatedQueueItems: (...args) => graphIsolatedQueueItems(...args),
+  graphNoteHasSavedIsolationDisposition: (...args) => graphNoteHasSavedIsolationDisposition(...args),
+  graphNoteIdFromIsolatedItem: (...args) => graphNoteIdFromIsolatedItem(...args),
+  graphNodeIdsInScope: (...args) => graphNodeIdsInScope(...args),
+  graphPendingAiCandidateCount: (...args) => graphPendingAiCandidateCount(...args),
+  graphSelectEdgeActionAttrs: (...args) => graphSelectEdgeActionAttrs(...args)
 }));
 const {
   renderRelationReviewQueueSection,
@@ -2295,6 +2314,8 @@ const {
     openGraphIsolatedDecisionAction,
     loadGraphEditableNote,
     saveGraphIsolatedDecision,
+    graphRelationSaveController,
+    graphRelationWorkflowController,
     graphAiAnalysisPayload,
     graphAiConfidenceLabel,
     graphNoteIdFromIsolatedItem,
@@ -2352,6 +2373,7 @@ const {
     renderGraphIsolatedPreviewPanel,
     renderGraphRelationCandidateCards,
     renderGraphAiConnectCandidates,
+    graphAiConnectRuntimeController,
     graphWorkspaceRenderDeps,
     graphThemeCandidateNoteIdsForNode,
     renderGraphRelationWorkspaceForNote,
@@ -2404,6 +2426,7 @@ const {
     renderGraphNebulaField,
     renderGraphClusterGlow,
     graphBuildVisualLayout,
+    renderGraphVisualMap,
     graphEdgePath,
     graphThemeBoundaryMeta,
     renderGraphThemeBoundary,

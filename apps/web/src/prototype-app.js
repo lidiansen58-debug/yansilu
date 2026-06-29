@@ -51,6 +51,7 @@ import { normalizeAuthorshipItem, normalizeThinkingStatusItem, renderThinkingSta
 import { deriveWritingProjectIntent, deriveWritingProjectTakeaway, directoryPathLabel as computeDirectoryPathLabel, displayFolderName, distillationReasonOf, distillationStageLabel, distillationStageOf, distillationStatusLabel, distillationStatusOf, mapDirectoryItem, moduleLabel, mapNoteItem as computeMapNoteItem, noteMatchesSearchQuery, noteTypeLabel, saveAiSuggestionKey, sourceNoteTypeLabel, writingProjectStatusLabel } from "./prototype-note-state-helpers.js";
 import { createNotePlaceholderRuntime } from "./note-placeholder-runtime.js";
 import { createNoteRuntimeController } from "./note-runtime-controller.js";
+import { loadNoteTemplateSettingsFromStorageForRuntime } from "./note-template-runtime-helpers.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxWorkspaceEvents, renderAiInboxWorkspaceView } from "./ai-inbox-workspace.js";
 import { createAiInboxWorkspaceHostDeps } from "./ai-inbox-host-deps.js";
@@ -99,7 +100,7 @@ import { renderGraphResearchNavigatorEntryView, renderGraphThinkingItemsView, re
 import { graphRelationQualityLabel, graphRelationReviewReasonLabel, renderGraphUtilityDrawerView, renderRelationReviewQueueSectionView } from "./graph-review-surface-view.js";
 import { applyGraphEmptyCloseInteraction, applyGraphSectionOpenState, applyGraphThinkingFilterInteraction, applyGraphThinkingHideInteraction, applyGraphThinkingToggleInteraction, applyGraphThinkingVisibilityInteraction, applyGraphUtilityDrawerCloseInteraction, applyGraphUtilityDrawerOpenState, applyGraphUtilityVisibilityInteraction, applyGraphWorkbenchCloseInteraction, applyGraphWorkbenchEntryInteraction, applyGraphWorkbenchTabInteraction } from "./graph-workspace-interaction-controller.js";
 import { buildGraphQuestionSpotSummaryForGraph, buildGraphQuestionSpotSummaryFromItems as computeGraphQuestionSpotSummaryFromItems, buildGraphThinkingItemsForGraph, graphAiAnalysisSummaryStateForGraph, graphLiveAiAnalysisCountsForGraph, graphThinkingCleanIds as computeGraphThinkingCleanIds, graphThinkingNoteTitle as computeGraphThinkingNoteTitle } from "./graph-thinking-items-model.js";
-import { applyGraphEdgeHoverDomState, applyGraphNodeHoverDomState, applyGraphThinkingHoverDomState, graphThinkingHighlightAttrsForItem, resetGraphHoverDomState } from "./graph-thinking-hover-controller.js";
+import { applyGraphEdgeHoverDomState, applyGraphNodeHoverDomState, applyGraphThinkingHoverDomState, graphDataListFromElement, graphThinkingHighlightAttrsForItem, resetGraphHoverDomState } from "./graph-thinking-hover-controller.js";
 import { renderGraphPromptDetailsView, renderGraphSelectionMetricsView, renderGraphSelectionShellView, renderGraphSelectionTaskView } from "./graph-selection-panel.js";
 import { renderGraphClusterSelectionPanelView } from "./graph-cluster-selection-panel.js";
 import { createGraphSelectionPanelRenderer } from "./graph-selection-panel-renderer.js";
@@ -147,7 +148,7 @@ import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "
 import { clearWritingFocusedCandidateScopeForRuntime, clearWritingSourceIndexIdsForRuntime, clearWritingThemeRelationCountsForRuntime, resetWritingStrongModelStateForRuntime, setWritingFocusedCandidateScopeForRuntime, setWritingSourceIndexIdsForRuntime } from "./writing-session-state.js";
 import { sameUniqueStringSetForRuntime, selectedWritingThemeIndexForRuntime, setSelectedWritingThemeIndexForRuntime, writingThemeIndexByIdForRuntime, writingThemeIndexScopeDirectoryIdForRuntime, writingThemeIndexNoteIdsForRuntime } from "./writing-theme-state.js";
 import { graphAssociateNoteRoute, graphFollowupActionRoute, noteDeleteKeyRoute } from "./note-browser-action-router.js";
-import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
+import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, relationNetworkStatusForNotePolicy, resolveFolderRootNoteType, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
 import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, writingScaffoldPreflightWarning, isWritingStrongModelReady } from "./writing-center-flow.js";
 import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeProjectPreflight, noteHasBoundarySignal } from "./writing-readiness.js";
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
@@ -699,15 +700,49 @@ const noteRuntimeController = createNoteRuntimeController(() => ({
   writeStoredText
 }));
 
-function noteGeneratedOriginalNoteId(note = null) { return noteRuntimeController.noteGeneratedOriginalNoteId(note); }
+function noteGeneratedOriginalNoteId(note = null) {
+  return String(
+    note?.generatedOriginalNoteId ||
+      note?.generated_original_note_id ||
+      generatedOriginalNoteIdFromBody(note?.body || "")
+  ).trim();
+}
 
-function noteHasGeneratedOriginal(note = null) { return noteRuntimeController.noteHasGeneratedOriginal(note); }
+function noteHasGeneratedOriginal(note = null) { return Boolean(noteGeneratedOriginalNoteId(note)); }
 
-function relationNetworkStatusForNote(note = null, options = {}) { return noteRuntimeController.relationNetworkStatusForNote(note, options); }
+function relationNetworkStatusForNote(note = null, options = {}) {
+  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
+  const connectedIds = options.connectedIds instanceof Set
+    ? options.connectedIds
+    : state.graphConnectedNoteIds instanceof Set
+      ? state.graphConnectedNoteIds
+      : null;
+  const connectivityReady = options.connectivityReady === undefined ? state.graphConnectivityReady === true : options.connectivityReady === true;
+  return relationNetworkStatusForNotePolicy({
+    note,
+    noteType,
+    connectedIds,
+    connectivityReady,
+    storedStatus: readStoredRelationNetworkStatus(note?.id)
+  });
+}
 
-function syncNoteRelationNetworkStatus(note = null, options = {}) { return noteRuntimeController.syncNoteRelationNetworkStatus(note, options); }
+function syncNoteRelationNetworkStatus(note = null, options = {}) {
+  if (!note || typeof note !== "object") return "";
+  const nextStatus = relationNetworkStatusForNote(note, options);
+  note.relationNetworkStatus = nextStatus;
+  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
+  if (noteType === "permanent" || noteType === "original") {
+    if (isPersistableRelationNetworkStatus(nextStatus)) writeStoredRelationNetworkStatus(note.id, nextStatus);
+  } else {
+    writeStoredRelationNetworkStatus(note.id, "");
+  }
+  return nextStatus;
+}
 
-function syncAllNoteRelationNetworkStatuses(options = {}) { return noteRuntimeController.syncAllNoteRelationNetworkStatuses(options); }
+function syncAllNoteRelationNetworkStatuses(options = {}) {
+  for (const note of Array.isArray(state.notes) ? state.notes : []) syncNoteRelationNetworkStatus(note, options);
+}
 
 function isOriginalRecordableSource(note = null) {
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
@@ -905,9 +940,18 @@ function effectiveSavedNoteTemplateSource(kind = "") {
 
 function normalizeNoteTemplateHistory(items = [], kind = "") { return computeNormalizeNoteTemplateHistory(items, kind); }
 
-function noteTemplateStorageScope(vaultPath = "") { return settingsNoteTemplateRuntime.noteTemplateStorageScope(vaultPath); }
+function noteTemplateStorageScope(vaultPath = "") {
+  const cleanPath = String(vaultPath || currentVaultPath() || "").trim().replace(/\//g, "\\").toLowerCase();
+  return cleanPath || "global";
+}
 
-function noteTemplateStorageKey(kind = "", options = {}) { return settingsNoteTemplateRuntime.noteTemplateStorageKey(kind, options); }
+function noteTemplateStorageKey(kind = "", options = {}) {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const base = NOTE_TEMPLATE_STORAGE_KEYS[cleanKind];
+  const suffix = String(options?.suffix || "").trim();
+  const scope = noteTemplateStorageScope(options?.vaultPath || "");
+  return `${base}:${scope}${suffix ? `:${suffix}` : ""}`;
+}
 
 function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind = "") { return computeNoteTemplateHistoryWithPrevious(history, previousText, kind); }
 
@@ -941,7 +985,18 @@ const settingsNoteTemplateRuntime = createSettingsNoteTemplateRuntime({
   writeStoredText
 });
 
-function loadNoteTemplateSettingsFromStorage() { return noteRuntimeController.loadNoteTemplateSettingsFromStorage(); }
+function loadNoteTemplateSettingsFromStorage() {
+  return loadNoteTemplateSettingsFromStorageForRuntime({
+    settingsState,
+    noteTemplateStorageScope,
+    noteTemplateStorageKey,
+    readStoredText,
+    writeStoredText,
+    normalizeStoredNoteTemplateSource,
+    normalizeDraftBuffer,
+    normalizeNoteTemplateHistory
+  });
+}
 
 function persistNoteTemplateSettingsToStorage() { return settingsNoteTemplateRuntime.persistNoteTemplateSettingsToStorage(); }
 
@@ -1164,7 +1219,42 @@ function activeAiProviderConfig() {
   return settingsState.ai.providerConfigs.find((config) => String(config?.providerId || config?.provider_id || "").trim() === providerId) || null;
 }
 
-function applyActiveAiProviderConfigToState() { return settingsAiStateRuntime.applyActiveAiProviderConfigToState(); }
+function applyActiveAiProviderConfigToState() {
+  const providerId = currentAiProviderId();
+  const config = activeAiProviderConfig();
+  const draftTouched = settingsState.ai.providerDraftTouched || {};
+  if (!config) {
+    const endpointUrl = defaultProviderEndpointUrl(providerId);
+    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl);
+    if (endpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
+    if (healthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+    if (!isRemoteConfigurableProviderId(providerId)) settingsState.ai.remoteRuntimeModel = "";
+    return;
+  }
+  const configuredEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
+  const configuredHealthEndpointUrl = enabledProviderHealthEndpointUrl(config);
+  const configuredSecretRef = String(config.secretRef || config.secret_ref || "").trim();
+  if (!draftTouched.providerEndpointUrl && !settingsState.ai.providerEndpointUrl && configuredEndpointUrl) {
+    settingsState.ai.providerEndpointUrl = configuredEndpointUrl;
+  }
+  if (!draftTouched.providerHealthEndpointUrl && !settingsState.ai.providerHealthEndpointUrl && configuredHealthEndpointUrl) {
+    settingsState.ai.providerHealthEndpointUrl = configuredHealthEndpointUrl;
+  }
+  if (!draftTouched.secretRef && !settingsState.ai.secretRef && configuredSecretRef) {
+    settingsState.ai.secretRef = configuredSecretRef;
+  }
+  if (isRemoteConfigurableProviderId(providerId)) {
+    const configuredRemoteModel = remoteRuntimeModelFromMap(
+      providerId,
+      config.runtimeModelMap || config.runtime_model_map || {}
+    );
+    if (!draftTouched.remoteRuntimeModel && !settingsState.ai.remoteRuntimeModel && configuredRemoteModel) {
+      settingsState.ai.remoteRuntimeModel = configuredRemoteModel;
+    }
+  } else {
+    settingsState.ai.remoteRuntimeModel = "";
+  }
+}
 
 function aiTestBlockedReason() {
   const providerId = currentAiProviderId();
@@ -1447,8 +1537,8 @@ const importResultRuntime = createImportResultRuntime({
   renderImportResultMount,
   renderImportWritingActionsHtml,
   renderWritingResultDetailsHtml,
-  renderWritingPanel,
-  renderWritingScaffoldPreview,
+  renderWritingPanel: (...args) => renderWritingPanel(...args),
+  renderWritingScaffoldPreview: (...args) => renderWritingScaffoldPreview(...args),
   selectedCandidateIdsForImportAction,
   selectedCandidateIdsForImportState,
   selectionSummaryForImportState,
@@ -1459,7 +1549,7 @@ const importResultRuntime = createImportResultRuntime({
   suggestedWritingProjectTitle,
   beginWritingEntry,
   normalizeWritingProjectTitleSeed,
-  updateExportTargetHint,
+  updateExportTargetHint: (...args) => updateExportTargetHint(...args),
   writingNoteById,
   writingState
 });
@@ -1469,11 +1559,11 @@ const importWorkspaceShellController = createImportWorkspaceShellController({
   importState,
   renderImportPageMount,
   renderImportToolbarMount,
-  preferredImportDirectoryId,
-  activeImportPreviewContext,
-  selectionSummary,
+  preferredImportDirectoryId: (...args) => preferredImportDirectoryId(...args),
+  activeImportPreviewContext: (...args) => activeImportPreviewContext(...args),
+  selectionSummary: (...args) => selectionSummary(...args),
   importConfirmButtonState,
-  importTargetDirectories,
+  importTargetDirectories: (...args) => importTargetDirectories(...args),
   directoryPathLabel,
   mountExportCardIntoImportShell
 });
@@ -2178,7 +2268,7 @@ const writingEntryRuntimeController = createWritingEntryRuntimeController(() => 
   listWritingProjects,
   parseWritingBasketIds,
   refreshWritingRelationCounts,
-  renderWritingPanel,
+  renderWritingPanel: (...args) => renderWritingPanel(...args),
   resetWritingLocalBookIdeas,
   resetWritingProjectContext,
   setSelectedWritingThemeIndex,
@@ -2186,7 +2276,7 @@ const writingEntryRuntimeController = createWritingEntryRuntimeController(() => 
   setWritingBasketIds,
   setWritingFocusedCandidateScope,
   setWritingSourceIndexIds,
-  showWritingResult,
+  showWritingResult: (...args) => showWritingResult(...args),
   statusRevision,
   syncWritingResultFromCurrentState,
   writingState,
@@ -2205,7 +2295,7 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   analyzeWritingWithStrongModel,
   beginWritingEntry,
   createWritingProject,
-  currentWritingBookStructure,
+  currentWritingBookStructure: (...args) => currentWritingBookStructure(...args),
   ensureNotesLoaded,
   importState,
   loadWritingDraftVersions,
@@ -2214,9 +2304,9 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   openWritingModule,
   parseWritingBasketIds,
   populateWritingFormFromProject,
-  renderWritingPanel,
+  renderWritingPanel: (...args) => renderWritingPanel(...args),
   setStatus,
-  showWritingResult,
+  showWritingResult: (...args) => showWritingResult(...args),
   suggestedWritingProjectTitle,
   syncWritingLocalBookIdeasFromProject,
   window,
@@ -2352,7 +2442,7 @@ async function saveWritingBasketAsThemeIndex() {
 const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   $,
   createWritingProject,
-  currentWritingBookStructure,
+  currentWritingBookStructure: (...args) => currentWritingBookStructure(...args),
   deriveBasketWritingReadiness,
   deriveWritingProjectIntent,
   deriveWritingProjectTakeaway,
@@ -2366,9 +2456,9 @@ const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   normalizeAuthorshipItem,
   normalizeWritingProjectTitleSeed,
   populateWritingFormFromProject,
-  renderWritingPanel,
+  renderWritingPanel: (...args) => renderWritingPanel(...args),
   sameUniqueStringSet,
-  showWritingResult,
+  showWritingResult: (...args) => showWritingResult(...args),
   syncWritingLocalBookIdeasFromProject,
   useThemeIndexAsWritingEntry,
   writingKnownNoteById,
@@ -3019,7 +3109,7 @@ const renderAppShellController = createRenderAppShellController({
     renderDistillationPanel,
     renderGraphPanel,
     renderSettingsPanel,
-    renderWritingPanel,
+    renderWritingPanel: (...args) => renderWritingPanel(...args),
     applyFocusModeChrome,
     renderStatusMeta,
     renderWorkspaceStatusHint,
@@ -4463,6 +4553,46 @@ function graphRelationStatusLabel(status) {
   return GRAPH_RELATION_STATUS_LABELS[key] || key || "已确认";
 }
 
+async function saveNote(note = null) {
+  const noteId = String(note?.id || "").trim();
+  if (!noteId) return null;
+  const updated = await updateNote(noteId, {
+    title: note.title,
+    body: note.body || "",
+    status: note.status || "draft",
+    ...notePersistenceFieldsForSave(note)
+  });
+  const mapped = mapNoteItem(updated || note);
+  state.notes = (state.notes || []).map((item) => (item.id === noteId ? { ...item, ...mapped, bodyLoaded: true } : item));
+  const tab = (state.tabs || []).find((item) => item.noteId === noteId);
+  if (tab) {
+    tab.title = mapped.title || tab.title;
+    tab.body = mapped.body ?? tab.body;
+    tab.savedTitle = tab.title;
+    tab.savedBody = tab.body;
+    tab.dirty = false;
+  }
+  return mapped;
+}
+
+function graphStructureFallbackEdges(edges = [], filters = {}) {
+  return graphStructureFallbackEdgesForRuntime(edges, filters, {
+    graphEdgeMatchesFilters: (...args) => graphEdgeMatchesFilters(...args)
+  });
+}
+
+function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) {
+  return renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, {
+    escapeHtml,
+    graphFilterOptions: (...args) => graphFilterOptions(...args),
+    graphRelationTypeLabel
+  });
+}
+
+function renderGraphViewModeSwitcher(relationType = "meaningful") {
+  return renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml });
+}
+
 const graphResidualViews = createGraphResidualViews({
   GRAPH_CONFLICT_RELATION_TYPES,
   GRAPH_INDEX_RELATION_TYPES,
@@ -4496,6 +4626,7 @@ const graphResidualViews = createGraphResidualViews({
   createGraphSelectionPanelRenderer,
   createGraphThinkingModelRuntimeDepsProvider,
   createNoteRelation,
+  descendantDirectoryIds,
   escapeHtml,
   graphAiAnalysisSummaryStateForGraph,
   graphBridgeSelectionKey,
@@ -4527,6 +4658,7 @@ const graphResidualViews = createGraphResidualViews({
   graphStructureFallbackEdgesForRuntime,
   graphThemeNoteIds,
   graphThemeSelectionKey,
+  isDirectoryUnderOriginalRoot,
   normalizeGraphRelationTypeFilter,
   noteTypeLabel,
   refreshDirectoryGraph,
@@ -4617,6 +4749,8 @@ const {
   openGraphIsolatedDecisionAction,
   loadGraphEditableNote,
   saveGraphIsolatedDecision,
+  graphRelationSaveController,
+  graphRelationWorkflowController,
   graphAiAnalysisPayload,
   graphAiConfidenceLabel,
   graphNoteIdFromIsolatedItem,
@@ -4674,6 +4808,7 @@ const {
   renderGraphIsolatedPreviewPanel,
   renderGraphRelationCandidateCards,
   renderGraphAiConnectCandidates,
+  graphAiConnectRuntimeController,
   graphWorkspaceRenderDeps,
   graphThemeCandidateNoteIdsForNode,
   renderGraphRelationWorkspaceForNote,
@@ -4726,6 +4861,7 @@ const {
   renderGraphNebulaField,
   renderGraphClusterGlow,
   graphBuildVisualLayout,
+  renderGraphVisualMap,
   graphEdgePath,
   graphThemeBoundaryMeta,
   renderGraphThemeBoundary,
@@ -4860,6 +4996,10 @@ async function refreshDirectoryGraph() {
     renderGraphPanel,
     renderAll
   });
+}
+
+function graphDataList(element = null, name = "") {
+  return graphDataListFromElement(element, name);
 }
 
 const graphRouteRuntime = createGraphRouteRuntime({
