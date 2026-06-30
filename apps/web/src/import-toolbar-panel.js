@@ -43,11 +43,11 @@ export function renderImportToolbarPanel(input = {}) {
           <div class="import-field-help">例如：<code>E:/Notes/My Obsidian Vault</code>。支持中文和空格路径。</div>
         </section>
         <section class="import-field-panel">
-          <label class="import-field-label" for="importDirectoryId">默认保存到</label>
+          <label class="import-field-label" for="importDirectoryId">导入到</label>
           <select id="importDirectoryId">
             ${renderDirectoryOptions(model.directoryOptions, model.directoryId)}
           </select>
-          <div class="import-field-help">默认选永久笔记目录；导入时仍会按笔记类型放入对应盒子。</div>
+          <div class="import-field-help">默认导入永久笔记目录，便于后续建立关系网络；如果这批资料明确是随笔或文献，再切换目录。</div>
         </section>
       </div>
       <details class="import-compat-details">

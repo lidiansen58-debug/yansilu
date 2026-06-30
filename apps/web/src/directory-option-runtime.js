@@ -47,9 +47,16 @@ export function createDirectoryOptionRuntime(depsProvider = () => ({})) {
 
   function importTargetDirectories() {
     const current = deps();
+    const rootPriority = (folder) => {
+      const rootId = current.rootBoxIdFromFolder(current.state, folder.id);
+      if (rootId === "dir_original_default") return 0;
+      if (rootId === "dir_fleeting_default") return 1;
+      if (rootId === "dir_literature_default") return 2;
+      return 3;
+    };
     return current.state.folders
       .filter((folder) => folder?.id && !folder.hidden && ["dir_fleeting_default", "dir_literature_default", "dir_original_default"].includes(current.rootBoxIdFromFolder(current.state, folder.id)))
-      .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
+      .sort((a, b) => rootPriority(a) - rootPriority(b) || directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
   }
 
   function preferredImportDirectoryId(currentValue = "") {

@@ -30,8 +30,9 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.doesNotMatch(html, /普通导入只需要填写来源仓库和导入位置/);
   assert.doesNotMatch(html, /当前任务/);
   assert.match(html, /来源仓库/);
-  assert.match(html, /默认保存到/);
-  assert.match(html, /默认选永久笔记目录；导入时仍会按笔记类型放入对应盒子。/);
+  assert.match(html, /导入到/);
+  assert.match(html, /默认导入永久笔记目录/);
+  assert.match(html, /明确是随笔或文献/);
   assert.match(html, /兼容设置（通常不用填）/);
   assert.match(html, /覆盖请求（可选）/);
   assert.match(html, /兼容规则（可选）/);

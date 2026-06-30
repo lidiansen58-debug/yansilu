@@ -55,7 +55,7 @@ test("directory option runtime derives import, move, and export options from hos
 
   assert.deepEqual(runtime.permanentExportDirectories().map((folder) => folder.id), ["dir_original_child", "dir_original_default"]);
   assert.equal(runtime.defaultPermanentDirectoryId(), "dir_original_child");
-  assert.deepEqual(runtime.importTargetDirectories().map((folder) => folder.id), ["dir_literature_default", "dir_original_child", "dir_original_default"]);
+  assert.deepEqual(runtime.importTargetDirectories().map((folder) => folder.id), ["dir_original_child", "dir_original_default", "dir_literature_default"]);
   assert.equal(runtime.preferredImportDirectoryId("dir_literature_default"), "dir_literature_default");
 
   runtime.syncExportDirectoryOptions();
