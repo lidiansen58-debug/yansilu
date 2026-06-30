@@ -6,6 +6,8 @@ export function createImportResultRuntime(deps = {}) {
     candidatePreviewFromPayload,
     candidatePreviewItemIds,
     candidateSelectionFromPayload,
+    confirmSkipReasonMap,
+    confirmSkippedCandidateIds,
     clearWritingSourceIndexIds,
     computeCandidateIdsForSelection,
     computeDefaultSelectedCandidateIds,

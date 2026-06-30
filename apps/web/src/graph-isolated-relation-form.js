@@ -29,7 +29,13 @@ export function graphIsolatedJoinNetworkFormModel(
   const draftManualTargetNoteId = String(safeDraft.manualTargetNoteId || (draftMode === "manual" ? draftTargetNoteId : "")).trim();
   const draftOwnsValue = (key = "") => Object.prototype.hasOwnProperty.call(safeDraft, key);
   const sourceTitle = nodeTitle(nodeMap, cleanNoteId, "当前笔记");
-  const activeMode = cleanPreferredTargetNoteId ? "manual" : draftMode || workflowTabKey(activeTabForNote(cleanNoteId));
+  const safeAiCandidates = Array.isArray(aiCandidates) ? aiCandidates : [];
+  const safeManualTargets = Array.isArray(manualTargets) ? manualTargets : [];
+  const preferredTargetIsAiCandidate = cleanPreferredTargetNoteId
+    ? safeAiCandidates.some((candidate) => String(candidate?.counterpartNoteId || candidate?.targetNoteId || "").trim() === cleanPreferredTargetNoteId)
+    : false;
+  const defaultActiveMode = !safeAiCandidates.length && safeManualTargets.length ? "manual" : workflowTabKey(activeTabForNote(cleanNoteId));
+  const activeMode = cleanPreferredTargetNoteId && !preferredTargetIsAiCandidate ? "manual" : draftMode || defaultActiveMode;
   const activeRelationTypeKey = activeMode === "manual" ? "manualRelationType" : "aiRelationType";
   const activeRationaleKey = activeMode === "manual" ? "manualRationale" : "aiRationale";
   const activeRationaleSourceKey = activeMode === "manual" ? "manualRationaleSource" : "aiRationaleSource";
@@ -77,14 +83,13 @@ export function graphIsolatedJoinNetworkFormModel(
   ).trim();
   const effectiveRelationType = cleanPreferredRelationType || draftRelationType;
   const effectiveRationale = cleanPreferredRationale || (hasActiveRationaleDraft ? draftRationale : "");
-  const safeAiCandidates = Array.isArray(aiCandidates) ? aiCandidates : [];
-  const safeManualTargets = Array.isArray(manualTargets) ? manualTargets : [];
+  const preferredAiTargetNoteId = preferredTargetIsAiCandidate ? cleanPreferredTargetNoteId : "";
   const activeAiCandidate = activeMode === "ai"
-    ? safeAiCandidates.find((candidate) => String(candidate?.counterpartNoteId || candidate?.targetNoteId || "").trim() === draftAiTargetNoteId) || safeAiCandidates[0] || null
+    ? safeAiCandidates.find((candidate) => String(candidate?.counterpartNoteId || candidate?.targetNoteId || "").trim() === (draftAiTargetNoteId || preferredAiTargetNoteId)) || safeAiCandidates[0] || null
     : null;
   const activeRawRelationType = String(activeAiCandidate?.relationType || "associated_with").trim().toLowerCase() || "associated_with";
   const activeActionSourceNoteId = String(activeAiCandidate?.actionSourceNoteId || activeAiCandidate?.sourceNoteId || "").trim();
-  const selectedManualTargetNoteId = cleanPreferredTargetNoteId || draftManualTargetNoteId || (activeMode === "manual" ? draftTargetNoteId : "");
+  const selectedManualTargetNoteId = activeMode === "manual" ? cleanPreferredTargetNoteId || draftManualTargetNoteId || draftTargetNoteId : "";
   const selectedManualTarget = selectedManualTargetNoteId
     ? safeManualTargets.find((target) => String(target?.id || "").trim() === selectedManualTargetNoteId) || null
     : null;

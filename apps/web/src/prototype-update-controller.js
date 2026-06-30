@@ -14,6 +14,7 @@ import {
   UPDATE_STATUS
 } from "./update-state.js";
 import {
+  checkDesktopUpdate,
   downloadAndInstallDesktopUpdate,
   isDesktopUpdaterAvailable,
   relaunchDesktopApp
@@ -109,6 +110,33 @@ export function createPrototypeUpdateController(deps = {}) {
     }, { interrupt: false, preserveRead: true });
   }
 
+  function updateCheckResultFromDesktopCheck(result = {}) {
+    if (!result.supported) return null;
+    const metadata = result.metadata || {};
+    if (!result.available) {
+      return {
+        status: UPDATE_STATUS.UP_TO_DATE,
+        currentVersion: metadata.currentVersion || settingsState.update?.currentVersion || APP_VERSION,
+        latestVersion: metadata.version || settingsState.update?.currentVersion || APP_VERSION,
+        checkedAt: new Date().toISOString()
+      };
+    }
+    const body = metadata.body ? [metadata.body] : [];
+    return {
+      status: UPDATE_STATUS.UPDATE_AVAILABLE,
+      currentVersion: metadata.currentVersion || settingsState.update?.currentVersion || APP_VERSION,
+      latestVersion: metadata.version || result.update?.version || "",
+      checkedAt: new Date().toISOString(),
+      installable: result.installable === true,
+      manifest: {
+        version: metadata.version || result.update?.version || "",
+        changelog: body,
+        rawJson: metadata.rawJson || null
+      },
+      changelog: body
+    };
+  }
+
   async function refreshAppVersionInfo() {
     try {
       const info = await fetchAppVersion();
@@ -139,7 +167,8 @@ export function createPrototypeUpdateController(deps = {}) {
     renderSettingsPanel();
     const requestToken = settingsState.update.requestToken;
     try {
-      const result = await checkAppUpdate({
+      const desktopResult = await checkDesktopUpdate();
+      const result = updateCheckResultFromDesktopCheck(desktopResult) || await checkAppUpdate({
         manifestUrl: settingsState.update.manifestUrl || undefined
       });
       if (requestToken !== settingsState.update.requestToken) return settingsState.update;
@@ -194,6 +223,10 @@ export function createPrototypeUpdateController(deps = {}) {
   async function installUpdateFromDesktopUpdater() {
     if (!isDesktopUpdaterAvailable()) {
       setStatus("当前环境不支持应用内安装；可以打开下载页手动安装。", "warn");
+      return false;
+    }
+    if (settingsState.update.installable !== true) {
+      setStatus("当前更新接口只能检测更新，请打开下载页手动安装。", "warn");
       return false;
     }
     if (settingsState.update.status !== UPDATE_STATUS.UPDATE_AVAILABLE && settingsState.update.status !== UPDATE_STATUS.FAILED) {
@@ -322,6 +355,7 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
   const installing = update.status === UPDATE_STATUS.DOWNLOADING;
   const installed = update.status === UPDATE_STATUS.DOWNLOADED || update.installReadyForRestart === true;
   const desktopUpdaterAvailable = isDesktopUpdaterAvailable();
+  const canInstallInApp = desktopUpdaterAvailable && update.installable === true;
 
   if (statusBadge) {
     statusBadge.textContent = updateStatusLabel(update.status);
@@ -375,12 +409,12 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
   }
   if (downloadButton) downloadButton.disabled = !hasUpdate || !hasDownload;
   if (installButton) {
-    installButton.disabled = installing || installed || (!hasUpdate && update.status !== UPDATE_STATUS.FAILED) || !desktopUpdaterAvailable;
+    installButton.disabled = installing || installed || (!hasUpdate && update.status !== UPDATE_STATUS.FAILED) || !canInstallInApp;
     installButton.textContent = installing
       ? "安装中..."
       : installed
         ? "已安装"
-        : desktopUpdaterAvailable
+        : canInstallInApp
           ? "一键下载并安装"
           : "桌面版可用";
   }
@@ -391,7 +425,7 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
       : installing
         ? "正在下载并安装更新，请不要关闭应用。"
         : hasUpdate
-          ? desktopUpdaterAvailable
+          ? canInstallInApp
             ? "桌面版可一键下载、签名校验并安装；也可以打开下载页手动安装。"
             : (hasDownload ? "当前环境不支持应用内安装，可打开下载页手动安装。" : "检测到新版本，但 manifest 没有提供下载链接。")
           : "有新版本时会显示下载入口。";

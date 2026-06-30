@@ -327,6 +327,8 @@ export class EditorPane {
 
       const saved = await this.onStateChange("save-note", {
         noteId: note.id,
+        title: titleSnapshot,
+        body: bodySnapshot,
         status: statusSnapshot,
         originalityStatus: note.originalityStatus,
         originalitySimilarity: note.originalitySimilarity,
@@ -349,15 +351,22 @@ export class EditorPane {
       tab.savedTitle = titleSnapshot;
       this.syncPlaceholderTitleArmed(tab);
       const liveBodyAtCompletion = savingTabIsActive() ? this.getEditorValue() : tab.body;
+      const liveMatchesSaved = normalizedBodyTextForDirtyCheck(liveBodyAtCompletion) === normalizedBodyTextForDirtyCheck(bodySnapshot);
       if (
-        this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
-        this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot)
+        !liveMatchesSaved &&
+        (this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
+        this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot))
       ) {
         tab.body = liveBodyAtCompletion;
         tab.title = titleFromBody(tab.body);
         this.syncTabDirtyState(tab);
-        if (tab.dirty) this.writeDraft(tab);
-        setSavingTabUiState("dirty", "当前文件：已同步早先修改，仍有未保存编辑");
+        if (tab.dirty) {
+          this.writeDraft(tab);
+          setSavingTabUiState("dirty", "当前文件：已同步早先修改，仍有未保存编辑");
+        } else {
+          this.clearDraft(tab.noteId);
+          setSavingTabUiState("saved", "当前文件：已自动同步");
+        }
         return true;
       }
       tab.title = titleSnapshot;
@@ -371,7 +380,12 @@ export class EditorPane {
       return await this.savingPromise;
     } finally {
       this.savingPromise = null;
-      if (this.activeTab()?.dirty) this.scheduleAutoSave();
+      const active = this.activeTab();
+      if (active?.dirty) this.scheduleAutoSave();
+      else if (active?.noteId) {
+        this.clearAutoSaveTimer();
+        this.clearDraft(active.noteId);
+      }
     }
   }
 
@@ -1439,6 +1453,9 @@ export class EditorPane {
   renderContextualToolbarState() {
     const active = this.detectActiveFormatting();
     const structured = this.isStructuredWorkspaceActive();
+    const canUseRelationLink = this.isOriginalNote(this.activeNote());
+    this.els.insertLink?.classList.toggle("hidden", !canUseRelationLink);
+    if (!canUseRelationLink) this.closeLinkPicker();
     if (this.els.headingLevel) {
       const value = Number(active.headingLevel || 0);
       this.els.headingLevel.value = value ? String(value) : this.activeTab() ? "p" : "";
@@ -1778,6 +1795,13 @@ export class EditorPane {
       const textareaValue = hasTextareaValue ? String(this.els.body.value || "").replace(/\r\n/g, "\n") : "";
       const tab = this.activeTab();
       if (
+        hasTextareaValue &&
+        textareaValue !== editorValue &&
+        normalizedBodyTextForDirtyCheck(textareaValue) === normalizedBodyTextForDirtyCheck(tab?.body || "")
+      ) {
+        return textareaValue;
+      }
+      if (
         tab?.dirty &&
         hasTextareaValue &&
         textareaValue !== editorValue &&
@@ -1794,6 +1818,12 @@ export class EditorPane {
   setEditorValue(value) {
     const text = String(value || "");
     this.setUnderlyingEditorValue(text);
+    const tab = this.activeTab();
+    if (tab) {
+      tab.body = text;
+      tab.title = titleFromBody(text);
+      this.syncTabDirtyState(tab);
+    }
     this.syncLiteratureWorkspaceFromBody(text);
   }
 
@@ -6285,6 +6315,7 @@ export class EditorPane {
     this.els.insertLink.addEventListener("click", (event) => {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
+      if (!this.isOriginalNote(note)) return this.onStatus("关系整理请在永久笔记里进行", "warn");
       const candidates = this.scopedLinkCandidates();
       if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
       const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;
@@ -6564,18 +6595,18 @@ export class EditorPane {
       this.handleEditorKeydown(e);
     });
 
-    document.addEventListener(
-      "keydown",
-      (e) => {
-        const mod = e.ctrlKey || e.metaKey;
-        if (!mod || String(e.key || "").toLowerCase() !== "s" || e.isComposing) return;
-        if (!this.activeTab()) return;
-        e.preventDefault();
-        e.stopPropagation();
-        this.saveActiveNote();
-      },
-      true
-    );
+    const handleGlobalSaveShortcut = (e) => {
+      if (e.__yansiluSaveHandled) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod || String(e.key || "").toLowerCase() !== "s" || e.isComposing) return;
+      if (!this.activeTab()) return;
+      e.__yansiluSaveHandled = true;
+      e.preventDefault();
+      e.stopPropagation();
+      this.saveActiveNote();
+    };
+    window.addEventListener("keydown", handleGlobalSaveShortcut, true);
+    document.addEventListener("keydown", handleGlobalSaveShortcut, true);
 
     this.els.body.addEventListener("click", (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
@@ -6966,6 +6997,8 @@ export class EditorPane {
     this.renderRelated();
     const saved = await this.onStateChange("save-note", {
       noteId: savingNoteId,
+      title: titleSnapshot,
+      body: bodySnapshot,
       status: nextStatus,
       originalityStatus: note.originalityStatus,
       originalitySimilarity: note.originalitySimilarity,
@@ -6997,9 +7030,11 @@ export class EditorPane {
       savedTitle = note.title;
     }
     const liveBodyAtCompletion = savingTabIsActive() ? this.getEditorValue() : tab.body;
+    const liveMatchesSaved = normalizedBodyTextForDirtyCheck(liveBodyAtCompletion) === normalizedBodyTextForDirtyCheck(savedBody);
     const changedSinceSaveStarted =
-      this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
-      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot);
+      !liveMatchesSaved &&
+      (this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
+      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot));
     tab.savedBody = savedBody;
     tab.savedTitle = savedTitle;
     this.syncPlaceholderTitleArmed(tab);
@@ -7007,8 +7042,13 @@ export class EditorPane {
       tab.body = liveBodyAtCompletion;
       tab.title = titleFromBody(tab.body);
       this.syncTabDirtyState(tab);
-      if (tab.dirty) this.writeDraft(tab);
-      setSavingTabUiState("dirty", "当前文件：已同步早先修改，仍有未保存编辑");
+      if (tab.dirty) {
+        this.writeDraft(tab);
+        setSavingTabUiState("dirty", "当前文件：已同步早先修改，仍有未保存编辑");
+      } else {
+        this.clearDraft(tab.noteId);
+        setSavingTabUiState("saved", "当前文件：已自动同步");
+      }
       this.renderTabs();
       this.renderThinkingStatus();
       return saved || true;

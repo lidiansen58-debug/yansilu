@@ -182,6 +182,17 @@ export function suggestedWritingProjectTitle(noteIds = [], { noteById = () => nu
   return `导入笔记项目 ${noteIds.length}`;
 }
 
+export function writingProjectEntryTitle(project = {}) {
+  const basketNotes = Array.isArray(project?.basket_notes) ? project.basket_notes : [];
+  const firstNote = basketNotes.find((note) => String(note?.title || note?.id || "").trim());
+  if (firstNote) {
+    const firstTitle = String(firstNote.title || firstNote.id || "").trim();
+    const suffix = basketNotes.length > 1 ? ` 等 ${basketNotes.length} 条笔记` : "";
+    return normalizeWritingProjectTitleSeed(`${firstTitle}${suffix}`);
+  }
+  return normalizeWritingProjectTitleSeed(project?.title || project?.id || "");
+}
+
 export function writingThemeLabels(notes = [], { parseTags = () => [] } = {}) {
   const tags = [...new Set(
     notes

@@ -51,7 +51,6 @@ import { normalizeAuthorshipItem, normalizeThinkingStatusItem, renderThinkingSta
 import { deriveWritingProjectIntent, deriveWritingProjectTakeaway, directoryPathLabel as computeDirectoryPathLabel, displayFolderName, distillationReasonOf, distillationStageLabel, distillationStageOf, distillationStatusLabel, distillationStatusOf, mapDirectoryItem, moduleLabel, mapNoteItem as computeMapNoteItem, noteMatchesSearchQuery, noteTypeLabel, saveAiSuggestionKey, sourceNoteTypeLabel, writingProjectStatusLabel } from "./prototype-note-state-helpers.js";
 import { createNotePlaceholderRuntime } from "./note-placeholder-runtime.js";
 import { createNoteRuntimeController } from "./note-runtime-controller.js";
-import { loadNoteTemplateSettingsFromStorageForRuntime } from "./note-template-runtime-helpers.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxWorkspaceEvents, renderAiInboxWorkspaceView } from "./ai-inbox-workspace.js";
 import { createAiInboxWorkspaceHostDeps } from "./ai-inbox-host-deps.js";
@@ -88,7 +87,7 @@ import { createGraphIsolatedDecisionController } from "./graph-isolated-decision
 import { createGraphRelationSaveController } from "./graph-relation-save-controller.js";
 import { createGraphRelationWorkflowController, graphNormalizeRelationWorkflowSelection } from "./graph-relation-workflow-controller.js";
 import { createGraphIsolatedWorkflowShellRenderer } from "./graph-isolated-workflow-shell.js";
-import { GRAPH_CONFIRMABLE_RELATION_TYPES, GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES, graphBlockedAiRelationPairKeysForNote as computeGraphBlockedAiRelationPairKeysForNote, graphCandidateBlocksFormalRelation as computeGraphCandidateBlocksFormalRelation, graphCandidateCanSaveRelation as computeGraphCandidateCanSaveRelation, graphCandidateCountKey as computeGraphCandidateCountKey, graphCandidateEndpointIds as computeGraphCandidateEndpointIds, graphCandidatePercent as computeGraphCandidatePercent, graphCandidateUndirectedPairKey as computeGraphCandidateUndirectedPairKey, graphAiRelationCandidatesForNote as computeGraphAiRelationCandidatesForNote, graphDecoratePotentialRelationCandidate as computeGraphDecoratePotentialRelationCandidate, graphMergeRelationCandidatesForDisplay as computeGraphMergeRelationCandidatesForDisplay, graphPendingAiCandidateCount as computeGraphPendingAiCandidateCount, graphPotentialRelationActionEndpoints as computeGraphPotentialRelationActionEndpoints, graphPotentialRelationEvidenceText as computeGraphPotentialRelationEvidenceText, graphPotentialRelationRationaleDraft as computeGraphPotentialRelationRationaleDraft, graphPreferredPotentialRelationType as computeGraphPreferredPotentialRelationType, graphRelationCandidateKey as computeGraphRelationCandidateKey, graphRelationRationaleIsActionable as computeGraphRelationRationaleIsActionable } from "./graph-ai-candidates.js";
+import { graphBlockedAiRelationPairKeysForNote as computeGraphBlockedAiRelationPairKeysForNote, graphCandidateBlocksFormalRelation as computeGraphCandidateBlocksFormalRelation, graphCandidateCanSaveRelation as computeGraphCandidateCanSaveRelation, graphCandidateCountKey as computeGraphCandidateCountKey, graphCandidateEndpointIds as computeGraphCandidateEndpointIds, graphCandidatePercent as computeGraphCandidatePercent, graphCandidateUndirectedPairKey as computeGraphCandidateUndirectedPairKey, graphAiRelationCandidatesForNote as computeGraphAiRelationCandidatesForNote, graphDecoratePotentialRelationCandidate as computeGraphDecoratePotentialRelationCandidate, graphMergeRelationCandidatesForDisplay as computeGraphMergeRelationCandidatesForDisplay, graphPendingAiCandidateCount as computeGraphPendingAiCandidateCount, graphPotentialRelationActionEndpoints as computeGraphPotentialRelationActionEndpoints, graphPotentialRelationEvidenceText as computeGraphPotentialRelationEvidenceText, graphPotentialRelationRationaleDraft as computeGraphPotentialRelationRationaleDraft, graphPreferredPotentialRelationType as computeGraphPreferredPotentialRelationType, graphRelationCandidateKey as computeGraphRelationCandidateKey, graphRelationRationaleIsActionable as computeGraphRelationRationaleIsActionable } from "./graph-ai-candidates.js";
 import { createGraphAiConnectRuntimeController } from "./graph-ai-connect-runtime-controller.js";
 import { graphDirectNetworkEdgeCount as computeGraphDirectNetworkEdgeCount, graphExistingRelationKeys as computeGraphExistingRelationKeys, graphExistingRelationPairKeys as computeGraphExistingRelationPairKeys, graphRelationPairKey as computeGraphRelationPairKey, graphRelationSaveResultForNote, graphRelationStatusCountsAsNetworkEdge as computeGraphRelationStatusCountsAsNetworkEdge, graphRelationStatusKey as computeGraphRelationStatusKey } from "./graph-relation-state-query.js";
 import { graphComputedIsolatedNotesForGraph, graphIsolatedQueueItemsForGraph, graphMarkIsolatedNodesForGraph, graphNextIsolatedQueueItem as computeGraphNextIsolatedQueueItem, graphNoteIdFromIsolatedItem as computeGraphNoteIdFromIsolatedItem } from "./graph-isolated-queue.js";
@@ -123,6 +122,7 @@ import { createGraphRouteRuntime } from "./graph-route-runtime.js";
 import { createGraphVisualMapController } from "./graph-visual-map-controller.js";
 import { createGraphVisualMapPrototypeDepsProvider } from "./graph-visual-map-host-deps.js";
 import { bindGraphCanvasEvents } from "./graph-canvas-event-router.js";
+import { installGraphNodeClickFallbackEvents, installGraphWorkbenchClickFallbackEvents } from "./graph-node-click-fallback-events.js";
 import { graphBuildVisualLayout as graphBuildVisualLayoutForRuntime } from "./graph-visual-layout.js";
 import { createGraphViewportController } from "./graph-viewport-controller.js";
 import { createGraphUtilityDrawerController } from "./graph-utility-drawer-controller.js";
@@ -148,13 +148,13 @@ import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "
 import { clearWritingFocusedCandidateScopeForRuntime, clearWritingSourceIndexIdsForRuntime, clearWritingThemeRelationCountsForRuntime, resetWritingStrongModelStateForRuntime, setWritingFocusedCandidateScopeForRuntime, setWritingSourceIndexIdsForRuntime } from "./writing-session-state.js";
 import { sameUniqueStringSetForRuntime, selectedWritingThemeIndexForRuntime, setSelectedWritingThemeIndexForRuntime, writingThemeIndexByIdForRuntime, writingThemeIndexScopeDirectoryIdForRuntime, writingThemeIndexNoteIdsForRuntime } from "./writing-theme-state.js";
 import { graphAssociateNoteRoute, graphFollowupActionRoute, noteDeleteKeyRoute } from "./note-browser-action-router.js";
-import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, relationNetworkStatusForNotePolicy, resolveFolderRootNoteType, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
+import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
 import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, writingScaffoldPreflightWarning, isWritingStrongModelReady } from "./writing-center-flow.js";
 import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeProjectPreflight, noteHasBoundarySignal } from "./writing-readiness.js";
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
 import { createWritingEntryRuntimeController } from "./writing-entry-runtime-controller.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
-import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
+import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingProjectEntryTitle as computeWritingProjectEntryTitle, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
 import { createScheduledTasksRuntimeController } from "./scheduled-tasks-runtime-controller.js";
@@ -177,6 +177,7 @@ import { AI_LOCAL_MODEL_TIERS, AI_REMOTE_MODEL_TIERS, OLLAMA_CHAT_ENDPOINT_URL, 
 import { createUpdateState, shouldShowUpdateAttention, updateStateAutoCheckEnabled, updateStateIgnoreLatest, updateStateRemindLater } from "./update-state.js";
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "./prototype-update-controller.js";
 import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, setWritingCurrentDraftNote, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffoldVersionNote, fetchVaultInfo, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, summarizeAiInboxItem, seedYijingKnowledgeNetwork, seedYijingRichAcceptanceDemo, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
+
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
 let usingLocalFallbackData = false;
@@ -253,6 +254,9 @@ function setGraphRelationTypeFilter(value = "", options = {}) {
     writeStoredText
   });
 }
+function graphStructureFallbackEdges(edges = [], filters = {}) { return graphStructureFallbackEdgesForRuntime(edges, filters, { graphEdgeMatchesFilters }); }
+function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) { return renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, { escapeHtml, graphFilterOptions, graphRelationTypeLabel }); }
+function renderGraphViewModeSwitcher(relationType = "meaningful") { return renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml }); }
 setGraphRelationTypeFilter(graphState.filters?.relationType, { persist: false });
 const graphViewportController = createGraphViewportController({
   graphState,
@@ -482,6 +486,7 @@ const settingsPanelRuntimeRoutes = createSettingsPanelRuntimeRoutes(() => ({
   escapeHtml,
   setStatus
 }));
+
 const {
   ensureSettingsWorkbenchLayout,
   filterSettingsSidebarMenu,
@@ -508,6 +513,7 @@ const {
   settingsSidebarNavigationHtml,
   settingsVaultPathMissing
 } = settingsPanelRuntimeRoutes;
+
 const writingState = {
   project: null,
   scaffold: null,
@@ -597,19 +603,21 @@ const updateController = createPrototypeUpdateController({
   getDirtyTabCount: () => typeof editor?.dirtyTabs === "function" ? editor.dirtyTabs().length : 0
 });
 updateController.loadUpdateSettingsFromStorage();
-loadAiSettingsFromStorage();
-loadNoteTemplateSettingsFromStorage();
+
 installStartupAutoOpenEventBindings({
   documentRef: typeof document !== "undefined" ? document : null,
   suppressStartupAutoOpen: () => {
     startupAutoOpenSuppressed = true;
   }
 });
+
 function feedbackBaseUrl() { return `https://github.com/${FEEDBACK_REPOSITORY}/issues/new`; }
+
 function activePrototypeUrl() {
   if (typeof window === "undefined") return "/app";
   return window.location.href || `${window.location.origin}/app`;
 }
+
 function buildFeedbackUrl(kind = "bug") {
   const issueType = kind === "feature" ? "feature_request" : "bug_report";
   const moduleName = moduleLabel(state.module);
@@ -638,6 +646,7 @@ function buildFeedbackUrl(kind = "bug") {
   url.searchParams.set("body", bodyLines.join("\n"));
   return url.toString();
 }
+
 function buildFeedbackDiagnosticText() {
   const note = state.notes.find((item) => item.id === state.selectedFileId);
   const folder = folderById(state, state.selectedFolderId);
@@ -654,10 +663,12 @@ function buildFeedbackDiagnosticText() {
   ];
   return lines.join("\n");
 }
+
 async function openFeedbackUrl(url = "") {
   const result = await desktopCommands.openExternalUrl(url);
   return Boolean(result?.ok);
 }
+
 const noteRuntimeController = createNoteRuntimeController(() => ({
   editor,
   ensureEditableNoteBody,
@@ -689,49 +700,22 @@ const noteRuntimeController = createNoteRuntimeController(() => ({
   writeStoredRelationNetworkStatus,
   writeStoredText
 }));
-function noteGeneratedOriginalNoteId(note = null) {
-  return String(
-    note?.generatedOriginalNoteId ||
-      note?.generated_original_note_id ||
-      generatedOriginalNoteIdFromBody(note?.body || "")
-  ).trim();
-}
-function noteHasGeneratedOriginal(note = null) { return Boolean(noteGeneratedOriginalNoteId(note)); }
-function relationNetworkStatusForNote(note = null, options = {}) {
-  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
-  const connectedIds = options.connectedIds instanceof Set
-    ? options.connectedIds
-    : state.graphConnectedNoteIds instanceof Set
-      ? state.graphConnectedNoteIds
-      : null;
-  const connectivityReady = options.connectivityReady === undefined ? state.graphConnectivityReady === true : options.connectivityReady === true;
-  return relationNetworkStatusForNotePolicy({
-    note,
-    noteType,
-    connectedIds,
-    connectivityReady,
-    storedStatus: readStoredRelationNetworkStatus(note?.id)
-  });
-}
-function syncNoteRelationNetworkStatus(note = null, options = {}) {
-  if (!note || typeof note !== "object") return "";
-  const nextStatus = relationNetworkStatusForNote(note, options);
-  note.relationNetworkStatus = nextStatus;
-  const noteType = resolveFolderRootNoteType(note, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) });
-  if (noteType === "permanent" || noteType === "original") {
-    if (isPersistableRelationNetworkStatus(nextStatus)) writeStoredRelationNetworkStatus(note.id, nextStatus);
-  } else {
-    writeStoredRelationNetworkStatus(note.id, "");
-  }
-  return nextStatus;
-}
-function syncAllNoteRelationNetworkStatuses(options = {}) {
-  for (const note of Array.isArray(state.notes) ? state.notes : []) syncNoteRelationNetworkStatus(note, options);
-}
+
+function noteGeneratedOriginalNoteId(note = null) { return noteRuntimeController.noteGeneratedOriginalNoteId(note); }
+
+function noteHasGeneratedOriginal(note = null) { return noteRuntimeController.noteHasGeneratedOriginal(note); }
+
+function relationNetworkStatusForNote(note = null, options = {}) { return noteRuntimeController.relationNetworkStatusForNote(note, options); }
+
+function syncNoteRelationNetworkStatus(note = null, options = {}) { return noteRuntimeController.syncNoteRelationNetworkStatus(note, options); }
+
+function syncAllNoteRelationNetworkStatuses(options = {}) { return noteRuntimeController.syncAllNoteRelationNetworkStatuses(options); }
+
 function isOriginalRecordableSource(note = null) {
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
   return noteType === "fleeting" || noteType === "literature";
 }
+
 function setStatus(text, cls = "", options = {}) {
   const requiredRevision = Number(options?.skipIfStaleSince || 0);
   if (requiredRevision && statusRevision !== requiredRevision) return false;
@@ -760,6 +744,7 @@ function setStatus(text, cls = "", options = {}) {
   }
   return true;
 }
+
 function readStoredSystemMessages() {
   return readStoredSystemMessagesForRuntime({
     storage: window.localStorage,
@@ -768,6 +753,7 @@ function readStoredSystemMessages() {
     normalizeSystemMessage
   });
 }
+
 function persistSystemMessages() {
   return persistSystemMessagesForRuntime(systemMessages, {
     storage: window.localStorage,
@@ -775,6 +761,7 @@ function persistSystemMessages() {
     limit: SYSTEM_MESSAGES_LIMIT
   });
 }
+
 const systemMessagesShellController = createSystemMessagesShellController({
   hostProvider: createSystemMessagesPrototypeHostProvider(() => ({
     $,
@@ -796,6 +783,7 @@ const {
   closeSystemMessages,
   isSystemMessageModalOpen
 } = systemMessagesShellController;
+
 const systemMessageDepsProviders = createSystemMessagePrototypeDepsProviders(() => ({
   getMessagesRef: () => systemMessages,
   setMessagesRef: (messages = []) => {
@@ -835,10 +823,15 @@ const {
   eventDeps: systemMessageEventDeps,
   runtimeDeps: systemMessagesRuntimeDeps
 } = systemMessageDepsProviders;
+
 function markSystemMessagesRead() { return markSystemMessagesReadForRuntime(systemMessagesRuntimeDeps()); }
+
 function addSystemMessage(message = {}, { interrupt = false } = {}) { return addSystemMessageForRuntime(message, { interrupt }, systemMessagesRuntimeDeps()); }
+
 function upsertSystemMessage(message = {}, { interrupt = false, preserveRead = true } = {}) { return upsertSystemMessageForRuntime(message, { interrupt, preserveRead }, systemMessagesRuntimeDeps()); }
+
 function resolveSystemMessageByDedupeKey(dedupeKey = "") { return resolveSystemMessageByDedupeKeyForRuntime(dedupeKey, systemMessagesRuntimeDeps()); }
+
 function scheduledTaskReviewArtifactCount(summary = {}) {
   return (Array.isArray(summary?.runs) ? summary.runs : []).reduce((total, run) => {
     const result = run?.result || {};
@@ -848,6 +841,7 @@ function scheduledTaskReviewArtifactCount(summary = {}) {
     return total + Math.max(artifacts, storedIds, reviewArtifacts);
   }, 0);
 }
+
 function readStoredBoolean(key, fallback = false) {
   try {
     const raw = window.localStorage?.getItem(String(key || ""));
@@ -856,11 +850,13 @@ function readStoredBoolean(key, fallback = false) {
   } catch {}
   return fallback;
 }
+
 function writeStoredBoolean(key, value) {
   try {
     window.localStorage?.setItem(String(key || ""), value ? "1" : "0");
   } catch {}
 }
+
 function readStoredText(key, fallback = "") {
   try {
     const raw = window.localStorage?.getItem(String(key || ""));
@@ -869,6 +865,7 @@ function readStoredText(key, fallback = "") {
   } catch {}
   return fallback;
 }
+
 function writeStoredText(key, value) {
   try {
     const clean = String(value ?? "");
@@ -876,8 +873,11 @@ function writeStoredText(key, value) {
     else window.localStorage?.setItem(String(key || ""), clean);
   } catch {}
 }
+
 function defaultLiteratureTemplateSource(title = "{{title}}") { return computeDefaultLiteratureTemplateSource(title); }
+
 function currentLiteratureTemplateSectionLabels() { return deriveLiteratureSectionLabelsFromTemplate(effectiveSavedNoteTemplateSource("literature")); }
+
 function literatureTemplateSectionLabelCandidates() {
   return [
     currentLiteratureTemplateSectionLabels(),
@@ -886,11 +886,17 @@ function literatureTemplateSectionLabelCandidates() {
     )
   ];
 }
+
 function defaultPermanentTemplateSource(title = "{{title}}") { return computeDefaultPermanentTemplateSource(title); }
+
 function legacyPermanentTemplateSource(title = "{{title}}") { return computeLegacyPermanentTemplateSource(title); }
+
 function defaultTemplateSourceForKind(kind = "") { return computeDefaultTemplateSourceForKind(kind); }
+
 function normalizeNoteTemplateSource(text = "", kind = "") { return computeNormalizeNoteTemplateSource(text, kind); }
+
 function normalizeStoredNoteTemplateSource(text = "", kind = "") { return computeNormalizeStoredNoteTemplateSource(text, kind); }
+
 function effectiveSavedNoteTemplateSource(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   const savedSource = normalizeStoredNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
@@ -898,23 +904,23 @@ function effectiveSavedNoteTemplateSource(kind = "") {
   const validation = validateLiteratureTemplateSource(savedSource);
   return validation.ok ? savedSource : defaultTemplateSourceForKind(cleanKind);
 }
+
 function normalizeNoteTemplateHistory(items = [], kind = "") { return computeNormalizeNoteTemplateHistory(items, kind); }
-function noteTemplateStorageScope(vaultPath = "") {
-  const cleanPath = String(vaultPath || currentVaultPath() || "").trim().replace(/\//g, "\\").toLowerCase();
-  return cleanPath || "global";
-}
-function noteTemplateStorageKey(kind = "", options = {}) {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const base = NOTE_TEMPLATE_STORAGE_KEYS[cleanKind];
-  const suffix = String(options?.suffix || "").trim();
-  const scope = noteTemplateStorageScope(options?.vaultPath || "");
-  return `${base}:${scope}${suffix ? `:${suffix}` : ""}`;
-}
+
+function noteTemplateStorageScope(vaultPath = "") { return settingsNoteTemplateRuntime.noteTemplateStorageScope(vaultPath); }
+
+function noteTemplateStorageKey(kind = "", options = {}) { return settingsNoteTemplateRuntime.noteTemplateStorageKey(kind, options); }
+
 function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind = "") { return computeNoteTemplateHistoryWithPrevious(history, previousText, kind); }
+
 function normalizeDraftBuffer(text = "") { return computeNormalizeDraftBuffer(text); }
+
 function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记", kind = "") { return computeApplyTitleToNoteTemplate(templateSource, title, kind, { ensureEditableNoteBody }); }
+
 function mergeTemplateFieldText(base = "", addition = "") { return computeMergeTemplateFieldText(base, addition); }
+
 function composePermanentTemplateDraft(fields = {}) { return computeComposePermanentTemplateDraft(fields, { permanentNoteTemplateBody }); }
+
 const settingsNoteTemplateRuntime = createSettingsNoteTemplateRuntime({
   $,
   NOTE_TEMPLATE_STORAGE_KEYS,
@@ -936,30 +942,25 @@ const settingsNoteTemplateRuntime = createSettingsNoteTemplateRuntime({
   validateLiteratureTemplateSource,
   writeStoredText
 });
-function loadNoteTemplateSettingsFromStorage() {
-  return loadNoteTemplateSettingsFromStorageForRuntime({
-    settingsState,
-    noteTemplateStorageScope,
-    noteTemplateStorageKey,
-    readStoredText,
-    writeStoredText,
-    normalizeStoredNoteTemplateSource,
-    normalizeDraftBuffer,
-    normalizeNoteTemplateHistory
-  });
-}
+
+function loadNoteTemplateSettingsFromStorage() { return noteRuntimeController.loadNoteTemplateSettingsFromStorage(); }
+
 function persistNoteTemplateSettingsToStorage() { return settingsNoteTemplateRuntime.persistNoteTemplateSettingsToStorage(); }
+
 const NOTE_RELATION_STATUS_KEY_PREFIX = "yansilu.noteRelationStatus.";
+
 function noteRelationStatusStorageKey(noteId = "") {
   const cleanId = String(noteId || "").trim();
   return cleanId ? `${NOTE_RELATION_STATUS_KEY_PREFIX}${cleanId}` : "";
 }
+
 function readStoredRelationNetworkStatus(noteId = "") {
   const key = noteRelationStatusStorageKey(noteId);
   if (!key) return "";
   const value = String(readStoredText(key, "") || "").trim().toLowerCase();
   return isPersistableRelationNetworkStatus(value) ? value : "";
 }
+
 function writeStoredRelationNetworkStatus(noteId = "", status = "") {
   const key = noteRelationStatusStorageKey(noteId);
   if (!key) return;
@@ -971,6 +972,7 @@ function writeStoredRelationNetworkStatus(noteId = "", status = "") {
   if (!isPersistableRelationNetworkStatus(cleanStatus)) return;
   writeStoredText(key, cleanStatus);
 }
+
 function loadAiSettingsFromStorage() {
   const storedRuntimeMode = String(readStoredText(AI_RUNTIME_MODE_KEY, "") || "").trim();
   const storedMode = String(readStoredText(AI_USER_MODE_KEY, "") || "").trim();
@@ -992,6 +994,7 @@ function loadAiSettingsFromStorage() {
   settingsState.ai.localModel = storedLocalModel;
   reconcileAiSelectionState();
 }
+
 function persistAiSettingsToStorage() {
   writeStoredText(AI_RUNTIME_MODE_KEY, settingsState.ai.runtimeMode);
   writeStoredText(AI_USER_MODE_KEY, settingsState.ai.userMode);
@@ -1003,9 +1006,13 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
 }
+
 function settingsSupportedModelPack(modelPack = "") { return supportedAiSettingsModelPack(modelPack); }
+
 function isLocalAdvancedModelRef(value = "") { return isLocalAdvancedModelRefForSettings(value); }
+
 function preferredLocalProviderPresetForSelection() { return localProviderPresetForModelPack(settingsState.ai.modelPack) || "local_private_gateway"; }
+
 function shouldUseOllamaLocalRuntime() {
   return shouldUseOllamaLocalRuntimeForSelection({
     runtimeMode: settingsState.ai.runtimeMode,
@@ -1013,6 +1020,7 @@ function shouldUseOllamaLocalRuntime() {
     providerPreset: preferredLocalProviderPresetForSelection()
   });
 }
+
 function resetAiProviderDraftTouched() {
   settingsState.ai.providerDraftTouched = {
     secretRef: false,
@@ -1021,6 +1029,7 @@ function resetAiProviderDraftTouched() {
     remoteRuntimeModel: false
   };
 }
+
 function markAiProviderDraftTouched(field = "") {
   if (!settingsState.ai.providerDraftTouched || typeof settingsState.ai.providerDraftTouched !== "object") {
     resetAiProviderDraftTouched();
@@ -1029,6 +1038,7 @@ function markAiProviderDraftTouched(field = "") {
     settingsState.ai.providerDraftTouched[field] = true;
   }
 }
+
 function reconcileAiSelectionState(options = {}) {
   const previousModelPack = String(settingsState.ai.modelPack || "").trim();
   const previousProviderPreset = providerPresetForModelPack(previousModelPack);
@@ -1041,6 +1051,7 @@ function reconcileAiSelectionState(options = {}) {
   }, {
     syncUserMode: options.syncUserMode === true
   });
+
   settingsState.ai.runtimeMode = nextSelection.runtimeMode;
   settingsState.ai.modelPack = nextSelection.modelPack;
   if (unsupportedLocalProviderPreset) {
@@ -1072,6 +1083,7 @@ function reconcileAiSelectionState(options = {}) {
   }
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
+
   if (nextSelection.localFlowActive) {
     const providerId = preferredLocalProviderPresetForSelection();
     const endpointUrl = defaultProviderEndpointUrl(providerId) || OLLAMA_CHAT_ENDPOINT_URL;
@@ -1079,16 +1091,19 @@ function reconcileAiSelectionState(options = {}) {
     if (!settingsState.ai.providerEndpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
     if (!settingsState.ai.providerHealthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
   }
+
   if (settingsState.ai.localModel) {
     applyOllamaLocalModelDefaults();
   } else if (!nextSelection.localFlowActive && isLocalAdvancedModelRef(settingsState.ai.advancedModelRef)) {
     settingsState.ai.advancedModelRef = "";
   }
+
   if (options.applyProviderConfig !== false) {
     applyActiveAiProviderConfigToState();
   }
   return nextSelection;
 }
+
 function applyOllamaLocalModelDefaults() {
   if (!settingsState.ai.localModel) return;
   const providerId = preferredLocalProviderPresetForSelection();
@@ -1110,6 +1125,7 @@ function applyOllamaLocalModelDefaults() {
     settingsState.ai.advancedModelRef = "";
   }
 }
+
 function authModeForProvider(providerId = "", preview = null) {
   const authMode = String(preview?.access?.authMode || "").trim();
   if (authMode) return authMode;
@@ -1120,8 +1136,11 @@ function authModeForProvider(providerId = "", preview = null) {
   }
   return "workspace_managed";
 }
+
 function providerAuthModeRequiresSecret(authMode = "") { return ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(String(authMode || "").trim()); }
+
 function currentAiProviderId() { return String(settingsState.ai.routePreview?.provider?.providerId || providerPresetForModelPack(settingsState.ai.modelPack)).trim(); }
+
 const settingsAiStateRuntime = createSettingsAiStateRuntime({
   applyAiPreferencesToSettingsState,
   activeAiProviderConfig,
@@ -1141,46 +1160,14 @@ const settingsAiStateRuntime = createSettingsAiStateRuntime({
   settingsState,
   upsertAiProviderConfig
 });
+
 function activeAiProviderConfig() {
   const providerId = currentAiProviderId();
   return settingsState.ai.providerConfigs.find((config) => String(config?.providerId || config?.provider_id || "").trim() === providerId) || null;
 }
-function applyActiveAiProviderConfigToState() {
-  const providerId = currentAiProviderId();
-  const config = activeAiProviderConfig();
-  const draftTouched = settingsState.ai.providerDraftTouched || {};
-  if (!config) {
-    const endpointUrl = defaultProviderEndpointUrl(providerId);
-    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl);
-    if (endpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
-    if (healthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
-    if (!isRemoteConfigurableProviderId(providerId)) settingsState.ai.remoteRuntimeModel = "";
-    return;
-  }
-  const configuredEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
-  const configuredHealthEndpointUrl = enabledProviderHealthEndpointUrl(config);
-  const configuredSecretRef = String(config.secretRef || config.secret_ref || "").trim();
-  if (!draftTouched.providerEndpointUrl && !settingsState.ai.providerEndpointUrl && configuredEndpointUrl) {
-    settingsState.ai.providerEndpointUrl = configuredEndpointUrl;
-  }
-  if (!draftTouched.providerHealthEndpointUrl && !settingsState.ai.providerHealthEndpointUrl && configuredHealthEndpointUrl) {
-    settingsState.ai.providerHealthEndpointUrl = configuredHealthEndpointUrl;
-  }
-  if (!draftTouched.secretRef && !settingsState.ai.secretRef && configuredSecretRef) {
-    settingsState.ai.secretRef = configuredSecretRef;
-  }
-  if (isRemoteConfigurableProviderId(providerId)) {
-    const configuredRemoteModel = remoteRuntimeModelFromMap(
-      providerId,
-      config.runtimeModelMap || config.runtime_model_map || {}
-    );
-    if (!draftTouched.remoteRuntimeModel && !settingsState.ai.remoteRuntimeModel && configuredRemoteModel) {
-      settingsState.ai.remoteRuntimeModel = configuredRemoteModel;
-    }
-  } else {
-    settingsState.ai.remoteRuntimeModel = "";
-  }
-}
+
+function applyActiveAiProviderConfigToState() { return settingsAiStateRuntime.applyActiveAiProviderConfigToState(); }
+
 function aiTestBlockedReason() {
   const providerId = currentAiProviderId();
   return aiTestBlockedReasonForState(settingsState.ai, {
@@ -1189,6 +1176,7 @@ function aiTestBlockedReason() {
     authMode: authModeForProvider(providerId, settingsState.ai.routePreview)
   });
 }
+
 const settingsAiRuntimeController = createSettingsAiRuntimeController(() => ({
   aiProviderConfigPayload,
   applyActiveAiProviderConfigToState,
@@ -1229,6 +1217,7 @@ const settingsAiRuntimeController = createSettingsAiRuntimeController(() => ({
   upsertAiProviderConfig,
   window
 }));
+
 const {
   aiSettingsPayload,
   bootstrapOllamaLocalAiFromUi,
@@ -1243,6 +1232,7 @@ const {
   stopOllamaRuntimeFromUi,
   syncAiProviderConfigToApi
 } = settingsAiRuntimeController;
+
 function aiProviderConfigPayload(options = {}) {
   const providerId = String(options.providerId || currentAiProviderId()).trim();
   return buildAiProviderConfigPayload({
@@ -1265,6 +1255,7 @@ function upsertAiProviderConfig(config = null) {
     config
   ];
 }
+
 function applyAiPreferencesToSettingsState(preferences = null, options = {}) {
   const nextAiSelection = aiSettingsSelectionFromPreferences(preferences);
   settingsState.ai.runtimeMode = nextAiSelection.runtimeMode;
@@ -1282,6 +1273,7 @@ function applyAiPreferencesToSettingsState(preferences = null, options = {}) {
     applyProviderConfig: options.applyProviderConfig
   });
 }
+
 async function syncAiSettingsToApi() {
   try {
     await saveAiPreferences(aiSettingsPayload());
@@ -1290,6 +1282,7 @@ async function syncAiSettingsToApi() {
     return false;
   }
 }
+
 async function saveLocalOllamaProviderConfig() {
   if (!shouldUseOllamaLocalRuntime()) return null;
   if (!isBuiltInOllamaModel(settingsState.ai.localModel, currentOllamaModelTiers())) return null;
@@ -1306,19 +1299,26 @@ async function saveLocalOllamaProviderConfig() {
   return saved;
 }
 function currentOllamaModelTiers() { return currentOllamaModelTiersForState(settingsState.ai); }
+
 function hasLocalModel(modelName = "") { return modelNameExistsInList(modelName, settingsState.ai.localRuntimeModels); }
+
 function installedLocalModelReady(modelName = settingsState.ai.localModel) { return installedLocalModelReadyForState(settingsState.ai, modelName); }
+
 function localOllamaSetupActive() {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   return ["local_only", "hybrid"].includes(runtimeMode) && shouldUseOllamaLocalRuntime();
 }
+
 function clearLocalOllamaSelectionState(options = {}) {
   if (options.clearModel !== false) settingsState.ai.localModel = "";
   if (isLocalAdvancedModelRef(settingsState.ai.advancedModelRef)) settingsState.ai.advancedModelRef = "";
   settingsState.ai.routePreview = null;
 }
+
 function currentOllamaSetupGuide() { return normalizeOllamaSetupGuide(settingsState.ai.localRuntimeSetupGuide); }
+
 function recommendedOllamaModelName() { return currentOllamaSetupGuide()?.recommendedModel || OLLAMA_RECOMMENDED_MODEL; }
+
 function recommendedOllamaModelNames() {
   const names = [
     recommendedOllamaModelName(),
@@ -1327,21 +1327,30 @@ function recommendedOllamaModelNames() {
   ].map((name) => String(name || "").trim()).filter(Boolean);
   return [...new Set(names)];
 }
+
 function primaryRecommendedOllamaModelName() { return recommendedOllamaModelNames()[0] || OLLAMA_RECOMMENDED_MODEL; }
+
 function nextMissingRecommendedOllamaModelName() { return recommendedOllamaModelNames().find((name) => !hasLocalModel(name)) || ""; }
+
 function ollamaRecommendationHintText() {
   return ollamaModelRecommendationProfiles(currentOllamaModelTiers())
     .map((item) => `${item.name}：${item.label}`)
     .join("；");
 }
+
 function ollamaPullModelName() {
   const missingRecommended = nextMissingRecommendedOllamaModelName();
   if (missingRecommended) return missingRecommended;
   const recommended = primaryRecommendedOllamaModelName();
   return String(settingsState.ai.localModel || preferredLocalModelName(settingsState.ai.localRuntimeModels) || recommended).trim();
 }
+
 function applyOllamaRuntimePreview(runtime = null) { return settingsAiStateRuntime.applyOllamaRuntimePreview(runtime); }
+
 function applyOllamaBootstrapResult(result = null) { return settingsAiStateRuntime.applyOllamaBootstrapResult(result); }
+
+loadAiSettingsFromStorage();
+
 function ollamaRuntimeStateLabel() {
   if (settingsState.ai.localRuntimePulling) return "模型下载中";
   if (settingsState.ai.localRuntimeChecking) return "正在检测本地 AI";
@@ -1357,6 +1366,7 @@ function ollamaRuntimeStateLabel() {
   if (status === "unavailable") return "未检测到本地 AI";
   return "等待检测本地 AI";
 }
+
 function hideEditorHelper() {
   const helper = $("editorHelper");
   if (!helper) return;
@@ -1373,11 +1383,13 @@ function hideEditorHelper() {
     document.activeElement?.blur?.();
   }
 }
+
 function setImportRecordId(value) {
   importState.importRecordId = String(value || "").trim();
   const input = $("importRecordId");
   if (input) input.value = importState.importRecordId;
 }
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1386,6 +1398,7 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
 function formatClockTime(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -1402,12 +1415,15 @@ function formatClockTime(value) {
     return raw;
   }
 }
+
 function primitiveEntries(value = {}) { return Object.entries(value || {}).filter(([, item]) => item === null || ["string", "number", "boolean"].includes(typeof item)); }
+
 function compactValue(value) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "yes" : "no";
   return String(value);
 }
+
 const importResultRuntime = createImportResultRuntime({
   $,
   activateModule,
@@ -1415,6 +1431,8 @@ const importResultRuntime = createImportResultRuntime({
   candidatePreviewFromPayload,
   candidatePreviewItemIds,
   candidateSelectionFromPayload,
+  confirmSkipReasonMap,
+  confirmSkippedCandidateIds,
   clearWritingSourceIndexIds,
   computeCandidateIdsForSelection,
   computeDefaultSelectedCandidateIds,
@@ -1451,6 +1469,7 @@ const importResultRuntime = createImportResultRuntime({
   writingNoteById,
   writingState
 });
+
 const importWorkspaceShellController = createImportWorkspaceShellController({
   getElement: $,
   importState,
@@ -1464,13 +1483,17 @@ const importWorkspaceShellController = createImportWorkspaceShellController({
   directoryPathLabel,
   mountExportCardIntoImportShell
 });
+
 function currentImportToolbarValues() { return importWorkspaceShellController.currentToolbarValues(); }
+
 function renderImportToolbar() {
   importWorkspaceShellController.renderToolbar();
 }
+
 function renderImportPageShell() {
   importWorkspaceShellController.renderPage();
 }
+
 function mountExportCardIntoImportShell() {
   const legacyExportCard = $("importPanel")?.querySelector(".export-card");
   const exportMount = $("exportCardMount");
@@ -1478,25 +1501,31 @@ function mountExportCardIntoImportShell() {
   if (legacyExportCard.parentElement === exportMount) return;
   legacyExportCard.remove();
 }
+
 function normalizeImportWorkspaceTab(tab = "import") { return importWorkspaceShellController.normalizeTab(tab); }
+
 function syncImportWorkspaceTabs() {
   importWorkspaceShellController.syncTabs();
 }
+
 function setImportWorkspaceTab(tab = "import") {
   importWorkspaceShellController.setTab(tab);
 }
+
 function renderAiInboxWorkspace() {
   renderAiInboxWorkspaceView({
     mount: $("aiInboxPanel"),
     state: aiInboxState
   });
 }
+
 function clearAiInboxActionNotice() {
   aiInboxState.actionNoticeArtifactId = "";
   aiInboxState.actionNoticeSuggestionId = "";
   aiInboxState.actionNotice = "";
   aiInboxState.actionNoticeTone = "";
 }
+
 function setAiInboxActionNotice(message = "", tone = "muted", artifactId = "", suggestionId = "") {
   aiInboxState.actionNoticeArtifactId = String(artifactId || aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
   aiInboxState.actionNoticeSuggestionId = String(suggestionId || aiInboxState.detail?.suggestion?.id || "").trim();
@@ -1507,6 +1536,7 @@ function setAiInboxActionNotice(message = "", tone = "muted", artifactId = "", s
     aiInboxState.actionNoticeSuggestionId = "";
   }
 }
+
 function recommendedAiInboxActionFromText(text = "") {
   const raw = String(text || "").toLowerCase();
   const match = raw.match(/(?:recommended\s+action|recommendedaction)\s*[=:：]\s*([a-z_ -]+)/i);
@@ -1530,6 +1560,7 @@ function recommendedAiInboxActionFromText(text = "") {
   };
   return aliases[candidate] || "";
 }
+
 function resetAiInboxSummaryState(options = {}) {
   if (options.invalidate === true) aiInboxState.aiSummaryRequestToken += 1;
   aiInboxState.aiSummary = "";
@@ -1540,12 +1571,14 @@ function resetAiInboxSummaryState(options = {}) {
   aiInboxState.aiSummaryError = "";
   aiInboxState.aiSummaryLoading = false;
 }
+
 function resetAiInboxEvaluationState(options = {}) {
   if (options.invalidate === true) aiInboxState.evaluationRequestToken += 1;
   if (options.clearSummary === true) aiInboxState.evaluationSummary = null;
   aiInboxState.evaluationError = "";
   aiInboxState.evaluationLoading = false;
 }
+
 function syncAiInboxSummaryFromDetail(detail = null) {
   const decisions = Array.isArray(detail?.artifact?.userDecisions || detail?.item?.userDecisions)
     ? detail?.artifact?.userDecisions || detail?.item?.userDecisions
@@ -1574,6 +1607,7 @@ function syncAiInboxSummaryFromDetail(detail = null) {
   aiInboxState.aiSummaryRecommendedAction = recommendedAiInboxActionFromText(comment);
   aiInboxState.aiSummaryError = "";
 }
+
 async function runAiInboxSummary(artifactId) {
   return runAiInboxSummaryForRuntime({
     aiInboxState,
@@ -1595,6 +1629,7 @@ async function runAiInboxSummary(artifactId) {
     }
   }, artifactId);
 }
+
 function renderScheduledTasksWorkspace() {
   const el = $("settingsScheduledTasksPanel");
   if (!el) return;
@@ -1616,18 +1651,21 @@ function renderScheduledTasksWorkspace() {
     formOpen: settingsState.ai.scheduledTaskFormOpen
   });
 }
+
 function renderAiSuggestionsWorkspace() {
   renderAiSuggestionsWorkspaceView({
     mount: $("settingsAiSuggestionsPanel"),
     state: settingsState.ai
   });
 }
+
 function aiSuggestionFiltersFromUi() {
   return aiSuggestionFiltersFromWorkspace({
     getElement: $,
     state: settingsState.ai
   });
 }
+
 async function loadAiSuggestionDetail(suggestionId) {
   return loadAiSuggestionDetailForRuntime({
     aiState: settingsState.ai,
@@ -1638,6 +1676,7 @@ async function loadAiSuggestionDetail(suggestionId) {
     setStatus
   }, suggestionId);
 }
+
 async function refreshAiSuggestions(options = {}) {
   return refreshAiSuggestionsForRuntime({
     aiState: settingsState.ai,
@@ -1649,12 +1688,14 @@ async function refreshAiSuggestions(options = {}) {
     loadDetail: loadAiSuggestionDetail
   }, options);
 }
+
 function aiSuggestionReviewedContentFromUi(current = {}) {
   return aiSuggestionReviewedContentFromWorkspace({
     getElement: $,
     current
   });
 }
+
 function aiInboxSuggestionReviewedContentFromUi(current = {}) {
   const editorValue = $("aiInboxSuggestionContentEditor")?.value;
   if (editorValue === undefined) return current.content;
@@ -1677,6 +1718,7 @@ function aiInboxSuggestionReviewedContentFromUi(current = {}) {
     throw new Error("Reviewed suggestion content in AI inbox must be valid JSON before it can be marked edited or confirmed");
   }
 }
+
 const aiSuggestionsActionRoutes = createAiSuggestionsActionRoutes(() => ({
   aiState: settingsState.ai,
   suggestionDetailFromResponse,
@@ -1689,8 +1731,11 @@ const aiSuggestionsActionRoutes = createAiSuggestionsActionRoutes(() => ({
   render: renderAiSuggestionsWorkspace,
   aiSuggestionStatusLabel
 }));
+
 function aiSuggestionAlreadyAppliedNotice(status = "") { return aiSuggestionsActionRoutes.aiSuggestionAlreadyAppliedNotice(status); }
+
 async function applyAiSuggestionStatus(suggestionId, status) { return aiSuggestionsActionRoutes.applyAiSuggestionStatus(suggestionId, status); }
+
 const scheduledTasksRuntimeController = createScheduledTasksRuntimeController(() => ({
   addSystemMessage,
   aiInboxState,
@@ -1714,25 +1759,40 @@ const scheduledTasksRuntimeController = createScheduledTasksRuntimeController(()
   updateAiScheduledTaskStatusWithOptions,
   window
 }));
+
 function scheduledTaskFiltersFromUi() { return scheduledTasksRuntimeController.filtersFromUi(); }
+
 function scheduledTaskTemplateById(templateId = "") { return scheduledTasksRuntimeController.templateById(templateId); }
+
 function scheduledTaskFormFromUi() { return scheduledTasksRuntimeController.formFromUi(); }
+
 function resetScheduledTaskForm(overrides = {}) { return scheduledTasksRuntimeController.resetForm(overrides); }
+
 function applyScheduledTaskTemplateToForm(templateId = "") { return scheduledTasksRuntimeController.applyTemplateToForm(templateId); }
+
 async function refreshScheduledTaskTemplates(options = {}) { return scheduledTasksRuntimeController.refreshTemplates(options); }
+
 async function saveScheduledTaskFromUi() { return scheduledTasksRuntimeController.saveFromUi(); }
+
 function editScheduledTaskFromList(scheduledTaskId = "") { return scheduledTasksRuntimeController.editFromList(scheduledTaskId); }
+
 async function refreshScheduledTasks(options = {}) { return scheduledTasksRuntimeController.refreshTasks(options); }
+
 async function setScheduledTaskStatus(scheduledTaskId, status) { return scheduledTasksRuntimeController.setTaskStatus(scheduledTaskId, status); }
+
 async function runDueScheduledTasksFromUi() { return scheduledTasksRuntimeController.runDueFromUi(); }
+
 function aiInboxFiltersFromUi() {
   return aiInboxFiltersFromWorkspace({
     getElement: $,
     state: aiInboxState
   });
 }
+
 function aiInboxFeedbackFromUi() { return aiInboxFeedbackFromWorkspace(document); }
+
 function cloneJson(value) { return JSON.parse(JSON.stringify(value ?? null)); }
+
 function rememberAiDebugSnapshot(key, response) {
   if (!settingsState.ai.debugSnapshots || !Object.prototype.hasOwnProperty.call(settingsState.ai.debugSnapshots, key)) return;
   const runtime = cloneJson(response);
@@ -1746,6 +1806,7 @@ function rememberAiDebugSnapshot(key, response) {
   };
   if (state.module === "settings") renderSettingsPanel();
 }
+
 function aiAdoptionEventFromCanonical(event = {}) {
   return {
     adoptionEventId: String(event.adoption_event_id || "").trim(),
@@ -1775,6 +1836,7 @@ function aiAdoptionEventFromCanonical(event = {}) {
     createdAt: String(event.created_at || "").trim()
   };
 }
+
 function aiSuggestionTraceFromCanonical(trace = {}) {
   return {
     suggestionId: String(trace.suggestion_id || "").trim(),
@@ -1786,6 +1848,7 @@ function aiSuggestionTraceFromCanonical(trace = {}) {
     suggestionStatus: String(trace.suggestion_status || "").trim()
   };
 }
+
 function aiInboxDetailFromResponse(response = {}) {
   const canonical = response?.canonical || {};
   const item = canonical.item ? aiInboxItemFromCanonical(canonical.item) : response?.item || null;
@@ -1803,11 +1866,13 @@ function aiInboxDetailFromResponse(response = {}) {
   const trace = canonical.trace ? suggestionTraceFromCanonical(canonical.trace) : response?.trace || null;
   return { item, artifact, suggestion, suggestionReviewEvents, latestSuggestionReviewEvent, trace };
 }
+
 function aiInboxDetailMatchesSelection() {
   const selectedArtifactId = String(aiInboxState.selectedArtifactId || "").trim();
   const detailArtifactId = String(aiInboxState.detail?.item?.artifactId || aiInboxState.detail?.artifact?.id || "").trim();
   return Boolean(selectedArtifactId) && detailArtifactId === selectedArtifactId;
 }
+
 function currentAiInboxArtifactForSelection(artifactId = "") {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
   if (!cleanArtifactId) return null;
@@ -1817,6 +1882,7 @@ function currentAiInboxArtifactForSelection(artifactId = "") {
   }
   return null;
 }
+
 function currentAiInboxSuggestionForSelection(artifactId = "") {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
   if (!cleanArtifactId || !aiInboxDetailMatchesSelection()) return null;
@@ -1824,10 +1890,12 @@ function currentAiInboxSuggestionForSelection(artifactId = "") {
   if (detailArtifactId !== cleanArtifactId) return null;
   return aiInboxState.detail?.suggestion || null;
 }
+
 function latestArtifactDecision(artifact = null) {
   const decisions = Array.isArray(artifact?.userDecisions) ? artifact.userDecisions : [];
   return decisions.length ? decisions[decisions.length - 1] : null;
 }
+
 async function loadAiInboxDetail(artifactId) {
   return loadAiInboxDetailForRuntime({
     aiInboxState,
@@ -1841,6 +1909,7 @@ async function loadAiInboxDetail(artifactId) {
     setStatus
   }, artifactId);
 }
+
 async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
   return refreshAiInboxForRuntime({
     aiInboxState,
@@ -1855,6 +1924,7 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
     loadDetail: loadAiInboxDetail
   }, { silent, preserveDetail });
 }
+
 async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {
   return refreshAiInboxEvaluationSummaryForRuntime({
     aiInboxState,
@@ -1867,6 +1937,7 @@ async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {
     }
   }, { silent });
 }
+
 async function openAiInboxModule() {
   await Promise.all([
     refreshAiInbox(),
@@ -1876,6 +1947,7 @@ async function openAiInboxModule() {
     await loadAiInboxDetail(aiInboxState.selectedArtifactId);
   }
 }
+
 async function applyAiInboxFiltersFromUi() {
   aiInboxState.filters = aiInboxFiltersFromUi();
   aiInboxState.detail = null;
@@ -1883,6 +1955,7 @@ async function applyAiInboxFiltersFromUi() {
   await openAiInboxModule();
   setStatus("AI 建议已刷新", "ok");
 }
+
 async function openAiInboxNote(noteId = "") {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return false;
@@ -1900,6 +1973,7 @@ async function openAiInboxNote(noteId = "") {
     return false;
   }
 }
+
 async function finalizeAiInboxActionRefresh({ preserveDetail = false } = {}) {
   return finalizeAiInboxActionRefreshForRuntime({
     aiInboxState,
@@ -1908,6 +1982,7 @@ async function finalizeAiInboxActionRefresh({ preserveDetail = false } = {}) {
     loadAiInboxDetail
   }, { preserveDetail });
 }
+
 const aiInboxActionRoutes = createAiInboxActionRoutes(() => ({
   aiInboxState,
   recordAiInboxDecision,
@@ -1959,6 +2034,7 @@ const aiInboxActionRoutes = createAiInboxActionRoutes(() => ({
     }
   }
 }));
+
 const {
   acceptAiInboxLinkSuggestion,
   adoptAiInboxFieldSuggestionDraft,
@@ -1967,30 +2043,36 @@ const {
   promoteAiInboxArtifactToNote,
   recordAiInboxReviewDecision
 } = aiInboxActionRoutes;
+
 function normalizeOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
+
 const NOTE_SAVE_REFLECTION_PROMPTS = [
   "这段材料你真正理解成什么？",
   "你为什么要保留它？",
   "它会支持什么判断？"
 ];
+
 const ORIGINALITY_REASON_LABELS = {
   similarity_above_block_threshold: "它仍然过于贴近关联文献的原句",
   similarity_above_warn_threshold: "它还没有完全转成你自己的判断语言",
   citation_locator_missing: "它缺少可追溯的引用定位",
   core_claim_empty: "它的核心判断还不够清楚"
 };
+
 function noteSaveReflectionHint(prefix = "") {
   const head = String(prefix || "").trim();
   return `${head ? `${head} ` : ""}${NOTE_SAVE_REFLECTION_PROMPTS.join("  ")}`.trim();
 }
+
 function originalityReasonSummary(reasons = []) {
   const labels = [...new Set((reasons || []).map((reason) => ORIGINALITY_REASON_LABELS[String(reason || "").trim()] || "").filter(Boolean))];
   return labels.join("；");
 }
+
 function noteSaveFailureFeedback(error) {
   const code = String(error?.code || "").trim();
   if (code === "LITERATURE_PARAPHRASE_REQUIRED") {
@@ -2002,6 +2084,7 @@ function noteSaveFailureFeedback(error) {
       statusMessage: "保存被拦下：先写出你真正理解后的转述，再把文献笔记标记为已完成。"
     };
   }
+
   if (code === "PERMANENT_ORIGINALITY_BLOCKED") {
     const originality = error?.details?.originality || {};
     const similarity = Math.round((Number(originality.similarity) || 0) * 100);
@@ -2017,6 +2100,7 @@ function noteSaveFailureFeedback(error) {
       statusMessage: `保存被拦下：这条永久笔记仍然过于贴近关联文献原文（相似度 ${similarity}%）。${reasonSuffix}`.trim()
     };
   }
+
   return {
     ok: false,
     saveMode: "error",
@@ -2025,9 +2109,13 @@ function noteSaveFailureFeedback(error) {
     statusMessage: `保存失败（修改已保留在编辑器中）：${String(error?.message || error)}`
   };
 }
+
 function renderThinkingStatusBadge(value, className = "thinking-status-badge") { return renderThinkingStatusBadgeHtml(value, { className, escapeHtml }); }
+
 function suggestedWritingProjectTitle(noteIds = []) { return computeSuggestedWritingProjectTitle(noteIds, { noteById: writingNoteById }); }
+
 function normalizeWritingProjectTitleSeed(title = "") { return computeNormalizeWritingProjectTitleSeed(title); }
+
 async function ensureNotesLoaded(noteIds, { force = false } = {}) {
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   for (const noteId of uniqueIds) {
@@ -2055,6 +2143,7 @@ async function ensureNotesLoaded(noteIds, { force = false } = {}) {
     } catch {}
   }
 }
+
 function literatureQueueLaneForNote(note) {
   return computeLiteratureQueueLaneForNote(note, {
     literatureTemplateSectionLabelCandidates,
@@ -2062,6 +2151,7 @@ function literatureQueueLaneForNote(note) {
     parseLiteratureWorkspace
   });
 }
+
 function rankedLiteratureQueueNotes(notes = []) {
   return computeRankedLiteratureQueueNotes(notes, {
     literatureTemplateSectionLabelCandidates,
@@ -2069,14 +2159,18 @@ function rankedLiteratureQueueNotes(notes = []) {
     parseLiteratureWorkspace
   });
 }
+
 function preferredLiteratureQueueNoteId(noteIds = [], { targetLane = "" } = {}) { return computePreferredLiteratureQueueNoteId(noteIds, { targetLane }, { rankedLiteratureQueueNotes, writingNoteById }); }
+
 function setLiteratureQueueFocus(noteIds = [], label = "") {
   state.literatureQueueFocusNoteIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   state.literatureQueueFocusLabel = state.literatureQueueFocusNoteIds.length ? String(label || "").trim() : "";
 }
+
 function clearLiteratureQueueFocus() {
   setLiteratureQueueFocus([], "");
 }
+
 const writingEntryRuntimeController = createWritingEntryRuntimeController(() => ({
   $,
   activateModule,
@@ -2090,7 +2184,7 @@ const writingEntryRuntimeController = createWritingEntryRuntimeController(() => 
   listWritingProjects,
   parseWritingBasketIds,
   refreshWritingRelationCounts,
-  renderWritingPanel: (...args) => renderWritingPanel(...args),
+  renderWritingPanel,
   resetWritingLocalBookIdeas,
   resetWritingProjectContext,
   setSelectedWritingThemeIndex,
@@ -2098,22 +2192,26 @@ const writingEntryRuntimeController = createWritingEntryRuntimeController(() => 
   setWritingBasketIds,
   setWritingFocusedCandidateScope,
   setWritingSourceIndexIds,
-  showWritingResult: (...args) => showWritingResult(...args),
+  showWritingResult,
   statusRevision,
   syncWritingResultFromCurrentState,
   writingState,
   writingThemeIndexScopeDirectoryId
 }));
+
 async function openWritingModule(options = {}) { return writingEntryRuntimeController.openWritingModule(options); }
+
 function beginWritingEntry(noteIds = [], options = {}) { return writingEntryRuntimeController.beginWritingEntry(noteIds, options); }
+
 function continueWritingEntry(noteIds = [], options = {}) { return writingEntryRuntimeController.continueWritingEntry(noteIds, options); }
+
 const writingProjectRuntimeController = createWritingProjectRuntimeController(() => ({
   $,
   addSystemMessage,
   analyzeWritingWithStrongModel,
   beginWritingEntry,
   createWritingProject,
-  currentWritingBookStructure: (...args) => currentWritingBookStructure(...args),
+  currentWritingBookStructure,
   ensureNotesLoaded,
   importState,
   loadWritingDraftVersions,
@@ -2122,19 +2220,21 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   openWritingModule,
   parseWritingBasketIds,
   populateWritingFormFromProject,
-  renderWritingPanel: (...args) => renderWritingPanel(...args),
+  renderWritingPanel,
   setStatus,
-  showWritingResult: (...args) => showWritingResult(...args),
+  showWritingResult,
   suggestedWritingProjectTitle,
   syncWritingLocalBookIdeasFromProject,
   window,
   writingKnownNoteById,
   writingState
 }));
+
 const importResultHostRoutes = createImportResultHostRoutes(() => ({
   importResultRuntime,
   writingProjectRuntimeController
 }));
+
 const {
   activeImportPreviewContext,
   addImportedPermanentNotesToWritingBasket,
@@ -2163,7 +2263,9 @@ const {
   syncWritingResultFromCurrentState,
   updateImportConfirmButton
 } = importResultHostRoutes;
+
 async function createWritingProjectFromCurrentBasket() { return writingProjectRuntimeController.createWritingProjectFromCurrentBasket(); }
+
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
   if (!id) throw new Error("indexCardId is required");
@@ -2221,6 +2323,7 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
     addedCount: entryPlan.addedNoteIds.length
   };
 }
+
 async function saveWritingBasketAsThemeIndex() {
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) throw new Error("writing basket is empty");
@@ -2251,6 +2354,7 @@ async function saveWritingBasketAsThemeIndex() {
   renderWritingPanel();
   return card;
 }
+
 const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   $,
   createWritingProject,
@@ -2270,7 +2374,7 @@ const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   populateWritingFormFromProject,
   renderWritingPanel: (...args) => renderWritingPanel(...args),
   sameUniqueStringSet,
-  showWritingResult: (...args) => showWritingResult(...args),
+  showWritingResult,
   syncWritingLocalBookIdeasFromProject,
   useThemeIndexAsWritingEntry,
   writingKnownNoteById,
@@ -2280,6 +2384,7 @@ const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   writingRelationCountsReady,
   writingThemeNotesLoaded
 });
+
 async function refreshWritingProjectState() {
   const writingProjectId = String(writingState.project?.id || "").trim();
   if (!writingProjectId) return null;
@@ -2292,6 +2397,7 @@ async function refreshWritingProjectState() {
     return writingState.project;
   }
 }
+
 async function refreshImportedNotesView() {
   try {
     await syncDirectoriesFromApi();
@@ -2299,6 +2405,7 @@ async function refreshImportedNotesView() {
     renderAll();
   } catch {}
 }
+
 function mapNoteItem(item) {
   return computeMapNoteItem(item, {
     generatedOriginalNoteIdFromBody,
@@ -2310,9 +2417,12 @@ function mapNoteItem(item) {
     typeFromFolder
   });
 }
+
 function isLocalOnlyNote(note) { return Boolean(note?.isLocalOnly); }
+
 const UNTITLED_NOTE_TITLE = "未命名笔记";
 const STARTUP_NOTE_FOLDER_ID = "dir_original_default";
+
 const notePlaceholderRuntime = createNotePlaceholderRuntime(() => ({
   applyTitleToNoteTemplate,
   deleteNote,
@@ -2335,22 +2445,35 @@ const notePlaceholderRuntime = createNotePlaceholderRuntime(() => ({
   untitledNoteTitle: UNTITLED_NOTE_TITLE,
   validateLiteratureTemplateSource
 }));
+
 function createLocalDraftNote({ folderId, body }) { return notePlaceholderRuntime.createLocalDraftNote({ folderId, body }); }
+
 function isUntitledTitle(title = "") { return notePlaceholderRuntime.isUntitledTitle(title); }
+
 function normalizedDefaultUntitledBody(folderId = "") { return notePlaceholderRuntime.normalizedDefaultUntitledBody(folderId); }
+
 function historicalUntitledTemplateBodies(folderId = "") { return notePlaceholderRuntime.historicalUntitledTemplateBodies(folderId); }
+
 function isEmptyUntitledMarkdown(body = "", folderId = "") { return notePlaceholderRuntime.isEmptyUntitledMarkdown(body, folderId); }
+
 async function refreshUntitledPlaceholderForCurrentTemplate(note) { return noteRuntimeController.refreshUntitledPlaceholderForCurrentTemplate(note); }
+
 function noteTabFor(noteId = "") { return state.tabs.find((item) => item.noteId === noteId) || null; }
+
 function isUntitledPlaceholderNote(note) { return notePlaceholderRuntime.isUntitledPlaceholderNote(note); }
+
 async function ensureNoteLoadedForPlaceholderCheck(note) { return notePlaceholderRuntime.ensureNoteLoadedForPlaceholderCheck(note); }
+
 async function cleanupDuplicateUntitledPlaceholders(folderId) { return notePlaceholderRuntime.cleanupDuplicateUntitledPlaceholders(folderId); }
+
 function replaceLocalNoteIdentity(previousNoteId, savedItem) { return notePlaceholderRuntime.replaceLocalNoteIdentity(previousNoteId, savedItem); }
+
 function upsertNotesForDirectory(folderId, mappedNotes) {
   const keep = state.notes.filter((n) => n.folderId !== folderId);
   const localOnly = state.notes.filter((n) => n.folderId === folderId && isLocalOnlyNote(n));
   state.notes = [...localOnly, ...mappedNotes, ...keep];
 }
+
 function upsertGraphNodeSummaries(nodes = []) {
   const mapped = nodes.map(mapNoteItem);
   const byId = new Map(state.notes.map((note) => [note.id, note]));
@@ -2371,6 +2494,7 @@ function upsertGraphNodeSummaries(nodes = []) {
   }
   state.notes = Array.from(byId.values());
 }
+
 function replaceFirstMarkdownTitle(body, title) {
   const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
   const lines = String(body || "").replace(/\r\n/g, "\n").split("\n");
@@ -2382,6 +2506,7 @@ function replaceFirstMarkdownTitle(body, title) {
   lines[0] = `# ${cleanTitle}`;
   return lines.join("\n");
 }
+
 function titleFromSeedText(text, fallback = "未命名笔记") {
   const clean = String(text || "")
     .replace(/\r\n/g, "\n")
@@ -2391,6 +2516,7 @@ function titleFromSeedText(text, fallback = "未命名笔记") {
   const singleLine = clean.replace(/^#+\s*/, "").replace(/\s+/g, " ").trim();
   return (singleLine || String(fallback || "").trim() || "未命名笔记").slice(0, 48);
 }
+
 function citationSummaryLines(citation = {}) {
   const fields = citation && typeof citation === "object" ? citation : {};
   const lines = [
@@ -2404,6 +2530,7 @@ function citationSummaryLines(citation = {}) {
   ].filter(Boolean);
   return lines.length ? lines : ["- 引用信息：尚未补齐"];
 }
+
 function originalDraftBodyFromSource(payload = {}) {
   const sourceType = String(payload.sourceType || "").trim().toLowerCase();
   if (sourceType === "literature") {
@@ -2468,6 +2595,7 @@ function originalDraftBodyFromSource(payload = {}) {
     supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
   });
 }
+
 async function syncDirectoriesFromApi() {
   const items = await fetchDirectories(true);
   if (!items.length) return;
@@ -2477,12 +2605,14 @@ async function syncDirectoriesFromApi() {
     state.selectedFolderId = state.browserRootId;
   }
 }
+
 async function syncNotesForDirectory(folderId) {
   if (!folderId) return;
   const items = await fetchDirectoryNotes(folderId);
   const mapped = items.map(mapNoteItem);
   upsertNotesForDirectory(folderId, mapped);
 }
+
 async function syncLoadedNotesForDirectories(directoryIds = []) {
   const ids = [...new Set(directoryIds.map((item) => String(item || "").trim()).filter(Boolean))];
   for (const directoryId of ids) {
@@ -2490,6 +2620,7 @@ async function syncLoadedNotesForDirectories(directoryIds = []) {
     await syncNotesForDirectory(directoryId);
   }
 }
+
 async function syncNotesForDirectoryTree(rootDirectoryId) {
   const rootId = String(rootDirectoryId || "").trim();
   if (!rootId) return;
@@ -2498,6 +2629,7 @@ async function syncNotesForDirectoryTree(rootDirectoryId) {
     await syncNotesForDirectory(directoryId);
   }
 }
+
 function descendantDirectoryIds(directoryId) {
   const result = [];
   const queue = [directoryId];
@@ -2513,15 +2645,18 @@ function descendantDirectoryIds(directoryId) {
   }
   return result;
 }
+
 function renamedDirectoryFsPath(folder, nextTitle) {
   if (!folder?.fsPath) return "";
   return joinLocalPath(dirnameLocalPath(folder.fsPath), nextTitle);
 }
+
 function movedDirectoryFsPath(folder, targetParentFolder) {
   if (!folder?.fsPath || !targetParentFolder?.fsPath) return "";
   const baseName = basenameLocalPath(folder.fsPath) || folder.name || "folder";
   return joinLocalPath(targetParentFolder.fsPath, baseName);
 }
+
 function ensureSelection() {
   const visible = state.folders.filter((f) => !f.hidden);
   const scoped = visible.filter((f) => rootBoxIdFromFolder(state, f.id) === state.browserRootId);
@@ -2531,6 +2666,7 @@ function ensureSelection() {
   }
   createBoxDialog.setOptions(source);
 }
+
 function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const directoryIds = new Set(descendantDirectoryIds(rootId));
   const originalDirectoryIds = new Set(descendantDirectoryIds("dir_original_default"));
@@ -2549,6 +2685,7 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
     escapeHtml
   });
 }
+
 function syncNewNoteButtons() {
   const copy = explorerNewNoteButtonCopy(state);
   const label = copy.title || copy.label;
@@ -2563,6 +2700,7 @@ function syncNewNoteButtons() {
   const mobileLabel = mobileNew?.querySelector("span");
   if (mobileLabel) mobileLabel.textContent = "";
 }
+
 const sidebarTitleController = createSidebarTitleController({
   depsProvider: createSidebarTitlePrototypeDepsProvider(() => ({
     state,
@@ -2578,6 +2716,7 @@ const sidebarTitleController = createSidebarTitleController({
 const {
   renderSidebarTitle
 } = sidebarTitleController;
+
 const moduleWorkspaceHeaderRuntimeRoutes = createModuleWorkspaceHeaderRuntimeRoutes(() => ({
   $,
   activateModule,
@@ -2593,11 +2732,14 @@ const moduleWorkspaceHeaderRuntimeRoutes = createModuleWorkspaceHeaderRuntimeRou
   setStatus,
   state
 }));
+
 const { currentModuleUi, renderModuleWorkspaceHeader } = moduleWorkspaceHeaderRuntimeRoutes;
+
 function isPermanentLikeNote(note = null) {
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
   return noteType === "permanent" || noteType === "original";
 }
+
 const saveAiSuggestionWorkflowRoutes = createSaveAiSuggestionWorkflowRoutes(() => ({
   $,
   activeEditorBody,
@@ -2618,6 +2760,7 @@ const saveAiSuggestionWorkflowRoutes = createSaveAiSuggestionWorkflowRoutes(() =
   resolveSystemMessageByDedupeKey,
   upsertSystemMessage: (message) => upsertSystemMessage(message, { preserveRead: true })
 }));
+
 const {
   clearSaveAiSuggestion,
   relationNetworkWorkflowMessageForNote,
@@ -2628,6 +2771,7 @@ const {
   syncRelationNetworkSystemMessageForNote,
   syncSourcePromotionSystemMessageForNote
 } = saveAiSuggestionWorkflowRoutes;
+
 function distillationQueueItems() {
   const rank = { needs_thesis: 0, needs_summary: 1, needs_confirm: 2, confirmed: 3 };
   return state.notes
@@ -2645,7 +2789,9 @@ function distillationQueueItems() {
     })
     .sort((a, b) => a.rank - b.rank || String(b.note.updatedAt || "").localeCompare(String(a.note.updatedAt || "")));
 }
+
 function directoryPathLabel(directoryId) { return computeDirectoryPathLabel(directoryId, { folderById, state }); }
+
 const directoryOptionRuntime = createDirectoryOptionRuntime(() => ({
   $,
   directoryPathLabel,
@@ -2658,6 +2804,7 @@ const directoryOptionRuntime = createDirectoryOptionRuntime(() => ({
   rootBoxIdFromFolder,
   state
 }));
+
 const {
   confirmedImportTargetDirectoryId,
   defaultPermanentDirectoryId,
@@ -2670,15 +2817,18 @@ const {
   syncExportDirectoryOptions,
   updateExportTargetHint
 } = directoryOptionRuntime;
+
 function activeEditorNote() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
   if (!activeTab) return null;
   return state.notes.find((note) => note.id === activeTab.noteId) || null;
 }
+
 function activeEditorBody() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
   return String(activeTab?.body || activeEditorNote()?.body || "");
 }
+
 function applyExplorerSelectionContext({
   note = null,
   noteId = "",
@@ -2707,6 +2857,7 @@ function applyExplorerSelectionContext({
     if (expandFolder) explorer?.expandFolderPath?.(folder.id);
     return true;
   }
+
   const cleanFolderId = String(folderId || "").trim();
   const folder = cleanFolderId ? folderById(state, cleanFolderId) : null;
   if (folder) {
@@ -2716,31 +2867,38 @@ function applyExplorerSelectionContext({
     if (expandFolder) explorer?.expandFolderPath?.(folder.id);
     return true;
   }
+
   if (clearSelectedFile) state.selectedFileId = null;
   return false;
 }
+
 function syncExplorerContextToNote(note = null) { return applyExplorerSelectionContext({ note, syncSearch: true, expandFolder: true }); }
+
 function syncExplorerContextToActiveTab() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
   return activeTab?.noteId
     ? applyExplorerSelectionContext({ noteId: activeTab.noteId, syncSearch: true, expandFolder: true })
     : applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });
 }
+
 function noteGrowthStage(note, body = "") {
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").toLowerCase();
   const text = String(body || note?.body || "");
   const tagCount = parseTags(text).length;
   const linkCount = parseLinks(text).length;
   const bodyLength = text.replace(/\s+/g, "").length;
+
   if (noteType === "fleeting") return "捕捉中";
   if (noteType === "literature") return "转述中";
   if (linkCount >= 2 || (linkCount >= 1 && tagCount >= 2)) return "已串联";
   if (bodyLength >= 140 || tagCount >= 2) return "正在成形";
   return "提炼中";
 }
+
 function renderStatusMeta() {
   return;
 }
+
 function renderWorkspaceStatusHint() {
   const helper = $("editorHelper");
   if (!helper) return;
@@ -2785,6 +2943,7 @@ function renderWorkspaceStatusHint() {
   body.textContent = model.body || "";
   action.textContent = model.actionText || "";
 }
+
 function applyFocusModeChrome() {
   const focusActive = state.module === "explorer" && Boolean(state.focusMode);
   document.querySelector(".app")?.setAttribute("data-focus-mode", focusActive ? "true" : "false");
@@ -2805,6 +2964,7 @@ function applyFocusModeChrome() {
       : "这里不强调更快完成，而强调更清楚地形成观点、边界与连接。";
   }
 }
+
 function renderDistillationPanel() {
   const panel = $("distillationPanel");
   if (!panel) return;
@@ -2817,6 +2977,7 @@ function renderDistillationPanel() {
     distillationStatusLabel
   });
 }
+
 async function refreshDistillationNotes() {
   const rootId = "dir_original_default";
   const directoryIds = descendantDirectoryIds(rootId).filter((id) => folderById(state, id));
@@ -2825,6 +2986,7 @@ async function refreshDistillationNotes() {
   }
   renderDistillationPanel();
 }
+
 async function openDistillationModule() {
   try {
     await refreshDistillationNotes();
@@ -2834,6 +2996,7 @@ async function openDistillationModule() {
     setStatus(`观点整理队列刷新失败：${String(error?.message || error)}`, "warn");
   }
 }
+
 async function openDistillationQueueNote(noteId = "") {
   return openDistillationQueueNoteRoute(noteId, {
     documentRef: document,
@@ -2847,6 +3010,7 @@ async function openDistillationQueueNote(noteId = "") {
     setStatus
   });
 }
+
 const renderAppShellController = createRenderAppShellController({
   depsProvider: createRenderAppShellPrototypeDepsProvider(() => ({
     state,
@@ -2861,7 +3025,7 @@ const renderAppShellController = createRenderAppShellController({
     renderDistillationPanel,
     renderGraphPanel,
     renderSettingsPanel,
-    renderWritingPanel: (...args) => renderWritingPanel(...args),
+    renderWritingPanel,
     applyFocusModeChrome,
     renderStatusMeta,
     renderWorkspaceStatusHint,
@@ -2872,11 +3036,13 @@ const renderAppShellController = createRenderAppShellController({
 const {
   renderAll
 } = renderAppShellController;
+
 function explorerQuickAction(rootId = state.browserRootId) {
   if (rootId === "dir_fleeting_default") return "quick-fleeting";
   if (rootId === "dir_literature_default") return "quick-literature";
   return "quick-original";
 }
+
 function syncRailSelectionState() {
   syncRailSelectionDom({
     document,
@@ -2885,7 +3051,9 @@ function syncRailSelectionState() {
     updateAvailable: shouldShowUpdateAttention(settingsState.update)
   });
 }
+
 function currentVaultPath() { return settingsState.vault?.vaultPath || ""; }
+
 function resolveNotePath(note) {
   if (!note) return "";
   if (note.markdownPath && currentVaultPath()) return joinLocalPath(currentVaultPath(), note.markdownPath);
@@ -2894,29 +3062,36 @@ function resolveNotePath(note) {
   const fileName = `${note.id}.md`;
   return joinLocalPath(folder.fsPath, fileName);
 }
+
 function standaloneEditorUrl(noteId = "") {
   const baseUrl = `${window.location.origin}/app/editor`;
   const id = String(noteId || "").trim();
   return id ? `${baseUrl}?note=${encodeURIComponent(id)}` : baseUrl;
 }
+
 function openStandaloneEditorWindow(noteId = "") {
   const url = standaloneEditorUrl(noteId);
   window.open(url, "_blank", "noopener,noreferrer");
   return url;
 }
+
 function ensureEditableNoteBody(body = "") {
   const value = String(body || "").replace(/\r\n/g, "\n");
   if (!value.trim()) return "# 未命名笔记\n\n";
   return /\n\s*\n\s*$/.test(value) ? value : `${value}\n\n`;
 }
+
 function literatureNoteTemplateBody(title = "未命名笔记") { return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("literature"), title, "literature"); }
+
 function permanentNoteTemplateBody(title = "未命名笔记") { return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("permanent"), title, "permanent"); }
+
 function initialBodyForFolder(folderId = "") {
   const noteType = typeFromFolder(state, folderId);
   if (noteType === "literature") return literatureNoteTemplateBody();
   if (noteType === "original" || noteType === "permanent") return permanentNoteTemplateBody();
   return "# 未命名笔记\n\n";
 }
+
 async function createNoteInSelectedFolder(options = {}) {
   const folderId = state.selectedFolderId;
   const preferTitleSelection = options.preferTitleSelection !== false;
@@ -2974,12 +3149,14 @@ async function createNoteInSelectedFolder(options = {}) {
     return { note: fallback, remote: false, error };
   }
 }
+
 async function createPrimaryOriginalNote(options = {}) {
   const previousRootId = state.browserRootId;
   const previousFolderId = state.selectedFolderId;
   const originalRootId = "dir_original_default";
   const currentRootId = rootBoxIdFromFolder(state, state.selectedFolderId);
   const switchedToOriginal = currentRootId !== originalRootId;
+
   if (folderById(state, originalRootId) && switchedToOriginal) {
     state.browserRootId = originalRootId;
     state.selectedFolderId = originalRootId;
@@ -2988,6 +3165,7 @@ async function createPrimaryOriginalNote(options = {}) {
     state.browserRootId = originalRootId;
     state.selectedFolderId = originalRootId;
   }
+
   try {
     const result = await createNoteInSelectedFolder({ ...options, preferPlainEditor: true });
     return { ...result, switchedToOriginal, previousRootId, previousFolderId };
@@ -2997,6 +3175,7 @@ async function createPrimaryOriginalNote(options = {}) {
     throw error;
   }
 }
+
 async function openStartupUntitledNote() {
   if (folderById(state, STARTUP_NOTE_FOLDER_ID)) {
     state.browserRootId = rootBoxIdFromFolder(state, STARTUP_NOTE_FOLDER_ID);
@@ -3017,6 +3196,7 @@ async function openStartupUntitledNote() {
   }
   return result;
 }
+
 function resetWritingProjectContext({ title = "", goal = "", audience = "", tone = "" } = {}) {
   writingState.project = null;
   writingState.scaffold = null;
@@ -3028,6 +3208,7 @@ function resetWritingProjectContext({ title = "", goal = "", audience = "", tone
   if ($("writingAudience")) $("writingAudience").value = audience;
   if ($("writingTone")) $("writingTone").value = tone;
 }
+
 function resetWritingProjectContextForBasketChange() {
   resetWritingStrongModelState();
   resetWritingProjectContext({
@@ -3038,6 +3219,7 @@ function resetWritingProjectContextForBasketChange() {
   });
   resetWritingLocalBookIdeas();
 }
+
 function preferredLocalFallbackNote() {
   return (
     state.notes.find((note) => rootBoxIdFromFolder(state, note.folderId) === "dir_original_default") ||
@@ -3045,6 +3227,7 @@ function preferredLocalFallbackNote() {
     null
   );
 }
+
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
   const next = String(nextPack || "Starter Auto").trim() || "Starter Auto";
   const currentRuntimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
@@ -3058,15 +3241,19 @@ function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
   refreshAiRoutePreview({ render: false });
+
   const settingsPack = $("settingsAiModelPack");
   if (settingsPack && settingsPack.value !== settingsState.ai.modelPack) settingsPack.value = settingsState.ai.modelPack;
   const modulePack = $("moduleAiModelPack");
   if (modulePack && modulePack.value !== settingsState.ai.modelPack) modulePack.value = settingsState.ai.modelPack;
+
   renderModuleWorkspaceHeader();
   renderSettingsPanel();
+
   const source = String(options.source || "").trim();
   setStatus(`AI model pack switched: ${settingsState.ai.modelPack}${source ? ` (${source})` : ""}`, "ok");
 }
+
 function syncMobileNewNoteButton() {
   const button = $("btnMobileNewNote");
   if (!button) return;
@@ -3079,6 +3266,7 @@ function syncMobileNewNoteButton() {
   const label = button.querySelector("span");
   if (label) label.textContent = "";
 }
+
 function renderModulePanels() {
   const graphMode = state.module === "graph";
   const aiInboxMode = state.module === "aiInbox";
@@ -3107,6 +3295,7 @@ function renderModulePanels() {
   syncMobileNewNoteButton();
   renderModuleWorkspaceHeader();
 }
+
 function settingsAiRoutePreviewRuntimeDeps() {
   return {
     $,
@@ -3120,9 +3309,11 @@ function settingsAiRoutePreviewRuntimeDeps() {
     remoteRuntimeModelFromMap
   };
 }
+
 function renderAiRoutePreview() {
   renderAiRoutePreviewForRuntime(settingsAiRoutePreviewRuntimeDeps());
 }
+
 function settingsAiExperienceRuntimeDeps() {
   return {
     $,
@@ -3144,9 +3335,11 @@ function settingsAiExperienceRuntimeDeps() {
     ollamaRecommendationHintText
   };
 }
+
 function renderAiSettingsExperience() {
   renderAiSettingsExperienceForRuntime(settingsAiExperienceRuntimeDeps());
 }
+
 function settingsAiControlsRuntimeDeps() {
   return {
     $,
@@ -3171,15 +3364,19 @@ function settingsAiControlsRuntimeDeps() {
     defaultProviderHealthEndpointUrl
   };
 }
+
 function renderAiLocalModelRecommendations() {
   renderAiLocalModelRecommendationsForRuntime(settingsAiControlsRuntimeDeps());
 }
+
 function renderAiLocalModelControls() {
   renderAiLocalModelControlsForRuntime(settingsAiControlsRuntimeDeps());
 }
+
 function renderAiProviderConfigControls() {
   renderAiProviderConfigControlsForRuntime(settingsAiControlsRuntimeDeps());
 }
+
 function settingsAiDialogByName(name = "") {
   const normalized = String(name || "").trim();
   const map = {
@@ -3188,11 +3385,13 @@ function settingsAiDialogByName(name = "") {
   };
   return $(map[normalized] || "");
 }
+
 function closeSettingsAiDialogs() {
   ["settingsAiRemoteDialog", "settingsAiTestDialog"].forEach((id) => {
     $(id)?.classList.add("hidden");
   });
 }
+
 function openSettingsAiDialog(name = "") {
   const dialog = settingsAiDialogByName(name);
   if (!dialog) return;
@@ -3201,6 +3400,7 @@ function openSettingsAiDialog(name = "") {
   const firstField = dialog.querySelector("select, input, textarea, button");
   if (firstField instanceof HTMLElement) firstField.focus({ preventScroll: true });
 }
+
 async function applySettingsAiQuickSetup(kind = "") {
   const normalized = String(kind || "").trim();
   if (normalized === "local") {
@@ -3229,6 +3429,7 @@ async function applySettingsAiQuickSetup(kind = "") {
   }
   setStatus(normalized === "local" ? "已切换为本地大模型设置流程" : "已切换为远程大模型设置流程", "ok");
 }
+
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
   if (normalizedModule === "graph") {
@@ -3244,6 +3445,7 @@ function activateModule(moduleName) {
   renderAll();
   if (normalizedModule === "imports") renderImportPageShell();
 }
+
 const {
   closeNoteTemplatePreview,
   noteTemplateCardCopy,
@@ -3259,8 +3461,11 @@ const {
   saveNoteTemplateFromEditor,
   updateNoteTemplatePreviewFromEditor
 } = settingsNoteTemplateRuntime;
+
 function escapePreviewInline(text = "") { return escapeTemplatePreviewInline(text, { escapeHtml }); }
+
 function renderTemplateMarkdownPreviewHtml(source = "") { return renderTemplateMarkdownPreviewHtmlForRuntime(source, { escapeHtml }); }
+
 function renderAiCanonicalDebugPanel() {
   const panel = $("settingsAiCanonicalDebug");
   if (!panel) return;
@@ -3268,25 +3473,40 @@ function renderAiCanonicalDebugPanel() {
     snapshots: settingsState.ai.debugSnapshots || {}
   });
 }
+
 function isWritingEligibleNote(note) { return writingNoteEligibility(note).ok; }
+
 function writingScopeDirectoryIds() { return writingScopeDirectoryIdsForRuntime(state, { descendantDirectoryIds }); }
+
 function writingCandidateNotes() {
   return writingCandidateNotesForRuntime(state, {
     writingScopeDirectoryIds,
     isWritingEligibleNote
   });
 }
+
 function writingThemeLabels(notes) { return computeWritingThemeLabels(notes, { parseTags }); }
+
 function writingThemeSummary(notes) { return computeWritingThemeSummary(notes, { parseTags }); }
+
 function writingThemeIndexById(indexId) { return writingThemeIndexByIdForRuntime(writingState, indexId); }
+
 function writingThemeIndexNoteIds(indexCard) { return writingThemeIndexNoteIdsForRuntime(indexCard); }
+
 function sameUniqueStringSet(left = [], right = []) { return sameUniqueStringSetForRuntime(left, right); }
+
 function selectedWritingThemeIndex() { return selectedWritingThemeIndexForRuntime(writingState, { themeIndexById: writingThemeIndexById }); }
+
 function setSelectedWritingThemeIndex(indexId = "") { return setSelectedWritingThemeIndexForRuntime(writingState, indexId); }
+
 function clearWritingThemeRelationCounts(noteIds = []) { return clearWritingThemeRelationCountsForRuntime(writingState, noteIds); }
+
 function setWritingFocusedCandidateScope(noteIds = [], scopeLabel = "") { return setWritingFocusedCandidateScopeForRuntime(writingState, noteIds, scopeLabel); }
+
 function clearWritingFocusedCandidateScope() { return clearWritingFocusedCandidateScopeForRuntime(writingState); }
+
 function writingThemeNotesLoaded(noteIds = []) { return uniqueStrings(noteIds).every((noteId) => Boolean(writingKnownNoteById(noteId)?.bodyLoaded)); }
+
 async function hydrateWritingThemeNotes(noteIds = [], { render = true } = {}) {
   const ids = uniqueStrings(noteIds);
   const requestSerial = ++writingState.themeNoteDetailRequestSerial;
@@ -3302,6 +3522,7 @@ async function hydrateWritingThemeNotes(noteIds = [], { render = true } = {}) {
     }
   }
 }
+
 function shouldHydrateWritingThemeNotes(noteIds = []) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return false;
@@ -3309,6 +3530,7 @@ function shouldHydrateWritingThemeNotes(noteIds = []) {
   if (writingState.loadingThemeNoteDetails && sameUniqueStringSet(ids, writingState.themeNoteDetailIds)) return false;
   return true;
 }
+
 function upsertWritingThemeIndex(indexCard) {
   if (!indexCard?.id) return;
   writingState.themeIndexes = [
@@ -3316,6 +3538,7 @@ function upsertWritingThemeIndex(indexCard) {
     ...writingState.themeIndexes.filter((item) => item.id !== indexCard.id)
   ];
 }
+
 async function selectWritingThemeIndex(indexId) {
   const id = String(indexId || "").trim();
   if (!id) return null;
@@ -3337,6 +3560,7 @@ async function selectWritingThemeIndex(indexId) {
   renderWritingPanel();
   return fetched;
 }
+
 function buildThemeIndexItemsFromIds(indexCard, noteIds = []) {
   const existingById = new Map((Array.isArray(indexCard?.items) ? indexCard.items : []).map((item) => [item.note_id, item]));
   return uniqueStrings(noteIds).map((noteId, index) => {
@@ -3350,6 +3574,7 @@ function buildThemeIndexItemsFromIds(indexCard, noteIds = []) {
     };
   });
 }
+
 async function saveSelectedThemeIndexDetail() {
   const selected = selectedWritingThemeIndex();
   if (!selected?.id) throw new Error("theme index is required");
@@ -3367,6 +3592,7 @@ async function saveSelectedThemeIndexDetail() {
   renderWritingPanel();
   return item;
 }
+
 async function syncSelectedThemeIndexWithBasket(mode = "replace") {
   const selected = selectedWritingThemeIndex();
   if (!selected?.id) throw new Error("theme index is required");
@@ -3389,6 +3615,7 @@ async function syncSelectedThemeIndexWithBasket(mode = "replace") {
   renderWritingPanel();
   return item;
 }
+
 async function removeNoteFromSelectedThemeIndex(noteId) {
   const selected = selectedWritingThemeIndex();
   if (!selected?.id) throw new Error("theme index is required");
@@ -3406,26 +3633,42 @@ async function removeNoteFromSelectedThemeIndex(noteId) {
   renderWritingPanel();
   return item;
 }
+
 async function createWritingProjectFromThemeIndex(indexCardId) { return writingThemeProjectRuntime.createWritingProjectFromThemeIndex(indexCardId); }
+
 function writingSourceIndexSummary() { return computeWritingSourceIndexSummary(writingState.sourceIndexIds, { themeIndexById: writingThemeIndexById }); }
+
 function suggestedThemeIndexTitle(noteIds = []) { return computeSuggestedThemeIndexTitle(noteIds, { noteById: writingNoteById, parseTags }); }
+
 function clearWritingSourceIndexIds() { return clearWritingSourceIndexIdsForRuntime(writingState); }
+
 function setWritingSourceIndexIds(indexIds = []) { return setWritingSourceIndexIdsForRuntime(writingState, indexIds); }
+
 function resetWritingStrongModelState() { return resetWritingStrongModelStateForRuntime(writingState); }
+
 function resetWritingLocalBookIdeas() { return resetWritingLocalBookIdeasForRuntime(writingState); }
+
 function syncWritingLocalBookIdeasFromProject(project = null) { return syncWritingLocalBookIdeasFromProjectForRuntime(writingState, project); }
+
 function resetWritingProjectForm({ keepTitle = false } = {}) {
   if (!keepTitle && $("writingTitle")) $("writingTitle").value = "";
   if ($("writingGoal")) $("writingGoal").value = "";
   if ($("writingAudience")) $("writingAudience").value = "";
   if ($("writingTone")) $("writingTone").value = "";
 }
+
 function writingNoteById(noteId) { return state.notes.find((item) => item.id === noteId) || null; }
+
 function writingCachedNoteById(noteId) { return (writingState.project?.basket_notes || []).find((item) => item?.id === noteId) || null; }
+
 function isDirectoryUnderOriginalRoot(directoryId) { return rootBoxIdFromFolder(state, directoryId) === "dir_original_default"; }
+
 function writingNoteEligibility(note) { return writingThemeProjectRuntime.writingNoteEligibility(note); }
+
 function parseWritingBasketIds() { return parseWritingBasketIdsForRuntime({ $ }); }
+
 function setWritingBasketIds(noteIds) { return setWritingBasketIdsForRuntime(noteIds, { $ }); }
+
 function addWritingBasketIds(noteIds) {
   return addWritingBasketIdsForRuntime(noteIds, {
     parseWritingBasketIds,
@@ -3434,6 +3677,7 @@ function addWritingBasketIds(noteIds) {
     refreshWritingRelationCounts
   });
 }
+
 function removeWritingBasketId(noteId) {
   return removeWritingBasketIdForRuntime(noteId, {
     writingState,
@@ -3443,6 +3687,7 @@ function removeWritingBasketId(noteId) {
     refreshWritingRelationCounts
   });
 }
+
 function clearWritingBasket() {
   return clearWritingBasketForRuntime({
     writingState,
@@ -3450,7 +3695,9 @@ function clearWritingBasket() {
     resetWritingLocalBookIdeas
   });
 }
+
 let writingBasketManualRefreshTimer = 0;
+
 function handleWritingBasketManualInput() {
   const basketIds = parseWritingBasketIds();
   const title = String($("writingTitle")?.value || "").trim();
@@ -3470,7 +3717,9 @@ function handleWritingBasketManualInput() {
     void refreshWritingRelationCounts(parseWritingBasketIds());
   }, 250);
 }
+
 function writingKnownNoteById(noteId) { return writingNoteById(noteId) || writingCachedNoteById(noteId) || null; }
+
 function partitionWritingEligibleNoteIds(noteIds = [], { noteLookup = writingKnownNoteById } = {}) {
   const eligibleIds = [];
   const ineligible = [];
@@ -3488,6 +3737,7 @@ function partitionWritingEligibleNoteIds(noteIds = [], { noteLookup = writingKno
   }
   return { eligibleIds, ineligible };
 }
+
 function writingIneligibleSummary(items = []) {
   const counts = items.reduce(
     (acc, item) => {
@@ -3505,7 +3755,9 @@ function writingIneligibleSummary(items = []) {
     counts.other ? `${counts.other} 条暂不可进入写作` : ""
   ]).join("，");
 }
+
 function currentWritingBasketEligibility() { return partitionWritingEligibleNoteIds(parseWritingBasketIds()); }
+
 function currentWritingBasketReadiness() {
   const noteIds = parseWritingBasketIds();
   const relationCounts = writingState.relationCounts || {};
@@ -3515,7 +3767,9 @@ function currentWritingBasketReadiness() {
   const relationState = relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading";
   return deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, { relationState });
 }
+
 function countExplicitRelationsForWriting(relations = null) { return countExplicitSemanticRelations(relations); }
+
 async function loadWritingRelationCounts(noteIds = []) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return { counts: {}, errors: {} };
@@ -3538,6 +3792,7 @@ async function loadWritingRelationCounts(noteIds = []) {
     { counts: {}, errors: {} }
   );
 }
+
 async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), { render = true } = {}) {
   const ids = uniqueStrings(noteIds);
   const requestSerial = ++writingState.relationCountRequestSerial;
@@ -3564,6 +3819,7 @@ async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), {
     }
   }
 }
+
 async function refreshWritingThemeRelationCounts(noteIds = [], { render = true } = {}) {
   const ids = uniqueStrings(noteIds);
   const requestSerial = ++writingState.themeRelationCountRequestSerial;
@@ -3591,16 +3847,19 @@ async function refreshWritingThemeRelationCounts(noteIds = [], { render = true }
     }
   }
 }
+
 function writingRelationCountsReady(noteIds = [], relationCounts = {}) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return true;
   return ids.every((noteId) => Object.prototype.hasOwnProperty.call(relationCounts || {}, noteId));
 }
+
 function writingRelationCountsErrored(noteIds = [], relationCountErrors = {}) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return false;
   return ids.some((noteId) => Boolean(relationCountErrors?.[noteId]));
 }
+
 function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return false;
@@ -3609,14 +3868,18 @@ function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
   if (writingState.loadingThemeRelationCounts) return false;
   return !writingRelationCountsReady(ids, writingState.themeRelationCounts);
 }
+
 function writingThemeProjectEntry(indexCard) { return writingThemeProjectRuntime.writingThemeProjectEntry(indexCard); }
+
 function findExistingWritingProjectForTheme(indexCard, noteIds = []) {
   const themeId = String(indexCard?.id || "").trim();
   const normalizedNoteIds = uniqueStrings(noteIds);
   if (!themeId && !normalizedNoteIds.length) return null;
+
   const projects = [writingState.project, ...(Array.isArray(writingState.projects) ? writingState.projects : [])]
     .filter(Boolean)
     .filter((project, index, items) => items.findIndex((item) => item?.id === project?.id) === index);
+
   return (
     projects.find((project) => {
       const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
@@ -3626,15 +3889,19 @@ function findExistingWritingProjectForTheme(indexCard, noteIds = []) {
     }) || null
   );
 }
+
 function writingProjectMatchesContext(project, { themeId = "", noteIds = [] } = {}) {
   const normalizedThemeId = String(themeId || "").trim();
   const normalizedNoteIds = uniqueStrings(noteIds);
   if (!project?.id) return false;
+
   const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
   const basketNoteIds = uniqueStrings(project?.basket_note_ids || project?.basketNoteIds || []);
+
   if (normalizedThemeId && relatedIndexIds.includes(normalizedThemeId)) return true;
   return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
 }
+
 function writingEntryProjectForContext({ basketNoteIds = [], sourceIndexIds = [] } = {}) {
   const normalizedBasketNoteIds = uniqueStrings(basketNoteIds);
   if (!normalizedBasketNoteIds.length) return null;
@@ -3654,6 +3921,7 @@ function writingEntryProjectForContext({ basketNoteIds = [], sourceIndexIds = []
   }
   return findExistingWritingProjectForTheme(sourceTheme, normalizedBasketNoteIds);
 }
+
 function writingContinuationEntryForContext({ basketNoteIds = [], sourceIndexIds = [], scopeLabel = "当前材料" } = {}) {
   const existingProject = writingEntryProjectForContext({ basketNoteIds, sourceIndexIds });
   return describeWritingContinuationAction({
@@ -3663,6 +3931,7 @@ function writingContinuationEntryForContext({ basketNoteIds = [], sourceIndexIds
     scopeLabel
   });
 }
+
 function noteMainPathWritingContinuationEntry(noteId, scopeLabel = "当前笔记") {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return null;
@@ -3676,6 +3945,7 @@ function noteMainPathWritingContinuationEntry(noteId, scopeLabel = "当前笔记
     scopeLabel
   });
 }
+
 function graphWritingContinuationEntry(candidateNoteIds = [], scopeLabel = "当前图谱切片") {
   const projectedEntry = graphWritingContinuationInput({
     basketNoteIds: parseWritingBasketIds(),
@@ -3689,6 +3959,7 @@ function graphWritingContinuationEntry(candidateNoteIds = [], scopeLabel = "当�
     scopeLabel
   });
 }
+
 function currentWritingEntryProject() {
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) return null;
@@ -3697,6 +3968,7 @@ function currentWritingEntryProject() {
     sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]
   });
 }
+
 function currentWritingContinuationEntry(scopeLabel = "当前材料") {
   return writingContinuationEntryForContext({
     basketNoteIds: parseWritingBasketIds(),
@@ -3704,16 +3976,20 @@ function currentWritingContinuationEntry(scopeLabel = "当前材料") {
     scopeLabel
   });
 }
+
 function writingBasketEntries() { return parseWritingBasketIds().map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId, folderId: "", noteType: "permanent", body: "" }); }
+
 function writingDraftDirectoryId() {
   if (state.selectedFolderId && isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
   const basketDirectoryId = writingBasketEntries().find((note) => note?.folderId && isDirectoryUnderOriginalRoot(note.folderId))?.folderId;
   return basketDirectoryId || "dir_original_default";
 }
+
 function writingDraftTitle() {
   const projectTitle = String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "未命名项目";
   return `${projectTitle} 草稿`;
 }
+
 function rewriteMarkdownHeading(markdown, title) {
   const cleanTitle = String(title || "").trim() || "未命名草稿";
   const text = String(markdown || "").replace(/\r\n/g, "\n").trim();
@@ -3721,6 +3997,7 @@ function rewriteMarkdownHeading(markdown, title) {
   if (/^#\s+/.test(text)) return text.replace(/^#\s+.*$/m, `# ${cleanTitle}`);
   return `# ${cleanTitle}\n\n${text}\n`;
 }
+
 function writingDraftBody() {
   const headingTitle = writingDraftTitle();
   const scaffoldMarkdown = rewriteMarkdownHeading(writingState.scaffoldMarkdown, headingTitle).trimEnd();
@@ -3733,6 +4010,7 @@ function writingDraftBody() {
   const tail = references.length ? `\n\n---\n${references.join("\n")}\n` : "\n";
   return `${scaffoldMarkdown}${tail}`;
 }
+
 function writingScaffoldFileName(title = "") {
   const base = String(title || "writing-project")
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")
@@ -3740,6 +4018,7 @@ function writingScaffoldFileName(title = "") {
     .trim();
   return `${base || "writing-project"}_scaffold.md`;
 }
+
 async function copyTextToClipboard(text) {
   const value = String(text || "");
   if (navigator?.clipboard?.writeText) {
@@ -3758,6 +4037,7 @@ async function copyTextToClipboard(text) {
   document.body.removeChild(textarea);
   if (!success) throw new Error("clipboard unavailable");
 }
+
 function downloadTextFile(fileName, text) {
   const blob = new Blob([String(text || "")], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -3776,6 +4056,7 @@ function downloadTextFile(fileName, text) {
   };
   return blob.size;
 }
+
 function writingNoteExcerpt(note) {
   const text = String(note?.body || "")
     .replace(/\r\n/g, "\n")
@@ -3785,6 +4066,7 @@ function writingNoteExcerpt(note) {
   if (!text) return "这条永久笔记还没有正文摘要。";
   return text.length > 120 ? `${text.slice(0, 120)}...` : text;
 }
+
 function writingNoteMeta(note) {
   const folder = folderById(state, note?.folderId);
   return uniqueStrings([
@@ -3799,6 +4081,7 @@ function writingThemeIndexScopeDirectoryId() {
     writingDraftDirectoryId
   });
 }
+
 async function loadWritingThemeIndexes() {
   const directoryId = writingThemeIndexScopeDirectoryId();
   writingState.loadingThemeIndexes = true;
@@ -3816,15 +4099,17 @@ async function loadWritingThemeIndexes() {
     renderWritingPanel();
   }
 }
+
 function writingThemeDetailHintText(indexCard) {
   if (!indexCard?.id) return "查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作中心入口。";
   const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
   const themeLabel = String(indexCard.title || indexCard.id || "当前主题").trim() || "当前主题";
   return `${themeLabel}：写作中心入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前项目还是创建项目。"}`;
 }
+
 function populateWritingFormFromProject(project) {
   if (!project) return;
-  if ($("writingTitle")) $("writingTitle").value = project.title || "";
+  if ($("writingTitle")) $("writingTitle").value = computeWritingProjectEntryTitle(project);
   if ($("writingGoal")) $("writingGoal").value = project.goal || "";
   if ($("writingAudience")) $("writingAudience").value = project.audience || "";
   if ($("writingTone")) $("writingTone").value = project.tone || "";
@@ -3832,19 +4117,24 @@ function populateWritingFormFromProject(project) {
   setWritingBasketIds(project.basket_note_ids || []);
   syncWritingLocalBookIdeasFromProject(project);
 }
+
 function currentWritingVersionNote() { return String($("writingVersionNote")?.value || "").trim(); }
+
 function promptVersionNoteEdit(currentValue, label) {
   const next = window.prompt(`${label}说明`, String(currentValue || ""));
   if (next === null) return null;
   return String(next).trim();
 }
+
 function renderScaffoldVersionCard(version) { return renderScaffoldVersionCardView(version, { activeScaffoldId: writingState.scaffold?.id || "" }, { escapeHtml }); }
+
 function renderDraftVersionCard(version) {
   return renderDraftVersionCardView(version, {
     escapeHtml,
     writingProjectStatusLabel
   });
 }
+
 async function loadWritingProjectsList() {
   writingState.loadingProjects = true;
   renderWritingPanel();
@@ -3860,11 +4150,13 @@ async function loadWritingProjectsList() {
     renderWritingPanel();
   }
 }
+
 function syncWritingProjectFiltersFromUi() {
   writingState.projectFilters.q = String($("writingProjectsSearch")?.value || "").trim();
   writingState.projectFilters.status = String($("writingProjectsStatusFilter")?.value || "all").trim() || "all";
   writingState.projectFilters.hasDraft = String($("writingProjectsDraftFilter")?.value || "all").trim() || "all";
 }
+
 async function loadWritingScaffoldVersions() {
   const writingProjectId = String(writingState.project?.id || "").trim();
   if (!writingProjectId) {
@@ -3882,6 +4174,7 @@ async function loadWritingScaffoldVersions() {
     renderWritingPanel();
   }
 }
+
 async function loadWritingDraftVersions() {
   const writingProjectId = String(writingState.project?.id || "").trim();
   if (!writingProjectId) {
@@ -3899,6 +4192,7 @@ async function loadWritingDraftVersions() {
     renderWritingPanel();
   }
 }
+
 async function openWritingProject(projectId) {
   resetWritingStrongModelState();
   const project = await fetchWritingProject(projectId);
@@ -3924,6 +4218,7 @@ async function openWritingProject(projectId) {
   renderWritingPanel();
   return project;
 }
+
 async function openWritingDraftNoteById(draftNoteId) {
   const id = String(draftNoteId || "").trim();
   if (!id) throw new Error("draftNoteId is required");
@@ -3935,6 +4230,7 @@ async function openWritingDraftNoteById(draftNoteId) {
   openNoteById(id);
   return id;
 }
+
 async function continueWritingProjectEntry(projectId, { openDraft = false, statusMessage = "" } = {}) {
   const project = await openWritingProject(projectId);
   const route = writingProjectContinuationRoute({ projectId, project, openDraft, statusMessage });
@@ -3943,7 +4239,9 @@ async function continueWritingProjectEntry(projectId, { openDraft = false, statu
   setStatus(route.statusMessage, "ok");
   return project;
 }
+
 async function prepareWritingStrongModelAnalysis() { return writingProjectRuntimeController.prepareWritingStrongModelAnalysis(); }
+
 async function scaffoldBundleForProject(projectLike = null) {
   const project = projectLike || writingState.project;
   if (!project?.id) throw new Error("writingProjectId is required");
@@ -3969,6 +4267,7 @@ async function scaffoldBundleForProject(projectLike = null) {
     markdown: scaffold.export?.markdown || scaffold.item?.markdown || ""
   };
 }
+
 async function openScaffoldVersion(scaffoldId) {
   const id = String(scaffoldId || "").trim();
   if (!id) throw new Error("draftScaffoldId is required");
@@ -3978,6 +4277,7 @@ async function openScaffoldVersion(scaffoldId) {
   renderWritingPanel();
   return scaffold;
 }
+
 async function copyWritingScaffold(projectLike = null) {
   const bundle = await scaffoldBundleForProject(projectLike);
   const markdown = String(bundle.markdown || "").trim();
@@ -3993,6 +4293,7 @@ async function copyWritingScaffold(projectLike = null) {
   });
   return { ...bundle, fileName, characters: markdown.length };
 }
+
 async function exportWritingScaffold(projectLike = null) {
   const bundle = await scaffoldBundleForProject(projectLike);
   const markdown = String(bundle.markdown || "").trim();
@@ -4009,7 +4310,9 @@ async function exportWritingScaffold(projectLike = null) {
   });
   return { ...bundle, fileName, characters: markdown.length, bytes };
 }
+
 function renderWritingToplineMetric(label, value, note, tone = "") { return renderWritingToplineMetricView(label, value, note, tone, { escapeHtml }); }
+
 const writingBookRuntime = createWritingBookRuntime({
   $,
   writingState,
@@ -4029,6 +4332,7 @@ const {
   writingBookShortText,
   writingBookStructureStats
 } = writingBookRuntime;
+
 const writingPanelController = createWritingPanelShellController({
   hostProvider: createWritingPanelPrototypeHostProvider(() => ({
     $,
@@ -4078,6 +4382,7 @@ const {
   renderWritingPanel,
   renderWritingScaffoldPreview
 } = writingPanelController;
+
 async function refreshVaultSettings() {
   try {
     settingsState.vault = await fetchVaultInfo();
@@ -4108,6 +4413,7 @@ async function refreshVaultSettings() {
     throw error;
   }
 }
+
 const GRAPH_RELATION_TYPE_LABELS = {
   associated_with: "相关",
   free_link: "自由链接",
@@ -4131,6 +4437,7 @@ const GRAPH_RELATION_TYPE_LABELS = {
   reframes: "改写问题",
   appears_in_draft: "进入草稿"
 };
+
 const GRAPH_RELATION_STATUS_LABELS = {
   confirmed: "已确认",
   draft: "草稿",
@@ -4138,7 +4445,9 @@ const GRAPH_RELATION_STATUS_LABELS = {
   dismissed: "已忽略",
   archived: "已归档"
 };
+
 const GRAPH_CONFLICT_RELATION_TYPES = new Set(["contradicts", "counterexample_to", "contrasts", "qualifies"]);
+
 function graphRelationTypeLabel(type) {
   const key = String(type || "associated_with").trim().toLowerCase();
   if (key === "meaningful") return "有解释力的关系";
@@ -4146,6 +4455,7 @@ function graphRelationTypeLabel(type) {
   if (key === "index") return "主题归属";
   return GRAPH_RELATION_TYPE_LABELS[key] || key || "关联";
 }
+
 function graphRelationSourceLabel(value = "") {
   const key = String(value || "").trim().toLowerCase();
   if (key === "ai" || key === "ai_suggestion") return "AI";
@@ -4153,111 +4463,47 @@ function graphRelationSourceLabel(value = "") {
   if (key === "import") return "导入";
   return "自己";
 }
+
 function graphRelationStatusLabel(status) {
   const key = String(status || "confirmed").trim().toLowerCase();
   return GRAPH_RELATION_STATUS_LABELS[key] || key || "已确认";
 }
-async function saveNote(note = null) {
-  const noteId = String(note?.id || "").trim();
-  if (!noteId) return null;
-  const updated = await updateNote(noteId, {
-    title: note.title,
-    body: note.body || "",
-    status: note.status || "draft",
-    ...notePersistenceFieldsForSave(note)
-  });
-  const mapped = mapNoteItem(updated || note);
-  state.notes = (state.notes || []).map((item) => (item.id === noteId ? { ...item, ...mapped, bodyLoaded: true } : item));
-  const tab = (state.tabs || []).find((item) => item.noteId === noteId);
-  if (tab) {
-    tab.title = mapped.title || tab.title;
-    tab.body = mapped.body ?? tab.body;
-    tab.savedTitle = tab.title;
-    tab.savedBody = tab.body;
-    tab.dirty = false;
-  }
-  return mapped;
-}
-function graphStructureFallbackEdges(edges = [], filters = {}) {
-  return graphStructureFallbackEdgesForRuntime(edges, filters, {
-    graphEdgeMatchesFilters: (...args) => graphEdgeMatchesFilters(...args)
-  });
-}
-function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) {
-  return renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, {
-    escapeHtml,
-    graphFilterOptions: (...args) => graphFilterOptions(...args),
-    graphRelationTypeLabel
-  });
-}
-function renderGraphViewModeSwitcher(relationType = "meaningful") {
-  return renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml });
-}
+
 const graphResidualViews = createGraphResidualViews({
-  GRAPH_CONFIRMABLE_RELATION_TYPES, GRAPH_CONFLICT_RELATION_TYPES,
-  GRAPH_INDEX_RELATION_TYPES,
-  GRAPH_LINK_CLUE_RELATION_TYPES,
-  GRAPH_MEANINGFUL_RELATION_TYPES,
-  GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES,
-  GRAPH_RELATION_GROUP_META,
-  GRAPH_RELATION_MARKER_COLORS,
-  GRAPH_VISUAL_ZOOM_OPTIONS,
-  applyGraphEdgeHoverDomState,
-  applyGraphNodeHoverDomState,
-  buildGraphQuestionSpotSummaryForGraph,
-  buildGraphThinkingItemsForGraph,
-  buildGraphWorkspaceRenderDeps,
-  clearGraphIsolatedRelationDraftForState,
-  computeGraphCandidatePercent,
-  computeGraphAiRelationCandidatesForNote,
-  computeGraphBlockedAiRelationPairKeysForNote,
-  computeGraphCandidateCanSaveRelation,
-  computeGraphCandidateUndirectedPairKey,
-  computeGraphDecoratePotentialRelationCandidate,
-  computeGraphClusterResearchMeta,
-  computeGraphReadingLensMeta,
-  computeGraphDirectNetworkEdgeCount,
-  computeGraphManualRelationTargetsForNote,
-  computeGraphNextIsolatedQueueItem,
-  computeGraphNoteIdFromIsolatedItem,
-  computeGraphPendingAiCandidateCount,
-  computeGraphQuestionSpotSummaryFromItems,
-  computeGraphResearchNavigatorState,
-  computeGraphThemeCandidateNoteIdsForNode,
-  computeGraphThinkingCleanIds,
-  computeGraphThinkingNoteTitle,
-  computeGraphUniqueClusterMeta,
-  computeGraphLocalRelationCandidatesForNote,
-  computeGraphMergeRelationCandidatesForDisplay,
-  computeGraphPreferredPotentialRelationType,
+  $,
+  GRAPH_CONFLICT_RELATION_TYPES, GRAPH_INDEX_RELATION_TYPES, GRAPH_LINK_CLUE_RELATION_TYPES, GRAPH_MEANINGFUL_RELATION_TYPES,
+  GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, GRAPH_RELATION_GROUP_META, GRAPH_RELATION_MARKER_COLORS, GRAPH_VISUAL_ZOOM_OPTIONS,
+  addSystemMessage, analyzeDirectoryGraph, applyGraphEdgeHoverDomState, applyGraphNodeHoverDomState, applyGraphThinkingHoverDomState,
+  graphBuildFocusedRelationTypeStatsForRuntime, graphBuildVisualLayoutForRuntime, graphDenseGalaxyMode,
+  graphEdgePathForRuntime, graphEdgeShouldRenderForRuntime, graphEdgeVisibleAtFitForRuntime, graphFocusContextModeMeta, graphFocusDepthMeta,
+  graphFocusedItemsForRuntime, graphHash,
+  graphLoadedScopeCoversDirectoryForRuntime, graphNodeAttentionReasons, graphNodeClass, graphNodeRadiusByTier, graphNodeShowsAsPoint, graphNodeStarTier,
+  graphReadingModeMeta, graphScopedItemsForRuntime, graphScopeDirectoryIdForRuntime, graphShortTitle, graphThemeBoundaryMetaForRuntime,
+  graphViewModeForRelationType, graphZoomOption,
+  normalizeGraphFocusDepth, descendantDirectoryIds, buildGraphQuestionSpotSummaryForGraph, buildGraphThinkingItemsForGraph,
+  buildGraphWorkspaceRenderDeps, clearGraphIsolatedRelationDraftForState, computeGraphAiRelationCandidatesForNote,
+  computeGraphBlockedAiRelationPairKeysForNote, computeGraphCandidateBlocksFormalRelation, computeGraphCandidateCanSaveRelation,
+  computeGraphCandidateCountKey, computeGraphCandidateEndpointIds, computeGraphCandidatePercent, computeGraphCandidateUndirectedPairKey,
+  computeGraphDecoratePotentialRelationCandidate, computeGraphMergeRelationCandidatesForDisplay, computeGraphLocalRelationCandidatesForNote, computeGraphClusterResearchMeta,
   computeGraphPotentialRelationActionEndpoints, computeGraphPotentialRelationEvidenceText, computeGraphPotentialRelationRationaleDraft,
-  computeGraphRelationRationaleIsActionable,
-  computeGraphTitleCharacterOverlap,
-  createGraphIsolatedDecisionController,
-  createGraphIsolatedRelationController,
-  createGraphIsolatedWorkflowShellRenderer,
-  createGraphReadingLensStateController,
-  createGraphRelationSaveController,
-  createGraphRelationWorkflowController,
-  createGraphSelectionPanelRenderer,
-  createGraphThinkingModelRuntimeDepsProvider,
-  createNoteRelation,
-  descendantDirectoryIds,
-  escapeHtml,
+  computeGraphPreferredPotentialRelationType, computeGraphReadingLensMeta, computeGraphRelationCandidateKey, computeGraphDirectNetworkEdgeCount, computeGraphExistingRelationKeys, computeGraphExistingRelationPairKeys, computeGraphFocusCardActionMeta,
+  computeGraphRelationPairKey, computeGraphRelationRationaleIsActionable, computeGraphRelationStatusCountsAsNetworkEdge, computeGraphRelationStatusKey,
+  computeGraphManualRelationTargetsForNote, computeGraphNextIsolatedQueueItem,
+  computeGraphNoteIdFromIsolatedItem, computeGraphPendingAiCandidateCount, computeGraphQuestionSpotSummaryFromItems, computeGraphSelectEdgeActionAttrs,
+  computeGraphResearchNavigatorState, computeGraphThemeCandidateNoteIdsForNode, computeGraphThinkingCleanIds, computeGraphThinkingNoteTitle,
+  computeGraphTitleCharacterOverlap, computeGraphUniqueClusterMeta, createGraphIsolatedDecisionController, createGraphIsolatedRelationController, createGraphIsolatedWorkflowShellRenderer,
+  createGraphAiConnectRuntimeController, createGraphReadingLensStateController, createGraphRelationSaveController, createGraphRelationWorkflowController,
+  createGraphVisualMapController, createGraphVisualMapPrototypeDepsProvider, createGraphSelectionPanelRenderer, createGraphThinkingModelRuntimeDepsProvider,
+  createNoteRelation, escapeHtml,
+  ensureGraphLocalAiReadyForAnalysis: (...args) => ensureGraphLocalAiReadyForAnalysis(...args),
+  isDirectoryUnderOriginalRoot,
+  parseTags,
   graphAiAnalysisSummaryStateForGraph,
   graphBridgeSelectionKey,
-  graphDenseGalaxyMode,
   graphComputedIsolatedNotesForGraph,
   graphEdgeSelectionKey,
-  graphEdgePathForRuntime,
-  graphEdgeShouldRenderForRuntime,
-  graphEdgeVisibleAtFitForRuntime,
   graphFilterOptionsForRuntime,
-  graphFocusContextModeMeta,
-  graphFocusDepthMeta,
   graphFullNoteByIdFromSources,
-  graphBuildVisualLayoutForRuntime,
-  graphHash,
   graphIsolatedPreviewTargetForNote,
   graphIsolatedQueueItemsForGraph,
   graphIsolatedSelectionKey,
@@ -4265,14 +4511,8 @@ const graphResidualViews = createGraphResidualViews({
   graphLocalRelationCandidatesForNote: computeGraphLocalRelationCandidatesForNote,
   graphManualRelationTargetsForNote: computeGraphManualRelationTargetsForNote,
   graphMarkIsolatedNodesForGraph,
-  graphNodeAttentionReasons,
-  graphNodeClass,
-  graphNodeRadiusByTier,
-  graphNodeShowsAsPoint,
-  graphNodeStarTier,
   graphNotePreviewTextForLocalRelation,
   graphNoteTagsForLocalRelation,
-  graphReadingModeMeta,
   graphRelationQualityLabel,
   graphRelationReviewReasonLabel,
   graphNodeStarRank,
@@ -4283,43 +4523,36 @@ const graphResidualViews = createGraphResidualViews({
   graphRelationSaveResultForNote,
   graphRelationTypeLabel,
   graphRelationVisual,
-  graphThinkingHighlightAttrsForItem,
   graphState,
   graphStructureFallbackEdges,
   graphStructureFallbackEdgesForRuntime,
-  graphShortTitle,
-  graphThemeBoundaryMetaForRuntime,
   graphThemeNoteIds,
   graphThemeSelectionKey,
-  graphViewModeForRelationType,
-  graphZoomOption,
-  graphZoomStep,
-  isDirectoryUnderOriginalRoot,
+  graphThinkingHighlightAttrsForItem,
   normalizeGraphRelationTypeFilter,
   noteTypeLabel,
-  parseTags,
   refreshDirectoryGraph,
   renderGraphClusterSelectionPanelView,
-  renderGraphClusterGlowView,
   renderGraphIconView,
   renderGraphIsolatedJoinNetworkFlowHtml,
   renderGraphIsolatedNextStepActionsHtml,
   renderGraphMapPreviewView,
-  renderGraphNebulaFieldView,
   renderGraphPanel,
   renderGraphReadingLensControlsView,
   renderGraphRelationTypeFilter,
   renderGraphRelationTypeFilterForRuntime,
-  renderGraphPromptDetailsView,
   renderGraphRelationWorkspaceMarkup,
   renderGraphResearchNavigatorEntryView,
   renderGraphResearchNavigatorPanelView,
   renderGraphSelectionMetricsView,
   renderGraphSelectionShellView,
-  renderGraphSelectionTaskView,
   renderGraphStarfieldView,
-  renderGraphThemeIndexWorkspaceMarkup,
+  renderGraphNebulaFieldView,
+  renderGraphClusterGlowView,
+  renderGraphFocusContextPanelView,
   renderGraphThemeBoundaryForRuntime,
+  renderGraphThemeIndexWorkspaceMarkup,
+  shouldShowGraphDensityHint,
   renderGraphThinkingItemsView,
   renderGraphThinkingPanelContentView,
   renderGraphThinkingPanelView,
@@ -4332,9 +4565,8 @@ const graphResidualViews = createGraphResidualViews({
   renderGraphUtilityDrawerView,
   renderRelationReviewQueueSectionView,
   resetGraphHoverDomState,
-  saveNote,
+  refinePotentialRelationCandidate,
   setStatus,
-  shouldShowGraphDensityHint,
   state,
   suggestedThemeIndexTitle,
   titleFromBody,
@@ -4364,7 +4596,6 @@ const {
   graphClueSummaryState,
   renderGraphWorkbenchEntryPills,
   renderGraphResearchNavigatorEntry,
-  renderGraphResearchNavigatorPanel: renderGraphResearchNavigatorPanelForGraph,
   graphLoadErrorMessage,
   renderGraphErrorState,
   renderGraphInlineNotice,
@@ -4439,6 +4670,7 @@ const {
   graphReviewSummaryFromAnalysis,
   mergePotentialRelationCandidateIntoGraphAnalysis,
   removePotentialRelationCandidateFromGraphAnalysis,
+  graphAiConnectRuntimeController,
   refineGraphPotentialRelationsForNote,
   refineGraphPotentialRelationCandidate,
   graphNoteTags,
@@ -4500,13 +4732,13 @@ const {
   graphClusterResearchMeta,
   renderGraphClusterSelectionPanel,
   graphResearchNavigatorState,
+  renderGraphResearchNavigatorPanel: renderGraphResearchNavigatorPanelForGraph,
   graphEdgeVisibleAtFit,
   graphEdgeShouldRender,
   renderGraphStarfield,
   renderGraphNebulaField,
   renderGraphClusterGlow,
   graphBuildVisualLayout,
-  renderGraphVisualMap,
   graphEdgePath,
   graphThemeBoundaryMeta,
   renderGraphThemeBoundary,
@@ -4535,6 +4767,7 @@ const {
   currentGraphWritingCandidateNoteIds,
   renderGraphMapPreview,
   renderGraphAiAnalysisCard,
+  renderGraphVisualMap,
   buildGraphQuestionSpotSummary,
   buildGraphQuestionSpotSummaryFromItems,
   renderGraphQuestionSpotChip,
@@ -4562,6 +4795,7 @@ const {
   renderGraphUtilityDrawer,
   graphSummaryModeNote
 } = graphResidualViews;
+
 const graphPanelRuntimeDeps = createGraphPanelPrototypeRuntimeDepsProvider(() => ({
     syncGraphDisclosureState,
     syncAllNoteRelationNetworkStatuses,
@@ -4608,6 +4842,7 @@ const graphPanelRuntimeDeps = createGraphPanelPrototypeRuntimeDepsProvider(() =>
     renderGraphInlineNotice,
     renderGraphVisualMap
 }));
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
@@ -4623,6 +4858,7 @@ function renderGraphPanel() {
     canReuseScopedGraph: graphLoadedScopeCoversDirectory(scopeDirectoryId)
   }, graphPanelRuntimeDeps());
 }
+
 async function refreshDirectoryGraph() {
   return refreshDirectoryGraphForRuntime({
     graphState,
@@ -4639,33 +4875,13 @@ async function refreshDirectoryGraph() {
     renderAll
   });
 }
-function graphDataList(element = null, name = "") {
-  return graphDataListFromElement(element, name);
-}
-const graphAiConnectRuntimeController = createGraphAiConnectRuntimeController(() => ({
-  addSystemMessage,
-  analyzeDirectoryGraph,
-  ensureGraphLocalAiReadyForAnalysis,
-  graphAiRelationCandidatesForNote,
-  graphNodeTitle,
-  graphPotentialRelationNeedsConfirmation,
-  graphRelationStatusCountsAsNetworkEdge,
-  graphRelationWorkflowController,
-  graphScopeDirectoryId,
-  graphState,
-  mergePotentialRelationCandidateIntoGraphAnalysis,
-  refinePotentialRelationCandidate,
-  removePotentialRelationCandidateFromGraphAnalysis,
-  renderGraphPanel,
-  setStatus,
-  state
-}));
+
 const graphRouteRuntime = createGraphRouteRuntime({
   addSystemMessage,
   analyzeDirectoryGraph,
   createIndexCard,
   graphAiConnectRuntimeController,
-  graphDataList,
+  graphDataList: graphDataListFromElement,
   graphFindPotentialRelationCandidate,
   graphRelationSaveController,
   graphScopeDirectoryId,
@@ -4736,6 +4952,7 @@ async function importYijingKnowledgeNetworkDemo(options = {}) {
     if (button) button.disabled = previousDisabled;
   }
 }
+
 async function importYijingRichAcceptanceDemo(options = {}) {
   const { startup = false } = options;
   const button = $("graphSeedYijingRich");
@@ -4778,6 +4995,7 @@ async function importYijingRichAcceptanceDemo(options = {}) {
     if (button) button.disabled = previousDisabled;
   }
 }
+
 async function importSmartNotesProductThinkingDemo(options = {}) {
   const { startup = false } = options;
   setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
@@ -4830,7 +5048,9 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     return false;
   }
 }
+
 async function ensureNoteBodyLoaded(noteId) { return noteRuntimeController.ensureNoteBodyLoaded(noteId); }
+
 function openNoteById(id, options = {}) {
   const note = state.notes.find((n) => n.id === id);
   if (!note) return false;
@@ -4859,6 +5079,7 @@ function openNoteById(id, options = {}) {
   ensureNoteBodyLoaded(id);
   return true;
 }
+
 function openNoteRelationEditor(noteId = "", options = {}) {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return false;
@@ -4879,12 +5100,14 @@ function openNoteRelationEditor(noteId = "", options = {}) {
   }, 60);
   return true;
 }
+
 const openRecordPermanentWorkflowFromCurrentNote = createRecordPermanentWorkflowOpener({
   getRecordPermanentButton: () => editor?.els?.recordPermanent,
   setStatus,
   setTimeout: (callback, delay) => window.setTimeout(callback, delay),
   now: () => Date.now()
 });
+
 const openSystemMessageWorkflow = createSystemMessageWorkflowOpener({
   getNotes: () => state.notes,
   setNotes: (notes) => {
@@ -4914,6 +5137,7 @@ const openSystemMessageWorkflow = createSystemMessageWorkflowOpener({
   openNoteById,
   openRecordPermanentWorkflowFromCurrentNote
 });
+
 const graphFollowupController = createGraphFollowupController(() => ({
   activateModule,
   continueWritingEntry,
@@ -4933,7 +5157,9 @@ const graphFollowupController = createGraphFollowupController(() => ({
   window,
   writingKnownNoteById
 }));
+
 function openGraphFollowupNote(noteId = "", action = "", options = {}) { return graphFollowupController.openGraphFollowupNote(noteId, action, options); }
+
 function removeNoteFromClientState(noteId = "") {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) return false;
@@ -4945,6 +5171,7 @@ function removeNoteFromClientState(noteId = "") {
   }
   return true;
 }
+
 function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
   const cleanNoteId = String(noteId || "").trim();
   const cleanDirectoryId = String(directoryId || "").trim();
@@ -4959,6 +5186,7 @@ function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
   state.selectedFileId = note.id;
   return true;
 }
+
 const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider(() => ({
     GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
     activateModule,
@@ -5044,7 +5272,9 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     writingCenterContinuationFailureMessage,
     writingCenterContinuationStatusMessage
   }));
+
 async function handleStateChange(reason, payload = {}) { return routeAppShellStateChange(reason, payload, appShellStateChangeDeps()); }
+
 const contextMenu = new ContextMenu($("contextMenu"));
 const createBoxDialog = new CreateBoxDialog({
   maskEl: $("newBoxModal"),
@@ -5072,6 +5302,7 @@ const permanentNoteDialog = new PermanentNoteDialog({
   cancelEl: $("permanentNoteCancel"),
   createEl: $("permanentNoteCreate")
 });
+
 createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
   await handleCreateDirectoryFromDialog({ name, parentId, fsPath, maxCards }, {
     state,
@@ -5086,6 +5317,7 @@ createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
     renderAll
   });
 };
+
 async function selectPermanentDirectory({
   sourceNoteId = "",
   sourceType = "",
@@ -5109,6 +5341,7 @@ async function selectPermanentDirectory({
   if (directoryId) lastChosenPermanentDirectoryId = directoryId;
   return directoryId;
 }
+
 async function selectNoteMoveDirectory({
   noteId = "",
   noteTitle = "",
@@ -5130,6 +5363,7 @@ async function selectNoteMoveDirectory({
     sourceTitle: noteTitle || noteId || "未命名笔记"
   });
 }
+
 const explorer = new ExplorerPane(createExplorerPaneHostDeps({
   $,
   state,
@@ -5143,6 +5377,7 @@ const explorer = new ExplorerPane(createExplorerPaneHostDeps({
   selectNoteMoveDirectory,
   resolveNotePath
 }));
+
 const editor = new EditorPane(createEditorPaneHostDeps({
   $,
   state,
@@ -5159,21 +5394,19 @@ const editor = new EditorPane(createEditorPaneHostDeps({
   renderStatusMeta,
   renderWorkspaceStatusHint
 }));
+loadNoteTemplateSettingsFromStorage();
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
 window.__prototypeImport = {
-  showResult: showImportResult,
-  renderPage: renderImportPageShell
+  showResult: showImportResult, renderPage: renderImportPageShell
 };
 window.__prototypeGraph = {
-  openFollowupNote: openGraphFollowupNote,
-  openNoteById,
-  runAiAnalysis: runGraphAiAnalysis,
-  runAiConnectForNote: runGraphAiConnectForNote,
-  createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds,
+  openFollowupNote: openGraphFollowupNote, openNoteById,
+  runAiAnalysis: runGraphAiAnalysis, runAiConnectForNote: runGraphAiConnectForNote, createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds,
   getSelectedFileId: () => state.selectedFileId,
   getActiveModule: () => state.module
 };
+
 installEditorShellEventBindings({
   $,
   state,
@@ -5196,6 +5429,7 @@ installEditorShellEventBindings({
   applyFocusModeChrome,
   setStatus
 });
+
 installSaveAiSuggestionRouteEventBindings({
   $,
   windowRef: window,
@@ -5209,6 +5443,7 @@ installSaveAiSuggestionRouteEventBindings({
   handleStateChange,
   setStatus
 });
+
 installSettingsEventBindings({
   $,
   state,
@@ -5264,6 +5499,7 @@ async function applyAiRuntimeModeChange(nextMode = "auto") {
     settingsAiAdvancedRuntimeModeLabel
   });
 }
+
 installSettingsAiEventBindings({
   $,
   settingsState,
@@ -5312,10 +5548,12 @@ installSettingsFeedbackEventBindings({
   openFeedbackUrl,
   setStatus
 });
+
 installDirtyTabsBeforeUnloadEventBindings({
   windowRef: window,
   editor
 });
+
 installWritingPanelBasketEventHandlers({
   $,
   depsProvider: () => ({
@@ -5350,6 +5588,7 @@ installWritingPanelBasketEventHandlers({
     setStatus
   })
 });
+
 installWritingThemeIndexEventHandlers({
   $,
   depsProvider: () => ({
@@ -5362,6 +5601,7 @@ installWritingThemeIndexEventHandlers({
     setStatus
   })
 });
+
 installWritingThemeDetailEventHandlers({
   $,
   depsProvider: () => ({
@@ -5380,6 +5620,7 @@ installWritingThemeDetailEventHandlers({
     setStatus
   })
 });
+
 installWritingProjectListEventHandlers({
   $,
   depsProvider: () => ({
@@ -5391,6 +5632,7 @@ installWritingProjectListEventHandlers({
     setStatus
   })
 });
+
 installWritingProjectHistoryEventHandlers({
   $,
   depsProvider: () => ({
@@ -5416,6 +5658,7 @@ installWritingProjectHistoryEventHandlers({
     setStatus
   })
 });
+
 installWritingDraftActionEventHandlers({
   $,
   depsProvider: () => ({
@@ -5439,6 +5682,7 @@ installWritingDraftActionEventHandlers({
     copyWritingScaffold,
     exportWritingScaffold,
     writingDraftDirectoryId,
+    writingDraftTitle,
     writingDraftBody,
     createNote,
     bindWritingDraftNote,
@@ -5447,6 +5691,7 @@ installWritingDraftActionEventHandlers({
     setStatus
   })
 });
+
 installGraphEntryEventBindings({
   $,
   state,
@@ -5458,6 +5703,7 @@ installGraphEntryEventBindings({
   renderAll,
   setStatus
 });
+
 bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   aiInboxState,
   openAiInboxModule,
@@ -5473,7 +5719,18 @@ bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   applyAiInboxRecommendedAction,
   setStatus
 }));
-bindGraphCanvasEvents($("graphCanvas"), {
+installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openGraphNodeSelectionFromElement });
+installGraphWorkbenchClickFallbackEvents(document, {
+  graphState,
+  graphWorkbenchTabMeta,
+  applyGraphWorkbenchEntryInteraction,
+  applyGraphWorkbenchTabInteraction,
+  applyGraphWorkbenchCloseInteraction,
+  renderGraphPanel,
+  runGraphAiAnalysis,
+  setStatus
+});
+bindGraphCanvasEvents($("graphPanel"), {
   appState: state,
   graphState,
   graphViewportDragState,
@@ -5528,7 +5785,7 @@ bindGraphCanvasEvents($("graphCanvas"), {
   openGraphFollowupNote,
   openGraphSelection,
   openGraphNodeSelectionFromElement,
-  openNoteById,
+  openNoteById: (noteId) => { const opened = openNoteById(noteId, { preferTitleSelection: false }); state.module = "graph"; renderGraphPanel(); return opened; },
   syncGraphIsolatedAiCandidateForm,
   graphIsolatedFormError,
   applyGraphRelationTypeFilterInteraction,
@@ -5581,10 +5838,12 @@ installAppRailEventBindings({
   openDistillationModule,
   setStatus
 });
+
 installSystemMessageEventHandlers({
   $,
   depsProvider: systemMessageEventDeps
 });
+
 installDistillationEventBindings({
   $,
   state,
@@ -5597,6 +5856,7 @@ installDistillationEventBindings({
   renderAll,
   openDistillationQueueNote
 });
+
 installSidebarFlowEventHandler({
   $,
   depsProvider: () => ({
@@ -5607,6 +5867,7 @@ installSidebarFlowEventHandler({
     handleStateChange
   })
 });
+
 installMobileNoteEventBindings({
   $,
   state,
@@ -5615,6 +5876,7 @@ installMobileNoteEventBindings({
   rootBoxIdFromFolder,
   handleStateChange
 });
+
 installQuickActionEventBindings({
   documentRef: document,
   windowRef: window,
@@ -5628,6 +5890,7 @@ installQuickActionEventBindings({
   renderAll,
   setStatus
 });
+
 installAppGlobalKeyboardEvents({
   documentRef: document,
   state,
@@ -5700,5 +5963,7 @@ function appStartupDeps() {
     setStatus
   };
 }
+
 async function bootstrap() { return bootstrapAppForRuntime(appStartupDeps()); }
+
 bootstrap();

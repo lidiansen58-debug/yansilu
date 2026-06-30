@@ -8322,6 +8322,7 @@ test("prototype graph local candidate save removes isolated state and updates gr
     const selectionText = await page.locator(".graph-selection-panel").textContent();
     assert.match(String(selectionText || ""), /Aaa Local Source/);
     assert.match(String(selectionText || ""), /这条永久笔记还没有进入关系网/);
+    assert.match(String(selectionText || ""), /手工选择一条相关笔记/);
   }, 7000);
 
   await page.locator('.graph-selection-panel [data-graph-isolated-tab="manual"]').click();
@@ -8332,7 +8333,7 @@ test("prototype graph local candidate save removes isolated state and updates gr
   }, 7000);
 
   await page.locator('.graph-selection-panel [data-graph-pick-manual-target]:has-text("Bbb Local Target")').first().click();
-  await page.locator(".graph-selection-panel [data-graph-isolated-relation-type]").selectOption("same_topic");
+  await page.locator(".graph-selection-panel [data-graph-isolated-relation-type]").selectOption("supports");
   await page.locator(".graph-selection-panel [data-graph-isolated-rationale]").fill("两条笔记都在说明同一个测试主题，需要放入同一张关系网。");
   await page.locator(".graph-selection-panel [data-graph-manual-target-search]").fill("No stale target");
   await page.locator(".graph-selection-panel [data-graph-isolated-relation-save]").click();
@@ -8352,14 +8353,14 @@ test("prototype graph local candidate save removes isolated state and updates gr
     assert.equal(relations.status, 200, JSON.stringify(relations.json));
     assert.equal(relations.json.item.outgoingLinks.length, 1);
     assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
-    assert.equal(relations.json.item.outgoingLinks[0].relationType, "same_topic");
+    assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
   }, 10000);
 
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
   assert.equal(relations.status, 200, JSON.stringify(relations.json));
   assert.equal(relations.json.item.outgoingLinks.length, 1);
   assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
-  assert.equal(relations.json.item.outgoingLinks[0].relationType, "same_topic");
+  assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
 
   await page.locator('.rail-btn[data-module="graph"]').click();
   await waitFor(async () => {
@@ -8375,6 +8376,9 @@ test("prototype graph local candidate save removes isolated state and updates gr
     );
     assert.equal(hasIsolatedKey, false);
     assert.equal(await page.locator(".graph-isolated-queue-strip").count(), 0);
+    assert.equal(await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.json.item.id}"]`).count(), 1);
+    const savedEdgeCount = await page.locator(`#graphCanvas .graph-map-edge-group[data-edge-from="${source.json.item.id}"][data-edge-to="${target.json.item.id}"], #graphCanvas .graph-map-edge-group[data-edge-from="${target.json.item.id}"][data-edge-to="${source.json.item.id}"]`).count();
+    assert.equal(savedEdgeCount, 1);
   }, 7000);
 
   await waitFor(async () => {
@@ -8383,6 +8387,7 @@ test("prototype graph local candidate save removes isolated state and updates gr
     const workspaceText = await page.locator(".graph-selection-panel").textContent();
     assert.match(String(workspaceText || ""), /已接入关系网|关系已保存/);
     assert.match(String(workspaceText || ""), /Bbb Local Target/);
+    assert.equal(await page.locator("[data-graph-isolated-relation-form]").count(), 0);
   }, 7000);
 });
 

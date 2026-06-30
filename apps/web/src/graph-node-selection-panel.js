@@ -73,7 +73,7 @@ export function renderGraphNodeSelectionPanel({ selection: normalized = null, is
         </details>`
       : "";
     const promptDetails = renderGraphPromptDetails("思考提示（可选）", prompts);
-    const openNoteClass = directEdges.length ? "is-primary" : "is-quiet";
+    const openNoteClass = "is-primary";
     const aiConnectClass = directEdges.length ? "is-ai" : "is-primary is-ai";
     return renderGraphSelectionShell({
       className: `is-node is-${role.tone}`,

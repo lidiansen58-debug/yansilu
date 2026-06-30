@@ -663,6 +663,9 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(listedProjects.json.items[0].desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
   assert.equal(listedProjects.json.items[0].draft_note_id, draftNote.json.item.id);
   assert.equal(listedProjects.json.items[0].scaffold_id, scaffoldV2.json.item.id);
+  assert.deepEqual(listedProjects.json.items[0].basket_note_ids, [noteA.json.item.id, noteB.json.item.id]);
+  assert.equal(listedProjects.json.items[0].basket_notes.length, 2);
+  assert.equal(listedProjects.json.items[0].basket_notes[0].title, "Writing from claims");
   assert.equal(listedProjects.json.items[0].thinkingStatus.status, "ready_for_review");
 
   const secondProject = await postJson(baseUrl, "/api/v1/writing-projects", {

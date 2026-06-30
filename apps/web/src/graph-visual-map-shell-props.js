@@ -2,6 +2,7 @@ export function graphSelectionUsesOverlay(selectionKind = "", selectionNodeNeeds
   return (
     selectionKind === "isolated" ||
     selectionKind === "isolatedComplete" ||
+    selectionKind === "relationForm" ||
     selectionNodeNeedsRelationWorkflow === true
   );
 }

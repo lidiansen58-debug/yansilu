@@ -232,7 +232,23 @@ const editorPaneStateMethods = {
   clearDraft(noteId) {
     if (!noteId) return;
     try {
+      const matchingTab = (this.state.tabs || []).find((tab) => String(tab?.noteId || "").trim() === String(noteId || "").trim()) || null;
+      const matchingBody = normalizedBodyTextForDirtyCheck(matchingTab?.body || "");
+      const matchingTitle = normalizedNoteTitleText(matchingTab?.title || "");
       window.localStorage?.removeItem(this.draftKey(noteId));
+      const prefix = "yansilu:draft:";
+      for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+        const key = window.localStorage.key(index);
+        if (!key || !key.startsWith(prefix) || key === this.draftKey(noteId)) continue;
+        const draft = parseEditorDraft(window.localStorage.getItem(key));
+        const sameNote = String(draft?.noteId || "").trim() === String(noteId || "").trim();
+        const sameSavedContent = matchingTab &&
+          normalizedBodyTextForDirtyCheck(draft?.body || "") === matchingBody &&
+          normalizedNoteTitleText(draft?.title || "") === matchingTitle;
+        if (sameNote || sameSavedContent) {
+          window.localStorage.removeItem(key);
+        }
+      }
     } catch {}
   },
 

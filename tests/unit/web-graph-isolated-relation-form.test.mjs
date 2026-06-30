@@ -63,6 +63,54 @@ test("isolated relation form model switches to manual mode for preferred target"
   assert.equal(model.defaultRationaleSource, "");
 });
 
+test("isolated relation form model keeps AI mode when preferred target is an AI candidate", () => {
+  const model = graphIsolatedJoinNetworkFormModel(
+    "source",
+    {
+      nodeMap: new Map([
+        ["source", { id: "source", title: "Source" }],
+        ["ai-target", { id: "ai-target", title: "AI Target" }]
+      ]),
+      preferredTargetNoteId: "ai-target",
+      preferredRelationType: "supports",
+      preferredRationale: "AI candidate needs confirmation.",
+      aiCandidates: [{
+        counterpartNoteId: "ai-target",
+        relationType: "supports",
+        actionSourceNoteId: "source",
+        rationaleDraft: "Suggested reason."
+      }],
+      manualTargets: [{ id: "ai-target", title: "AI Target" }]
+    },
+    {
+      workflowTabKey,
+      activeTabForNote: () => "ai",
+      reversibleRelationTypes: new Set(["bridges", "same_topic", "associated_with"]),
+      nodeTitle
+    }
+  );
+
+  assert.equal(model.activeMode, "ai");
+  assert.equal(model.activeAiTargetNoteId, "ai-target");
+  assert.equal(model.selectedManualTargetNoteId, "");
+  assert.equal(model.previewTargetNoteId, "ai-target");
+  assert.equal(model.defaultRelationType, "supports");
+  assert.equal(model.defaultRationale, "AI candidate needs confirmation.");
+});
+
+test("isolated relation form model defaults to manual mode when only manual targets are available", () => {
+  const model = graphIsolatedJoinNetworkFormModel(
+    "source",
+    {
+      manualTargets: [{ id: "manual", title: "Manual target" }]
+    },
+    { workflowTabKey, activeTabForNote: () => "ai", nodeTitle }
+  );
+
+  assert.equal(model.activeMode, "manual");
+  assert.equal(model.defaultRelationType, "associated_with");
+});
+
 test("isolated relation form model keeps AI and manual drafts separate", () => {
   const model = graphIsolatedJoinNetworkFormModel(
     "source",

@@ -98,7 +98,7 @@ function mapScaffoldListRow(row) {
   };
 }
 
-function mapProjectListRow(row) {
+function mapProjectListRow(row, basketNoteIds = [], basketNotes = []) {
   const bookStructure = normalizeBookStructure(parseJsonObject(row.book_structure_json, {}));
   const project = {
     id: row.id,
@@ -110,6 +110,8 @@ function mapProjectListRow(row) {
     desired_reader_takeaway: row.desired_reader_takeaway || "",
     related_index_ids: parseJsonStringArray(row.related_index_ids_json),
     book_structure_summary: summarizeBookStructure(bookStructure),
+    basket_note_ids: basketNoteIds,
+    basket_notes: basketNotes.map(({ body, ...note }) => note),
     scaffold_id: row.scaffold_id || null,
     draft_note_id: row.draft_note_id || null,
     status: row.status,
@@ -388,6 +390,33 @@ async function loadBasketNotes(vaultPath, noteIds) {
       body: note.body,
       boundaryOrCounterpoint: cleanText(note.boundaryOrCounterpoint)
     });
+  }
+  return notes;
+}
+
+async function loadBasketNoteSummaries(vaultPath, noteIds) {
+  const notes = [];
+  for (const noteId of uniqueIds(noteIds)) {
+    try {
+      const note = await getNoteById(vaultPath, noteId);
+      notes.push({
+        id: note.id,
+        title: note.title,
+        note_type: cleanText(note.noteType),
+        status: note.status,
+        markdown_path: note.markdownPath,
+        excerpt: noteExcerpt(note)
+      });
+    } catch {
+      notes.push({
+        id: noteId,
+        title: "",
+        note_type: "",
+        status: "missing",
+        markdown_path: "",
+        excerpt: ""
+      });
+    }
   }
   return notes;
 }
@@ -1123,8 +1152,13 @@ export async function listWritingProjects(vaultPath, input = {}) {
       .all(...params, limit);
     const projects = [];
     for (const row of rows) {
+      const basketRows = db
+        .prepare("SELECT note_id FROM writing_basket_items WHERE project_id = ? ORDER BY order_no ASC")
+        .all(row.id);
+      const basketNoteIds = basketRows.map((item) => item.note_id);
+      const basketNotes = await loadBasketNoteSummaries(vaultPath, basketNoteIds);
       projects.push({
-        ...mapProjectListRow(row),
+        ...mapProjectListRow(row, basketNoteIds, basketNotes),
         draft_note: await loadProjectDraftNote(vaultPath, row.draft_note_id)
       });
     }

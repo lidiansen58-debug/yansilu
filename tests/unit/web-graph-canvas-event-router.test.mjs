@@ -4,8 +4,17 @@ import { bindGraphCanvasEvents } from "../../apps/web/src/graph-canvas-event-rou
 
 function createGraphCanvas() {
   const listeners = new Map();
+  const documentListeners = new Map();
+  const ownerDocument = {
+    listeners: documentListeners,
+    addEventListener(type, handler, options) {
+      if (!documentListeners.has(type)) documentListeners.set(type, []);
+      documentListeners.get(type).push({ handler, options });
+    }
+  };
   return {
     listeners,
+    ownerDocument,
     addEventListener(type, handler, options) {
       if (!listeners.has(type)) listeners.set(type, []);
       listeners.get(type).push({ handler, options });

@@ -1206,7 +1206,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphAiConnectModelSource, /relationLimit: 24,/);
   assert.match(graphAiConnectModelSource, /focusNoteId: cleanNoteId,/);
   assert.match(graphAiConnectModelSource, /currentNoteId: cleanNoteId,/);
-  assert.match(graphAiConnectRuntimeSource, /if \(candidates\.length\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
+  assert.match(graphAiConnectRuntimeSource, /if \(candidates\.length && !firstTargetId\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
   assert.match(graphAiConnectRuntimeSource, /graphRelationWorkflowController\?\.startAiConnectForNote\?\.\(cleanNoteId\);/);
   assert.match(graphAiConnectRuntimeSource, /graphRelationWorkflowController\?\.applyAiConnectRoute\?\.\(\{/);
   assert.match(workflowControllerSource, /const visibleEdgeCount = graphDirectNetworkEdgeCount\(cleanNoteId, edges,/);
@@ -1813,10 +1813,8 @@ test("graph node selection summarizes position, relation quality, and next actio
   assert.match(source, /function renderGraphSelectionTask\(task = null\) \{/);
   assert.match(selectionPanelSource, /aria-label="[^"]+"/);
   assert.match(nodeSelectionPanelSource, /已接入图谱：检查关系是否能支撑你的判断/);
-  assert.match(source, /当前选中笔记/);
-  assert.match(source, /上下游关系/);
-  assert.match(source, /写作价值/);
-  assert.match(source, /下一步/);
+  assert.match(source, /当前状态/);
+  assert.match(source, /建议下一步/);
   assert.match(source, /为什么这样判断/);
   assert.match(nodeSelectionPanelSource, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
   assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);

@@ -11,12 +11,13 @@ import {
 const confirmableRelationTypes = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
 const normalizeMode = (value = "") => String(value || "").trim().toLowerCase() === "manual" ? "manual" : "ai";
 
-function createElement({ value = "", textContent = "", attrs = {} } = {}) {
+function createElement({ value = "", textContent = "", attrs = {}, options = null } = {}) {
   const classes = new Set();
   return {
     value,
     textContent,
     hidden: false,
+    options: Array.isArray(options) ? options.map((optionValue) => ({ value: optionValue })) : undefined,
     attrs: new Map(Object.entries(attrs)),
     classList: {
       add(name) {
@@ -197,7 +198,7 @@ test("graph isolated relation controller keeps AI and manual drafts separate", (
   });
   const aiSelect = createElement({ value: "ai-target" });
   aiSelect.selectedOptions = [aiOption];
-  const relationSelect = createElement({ value: "bridges" });
+  const relationSelect = createElement({ value: "bridges", options: ["associated_with", "supports", "bridges"] });
   const rationaleInput = createElement({
     value: "用户已经写好的关系说明，不应该被 AI 覆盖。",
     attrs: { "data-graph-rationale-source": "user" }
@@ -241,6 +242,38 @@ test("graph isolated relation controller keeps AI and manual drafts separate", (
     manualRationaleSource: "user",
     manualInsightQuestion: "manual question"
   });
+});
+
+test("graph isolated relation controller falls back when AI candidate relation type is not selectable", () => {
+  const graphState = { isolatedRelationDraftByNoteId: {} };
+  const controller = baseController({ graphState });
+  const aiOption = createElement({
+    attrs: {
+      "data-graph-relation-type": "extends",
+      "data-graph-rationale-draft": "AI reason.",
+      "data-graph-insight-question-draft": "AI question"
+    }
+  });
+  const aiSelect = createElement({ value: "ai-target" });
+  aiSelect.selectedOptions = [aiOption];
+  const relationSelect = createElement({ value: "supports", options: ["associated_with", "supports", "bridges"] });
+  const form = createForm({
+    noteId: "current",
+    controls: {
+      "[data-graph-relation-source-mode]": createElement({ value: "ai" }),
+      "[data-graph-ai-candidate-select]": aiSelect,
+      "[data-graph-manual-target-id]": createElement(),
+      "[data-graph-manual-target-search]": createElement(),
+      "[data-graph-isolated-rationale]": createElement(),
+      "[data-graph-isolated-relation-type]": relationSelect,
+      "[data-graph-isolated-insight-question]": createElement()
+    }
+  });
+
+  controller.syncAiCandidateForm(aiSelect);
+
+  assert.equal(relationSelect.value, "associated_with");
+  assert.equal(graphState.isolatedRelationDraftByNoteId.current.relationType, "associated_with");
 });
 
 test("graph isolated relation controller clears stale manual target when search text changes", () => {

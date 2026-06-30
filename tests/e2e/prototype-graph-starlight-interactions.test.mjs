@@ -139,7 +139,8 @@ test("prototype graph research navigator opens cluster and bright-star explanati
     assert.ok(await page.locator(".graph-selection-panel.is-cluster").isVisible());
     const copy = await page.locator(".graph-selection-panel.is-cluster").textContent();
     assert.match(copy || "", /主题群摘要/);
-    assert.match(copy || "", /思考提示/);
+    assert.match(copy || "", /研究判断/);
+    assert.match(copy || "", /整理成主题草稿/);
   }, 3000);
 
   await page.locator("[data-graph-selection-close]").click();
@@ -161,7 +162,7 @@ test("prototype graph research navigator opens cluster and bright-star explanati
     assert.ok(await page.locator(".graph-selection-panel.is-edge").isVisible());
     const copy = await page.locator(".graph-selection-panel.is-edge").textContent();
     assert.match(copy || "", /已保存关系/);
-    assert.match(copy || "", /复核提示/);
+    assert.match(copy || "", /当前理由/);
   }, 3000);
 });
 

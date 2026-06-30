@@ -17,7 +17,8 @@ import {
   installWritingProjectHistoryEventHandlers,
   installWritingProjectListEventHandlers,
   installWritingThemeDetailEventHandlers,
-  installWritingThemeIndexEventHandlers
+  installWritingThemeIndexEventHandlers,
+  normalizeWritingDraftTitle
 } from "../../apps/web/src/writing-panel-events.js";
 
 function actionTarget(action, noteId = "n1") {
@@ -33,6 +34,13 @@ function actionTarget(action, noteId = "n1") {
       : null
   };
 }
+
+test("writing draft title normalizes English project suffix to Chinese project draft", () => {
+  assert.equal(normalizeWritingDraftTitle("Writing UI Project"), "Writing UI 项目 草稿");
+  assert.equal(normalizeWritingDraftTitle("Writing UI Project 草稿"), "Writing UI 项目 草稿");
+  assert.equal(normalizeWritingDraftTitle("Evidence 项目"), "Evidence 项目 草稿");
+  assert.equal(normalizeWritingDraftTitle("Evidence 项目 草稿"), "Evidence 项目 草稿");
+});
 
 function indexTarget(selector, attrs = {}) {
   return {
@@ -698,8 +706,12 @@ test("writing create scaffold and save draft handlers persist generated state", 
   await handleWritingSaveDraftClick({
     ...sharedDeps,
     writingDraftDirectoryId: () => "dir1",
-    writingDraftBody: () => "body",
-    createNote: async () => ({ id: "n1", title: "Draft" }),
+    writingDraftTitle: () => "Writing UI Project",
+    writingDraftBody: () => "# Writing UI Project 草稿\n\nbody",
+    createNote: async (payload) => {
+      calls.push(["create-note", payload.title, payload.body]);
+      return { id: "n1", title: payload.title };
+    },
     bindWritingDraftNote: async (projectId, noteId, scaffoldId, versionNote) => {
       calls.push(["bind", projectId, noteId, scaffoldId, versionNote]);
       return { id: projectId, draft_note_id: noteId };
@@ -711,5 +723,6 @@ test("writing create scaffold and save draft handlers persist generated state", 
   assert.equal(writingState.scaffoldMarkdown, "body");
   assert.equal(writingState.project.draft_note_id, "n1");
   assert.equal(state.notes[0].mapped, true);
+  assert.ok(calls.some((call) => call[0] === "create-note" && call[1] === "Writing UI 项目 草稿" && /^# Writing UI 项目 草稿/.test(call[2])));
   assert.ok(calls.some((call) => call[0] === "bind" && call[1] === "p1" && call[2] === "n1" && call[3] === "s1"));
 });

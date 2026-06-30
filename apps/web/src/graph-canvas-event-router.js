@@ -111,7 +111,8 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       event.preventDefault();
       event.stopImmediatePropagation();
     };
-    if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport")) {
+    const graphHitTarget = event.target.closest(".graph-map-node[data-node-id], .graph-map-edge-group[data-edge-from], [data-graph-select-node]");
+    if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport") && !graphHitTarget) {
       consumeGraphClick();
       return;
     }
@@ -550,6 +551,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const graphNode = event.target.closest(".graph-map-node[data-node-id]");
     if (graphNode) {
+      event.__yansiluGraphNodeHandled = true;
       openGraphNodeSelectionFromElement(graphNode);
       return;
     }
@@ -574,6 +576,47 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
   });
 
   documentRef?.addEventListener?.("click", (event) => {
+    const workbenchEntry = event.target?.closest?.("[data-graph-workbench-entry]");
+    if (workbenchEntry) {
+      event.preventDefault();
+      event.stopPropagation();
+      const result = applyGraphWorkbenchEntryInteraction(graphState, workbenchEntry.getAttribute("data-graph-workbench-entry"), {
+        graphWorkbenchTabMeta
+      });
+      renderGraphPanel();
+      setStatus(result.open ? `已打开${result.meta.statusLabel || result.meta.label}` : "已收起图谱侧栏", "ok");
+      return;
+    }
+    const workbenchTab = event.target?.closest?.("[data-graph-workbench-tab]");
+    if (workbenchTab) {
+      event.preventDefault();
+      event.stopPropagation();
+      const result = applyGraphWorkbenchTabInteraction(graphState, workbenchTab.getAttribute("data-graph-workbench-tab"), {
+        graphWorkbenchTabMeta
+      });
+      renderGraphPanel();
+      setStatus(`已切换到${result.meta.statusLabel || result.meta.label}`, "ok");
+      return;
+    }
+    const workbenchClose = event.target?.closest?.("[data-graph-workbench-close]");
+    if (workbenchClose) {
+      event.preventDefault();
+      event.stopPropagation();
+      applyGraphWorkbenchCloseInteraction(graphState);
+      renderGraphPanel();
+      setStatus("已收起图谱侧栏", "ok");
+      return;
+    }
+    const graphAiButton = event.target?.closest?.("[data-run-graph-ai-analysis]");
+    if (graphAiButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      graphState.workbenchPanelOpen = true;
+      graphState.workbenchPanelTab = "questions";
+      renderGraphPanel();
+      void runGraphAiAnalysis();
+      return;
+    }
     const row = event.target?.closest?.("[data-open-note]");
     if (!row || graphCanvas?.contains?.(row)) return;
     if (!row.closest?.(".graph-selection-panel, .graph-focus-context-panel, [data-graph-workbench-panel]")) return;

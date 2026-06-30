@@ -8,6 +8,7 @@ import {
   suggestedThemeIndexTitle,
   suggestedWritingProjectTitle,
   uniqueWritingBookPoolItems,
+  writingProjectEntryTitle,
   writingBookMatchesAny,
   writingBookPlainText,
   writingBookSectionFromNote,
@@ -31,6 +32,17 @@ test("writing workspace helpers derive project titles from note lookup", () => {
   assert.match(normalizeWritingProjectTitleSeed("Alpha"), /Alpha/);
   assert.match(suggestedWritingProjectTitle(["n1"], { noteById }), /Alpha/);
   assert.match(suggestedWritingProjectTitle(["n1", "n2"], { noteById }), /Alpha/);
+  assert.match(
+    writingProjectEntryTitle({
+      id: "wp1",
+      title: "Custom Project",
+      basket_notes: [
+        { id: "n2", title: "Beta" },
+        { id: "n1", title: "Alpha" }
+      ]
+    }),
+    /Beta.*项目/
+  );
 });
 
 test("writing workspace helpers derive theme labels from tags before titles", () => {
