@@ -28,7 +28,7 @@ export function systemMessageWorkflowNoteTitles(message = {}, { notes = [], syst
   const title = String(message.title || "").trim();
   pushTitle(
     title.replace(
-      /\s*(还没有进入图谱|发现了潜在关联|产生了待确认建议|需要处理|待关联|待确认)\s*$/u,
+      /\s*(还没有进入图谱|还没关联|发现了潜在关联|找到可能关系|产生了待确认建议|有待确认建议|适合生成永久笔记|可以继续整理成主题|需要处理|待关联|待确认)\s*$/u,
       ""
     )
   );

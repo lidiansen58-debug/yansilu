@@ -203,15 +203,13 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       const noteTitle = graphNodeTitle(nodeMap, cleanNoteId, state.notes.find((note) => note.id === cleanNoteId)?.title || cleanNoteId);
       const candidateTitles = graphAiConnectCandidateTitles(candidates);
       const count = graphAiConnectArtifactCount(result);
-      if (count > 0) {
+      if (count > 0 && candidates.length > 0) {
         const messageId = `graph-ai-connect:${directoryId || "root"}:${cleanNoteId}:${Date.now()}`;
         addSystemMessage({
           id: messageId,
           type: "ai",
-          title: `${noteTitle} 发现了潜在关联`,
-          body: candidates.length
-            ? `“${noteTitle}”找到 ${candidates.length} 个可选目标${candidateTitles.length ? `：${candidateTitles.join("、")}` : ""}。打开后只保存能说清理由的关系。`
-            : `“${noteTitle}”接入扫描完成，但暂时没有足够清楚的候选连接。`,
+          title: `${noteTitle} 找到可能关系`,
+          body: `“${noteTitle}”找到 ${candidates.length} 个可选目标${candidateTitles.length ? `：${candidateTitles.join("、")}` : ""}。打开后只保存能说清理由的关系。`,
           action: "open-graph",
           actionLabel: "查看候选并确认关系",
           noteId: cleanNoteId,
@@ -220,6 +218,8 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
           workflowRoute: { focus: "graph", source: "graph-ai-connect", graphSelectionKind }
         });
         graphState.aiReviewSystemMessageId = messageId;
+      } else {
+        graphState.aiReviewSystemMessageId = "";
       }
       graphState.thinkingPanelVisible = true;
       setStatus(candidates.length ? `已找到 ${candidates.length} 条潜在关联，请确认后再写入图谱` : "当前笔记接入扫描完成，暂无清楚候选连接", candidates.length ? "ok" : "warn");

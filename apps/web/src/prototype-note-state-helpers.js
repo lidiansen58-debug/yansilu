@@ -260,10 +260,11 @@ export function sourcePromotionWorkflowMessageForNote(note = null, suggestion = 
   const dedupeKey = workflowMessageDedupeKey(note.id, "source-promotion", focus);
   const isLiterature = noteType === "literature";
   const actionLabel = isLiterature ? "提炼为永久笔记" : "提炼为永久笔记";
-  const title = isLiterature ? "文献笔记可以进入永久笔记流程" : "随笔可以沉淀为永久笔记";
+  const noteTitle = String(note.title || note.id || "未命名笔记").trim() || "未命名笔记";
+  const title = isLiterature ? `${noteTitle} 适合生成永久笔记` : `${noteTitle} 适合生成永久笔记`;
   const body = isLiterature
-    ? `“${note.title || note.id}”已经保存。打开它后可以继续整理来源、转述和判断种子，并把成熟材料提炼为永久笔记。`
-    : `“${note.title || note.id}”已经保存。随笔只是线索；如果它值得长期保留，下一步是把它写成一条自己愿意承担的永久判断。`;
+    ? `“${noteTitle}”已经保存。打开它后可以继续整理来源、转述和判断种子，并把成熟材料提炼为永久笔记。`
+    : `“${noteTitle}”已经保存。随笔只是线索；如果它值得长期保留，下一步是把它写成一条自己愿意承担的永久判断。`;
   return {
     id: `workflow:${dedupeKey}`,
     type: "workflow",
@@ -301,7 +302,7 @@ export function relationNetworkWorkflowMessageForNote(note = null, overview = {}
     id: `workflow:${dedupeKey}`,
     type: "workflow",
     category: "relation-network",
-    title: `${noteTitle} 还没有进入图谱`,
+    title: `${noteTitle} 还没关联`,
     body: `“${noteTitle}”已经是一条永久笔记，但还没有和其他永久笔记建立正式关联。打开它后先关联一条真正相关的笔记，并写清它们是支持、反驳、限定还是桥接；如果暂时独立，也在边界里写下理由。`,
     action: "open-note-workflow",
     actionLabel: "关联一条笔记",

@@ -234,7 +234,7 @@ function renderGraphAiAnalysisCard(options = {}) {
             : analysis
               ? `
                 <div class="graph-metrics" aria-label="AI 图谱初判摘要">
-                  ${renderGraphMetricCard("待审项", pendingCount, "系统消息中复核", pendingCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("待审项", pendingCount, "当前图谱内处理", pendingCount ? "warn" : "good")}
                   ${renderGraphMetricCard("主题候选", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
                   ${renderGraphMetricCard("关系候选", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
                   ${renderGraphMetricCard("潜在关联/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
@@ -243,7 +243,7 @@ function renderGraphAiAnalysisCard(options = {}) {
                   <strong>待审优先级</strong>
                   <small>${escapeHtml(
                     pendingCount
-                      ? "先在图谱里判断结构是否成立；需要逐条采纳时再到系统消息里复核 AI 建议。"
+                      ? "先在图谱里判断结构是否成立；只确认能说清理由的关系或主题。"
                       : "当前没有新的图谱候选。"
                   )}</small>
                 </div>

@@ -922,8 +922,8 @@ test("graph AI analysis opens the question workbench instead of navigating away"
   assert.match(match[1], /graphState\.thinkingFilter = "all";/);
   assert.match(match[1], /graphState\.workbenchPanelOpen = true;/);
   assert.match(match[1], /graphState\.workbenchPanelTab = "questions";/);
-  assert.match(match[1], /addSystemMessage\(\{/);
-  assert.match(match[1], /graphState\.aiReviewSystemMessageId = messageId;/);
+  assert.doesNotMatch(match[1], /addSystemMessage\(\{/);
+  assert.match(match[1], /graphState\.aiReviewSystemMessageId = "";/);
   assert.doesNotMatch(match[1], /openAiInboxModule/, "graph scan should not auto-navigate away from the graph");
 });
 
@@ -933,17 +933,18 @@ test("graph AI scan button immediately opens the question workbench", () => {
   assert.match(source, /graphState\.workbenchPanelOpen = true;[\s\S]*graphState\.workbenchPanelTab = "questions";[\s\S]*void runGraphAiAnalysis\(\);/);
 });
 
-test("graph AI review action opens system messages instead of the AI review module directly", () => {
+test("graph AI review action stays inside the graph workbench", () => {
   const source = readGraphCanvasEventRouter();
-  const start = source.indexOf('  const graphAiInboxButton = event.target.closest("[data-open-ai-inbox-from-graph]");');
+  const start = source.indexOf('  const graphThinkingReviewButton = event.target.closest("[data-graph-focus-thinking-review]");');
   const end = source.indexOf('  const retryButton = event.target.closest("[data-graph-retry]");', start);
-  assert.ok(start >= 0 && end > start, "expected graph AI review action handler");
+  assert.ok(start >= 0 && end > start, "expected graph thinking review action handler");
   const handler = source.slice(start, end);
 
-  assert.match(handler, /const graphMessageId = String\(graphState\.aiReviewSystemMessageId \|\| ""\)\.trim\(\)/);
-  assert.match(handler, /setSelectedSystemMessageId\(selectedGraphMessage\)/);
-  assert.match(handler, /openSystemMessages\(\)/);
-  assert.doesNotMatch(handler, /openSystemMessages\(\{ latestOnly: true \}\)/);
+  assert.match(handler, /graphState\.workbenchPanelOpen = true;/);
+  assert.match(handler, /graphState\.workbenchPanelTab = "questions";/);
+  assert.match(handler, /graphState\.thinkingPanelOpen = true;/);
+  assert.match(handler, /graphState\.thinkingFilter = "all";/);
+  assert.doesNotMatch(handler, /openSystemMessages\(\)/);
   assert.doesNotMatch(handler, /activateModule\("aiInbox"\)/);
   assert.doesNotMatch(handler, /openAiInboxModule\(\)/);
 });

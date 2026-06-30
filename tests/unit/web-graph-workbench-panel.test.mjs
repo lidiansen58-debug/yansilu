@@ -97,7 +97,9 @@ test("graph thinking panel content renders filters, summary, review note, and bo
 
   assert.match(html, /data-graph-thinking-filter="organize"/);
   assert.match(html, /graph-thinking-categories/);
-  assert.match(html, /data-open-ai-inbox-from-graph/);
+  assert.match(html, /data-graph-focus-thinking-review/);
+  assert.match(html, /查看待判断/);
+  assert.doesNotMatch(html, /系统消息/);
   assert.match(html, /补理由/);
 });
 

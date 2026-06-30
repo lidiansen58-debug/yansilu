@@ -20,11 +20,11 @@ import {
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
 
-const REVIEW_ACTION_LABEL = "\u67e5\u770b\u5f85\u786e\u8ba4\u5efa\u8bae";
+const REVIEW_ACTION_LABEL = "\u5904\u7406\u5f85\u786e\u8ba4\u5efa\u8bae";
 const OPEN_WORKFLOW_LABEL = "\u6253\u5f00\u5e76\u5904\u7406";
 const NOTE_TITLE = "\u5173\u7cfb\u6574\u7406\u5165\u53e3";
 const ISOLATED_TITLE = "\u6c38\u4e45\u7b14\u8bb0\u8fd8\u6ca1\u6709\u8fdb\u5165\u56fe\u8c31";
-const ISOLATED_SUFFIX = "\u8fd8\u6ca1\u6709\u8fdb\u5165\u56fe\u8c31";
+const ISOLATED_SUFFIX = "\u8fd8\u6ca1\u5173\u8054";
 
 function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
@@ -152,27 +152,18 @@ test("AI analysis writes an interrupting system message when suggestions are cre
   });
 
   assert.equal(message.id, "ai-analysis:note-1:123");
-  assert.equal(message.title, `${NOTE_TITLE} \u4ea7\u751f\u4e86\u5f85\u786e\u8ba4\u5efa\u8bae`);
-  assert.match(message.body, /\u5305\u542b\u6f5c\u5728\u5173\u8054/);
+  assert.equal(message.title, `${NOTE_TITLE} \u627e\u5230\u53ef\u80fd\u5173\u7cfb`);
+  assert.match(message.body, /\u53ef\u80fd\u5173\u7cfb/);
   assert.equal(message.action, "open-ai-inbox");
-  assert.equal(message.actionLabel, REVIEW_ACTION_LABEL);
+  assert.equal(message.actionLabel, "\u786e\u8ba4\u5173\u7cfb\u5efa\u8bae");
   assert.equal(message.artifactCount, 2);
+  assert.equal(message.aiInboxFilters.sourceNoteId, "note-1");
 });
 
-test("scheduled task runs create a system message for review artifacts", () => {
+test("generic scheduled task artifacts do not create system messages", () => {
   const message = scheduledTaskSystemMessageForArtifacts(3, { now: () => 456 });
 
-  assert.equal(message.id, "scheduled-ai:456");
-  assert.equal(message.title, "\u8ba1\u5212\u4efb\u52a1\u4ea7\u751f\u4e86\u5f85\u786e\u8ba4\u5efa\u8bae");
-  assert.equal(message.action, "open-ai-inbox");
-  assert.equal(message.actionLabel, REVIEW_ACTION_LABEL);
-  assert.deepEqual(message.aiInboxFilters, {
-    view: "pending",
-    type: "all",
-    privacyMode: "",
-    sourceNoteId: "",
-    limit: 50
-  });
+  assert.equal(message, null);
 });
 
 test("writing strong-model analysis persists review artifacts into system messages", () => {
@@ -192,8 +183,9 @@ test("writing strong-model analysis persists review artifacts into system messag
   });
 
   assert.equal(artifactMessage.id, "writing-ai-analysis:wp_1:789");
-  assert.equal(artifactMessage.title, "\u5199\u4f5c\u5206\u6790\u4ea7\u751f\u4e86\u5f85\u786e\u8ba4\u5efa\u8bae");
+  assert.equal(artifactMessage.title, "wp_1 \u53ef\u4ee5\u7ee7\u7eed\u6574\u7406\u6210\u4e3b\u9898");
   assert.equal(artifactMessage.action, "open-ai-inbox");
+  assert.equal(artifactMessage.actionLabel, "\u67e5\u770b\u4e3b\u9898\u5efa\u8bae");
   assert.deepEqual(artifactMessage.aiInboxFilters, {
     view: "pending",
     type: "all",
@@ -201,7 +193,5 @@ test("writing strong-model analysis persists review artifacts into system messag
     sourceNoteId: "",
     limit: 50
   });
-  assert.equal(requestMessage.id, "writing-ai-request:wp_1:790");
-  assert.equal(requestMessage.title, "\u5f3a\u6a21\u578b\u5199\u4f5c\u5206\u6790\u8bf7\u6c42\u5305\u5df2\u51c6\u5907");
-  assert.equal(requestMessage.artifactCount, 0);
+  assert.equal(requestMessage, null);
 });

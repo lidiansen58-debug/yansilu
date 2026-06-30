@@ -46,7 +46,7 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
     state = {},
     aiInboxState = {},
     analyzePermanentNote = async () => null,
-    noteAnalysisSystemMessageForResult = ({ result }) => result,
+    noteAnalysisSystemMessageForResult = () => null,
     addSystemMessage = () => {},
     normalizeAiInboxFilters = (filters) => filters,
     openSystemMessages = () => {},
@@ -62,11 +62,13 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
       persistArtifacts: payload.persistArtifacts !== false
     });
     const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
+    let systemMessage = null;
     if (artifactCount > 0) {
       const noteTitle = (state.notes || []).find((item) => item.id === noteId)?.title || noteId;
-      addSystemMessage(noteAnalysisSystemMessageForResult({ noteId, noteTitle, result }), { interrupt: true });
+      systemMessage = noteAnalysisSystemMessageForResult({ noteId, noteTitle, result });
+      if (systemMessage) addSystemMessage(systemMessage, { interrupt: true });
     }
-    if (artifactCount > 0 && payload.openInbox !== false) {
+    if (systemMessage && payload.openInbox !== false) {
       aiInboxState.filters = normalizeAiInboxFilters({
         ...aiInboxState.filters,
         view: "pending",
@@ -80,7 +82,9 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
       artifactCount
         ? payload.openInbox === false
           ? `已生成 ${artifactCount} 条待审 AI 建议，可在当前笔记里处理`
-          : `已生成 ${artifactCount} 条待审核 AI 建议，已放入系统消息`
+          : systemMessage
+            ? `已生成 ${artifactCount} 条待审 AI 建议，已放入系统消息`
+            : `已生成 ${artifactCount} 条待审 AI 建议，可在当前笔记里处理`
         : "本地 AI 分析完成，暂时没有新的待审核建议",
       artifactCount ? "ok" : "warn"
     );

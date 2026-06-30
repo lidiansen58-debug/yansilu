@@ -123,7 +123,7 @@ test("graph state actions run note AI analysis and open system messages for revi
     ["add-message", { id: "message-1" }, { interrupt: true }],
     ["open-system", { latestOnly: true }]
   ]);
-  assert.deepEqual(status.calls.at(-1), { message: "已生成 2 条待审核 AI 建议，已放入系统消息", tone: "ok" });
+  assert.deepEqual(status.calls.at(-1), { message: "已生成 2 条待审 AI 建议，已放入系统消息", tone: "ok" });
 });
 
 test("graph state actions keep AI artifacts in the current note when inbox opening is disabled", async () => {
@@ -143,8 +143,7 @@ test("graph state actions keep AI artifacts in the current note when inbox openi
   });
 
   assert.deepEqual(calls, [
-    ["analyze", { relatedNoteIds: [], persistArtifacts: false }],
-    ["message"]
+    ["analyze", { relatedNoteIds: [], persistArtifacts: false }]
   ]);
   assert.deepEqual(status.calls.at(-1), { message: "已生成 1 条待审 AI 建议，可在当前笔记里处理", tone: "ok" });
 });

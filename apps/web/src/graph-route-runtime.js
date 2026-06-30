@@ -47,18 +47,7 @@ export function createGraphRouteRuntime(deps = {}) {
       graphState.aiAnalysis = result;
       const count = Number(result?.reviewItems?.summary?.artifactCount || 0);
       if (count > 0) {
-        const messageId = `graph-ai-analysis:${directoryId || "root"}:${Date.now()}`;
-        addSystemMessage({
-          id: messageId,
-          type: "ai",
-          title: "图谱目录扫描产生了待确认建议",
-          body: `当前目录生成了 ${count} 条待确认建议。先判断关系或主题是否成立，再决定是否采纳。`,
-          action: "open-ai-inbox",
-          actionLabel: "查看待确认建议",
-          artifactCount: count,
-          aiInboxFilters: { view: "pending", sourceNoteId: "" }
-        });
-        graphState.aiReviewSystemMessageId = messageId;
+        graphState.aiReviewSystemMessageId = "";
       } else {
         graphState.aiReviewSystemMessageId = "";
       }

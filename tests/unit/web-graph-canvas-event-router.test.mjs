@@ -170,33 +170,29 @@ test("graph canvas event router consumes click workflow actions before generic n
   assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["save-candidate", candidateButton]]);
 });
 
-test("graph canvas event router opens graph AI review in system messages", async () => {
+test("graph canvas event router focuses graph AI review in the workbench", async () => {
   const graphCanvas = createGraphCanvas();
-  const graphState = { aiReviewSystemMessageId: "graph-ai-analysis:latest", thinkingPanelOpen: true };
-  const aiInboxState = { filters: { view: "all", type: "relation" }, detail: { id: "old" }, selectedArtifactId: "artifact-1" };
+  const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "clues", thinkingPanelVisible: false, thinkingPanelOpen: false, thinkingFilter: "theme" };
   const calls = [];
 
   bindGraphCanvasEvents(graphCanvas, {
     graphState,
-    aiInboxState,
-    systemMessages: [{ id: "graph-ai-analysis:latest" }],
-    normalizeAiInboxFilters: (filters) => ({ ...filters, normalized: true }),
-    setSelectedSystemMessageId: (messageId) => calls.push(["select-message", messageId]),
-    openSystemMessages: () => calls.push(["open-system-messages"]),
+    renderGraphPanel: () => calls.push(["render"]),
     setStatus: (message, level) => calls.push(["status", level, message])
   });
 
   await graphCanvas.listeners.get("click")[0].handler({
     target: targetWithClosest({
-      "[data-open-ai-inbox-from-graph]": elementWithAttrs({})
+      "[data-graph-focus-thinking-review]": elementWithAttrs({})
     })
   });
 
-  assert.equal(graphState.thinkingPanelOpen, false);
-  assert.deepEqual(aiInboxState.filters, { view: "pending", type: "relation", sourceNoteId: "", normalized: true });
-  assert.equal(aiInboxState.detail, null);
-  assert.equal(aiInboxState.selectedArtifactId, "");
-  assert.deepEqual(calls.map((call) => call[0]), ["select-message", "open-system-messages", "status"]);
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "questions");
+  assert.equal(graphState.thinkingPanelVisible, true);
+  assert.equal(graphState.thinkingPanelOpen, true);
+  assert.equal(graphState.thinkingFilter, "all");
+  assert.deepEqual(calls.map((call) => call[0]), ["render", "status"]);
 });
 
 test("graph canvas event router routes map node and relation focus clicks", async () => {

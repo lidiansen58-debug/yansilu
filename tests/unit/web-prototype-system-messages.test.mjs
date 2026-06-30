@@ -4,10 +4,13 @@ import assert from "node:assert/strict";
 import {
   aiInboxFiltersForSystemMessage,
   normalizeSystemMessage,
+  noteAnalysisSystemMessageForResult,
+  scheduledTaskSystemMessageForArtifacts,
   systemMessageActionLabel,
   systemMessageDisplayTitle,
   systemMessagePreviewText,
-  systemMessageSubjectText
+  systemMessageSubjectText,
+  writingAnalysisSystemMessageForResult
 } from "../../apps/web/src/prototype-system-messages.js";
 
 test("normalizes system message routing metadata and AI review filters", () => {
@@ -56,6 +59,39 @@ test("system message display helpers stay pure and accept notes explicitly", () 
   assert.equal(systemMessagePreviewText(message), "One Two");
   assert.ok(systemMessageActionLabel(message).length > 0);
   assert.equal(systemMessageActionLabel({ ...message, resolvedAt: "2026-01-01T00:00:00.000Z" }), "");
+});
+
+test("system messages only create actionable note or topic messages", () => {
+  assert.equal(
+    noteAnalysisSystemMessageForResult({
+      noteId: "note-1",
+      noteTitle: "关系整理入口",
+      result: { reviewItems: { storedArtifactIds: ["a1"] }, analysis: { relationCandidates: [] } }
+    }),
+    null
+  );
+  assert.equal(scheduledTaskSystemMessageForArtifacts(2), null);
+  assert.equal(
+    writingAnalysisSystemMessageForResult({ projectId: "主题 A", artifactCount: 0 }),
+    null
+  );
+
+  const relationMessage = noteAnalysisSystemMessageForResult({
+    noteId: "note-1",
+    noteTitle: "关系整理入口",
+    now: () => 1,
+    result: { reviewItems: { storedArtifactIds: ["a1"] }, analysis: { relationCandidates: [{}] } }
+  });
+  assert.equal(relationMessage.title, "关系整理入口 找到可能关系");
+  assert.equal(relationMessage.actionLabel, "确认关系建议");
+
+  const writingMessage = writingAnalysisSystemMessageForResult({
+    projectId: "主题 A",
+    artifactCount: 1,
+    now: () => 2
+  });
+  assert.equal(writingMessage.title, "主题 A 可以继续整理成主题");
+  assert.equal(writingMessage.actionLabel, "查看主题建议");
 });
 
 test("system message AI review filters default to pending global review", () => {

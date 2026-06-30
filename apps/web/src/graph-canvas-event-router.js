@@ -8,8 +8,6 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     graphState = {},
     graphViewportDragState = {},
     graphUtilityDrawerDragState = {},
-    aiInboxState = {},
-    systemMessages = [],
     resetGraphHoverState = noop,
     applyGraphThinkingHoverState = noop,
     applyGraphNodeHoverState = noop,
@@ -35,9 +33,6 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     applyGraphUtilityDrawerOpenState = noop,
     applyGraphSectionOpenState = noop,
     runGraphAiAnalysis = noop,
-    normalizeAiInboxFilters = (filters = {}) => filters,
-    setSelectedSystemMessageId = noop,
-    openSystemMessages = noop,
     refreshDirectoryGraph = async () => false,
     captureGraphIsolatedRelationDraftFromForm = noop,
     runGraphAiConnectForNote = asyncNoop,
@@ -254,23 +249,15 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       void runGraphAiAnalysis();
       return;
     }
-    const graphAiInboxButton = event.target.closest("[data-open-ai-inbox-from-graph]");
-    if (graphAiInboxButton) {
-      aiInboxState.filters = normalizeAiInboxFilters({
-        ...aiInboxState.filters,
-        view: "pending",
-        sourceNoteId: ""
-      });
-      aiInboxState.detail = null;
-      aiInboxState.selectedArtifactId = "";
-      graphState.thinkingPanelOpen = false;
-      const graphMessageId = String(graphState.aiReviewSystemMessageId || "").trim();
-      const selectedGraphMessage = graphMessageId && systemMessages.some((message) => message.id === graphMessageId)
-        ? graphMessageId
-        : systemMessages.find((message) => String(message.id || "").startsWith("graph-ai-analysis:"))?.id || "";
-      if (selectedGraphMessage) setSelectedSystemMessageId(selectedGraphMessage);
-      openSystemMessages();
-      setStatus("已打开图谱待确认建议；只采纳能说清理由的关系。", "ok");
+    const graphThinkingReviewButton = event.target.closest("[data-graph-focus-thinking-review]");
+    if (graphThinkingReviewButton) {
+      graphState.workbenchPanelOpen = true;
+      graphState.workbenchPanelTab = "questions";
+      graphState.thinkingPanelVisible = true;
+      graphState.thinkingPanelOpen = true;
+      graphState.thinkingFilter = "all";
+      renderGraphPanel();
+      setStatus("已回到图谱待判断内容；只确认能说清理由的关系或主题。", "ok");
       return;
     }
     const retryButton = event.target.closest("[data-graph-retry]");

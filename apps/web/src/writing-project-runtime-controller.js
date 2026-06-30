@@ -222,7 +222,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
         model,
         artifactCount
       });
-      addSystemMessage(systemMessage, writingAnalysisSystemMessageDeliveryOptions({ artifactCount }));
+      if (systemMessage) addSystemMessage(systemMessage, writingAnalysisSystemMessageDeliveryOptions({ artifactCount }));
       setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
     } catch (error) {
       if (writingState.strongModelRevision !== requestRevision) return;

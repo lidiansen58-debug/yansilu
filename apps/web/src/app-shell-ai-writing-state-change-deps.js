@@ -12,7 +12,7 @@ export function buildAppShellAiWritingStateChangeDeps(host = {}) {
     folderById = () => null,
     normalizeAiInboxFilters = (filters) => filters,
     normalizeWritingProjectTitleSeed = (value) => value,
-    noteAnalysisSystemMessageForResult = ({ result }) => result,
+    noteAnalysisSystemMessageForResult = () => null,
     noteMainPathWritingContinuationEntry = () => null,
     openAiInboxModule = async () => {},
     openNoteById = () => {},

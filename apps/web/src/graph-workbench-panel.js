@@ -193,9 +193,9 @@ export function renderGraphThinkingReviewNoteView(summary = {}, deps = {}) {
     <div class="graph-thinking-review-note">
       <div>
         <strong>已保存 ${escapeHtml(String(artifactCount))} 项待审</strong>
-        <span>先在图谱里判断哪些关系真的有用；需要逐条采纳时，再到系统消息里复核 AI 建议。</span>
+        <span>这些结果就在当前图谱里处理。先看待判断内容，只确认能说清理由的关系或主题。</span>
       </div>
-      <button class="graph-thinking-review-action" type="button" data-open-ai-inbox-from-graph aria-label="打开系统消息中的图谱 AI 建议">去待审复核</button>
+      <button class="graph-thinking-review-action" type="button" data-graph-focus-thinking-review aria-label="查看图谱待判断内容">查看待判断</button>
     </div>
   `;
 }

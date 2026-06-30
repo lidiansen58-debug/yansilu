@@ -44,7 +44,7 @@ export function normalizeSystemMessage(item = {}) {
 export function systemMessageActionLabel(message = {}) {
   if (message.resolvedAt) return "";
   if (message.actionLabel) return message.actionLabel;
-  if (message.action === "open-ai-inbox") return "查看待确认建议";
+  if (message.action === "open-ai-inbox") return "处理待确认建议";
   if (message.action === "open-graph") return "查看候选并确认关系";
   if (message.action === "open-writing") return "继续整理主题";
   if (message.action === "open-note") return "打开笔记";
@@ -71,10 +71,16 @@ export function systemMessageDisplayTitle(message = {}, notes = []) {
   const title = String(message.title || "").trim();
   const subject = systemMessageSubjectText(message, notes);
   if (title === "孤立笔记发现了潜在关联") {
-    return subject ? `${subject} 发现了潜在关联` : title;
+    return subject ? `${subject} 找到可能关系` : title;
   }
   if (title === "永久笔记还没有进入图谱") {
-    return subject ? `${subject} 还没有进入图谱` : title;
+    return subject ? `${subject} 还没关联` : title;
+  }
+  if (subject && !title.includes(subject)) {
+    if (title === "写作分析产生了待确认建议") return `${subject} 可以继续整理成主题`;
+    if (title === "AI 写作检查请求包已准备") return `${subject} 可以继续整理成主题`;
+    if (title === "计划任务产生了待确认建议") return `${subject} 有待处理建议`;
+    if (title.endsWith("产生了待确认建议")) return `${subject} 有待确认建议`;
   }
   return title || subject || "系统消息";
 }
@@ -138,34 +144,27 @@ export function noteAnalysisSystemMessageForResult({
   const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
   if (artifactCount <= 0) return null;
   const relationCount = Number(result?.analysis?.relationCandidates?.length || 0);
+  if (relationCount <= 0) return null;
   const titleText = String(noteTitle || noteId || "").trim();
+  if (!titleText) return null;
   return normalizeSystemMessage({
     id: `ai-analysis:${String(noteId || "").trim()}:${now()}`,
     type: "ai",
-    title: `${titleText} 产生了待确认建议`,
-    body: relationCount
-      ? `“${titleText}”有 ${artifactCount} 条待确认建议，其中包含潜在关联。先审阅理由，再决定是否采纳。`
-      : `“${titleText}”有 ${artifactCount} 条待确认建议。先审阅理由，再决定是否采纳。`,
+    title: `${titleText} 找到可能关系`,
+    body: `AI 为“${titleText}”找到 ${relationCount} 条可能关系。请先看目标笔记和理由，再决定是否保存为正式关系。`,
     action: "open-ai-inbox",
-    actionLabel: "查看待确认建议",
+    actionLabel: "确认关系建议",
     noteId: String(noteId || "").trim(),
-    artifactCount
+    artifactCount,
+    aiInboxFilters: { view: "pending", type: "all", sourceNoteId: String(noteId || "").trim() }
   });
 }
 
 export function scheduledTaskSystemMessageForArtifacts(artifactCount = 0, { now = () => Date.now() } = {}) {
   const count = Number(artifactCount || 0);
   if (count <= 0) return null;
-  return normalizeSystemMessage({
-    id: `scheduled-ai:${now()}`,
-    type: "ai",
-    title: "计划任务产生了待确认建议",
-    body: `计划任务生成了 ${count} 条待确认建议。先看对象和理由，再决定是否采纳到笔记或图谱。`,
-    action: "open-ai-inbox",
-    actionLabel: "查看待确认建议",
-    artifactCount: count,
-    aiInboxFilters: { view: "pending", sourceNoteId: "" }
-  });
+  void now;
+  return null;
 }
 
 export function writingAnalysisSystemMessageForResult({
@@ -178,24 +177,21 @@ export function writingAnalysisSystemMessageForResult({
   const key = String(projectId || (Array.isArray(noteIds) ? noteIds.join("-") : "") || "basket").trim();
   const count = Number(artifactCount || 0);
   if (count > 0) {
+    const topicLabel = String(projectId || (Array.isArray(noteIds) && noteIds.length ? `${noteIds.length} 条笔记` : "这组笔记")).trim();
     return normalizeSystemMessage({
       id: `writing-ai-analysis:${key}:${now()}`,
       type: "ai",
-      title: "写作分析产生了待确认建议",
-      body: `AI 写作检查生成了 ${count} 条待确认建议。先看对象和理由，再决定是否采纳到当前主题。`,
+      title: `${topicLabel} 可以继续整理成主题`,
+      body: `“${topicLabel}”有 ${count} 条写作整理建议需要确认。先看它能否形成主题、提纲或下一段，再决定是否采纳。`,
       action: "open-ai-inbox",
-      actionLabel: "查看待确认建议",
+      actionLabel: "查看主题建议",
       artifactCount: count,
       aiInboxFilters: { view: "pending", type: "all", sourceNoteId: "" }
     });
   }
-  return normalizeSystemMessage({
-    id: `writing-ai-request:${key}:${now()}`,
-    type: "ai",
-    title: "AI 写作检查请求包已准备",
-    body: `已为主题 ${String(projectId || "当前主题").trim()} 准备 ${String(model || "AI 模型").trim()} 请求包。当前没有直接调用远程模型，也没有自动写入笔记；你可以先复核请求范围、写作目标和相关笔记。`,
-    artifactCount: 0
-  });
+  void model;
+  void now;
+  return null;
 }
 
 export function writingAnalysisSystemMessageDeliveryOptions({ artifactCount = 0 } = {}) {

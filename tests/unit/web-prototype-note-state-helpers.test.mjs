@@ -147,7 +147,7 @@ test("prototype note state helpers build workflow system messages", () => {
   });
 
   assert.equal(sourceMessage.category, "source-promotion");
-  assert.equal(sourceMessage.title, "文献笔记可以进入永久笔记流程");
+  assert.equal(sourceMessage.title, "文献 适合生成永久笔记");
   assert.match(sourceMessage.body, /当前提示：提示/);
   assert.equal(sourceMessage.workflowRoute.focus, "record-permanent");
 
@@ -164,5 +164,6 @@ test("prototype note state helpers build workflow system messages", () => {
     { distillationStatusOf: () => "confirmed", isPermanentLikeNote: () => true }
   );
   assert.equal(relationMessage.category, "relation-network");
+  assert.equal(relationMessage.title, "永久 还没关联");
   assert.equal(relationMessage.actionLabel, "关联一条笔记");
 });

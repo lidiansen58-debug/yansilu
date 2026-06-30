@@ -180,9 +180,7 @@ test("strong model request package history does not interrupt when no artifacts 
     now: () => 123
   });
 
-  assert.equal(message.id, "writing-ai-request:wp_1:123");
-  assert.equal(message.artifactCount, 0);
-  assert.equal(message.action, "");
+  assert.equal(message, null);
   assert.deepEqual(writingAnalysisSystemMessageDeliveryOptions({ artifactCount: 0 }), {});
   assert.deepEqual(writingAnalysisSystemMessageDeliveryOptions({ artifactCount: 2 }), { interrupt: true });
 });

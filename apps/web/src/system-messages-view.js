@@ -18,7 +18,7 @@ export function renderSystemMessageEmptyDetailView() {
   return `
     <article class="system-message-detail-card system-message-empty-card">
       <h3>暂无需要处理的消息</h3>
-      <div class="system-message-body">AI 分析、图谱扫描或计划任务产生待审内容后，会显示在这里；采纳前不会改动笔记或图谱。</div>
+      <div class="system-message-body">需要你处理的笔记关联、主题整理和永久笔记生成提醒会显示在这里；没有明确对象的运行记录不会打扰你。</div>
     </article>
   `;
 }

@@ -261,7 +261,7 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       render = () => {},
       runDueAiScheduledTasks = async () => null,
       scheduledTaskReviewArtifactCount = () => 0,
-      scheduledTaskSystemMessageForArtifacts = () => ({}),
+      scheduledTaskSystemMessageForArtifacts = () => null,
       setStatus = () => {},
       settingsState = {},
       window = globalThis.window
@@ -289,7 +289,8 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
         });
         aiInboxState.detail = null;
         aiInboxState.selectedArtifactId = "";
-        addSystemMessage(scheduledTaskSystemMessageForArtifacts(artifactCount), { interrupt: true });
+        const systemMessage = scheduledTaskSystemMessageForArtifacts(artifactCount);
+        if (systemMessage) addSystemMessage(systemMessage, { interrupt: true });
       }
       setStatus(`Scheduled tasks run: ${summary?.succeeded || 0} succeeded, ${summary?.skipped || 0} skipped, ${summary?.failed || 0} failed`, "ok");
       return summary;
