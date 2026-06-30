@@ -42,7 +42,7 @@ test("main-path project-ready card reuses continuity wording when the note alrea
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
   assert.match(html, /data-main-path-next-action="writing"/);
-  assert.match(html, /<span>写作中心<\/span> <strong>打开当前草稿<\/strong>/);
+  assert.match(html, /<span>进入写作<\/span> <strong>打开当前草稿<\/strong>/);
   assert.match(html, /data-note-main-route-mode="project">打开当前草稿<\/button>/);
   assert.doesNotMatch(html, /main-path-progress/);
 });
@@ -82,7 +82,7 @@ test("main-path strong-model-ready card also reuses continuity wording when an e
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
   assert.match(html, /data-main-path-next-action="writing"/);
-  assert.match(html, /<span>写作中心<\/span> <strong>继续当前项目<\/strong>/);
+  assert.match(html, /<span>进入写作<\/span> <strong>继续当前项目<\/strong>/);
   assert.match(html, /data-note-main-route-mode="project">继续当前项目<\/button>/);
   assert.doesNotMatch(html, /main-path-progress/);
 });

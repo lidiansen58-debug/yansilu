@@ -40,7 +40,7 @@ test("relation side panel uses action-first workspace copy without noisy placeho
 
   assert.match(shell, /<div class="panel-title">关系整理<\/div>/);
   assert.match(shell, /先选要关联的笔记，再写清为什么。/);
-  assert.match(source, /<div class="inspector-section-title">当前建议<\/div>/);
+  assert.match(source, /<div class="inspector-section-title">建议先做<\/div>/);
   assert.match(source, /<div class="inspector-section-title">关系网络<\/div>/);
   assert.match(source, /renderPermanentRelationWorkspace/);
   assert.match(source, /from "\.\/permanent-note-sidebar-view\.js";/);
@@ -60,11 +60,12 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(sidebarController, /relationEntryRouteForPermanentWorkspaceContinuation\(note\.id, host\.permanentRelationWorkspaceState\.entryRoute/);
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
-  assert.match(source, /永久笔记工作区/);
-  assert.match(source, /一次只处理一个任务/);
-  assert.match(source, /key: "relations", label: "关联"/);
-  assert.match(source, /key: "viewpoint", label: "观点提纯"/);
-  assert.match(source, /key: "writing", label: "写作准备"/);
+  assert.match(source, /永久笔记右侧/);
+  assert.match(source, /选择一个动作处理当前笔记：整理关系、提炼观点或进入写作。/);
+  assert.match(source, /key: "relations",\s+label: "整理关系"/);
+  assert.match(source, /key: "viewpoint",\s+label: "提炼观点"/);
+  assert.match(source, /key: "writing",\s+label: "进入写作"/);
+  assert.match(source, /提炼观点、理由、边界、追问和写作主题。/);
   assert.match(source, /data-permanent-workspace-tab="\$\{escapeHtml\(key\)\}"/);
   assert.match(source, /data-permanent-note-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(source, /refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);

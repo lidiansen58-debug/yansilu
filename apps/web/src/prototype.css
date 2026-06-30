@@ -11723,7 +11723,7 @@
     .permanent-workspace-tabs {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 6px;
+      gap: 8px;
       padding: 5px;
       border: 1px solid #d9e8e4;
       border-radius: 10px;
@@ -11733,8 +11733,9 @@
       min-width: 0;
       min-height: 44px;
       display: grid;
-      gap: 2px;
-      place-items: center;
+      gap: 3px;
+      place-items: start;
+      padding: 8px 10px;
       border: 1px solid transparent;
       border-radius: 8px;
       background: transparent;
@@ -11742,6 +11743,7 @@
       cursor: pointer;
       font: inherit;
       line-height: 1.3;
+      text-align: left;
       transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
     }
     .permanent-workspace-tab span {
@@ -11754,6 +11756,18 @@
       color: #64748b;
       font-size: 10px;
       font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .permanent-workspace-tab em {
+      display: block;
+      max-width: 100%;
+      color: #52657d;
+      font-size: 10px;
+      font-style: normal;
+      font-weight: 650;
+      line-height: 1.35;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -11771,6 +11785,47 @@
     }
     .permanent-workspace-tab.is-active small {
       color: #0f766e;
+    }
+    .permanent-workspace-tab.is-active em {
+      color: #155e54;
+    }
+    .distillation-purpose-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid #d8e9e2;
+      border-radius: 10px;
+      background: #f8fcfa;
+    }
+    .distillation-purpose-card strong {
+      color: #10202a;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .distillation-purpose-card ul {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .distillation-purpose-card li {
+      min-width: 0;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 750;
+      line-height: 1.4;
+    }
+    .distillation-purpose-card li::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-right: 6px;
+      border-radius: 999px;
+      background: #0f766e;
+      vertical-align: 1px;
     }
     .permanent-workspace-pane {
       display: grid;

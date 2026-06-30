@@ -177,5 +177,17 @@ test("permanent note workspace controller refreshes snapshot sections in place",
   assert.equal(app.refreshedMainPath, true);
   assert.match(relationAssist.outerHTML, /updated relation/);
   assert.match(mountedWorkspace.panes.find((item) => item.key === "writing").innerHTML, /updated writing/);
-  assert.equal(mountedWorkspace.buttons.find((button) => button.key === "relations").small.textContent, "2 条");
+  assert.equal(mountedWorkspace.buttons.find((button) => button.key === "relations").small.textContent, "2 条正式关系");
+});
+
+test("permanent note workspace names the three right-side actions clearly", () => {
+  const controller = new PermanentNoteWorkspaceController(host());
+  const note = { id: "note-a", title: "A", thesis: "", threeLineSummary: [], distillationStatus: "draft" };
+
+  const html = controller.renderDeferredWorkspace(note, { body: "" });
+
+  assert.match(html, /整理关系/);
+  assert.match(html, /提炼观点/);
+  assert.match(html, /进入写作/);
+  assert.match(html, /提炼观点、理由、边界、追问和写作主题/);
 });

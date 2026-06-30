@@ -64,18 +64,33 @@ export class PermanentNoteWorkspaceController {
     const summary = viewpoint.summary;
     const confirmed = viewpoint.confirmed;
     return {
-      relations: relationState === "error" ? "读取失败" : explicitRelationCount === null ? "读取中" : explicitRelationCount > 0 ? `${explicitRelationCount} 条` : "待建立",
-      viewpoint: !confirmed || !thesis || summary.length < 3 ? "待完成" : "已确认",
-      writing: confirmed && explicitRelationCount > 0 ? "可推进" : "先补齐"
+      relations: relationState === "error" ? "关系读取失败" : explicitRelationCount === null ? "正在读取" : explicitRelationCount > 0 ? `${explicitRelationCount} 条正式关系` : "还没有关系",
+      viewpoint: !thesis ? "缺一句话观点" : summary.length < 3 ? "缺支撑理由" : confirmed ? "观点已确认" : "待确认",
+      writing: confirmed && explicitRelationCount > 0 ? "可以进入写作" : "先补观点和关系"
     };
   }
 
   tabsFor(note, architecture = null) {
     const meta = this.tabMeta(note, architecture);
     return [
-      { key: "relations", label: "关联", meta: meta.relations },
-      { key: "viewpoint", label: "观点提纯", meta: meta.viewpoint },
-      { key: "writing", label: "写作准备", meta: meta.writing }
+      {
+        key: "relations",
+        label: "整理关系",
+        meta: meta.relations,
+        description: "选择目标笔记，写清为什么相关。"
+      },
+      {
+        key: "viewpoint",
+        label: "提炼观点",
+        meta: meta.viewpoint,
+        description: "提炼观点、理由、边界、追问和写作主题。"
+      },
+      {
+        key: "writing",
+        label: "进入写作",
+        meta: meta.writing,
+        description: "把确认后的观点放进写作篮继续组织。"
+      }
     ];
   }
 

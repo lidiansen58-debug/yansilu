@@ -4357,14 +4357,14 @@ export class EditorPane {
           : "writing";
     const steps = [
       {
-        label: "观点提纯",
+        label: "提炼观点",
         status: !thesis ? "待开始" : summary.length < 3 ? "进行中" : confirmed ? "已确认" : "待确认",
         hint: !thesis ? "先写一句判断" : summary.length < 3 ? "补三句话压缩" : confirmed ? "继续往关系和主题走" : "确认这条观点",
         action: "distillation",
         actionLabel: "继续提纯"
       },
       {
-        label: "关系连接",
+        label: "整理关系",
         status: explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `文中链接 ${wikilinkCount}` : "待建立",
         hint: explicitRelationCount ? "已经有带理由的关系" : wikilinkCount ? "有基础链接，值得补理由" : "先连出第一条关系",
         action: "relations",
@@ -4378,9 +4378,9 @@ export class EditorPane {
         actionLabel: "看图谱"
       },
       {
-        label: "写作中心",
-        status: confirmed ? "可进入写作中心" : "未就绪",
-        hint: confirmed ? "可加入写作篮继续推进" : "先确认观点，再进入写作中心",
+        label: "进入写作",
+        status: confirmed ? "可以进入写作" : "未就绪",
+        hint: confirmed ? "可加入写作篮继续推进" : "先确认观点，再进入写作",
         action: "writing",
         actionLabel: "进入写作"
       }
@@ -4799,7 +4799,7 @@ export class EditorPane {
           : "writing";
     const steps = [
       {
-        label: "观点提纯",
+        label: "提炼观点",
         status: distillationInfo.status,
         hint: distillationInfo.hint,
         action: "distillation",
@@ -4807,7 +4807,7 @@ export class EditorPane {
         focusTarget: distillationInfo.focusTarget
       },
       {
-        label: "关系连接",
+        label: "整理关系",
         status:
           relationState === "loading"
             ? "读取中"
@@ -4858,7 +4858,7 @@ export class EditorPane {
         actionLabel: "看图谱"
       },
       {
-        label: "写作中心",
+        label: "进入写作",
         status: writingStep.status,
         hint: writingStep.hint,
         action: "writing",
@@ -4871,7 +4871,7 @@ export class EditorPane {
       <section class="inspector-section permanent-workspace-current" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">当前建议</div>
+            <div class="inspector-section-title">建议先做</div>
             <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
           </div>
         </div>

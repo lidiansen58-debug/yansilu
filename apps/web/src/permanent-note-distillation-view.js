@@ -46,12 +46,22 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
           <div class="inspector-section-head">
             <div>
-              <div class="inspector-section-title">观点提纯</div>
-              <div class="inspector-section-note">把笔记先压成可确认的判断，再进入图谱连接和写作准备；AI 候选只作为待审建议。</div>
+              <div class="inspector-section-title">提炼观点</div>
+              <div class="inspector-section-note">这不是让 AI 总结一遍，而是把笔记整理成可写作的判断：观点、理由、边界、追问和主题方向。</div>
             </div>
             <span class="inspector-chip">${escapeHtml(distillationStatusText(statusValue))}</span>
           </div>
         <form class="semantic-relation-form" data-note-distillation-form>
+          <div class="distillation-purpose-card" aria-label="观点提炼目标">
+            <strong>提炼目标</strong>
+            <ul>
+              <li>一句话观点</li>
+              <li>支撑理由</li>
+              <li>边界 / 反例</li>
+              <li>可继续追问的问题</li>
+              <li>可进入写作的主题</li>
+            </ul>
+          </div>
           <div class="distillation-next-card" data-note-distillation-next>
             <div>
               <span>当前下一步</span>
@@ -75,7 +85,7 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
           </label>
           <label>
             三句话压缩
-            <span class="distillation-field-hint">第一句说观点，第二句说理由，第三句说用途或问题方向。</span>
+            <span class="distillation-field-hint">第一句说观点，第二句说支撑理由，第三句说它能进入哪个写作主题。</span>
             <textarea name="summary1" rows="2" placeholder="1. 这条观点在说什么？">${escapeHtml(summaryLines[0])}</textarea>
           </label>
           <label>
@@ -84,7 +94,7 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
           </label>
           <label>
             <span class="sr-only">三句话压缩第三句</span>
-            <textarea name="summary3" rows="2" placeholder="3. 它服务于哪个问题或写作方向？">${escapeHtml(summaryLines[2])}</textarea>
+            <textarea name="summary3" rows="2" placeholder="3. 它可以进入哪个主题或写作方向？">${escapeHtml(summaryLines[2])}</textarea>
           </label>
           ${renderDistillationTemplateVariantSwitcher(
             distillationVariants.items,
@@ -92,8 +102,8 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
             rememberedTemplateVariantLabel
           )}
           <label>
-            边界 / 反方 / 不适用条件
-            <span class="distillation-field-hint">补一条会让这条判断失效的条件，图谱里的冲突和写作反驳会更稳。</span>
+            边界 / 反例 / 不适用条件
+            <span class="distillation-field-hint">补一条会让这条判断失效的条件，后续写作时更容易处理反驳。</span>
             <textarea name="boundaryOrCounterpoint" rows="3" placeholder="这条判断在哪些条件下不成立？最需要防的反例或反方是什么？">${escapeHtml(boundaryOrCounterpoint)}</textarea>
           </label>
           <label>
