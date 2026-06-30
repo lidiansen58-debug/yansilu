@@ -35,6 +35,11 @@ export function installSettingsAiEventBindings(deps = {}) {
     if (!clipboard?.writeText) throw new Error("clipboard unavailable");
     await clipboard.writeText(text);
   }
+  function clearAiTestResultForSettingsChange() {
+    settingsState.ai.testMeta = "";
+    settingsState.ai.testOutput = "";
+    settingsState.ai.testStatus = "";
+  }
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
   await applyAiRuntimeModeChange(event?.target?.value || "auto");
 });
@@ -75,8 +80,10 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
 
 $("settingsAiSecretRef")?.addEventListener("blur", async (event) => {
   const next = String(event?.target?.value || "").trim();
+  const previous = String(settingsState.ai.secretRef || "").trim();
   markAiProviderDraftTouched("secretRef");
   settingsState.ai.secretRef = next;
+  if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
   const saved = await syncAiProviderConfigToApi();
   if (!saved) {
@@ -88,26 +95,35 @@ $("settingsAiSecretRef")?.addEventListener("blur", async (event) => {
 });
 
 $("settingsAiSecretRef")?.addEventListener("input", (event) => {
+  const previous = String(settingsState.ai.secretRef || "").trim();
+  const next = String(event?.target?.value || "").trim();
   markAiProviderDraftTouched("secretRef");
-  settingsState.ai.secretRef = String(event?.target?.value || "").trim();
+  settingsState.ai.secretRef = next;
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
+  if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
   renderSettingsPanel();
 });
 
 $("settingsAiRemoteRuntimeModel")?.addEventListener("input", (event) => {
+  const previous = String(settingsState.ai.remoteRuntimeModel || "").trim();
+  const next = String(event?.target?.value || "").trim();
   markAiProviderDraftTouched("remoteRuntimeModel");
-  settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
+  settingsState.ai.remoteRuntimeModel = next;
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
+  if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
   renderSettingsPanel();
 });
 
 $("settingsAiRemoteRuntimeModel")?.addEventListener("blur", async (event) => {
+  const previous = String(settingsState.ai.remoteRuntimeModel || "").trim();
+  const next = String(event?.target?.value || "").trim();
   markAiProviderDraftTouched("remoteRuntimeModel");
-  settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
+  settingsState.ai.remoteRuntimeModel = next;
+  if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
   const saved = await syncAiProviderConfigToApi();
   if (!saved) {
@@ -119,18 +135,23 @@ $("settingsAiRemoteRuntimeModel")?.addEventListener("blur", async (event) => {
 });
 
 $("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
+  const previous = String(settingsState.ai.providerEndpointUrl || "").trim();
+  const next = String(event?.target?.value || "").trim();
   markAiProviderDraftTouched("providerEndpointUrl");
-  settingsState.ai.providerEndpointUrl = String(event?.target?.value || "").trim();
+  settingsState.ai.providerEndpointUrl = next;
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
+  if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
   renderSettingsPanel();
 });
 
 $("settingsAiProviderEndpointUrl")?.addEventListener("blur", async (event) => {
   const next = String(event?.target?.value || "").trim();
+  const previous = String(settingsState.ai.providerEndpointUrl || "").trim();
   markAiProviderDraftTouched("providerEndpointUrl");
   settingsState.ai.providerEndpointUrl = next;
+  if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
   const saved = await syncAiProviderConfigToApi();
   if (!saved) {
@@ -145,6 +166,7 @@ $("settingsAiTestPrompt")?.addEventListener("input", (event) => {
   if (settingsState.ai.testMeta === "需要测试内容") {
     settingsState.ai.testMeta = "";
     settingsState.ai.testOutput = "";
+    settingsState.ai.testStatus = "";
     const meta = $("settingsAiTestChatMeta");
     const output = $("settingsAiTestChatOutput");
     if (meta) meta.textContent = "等待运行";
@@ -159,6 +181,7 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   if (!prompt) {
     settingsState.ai.testMeta = "需要测试内容";
     settingsState.ai.testOutput = "请先输入一句不含敏感内容的测试内容。例如：请用一句话总结“研究笔记应该先记录问题，再整理结论”。";
+    settingsState.ai.testStatus = "blocked";
     renderSettingsPanel();
     $("settingsAiTestPrompt")?.focus();
     return setStatus("先输入一条测试内容", "warn");
@@ -166,6 +189,7 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   const blockedReason = aiTestBlockedReason();
   if (blockedReason) {
     settingsState.ai.testMeta = blockedReason;
+    settingsState.ai.testStatus = "blocked";
     settingsState.ai.testOutput = `${blockedReason}，再试运行。`;
     renderSettingsPanel();
     return setStatus(`${blockedReason}，再试运行`, "warn");
@@ -173,6 +197,7 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   settingsState.ai.testRunning = true;
   settingsState.ai.testMeta = "";
   settingsState.ai.testOutput = "";
+  settingsState.ai.testStatus = "running";
   renderSettingsPanel();
   try {
     const providerId = currentAiProviderId();
@@ -189,10 +214,12 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
     });
     settingsState.ai.testMeta = `${result?.providerId || "服务"} / ${result?.modelRef || "模型"} (${result?.status || "未检测"})`;
     settingsState.ai.testOutput = String(result?.output?.content || "").trim() || JSON.stringify(result?.output?.json || result || {}, null, 2);
+    settingsState.ai.testStatus = "success";
     setStatus("AI 试运行已完成", "ok");
   } catch (error) {
     settingsState.ai.testMeta = "运行失败";
     settingsState.ai.testOutput = String(error?.message || error);
+    settingsState.ai.testStatus = "failed";
     setStatus(`AI 试运行失败：${settingsState.ai.testOutput}`, "bad");
   } finally {
     settingsState.ai.testRunning = false;

@@ -35,7 +35,7 @@ function elementMap() {
     if (!elements.has(id)) elements.set(id, createElement());
     return elements.get(id);
   };
-  return { elements, get };
+  return { get };
 }
 
 function baseLocalDeps(get, overrides = {}) {
@@ -108,7 +108,7 @@ test("settings AI local recommendations show selected installed and download act
   assert.match(html, /data-settings-ai-copy-command="ollama pull llama3.2"/);
 });
 
-test("settings AI provider controls render health and action states", () => {
+test("settings AI provider controls separate connection health from successful AI test", () => {
   const { get } = elementMap();
 
   renderAiProviderConfigControlsForRuntime({
@@ -134,10 +134,75 @@ test("settings AI provider controls render health and action states", () => {
 
   assert.equal(get("settingsAiRemoteRuntimeModel").value, "deepseek-chat");
   assert.equal(get("settingsAiRemoteRuntimeModel").disabled, false);
-  assert.equal(get("settingsAiProviderConfigBadge").textContent, "健康 42ms");
-  assert.equal(get("settingsAiSaveProviderConfig").textContent, "保存服务连接");
-  assert.equal(get("settingsAiCheckProviderHealth").textContent, "测试服务连接");
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "连接正常");
+  assert.ok(!get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
+  assert.equal(get("settingsAiSaveProviderConfig").textContent, "保存远程设置");
+  assert.equal(get("settingsAiCheckProviderHealth").textContent, "测试远程连接");
   assert.equal(get("settingsAiCheckProviderHealth").disabled, false);
+});
+
+test("settings AI provider controls marks provider ready only after test output", () => {
+  const { get } = elementMap();
+
+  renderAiProviderConfigControlsForRuntime({
+    $: get,
+    settingsState: {
+      ai: {
+        remoteRuntimeModel: "deepseek-chat",
+        providerEndpointUrl: "https://api.example/v1/chat",
+        providerHealthEndpointUrl: "",
+        secretRef: "AI_KEY",
+        providerHealthResult: { record: { status: "healthy", latencyMs: 42 } },
+        testStatus: "success",
+        testOutput: "pong"
+      }
+    },
+    currentAiProviderId: () => "openai_compatible_gateway",
+    isRemoteConfigurableProviderId: () => true,
+    activeAiProviderConfig: () => ({
+      endpointUrl: "https://api.example/v1/chat",
+      secretRef: "AI_KEY",
+      runtimeModelMap: { default: "deepseek-chat" }
+    }),
+    remoteRuntimeModelFromMap: () => "deepseek-chat",
+    defaultProviderEndpointUrl: () => "https://api.example/v1/chat",
+    defaultProviderHealthEndpointUrl: () => "https://api.example/health"
+  });
+
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "测试成功");
+  assert.ok(get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
+});
+
+test("settings AI provider controls do not mark failed test output as successful", () => {
+  const { get } = elementMap();
+
+  renderAiProviderConfigControlsForRuntime({
+    $: get,
+    settingsState: {
+      ai: {
+        remoteRuntimeModel: "deepseek-chat",
+        providerEndpointUrl: "https://api.example/v1/chat",
+        providerHealthEndpointUrl: "",
+        secretRef: "AI_KEY",
+        providerHealthResult: { record: { status: "healthy", latencyMs: 42 } },
+        testStatus: "failed",
+        testOutput: "timeout"
+      }
+    },
+    currentAiProviderId: () => "openai_compatible_gateway",
+    isRemoteConfigurableProviderId: () => true,
+    activeAiProviderConfig: () => ({
+      endpointUrl: "https://api.example/v1/chat",
+      secretRef: "AI_KEY",
+      runtimeModelMap: { default: "deepseek-chat" }
+    }),
+    remoteRuntimeModelFromMap: () => "deepseek-chat",
+    defaultProviderEndpointUrl: () => "https://api.example/v1/chat",
+    defaultProviderHealthEndpointUrl: () => "https://api.example/health"
+  });
+
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "连接正常");
+  assert.ok(!get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
 });
 
 test("settings AI provider controls disable platform managed provider actions", () => {
@@ -152,9 +217,37 @@ test("settings AI provider controls disable platform managed provider actions", 
   });
 
   assert.equal(get("settingsAiRemoteRuntimeModel").disabled, true);
-  assert.equal(get("settingsAiProviderConfigBadge").textContent, "平台托管");
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "默认可用");
   assert.equal(get("settingsAiSaveProviderConfig").disabled, true);
-  assert.equal(get("settingsAiSaveProviderConfig").textContent, "默认服务无需保存");
+  assert.equal(get("settingsAiSaveProviderConfig").textContent, "默认远程模型无需保存");
   assert.equal(get("settingsAiCheckProviderHealth").disabled, true);
-  assert.equal(get("settingsAiCheckProviderHealth").textContent, "平台托管");
+  assert.equal(get("settingsAiCheckProviderHealth").textContent, "默认远程模型");
+});
+
+test("settings AI provider controls do not mark incomplete remote config as ready", () => {
+  const { get } = elementMap();
+
+  renderAiProviderConfigControlsForRuntime({
+    $: get,
+    settingsState: {
+      ai: {
+        remoteRuntimeModel: "deepseek-chat",
+        providerEndpointUrl: "https://api.example/v1/chat",
+        secretRef: ""
+      }
+    },
+    currentAiProviderId: () => "openai_compatible_gateway",
+    isRemoteConfigurableProviderId: () => true,
+    activeAiProviderConfig: () => ({
+      endpointUrl: "https://api.example/v1/chat",
+      runtimeModelMap: { default: "deepseek-chat" }
+    }),
+    remoteRuntimeModelFromMap: () => "deepseek-chat",
+    defaultProviderEndpointUrl: () => "https://api.example/v1/chat",
+    defaultProviderHealthEndpointUrl: () => "https://api.example/health"
+  });
+
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "未完成");
+  assert.ok(get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "warn" && force === true));
+  assert.ok(!get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
 });

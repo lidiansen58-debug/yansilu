@@ -188,6 +188,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "system-message-controller.js": 120,
     "workflow-reminder-controller.js": 40,
     "settings-ai-controls-view.js": 360,
+    "settings-ai-local-model-recommendations-view.js": 160,
     "settings-ai-experience-model.js": 90,
     "settings-ai-experience-view.js": 340,
     "settings-ai-runtime-actions.js": 130,

@@ -56,6 +56,7 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
         secretRef: "AI_KEY",
         testPrompt: "ping",
         testMeta: "ready",
+        testStatus: "success",
         testOutput: "pong"
       }
     },
@@ -91,7 +92,8 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
   assert.equal(get("settingsAiAdvancedModelRef").value, "openai:gpt-test");
   assert.equal(get("settingsAiSecretRef").value, "AI_KEY");
   assert.equal(get("settingsAiTestPrompt").value, "ping");
-  assert.equal(get("btnAiTestChatRun").textContent, "运行");
+  assert.equal(get("btnAiTestChatRun").textContent, "测试一句话");
+  assert.equal(get("settingsAiTestChatMeta").textContent, "测试成功");
   assert.equal(get("settingsAiTestChatOutput").textContent, "pong");
   assert.deepEqual(calls.slice(0, 6), ["sync-rail", "layout", "mount-automation", "chrome", "sidebar", "detail"]);
   assert.ok(calls.includes("sidebar-title"));
@@ -141,5 +143,5 @@ test("settings AI test panel blocks run and shows reason", () => {
   assert.equal(get("btnAiTestChatRun").attrs.title, "missing key");
   assert.equal(get("settingsAiTestChatMeta").textContent, "missing key");
   assert.deepEqual(get("settingsAiTestChatMeta").toggles, [["warn", true]]);
-  assert.equal(get("settingsAiTestChatOutput").textContent, "（空）");
+  assert.equal(get("settingsAiTestChatOutput").textContent, "还没有测试结果");
 });

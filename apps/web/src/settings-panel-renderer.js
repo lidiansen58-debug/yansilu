@@ -50,10 +50,10 @@ export function renderSettingsPanelForRuntime(deps = {}) {
     switchHint.textContent = vault.vaultPath
       ? `当前使用：${settingsLeafLabel(vault.vaultPath)}${vault.initialized ? " · 已就绪" : ""}`
       : "选择一个真实存在的笔记库目录。";
-    switchButton.textContent = "切换到这个路径";
+    switchButton.textContent = "切换到这个目录";
   } else {
     switchHint.textContent = settingsVaultPathMissing()
-      ? "当前路径已失效，请重新选一个笔记库目录。"
+      ? "当前路径已失效，请重新选择一个笔记库目录。"
       : (formatSettingsUserError(settingsState.error) || "选择一个真实存在的笔记库目录。");
     switchButton.textContent = "选好后切换";
   }
@@ -93,13 +93,13 @@ export function renderSettingsFeedbackCard({
   }
   if (feedbackDetail) {
     feedbackDetail.textContent = feedbackRepositoryReady
-      ? "当前会打开公开反馈页，并自动带上版本、模块和页面上下文；提交前请检查是否包含私人信息。"
-      : "仓库名已经建议为 yansilu-feedback。把 prototype-app.js 里的 GitHub owner 补上后即可启用。";
+      ? "会打开反馈页面，并带上版本、模块和当前页面信息。提交前请确认不含隐私内容。"
+      : "填好反馈仓库后，这里会变成问题反馈入口。";
   }
   if (feedbackLink) {
     const href = feedbackRepositoryReady ? feedbackBaseUrl() : "#";
     feedbackLink.href = href;
-    feedbackLink.textContent = feedbackRepositoryReady ? "打开反馈页" : "等待填写真实 GitHub 仓库";
+    feedbackLink.textContent = feedbackRepositoryReady ? "打开反馈页面" : "等待填写反馈仓库";
     feedbackLink.setAttribute("aria-disabled", feedbackRepositoryReady ? "false" : "true");
   }
 }
@@ -134,17 +134,24 @@ export function renderSettingsAiTestPanel({
   const testRunButton = $("btnAiTestChatRun");
   if (testRunButton) {
     testRunButton.disabled = ai.testRunning || Boolean(testBlockedReason);
-    testRunButton.textContent = ai.testRunning ? "运行中..." : testBlockedReason ? "先完成设置" : "运行";
+    testRunButton.textContent = ai.testRunning ? "测试中..." : testBlockedReason ? "先完成设置" : "测试一句话";
     if (testBlockedReason) testRunButton.setAttribute("title", testBlockedReason);
     else testRunButton.removeAttribute("title");
   }
 
   const testMeta = $("settingsAiTestChatMeta");
   if (testMeta) {
-    testMeta.textContent = ai.testRunning ? "运行中..." : ai.testMeta || testBlockedReason || "等待运行";
-    testMeta.classList.toggle("warn", ai.testRunning || Boolean(testBlockedReason));
+    const testSucceeded = ai.testStatus === "success";
+    const testFailed = ai.testStatus === "failed";
+    const testBlocked = ai.testStatus === "blocked";
+    testMeta.textContent = ai.testRunning
+      ? "正在测试"
+      : testSucceeded
+        ? "测试成功"
+        : ai.testMeta || testBlockedReason || "还没有测试";
+    testMeta.classList.toggle("warn", ai.testRunning || Boolean(testBlockedReason) || testFailed || testBlocked);
   }
 
   const testOutput = $("settingsAiTestChatOutput");
-  if (testOutput) testOutput.textContent = ai.testOutput || "（空）";
+  if (testOutput) testOutput.textContent = ai.testOutput || "还没有测试结果";
 }

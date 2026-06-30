@@ -48,8 +48,8 @@ test("settings AI route preview renders loading state", () => {
 
   renderAiRoutePreviewForRuntime(baseDeps(get, { routePreviewLoading: true }));
 
-  assert.match(get("settingsAiRouteStats").innerHTML, /正在预览/);
-  assert.equal(get("settingsAiRoutePreview").textContent, "正在根据当前选择判断会使用的服务和模型...");
+  assert.match(get("settingsAiRouteStats").innerHTML, /正在确认/);
+  assert.equal(get("settingsAiRoutePreview").textContent, "正在判断当前会使用本地模型还是远程模型。");
 });
 
 test("settings AI route preview falls back to local ready state when preview errored", () => {
@@ -61,12 +61,12 @@ test("settings AI route preview falls back to local ready state when preview err
     localModel: "qwen3:4b"
   }));
 
-  assert.match(get("settingsAiRouteStats").innerHTML, /本地模型已就绪/);
-  assert.match(get("settingsAiRoutePreview").innerHTML, /本地 AI 已就绪/);
-  assert.match(get("settingsAiRoutePreview").innerHTML, /qwen3:4b/);
+  assert.match(get("settingsAiRouteStats").innerHTML, /使用本地模型/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /本地模型可用/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /测试一句话/);
 });
 
-test("settings AI route preview renders remote ready route", () => {
+test("settings AI route preview renders remote ready route in plain language", () => {
   const { get } = elementMap();
 
   renderAiRoutePreviewForRuntime(baseDeps(get, {
@@ -80,8 +80,64 @@ test("settings AI route preview renders remote ready route", () => {
     }
   }));
 
-  assert.match(get("settingsAiRouteStats").innerHTML, /在线 AI 已就绪/);
-  assert.match(get("settingsAiRouteStats").innerHTML, /已连通/);
-  assert.match(get("settingsAiRoutePreview").innerHTML, /服务来源/);
-  assert.match(get("settingsAiRoutePreview").innerHTML, /平台托管 OpenAI/);
+  assert.match(get("settingsAiRouteStats").innerHTML, /使用远程模型/);
+  assert.match(get("settingsAiRouteStats").innerHTML, /可用/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /需要网络/);
+  assert.doesNotMatch(get("settingsAiRoutePreview").innerHTML, /需要网络和密钥/);
+  assert.doesNotMatch(get("settingsAiRoutePreview").innerHTML, /模型档位|AI 方案|Platform Managed/);
+});
+
+test("settings AI route preview keeps configurable remote route unavailable without secret", () => {
+  const { get } = elementMap();
+
+  renderAiRoutePreviewForRuntime({
+    ...baseDeps(get, {
+      runtimeMode: "cloud_only",
+      providerEndpointUrl: "https://api.example/v1/chat",
+      remoteRuntimeModel: "deepseek-chat",
+      secretRef: "",
+      providerDraftTouched: { secretRef: true },
+      routePreview: {
+        provider: { providerId: "openai_compatible_gateway", displayName: "Custom Gateway" },
+        route: { localOnly: false, modelRef: "gateway:deepseek-chat" },
+        access: { ready: true },
+        health: { status: "healthy" }
+      }
+    }),
+    currentAiProviderId: () => "openai_compatible_gateway",
+    activeAiProviderConfig: () => ({ endpointUrl: "https://api.example/v1/chat" }),
+    isRemoteConfigurableProviderId: () => true,
+    remoteRuntimeModelFromMap: () => "deepseek-chat"
+  });
+
+  assert.match(get("settingsAiRouteStats").innerHTML, /待测试/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /使用远程模型还不能用/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /补齐设置后再测试一句话/);
+});
+
+test("settings AI route preview accepts backend-ready remote access when secret was not edited locally", () => {
+  const { get } = elementMap();
+
+  renderAiRoutePreviewForRuntime({
+    ...baseDeps(get, {
+      runtimeMode: "cloud_only",
+      providerEndpointUrl: "https://api.example/v1/chat",
+      remoteRuntimeModel: "deepseek-chat",
+      secretRef: "",
+      providerDraftTouched: { secretRef: false },
+      routePreview: {
+        provider: { providerId: "openai_compatible_gateway", displayName: "Custom Gateway" },
+        route: { localOnly: false, modelRef: "gateway:deepseek-chat" },
+        access: { ready: true },
+        health: { status: "healthy" }
+      }
+    }),
+    currentAiProviderId: () => "openai_compatible_gateway",
+    activeAiProviderConfig: () => ({ endpointUrl: "https://api.example/v1/chat" }),
+    isRemoteConfigurableProviderId: () => true,
+    remoteRuntimeModelFromMap: () => "deepseek-chat"
+  });
+
+  assert.match(get("settingsAiRouteStats").innerHTML, /可用/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /使用远程模型已就绪/);
 });

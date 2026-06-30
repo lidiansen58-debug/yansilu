@@ -47,29 +47,25 @@ function baseDeps(get, ai = {}) {
     primaryRecommendedOllamaModelName: () => "qwen3:4b",
     currentAiProviderId: () => "platform_managed_openai",
     isAiLocalFlowActive: ({ runtimeMode }) => ["local_only", "hybrid"].includes(runtimeMode),
-    preferredLocalProviderPresetForSelection: () => "ollama_local_gateway",
-    defaultProviderEndpointUrl: () => "",
-    OLLAMA_CHAT_ENDPOINT_URL: "http://localhost:11434/api/chat",
-    defaultProviderHealthEndpointUrl: () => "",
-    OLLAMA_HEALTH_ENDPOINT_URL: "http://localhost:11434/api/tags",
-    isLocalModelPack: (modelPack) => String(modelPack).includes("Privacy"),
-    ollamaRuntimeStateLabel: () => "本地 AI 待检测",
     installedLocalModelReady: (name) => String(name || "").trim() === "qwen3:4b",
     ollamaRecommendationHintText: () => "qwen3:4b"
   };
 }
 
-test("settings AI experience view renders automatic setup state", () => {
+test("settings AI experience view renders simple remote setup state", () => {
   const { get } = elementMap();
 
   renderAiSettingsExperienceForRuntime(baseDeps(get));
 
-  assert.equal(get("settingsAiQuickstartStatus").textContent, "自动推荐");
-  assert.match(get("settingsAiSetupBadges").innerHTML, /使用方式 自动选择/);
-  assert.match(get("settingsAiSetupBadges").innerHTML, /平台托管 OpenAI/);
-  assert.equal(get("settingsAiAdvancedBadge").textContent, "保持默认");
-  assert.equal(get("settingsAiLabBadge").textContent, "等待运行");
-  assert.equal(get("settingsAiHybridToggle").textContent, "启用本地优先");
+  assert.equal(get("settingsAiQuickstartStatus").textContent, "未测试");
+  assert.match(get("settingsAiSetupBadges").innerHTML, /自动选择/);
+  assert.match(get("settingsAiSetupBadges").innerHTML, /默认远程模型/);
+  assert.equal(get("settingsAiSetupTitle").textContent, "当前可以使用远程模型");
+  assert.match(get("settingsAiSetupBody").textContent, /需要网络/);
+  assert.match(get("settingsAiSetupBody").textContent, /自定义远程服务时需要密钥/);
+  assert.equal(get("settingsAiAdvancedBadge").textContent, "通常不用改");
+  assert.equal(get("settingsAiLabBadge").textContent, "未测试");
+  assert.equal(get("settingsAiHybridToggle").textContent, "本地优先");
 });
 
 test("settings AI experience view hides setup guidance when local model is ready", () => {
@@ -81,12 +77,14 @@ test("settings AI experience view hides setup guidance when local model is ready
     localRuntimeStatus: "available",
     localRuntimeModels: [{ name: "qwen3:4b" }],
     localModel: "qwen3:4b",
+    testStatus: "success",
     testOutput: "pong"
   }));
 
-  assert.equal(get("settingsAiQuickstartStatus").textContent, "本地已就绪");
+  assert.equal(get("settingsAiQuickstartStatus").textContent, "测试成功");
   assert.equal(get("settingsAiLocalGuide").dataset.state, "ready");
-  assert.equal(get("settingsAiLabBadge").textContent, "已有结果");
+  assert.equal(get("settingsAiSetupTitle").textContent, "本地模型已可用");
+  assert.equal(get("settingsAiLabBadge").textContent, "测试成功");
   assert.deepEqual(get("settingsAiLocalHomeSteps").toggles.at(-1), ["hidden", true]);
   assert.deepEqual(get("settingsAiSetupSteps").toggles.at(-1), ["hidden", true]);
   assert.deepEqual(get("settingsAiLocalHint").toggles.at(-1), ["hidden", true]);

@@ -700,10 +700,10 @@
                   </section>
                   <section class="settings-nav-card settings-nav-assist-card">
                     <div class="settings-nav-card-title">使用提示</div>
-                    <p class="settings-nav-card-subtitle">每次只处理一件事：先看状态，再改设置，最后试运行确认。</p>
+                    <p class="settings-nav-card-subtitle">每次只处理一件事：先看状态，再改设置，最后测试一句话确认。</p>
                     <ul class="settings-sidebar-checklist" id="settingsSidebarChecklist">
                       <li>默认选项适合多数研究流程，不确定时先保持默认。</li>
-                      <li>涉及密钥、服务地址或本地模型时，保存后再试运行。</li>
+                      <li>涉及密钥、服务地址或本地模型时，保存后再测试一句话。</li>
                       <li>切换笔记库前先确认目标路径，避免打开错库。</li>
                     </ul>
                   </section>
@@ -822,7 +822,7 @@
                         <div class="settings-pane-kicker">AI</div>
                         <div class="settings-pane-title">AI 设置</div>
                       </div>
-                      <div class="settings-pane-note">选择 AI 使用方式，配置本地或远程模型，最后用一句话试运行。</div>
+                      <div class="settings-pane-note">选择 AI 使用方式，配置本地或远程模型，最后测试一句话。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAiBody">
                       <section class="settings-card" id="settingsCardAiSettings">
@@ -830,8 +830,8 @@
                           <section class="settings-ai-primary" aria-label="AI 主要设置">
                             <div class="settings-ai-primary-head">
                               <div>
-                                <div class="settings-ai-primary-title">当前 AI 使用方式</div>
-                                <div class="settings-ai-primary-note">不确定时保持自动；处理私密材料时切到“只用本地模型”。</div>
+                                <div class="settings-ai-primary-title">AI 使用方式</div>
+                                <div class="settings-ai-primary-note">本地模型隐私更好；远程模型效果可能更好，需要网络，部分服务需要密钥。</div>
                               </div>
                               <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                             </div>
@@ -839,15 +839,15 @@
                               <div class="settings-ai-field">
                                 <label for="settingsAiRuntimeMode">AI 使用方式</label>
                                 <select id="settingsAiRuntimeMode">
-                                  <option value="auto">自动选择（推荐）</option>
-                                  <option value="local_only">只用本地模型</option>
-                                  <option value="cloud_only">只用远程模型</option>
+                                  <option value="auto">自动选择</option>
+                                  <option value="local_only">使用本地模型</option>
+                                  <option value="cloud_only">使用远程模型</option>
                                 </select>
                               </div>
                               <button class="settings-ai-tool-button" type="button" data-settings-ai-dialog-open="test">
-                                <span class="settings-ai-tool-title">试运行</span>
-                                <span class="settings-ai-tool-note">用一句普通话确认当前设置能回复。</span>
-                                <span class="settings-stat-badge muted" id="settingsAiLabBadge">等待运行</span>
+                                <span class="settings-ai-tool-title">测试一句话</span>
+                                <span class="settings-ai-tool-note">确认当前 AI 设置是否可用。</span>
+                                <span class="settings-stat-badge muted" id="settingsAiLabBadge">未测试</span>
                               </button>
                             </div>
                             <section class="settings-ai-local-control-console" aria-label="本地 AI 管理">
@@ -881,7 +881,7 @@
                                 <select id="settingsAiLocalModel">
                                   <option value="">检测本地 AI 后选择</option>
                                 </select>
-                                <div class="settings-field-note">只能把研思录内置目录里的已安装模型设为默认；切换后建议试运行一次。</div>
+                                <div class="settings-field-note">只能把研思录内置目录里的已安装模型设为默认；切换后建议测试一句话。</div>
                               </div>
                               <div class="settings-ai-local-recommendations hidden" id="settingsAiLocalModelRecommendations" aria-live="polite"></div>
                               <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示运行环境检测和模型选择。</div>
@@ -891,7 +891,7 @@
                               <summary class="settings-ai-advanced-summary">
                                 <span class="settings-ai-advanced-copy">
                                   <span class="settings-ai-advanced-title">高级设置</span>
-                                  <span class="settings-ai-advanced-meta">远程模型、AI 方案和使用偏好都放在这里。</span>
+                                  <span class="settings-ai-advanced-meta">通常不用改；需要远程模型、密钥或指定模型时再展开。</span>
                                 </span>
                                 <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
                               </summary>
@@ -926,7 +926,7 @@
                                     <div class="settings-field-note">高级模式：简单任务可用本地，其他任务可能使用远程；敏感资料请用“只用本地模型”。</div>
                                   </div>
                                 </div>
-                                <button class="mini-btn is-subtle" type="button" data-settings-ai-dialog-open="remote">设置远程模型</button>
+                                <button class="mini-btn is-subtle" type="button" data-settings-ai-dialog-open="remote">填写远程模型</button>
                                 <div class="settings-ai-compact-preview">
                                   <div class="settings-stat-row" id="settingsAiSetupBadges">
                                     <span class="settings-stat-badge warn">等待同步</span>
@@ -934,7 +934,7 @@
                                   <div class="settings-stat-row" id="settingsAiRouteStats">
                                     <span class="settings-stat-badge warn">等待同步</span>
                                   </div>
-                                  <div class="settings-route-preview" id="settingsAiRoutePreview">显示当前会使用的模型和服务。</div>
+                                  <div class="settings-route-preview" id="settingsAiRoutePreview">这里显示当前 AI 是否可用。</div>
                                 </div>
                               </div>
                             </details>
@@ -945,8 +945,8 @@
                           <div class="settings-ai-popover-panel">
                             <div class="settings-ai-popover-head">
                               <div>
-                                <div class="settings-ai-popover-title" id="settingsAiRemoteDialogTitle">设置远程大模型</div>
-                                <div class="settings-ai-popover-note">按 3 步完成：切换远程模式，填写服务信息，保存并测试。</div>
+                                <div class="settings-ai-popover-title" id="settingsAiRemoteDialogTitle">填写远程模型</div>
+                                <div class="settings-ai-popover-note">远程模型效果可能更好；需要网络、服务地址和密钥名称。</div>
                               </div>
                               <div class="settings-ai-popover-head-actions">
                                 <button class="mini-btn is-subtle" id="settingsAiRemoteHelpToggle" type="button" aria-expanded="false" aria-controls="settingsAiRemoteHelp">帮助</button>
@@ -1003,8 +1003,8 @@
                                 <div class="settings-ai-wizard-step">
                                   <span class="settings-ai-wizard-index">3</span>
                                   <div class="settings-ai-wizard-copy">
-                                    <span class="settings-ai-wizard-title">保存并测试连接</span>
-                                    <span class="settings-ai-wizard-note">保存后点“测试服务连接”，确认网关可用。</span>
+                                  <span class="settings-ai-wizard-title">保存并测试一句话</span>
+                                  <span class="settings-ai-wizard-note">保存后用一句普通话确认 AI 能正常回复。</span>
                                   </div>
                                 </div>
                               </div>
@@ -1023,7 +1023,7 @@
 
                                 <label for="settingsAiProviderHealthEndpointUrl">检测地址</label>
                                 <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="可选，例如：https://gateway.example.com/health" />
-                                <div class="settings-field-note">可留空；不填时用“试运行”确认连接。</div>
+                                <div class="settings-field-note">可留空；不填时用“测试一句话”确认连接。</div>
 
                                 <label for="settingsAiAdvancedModelRef">指定模型</label>
                                 <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择" />
@@ -1031,8 +1031,8 @@
                               </div>
                               <div class="settings-ai-actions">
                                 <div class="settings-ai-actions-secondary">
-                                  <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存服务连接</button>
-                                  <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试服务连接</button>
+                                <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存远程设置</button>
+                                  <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试远程连接</button>
                                 </div>
                               </div>
                             </div>
@@ -1043,8 +1043,8 @@
                           <div class="settings-ai-popover-panel">
                             <div class="settings-ai-popover-head">
                               <div>
-                                <div class="settings-ai-popover-title" id="settingsAiTestDialogTitle">AI 试运行</div>
-                                <div class="settings-ai-popover-note">用一句不含敏感内容的话确认当前设置可用。</div>
+                                <div class="settings-ai-popover-title" id="settingsAiTestDialogTitle">测试一句话</div>
+                                <div class="settings-ai-popover-note">用一句不含敏感内容的话确认当前 AI 能正常回复。</div>
                               </div>
                               <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
                             </div>
@@ -1055,12 +1055,12 @@
                                 <div class="settings-field-note">返回结果只用于确认连接和模型选择。</div>
                                 <div></div>
                                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                  <button class="mini-btn primary" id="btnAiTestChatRun" type="button">运行</button>
+                                  <button class="mini-btn primary" id="btnAiTestChatRun" type="button">测试一句话</button>
                                   <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
-                                  <span class="settings-stat-badge" id="settingsAiTestChatMeta">等待运行</span>
+                                  <span class="settings-stat-badge" id="settingsAiTestChatMeta">未测试</span>
                                 </div>
                               </div>
-                              <pre class="settings-code" id="settingsAiTestChatOutput" style="white-space:pre-wrap; word-break:break-word; margin:0;">（空）</pre>
+                              <pre class="settings-code" id="settingsAiTestChatOutput" style="white-space:pre-wrap; word-break:break-word; margin:0;">还没有测试结果</pre>
                             </div>
                           </div>
                         </div>

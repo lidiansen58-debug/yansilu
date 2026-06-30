@@ -15,7 +15,7 @@ test("settings AI setup badges describe automatic remote mode", () => {
       providerLabel: "平台托管 OpenAI"
     }),
     [
-      { tone: "muted", text: "使用方式 自动选择" },
+      { tone: "muted", text: "自动选择" },
       { tone: "", text: "平台托管 OpenAI" }
     ]
   );
@@ -27,14 +27,14 @@ test("settings AI setup badges describe local runtime and selected model", () =>
       runtimeMode: "local_only",
       localFlowActive: true,
       localStatus: "available",
-      localRuntimeLabel: "本地 AI 可用",
+      localRuntimeLabel: "本地可用",
       localModel: "qwen3:4b",
       models: [{ name: "qwen3:4b" }]
     }),
     [
-      { tone: "ok", text: "使用方式 只用本地模型" },
-      { tone: "ok", text: "本地 AI 可用" },
-      { tone: "ok", text: "本地模型 qwen3:4b" }
+      { tone: "ok", text: "使用本地模型" },
+      { tone: "ok", text: "本地可用" },
+      { tone: "ok", text: "当前模型 qwen3:4b" }
     ]
   );
 });
@@ -45,12 +45,12 @@ test("settings AI setup badges keep hybrid entry wording aligned with existing U
       runtimeMode: "hybrid",
       localFlowActive: true,
       localStatus: "unknown",
-      localRuntimeLabel: "等待检测",
+      localRuntimeLabel: "本地待检测",
       models: ["qwen3:4b", "llama3.2"]
     }),
     [
-      { tone: "ok", text: "使用方式 自动选择" },
-      { tone: "muted", text: "等待检测" },
+      { tone: "ok", text: "自动选择" },
+      { tone: "muted", text: "本地待检测" },
       { tone: "muted", text: "2 个本地模型" }
     ]
   );
@@ -64,9 +64,9 @@ test("settings AI experience badges expose advanced, lab, and hybrid states", ()
       runtimeMode: "hybrid"
     }),
     {
-      advancedBadge: { text: "2 项已填写", warn: true, muted: false },
-      labBadge: { text: "运行中", warn: true, ok: false, muted: false },
-      hybridToggle: { text: "退出本地优先", primary: true, subtle: false }
+      advancedBadge: { text: "已填写 2 项", warn: true, muted: false },
+      labBadge: { text: "测试中", warn: true, ok: false, muted: false },
+      hybridToggle: { text: "关闭本地优先", primary: true, subtle: false }
     }
   );
 });
@@ -75,20 +75,20 @@ test("settings AI experience badges expose default and completed lab states", ()
   assert.deepEqual(
     buildSettingsAiExperienceBadges({
       hasMeaningfulAdvancedOverride: false,
-      testOutput: "pong",
+      testStatus: "success",
       runtimeMode: "auto"
     }),
     {
-      advancedBadge: { text: "保持默认", warn: false, muted: true },
-      labBadge: { text: "已有结果", warn: false, ok: true, muted: false },
-      hybridToggle: { text: "启用本地优先", primary: false, subtle: true }
+      advancedBadge: { text: "通常不用改", warn: false, muted: true },
+      labBadge: { text: "测试成功", warn: false, ok: true, muted: false },
+      hybridToggle: { text: "本地优先", primary: false, subtle: true }
     }
   );
 });
 
 test("settings AI runtime mode label covers supported modes", () => {
-  assert.equal(settingsAiRuntimeModeLabel("local_only"), "只用本地模型");
-  assert.equal(settingsAiRuntimeModeLabel("hybrid"), "本地优先");
-  assert.equal(settingsAiRuntimeModeLabel("cloud_only"), "只用远程模型");
+  assert.equal(settingsAiRuntimeModeLabel("local_only"), "使用本地模型");
+  assert.equal(settingsAiRuntimeModeLabel("hybrid"), "优先使用本地模型");
+  assert.equal(settingsAiRuntimeModeLabel("cloud_only"), "使用远程模型");
   assert.equal(settingsAiRuntimeModeLabel(""), "自动选择");
 });

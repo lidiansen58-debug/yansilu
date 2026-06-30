@@ -102,6 +102,7 @@ test("settings AI event bindings route core field changes and delegated actions"
       userMode: "Auto",
       routePreview: { privacy: { mode: "remote" } },
       testPrompt: "",
+      testMeta: "测试成功",
       testOutput: "copy me"
     }
   };
@@ -153,6 +154,8 @@ test("settings AI event bindings route core field changes and delegated actions"
   harness.listeners.get("settingsAiModelPack:change")({ target: { value: "Local Fast" } });
   await harness.listeners.get("settingsAiLocalModel:change")({ target: { value: "qwen" } });
   await harness.listeners.get("settingsAiSecretRef:blur")({ target: { value: "vault-key" } });
+  assert.equal(settingsState.ai.testMeta, "");
+  assert.equal(settingsState.ai.testOutput, "");
   harness.elements.get("settingsAiTestPrompt").value = "hello";
   await harness.listeners.get("btnAiTestChatRun:click")({});
   await harness.listeners.get("btnAiTestChatCopy:click")({});
@@ -184,4 +187,72 @@ test("settings AI event bindings route core field changes and delegated actions"
     ["open-dialog", "remote"],
     ["close-dialog"]
   ]);
+});
+
+test("settings AI event bindings do not clear successful test when remote field value is unchanged", async () => {
+  const harness = createHarness();
+  const settingsState = {
+    ai: {
+      secretRef: "AI_KEY",
+      testMeta: "remote / model (ok)",
+      testStatus: "success",
+      testOutput: "pong"
+    }
+  };
+
+  installSettingsAiEventBindings({
+    $: harness.$,
+    settingsState,
+    documentRef: harness.documentRef,
+    clipboard: harness.clipboard,
+    persistAiSettingsToStorage: () => harness.calls.push(["persist"]),
+    renderSettingsPanel: () => harness.calls.push(["render"]),
+    setStatus: () => {},
+    markAiProviderDraftTouched: (...args) => harness.calls.push(["touch", ...args]),
+    syncAiProviderConfigToApi: async () => true
+  });
+
+  await harness.listeners.get("settingsAiSecretRef:blur")({ target: { value: "AI_KEY" } });
+
+  assert.equal(settingsState.ai.testStatus, "success");
+  assert.equal(settingsState.ai.testOutput, "pong");
+});
+
+test("settings AI event bindings mark blocked and failed test runs without success status", async () => {
+  const blockedHarness = createHarness();
+  const blockedState = { ai: { testPrompt: "" } };
+  installSettingsAiEventBindings({
+    $: blockedHarness.$,
+    settingsState: blockedState,
+    documentRef: blockedHarness.documentRef,
+    clipboard: blockedHarness.clipboard,
+    renderSettingsPanel: () => blockedHarness.calls.push(["render"]),
+    setStatus: () => {}
+  });
+
+  await blockedHarness.listeners.get("btnAiTestChatRun:click")({});
+  assert.equal(blockedState.ai.testStatus, "blocked");
+
+  const failedHarness = createHarness();
+  const failedState = { ai: { testPrompt: "hello", routePreview: { privacy: { mode: "remote" } } } };
+  failedHarness.elements.get("settingsAiTestPrompt").value = "hello";
+  installSettingsAiEventBindings({
+    $: failedHarness.$,
+    settingsState: failedState,
+    documentRef: failedHarness.documentRef,
+    clipboard: failedHarness.clipboard,
+    renderSettingsPanel: () => failedHarness.calls.push(["render"]),
+    setStatus: () => {},
+    aiTestBlockedReason: () => "",
+    currentAiProviderId: () => "remote",
+    aiSettingsPayload: () => ({ advancedSettings: {} }),
+    authModeForProvider: () => "secret",
+    runAiTestChat: async () => {
+      throw new Error("timeout");
+    }
+  });
+
+  await failedHarness.listeners.get("btnAiTestChatRun:click")({});
+  assert.equal(failedState.ai.testStatus, "failed");
+  assert.equal(failedState.ai.testOutput, "timeout");
 });
