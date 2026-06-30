@@ -11,8 +11,8 @@ function defaultEscapeHtml(value = "") {
 
 function isolatedQueueItemMeta(item = {}) {
   const parts = [];
-  if (Number(item.aiCount || 0) > 0) parts.push(`AI 候选 ${Number(item.aiCount || 0)}`);
-  if (Number(item.localCount || 0) > 0) parts.push(`本地线索 ${Number(item.localCount || 0)}`);
+  if (Number(item.aiCount || 0) > 0) parts.push(`AI 推荐 ${Number(item.aiCount || 0)}`);
+  if (Number(item.localCount || 0) > 0) parts.push(`可选笔记 ${Number(item.localCount || 0)}`);
   if (!parts.length) parts.push(item.decision?.label || "待关联");
   return parts.join(" · ");
 }
@@ -47,12 +47,12 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const nextItem = nextIsolatedQueueItem(queueItems, cleanCurrentNoteId);
     const total = queueItems.length;
     const currentIndex = queueItems.findIndex((item) => item.noteId === cleanCurrentNoteId);
-    const title = compact ? "继续处理待关联笔记" : "待关联的永久笔记";
+    const title = compact ? "继续关联其它笔记" : "还没有进入关系网的永久笔记";
     const note = compact
       ? currentIndex >= 0
-        ? `当前第 ${currentIndex + 1} 条。确认关系后，再处理下一条。`
-        : "先从最可能找到关系的笔记开始。"
-      : `${total} 条永久笔记还需要确认关系。优先处理已有候选线索的笔记。`;
+        ? `当前第 ${currentIndex + 1} 条。保存关系后，可以继续下一条。`
+        : "先从最容易找到关联的笔记开始。"
+      : `${total} 条永久笔记还没有进入关系网。逐条找到一条合适关系即可。`;
     return `
       <section class="graph-isolated-queue${compact ? " is-compact" : ""}" aria-label="${escapeHtml(title)}">
         <div class="graph-isolated-queue-head">
@@ -62,7 +62,7 @@ export function createGraphIsolatedWorkflowShellRenderer({
           </div>
           ${
             nextItem
-              ? `<button class="graph-selection-action is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">${escapeHtml(cleanCurrentNoteId ? "处理下一条" : "处理第一条")}</button>`
+              ? `<button class="graph-selection-action is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">${escapeHtml(cleanCurrentNoteId ? "关联下一条" : "开始关联")}</button>`
               : ""
           }
         </div>
@@ -72,9 +72,9 @@ export function createGraphIsolatedWorkflowShellRenderer({
               (item, index) => `
                 <article class="graph-isolated-queue-item${item.current ? " is-current" : ""} is-${escapeHtml(item.decision?.tone || "bridge")}">
                   <button class="graph-isolated-queue-main" type="button" data-graph-select-isolated="${escapeHtml(item.isolatedKey)}" data-graph-isolated-note="${escapeHtml(item.noteId)}">
-                    <span>${escapeHtml(`第 ${index + 1} 条待关联`)}</span>
+                    <span>${escapeHtml(`第 ${index + 1} 条`)}</span>
                     <strong>${escapeHtml(item.title)}</strong>
-                    <small>${escapeHtml(item.firstCandidateTitle ? `可能关联到：${item.firstCandidateTitle}` : item.thesis || item.decision?.next || "需要判断：建立关系、暂存观察，还是先重写这条笔记。")}</small>
+                    <small>${escapeHtml(item.firstCandidateTitle ? `可能关联到：${item.firstCandidateTitle}` : item.thesis || item.decision?.next || "为它找到一条合适的永久笔记关系。")}</small>
                   </button>
                   <em>${escapeHtml(isolatedQueueItemMeta(item))}</em>
                 </article>
@@ -97,11 +97,11 @@ export function createGraphIsolatedWorkflowShellRenderer({
     return `
       <div class="graph-isolated-queue-strip" aria-label="待关联笔记连续整理入口">
         <div>
-          <strong>${escapeHtml(`${String(total)} 条笔记待关联`)}</strong>
+          <strong>${escapeHtml(`${String(total)} 条笔记还没进入关系网`)}</strong>
           <span>${escapeHtml(`下一条：${nextItem.title}`)}</span>
         </div>
-        <button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条</button>
-        <button class="graph-selection-action is-queue" type="button" data-graph-open-workbench-entry="organize">查看待关联笔记</button>
+        <button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">开始关联</button>
+        <button class="graph-selection-action is-queue" type="button" data-graph-open-workbench-entry="organize">查看这些笔记</button>
       </div>
     `;
   };
@@ -110,11 +110,11 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const cleanNoteId = String(noteId || "").trim();
     if (!cleanNoteId) return "";
     return `
-      <section class="graph-isolated-workflow" aria-label="待关联笔记处理">
+      <section class="graph-isolated-workflow" aria-label="孤立永久笔记关联">
         <div class="graph-isolated-workflow-head">
           <div>
-            <strong>把这条笔记接入关系网</strong>
-            <p>只做一件事：选目标笔记、选关系类型、写理由，然后保存。</p>
+            <strong>这条永久笔记还没有进入关系网</strong>
+            <p>只做一件事：找到一条合适关系并保存。</p>
           </div>
           <span>${escapeHtml(visibleEdgeCount ? "已有关系" : "未关联")}</span>
         </div>
@@ -136,11 +136,11 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const isolatedQueueMarkup = renderQueue({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 });
     return renderSelectionShell({
       className: `is-isolated is-${decision.tone}`,
-      ariaLabel: "待关联笔记整理详情",
-      kicker: "待关联笔记",
+      ariaLabel: "孤立永久笔记关联",
+      kicker: "孤立笔记",
       title,
-      meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "还没有正式关系",
-      closeLabel: "收起待关联笔记整理",
+      meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "还没有进入关系网",
+      closeLabel: "收起关联面板",
       roleLabel: "",
       roleDetail: "",
       task: null,
@@ -164,22 +164,22 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const directRelationCount = graphDirectNetworkEdgeCount(noteId, edges, { relationStatusCountsAsNetworkEdge });
     return renderSelectionShell({
       className: "is-isolated is-complete",
-      ariaLabel: "待关联笔记已处理",
+      ariaLabel: "孤立笔记已接入关系网",
       kicker: "已接入关系网",
       title,
-      meta: `${noteTypeLabel(note.noteType)} · 当前关系 ${directRelationCount} 条`,
+      meta: `${noteTypeLabel(note.noteType)} · 已保存 ${directRelationCount} 条关系`,
       closeLabel: "收起处理结果",
       body: `
         <section class="graph-isolated-complete-card">
-          <small>关系已保存</small>
+          <small>已建立关系</small>
           <strong>${escapeHtml(result.targetTitle ? `已关联到：${result.targetTitle}` : "这条笔记已退出未关联状态")}</strong>
-          <p>${escapeHtml(result.relationLabel ? `关系类型：${result.relationLabel}。现在可以继续处理下一条，或者查看当前笔记周边关系。` : "现在可以继续处理下一条，或者查看当前笔记周边关系。")}</p>
+          <p>${escapeHtml(result.relationLabel ? `关系类型：${result.relationLabel}。这条笔记已经进入关系网。` : "这条笔记已经进入关系网。")}</p>
         </section>
         <div class="graph-isolated-complete-actions">
           ${
             nextItem
-              ? `<button class="graph-selection-action is-primary" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条：${escapeHtml(nextItem.title)}</button>`
-              : `<span class="graph-isolated-complete-empty">当前范围没有其它待关联笔记。</span>`
+              ? `<button class="graph-selection-action is-primary" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">继续关联：${escapeHtml(nextItem.title)}</button>`
+              : `<span class="graph-isolated-complete-empty">当前范围没有其它孤立笔记。</span>`
           }
         </div>
         ${renderRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "已保存关系" })}`,

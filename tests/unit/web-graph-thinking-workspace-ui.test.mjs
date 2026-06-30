@@ -1081,7 +1081,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /manualTargetsForNote: graphManualRelationTargetsForNote/);
   assert.match(source, /relationDraft: graphState\.isolatedRelationDraftByNoteId\?\.\[String\(noteId \|\| ""\)\.trim\(\)\] \|\| \{\}/);
   assert.match(joinWorkspaceSource, /aria-label="建立笔记关系"/);
-  assert.match(source, /建立一条能说清理由的关系/);
+  assert.match(source, /这条永久笔记还没有进入关系网/);
   assert.match(joinWorkspaceSource, /data-graph-ai-candidate-select/);
   assert.match(joinWorkspaceSource, /const targetId = String\(candidate\.counterpartNoteId \|\| ""\)\.trim\(\);/);
   assert.match(joinWorkspaceSource, /if \(!targetId \|\| targetId === cleanNoteId\) return "";/);
@@ -1092,10 +1092,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(joinWorkspaceSource, /data-graph-default-relation-type/);
   assert.match(joinWorkspaceSource, /data-graph-isolated-rationale/);
   assert.match(joinWorkspaceSource, /data-graph-isolated-relation-save/);
-  assert.match(joinWorkspaceSource, /保存关系/);
+  assert.match(joinWorkspaceSource, /保存并接入关系网/);
   assert.doesNotMatch(joinWorkspaceSource, mojibakeCopyPattern);
-  assert.match(source, /saveHint = "保存后，这条笔记会退出“未关联”。"/);
-  assert.match(joinWorkspaceSource, /保存后，这条笔记会退出“未关联”/);
+  assert.match(source, /saveHint = "保存后会立即建立正式关系，并从待关联列表中移除。"/);
+  assert.match(joinWorkspaceSource, /保存后会立即建立正式关系，并从待关联列表中移除/);
   assert.match(source, /function renderGraphIsolatedWorkflowTabs\(\{ noteId = "", isolatedQueueMarkup = "", decisionCards = \[\], prompts = \[\], nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
   assert.match(source, /return graphIsolatedWorkflowShell\.renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount \}\);/);
   assert.match(isolatedWorkflowShellSource, /renderJoinNetworkFlow\(cleanNoteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);

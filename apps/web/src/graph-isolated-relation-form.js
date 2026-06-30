@@ -90,7 +90,7 @@ export function graphIsolatedJoinNetworkFormModel(
     : null;
   const selectedManualTitle = String(selectedManualTarget?.title || (selectedManualTargetNoteId ? nodeTitle(nodeMap, selectedManualTargetNoteId, selectedManualTargetNoteId) : "")).trim();
   const manualSearchText = selectedManualTitle || String(safeDraft.manualSearchText || "").trim();
-  const manualDefaultRationale = selectedManualTitle ? `我确认“${sourceTitle}”和“${selectedManualTitle}”应该关联，因为：________。` : "";
+  const manualDefaultRationale = "";
   const aiRelationType =
     !activeAiCandidate ||
     !activeActionSourceNoteId ||

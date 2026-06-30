@@ -71,7 +71,8 @@ test("graph isolated relation workspace renders manual targets beyond the first 
 
   assert.match(html, /data-graph-pick-manual-target="target-120"/);
   assert.match(html, /目标预览/);
-  assert.match(html, /手工搜索目标/);
+  assert.match(html, /手动搜索关联/);
+  assert.match(html, /搜索目标笔记/);
   assert.doesNotMatch(html, mojibakeCopyPattern);
 });
 
@@ -92,8 +93,8 @@ test("graph isolated relation workspace keeps manual mode separate from AI ratio
   );
 
   assert.doesNotMatch(html, /<textarea[^>]*>AI reason should not leak\.<\/textarea>/);
-  assert.match(html, /data-graph-rationale-source="manual"/);
-  assert.match(html, /data-graph-manual-rationale="[^"]*Manual Target/);
+  assert.match(html, /data-graph-rationale-source=""/);
+  assert.match(html, /data-graph-manual-rationale=""/);
   assert.match(html, /data-graph-preview-title="Manual Target"/);
   assert.match(html, /data-graph-preview-text="Manual target preview\."/);
 });

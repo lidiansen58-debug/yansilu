@@ -59,8 +59,8 @@ test("isolated relation form model switches to manual mode for preferred target"
   assert.equal(model.selectedManualTargetNoteId, "manual");
   assert.equal(model.manualSearchText, "Manual target");
   assert.equal(model.defaultRelationType, "associated_with");
-  assert.match(model.defaultRationale, /Manual target/);
-  assert.equal(model.defaultRationaleSource, "manual");
+  assert.equal(model.defaultRationale, "");
+  assert.equal(model.defaultRationaleSource, "");
 });
 
 test("isolated relation form model keeps AI and manual drafts separate", () => {

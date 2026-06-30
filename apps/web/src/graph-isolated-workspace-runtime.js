@@ -347,9 +347,9 @@ function renderGraphIsolatedJoinNetworkFlow(
     preferredTargetNoteId = "",
     preferredRelationType = "",
     preferredRationale = "",
-    heading = "建立一条能说清理由的关系",
-    helper = "先选目标笔记，再选关系类型并写下理由。保存后才会进入图谱。",
-    saveHint = "保存后，这条笔记会退出“未关联”。"
+    heading = "这条永久笔记还没有进入关系网",
+    helper = "选择一条相关的永久笔记，说明它们是什么关系，再保存。",
+    saveHint = "保存后会立即建立正式关系，并从待关联列表中移除。"
   } = {}
 ) {
   return renderGraphIsolatedJoinNetworkFlowHtml(noteId, {
