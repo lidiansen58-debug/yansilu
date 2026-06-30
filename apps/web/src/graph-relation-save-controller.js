@@ -29,6 +29,7 @@ export function createGraphRelationSaveController({
   graphNodeTitle = (_nodeMap, id = "", fallback = "") => fallback || id,
   relationTypeLabel = (type = "") => String(type || "").trim(),
   clearIsolatedRelationDraft = () => false,
+  openGraphSelection = null,
   openRelationFormInSelection = () => false
 } = {}) {
   const titleForNote = (nodeMap = new Map(), noteId = "") => graphNodeTitle(
@@ -99,11 +100,18 @@ export function createGraphRelationSaveController({
       }
       graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
       graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = transaction.result;
+      const selectionAfterSave = nextSelection.kind === "isolatedComplete"
+        ? { ...nextSelection, saveResult: transaction.result }
+        : nextSelection;
       clearIsolatedRelationDraft(cleanNoteId);
-      graphState.selection = nextSelection;
+      graphState.selection = selectionAfterSave;
       await refreshDirectoryGraph();
-      graphState.selection = nextSelection;
-      renderGraphPanel();
+      graphState.selection = selectionAfterSave;
+      if (typeof openGraphSelection === "function") {
+        openGraphSelection(selectionAfterSave);
+      } else {
+        renderGraphPanel();
+      }
       setStatus(transaction.relation?.created === false ? "这条关系已经存在，已保留在当前处理结果" : "关系已保存，当前笔记已接入关系网", "ok");
       return true;
     } catch (error) {
@@ -124,7 +132,7 @@ export function createGraphRelationSaveController({
     const insightQuestionDraft = String(button?.getAttribute?.("data-graph-insight-question-draft") || "").trim();
     if (!noteId || !targetNoteId) return false;
     if (!confirmableRelationTypes.has(relationType) || relationType === "no_relation") {
-      setStatus("这条可选关系不能保存为正式关系，请重新选择一条能说明理由的关联", "warn");
+      setStatus("这条可选关系不能保存为正式关系，请重新选择一条能说明理由的关联。", "warn");
       return false;
     }
     const nodeMap = graphNodeMapForState(graphState);

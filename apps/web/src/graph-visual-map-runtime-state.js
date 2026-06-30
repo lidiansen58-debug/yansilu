@@ -15,6 +15,7 @@ import {
 
 export function buildGraphVisualMapRuntimeState({
   graphState = {},
+  graphSelection = null,
   nodes = [],
   edges = [],
   relationFilterEdges = [],
@@ -69,7 +70,7 @@ export function buildGraphVisualMapRuntimeState({
     shouldShowGraphDensityHint
   });
   const selectionState = buildGraphVisualMapSelectionState(buildGraphVisualMapSelectionInput({
-    graphSelection: graphState.selection,
+    graphSelection: graphSelection || graphState.selection,
     graphState,
     layoutState,
     edges,

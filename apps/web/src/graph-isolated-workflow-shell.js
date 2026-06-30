@@ -14,7 +14,7 @@ function isolatedQueueItemMeta(item = {}) {
   if (Number(item.aiCount || 0) > 0) parts.push(`AI 推荐 ${Number(item.aiCount || 0)}`);
   if (Number(item.localCount || 0) > 0) parts.push(`可选笔记 ${Number(item.localCount || 0)}`);
   if (!parts.length) parts.push(item.decision?.label || "待关联");
-  return parts.join(" · ");
+  return parts.join(" - ");
 }
 
 export function createGraphIsolatedWorkflowShellRenderer({
@@ -167,7 +167,7 @@ export function createGraphIsolatedWorkflowShellRenderer({
       ariaLabel: "孤立笔记已接入关系网",
       kicker: "已接入关系网",
       title,
-      meta: `${noteTypeLabel(note.noteType)} · 已保存 ${directRelationCount} 条关系`,
+      meta: `${noteTypeLabel(note.noteType)} - 已保存 ${directRelationCount} 条关系`,
       closeLabel: "收起处理结果",
       body: `
         <section class="graph-isolated-complete-card">

@@ -109,6 +109,14 @@ test("relation workflow normalizes overlay selections against visible nodes", ()
     entryRoute: null
   });
   assert.equal(graphNormalizeRelationWorkflowSelection({ kind: "isolatedComplete", noteId: "missing" }, { nodes }), null);
+  assert.deepEqual(graphNormalizeRelationWorkflowSelection(
+    { kind: "isolatedComplete", noteId: "note-a", saveResult: { targetTitle: "Note B" } },
+    { nodes }
+  ), {
+    kind: "isolatedComplete",
+    noteId: "note-a",
+    saveResult: { targetTitle: "Note B" }
+  });
 });
 
 test("relation workflow controller mutates graph state only through route methods", () => {

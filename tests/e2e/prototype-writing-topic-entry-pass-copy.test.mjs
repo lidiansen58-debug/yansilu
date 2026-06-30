@@ -62,16 +62,18 @@ test("prototype writing topic-entry pass message uses Chinese copy", async (t) =
     assert.match(String(projectsText || ""), /Topic Entry Pass Project/);
   }, 10000);
 
-  await page.locator('#writingProjectsList button[data-writing-project-action="open"]').first().click();
+  await page.locator('#writingProjectsList button[data-writing-project-action="resume-project"], #writingProjectsList button[data-writing-project-action="resume-scaffold"], #writingProjectsList button[data-writing-project-action="open-draft"]').first().click();
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已恢复项目：wp_/);
+    assert.match(String(statusText || ""), /继续这个主题|文章提纲|当前草稿|wp_/);
   }, 10000);
 
-  await page.click("#btnWritingCreateScaffold");
   await waitFor(async () => {
+    const scaffoldButtonText = await page.locator("#btnWritingCreateScaffold").textContent();
+    const scaffoldDisabled = await page.locator("#btnWritingCreateScaffold").isDisabled();
     const resultText = await page.locator("#writingResult").textContent();
-    assert.match(String(resultText || ""), /- 通过 主题入口: 这个项目已经挂到主题或索引入口上。/);
+    assert.equal(scaffoldDisabled, true);
+    assert.match(String(scaffoldButtonText || ""), /先澄清主题问题/);
     assert.doesNotMatch(String(resultText || ""), /The project is tied to a theme\/index entry\./);
   }, 10000);
 });

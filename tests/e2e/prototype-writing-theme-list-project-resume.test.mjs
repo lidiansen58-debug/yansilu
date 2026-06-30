@@ -84,7 +84,7 @@ test("prototype theme index list shows and uses a direct resume-project action w
     indexType: "topic",
     title: "Theme List Resume Index",
     summary: "A theme index used to verify direct resume-project entry from the list.",
-    thesis: "The theme list should show a direct current-project entry once the project exists.",
+    thesis: "The theme list should show a direct current-theme entry once the writing topic exists.",
     threeLineSummary: ["one", "two", "three"],
     centralQuestion: "How should a theme list expose an already-created project?",
     items: [
@@ -105,21 +105,21 @@ test("prototype theme index list shows and uses a direct resume-project action w
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从主题创建项目：wp_/);
+    assert.match(String(statusText || ""), /已从主题确定可写主题：wp_/);
   }, 10000);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
 
   await waitFor(async () => {
     const cardText = await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme List Resume Index" }).textContent();
-    assert.match(String(cardText || ""), /当前项目：wp_/);
-    assert.match(String(cardText || ""), /继续当前项目/);
+    assert.match(String(cardText || ""), /当前主题：wp_/);
+    assert.match(String(cardText || ""), /继续这个主题/);
   }, 10000);
 
   await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme List Resume Index" }).locator('[data-writing-index-action="resume-project"]').click();
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已(?:从主题索引)?继续当前项目：wp_/);
+    assert.match(String(statusText || ""), /已从(?:主题索引|可写主题)继续(?:这个主题)?：wp_/);
   }, 10000);
 });

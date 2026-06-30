@@ -122,24 +122,25 @@ test("prototype writing theme selection keeps current project continuity when sw
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从主题创建项目：wp_/);
+    assert.match(String(statusText || ""), /已从主题确定可写主题：wp_/);
   }, 10000);
 
   await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme Continuity Index B" }).click();
 
   await waitFor(async () => {
     const titleValue = await page.locator("#writingThemeDetailTitle").inputValue();
-    const createLabel = await page.locator('[data-writing-theme-action="create-project"]').textContent();
-    const disabled = await page.locator('[data-writing-theme-action="create-project"]').isDisabled();
+    const actionButton = page.locator('[data-writing-theme-action="resume-project"], [data-writing-theme-action="resume-scaffold"], [data-writing-theme-action="open-draft"], [data-writing-theme-action="create-project"]');
+    const createLabel = await actionButton.textContent();
+    const disabled = await actionButton.isDisabled();
     assert.equal(disabled, false);
     assert.match(String(titleValue || ""), /Theme Continuity Index B/);
-    assert.match(String(createLabel || ""), /继续当前项目/);
+    assert.match(String(createLabel || ""), /继续这个主题/);
   }, 10000);
 
-  await page.click('[data-writing-theme-action="create-project"]');
+  await page.click('[data-writing-theme-action="resume-project"], [data-writing-theme-action="resume-scaffold"], [data-writing-theme-action="open-draft"], [data-writing-theme-action="create-project"]');
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已继续当前项目：wp_/);
+    assert.match(String(statusText || ""), /已从(?:主题|可写主题)继续(?:这个主题)?：wp_/);
   }, 10000);
 });

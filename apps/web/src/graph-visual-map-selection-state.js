@@ -48,7 +48,7 @@ export function buildGraphVisualMapSelectionState({
     : Array.isArray(relationFilterEdges)
       ? relationFilterEdges
       : layoutEdges;
-  const contextualNodeMap = selectionNodeMap instanceof Map ? selectionNodeMap : layoutNodeMap;
+  const contextualNodeMap = selectionNodeMap instanceof Map ? new Map([...layoutNodeMap, ...selectionNodeMap]) : layoutNodeMap;
   const selectionNodeNeedsRelationWorkflow =
     activeSelection?.kind === "node" && graphNodeNeedsRelationWorkflow(activeSelection.nodeId, contextualSelectionEdges, contextualNodeMap);
   const selectedNodeId = activeSelection?.kind === "node" && !selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";

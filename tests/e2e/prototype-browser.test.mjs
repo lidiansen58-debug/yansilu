@@ -5682,14 +5682,14 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(projectResultText || "", /Evidence UI map/);
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /项目|材料|强模型/);
+    assert.match(statusStripText || "", /相关笔记|可写主题|文章提纲|开始草稿/);
   }, 10000);
 
   await page.click("#btnWritingCreateScaffold");
   await page.locator('#writingResult .result-card[data-result-stage="draft_scaffold"]').waitFor();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingScaffoldPreview")?.textContent || "";
-    return text.includes("草稿骨架：ds_");
+    return text.includes("文章提纲：ds_");
   });
 
   const scaffoldResultText = await page.locator("#writingResult").textContent();
@@ -5699,12 +5699,12 @@ test("prototype writing panel creates project and draft scaffold through real AP
 
   const scaffoldPreviewText = await page.locator("#writingScaffoldPreview").textContent();
   assert.ok(String(scaffoldPreviewText || "").trim().length > 0);
-  assert.match(scaffoldPreviewText || "", /草稿骨架：ds_/);
+  assert.match(scaffoldPreviewText || "", /文章提纲：ds_/);
   assert.match(scaffoldPreviewText || "", /章节结构/);
   assert.match(scaffoldPreviewText || "", /待处理的反方与漏洞/);
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /项目|材料|强模型|草稿/);
+    assert.match(statusStripText || "", /相关笔记|可写主题|文章提纲|开始草稿/);
   }, 10000);
 
   await page.click("#btnWritingCopyScaffold");
@@ -5743,7 +5743,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="edit-note"]').first().click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("已更新草稿骨架版本说明");
+    return text.includes("已更新文章提纲版本说明");
   });
   const editedScaffoldVersionText = await page.locator("#writingScaffoldVersionsList").textContent();
   assert.match(editedScaffoldVersionText || "", /Edited scaffold note from browser flow/);
@@ -5786,10 +5786,11 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(scaffoldPreviewAfterDraft || "", /下一步：打开当前草稿/);
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingProjectsList")?.textContent || "";
-    return text.includes("项目") && text.includes("Evidence UI map");
+    return text.includes("可写主题") && text.includes("Evidence UI map");
   });
   const projectsListText = await page.locator("#writingProjectsList").textContent();
-  assert.match(projectsListText || "", /Evidence UI map.*项目|项目.*Evidence UI map/);
+  assert.match(projectsListText || "", /Evidence UI map/);
+  assert.match(projectsListText || "", /可写主题|文章提纲|当前草稿/);
 
   await page.locator("#btnWritingOpenDraft").click({ force: true });
   await page.waitForFunction(() => {
@@ -5797,8 +5798,8 @@ test("prototype writing panel creates project and draft scaffold through real AP
     return text.trim().length > 0;
   });
   const editorValue = await page.locator("#editorBody").inputValue();
-  assert.match(editorValue, /# .*项目 草稿/);
-  assert.match(editorValue, /草稿骨架：ds\\?_/);
+  assert.match(editorValue, /# .*草稿/);
+  assert.match(editorValue, /文章提纲：ds\\?_/);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="writing"]')?.classList.contains("active"));
@@ -5863,20 +5864,20 @@ test("prototype writing panel creates project and draft scaffold through real AP
     return text.trim().length > 0;
   });
   const reboundEditorValue = await page.locator("#editorBody").inputValue();
-  assert.match(reboundEditorValue, /# .*项目 草稿/);
+  assert.match(reboundEditorValue, /# .*草稿/);
   assert.doesNotMatch(reboundEditorValue, /second scaffold/i);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator('#writingProjectsList [data-writing-project-id] .writing-note-actions button').first().click();
   await page.waitForFunction(() => {
     const title = document.querySelector("#writingTitle")?.value || "";
-    return title.includes("项目") && title.includes("Evidence UI map");
+    return title.includes("主题") && title.includes("Evidence UI map");
   });
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
     assert.doesNotMatch(statusStripText || "", /读取失败/);
-    assert.match(statusStripText || "", /项目/);
-    assert.match(statusStripText || "", /写作篮|材料/);
+    assert.match(statusStripText || "", /主题|可写主题/);
+    assert.match(statusStripText || "", /相关笔记|可写主题|文章提纲|开始草稿/);
   }, 10000);
 });
 

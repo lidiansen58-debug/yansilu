@@ -74,13 +74,13 @@ test("prototype writing flow switches the last step to open current draft after 
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /项目已创建：wp_/);
+    assert.match(String(statusText || ""), /可写主题已确定：wp_/);
   }, 10000);
 
   await page.click("#btnWritingCreateScaffold");
   await waitFor(async () => {
     const previewText = await page.locator("#writingScaffoldPreview").textContent();
-    assert.match(String(previewText || ""), /草稿骨架|Paragraph-Evidence Map/);
+    assert.match(String(previewText || ""), /文章提纲|Paragraph-Evidence Map/);
   }, 10000);
 
   await page.click("#btnWritingSaveDraft");

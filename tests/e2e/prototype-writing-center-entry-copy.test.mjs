@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWritingReadyPermanentNote, optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
-test("prototype writing module summary uses 写作中心 and 草稿骨架 wording", async (t) => {
+test("prototype writing module summary uses low-jargon outline and draft wording", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -43,14 +43,12 @@ test("prototype writing module summary uses 写作中心 and 草稿骨架 wordin
     const sidebarText = await page.locator("#moduleSidebar").textContent();
     const subtitleText = await page.locator("#sidebarSubtitle").textContent();
     const summaryText = await page.locator("#moduleSummary").textContent();
-    assert.match(String(subtitleText || ""), /从成熟笔记进入写作中心。/);
-    assert.match(String(sidebarText || ""), /写作原则/);
-    assert.match(String(sidebarText || ""), /永久笔记加入写作篮/);
-    assert.doesNotMatch(String(sidebarText || ""), /永久笔记进入写作篮/);
-    assert.match(String(summaryText || ""), /可写主题、项目和草稿骨架/);
-    assert.match(String(summaryText || ""), /写作中心这条主路径展开/);
-    assert.doesNotMatch(String(summaryText || ""), /可写主题、项目和脚手架/);
-    assert.doesNotMatch(String(summaryText || ""), /写作项目和脚手架/);
-    assert.doesNotMatch(String(summaryText || ""), /写作准备展开/);
+    assert.match(String(subtitleText || ""), /从相关笔记进入提纲和草稿。/);
+    assert.match(String(sidebarText || ""), /你要回答四件事/);
+    assert.match(String(sidebarText || ""), /操作顺序/);
+    assert.match(String(summaryText || ""), /我能写什么、用哪些笔记写、文章结构怎么起步、下一步写哪一段/);
+    assert.match(String(summaryText || ""), /可写主题|相关笔记|文章提纲|开始草稿/);
+    assert.doesNotMatch(String(summaryText || ""), /脚手架|项目/);
+    assert.doesNotMatch(String(sidebarText || ""), /写作篮/);
   }, 10000);
 });

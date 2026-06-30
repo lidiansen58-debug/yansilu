@@ -306,6 +306,7 @@ const graphRelationSaveController = createGraphRelationSaveController({
   graphNodeTitle,
   relationTypeLabel: graphRelationTypeLabel,
   clearIsolatedRelationDraft: clearGraphIsolatedRelationDraft,
+  openGraphSelection,
   openRelationFormInSelection: openGraphRelationFormInSelection
 });
 

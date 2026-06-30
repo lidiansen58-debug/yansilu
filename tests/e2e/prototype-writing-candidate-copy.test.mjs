@@ -11,7 +11,7 @@ async function createWritingReadyPermanentNote(baseUrl, directoryId, title) {
     thesis: `${title} should appear in the writing candidate summary.`,
     threeLineSummary: [
       `${title} should appear in the writing candidate summary.`,
-      "That matters because the summary should use the same 加入写作篮 wording as the buttons.",
+      "That matters because the summary should tell users what can become a writing topic.",
       "It helps the current directory summary stay consistent with the rest of the writing center."
     ],
     distillationStatus: "draft"
@@ -25,7 +25,7 @@ async function createWritingReadyPermanentNote(baseUrl, directoryId, title) {
     thesis: `${title} should appear in the writing candidate summary.`,
     threeLineSummary: [
       `${title} should appear in the writing candidate summary.`,
-      "That matters because the summary should use the same 加入写作篮 wording as the buttons.",
+      "That matters because the summary should tell users what can become a writing topic.",
       "It helps the current directory summary stay consistent with the rest of the writing center."
     ],
     distillationStatus: "confirmed",
@@ -39,7 +39,7 @@ async function createWritingReadyPermanentNote(baseUrl, directoryId, title) {
   return updated;
 }
 
-test("prototype writing candidate summary uses 加入写作篮 wording", async (t) => {
+test("prototype writing candidate summary uses clear writing-topic wording", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -72,7 +72,8 @@ test("prototype writing candidate summary uses 加入写作篮 wording", async (
 
   await waitFor(async () => {
     const summaryText = await page.locator("#writingCandidateSummary").textContent();
-    assert.match(String(summaryText || ""), /加入写作篮/);
-    assert.doesNotMatch(String(summaryText || ""), /进入写作篮/);
+    assert.match(String(summaryText || ""), /可进入写作的主题/);
+    assert.match(String(summaryText || ""), /Candidate Copy Note A|Candidate Copy Note B/);
+    assert.doesNotMatch(String(summaryText || ""), /项目|脚手架|加入写作篮/);
   }, 10000);
 });

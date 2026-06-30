@@ -16,6 +16,7 @@ import {
 export function composeGraphVisualMapForRuntime({
   nodes = [],
   edges = [],
+  graphSelection = null,
   relationFilterEdges = [],
   selectionEdges = null,
   selectionNodeMap = null,
@@ -83,6 +84,7 @@ export function composeGraphVisualMapForRuntime({
     graphState,
     nodes,
     edges,
+    graphSelection,
     relationFilterEdges,
     selectionEdges,
     selectionNodeMap,

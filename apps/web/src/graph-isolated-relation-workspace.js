@@ -170,8 +170,8 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
           const selected = activeMode === "ai" ? targetId === activeAiTargetNoteId : index === 0;
           const reason = String(candidate.rationaleDraft || candidate.coarseReasons?.[0] || candidate.reason || "").trim();
           const optionLabel = reason
-            ? `${targetTitle} · ${percent}% · ${reason}`
-            : `${targetTitle} · ${percent}%`;
+            ? `${targetTitle} - ${percent}% - ${reason}`
+            : `${targetTitle} - ${percent}%`;
           return `<option value="${escapeHtml(targetId)}" data-graph-relation-type="${escapeHtml(relationType)}" data-graph-rationale-draft="${escapeHtml(rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft || "")}" data-graph-action-source-note="${escapeHtml(actionSourceNoteId)}" data-graph-action-target-note="${escapeHtml(candidate.actionTargetNoteId || candidate.targetNoteId || "")}" data-graph-preview-title="${escapeHtml(targetTitle)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${selected ? " selected" : ""}>${escapeHtml(optionLabel)}</option>`;
         })
         .filter(Boolean)
@@ -179,13 +179,12 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
     : "";
   const manualOptions = resolvedManualTargets
     .map((target, index) => {
-      const label = target.folder ? `${target.title} · ${target.folder}` : target.title;
+      const label = target.folder ? `${target.title} - ${target.folder}` : target.title;
       const previewNote = graphFullNoteById(target.id, nodeMap) || target;
       const selected = String(target.id || "").trim() === selectedManualTargetNoteId;
       const searchMatch = manualSearchText ? label.toLowerCase().includes(manualSearchText.toLowerCase()) : true;
       const visible = selected || (searchMatch && index < 8);
-      const manualRationale = "";
-      return `<button class="graph-manual-target${selected ? " is-selected" : ""}${visible ? "" : " is-hidden"}" type="button" data-graph-pick-manual-target="${escapeHtml(target.id)}" data-graph-manual-title="${escapeHtml(target.title)}" data-graph-manual-rationale="${escapeHtml(manualRationale)}" data-graph-manual-search-text="${escapeHtml(label.toLowerCase())}" data-graph-preview-title="${escapeHtml(target.title)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${visible ? "" : " hidden"}><strong>${escapeHtml(target.title)}</strong>${target.folder ? `<small>${escapeHtml(target.folder)}</small>` : ""}</button>`;
+      return `<button class="graph-manual-target${selected ? " is-selected" : ""}${visible ? "" : " is-hidden"}" type="button" data-graph-pick-manual-target="${escapeHtml(target.id)}" data-graph-manual-title="${escapeHtml(target.title)}" data-graph-manual-rationale="" data-graph-manual-search-text="${escapeHtml(label.toLowerCase())}" data-graph-preview-title="${escapeHtml(target.title)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${visible ? "" : " hidden"}><strong>${escapeHtml(target.title)}</strong>${target.folder ? `<small>${escapeHtml(target.folder)}</small>` : ""}</button>`;
     })
     .join("");
   const statusText = directEdges.length ? "已进入关系网" : visibleEdgeCount ? "当前图谱可见" : "还未进入关系网";

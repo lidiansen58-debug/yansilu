@@ -1241,7 +1241,9 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphCanvasEventRouterSource, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
   assert.match(graphCanvasEventRouterSource, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
   assert.match(relationSaveTransactionSource, /status = "confirmed"/);
-  assert.match(saveControllerSource, /graphState\.selection = nextSelection;/);
+  assert.match(saveControllerSource, /const selectionAfterSave = nextSelection\.kind === "isolatedComplete"/);
+  assert.match(saveControllerSource, /graphState\.selection = selectionAfterSave;/);
+  assert.match(saveControllerSource, /openGraphSelection\(selectionAfterSave\);/);
   assert.match(source, /function renderGraphIsolatedCompletePanel\(\{ selection = null, isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   const isolatedCompleteSource = extractFunctionSource(source, "renderGraphIsolatedCompletePanel");
   assert.doesNotMatch(isolatedCompleteSource, /data-graph-select-node/);
@@ -1507,7 +1509,7 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
   assert.match(panelStateBuilderSource, /visibleNodes = !showingFocusedNote \? graphMarkIsolatedNodes\(visibleNodes, isolatedNotes\) : visibleNodes;/);
   assert.match(runtimeStateSource, /buildGraphVisualMapSelectionState\(/);
   assert.match(selectionStateSource, /const contextualSelectionEdges = Array\.isArray\(selectionEdges\)/);
-  assert.match(selectionStateSource, /const contextualNodeMap = selectionNodeMap instanceof Map \? selectionNodeMap : layoutNodeMap;/);
+  assert.match(selectionStateSource, /const contextualNodeMap = selectionNodeMap instanceof Map \? new Map\(\[\.\.\.layoutNodeMap, \.\.\.selectionNodeMap\]\) : layoutNodeMap;/);
   assert.match(html, /\.graph-map-node\.is-graph-isolated \.graph-map-node-core \{[\s\S]*stroke: #f59e0b;/);
   assert.match(html, /\.graph-local-connect \{[\s\S]*border-color: #fed7aa;/);
 });

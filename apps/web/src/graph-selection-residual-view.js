@@ -171,7 +171,7 @@ function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new
     ariaLabel: "建立笔记关系",
     kicker: "建立关系",
     title,
-    meta: targetTitle ? `预选目标：${targetTitle}` : "选择一条目标笔记并保存关系",
+    meta: targetTitle ? `预选目标：${targetTitle}` : "这条永久笔记还没有进入关系网",
     closeLabel: "收起关系表单",
     body: renderGraphIsolatedJoinNetworkFlow(noteId, {
       nodeMap,

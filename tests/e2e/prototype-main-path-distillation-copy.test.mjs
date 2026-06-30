@@ -47,7 +47,7 @@ async function ensureNoteMode(page) {
   });
 }
 
-test("prototype needs-distillation copy points toward 写作中心", async (t) => {
+test("prototype needs-distillation copy points toward viewpoint distillation", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -66,8 +66,8 @@ test("prototype needs-distillation copy points toward 写作中心", async (t) =
     thesis: "A reusable judgment still needs confirmation before the user enters the writing center.",
     threeLineSummary: [
       "A reusable judgment still needs confirmation.",
-      "That matters because the main-path copy should still name the writing center consistently.",
-      "The route should point to the writing center instead of a generic writing step."
+      "That matters because the main-path copy should not send draft viewpoints to writing too early.",
+      "The route should point to viewpoint distillation before the writing center."
     ],
     distillationStatus: "draft",
     authorship: {
@@ -91,8 +91,8 @@ test("prototype needs-distillation copy points toward 写作中心", async (t) =
 
   await waitFor(async () => {
     const mainPathText = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(mainPathText || ""), /确认观点|先完成提纯/);
-    assert.match(String(mainPathText || ""), /进入写作中心/);
-    assert.doesNotMatch(String(mainPathText || ""), /进入写作。/);
+    assert.match(String(mainPathText || ""), /提炼观点|确认观点/);
+    assert.match(String(mainPathText || ""), /继续提纯|把这条观点确认下来/);
+    assert.doesNotMatch(String(mainPathText || ""), /进入写作中心/);
   }, 10000);
 });

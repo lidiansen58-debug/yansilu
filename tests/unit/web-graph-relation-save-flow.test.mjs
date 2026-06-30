@@ -39,6 +39,12 @@ test("relation save returns to isolated completion when launched from isolated f
     button: { closest: (selector) => selector === ".graph-selection-panel.is-relation-form" ? { matches: true } : null },
     noteId: "source"
   }), { kind: "isolatedComplete", noteId: "source" });
+
+  assert.deepEqual(graphRelationSaveSelection({
+    previousSelection: { kind: "node" },
+    button: { closest: (selector) => selector === "[data-graph-isolated-relation-form]" ? { matches: true } : null },
+    noteId: "source"
+  }), { kind: "isolatedComplete", noteId: "source" });
 });
 
 test("relation save falls back to node selection for ordinary saves", () => {

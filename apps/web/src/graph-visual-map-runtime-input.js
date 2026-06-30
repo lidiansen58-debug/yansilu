@@ -18,6 +18,7 @@ export function buildGraphVisualMapLayoutInput({
 
 export function buildGraphVisualMapSelectionInput({
   graphState = {},
+  graphSelection = null,
   layoutState = {},
   edges = [],
   relationFilterEdges = [],
@@ -28,7 +29,7 @@ export function buildGraphVisualMapSelectionInput({
   bridgeGaps = []
 } = {}) {
   return {
-    graphSelection: graphState.selection,
+    graphSelection: graphSelection || graphState.selection,
     layoutNodes: layoutState.layout?.nodes || [],
     layoutEdges: edges,
     clusterMeta: layoutState.layout?.clusterMeta || [],

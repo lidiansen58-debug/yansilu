@@ -47,7 +47,7 @@ export function graphRelationWorkflowFormSelectionFromAction(action = null, { cu
     ok: true,
     reason: "",
     workflowTab: "manual",
-    statusText: targetNoteId ? "已在图谱内打开关系确认表单" : "已在图谱内打开手工关联表单",
+    statusText: targetNoteId ? "已在图谱内打开关系确认表单" : "已在图谱内打开手动关联表单",
     noteId,
     selection: {
       kind: "relationForm",
@@ -107,7 +107,13 @@ export function graphNormalizeRelationWorkflowSelection(
   }
   if (kind === "isolatedcomplete") {
     const noteId = cleanText(selection?.noteId || selection?.nodeId || selection?.id);
-    return hasNode(nodes, noteId) ? { kind: "isolatedComplete", noteId } : null;
+    return hasNode(nodes, noteId)
+      ? {
+          kind: "isolatedComplete",
+          noteId,
+          saveResult: selection?.saveResult && typeof selection.saveResult === "object" ? selection.saveResult : null
+        }
+      : null;
   }
   if (kind === "relationform") {
     const noteId = cleanText(selection?.noteId || selection?.nodeId || selection?.id);
