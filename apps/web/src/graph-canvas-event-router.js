@@ -3,6 +3,7 @@ const asyncNoop = async () => {};
 
 export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
   const {
+    documentRef = globalThis.document,
     appState = {},
     graphState = {},
     graphViewportDragState = {},
@@ -92,6 +93,19 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     requestAnimationFrame = (callback) => callback?.()
   } = deps || {};
 
+  function openGraphNoteFromElement(row = null, { stayInGraph = false } = {}) {
+    const noteId = String(row?.dataset?.openNote || "").trim();
+    if (!noteId) return false;
+    openNoteById(noteId);
+    if (stayInGraph && appState.module === "graph") {
+      renderGraphPanel();
+      setStatus("已切换为这条永久笔记的关系视图", "ok");
+      return true;
+    }
+    setStatus("已从图谱打开笔记", "ok");
+    return true;
+  }
+
   graphCanvas?.addEventListener("click", async (event) => {
     const consumeGraphClick = () => {
       event.preventDefault();
@@ -99,6 +113,12 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     };
     if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport")) {
       consumeGraphClick();
+      return;
+    }
+    const selectionPanelOpenNote = event.target.closest(".graph-selection-panel [data-open-note]");
+    if (selectionPanelOpenNote) {
+      consumeGraphClick();
+      openGraphNoteFromElement(selectionPanelOpenNote, { stayInGraph: true });
       return;
     }
     const isolatedWorkflowTab = event.target.closest("[data-graph-isolated-tab]");
@@ -546,14 +566,17 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const row = event.target.closest("[data-open-note]");
     if (!row) return;
-    openNoteById(row.dataset.openNote);
-    if (appState.module === "graph") {
-      renderGraphPanel();
-      setStatus("已切换为这条永久笔记的关系视图", "ok");
-      return;
-    }
-    setStatus("已从图谱打开笔记", "ok");
+    openGraphNoteFromElement(row, { stayInGraph: true });
   });
+
+  documentRef?.addEventListener?.("click", (event) => {
+    const row = event.target?.closest?.("[data-open-note]");
+    if (!row || graphCanvas?.contains?.(row)) return;
+    if (!row.closest?.(".graph-selection-panel, .graph-focus-context-panel, [data-graph-workbench-panel]")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openGraphNoteFromElement(row, { stayInGraph: true });
+  }, true);
 
   function handleGraphHoverIntent(event) {
     const thinking = event.target.closest("[data-graph-thinking-highlight]");
@@ -807,8 +830,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const row = event.target.closest("[data-open-note]");
     if (!row) return;
     event.preventDefault();
-    openNoteById(row.dataset.openNote);
-    setStatus("已从图谱打开笔记", "ok");
+    openGraphNoteFromElement(row);
   });
 
   graphCanvas?.addEventListener("change", (event) => {

@@ -1832,7 +1832,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "主题候选", relationCount = 0, tone = "" \} = \{\}\) \{/);
   assert.match(graphRouteSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
   assert.match(graphRouteSource, /createIndexCard\(\{/);
-  assert.match(graphRouteSource, /centralQuestion: "杩欑粍绗旇鍏卞悓鍥炵瓟浠€涔堥棶棰橈紵"|centralQuestion: "这组笔记共同回答什么问题？"/);
+  assert.match(graphRouteSource, /centralQuestion: "这组笔记共同回答什么问题？"/);
   assert.match(graphRouteSource, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
   assert.match(graphRouteSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
   assert.match(graphRouteSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);

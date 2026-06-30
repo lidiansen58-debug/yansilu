@@ -14,7 +14,7 @@ export function installGraphEntryEventBindings(deps = {}) {
   $("graphRefresh")?.addEventListener("click", async () => {
     const refreshed = await refreshDirectoryGraph();
     setStatus(
-      refreshed ? "姘镐箙绗旇鍏崇郴鍥捐氨宸插埛鏂?" : `鍥捐氨鍒锋柊澶辫触锛?{graphState.error || "璇烽噸璇?"}`,
+      refreshed ? "永久笔记关系图谱已刷新" : `图谱刷新失败：${graphState.error || "请重试"}`,
       refreshed ? "ok" : "warn"
     );
   });
@@ -23,7 +23,7 @@ export function installGraphEntryEventBindings(deps = {}) {
     state.selectedFileId = null;
     explorer?.restoreAutoCollapsedDisconnectedGroups?.();
     renderAll();
-    setStatus("宸茶繑鍥炵洰褰曞叧绯昏鍥?", "ok");
+    setStatus("已返回目录关系视图", "ok");
   });
 
   $("graphSeedYijing")?.addEventListener("click", async () => {

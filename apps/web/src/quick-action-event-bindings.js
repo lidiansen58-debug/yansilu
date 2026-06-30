@@ -20,7 +20,7 @@ export function installQuickActionEventBindings(deps = {}) {
       event.stopPropagation();
       const action = btn.dataset.action;
       if (action === "quick-original" && now() < getGraphModuleActivationGuardUntil()) {
-        setStatus("宸插仠鐣欏湪鍏崇郴鍥捐氨", "ok");
+        setStatus("已停留在关系图谱", "ok");
         return;
       }
       const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
@@ -44,7 +44,7 @@ export function installQuickActionEventBindings(deps = {}) {
       state.selectedFileId = null;
       await syncNotesForDirectoryTree(state.browserRootId);
       syncRailSelectionState();
-      setStatus(`宸插垏鎹㈠埌 ${displayFolderName(folderById(state, state.browserRootId))} 鍏ュ彛`, "ok");
+      setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
       renderAll();
     });
   });
@@ -53,7 +53,7 @@ export function installQuickActionEventBindings(deps = {}) {
     btn.addEventListener("click", () => {
       const url = `${windowRef.location.origin}/app/handoff`;
       windowRef.open(url, "_blank", "noopener,noreferrer");
-      setStatus("宸叉墦寮€宸ヤ綔鍙颁氦浠樻澘", "ok");
+      setStatus("已打开工作台交付板", "ok");
     });
   });
 }

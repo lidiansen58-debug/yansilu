@@ -7878,7 +7878,12 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   await page.locator(`#graphCanvas .graph-map-node[data-node-id="${targetNote.json.item.id}"]`).click();
   await page.locator(".graph-selection-panel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
   await page.locator(".graph-selection-panel", { hasText: /当前笔记|连接|打开笔记/ }).waitFor({ timeout: 3000 });
-  assert.ok((await page.locator(`.graph-selection-panel [data-open-note="${targetNote.json.item.id}"]`).count()) >= 1);
+  await page.locator(`.graph-selection-panel [data-open-note="${targetNote.json.item.id}"]`).first().click();
+  await page.waitForFunction((noteId) => {
+    const state = window.__prototypeState || {};
+    const activeTab = Array.isArray(state.tabs) ? state.tabs.find((tab) => tab.id === state.activeTabId) : null;
+    return state.selectedFileId === noteId || activeTab?.noteId === noteId;
+  }, targetNote.json.item.id);
 
   const selectionClose = page.locator("[data-graph-selection-close]").first();
   if (await selectionClose.isVisible().catch(() => false)) await selectionClose.click();
@@ -8250,13 +8255,9 @@ test("prototype graph AI connect suggests a relation from notes without relation
     assert.match(String(panelText || ""), /保存关系|手工搜索/);
   }, 7000);
 
-  if (await page.locator(".graph-selection-panel [data-graph-ai-candidate-select]").count()) {
-    await page.locator(".graph-selection-panel [data-graph-ai-candidate-select]").selectOption(targetNoteId);
-  } else {
-    await page.locator('.graph-selection-panel [data-graph-isolated-tab="manual"]').click();
-    await page.locator(".graph-selection-panel [data-graph-manual-target-search]").fill("AI Review Target");
-    await page.locator('.graph-selection-panel [data-graph-pick-manual-target]:has-text("AI Review Target")').first().click();
-  }
+  const aiCandidateSelect = page.locator(".graph-selection-panel [data-graph-ai-candidate-select]");
+  await aiCandidateSelect.waitFor({ state: "visible", timeout: 7000 });
+  await aiCandidateSelect.selectOption(targetNoteId);
   await page.locator(".graph-selection-panel [data-graph-isolated-rationale]").fill("AI 推荐指出两条笔记都在说明候选关系需要人工确认。");
   await page.locator(".graph-selection-panel [data-graph-isolated-relation-save]").click();
   await waitFor(async () => {

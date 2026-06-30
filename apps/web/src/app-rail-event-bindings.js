@@ -29,18 +29,18 @@ export function installAppRailEventBindings(deps = {}) {
         if (state.module !== "graph" && now() < getGraphModuleActivationGuardUntil()) {
           activateModule("graph");
         }
-        if (state.module === "graph") setStatus("宸叉墦寮€姘镐箙绗旇鍏崇郴鍥捐氨", "ok");
+        if (state.module === "graph") setStatus("已打开永久笔记关系图谱", "ok");
       }
       if (targetModule === "aiInbox" && state.module === "aiInbox") {
         await openAiInboxModule();
-        if (state.module === "aiInbox") setStatus("宸叉墦寮€ AI 寤鸿澶嶆牳", "ok");
+        if (state.module === "aiInbox") setStatus("已打开 AI 建议复核", "ok");
       }
       if (targetModule === "settings" && state.module === "settings") {
         try {
           await refreshVaultSettings();
-          if (state.module === "settings") setStatus("宸叉墦寮€璁剧疆", "ok");
+          if (state.module === "settings") setStatus("已打开设置", "ok");
         } catch (error) {
-          if (state.module === "settings") setStatus(`璁剧疆鍔犺浇澶辫触锛?{String(error?.message || error)}`, "warn");
+          if (state.module === "settings") setStatus(`设置刷新失败：${String(error?.message || error)}`, "warn");
         }
       }
       if (targetModule === "writing" && state.module === "writing") {

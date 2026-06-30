@@ -70,22 +70,22 @@ export function installAppGlobalKeyboardEvents(deps = {}) {
         const currentFolder = folderById(state, state.selectedFolderId);
         if (currentFolder?.parentId) {
           state.selectedFolderId = currentFolder.parentId;
-          setStatus("宸插畾浣嶅埌涓婄骇鐩綍", "ok");
+          setStatus("已定位到上级目录", "ok");
         } else {
-          setStatus("褰撳墠宸插湪椤跺眰鐩綍", "warn");
+          setStatus("当前已在顶层目录", "warn");
         }
       } else {
         const children = childFolders(state, state.selectedFolderId);
         if (children.length) {
           state.selectedFolderId = children[0].id;
-          setStatus("宸茶繘鍏ュ瓙鐩綍", "ok");
+          setStatus("已进入子目录", "ok");
         } else {
           const files = notesInFolder(state, state.selectedFolderId);
           if (files.length) {
             openNoteById(files[0].id);
-            setStatus("宸叉墦寮€褰撳墠鐩綍棣栦釜鏂囦欢", "ok");
+            setStatus("已打开当前目录的第一条笔记", "ok");
           } else {
-            setStatus("褰撳墠鐩綍鏃犳枃浠?", "warn");
+            setStatus("当前目录没有可打开的子目录或笔记", "warn");
           }
         }
       }
