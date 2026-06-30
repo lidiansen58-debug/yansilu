@@ -628,7 +628,7 @@ function composeLiteratureCitationLines(citation = {}) {
   return Object.entries(LITERATURE_CITATION_FIELD_LABELS).map(([key, label]) => `- ${label}：${fields[key] || ""}`);
 }
 
-function literatureCitationState(citation = {}) {
+export function literatureCitationState(citation = {}) {
   const fields = normalizeLiteratureCitationFields(citation);
   const missingKeys = REQUIRED_LITERATURE_CITATION_FIELDS.filter((key) => !fields[key]);
   return {

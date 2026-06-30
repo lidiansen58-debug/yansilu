@@ -1,33 +1,61 @@
-import {
-  createGraphIsolatedWorkspaceRuntime
-} from "./graph-isolated-workspace-runtime.js";
-import {
-  createGraphRelationWorkspaceRuntime
-} from "./graph-relation-workspace-runtime.js";
-import {
-  createGraphSelectionResidualView
-} from "./graph-selection-residual-view.js";
-import {
-  createGraphThinkingPanelResidualView
-} from "./graph-thinking-panel-residual-view.js";
+import { createGraphIsolatedWorkspaceRuntime } from "./graph-isolated-workspace-runtime.js";
+import { createGraphRelationWorkspaceRuntime } from "./graph-relation-workspace-runtime.js";
+import { createGraphSelectionResidualView } from "./graph-selection-residual-view.js";
+import { createGraphThinkingPanelResidualView } from "./graph-thinking-panel-residual-view.js";
 
 export function createGraphResidualViews(deps = {}) {
   const {
-    GRAPH_CONFLICT_RELATION_TYPES,
-    GRAPH_INDEX_RELATION_TYPES,
-    GRAPH_LINK_CLUE_RELATION_TYPES,
-    GRAPH_MEANINGFUL_RELATION_TYPES,
-    GRAPH_RELATION_GROUP_META,
+    $, addSystemMessage, analyzeDirectoryGraph, descendantDirectoryIds,
+    GRAPH_CONFLICT_RELATION_TYPES, GRAPH_INDEX_RELATION_TYPES, GRAPH_LINK_CLUE_RELATION_TYPES, GRAPH_MEANINGFUL_RELATION_TYPES,
+    GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, GRAPH_RELATION_GROUP_META, GRAPH_RELATION_MARKER_COLORS, GRAPH_VISUAL_ZOOM_OPTIONS,
+    applyGraphEdgeHoverDomState, applyGraphNodeHoverDomState, applyGraphThinkingHoverDomState,
+    graphBuildFocusedRelationTypeStatsForRuntime, graphBuildVisualLayoutForRuntime, graphDenseGalaxyMode,
+    graphEdgePathForRuntime, graphEdgeShouldRenderForRuntime, graphEdgeVisibleAtFitForRuntime,
+    graphFocusContextModeMeta, graphFocusDepthMeta, graphFocusedItemsForRuntime, graphHash, graphLoadedScopeCoversDirectoryForRuntime,
+    graphReadingModeMeta, graphScopedItemsForRuntime, graphScopeDirectoryIdForRuntime,
+    graphNodeAttentionReasons, graphNodeClass, graphNodeRadiusByTier, graphNodeShowsAsPoint, graphNodeStarTier,
+    graphNotePreviewTextForLocalRelation, graphNoteTagsForLocalRelation, graphShortTitle, graphThemeBoundaryMetaForRuntime,
+    graphViewModeForRelationType, graphZoomOption, normalizeGraphFocusDepth,
+    computeGraphAiRelationCandidatesForNote,
+    computeGraphBlockedAiRelationPairKeysForNote,
+    computeGraphCandidateBlocksFormalRelation,
+    computeGraphCandidateCanSaveRelation,
+    computeGraphCandidateCountKey,
+    computeGraphCandidateEndpointIds,
+    computeGraphCandidateUndirectedPairKey,
+    computeGraphDecoratePotentialRelationCandidate,
+    computeGraphMergeRelationCandidatesForDisplay,
+    computeGraphLocalRelationCandidatesForNote,
+    computeGraphPotentialRelationActionEndpoints,
+    computeGraphPotentialRelationEvidenceText,
+    computeGraphPotentialRelationRationaleDraft,
+    computeGraphPreferredPotentialRelationType,
     computeGraphReadingLensMeta,
+    computeGraphRelationCandidateKey,
     computeGraphDirectNetworkEdgeCount,
+    computeGraphExistingRelationKeys,
+    computeGraphExistingRelationPairKeys,
+    computeGraphFocusCardActionMeta,
+    computeGraphRelationPairKey,
+    computeGraphRelationRationaleIsActionable,
+    computeGraphRelationStatusCountsAsNetworkEdge,
+    computeGraphRelationStatusKey,
+    computeGraphTitleCharacterOverlap,
+    createGraphAiConnectRuntimeController,
     createGraphIsolatedWorkflowShellRenderer,
     createGraphReadingLensStateController,
     createGraphRelationSaveController,
     createGraphRelationWorkflowController,
+    createGraphVisualMapController,
+    createGraphVisualMapPrototypeDepsProvider,
     escapeHtml,
+    ensureGraphLocalAiReadyForAnalysis,
+    isDirectoryUnderOriginalRoot,
     graphBridgeSelectionKey,
     graphEdgeSelectionKey,
     graphFilterOptionsForRuntime,
+    graphFullNoteByIdFromSources,
+    graphIsolatedPreviewTargetForNote,
     graphIsolatedSelectionKey,
     graphNodeStarRank,
     graphNormalizeRelationWorkflowSelection,
@@ -48,8 +76,20 @@ export function createGraphResidualViews(deps = {}) {
     renderGraphRelationTypeFilterForRuntime,
     renderGraphResearchNavigatorEntryView,
     renderGraphSelectionMetricsView,
+    renderGraphSelectionShellView,
+    renderGraphStarfieldView,
+    renderGraphNebulaFieldView,
+    renderGraphClusterGlowView,
+    renderGraphFocusContextPanelView,
+    renderGraphThemeBoundaryForRuntime,
     renderGraphViewModeSwitcherForRuntime,
     renderGraphWorkbenchEntryPillsView,
+    renderGraphPanel,
+    resetGraphHoverDomState,
+    refinePotentialRelationCandidate,
+    parseTags,
+    setStatus,
+    shouldShowGraphDensityHint,
     state,
     suggestedThemeIndexTitle,
     titleFromBody,
@@ -62,32 +102,16 @@ export function createGraphResidualViews(deps = {}) {
 function graphResidualRuntimeDeps(overrides = {}) {
   return {
     ...deps,
-    escapeHtml,
-    graphState,
-    state,
-    noteTypeLabel,
-    renderGraphIcon,
-    graphNodeTitle,
-    graphEdgeSelectionKey,
-    graphRelationGroupMeta,
-    graphRelationSourceLabel,
-    graphRelationStatusLabel,
-    graphRelationTypeLabel,
-    graphRelationVisual,
-    graphThemeSelectionKey,
-    graphIsolatedSelectionKey,
-    graphBridgeSelectionKey,
-    suggestedThemeIndexTitle,
-    titleFromBody,
-    uniqueStrings,
-    writeStoredText,
+    escapeHtml, GRAPH_CONFIRMABLE_RELATION_TYPES, GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES,
+    graphState, state, noteTypeLabel, renderGraphIcon, graphNodeTitle,
+    graphEdgeSelectionKey, graphRelationGroupMeta, graphRelationSourceLabel, graphRelationStatusLabel,
+    graphRelationTypeLabel, graphRelationVisual, graphThemeSelectionKey, graphIsolatedSelectionKey,
+    graphBridgeSelectionKey, suggestedThemeIndexTitle, titleFromBody, uniqueStrings, writeStoredText,
     ...overrides
   };
 }
 
-function renderGraphIcon(...args) {
-  return renderGraphIconView(...args);
-}
+function renderGraphIcon(...args) { return renderGraphIconView(...args); }
 
 function setGraphFocusDepth(value = "", options = {}) {
   return setGraphFocusDepthForRuntime(graphState, value, {
@@ -1634,6 +1658,7 @@ const graphAiConnectRuntimeController = createGraphAiConnectRuntimeController(()
   graphRelationWorkflowController,
   graphScopeDirectoryId,
   graphState,
+  setGraphIsolatedWorkflowActiveTab,
   mergePotentialRelationCandidateIntoGraphAnalysis,
   refinePotentialRelationCandidate,
   removePotentialRelationCandidateFromGraphAnalysis,
@@ -1650,13 +1675,9 @@ async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}
   return graphAiConnectRuntimeController.refineGraphPotentialRelationCandidate(noteId, candidate, options);
 }
 
-function graphNoteTags(note = {}) {
-  return graphNoteTagsForLocalRelation(note, { parseTags });
-}
+function graphNoteTags(note = {}) { return graphNoteTagsForLocalRelation(note, { parseTags }); }
 
-function graphTitleCharacterOverlap(left = "", right = "") {
-  return computeGraphTitleCharacterOverlap(left, right);
-}
+function graphTitleCharacterOverlap(left = "", right = "") { return computeGraphTitleCharacterOverlap(left, right); }
 
 function graphLocalRelationCandidatesForNote(noteId = "", { nodeMap = new Map(), edges = [], limit = 5 } = {}) {
   return computeGraphLocalRelationCandidatesForNote(
@@ -1880,7 +1901,6 @@ const {
   graphManualRelationTargetsForNote
 } = graphRelationWorkspaceRuntime;
 const graphIsolatedWorkspaceRuntime = createGraphIsolatedWorkspaceRuntime(graphResidualRuntimeDeps({
-  graphAiAnalysisPayload,
   graphAiRelationCandidatesForNote,
   graphCandidatePercent,
   graphFullNoteById,
@@ -1888,6 +1908,7 @@ const graphIsolatedWorkspaceRuntime = createGraphIsolatedWorkspaceRuntime(graphR
   graphRelationFormTypeOptions,
   graphRelationRationaleIsActionable,
   graphThemeCandidateNoteIdsForNode,
+  resolveGraphIsolatedSelection,
   renderGraphIsolatedPreviewPanel
 }));
 const {
@@ -1895,6 +1916,8 @@ const {
   openGraphIsolatedDecisionAction,
   loadGraphEditableNote,
   saveGraphIsolatedDecision,
+  graphRelationSaveController,
+  graphRelationWorkflowController,
   graphAiAnalysisPayload,
   graphAiConfidenceLabel,
   graphNoteIdFromIsolatedItem,
@@ -1919,6 +1942,7 @@ const {
   renderGraphIsolatedDecisionForm,
   graphIsolatedWorkflowActiveTab,
   setGraphIsolatedWorkflowActiveTab,
+  graphIsolatedWorkflowShell,
   renderGraphIsolatedWorkflowTabs,
   activateGraphIsolatedWorkflowTab,
   moveGraphIsolatedWorkflowTab,
@@ -1936,11 +1960,12 @@ const {
   focusGraphRelationAdjustmentInPlace
 } = graphIsolatedWorkspaceRuntime;
 const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
-  graphClusterResearchMeta,
+  graphFullNoteById,
   graphIsolatedWorkflowShell,
   graphRelationFormTypeOptions,
   graphSelectionPanelRenderer: undefined,
   graphThemeCandidateNoteIdsForNode,
+  renderGraphSelectionShell,
   renderGraphAiConnectCandidates,
   renderGraphIsolatedJoinNetworkFlow,
   renderGraphRelationWorkspaceForNote
@@ -2201,10 +2226,7 @@ const graphThinkingPanelResidualView = createGraphThinkingPanelResidualView(grap
   graphExistingRelationPairKeys,
   graphIsolatedQueueItems,
   graphNoteHasSavedIsolationDisposition,
-  graphNoteIdFromIsolatedItem,
-  graphNodeIdsInScope,
-  graphPendingAiCandidateCount,
-  graphSelectEdgeActionAttrs
+  graphNoteIdFromIsolatedItem
 }));
 const {
   renderRelationReviewQueueSection,
@@ -2295,6 +2317,8 @@ const {
     openGraphIsolatedDecisionAction,
     loadGraphEditableNote,
     saveGraphIsolatedDecision,
+    graphRelationSaveController,
+    graphRelationWorkflowController,
     graphAiAnalysisPayload,
     graphAiConfidenceLabel,
     graphNoteIdFromIsolatedItem,
@@ -2336,6 +2360,7 @@ const {
     graphReviewSummaryFromAnalysis,
     mergePotentialRelationCandidateIntoGraphAnalysis,
     removePotentialRelationCandidateFromGraphAnalysis,
+    graphAiConnectRuntimeController,
     refineGraphPotentialRelationsForNote,
     refineGraphPotentialRelationCandidate,
     graphNoteTags,
@@ -2432,6 +2457,7 @@ const {
     currentGraphWritingCandidateNoteIds,
     renderGraphMapPreview,
     renderGraphAiAnalysisCard,
+    renderGraphVisualMap,
     buildGraphQuestionSpotSummary,
     buildGraphQuestionSpotSummaryFromItems,
     renderGraphQuestionSpotChip,

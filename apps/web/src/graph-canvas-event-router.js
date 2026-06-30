@@ -97,7 +97,8 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       event.preventDefault();
       event.stopImmediatePropagation();
     };
-    if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport")) {
+    const graphHitTarget = event.target.closest(".graph-map-node[data-node-id], .graph-map-edge-group[data-edge-from], [data-graph-select-node]");
+    if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport") && !graphHitTarget) {
       consumeGraphClick();
       return;
     }
@@ -526,6 +527,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const graphNode = event.target.closest(".graph-map-node[data-node-id]");
     if (graphNode) {
+      event.__yansiluGraphNodeHandled = true;
       openGraphNodeSelectionFromElement(graphNode);
       return;
     }

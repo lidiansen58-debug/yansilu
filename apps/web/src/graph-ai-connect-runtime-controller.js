@@ -1,12 +1,15 @@
-import {
-  graphAiConnectAnalysisOptions,
-  graphAiConnectArtifactCount,
-  graphAiConnectCandidateTitles,
-  graphAiConnectPreviewTargetId
-} from "./graph-ai-connect-model.js";
+import { graphAiConnectAnalysisOptions, graphAiConnectArtifactCount, graphAiConnectCandidateTitles, graphAiConnectPreviewTargetId } from "./graph-ai-connect-model.js";
 
 export function createGraphAiConnectRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
+  const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function waitForGraphLoad(graphState = {}, { timeoutMs = 15000, intervalMs = 50 } = {}) {
+    if (!graphState.loading) return true;
+    const deadline = Date.now() + timeoutMs;
+    while (graphState.loading && Date.now() < deadline) await wait(intervalMs);
+    return !graphState.loading;
+  }
 
   async function refineGraphPotentialRelationsForNote(noteId = "", candidates = [], { directoryId = "" } = {}) {
     const { setStatus = () => {} } = runtimeDeps();
@@ -146,11 +149,13 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       graphScopeDirectoryId = () => "",
       graphState = {},
       renderGraphPanel = () => {},
+      setGraphIsolatedWorkflowActiveTab = () => "",
       setStatus = () => {},
       state = {}
     } = runtimeDeps();
     const cleanNoteId = String(noteId || "").trim();
     if (!cleanNoteId || graphState.aiAnalysisLoading) return false;
+    await waitForGraphLoad(graphState);
     const directoryId = graphScopeDirectoryId();
     const previousSelection = graphState.selection;
     graphState.aiAnalysisLoading = true;
@@ -176,6 +181,14 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       if (firstTargetId) {
         graphState.isolatedCandidatePreviewByNoteId = graphState.isolatedCandidatePreviewByNoteId || {};
         graphState.isolatedCandidatePreviewByNoteId[cleanNoteId] = firstTargetId;
+        setGraphIsolatedWorkflowActiveTab(cleanNoteId, "ai");
+        const firstCandidate = candidates[0] || {};
+        graphState.selection = {
+          kind: "relationForm", noteId: cleanNoteId, targetNoteId: firstTargetId,
+          relationType: String(firstCandidate.relationType || firstCandidate.type || "associated_with").trim() || "associated_with",
+          rationale: String(firstCandidate.rationale || firstCandidate.aiRationale || "").trim(),
+          returnTo: graphSelectionKind === "isolated" ? "isolated" : ""
+        };
       }
       const noteTitle = graphNodeTitle(nodeMap, cleanNoteId, state.notes.find((note) => note.id === cleanNoteId)?.title || cleanNoteId);
       const candidateTitles = graphAiConnectCandidateTitles(candidates);
@@ -200,7 +213,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       }
       graphState.thinkingPanelVisible = true;
       setStatus(candidates.length ? `已找到 ${candidates.length} 条潜在关联，请确认后再写入图谱` : "当前笔记接入扫描完成，暂无清楚候选连接", candidates.length ? "ok" : "warn");
-      if (candidates.length) void refineGraphPotentialRelationsForNote(cleanNoteId, candidates, { directoryId });
+      if (candidates.length && !firstTargetId) void refineGraphPotentialRelationsForNote(cleanNoteId, candidates, { directoryId });
       return true;
     } catch (error) {
       graphState.aiAnalysisError = String(error?.message || error);
@@ -212,9 +225,5 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
     }
   }
 
-  return {
-    refineGraphPotentialRelationCandidate,
-    refineGraphPotentialRelationsForNote,
-    runGraphAiConnectForNote
-  };
+  return { refineGraphPotentialRelationCandidate, refineGraphPotentialRelationsForNote, runGraphAiConnectForNote };
 }

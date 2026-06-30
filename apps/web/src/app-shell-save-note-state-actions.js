@@ -67,6 +67,8 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
     if (note) {
       noteForExplorerSync = note;
       try {
+        if (typeof payload.body === "string") note.body = payload.body;
+        if (typeof payload.title === "string") note.title = payload.title || note.title;
         note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(note) || generatedOriginalNoteIdFromBody(note.body);
         const resolvedStatus =
           String(payload.status || "").trim() ||
@@ -95,6 +97,7 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
         setStatus("已同步到 Markdown", "ok");
         const suggestion = showSaveAiSuggestionForNote(note);
         syncSourcePromotionSystemMessageForNote(note, suggestion);
+        editor?.clearDraft?.(note.id);
         if (state.module === "graph") await refreshDirectoryGraph();
       } catch (error) {
         const feedback = noteSaveFailureFeedback(error);

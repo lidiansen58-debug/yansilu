@@ -99,7 +99,7 @@ import { renderGraphResearchNavigatorEntryView, renderGraphThinkingItemsView, re
 import { graphRelationQualityLabel, graphRelationReviewReasonLabel, renderGraphUtilityDrawerView, renderRelationReviewQueueSectionView } from "./graph-review-surface-view.js";
 import { applyGraphEmptyCloseInteraction, applyGraphSectionOpenState, applyGraphThinkingFilterInteraction, applyGraphThinkingHideInteraction, applyGraphThinkingToggleInteraction, applyGraphThinkingVisibilityInteraction, applyGraphUtilityDrawerCloseInteraction, applyGraphUtilityDrawerOpenState, applyGraphUtilityVisibilityInteraction, applyGraphWorkbenchCloseInteraction, applyGraphWorkbenchEntryInteraction, applyGraphWorkbenchTabInteraction } from "./graph-workspace-interaction-controller.js";
 import { buildGraphQuestionSpotSummaryForGraph, buildGraphQuestionSpotSummaryFromItems as computeGraphQuestionSpotSummaryFromItems, buildGraphThinkingItemsForGraph, graphAiAnalysisSummaryStateForGraph, graphLiveAiAnalysisCountsForGraph, graphThinkingCleanIds as computeGraphThinkingCleanIds, graphThinkingNoteTitle as computeGraphThinkingNoteTitle } from "./graph-thinking-items-model.js";
-import { applyGraphEdgeHoverDomState, applyGraphNodeHoverDomState, applyGraphThinkingHoverDomState, graphThinkingHighlightAttrsForItem, resetGraphHoverDomState } from "./graph-thinking-hover-controller.js";
+import { applyGraphEdgeHoverDomState, applyGraphNodeHoverDomState, applyGraphThinkingHoverDomState, graphDataListFromElement, graphThinkingHighlightAttrsForItem, resetGraphHoverDomState } from "./graph-thinking-hover-controller.js";
 import { renderGraphPromptDetailsView, renderGraphSelectionMetricsView, renderGraphSelectionShellView, renderGraphSelectionTaskView } from "./graph-selection-panel.js";
 import { renderGraphClusterSelectionPanelView } from "./graph-cluster-selection-panel.js";
 import { createGraphSelectionPanelRenderer } from "./graph-selection-panel-renderer.js";
@@ -122,6 +122,7 @@ import { createGraphRouteRuntime } from "./graph-route-runtime.js";
 import { createGraphVisualMapController } from "./graph-visual-map-controller.js";
 import { createGraphVisualMapPrototypeDepsProvider } from "./graph-visual-map-host-deps.js";
 import { bindGraphCanvasEvents } from "./graph-canvas-event-router.js";
+import { installGraphNodeClickFallbackEvents } from "./graph-node-click-fallback-events.js";
 import { graphBuildVisualLayout as graphBuildVisualLayoutForRuntime } from "./graph-visual-layout.js";
 import { createGraphViewportController } from "./graph-viewport-controller.js";
 import { createGraphUtilityDrawerController } from "./graph-utility-drawer-controller.js";
@@ -153,7 +154,7 @@ import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeP
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
 import { createWritingEntryRuntimeController } from "./writing-entry-runtime-controller.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
-import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
+import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingProjectEntryTitle as computeWritingProjectEntryTitle, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
 import { createScheduledTasksRuntimeController } from "./scheduled-tasks-runtime-controller.js";
@@ -253,6 +254,9 @@ function setGraphRelationTypeFilter(value = "", options = {}) {
     writeStoredText
   });
 }
+function graphStructureFallbackEdges(edges = [], filters = {}) { return graphStructureFallbackEdgesForRuntime(edges, filters, { graphEdgeMatchesFilters }); }
+function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) { return renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, { escapeHtml, graphFilterOptions, graphRelationTypeLabel }); }
+function renderGraphViewModeSwitcher(relationType = "meaningful") { return renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml }); }
 setGraphRelationTypeFilter(graphState.filters?.relationType, { persist: false });
 const graphViewportController = createGraphViewportController({
   graphState,
@@ -599,8 +603,6 @@ const updateController = createPrototypeUpdateController({
   getDirtyTabCount: () => typeof editor?.dirtyTabs === "function" ? editor.dirtyTabs().length : 0
 });
 updateController.loadUpdateSettingsFromStorage();
-loadAiSettingsFromStorage();
-loadNoteTemplateSettingsFromStorage();
 
 installStartupAutoOpenEventBindings({
   documentRef: typeof document !== "undefined" ? document : null,
@@ -1347,6 +1349,8 @@ function applyOllamaRuntimePreview(runtime = null) { return settingsAiStateRunti
 
 function applyOllamaBootstrapResult(result = null) { return settingsAiStateRuntime.applyOllamaBootstrapResult(result); }
 
+loadAiSettingsFromStorage();
+
 function ollamaRuntimeStateLabel() {
   if (settingsState.ai.localRuntimePulling) return "模型下载中";
   if (settingsState.ai.localRuntimeChecking) return "正在检测本地 AI";
@@ -1427,6 +1431,8 @@ const importResultRuntime = createImportResultRuntime({
   candidatePreviewFromPayload,
   candidatePreviewItemIds,
   candidateSelectionFromPayload,
+  confirmSkipReasonMap,
+  confirmSkippedCandidateIds,
   clearWritingSourceIndexIds,
   computeCandidateIdsForSelection,
   computeDefaultSelectedCandidateIds,
@@ -1447,8 +1453,8 @@ const importResultRuntime = createImportResultRuntime({
   renderImportResultMount,
   renderImportWritingActionsHtml,
   renderWritingResultDetailsHtml,
-  renderWritingPanel,
-  renderWritingScaffoldPreview,
+  renderWritingPanel: (...args) => renderWritingPanel(...args),
+  renderWritingScaffoldPreview: (...args) => renderWritingScaffoldPreview(...args),
   selectedCandidateIdsForImportAction,
   selectedCandidateIdsForImportState,
   selectionSummaryForImportState,
@@ -1459,7 +1465,7 @@ const importResultRuntime = createImportResultRuntime({
   suggestedWritingProjectTitle,
   beginWritingEntry,
   normalizeWritingProjectTitleSeed,
-  updateExportTargetHint,
+  updateExportTargetHint: (...args) => updateExportTargetHint(...args),
   writingNoteById,
   writingState
 });
@@ -1469,11 +1475,11 @@ const importWorkspaceShellController = createImportWorkspaceShellController({
   importState,
   renderImportPageMount,
   renderImportToolbarMount,
-  preferredImportDirectoryId,
-  activeImportPreviewContext,
-  selectionSummary,
+  preferredImportDirectoryId: (...args) => preferredImportDirectoryId(...args),
+  activeImportPreviewContext: (...args) => activeImportPreviewContext(...args),
+  selectionSummary: (...args) => selectionSummary(...args),
   importConfirmButtonState,
-  importTargetDirectories,
+  importTargetDirectories: (...args) => importTargetDirectories(...args),
   directoryPathLabel,
   mountExportCardIntoImportShell
 });
@@ -2352,7 +2358,7 @@ async function saveWritingBasketAsThemeIndex() {
 const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   $,
   createWritingProject,
-  currentWritingBookStructure,
+  currentWritingBookStructure: (...args) => currentWritingBookStructure(...args),
   deriveBasketWritingReadiness,
   deriveWritingProjectIntent,
   deriveWritingProjectTakeaway,
@@ -2366,7 +2372,7 @@ const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   normalizeAuthorshipItem,
   normalizeWritingProjectTitleSeed,
   populateWritingFormFromProject,
-  renderWritingPanel,
+  renderWritingPanel: (...args) => renderWritingPanel(...args),
   sameUniqueStringSet,
   showWritingResult,
   syncWritingLocalBookIdeasFromProject,
@@ -4103,7 +4109,7 @@ function writingThemeDetailHintText(indexCard) {
 
 function populateWritingFormFromProject(project) {
   if (!project) return;
-  if ($("writingTitle")) $("writingTitle").value = project.title || "";
+  if ($("writingTitle")) $("writingTitle").value = computeWritingProjectEntryTitle(project);
   if ($("writingGoal")) $("writingGoal").value = project.goal || "";
   if ($("writingAudience")) $("writingAudience").value = project.audience || "";
   if ($("writingTone")) $("writingTone").value = project.tone || "";
@@ -4464,39 +4470,34 @@ function graphRelationStatusLabel(status) {
 }
 
 const graphResidualViews = createGraphResidualViews({
-  GRAPH_CONFLICT_RELATION_TYPES,
-  GRAPH_INDEX_RELATION_TYPES,
-  GRAPH_LINK_CLUE_RELATION_TYPES,
-  GRAPH_MEANINGFUL_RELATION_TYPES,
-  GRAPH_RELATION_GROUP_META,
-  buildGraphQuestionSpotSummaryForGraph,
-  buildGraphThinkingItemsForGraph,
-  buildGraphWorkspaceRenderDeps,
-  clearGraphIsolatedRelationDraftForState,
-  computeGraphCandidatePercent,
-  computeGraphClusterResearchMeta,
-  computeGraphReadingLensMeta,
-  computeGraphDirectNetworkEdgeCount,
-  computeGraphManualRelationTargetsForNote,
-  computeGraphNextIsolatedQueueItem,
-  computeGraphNoteIdFromIsolatedItem,
-  computeGraphPendingAiCandidateCount,
-  computeGraphQuestionSpotSummaryFromItems,
-  computeGraphResearchNavigatorState,
-  computeGraphThemeCandidateNoteIdsForNode,
-  computeGraphThinkingCleanIds,
-  computeGraphThinkingNoteTitle,
-  computeGraphUniqueClusterMeta,
-  createGraphIsolatedDecisionController,
-  createGraphIsolatedRelationController,
-  createGraphIsolatedWorkflowShellRenderer,
-  createGraphReadingLensStateController,
-  createGraphRelationSaveController,
-  createGraphRelationWorkflowController,
-  createGraphSelectionPanelRenderer,
-  createGraphThinkingModelRuntimeDepsProvider,
-  createNoteRelation,
-  escapeHtml,
+  $,
+  GRAPH_CONFLICT_RELATION_TYPES, GRAPH_INDEX_RELATION_TYPES, GRAPH_LINK_CLUE_RELATION_TYPES, GRAPH_MEANINGFUL_RELATION_TYPES,
+  GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, GRAPH_RELATION_GROUP_META, GRAPH_RELATION_MARKER_COLORS, GRAPH_VISUAL_ZOOM_OPTIONS,
+  addSystemMessage, analyzeDirectoryGraph, applyGraphEdgeHoverDomState, applyGraphNodeHoverDomState, applyGraphThinkingHoverDomState,
+  graphBuildFocusedRelationTypeStatsForRuntime, graphBuildVisualLayoutForRuntime, graphDenseGalaxyMode,
+  graphEdgePathForRuntime, graphEdgeShouldRenderForRuntime, graphEdgeVisibleAtFitForRuntime, graphFocusContextModeMeta, graphFocusDepthMeta,
+  graphFocusedItemsForRuntime, graphHash,
+  graphLoadedScopeCoversDirectoryForRuntime, graphNodeAttentionReasons, graphNodeClass, graphNodeRadiusByTier, graphNodeShowsAsPoint, graphNodeStarTier,
+  graphReadingModeMeta, graphScopedItemsForRuntime, graphScopeDirectoryIdForRuntime, graphShortTitle, graphThemeBoundaryMetaForRuntime,
+  graphViewModeForRelationType, graphZoomOption,
+  normalizeGraphFocusDepth, descendantDirectoryIds, buildGraphQuestionSpotSummaryForGraph, buildGraphThinkingItemsForGraph,
+  buildGraphWorkspaceRenderDeps, clearGraphIsolatedRelationDraftForState, computeGraphAiRelationCandidatesForNote,
+  computeGraphBlockedAiRelationPairKeysForNote, computeGraphCandidateBlocksFormalRelation, computeGraphCandidateCanSaveRelation,
+  computeGraphCandidateCountKey, computeGraphCandidateEndpointIds, computeGraphCandidatePercent, computeGraphCandidateUndirectedPairKey,
+  computeGraphDecoratePotentialRelationCandidate, computeGraphMergeRelationCandidatesForDisplay, computeGraphLocalRelationCandidatesForNote, computeGraphClusterResearchMeta,
+  computeGraphPotentialRelationActionEndpoints, computeGraphPotentialRelationEvidenceText, computeGraphPotentialRelationRationaleDraft,
+  computeGraphPreferredPotentialRelationType, computeGraphReadingLensMeta, computeGraphRelationCandidateKey, computeGraphDirectNetworkEdgeCount, computeGraphExistingRelationKeys, computeGraphExistingRelationPairKeys, computeGraphFocusCardActionMeta,
+  computeGraphRelationPairKey, computeGraphRelationRationaleIsActionable, computeGraphRelationStatusCountsAsNetworkEdge, computeGraphRelationStatusKey,
+  computeGraphManualRelationTargetsForNote, computeGraphNextIsolatedQueueItem,
+  computeGraphNoteIdFromIsolatedItem, computeGraphPendingAiCandidateCount, computeGraphQuestionSpotSummaryFromItems, computeGraphSelectEdgeActionAttrs,
+  computeGraphResearchNavigatorState, computeGraphThemeCandidateNoteIdsForNode, computeGraphThinkingCleanIds, computeGraphThinkingNoteTitle,
+  computeGraphTitleCharacterOverlap, computeGraphUniqueClusterMeta, createGraphIsolatedDecisionController, createGraphIsolatedRelationController, createGraphIsolatedWorkflowShellRenderer,
+  createGraphAiConnectRuntimeController, createGraphReadingLensStateController, createGraphRelationSaveController, createGraphRelationWorkflowController,
+  createGraphVisualMapController, createGraphVisualMapPrototypeDepsProvider, createGraphSelectionPanelRenderer, createGraphThinkingModelRuntimeDepsProvider,
+  createNoteRelation, escapeHtml,
+  ensureGraphLocalAiReadyForAnalysis: (...args) => ensureGraphLocalAiReadyForAnalysis(...args),
+  isDirectoryUnderOriginalRoot,
+  parseTags,
   graphAiAnalysisSummaryStateForGraph,
   graphBridgeSelectionKey,
   graphComputedIsolatedNotesForGraph,
@@ -4543,7 +4544,14 @@ const graphResidualViews = createGraphResidualViews({
   renderGraphResearchNavigatorEntryView,
   renderGraphResearchNavigatorPanelView,
   renderGraphSelectionMetricsView,
+  renderGraphSelectionShellView,
+  renderGraphStarfieldView,
+  renderGraphNebulaFieldView,
+  renderGraphClusterGlowView,
+  renderGraphFocusContextPanelView,
+  renderGraphThemeBoundaryForRuntime,
   renderGraphThemeIndexWorkspaceMarkup,
+  shouldShowGraphDensityHint,
   renderGraphThinkingItemsView,
   renderGraphThinkingPanelContentView,
   renderGraphThinkingPanelView,
@@ -4555,7 +4563,8 @@ const graphResidualViews = createGraphResidualViews({
   renderGraphWorkbenchPriorityQueueView,
   renderGraphUtilityDrawerView,
   renderRelationReviewQueueSectionView,
-  saveNote,
+  resetGraphHoverDomState,
+  refinePotentialRelationCandidate,
   setStatus,
   state,
   suggestedThemeIndexTitle,
@@ -4617,6 +4626,8 @@ const {
   openGraphIsolatedDecisionAction,
   loadGraphEditableNote,
   saveGraphIsolatedDecision,
+  graphRelationSaveController,
+  graphRelationWorkflowController,
   graphAiAnalysisPayload,
   graphAiConfidenceLabel,
   graphNoteIdFromIsolatedItem,
@@ -4658,6 +4669,7 @@ const {
   graphReviewSummaryFromAnalysis,
   mergePotentialRelationCandidateIntoGraphAnalysis,
   removePotentialRelationCandidateFromGraphAnalysis,
+  graphAiConnectRuntimeController,
   refineGraphPotentialRelationsForNote,
   refineGraphPotentialRelationCandidate,
   graphNoteTags,
@@ -4754,6 +4766,7 @@ const {
   currentGraphWritingCandidateNoteIds,
   renderGraphMapPreview,
   renderGraphAiAnalysisCard,
+  renderGraphVisualMap,
   buildGraphQuestionSpotSummary,
   buildGraphQuestionSpotSummaryFromItems,
   renderGraphQuestionSpotChip,
@@ -4867,7 +4880,7 @@ const graphRouteRuntime = createGraphRouteRuntime({
   analyzeDirectoryGraph,
   createIndexCard,
   graphAiConnectRuntimeController,
-  graphDataList,
+  graphDataList: graphDataListFromElement,
   graphFindPotentialRelationCandidate,
   graphRelationSaveController,
   graphScopeDirectoryId,
@@ -5380,18 +5393,15 @@ const editor = new EditorPane(createEditorPaneHostDeps({
   renderStatusMeta,
   renderWorkspaceStatusHint
 }));
+loadNoteTemplateSettingsFromStorage();
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
 window.__prototypeImport = {
-  showResult: showImportResult,
-  renderPage: renderImportPageShell
+  showResult: showImportResult, renderPage: renderImportPageShell
 };
 window.__prototypeGraph = {
-  openFollowupNote: openGraphFollowupNote,
-  openNoteById,
-  runAiAnalysis: runGraphAiAnalysis,
-  runAiConnectForNote: runGraphAiConnectForNote,
-  createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds,
+  openFollowupNote: openGraphFollowupNote, openNoteById,
+  runAiAnalysis: runGraphAiAnalysis, runAiConnectForNote: runGraphAiConnectForNote, createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds,
   getSelectedFileId: () => state.selectedFileId,
   getActiveModule: () => state.module
 };
@@ -5671,6 +5681,7 @@ installWritingDraftActionEventHandlers({
     copyWritingScaffold,
     exportWritingScaffold,
     writingDraftDirectoryId,
+    writingDraftTitle,
     writingDraftBody,
     createNote,
     bindWritingDraftNote,
@@ -5707,6 +5718,7 @@ bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   applyAiInboxRecommendedAction,
   setStatus
 }));
+installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openGraphNodeSelectionFromElement });
 bindGraphCanvasEvents($("graphCanvas"), {
   appState: state,
   graphState,
@@ -5762,7 +5774,7 @@ bindGraphCanvasEvents($("graphCanvas"), {
   openGraphFollowupNote,
   openGraphSelection,
   openGraphNodeSelectionFromElement,
-  openNoteById,
+  openNoteById: (noteId) => { const opened = openNoteById(noteId, { preferTitleSelection: false }); state.module = "graph"; renderGraphPanel(); return opened; },
   syncGraphIsolatedAiCandidateForm,
   graphIsolatedFormError,
   applyGraphRelationTypeFilterInteraction,

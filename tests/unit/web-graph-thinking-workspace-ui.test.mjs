@@ -1193,7 +1193,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphAiConnectModelSource, /relationLimit: 24,/);
   assert.match(graphAiConnectModelSource, /focusNoteId: cleanNoteId,/);
   assert.match(graphAiConnectModelSource, /currentNoteId: cleanNoteId,/);
-  assert.match(graphAiConnectRuntimeSource, /if \(candidates\.length\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
+  assert.match(graphAiConnectRuntimeSource, /if \(candidates\.length && !firstTargetId\) void refineGraphPotentialRelationsForNote\(cleanNoteId, candidates, \{ directoryId \}\);/);
   assert.match(graphAiConnectRuntimeSource, /graphRelationWorkflowController\.startAiConnectForNote\(cleanNoteId\);/);
   assert.match(graphAiConnectRuntimeSource, /graphRelationWorkflowController\.applyAiConnectRoute\(\{/);
   assert.match(workflowControllerSource, /const visibleEdgeCount = graphDirectNetworkEdgeCount\(cleanNoteId, edges,/);

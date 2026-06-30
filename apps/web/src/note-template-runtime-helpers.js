@@ -63,8 +63,8 @@ export function untitledPlaceholderRefreshPlan(note = null, deps = {}) {
     isEmptyUntitledMarkdown = () => false,
     initialBodyForFolder = () => ""
   } = deps;
-  if (!note || !isUntitledTitle(note.title)) return { shouldRefresh: false, note };
   const tab = noteTabFor(note.id);
+  if (!note || !isUntitledTitle(note.title) || (tab && !isUntitledTitle(tab.title))) return { shouldRefresh: false, note };
   const currentBody = normalizedDefaultUntitledBody(note.folderId);
   const existingBody = ensureEditableNoteBody(typeof tab?.body === "string" ? tab.body : note.body).replace(/\r\n/g, "\n").trim();
   if (!existingBody || existingBody === currentBody || !isEmptyUntitledMarkdown(existingBody, note.folderId)) {
@@ -98,6 +98,7 @@ export function applyLocalUntitledPlaceholderRefresh(note = {}, tab = null, next
 
 export async function refreshUntitledPlaceholderForRuntime(note = null, deps = {}) {
   const {
+    isUntitledTitle = () => false,
     isLocalOnlyNote = () => false,
     updateNote = async () => null,
     mapNoteItem = (value) => value,
@@ -106,6 +107,7 @@ export async function refreshUntitledPlaceholderForRuntime(note = null, deps = {
   const plan = untitledPlaceholderRefreshPlan(note, deps);
   if (!plan.shouldRefresh) return note;
   if (isLocalOnlyNote(note)) {
+    if (plan.tab && !isUntitledTitle(plan.tab.title)) return note;
     return applyLocalUntitledPlaceholderRefresh(note, plan.tab, plan.nextBody, deps);
   }
   try {
@@ -118,6 +120,7 @@ export async function refreshUntitledPlaceholderForRuntime(note = null, deps = {
       originalitySimilarity: note.originalitySimilarity ?? undefined
     });
     if (updated) {
+      if (plan.tab && !isUntitledTitle(plan.tab.title)) return note;
       Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
       if (plan.tab) {
         plan.tab.body = note.body;

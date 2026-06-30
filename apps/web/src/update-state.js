@@ -43,6 +43,7 @@ export function createUpdateState(overrides = {}) {
     installPhase: "",
     installProgress: null,
     installReadyForRestart: false,
+    installable: false,
     requestToken: 0,
     autoCheckEnabled: true,
     remindAfter: "",
@@ -128,6 +129,7 @@ export function updateStateFromCheckResult(state = {}, result = {}, options = {}
     manifest,
     changelog: Array.isArray(manifest?.changelog) ? manifest.changelog : [],
     downloadUrl: cleanText(manifest?.downloadUrl || result?.downloadUrl),
+    installable: result?.installable === true,
     critical: Boolean(result?.critical || manifest?.critical),
     minimumSupported: result?.minimumSupported !== false,
     error: cleanText(result?.error?.message || result?.error || "")

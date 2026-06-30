@@ -70,7 +70,18 @@ test("web update state applies manual check update result", () => {
   assert.equal(state.status, "update-available");
   assert.equal(state.latestVersion, "0.1.2");
   assert.equal(state.downloadUrl, "https://example.test/download");
+  assert.equal(state.installable, false);
   assert.equal(updateStatusTone(state), "bad");
+});
+
+test("web update state preserves desktop installability from check result", () => {
+  const state = updateStateFromCheckResult(createUpdateState(), {
+    status: "update-available",
+    latestVersion: "0.2.0",
+    installable: true
+  });
+
+  assert.equal(state.installable, true);
 });
 
 test("web update state suppresses ignored versions during automatic checks", () => {

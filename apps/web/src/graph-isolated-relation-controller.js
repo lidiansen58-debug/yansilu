@@ -22,6 +22,12 @@ export function graphIsolatedRelationFormError(form = null, message = "") {
   if (error) error.textContent = String(message || "");
 }
 
+function relationSelectSupportsValue(select = null, value = "") {
+  const cleanValue = String(value || "").trim().toLowerCase();
+  if (!select || !cleanValue) return false;
+  return [...select.options || []].some((option) => String(option?.value || "").trim().toLowerCase() === cleanValue);
+}
+
 export function createGraphIsolatedRelationController({
   graphState = {},
   normalizeMode = (value = "") => String(value || "").trim().toLowerCase() || "ai",
@@ -97,7 +103,14 @@ export function createGraphIsolatedRelationController({
     const relationSelect = form.querySelector("[data-graph-isolated-relation-type]");
     const rationaleInput = form.querySelector("[data-graph-isolated-rationale]");
     const questionInput = form.querySelector("[data-graph-isolated-insight-question]");
-    if (relationSelect && nextDraft.relationType) relationSelect.value = nextDraft.relationType;
+    if (relationSelect) {
+      const nextRelationType = String(nextDraft.relationType || "").trim().toLowerCase();
+      relationSelect.value = relationSelectSupportsValue(relationSelect, nextRelationType)
+        ? nextRelationType
+        : relationSelectSupportsValue(relationSelect, "associated_with")
+          ? "associated_with"
+          : relationSelect.value;
+    }
     if (rationaleInput) {
       rationaleInput.value = nextDraft.rationale;
       rationaleInput.setAttribute("data-graph-rationale-source", nextDraft.rationaleSource);

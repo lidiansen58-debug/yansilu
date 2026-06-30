@@ -147,6 +147,13 @@ export function renderWritingProjectCardView(project, deps = {}) {
   const scaffoldLabel = project?.scaffold_id || "未生成";
   const hasScaffold = Boolean(project?.scaffold_id);
   const sourceCount = Array.isArray(project?.related_index_ids) ? project.related_index_ids.length : 0;
+  const basketNotes = Array.isArray(project?.basket_notes) ? project.basket_notes : [];
+  const basketNoteTitles = basketNotes
+    .map((note) => String(note?.title || note?.id || "").trim())
+    .filter(Boolean);
+  const basketNoteLabel = basketNoteTitles.length
+    ? basketNoteTitles.slice(0, 4).join(" / ") + (basketNoteTitles.length > 4 ? ` / +${basketNoteTitles.length - 4}` : "")
+    : "";
   const continuation = describeWritingContinuationAction({
     existingProjectId: project?.id || "",
     existingProjectHasScaffold: hasScaffold,
@@ -161,13 +168,14 @@ export function renderWritingProjectCardView(project, deps = {}) {
     <article class="writing-note-card" data-writing-project-id="${escapeHtml(project?.id || "")}">
       <div class="writing-note-card-head">
         <div>
-          <div class="writing-note-title">${escapeHtml(project?.title || project?.id || "")}</div>
+          <div class="writing-note-title">项目：${escapeHtml(project?.title || project?.id || "")}</div>
           <div class="writing-note-meta">${escapeHtml(project?.id || "")} 路 ${escapeHtml(writingProjectStatusLabel(project?.status))} 路 篮子 ${escapeHtml(project?.basket_count || 0)}</div>
         </div>
         ${thinkingBadge}
       </div>
       <div class="writing-note-meta">草稿骨架：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；当前入口：${escapeHtml(primaryProjectStatus)}；写作中心入口 ${escapeHtml(sourceCount)}</div>
       <div class="writing-note-meta">${escapeHtml(project?.goal || "暂无写作目标说明。")}</div>
+      ${basketNoteLabel ? `<div class="writing-note-meta">项目来源笔记：${escapeHtml(basketNoteLabel)}</div>` : ""}
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-project-action="${escapeHtml(primaryProjectAction)}" data-writing-project-id="${escapeHtml(project?.id || "")}">${escapeHtml(primaryProjectActionLabel)}</button>
         <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>复制草稿骨架</button>

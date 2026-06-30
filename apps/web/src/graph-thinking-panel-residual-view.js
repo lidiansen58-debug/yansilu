@@ -95,6 +95,7 @@ export function createGraphThinkingPanelResidualView(deps = {}) {
     graphLiveAiAnalysisCountsForGraph,
     buildGraphQuestionSpotSummaryForGraph,
     computeGraphQuestionSpotSummaryFromItems,
+    computeGraphSelectEdgeActionAttrs,
     buildGraphThinkingItemsForGraph,
     computeGraphThinkingNoteTitle,
     computeGraphThinkingCleanIds,
@@ -465,8 +466,6 @@ function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
     graphState
   });
 }
-
-
 
 function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [], isolatedQueueMarkup = "" } = {}) {
   return renderGraphWorkbenchPanelView({ clueSummary, questionSummary, clueSectionsMarkup, thinkingItems, isolatedQueueMarkup }, {

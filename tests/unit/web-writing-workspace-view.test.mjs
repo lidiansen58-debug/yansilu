@@ -70,6 +70,10 @@ test("writing project card exposes continuation and scaffold actions", () => {
       scaffold_id: "scaffold-1",
       draft_note_id: "",
       basket_count: 2,
+      basket_notes: [
+        { id: "note-a", title: "Writing UI claim" },
+        { id: "note-b", title: "Evidence UI map" }
+      ],
       related_index_ids: ["theme-1"],
       goal: "Write clearly"
     },
@@ -80,7 +84,9 @@ test("writing project card exposes continuation and scaffold actions", () => {
   );
 
   assert.match(html, /data-writing-project-id="project-1"/);
-  assert.match(html, /Project &lt;one&gt;/);
+  assert.match(html, /项目：Project &lt;one&gt;/);
+  assert.match(html, /Writing UI claim/);
+  assert.match(html, /Evidence UI map/);
   assert.match(html, /data-writing-project-action="resume-scaffold"/);
   assert.match(html, /data-writing-project-action="copy-scaffold"/);
   assert.match(html, /<b>status<\/b>/);

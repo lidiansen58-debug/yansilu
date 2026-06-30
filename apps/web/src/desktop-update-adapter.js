@@ -7,7 +7,7 @@ function cleanText(value = "") {
 }
 
 function hasUpdaterApi(tauri = tauriGlobal()) {
-  return typeof tauri?.updater?.check === "function";
+  return typeof tauri?.updater?.check === "function" || typeof tauri?.core?.invoke === "function";
 }
 
 function hasRelaunchApi(tauri = tauriGlobal()) {
@@ -68,12 +68,23 @@ export async function checkDesktopUpdate(options = {}) {
   if (!hasUpdaterApi(tauri)) {
     return { supported: false, available: false, update: null };
   }
-  const update = await tauri.updater.check({
-    timeout: Number(options.timeout || 30000)
-  });
+  let update = null;
+  if (typeof tauri?.updater?.check === "function") {
+    update = await tauri.updater.check({ timeout: Number(options.timeout || 30000) });
+  } else {
+    try {
+      update = await tauri.core.invoke("plugin:updater|check", { timeout: Number(options.timeout || 30000) });
+    } catch (error) {
+      return { supported: false, available: false, update: null, error };
+    }
+  }
+  if (!update || update.available === false) {
+    return { supported: true, available: false, update: null, metadata: null };
+  }
   return {
     supported: true,
     available: Boolean(update),
+    installable: typeof update?.downloadAndInstall === "function",
     update,
     metadata: normalizeDesktopUpdateMetadata(update)
   };
@@ -88,6 +99,11 @@ export async function downloadAndInstallDesktopUpdate(options = {}) {
   }
   if (!checked.update) {
     return { status: "up-to-date", supported: true, update: null };
+  }
+  if (typeof checked.update.downloadAndInstall !== "function") {
+    const error = new Error("当前桌面更新接口只能检测更新，不能直接安装。");
+    error.code = "DESKTOP_UPDATER_INSTALL_UNAVAILABLE";
+    throw error;
   }
 
   let progress = {};

@@ -28,6 +28,16 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
   return registrations;
 }
 
+export function normalizeWritingDraftTitle(title = "") {
+  const cleanTitle = String(title || "").trim();
+  const baseTitle = cleanTitle || "未命名项目";
+  const withoutDraftSuffix = baseTitle.replace(/\s*草稿$/u, "").trim();
+  const projectTitle = withoutDraftSuffix
+    .replace(/\s+Project$/i, " 项目")
+    .replace(/Project\s*$/i, "项目");
+  return `${projectTitle}${/项目$/.test(projectTitle) ? "" : " 项目"} 草稿`;
+}
+
 export function installWritingThemeIndexEventHandlers(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
   const deps = () => depsProvider();
@@ -540,6 +550,7 @@ export async function handleWritingSaveDraftClick(deps = {}) {
     showWritingResult = () => {},
     describeWritingProjectPreflight = () => ({ level: "ready" }),
     writingDraftDirectoryId = () => "",
+    writingDraftTitle = () => "",
     writingDraftBody = () => "",
     createNote = async () => ({}),
     bindWritingDraftNote = async () => ({}),
@@ -574,10 +585,12 @@ export async function handleWritingSaveDraftClick(deps = {}) {
   }
 
   const directoryId = writingDraftDirectoryId();
-  const body = writingDraftBody();
+  const title = normalizeWritingDraftTitle(writingDraftTitle() || writingState.project?.title || "");
+  const body = String(writingDraftBody() || "").replace(/^#\s+.*$/m, `# ${title}`);
   try {
     const created = await createNote({
       directoryId,
+      title,
       status: "draft",
       body
     });

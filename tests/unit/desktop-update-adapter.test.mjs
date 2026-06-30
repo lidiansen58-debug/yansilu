@@ -72,6 +72,46 @@ test("desktop update adapter downloads and installs through Tauri updater", asyn
   });
 });
 
+test("desktop update adapter reports core invoke updates as non-installable", async () => {
+  await withWindow({
+    __TAURI__: {
+      core: {
+        async invoke(command) {
+          assert.equal(command, "plugin:updater|check");
+          return { available: true, version: "0.2.0" };
+        }
+      }
+    }
+  }, async () => {
+    const checked = await checkDesktopUpdate();
+    assert.equal(checked.supported, true);
+    assert.equal(checked.available, true);
+    assert.equal(checked.installable, false);
+    assert.equal(checked.metadata.version, "0.2.0");
+
+    await assert.rejects(
+      () => downloadAndInstallDesktopUpdate(),
+      (error) => error?.code === "DESKTOP_UPDATER_INSTALL_UNAVAILABLE"
+    );
+  });
+});
+
+test("desktop update adapter treats missing updater plugin as unsupported", async () => {
+  await withWindow({
+    __TAURI__: {
+      core: {
+        async invoke() {
+          throw new Error("unknown command plugin:updater|check");
+        }
+      }
+    }
+  }, async () => {
+    const checked = await checkDesktopUpdate();
+    assert.equal(checked.supported, false);
+    assert.equal(checked.available, false);
+  });
+});
+
 test("desktop update adapter normalizes download progress events", () => {
   const started = normalizeDesktopDownloadEvent({ event: "Started", data: { contentLength: 200 } });
   const progress = normalizeDesktopDownloadEvent({ event: "Progress", data: { chunkLength: 50 } }, started);
