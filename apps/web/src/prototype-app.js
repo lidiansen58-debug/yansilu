@@ -3986,8 +3986,8 @@ function writingDraftDirectoryId() {
 }
 
 function writingDraftTitle() {
-  const projectTitle = String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "未命名项目";
-  return `${projectTitle} 草稿`;
+  const themeTitle = String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "未命名主题";
+  return `${themeTitle} 草稿`;
 }
 
 function rewriteMarkdownHeading(markdown, title) {
@@ -4004,8 +4004,8 @@ function writingDraftBody() {
   const projectId = writingState.project?.id || "";
   const scaffoldId = writingState.scaffold?.id || "";
   const references = uniqueStrings([
-    projectId ? `项目：${projectId}` : "",
-    scaffoldId ? `草稿骨架：${scaffoldId}` : ""
+    projectId ? `可写主题：${projectId}` : "",
+    scaffoldId ? `文章提纲：${scaffoldId}` : ""
   ]);
   const tail = references.length ? `\n\n---\n${references.join("\n")}\n` : "\n";
   return `${scaffoldMarkdown}${tail}`;
@@ -4101,10 +4101,10 @@ async function loadWritingThemeIndexes() {
 }
 
 function writingThemeDetailHintText(indexCard) {
-  if (!indexCard?.id) return "查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作中心入口。";
+  if (!indexCard?.id) return "查看中心问题、主题压缩和相关笔记，并确认一条可续接的写作入口。";
   const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
   const themeLabel = String(indexCard.title || indexCard.id || "当前主题").trim() || "当前主题";
-  return `${themeLabel}：写作中心入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前项目还是创建项目。"}`;
+  return `${themeLabel}：写作中心入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前主题还是确定新的可写主题。"}`;
 }
 
 function populateWritingFormFromProject(project) {

@@ -155,13 +155,13 @@ export function renderImportWritingActions(payload = {}, { literatureBatchSummar
         permanentNoteIds.length
           ? `
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes">
-        加入写作篮 ${permanentNoteIds.length}
+        加入相关笔记 ${permanentNoteIds.length}
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
         加入并打开写作中心
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="create-writing-project">
-        直接创建项目
+        直接确定可写主题
       </button>
       <div class="toolbar-note">把本次新写入的 PermanentNote 直接送进写作中心。</div>
       `
@@ -250,7 +250,7 @@ export function renderWritingResultDetails(data = {}, { escapeHtml = String } = 
     const notes = Array.isArray(data.basketNotes) ? data.basketNotes : [];
     return `
       <div class="writing-preview">
-        <h4>写作篮快照</h4>
+        <h4>相关笔记快照</h4>
         ${
           notes.length
             ? `<ul>${notes
@@ -267,7 +267,7 @@ export function renderWritingResultDetails(data = {}, { escapeHtml = String } = 
     const markdown = String(data.markdown || "").trim();
     return `
       <div class="writing-preview">
-        <h4>草稿骨架快照</h4>
+        <h4>文章提纲快照</h4>
         <div class="toolbar-note">这里只组织结构、证据与开放问题，不直接替你完成终稿。</div>
         ${
           sections.length

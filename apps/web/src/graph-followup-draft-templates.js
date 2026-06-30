@@ -138,7 +138,7 @@ export function graphFollowupDraftTemplates({ action = "", sourceLabel = "", tar
         {
           key: "writing",
           label: "写作版",
-          boundaryDraft: `暂存观察：这条笔记暂时只是一段材料或灵感，还不能直接放进文章结构。等它回答了________这个问题，再决定要不要进入写作篮或关系图谱。`
+          boundaryDraft: `暂存观察：这条笔记暂时只是一段材料或灵感，还不能直接放进文章结构。等它回答了________这个问题，再决定要不要作为相关笔记进入写作或关系图谱。`
         },
         {
           key: "product",

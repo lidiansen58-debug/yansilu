@@ -35,11 +35,12 @@ function actionTarget(action, noteId = "n1") {
   };
 }
 
-test("writing draft title normalizes English project suffix to Chinese project draft", () => {
-  assert.equal(normalizeWritingDraftTitle("Writing UI Project"), "Writing UI 项目 草稿");
-  assert.equal(normalizeWritingDraftTitle("Writing UI Project 草稿"), "Writing UI 项目 草稿");
-  assert.equal(normalizeWritingDraftTitle("Evidence 项目"), "Evidence 项目 草稿");
-  assert.equal(normalizeWritingDraftTitle("Evidence 项目 草稿"), "Evidence 项目 草稿");
+test("writing draft title normalizes old project suffixes to theme draft wording", () => {
+  assert.equal(normalizeWritingDraftTitle("Writing UI Project"), "Writing UI 主题 草稿");
+  assert.equal(normalizeWritingDraftTitle("Writing UI Project 草稿"), "Writing UI 主题 草稿");
+  assert.equal(normalizeWritingDraftTitle("Evidence 项目"), "Evidence 主题 草稿");
+  assert.equal(normalizeWritingDraftTitle("Evidence 项目 草稿"), "Evidence 主题 草稿");
+  assert.equal(normalizeWritingDraftTitle("Evidence 主题"), "Evidence 主题 草稿");
 });
 
 function indexTarget(selector, attrs = {}) {
@@ -218,7 +219,7 @@ test("writing theme index list handler uses index cards and continuation routes"
     selectWritingThemeIndex: async (id) => calls.push(["select", id]),
     writingThemeIndexContinuationRoute: ({ action, projectId }) =>
       action === "open-draft"
-        ? { kind: "continue-project", projectId, openDraft: true, statusMessage: "resume", failurePrefix: "恢复项目" }
+        ? { kind: "continue-project", projectId, openDraft: true, statusMessage: "resume", failurePrefix: "恢复可写主题" }
         : { kind: "" },
     continueWritingProjectEntry: async (projectId, options) => calls.push(["continue", projectId, options]),
     useThemeIndexAsWritingEntry: async (indexId, options) => {
@@ -442,7 +443,7 @@ test("writing project list handler routes continue open copy and export actions"
     })
   }, deps);
 
-  assert.deepEqual(calls[0], ["continue", "p1", { openDraft: true, statusMessage: "已从项目列表打开当前草稿：p1" }]);
+  assert.deepEqual(calls[0], ["continue", "p1", { openDraft: true, statusMessage: "已从最近写作打开当前草稿：p1" }]);
   assert.ok(calls.some((call) => call[0] === "open" && call[1] === "p1"));
   assert.ok(calls.some((call) => call[0] === "copy" && call[1] === "p1"));
   assert.ok(calls.some((call) => call[0] === "export" && call[1] === "p1"));
@@ -723,6 +724,6 @@ test("writing create scaffold and save draft handlers persist generated state", 
   assert.equal(writingState.scaffoldMarkdown, "body");
   assert.equal(writingState.project.draft_note_id, "n1");
   assert.equal(state.notes[0].mapped, true);
-  assert.ok(calls.some((call) => call[0] === "create-note" && call[1] === "Writing UI 项目 草稿" && /^# Writing UI 项目 草稿/.test(call[2])));
+  assert.ok(calls.some((call) => call[0] === "create-note" && call[1] === "Writing UI 主题 草稿" && /^# Writing UI 主题 草稿/.test(call[2])));
   assert.ok(calls.some((call) => call[0] === "bind" && call[1] === "p1" && call[2] === "n1" && call[3] === "s1"));
 });

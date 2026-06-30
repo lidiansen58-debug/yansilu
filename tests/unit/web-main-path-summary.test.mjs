@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
@@ -116,8 +116,8 @@ test("main-path summary asks to create a project once note is project-ready", ()
     }
   );
 
-  assert.equal(result.nextStep, "先创建项目");
-  assert.match(result.summary, /先创建项目/);
+  assert.equal(result.nextStep, "先确定可写主题");
+  assert.match(result.summary, /先确定题目和读者/);
 });
 
 test("main-path card relation badge counts only explicit relations", () => {

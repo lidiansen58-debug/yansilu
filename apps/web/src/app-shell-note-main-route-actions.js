@@ -1,6 +1,6 @@
 const MAIN_PATH_CONTINUATION_COPY = {
   sourceLabel: "主路径",
-  scaffoldLabel: "当前项目的草稿骨架"
+  scaffoldLabel: "当前主题的文章提纲"
 };
 
 export async function handleOpenNoteMainRouteStateChange(payload = {}, deps = {}) {
@@ -80,8 +80,8 @@ export async function handleOpenNoteMainRouteStateChange(payload = {}, deps = {}
       const addedCount = Number(plan?.addedNoteIds?.length || 0);
       const statusMessage =
         addedCount > 0
-          ? `已把“${note.title || noteId}”加入写作篮，并打开写作中心`
-          : `“${note.title || noteId}”已在写作篮中，已打开写作中心`;
+          ? `已把“${note.title || noteId}”加入相关笔记，并打开写作中心`
+          : `“${note.title || noteId}”已在相关笔记中，已打开写作中心`;
       if (mode === "project") {
         await openWritingModule({ statusMessage: "" });
         if (noteContinuation?.projectId) {
@@ -113,7 +113,7 @@ export async function handleOpenNoteMainRouteStateChange(payload = {}, deps = {}
           setStatus(writingCenterContinuationFailureMessage(noteContinuation, error, MAIN_PATH_CONTINUATION_COPY), "bad");
           return false;
         }
-        setStatus(`${mode === "project" ? "从主路径创建项目" : "从主路径进入写作中心"}失败：${String(error?.message || error)}`, "bad");
+        setStatus(`${mode === "project" ? "从主路径确定可写主题" : "从主路径进入写作中心"}失败：${String(error?.message || error)}`, "bad");
         return false;
       }
       throw error;

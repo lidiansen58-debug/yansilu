@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -54,7 +54,7 @@ test("writing project continuation route resumes an existing project by default"
     handled: true,
     projectId: "wp_1",
     draftNoteId: "",
-    statusMessage: "已继续当前项目：wp_1"
+    statusMessage: "已继续当前主题：wp_1"
   });
 });
 

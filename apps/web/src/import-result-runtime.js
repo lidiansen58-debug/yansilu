@@ -166,12 +166,7 @@ export function createImportResultRuntime(deps = {}) {
     const resultEl = $("writingResult");
     if (!resultEl) return;
     const currentText = String(resultEl.textContent || "").trim();
-    const shouldHydrate =
-      !currentText ||
-      currentText === "尚未开始写作项目。" ||
-      currentText === "尚未开始项目。" ||
-      currentText === "请先创建写作项目" ||
-      currentText === "请先创建项目";
+    const shouldHydrate = !currentText || currentText === "尚未确定可写主题。" || currentText === "请先确定可写主题";
     if (!shouldHydrate) return;
   
     if (writingState.scaffold) {
@@ -249,7 +244,7 @@ export function createImportResultRuntime(deps = {}) {
   async function addImportedPermanentNotesToWritingBasket({ openWriting = false } = {}) {
     const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "permanent");
     if (!noteIds.length) {
-      setStatus("当前导入结果里没有可加入写作篮的 PermanentNote", "warn");
+      setStatus("当前导入结果里没有可作为相关笔记的永久笔记", "warn");
       return false;
     }
     await ensureNotesLoaded(noteIds);
@@ -259,7 +254,7 @@ export function createImportResultRuntime(deps = {}) {
         source: "import_permanent_notes"
       });
       activateModule("writing");
-      await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入写作篮，并打开写作中心` });
+      await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入相关笔记，并打开写作中心` });
     } else {
       clearWritingSourceIndexIds();
       addWritingBasketIds(noteIds);
@@ -268,7 +263,7 @@ export function createImportResultRuntime(deps = {}) {
         if (firstNote?.title) $("writingTitle").value = normalizeWritingProjectTitleSeed(firstNote.title);
       }
       renderWritingPanel();
-      setStatus(`已把 ${noteIds.length} 条导入永久笔记加入写作篮`, "ok");
+      setStatus(`已把 ${noteIds.length} 条导入永久笔记加入相关笔记`, "ok");
     }
     return true;
   }

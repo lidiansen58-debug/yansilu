@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -72,7 +72,7 @@ test("note writing readiness stays basket-ready before boundary and relation are
   );
 
   assert.equal(readiness.level, "basket_ready");
-  assert.match(readiness.status, /写作篮/);
+  assert.match(readiness.status, /相关笔记/);
 });
 
 test("note writing readiness becomes project-ready once boundary and relation exist", () => {
@@ -93,8 +93,8 @@ test("note writing readiness becomes project-ready once boundary and relation ex
   );
 
   assert.equal(readiness.level, "project_ready");
-  assert.match(readiness.status, /先创建项目/);
-  assert.match(readiness.actionLabel, /创建项目/);
+  assert.match(readiness.status, /先确定可写主题/);
+  assert.match(readiness.actionLabel, /确定可写主题/);
 });
 
 test("note writing readiness stays basket-ready when there are only wikilinks but no explicit relations", () => {
@@ -116,7 +116,7 @@ test("note writing readiness stays basket-ready when there are only wikilinks bu
 
   assert.equal(readiness.level, "basket_ready");
   assert.match(readiness.hint, /正式关系/);
-  assert.match(readiness.hint, /创建项目/);
+  assert.match(readiness.hint, /适合形成文章/);
 });
 
 test("note writing readiness becomes strong-model-ready once theme signals are richer", () => {
@@ -137,10 +137,10 @@ test("note writing readiness becomes strong-model-ready once theme signals are r
   );
 
   assert.equal(readiness.level, "strong_model_ready");
-  assert.match(readiness.status, /先创建项目/);
-  assert.match(readiness.hint, /先创建项目/);
-  assert.match(readiness.hint, /强模型分析/);
-  assert.match(readiness.actionLabel, /创建项目/);
+  assert.match(readiness.status, /先确定可写主题/);
+  assert.match(readiness.hint, /先确定可写主题/);
+  assert.match(readiness.hint, /AI 写作检查/);
+  assert.match(readiness.actionLabel, /确定可写主题/);
 });
 
 test("basket writing readiness blocks unconfirmed authorship before anything else", () => {
@@ -160,7 +160,7 @@ test("basket writing readiness stays basket-ready when boundary or relation is s
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 0, n2: 0 });
   assert.equal(readiness.level, "basket_ready");
-  assert.match(readiness.status, /写作篮/);
+  assert.match(readiness.status, /相关笔记/);
 });
 
 test("basket writing readiness becomes project-ready before strong-model-ready when theme signal is still thin", () => {
@@ -171,7 +171,7 @@ test("basket writing readiness becomes project-ready before strong-model-ready w
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 1, n2: 1 });
   assert.equal(readiness.level, "project_ready");
-  assert.match(readiness.status, /先创建项目/);
+  assert.match(readiness.status, /先确定可写主题/);
 });
 
 test("basket writing readiness becomes strong-model-ready once relation and theme signals are strong enough", () => {
@@ -182,8 +182,8 @@ test("basket writing readiness becomes strong-model-ready once relation and them
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 1, n2: 1 });
   assert.equal(readiness.level, "strong_model_ready");
-  assert.match(readiness.status, /先创建项目/);
-  assert.match(readiness.hint, /先创建项目/);
+  assert.match(readiness.status, /先确定可写主题/);
+  assert.match(readiness.hint, /先确定可写主题/);
 });
 
 test("basket writing readiness keeps relation fetch errors distinct from missing relations", () => {

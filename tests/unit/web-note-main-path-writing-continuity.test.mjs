@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
@@ -12,7 +12,7 @@ test("main-path project-ready card reuses continuity wording when the note alrea
   pane.state = { notes: [] };
   pane.resolveNoteWritingContinuation = () => ({
     status: "打开当前草稿",
-    hint: "当前笔记已经对应项目 wp_existing，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新创建项目更连续。",
+    hint: "当前笔记已经对应项目 wp_existing，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新确定可写主题更连续。",
     actionLabel: "打开当前草稿",
     action: "open-draft",
     projectId: "wp_existing"
@@ -51,9 +51,9 @@ test("main-path strong-model-ready card also reuses continuity wording when an e
   const pane = createPane();
   pane.state = { notes: [] };
   pane.resolveNoteWritingContinuation = () => ({
-    status: "继续当前项目",
-    hint: "当前笔记已经对应项目 wp_existing。直接回到这个项目继续推进，会比重新创建项目更连续。",
-    actionLabel: "继续当前项目",
+    status: "继续当前主题",
+    hint: "当前笔记已经对应可写主题 wp_existing。直接回到这个主题继续推进，会比重新确定可写主题更连续。",
+    actionLabel: "继续当前主题",
     action: "resume-project",
     projectId: "wp_existing"
   });
@@ -77,12 +77,12 @@ test("main-path strong-model-ready card also reuses continuity wording when an e
   };
 
   const summary = pane.permanentNoteMainPathSummaryV2(note, overview);
-  assert.equal(summary.nextStep, "继续当前项目");
-  assert.match(summary.summary, /wp_existing|继续当前项目/);
+  assert.equal(summary.nextStep, "继续当前主题");
+  assert.match(summary.summary, /wp_existing|继续当前主题/);
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
   assert.match(html, /data-main-path-next-action="writing"/);
-  assert.match(html, /<span>进入写作<\/span> <strong>继续当前项目<\/strong>/);
-  assert.match(html, /data-note-main-route-mode="project">继续当前项目<\/button>/);
+  assert.match(html, /<span>进入写作<\/span> <strong>继续当前主题<\/strong>/);
+  assert.match(html, /data-note-main-route-mode="project">继续当前主题<\/button>/);
   assert.doesNotMatch(html, /main-path-progress/);
 });

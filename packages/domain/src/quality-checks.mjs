@@ -95,7 +95,7 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
     checks.push(check("missing_basket_notes", "basket_note_ids", "Add at least one permanent note before building a scaffold.", "next"));
   }
   if (!intent) {
-    checks.push(check("missing_intent", "intent", "先说清这个项目到底想表达什么。", "next"));
+    checks.push(check("missing_intent", "intent", "先说清这篇文章到底想表达什么。", "next"));
   }
   if (!desiredReaderTakeaway) {
     checks.push(
@@ -113,7 +113,7 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
       check(
         "basket_notes_missing_thesis",
         "basket_note_ids",
-        `${notesWithoutThesis.length} 条写作篮笔记还需要补一句话判断。`
+        `${notesWithoutThesis.length} 条相关笔记还需要补一句话判断。`
       )
     );
   }
@@ -124,7 +124,7 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
       check(
         "basket_notes_missing_three_line_summary",
         "basket_note_ids",
-        `${notesWithoutSummary.length} 条写作篮笔记还需要补齐三句话提纯。`
+        `${notesWithoutSummary.length} 条相关笔记还需要补齐三句话提纯。`
       )
     );
   }

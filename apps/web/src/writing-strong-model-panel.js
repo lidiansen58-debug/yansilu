@@ -17,9 +17,9 @@ export function renderWritingStrongModelSummaryDom({
     const request = result?.request;
     const artifactCount = Number(result?.result?.summary?.artifactCount || result?.result?.artifacts?.length || 0);
     if (writingState.strongModelError) {
-      strongModelSummary.textContent = `强模型分析准备失败：${writingState.strongModelError}`;
+      strongModelSummary.textContent = `AI 写作检查准备失败：${writingState.strongModelError}`;
     } else if (writingState.strongModelLoading) {
-      strongModelSummary.textContent = "正在准备强模型分析请求...";
+      strongModelSummary.textContent = "正在准备 AI 写作检查请求...";
     } else if (request) {
       strongModelSummary.textContent = result?.result
         ? `已归一化 ${artifactCount} 条写作待审建议，全部进入系统消息中的 AI 建议复核后再决定是否采用。`

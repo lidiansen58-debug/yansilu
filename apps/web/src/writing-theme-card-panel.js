@@ -36,14 +36,14 @@ export function renderWritingThemeIndexCardDom(deps = {}, indexCard) {
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
       ${
         existingProject?.id
-          ? `<div class="writing-note-meta">当前项目：${escapeHtml(existingProject.id)}${existingProject.draft_note_id ? " · 已有草稿" : existingProject.scaffold_id ? " · 已有草稿骨架" : ""}</div>`
+          ? `<div class="writing-note-meta">当前主题：${escapeHtml(existingProject.id)}${existingProject.draft_note_id ? " · 已有草稿" : existingProject.scaffold_id ? " · 已有文章提纲" : ""}</div>`
           : ""
       }
       <div class="writing-note-actions">
-        <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
+        <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组作为相关笔记</button>
         ${
           themeContinuation?.projectId
-            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(themeContinuation?.action || "resume-project")}" data-writing-project-id="${escapeHtml(themeContinuation.projectId)}">${escapeHtml(themeContinuation?.actionLabel || "继续当前项目")}</button>`
+            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(themeContinuation?.action || "resume-project")}" data-writing-project-id="${escapeHtml(themeContinuation.projectId)}">${escapeHtml(themeContinuation?.actionLabel || "继续当前主题")}</button>`
             : ""
         }
       </div>
@@ -61,7 +61,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
   if (!indexCard?.id) {
     return `
       <div class="writing-empty">
-        先从左侧主题索引列表里选一张卡，或先把当前写作篮保存成主题索引。这里会显示中心问题、主题压缩和关联笔记。
+        先从左侧可写主题列表里选一张卡，或先把当前相关笔记保存成可写主题。这里会显示中心问题、主题压缩和关联笔记。
       </div>
     `;
   }
@@ -95,14 +95,14 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
         ${thinkingBadge}
       </div>
       <div class="writing-note-actions">
-        <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${themeId}">把整组加入写作篮</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${themeId}">把整组作为相关笔记</button>
         <button class="mini-btn primary" type="button" data-writing-theme-action="${escapeHtml(primaryThemeAction)}" data-writing-theme-id="${themeId}" data-writing-project-id="${escapeHtml(primaryThemeProjectId)}" ${projectEntry.canCreateProject ? "" : "disabled"}>${escapeHtml(projectEntry.actionLabel)}</button>
       </div>
       <div class="writing-summary" style="margin-top:12px;">
         这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和可续接的写作中心入口。
       </div>
       <div class="writing-summary" style="margin-top:12px;" data-writing-theme-project-summary="${themeId}">
-        写作中心入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题创建项目。")}
+        写作状态：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题继续写。")}
       </div>
       <div class="import-grid" style="margin-top:12px;">
         <label for="writingThemeDetailTitle">主题标题</label>
@@ -128,8 +128,8 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
       </div>
       <div class="writing-note-actions" style="margin-top:12px;">
         <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${themeId}">保存主题</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${themeId}">用当前写作篮覆盖</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${themeId}">把当前写作篮追加进来</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${themeId}">用当前相关笔记覆盖</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${themeId}">追加当前相关笔记</button>
       </div>
       <div style="margin-top:12px;">
         <h4>主题内的永久笔记</h4>

@@ -80,7 +80,7 @@ export function buildWritingPanelState({
     projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
     strongModelReady
   });
-  const draftContinuation = !hasDraft ? currentWritingContinuationEntry("当前写作篮") : null;
+  const draftContinuation = !hasDraft ? currentWritingContinuationEntry("当前相关笔记") : null;
   const openDraftButtonState = writingOpenDraftButtonState({ hasDraft, draftContinuation });
   const scaffoldButtonState = writingScaffoldButtonState({
     hasProject,
@@ -108,7 +108,7 @@ export function buildWritingPanelState({
       : "未创建";
   const projectMetricNote = hasProject
     ? projectPreflightSummary.level === "ready"
-      ? "项目条件已齐"
+      ? "主题条件已齐"
       : projectPreflightSummary.status
     : projectEntry?.actionLabel || "等待创建";
   const draftMetricValue = hasDraft ? "已绑定" : hasScaffold ? "待保存" : "未保存";
@@ -116,7 +116,7 @@ export function buildWritingPanelState({
     ? writingState.project?.draft_note?.title || writingState.project?.draft_note_id || "当前草稿可打开"
     : hasScaffold
       ? "确认缺口后保存草稿"
-      : "先生成草稿骨架";
+      : "先生成文章提纲";
   const scopeLabel = `${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}`;
 
   return {
@@ -145,13 +145,13 @@ export function buildWritingPanelState({
     strongModelButtonState,
     toplineMetrics: [
       {
-        label: "写作篮",
+        label: "相关笔记",
         value: basketEntries.length ? `${basketEntries.length} 条` : "0 条",
-        note: basketEntries.length ? (hasProject ? "材料就绪" : basketReadiness.status) : "先选择材料",
+        note: basketEntries.length ? (hasProject ? "相关笔记就绪" : basketReadiness.status) : "先选择笔记",
         tone: basketMetricTone
       },
       {
-        label: "项目",
+        label: "可写主题",
         value: projectMetricValue,
         note: projectMetricNote,
         tone: projectMetricTone
@@ -168,10 +168,11 @@ export function buildWritingPanelState({
 
 export function normalizeWritingProjectTitleSeed(title = "") {
   const cleanTitle = String(title || "").trim();
-  if (!cleanTitle) return "未命名项目";
-  if (cleanTitle.endsWith("写作项目")) return `${cleanTitle.slice(0, -"写作项目".length).trim()} 项目`.trim();
-  if (cleanTitle.endsWith("项目")) return cleanTitle;
-  return `${cleanTitle} 项目`;
+  if (!cleanTitle) return "未命名主题";
+  const legacyProjectSuffix = "写作" + "项目";
+  if (cleanTitle.endsWith(legacyProjectSuffix)) return `${cleanTitle.slice(0, -legacyProjectSuffix.length).trim()} 主题`.trim();
+  if (cleanTitle.endsWith("项目")) return `${cleanTitle.slice(0, -"项目".length).trim()} 主题`.trim();
+  return `${cleanTitle} 主题`;
 }
 
 export function suggestedWritingProjectTitle(noteIds = [], { noteById = () => null } = {}) {
@@ -179,7 +180,7 @@ export function suggestedWritingProjectTitle(noteIds = [], { noteById = () => nu
   if (notes.length === 1) return normalizeWritingProjectTitleSeed(notes[0].title || notes[0].id);
   const first = notes[0];
   if (first?.title) return normalizeWritingProjectTitleSeed(`${first.title} 等 ${notes.length} 条笔记`);
-  return `导入笔记项目 ${noteIds.length}`;
+  return `导入笔记主题 ${noteIds.length}`;
 }
 
 export function writingProjectEntryTitle(project = {}) {

@@ -2,7 +2,7 @@ import {
   renderWritingProjectCardView
 } from "./writing-workspace-view.js";
 
-export function renderWritingNoteCardDom(deps = {}, note, { selected = false, action = "add", actionLabel = "加入写作篮" } = {}) {
+export function renderWritingNoteCardDom(deps = {}, note, { selected = false, action = "add", actionLabel = "加入相关笔记" } = {}) {
   const { escapeHtml, renderThinkingStatusBadge, writingNoteMeta, writingNoteExcerpt } = deps;
   const thinkingBadge = renderThinkingStatusBadge(note?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `

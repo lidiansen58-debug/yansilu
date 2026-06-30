@@ -77,7 +77,7 @@ test("writing readiness allows basket entry before boundary and relation are com
   );
 
   assert.equal(readiness.level, "basket_ready");
-  assert.match(readiness.status, /写作篮/);
+  assert.match(readiness.status, /相关笔记/);
 });
 
 test("writing readiness upgrades to project-ready once boundary and relation exist", () => {
@@ -99,7 +99,7 @@ test("writing readiness upgrades to project-ready once boundary and relation exi
   );
 
   assert.equal(readiness.level, "project_ready");
-  assert.match(readiness.status, /先创建项目/);
+  assert.match(readiness.status, /先确定可写主题/);
 });
 
 test("writing readiness upgrades to strong-model-ready once theme signals are richer", () => {
@@ -121,7 +121,7 @@ test("writing readiness upgrades to strong-model-ready once theme signals are ri
   );
 
   assert.equal(readiness.level, "strong_model_ready");
-  assert.match(readiness.status, /先创建项目/);
+  assert.match(readiness.status, /先确定可写主题/);
 });
 
 test("main-path focuses boundary follow-up once a confirmed note already has an explicit relation", () => {
@@ -185,8 +185,8 @@ test("main-path writing action uses project mode once a note is project-ready", 
     themeSignalCount: 1
   };
   const summary = pane.permanentNoteMainPathSummaryV2(note, overview);
-  assert.match(summary.nextStep, /先创建项目/);
-  assert.match(summary.summary, /先创建项目/);
+  assert.match(summary.nextStep, /先确定可写主题/);
+  assert.match(summary.summary, /先确定题目和读者/);
 
   const html = pane.renderPermanentNoteMainPathSectionV2(
     note,
@@ -195,7 +195,7 @@ test("main-path writing action uses project mode once a note is project-ready", 
 
   assert.match(html, /data-note-main-route-action="writing"/);
   assert.match(html, /data-note-main-route-mode="project"/);
-  assert.match(html, />创建项目<\/button>/);
+  assert.match(html, />确定可写主题<\/button>/);
 });
 
 test("main-path project-ready card aligns chip and writing-step wording to create-project", () => {
@@ -222,8 +222,8 @@ test("main-path project-ready card aligns chip and writing-step wording to creat
   ).replace(/\s+/g, " ");
 
   assert.match(html, /data-main-path-next-action="writing"/);
-  assert.match(html, /<strong>先创建项目<\/strong>/);
-  assert.match(html, /data-note-main-route-mode="project">创建项目<\/button>/);
+  assert.match(html, /<strong>先确定可写主题<\/strong>/);
+  assert.match(html, /data-note-main-route-mode="project">确定可写主题<\/button>/);
   assert.doesNotMatch(html, /main-path-progress/);
 });
 
@@ -249,14 +249,14 @@ test("main-path reframes strong-model-ready notes to create-project wording befo
   };
 
   const summary = pane.permanentNoteMainPathSummaryV2(note, overview);
-  assert.match(summary.nextStep, /先创建项目/);
-  assert.match(summary.summary, /强模型分析前|先创建项目/);
+  assert.match(summary.nextStep, /先确定可写主题/);
+  assert.match(summary.summary, /AI 写作检查前|先确定题目和读者/);
 
   const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
   assert.match(html, /data-note-main-route-mode="project"/);
   assert.match(html, /data-main-path-next-action="writing"/);
-  assert.match(html, /<strong>先创建项目<\/strong>/);
-  assert.match(html, />创建项目<\/button>/);
+  assert.match(html, /<strong>先确定可写主题<\/strong>/);
+  assert.match(html, />确定可写主题<\/button>/);
 });
 
 test("main-path writing step uses requirements mode for authorship-blocked notes", () => {
@@ -286,7 +286,7 @@ test("main-path writing step uses requirements mode for authorship-blocked notes
   assert.match(html, /先完成作者确认/);
 });
 
-test("main-path basket-ready card labels the writing step as 可加入写作篮", () => {
+test("main-path basket-ready card labels the writing step as 可作为相关笔记", () => {
   const pane = createPane();
   pane.state = { notes: [] };
   const html = pane.renderPermanentNoteMainPathSectionV2(

@@ -13,7 +13,7 @@ export function describeWritingContinuationAction({
   existingProjectId = "",
   existingProjectHasScaffold = false,
   existingProjectHasDraft = false,
-  scopeLabel = "当前材料"
+  scopeLabel = "当前笔记"
 } = {}) {
   const currentProjectId = String(existingProjectId || "").trim();
   if (!currentProjectId) return null;
@@ -21,7 +21,7 @@ export function describeWritingContinuationAction({
     return {
       level: "current_draft",
       status: "打开当前草稿",
-      hint: `${scopeLabel}已经对应项目 ${currentProjectId}，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新创建项目更连续。`,
+      hint: `${scopeLabel}已经有草稿。直接打开当前草稿继续写，会比重新开始更连续。`,
       actionLabel: "打开当前草稿",
       action: "open-draft",
       projectId: currentProjectId,
@@ -31,9 +31,9 @@ export function describeWritingContinuationAction({
   if (existingProjectHasScaffold) {
     return {
       level: "current_scaffold",
-      status: "继续草稿骨架",
-      hint: `${scopeLabel}已经对应项目 ${currentProjectId}，草稿骨架也已生成。先回到这个项目继续补骨架，会比重新创建项目更连续。`,
-      actionLabel: "继续草稿骨架",
+      status: "继续文章提纲",
+      hint: `${scopeLabel}已经有文章提纲。先回到这组笔记继续完善提纲，会比重新开始更连续。`,
+      actionLabel: "继续文章提纲",
       action: "resume-scaffold",
       projectId: currentProjectId,
       canCreateProject: true
@@ -41,9 +41,9 @@ export function describeWritingContinuationAction({
   }
   return {
     level: "current_project",
-    status: "继续当前项目",
-    hint: `${scopeLabel}已经对应项目 ${currentProjectId}。直接回到这个项目继续推进，会比重新创建项目更连续。`,
-    actionLabel: "继续当前项目",
+    status: "继续这个主题",
+    hint: `${scopeLabel}已经确定过可写主题。直接回到这个主题继续推进，会比重新开始更连续。`,
+    actionLabel: "继续这个主题",
     action: "resume-project",
     projectId: currentProjectId,
     canCreateProject: true
@@ -66,8 +66,8 @@ export function describeWritingNextActionFromState({
 } = {}) {
   if (!basketCount) {
     return {
-      title: "先选材料",
-      note: "先把 2-5 条能支撑论证的永久笔记放进写作篮。"
+      title: "选择相关笔记",
+      note: "先把 2-5 条能支撑同一主题的永久笔记放到一起。"
     };
   }
   const continuationProjectId = String(projectEntryProjectId || "").trim();
@@ -77,24 +77,24 @@ export function describeWritingNextActionFromState({
     if (continuationAction === "open-draft") {
       return {
         title: "打开当前草稿",
-        note: `当前写作篮已经对应项目 ${continuationProjectId}，先打开当前草稿继续写作。`
+        note: `这组笔记已经有草稿，先打开当前草稿继续写作。`
       };
     }
     if (continuationAction === "resume-scaffold") {
       return {
-        title: "继续草稿骨架",
-        note: `当前写作篮已经对应项目 ${continuationProjectId}，先回到草稿骨架，再继续检查证据、缺口和开放问题。`
+        title: "继续文章提纲",
+        note: `这组笔记已经有文章提纲，先回到提纲，再继续检查证据、缺口和开放问题。`
       };
     }
     return {
-      title: "继续当前项目",
-      note: `当前写作篮已经对应项目 ${continuationProjectId}，先继续当前项目，再决定是否生成草稿骨架或保存草稿。`
+      title: "继续这个主题",
+      note: `这组笔记已经确定过可写主题，先继续这个主题，再决定是否生成文章提纲或开始草稿。`
     };
   }
   if (!hasProject) {
     return {
-      title: "创建项目",
-      note: "确认题目、目标读者和材料后，先创建项目再往下走。"
+      title: "确定可写主题",
+      note: "确认题目、读者和相关笔记后，先确定这篇文章要写什么。"
     };
   }
   const cleanProjectPreflightLevel = String(projectPreflightLevel || "").trim();
@@ -102,27 +102,27 @@ export function describeWritingNextActionFromState({
   if (!hasScaffold && cleanProjectPreflightLevel && cleanProjectPreflightLevel !== "ready") {
     if (cleanProjectPreflightLevel === "needs_clarification") {
       return {
-        title: "先澄清项目问题",
-        note: cleanProjectPreflightHint || "项目已创建，但还需要先处理关键问题，再生成草稿骨架。"
+        title: "先澄清主题问题",
+        note: cleanProjectPreflightHint || "主题已确定，但还需要先处理关键问题，再生成文章提纲。"
       };
     }
     if (cleanProjectPreflightLevel === "has_gaps") {
       return {
-        title: "先补项目缺口",
+        title: "先补主题缺口",
         note:
           cleanProjectPreflightHint ||
-          `项目已创建，但还有 ${Number(projectPreflightChecksLength || 0)} 项缺口需要先补齐，再生成草稿骨架。`
+          `主题已确定，但还有 ${Number(projectPreflightChecksLength || 0)} 项缺口需要先补齐，再生成文章提纲。`
       };
     }
     return {
-      title: "先检查项目条件",
-      note: cleanProjectPreflightHint || "项目已创建，先等系统完成项目检查，再决定是否进入草稿骨架步骤。"
+      title: "先检查主题条件",
+      note: cleanProjectPreflightHint || "主题已确定，先等系统完成检查，再决定是否生成文章提纲。"
     };
   }
   if (!hasScaffold) {
     return {
-      title: "生成草稿骨架",
-      note: "项目已创建，下一步先生成草稿骨架，检查章节、缺口和反方。"
+      title: "生成文章提纲",
+      note: "这组笔记已经足够形成一篇文章。下一步先生成文章提纲，检查章节、缺口和反方。"
     };
   }
   if (!hasDraft) {
@@ -158,7 +158,7 @@ export function describeWritingProjectPreflight(preflight = null) {
     return {
       level: "unknown",
       status: "待检查",
-      hint: "项目已创建；系统正在判断这个项目还缺什么。"
+      hint: "主题已确定；系统正在判断这篇文章还缺什么。"
     };
   }
 
@@ -166,23 +166,23 @@ export function describeWritingProjectPreflight(preflight = null) {
   if (status === "ready") {
     return {
       level: "ready",
-      status: "项目条件已齐",
-      hint: "项目目标、材料和主题入口已经基本齐备，可以继续生成草稿骨架。"
+      status: "可以生成提纲",
+      hint: "题目、相关笔记和主题方向已经基本齐备，可以继续生成文章提纲。"
     };
   }
   if (status === "needs_clarification") {
     const first = clarificationChecks[0] || checks[0] || null;
     return {
       level: "needs_clarification",
-      status: "先澄清关键缺口",
-      hint: first?.message || "先补齐项目的关键问题，再继续生成草稿骨架。"
+      status: "先澄清关键问题",
+      hint: first?.message || "先补齐主题的关键问题，再继续生成文章提纲。"
     };
   }
   const firstGap = gapChecks[0] || checks[0] || null;
   return {
     level: "has_gaps",
-    status: "仍有项目缺口",
-    hint: firstGap?.message || `当前项目还有 ${checks.length} 项建议先补齐。`
+    status: "仍有主题缺口",
+    hint: firstGap?.message || `当前主题还有 ${checks.length} 项建议先补齐。`
   };
 }
 
@@ -209,7 +209,7 @@ export function describeWritingProjectEntryState({
     return {
       level: "loading",
       status: "读取中",
-      hint: "正在读取正式关系，再判断是否能建项目。",
+      hint: "正在读取正式关系，再判断是否能形成可写主题。",
       actionLabel: "正在读取关系",
       canCreateProject: false
     };
@@ -218,9 +218,9 @@ export function describeWritingProjectEntryState({
   if (cleanLevel === "project_ready" || cleanLevel === "strong_model_ready") {
     return {
       level: "ready",
-      status: "先创建项目",
-      hint: "当前材料已经到创建项目阶段；接下来明确题目和读者。",
-      actionLabel: "创建项目",
+      status: "先确定可写主题",
+      hint: "这组笔记已经足够形成一篇文章；接下来明确题目和读者。",
+      actionLabel: "确定可写主题",
       canCreateProject: true
     };
   }
@@ -228,7 +228,7 @@ export function describeWritingProjectEntryState({
     return {
       level: "needs_structure",
       status: "先补关系/边界",
-      hint: "还没到建项目时机；先补边界或关系。",
+      hint: "还没到写文章的时机；先补边界或关系。",
       actionLabel: "先补关系/边界",
       canCreateProject: false
     };
@@ -253,9 +253,9 @@ export function describeWritingProjectEntryState({
   }
   return {
     level: cleanLevel || "needs_basket",
-    status: "先补写作材料",
-    hint: String(readinessHint || "").trim() || "先补齐写作材料，再创建项目。",
-    actionLabel: "先补写作材料",
+    status: "先补相关笔记",
+    hint: String(readinessHint || "").trim() || "先补齐相关笔记，再确定可写主题。",
+    actionLabel: "先补相关笔记",
     canCreateProject: false
   };
 }
@@ -279,42 +279,42 @@ export function describeWritingProjectStepState({
     const cleanProjectPreflightHint = String(projectPreflightHint || "").trim();
     if (cleanProjectPreflightLevel && cleanProjectPreflightLevel !== "ready") {
       return {
-        title: "创建项目",
+        title: "确定可写主题",
         note:
           cleanProjectPreflightHint ||
           (cleanProjectPreflightLevel === "has_gaps"
-            ? `${cleanProjectId || "项目已创建"}，还有 ${Number(projectPreflightChecksLength || 0)} 项缺口需要先补齐。`
-            : cleanProjectId || "项目已创建，但还需要先处理后续条件。")
+            ? `${cleanProjectId || "主题已确定"}，还有 ${Number(projectPreflightChecksLength || 0)} 项缺口需要先补齐。`
+            : cleanProjectId || "主题已确定，但还需要先处理后续条件。")
       };
     }
     return {
-      title: "创建项目",
-      note: String(projectId || "").trim() || "已创建项目"
+      title: "确定可写主题",
+      note: String(projectId || "").trim() || "已确定可写主题"
     };
   }
   if (!basketCount) {
     return {
-      title: "创建项目",
-      note: "先选出能支撑论证的永久笔记，再创建项目。"
+      title: "确定可写主题",
+      note: "先选出能支撑同一主题的永久笔记。"
     };
   }
   const continuationProjectId = String(projectEntryProjectId || "").trim();
   const continuationActionLabel = String(projectEntryActionLabel || "").trim();
   if (continuationProjectId && continuationActionLabel) {
     return {
-      title: "创建项目",
-      note: String(projectEntryHint || "").trim() || `当前写作篮已经对应 ${continuationProjectId}。先${continuationActionLabel}，再继续项目准备。`
+      title: "确定可写主题",
+      note: String(projectEntryHint || "").trim() || `这组笔记已经对应 ${continuationProjectId}。先${continuationActionLabel}，再继续写作准备。`
     };
   }
   if (!canCreateProject) {
     return {
-      title: "创建项目",
-      note: String(projectEntryHint || "").trim() || String(projectEntryStatus || "").trim() || "先补齐建项目条件。"
+      title: "确定可写主题",
+      note: String(projectEntryHint || "").trim() || String(projectEntryStatus || "").trim() || "先补齐可写主题条件。"
     };
   }
   return {
-    title: "创建项目",
-    note: "先明确题目和读者，再创建项目"
+    title: "确定可写主题",
+    note: "先明确题目和读者"
   };
 }
 
@@ -342,25 +342,25 @@ export function describeWritingScaffoldStepState({
       };
     }
     return {
-      title: "生成草稿骨架",
+        title: "生成文章提纲",
       note: "检查证据、缺口和反方"
     };
   }
   if (Number(blockingCount || 0) > 0) {
     return {
-      title: "生成草稿骨架",
+      title: "生成文章提纲",
       note: `先补 ${Number(blockingCount || 0)} 个阻塞项`
     };
   }
   if (Number(warningCount || 0) > 0) {
     return {
-      title: "生成草稿骨架",
+      title: "生成文章提纲",
       note: `可继续，但建议先补 ${Number(warningCount || 0)} 个提醒`
     };
   }
   return {
-    title: "生成草稿骨架",
-    note: "骨架已生成"
+    title: "生成文章提纲",
+    note: "提纲已生成"
   };
 }
 
@@ -384,14 +384,14 @@ export function describeWritingDraftStepState({
   }
   if (continuationProjectId && continuationAction === "resume-scaffold") {
     return {
-      title: "继续草稿骨架",
-      note: "先回到草稿骨架，再继续保存草稿。"
+      title: "继续文章提纲",
+      note: "先回到文章提纲，再继续开始草稿。"
     };
   }
   if (continuationProjectId && continuationAction === "resume-project") {
     return {
-      title: "继续当前项目",
-      note: "先继续当前项目，再生成草稿骨架并保存草稿。"
+      title: "继续这个主题",
+      note: "先继续这个主题，再生成文章提纲并开始草稿。"
     };
   }
   if (hasDraft) {
@@ -402,14 +402,14 @@ export function describeWritingDraftStepState({
   }
   if (hasScaffold && cleanProjectPreflightLevel === "needs_clarification") {
     return {
-      title: "先澄清项目问题",
-      note: cleanProjectPreflightHint || "先澄清项目关键问题，再保存草稿。"
+      title: "先澄清主题问题",
+      note: cleanProjectPreflightHint || "先澄清主题关键问题，再开始草稿。"
     };
   }
   if (hasScaffold && cleanProjectPreflightLevel === "has_gaps") {
     return {
-      title: "先补项目缺口",
-      note: cleanProjectPreflightHint || "先补项目缺口，再保存草稿。"
+      title: "先补主题缺口",
+      note: cleanProjectPreflightHint || "先补主题缺口，再开始草稿。"
     };
   }
   if (hasDraft) {
@@ -426,7 +426,7 @@ export function describeWritingDraftStepState({
   }
   return {
     title: "保存草稿",
-    note: "生成草稿骨架后再保存"
+    note: "生成文章提纲后再开始草稿"
   };
 }
 
@@ -435,8 +435,8 @@ export function describeWritingMaterialStepState({
 } = {}) {
   const count = Number(basketCount || 0);
   return {
-    title: "选材料",
-    note: count > 0 ? `${count} 条永久笔记已在写作篮` : "把 2-5 条永久笔记加入写作篮"
+    title: "相关笔记",
+    note: count > 0 ? `${count} 条永久笔记已选为相关笔记` : "把 2-5 条永久笔记放到一起"
   };
 }
 
@@ -572,8 +572,8 @@ export function writingThemeIndexContinuationRoute({ action = "", projectId = ""
     cleanAction === "open-draft"
       ? "打开当前草稿"
       : cleanAction === "resume-scaffold"
-        ? "回到草稿骨架"
-        : "继续当前项目";
+        ? "回到文章提纲"
+        : "继续这个主题";
   return {
     kind: "continue-project",
     handled: true,
@@ -584,8 +584,8 @@ export function writingThemeIndexContinuationRoute({ action = "", projectId = ""
       cleanAction === "open-draft"
         ? `已从主题索引打开当前草稿：${cleanProjectId}`
         : cleanAction === "resume-scaffold"
-          ? `已从主题索引回到草稿骨架：${cleanProjectId}`
-          : `已从主题索引继续当前项目：${cleanProjectId}`,
+          ? `已从可写主题回到文章提纲：${cleanProjectId}`
+          : `已从可写主题继续：${cleanProjectId}`,
     failurePrefix: `从主题索引${actionLabel}`
   };
 }
@@ -609,8 +609,8 @@ export function describeWritingBatchAppendStatus({
   const cleanLabel = String(scopeLabel || "当前目录观点").trim() || "当前目录观点";
   const nextAddedCount = Number(addedCount || 0);
   const nextTotalCount = Number(totalCount || 0);
-  if (nextAddedCount > 0) return `已把${cleanLabel}加入写作篮：${nextAddedCount} 条`;
-  if (nextTotalCount > 0) return `${cleanLabel}已都在写作篮中`;
+  if (nextAddedCount > 0) return `已把${cleanLabel}加入相关笔记：${nextAddedCount} 条`;
+  if (nextTotalCount > 0) return `${cleanLabel}已都在相关笔记中`;
   return `${cleanLabel}暂时没有可加入的永久笔记`;
 }
 
@@ -628,7 +628,7 @@ export function planWritingCandidateFocus({
       noteIds: cleanCandidateIds,
       usingFocusedScope: false,
       scopeLabel: "当前目录观点",
-      addActionLabel: "把当前目录观点加入写作篮"
+      addActionLabel: "加入当前目录笔记"
     };
   }
 
@@ -637,7 +637,7 @@ export function planWritingCandidateFocus({
     noteIds: cleanFocusedIds.filter((id) => candidateIdSet.has(id)),
     usingFocusedScope: true,
     scopeLabel: cleanScopeLabel,
-    addActionLabel: `把${cleanScopeLabel}加入写作篮`
+    addActionLabel: `加入${cleanScopeLabel}`
   };
 }
 
@@ -655,20 +655,20 @@ export function describeWritingMaterialStatus({
 
   if (!hasProject && cleanLevel === "strong_model_ready") {
     return {
-      status: "先创建项目",
-      hint: "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。"
+      status: "先确定可写主题",
+      hint: "这组笔记已经足够形成一篇文章；先确定可写主题，再继续后续分析。"
     };
   }
   if (hasProject && cleanLevel === "strong_model_ready") {
     return {
-      status: "材料就绪",
-      hint: "材料已经进入当前项目；可以继续生成草稿骨架或准备强模型分析。"
+      status: "相关笔记就绪",
+      hint: "相关笔记已经进入当前主题；可以继续生成文章提纲或准备 AI 写作检查。"
     };
   }
   if (hasProject && cleanLevel === "project_ready") {
     return {
-      status: "材料就绪",
-      hint: "材料已经进入当前项目；下一步生成草稿骨架。"
+      status: "相关笔记就绪",
+      hint: "相关笔记已经进入当前主题；下一步生成文章提纲。"
     };
   }
 
@@ -705,73 +705,73 @@ export function describeWritingStrongModelStatus({
   if (!relationCountsReady) {
     return {
       status: "读取中",
-      hint: "正在读取正式关系，等结果回来后再判断是否能进入强模型分析。",
+      hint: "正在读取正式关系，等结果回来后再判断是否适合让 AI 辅助写作。",
       buttonLabel: "正在读取关系"
     };
   }
   if (!hasProject && (cleanReadinessLevel === "project_ready" || cleanReadinessLevel === "strong_model_ready")) {
     return {
-      status: "先创建项目",
+      status: "先确定可写主题",
       hint:
         cleanReadinessLevel === "strong_model_ready"
-          ? "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。"
-          : "当前材料已经到创建项目阶段；先创建项目，再继续准备强模型分析。",
-      buttonLabel: "先创建项目"
+          ? "这组笔记已经足够形成一篇文章；先确定可写主题，再继续后续分析。"
+          : "这组笔记已经到可写主题阶段；先确定可写主题，再继续准备 AI 写作检查。",
+      buttonLabel: "先确定可写主题"
     };
   }
   if (!hasProject && cleanReadinessLevel === "basket_ready") {
     return {
       status: "先补关系/边界",
-      hint: "还没到强模型分析时机；先补边界或关系，再继续准备项目和强模型分析。",
+      hint: "还没到 AI 写作分析时机；先补边界或关系，再继续准备主题。",
       buttonLabel: "先补关系/边界"
     };
   }
   if (!hasProject && cleanReadinessLevel === "needs_distillation") {
     return {
       status: "先确认判断",
-      hint: "先把 thesis 和三句话确认下来，再继续准备项目和强模型分析。",
+      hint: "先把一句话观点和三句话压缩确认下来，再继续准备主题。",
       buttonLabel: "先确认判断/三句话"
     };
   }
   if (!hasProject && (cleanReadinessLevel === "blocked_authorship" || cleanReadinessLevel === "blocked_draft")) {
     return {
       status: "先完成作者/原创确认",
-      hint: "先让材料完成作者/原创确认，再继续准备项目和强模型分析。",
+      hint: "先让材料完成作者/原创确认，再继续准备主题。",
       buttonLabel: "先完成作者/原创确认"
     };
   }
   if (hasProject && cleanProjectPreflightLevel !== "ready") {
     if (cleanProjectPreflightLevel === "needs_clarification") {
       return {
-        status: "先澄清项目问题",
-        hint: "先澄清项目关键问题，再做强模型分析。",
-        buttonLabel: "先澄清项目问题"
+        status: "先澄清主题问题",
+        hint: "先澄清主题关键问题，再做 AI 写作分析。",
+        buttonLabel: "先澄清主题问题"
       };
     }
     if (cleanProjectPreflightLevel === "has_gaps") {
       return {
-        status: "先补项目缺口",
-        hint: `先补齐项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做强模型分析。`,
-        buttonLabel: "先补项目缺口"
+        status: "先补主题缺口",
+        hint: `先补齐这篇文章里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做 AI 写作分析。`,
+        buttonLabel: "先补主题缺口"
       };
     }
     return {
-      status: "先检查项目条件",
-      hint: `先确认项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项条件，再做强模型分析。`,
-      buttonLabel: "先检查项目条件"
+      status: "先检查主题条件",
+      hint: `先确认这篇文章里的 ${Number(projectPreflightChecksLength || 0)} 项条件，再做 AI 写作分析。`,
+      buttonLabel: "先检查主题条件"
     };
   }
   if (strongModelReady) {
     return {
       status: "可分析",
-      hint: "当前材料已经适合进入强模型分析。",
-      buttonLabel: "准备强模型分析"
+      hint: "这组笔记已经适合让 AI 帮你检查结构和缺口。",
+      buttonLabel: "准备 AI 写作检查"
     };
   }
   return {
-    status: "先补写作材料",
-    hint: cleanReadinessHint || "先补齐写作材料，再继续准备项目和强模型分析。",
-    buttonLabel: "先补写作材料"
+    status: "先补相关笔记",
+    hint: cleanReadinessHint || "先补齐相关笔记，再继续准备主题和 AI 写作检查。",
+    buttonLabel: "先补相关笔记"
   };
 }
 
@@ -779,8 +779,8 @@ export function describeWritingStrongModelIdleSummary({
   basketCount = 0,
   strongModelStateHint = ""
 } = {}) {
-  if (!basketCount) return "先把永久笔记加入写作篮，再准备强模型分析。";
-  return String(strongModelStateHint || "").trim() || "尚未准备强模型分析。需要你确认后，才会把写作篮发送给远程强模型。";
+  if (!basketCount) return "先选择相关笔记，再准备 AI 写作分析。";
+  return String(strongModelStateHint || "").trim() || "尚未准备 AI 写作分析。需要你确认后，才会把相关笔记发送给远程模型。";
 }
 
 export function describeWritingStrongModelButtonLabel({
@@ -789,28 +789,28 @@ export function describeWritingStrongModelButtonLabel({
   stateButtonLabel = ""
 } = {}) {
   if (loading) return "准备中...";
-  if (!basketCount) return "先加入写作篮";
-  return String(stateButtonLabel || "").trim() || "先补写作材料";
+  if (!basketCount) return "先选择相关笔记";
+  return String(stateButtonLabel || "").trim() || "先补相关笔记";
 }
 
-export function writingCenterContinuationStatusMessage(continuation = {}, { sourceLabel = "写作中心", scaffoldLabel = "草稿骨架" } = {}) {
+export function writingCenterContinuationStatusMessage(continuation = {}, { sourceLabel = "写作中心", scaffoldLabel = "文章提纲" } = {}) {
   const projectId = String(continuation?.projectId || "").trim();
   const source = String(sourceLabel || "写作中心").trim() || "写作中心";
-  const scaffold = String(scaffoldLabel || "草稿骨架").trim() || "草稿骨架";
+  const scaffold = String(scaffoldLabel || "文章提纲").trim() || "文章提纲";
   if (!projectId) return "";
   if (continuation?.action === "open-draft") return `已从${source}打开当前草稿：${projectId}`;
   if (continuation?.action === "resume-scaffold") return `已从${source}回到${scaffold}：${projectId}`;
-  if (continuation?.action === "resume-project") return `已从${source}继续当前项目：${projectId}`;
+  if (continuation?.action === "resume-project") return `已从${source}继续这个主题：${projectId}`;
   return "";
 }
 
-export function writingCenterContinuationFailureMessage(continuation = {}, error = "", { sourceLabel = "写作中心", scaffoldLabel = "草稿骨架" } = {}) {
+export function writingCenterContinuationFailureMessage(continuation = {}, error = "", { sourceLabel = "写作中心", scaffoldLabel = "文章提纲" } = {}) {
   const detail = String(error?.message || error || "");
   const source = String(sourceLabel || "写作中心").trim() || "写作中心";
-  const scaffold = String(scaffoldLabel || "草稿骨架").trim() || "草稿骨架";
+  const scaffold = String(scaffoldLabel || "文章提纲").trim() || "文章提纲";
   if (continuation?.action === "open-draft") return `从${source}打开当前草稿失败：${detail}`;
   if (continuation?.action === "resume-scaffold") return `从${source}回到${scaffold}失败：${detail}`;
-  return `从${source}继续当前项目失败：${detail}`;
+  return `从${source}继续这个主题失败：${detail}`;
 }
 
 export function writingOpenDraftButtonState({ hasDraft = false, draftContinuation = null } = {}) {
@@ -842,15 +842,15 @@ export function writingScaffoldButtonState({
     canGenerateScaffold,
     text: hasProject
       ? cleanLevel === "needs_clarification"
-        ? "先澄清项目问题"
+        ? "先澄清主题问题"
         : cleanLevel === "has_gaps"
-          ? "先补项目缺口"
-          : "生成草稿骨架"
+          ? "先补主题缺口"
+          : "生成文章提纲"
       : projectEntry?.projectId && projectEntry?.actionLabel
         ? `先${projectEntry.actionLabel}`
-        : projectEntry?.actionLabel === "创建项目"
-          ? "先创建项目"
-          : projectEntry?.actionLabel || "先补写作材料"
+        : projectEntry?.actionLabel === "确定可写主题"
+          ? "先确定可写主题"
+          : projectEntry?.actionLabel || "先补相关笔记"
   };
 }
 
@@ -858,10 +858,10 @@ export function writingScaffoldPreflightWarning(projectPreflightSummary = {}) {
   if (projectPreflightSummary?.level === "ready") return "";
   return projectPreflightSummary?.hint ||
     (projectPreflightSummary?.level === "needs_clarification"
-      ? "先澄清项目关键问题，再生成草稿骨架。"
+      ? "先澄清主题关键问题，再生成文章提纲。"
       : projectPreflightSummary?.level === "has_gaps"
-        ? "先补项目缺口，再生成草稿骨架。"
-        : "先检查项目条件，再生成草稿骨架。");
+        ? "先补主题缺口，再生成文章提纲。"
+        : "先检查主题条件，再生成文章提纲。");
 }
 
 export function writingStrongModelButtonState({
@@ -895,7 +895,7 @@ export function describeWritingThemeProjectEntryState({
     return {
       level: "loading",
       status: "读取中",
-      hint: "正在读取主题里的永久笔记，再判断是否能直接创建项目。",
+      hint: "正在读取主题里的永久笔记，再判断是否能直接继续写。",
       actionLabel: "正在读取主题",
       canCreateProject: false
     };
@@ -919,13 +919,13 @@ export function describeWritingThemeProjectEntryState({
   if (currentProjectId) {
     return {
       level: "current_project",
-      status: "继续当前项目",
+      status: "继续这个主题",
       hint: existingProjectHasDraft
-        ? `当前主题已经对应项目 ${currentProjectId}，而且草稿也在推进中。直接回到这个项目继续写作会更连续。`
+        ? `当前主题已经有草稿。直接回到这篇草稿继续写作会更连续。`
         : existingProjectHasScaffold
-          ? `当前主题已经对应项目 ${currentProjectId}，草稿骨架也已生成。直接回到这个项目继续推进会更连续。`
-          : `当前主题已经对应项目 ${currentProjectId}。直接回到这个项目继续推进，会比重新创建更连续。`,
-      actionLabel: "继续当前项目",
+          ? `当前主题已经有文章提纲。直接回到这篇提纲继续推进会更连续。`
+          : `当前主题已经确定。直接回到这个主题继续推进，会比重新开始更连续。`,
+      actionLabel: "继续这个主题",
       canCreateProject: true
     };
   }

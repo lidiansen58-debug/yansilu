@@ -54,11 +54,11 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       existingProject: writingState.project
     });
     if (actionPlan.reason === "existing_project") {
-      setStatus(`当前项目已创建：${writingState.project.id}。下一步生成草稿骨架或打开当前项目。`, "warn");
+      setStatus(`当前主题已确定：${writingState.project.id}。下一步生成文章提纲或打开当前草稿。`, "warn");
       return writingState.project;
     }
     if (actionPlan.reason === "missing_title") {
-      setStatus("请先填写项目标题", "warn");
+      setStatus("请先填写主题标题", "warn");
       return null;
     }
     if (actionPlan.reason === "missing_basket") {
@@ -87,7 +87,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       await loadWritingScaffoldVersions();
       await loadWritingDraftVersions();
       renderWritingPanel();
-      setStatus(`项目已创建：${project?.id}`, "ok");
+      setStatus(`可写主题已确定：${project?.id}`, "ok");
       return project;
     } catch (error) {
       showWritingResult({
@@ -96,7 +96,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
         code: error?.code || null,
         details: error?.details || null
       });
-      setStatus(`项目创建失败：${String(error?.message || error)}`, "bad");
+      setStatus(`确定可写主题失败：${String(error?.message || error)}`, "bad");
       return null;
     }
   }
@@ -118,7 +118,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
     } = runtimeDeps();
     const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "permanent");
     if (!noteIds.length) {
-      setStatus("当前导入结果里没有可创建项目的 PermanentNote", "warn");
+      setStatus("当前导入结果里没有可形成主题的永久笔记", "warn");
       return false;
     }
     await ensureNotesLoaded(noteIds);
@@ -153,7 +153,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
         basketNoteIds: project?.basket_note_ids,
         basketNotes: project?.basket_notes
       });
-      await openWritingModule({ statusMessage: `已从导入结果创建项目：${project?.id}` });
+      await openWritingModule({ statusMessage: `已从导入结果确定可写主题：${project?.id}` });
       return true;
     } catch (error) {
       showWritingResult({
@@ -162,7 +162,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
         code: error?.code || null,
         details: error?.details || null
       });
-      setStatus(`从导入结果创建项目失败：${String(error?.message || error)}`, "bad");
+      setStatus(`从导入结果确定可写主题失败：${String(error?.message || error)}`, "bad");
       return false;
     }
   }
@@ -185,16 +185,16 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       confirmed: true
     });
     if (preflightPlan.reason === "missing_basket") {
-      setStatus("先把永久笔记加入写作篮，再准备强模型分析", "warn");
+      setStatus("先选择相关笔记，再准备 AI 写作检查", "warn");
       return;
     }
     if (preflightPlan.reason === "missing_project") {
-      setStatus("先创建写作项目，再准备强模型分析", "warn");
+      setStatus("先确定可写主题，再准备 AI 写作检查", "warn");
       return;
     }
     const confirmed =
       typeof window === "undefined" ||
-      window.confirm("这会为远程强模型准备写作分析请求。当前实现不会直接调用模型，但请求包包含写作篮笔记摘要。继续？");
+      window.confirm("这会为远程模型准备写作检查请求。当前实现不会直接调用模型，但请求包包含相关笔记摘要。继续？");
     const actionPlan = writingStrongModelAnalysisPlan({
       noteIds,
       project: writingState.project,
@@ -227,7 +227,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
     } catch (error) {
       if (writingState.strongModelRevision !== requestRevision) return;
       writingState.strongModelError = String(error?.message || error);
-      setStatus(`强模型写作分析准备失败：${writingState.strongModelError}`, "warn");
+      setStatus(`AI 写作检查准备失败：${writingState.strongModelError}`, "warn");
     } finally {
       if (writingState.strongModelRevision !== requestRevision) return;
       writingState.strongModelLoading = false;

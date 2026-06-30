@@ -1,10 +1,10 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { readEditorDomainSource } from "./copy-source-helpers.mjs";
 
-test("distillation quality ready state points to the writing basket instead of the writing center", async () => {
+test("distillation quality ready state points to writing instead of the writing center", async () => {
   const source = await readEditorDomainSource();
 
-  assert.match(source, /一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或加入写作篮。/);
+  assert.match(source, /一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或进入写作。/);
 });

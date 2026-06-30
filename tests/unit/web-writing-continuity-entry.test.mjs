@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -39,7 +39,7 @@ test("writing continuation action prefers resuming scaffold when draft is not re
 test("writing-center project entry state reuses current continuity when the basket already maps to a project", () => {
   const entry = describeWritingContinuationAction({
     existingProjectId: "wp_existing",
-    scopeLabel: "当前写作篮"
+    scopeLabel: "当前相关笔记"
   });
   const step = describeWritingProjectStepState({
     basketCount: 3,
@@ -53,12 +53,12 @@ test("writing-center project entry state reuses current continuity when the bask
 
   assert.equal(entry.projectId, "wp_existing");
   assert.equal(entry.action, "resume-project");
-  assert.match(step.note, /wp_existing/);
-  assert.match(step.note, /比重新创建项目更连续/);
+  assert.match(step.note, /确定过可写主题|这个主题/);
+  assert.match(step.note, /比重新开始更连续/);
 });
 
 test("note main-path projected continuity keeps success copy note-scoped", () => {
-  const options = { sourceLabel: "主路径", scaffoldLabel: "当前项目的草稿骨架" };
+  const options = { sourceLabel: "主路径", scaffoldLabel: "当前主题的文章提纲" };
 
   assert.equal(
     writingCenterContinuationStatusMessage({ action: "open-draft", projectId: "wp_1" }, options),
@@ -66,16 +66,16 @@ test("note main-path projected continuity keeps success copy note-scoped", () =>
   );
   assert.equal(
     writingCenterContinuationStatusMessage({ action: "resume-scaffold", projectId: "wp_1" }, options),
-    "已从主路径回到当前项目的草稿骨架：wp_1"
+    "已从主路径回到当前主题的文章提纲：wp_1"
   );
   assert.equal(
     writingCenterContinuationStatusMessage({ action: "resume-project", projectId: "wp_1" }, options),
-    "已从主路径继续当前项目：wp_1"
+    "已从主路径继续这个主题：wp_1"
   );
 });
 
 test("note main-path writing entry keeps note-scoped continuity failure copy", () => {
-  const options = { sourceLabel: "主路径", scaffoldLabel: "当前项目的草稿骨架" };
+  const options = { sourceLabel: "主路径", scaffoldLabel: "当前主题的文章提纲" };
 
   assert.equal(
     writingCenterContinuationFailureMessage({ action: "open-draft" }, new Error("boom"), options),
@@ -83,11 +83,11 @@ test("note main-path writing entry keeps note-scoped continuity failure copy", (
   );
   assert.equal(
     writingCenterContinuationFailureMessage({ action: "resume-scaffold" }, "missing", options),
-    "从主路径回到当前项目的草稿骨架失败：missing"
+    "从主路径回到当前主题的文章提纲失败：missing"
   );
   assert.equal(
     writingCenterContinuationFailureMessage({ action: "resume-project" }, "stale", options),
-    "从主路径继续当前项目失败：stale"
+    "从主路径继续这个主题失败：stale"
   );
 });
 
@@ -96,11 +96,11 @@ test("writing continuation action carries the existing project target for caller
     existingProjectId: "wp_existing",
     existingProjectHasScaffold: true,
     existingProjectHasDraft: false,
-    scopeLabel: "当前写作篮"
+    scopeLabel: "当前相关笔记"
   });
 
   assert.equal(entry.projectId, "wp_existing");
   assert.equal(entry.action, "resume-scaffold");
   assert.equal(entry.canCreateProject, true);
-  assert.match(entry.hint, /当前写作篮/);
+  assert.match(entry.hint, /当前相关笔记/);
 });

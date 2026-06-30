@@ -88,7 +88,7 @@ export function createWritingThemeProjectRuntime(deps = {}) {
       return {
         ok: false,
         key: "type",
-        message: "写作篮只接受永久笔记。"
+        message: "相关笔记只接受永久笔记。"
       };
     }
     const authorship = normalizeAuthorshipItem(note.authorship) || { user_confirmed: false, ai_assisted: false };

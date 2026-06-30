@@ -136,7 +136,7 @@ export function distillationDraftFromForm(form, note = {}) {
 export function renderDistillationQualityContent(note = {}) {
   const warnings = collectDistillationWarnings(note);
   if (!warnings.length) {
-    return `<div class="related-empty">一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或加入写作篮。</div>`;
+    return `<div class="related-empty">一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或进入写作。</div>`;
   }
   return `
     <div class="related-empty bad">当前还有 ${warnings.length} 项需要打磨。</div>
@@ -245,7 +245,7 @@ export function distillationNextStepGuide(note = {}) {
     return {
       key: "confirm",
       title: "确认这条观点",
-      body: "判断、三句话和边界已经具备。确认后，它就可以更稳定地进入图谱关系、主题索引和写作篮。",
+      body: "判断、三句话和边界已经具备。确认后，它就可以更稳定地进入图谱关系、主题索引和写作。",
       actionLabel: "确认观点"
     };
   }

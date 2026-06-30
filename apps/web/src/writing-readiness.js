@@ -35,7 +35,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "blocked_authorship",
       status: "先完成作者确认",
-      hint: "写作篮只接收已经完成作者确认的永久笔记。",
+      hint: "相关笔记只接收已经完成作者确认的永久笔记。",
       actionLabel: "先完成作者确认"
     };
   }
@@ -58,48 +58,48 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
   if (!hasBoundary) {
     return {
       level: "basket_ready",
-      status: "可加入写作篮",
-      hint: "已经可以先加入写作篮，但先补边界或反例，后面建项目会更稳。",
-      actionLabel: "加入写作篮"
+      status: "可作为相关笔记",
+      hint: "已经可以先作为相关笔记，但先补边界或反例，后面形成文章会更稳。",
+      actionLabel: "加入相关笔记"
     };
   }
   if (relationState === "loading") {
     return {
       level: "basket_ready",
-      status: "可加入写作篮",
-      hint: "边界已经具备；等关系读取完成后，再判断是否直接建项目。",
-      actionLabel: "加入写作篮"
+      status: "可作为相关笔记",
+      hint: "边界已经具备；等关系读取完成后，再判断是否可以形成文章。",
+      actionLabel: "加入相关笔记"
     };
   }
   if (relationState === "error") {
     return {
       level: "basket_ready",
-      status: "可加入写作篮",
-      hint: "当前可以先加入写作篮，但最好补一条清楚的关系后再建项目。",
-      actionLabel: "加入写作篮"
+      status: "可作为相关笔记",
+      hint: "当前可以先作为相关笔记，但最好补一条清楚的关系后再写文章。",
+      actionLabel: "加入相关笔记"
     };
   }
   if (explicitRelationCount === 0) {
     return {
       level: "basket_ready",
-      status: "可加入写作篮",
-      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成正式关系，才适合创建项目。" : "判断和边界已经具备，但最好补一条关系再建项目。",
-      actionLabel: "加入写作篮"
+      status: "可作为相关笔记",
+      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成正式关系，才适合形成文章。" : "判断和边界已经具备，但最好补一条关系再写文章。",
+      actionLabel: "加入相关笔记"
     };
   }
   if (themeSignalCount < 2) {
     return {
       level: "project_ready",
-      status: "先创建项目",
-      hint: "判断、边界和关系已具备，可以先建项目；补更多主题线索后再做强模型分析。",
-      actionLabel: "创建项目"
+      status: "先确定可写主题",
+      hint: "判断、边界和关系已具备，可以先确定可写主题；补更多主题线索后再做 AI 写作检查。",
+      actionLabel: "确定可写主题"
     };
   }
   return {
     level: "strong_model_ready",
-    status: "先创建项目",
-    hint: "判断、边界、关系和主题线索都较完整；先创建项目，项目就绪后再做强模型分析。",
-    actionLabel: "创建项目"
+    status: "先确定可写主题",
+    hint: "判断、边界、关系和主题线索都较完整；先确定可写主题，再做 AI 写作检查。",
+    actionLabel: "确定可写主题"
   };
 }
 
@@ -111,9 +111,9 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
   if (!notes.length) {
     return {
       level: "needs_basket",
-      status: "先加入写作篮",
-      hint: "至少加入 1 条永久笔记，最好 2-5 条再创建项目。",
-      actionLabel: "加入写作篮"
+      status: "先选择相关笔记",
+      hint: "至少选择 1 条永久笔记，最好 2-5 条再确定可写主题。",
+      actionLabel: "加入相关笔记"
     };
   }
 
@@ -158,37 +158,37 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
   if (relationState === "error") {
     return {
       level: "basket_ready",
-      status: "可加入写作篮",
+      status: "可作为相关笔记",
       hint: "正式关系暂时读取失败，先稍后重试或回到笔记里手动确认关系。",
-      actionLabel: "加入写作篮"
+      actionLabel: "加入相关笔记"
     };
   }
 
   if (boundaryMissing.length || totalRelationCount === 0) {
     return {
       level: "basket_ready",
-      status: "可加入写作篮",
+      status: "可作为相关笔记",
       hint: boundaryMissing.length
         ? `${boundaryMissing.length} 条笔记还缺边界或反例。`
-        : "当前篮子还缺正式关系，建议补一条关系再建项目。",
-      actionLabel: "加入写作篮"
+        : "当前相关笔记还缺正式关系，建议补一条关系再形成文章。",
+      actionLabel: "加入相关笔记"
     };
   }
 
   if (uniqueIds.length < 2 || totalThemeSignals < 2) {
     return {
       level: "project_ready",
-      status: "先创建项目",
-      hint: "当前材料足够先建项目，但主题线索还不算丰富，先别急着做强模型分析。",
-      actionLabel: "创建项目"
+      status: "先确定可写主题",
+      hint: "当前相关笔记足够先确定可写主题，但主题线索还不算丰富，先别急着做 AI 写作检查。",
+      actionLabel: "确定可写主题"
     };
   }
 
   return {
     level: "strong_model_ready",
-    status: "先创建项目",
-    hint: "篮子、关系和主题线索都较完整；先创建项目，项目就绪后再做强模型分析。",
-    actionLabel: "创建项目"
+    status: "先确定可写主题",
+    hint: "相关笔记、关系和主题线索都较完整；先确定可写主题，再做 AI 写作检查。",
+    actionLabel: "确定可写主题"
   };
 }
 
@@ -198,19 +198,19 @@ export function describeProjectPreflight(preflight = null) {
     return {
       level: "unknown",
       status: "待检查",
-      hint: "先创建项目或生成骨架，才能看到更具体的写作预检结果。"
+      hint: "先确定可写主题或生成文章提纲，才能看到更具体的写作检查结果。"
     };
   }
   if (String(preflight.status || "").trim() === "ready") {
     return {
       level: "ready",
       status: "结构准备较完整",
-      hint: "当前项目的写作预检已基本通过，可以继续生成骨架或做更强分析。"
+      hint: "当前主题的写作检查已基本通过，可以继续生成文章提纲或做 AI 写作检查。"
     };
   }
   return {
     level: "needs_attention",
     status: "仍有预检提醒",
-    hint: `当前项目还有 ${warningCount} 项需要注意，先补齐再继续推进会更稳。`
+    hint: `当前主题还有 ${warningCount} 项需要注意，先补齐再继续推进会更稳。`
   };
 }

@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -13,11 +13,11 @@ test("writing open-draft projected continuity keeps writing-center-scoped feedba
   );
   assert.equal(
     writingCenterContinuationStatusMessage({ action: "resume-scaffold", projectId: "wp_1" }),
-    "已从写作中心回到草稿骨架：wp_1"
+    "已从写作中心回到文章提纲：wp_1"
   );
   assert.equal(
     writingCenterContinuationStatusMessage({ action: "resume-project", projectId: "wp_1" }),
-    "已从写作中心继续当前项目：wp_1"
+    "已从写作中心继续这个主题：wp_1"
   );
   assert.equal(
     writingCenterContinuationFailureMessage({ action: "open-draft" }, "boom"),

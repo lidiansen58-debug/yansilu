@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -131,7 +131,7 @@ test("prototype import result helpers render writing details and literature batc
   }, {
     escapeHtml: (value) => String(value).replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   });
-  assert.match(html, /草稿骨架快照/);
+  assert.match(html, /文章提纲快照/);
   assert.match(html, /&lt;Intro&gt;/);
   assert.match(html, /&lt;draft&gt;/);
 });

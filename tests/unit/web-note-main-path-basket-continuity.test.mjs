@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
@@ -11,9 +11,9 @@ test("main-path basket-ready card keeps boundary guidance while reusing continui
   const pane = createPane();
   pane.state = { notes: [] };
   pane.resolveNoteWritingContinuation = () => ({
-    status: "继续草稿骨架",
-    hint: "当前笔记已经对应项目 wp_existing，草稿骨架也已存在。先回到草稿骨架，再继续检查证据、缺口和开放问题。",
-    actionLabel: "继续草稿骨架",
+    status: "继续文章提纲",
+    hint: "当前笔记已经对应项目 wp_existing，文章提纲也已存在。先回到文章提纲，再继续检查证据、缺口和开放问题。",
+    actionLabel: "继续文章提纲",
     action: "resume-scaffold",
     projectId: "wp_existing"
   });

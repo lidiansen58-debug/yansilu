@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -134,7 +134,7 @@ test("note main route adds a note to the writing basket before opening writing",
   assert.deepEqual(calls, [
     "load",
     ["continue-entry", ["n1"], { title: "seed:Claim", source: "note_main_path" }],
-    ["open-writing", { statusMessage: "已把“Claim”加入写作篮，并打开写作中心" }]
+    ["open-writing", { statusMessage: "已把“Claim”加入相关笔记，并打开写作中心" }]
   ]);
 });
 
@@ -163,7 +163,7 @@ test("note main route resumes an existing writing project before generic writing
     ["open-writing", { statusMessage: "" }],
     ["continue-project", "wp1", {
       openDraft: true,
-      statusMessage: "status:主路径:当前项目的草稿骨架"
+      statusMessage: "status:主路径:当前主题的文章提纲"
     }]
   ]);
 });

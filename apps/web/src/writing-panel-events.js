@@ -30,12 +30,15 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
 
 export function normalizeWritingDraftTitle(title = "") {
   const cleanTitle = String(title || "").trim();
-  const baseTitle = cleanTitle || "未命名项目";
+  const baseTitle = cleanTitle || "未命名主题";
   const withoutDraftSuffix = baseTitle.replace(/\s*草稿$/u, "").trim();
   const projectTitle = withoutDraftSuffix
-    .replace(/\s+Project$/i, " 项目")
-    .replace(/Project\s*$/i, "项目");
-  return `${projectTitle}${/项目$/.test(projectTitle) ? "" : " 项目"} 草稿`;
+    .replace(/\s+Project$/i, " 主题")
+    .replace(/Project\s*$/i, "主题")
+    .replace(/\s*写作项目$/u, " 主题")
+    .replace(/\s*项目$/u, " 主题")
+    .trim();
+  return `${projectTitle}${/主题$/.test(projectTitle) ? "" : " 主题"} 草稿`;
 }
 
 export function installWritingThemeIndexEventHandlers(options = {}) {
@@ -171,16 +174,16 @@ export async function handleWritingProjectsListClick(event, deps = {}) {
         openDraft: action === "open-draft",
         statusMessage:
           action === "open-draft"
-            ? `已从项目列表打开当前草稿：${projectId}`
+            ? `已从最近写作打开当前草稿：${projectId}`
             : action === "resume-scaffold"
-              ? `已从项目列表回到草稿骨架：${projectId}`
+              ? `已从最近写作回到文章提纲：${projectId}`
               : action === "resume-project"
-                ? `已从项目列表继续当前项目：${projectId}`
+                ? `已从最近写作继续这个主题：${projectId}`
                 : ""
       });
     } catch (error) {
       setStatus(
-        `${action === "open-draft" ? "从项目列表打开当前草稿" : action === "resume-scaffold" ? "从项目列表回到草稿骨架" : "从项目列表继续当前项目"}失败：${String(error?.message || error)}`,
+        `${action === "open-draft" ? "从最近写作打开当前草稿" : action === "resume-scaffold" ? "从最近写作回到文章提纲" : "从最近写作继续这个主题"}失败：${String(error?.message || error)}`,
         "bad"
       );
     }
@@ -189,9 +192,9 @@ export async function handleWritingProjectsListClick(event, deps = {}) {
   if (action === "open") {
     try {
       await openWritingProject(projectId);
-      setStatus(`已恢复项目：${projectId}`, "ok");
+      setStatus(`已恢复可写主题：${projectId}`, "ok");
     } catch (error) {
-      setStatus(`打开项目失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -200,18 +203,18 @@ export async function handleWritingProjectsListClick(event, deps = {}) {
   if (action === "copy-scaffold") {
     try {
       const result = await copyWritingScaffold(project);
-      setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
+      setStatus(`已复制文章提纲 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
+      setStatus(`复制文章提纲失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "export-scaffold") {
     try {
       const result = await exportWritingScaffold(project);
-      setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
+      setStatus(`已导出文章提纲 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
+      setStatus(`导出文章提纲失败：${String(error?.message || error)}`, "bad");
     }
   }
 }
@@ -240,9 +243,9 @@ export async function handleWritingScaffoldVersionsListClick(event, deps = {}) {
   if (action === "open") {
     try {
       await openScaffoldVersion(scaffoldId);
-      setStatus(`已切换到草稿骨架版本：${scaffoldId}`, "ok");
+      setStatus(`已切换到文章提纲版本：${scaffoldId}`, "ok");
     } catch (error) {
-      setStatus(`打开草稿骨架版本失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开文章提纲版本失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -255,23 +258,23 @@ export async function handleWritingScaffoldVersionsListClick(event, deps = {}) {
   if (action === "copy") {
     try {
       const result = await copyWritingScaffold(projectLike);
-      setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
+      setStatus(`已复制文章提纲 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
+      setStatus(`复制文章提纲失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "export") {
     try {
       const result = await exportWritingScaffold(projectLike);
-      setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
+      setStatus(`已导出文章提纲 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
+      setStatus(`导出文章提纲失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "edit-note") {
-    const nextNote = promptVersionNoteEdit(version?.version_note || "", "草稿骨架版本");
+    const nextNote = promptVersionNoteEdit(version?.version_note || "", "文章提纲版本");
     if (nextNote === null) return;
     try {
       const updated = await updateDraftScaffoldVersionNote(scaffoldId, nextNote);
@@ -285,9 +288,9 @@ export async function handleWritingScaffoldVersionsListClick(event, deps = {}) {
         };
       }
       renderWritingPanel();
-      setStatus(`已更新草稿骨架版本说明：${scaffoldId}`, "ok");
+      setStatus(`已更新文章提纲版本说明：${scaffoldId}`, "ok");
     } catch (error) {
-      setStatus(`更新草稿骨架版本说明失败：${String(error?.message || error)}`, "bad");
+      setStatus(`更新文章提纲版本说明失败：${String(error?.message || error)}`, "bad");
     }
   }
 }
@@ -368,9 +371,9 @@ export async function handleWritingRefreshProjects(deps = {}) {
   try {
     syncWritingProjectFiltersFromUi();
     await loadWritingProjectsList();
-    setStatus("已刷新最近项目", "ok");
+    setStatus("已刷新最近写作", "ok");
   } catch (error) {
-    setStatus(`刷新项目失败：${String(error?.message || error)}`, "bad");
+    setStatus(`刷新最近写作失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -392,9 +395,9 @@ export async function handleWritingRefreshScaffolds(deps = {}) {
   } = deps;
   try {
     await loadWritingScaffoldVersions();
-    setStatus("已刷新草稿骨架版本", "ok");
+    setStatus("已刷新文章提纲版本", "ok");
   } catch (error) {
-    setStatus(`刷新草稿骨架版本失败：${String(error?.message || error)}`, "bad");
+    setStatus(`刷新文章提纲版本失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -419,7 +422,7 @@ export async function handleWritingCreateProjectClick(deps = {}) {
   try {
     await createWritingProjectFromCurrentBasket();
   } catch (error) {
-    setStatus(`从写作中心创建项目失败：${String(error?.message || error)}`, "bad");
+    setStatus(`从写作中心确定可写主题失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -444,7 +447,7 @@ export async function handleWritingCreateScaffoldClick(deps = {}) {
   } = deps;
   const writingProjectId = writingState.project?.id;
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
-  const continuation = !writingProjectId ? currentWritingContinuationEntry("当前写作篮") : null;
+  const continuation = !writingProjectId ? currentWritingContinuationEntry("当前相关笔记") : null;
   const missingProjectLabel = String($("btnWritingCreateScaffold")?.textContent || "").trim();
   if (!writingProjectId && continuation?.projectId) {
     try {
@@ -485,7 +488,7 @@ export async function handleWritingCreateScaffoldClick(deps = {}) {
     await loadWritingScaffoldVersions();
     await loadWritingDraftVersions();
     renderWritingPanel();
-    setStatus(`草稿骨架已生成：${result.item?.id}`, "ok");
+    setStatus(`文章提纲已生成：${result.item?.id}`, "ok");
   } catch (error) {
     showWritingResult({
       stage: "draft_scaffold_error",
@@ -494,7 +497,7 @@ export async function handleWritingCreateScaffoldClick(deps = {}) {
       code: error?.code || null,
       details: error?.details || null
     });
-    setStatus(`草稿骨架生成失败：${String(error?.message || error)}`, "bad");
+    setStatus(`文章提纲生成失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -507,7 +510,7 @@ export async function handleWritingCopyScaffoldClick(deps = {}) {
   } = deps;
   try {
     const result = await copyWritingScaffold();
-    setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
+    setStatus(`已复制文章提纲 Markdown：${result.fileName}`, "ok");
   } catch (error) {
     showWritingResult({
       stage: "writing_copy_scaffold_error",
@@ -516,7 +519,7 @@ export async function handleWritingCopyScaffoldClick(deps = {}) {
       message: String(error?.message || error),
       code: error?.code || null
     });
-    setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
+    setStatus(`复制文章提纲失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -529,7 +532,7 @@ export async function handleWritingExportScaffoldClick(deps = {}) {
   } = deps;
   try {
     const result = await exportWritingScaffold();
-    setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
+    setStatus(`已导出文章提纲 Markdown：${result.fileName}`, "ok");
   } catch (error) {
     showWritingResult({
       stage: "writing_export_scaffold_error",
@@ -538,7 +541,7 @@ export async function handleWritingExportScaffoldClick(deps = {}) {
       message: String(error?.message || error),
       code: error?.code || null
     });
-    setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
+    setStatus(`导出文章提纲失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -569,17 +572,17 @@ export async function handleWritingSaveDraftClick(deps = {}) {
       message: "scaffold is required before creating a draft note",
       code: "WRITING_DRAFT_INVALID"
     });
-    return setStatus(missingScaffoldLabel || "先生成草稿骨架", "warn");
+    return setStatus(missingScaffoldLabel || "先生成文章提纲", "warn");
   }
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (writingState.project?.id && projectPreflightSummary.level !== "ready") {
     return setStatus(
       projectPreflightSummary.hint ||
         (projectPreflightSummary.level === "needs_clarification"
-          ? "先澄清项目关键问题，再保存草稿。"
+          ? "先澄清主题关键问题，再开始草稿。"
           : projectPreflightSummary.level === "has_gaps"
-            ? "先补项目缺口，再保存草稿。"
-            : "先检查项目条件，再保存草稿。"),
+            ? "先补主题缺口，再开始草稿。"
+            : "先检查主题条件，再开始草稿。"),
       "warn"
     );
   }
@@ -643,7 +646,7 @@ export async function handleWritingOpenDraftClick(deps = {}) {
     setStatus = () => {}
   } = deps;
   const draftNoteId = String(writingState.project?.draft_note_id || "").trim();
-  const continuation = !draftNoteId ? currentWritingContinuationEntry("当前写作篮") : null;
+  const continuation = !draftNoteId ? currentWritingContinuationEntry("当前相关笔记") : null;
   if (!draftNoteId && continuation?.projectId) {
     try {
       await continueWritingProjectEntry(continuation.projectId, {
@@ -655,7 +658,7 @@ export async function handleWritingOpenDraftClick(deps = {}) {
     }
     return;
   }
-  if (!draftNoteId) return setStatus("当前项目还没有绑定草稿笔记", "warn");
+  if (!draftNoteId) return setStatus("当前主题还没有绑定草稿笔记", "warn");
   try {
     await openWritingDraftNoteById(draftNoteId);
     setStatus(`已打开草稿笔记：${draftNoteId}`, "ok");
@@ -700,8 +703,8 @@ export async function handleWritingThemeDetailClick(event, deps = {}) {
       });
       setStatus(
         addedCount > 0
-          ? `已从主题进入写作篮：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
-          : `主题已在写作篮中：${indexCard.title || indexId}`,
+          ? `已从主题选择相关笔记：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
+          : `主题已在相关笔记中：${indexCard.title || indexId}`,
         "ok"
       );
       return;
@@ -716,8 +719,8 @@ export async function handleWritingThemeDetailClick(event, deps = {}) {
     if ((action === "resume-project" || action === "resume-scaffold") && projectId) {
       await continueWritingProjectEntry(projectId, {
         statusMessage: action === "resume-scaffold"
-          ? `已从主题回到草稿骨架：${projectId}`
-          : `已从主题继续当前项目：${projectId}`
+          ? `已从主题回到文章提纲：${projectId}`
+          : `已从主题继续这个主题：${projectId}`
       });
       return;
     }
@@ -730,23 +733,23 @@ export async function handleWritingThemeDetailClick(event, deps = {}) {
           statusMessage: existingProject.draft_note_id
             ? `已从主题打开当前草稿：${existingProject.id}`
             : existingProject.scaffold_id
-              ? `已从主题回到草稿骨架：${existingProject.id}`
-              : `已从主题继续当前项目：${existingProject.id}`
+              ? `已从主题回到文章提纲：${existingProject.id}`
+              : `已从主题继续这个主题：${existingProject.id}`
         });
         return;
       }
       const project = await createWritingProjectFromThemeIndex(indexId);
-      setStatus(`已从主题创建项目：${project?.id}`, "ok");
+      setStatus(`已从主题确定可写主题：${project?.id}`, "ok");
       return;
     }
     if (action === "replace-from-basket") {
       const item = await syncSelectedThemeIndexWithBasket("replace");
-      setStatus(`已用当前写作篮覆盖主题：${item.title || item.id}`, "ok");
+      setStatus(`已用当前相关笔记覆盖主题：${item.title || item.id}`, "ok");
       return;
     }
     if (action === "append-from-basket") {
       const item = await syncSelectedThemeIndexWithBasket("append");
-      setStatus(`已把当前写作篮加入主题：${item.title || item.id}`, "ok");
+      setStatus(`已把当前相关笔记加入主题：${item.title || item.id}`, "ok");
       return;
     }
     if (action === "open-note" && noteId) {
@@ -762,7 +765,7 @@ export async function handleWritingThemeDetailClick(event, deps = {}) {
   } catch (error) {
     if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
       setStatus(
-        `${action === "open-draft" ? "从主题打开当前草稿" : action === "resume-scaffold" ? "从主题回到草稿骨架" : "从主题继续当前项目"}失败：${String(error?.message || error)}`,
+        `${action === "open-draft" ? "从主题打开当前草稿" : action === "resume-scaffold" ? "从主题回到文章提纲" : "从主题继续这个主题"}失败：${String(error?.message || error)}`,
         "bad"
       );
       return;
@@ -846,8 +849,8 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
       });
       setStatus(
         addedCount > 0
-          ? `已从主题索引进入写作篮：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
-          : `主题索引已在写作篮中：${indexCard.title || indexId}`,
+          ? `已从可写主题选择相关笔记：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
+          : `可写主题已在相关笔记中：${indexCard.title || indexId}`,
         "ok"
       );
     } catch (error) {
@@ -879,16 +882,16 @@ export function handleWritingUseCurrent(deps = {}) {
   if (!eligibility.ok) {
     const message =
       eligibility.key === "type"
-        ? "写作篮只接受永久笔记，请先切到永久笔记目录选择笔记"
+        ? "相关笔记只接受永久笔记，请先切到永久笔记目录选择笔记"
         : eligibility.message;
     return setStatus(message, "warn");
   }
   const plan = continueWritingEntry([note.id], {
-    title: normalizeWritingProjectTitleSeed(note.title || "新的项目"),
+    title: normalizeWritingProjectTitleSeed(note.title || "新的主题"),
     source: "writing_panel_current_note"
   });
   const addedCount = Number(plan?.addedNoteIds?.length || 0);
-  return setStatus(addedCount > 0 ? `已加入写作篮：${note.title}` : `写作篮已包含：${note.title}`, "ok");
+  return setStatus(addedCount > 0 ? `已加入相关笔记：${note.title}` : `相关笔记已包含：${note.title}`, "ok");
 }
 
 export function handleWritingAddVisible(deps = {}) {
@@ -957,8 +960,8 @@ export function handleWritingClearBasket(deps = {}) {
   clearWritingSourceIndexIds();
   resetWritingProjectContext();
   renderWritingPanel();
-  showWritingResult("已清空写作篮。");
-  setStatus("已清空写作篮", "ok");
+  showWritingResult("已清空相关笔记。");
+  setStatus("已清空相关笔记", "ok");
 }
 
 export async function handleWritingLocalBookIdeas(deps = {}) {
@@ -974,7 +977,7 @@ export async function handleWritingLocalBookIdeas(deps = {}) {
   } = deps;
   const notes = writingBasketEntries();
   if (!notes.length) {
-    setStatus("先把材料加入写作篮，再生成书稿方向建议", "warn");
+    setStatus("先选择相关笔记，再生成书稿方向建议", "warn");
     return;
   }
   writingState.localBookIdeas = deriveWritingLocalBookIdeas({ notes, project: writingState.project });
@@ -986,7 +989,7 @@ export async function handleWritingLocalBookIdeas(deps = {}) {
       });
       writingState.localBookIdeas = normalizeWritingBookStructure(writingState.project?.book_structure || {}).direction_ideas;
     } catch (error) {
-      setStatus(`书稿方向已在本地生成，但保存到项目失败：${String(error?.message || error)}`, "warn");
+      setStatus(`书稿方向已在本地生成，但保存到当前主题失败：${String(error?.message || error)}`, "warn");
       renderWritingPanel();
       return;
     }
@@ -994,8 +997,8 @@ export async function handleWritingLocalBookIdeas(deps = {}) {
   renderWritingPanel();
   setStatus(
     writingState.project?.id
-      ? "已生成 3 个书稿方向，并保存到当前项目结构"
-      : "已在本地生成 3 个书稿方向建议；不会上传材料，也不会自动写入项目",
+      ? "已生成 3 个书稿方向，并保存到当前主题结构"
+      : "已在本地生成 3 个书稿方向建议；不会上传材料，也不会自动写入当前主题",
     "ok"
   );
 }
@@ -1025,7 +1028,7 @@ export function handleWritingNoteListClick(event, deps = {}, options = {}) {
       source: options.source || "writing_candidate_list"
     });
     const addedCount = Number(plan?.addedNoteIds?.length || 0);
-    setStatus(addedCount > 0 ? `已加入写作篮：${noteLabel}` : `写作篮已包含：${noteLabel}`, "ok");
+    setStatus(addedCount > 0 ? `已加入相关笔记：${noteLabel}` : `相关笔记已包含：${noteLabel}`, "ok");
     return;
   }
   if (action === "remove") {
@@ -1033,7 +1036,7 @@ export function handleWritingNoteListClick(event, deps = {}, options = {}) {
     clearWritingSourceIndexIds();
     removeWritingBasketId(noteId);
     renderWritingPanel();
-    setStatus(`已移出写作篮：${noteLabel}`, "ok");
+    setStatus(`已移出相关笔记：${noteLabel}`, "ok");
     return;
   }
   if (action === "open") {

@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { writingOpenDraftButtonState } from "../../apps/web/src/writing-center-flow.js";
@@ -16,13 +16,13 @@ test("writing open-draft button reuses projected continuity before a project is 
       draftContinuation: {
         projectId: "wp_1",
         action: "resume-scaffold",
-        actionLabel: "继续草稿骨架"
+        actionLabel: "继续文章提纲"
       }
     }),
     {
       disabled: false,
       canContinueProjectedDraft: true,
-      text: "先继续草稿骨架"
+      text: "先继续文章提纲"
     }
   );
 

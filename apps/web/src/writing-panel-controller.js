@@ -195,7 +195,7 @@ export function renderWritingPanelDom(deps = {}) {
   current.textContent = panelState.currentLabel;
   if (scopeHint) {
     scopeHint.textContent = candidateFocusPlan.usingFocusedScope
-      ? `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱切片进入写作中心的，候选区会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；写作篮和主题索引仍保持当前目录范围。`
+      ? `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱切片进入写作中心的，候选区会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；相关笔记和可写主题仍保持当前目录范围。`
       : `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作中心入口默认从已有观点开始。`;
   }
   renderWritingStatusStripDom(deps);
@@ -207,7 +207,7 @@ export function renderWritingPanelDom(deps = {}) {
     } else if (writingState.themeIndexes.length) {
       themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为可续接的写作入口。`;
     } else {
-      themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟永久笔记组织进写作篮，再保存为主题索引。";
+      themeIndexesHint.textContent = "当前范围还没有可写主题。先把一组成熟永久笔记组织成相关笔记，再保存为可写主题。";
     }
   }
   if (themeIndexList) {
@@ -218,7 +218,7 @@ export function renderWritingPanelDom(deps = {}) {
     } else if (writingState.themeIndexes.length) {
       themeIndexList.innerHTML = writingState.themeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("");
     } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里继续一条可续接的写作入口。</div>`;
+      themeIndexList.innerHTML = `<div class="writing-empty">还没有可写主题。用当前相关笔记保存一个，后续就能从这里继续写。</div>`;
     }
   }
 
@@ -240,22 +240,22 @@ export function renderWritingPanelDom(deps = {}) {
   if (basketSummary) {
     const sourcePart = sourceIndexSummary ? `可续接的写作入口：${sourceIndexSummary}。` : "可续接的写作入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
-      ? `写作篮已有 ${basketEntries.length} 条永久笔记。当前阶段：${relationCountsErrored ? "关系读取失败" : relationCountsReady ? basketReadiness.status : "正在读取关系"}。${relationCountsErrored ? "正式关系暂时读取失败，先稍后重试或回到笔记里确认关系。" : relationCountsReady ? basketReadiness.hint : "等正式关系读取完成后，再判断是否能建项目。"} ${sourcePart}`
-      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
+      ? `已选择 ${basketEntries.length} 条相关笔记。当前阶段：${relationCountsErrored ? "关系读取失败" : relationCountsReady ? basketReadiness.status : "正在读取关系"}。${relationCountsErrored ? "正式关系暂时读取失败，先稍后重试或回到笔记里确认关系。" : relationCountsReady ? basketReadiness.hint : "等正式关系读取完成后，再判断是否能形成文章。"} ${sourcePart}`
+      : `还没有选择相关笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
   }
   if (basketList) {
     basketList.innerHTML = basketEntries.length
-      ? basketEntries.map((entry) => renderWritingNoteCard(entry, { selected: true, action: "remove", actionLabel: "移出写作篮" })).join("")
-      : `<div class="writing-empty">\u5148\u5728\u5de6\u4fa7\u6253\u5f00\u4e00\u6761\u539f\u521b\u7b14\u8bb0\u70b9\u51fb“\u628a\u5f53\u524d\u7b14\u8bb0\u52a0\u5165\u5199\u4f5c\u7bee”\uff0c\u6216\u5148\u770b\u4e0b\u9762\u54ea\u4e9b\u4e3b\u9898\u5df2\u7ecf\u6210\u5f62\uff0c\u518d\u628a\u76f8\u5173\u7b14\u8bb0\u6279\u91cf\u52a0\u5165\u5199\u4f5c\u7bee\u3002</div>`;
+      ? basketEntries.map((entry) => renderWritingNoteCard(entry, { selected: true, action: "remove", actionLabel: "移出相关笔记" })).join("")
+      : `<div class="writing-empty">先在左侧打开一条原创笔记，点击“加入当前笔记”，或从下面选择已经成熟的永久笔记。</div>`;
   }
   const basketIdSet = new Set(parseWritingBasketIds());
   if (candidateSummary) {
     candidateSummary.textContent = candidates.length
       ? candidateFocusPlan.usingFocusedScope
-        ? `${candidateFocusPlan.scopeLabel}里有 ${candidates.length} 条可加入写作篮的永久笔记，${writingThemeSummary(candidates)}。先沿着这段图谱结构推进，再决定哪些笔记加入写作篮。`
-        : `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记加入写作篮。`
+        ? `${candidateFocusPlan.scopeLabel}里有 ${candidates.length} 条可作为相关笔记的永久笔记，${writingThemeSummary(candidates)}。先沿着这段图谱结构推进，再决定哪些笔记适合写进同一篇文章。`
+        : `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再选择哪些笔记适合写进同一篇文章。`
       : candidateFocusPlan.usingFocusedScope
-        ? `${candidateFocusPlan.scopeLabel}里暂时还没有可加入写作篮的永久笔记。可以先回图谱继续补关系，或回到目录范围挑选成熟观点。`
+        ? `${candidateFocusPlan.scopeLabel}里暂时还没有可作为相关笔记的永久笔记。可以先回图谱继续补关系，或回到目录范围挑选成熟观点。`
         : "当前目录里还没有已加载的永久笔记。可以先回到永久笔记目录形成几条自己的观点，再来组织可写主题。";
   }
   if (candidateList) {
@@ -265,7 +265,7 @@ export function renderWritingPanelDom(deps = {}) {
             renderWritingNoteCard(entry, {
               selected: basketIdSet.has(entry.id),
               action: basketIdSet.has(entry.id) ? "remove" : "add",
-              actionLabel: basketIdSet.has(entry.id) ? "移出写作篮" : "加入写作篮"
+              actionLabel: basketIdSet.has(entry.id) ? "移出相关笔记" : "加入相关笔记"
             })
           )
           .join("")
@@ -282,7 +282,7 @@ export function renderWritingPanelDom(deps = {}) {
   }
   if (createProjectButton) {
     createProjectButton.disabled = hasProject || !projectEntry.canCreateProject;
-    createProjectButton.textContent = hasProject ? "项目已创建" : projectEntry.actionLabel;
+    createProjectButton.textContent = hasProject ? "主题已确定" : projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
     createScaffoldButton.disabled = panelState.scaffoldButtonState.disabled;
@@ -297,18 +297,18 @@ export function renderWritingPanelDom(deps = {}) {
       ? !writingState.project?.id
         ? projectEntry?.projectId && projectEntry?.actionLabel
           ? `先${projectEntry.actionLabel}`
-          : projectEntry?.actionLabel === "创建项目"
-            ? "先创建项目"
-            : projectEntry?.actionLabel || "先补写作材料"
+          : projectEntry?.actionLabel === "确定可写主题"
+            ? "先确定可写主题"
+            : projectEntry?.actionLabel || "先补相关笔记"
         : projectPreflightSummary.level === "needs_clarification"
-          ? "先澄清项目问题"
+          ? "先澄清主题问题"
           : projectPreflightSummary.level === "has_gaps"
-            ? "先补项目缺口"
-            : "先生成草稿骨架"
+            ? "先补主题缺口"
+            : "先生成文章提纲"
       : projectPreflightSummary.level === "needs_clarification"
-        ? "先澄清项目问题"
+        ? "先澄清主题问题"
         : projectPreflightSummary.level === "has_gaps"
-          ? "先补项目缺口"
+          ? "先补主题缺口"
           : "保存为草稿笔记";
   }
   const strongModelBasketIds = renderWritingStrongModelSummaryDom({

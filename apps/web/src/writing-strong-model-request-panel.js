@@ -15,12 +15,12 @@ export function renderWritingStrongModelRequestDetailDom(deps = {}, { noteIds = 
   const result = writingState.strongModelResult;
   const request = result?.request || null;
   const modelName = request?.model?.model || "strong_model";
-  const goal = writingBookProjectGoal() || "请强模型检查书稿主线、章节结构、材料缺口和反方压力。";
+  const goal = writingBookProjectGoal() || "请 AI 检查书稿主线、章节结构、材料缺口和反方压力。";
   const audience = writingBookProjectAudience() || "尚未填写";
   if (!notes.length) {
     el.innerHTML = `
-      <strong>强模型请求包</strong>
-      <div class="writing-section-note">先加入写作篮并创建项目后，这里会显示用了哪些笔记、准备问模型什么，以及哪些内容不会发送。</div>
+      <strong>AI 写作检查请求</strong>
+      <div class="writing-section-note">先选择相关笔记并确定主题后，这里会显示用了哪些笔记、准备问模型什么，以及哪些内容不会发送。</div>
     `;
     return;
   }
@@ -31,18 +31,18 @@ export function renderWritingStrongModelRequestDetailDom(deps = {}, { noteIds = 
     "哪些材料只适合放入案例池或反方池，不应该进入主线？"
   ];
   const notSent = [
-    "不会发送未加入写作篮的其它笔记、其它草稿或整个库。",
+    "不会发送未选为相关笔记的其它笔记、其它草稿或整个库。",
     "不会发送本地设置、系统消息、图谱 UI 状态和无关文件路径。",
     "不会自动写入笔记、不会自动改图谱，也不会自动采纳模型建议。",
-    "当前实现先准备请求包；只有你确认后才进入远程强模型流程。"
+    "当前实现先准备请求；只有你确认后才进入远程模型流程。"
   ];
   el.innerHTML = `
-    <strong>强模型请求包${request ? `：${escapeHtml(modelName)}` : ""}</strong>
+    <strong>AI 写作检查请求${request ? `：${escapeHtml(modelName)}` : ""}</strong>
     <ul>
       <li>使用笔记：${escapeHtml(notes.map((note) => `${note.title || note.id}（${note.id}）`).join("；"))}</li>
       <li>写作目标：${escapeHtml(goal)}</li>
       <li>目标读者：${escapeHtml(audience)}</li>
-      <li>状态：${escapeHtml(request ? "请求包已准备，可复核后处理返回建议" : strongModelReady ? "条件已满足，可以准备请求包" : "等待项目、关系读取或材料成熟度满足")}</li>
+      <li>状态：${escapeHtml(request ? "请求包已准备，可复核后处理返回建议" : strongModelReady ? "条件已满足，可以准备请求包" : "等待可写主题、关系读取或相关笔记成熟度满足")}</li>
     </ul>
     <strong>准备问模型什么</strong>
     <ul>${plannedQuestions.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}</ul>

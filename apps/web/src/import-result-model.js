@@ -111,16 +111,16 @@ export function resultTitle(stage) {
     rollback_error: "回滚失败",
     export_markdown: "导出完成",
     export_error: "导出失败",
-    writing_project: "项目已创建",
-    writing_project_error: "项目创建失败",
-    draft_scaffold: "已生成草稿骨架",
-    draft_scaffold_error: "生成草稿骨架失败",
+    writing_project: "可写主题已确定",
+    writing_project_error: "确定可写主题失败",
+    draft_scaffold: "已生成文章提纲",
+    draft_scaffold_error: "生成文章提纲失败",
     writing_draft_note: "已保存草稿笔记",
     writing_draft_note_error: "保存草稿笔记失败",
-    writing_copy_scaffold: "草稿骨架 Markdown 已复制",
-    writing_copy_scaffold_error: "草稿骨架 Markdown 复制失败",
-    writing_export_scaffold: "草稿骨架 Markdown 已导出",
-    writing_export_scaffold_error: "草稿骨架 Markdown 导出失败"
+    writing_copy_scaffold: "文章提纲 Markdown 已复制",
+    writing_copy_scaffold_error: "文章提纲 Markdown 复制失败",
+    writing_export_scaffold: "文章提纲 Markdown 已导出",
+    writing_export_scaffold_error: "文章提纲 Markdown 导出失败"
   };
   return titles[stage] || "操作结果";
 }
@@ -195,15 +195,15 @@ export function resultMetrics(payload = {}) {
   }
 
   if (stage === "writing_project") {
-    push("项目", payload.writingProjectId);
+    push("主题", payload.writingProjectId);
     push("标题", payload.title);
-    if (Array.isArray(payload.basketNoteIds) && payload.basketNoteIds.length) push("写作篮", payload.basketNoteIds.length);
+    if (Array.isArray(payload.basketNoteIds) && payload.basketNoteIds.length) push("相关笔记", payload.basketNoteIds.length);
     return metrics;
   }
 
   if (stage === "draft_scaffold" || stage === "writing_draft_note" || stage === "writing_copy_scaffold" || stage === "writing_export_scaffold") {
-    if (payload.writingProjectId) push("项目", payload.writingProjectId);
-    if (payload.draftScaffoldId) push("草稿骨架", payload.draftScaffoldId);
+    if (payload.writingProjectId) push("主题", payload.writingProjectId);
+    if (payload.draftScaffoldId) push("文章提纲", payload.draftScaffoldId);
     if (stage === "draft_scaffold" && Array.isArray(payload.sections)) push("章节", payload.sections.length);
     if (stage === "writing_draft_note" && payload.noteId) push("草稿笔记", payload.noteId);
     if (stage === "writing_draft_note" && (payload.directoryLabel || payload.directoryId)) {
@@ -285,7 +285,7 @@ function actionableTextForCode(code) {
     ORIGINALITY_GUARD_WARNING: "先处理原创性警告再继续。",
     ORIGINALITY_GUARD_BLOCKED: "先降低与原文的重复度。",
     ORIGINALITY_WARNING: "补充引用定位或加强转述。",
-    WRITING_DRAFT_INVALID: "先点击“生成草稿骨架”，确认预览区已经出现章节和 Markdown。"
+    WRITING_DRAFT_INVALID: "先点击“生成文章提纲”，确认预览区已经出现章节和 Markdown。"
   };
   return map[String(code || "").trim()] || "";
 }
@@ -337,7 +337,7 @@ export function actionItems(payload = {}, warnings = []) {
   }
 
   if (String(payload.stage || "").trim() === "writing_project_error" && /title is required/i.test(String(payload.message || ""))) {
-    actions.push("补充项目标题后再创建。");
+    actions.push("补充主题标题后再确定可写主题。");
   }
 
   if (String(payload.stage || "").trim() === "preview" && previewCandidateTotal(payload) === 0) {
@@ -369,11 +369,11 @@ export function resultBrief(payload = {}, tone = resultTone(payload)) {
     record: "你可以继续确认、回滚，或仅查看这次记录。",
     rollback: "系统已完成可安全回滚的部分。",
     export_markdown: "导出文件已经写到目标目录。",
-    writing_project: "项目已创建。下一步可以生成草稿骨架。",
+    writing_project: "可写主题已确定。下一步可以生成文章提纲。",
     draft_scaffold: "检查结构后可以复制、导出或继续写。",
     writing_draft_note: "草稿笔记已保存，可以继续修改。",
-    writing_copy_scaffold: "草稿骨架 Markdown 已复制，可以粘贴到你的写作环境。",
-    writing_export_scaffold: "草稿骨架 Markdown 已导出。"
+    writing_copy_scaffold: "文章提纲 Markdown 已复制，可以粘贴到你的写作环境。",
+    writing_export_scaffold: "文章提纲 Markdown 已导出。"
   };
   return briefs[stage] || "操作已完成。";
 }

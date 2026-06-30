@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { describeWritingNextActionFromState } from "../../apps/web/src/writing-center-flow.js";
@@ -15,7 +15,7 @@ test("writing center next action prefers opening the projected current draft bef
   });
 
   assert.equal(action.title, "打开当前草稿");
-  assert.match(action.note, /project_alpha/);
+  assert.match(action.note, /当前草稿|继续写作/);
   assert.match(action.note, /打开当前草稿继续写作/);
 });
 
@@ -27,12 +27,12 @@ test("writing center next action prefers resuming the projected scaffold before 
     hasDraft: false,
     projectEntryProjectId: "project_beta",
     projectEntryAction: "resume-scaffold",
-    projectEntryActionLabel: "继续草稿骨架"
+    projectEntryActionLabel: "继续文章提纲"
   });
 
-  assert.equal(action.title, "继续草稿骨架");
-  assert.match(action.note, /project_beta/);
-  assert.match(action.note, /回到草稿骨架/);
+  assert.equal(action.title, "继续文章提纲");
+  assert.match(action.note, /文章提纲|检查证据/);
+  assert.match(action.note, /回到提纲/);
 });
 
 test("writing center next action prefers resuming the projected project before generic project creation", () => {
@@ -43,11 +43,11 @@ test("writing center next action prefers resuming the projected project before g
     hasDraft: false,
     projectEntryProjectId: "project_gamma",
     projectEntryAction: "resume-project",
-    projectEntryActionLabel: "继续当前项目"
+    projectEntryActionLabel: "继续这个主题"
   });
 
-  assert.equal(action.title, "继续当前项目");
-  assert.match(action.note, /project_gamma/);
-  assert.match(action.note, /继续当前项目/);
-  assert.match(action.note, /生成草稿骨架或保存草稿/);
+  assert.equal(action.title, "继续这个主题");
+  assert.match(action.note, /确定过可写主题|继续这个主题/);
+  assert.match(action.note, /继续这个主题/);
+  assert.match(action.note, /生成文章提纲或开始草稿/);
 });

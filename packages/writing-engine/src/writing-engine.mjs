@@ -276,7 +276,7 @@ function defaultBookMainline(project = {}) {
   const title = cleanText(project.title);
   return title.includes("易经")
     ? "把易经从神秘答案转译为AI时代的变化判断、行动复盘和人生选择方法。"
-    : `围绕「${title || "当前写作项目"}」建立一条可以被案例、反方和章节持续推进的书稿主线。`;
+    : `围绕「${title || "当前写作主题"}」建立一条可以被案例、反方和章节持续推进的书稿主线。`;
 }
 
 function buildDefaultBookStructure(project = {}, basketNotes = [], options = {}) {
@@ -623,7 +623,7 @@ function counterpointPromptFromNote(note) {
 
 function conceptShiftPromptFromBasket(basketNotes) {
   const titledNotes = basketNotes.map((note) => noteLabel(note)).slice(0, 3);
-  if (!titledNotes.length) return "这组写作篮里有哪些相近概念还需要进一步区分？";
+  if (!titledNotes.length) return "这组相关笔记里有哪些相近概念还需要进一步区分？";
   return `围绕 ${titledNotes.join(", ")} 的相近概念，哪些地方还需要进一步区分？`;
 }
 
@@ -679,7 +679,7 @@ function buildScaffoldPreflight(project, basketNotes) {
       "永久笔记篮",
       basketCount >= 2 ? "pass" : "warning",
       basketCount >= 2
-        ? `${basketCount} 条永久笔记已经可以组织成草稿骨架。`
+        ? `${basketCount} 条永久笔记已经可以组织成文章提纲。`
         : "至少先放入两条永久笔记，再把这次组织当成一条真正的论证。",
       { count: basketCount, targetType: "writing_project", targetId: project.id }
     ),
@@ -688,8 +688,8 @@ function buildScaffoldPreflight(project, basketNotes) {
       "写作意图",
       cleanText(project.intent) ? "pass" : "warning",
       cleanText(project.intent)
-        ? "项目已经有清晰的写作意图。"
-        : "先说清这篇内容到底要解释什么，再继续推进草稿骨架。",
+        ? "这篇文章已经有清晰的写作意图。"
+        : "先说清这篇内容到底要解释什么，再继续推进文章提纲。",
       { targetType: "writing_project", targetId: project.id }
     ),
     preflightCheck(
@@ -698,7 +698,7 @@ function buildScaffoldPreflight(project, basketNotes) {
       cleanText(project.desired_reader_takeaway) ? "pass" : "warning",
       cleanText(project.desired_reader_takeaway)
         ? "读者最后应带走的判断已经明确。"
-        : "补上读者应该带走的判断，让草稿骨架有明确目标。",
+        : "补上读者应该带走的判断，让文章提纲有明确目标。",
       { targetType: "writing_project", targetId: project.id }
     ),
     preflightCheck(
@@ -706,8 +706,8 @@ function buildScaffoldPreflight(project, basketNotes) {
       "已确认提纯",
       confirmedNotes.length === basketCount && basketCount > 0 ? "pass" : "warning",
       confirmedNotes.length === basketCount && basketCount > 0
-        ? "写作篮里的每条笔记都已经完成一句话判断与三句话提纯确认。"
-        : `还有 ${Math.max(0, basketCount - confirmedNotes.length)} 条写作篮笔记需要补齐一句话判断与三句话提纯确认。`,
+        ? "相关笔记里的每条笔记都已经完成一句话判断与三句话提纯确认。"
+        : `还有 ${Math.max(0, basketCount - confirmedNotes.length)} 条相关笔记需要补齐一句话判断与三句话提纯确认。`,
       {
         count: confirmedNotes.length,
         total: basketCount,
@@ -721,8 +721,8 @@ function buildScaffoldPreflight(project, basketNotes) {
       "提纯质量",
       distillationQualityWarnings.length ? "warning" : "pass",
       distillationQualityWarnings.length
-        ? `${affectedQualityNotes.length} 条写作篮笔记的提纯还比较粗糙。${qualitySample}`
-        : "写作篮笔记里没有明显的提纯过短、重复或缺边界问题。",
+        ? `${affectedQualityNotes.length} 条相关笔记的提纯还比较粗糙。${qualitySample}`
+        : "相关笔记里没有明显的提纯过短、重复或缺边界问题。",
       {
         count: distillationQualityWarnings.length,
         targetNoteIds: affectedQualityNotes,
@@ -734,8 +734,8 @@ function buildScaffoldPreflight(project, basketNotes) {
       "主题入口",
       Array.isArray(project.related_index_ids) && project.related_index_ids.length ? "pass" : "warning",
       Array.isArray(project.related_index_ids) && project.related_index_ids.length
-        ? "这个项目已经挂到主题或索引入口上。"
-        : "补一张主题或索引卡，让草稿骨架有可复用的问题上下文。",
+        ? "这个主题已经挂到主题或索引入口上。"
+        : "补一张主题或索引卡，让文章提纲有可复用的问题上下文。",
       { targetType: "writing_project", targetId: project.id }
     ),
     preflightCheck(
@@ -743,7 +743,7 @@ function buildScaffoldPreflight(project, basketNotes) {
       "反方与边界",
       notesWithBoundary.length ? "pass" : "warning",
       notesWithBoundary.length
-        ? `${notesWithBoundary.length} 条写作篮笔记已经带有反方或边界。`
+        ? `${notesWithBoundary.length} 条相关笔记已经带有反方或边界。`
         : "正式起草前，至少先补一条反方或边界，不然论证会太顺。",
       { count: notesWithBoundary.length, targetNoteIds: notesWithBoundary.map((note) => note.id) }
     )
@@ -823,15 +823,15 @@ function renderMarkdown(project, scaffold, basketNotes, options = {}) {
     ...(
       readiness.checks.length
         ? readiness.checks.map((item) => `- ${renderWritingMarkdownField(item.field)}: ${item.message}`)
-        : ["- 当前没有阻塞项，可以继续生成草稿骨架。"]
+        : ["- 当前没有阻塞项，可以继续生成文章提纲。"]
     ),
     "",
-    "## 草稿骨架"
+    "## 文章提纲"
   ];
 
   if (preflight?.checks?.length) {
     lines.push(
-      "## 草稿骨架预检",
+      "## 文章提纲预检",
       `- 状态: ${renderWritingMarkdownStatus(preflight.status)}`,
       `- 通过项: ${preflight.passCount}/${preflight.checks.length}`,
       `- 提醒项: ${preflight.warningCount}`,
@@ -843,7 +843,7 @@ function renderMarkdown(project, scaffold, basketNotes, options = {}) {
     lines.push("");
   }
 
-  lines.push("## 草稿骨架");
+  lines.push("## 文章提纲");
 
   for (const section of scaffold.sections) {
     lines.push("", `### ${section.order}. ${section.heading}`, "", section.purpose || "");

@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { analyzeWritingProjectReadiness } from "../../packages/domain/src/quality-checks.mjs";
@@ -20,6 +20,6 @@ test("writing readiness missing-thesis message uses Chinese copy", () => {
   );
 
   const messages = result.checks.map((item) => item.message);
-  assert.ok(messages.includes("1 条写作篮笔记还需要补一句话判断。"));
+  assert.ok(messages.includes("1 条相关笔记还需要补一句话判断。"));
   assert.ok(!messages.includes("1 basket note(s) still need a thesis."));
 });

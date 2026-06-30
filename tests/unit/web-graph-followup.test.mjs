@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -269,7 +269,7 @@ test("graph writing followup preloads current scope notes when basket is empty a
   });
 
   assert.deepEqual(plan.prefillNoteIds, ["n1", "n2"]);
-  assert.match(plan.statusMessage, /2 条永久笔记带入写作篮/);
+  assert.match(plan.statusMessage, /2 条永久笔记带入写作/);
   assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
@@ -281,8 +281,8 @@ test("graph writing followup appends newly visible notes into an existing basket
   });
 
   assert.deepEqual(plan.prefillNoteIds, ["n2"]);
-  assert.match(plan.statusMessage, /1 条永久笔记加入写作篮/);
-  assert.match(plan.statusMessage, /继续当前写作篮推进/);
+  assert.match(plan.statusMessage, /1 条永久笔记加入相关笔记/);
+  assert.match(plan.statusMessage, /继续写作/);
   assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
@@ -295,7 +295,7 @@ test("graph writing followup avoids auto-prefill when current scope is too large
 
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /当前可见图谱里有 6 条可用永久笔记/);
-  assert.match(plan.statusMessage, /2-5 条加入写作篮/);
+  assert.match(plan.statusMessage, /2-5 条作为相关笔记/);
   assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
@@ -307,8 +307,8 @@ test("graph writing followup keeps current basket untouched when the whole visib
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
-  assert.match(plan.statusMessage, /已经都在写作篮中/);
-  assert.match(plan.statusMessage, /继续当前写作篮推进/);
+  assert.match(plan.statusMessage, /已经都在相关笔记中/);
+  assert.match(plan.statusMessage, /继续写作/);
   assert.doesNotMatch(plan.statusMessage, /已打开写作中心/);
 });
 
@@ -347,8 +347,8 @@ test("graph writing followup keeps basket-first wording when no new visible note
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
-  assert.match(plan.statusMessage, /还没有适合新增到写作篮的永久笔记/);
-  assert.match(plan.statusMessage, /继续当前写作篮/);
+  assert.match(plan.statusMessage, /还没有适合新增的相关笔记/);
+  assert.match(plan.statusMessage, /继续这组相关笔记/);
   assert.match(plan.statusMessage, /回到图谱补关系\/边界/);
   assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });

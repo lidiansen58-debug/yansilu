@@ -424,7 +424,7 @@ export function renderAiSuggestionsPanel(state = {}) {
       <div class="scheduled-task-head">
         <div>
           <div class="settings-card-title">待确认建议</div>
-          <div class="settings-card-note">先看对象和理由；确认后才写入笔记、图谱或写作项目。</div>
+          <div class="settings-card-note">先看对象和理由；确认后才写入笔记、图谱或当前写作主题。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}

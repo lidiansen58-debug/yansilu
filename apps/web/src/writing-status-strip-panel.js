@@ -69,10 +69,10 @@ export function renderWritingStatusStripDom(deps = {}) {
         : "warn";
   const projectStatus = hasProject
     ? projectPreflightSummary.level === "needs_clarification"
-      ? "先澄清项目问题"
+      ? "先澄清主题问题"
       : projectPreflightSummary.level === "has_gaps"
-        ? "先补项目缺口"
-        : "已创建"
+        ? "先补主题缺口"
+        : "已确定"
     : projectEntry.status;
   const projectNote = hasProject
     ? projectPreflightSummary.level !== "ready"
@@ -82,30 +82,30 @@ export function renderWritingStatusStripDom(deps = {}) {
   const scaffoldNote = hasScaffold
     ? "章节、证据、缺口已返回"
     : hasProject && projectPreflightSummary.level === "needs_clarification"
-      ? projectPreflightSummary.hint || "先澄清项目关键问题，再生成草稿骨架。"
+      ? projectPreflightSummary.hint || "先澄清主题关键问题，再生成文章提纲。"
       : hasProject && projectPreflightSummary.level === "has_gaps"
-        ? projectPreflightSummary.hint || "先补项目缺口，再生成草稿骨架。"
+        ? projectPreflightSummary.hint || "先补主题缺口，再生成文章提纲。"
         : hasProject
-          ? "项目条件已齐；下一步生成草稿骨架，检查证据、缺口和反方。"
+          ? "这组笔记已经足够形成一篇文章；下一步生成文章提纲。"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? "当前草稿已经存在。先打开当前草稿继续写作。"
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
-        ? "先回到草稿骨架，再检查证据、缺口和开放问题。"
+        ? "先回到文章提纲，再检查证据、缺口和开放问题。"
         : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
-          ? `先${projectEntry.actionLabel}，再生成草稿骨架`
+          ? `先${projectEntry.actionLabel}，再生成文章提纲`
           : projectEntry.hint;
   const scaffoldStatus = hasScaffold
     ? "可预览"
     : hasProject && projectPreflightSummary.level === "needs_clarification"
-      ? "先澄清项目问题"
+      ? "先澄清主题问题"
       : hasProject && projectPreflightSummary.level === "has_gaps"
-        ? "先补项目缺口"
+        ? "先补主题缺口"
         : hasProject
           ? "可生成"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? "先打开当前草稿"
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
-        ? "先回到草稿骨架"
+        ? "先回到文章提纲"
         : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
           ? `先${projectEntry.actionLabel}`
           : projectEntry.status;
@@ -122,13 +122,13 @@ export function renderWritingStatusStripDom(deps = {}) {
   const draftStatus = hasDraft
     ? "已绑定"
     : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
-      ? "先澄清项目问题"
+      ? "先澄清主题问题"
       : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
-        ? "先补项目缺口"
+        ? "先补主题缺口"
         : hasProject && hasScaffold
           ? "可保存"
           : hasProject
-            ? "先生成草稿骨架"
+            ? "先生成文章提纲"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? projectEntry.status
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -139,19 +139,19 @@ export function renderWritingStatusStripDom(deps = {}) {
   const draftNote = hasDraft
     ? writingState.project?.draft_note?.title || writingState.project.draft_note_id
     : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
-      ? projectPreflightSummary.hint || "先澄清项目关键问题，再保存草稿。"
+      ? projectPreflightSummary.hint || "先澄清主题关键问题，再开始草稿。"
       : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
-        ? projectPreflightSummary.hint || "先补项目缺口，再保存草稿。"
+        ? projectPreflightSummary.hint || "先补主题缺口，再开始草稿。"
         : hasProject && hasScaffold
-          ? "草稿骨架已生成；确认缺口和反方后保存草稿。"
+          ? "文章提纲已生成；确认缺口和反方后开始草稿。"
           : hasProject
-            ? "先生成草稿骨架，再保存草稿。"
+            ? "先生成文章提纲，再开始草稿。"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? projectEntry.hint
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
-        ? "当前草稿骨架已经存在。先回到草稿骨架，再继续保存草稿。"
+        ? "当前文章提纲已经存在。先回到文章提纲，再继续开始草稿。"
         : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
-          ? "当前项目已经存在。先继续当前项目，再生成草稿骨架并保存草稿。"
+          ? "当前主题已经存在。先继续这个主题，再生成文章提纲并开始草稿。"
           : projectEntry.hint;
   const draftTone =
     hasDraft
@@ -181,10 +181,10 @@ export function renderWritingStatusStripDom(deps = {}) {
   });
   const strongModelTone = strongModelReady ? "good" : "warn";
   el.innerHTML = [
-    renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
-    renderWritingStatusCard("项目", projectStatus, projectNote, projectTone),
-    renderWritingStatusCard("草稿骨架", scaffoldStatus, scaffoldNote, scaffoldTone),
-    renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
-    renderWritingStatusCard("草稿", draftStatus, draftNote, draftTone)
+    renderWritingStatusCard("相关笔记", materialStatus.status, basketNote, basketTone),
+    renderWritingStatusCard("可写主题", projectStatus, projectNote, projectTone),
+    renderWritingStatusCard("文章提纲", scaffoldStatus, scaffoldNote, scaffoldTone),
+    renderWritingStatusCard("AI 辅助", strongModelState.status, strongModelState.hint, strongModelTone),
+    renderWritingStatusCard("开始草稿", draftStatus, draftNote, draftTone)
   ].join("");
 }

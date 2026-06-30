@@ -89,7 +89,7 @@ export class PermanentNoteWorkspaceController {
         key: "writing",
         label: "进入写作",
         meta: meta.writing,
-        description: "把确认后的观点放进写作篮继续组织。"
+        description: "把确认后的观点作为相关笔记继续组织。"
       }
     ];
   }

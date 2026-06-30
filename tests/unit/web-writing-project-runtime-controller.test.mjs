@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -21,7 +21,7 @@ test("writing project runtime controller blocks current basket project without t
   const result = await controller.createWritingProjectFromCurrentBasket();
 
   assert.equal(result, null);
-  assert.deepEqual(statuses.at(-1), ["请先填写项目标题", "warn"]);
+  assert.deepEqual(statuses.at(-1), ["请先填写主题标题", "warn"]);
 });
 
 test("writing project runtime controller creates a project from the current basket", async () => {
@@ -59,7 +59,7 @@ test("writing project runtime controller creates a project from the current bask
   assert.deepEqual(calls[0][1].relatedIndexIds, ["idx1"]);
   assert.deepEqual(calls[0][1].bookStructure, { noteCount: 2 });
   assert.ok(calls.some((call) => call[0] === "result" && call[2] === "p1"));
-  assert.deepEqual(calls.at(-1), ["status", "项目已创建：p1", "ok"]);
+  assert.deepEqual(calls.at(-1), ["status", "可写主题已确定：p1", "ok"]);
 });
 
 test("writing project runtime controller creates a project from imported permanent notes", async () => {

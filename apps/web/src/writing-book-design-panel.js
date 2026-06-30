@@ -17,9 +17,9 @@ export function renderWritingBookDesignDom(deps = {}) {
   const notes = writingBasketEntries();
   if (button) button.disabled = notes.length === 0;
   if (!notes.length) {
-    if (summaryEl) summaryEl.textContent = "先把易经材料加入写作篮，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。";
-    if (structureEl) structureEl.innerHTML = `<div class="writing-empty">还没有可用于书稿设计的材料。先加入写作篮，再让本地模型入口生成三种书稿方向。</div>`;
-    if (poolsEl) poolsEl.innerHTML = `<div class="writing-book-pool-kicker">材料池</div><div class="writing-book-pool-title">等待材料</div><div class="writing-section-note">案例池、反方池和开放问题会跟随写作篮刷新。</div>`;
+    if (summaryEl) summaryEl.textContent = "先选择易经相关笔记，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。";
+    if (structureEl) structureEl.innerHTML = `<div class="writing-empty">还没有可用于书稿设计的笔记。先选择相关笔记，再让本地模型入口生成三种书稿方向。</div>`;
+    if (poolsEl) poolsEl.innerHTML = `<div class="writing-book-pool-kicker">笔记池</div><div class="writing-book-pool-title">等待相关笔记</div><div class="writing-section-note">案例池、反方池和开放问题会跟随相关笔记刷新。</div>`;
     if (ideasEl) ideasEl.innerHTML = `<div class="writing-book-pool-kicker">本地建议</div><div class="writing-book-pool-title">等待生成</div><div class="writing-section-note">不会上传材料；只在本机先给三个成书方向。</div>`;
     return;
   }
@@ -85,12 +85,12 @@ export function renderWritingBookDesignDom(deps = {}) {
                     <small>读者：${escapeHtml(idea.reader)}</small>
                     <small>承诺：${escapeHtml(idea.promise)}</small>
                     <small>风险：${escapeHtml(idea.risk)}</small>
-                    <small>依据笔记：${escapeHtml((idea.noteIds || idea.note_ids || []).join(", ") || "当前写作篮")}</small>
+                    <small>依据笔记：${escapeHtml((idea.noteIds || idea.note_ids || []).join(", ") || "当前相关笔记")}</small>
                   </div>
                 `
               )
               .join("")}</div>`
-          : `<div class="writing-section-note">点击按钮后，本地规则/模型入口会先给三种书稿方向；这些建议不会自动写入项目，也不会发送到远程模型。</div>`
+          : `<div class="writing-section-note">点击按钮后，本地规则/模型入口会先给三种书稿方向；这些建议不会自动写入当前主题，也不会发送到远程模型。</div>`
       }
     `;
   }

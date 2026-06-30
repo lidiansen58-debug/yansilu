@@ -15,15 +15,15 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
   } = deps;
   const el = $("writingScaffoldPreview");
   if (!el) return;
-  const projectEntry = (!writingState.project?.id && currentWritingContinuationEntry("当前写作篮")) || null;
+  const projectEntry = (!writingState.project?.id && currentWritingContinuationEntry("当前相关笔记")) || null;
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (!writingState.scaffold) {
     el.innerHTML = `
-      <h4>草稿骨架预览</h4>
+      <h4>文章提纲预览</h4>
       <div class="writing-empty">${
         projectEntry?.projectId && projectEntry?.actionLabel
-          ? `当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，再回来查看草稿骨架预览。`
-          : `当前写作篮入口：${escapeHtml(projectEntry?.status || "先补写作材料")}。${escapeHtml(projectEntry?.hint || "先补齐写作材料，再回来查看草稿骨架预览。")}`
+          ? `当前相关笔记已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，再回来查看文章提纲。`
+          : `当前相关笔记状态：${escapeHtml(projectEntry?.status || "先补相关笔记")}。${escapeHtml(projectEntry?.hint || "先补齐相关笔记，再回来查看文章提纲。")}`
       }</div>
     `;
     return;
@@ -52,9 +52,9 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
     warningCount: warningChecks.length
   });
   el.innerHTML = `
-    <h4>草稿骨架预览</h4>
+    <h4>文章提纲预览</h4>
     <div class="writing-summary">
-      草稿骨架：${escapeHtml(writingState.scaffold.id || "未命名")}；章节 ${escapeHtml(sections.length || 0)} 个；开放问题 ${escapeHtml(questions.length || 0)} 个。
+      文章提纲：${escapeHtml(writingState.scaffold.id || "未命名")}；章节 ${escapeHtml(sections.length || 0)} 个；开放问题 ${escapeHtml(questions.length || 0)} 个。
     </div>
     <div class="writing-summary">
       保存草稿时会写入：${escapeHtml(targetFolder?.name || targetDirectoryId)}。
@@ -121,7 +121,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
                 `;
               })
               .join("")}</ol>`
-          : `<div class="writing-empty">当前草稿骨架还没有章节。</div>`
+          : `<div class="writing-empty">当前文章提纲还没有章节。</div>`
       }
     </div>
     <div>
@@ -129,7 +129,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
       ${
         questions.length
           ? `<ul>${questions.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}</ul>`
-          : `<div class="writing-empty">当前草稿骨架还没有开放问题。</div>`
+          : `<div class="writing-empty">当前文章提纲还没有开放问题。</div>`
       }
     </div>
     <div>

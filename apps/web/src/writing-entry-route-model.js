@@ -80,6 +80,6 @@ export function writingProjectContinuationRoute({
     handled: true,
     projectId: cleanProjectId,
     draftNoteId: "",
-    statusMessage: cleanStatusMessage || `已继续当前项目：${cleanProjectId}`
+    statusMessage: cleanStatusMessage || `已继续当前主题：${cleanProjectId}`
   };
 }

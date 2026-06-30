@@ -158,28 +158,28 @@ export function renderWritingProjectCardView(project, deps = {}) {
     existingProjectId: project?.id || "",
     existingProjectHasScaffold: hasScaffold,
     existingProjectHasDraft: Boolean(project?.draft_note_id),
-    scopeLabel: "当前项目"
+    scopeLabel: "当前主题"
   });
   const primaryProjectAction = String(continuation?.action || "open").trim() || "open";
-  const primaryProjectActionLabel = String(continuation?.actionLabel || "打开项目").trim() || "打开项目";
-  const primaryProjectStatus = String(continuation?.status || "打开项目").trim() || "打开项目";
+  const primaryProjectActionLabel = String(continuation?.actionLabel || "打开主题").trim() || "打开主题";
+  const primaryProjectStatus = String(continuation?.status || "打开主题").trim() || "打开主题";
   const thinkingBadge = renderThinkingStatusBadge(project?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card" data-writing-project-id="${escapeHtml(project?.id || "")}">
       <div class="writing-note-card-head">
         <div>
-          <div class="writing-note-title">项目：${escapeHtml(project?.title || project?.id || "")}</div>
+          <div class="writing-note-title">可写主题：${escapeHtml(project?.title || project?.id || "")}</div>
           <div class="writing-note-meta">${escapeHtml(project?.id || "")} 路 ${escapeHtml(writingProjectStatusLabel(project?.status))} 路 篮子 ${escapeHtml(project?.basket_count || 0)}</div>
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">草稿骨架：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；当前入口：${escapeHtml(primaryProjectStatus)}；写作中心入口 ${escapeHtml(sourceCount)}</div>
+      <div class="writing-note-meta">文章提纲：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；下一步：${escapeHtml(primaryProjectStatus)}；相关主题 ${escapeHtml(sourceCount)}</div>
       <div class="writing-note-meta">${escapeHtml(project?.goal || "暂无写作目标说明。")}</div>
-      ${basketNoteLabel ? `<div class="writing-note-meta">项目来源笔记：${escapeHtml(basketNoteLabel)}</div>` : ""}
+      ${basketNoteLabel ? `<div class="writing-note-meta">相关笔记：${escapeHtml(basketNoteLabel)}</div>` : ""}
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-project-action="${escapeHtml(primaryProjectAction)}" data-writing-project-id="${escapeHtml(project?.id || "")}">${escapeHtml(primaryProjectActionLabel)}</button>
-        <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>复制草稿骨架</button>
-        <button class="mini-btn" type="button" data-writing-project-action="export-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>导出草稿骨架 .md</button>
+        <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>复制文章提纲</button>
+        <button class="mini-btn" type="button" data-writing-project-action="export-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>导出文章提纲 .md</button>
       </div>
     </article>
   `;
@@ -198,7 +198,7 @@ export function renderScaffoldVersionCardView(version, { activeScaffoldId = "" }
         </div>
       </div>
       <div class="writing-note-meta">生成于：${escapeHtml(version?.created_at || version?.updated_at || "")}${isActive ? " 路 当前预览中" : ""}</div>
-      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "自动生成的草稿骨架版本")}</div>
+      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "自动生成的文章提纲版本")}</div>
         <div class="writing-note-actions">
           <button class="mini-btn" type="button" data-writing-scaffold-action="open" data-writing-scaffold-id="${escapeHtml(version?.id || "")}">打开版本</button>
           <button class="mini-btn" type="button" data-writing-scaffold-action="copy" data-writing-scaffold-id="${escapeHtml(version?.id || "")}">复制</button>
@@ -226,8 +226,8 @@ export function renderDraftVersionCardView(version, deps = {}) {
           <div class="writing-note-meta">${escapeHtml(version?.draft_note_id || "")} 路 ${escapeHtml(noteStatus)}${version?.is_current ? " 路 当前版本" : ""}</div>
         </div>
       </div>
-      <div class="writing-note-meta">来源草稿骨架：${escapeHtml(sourceScaffold)}</div>
-      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "从当前草稿骨架保存的草稿版本")}</div>
+      <div class="writing-note-meta">来源文章提纲：${escapeHtml(sourceScaffold)}</div>
+      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "从当前文章提纲保存的草稿版本")}</div>
       <div class="writing-note-meta">创建时间：${escapeHtml(version?.created_at || "")}</div>
         <div class="writing-note-actions">
           <button class="mini-btn" type="button" data-writing-draft-action="open" data-writing-draft-note-id="${escapeHtml(version?.draft_note_id || "")}">打开草稿版本</button>

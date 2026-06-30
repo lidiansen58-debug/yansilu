@@ -182,7 +182,7 @@ export function writingAnalysisSystemMessageForResult({
       id: `writing-ai-analysis:${key}:${now()}`,
       type: "ai",
       title: "写作分析产生了待确认建议",
-      body: `写作强模型分析生成了 ${count} 条待确认建议。先看对象和理由，再决定是否采纳到写作项目。`,
+      body: `AI 写作检查生成了 ${count} 条待确认建议。先看对象和理由，再决定是否采纳到当前主题。`,
       action: "open-ai-inbox",
       actionLabel: "查看待确认建议",
       artifactCount: count,
@@ -192,8 +192,8 @@ export function writingAnalysisSystemMessageForResult({
   return normalizeSystemMessage({
     id: `writing-ai-request:${key}:${now()}`,
     type: "ai",
-    title: "强模型写作分析请求包已准备",
-    body: `已为项目 ${String(projectId || "当前写作项目").trim()} 准备 ${String(model || "strong_model").trim()} 请求包。当前没有直接调用远程模型，也没有自动写入笔记；你可以先复核请求范围、写作目标和写作篮材料。`,
+    title: "AI 写作检查请求包已准备",
+    body: `已为主题 ${String(projectId || "当前主题").trim()} 准备 ${String(model || "AI 模型").trim()} 请求包。当前没有直接调用远程模型，也没有自动写入笔记；你可以先复核请求范围、写作目标和相关笔记。`,
     artifactCount: 0
   });
 }

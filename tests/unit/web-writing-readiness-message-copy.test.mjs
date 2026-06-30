@@ -20,7 +20,7 @@ test("writing readiness missing intent and reader takeaway messages use Chinese 
   );
 
   const messages = result.checks.map((item) => item.message);
-  assert.ok(messages.includes("先说清这个项目到底想表达什么。"));
+  assert.ok(messages.includes("先说清这篇文章到底想表达什么。"));
   assert.ok(messages.includes("写下读者最后应该带走的判断。"));
   assert.ok(!messages.includes("Clarify what this writing project is trying to say."));
   assert.ok(!messages.includes("Write the judgment the reader should take away."));

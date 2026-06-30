@@ -41,7 +41,7 @@ test("writing workspace helpers derive project titles from note lookup", () => {
         { id: "n1", title: "Alpha" }
       ]
     }),
-    /Beta.*项目/
+    /Beta.*主题/
   );
 });
 
@@ -104,7 +104,7 @@ test("writing panel state builder derives candidates readiness buttons and topli
   assert.equal(panel.openDraftButtonState.text, "Resume draft");
   assert.equal(panel.scaffoldButtonState.text, "Create scaffold");
   assert.equal(panel.strongModelButtonState.text, "Run 1");
-  assert.deepEqual(panel.toplineMetrics.map((metric) => metric.label), ["写作篮", "项目", "草稿"]);
+  assert.deepEqual(panel.toplineMetrics.map((metric) => metric.label), ["相关笔记", "可写主题", "草稿"]);
   assert.deepEqual(calls[0][1], ["n1", "n2"]);
 });
 

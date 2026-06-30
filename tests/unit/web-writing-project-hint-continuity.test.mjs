@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -9,7 +9,7 @@ import {
 test("writing-center empty project surfaces reuse current basket continuity guidance", () => {
   const entry = describeWritingContinuationAction({
     existingProjectId: "wp_existing",
-    scopeLabel: "当前写作篮"
+    scopeLabel: "当前相关笔记"
   });
   const step = describeWritingProjectStepState({
     basketCount: 2,
@@ -23,8 +23,8 @@ test("writing-center empty project surfaces reuse current basket continuity guid
 
   assert.equal(entry.projectId, "wp_existing");
   assert.equal(entry.action, "resume-project");
-  assert.equal(step.title, "创建项目");
-  assert.match(step.note, /当前写作篮/);
-  assert.match(step.note, /wp_existing/);
-  assert.match(step.note, /比重新创建项目更连续/);
+  assert.equal(step.title, "确定可写主题");
+  assert.match(step.note, /当前相关笔记/);
+  assert.match(step.note, /确定过可写主题|这个主题/);
+  assert.match(step.note, /比重新开始更连续/);
 });

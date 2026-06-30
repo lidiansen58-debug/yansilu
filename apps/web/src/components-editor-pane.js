@@ -4261,7 +4261,7 @@ export class EditorPane {
     }
     return {
       nextStep: "进入主题或写作准备",
-      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮。"
+      summary: "这条笔记已经具备判断和连接，可以继续进入主题索引或作为相关笔记开始写作。"
     };
   }
 
@@ -4380,7 +4380,7 @@ export class EditorPane {
       {
         label: "进入写作",
         status: confirmed ? "可以进入写作" : "未就绪",
-        hint: confirmed ? "可加入写作篮继续推进" : "先确认观点，再进入写作",
+        hint: confirmed ? "可作为相关笔记继续推进" : "先确认观点，再进入写作",
         action: "writing",
         actionLabel: "进入写作"
       }
@@ -4548,8 +4548,8 @@ export class EditorPane {
         };
       }
       return {
-        nextStep: "先创建项目",
-        summary: "这条笔记已经到创建项目阶段；先创建项目，再继续推进后续结构和分析。"
+        nextStep: "先确定可写主题",
+        summary: "这条笔记已经适合进入写作；先确定题目和读者，再继续生成文章提纲。"
       };
     }
     if (writingInfo.level === "strong_model_ready") {
@@ -4560,8 +4560,8 @@ export class EditorPane {
         };
       }
       return {
-        nextStep: "先创建项目",
-        summary: "这条笔记已经具备强模型分析前的材料质量；先创建项目，项目就绪后再做强模型分析。"
+        nextStep: "先确定可写主题",
+        summary: "这条笔记已经具备 AI 写作检查前的材料质量；先确定题目和读者，再做写作检查。"
       };
     }
     if (writingInfo.level === "basket_ready") {
@@ -4648,12 +4648,12 @@ export class EditorPane {
         };
       }
       return {
-        status: "先创建项目",
+        status: "先确定可写主题",
         hint:
           readiness.level === "strong_model_ready"
-            ? "这条笔记已经具备强模型分析前的材料质量；先创建项目，项目就绪后再做强模型分析。"
-            : "这条笔记已经到创建项目阶段；先创建项目，再继续推进后续结构和分析。",
-        actionLabel: "创建项目",
+            ? "这条笔记已经具备 AI 写作检查前的材料质量；先确定题目和读者，再做写作检查。"
+            : "这条笔记已经适合进入写作；先确定题目和读者，再继续生成文章提纲。",
+        actionLabel: "确定可写主题",
         routeMode
       };
     }
@@ -4993,7 +4993,7 @@ export class EditorPane {
     ];
     const ready = confirmed && hasRelation && Boolean(boundary);
     const primaryAction = !confirmed ? "distillation" : !hasRelation ? "relations" : "writing";
-    const primaryLabel = !confirmed ? "先确认观点" : !hasRelation ? "先补一条关系" : "加入写作篮";
+    const primaryLabel = !confirmed ? "先确认观点" : !hasRelation ? "先补一条关系" : "进入写作";
     const focusTarget = !confirmed && thesis && summary.length === 3 ? "confirm" : !boundary && confirmed ? "boundary" : "";
     return `
       <section class="permanent-workspace-card writing-prep-panel">
@@ -5003,8 +5003,8 @@ export class EditorPane {
         </div>
         <p class="related-empty">${escapeHtml(
           ready
-            ? "这条笔记已经有观点、关系和边界，可以放入写作篮继续组织文章。"
-            : "先把观点和关系补稳，再放入写作篮；这样写作时不会只拿到一条孤立材料。"
+            ? "这条笔记已经有观点、关系和边界，可以作为相关笔记继续组织文章。"
+            : "先把观点和关系补稳，再进入写作；这样写作时不会只拿到一条孤立材料。"
         )}</p>
         <div class="permanent-workspace-checks">
           ${checks

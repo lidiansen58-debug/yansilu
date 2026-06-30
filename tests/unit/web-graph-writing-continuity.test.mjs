@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -27,11 +27,11 @@ test("graph writing followup keeps action-specific success copy for continuity a
   );
   assert.equal(
     graphWritingContinuationStatusMessage({ projectId: "project-1", action: "resume-scaffold" }),
-    "已从图谱回到草稿骨架：project-1"
+    "已从图谱回到文章提纲：project-1"
   );
   assert.equal(
     graphWritingContinuationStatusMessage({ projectId: "project-1", action: "resume-project" }),
-    "已从图谱继续当前项目：project-1"
+    "已从图谱继续这个主题：project-1"
   );
 });
 
@@ -42,11 +42,11 @@ test("graph writing followup keeps action-specific failure copy for continuity a
   );
   assert.equal(
     graphWritingContinuationFailureMessage({ action: "resume-scaffold" }, "missing"),
-    "从图谱回到草稿骨架失败：missing"
+    "从图谱回到文章提纲失败：missing"
   );
   assert.equal(
     graphWritingContinuationFailureMessage({ action: "resume-project" }, "stale"),
-    "从图谱继续当前项目失败：stale"
+    "从图谱继续这个主题失败：stale"
   );
 });
 

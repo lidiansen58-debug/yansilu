@@ -84,11 +84,12 @@ test("writing project card exposes continuation and scaffold actions", () => {
   );
 
   assert.match(html, /data-writing-project-id="project-1"/);
-  assert.match(html, /项目：Project &lt;one&gt;/);
+  assert.match(html, /可写主题：Project &lt;one&gt;/);
   assert.match(html, /Writing UI claim/);
   assert.match(html, /Evidence UI map/);
   assert.match(html, /data-writing-project-action="resume-scaffold"/);
   assert.match(html, /data-writing-project-action="copy-scaffold"/);
+  assert.match(html, /复制文章提纲/);
   assert.match(html, /<b>status<\/b>/);
 });
 
