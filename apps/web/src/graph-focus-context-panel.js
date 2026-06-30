@@ -59,7 +59,7 @@ export function graphFocusContextCollapsedState(current = false, action = "") {
 }
 
 export function graphFocusContextCollapsedStatus(collapsed = false) {
-  return collapsed ? "已收起右侧关系" : "已显示右侧关系";
+  return collapsed ? "已收起选中笔记面板" : "已显示选中笔记面板";
 }
 
 export function graphFocusHelpOpenState(current = false) {
@@ -211,7 +211,7 @@ export function renderGraphFocusContextPanel({
           <div class="graph-focus-kicker">当前笔记关系</div>
           <div class="graph-focus-panel-actions">
             <button class="graph-focus-help-toggle" type="button" data-graph-focus-help-toggle aria-expanded="${relationHelpOpen ? "true" : "false"}" aria-controls="graphFocusHelp" title="${relationHelpOpen ? "收起说明" : "查看说明"}">${renderGraphIcon("question")}<span>说明</span></button>
-            <button class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close" aria-label="收起右侧关系" title="收起右侧关系">${renderGraphIcon("close")}</button>
+            <button class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close" aria-label="收起选中笔记面板" title="收起选中笔记面板">${renderGraphIcon("close")}</button>
           </div>
         </div>
         <strong>${escapeHtml(focusedTitle)}</strong>

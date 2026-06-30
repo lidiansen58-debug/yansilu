@@ -256,7 +256,8 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
     activeTab.key === "clues"
       ? {
           title: "从最影响图谱可读性的地方开始",
-          detail: "先处理待关联笔记和缺少连接；已有关系只在需要补理由时再打开。"
+          detail: "先处理待关联笔记和缺少连接；已有关系只在需要补理由时再打开。",
+          action: "AI 扫描"
         }
       : {
           title: "每次只追一个问题",
@@ -296,8 +297,15 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
         ${tabs}
       </div>
       <section class="graph-workbench-guide">
-        <strong>${escapeHtml(guide.title)}</strong>
-        <span>${escapeHtml(guide.detail)}</span>
+        <div>
+          <strong>${escapeHtml(guide.title)}</strong>
+          <span>${escapeHtml(guide.detail)}</span>
+        </div>
+        ${
+          guide.action
+            ? `<button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : escapeHtml(guide.action)}</button>`
+            : ""
+        }
       </section>
       <div class="graph-workbench-panel-body">
         ${isolatedQueueVisible ? isolatedQueueMarkup : ""}

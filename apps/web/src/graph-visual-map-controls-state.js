@@ -51,6 +51,8 @@ export function buildGraphVisualMapControlsState({
   const researchNavigatorAutoHidden = denseGalaxyMode && graphState.researchNavigatorTouched !== true;
   const researchNavigatorHidden = graphState.researchNavigatorHidden === true || researchNavigatorAutoHidden;
   const researchNavigatorCanOpen = !filterActive && researchNavigatorHidden !== true && !workbenchPanelMarkup;
+  const researchNavigatorExplicitOpen = graphState.researchNavigatorTouched === true && graphState.researchNavigatorHidden !== true;
+  const researchNavigatorOpen = !filterActive && graphState.workbenchPanelOpen !== true && (researchNavigatorExplicitOpen || researchNavigatorCanOpen);
 
   return {
     focusDepth,
@@ -69,6 +71,7 @@ export function buildGraphVisualMapControlsState({
     readingLensState,
     researchNavigatorAutoHidden,
     researchNavigatorHidden,
-    researchNavigatorCanOpen
+    researchNavigatorCanOpen,
+    researchNavigatorOpen
   };
 }

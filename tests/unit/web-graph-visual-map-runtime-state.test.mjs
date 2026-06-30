@@ -99,4 +99,53 @@ test("graph visual map runtime state handles dense navigator and relation workfl
   assert.equal(state.researchNavigatorAutoHidden, true);
   assert.equal(state.researchNavigatorHidden, true);
   assert.equal(state.researchNavigatorCanOpen, false);
+  assert.equal(state.researchNavigatorOpen, false);
+});
+
+test("graph visual map runtime state opens navigator from explicit graph state", () => {
+  const state = buildGraphVisualMapRuntimeState({
+    graphState: {
+      researchNavigatorTouched: true,
+      researchNavigatorHidden: false,
+      workbenchPanelOpen: false
+    },
+    nodes: [{ id: "a" }],
+    edges: [],
+    relationFilterEdges: []
+  }, {
+    graphBuildVisualLayout: (nodes) => ({ nodes, width: 960, height: 520, nodeMap: new Map(), clusterMeta: [] }),
+    graphZoomOption: () => ({ key: "fit", scale: 1 }),
+    graphReadingLensMeta: () => ({ key: "insight" }),
+    graphDenseGalaxyMode: () => true,
+    shouldShowGraphDensityHint: () => false,
+    graphBuildReadingLensState: () => ({ active: false })
+  });
+
+  assert.equal(state.researchNavigatorCanOpen, true);
+  assert.equal(state.researchNavigatorOpen, true);
+});
+
+test("graph visual map runtime state keeps explicit navigator open in dense maps", () => {
+  const state = buildGraphVisualMapRuntimeState({
+    graphState: {
+      researchNavigatorTouched: true,
+      researchNavigatorHidden: false,
+      workbenchPanelOpen: false
+    },
+    nodes: Array.from({ length: 120 }, (_, index) => ({ id: `n-${index}` })),
+    edges: [],
+    relationFilterEdges: [],
+    workbenchPanelMarkup: "<aside>stale workbench markup</aside>"
+  }, {
+    graphBuildVisualLayout: (nodes) => ({ nodes, width: 960, height: 520, nodeMap: new Map(), clusterMeta: [] }),
+    graphZoomOption: () => ({ key: "fit", scale: 1 }),
+    graphReadingLensMeta: () => ({ key: "insight" }),
+    graphDenseGalaxyMode: () => true,
+    shouldShowGraphDensityHint: () => false,
+    graphBuildReadingLensState: () => ({ active: false })
+  });
+
+  assert.equal(state.researchNavigatorHidden, false);
+  assert.equal(state.researchNavigatorCanOpen, false);
+  assert.equal(state.researchNavigatorOpen, true);
 });

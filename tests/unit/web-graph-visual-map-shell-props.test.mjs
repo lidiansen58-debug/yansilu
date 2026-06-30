@@ -89,3 +89,14 @@ test("graph visual shell props expose research navigator entry to reading lens c
   assert.equal(props.readingLensTrailingMarkup, "<button>workbench</button><button>navigator</button>");
   assert.equal(props.sidePanelMarkup, '<div class="graph-side-stack"><aside>navigator</aside></div>');
 });
+
+test("graph visual shell props show navigator when entry is already open", () => {
+  const props = buildGraphVisualMapShellProps({
+    runtimeState: runtime({ researchNavigatorCanOpen: false, researchNavigatorOpen: true }),
+    researchNavigatorMarkup: "<aside>navigator</aside>",
+    researchNavigatorEntryMarkup: ""
+  });
+
+  assert.equal(props.researchNavigatorOpen, true);
+  assert.equal(props.sidePanelMarkup, '<div class="graph-side-stack"><aside>navigator</aside></div>');
+});

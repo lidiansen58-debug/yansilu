@@ -117,6 +117,7 @@ test("graph workbench panel renders active tabs, priority queue, and folded body
 
   assert.match(html, /graph-workbench-panel/);
   assert.match(html, /data-graph-workbench-tab="clues"/);
+  assert.match(html, /class="graph-workbench-guide"[\s\S]*data-run-graph-ai-analysis/);
   assert.match(html, /graph-priority-queue/);
   assert.match(html, /孤立笔记/);
   assert.match(html, /全部关系/);

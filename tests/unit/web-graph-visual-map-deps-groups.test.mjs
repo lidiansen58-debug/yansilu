@@ -71,7 +71,7 @@ test("graph visual map chrome deps keeps toolbar panels and shell renderer helpe
   assert.equal("graphNodeClass" in deps, false);
 });
 
-test("graph visual map view deps keeps node and edge view helpers separate from chrome helpers", () => {
+test("graph visual map view deps keeps node, edge, and map panel helpers separate from chrome helpers", () => {
   const marker = (name) => Object.assign(() => name, { marker: name });
   const host = {
     graphNodeClass: marker("node-class"),
@@ -86,6 +86,10 @@ test("graph visual map view deps keeps node and edge view helpers separate from 
     graphEdgeSelectionKey: marker("edge-key"),
     graphEdgeVisibleAtFit: marker("edge-visible"),
     graphEdgeShouldRender: marker("edge-render"),
+    graphFocusContextPanel: marker("focus"),
+    graphSelectionPanel: marker("selection"),
+    graphResearchNavigatorPanel: marker("research"),
+    graphResearchNavigatorEntry: marker("entry"),
     graphRelationTypeFilter: marker("filter")
   };
 
@@ -95,5 +99,9 @@ test("graph visual map view deps keeps node and edge view helpers separate from 
   assert.equal(deps.graphNodeShowsAsPoint, host.graphNodeShowsAsPoint);
   assert.equal(deps.graphRelationTypeLabel, host.graphRelationTypeLabel);
   assert.equal(deps.graphEdgeShouldRender, host.graphEdgeShouldRender);
+  assert.equal(deps.renderGraphFocusContextPanel, host.graphFocusContextPanel);
+  assert.equal(deps.renderGraphSelectionPanel, host.graphSelectionPanel);
+  assert.equal(deps.renderGraphResearchNavigatorPanel, host.graphResearchNavigatorPanel);
+  assert.equal(deps.renderGraphResearchNavigatorEntry, host.graphResearchNavigatorEntry);
   assert.equal("graphRelationTypeFilter" in deps, false);
 });

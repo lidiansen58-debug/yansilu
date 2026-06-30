@@ -11,7 +11,11 @@ export function buildGraphVisualMapViewDeps(host = {}) {
     graphRelationGroupMeta = () => ({}),
     graphEdgeSelectionKey = () => "",
     graphEdgeVisibleAtFit = () => true,
-    graphEdgeShouldRender = () => true
+    graphEdgeShouldRender = () => true,
+    graphFocusContextPanel = () => "",
+    graphSelectionPanel = () => "",
+    graphResearchNavigatorPanel = () => "",
+    graphResearchNavigatorEntry = () => ""
   } = host;
 
   return {
@@ -26,6 +30,10 @@ export function buildGraphVisualMapViewDeps(host = {}) {
     graphRelationGroupMeta,
     graphEdgeSelectionKey,
     graphEdgeVisibleAtFit,
-    graphEdgeShouldRender
+    graphEdgeShouldRender,
+    renderGraphFocusContextPanel: graphFocusContextPanel,
+    renderGraphSelectionPanel: graphSelectionPanel,
+    renderGraphResearchNavigatorPanel: graphResearchNavigatorPanel,
+    renderGraphResearchNavigatorEntry: graphResearchNavigatorEntry
   };
 }

@@ -23,8 +23,8 @@ test("graph focus controls normalize depth and context mode", () => {
 test("graph focus controls expose user-facing meta", () => {
   assert.deepEqual(graphFocusDepthMeta("2"), {
     key: "2",
-    label: "再看一层",
-    note: "除了直接关联，也看这些关联笔记再连到哪里。"
+    label: "扩展到相邻笔记",
+    note: "在直接相关之外，再看相邻笔记连接到哪里。"
   });
   assert.deepEqual(graphFocusContextModeMeta("writing"), {
     key: "writing",

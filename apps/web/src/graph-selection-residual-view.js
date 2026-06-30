@@ -83,6 +83,7 @@ export function createGraphSelectionResidualView(deps = {}) {
     renderGraphSelectionShell,
     graphRelationGroupMeta,
     graphEdgeReviewMeta,
+    graphRelationVisual = () => ({ key: "neutral" }),
     graphEdgeAdjustmentPlan,
     graphFocusCardActionMeta,
     graphRelationSourceLabel,
@@ -248,7 +249,7 @@ function renderGraphClusterSelectionPanel({ selection = null, clusterMeta = [], 
     escapeHtml,
     renderGraphSelectionShell,
     renderGraphSelectionMetrics,
-    renderGraphThemeIndexWorkspace,
+    renderGraphThemeIndexWorkspace: renderGraphThemeIndexWorkspaceMarkup,
     renderGraphPromptDetails
   });
 }
@@ -310,6 +311,11 @@ const {
 
 
   return {
+    graphUniqueClusterMeta,
+    graphClusterResearchMeta,
+    renderGraphClusterSelectionPanel,
+    graphResearchNavigatorState,
+    renderGraphResearchNavigatorPanel,
     renderGraphSelectionPanel
   };
 }

@@ -92,3 +92,23 @@ test("graph reading lens state controller binds shared deps once", () => {
   assert.equal(controller.graphEdgeMatchesReadingLens({ relationType: "supports" }, "argument"), true);
   assert.deepEqual([...state.priorityNodeIds], ["a"]);
 });
+
+test("graph insight lens highlights isolated, center, and dense notes by default", () => {
+  const state = graphBuildReadingLensStateForRuntime(
+    {
+      nodes: [
+        { id: "isolated", isGraphIsolatedCandidate: true },
+        { id: "hub", isHub: true },
+        { id: "anchor", isAnchor: true },
+        { id: "dense", degree: 3 },
+        { id: "quiet", degree: 1 }
+      ],
+      visibleEdges: [],
+      lens: "insight"
+    },
+    deps()
+  );
+
+  assert.deepEqual([...state.priorityNodeIds].sort(), ["anchor", "dense", "hub", "isolated"]);
+  assert.equal(state.priorityNodeIds.has("quiet"), false);
+});

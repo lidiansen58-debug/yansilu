@@ -529,8 +529,8 @@ test("graph focus relation panel can be collapsed and restored explicitly", () =
   assert.equal(graphFocusContextCollapsedState(false, "close"), true);
   assert.equal(graphFocusContextCollapsedState(true, "open"), false);
   assert.equal(graphFocusContextCollapsedState(false, "toggle"), true);
-  assert.equal(graphFocusContextCollapsedStatus(true), "已收起右侧关系");
-  assert.equal(graphFocusContextCollapsedStatus(false), "已显示右侧关系");
+  assert.equal(graphFocusContextCollapsedStatus(true), "已收起选中笔记面板");
+  assert.equal(graphFocusContextCollapsedStatus(false), "已显示选中笔记面板");
   assert.match(panel, /id="graphFocusContextPanel" class="graph-focus-context"/);
   assert.match(panel, /class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close"/);
   assert.match(panel, /data-open-note="b"/);
@@ -593,6 +593,8 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
   assert.match(html, /\.graph-map-empty-canvas \{[\s\S]*background:[\s\S]*linear-gradient\(180deg, #030812 0%, #060d18 42%, #091423 100%\);/);
 });
 test("graph research navigator explains the map before users drill into details", () => {
+  const source = readGraphResidualViews();
+  const appShellSource = readPrototypeApp();
   const workbenchSource = readGraphWorkbenchPanel();
   const html = readPrototypeHtml();
   const deps = graphResearchNavigatorTestDeps();
@@ -621,6 +623,9 @@ test("graph research navigator explains the map before users drill into details"
   assert.match(panel, /data-graph-select-node="n1"/);
   assert.match(panel, /data-graph-research-close/);
   assert.ok(workbenchSource.includes('data-graph-research-${action}'));
+  assert.match(source, /renderGraphResearchNavigatorPanel,/);
+  assert.match(source, /return \{[\s\S]*renderGraphResearchNavigatorPanel,[\s\S]*renderGraphSelectionPanel[\s\S]*\};/);
+  assert.match(appShellSource, /renderGraphResearchNavigatorPanel:\s*renderGraphResearchNavigatorPanelForGraph/);
   assert.match(html, /\.graph-research-navigator \{[\s\S]*display: grid;/);
 });
 test("graph structure view falls back to galaxy clusters instead of an empty map", () => {
@@ -676,6 +681,7 @@ test("graph empty map card can be closed back to argument relations", () => {
 });
 
 test("graph workbench interactions toggle entry, tab, and close state", () => {
+  const appShellSource = readPrototypeApp();
   const graphState = {
     workbenchPanelOpen: false,
     workbenchPanelTab: "questions"
@@ -704,6 +710,7 @@ test("graph workbench interactions toggle entry, tab, and close state", () => {
 
   assert.deepEqual(applyGraphWorkbenchCloseInteraction(graphState), { open: false });
   assert.equal(graphState.workbenchPanelOpen, false);
+  assert.match(appShellSource, /graphThinkingHighlightAttrsForItem,/);
 });
 
 test("graph workspace interactions keep thinking and utility state predictable", () => {
@@ -918,6 +925,12 @@ test("graph AI analysis opens the question workbench instead of navigating away"
   assert.match(match[1], /addSystemMessage\(\{/);
   assert.match(match[1], /graphState\.aiReviewSystemMessageId = messageId;/);
   assert.doesNotMatch(match[1], /openAiInboxModule/, "graph scan should not auto-navigate away from the graph");
+});
+
+test("graph AI scan button immediately opens the question workbench", () => {
+  const source = readGraphCanvasEventRouter();
+
+  assert.match(source, /graphState\.workbenchPanelOpen = true;[\s\S]*graphState\.workbenchPanelTab = "questions";[\s\S]*void runGraphAiAnalysis\(\);/);
 });
 
 test("graph AI review action opens system messages instead of the AI review module directly", () => {
@@ -1800,8 +1813,10 @@ test("graph node selection summarizes position, relation quality, and next actio
   assert.match(source, /function renderGraphSelectionTask\(task = null\) \{/);
   assert.match(selectionPanelSource, /aria-label="[^"]+"/);
   assert.match(nodeSelectionPanelSource, /已接入图谱：检查关系是否能支撑你的判断/);
-  assert.match(source, /当前状态/);
-  assert.match(source, /建议下一步/);
+  assert.match(source, /当前选中笔记/);
+  assert.match(source, /上下游关系/);
+  assert.match(source, /写作价值/);
+  assert.match(source, /下一步/);
   assert.match(source, /为什么这样判断/);
   assert.match(nodeSelectionPanelSource, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
   assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
@@ -2089,10 +2104,10 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
   });
 
   assert.deepEqual(applyGraphReadingLensInteraction(graphState, "bridge", {
-    graphReadingLensMeta: (value = "") => ({ key: String(value || "insight"), label: value === "bridge" ? "找连接" : "重点笔记" })
+    graphReadingLensMeta: (value = "") => ({ key: String(value || "insight"), label: value === "bridge" ? "找缺口" : "优先处理" })
   }), {
     lens: "bridge",
-    meta: { key: "bridge", label: "找连接" }
+    meta: { key: "bridge", label: "找缺口" }
   });
   assert.equal(graphState.readingLens, "bridge");
 
@@ -2100,10 +2115,10 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
     setGraphFocusDepth: (value) => {
       graphState.focusDepth = value;
     },
-    graphFocusDepthMeta: (value) => ({ key: value, label: value === "all" ? "整个关系网" : "直接关联" })
+    graphFocusDepthMeta: (value) => ({ key: value, label: value === "all" ? "查看整组相关笔记" : "只看直接相关" })
   }), {
     depth: "all",
-    meta: { key: "all", label: "整个关系网" }
+    meta: { key: "all", label: "查看整组相关笔记" }
   });
 
   assert.deepEqual(applyGraphFocusContextModeInteraction(graphState, "writing", {

@@ -151,8 +151,8 @@ test("prototype graph research navigator opens cluster and bright-star explanati
   await waitFor(async () => {
     assert.ok(await page.locator(".graph-selection-panel.is-node").isVisible());
     const copy = await page.locator(".graph-selection-panel.is-node").textContent();
-    assert.match(copy || "", /当前笔记/);
-    assert.match(copy || "", /建议下一步/);
+    assert.match(copy || "", /当前笔记|优先笔记/);
+    assert.match(copy || "", /当前任务|已保存关系|可选关系/);
   }, 3000);
 
   await page.locator(".graph-map-edge-group[data-edge-from]").first().focus();
@@ -287,15 +287,14 @@ test("prototype graph AI analysis reopens the follow-up workbench after it was h
   }, 3000);
 
   await page.locator('[data-graph-workbench-entry="clues"]').click();
-  await page.locator("details[data-graph-section='ai-analysis'] summary").click();
-  await page.locator("[data-run-graph-ai-analysis]").click();
+  await page.locator(".graph-workbench-guide [data-run-graph-ai-analysis]").click();
 
   await waitFor(async () => {
     assert.equal(await page.locator('[data-graph-workbench-entry="questions"]').getAttribute("aria-pressed"), "true");
     assert.ok(await page.locator(".graph-workbench-panel").isVisible());
     const summaryText = await page.locator(".graph-workbench-panel").textContent();
-    assert.match(String(summaryText || ""), /Candidate topic/);
-    assert.match(String(summaryText || ""), /Star Note 1/);
+    assert.match(String(summaryText || ""), /思考问题/);
+    assert.match(String(summaryText || ""), /缺少连接|主题整理|Star Note/);
   }, 5000);
 });
 

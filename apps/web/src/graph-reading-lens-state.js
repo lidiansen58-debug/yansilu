@@ -54,7 +54,9 @@ export function graphBuildReadingLensStateForRuntime(
   if (meta.key === "insight") {
     nodes.forEach((node) => {
       const degree = Number(node?.degree || 0) || 0;
-      if (node?.isHub || node?.isAnchor || degree >= 3) priorityNodeIds.add(String(node.id || "").trim());
+      if (node?.isGraphIsolatedCandidate || node?.isHub || node?.isAnchor || degree >= 3) {
+        priorityNodeIds.add(String(node.id || "").trim());
+      }
     });
   }
 

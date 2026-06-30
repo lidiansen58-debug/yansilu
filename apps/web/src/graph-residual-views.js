@@ -897,6 +897,8 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
   const role = graphNodeRoleMeta(node, directEdges);
   const counts = graphRelationGroupCounts(directEdges);
   const degree = Number(node?.degree || directEdges.length || 0);
+  const incomingCount = directEdges.filter((edge) => String(edge?.toNoteId || "").trim() === noteId).length;
+  const outgoingCount = directEdges.filter((edge) => String(edge?.fromNoteId || "").trim() === noteId).length;
   const missingReasonCount = directEdges.filter((edge) => {
     const rationale = String(edge?.rationale || "").trim();
     return !rationale || rationale === "markdown_wikilink";
@@ -926,6 +928,30 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
     quality = "已有边界";
     qualityDetail = "这条笔记已经有张力或限定关系，适合检查条件是否清楚。";
   }
+  const relationFlow = degree ? `上游 ${incomingCount} 条 · 下游 ${outgoingCount} 条` : "还没有上下游关系";
+  const relationFlowDetail = degree
+    ? "上游是指向这条笔记的材料或观点；下游是从这条笔记继续展开的材料或观点。"
+    : "先建立一条有理由的关系，它才会进入图谱网络。";
+  let writingValue = "先接入网络";
+  let writingValueDetail = "建立关系后，才能判断它适合作为论点、证据、反方还是过渡。";
+  if (degree) {
+    if (counts.conflict || counts.boundary) {
+      writingValue = "检查观点边界";
+      writingValueDetail = "适合用来写反例、限制条件或适用范围，避免观点过宽。";
+    } else if (counts.flow) {
+      writingValue = "放进写作顺序";
+      writingValueDetail = "适合作为前提、转折、步骤或后续段落的材料。";
+    } else if (counts.bridge) {
+      writingValue = "连接两个主题";
+      writingValueDetail = "适合作为过渡句，说明两个问题为什么能放在一起讨论。";
+    } else if (counts.support >= 2 || degree >= 4) {
+      writingValue = "形成主题主干";
+      writingValueDetail = "它已经有多条连接，可以继续整理成主题草稿或文章主线。";
+    } else {
+      writingValue = "补清关系理由";
+      writingValueDetail = "当前已接入图谱，下一步是把相邻关系的理由写得更清楚。";
+    }
+  }
   const nextStep = !degree
     ? "先保存一条关系"
     : missingReasonCount
@@ -941,6 +967,10 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
     positionDetail: role.detail,
     quality,
     qualityDetail,
+    relationFlow,
+    relationFlowDetail,
+    writingValue,
+    writingValueDetail,
     nextStep,
     candidateCount: aiCandidates.length + localCandidates.length,
     themeNoteCount: themeNoteIds.length
@@ -948,18 +978,34 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
 }
 function renderGraphNodeInsightPanel(insight = {}) {
   if (!insight?.position) return "";
-  const candidateText = `${Number(insight.candidateCount || 0)} 个可选目标 · ${Number(insight.themeNoteCount || 0)} 条可整理笔记`;
+  const nextStepDetail = Number(insight.candidateCount || 0)
+    ? `${Number(insight.candidateCount || 0)} 个可选目标，可以先确认一条最成立的关系。`
+    : Number(insight.themeNoteCount || 0)
+      ? `${Number(insight.themeNoteCount || 0)} 条相关笔记，可以考虑整理主题草稿。`
+      : "先看当前笔记与相邻笔记的关系是否清楚。";
   return `
-    <section class="graph-node-insight" aria-label="笔记关系摘要">
+    <section class="graph-node-insight" aria-label="当前选中笔记面板">
       <div class="graph-node-insight-summary">
-        <span>当前状态</span>
+        <span>当前选中笔记</span>
         <strong>${escapeHtml(insight.quality)}</strong>
         <p>${escapeHtml(insight.qualityDetail)}</p>
       </div>
+      <div class="graph-node-insight-grid">
+        <div>
+          <span>上下游关系</span>
+          <strong>${escapeHtml(insight.relationFlow)}</strong>
+          <p>${escapeHtml(insight.relationFlowDetail)}</p>
+        </div>
+        <div>
+          <span>写作价值</span>
+          <strong>${escapeHtml(insight.writingValue)}</strong>
+          <p>${escapeHtml(insight.writingValueDetail)}</p>
+        </div>
+      </div>
       <div class="graph-node-next-action">
-        <span>建议下一步</span>
+        <span>下一步</span>
         <strong>${escapeHtml(insight.nextStep)}</strong>
-        <p>${escapeHtml(candidateText)}</p>
+        <p>${escapeHtml(nextStepDetail)}</p>
       </div>
       <details class="graph-node-insight-details">
         <summary>为什么这样判断</summary>
@@ -2202,6 +2248,7 @@ const {
     graphClueSummaryState,
     renderGraphWorkbenchEntryPills,
     renderGraphResearchNavigatorEntry,
+    renderGraphResearchNavigatorPanel,
     graphLoadErrorMessage,
     renderGraphErrorState,
     renderGraphInlineNotice,

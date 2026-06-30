@@ -25,7 +25,7 @@ export function buildGraphVisualMapHeadContent({
     ? `
       <div>
         <div class="graph-section-title">当前笔记关系图</div>
-        <div class="graph-section-note">当前笔记固定在中心；当前范围：${focusDepth.label}。可以拖动画布，查看它周围的关系。</div>
+        <div class="graph-section-note">当前笔记固定在中心；当前范围：${escapeHtml(focusDepth.label)}。${escapeHtml(focusDepth.note || "可以拖动画布，查看它周围的关系。")}</div>
         <div class="graph-focus-depth" aria-label="当前笔记关系范围">
           ${["1", "2", "all"]
             .map((value) => {
@@ -37,7 +37,7 @@ export function buildGraphVisualMapHeadContent({
           <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
           ${
             focusContextAvailable
-              ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}">${focusContextCollapsed ? "显示右侧关系" : "收起右侧关系"}</button>`
+              ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示选中笔记面板" : "收起选中笔记面板"}">${focusContextCollapsed ? "显示选中笔记面板" : "收起选中笔记面板"}</button>`
               : ""
           }
         </div>

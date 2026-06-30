@@ -246,7 +246,11 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const graphAiButton = event.target.closest("[data-run-graph-ai-analysis]");
     if (graphAiButton) {
-      runGraphAiAnalysis();
+      consumeGraphClick();
+      graphState.workbenchPanelOpen = true;
+      graphState.workbenchPanelTab = "questions";
+      renderGraphPanel();
+      void runGraphAiAnalysis();
       return;
     }
     const graphAiInboxButton = event.target.closest("[data-open-ai-inbox-from-graph]");
@@ -541,7 +545,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
         graphFocusContextModeMeta
       });
       renderGraphPanel();
-      setStatus("右侧关系已切换到：" + result.meta.label, "ok");
+      setStatus("选中笔记面板已切换到：" + result.meta.label, "ok");
       return;
     }
     const graphNode = event.target.closest(".graph-map-node[data-node-id]");

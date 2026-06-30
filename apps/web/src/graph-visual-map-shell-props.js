@@ -35,6 +35,7 @@ export function buildGraphVisualMapShellProps({
     activeSelection = null,
     selectionNodeNeedsRelationWorkflow = false,
     researchNavigatorCanOpen = false,
+    researchNavigatorOpen = false,
     layout = { nodes: [], width: 0, height: 0 },
     zoom = { key: "fit" },
     zoomWidth = 0,
@@ -46,8 +47,8 @@ export function buildGraphVisualMapShellProps({
     ? selectionContextMarkup
     : "";
   const sideSelectionContextMarkup = selectionOverlayMarkup ? "" : selectionContextMarkup;
-  const researchNavigatorOpen = researchNavigatorCanOpen && !selectionContextMarkup;
-  const visibleResearchNavigatorMarkup = researchNavigatorOpen ? researchNavigatorMarkup : "";
+  const navigatorOpen = (researchNavigatorOpen === true || researchNavigatorCanOpen === true) && !selectionContextMarkup;
+  const visibleResearchNavigatorMarkup = navigatorOpen ? researchNavigatorMarkup : "";
   const visibleResearchNavigatorEntryMarkup = !filterActive && !selectionContextMarkup ? researchNavigatorEntryMarkup : "";
   const readingLensTrailingMarkup = `${workbenchEntryMarkup}${visibleResearchNavigatorEntryMarkup}`;
   const sidePanelParts = [
@@ -81,6 +82,6 @@ export function buildGraphVisualMapShellProps({
     nodeMarkup,
     emptyStateMarkup,
     readingLensTrailingMarkup,
-    researchNavigatorOpen
+    researchNavigatorOpen: navigatorOpen
   };
 }
