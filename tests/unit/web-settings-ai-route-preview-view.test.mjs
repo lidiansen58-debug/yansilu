@@ -48,8 +48,8 @@ test("settings AI route preview renders loading state", () => {
 
   renderAiRoutePreviewForRuntime(baseDeps(get, { routePreviewLoading: true }));
 
-  assert.match(get("settingsAiRouteStats").innerHTML, /正在确认/);
-  assert.equal(get("settingsAiRoutePreview").textContent, "正在判断当前会使用本地模型还是远程模型。");
+  assert.match(get("settingsAiRouteStats").innerHTML, /正在检查/);
+  assert.equal(get("settingsAiRoutePreview").textContent, "正在确认当前 AI 是否可用。");
 });
 
 test("settings AI route preview falls back to local ready state when preview errored", () => {
@@ -112,7 +112,7 @@ test("settings AI route preview keeps configurable remote route unavailable with
 
   assert.match(get("settingsAiRouteStats").innerHTML, /待测试/);
   assert.match(get("settingsAiRoutePreview").innerHTML, /使用远程模型还不能用/);
-  assert.match(get("settingsAiRoutePreview").innerHTML, /补齐设置后再测试一句话/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /补齐设置后测试一句话/);
 });
 
 test("settings AI route preview accepts backend-ready remote access when secret was not edited locally", () => {
@@ -139,5 +139,5 @@ test("settings AI route preview accepts backend-ready remote access when secret 
   });
 
   assert.match(get("settingsAiRouteStats").innerHTML, /可用/);
-  assert.match(get("settingsAiRoutePreview").innerHTML, /使用远程模型已就绪/);
+  assert.match(get("settingsAiRoutePreview").innerHTML, /使用远程模型可用/);
 });

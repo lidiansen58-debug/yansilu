@@ -23,8 +23,8 @@ export function renderAiRoutePreviewForRuntime(deps = {}) {
     && installedLocalModelReady(localModel);
 
   if (ai.routePreviewLoading) {
-    stats.innerHTML = `<span class="settings-stat-badge warn">正在确认</span>`;
-    detail.textContent = "正在判断当前会使用本地模型还是远程模型。";
+    stats.innerHTML = `<span class="settings-stat-badge warn">正在检查</span>`;
+    detail.textContent = "正在确认当前 AI 是否可用。";
     return;
   }
 
@@ -38,11 +38,11 @@ export function renderAiRoutePreviewForRuntime(deps = {}) {
       title: localReady ? "本地模型可用" : "还不能确认 AI 是否可用",
       summary: localReady
         ? "当前会使用这台电脑上的本地模型，隐私更好，速度取决于电脑。"
-        : "先选择本地或远程模型，再用一句普通话测试是否能回复。",
+        : "先选择本地模型或远程模型，再测试一句话。",
       facts: localReady
-        ? [["使用方式", "本地模型"], ["当前状态", "可用"], ["下一步", "测试一句话"]]
-        : [["当前状态", "待设置"], ["下一步", "完成设置后测试一句话"]],
-      actionText: localReady ? "用一句普通话确认 AI 能正常回复。" : "如果要处理私密材料，优先使用本地模型。"
+        ? [["使用方式", "本地模型"], ["当前状态", "可用"]]
+        : [["当前状态", "待设置"]],
+      actionText: localReady ? "下一步：测试一句话。" : "本地模型隐私更好；远程模型效果可能更好。"
     });
     return;
   }
@@ -57,7 +57,7 @@ export function renderAiRoutePreviewForRuntime(deps = {}) {
       ready: false,
       title: "还没有测试 AI 设置",
       summary: "选择本地模型或远程模型后，先测试一句话，确认当前设置可用。",
-      facts: [["当前状态", "未测试"], ["下一步", "测试一句话"]],
+      facts: [["当前状态", "未测试"]],
       actionText: "测试内容不要包含敏感信息。"
     });
     return;
@@ -94,26 +94,25 @@ export function renderAiRoutePreviewForRuntime(deps = {}) {
     : access.ready === true && (!remoteConfigurable || Boolean(remoteEndpointUrl && remoteRuntimeModel && remoteSecretReady));
   const modeText = usingLocal ? "使用本地模型" : "使用远程模型";
   const statusText = ready ? "可用" : "不可用";
-  const title = `${modeText}${ready ? "已就绪" : "还不能用"}`;
+  const title = ready ? `${modeText}可用` : `${modeText}还不能用`;
   const summary = usingLocal
     ? ready
       ? "内容会在这台电脑上处理，隐私更好；速度取决于电脑性能。"
-      : "先检测本地 AI，并选择或下载一个可用模型。"
+      : "先检测本地模型，并选择或下载一个可用模型。"
     : ready
       ? `内容会发送到远程模型，效果可能更好；需要${remoteConfigurable ? "网络和密钥" : "网络"}。`
       : remoteConfigurable
-        ? "先填写远程模型的服务信息和密钥，再测试一句话。"
+        ? "先填写远程模型、服务地址和密钥名称，再测试一句话。"
         : "先确认网络可用，再测试一句话。";
   const facts = usingLocal
     ? [
         ["使用方式", "本地模型"],
-        ["当前状态", statusText],
-        ["隐私", "内容留在本机"]
+        ["当前状态", statusText]
       ]
     : [
         ["使用方式", "远程模型"],
         ["当前状态", statusText],
-        ["需要", remoteConfigurable ? "网络和密钥" : "网络"]
+        ["需要", remoteConfigurable ? "网络和密钥名称" : "网络"]
       ];
   renderSimplePreview({
     stats,
@@ -124,7 +123,7 @@ export function renderAiRoutePreviewForRuntime(deps = {}) {
     title,
     summary,
     facts,
-    actionText: ready ? "下一步：测试一句话，确认能正常回复。" : "下一步：补齐设置后再测试一句话。"
+    actionText: ready ? "下一步：测试一句话，确认能正常回复。" : "下一步：补齐设置后测试一句话。"
   });
 }
 

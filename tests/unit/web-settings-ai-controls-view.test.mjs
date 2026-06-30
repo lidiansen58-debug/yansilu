@@ -90,7 +90,7 @@ test("settings AI local controls render available local model state", () => {
   assert.match(get("settingsAiLocalModel").innerHTML, /qwen3:4b/);
   assert.equal(get("settingsAiLocalModel").value, "qwen3:4b");
   assert.deepEqual(get("settingsAiUseLocalSetup").toggles.find((item) => item[0] === "hidden"), ["hidden", true]);
-  assert.equal(get("settingsAiDetectOllama").textContent, "重新检测本地 AI");
+  assert.equal(get("settingsAiDetectOllama").textContent, "重新检测");
   assert.deepEqual(get("settingsAiStopOllama").toggles.find((item) => item[0] === "hidden"), ["hidden", false]);
   assert.equal(get("settingsAiPullOllamaModel").textContent, "下载 llama3.2（轻量）");
   assert.equal(get("recommendationRenderMarker").textContent, "called");
@@ -137,7 +137,7 @@ test("settings AI provider controls separate connection health from successful A
   assert.equal(get("settingsAiProviderConfigBadge").textContent, "连接正常");
   assert.ok(!get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
   assert.equal(get("settingsAiSaveProviderConfig").textContent, "保存远程设置");
-  assert.equal(get("settingsAiCheckProviderHealth").textContent, "测试远程连接");
+  assert.equal(get("settingsAiCheckProviderHealth").textContent, "测试连接");
   assert.equal(get("settingsAiCheckProviderHealth").disabled, false);
 });
 
@@ -217,11 +217,11 @@ test("settings AI provider controls disable platform managed provider actions", 
   });
 
   assert.equal(get("settingsAiRemoteRuntimeModel").disabled, true);
-  assert.equal(get("settingsAiProviderConfigBadge").textContent, "默认可用");
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "可用");
   assert.equal(get("settingsAiSaveProviderConfig").disabled, true);
-  assert.equal(get("settingsAiSaveProviderConfig").textContent, "默认远程模型无需保存");
+  assert.equal(get("settingsAiSaveProviderConfig").textContent, "无需保存");
   assert.equal(get("settingsAiCheckProviderHealth").disabled, true);
-  assert.equal(get("settingsAiCheckProviderHealth").textContent, "默认远程模型");
+  assert.equal(get("settingsAiCheckProviderHealth").textContent, "已内置");
 });
 
 test("settings AI provider controls do not mark incomplete remote config as ready", () => {

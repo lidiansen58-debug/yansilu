@@ -35,7 +35,7 @@ export function renderAiSettingsExperienceForRuntime(deps = {}) {
   const providerId = currentAiProviderId();
   const providerDisplayName = String(ai.routePreview?.provider?.displayName || "").trim();
   const providerLabel = providerId === "platform_managed_openai"
-    ? "默认远程模型"
+    ? "远程模型"
     : providerDisplayName === "Ollama Local"
       ? "本地模型"
       : providerDisplayName || providerId || "远程模型";
@@ -149,59 +149,58 @@ function buildCurrentView({
   const localNotRunning = ai.localRuntimeReadinessStatus === "installed_not_running";
   if (!localFlowActive) {
     return {
-      title: "当前可以使用远程模型",
-      body: "远程模型效果可能更好，需要网络；使用自定义远程服务时需要密钥。处理私密材料时，可以切换到本地模型。",
+      title: ai.testStatus === "success" ? "远程模型可以使用" : "当前选择远程模型",
+      body: "远程模型效果可能更好，需要网络；如果使用自己的服务，还需要密钥名称。处理私密材料时，可以切换到本地模型。",
       status: ai.testStatus === "success" ? "测试成功" : "未测试",
       statusTone: ai.testStatus === "success" ? "ok" : "muted",
-      helper: "本地模型适合私密材料；远程模型适合追求效果和省心使用。",
+      helper: "只需要确认两件事：当前是否可用，以及测试一句话是否成功。",
       homeSteps: [
-        { state: "current", title: "选择本地模型" },
-        { state: "pending", title: "检测本地 AI" },
+        { state: "complete", title: "选择远程模型" },
         { state: "pending", title: "测试一句话" }
       ],
       steps: [
-        { state: "complete", title: "默认使用远程模型", note: "需要网络和可用密钥。" },
-        { state: "current", title: "测试一句话", note: "用一句不含敏感内容的话确认能正常回复。" }
+        { state: "complete", title: "已选择远程模型", note: "效果可能更好，需要网络；自定义服务需要密钥名称。" },
+        { state: ai.testStatus === "success" ? "complete" : "current", title: "测试一句话", note: ai.testStatus === "success" ? "最近一次测试已成功。" : "用一句不含敏感内容的话确认能正常回复。" }
       ]
     };
   }
   if (ai.localRuntimeChecking) {
-    return localView("正在检测本地模型", "正在确认这台电脑上的本地 AI 是否可用。", "检测中", "warn", [
-      ["complete", "已选择本地模型", "内容会尽量留在这台电脑上处理。"],
-      ["current", "正在检测本地 AI", "通常几秒内会返回结果。"]
+    return localView("正在检测本地模型", "正在确认这台电脑上的本地模型是否可用。", "检测中", "warn", [
+      ["complete", "已选择本地模型", "隐私更好，速度取决于电脑。"],
+      ["current", "正在检测", "通常几秒内会返回结果。"]
     ]);
   }
   if (localStatus !== "available") {
     return localView(
       localNotRunning ? "本地模型还没启动" : "还没有检测到本地模型",
       localNotRunning
-        ? "本地 AI 已安装但没有运行。启动后再检测一次。"
-        : "先安装并启动本地 AI，再回到这里检测。",
+        ? "本地模型已安装但没有运行。启动后再检测一次。"
+        : "先安装并启动本地模型，再回到这里检测。",
       localNotRunning ? "需要启动" : "需要安装",
       "warn",
       [
-        ["complete", "已选择本地模型", runtimeMode === "hybrid" ? "当前是本地优先。" : "当前只使用本地模型。"],
-        ["current", localNotRunning ? "启动本地 AI" : "安装并启动本地 AI", setupGuide?.installUrl ? `下载地址：${setupGuide.installUrl}` : "安装后保持它在后台运行。"],
-        ["pending", "检测本地 AI", "检测成功后再选择模型。"]
+        ["complete", "已选择本地模型", runtimeMode === "hybrid" ? "会优先在这台电脑上处理。" : "内容会尽量留在这台电脑上处理。"],
+        ["current", localNotRunning ? "启动本地模型" : "安装并启动本地模型", setupGuide?.installUrl ? `下载地址：${setupGuide.installUrl}` : "安装后保持它在后台运行。"],
+        ["pending", "检测可用性", "检测成功后再测试一句话。"]
       ]
     );
   }
   if (!models.length) {
-    return localView("本地 AI 可用，还缺一个模型", `建议先下载 ${primaryRecommendedModel}，然后测试一句话。`, "需要模型", "warn", [
-      ["complete", "本地 AI 已启动", "研思录可以连接到本地服务。"],
+    return localView("本地模型服务可用，还缺一个模型", `建议先下载 ${primaryRecommendedModel}，然后测试一句话。`, "需要模型", "warn", [
+      ["complete", "本地服务已启动", "研思录可以连接到这台电脑上的模型服务。"],
       ["current", `下载 ${primaryRecommendedModel}`, recommendationHint || "下载可能需要几分钟。"],
       ["pending", "测试一句话", "确认模型能正常回复。"]
     ]);
   }
   if (!localReady) {
     return localView("选择一个本地模型", localModel ? `${localModel} 没有在本地检测到。请重新选择。` : "检测到本地模型后，先选一个作为默认模型。", "选择模型", "warn", [
-      ["complete", "本地 AI 已启动", `检测到 ${models.length} 个模型。`],
+      ["complete", "本地服务已启动", `检测到 ${models.length} 个模型。`],
       ["current", "选择本地模型", "选择后用一句普通话测试。"]
     ]);
   }
   return localView("本地模型已可用", `当前使用 ${localModel}。隐私更好，速度取决于电脑性能。`, ai.testStatus === "success" ? "测试成功" : "可用", "ok", [
-    ["complete", "本地 AI 已启动", "研思录可以连接到本地服务。"],
-    ["complete", `已选择 ${localModel}`, "后续 AI 任务会优先使用它。"],
+    ["complete", "本地模型已启动", "内容会尽量留在这台电脑上处理。"],
+    ["complete", `已选择 ${localModel}`, "后续 AI 功能会使用它。"],
     [ai.testStatus === "success" ? "complete" : "current", "测试一句话", ai.testStatus === "success" ? "最近一次测试已成功。" : "确认 AI 能正常回复。"]
   ], true);
 }
@@ -213,10 +212,10 @@ function localView(title, body, status, statusTone, rawSteps, ready = false) {
     body,
     status,
     statusTone,
-    helper: ready ? "" : "本地模型更适合私密材料；第一次使用需要安装、启动和选择模型。",
+    helper: ready ? "" : "本地模型隐私更好，速度取决于电脑；第一次使用需要安装、启动并选择模型。",
     homeSteps: [
       { state: "complete", title: "选择本地模型" },
-      { state: ready ? "complete" : "current", title: "检测并选择模型" },
+      { state: ready ? "complete" : "current", title: "确认可用" },
       { state: ready ? "current" : "pending", title: "测试一句话" }
     ],
     steps

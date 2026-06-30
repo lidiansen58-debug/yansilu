@@ -59,10 +59,10 @@ test("settings AI experience view renders simple remote setup state", () => {
 
   assert.equal(get("settingsAiQuickstartStatus").textContent, "未测试");
   assert.match(get("settingsAiSetupBadges").innerHTML, /自动选择/);
-  assert.match(get("settingsAiSetupBadges").innerHTML, /默认远程模型/);
-  assert.equal(get("settingsAiSetupTitle").textContent, "当前可以使用远程模型");
+  assert.match(get("settingsAiSetupBadges").innerHTML, /远程模型/);
+  assert.equal(get("settingsAiSetupTitle").textContent, "当前选择远程模型");
   assert.match(get("settingsAiSetupBody").textContent, /需要网络/);
-  assert.match(get("settingsAiSetupBody").textContent, /自定义远程服务时需要密钥/);
+  assert.match(get("settingsAiSetupBody").textContent, /自己的服务/);
   assert.equal(get("settingsAiAdvancedBadge").textContent, "通常不用改");
   assert.equal(get("settingsAiLabBadge").textContent, "未测试");
   assert.equal(get("settingsAiHybridToggle").textContent, "本地优先");
