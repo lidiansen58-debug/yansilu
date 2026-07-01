@@ -35,6 +35,81 @@ function normalizeTags(values = []) {
   return unique((Array.isArray(values) ? values : []).map(normalizeTag));
 }
 
+function normalizeSectionText(value = "") {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function stripListMarker(value = "") {
+  return String(value || "")
+    .replace(/^\s*[-*+]\s+/, "")
+    .replace(/^\s*\d+[.)、]\s+/, "")
+    .trim();
+}
+
+function splitMarkdownSections(markdown = "") {
+  const sections = [];
+  let current = { heading: "", content: [] };
+  for (const line of String(markdown || "").replace(/\r\n/g, "\n").split("\n")) {
+    const heading = line.match(/^#{2,4}\s+(.+?)\s*$/);
+    if (heading) {
+      if (current.heading || current.content.length) sections.push(current);
+      current = { heading: heading[1].trim(), content: [] };
+      continue;
+    }
+    current.content.push(line);
+  }
+  if (current.heading || current.content.length) sections.push(current);
+  return sections;
+}
+
+function findSection(sections = [], patterns = []) {
+  return sections.find((section) => patterns.some((pattern) => pattern.test(String(section.heading || "")))) || null;
+}
+
+function firstContentLine(section = null) {
+  if (!section) return "";
+  return stripListMarker((section.content || []).find((line) => String(line || "").trim()) || "");
+}
+
+function sectionLines(section = null, limit = 3) {
+  if (!section) return [];
+  return (section.content || [])
+    .map(stripListMarker)
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function parsePermanentDistillationFields(markdown = "", frontmatter = {}) {
+  const sections = splitMarkdownSections(markdown);
+  const thesisSection = findSection(sections, [/一句话论点/, /中心判断/, /核心观点/, /主张/]);
+  const summarySection = findSection(sections, [/三句话(压缩|摘要)/, /摘要/]);
+  const boundarySection = findSection(sections, [/边界/, /反例/, /限制/]);
+  const sourceSection = findSection(sections, [/来源追溯/, /来源/, /出处/]);
+  const thesis = String(frontmatter.thesis || firstContentLine(thesisSection) || "").trim();
+  const summaryLines = Array.isArray(frontmatter.three_line_summary)
+    ? frontmatter.three_line_summary.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
+    : sectionLines(summarySection, 3);
+  const threeLineSummary = summaryLines.length === 3 ? summaryLines : [];
+  const boundaryOrCounterpoint = String(frontmatter.boundary_or_counterpoint || firstContentLine(boundarySection) || "").trim();
+  const sourceTrace = normalizeSectionText(sourceSection ? sourceSection.content.join("\n") : "");
+  const explicitStatus = String(frontmatter.distillation_status || "").trim().toLowerCase();
+  const distillationStatus = explicitStatus === "confirmed"
+    ? "confirmed"
+    : thesis || summaryLines.length || boundaryOrCounterpoint || sourceTrace
+      ? "draft"
+      : "missing";
+  return {
+    thesis,
+    threeLineSummary,
+    boundaryOrCounterpoint,
+    sourceTrace,
+    distillationStatus
+  };
+}
+
 function extractRawFrontmatter(markdown) {
   const normalized = String(markdown ?? "").replace(/^\uFEFF/, "");
   const opening = normalized.match(/^---\r?\n/);
@@ -161,6 +236,11 @@ function normalizeImportedTitle(value, fallback = "") {
   };
 }
 
+function firstMarkdownHeading(markdown = "") {
+  const match = String(markdown || "").match(/^\s*#\s+(.+?)\s*$/m);
+  return match ? match[1].trim() : "";
+}
+
 function titleNormalizationWarning(file, rawTitle, normalizedTitle) {
   if (!rawTitle || rawTitle === normalizedTitle) return null;
   return {
@@ -260,7 +340,8 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
 
     const { frontmatter, body } = parseMarkdownWithFrontmatter(rawText);
     const rawFrontmatter = extractRawFrontmatter(rawText);
-    const normalizedTitle = normalizeImportedTitle(frontmatter.title, path.basename(file, ".md"));
+    const titleFallback = firstMarkdownHeading(body) || path.basename(file, ".md");
+    const normalizedTitle = normalizeImportedTitle(frontmatter.title, titleFallback);
     const title = normalizedTitle.value;
     const titleWarning = titleNormalizationWarning(file, normalizedTitle.raw, normalizedTitle.value);
     if (titleWarning) warnings.push(titleWarning);
@@ -311,6 +392,8 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
 
     const isPermanent = String(frontmatter.type || "").toLowerCase() === "permanent" || tags.includes("permanent");
     if (isPermanent) {
+      const distillation = parsePermanentDistillationFields(body, frontmatter);
+      const sourceTrace = distillation.sourceTrace || file;
       permanent.push({
         id: permanentId,
         title,
@@ -322,6 +405,11 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
         status: "draft",
         tags,
         citations: [{ source_id: sourceId }],
+        ...(distillation.thesis ? { thesis: distillation.thesis } : {}),
+        ...(distillation.threeLineSummary.length ? { three_line_summary: distillation.threeLineSummary } : {}),
+        ...(distillation.boundaryOrCounterpoint ? { boundary_or_counterpoint: distillation.boundaryOrCounterpoint } : {}),
+        ...(sourceTrace ? { source_trace: sourceTrace } : {}),
+        distillation_status: distillation.distillationStatus,
         created_at: now,
         updated_at: now,
         connector,

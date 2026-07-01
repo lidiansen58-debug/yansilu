@@ -139,7 +139,7 @@ test("AI inbox panel names missing-relation graph messages as pending-relation n
     }
   });
 
-  assert.ok(html.includes("待关联笔记"));
+  assert.ok(html.includes("《Graph note needs a relation》还没有进入关系网"));
   assert.ok(html.includes("Graph note needs a relation"));
   assert.ok(html.includes("处理关联"));
   assert.ok(html.includes("这条永久笔记还没有正式关系"));

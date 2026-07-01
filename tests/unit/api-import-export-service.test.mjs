@@ -227,6 +227,73 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
   assert.equal(createdLiteratureFile.hash, createdLiteratureHash);
 });
 
+test("confirmImport extracts permanent-note distillation fields and returns organizing overview", async (t) => {
+  let sqlite;
+  try {
+    sqlite = await import("node:sqlite");
+  } catch {
+    t.skip("node:sqlite is not available in current runtime");
+    return;
+  }
+  const vaultPath = await makeTempDir("yansilu-service-distillation-");
+  const importRoot = await makeTempDir("yansilu-service-distillation-source-");
+  await fs.writeFile(
+    path.join(importRoot, "slow-reading.md"),
+    [
+      "---",
+      "type: permanent",
+      "tags: [permanent, 易经]",
+      "---",
+      "# 易经需要慢读",
+      "",
+      "## 一句话论点",
+      "易经需要慢读，才能把变化判断放回具体处境。",
+      "",
+      "## 三句话摘要",
+      "- 慢读不是拖延，而是让判断条件浮现。",
+      "- 关系网络能帮助看见支持和边界。",
+      "- 进入写作前要先确认核心关系。",
+      "",
+      "## 边界与反例",
+      "只做资料摘录时，不应该急着连入永久笔记网络。",
+      "",
+      "## 来源追溯",
+      "验收导入样例。",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  const service = createService(vaultPath);
+  const preview = await service.createPreview("obsidian", { path: importRoot }, { detectWikilinks: true }, "req_distillation_preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+  const result = await service.confirmImport(
+    record,
+    { confirm: true, directoryId: "dir_original_default", overrideOriginality: true },
+    "req_distillation_confirm"
+  );
+
+  assert.equal(result.status, "completed");
+  assert.equal(result.result.organizingOverview.permanentCount, 1);
+  assert.equal(result.result.organizingOverview.isolatedCount, 1);
+  assert.equal(result.result.organizingOverview.recommendedFirst[0].title, "易经需要慢读");
+
+  const db = new sqlite.DatabaseSync(path.join(vaultPath, ".yansilu", "catalog.db"));
+  try {
+    const row = db.prepare("SELECT thesis, three_line_summary_json, boundary_or_counterpoint, distillation_status FROM permanent_note_meta LIMIT 1").get();
+    assert.equal(row.thesis, "易经需要慢读，才能把变化判断放回具体处境。");
+    assert.deepEqual(JSON.parse(row.three_line_summary_json), [
+      "慢读不是拖延，而是让判断条件浮现。",
+      "关系网络能帮助看见支持和边界。",
+      "进入写作前要先确认核心关系。"
+    ]);
+    assert.equal(row.boundary_or_counterpoint, "只做资料摘录时，不应该急着连入永久笔记网络。");
+    assert.equal(row.distillation_status, "draft");
+  } finally {
+    db.close();
+  }
+});
+
 test("confirmImport syncs imported wikilinks into relation links after all notes are registered", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-wikilink-relations-");
   const importRoot = await makeTempDir("yansilu-service-confirm-wikilink-relations-import-");

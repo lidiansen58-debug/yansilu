@@ -92,15 +92,15 @@ function aiInboxReadableTitle(value = {}) {
   const summary = String(value.summary || "").trim();
   const pair = graphReviewEndpointPair(value);
   if (type === "BridgeCard") {
-    if (pair.sourceTitle && pair.targetTitle) return `缺少连接：${pair.sourceTitle} -> ${pair.targetTitle}`;
-    return summary ? `缺少连接：${summary}` : "缺少连接待确认";
+    if (pair.sourceTitle && pair.targetTitle) return `《${pair.sourceTitle}》可能可以关联到《${pair.targetTitle}》`;
+    return summary ? `缺少连接：${summary}` : "有一条缺失连接待确认";
   }
   if (type === "QuestionCard" && (isInternalGraphTitle(title) || String(artifactPayload(value).suggestedAction || artifactPayload(value).suggested_action || "").includes("missing_relations"))) {
     const noteTitle = String(artifactPayload(value).noteTitle || artifactPayload(value).note_title || summary || title || "").trim();
-    return noteTitle ? `待关联笔记：${noteTitle}` : "待关联笔记";
+    return noteTitle ? `《${noteTitle}》还没有进入关系网` : "有一条永久笔记还没有进入关系网";
   }
   if (type === "LinkSuggestion" && (pair.sourceTitle || pair.targetTitle)) {
-    return `可能关联：${pair.sourceTitle || pair.sourceId || "来源笔记"} -> ${pair.targetTitle || pair.targetId || "目标笔记"}`;
+    return `《${pair.sourceTitle || pair.sourceId || "来源笔记"}》可能可以关联到《${pair.targetTitle || pair.targetId || "目标笔记"}》`;
   }
   if (isInternalGraphTitle(title)) return summary || aiInboxTypeLabel(type);
   return title || value.artifactId || value.id || "未命名建议";

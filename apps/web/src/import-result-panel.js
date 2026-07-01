@@ -44,6 +44,48 @@ function renderFileInventory(data = {}) {
   `;
 }
 
+function organizingOverviewFromData(data = {}) {
+  return data.result?.organizingOverview || data.importRecord?.confirmResult?.organizingOverview || null;
+}
+
+function renderOrganizingOverview(data = {}) {
+  const overview = organizingOverviewFromData(data);
+  if (!overview || Number(overview.permanentCount || 0) <= 0) return "";
+  const recommended = Array.isArray(overview.recommendedFirst) ? overview.recommendedFirst : [];
+  const themes = Array.isArray(overview.themeCandidates) ? overview.themeCandidates : [];
+  return `
+    <section class="import-organizing-home" aria-label="导入后的整理首页">
+      <div class="import-organizing-home-head">
+        <div>
+          <strong>整理首页</strong>
+          <p>先把永久笔记接入关系网，再决定是否进入写作。</p>
+        </div>
+        <span>${escapeHtml(overview.writingReady ? "可以开始写作准备" : "先整理关系")}</span>
+      </div>
+      <div class="import-organizing-home-metrics">
+        <div><span>导入永久笔记</span><strong>${escapeHtml(overview.permanentCount)}</strong></div>
+        <div><span>还未关联</span><strong>${escapeHtml(overview.isolatedCount || 0)}</strong></div>
+        <div><span>已有关系</span><strong>${escapeHtml(overview.connectedCount || 0)}</strong></div>
+      </div>
+      ${
+        recommended.length
+          ? `<div class="import-organizing-home-list"><strong>建议先处理</strong><ol>${recommended
+              .slice(0, 5)
+              .map((item) => `<li>${escapeHtml(item.title || item.noteId)}</li>`)
+              .join("")}</ol></div>`
+          : `<div class="import-organizing-home-list"><strong>建议先处理</strong><p>这批永久笔记已经有正式关系，可以查看图谱或进入写作。</p></div>`
+      }
+      ${
+        themes.length
+          ? `<div class="import-organizing-home-list"><strong>可写主题线索</strong><ul>${themes
+              .map((item) => `<li>${escapeHtml(item.title)}（${escapeHtml(item.noteCount)} 条笔记）</li>`)
+              .join("")}</ul></div>`
+          : ""
+      }
+    </section>
+  `;
+}
+
 function warningText(item = {}) {
   const code = String(item.code || "").trim();
   const message = String(item.message || "").trim();
@@ -99,6 +141,7 @@ export function renderImportResultPanel({
           : ""
       }
       ${renderFileInventory(data)}
+      ${renderOrganizingOverview(data)}
       ${
         warnings.length
           ? `<div class="result-warnings simple"><div class="result-warnings-title">需要处理</div><ul>${warnings

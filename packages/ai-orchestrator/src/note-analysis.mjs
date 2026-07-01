@@ -488,11 +488,16 @@ function relationArtifact(candidate = {}, context = {}) {
   const sources = artifactSources([candidate.fromNoteId, candidate.toNoteId], context);
   const sourceTitle = cleanText(candidate.sourceTitle || candidate.fromTitle || candidate.source_title);
   const targetTitle = cleanText(candidate.targetTitle || candidate.toTitle || candidate.target_title);
+  const readableTitle = sourceTitle && targetTitle
+    ? `《${sourceTitle}》可能可以关联到《${targetTitle}》`
+    : sourceTitle
+      ? `《${sourceTitle}》有一条待确认关系`
+      : "有一条永久笔记关系待确认";
   return normalizeArtifact(
     {
       id: graphCandidateArtifactId("artifact_link_suggestion", candidate, context),
       type: "LinkSuggestion",
-      title: sourceTitle && targetTitle ? `可能关联：${sourceTitle} -> ${targetTitle}` : "可能的永久笔记关联",
+      title: readableTitle,
       summary: graphCandidateArtifactSummary(candidate),
       body: graphCandidateArtifactBody(candidate, "本地初判发现一条可能关系。请人工复核后再确认是否写入图谱。"),
       status: "pending_review",
@@ -1245,11 +1250,16 @@ export function analyzePermanentNoteGraphLocally(input = {}) {
 function graphBridgeArtifact(candidate = {}, context = {}) {
   const sourceTitle = cleanText(candidate.sourceTitle || candidate.fromTitle || candidate.source_title);
   const targetTitle = cleanText(candidate.targetTitle || candidate.toTitle || candidate.target_title);
+  const readableTitle = sourceTitle && targetTitle
+    ? `《${sourceTitle}》可能可以关联到《${targetTitle}》`
+    : sourceTitle
+      ? `《${sourceTitle}》缺少一条关键连接`
+      : "有一条缺失连接待确认";
   return normalizeArtifact(
     {
       id: graphCandidateArtifactId("artifact_graph_bridge", candidate, context),
       type: "BridgeCard",
-      title: sourceTitle && targetTitle ? `缺少连接：${sourceTitle} -> ${targetTitle}` : "缺少连接待确认",
+      title: readableTitle,
       summary: graphCandidateArtifactSummary(candidate),
       body: graphCandidateArtifactBody(candidate, "本地图谱扫描发现两条笔记之间可能缺少一条连接。请先判断理由是否成立，再决定是否建立正式关系。"),
       status: "pending_review",
@@ -1301,7 +1311,7 @@ function isolatedNoteArtifact(note = {}, context = {}) {
     {
       id: stableId("artifact_isolated_note", [context.artifactIdSalt, note.noteId]),
       type: "QuestionCard",
-      title: noteTitle ? `未关联笔记：${noteTitle}` : "未关联笔记",
+      title: noteTitle ? `《${noteTitle}》还没有进入关系网` : "有一条永久笔记还没有进入关系网",
       summary: noteTitle,
       body: "这条永久笔记在当前图谱里还没有正式关系。请判断它需要关联到哪条笔记，还是应该暂时保留为独立观察。",
       status: "pending_review",

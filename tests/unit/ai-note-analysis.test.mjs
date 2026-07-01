@@ -42,6 +42,42 @@ test("local permanent note analysis flags notes that still look like raw materia
   assert.ok(result.recommendedActions.some((item) => item.actionId === "write_thesis"));
 });
 
+test("graph review artifact titles name the actual notes", () => {
+  const review = buildPermanentNoteGraphReviewItems({
+    relationCandidates: [
+      {
+        id: "rel_1",
+        fromNoteId: "a",
+        toNoteId: "b",
+        sourceTitle: "易经需要慢读",
+        targetTitle: "不确定性需要判断训练",
+        relationType: "associated_with",
+        confidence: 0.62
+      }
+    ],
+    bridgeCandidates: [
+      {
+        id: "bridge_1",
+        fromNoteId: "c",
+        toNoteId: "d",
+        sourceTitle: "变化是常态",
+        targetTitle: "行动需要边界",
+        relationType: "bridges",
+        confidence: 0.55
+      }
+    ],
+    isolatedNotes: [
+      { noteId: "e", title: "阴阳不是善恶二分", suggestedAction: "review_missing_relations" }
+    ]
+  });
+
+  const titles = review.artifacts.map((item) => item.title);
+  assert.ok(titles.includes("《易经需要慢读》可能可以关联到《不确定性需要判断训练》"));
+  assert.ok(titles.includes("《变化是常态》可能可以关联到《行动需要边界》"));
+  assert.ok(titles.includes("《阴阳不是善恶二分》还没有进入关系网"));
+  assert.doesNotMatch(titles.join("\n"), /Graph bridge candidate|Isolated permanent note|可能的永久笔记关联/);
+});
+
 test("local permanent note analysis passes mature reusable notes", () => {
   const result = analyzePermanentNoteLocally({
     noteId: "pn_ready",

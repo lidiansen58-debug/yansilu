@@ -11,6 +11,7 @@ import {
   buildNotePathIndex,
   listDirectories,
   listNoteCatalogEntriesByType,
+  listNoteRelations,
   syncMarkdownNoteCatalogRelations
 } from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
@@ -334,6 +335,71 @@ function sortRecords(records = []) {
   });
 }
 
+async function buildImportOrganizingOverview(vaultPath, createdFiles = []) {
+  const catalogById = new Map();
+  try {
+    for (const item of await listNoteCatalogEntriesByType(vaultPath, "permanent")) {
+      catalogById.set(String(item?.id || "").trim(), item);
+    }
+  } catch {}
+  const permanentFiles = (Array.isArray(createdFiles) ? createdFiles : [])
+    .filter((item) => String(item?.noteType || "").trim() === "permanent")
+    .map((item) => ({
+      noteId: String(item?.noteId || "").trim(),
+      title: String(item?.title || catalogById.get(String(item?.noteId || "").trim())?.title || item?.noteId || "").trim()
+    }))
+    .filter((item) => item.noteId);
+  if (!permanentFiles.length) {
+    return {
+      permanentCount: 0,
+      isolatedCount: 0,
+      recommendedFirst: [],
+      themeCandidates: [],
+      writingReady: false
+    };
+  }
+
+  const relationCounts = new Map();
+  for (const note of permanentFiles) {
+    try {
+      const relations = await listNoteRelations(vaultPath, note.noteId);
+      const count = (Array.isArray(relations.outgoingLinks) ? relations.outgoingLinks.length : 0)
+        + (Array.isArray(relations.backlinks) ? relations.backlinks.length : 0);
+      relationCounts.set(note.noteId, count);
+    } catch {
+      relationCounts.set(note.noteId, 0);
+    }
+  }
+
+  const isolated = permanentFiles.filter((item) => (relationCounts.get(item.noteId) || 0) === 0);
+  const connected = permanentFiles.filter((item) => (relationCounts.get(item.noteId) || 0) > 0);
+  const titleWords = new Map();
+  for (const note of permanentFiles) {
+    for (const token of String(note.title || "").split(/[^\p{Script=Han}a-zA-Z0-9]+/u).map((item) => item.trim()).filter((item) => item.length >= 2)) {
+      const bucket = titleWords.get(token) || [];
+      bucket.push(note);
+      titleWords.set(token, bucket);
+    }
+  }
+  const themeCandidates = [...titleWords.entries()]
+    .filter(([, notes]) => notes.length >= 3)
+    .slice(0, 2)
+    .map(([topic, notes]) => ({
+      title: topic,
+      noteCount: notes.length,
+      noteIds: notes.slice(0, 6).map((item) => item.noteId)
+    }));
+
+  return {
+    permanentCount: permanentFiles.length,
+    isolatedCount: isolated.length,
+    recommendedFirst: isolated.slice(0, 5).map((item) => ({ noteId: item.noteId, title: item.title })),
+    themeCandidates,
+    writingReady: connected.length >= 3 || themeCandidates.length > 0,
+    connectedCount: connected.length
+  };
+}
+
 export function createImportExportService({
   getVaultPath,
   getCwd,
@@ -641,6 +707,7 @@ export function createImportExportService({
     for (const entry of cleanupEntries) {
       createdFiles.push(await createdFileFromCleanupEntry(entry));
     }
+    const organizingOverview = await buildImportOrganizingOverview(vaultPath(), createdFiles);
 
     const targetDirectories = [];
     if (created.literatureNotes > 0 && literatureTargetDirectoryId) {
@@ -664,6 +731,7 @@ export function createImportExportService({
       skipped,
       selection: selected.selection,
       targetDirectories,
+      organizingOverview,
       writtenPaths: [...writtenPaths].map((item) => portablePath(path.relative(vaultPath(), item))),
       createdFiles,
       finishedAt
@@ -684,6 +752,7 @@ export function createImportExportService({
         skipped,
         selection: confirmResult.selection,
         targetDirectories,
+        organizingOverview,
         writtenPaths: confirmResult.writtenPaths,
         createdFiles
       },

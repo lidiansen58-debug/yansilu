@@ -65,3 +65,38 @@ test("import result panel renders created files summary with assets", () => {
   assert.match(html, /来源 1/);
   assert.match(html, /资源 1/);
 });
+
+test("import result panel renders organizing home after permanent-note import", () => {
+  const html = renderImportResultPanel({
+    data: {
+      stage: "confirm",
+      result: {
+        organizingOverview: {
+          permanentCount: 6,
+          isolatedCount: 4,
+          connectedCount: 2,
+          writingReady: true,
+          recommendedFirst: [
+            { noteId: "pn_1", title: "易经需要慢读" },
+            { noteId: "pn_2", title: "变化是常态" }
+          ],
+          themeCandidates: [
+            { title: "情境判断训练", noteCount: 5, noteIds: ["pn_1", "pn_2"] }
+          ]
+        }
+      }
+    },
+    title: "导入完成",
+    statusLabel: "完成",
+    raw: "{}"
+  });
+
+  assert.match(html, /整理首页/);
+  assert.match(html, /导入永久笔记/);
+  assert.match(html, /还未关联/);
+  assert.match(html, /建议先处理/);
+  assert.match(html, /易经需要慢读/);
+  assert.match(html, /可写主题线索/);
+  assert.match(html, /情境判断训练/);
+  assert.match(html, /可以开始写作准备/);
+});

@@ -380,6 +380,41 @@ function permanentMetadataFromInput(input = {}, fallbackFrontmatter = {}) {
   };
 }
 
+function upsertPermanentNoteMeta(db, noteId, meta = {}, boundaryOrCounterpoint = "") {
+  if (!db || !noteId || !meta) return;
+  const authorship = meta.authorship || {};
+  db.prepare(
+    `INSERT INTO permanent_note_meta
+     (note_id, core_claim, rationale, boundary_or_counterpoint, originality_status,
+      originality_similarity, user_confirmed, ai_assisted, thesis,
+      three_line_summary_json, distillation_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(note_id) DO UPDATE SET
+       core_claim = excluded.core_claim,
+       rationale = excluded.rationale,
+       boundary_or_counterpoint = excluded.boundary_or_counterpoint,
+       originality_status = excluded.originality_status,
+       originality_similarity = excluded.originality_similarity,
+       user_confirmed = excluded.user_confirmed,
+       ai_assisted = excluded.ai_assisted,
+       thesis = excluded.thesis,
+       three_line_summary_json = excluded.three_line_summary_json,
+       distillation_status = excluded.distillation_status`
+  ).run(
+    noteId,
+    String(meta.coreClaim || meta.core_claim || meta.thesis || "").trim(),
+    String(meta.rationale || "").trim(),
+    String(boundaryOrCounterpoint || meta.boundaryOrCounterpoint || meta.boundary_or_counterpoint || "").trim() || null,
+    normalizeOriginalityStatus(meta.originalityStatus ?? meta.originality_status, "warning"),
+    meta.originalitySimilarity ?? meta.originality_similarity ?? null,
+    authorship.user_confirmed === true ? 1 : 0,
+    authorship.ai_assisted === true ? 1 : 0,
+    String(meta.thesis || "").trim() || null,
+    JSON.stringify(Array.isArray(meta.threeLineSummary) ? meta.threeLineSummary : []),
+    normalizeDistillationStatus(meta.distillationStatus ?? meta.distillation_status, "missing")
+  );
+}
+
 function noteTypeFromDirectoryType(directoryType) {
   if (directoryType === "source_default") return "source";
   if (directoryType === "fleeting_default") return "fleeting";
@@ -1512,6 +1547,13 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
         `INSERT INTO note_directory_membership (id, note_id, directory_id, created_at)
          VALUES (?, ?, ?, ?)`
       ).run(`ndm_${randomUUID().slice(0, 8)}`, noteId, directoryId, now);
+      if (noteType === "permanent") {
+        upsertPermanentNoteMeta(db, noteId, {
+          ...permanentMeta,
+          coreClaim: normalized.markdownBody,
+          rationale: input.rationale || ""
+        }, boundaryOrCounterpoint);
+      }
       syncMarkdownRelations(db, noteId, normalized.markdownBody);
       db.exec("COMMIT;");
     } catch (error) {
@@ -1584,6 +1626,15 @@ export async function registerMarkdownNoteInCatalog(vaultPath, input = {}) {
       const absMarkdownPath = path.join(path.resolve(vaultPath), markdownPath);
       const markdown = await fs.readFile(absMarkdownPath, "utf8");
       const parsed = parseMarkdownWithFrontmatter(markdown);
+      if (noteType === "permanent") {
+        const permanentMeta = permanentMetadataFromFrontmatter(parsed.frontmatter || {});
+        const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
+        upsertPermanentNoteMeta(db, noteId, {
+          ...permanentMeta,
+          coreClaim: parsed.body,
+          rationale: input.rationale || ""
+        }, boundaryOrCounterpoint);
+      }
       syncMarkdownRelations(db, noteId, parsed.body);
       db.exec("COMMIT;");
     } catch (error) {
@@ -2991,6 +3042,13 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
         effectiveRow.id
       );
       ensureSingleDirectoryMembership(db, effectiveRow.id, effectiveRow.directory_id);
+      if (effectiveRow.note_type === "permanent") {
+        upsertPermanentNoteMeta(db, effectiveRow.id, {
+          ...permanentMeta,
+          coreClaim: normalized.markdownBody,
+          rationale: input.rationale || ""
+        }, nextFrontmatter.boundary_or_counterpoint || "");
+      }
       syncMarkdownRelations(db, effectiveRow.id, normalized.markdownBody);
       db.exec("COMMIT;");
     } catch (error) {

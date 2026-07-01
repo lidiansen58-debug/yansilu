@@ -47,6 +47,42 @@ test("buildMarkdownCandidates parses markdown/obsidian files into candidates", a
   assert.ok(result.literature[0].tags.includes("insight"));
 });
 
+test("buildMarkdownCandidates extracts permanent distillation fields without saving incomplete summaries", async () => {
+  const sourceDir = await makeTempDir("yansilu-md-distillation-");
+  await fs.writeFile(
+    path.join(sourceDir, "distill.md"),
+    [
+      "---",
+      "type: permanent",
+      "---",
+      "# 结构化观点",
+      "",
+      "## 一句话论点",
+      "这条笔记已经形成一个可复用判断。",
+      "",
+      "## 三句话摘要",
+      "- 只有第一句。",
+      "- 只有第二句。",
+      "",
+      "## 边界与反例",
+      "这个判断暂时不适合直接写成结论。"
+    ].join("\n"),
+    "utf8"
+  );
+
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: sourceDir }
+  });
+
+  assert.equal(result.permanent.length, 1);
+  assert.equal(result.permanent[0].title, "结构化观点");
+  assert.equal(result.permanent[0].thesis, "这条笔记已经形成一个可复用判断。");
+  assert.equal(result.permanent[0].three_line_summary, undefined);
+  assert.equal(result.permanent[0].boundary_or_counterpoint, "这个判断暂时不适合直接写成结论。");
+  assert.equal(result.permanent[0].distillation_status, "draft");
+});
+
 test("buildMarkdownCandidates parses Obsidian aliases and wikilink variants", async () => {
   const sourceDir = await makeTempDir("yansilu-md-engine-variants-");
   await fs.writeFile(
@@ -203,7 +239,7 @@ test("buildMarkdownCandidates parses the edge-case Obsidian fixture vault", asyn
   const duplicateNotes = result.literature.filter((note) => note.title === "Duplicate Idea");
   assert.equal(duplicateNotes.length, 2);
 
-  const malformedNote = result.literature.find((note) => note.title === "malformed-frontmatter");
+  const malformedNote = result.literature.find((note) => note.title === "Broken Edge");
   assert.ok(malformedNote);
   assert.deepEqual(malformedNote.wikilink_targets, ["Target Note"]);
 });
