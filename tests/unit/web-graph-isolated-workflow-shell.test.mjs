@@ -100,6 +100,7 @@ test("graph isolated workflow shell renders completion result with the next isol
 
   assert.match(html, /已关联到：目标笔记/);
   assert.match(html, /关系类型：支持/);
-  assert.match(html, /继续关联：下一条笔记/);
+  assert.match(html, /继续处理：下一条笔记/);
+  assert.match(html, /data-graph-open-relation-form/);
   assert.match(html, /data-relation-workspace="current"/);
 });
