@@ -439,7 +439,7 @@ function graphThinkingModelTestDeps(overrides = {}) {
     graphRankThemeCandidates: () => [],
     graphRelationPairKey: relationPairKey,
     graphRelationQualityLabel: (level = "") => String(level || "寰呰ˉ"),
-    graphRelationReviewReasonLabel: (reason = "") => String(reason || "待复核"),
+    graphRelationReviewReasonLabel: (reason = "") => String(reason || "待确认"),
     graphRelationTypeLabel: (type = "") => String(type || "相关"),
     graphSelectEdgeActionAttrs: () => "",
     graphThemeSelectionKey: (topic = {}, index = 0) => String(topic?.id || index),
@@ -558,7 +558,7 @@ test("graph focus relation panel uses plain wording and explains relation catego
   assert.match(panel, /看观点关系/);
   assert.match(panel, /看写作用途/);
   assert.match(panel, /<div class="graph-focus-kicker">当前笔记关系<\/div>/);
-  assert.match(panel, /只看当前笔记已经保存的正式关系，不包含还没确认的 AI 候选。/);
+  assert.match(panel, /只看当前笔记已经保存的正式关系，不包含还没确认的 AI 推荐。/);
   assert.match(panel, /支持关系说明/);
   assert.match(panel, /data-graph-focus-help-toggle/);
   assert.match(panel, /当前这条笔记周围还没有正式关系/);
@@ -573,14 +573,14 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
     questionSummary: { total: 2, detail: "问题待处理" },
     clueSectionsMarkup: "<section>关系列表</section>",
     thinkingItems: [{ title: "问题一", view: "theme", actionAttrs: 'data-open-note="n1"' }],
-    isolatedQueueMarkup: "<section>孤立队列</section>"
+    isolatedQueueMarkup: "<section>孤立待处理</section>"
   }, graphWorkbenchViewTestDeps({ graphState: { workbenchPanelOpen: true, workbenchPanelTab: "clues" } }));
 
   assert.match(panel, /class="graph-workbench-panel"/);
   assert.match(panel, /data-graph-workbench-tab="clues"/);
   assert.match(panel, /data-graph-workbench-tab="questions"/);
   assert.match(panel, /data-graph-workbench-close/);
-  assert.match(panel, /孤立队列/);
+  assert.match(panel, /孤立待处理/);
   assert.match(panel, /关系列表/);
 
   assert.match(html, /\.graph-workbench-panel \{[\s\S]*position: relative;[\s\S]*z-index: 8;/);
@@ -804,8 +804,8 @@ test("graph workbench prioritizes Chinese clue and question actions", async () =
   const reviewCalls = [];
   const priorityMarkup = renderGraphWorkbenchPriorityQueueView([
     { title: "桥接", view: "organize", tone: "bridge", kicker: "缺少连接", actionAttrs: 'data-open-note="n1"' },
-    { title: "复核", view: "organize", tone: "review", kicker: "理由待补", actionAttrs: 'data-open-note="n2"' },
-    { title: "主题", view: "theme", tone: "theme", kicker: "主题候选", actionAttrs: 'data-open-note="n3"' },
+    { title: "确认", view: "organize", tone: "review", kicker: "理由待补", actionAttrs: 'data-open-note="n2"' },
+    { title: "主题", view: "theme", tone: "theme", kicker: "可写主题推荐", actionAttrs: 'data-open-note="n3"' },
     { title: "第四项", view: "theme", tone: "theme", kicker: "不会优先显示", actionAttrs: 'data-open-note="n4"' }
   ], "clues", graphWorkbenchViewTestDeps());
   const bridgeItems = moduleBuildGraphThinkingItemsForGraph({
@@ -831,7 +831,7 @@ test("graph workbench prioritizes Chinese clue and question actions", async () =
   assert.deepEqual(reviewCalls, [{ directoryId: "selected-dir", includeDescendants: true, limit: 8 }]);
   assert.match(priorityMarkup, /class="graph-priority-queue"/);
   assert.match(priorityMarkup, /桥接/);
-  assert.match(priorityMarkup, /复核/);
+  assert.match(priorityMarkup, /确认/);
   assert.doesNotMatch(priorityMarkup, /第四项/);
 
   assert.match(html, /\.graph-priority-queue \{[\s\S]*display: grid;[\s\S]*radial-gradient/);
@@ -905,7 +905,7 @@ test("graph research details cover nodes and relation gravity lines with next ac
   assert.match(nodeSelectionPanelSource, /直接选择相关笔记/);
   assert.match(edgeSelectionPanelSource, /kicker: "已保存关系"/);
   assert.match(edgeSelectionPanelSource, /roleLabel: review\.label/);
-  assert.match(edgeSelectionPanelSource, /renderGraphPromptDetails\("复核提示（可选）", prompts\)/);
+  assert.match(edgeSelectionPanelSource, /renderGraphPromptDetails\("确认提示（可选）", prompts\)/);
   assert.match(edgeSelectionPanelSource, /data-graph-relation-adjustment/);
 
   assert.match(html, /\.graph-selection-close \{[\s\S]*position: absolute;[\s\S]*right: 10px;/);
@@ -1663,7 +1663,7 @@ test("graph relation save rejects placeholder rationales", () => {
   `)();
 
   assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”应该关联，因为：________。"), false);
-  assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”可以建立相关关系，因为它们之间存在需要一起复核的论证或主题联系。"), false);
+  assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”可以建立相关关系，因为它们之间存在需要一起确认的论证或主题联系。"), false);
   assert.equal(graphRelationRationaleIsActionable("因为："), false);
   assert.equal(graphRelationRationaleIsActionable("TODO: 补充关系说明"), false);
   assert.equal(graphRelationRationaleIsActionable("甲能作为乙的边界条件，因为它说明了适用范围。"), true);
@@ -1687,14 +1687,14 @@ test("graph relation candidates explain reason, possible relation, and review qu
   assert.match(source, /return computeGraphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit, blockedPairKeys \}\);/);
   assert.match(connectSource, /const blockedPairKeys = graphBlockedAiRelationPairKeysForNote\(noteId\);/);
   assert.match(connectSource, /const candidates = graphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit: 6, blockedPairKeys \}\);/);
-  assert.match(connectSource, /保存关系/);
+  assert.match(connectSource, /选择这条笔记/);
   assert.match(connectSource, /预览目标/);
   assert.match(connectSource, /data-graph-preview-candidate=/);
   assert.doesNotMatch(connectSource, /data-graph-select-node=/);
   assert.doesNotMatch(connectSource, /用这条建立关系/);
-  assert.match(source, /<span>推荐原因<\/span>/);
-  assert.match(source, /<span>可能关系<\/span>/);
-  assert.match(source, /<span>复核问题<\/span>/);
+  assert.match(source, /<span>为什么推荐<\/span>/);
+  assert.match(source, /<span>建议关系<\/span>/);
+  assert.match(source, /<span>保存前想一想<\/span>/);
   assert.match(source, /graphCandidateRelationReviewQuestion\(candidate\)/);
   assert.match(source, /renderGraphCandidateReviewRows\(candidate, \{ aiCandidate: !isLocal \}\)/);
   assert.match(source, /renderGraphCandidateReviewRows\(candidate, \{ aiCandidate: false \}\)/);
@@ -1845,7 +1845,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(workspaceSource, /data-graph-theme-note-ids="\$\{escapeHtml\(themeNoteIds\.join\(","\)\)\}"/);
   assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
   assert.match(workspaceSource, /data-graph-create-theme-index/);
-  assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "主题候选", relationCount = 0, tone = "" \} = \{\}\) \{/);
+  assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "可写主题推荐", relationCount = 0, tone = "" \} = \{\}\) \{/);
   assert.match(graphRouteSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
   assert.match(graphRouteSource, /createIndexCard\(\{/);
   assert.match(graphRouteSource, /centralQuestion: "这组笔记共同回答什么问题？"/);

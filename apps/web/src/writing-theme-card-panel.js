@@ -99,7 +99,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
         <button class="mini-btn primary" type="button" data-writing-theme-action="${escapeHtml(primaryThemeAction)}" data-writing-theme-id="${themeId}" data-writing-project-id="${escapeHtml(primaryThemeProjectId)}" ${projectEntry.canCreateProject ? "" : "disabled"}>${escapeHtml(projectEntry.actionLabel)}</button>
       </div>
       <div class="writing-summary" style="margin-top:12px;">
-        这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和可续接的写作中心入口。
+        这个可写主题应该把一组永久笔记压缩成可复用的中心问题、主题判断和可续接的写作中心入口。详情里仍会保留主题索引笔记，方便追溯。
       </div>
       <div class="writing-summary" style="margin-top:12px;" data-writing-theme-project-summary="${themeId}">
         写作状态：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题继续写。")}
@@ -154,7 +154,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
                   `
                 )
                 .join("")}</div>`
-            : `<div class="writing-empty">这张主题索引还没有挂上永久笔记。</div>`
+            : `<div class="writing-empty">这个可写主题还没有挂上永久笔记。</div>`
         }
       </div>
     </section>

@@ -635,7 +635,7 @@ function focusGraphRelationAdjustmentInPlace(button = null) {
     "change-type": "先判断这条关系类型是否准确",
     reverse: "先判断关系方向是否应该反过来",
     split: "先判断是否应该拆成两条关系",
-    remove: "先判断是否删除或降级为线索"
+    remove: "先判断是否删除或降级为参考"
   };
   setStatus(labels[adjustment] || "已在当前浮层标记这条关系的处理方向", "ok");
   return true;

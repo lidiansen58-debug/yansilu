@@ -9,7 +9,7 @@ export const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
   { key: "coreClaim", label: "核心观点", note: "核心字段，不建议隐藏" },
   { key: "whyTrue", label: "为什么成立", note: "核心字段，不建议隐藏" },
   { key: "boundary", label: "边界 / 反例", note: "核心字段，不建议隐藏" },
-  { key: "relatedClues", label: "关联线索", note: "核心字段，不建议隐藏" },
+  { key: "relatedClues", label: "相关笔记", note: "核心字段，不建议隐藏" },
   { key: "supplement", label: "补充内容", note: "可选增强字段" }
 ];
 
@@ -34,7 +34,7 @@ export const PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS = {
   coreClaim: "核心观点",
   whyTrue: "为什么成立",
   boundary: "边界 / 反例",
-  relatedClues: "关联线索",
+  relatedClues: "相关笔记",
   supplement: "补充内容"
 };
 
@@ -98,9 +98,9 @@ export function defaultPermanentTemplateSource(title = "{{title}}") {
     "",
     "来自哪条文献笔记、经验、案例或观察？",
     "",
-    "## 关联线索",
+    "## 相关笔记",
     "",
-    "它连接到哪些已有笔记、主题或写作方向？",
+    "它接下来适合连接到哪些已有笔记、可写主题或写作方向？",
     "",
     "## 边界 / 反例",
     "",

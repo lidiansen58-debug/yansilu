@@ -57,6 +57,7 @@ test("graph relation pure helpers normalize keys and network-counting statuses",
 test("graph relation rationale helper rejects placeholders and accepts actionable text", () => {
   assert.equal(graphRelationRationaleIsActionable("因为："), false);
   assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”应该关联，因为：＿＿＿。"), false);
+  assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”可以建立相关关系，因为它们之间存在需要一起复核的论证或主题联系。"), false);
   assert.equal(graphRelationRationaleIsActionable("我确认“甲”和“乙”可以建立相关关系，因为它们之间存在可说明的论证或主题联系。"), false);
   assert.equal(graphRelationRationaleIsActionable("请补关系说明"), false);
   assert.equal(graphRelationRationaleIsActionable("TODO: 补充关系说明"), false);

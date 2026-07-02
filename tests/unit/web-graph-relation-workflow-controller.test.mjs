@@ -34,7 +34,7 @@ test("relation workflow route opens relation form and remembers isolated return"
       "data-graph-relation-source": "note-a",
       "data-graph-target-note": "note-b",
       "data-graph-relation-type": " Bridges ",
-      "data-graph-rationale-draft": "已有候选理由。"
+      "data-graph-rationale-draft": "已有推荐理由。"
     }),
     { currentSelection: { kind: "isolated", noteId: "note-a" } }
   );
@@ -47,7 +47,7 @@ test("relation workflow route opens relation form and remembers isolated return"
     noteId: "note-a",
     targetNoteId: "note-b",
     relationType: "bridges",
-    rationale: "已有候选理由。",
+    rationale: "已有推荐理由。",
     returnTo: "isolated",
     entryRoute: undefined
   });

@@ -91,14 +91,14 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "project_ready",
       status: "先确定可写主题",
-      hint: "判断、边界和关系已具备，可以先确定可写主题；补更多主题线索后再做 AI 写作检查。",
+      hint: "判断、边界和关系已具备，可以先确定可写主题；补更多相关笔记后再做 AI 写作检查。",
       actionLabel: "确定可写主题"
     };
   }
   return {
     level: "strong_model_ready",
     status: "先确定可写主题",
-    hint: "判断、边界、关系和主题线索都较完整；先确定可写主题，再做 AI 写作检查。",
+    hint: "判断、边界、关系和相关笔记都较完整；先确定可写主题，再做 AI 写作检查。",
     actionLabel: "确定可写主题"
   };
 }
@@ -179,7 +179,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
     return {
       level: "project_ready",
       status: "先确定可写主题",
-      hint: "当前相关笔记足够先确定可写主题，但主题线索还不算丰富，先别急着做 AI 写作检查。",
+      hint: "当前相关笔记足够先确定可写主题，但相关笔记还不算丰富，先别急着做 AI 写作检查。",
       actionLabel: "确定可写主题"
     };
   }
@@ -187,7 +187,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
   return {
     level: "strong_model_ready",
     status: "先确定可写主题",
-    hint: "相关笔记、关系和主题线索都较完整；先确定可写主题，再做 AI 写作检查。",
+    hint: "相关笔记和关系都较完整；先确定可写主题，再做 AI 写作检查。",
     actionLabel: "确定可写主题"
   };
 }

@@ -91,6 +91,6 @@ test("graph visual map view renderer supplies graph-specific Chinese node, edge,
   assert.equal(GRAPH_VISUAL_NODE_LABELS.isolatedNodeType, "待关联笔记");
   assert.equal(GRAPH_VISUAL_EDGE_LABELS.sourceFallback, "源笔记");
   assert.match(nodeMarkup, /整理待关联笔记 Alpha/);
-  assert.match(edgeMarkup, /查看关系复核 n1 到 n2/);
+  assert.match(edgeMarkup, /查看关系确认 n1 到 n2/);
   assert.match(legendMarkup, new RegExp(GRAPH_VISUAL_LEGEND_NOTE));
 });

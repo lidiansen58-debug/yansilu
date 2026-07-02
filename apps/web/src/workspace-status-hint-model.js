@@ -79,7 +79,7 @@ export function buildWorkspaceStatusHintModel(input = {}) {
       targetNoteId: generatedOriginalNoteId,
       kicker: "随笔笔记",
       title: "这条随笔已经沉淀为永久笔记",
-      body: "原始线索还可以继续补，但它已经对应到一条永久笔记。你可以直接跳过去继续完善核心判断。",
+      body: "原始想法还可以继续补，但它已经对应到一条永久笔记。你可以直接跳过去继续完善核心判断。",
       actionText: "打开永久笔记"
     };
   }
@@ -90,7 +90,7 @@ export function buildWorkspaceStatusHintModel(input = {}) {
     targetNoteId: "",
     kicker: "随笔笔记",
     title: `当前在${growthStage}`,
-    body: "随笔只负责抓住线索，不必在这里完成所有整理。等你判断它值得长期保留时，再点“记录永久笔记”。",
+    body: "随笔只负责抓住还不稳定的想法，不必在这里完成所有整理。等你判断它值得长期保留时，再点“记录永久笔记”。",
     actionText: "继续记录"
   };
 }

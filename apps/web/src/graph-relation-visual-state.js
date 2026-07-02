@@ -60,7 +60,7 @@ export const GRAPH_RELATION_GROUP_META = {
   neutral: {
     label: "普通链接",
     shortLabel: "链接",
-    detail: "同主题、重述、自由链接或重复线索，只作为辅助参考。"
+    detail: "同主题、重述、自由链接或重复连接，只作为辅助参考。"
   },
   index: {
     label: "主题归属",

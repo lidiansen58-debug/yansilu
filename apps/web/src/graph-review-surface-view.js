@@ -8,7 +8,7 @@ const GRAPH_RELATION_QUALITY_LABELS = {
 const GRAPH_RELATION_REVIEW_REASON_LABELS = {
   missing_rationale: "补关系说明",
   thin_rationale: "补证据或边界",
-  needs_review: "复查关系"
+  needs_review: "确认关系"
 };
 
 function graphReviewSurfaceDeps(deps = {}) {
@@ -31,7 +31,7 @@ export function graphRelationQualityLabel(level) {
 
 export function graphRelationReviewReasonLabel(reason) {
   const key = String(reason || "needs_review").trim().toLowerCase();
-  return GRAPH_RELATION_REVIEW_REASON_LABELS[key] || key || "复查关系";
+  return GRAPH_RELATION_REVIEW_REASON_LABELS[key] || key || "确认关系";
 }
 
 export function renderRelationReviewQueueSectionView(reviewQueue, options = {}, deps = {}) {
@@ -64,7 +64,7 @@ export function renderRelationReviewQueueSectionView(reviewQueue, options = {}, 
         <div class="graph-collapsible-body">
         ${
           error
-            ? `<div class="graph-empty bad">整理队列加载失败：${escapeHtml(error)}</div>`
+            ? `<div class="graph-empty bad">待处理列表加载失败：${escapeHtml(error)}</div>`
             : items.length
               ? `
                 <div class="graph-review-summary">
@@ -82,7 +82,7 @@ export function renderRelationReviewQueueSectionView(reviewQueue, options = {}, 
                       const relationGroup = graphRelationGroupMeta(item.relationType);
                       return `
                         <div class="graph-review-card" role="button" tabindex="0" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">
-                          <button class="graph-review-action mini-btn" type="button" data-graph-select-edge="${escapeHtml(graphEdgeSelectionKey(item))}" data-graph-select-edge-id="${escapeHtml(item.id || "")}" data-graph-select-edge-from="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-select-edge-to="${escapeHtml(item.toNoteId || target.id || "")}" data-graph-select-edge-type="${escapeHtml(String(item.relationType || "").trim().toLowerCase())}" aria-label="复核关系：${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}" title="复核关系"><span>复核</span></button>
+                          <button class="graph-review-action mini-btn" type="button" data-graph-select-edge="${escapeHtml(graphEdgeSelectionKey(item))}" data-graph-select-edge-id="${escapeHtml(item.id || "")}" data-graph-select-edge-from="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-select-edge-to="${escapeHtml(item.toNoteId || target.id || "")}" data-graph-select-edge-type="${escapeHtml(String(item.relationType || "").trim().toLowerCase())}" aria-label="确认关系：${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}" title="确认关系"><span>确认</span></button>
                           <span class="graph-review-main">
                             <span class="graph-review-title">${escapeHtml(sourceTitle)} -> ${escapeHtml(targetTitle)}</span>
                             <span class="graph-review-meta">
@@ -114,7 +114,7 @@ export function renderGraphUtilityDrawerView({ bridgeGapCount = 0, weakRelationC
     bridgeGapCount > 0 ? `<span>潜在关联 ${escapeHtml(String(bridgeGapCount))}</span>` : "",
     weakRelationCount > 0 ? `<span>待判断关联 ${escapeHtml(String(weakRelationCount))}</span>` : "",
     reviewCount > 0 ? `<span>待补说明 ${escapeHtml(String(reviewCount))}</span>` : "",
-    aiState.totalCandidates > 0 ? `<span>AI 候选 ${escapeHtml(String(aiState.totalCandidates))}</span>` : ""
+    aiState.totalCandidates > 0 ? `<span>AI 推荐 ${escapeHtml(String(aiState.totalCandidates))}</span>` : ""
   ]
     .filter(Boolean)
     .join("");
@@ -124,7 +124,7 @@ export function renderGraphUtilityDrawerView({ bridgeGapCount = 0, weakRelationC
         <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
         <div class="graph-utility-drawer-copy">
           <strong>${renderGraphIcon("clue")}稍后处理</strong>
-          <span>把暂时不急着处理的候选、理由缺口和主题苗头先收在这里，需要时再展开。</span>
+          <span>把暂时不急着处理的推荐、理由缺口和可写主题先收在这里，需要时再展开。</span>
         </div>
         <div class="graph-utility-drawer-meta">
           ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">稍后再看</div>`}

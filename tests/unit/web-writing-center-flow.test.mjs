@@ -148,7 +148,7 @@ test("writing material and AI states guide users through theme, outline, and dra
   const material = describeWritingMaterialStatus({
     readinessLevel: "strong_model_ready",
     readinessStatus: "可进行 AI 分析",
-    readinessHint: "线索完整",
+    readinessHint: "相关笔记完整",
     hasProject: false
   });
   assert.equal(material.status, "先确定可写主题");
@@ -157,7 +157,7 @@ test("writing material and AI states guide users through theme, outline, and dra
   const withTheme = describeWritingMaterialStatus({
     readinessLevel: "strong_model_ready",
     readinessStatus: "可进行 AI 分析",
-    readinessHint: "线索完整",
+    readinessHint: "相关笔记完整",
     hasProject: true
   });
   assert.equal(withTheme.status, "相关笔记就绪");

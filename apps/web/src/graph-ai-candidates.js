@@ -53,6 +53,7 @@ export function graphRelationRationaleIsActionable(value = "") {
   if (/[_＿]{3,}/u.test(compact)) return false;
   if (/^因为[:：]?$/u.test(compact)) return false;
   if (text.includes("存在需要一起复核的论证或主题联系")) return false;
+  if (text.includes("存在需要一起确认的论证或主题联系")) return false;
   if (text.includes("存在可说明的论证或主题联系")) return false;
   if (/请补|补充|待补|TODO|TBD/i.test(text)) return false;
   return true;
@@ -165,7 +166,7 @@ export function graphPotentialRelationRationaleDraft({
   const cleanRationaleSeed = String(rationaleSeed || "").replace(/[。！？!?；;：:\s]+$/gu, "").trim();
   return cleanRationaleSeed
     ? `我确认“${actionSourceTitle}”和“${actionTargetTitle}”可以建立${relationLabel}，因为${cleanRationaleSeed}。`
-    : `“${actionSourceTitle}”和“${actionTargetTitle}”在标题、标签或核心判断上出现相近线索，可以先建立${relationLabel}；后续写作时再检查这条关系是否需要改成支持、限定或反方。`;
+    : `“${actionSourceTitle}”和“${actionTargetTitle}”在标题、标签或核心判断上出现相近主题，可以先建立${relationLabel}；后续写作时再检查这条关系是否需要改成支持、限定或反方。`;
 }
 
 export function graphDecoratePotentialRelationCandidate(candidate = {}, { nodeMap = new Map() } = {}, deps = {}) {

@@ -116,7 +116,7 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
   if (!filtered.length) {
     return `
       <div class="graph-thinking-empty">
-        <strong>${escapeHtml(meta.key === "theme" ? "还没有主题候选" : meta.key === "organize" ? "还没有待处理关系" : "当前没有明显问题")}</strong>
+        <strong>${escapeHtml(meta.key === "theme" ? "还没有可写主题推荐" : meta.key === "organize" ? "还没有待处理关系" : "当前没有明显问题")}</strong>
         <span>${escapeHtml(meta.key === "theme" ? "运行图谱扫描后，可以在这里查看可能成题的主题群。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待处理内容。")}</span>
         <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "扫描追问"}</button>
       </div>
@@ -238,7 +238,7 @@ export function renderGraphThinkingPanelView({ summary = {}, items = [] } = {}, 
       <div class="graph-thinking-panel-head">
         <div>
           <strong>${escapeHtml(summary.label || "待判断内容")}</strong>
-          <span>${escapeHtml(summary.detail || "按需查看主题、待关联笔记、潜在连接和关系复核。")}</span>
+          <span>${escapeHtml(summary.detail || "按需查看可写主题、待关联笔记、潜在连接和关系确认。")}</span>
         </div>
         <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭待判断面板" title="关闭待判断内容">${renderGraphIcon("close")}</button>
       </div>

@@ -77,8 +77,8 @@ export function graphLocalRelationCandidatesForNote(
         relationType,
         relationLabel,
         confidence: Math.min(0.92, 0.38 + score / 8),
-        evidenceText: reasonParts.join("；") || "标题或标签出现相近线索。",
-        rationaleDraft: `“${sourceTitle}”和“${targetTitle}”出现相近的标题、标签或判断线索，可以先建立${relationLabel}；保存后再根据写作需要补充更精确的支持、限定或反方说明。`,
+        evidenceText: reasonParts.join("；") || "标题或标签出现相近主题。",
+        rationaleDraft: `“${sourceTitle}”和“${targetTitle}”出现相近的标题、标签或判断主题，可以先建立${relationLabel}；保存后再根据写作需要补充更精确的支持、限定或反方说明。`,
         insightQuestionDraft: `这条${relationLabel}能帮助我如何理解“${sourceTitle}”在当前主题网络中的位置？`
       };
     })

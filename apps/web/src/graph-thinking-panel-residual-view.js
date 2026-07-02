@@ -217,7 +217,7 @@ function renderGraphAiAnalysisCard(options = {}) {
       <summary class="graph-collapsible-summary">
         <div>
           <div class="graph-section-title">AI 图谱初判</div>
-          <div class="graph-section-note">只生成待审候选：主题、缺少连接、弱关系和待关联笔记都不会直接写入图谱。</div>
+          <div class="graph-section-note">只生成待确认推荐：主题、缺少连接、弱关系和待关联笔记都不会直接写入图谱。</div>
         </div>
         <span class="graph-collapsible-badge">${loading ? "分析中" : `${totalCandidates} 项`}</span>
       </summary>
@@ -235,8 +235,8 @@ function renderGraphAiAnalysisCard(options = {}) {
               ? `
                 <div class="graph-metrics" aria-label="AI 图谱初判摘要">
                   ${renderGraphMetricCard("待审项", pendingCount, "当前图谱内处理", pendingCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("主题候选", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("关系候选", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("可写主题推荐", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("关系推荐", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
                   ${renderGraphMetricCard("潜在关联/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
                 </div>
                 <div class="graph-next-card">
@@ -244,7 +244,7 @@ function renderGraphAiAnalysisCard(options = {}) {
                   <small>${escapeHtml(
                     pendingCount
                       ? "先在图谱里判断结构是否成立；只确认能说清理由的关系或主题。"
-                      : "当前没有新的图谱候选。"
+                      : "当前没有新的图谱推荐。"
                   )}</small>
                 </div>
               `
@@ -278,13 +278,13 @@ function renderGraphQuestionSpotChip(summary = {}) {
 function graphThinkingFilterMeta(value = "all") {
   const key = String(value || "all").trim().toLowerCase();
   if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成主题或索引卡的聚集。" };
-  if (key === "organize") return { key: "organize", label: "整理", note: "只看孤立、桥接、关系复核和错位线索。" };
+  if (key === "organize") return { key: "organize", label: "整理", note: "只看孤立、桥接、关系确认和错位推荐理由。" };
   return { key: "all", label: "全部", note: "按优先级列出当前最值得继续判断的地方。" };
 }
 function graphCompactActionLabel(label = "查看") {
   const text = String(label || "查看").trim() || "查看";
   if (/补.*理由/.test(text)) return "补理由";
-  if (/桥接|复核|评估|判断|核对|整理|改类型|拆分/.test(text)) return "判断";
+  if (/桥接|确认|评估|判断|核对|整理|改类型|拆分/.test(text)) return "判断";
   if (/关联/.test(text)) return "关联";
   if (/查看/.test(text)) return "查看";
   return text.length > 4 ? text.slice(0, 4) : text;
@@ -452,7 +452,7 @@ function graphSummaryModeNote(relationType = "all") {
   const key = String(relationType || "all").trim().toLowerCase();
   if (key === "meaningful") return "先看有解释力的关系。";
   if (key === "all") return "展开全部关系。";
-  if (key === "noisy") return "只看链接线索。";
+  if (key === "noisy") return "只看链接提示。";
   if (key === "index") return "只看主题归属。";
   return `只看${graphRelationTypeLabel(key)}。`;
 }

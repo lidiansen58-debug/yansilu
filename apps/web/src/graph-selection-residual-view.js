@@ -218,7 +218,7 @@ function renderGraphBridgeSelectionPanel({ selection = null, bridgeGaps = [], no
         ${renderGraphSelectionMetrics([
           { label: "源笔记", value: bridge.title },
           { label: "目标", value: targetTitle || "待寻找" },
-          { label: "状态", value: "候选，未确认" }
+          { label: "状态", value: "推荐，未确认" }
         ])}
       </div>
       ${renderGraphPromptDetails("缺少什么连接（可选）", prompts)}`,
