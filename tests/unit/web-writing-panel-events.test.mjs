@@ -122,7 +122,7 @@ test("writing panel add-visible handler appends focused candidates", () => {
 
   handleWritingAddVisible({
     writingCandidateNotes: () => [{ id: "n1", title: "One" }, { id: "n2", title: "Two" }],
-    writingState: { focusedCandidateNoteIds: ["n2"], focusedCandidateScopeLabel: "图谱切片" },
+    writingState: { focusedCandidateNoteIds: ["n2"], focusedCandidateScopeLabel: "图谱范围" },
     planWritingCandidateFocus: ({ focusedNoteIds, focusedScopeLabel }) => ({
       usingFocusedScope: true,
       noteIds: focusedNoteIds,
@@ -140,7 +140,7 @@ test("writing panel add-visible handler appends focused candidates", () => {
   });
 
   assert.deepEqual(calls[0], ["continue", ["n2"], { title: "n2", source: "writing_panel_visible_notes" }]);
-  assert.deepEqual(calls[1], ["status", "图谱切片:1/1", "ok"]);
+  assert.deepEqual(calls[1], ["status", "图谱范围:1/1", "ok"]);
 });
 
 test("writing note list handler routes add remove and open actions", () => {

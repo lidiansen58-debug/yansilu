@@ -781,9 +781,9 @@ export async function handleWritingRefreshThemeIndexes(deps = {}) {
   } = deps;
   try {
     await loadWritingThemeIndexes();
-    setStatus("已刷新主题索引", "ok");
+    setStatus("已刷新可写主题", "ok");
   } catch (error) {
-    setStatus(`刷新主题索引失败：${String(error?.message || error)}`, "bad");
+    setStatus(`刷新可写主题失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -795,9 +795,9 @@ export async function handleWritingSaveThemeIndex(deps = {}) {
   try {
     const card = await saveWritingBasketAsThemeIndex();
     if (!card) return;
-    setStatus(`已保存主题索引：${card.title}`, "ok");
+    setStatus(`已保存可写主题：${card.title}`, "ok");
   } catch (error) {
-    setStatus(`保存主题索引失败：${String(error?.message || error)}`, "bad");
+    setStatus(`保存可写主题失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -816,9 +816,9 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
     if (!cardId) return;
     try {
       await selectWritingThemeIndex(cardId);
-      setStatus(`已查看主题索引：${cardId}`, "ok");
+      setStatus(`已查看可写主题：${cardId}`, "ok");
     } catch (error) {
-      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -854,16 +854,16 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
         "ok"
       );
     } catch (error) {
-      setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
+      setStatus(`使用可写主题失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "open") {
     try {
       await selectWritingThemeIndex(indexId);
-      setStatus(`已查看主题索引：${indexId}`, "ok");
+      setStatus(`已查看可写主题：${indexId}`, "ok");
     } catch (error) {
-      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
     }
   }
 }
@@ -915,7 +915,7 @@ export function handleWritingAddVisible(deps = {}) {
   const candidateFocusPlan = planWritingCandidateFocus({
     candidateNoteIds: candidateFocusSourceIds,
     focusedNoteIds: writingState.focusedCandidateNoteIds || [],
-    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱切片"
+    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱范围"
   });
   const candidateById = new Map(allCandidates.map((note) => [note.id, note]));
   const candidates = candidateFocusPlan.usingFocusedScope

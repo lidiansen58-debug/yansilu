@@ -142,9 +142,9 @@ test("prototype graph writing follow-up keeps the focused graph slice visible in
     const actionLabel = await page.locator("#btnWritingAddVisible").textContent();
     const candidateText = await page.locator("#writingCandidateList").textContent();
 
-    assert.match(String(scopeHint || ""), /图谱切片/);
-    assert.match(String(summaryText || ""), /当前图谱切片/);
-    assert.match(String(actionLabel || ""), /把当前图谱切片加入写作篮/);
+    assert.match(String(scopeHint || ""), /图谱范围/);
+    assert.match(String(summaryText || ""), /当前图谱范围/);
+    assert.match(String(actionLabel || ""), /当前图谱范围/);
     assert.match(String(candidateText || ""), /Graph Focus Note A/);
     assert.match(String(candidateText || ""), /Graph Focus Note B/);
     assert.doesNotMatch(String(candidateText || ""), /Directory Extra Note/);

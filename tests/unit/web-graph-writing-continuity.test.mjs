@@ -60,7 +60,7 @@ test("graph writing followup stops before opening the writing center when no can
   assert.equal(plan.mode, "no-candidates");
   assert.equal(plan.hasBasket, false);
   assert.deepEqual(plan.prefillNoteIds, []);
-  assert.match(plan.statusMessage, /图谱切片/);
+  assert.match(plan.statusMessage, /图谱范围/);
 });
 
 test("graph next-action flow computes projected continuity from the visible writing candidates", () => {

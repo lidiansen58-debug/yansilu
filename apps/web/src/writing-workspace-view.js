@@ -169,7 +169,7 @@ export function renderWritingProjectCardView(project, deps = {}) {
       <div class="writing-note-card-head">
         <div>
           <div class="writing-note-title">可写主题：${escapeHtml(project?.title || project?.id || "")}</div>
-          <div class="writing-note-meta">${escapeHtml(project?.id || "")} 路 ${escapeHtml(writingProjectStatusLabel(project?.status))} 路 篮子 ${escapeHtml(project?.basket_count || 0)}</div>
+          <div class="writing-note-meta">${escapeHtml(project?.id || "")} / ${escapeHtml(writingProjectStatusLabel(project?.status))} / 相关笔记 ${escapeHtml(project?.basket_count || 0)}</div>
         </div>
         ${thinkingBadge}
       </div>

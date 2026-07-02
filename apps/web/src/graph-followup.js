@@ -119,18 +119,18 @@ export function graphWritingEntryReason(plan = {}) {
   const addedCount = Number(plan?.addedCount || 0);
   const candidateCount = Number(plan?.candidateCount || 0);
   if (mode === "already-in-basket") {
-    return "当前图谱切片里的可写笔记已经在相关笔记中，继续这组材料更连续。";
+    return "当前图谱里看到的可写笔记已经在相关笔记中，继续这组材料更连续。";
   }
   if (mode === "prefill-visible" && addedCount > 0) {
     return plan?.hasBasket
-      ? `当前图谱切片还有 ${addedCount} 条可写永久笔记，已一起加入相关笔记。`
-      : `当前图谱切片有 ${addedCount} 条可写永久笔记，已作为相关笔记带入。`;
+      ? `当前图谱里还有 ${addedCount} 条可写永久笔记，已一起加入相关笔记。`
+      : `当前图谱里有 ${addedCount} 条可写永久笔记，已作为相关笔记带入。`;
   }
   if (mode === "pick-manually" && candidateCount > 0) {
-    return `当前图谱切片有 ${candidateCount} 条可用永久笔记，先在写作中心挑 2-5 条作为相关笔记。`;
+    return `当前图谱里有 ${candidateCount} 条可用永久笔记，先在写作中心挑 2-5 条作为相关笔记。`;
   }
   if (mode === "no-candidates" && plan?.hasBasket) {
-    return "当前图谱切片暂时没有适合新增的笔记，先继续当前相关笔记更连续。";
+    return "当前图谱里暂时没有适合新增的笔记，先继续当前相关笔记更连续。";
   }
   return "";
 }
@@ -194,7 +194,7 @@ export function graphNextActionForSummary({
     if (untypedFromNoteId) {
       return {
         title: "补关系说明",
-        note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
+        note: "优先打开需要补说明的那条笔记，把“为什么相关”写清楚。",
         noteId: String(untypedFromNoteId || "").trim(),
         action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
         actionLabel: "去补关系说明",
@@ -254,7 +254,7 @@ export function graphNextActionForSummary({
   if (writingEntryPlan?.mode === "no-candidates" && writingEntryPlan.hasBasket) {
     return {
       title: "下一步：继续这组相关笔记",
-      note: "当前图谱切片里暂时没有适合新增的相关笔记。直接继续这组笔记，或先回到图谱补关系和边界，会比重复挑选更顺。",
+      note: "当前图谱范围里暂时没有适合新增的相关笔记。直接继续这组笔记，或先回到图谱补关系和边界，会比重复挑选更顺。",
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "继续写作"
     };
@@ -263,7 +263,7 @@ export function graphNextActionForSummary({
   if (writingEntryPlan?.mode === "no-candidates") {
     return {
       title: "下一步：先补关系和边界",
-      note: "当前图谱切片里还没有可直接推进写作的永久笔记。先补关系、边界或完成原创性检查，再决定下一步写作会更顺。",
+      note: "当前图谱范围里还没有可直接推进写作的永久笔记。先补关系、边界或完成原创性检查，再决定下一步写作会更顺。",
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补关系/边界"
@@ -274,8 +274,8 @@ export function graphNextActionForSummary({
     return {
       title: `下一步：带入 ${Number(writingEntryPlan.addedCount || 0)} 条永久笔记`,
       note: writingEntryPlan.hasBasket
-        ? `当前图谱切片里还有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。继续写作时会一起加入相关笔记。`
-        : `当前图谱切片里有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。这些笔记会一起作为相关笔记带入写作中心。`,
+        ? `当前图谱范围里还有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。继续写作时会一起加入相关笔记。`
+        : `当前图谱范围里有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。这些笔记会一起作为相关笔记带入写作中心。`,
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "带入写作"
     };
@@ -327,8 +327,8 @@ export function graphWritingFollowupEntryPlan({
       prefillNoteIds: [],
       statusMessage: scopeIds.length
         ? basketIds.length
-          ? "当前图谱切片里还没有适合新增的相关笔记。继续写作，或回到图谱补关系/边界。"
-          : "当前图谱切片里还没有可直接推进写作的永久笔记，先补关系、边界或完成原创性检查会更顺。"
+          ? "当前图谱范围里还没有适合新增的相关笔记。继续写作，或回到图谱补关系/边界。"
+          : "当前图谱范围里还没有可直接推进写作的永久笔记，先补关系、边界或完成原创性检查会更顺。"
         : basketIds.length
           ? "当前可见图谱里的永久笔记已经都在相关笔记中，继续写作。"
           : "当前可见图谱里还没有可直接推进写作的永久笔记，先补关系、边界或完成原创性检查会更顺。"

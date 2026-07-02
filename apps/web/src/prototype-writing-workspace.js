@@ -36,7 +36,7 @@ export function buildWritingPanelState({
   const candidateFocusPlan = planWritingCandidateFocus({
     candidateNoteIds: candidateFocusSourceIds,
     focusedNoteIds: writingState.focusedCandidateNoteIds,
-    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱切片"
+    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱范围"
   });
   const candidateEntriesById = new Map(allCandidates.map((entry) => [entry.id, entry]));
   const candidates = candidateFocusPlan.usingFocusedScope
@@ -226,10 +226,10 @@ export function writingSourceIndexSummary(sourceIndexIds = [], { themeIndexById 
 export function suggestedThemeIndexTitle(noteIds = [], { noteById = () => null, parseTags = () => [] } = {}) {
   const notes = noteIds.map((id) => noteById(id)).filter(Boolean);
   const labels = writingThemeLabels(notes, { parseTags });
-  if (labels.length) return `${labels[0]} 主题索引`;
+  if (labels.length) return `${labels[0]} 可写主题`;
   const first = notes[0];
-  if (first?.title) return `${first.title} 主题索引`;
-  return "新的主题索引";
+  if (first?.title) return `${first.title} 可写主题`;
+  return "新的可写主题";
 }
 
 export function writingBookPlainText(note) {

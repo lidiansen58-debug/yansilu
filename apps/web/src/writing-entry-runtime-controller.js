@@ -68,7 +68,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     }
     const statusRevisionAtStart = statusRevision;
     if (normalizedFocusedCandidateNoteIds) {
-      setWritingFocusedCandidateScope(normalizedFocusedCandidateNoteIds, focusedCandidateScopeLabel || "当前图谱切片");
+      setWritingFocusedCandidateScope(normalizedFocusedCandidateNoteIds, focusedCandidateScopeLabel || "当前图谱范围");
     } else if (!preserveFocusedCandidateScope) {
       clearWritingFocusedCandidateScope();
     }

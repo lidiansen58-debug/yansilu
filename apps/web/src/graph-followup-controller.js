@@ -65,7 +65,7 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
           source: "graph_followup_writing"
         });
       }
-      const continuation = graphWritingContinuationEntry(graphBasketNoteIds, "当前图谱切片");
+      const continuation = graphWritingContinuationEntry(graphBasketNoteIds, "当前图谱范围");
       void (async () => {
         try {
           if (continuation?.projectId) {
@@ -82,7 +82,7 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
           await openWritingModule({
             statusMessage: "",
             focusedCandidateNoteIds: graphFocusNoteIds,
-            focusedCandidateScopeLabel: "当前图谱切片",
+            focusedCandidateScopeLabel: "当前图谱范围",
             entryReason: graphWritingEntryReason(plan),
             entrySourceLabel: "图谱"
           });

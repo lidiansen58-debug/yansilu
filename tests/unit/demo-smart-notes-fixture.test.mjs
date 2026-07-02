@@ -162,8 +162,9 @@ test("smart notes product demo fixture includes an inspection guide", () => {
   const guide = fixture.guide_notes[0];
   assert.equal(guide.id, "GUIDE-SN-001");
   assert.equal(guide.note_type, "guide");
-  assert.match(guide.body, /If you only have five minutes, follow this path|Inspect it in this order/);
-  assert.match(guide.body, /source card/i);
+  assert.match(guide.body, /第一次打开先做三步|三步走完整流程/);
+  assert.match(guide.body, /SRC-SMART-NOTES/);
+  assert.match(guide.body, /处理一条未关联笔记/);
   assert.match(guide.body, /WP-SN-PM-001/);
   assert.match(guide.body, /DS-SN-PM-001/);
 });

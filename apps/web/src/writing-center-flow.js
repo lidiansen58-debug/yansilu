@@ -582,11 +582,11 @@ export function writingThemeIndexContinuationRoute({ action = "", projectId = ""
     openDraft: cleanAction === "open-draft",
     statusMessage:
       cleanAction === "open-draft"
-        ? `已从主题索引打开当前草稿：${cleanProjectId}`
+        ? `已从可写主题打开当前草稿：${cleanProjectId}`
         : cleanAction === "resume-scaffold"
           ? `已从可写主题回到文章提纲：${cleanProjectId}`
           : `已从可写主题继续：${cleanProjectId}`,
-    failurePrefix: `从主题索引${actionLabel}`
+    failurePrefix: `从可写主题${actionLabel}`
   };
 }
 
@@ -617,11 +617,11 @@ export function describeWritingBatchAppendStatus({
 export function planWritingCandidateFocus({
   candidateNoteIds = [],
   focusedNoteIds = [],
-  focusedScopeLabel = "当前图谱切片"
+  focusedScopeLabel = "当前图谱范围"
 } = {}) {
   const cleanCandidateIds = [...new Set((candidateNoteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   const cleanFocusedIds = [...new Set((focusedNoteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
-  const cleanScopeLabel = String(focusedScopeLabel || "当前图谱切片").trim() || "当前图谱切片";
+  const cleanScopeLabel = String(focusedScopeLabel || "当前图谱范围").trim() || "当前图谱范围";
 
   if (!cleanFocusedIds.length) {
     return {

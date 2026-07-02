@@ -96,7 +96,7 @@ test("writing panel controller shows entry recommendation reason in the first sc
     $: (id) => nodes.get(id) || null,
     state: { notes: [], selectedFileId: "", selectedFolderId: "dir" },
     writingState: {
-      entryContextReason: "当前图谱切片有 2 条可写永久笔记，已作为相关笔记带入。",
+      entryContextReason: "当前图谱范围有 2 条可写永久笔记，已作为相关笔记带入。",
       entryContextSourceLabel: "图谱"
     },
     folderById: () => ({ name: "永久笔记" }),
@@ -109,8 +109,8 @@ test("writing panel controller shows entry recommendation reason in the first sc
       currentLabel: "写作中心",
       candidateFocusPlan: {
         usingFocusedScope: true,
-        scopeLabel: "当前图谱切片",
-        addActionLabel: "加入当前图谱切片"
+        scopeLabel: "当前图谱范围",
+        addActionLabel: "加入当前图谱范围"
       },
       candidates: [],
       relationCountsReady: false,
@@ -445,7 +445,7 @@ test("writing panel controller renders writing project card through workspace vi
   assert.match(html, /data-writing-project-id="project-1"/);
   assert.match(html, /Project &lt;one&gt;/);
   assert.match(html, /status:active/);
-  assert.match(html, /篮子 2/);
+  assert.match(html, /相关笔记 2/);
   assert.match(html, /data-writing-project-action="resume-scaffold"/);
   assert.match(html, /data-writing-project-action="copy-scaffold"/);
   assert.match(html, /data-writing-project-action="export-scaffold"/);

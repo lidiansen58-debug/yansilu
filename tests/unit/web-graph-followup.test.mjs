@@ -250,7 +250,7 @@ test("graph next action reuses continuity wording when the current slice already
     writingContinuation: {
       projectId: "wp_existing",
       status: "打开当前草稿",
-      hint: "当前图谱切片已经对应项目 wp_existing，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新进入写作中心更连续。",
+      hint: "当前图谱范围已经对应项目 wp_existing，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新进入写作中心更连续。",
       actionLabel: "打开当前草稿"
     }
   });
@@ -312,7 +312,7 @@ test("graph writing followup keeps current basket untouched when the whole visib
   assert.doesNotMatch(plan.statusMessage, /已打开写作中心/);
 });
 
-test("graph writing followup stays inside the current graph slice when no note is ready for writing", () => {
+test("graph writing followup stays inside the current graph range when no note is ready for writing", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: [],
     candidateNoteIds: [],
@@ -320,7 +320,7 @@ test("graph writing followup stays inside the current graph slice when no note i
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
-  assert.match(plan.statusMessage, /当前图谱切片里还没有可直接推进写作的永久笔记/);
+  assert.match(plan.statusMessage, /当前图谱范围里还没有可直接推进写作的永久笔记/);
   assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
   assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
 });

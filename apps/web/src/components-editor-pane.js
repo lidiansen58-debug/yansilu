@@ -4261,7 +4261,7 @@ export class EditorPane {
     }
     return {
       nextStep: "进入主题或写作准备",
-      summary: "这条笔记已经具备判断和连接，可以继续进入主题索引或作为相关笔记开始写作。"
+      summary: "这条笔记已经具备判断和连接，可以继续整理成可写主题，或作为相关笔记开始写作。"
     };
   }
 
@@ -4371,7 +4371,7 @@ export class EditorPane {
         actionLabel: "处理关系"
       },
       {
-        label: "主题索引",
+        label: "可写主题",
         status: themeInfo.status,
         hint: themeInfo.hint,
         action: "graph",
@@ -4851,7 +4851,7 @@ export class EditorPane {
                   : "关联一条笔记"
         },
       {
-        label: "主题索引",
+        label: "可写主题",
         status: themeInfo.status,
         hint: themeInfo.hint,
         action: "graph",

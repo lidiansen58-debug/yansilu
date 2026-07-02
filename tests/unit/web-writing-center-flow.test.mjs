@@ -130,15 +130,15 @@ test("writing batch and candidate focus copy uses related-note language", () => 
   const focused = planWritingCandidateFocus({
     candidateNoteIds: ["n-dir-1", "n-graph-1", "n-dir-2", "n-graph-2"],
     focusedNoteIds: ["n-graph-2", "n-missing", "n-graph-1"],
-    focusedScopeLabel: "当前图谱切片"
+    focusedScopeLabel: "当前图谱范围"
   });
   assert.deepEqual(focused.noteIds, ["n-graph-2", "n-graph-1"]);
-  assert.equal(focused.addActionLabel, "加入当前图谱切片");
+  assert.equal(focused.addActionLabel, "加入当前图谱范围");
 
   const directory = planWritingCandidateFocus({
     candidateNoteIds: ["n-dir-1", "n-dir-2"],
     focusedNoteIds: [],
-    focusedScopeLabel: "当前图谱切片"
+    focusedScopeLabel: "当前图谱范围"
   });
   assert.equal(directory.scopeLabel, "当前目录观点");
   assert.equal(directory.addActionLabel, "加入当前目录笔记");

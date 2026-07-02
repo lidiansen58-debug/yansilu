@@ -108,5 +108,5 @@ test("graph follow-up entry plan preloads a small visible slice before continuin
   assert.equal(plan.hasBasket, true);
   assert.equal(plan.addedCount, 2);
   assert.deepEqual(plan.prefillNoteIds, ["visible-b", "visible-c"]);
-  assert.match(graphWritingEntryReason(plan), /图谱切片还有 2 条可写永久笔记/);
+  assert.match(graphWritingEntryReason(plan), /当前图谱里还有 2 条可写永久笔记/);
 });

@@ -3927,7 +3927,7 @@ function noteMainPathWritingContinuationEntry(noteId, scopeLabel = "当前笔记
   });
 }
 
-function graphWritingContinuationEntry(candidateNoteIds = [], scopeLabel = "当前图谱切片") {
+function graphWritingContinuationEntry(candidateNoteIds = [], scopeLabel = "当前图谱范围") {
   const projectedEntry = graphWritingContinuationInput({
     basketNoteIds: parseWritingBasketIds(),
     candidateNoteIds,
