@@ -24,8 +24,14 @@ const EXCLUDED_PARTS = new Set([
 ]);
 
 const ALLOW_MARKER = "mojibake-risk-allow";
-const REPLACEMENT_PATTERN = /锟|�/g; // mojibake-risk-allow detector marker
-const UTF8_AS_GBK_PATTERN = /(?:[鎴鍏涓绗瑙鐩璇宸澶鏂寮瀹缃鑱姘鏍鐢鎶鐨椂鍙鏄杩][\u4e00-\u9fff]{1,}|鍏ㄨ|鐪嬫|鏁寸悊|鏀惧ぇ|璇荤|缁嗚妭|妫€鏌|寰呭|鐩|绗旇|鍏崇|鍙嶆柟|杈圭晫|锛|銆|€)/g; // mojibake-risk-allow detector marker
+const REPLACEMENT_CHAR_PATTERN = /\uFFFD/g;
+const UTF8_AS_LATIN1_PATTERN = /(?:Ã.|Â.|â€|â€™|â€œ|â€\x9d|â€“|â€”|â€¦)/g; // mojibake-risk-allow
+const UTF8_AS_CJK_PATTERN = /(?:æ[\u0080-\u00FF]|ç[\u0080-\u00FF]|é[\u0080-\u00FF]|ä[\u0080-\u00FF]|å[\u0080-\u00FF]|é€|é¢|æœ|åˆ|çš|ç¬|é”|é—|é¡|å¼|å…|å…³|å†)/g; // mojibake-risk-allow
+const SUSPICIOUS_PATTERN_GROUPS = [
+  { key: "replacementCount", pattern: REPLACEMENT_CHAR_PATTERN },
+  { key: "utf8AsLatin1Count", pattern: UTF8_AS_LATIN1_PATTERN },
+  { key: "utf8AsCjkCount", pattern: UTF8_AS_CJK_PATTERN }
+];
 
 function normalizePath(value = "") {
   return String(value || "").replace(/\\/g, "/");
@@ -66,13 +72,19 @@ function countMatches(text = "", pattern) {
 }
 
 export function classifyMojibakeText(text = "") {
-  const replacementCount = countMatches(text, REPLACEMENT_PATTERN);
-  const utf8AsGbkCount = countMatches(text, UTF8_AS_GBK_PATTERN);
-  return {
-    replacementCount,
-    utf8AsGbkCount,
-    total: replacementCount + utf8AsGbkCount
+  const counts = {
+    replacementCount: 0,
+    utf8AsLatin1Count: 0,
+    utf8AsCjkCount: 0,
+    total: 0
   };
+
+  for (const group of SUSPICIOUS_PATTERN_GROUPS) {
+    counts[group.key] = countMatches(text, group.pattern);
+    counts.total += counts[group.key];
+  }
+
+  return counts;
 }
 
 function shouldIgnoreLine(line = "") {
@@ -87,11 +99,17 @@ export function classifyMojibakeFileText(text = "") {
       (acc, line) => {
         const counts = classifyMojibakeText(line);
         acc.replacementCount += counts.replacementCount;
-        acc.utf8AsGbkCount += counts.utf8AsGbkCount;
+        acc.utf8AsLatin1Count += counts.utf8AsLatin1Count;
+        acc.utf8AsCjkCount += counts.utf8AsCjkCount;
         acc.total += counts.total;
         return acc;
       },
-      { replacementCount: 0, utf8AsGbkCount: 0, total: 0 }
+      {
+        replacementCount: 0,
+        utf8AsLatin1Count: 0,
+        utf8AsCjkCount: 0,
+        total: 0
+      }
     );
 }
 
@@ -132,11 +150,18 @@ export async function collectMojibakeRiskReport({
     (acc, item) => {
       acc.files += 1;
       acc.replacementCount += item.replacementCount;
-      acc.utf8AsGbkCount += item.utf8AsGbkCount;
+      acc.utf8AsLatin1Count += item.utf8AsLatin1Count;
+      acc.utf8AsCjkCount += item.utf8AsCjkCount;
       acc.total += item.total;
       return acc;
     },
-    { files: 0, replacementCount: 0, utf8AsGbkCount: 0, total: 0 }
+    {
+      files: 0,
+      replacementCount: 0,
+      utf8AsLatin1Count: 0,
+      utf8AsCjkCount: 0,
+      total: 0
+    }
   );
   return {
     roots,
@@ -154,17 +179,18 @@ function renderMarkdown(report) {
     "| Metric | Count |",
     "| --- | ---: |",
     `| Files with risk markers | ${report.totals.files} |`,
-    `| Replacement markers (锟 / �) | ${report.totals.replacementCount} |`, // mojibake-risk-allow report label
-    `| UTF-8-as-GBK markers | ${report.totals.utf8AsGbkCount} |`,
+    `| Replacement character (U+FFFD) | ${report.totals.replacementCount} |`,
+    `| UTF-8 shown as Latin-1 style markers | ${report.totals.utf8AsLatin1Count} |`,
+    `| UTF-8 shown as CJK-garbled markers | ${report.totals.utf8AsCjkCount} |`,
     `| Total markers | ${report.totals.total} |`,
     "",
     "## Top Files",
     "",
-    "| File | Replacement | UTF-8-as-GBK | Total |",
-    "| --- | ---: | ---: | ---: |"
+    "| File | Replacement | Latin-1 style | CJK-garbled | Total |",
+    "| --- | ---: | ---: | ---: | ---: |"
   ];
   for (const item of report.items.slice(0, 30)) {
-    lines.push(`| ${item.path} | ${item.replacementCount} | ${item.utf8AsGbkCount} | ${item.total} |`);
+    lines.push(`| ${item.path} | ${item.replacementCount} | ${item.utf8AsLatin1Count} | ${item.utf8AsCjkCount} | ${item.total} |`);
   }
   lines.push("", "## Samples", "");
   for (const item of report.items.slice(0, 12)) {
@@ -182,12 +208,14 @@ export async function runCli(args = process.argv.slice(2), {
   stdout = process.stdout
 } = {}) {
   const json = args.includes("--json");
+  const failOnRisk = args.includes("--fail-on-risk");
   const rootsArgIndex = args.indexOf("--roots");
   const roots = rootsArgIndex >= 0 && args[rootsArgIndex + 1]
     ? args[rootsArgIndex + 1].split(",").map((item) => item.trim()).filter(Boolean)
     : DEFAULT_ROOTS;
   const report = await collectMojibakeRiskReport({ rootDir: cwd, roots });
   stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : renderMarkdown(report));
+  if (failOnRisk && report.totals.total > 0) process.exitCode = 1;
   return report;
 }
 
