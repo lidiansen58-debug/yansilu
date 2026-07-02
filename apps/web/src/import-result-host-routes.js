@@ -13,6 +13,7 @@ export function createImportResultHostRoutes(depsProvider = () => ({})) {
       runtime().defaultSelectedCandidateIds(candidatePreview, candidateSelection, originalityGuard),
     enrichImportHistoryItemsWithLiteratureProgress: (items = []) => runtime().enrichImportHistoryItemsWithLiteratureProgress(items),
     hideImportOperationResultModal: () => runtime().hideImportOperationResultModal(),
+    openFirstImportedPermanentNote: (noteId = "") => runtime().openFirstImportedPermanentNote(noteId),
     openImportedLiteratureQueue: () => runtime().openImportedLiteratureQueue(),
     refreshImportLiteratureBatchSummary: (payload = {}) => runtime().refreshImportLiteratureBatchSummary(payload),
     renderImportWritingActions: (payload = {}) => runtime().renderImportWritingActions(payload),

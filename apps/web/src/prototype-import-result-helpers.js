@@ -141,12 +141,12 @@ export function renderImportWritingActions(payload = {}, { literatureBatchSummar
           : ""
       }
       <button class="mini-btn" type="button" data-import-writing-action="open-literature-queue">
-        处理待转述队列 ${literatureNoteIds.length}
+        处理文献笔记 ${literatureNoteIds.length}
       </button>
       <div class="toolbar-note">${
         literatureBatchSummary
           ? `本批次预测：已完成转述 ${literatureBatchSummary.paraphraseDone}/${literatureBatchSummary.total}，剩余待处理 ${literatureBatchSummary.remaining} 条。`
-          : `这 ${literatureNoteIds.length} 条文献笔记会先进入待转述队列，并默认只显示本次导入范围。`
+          : `这 ${literatureNoteIds.length} 条文献笔记会按本次导入范围连续处理。`
       }</div>
       `
           : ""
@@ -155,15 +155,15 @@ export function renderImportWritingActions(payload = {}, { literatureBatchSummar
         permanentNoteIds.length
           ? `
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes">
-        加入相关笔记 ${permanentNoteIds.length}
+        加入写作相关笔记 ${permanentNoteIds.length}
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
         加入并打开写作中心
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="create-writing-project">
-        直接确定可写主题
+        确定可写主题
       </button>
-      <div class="toolbar-note">把本次新写入的 PermanentNote 直接送进写作中心。</div>
+      <div class="toolbar-note">把本次新写入的永久笔记直接送进写作中心。</div>
       `
           : ""
       }

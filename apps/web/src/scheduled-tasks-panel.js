@@ -271,7 +271,7 @@ export function renderScheduledTasksPanel(state = {}) {
       <div class="scheduled-task-head">
         <div>
           <div class="settings-card-title">后台任务</div>
-          <div class="settings-card-note">定时或手动生成候选结果；输出会先停在待确认建议里。</div>
+          <div class="settings-card-note">定时或手动生成建议；你确认后才会写入笔记。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}

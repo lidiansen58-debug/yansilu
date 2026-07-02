@@ -30,6 +30,7 @@ test("import event bindings route tabs preview and writing actions", async () =>
     importToolbarActions: {
       handlePreview: async () => calls.push(["preview"])
     },
+    openFirstImportedPermanentNote: async (noteId) => calls.push(["openFirst", noteId]),
     createWritingProjectFromImportedPermanentNotes: async () => calls.push(["createProject"]),
     setStatus: (message, tone) => calls.push(["status", tone, message])
   });
@@ -43,11 +44,18 @@ test("import event bindings route tabs preview and writing actions", async () =>
   handlers.get("click")({
     target: targetFor("[data-import-writing-action]", { "data-import-writing-action": "create-writing-project" })
   });
+  handlers.get("click")({
+    target: targetFor("[data-import-writing-action]", {
+      "data-import-writing-action": "open-first-isolated-note",
+      "data-note-id": "pn_1"
+    })
+  });
   await Promise.resolve();
 
   assert.deepEqual(calls[0], ["tab", "export"]);
   assert.ok(calls.some((call) => call[0] === "preview"));
   assert.ok(calls.some((call) => call[0] === "createProject"));
+  assert.ok(calls.some((call) => call[0] === "openFirst" && call[1] === "pn_1"));
 });
 
 test("import event bindings update candidate selection and export directory hints", () => {

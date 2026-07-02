@@ -1058,9 +1058,9 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphAiConnectRuntimeSource, /waitingConfirmationThisRun \+= 1;/);
   assert.match(graphAiConnectRuntimeSource, /if \(refineResult\?\.needsConfirmation\) \{[\s\S]*break;/);
   assert.match(graphAiConnectRuntimeSource, /if \(refineResult\?\.ok === false\) failedThisRun \+= 1;/);
-  assert.match(graphAiConnectRuntimeSource, /已补充 \${generatedThisRun} 条潜在关联的 AI 复核理由，另有 \${waitingConfirmationThisRun} 条等待你确认当前 AI 设置后再生成理由/);
-  assert.match(graphAiConnectRuntimeSource, /已补充 \${generatedThisRun} 条潜在关联的 AI 复核理由，另有 \${failedThisRun} 条暂未生成理由，可稍后重试/);
-  assert.match(graphAiConnectRuntimeSource, /`\${failedThisRun} 条潜在关联暂未生成 AI 理由，可稍后重试`/);
+  assert.match(graphAiConnectRuntimeSource, /已补充 \${generatedThisRun} 条可能关联的 AI 理由，另有 \${waitingConfirmationThisRun} 条等待你确认当前 AI 设置后再生成理由/);
+  assert.match(graphAiConnectRuntimeSource, /已补充 \${generatedThisRun} 条可能关联的 AI 理由，另有 \${failedThisRun} 条暂未生成理由，可稍后重试/);
+  assert.match(graphAiConnectRuntimeSource, /`\${failedThisRun} 条可能关联暂未生成 AI 理由，可稍后重试`/);
   assert.match(graphAiConnectRuntimeSource, /async function refineGraphPotentialRelationCandidate\(noteId = "", candidate = \{\}, \{ directoryId = "", confirmationApproved = false \} = \{\}\) \{/);
   assert.match(graphAiConnectRuntimeSource, /const refined = await refinePotentialRelationCandidate\(\{/);
   assert.match(graphAiConnectRuntimeSource, /const merged = Boolean\(refined && mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)\);/);
@@ -1076,13 +1076,13 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /return graphDecoratePotentialRelationCandidate\(\{[\s\S]*\.\.\.refinedCandidate,[\s\S]*targetNoteId: refinedCandidate\.targetNoteId \|\| refinedCandidate\.toNoteId \|\| candidate\.targetNoteId[\s\S]*\}, \{ nodeMap \}\);/);
   assert.match(graphAiConnectRuntimeSource, /if \(code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND"\) \{/);
   assert.match(graphAiConnectRuntimeSource, /const removed = removePotentialRelationCandidateFromGraphAnalysis\(candidate\);/);
-  assert.match(graphAiConnectRuntimeSource, /这条潜在关联已不在当前图谱范围内，已从候选列表移除/);
+  assert.match(graphAiConnectRuntimeSource, /这条可能关联已不在当前图谱范围内，暂时不再显示/);
   assert.match(graphAiConnectRuntimeSource, /else setStatus\(`生成关系说明失败：\${String\(error\?\.message \|\| error\)}`\, "warn"\);/);
   assert.match(graphAiConnectRuntimeSource, /mergePotentialRelationCandidateIntoGraphAnalysis\(refined\)/);
   assert.match(source, /function graphPotentialRelationNeedsConfirmation\(candidate = \{\}\) \{/);
   assert.match(source, /data-graph-ai-refine-confirm/);
   assert.match(source, /data-graph-ai-refine-retry/);
-  assert.match(graphRouteSource, /已重新生成这条潜在关联的 AI 复核理由/);
+  assert.match(graphRouteSource, /已重新生成这条可能关联的 AI 理由/);
   assert.match(graphRouteSource, /async function triggerGraphPotentialRelationRefine\(/);
   assert.match(graphRouteSource, /async function confirmGraphPotentialRelationRefine\(button = null\) \{/);
   assert.match(graphRouteSource, /async function retryGraphPotentialRelationRefine\(button = null\) \{/);

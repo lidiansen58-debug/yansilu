@@ -195,7 +195,7 @@ export function renderWritingPanelDom(deps = {}) {
   current.textContent = panelState.currentLabel;
   if (scopeHint) {
     scopeHint.textContent = candidateFocusPlan.usingFocusedScope
-      ? `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱切片进入写作中心的，候选区会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；相关笔记和可写主题仍保持当前目录范围。`
+      ? `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱进入写作中心的，下面会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；相关笔记和可写主题仍保持当前目录范围。`
       : `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作中心入口默认从已有观点开始。`;
   }
   renderWritingStatusStripDom(deps);
@@ -269,7 +269,7 @@ export function renderWritingPanelDom(deps = {}) {
             })
           )
           .join("")
-      : `<div class="writing-empty">${candidateFocusPlan.usingFocusedScope ? `${candidateFocusPlan.scopeLabel}里还没有可用的永久笔记候选。` : "当前目录还没有可用的永久笔记候选。"}</div>`;
+      : `<div class="writing-empty">${candidateFocusPlan.usingFocusedScope ? `${candidateFocusPlan.scopeLabel}里还没有可用的永久笔记。` : "当前目录还没有可用的永久笔记。"}</div>`;
   }
   if ($("btnWritingAddVisible")) {
     $("btnWritingAddVisible").textContent = candidateFocusPlan.addActionLabel;

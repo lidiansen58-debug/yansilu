@@ -45,7 +45,7 @@ export function systemMessageActionLabel(message = {}) {
   if (message.resolvedAt) return "";
   if (message.actionLabel) return message.actionLabel;
   if (message.action === "open-ai-inbox") return "处理待确认建议";
-  if (message.action === "open-graph") return "查看候选并确认关系";
+  if (message.action === "open-graph") return "查看并确认关系";
   if (message.action === "open-writing") return "继续整理主题";
   if (message.action === "open-note") return "打开笔记";
   if (message.action === "open-note-workflow") return "打开并处理";

@@ -33,7 +33,7 @@ export function installAppRailEventBindings(deps = {}) {
       }
       if (targetModule === "aiInbox" && state.module === "aiInbox") {
         await openAiInboxModule();
-        if (state.module === "aiInbox") setStatus("已打开 AI 建议复核", "ok");
+        if (state.module === "aiInbox") setStatus("已打开 AI 建议", "ok");
       }
       if (targetModule === "settings" && state.module === "settings") {
         try {

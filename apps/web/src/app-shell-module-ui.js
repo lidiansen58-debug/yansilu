@@ -9,7 +9,7 @@ export function currentModuleSidebarUi({
     distillation: {
       sidebarTitle: "观点整理",
       sidebarSubtitle: "把永久笔记推进成清晰观点。",
-      sidebarFoot: "观点整理队列只推动手写字段与确认动作；AI 候选后续仍保持待审，不直接改写笔记。",
+      sidebarFoot: "观点整理只给出建议；你确认后才会写入笔记。",
       title: "观点整理",
       summary: "这里集中处理永久笔记的一句话判断、三句话压缩与确认状态。先让观点变清楚，再进入关系、主题与写作。",
       sidebarHtml: `
@@ -36,11 +36,11 @@ export function currentModuleSidebarUi({
       sidebarHtml: ""
     },
     aiInbox: {
-      sidebarTitle: "AI 建议复核",
+      sidebarTitle: "AI 建议",
       sidebarSubtitle: "从系统消息进入，是否落地由你确认。",
       sidebarFoot: "系统消息会先承接 AI 建议。只有你点击采纳、建立关系或生成草稿后，才会进入笔记系统。",
-      title: "AI 建议复核",
-      summary: "这里处理系统消息中的 AI 关联、问题、冲突和写作线索。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
+      title: "AI 建议",
+      summary: "这里处理需要你确认的关系、问题、冲突和写作建议。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>它用来做什么</h3>

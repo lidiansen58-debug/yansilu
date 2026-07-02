@@ -64,7 +64,7 @@ test("permanent relation workspace renders a large relation-only flow", () => {
   assert.match(html, /AI 推荐/);
   assert.match(html, /手动搜索/);
   assert.match(html, /data-permanent-relation-ai-select/);
-  assert.match(html, /AI 只提供候选；保存前请确认关系类型和理由/);
+  assert.match(html, /AI 只提供推荐；保存前请确认关系类型和理由/);
   assert.doesNotMatch(html, /观点提纯/);
   assert.doesNotMatch(html, /写作准备/);
   assert.doesNotMatch(html, /进入草稿/);
@@ -356,7 +356,7 @@ test("permanent relation AI recommendations show useful target titles without in
   assert.match(html, new RegExp(target.title));
   assert.match(html, /46%/);
   assert.match(html, /AI 推荐目标/);
-  assert.match(html, /AI 只提供候选；保存前请确认关系类型和理由/);
+  assert.match(html, /AI 只提供推荐；保存前请确认关系类型和理由/);
   assert.match(html, /标题、标签或摘要/);
   assert.doesNotMatch(html, /<strong>YJ-D09<\/strong>/);
   assert.doesNotMatch(html, /查看其他候选/);

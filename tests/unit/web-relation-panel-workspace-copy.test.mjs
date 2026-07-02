@@ -80,7 +80,7 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /data-permanent-relation-ai-select/);
   assert.match(source, /建立笔记关联/);
   assert.match(sidebarView, /正在读取这条笔记的正式关系。读取完成后再保存新关系。/);
-  assert.match(sidebarView, /AI 找到 \$\{escapeHtml\(String\(assist\.relationCandidates\)\)\} 条可复核候选。确认前不会自动保存。/);
+  assert.match(sidebarView, /AI 推荐了 \$\{escapeHtml\(String\(assist\.relationCandidates\)\)\} 条可能关联。你选择并保存后才会建立关系。/);
 
   assert.doesNotMatch(source, /提纯与 AI/);
   assert.doesNotMatch(source, /renderRelated\("当前笔记关联总览"\)/);

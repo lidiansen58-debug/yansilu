@@ -144,7 +144,7 @@ function renderAiCandidates({ state, candidates = [], relations = null, notes = 
         <strong>${escapeHtml(selectedTitle)}</strong>
         ${selectedScore ? `<span>相关性 ${escapeHtml(selectedScore)}</span>` : ""}
         <p>${escapeHtml(selectedReason)}</p>
-        ${existing ? "<small>这两条笔记已经有正式关系，可以在右侧修改后保存。</small>" : "<small>AI 只提供候选；保存前请确认关系类型和理由。</small>"}
+        ${existing ? "<small>这两条笔记已经有正式关系，可以在右侧修改后保存。</small>" : "<small>AI 只提供推荐；保存前请确认关系类型和理由。</small>"}
       </div>
     </div>
   `;

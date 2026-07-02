@@ -31,34 +31,34 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       if (refineResult?.ok === false) failedThisRun += 1;
     }
     if (waitingConfirmationThisRun && generatedThisRun) {
-      setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${waitingConfirmationThisRun} 条等待你确认当前 AI 设置后再生成理由`, "warn");
+      setStatus(`已补充 ${generatedThisRun} 条可能关联的 AI 理由，另有 ${waitingConfirmationThisRun} 条等待你确认当前 AI 设置后再生成理由`, "warn");
       return;
     }
     if (waitingConfirmationThisRun) {
-      setStatus(`${waitingConfirmationThisRun} 条潜在关联等待你确认当前 AI 设置后再生成理由`, "warn");
+      setStatus(`${waitingConfirmationThisRun} 条可能关联等待你确认当前 AI 设置后再生成理由`, "warn");
       return;
     }
     if (removedThisRun && generatedThisRun) {
-      setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${removedThisRun} 条因图谱已变化从候选列表移除`, "warn");
+      setStatus(`已补充 ${generatedThisRun} 条可能关联的 AI 理由，另有 ${removedThisRun} 条因图谱已变化不再显示`, "warn");
       return;
     }
     if (removedThisRun && failedThisRun) {
-      setStatus(`${failedThisRun} 条潜在关联暂未生成 AI 理由，另有 ${removedThisRun} 条因图谱已变化从候选列表移除`, "warn");
+      setStatus(`${failedThisRun} 条可能关联暂未生成 AI 理由，另有 ${removedThisRun} 条因图谱已变化不再显示`, "warn");
       return;
     }
     if (removedThisRun) {
       return;
     }
     if (failedThisRun && generatedThisRun) {
-      setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由，另有 ${failedThisRun} 条暂未生成理由，可稍后重试`, "warn");
+      setStatus(`已补充 ${generatedThisRun} 条可能关联的 AI 理由，另有 ${failedThisRun} 条暂未生成理由，可稍后重试`, "warn");
       return;
     }
     if (failedThisRun) {
-      setStatus(`${failedThisRun} 条潜在关联暂未生成 AI 理由，可稍后重试`, "warn");
+      setStatus(`${failedThisRun} 条可能关联暂未生成 AI 理由，可稍后重试`, "warn");
       return;
     }
     if (generatedThisRun) {
-      setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由`, "ok");
+      setStatus(`已补充 ${generatedThisRun} 条可能关联的 AI 理由`, "ok");
     }
   }
   async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}, { directoryId = "", confirmationApproved = false } = {}) {
@@ -97,7 +97,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       }
       if (confirmationApproved && aiReason) {
         setStatus(
-          merged ? "已确认使用当前 AI 设置，并补充这条潜在关联的复核理由" : "AI 理由已生成，但当前图谱范围已变化，请重新打开这条笔记查看",
+          merged ? "已确认使用当前 AI 设置，并补充这条可能关联的 AI 理由" : "AI 理由已生成，但当前图谱范围已变化，请重新打开这条笔记查看",
           merged ? "ok" : "warn"
         );
         return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: true };
@@ -116,7 +116,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       if (code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND") {
         const removed = removePotentialRelationCandidateFromGraphAnalysis(candidate);
         if (removed) renderGraphPanel();
-        setStatus("这条潜在关联已不在当前图谱范围内，已从候选列表移除", "warn");
+        setStatus("这条可能关联已不在当前图谱范围内，暂时不再显示", "warn");
         return { ok: false, needsConfirmation: false, merged: false, removed };
       }
       const needsConfirmation = code === "AI_ROUTE_CONFIRMATION_REQUIRED" || code === "AI_BUDGET_CONFIRMATION_REQUIRED";
@@ -168,7 +168,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
     try {
       const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
       if (!localAiReady) {
-        setStatus("已打开候选关系整理；当前 AI 不可用，可以先用本地线索或手工搜索建立关系。", "warn");
+        setStatus("已打开关系整理；当前 AI 不可用，可以先用本地推荐或手工搜索建立关系。", "warn");
         return true;
       }
       const result = await analyzeDirectoryGraph(directoryId, graphAiConnectAnalysisOptions(cleanNoteId));
@@ -206,7 +206,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
           title: `${noteTitle} 找到可能关系`,
           body: `“${noteTitle}”找到 ${candidates.length} 个可选目标${candidateTitles.length ? `：${candidateTitles.join("、")}` : ""}。打开后只保存能说清理由的关系。`,
           action: "open-graph",
-          actionLabel: "查看候选并确认关系",
+          actionLabel: "选择并保存关系",
           noteId: cleanNoteId,
           sourceNoteId: cleanNoteId,
           artifactCount: candidates.length,
@@ -217,7 +217,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
         graphState.aiReviewSystemMessageId = "";
       }
       graphState.thinkingPanelVisible = true;
-      setStatus(candidates.length ? `已找到 ${candidates.length} 条潜在关联，请确认后再写入图谱` : "当前笔记接入扫描完成，暂无清楚候选连接", candidates.length ? "ok" : "warn");
+      setStatus(candidates.length ? `已找到 ${candidates.length} 条可能关联，请选择并保存一条关系` : "当前笔记扫描完成，暂时没有清楚推荐", candidates.length ? "ok" : "warn");
       if (candidates.length && !firstTargetId) void refineGraphPotentialRelationsForNote(cleanNoteId, candidates, { directoryId });
       return true;
     } catch (error) {

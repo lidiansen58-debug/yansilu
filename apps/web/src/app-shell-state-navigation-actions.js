@@ -114,6 +114,6 @@ export async function handleOpenNoteAiInboxStateChange(payload = {}, deps = {}) 
   aiInboxState.selectedArtifactId = "";
   activateModule("aiInbox");
   await openAiInboxModule();
-  setStatus("已打开当前笔记的 AI 建议复核", "ok");
+  setStatus("已打开当前笔记的 AI 建议", "ok");
   return true;
 }

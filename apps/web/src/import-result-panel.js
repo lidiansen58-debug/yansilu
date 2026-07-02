@@ -53,14 +53,30 @@ function renderOrganizingOverview(data = {}) {
   if (!overview || Number(overview.permanentCount || 0) <= 0) return "";
   const recommended = Array.isArray(overview.recommendedFirst) ? overview.recommendedFirst : [];
   const themes = Array.isArray(overview.themeCandidates) ? overview.themeCandidates : [];
+  const firstRecommended = recommended.find((item) => item?.noteId || item?.id) || null;
   return `
     <section class="import-organizing-home" aria-label="导入后的整理首页">
       <div class="import-organizing-home-head">
         <div>
-          <strong>整理首页</strong>
-          <p>先把永久笔记接入关系网，再决定是否进入写作。</p>
+          <strong>接下来可以这样整理</strong>
+          <p>先处理一条未关联笔记，再看看哪些笔记已经能写成文章。</p>
         </div>
-        <span>${escapeHtml(overview.writingReady ? "可以开始写作准备" : "先整理关系")}</span>
+        <span>${escapeHtml(overview.writingReady ? "已有可写主题" : "先整理关系")}</span>
+      </div>
+      <div class="import-organizing-home-actions" aria-label="导入后的主操作">
+        ${
+          firstRecommended
+            ? `<button class="mini-btn primary" type="button" data-import-writing-action="open-first-isolated-note" data-note-id="${escapeHtml(firstRecommended.noteId || firstRecommended.id)}">
+                处理第一条未关联笔记
+              </button>`
+            : `<span class="toolbar-note">这批永久笔记暂时没有需要优先处理的未关联笔记。</span>`
+        }
+        <button class="mini-btn" type="button" data-import-writing-action="create-writing-project">
+          查看可写主题
+        </button>
+        <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
+          打开写作中心
+        </button>
       </div>
       <div class="import-organizing-home-metrics">
         <div><span>导入永久笔记</span><strong>${escapeHtml(overview.permanentCount)}</strong></div>
@@ -77,7 +93,7 @@ function renderOrganizingOverview(data = {}) {
       }
       ${
         themes.length
-          ? `<div class="import-organizing-home-list"><strong>可写主题线索</strong><ul>${themes
+          ? `<div class="import-organizing-home-list"><strong>可以继续写的主题</strong><ul>${themes
               .map((item) => `<li>${escapeHtml(item.title)}（${escapeHtml(item.noteCount)} 条笔记）</li>`)
               .join("")}</ul></div>`
           : ""
@@ -158,7 +174,7 @@ export function renderImportResultPanel({
           : ""
       }
       ${writingActionsHtml}
-      ${renderDetailSection("候选详情", candidatePreviewHtml, "result-candidates-detail")}
+      ${renderDetailSection("导入明细", candidatePreviewHtml, "result-candidates-detail")}
       ${renderDetailSection("跳过与保留", skipBreakdownHtml, "result-skip-detail")}
       ${renderDetailSection("写作后续", writingDetailsHtml, "result-writing-detail")}
       ${

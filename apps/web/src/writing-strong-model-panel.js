@@ -22,7 +22,7 @@ export function renderWritingStrongModelSummaryDom({
       strongModelSummary.textContent = "正在准备 AI 写作检查请求...";
     } else if (request) {
       strongModelSummary.textContent = result?.result
-        ? `已归一化 ${artifactCount} 条写作待审建议，全部进入系统消息中的 AI 建议复核后再决定是否采用。`
+        ? `已整理 ${artifactCount} 条写作建议，全部进入系统消息，等你决定是否采用。`
         : `已准备 ${request.model?.model || "strong_model"} 请求包；当前没有直接调用远程模型。`;
     } else {
       strongModelSummary.textContent = describeWritingStrongModelIdleSummary({

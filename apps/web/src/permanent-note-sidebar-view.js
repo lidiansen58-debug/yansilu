@@ -84,7 +84,7 @@ export function renderPermanentNoteRelationAssistSection({
       </div>
       ${
         analysis && assist.relationCandidates
-          ? `<div class="permanent-workspace-ai-note">AI 找到 ${escapeHtml(String(assist.relationCandidates))} 条可复核候选。确认前不会自动保存。</div>`
+          ? `<div class="permanent-workspace-ai-note">AI 推荐了 ${escapeHtml(String(assist.relationCandidates))} 条可能关联。你选择并保存后才会建立关系。</div>`
           : ""
       }
       <div class="semantic-relation-actions">

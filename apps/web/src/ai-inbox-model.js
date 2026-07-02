@@ -61,7 +61,7 @@ export function aiInboxViewOptions() {
 export function aiInboxTypeOptions() {
   return [
     { value: "all", label: "全部建议" },
-    { value: "LinkSuggestion", label: "关系候选" },
+    { value: "LinkSuggestion", label: "可能关联" },
     { value: "ReflectionPrompt", label: "反思提示" },
     { value: "QuestionCard", label: "问题卡片" },
     { value: "ResearchCard", label: "研究卡片" },

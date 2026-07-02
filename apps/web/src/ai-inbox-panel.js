@@ -754,7 +754,7 @@ function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false)
     <section class="ai-inbox-review-brief" aria-label="建议处理重点">
       <div class="ai-inbox-review-brief-head">
         <div>
-          <span>${escapeHtml(isIsolated ? "待关联笔记" : type === "BridgeCard" ? "缺少连接" : "关系候选")}</span>
+          <span>${escapeHtml(isIsolated ? "待关联笔记" : type === "BridgeCard" ? "缺少连接" : "可能关联")}</span>
           <strong>${escapeHtml(title)}</strong>
         </div>
         ${renderBadge(aiInboxStatusLabel(active.status || item.status), aiInboxStatusTone(active.status || item.status))}
@@ -779,7 +779,7 @@ function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false)
       }
       ${
         link && !link.canAccept
-          ? `<div class="ai-inbox-detail-muted">这条候选不是“笔记到笔记”的关系，不能直接写入图谱。可以打开相关笔记，手工整理成正式关系。</div>`
+          ? `<div class="ai-inbox-detail-muted">这条建议不是“笔记到笔记”的关系，不能直接写入图谱。可以打开相关笔记，手工整理成正式关系。</div>`
           : ""
       }
       <div class="ai-inbox-actions">
@@ -1011,7 +1011,7 @@ export function renderAiInboxPanel(state = {}) {
     <div class="ai-inbox-shell">
       <header class="ai-inbox-topline">
         <div>
-          <div class="import-card-kicker">AI 建议复核</div>
+          <div class="import-card-kicker">AI 建议</div>
           <strong>${escapeHtml(viewLabel(summary.view))}：当前显示 ${escapeHtml(summary.visible)} 条，共 ${escapeHtml(summary.viewCount)} 条</strong>
           <p>逐条确认 AI 或本地规则发现的关系、问题和写作建议；未确认前不会改动笔记或图谱。</p>
         </div>

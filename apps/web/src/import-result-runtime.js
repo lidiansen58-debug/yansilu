@@ -228,7 +228,7 @@ export function createImportResultRuntime(deps = {}) {
   async function openImportedLiteratureQueue() {
     const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "literature");
     if (!noteIds.length) {
-      setStatus("当前导入结果里没有可继续处理的 LiteratureNote", "warn");
+      setStatus("当前导入结果里没有可继续处理的文献笔记", "warn");
       return false;
     }
     await ensureNotesLoaded(noteIds);
@@ -237,7 +237,30 @@ export function createImportResultRuntime(deps = {}) {
     activateModule("explorer");
     const opened = openNoteById(noteIds[0], { preferTitleSelection: false });
     if (!opened) return false;
-    setStatus(`已打开 ${noteIds.length} 条导入文献中的第一条，并只显示本次导入的待转述队列`, "ok");
+    setStatus(`已打开 ${noteIds.length} 条导入文献中的第一条，并只显示本次导入的文献处理列表`, "ok");
+    return true;
+  }
+
+  async function openFirstImportedPermanentNote(noteId = "") {
+    const overview = importState.lastResultPayload?.result?.organizingOverview || importState.lastResultPayload?.importRecord?.confirmResult?.organizingOverview || null;
+    const recommended = Array.isArray(overview?.recommendedFirst) ? overview.recommendedFirst : [];
+    const selectedNoteId =
+      String(noteId || "").trim() ||
+      String(recommended.find((item) => item?.noteId || item?.id)?.noteId || recommended.find((item) => item?.noteId || item?.id)?.id || "").trim() ||
+      "";
+    if (!selectedNoteId) {
+      setStatus("当前导入结果里没有需要优先处理的未关联永久笔记", "warn");
+      return false;
+    }
+    await ensureNotesLoaded([selectedNoteId]);
+    activateModule("explorer");
+    const opened = openNoteById(selectedNoteId, { preferTitleSelection: false });
+    if (!opened) {
+      setStatus("这条永久笔记暂时打不开，请从永久笔记盒中手动打开。", "warn");
+      return false;
+    }
+    hideImportOperationResultModal();
+    setStatus("已打开第一条未关联永久笔记。下一步：用右侧的关系整理选择目标笔记并保存关系。", "ok");
     return true;
   }
 
@@ -349,6 +372,7 @@ export function createImportResultRuntime(deps = {}) {
     refreshImportLiteratureBatchSummary,
     enrichImportHistoryItemsWithLiteratureProgress,
     openImportedLiteratureQueue,
+    openFirstImportedPermanentNote,
     addImportedPermanentNotesToWritingBasket,
     activeImportPreviewContext,
     updateImportConfirmButton,

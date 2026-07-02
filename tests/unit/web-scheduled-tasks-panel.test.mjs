@@ -31,7 +31,7 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   });
 
   assert.match(html, /后台任务/);
-  assert.match(html, /输出会先停在待确认建议里/);
+  assert.match(html, /你确认后才会写入笔记/);
   assert.match(html, /id="scheduledTaskStatusFilter"/);
   assert.match(html, /id="scheduledTaskTypeFilter"/);
   assert.match(html, /id="btnScheduledTasksRunDue"/);

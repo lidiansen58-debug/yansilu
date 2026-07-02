@@ -123,7 +123,7 @@ export function moduleLabel(moduleName = "") {
   const labels = {
     explorer: "笔记编辑",
     imports: "导入导出",
-    aiInbox: "AI 建议复核",
+    aiInbox: "AI 建议",
     distillation: "观点提纯",
     graph: "关系图谱",
     writing: "写作中心",

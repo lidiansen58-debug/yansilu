@@ -114,7 +114,7 @@ export function createGraphRouteRuntime(deps = {}) {
     });
     if (!confirmationApproved && result?.aiReasonGenerated) {
       setStatus(
-        result?.merged ? "已重新生成这条潜在关联的 AI 复核理由" : "AI 理由已生成，但当前图谱范围已变化，请重新打开这条笔记查看",
+        result?.merged ? "已重新生成这条可能关联的 AI 理由" : "AI 理由已生成，但当前图谱范围已变化，请重新打开这条笔记查看",
         result?.merged ? "ok" : "warn"
       );
     }
