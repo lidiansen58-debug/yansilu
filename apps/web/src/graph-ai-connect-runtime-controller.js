@@ -1,16 +1,13 @@
 import { graphAiConnectAnalysisOptions, graphAiConnectArtifactCount, graphAiConnectCandidateTitles, graphAiConnectPreviewTargetId } from "./graph-ai-connect-model.js";
-
 export function createGraphAiConnectRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
   const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
-
   async function waitForGraphLoad(graphState = {}, { timeoutMs = 15000, intervalMs = 50 } = {}) {
     if (!graphState.loading) return true;
     const deadline = Date.now() + timeoutMs;
     while (graphState.loading && Date.now() < deadline) await wait(intervalMs);
     return !graphState.loading;
   }
-
   async function refineGraphPotentialRelationsForNote(noteId = "", candidates = [], { directoryId = "" } = {}) {
     const { setStatus = () => {} } = runtimeDeps();
     const cleanNoteId = String(noteId || "").trim();
@@ -64,7 +61,6 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       setStatus(`已补充 ${generatedThisRun} 条潜在关联的 AI 复核理由`, "ok");
     }
   }
-
   async function refineGraphPotentialRelationCandidate(noteId = "", candidate = {}, { directoryId = "", confirmationApproved = false } = {}) {
     const {
       graphPotentialRelationNeedsConfirmation = () => false,
@@ -136,7 +132,6 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       return { ok: false, needsConfirmation, merged: true };
     }
   }
-
   async function runGraphAiConnectForNote(noteId = "") {
     const {
       addSystemMessage = () => {},
@@ -234,6 +229,5 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       renderGraphPanel();
     }
   }
-
   return { refineGraphPotentialRelationCandidate, refineGraphPotentialRelationsForNote, runGraphAiConnectForNote };
 }

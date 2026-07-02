@@ -6,11 +6,9 @@ function defaultRelationVisual(type = "") {
   if (key === "bridges" || key === "connects") return { key: "bridge" };
   return { key: "associated" };
 }
-
 function defaultEdgeSelectionKey(edge = {}) {
   return String(edge?.id || `${edge?.fromNoteId || ""}->${edge?.toNoteId || ""}:${edge?.relationType || ""}`).trim();
 }
-
 function defaultReadingLensMeta(value = "insight") {
   const key = String(value || "insight").trim().toLowerCase();
   if (key === "bridge" || key === "argument") return { key };

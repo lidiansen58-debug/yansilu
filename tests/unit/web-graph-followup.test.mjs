@@ -348,7 +348,7 @@ test("graph writing followup keeps basket-first wording when no new visible note
 
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /还没有适合新增的相关笔记/);
-  assert.match(plan.statusMessage, /继续这组相关笔记/);
+  assert.match(plan.statusMessage, /继续写作/);
   assert.match(plan.statusMessage, /回到图谱补关系\/边界/);
   assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });

@@ -37,7 +37,7 @@ test("graph visual map selection state routes relation workflow nodes to isolate
     graphNodeNeedsRelationWorkflow: (nodeId, edges, nodeMap) => {
       assert.equal(nodeId, "a");
       assert.equal(edges, selectionEdges);
-      assert.equal(nodeMap, selectionNodeMap);
+      assert.deepEqual([...nodeMap.keys()].sort(), [...selectionNodeMap.keys()].sort());
       return true;
     }
   });

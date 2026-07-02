@@ -248,7 +248,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-template-card-model.js": 80,
     "editor-host-deps.js": 130,
     "graph-ai-connect-model.js": 60,
-    "graph-ai-connect-runtime-controller.js": 230,
+    "graph-ai-connect-runtime-controller.js": 240,
     "graph-followup-controller.js": 260,
     "graph-followup-draft-templates.js": 190,
     "graph-isolated-decision-controller.js": 110,

@@ -513,7 +513,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(scaffold.json.item.writing_project.scaffold_id, scaffold.json.item.id);
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "ready_for_review");
   assert.match(scaffold.json.export.markdown, /# Writing mainline/);
-  assert.match(scaffold.json.export.markdown, /## 草稿骨架预检/);
+  assert.match(scaffold.json.export.markdown, /## 文章提纲预检/);
   assert.match(scaffold.json.export.markdown, /- 提醒 已确认提纯/);
   assert.match(scaffold.json.export.markdown, /- 提醒 提纯质量/);
   assert.match(scaffold.json.export.markdown, /## 段落-证据对照表/);

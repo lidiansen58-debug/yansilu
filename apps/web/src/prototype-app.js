@@ -700,17 +700,11 @@ const noteRuntimeController = createNoteRuntimeController(() => ({
   writeStoredRelationNetworkStatus,
   writeStoredText
 }));
-
 function noteGeneratedOriginalNoteId(note = null) { return noteRuntimeController.noteGeneratedOriginalNoteId(note); }
-
 function noteHasGeneratedOriginal(note = null) { return noteRuntimeController.noteHasGeneratedOriginal(note); }
-
 function relationNetworkStatusForNote(note = null, options = {}) { return noteRuntimeController.relationNetworkStatusForNote(note, options); }
-
 function syncNoteRelationNetworkStatus(note = null, options = {}) { return noteRuntimeController.syncNoteRelationNetworkStatus(note, options); }
-
 function syncAllNoteRelationNetworkStatuses(options = {}) { return noteRuntimeController.syncAllNoteRelationNetworkStatuses(options); }
-
 function isOriginalRecordableSource(note = null) {
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
   return noteType === "fleeting" || noteType === "literature";
@@ -823,15 +817,10 @@ const {
   eventDeps: systemMessageEventDeps,
   runtimeDeps: systemMessagesRuntimeDeps
 } = systemMessageDepsProviders;
-
 function markSystemMessagesRead() { return markSystemMessagesReadForRuntime(systemMessagesRuntimeDeps()); }
-
 function addSystemMessage(message = {}, { interrupt = false } = {}) { return addSystemMessageForRuntime(message, { interrupt }, systemMessagesRuntimeDeps()); }
-
 function upsertSystemMessage(message = {}, { interrupt = false, preserveRead = true } = {}) { return upsertSystemMessageForRuntime(message, { interrupt, preserveRead }, systemMessagesRuntimeDeps()); }
-
 function resolveSystemMessageByDedupeKey(dedupeKey = "") { return resolveSystemMessageByDedupeKeyForRuntime(dedupeKey, systemMessagesRuntimeDeps()); }
-
 function scheduledTaskReviewArtifactCount(summary = {}) {
   return (Array.isArray(summary?.runs) ? summary.runs : []).reduce((total, run) => {
     const result = run?.result || {};

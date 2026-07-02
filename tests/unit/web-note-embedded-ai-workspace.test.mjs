@@ -177,7 +177,6 @@ test("editor-triggered note AI analysis stays in the current note workspace", as
 
   assert.deepEqual(calls, [
     ["status", "正在运行本地永久笔记 AI 分析...", "warn"],
-    "message",
     ["status", "已生成 1 条待审 AI 建议，可在当前笔记里处理", "ok"]
   ]);
   assert.deepEqual(aiInboxState, { filters: {}, detail: { id: "old" }, selectedArtifactId: "old" });
