@@ -4,6 +4,10 @@ import {
 import {
   uniqueStrings
 } from "./prototype-thinking-status.js";
+import {
+  clearWritingEntryContextForRuntime,
+  setWritingEntryContextForRuntime
+} from "./writing-session-state.js";
 
 function writingFormContext($ = () => null) {
   return {
@@ -30,7 +34,10 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     statusMessage = "已打开写作中心",
     focusedCandidateNoteIds = null,
     focusedCandidateScopeLabel = "",
-    preserveFocusedCandidateScope = false
+    preserveFocusedCandidateScope = false,
+    preserveEntryContext = false,
+    entryReason = "",
+    entrySourceLabel = ""
   } = {}) {
     const {
       activateModule = () => {},
@@ -52,6 +59,8 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       writingThemeIndexScopeDirectoryId = () => ""
     } = runtimeDeps();
     const normalizedFocusedCandidateNoteIds = Array.isArray(focusedCandidateNoteIds) ? uniqueStrings(focusedCandidateNoteIds) : null;
+    const cleanEntryReason = String(entryReason || "").trim();
+    const cleanEntrySourceLabel = String(entrySourceLabel || "").trim();
     if (normalizedFocusedCandidateNoteIds?.length) {
       try {
         await ensureNotesLoaded(normalizedFocusedCandidateNoteIds, { force: true });
@@ -62,6 +71,11 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       setWritingFocusedCandidateScope(normalizedFocusedCandidateNoteIds, focusedCandidateScopeLabel || "当前图谱切片");
     } else if (!preserveFocusedCandidateScope) {
       clearWritingFocusedCandidateScope();
+    }
+    if (cleanEntryReason) {
+      setWritingEntryContextForRuntime(writingState, { reason: cleanEntryReason, sourceLabel: cleanEntrySourceLabel });
+    } else if (!preserveEntryContext) {
+      clearWritingEntryContextForRuntime(writingState);
     }
     activateModule("writing");
     const writingProjectId = String(writingState.project?.id || "").trim();

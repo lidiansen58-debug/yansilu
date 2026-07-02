@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  clearWritingEntryContextForRuntime,
   clearWritingFocusedCandidateScopeForRuntime,
   clearWritingSourceIndexIdsForRuntime,
   clearWritingThemeRelationCountsForRuntime,
   resetWritingStrongModelStateForRuntime,
+  setWritingEntryContextForRuntime,
   setWritingFocusedCandidateScopeForRuntime,
   setWritingSourceIndexIdsForRuntime
 } from "../../apps/web/src/writing-session-state.js";
@@ -22,6 +24,22 @@ test("writing session state clears theme relation counts for a normalized note s
   assert.deepEqual(writingState.themeRelationCounts, {});
   assert.deepEqual(writingState.themeRelationCountErrors, {});
   assert.equal(writingState.loadingThemeRelationCounts, false);
+});
+
+test("writing session state stores and clears entry context", () => {
+  const writingState = {};
+
+  assert.deepEqual(setWritingEntryContextForRuntime(writingState, {
+    reason: " 这组笔记已经形成主题 ",
+    sourceLabel: " 今日整理 "
+  }), {
+    reason: "这组笔记已经形成主题",
+    sourceLabel: "今日整理"
+  });
+  assert.deepEqual(clearWritingEntryContextForRuntime(writingState), {
+    reason: "",
+    sourceLabel: ""
+  });
 });
 
 test("writing session state stores and clears focused candidate scope", () => {
