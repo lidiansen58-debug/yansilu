@@ -58,8 +58,8 @@ function renderOrganizingOverview(data = {}) {
     <section class="import-organizing-home" aria-label="导入后的整理首页">
       <div class="import-organizing-home-head">
         <div>
-          <strong>接下来可以这样整理</strong>
-          <p>先处理一条还没进入关系网的永久笔记，再看看哪些笔记已经能写成文章。</p>
+          <strong>今天先做什么</strong>
+          <p>先把一条未关联永久笔记接入关系网；如果已经有成组判断，再去看可写主题。</p>
         </div>
         <span>${escapeHtml(overview.writingReady ? "已有可写主题" : "先整理关系")}</span>
       </div>
@@ -78,7 +78,7 @@ function renderOrganizingOverview(data = {}) {
           打开写作中心
         </button>
         <button class="mini-btn" type="button" data-import-writing-action="open-today">
-          打开今日整理
+          去今日整理
         </button>
       </div>
       <div class="import-organizing-home-metrics">

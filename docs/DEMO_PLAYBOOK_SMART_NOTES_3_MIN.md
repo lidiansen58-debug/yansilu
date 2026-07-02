@@ -26,6 +26,8 @@ node scripts/seed-smart-notes-product-thinking.mjs --vault $env:DEMO_VAULT
 
 The generated vault is safe to delete and regenerate. It is not a source asset, not a fixture, and not intended for commit. The source of truth remains the checked-in fixture plus seed path described in `docs/RICH_DEMO_USAGE_ENTRY.md`.
 
+For the first-time user path and short explanations of relations, writing timing, and index notes, use `docs/SMART_NOTES_DEMO_HELP.md`.
+
 After opening the prototype entry:
 
 1. Confirm the status bar says the Smart Notes demo imported 100 permanent notes, 306 relations, and 1 writing project.
