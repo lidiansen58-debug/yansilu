@@ -8,17 +8,18 @@ export function currentModuleSidebarUi({
   const configs = {
     today: {
       sidebarTitle: "今日整理",
-      sidebarSubtitle: "打开后先看今天最该做什么。",
-      sidebarFoot: "先处理关系，再整理主题，最后进入写作。图谱只是结果视图，不要求一开始看懂。",
+      sidebarSubtitle: "打开后只看下一步该做什么。",
+      sidebarFoot: "今天只推进一个小动作：接入关系、整理主题索引，或从主题进入写作。",
       title: "今日整理",
-      summary: "这里只保留三个主动作：处理未关联笔记、整理可成主题、开始写作。每个动作都从具体笔记或主题进入。",
+      summary: "这里把卢曼方法压成当天可做的小动作：先让新永久笔记找旧笔记并写清关系理由，再把 3-7 条同问题笔记整理成主题索引，最后从主题进入写作。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>使用顺序</h3>
           <ol class="module-sidebar-list">
-            <li>先让新永久笔记进入关系网</li>
-            <li>再把一组相关笔记整理成主题入口</li>
-            <li>最后从主题进入文章提纲和草稿</li>
+            <li>写完永久笔记，马上找一条旧笔记</li>
+            <li>建立关系，并写清为什么相关</li>
+            <li>3-7 条笔记围绕同一问题时，整理成主题索引</li>
+            <li>从主题索引进入文章提纲和草稿</li>
           </ol>
         </div>
       `

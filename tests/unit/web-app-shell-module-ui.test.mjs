@@ -37,8 +37,11 @@ test("app shell module ui exposes today organizing as a plain next-step entry", 
   const ui = currentModuleSidebarUi({ module: "today" });
 
   assert.equal(ui.title, "今日整理");
-  assert.match(ui.summary, /处理未关联笔记/);
-  assert.match(ui.sidebarHtml, /先让新永久笔记进入关系网/);
+  assert.match(ui.summary, /找旧笔记并写清关系理由/);
+  assert.match(ui.summary, /3-7 条同问题笔记整理成主题索引/);
+  assert.match(ui.sidebarHtml, /写完永久笔记，马上找一条旧笔记/);
+  assert.match(ui.sidebarHtml, /从主题索引进入文章提纲和草稿/);
+  assert.doesNotMatch(ui.summary + ui.sidebarHtml, /候选|队列|复核|线索/);
 });
 
 test("app shell module ui returns a stable fallback for unknown modules", () => {

@@ -97,6 +97,9 @@ test("today organizing panel uses action words without internal workflow terms",
   });
 
   assert.match(html, /今日整理/);
+  assert.match(html, /找旧笔记、写关系理由、查看主题是否已凑到 3-7 条/);
+  assert.match(html, /检查中心问题、关键关系，以及是否已经凑到 3-7 条/);
+  assert.match(html, /从这个主题索引进入写作中心/);
   assert.match(html, /处理这条笔记/);
   assert.match(html, /查看主题/);
   assert.match(html, /打开写作中心/);

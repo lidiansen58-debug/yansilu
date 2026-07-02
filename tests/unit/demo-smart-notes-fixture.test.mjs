@@ -160,13 +160,23 @@ test("smart notes product demo fixture literature notes are original paraphrases
 
 test("smart notes product demo fixture includes an inspection guide", () => {
   const guide = fixture.guide_notes[0];
+  const source = fixture.sources.find((note) => note.id === "SRC-SMART-NOTES");
+  const firstLiteratureNote = fixture.literature_notes.find((note) => note.id === "LN-SN-001");
   assert.equal(guide.id, "GUIDE-SN-001");
   assert.equal(guide.note_type, "guide");
-  assert.match(guide.body, /第一次打开先做三步|三步走完整流程/);
+  assert.ok(source, "expected guide source note");
+  assert.ok(firstLiteratureNote, "expected first literature note");
+  assert.match(guide.title, /6 步训练路径/);
+  assert.match(guide.body, /第一次打开按 6 步走/);
   assert.match(guide.body, /SRC-SMART-NOTES/);
-  assert.match(guide.body, /处理一条未关联笔记/);
+  assert.match(guide.body, /写一条永久笔记/);
+  assert.match(guide.body, /立即找一条旧笔记建立关系/);
+  assert.match(guide.body, /给关系写理由/);
+  assert.match(guide.body, /创建主题索引笔记/);
+  assert.match(guide.body, /每周回顾一次/);
   assert.match(guide.body, /WP-SN-PM-001/);
   assert.match(guide.body, /DS-SN-PM-001/);
+  assert.doesNotMatch([guide.body, source.conversion_policy, firstLiteratureNote.body].join("\n"), /候选|队列|复核|线索/);
 });
 
 test("smart notes product demo fixture index cards organize ordered items and key-note anchors", () => {

@@ -41,8 +41,8 @@ export function renderTodayOrganizingPanel(state = {}) {
       <section class="today-organizing-hero" aria-label="今日整理说明">
         <div>
           <span>今日整理</span>
-          <h2>先把笔记接入关系网，再让主题进入写作。</h2>
-          <p>这里不展示复杂术语，只给今天最值得做的三个动作。每一步都从具体笔记开始。</p>
+          <h2>写完一条判断，就把它接到旧笔记上。</h2>
+          <p>今天只做一个小动作：找旧笔记、写关系理由、查看主题是否已凑到 3-7 条；凑够后再从主题索引进入写作。</p>
         </div>
         <div class="today-organizing-counts" aria-label="当前整理概览">
           <div><strong>${escape(state.permanentCount || 0)}</strong><span>永久笔记</span></div>
@@ -55,7 +55,7 @@ export function renderTodayOrganizingPanel(state = {}) {
           title: "1. 完成知识建联",
           objectTitle: firstIsolated?.title || "当前没有优先处理的未关联笔记",
           summary: firstIsolated
-            ? "为这条永久笔记找一条最重要的旧笔记关系，写清为什么相关。"
+            ? "为这条永久笔记找一条最重要的旧笔记，写清为什么相关。"
             : "已加载的永久笔记暂时没有明显孤立项，可以继续整理主题或写作。",
           meta: firstIsolated ? `还有 ${state.isolatedCount} 条未关联笔记` : "",
           action: "connect-first-isolated",
@@ -67,8 +67,8 @@ export function renderTodayOrganizingPanel(state = {}) {
           title: "2. 整理可成主题",
           objectTitle: firstTheme?.title || "还没有可直接整理的主题",
           summary: firstTheme
-            ? "打开这组相关笔记，检查中心问题、关键关系和能否形成文章。"
-            : "当多条永久笔记围绕同一问题聚集时，可以把它们整理成主题入口。",
+            ? "打开这组相关笔记，检查中心问题、关键关系，以及是否已经凑到 3-7 条。"
+            : "当 3-7 条永久笔记围绕同一问题聚集时，可以把它们整理成主题索引。",
           meta: firstTheme ? `${firstTheme.noteCount || 0} 条相关笔记` : "",
           action: "open-first-theme",
           actionLabel: firstTheme ? "查看主题" : "先积累关系",
@@ -79,7 +79,7 @@ export function renderTodayOrganizingPanel(state = {}) {
           title: "3. 开始写作",
           objectTitle: firstTheme?.title || firstWriting?.title || "先选择一组相关笔记",
           summary: firstTheme
-            ? "从这个主题进入写作中心，生成文章提纲，再开始草稿。"
+            ? "从这个主题索引进入写作中心，生成文章提纲，再开始草稿。"
             : firstWriting
               ? "这条永久笔记已经具备基本观点，可以先放入写作中心。"
               : "先完成至少一条清楚的观点和关系，再进入写作。",
