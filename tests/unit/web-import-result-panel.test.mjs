@@ -91,17 +91,16 @@ test("import result panel renders organizing home after permanent-note import", 
     raw: "{}"
   });
 
-  assert.match(html, /接下来可以这样整理/);
-  assert.match(html, /处理第一条未关联笔记/);
-  assert.match(html, /查看可写主题/);
-  assert.match(html, /打开写作中心/);
+  assert.match(html, /导入完成，回到今日整理/);
+  assert.match(html, /去今日整理/);
+  assert.match(html, /未关联笔记/);
+  assert.match(html, /可成主题/);
+  assert.match(html, /可进入写作/);
   assert.match(html, /导入永久笔记/);
   assert.match(html, /还未关联/);
-  assert.match(html, /建议先处理/);
   assert.match(html, /易经需要慢读/);
-  assert.match(html, /可以继续写的主题/);
   assert.match(html, /情境判断训练/);
-  assert.match(html, /已有可写主题/);
+  assert.doesNotMatch(html, /候选|队列|复核|线索/);
 });
 
 test("import result panel does not suggest isolated-note handling without a recommended note", () => {
@@ -125,7 +124,7 @@ test("import result panel does not suggest isolated-note handling without a reco
 
   assert.doesNotMatch(html, /data-import-writing-action="open-first-isolated-note"/);
   assert.doesNotMatch(html, /处理第一条未关联笔记/);
-  assert.match(html, /暂时没有需要优先处理的未关联笔记/);
-  assert.match(html, /查看可写主题/);
-  assert.match(html, /打开写作中心/);
+  assert.match(html, /已完成/);
+  assert.match(html, /去今日整理/);
+  assert.match(html, /已可写作主题/);
 });

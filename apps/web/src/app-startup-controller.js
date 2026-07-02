@@ -26,9 +26,11 @@ export async function bootstrapAppForRuntime(deps = {}) {
     syncNotesForDirectory = async () => {},
     refreshImportedNotesView = () => {},
     renderImportToolbar = () => {},
+    hideImportOperationResultModal = () => {},
     bindImportWorkspaceEvents = bindImportWorkspaceEventsForRuntime,
     initializeAppRoute = initializeAppRouteForRuntime,
     openInitialStartupRoute = openInitialStartupRouteForRuntime,
+    activateModule = () => {},
     renderAll = () => {},
     updateController = null,
     setStatus = () => {}
@@ -83,6 +85,8 @@ export async function bootstrapAppForRuntime(deps = {}) {
         originalityGuard: result.originalityGuard,
         candidatePreview: preview?.candidatePreview || null
       });
+      activateModule("today");
+      hideImportOperationResultModal();
       importState.lastPreview = null;
     },
     showImportResult,
