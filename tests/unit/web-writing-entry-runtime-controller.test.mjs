@@ -147,7 +147,9 @@ test("writing entry runtime controller opens writing module and refreshes worksp
   await controller.openWritingModule({
     statusMessage: "opened",
     focusedCandidateNoteIds: ["n2", "n2", "n3"],
-    focusedCandidateScopeLabel: "slice"
+    focusedCandidateScopeLabel: "slice",
+    entryReason: "visible graph slice is ready",
+    entrySourceLabel: "Graph"
   });
 
   assert.deepEqual(writingState.projects, [{ id: "wp_1" }]);
@@ -156,6 +158,8 @@ test("writing entry runtime controller opens writing module and refreshes worksp
   assert.deepEqual(writingState.draftVersions, [{ id: "draft_v1" }]);
   assert.deepEqual(writingState.relationCounts, { n1: 2 });
   assert.equal(writingState.loadingProjects, false);
+  assert.equal(writingState.entryContextReason, "visible graph slice is ready");
+  assert.equal(writingState.entryContextSourceLabel, "Graph");
   assert.deepEqual(calls.find((call) => call[0] === "ensure"), ["ensure", ["n2", "n3"], { force: true }]);
   assert.deepEqual(calls.find((call) => call[0] === "focus"), ["focus", ["n2", "n3"], "slice"]);
   assert.deepEqual(calls.find((call) => call[0] === "activate"), ["activate", "writing"]);
@@ -164,4 +168,70 @@ test("writing entry runtime controller opens writing module and refreshes worksp
     skipIfStaleSince: 7,
     requireModule: "writing"
   }]);
+});
+
+test("writing entry runtime controller clears stale entry context on a plain open", async () => {
+  const calls = [];
+  const writingState = {
+    project: null,
+    projectFilters: { q: "", status: "all", hasDraft: "all" },
+    projects: [],
+    themeIndexes: [],
+    relationCounts: {},
+    relationCountErrors: {},
+    entryContextReason: "stale reason",
+    entryContextSourceLabel: "stale source"
+  };
+  const controller = createWritingEntryRuntimeController(() => ({
+    activateModule: (moduleId) => calls.push(["activate", moduleId]),
+    clearWritingFocusedCandidateScope: () => calls.push(["clear-focus"]),
+    listIndexCards: async () => [],
+    listWritingProjects: async () => [],
+    parseWritingBasketIds: () => [],
+    refreshWritingRelationCounts: async () => ({ counts: {}, errors: {} }),
+    renderWritingPanel: () => calls.push(["render"]),
+    setStatus: (...args) => calls.push(["status", ...args]),
+    syncWritingResultFromCurrentState: () => calls.push(["sync-result"]),
+    writingState,
+    writingThemeIndexScopeDirectoryId: () => "dir_original"
+  }));
+
+  await controller.openWritingModule({ statusMessage: "" });
+
+  assert.equal(calls.some((call) => call[0] === "clear-focus"), true);
+  assert.equal(writingState.entryContextReason, "");
+  assert.equal(writingState.entryContextSourceLabel, "");
+});
+
+test("writing entry runtime controller does not preserve stale entry context with focused scope", async () => {
+  const writingState = {
+    project: null,
+    projectFilters: { q: "", status: "all", hasDraft: "all" },
+    projects: [],
+    themeIndexes: [],
+    relationCounts: {},
+    relationCountErrors: {},
+    entryContextReason: "old graph reason",
+    entryContextSourceLabel: "图谱"
+  };
+  const controller = createWritingEntryRuntimeController(() => ({
+    activateModule: () => {},
+    listIndexCards: async () => [],
+    listWritingProjects: async () => [],
+    parseWritingBasketIds: () => [],
+    refreshWritingRelationCounts: async () => ({ counts: {}, errors: {} }),
+    renderWritingPanel: () => {},
+    setStatus: () => {},
+    syncWritingResultFromCurrentState: () => {},
+    writingState,
+    writingThemeIndexScopeDirectoryId: () => "dir_original"
+  }));
+
+  await controller.openWritingModule({
+    statusMessage: "",
+    preserveFocusedCandidateScope: true
+  });
+
+  assert.equal(writingState.entryContextReason, "");
+  assert.equal(writingState.entryContextSourceLabel, "");
 });

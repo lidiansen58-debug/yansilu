@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   renderWritingBookDesignDom,
   renderWritingFlowStepsDom,
+  renderWritingPanelDom,
   renderWritingScaffoldPreviewDom,
   renderWritingStatusStripDom,
   renderWritingStrongModelRequestDetailDom,
@@ -83,6 +84,58 @@ test("writing panel controller renders status strip from injected writing state"
   assert.match(html, /Material &lt;ready&gt;/);
   assert.match(html, /Project ready/);
   assert.match(html, /Strong ready/);
+});
+
+test("writing panel controller shows entry recommendation reason in the first screen hint", () => {
+  const nodes = new Map([
+    ["writingCurrentNote", { textContent: "" }],
+    ["writingScopeHint", { textContent: "" }]
+  ]);
+
+  renderWritingPanelDom({
+    $: (id) => nodes.get(id) || null,
+    state: { notes: [], selectedFileId: "", selectedFolderId: "dir" },
+    writingState: {
+      entryContextReason: "当前图谱切片有 2 条可写永久笔记，已作为相关笔记带入。",
+      entryContextSourceLabel: "图谱"
+    },
+    folderById: () => ({ name: "永久笔记" }),
+    rootBoxIdFromFolder: () => "root",
+    writingCandidateNotes: () => [],
+    writingSourceIndexSummary: () => "",
+    writingBasketEntries: () => [],
+    parseWritingBasketIds: () => [],
+    buildWritingPanelState: () => ({
+      currentLabel: "写作中心",
+      candidateFocusPlan: {
+        usingFocusedScope: true,
+        scopeLabel: "当前图谱切片",
+        addActionLabel: "加入当前图谱切片"
+      },
+      candidates: [],
+      relationCountsReady: false,
+      relationCountsErrored: false,
+      basketReadiness: {},
+      hasProject: false,
+      hasScaffold: false,
+      hasDraft: false,
+      projectEntry: { canCreateProject: false, actionLabel: "先补相关笔记" },
+      projectPreflightSummary: {},
+      strongModelReady: false,
+      strongModelState: {},
+      openDraftButtonState: { disabled: true, text: "暂无草稿" },
+      scaffoldButtonState: { disabled: true, text: "先补相关笔记" },
+      strongModelButtonState: { disabled: true, text: "先补相关笔记" },
+      toplineMetrics: []
+    }),
+    selectedWritingThemeIndex: () => null,
+    clearWritingThemeRelationCounts: () => {},
+    renderThinkingStatusBadge: () => "",
+    escapeHtml
+  });
+
+  assert.match(nodes.get("writingScopeHint").textContent, /图谱推荐理由/);
+  assert.match(nodes.get("writingScopeHint").textContent, /已作为相关笔记带入/);
 });
 
 test("writing panel controller renders scaffold preview empty continuity guidance", () => {

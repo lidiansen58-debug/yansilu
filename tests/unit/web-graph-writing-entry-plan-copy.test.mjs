@@ -1,7 +1,7 @@
 ﻿import test from "node:test";
 import assert from "node:assert/strict";
 
-import { graphNextActionForSummary, graphWritingFollowupEntryPlan } from "../../apps/web/src/graph-followup.js";
+import { graphNextActionForSummary, graphWritingEntryReason, graphWritingFollowupEntryPlan } from "../../apps/web/src/graph-followup.js";
 
 test("graph next action names already-basket writing entry explicitly", () => {
   const nextAction = graphNextActionForSummary({
@@ -108,4 +108,5 @@ test("graph follow-up entry plan preloads a small visible slice before continuin
   assert.equal(plan.hasBasket, true);
   assert.equal(plan.addedCount, 2);
   assert.deepEqual(plan.prefillNoteIds, ["visible-b", "visible-c"]);
+  assert.match(graphWritingEntryReason(plan), /图谱切片还有 2 条可写永久笔记/);
 });

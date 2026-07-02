@@ -1,5 +1,18 @@
 import { uniqueStrings } from "./prototype-collection-utils.js";
 
+export function setWritingEntryContextForRuntime(writingState = {}, { reason = "", sourceLabel = "" } = {}) {
+  writingState.entryContextReason = String(reason || "").trim();
+  writingState.entryContextSourceLabel = String(sourceLabel || "").trim();
+  return {
+    reason: writingState.entryContextReason,
+    sourceLabel: writingState.entryContextSourceLabel
+  };
+}
+
+export function clearWritingEntryContextForRuntime(writingState = {}) {
+  return setWritingEntryContextForRuntime(writingState, {});
+}
+
 export function clearWritingThemeRelationCountsForRuntime(writingState = {}, noteIds = []) {
   writingState.themeRelationNoteIds = uniqueStrings(noteIds);
   writingState.themeRelationCounts = {};

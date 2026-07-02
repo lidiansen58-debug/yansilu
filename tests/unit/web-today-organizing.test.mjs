@@ -115,7 +115,7 @@ test("today organizing events route main actions to existing workflows", async (
     },
     handleStateChange: async (reason, payload) => calls.push(["state", reason, payload]),
     activateModule: (moduleName) => calls.push(["module", moduleName]),
-    openWritingModule: async () => calls.push(["writing"]),
+    openWritingModule: async (options = {}) => calls.push(["writing", options]),
     addWritingBasketIds: (noteIds) => calls.push(["basket", noteIds]),
     selectWritingThemeIndex: async (id) => calls.push(["theme", id])
   }));
@@ -135,10 +135,14 @@ test("today organizing events route main actions to existing workflows", async (
 
   assert.deepEqual(calls[0], ["state", "graph-associate-note", { noteId: "pn_1", source: "today-organizing" }]);
   assert.deepEqual(calls[1], ["module", "writing"]);
-  assert.deepEqual(calls[2], ["writing"]);
+  assert.equal(calls[2][0], "writing");
+  assert.equal(calls[2][1].entrySourceLabel, "今日整理");
+  assert.match(calls[2][1].entryReason, /可写主题|续接/);
   assert.deepEqual(calls[3], ["theme", "idx_1"]);
   assert.deepEqual(calls[4], ["module", "writing"]);
-  assert.deepEqual(calls[5], ["writing"]);
+  assert.equal(calls[5][0], "writing");
+  assert.equal(calls[5][1].entrySourceLabel, "今日整理");
+  assert.match(calls[5][1].entryReason, /可写主题|续接/);
   assert.deepEqual(calls[6], ["theme", "idx_1"]);
   assert.equal(calls.some((call) => call[0] === "basket"), false);
 });
@@ -153,7 +157,7 @@ test("today organizing writing action adds the ready note only when no theme is 
       firstWritingReady: { id: "pn_ready" }
     },
     activateModule: (moduleName) => calls.push(["module", moduleName]),
-    openWritingModule: async () => calls.push(["writing"]),
+    openWritingModule: async (options = {}) => calls.push(["writing", options]),
     addWritingBasketIds: (noteIds) => calls.push(["basket", noteIds]),
     selectWritingThemeIndex: async (id) => calls.push(["theme", id])
   }));
@@ -169,6 +173,9 @@ test("today organizing writing action adds the ready note only when no theme is 
 
   assert.deepEqual(calls[0], ["basket", ["pn_ready"]]);
   assert.deepEqual(calls[1], ["module", "writing"]);
-  assert.deepEqual(calls[2], ["writing"]);
+  assert.equal(calls[2][0], "writing");
+  assert.equal(calls[2][1].entrySourceLabel, "今日整理");
+  assert.equal(calls[2][1].statusMessage, "已把这条笔记加入写作中心");
+  assert.match(calls[2][1].entryReason, /明确观点|三句摘要/);
   assert.equal(calls.some((call) => call[0] === "theme"), false);
 });

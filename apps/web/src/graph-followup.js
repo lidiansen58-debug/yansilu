@@ -114,6 +114,27 @@ export function graphWritingContinuationFailureMessage(continuation = {}, error 
   return `从图谱继续这个主题失败：${detail}`;
 }
 
+export function graphWritingEntryReason(plan = {}) {
+  const mode = String(plan?.mode || "").trim();
+  const addedCount = Number(plan?.addedCount || 0);
+  const candidateCount = Number(plan?.candidateCount || 0);
+  if (mode === "already-in-basket") {
+    return "当前图谱切片里的可写笔记已经在相关笔记中，继续这组材料更连续。";
+  }
+  if (mode === "prefill-visible" && addedCount > 0) {
+    return plan?.hasBasket
+      ? `当前图谱切片还有 ${addedCount} 条可写永久笔记，已一起加入相关笔记。`
+      : `当前图谱切片有 ${addedCount} 条可写永久笔记，已作为相关笔记带入。`;
+  }
+  if (mode === "pick-manually" && candidateCount > 0) {
+    return `当前图谱切片有 ${candidateCount} 条可用永久笔记，先在写作中心挑 2-5 条作为相关笔记。`;
+  }
+  if (mode === "no-candidates" && plan?.hasBasket) {
+    return "当前图谱切片暂时没有适合新增的笔记，先继续当前相关笔记更连续。";
+  }
+  return "";
+}
+
 export function graphNextActionForSummary({
   hasNodes = false,
   hasEdges = false,

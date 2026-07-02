@@ -2,6 +2,7 @@ import {
   graphRelationWorkspaceRouteForFollowup,
   graphWritingCandidateNoteIds,
   graphWritingFollowupEntryPlan,
+  graphWritingEntryReason,
   graphWritingContinuationFailureMessage,
   graphWritingContinuationStatusMessage
 } from "./graph-followup.js";
@@ -81,7 +82,9 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
           await openWritingModule({
             statusMessage: "",
             focusedCandidateNoteIds: graphFocusNoteIds,
-            focusedCandidateScopeLabel: "当前图谱切片"
+            focusedCandidateScopeLabel: "当前图谱切片",
+            entryReason: graphWritingEntryReason(plan),
+            entrySourceLabel: "图谱"
           });
           setStatus(plan.statusMessage, "ok", { requireModule: "writing" });
         } catch (error) {
