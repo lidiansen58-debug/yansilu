@@ -11,6 +11,7 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
     openImportedLiteratureQueue = async () => {},
     addImportedPermanentNotesToWritingBasket = async () => {},
     createWritingProjectFromImportedPermanentNotes = async () => {},
+    activateModule = () => {},
     setImportResultFocus = () => {},
     applyCandidateSelection = () => {},
     syncImportSelection = () => {},
@@ -45,6 +46,10 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
       const action = String(importWritingButton.getAttribute("data-import-writing-action") || "").trim();
       if (action === "open-first-isolated-note") {
         void openFirstImportedPermanentNote(importWritingButton.getAttribute("data-note-id") || "");
+      } else if (action === "open-today") {
+        hideImportOperationResultModal();
+        activateModule("today");
+        setStatus("已打开今日整理", "ok");
       } else if (action === "open-literature-queue") void openImportedLiteratureQueue();
       else if (action === "add-permanent-notes" || action === "add-permanent-notes-open-writing") {
         void addImportedPermanentNotesToWritingBasket({ openWriting: action === "add-permanent-notes-open-writing" });

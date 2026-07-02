@@ -77,6 +77,9 @@ function renderOrganizingOverview(data = {}) {
         <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
           打开写作中心
         </button>
+        <button class="mini-btn" type="button" data-import-writing-action="open-today">
+          打开今日整理
+        </button>
       </div>
       <div class="import-organizing-home-metrics">
         <div><span>导入永久笔记</span><strong>${escapeHtml(overview.permanentCount)}</strong></div>

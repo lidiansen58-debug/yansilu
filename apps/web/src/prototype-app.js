@@ -13,6 +13,8 @@ import { createImportWorkspaceShellController } from "./import-workspace-shell.j
 import { renderImportResultMount } from "./import-result-mount.js";
 import { createImportResultRuntime } from "./import-result-runtime.js";
 import { createImportResultHostRoutes } from "./import-result-host-routes.js";
+import { createTodayOrganizingRuntime } from "./today-organizing-runtime.js";
+import { installTodayOrganizingEvents } from "./today-organizing-events.js";
 import { renderDistillationPanelView } from "./distillation-panel-view.js";
 import { installDistillationEventBindings } from "./distillation-event-bindings.js";
 import { openDistillationQueueNoteRoute } from "./distillation-note-route.js";
@@ -556,6 +558,8 @@ const writingState = {
   localBookIdeas: [],
   localBookIdeasGeneratedAt: ""
 };
+
+const todayOrganizingRuntime = createTodayOrganizingRuntime(() => ({ panel: $("todayOrganizingPanel"), notes: state.notes, relations: graphState.item?.edges || [], relationsReady: Boolean(graphState.item) || state.graphConnectivityReady === true, themeIndexes: writingState.themeIndexes, typeFromFolder: (folderId) => typeFromFolder(state, folderId), relationNetworkStatusForNote }));
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
 let statusHoldUntil = 0;
@@ -875,17 +879,11 @@ function literatureTemplateSectionLabelCandidates() {
     )
   ];
 }
-
 function defaultPermanentTemplateSource(title = "{{title}}") { return computeDefaultPermanentTemplateSource(title); }
-
 function legacyPermanentTemplateSource(title = "{{title}}") { return computeLegacyPermanentTemplateSource(title); }
-
 function defaultTemplateSourceForKind(kind = "") { return computeDefaultTemplateSourceForKind(kind); }
-
 function normalizeNoteTemplateSource(text = "", kind = "") { return computeNormalizeNoteTemplateSource(text, kind); }
-
 function normalizeStoredNoteTemplateSource(text = "", kind = "") { return computeNormalizeStoredNoteTemplateSource(text, kind); }
-
 function effectiveSavedNoteTemplateSource(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   const savedSource = normalizeStoredNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
@@ -893,23 +891,14 @@ function effectiveSavedNoteTemplateSource(kind = "") {
   const validation = validateLiteratureTemplateSource(savedSource);
   return validation.ok ? savedSource : defaultTemplateSourceForKind(cleanKind);
 }
-
 function normalizeNoteTemplateHistory(items = [], kind = "") { return computeNormalizeNoteTemplateHistory(items, kind); }
-
 function noteTemplateStorageScope(vaultPath = "") { return settingsNoteTemplateRuntime.noteTemplateStorageScope(vaultPath); }
-
 function noteTemplateStorageKey(kind = "", options = {}) { return settingsNoteTemplateRuntime.noteTemplateStorageKey(kind, options); }
-
 function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind = "") { return computeNoteTemplateHistoryWithPrevious(history, previousText, kind); }
-
 function normalizeDraftBuffer(text = "") { return computeNormalizeDraftBuffer(text); }
-
 function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记", kind = "") { return computeApplyTitleToNoteTemplate(templateSource, title, kind, { ensureEditableNoteBody }); }
-
 function mergeTemplateFieldText(base = "", addition = "") { return computeMergeTemplateFieldText(base, addition); }
-
 function composePermanentTemplateDraft(fields = {}) { return computeComposePermanentTemplateDraft(fields, { permanentNoteTemplateBody }); }
-
 const settingsNoteTemplateRuntime = createSettingsNoteTemplateRuntime({
   $,
   NOTE_TEMPLATE_STORAGE_KEYS,
@@ -3257,13 +3246,14 @@ function syncMobileNewNoteButton() {
 }
 
 function renderModulePanels() {
+  const todayMode = state.module === "today";
   const graphMode = state.module === "graph";
   const aiInboxMode = state.module === "aiInbox";
   const settingsMode = state.module === "settings";
   const writingMode = state.module === "writing";
   const importsMode = state.module === "imports";
   const distillationMode = state.module === "distillation";
-  const editorMode = !graphMode && !aiInboxMode && !settingsMode && !writingMode && !importsMode && !distillationMode;
+  const editorMode = !todayMode && !graphMode && !aiInboxMode && !settingsMode && !writingMode && !importsMode && !distillationMode;
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
   const moduleWorkspace = $("moduleWorkspace");
   moduleWorkspace?.classList.toggle("hidden", editorMode);
@@ -3273,6 +3263,7 @@ function renderModulePanels() {
     appShell: document.querySelector(".app")
   });
   $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
+  $("todayOrganizingPanel")?.classList.toggle("hidden", !todayMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
   $("writingPanel")?.classList.toggle("hidden", !writingMode);
@@ -3282,6 +3273,7 @@ function renderModulePanels() {
   $("relatedPanel")?.classList.toggle("hidden", !editorMode || !state.inspectorVisible);
   $("btnMobileNewNote")?.classList.toggle("hidden", !editorMode);
   syncMobileNewNoteButton();
+  if (todayMode) todayOrganizingRuntime.render();
   renderModuleWorkspaceHeader();
 }
 
@@ -5708,6 +5700,13 @@ bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   applyAiInboxRecommendedAction,
   setStatus
 }));
+installTodayOrganizingEvents($("todayOrganizingPanel"), () => ({
+  todayState: todayOrganizingRuntime.currentState(),
+  handleStateChange,
+  activateModule,
+  openWritingModule, addWritingBasketIds,
+  selectWritingThemeIndex
+}));
 installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openGraphNodeSelectionFromElement });
 installGraphWorkbenchClickFallbackEvents(document, {
   graphState,
@@ -5941,6 +5940,7 @@ function appStartupDeps() {
     syncDirectoriesFromApi,
     syncNotesForDirectoryTree,
     getApiBase,
+    activateModule,
     renderAll,
     importSmartNotesProductThinkingDemo,
     importYijingKnowledgeNetworkDemo,

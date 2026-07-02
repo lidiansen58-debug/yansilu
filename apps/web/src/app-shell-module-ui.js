@@ -6,6 +6,23 @@ export function currentModuleSidebarUi({
 } = {}) {
   const resolvedRootName = rootName || "当前目录";
   const configs = {
+    today: {
+      sidebarTitle: "今日整理",
+      sidebarSubtitle: "打开后先看今天最该做什么。",
+      sidebarFoot: "先处理关系，再整理主题，最后进入写作。图谱只是结果视图，不要求一开始看懂。",
+      title: "今日整理",
+      summary: "这里只保留三个主动作：处理未关联笔记、整理可成主题、开始写作。每个动作都从具体笔记或主题进入。",
+      sidebarHtml: `
+        <div class="module-sidebar-card">
+          <h3>使用顺序</h3>
+          <ol class="module-sidebar-list">
+            <li>先让新永久笔记进入关系网</li>
+            <li>再把一组相关笔记整理成主题入口</li>
+            <li>最后从主题进入文章提纲和草稿</li>
+          </ol>
+        </div>
+      `
+    },
     distillation: {
       sidebarTitle: "观点整理",
       sidebarSubtitle: "把永久笔记推进成清晰观点。",

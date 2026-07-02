@@ -19,6 +19,134 @@
       --paper: #fcfaf4;
       --paper-line: #e6ddd0;
     }
+
+.today-organizing-shell {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+}
+
+.today-organizing-hero,
+.today-action-card {
+  border: 1px solid rgba(141, 170, 163, 0.34);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.today-organizing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+}
+
+.today-organizing-hero span,
+.today-action-kicker {
+  color: #087568;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.today-organizing-hero h2 {
+  margin: 6px 0 8px;
+  color: #132033;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.today-organizing-hero p,
+.today-action-card p,
+.today-action-card small {
+  color: #52647a;
+}
+
+.today-organizing-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(86px, 1fr));
+  gap: 10px;
+}
+
+.today-organizing-counts div {
+  min-width: 86px;
+  padding: 12px;
+  border: 1px solid rgba(141, 170, 163, 0.28);
+  border-radius: 8px;
+  background: #f8fbfa;
+  text-align: center;
+}
+
+.today-organizing-counts strong {
+  display: block;
+  color: #132033;
+  font-size: 22px;
+}
+
+.today-organizing-counts span {
+  color: #52647a;
+  font-size: 12px;
+}
+
+.today-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.today-action-card {
+  display: grid;
+  grid-template-rows: minmax(168px, 1fr) auto;
+  gap: 14px;
+  padding: 18px;
+}
+
+.today-action-card strong {
+  display: block;
+  margin: 8px 0;
+  color: #132033;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.today-action-card p {
+  margin: 0 0 10px;
+  line-height: 1.65;
+}
+
+.today-action-card small {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #edf7f4;
+  color: #087568;
+  font-weight: 700;
+}
+
+.today-action-card .mini-btn {
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+}
+
+.today-action-card.tone-connect {
+  border-left: 4px solid #d97706;
+}
+
+.today-action-card.tone-theme {
+  border-left: 4px solid #0f766e;
+}
+
+.today-action-card.tone-writing {
+  border-left: 4px solid #2563eb;
+}
+
+@media (max-width: 980px) {
+  .today-organizing-hero,
+  .today-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
     * { box-sizing: border-box; }
     body {
       margin: 0;

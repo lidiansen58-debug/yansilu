@@ -132,3 +132,16 @@ test("startup route opener reads late auto-open suppression before creating an u
   assert.equal(route.route, "skipped");
   assert.equal(created, 0);
 });
+
+test("startup route opener defaults to today organizing when no note is requested", async () => {
+  const calls = [];
+  const route = await openInitialStartupRouteForRuntime({
+    windowRef: { location: { search: "" } },
+    state: { notes: [] },
+    activateModule: (moduleName) => calls.push(["module", moduleName]),
+    openStartupUntitledNote: async () => calls.push(["untitled"])
+  });
+
+  assert.equal(route.route, "today");
+  assert.deepEqual(calls, [["module", "today"]]);
+});

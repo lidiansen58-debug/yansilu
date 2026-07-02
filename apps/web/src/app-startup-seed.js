@@ -12,6 +12,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     rootBoxIdFromFolder = () => "",
     openNoteById = () => false,
     openStartupUntitledNote = async () => null,
+    activateModule = () => {},
     renderAll = () => {},
     setStatus = () => {}
   } = deps;
@@ -52,8 +53,8 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     return { route: "skipped" };
   }
   if (!shouldSkipAutoOpen()) {
-    await openStartupUntitledNote();
-    return { route: "untitled" };
+    activateModule("today");
+    return { route: "today" };
   }
   return { route: "skipped" };
 }

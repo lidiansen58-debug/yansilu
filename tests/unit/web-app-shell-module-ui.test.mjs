@@ -33,6 +33,14 @@ test("app shell module ui delegates settings sidebar navigation", () => {
   assert.equal(ui.sidebarHtml, "<nav>settings</nav>");
 });
 
+test("app shell module ui exposes today organizing as a plain next-step entry", () => {
+  const ui = currentModuleSidebarUi({ module: "today" });
+
+  assert.equal(ui.title, "今日整理");
+  assert.match(ui.summary, /处理未关联笔记/);
+  assert.match(ui.sidebarHtml, /先让新永久笔记进入关系网/);
+});
+
 test("app shell module ui returns a stable fallback for unknown modules", () => {
   const ui = currentModuleSidebarUi({ module: "unknown-module" });
 

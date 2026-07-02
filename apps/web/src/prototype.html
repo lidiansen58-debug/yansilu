@@ -44,6 +44,12 @@
         </button>
       </div>
       <div class="rail-group">
+        <button class="rail-btn" data-module="today" title="今日整理" data-tip="今日整理" aria-label="今日整理">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3.2 3.2h9.6v9.6H3.2z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
+            <path d="M5.2 6h5.6M5.2 8h4.2M5.2 10h3.1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </button>
         <button class="rail-btn" data-module="imports" title="导入导出" data-tip="导入导出" aria-label="导入导出">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M5.3 2.8v7.3M5.3 10.1l-2.1-2.1M5.3 10.1l2.1-2.1M10.7 13.2V5.9M10.7 5.9L8.6 8M10.7 5.9l2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -356,6 +362,7 @@
           <div class="module-header-actions" id="moduleHeaderActions"></div>
         </div>
         <div class="module-stage">
+          <div class="panel hidden" id="todayOrganizingPanel"></div>
           <div class="panel hidden" id="importPanel">
             <div id="importPageMount"></div>
           </div>

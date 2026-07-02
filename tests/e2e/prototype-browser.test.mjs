@@ -60,6 +60,11 @@ async function expandEditorHelper(page) {
   }, 4000);
 }
 
+async function openOriginalNoteBox(page) {
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator("#editorWorkspace").waitFor({ state: "visible", timeout: 3000 });
+}
+
 async function fetchJson(baseUrl, pathname) {
   const res = await fetch(`${baseUrl}${pathname}`);
   const json = await res.json();
@@ -1728,6 +1733,7 @@ test("prototype main-path card refreshes relation state and does not leak stale 
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Relation Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -1801,6 +1807,7 @@ test("prototype permanent relation workspace saves manually, refreshes before sa
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Workspace Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -1926,6 +1933,7 @@ test("prototype permanent relation workspace saves an AI recommended relation in
   });
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "AI Relation Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -1994,6 +2002,7 @@ test("prototype right sidebar relation entry saves through overlay and appears i
   });
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Sidebar Route Source" }).click();
@@ -2063,6 +2072,7 @@ test("prototype main-path writing readiness matches writing center basket status
   assert.equal(note.status, 201, JSON.stringify(note.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Basket Note" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -2152,6 +2162,7 @@ test("prototype main-path project-ready state matches writing center project rea
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Project Note" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -2262,6 +2273,7 @@ test("prototype related inspector renders explicit semantic relations", async (t
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -2329,6 +2341,7 @@ test("prototype related inspector can create an explicit semantic relation", asy
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Writing Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -2418,6 +2431,7 @@ test("prototype related inspector searches unloaded SQLite relation targets", as
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Search Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -2491,6 +2505,7 @@ test("prototype related inspector can edit and delete an explicit semantic relat
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "关系编辑来源" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
@@ -3128,6 +3143,7 @@ test("prototype editor toolbar keeps title in place and formats rich text blocks
   assert.equal(created.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Toolbar Title" }).click();
   await ensureSourceMode(page);
   await waitForEditableNoteSurface(page);
@@ -3291,6 +3307,7 @@ test("prototype editor enter preserves ordinary blank paragraphs", async (t) => 
   assert.equal(created.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Blank paragraph" }).click();
   await ensureSourceMode(page);
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Line one"));
@@ -3335,6 +3352,7 @@ test("prototype editor enter preserves ordinary blank paragraphs in wysiwyg", as
   assert.equal(created.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "WYSIWYG blank paragraph" }).click();
   await ensureNoteMode(page);
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Line one"));
@@ -3452,6 +3470,7 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
   assert.equal(betaCreate.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Longform Alpha" }).click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Longform Beta" }).click();
 
@@ -3662,6 +3681,7 @@ test("prototype explorer keeps current-note context when selecting a different f
   const noteId = note.json.item.id;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${sourceDirectoryId}"]`).click();
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${childDirectoryId}"]`).click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Explorer Sync Note" }).click();
@@ -3744,6 +3764,7 @@ test("prototype explorer close-all clears stale file highlight and current-note 
   const noteId = note.json.item.id;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${folderId}"]`).click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Explorer Close All Sync Note" }).click();
 
@@ -3814,6 +3835,7 @@ test("prototype close-all lets a new note reopen from a clean explorer and tab s
   const noteId = note.json.item.id;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.evaluate(() => {
     window.__prototypeEditor?.closeAllTabs?.();
   });
@@ -3939,6 +3961,7 @@ test("prototype editor stays editable after opening related panel and switching 
   assert.equal(second.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Panel Alpha" }).click();
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
@@ -4254,6 +4277,7 @@ test("prototype editor opens wikilinks and tag results from wysiwyg tokens", asy
   assert.equal(source.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Token Source" }).click();
   await ensureNoteMode(page);
   const startUrl = page.url();
@@ -4318,6 +4342,7 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
   assert.equal(source.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Link picker source" }).click();
   await ensureSourceMode(page);
   await focusEditorContent(page);
@@ -4397,6 +4422,7 @@ test("prototype editor confirms before closing or switching away from dirty note
   assert.equal(second.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Dirty source" }).click();
   await ensureSourceMode(page);
   await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content p:last-of-type, #editorHost .cm-content h1");
@@ -4462,6 +4488,7 @@ test("prototype editor restores autosaved draft after reload", async (t) => {
   assert.equal(created.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Autosave source" }).click();
   await ensureSourceMode(page);
   await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content p:last-of-type, #editorHost .cm-content h1");
@@ -4600,6 +4627,7 @@ test("prototype editor inline tag picker inserts SQLite-backed tag suggestion", 
   assert.equal(sourceNote.status, 201, JSON.stringify(sourceNote.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Tag picker source" }).click();
   await ensureSourceMode(page);
   await focusEditorContent(page);
@@ -7859,6 +7887,7 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   }, 7000);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await waitFor(async () => {
@@ -7936,6 +7965,7 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
   }, 7000);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await waitFor(async () => {
@@ -8027,6 +8057,7 @@ test("prototype graph panel tension followup opens boundary field on the source 
   }, 7000);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await waitFor(async () => {
@@ -8118,6 +8149,7 @@ test("prototype graph ai analysis badge counts candidates and opens on failure",
   assert.equal(seedNote.status, 201, JSON.stringify(seedNote.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await waitFor(async () => {
@@ -8243,6 +8275,7 @@ test("prototype graph AI connect suggests a relation from notes without relation
   assert.equal(graphBeforeAnalysis.json.item.totalEdges, 0);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.locator('.rail-btn[data-module="graph"]').click();
@@ -8312,6 +8345,7 @@ test("prototype graph local candidate save removes isolated state and updates gr
   assert.equal(graphBefore.json.item.totalEdges, 0);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.locator('.rail-btn[data-module="graph"]').click();
@@ -8449,6 +8483,7 @@ test("prototype graph relation workspace creates a theme index from linked notes
   assert.equal(bridgeRelation.status, 201, JSON.stringify(bridgeRelation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.locator('.rail-btn[data-module="graph"]').click();
@@ -8521,6 +8556,7 @@ test("prototype graph followup remembers relation template preference after relo
   }, 7000);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.evaluate(() => localStorage.removeItem("yansilu:template-variant:relation"));
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
@@ -8547,6 +8583,7 @@ test("prototype graph followup remembers relation template preference after relo
   }, 4000);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.evaluate(
@@ -8636,6 +8673,7 @@ test("prototype graph followup can clear remembered template preference for rela
   }, 7000);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.evaluate(() => {
     localStorage.setItem("yansilu:template-variant:relation", "product");
     localStorage.setItem("yansilu:template-variant:distillation", "product");
@@ -8875,6 +8913,7 @@ test("prototype explorer context rename moves directory fsPath and note markdown
   assert.equal(note.status, 201, JSON.stringify(note.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   const folderRow = page.locator('.explorer-item[data-kind="folder"]', { hasText: "Rename Me" });
   await folderRow.waitFor();
 
@@ -8934,6 +8973,7 @@ test("prototype explorer set-folder-path updates directory fsPath and moves mark
   assert.equal(note.status, 201, JSON.stringify(note.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   const folderRow = page.locator('.explorer-item[data-kind="folder"]', { hasText: "Path Source" });
   await folderRow.waitFor();
 
@@ -9000,6 +9040,7 @@ test("prototype explorer drag and drop moves directory under another folder and 
   assert.equal(sourceNote.status, 201, JSON.stringify(sourceNote.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   const sourceRow = page.locator('.explorer-item[data-kind="folder"]', { hasText: "Source Parent" });
   const targetRow = page.locator('.explorer-item[data-kind="folder"]', { hasText: "Target Parent" });
   await sourceRow.waitFor();
@@ -9048,6 +9089,7 @@ test("prototype explorer note context rename updates markdown title and keeps fi
   await fs.access(originalMarkdownPath);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Rename source note" });
   await noteRow.waitFor();
 
@@ -9150,6 +9192,7 @@ test("prototype explorer note context move and delete update disk state", async 
   await fs.access(oldMarkdownPath);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Note move source" });
   await noteRow.waitFor();
 
