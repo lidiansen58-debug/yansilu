@@ -35,7 +35,7 @@ export function buildGraphVisualMapSelectionState({
     graphNodeNeedsRelationWorkflow = () => false
   } = deps;
 
-  const activeSelection = normalizeGraphSelectionForVisibleItems(graphSelection, {
+  const normalizedSelection = normalizeGraphSelectionForVisibleItems(graphSelection, {
     nodes: layoutNodes,
     edges: layoutEdges,
     topicCandidates,
@@ -43,6 +43,13 @@ export function buildGraphVisualMapSelectionState({
     bridgeGaps,
     clusterMeta
   });
+  const fallbackSelectionKind = String(graphSelection?.kind || "").trim();
+  const fallbackSelectionNoteId = String(graphSelection?.noteId || graphSelection?.nodeId || "").trim();
+  const activeSelection = normalizedSelection || (
+    fallbackSelectionNoteId && ["isolated", "isolatedComplete", "relationForm"].includes(fallbackSelectionKind)
+      ? { ...graphSelection, kind: fallbackSelectionKind, noteId: fallbackSelectionNoteId }
+      : null
+  );
   const contextualSelectionEdges = Array.isArray(selectionEdges)
     ? selectionEdges
     : Array.isArray(relationFilterEdges)

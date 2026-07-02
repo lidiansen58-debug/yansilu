@@ -30,7 +30,8 @@ export function createGraphRelationSaveController({
   relationTypeLabel = (type = "") => String(type || "").trim(),
   clearIsolatedRelationDraft = () => false,
   openGraphSelection = null,
-  openRelationFormInSelection = () => false
+  openRelationFormInSelection = () => false,
+  nextIsolatedSelectionAfterSave = () => null
 } = {}) {
   const titleForNote = (nodeMap = new Map(), noteId = "") => graphNodeTitle(
     nodeMap,
@@ -99,20 +100,33 @@ export function createGraphRelationSaveController({
         return false;
       }
       graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
-      graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = transaction.result;
-      const selectionAfterSave = nextSelection.kind === "isolatedComplete"
-        ? { ...nextSelection, saveResult: transaction.result }
-        : nextSelection;
       clearIsolatedRelationDraft(cleanNoteId);
-      graphState.selection = selectionAfterSave;
+      graphState.selection = nextSelection;
       await refreshDirectoryGraph();
-      graphState.selection = selectionAfterSave;
+      const nextIsolatedSelection = nextSelection.kind === "isolatedComplete"
+        ? nextIsolatedSelectionAfterSave(cleanNoteId)
+        : null;
+      const saveResult = {
+        ...transaction.result,
+        nextIsolated: nextIsolatedSelection || null
+      };
+      graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = saveResult;
+      const selectionAfterSave = nextSelection.kind === "isolatedComplete"
+        ? { ...nextSelection, saveResult }
+        : nextSelection;
+      const followUpSelection = selectionAfterSave;
+      graphState.selection = followUpSelection;
       if (typeof openGraphSelection === "function") {
-        openGraphSelection(selectionAfterSave);
+        openGraphSelection(followUpSelection);
       } else {
         renderGraphPanel();
       }
-      setStatus(transaction.relation?.created === false ? "这条关系已经存在，已保留在当前处理结果" : "关系已保存，当前笔记已接入关系网", "ok");
+      setStatus(
+        transaction.relation?.created === false
+            ? "这条关系已经存在，已保留在当前处理结果"
+            : "关系已保存，当前笔记已接入关系网",
+        "ok"
+      );
       return true;
     } catch (error) {
       setStatus(`保存关系失败：${String(error?.message || error)}`, "bad");

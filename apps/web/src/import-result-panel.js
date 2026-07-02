@@ -1,4 +1,4 @@
-function escapeHtml(value) {
+﻿function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -59,7 +59,7 @@ function renderOrganizingOverview(data = {}) {
       <div class="import-organizing-home-head">
         <div>
           <strong>接下来可以这样整理</strong>
-          <p>先处理一条未关联笔记，再看看哪些笔记已经能写成文章。</p>
+          <p>先处理一条还没进入关系网的永久笔记，再看看哪些笔记已经能写成文章。</p>
         </div>
         <span>${escapeHtml(overview.writingReady ? "已有可写主题" : "先整理关系")}</span>
       </div>

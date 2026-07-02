@@ -44,6 +44,7 @@ export function buildAppShellGraphStateChangeDeps(host = {}) {
     },
     graphAssociateNote: {
       state,
+      graphState,
       explorer,
       graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
       graphRelationWorkflowController,

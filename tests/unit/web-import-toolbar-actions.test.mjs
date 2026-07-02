@@ -73,6 +73,41 @@ test("import toolbar actions confirm with selected candidates and directory", as
   assert.deepEqual(calls, [["imp_4", { selectedCandidateIds: ["c1"], directoryId: "dir_literature_child" }]]);
 });
 
+test("import toolbar actions pass advanced originality options to confirm", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({
+      importRecordId: "imp_advanced",
+      directoryId: "dir_original_default",
+      options: JSON.stringify({
+        originalityPlan: { blockOnBlocked: false },
+        overrideOriginality: true
+      })
+    }),
+    getFallbackImportRecordId: () => "imp_advanced",
+    getActivePreview: () => ({ importRecordId: "imp_advanced", candidatePreview: { permanentNotes: [{ id: "p1" }] } }),
+    selectionSummary: () => ({ selectedIds: new Set(["p1"]), selectedCount: 1, totalCount: 1 }),
+    confirmImport: async (importRecordId, payload) => {
+      calls.push([importRecordId, payload]);
+      return { status: "completed" };
+    },
+    setStatus: () => {},
+    showImportResult: () => {}
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [[
+    "imp_advanced",
+    {
+      selectedCandidateIds: ["p1"],
+      directoryId: "dir_original_default",
+      originalityPlan: { blockOnBlocked: false },
+      overrideOriginality: true
+    }
+  ]]);
+});
+
 test("import toolbar actions require preview before confirm", async () => {
   const calls = [];
   const actions = createImportToolbarActions({
@@ -109,7 +144,7 @@ test("import toolbar actions do not confirm when the preview has no candidates",
 
   await actions.handleConfirm();
 
-  assert.deepEqual(calls, [["当前预览没有可导入候选。", "warn"]]);
+  assert.deepEqual(calls, [["当前预览没有可导入内容。", "warn"]]);
 });
 
 test("import toolbar actions emit stable confirm error payloads", async () => {

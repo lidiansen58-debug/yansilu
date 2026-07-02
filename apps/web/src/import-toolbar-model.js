@@ -1,4 +1,4 @@
-import { importConnectorOptions as connectorOptions } from "./import-connector-labels.js";
+﻿import { importConnectorOptions as connectorOptions } from "./import-connector-labels.js";
 
 export function importConnectorOptions() {
   return connectorOptions();
@@ -15,7 +15,7 @@ export function importConfirmButtonState({ selectedCount = 0, totalCount = 0, ha
   if (totalCount === 0) {
     return {
       disabled: true,
-      label: "没有可导入候选"
+      label: "没有可导入内容"
     };
   }
 

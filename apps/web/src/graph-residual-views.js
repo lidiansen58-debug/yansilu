@@ -886,19 +886,19 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
   const localCandidates = graphLocalRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
   const themeNoteIds = graphThemeCandidateNoteIdsForNode(noteId, directEdges, []);
   let quality = "关系清楚";
-  let qualityDetail = "已有关系可以支撑网络阅读，继续检查是否能形成主题。";
+  let qualityDetail = "它已经有正式关系，可以从这里继续阅读周边笔记，看看是否能形成主题。";
   if (!degree) {
-    quality = "还没有正式关系";
-    qualityDetail = aiCandidates.length || localCandidates.length ? "已有候选，先确认一条真正成立的关系。" : "先找一条能说清理由的连接。";
+    quality = "还没有进入关系网";
+    qualityDetail = aiCandidates.length || localCandidates.length ? "已经找到可能相关的笔记，先确认一条真正成立的关系。" : "先找一条能说清理由的关系。";
   } else if (missingReasonCount) {
-    quality = "理由待补";
-    qualityDetail = `${missingReasonCount} 条关系还缺少可审查理由。`;
+    quality = "关系理由待补";
+    qualityDetail = `${missingReasonCount} 条关系还缺少清楚理由。`;
   } else if (weakTopicCount >= Math.max(2, directEdges.length)) {
-    quality = "同主题偏多";
-    qualityDetail = "当前更像索引聚合，需要判断哪些能升级为支持、限定或桥接。";
+    quality = "关系还偏粗";
+    qualityDetail = "当前更像同主题聚合，需要判断哪些能升级为支持、限定或反方关系。";
   } else if (counts.total >= 3 && !counts.conflict && !counts.boundary) {
     quality = "边界偏少";
-    qualityDetail = "支撑关系已经有基础，但反方、限定或边界还不明显。";
+    qualityDetail = "支持关系已有基础，但反方、限定或边界还不明显。";
   } else if (counts.conflict || counts.boundary) {
     quality = "已有边界";
     qualityDetail = "这条笔记已经有张力或限定关系，适合检查条件是否清楚。";
@@ -926,7 +926,7 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
 
 function renderGraphNodeInsightPanel(insight = {}) {
   if (!insight?.position) return "";
-  const candidateText = `${Number(insight.candidateCount || 0)} 个可选目标 · ${Number(insight.themeNoteCount || 0)} 条可整理笔记`;
+  const targetText = `${Number(insight.candidateCount || 0)} 个可选目标 · ${Number(insight.themeNoteCount || 0)} 条可整理笔记`;
   return `
     <section class="graph-node-insight" aria-label="笔记关系摘要">
       <div class="graph-node-insight-summary">
@@ -937,7 +937,7 @@ function renderGraphNodeInsightPanel(insight = {}) {
       <div class="graph-node-next-action">
         <span>建议下一步</span>
         <strong>${escapeHtml(insight.nextStep)}</strong>
-        <p>${escapeHtml(candidateText)}</p>
+        <p>${escapeHtml(targetText)}</p>
       </div>
       <details class="graph-node-insight-details">
         <summary>为什么这样判断</summary>
@@ -1466,9 +1466,9 @@ function graphCandidateRelationReviewQuestion(candidate = {}) {
   if (relationType === "supports") return "它是在提供证据、例子，还是在推进对方的结论？";
   if (relationType === "contradicts") return "它反对的是结论、前提，还是适用范围？";
   if (relationType === "qualifies") return "它限定了对方在什么条件下成立？";
-  if (relationType === "bridges") return "它桥接的是共同问题、概念过渡，还是方法相似？";
-  if (relationType === "same_topic") return "它们只是同主题，还是已经有明确论证动作？";
-  return "这条关系能说清支持、限定、反驳或桥接动作吗？";
+  if (relationType === "bridges") return "它连接的是共同问题、概念过渡，还是方法相似？";
+  if (relationType === "same_topic") return "它们只是同主题，还是已经有明确的支持、限定或反方关系？";
+  return "这条关系能说清支持、限定、反方或连接动作吗？";
 }
 
 function graphCandidateRelationVerdict(candidate = {}) {
@@ -1476,10 +1476,10 @@ function graphCandidateRelationVerdict(candidate = {}) {
   const relationType = String(candidate.aiRelationType || candidate.relationType || candidate.coarseType || "associated_with").trim().toLowerCase();
   const relationLabel = graphRelationTypeLabel(relationType === "no_relation" ? "associated_with" : relationType);
   const confidenceLabel = graphAiConfidenceLabel(candidate.aiConfidence || candidate.confidence);
-  if (decision === "reject" || relationType === "no_relation") return "AI 判断：暂不建议直接建正式关系";
-  if (decision === "uncertain") return `AI 判断：先作为${relationLabel}复核`;
-  if (decision === "accept") return `AI 判断：可复核为${relationLabel}`;
-  return `建议先按${relationLabel}复核 · ${confidenceLabel}`;
+  if (decision === "reject" || relationType === "no_relation") return "暂不建议直接保存为正式关系";
+  if (decision === "uncertain") return `可以先按“${relationLabel}”检查`;
+  if (decision === "accept") return `可以保存为“${relationLabel}”`;
+  return `建议关系：${relationLabel} · ${confidenceLabel}`;
 }
 
 function graphCandidateLocalReason(candidate = {}) {
@@ -1487,7 +1487,7 @@ function graphCandidateLocalReason(candidate = {}) {
     ? candidate.coarseReasons || candidate.coarse_reasons
     : [];
   if (reasons.length) return reasons.join("；");
-  return String(candidate.evidenceText || candidate.rationale || "").trim() || "本地规则发现可复查的概念线索。";
+  return String(candidate.evidenceText || candidate.rationale || "").trim() || "标题、标签或核心判断出现相近之处。";
 }
 
 function renderGraphCandidateReviewRows(candidate = {}, { aiCandidate = true } = {}) {
@@ -1496,19 +1496,19 @@ function renderGraphCandidateReviewRows(candidate = {}, { aiCandidate = true } =
   const aiError = String(candidate.aiError || candidate.ai_error || "").trim();
   const needsConfirmation = candidate.aiNeedsConfirmation === true || graphPotentialRelationNeedsConfirmation(candidate);
   const reasonText = !aiCandidate
-    ? `本地线索：${localReason}`
+    ? `推荐原因：${localReason}`
     : aiReason
       ? `AI 理由：${aiReason}`
       : needsConfirmation
-        ? `本地线索：${localReason}。当前 AI 设置需要确认后才能生成理由。`
+        ? `推荐原因：${localReason}。需要你确认后再生成更详细理由。`
         : aiError
-          ? `本地线索：${localReason}。AI 理由生成失败，可先人工判断。`
-          : `本地线索：${localReason}。AI 理由生成中或尚未生成。`;
+          ? `推荐原因：${localReason}。AI 理由生成失败，可以先人工判断。`
+          : `推荐原因：${localReason}。AI 理由生成中或尚未生成。`;
   return `
-    <div class="graph-candidate-review" aria-label="候选复核信息">
-      <div><span>推荐原因</span><p>${escapeHtml(reasonText)}</p></div>
-      <div><span>可能关系</span><p>${escapeHtml(graphCandidateRelationVerdict(candidate))}</p></div>
-      <div><span>复核问题</span><p>${escapeHtml(graphCandidateRelationReviewQuestion(candidate))}</p></div>
+    <div class="graph-candidate-review" aria-label="推荐依据">
+      <div><span>为什么推荐</span><p>${escapeHtml(reasonText)}</p></div>
+      <div><span>建议关系</span><p>${escapeHtml(graphCandidateRelationVerdict(candidate))}</p></div>
+      <div><span>保存前想一想</span><p>${escapeHtml(graphCandidateRelationReviewQuestion(candidate))}</p></div>
     </div>
   `;
 }
@@ -1691,8 +1691,8 @@ function graphLocalRelationCandidatesForNote(noteId = "", { nodeMap = new Map(),
   );
 }
 
-function graphCandidateSourceLabel(candidate = {}, fallback = "本地线索") {
-  if (candidate.aiDecision || candidate.modelName || candidate.aiRationale) return "AI 候选";
+function graphCandidateSourceLabel(candidate = {}, fallback = "本地推荐") {
+  if (candidate.aiDecision || candidate.modelName || candidate.aiRationale) return "AI 推荐";
   return fallback;
 }
 
@@ -1710,7 +1710,7 @@ function graphCandidateEvidenceText(candidate = {}) {
   const reasons = Array.isArray(candidate.coarseReasons || candidate.coarse_reasons)
     ? candidate.coarseReasons || candidate.coarse_reasons
     : [];
-  return reasons.filter(Boolean).slice(0, 2).join("；") || "这是一条待确认的关联线索。";
+  return reasons.filter(Boolean).slice(0, 2).join("；") || "这条笔记和目标笔记有相近之处，保存前请确认理由是否说得清。";
 }
 
 function graphMergeRelationCandidatesForDisplay(aiCandidates = [], localCandidates = [], { limit = 6, blockedPairKeys = new Set() } = {}) {
@@ -1748,20 +1748,20 @@ function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), pre
   const preview = graphIsolatedPreviewTarget(noteId, nodeMap, preferredTargetNoteId);
   if (!preview) {
     return `
-      <aside class="graph-isolated-preview" aria-label="目标预览" data-graph-isolated-preview>
+      <aside class="graph-isolated-preview" aria-label="目标笔记预览" data-graph-isolated-preview>
         <div>
-          <small data-graph-preview-kicker>目标预览</small>
+          <small data-graph-preview-kicker>目标笔记预览</small>
           <button class="graph-selection-action is-quiet" type="button" data-graph-clear-candidate-preview="${escapeHtml(noteId)}" data-graph-preview-clear-inline hidden>收起</button>
         </div>
-        <strong data-graph-preview-title>先选择一个目标笔记</strong>
+        <strong data-graph-preview-title>先选择一条目标笔记</strong>
         <span data-graph-preview-type hidden></span>
-        <p data-graph-preview-text>选择 AI 推荐目标或手工搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮窗内。</p>
+        <p data-graph-preview-text>选择 AI 推荐目标或手动搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮层内。</p>
         <div class="graph-isolated-preview-tags" data-graph-preview-tags hidden></div>
       </aside>
     `;
   }
   return `
-    <aside class="graph-isolated-preview is-active" aria-label="目标预览" data-graph-isolated-preview>
+    <aside class="graph-isolated-preview is-active" aria-label="目标笔记预览" data-graph-isolated-preview>
       <div>
         <small data-graph-preview-kicker>正在预览</small>
         <button class="graph-selection-action is-quiet" type="button" data-graph-clear-candidate-preview="${escapeHtml(noteId)}">收起</button>
@@ -1774,7 +1774,7 @@ function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), pre
   `;
 }
 
-function renderGraphRelationCandidateCards(candidates = [], { title = "可能相关笔记", note = "先复查这些线索，再把能说清理由的关系写入图谱。", sourceLabel = "本地线索" } = {}) {
+function renderGraphRelationCandidateCards(candidates = [], { title = "可能相关笔记", note = "先选一条真正相关的笔记，能说清理由再保存为关系。", sourceLabel = "本地推荐" } = {}) {
   const items = Array.isArray(candidates) ? candidates.filter((candidate) => candidate && graphCandidateCanSaveRelation(candidate)) : [];
   if (!items.length) return "";
   return `
@@ -1800,7 +1800,7 @@ function renderGraphRelationCandidateCards(candidates = [], { title = "可能相
                   ${renderGraphCandidateReviewRows(candidate, { aiCandidate: false })}
                 </details>
                 <div class="graph-ai-connect-actions">
-                  <button class="graph-selection-action is-primary" type="button" data-graph-relation-candidate-apply data-open-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">保存关系</button>
+                  <button class="graph-selection-action is-primary" type="button" data-graph-relation-candidate-apply data-open-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">选择这条笔记</button>
                   <button class="graph-selection-action is-quiet" type="button" data-graph-preview-candidate="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}" data-graph-preview-source="${escapeHtml(candidate.sourceNoteId)}">预览目标</button>
                 </div>
               </article>
@@ -1822,22 +1822,22 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
   if (!candidates.length) {
     if (hideEmpty && !loading) return "";
     return `
-      <section class="graph-ai-connect ${hasAnalysis ? "is-empty" : ""}" aria-label="待确认潜在关联">
+      <section class="graph-ai-connect ${hasAnalysis ? "is-empty" : ""}" aria-label="可能相关笔记">
         <div class="graph-ai-connect-head">
-          <strong>可选关系</strong>
-          <span>${loading ? "扫描中" : hasAnalysis ? "暂无候选" : "未扫描"}</span>
+          <strong>可能相关笔记</strong>
+          <span>${loading ? "查找中" : hasAnalysis ? "暂时没有" : "还没查找"}</span>
         </div>
-        <p>${loading ? "正在从当前图谱范围内寻找可能连接。" : hasAnalysis ? "暂时没有清楚的相关笔记。可以直接选择一条，或先把这条笔记的中心判断写清楚。" : "点击“查找相关笔记”后，系统先列出可能相关的笔记；只有你保存后才写入正式关系。"}</p>
+        <p>${loading ? "正在从当前图谱范围内查找可以连接的笔记。" : hasAnalysis ? "暂时没有清楚的相关笔记。可以手动搜索，或先把这条笔记的中心判断写清楚。" : "点击“查找可能关联”后，系统会列出可能相关的笔记；只有你保存后才会写入正式关系。"}</p>
       </section>
     `;
   }
   return `
-    <section class="graph-ai-connect" aria-label="待确认潜在关联">
+    <section class="graph-ai-connect" aria-label="可能相关笔记">
       <div class="graph-ai-connect-head">
-        <strong>可选关系</strong>
+        <strong>可能相关笔记</strong>
         <span>${candidates.length} 个可选目标</span>
       </div>
-      <p>从这里挑一条真正相关的笔记。先预览目标，能说清“为什么相连”再保存。</p>
+      <p>从这里挑一条真正相关的笔记。能说清“为什么相连”再保存。</p>
       <div class="graph-ai-connect-list">
         ${candidates
           .map(
@@ -1851,28 +1851,28 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
                 : `data-graph-ai-candidate-apply data-open-note="${escapeHtml(currentNoteId || candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(aiTargetNoteId)}"`;
               return `
                 <article class="graph-ai-connect-card">
-                <div class="graph-ai-connect-card-head">
-                  <span>${escapeHtml(isLocal ? "本地候选" : "AI 候选")}</span>
-                  <strong>${escapeHtml(candidate.counterpartTitle || candidate.targetTitle)}</strong>
-                  <small>${escapeHtml(candidate.relationLabel)} · ${escapeHtml(graphAiConfidenceLabel(candidate.confidence))}${candidate.componentBridge ? " · 桥接" : ""}${candidate.aiDecision ? ` · AI ${escapeHtml(candidate.aiDecision)}` : ""}</small>
-                </div>
-                <p>${escapeHtml(graphCandidateEvidenceText(candidate))}</p>
-                <details class="graph-candidate-details">
-                  <summary>查看依据</summary>
-                  ${renderGraphCandidateReviewRows(candidate, { aiCandidate: !isLocal })}
-                </details>
-                <div class="graph-ai-connect-actions">
-                  <button class="graph-selection-action is-primary" type="button" ${applyAttrs} data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">保存关系</button>
-                  ${
-                    !isLocal && needsConfirmation
-                      ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-confirm data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">生成理由</button>`
-                      : !isLocal && candidate.aiError
-                      ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-retry data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">重新生成理由</button>`
-                      : ""
-                  }
-                  <button class="graph-selection-action is-quiet" type="button" data-graph-preview-candidate="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}" data-graph-preview-source="${escapeHtml(noteId)}">预览目标</button>
-                </div>
-              </article>
+                  <div class="graph-ai-connect-card-head">
+                    <span>${escapeHtml(isLocal ? "本地推荐" : "AI 推荐")}</span>
+                    <strong>${escapeHtml(candidate.counterpartTitle || candidate.targetTitle)}</strong>
+                    <small>${escapeHtml(candidate.relationLabel)} · ${escapeHtml(graphAiConfidenceLabel(candidate.confidence))}${candidate.componentBridge ? " · 可连接两组笔记" : ""}</small>
+                  </div>
+                  <p>${escapeHtml(graphCandidateEvidenceText(candidate))}</p>
+                  <details class="graph-candidate-details">
+                    <summary>查看依据</summary>
+                    ${renderGraphCandidateReviewRows(candidate, { aiCandidate: !isLocal })}
+                  </details>
+                  <div class="graph-ai-connect-actions">
+                    <button class="graph-selection-action is-primary" type="button" ${applyAttrs} data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">选择这条笔记</button>
+                    ${
+                      !isLocal && needsConfirmation
+                        ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-confirm data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">生成理由</button>`
+                        : !isLocal && candidate.aiError
+                        ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-retry data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">重新生成理由</button>`
+                        : ""
+                    }
+                    <button class="graph-selection-action is-quiet" type="button" data-graph-preview-candidate="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}" data-graph-preview-source="${escapeHtml(noteId)}">预览目标</button>
+                  </div>
+                </article>
               `;
             }
           )
@@ -1881,6 +1881,7 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
     </section>
   `;
 }
+
 
 
 

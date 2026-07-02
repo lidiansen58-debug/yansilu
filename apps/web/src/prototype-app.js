@@ -191,7 +191,7 @@ state.graphConnectivityReady = false;
 state.graphVisibleNoteIdsReady = false;
 const importState = {
   importRecordId: "",
-  directoryId: "",
+  directoryId: "dir_original_default",
   lastPreview: null,
   lastResultPayload: null,
   activeTab: "import",
@@ -616,7 +616,6 @@ installStartupAutoOpenEventBindings({
 });
 
 function feedbackBaseUrl() { return `https://github.com/${FEEDBACK_REPOSITORY}/issues/new`; }
-
 function activePrototypeUrl() {
   if (typeof window === "undefined") return "/app";
   return window.location.href || `${window.location.origin}/app`;
@@ -1423,7 +1422,8 @@ const importResultRuntime = createImportResultRuntime({
   escapeHtml,
   importConfirmButtonState,
   importPayloadRecordId,
-  importState,
+  importState, handleStateChange,
+  noteById: (noteId) => state.notes.find((item) => item.id === noteId) || null,
   openNoteById,
   rankedLiteratureQueueNotes,
   renderCandidatePreview,

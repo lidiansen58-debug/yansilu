@@ -80,16 +80,16 @@ export function createImportToolbarActions({
       const summary = preview?.candidatePreview ? selectionSummary(preview.candidatePreview, importRecordId) : null;
       const selectedIds = summary ? [...summary.selectedIds] : null;
       if (summary && selectedIds.length === 0) {
-        const message =
-          Number(summary.totalCount || 0) === 0
-            ? "当前预览没有可导入候选。"
-            : "请先至少选择一个导入候选。";
+        const message = Number(summary.totalCount || 0) === 0 ? "当前预览没有可导入内容。" : "请先至少选择一条导入内容。";
         setStatus?.(message, "warn");
         return null;
       }
       const confirmPayload = selectedIds ? { selectedCandidateIds: selectedIds } : {};
       const directoryId = String(values.directoryId || "").trim();
       if (directoryId) confirmPayload.directoryId = directoryId;
+      const options = parseJsonOrEmpty(values.options, "Options");
+      if (options.originalityPlan) confirmPayload.originalityPlan = options.originalityPlan;
+      if (options.overrideOriginality === true) confirmPayload.overrideOriginality = true;
       const result = await confirmImport(importRecordId, confirmPayload);
       setStatus?.(`导入完成：${importRecordId}`, "ok");
       await onConfirmSuccess?.({ importRecordId, result, preview });

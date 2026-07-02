@@ -124,7 +124,14 @@ export function createGraphIsolatedWorkflowShellRenderer({
   };
 
   const renderSelectionPanel = ({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) => {
-    const isolated = resolveIsolatedSelection(selection, isolatedNotes, [...nodeMap.values()]);
+    const isolated = resolveIsolatedSelection(selection, isolatedNotes, [...nodeMap.values()]) || (selection?.noteId
+      ? {
+          noteId: String(selection.noteId || "").trim(),
+          isolatedKey: String(selection.isolatedKey || selection.noteId || "").trim(),
+          title: String(selection.title || "").trim(),
+          item: {}
+        }
+      : null);
     if (!isolated) return "";
     const noteId = String(isolated.noteId || "").trim();
     const note = noteFromSources(noteId, nodeMap);
@@ -160,7 +167,26 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const title = nodeTitle(nodeMap, noteId, note.title || "当前笔记");
     const result = selection?.saveResult || {};
     const queueItems = isolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 });
-    const nextItem = nextIsolatedQueueItem(queueItems, noteId);
+    const queuedNextItem = nextIsolatedQueueItem(queueItems, noteId);
+    const connected = new Set();
+    for (const edge of Array.isArray(edges) ? edges : []) {
+      const fromNoteId = String(edge?.fromNoteId || edge?.from || edge?.source || "").trim();
+      const toNoteId = String(edge?.toNoteId || edge?.to || edge?.target || "").trim();
+      if (fromNoteId) connected.add(fromNoteId);
+      if (toNoteId) connected.add(toNoteId);
+    }
+    const fallbackNextNode = queuedNextItem ? null : [...nodeMap.values()].find((node) => {
+      const candidateNoteId = String(node?.id || node?.noteId || "").trim();
+      if (!candidateNoteId || candidateNoteId === noteId) return false;
+      return !connected.has(candidateNoteId) && Number(node?.degree || 0) <= 0;
+    });
+    const nextItem = queuedNextItem || (fallbackNextNode
+      ? {
+          noteId: String(fallbackNextNode.id || fallbackNextNode.noteId || "").trim(),
+          isolatedKey: String(fallbackNextNode.isolatedKey || fallbackNextNode.id || fallbackNextNode.noteId || "").trim(),
+          title: String(fallbackNextNode.title || fallbackNextNode.label || fallbackNextNode.id || "").trim()
+        }
+      : null);
     const directRelationCount = graphDirectNetworkEdgeCount(noteId, edges, { relationStatusCountsAsNetworkEdge });
     return renderSelectionShell({
       className: "is-isolated is-complete",
@@ -187,11 +213,71 @@ export function createGraphIsolatedWorkflowShellRenderer({
     });
   };
 
+  const renderCompletePanelClean = ({ selection = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}) => {
+    const noteId = String(selection?.noteId || selection?.nodeId || "").trim();
+    if (!noteId) return "";
+    const note = fullNoteById(noteId, nodeMap) || {};
+    const title = nodeTitle(nodeMap, noteId, note.title || "当前笔记");
+    const result = selection?.saveResult || {};
+    const resultNext = result?.nextIsolated && typeof result.nextIsolated === "object"
+      ? {
+          noteId: String(result.nextIsolated.noteId || result.nextIsolated.nodeId || "").trim(),
+          isolatedKey: String(result.nextIsolated.isolatedKey || result.nextIsolated.noteId || result.nextIsolated.nodeId || "").trim(),
+          title: String(result.nextIsolated.title || "").trim()
+        }
+      : null;
+    const queueItems = isolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, limit: 8 });
+    const queuedNextItem = nextIsolatedQueueItem(queueItems, noteId);
+    const connected = new Set();
+    for (const edge of Array.isArray(edges) ? edges : []) {
+      const fromNoteId = String(edge?.fromNoteId || edge?.from || edge?.source || "").trim();
+      const toNoteId = String(edge?.toNoteId || edge?.to || edge?.target || "").trim();
+      if (fromNoteId) connected.add(fromNoteId);
+      if (toNoteId) connected.add(toNoteId);
+    }
+    const fallbackNextNode = resultNext?.noteId || queuedNextItem ? null : [...nodeMap.values()].find((node) => {
+      const candidateNoteId = String(node?.id || node?.noteId || "").trim();
+      if (!candidateNoteId || candidateNoteId === noteId) return false;
+      return !connected.has(candidateNoteId) && Number(node?.degree || 0) <= 0;
+    });
+    const nextItem = (resultNext?.noteId ? resultNext : null) || queuedNextItem || (fallbackNextNode
+      ? {
+          noteId: String(fallbackNextNode.id || fallbackNextNode.noteId || "").trim(),
+          isolatedKey: String(fallbackNextNode.isolatedKey || fallbackNextNode.id || fallbackNextNode.noteId || "").trim(),
+          title: String(fallbackNextNode.title || fallbackNextNode.label || fallbackNextNode.id || "").trim()
+        }
+      : null);
+    const directRelationCount = graphDirectNetworkEdgeCount(noteId, edges, { relationStatusCountsAsNetworkEdge });
+    return renderSelectionShell({
+      className: "is-isolated is-complete",
+      ariaLabel: "孤立笔记已接入关系网",
+      kicker: "已接入关系网",
+      title,
+      meta: `${noteTypeLabel(note.noteType)} · 已保存 ${directRelationCount} 条关系`,
+      closeLabel: "收起处理结果",
+      body: `
+        <section class="graph-isolated-complete-card">
+          <small>关系已保存</small>
+          <strong>${escapeHtml(result.targetTitle ? `已关联到：${result.targetTitle}` : "这条笔记已经进入关系网")}</strong>
+          <p>${escapeHtml(result.relationLabel ? `关系类型：${result.relationLabel}。这条笔记已经退出未关联状态。` : "这条笔记已经退出未关联状态。")}</p>
+        </section>
+        <div class="graph-isolated-complete-actions">
+          ${
+            nextItem
+              ? `<button class="graph-selection-action is-primary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(nextItem.noteId)}" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">继续处理：${escapeHtml(nextItem.title || nextItem.noteId)}</button>`
+              : `<span class="graph-isolated-complete-empty">当前范围没有其它未关联笔记。</span>`
+          }
+        </div>
+        ${renderRelationWorkspaceForNote(noteId, { nodeMap, edges, title: "已保存关系" })}`,
+      actions: ""
+    });
+  };
+
   return {
     renderQueue,
     renderQueueStrip,
     renderWorkflowTabs,
     renderSelectionPanel,
-    renderCompletePanel
+    renderCompletePanel: renderCompletePanelClean
   };
 }

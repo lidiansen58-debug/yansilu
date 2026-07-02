@@ -1,4 +1,4 @@
-import { importToolbarViewModel } from "./import-toolbar-model.js";
+﻿import { importToolbarViewModel } from "./import-toolbar-model.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -47,7 +47,7 @@ export function renderImportToolbarPanel(input = {}) {
           <select id="importDirectoryId">
             ${renderDirectoryOptions(model.directoryOptions, model.directoryId)}
           </select>
-          <div class="import-field-help">默认导入永久笔记目录，便于后续建立关系网络；如果这批资料明确是随笔或文献，再切换目录。</div>
+          <div class="import-field-help">默认导入永久笔记目录，方便后续建立关系网；如果这批资料明确是随笔或文献，再切换目录。</div>
         </section>
       </div>
       <details class="import-compat-details">
@@ -56,12 +56,12 @@ export function renderImportToolbarPanel(input = {}) {
           <section class="import-field-panel">
             <label class="import-field-label" for="importPayload">覆盖请求（可选）</label>
             <textarea id="importPayload" style="min-height:112px;" placeholder='例如：{"path":"E:/Notes/My Obsidian Vault"}'>${escapeHtml(model.payload)}</textarea>
-            <div class="import-field-help">只有上面的“来源仓库”不够表达时才填写。最常见就是补一个 <code>path</code>。</div>
+            <div class="import-field-help">只有上面的“来源仓库”不够表达时才填写，最常见是补一个 <code>path</code>。</div>
           </section>
           <section class="import-field-panel">
             <label class="import-field-label" for="importOptions">兼容规则（可选）</label>
             <textarea id="importOptions" style="min-height:112px;" placeholder='例如：{"detectWikilinks":true}'>${escapeHtml(model.options)}</textarea>
-            <div class="import-field-help">开启 <code>detectWikilinks</code> 后，<code>[[关联标题]]</code> 会先作为关联线索匹配；确认导入后再写入可追踪关系。</div>
+            <div class="import-field-help">开启 <code>detectWikilinks</code> 后，<code>[[关联标题]]</code> 会作为关系匹配依据；确认导入后再写入可追溯关系。</div>
           </section>
         </div>
       </details>

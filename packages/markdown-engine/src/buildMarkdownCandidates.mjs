@@ -84,7 +84,7 @@ function sectionLines(section = null, limit = 3) {
 
 function parsePermanentDistillationFields(markdown = "", frontmatter = {}) {
   const sections = splitMarkdownSections(markdown);
-  const thesisSection = findSection(sections, [/一句话论点/, /中心判断/, /核心观点/, /主张/]);
+  const thesisSection = findSection(sections, [/一句话论点/, /一句话观点/, /中心判断/, /核心观点/, /主张/]);
   const summarySection = findSection(sections, [/三句话(压缩|摘要)/, /摘要/]);
   const boundarySection = findSection(sections, [/边界/, /反例/, /限制/]);
   const sourceSection = findSection(sections, [/来源追溯/, /来源/, /出处/]);

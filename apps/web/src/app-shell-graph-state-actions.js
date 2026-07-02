@@ -1,6 +1,7 @@
 export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {}) {
   const {
     state = {},
+    graphState = {},
     explorer = null,
     graphOriginalScopeDirectoryId = "",
     graphRelationWorkflowController = null,
@@ -15,6 +16,12 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
 
   const noteId = String(payload.noteId || "").trim();
   if (!noteId) return false;
+  const importedPermanentNoteIds = Array.isArray(payload.importedPermanentNoteIds)
+    ? payload.importedPermanentNoteIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  if (importedPermanentNoteIds.length) {
+    graphState.importIsolatedScopeNoteIds = importedPermanentNoteIds;
+  }
   const route = graphAssociateNoteRoute({
     noteId,
     source: payload.source,
@@ -29,6 +36,12 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
   if (state.module === "graph") {
     explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
     explorer?.collapseDisconnectedGroup?.(graphOriginalScopeDirectoryId, { auto: true });
+    if (payload.source === "import-result") {
+      setGraphIsolatedWorkflowActiveTab(noteId, "manual");
+      openGraphSelection({ kind: "relationForm", noteId, returnTo: "isolated" });
+      setStatus("已打开未关联笔记的关系建立表单。选择一条相关笔记，写一句理由并保存。", "ok");
+      return true;
+    }
     if (route.kind === "graph-open-relation-form") {
       graphRelationWorkflowController?.openRelationFormFromAction?.({ noteId: route.noteId, relationType: route.relationType });
       return true;

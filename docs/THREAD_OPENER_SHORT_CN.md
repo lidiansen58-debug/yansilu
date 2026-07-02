@@ -1,5 +1,25 @@
 # Thread Opener Short CN
 
+## 0. 创建 Worktree
+
+```text
+从主仓库创建一个新 worktree。
+
+主仓库目录：E:\Projects\Thinking in Notes\yansilu
+基线分支：main
+新分支：<feat/fix/review/spike 分支名>
+新 worktree 目录：E:\Projects\Thinking in Notes\yansilu-wt\<目录名>
+
+要求：
+1. main 只保留在 E:\Projects\Thinking in Notes\yansilu
+2. 不要在其他目录 checkout main
+3. 创建 worktree 时必须从主仓库目录执行，不要从 E:\Projects\Thinking in Notes 执行
+4. 创建完成后输出新 thread 开场词
+5. 不要先跑测试
+6. 不要先启动服务
+7. 只确认仓库目录、分支、worktree 目录正确
+```
+
 ## 1. Bugfix
 
 ```text
@@ -58,7 +78,23 @@
 
 ## 快速选择
 
+- 开 worktree：用 `创建 Worktree`
 - 改 bug：用 `Bugfix`
 - 做功能：用 `Feature`
 - 做合并判断：用 `Review`
 - 只要涉及中文文本或写文件脚本：追加 `编码要求`
+
+## 短 Goal 不降质
+
+短 goal 也默认追加这 4 条：
+
+```text
+不要顺手扩展成重构。
+如果范围开始变大，先停下来汇报边界问题。
+优先修改现有模块，不新增大块抽象。
+修改后只跑当前目标最小闭环验证。
+```
+
+完整说明见：
+
+- `docs/GOAL_QUALITY_GUARDRAILS.md`

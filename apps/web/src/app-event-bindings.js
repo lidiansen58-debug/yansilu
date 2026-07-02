@@ -84,7 +84,7 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
         const picked = await desktopCommands.browseDirectory?.({ defaultPath: $("importPath")?.value || "", purpose: "导入目录" });
         if (!picked?.path) return;
         $("importPath").value = picked.path;
-        setStatus(`已选择导入目录：${picked.source}。`, "ok");
+        setStatus(`已选择导入目录：${picked.source || picked.path}`, "ok");
       })();
       return;
     }
@@ -132,7 +132,7 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
     }
     if (event.target?.closest?.("#importDirectoryId")) {
       importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
-      setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
+      setStatus(`导入目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
       return;
     }
     if (event.target?.closest?.("#exportDirectoryId") || event.target?.closest?.("#exportTargetPath")) updateExportTargetHint();

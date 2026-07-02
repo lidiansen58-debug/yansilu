@@ -165,7 +165,7 @@ export function graphPotentialRelationRationaleDraft({
   const cleanRationaleSeed = String(rationaleSeed || "").replace(/[。！？!?；;：:\s]+$/gu, "").trim();
   return cleanRationaleSeed
     ? `我确认“${actionSourceTitle}”和“${actionTargetTitle}”可以建立${relationLabel}，因为${cleanRationaleSeed}。`
-    : `我确认“${actionSourceTitle}”和“${actionTargetTitle}”可以建立${relationLabel}，因为：________。`;
+    : `“${actionSourceTitle}”和“${actionTargetTitle}”在标题、标签或核心判断上出现相近线索，可以先建立${relationLabel}；后续写作时再检查这条关系是否需要改成支持、限定或反方。`;
 }
 
 export function graphDecoratePotentialRelationCandidate(candidate = {}, { nodeMap = new Map() } = {}, deps = {}) {

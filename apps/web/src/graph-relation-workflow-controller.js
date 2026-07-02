@@ -103,7 +103,13 @@ export function graphNormalizeRelationWorkflowSelection(
       };
     }
     const noteId = cleanText(selection?.noteId || selection?.id);
-    return hasNode(nodes, noteId) ? { kind: "node", nodeId: noteId } : null;
+    if (!noteId) return null;
+    return {
+      kind: "isolated",
+      noteId,
+      ...(cleanText(selection?.isolatedKey) ? { isolatedKey: cleanText(selection.isolatedKey) } : {}),
+      ...(cleanText(selection?.title) ? { title: cleanText(selection.title) } : {})
+    };
   }
   if (kind === "isolatedcomplete") {
     const noteId = cleanText(selection?.noteId || selection?.nodeId || selection?.id);
@@ -117,7 +123,7 @@ export function graphNormalizeRelationWorkflowSelection(
   }
   if (kind === "relationform") {
     const noteId = cleanText(selection?.noteId || selection?.nodeId || selection?.id);
-    if (!hasNode(nodes, noteId)) return null;
+    if (!noteId) return null;
     return {
       kind: "relationForm",
       noteId,

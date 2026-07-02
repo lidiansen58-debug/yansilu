@@ -1,3 +1,5 @@
+import { nextIsolatedSelectionAfterRelationSave } from "./graph-next-isolated-selection.js";
+
 export function createGraphIsolatedWorkspaceRuntime(deps = {}) {
   const {
     GRAPH_CONFIRMABLE_RELATION_TYPES,
@@ -176,17 +178,17 @@ function openGraphIsolatedDecisionAction(noteId = "", action = "") {
   if (cleanAction === "bridge") {
     setGraphIsolatedWorkflowActiveTab(cleanNoteId, "candidates");
     renderGraphPanel();
-    setStatus("已切到候选关联；先找一条能说明理由的关系，保存后再处理下一条", "ok");
+    setStatus("已打开关系建立流程。先找一条能说清理由的关系，保存后再处理下一条。", "ok");
     return true;
   }
   setGraphIsolatedWorkflowActiveTab(cleanNoteId, "hold");
   renderGraphPanel();
   const messages = {
-    keep: "当前浮层已切到保留独立：暂不强行连线，可以继续处理下一条",
-    hold: "当前浮层已切到暂存观察：等这条笔记形成更清楚判断后再关联",
-    rewrite: "当前浮层已切到重写判断：先把中心判断写清楚，再回来找关系"
+    keep: "已标记为暂不关联，可以继续处理下一条。",
+    hold: "已暂存观察。等这条笔记形成更清楚判断后再关联。",
+    rewrite: "已切到补清判断。先把中心判断写清楚，再回来建立关系。"
   };
-  setStatus(messages[cleanAction] || "已在浮窗内记录处理方向", cleanAction === "hold" ? "warn" : "ok", {
+  setStatus(messages[cleanAction] || "已在当前浮层记录处理方向。", cleanAction === "hold" ? "warn" : "ok", {
     priority: 2,
     holdMs: 3600
   });
@@ -228,39 +230,32 @@ const graphIsolatedDecisionController = createGraphIsolatedDecisionController(()
   setStatus,
   updateNote
 }));
-
 async function saveGraphIsolatedDecision(button = null) {
   return graphIsolatedDecisionController.saveGraphIsolatedDecision(button);
 }
-
 function graphAiAnalysisPayload(result = graphState.aiAnalysis) {
   if (result?.analysis && typeof result.analysis === "object") return result.analysis;
   return result && typeof result === "object" ? result : {};
 }
-
 function graphAiConfidenceLabel(value = null) {
   const score = Number(value);
   if (!Number.isFinite(score) || score <= 0) return "待判断";
   return `${Math.round(Math.max(0, Math.min(score, 1)) * 100)}%`;
 }
-
 function graphNoteIdFromIsolatedItem(item = {}) {
   return computeGraphNoteIdFromIsolatedItem(item);
 }
-
 function graphComputedIsolatedNotes(nodes = [], edges = [], aiIsolatedNotes = []) {
   return graphComputedIsolatedNotesForGraph(nodes, edges, aiIsolatedNotes, {
     relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
   });
 }
-
 function graphMarkIsolatedNodes(nodes = [], isolatedNotes = []) {
   return graphMarkIsolatedNodesForGraph(nodes, isolatedNotes, {
     selectionKey: graphIsolatedSelectionKey,
     decisionMeta: graphIsolatedDecisionMeta
   });
 }
-
 function graphIsolatedQueueItems({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", limit = 8 } = {}) {
   return graphIsolatedQueueItemsForGraph({
     isolatedNotes,
@@ -276,22 +271,27 @@ function graphIsolatedQueueItems({ isolatedNotes = [], nodeMap = new Map(), edge
     selectionKey: graphIsolatedSelectionKey
   });
 }
-
 function graphNextIsolatedQueueItem(queueItems = [], currentNoteId = "") {
   return computeGraphNextIsolatedQueueItem(queueItems, currentNoteId);
 }
-
 function renderGraphIsolatedQueue({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", compact = false, limit = 8, queueItems: providedQueueItems = null } = {}) {
   return graphIsolatedWorkflowShell.renderQueue({ isolatedNotes, nodeMap, edges, currentNoteId, compact, limit, queueItems: providedQueueItems });
 }
-
 function renderGraphIsolatedQueueStrip({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", queueItems: providedQueueItems = null } = {}) {
   return graphIsolatedWorkflowShell.renderQueueStrip({ isolatedNotes, nodeMap, edges, currentNoteId, queueItems: providedQueueItems });
 }
-
-
 function clearGraphIsolatedRelationDraft(noteId = "") {
   clearGraphIsolatedRelationDraftForState(graphState, noteId);
+}
+
+function nextIsolatedSelectionAfterSave(savedNoteId = "") {
+  return nextIsolatedSelectionAfterRelationSave({
+    savedNoteId,
+    nodes: graphState.item?.nodes,
+    edges: graphState.item?.edges,
+    notes: state.notes,
+    importScopeNoteIds: graphState.importIsolatedScopeNoteIds
+  });
 }
 
 const graphRelationSaveController = createGraphRelationSaveController({
@@ -307,7 +307,8 @@ const graphRelationSaveController = createGraphRelationSaveController({
   relationTypeLabel: graphRelationTypeLabel,
   clearIsolatedRelationDraft: clearGraphIsolatedRelationDraft,
   openGraphSelection,
-  openRelationFormInSelection: openGraphRelationFormInSelection
+  openRelationFormInSelection: openGraphRelationFormInSelection,
+  nextIsolatedSelectionAfterSave
 });
 
 const graphRelationWorkflowController = createGraphRelationWorkflowController({
@@ -568,7 +569,7 @@ function previewGraphCandidateInOverlay(button = null) {
   graphState.isolatedCandidatePreviewByNoteId = graphState.isolatedCandidatePreviewByNoteId || {};
   graphState.isolatedCandidatePreviewByNoteId[sourceNoteId] = targetNoteId;
   renderGraphPanel();
-  setStatus("已在浮窗中预览候选笔记", "ok");
+  setStatus("已在浮层中预览目标笔记。", "ok");
   return true;
 }
 
@@ -582,7 +583,7 @@ function clearGraphCandidatePreviewInOverlay(button = null) {
   if (!sourceNoteId || !graphState.isolatedCandidatePreviewByNoteId) return false;
   delete graphState.isolatedCandidatePreviewByNoteId[sourceNoteId];
   renderGraphPanel();
-  setStatus("已收起候选预览", "ok");
+  setStatus("已收起目标预览。", "ok");
   return true;
 }
 

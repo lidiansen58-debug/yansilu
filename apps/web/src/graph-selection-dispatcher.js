@@ -41,6 +41,43 @@ function renderIsolatedCompleteFallback(selection = null) {
   `;
 }
 
+function renderIsolatedCompleteFallbackClean(selection = null) {
+  const title = String(selection?.title || selection?.sourceTitle || selection?.noteId || "当前笔记").trim() || "当前笔记";
+  const result = selection?.saveResult && typeof selection.saveResult === "object" ? selection.saveResult : {};
+  const targetTitle = String(result.targetTitle || selection?.targetTitle || "").trim();
+  const relationLabel = String(result.relationLabel || selection?.relationLabel || "").trim();
+  const nextIsolated = result.nextIsolated && typeof result.nextIsolated === "object" ? result.nextIsolated : null;
+  const nextNoteId = String(nextIsolated?.noteId || nextIsolated?.nodeId || "").trim();
+  const nextKey = String(nextIsolated?.isolatedKey || nextNoteId || "").trim();
+  const nextTitle = String(nextIsolated?.title || nextNoteId || "").trim();
+  return `
+    <aside class="graph-selection-panel is-isolated is-complete" aria-label="孤立笔记已接入关系网">
+      <div class="graph-selection-head">
+        <div>
+          <span class="graph-selection-kicker">已接入关系网</span>
+          <strong>${escapeFallbackHtml(title)}</strong>
+          <small>关系已保存</small>
+        </div>
+        <button class="graph-overlay-close graph-selection-close" type="button" data-graph-selection-close aria-label="收起处理结果" title="收起处理结果">×</button>
+      </div>
+      <div class="graph-selection-body">
+        <section class="graph-isolated-complete-card">
+          <small>关系已保存</small>
+          <strong>${escapeFallbackHtml(targetTitle ? `已关联到：${targetTitle}` : "这条笔记已经进入关系网")}</strong>
+          <p>${escapeFallbackHtml(relationLabel ? `关系类型：${relationLabel}。这条笔记已经退出未关联状态。` : "这条笔记已经退出未关联状态。")}</p>
+        </section>
+        <div class="graph-isolated-complete-actions">
+          ${
+            nextNoteId
+              ? `<button class="graph-selection-action is-primary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeFallbackHtml(nextNoteId)}" data-graph-select-isolated="${escapeFallbackHtml(nextKey)}" data-graph-isolated-note="${escapeFallbackHtml(nextNoteId)}">继续处理：${escapeFallbackHtml(nextTitle)}</button>`
+              : `<span class="graph-isolated-complete-empty">当前范围没有其它未关联笔记。</span>`
+          }
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
 function graphSelectionRenderers(renderers = {}) {
   return {
     renderClusterPanel: renderers.renderClusterPanel || defaultRenderPanel,
@@ -83,7 +120,7 @@ export function renderGraphSelectionByKind(context = {}, renderers = {}) {
     return panelRenderers.renderIsolatedPanel({ selection: normalized, isolatedNotes, nodeMap, edges });
   }
   if (kind === "isolatedComplete") {
-    return panelRenderers.renderIsolatedCompletePanel({ selection: normalized, isolatedNotes, nodeMap, edges }) || renderIsolatedCompleteFallback(normalized);
+    return panelRenderers.renderIsolatedCompletePanel({ selection: normalized, isolatedNotes, nodeMap, edges }) || renderIsolatedCompleteFallbackClean(normalized);
   }
   if (kind === "relationForm") {
     return panelRenderers.renderRelationFormPanel({ selection: normalized, nodeMap, edges });

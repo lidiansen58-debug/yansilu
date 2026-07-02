@@ -22,7 +22,7 @@ test("import toolbar model derives localized confirm button state", () => {
   });
   assert.deepEqual(importConfirmButtonState({ hasMatchingPreview: true, selectedCount: 0, totalCount: 0 }), {
     disabled: true,
-    label: "没有可导入候选"
+    label: "没有可导入内容"
   });
 });
 

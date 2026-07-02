@@ -21,6 +21,8 @@ export function createImportResultRuntime(deps = {}) {
     importConfirmButtonState,
     importPayloadRecordId,
     importState,
+    handleStateChange = async () => false,
+    noteById = () => null,
     openNoteById,
     rankedLiteratureQueueNotes,
     renderCandidatePreview,
@@ -253,14 +255,28 @@ export function createImportResultRuntime(deps = {}) {
       return false;
     }
     await ensureNotesLoaded([selectedNoteId]);
+    const importedPermanentNoteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "permanent");
+    const selectedNote = noteById(selectedNoteId);
+    const selectedFolderId = String(selectedNote?.folderId || selectedNote?.directoryId || "").trim();
+    hideImportOperationResultModal();
+    activateModule("graph");
+    if (selectedFolderId) await handleStateChange("select-folder", { folderId: selectedFolderId, source: "import-result" });
+    const openedRelationFlow = await handleStateChange("graph-associate-note", {
+      noteId: selectedNoteId,
+      source: "import-result",
+      importedPermanentNoteIds
+    });
+    if (openedRelationFlow) {
+      setStatus("已打开第一条未关联笔记。先选择一条相关旧笔记，写一句理由并保存关系。", "ok");
+      return true;
+    }
     activateModule("explorer");
     const opened = openNoteById(selectedNoteId, { preferTitleSelection: false });
     if (!opened) {
       setStatus("这条永久笔记暂时打不开，请从永久笔记盒中手动打开。", "warn");
       return false;
     }
-    hideImportOperationResultModal();
-    setStatus("已打开第一条未关联永久笔记。下一步：用右侧的关系整理选择目标笔记并保存关系。", "ok");
+    setStatus("已打开第一条未关联永久笔记。下一步：建立一条能说明理由的关系。", "ok");
     return true;
   }
 

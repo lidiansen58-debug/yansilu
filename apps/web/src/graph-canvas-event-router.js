@@ -111,7 +111,8 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       consumeGraphClick();
       return;
     }
-    const selectionPanelOpenNote = event.target.closest(".graph-selection-panel [data-open-note]");
+    const relationSaveAction = event.target.closest("[data-graph-ai-candidate-apply], [data-graph-relation-candidate-apply]");
+    const selectionPanelOpenNote = relationSaveAction ? null : event.target.closest(".graph-selection-panel [data-open-note]");
     if (selectionPanelOpenNote) {
       consumeGraphClick();
       openGraphNoteFromElement(selectionPanelOpenNote, { stayInGraph: true });
