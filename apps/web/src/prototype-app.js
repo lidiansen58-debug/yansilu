@@ -13,8 +13,7 @@ import { createImportWorkspaceShellController } from "./import-workspace-shell.j
 import { renderImportResultMount } from "./import-result-mount.js";
 import { createImportResultRuntime } from "./import-result-runtime.js";
 import { createImportResultHostRoutes } from "./import-result-host-routes.js";
-import { createTodayOrganizingRuntime } from "./today-organizing-runtime.js";
-import { installTodayOrganizingEvents } from "./today-organizing-events.js";
+import { createTodayOrganizingEntryRuntime } from "./today-organizing-entry-runtime.js";
 import { renderDistillationPanelView } from "./distillation-panel-view.js";
 import { installDistillationEventBindings } from "./distillation-event-bindings.js";
 import { openDistillationQueueNoteRoute } from "./distillation-note-route.js";
@@ -152,11 +151,12 @@ import { clearWritingFocusedCandidateScopeForRuntime, clearWritingSourceIndexIds
 import { sameUniqueStringSetForRuntime, selectedWritingThemeIndexForRuntime, setSelectedWritingThemeIndexForRuntime, writingThemeIndexByIdForRuntime, writingThemeIndexScopeDirectoryIdForRuntime, writingThemeIndexNoteIdsForRuntime } from "./writing-theme-state.js";
 import { graphAssociateNoteRoute, graphFollowupActionRoute, noteDeleteKeyRoute } from "./note-browser-action-router.js";
 import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
+import { createRelationEntryRuntimeController } from "./relation-entry-runtime-controller.js";
 import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, writingScaffoldPreflightWarning, isWritingStrongModelReady } from "./writing-center-flow.js";
 import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeProjectPreflight, noteHasBoundarySignal } from "./writing-readiness.js";
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
 import { findReviewOutlineProjectWithRefresh } from "./review-checklist-outline-entry.js";
-import { createWritingEntryRuntimeController } from "./writing-entry-runtime-controller.js";
+import { createWritingEntryRuntimeHost } from "./writing-entry-runtime-host.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
 import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingProjectEntryTitle as computeWritingProjectEntryTitle, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
@@ -561,7 +561,26 @@ const writingState = {
   localBookIdeasGeneratedAt: ""
 };
 
-const todayOrganizingRuntime = createTodayOrganizingRuntime(() => ({ panel: $("todayOrganizingPanel"), notes: state.notes, relations: graphState.item?.edges || [], relationsReady: Boolean(graphState.item) || state.graphConnectivityReady === true, themeIndexes: writingState.themeIndexes, organizingOverview: Number((importState.lastResultPayload?.result?.organizingOverview || importState.lastResultPayload?.importRecord?.confirmResult?.organizingOverview || null)?.permanentCount || 0) > 0 ? importState.lastResultPayload?.result?.organizingOverview || importState.lastResultPayload?.importRecord?.confirmResult?.organizingOverview || null : null, loadingThemeIndexes: writingState.loadingThemeIndexes, loadThemeIndexes: loadWritingThemeIndexes, themeLoadKey: `${currentVaultPath()}|${importState.importRecordId}|${importState.lastResultPayload?.stage || ""}`, typeFromFolder: (folderId) => typeFromFolder(state, folderId), relationNetworkStatusForNote }));
+const todayOrganizingEntryRuntime = createTodayOrganizingEntryRuntime(() => ({
+  $,
+  state,
+  graphState,
+  writingState,
+  importState,
+  currentVaultPath,
+  loadWritingThemeIndexes,
+  typeFromFolder,
+  relationNetworkStatusForNote,
+  handleStateChange,
+  activateModule,
+  openNoteById,
+  openWritingModule,
+  addWritingBasketIds,
+  selectWritingThemeIndex,
+  createReviewOutline: createReviewOutlineFromTodayChecklist,
+  setStatus
+}));
+const todayOrganizingRuntime = todayOrganizingEntryRuntime.runtime;
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
 let statusHoldUntil = 0;
@@ -2151,7 +2170,7 @@ function clearLiteratureQueueFocus() {
   setLiteratureQueueFocus([], "");
 }
 
-const writingEntryRuntimeController = createWritingEntryRuntimeController(() => ({
+const writingEntryRuntime = createWritingEntryRuntimeHost(() => ({
   $,
   activateModule,
   clearWritingFocusedCandidateScope,
@@ -2179,11 +2198,11 @@ const writingEntryRuntimeController = createWritingEntryRuntimeController(() => 
   writingThemeIndexScopeDirectoryId
 }));
 
-async function openWritingModule(options = {}) { return writingEntryRuntimeController.openWritingModule(options); }
+async function openWritingModule(options = {}) { return writingEntryRuntime.openWritingModule(options); }
 
-function beginWritingEntry(noteIds = [], options = {}) { return writingEntryRuntimeController.beginWritingEntry(noteIds, options); }
+function beginWritingEntry(noteIds = [], options = {}) { return writingEntryRuntime.beginWritingEntry(noteIds, options); }
 
-function continueWritingEntry(noteIds = [], options = {}) { return writingEntryRuntimeController.continueWritingEntry(noteIds, options); }
+function continueWritingEntry(noteIds = [], options = {}) { return writingEntryRuntime.continueWritingEntry(noteIds, options); }
 
 const writingProjectRuntimeController = createWritingProjectRuntimeController(() => ({
   $,
@@ -5126,25 +5145,16 @@ function openNoteById(id, options = {}) {
   return true;
 }
 
+const relationEntryRuntimeController = createRelationEntryRuntimeController(() => ({
+  state,
+  editor,
+  activateModule,
+  openNoteById,
+  windowRef: window
+}));
+
 function openNoteRelationEditor(noteId = "", options = {}) {
-  const cleanNoteId = String(noteId || "").trim();
-  if (!cleanNoteId) return false;
-  activateModule("explorer");
-  const opened = openNoteById(cleanNoteId, { preferTitleSelection: false });
-  if (!opened) return false;
-  state.inspectorVisible = true;
-  editor?.setInspectorVisible?.(true);
-  editor?.renderRelated?.();
-  window.setTimeout(() => {
-    editor?.openPermanentRelationWorkspace?.({
-      mode: options.mode || "",
-      targetNoteId: options.targetNoteId || "",
-      relationType: options.relationType || "",
-      rationaleDraft: options.rationaleDraft || "",
-      insightQuestionDraft: options.insightQuestionDraft || ""
-    });
-  }, 60);
-  return true;
+  return relationEntryRuntimeController.openNoteRelationEditor(noteId, options);
 }
 
 const openRecordPermanentWorkflowFromCurrentNote = createRecordPermanentWorkflowOpener({
@@ -5765,16 +5775,7 @@ bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   applyAiInboxRecommendedAction,
   setStatus
 }));
-installTodayOrganizingEvents($("todayOrganizingPanel"), () => ({
-  todayState: todayOrganizingRuntime.currentState(),
-  handleStateChange,
-  activateModule,
-  openNoteById,
-  openWritingModule, addWritingBasketIds,
-  selectWritingThemeIndex,
-  createReviewOutline: createReviewOutlineFromTodayChecklist,
-  setStatus
-}));
+todayOrganizingEntryRuntime.installEvents();
 installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openGraphNodeSelectionFromElement });
 installGraphWorkbenchClickFallbackEvents(document, {
   graphState,
