@@ -270,6 +270,7 @@ test("graph relation save controller switches ordinary relation saves to all rel
 
   assert.equal(saved, true);
   assert.deepEqual(calls[0], ["filter", "all", { source: "relation-save" }]);
+  assert.deepEqual(calls.find((call) => call[0] === "filter" && call[2]?.afterRefresh), ["filter", "all", { source: "relation-save", afterRefresh: true }]);
   assert.equal(calls.at(-1)[2], "ok");
   assert.match(calls.at(-1)[1], /普通相关关系/);
 });

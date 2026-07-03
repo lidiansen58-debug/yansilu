@@ -317,6 +317,7 @@ export function renderWritingPanelDom(deps = {}) {
     openDraftButton.disabled = panelState.openDraftButtonState.disabled;
     openDraftButton.textContent = panelState.openDraftButtonState.text;
   }
+  copyScaffoldButton?.closest?.(".writing-actions-secondary")?.classList.toggle("hidden", !hasScaffold);
   if (createProjectButton) {
     createProjectButton.disabled = hasProject || !projectEntry.canCreateProject;
     createProjectButton.textContent = hasProject ? "主题已确定" : projectEntry.actionLabel;

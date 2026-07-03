@@ -17996,18 +17996,24 @@
     }
 
     .editor-stage-shell.editor-empty-stage .markdown-split,
-    .editor-stage-shell.editor-empty-stage .panel-head.editor-intent {
-      opacity: 0.18;
+    .editor-stage-shell.editor-empty-stage .panel-head.editor-intent,
+    .editor-stage-shell.editor-empty-stage .tabs {
+      display: none;
       pointer-events: none;
     }
 
-    .editor-stage-shell.editor-empty-stage .markdown-split {
+    .editor-stage-shell.editor-empty-stage .md-panel {
       min-height: min(620px, calc(100dvh - 160px));
+    }
+
+    .editor-stage-shell.editor-empty-stage .editor-stage-top .toolbar,
+    .editor-stage-shell.editor-empty-stage > .editor-stage-top .toolbar {
+      display: none !important;
     }
 
     .editor-empty-start {
       position: absolute;
-      top: 32px;
+      top: 24px;
       left: 50%;
       z-index: 38;
       width: min(760px, calc(100% - 48px));

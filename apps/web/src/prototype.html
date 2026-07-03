@@ -413,9 +413,6 @@
                   <div class="writing-topline-metric"><span>开始草稿</span><strong>未开始</strong><small>先生成提纲</small></div>
                 </div>
               </div>
-              <div class="writing-topline-actions">
-                <button class="mini-btn" id="btnWritingRefreshProjects" type="button">刷新写作记录</button>
-              </div>
             </header>
             <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
                   <div class="writing-flow-step is-active"><span>1</span><strong>可写主题</strong><small>先明确想写清什么</small></div>
@@ -454,11 +451,16 @@
                 </details>
                 <div class="writing-actions-primary">
                   <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
-                  <button class="mini-btn" id="btnWritingAddVisible">加入当前目录笔记</button>
                   <button class="mini-btn primary" id="btnWritingCreateProject">确定可写主题</button>
                   <button class="mini-btn primary" id="btnWritingCreateScaffold">生成文章提纲</button>
-                  <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空相关笔记</button>
                 </div>
+                <details class="writing-advanced-details" id="writingBasketActionsDetails">
+                  <summary>更多相关笔记操作</summary>
+                  <div class="writing-actions-secondary">
+                    <button class="mini-btn" id="btnWritingAddVisible">加入当前目录笔记</button>
+                    <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空相关笔记</button>
+                  </div>
+                </details>
               </section>
               <section class="writing-section">
                 <div class="writing-section-head">
@@ -470,12 +472,15 @@
                 <label for="writingBasketNoteIds" class="writing-section-note">已选相关笔记（通常不用改）</label>
                 <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="需要手动修正时，每行放一条笔记编号，也可以用逗号分隔"></textarea>
                 <div class="import-result" id="writingResult">尚未开始写作。</div>
-                <div class="writing-actions-secondary">
-                  <button class="mini-btn" id="btnWritingCopyScaffold">复制文章提纲 Markdown</button>
-                  <button class="mini-btn" id="btnWritingExportScaffold">导出文章提纲 .md</button>
-                  <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿</button>
-                  <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
-                </div>
+                <details class="writing-advanced-details" id="writingOutputActionsDetails">
+                  <summary>更多输出：提纲、导出和草稿</summary>
+                  <div class="writing-actions-secondary">
+                    <button class="mini-btn" id="btnWritingCopyScaffold">复制文章提纲 Markdown</button>
+                    <button class="mini-btn" id="btnWritingExportScaffold">导出文章提纲 .md</button>
+                    <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿</button>
+                    <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
+                  </div>
+                </details>
                 <details class="writing-advanced-details">
                   <summary>高级：AI 写作检查</summary>
                 <div class="writing-ai-card" aria-label="AI 写作检查">
@@ -546,7 +551,10 @@
                     </div>
                   </div>
                   <div class="writing-summary" id="writingBasketSummary">还没有选择相关笔记。</div>
-                  <div class="writing-note-list" id="writingBasketList"></div>
+                  <details class="writing-advanced-details" id="writingBasketDetails">
+                    <summary>已选相关笔记（通常不用改）</summary>
+                    <div class="writing-note-list" id="writingBasketList"></div>
+                  </details>
                 </section>
                 <details class="writing-advanced-details writing-section" id="writingCandidateDetails">
                   <summary>更多选择：当前目录永久笔记</summary>
@@ -577,10 +585,11 @@
                 <summary>更多：最近写作和版本记录</summary>
                 <section class="writing-section">
                     <div class="writing-section-head">
-                      <div>
+                    <div>
                       <div class="writing-section-title">最近写作</div>
                       <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作主题，支持恢复到当前工作区。</div>
                       </div>
+                    <button class="mini-btn" id="btnWritingRefreshProjects" type="button">刷新写作记录</button>
                     </div>
                     <div class="import-grid" style="margin-bottom:12px;">
                       <label for="writingProjectsSearch">搜索</label>

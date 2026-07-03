@@ -31,20 +31,24 @@ function headerElements() {
   };
 }
 
-test("module header renders shell-only empty actions for explorer settings graph imports and today", () => {
+test("module header renders shell-only empty actions for explorer settings graph imports today and writing", () => {
   for (const [module, expectedTitle, expectedSummary] of [
     ["explorer", "", ""],
     ["settings", "Settings", "Settings summary"],
     ["graph", "", ""],
     ["imports", "Imports", "Import summary"],
-    ["today", "Today", "Today summary"]
+    ["today", "Today", "Today summary"],
+    ["writing", "Writing", "Writing summary"]
   ]) {
     const elements = headerElements();
     elements.moduleHeaderActions.innerHTML = "old";
     renderModuleWorkspaceHeaderForRuntime({
       state: { module },
       elements,
-      moduleUi: { title: module === "today" ? "Today" : "Imports", summary: module === "today" ? "Today summary" : "Import summary" },
+      moduleUi: {
+        title: module === "today" ? "Today" : module === "writing" ? "Writing" : "Imports",
+        summary: module === "today" ? "Today summary" : module === "writing" ? "Writing summary" : "Import summary"
+      },
       settingsHeader: { title: "Settings", summary: "Settings summary" }
     });
 
@@ -65,7 +69,7 @@ test("module header renders AI route badges and binds module actions", async () 
   const calls = [];
 
   renderModuleWorkspaceHeaderForRuntime({
-    state: { module: "writing" },
+    state: { module: "delivery" },
     elements,
     settingsState: {
       ai: {

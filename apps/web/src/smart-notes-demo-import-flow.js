@@ -20,6 +20,7 @@ export async function runConfirmedSmartNotesDemoImport(payload = {}, deps = {}) 
     setStatus = () => {},
     importSmartNotesDemo = async () => false
   } = deps;
+  if (payload?.startup === true || payload?.confirmed === true) return importSmartNotesDemo({ ...payload, confirmed: true });
   if (!confirmSmartNotesDemoImport({ confirm, setStatus })) return false;
   return importSmartNotesDemo({ ...payload, confirmed: true });
 }

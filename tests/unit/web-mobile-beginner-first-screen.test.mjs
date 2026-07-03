@@ -11,6 +11,8 @@ test("mobile CSS prioritizes demo walkthrough and softens editor toolbar", () =>
   assert.match(css, /max-height:\s*30px/);
   assert.match(css, /opacity:\s*0\.48/);
   assert.match(css, /focus-within \.toolbar/);
+  assert.doesNotMatch(css, /@media \(max-width: 920px\)[\s\S]*?\.editor-stage-shell \.editor-stage-top \.toolbar[\s\S]*?display:\s*none !important/);
+  assert.match(css, /\.editor-stage-shell\.editor-empty-stage \.editor-stage-top \.toolbar[\s\S]*display:\s*none !important/);
   assert.doesNotMatch(css, /\.editor-empty-start\s*\{\s*display:\s*none !important;/);
   assert.match(css, /\.editor-empty-actions\s*\{\s*grid-template-columns:\s*1fr/);
 });

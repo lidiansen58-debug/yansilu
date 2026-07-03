@@ -104,9 +104,11 @@ export function createGraphRelationSaveController({
       }
       graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
       clearIsolatedRelationDraft(cleanNoteId);
-      if (graphRelationSaveIsOrdinaryRelation(cleanRelationType)) setGraphRelationTypeFilter("all", { source: "relation-save" });
+      const ordinaryRelationSaved = graphRelationSaveIsOrdinaryRelation(cleanRelationType);
+      if (ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save" });
       graphState.selection = nextSelection;
       await refreshDirectoryGraph();
+      if (ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save", afterRefresh: true });
       const nextIsolatedSelection = nextSelection.kind === "isolatedComplete"
         ? nextIsolatedSelectionAfterSave(cleanNoteId)
         : null;

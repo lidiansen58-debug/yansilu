@@ -5,6 +5,9 @@ import test from "node:test";
 import {
   routeAppShellStateChange
 } from "../../apps/web/src/app-shell-state-change-router.js";
+import {
+  runConfirmedSmartNotesDemoImport
+} from "../../apps/web/src/smart-notes-demo-import-flow.js";
 
 test("empty editor first screen offers three beginner actions", () => {
   const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
@@ -55,6 +58,20 @@ test("empty start cancels Smart Notes Demo import when the user declines", async
   assert.deepEqual(calls, [["status", "已取消 Smart Notes Demo 导入。", "warn"]]);
 });
 
+test("startup Smart Notes Demo import does not block on a confirmation dialog", async () => {
+  const calls = [];
+  const result = await runConfirmedSmartNotesDemoImport({ startup: true }, {
+    confirm: () => calls.push("unexpected-confirm"),
+    importSmartNotesDemo: async (payload) => {
+      calls.push(["demo", payload.startup, payload.confirmed]);
+      return true;
+    }
+  });
+
+  assert.equal(result, true);
+  assert.deepEqual(calls, [["demo", true, true]]);
+});
+
 test("empty start does not import Smart Notes Demo without a confirmation function", async () => {
   const calls = [];
   const result = await routeAppShellStateChange("seed-smart-notes-demo", { source: "empty-start" }, {
@@ -82,7 +99,9 @@ test("empty editor state shows beginner action cards over the editor", () => {
   assert.match(dirtyStateSource, /emptyStart\?\.[\s\S]*classList\.toggle\("hidden", !empty\)/);
   assert.match(dirtyStateSource, /editor-empty-stage/);
   assert.match(css, /\.editor-stage-shell\.editor-empty-stage \.markdown-split/);
-  assert.match(css, /opacity:\s*0\.18/);
+  assert.match(css, /\.editor-stage-shell\.editor-empty-stage \.tabs/);
+  assert.match(css, /\.editor-stage-shell\.editor-empty-stage \.editor-stage-top \.toolbar/);
+  assert.match(css, /display:\s*none/);
   assert.match(css, /\.editor-empty-start\s*\{[\s\S]*z-index:\s*38/);
   assert.doesNotMatch(css, /\.editor-empty-start\s*\{\s*display:\s*none !important;/);
 });

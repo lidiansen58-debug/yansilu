@@ -5209,6 +5209,10 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     await refreshDirectoryGraph();
     if (startup) activateModule("explorer");
     renderAll();
+    if (firstNoteId) {
+      state.selectedFileId = firstNoteId;
+      openNoteById(firstNoteId, { preferTitleSelection: false });
+    }
     const counts = result?.counts || {};
     const summary = result?.summary || {};
     const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
@@ -5218,6 +5222,30 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个项目${suffix}`, "ok");
     return true;
   } catch (error) {
+    if (startup) {
+      if (!state.notes.length) {
+        try {
+          await syncDirectoriesFromApi();
+          const demoFolder = state.folders.find((folder) => {
+            const name = String(folder?.name || folder?.title || "").toLowerCase();
+            return name.includes("smart notes") || name.includes("产品思考") || name.includes("寫作 demo") || name.includes("写作 demo");
+          });
+          if (demoFolder?.id) {
+            state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
+            state.selectedFolderId = demoFolder.id;
+            await syncNotesForDirectory(demoFolder.id);
+          }
+        } catch {}
+      }
+      const fallbackNoteId = smartNotesDemoStartupNoteId({ result: {}, notes: state.notes });
+      if (fallbackNoteId) {
+        state.selectedFileId = fallbackNoteId;
+        activateModule("explorer");
+        openNoteById(fallbackNoteId, { preferTitleSelection: false });
+        setStatus(`Smart Notes Demo 已存在，已为你打开导览笔记。导入重试未完成：${String(error?.message || error)}`, "warn");
+        return true;
+      }
+    }
     setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
     return false;
   }

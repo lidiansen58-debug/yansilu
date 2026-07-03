@@ -108,7 +108,7 @@ test("route initializer connects API and marks browser fallback on web failures"
   assert.equal(fallbackCalls[1][1], "warn");
 });
 
-test("startup route opener prioritizes demo then explicit note then fallback note", async () => {
+test("startup route opener auto-opens demo then explicit note then fallback note", async () => {
   const demoCalls = [];
   const demo = await openInitialStartupRouteForRuntime({
     windowRef: { location: { search: "?demo=smart-notes" } },
@@ -124,7 +124,7 @@ test("startup route opener prioritizes demo then explicit note then fallback not
     renderAll: () => demoCalls.push("render")
   });
   assert.equal(demo.route, "demo");
-  assert.deepEqual(demoCalls, [["confirm", true], ["demo", true, true], "render"]);
+  assert.deepEqual(demoCalls, [["demo", true, true], "render"]);
 
   const state = { notes: [{ id: "n1", folderId: "f1" }] };
   const note = await openInitialStartupRouteForRuntime({
