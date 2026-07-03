@@ -1847,8 +1847,8 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(workspaceSource, /data-graph-create-theme-index/);
   assert.match(source, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "可写主题推荐", relationCount = 0, tone = "" \} = \{\}\) \{/);
   assert.match(graphRouteSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
-  assert.match(graphRouteSource, /createIndexCard\(\{/);
-  assert.match(graphRouteSource, /centralQuestion: "这组笔记共同回答什么问题？"/);
+  assert.match(graphRouteSource, /buildThemeIndexCreatePayload\(\{/);
+  assert.match(graphRouteSource, /noteById: \(id\) => writingNoteById\(id\) \|\| writingKnownNoteById\(id\)/);
   assert.match(graphRouteSource, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
   assert.match(graphRouteSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
   assert.match(graphRouteSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);

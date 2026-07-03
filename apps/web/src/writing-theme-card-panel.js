@@ -61,7 +61,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
   if (!indexCard?.id) {
     return `
       <div class="writing-empty">
-        先从左侧可写主题列表里选一张卡，或先把当前相关笔记保存成可写主题。这里会显示中心问题、主题压缩和关联笔记。
+        先从左侧主题索引列表里选一张卡，或先把当前相关笔记保存成主题索引笔记。这里会显示中心问题、主题压缩和关联笔记。
       </div>
     `;
   }
@@ -120,14 +120,14 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
         <label for="writingThemeDetailSummary2">三句话压缩 2</label>
         <textarea id="writingThemeDetailSummary2" rows="2" placeholder="为什么它重要？">${escapeHtml(summaryLines[1])}</textarea>
 
-        <label for="writingThemeDetailSummary3">三句话压缩 3</label>
-        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="它会把写作推进到哪里？">${escapeHtml(summaryLines[2])}</textarea>
+        <label for="writingThemeDetailSummary3">下一步可以写什么</label>
+        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="从这个主题索引进入写作中心后，先写哪一段或哪一个小提纲？">${escapeHtml(summaryLines[2])}</textarea>
 
         <label for="writingThemeDetailCentralQuestion">中心问题</label>
         <textarea id="writingThemeDetailCentralQuestion" rows="3" placeholder="这组笔记真正围绕哪个中心问题组织？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
       </div>
       <div class="writing-note-actions" style="margin-top:12px;">
-        <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${themeId}">保存主题</button>
+        <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${themeId}">保存主题索引</button>
         <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${themeId}">用当前相关笔记覆盖</button>
         <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${themeId}">追加当前相关笔记</button>
       </div>
@@ -154,7 +154,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
                   `
                 )
                 .join("")}</div>`
-            : `<div class="writing-empty">这个可写主题还没有挂上永久笔记。</div>`
+            : `<div class="writing-empty">这个主题索引还没有挂上永久笔记。</div>`
         }
       </div>
     </section>

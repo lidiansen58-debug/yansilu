@@ -82,6 +82,7 @@ import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
+import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
 import { createGraphFollowupController } from "./graph-followup-controller.js";
 import { clearGraphIsolatedRelationDraftForState } from "./graph-relation-drafts.js";
 import { createGraphIsolatedRelationController } from "./graph-isolated-relation-controller.js";
@@ -2367,6 +2368,9 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
 async function saveWritingBasketAsThemeIndex() {
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) throw new Error("writing basket is empty");
+  if (basketNoteIds.length < THEME_INDEX_MIN_NOTE_COUNT) {
+    throw new Error(`至少需要 ${THEME_INDEX_MIN_NOTE_COUNT} 条相关永久笔记，才适合保存为主题索引笔记`);
+  }
   await ensureNotesLoaded(basketNoteIds);
   const suggestedTitle = suggestedThemeIndexTitle(basketNoteIds);
   const title = window.prompt("主题索引标题", suggestedTitle);
@@ -2376,18 +2380,16 @@ async function saveWritingBasketAsThemeIndex() {
   const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续可续接的写作入口。";
   const summary = window.prompt("主题索引说明", summarySeed);
   if (summary === null) return null;
-  const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);
-  const card = await createIndexCard({
+  const themePayload = buildThemeIndexCreatePayload({
     directoryId: writingThemeIndexScopeDirectoryId(),
-    indexType: "topic",
-    title: cleanTitle,
-    summary: String(summary || "").trim(),
     noteIds: basketNoteIds,
-    items: basketNoteIds.map((noteId, index) => ({
-      noteId,
-      shortLabel: notes[index]?.title || "",
-      rationale: ""
-    }))
+    title: cleanTitle,
+    noteById: writingNoteById
+  });
+  const customSummary = String(summary || "").trim();
+  const card = await createIndexCard({
+    ...themePayload,
+    summary: customSummary ? `${themePayload.summary}\n\n${customSummary}` : themePayload.summary
   });
   setWritingSourceIndexIds([card.id]);
   await loadWritingThemeIndexes();
@@ -4935,6 +4937,7 @@ const graphRouteRuntime = createGraphRouteRuntime({
   localOllamaSetupActive,
   normalizeWritingProjectTitleSeed,
   ollamaBootstrapStatusText,
+  openWritingModule,
   previewOllamaLocalAiBootstrapFromUi,
   refineGraphPotentialRelationCandidate,
   renderGraphPanel,

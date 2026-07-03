@@ -493,7 +493,7 @@ test("writing panel controller renders theme detail form and note actions", () =
   assert.match(html, /data-writing-theme-action="create-project"/);
   assert.match(html, /writingThemeDetailTitle/);
   assert.match(html, /主题索引不是文章/);
-  assert.match(html, /重新进入一个问题的入口/);
+  assert.match(html, /下一步可以写什么/);
   assert.match(html, /Note &lt;one&gt;/);
   assert.match(html, /Because/);
   assert.match(html, /data-writing-theme-action="open-note"/);

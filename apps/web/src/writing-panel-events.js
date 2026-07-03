@@ -781,9 +781,9 @@ export async function handleWritingRefreshThemeIndexes(deps = {}) {
   } = deps;
   try {
     await loadWritingThemeIndexes();
-    setStatus("已刷新可写主题", "ok");
+    setStatus("已刷新主题索引", "ok");
   } catch (error) {
-    setStatus(`刷新可写主题失败：${String(error?.message || error)}`, "bad");
+    setStatus(`刷新主题索引失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -795,9 +795,9 @@ export async function handleWritingSaveThemeIndex(deps = {}) {
   try {
     const card = await saveWritingBasketAsThemeIndex();
     if (!card) return;
-    setStatus(`已保存可写主题：${card.title}`, "ok");
+    setStatus(`已保存主题索引笔记：${card.title}`, "ok");
   } catch (error) {
-    setStatus(`保存可写主题失败：${String(error?.message || error)}`, "bad");
+    setStatus(`保存主题索引笔记失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -816,9 +816,9 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
     if (!cardId) return;
     try {
       await selectWritingThemeIndex(cardId);
-      setStatus(`已查看可写主题：${cardId}`, "ok");
+      setStatus(`已查看主题索引：${cardId}`, "ok");
     } catch (error) {
-      setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -849,21 +849,21 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
       });
       setStatus(
         addedCount > 0
-          ? `已从可写主题选择相关笔记：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
-          : `可写主题已在相关笔记中：${indexCard.title || indexId}`,
+          ? `已从主题索引选择相关笔记：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
+          : `主题索引已在相关笔记中：${indexCard.title || indexId}`,
         "ok"
       );
     } catch (error) {
-      setStatus(`使用可写主题失败：${String(error?.message || error)}`, "bad");
+      setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "open") {
     try {
       await selectWritingThemeIndex(indexId);
-      setStatus(`已查看可写主题：${indexId}`, "ok");
+      setStatus(`已查看主题索引：${indexId}`, "ok");
     } catch (error) {
-      setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
     }
   }
 }

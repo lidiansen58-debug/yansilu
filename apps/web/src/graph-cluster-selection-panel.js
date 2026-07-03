@@ -75,7 +75,7 @@ export function renderGraphClusterSelectionPanelView({ selection = null, cluster
       </section>
       ${renderGraphPromptDetails("思考提示（可选）", prompts)}`,
     actions: `
-      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(meta.memberIds.join(","))}" data-graph-theme-title="${escapeHtml(title)}"${meta.memberIds.length >= 3 ? "" : " disabled"}>整理成主题草稿</button>
+      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(meta.memberIds.join(","))}" data-graph-theme-title="${escapeHtml(title)}"${meta.memberIds.length >= 3 ? "" : " disabled"}>创建主题索引</button>
       <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>补一条主题关系</button>
       <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开核心笔记</button>`
   });

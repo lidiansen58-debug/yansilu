@@ -908,7 +908,7 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
     : missingReasonCount
       ? "先补最重要关系的理由"
       : themeNoteIds.length >= 3
-        ? "整理成主题草稿"
+        ? "创建主题索引"
         : counts.conflict || counts.boundary
           ? "把边界写进观点提纯"
           : "继续补一条高质量关系";
@@ -1338,7 +1338,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
       </section>
       ${renderGraphPromptDetails("判断提示（可选）", prompts)}`,
     actions: `
-      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(maturity.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(theme.title)}"${maturity.noteIds.length >= 3 ? "" : " disabled"}>整理成可写主题</button>
+      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(maturity.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(theme.title)}"${maturity.noteIds.length >= 3 ? "" : " disabled"}>创建主题索引</button>
       <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>补一条主题关系</button>
       <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开代表笔记</button>`
   });

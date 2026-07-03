@@ -203,31 +203,31 @@ export function renderWritingPanelDom(deps = {}) {
   if (scopeHint) {
     const entryContextText = writingEntryContextText(writingState);
     const scopeText = candidateFocusPlan.usingFocusedScope
-      ? `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱进入写作中心的，下面会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；已选相关笔记和可写主题仍保持当前目录范围。`
+        ? `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱进入写作中心的，下面会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；已选相关笔记和主题索引仍保持当前目录范围。`
       : `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里的永久笔记，不展示原始导入资料；写作中心默认从已有观点开始。`;
     scopeHint.textContent = entryContextText ? `${scopeText} ${entryContextText}` : scopeText;
   }
   renderWritingStatusStripDom(deps);
   if (themeIndexesHint) {
     if (writingState.loadingThemeIndexes && writingState.themeIndexes.length) {
-      themeIndexesHint.textContent = `正在刷新可写主题... 当前显示 ${writingState.themeIndexes.length} 个。`;
+      themeIndexesHint.textContent = `正在刷新主题索引... 当前显示 ${writingState.themeIndexes.length} 个。`;
     } else if (writingState.loadingThemeIndexes) {
-      themeIndexesHint.textContent = "正在读取可写主题...";
+      themeIndexesHint.textContent = "正在读取主题索引...";
     } else if (writingState.themeIndexes.length) {
-      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个可写主题，可以直接续接写作。`;
+      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引，可以直接续接写作。`;
     } else {
-      themeIndexesHint.textContent = "当前范围还没有可写主题。先把一组成熟永久笔记组织成相关笔记，再保存为可写主题。";
+      themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟永久笔记组织成相关笔记，再保存为主题索引笔记。";
     }
   }
   if (themeIndexList) {
     if (writingState.loadingThemeIndexes) {
       themeIndexList.innerHTML = writingState.themeIndexes.length
         ? writingState.themeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("")
-        : `<div class="writing-empty">正在加载可写主题...</div>`;
+        : `<div class="writing-empty">正在加载主题索引...</div>`;
     } else if (writingState.themeIndexes.length) {
       themeIndexList.innerHTML = writingState.themeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("");
     } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">还没有可写主题。用当前相关笔记保存一个，后续就能从这里继续写。</div>`;
+      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前相关笔记保存一个，后续就能从这里继续写。</div>`;
     }
   }
 
