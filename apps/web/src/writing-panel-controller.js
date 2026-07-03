@@ -31,6 +31,9 @@ import {
 import {
   renderWritingScaffoldPreviewDom
 } from "./writing-scaffold-preview-panel.js";
+import {
+  renderWritableThemeDiscoveryPanelDom
+} from "./writable-theme-discovery-panel.js";
 
 export {
   renderWritingBookDesignDom
@@ -128,6 +131,7 @@ export function renderWritingPanelDom(deps = {}) {
   const current = $("writingCurrentNote");
   const scopeHint = $("writingScopeHint");
   const themeIndexesHint = $("writingThemeIndexesHint");
+  const themeDiscoverySuggestions = $("writingThemeDiscoverySuggestions");
   const themeIndexList = $("writingThemeIndexList");
   const themeDetail = $("writingThemeDetail");
   const themeDetailHint = $("writingThemeDetailHint");
@@ -229,6 +233,9 @@ export function renderWritingPanelDom(deps = {}) {
     } else {
       themeIndexList.innerHTML = `<div class="writing-empty">还没有可写主题。用当前相关笔记保存一个，后续就能从这里继续写。</div>`;
     }
+  }
+  if (themeDiscoverySuggestions) {
+    themeDiscoverySuggestions.innerHTML = renderWritableThemeDiscoveryPanelDom(deps);
   }
 
   const selectedTheme = resolveWritingThemeSelectionForPanel(deps);

@@ -175,8 +175,10 @@ test("writing theme index installer wires refresh save and list clicks through l
   const calls = [];
   const elements = new Map([
     ["btnWritingRefreshThemeIndexes", {}],
+    ["btnWritingDiscoverThemes", {}],
     ["btnWritingSaveThemeIndex", {}],
-    ["writingThemeIndexList", {}]
+    ["writingThemeIndexList", {}],
+    ["writingThemeDiscoverySuggestions", {}]
   ]);
   for (const [id, element] of elements) {
     element.addEventListener = (eventName, handler) => {
@@ -188,28 +190,51 @@ test("writing theme index installer wires refresh save and list clicks through l
     $: (id) => elements.get(id) || null,
     depsProvider: () => ({
       loadWritingThemeIndexes: async () => calls.push(["refresh", version]),
+      refreshWritableThemeDiscoverySuggestions: async () => calls.push(["discover", version]),
       saveWritingBasketAsThemeIndex: async () => {
         calls.push(["save", version]);
         return { title: "Theme" };
       },
+      saveWritableThemeDiscoverySuggestion: async (id, draft) => calls.push(["save-suggestion", version, id, draft.title]),
       selectWritingThemeIndex: async (id) => calls.push(["select", version, id]),
       writingThemeIndexContinuationRoute: () => ({ kind: "" }),
       setStatus: (message, tone) => calls.push(["status", version, message, tone])
     })
   });
 
-  assert.equal(registrations.length, 3);
+  assert.equal(registrations.length, 5);
   assert.equal(registrations.every((item) => item.installed), true);
 
   await handlers.get("btnWritingRefreshThemeIndexes:click")();
+  await handlers.get("btnWritingDiscoverThemes:click")();
   version = "second";
   await handlers.get("btnWritingSaveThemeIndex:click")();
+  await handlers.get("writingThemeDiscoverySuggestions:click")({
+    target: {
+      closest: (selector) => {
+        if (selector === "[data-theme-discovery-action]") {
+          return {
+            disabled: false,
+            getAttribute: (name) => name === "data-theme-discovery-action" ? "save" : "",
+            closest: () => ({
+              getAttribute: (name) => name === "data-theme-discovery-suggestion-id" ? "suggestion-1" : "",
+              querySelector: () => ({ value: "Edited suggestion" }),
+              querySelectorAll: () => []
+            })
+          };
+        }
+        return null;
+      }
+    }
+  });
   await handlers.get("writingThemeIndexList:click")({
     target: indexTarget("[data-writing-index-card-id]", { "data-writing-index-card-id": "idx1" })
   });
 
   assert.deepEqual(calls[0], ["refresh", "first"]);
-  assert.deepEqual(calls[2], ["save", "second"]);
+  assert.ok(calls.some((call) => call[0] === "discover" && call[1] === "first"));
+  assert.ok(calls.some((call) => call[0] === "save" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "save-suggestion" && call[1] === "second" && call[2] === "suggestion-1"));
   assert.ok(calls.some((call) => call[0] === "select" && call[1] === "second" && call[2] === "idx1"));
 });
 

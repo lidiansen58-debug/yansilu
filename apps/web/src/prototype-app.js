@@ -160,6 +160,7 @@ import { createWritingEntryRuntimeHost } from "./writing-entry-runtime-host.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
 import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingProjectEntryTitle as computeWritingProjectEntryTitle, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
+import { createWritableThemeDiscoveryController } from "./writable-theme-discovery-controller.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
 import { createScheduledTasksRuntimeController } from "./scheduled-tasks-runtime-controller.js";
 import { aiSettingsSelectionFromPreferences, canonicalizeAiSettingsSelection, isAiLocalFlowActive, isLocalModelPack, localProviderPresetForModelPack, normalizeAiRuntimeMode, providerPresetForModelPack, shouldUseOllamaLocalRuntimeForSelection, supportedAiSettingsModelPack } from "./ai-settings-state.js";
@@ -540,6 +541,9 @@ const writingState = {
   selectedThemeIndexId: "",
   themeIndexes: [],
   loadingThemeIndexes: false,
+  themeDiscoverySuggestions: [],
+  ignoredThemeDiscoverySuggestionKeys: [],
+  themeDiscoveryLoading: false,
   projects: [],
   projectFilters: {
     q: "",
@@ -2414,6 +2418,34 @@ async function saveWritingBasketAsThemeIndex() {
   await loadWritingThemeIndexes();
   renderWritingPanel();
   return card;
+}
+
+const writableThemeDiscoveryController = createWritableThemeDiscoveryController(() => ({
+  writingState,
+  candidateNotes: writingCandidateNotes,
+  relations: () => graphState.item?.edges || [],
+  existingThemeIndexes: () => writingState.themeIndexes,
+  ignoredSuggestionKeys: () => writingState.ignoredThemeDiscoverySuggestionKeys,
+  aiTopicCandidates: () => graphState.aiAnalysis?.topicCandidates || [],
+  parseTags,
+  noteById: writingNoteById,
+  createIndexCard,
+  writingThemeIndexScopeDirectoryId,
+  upsertWritingThemeIndex,
+  setWritingSourceIndexIds,
+  setSelectedWritingThemeIndex,
+  useThemeIndexAsWritingEntry,
+  openWritingModule,
+  renderWritingPanel,
+  setStatus
+}));
+
+function refreshWritableThemeDiscoverySuggestions() { return writableThemeDiscoveryController.refreshSuggestions(); }
+
+function ignoreWritableThemeDiscoverySuggestion(suggestionId = "") { return writableThemeDiscoveryController.ignoreSuggestion(suggestionId); }
+
+async function saveWritableThemeDiscoverySuggestion(suggestionId = "", draft = {}) {
+  return writableThemeDiscoveryController.saveSuggestion(suggestionId, draft);
 }
 
 const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
@@ -5649,7 +5681,10 @@ installWritingThemeIndexEventHandlers({
   $,
   depsProvider: () => ({
     loadWritingThemeIndexes,
+    refreshWritableThemeDiscoverySuggestions,
     saveWritingBasketAsThemeIndex,
+    ignoreWritableThemeDiscoverySuggestion,
+    saveWritableThemeDiscoverySuggestion,
     selectWritingThemeIndex,
     writingThemeIndexContinuationRoute,
     continueWritingProjectEntry,

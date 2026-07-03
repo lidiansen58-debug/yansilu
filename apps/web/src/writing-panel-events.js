@@ -54,14 +54,77 @@ export function installWritingThemeIndexEventHandlers(options = {}) {
   add("btnWritingRefreshThemeIndexes", "click", async () => {
     await handleWritingRefreshThemeIndexes(deps());
   });
+  add("btnWritingDiscoverThemes", "click", async () => {
+    await handleWritingDiscoverThemeSuggestions(deps());
+  });
   add("btnWritingSaveThemeIndex", "click", async () => {
     await handleWritingSaveThemeIndex(deps());
   });
   add("writingThemeIndexList", "click", async (event) => {
     await handleWritingThemeIndexListClick(event, deps());
   });
+  add("writingThemeDiscoverySuggestions", "click", async (event) => {
+    await handleWritingThemeDiscoveryClick(event, deps());
+  });
 
   return registrations;
+}
+
+function themeDiscoveryDraftFromCard(card = null) {
+  const value = (name) => String(card?.querySelector?.(`[data-theme-discovery-field="${name}"]`)?.value || "").trim();
+  const itemTextareas = Array.from(card?.querySelectorAll?.("[data-theme-discovery-field='item-rationale']") || []);
+  return {
+    title: value("title"),
+    centralQuestion: value("centralQuestion"),
+    membershipReason: value("membershipReason"),
+    items: itemTextareas.map((textarea) => ({
+      noteId: String(textarea.getAttribute("data-theme-discovery-note-id") || "").trim(),
+      rationale: String(textarea.value || "").trim()
+    }))
+  };
+}
+
+export async function handleWritingDiscoverThemeSuggestions(deps = {}) {
+  const {
+    refreshWritableThemeDiscoverySuggestions = () => [],
+    setStatus = () => {}
+  } = deps;
+  try {
+    return await refreshWritableThemeDiscoverySuggestions();
+  } catch (error) {
+    setStatus(`发现可写主题建议失败：${String(error?.message || error)}`, "bad");
+    return [];
+  }
+}
+
+export async function handleWritingThemeDiscoveryClick(event, deps = {}) {
+  const button = event?.target?.closest?.("[data-theme-discovery-action]");
+  if (!button) return null;
+  const card = button.closest?.("[data-theme-discovery-suggestion-id]");
+  const suggestionId = String(card?.getAttribute?.("data-theme-discovery-suggestion-id") || "").trim();
+  if (!suggestionId) return null;
+  const action = String(button.getAttribute("data-theme-discovery-action") || "").trim();
+  const {
+    ignoreWritableThemeDiscoverySuggestion = () => false,
+    saveWritableThemeDiscoverySuggestion = async () => null,
+    setStatus = () => {}
+  } = deps;
+  if (action === "ignore") {
+    return ignoreWritableThemeDiscoverySuggestion(suggestionId);
+  }
+  if (action === "save") {
+    const previousDisabled = Boolean(button.disabled);
+    button.disabled = true;
+    try {
+      return await saveWritableThemeDiscoverySuggestion(suggestionId, themeDiscoveryDraftFromCard(card));
+    } catch (error) {
+      setStatus(`保存可写主题建议失败：${String(error?.message || error)}`, "bad");
+      return null;
+    } finally {
+      button.disabled = previousDisabled;
+    }
+  }
+  return null;
 }
 
 export function installWritingThemeDetailEventHandlers(options = {}) {
