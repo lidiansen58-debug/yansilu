@@ -65,6 +65,28 @@ async function openOriginalNoteBox(page) {
   await page.locator("#editorWorkspace").waitFor({ state: "visible", timeout: 3000 });
 }
 
+async function waitForWritingThemeProjectActionReady(page) {
+  await waitFor(async () => {
+    const state = await page.evaluate(() => {
+      const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
+      const detailText = document.querySelector(".writing-theme-detail-card")?.textContent || "";
+      const button = document.querySelector('[data-writing-theme-action="create-project"]');
+      return {
+        summary,
+        buttonText: button?.textContent || "",
+        disabled: Boolean(button?.hasAttribute("disabled")),
+        detailText
+      };
+    });
+    assert.match(state.detailText, /写作助手|为什么这组笔记值得写/);
+    assert.match(state.detailText, /先写什么提纲|下一步可以写什么/);
+    assert.match(state.summary, /下一步|为什么值得写|已达到/);
+    assert.doesNotMatch(state.summary, /写作状态/);
+    assert.match(state.buttonText, /确定可写主题|创建写作项目/);
+    assert.equal(state.disabled, false, JSON.stringify(state));
+  }, 10000);
+}
+
 async function fetchJson(baseUrl, pathname) {
   const res = await fetch(`${baseUrl}${pathname}`);
   const json = await res.json();
@@ -7663,6 +7685,17 @@ test("prototype writing center can save a theme index, edit central question, an
     boundaryOrCounterpoint: "Some themes start narrow, but they still need an explicit question and growing tension."
   });
 
+  const noteC = await createWritingReadyPermanentNote(apiBase, {
+    body: "# Theme Browser Reader Path\n\nA third note turns the theme into a reader-facing outline path.",
+    thesis: "A writing theme becomes useful when it can suggest a reader path.",
+    threeLineSummary: [
+      "A writing theme needs a reader path.",
+      "That path helps the outline start from the notes instead of a blank page.",
+      "It gives the later draft a concrete opening move."
+    ],
+    boundaryOrCounterpoint: "A theme can start from two notes, but a third note makes the outline path easier to explain."
+  });
+
   const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
     toNoteId: noteB.json.item.id,
     relationType: "supports",
@@ -7672,10 +7705,19 @@ test("prototype writing center can save a theme index, edit central question, an
   });
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
+  const readerPathRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteB.json.item.id)}/relations`, {
+    toNoteId: noteC.json.item.id,
+    relationType: "extends",
+    rationale: "The reader path note turns the theme tension into a concrete outline entry.",
+    insightQuestion: "What outline path should these permanent notes suggest next?",
+    confidence: 1
+  });
+  assert.equal(readerPathRelation.status, 201, JSON.stringify(readerPathRelation.json));
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator("#writingBasketNoteIds").waitFor({ state: "visible" });
-  const targetBasketIds = [noteA.json.item.id, noteB.json.item.id];
+  const targetBasketIds = [noteA.json.item.id, noteB.json.item.id, noteC.json.item.id];
   await page.fill("#writingBasketNoteIds", targetBasketIds.join("\n"));
 
   await page.evaluate(() => {
@@ -7699,19 +7741,15 @@ test("prototype writing center can save a theme index, edit central question, an
     const value = document.querySelector("#writingThemeDetailTitle")?.value || "";
     return value.includes("Browser Theme Index");
   }, null, { timeout: 10000 });
-  await page.waitForFunction(() => {
-    const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
-    const button = document.querySelector('[data-writing-theme-action="create-project"]');
-    return summary.includes("已达到") && button?.textContent?.includes("创建写作项目") && !button?.hasAttribute("disabled");
-  }, null, { timeout: 10000 });
+  await waitForWritingThemeProjectActionReady(page);
   await page.waitForFunction(() => {
     const hint = document.querySelector("#writingThemeIndexesHint")?.textContent || "";
     return !hint.includes("正在读取写作材料");
   }, null, { timeout: 10000 });
 
-  await page.fill("#writingThemeDetailCentralQuestion", "What question should organize these two permanent notes before writing begins?");
+  await page.fill("#writingThemeDetailCentralQuestion", "What question should organize these permanent notes before writing begins?");
   await page.fill("#writingThemeDetailThesis", "A theme becomes useful when it organizes notes around one reusable question.");
-  await page.fill("#writingThemeDetailSummary1", "This theme is about turning two mature notes into one reusable question.");
+  await page.fill("#writingThemeDetailSummary1", "This theme is about turning mature notes into one reusable question.");
   await page.fill("#writingThemeDetailSummary2", "That matters because writing should begin from theme-level structure, not loose grouping.");
   await page.fill("#writingThemeDetailSummary3", "It gives the next writing project a sharper starting point.");
   await page.click('[data-writing-theme-action="save"]');
@@ -7810,12 +7848,7 @@ test("prototype writing center can create a project from a theme index after its
     return value.includes("Cold Start Theme Index");
   }, null, { timeout: 10000 });
 
-
-  await page.waitForFunction(() => {
-    const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
-    const button = document.querySelector('[data-writing-theme-action="create-project"]');
-    return summary.includes("已达到") && button?.textContent?.includes("创建写作项目") && !button?.hasAttribute("disabled");
-  }, null, { timeout: 10000 });
+  await waitForWritingThemeProjectActionReady(page);
 
   await page.click('[data-writing-theme-action="create-project"]');
 
