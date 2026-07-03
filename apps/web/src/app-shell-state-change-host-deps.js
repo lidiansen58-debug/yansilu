@@ -11,6 +11,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     analyzePermanentNote: host.analyzePermanentNote,
     applyExplorerSelectionContext: host.applyExplorerSelectionContext,
     clearSaveAiSuggestion: host.clearSaveAiSuggestion,
+    confirm: host.confirm,
     confirmPermanentNoteDistillation: host.confirmPermanentNoteDistillation,
     continueWritingEntry: host.continueWritingEntry,
     continueWritingProjectEntry: host.continueWritingProjectEntry,

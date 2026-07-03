@@ -31,6 +31,9 @@ import {
   handleRefreshGraphStateChange,
   handleSelectFolderStateChange
 } from "./app-shell-state-navigation-actions.js";
+import {
+  runConfirmedSmartNotesDemoImport
+} from "./smart-notes-demo-import-flow.js";
 
 export async function routeAppShellStateChange(reason, payload = {}, deps = {}) {
   if (reason === "refresh-graph") {
@@ -51,7 +54,11 @@ export async function routeAppShellStateChange(reason, payload = {}, deps = {}) 
   }
 
   if (reason === "seed-smart-notes-demo") {
-    return deps.importSmartNotesDemo?.(payload);
+    return runConfirmedSmartNotesDemoImport(payload, {
+      confirm: deps.confirm,
+      importSmartNotesDemo: deps.importSmartNotesDemo,
+      setStatus: deps.setStatus
+    });
   }
 
   if (reason === "record-original-from-note" || reason === "create-original-from-literature") {

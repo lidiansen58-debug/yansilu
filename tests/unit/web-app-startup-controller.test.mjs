@@ -113,14 +113,18 @@ test("startup route opener prioritizes demo then explicit note then fallback not
   const demo = await openInitialStartupRouteForRuntime({
     windowRef: { location: { search: "?demo=smart-notes" } },
     state: { notes: [] },
-    importSmartNotesProductThinkingDemo: async () => {
-      demoCalls.push("demo");
+    confirm: (message) => {
+      demoCalls.push(["confirm", /Smart Notes Demo/.test(message)]);
+      return true;
+    },
+    importSmartNotesProductThinkingDemo: async (payload) => {
+      demoCalls.push(["demo", payload.startup, payload.confirmed]);
       return true;
     },
     renderAll: () => demoCalls.push("render")
   });
   assert.equal(demo.route, "demo");
-  assert.deepEqual(demoCalls, ["demo", "render"]);
+  assert.deepEqual(demoCalls, [["confirm", true], ["demo", true, true], "render"]);
 
   const state = { notes: [{ id: "n1", folderId: "f1" }] };
   const note = await openInitialStartupRouteForRuntime({
