@@ -261,7 +261,7 @@ export function themeDiscoverySuggestionToCreatePayload(suggestion = {}, draft =
   return {
     directoryId: cleanText(directoryId),
     indexType: "topic",
-    orderingStrategy: "discovered_suggestion",
+    orderingStrategy: "clustered",
     title,
     summary: cleanText(draft.summary) || `建议主题：${title}。中心问题：${centralQuestion}。为什么属于同一主题：${membershipReason}`,
     thesis: cleanText(draft.thesis) || membershipReason,

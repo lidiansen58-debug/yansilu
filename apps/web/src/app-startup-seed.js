@@ -53,8 +53,8 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     return { route: "skipped" };
   }
   if (!shouldSkipAutoOpen()) {
-    activateModule("today");
-    return { route: "today" };
+    activateModule("explorer");
+    return { route: "explorer" };
   }
   return { route: "skipped" };
 }

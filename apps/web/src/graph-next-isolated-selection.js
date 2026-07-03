@@ -5,8 +5,8 @@ function cleanId(value = "") {
 function edgeConnectedNoteIds(edges = []) {
   const connected = new Set();
   for (const edge of Array.isArray(edges) ? edges : []) {
-    const fromNoteId = cleanId(edge?.fromNoteId || edge?.from || edge?.source);
-    const toNoteId = cleanId(edge?.toNoteId || edge?.to || edge?.target);
+    const fromNoteId = cleanId(edge?.fromNoteId || edge?.from_note_id || edge?.sourceNoteId || edge?.source_note_id || edge?.from || edge?.source);
+    const toNoteId = cleanId(edge?.toNoteId || edge?.to_note_id || edge?.targetNoteId || edge?.target_note_id || edge?.to || edge?.target);
     if (fromNoteId) connected.add(fromNoteId);
     if (toNoteId) connected.add(toNoteId);
   }
@@ -35,7 +35,6 @@ export function nextIsolatedSelectionAfterRelationSave({
 } = {}) {
   const cleanSavedNoteId = cleanId(savedNoteId);
   const graphNodes = Array.isArray(nodes) ? nodes : [];
-  const nodeIds = new Set(graphNodes.map((node) => cleanId(node?.id || node?.noteId)).filter(Boolean));
   const connected = edgeConnectedNoteIds(edges);
   const scopedNextNoteId = (Array.isArray(importScopeNoteIds) ? importScopeNoteIds : [])
     .map(cleanId)
@@ -54,11 +53,5 @@ export function nextIsolatedSelectionAfterRelationSave({
     return !connected.has(noteId) && Number(node?.degree || 0) <= 0;
   });
   if (nextNode) return relationCandidateSelection(nextNode, "after-save");
-  const nextNote = notes.find((note) => {
-    const noteId = cleanId(note?.id);
-    if (!noteId || noteId === cleanSavedNoteId || nodeIds.has(noteId)) return false;
-    const type = cleanId(note?.noteType || note?.type).toLowerCase();
-    return type === "permanent" && !connected.has(noteId);
-  });
-  return relationCandidateSelection(nextNote, "after-save");
+  return null;
 }

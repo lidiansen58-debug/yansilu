@@ -113,6 +113,7 @@ test("writable theme discovery create payload preserves user edits before save",
   });
 
   assert.equal(payload.directoryId, "dir-theme");
+  assert.equal(payload.orderingStrategy, "clustered");
   assert.equal(payload.title, "Edited theme");
   assert.equal(payload.centralQuestion, "Edited question?");
   assert.match(payload.summary, /Edited reason/);

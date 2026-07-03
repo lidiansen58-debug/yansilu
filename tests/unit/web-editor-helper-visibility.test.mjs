@@ -28,6 +28,10 @@ test("editor helper visibility guards against partial DOM and muted contexts", (
     hide: false,
     reason: ""
   });
+  assert.deepEqual(editorHelperShouldHide({ elementsReady: true, module: "" }), {
+    hide: false,
+    reason: ""
+  });
 });
 
 test("editor helper note-type matching prefers normalized folder root type", () => {

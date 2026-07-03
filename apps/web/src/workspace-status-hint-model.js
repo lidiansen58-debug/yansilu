@@ -22,9 +22,7 @@ export function buildWorkspaceStatusHintModel(input = {}) {
     };
   }
 
-  if (!focusMode) {
-    return { visible: false };
-  }
+  if (focusMode) {
 
   const focusedJudgment = growthStage === "提炼中" ? "核心判断" : "关键判断与边界";
   return {
@@ -36,6 +34,8 @@ export function buildWorkspaceStatusHintModel(input = {}) {
     body: `专注模式会收起左侧导航和回链，只留下正文与关键按钮。先把${focusedJudgment}写清楚，再决定是否补连接与标签。`,
     actionText: "保持专注"
   };
+
+  }
 
   if (noteType === "literature") {
     if (hasGeneratedOriginal) {

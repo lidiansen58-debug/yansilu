@@ -41,7 +41,7 @@ test("startup controller wires import toolbar events then initializes route and 
   ]);
 });
 
-test("startup controller sends confirmed imports to today organizing", async () => {
+test("startup controller keeps confirmed import results visible", async () => {
   const calls = [];
   let confirmSuccess = null;
   await bootstrapAppForRuntime({
@@ -74,9 +74,7 @@ test("startup controller sends confirmed imports to today organizing", async () 
 
   assert.deepEqual(calls, [
     ["record", "import-1"],
-    ["result", "confirm"],
-    ["module", "today"],
-    ["hideModal"]
+    ["result", "confirm"]
   ]);
 });
 
@@ -172,7 +170,7 @@ test("startup route opener reads late auto-open suppression before creating an u
   assert.equal(created, 0);
 });
 
-test("startup route opener defaults to today organizing when no note is requested", async () => {
+test("startup route opener defaults to the editor when no note is requested", async () => {
   const calls = [];
   const route = await openInitialStartupRouteForRuntime({
     windowRef: { location: { search: "" } },
@@ -181,6 +179,6 @@ test("startup route opener defaults to today organizing when no note is requeste
     openStartupUntitledNote: async () => calls.push(["untitled"])
   });
 
-  assert.equal(route.route, "today");
-  assert.deepEqual(calls, [["module", "today"]]);
+  assert.equal(route.route, "explorer");
+  assert.deepEqual(calls, [["module", "explorer"]]);
 });

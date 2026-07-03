@@ -2,7 +2,8 @@ export function editorHelperShouldHide({ elementsReady = true, dismissed = false
   if (!elementsReady) return { hide: true, reason: "missing-elements" };
   if (dismissed) return { hide: true, reason: "dismissed" };
   if (muted) return { hide: true, reason: "muted" };
-  if (String(module || "").trim() !== "explorer") return { hide: true, reason: "module" };
+  const cleanModule = String(module || "").trim();
+  if (cleanModule && cleanModule !== "explorer") return { hide: true, reason: "module" };
   return { hide: false, reason: "" };
 }
 

@@ -85,8 +85,6 @@ export async function bootstrapAppForRuntime(deps = {}) {
         originalityGuard: result.originalityGuard,
         candidatePreview: preview?.candidatePreview || null
       });
-      activateModule("today");
-      hideImportOperationResultModal();
       importState.lastPreview = null;
     },
     showImportResult,
