@@ -42,9 +42,10 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
     }
     if (action === "review-complete-rationale") {
       const noteId = String(button.dataset?.reviewNoteId || "").trim();
+      const targetNoteId = String(button.dataset?.reviewTargetNoteId || "").trim();
       if (!noteId) return;
       deps.activateModule?.("graph");
-      await deps.handleStateChange?.("open-note-relations", { noteId, source: "review-checklist" });
+      await deps.handleStateChange?.("open-note-relations", { noteId, targetNoteId, source: "review-checklist" });
       return;
     }
     if (action === "review-generate-outline") {

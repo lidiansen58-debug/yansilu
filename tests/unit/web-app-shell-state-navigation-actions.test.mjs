@@ -108,8 +108,22 @@ test("navigation actions open note relation editor with source fallback", () => 
   });
 
   assert.equal(result, true);
-  assert.deepEqual(calls, [["n1", { source: "explorer-browser" }]]);
+  assert.deepEqual(calls, [["n1", { source: "explorer-browser", targetNoteId: "" }]]);
   assert.equal(status.calls.at(-1).tone, "ok");
+});
+
+test("navigation actions preserve relation target when opening relation editor", () => {
+  const calls = [];
+
+  const result = handleOpenNoteRelationsStateChange({ noteId: "n1", targetNoteId: "n2", source: "review-checklist" }, {
+    openNoteRelationEditor: (noteId, options) => {
+      calls.push([noteId, options]);
+      return true;
+    }
+  });
+
+  assert.equal(result, true);
+  assert.deepEqual(calls, [["n1", { source: "review-checklist", targetNoteId: "n2" }]]);
 });
 
 test("navigation actions open AI inbox scoped to the current note", async () => {

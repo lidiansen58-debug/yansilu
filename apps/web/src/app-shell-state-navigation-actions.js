@@ -85,8 +85,9 @@ export function handleOpenNoteRelationsStateChange(payload = {}, deps = {}) {
     setStatus = () => {}
   } = deps;
   const noteId = String(payload.noteId || "").trim();
+  const targetNoteId = String(payload.targetNoteId || "").trim();
   if (!noteId) return false;
-  const opened = openNoteRelationEditor(noteId, { source: payload.source || "explorer-browser" });
+  const opened = openNoteRelationEditor(noteId, { source: payload.source || "explorer-browser", targetNoteId });
   if (opened) {
     setStatus("已打开这条笔记的关联编辑区", "ok");
     return true;

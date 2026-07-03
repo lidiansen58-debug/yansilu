@@ -161,7 +161,7 @@ function firstIsolatedNoteItem(permanentNotes = [], relations = [], relationsRea
     const relationCount = noteExplicitRelationCount(candidate);
     if (relationCount !== null) return relationCount === 0;
     if (relationsReady) return explicitRelationCountForNote(candidate?.id, relations) === 0;
-    return true;
+    return false;
   });
   if (!note) return null;
   return {

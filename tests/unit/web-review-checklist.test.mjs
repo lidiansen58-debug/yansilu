@@ -82,7 +82,7 @@ test("review checklist keeps wikilink-only notes in the isolated action queue", 
         id: "pn_wikilink_only",
         title: "只有正文链接",
         noteType: "permanent",
-        links: ["另一条笔记"],
+        outgoingLinks: [{ relationType: "markdown_link", rationale: "markdown_wikilink", status: "confirmed" }],
         body: "这条笔记只写了 [[另一条笔记]]，还没有正式关系。"
       }
     ],
@@ -92,6 +92,22 @@ test("review checklist keeps wikilink-only notes in the isolated action queue", 
 
   assert.equal(checklist.items[0]?.type, "isolatedNote");
   assert.equal(checklist.items[0]?.action, "review-connect-isolated");
+});
+
+test("review checklist does not treat unknown cold-start relation state as isolated", () => {
+  const checklist = buildReviewChecklist({
+    notes: [
+      { id: "pn_unknown", title: "旧库已有关系但未加载", noteType: "permanent" },
+      { id: "pn_clear", title: "明确未关联", noteType: "permanent", relationNetworkStatus: "isolated" }
+    ],
+    relations: [],
+    relationsReady: false
+  }, {
+    relationNetworkStatusForNote: (note) => note.relationNetworkStatus || "unknown"
+  });
+
+  assert.equal(checklist.items[0]?.type, "isolatedNote");
+  assert.equal(checklist.items[0]?.noteId, "pn_clear");
 });
 
 test("review checklist does not mark relation-loaded connected notes as isolated", () => {
@@ -145,7 +161,7 @@ test("review checklist actions route to existing workflows without automatic edi
   const click = (event) => handlers.get("click")(event);
   await click(clickTarget("review-connect-isolated", { reviewNoteId: "pn_isolated" }));
   await click(clickTarget("review-refine-tag", { reviewNoteId: "pn_tag", reviewTag: "阅读" }));
-  await click(clickTarget("review-complete-rationale", { reviewNoteId: "pn_source" }));
+  await click(clickTarget("review-complete-rationale", { reviewNoteId: "pn_source", reviewTargetNoteId: "pn_target" }));
   await click(clickTarget("review-generate-outline", { reviewThemeId: "idx_topic", reviewNoteIds: "pn_a,pn_b,pn_c" }));
 
   assert.deepEqual(calls[0], ["module", "graph"]);
@@ -153,7 +169,7 @@ test("review checklist actions route to existing workflows without automatic edi
   assert.deepEqual(calls[2], ["module", "explorer"]);
   assert.deepEqual(calls[3], ["open-note", "pn_tag", { preferTitleSelection: false }]);
   assert.deepEqual(calls[5], ["module", "graph"]);
-  assert.deepEqual(calls[6], ["state", "open-note-relations", { noteId: "pn_source", source: "review-checklist" }]);
+  assert.deepEqual(calls[6], ["state", "open-note-relations", { noteId: "pn_source", targetNoteId: "pn_target", source: "review-checklist" }]);
   assert.deepEqual(calls[7], ["outline", { themeId: "idx_topic", noteIds: ["pn_a", "pn_b", "pn_c"], source: "review-checklist" }]);
   assert.equal(calls.some((call) => call[0] === "basket" && call[1]?.includes?.("pn_a")), false);
   assert.equal(calls.some((call) => call[0] === "writing"), false);
