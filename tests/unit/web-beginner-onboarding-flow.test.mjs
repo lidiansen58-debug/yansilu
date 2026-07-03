@@ -14,10 +14,10 @@ test("beginner flow detects Smart Notes demo and renders five clickable steps", 
     { id: "GUIDE-SN-001" },
     { id: "PN-SN-001" },
     { id: "PN-SN-101" },
-    { id: "IC-SN-001" },
+    { id: "PN-SN-FEATURE-003" },
     { id: "WP-SN-PM-001" }
   ];
-  const flow = buildSmartNotesDemoWalkthrough({ notes, selectedNoteId: "IC-SN-001" });
+  const flow = buildSmartNotesDemoWalkthrough({ notes, selectedNoteId: "PN-SN-FEATURE-003" });
   const html = renderSmartNotesDemoWalkthrough(flow);
 
   assert.equal(isSmartNotesDemoScope(notes), true);
@@ -26,8 +26,9 @@ test("beginner flow detects Smart Notes demo and renders five clickable steps", 
   assert.equal(flow.steps[0].done, true);
   assert.equal(flow.steps[2].active, true);
   assert.match(html, /data-smart-notes-demo-walkthrough/);
-  assert.match(html, /看来源变判断/);
+  assert.match(html, /从来源到永久笔记/);
   assert.match(html, /补一条关系理由/);
+  assert.match(html, /打开主题索引示例/);
   assert.match(html, /data-sidebar-flow-action="open-demo-note-relations"/);
   assert.match(html, /打开写作中心/);
 });
@@ -46,16 +47,15 @@ test("writing beginner mainline exposes one stage and one action", () => {
     hasProject: false,
     projectEntry: { actionLabel: "确定可写主题" }
   });
-  const aiCheck = writingBeginnerMainline({
+  const draft = writingBeginnerMainline({
     basketCount: 3,
     hasProject: true,
-    hasScaffold: true,
-    strongModelReady: true
+    hasScaffold: true
   });
 
-  assert.equal(material.label, "先补材料");
-  assert.equal(theme.label, "可保存主题");
-  assert.equal(aiCheck.label, "可做 AI 写作检查");
+  assert.equal(material.label, "选相关笔记");
+  assert.equal(theme.label, "确定可写主题");
+  assert.equal(draft.label, "保存草稿");
   assert.match(renderWritingBeginnerMainlineView(theme), /data-writing-beginner-mainline/);
   assert.match(renderWritingBeginnerMainlineView(theme), /确定可写主题/);
 });

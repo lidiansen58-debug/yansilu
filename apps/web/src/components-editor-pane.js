@@ -3722,7 +3722,8 @@ export class EditorPane {
       manualQuery: cleanQuery,
       searchState: cleanQuery ? "loading" : "idle",
       error: "",
-      notice: ""
+      notice: "",
+      dirty: cleanQuery ? true : this.permanentRelationWorkspaceState.dirty === true
     }, note.id);
     this.syncPermanentRelationManualResults();
     if (!cleanQuery) {
@@ -3777,7 +3778,8 @@ export class EditorPane {
     if (!["relationType", "rationale", "insightQuestion"].includes(key)) return;
     this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
       ...this.permanentRelationWorkspaceState,
-      [key]: String(value || "").trim()
+      [key]: String(value || "").trim(),
+      dirty: true
     }), this.activeNote()?.id || this.permanentRelationWorkspaceState.noteId || "");
   }
 

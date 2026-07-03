@@ -6,6 +6,7 @@ export function installAppGlobalKeyboardEvents(deps = {}) {
     editor = {},
     handleSystemMessageEscapeKey = () => ({ handled: false }),
     systemMessageEventDeps = () => ({}),
+    dismissSafeOverlaysForEscape = () => ({ ok: true, changed: false }),
     noteDeleteKeyRoute = () => ({ handled: false }),
     syncExplorerContextToActiveTab = () => {},
     folderById = () => null,
@@ -18,6 +19,10 @@ export function installAppGlobalKeyboardEvents(deps = {}) {
 
   documentRef?.addEventListener?.("keydown", (event) => {
     if (handleSystemMessageEscapeKey(event, systemMessageEventDeps()).handled) return;
+    if (event?.key === "Escape") {
+      const overlayResult = dismissSafeOverlaysForEscape(event);
+      if (overlayResult?.changed || overlayResult?.ok === false) return;
+    }
 
     const tag = (event.target?.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select" || event.target?.isContentEditable || event.isComposing) return;

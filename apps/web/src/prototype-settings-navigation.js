@@ -1,7 +1,16 @@
 export const SETTINGS_SECTIONS = Object.freeze([
   {
+    id: "support",
+    label: "帮助",
+    paneId: "settingsPaneSupport",
+    buttonId: "settingsNavSupport",
+    badgeId: "settingsNavSupportBadge",
+    metaId: "settingsNavSupportMeta",
+    bodyId: "settingsPaneSupportBody"
+  },
+  {
     id: "workspace",
-    label: "工作区",
+    label: "本地笔记库",
     paneId: "settingsPaneWorkspace",
     buttonId: "settingsNavWorkspace",
     badgeId: "settingsNavWorkspaceBadge",
@@ -10,7 +19,7 @@ export const SETTINGS_SECTIONS = Object.freeze([
   },
   {
     id: "templates",
-    label: "模板",
+    label: "笔记模板",
     paneId: "settingsPaneTemplates",
     buttonId: "settingsNavTemplates",
     badgeId: "settingsNavTemplatesBadge",
@@ -19,7 +28,7 @@ export const SETTINGS_SECTIONS = Object.freeze([
   },
   {
     id: "ai",
-    label: "AI",
+    label: "AI 设置",
     paneId: "settingsPaneAi",
     buttonId: "settingsNavAi",
     badgeId: "settingsNavAiBadge",
@@ -34,30 +43,21 @@ export const SETTINGS_SECTIONS = Object.freeze([
     badgeId: "settingsNavAutomationBadge",
     metaId: "settingsNavAutomationMeta",
     bodyId: "settingsPaneAutomationBody"
-  },
-  {
-    id: "support",
-    label: "支持",
-    paneId: "settingsPaneSupport",
-    buttonId: "settingsNavSupport",
-    badgeId: "settingsNavSupportBadge",
-    metaId: "settingsNavSupportMeta",
-    bodyId: "settingsPaneSupportBody"
   }
 ]);
 
 export const SETTINGS_DETAIL_ITEMS = Object.freeze([
-  { id: "current-vault", label: "笔记库", group: "卡片盒", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
-  { id: "permanent-template", label: "永久笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
-  { id: "literature-template", label: "文献笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
-  { id: "ai-settings", label: "AI 设置", group: "智能", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
-  { id: "automation", label: "自动处理", group: "智能", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
-  { id: "version-update", label: "版本更新", group: "支持", sectionId: "support", cardIds: ["settingsUpdateCard"] },
-  { id: "desktop-help", label: "本地使用说明", group: "支持", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
-  { id: "feedback", label: "问题反馈", group: "支持", sectionId: "support", cardIds: ["settingsFeedbackCard"] }
+  { id: "desktop-help", label: "本地使用说明", group: "新手帮助", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
+  { id: "feedback", label: "问题反馈", group: "新手帮助", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
+  { id: "version-update", label: "版本更新", group: "新手帮助", sectionId: "support", cardIds: ["settingsUpdateCard"] },
+  { id: "current-vault", label: "本地笔记库", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
+  { id: "permanent-template", label: "永久笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
+  { id: "literature-template", label: "文献笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
+  { id: "ai-settings", label: "AI 设置", group: "进阶设置", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
+  { id: "automation", label: "自动处理", group: "进阶设置", sectionId: "automation", cardIds: ["settingsCardAutomation"] }
 ]);
 
-const SETTINGS_DETAIL_GROUPS = ["卡片盒", "模板", "智能", "支持"];
+const SETTINGS_DETAIL_GROUPS = ["新手帮助", "本地使用", "进阶设置"];
 
 function escapeHtmlValue(value) {
   return String(value ?? "")
@@ -70,7 +70,7 @@ function escapeHtmlValue(value) {
 
 export function normalizeSettingsSection(sectionId = "") {
   const requested = String(sectionId || "").trim().toLowerCase();
-  return SETTINGS_SECTIONS.some((section) => section.id === requested) ? requested : "workspace";
+  return SETTINGS_SECTIONS.some((section) => section.id === requested) ? requested : "support";
 }
 
 export function settingsSectionConfig(sectionId = "") {
@@ -128,8 +128,8 @@ export function settingsSectionChromeMap({
       meta: `待确认 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 后台任务 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`
     },
     support: {
-      badge: feedbackRepositoryReady ? "GitHub" : "待绑定",
-      meta: feedbackRepositoryReady ? feedbackRepository : "问题反馈与本地说明"
+      badge: feedbackRepositoryReady ? "反馈入口" : "待绑定",
+      meta: feedbackRepositoryReady ? "新手帮助、本地说明、问题反馈" : "问题反馈与本地说明"
     }
   };
 }

@@ -101,22 +101,22 @@ export function writingFlowStepItems({
   return [
     {
       done: basketCount > 0,
-      title: materialStep.title,
+      title: "选相关笔记",
       note: materialStep.note
     },
     {
       done: hasProject,
-      title: projectStep.title,
+      title: "确定可写主题",
       note: projectStep.note
     },
     {
       done: scaffoldReadyForDraft,
-      title: scaffoldStep.title,
+      title: "生成提纲",
       note: scaffoldStep.note
     },
     {
       done: hasDraft,
-      title: draftStep.title,
+      title: "保存草稿",
       note: draftStep.note
     }
   ];

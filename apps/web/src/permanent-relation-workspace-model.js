@@ -36,6 +36,7 @@ export function defaultPermanentRelationWorkspaceState(noteId = "") {
     saveState: "idle",
     error: "",
     notice: "",
+    dirty: false,
     result: null,
     entryRoute: null
   };
@@ -60,6 +61,7 @@ export function normalizePermanentRelationWorkspaceState(state = {}, noteId = ""
     saveState: cleanType(state.saveState) || "idle",
     error: cleanText(state.error),
     notice: cleanText(state.notice),
+    dirty: state.dirty === true,
     result: state.result && typeof state.result === "object" ? state.result : null,
     entryRoute: state.entryRoute && typeof state.entryRoute === "object" ? state.entryRoute : null
   };

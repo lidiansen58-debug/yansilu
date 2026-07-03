@@ -40,18 +40,18 @@ export function renderImportToolbarPanel(input = {}) {
             <input id="importPath" placeholder="选择 Obsidian 仓库目录" value="${escapeHtml(model.path)}" />
             <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
           </div>
-          <div class="import-field-help">例如：<code>E:/Notes/My Obsidian Vault</code>。支持中文和空格路径。</div>
+          <div class="import-field-help">第 1 步：选择你的 Obsidian 文件夹。这里只读取预览，确认前不会写入研思录。</div>
         </section>
         <section class="import-field-panel">
           <label class="import-field-label" for="importDirectoryId">导入到</label>
           <select id="importDirectoryId">
             ${renderDirectoryOptions(model.directoryOptions, model.directoryId)}
           </select>
-          <div class="import-field-help">默认导入永久笔记目录，方便后续建立关系网；如果这批资料明确是随笔或文献，再切换目录。</div>
+          <div class="import-field-help">第 3 步确认导入后，默认进入永久笔记目录，方便继续建立关系和主题。</div>
         </section>
       </div>
       <details class="import-compat-details">
-        <summary>兼容设置（通常不用填）</summary>
+        <summary>高级导入设置</summary>
         <div class="import-compat-body">
           <section class="import-field-panel">
             <label class="import-field-label" for="importPayload">覆盖请求（可选）</label>
@@ -66,7 +66,7 @@ export function renderImportToolbarPanel(input = {}) {
         </div>
       </details>
       <div class="import-actions">
-        <button class="mini-btn primary" id="btnImportPreview">生成预览</button>
+        <button class="mini-btn primary" id="btnImportPreview">第 2 步：生成预览</button>
         <button class="mini-btn" id="btnImportConfirm"${model.confirmButton.disabled ? " disabled" : ""}>${escapeHtml(model.confirmButton.label)}</button>
       </div>
     </div>

@@ -9,8 +9,8 @@ function noteIdSet(notes = []) {
 export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   {
     key: "source-to-permanent",
-    title: "看来源变判断",
-    note: "从材料、转述看到永久笔记。",
+    title: "从来源到永久笔记",
+    note: "先看材料、文献笔记怎样转成自己的判断。",
     action: "open-demo-note",
     actionLabel: "打开 PN-SN-001",
     targetNoteId: "PN-SN-001",
@@ -19,7 +19,7 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   {
     key: "connect-relation",
     title: "补一条关系理由",
-    note: "让孤立永久笔记进入关系网。",
+    note: "让一条永久笔记进入关系网。",
     action: "open-demo-note-relations",
     actionLabel: "连接 PN-SN-101",
     targetNoteId: "PN-SN-101",
@@ -28,15 +28,15 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   {
     key: "theme-index",
     title: "读主题索引",
-    note: "看中心问题和关键笔记。",
+    note: "看中心问题和关键笔记，而不是把它当文件夹。",
     action: "open-demo-note",
-    actionLabel: "打开 IC-SN-001",
-    targetNoteId: "IC-SN-001",
-    noteIds: ["IC-SN-001", "IC-SN-005", "IC-SN-010"]
+    actionLabel: "打开主题索引示例",
+    targetNoteId: "PN-SN-FEATURE-003",
+    noteIds: ["PN-SN-FEATURE-003", "IC-SN-001", "IC-SN-005", "IC-SN-010"]
   },
   {
     key: "writing-outline",
-    title: "进写作中心",
+    title: "进入写作中心",
     note: "从可写主题生成文章提纲。",
     action: "open-demo-writing",
     actionLabel: "打开写作中心",
@@ -45,12 +45,12 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   },
   {
     key: "review-next",
-    title: "做一次回顾",
-    note: "看孤立笔记、宽标签、关系理由和可写主题。",
+    title: "做一次定期回顾",
+    note: "只找下一步动作，不做大扫除。",
     action: "open-demo-review",
     actionLabel: "打开今日整理",
-    targetNoteId: "",
-    noteIds: []
+    targetNoteId: "GUIDE-SN-002",
+    noteIds: ["GUIDE-SN-002", "PN-SN-FEATURE-001", "PN-SN-FEATURE-006"]
   }
 ];
 
@@ -116,24 +116,23 @@ export function writingBeginnerMainline({
   basketCount = 0,
   hasProject = false,
   hasScaffold = false,
-  strongModelReady = false,
   projectEntry = null,
   basketReadiness = null
 } = {}) {
   if (Number(basketCount || 0) <= 0) {
     return {
       stage: "material",
-      label: "先补材料",
-      title: "下一步只选相关笔记",
-      body: "挑 2-5 条能回答同一问题的永久笔记。先不用生成提纲。",
+      label: "选相关笔记",
+      title: "下一步只选能放进同一篇文章的笔记",
+      body: "先挑 2-5 条能回答同一个问题的永久笔记，不急着生成提纲。",
       actionLabel: "加入相关笔记"
     };
   }
   if (!hasProject) {
     return {
       stage: "theme",
-      label: "可保存主题",
-      title: "这组笔记可以先确定可写主题",
+      label: "确定可写主题",
+      title: "这组笔记可以先确定一个可写主题",
       body: basketReadiness?.hint || "确认题目、中心问题和读者后，再保存为可写主题。",
       actionLabel: projectEntry?.actionLabel || "确定可写主题"
     };
@@ -141,27 +140,18 @@ export function writingBeginnerMainline({
   if (!hasScaffold) {
     return {
       stage: "outline",
-      label: "可生成提纲",
+      label: "生成提纲",
       title: "主题已确定，下一步生成文章提纲",
-      body: "先让系统把章节、证据和缺口摊开，再决定是否开始草稿。",
+      body: "先把章节、证据和缺口摊开，再决定是否开始草稿。",
       actionLabel: "生成文章提纲"
     };
   }
-  if (strongModelReady) {
-    return {
-      stage: "ai-check",
-      label: "可做 AI 写作检查",
-      title: "提纲已具备，可以做 AI 写作检查",
-      body: "AI 只给结构、证据和缺口建议；是否采纳仍由你确认。",
-      actionLabel: "准备 AI 写作检查"
-    };
-  }
   return {
-    stage: "outline",
-    label: "可生成提纲",
-    title: "先检查文章提纲",
-    body: "当前还不适合做 AI 写作检查，先补缺口、反方或读者收益。",
-    actionLabel: "检查文章提纲"
+    stage: "draft",
+    label: "保存草稿",
+    title: "提纲已生成，下一步保存为草稿笔记",
+    body: "确认提纲的证据、缺口和反方后，把它保存成可以继续写的草稿。",
+    actionLabel: "保存为草稿笔记"
   };
 }
 
@@ -169,7 +159,7 @@ export function renderWritingBeginnerMainlineView(mainline = {}, deps = {}) {
   const { escapeHtml = (value) => String(value ?? "") } = deps;
   return `
     <section class="writing-summary" data-writing-beginner-mainline data-stage="${escapeHtml(mainline.stage || "")}">
-      <div class="sidebar-flow-kicker">新手主线</div>
+      <div class="sidebar-flow-kicker">新手四步主线</div>
       <strong>${escapeHtml(mainline.label || "下一步")}</strong>
       <div>${escapeHtml(mainline.title || "下一步只做一件事")}</div>
       <small>${escapeHtml(mainline.body || "")}</small>

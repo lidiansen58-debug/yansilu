@@ -64,19 +64,18 @@ test("writing flow step model derives project scaffold and draft state", () => {
 });
 
 test("writing mainline guide exposes beginner-readable stages", () => {
-  assert.equal(writingMainlineGuideItem({ basketCount: 0 }).label, "先补材料");
-  assert.equal(writingMainlineGuideItem({ basketCount: 3, hasProject: false }).label, "可保存主题");
-  assert.equal(writingMainlineGuideItem({ basketCount: 3, hasProject: true, hasScaffold: false }).label, "可生成提纲");
+  assert.equal(writingMainlineGuideItem({ basketCount: 0 }).label, "选相关笔记");
+  assert.equal(writingMainlineGuideItem({ basketCount: 3, hasProject: false }).label, "确定可写主题");
+  assert.equal(writingMainlineGuideItem({ basketCount: 3, hasProject: true, hasScaffold: false }).label, "生成提纲");
   assert.equal(writingMainlineGuideItem({
     basketCount: 3,
     hasProject: true,
     hasScaffold: true,
     strongModelReady: true
-  }).label, "可做 AI 写作检查");
+  }).label, "保存草稿");
 
   const html = renderWritingMainlineGuideView({ basketCount: 3, hasProject: false });
   assert.match(html, /data-writing-beginner-mainline/);
-  assert.match(html, /可保存主题/);
   assert.match(html, /确定可写主题/);
 });
 

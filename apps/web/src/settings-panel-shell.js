@@ -29,24 +29,27 @@ export function renderSettingsWorkbenchChromeForRuntime(deps = {}) {
   const overviewKicker = document?.querySelector?.("#settingsPanel .settings-overview-kicker");
   const overviewTitle = document?.querySelector?.("#settingsPanel .settings-overview-title");
   const overviewBody = document?.querySelector?.("#settingsPanel .settings-overview-body");
-  if (overviewKicker) overviewKicker.textContent = "Current Context";
-  if (overviewTitle) overviewTitle.textContent = "先看当前工作区与 AI 路线，再直接进入左栏参数入口。";
-  if (overviewBody) overviewBody.textContent = "这里保留最小必要的上下文信息，避免重复解释设置结构；真正的参数切换和操作都放在下面的左栏与右侧工作区里。";
+  if (overviewKicker) overviewKicker.textContent = "帮助中心";
+  if (overviewTitle) overviewTitle.textContent = "先看新手帮助、本地使用说明和问题反馈。";
+  if (overviewBody) overviewBody.textContent = "常用帮助放在最前面；笔记库、模板、AI 和自动处理等进阶设置需要时再打开。";
   if (overviewLabels.length >= 3) {
     overviewLabels[0].textContent = "工作区";
     overviewLabels[1].textContent = "AI 路线";
     overviewLabels[2].textContent = "自动处理";
   }
 
-  SETTINGS_SECTIONS.forEach((section) => {
+  SETTINGS_SECTIONS.forEach((section, index) => {
     const pane = $(section.paneId);
     const button = $(section.buttonId);
     const badge = $(section.badgeId);
     const meta = $(section.metaId);
+    const title = button?.querySelector?.(".settings-nav-title");
     const isActive = section.id === activeSection;
     pane?.classList.toggle("hidden", !isActive);
     button?.classList.toggle("is-active", isActive);
     button?.setAttribute("aria-pressed", isActive ? "true" : "false");
+    if (button?.style) button.style.order = String(index);
+    if (title) title.textContent = section.label;
     if (badge) badge.textContent = chromeMap[section.id]?.badge || section.label;
     if (meta) meta.textContent = chromeMap[section.id]?.meta || section.label;
   });
@@ -87,13 +90,13 @@ export function renderSettingsSidebarColumnForRuntime(deps = {}) {
   const navCardNote = document?.querySelector?.("#settingsSectionNav")?.closest(".settings-nav-card")?.querySelector(".settings-nav-card-note");
 
   $("settingsNavEntryCard")?.classList.remove("hidden");
-  if ($("settingsSidebarIntroNote")) $("settingsSidebarIntroNote").textContent = "先在左侧选中设置项，再在右侧修改这一项的具体参数。";
-  if (navCardNote) navCardNote.textContent = "先在左侧选中设置项，再在右侧修改这一项的具体参数。";
+  if ($("settingsSidebarIntroNote")) $("settingsSidebarIntroNote").textContent = "新手帮助、本地使用说明和问题反馈在最前面；进阶设置需要时再打开。";
+  if (navCardNote) navCardNote.textContent = "新手帮助、本地使用说明和问题反馈在最前面；进阶设置需要时再打开。";
   if ($("settingsSidebarFocusPill")) {
     const badge = chromeMap[activeSection]?.badge || activeItem.label;
     $("settingsSidebarFocusPill").textContent = `${activeItem.label} · ${badge}`;
   }
-  if ($("settingsSidebarFocusBody")) $("settingsSidebarFocusBody").textContent = guidance.focus || "先在左栏选中当前参数域，再在右侧完成具体调整。";
+  if ($("settingsSidebarFocusBody")) $("settingsSidebarFocusBody").textContent = guidance.focus || "先看当前帮助项，确认下一步该打开说明、反馈，还是进入本地设置。";
   if ($("settingsSidebarChecklist")) {
     const notes = Array.isArray(guidance.notes) && guidance.notes.length > 0
       ? guidance.notes

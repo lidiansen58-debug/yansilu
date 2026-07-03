@@ -16,8 +16,6 @@ export function renderWritingStatusStripDom(deps = {}) {
     describeWritingProjectEntryState,
     describeWritingMaterialStatus,
     writingIneligibleSummary,
-    isWritingStrongModelReady,
-    describeWritingStrongModelStatus,
     escapeHtml
   } = deps;
   const renderWritingStatusCard = (label, value, note, tone = "") => renderWritingStatusCardView(label, value, note, tone, { escapeHtml });
@@ -36,7 +34,6 @@ export function renderWritingStatusStripDom(deps = {}) {
   const hasDraft = Boolean(writingState.project?.draft_note_id);
   const projectPreflight = writingState.project?.preflight || null;
   const projectPreflightSummary = describeWritingProjectPreflight(projectPreflight);
-  const projectPreflightChecks = Array.isArray(projectPreflight?.checks) ? projectPreflight.checks : [];
   const basketTone =
     readiness.level === "strong_model_ready" || readiness.level === "project_ready"
       ? "good"
@@ -163,28 +160,10 @@ export function renderWritingStatusStripDom(deps = {}) {
       (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
       ? "good"
       : "";
-  const strongModelReady = isWritingStrongModelReady({
-    readinessLevel: readiness.level,
-    projectPreflightLevel: projectPreflightSummary.level
-  });
-  const strongModelState = describeWritingStrongModelStatus({
-    hasProject,
-    relationCountsReady,
-    relationCountsErrored,
-    readinessLevel: readiness.level,
-    readinessHint: readiness.hint,
-    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
-    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
-    projectPreflightLevel: projectPreflightSummary.level,
-    projectPreflightChecksLength: projectPreflightChecks.length,
-    strongModelReady
-  });
-  const strongModelTone = strongModelReady ? "good" : "warn";
   el.innerHTML = [
     renderWritingStatusCard("相关笔记", materialStatus.status, basketNote, basketTone),
     renderWritingStatusCard("可写主题", projectStatus, projectNote, projectTone),
     renderWritingStatusCard("文章提纲", scaffoldStatus, scaffoldNote, scaffoldTone),
-    renderWritingStatusCard("AI 辅助", strongModelState.status, strongModelState.hint, strongModelTone),
     renderWritingStatusCard("开始草稿", draftStatus, draftNote, draftTone)
   ].join("");
 }

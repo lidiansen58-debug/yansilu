@@ -189,11 +189,14 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     openWritingModule = async () => {},
     state = {},
     handleStateChange = async () => {},
-    openNoteById = () => false
+    openNoteById = () => false,
+    dismissSafeOverlaysForNavigation = () => ({ ok: true })
   } = deps;
   const button = event?.target?.closest?.("[data-sidebar-flow-action]");
   if (!button) return false;
   const action = String(button.dataset?.sidebarFlowAction || button.getAttribute?.("data-sidebar-flow-action") || "").trim();
+  const dismissed = dismissSafeOverlaysForNavigation();
+  if (dismissed && dismissed.ok === false) return false;
   if (action === "continue-distillation") {
     activateModule("distillation");
     await openDistillationModule();

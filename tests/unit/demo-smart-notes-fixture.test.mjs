@@ -32,9 +32,9 @@ test("smart notes product demo fixture keeps the requested scope", () => {
   assert.equal(fixture.sources.length, 1);
   assert.equal(fixture.fleeting_notes.length, 2);
   assert.equal(fixture.literature_notes.length, 24);
-  assert.equal(fixture.permanent_notes.length, 107);
-  assert.equal(fixture.index_cards.length, 12);
-  assert.equal(fixture.relations.length, 340);
+  assert.equal(fixture.permanent_notes.length, 114);
+  assert.equal(fixture.index_cards.length, 13);
+  assert.equal(fixture.relations.length, 347);
   assert.equal(fixture.writing_projects.length, 1);
   assert.equal(fixture.draft_scaffolds.length, 1);
   assert.equal(fixture.final_essays.length, 1);
@@ -43,9 +43,9 @@ test("smart notes product demo fixture keeps the requested scope", () => {
     sources: 1,
     fleeting_notes: 2,
     literature_notes: 24,
-    permanent_notes: 107,
-    index_cards: 12,
-    relations: 340,
+    permanent_notes: 114,
+    index_cards: 13,
+    relations: 347,
     writing_projects: 1,
     draft_scaffolds: 1,
     final_essays: 1,
@@ -175,30 +175,37 @@ test("smart notes product demo fixture includes an inspection guide", () => {
   assert.match(guide.body, /WP-SN-PM-001/);
   assert.match(guide.body, /DS-SN-PM-001/);
   assert.match(guide.body, /今天只做一个动作/);
-  assert.doesNotMatch(guide.body, /候选|队列|复核|线索/);
+  assert.doesNotMatch(guide.body, /队列|复核|线索/);
 });
 
 test("smart notes product demo fixture includes product-feature permanent notes", () => {
   const productNotes = fixture.permanent_notes.filter((note) => note.demo_role === "product_feature_note");
-  assert.equal(productNotes.length, 6);
-  assert.deepEqual(
-    productNotes.map((note) => note.title),
-    [
-      "今日整理把方法变成下一步动作",
-      "永久笔记要先承担一个判断，再追求完整",
-      "关系图谱要求写清为什么相关",
-      "可写主题建议只是建议，确认后才保存",
-      "主题索引不是分类文件夹，而是重新进入问题的入口",
-      "写作中心从已确认判断开始，不从空白开始"
-    ]
-  );
-  for (const note of productNotes) {
+  const beginnerFeatureTitles = [
+    "今日整理是什么",
+    "为什么要写关系理由",
+    "主题索引不是文件夹",
+    "AI 建议只能作为候选",
+    "从主题进入写作中心怎么生成提纲",
+    "定期回顾不是大扫除",
+    "永久笔记为什么要写成自己的判断"
+  ];
+  assert.ok(productNotes.length >= beginnerFeatureTitles.length);
+  for (const title of beginnerFeatureTitles) {
+    assert.ok(productNotes.some((note) => note.title === title), `expected product feature note: ${title}`);
+  }
+  const guide = fixture.guide_notes.find((note) => note.id === "GUIDE-SN-001");
+  const featureIndex = fixture.index_cards.find((card) => card.id === "IC-SN-FEATURE-001");
+  assert.ok(featureIndex, "product feature notes should have a theme index");
+  for (const note of productNotes.filter((item) => beginnerFeatureTitles.includes(item.title))) {
     assert.ok(note.body.includes("## 产品含义"), `${note.id} should explain product meaning`);
-    assert.ok(note.related_index_ids?.length > 0, `${note.id} should enter at least one index card`);
+    assert.ok(note.related_index_ids?.includes("IC-SN-FEATURE-001"), `${note.id} should enter the product feature index card`);
+    assert.ok(guide.body.includes(note.id), `${note.id} should be referenced by the guide walkthrough`);
+    assert.ok(featureIndex.noteIds.includes(note.id), `${note.id} should be indexed by the product feature theme`);
+    assert.ok(fixture.relations.some((relation) => relation.from === note.id || relation.to === note.id), `${note.id} should enter the relation network`);
     assert.doesNotMatch(note.body, /undefined/, `${note.id} should not render missing support metadata`);
   }
   const project = fixture.writing_projects[0];
-  for (const note of productNotes) {
+  for (const note of productNotes.filter((item) => beginnerFeatureTitles.includes(item.title))) {
     assert.ok(project.basketNoteIds.includes(note.id), `${note.id} should be available in the writing project basket`);
   }
 });
@@ -353,7 +360,7 @@ test("smart notes product demo fixture graph exposes key-note paths", () => {
   const keyNoteClusters = new Set(fixture.key_notes.map((note) => note.cluster));
 
   assert.equal(fixture.graph.key_note_paths.length, fixture.key_notes.length);
-  assert.deepEqual(fixture.graph.reading_path, [
+  const expectedMainReadingPath = [
     "SRC-SMART-NOTES",
     "LN-SN-001",
     "PN-SN-001",
@@ -361,7 +368,10 @@ test("smart notes product demo fixture graph exposes key-note paths", () => {
     "WP-SN-PM-001",
     "ESSAY-SN-PM-001",
     "DS-SN-PM-001"
-  ]);
+  ];
+  assert.deepEqual(fixture.graph.reading_path.slice(0, expectedMainReadingPath.length), expectedMainReadingPath);
+  assert.ok(fixture.graph.reading_path.includes("IC-SN-FEATURE-001"), "reading path should include the product feature theme");
+  assert.ok(fixture.graph.reading_path.includes("PN-SN-FEATURE-005"), "reading path should include writing-center product notes");
   for (const id of fixture.graph.reading_path) {
     assert.ok(validReadingPathIds.has(id), `reading path references missing node ${id}`);
   }

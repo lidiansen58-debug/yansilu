@@ -21,6 +21,7 @@ import { syncRailSelectionDom } from "./app-shell-rail.js";
 import { installAppRailEventBindings } from "./app-rail-event-bindings.js";
 import { installQuickActionEventBindings } from "./quick-action-event-bindings.js";
 import { installAppGlobalKeyboardEvents } from "./app-global-keyboard-events.js";
+import { dismissSafeOverlaysForEscape, dismissSafeOverlaysForNavigation } from "./app-overlay-dismissal-controller.js";
 import { installStartupAutoOpenEventBindings } from "./startup-auto-open-event-bindings.js";
 import { installDirtyTabsBeforeUnloadEventBindings } from "./dirty-tabs-beforeunload-event-bindings.js";
 import { installEditorShellEventBindings } from "./editor-shell-event-bindings.js";
@@ -344,8 +345,8 @@ const aiInboxState = {
   aiSummaryRequestToken: 0
 };
 const settingsState = {
-  activeSection: "workspace",
-  activeItem: "current-vault",
+  activeSection: "support",
+  activeItem: "desktop-help",
   vault: null,
   noteTemplates: {
     permanent: {
@@ -5849,6 +5850,14 @@ bindGraphCanvasEvents($("graphPanel"), {
   endGraphUtilityDrawerDrag,
   endGraphViewportDrag,
   renderGraphPanel,
+  dismissSafeOverlaysForEscape: (event) => dismissSafeOverlaysForEscape(event, {
+    graphState,
+    closeSystemMessages,
+    isSystemMessageModalOpen,
+    renderGraphPanel,
+    setStatus,
+    confirm: window.confirm.bind(window)
+  }),
   setStatus,
   moveGraphIsolatedWorkflowTab,
   activateGraphIsolatedWorkflowTab,
@@ -5931,6 +5940,16 @@ installAppRailEventBindings({
   refreshVaultSettings,
   openWritingModule,
   openDistillationModule,
+  dismissSafeOverlaysForNavigation: () => dismissSafeOverlaysForNavigation({
+    graphState,
+    permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
+    closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
+    closeSystemMessages,
+    isSystemMessageModalOpen,
+    renderGraphPanel,
+    setStatus,
+    confirm: window.confirm.bind(window)
+  }),
   setStatus
 });
 
@@ -5960,7 +5979,17 @@ installSidebarFlowEventHandler({
     openDistillationModule,
     openWritingModule,
     handleStateChange,
-    openNoteById
+    openNoteById,
+    dismissSafeOverlaysForNavigation: () => dismissSafeOverlaysForNavigation({
+      graphState,
+      permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
+      closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
+      closeSystemMessages,
+      isSystemMessageModalOpen,
+      renderGraphPanel,
+      setStatus,
+      confirm: window.confirm.bind(window)
+    })
   })
 });
 
@@ -5994,6 +6023,16 @@ installAppGlobalKeyboardEvents({
   editor,
   handleSystemMessageEscapeKey,
   systemMessageEventDeps,
+  dismissSafeOverlaysForEscape: (event) => dismissSafeOverlaysForEscape(event, {
+    graphState,
+    permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
+    closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
+    closeSystemMessages,
+    isSystemMessageModalOpen,
+    renderGraphPanel,
+    setStatus,
+    confirm: window.confirm.bind(window)
+  }),
   noteDeleteKeyRoute,
   syncExplorerContextToActiveTab,
   folderById,

@@ -455,6 +455,8 @@
                   <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿</button>
                   <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
                 </div>
+                <details class="writing-advanced-details">
+                  <summary>高级：AI 写作检查</summary>
                 <div class="writing-ai-card" aria-label="AI 写作检查">
                   <div class="writing-section-head">
                     <div>
@@ -466,9 +468,12 @@
                   <div class="writing-summary" id="writingStrongModelSummary">先选择相关笔记，再准备 AI 写作检查。</div>
                   <div class="writing-strong-request-detail" id="writingStrongModelRequestDetail"></div>
                 </div>
+                </details>
               </section>
             </div>
 
+            <details class="writing-advanced-details">
+              <summary>高级：书稿方向、最近写作和版本历史</summary>
             <section class="writing-section writing-book-workbench" aria-label="书稿设计工作台">
               <div class="writing-section-head">
                 <div>
@@ -483,6 +488,7 @@
                 <div class="writing-book-pool" id="writingBookLocalIdeas"></div>
               </div>
             </section>
+            </details>
 
             <div class="writing-main-grid">
               <div class="writing-stack">
@@ -544,7 +550,8 @@
                 </div>
               </section>
 
-              <div class="writing-stack">
+              <details class="writing-advanced-details writing-stack">
+                <summary>更多：最近写作和版本记录</summary>
                 <section class="writing-section">
                     <div class="writing-section-head">
                       <div>
@@ -590,7 +597,7 @@
                   </div>
                   <div class="writing-note-list" id="writingDraftVersionsList"></div>
                 </section>
-              </div>
+              </details>
             </div>
           </div>
           </div>
@@ -600,17 +607,17 @@
                 <aside class="settings-nav-column">
                   <section class="settings-nav-card settings-nav-entry-card" id="settingsNavEntryCard">
                     <div class="settings-map-head">
-                      <div class="settings-map-eyebrow">Settings Atlas</div>
+                        <div class="settings-map-eyebrow">帮助中心</div>
                       <div class="settings-map-title-row">
                         <div>
-                          <h2 class="settings-nav-card-title">设置入口</h2>
+                          <h2 class="settings-nav-card-title">先从帮助开始</h2>
                           <p class="settings-nav-card-note" id="settingsSidebarIntroNote">
-                            中间栏只放分类入口；点击一个分类，右侧只展开这一类设置。
+                            新手帮助、本地使用说明和问题反馈在最前面；进阶配置需要时再打开。
                           </p>
                         </div>
                         <div class="settings-map-status" aria-live="polite">
                           <span class="settings-map-status-label">当前类别</span>
-                          <span class="settings-map-status-value" id="settingsMapStatusValue">工作区</span>
+                          <span class="settings-map-status-value" id="settingsMapStatusValue">本地使用说明</span>
                         </div>
                       </div>
                       <div class="settings-map-inline" aria-hidden="true">

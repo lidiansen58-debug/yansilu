@@ -166,6 +166,8 @@
 
     /* Left rail */
     .rail {
+      position: relative;
+      z-index: 1601;
       border-right: 1px solid var(--line);
       background:
         radial-gradient(circle at top, rgba(255, 255, 255, 0.86), transparent 26%),
@@ -281,6 +283,8 @@
 
     /* Sidebar */
     .sidebar {
+      position: relative;
+      z-index: 1601;
       border-right: 1px solid var(--line);
       background:
         radial-gradient(circle at top left, rgba(255, 255, 255, 0.82), transparent 28%),
@@ -12066,7 +12070,10 @@
     }
     .permanent-relation-overlay {
       position: fixed;
-      inset: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 348px;
       z-index: 1500;
       display: flex;
       align-items: center;
@@ -19494,7 +19501,88 @@
       display: none !important;
     }
 
+    .writing-advanced-details {
+      border: 1px solid rgba(214, 224, 222, 0.9);
+      border-radius: 12px;
+      background: rgba(248, 251, 249, 0.72);
+      padding: 8px 10px;
+    }
+
+    .writing-advanced-details > summary {
+      cursor: pointer;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.4;
+      list-style-position: inside;
+    }
+
+    .writing-advanced-details[open] > summary {
+      margin-bottom: 10px;
+      color: #172033;
+    }
+
     @media (max-width: 920px) {
+      .editor-stage-shell .editor-stage-top .toolbar,
+      .app[data-focus-mode="true"] .editor-stage-shell .editor-stage-top .toolbar,
+      html.editor-only .editor-stage-shell .editor-stage-top .toolbar {
+        max-height: 42px !important;
+        opacity: 0.74 !important;
+        overflow: hidden !important;
+      }
+
+      .editor-stage-shell .editor-stage-top:focus-within .toolbar,
+      .editor-stage-shell .editor-stage-top .toolbar:focus-within,
+      .editor-stage-shell .editor-stage-top .toolbar:hover {
+        max-height: 132px !important;
+        opacity: 1 !important;
+      }
+    }
+
+    @media (max-width: 920px) {
+      .permanent-relation-overlay {
+        left: 0;
+      }
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] {
+        order: -20;
+        position: relative;
+        z-index: 3;
+      }
+
+      .editor-stage-top {
+        align-items: stretch;
+      }
+
+      .editor-stage-top .toolbar {
+        max-height: 42px;
+        opacity: 0.74;
+        overflow: hidden;
+        transition: max-height 0.18s ease, opacity 0.18s ease;
+      }
+
+      .editor-stage-top:focus-within .toolbar,
+      .editor-stage-top .toolbar:focus-within,
+      .editor-stage-top .toolbar:hover {
+        max-height: 132px;
+        opacity: 1;
+      }
+
+      .editor-stage-top .toolbar .toolbar-group-editor-actions,
+      .editor-stage-top .toolbar .toolbar-group-structure,
+      .editor-stage-top .toolbar .toolbar-group-insert {
+        transform: scale(0.94);
+        transform-origin: left center;
+      }
+
+      .writing-flow-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .writing-project-grid,
+      .writing-main-grid {
+        grid-template-columns: 1fr;
+      }
+
       #editorWorkspace > .toolbar,
       .app[data-focus-mode="true"] #editorWorkspace > .toolbar,
       html.editor-only #editorWorkspace > .toolbar {

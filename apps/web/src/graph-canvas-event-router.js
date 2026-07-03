@@ -20,6 +20,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     endGraphViewportDrag = noop,
     renderGraphPanel = noop,
     setStatus = noop,
+    dismissSafeOverlaysForEscape = null,
     moveGraphIsolatedWorkflowTab = noop,
     activateGraphIsolatedWorkflowTab = noop,
     pickGraphManualRelationTarget = noop,
@@ -282,9 +283,13 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const selectionClose = event.target.closest("[data-graph-selection-close]");
     if (selectionClose) {
-      graphState.selection = null;
-      renderGraphPanel();
-      setStatus("已收起图谱思考详情", "ok");
+      if (typeof dismissSafeOverlaysForEscape === "function") {
+        dismissSafeOverlaysForEscape(event);
+      } else {
+        graphState.selection = null;
+        renderGraphPanel();
+        setStatus("已收起图谱思考详情", "ok");
+      }
       return;
     }
     const clusterSelection = event.target.closest("[data-graph-select-cluster]");
@@ -703,9 +708,13 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
 
   graphCanvas?.addEventListener("keydown", async (event) => {
     if (event.key === "Escape" && graphState.selection) {
-      graphState.selection = null;
-      renderGraphPanel();
-      setStatus("已收起图谱思考详情", "ok");
+      if (typeof dismissSafeOverlaysForEscape === "function") {
+        dismissSafeOverlaysForEscape(event);
+      } else {
+        graphState.selection = null;
+        renderGraphPanel();
+        setStatus("已收起图谱思考详情", "ok");
+      }
       return;
     }
     if (event.key === "Escape" && graphState.expanded) {

@@ -12,6 +12,7 @@ export function installAppRailEventBindings(deps = {}) {
     refreshVaultSettings = async () => {},
     openWritingModule = async () => {},
     openDistillationModule = async () => {},
+    dismissSafeOverlaysForNavigation = () => ({ ok: true }),
     setStatus = () => {},
     now = () => Date.now()
   } = deps;
@@ -21,6 +22,8 @@ export function installAppRailEventBindings(deps = {}) {
       event.preventDefault();
       event.stopPropagation();
       const targetModule = btn.dataset.module;
+      const overlayResult = dismissSafeOverlaysForNavigation({ targetModule });
+      if (overlayResult && overlayResult.ok === false) return;
       if (targetModule === "graph") setGraphModuleActivationGuardUntil(now() + 1800);
       activateModule(targetModule);
       if (targetModule === "graph" && state.module === "graph") {

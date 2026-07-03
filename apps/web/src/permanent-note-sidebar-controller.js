@@ -94,7 +94,8 @@ export class PermanentNoteSidebarController {
       selectedTargetNoteId: targetId,
       relationType: candidate.relationType || "associated_with",
       rationale: permanentRelationCandidateRationale(candidate),
-      insightQuestion: candidate.insightQuestionDraft || ""
+      insightQuestion: candidate.insightQuestionDraft || "",
+      dirty: true
     }));
   }
 
@@ -110,7 +111,8 @@ export class PermanentNoteSidebarController {
       mode: "manual",
       selectedTargetNoteId: targetId,
       relationType: host.permanentRelationWorkspaceState.relationType || "associated_with",
-      rationale: host.permanentRelationWorkspaceState.rationale || ""
+      rationale: host.permanentRelationWorkspaceState.rationale || "",
+      dirty: true
     }));
   }
 

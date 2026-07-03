@@ -7,9 +7,9 @@
     "sources": 1,
     "fleeting_notes": 2,
     "literature_notes": 24,
-    "permanent_notes": 107,
-    "index_cards": 12,
-    "relations": 340,
+    "permanent_notes": 114,
+    "index_cards": 13,
+    "relations": 347,
     "writing_projects": 1,
     "draft_scaffolds": 1,
     "final_essays": 1,
@@ -10407,6 +10407,475 @@
         "has_relation_context": true
       },
       "body": "# 写作中心从已确认判断开始，不从空白开始\n\n## 核心论点\n写作中心从已确认判断开始，不从空白开始\n\n## 知识点提取\n- 方法论命题：写作应该从已经确认的判断重组开始。\n- 本笔记承担的子问题：写作中心从已确认判断开始，不从空白开始\n- 反面误用：直接从空白 prompt 开始，会切断材料到判断的链路。\n- 产品设计要求：写作中心必须显示写作篮、主题索引和提纲追溯。\n- 所属知识点：KP-SN-001 写作前置\n\n## 三句话压缩\n- 写作中心从已确认判断开始，不从空白开始。\n- 这条笔记把“写作前置”里的一个局部风险或动作拆出来，方便单独复用、比较和进入写作。\n- 在研思录里，它最直接影响的是 写作入口、写作篮、草稿骨架与回溯链路。\n\n## 论证理由\n这条笔记从 LN-SN-008: 写作因为已有成熟判断而变容易 中抽出一个更小但更可执行的主张：当我们讨论“写作中心从已确认判断开始，不从空白开始”时，真正要落地的是“写作入口与论证承接”。它服务于 写作不是最后一步，而是笔记系统的组织原则 这条主线，因此比大而全的总结更适合进入索引卡和写作项目。\n\n## 来源追溯\n- LN-SN-008: 写作因为已有成熟判断而变容易\n\n## 转换过程\n- 原始材料先在 LN-SN-008: 写作因为已有成熟判断而变容易 中被转述和边界化。\n- 这里进一步把“写作入口与论证承接”压成单一、可承担的判断：写作中心从已确认判断开始，不从空白开始。\n- 这条判断随后进入索引与写作链路：\n- IC-SN-001: 写作为什么应该组织笔记流程\n- IC-SN-012: 新用户如何照着样例开始\n\n## 关联关系\n- 支撑 来自 GUIDE-SN-006: 05 怎么从主题进入写作中心\n- 主题归属 指向 PN-SN-001: 写作不是最后一步，而是笔记系统的组织原则\n\n## 产品含义\n它把写作从结果改成入口，要求系统始终显示材料离成文还差哪一步。 因而在产品中，写作入口、写作篮、草稿骨架与回溯链路 必须把“写作中心从已确认判断开始，不从空白开始”对应的处理动作解释清楚，而不是只展示状态名。\n\n## 使用场景\n适合验收从永久笔记进入写作项目时，页面是否真的承接了上一步判断。 这条笔记特别适合检查“写作中心从已确认判断开始，不从空白开始”有没有被页面、关系或索引结构正确承接。\n\n## 关键笔记定位\n这条笔记服务于 PN-SN-001：写作不是最后一步，而是笔记系统的组织原则，负责把一个更小、更具体的判断送进主线。\n\n## 边界或反例\n它强调写作前置，但不要求用户在捕捉瞬间就把所有判断一次写完。 对“写作中心从已确认判断开始，不从空白开始”这条判断来说，真正需要防止的是把它说成没有条件、没有顺序、也没有反例的万能原则。\n\n## 下一步追问\n如果把这条判断删掉，写作链路最先失真的会是哪一步？ 对“写作中心从已确认判断开始，不从空白开始”而言，下一步最值得补的是哪条反例、哪条关系，或哪张索引卡入口？"
+    },
+    {
+      "id": "PN-SN-FEATURE-001",
+      "note_type": "permanent",
+      "title": "今日整理是什么",
+      "cluster": "product_feature_notes",
+      "cluster_label": "产品功能说明",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "demo_role": "product_feature_note",
+      "thesis": "今日整理不是把所有笔记重新收拾一遍，而是把当前最值得推进的一步拿出来：补来源、改判断、写关系理由，或进入主题。",
+      "core_claim": "今日整理不是把所有笔记重新收拾一遍，而是把当前最值得推进的一步拿出来：补来源、改判断、写关系理由，或进入主题。",
+      "threeLineSummary": [
+        "今日整理不是把所有笔记重新收拾一遍，而是把当前最值得推进的一步拿出来：补来源、改判断、写关系理由，或进入主题。",
+        "这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。",
+        "它会进入关系网、主题索引和写作篮，而不是停留在外部说明。"
+      ],
+      "productImplication": "产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。",
+      "boundaryOrCounterpoint": "如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。",
+      "from_literature_note_ids": [
+        "LN-SN-001"
+      ],
+      "related_index_ids": [
+        "IC-SN-FEATURE-001"
+      ],
+      "tags": [
+        "smart-notes-demo",
+        "product-feature",
+        "beginner-flow"
+      ],
+      "body": "# 今日整理是什么\n\n## 核心论点\n今日整理不是把所有笔记重新收拾一遍，而是把当前最值得推进的一步拿出来：补来源、改判断、写关系理由，或进入主题。\n\n## 知识点提取\n- 方法论命题：今日整理不是把所有笔记重新收拾一遍，而是把当前最值得推进的一步拿出来：补来源、改判断、写关系理由，或进入主题。\n- 反面误用：把产品功能只写进外部说明。\n- 产品设计要求：在当前模块直接给出下一步动作。\n\n## 三句话压缩\n- 今日整理不是把所有笔记重新收拾一遍，而是把当前最值得推进的一步拿出来：补来源、改判断、写关系理由，或进入主题。\n- 这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。\n- 它会进入关系网、主题索引和写作篮，而不是停留在外部说明。\n\n## 论证理由\n小白用户需要在产品里直接看见方法如何工作，而不是依赖外部说明。\n\n## 来源追溯\n- GUIDE-SN-001\n- SRC-SMART-NOTES\n\n## 产品含义\n产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。\n\n## 关键笔记定位\n这是产品功能内置卡片笔记法的示例笔记。\n\n## 边界或反例\n如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。\n\n#smart-notes-demo #product-feature #beginner-flow",
+      "knowledge_point": {
+        "id": "KP-SN-FEATURE-001",
+        "cluster": "product_feature_notes",
+        "label": "今日整理是什么",
+        "method_principle": "今日整理不是把所有笔记重新收拾一遍，而是把当前最值得推进的一步拿出来：补来源、改判断、写关系理由，或进入主题。",
+        "misuse_to_avoid": "把说明留在外部文档",
+        "product_requirement": "在主路径中直接展示下一步"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "知识点提取",
+          "三句话压缩",
+          "论证理由",
+          "来源追溯",
+          "产品含义",
+          "关键笔记定位",
+          "边界或反例"
+        ],
+        "related_index_ids": [
+          "IC-SN-FEATURE-001"
+        ]
+      },
+      "template_completion": {
+        "has_core_claim": true,
+        "has_rationale": true,
+        "has_source_trace": true,
+        "has_boundary": true,
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PN-SN-FEATURE-002",
+      "note_type": "permanent",
+      "title": "为什么要写关系理由",
+      "cluster": "product_feature_notes",
+      "cluster_label": "产品功能说明",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "demo_role": "product_feature_note",
+      "thesis": "关系理由让两条笔记之间的连接可以复查。只说“相关”不够，必须写清楚它们如何支持、限定、反驳或延伸彼此。",
+      "core_claim": "关系理由让两条笔记之间的连接可以复查。只说“相关”不够，必须写清楚它们如何支持、限定、反驳或延伸彼此。",
+      "threeLineSummary": [
+        "关系理由让两条笔记之间的连接可以复查。只说“相关”不够，必须写清楚它们如何支持、限定、反驳或延伸彼此。",
+        "这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。",
+        "它会进入关系网、主题索引和写作篮，而不是停留在外部说明。"
+      ],
+      "productImplication": "产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。",
+      "boundaryOrCounterpoint": "如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。",
+      "from_literature_note_ids": [
+        "LN-SN-001"
+      ],
+      "related_index_ids": [
+        "IC-SN-FEATURE-001"
+      ],
+      "tags": [
+        "smart-notes-demo",
+        "product-feature",
+        "beginner-flow"
+      ],
+      "body": "# 为什么要写关系理由\n\n## 核心论点\n关系理由让两条笔记之间的连接可以复查。只说“相关”不够，必须写清楚它们如何支持、限定、反驳或延伸彼此。\n\n## 知识点提取\n- 方法论命题：关系理由让两条笔记之间的连接可以复查。只说“相关”不够，必须写清楚它们如何支持、限定、反驳或延伸彼此。\n- 反面误用：把产品功能只写进外部说明。\n- 产品设计要求：在当前模块直接给出下一步动作。\n\n## 三句话压缩\n- 关系理由让两条笔记之间的连接可以复查。只说“相关”不够，必须写清楚它们如何支持、限定、反驳或延伸彼此。\n- 这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。\n- 它会进入关系网、主题索引和写作篮，而不是停留在外部说明。\n\n## 论证理由\n小白用户需要在产品里直接看见方法如何工作，而不是依赖外部说明。\n\n## 来源追溯\n- GUIDE-SN-001\n- SRC-SMART-NOTES\n\n## 产品含义\n产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。\n\n## 关键笔记定位\n这是产品功能内置卡片笔记法的示例笔记。\n\n## 边界或反例\n如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。\n\n#smart-notes-demo #product-feature #beginner-flow",
+      "knowledge_point": {
+        "id": "KP-SN-FEATURE-002",
+        "cluster": "product_feature_notes",
+        "label": "为什么要写关系理由",
+        "method_principle": "关系理由让两条笔记之间的连接可以复查。只说“相关”不够，必须写清楚它们如何支持、限定、反驳或延伸彼此。",
+        "misuse_to_avoid": "把说明留在外部文档",
+        "product_requirement": "在主路径中直接展示下一步"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "知识点提取",
+          "三句话压缩",
+          "论证理由",
+          "来源追溯",
+          "产品含义",
+          "关键笔记定位",
+          "边界或反例"
+        ],
+        "related_index_ids": [
+          "IC-SN-FEATURE-001"
+        ]
+      },
+      "template_completion": {
+        "has_core_claim": true,
+        "has_rationale": true,
+        "has_source_trace": true,
+        "has_boundary": true,
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PN-SN-FEATURE-003",
+      "note_type": "permanent",
+      "title": "主题索引不是文件夹",
+      "cluster": "product_feature_notes",
+      "cluster_label": "产品功能说明",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "demo_role": "product_feature_note",
+      "thesis": "主题索引不是把笔记搬进一个新文件夹，而是保存一个可再次进入的问题入口：中心问题、关键笔记、顺序和缺口。",
+      "core_claim": "主题索引不是把笔记搬进一个新文件夹，而是保存一个可再次进入的问题入口：中心问题、关键笔记、顺序和缺口。",
+      "threeLineSummary": [
+        "主题索引不是把笔记搬进一个新文件夹，而是保存一个可再次进入的问题入口：中心问题、关键笔记、顺序和缺口。",
+        "这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。",
+        "它会进入关系网、主题索引和写作篮，而不是停留在外部说明。"
+      ],
+      "productImplication": "产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。",
+      "boundaryOrCounterpoint": "如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。",
+      "from_literature_note_ids": [
+        "LN-SN-001"
+      ],
+      "related_index_ids": [
+        "IC-SN-FEATURE-001"
+      ],
+      "tags": [
+        "smart-notes-demo",
+        "product-feature",
+        "beginner-flow"
+      ],
+      "body": "# 主题索引不是文件夹\n\n## 核心论点\n主题索引不是把笔记搬进一个新文件夹，而是保存一个可再次进入的问题入口：中心问题、关键笔记、顺序和缺口。\n\n## 知识点提取\n- 方法论命题：主题索引不是把笔记搬进一个新文件夹，而是保存一个可再次进入的问题入口：中心问题、关键笔记、顺序和缺口。\n- 反面误用：把产品功能只写进外部说明。\n- 产品设计要求：在当前模块直接给出下一步动作。\n\n## 三句话压缩\n- 主题索引不是把笔记搬进一个新文件夹，而是保存一个可再次进入的问题入口：中心问题、关键笔记、顺序和缺口。\n- 这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。\n- 它会进入关系网、主题索引和写作篮，而不是停留在外部说明。\n\n## 论证理由\n小白用户需要在产品里直接看见方法如何工作，而不是依赖外部说明。\n\n## 来源追溯\n- GUIDE-SN-001\n- SRC-SMART-NOTES\n\n## 产品含义\n产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。\n\n## 关键笔记定位\n这是产品功能内置卡片笔记法的示例笔记。\n\n## 边界或反例\n如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。\n\n#smart-notes-demo #product-feature #beginner-flow",
+      "knowledge_point": {
+        "id": "KP-SN-FEATURE-003",
+        "cluster": "product_feature_notes",
+        "label": "主题索引不是文件夹",
+        "method_principle": "主题索引不是把笔记搬进一个新文件夹，而是保存一个可再次进入的问题入口：中心问题、关键笔记、顺序和缺口。",
+        "misuse_to_avoid": "把说明留在外部文档",
+        "product_requirement": "在主路径中直接展示下一步"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "知识点提取",
+          "三句话压缩",
+          "论证理由",
+          "来源追溯",
+          "产品含义",
+          "关键笔记定位",
+          "边界或反例"
+        ],
+        "related_index_ids": [
+          "IC-SN-FEATURE-001"
+        ]
+      },
+      "template_completion": {
+        "has_core_claim": true,
+        "has_rationale": true,
+        "has_source_trace": true,
+        "has_boundary": true,
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PN-SN-FEATURE-004",
+      "note_type": "permanent",
+      "title": "AI 建议只能作为候选",
+      "cluster": "product_feature_notes",
+      "cluster_label": "产品功能说明",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "demo_role": "product_feature_note",
+      "thesis": "AI 可以提示可能的关系、主题或提纲，但它不能替你确认判断。进入笔记前必须由用户选择、改写或拒绝。",
+      "core_claim": "AI 可以提示可能的关系、主题或提纲，但它不能替你确认判断。进入笔记前必须由用户选择、改写或拒绝。",
+      "threeLineSummary": [
+        "AI 可以提示可能的关系、主题或提纲，但它不能替你确认判断。进入笔记前必须由用户选择、改写或拒绝。",
+        "这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。",
+        "它会进入关系网、主题索引和写作篮，而不是停留在外部说明。"
+      ],
+      "productImplication": "产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。",
+      "boundaryOrCounterpoint": "如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。",
+      "from_literature_note_ids": [
+        "LN-SN-001"
+      ],
+      "related_index_ids": [
+        "IC-SN-FEATURE-001"
+      ],
+      "tags": [
+        "smart-notes-demo",
+        "product-feature",
+        "beginner-flow"
+      ],
+      "body": "# AI 建议只能作为候选\n\n## 核心论点\nAI 可以提示可能的关系、主题或提纲，但它不能替你确认判断。进入笔记前必须由用户选择、改写或拒绝。\n\n## 知识点提取\n- 方法论命题：AI 可以提示可能的关系、主题或提纲，但它不能替你确认判断。进入笔记前必须由用户选择、改写或拒绝。\n- 反面误用：把产品功能只写进外部说明。\n- 产品设计要求：在当前模块直接给出下一步动作。\n\n## 三句话压缩\n- AI 可以提示可能的关系、主题或提纲，但它不能替你确认判断。进入笔记前必须由用户选择、改写或拒绝。\n- 这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。\n- 它会进入关系网、主题索引和写作篮，而不是停留在外部说明。\n\n## 论证理由\n小白用户需要在产品里直接看见方法如何工作，而不是依赖外部说明。\n\n## 来源追溯\n- GUIDE-SN-001\n- SRC-SMART-NOTES\n\n## 产品含义\n产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。\n\n## 关键笔记定位\n这是产品功能内置卡片笔记法的示例笔记。\n\n## 边界或反例\n如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。\n\n#smart-notes-demo #product-feature #beginner-flow",
+      "knowledge_point": {
+        "id": "KP-SN-FEATURE-004",
+        "cluster": "product_feature_notes",
+        "label": "AI 建议只能作为候选",
+        "method_principle": "AI 可以提示可能的关系、主题或提纲，但它不能替你确认判断。进入笔记前必须由用户选择、改写或拒绝。",
+        "misuse_to_avoid": "把说明留在外部文档",
+        "product_requirement": "在主路径中直接展示下一步"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "知识点提取",
+          "三句话压缩",
+          "论证理由",
+          "来源追溯",
+          "产品含义",
+          "关键笔记定位",
+          "边界或反例"
+        ],
+        "related_index_ids": [
+          "IC-SN-FEATURE-001"
+        ]
+      },
+      "template_completion": {
+        "has_core_claim": true,
+        "has_rationale": true,
+        "has_source_trace": true,
+        "has_boundary": true,
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PN-SN-FEATURE-005",
+      "note_type": "permanent",
+      "title": "从主题进入写作中心怎么生成提纲",
+      "cluster": "product_feature_notes",
+      "cluster_label": "产品功能说明",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "demo_role": "product_feature_note",
+      "thesis": "写作中心从已选相关笔记开始，先确认可写主题，再生成提纲，最后保存草稿；它不是空白写作页。",
+      "core_claim": "写作中心从已选相关笔记开始，先确认可写主题，再生成提纲，最后保存草稿；它不是空白写作页。",
+      "threeLineSummary": [
+        "写作中心从已选相关笔记开始，先确认可写主题，再生成提纲，最后保存草稿；它不是空白写作页。",
+        "这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。",
+        "它会进入关系网、主题索引和写作篮，而不是停留在外部说明。"
+      ],
+      "productImplication": "产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。",
+      "boundaryOrCounterpoint": "如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。",
+      "from_literature_note_ids": [
+        "LN-SN-001"
+      ],
+      "related_index_ids": [
+        "IC-SN-FEATURE-001"
+      ],
+      "tags": [
+        "smart-notes-demo",
+        "product-feature",
+        "beginner-flow"
+      ],
+      "body": "# 从主题进入写作中心怎么生成提纲\n\n## 核心论点\n写作中心从已选相关笔记开始，先确认可写主题，再生成提纲，最后保存草稿；它不是空白写作页。\n\n## 知识点提取\n- 方法论命题：写作中心从已选相关笔记开始，先确认可写主题，再生成提纲，最后保存草稿；它不是空白写作页。\n- 反面误用：把产品功能只写进外部说明。\n- 产品设计要求：在当前模块直接给出下一步动作。\n\n## 三句话压缩\n- 写作中心从已选相关笔记开始，先确认可写主题，再生成提纲，最后保存草稿；它不是空白写作页。\n- 这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。\n- 它会进入关系网、主题索引和写作篮，而不是停留在外部说明。\n\n## 论证理由\n小白用户需要在产品里直接看见方法如何工作，而不是依赖外部说明。\n\n## 来源追溯\n- GUIDE-SN-001\n- SRC-SMART-NOTES\n\n## 产品含义\n产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。\n\n## 关键笔记定位\n这是产品功能内置卡片笔记法的示例笔记。\n\n## 边界或反例\n如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。\n\n#smart-notes-demo #product-feature #beginner-flow",
+      "knowledge_point": {
+        "id": "KP-SN-FEATURE-005",
+        "cluster": "product_feature_notes",
+        "label": "从主题进入写作中心怎么生成提纲",
+        "method_principle": "写作中心从已选相关笔记开始，先确认可写主题，再生成提纲，最后保存草稿；它不是空白写作页。",
+        "misuse_to_avoid": "把说明留在外部文档",
+        "product_requirement": "在主路径中直接展示下一步"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "知识点提取",
+          "三句话压缩",
+          "论证理由",
+          "来源追溯",
+          "产品含义",
+          "关键笔记定位",
+          "边界或反例"
+        ],
+        "related_index_ids": [
+          "IC-SN-FEATURE-001"
+        ]
+      },
+      "template_completion": {
+        "has_core_claim": true,
+        "has_rationale": true,
+        "has_source_trace": true,
+        "has_boundary": true,
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PN-SN-FEATURE-006",
+      "note_type": "permanent",
+      "title": "定期回顾不是大扫除",
+      "cluster": "product_feature_notes",
+      "cluster_label": "产品功能说明",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "demo_role": "product_feature_note",
+      "thesis": "定期回顾只需要找出下一步动作：哪条笔记要补关系，哪个主题可以写，哪段草稿还缺证据。",
+      "core_claim": "定期回顾只需要找出下一步动作：哪条笔记要补关系，哪个主题可以写，哪段草稿还缺证据。",
+      "threeLineSummary": [
+        "定期回顾只需要找出下一步动作：哪条笔记要补关系，哪个主题可以写，哪段草稿还缺证据。",
+        "这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。",
+        "它会进入关系网、主题索引和写作篮，而不是停留在外部说明。"
+      ],
+      "productImplication": "产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。",
+      "boundaryOrCounterpoint": "如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。",
+      "from_literature_note_ids": [
+        "LN-SN-001"
+      ],
+      "related_index_ids": [
+        "IC-SN-FEATURE-001"
+      ],
+      "tags": [
+        "smart-notes-demo",
+        "product-feature",
+        "beginner-flow"
+      ],
+      "body": "# 定期回顾不是大扫除\n\n## 核心论点\n定期回顾只需要找出下一步动作：哪条笔记要补关系，哪个主题可以写，哪段草稿还缺证据。\n\n## 知识点提取\n- 方法论命题：定期回顾只需要找出下一步动作：哪条笔记要补关系，哪个主题可以写，哪段草稿还缺证据。\n- 反面误用：把产品功能只写进外部说明。\n- 产品设计要求：在当前模块直接给出下一步动作。\n\n## 三句话压缩\n- 定期回顾只需要找出下一步动作：哪条笔记要补关系，哪个主题可以写，哪段草稿还缺证据。\n- 这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。\n- 它会进入关系网、主题索引和写作篮，而不是停留在外部说明。\n\n## 论证理由\n小白用户需要在产品里直接看见方法如何工作，而不是依赖外部说明。\n\n## 来源追溯\n- GUIDE-SN-001\n- SRC-SMART-NOTES\n\n## 产品含义\n产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。\n\n## 关键笔记定位\n这是产品功能内置卡片笔记法的示例笔记。\n\n## 边界或反例\n如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。\n\n#smart-notes-demo #product-feature #beginner-flow",
+      "knowledge_point": {
+        "id": "KP-SN-FEATURE-006",
+        "cluster": "product_feature_notes",
+        "label": "定期回顾不是大扫除",
+        "method_principle": "定期回顾只需要找出下一步动作：哪条笔记要补关系，哪个主题可以写，哪段草稿还缺证据。",
+        "misuse_to_avoid": "把说明留在外部文档",
+        "product_requirement": "在主路径中直接展示下一步"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "知识点提取",
+          "三句话压缩",
+          "论证理由",
+          "来源追溯",
+          "产品含义",
+          "关键笔记定位",
+          "边界或反例"
+        ],
+        "related_index_ids": [
+          "IC-SN-FEATURE-001"
+        ]
+      },
+      "template_completion": {
+        "has_core_claim": true,
+        "has_rationale": true,
+        "has_source_trace": true,
+        "has_boundary": true,
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PN-SN-FEATURE-007",
+      "note_type": "permanent",
+      "title": "永久笔记为什么要写成自己的判断",
+      "cluster": "product_feature_notes",
+      "cluster_label": "产品功能说明",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "demo_role": "product_feature_note",
+      "thesis": "永久笔记不是摘抄卡片，而是一条可以被关系网和写作复用的判断。没有判断，就很难进入主题和提纲。",
+      "core_claim": "永久笔记不是摘抄卡片，而是一条可以被关系网和写作复用的判断。没有判断，就很难进入主题和提纲。",
+      "threeLineSummary": [
+        "永久笔记不是摘抄卡片，而是一条可以被关系网和写作复用的判断。没有判断，就很难进入主题和提纲。",
+        "这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。",
+        "它会进入关系网、主题索引和写作篮，而不是停留在外部说明。"
+      ],
+      "productImplication": "产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。",
+      "boundaryOrCounterpoint": "如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。",
+      "from_literature_note_ids": [
+        "LN-SN-001"
+      ],
+      "related_index_ids": [
+        "IC-SN-FEATURE-001"
+      ],
+      "tags": [
+        "smart-notes-demo",
+        "product-feature",
+        "beginner-flow"
+      ],
+      "body": "# 永久笔记为什么要写成自己的判断\n\n## 核心论点\n永久笔记不是摘抄卡片，而是一条可以被关系网和写作复用的判断。没有判断，就很难进入主题和提纲。\n\n## 知识点提取\n- 方法论命题：永久笔记不是摘抄卡片，而是一条可以被关系网和写作复用的判断。没有判断，就很难进入主题和提纲。\n- 反面误用：把产品功能只写进外部说明。\n- 产品设计要求：在当前模块直接给出下一步动作。\n\n## 三句话压缩\n- 永久笔记不是摘抄卡片，而是一条可以被关系网和写作复用的判断。没有判断，就很难进入主题和提纲。\n- 这条示例笔记把产品功能本身写成卡片笔记，帮助新手在使用中理解方法。\n- 它会进入关系网、主题索引和写作篮，而不是停留在外部说明。\n\n## 论证理由\n小白用户需要在产品里直接看见方法如何工作，而不是依赖外部说明。\n\n## 来源追溯\n- GUIDE-SN-001\n- SRC-SMART-NOTES\n\n## 产品含义\n产品需要在当前模块直接给出下一步动作，让用户不用先读长说明。\n\n## 关键笔记定位\n这是产品功能内置卡片笔记法的示例笔记。\n\n## 边界或反例\n如果只做成帮助文档而不接入关系和主题，用户仍然不知道下一步点哪里。\n\n#smart-notes-demo #product-feature #beginner-flow",
+      "knowledge_point": {
+        "id": "KP-SN-FEATURE-007",
+        "cluster": "product_feature_notes",
+        "label": "永久笔记为什么要写成自己的判断",
+        "method_principle": "永久笔记不是摘抄卡片，而是一条可以被关系网和写作复用的判断。没有判断，就很难进入主题和提纲。",
+        "misuse_to_avoid": "把说明留在外部文档",
+        "product_requirement": "在主路径中直接展示下一步"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "知识点提取",
+          "三句话压缩",
+          "论证理由",
+          "来源追溯",
+          "产品含义",
+          "关键笔记定位",
+          "边界或反例"
+        ],
+        "related_index_ids": [
+          "IC-SN-FEATURE-001"
+        ]
+      },
+      "template_completion": {
+        "has_core_claim": true,
+        "has_rationale": true,
+        "has_source_trace": true,
+        "has_boundary": true,
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     }
   ],
   "index_cards": [
@@ -11773,6 +12242,70 @@
         "PN-SN-106",
         "PN-SN-107"
       ]
+    },
+    {
+      "id": "IC-SN-FEATURE-001",
+      "title": "产品功能如何内置卡片笔记法",
+      "index_type": "topic",
+      "ordering_strategy": "logical",
+      "summary": "把研思录功能本身写成示例笔记，并通过关系、主题和写作中心串起来。",
+      "thesis": "产品功能说明应该作为 Demo 笔记进入关系网，而不是只出现在外部说明里。",
+      "centralQuestion": "小白用户如何边使用边理解卡片笔记法？",
+      "noteIds": [
+        "PN-SN-FEATURE-001",
+        "PN-SN-FEATURE-002",
+        "PN-SN-FEATURE-003",
+        "PN-SN-FEATURE-004",
+        "PN-SN-FEATURE-005",
+        "PN-SN-FEATURE-006",
+        "PN-SN-FEATURE-007"
+      ],
+      "key_note_ids": [
+        "PN-SN-001"
+      ],
+      "knowledge_point_ids": [
+        "KP-SN-001"
+      ],
+      "items": [
+        {
+          "note_id": "PN-SN-FEATURE-001",
+          "order": 1,
+          "rationale": "这条产品功能笔记解释主路径中的一个动作。"
+        },
+        {
+          "note_id": "PN-SN-FEATURE-002",
+          "order": 2,
+          "rationale": "这条产品功能笔记解释主路径中的一个动作。"
+        },
+        {
+          "note_id": "PN-SN-FEATURE-003",
+          "order": 3,
+          "rationale": "这条产品功能笔记解释主路径中的一个动作。"
+        },
+        {
+          "note_id": "PN-SN-FEATURE-004",
+          "order": 4,
+          "rationale": "这条产品功能笔记解释主路径中的一个动作。"
+        },
+        {
+          "note_id": "PN-SN-FEATURE-005",
+          "order": 5,
+          "rationale": "这条产品功能笔记解释主路径中的一个动作。"
+        },
+        {
+          "note_id": "PN-SN-FEATURE-006",
+          "order": 6,
+          "rationale": "这条产品功能笔记解释主路径中的一个动作。"
+        },
+        {
+          "note_id": "PN-SN-FEATURE-007",
+          "order": 7,
+          "rationale": "这条产品功能笔记解释主路径中的一个动作。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      }
     }
   ],
   "relations": [
@@ -15176,6 +15709,83 @@
       "demo_role": "missing_rationale_practice",
       "rationale": "待补一句关系理由：这两条笔记为什么互相补充？",
       "insight_question": "这两条笔记为什么互相补充？请补一句能复查的关系理由。"
+    },
+    {
+      "id": "REL-SN-FEATURE-001",
+      "from": "PN-SN-FEATURE-001",
+      "to": "GUIDE-SN-001",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "今日整理是什么 把产品功能写成可复用判断，并接入新手 walkthrough。",
+      "insight_question": "这个产品功能是否已经在当前模块给出清楚的下一步？",
+      "confidence": 0.91,
+      "demo_role": "product_feature_walkthrough_relation"
+    },
+    {
+      "id": "REL-SN-FEATURE-002",
+      "from": "PN-SN-FEATURE-002",
+      "to": "PN-SN-FEATURE-001",
+      "relationType": "follows",
+      "status": "confirmed",
+      "rationale": "为什么要写关系理由 把产品功能写成可复用判断，并接入新手 walkthrough。",
+      "insight_question": "这个产品功能是否已经在当前模块给出清楚的下一步？",
+      "confidence": 0.91,
+      "demo_role": "product_feature_walkthrough_relation"
+    },
+    {
+      "id": "REL-SN-FEATURE-003",
+      "from": "PN-SN-FEATURE-003",
+      "to": "PN-SN-FEATURE-002",
+      "relationType": "follows",
+      "status": "confirmed",
+      "rationale": "主题索引不是文件夹 把产品功能写成可复用判断，并接入新手 walkthrough。",
+      "insight_question": "这个产品功能是否已经在当前模块给出清楚的下一步？",
+      "confidence": 0.91,
+      "demo_role": "product_feature_walkthrough_relation"
+    },
+    {
+      "id": "REL-SN-FEATURE-004",
+      "from": "PN-SN-FEATURE-004",
+      "to": "PN-SN-FEATURE-003",
+      "relationType": "follows",
+      "status": "confirmed",
+      "rationale": "AI 建议只能作为候选 把产品功能写成可复用判断，并接入新手 walkthrough。",
+      "insight_question": "这个产品功能是否已经在当前模块给出清楚的下一步？",
+      "confidence": 0.91,
+      "demo_role": "product_feature_walkthrough_relation"
+    },
+    {
+      "id": "REL-SN-FEATURE-005",
+      "from": "PN-SN-FEATURE-005",
+      "to": "PN-SN-FEATURE-004",
+      "relationType": "follows",
+      "status": "confirmed",
+      "rationale": "从主题进入写作中心怎么生成提纲 把产品功能写成可复用判断，并接入新手 walkthrough。",
+      "insight_question": "这个产品功能是否已经在当前模块给出清楚的下一步？",
+      "confidence": 0.91,
+      "demo_role": "product_feature_walkthrough_relation"
+    },
+    {
+      "id": "REL-SN-FEATURE-006",
+      "from": "PN-SN-FEATURE-006",
+      "to": "PN-SN-FEATURE-005",
+      "relationType": "follows",
+      "status": "confirmed",
+      "rationale": "定期回顾不是大扫除 把产品功能写成可复用判断，并接入新手 walkthrough。",
+      "insight_question": "这个产品功能是否已经在当前模块给出清楚的下一步？",
+      "confidence": 0.91,
+      "demo_role": "product_feature_walkthrough_relation"
+    },
+    {
+      "id": "REL-SN-FEATURE-007",
+      "from": "PN-SN-FEATURE-007",
+      "to": "PN-SN-FEATURE-006",
+      "relationType": "follows",
+      "status": "confirmed",
+      "rationale": "永久笔记为什么要写成自己的判断 把产品功能写成可复用判断，并接入新手 walkthrough。",
+      "insight_question": "这个产品功能是否已经在当前模块给出清楚的下一步？",
+      "confidence": 0.91,
+      "demo_role": "product_feature_walkthrough_relation"
     }
   ],
   "writing_projects": [
@@ -15204,14 +15814,22 @@
         "PN-SN-104",
         "PN-SN-105",
         "PN-SN-106",
-        "PN-SN-107"
+        "PN-SN-107",
+        "PN-SN-FEATURE-001",
+        "PN-SN-FEATURE-002",
+        "PN-SN-FEATURE-003",
+        "PN-SN-FEATURE-004",
+        "PN-SN-FEATURE-005",
+        "PN-SN-FEATURE-006",
+        "PN-SN-FEATURE-007"
       ],
       "indexCardIds": [
         "IC-SN-001",
         "IC-SN-003",
         "IC-SN-005",
         "IC-SN-009",
-        "IC-SN-010"
+        "IC-SN-010",
+        "IC-SN-FEATURE-001"
       ],
       "outline": [
         {
@@ -15929,7 +16547,15 @@
       "IC-SN-001",
       "WP-SN-PM-001",
       "ESSAY-SN-PM-001",
-      "DS-SN-PM-001"
+      "DS-SN-PM-001",
+      "IC-SN-FEATURE-001",
+      "PN-SN-FEATURE-001",
+      "PN-SN-FEATURE-002",
+      "PN-SN-FEATURE-003",
+      "PN-SN-FEATURE-004",
+      "PN-SN-FEATURE-005",
+      "PN-SN-FEATURE-006",
+      "PN-SN-FEATURE-007"
     ],
     "relation_type_counts": {
       "qualifies": 9,
@@ -15963,7 +16589,7 @@
         "新手上手",
         "Demo"
       ],
-      "body": "# 00 从这里开始：10 分钟走完研思录\n\n这不是一篇长教程。你只要按下面 5 步点一遍，就能看到材料如何变成自己的判断、关系、可写主题和文章提纲。\n\n## 先走 5 步\n\n1. 看材料：打开 `SRC-SMART-NOTES`，知道这套样例只保存主题边界，不复刻原文。\n2. 看判断：打开 `LN-SN-001` 和 `PN-SN-001`，看材料怎样先被转述，再变成一句自己愿意承担的永久笔记。\n3. 去建联：打开 `PN-SN-101`，给它找一条相关旧笔记，并补一句“为什么相关”。\n4. 看可写主题：打开 `IC-SN-012`，看 3 到 7 条永久笔记如何组成一个可以继续写的问题入口。\n5. 进写作中心：打开 `WP-SN-PM-001` 和 `DS-SN-PM-001`，看提纲如何从已确认判断开始。\n\n## 今天只做一个动作\n\n如果你不知道先点哪里，就先做第 3 步：把 `PN-SN-101` 接入关系网。研思录不是要求你一次整理完整库，而是每次推进一个小动作。\n\n## 读完这组导览后再看\n\n- `GUIDE-SN-002`：今天先做哪一步。\n- `GUIDE-SN-003`：什么是永久笔记。\n- `GUIDE-SN-004`：为什么关系必须写理由。\n- `GUIDE-SN-005`：什么是可写主题。\n- `GUIDE-SN-006`：怎么从主题进入写作中心。"
+      "body": "# 00 从这里开始：10 分钟走完研思录\n\n这不是一篇长教程。你只要按下面 5 步点一遍，就能看到材料如何变成自己的判断、关系、可写主题和文章提纲。\n\n## 先走 5 步\n\n1. 看材料：打开 `SRC-SMART-NOTES`，知道这套样例只保存主题边界，不复刻原文。\n2. 看判断：打开 `LN-SN-001` 和 `PN-SN-001`，看材料怎样先被转述，再变成一句自己愿意承担的永久笔记。\n3. 去建联：打开 `PN-SN-101`，给它找一条相关旧笔记，并补一句“为什么相关”。\n4. 看可写主题：打开 `IC-SN-012`，看 3 到 7 条永久笔记如何组成一个可以继续写的问题入口。\n5. 进写作中心：打开 `WP-SN-PM-001` 和 `DS-SN-PM-001`，看提纲如何从已确认判断开始。\n\n## 今天只做一个动作\n\n如果你不知道先点哪里，就先做第 3 步：把 `PN-SN-101` 接入关系网。研思录不是要求你一次整理完整库，而是每次推进一个小动作。\n\n## 读完这组导览后再看\n\n- `GUIDE-SN-002`：今天先做哪一步。\n- `GUIDE-SN-003`：什么是永久笔记。\n- `GUIDE-SN-004`：为什么关系必须写理由。\n- `GUIDE-SN-005`：什么是可写主题。\n- `GUIDE-SN-006`：怎么从主题进入写作中心。\n\n## 产品功能示例笔记\n- PN-SN-FEATURE-001 今日整理是什么\n- PN-SN-FEATURE-002 为什么要写关系理由\n- PN-SN-FEATURE-003 主题索引不是文件夹\n- PN-SN-FEATURE-004 AI 建议只能作为候选\n- PN-SN-FEATURE-005 从主题进入写作中心怎么生成提纲\n- PN-SN-FEATURE-006 定期回顾不是大扫除\n- PN-SN-FEATURE-007 永久笔记为什么要写成自己的判断\n\n这些笔记已经接入 IC-SN-FEATURE-001 和关系网。"
     },
     {
       "id": "GUIDE-SN-002",
