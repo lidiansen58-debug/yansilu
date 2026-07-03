@@ -118,6 +118,26 @@ export function updateStateFromCheckResult(state = {}, result = {}, options = {}
   const latestVersion = cleanText(result?.latestVersion || manifest?.version);
   const ignoredVersion = cleanText(state.ignoredVersion);
   const ignored = !options.manual && ignoredVersion && latestVersion && ignoredVersion === latestVersion && result?.status === UPDATE_STATUS.UPDATE_AVAILABLE;
+  if (
+    state?.installReadyForRestart === true &&
+    state?.status === UPDATE_STATUS.DOWNLOADED &&
+    latestVersion &&
+    latestVersion === cleanText(state.latestVersion || state.manifest?.version)
+  ) {
+    return {
+      ...createUpdateState(),
+      ...state,
+      checkedAt: normalizeTimestamp(result?.checkedAt) || isoNow(options.now),
+      manifestUrl: cleanText(result?.manifestUrl || state.manifestUrl),
+      manifest: manifest || state.manifest,
+      changelog: Array.isArray(manifest?.changelog) ? manifest.changelog : state.changelog || [],
+      downloadUrl: cleanText(manifest?.downloadUrl || result?.downloadUrl || state.downloadUrl),
+      installable: result?.installable === true || state.installable === true,
+      critical: Boolean(result?.critical || manifest?.critical || state.critical),
+      minimumSupported: result?.minimumSupported !== false,
+      error: cleanText(state.error)
+    };
+  }
   return {
     ...createUpdateState(),
     ...state,
