@@ -70,7 +70,11 @@ test("local AI setup keeps bootstrap behind explicit settings actions", () => {
     "runtime_mode_change",
     "graph_module_open",
     "graph_analysis",
-    "graph_connect"
+    "graph_connect",
+    "theme_index",
+    "note_analysis",
+    "writing_check",
+    "ai_summary"
   ]) {
     assert.deepEqual(localAiPreviewOptionsForAction(action), { silent: true, render: false });
   }

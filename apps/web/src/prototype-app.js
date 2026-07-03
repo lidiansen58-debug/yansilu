@@ -177,6 +177,8 @@ import { installSettingsAiEventBindings } from "./settings-ai-event-bindings.js"
 import { installSettingsFeedbackEventBindings } from "./settings-feedback-event-bindings.js";
 import { aiTestBlockedReasonForState, currentOllamaModelTiersForState, installedLocalModelReadyForState } from "./ai-test-readiness.js";
 import { localAiPreviewOptionsForAction, ollamaStopRuntimeUiOutcome } from "./ai-local-runtime-ui-model.js";
+import { activateLocalAiSetupSelection } from "./local-ai-setup-activation.js";
+import { createLocalAiSetupController } from "./local-ai-setup-controller.js";
 import { isLocalAdvancedModelRefForSettings } from "./settings-ai-runtime-actions.js";
 import { createSettingsAiRuntimeController } from "./settings-ai-runtime-controller.js";
 import { buildAiProviderConfigPayload } from "./settings-ai-provider-config-actions.js";
@@ -403,6 +405,7 @@ const settingsState = {
     localRuntimeStopping: false,
     localRuntimePulling: false,
     localRuntimeError: "",
+    localAiSetupSyncPending: false,
     providerConfigs: [],
     providerConfigSaving: false,
     providerHealthChecking: false,
@@ -616,6 +619,7 @@ const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
 const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
+const AI_LOCAL_SETUP_SYNC_PENDING_KEY = "yansilu:ai:local-setup-sync-pending";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
 const updateController = createPrototypeUpdateController({
   settingsState,
@@ -987,6 +991,7 @@ function loadAiSettingsFromStorage() {
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
   const storedRemoteRuntimeModel = String(readStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, "") || "").trim();
   const storedLocalModel = String(readStoredText(AI_LOCAL_MODEL_KEY, "") || "").trim();
+  settingsState.ai.localAiSetupSyncPending = readStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, false);
   if (storedRuntimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(storedRuntimeMode);
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
@@ -1009,6 +1014,7 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
+  writeStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, settingsState.ai.localAiSetupSyncPending === true);
 }
 
 function settingsSupportedModelPack(modelPack = "") { return supportedAiSettingsModelPack(modelPack); }
@@ -1237,6 +1243,49 @@ const {
   syncAiProviderConfigToApi
 } = settingsAiRuntimeController;
 
+const localAiSetupController = createLocalAiSetupController(() => ({
+  activateLocalAiSetupFlow,
+  activateModule,
+  currentOllamaModelTiers,
+  localAiSetupSyncPending,
+  localAiPreviewOptionsForAction,
+  localOllamaSetupActive,
+  ollamaBootstrapStatusText,
+  ollamaRecommendationForModel,
+  previewOllamaLocalAiBootstrapFromUi,
+  primaryRecommendedOllamaModelName,
+  renderSettingsPanel,
+  setSettingsItem,
+  setStatus,
+  shouldGuideLocalAiSetupForFeature,
+  shouldUseOllamaLocalRuntime
+}));
+
+async function ensureLocalAiReadyForFeature(options = {}) {
+  return localAiSetupController.ensureReadyForAiFeature(options);
+}
+
+function shouldGuideLocalAiSetupForFeature() {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  if (runtimeMode !== "auto") return false;
+  if (settingsState.ai.routePreview?.access?.ready === true) return false;
+  return true;
+}
+
+function localAiSetupSyncPending() {
+  return settingsState.ai.localAiSetupSyncPending === true;
+}
+
+function activateLocalAiSetupFlow(options = {}) {
+  return activateLocalAiSetupSelection({
+    aiState: settingsState.ai,
+    restoreOnFailure: options.restoreOnFailure !== false,
+    reconcileAiSelectionState,
+    persistAiSettingsToStorage,
+    syncAiSettingsToApi
+  });
+}
+
 function aiProviderConfigPayload(options = {}) {
   const providerId = String(options.providerId || currentAiProviderId()).trim();
   return buildAiProviderConfigPayload({
@@ -1281,6 +1330,8 @@ function applyAiPreferencesToSettingsState(preferences = null, options = {}) {
 async function syncAiSettingsToApi() {
   try {
     await saveAiPreferences(aiSettingsPayload());
+    settingsState.ai.localAiSetupSyncPending = false;
+    writeStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, false);
     return true;
   } catch {
     return false;
@@ -1614,6 +1665,10 @@ function syncAiInboxSummaryFromDetail(detail = null) {
 }
 
 async function runAiInboxSummary(artifactId) {
+  const localAiReady = await ensureLocalAiReadyForFeature({
+    feature: "ai_summary"
+  });
+  if (localAiReady?.ready === false) return false;
   return runAiInboxSummaryForRuntime({
     aiInboxState,
     summarizeAiInboxItem,
@@ -2217,6 +2272,7 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   beginWritingEntry,
   createWritingProject,
   currentWritingBookStructure,
+  ensureLocalAiReadyForFeature,
   ensureNotesLoaded,
   importState,
   loadWritingDraftVersions,
@@ -4988,6 +5044,7 @@ const graphRouteRuntime = createGraphRouteRuntime({
   graphRelationSaveController,
   graphScopeDirectoryId,
   graphState,
+  ensureLocalAiReadyForFeature,
   isDirectoryUnderOriginalRoot,
   isWritingEligibleNote,
   localAiPreviewOptionsForAction,

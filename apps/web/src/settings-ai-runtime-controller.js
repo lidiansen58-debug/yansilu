@@ -118,13 +118,14 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       shouldUseOllamaLocalRuntime = () => false
     } = runtimeDeps();
     const runtimeMode = normalizeAiRuntimeMode(settingsState.ai?.runtimeMode);
-    if (!["local_only", "hybrid"].includes(runtimeMode) || !shouldUseOllamaLocalRuntime()) return null;
+    const allowLocalSetupPreview = options.allowLocalSetupPreview === true;
+    if (!allowLocalSetupPreview && (!["local_only", "hybrid"].includes(runtimeMode) || !shouldUseOllamaLocalRuntime())) return null;
     const model = String(options.model || primaryRecommendedOllamaModelName()).trim();
     settingsState.ai.localRuntimeChecking = true;
     settingsState.ai.localRuntimeError = "";
     if (options.render !== false) renderSettingsPanel();
     try {
-      const result = await fetchOllamaBootstrapStatus({ model, runtimeMode });
+      const result = await fetchOllamaBootstrapStatus({ model, runtimeMode: allowLocalSetupPreview ? "local_only" : runtimeMode });
       applyOllamaBootstrapResult(result);
       if (result?.ready !== true) {
         settingsState.ai.localRuntimeError = ollamaBootstrapStatusText(result);
