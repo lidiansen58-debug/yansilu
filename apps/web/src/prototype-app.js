@@ -44,6 +44,7 @@ import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-stat
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
 import { routeAppShellStateChange } from "./app-shell-state-change-router.js";
 import { bootstrapAppForRuntime } from "./app-startup-controller.js";
+import { smartNotesDemoStartupNoteId } from "./smart-notes-demo-startup-note.js";
 import { candidatePreviewItemIds, candidatePreviewItems, confirmSkipReasonMap, confirmSkippedCandidateIds, selectionSummary as summarizeCandidateSelection } from "./import-candidate-preview-model.js";
 import { renderCandidatePreview, renderConfirmSkipBreakdown } from "./import-candidate-preview-panel.js";
 import { selectedCandidateIdsForImportAction } from "./import-selection-actions.js";
@@ -4475,6 +4476,7 @@ const writingPanelController = createWritingPanelShellController({
     renderDraftVersionCard,
     writingBookProjectGoal,
     writingBookProjectAudience,
+    isWritingCandidateDetailsExpanded: () => Boolean($("writingCandidateDetails")?.open),
     escapeHtml
   }))
 });
@@ -5108,7 +5110,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
-    const firstNoteId = String(result?.firstNoteId || "").trim();
+    const firstNoteId = smartNotesDemoStartupNoteId({ result, notes: state.notes });
     if (firstNoteId) {
       state.selectedFileId = firstNoteId;
       openNoteById(firstNoteId, { preferTitleSelection: false });
@@ -5667,6 +5669,7 @@ installWritingPanelBasketEventHandlers({
     planWritingCandidateFocus,
     writingKnownNoteById,
     isWritingEligibleNote,
+    isWritingCandidateDetailsExpanded: () => Boolean($("writingCandidateDetails")?.open),
     suggestedWritingProjectTitle,
     describeWritingBatchAppendStatus,
     resetWritingStrongModelState,

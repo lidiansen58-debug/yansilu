@@ -66,7 +66,7 @@ export function renderModuleWorkspaceHeaderForRuntime({
     : displayModelRef
       ? displayModelRef
       : "AI 连接暂不可用";
-  if (state.module === "imports") {
+  if (state.module === "imports" || state.module === "today") {
     moduleHeaderActions.innerHTML = "";
     return true;
   }

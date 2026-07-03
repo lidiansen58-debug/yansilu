@@ -95,6 +95,7 @@ export function createGraphResidualViews(deps = {}) {
     titleFromBody,
     uniqueStrings,
     writeStoredText,
+    setGraphRelationTypeFilter,
     setGraphFocusContextModeForRuntime,
     setGraphFocusDepthForRuntime
   } = deps;
@@ -107,6 +108,7 @@ function graphResidualRuntimeDeps(overrides = {}) {
     graphEdgeSelectionKey, graphRelationGroupMeta, graphRelationSourceLabel, graphRelationStatusLabel,
     graphRelationTypeLabel, graphRelationVisual, graphThemeSelectionKey, graphIsolatedSelectionKey,
     graphBridgeSelectionKey, suggestedThemeIndexTitle, titleFromBody, uniqueStrings, writeStoredText,
+    setGraphRelationTypeFilter,
     ...overrides
   };
 }

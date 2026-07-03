@@ -25,7 +25,7 @@ test("graph isolated next step renders queue and theme actions after a saved rel
     {
       isolatedNotes: [{ noteId: "next" }],
       nodeMap: new Map(),
-      edges: [{ fromNoteId: "a", toNoteId: "b", status: "confirmed" }]
+      edges: [{ fromNoteId: "a", toNoteId: "b", status: "confirmed", relationType: "supports" }]
     },
     {
       relationStatusCountsAsNetworkEdge: (status) => status === "confirmed",
@@ -44,6 +44,28 @@ test("graph isolated next step renders queue and theme actions after a saved rel
   assert.match(html, /data-graph-theme-note-ids="a,b,c"/);
   assert.match(html, /data-graph-theme-title="Theme Title"/);
   assert.doesNotMatch(html, /disabled/);
+});
+
+test("graph isolated next step labels ordinary saved relations as ordinary", () => {
+  const html = renderGraphIsolatedNextStepActionsHtml(
+    "a",
+    {
+      nodeMap: new Map(),
+      edges: [{ fromNoteId: "a", toNoteId: "b", status: "confirmed", relationType: "associated_with" }]
+    },
+    {
+      relationStatusCountsAsNetworkEdge: (status) => status === "confirmed",
+      isolatedQueueItems: () => [],
+      nextIsolatedQueueItem: () => null,
+      themeCandidateNoteIdsForNode: () => ["a", "b"],
+      suggestThemeIndexTitle: () => "Theme Title"
+    }
+  );
+
+  assert.match(html, /普通相关关系/);
+  assert.match(html, /尚未转成正式观点关系/);
+  assert.match(html, /查看全部关系/);
+  assert.doesNotMatch(html, /已保存 1 条正式关系到图谱/);
 });
 
 test("graph isolated next step stays empty before the note has a saved network edge", () => {

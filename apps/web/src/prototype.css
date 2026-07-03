@@ -17995,16 +17995,21 @@
       position: relative;
     }
 
-    .md-panel.editor-empty .editor-host,
-    .md-panel.editor-empty .wysiwyg-host {
-      cursor: text;
+    .editor-stage-shell.editor-empty-stage .markdown-split,
+    .editor-stage-shell.editor-empty-stage .panel-head.editor-intent {
+      opacity: 0.18;
+      pointer-events: none;
+    }
+
+    .editor-stage-shell.editor-empty-stage .markdown-split {
+      min-height: min(620px, calc(100dvh - 160px));
     }
 
     .editor-empty-start {
       position: absolute;
-      top: 72px;
+      top: 32px;
       left: 50%;
-      z-index: 8;
+      z-index: 38;
       width: min(760px, calc(100% - 48px));
       transform: translateX(-50%);
       border: 1px solid rgba(15, 118, 110, 0.16);
@@ -18379,10 +18384,6 @@
       z-index: 170 !important;
       overflow-y: auto !important;
       overscroll-behavior: contain;
-    }
-
-    .editor-empty-start {
-      display: none !important;
     }
 
     /* Layout correction: keep guidance quiet and make the editor feel like a work surface. */

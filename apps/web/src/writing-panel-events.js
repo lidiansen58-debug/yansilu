@@ -12,6 +12,9 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
   add("btnWritingAddVisible", "click", () => handleWritingAddVisible(deps()));
   add("btnWritingClearBasket", "click", () => handleWritingClearBasket(deps()));
   add("writingBasketNoteIds", "input", (event) => deps().handleWritingBasketManualInput?.(event));
+  add("writingCandidateDetails", "toggle", (event) => {
+    if (event?.target?.open) deps().renderWritingPanel?.();
+  });
   add("btnWritingStrongModelAnalysis", "click", async () => {
     await deps().prepareWritingStrongModelAnalysis?.();
   });
@@ -968,6 +971,7 @@ export function handleWritingAddVisible(deps = {}) {
     suggestedWritingProjectTitle = () => "",
     continueWritingEntry = () => ({}),
     describeWritingBatchAppendStatus = () => "",
+    isWritingCandidateDetailsExpanded = () => false,
     setStatus = () => {}
   } = deps;
   const allCandidates = writingCandidateNotes();
@@ -992,7 +996,9 @@ export function handleWritingAddVisible(deps = {}) {
       "warn"
     );
   }
-  const candidateIds = candidates.map((note) => note.id);
+  const visibleLimit = isWritingCandidateDetailsExpanded() ? candidates.length : Math.min(candidates.length, 12);
+  const visibleCandidates = candidates.slice(0, visibleLimit);
+  const candidateIds = visibleCandidates.map((note) => note.id);
   const plan = continueWritingEntry(candidateIds, {
     title: suggestedWritingProjectTitle(candidateIds),
     source: "writing_panel_visible_notes"
@@ -1002,7 +1008,7 @@ export function handleWritingAddVisible(deps = {}) {
     describeWritingBatchAppendStatus({
       scopeLabel: candidateFocusPlan.scopeLabel,
       addedCount,
-      totalCount: candidates.length
+      totalCount: visibleCandidates.length
     }),
     "ok"
   );

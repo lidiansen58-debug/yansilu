@@ -65,7 +65,8 @@ test("writing panel basket installer wires core basket controls through latest d
     ["btnWritingStrongModelAnalysis", {}],
     ["btnWritingLocalBookIdeas", {}],
     ["writingCandidateList", {}],
-    ["writingBasketList", {}]
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
   ]);
   for (const [id, element] of elements) {
     element.addEventListener = (eventName, handler) => {
@@ -85,22 +86,25 @@ test("writing panel basket installer wires core basket controls through latest d
         return { addedNoteIds: ["n1"] };
       },
       handleWritingBasketManualInput: () => calls.push(["manual", version]),
+      renderWritingPanel: () => calls.push(["render", version]),
       prepareWritingStrongModelAnalysis: async () => calls.push(["strong", version]),
       writingBasketEntries: () => [],
       setStatus: (message, tone) => calls.push(["status", version, message, tone])
     })
   });
 
-  assert.equal(registrations.length, 8);
+  assert.equal(registrations.length, 9);
   assert.equal(registrations.every((item) => item.installed), true);
 
   handlers.get("btnWritingUseCurrent:click")();
   version = "second";
   handlers.get("writingBasketNoteIds:input")({});
+  handlers.get("writingCandidateDetails:toggle")({ target: { open: true } });
   await handlers.get("btnWritingStrongModelAnalysis:click")();
 
   assert.deepEqual(calls[0], ["continue", "first"]);
-  assert.deepEqual(calls.at(-2), ["manual", "second"]);
+  assert.deepEqual(calls.at(-3), ["manual", "second"]);
+  assert.deepEqual(calls.at(-2), ["render", "second"]);
   assert.deepEqual(calls.at(-1), ["strong", "second"]);
 });
 
@@ -141,6 +145,56 @@ test("writing panel add-visible handler appends focused candidates", () => {
 
   assert.deepEqual(calls[0], ["continue", ["n2"], { title: "n2", source: "writing_panel_visible_notes" }]);
   assert.deepEqual(calls[1], ["status", "图谱范围:1/1", "ok"]);
+});
+
+test("writing panel add-visible handler only appends loaded candidates before expansion", () => {
+  const calls = [];
+  const notes = Array.from({ length: 16 }, (_, index) => ({ id: `n${index + 1}`, title: `Note ${index + 1}` }));
+
+  handleWritingAddVisible({
+    writingCandidateNotes: () => notes,
+    planWritingCandidateFocus: ({ candidateNoteIds }) => ({
+      usingFocusedScope: false,
+      noteIds: candidateNoteIds,
+      scopeLabel: "当前目录"
+    }),
+    suggestedWritingProjectTitle: (ids) => ids.join(","),
+    continueWritingEntry: (ids, options) => {
+      calls.push(["continue", ids, options]);
+      return { addedNoteIds: ids };
+    },
+    describeWritingBatchAppendStatus: ({ addedCount, totalCount }) => `${addedCount}/${totalCount}`,
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
+
+  assert.equal(calls[0][1].length, 12);
+  assert.deepEqual(calls[0][1], notes.slice(0, 12).map((note) => note.id));
+  assert.deepEqual(calls[1], ["status", "12/12", "ok"]);
+});
+
+test("writing panel add-visible handler appends all candidates after expansion", () => {
+  const calls = [];
+  const notes = Array.from({ length: 16 }, (_, index) => ({ id: `n${index + 1}`, title: `Note ${index + 1}` }));
+
+  handleWritingAddVisible({
+    writingCandidateNotes: () => notes,
+    isWritingCandidateDetailsExpanded: () => true,
+    planWritingCandidateFocus: ({ candidateNoteIds }) => ({
+      usingFocusedScope: false,
+      noteIds: candidateNoteIds,
+      scopeLabel: "当前目录"
+    }),
+    suggestedWritingProjectTitle: (ids) => ids.join(","),
+    continueWritingEntry: (ids, options) => {
+      calls.push(["continue", ids, options]);
+      return { addedNoteIds: ids };
+    },
+    describeWritingBatchAppendStatus: ({ addedCount, totalCount }) => `${addedCount}/${totalCount}`,
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
+
+  assert.equal(calls[0][1].length, 16);
+  assert.deepEqual(calls[1], ["status", "16/16", "ok"]);
 });
 
 test("writing note list handler routes add remove and open actions", () => {

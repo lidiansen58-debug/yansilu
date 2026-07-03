@@ -39,6 +39,7 @@ export function buildWritingPanelHostDeps({
   renderDraftVersionCard = () => "",
   writingBookProjectGoal = () => "",
   writingBookProjectAudience = () => "",
+  isWritingCandidateDetailsExpanded = () => false,
   escapeHtml = (value) => String(value ?? "")
 } = {}) {
   return {
@@ -82,6 +83,7 @@ export function buildWritingPanelHostDeps({
     renderDraftVersionCard,
     writingBookProjectGoal,
     writingBookProjectAudience,
+    isWritingCandidateDetailsExpanded,
     escapeHtml
   };
 }

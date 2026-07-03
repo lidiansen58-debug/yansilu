@@ -231,7 +231,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
             <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "刷新推荐" : "查找推荐")}</button>
             <button class="graph-selection-action is-secondary" type="button" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">改用搜索</button>
           </div>
-          <p class="graph-isolated-helper">${escapeHtml(resolvedAiCandidates.length ? "推荐优先来自当前图谱和本地规则；保存前仍要确认关系类型和理由。" : resolvedHasAnalysis ? "暂时没有足够可靠的推荐，可以改用搜索。" : "先查找推荐，或直接搜索你确定相关的笔记。")}</p>
+          <p class="graph-isolated-helper">${escapeHtml(resolvedAiCandidates.length ? "推荐优先来自当前图谱和本地规则；每条推荐会显示“为什么推荐”，保存前仍要确认关系类型和理由。" : resolvedHasAnalysis ? "暂时没有足够可靠的推荐，可以改用搜索。" : "先查找推荐；有推荐时会显示为什么推荐，也可以直接搜索你确定相关的笔记。")}</p>
         </div>
         <div class="graph-isolated-target-panel"${activeMode === "manual" ? "" : " hidden"} data-graph-target-panel="manual">
           <label class="graph-isolated-field">

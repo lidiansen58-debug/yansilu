@@ -13,6 +13,12 @@ export function graphDirectNetworkEdgesForNote(noteId = "", edges = [], { relati
   return queryGraphDirectNetworkEdgesForNote(noteId, edges, { relationStatusCountsAsNetworkEdge });
 }
 
+const ORDINARY_RELATION_TYPES = new Set(["associated_with", "related", "free_link", "same_topic", "duplicates", "restates"]);
+
+function relationTypeIsOrdinary(type = "") {
+  return ORDINARY_RELATION_TYPES.has(String(type || "").trim().toLowerCase());
+}
+
 export function renderGraphIsolatedNextStepActionsHtml(
   noteId = "",
   { isolatedNotes = [], nodeMap = new Map(), edges = [] } = {},
@@ -34,7 +40,11 @@ export function renderGraphIsolatedNextStepActionsHtml(
   const themeNoteIds = themeCandidateNoteIdsForNode(cleanNoteId, directEdges, []);
   const themeTitle = suggestThemeIndexTitle(themeNoteIds);
   const canCreateTheme = directEdges.length > 0 && themeNoteIds.length >= 3;
-  const savedText = `已保存 ${directEdges.length} 条正式关系到图谱。`;
+  const formalCount = directEdges.filter((edge) => !relationTypeIsOrdinary(edge?.relationType)).length;
+  const ordinaryCount = directEdges.length - formalCount;
+  const savedText = formalCount
+    ? `已保存 ${formalCount} 条正式关系到图谱${ordinaryCount ? `，另有 ${ordinaryCount} 条普通相关关系` : ""}。`
+    : `已保存 ${ordinaryCount} 条普通相关关系；它会出现在全部关系里，尚未转成正式观点关系。`;
   const nextText = nextItem
     ? `${savedText} 下一条待关联笔记：${nextItem.title}`
     : `${savedText} 当前范围暂时没有下一条待关联笔记，可以回到这条笔记周边继续阅读。`;
@@ -50,7 +60,7 @@ export function renderGraphIsolatedNextStepActionsHtml(
             ? `<button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条</button>`
             : ""
         }
-        <button class="graph-selection-action is-secondary" type="button" data-graph-select-node="${escapeHtml(cleanNoteId)}">查看关系</button>
+        <button class="graph-selection-action is-secondary" type="button" data-graph-select-node="${escapeHtml(cleanNoteId)}">${formalCount ? "查看关系" : "查看全部关系"}</button>
         <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>保存为可写主题</button>
       </div>
     </section>

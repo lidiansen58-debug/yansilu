@@ -41,7 +41,8 @@ function baseController({
   clearIsolatedRelationDraft = () => {},
   openGraphSelection = null,
   openRelationFormInSelection = () => {},
-  nextIsolatedSelectionAfterSave = () => null
+  nextIsolatedSelectionAfterSave = () => null,
+  setGraphRelationTypeFilter = () => ""
 } = {}) {
   return createGraphRelationSaveController({
     graphState,
@@ -60,7 +61,8 @@ function baseController({
     clearIsolatedRelationDraft,
     openGraphSelection,
     openRelationFormInSelection,
-    nextIsolatedSelectionAfterSave
+    nextIsolatedSelectionAfterSave,
+    setGraphRelationTypeFilter
   });
 }
 
@@ -117,7 +119,7 @@ test("graph relation save controller refreshes graph and keeps isolated completi
   assert.equal(calls[2][1].kind, "isolatedComplete");
   assert.equal(calls[3][2], "ok");
   assert.match(calls[3][1], /关系已保存/);
-  assert.match(calls[3][1], /下一步看这组关系能不能形成主题/);
+  assert.match(calls[3][1], /查看这组关系能不能形成主题/);
 });
 
 test("graph relation save controller opens the next isolated note after saving", async () => {
@@ -151,7 +153,7 @@ test("graph relation save controller opens the next isolated note after saving",
   assert.deepEqual(calls[1], ["next", "source"]);
   assert.equal(calls[3][2], "ok");
   assert.match(calls[3][1], /关系已保存/);
-  assert.match(calls[3][1], /下一步继续处理下一条未关联笔记/);
+  assert.match(calls[3][1], /继续处理下一条未关联笔记/);
 });
 
 test("graph relation save controller can reopen the graph selection through the unified entry", async () => {
@@ -248,6 +250,26 @@ test("graph relation save controller records existing relations without leaving 
   assert.equal(graphState.selection.kind, "isolatedComplete");
   assert.equal(graphState.selection.saveResult.created, false);
   assert.equal(statuses[0][1], "ok");
-  assert.match(statuses[0][0], /这条关系已经存在/);
+  assert.match(statuses[0][0], /这条正式关系已经存在/);
   assert.match(statuses[0][0], /形成主题/);
+});
+
+test("graph relation save controller switches ordinary relation saves to all relations", async () => {
+  const calls = [];
+  const controller = baseController({
+    setGraphRelationTypeFilter: (value, options) => calls.push(["filter", value, options]),
+    setStatus: (text, cls) => calls.push(["status", text, cls])
+  });
+
+  const saved = await controller.saveConfirmedRelation({
+    noteId: "source",
+    targetNoteId: "target",
+    relationType: "associated_with",
+    rationale: "源笔记和目标笔记普通相关，因为它们讨论同一个使用场景。"
+  });
+
+  assert.equal(saved, true);
+  assert.deepEqual(calls[0], ["filter", "all", { source: "relation-save" }]);
+  assert.equal(calls.at(-1)[2], "ok");
+  assert.match(calls.at(-1)[1], /普通相关关系/);
 });

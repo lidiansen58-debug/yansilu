@@ -1,4 +1,5 @@
 import {
+  graphRelationSaveIsOrdinaryRelation,
   graphRelationSaveSelection,
   graphRelationSavedNextStepStatus
 } from "./graph-relation-save-flow.js";
@@ -32,7 +33,8 @@ export function createGraphRelationSaveController({
   clearIsolatedRelationDraft = () => false,
   openGraphSelection = null,
   openRelationFormInSelection = () => false,
-  nextIsolatedSelectionAfterSave = () => null
+  nextIsolatedSelectionAfterSave = () => null,
+  setGraphRelationTypeFilter = () => ""
 } = {}) {
   const titleForNote = (nodeMap = new Map(), noteId = "") => graphNodeTitle(
     nodeMap,
@@ -102,6 +104,7 @@ export function createGraphRelationSaveController({
       }
       graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
       clearIsolatedRelationDraft(cleanNoteId);
+      if (graphRelationSaveIsOrdinaryRelation(cleanRelationType)) setGraphRelationTypeFilter("all", { source: "relation-save" });
       graphState.selection = nextSelection;
       await refreshDirectoryGraph();
       const nextIsolatedSelection = nextSelection.kind === "isolatedComplete"
@@ -132,7 +135,8 @@ export function createGraphRelationSaveController({
       setStatus(
         graphRelationSavedNextStepStatus({
           created: transaction.relation?.created !== false,
-          hasNextIsolated: Boolean(nextIsolatedSelection)
+          hasNextIsolated: Boolean(nextIsolatedSelection),
+          relationType: cleanRelationType
         }),
         "ok"
       );

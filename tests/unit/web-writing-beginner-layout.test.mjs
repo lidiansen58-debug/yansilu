@@ -19,7 +19,27 @@ test("writing center keeps beginner four-step path above folded advanced areas",
   assert.match(html, /<details class="writing-advanced-details">\s*<summary>高级：AI 写作检查<\/summary>/);
   assert.match(html, /<details class="writing-advanced-details">[\s\S]*<summary>更多写作工具：书稿方向、最近写作和版本历史<\/summary>/);
   assert.match(html, /<details class="writing-advanced-details writing-section">\s*<summary>更多选择：可写主题与主题详情<\/summary>/);
-  assert.match(html, /<details class="writing-advanced-details writing-section">\s*<summary>更多选择：当前目录永久笔记<\/summary>/);
+  assert.match(html, /<details class="writing-advanced-details writing-section" id="writingCandidateDetails">\s*<summary>更多选择：当前目录永久笔记<\/summary>/);
   assert.doesNotMatch(html, /<details class="writing-advanced-details" open>/);
   assert.doesNotMatch(statusStrip, /renderWritingStatusCard\("AI 辅助"/);
+});
+
+test("writing center lazy-loads the full candidate note list", () => {
+  const controller = fs.readFileSync("apps/web/src/writing-panel-controller.js", "utf8");
+  const events = fs.readFileSync("apps/web/src/writing-panel-events.js", "utf8");
+  const deps = fs.readFileSync("apps/web/src/writing-panel-deps.js", "utf8");
+  const hostDeps = fs.readFileSync("apps/web/src/writing-panel-host-deps.js", "utf8");
+  const prototypeApp = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
+
+  assert.match(controller, /const candidateDetails = \$\("writingCandidateDetails"\)/);
+  assert.match(controller, /candidateDetails\?\.open/);
+  assert.match(controller, /Math\.min\(candidates\.length, 12\)/);
+  assert.match(controller, /加入已加载候选/);
+  assert.match(controller, /展开本区块后会加载完整列表/);
+  assert.match(events, /add\("writingCandidateDetails", "toggle"/);
+  assert.match(events, /isWritingCandidateDetailsExpanded/);
+  assert.match(events, /renderWritingPanel\?\.\(\)/);
+  assert.match(deps, /isWritingCandidateDetailsExpanded/);
+  assert.match(hostDeps, /isWritingCandidateDetailsExpanded/);
+  assert.match(prototypeApp, /installWritingPanelBasketEventHandlers\(\{[\s\S]*isWritingCandidateDetailsExpanded: \(\) => Boolean\(\$\("writingCandidateDetails"\)\?\.open\)/);
 });

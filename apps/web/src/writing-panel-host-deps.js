@@ -44,6 +44,7 @@ export function buildWritingPanelPrototypeHostDeps(host = {}) {
     renderDraftVersionCard: host.renderDraftVersionCard,
     writingBookProjectGoal: host.writingBookProjectGoal,
     writingBookProjectAudience: host.writingBookProjectAudience,
+    isWritingCandidateDetailsExpanded: host.isWritingCandidateDetailsExpanded,
     escapeHtml: host.escapeHtml
   };
 }

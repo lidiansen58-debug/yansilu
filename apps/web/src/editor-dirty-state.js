@@ -453,8 +453,10 @@ const editorPaneStateMethods = {
   renderEmptyEditorState() {
     const empty = !this.activeTab();
     const panel = this.els.markdownSplit?.closest?.(".md-panel");
+    const stage = panel?.closest?.(".editor-stage-shell");
     panel?.classList.toggle("editor-empty", empty);
-    this.els.emptyStart?.classList.add("hidden");
+    stage?.classList.toggle("editor-empty-stage", empty);
+    this.els.emptyStart?.classList.toggle("hidden", !empty);
   },
 
   requestCreateNoteFromEmptyState() {

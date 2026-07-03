@@ -47,6 +47,7 @@ export function createGraphIsolatedWorkspaceRuntime(deps = {}) {
     createGraphIsolatedDecisionController,
     createNoteRelation,
     refreshDirectoryGraph,
+    setGraphRelationTypeFilter = () => "",
     renderGraphPanel,
     setStatus,
     openGraphSelection,
@@ -308,7 +309,8 @@ const graphRelationSaveController = createGraphRelationSaveController({
   clearIsolatedRelationDraft: clearGraphIsolatedRelationDraft,
   openGraphSelection,
   openRelationFormInSelection: openGraphRelationFormInSelection,
-  nextIsolatedSelectionAfterSave
+  nextIsolatedSelectionAfterSave,
+  setGraphRelationTypeFilter
 });
 
 const graphRelationWorkflowController = createGraphRelationWorkflowController({

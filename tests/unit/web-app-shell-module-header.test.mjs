@@ -31,19 +31,20 @@ function headerElements() {
   };
 }
 
-test("module header renders shell-only empty actions for explorer settings graph and imports", () => {
+test("module header renders shell-only empty actions for explorer settings graph imports and today", () => {
   for (const [module, expectedTitle, expectedSummary] of [
     ["explorer", "", ""],
     ["settings", "Settings", "Settings summary"],
     ["graph", "", ""],
-    ["imports", "Imports", "Import summary"]
+    ["imports", "Imports", "Import summary"],
+    ["today", "Today", "Today summary"]
   ]) {
     const elements = headerElements();
     elements.moduleHeaderActions.innerHTML = "old";
     renderModuleWorkspaceHeaderForRuntime({
       state: { module },
       elements,
-      moduleUi: { title: "Imports", summary: "Import summary" },
+      moduleUi: { title: module === "today" ? "Today" : "Imports", summary: module === "today" ? "Today summary" : "Import summary" },
       settingsHeader: { title: "Settings", summary: "Settings summary" }
     });
 

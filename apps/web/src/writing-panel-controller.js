@@ -140,6 +140,7 @@ export function renderWritingPanelDom(deps = {}) {
   const basketList = $("writingBasketList");
   const candidateSummary = $("writingCandidateSummary");
   const candidateList = $("writingCandidateList");
+  const candidateDetails = $("writingCandidateDetails");
   const toplineMetrics = $("writingToplineMetrics");
   const mainlineGuide = $("writingBeginnerMainline");
   const createProjectButton = $("btnWritingCreateProject");
@@ -278,17 +279,24 @@ export function renderWritingPanelDom(deps = {}) {
   }
   const basketIdSet = new Set(parseWritingBasketIds());
   if (candidateSummary) {
+    const candidateListExpanded = Boolean(candidateDetails?.open);
+    const candidateLimit = candidateListExpanded ? candidates.length : Math.min(candidates.length, 12);
+    const hiddenCandidateCount = Math.max(0, candidates.length - candidateLimit);
     candidateSummary.textContent = candidates.length
       ? candidateFocusPlan.usingFocusedScope
-        ? `${candidateFocusPlan.scopeLabel}里有 ${candidates.length} 条可作为相关笔记的永久笔记，${writingThemeSummary(candidates)}。先沿着这段图谱结构推进，再决定哪些笔记适合写进同一篇文章。`
-        : `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再选择哪些笔记适合写进同一篇文章。`
+        ? `${candidateFocusPlan.scopeLabel}里有 ${candidates.length} 条可作为相关笔记的永久笔记，${writingThemeSummary(candidates)}。${hiddenCandidateCount ? `默认先加载 ${candidateLimit} 条，展开后再看完整列表。` : ""}先沿着这段图谱结构推进，再决定哪些笔记适合写进同一篇文章。`
+        : `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。${hiddenCandidateCount ? `默认先加载 ${candidateLimit} 条，展开后再看完整列表。` : ""}先确认自己的判断，再选择哪些笔记适合写进同一篇文章。`
       : candidateFocusPlan.usingFocusedScope
         ? `${candidateFocusPlan.scopeLabel}里暂时还没有可作为相关笔记的永久笔记。可以先回图谱继续补关系，或回到目录范围挑选成熟观点。`
         : "当前目录里还没有已加载的永久笔记。可以先回到永久笔记目录形成几条自己的观点，再来组织可写主题。";
   }
   if (candidateList) {
+    const candidateListExpanded = Boolean(candidateDetails?.open);
+    const candidateLimit = candidateListExpanded ? candidates.length : Math.min(candidates.length, 12);
+    const visibleCandidates = candidates.slice(0, candidateLimit);
+    const hiddenCandidateCount = Math.max(0, candidates.length - visibleCandidates.length);
     candidateList.innerHTML = candidates.length
-      ? candidates
+      ? `${visibleCandidates
           .map((entry) =>
             renderWritingNoteCard(entry, {
               selected: basketIdSet.has(entry.id),
@@ -296,11 +304,12 @@ export function renderWritingPanelDom(deps = {}) {
               actionLabel: basketIdSet.has(entry.id) ? "移出相关笔记" : "加入相关笔记"
             })
           )
-          .join("")
+          .join("")}${hiddenCandidateCount ? `<div class="writing-empty">还有 ${hiddenCandidateCount} 条候选。展开本区块后会加载完整列表，避免首屏一次铺开太多按钮。</div>` : ""}`
       : `<div class="writing-empty">${candidateFocusPlan.usingFocusedScope ? `${candidateFocusPlan.scopeLabel}里还没有可用的永久笔记。` : "当前目录还没有可用的永久笔记。"}</div>`;
   }
   if ($("btnWritingAddVisible")) {
-    $("btnWritingAddVisible").textContent = candidateFocusPlan.addActionLabel;
+    const candidateListExpanded = Boolean(candidateDetails?.open);
+    $("btnWritingAddVisible").textContent = candidateListExpanded ? candidateFocusPlan.addActionLabel : "加入已加载候选";
     $("btnWritingAddVisible").disabled = candidates.length === 0;
   }
 

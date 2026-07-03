@@ -45,3 +45,15 @@ test("empty start actions keep destructive and async actions guarded", () => {
   assert.match(source, /if \(this\.emptyStartActionPending\) return/);
   assert.match(source, /querySelectorAll\?\.\("\[data-empty-start-action\]"\)\.forEach/);
 });
+
+test("empty editor state shows beginner action cards over the editor", () => {
+  const dirtyStateSource = fs.readFileSync("apps/web/src/editor-dirty-state.js", "utf8");
+  const css = fs.readFileSync("apps/web/src/prototype.css", "utf8");
+
+  assert.match(dirtyStateSource, /emptyStart\?\.[\s\S]*classList\.toggle\("hidden", !empty\)/);
+  assert.match(dirtyStateSource, /editor-empty-stage/);
+  assert.match(css, /\.editor-stage-shell\.editor-empty-stage \.markdown-split/);
+  assert.match(css, /opacity:\s*0\.18/);
+  assert.match(css, /\.editor-empty-start\s*\{[\s\S]*z-index:\s*38/);
+  assert.doesNotMatch(css, /\.editor-empty-start\s*\{\s*display:\s*none !important;/);
+});

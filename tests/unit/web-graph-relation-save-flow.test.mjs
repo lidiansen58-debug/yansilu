@@ -91,3 +91,16 @@ test("relation save status points to the next note or theme formation", () => {
   assert.match(nextStatus, /继续处理下一条未关联笔记/);
   assert.match(nextStatus, /查看刚保存的关系/);
 });
+
+test("ordinary relation save status does not imply a formal relation", () => {
+  const status = graphRelationSavedNextStepStatus({
+    created: true,
+    hasNextIsolated: false,
+    relationType: "associated_with"
+  });
+
+  assert.match(status, /普通相关关系/);
+  assert.match(status, /还不是支持、反驳这类正式观点关系/);
+  assert.match(status, /切到全部关系查看/);
+  assert.doesNotMatch(status, /保存到图谱的正式关系/);
+});
