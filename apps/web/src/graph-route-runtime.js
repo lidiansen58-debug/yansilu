@@ -11,6 +11,7 @@ export function createGraphRouteRuntime(deps = {}) {
     graphRelationSaveController,
     graphScopeDirectoryId,
     graphState,
+    ensureLocalAiReadyForFeature = async () => ({ ready: true }),
     isDirectoryUnderOriginalRoot,
     isWritingEligibleNote,
     localAiPreviewOptionsForAction,
@@ -73,18 +74,25 @@ export function createGraphRouteRuntime(deps = {}) {
   }
 
   async function ensureGraphLocalAiReadyForAnalysis() {
-    if (!localOllamaSetupActive()) return true;
-    const bootstrapResult = await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("graph_analysis"));
-    if (bootstrapResult?.ready === true) {
+    const readiness = await ensureLocalAiReadyForFeature({
+      feature: "graph_analysis"
+    });
+    if (readiness?.ready === true) {
       renderGraphPanel();
       return true;
     }
-    graphState.aiAnalysisError = `${ollamaBootstrapStatusText(bootstrapResult)}。请先到 AI 设置完成安装、启动或模型下载。`;
-    setStatus(graphState.aiAnalysisError, "warn");
+    if (readiness?.skipped === true && !localOllamaSetupActive()) return true;
+    const bootstrapResult = readiness?.result || null;
+    graphState.aiAnalysisError = String(readiness?.message || `${ollamaBootstrapStatusText(bootstrapResult)}。AI 不可用不影响继续手工整理关系。`).trim();
+    if (!readiness?.message) setStatus(graphState.aiAnalysisError, "warn");
     return false;
   }
 
   async function runGraphAiConnectForNote(noteId = "") {
+    const readiness = await ensureLocalAiReadyForFeature({
+      feature: "graph_connect"
+    });
+    if (readiness?.ready === false) return false;
     return graphAiConnectRuntimeController.runGraphAiConnectForNote(noteId);
   }
 

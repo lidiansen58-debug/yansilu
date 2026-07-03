@@ -95,6 +95,32 @@ test("settings AI runtime controller previews Ollama bootstrap and clears unavai
   assert.equal(calls.some((call) => call[0] === "status" && call[2] === "warn"), true);
 });
 
+test("settings AI runtime controller can preview Ollama bootstrap before local mode is persisted", async () => {
+  const calls = [];
+  const settingsState = { ai: { runtimeMode: "auto", localModel: "" } };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaBootstrapResult: (result) => calls.push(["bootstrap", result.status]),
+    fetchOllamaBootstrapStatus: async (request) => {
+      calls.push(["fetch", request]);
+      return { ready: false, status: "needs_install", model: "qwen3:8b" };
+    },
+    ollamaBootstrapStatusText: () => "请先安装本地 AI 运行环境",
+    primaryRecommendedOllamaModelName: () => "qwen3:8b",
+    renderSettingsPanel: () => calls.push(["render"]),
+    settingsState,
+    shouldUseOllamaLocalRuntime: () => false
+  }));
+
+  const result = await controller.previewOllamaLocalAiBootstrapFromUi({
+    allowLocalSetupPreview: true,
+    silent: true,
+    render: false
+  });
+
+  assert.equal(result.status, "needs_install");
+  assert.deepEqual(calls.find((call) => call[0] === "fetch"), ["fetch", { model: "qwen3:8b", runtimeMode: "local_only" }]);
+});
+
 test("settings AI runtime controller detects Ollama models and persists runtime selection", async () => {
   const calls = [];
   const settingsState = { ai: { localRuntimeStatus: "", localRuntimeError: "" } };

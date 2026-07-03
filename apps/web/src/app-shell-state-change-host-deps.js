@@ -25,6 +25,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     editor: host.editor,
     ensureNoteBodyLoaded: host.ensureNoteBodyLoaded,
     expandGraphBrowserTree: host.expandGraphBrowserTree,
+    ensureLocalAiReadyForFeature: host.ensureLocalAiReadyForFeature,
     explorer: host.explorer,
     folderById: host.folderById,
     generatedOriginalNoteIdFromBody: host.generatedOriginalNoteIdFromBody,

@@ -172,6 +172,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       $: selectById = () => null,
       addSystemMessage = () => {},
       analyzeWritingWithStrongModel = async () => null,
+      ensureLocalAiReadyForFeature = async () => ({ ready: true }),
       parseWritingBasketIds = () => [],
       renderWritingPanel = () => {},
       setStatus = () => {},
@@ -192,6 +193,10 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       setStatus("先确定可写主题，再准备 AI 写作检查", "warn");
       return;
     }
+    const localAiReady = await ensureLocalAiReadyForFeature({
+      feature: "writing_check"
+    });
+    if (localAiReady?.ready === false) return;
     const confirmed =
       typeof window === "undefined" ||
       window.confirm("这会为远程模型准备写作检查内容。当前实现不会直接调用模型，但会包含相关笔记摘要。继续？");

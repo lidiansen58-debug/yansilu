@@ -3,6 +3,31 @@ import assert from "node:assert/strict";
 
 import { createGraphRouteRuntime } from "../../apps/web/src/graph-route-runtime.js";
 
+test("graph route runtime blocks graph AI analysis behind default local setup guide", async () => {
+  const calls = [];
+  const runtime = createGraphRouteRuntime({
+    graphState: { aiAnalysisLoading: false },
+    graphScopeDirectoryId: () => "dir-original",
+    localOllamaSetupActive: () => false,
+    ensureLocalAiReadyForFeature: async (options) => {
+      calls.push(["ready", options]);
+      return { ready: false, message: "AI 关系图谱分析需要本地 AI。推荐模型：qwen3:8b：默认推荐；不影响继续写笔记。" };
+    },
+    analyzeDirectoryGraph: async () => {
+      calls.push(["analyze"]);
+      return {};
+    },
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (...args) => calls.push(["status", ...args])
+  });
+
+  await runtime.runGraphAiAnalysis();
+
+  assert.deepEqual(calls.find((call) => call[0] === "ready"), ["ready", { feature: "graph_analysis" }]);
+  assert.equal(calls.some((call) => call[0] === "analyze"), false);
+  assert.equal(calls.some((call) => call[0] === "status"), false);
+});
+
 test("graph route runtime saves a first-class theme index and transfers writing context", async () => {
   const notes = new Map([
     ["n1", { id: "n1", title: "关系理由", noteType: "permanent", thesis: "关系理由让写作可追溯。" }],
@@ -11,6 +36,7 @@ test("graph route runtime saves a first-class theme index and transfers writing 
   ]);
   const calls = [];
   let savedPayload = null;
+  let localAiReadyChecked = false;
   const runtime = createGraphRouteRuntime({
     addSystemMessage: (message) => calls.push(["system", message]),
     createIndexCard: async (payload) => {
@@ -20,6 +46,10 @@ test("graph route runtime saves a first-class theme index and transfers writing 
     graphState: { item: { edges: [{ id: "e1" }, { id: "e2" }] } },
     graphDataList: () => [],
     graphScopeDirectoryId: () => "dir-original",
+    ensureLocalAiReadyForFeature: async () => {
+      localAiReadyChecked = true;
+      return { ready: false };
+    },
     isDirectoryUnderOriginalRoot: () => true,
     isWritingEligibleNote: () => true,
     normalizeWritingProjectTitleSeed: (title) => `${title} 主题`,
@@ -43,12 +73,13 @@ test("graph route runtime saves a first-class theme index and transfers writing 
   });
 
   assert.equal(card.id, "idx-1");
+  assert.equal(localAiReadyChecked, false);
   assert.equal(savedPayload.directoryId, "dir-theme");
   assert.equal(savedPayload.indexType, "topic");
   assert.match(savedPayload.centralQuestion, /关系如何变成写作入口/);
-  assert.match(savedPayload.threeLineSummary[2], /下一步可以写/);
+  assert.match(savedPayload.threeLineSummary[2], /下一步建议/);
   assert.deepEqual(savedPayload.noteIds, ["n1", "n2", "n3"]);
-  assert.ok(savedPayload.items.every((item) => /为什么重要/.test(item.rationale)));
+  assert.ok(savedPayload.items.every((item) => /关键判断|说明作用/.test(item.rationale)));
   assert.deepEqual(calls.find((call) => call[0] === "source-index"), ["source-index", ["idx-1"]]);
   assert.deepEqual(calls.find((call) => call[0] === "writing"), [
     "writing",

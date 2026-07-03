@@ -67,6 +67,7 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
     state = {},
     aiInboxState = {},
     analyzePermanentNote = async () => null,
+    ensureLocalAiReadyForFeature = async () => ({ ready: true }),
     noteAnalysisSystemMessageForResult = () => null,
     addSystemMessage = () => {},
     normalizeAiInboxFilters = (filters) => filters,
@@ -77,6 +78,11 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
   const noteId = String(payload.noteId || "").trim();
   if (!noteId) return false;
   try {
+    const localAiReady = await ensureLocalAiReadyForFeature({
+      feature: "note_analysis",
+      openSettings: payload.openSettingsOnMissingAi !== false
+    });
+    if (localAiReady?.ready === false) return false;
     setStatus("正在运行本地永久笔记 AI 分析...", "warn");
     const result = await analyzePermanentNote(noteId, {
       relatedNoteIds: Array.isArray(payload.relatedNoteIds) ? payload.relatedNoteIds : [],

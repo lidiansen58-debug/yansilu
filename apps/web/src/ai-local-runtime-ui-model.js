@@ -6,7 +6,11 @@ export function localAiPreviewOptionsForAction(action = "") {
     "runtime_mode_change",
     "graph_module_open",
     "graph_analysis",
-    "graph_connect"
+    "graph_connect",
+    "theme_index",
+    "note_analysis",
+    "writing_check",
+    "ai_summary"
   ].includes(value)) {
     return { silent: true, render: false };
   }
