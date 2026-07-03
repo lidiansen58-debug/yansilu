@@ -32,7 +32,7 @@ test("smart notes product demo fixture keeps the requested scope", () => {
   assert.equal(fixture.sources.length, 1);
   assert.equal(fixture.fleeting_notes.length, 2);
   assert.equal(fixture.literature_notes.length, 24);
-  assert.equal(fixture.permanent_notes.length, 100);
+  assert.equal(fixture.permanent_notes.length, 101);
   assert.equal(fixture.index_cards.length, 12);
   assert.equal(fixture.relations.length, 322);
   assert.equal(fixture.writing_projects.length, 1);
@@ -43,7 +43,7 @@ test("smart notes product demo fixture keeps the requested scope", () => {
     sources: 1,
     fleeting_notes: 2,
     literature_notes: 24,
-    permanent_notes: 100,
+    permanent_notes: 101,
     index_cards: 12,
     relations: 322,
     writing_projects: 1,
@@ -160,23 +160,24 @@ test("smart notes product demo fixture literature notes are original paraphrases
 
 test("smart notes product demo fixture includes an inspection guide", () => {
   const guide = fixture.guide_notes[0];
-  const source = fixture.sources.find((note) => note.id === "SRC-SMART-NOTES");
-  const firstLiteratureNote = fixture.literature_notes.find((note) => note.id === "LN-SN-001");
   assert.equal(guide.id, "GUIDE-SN-001");
   assert.equal(guide.note_type, "guide");
-  assert.ok(source, "expected guide source note");
-  assert.ok(firstLiteratureNote, "expected first literature note");
-  assert.match(guide.title, /6 步训练路径/);
-  assert.match(guide.body, /第一次打开按 6 步走/);
+  assert.match(guide.body, /第一次打开先走五步|五步走完整流程/);
   assert.match(guide.body, /SRC-SMART-NOTES/);
-  assert.match(guide.body, /写一条永久笔记/);
-  assert.match(guide.body, /立即找一条旧笔记建立关系/);
-  assert.match(guide.body, /给关系写理由/);
-  assert.match(guide.body, /创建主题索引笔记/);
-  assert.match(guide.body, /每周回顾一次/);
+  assert.match(guide.body, /LN-SN-001/);
+  assert.doesNotMatch(guide.body, /LIT-SN-001/);
+  assert.match(guide.body, /PN-SN-101/);
+  assert.match(guide.body, /未关联笔记进入关系网/);
+  assert.match(guide.body, /主题索引笔记不是文章/);
+  assert.match(guide.body, /3 到 7 条永久笔记/);
+  assert.match(guide.body, /每条关键关系都写了理由/);
   assert.match(guide.body, /WP-SN-PM-001/);
   assert.match(guide.body, /DS-SN-PM-001/);
-  assert.doesNotMatch([guide.body, source.conversion_policy, firstLiteratureNote.body].join("\n"), /候选|队列|复核|线索/);
+  assert.match(guide.body, /孤立笔记/);
+  assert.match(guide.body, /过宽标签/);
+  assert.match(guide.body, /没有理由的关系/);
+  assert.match(guide.body, /可以写成文章的主题/);
+  assert.doesNotMatch(guide.body, /候选|队列|复核|线索/);
 });
 
 test("smart notes product demo fixture index cards organize ordered items and key-note anchors", () => {
@@ -204,6 +205,18 @@ test("smart notes product demo fixture index cards organize ordered items and ke
       assert.ok(card.key_note_ids.includes(keyNotesByCluster.get(point.cluster)), `${card.id} should anchor the key note for cluster ${point.cluster}`);
     }
   }
+});
+
+test("smart notes product demo fixture includes one unlinked practice note for the guide", () => {
+  const practiceNote = fixture.permanent_notes.find((note) => note.id === "PN-SN-101");
+  assert.ok(practiceNote, "expected unlinked practice note");
+  assert.match(practiceNote.title, /关系练习|未关联/);
+  assert.equal(practiceNote.demo_role, "unlinked_relation_practice");
+  assert.equal(practiceNote.template_completion.has_relation_context, false);
+  assert.match(practiceNote.body, /待补充与相邻笔记的显式关系/);
+
+  const touchingRelations = fixture.relations.filter((relation) => relation.from === practiceNote.id || relation.to === practiceNote.id);
+  assert.equal(touchingRelations.length, 0, "practice note should start outside the relation network");
 });
 
 test("smart notes product demo fixture relations are typed and complete enough", () => {
@@ -239,7 +252,12 @@ test("smart notes product demo fixture relations are typed and complete enough",
   }
   assert.ok(relationTypes.has("belongs_to_topic"), "fixture should link ordinary notes to key notes");
   assert.ok(relationTypes.has("bridges"), "fixture should link key notes into a reading path");
+  const intentionallyUnlinkedIds = new Set(["PN-SN-101"]);
   for (const [noteId, count] of permanentTouchCount) {
+    if (intentionallyUnlinkedIds.has(noteId)) {
+      assert.equal(count, 0, `${noteId} should remain available for the guide relation practice`);
+      continue;
+    }
     assert.ok(count > 0, `${noteId} should have at least one relation`);
   }
 });

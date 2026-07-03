@@ -55,15 +55,15 @@ const CLUSTER_META = {
   },
   fleeting_capture: {
     summaryLine: "它提醒用户快速记下来的不是成果，而是一笔必须尽快处理的认知欠账。",
-    surface: "随笔列表、清理清单、下一步动作提示与删除确认",
+    surface: "随笔列表、清理队列、下一步动作提示与删除确认",
     scenario: "适合验收随笔列表是否把“待处理”解释成具体动作，而不是静态堆积。",
     boundary: "它要求及时处理，但不意味着每条随笔都必须被升格为永久笔记。",
     questionSeed: "如果没有后续处理动作，这条随笔最可能在哪里误导用户？"
   },
   literature_understanding: {
     summaryLine: "它把文献笔记从摘录容器改成理解容器，要求用户留下转述与追问。",
-    surface: "文献笔记模板、来源边界、转述区、可转成的永久笔记与追问区",
-    scenario: "适合验收文献笔记页面是否把摘录、转述、收获和可转成的判断明显分开。",
+    surface: "文献笔记模板、来源边界、转述区、候选永久笔记与追问区",
+    scenario: "适合验收文献笔记页面是否把摘录、转述、收获和候选判断明显分开。",
     boundary: "它要求用户说自己的话，但不要求每条文献笔记立刻得出最终结论。",
     questionSeed: "如果只保留摘录而拿掉转述，这条材料还剩下多少属于用户自己的理解？"
   },
@@ -76,7 +76,7 @@ const CLUSTER_META = {
   },
   relation_graph: {
     summaryLine: "它要求关系边不仅存在，还要解释连接方式、冲突位置和后续追问。",
-    surface: "关系创建表单、关系理由、洞察问题、图谱筛选与回看清单",
+    surface: "关系创建表单、关系理由、洞察问题、图谱筛选与复查队列",
     scenario: "适合验收图谱是不是在帮助用户继续思考，而不是只把节点连得更密。",
     boundary: "它重视显式关系，但不要求每个相邻主题都被过早定性。",
     questionSeed: "如果拿掉这条关系理由，图谱里还剩下什么值得继续相信？"
@@ -103,10 +103,10 @@ const CLUSTER_META = {
     questionSeed: "如果继续奖励错误指标，用户最可能把哪种动作误认成进步？"
   },
   ai_authorship: {
-    summaryLine: "它把 AI 放在建议、追问和对照的位置，把承担判断的责任留给用户。",
+    summaryLine: "它把 AI 放在候选、追问和对照的位置，把承担判断的责任留给用户。",
     surface: "AI 建议状态、作者确认、来源追溯、边界提示与保存前确认",
     scenario: "适合验收 AI 相关界面是否清楚标出哪些内容只是建议，哪些内容已被用户承担。",
-    boundary: "它限制 AI 越权，但不否认 AI 在发现缺口、提出草稿时的真实帮助。",
+    boundary: "它限制 AI 越权，但不否认 AI 在发现缺口、生成候选时的真实帮助。",
     questionSeed: "如果去掉用户确认，这条 AI 建议会在哪个瞬间伪装成用户自己的判断？"
   }
 };
@@ -146,7 +146,7 @@ const LITERATURE_DETAILS = {
   },
   "LN-SN-009": {
     angle: "方法的关键不在收藏，而在固定地把未完成材料推进到下一状态。",
-    takeaway: "日常处理清单比一次性导入能力更能代表系统是不是健康。"
+    takeaway: "日常处理队列比一次性导入能力更能代表系统是不是健康。"
   },
   "LN-SN-010": {
     angle: "再好的容器也不会自动产生理解；容器只是在承载处理动作时才有价值。",
@@ -158,7 +158,7 @@ const LITERATURE_DETAILS = {
   },
   "LN-SN-012": {
     angle: "好的笔记流程会把一条论点如何形成的路径保留下来，而不是只保留最后一句漂亮结论。",
-    takeaway: "AI 参与时尤其要保留建议状态和推理痕迹，避免流畅输出直接冒充作者观点。"
+    takeaway: "AI 参与时尤其要保留候选状态和推理痕迹，避免流畅输出直接冒充作者观点。"
   },
   "LN-SN-013": {
     angle: "快速捕捉不是为了宣布自己想明白了，而是为了提醒未来的自己：这里还有一段思考没做完。",
@@ -166,7 +166,7 @@ const LITERATURE_DETAILS = {
   },
   "LN-SN-014": {
     angle: "文献笔记最值得保存的痕迹，是“我在这里和来源发生了什么理解碰撞”，而不是原文被摘下了多少。",
-    takeaway: "来源定位、转述和可转成的永久笔记应该共同出现，形成清楚的转换链。"
+    takeaway: "来源定位、转述和候选永久笔记应该共同出现，形成清楚的转换链。"
   },
   "LN-SN-015": {
     angle: "永久笔记之所以面向未来，是因为它必须能够在不同问题场景下被重新调用，而不是一次性消费。",
@@ -234,7 +234,7 @@ const WRITING_SECTION_DETAILS = {
   "sec-5": {
     openQuestion: "是否要补一张关系图截图式路径，展示“关系理由”怎样影响后续写作？",
     gap: "需要说明关系和索引卡不是附加装饰，而是决定能否重新进入主题的结构层。",
-    counterpoint: "如果关系还不清楚，系统应该鼓励先保留待判断状态，还是要求用户立即定性？"
+    counterpoint: "如果关系还不清楚，系统应该鼓励保留候选，还是要求用户立即定性？"
   },
   "sec-6": {
     openQuestion: "这里是否要加入一个 AI 建议被用户拒绝或重写的例子？",
@@ -260,6 +260,10 @@ function pick(list = [], seed = 0, fallback = "") {
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function textValue(value) {
+  return String(value || "").trim();
 }
 
 function normalizeRelationType(type, relation, index) {
@@ -374,7 +378,7 @@ function focusForTitle(title = "") {
   if (/永久笔记|判断|观点|边界|反例/.test(text)) return "可承担判断、来源与边界";
   if (/关系|图谱|链接|桥接|张力|冲突/.test(text)) return "关系理由、冲突保留与图谱可读性";
   if (/索引卡|主题|入口|结构/.test(text)) return "中心问题、进入顺序与主题组织";
-  if (/反馈|习惯|复盘|持续|清单/.test(text)) return "处理节奏与反馈连续性";
+  if (/反馈|习惯|复盘|持续|队列/.test(text)) return "处理节奏与反馈连续性";
   if (/收藏|导入|高亮|指标|进度/.test(text)) return "虚假进展与正确指标";
   if (/AI|作者|确认|推理路径/.test(text)) return "AI 建议与作者责任边界";
   return "材料如何转成可复用判断";
@@ -417,7 +421,7 @@ function buildLiteratureBody(note, detail, keyNoteTitle, clusterMeta) {
     "## 和当前模板的对应",
     "- 来源边界：只保留主题、定位和转化方向，不复刻原文。",
     "- 原创转述：必须说明这条材料为什么值得被继续处理。",
-    "- 可转成的判断：把它可能沉淀成的永久笔记提前写出来。",
+    "- 候选判断：把它可能沉淀成的永久笔记提前写出来。",
     "- 待追问问题：为下一轮处理留下明确入口。",
     "",
     "## 我的收获",
@@ -434,12 +438,15 @@ function buildLiteratureBody(note, detail, keyNoteTitle, clusterMeta) {
     "",
     `## Demo 检查点`,
     `- 这条文献笔记是否已经把“${focusForTitle(note.title)}”从来源材料翻成用户自己的处理动作？`,
-    `- 它是否为后续永久笔记提供了清楚的转换入口，而不是停留在“保存了一条材料”？`
+    `- 它是否为后续永久笔记提供了清楚的候选入口，而不是停留在“保存了一条材料”？`
   ].join("\n");
 }
 
 function buildPermanentBody(note, sourceTitles, indexTitles, relationLines, clusterMeta, keyNoteTitle) {
   const summary = asArray(note.threeLineSummary).map((item) => `- ${item}`).join("\n");
+  const methodPrinciple = textValue(note.knowledge_point?.method_principle || note.knowledge_point?.principle);
+  const misuseToAvoid = textValue(note.knowledge_point?.misuse_to_avoid);
+  const productRequirement = textValue(note.knowledge_point?.product_requirement);
   const sourceTrace = sourceTitles.length
     ? sourceTitles.map((item) => `- ${item}`).join("\n")
     : "- 暂无文献笔记追溯";
@@ -456,10 +463,10 @@ function buildPermanentBody(note, sourceTitles, indexTitles, relationLines, clus
     note.core_claim,
     "",
     "## 知识点提取",
-    `- 方法论命题：${note.knowledge_point.method_principle}`,
+    `- 方法论命题：${methodPrinciple}`,
     `- 本笔记承担的子问题：${note.title}`,
-    `- 反面误用：${note.knowledge_point.misuse_to_avoid}`,
-    `- 产品设计要求：${note.knowledge_point.product_requirement}`,
+    `- 反面误用：${misuseToAvoid}`,
+    `- 产品设计要求：${productRequirement}`,
     `- 所属知识点：${note.knowledge_point.id} ${note.knowledge_point.label}`,
     "",
     "## 三句话压缩",
@@ -520,7 +527,7 @@ function buildEssayBody() {
     "笔记数量不会自动变成理解网络。真正让系统开始反馈用户的，是有理由的关系和围绕中心问题组织的索引卡。关系说明为什么连接，索引卡说明从哪里重新进入。它们共同把档案从堆积状态变成可重返的思考场。",
     "",
     "## 7. AI 可以帮忙，但不能替用户承担判断",
-    "AI 适合做的是追问、对照、暴露缺口和提出草稿。它可以提示哪些关系值得看、哪些笔记可能重复、哪些论点还缺边界。但只要进入永久笔记确认、关系确认和文章立场，责任就必须重新回到用户身上。",
+    "AI 适合做的是追问、对照、暴露缺口和生成候选。它可以提示哪些关系值得看、哪些笔记可能重复、哪些论点还缺边界。但只要进入永久笔记确认、关系确认和文章立场，责任就必须重新回到用户身上。",
     "",
     "## 8. 这份 demo 想教给用户的最小实践",
     "先确定来源边界；再写一条真正属于自己的文献转述；从中沉淀出一条永久笔记；给它补上理由、边界和关系；把几条成熟判断组织成索引卡；最后再进入写作。研思录不是帮用户记更多，而是帮用户把材料一步步变成自己的判断与文章。",
@@ -605,6 +612,7 @@ async function main() {
 
   fixture.permanent_notes = asArray(fixture.permanent_notes).map((note, index) => {
     const point = note.knowledge_point || knowledgeById.get(note.knowledge_point?.id);
+    const methodPrinciple = textValue(point?.method_principle || point?.principle);
     const clusterMeta = CLUSTER_META[note.cluster] || CLUSTER_META.writing_first;
     const keyNoteId = keyNoteMap.get(note.cluster);
     const keyNoteTitle = permanentById.get(keyNoteId)?.title || keyNoteId;
@@ -623,13 +631,14 @@ async function main() {
       : `这条笔记把“${note.cluster_label}”里的一个局部风险或动作拆出来，方便单独复用、比较和进入写作。`;
     const actionLine = `在研思录里，它最直接影响的是 ${clusterMeta.surface}。`;
     const rationale = note.is_key_note
-      ? `作为 ${note.cluster_label} 的锚点，这条判断把“${point.method_principle}”与“${note.key_question}”接到一起。它不是在解释一本书，而是在给后续笔记和页面设计提供统一检验标准。`
+      ? `作为 ${note.cluster_label} 的锚点，这条判断把“${methodPrinciple}”与“${note.key_question}”接到一起。它不是在解释一本书，而是在给后续笔记和页面设计提供统一检验标准。`
       : `这条笔记从 ${sourceTitles[0] ? sourceTitles[0].replace(/^- /, "") : "上游材料"} 中抽出一个更小但更可执行的主张：当我们讨论“${note.title}”时，真正要落地的是“${focusForTitle(note.title)}”。它服务于 ${keyNoteTitle} 这条主线，因此比大而全的总结更适合进入索引卡和写作项目。`;
     const productImplication = `${clusterMeta.summaryLine} 因而在产品中，${clusterMeta.surface} 必须把“${note.title}”对应的处理动作解释清楚，而不是只展示状态名。`;
     const boundary = `${clusterMeta.boundary} 对“${note.title}”这条判断来说，真正需要防止的是把它说成没有条件、没有顺序、也没有反例的万能原则。`;
     const useCase = `${clusterMeta.scenario} 这条笔记特别适合检查“${note.title}”有没有被页面、关系或索引结构正确承接。`;
     const nextQuestion = `${clusterMeta.questionSeed} 对“${note.title}”而言，下一步最值得补的是哪条反例、哪条关系，或哪张索引卡入口？`;
-    const relationLines = relationSectionLines(note.id, relationsByNote.get(note.id) || [], titlesById);
+    const noteRelations = relationsByNote.get(note.id) || [];
+    const relationLines = relationSectionLines(note.id, noteRelations, titlesById);
     const updated = {
       ...note,
       thesis: note.title,
@@ -649,7 +658,7 @@ async function main() {
         has_rationale: true,
         has_source_trace: sourceNoteIds.length > 0,
         has_boundary: true,
-        has_relation_context: relationLines.length > 0
+        has_relation_context: noteRelations.length > 0
       }
     };
     updated.body = buildPermanentBody(updated, sourceTitles, indexTitles, relationLines, clusterMeta, keyNoteTitle);
@@ -716,57 +725,45 @@ async function main() {
 
   fixture.guide_notes = asArray(fixture.guide_notes).map((guide) => ({
     ...guide,
-    title: "00-先从这里开始：6 步训练路径",
+    title: "00-先从这里开始：五步走完整流程",
     body: [
-      "# 00-先从这里开始：6 步训练路径",
+      "# 00-先从这里开始：五步走完整流程",
       "",
-      "这个 Demo 不是《卡片笔记写作法》的替代摘要，而是一条可以动手走完的路径：材料怎样变成自己的判断，判断怎样进入关系网，关系怎样变成主题索引和写作。",
+      "这个 Demo 不是《卡片笔记写作法》的替代摘要，而是一条可以动手走完的路径：材料怎样变成自己的判断，判断怎样进入关系网，关系怎样变成主题索引笔记和写作提纲。",
       "",
-      "## 第一次打开按 6 步走",
+      "## 第一次打开先走五步",
       "",
-      "1. 写一条永久笔记：打开 `SRC-SMART-NOTES`，再看 `FN-SN-001`、`LN-SN-001` 和 `PN-SN-001`。你要观察的不是格式，而是材料怎样从捕捉、转述，变成用户愿意承担的一句话判断。",
-      "2. 立即找一条旧笔记建立关系：写完新永久笔记后，不要先去看大图。先找一条最相关的旧笔记，可以用搜索，也可以让 AI 帮你列出可比较的旧笔记。",
-      "3. 给关系写理由：选择支持、限定、反驳、补充或桥接等关系类型，再写一句“为什么这两条要放在一起”。没有理由的连线只是热闹，有理由的连线才会让笔记进入关系网。",
-      "4. 创建主题索引笔记：当 3 到 7 条永久笔记围绕同一个问题时，创建一张主题索引笔记。它不是文章，也不是文件夹，而是下次重新进入这个问题的入口。",
-      "5. 从主题索引进入写作中心：打开写作项目 `WP-SN-PM-001`，看主题索引和相关永久笔记怎样变成文章提纲、草稿骨架和最终文章。",
-      "6. 每周回顾一次：检查孤立笔记、太宽的标签、没有说明理由的关系，以及已经可以进入写作的主题。回顾不是大扫除，而是把还没接上的判断继续接回网络。",
+      "1. 先看一条材料如何变成永久笔记：打开 `SRC-SMART-NOTES`，再看 `FN-SN-001`、`LN-SN-001` 和 `PN-SN-001`。你要看的不是格式，而是一本书里的想法怎样先被转述，再变成“我愿意承担的一句话判断”。",
+      "2. 再让一条未关联笔记进入关系网：打开 `PN-SN-101`。找一条真正相关的旧笔记，选择它们的关系，写一句“为什么要这样连”，再保存。保存以后，它就不只是单独放着的一张卡片，而是能和旧判断互相解释。",
+      "3. 接着看多条永久笔记如何形成主题索引笔记：打开 `IC-SN-001`、`IC-SN-005` 或 `IC-SN-010`。先读中心问题，再按顺序读里面列出的永久笔记。主题索引笔记不是文章，它只是一个入口，帮你下次重新进入同一个问题。",
+      "4. 然后从主题索引进入写作中心生成提纲：打开写作项目 `WP-SN-PM-001`，再看 `DS-SN-PM-001`。重点看主题索引笔记和永久笔记怎样被放进写作项目，形成提纲和草稿骨架。",
+      "5. 最后做一次定期回顾：检查有没有孤立笔记、过宽标签、没有理由的关系，以及已经可以写成文章的主题。回顾的目的不是大整理，而是决定下一步最该补哪一个小动作。",
       "",
-      "## 一条材料如何变成永久笔记",
+      "## 卢曼方法在这里怎么落地",
       "",
-      "材料先不用急着写成文章。先保留来源边界，再用自己的话转述，最后写成一句离开原材料后也能独立回答问题的判断。",
+      "卢曼式卡片盒的核心，不是把笔记写得漂亮，也不是把分类做得很细。它要求每条新判断都尽快进入已有网络，并且让旧笔记在新问题里重新变得有用。",
       "",
-      "在 Demo 里，`SRC-SMART-NOTES` 是来源，`LN-SN-001` 是转述，`PN-SN-001` 是永久笔记。顺着这三张看，就能看到“材料 -> 转述 -> 判断”的落地路径。",
+      "在研思录里，这件事被拆成几个能照做的动作：来源材料说明边界，文献笔记用自己的话转述，永久笔记沉淀判断，关系说明连接理由，主题索引笔记提供入口，写作中心把已有判断组织成提纲。",
       "",
-      "## 一条笔记如何进入关系网",
+      "## 什么是好关系",
       "",
-      "写完永久笔记后，马上问：它最应该和哪一条旧笔记放在一起看？一条值得保存的关系至少要说清楚一种动作：支持、限定、反驳、补充、桥接，或说明两条笔记为什么只是同主题但暂时不能强连。",
+      "关联笔记不是把两个标题放在一起，也不是因为标签相同就连线。它要回答一个很朴素的问题：这两条笔记放在一起，能让哪个判断更清楚？",
       "",
-      "## 什么是主题索引笔记",
+      "一条值得保存的关系至少要说清楚一种动作：它支持另一条笔记、反驳另一条笔记、限制另一条笔记、补上中间桥梁，或帮助以后写出一个段落。",
       "",
-      "主题索引笔记不是文章，也不是普通分类。分类只告诉你“这些东西放在哪里”，主题索引要回答“下次我从哪个问题重新进入”。",
+      "## 什么时候建立主题索引笔记",
       "",
-      "创建主题索引笔记时，只做四件事：写出中心问题，挑出 3 到 7 条最关键的永久笔记，按阅读或论证顺序排列，并给每条写一句为什么放在这里。",
+      "不要等资料全部读完才建立主题索引。更好的时机是：已经有 3 到 7 条永久笔记围绕同一个问题，至少有一条支持关系，至少有一条边界、反例或张力，每条关键关系都写了理由，还有一个值得继续追问的问题。",
       "",
-      "Demo 中可以先看 `IC-SN-001`、`IC-SN-005`、`IC-SN-010`：它们示范了索引卡如何把一组永久笔记组织成可重返的主题路径。",
+      "达到这个状态，就可以先建一张主题索引笔记。它不是文章，也不是最终结论，而是一个入口：下次你想继续这个问题时，可以从这里重新进入。",
       "",
-      "## 什么时候进入写作中心",
+      "## 如何定期回顾",
       "",
-      "不要等所有资料都读完才开始写。更好的时机是：已经有 3 到 7 条永久笔记围绕同一个问题发生关系，并且每条关键关系都写了理由。此时就可以从主题索引进入写作中心先生成提纲，而不是继续囤材料。",
+      "每周或每隔几天，用 10 分钟看四类东西就够了：孤立笔记有没有进入关系网；标签是不是大到什么都能放进去；关系有没有写清为什么；主题索引笔记里有没有已经可以写成文章的主题。",
       "",
-      "## 每周回顾看什么",
+      "回顾不是为了把系统收拾整齐，而是为了让下一步动作变得清楚。",
       "",
-      "每周只看四类东西：孤立笔记、太宽的标签、没有说明理由的关系，以及已经可以进入写作中心的主题。回顾不是大扫除，而是把还没接上的判断继续接回网络。",
-      "",
-      "## 想多看一点，可以继续这样检查",
-      "",
-      "1. 从 `SRC-SMART-NOTES` 看来源边界、提取范围和转换政策。",
-      "2. 看 `FN-SN-001`、`FN-SN-002`，确认随笔只是捕捉点，不是完成品。",
-      "3. 看 `LN-SN-001`，确认文献笔记如何保留来源、转述和可转成的永久笔记。",
-      "4. 看 `PN-SN-001`、`PN-SN-049`、`PN-SN-065`，理解永久笔记、关系理由和索引卡之间的接力。",
-      "5. 切到图谱，把它当成结果视图：先看已保存关系是否解释得通，再决定是否继续补关系。",
-      "6. 打开 `WP-SN-PM-001`、`DS-SN-PM-001` 和 `ESSAY-SN-PM-001`，确认一条判断如何被一路带进成文结构。",
-      "",
-      "这个 Demo 的重点不是研思录能保存多少材料，而是它能不能帮助你持续完成三件事：写出自己的判断，给判断建立有理由的关系，再把关系组织成可以重新进入并继续写作的主题。"
+      "这个 Demo 的重点不是研思录能保存多少材料，而是它能不能帮助你持续完成三件事：写出自己的判断，给判断建立有理由的关系，再把关系组织成可以重新进入、可以写作的主题。"
     ].join("\n")
   }));
 
