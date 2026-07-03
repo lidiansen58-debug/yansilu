@@ -1,3 +1,7 @@
+import {
+  runConfirmedSmartNotesDemoImport
+} from "./smart-notes-demo-import-flow.js";
+
 export async function openInitialStartupRouteForRuntime(deps = {}) {
   const {
     windowRef = typeof window !== "undefined" ? window : undefined,
@@ -5,6 +9,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     usingLocalFallbackData = false,
     startupAutoOpenSuppressed = false,
     getStartupAutoOpenSuppressed = () => startupAutoOpenSuppressed,
+    confirm = null,
     importSmartNotesProductThinkingDemo = async () => false,
     importYijingKnowledgeNetworkDemo = async () => false,
     importYijingRichAcceptanceDemo = async () => false,
@@ -23,7 +28,11 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
   const shouldSkipAutoOpen = () => getStartupAutoOpenSuppressed() === true || Boolean(state.activeTabId || state.selectedFileId);
   const openedDemo =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
-      ? await importSmartNotesProductThinkingDemo({ startup: true })
+      ? await runConfirmedSmartNotesDemoImport({ startup: true }, {
+          confirm,
+          importSmartNotesDemo: importSmartNotesProductThinkingDemo,
+          setStatus
+        })
       : startupDemo === "yijing-rich" || startupDemo === "yijing"
         ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo({ startup: true }) : importYijingRichAcceptanceDemo({ startup: true }))
         : false;
