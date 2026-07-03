@@ -19621,6 +19621,51 @@
         margin-bottom: 12px;
       }
 
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-title {
+        font-size: 14px;
+      }
+
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-note {
+        display: block;
+        color: #4b5d57;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-steps {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-step {
+        min-height: 38px;
+        justify-content: center;
+        border-color: rgba(15, 118, 110, 0.18);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.86);
+        color: #31413d;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-step.is-active {
+        border-color: rgba(15, 118, 110, 0.38);
+        background: #e8f6f2;
+        color: #0f655f;
+        box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.16);
+      }
+
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-gaps span {
+        min-height: 28px;
+        border-radius: 8px;
+        font-size: 12px;
+      }
+
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-action {
+        min-height: 38px;
+      }
+
       .editor-empty-start {
         top: 24px;
         width: min(420px, calc(100% - 24px));
@@ -19828,5 +19873,11 @@
 
       #moduleWorkspace.graph-mode .graph-utility-drawer-body .graph-section {
         margin: 0 10px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .sidebar-flow-card[data-smart-notes-demo-walkthrough] .sidebar-flow-steps {
+        grid-template-columns: 1fr;
       }
     }

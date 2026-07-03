@@ -16,15 +16,16 @@ Yansilu v0.1.1-beta.1 is a Windows desktop beta for close testers who want to tr
 ## Final Beta Polish
 
 - Demo guide now opens at the beginning on mobile instead of landing near the lower product-feature section.
+- Mobile Demo walkthrough actions are more prominent, with larger step buttons and clearer active-step emphasis on small screens.
 - Mobile editor toolbar remains horizontally scrollable, so compact screens do not hide editing actions.
 - Repeat Demo import opens the existing guide with a beginner-friendly status instead of exposing technical database wording.
 - AI review and suggestion panels have stronger stale-selection safeguards.
 - Already processed AI inbox items no longer show actions that would fail.
+- External-link WYSIWYG browser smoke now uses the trusted click path and no longer waits on a long popup timeout.
 
 ## Known Limitations
 
 - Windows installer is unsigned and may trigger SmartScreen warnings.
 - This beta depends on the local API service at `http://localhost:3000`.
 - Updater artifacts are disabled for the local beta build; one-click update should wait for signed release feeds.
-- External-link WYSIWYG browser smoke passes but is still slow.
 - Native installed-WebView checks for file dialogs and OS shell reveal/open actions should be repeated before sharing beyond close testers.

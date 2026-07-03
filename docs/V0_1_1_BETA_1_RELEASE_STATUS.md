@@ -36,10 +36,10 @@ None found.
 1. Mobile Demo first screen could open near the lower "product feature notes" section instead of the beginning of the guide. Fixed by resetting the editor viewport to the start after the Smart Notes Demo guide opens.
 2. Mobile editor toolbar could hide horizontal overflow, making some actions unreachable on small screens. Fixed by keeping the mobile toolbar horizontally scrollable while preserving the compact collapsed height.
 
-### P2 Recorded
+### P2 Fixed
 
-1. The external-link browser smoke still takes about 32 seconds. It passes, but the WYSIWYG link rendering/opening path is slow and should be optimized after beta.
-2. Mobile Demo still gives more emphasis to the editor than to the walkthrough action buttons. The guide text now starts at the correct position, but a future mobile-specific walkthrough action strip would make the first-run path clearer.
+1. The external-link WYSIWYG browser smoke no longer waits for the default popup timeout. It now uses a real Playwright click with a short popup wait, so the smoke reflects the trusted user-click path and returns quickly when the app stays in place.
+2. Mobile Demo walkthrough action buttons are more visible on small screens. The walkthrough note is shown, steps use larger button-like targets, the active step is stronger, and very narrow screens stack the actions into one column.
 
 ## Completed Verification
 
@@ -51,6 +51,8 @@ None found.
 - `npm run test:review-first:core` passed: `171/171`.
 - `node ./scripts/browser-mvp-check.mjs` passed.
 - `RUN_BROWSER_E2E=1 node --test --test-isolation=none --test-name-pattern "^prototype smart notes startup demo opens the guide note without duplicating seed data$" tests/e2e/prototype-browser.test.mjs` passed.
+- `RUN_BROWSER_E2E=1 node --test --test-isolation=none --test-name-pattern "^prototype editor opens external links without navigating the app$" tests/e2e/prototype-browser.test.mjs` passed.
+- `node --test tests/unit/web-mobile-beginner-first-screen.test.mjs` passed.
 - `npm run test:e2e:browser -- mobile-responsive` passed.
 - `npm run dev:desktop:check` passed.
 - `npm run build:desktop:check` passed.
@@ -88,4 +90,4 @@ Covered by browser/API smoke rather than installed WebView automation:
 
 Go for beta with close testers.
 
-The main user path has no known P0 blockers, the P1 issues found in the final smoke were fixed, minimum regression passed, and the current Windows installer builds, installs, and launches. Keep the P2 items in the next polish queue instead of blocking this beta.
+The main user path has no known P0 blockers, the P1 issues found in the final smoke were fixed, the follow-up P2 polish has also landed, minimum regression passed, and the current Windows installer builds, installs, and launches.

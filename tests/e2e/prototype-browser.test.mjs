@@ -4177,17 +4177,21 @@ test("prototype editor opens external links without navigating the app", async (
   const startUrl = page.url();
   await ensureNoteMode(page);
   await page.waitForFunction(() => {
-    const rich = document.querySelector("#wysiwygHost .toastui-editor-contents");
-    return Boolean(rich && rich.querySelector("a[href^='https://']"));
+    const link = document.querySelector(
+      "#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents a[href^='https://']"
+    );
+    if (!link) return false;
+    const box = link.getBoundingClientRect();
+    const style = window.getComputedStyle(link);
+    return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
   });
 
-  const popupPromise = page.waitForEvent("popup").catch(() => null);
-  await page.evaluate(() => {
-    const link = document.querySelector("#wysiwygHost .toastui-editor-contents a[href^='https://']");
-    if (!link) throw new Error("Missing external link in wysiwyg contents");
-    link.scrollIntoView({ block: "center", inline: "center" });
-    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
+  const externalLink = page
+    .locator("#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents a[href^='https://']")
+    .first();
+  await externalLink.scrollIntoViewIfNeeded();
+  const popupPromise = page.waitForEvent("popup", { timeout: 1500 }).catch(() => null);
+  await externalLink.click({ force: true });
   const popup = await popupPromise;
   if (popup) {
     await popup.close().catch(() => {});
