@@ -129,6 +129,29 @@ test("review checklist does not mark relation-loaded connected notes as isolated
   assert.equal(checklist.items.some((item) => item.type === "isolatedNote"), false);
 });
 
+test("review checklist treats demo placeholder rationale as missing rationale", () => {
+  const checklist = buildReviewChecklist({
+    notes: [
+      { id: "pn_source", title: "来源判断", noteType: "permanent", relationNetworkStatus: "connected" },
+      { id: "pn_target", title: "目标判断", noteType: "permanent", relationNetworkStatus: "connected" }
+    ],
+    relations: [
+      {
+        sourceNoteId: "pn_source",
+        targetNoteId: "pn_target",
+        relationType: "complements",
+        rationale: "待补一句关系理由：这两条笔记为什么互相补充？"
+      }
+    ],
+    themeIndexes: []
+  });
+
+  assert.equal(checklist.items[0]?.type, "missingRationale");
+  assert.equal(checklist.items[0]?.action, "review-complete-rationale");
+  assert.equal(checklist.items[0]?.noteId, "pn_source");
+  assert.equal(checklist.items[0]?.targetNoteId, "pn_target");
+});
+
 test("review checklist panel renders only actionable cards with buttons", () => {
   const html = renderReviewChecklistPanel({
     items: [

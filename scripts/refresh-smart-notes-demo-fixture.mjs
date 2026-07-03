@@ -537,8 +537,412 @@ function buildEssayBody() {
   ].join("\n");
 }
 
+const ONBOARDING_GUIDE_NOTES = [
+  {
+    id: "GUIDE-SN-001",
+    note_type: "guide",
+    title: "00 从这里开始：10 分钟走完研思录",
+    status: "active",
+    tags: ["导览", "新手上手", "Demo"],
+    body: [
+      "# 00 从这里开始：10 分钟走完研思录",
+      "",
+      "这不是一篇长教程。你只要按下面 5 步点一遍，就能看到材料如何变成自己的判断、关系、可写主题和文章提纲。",
+      "",
+      "## 先走 5 步",
+      "",
+      "1. 看材料：打开 `SRC-SMART-NOTES`，知道这套样例只保存主题边界，不复刻原文。",
+      "2. 看判断：打开 `LN-SN-001` 和 `PN-SN-001`，看材料怎样先被转述，再变成一句自己愿意承担的永久笔记。",
+      "3. 去建联：打开 `PN-SN-101`，给它找一条相关旧笔记，并补一句“为什么相关”。",
+      "4. 看可写主题：打开 `IC-SN-012`，看 3 到 7 条永久笔记如何组成一个可以继续写的问题入口。",
+      "5. 进写作中心：打开 `WP-SN-PM-001` 和 `DS-SN-PM-001`，看提纲如何从已确认判断开始。",
+      "",
+      "## 今天只做一个动作",
+      "",
+      "如果你不知道先点哪里，就先做第 3 步：把 `PN-SN-101` 接入关系网。研思录不是要求你一次整理完整库，而是每次推进一个小动作。",
+      "",
+      "## 读完这组导览后再看",
+      "",
+      "- `GUIDE-SN-002`：今天先做哪一步。",
+      "- `GUIDE-SN-003`：什么是永久笔记。",
+      "- `GUIDE-SN-004`：为什么关系必须写理由。",
+      "- `GUIDE-SN-005`：什么是可写主题。",
+      "- `GUIDE-SN-006`：怎么从主题进入写作中心。"
+    ].join("\n")
+  },
+  {
+    id: "GUIDE-SN-002",
+    note_type: "guide",
+    title: "01 今天先做哪一步",
+    status: "active",
+    tags: ["导览", "今日整理", "下一步"],
+    body: [
+      "# 01 今天先做哪一步",
+      "",
+      "第一次打开样例库，不要先理解所有术语。先看今日整理给你的下一步：孤立笔记要建联，宽标签要改具体，可写主题可以进入写作。",
+      "",
+      "## 现在可以点",
+      "",
+      "- 想练建联：打开 `PN-SN-101`。",
+      "- 想看主题：打开 `IC-SN-012`。",
+      "- 想继续写：打开 `WP-SN-PM-001`。",
+      "",
+      "## 小判断",
+      "",
+      "今日整理的价值不是告诉你系统有多完整，而是把“下一步该补什么”变成一个能点开的动作。"
+    ].join("\n")
+  },
+  {
+    id: "GUIDE-SN-003",
+    note_type: "guide",
+    title: "02 什么是永久笔记",
+    status: "active",
+    tags: ["导览", "永久笔记", "卡片写作"],
+    body: [
+      "# 02 什么是永久笔记",
+      "",
+      "永久笔记不是漂亮摘抄，也不是资料摘要。它是一句你愿意负责的判断，最好能独立阅读、说清理由、留下边界。",
+      "",
+      "## 现在可以看",
+      "",
+      "- `PN-SN-033`：永久笔记是一条用户愿意承担的判断。",
+      "- `PN-SN-103`：永久笔记要先承担一个判断，再追求完整。",
+      "",
+      "## 小练习",
+      "",
+      "打开 `LN-SN-001`，再打开 `PN-SN-001`。只看一件事：哪一句话已经从“书里说”变成了“我判断”。"
+    ].join("\n")
+  },
+  {
+    id: "GUIDE-SN-004",
+    note_type: "guide",
+    title: "03 为什么要建立关系",
+    status: "active",
+    tags: ["导览", "关系图谱", "建联"],
+    body: [
+      "# 03 为什么要建立关系",
+      "",
+      "关系图谱不是为了画出很多线。关系的价值在于写清楚：这两条判断放在一起，谁支持谁、谁限制谁、哪里产生新问题。",
+      "",
+      "## 现在可以点",
+      "",
+      "打开 `PN-SN-101`，给它找一条相关永久笔记。保存前必须补一句理由，不要只因为标题像就连接。",
+      "",
+      "## 继续看",
+      "",
+      "- `PN-SN-049`：关系理由比关系数量更重要。",
+      "- `PN-SN-104`：关系图谱要求写清为什么相关。"
+    ].join("\n")
+  },
+  {
+    id: "GUIDE-SN-005",
+    note_type: "guide",
+    title: "04 什么是可写主题",
+    status: "active",
+    tags: ["导览", "可写主题", "主题索引"],
+    body: [
+      "# 04 什么是可写主题",
+      "",
+      "可写主题不是文章标题，也不是文件夹。它是一组永久笔记围绕同一个问题形成的入口，确认后才会保存为主题索引。",
+      "",
+      "## 现在可以看",
+      "",
+      "- `IC-SN-012`：新用户如何照着样例开始。",
+      "- `PN-SN-105`：可写主题建议只是建议，确认后才保存。",
+      "- `PN-SN-106`：主题索引不是分类文件夹，而是重新进入问题的入口。",
+      "",
+      "## 小判断",
+      "",
+      "当 3 到 7 条永久笔记能互相说明，并且你能写出中心问题时，就可以先保存一个可写主题。"
+    ].join("\n")
+  },
+  {
+    id: "GUIDE-SN-006",
+    note_type: "guide",
+    title: "05 怎么从主题进入写作中心",
+    status: "active",
+    tags: ["导览", "写作中心", "提纲"],
+    body: [
+      "# 05 怎么从主题进入写作中心",
+      "",
+      "写作中心不是从空白 prompt 开始。它先拿已经确认的永久笔记和主题索引，再帮你生成提纲、缺口和下一段。",
+      "",
+      "## 现在可以点",
+      "",
+      "打开 `WP-SN-PM-001`，再看 `DS-SN-PM-001`。重点看每一节都能追溯到哪些永久笔记，而不是只看标题是否好听。",
+      "",
+      "## 继续看",
+      "",
+      "- `PN-SN-102`：今日整理把方法变成下一步动作。",
+      "- `PN-SN-107`：写作中心从已确认判断开始，不从空白开始。"
+    ].join("\n")
+  }
+];
+
+const PRODUCT_FEATURE_NOTES = [
+  {
+    id: "PN-SN-102",
+    note_type: "permanent",
+    title: "今日整理把方法变成下一步动作",
+    cluster: "habits_feedback",
+    cluster_label: "处理习惯与反馈",
+    demo_role: "product_feature_note",
+    status: "active",
+    distillation_status: "confirmed",
+    supports_key_note_id: "PN-SN-077",
+    from_literature_note_ids: ["LN-SN-009"],
+    related_index_ids: ["IC-SN-007", "IC-SN-012"],
+    tags: ["永久笔记", "产品功能", "今日整理", "下一步"],
+    knowledge_point: {
+      id: "KP-SN-007",
+      cluster: "habits_feedback",
+      label: "处理习惯与反馈",
+      principle: "系统要把持续处理解释成很多小动作，而不是偶尔的大整理。",
+      method_principle: "系统要把持续处理解释成很多小动作，而不是偶尔的大整理。",
+      misuse_to_avoid: "只展示内容数量会让用户误以为保存就是进展。",
+      product_requirement: "今日整理必须给出可以立刻执行的下一步。"
+    },
+    template: { type: "permanent_note", required_sections: ["核心论点", "知识点提取", "三句话压缩", "论证理由", "来源追溯", "产品含义", "关键笔记定位", "边界或反例"] },
+    authorship: { user_confirmed: true, ai_assisted: false },
+    originality_status: "pass"
+  },
+  {
+    id: "PN-SN-103",
+    note_type: "permanent",
+    title: "永久笔记要先承担一个判断，再追求完整",
+    cluster: "permanent_quality",
+    cluster_label: "永久笔记质量",
+    demo_role: "product_feature_note",
+    status: "active",
+    distillation_status: "confirmed",
+    supports_key_note_id: "PN-SN-033",
+    from_literature_note_ids: ["LN-SN-004"],
+    related_index_ids: ["IC-SN-004", "IC-SN-012"],
+    tags: ["永久笔记", "产品功能", "卡片写作"],
+    knowledge_point: {
+      id: "KP-SN-004",
+      cluster: "permanent_quality",
+      label: "永久笔记质量",
+      principle: "永久笔记是一条可承担、可迁移、可连接的判断。",
+      method_principle: "永久笔记是一条可承担、可迁移、可连接的判断。",
+      misuse_to_avoid: "把永久笔记写成完整读书摘要，会稀释判断。",
+      product_requirement: "模板要优先提示核心论点、理由和边界。"
+    },
+    template: { type: "permanent_note", required_sections: ["核心论点", "知识点提取", "三句话压缩", "论证理由", "来源追溯", "产品含义", "关键笔记定位", "边界或反例"] },
+    authorship: { user_confirmed: true, ai_assisted: false },
+    originality_status: "pass"
+  },
+  {
+    id: "PN-SN-104",
+    note_type: "permanent",
+    title: "关系图谱要求写清为什么相关",
+    cluster: "relation_graph",
+    cluster_label: "关系与图谱",
+    demo_role: "product_feature_note",
+    status: "active",
+    distillation_status: "confirmed",
+    supports_key_note_id: "PN-SN-049",
+    from_literature_note_ids: ["LN-SN-005"],
+    related_index_ids: ["IC-SN-005", "IC-SN-012"],
+    tags: ["永久笔记", "产品功能", "关系图谱", "建联"],
+    knowledge_point: {
+      id: "KP-SN-005",
+      cluster: "relation_graph",
+      label: "关系与图谱",
+      principle: "关系必须说明连接方式、理由和后续问题。",
+      method_principle: "关系必须说明连接方式、理由和后续问题。",
+      misuse_to_avoid: "只追求连线数量会把图谱变成装饰。",
+      product_requirement: "建联入口必须要求关系类型、理由和可追问问题。"
+    },
+    template: { type: "permanent_note", required_sections: ["核心论点", "知识点提取", "三句话压缩", "论证理由", "来源追溯", "产品含义", "关键笔记定位", "边界或反例"] },
+    authorship: { user_confirmed: true, ai_assisted: false },
+    originality_status: "pass"
+  },
+  {
+    id: "PN-SN-105",
+    note_type: "permanent",
+    title: "可写主题建议只是建议，确认后才保存",
+    cluster: "ai_authorship",
+    cluster_label: "AI 与作者性",
+    demo_role: "product_feature_note",
+    status: "active",
+    distillation_status: "confirmed",
+    supports_key_note_id: "PN-SN-093",
+    from_literature_note_ids: ["LN-SN-012"],
+    related_index_ids: ["IC-SN-009", "IC-SN-012"],
+    tags: ["永久笔记", "产品功能", "可写主题", "AI边界"],
+    knowledge_point: {
+      id: "KP-SN-009",
+      cluster: "ai_authorship",
+      label: "AI 与作者性",
+      principle: "AI 可以提出候选，但确认判断必须回到用户。",
+      method_principle: "AI 可以提出候选，但确认判断必须回到用户。",
+      misuse_to_avoid: "把候选主题自动当成用户观点，会模糊作者责任。",
+      product_requirement: "保存主题前必须保留用户确认边界。"
+    },
+    template: { type: "permanent_note", required_sections: ["核心论点", "知识点提取", "三句话压缩", "论证理由", "来源追溯", "产品含义", "关键笔记定位", "边界或反例"] },
+    authorship: { user_confirmed: true, ai_assisted: false },
+    originality_status: "pass"
+  },
+  {
+    id: "PN-SN-106",
+    note_type: "permanent",
+    title: "主题索引不是分类文件夹，而是重新进入问题的入口",
+    cluster: "index_structure",
+    cluster_label: "索引卡结构",
+    demo_role: "product_feature_note",
+    status: "active",
+    distillation_status: "confirmed",
+    supports_key_note_id: "PN-SN-065",
+    from_literature_note_ids: ["LN-SN-006"],
+    related_index_ids: ["IC-SN-006", "IC-SN-012"],
+    tags: ["永久笔记", "产品功能", "主题索引", "可写主题"],
+    knowledge_point: {
+      id: "KP-SN-006",
+      cluster: "index_structure",
+      label: "索引卡结构",
+      principle: "索引卡围绕中心问题组织进入顺序，而不是复制文件夹分类。",
+      method_principle: "索引卡围绕中心问题组织进入顺序，而不是复制文件夹分类。",
+      misuse_to_avoid: "只按主题归档会让用户以为整理完成。",
+      product_requirement: "主题索引必须暴露中心问题、条目顺序和下一步。"
+    },
+    template: { type: "permanent_note", required_sections: ["核心论点", "知识点提取", "三句话压缩", "论证理由", "来源追溯", "产品含义", "关键笔记定位", "边界或反例"] },
+    authorship: { user_confirmed: true, ai_assisted: false },
+    originality_status: "pass"
+  },
+  {
+    id: "PN-SN-107",
+    note_type: "permanent",
+    title: "写作中心从已确认判断开始，不从空白开始",
+    cluster: "writing_first",
+    cluster_label: "写作前置",
+    demo_role: "product_feature_note",
+    status: "active",
+    distillation_status: "confirmed",
+    supports_key_note_id: "PN-SN-001",
+    from_literature_note_ids: ["LN-SN-008"],
+    related_index_ids: ["IC-SN-001", "IC-SN-012"],
+    tags: ["永久笔记", "产品功能", "写作中心", "提纲"],
+    knowledge_point: {
+      id: "KP-SN-001",
+      cluster: "writing_first",
+      label: "写作前置",
+      principle: "写作应该从已经确认的判断重组开始。",
+      method_principle: "写作应该从已经确认的判断重组开始。",
+      misuse_to_avoid: "直接从空白 prompt 开始，会切断材料到判断的链路。",
+      product_requirement: "写作中心必须显示写作篮、主题索引和提纲追溯。"
+    },
+    template: { type: "permanent_note", required_sections: ["核心论点", "知识点提取", "三句话压缩", "论证理由", "来源追溯", "产品含义", "关键笔记定位", "边界或反例"] },
+    authorship: { user_confirmed: true, ai_assisted: false },
+    originality_status: "pass"
+  }
+];
+
+const ONBOARDING_RELATIONS = [
+  ["REL-SN-401", "GUIDE-SN-001", "GUIDE-SN-002", "precedes"],
+  ["REL-SN-402", "GUIDE-SN-002", "GUIDE-SN-003", "precedes"],
+  ["REL-SN-403", "GUIDE-SN-003", "GUIDE-SN-004", "precedes"],
+  ["REL-SN-404", "GUIDE-SN-004", "GUIDE-SN-005", "precedes"],
+  ["REL-SN-405", "GUIDE-SN-005", "GUIDE-SN-006", "precedes"],
+  ["REL-SN-406", "GUIDE-SN-002", "PN-SN-102", "supports"],
+  ["REL-SN-407", "GUIDE-SN-003", "PN-SN-103", "supports"],
+  ["REL-SN-408", "GUIDE-SN-004", "PN-SN-104", "supports"],
+  ["REL-SN-409", "GUIDE-SN-005", "PN-SN-105", "supports"],
+  ["REL-SN-410", "GUIDE-SN-005", "PN-SN-106", "supports"],
+  ["REL-SN-411", "GUIDE-SN-006", "PN-SN-107", "supports"],
+  ["REL-SN-412", "PN-SN-102", "PN-SN-077", "belongs_to_topic"],
+  ["REL-SN-413", "PN-SN-103", "PN-SN-033", "belongs_to_topic"],
+  ["REL-SN-414", "PN-SN-104", "PN-SN-049", "belongs_to_topic"],
+  ["REL-SN-415", "PN-SN-105", "PN-SN-093", "belongs_to_topic"],
+  ["REL-SN-416", "PN-SN-106", "PN-SN-065", "belongs_to_topic"],
+  ["REL-SN-417", "PN-SN-107", "PN-SN-001", "belongs_to_topic"],
+  ["REL-SN-418", "PN-SN-102", "PN-SN-013", "complements", "missing_rationale_practice"]
+].map(([id, from, to, relationType, demoRole]) => ({
+  id,
+  from,
+  to,
+  relationType,
+  status: "confirmed",
+  confidence: 0.9,
+  ...(demoRole ? { demo_role: demoRole } : {})
+}));
+
+const ONBOARDING_RELATION_IDS = new Set(
+  Array.from({ length: 18 }, (_, index) => `REL-SN-${String(401 + index).padStart(3, "0")}`)
+);
+
+function upsertById(list, additions) {
+  const additionIds = new Set(additions.map((item) => item.id));
+  return [...asArray(list).filter((item) => !additionIds.has(item?.id)), ...additions];
+}
+
+function addIndexItems(card, noteIds) {
+  if (!card) return card;
+  const items = asArray(card.items);
+  const existing = new Set(items.map((item) => item.note_id));
+  const additions = noteIds
+    .filter((noteId) => !existing.has(noteId))
+    .map((noteId, offset) => ({
+      note_id: noteId,
+      short_label: noteId,
+      order: items.length + offset + 1,
+      rationale: "这条产品功能笔记帮助新用户把功能入口理解成一个可操作判断。"
+    }));
+  return {
+    ...card,
+    items: [...items, ...additions],
+    item_note_ids: [...new Set([...asArray(card.item_note_ids), ...noteIds])],
+    noteIds: [...new Set([...asArray(card.noteIds), ...noteIds])]
+  };
+}
+
+function applyOnboardingFixture(fixture) {
+  fixture.guide_notes = upsertById(fixture.guide_notes, ONBOARDING_GUIDE_NOTES);
+  fixture.permanent_notes = upsertById(fixture.permanent_notes, PRODUCT_FEATURE_NOTES);
+  fixture.relations = [...asArray(fixture.relations).filter((item) => !ONBOARDING_RELATION_IDS.has(item?.id)), ...ONBOARDING_RELATIONS];
+
+  const onboardingNoteIds = PRODUCT_FEATURE_NOTES.map((note) => note.id);
+  fixture.index_cards = asArray(fixture.index_cards).map((card) => {
+    if (card.id === "IC-SN-012") return addIndexItems(card, onboardingNoteIds);
+    if (card.id === "IC-SN-001") return addIndexItems(card, ["PN-SN-107"]);
+    if (card.id === "IC-SN-004") return addIndexItems(card, ["PN-SN-103"]);
+    if (card.id === "IC-SN-005") return addIndexItems(card, ["PN-SN-104"]);
+    if (card.id === "IC-SN-006") return addIndexItems(card, ["PN-SN-106"]);
+    if (card.id === "IC-SN-007") return addIndexItems(card, ["PN-SN-102"]);
+    if (card.id === "IC-SN-009") return addIndexItems(card, ["PN-SN-105"]);
+    return card;
+  });
+
+  fixture.writing_projects = asArray(fixture.writing_projects).map((project) => ({
+    ...project,
+    basketNoteIds: [...new Set([...asArray(project.basketNoteIds), ...onboardingNoteIds])],
+    outline: asArray(project.outline).map((section) => {
+      if (section.sectionId === "sec-1") return { ...section, noteTraceIds: [...new Set([...asArray(section.noteTraceIds), "PN-SN-102"])] };
+      if (section.sectionId === "sec-4") return { ...section, noteTraceIds: [...new Set([...asArray(section.noteTraceIds), "PN-SN-103"])] };
+      if (section.sectionId === "sec-5") return { ...section, noteTraceIds: [...new Set([...asArray(section.noteTraceIds), "PN-SN-104", "PN-SN-106"])] };
+      if (section.sectionId === "sec-6") return { ...section, noteTraceIds: [...new Set([...asArray(section.noteTraceIds), "PN-SN-105"])] };
+      if (section.sectionId === "sec-7") return { ...section, noteTraceIds: [...new Set([...asArray(section.noteTraceIds), "PN-SN-107"])] };
+      return section;
+    })
+  }));
+
+  fixture.counts = {
+    sources: asArray(fixture.sources).length,
+    fleeting_notes: asArray(fixture.fleeting_notes).length,
+    literature_notes: asArray(fixture.literature_notes).length,
+    permanent_notes: asArray(fixture.permanent_notes).length,
+    index_cards: asArray(fixture.index_cards).length,
+    relations: asArray(fixture.relations).length,
+    writing_projects: asArray(fixture.writing_projects).length,
+    draft_scaffolds: asArray(fixture.draft_scaffolds).length,
+    final_essays: asArray(fixture.final_essays).length,
+    guide_notes: asArray(fixture.guide_notes).length
+  };
+}
+
 async function main() {
   const fixture = JSON.parse(await fs.readFile(FIXTURE_PATH, "utf8"));
+  applyOnboardingFixture(fixture);
   const titlesById = new Map();
   for (const listName of ["sources", "fleeting_notes", "literature_notes", "permanent_notes", "index_cards", "writing_projects", "draft_scaffolds", "final_essays", "guide_notes"]) {
     for (const item of asArray(fixture[listName])) {
@@ -556,11 +960,16 @@ async function main() {
     const normalizedType = normalizeRelationType(relation.relationType, relation, index);
     const fromTitle = titlesById.get(relation.from) || relation.from;
     const toTitle = titlesById.get(relation.to) || relation.to;
+    const missingRationalePractice = relation.demo_role === "missing_rationale_practice";
     return {
       ...relation,
       relationType: normalizedType,
-      rationale: relationReason(normalizedType, fromTitle, toTitle),
-      insight_question: relationQuestion(normalizedType, fromTitle, toTitle)
+      rationale: missingRationalePractice
+        ? "待补一句关系理由：这两条笔记为什么互相补充？"
+        : relationReason(normalizedType, fromTitle, toTitle),
+      insight_question: missingRationalePractice
+        ? "这两条笔记为什么互相补充？请补一句能复查的关系理由。"
+        : relationQuestion(normalizedType, fromTitle, toTitle)
     };
   });
 
@@ -766,6 +1175,7 @@ async function main() {
       "这个 Demo 的重点不是研思录能保存多少材料，而是它能不能帮助你持续完成三件事：写出自己的判断，给判断建立有理由的关系，再把关系组织成可以重新进入、可以写作的主题。"
     ].join("\n")
   }));
+  fixture.guide_notes = upsertById(fixture.guide_notes, ONBOARDING_GUIDE_NOTES);
 
   fixture.graph = {
     ...fixture.graph,

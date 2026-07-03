@@ -64,7 +64,9 @@ function relationEndpoint(relation = null, side = "source") {
 }
 
 function relationRationale(relation = null) {
-  return cleanText(relation?.rationale || relation?.reason || relation?.why || relation?.description || relation?.aiRationale || relation?.ai_rationale);
+  const rationale = cleanText(relation?.rationale || relation?.reason || relation?.why || relation?.description || relation?.aiRationale || relation?.ai_rationale);
+  if (/^待补一句关系理由/.test(rationale)) return "";
+  return rationale;
 }
 
 function explicitRelationCountForNote(noteId = "", relations = []) {
