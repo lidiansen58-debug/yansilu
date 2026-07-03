@@ -113,8 +113,8 @@ function renderAiCandidates({ state, candidates = [], relations = null, notes = 
     return `
       <div class="permanent-relation-empty">
         <strong>暂时没有可靠推荐</strong>
-        <p>可以切到“手动搜索”，直接选择你确认相关的笔记。</p>
-        <button class="mini-btn" type="button" data-permanent-relation-action="run-ai">重新推荐</button>
+        <p>可以切到“搜索目标”，直接选择你确认相关的笔记。</p>
+        <button class="mini-btn" type="button" data-permanent-relation-action="run-ai">刷新推荐</button>
       </div>
     `;
   }
@@ -128,7 +128,7 @@ function renderAiCandidates({ state, candidates = [], relations = null, notes = 
   return `
     <div class="permanent-relation-ai-picker">
       <label class="permanent-relation-search">
-        <span>AI 推荐目标</span>
+        <span>推荐目标</span>
         <select data-permanent-relation-ai-select>
           ${candidates
             .map((candidate) => {
@@ -144,7 +144,7 @@ function renderAiCandidates({ state, candidates = [], relations = null, notes = 
         <strong>${escapeHtml(selectedTitle)}</strong>
         ${selectedScore ? `<span>相关性 ${escapeHtml(selectedScore)}</span>` : ""}
         <p>${escapeHtml(selectedReason)}</p>
-        ${existing ? "<small>这两条笔记已经有正式关系，可以在右侧修改后保存。</small>" : "<small>AI 只提供推荐；保存前请确认关系类型和理由。</small>"}
+        ${existing ? "<small>这两条笔记已经有正式关系，可以在右侧修改后保存。</small>" : "<small>推荐只作为候选；保存前请确认关系类型和理由。</small>"}
       </div>
     </div>
   `;
@@ -263,8 +263,8 @@ export function renderPermanentRelationWorkspace({
           </aside>
           <section class="permanent-relation-picker">
             <div class="permanent-relation-mode" role="tablist" aria-label="选择目标笔记方式">
-              <button class="${modeAi ? "is-active" : ""}" type="button" role="tab" aria-selected="${modeAi ? "true" : "false"}" data-permanent-relation-mode="ai">AI 推荐</button>
-              <button class="${!modeAi ? "is-active" : ""}" type="button" role="tab" aria-selected="${!modeAi ? "true" : "false"}" data-permanent-relation-mode="manual">手动搜索</button>
+              <button class="${modeAi ? "is-active" : ""}" type="button" role="tab" aria-selected="${modeAi ? "true" : "false"}" data-permanent-relation-mode="ai">推荐目标</button>
+              <button class="${!modeAi ? "is-active" : ""}" type="button" role="tab" aria-selected="${!modeAi ? "true" : "false"}" data-permanent-relation-mode="manual">搜索目标</button>
             </div>
             ${
               modeAi

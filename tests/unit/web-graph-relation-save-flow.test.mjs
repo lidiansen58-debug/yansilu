@@ -81,12 +81,13 @@ test("relation save result records reuse versus newly created relation", () => {
 
 test("relation save status points to the next note or theme formation", () => {
   const themeStatus = graphRelationSavedNextStepStatus({ created: true, hasNextIsolated: false });
-  assert.match(themeStatus, /关系已保存/);
-  assert.match(themeStatus, /下一步看这组关系能不能形成主题/);
-  assert.match(themeStatus, /写作中心/);
+  assert.match(themeStatus, /关系已保存到图谱的正式关系/);
+  assert.match(themeStatus, /继续处理/);
+  assert.match(themeStatus, /转到正式关系视图/);
+  assert.match(themeStatus, /形成主题/);
 
   const nextStatus = graphRelationSavedNextStepStatus({ created: false, hasNextIsolated: true });
-  assert.match(nextStatus, /这条关系已经存在/);
+  assert.match(nextStatus, /这条正式关系已经存在/);
   assert.match(nextStatus, /继续处理下一条未关联笔记/);
-  assert.match(nextStatus, /形成主题/);
+  assert.match(nextStatus, /查看刚保存的关系/);
 });

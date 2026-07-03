@@ -69,7 +69,7 @@ export function createGraphIsolatedRelationController({
       typeEl.textContent = type;
       typeEl.hidden = !type;
     }
-    if (textEl) textEl.textContent = text || "选择 AI 推荐目标或手工搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮窗内。";
+    if (textEl) textEl.textContent = text || "选择推荐目标或搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮窗内。";
     if (tagsEl) {
       tagsEl.innerHTML = tags.map((tag) => `<em>${escapeHtml(`#${tag}`)}</em>`).join("");
       tagsEl.hidden = tags.length === 0;
@@ -264,7 +264,7 @@ export function createGraphIsolatedRelationController({
       const messages = {
         invalid_relation_type: "请选择一种可以保存为正式关系的类型。",
         missing_manual_target: "请先搜索并选择一条目标笔记。",
-        missing_ai_target: "请先选择一条 AI 推荐目标。",
+        missing_ai_target: "请先选择一条推荐目标。",
         self_relation: "不能把笔记关联到它自己，请重新选择目标笔记。",
         missing_rationale: "请写一句为什么相关。",
         placeholder_rationale: "请把关系说明写完整，不要保留模板占位。"

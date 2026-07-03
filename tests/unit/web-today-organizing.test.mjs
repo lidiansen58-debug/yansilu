@@ -180,6 +180,8 @@ test("today organizing panel uses action words without internal workflow terms",
   assert.match(html, /去建联/);
   assert.match(html, /整理这个主题/);
   assert.match(html, /进入写作/);
+  assert.ok(html.indexOf("今日主动作") < html.indexOf("更多检查：回顾清单和 AI 补充"));
+  assert.match(html, /<details class="today-secondary-details">/);
   assert.doesNotMatch(html, /候选|队列|复核|线索/);
 });
 

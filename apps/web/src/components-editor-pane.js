@@ -233,6 +233,7 @@ export class EditorPane {
     this.savingPromise = null;
     this.autoSaveTimer = null;
     this.autoSaveIdleTimer = null;
+    this.emptyStartActionPending = false;
     this.wasEditingTitleLine = false;
     this.lastTitleBlurSaveAt = 0;
     this.lastTitleInputAt = 0;
@@ -5849,20 +5850,51 @@ export class EditorPane {
       this.onStateChange("switch-tab");
     });
 
-    const startEmptyNote = (event) => {
-      if (!this.requestCreateNoteFromEmptyState()) return;
+    const setEmptyStartBusy = (busy) => {
+      this.emptyStartActionPending = busy;
+      this.els.emptyStart?.setAttribute("aria-busy", busy ? "true" : "false");
+      this.els.emptyStart?.querySelectorAll?.("[data-empty-start-action]").forEach((button) => {
+        button.disabled = busy;
+      });
+    };
+    const startEmptyAction = (event, action = "create-note") => {
       event.preventDefault();
       event.stopPropagation();
+      if (action === "create-note") {
+        this.requestCreateNoteFromEmptyState();
+        return;
+      }
+      if (this.emptyStartActionPending) return;
+      const reason = action === "seed-demo"
+        ? "seed-smart-notes-demo"
+        : action === "open-import"
+          ? "open-import"
+          : "";
+      if (!reason) return;
+      setEmptyStartBusy(true);
+      Promise.resolve(this.onStateChange(reason, { source: "empty-start" }))
+        .catch((error) => {
+          this.onStatus?.(`操作失败：${String(error?.message || error)}`, "bad");
+        })
+        .finally(() => {
+          setEmptyStartBusy(false);
+        });
     };
-    this.els.emptyStart?.addEventListener("click", startEmptyNote);
+    this.els.emptyStart?.addEventListener("click", (event) => {
+      const actionButton = event.target.closest?.("[data-empty-start-action]");
+      if (!actionButton) return;
+      startEmptyAction(event, actionButton.getAttribute("data-empty-start-action") || "create-note");
+    });
     this.els.emptyStart?.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
-      startEmptyNote(event);
+      const actionButton = event.target.closest?.("[data-empty-start-action]");
+      if (!actionButton) return;
+      startEmptyAction(event, actionButton.getAttribute("data-empty-start-action") || "create-note");
     });
     this.els.markdownSplit?.addEventListener("click", (event) => {
       if (!this.els.markdownSplit?.closest?.(".editor-empty")) return;
       if (event.target.closest("button, input, textarea, select, a")) return;
-      startEmptyNote(event);
+      startEmptyAction(event, "create-note");
     });
 
     document.addEventListener("click", (e) => {

@@ -142,7 +142,7 @@ export class PermanentNoteSidebarController {
         rationaleDraft: permanentRelationCandidateRationale(nextCandidate),
         insightQuestionDraft: nextCandidate?.insightQuestionDraft || ""
       }),
-      notice: nextCandidate ? "" : "没有新的 AI 推荐，可以手动搜索目标笔记。"
+      notice: nextCandidate ? "" : "没有新的推荐，可以搜索目标笔记。"
     }, note.id);
     host.syncPermanentRelationWorkspaceOverlay();
   }

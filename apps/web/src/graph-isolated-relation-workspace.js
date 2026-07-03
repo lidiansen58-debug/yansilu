@@ -178,22 +178,33 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
         .filter(Boolean)
         .join("")
     : "";
+  const visibleManualTargetLimit = 5;
   const manualOptions = resolvedManualTargets
     .map((target, index) => {
       const label = target.folder ? `${target.title} - ${target.folder}` : target.title;
       const previewNote = graphFullNoteById(target.id, nodeMap) || target;
       const selected = String(target.id || "").trim() === selectedManualTargetNoteId;
       const searchMatch = manualSearchText ? label.toLowerCase().includes(manualSearchText.toLowerCase()) : true;
-      const visible = selected || (searchMatch && index < 8);
+      const visible = selected || (searchMatch && index < visibleManualTargetLimit);
       return `<button class="graph-manual-target${selected ? " is-selected" : ""}${visible ? "" : " is-hidden"}" type="button" data-graph-pick-manual-target="${escapeHtml(target.id)}" data-graph-manual-title="${escapeHtml(target.title)}" data-graph-manual-rationale="" data-graph-manual-search-text="${escapeHtml(label.toLowerCase())}" data-graph-preview-title="${escapeHtml(target.title)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${visible ? "" : " hidden"}><strong>${escapeHtml(target.title)}</strong>${target.folder ? `<small>${escapeHtml(target.folder)}</small>` : ""}</button>`;
     })
     .join("");
+  const manualMoreOptions = resolvedManualTargets
+    .slice(visibleManualTargetLimit)
+    .map((target) => {
+      const label = target.folder ? `${target.title} - ${target.folder}` : target.title;
+      const previewNote = graphFullNoteById(target.id, nodeMap) || target;
+      const selected = String(target.id || "").trim() === selectedManualTargetNoteId;
+      return `<button class="graph-manual-target${selected ? " is-selected" : ""}" type="button" data-graph-pick-manual-target="${escapeHtml(target.id)}" data-graph-manual-title="${escapeHtml(target.title)}" data-graph-manual-rationale="" data-graph-manual-search-text="${escapeHtml(label.toLowerCase())}" data-graph-preview-title="${escapeHtml(target.title)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"><strong>${escapeHtml(target.title)}</strong>${target.folder ? `<small>${escapeHtml(target.folder)}</small>` : ""}</button>`;
+    })
+    .join("");
+  const hiddenManualCount = Math.max(0, resolvedManualTargets.length - visibleManualTargetLimit);
   const statusText = directEdges.length ? "已进入关系网" : visibleEdgeCount ? "当前图谱可见" : "还未进入关系网";
   const manualStatusText = selectedManualTitle
     ? `已选择：${selectedManualTitle}`
     : manualSearchText
       ? "继续选择一条搜索结果。"
-      : "输入关键词，选择一条永久笔记。";
+    : "先搜索标题或关键词；完整列表已折叠，避免从大列表里盲选。";
   return `
     <section class="graph-isolated-join" aria-label="建立笔记关系">
       <div class="graph-isolated-join-head">
@@ -205,19 +216,22 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
       </div>
       <form class="graph-isolated-relation-form" data-graph-isolated-relation-form${isolatedFlow ? " data-graph-isolated-flow" : ""} data-source-note="${escapeHtml(cleanNoteId)}" data-source-title="${escapeHtml(sourceTitle)}">
         <div class="graph-isolated-mode-switch" role="tablist" aria-label="选择目标笔记方式">
-          <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">AI 推荐目标</button>
-          <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">手动搜索目标</button>
+          <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">推荐目标</button>
+          <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">搜索目标</button>
         </div>
         <input type="hidden" data-graph-relation-source-mode value="${escapeHtml(activeMode)}">
         <div class="graph-isolated-target-panel"${activeMode === "ai" ? "" : " hidden"} data-graph-target-panel="ai">
           <label class="graph-isolated-field">
-            <span>选择 AI 推荐目标</span>
-            <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
-              ${aiOptions || `<option value="">暂时没有可靠推荐</option>`}
-            </select>
-          </label>
-          <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "重新推荐" : "AI 推荐目标")}</button>
-          ${!resolvedAiCandidates.length && resolvedHasAnalysis ? `<p class="graph-isolated-helper">暂时没有足够可靠的推荐，可以改用手动搜索。</p>` : ""}
+             <span>先看 3 个推荐目标</span>
+             <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
+               ${aiOptions || `<option value="">暂时没有可靠推荐</option>`}
+             </select>
+           </label>
+          <div class="graph-isolated-target-actions">
+            <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "刷新推荐" : "查找推荐")}</button>
+            <button class="graph-selection-action is-secondary" type="button" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">改用搜索</button>
+          </div>
+          <p class="graph-isolated-helper">${escapeHtml(resolvedAiCandidates.length ? "推荐优先来自当前图谱和本地规则；保存前仍要确认关系类型和理由。" : resolvedHasAnalysis ? "暂时没有足够可靠的推荐，可以改用搜索。" : "先查找推荐，或直接搜索你确定相关的笔记。")}</p>
         </div>
         <div class="graph-isolated-target-panel"${activeMode === "manual" ? "" : " hidden"} data-graph-target-panel="manual">
           <label class="graph-isolated-field">
@@ -228,6 +242,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
           <div class="graph-manual-target-list" data-graph-manual-target-list>
             ${manualOptions || `<span class="graph-isolated-helper">当前范围没有可关联的其他永久笔记。</span>`}
           </div>
+          ${hiddenManualCount ? `<details class="graph-manual-target-more"><summary>查看完整候选列表（还有 ${escapeHtml(hiddenManualCount)} 条）</summary><p>继续输入关键词会优先缩小结果；完整列表只用于确认目标，不建议从头浏览。</p><div class="graph-manual-target-list">${manualMoreOptions}</div></details>` : ""}
           <p class="graph-isolated-helper" data-graph-manual-target-status>${escapeHtml(manualStatusText)}</p>
         </div>
         <div class="graph-isolated-form-grid">

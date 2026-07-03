@@ -5150,6 +5150,12 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
   }
 }
 
+function openImportModule() {
+  activateModule("imports");
+  setStatus("先选择 Obsidian 文件夹，生成预览后再确认导入。", "ok");
+  return true;
+}
+
 async function ensureNoteBodyLoaded(noteId) { return noteRuntimeController.ensureNoteBodyLoaded(noteId); }
 
 function openNoteById(id, options = {}) {
@@ -5308,6 +5314,7 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     graphRelationWorkflowController,
     graphState,
     handleStateChange,
+    importSmartNotesDemo: importSmartNotesProductThinkingDemo,
     isOriginalRecordableSource,
     isPermanentLikeNote,
     mapNoteItem,
@@ -5326,6 +5333,7 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     noteAnalysisSystemMessageForResult,
     openAiInboxModule,
     openGraphSelection,
+    openImportModule,
     openNoteById,
     openNoteRelationEditor,
     openSystemMessages,

@@ -44,9 +44,9 @@ export function graphRelationSaveResult({
 }
 
 export function graphRelationSavedNextStepStatus({ created = true, hasNextIsolated = false } = {}) {
-  const relationState = created ? "关系已保存" : "这条关系已经存在";
+  const relationState = created ? "关系已保存到图谱的正式关系" : "这条正式关系已经存在，已复用";
   const nextStep = hasNextIsolated
-    ? "下一步继续处理下一条未关联笔记；每补清一条关系，后面形成主题会更稳。"
-    : "下一步看这组关系能不能形成主题；理由清楚的关系更容易进入写作中心。";
-  return `${relationState}，当前笔记已退出未关联状态。${nextStep}`;
+    ? "下一步可以继续处理下一条未关联笔记，也可以查看刚保存的关系。"
+    : "下一步可以继续处理、转到正式关系视图检查理由，或查看这组关系能不能形成主题。";
+  return `${relationState}。${nextStep}`;
 }

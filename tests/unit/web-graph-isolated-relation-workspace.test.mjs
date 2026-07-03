@@ -58,7 +58,7 @@ test("graph isolated relation workspace model prepares candidates and direct edg
   assert.equal(model.manualTargets.length, 1);
 });
 
-test("graph isolated relation workspace renders manual targets beyond the first eighty notes", () => {
+test("graph isolated relation workspace folds the full manual list behind search-first guidance", () => {
   const nodeMap = new Map([["source", { id: "source", title: "Source", noteType: "permanent" }]]);
   const manualTargets = [];
   for (let index = 1; index <= 120; index += 1) {
@@ -71,8 +71,11 @@ test("graph isolated relation workspace renders manual targets beyond the first 
 
   assert.match(html, /data-graph-pick-manual-target="target-120"/);
   assert.match(html, /目标预览/);
-  assert.match(html, /手动搜索目标/);
+  assert.match(html, /搜索目标/);
   assert.match(html, /搜索目标笔记/);
+  assert.match(html, /查看完整候选列表/);
+  assert.match(html, /完整列表已折叠/);
+  assert.doesNotMatch(html, /手动搜索目标/);
   assert.doesNotMatch(html, mojibakeCopyPattern);
 });
 

@@ -335,10 +335,26 @@
               </aside>
             </div>
             <section class="editor-relations-below hidden" id="editorRelationsBelow" aria-label="当前笔记语义关系"></section>
-            <button class="editor-empty-start hidden" id="editorEmptyStart" type="button" aria-label="新建永久笔记">
-              <span>新建永久笔记</span>
-              <small>记录一个想法、判断或问题</small>
-            </button>
+            <section class="editor-empty-start hidden" id="editorEmptyStart" aria-label="新手开始入口">
+              <div class="editor-empty-start-head">
+                <span>先选一个开始方式</span>
+                <small>第一次打开空库时，不需要先懂设置；从一个明确动作开始。</small>
+              </div>
+              <div class="editor-empty-actions">
+                <button class="editor-empty-action primary" type="button" data-empty-start-action="seed-demo">
+                  <span>导入示例数据</span>
+                  <small>用 Smart Notes Demo 走一遍主路径</small>
+                </button>
+                <button class="editor-empty-action" type="button" data-empty-start-action="open-import">
+                  <span>选择 Obsidian 文件夹</span>
+                  <small>从已有 Markdown 笔记生成预览</small>
+                </button>
+                <button class="editor-empty-action" type="button" data-empty-start-action="create-note">
+                  <span>写第一条随笔 / 永久笔记</span>
+                  <small>先记录一个想法、判断或问题</small>
+                </button>
+              </div>
+            </section>
           </div>
           <div class="panel inspector-panel" id="relatedPanel">
             <div class="panel-head">
@@ -426,11 +442,16 @@
                   <textarea id="writingGoal" style="min-height:70px;" placeholder="这篇文章要解决什么问题？"></textarea>
                   <label for="writingAudience">读者</label>
                   <input id="writingAudience" placeholder="例如：知识工作者" />
+                </div>
+                <details class="writing-advanced-details">
+                  <summary>更多写作细节：语气和本次修改说明</summary>
+                  <div class="import-grid writing-form-grid">
                     <label for="writingTone">语气</label>
                     <input id="writingTone" placeholder="例如：冷静、克制、有证据感" />
                     <label for="writingVersionNote">本次修改说明</label>
                     <textarea id="writingVersionNote" style="min-height:58px;" placeholder="例如：调整段落顺序，先铺背景再落论点"></textarea>
                   </div>
+                </details>
                 <div class="writing-actions-primary">
                   <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
                   <button class="mini-btn" id="btnWritingAddVisible">加入当前目录笔记</button>
@@ -473,7 +494,7 @@
             </div>
 
             <details class="writing-advanced-details">
-              <summary>高级：书稿方向、最近写作和版本历史</summary>
+              <summary>更多写作工具：书稿方向、最近写作和版本历史</summary>
             <section class="writing-section writing-book-workbench" aria-label="书稿设计工作台">
               <div class="writing-section-head">
                 <div>
@@ -492,7 +513,8 @@
 
             <div class="writing-main-grid">
               <div class="writing-stack">
-                <section class="writing-section">
+                <details class="writing-advanced-details writing-section">
+                  <summary>更多选择：可写主题与主题详情</summary>
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">可写主题</div>
@@ -515,7 +537,7 @@
                     </div>
                     <div id="writingThemeDetail"></div>
                   </div>
-                </section>
+                </details>
                 <section class="writing-section">
                   <div class="writing-section-head">
                     <div>
@@ -526,7 +548,8 @@
                   <div class="writing-summary" id="writingBasketSummary">还没有选择相关笔记。</div>
                   <div class="writing-note-list" id="writingBasketList"></div>
                 </section>
-                <section class="writing-section">
+                <details class="writing-advanced-details writing-section">
+                  <summary>更多选择：当前目录永久笔记</summary>
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">当前目录永久笔记</div>
@@ -534,7 +557,7 @@
                     </div>
                   </div>
                   <div class="writing-note-list" id="writingCandidateList"></div>
-                </section>
+                </details>
               </div>
 
               <section class="writing-section">

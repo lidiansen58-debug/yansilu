@@ -38,6 +38,9 @@ test("graph isolated next step renders queue and theme actions after a saved rel
 
   assert.match(html, /data-graph-select-isolated="next-key"/);
   assert.match(html, /data-graph-isolated-note="next"/);
+  assert.match(html, /已保存 1 条正式关系到图谱/);
+  assert.match(html, /data-graph-select-node="a"/);
+  assert.match(html, /查看关系/);
   assert.match(html, /data-graph-theme-note-ids="a,b,c"/);
   assert.match(html, /data-graph-theme-title="Theme Title"/);
   assert.doesNotMatch(html, /disabled/);
@@ -52,4 +55,3 @@ test("graph isolated next step stays empty before the note has a saved network e
 
   assert.equal(html, "");
 });
-

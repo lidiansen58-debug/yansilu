@@ -45,6 +45,15 @@ export async function routeAppShellStateChange(reason, payload = {}, deps = {}) 
     return handleCreateNoteInSelectedFolderStateChange(payload, deps.createNoteInSelectedFolder);
   }
 
+  if (reason === "open-import") {
+    deps.openImportModule?.(payload);
+    return true;
+  }
+
+  if (reason === "seed-smart-notes-demo") {
+    return deps.importSmartNotesDemo?.(payload);
+  }
+
   if (reason === "record-original-from-note" || reason === "create-original-from-literature") {
     return handleRecordOriginalFromNoteStateChange(payload, deps.recordOriginalFromNote);
   }

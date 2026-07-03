@@ -1755,7 +1755,7 @@ function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), pre
         </div>
         <strong data-graph-preview-title>先选择一条目标笔记</strong>
         <span data-graph-preview-type hidden></span>
-        <p data-graph-preview-text>选择 AI 推荐目标或手动搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮层内。</p>
+        <p data-graph-preview-text>选择推荐目标或搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮层内。</p>
         <div class="graph-isolated-preview-tags" data-graph-preview-tags hidden></div>
       </aside>
     `;

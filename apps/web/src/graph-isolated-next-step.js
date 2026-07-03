@@ -34,9 +34,10 @@ export function renderGraphIsolatedNextStepActionsHtml(
   const themeNoteIds = themeCandidateNoteIdsForNode(cleanNoteId, directEdges, []);
   const themeTitle = suggestThemeIndexTitle(themeNoteIds);
   const canCreateTheme = directEdges.length > 0 && themeNoteIds.length >= 3;
+  const savedText = `已保存 ${directEdges.length} 条正式关系到图谱。`;
   const nextText = nextItem
-    ? `下一条待关联笔记：${nextItem.title}`
-    : "当前范围暂时没有下一条待关联笔记，可以回到这条笔记周边继续阅读。";
+    ? `${savedText} 下一条待关联笔记：${nextItem.title}`
+    : `${savedText} 当前范围暂时没有下一条待关联笔记，可以回到这条笔记周边继续阅读。`;
   return `
     <section class="graph-isolated-next-step" aria-label="保存关系后的下一步">
       <div>
@@ -49,6 +50,7 @@ export function renderGraphIsolatedNextStepActionsHtml(
             ? `<button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条</button>`
             : ""
         }
+        <button class="graph-selection-action is-secondary" type="button" data-graph-select-node="${escapeHtml(cleanNoteId)}">查看关系</button>
         <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>保存为可写主题</button>
       </div>
     </section>

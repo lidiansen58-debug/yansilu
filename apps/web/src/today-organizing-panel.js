@@ -52,7 +52,6 @@ export function renderTodayOrganizingPanel(state = {}) {
           <div><strong>${escape(state.themeCount || 0)}</strong><span>可成主题</span></div>
         </div>
       </section>
-      ${renderReviewChecklistPanel(state.reviewChecklist)}
       <section class="today-action-grid" aria-label="今日主动作">
         ${actionCard({
           title: "1. 未关联笔记",
@@ -93,6 +92,10 @@ export function renderTodayOrganizingPanel(state = {}) {
           tone: "writing"
         })}
       </section>
+      <details class="today-secondary-details">
+        <summary>更多检查：回顾清单和 AI 补充</summary>
+        ${renderReviewChecklistPanel(state.reviewChecklist)}
+      </details>
     </div>
   `;
 }
