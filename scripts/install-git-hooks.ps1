@@ -18,7 +18,15 @@ if ((Test-Path -LiteralPath $hookPath) -and (-not $Force)) {
 
 $hookContent = @'
 #!/bin/sh
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; $repoRoot = git rev-parse --show-toplevel; if (-not $repoRoot) { throw 'Unable to resolve repository root.' }; Set-Location $repoRoot; Write-Output '[pre-commit] encoding check'; & npm.cmd run encoding:check:strict; if (\$LASTEXITCODE -ne 0) { throw 'encoding:check:strict failed' }"
+repo_root="$(git rev-parse --show-toplevel)" || exit 1
+cd "$repo_root" || exit 1
+echo "[pre-commit] encoding check"
+if command -v npm.cmd >/dev/null 2>&1; then
+  npm.cmd run encoding:check:strict
+else
+  npm run encoding:check:strict
+fi
+exit $?
 '@
 
 $hookContent = $hookContent -replace "`r`n", "`n"

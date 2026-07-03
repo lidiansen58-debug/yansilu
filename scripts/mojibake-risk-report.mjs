@@ -26,7 +26,7 @@ const EXCLUDED_PARTS = new Set([
 const ALLOW_MARKER = "mojibake-risk-allow";
 const REPLACEMENT_CHAR_PATTERN = /\uFFFD/g;
 const UTF8_AS_LATIN1_PATTERN = /(?:Ã.|Â.|â€|â€™|â€œ|â€\x9d|â€“|â€”|â€¦)/g; // mojibake-risk-allow
-const UTF8_AS_CJK_PATTERN = /(?:æ[\u0080-\u00FF]|ç[\u0080-\u00FF]|é[\u0080-\u00FF]|ä[\u0080-\u00FF]|å[\u0080-\u00FF]|é€|é¢|æœ|åˆ|çš|ç¬|é”|é—|é¡|å¼|å…|å…³|å†)/g; // mojibake-risk-allow
+const UTF8_AS_CJK_PATTERN = /(?:æ[\u0080-\u00FF]|ç[\u0080-\u00FF]|é[\u0080-\u00FF]|ä[\u0080-\u00FF]|å[\u0080-\u00FF]|é€|é¢|æœ|åˆ|çš|ç¬|é”|é—|é¡|å¼|å…|å…³|å†|\u934f\u5d07|\u942e\u65c0|\u90f4\u5bb8|\u8e6d\u7e5a|\u701b\u6a38|\u6fc6\u7d8d|\u5bb8\u30e4|\u7d94\u9359|\u7ed7\u65c7|\u9286[\u3000-\u9fff]|\u951b[\u5c7d\u5c83\u5c93])/g; // mojibake-risk-allow
 const SUSPICIOUS_PATTERN_GROUPS = [
   { key: "replacementCount", pattern: REPLACEMENT_CHAR_PATTERN },
   { key: "utf8AsLatin1Count", pattern: UTF8_AS_LATIN1_PATTERN },
