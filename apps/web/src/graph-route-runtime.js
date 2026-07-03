@@ -57,7 +57,7 @@ export function createGraphRouteRuntime(deps = {}) {
       graphState.workbenchPanelOpen = true;
       graphState.workbenchPanelTab = "questions";
       setStatus(
-        count ? `目录批处理已生成 ${count} 条待审候选，已在追问中展开` : "目录批处理完成，已打开追问",
+        count ? `目录批处理已生成 ${count} 条待确认推荐，已在追问中展开` : "目录批处理完成，已打开追问",
         count ? "ok" : ""
       );
     } catch (error) {
@@ -167,7 +167,7 @@ export function createGraphRouteRuntime(deps = {}) {
       items: eligibleIds.map((noteId, index) => ({
         noteId,
         shortLabel: notes[index]?.title || "",
-        rationale: "来自关联图谱的主题候选成员。"
+        rationale: "来自关联图谱的可写主题成员。"
       }))
     });
     if (!card?.id) throw new Error("主题笔记创建失败");

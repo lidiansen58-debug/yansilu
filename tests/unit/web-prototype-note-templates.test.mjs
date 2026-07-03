@@ -16,17 +16,20 @@ import {
 test("prototype note template helpers keep default template sources stable", () => {
   assert.equal(NOTE_TEMPLATE_STORAGE_KEYS.permanent, "yansilu:settings:note-template:permanent");
   assert.match(defaultPermanentTemplateSource(), /## 核心观点/);
-  assert.match(defaultPermanentTemplateSource(), /## 关联线索/);
+  assert.match(defaultPermanentTemplateSource(), /## 相关笔记/);
   assert.match(defaultLiteratureTemplateSource(), /## 引用信息/);
   assert.match(defaultLiteratureTemplateSource(), /## 保留原因/);
 });
 
 test("prototype note template helpers normalize empty and legacy templates", () => {
+  const oldStoredDefault = legacyPermanentTemplateSource();
   assert.match(normalizeNoteTemplateSource("", "permanent"), /## 核心观点/);
+  assert.match(oldStoredDefault, /## 关联线索/);
   assert.equal(
-    normalizeStoredNoteTemplateSource(legacyPermanentTemplateSource(), "permanent"),
+    normalizeStoredNoteTemplateSource(oldStoredDefault, "permanent"),
     defaultPermanentTemplateSource()
   );
+  assert.match(normalizeStoredNoteTemplateSource(oldStoredDefault, "permanent"), /## 相关笔记/);
   assert.equal(normalizeStoredNoteTemplateSource("  # Custom  ", "permanent"), "# Custom");
 });
 

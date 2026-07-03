@@ -340,7 +340,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
           toNoteId,
           relationType: String(edgeSelection.getAttribute("data-graph-select-edge-type") || "").trim().toLowerCase()
         });
-        setStatus("已打开关系复核详情", "ok");
+        setStatus("已打开关系确认详情", "ok");
       }
       return;
     }
@@ -555,7 +555,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
         toNoteId,
         relationType: String(graphEdge.getAttribute("data-edge-relation-type") || "").trim().toLowerCase()
       });
-      setStatus(`已选中关系复核：${String(graphEdge.getAttribute("data-edge-relation") || "关系").trim() || "关系"}`, "ok");
+      setStatus(`已选中关系确认：${String(graphEdge.getAttribute("data-edge-relation") || "关系").trim() || "关系"}`, "ok");
       return;
     }
     const row = event.target.closest("[data-open-note]");
@@ -859,7 +859,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
         toNoteId: String(graphEdge.getAttribute("data-edge-to") || "").trim(),
         relationType: String(graphEdge.getAttribute("data-edge-relation-type") || "").trim().toLowerCase()
       });
-      setStatus(`已选中关系复核：${String(graphEdge.getAttribute("data-edge-relation") || "关系").trim() || "关系"}`, "ok");
+      setStatus(`已选中关系确认：${String(graphEdge.getAttribute("data-edge-relation") || "关系").trim() || "关系"}`, "ok");
       return;
     }
     const row = event.target.closest("[data-open-note]");

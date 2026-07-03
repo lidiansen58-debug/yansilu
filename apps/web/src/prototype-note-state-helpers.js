@@ -265,7 +265,7 @@ export function sourcePromotionWorkflowMessageForNote(note = null, suggestion = 
   const title = isLiterature ? `${noteTitle} 适合生成永久笔记` : `${noteTitle} 适合生成永久笔记`;
   const body = isLiterature
     ? `“${noteTitle}”已经保存。打开它后可以继续整理来源、转述和判断种子，并把成熟材料提炼为永久笔记。`
-    : `“${noteTitle}”已经保存。随笔只是线索；如果它值得长期保留，下一步是把它写成一条自己愿意承担的永久判断。`;
+    : `“${noteTitle}”已经保存。随笔只是临时记录；如果它值得长期保留，下一步是把它写成一条自己愿意承担的永久判断。`;
   return {
     id: `workflow:${dedupeKey}`,
     type: "workflow",

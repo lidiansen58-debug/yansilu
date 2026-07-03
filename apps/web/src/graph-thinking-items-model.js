@@ -158,9 +158,9 @@ export function buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal = 0, br
       0
   );
   const categories = [
-    { key: "theme", label: "主题候选", count: topicCount },
+    { key: "theme", label: "可写主题推荐", count: topicCount },
     { key: "bridge", label: "缺少连接", count: Math.max(Number(bridgeGaps?.length || 0), bridgeCandidateCount) },
-    { key: "review", label: "关系待复核", count: Math.max(Number(reviewQueueTotal || 0), reviewCandidateCount) },
+    { key: "review", label: "关系待确认", count: Math.max(Number(reviewQueueTotal || 0), reviewCandidateCount) },
     { key: "conflict", label: "反方或边界", count: Number(conflictCount || 0) },
     { key: "isolated", label: "待关联笔记", count: isolatedCount }
   ].filter((item) => Number(item.count || 0) > 0);
@@ -183,9 +183,9 @@ export function buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal = 0, br
 export function buildGraphQuestionSpotSummaryFromItems(items = [], { artifactCount = 0 } = {}) {
   const list = (Array.isArray(items) ? items : []).filter(Boolean);
   const categories = [
-    { key: "theme", label: "主题候选", count: list.filter((item) => item.view === "theme").length },
+    { key: "theme", label: "可写主题推荐", count: list.filter((item) => item.view === "theme").length },
     { key: "bridge", label: "缺少连接", count: list.filter((item) => item.tone === "bridge" || item.tone === "isolated").length },
-    { key: "review", label: "关系待复核", count: list.filter((item) => item.tone === "review").length },
+    { key: "review", label: "关系待确认", count: list.filter((item) => item.tone === "review").length },
     { key: "conflict", label: "反方或边界", count: list.filter((item) => item.tone === "conflict").length }
   ].filter((item) => Number(item.count || 0) > 0);
   const total = list.length;
@@ -260,12 +260,12 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: Number(quality?.listPriority || 86) - index * 0.1,
       view: "theme",
       tone: "theme",
-      kicker: "主题候选",
-      title: String(topic?.title || "待验证主题").trim() || "待验证主题",
-      meta: `${noteIds.length || "若干"} 条笔记 ·  ${quality?.listLabel || "待验证主题"}`,
-      detail: String(topic?.rationale || quality?.detail || "多条永久笔记出现相近线索，适合判断是否形成明确主题。").trim(),
+      kicker: "可写主题推荐",
+      title: String(topic?.title || "可选择目标").trim() || "可选择目标",
+      meta: `${noteIds.length || "若干"} 条笔记 ·  ${quality?.listLabel || "可选择目标"}`,
+      detail: String(topic?.rationale || quality?.detail || "多条永久笔记出现相近推荐理由，适合判断是否形成明确主题。").trim(),
       question: quality?.listQuestion || "这组笔记能否写成一句可争论的判断，而不只是共享同一个标签？",
-      actionLabel: "评估主题",
+      actionLabel: "确认主题",
       actionAttrs: `data-graph-select-theme="${escapeHtml(topicKey)}"`,
       highlightNodeIds: noteIds
     });
@@ -312,12 +312,12 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: 78 - index,
       view: "organize",
       tone: "review",
-      kicker: "关系待复核",
+      kicker: "关系待确认",
       title: `${sourceTitle} -> ${targetTitle}`,
       meta: `${graphRelationReviewReasonLabel(item.reviewReason)}  ·  ${graphRelationQualityLabel(item.rationaleQualityLevel)}`,
       detail: rationale && rationale !== "markdown_wikilink" ? rationale : "这条关系还没有写清为什么成立。",
       question: "如果删掉这条线，损失的是论证结构，还是只是少了一个导航链接？",
-      actionLabel: "复核关系",
+      actionLabel: "确认关系",
       actionAttrs: graphSelectEdgeActionAttrs(edgeTarget),
       highlightNodeIds: [edgeTarget.fromNoteId, edgeTarget.toNoteId],
       highlightEdge: edgeTarget
@@ -340,7 +340,7 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       tone: "conflict",
       kicker: "冲突/边界",
       title: String(item?.title || "关系可能造成歧义").trim() || "关系可能造成歧义",
-      meta: String(item?.conflictType || "待复核").trim() || "待复核",
+      meta: String(item?.conflictType || "待确认").trim() || "待确认",
       detail: String(item?.rationale || "这里可能让概念边界变模糊，适合检查是否需要拆分或改名。").trim(),
       question: "这里的张力是在提示真实反驳，还是概念命名还不够清楚？",
       actionLabel: noteId ? "查看笔记" : "继续判断",
@@ -362,7 +362,7 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       meta: graphRelationTypeLabel(edge.relationType),
       detail: String(edge.rationale || "这条关系可能保留了反驳、限定或边界条件。").trim(),
       question: "这条边界条件应当写进主题判断，还是拆成一条独立的反例笔记？",
-      actionLabel: "复核边界",
+      actionLabel: "确认边界",
       actionAttrs: graphSelectEdgeActionAttrs(edge),
       highlightNodeIds: [edge.fromNoteId, edge.toNoteId],
       highlightEdge: edge
@@ -410,7 +410,7 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
         priority: 60 - index,
         view: "organize",
         tone: "review",
-        kicker: "关系候选",
+        kicker: "关系推荐",
         title: `${sourceTitle} -> ${targetTitle}`,
         meta: `${graphRelationTypeLabel(relationType)}  ·  待确认`,
         detail: String(candidate.rationale || "本地图谱扫描发现两条笔记可能有关联，需要人工判断。").trim(),

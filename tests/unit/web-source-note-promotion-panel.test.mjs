@@ -8,7 +8,7 @@ import {
 
 test("source note promotion state shows a clear ungenerated fleeting note workflow", () => {
   const state = sourceNotePromotionState({
-    note: { id: "fn_1", title: "随笔线索" },
+    note: { id: "fn_1", title: "随笔记录" },
     noteType: "fleeting",
     showFleetingCleanup: true
   });
@@ -20,7 +20,7 @@ test("source note promotion state shows a clear ungenerated fleeting note workfl
   assert.equal(state.showFleetingCleanup, true);
 
   const html = renderSourceNotePromotionPanel({
-    note: { id: "fn_1", title: "随笔线索" },
+    note: { id: "fn_1", title: "随笔记录" },
     noteType: "fleeting",
     showFleetingCleanup: true
   });

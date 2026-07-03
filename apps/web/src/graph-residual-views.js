@@ -341,7 +341,7 @@ function renderGraphWeakRelationClueSection(edges = [], options = {}) {
         <summary class="graph-collapsible-summary">
           <div>
             <div class="graph-section-title">待判断关联</div>
-            <div class="graph-section-note">这些线已经连上，但语义还偏弱。先判断它该强化为论证关系，还是降级为普通线索。</div>
+            <div class="graph-section-note">这些线已经连上，但语义还偏弱。先判断它该强化为论证关系，还是降级为普通参考。</div>
           </div>
           <span class="graph-collapsible-badge">${items.length} 条</span>
         </summary>
@@ -363,7 +363,7 @@ function renderGraphWeakRelationClueSection(edges = [], options = {}) {
                       <span>${escapeHtml(relationLabel)} · 需要判断</span>
                       <small>${escapeHtml(rationale || "这条关系还没有形成清楚论证，需要判断是否值得保留或改类型。")}</small>
                     </button>
-                    <button class="graph-focus-card-action" type="button" ${graphSelectEdgeActionAttrs(edge)}>复核</button>
+                    <button class="graph-focus-card-action" type="button" ${graphSelectEdgeActionAttrs(edge)}>确认</button>
                   </div>
                 `;
               })
@@ -959,7 +959,7 @@ function graphEdgeReviewMeta(edge = {}) {
     return {
       label: "缺关系说明",
       tone: "review",
-      detail: "这条线现在更像链接线索，还没有回答“为什么相关”。先补一句关系说明，再决定是否保留。",
+      detail: "这条线现在更像链接提示，还没有回答“为什么相关”。先补一句关系说明，再决定是否保留。",
       prompt: "如果只能留一句话解释这条关系，它应该是什么？"
     };
   }
@@ -996,7 +996,7 @@ function graphEdgeReviewMeta(edge = {}) {
     };
   }
   return {
-    label: "复核关系类型",
+    label: "确认关系类型",
     tone: "neutral",
     detail: "这条关系已经有说明，但语义角色还可以再判断一次，避免把索引关系当成论证关系。",
     prompt: "这条线如果删掉，会损失论证，还是只损失导航？"
@@ -1038,7 +1038,7 @@ function graphEdgeAdjustmentPlan(edge = {}) {
   } else if (missingRationale && (likelyGenerated || isWeakLink)) {
     recommendation = "remove";
     label = "可能降级或删除";
-    detail = "如果补不出清楚理由，这条线可能只是标题相似或临时线索。可以降级为链接线索，或在编辑里删除。";
+    detail = "如果补不出清楚理由，这条线可能只是标题相似或临时参考。可以降级为普通链接，或在编辑里删除。";
   } else if (visual.key === "conflict" || visual.key === "boundary") {
     recommendation = "change-type";
     label = "核对张力类型";
@@ -1072,7 +1072,7 @@ function graphEdgeAdjustmentPlan(edge = {}) {
     {
       key: "remove",
       title: "删除/降级",
-      text: "如果没有解释力，就删除，或降级为普通链接线索。",
+      text: "如果没有解释力，就删除，或降级为普通链接。",
       actionLabel: "去整理"
     }
   ].map((card) => ({ ...card, active: card.key === recommendation }));
@@ -1148,11 +1148,11 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
   if (counts.conflict || counts.boundary) score += 16;
   if (counts.bridge || externalEdges.length) score += 10;
   if (rationale.length >= 34) score += 10;
-  if (title.length >= 4 && !["待验证主题", "主题候选"].includes(title)) score += 8;
+  if (title.length >= 4 && !["待验证主题", "可写主题推荐"].includes(title)) score += 8;
   if (breadth.genericTitle) score -= 14;
   score = Math.max(0, Math.min(100, score));
   const missing = [];
-  if (breadth.broad) missing.push("候选覆盖太宽，先收窄到一个可争论的问题。");
+  if (breadth.broad) missing.push("推荐范围太宽，先收窄到一个可争论的问题。");
   if (breadth.genericTitle) missing.push("标题像标签而不是判断，先改写成研究问题或观点句。");
   if (noteIds.length < 3) missing.push("成员笔记偏少，先别急着建主题卡。");
   if (!memberEdges.length) missing.push("成员之间还缺明确关系，像聚类多过论证。");
@@ -1164,7 +1164,7 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
       score: looseScore,
       tone: "loose",
       label: "松散标签，先收窄",
-      detail: "这个候选覆盖面太大，更像导航标签或材料入口。现在不宜直接形成主题卡，应先缩成一个更具体、可争论的问题。",
+      detail: "这个推荐覆盖面太大，更像导航标签或材料入口。现在不宜直接形成可写主题，应先缩成一个更具体、可争论的问题。",
       next: "从中挑 3-8 条真正回答同一问题的笔记，写出一句临时主题判断，再决定是否拆分或建主题卡。",
       missing,
       noteIds,
@@ -1208,7 +1208,7 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
     score,
     tone: "early",
     label: "暂不急着成题",
-    detail: "这更像一个线索聚集，还没稳到可以形成主题。先找共同问题，或把它拆成更小的关系判断。",
+    detail: "这更像一个松散聚集，还没稳到可以形成主题。先找共同问题，或把它拆成更小的关系判断。",
     next: "先不要建主题卡，优先补一条成员之间的真实关系，或者拆成两个更具体的问题。",
     missing,
     noteIds,
@@ -1234,12 +1234,12 @@ function graphThemeCandidateQualityMeta(topic = {}, { nodeMap = new Map(), edges
   sortScore -= Number(index || 0) * 0.1;
   const listLabel =
     maturity.tone === "mature"
-      ? "成熟主题候选"
+      ? "成熟可写主题"
       : maturity.tone === "testing"
         ? "待验证聚集"
         : maturity.tone === "loose"
           ? "松散标签"
-          : "早期线索聚集";
+          : "早期主题聚集";
   const listPriority =
     maturity.tone === "loose"
       ? 70 + Math.min(6, maturity.score / 10)
@@ -1282,7 +1282,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
   const prompts = [
     "这个主题能否写成一句可争论的判断，而不只是一个名词标签？",
     maturity.counts.conflict || maturity.counts.boundary ? "已有边界或反方：它是否应该成为主题卡里的限制条件？" : "它缺哪一种反方、限定或反例，才能避免主题过宽？",
-    maturity.memberEdges.length ? "哪些关系是主题成立的关键，哪些只是导航线索？" : "哪两条成员笔记之间最应该先补一条明确关系？"
+    maturity.memberEdges.length ? "哪些关系是主题成立的关键，哪些只是导航参考？" : "哪两条成员笔记之间最应该先补一条明确关系？"
   ];
   return renderGraphSelectionShell({
     className: `is-theme is-${maturity.tone}`,
@@ -1312,7 +1312,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
       </div>
       ${renderGraphThemeIndexWorkspace(maturity.noteIds, { title: theme.title, relationCount: maturity.memberEdges.length, tone: maturity.tone })}
       <section class="graph-selection-reason">
-        <small>候选理由</small>
+        <small>推荐理由</small>
         <p>${escapeHtml(rationale || "这组笔记被识别为可能围绕同一问题，但还需要人工判断共同问题是什么。")}</p>
       </section>
       ${
@@ -1323,7 +1323,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
             </section>`
           : ""
       }
-      <section class="graph-theme-notes" aria-label="主题候选成员笔记">
+      <section class="graph-theme-notes" aria-label="可写主题成员笔记">
         <strong>成员笔记</strong>
         ${memberNotes
           .map(
@@ -1338,7 +1338,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
       </section>
       ${renderGraphPromptDetails("判断提示（可选）", prompts)}`,
     actions: `
-      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(maturity.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(theme.title)}"${maturity.noteIds.length >= 3 ? "" : " disabled"}>整理成主题草稿</button>
+      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(maturity.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(theme.title)}"${maturity.noteIds.length >= 3 ? "" : " disabled"}>整理成可写主题</button>
       <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>补一条主题关系</button>
       <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开代表笔记</button>`
   });

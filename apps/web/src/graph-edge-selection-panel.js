@@ -42,11 +42,11 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
   ];
   return renderGraphSelectionShell({
     className: `is-edge is-${review.tone}`,
-    ariaLabel: "选中关系的复核详情",
+    ariaLabel: "选中关系的确认详情",
     kicker: "已保存关系",
     title: `${sourceTitle} -> ${targetTitle}`,
     meta: `${group.label} · ${relationLabel} · ${graphRelationSourceLabel(edge.createdBy)}`,
-    closeLabel: "收起关系复核",
+    closeLabel: "收起关系确认",
     roleLabel: review.label,
     roleDetail: review.detail,
     body: `
@@ -88,7 +88,7 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
           { label: "来源", value: graphRelationSourceLabel(edge.createdBy) }
         ])}
       </div>
-      ${renderGraphPromptDetails("复核提示（可选）", prompts)}`,
+      ${renderGraphPromptDetails("确认提示（可选）", prompts)}`,
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(sourceId)}">打开源笔记</button>
       <button class="graph-selection-action is-secondary" type="button" data-graph-relation-adjustment="strengthen"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${relationId ? "" : " disabled"}>${escapeHtml(actionMeta.label)}</button>`

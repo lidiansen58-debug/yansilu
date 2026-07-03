@@ -17,14 +17,14 @@ export const GRAPH_VISUAL_NODE_LABELS = {
 export const GRAPH_VISUAL_EDGE_LABELS = {
   sourceFallback: "源笔记",
   targetFallback: "目标笔记",
-  reviewRelation: "查看关系复核",
+  reviewRelation: "查看关系确认",
   directionWord: "到",
   metaSeparator: " · ",
   titleArrow: " → ",
   rationalePrefix: "，"
 };
 
-export const GRAPH_VISUAL_LEGEND_NOTE = "圆点大小表示当前值得注意的程度，不表示最终价值；虚线表示候选或待确认关系。";
+export const GRAPH_VISUAL_LEGEND_NOTE = "圆点大小表示当前值得注意的程度，不表示最终价值；虚线表示推荐或待确认关系。";
 
 export function buildGraphVisualNodeViewContext(runtimeState = {}) {
   const {
