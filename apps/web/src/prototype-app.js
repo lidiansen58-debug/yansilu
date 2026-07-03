@@ -2290,7 +2290,7 @@ async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [
   if (existingProject?.id) {
     const project = await continueWritingProjectEntry(existingProject.id, {
       openDraft: false,
-      statusMessage: existingProject.scaffold_id ? "已打开已有写作项目和文章提纲。" : "已打开已有写作项目，继续生成文章提纲。"
+      statusMessage: existingProject.scaffold_id ? "已打开已有写作主题和文章提纲。" : "已打开已有写作主题，继续生成文章提纲。"
     });
     const scaffoldId = project?.scaffold_id || existingProject.scaffold_id || "";
     if (scaffoldId) {
@@ -2388,16 +2388,16 @@ async function saveWritingBasketAsThemeIndex() {
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) throw new Error("writing basket is empty");
   if (basketNoteIds.length < THEME_INDEX_MIN_NOTE_COUNT) {
-    throw new Error(`至少需要 ${THEME_INDEX_MIN_NOTE_COUNT} 条相关永久笔记，才适合保存为主题索引笔记`);
+    throw new Error(`至少需要 ${THEME_INDEX_MIN_NOTE_COUNT} 条相关永久笔记，才适合保存为可写主题`);
   }
   await ensureNotesLoaded(basketNoteIds);
   const suggestedTitle = suggestedThemeIndexTitle(basketNoteIds);
-  const title = window.prompt("主题索引标题", suggestedTitle);
+  const title = window.prompt("可写主题标题", suggestedTitle);
   if (title === null) return null;
   const cleanTitle = String(title || "").trim();
   if (!cleanTitle) throw new Error("title is required");
   const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续可续接的写作入口。";
-  const summary = window.prompt("主题索引说明", summarySeed);
+  const summary = window.prompt("可写主题说明", summarySeed);
   if (summary === null) return null;
   const themePayload = buildThemeIndexCreatePayload({
     directoryId: writingThemeIndexScopeDirectoryId(),
@@ -2653,7 +2653,7 @@ function originalDraftBodyFromSource(payload = {}) {
     relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
       .filter(Boolean)
       .join("\n"),
-    supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
+    supplement: excerpt ? `- 原始材料摘录：${excerpt}` : ""
   });
 }
 
@@ -3054,7 +3054,7 @@ async function openDistillationModule() {
     setStatus("已打开观点整理", "ok");
   } catch (error) {
     renderDistillationPanel();
-    setStatus(`观点整理队列刷新失败：${String(error?.message || error)}`, "warn");
+    setStatus(`观点整理待处理列表刷新失败：${String(error?.message || error)}`, "warn");
   }
 }
 
@@ -4515,7 +4515,7 @@ const GRAPH_CONFLICT_RELATION_TYPES = new Set(["contradicts", "counterexample_to
 function graphRelationTypeLabel(type) {
   const key = String(type || "associated_with").trim().toLowerCase();
   if (key === "meaningful") return "有解释力的关系";
-  if (key === "noisy") return "链接线索";
+  if (key === "noisy") return "链接提醒";
   if (key === "index") return "主题归属";
   return GRAPH_RELATION_TYPE_LABELS[key] || key || "关联";
 }

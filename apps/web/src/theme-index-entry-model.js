@@ -49,7 +49,7 @@ export function buildThemeIndexSuggestionFromRelationCluster({
   const cleanNoteIds = uniqueStrings(noteIds);
   const notes = cleanNoteIds.map((id) => noteById(id) || { id });
   const titles = notes.map((note, index) => noteTitle(note, cleanNoteIds[index])).filter(Boolean);
-  const resolvedTitle = cleanText(title) || (titles.length ? `${titles[0]} 等 ${titles.length} 条笔记的主题索引` : "新的主题索引笔记");
+  const resolvedTitle = cleanText(title) || (titles.length ? `${titles[0]} 等 ${titles.length} 条笔记的可写主题` : "新的可写主题");
   const centralQuestion = questionFromTitle(resolvedTitle);
   const importantItems = cleanNoteIds.map((noteId, index) => {
     const note = notes[index] || { id: noteId };
@@ -60,7 +60,7 @@ export function buildThemeIndexSuggestionFromRelationCluster({
       shortLabel: titleText,
       rationale: judgment
         ? `为什么重要：它提供了回答主题问题的关键判断：${judgment}`
-        : `为什么重要：它是这组关系聚集中的关键永久笔记，需要在主题索引里说明作用。`,
+        : `为什么重要：它是这组关系聚集中的关键永久笔记，需要在可写主题里说明作用。`,
       order: index + 1
     };
   });
@@ -72,7 +72,7 @@ export function buildThemeIndexSuggestionFromRelationCluster({
     title: resolvedTitle,
     centralQuestion,
     summary: `主题问题：${centralQuestion} 关键永久笔记：${titles.slice(0, 5).join("、") || "待补充"}。${nextStep}`,
-    thesis: `这组永久笔记已经通过${relationLabel}聚集，适合先整理成主题索引笔记，再进入写作中心。`,
+    thesis: `这组永久笔记已经通过${relationLabel}聚集，适合先整理成可写主题，再进入写作中心。`,
     threeLineSummary: [
       `主题问题：${centralQuestion}`,
       `关键永久笔记：${titles.slice(0, 5).join("、") || cleanNoteIds.join("、")}`,

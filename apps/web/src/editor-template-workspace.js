@@ -65,7 +65,7 @@ const PERMANENT_SECTION_LABELS = {
   coreClaim: "核心观点",
   whyTrue: "为什么成立",
   boundary: "边界 / 反例",
-  relatedClues: "关联线索",
+  relatedClues: "相关笔记",
   supplement: "补充内容"
 };
 
@@ -73,7 +73,7 @@ const PERMANENT_SECTION_ALIASES = {
   coreClaim: ["核心判断", "中心观点", "一句话判断", "论点"],
   whyTrue: ["成立理由", "理由", "论证", "为什么它成立"],
   boundary: ["边界/反例", "边界与反例", "反例", "适用边界", "适用条件"],
-  relatedClues: ["来源线索", "证据来源", "关联", "相关线索", "延伸线索"],
+  relatedClues: ["关联线索", "来源线索", "证据来源", "关联", "相关线索", "相关笔记", "延伸线索", "延伸材料"],
   supplement: ["附加内容", "补充说明", "备注"]
 };
 
@@ -255,7 +255,7 @@ export function distillationNextStepGuide(note = {}) {
       key: "relations",
       title: "已有关系，看看能否形成主题",
       body: `这条观点已经有 ${explicitRelationCount} 条正式关系。下一步看这些关系共同指向哪个问题；如果能互相说明，就可以进入主题或写作中心。`,
-      actionLabel: "看关系和主题线索"
+      actionLabel: "看关系和主题推荐"
     };
   }
   return {

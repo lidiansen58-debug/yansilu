@@ -10,7 +10,7 @@ export const OLLAMA_MODEL_RECOMMENDATIONS = [
   {
     name: "qwen2.5:7b",
     label: "轻量",
-    note: "快、省资源，适合快速摘要和低成本候选筛选。",
+    note: "快、省资源，适合快速摘要和低成本推荐筛选。",
     role: "轻量快速",
     resource: "资源占用较低",
     sizeHint: "约 4-5GB",

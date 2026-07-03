@@ -99,7 +99,7 @@ export function renderGraphNodeSelectionPanel({ selection: normalized = null, is
         <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(normalized.nodeId)}">直接选择相关笔记</button>
         ${
           canCreateTheme
-            ? `<button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}">创建主题索引</button>`
+            ? `<button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}">保存为可写主题</button>`
             : ""
         }`
     });

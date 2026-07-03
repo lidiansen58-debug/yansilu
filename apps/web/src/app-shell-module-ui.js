@@ -9,17 +9,17 @@ export function currentModuleSidebarUi({
     today: {
       sidebarTitle: "今日整理",
       sidebarSubtitle: "打开后只看下一步该做什么。",
-      sidebarFoot: "今天只推进一个小动作：接入关系、整理主题索引，或从主题进入写作。",
+      sidebarFoot: "今天只推进一个小动作：接入关系、整理可写主题，或从主题进入写作。",
       title: "今日整理",
-      summary: "这里把卢曼方法压成当天可做的小动作：先让新永久笔记找旧笔记并写清关系理由，再把 3-7 条同问题笔记整理成主题索引，最后从主题进入写作。",
+      summary: "这里把卢曼方法压成当天可做的小动作：先让新永久笔记找旧笔记并写清关系理由，再把 3-7 条同问题笔记整理成可写主题，最后从主题进入写作。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>使用顺序</h3>
           <ol class="module-sidebar-list">
             <li>写完永久笔记，马上找一条旧笔记</li>
             <li>建立关系，并写清为什么相关</li>
-            <li>3-7 条笔记围绕同一问题时，整理成主题索引</li>
-            <li>从主题索引进入文章提纲和草稿</li>
+            <li>3-7 条笔记围绕同一问题时，整理成可写主题</li>
+            <li>从可写主题进入文章提纲和草稿</li>
           </ol>
         </div>
       `

@@ -774,7 +774,7 @@ function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false)
       </div>
       ${
         reviewQuestion
-          ? `<div class="ai-inbox-review-main is-muted"><strong>复核问题</strong><p>${escapeHtml(reviewQuestion)}</p></div>`
+          ? `<div class="ai-inbox-review-main is-muted"><strong>确认问题</strong><p>${escapeHtml(reviewQuestion)}</p></div>`
           : ""
       }
       ${

@@ -13,14 +13,14 @@ test("Smart Notes demo guide gives a beginner five-step path", () => {
   assert.match(guide.body, /PN-SN-101/);
   assert.match(guide.body, /先看一条材料如何变成永久笔记/);
   assert.match(guide.body, /让一条未关联笔记进入关系网/);
-  assert.match(guide.body, /多条永久笔记如何形成主题索引笔记/);
-  assert.match(guide.body, /从主题索引进入写作中心生成提纲/);
+  assert.match(guide.body, /多条永久笔记如何形成可写主题/);
+  assert.match(guide.body, /从可写主题进入写作中心生成提纲/);
   assert.match(guide.body, /定期回顾/);
   assert.match(guide.body, /孤立笔记/);
   assert.match(guide.body, /过宽标签/);
   assert.match(guide.body, /没有理由的关系/);
   assert.match(guide.body, /可以写成文章的主题/);
-  assert.match(guide.body, /主题索引笔记不是文章/);
+  assert.match(guide.body, /可写主题会保存成主题索引笔记/);
   assert.match(guide.body, /3 到 7 条永久笔记/);
   assert.match(guide.body, /每条关键关系都写了理由/);
   assert.match(guide.body, /卢曼式卡片盒/);

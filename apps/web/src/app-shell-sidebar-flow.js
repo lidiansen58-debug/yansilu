@@ -63,7 +63,7 @@ export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], 
     : isLiterature
       ? "文献是证据入口"
       : isFleeting
-        ? "随笔是线索入口"
+        ? "随笔是想法入口"
         : "当前目录接入主路";
   const note = isOriginal
     ? topGaps.length
@@ -74,8 +74,8 @@ export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], 
     : isLiterature
       ? "先写转述，再记录永久笔记。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
       : isFleeting
-        ? "先捕捉还不成熟的问题和线索，等它出现判断，再单独沉淀为永久笔记。"
-        : "这一级目录会被放回永久笔记、关系网络、主题索引和写作中心的路径里理解。";
+        ? "先捕捉还不成熟的问题和材料，等它出现判断，再单独沉淀为永久笔记。"
+        : "这一级目录会被放回永久笔记、关系网络、可写主题和写作中心的路径里理解。";
   const steps = isOriginal
     ? [
         ["写一句判断", distillation.missingThesis < originalNotes.length],

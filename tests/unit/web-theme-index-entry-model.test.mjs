@@ -10,7 +10,7 @@ import {
 const notes = new Map([
   ["n1", { id: "n1", title: "关系理由", thesis: "关系理由让后续写作可追溯。" }],
   ["n2", { id: "n2", title: "边界条件", threeLineSummary: ["边界条件避免主题过顺。"] }],
-  ["n3", { id: "n3", title: "写作入口", summary: "主题索引把笔记转成写作入口。" }]
+  ["n3", { id: "n3", title: "写作入口", summary: "可写主题把笔记转成写作入口。" }]
 ]);
 
 test("theme index suggestion captures the required topic-index fields from a relation cluster", () => {

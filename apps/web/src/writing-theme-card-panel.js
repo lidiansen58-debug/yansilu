@@ -142,7 +142,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
         <textarea id="writingThemeDetailSummary2" rows="2" placeholder="为什么它重要？">${escapeHtml(summaryLines[1])}</textarea>
 
         <label for="writingThemeDetailSummary3">下一步可以写什么</label>
-        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="从这个主题索引进入写作中心后，先写哪一段或哪一个小提纲？">${escapeHtml(summaryLines[2])}</textarea>
+        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="从这个可写主题进入写作中心后，先写哪一段或哪一个小提纲？">${escapeHtml(summaryLines[2])}</textarea>
 
         <label for="writingThemeDetailCentralQuestion">中心问题</label>
         <textarea id="writingThemeDetailCentralQuestion" rows="3" placeholder="这组笔记真正围绕哪个中心问题组织？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
@@ -175,7 +175,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
                   `
                 )
                 .join("")}</div>`
-            : `<div class="writing-empty">这个主题索引还没有挂上永久笔记。</div>`
+            : `<div class="writing-empty">这个可写主题还没有挂上永久笔记。</div>`
         }
       </div>
     </section>

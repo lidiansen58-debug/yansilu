@@ -29,13 +29,13 @@ test("import result model derives simplified preview title tone metrics subtitle
   assert.deepEqual(resultMetrics(payload), [
     { label: "来源", value: "Markdown" },
     { label: "状态", value: "待确认" },
-    { label: "候选", value: "1 来源 / 2 文献 / 3 永久" },
+    { label: "可导入内容", value: "1 来源 / 2 文献 / 3 永久" },
     { label: "警告", value: "1" }
   ]);
 });
 
 test("import result model derives plain-language briefs", () => {
-  assert.equal(resultBrief({ stage: "preview" }, "ok"), "检查候选内容，确认后再导入。");
+  assert.equal(resultBrief({ stage: "preview" }, "ok"), "检查可导入内容，确认后再导入。");
   assert.equal(resultBrief({ stage: "export_markdown" }, "ok"), "导出文件已经写到目标目录。");
   assert.equal(resultBrief({ stage: "preview_error" }, "bad"), "这一步没有完成，请先处理下面的问题。");
 });
@@ -85,7 +85,7 @@ test("import result model maps new import warning codes to concrete actions", ()
     },
     {
       code: "IMPORT_SELECTION_EMPTY",
-      expected: "当前预览没有可导入候选；请先处理被跳过的文件或重新预览。"
+      expected: "当前预览没有可导入内容；请先处理被跳过的文件或重新预览。"
     }
   ];
 
@@ -107,11 +107,11 @@ test("import result model adds a zero-candidate follow-up action for preview war
     warnings: [{ code: "IMPORT_MARKDOWN_ENCODING_UNSUPPORTED", message: "unsupported encoding" }]
   };
 
-  assert.equal(resultBrief(payload, resultTone(payload)), "当前没有可确认导入的候选，请先处理警告里的文件问题。");
+  assert.equal(resultBrief(payload, resultTone(payload)), "当前没有可确认导入的内容，请先处理警告里的文件问题。");
   const warnings = warningItems(payload);
   assert.deepEqual(actionItems(payload, warnings), [
     "把源文件转成 UTF-8，或修正异常编码后重新预览。",
-    "当前预览没有可导入候选；请先处理被跳过的文件或重新预览。"
+    "当前预览没有可导入内容；请先处理被跳过的文件或重新预览。"
   ]);
   assert.deepEqual(warnings, [
     {

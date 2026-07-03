@@ -207,7 +207,7 @@ export function relationTypeGuidance(type = "") {
       rationalePlaceholder: "这条关系成立，因为两条笔记围绕同一个问题或主题张力展开。",
       rationaleHint: "写清楚它们共享的是哪个主题，而不只是标签相同。",
       questionPlaceholder: "这两条笔记共同指向的中心问题是什么？",
-      questionHint: "把问题写成主题索引或写作可能继续推进的中心问题。"
+      questionHint: "把问题写成可写主题或写作可能继续推进的中心问题。"
     };
   }
   return {

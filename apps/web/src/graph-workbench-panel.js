@@ -36,7 +36,7 @@ function defaultThinkingFilterMeta(value = "") {
   const key = String(value || "all").trim().toLowerCase();
   const meta = {
     all: { key: "all", label: "全部", note: "查看全部待确认内容" },
-    theme: { key: "theme", label: "主题", note: "查看可能形成主题索引的聚集" },
+    theme: { key: "theme", label: "主题", note: "查看可能形成可写主题的聚集" },
     organize: { key: "organize", label: "关系", note: "查看待整理的关系" }
   };
   return meta[key] || meta.all;
@@ -116,8 +116,8 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
   if (!filtered.length) {
     return `
       <div class="graph-thinking-empty">
-        <strong>${escapeHtml(meta.key === "theme" ? "还没有主题索引推荐" : meta.key === "organize" ? "还没有待处理关系" : "当前没有明显问题")}</strong>
-        <span>${escapeHtml(meta.key === "theme" ? "运行图谱扫描后，可以在这里查看可能形成主题索引的笔记组。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待处理内容。")}</span>
+        <strong>${escapeHtml(meta.key === "theme" ? "还没有可写主题推荐" : meta.key === "organize" ? "还没有待处理关系" : "当前没有明显问题")}</strong>
+        <span>${escapeHtml(meta.key === "theme" ? "运行图谱扫描后，可以在这里查看可能形成可写主题的笔记组。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待处理内容。")}</span>
         <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "扫描追问"}</button>
       </div>
     `;
@@ -193,7 +193,7 @@ export function renderGraphThinkingReviewNoteView(summary = {}, deps = {}) {
     <div class="graph-thinking-review-note">
       <div>
         <strong>已保存 ${escapeHtml(String(artifactCount))} 项待确认</strong>
-        <span>这些结果就在当前图谱里处理。先看待确认内容，只保存能说清理由的关系或主题索引。</span>
+        <span>这些结果就在当前图谱里处理。先看待确认内容，只保存能说清理由的关系或可写主题。</span>
       </div>
       <button class="graph-thinking-review-action" type="button" data-graph-focus-thinking-review aria-label="查看图谱待确认内容">查看待确认</button>
     </div>
@@ -238,7 +238,7 @@ export function renderGraphThinkingPanelView({ summary = {}, items = [] } = {}, 
       <div class="graph-thinking-panel-head">
         <div>
           <strong>${escapeHtml(summary.label || "待确认内容")}</strong>
-          <span>${escapeHtml(summary.detail || "按需查看主题索引推荐、待关联笔记、可能相关内容和关系确认。")}</span>
+          <span>${escapeHtml(summary.detail || "按需查看可写主题推荐、待关联笔记、可能相关内容和关系确认。")}</span>
         </div>
         <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭待确认面板" title="关闭待确认内容">${renderGraphIcon("close")}</button>
       </div>

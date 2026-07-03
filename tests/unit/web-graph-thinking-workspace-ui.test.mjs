@@ -805,7 +805,7 @@ test("graph workbench prioritizes Chinese clue and question actions", async () =
   const priorityMarkup = renderGraphWorkbenchPriorityQueueView([
     { title: "桥接", view: "organize", tone: "bridge", kicker: "缺少连接", actionAttrs: 'data-open-note="n1"' },
     { title: "确认", view: "organize", tone: "review", kicker: "理由待补", actionAttrs: 'data-open-note="n2"' },
-    { title: "主题", view: "theme", tone: "theme", kicker: "主题索引推荐", actionAttrs: 'data-open-note="n3"' },
+    { title: "主题", view: "theme", tone: "theme", kicker: "可写主题推荐", actionAttrs: 'data-open-note="n3"' },
     { title: "第四项", view: "theme", tone: "theme", kicker: "不会优先显示", actionAttrs: 'data-open-note="n4"' }
   ], "clues", graphWorkbenchViewTestDeps());
   const bridgeItems = moduleBuildGraphThinkingItemsForGraph({
@@ -1845,7 +1845,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(workspaceSource, /data-graph-theme-note-ids="\$\{escapeHtml\(themeNoteIds\.join\(","\)\)\}"/);
   assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
   assert.match(workspaceSource, /data-graph-create-theme-index/);
-  assert.match(workspaceSource, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "主题索引推荐", relationCount = 0, tone = "", deps = \{\} \} = \{\}\) \{/);
+  assert.match(workspaceSource, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "可写主题推荐", relationCount = 0, tone = "", deps = \{\} \} = \{\}\) \{/);
   assert.match(graphRouteSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
   assert.match(graphRouteSource, /buildThemeIndexCreatePayload\(\{/);
   assert.match(graphRouteSource, /noteById: \(id\) => writingNoteById\(id\) \|\| writingKnownNoteById\(id\)/);

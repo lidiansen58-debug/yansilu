@@ -124,7 +124,7 @@ export function renderGraphUtilityDrawerView({ bridgeGapCount = 0, weakRelationC
         <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
         <div class="graph-utility-drawer-copy">
           <strong>${renderGraphIcon("clue")}稍后处理</strong>
-          <span>把暂时不急着处理的推荐、理由缺口和主题索引推荐先收在这里，需要时再展开。</span>
+          <span>把暂时不急着处理的推荐、理由缺口和可写主题推荐先收在这里，需要时再展开。</span>
         </div>
         <div class="graph-utility-drawer-meta">
           ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">稍后再看</div>`}

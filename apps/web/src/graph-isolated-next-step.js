@@ -49,7 +49,7 @@ export function renderGraphIsolatedNextStepActionsHtml(
             ? `<button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">处理下一条</button>`
             : ""
         }
-        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>创建主题索引</button>
+        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${canCreateTheme ? "" : " disabled"}>保存为可写主题</button>
       </div>
     </section>
   `;

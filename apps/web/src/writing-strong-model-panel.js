@@ -23,7 +23,7 @@ export function renderWritingStrongModelSummaryDom({
     } else if (request) {
       strongModelSummary.textContent = result?.result
         ? `已整理 ${artifactCount} 条写作建议，全部进入系统消息，等你决定是否采用。`
-        : `已准备 ${request.model?.model || "strong_model"} 请求包；当前没有直接调用远程模型。`;
+        : `已准备 ${request.model?.model || "strong_model"} 写作检查内容；当前没有直接调用远程模型。`;
     } else {
       strongModelSummary.textContent = describeWritingStrongModelIdleSummary({
         basketCount: strongModelBasketIds.length,

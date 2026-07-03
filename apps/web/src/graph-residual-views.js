@@ -908,7 +908,7 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
     : missingReasonCount
       ? "先补最重要关系的理由"
       : themeNoteIds.length >= 3
-        ? "创建主题索引"
+        ? "保存为可写主题"
         : counts.conflict || counts.boundary
           ? "把边界写进观点提纯"
           : "继续补一条高质量关系";
@@ -1148,7 +1148,7 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
   if (counts.conflict || counts.boundary) score += 16;
   if (counts.bridge || externalEdges.length) score += 10;
   if (rationale.length >= 34) score += 10;
-  if (title.length >= 4 && !["待验证主题", "主题索引推荐", "可写主题推荐"].includes(title)) score += 8;
+  if (title.length >= 4 && !["待验证主题", "可写主题推荐"].includes(title)) score += 8;
   if (breadth.genericTitle) score -= 14;
   score = Math.max(0, Math.min(100, score));
   const missing = [];
@@ -1164,8 +1164,8 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
       score: looseScore,
       tone: "loose",
       label: "松散标签，先收窄",
-      detail: "这个推荐覆盖面太大，更像导航标签或材料入口。现在不宜直接保存为主题索引，应先缩成一个更具体、可争论的问题。",
-      next: "从中挑 3-8 条真正回答同一问题的笔记，写出一句临时主题判断，再决定是否拆分或保存主题索引。",
+      detail: "这个推荐覆盖面太大，更像导航标签或材料入口。现在不宜直接保存为可写主题，应先缩成一个更具体、可争论的问题。",
+      next: "从中挑 3-8 条真正回答同一问题的笔记，写出一句临时主题判断，再决定是否拆分或保存为可写主题。",
       missing,
       noteIds,
       memberEdges,
@@ -1234,7 +1234,7 @@ function graphThemeCandidateQualityMeta(topic = {}, { nodeMap = new Map(), edges
   sortScore -= Number(index || 0) * 0.1;
   const listLabel =
     maturity.tone === "mature"
-      ? "成熟主题索引"
+      ? "成熟可写主题"
       : maturity.tone === "testing"
         ? "待验证聚集"
         : maturity.tone === "loose"
@@ -1323,7 +1323,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
             </section>`
           : ""
       }
-      <section class="graph-theme-notes" aria-label="主题索引成员笔记">
+      <section class="graph-theme-notes" aria-label="可写主题成员笔记">
         <strong>成员笔记</strong>
         ${memberNotes
           .map(
@@ -1338,7 +1338,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
       </section>
       ${renderGraphPromptDetails("判断提示（可选）", prompts)}`,
     actions: `
-      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(maturity.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(theme.title)}"${maturity.noteIds.length >= 3 ? "" : " disabled"}>创建主题索引</button>
+      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(maturity.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(theme.title)}"${maturity.noteIds.length >= 3 ? "" : " disabled"}>保存为可写主题</button>
       <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>补一条主题关系</button>
       <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开代表笔记</button>`
   });

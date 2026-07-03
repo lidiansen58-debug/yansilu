@@ -18,7 +18,7 @@ const DEFAULT_RELATION_GROUP_META = {
   bridge: { label: "桥接关系", shortLabel: "桥接", detail: "连接不同主题。" },
   flow: { label: "写作顺序", shortLabel: "顺序", detail: "帮助组织文章前后顺序。" },
   neutral: { label: "相关关系", shortLabel: "相关", detail: "暂未细分用途的关系。" },
-  index: { label: "主题索引", shortLabel: "主题", detail: "这组关系可能形成主题索引笔记，确认后再保存。" }
+  index: { label: "可写主题", shortLabel: "主题", detail: "这组关系可能形成可写主题，确认后再保存。帮助里会说明它会保存成主题索引笔记。" }
 };
 
 function graphFocusContextPanelDeps(deps = {}) {

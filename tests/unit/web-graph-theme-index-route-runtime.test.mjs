@@ -7,7 +7,7 @@ test("graph route runtime saves a first-class theme index and transfers writing 
   const notes = new Map([
     ["n1", { id: "n1", title: "关系理由", noteType: "permanent", thesis: "关系理由让写作可追溯。" }],
     ["n2", { id: "n2", title: "边界条件", noteType: "permanent", thesis: "边界条件避免主题过顺。" }],
-    ["n3", { id: "n3", title: "写作入口", noteType: "permanent", thesis: "主题索引是写作入口。" }]
+    ["n3", { id: "n3", title: "写作入口", noteType: "permanent", thesis: "可写主题是写作入口。" }]
   ]);
   const calls = [];
   let savedPayload = null;
@@ -58,10 +58,10 @@ test("graph route runtime saves a first-class theme index and transfers writing 
   assert.deepEqual(calls.find((call) => call[0] === "open-writing"), [
     "open-writing",
     {
-      statusMessage: "已从主题索引打开写作中心：关系如何变成写作入口",
+      statusMessage: "已从可写主题打开写作中心：关系如何变成写作入口",
       preserveFocusedCandidateScope: true,
-      entryReason: "从图谱主题索引继续写作",
-      entrySourceLabel: "主题索引笔记"
+      entryReason: "从图谱可写主题继续写作",
+      entrySourceLabel: "可写主题"
     }
   ]);
   assert.equal(calls.find((call) => call[0] === "system")[1].workflowRoute.indexCardId, "idx-1");

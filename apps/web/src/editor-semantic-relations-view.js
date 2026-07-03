@@ -401,7 +401,7 @@ export class EditorSemanticRelationsView {
                 ${group("被它连接", "incoming", explicitBacklinks, "还没有其他笔记以带理由的关系指向当前笔记。")}
               </div>
             `
-            : `<div class="related-empty">${markdownCount ? "已有正文链接线索，但还没保存成正式关联。" : "还没有已保存的正式关联。"}</div>`
+            : `<div class="related-empty">${markdownCount ? "已有正文链接提醒，但还没保存成正式关联。" : "还没有已保存的正式关联。"}</div>`
         }
       </section>
     `;

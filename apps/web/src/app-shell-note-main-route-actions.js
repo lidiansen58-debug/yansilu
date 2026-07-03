@@ -42,7 +42,7 @@ export async function handleOpenNoteMainRouteStateChange(payload = {}, deps = {}
     state.selectedFileId = noteId;
     activateModule("graph");
     await refreshDirectoryGraph();
-    setStatus("已打开关系图谱，继续看这条笔记周围的关系和主题索引推荐", "ok");
+    setStatus("已打开关系图谱，继续看这条笔记周围的关系和可写主题推荐", "ok");
     return true;
   }
 

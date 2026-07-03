@@ -176,7 +176,7 @@ test("today organizing panel uses action words without internal workflow terms",
   assert.match(html, /可进入写作/);
   assert.match(html, /找旧笔记、写关系理由、查看主题是否已凑到 3-7 条/);
   assert.match(html, /检查中心问题、关键关系，以及是否已经凑到 3-7 条/);
-  assert.match(html, /从这个主题索引进入写作中心/);
+  assert.match(html, /从这个可写主题进入写作中心/);
   assert.match(html, /去建联/);
   assert.match(html, /整理这个主题/);
   assert.match(html, /进入写作/);

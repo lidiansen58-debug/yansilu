@@ -44,7 +44,7 @@ export function renderTodayOrganizingPanel(state = {}) {
         <div>
           <span>今日整理</span>
           <h2>今天只看三件最该做的事。</h2>
-          <p>写完一条判断，就找旧笔记、写关系理由、查看主题是否已凑到 3-7 条；凑够后再从主题索引进入写作。</p>
+          <p>写完一条判断，就找旧笔记、写关系理由、查看主题是否已凑到 3-7 条；凑够后再从可写主题进入写作。</p>
         </div>
         <div class="today-organizing-counts" aria-label="当前整理概览">
           <div><strong>${escape(state.permanentCount || 0)}</strong><span>永久笔记</span></div>
@@ -71,7 +71,7 @@ export function renderTodayOrganizingPanel(state = {}) {
           objectTitle: firstTheme?.title || "还没有可直接整理的主题",
           summary: firstTheme
             ? "打开这组相关笔记，检查中心问题、关键关系，以及是否已经凑到 3-7 条。"
-            : "当 3-7 条永久笔记围绕同一问题聚集时，可以把它们整理成主题索引。",
+            : "当 3-7 条永久笔记围绕同一问题聚集时，可以把它们整理成可写主题。",
           meta: firstTheme ? `${firstTheme.noteCount || 0} 条相关笔记` : "",
           action: "open-first-theme",
           actionLabel: firstTheme ? "整理这个主题" : "先去建联",
@@ -82,7 +82,7 @@ export function renderTodayOrganizingPanel(state = {}) {
           title: "3. 可进入写作",
           objectTitle: firstTheme?.title || firstWriting?.title || "先选择一组相关笔记",
           summary: firstTheme
-            ? "从这个主题索引进入写作中心，生成文章提纲，再开始草稿。"
+            ? "从这个可写主题进入写作中心，生成文章提纲，再开始草稿。"
             : firstWriting
               ? "这条永久笔记已经有清楚观点，可以先放入写作中心。"
               : "先完成一条清楚观点和一条明确关系，再进入写作。",

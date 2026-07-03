@@ -168,7 +168,7 @@ test("smart notes product demo fixture includes an inspection guide", () => {
   assert.doesNotMatch(guide.body, /LIT-SN-001/);
   assert.match(guide.body, /PN-SN-101/);
   assert.match(guide.body, /未关联笔记进入关系网/);
-  assert.match(guide.body, /主题索引笔记不是文章/);
+  assert.match(guide.body, /可写主题会保存成主题索引笔记/);
   assert.match(guide.body, /3 到 7 条永久笔记/);
   assert.match(guide.body, /每条关键关系都写了理由/);
   assert.match(guide.body, /WP-SN-PM-001/);

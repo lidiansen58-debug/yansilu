@@ -1179,7 +1179,7 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
     assert.match(editorValue, /## 核心观点/);
     assert.match(editorValue, /## 为什么成立/);
     assert.match(editorValue, /## 边界 \/ 反例/);
-    assert.match(editorValue, /## 关联线索/);
+    assert.match(editorValue, /## 相关笔记/);
     assert.match(tabTitle || "", /Immediate Title/);
   }, 7000);
 });
@@ -4812,7 +4812,7 @@ test("prototype migrates the legacy default permanent template before settings r
 
 - 来自哪条文献笔记、经验、案例或观察？
 
-## 关联线索
+## 相关笔记
 
 - 它连接到哪些已有笔记、主题或写作项目？
 
@@ -5125,7 +5125,7 @@ test("prototype settings saved literature and permanent templates drive later ne
 
 这是新的永久模板起手句。
 
-## 关联线索
+## 相关笔记
 
 - [[模板测试]]
 `;
@@ -5192,7 +5192,7 @@ test("prototype settings saved literature and permanent templates drive later ne
   await waitForEditableNoteSurface(page);
   await page.evaluate(() => {
     const editor = window.__prototypeEditor;
-    editor?.setEditorValue?.("# 已有永久笔记\n\n这是新的永久模板起手句。\n\n## 关联线索\n\n- [[模板测试]]");
+    editor?.setEditorValue?.("# 已有永久笔记\n\n这是新的永久模板起手句。\n\n## 相关笔记\n\n- [[模板测试]]");
     editor?.handleEditorInput?.();
   });
   await waitFor(async () => {
@@ -5365,7 +5365,7 @@ Original evidence block.
     assert.match(value, /## 来源生成提示/);
     assert.match(value, /### 核心观点/);
     assert.match(value, /把转述压成一句可辩护的判断。/);
-    assert.match(value, /### 关联线索/);
+    assert.match(value, /### 相关笔记/);
     assert.match(value, /来自文献笔记：\[\[Source Driven Literature\]\]/);
     assert.match(value, /把转述压成一句可辩护的判断。/);
     assert.doesNotMatch(value, /^## 核心观点$/m);
@@ -5543,7 +5543,7 @@ test("prototype import panel keeps unsupported-encoding previews reviewable but 
   const previewResultText = await page.locator("#importResult").textContent();
   assert.match(String(previewResultText || ""), /IMPORT_MARKDOWN_ENCODING_UNSUPPORTED/);
   assert.match(String(previewResultText || ""), /把源文件转成 UTF-8/);
-  assert.match(String(previewResultText || ""), /当前预览没有可导入候选/);
+  assert.match(String(previewResultText || ""), /当前预览没有可导入内容/);
 
   await waitFor(async () => {
     assert.equal(await page.locator("#btnImportConfirm").isDisabled(), true);
@@ -7630,7 +7630,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
   await page.click("#btnWritingUseCurrent");
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("写作篮已有 1 条可用笔记");
+    return text.includes("已选择 1 条相关笔记");
   });
 
   await page.click("#btnWritingStrongModelAnalysis");
@@ -7643,7 +7643,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
   await page.waitForFunction(() => {
     const basketText = document.querySelector("#writingBasketSummary")?.textContent || "";
     const summaryText = document.querySelector("#writingStrongModelSummary")?.textContent || "";
-    return basketText.includes("写作篮已有 2 条可用笔记") && summaryText.includes("尚未准备强模型请求");
+    return basketText.includes("已选择 2 条相关笔记") && summaryText.includes("尚未准备 AI 写作分析");
   });
 
   const strongModelSummary = await page.locator("#writingStrongModelSummary").textContent();
@@ -8540,7 +8540,7 @@ test("prototype graph relation workspace creates a theme index from linked notes
     `/api/v1/index-cards?directoryId=${encodeURIComponent(graphDirectoryId)}&includeDescendants=true&indexType=topic&limit=12`
   );
   assert.equal(indexes.status, 200, JSON.stringify(indexes.json));
-  assert.ok((indexes.json.items || []).some((item) => String(item.title || "").includes("主题索引")));
+  assert.ok((indexes.json.items || []).some((item) => String(item.title || "").includes("可写主题")));
 });
 
 test("prototype graph followup remembers relation template preference after reload", async (t) => {
@@ -8898,7 +8898,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.ok(String(writingState.title || "").trim().length > 0);
     assert.ok(String(writingState.goal || "").trim().length > 0);
     assert.ok(String(writingState.audience || "").trim().length > 0);
-    assert.match(writingState.basketSummary, /写作篮已有 12 条永久笔记/);
+    assert.match(writingState.basketSummary, /已选择 12 条相关笔记/);
   }, 15000);
 
   const project = await fetchJson(apiBase, "/api/v1/writing-projects/WP-SN-PM-001");

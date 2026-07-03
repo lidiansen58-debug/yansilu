@@ -67,7 +67,7 @@ function warningSummaryText(code, fallback = "") {
     IMPORT_TITLE_NORMALIZED: "有标题已被规范成单行。",
     IMPORT_TEXT_SUSPECT_CORRUPTION: "有笔记内容疑似已损坏。",
     IMPORT_NO_MARKDOWN_FILE: "目录里没有可导入的 Markdown 文件。",
-    IMPORT_SELECTION_EMPTY: "当前预览没有可导入候选。",
+    IMPORT_SELECTION_EMPTY: "当前预览没有可导入内容。",
     IMPORT_PAYLOAD_INVALID: "导入参数格式不正确。",
     IMPORT_RECORD_NOT_FOUND: "没有找到这条导入记录。",
     IMPORT_STATUS_INVALID: "这条导入记录当前不能继续。",
@@ -148,7 +148,7 @@ export function resultMetrics(payload = {}) {
     push("来源", importConnectorLabel(payload.connector));
     push("状态", statusValue(payload.status));
     const summary = payload.summary || {};
-    push("候选", `${Number(summary.sources || 0)} 来源 / ${Number(summary.literatureNotes || 0)} 文献 / ${Number(summary.permanentNotes || 0)} 永久`);
+    push("可导入内容", `${Number(summary.sources || 0)} 来源 / ${Number(summary.literatureNotes || 0)} 文献 / ${Number(summary.permanentNotes || 0)} 永久`);
     if (Number(summary.warnings || 0) > 0) push("警告", Number(summary.warnings || 0));
     return metrics;
   }
@@ -274,7 +274,7 @@ function actionableTextForCode(code) {
     IMPORT_TITLE_NORMALIZED: "检查标题是否符合预期，必要时先修正源文件标题。",
     IMPORT_TEXT_SUSPECT_CORRUPTION: "源文件内容疑似已损坏；先修正编码或原文后再导入。",
     IMPORT_NO_MARKDOWN_FILE: "确认目录里有可导入的 Markdown 文件。",
-    IMPORT_SELECTION_EMPTY: "当前预览没有可导入候选；请先处理被跳过的文件或重新预览。",
+    IMPORT_SELECTION_EMPTY: "当前预览没有可导入内容；请先处理被跳过的文件或重新预览。",
     IMPORT_PAYLOAD_INVALID: "检查连接器和 JSON 格式。",
     IMPORT_RECORD_NOT_FOUND: "确认这条记录属于当前 Vault。",
     IMPORT_STATUS_INVALID: "这条记录当前不能执行这个操作。",
@@ -341,7 +341,7 @@ export function actionItems(payload = {}, warnings = []) {
   }
 
   if (String(payload.stage || "").trim() === "preview" && previewCandidateTotal(payload) === 0) {
-    actions.push("当前预览没有可导入候选；请先处理被跳过的文件或重新预览。");
+    actions.push("当前预览没有可导入内容；请先处理被跳过的文件或重新预览。");
   }
 
   return uniqueStrings(actions).slice(0, 3);
@@ -359,11 +359,11 @@ export function resultBrief(payload = {}, tone = resultTone(payload)) {
   const stage = String(payload.stage || "").trim();
   if (tone === "bad") return "这一步没有完成，请先处理下面的问题。";
   if (stage === "preview" && previewCandidateTotal(payload) === 0) {
-    return "当前没有可确认导入的候选，请先处理警告里的文件问题。";
+    return "当前没有可确认导入的内容，请先处理警告里的文件问题。";
   }
   if (tone === "warn") return "可以继续，但建议先处理警告。";
   const briefs = {
-    preview: "检查候选内容，确认后再导入。",
+    preview: "检查可导入内容，确认后再导入。",
     confirm: "内容已经写入，可继续整理或写作。",
     cancel: "这次导入没有写入任何新内容。",
     record: "你可以继续确认、回滚，或仅查看这次记录。",

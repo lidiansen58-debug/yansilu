@@ -22,7 +22,7 @@ export async function openDistillationQueueNoteRoute(noteId = "", deps = {}) {
   if (opened) {
     state.inspectorVisible = false;
     editor?.setInspectorVisible?.(false);
-    setStatus("已从观点整理队列打开笔记", "ok");
+    setStatus("已从观点整理待处理列表打开笔记", "ok");
   }
   renderAll();
   queueMicrotaskRef?.(() => {

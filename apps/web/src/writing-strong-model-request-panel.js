@@ -42,7 +42,7 @@ export function renderWritingStrongModelRequestDetailDom(deps = {}, { noteIds = 
       <li>使用笔记：${escapeHtml(notes.map((note) => `${note.title || note.id}（${note.id}）`).join("；"))}</li>
       <li>写作目标：${escapeHtml(goal)}</li>
       <li>目标读者：${escapeHtml(audience)}</li>
-      <li>状态：${escapeHtml(request ? "请求包已准备，确认后处理返回建议" : strongModelReady ? "条件已满足，可以准备请求包" : "等待可写主题、关系读取或相关笔记成熟度满足")}</li>
+      <li>状态：${escapeHtml(request ? "写作检查建议已准备，确认后处理返回建议" : strongModelReady ? "条件已满足，可以准备写作检查" : "等待可写主题、关系读取或相关笔记成熟度满足")}</li>
     </ul>
     <strong>准备问模型什么</strong>
     <ul>${plannedQuestions.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}</ul>

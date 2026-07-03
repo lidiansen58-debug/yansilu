@@ -17,10 +17,10 @@ export function graphNodeAttentionReasons(node = {}, { selected = false, inSelec
   if (selected) reasons.push("当前选中");
   if (node.isFocused) reasons.push("当前焦点");
   if (node.isGraphIsolatedCandidate || selectedIsolated) reasons.push("待关联笔记");
-  if (inSelectedTheme) reasons.push("主题索引成员");
+  if (inSelectedTheme) reasons.push("可写主题成员");
   if (inSelectedBridge) reasons.push("桥接推荐两端");
   if (node.isHub && !node.isFocused) reasons.push("关系最密集");
-  if (node.isAnchor && !node.isHub) reasons.push("主题索引核心");
+  if (node.isAnchor && !node.isHub) reasons.push("可写主题核心");
   if (!node.isGraphIsolatedCandidate && Number(node.degree || 0) >= 4) reasons.push("连接较多");
   return uniqueStrings(reasons);
 }
@@ -216,7 +216,7 @@ export function graphThemeBoundaryMeta({ nodes = [], noteIds = [], title = "", l
     count: members.length,
     title: String(title || "待验证主题").trim() || "待验证主题",
     tone: broad ? "is-broad" : compact ? "is-compact" : "is-cluster",
-    label: broad ? "松散主题范围" : compact ? "小型主题索引" : "主题索引范围"
+    label: broad ? "松散主题范围" : compact ? "小型可写主题" : "可写主题范围"
   };
 }
 

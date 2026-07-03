@@ -51,7 +51,7 @@ function resultFocusLabel(reason = "") {
     invalid: "警告跳过",
     conflicted: "文件冲突跳过"
   };
-  return labels[String(reason || "").trim()] || "候选项";
+  return labels[String(reason || "").trim()] || "可选择目标";
 }
 
 function renderExcludedCandidateSummary(candidatePreview, options = {}) {
@@ -60,7 +60,7 @@ function renderExcludedCandidateSummary(candidatePreview, options = {}) {
   if (!excludedItems.length) return "";
   return `
     <div class="candidate-summary candidate-summary-warn">
-      <div class="candidate-summary-title">未写入候选</div>
+      <div class="candidate-summary-title">未写入内容</div>
       <div class="candidate-summary-list">
         ${excludedItems
           .slice(0, 6)
@@ -115,7 +115,7 @@ export function renderConfirmSkipBreakdown(payload = {}, candidatePreview = null
           `
         )
         .join("")}
-      ${candidatePreview && unselected > 0 ? `<span class="toolbar-note">可查看未写入候选</span>` : ""}
+      ${candidatePreview && unselected > 0 ? `<span class="toolbar-note">可查看未写入内容</span>` : ""}
     </div>
   `;
 }

@@ -113,11 +113,11 @@ export function renderDistillationPanelView(input = {}, deps = {}) {
         <div class="distillation-card-head">
           <div>
             <div class="import-card-kicker">Queue</div>
-            <strong>观点整理队列</strong>
+            <strong>观点整理待处理</strong>
           </div>
           <button class="mini-btn is-ghost" id="btnDistillationRefresh" type="button">刷新</button>
         </div>
-        <div class="distillation-filters" role="group" aria-label="观点整理队列筛选">${filtersHtml}</div>
+        <div class="distillation-filters" role="group" aria-label="观点整理待处理筛选">${filtersHtml}</div>
         <div class="distillation-queue">${rows}</div>
       </section>
     </div>

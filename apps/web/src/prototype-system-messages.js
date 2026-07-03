@@ -78,7 +78,7 @@ export function systemMessageDisplayTitle(message = {}, notes = []) {
   }
   if (subject && !title.includes(subject)) {
     if (title === "写作分析产生了待确认建议") return `${subject} 可以继续整理成主题`;
-    if (title === "AI 写作检查请求包已准备") return `${subject} 可以继续整理成主题`;
+    if (title === "AI 写作检查内容已准备") return `${subject} 可以继续整理成主题`;
     if (title === "计划任务产生了待确认建议") return `${subject} 有待处理建议`;
     if (title.endsWith("产生了待确认建议")) return `${subject} 有待确认建议`;
   }

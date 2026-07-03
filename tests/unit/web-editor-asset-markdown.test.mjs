@@ -396,7 +396,7 @@ test("validateLiteratureTemplateSource rejects short templates that do not look 
 
 ## 核心观点
 
-## 关联线索
+## 相关笔记
 `);
 
   assert.equal(validation.ok, false);
@@ -412,7 +412,7 @@ test("validateLiteratureTemplateSource rejects permanent-note skeletons even whe
 
 ## 证据 / 来源
 
-## 关联线索
+## 相关笔记
 
 ## 边界 / 反例
 `);
@@ -485,7 +485,7 @@ Intro paragraph stays outside sections.
 
 Claim that can stand on its own.
 
-## 关联线索
+## 相关笔记
 
 - [[Source note]]
 `);
@@ -526,7 +526,7 @@ test("composePermanentWorkspace omits empty optional sections in saved Markdown"
 
   assert.match(markdown, /^# Permanent note/m);
   assert.match(markdown, /## 核心观点/);
-  assert.match(markdown, /## 关联线索/);
+  assert.match(markdown, /## 相关笔记/);
   assert.doesNotMatch(markdown, /## 为什么成立/);
   assert.doesNotMatch(markdown, /## 补充内容/);
 });
@@ -542,7 +542,7 @@ A stable claim.
 
 This custom section should stay top-level.
 
-## 关联线索
+## 相关笔记
 
 - [[Related note]]
 `);
@@ -607,7 +607,7 @@ A stable claim.
 
 Custom before related.
 
-## 关联线索
+## 相关笔记
 
 - [[Related note]]
 `);
@@ -627,7 +627,7 @@ Custom before related.
   );
 
   const customIndex = markdown.indexOf("## 自定义问题");
-  const relatedIndex = markdown.indexOf("## 关联线索");
+  const relatedIndex = markdown.indexOf("## 相关笔记");
   assert.notEqual(customIndex, -1);
   assert.notEqual(relatedIndex, -1);
   assert.ok(customIndex < relatedIndex, markdown);
@@ -724,7 +724,7 @@ Claim one.
 
 Claim two.
 
-## \u5173\u8054\u7ebf\u7d22
+## 相关笔记
 
 - [[Related note]]
 `);
@@ -770,9 +770,25 @@ Claim one.
 
 Claim two.
 
-## \u5173\u8054\u7ebf\u7d22
+## 相关笔记
 
 - [[Related note]]
 `
   );
+});
+
+test("parsePermanentWorkspace keeps legacy related clue headings compatible", () => {
+  const parsed = parsePermanentWorkspace(`# Permanent note
+
+## 核心观点
+
+A stable claim.
+
+## 关联线索
+
+- [[Legacy related note]]
+`);
+
+  assert.equal(parsed.relatedClues, "- [[Legacy related note]]");
+  assert.ok(parsed.sectionLayout.some((section) => section.kind === "known" && section.key === "relatedClues"));
 });

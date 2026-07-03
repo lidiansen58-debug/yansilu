@@ -58,7 +58,7 @@ export function createInitialState() {
       },
       {
         id: "pn_002",
-        title: "主题索引是写作入口",
+        title: "可写主题是写作入口",
         folderId: "dir_original_method",
         noteType: "permanent",
         body: "索引不是标签集合，而是路径入口。\n\n[[写作应从永久笔记中生长]] #索引",

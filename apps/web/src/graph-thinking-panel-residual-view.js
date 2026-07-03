@@ -235,7 +235,7 @@ function renderGraphAiAnalysisCard(options = {}) {
               ? `
                 <div class="graph-metrics" aria-label="AI 图谱初判摘要">
                   ${renderGraphMetricCard("待确认项", pendingCount, "当前图谱内处理", pendingCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("主题索引推荐", topicCount, "确认后才会保存", topicCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("可写主题推荐", topicCount, "确认后才会保存", topicCount ? "warn" : "good")}
                   ${renderGraphMetricCard("关系推荐", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
                   ${renderGraphMetricCard("可能相关/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
                 </div>
@@ -277,7 +277,7 @@ function renderGraphQuestionSpotChip(summary = {}) {
 }
 function graphThinkingFilterMeta(value = "all") {
   const key = String(value || "all").trim().toLowerCase();
-  if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成主题索引笔记的聚集。" };
+  if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成可写主题的聚集。" };
   if (key === "organize") return { key: "organize", label: "整理", note: "只看孤立、桥接、关系确认和错位推荐理由。" };
   return { key: "all", label: "全部", note: "按优先级列出当前最值得继续判断的地方。" };
 }

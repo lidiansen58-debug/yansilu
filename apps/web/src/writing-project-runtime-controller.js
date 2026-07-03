@@ -194,7 +194,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
     }
     const confirmed =
       typeof window === "undefined" ||
-      window.confirm("这会为远程模型准备写作检查请求。当前实现不会直接调用模型，但请求包包含相关笔记摘要。继续？");
+      window.confirm("这会为远程模型准备写作检查内容。当前实现不会直接调用模型，但会包含相关笔记摘要。继续？");
     const actionPlan = writingStrongModelAnalysisPlan({
       noteIds,
       project: writingState.project,
@@ -223,7 +223,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
         artifactCount
       });
       if (systemMessage) addSystemMessage(systemMessage, writingAnalysisSystemMessageDeliveryOptions({ artifactCount }));
-      setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
+      setStatus(`已准备 ${model} 写作检查内容，尚未直接调用远程模型`, "ok");
     } catch (error) {
       if (writingState.strongModelRevision !== requestRevision) return;
       writingState.strongModelError = String(error?.message || error);

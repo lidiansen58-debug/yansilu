@@ -49,7 +49,7 @@ export function candidateBadge(item = {}) {
     blocked: "阻断",
     pass: "通过",
     draft: "草稿",
-    candidate: "候选"
+    candidate: "可选择目标"
   };
   return labels[String(value || "").trim()] || String(value || "");
 }

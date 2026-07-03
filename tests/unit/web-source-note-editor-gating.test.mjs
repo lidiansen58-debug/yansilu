@@ -187,7 +187,7 @@ test("editor inspector shows source-note promote flow instead of relation panels
   assert.match(pane.els.result.innerHTML, /这里只有创建永久笔记的下一步；正式关联整理请在永久笔记里继续/);
   assert.match(pane.els.result.innerHTML, /可以生成永久笔记/);
   assert.match(pane.els.result.innerHTML, /生成状态[\s\S]*未生成/);
-  assert.match(pane.els.result.innerHTML, /随笔只负责抓住线索；值得长期保留时/);
+  assert.match(pane.els.result.innerHTML, /随笔只负责抓住还不稳定的想法；值得长期保留时/);
   assert.match(pane.els.result.innerHTML, /data-source-note-action="record-permanent"[\s\S]*>生成永久笔记</);
   assert.match(pane.els.result.innerHTML, /data-source-note-action="dismiss-fleeting-cleanup"[\s\S]*>标记稍后清理</);
   assert.match(pane.els.result.innerHTML, /source-promotion-panel/);
@@ -976,7 +976,7 @@ A stable claim.
 
 ## 为什么成立
 
-## 关联线索
+## 相关笔记
 
 - [[Related note]]
 
@@ -987,7 +987,7 @@ This custom section should stay top-level.
 
   assert.match(normalized, /^# Permanent note/m);
   assert.match(normalized, /## 核心观点/);
-  assert.match(normalized, /## 关联线索/);
+  assert.match(normalized, /## 相关笔记/);
   assert.match(normalized, /## 自定义问题/);
   assert.match(normalized, /This custom section should stay top-level\./);
   assert.doesNotMatch(normalized, /## 为什么成立/);

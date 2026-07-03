@@ -55,7 +55,7 @@ test("graph visual geometry reports attention reasons without duplicates", () =>
       { isFocused: true, isAnchor: true, degree: 5 },
       { selected: true, inSelectedTheme: true }
     ),
-    ["当前选中", "当前焦点", "主题索引成员", "主题索引核心", "连接较多"]
+    ["当前选中", "当前焦点", "可写主题成员", "可写主题核心", "连接较多"]
   );
 });
 
@@ -123,7 +123,7 @@ test("graph visual geometry builds theme boundary metadata around member nodes",
 
   assert.equal(meta.count, 2);
   assert.equal(meta.title, "主题");
-  assert.equal(meta.label, "小型主题索引");
+  assert.equal(meta.label, "小型可写主题");
   assert.equal(meta.tone, "is-compact");
   assert.ok(meta.width >= 96);
   assert.ok(meta.height >= 78);
