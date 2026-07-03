@@ -126,6 +126,15 @@ export function createGraphThinkingPanelResidualView(deps = {}) {
     graphWritingCandidateNoteIds,
     GRAPH_CONFLICT_RELATION_TYPES,
   } = deps;
+const fallbackGraphCandidateEndpointIds = (candidate = {}) => ({
+  sourceNoteId: String(candidate.fromNoteId || candidate.sourceNoteId || candidate.actionSourceNoteId || (Array.isArray(candidate.noteIds) ? candidate.noteIds[0] : "") || "").trim(),
+  targetNoteId: String(candidate.toNoteId || candidate.targetNoteId || candidate.counterpartNoteId || (Array.isArray(candidate.targetNoteIds) ? candidate.targetNoteIds[0] : "") || (Array.isArray(candidate.noteIds) ? candidate.noteIds[1] : "") || "").trim()
+});
+const resolveGraphCandidateEndpointIds = typeof graphCandidateEndpointIds === "function"
+  ? graphCandidateEndpointIds
+  : typeof deps.computeGraphCandidateEndpointIds === "function"
+    ? deps.computeGraphCandidateEndpointIds
+    : fallbackGraphCandidateEndpointIds;
 function renderRelationReviewQueueSection(reviewQueue, options = {}) {
   return renderRelationReviewQueueSectionView(reviewQueue, options, {
     escapeHtml,
@@ -153,7 +162,7 @@ const graphThinkingModelRuntimeDeps = createGraphThinkingModelRuntimeDepsProvide
     graphAiAnalysisPayload,
     graphBridgeSelectionKey,
     graphCandidateCanSaveRelation,
-    graphCandidateEndpointIds,
+    graphCandidateEndpointIds: resolveGraphCandidateEndpointIds,
     graphCandidateTouchesNodeScope,
     graphComputedIsolatedNotes,
     graphExistingRelationPairKeys,
@@ -333,7 +342,7 @@ function graphRelationTouchesNodeScope(edge = {}, nodeIds = new Set()) {
 }
 function graphCandidateTouchesNodeScope(candidate = {}, nodeIds = new Set()) {
   if (!nodeIds?.size) return true;
-  const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
+  const { sourceNoteId, targetNoteId } = resolveGraphCandidateEndpointIds(candidate);
   return Boolean((sourceNoteId && nodeIds.has(sourceNoteId)) || (targetNoteId && nodeIds.has(targetNoteId)));
 }
 function graphBridgeGapInNodeScope(gap = {}, nodeIds = new Set()) {
