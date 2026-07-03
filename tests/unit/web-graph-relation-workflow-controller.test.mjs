@@ -24,8 +24,8 @@ test("relation workflow route opens isolated organizing from queue actions", () 
   }));
 
   assert.equal(route.ok, true);
-  assert.equal(route.workflowTab, "candidates");
-  assert.deepEqual(route.selection, { kind: "isolated", isolatedKey: "iso-key", noteId: "note-a" });
+  assert.equal(route.workflowTab, "ai");
+  assert.deepEqual(route.selection, { kind: "relationForm", returnTo: "isolated", isolatedKey: "iso-key", noteId: "note-a" });
 });
 
 test("relation workflow route opens relation form and remembers isolated return", () => {
@@ -41,7 +41,7 @@ test("relation workflow route opens relation form and remembers isolated return"
 
   assert.equal(route.ok, true);
   assert.equal(route.workflowTab, "manual");
-  assert.equal(route.statusText, "已在图谱内打开关系确认表单");
+  assert.equal(route.statusText, "已在当前建联流程中带入目标笔记");
   assert.deepEqual({ ...route.selection, entryRoute: undefined }, {
     kind: "relationForm",
     noteId: "note-a",
@@ -53,6 +53,19 @@ test("relation workflow route opens relation form and remembers isolated return"
   });
   assert.equal(route.selection.entryRoute.source, "graph-node");
   assert.equal(route.selection.entryRoute.returnTo, "graph");
+});
+
+test("relation workflow route preserves isolated return from an active relation form", () => {
+  const route = graphRelationWorkflowFormSelectionFromAction(
+    action({
+      "data-graph-relation-source": "note-a",
+      "data-graph-target-note": "note-b"
+    }),
+    { currentSelection: { kind: "relationForm", noteId: "note-a", returnTo: "isolated" } }
+  );
+
+  assert.equal(route.ok, true);
+  assert.equal(route.selection.returnTo, "isolated");
 });
 
 test("relation workflow route keeps isolated selection after AI connect when note is still unconnected", () => {
@@ -147,5 +160,24 @@ test("relation workflow controller mutates graph state only through route method
     returnTo: "isolated",
     entryRoute: undefined
   });
-  assert.deepEqual(calls.map((call) => call[0]), ["tab", "render", "status"]);
+  assert.deepEqual(calls.map((call) => call[0]), ["tab", "open", "status"]);
+});
+
+test("relation workflow controller opens isolated flows through the graph selection hook", () => {
+  const graphState = { selection: { kind: "node", nodeId: "old" } };
+  const calls = [];
+  const controller = createGraphRelationWorkflowController({
+    graphState,
+    setWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
+    openGraphSelection: (selection) => {
+      graphState.selection = selection;
+      calls.push(["open", selection]);
+    },
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (text, cls) => calls.push(["status", text, cls])
+  });
+
+  assert.equal(controller.openIsolatedFromAction({ noteId: "note-a" }), true);
+  assert.deepEqual(graphState.selection, { kind: "relationForm", returnTo: "isolated", noteId: "note-a" });
+  assert.deepEqual(calls.map((call) => call[0]), ["tab", "open", "status"]);
 });

@@ -163,6 +163,8 @@ function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new
   const title = graphNodeTitle(nodeMap, noteId, note.title || "当前笔记");
   const targetNoteId = String(selection?.targetNoteId || "").trim();
   const targetTitle = targetNoteId ? graphNodeTitle(nodeMap, targetNoteId, targetNoteId) : "";
+  const returnTo = String(selection?.returnTo || "").trim().toLowerCase();
+  const savesIntoIsolatedFlow = returnTo === "isolated";
   const visibleEdgeCount = computeGraphDirectNetworkEdgeCount(noteId, edges, {
     relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
   });
@@ -180,11 +182,14 @@ function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new
       preferredTargetNoteId: targetNoteId,
       preferredRelationType: selection?.relationType || "",
       preferredRationale: selection?.rationale || "",
-      heading: targetTitle ? "确认这条关系" : "手工选择一条相关笔记",
+      heading: targetTitle ? "确认这条关系" : "建立关系",
       helper: targetTitle
-        ? "目标笔记已带入；只需要确认关系类型和理由，保存后仍留在图谱中。"
-        : "输入关键词选择目标笔记，再写一句为什么相连。保存后仍留在图谱中。",
-      saveHint: "保存后仍留在当前图谱。"
+        ? "目标笔记已带入；选关系类型，写一句理由后保存。"
+        : "先用 AI 推荐或手动搜索选择目标，再选关系类型，写一句理由后保存。",
+      saveHint: savesIntoIsolatedFlow
+        ? "保存后这条笔记会退出未关联状态，并自动进入下一条。"
+        : "保存后会留在当前图谱。",
+      isolatedFlow: savesIntoIsolatedFlow
     }),
     actions: ""
   });

@@ -20,9 +20,7 @@ export function graphRelationSaveSelection({ previousSelection = null, button = 
     previousSelectionKind === "isolated" ||
     previousSelectionKind === "isolatedcomplete" ||
     (previousSelectionKind === "relationform" && String(previousSelection?.returnTo || "").trim().toLowerCase() === "isolated") ||
-    Boolean(button?.closest?.("[data-graph-isolated-relation-form]")) ||
-    Boolean(button?.closest?.(".graph-isolated-join")) ||
-    Boolean(button?.closest?.(".graph-selection-panel.is-relation-form")) ||
+    Boolean(button?.closest?.("[data-graph-isolated-flow]")) ||
     Boolean(button?.closest?.(".graph-selection-panel.is-isolated"));
   return savingFromIsolatedFlow ? { kind: "isolatedComplete", noteId } : { kind: "node", nodeId: noteId };
 }

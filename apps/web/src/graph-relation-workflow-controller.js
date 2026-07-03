@@ -23,11 +23,12 @@ export function graphRelationWorkflowIsolatedSelectionFromAction(action = null) 
   return {
     ok: true,
     reason: "",
-    workflowTab: "candidates",
-    statusText: "已打开待关联笔记整理",
+    workflowTab: "ai",
+    statusText: "已打开建联流程",
     noteId,
     selection: {
-      kind: "isolated",
+      kind: "relationForm",
+      returnTo: "isolated",
       ...(isolatedKey ? { isolatedKey } : {}),
       ...(noteId ? { noteId } : {})
     }
@@ -42,12 +43,13 @@ export function graphRelationWorkflowFormSelectionFromAction(action = null, { cu
   const relationType = cleanKind(entryRoute.relationType || action?.relationType || "associated_with") || "associated_with";
   const rationale = cleanText(entryRoute.rationaleDraft || action?.rationale);
   const previousSelectionKind = cleanKind(currentSelection?.kind);
-  const returnTo = previousSelectionKind === "isolated" || previousSelectionKind === "isolatedcomplete" ? "isolated" : "";
+  const previousReturnTo = cleanKind(currentSelection?.returnTo);
+  const returnTo = previousSelectionKind === "isolated" || previousSelectionKind === "isolatedcomplete" || previousReturnTo === "isolated" ? "isolated" : "";
   return {
     ok: true,
     reason: "",
     workflowTab: "manual",
-    statusText: targetNoteId ? "已在图谱内打开关系确认表单" : "已在图谱内打开手动关联表单",
+    statusText: targetNoteId ? "已在当前建联流程中带入目标笔记" : "已在当前建联流程中打开手动搜索",
     noteId,
     selection: {
       kind: "relationForm",
@@ -140,15 +142,24 @@ export function graphNormalizeRelationWorkflowSelection(
 export function createGraphRelationWorkflowController({
   graphState = {},
   setWorkflowActiveTab = () => "",
-  openGraphSelection = () => {},
+  openGraphSelection = null,
   renderGraphPanel = () => {},
   setStatus = () => {}
 } = {}) {
+  const applySelection = (selection = null) => {
+    graphState.selection = selection;
+    if (typeof openGraphSelection === "function") {
+      openGraphSelection(selection);
+      return;
+    }
+    renderGraphPanel();
+  };
+
   const openIsolatedFromAction = (action = null) => {
     const route = graphRelationWorkflowIsolatedSelectionFromAction(action);
     if (!route.ok) return false;
     if (route.noteId) setWorkflowActiveTab(route.noteId, route.workflowTab);
-    openGraphSelection(route.selection);
+    applySelection(route.selection);
     setStatus(route.statusText, "ok");
     return true;
   };
@@ -157,8 +168,7 @@ export function createGraphRelationWorkflowController({
     const route = graphRelationWorkflowFormSelectionFromAction(action, { currentSelection: graphState.selection });
     if (!route.ok) return false;
     setWorkflowActiveTab(route.noteId, route.workflowTab);
-    graphState.selection = route.selection;
-    renderGraphPanel();
+    applySelection(route.selection);
     setStatus(route.statusText, "ok");
     return true;
   };
@@ -166,7 +176,7 @@ export function createGraphRelationWorkflowController({
   const startAiConnectForNote = (noteId = "") => {
     const cleanNoteId = cleanText(noteId);
     if (!cleanNoteId) return false;
-    setWorkflowActiveTab(cleanNoteId, "candidates");
+    setWorkflowActiveTab(cleanNoteId, "ai");
     renderGraphPanel();
     return true;
   };

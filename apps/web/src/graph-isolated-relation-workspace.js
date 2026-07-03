@@ -93,13 +93,14 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
     preferredRelationType = "",
     preferredRationale = "",
     heading = "这条永久笔记还没有进入关系网",
-    helper = "选择一条相关的永久笔记，说明它们是什么关系，再保存。",
-    saveHint = "保存后会立即建立正式关系，并从待关联列表中移除。",
+    helper = "先用 AI 推荐或手动搜索选择目标，再选关系类型，写一句理由后保存。",
+    saveHint = "保存后这条笔记会退出未关联状态，并自动进入下一条。",
     relationDraft = null,
     aiCandidates = null,
     manualTargets = null,
     loading = false,
-    hasAnalysis = false
+    hasAnalysis = false,
+    isolatedFlow = true
   } = {},
   deps = {}
 ) {
@@ -202,20 +203,20 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
         </div>
         <span>${escapeHtml(statusText)}</span>
       </div>
-      <form class="graph-isolated-relation-form" data-graph-isolated-relation-form data-source-note="${escapeHtml(cleanNoteId)}" data-source-title="${escapeHtml(sourceTitle)}">
+      <form class="graph-isolated-relation-form" data-graph-isolated-relation-form${isolatedFlow ? " data-graph-isolated-flow" : ""} data-source-note="${escapeHtml(cleanNoteId)}" data-source-title="${escapeHtml(sourceTitle)}">
         <div class="graph-isolated-mode-switch" role="tablist" aria-label="选择目标笔记方式">
-          <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">AI 找可能关联</button>
-          <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">手动搜索关联</button>
+          <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">AI 推荐目标</button>
+          <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">手动搜索目标</button>
         </div>
         <input type="hidden" data-graph-relation-source-mode value="${escapeHtml(activeMode)}">
         <div class="graph-isolated-target-panel"${activeMode === "ai" ? "" : " hidden"} data-graph-target-panel="ai">
           <label class="graph-isolated-field">
-            <span>选择推荐笔记</span>
+            <span>选择 AI 推荐目标</span>
             <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
               ${aiOptions || `<option value="">暂时没有可靠推荐</option>`}
             </select>
           </label>
-          <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "重新查找" : "AI 找可能关联")}</button>
+          <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "重新推荐" : "AI 推荐目标")}</button>
           ${!resolvedAiCandidates.length && resolvedHasAnalysis ? `<p class="graph-isolated-helper">暂时没有足够可靠的推荐，可以改用手动搜索。</p>` : ""}
         </div>
         <div class="graph-isolated-target-panel"${activeMode === "manual" ? "" : " hidden"} data-graph-target-panel="manual">
@@ -242,7 +243,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
         <input type="hidden" data-graph-isolated-insight-question value="${escapeHtml(hasActiveInsightQuestionDraft ? draftInsightQuestion : activeAiCandidate?.insightQuestionDraft || "")}">
         <div class="graph-isolated-form-error" data-graph-isolated-form-error></div>
         <div class="graph-isolated-form-actions">
-          <button class="graph-selection-action is-primary" type="button" data-graph-isolated-relation-save>保存并接入关系网</button>
+          <button class="graph-selection-action is-primary" type="button" data-graph-isolated-relation-save>保存并处理下一条</button>
           <span>${escapeHtml(saveHint)}</span>
         </div>
       </form>

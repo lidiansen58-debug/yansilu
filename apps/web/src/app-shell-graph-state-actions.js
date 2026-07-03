@@ -37,6 +37,10 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
     explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
     explorer?.collapseDisconnectedGroup?.(graphOriginalScopeDirectoryId, { auto: true });
     if (payload.source === "import-result") {
+      if (graphRelationWorkflowController?.openIsolatedFromAction?.({ noteId })) {
+        setStatus("已打开建联流程。选择目标笔记，写一句理由并保存。", "ok");
+        return true;
+      }
       setGraphIsolatedWorkflowActiveTab(noteId, "manual");
       openGraphSelection({ kind: "relationForm", noteId, returnTo: "isolated" });
       setStatus("已打开未关联笔记的关系建立表单。选择一条相关笔记，写一句理由并保存。", "ok");
@@ -46,9 +50,13 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
       graphRelationWorkflowController?.openRelationFormFromAction?.({ noteId: route.noteId, relationType: route.relationType });
       return true;
     }
-    setGraphIsolatedWorkflowActiveTab(route.noteId, route.activeTab || "candidates");
-    openGraphSelection({ kind: "isolated", noteId: route.noteId });
-    setStatus("已打开待关联笔记整理", "ok");
+    if (graphRelationWorkflowController?.openIsolatedFromAction?.({ noteId: route.noteId, isolatedKey: route.isolatedKey })) {
+      return true;
+    }
+    const activeTab = String(route.activeTab || "").trim().toLowerCase();
+    setGraphIsolatedWorkflowActiveTab(route.noteId, ["ai", "manual"].includes(activeTab) ? activeTab : "ai");
+    openGraphSelection({ kind: "relationForm", noteId: route.noteId, returnTo: "isolated" });
+    setStatus("已打开建联流程", "ok");
     return true;
   }
   return handleStateChange(route.kind, { noteId: route.noteId, source: route.source });

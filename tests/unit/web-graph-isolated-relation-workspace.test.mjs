@@ -71,9 +71,26 @@ test("graph isolated relation workspace renders manual targets beyond the first 
 
   assert.match(html, /data-graph-pick-manual-target="target-120"/);
   assert.match(html, /目标预览/);
-  assert.match(html, /手动搜索关联/);
+  assert.match(html, /手动搜索目标/);
   assert.match(html, /搜索目标笔记/);
   assert.doesNotMatch(html, mojibakeCopyPattern);
+});
+
+test("graph relation workspace marks only isolated flows for isolated save handling", () => {
+  const isolatedHtml = renderGraphIsolatedJoinNetworkFlowHtml("source", {
+    nodeMap: new Map([["source", { id: "source", title: "Source", noteType: "permanent" }]]),
+    edges: []
+  }, baseDeps);
+  const ordinaryHtml = renderGraphIsolatedJoinNetworkFlowHtml("source", {
+    nodeMap: new Map([["source", { id: "source", title: "Source", noteType: "permanent" }]]),
+    edges: [],
+    isolatedFlow: false
+  }, baseDeps);
+
+  assert.match(isolatedHtml, /data-graph-isolated-relation-form/);
+  assert.match(isolatedHtml, /data-graph-isolated-flow/);
+  assert.match(ordinaryHtml, /data-graph-isolated-relation-form/);
+  assert.doesNotMatch(ordinaryHtml, /data-graph-isolated-flow/);
 });
 
 test("graph isolated relation workspace keeps manual mode separate from AI rationale", () => {

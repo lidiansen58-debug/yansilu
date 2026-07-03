@@ -347,8 +347,9 @@ function renderGraphIsolatedJoinNetworkFlow(
     preferredRelationType = "",
     preferredRationale = "",
     heading = "这条永久笔记还没有进入关系网",
-    helper = "选择一条相关的永久笔记，说明它们是什么关系，再保存。",
-    saveHint = "保存后会立即建立正式关系，并从待关联列表中移除。"
+    helper = "先用 AI 推荐或手动搜索选择目标，再选关系类型，写一句理由后保存。",
+    saveHint = "保存后这条笔记会退出未关联状态，并自动进入下一条。",
+    isolatedFlow = true
   } = {}
 ) {
   return renderGraphIsolatedJoinNetworkFlowHtml(noteId, {
@@ -361,6 +362,7 @@ function renderGraphIsolatedJoinNetworkFlow(
     heading,
     helper,
     saveHint,
+    isolatedFlow,
     relationDraft: graphState.isolatedRelationDraftByNoteId?.[String(noteId || "").trim()] || {},
     loading: graphState.aiAnalysisLoading === true
   }, {

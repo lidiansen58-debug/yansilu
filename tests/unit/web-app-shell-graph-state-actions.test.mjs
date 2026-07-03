@@ -60,10 +60,32 @@ test("graph state actions open isolated workflow when relation form is not neede
 
   assert.equal(result, true);
   assert.deepEqual(calls, [
-    ["tab", "n1", "review"],
-    ["selection", { kind: "isolated", noteId: "n1" }]
+    ["tab", "n1", "ai"],
+    ["selection", { kind: "relationForm", noteId: "n1", returnTo: "isolated" }]
   ]);
-  assert.deepEqual(status.calls.at(-1), { message: "已打开待关联笔记整理", tone: "ok" });
+  assert.deepEqual(status.calls.at(-1), { message: "已打开建联流程", tone: "ok" });
+});
+
+test("graph state actions route import result through the isolated relation flow", async () => {
+  const status = statusRecorder();
+  const calls = [];
+
+  const result = await handleGraphAssociateNoteStateChange({ noteId: "n1", source: "import-result" }, {
+    state: { module: "graph", selectedFolderId: "folder-1" },
+    graphAssociateNoteRoute: () => ({ kind: "graph-open-isolated", noteId: "n1", activeTab: "ai" }),
+    applyExplorerSelectionContext: () => {},
+    graphRelationWorkflowController: {
+      openIsolatedFromAction: (payload) => {
+        calls.push(["isolated", payload]);
+        return true;
+      }
+    },
+    setStatus: status.setStatus
+  });
+
+  assert.equal(result, true);
+  assert.deepEqual(calls, [["isolated", { noteId: "n1" }]]);
+  assert.deepEqual(status.calls.at(-1), { message: "已打开建联流程。选择目标笔记，写一句理由并保存。", tone: "ok" });
 });
 
 test("graph state actions route non-graph associate actions through host state change", async () => {

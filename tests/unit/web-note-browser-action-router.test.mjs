@@ -37,7 +37,7 @@ test("note browser graph associate route opens isolated workflow in graph and re
       kind: "graph-open-isolated-workflow",
       handled: true,
       noteId: "pn_2",
-      activeTab: "candidates"
+      activeTab: "ai"
     }
   );
 

@@ -26,7 +26,7 @@ export function graphAssociateNoteRoute({ noteId = "", source = "", module = "",
     kind: "graph-open-isolated-workflow",
     handled: true,
     noteId: cleanNoteId,
-    activeTab: "candidates"
+    activeTab: "ai"
   };
 }
 

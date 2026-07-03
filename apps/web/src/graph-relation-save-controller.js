@@ -114,7 +114,14 @@ export function createGraphRelationSaveController({
       const selectionAfterSave = nextSelection.kind === "isolatedComplete"
         ? { ...nextSelection, saveResult }
         : nextSelection;
-      const followUpSelection = selectionAfterSave;
+      const followUpSelection = nextIsolatedSelection
+        ? {
+            ...nextIsolatedSelection,
+            kind: "relationForm",
+            returnTo: "isolated",
+            noteId: nextIsolatedSelection.noteId || nextIsolatedSelection.nodeId || ""
+          }
+        : selectionAfterSave;
       graphState.selection = followUpSelection;
       if (typeof openGraphSelection === "function") {
         openGraphSelection(followUpSelection);
@@ -123,8 +130,12 @@ export function createGraphRelationSaveController({
       }
       setStatus(
         transaction.relation?.created === false
-            ? "这条关系已经存在，已保留在当前处理结果"
-            : "关系已保存，当前笔记已接入关系网",
+            ? nextIsolatedSelection
+              ? "这条关系已经存在，当前笔记已退出未关联状态；已进入下一条。"
+              : "这条关系已经存在，当前笔记已退出未关联状态。"
+            : nextIsolatedSelection
+              ? "关系已保存，当前笔记已退出未关联状态；已进入下一条。"
+              : "关系已保存，当前笔记已退出未关联状态。",
         "ok"
       );
       return true;
