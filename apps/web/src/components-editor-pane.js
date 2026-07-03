@@ -94,6 +94,8 @@ import { EditorRelationLinkController } from "./editor-relation-link-controller.
 import { EditorSemanticRelationsController } from "./editor-semantic-relations-controller.js";
 import { PermanentNoteDistillationController } from "./permanent-note-distillation-controller.js";
 import { PermanentNoteWorkspaceController } from "./permanent-note-workspace-controller.js";
+import { renderPermanentNoteActionPanel } from "./permanent-note-action-panel.js";
+import { buildPermanentNoteMainPathActionModel } from "./permanent-note-main-path-model.js";
 import {
   routeEditorRelationClick,
   routeEditorRelationFocusIn,
@@ -4776,115 +4778,21 @@ export class EditorPane {
       wikilinkCount: overview.wikilinkCount,
       tagRelatedCount: overview.tagRelatedCount
     });
-    const { viewpoint } = architecture;
-    const thesis = viewpoint.thesis;
-    const summary = viewpoint.summary;
-    const confirmed = viewpoint.confirmed;
-    const relationState = architecture.relation.relationState;
-    const explicitRelationCount = Number(architecture.relation.explicitRelationCount || 0);
-    const wikilinkCount = Number(overview.wikilinkCount || 0);
-    const thinExplicitRelationCount = architecture.relation.thinExplicitRelationCount;
     const themeInfo = this.noteThemeSignalSummaryV2(note, overview);
     const writingInfo = this.noteWritingReadinessV2(note, overview);
     const distillationInfo = this.permanentNoteDistillationStepV2(note, overview, writingInfo);
     const writingStep = this.permanentNoteWritingStepV2(note, overview, writingInfo);
-    const { nextStep, summary: noteSummary } = this.permanentNoteMainPathSummaryV2(note, overview);
-    const primaryAction =
-      !thesis || summary.length < 3 || !confirmed
-        ? "distillation"
-        : distillationInfo.focusTarget === "boundary"
-          ? "distillation"
-        : relationState === "loading" || relationState === "error" || explicitRelationCount === 0 || thinExplicitRelationCount > 0
-          ? "relations"
-          : "writing";
-    const steps = [
-      {
-        label: "提炼观点",
-        status: distillationInfo.status,
-        hint: distillationInfo.hint,
-        action: "distillation",
-        actionLabel: distillationInfo.actionLabel,
-        focusTarget: distillationInfo.focusTarget
-      },
-      {
-        label: "整理关系",
-        status:
-          relationState === "loading"
-            ? "读取中"
-            : relationState === "error"
-              ? "读取失败"
-              : explicitRelationCount
-                ? thinExplicitRelationCount > 0
-                  ? `理由待补 ${thinExplicitRelationCount}`
-                  : `已建 ${explicitRelationCount}`
-                : wikilinkCount
-                  ? Number(overview.tagRelatedCount || 0) > 0
-                    ? `正文链接和同标签 ${themeInfo.badgeLabel || String(themeInfo.badge ?? wikilinkCount + Number(overview.tagRelatedCount || 0))}`
-                    : `正文链接 ${wikilinkCount}`
-                  : "待建立",
-        hint:
-          relationState === "loading"
-            ? "先等正式关系读取完成。"
-            : relationState === "error"
-              ? "读取失败，但仍然可以手动补建。"
-                : explicitRelationCount
-                  ? thinExplicitRelationCount > 0
-                    ? "已经连上关系，但还有理由偏薄的连接，先把它写具体。"
-                    : "已经有带理由的关系。"
-                  : wikilinkCount
-                    ? Number(overview.tagRelatedCount || 0) > 0
-                      ? "已经同时有正文链接和标签接近，但还没形成正式关系。先把最关键的关系写出来。"
-                      : "已经有正文链接，下一步把关系为什么成立写清楚。"
-                    : Number(overview.tagRelatedCount || 0) > 0
-                      ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
-                      : "先关联一条真正相关的永久笔记。",
-          action: "relations",
-          actionLabel:
-            thinExplicitRelationCount > 0
-              ? "补关系说明"
-              : wikilinkCount > 0
-                ? Number(overview.tagRelatedCount || 0) > 0
-                  ? "确认成正式关系"
-                  : "补关系说明"
-                : Number(overview.tagRelatedCount || 0) > 0
-                  ? "从同标签补关系"
-                  : "关联一条笔记"
-        },
-      {
-        label: "可写主题",
-        status: themeInfo.status,
-        hint: themeInfo.hint,
-        action: "graph",
-        actionLabel: "看图谱"
-      },
-      {
-        label: "进入写作",
-        status: writingStep.status,
-        hint: writingStep.hint,
-        action: "writing",
-        actionLabel: writingStep.actionLabel,
-        routeMode: writingStep.routeMode
-      }
-    ];
-    const primaryStep = steps.find((step) => step.action === primaryAction) || steps[0];
-    return `
-      <section class="inspector-section permanent-workspace-current" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
-        <div class="inspector-section-head">
-          <div>
-            <div class="inspector-section-title">建议先做</div>
-            <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
-          </div>
-        </div>
-        <div class="main-path-next-card" data-main-path-next-action="${escapeHtml(primaryStep.action)}">
-          <div>
-            <span>${escapeHtml(primaryStep.label)}</span>
-            <strong>${escapeHtml(nextStep)}</strong>
-            <p>${escapeHtml(primaryStep.hint || noteSummary)}</p>
-          </div>
-          <button class="mini-btn primary" type="button" data-note-main-route-action="${escapeHtml(primaryStep.action)}"${primaryStep.focusTarget ? ` data-note-main-route-focus="${escapeHtml(primaryStep.focusTarget)}"` : ""}${primaryStep.routeMode ? ` data-note-main-route-mode="${escapeHtml(primaryStep.routeMode)}"` : ""}>${escapeHtml(primaryStep.actionLabel)}</button>
-        </div>
-      </section>
-    `;
+    const mainPathSummary = this.permanentNoteMainPathSummaryV2(note, overview);
+    const model = buildPermanentNoteMainPathActionModel({
+      note,
+      overview,
+      architecture,
+      themeInfo,
+      distillationInfo,
+      writingStep,
+      mainPathSummary
+    });
+    return renderPermanentNoteActionPanel(model);
   }
 
   legacyBuildMainPathOverview({ forward = [], backward = [], tagRelated = [], relations = null } = {}) {
