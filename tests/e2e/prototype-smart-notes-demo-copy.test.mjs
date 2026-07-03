@@ -23,4 +23,12 @@ test("prototype smart notes demo status uses 项目 wording", async (t) => {
     assert.match(String(statusText || ""), /个项目/);
     assert.doesNotMatch(String(statusText || ""), /个写作项目/);
   }, 15000);
+
+  await waitFor(async () => {
+    const walkthroughText = await page.locator("[data-smart-notes-demo-walkthrough]").textContent();
+    assert.match(String(walkthroughText || ""), /Smart Notes 五步 walkthrough/);
+    assert.match(String(walkthroughText || ""), /看来源变判断/);
+    assert.match(String(walkthroughText || ""), /补一条关系理由/);
+    assert.match(String(walkthroughText || ""), /打开写作中心/);
+  }, 15000);
 });

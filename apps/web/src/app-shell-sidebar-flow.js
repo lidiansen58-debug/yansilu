@@ -1,3 +1,8 @@
+import {
+  buildSmartNotesDemoWalkthrough,
+  renderSmartNotesDemoWalkthrough
+} from "./beginner-onboarding-flow.js";
+
 export function sidebarFlowNoteHasNetworkSignal(note = null, deps = {}) {
   const {
     parseLinks = () => [],
@@ -39,11 +44,20 @@ export function distillationSummaryForSidebarFlow(notes = [], deps = {}) {
   );
 }
 
-export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], originalNotes = [] } = {}, deps = {}) {
+export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], originalNotes = [], allNotes = [], selectedNoteId = "" } = {}, deps = {}) {
   const {
     noteHasGeneratedOriginal = () => false,
     isPermanentLikeNote = () => false
   } = deps;
+  const demoWalkthrough = buildSmartNotesDemoWalkthrough({
+    notes: [
+      ...(Array.isArray(allNotes) ? allNotes : []),
+      ...(Array.isArray(currentNotes) ? currentNotes : []),
+      ...(Array.isArray(originalNotes) ? originalNotes : [])
+    ],
+    selectedNoteId
+  });
+  if (demoWalkthrough) return demoWalkthrough;
   const isOriginal = rootId === "dir_original_default";
   const isFleeting = rootId === "dir_fleeting_default";
   const isLiterature = rootId === "dir_literature_default";
@@ -114,6 +128,9 @@ export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], 
 
 export function renderExplorerSidebarFlowMarkup(flowState = {}, deps = {}) {
   const { escapeHtml = (value) => String(value ?? "") } = deps;
+  if (flowState?.kind === "smart-notes-demo") {
+    return renderSmartNotesDemoWalkthrough(flowState, { escapeHtml });
+  }
   const {
     isOriginal = false,
     title = "",
@@ -157,9 +174,9 @@ export function renderExplorerSidebarFlowMarkup(flowState = {}, deps = {}) {
   `;
 }
 
-export function renderExplorerSidebarFlowForRuntime({ rootId = "", element = null, currentNotes = [], originalNotes = [] } = {}, deps = {}) {
+export function renderExplorerSidebarFlowForRuntime({ rootId = "", element = null, currentNotes = [], originalNotes = [], allNotes = [], selectedNoteId = "" } = {}, deps = {}) {
   if (!element) return null;
-  const flowState = buildExplorerSidebarFlowState({ rootId, currentNotes, originalNotes }, deps);
+  const flowState = buildExplorerSidebarFlowState({ rootId, currentNotes, originalNotes, allNotes, selectedNoteId }, deps);
   element.classList?.remove?.("hidden");
   element.innerHTML = renderExplorerSidebarFlowMarkup(flowState, deps);
   return flowState;
@@ -171,7 +188,8 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     openDistillationModule = async () => {},
     openWritingModule = async () => {},
     state = {},
-    handleStateChange = async () => {}
+    handleStateChange = async () => {},
+    openNoteById = () => false
   } = deps;
   const button = event?.target?.closest?.("[data-sidebar-flow-action]");
   if (!button) return false;
@@ -190,6 +208,25 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     state.browserRootId = "dir_original_default";
     state.selectedFolderId = "dir_original_default";
     await handleStateChange("create-note-in-selected-folder");
+    return true;
+  }
+  if (action === "open-demo-note" || action === "open-demo-note-relations") {
+    const noteId = String(button.dataset?.sidebarFlowNoteId || button.getAttribute?.("data-sidebar-flow-note-id") || "").trim();
+    if (!noteId) return false;
+    activateModule("explorer");
+    openNoteById(noteId, { preferTitleSelection: false });
+    if (action === "open-demo-note-relations") {
+      await handleStateChange("open-note-relations", { noteId, source: "smart-notes-demo-walkthrough" });
+    }
+    return true;
+  }
+  if (action === "open-demo-writing") {
+    activateModule("writing");
+    await openWritingModule();
+    return true;
+  }
+  if (action === "open-demo-review") {
+    activateModule("today");
     return true;
   }
   return false;

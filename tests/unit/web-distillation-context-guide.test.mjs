@@ -38,11 +38,16 @@ test("permanent-note distillation shows one next action and a compact readiness 
   assert.match(html, /data-note-distillation-next/);
   assert.match(html, /data-note-distillation-focus="thesis"/);
   assert.match(html, /data-note-distillation-readiness/);
+  assert.match(html, /data-permanent-note-readiness-card/);
   assert.match(html, /完成条件/);
+  assert.match(html, /可写材料成熟度/);
   assert.match(html, /待提纯/);
   assert.match(html, /一句话判断/);
   assert.match(html, /三句话压缩/);
   assert.match(html, /边界或反方/);
+  assert.match(html, /作者确认/);
+  assert.match(html, /原创确认/);
+  assert.match(html, /正式关系/);
   assert.match(html, /用户确认/);
   assert.match(html, />保存草稿</);
   assert.match(html, />确认观点</);

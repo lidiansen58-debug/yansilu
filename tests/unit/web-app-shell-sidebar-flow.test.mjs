@@ -11,11 +11,15 @@ import {
 } from "../../apps/web/src/app-shell-sidebar-flow.js";
 
 function actionTarget(action) {
+  return actionTargetWithNote(action, "");
+}
+
+function actionTargetWithNote(action, noteId = "") {
   return {
     closest: (selector) => selector === "[data-sidebar-flow-action]"
       ? {
-          dataset: { sidebarFlowAction: action },
-          getAttribute: () => action
+          dataset: { sidebarFlowAction: action, sidebarFlowNoteId: noteId },
+          getAttribute: (name) => name === "data-sidebar-flow-note-id" ? noteId : action
         }
       : null
   };
@@ -65,6 +69,27 @@ test("sidebar flow state builds original-route progress and primary action", () 
   assert.ok(state.topGaps.some((gap) => gap.includes("缺一句话判断")));
 });
 
+test("sidebar flow renders Smart Notes demo walkthrough when demo notes are present", () => {
+  const state = buildExplorerSidebarFlowState({
+    rootId: "dir_demo",
+    selectedNoteId: "PN-SN-101",
+    currentNotes: [
+      { id: "GUIDE-SN-001" },
+      { id: "PN-SN-001" },
+      { id: "PN-SN-101" },
+      { id: "IC-SN-001" },
+      { id: "WP-SN-PM-001" }
+    ],
+    originalNotes: []
+  });
+  const markup = renderExplorerSidebarFlowMarkup(state);
+
+  assert.equal(state.kind, "smart-notes-demo");
+  assert.match(markup, /Smart Notes 五步 walkthrough/);
+  assert.match(markup, /data-sidebar-flow-action="open-demo-note-relations"/);
+  assert.match(markup, /data-sidebar-flow-action="open-demo-writing"/);
+});
+
 test("sidebar flow markup escapes text and renders original primary action", () => {
   const markup = renderExplorerSidebarFlowMarkup({
     isOriginal: true,
@@ -107,7 +132,7 @@ test("sidebar flow runtime renders into the provided element", () => {
 
   assert.equal(flow.isOriginal, false);
   assert.match(element.innerHTML, /Material Route/);
-  assert.match(element.innerHTML, /随笔是线索入口/);
+  assert.match(element.innerHTML, /随笔是想法入口/);
   assert.deepEqual(classes, [["remove", "hidden"]]);
 });
 
@@ -135,6 +160,32 @@ test("sidebar flow actions route to distillation writing and permanent creation"
   ]);
   assert.equal(state.browserRootId, "dir_original_default");
   assert.equal(state.selectedFolderId, "dir_original_default");
+});
+
+test("sidebar flow demo actions open notes, relations, writing, and review", async () => {
+  const calls = [];
+  const deps = {
+    activateModule: (moduleName) => calls.push(["activate", moduleName]),
+    openNoteById: (noteId, options) => calls.push(["open", noteId, options]),
+    openWritingModule: async () => calls.push(["writing"]),
+    handleStateChange: async (reason, payload) => calls.push(["state", reason, payload])
+  };
+
+  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note", "PN-SN-001") }, deps), true);
+  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note-relations", "PN-SN-101") }, deps), true);
+  assert.equal(await handleSidebarFlowAction({ target: actionTarget("open-demo-writing") }, deps), true);
+  assert.equal(await handleSidebarFlowAction({ target: actionTarget("open-demo-review") }, deps), true);
+
+  assert.deepEqual(calls, [
+    ["activate", "explorer"],
+    ["open", "PN-SN-001", { preferTitleSelection: false }],
+    ["activate", "explorer"],
+    ["open", "PN-SN-101", { preferTitleSelection: false }],
+    ["state", "open-note-relations", { noteId: "PN-SN-101", source: "smart-notes-demo-walkthrough" }],
+    ["activate", "writing"],
+    ["writing"],
+    ["activate", "today"]
+  ]);
 });
 
 test("sidebar flow installer reads latest deps when clicked", async () => {

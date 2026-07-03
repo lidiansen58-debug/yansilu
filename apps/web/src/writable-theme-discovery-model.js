@@ -175,6 +175,19 @@ function normalizeCluster(cluster = {}, context = {}) {
   });
   const centralQuestion = cleanText(aiTopic?.centralQuestion || aiTopic?.central_question) || suggestion.centralQuestion;
   const membershipReason = cleanText(aiTopic?.rationale || aiTopic?.summary) || cluster.reason || suggestion.thesis;
+  const keyNotes = suggestion.items.map((item) => cleanText(item.shortLabel || item.noteId)).filter(Boolean);
+  const sharedSignals = uniqueStrings([
+    relationCount ? `${relationCount} 条正式关系` : "",
+    cluster.source === "tags" ? "共享标签" : "",
+    cluster.source === "title_terms" ? "题名/判断信号相近" : "",
+    aiTopic ? "AI 只补充命名和中心问题" : "",
+    cluster.reason
+  ]).slice(0, 4);
+  const gap = noteIds.length < 4
+    ? "最好再补 1 条相关永久笔记，或补清边界/反例后再写。"
+    : relationCount === 0
+      ? "当前主要来自共同信号，保存前最好补一条正式关系理由。"
+      : "保存前确认中心问题是否足够具体，缺口是否值得继续追问。";
   const key = clusterKey(noteIds);
   return {
     id: `suggested-theme:${key}`,
@@ -197,6 +210,14 @@ function normalizeCluster(cluster = {}, context = {}) {
     ],
     membershipReason,
     relationCount,
+    explanation: {
+      commonQuestion: centralQuestion,
+      keyNotes,
+      sharedSignals,
+      membershipReason,
+      gap,
+      confirmationSummary: "确认后会保存一张主题索引笔记：主题名称、中心问题、关键永久笔记和每条笔记的归属理由。不会自动创建文章、草稿或关系。"
+    },
     items: suggestion.items.map((item) => ({
       ...item,
       rationale: item.rationale || membershipReason

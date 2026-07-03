@@ -2767,7 +2767,9 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
     rootId,
     element: $("sidebarFlow"),
     currentNotes: state.notes.filter((note) => directoryIds.has(note.folderId)),
-    originalNotes: state.notes.filter((note) => originalDirectoryIds.has(note.folderId))
+    originalNotes: state.notes.filter((note) => originalDirectoryIds.has(note.folderId)),
+    allNotes: state.notes,
+    selectedNoteId: state.selectedFileId
   }, {
     parseLinks,
     parseTags,
@@ -3118,6 +3120,7 @@ const renderAppShellController = createRenderAppShellController({
     renderDistillationPanel,
     renderGraphPanel,
     renderSettingsPanel,
+    renderExplorerSidebarFlow,
     renderWritingPanel,
     applyFocusModeChrome,
     renderStatusMeta,
@@ -5956,7 +5959,8 @@ installSidebarFlowEventHandler({
     activateModule,
     openDistillationModule,
     openWritingModule,
-    handleStateChange
+    handleStateChange,
+    openNoteById
   })
 });
 

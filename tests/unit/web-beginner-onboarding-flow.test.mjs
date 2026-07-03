@@ -1,0 +1,61 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  buildSmartNotesDemoWalkthrough,
+  isSmartNotesDemoScope,
+  renderSmartNotesDemoWalkthrough,
+  renderWritingBeginnerMainlineView,
+  writingBeginnerMainline
+} from "../../apps/web/src/beginner-onboarding-flow.js";
+
+test("beginner flow detects Smart Notes demo and renders five clickable steps", () => {
+  const notes = [
+    { id: "GUIDE-SN-001" },
+    { id: "PN-SN-001" },
+    { id: "PN-SN-101" },
+    { id: "IC-SN-001" },
+    { id: "WP-SN-PM-001" }
+  ];
+  const flow = buildSmartNotesDemoWalkthrough({ notes, selectedNoteId: "IC-SN-001" });
+  const html = renderSmartNotesDemoWalkthrough(flow);
+
+  assert.equal(isSmartNotesDemoScope(notes), true);
+  assert.equal(flow.steps.length, 5);
+  assert.equal(flow.activeStepKey, "theme-index");
+  assert.equal(flow.steps[0].done, true);
+  assert.equal(flow.steps[2].active, true);
+  assert.match(html, /data-smart-notes-demo-walkthrough/);
+  assert.match(html, /看来源变判断/);
+  assert.match(html, /补一条关系理由/);
+  assert.match(html, /data-sidebar-flow-action="open-demo-note-relations"/);
+  assert.match(html, /打开写作中心/);
+});
+
+test("beginner flow does not treat arbitrary SN-looking notes as the Smart Notes demo", () => {
+  assert.equal(isSmartNotesDemoScope([
+    { id: "MEETING-SN-001" },
+    { id: "PERSONAL-SN-002" }
+  ]), false);
+});
+
+test("writing beginner mainline exposes one stage and one action", () => {
+  const material = writingBeginnerMainline({ basketCount: 0 });
+  const theme = writingBeginnerMainline({
+    basketCount: 3,
+    hasProject: false,
+    projectEntry: { actionLabel: "确定可写主题" }
+  });
+  const aiCheck = writingBeginnerMainline({
+    basketCount: 3,
+    hasProject: true,
+    hasScaffold: true,
+    strongModelReady: true
+  });
+
+  assert.equal(material.label, "先补材料");
+  assert.equal(theme.label, "可保存主题");
+  assert.equal(aiCheck.label, "可做 AI 写作检查");
+  assert.match(renderWritingBeginnerMainlineView(theme), /data-writing-beginner-mainline/);
+  assert.match(renderWritingBeginnerMainlineView(theme), /确定可写主题/);
+});

@@ -4,10 +4,12 @@ import assert from "node:assert/strict";
 import {
   renderDraftVersionCardView,
   renderWritingFlowStepsView,
+  renderWritingMainlineGuideView,
   renderScaffoldVersionCardView,
   renderWritingProjectCardView,
   renderWritingStatusCardView,
   renderWritingToplineMetricView,
+  writingMainlineGuideItem,
   writingFlowStepItems
 } from "../../apps/web/src/writing-workspace-view.js";
 
@@ -59,6 +61,23 @@ test("writing flow step model derives project scaffold and draft state", () => {
   assert.equal(steps[1].done, true);
   assert.equal(steps[2].done, true);
   assert.equal(steps[3].done, false);
+});
+
+test("writing mainline guide exposes beginner-readable stages", () => {
+  assert.equal(writingMainlineGuideItem({ basketCount: 0 }).label, "先补材料");
+  assert.equal(writingMainlineGuideItem({ basketCount: 3, hasProject: false }).label, "可保存主题");
+  assert.equal(writingMainlineGuideItem({ basketCount: 3, hasProject: true, hasScaffold: false }).label, "可生成提纲");
+  assert.equal(writingMainlineGuideItem({
+    basketCount: 3,
+    hasProject: true,
+    hasScaffold: true,
+    strongModelReady: true
+  }).label, "可做 AI 写作检查");
+
+  const html = renderWritingMainlineGuideView({ basketCount: 3, hasProject: false });
+  assert.match(html, /data-writing-beginner-mainline/);
+  assert.match(html, /可保存主题/);
+  assert.match(html, /确定可写主题/);
 });
 
 test("writing project card exposes continuation and scaffold actions", () => {

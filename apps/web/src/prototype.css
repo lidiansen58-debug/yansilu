@@ -18495,6 +18495,18 @@
       white-space: nowrap;
     }
 
+    button.sidebar-flow-step {
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    button.sidebar-flow-step:hover,
+    button.sidebar-flow-step:focus-visible {
+      border-color: rgba(15, 118, 110, 0.28);
+      color: #0f655f;
+      outline: none;
+    }
+
     .sidebar-flow-step::before {
       content: "";
       flex: 0 0 5px;

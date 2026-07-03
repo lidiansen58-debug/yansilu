@@ -27,8 +27,20 @@ function renderSuggestionNote(item = {}, escapeHtml = (value) => String(value ??
   `;
 }
 
+function renderExplanationList(label = "", items = [], escapeHtml = (value) => String(value ?? "")) {
+  const cleanItems = (Array.isArray(items) ? items : []).map(cleanText).filter(Boolean);
+  if (!cleanItems.length) return "";
+  return `
+    <div class="writing-summary">
+      <strong>${escapeHtml(label)}</strong>
+      <div>${cleanItems.map((item) => `<span class="inspector-chip">${escapeHtml(item)}</span>`).join(" ")}</div>
+    </div>
+  `;
+}
+
 function renderSuggestionCard(suggestion = {}, escapeHtml = (value) => String(value ?? "")) {
   const disabled = suggestion.canSave ? "" : " disabled";
+  const explanation = suggestion.explanation || {};
   return `
     <article class="writing-theme-detail-card" data-theme-discovery-suggestion-id="${escapeHtml(suggestion.id)}">
       <div class="writing-theme-detail-head">
@@ -44,6 +56,18 @@ function renderSuggestionCard(suggestion = {}, escapeHtml = (value) => String(va
         <textarea data-theme-discovery-field="centralQuestion" rows="2">${fieldValue(suggestion.centralQuestion, escapeHtml)}</textarea>
         <label>为什么这些笔记属于同一主题</label>
         <textarea data-theme-discovery-field="membershipReason" rows="3">${fieldValue(suggestion.membershipReason, escapeHtml)}</textarea>
+      </div>
+      <div class="writing-note-list" style="margin-top:12px;">
+        ${renderExplanationList("关键笔记", explanation.keyNotes || suggestion.noteIds, escapeHtml)}
+        ${renderExplanationList("共同信号", explanation.sharedSignals, escapeHtml)}
+        <div class="writing-summary">
+          <strong>缺什么才更适合写</strong>
+          <div>${escapeHtml(explanation.gap || "保存前先确认中心问题、关键笔记和每条归属理由。")}</div>
+        </div>
+        <div class="writing-summary">
+          <strong>确认后会保存什么</strong>
+          <div>${escapeHtml(explanation.confirmationSummary || "确认后会保存为主题索引笔记；未确认前不会创建任何主题。")}</div>
+        </div>
       </div>
       <div class="writing-summary" style="margin-top:12px;">
         这些内容只是建议。忽略不会改动笔记；保存前可以编辑名称、中心问题和每条笔记的理由。

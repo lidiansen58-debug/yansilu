@@ -21,6 +21,7 @@ test("render app shell host deps keeps shell render collaborators in one mapping
     "renderDistillationPanel",
     "renderGraphPanel",
     "renderSettingsPanel",
+    "renderExplorerSidebarFlow",
     "renderWritingPanel",
     "applyFocusModeChrome",
     "renderStatusMeta",

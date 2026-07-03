@@ -11,6 +11,7 @@ export function renderAppShell(deps = {}) {
     renderGraphPanel = () => {},
     renderSettingsPanel = () => {},
     explorerRender = () => {},
+    renderExplorerSidebarFlow = () => {},
     renderWritingPanel = () => {},
     renderEditorTabs = () => {},
     applyFocusModeChrome = () => {},
@@ -32,6 +33,7 @@ export function renderAppShell(deps = {}) {
   if (state.module === "explorer" || state.module === "graph") {
     explorerRender();
   }
+  renderExplorerSidebarFlow();
   renderWritingPanel();
   renderEditorTabs();
   applyFocusModeChrome();

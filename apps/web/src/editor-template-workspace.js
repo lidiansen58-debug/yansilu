@@ -255,7 +255,7 @@ export function distillationNextStepGuide(note = {}) {
       key: "relations",
       title: "已有关系，看看能否形成主题",
       body: `这条观点已经有 ${explicitRelationCount} 条正式关系。下一步看这些关系共同指向哪个问题；如果能互相说明，就可以进入主题或写作中心。`,
-      actionLabel: "看关系和主题推荐"
+      actionLabel: "看关系和主题线索"
     };
   }
   return {

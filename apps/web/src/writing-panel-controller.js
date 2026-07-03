@@ -1,4 +1,5 @@
 import {
+  renderWritingMainlineGuideView,
   renderWritingFlowStepsView,
   writingFlowStepItems
 } from "./writing-workspace-view.js";
@@ -140,6 +141,7 @@ export function renderWritingPanelDom(deps = {}) {
   const candidateSummary = $("writingCandidateSummary");
   const candidateList = $("writingCandidateList");
   const toplineMetrics = $("writingToplineMetrics");
+  const mainlineGuide = $("writingBeginnerMainline");
   const createProjectButton = $("btnWritingCreateProject");
   const createScaffoldButton = $("btnWritingCreateScaffold");
   const openDraftButton = $("btnWritingOpenDraft");
@@ -252,6 +254,16 @@ export function renderWritingPanelDom(deps = {}) {
     toplineMetrics.innerHTML = panelState.toplineMetrics
       .map((metric) => renderWritingToplineMetric(metric.label, metric.value, metric.note, metric.tone))
       .join("");
+  }
+  if (mainlineGuide) {
+    mainlineGuide.innerHTML = renderWritingMainlineGuideView({
+      basketCount: basketEntries.length,
+      hasProject,
+      hasScaffold,
+      strongModelReady,
+      projectEntry,
+      basketReadiness
+    }, { escapeHtml });
   }
   if (basketSummary) {
     const sourcePart = sourceIndexSummary ? `可续接的写作入口：${sourceIndexSummary}。` : "可续接的写作入口：尚未记录。";

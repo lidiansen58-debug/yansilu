@@ -1,4 +1,8 @@
 import {
+  renderWritingBeginnerMainlineView,
+  writingBeginnerMainline
+} from "./beginner-onboarding-flow.js";
+import {
   describeWritingContinuationAction,
   describeWritingDraftStepState,
   describeWritingMaterialStepState,
@@ -116,6 +120,14 @@ export function writingFlowStepItems({
       note: draftStep.note
     }
   ];
+}
+
+export function writingMainlineGuideItem(input = {}) {
+  return writingBeginnerMainline(input);
+}
+
+export function renderWritingMainlineGuideView(input = {}, deps = {}) {
+  return renderWritingBeginnerMainlineView(writingMainlineGuideItem(input), deps);
 }
 
 export function renderWritingFlowStepsView(steps = [], deps = {}) {

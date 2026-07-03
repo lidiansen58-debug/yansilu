@@ -23,6 +23,7 @@ function renderDeps(module = "explorer") {
       renderGraphPanel: push("renderGraphPanel"),
       renderSettingsPanel: push("renderSettingsPanel"),
       explorerRender: push("explorerRender"),
+      renderExplorerSidebarFlow: push("renderExplorerSidebarFlow"),
       renderWritingPanel: push("renderWritingPanel"),
       renderEditorTabs: push("renderEditorTabs"),
       applyFocusModeChrome: push("applyFocusModeChrome"),
@@ -42,6 +43,7 @@ test("app shell render runs explorer before writing panel for explorer and graph
 
     assert.ok(calls.indexOf("explorerRender") >= 0);
     assert.ok(calls.indexOf("explorerRender") < calls.indexOf("renderWritingPanel"));
+    assert.ok(calls.indexOf("renderExplorerSidebarFlow") < calls.indexOf("renderWritingPanel"));
     assert.ok(calls.indexOf("renderGraphPanel") < calls.indexOf("explorerRender"));
   }
 });
@@ -52,6 +54,7 @@ test("app shell render skips explorer tree for module workspaces", () => {
   renderAppShell(deps);
 
   assert.equal(calls.includes("explorerRender"), false);
+  assert.ok(calls.indexOf("renderExplorerSidebarFlow") > calls.indexOf("renderSettingsPanel"));
   assert.ok(calls.indexOf("renderWritingPanel") > calls.indexOf("renderSettingsPanel"));
   assert.deepEqual(calls.slice(-3), ["renderWorkspaceStatusHint", "renderSaveAiSuggestion", "renderSystemMessages"]);
 });
@@ -63,6 +66,7 @@ test("app shell render controller renders from current deps provider", () => {
       state: { module: "writing" },
       ensureSelection: () => calls.push("ensure"),
       renderSidebarTitle: () => calls.push("sidebar"),
+      renderExplorerSidebarFlow: () => calls.push("flow"),
       renderWritingPanel: () => calls.push("writing"),
       renderSystemMessages: () => calls.push("messages")
     })
@@ -70,5 +74,5 @@ test("app shell render controller renders from current deps provider", () => {
 
   controller.renderAll();
 
-  assert.deepEqual(calls, ["ensure", "sidebar", "writing", "messages"]);
+  assert.deepEqual(calls, ["ensure", "sidebar", "flow", "writing", "messages"]);
 });

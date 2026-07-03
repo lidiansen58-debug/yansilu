@@ -10,6 +10,9 @@ import {
   normalizeDistillationTemplateVariants,
   renderDistillationTemplateVariantSwitcher
 } from "./editor-relation-helpers.js";
+import {
+  renderPermanentNoteReadinessCard
+} from "./permanent-note-readiness-card.js";
 
 export function renderPermanentNoteDistillationSection(note, options = {}) {
   const noteType = String(options.noteType || "").trim();
@@ -77,6 +80,16 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
             boundaryOrCounterpoint,
             statusValue,
             qualityWarnings
+          })}
+          ${renderPermanentNoteReadinessCard({
+            ...note,
+            thesis,
+            threeLineSummary: summaryLines,
+            boundaryOrCounterpoint,
+            distillationStatus: statusValue
+          }, {
+            explicitRelationCount: options.explicitRelationCount,
+            escapeHtml
           })}
           ${options.relationNetworkPromptHtml || ""}
           <label>
