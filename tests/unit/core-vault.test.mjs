@@ -6,11 +6,13 @@ import os from "node:os";
 import {
   buildNotePathIndex,
   createDirectory,
+  createNoteInDirectory,
   createNoteRelation,
   deleteNoteById,
   getDirectoryGraph,
   getNoteById,
   initVault,
+  listDirectories,
   listNotesByTag,
   listNotesInDirectory,
   listNoteRelations,
@@ -52,6 +54,54 @@ test("initVault creates the core vault layout", async () => {
     const stat = await fs.stat(path.join(vaultPath, dir));
     assert.equal(stat.isDirectory(), true);
   }
+});
+
+test("initVault heals directory fs paths after moving a packed vault to a new machine", async () => {
+  const oldVaultPath = await makeTempVault();
+  await initVault(oldVaultPath);
+  const customDir = await createDirectory(oldVaultPath, {
+    id: "dir_custom_migration",
+    title: "Migration Child",
+    directoryType: "custom",
+    fsPath: path.join(oldVaultPath, "notes", "original", "migration-child"),
+    parentDirectoryId: "dir_original_default"
+  });
+  await createNoteInDirectory(oldVaultPath, {
+    directoryId: customDir.id,
+    id: "perm_migration",
+    title: "Migrated relation note",
+    body: "# Migrated relation note\n\nPortable body",
+    noteType: "permanent"
+  });
+  await createNoteInDirectory(oldVaultPath, {
+    directoryId: "dir_original_default",
+    id: "perm_migration_target",
+    title: "Migrated target note",
+    body: "# Migrated target note\n\nTarget body",
+    noteType: "permanent"
+  });
+  await createNoteRelation(oldVaultPath, "perm_migration", {
+    toNoteId: "perm_migration_target",
+    relationType: "supports",
+    rationale: "Migration keeps relation records inside the catalog."
+  });
+
+  const packedVaultPath = await makeTempVault();
+  await fs.rm(packedVaultPath, { recursive: true, force: true });
+  await fs.cp(oldVaultPath, packedVaultPath, { recursive: true });
+
+  await initVault(packedVaultPath);
+  const directories = await listDirectories(packedVaultPath, { includeHidden: true });
+  const original = directories.find((item) => item.id === "dir_original_default");
+  const custom = directories.find((item) => item.id === "dir_custom_migration");
+
+  assert.equal(path.resolve(original.fsPath), path.join(path.resolve(packedVaultPath), "notes", "original"));
+  assert.equal(path.resolve(custom.fsPath), path.join(path.resolve(packedVaultPath), "notes", "original", "migration-child"));
+  const notes = await listNotesInDirectory(packedVaultPath, custom.id);
+  assert.equal(notes[0].id, "perm_migration");
+  const relations = await listNoteRelations(packedVaultPath, "perm_migration");
+  assert.equal(relations.outgoingLinks.length, 1);
+  assert.equal(relations.outgoingLinks[0].target.id, "perm_migration_target");
 });
 
 test("frontmatter parse and serialize preserve unknown fields", () => {

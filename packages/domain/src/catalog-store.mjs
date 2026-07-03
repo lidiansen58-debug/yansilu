@@ -11,6 +11,9 @@ const DEFAULT_DIRECTORY_SPECS = [
   { id: "dir_original_default", type: "original_default", title: "永久笔记", relPath: path.join("notes", "original") }
 ];
 
+const DEFAULT_DIRECTORY_SPEC_BY_ID = new Map(DEFAULT_DIRECTORY_SPECS.map((spec) => [spec.id, spec]));
+const DEFAULT_DIRECTORY_SPEC_BY_TYPE = new Map(DEFAULT_DIRECTORY_SPECS.map((spec) => [spec.type, spec]));
+
 async function loadDatabaseSync() {
   try {
     const mod = await import("node:sqlite");
@@ -60,6 +63,71 @@ function validateDirectoryType(input) {
 
 function normalizeRelativePath(relativePath) {
   return String(relativePath || "").replaceAll("\\", "/");
+}
+
+function normalizePortablePathForMatch(input = "") {
+  return String(input || "")
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/\/+/g, "/")
+    .replace(/\/$/g, "");
+}
+
+function splitPortableRelativePath(input = "") {
+  return normalizePortablePathForMatch(input)
+    .split("/")
+    .filter(Boolean);
+}
+
+function defaultDirectorySpecForRow(row = {}) {
+  return DEFAULT_DIRECTORY_SPEC_BY_ID.get(String(row?.id || "")) ||
+    DEFAULT_DIRECTORY_SPEC_BY_TYPE.get(String(row?.directory_type || ""));
+}
+
+function inferOldVaultRootsFromDefaultDirectories(rows = []) {
+  const roots = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const spec = defaultDirectorySpecForRow(row);
+    if (!spec) continue;
+    const currentPath = normalizePortablePathForMatch(row.fs_path);
+    const relPath = normalizePortablePathForMatch(spec.relPath);
+    if (!currentPath || !relPath) continue;
+    const suffix = `/${relPath}`;
+    const root = currentPath.endsWith(suffix) ? currentPath.slice(0, -suffix.length) : "";
+    if (!root || seen.has(root)) continue;
+    seen.add(root);
+    roots.push(root);
+  }
+  return roots.sort((a, b) => b.length - a.length);
+}
+
+function relativePathFromOldVaultRoots(fsPath = "", oldVaultRoots = []) {
+  const portablePath = normalizePortablePathForMatch(fsPath);
+  if (!portablePath) return "";
+  for (const oldRoot of oldVaultRoots) {
+    if (portablePath === oldRoot) return "";
+    const prefix = `${oldRoot}/`;
+    if (portablePath.startsWith(prefix)) return portablePath.slice(prefix.length);
+  }
+  return "";
+}
+
+function directoryPathInsideCurrentVault(vaultPath, fsPath = "") {
+  const root = path.resolve(vaultPath);
+  const candidate = path.resolve(String(fsPath || ""));
+  const rel = path.relative(root, candidate);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function healedDirectoryPathForRow(vaultPath, row = {}, oldVaultRoots = []) {
+  if (directoryPathInsideCurrentVault(vaultPath, row.fs_path)) return "";
+  const spec = defaultDirectorySpecForRow(row);
+  if (spec) return path.join(path.resolve(vaultPath), spec.relPath);
+
+  const oldRelativePath = relativePathFromOldVaultRoots(row.fs_path, oldVaultRoots);
+  if (!oldRelativePath) return "";
+  return path.join(path.resolve(vaultPath), ...splitPortableRelativePath(oldRelativePath));
 }
 
 function isSameOrChildPath(parentPath, candidatePath) {
@@ -176,6 +244,45 @@ export async function ensureDefaultDirectories(vaultPath) {
          ON CONFLICT(id) DO NOTHING`
       ).run(spec.id, spec.type, spec.title, fsPath, spec.isDefault === false ? 0 : 1, spec.isHidden === true ? 1 : 0, now, now);
     }
+  } finally {
+    db.close();
+  }
+}
+
+export async function healDirectoryFsPathsForVault(vaultPath) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const root = path.resolve(vaultPath);
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(root));
+  const now = new Date().toISOString();
+  try {
+    const rows = db
+      .prepare("SELECT id, directory_type, fs_path FROM directories ORDER BY is_default DESC, id ASC")
+      .all();
+    const oldVaultRoots = inferOldVaultRootsFromDefaultDirectories(rows);
+    const updates = [];
+    for (const row of rows) {
+      const nextPath = healedDirectoryPathForRow(root, row, oldVaultRoots);
+      if (!nextPath || path.resolve(nextPath) === path.resolve(row.fs_path)) continue;
+      updates.push({ id: row.id, fsPath: nextPath });
+    }
+
+    if (!updates.length) return { updated: 0, items: [] };
+
+    for (const item of updates) {
+      await fs.mkdir(item.fsPath, { recursive: true });
+    }
+
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      const update = db.prepare("UPDATE directories SET fs_path = ?, updated_at = ? WHERE id = ?");
+      for (const item of updates) update.run(item.fsPath, now, item.id);
+      db.exec("COMMIT;");
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
+    return { updated: updates.length, items: updates };
   } finally {
     db.close();
   }

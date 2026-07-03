@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { applySqliteMigrations } from "./sqlite-migrations.mjs";
-import { ensureDefaultDirectories } from "./catalog-store.mjs";
+import { ensureDefaultDirectories, healDirectoryFsPathsForVault } from "./catalog-store.mjs";
 
 export const VAULT_DIRS = [
   ".yansilu",
@@ -46,6 +46,7 @@ export async function initVault(vaultPath) {
   }
   try {
     await ensureDefaultDirectories(layout.vaultPath);
+    await healDirectoryFsPathsForVault(layout.vaultPath);
   } catch (error) {
     if (!String(error?.message || "").includes("node:sqlite")) throw error;
   }
