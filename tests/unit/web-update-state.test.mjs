@@ -144,3 +144,28 @@ test("web update state tracks desktop install progress and restart readiness", (
   assert.equal(downloaded.installProgress.percent, 100);
   assert.equal(downloaded.installReadyForRestart, true);
 });
+
+test("web update state preserves same downloaded version after a later check", () => {
+  const state = updateStateFromCheckResult(
+    createUpdateState({
+      status: "downloaded",
+      latestVersion: "0.1.2",
+      installReadyForRestart: true,
+      installPhase: "installed",
+      installProgress: { percent: 100 },
+      installable: true
+    }),
+    {
+      status: "update-available",
+      latestVersion: "0.1.2",
+      checkedAt: "2026-06-20T04:00:00.000Z",
+      installable: true,
+      manifest: { version: "0.1.2", changelog: ["Already downloaded."] }
+    }
+  );
+
+  assert.equal(state.status, "downloaded");
+  assert.equal(state.installReadyForRestart, true);
+  assert.equal(state.installProgress.percent, 100);
+  assert.equal(state.checkedAt, "2026-06-20T04:00:00.000Z");
+});

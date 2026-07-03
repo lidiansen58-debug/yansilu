@@ -617,6 +617,19 @@ const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint
 const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
+
+function desktopUpdateRestartBlockers() {
+  const blockers = [];
+  if (graphState.loading || graphState.aiAnalysisLoading) blockers.push("图谱或建联流程仍在处理中");
+  if (writingState.strongModelLoading || writingState.loadingProjects || writingState.loadingScaffoldVersions || writingState.loadingDraftVersions) {
+    blockers.push("写作流程仍在处理中");
+  }
+  if (writingState.loadingRelationCounts || writingState.loadingThemeRelationCounts || writingState.loadingThemeNoteDetails) {
+    blockers.push("写作素材关系仍在整理中");
+  }
+  return blockers;
+}
+
 const updateController = createPrototypeUpdateController({
   settingsState,
   readStoredText,
@@ -631,7 +644,8 @@ const updateController = createPrototypeUpdateController({
   setStatus,
   upsertSystemMessage,
   desktopCommands,
-  getDirtyTabCount: () => typeof editor?.dirtyTabs === "function" ? editor.dirtyTabs().length : 0
+  getDirtyTabCount: () => typeof editor?.dirtyTabs === "function" ? editor.dirtyTabs().length : 0,
+  getRestartBlockers: desktopUpdateRestartBlockers
 });
 updateController.loadUpdateSettingsFromStorage();
 
