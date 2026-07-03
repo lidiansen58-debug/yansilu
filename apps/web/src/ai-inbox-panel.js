@@ -569,6 +569,16 @@ function renderFeedbackControls(actionLoading = false) {
 
 function renderReviewActions(item = {}, actionLoading = false) {
   if (!item.artifactId) return "";
+  if (String(item.status || "").trim() !== "pending_review") {
+    return `
+      <div class="ai-inbox-action-card is-muted">
+        <div>
+          <h3>处理这条建议</h3>
+          <p>这条建议已经处理过；如需修改，请回到对应笔记或重新生成建议。</p>
+        </div>
+      </div>
+    `;
+  }
   return `
     <div class="ai-inbox-action-card">
       <div>

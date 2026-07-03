@@ -1178,7 +1178,7 @@
     }
     .ctx-menu {
       position: fixed;
-      z-index: 40;
+      z-index: 1700;
       min-width: 196px;
       max-width: min(280px, calc(100dvw - 16px));
       max-height: calc(100dvh - 16px);

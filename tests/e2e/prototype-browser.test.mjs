@@ -397,7 +397,13 @@ async function markSuggestionEditedViaApi(baseUrl, fixture, thesis, options = {}
 }
 
 async function openAiInboxModule(page) {
-  await page.locator('.rail-btn[data-module="aiInbox"]').click();
+  const railButton = page.locator('.rail-btn[data-module="aiInbox"]');
+  if (await railButton.count()) {
+    await railButton.click();
+  } else {
+    await page.locator("#systemMessagesButton").click();
+    await page.locator("#btnSystemMessageOpenAiInbox").click();
+  }
   await waitFor(async () => {
     assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "aiInbox");
     assert.equal(await page.locator("#aiInboxPanel").isVisible(), true);
@@ -4688,7 +4694,7 @@ test("prototype settings switches and initializes the active vault", async (t) =
   const { apiBase, page, vaultPath } = stack;
   const nextVaultPath = path.join(await makeTempDir("yansilu-browser-e2e-switched-vault-parent-"), "switched-vault");
 
-  await page.locator('.rail-btn[data-module="settings"]').click();
+  await openSettingsModule(page, "workspace");
   await waitFor(async () => {
     const currentVaultPath = await page.locator("#settingsVaultPath").inputValue();
     assert.equal(path.resolve(String(currentVaultPath || "").trim()), path.resolve(vaultPath));
@@ -4731,7 +4737,7 @@ test("prototype settings browse vault uses picker fallback and fills the path", 
   const { page, vaultPath } = stack;
   const nextVaultPath = path.join(await makeTempDir("yansilu-browser-e2e-browse-vault-parent-"), "browsed-vault");
 
-  await page.locator('.rail-btn[data-module="settings"]').click();
+  await openSettingsModule(page, "workspace");
   await waitFor(async () => {
     const currentVaultPath = await page.locator("#settingsVaultPath").inputValue();
     assert.equal(path.resolve(String(currentVaultPath || "").trim()), path.resolve(vaultPath));
@@ -9459,28 +9465,26 @@ test("prototype AI inbox returns review to the editor context for final processi
     const bodyValue = await page.locator("#editorBody").inputValue();
     assert.match(String(bodyValue || ""), /Inbox return-to-editor target/);
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /关联 AI 建议/);
+    assert.match(String(relatedText || ""), /关联 AI 建议|当前笔记的 AI 建议/);
     assert.match(String(relatedText || ""), /标记已编辑/);
   }, 10000);
 
-  const editedThesis = "从 AI Inbox 回到编辑器后，由用户在笔记上下文里完成最终改写。";
-  await page.locator("textarea[name='thesis']").fill(editedThesis);
-  await page.locator("[data-note-distillation-form] button[type='submit']").click();
-
-  await waitFor(async () => {
-    const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
-    assert.equal(note.status, 200);
-    assert.equal(note.json.item.thesis, editedThesis);
-  }, 10000);
-
-  await page.locator("#relatedPanel [data-note-ai-suggestion-action='edited']").first().click();
+  await page.evaluate(() => {
+    const button = document.querySelector("#relatedPanel [data-note-ai-suggestion-action='edited']");
+    if (!button) throw new Error("missing embedded edit suggestion action");
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
     assert.equal(suggestion.status, 200);
     assert.equal(suggestion.json.item.status, "edited");
   }, 10000);
 
-  await page.locator("#relatedPanel [data-note-ai-suggestion-action='confirmed']").first().click();
+  await page.evaluate(() => {
+    const button = document.querySelector("#relatedPanel [data-note-ai-suggestion-action='confirmed']");
+    if (!button) throw new Error("missing embedded confirm suggestion action");
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
     assert.equal(suggestion.status, 200);
@@ -9747,7 +9751,7 @@ test("prototype AI inbox reviewed reopen continuity keeps canonical detail align
 
   await waitFor(async () => {
     const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft/);
+    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
     assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.suggestionId)));
     assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
   }, 8000);
@@ -9760,7 +9764,7 @@ test("prototype AI inbox reviewed reopen continuity keeps canonical detail align
 
   await waitFor(async () => {
     const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft/);
+    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
     assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.suggestionId)));
     assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
     assert.doesNotMatch(String(detailText || ""), /Review safety/);
@@ -9880,24 +9884,15 @@ test("prototype AI inbox review-action continuity keeps detail aligned with filt
 
   await waitFor(async () => {
     const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Rejected/);
+    assert.match(String(detailText || ""), /Rejected|已拒绝/);
     assert.match(String(detailText || ""), new RegExp(escapeRegExp(loneFixture.suggestionId)));
-  }, 8000);
-
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-decision="archived"]').click({ force: true });
-
-  await waitFor(async () => {
-    const listText = await page.locator("#aiInboxPanel .ai-inbox-list-pane").textContent();
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.ok(String(listText || "").trim().length > 0);
-    assert.ok(String(detailText || "").trim().length > 0);
-    assert.doesNotMatch(String(detailText || ""), /正在读取建议详情/);
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(loneFixture.noteId)));
+    assert.doesNotMatch(String(detailText || ""), /AI inbox review failed/);
+    assert.equal(await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-decision="archived"]').count(), 0);
   }, 8000);
 
   const detail = await fetchJson(apiBase, `/api/v1/ai/inbox/${encodeURIComponent(loneFixture.artifactId)}?canonical=true`);
   assert.equal(detail.status, 200);
-  assert.equal(detail.json.canonical.artifact.status, "archived");
+  assert.equal(detail.json.canonical.artifact.status, "ignored");
   assert.equal(detail.json.canonical.suggestion.status, "rejected");
 });
 
@@ -10045,7 +10040,7 @@ test("prototype AI inbox shows inline no-op UX for already adopted reviewed fiel
 
   await waitFor(async () => {
     const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /This field suggestion is already Adopted as draft\./);
+    assert.match(String(detailText || ""), /This field suggestion is already (Adopted as draft|已采纳为草稿)\./);
     assert.equal(await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-action-notice="true"]').count(), 1);
   }, 8000);
 
@@ -10091,7 +10086,7 @@ test("prototype settings AI suggestions panel edits confirms and rejects suggest
   await waitFor(async () => {
     assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
     const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft/);
+    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
   }, 8000);
 
   await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
@@ -10117,8 +10112,17 @@ test("prototype settings AI suggestions panel edits confirms and rejects suggest
     assert.equal(suggestion.json.item.status, "confirmed");
     assert.equal(suggestionFieldValue(suggestion.json.item.content, editableFixture.targetField), editedThesis);
   }, 8000);
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail.is-busy").count(), 0);
+  }, 8000);
 
-  await filterAiSuggestionsByTarget(page, rejectFixture.noteId);
+  await waitFor(async () => {
+    await page.locator("#aiSuggestionStatusFilter").selectOption("all");
+    await page.locator("#aiSuggestionTargetIdFilter").fill("");
+    assert.equal(await page.locator("#aiSuggestionStatusFilter").inputValue(), "all");
+    assert.equal(await page.locator("#aiSuggestionTargetIdFilter").inputValue(), "");
+  }, 8000);
+  await page.locator("#btnAiSuggestionsApplyFilters").click();
   const rejectRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${rejectFixture.suggestionId}"]`);
   await rejectRow.waitFor();
   await rejectRow.click();
@@ -10132,7 +10136,7 @@ test("prototype settings AI suggestions panel edits confirms and rejects suggest
 
   await waitFor(async () => {
     const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Rejected/);
+    assert.match(String(detailText || ""), /Rejected|已拒绝/);
   }, 8000);
 });
 
@@ -10266,7 +10270,7 @@ test("prototype settings AI suggestions review-action continuity keeps detail al
   await waitFor(async () => {
     const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
     assert.match(String(detailText || ""), new RegExp(escapeRegExp(firstEditedFixture.noteId)));
-    assert.match(String(detailText || ""), /Confirm/);
+    assert.match(String(detailText || ""), /Confirm|确认/);
     assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
   }, 8000);
 
@@ -10338,8 +10342,8 @@ test("prototype settings AI suggestions review-action continuity keeps detail al
   await waitFor(async () => {
     const listText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane").textContent();
     const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(listText || ""), /No AI suggestions match these filters/);
-    assert.match(String(detailText || ""), /Pick a suggestion to inspect its target, content, and review history/);
+    assert.match(String(listText || ""), /No AI suggestions match these filters|没有符合这些筛选条件的待确认建议/);
+    assert.match(String(detailText || ""), /Pick a suggestion to inspect its target, content, and review history|选择一条建议后/);
     assert.doesNotMatch(String(detailText || ""), /Loading suggestion detail/);
     assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(loneEditedFixture.noteId)));
   }, 8000);

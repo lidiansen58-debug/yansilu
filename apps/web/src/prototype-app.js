@@ -44,7 +44,7 @@ import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-stat
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
 import { routeAppShellStateChange } from "./app-shell-state-change-router.js";
 import { bootstrapAppForRuntime } from "./app-startup-controller.js";
-import { smartNotesDemoStartupNoteId } from "./smart-notes-demo-startup-note.js";
+import { smartNotesDemoExistingFolder, smartNotesDemoOpenedExistingGuideStatus, smartNotesDemoStartupNoteId } from "./smart-notes-demo-startup-note.js";
 import { candidatePreviewItemIds, candidatePreviewItems, confirmSkipReasonMap, confirmSkippedCandidateIds, selectionSummary as summarizeCandidateSelection } from "./import-candidate-preview-model.js";
 import { renderCandidatePreview, renderConfirmSkipBreakdown } from "./import-candidate-preview-panel.js";
 import { selectedCandidateIdsForImportAction } from "./import-selection-actions.js";
@@ -5226,10 +5226,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
       if (!state.notes.length) {
         try {
           await syncDirectoriesFromApi();
-          const demoFolder = state.folders.find((folder) => {
-            const name = String(folder?.name || folder?.title || "").toLowerCase();
-            return name.includes("smart notes") || name.includes("产品思考") || name.includes("寫作 demo") || name.includes("写作 demo");
-          });
+          const demoFolder = smartNotesDemoExistingFolder(state.folders);
           if (demoFolder?.id) {
             state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
             state.selectedFolderId = demoFolder.id;
@@ -5242,7 +5239,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
         state.selectedFileId = fallbackNoteId;
         activateModule("explorer");
         openNoteById(fallbackNoteId, { preferTitleSelection: false });
-        setStatus(`Smart Notes Demo 已存在，已为你打开导览笔记。导入重试未完成：${String(error?.message || error)}`, "warn");
+        setStatus(smartNotesDemoOpenedExistingGuideStatus(), "ok");
         return true;
       }
     }
@@ -5731,7 +5728,7 @@ installSettingsAiEventBindings({
   openSettingsAiDialog,
   closeSettingsAiDialogs
 });
-bindAiSuggestionsWorkspaceEvents($("settingsAiSuggestionsPanel"), createAiSuggestionsWorkspaceHostDeps({
+bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({
   settingsState,
   aiSuggestionFiltersFromUi,
   refreshAiSuggestions,

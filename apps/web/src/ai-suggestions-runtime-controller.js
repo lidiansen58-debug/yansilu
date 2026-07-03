@@ -66,6 +66,8 @@ export async function refreshAiSuggestionsForRuntime(deps = {}, options = {}) {
     setStatus = () => {},
     loadDetail = (suggestionId) => loadAiSuggestionDetailForRuntime(deps, suggestionId)
   } = deps;
+  const requestToken = Number(aiState.suggestionsRequestToken || 0) + 1;
+  aiState.suggestionsRequestToken = requestToken;
   aiState.suggestionFilters = normalizeAiSuggestionFilters(aiState.suggestionFilters);
   if (!options.silent) {
     aiState.suggestionsLoading = true;
@@ -75,13 +77,16 @@ export async function refreshAiSuggestionsForRuntime(deps = {}, options = {}) {
   const previousSelectedId = String(aiState.selectedSuggestionId || "").trim();
   try {
     const result = await fetchAiSuggestions({ ...aiState.suggestionFilters, canonical: true });
+    if (requestToken !== aiState.suggestionsRequestToken) return null;
     aiState.suggestions = result.items;
     aiState.suggestionsTotal = result.total;
     rememberAiDebugSnapshot("suggestionsList", result);
     aiState.suggestionsError = "";
-    const selectedListItem = result.items.find((item) => String(item.id || "").trim() === previousSelectedId) || null;
+    const currentSelectedId = String(aiState.selectedSuggestionId || "").trim();
+    const currentListItem = result.items.find((item) => String(item.id || "").trim() === currentSelectedId) || null;
+    const selectedListItem = currentListItem || result.items.find((item) => String(item.id || "").trim() === previousSelectedId) || null;
     const selectedStillVisible = Boolean(selectedListItem);
-    const nextSelectedSuggestionId = selectedStillVisible ? previousSelectedId : result.items[0]?.id || "";
+    const nextSelectedSuggestionId = selectedStillVisible ? String(selectedListItem.id || "").trim() : result.items[0]?.id || "";
     const selectionChanged = nextSelectedSuggestionId !== previousSelectedId;
     const detailItem = aiState.suggestionDetail?.item || aiState.suggestionDetail || null;
     const detailMatchesSelection = String(detailItem?.id || "").trim() === previousSelectedId;
@@ -127,10 +132,12 @@ export async function refreshAiSuggestionsForRuntime(deps = {}, options = {}) {
     }
     return result;
   } catch (error) {
+    if (requestToken !== aiState.suggestionsRequestToken) return null;
     aiState.suggestionsError = String(error?.message || error);
     setStatus(`AI suggestions failed to load: ${aiState.suggestionsError}`, "warn");
     return null;
   } finally {
+    if (requestToken !== aiState.suggestionsRequestToken) return;
     aiState.suggestionsLoading = false;
     render();
   }

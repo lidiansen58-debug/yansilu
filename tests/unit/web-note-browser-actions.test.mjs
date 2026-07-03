@@ -264,6 +264,14 @@ test("file context menu keeps move user-facing and removes id or properties util
   assert.doesNotMatch(menuSource, /label: "属性"/);
 });
 
+test("context menu floats above the sidebar but below modal overlays", () => {
+  const css = readRepoFile("apps/web/src/prototype.css");
+  const ctxMenuCss = css.match(/\.ctx-menu\s*\{[\s\S]*?\n    \}/)?.[0] || "";
+
+  assert.match(ctxMenuCss, /position:\s*fixed/);
+  assert.match(ctxMenuCss, /z-index:\s*1700/);
+});
+
 test("graph note tree context menus only expose graph actions", () => {
   const source = readRepoFile("apps/web/src/components-explorer-pane.js");
   const menuStart = source.indexOf('      const graphContext = this.state.module === "graph";');

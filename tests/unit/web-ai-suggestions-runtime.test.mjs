@@ -970,6 +970,128 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
   assert.equal(settingsState.ai.suggestionActionError, "");
 });
 
+test("refreshAiSuggestions keeps a newer visible user selection made while the list request is in flight", async () => {
+  let resolveList;
+  const detailLoads = [];
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "edited", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [
+        { id: "suggestion_1", status: "edited" },
+        { id: "suggestion_2", status: "edited" }
+      ],
+      suggestionsTotal: 2,
+      selectedSuggestionId: "",
+      suggestionDetail: null,
+      suggestionDetailSuggestionId: "",
+      suggestionDetailRequestToken: 2,
+      suggestionDetailLoading: false,
+      suggestionsLoading: false,
+      suggestionActionLoading: false,
+      suggestionActionSuggestionId: "",
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: () =>
+      new Promise((resolve) => {
+        resolveList = () => resolve({
+          items: [
+            { id: "suggestion_1", status: "edited" },
+            { id: "suggestion_2", status: "edited" }
+          ],
+          total: 2
+        });
+      }),
+    loadAiSuggestionDetail: async (suggestionId) => {
+      detailLoads.push(suggestionId);
+      settingsState.ai.suggestionDetail = {
+        item: { id: suggestionId, status: "edited", content: { thesis: "Fresh detail" } }
+      };
+      settingsState.ai.suggestionDetailSuggestionId = suggestionId;
+      return settingsState.ai.suggestionDetail.item;
+    }
+  });
+
+  const pending = refreshAiSuggestions({ silent: true });
+  settingsState.ai.selectedSuggestionId = "suggestion_2";
+  resolveList();
+  await pending;
+
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.deepEqual(detailLoads, ["suggestion_2"]);
+  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionDetailSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionActionError, "");
+});
+
+test("refreshAiSuggestions ignores an older list response after a newer filter refresh starts", async () => {
+  let resolveOldList;
+  let resolveNewList;
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "edited", targetType: "", targetId: "old-note", scope: "", limit: 50 },
+      suggestions: [{ id: "suggestion_old", status: "edited", target: { id: "old-note" } }],
+      suggestionsTotal: 1,
+      selectedSuggestionId: "suggestion_old",
+      suggestionDetail: { item: { id: "suggestion_old", status: "edited" } },
+      suggestionDetailSuggestionId: "suggestion_old",
+      suggestionsRequestToken: 0,
+      suggestionDetailRequestToken: 0,
+      suggestionDetailLoading: false,
+      suggestionsLoading: false,
+      suggestionActionLoading: false,
+      suggestionActionSuggestionId: "",
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async (filters) =>
+      new Promise((resolve) => {
+        if (filters.targetId === "old-note") {
+          resolveOldList = () => resolve({
+            items: [{ id: "suggestion_old", status: "edited", target: { id: "old-note" } }],
+            total: 1
+          });
+        } else {
+          resolveNewList = () => resolve({
+            items: [{ id: "suggestion_new", status: "edited", target: { id: "new-note" } }],
+            total: 1
+          });
+        }
+      }),
+    loadAiSuggestionDetail: async (suggestionId) => {
+      settingsState.ai.suggestionDetail = { item: { id: suggestionId, status: "edited" } };
+      settingsState.ai.suggestionDetailSuggestionId = suggestionId;
+      return settingsState.ai.suggestionDetail.item;
+    }
+  });
+
+  const oldRefresh = refreshAiSuggestions({ silent: true });
+  settingsState.ai.suggestionFilters = { status: "edited", targetType: "", targetId: "new-note", scope: "", limit: 50 };
+  settingsState.ai.selectedSuggestionId = "";
+  settingsState.ai.suggestionDetail = null;
+  const newRefresh = refreshAiSuggestions({ silent: true });
+
+  resolveNewList();
+  await newRefresh;
+  resolveOldList();
+  await oldRefresh;
+
+  assert.equal(settingsState.ai.suggestionsRequestToken, 2);
+  assert.deepEqual(settingsState.ai.suggestions.map((item) => item.id), ["suggestion_new"]);
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_new");
+  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_new");
+  assert.equal(settingsState.ai.suggestionsError, "");
+  assert.equal(settingsState.ai.suggestionsLoading, false);
+});
+
 test("refreshAiSuggestions invalidates stale detail state when the selected suggestion metadata changes", async () => {
   const settingsState = {
     ai: {

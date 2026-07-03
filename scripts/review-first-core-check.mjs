@@ -23,6 +23,25 @@ const CORE_TEST_FILES = [
 
 const BROWSER_PATTERN = "prototype AI inbox|prototype settings AI suggestions";
 const BROWSER_FILE = "tests/e2e/prototype-browser.test.mjs";
+const BROWSER_TEST_NAMES = [
+  "prototype AI inbox field suggestion flow adopts a suggestion as draft and updates the target note",
+  "prototype AI inbox returns review to the editor context for final processing",
+  "prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed",
+  "prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting",
+  "prototype AI inbox can reject a linked suggestion and keeps the reviewed artifact inspectable",
+  "prototype AI inbox reject plus refresh keeps the reviewed artifact stable",
+  "prototype AI inbox reviewed reopen continuity keeps canonical detail aligned after refresh and tab switches",
+  "prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes",
+  "prototype AI inbox guards stale detail selection and duplicate reviewed submit",
+  "prototype AI inbox shows inline no-op UX for already adopted reviewed field suggestions without resubmitting",
+  "prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow",
+  "prototype settings AI suggestions guards stale detail selection and duplicate review submits",
+  "prototype settings AI suggestions review-action continuity keeps detail aligned with filtered selection changes"
+];
+
+function exactTestPattern(testName) {
+  return `^${String(testName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`;
+}
 
 function runNode(args, env = {}) {
   const result = spawnSync(process.execPath, args, {
@@ -45,10 +64,13 @@ function runCore() {
 
 function runBrowser() {
   console.log("== review-first browser ==");
-  runNode(
-    ["--test", "--test-isolation=none", "--test-name-pattern", BROWSER_PATTERN, BROWSER_FILE],
-    { RUN_BROWSER_E2E: "1" }
-  );
+  for (const testName of BROWSER_TEST_NAMES) {
+    console.log(`== ${testName} ==`);
+    runNode(
+      ["--test", "--test-isolation=none", "--test-name-pattern", exactTestPattern(testName), BROWSER_FILE],
+      { RUN_BROWSER_E2E: "1" }
+    );
+  }
 }
 
 const mode = process.argv.includes("--all")

@@ -64,6 +64,22 @@ test("AI inbox panel renders filters, list, detail, feedback, and accept-link ac
   assert.match(html, /建立为笔记关系/);
 });
 
+test("AI inbox panel hides artifact decision buttons after the item is already reviewed", () => {
+  const reviewedItem = { ...item, status: "ignored", actionState: "reviewed" };
+  const html = renderAiInboxPanel({
+    items: [reviewedItem],
+    counts: { pending: 0, reviewed: 1, archived: 0, all: 1 },
+    filters: { view: "reviewed", type: "all" },
+    selectedArtifactId: "artifact_link_1",
+    detail: { item: reviewedItem, artifact: { ...artifact, status: "ignored" } }
+  });
+
+  assert.match(html, /这条建议已经处理过/);
+  assert.doesNotMatch(html, /data-ai-inbox-decision="accepted"/);
+  assert.doesNotMatch(html, /data-ai-inbox-decision="ignored"/);
+  assert.doesNotMatch(html, /data-ai-inbox-decision="archived"/);
+});
+
 test("AI inbox panel disables accept-link for non-note endpoints", () => {
   const html = renderAiInboxPanel({
     items: [{ ...item, artifactId: "artifact_link_2" }],
