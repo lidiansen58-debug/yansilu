@@ -6,8 +6,8 @@ export function createTodayOrganizingRuntime(depsProvider = () => ({})) {
   let themeIndexesLoadAttemptKey = "";
 
   function currentState() {
-    const { notes = [], relations = [], themeIndexes = [], relationsReady = false, organizingOverview = null, typeFromFolder = () => "", relationNetworkStatusForNote = () => ({}) } = depsProvider() || {};
-    return buildTodayOrganizingState({ notes, relations, themeIndexes, relationsReady, organizingOverview }, { typeFromFolder, relationNetworkStatusForNote });
+    const { notes = [], relations = [], themeIndexes = [], relationsReady = false, organizingOverview = null, reviewSuggestions = [], typeFromFolder = () => "", relationNetworkStatusForNote = () => ({}) } = depsProvider() || {};
+    return buildTodayOrganizingState({ notes, relations, themeIndexes, relationsReady, organizingOverview, reviewSuggestions }, { typeFromFolder, relationNetworkStatusForNote });
   }
 
   function ensureThemeIndexesLoaded() {

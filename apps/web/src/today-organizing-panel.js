@@ -1,3 +1,5 @@
+import { renderReviewChecklistPanel } from "./review-checklist-panel.js";
+
 function escape(value = "") {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -50,6 +52,7 @@ export function renderTodayOrganizingPanel(state = {}) {
           <div><strong>${escape(state.themeCount || 0)}</strong><span>可成主题</span></div>
         </div>
       </section>
+      ${renderReviewChecklistPanel(state.reviewChecklist)}
       <section class="today-action-grid" aria-label="今日主动作">
         ${actionCard({
           title: "1. 未关联笔记",

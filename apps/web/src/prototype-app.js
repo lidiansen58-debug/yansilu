@@ -143,7 +143,7 @@ import { renderDraftVersionCardView, renderScaffoldVersionCardView, renderWritin
 import { titleFromBody } from "./editor-template-workspace.js";
 import { createWritingPanelShellController } from "./writing-panel-shell.js";
 import { createWritingPanelPrototypeHostProvider } from "./writing-panel-host-deps.js";
-import { installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
+import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
 import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
 import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, parseWritingBasketIdsForRuntime, removeWritingBasketIdForRuntime, setWritingBasketIdsForRuntime } from "./writing-basket-state.js";
 import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "./writing-entry-route-model.js";
@@ -154,6 +154,7 @@ import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, no
 import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, writingScaffoldPreflightWarning, isWritingStrongModelReady } from "./writing-center-flow.js";
 import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeProjectPreflight, noteHasBoundarySignal } from "./writing-readiness.js";
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
+import { findReviewOutlineProjectWithRefresh } from "./review-checklist-outline-entry.js";
 import { createWritingEntryRuntimeController } from "./writing-entry-runtime-controller.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
 import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingProjectEntryTitle as computeWritingProjectEntryTitle, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
@@ -2243,6 +2244,67 @@ const {
 } = importResultHostRoutes;
 
 async function createWritingProjectFromCurrentBasket() { return writingProjectRuntimeController.createWritingProjectFromCurrentBasket(); }
+
+async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [] } = {}) {
+  const cleanThemeId = String(themeId || "").trim();
+  const cleanNoteIds = uniqueStrings(noteIds);
+  await openWritingModule({
+    statusMessage: "",
+    entryReason: "这组主题已经有足够相关笔记，可以先生成提纲再决定是否起草。",
+    entrySourceLabel: "定期回顾清单"
+  });
+  let selectedTheme = null;
+  let outlineNoteIds = cleanNoteIds;
+  if (cleanThemeId) {
+    selectedTheme = await selectWritingThemeIndex(cleanThemeId);
+    outlineNoteIds = writingThemeIndexNoteIds(selectedTheme);
+  }
+  const existingProject = cleanThemeId
+    ? await findReviewOutlineProjectWithRefresh({
+        indexCard: selectedTheme,
+        noteIds: outlineNoteIds,
+        writingState,
+        listWritingProjects
+      })
+    : writingEntryProjectForContext({ basketNoteIds: outlineNoteIds, sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds] });
+  if (existingProject?.id) {
+    const project = await continueWritingProjectEntry(existingProject.id, {
+      openDraft: false,
+      statusMessage: existingProject.scaffold_id ? "已打开已有写作项目和文章提纲。" : "已打开已有写作项目，继续生成文章提纲。"
+    });
+    const scaffoldId = project?.scaffold_id || existingProject.scaffold_id || "";
+    if (scaffoldId) {
+      await openScaffoldVersion(scaffoldId);
+      setStatus("已打开已有文章提纲。", "ok");
+      return project;
+    }
+  } else if (cleanThemeId) {
+    await createWritingProjectFromThemeIndex(cleanThemeId);
+  } else if (!writingState.project?.id) {
+    if (outlineNoteIds.length) addWritingBasketIds(outlineNoteIds);
+    await createWritingProjectFromCurrentBasket();
+  } else if (outlineNoteIds.length) {
+    addWritingBasketIds(outlineNoteIds);
+  }
+  return handleWritingCreateScaffoldClick({
+    $,
+    writingState,
+    describeWritingProjectPreflight,
+    currentWritingContinuationEntry,
+    continueWritingProjectEntry,
+    writingCenterContinuationStatusMessage,
+    writingCenterContinuationFailureMessage,
+    writingScaffoldPreflightWarning,
+    createDraftScaffold,
+    currentWritingVersionNote,
+    showWritingResult,
+    loadWritingProjectsList,
+    loadWritingScaffoldVersions,
+    loadWritingDraftVersions,
+    renderWritingPanel,
+    setStatus
+  });
+}
 
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
@@ -5704,8 +5766,11 @@ installTodayOrganizingEvents($("todayOrganizingPanel"), () => ({
   todayState: todayOrganizingRuntime.currentState(),
   handleStateChange,
   activateModule,
+  openNoteById,
   openWritingModule, addWritingBasketIds,
-  selectWritingThemeIndex
+  selectWritingThemeIndex,
+  createReviewOutline: createReviewOutlineFromTodayChecklist,
+  setStatus
 }));
 installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openGraphNodeSelectionFromElement });
 installGraphWorkbenchClickFallbackEvents(document, {

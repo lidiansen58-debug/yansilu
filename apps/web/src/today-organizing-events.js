@@ -3,6 +3,10 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
   const themeNoteIds = (theme = null) => (Array.isArray(theme?.noteIds) ? theme.noteIds : [])
     .map((item) => String(item || "").trim())
     .filter(Boolean);
+  const parseNoteIds = (value = "") => String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
   const themeEntryReason = (theme = null) => {
     const title = String(theme?.title || "这个可成主题").trim();
     const count = Number(theme?.noteCount || 0);
@@ -21,6 +25,49 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
     if (!action || button.disabled) return;
     event.preventDefault();
     const deps = depsProvider() || {};
+    if (action === "review-connect-isolated") {
+      const noteId = String(button.dataset?.reviewNoteId || "").trim();
+      if (!noteId) return;
+      deps.activateModule?.("graph");
+      await deps.handleStateChange?.("graph-associate-note", { noteId, source: "review-checklist" });
+      return;
+    }
+    if (action === "review-refine-tag") {
+      const noteId = String(button.dataset?.reviewNoteId || "").trim();
+      if (!noteId) return;
+      deps.activateModule?.("explorer");
+      deps.openNoteById?.(noteId, { preferTitleSelection: false });
+      deps.setStatus?.(`已打开带 #${String(button.dataset?.reviewTag || "").trim() || "宽标签"} 的笔记，请把标签改得更具体。`, "ok");
+      return;
+    }
+    if (action === "review-complete-rationale") {
+      const noteId = String(button.dataset?.reviewNoteId || "").trim();
+      if (!noteId) return;
+      deps.activateModule?.("graph");
+      await deps.handleStateChange?.("open-note-relations", { noteId, source: "review-checklist" });
+      return;
+    }
+    if (action === "review-generate-outline") {
+      const themeId = String(button.dataset?.reviewThemeId || "").trim();
+      const noteIds = parseNoteIds(button.dataset?.reviewNoteIds);
+      if (typeof deps.createReviewOutline === "function") {
+        try {
+          await deps.createReviewOutline({ themeId, noteIds, source: "review-checklist" });
+        } catch (error) {
+          deps.setStatus?.(`从定期回顾生成提纲失败：${String(error?.message || error)}`, "bad");
+        }
+        return;
+      }
+      if (noteIds.length) deps.addWritingBasketIds?.(noteIds);
+      deps.activateModule?.("writing");
+      await deps.openWritingModule?.({
+        ...(noteIds.length ? { statusMessage: `已把 ${noteIds.length} 条主题笔记加入写作中心` } : {}),
+        entryReason: "这组主题已经有足够相关笔记，可以先生成提纲再决定是否起草。",
+        entrySourceLabel: "定期回顾清单"
+      });
+      if (themeId) await deps.selectWritingThemeIndex?.(themeId);
+      return;
+    }
     if (action === "connect-first-isolated") {
       const noteId = deps.todayState?.firstIsolated?.id || "";
       if (!noteId) return;

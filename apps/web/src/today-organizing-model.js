@@ -1,4 +1,5 @@
 import { explicitPermanentNoteRelations } from "./permanent-note-sidebar-model.js";
+import { buildReviewChecklist } from "./review-checklist-model.js";
 
 function cleanText(value = "") {
   return String(value || "").trim();
@@ -134,7 +135,8 @@ export function buildTodayOrganizingState({
   relations = [],
   themeIndexes = [],
   relationsReady = false,
-  organizingOverview = null
+  organizingOverview = null,
+  reviewSuggestions = []
 } = {}, deps = {}) {
   const permanentNotes = (Array.isArray(notes) ? notes : []).filter((note) => isPermanentNote(note, deps));
   const importRecommended = firstImportRecommendedNote(organizingOverview);
@@ -192,6 +194,7 @@ export function buildTodayOrganizingState({
           id: cleanText(writingReadyNotes[0].id),
           title: noteTitle(writingReadyNotes[0])
         }
-      : null
+      : null,
+    reviewChecklist: buildReviewChecklist({ notes, relations, themeIndexes, relationsReady, aiSuggestions: reviewSuggestions }, deps)
   };
 }
