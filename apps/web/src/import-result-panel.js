@@ -54,53 +54,28 @@ function renderOrganizingOverview(data = {}) {
   const recommended = Array.isArray(overview.recommendedFirst) ? overview.recommendedFirst : [];
   const themes = Array.isArray(overview.themeCandidates) ? overview.themeCandidates : [];
   const firstRecommended = recommended.find((item) => item?.noteId || item?.id) || null;
+  const firstTheme = themes.find((item) => item?.title) || null;
   return `
     <section class="import-organizing-home" aria-label="导入后的整理首页">
       <div class="import-organizing-home-head">
         <div>
-          <strong>今天先做什么</strong>
-          <p>先把一条未关联永久笔记接入关系网；如果已经有成组判断，再去看可写主题。</p>
+          <strong>导入完成，回到今日整理</strong>
+          <p>今天只保留三件事：未关联笔记、可成主题、可进入写作。</p>
         </div>
-        <span>${escapeHtml(overview.writingReady ? "已有可写主题" : "先整理关系")}</span>
-      </div>
-      <div class="import-organizing-home-actions" aria-label="导入后的主操作">
-        ${
-          firstRecommended
-            ? `<button class="mini-btn primary" type="button" data-import-writing-action="open-first-isolated-note" data-note-id="${escapeHtml(firstRecommended.noteId || firstRecommended.id)}">
-                处理第一条未关联笔记
-              </button>`
-            : `<span class="toolbar-note">这批永久笔记暂时没有需要优先处理的未关联笔记。</span>`
-        }
-        <button class="mini-btn" type="button" data-import-writing-action="create-writing-project">
-          查看可写主题
-        </button>
-        <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
-          打开写作中心
-        </button>
-        <button class="mini-btn" type="button" data-import-writing-action="open-today">
+        <button class="mini-btn primary" type="button" data-import-writing-action="open-today">
           去今日整理
         </button>
+      </div>
+      <div class="import-organizing-home-actions" aria-label="导入后的主操作">
+        <div><span>未关联笔记</span><strong>${escapeHtml(firstRecommended?.title || firstRecommended?.noteId || "已完成")}</strong></div>
+        <div><span>可成主题</span><strong>${escapeHtml(firstTheme?.title || "先完成建联")}</strong></div>
+        <div><span>可进入写作</span><strong>${escapeHtml(overview.writingReady ? firstTheme?.title || "已有主题" : "先整理主题")}</strong></div>
       </div>
       <div class="import-organizing-home-metrics">
         <div><span>导入永久笔记</span><strong>${escapeHtml(overview.permanentCount)}</strong></div>
         <div><span>还未关联</span><strong>${escapeHtml(overview.isolatedCount || 0)}</strong></div>
         <div><span>已有关系</span><strong>${escapeHtml(overview.connectedCount || 0)}</strong></div>
       </div>
-      ${
-        recommended.length
-          ? `<div class="import-organizing-home-list"><strong>建议先处理</strong><ol>${recommended
-              .slice(0, 5)
-              .map((item) => `<li>${escapeHtml(item.title || item.noteId)}</li>`)
-              .join("")}</ol></div>`
-          : `<div class="import-organizing-home-list"><strong>建议先处理</strong><p>这批永久笔记已经有正式关系，可以查看图谱或进入写作。</p></div>`
-      }
-      ${
-        themes.length
-          ? `<div class="import-organizing-home-list"><strong>可以继续写的主题</strong><ul>${themes
-              .map((item) => `<li>${escapeHtml(item.title)}（${escapeHtml(item.noteCount)} 条笔记）</li>`)
-              .join("")}</ul></div>`
-          : ""
-      }
     </section>
   `;
 }

@@ -41,6 +41,45 @@ test("startup controller wires import toolbar events then initializes route and 
   ]);
 });
 
+test("startup controller sends confirmed imports to today organizing", async () => {
+  const calls = [];
+  let confirmSuccess = null;
+  await bootstrapAppForRuntime({
+    state: { browserRootId: "root", selectedFolderId: "root" },
+    importState: { importRecordId: "import-1", directoryId: "root" },
+    setUsingLocalFallbackData: () => {},
+    renderImportPageShell: () => {},
+    createImportToolbarActions: (options) => {
+      confirmSuccess = options.onConfirmSuccess;
+      return {};
+    },
+    renderImportToolbar: () => {},
+    bindImportWorkspaceEvents: () => {},
+    initializeAppRoute: async () => {},
+    openInitialStartupRoute: async () => {},
+    confirmedImportTargetDirectoryId: () => "",
+    preferredImportDirectoryId: (value) => value,
+    setImportRecordId: (id) => calls.push(["record", id]),
+    showImportResult: (payload) => calls.push(["result", payload.stage]),
+    activateModule: (moduleName) => calls.push(["module", moduleName]),
+    hideImportOperationResultModal: () => calls.push(["hideModal"]),
+    renderAll: () => {}
+  });
+
+  await confirmSuccess({
+    importRecordId: "import-1",
+    result: { status: "completed", result: { organizingOverview: { permanentCount: 1 } } },
+    preview: { candidatePreview: null }
+  });
+
+  assert.deepEqual(calls, [
+    ["record", "import-1"],
+    ["result", "confirm"],
+    ["module", "today"],
+    ["hideModal"]
+  ]);
+});
+
 test("route initializer connects API and marks browser fallback on web failures", async () => {
   const successCalls = [];
   const success = await initializeAppRouteForRuntime({

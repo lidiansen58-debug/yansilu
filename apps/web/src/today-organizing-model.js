@@ -65,6 +65,10 @@ function noteExplicitRelationCount(note = null) {
 }
 
 function themeNoteCount(theme = null) {
+  return themeNoteIds(theme).length;
+}
+
+function themeNoteIds(theme = null) {
   const ids = Array.isArray(theme?.item_note_ids)
     ? theme.item_note_ids
     : Array.isArray(theme?.noteIds)
@@ -72,7 +76,7 @@ function themeNoteCount(theme = null) {
       : Array.isArray(theme?.items)
         ? theme.items.map((item) => item?.note_id || item?.noteId).filter(Boolean)
         : [];
-  return ids.length;
+  return ids.map((item) => cleanText(item)).filter(Boolean);
 }
 
 function themeUpdatedAt(theme = null) {
@@ -95,13 +99,46 @@ function firstLoadedTheme(themeIndexes = []) {
   })[0];
 }
 
+function importOverviewPermanentCount(overview = null) {
+  const count = Number(overview?.permanentCount || 0);
+  return Number.isFinite(count) ? Math.max(0, count) : 0;
+}
+
+function firstImportRecommendedNote(overview = null) {
+  if (importOverviewPermanentCount(overview) <= 0) return null;
+  const recommended = Array.isArray(overview?.recommendedFirst) ? overview.recommendedFirst : [];
+  return recommended.find((item) => cleanText(item?.noteId || item?.id)) || null;
+}
+
+function firstImportTheme(overview = null) {
+  if (importOverviewPermanentCount(overview) <= 0) return null;
+  const themes = Array.isArray(overview?.themeCandidates) ? overview.themeCandidates : [];
+  return themes.find((item) => cleanText(item?.title) && themeNoteIds(item).length) || null;
+}
+
+function shouldUseImportRecommended(importRecommended = null, permanentNotes = [], isolatedNotes = [], relations = [], relationsReady = false, deps = {}) {
+  const noteId = cleanText(importRecommended?.noteId || importRecommended?.id);
+  if (!noteId) return false;
+  const liveNote = permanentNotes.find((note) => cleanText(note?.id) === noteId) || null;
+  if (!liveNote) return true;
+  if (isolatedNotes.some((note) => cleanText(note?.id) === noteId)) return true;
+  if (relationStatus(liveNote, deps) === "connected") return false;
+  const noteRelationCount = noteExplicitRelationCount(liveNote);
+  if (noteRelationCount !== null) return noteRelationCount === 0;
+  if (relationsReady) return explicitRelationCountForNote(noteId, relations) === 0;
+  return true;
+}
+
 export function buildTodayOrganizingState({
   notes = [],
   relations = [],
   themeIndexes = [],
-  relationsReady = false
+  relationsReady = false,
+  organizingOverview = null
 } = {}, deps = {}) {
   const permanentNotes = (Array.isArray(notes) ? notes : []).filter((note) => isPermanentNote(note, deps));
+  const importRecommended = firstImportRecommendedNote(organizingOverview);
+  const importTheme = firstImportTheme(organizingOverview);
   const isolatedNotes = permanentNotes.filter((note) => {
     const status = relationStatus(note, deps);
     if (status === "isolated") return true;
@@ -112,7 +149,9 @@ export function buildTodayOrganizingState({
     return false;
   });
   const firstIsolated = isolatedNotes[0] || null;
+  const useImportRecommended = shouldUseImportRecommended(importRecommended, permanentNotes, isolatedNotes, relations, relationsReady, deps);
   const loadedTheme = firstLoadedTheme(themeIndexes);
+  const selectedTheme = loadedTheme || importTheme;
   const writingReadyNotes = permanentNotes.filter((note) => {
     const thesis = cleanText(note?.thesis);
     const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => cleanText(item)) : [];
@@ -121,21 +160,30 @@ export function buildTodayOrganizingState({
   });
 
   return {
-    permanentCount: permanentNotes.length,
-    isolatedCount: isolatedNotes.length,
-    firstIsolated: firstIsolated
+    permanentCount: Math.max(permanentNotes.length, importOverviewPermanentCount(organizingOverview)),
+    isolatedCount: useImportRecommended ? Math.max(1, Number(organizingOverview?.isolatedCount || isolatedNotes.length || 1)) : isolatedNotes.length,
+    firstIsolated: useImportRecommended
+      ? {
+          id: cleanText(importRecommended.noteId || importRecommended.id),
+          title: noteTitle(importRecommended),
+          relationCount: 0,
+          source: "import"
+        }
+      : firstIsolated
       ? {
           id: cleanText(firstIsolated.id),
           title: noteTitle(firstIsolated),
           relationCount: explicitRelationCountForNote(firstIsolated.id, relations)
         }
       : null,
-    themeCount: (Array.isArray(themeIndexes) ? themeIndexes : []).length,
-    firstTheme: loadedTheme
+    themeCount: Math.max((Array.isArray(themeIndexes) ? themeIndexes : []).length, importTheme ? 1 : 0),
+    firstTheme: selectedTheme
       ? {
-          id: cleanText(loadedTheme.id),
-          title: noteTitle(loadedTheme, "可写主题"),
-          noteCount: themeNoteCount(loadedTheme)
+          id: cleanText(selectedTheme.id),
+          title: noteTitle(selectedTheme, "可成主题"),
+          noteCount: themeNoteCount(selectedTheme),
+          noteIds: themeNoteIds(selectedTheme),
+          source: selectedTheme === importTheme ? "import" : "theme-index"
         }
       : null,
     writingReadyCount: writingReadyNotes.length,

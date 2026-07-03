@@ -559,7 +559,7 @@ const writingState = {
   localBookIdeasGeneratedAt: ""
 };
 
-const todayOrganizingRuntime = createTodayOrganizingRuntime(() => ({ panel: $("todayOrganizingPanel"), notes: state.notes, relations: graphState.item?.edges || [], relationsReady: Boolean(graphState.item) || state.graphConnectivityReady === true, themeIndexes: writingState.themeIndexes, typeFromFolder: (folderId) => typeFromFolder(state, folderId), relationNetworkStatusForNote }));
+const todayOrganizingRuntime = createTodayOrganizingRuntime(() => ({ panel: $("todayOrganizingPanel"), notes: state.notes, relations: graphState.item?.edges || [], relationsReady: Boolean(graphState.item) || state.graphConnectivityReady === true, themeIndexes: writingState.themeIndexes, organizingOverview: Number((importState.lastResultPayload?.result?.organizingOverview || importState.lastResultPayload?.importRecord?.confirmResult?.organizingOverview || null)?.permanentCount || 0) > 0 ? importState.lastResultPayload?.result?.organizingOverview || importState.lastResultPayload?.importRecord?.confirmResult?.organizingOverview || null : null, loadingThemeIndexes: writingState.loadingThemeIndexes, loadThemeIndexes: loadWritingThemeIndexes, themeLoadKey: `${currentVaultPath()}|${importState.importRecordId}|${importState.lastResultPayload?.stage || ""}`, typeFromFolder: (folderId) => typeFromFolder(state, folderId), relationNetworkStatusForNote }));
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
 let statusHoldUntil = 0;
