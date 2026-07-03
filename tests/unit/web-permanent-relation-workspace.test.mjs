@@ -56,10 +56,12 @@ test("permanent relation workspace renders a large relation-only flow", () => {
 
   assert.match(html, /data-permanent-relation-workspace/);
   assert.match(html, /建立笔记关联/);
+  assert.match(html, /这条关系让哪个判断更清楚/);
   assert.match(html, /当前笔记/);
   assert.match(html, /目标笔记/);
   assert.match(html, /它们是什么关系/);
   assert.match(html, /为什么要关联/);
+  assert.match(html, /placeholder="这条关系让哪个判断更清楚？因为\.\.\."/);
   assert.match(html, /保存关系/);
   assert.match(html, /AI 推荐/);
   assert.match(html, /手动搜索/);

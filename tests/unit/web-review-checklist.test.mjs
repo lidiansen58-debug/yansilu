@@ -133,13 +133,18 @@ test("review checklist panel renders only actionable cards with buttons", () => 
   const html = renderReviewChecklistPanel({
     items: [
       { type: "isolatedNote", title: "孤立笔记", objectTitle: "孤立判断", summary: "补一条关系", meta: "本地规则", action: "review-connect-isolated", actionLabel: "补一条关系", noteId: "pn_1" },
-      { type: "broadTag", title: "标签太宽", objectTitle: "#阅读", summary: "改成更具体标签", meta: "本地规则", action: "review-refine-tag", actionLabel: "改成更具体标签", noteId: "pn_2", tag: "阅读" }
+      { type: "broadTag", title: "标签太宽", objectTitle: "#阅读", summary: "改成更具体标签", meta: "本地规则", action: "review-refine-tag", actionLabel: "改成更具体标签", noteId: "pn_2", tag: "阅读" },
+      { type: "missingRationale", title: "关系缺理由", objectTitle: "A -> B", summary: "补一句理由", meta: "本地规则", action: "review-complete-rationale", actionLabel: "补一句理由", noteId: "pn_3" },
+      { type: "writableTopic", title: "主题可写作", objectTitle: "写作主题", summary: "生成提纲", meta: "本地规则", action: "review-generate-outline", actionLabel: "生成提纲", themeId: "idx_1" }
     ]
   });
 
-  assert.match(html, /定期回顾清单/);
+  assert.match(html, /今天先做/);
+  assert.match(html, /先点一个主按钮/);
   assert.match(html, /data-today-action="review-connect-isolated"/);
   assert.match(html, /data-today-action="review-refine-tag"/);
+  assert.match(html, /data-today-action="review-complete-rationale"/);
+  assert.doesNotMatch(html, /data-today-action="review-generate-outline"/);
   assert.match(html, /<button class="mini-btn primary"/);
   assert.doesNotMatch(html, /纯状态|状态列表/);
 });

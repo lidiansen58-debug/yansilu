@@ -58,11 +58,12 @@ export function renderReviewChecklistPanel(checklist = {}) {
   return `
     <section class="today-review-checklist" aria-label="定期回顾清单">
       <div class="today-review-heading">
-        <span class="today-action-kicker">定期回顾清单</span>
-        <strong>本次先处理 ${escape(items.length)} 个卡片盒维护动作</strong>
+        <span class="today-action-kicker">今天先做</span>
+        <strong>先点一个主按钮，处理 ${escape(Math.min(items.length, 3))} 个最能推进写作的动作</strong>
+        <p>每张卡只做一件事：补判断、补关系理由，或把相关笔记推进到写作。</p>
       </div>
       <div class="today-action-grid">
-        ${items.map((item) => renderItem(item)).join("")}
+        ${items.slice(0, 3).map((item) => renderItem(item)).join("")}
       </div>
     </section>
   `;

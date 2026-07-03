@@ -247,7 +247,7 @@ export function renderPermanentRelationWorkspace({
         <header class="permanent-relation-head">
           <div>
             <strong id="permanentRelationWorkspaceTitle">建立笔记关联</strong>
-            <span>选择目标笔记、关系类型和理由；保存后仍留在这个窗口里继续处理。</span>
+            <span>先选一条相关笔记，再写一句：这条关系让哪个判断更清楚。</span>
           </div>
           <button class="mini-btn is-ghost" type="button" data-permanent-relation-action="close">关闭</button>
         </header>
@@ -291,7 +291,7 @@ export function renderPermanentRelationWorkspace({
             </label>
             <label>
               <span>为什么要关联</span>
-              <textarea name="rationale" data-permanent-relation-field="rationale" required placeholder="这条关系成立，因为...">${escapeHtml(workspaceState.rationale)}</textarea>
+              <textarea name="rationale" data-permanent-relation-field="rationale" required placeholder="这条关系让哪个判断更清楚？因为...">${escapeHtml(workspaceState.rationale)}</textarea>
             </label>
             <label>
               <span>补充问题（可选）</span>

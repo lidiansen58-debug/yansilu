@@ -114,7 +114,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
         <button class="mini-btn primary" type="button" data-writing-theme-action="${escapeHtml(primaryThemeAction)}" data-writing-theme-id="${themeId}" data-writing-project-id="${escapeHtml(primaryThemeProjectId)}" ${projectEntry.canCreateProject ? "" : "disabled"}>${escapeHtml(projectEntry.actionLabel)}</button>
       </div>
       <div class="writing-summary" style="margin-top:12px;">
-        写作助手会先帮你看三件事：这组笔记为什么值得写、会用到哪些永久笔记、下一步先生成哪份文章提纲。
+        这不是文章正文，而是回到同一问题的入口。写作助手会先帮你看三件事：为什么值得写、会用到哪些判断、下一步先生成哪份文章提纲。
       </div>
       <div class="writing-summary" style="margin-top:12px;" data-writing-theme-worth-writing="${themeId}">
         为什么这组笔记值得写：${escapeHtml(worthWritingText)}
