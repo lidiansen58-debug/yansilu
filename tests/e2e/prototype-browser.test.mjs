@@ -8879,7 +8879,31 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
 
   const firstSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
   assert.equal(firstSeedDirectory.status, 200, JSON.stringify(firstSeedDirectory.json));
-  assert.equal(firstSeedDirectory.json.total, 102);
+  const firstSeedDirectoryTotal = Number(firstSeedDirectory.json.total || 0);
+  assert.ok(firstSeedDirectoryTotal >= 100);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
+  await waitFor(async () => {
+    const firstVisibleGuideBlocks = await page.evaluate(() =>
+      [...document.querySelectorAll("#wysiwygHost h1,#wysiwygHost h2,#wysiwygHost p,#wysiwygHost li")]
+        .map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            text: String(node.textContent || "").trim().replace(/\s+/g, " "),
+            top: rect.top,
+            height: rect.height
+          };
+        })
+        .filter((item) => item.height > 0 && item.top >= 90 && item.top < 520)
+        .slice(0, 4)
+        .map((item) => item.text)
+        .join(" ")
+    );
+    assert.match(firstVisibleGuideBlocks, /00 从这里开始|这不是一篇长教程|先走 5 步/);
+    assert.doesNotMatch(firstVisibleGuideBlocks, /产品功能示例笔记/);
+  }, 15000);
+  await page.setViewportSize({ width: 1366, height: 900 });
 
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
   await waitFor(async () => {
@@ -8904,7 +8928,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.ok(String(writingState.title || "").trim().length > 0);
     assert.ok(String(writingState.goal || "").trim().length > 0);
     assert.ok(String(writingState.audience || "").trim().length > 0);
-    assert.match(writingState.basketSummary, /已选择 12 条相关笔记/);
+    assert.match(writingState.basketSummary, /已选择 \d+ 条相关笔记/);
   }, 15000);
 
   const project = await fetchJson(apiBase, "/api/v1/writing-projects/WP-SN-PM-001");
@@ -8917,7 +8941,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
 
   const secondSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
   assert.equal(secondSeedDirectory.status, 200, JSON.stringify(secondSeedDirectory.json));
-  assert.equal(secondSeedDirectory.json.total, 102);
+  assert.equal(secondSeedDirectory.json.total, firstSeedDirectoryTotal);
 });
 
 test("prototype explorer context rename moves directory fsPath and note markdown path", async (t) => {

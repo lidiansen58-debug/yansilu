@@ -999,6 +999,25 @@ export class EditorPane {
     restore();
   }
 
+  resetEditorViewportToStart() {
+    const reset = () => {
+      this.editorScrollNodes().forEach((node) => {
+        if (!node) return;
+        node.scrollTop = 0;
+        node.scrollLeft = 0;
+      });
+      this.markdownEditor?.setSelectionRange?.(0, 0);
+      this.richEditor?.editor?.moveCursorToStart?.(false);
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(reset);
+      window.setTimeout?.(reset, 32);
+      window.setTimeout?.(reset, 96);
+      return;
+    }
+    reset();
+  }
+
   renderSourceNoteFlowSection(note) {
     const noteType = this.resolvedNoteType(note);
     if (!note?.id || (noteType !== "fleeting" && noteType !== "literature")) return "";

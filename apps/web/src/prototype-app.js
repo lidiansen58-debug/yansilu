@@ -5212,6 +5212,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     if (firstNoteId) {
       state.selectedFileId = firstNoteId;
       openNoteById(firstNoteId, { preferTitleSelection: false });
+      editor?.resetEditorViewportToStart?.();
     }
     const counts = result?.counts || {};
     const summary = result?.summary || {};
@@ -5239,6 +5240,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
         state.selectedFileId = fallbackNoteId;
         activateModule("explorer");
         openNoteById(fallbackNoteId, { preferTitleSelection: false });
+        editor?.resetEditorViewportToStart?.();
         setStatus(smartNotesDemoOpenedExistingGuideStatus(), "ok");
         return true;
       }

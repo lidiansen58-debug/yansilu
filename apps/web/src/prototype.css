@@ -19598,7 +19598,8 @@
       html.editor-only .editor-stage-shell .editor-stage-top .toolbar {
         max-height: 30px !important;
         opacity: 0.48 !important;
-        overflow: hidden !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
       }
 
       .editor-stage-shell .editor-stage-top:focus-within .toolbar,
@@ -19641,7 +19642,8 @@
       .editor-stage-top .toolbar {
         max-height: 30px;
         opacity: 0.48;
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
         transition: max-height 0.18s ease, opacity 0.18s ease;
       }
 
