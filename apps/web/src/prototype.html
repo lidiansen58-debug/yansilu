@@ -791,6 +791,59 @@
                           <button class="mini-btn primary" id="settingsSwitchVault" type="button">选好后切换</button>
                         </div>
                       </section>
+                      <section class="settings-card" id="settingsCardVaultBackup">
+                        <div class="settings-card-head">
+                          <div>
+                            <div class="settings-card-title">加密备份</div>
+                            <div class="settings-card-note">把整个笔记库安全打包成一个加密文件。</div>
+                          </div>
+                        </div>
+                        <div class="settings-card-note" id="settingsBackupStatus"></div>
+                        <div class="import-grid">
+                          <label for="settingsBackupTargetDirectory">保存到</label>
+                          <div class="path-picker">
+                            <input id="settingsBackupTargetDirectory" placeholder="选择 U 盘、网盘、NAS 或本地文件夹" />
+                            <button class="mini-btn is-subtle" id="settingsBrowseBackupTarget" type="button">浏览...</button>
+                          </div>
+                          <label for="settingsBackupPassword">备份密码</label>
+                          <input id="settingsBackupPassword" type="password" autocomplete="new-password" placeholder="请牢记，研思录无法找回" />
+                          <label for="settingsBackupPasswordConfirm">确认密码</label>
+                          <input id="settingsBackupPasswordConfirm" type="password" autocomplete="new-password" placeholder="再输入一次密码" />
+                        </div>
+                        <div class="import-actions">
+                          <button class="mini-btn primary" id="settingsCreateVaultBackup" type="button">创建加密备份</button>
+                          <button class="mini-btn is-subtle hidden" id="settingsRevealBackup" type="button">在文件夹中显示</button>
+                        </div>
+                        <div id="settingsBackupResult"></div>
+                      </section>
+                      <section class="settings-card" id="settingsCardVaultRestore">
+                        <div class="settings-card-head">
+                          <div>
+                            <div class="settings-card-title">恢复备份 / 迁移到另一台电脑</div>
+                            <div class="settings-card-note">恢复到一个新文件夹，不覆盖当前笔记库。</div>
+                          </div>
+                        </div>
+                        <div class="settings-card-note" id="settingsRestoreStatus"></div>
+                        <div class="import-grid">
+                          <label for="settingsRestoreBackupPath">备份文件</label>
+                          <div class="path-picker">
+                            <input id="settingsRestoreBackupPath" placeholder="例如：D:\Backups\yansilu-backup-20260704-093000.yansilu-backup" />
+                            <button class="mini-btn is-subtle" id="settingsBrowseRestoreBackupFile" type="button">选择备份文件</button>
+                          </div>
+                          <label for="settingsRestoreTargetVaultPath">恢复到新文件夹</label>
+                          <div class="path-picker">
+                            <input id="settingsRestoreTargetVaultPath" placeholder="例如：D:\Notes\yansilu-restored-vault" />
+                            <button class="mini-btn is-subtle" id="settingsBrowseRestoreTarget" type="button">选择父文件夹</button>
+                          </div>
+                          <label for="settingsRestorePassword">备份密码</label>
+                          <input id="settingsRestorePassword" type="password" autocomplete="current-password" placeholder="输入创建备份时的密码" />
+                        </div>
+                        <div class="import-actions">
+                          <button class="mini-btn primary" id="settingsRestoreVaultBackup" type="button">恢复到新文件夹</button>
+                          <button class="mini-btn is-subtle hidden" id="settingsOpenRestoredVault" type="button">打开恢复后的笔记库</button>
+                        </div>
+                        <div id="settingsRestoreResult"></div>
+                      </section>
                     </div>
                   </section>
 

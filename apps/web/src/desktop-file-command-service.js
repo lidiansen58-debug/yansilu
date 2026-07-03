@@ -1,5 +1,5 @@
 import { openExternalUrl, openPath, revealPath } from "./desktop-file-adapter.js";
-import { pickDirectoryPath } from "./path-picker-adapter.js";
+import { pickDirectoryPath, pickFilePath } from "./path-picker-adapter.js";
 
 export function createDesktopFileCommandService({ switchVaultImpl } = {}) {
   const browseDirectory = async ({ defaultPath = "", purpose = "目录" } = {}) => {
@@ -12,6 +12,17 @@ export function createDesktopFileCommandService({ switchVaultImpl } = {}) {
 
   const pickVaultDirectory = async ({ defaultPath = "" } = {}) =>
     browseDirectory({ defaultPath, purpose: "笔记库" });
+
+  const pickBackupFile = async ({ defaultPath = "" } = {}) => {
+    const picked = await pickFilePath({
+      defaultPath,
+      filters: [{ name: "Yansilu backup", extensions: ["yansilu-backup"] }]
+    });
+    return {
+      ...picked,
+      purpose: "加密备份文件"
+    };
+  };
 
   const revealInFileManager = async (targetPath) => revealPath(targetPath);
   const openDirectory = async (targetPath) => openPath(targetPath);
@@ -32,6 +43,7 @@ export function createDesktopFileCommandService({ switchVaultImpl } = {}) {
   return {
     browseDirectory,
     pickVaultDirectory,
+    pickBackupFile,
     revealInFileManager,
     openDirectory,
     openExternalUrl: openLink,

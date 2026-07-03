@@ -21,6 +21,7 @@ export function renderSettingsPanelForRuntime(deps = {}) {
     renderNoteTemplateSettingsCard = () => {},
     renderAiLocalModelControls = () => {},
     renderAiSettingsExperience = () => {},
+    renderVaultBackupPanel = () => {},
     renderAiProviderConfigControls = () => {},
     renderAiRoutePreview = () => {},
     renderScheduledTasksWorkspace = () => {},
@@ -45,7 +46,9 @@ export function renderSettingsPanelForRuntime(deps = {}) {
   if (!input || !switchHint || !switchButton) return;
 
   const vault = settingsState.vault;
-  if (vault?.vaultPath && !String(input.value || "").trim()) input.value = vault.vaultPath;
+  if (vault?.vaultPath && document?.activeElement !== input && String(input.value || "") !== String(vault.vaultPath || "")) {
+    input.value = vault.vaultPath;
+  }
   if (vault) {
     switchHint.textContent = vault.vaultPath
       ? `当前使用：${settingsLeafLabel(vault.vaultPath)}${vault.initialized ? " · 已就绪" : ""}`
@@ -62,6 +65,7 @@ export function renderSettingsPanelForRuntime(deps = {}) {
   renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVersion });
   renderNoteTemplateSettingsCard("permanent");
   renderNoteTemplateSettingsCard("literature");
+  renderVaultBackupPanel();
 
   renderAiLocalModelControls();
   renderAiSettingsExperience();

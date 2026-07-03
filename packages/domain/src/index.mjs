@@ -8,4 +8,5 @@ export * from "./note-store.mjs";
 export * from "./quality-checks.mjs";
 export * from "./sqlite-migrations.mjs";
 export * from "./thinking-status.mjs";
+export * from "./vault-backup-service.mjs";
 export * from "./vault.mjs";
