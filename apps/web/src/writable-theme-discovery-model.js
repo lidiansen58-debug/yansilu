@@ -7,6 +7,7 @@ import {
 const WEAK_RELATION_TYPES = new Set(["markdown_link", "wikilink", "same_topic_weak"]);
 const BLOCKED_STATUSES = new Set(["dismissed", "archived", "rejected", "ignored"]);
 const MAX_SUGGESTION_NOTE_COUNT = 18;
+const MAX_LOCAL_NOTE_COUNT = 200;
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -76,6 +77,7 @@ function existingThemeNoteIds(indexCard = {}) {
   return uniqueStrings(
     indexCard?.item_note_ids ||
     indexCard?.noteIds ||
+    indexCard?.note_ids ||
     (Array.isArray(indexCard?.items) ? indexCard.items.map((item) => item?.note_id || item?.noteId) : [])
   );
 }
@@ -91,6 +93,7 @@ function componentClusters(notes = [], relations = []) {
     adjacency.get(from)?.add(to);
     adjacency.get(to)?.add(from);
   });
+
   const seen = new Set();
   const clusters = [];
   noteIds.forEach((startId) => {
@@ -164,9 +167,8 @@ function normalizeCluster(cluster = {}, context = {}) {
   const noteIds = uniqueStrings(cluster.noteIds);
   const aiTopic = aiSupplementForCluster(noteIds, aiTopicCandidates);
   const relationCount = relationCountsForCluster(noteIds, relations);
-  const localTitle = cleanText(cluster.titleSeed)
-    ? `${cleanText(cluster.titleSeed)}的可写主题建议`
-    : "";
+  const titleSeed = cleanText(cluster.titleSeed);
+  const localTitle = titleSeed ? `${titleSeed}的可写主题建议` : "";
   const suggestion = buildThemeIndexSuggestionFromRelationCluster({
     noteIds,
     title: cleanText(aiTopic?.title) || localTitle,
@@ -187,7 +189,7 @@ function normalizeCluster(cluster = {}, context = {}) {
     ? "最好再补 1 条相关永久笔记，或补清边界/反例后再写。"
     : relationCount === 0
       ? "当前主要来自共同信号，保存前最好补一条正式关系理由。"
-      : "保存前确认中心问题是否足够具体，缺口是否值得继续追问。";
+      : "保存前请确认中心问题是否足够具体，缺口是否值得继续追问。";
   const key = clusterKey(noteIds);
   return {
     id: `suggested-theme:${key}`,
@@ -195,7 +197,7 @@ function normalizeCluster(cluster = {}, context = {}) {
     kind: "suggestion",
     status: "suggested",
     source: cluster.source || "local_rules",
-    sourceLabel: aiTopic ? "本地规则 + AI 命名建议" : "本地规则建议",
+    sourceLabel: aiTopic ? "本地规则建议 + AI 命名补充" : "本地规则建议",
     aiSupplemented: Boolean(aiTopic),
     canSave: suggestion.canCreate,
     noteIds,
@@ -245,7 +247,7 @@ export function discoverWritableThemeSuggestions({
 } = {}) {
   const cleanNotes = (Array.isArray(notes) ? notes : [])
     .filter((note) => noteIdOf(note))
-    .slice(0, 200);
+    .slice(0, MAX_LOCAL_NOTE_COUNT);
   const ignored = new Set(uniqueStrings(ignoredSuggestionKeys));
   const existingThemes = (Array.isArray(existingThemeIndexes) ? existingThemeIndexes : []).map(existingThemeNoteIds).filter((ids) => ids.length);
   const rawClusters = [
@@ -289,7 +291,7 @@ export function themeDiscoverySuggestionToCreatePayload(suggestion = {}, draft =
     threeLineSummary: [
       `主题问题：${centralQuestion}`,
       `关键永久笔记：${noteIds.join("、")}`,
-      cleanText(draft.nextStep) || suggestion.threeLineSummary?.[2] || "下一步可以先确认这组笔记是否足以形成文章提纲。"
+      cleanText(draft.nextStep) || suggestion.threeLineSummary?.[2] || "下一步建议：先确认这组笔记是否足以形成文章提纲。"
     ],
     centralQuestion,
     noteIds,

@@ -25,10 +25,10 @@ test("theme index suggestion captures the required topic-index fields from a rel
   assert.deepEqual(suggestion.noteIds, ["n1", "n2", "n3"]);
   assert.match(suggestion.centralQuestion, /关系如何变成写作入口/);
   assert.match(suggestion.summary, /主题问题/);
-  assert.match(suggestion.summary, /下一步可以写/);
+  assert.match(suggestion.summary, /下一步建议/);
   assert.equal(suggestion.items.length, 3);
   assert.deepEqual(suggestion.items.map((item) => item.noteId), ["n1", "n2", "n3"]);
-  assert.ok(suggestion.items.every((item) => /为什么重要/.test(item.rationale)));
+  assert.ok(suggestion.items.every((item) => /关键判断|关键永久笔记/.test(item.rationale)));
 });
 
 test("theme index create payload is ready for index-card persistence", () => {
@@ -45,7 +45,7 @@ test("theme index create payload is ready for index-card persistence", () => {
   assert.equal(payload.threeLineSummary.length, 3);
   assert.match(payload.threeLineSummary[0], /主题问题/);
   assert.match(payload.threeLineSummary[1], /关键永久笔记/);
-  assert.match(payload.threeLineSummary[2], /下一步可以写/);
+  assert.match(payload.threeLineSummary[2], /下一步建议/);
   assert.deepEqual(payload.noteIds, ["n1", "n2", "n3"]);
 });
 

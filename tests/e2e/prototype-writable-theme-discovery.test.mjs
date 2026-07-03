@@ -58,7 +58,7 @@ test("prototype writing center discovers a writable theme suggestion and saves i
     assert.equal(await suggestion.isVisible(), true);
     const text = await suggestion.textContent();
     assert.match(String(text || ""), /可写主题建议/);
-    assert.match(String(text || ""), /确认前|保存前|只是建议/);
+    assert.match(String(text || ""), /保存前可以编辑|只是建议/);
   }, 10000);
 
   await suggestion.locator('[data-theme-discovery-field="title"]').fill("User Confirmed Discovery Theme");

@@ -36,8 +36,8 @@ function nextWritingStep({ centralQuestion = "", titles = [] } = {}) {
   const firstTitle = cleanText(titles[0]);
   const question = cleanText(centralQuestion) || "这个主题问题";
   return firstTitle
-    ? `下一步可以写：先写一段，说明“${firstTitle}”如何帮助回答“${question}”。`
-    : `下一步可以写：先围绕“${question}”列出一个可论证的小提纲。`;
+    ? `下一步建议：先写一段，说明“${firstTitle}”如何帮助回答“${question}”。`
+    : `下一步建议：先围绕“${question}”列出一个可论证的小提纲。`;
 }
 
 export function buildThemeIndexSuggestionFromRelationCluster({
@@ -59,20 +59,20 @@ export function buildThemeIndexSuggestionFromRelationCluster({
       noteId,
       shortLabel: titleText,
       rationale: judgment
-        ? `为什么重要：它提供了回答主题问题的关键判断：${judgment}`
-        : `为什么重要：它是这组关系聚集中的关键永久笔记，需要在可写主题里说明作用。`,
+        ? `它提供了回答中心问题的关键判断：${judgment}`
+        : "它是这组关系聚类中的关键永久笔记，需要在可写主题里说明作用。",
       order: index + 1
     };
   });
   const nextStep = nextWritingStep({ centralQuestion, titles });
-  const relationLabel = relationCount > 0 ? `${relationCount} 条关系` : "多条关系";
+  const relationLabel = relationCount > 0 ? `${relationCount} 条本地关系` : "共同信号";
   return {
     canCreate: cleanNoteIds.length >= THEME_INDEX_MIN_NOTE_COUNT,
     noteIds: cleanNoteIds,
     title: resolvedTitle,
     centralQuestion,
     summary: `主题问题：${centralQuestion} 关键永久笔记：${titles.slice(0, 5).join("、") || "待补充"}。${nextStep}`,
-    thesis: `这组永久笔记已经通过${relationLabel}聚集，适合先整理成可写主题，再进入写作中心。`,
+    thesis: `这组永久笔记已经通过${relationLabel}聚集，适合作为可写主题建议；保存前仍需用户确认名称、中心问题和归属理由。`,
     threeLineSummary: [
       `主题问题：${centralQuestion}`,
       `关键永久笔记：${titles.slice(0, 5).join("、") || cleanNoteIds.join("、")}`,

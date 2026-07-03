@@ -55,8 +55,8 @@ export function createWritableThemeDiscoveryController(depsProvider = () => ({})
       state.themeDiscoverySuggestions = suggestions;
       setStatus(
         suggestions.length
-          ? `已发现 ${suggestions.length} 条可写主题建议；确认前不会保存`
-          : "暂时没有发现可写主题建议",
+          ? `已发现 ${suggestions.length} 条可写主题建议；确认前不会保存。`
+          : "暂时没有发现可写主题建议。",
         suggestions.length ? "ok" : "warn"
       );
       return suggestions;
@@ -76,7 +76,7 @@ export function createWritableThemeDiscoveryController(depsProvider = () => ({})
     ]);
     state.themeDiscoverySuggestions = (state.themeDiscoverySuggestions || []).filter((item) => item.id !== suggestion.id);
     deps().renderWritingPanel?.();
-    deps().setStatus?.("已忽略这条可写主题建议；没有保存任何内容", "ok");
+    deps().setStatus?.("已忽略这条可写主题建议；没有保存任何内容。", "ok");
     return true;
   }
 
