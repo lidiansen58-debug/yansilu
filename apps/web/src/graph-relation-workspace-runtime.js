@@ -154,7 +154,7 @@ function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(),
   return renderGraphRelationWorkspaceMarkup(noteId, { nodeMap, edges, title, deps: graphWorkspaceRenderDeps() });
 }
 
-function renderGraphThemeIndexWorkspace(noteIds = [], { title = "可写主题推荐", relationCount = 0, tone = "" } = {}) {
+function renderGraphThemeIndexWorkspace(noteIds = [], { title = "主题索引推荐", relationCount = 0, tone = "" } = {}) {
   return renderGraphThemeIndexWorkspaceMarkup(noteIds, { title, relationCount, tone, deps: graphWorkspaceRenderDeps() });
 }
 

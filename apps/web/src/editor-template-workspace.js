@@ -216,12 +216,13 @@ export function distillationNextStepGuide(note = {}) {
   const summary = [0, 1, 2].map((idx) => String((note?.threeLineSummary || [])[idx] || "").trim());
   const boundary = String(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "").trim();
   const status = String(note?.distillationStatus || "").trim().toLowerCase();
+  const explicitRelationCount = Number(note?.explicitRelationCount || note?.explicit_relation_count || 0);
 
   if (!thesis) {
     return {
       key: "thesis",
-      title: "先把这条笔记变成一句判断",
-      body: "不要急着建关系。先写出一个可以被反驳、可以被复用的主张，图谱和写作才知道这条笔记在表达什么。",
+      title: "先写清这条笔记的判断",
+      body: "下一步只做一件事：写出“我认为 X，因为 Y”。判断清楚后，才知道它该和哪条笔记建立关系。",
       actionLabel: "写一句判断"
     };
   }
@@ -229,7 +230,7 @@ export function distillationNextStepGuide(note = {}) {
     return {
       key: `summary${Math.max(1, summary.findIndex((line) => !line) + 1)}`,
       title: "把判断压成三句话",
-      body: "三句话分别回答：它说什么、为什么成立或重要、服务于哪个问题或写作方向。",
+      body: "下一步补三句话：它说什么、为什么重要、可能进入哪个问题。这样后面建关系时不会只靠标题猜。",
       actionLabel: "补三句话"
     };
   }
@@ -237,7 +238,7 @@ export function distillationNextStepGuide(note = {}) {
     return {
       key: "boundary",
       title: "补边界或反例",
-      body: "一条能写作的观点需要知道自己在哪里不成立。先补适用条件、反方或最容易误用的地方。",
+      body: "下一步写清它在哪些情况下不成立。边界会帮你判断关系是真的支持、补充，还是只是看起来相近。",
       actionLabel: "补边界/反例"
     };
   }
@@ -245,14 +246,22 @@ export function distillationNextStepGuide(note = {}) {
     return {
       key: "confirm",
       title: "确认这条观点",
-      body: "判断、三句话和边界已经具备。确认后，它就可以更稳定地进入图谱关系、主题索引和写作。",
+      body: "下一步确认这条观点归你负责。确认后，先给它补一条关系，让它进入笔记网络，再考虑形成主题。",
       actionLabel: "确认观点"
+    };
+  }
+  if (explicitRelationCount > 0) {
+    return {
+      key: "relations",
+      title: "已有关系，看看能否形成主题",
+      body: `这条观点已经有 ${explicitRelationCount} 条正式关系。下一步看这些关系共同指向哪个问题；如果能互相说明，就可以进入主题或写作中心。`,
+      actionLabel: "看关系和主题线索"
     };
   }
   return {
     key: "relations",
-    title: "观点已确认，继续看关系",
-    body: "下一步在图谱或关系区里判断它应该连接到谁。连接理由写清楚后，写作中心会更容易复用。",
+    title: "观点已确认，先补一条关系",
+    body: "下一步判断它和哪条永久笔记互相说明。关系理由写清楚后，这组笔记才会自然长成可写主题。",
     actionLabel: "去看关系"
   };
 }

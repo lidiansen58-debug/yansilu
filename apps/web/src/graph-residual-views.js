@@ -288,7 +288,7 @@ function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
       <details class="graph-section graph-collapsible-section graph-bridge-gap-section" data-graph-section="bridge-gaps"${open ? " open" : ""}>
         <summary class="graph-collapsible-summary">
           <div>
-            <div class="graph-section-title">潜在关联</div>
+            <div class="graph-section-title">可能相关</div>
             <div class="graph-section-note">这里收的是还没连成清楚关系、但很值得补上的连接。点开后可以直接回到笔记补关联。</div>
           </div>
           <span class="graph-collapsible-badge">${items.length} 条</span>
@@ -309,10 +309,10 @@ function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
                 const metaLabel = gapType === "disconnected_cluster" ? "断开的主题群" : "待关联笔记";
                 const highlightNodeIds = [sourceNoteId, targetNoteId].filter(Boolean).join(",");
                 return `
-                  <div class="graph-focus-card graph-bridge-gap-card" data-graph-bridge-gap-id="${escapeHtml(String(gap?.id || sourceNoteId || "").trim())}" data-graph-thinking-highlight="true" data-graph-thinking-node-ids="${escapeHtml(highlightNodeIds)}" data-graph-thinking-title="${escapeHtml(sourceTitle)}" data-graph-thinking-kicker="潜在关联" data-graph-thinking-detail="${escapeHtml(rationale || counterpartSummary)}">
+                  <div class="graph-focus-card graph-bridge-gap-card" data-graph-bridge-gap-id="${escapeHtml(String(gap?.id || sourceNoteId || "").trim())}" data-graph-thinking-highlight="true" data-graph-thinking-node-ids="${escapeHtml(highlightNodeIds)}" data-graph-thinking-title="${escapeHtml(sourceTitle)}" data-graph-thinking-kicker="可能相关" data-graph-thinking-detail="${escapeHtml(rationale || counterpartSummary)}">
                     <button class="graph-focus-card-main" type="button" data-open-note="${escapeHtml(sourceNoteId)}">
                       <strong>${escapeHtml(sourceTitle)}</strong>
-                      <span>${escapeHtml(metaLabel)} · 潜在关联</span>
+                      <span>${escapeHtml(metaLabel)} · 可能相关</span>
                       <small>${escapeHtml(rationale || counterpartSummary)}</small>
                     </button>
                     <button class="graph-focus-card-action" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(sourceNoteId)}"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges">去补关联</button>
@@ -1148,7 +1148,7 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
   if (counts.conflict || counts.boundary) score += 16;
   if (counts.bridge || externalEdges.length) score += 10;
   if (rationale.length >= 34) score += 10;
-  if (title.length >= 4 && !["待验证主题", "可写主题推荐"].includes(title)) score += 8;
+  if (title.length >= 4 && !["待验证主题", "主题索引推荐", "可写主题推荐"].includes(title)) score += 8;
   if (breadth.genericTitle) score -= 14;
   score = Math.max(0, Math.min(100, score));
   const missing = [];
@@ -1164,8 +1164,8 @@ function graphThemeMaturityMeta(topic = {}, { nodeMap = new Map(), edges = [] } 
       score: looseScore,
       tone: "loose",
       label: "松散标签，先收窄",
-      detail: "这个推荐覆盖面太大，更像导航标签或材料入口。现在不宜直接形成可写主题，应先缩成一个更具体、可争论的问题。",
-      next: "从中挑 3-8 条真正回答同一问题的笔记，写出一句临时主题判断，再决定是否拆分或建主题卡。",
+      detail: "这个推荐覆盖面太大，更像导航标签或材料入口。现在不宜直接保存为主题索引，应先缩成一个更具体、可争论的问题。",
+      next: "从中挑 3-8 条真正回答同一问题的笔记，写出一句临时主题判断，再决定是否拆分或保存主题索引。",
       missing,
       noteIds,
       memberEdges,
@@ -1234,7 +1234,7 @@ function graphThemeCandidateQualityMeta(topic = {}, { nodeMap = new Map(), edges
   sortScore -= Number(index || 0) * 0.1;
   const listLabel =
     maturity.tone === "mature"
-      ? "成熟可写主题"
+      ? "成熟主题索引"
       : maturity.tone === "testing"
         ? "待验证聚集"
         : maturity.tone === "loose"
@@ -1323,7 +1323,7 @@ function renderGraphThemeSelectionPanel({ selection = null, topicCandidates = []
             </section>`
           : ""
       }
-      <section class="graph-theme-notes" aria-label="可写主题成员笔记">
+      <section class="graph-theme-notes" aria-label="主题索引成员笔记">
         <strong>成员笔记</strong>
         ${memberNotes
           .map(

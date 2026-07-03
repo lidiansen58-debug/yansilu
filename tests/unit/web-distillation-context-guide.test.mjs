@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
+import { distillationNextStepGuide } from "../../apps/web/src/editor-template-workspace.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -96,7 +97,26 @@ test("distillation next action moves through summary, boundary, confirmation, an
   assert.match(boundaryHtml, /data-note-distillation-focus="boundary"/);
   assert.match(confirmHtml, /data-note-distillation-focus="confirm"/);
   assert.match(relationsHtml, /data-note-distillation-focus="relations"/);
+  assert.match(confirmHtml, /先给它补一条关系/);
+  assert.match(relationsHtml, /先补一条关系/);
+  assert.match(relationsHtml, /长成可写主题/);
   assert.match(relationsHtml, /4\/4/);
+});
+
+test("distillation next action points connected confirmed notes toward themes", () => {
+  const guide = distillationNextStepGuide({
+    thesis: "稳定观点需要进入关系网络。",
+    threeLineSummary: ["观点要能被复用。", "关系会显示它服务的问题。", "主题从关系里长出来。"],
+    boundaryOrCounterpoint: "如果没有共同问题，就先不要写成文章。",
+    distillationStatus: "confirmed",
+    explicitRelationCount: 2
+  });
+
+  assert.equal(guide.key, "relations");
+  assert.match(guide.title, /已有关系/);
+  assert.match(guide.body, /共同指向哪个问题/);
+  assert.match(guide.body, /主题或写作中心/);
+  assert.equal(guide.actionLabel, "看关系和主题线索");
 });
 
 test("distillation focus action opens the relation workspace instead of jumping inside the side panel", () => {
@@ -111,6 +131,7 @@ test("distillation focus action opens the relation workspace instead of jumping 
   assert.match(handler, /void this\.confirmDistillation\(\)/);
   assert.match(handler, /target === "relations"/);
   assert.match(handler, /this\.openPermanentRelationWorkspace\(\{/);
+  assert.doesNotMatch(handler, /target === "writing"/);
   assert.doesNotMatch(handler, /jumpToInspectorSection\("\[data-note-relations-section\]"\)/);
   assert.match(handler, /textarea\[name="boundaryOrCounterpoint"\]/);
   assert.match(handler, /textarea\[name="\$\{target\}"\]/);

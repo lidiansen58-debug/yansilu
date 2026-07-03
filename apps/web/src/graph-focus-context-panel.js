@@ -18,7 +18,7 @@ const DEFAULT_RELATION_GROUP_META = {
   bridge: { label: "桥接关系", shortLabel: "桥接", detail: "连接不同主题。" },
   flow: { label: "写作顺序", shortLabel: "顺序", detail: "帮助组织文章前后顺序。" },
   neutral: { label: "相关关系", shortLabel: "相关", detail: "暂未细分用途的关系。" },
-  index: { label: "可写主题", shortLabel: "主题", detail: "可写主题或聚合关系；详情中会保存为主题索引笔记。" }
+  index: { label: "主题索引", shortLabel: "主题", detail: "这组关系可能形成主题索引笔记，确认后再保存。" }
 };
 
 function graphFocusContextPanelDeps(deps = {}) {
@@ -140,7 +140,7 @@ export function renderGraphFocusContextPanel({
       </div>
       <div class="graph-focus-help-block">
         <strong>AI 做了什么</strong>
-        <span>AI 只会先给潜在关联建议。只有你确认后，关系才会进入这里；这里的数量是系统按正式关系类型统计出来的。</span>
+        <span>AI 只会先给可能相关的建议。只有你确认后，关系才会进入这里；这里的数量按已保存的关系类型展示。</span>
       </div>
     </div>
   `;

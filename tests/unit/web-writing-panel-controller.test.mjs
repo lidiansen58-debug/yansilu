@@ -493,9 +493,47 @@ test("writing panel controller renders theme detail form and note actions", () =
   assert.match(html, /data-writing-theme-action="create-project"/);
   assert.match(html, /writingThemeDetailTitle/);
   assert.match(html, /主题索引不是文章/);
+  assert.match(html, /为什么这组笔记值得写/);
+  assert.match(html, /这些判断能互相说明/);
+  assert.match(html, /下一步：Create project/);
   assert.match(html, /下一步可以写什么/);
   assert.match(html, /Note &lt;one&gt;/);
   assert.match(html, /Because/);
   assert.match(html, /data-writing-theme-action="open-note"/);
   assert.match(html, /<b>theme<\/b>/);
+});
+
+test("writing theme detail explains unfinished themes as worth organizing first", () => {
+  const html = renderWritingThemeDetailDom({
+    writingThemeProjectEntry: () => ({
+      noteIds: ["n1"],
+      readiness: {
+        level: "basket_ready",
+        hint: "当前相关笔记还缺正式关系。",
+        actionLabel: "加入相关笔记"
+      },
+      projectEntry: {
+        action: "create-project",
+        projectId: "",
+        canCreateProject: false,
+        actionLabel: "加入相关笔记",
+        status: "可作为相关笔记",
+        hint: "当前相关笔记还缺正式关系。"
+      }
+    }),
+    writingKnownNoteById: () => ({ id: "n1", title: "Note one" }),
+    renderThinkingStatusBadge: () => "",
+    escapeHtml
+  }, {
+    id: "theme-draft",
+    title: "Draft theme",
+    index_type: "topic",
+    note_count: 1,
+    items: [{ note_id: "n1" }]
+  });
+
+  assert.match(html, /为什么这组笔记值得写/);
+  assert.match(html, /更适合继续整理/);
+  assert.match(html, /下一步：加入相关笔记/);
+  assert.doesNotMatch(html, /它值得写，不是因为笔记数量多/);
 });

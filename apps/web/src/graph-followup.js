@@ -284,7 +284,7 @@ export function graphNextActionForSummary({
   if (writingEntryPlan?.mode === "pick-manually" && Number(writingEntryPlan.candidateCount || 0) > 0) {
     return {
       title: "下一步：先挑 2-5 条相关笔记",
-      note: `当前可见图谱里有 ${Number(writingEntryPlan.candidateCount || 0)} 条可用永久笔记。先挑 2-5 条作为相关笔记，再确定可写主题会更稳。`,
+      note: `当前可见图谱里有 ${Number(writingEntryPlan.candidateCount || 0)} 条可用永久笔记。先挑 2-5 条作为相关笔记，再决定它们要回答哪个问题。`,
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "先挑 2-5 条"
     };
@@ -302,7 +302,7 @@ export function graphNextActionForSummary({
 
   return {
     title: "下一步：进入写作中心",
-    note: "当前目录结构已经比较清晰，可以把这组永久笔记带进写作中心，继续确定可写主题。",
+    note: "当前目录结构已经比较清晰，可以把这组永久笔记带进写作中心，继续确定要写的问题。",
     action: GRAPH_FOLLOWUP_ACTIONS.writing,
     actionLabel: "进入写作中心"
   };

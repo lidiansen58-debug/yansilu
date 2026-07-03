@@ -226,10 +226,10 @@ export function writingSourceIndexSummary(sourceIndexIds = [], { themeIndexById 
 export function suggestedThemeIndexTitle(noteIds = [], { noteById = () => null, parseTags = () => [] } = {}) {
   const notes = noteIds.map((id) => noteById(id)).filter(Boolean);
   const labels = writingThemeLabels(notes, { parseTags });
-  if (labels.length) return `${labels[0]} 可写主题`;
+  if (labels.length) return `${labels[0]} 主题索引`;
   const first = notes[0];
-  if (first?.title) return `${first.title} 可写主题`;
-  return "新的可写主题";
+  if (first?.title) return `${first.title} 主题索引`;
+  return "新的主题索引";
 }
 
 export function writingBookPlainText(note) {

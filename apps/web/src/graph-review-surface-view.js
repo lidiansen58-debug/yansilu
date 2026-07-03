@@ -111,7 +111,7 @@ export function renderGraphUtilityDrawerView({ bridgeGapCount = 0, weakRelationC
   const reviewCount = Number(reviewQueue?.total || 0);
   const aiState = graphAiAnalysisSummaryState({ nodes, edges });
   const badges = [
-    bridgeGapCount > 0 ? `<span>潜在关联 ${escapeHtml(String(bridgeGapCount))}</span>` : "",
+    bridgeGapCount > 0 ? `<span>可能相关 ${escapeHtml(String(bridgeGapCount))}</span>` : "",
     weakRelationCount > 0 ? `<span>待判断关联 ${escapeHtml(String(weakRelationCount))}</span>` : "",
     reviewCount > 0 ? `<span>待补说明 ${escapeHtml(String(reviewCount))}</span>` : "",
     aiState.totalCandidates > 0 ? `<span>AI 推荐 ${escapeHtml(String(aiState.totalCandidates))}</span>` : ""
@@ -124,7 +124,7 @@ export function renderGraphUtilityDrawerView({ bridgeGapCount = 0, weakRelationC
         <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
         <div class="graph-utility-drawer-copy">
           <strong>${renderGraphIcon("clue")}稍后处理</strong>
-          <span>把暂时不急着处理的推荐、理由缺口和可写主题先收在这里，需要时再展开。</span>
+          <span>把暂时不急着处理的推荐、理由缺口和主题索引推荐先收在这里，需要时再展开。</span>
         </div>
         <div class="graph-utility-drawer-meta">
           ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">稍后再看</div>`}

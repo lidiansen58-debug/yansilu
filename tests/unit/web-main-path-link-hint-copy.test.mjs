@@ -20,7 +20,7 @@ test("theme signal summary uses body-link wording for link-only weak signals", (
     }
   );
 
-  assert.equal(result.status, "链接线索 2");
-  assert.match(result.hint, /正文链接线索/);
-  assert.doesNotMatch(result.hint, /正文里的关联线索/);
+  assert.equal(result.status, "正文链接 2");
+  assert.match(result.hint, /已经有正文链接/);
+  assert.doesNotMatch(result.hint, /线索/);
 });

@@ -37,7 +37,7 @@ test("theme signal summary distinguishes link-only signals", () => {
     }
   );
 
-  assert.match(result.status, /链接线索/);
+  assert.match(result.status, /正文链接/);
 });
 
 test("theme signal summary distinguishes tag-only signals", () => {
@@ -53,7 +53,7 @@ test("theme signal summary distinguishes tag-only signals", () => {
     }
   );
 
-  assert.match(result.status, /标签线索/);
+  assert.match(result.status, /同标签/);
 });
 
 test("theme signal summary distinguishes mixed weak signals from single-source hints", () => {
@@ -69,7 +69,7 @@ test("theme signal summary distinguishes mixed weak signals from single-source h
     }
   );
 
-  assert.match(result.status, /混合线索/);
+  assert.match(result.status, /正文链接和同标签/);
   assert.doesNotMatch(result.status, /主题线索/);
 });
 

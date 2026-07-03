@@ -1,5 +1,6 @@
 import {
-  graphRelationSaveSelection
+  graphRelationSaveSelection,
+  graphRelationSavedNextStepStatus
 } from "./graph-relation-save-flow.js";
 import {
   normalizeRelationSaveTransactionInput,
@@ -129,13 +130,10 @@ export function createGraphRelationSaveController({
         renderGraphPanel();
       }
       setStatus(
-        transaction.relation?.created === false
-            ? nextIsolatedSelection
-              ? "这条关系已经存在，当前笔记已退出未关联状态；已进入下一条。"
-              : "这条关系已经存在，当前笔记已退出未关联状态。"
-            : nextIsolatedSelection
-              ? "关系已保存，当前笔记已退出未关联状态；已进入下一条。"
-              : "关系已保存，当前笔记已退出未关联状态。",
+        graphRelationSavedNextStepStatus({
+          created: transaction.relation?.created !== false,
+          hasNextIsolated: Boolean(nextIsolatedSelection)
+        }),
         "ok"
       );
       return true;

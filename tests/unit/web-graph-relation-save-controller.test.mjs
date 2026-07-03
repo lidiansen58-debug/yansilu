@@ -115,7 +115,9 @@ test("graph relation save controller refreshes graph and keeps isolated completi
   assert.deepEqual(calls.map((call) => call[0]), ["clearDraft", "refresh", "render", "status"]);
   assert.equal(calls[1][1].kind, "isolatedComplete");
   assert.equal(calls[2][1].kind, "isolatedComplete");
-  assert.deepEqual(calls[3].slice(1), ["关系已保存，当前笔记已退出未关联状态。", "ok"]);
+  assert.equal(calls[3][2], "ok");
+  assert.match(calls[3][1], /关系已保存/);
+  assert.match(calls[3][1], /下一步看这组关系能不能形成主题/);
 });
 
 test("graph relation save controller opens the next isolated note after saving", async () => {
@@ -147,7 +149,9 @@ test("graph relation save controller opens the next isolated note after saving",
   assert.deepEqual(calls.map((call) => call[0]), ["refresh", "next", "open", "status"]);
   assert.equal(calls[0][1].kind, "isolatedComplete");
   assert.deepEqual(calls[1], ["next", "source"]);
-  assert.deepEqual(calls[3].slice(1), ["关系已保存，当前笔记已退出未关联状态；已进入下一条。", "ok"]);
+  assert.equal(calls[3][2], "ok");
+  assert.match(calls[3][1], /关系已保存/);
+  assert.match(calls[3][1], /下一步继续处理下一条未关联笔记/);
 });
 
 test("graph relation save controller can reopen the graph selection through the unified entry", async () => {
@@ -243,5 +247,7 @@ test("graph relation save controller records existing relations without leaving 
   assert.equal(graphState.isolatedRelationSaveResultByNoteId.source.created, false);
   assert.equal(graphState.selection.kind, "isolatedComplete");
   assert.equal(graphState.selection.saveResult.created, false);
-  assert.deepEqual(statuses, [["这条关系已经存在，当前笔记已退出未关联状态。", "ok"]]);
+  assert.equal(statuses[0][1], "ok");
+  assert.match(statuses[0][0], /这条关系已经存在/);
+  assert.match(statuses[0][0], /形成主题/);
 });

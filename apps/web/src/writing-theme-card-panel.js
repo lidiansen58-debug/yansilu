@@ -51,6 +51,19 @@ export function renderWritingThemeIndexCardDom(deps = {}, indexCard) {
   `;
 }
 
+function writingThemeWorthWritingText({ noteCount = 0, readiness = {}, projectEntry = {} } = {}) {
+  const count = Number(noteCount || 0);
+  const countText = count > 0 ? `这组主题已经聚合 ${count} 条永久笔记` : "这组主题已经聚合一组永久笔记";
+  const readinessLevel = String(readiness?.level || "").trim();
+  const readinessHint = String(projectEntry?.hint || readiness?.hint || "").trim();
+  const nextStep = String(projectEntry?.actionLabel || readiness?.actionLabel || "").trim() || "先确定写作问题";
+  const readyToWrite = ["project_ready", "strong_model_ready"].includes(readinessLevel) || Boolean(projectEntry?.canCreateProject);
+  if (!readyToWrite) {
+    return `${countText}，但现在更适合继续整理。它值得继续推进，是因为这些判断可能在回答同一个问题；下一步：${nextStep}。${readinessHint}`;
+  }
+  return `${countText}，并且已经有共同问题和关系理由。它值得写，不是因为笔记数量多，而是因为这些判断能互相说明。下一步：${nextStep}。${readinessHint}`;
+}
+
 export function renderWritingThemeDetailDom(deps = {}, indexCard) {
   const {
     writingThemeProjectEntry,
@@ -84,6 +97,7 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
   const thinkingBadge = renderThinkingStatusBadge(indexCard.thinkingStatus, "thinking-status-badge writing-thinking-status");
   const primaryThemeAction = String(projectEntry.action || "create-project").trim() || "create-project";
   const primaryThemeProjectId = String(projectEntry.projectId || "").trim();
+  const worthWritingText = writingThemeWorthWritingText({ noteCount, readiness, projectEntry });
 
   return `
     <section class="writing-theme-detail-card" data-writing-theme-id="${themeId}">
@@ -100,6 +114,9 @@ export function renderWritingThemeDetailDom(deps = {}, indexCard) {
       </div>
       <div class="writing-summary" style="margin-top:12px;">
         主题索引不是文章，而是把一组永久笔记压缩成可复用的中心问题、主题判断和可续接的写作中心入口。详情里仍会保留主题索引笔记，方便追溯。
+      </div>
+      <div class="writing-summary" style="margin-top:12px;" data-writing-theme-worth-writing="${themeId}">
+        为什么这组笔记值得写：${escapeHtml(worthWritingText)}
       </div>
       <div class="writing-summary" style="margin-top:12px;" data-writing-theme-project-summary="${themeId}">
         写作状态：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题继续写。")}

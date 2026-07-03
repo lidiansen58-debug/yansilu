@@ -4275,7 +4275,7 @@ export class EditorPane {
     if (relationState === "loading") {
       return {
         status: "读取中",
-        hint: "显示关系还在读取中，主题线索暂时不做最终判断。",
+        hint: "显示关系还在读取中，可能相关的内容先不做最终判断。",
         badge: null,
         badgeLabel: "读取中"
       };
@@ -4283,7 +4283,7 @@ export class EditorPane {
     if (relationState === "error") {
       return {
         status: "读取失败",
-        hint: "显示关系暂时读取不到，如果本来应该有主题线索，可以先手动补关系或稍后重试。",
+        hint: "显示关系暂时读取不到，如果本来应该有可能相关的内容，可以先手动补关系或稍后重试。",
         badge: null,
         badgeLabel: "读取失败"
       };
@@ -4299,15 +4299,15 @@ export class EditorPane {
     }
     if (wikilinkCount > 0 && tagRelatedCount === 0) {
       return {
-        status: `链接线索 ${themeSignalCount || wikilinkCount}`,
-        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
+        status: `正文链接 ${themeSignalCount || wikilinkCount}`,
+        hint: "正文已经连到另一条笔记，下一步是把这条连接的理由写出来。",
         badge: themeSignalCount || wikilinkCount,
         badgeLabel: String(themeSignalCount || wikilinkCount)
       };
     }
     if (tagRelatedCount > 0 && wikilinkCount === 0) {
       return {
-        status: `标签线索 ${themeSignalCount || tagRelatedCount}`,
+        status: `同标签 ${themeSignalCount || tagRelatedCount}`,
         hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
         badge: themeSignalCount || tagRelatedCount,
         badgeLabel: String(themeSignalCount || tagRelatedCount)
@@ -4315,11 +4315,11 @@ export class EditorPane {
     }
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
       return {
-        status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
+        status: `可能相关 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
         hint:
           wikilinkCount > 0 && tagRelatedCount > 0
-            ? "已经同时有链接线索和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。"
-            : "已经有基础线索，但还需要把“为什么相关”说清楚。",
+            ? "已经同时有正文链接和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。"
+            : "已经有可能相关的内容，但还需要把“为什么相关”说清楚。",
         badge: themeSignalCount || wikilinkCount + tagRelatedCount,
         badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
       };
@@ -4399,7 +4399,7 @@ export class EditorPane {
           <span class="inspector-chip">判断 ${escapeHtml(thesis ? "已有" : "缺失")}</span>
           <span class="inspector-chip">压缩 ${summary.length}/3</span>
           <span class="inspector-chip">关系 ${explicitRelationCount + wikilinkCount}</span>
-          <span class="inspector-chip">主题线索 ${themeInfo.badge}</span>
+          <span class="inspector-chip">可能相关 ${themeInfo.badge}</span>
         </div>
         <div class="semantic-relation-groups">
           ${steps
@@ -4520,13 +4520,13 @@ export class EditorPane {
       if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
         return {
           nextStep: "确认成正式关系",
-          summary: "已经同时出现正文链接和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成正式关系。"
+          summary: "已经同时出现正文链接和标签接近，但它们还只是可能相关，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成正式关系。"
         };
       }
       if (wikilinkCount > 0) {
         return {
           nextStep: "补关系说明",
-          summary: "已经有正文链接线索，下一步把“为什么相关”写成正式关系。"
+          summary: "已经有正文链接，下一步把“为什么相关”写成正式关系。"
         };
       }
       if (Number(overview.tagRelatedCount || 0) > 0) {
@@ -4703,7 +4703,7 @@ export class EditorPane {
     if (relationState === "loading") {
       return {
         status: "读取中",
-        hint: "正式关系仍在读取中，主题线索暂时不做最终判断。",
+        hint: "正式关系仍在读取中，可能相关的内容先不做最终判断。",
         badge: null,
         badgeLabel: "读取中"
       };
@@ -4711,7 +4711,7 @@ export class EditorPane {
     if (relationState === "error") {
       return {
         status: "读取失败",
-        hint: "正式关系暂时读不到；如果本来应该有主题线索，可以先手动补关系或稍后重试。",
+        hint: "正式关系暂时读不到；如果本来应该有可能相关的内容，可以先手动补关系或稍后重试。",
         badge: null,
         badgeLabel: "读取失败"
       };
@@ -4726,15 +4726,15 @@ export class EditorPane {
     }
     if (wikilinkCount > 0 && tagRelatedCount === 0) {
       return {
-        status: `链接线索 ${themeSignalCount || wikilinkCount}`,
-        hint: "已经有正文链接线索，下一步是把这条连接的理由写出来。",
+        status: `正文链接 ${themeSignalCount || wikilinkCount}`,
+        hint: "已经有正文链接，下一步是把这条连接的理由写出来。",
         badge: themeSignalCount || wikilinkCount,
         badgeLabel: String(themeSignalCount || wikilinkCount)
       };
     }
     if (tagRelatedCount > 0 && wikilinkCount === 0) {
       return {
-        status: `标签线索 ${themeSignalCount || tagRelatedCount}`,
+        status: `同标签 ${themeSignalCount || tagRelatedCount}`,
         hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
         badge: themeSignalCount || tagRelatedCount,
         badgeLabel: String(themeSignalCount || tagRelatedCount)
@@ -4742,8 +4742,8 @@ export class EditorPane {
     }
       if (wikilinkCount > 0 || tagRelatedCount > 0) {
         return {
-          status: `混合线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
-          hint: "已经同时有链接线索和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。",
+          status: `正文链接和同标签 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
+          hint: "已经同时有正文链接和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。",
           badge: themeSignalCount || wikilinkCount + tagRelatedCount,
           badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
         };
@@ -4819,8 +4819,8 @@ export class EditorPane {
                   : `已建 ${explicitRelationCount}`
                 : wikilinkCount
                   ? Number(overview.tagRelatedCount || 0) > 0
-                    ? `混合线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? wikilinkCount + Number(overview.tagRelatedCount || 0))}`
-                    : `链接线索 ${wikilinkCount}`
+                    ? `正文链接和同标签 ${themeInfo.badgeLabel || String(themeInfo.badge ?? wikilinkCount + Number(overview.tagRelatedCount || 0))}`
+                    : `正文链接 ${wikilinkCount}`
                   : "待建立",
         hint:
           relationState === "loading"
@@ -4833,8 +4833,8 @@ export class EditorPane {
                     : "已经有带理由的关系。"
                   : wikilinkCount
                     ? Number(overview.tagRelatedCount || 0) > 0
-                      ? "已经同时有链接线索和标签接近，但还没形成正式关系。先把最关键的关系写出来。"
-                      : "已经有正文链接线索，下一步把关系为什么成立写清楚。"
+                      ? "已经同时有正文链接和标签接近，但还没形成正式关系。先把最关键的关系写出来。"
+                      : "已经有正文链接，下一步把关系为什么成立写清楚。"
                     : Number(overview.tagRelatedCount || 0) > 0
                       ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
                       : "先关联一条真正相关的永久笔记。",
@@ -4847,7 +4847,7 @@ export class EditorPane {
                   ? "确认成正式关系"
                   : "补关系说明"
                 : Number(overview.tagRelatedCount || 0) > 0
-                  ? "从标签线索补关系"
+                  ? "从同标签补关系"
                   : "关联一条笔记"
         },
       {
@@ -4918,10 +4918,10 @@ export class EditorPane {
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
           this.semanticRelationsState === "error"
-            ? "正式关系读取失败了；正文链接和同标签只作为临时线索，稍后重试后再确认。"
+            ? "正式关系读取失败了；正文链接和同标签只作为临时参考，稍后重试后再确认。"
             : this.semanticRelationsState === "loading"
               ? "正在读取正式关系；先不要把正文链接或同标签当成已经连入图谱。"
-              : "这里按顺序处理：先看建议下一步，再确认正式关系，最后只处理少量待确认线索。"
+              : "这里按顺序处理：先看建议下一步，再确认正式关系，最后只处理少量待确认内容。"
         }
       </div>
     `;
@@ -5109,7 +5109,7 @@ export class EditorPane {
     if (state.error) return "加载失败";
     if (!state.items.length) return "0 条";
     const pendingCount = state.items.filter((item) => String(item?.status || "").trim() === "suggested").length;
-    return pendingCount ? `${pendingCount} 条待审` : `${state.items.length} 条`;
+    return pendingCount ? `${pendingCount} 条待确认` : `${state.items.length} 条`;
   }
 
   currentNoteSuggestionReviewContent(note = this.activeNote(), suggestion = {}) {

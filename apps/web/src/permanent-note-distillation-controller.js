@@ -41,6 +41,7 @@ export class PermanentNoteDistillationController {
     const host = this.host;
     return renderPermanentNoteDistillationSectionView(note, {
       noteType: host.resolvedNoteType(note),
+      explicitRelationCount: host.currentExplicitRelationCount(),
       distillationPrefill: this.currentPrefill(note?.id || ""),
       relationNetworkPromptHtml: host.renderRelationNetworkPrompt(note),
       embeddedAiWorkspaceHtml: host.renderNoteEmbeddedAiWorkspaceForNote(note?.id || "")

@@ -42,7 +42,7 @@ export async function handleOpenNoteMainRouteStateChange(payload = {}, deps = {}
     state.selectedFileId = noteId;
     activateModule("graph");
     await refreshDirectoryGraph();
-    setStatus("已打开关系图谱，继续看这条笔记周围的关系和可写主题", "ok");
+    setStatus("已打开关系图谱，继续看这条笔记周围的关系和主题索引推荐", "ok");
     return true;
   }
 
@@ -113,7 +113,7 @@ export async function handleOpenNoteMainRouteStateChange(payload = {}, deps = {}
           setStatus(writingCenterContinuationFailureMessage(noteContinuation, error, MAIN_PATH_CONTINUATION_COPY), "bad");
           return false;
         }
-        setStatus(`${mode === "project" ? "从主路径确定可写主题" : "从主路径进入写作中心"}失败：${String(error?.message || error)}`, "bad");
+        setStatus(`${mode === "project" ? "从主路径确定写作问题" : "从主路径进入写作中心"}失败：${String(error?.message || error)}`, "bad");
         return false;
       }
       throw error;

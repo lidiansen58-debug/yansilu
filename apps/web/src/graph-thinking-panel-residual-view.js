@@ -234,13 +234,13 @@ function renderGraphAiAnalysisCard(options = {}) {
             : analysis
               ? `
                 <div class="graph-metrics" aria-label="AI 图谱初判摘要">
-                  ${renderGraphMetricCard("待审项", pendingCount, "当前图谱内处理", pendingCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("可写主题推荐", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("待确认项", pendingCount, "当前图谱内处理", pendingCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("主题索引推荐", topicCount, "确认后才会保存", topicCount ? "warn" : "good")}
                   ${renderGraphMetricCard("关系推荐", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("潜在关联/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("可能相关/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
                 </div>
                 <div class="graph-next-card">
-                  <strong>待审优先级</strong>
+                  <strong>确认顺序</strong>
                   <small>${escapeHtml(
                     pendingCount
                       ? "先在图谱里判断结构是否成立；只确认能说清理由的关系或主题。"
@@ -277,7 +277,7 @@ function renderGraphQuestionSpotChip(summary = {}) {
 }
 function graphThinkingFilterMeta(value = "all") {
   const key = String(value || "all").trim().toLowerCase();
-  if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成主题或索引卡的聚集。" };
+  if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成主题索引笔记的聚集。" };
   if (key === "organize") return { key: "organize", label: "整理", note: "只看孤立、桥接、关系确认和错位推荐理由。" };
   return { key: "all", label: "全部", note: "按优先级列出当前最值得继续判断的地方。" };
 }

@@ -105,7 +105,7 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
   `;
 }
 
-export function renderGraphThemeIndexWorkspace(noteIds = [], { title = "可写主题推荐", relationCount = 0, tone = "", deps = {} } = {}) {
+export function renderGraphThemeIndexWorkspace(noteIds = [], { title = "主题索引推荐", relationCount = 0, tone = "", deps = {} } = {}) {
   const { suggestThemeIndexTitle = () => "" } = deps && typeof deps === "object" ? deps : {};
   const cleanNoteIds = uniqueStrings(noteIds);
   const cleanTitle = String(title || suggestThemeIndexTitle(cleanNoteIds)).trim() || suggestThemeIndexTitle(cleanNoteIds);

@@ -40,7 +40,7 @@ test("note main route opens graph around the current note folder", async () => {
   assert.equal(state.selectedFolderId, "d1");
   assert.equal(state.selectedFileId, "n1");
   assert.deepEqual(calls, [["sync-notes", "d1"], ["activate", "graph"], "refresh-graph"]);
-  assert.equal(status.calls.at(-1).message, "已打开关系图谱，继续看这条笔记周围的关系和可写主题");
+  assert.equal(status.calls.at(-1).message, "已打开关系图谱，继续看这条笔记周围的关系和主题索引推荐");
 });
 
 test("note main route opens distillation in the editor context", async () => {

@@ -158,7 +158,7 @@ export function buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal = 0, br
       0
   );
   const categories = [
-    { key: "theme", label: "可写主题推荐", count: topicCount },
+    { key: "theme", label: "主题索引推荐", count: topicCount },
     { key: "bridge", label: "缺少连接", count: Math.max(Number(bridgeGaps?.length || 0), bridgeCandidateCount) },
     { key: "review", label: "关系待确认", count: Math.max(Number(reviewQueueTotal || 0), reviewCandidateCount) },
     { key: "conflict", label: "反方或边界", count: Number(conflictCount || 0) },
@@ -183,7 +183,7 @@ export function buildGraphQuestionSpotSummaryForGraph({ reviewQueueTotal = 0, br
 export function buildGraphQuestionSpotSummaryFromItems(items = [], { artifactCount = 0 } = {}) {
   const list = (Array.isArray(items) ? items : []).filter(Boolean);
   const categories = [
-    { key: "theme", label: "可写主题推荐", count: list.filter((item) => item.view === "theme").length },
+    { key: "theme", label: "主题索引推荐", count: list.filter((item) => item.view === "theme").length },
     { key: "bridge", label: "缺少连接", count: list.filter((item) => item.tone === "bridge" || item.tone === "isolated").length },
     { key: "review", label: "关系待确认", count: list.filter((item) => item.tone === "review").length },
     { key: "conflict", label: "反方或边界", count: list.filter((item) => item.tone === "conflict").length }
@@ -260,7 +260,7 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: Number(quality?.listPriority || 86) - index * 0.1,
       view: "theme",
       tone: "theme",
-      kicker: "可写主题推荐",
+      kicker: "主题索引推荐",
       title: String(topic?.title || "可选择目标").trim() || "可选择目标",
       meta: `${noteIds.length || "若干"} 条笔记 ·  ${quality?.listLabel || "可选择目标"}`,
       detail: String(topic?.rationale || quality?.detail || "多条永久笔记出现相近推荐理由，适合判断是否形成明确主题。").trim(),

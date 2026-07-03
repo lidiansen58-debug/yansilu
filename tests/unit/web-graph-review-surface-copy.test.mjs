@@ -77,7 +77,7 @@ test("graph review queue consistently frames missing-rationale work as relation 
   });
   assert.match(drawerMarkup, /<span>待补说明 3<\/span>/);
   assert.match(drawerMarkup, /<strong><i>clue<\/i>稍后处理<\/strong>/);
-  assert.match(drawerMarkup, /把暂时不急着处理的推荐、理由缺口和可写主题先收在这里/);
+  assert.match(drawerMarkup, /把暂时不急着处理的推荐、理由缺口和主题索引推荐先收在这里/);
 
   assert.equal(graphFollowupOpenedNoteStatus({ action: "relations-edit" }).message, "已从图谱打开笔记，继续完善当前关系说明");
   assert.equal(graphFollowupOpenedNoteStatus({ action: "relations" }).message, "已从图谱打开笔记，继续写关系说明");

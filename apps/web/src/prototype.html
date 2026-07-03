@@ -30,7 +30,7 @@
             <path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
           </svg>
         </button>
-        <button class="rail-btn quick-entry" data-action="quick-fleeting" title="素材入口：随笔线索" data-tip="随笔素材" aria-label="素材入口：随笔线索">
+        <button class="rail-btn quick-entry" data-action="quick-fleeting" title="素材入口：随笔素材" data-tip="随笔素材" aria-label="素材入口：随笔素材">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M3.15 12.8l1.2-4.25L9.95 3a1.6 1.6 0 0 1 2.25 2.25L6.6 10.85 3.15 12.8z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
             <path d="M8.9 4.05l3.05 3.05" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
@@ -251,7 +251,7 @@
                 <div class="literature-queue-head">
                   <div>
                     <div class="literature-queue-title">文献处理列表</div>
-            <div class="literature-queue-note" id="literatureQueueNote">当前目录中的文献笔记会在这里按“需要转述 / 需要提炼 / 可生成永久笔记”排列。</div>
+            <div class="literature-queue-note" id="literatureQueueNote">当前目录中的文献笔记会按下一步分组：需要转述、需要提炼、可生成永久笔记。</div>
                   </div>
                   <button class="mini-btn" type="button" id="btnLiteratureOpenNext">打开下一条待转述</button>
                 </div>
@@ -445,8 +445,8 @@
                     <div class="writing-section-note">看主题是否已确定、文章提纲是否已生成，以及能否开始草稿。</div>
                   </div>
                 </div>
-                <label for="writingBasketNoteIds" class="writing-section-note">相关笔记清单（可编辑笔记 ID）</label>
-                <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="每行一个 note id，或用逗号分隔"></textarea>
+                <label for="writingBasketNoteIds" class="writing-section-note">已选相关笔记（通常不用改）</label>
+                <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="需要手动修正时，每行放一条笔记编号，也可以用逗号分隔"></textarea>
                 <div class="import-result" id="writingResult">尚未开始写作。</div>
                 <div class="writing-actions-secondary">
                   <button class="mini-btn" id="btnWritingCopyScaffold">复制文章提纲 Markdown</button>

@@ -39,7 +39,8 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
     thesis,
     threeLineSummary: summaryLines,
     boundaryOrCounterpoint,
-    distillationStatus: statusValue
+    distillationStatus: statusValue,
+    explicitRelationCount: options.explicitRelationCount
   });
 
   return `

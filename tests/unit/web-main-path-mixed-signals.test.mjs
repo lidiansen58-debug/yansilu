@@ -58,7 +58,7 @@ test("main-path card keeps mixed weak signals in relation-building mode", () => 
   ).replace(/\s+/g, " ");
 
   assert.match(html, /data-main-path-next-action="relations"/);
-  assert.match(html, /同时有链接线索和标签接近/);
+  assert.match(html, /同时有正文链接和标签接近/);
   assert.match(html, /data-note-main-route-action="relations"[^>]*>确认成正式关系<\/button>/);
   assert.doesNotMatch(html, /main-path-progress/);
   assert.doesNotMatch(html, /wikilink 1/);
