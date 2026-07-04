@@ -175,6 +175,7 @@ import { escapeTemplatePreviewInline, renderTemplateMarkdownPreviewHtmlForRuntim
 import { createSettingsNoteTemplateRuntime } from "./settings-note-template-runtime.js";
 import { createSettingsPanelRuntimeRoutes } from "./settings-panel-runtime-routes.js";
 import { installSettingsEventBindings } from "./settings-event-bindings.js";
+import { renderVaultBackupPanel } from "./settings-vault-backup-panel.js";
 import { installSettingsAiEventBindings } from "./settings-ai-event-bindings.js";
 import { installSettingsFeedbackEventBindings } from "./settings-feedback-event-bindings.js";
 import { aiTestBlockedReasonForState, currentOllamaModelTiersForState, installedLocalModelReadyForState } from "./ai-test-readiness.js";
@@ -501,6 +502,7 @@ const settingsPanelRuntimeRoutes = createSettingsPanelRuntimeRoutes(() => ({
   renderAiSuggestionsWorkspace,
   aiTestBlockedReason,
   renderAiCanonicalDebugPanel,
+  renderImportPageShell,
   renderSidebarTitle,
   renderModuleWorkspaceHeader,
   escapeHtml,
@@ -3564,10 +3566,11 @@ function renderModulePanels() {
   const graphMode = state.module === "graph";
   const aiInboxMode = state.module === "aiInbox";
   const settingsMode = state.module === "settings";
+  const backupMode = state.module === "backup";
   const writingMode = state.module === "writing";
   const importsMode = state.module === "imports";
   const distillationMode = state.module === "distillation";
-  const editorMode = !todayMode && !graphMode && !aiInboxMode && !settingsMode && !writingMode && !importsMode && !distillationMode;
+  const editorMode = !todayMode && !graphMode && !aiInboxMode && !settingsMode && !backupMode && !writingMode && !importsMode && !distillationMode;
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
   const moduleWorkspace = $("moduleWorkspace");
   moduleWorkspace?.classList.toggle("hidden", editorMode);
@@ -3580,6 +3583,7 @@ function renderModulePanels() {
   $("todayOrganizingPanel")?.classList.toggle("hidden", !todayMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
+  $("backupPanel")?.classList.toggle("hidden", !backupMode);
   $("writingPanel")?.classList.toggle("hidden", !writingMode);
   $("importPanel")?.classList.toggle("hidden", !importsMode);
   $("distillationPanel")?.classList.toggle("hidden", !distillationMode);
@@ -3588,7 +3592,16 @@ function renderModulePanels() {
   $("btnMobileNewNote")?.classList.toggle("hidden", !editorMode);
   syncMobileNewNoteButton();
   if (todayMode) todayOrganizingRuntime.render();
+  if (backupMode) renderBackupPanel();
   renderModuleWorkspaceHeader();
+}
+
+function renderBackupPanel() {
+  renderVaultBackupPanel({
+    $,
+    settingsState,
+    escapeHtml
+  });
 }
 
 function settingsAiRoutePreviewRuntimeDeps() {
@@ -3727,6 +3740,15 @@ async function applySettingsAiQuickSetup(kind = "") {
 
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
+  if (normalizedModule === "imports") {
+    state.module = "settings";
+    settingsState.activeSection = "workspace";
+    settingsState.activeItem = "import-export";
+    syncRailSelectionState();
+    renderAll();
+    renderImportPageShell();
+    return;
+  }
   if (normalizedModule === "graph") {
     state.browserRootId = "dir_original_default";
     if (!isDirectoryUnderOriginalRoot(state.selectedFolderId)) {
@@ -3738,7 +3760,6 @@ function activateModule(moduleName) {
   if (normalizedModule === "graph") expandGraphBrowserTree();
   syncRailSelectionState();
   renderAll();
-  if (normalizedModule === "imports") renderImportPageShell();
 }
 
 const {

@@ -268,6 +268,9 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
 
   function renderSettingsPanel() {
     renderSettingsPanelForRuntime(settingsPanelRuntimeDeps());
+    if (deps().settingsState.activeItem === "import-export") {
+      deps().renderImportPageShell?.();
+    }
   }
 
   return {

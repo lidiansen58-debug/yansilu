@@ -50,9 +50,10 @@
             <path d="M5.2 6h5.6M5.2 8h4.2M5.2 10h3.1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
           </svg>
         </button>
-        <button class="rail-btn" data-module="imports" title="导入导出" data-tip="导入导出" aria-label="导入导出">
+        <button class="rail-btn" data-module="backup" title="备份与恢复" data-tip="备份与恢复" aria-label="备份与恢复">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M5.3 2.8v7.3M5.3 10.1l-2.1-2.1M5.3 10.1l2.1-2.1M10.7 13.2V5.9M10.7 5.9L8.6 8M10.7 5.9l2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 2.3 12.4 4v3.4c0 2.8-1.6 5.1-4.4 6.3-2.8-1.2-4.4-3.5-4.4-6.3V4z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
+            <path d="M6.4 7.5h3.2M6.4 9.5h3.2M8 5.6v5.8" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
           </svg>
         </button>
         <button class="rail-btn" id="systemMessagesButton" data-action="open-system-messages" title="系统消息与 AI 建议" data-tip="系统消息" aria-label="系统消息与 AI 建议">
@@ -384,8 +385,72 @@
         </div>
         <div class="module-stage">
           <div class="panel hidden" id="todayOrganizingPanel"></div>
-          <div class="panel hidden" id="importPanel">
-            <div id="importPageMount"></div>
+          <div class="panel hidden" id="importPanel"></div>
+          <div class="panel hidden" id="backupPanel">
+            <div class="settings-pane backup-module-pane">
+              <div class="settings-pane-head">
+                <div class="settings-pane-headline">
+                  <div class="settings-pane-kicker">Backup</div>
+                  <div class="settings-pane-title">备份与恢复</div>
+                </div>
+                <div class="settings-pane-note">把整个笔记库加密打包，或恢复到新文件夹。</div>
+              </div>
+              <div class="settings-pane-stack">
+                <section class="settings-card" id="settingsCardVaultBackup">
+                  <div class="settings-card-head">
+                    <div>
+                      <div class="settings-card-title">加密备份</div>
+                      <div class="settings-card-note">把整个笔记库安全打包成一个加密文件。</div>
+                    </div>
+                  </div>
+                  <div class="settings-card-note" id="settingsBackupStatus"></div>
+                  <div class="import-grid">
+                    <label for="settingsBackupTargetDirectory">保存到</label>
+                    <div class="path-picker">
+                      <input id="settingsBackupTargetDirectory" placeholder="选择 U 盘、网盘、NAS 或本地文件夹" />
+                      <button class="mini-btn is-subtle" id="settingsBrowseBackupTarget" type="button">浏览...</button>
+                    </div>
+                    <label for="settingsBackupPassword">备份密码</label>
+                    <input id="settingsBackupPassword" type="password" autocomplete="new-password" placeholder="请牢记，研思录无法找回" />
+                    <label for="settingsBackupPasswordConfirm">确认密码</label>
+                    <input id="settingsBackupPasswordConfirm" type="password" autocomplete="new-password" placeholder="再输入一次密码" />
+                  </div>
+                  <div class="import-actions">
+                    <button class="mini-btn primary" id="settingsCreateVaultBackup" type="button">创建加密备份</button>
+                    <button class="mini-btn is-subtle hidden" id="settingsRevealBackup" type="button">在文件夹中显示</button>
+                  </div>
+                  <div id="settingsBackupResult"></div>
+                </section>
+                <section class="settings-card" id="settingsCardVaultRestore">
+                  <div class="settings-card-head">
+                    <div>
+                      <div class="settings-card-title">恢复备份 / 迁移到另一台电脑</div>
+                      <div class="settings-card-note">恢复到一个新文件夹，不覆盖当前笔记库。</div>
+                    </div>
+                  </div>
+                  <div class="settings-card-note" id="settingsRestoreStatus"></div>
+                  <div class="import-grid">
+                    <label for="settingsRestoreBackupPath">备份文件</label>
+                    <div class="path-picker">
+                      <input id="settingsRestoreBackupPath" placeholder="例如：D:\Backups\yansilu-backup-20260704-093000.yansilu-backup" />
+                      <button class="mini-btn is-subtle" id="settingsBrowseRestoreBackupFile" type="button">选择备份文件</button>
+                    </div>
+                    <label for="settingsRestoreTargetVaultPath">恢复到新文件夹</label>
+                    <div class="path-picker">
+                      <input id="settingsRestoreTargetVaultPath" placeholder="例如：D:\Notes\yansilu-restored-vault" />
+                      <button class="mini-btn is-subtle" id="settingsBrowseRestoreTarget" type="button">选择父文件夹</button>
+                    </div>
+                    <label for="settingsRestorePassword">备份密码</label>
+                    <input id="settingsRestorePassword" type="password" autocomplete="current-password" placeholder="输入创建备份时的密码" />
+                  </div>
+                  <div class="import-actions">
+                    <button class="mini-btn primary" id="settingsRestoreVaultBackup" type="button">恢复到新文件夹</button>
+                    <button class="mini-btn is-subtle hidden" id="settingsOpenRestoredVault" type="button">打开恢复后的笔记库</button>
+                  </div>
+                  <div id="settingsRestoreResult"></div>
+                </section>
+              </div>
+            </div>
           </div>
           <div class="panel hidden" id="distillationPanel"></div>
           <div class="panel hidden" id="aiInboxPanel">
@@ -805,58 +870,14 @@
                           <button class="mini-btn primary" id="settingsSwitchVault" type="button">选好后切换</button>
                         </div>
                       </section>
-                      <section class="settings-card" id="settingsCardVaultBackup">
+                      <section class="settings-card" id="settingsCardImportExport">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">加密备份</div>
-                            <div class="settings-card-note">把整个笔记库安全打包成一个加密文件。</div>
+                            <div class="settings-card-title">导入导出工具</div>
+                            <div class="settings-card-note">导入 Obsidian 文件夹、预览外部资料，或把永久笔记导出到目标目录。</div>
                           </div>
                         </div>
-                        <div class="settings-card-note" id="settingsBackupStatus"></div>
-                        <div class="import-grid">
-                          <label for="settingsBackupTargetDirectory">保存到</label>
-                          <div class="path-picker">
-                            <input id="settingsBackupTargetDirectory" placeholder="选择 U 盘、网盘、NAS 或本地文件夹" />
-                            <button class="mini-btn is-subtle" id="settingsBrowseBackupTarget" type="button">浏览...</button>
-                          </div>
-                          <label for="settingsBackupPassword">备份密码</label>
-                          <input id="settingsBackupPassword" type="password" autocomplete="new-password" placeholder="请牢记，研思录无法找回" />
-                          <label for="settingsBackupPasswordConfirm">确认密码</label>
-                          <input id="settingsBackupPasswordConfirm" type="password" autocomplete="new-password" placeholder="再输入一次密码" />
-                        </div>
-                        <div class="import-actions">
-                          <button class="mini-btn primary" id="settingsCreateVaultBackup" type="button">创建加密备份</button>
-                          <button class="mini-btn is-subtle hidden" id="settingsRevealBackup" type="button">在文件夹中显示</button>
-                        </div>
-                        <div id="settingsBackupResult"></div>
-                      </section>
-                      <section class="settings-card" id="settingsCardVaultRestore">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">恢复备份 / 迁移到另一台电脑</div>
-                            <div class="settings-card-note">恢复到一个新文件夹，不覆盖当前笔记库。</div>
-                          </div>
-                        </div>
-                        <div class="settings-card-note" id="settingsRestoreStatus"></div>
-                        <div class="import-grid">
-                          <label for="settingsRestoreBackupPath">备份文件</label>
-                          <div class="path-picker">
-                            <input id="settingsRestoreBackupPath" placeholder="例如：D:\Backups\yansilu-backup-20260704-093000.yansilu-backup" />
-                            <button class="mini-btn is-subtle" id="settingsBrowseRestoreBackupFile" type="button">选择备份文件</button>
-                          </div>
-                          <label for="settingsRestoreTargetVaultPath">恢复到新文件夹</label>
-                          <div class="path-picker">
-                            <input id="settingsRestoreTargetVaultPath" placeholder="例如：D:\Notes\yansilu-restored-vault" />
-                            <button class="mini-btn is-subtle" id="settingsBrowseRestoreTarget" type="button">选择父文件夹</button>
-                          </div>
-                          <label for="settingsRestorePassword">备份密码</label>
-                          <input id="settingsRestorePassword" type="password" autocomplete="current-password" placeholder="输入创建备份时的密码" />
-                        </div>
-                        <div class="import-actions">
-                          <button class="mini-btn primary" id="settingsRestoreVaultBackup" type="button">恢复到新文件夹</button>
-                          <button class="mini-btn is-subtle hidden" id="settingsOpenRestoredVault" type="button">打开恢复后的笔记库</button>
-                        </div>
-                        <div id="settingsRestoreResult"></div>
+                        <div id="importPageMount"></div>
                       </section>
                       <section class="settings-card hidden" id="settingsCardMobileAccess">
                         <div id="settingsMobileAccessPanel"></div>

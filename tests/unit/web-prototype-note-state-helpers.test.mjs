@@ -93,6 +93,7 @@ test("prototype note state helpers create local drafts through injected deps", (
 
 test("prototype note state helpers compute labels and distillation stages", () => {
   assert.equal(moduleLabel("graph"), "关系图谱");
+  assert.equal(moduleLabel("backup"), "备份与恢复");
   assert.equal(moduleLabel("unknown"), "工作台");
   assert.equal(displayFolderName({ id: "dir_original_default" }), "永久笔记盒");
   assert.equal(noteTypeLabel("literature"), "文献笔记");
