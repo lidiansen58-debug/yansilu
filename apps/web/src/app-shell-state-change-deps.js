@@ -5,7 +5,11 @@ import { buildAppShellNoteStateChangeDeps } from "./app-shell-note-state-change-
 
 export function buildAppShellStateChangeDeps(host = {}) {
   const {
+    confirm = null,
+    importSmartNotesDemo = async () => false,
+    openImportModule = () => {},
     renderAll = () => {},
+    setStatus = () => {},
     syncExplorerContextToActiveTab = () => {}
   } = host;
 
@@ -14,7 +18,11 @@ export function buildAppShellStateChangeDeps(host = {}) {
     ...buildAppShellNoteStateChangeDeps(host),
     ...buildAppShellAiWritingStateChangeDeps(host),
     ...buildAppShellFileStateChangeDeps(host),
+    confirm,
+    importSmartNotesDemo,
+    openImportModule,
     syncExplorerContextToActiveTab,
+    setStatus,
     renderAll
   };
 }

@@ -1,6 +1,11 @@
 import {
   runConfirmedSmartNotesDemoImport
 } from "./smart-notes-demo-import-flow.js";
+import {
+  smartNotesDemoExistingFolder,
+  smartNotesDemoOpenedExistingGuideStatus,
+  smartNotesDemoStartupNoteId
+} from "./smart-notes-demo-startup-note.js";
 
 export async function openInitialStartupRouteForRuntime(deps = {}) {
   const {
@@ -13,6 +18,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     importSmartNotesProductThinkingDemo = async () => false,
     preferredLocalFallbackNote = () => null,
     rootBoxIdFromFolder = () => "",
+    syncNotesForDirectory = async () => {},
     openNoteById = () => false,
     openStartupUntitledNote = async () => null,
     activateModule = () => {},
@@ -41,6 +47,25 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     state.selectedFolderId = initialNote.folderId;
     openNoteById(explicitNoteId);
     return { route: "note", noteId: explicitNoteId };
+  }
+  if (!usingLocalFallbackData && !shouldSkipAutoOpen()) {
+    const demoFolder = smartNotesDemoExistingFolder(state.folders);
+    if (demoFolder?.id) {
+      try {
+        state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
+        state.selectedFolderId = demoFolder.id;
+        await syncNotesForDirectory(demoFolder.id);
+        const guideNoteId = smartNotesDemoStartupNoteId({ notes: state.notes });
+        if (guideNoteId) {
+          state.selectedFileId = guideNoteId;
+          openNoteById(guideNoteId, { preferTitleSelection: false });
+          setStatus(smartNotesDemoOpenedExistingGuideStatus(), "ok");
+          return { route: "existing_demo", noteId: guideNoteId };
+        }
+      } catch (error) {
+        setStatus(`Demo 导览暂时无法自动打开：${String(error?.message || error)}`, "warn");
+      }
+    }
   }
   if (usingLocalFallbackData) {
     const fallbackNote = preferredLocalFallbackNote();

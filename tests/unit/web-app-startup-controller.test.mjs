@@ -174,6 +174,59 @@ test("startup route opener reads late auto-open suppression before creating an u
   assert.equal(created, 0);
 });
 
+test("startup route opener opens existing Smart Notes Demo guide instead of showing empty start", async () => {
+  const calls = [];
+  const state = {
+    folders: [{ id: "demo-dir", title: "写作 Demo（卡片笔记写作法 x 产品思考）" }],
+    notes: []
+  };
+  const route = await openInitialStartupRouteForRuntime({
+    windowRef: { location: { search: "" } },
+    state,
+    rootBoxIdFromFolder: (_state, directoryId) => `root:${directoryId}`,
+    syncNotesForDirectory: async (directoryId) => {
+      calls.push(["sync", directoryId]);
+      state.notes.push({
+        id: "GUIDE-SMART-NOTES-START",
+        folderId: directoryId,
+        title: "00 从这里开始：10 分钟走完研思录"
+      });
+    },
+    openNoteById: (id, options) => calls.push(["open", id, options]),
+    setStatus: (message, tone) => calls.push(["status", tone, message])
+  });
+
+  assert.equal(route.route, "existing_demo");
+  assert.equal(route.noteId, "GUIDE-SMART-NOTES-START");
+  assert.equal(state.browserRootId, "root:demo-dir");
+  assert.equal(state.selectedFolderId, "demo-dir");
+  assert.deepEqual(calls[0], ["sync", "demo-dir"]);
+  assert.equal(calls[1][0], "open");
+  assert.equal(calls[2][1], "ok");
+});
+
+test("startup route opener falls back to explorer when existing Smart Notes Demo guide cannot load", async () => {
+  const calls = [];
+  const state = {
+    folders: [{ id: "demo-dir", title: "写作 Demo（卡片笔记写作法 x 产品思考）" }],
+    notes: []
+  };
+  const route = await openInitialStartupRouteForRuntime({
+    windowRef: { location: { search: "" } },
+    state,
+    rootBoxIdFromFolder: (_state, directoryId) => `root:${directoryId}`,
+    syncNotesForDirectory: async () => {
+      throw new Error("locked");
+    },
+    activateModule: (moduleName) => calls.push(["module", moduleName]),
+    setStatus: (message, tone) => calls.push(["status", tone, message])
+  });
+
+  assert.equal(route.route, "explorer");
+  assert.deepEqual(calls[0], ["status", "warn", "Demo 导览暂时无法自动打开：locked"]);
+  assert.deepEqual(calls[1], ["module", "explorer"]);
+});
+
 test("startup route opener defaults to the editor when no note is requested", async () => {
   const calls = [];
   const route = await openInitialStartupRouteForRuntime({

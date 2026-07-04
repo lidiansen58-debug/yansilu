@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  routeAppShellStateChange
+} from "../../apps/web/src/app-shell-state-change-router.js";
+import {
   buildAppShellStateChangePrototypeHostDeps,
   createAppShellStateChangePrototypeDepsProvider
 } from "../../apps/web/src/app-shell-state-change-host-deps.js";
@@ -30,6 +33,7 @@ test("app shell state-change prototype host deps keeps shell collaborators in on
     "editor",
     "ensureNoteBodyLoaded",
     "expandGraphBrowserTree",
+    "ensureLocalAiReadyForFeature",
     "explorer",
     "folderById",
     "generatedOriginalNoteIdFromBody",
@@ -125,4 +129,31 @@ test("app shell state-change prototype deps provider builds grouped runtime deps
   assert.equal(second.refreshGraph.graphState.loading, true);
   assert.equal(second.graphFocusNote.graphOriginalScopeDirectoryId, "dir-original");
   assert.equal(second.renderAll(), "rendered");
+});
+
+test("app shell state-change deps provider keeps empty-start demo import dependencies routable", async () => {
+  const calls = [];
+  const provider = createAppShellStateChangePrototypeDepsProvider(() => ({
+    confirm: () => {
+      calls.push("confirm");
+      return true;
+    },
+    importSmartNotesDemo: async (payload) => {
+      calls.push(["demo", payload.source, payload.confirmed]);
+      return true;
+    },
+    openImportModule: (payload) => calls.push(["import", payload.source]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  }));
+
+  assert.equal(await routeAppShellStateChange("open-import", { source: "empty-start" }, provider()), true);
+  assert.equal(await routeAppShellStateChange("seed-smart-notes-demo", {
+    source: "empty-start",
+    confirmed: true
+  }, provider()), true);
+
+  assert.deepEqual(calls, [
+    ["import", "empty-start"],
+    ["demo", "empty-start", true]
+  ]);
 });
