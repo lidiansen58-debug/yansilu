@@ -9,20 +9,22 @@ import {
   runConfirmedSmartNotesDemoImport
 } from "../../apps/web/src/smart-notes-demo-import-flow.js";
 
-test("empty editor first screen offers three beginner actions", () => {
+test("empty editor first screen makes Demo import the clear primary action", () => {
   const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
 
-  assert.match(html, /先选一个开始方式/);
+  assert.match(html, /第一次打开，建议先体验示例库/);
   assert.match(html, /data-empty-start-action="seed-demo"/);
-  assert.match(html, /体验 Smart Notes Demo/);
-  assert.match(html, /确认后导入示例数据/);
-  assert.match(html, /data-empty-start-action="open-import"/);
-  assert.match(html, /选择 Obsidian 文件夹/);
+  assert.match(html, /导入示例库 \/ 体验 Demo/);
+  assert.match(html, /点下面按钮后会先请你确认/);
+  assert.match(html, /一键导入一套可照着学的 Demo 笔记/);
+  assert.match(html, /确认后创建 Smart Notes 示例笔记/);
+  assert.doesNotMatch(html, /data-empty-start-action="open-import"/);
+  assert.doesNotMatch(html, /选择 Obsidian 文件夹/);
   assert.match(html, /data-empty-start-action="create-note"/);
-  assert.match(html, /写第一条笔记/);
+  assert.match(html, /跳过 Demo，写第一条笔记/);
 });
 
-test("empty start routes demo import with confirmation and Obsidian import through shell actions", async () => {
+test("empty start routes demo import with confirmation and the existing-notes import module through shell actions", async () => {
   const calls = [];
 
   assert.equal(await routeAppShellStateChange("open-import", { source: "empty-start" }, {

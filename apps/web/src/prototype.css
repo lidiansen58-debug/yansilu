@@ -18186,7 +18186,7 @@
 
     .editor-empty-actions {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: 1fr;
       gap: 10px;
       margin-top: 14px;
     }
@@ -18203,8 +18203,14 @@
     }
 
     .editor-empty-action.primary {
+      grid-column: 1 / -1;
+      min-height: 104px;
       border-color: rgba(15, 118, 110, 0.36);
       background: rgba(229, 246, 240, 0.9);
+    }
+
+    .editor-empty-action.primary span {
+      font-size: 19px;
     }
 
     .editor-empty-action:hover,

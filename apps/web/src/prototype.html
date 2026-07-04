@@ -337,21 +337,17 @@
             <section class="editor-relations-below hidden" id="editorRelationsBelow" aria-label="当前笔记语义关系"></section>
             <section class="editor-empty-start hidden" id="editorEmptyStart" aria-label="新手开始入口">
               <div class="editor-empty-start-head">
-                <span>先选一个开始方式</span>
-                <small>第一次打开空库时，不需要先懂设置；从一个明确动作开始。</small>
+                <span>第一次打开，建议先体验示例库</span>
+                <small>不会自动写入数据；点下面按钮后会先请你确认，再一键导入一套可照着学的 Demo 笔记。</small>
               </div>
               <div class="editor-empty-actions">
                 <button class="editor-empty-action primary" type="button" data-empty-start-action="seed-demo">
-                  <span>体验 Smart Notes Demo</span>
-                  <small>确认后导入示例数据，并打开 10 分钟导览</small>
-                </button>
-                <button class="editor-empty-action" type="button" data-empty-start-action="open-import">
-                  <span>选择 Obsidian 文件夹</span>
-                  <small>从已有 Markdown 笔记生成预览</small>
+                  <span>导入示例库 / 体验 Demo</span>
+                  <small>确认后创建 Smart Notes 示例笔记，并打开“10 分钟导览”教你从记录、建联到写作。</small>
                 </button>
                 <button class="editor-empty-action" type="button" data-empty-start-action="create-note">
-                  <span>写第一条笔记</span>
-                  <small>先记录一个想法、判断或问题</small>
+                  <span>跳过 Demo，写第一条笔记</span>
+                  <small>直接记录一个想法、判断或问题；已有笔记迁移可以稍后再做。</small>
                 </button>
               </div>
             </section>
@@ -1288,6 +1284,26 @@
                           <div class="settings-help-topic">
                             <strong>浏览目录不可用时</strong>
                             <span>桌面版优先打开系统选择器；浏览器环境会降级为手动输入路径。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>手机访问适合做什么</strong>
+                            <span>手机端是随身采集入口，适合快速记录想法、从相册选择图片、拍照保存黑板/白板/资料页，并轻量查看永久笔记和写作素材。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>电脑端要保持什么状态</strong>
+                            <span>手机访问时，电脑需要开机并运行研思录；手机和电脑建议在同一 Wi-Fi / 局域网内。当前版本不要把访问地址直接暴露到公网。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>扫码后为什么还要确认</strong>
+                            <span>二维码只包含访问地址和短期配对码，不包含长期 token。手机扫码后会发起连接请求，必须在电脑端“手机访问”里点允许，之后才能访问。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>手机拍照保存后去哪了</strong>
+                            <span>手机快速记录会保存到电脑端当前笔记库的随笔目录，图片会作为附件放入笔记库。回到电脑端“今日整理”继续加工成永久笔记和关系。</span>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>换手机或不再使用时</strong>
+                            <span>在“本地使用 > 手机访问”里可以查看已配对设备并撤销访问。撤销后，那台手机需要重新扫码并由电脑端确认。</span>
                           </div>
                         </div>
                         <div class="settings-support-safe-note">隐私提醒：复制诊断信息默认不带笔记库路径；提交反馈前仍建议检查内容里是否有私人信息。</div>

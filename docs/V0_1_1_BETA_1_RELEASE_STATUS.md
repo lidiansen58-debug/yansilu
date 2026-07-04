@@ -13,15 +13,16 @@ Goal of this sign-off: final usability smoke from a non-IT user perspective, fix
 - Branch: `main`
 - Remote: `origin/main`
 - Version: `0.1.1-beta.1`
-- Pre-document-update commit checked: `5ab0fcb`
+- Baseline commit before this closeout update: `e85cade`
+- This closeout update: clearer empty-vault Demo entry, mobile access help, and release-material alignment
 - Release tag to use after final commit lands on `main`: `v0.1.1-beta.1`
 
 ## Build Artifact
 
 - Local bundle path: `apps/desktop/src-tauri/target/release/bundle`
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.1-beta.1_x64-setup.exe`
-- Size: `4,448,862` bytes
-- SHA-256: `4701A5AF59EE1D45D50FBC3DDAF4263CBCFAECC6FBF71F55E737D25FDBADD700`
+- Size: `4,464,004` bytes
+- SHA-256: `8E3E146789E133330FF27B7577FE9221BF496D7AFFF531A526A3ABB389CD1EED`
 - Build command: `npm run build:desktop:nsis`
 - Build note: local NSIS beta build completed with updater artifacts disabled for this build.
 
@@ -35,6 +36,7 @@ None found.
 
 1. Mobile Demo first screen could open near the lower "product feature notes" section instead of the beginning of the guide. Fixed by resetting the editor viewport to the start after the Smart Notes Demo guide opens.
 2. Mobile editor toolbar could hide horizontal overflow, making some actions unreachable on small screens. Fixed by keeping the mobile toolbar horizontally scrollable while preserving the compact collapsed height.
+3. Empty-vault first launch did not make the Demo learning path explicit enough and mixed in migration language too early. Fixed by making "导入示例库 / 体验 Demo" the single primary visible first action while keeping the required user confirmation before any Demo data is imported.
 
 ### P2 Fixed
 
@@ -49,7 +51,10 @@ None found.
   - `apps/desktop/src-tauri/Cargo.toml`: `0.1.1-beta.1`
 - `npm run encoding:check:strict` passed.
 - `npm run test:review-first:core` passed: `171/171`.
+- `node --test tests/unit/web-empty-start-main-actions.test.mjs` passed: `7/7`.
 - `node ./scripts/browser-mvp-check.mjs` passed.
+- `npm run test:e2e:browser:mvp` passed: `13/13`.
+- Browser usability smoke passed for empty vault entry, explicit Demo startup, Today, relations, writing center, help, mobile access, backup/restore, and mobile first screen.
 - `RUN_BROWSER_E2E=1 node --test --test-isolation=none --test-name-pattern "^prototype smart notes startup demo opens the guide note without duplicating seed data$" tests/e2e/prototype-browser.test.mjs` passed.
 - `RUN_BROWSER_E2E=1 node --test --test-isolation=none --test-name-pattern "^prototype editor opens external links without navigating the app$" tests/e2e/prototype-browser.test.mjs` passed.
 - `node --test tests/unit/web-mobile-beginner-first-screen.test.mjs` passed.
@@ -77,6 +82,7 @@ Covered by browser/API smoke rather than installed WebView automation:
 - Import/export preview and confirmation.
 - Graph navigation, editor links, attachments, explorer file operations.
 - Demo guide, Today organizing, theme/writing handoff, and writing scaffold readiness.
+- Mobile access pairing, computer-side confirmation guidance, and mobile first screen clarity.
 
 ## Known Limitations
 

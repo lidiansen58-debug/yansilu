@@ -112,6 +112,7 @@ export function renderMobileAccessDesktopPanel({
             <strong>${escapeHtml(pairing.pairCode || "------")}</strong>
           </div>
           <p>配对码 ${escapeHtml(formatTime(pairing.expiresAt) || "短期")} 过期。手机发起请求后，在下方点“允许连接”。</p>
+          <p>电脑端操作顺序：保持研思录运行 -> 让手机扫码 -> 在“待确认手机”里允许连接 -> 需要时撤销设备。</p>
           <div class="import-actions">
             <button class="mini-btn is-subtle" type="button" data-mobile-access-refresh ${loading ? "disabled" : ""}>刷新状态</button>
             <button class="mini-btn" type="button" data-mobile-access-rotate ${actionLoading ? "disabled" : ""}>换一个配对码</button>
