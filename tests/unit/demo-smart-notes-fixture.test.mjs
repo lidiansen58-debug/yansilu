@@ -8,385 +8,174 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "..", "fixtures", "demo-smart-notes-product-thinking", "demo.json");
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 
-const REQUIRED_RELATION_TYPES = [
-  "supports",
-  "complements",
-  "extends",
-  "contrasts",
-  "contradicts",
-  "qualifies",
-  "precedes",
-  "follows",
-  "example_of",
-  "counterexample_to",
-  "same_topic",
-  "unexpected_connection",
-  "bridges",
-  "restates",
-  "reframes",
-  "appears_in_draft",
-  "duplicates"
+const OLD_VISIBLE_ID_PATTERN = /\b(?:PN-SN|WP-SN|IC-SN)-[A-Z0-9-]*\b/;
+const FORBIDDEN_TOPIC_PATTERN = /易经|卦|君子是行动者模型/;
+const REQUIRED_INDEX_TITLES = [
+  "永久笔记是什么？",
+  "为什么要关联笔记？",
+  "知识网络为什么会形成复利？",
+  "关联笔记有哪些关系？如何设置关系？",
+  "手机笔记功能和电脑笔记功能有什么区别？如何形成互动？"
 ];
 
-test("smart notes product demo fixture keeps the requested scope", () => {
-  assert.equal(fixture.sources.length, 1);
-  assert.equal(fixture.fleeting_notes.length, 2);
-  assert.equal(fixture.literature_notes.length, 24);
-  assert.equal(fixture.permanent_notes.length, 114);
-  assert.equal(fixture.index_cards.length, 13);
-  assert.equal(fixture.relations.length, 347);
-  assert.equal(fixture.writing_projects.length, 1);
-  assert.equal(fixture.draft_scaffolds.length, 1);
-  assert.equal(fixture.final_essays.length, 1);
-  assert.equal(fixture.guide_notes.length, 6);
-  assert.deepEqual(fixture.counts, {
-    sources: 1,
-    fleeting_notes: 2,
-    literature_notes: 24,
-    permanent_notes: 114,
-    index_cards: 13,
-    relations: 347,
-    writing_projects: 1,
-    draft_scaffolds: 1,
-    final_essays: 1,
-    guide_notes: 6
-  });
-});
-
-test("smart notes product demo fixture includes a source card as the reading boundary anchor", () => {
-  const source = fixture.sources[0];
-  assert.equal(source.note_type, "source");
-  assert.equal(source.id, "SRC-SMART-NOTES");
-  assert.ok(source.title, "source card should have a title");
-  assert.ok(source.use_boundary, "source card should define the reuse boundary");
-  assert.ok(source.extraction_scope, "source card should define extraction scope");
-  assert.ok(source.conversion_policy, "source card should define conversion policy");
-  assert.equal(source.knowledge_point_ids.length, fixture.knowledge_extraction.knowledge_points.length);
-});
-
-test("smart notes product demo fixture declares rich extraction templates and key notes", () => {
-  assert.deepEqual(Object.keys(fixture.conversion_templates), [
-    "fleeting_note",
-    "literature_note",
-    "permanent_note",
-    "index_card",
-    "key_note"
-  ]);
-  assert.equal(fixture.knowledge_extraction.knowledge_points.length, 9);
-  assert.equal(fixture.key_notes.length, 9);
-
-  const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
-  const indexIds = new Set(fixture.index_cards.map((card) => card.id));
-  const declaredClusters = new Set(fixture.knowledge_extraction.knowledge_points.map((point) => point.cluster));
-  const seenClusters = new Set();
-  for (const keyNote of fixture.key_notes) {
-    assert.ok(permanentIds.has(keyNote.note_id), `${keyNote.id} references missing permanent note`);
-    assert.ok(indexIds.has(keyNote.index_card_id), `${keyNote.id} references missing index card`);
-    assert.equal(keyNote.role, "cluster_anchor", `${keyNote.id} should be the anchor for its cluster`);
-    assert.ok(keyNote.cluster, `${keyNote.id} should declare a cluster`);
-    seenClusters.add(keyNote.cluster);
-  }
-  assert.deepEqual([...seenClusters].sort(), [...declaredClusters].sort(), "key notes should cover every declared knowledge cluster");
-});
-
-test("smart notes product demo fixture models processed fleeting notes", () => {
-  const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
-
-  for (const note of fixture.fleeting_notes) {
-    assert.equal(note.note_type, "fleeting");
-    assert.equal(note.status, "needs_processing");
-    assert.equal(note.template.type, "fleeting_note");
-    assert.ok(note.body.includes("## 原始闪念"), `${note.id} body should follow the fleeting-note template`);
-    assert.ok(note.body.includes("## 已转换为"), `${note.id} body should expose converted targets`);
-    assert.ok(note.next_action, `${note.id} should tell the user what to do next`);
-    assert.ok(note.processed_into.length > 0, `${note.id} should point to processed permanent notes`);
-    for (const targetId of note.processed_into) {
-      assert.ok(permanentIds.has(targetId), `${note.id} points to missing processed note ${targetId}`);
-    }
-  }
-});
-
-test("smart notes product demo fixture permanent notes follow the unified PM-angle template", () => {
-  const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
-  const universalSections = [
-    "核心论点",
-    "知识点提取",
-    "三句话压缩",
-    "论证理由",
-    "来源追溯",
-    "产品含义",
-    "关键笔记定位",
-    "边界或反例"
+function allNotes() {
+  return [
+    ...(fixture.sources || []),
+    ...(fixture.fleeting_notes || []),
+    ...(fixture.literature_notes || []),
+    ...(fixture.permanent_notes || []),
+    ...(fixture.index_cards || []),
+    ...(fixture.writing_projects || []),
+    ...(fixture.draft_scaffolds || []),
+    ...(fixture.final_essays || []),
+    ...(fixture.guide_notes || [])
   ];
+}
 
-  for (const note of fixture.permanent_notes) {
-    assert.equal(note.note_type, "permanent");
-    assert.equal(note.status, "active");
-    assert.equal(note.distillation_status, "confirmed");
-    assert.deepEqual(note.authorship, { user_confirmed: true, ai_assisted: false });
-    assert.equal(note.originality_status, "pass");
-    assert.ok(note.thesis, `${note.id} needs a thesis`);
-    assert.equal(note.threeLineSummary.length, 3, `${note.id} needs a three-line summary`);
-    assert.equal(note.core_claim, note.thesis, `${note.id} core claim should mirror its confirmed thesis`);
-    assert.ok(note.knowledge_point?.id, `${note.id} should link to an extracted knowledge point`);
-    assert.deepEqual(note.template?.required_sections, universalSections, `${note.id} should declare the unified permanent-note template`);
-    assert.equal(Boolean(note.pmRestatement), false, `${note.id} should not carry a separate PM restatement field`);
-    assert.ok(note.productImplication, `${note.id} needs a product implication`);
-    assert.equal(note.body.includes("## 产品经理复述"), false, `${note.id} body should not repeat a PM restatement section`);
-    assert.ok(note.body.includes("## 知识点提取"), `${note.id} body should expose richer knowledge extraction`);
-    for (const sourceId of note.from_literature_note_ids || []) {
-      assert.ok(literatureIds.has(sourceId), `${note.id} references missing literature note ${sourceId}`);
-    }
+function visibleText(value) {
+  if (!value || typeof value !== "object") return "";
+  return [
+    value.title,
+    value.body,
+    value.summary,
+    value.thesis,
+    value.goal,
+    value.intent,
+    value.desired_reader_takeaway,
+    value.use_boundary,
+    value.reading_purpose,
+    value.extraction_scope,
+    value.conversion_policy,
+    value.next_action,
+    value.rationale
+  ].filter(Boolean).join("\n");
+}
+
+function noteIds() {
+  return new Set(allNotes().map((note) => note.id).filter(Boolean));
+}
+
+function noteTitles() {
+  return new Set(allNotes().map((note) => note.title).filter(Boolean));
+}
+
+function wikilinkTargets(value) {
+  const text = visibleText(value);
+  const targets = [];
+  const pattern = /\[\[([^\]]+)\]\]/g;
+  let match;
+  while ((match = pattern.exec(text))) {
+    const target = String(match[1] || "").split("|")[0].split("#")[0].trim();
+    if (target) targets.push(target);
+  }
+  return targets;
+}
+
+test("Smart Notes demo fixture has the required teaching surfaces", () => {
+  assert.ok(fixture.sources.length >= 1);
+  assert.ok(fixture.fleeting_notes.length >= 4);
+  assert.ok(fixture.literature_notes.length >= 6);
+  assert.ok(fixture.permanent_notes.length >= 12);
+  assert.ok(fixture.index_cards.length >= REQUIRED_INDEX_TITLES.length);
+  assert.ok(fixture.relations.length >= 10);
+  assert.ok(fixture.writing_projects.length >= 1);
+  assert.ok(fixture.draft_scaffolds.length >= 1);
+  assert.ok(fixture.guide_notes.length >= 5);
+});
+
+test("user-visible demo copy does not expose legacy PN-SN WP-SN IC-SN ids", () => {
+  for (const item of allNotes()) {
+    assert.doesNotMatch(visibleText(item), OLD_VISIBLE_ID_PATTERN, `${item.id} exposes a legacy id`);
+    assert.doesNotMatch(visibleText(item), FORBIDDEN_TOPIC_PATTERN, `${item.id} includes old unrelated demo material`);
   }
 });
 
-test("smart notes product demo fixture literature notes are original paraphrases", () => {
-  const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
-  for (const note of fixture.literature_notes) {
-    assert.equal(note.note_type, "literature");
-    assert.equal(note.status, "paraphrased");
-    assert.equal(note.template.type, "literature_note");
-    assert.ok(note.quote_text, `${note.id} needs a source boundary`);
-    assert.ok(Array.isArray(note.knowledge_points) && note.knowledge_points.length >= 3, `${note.id} needs extracted knowledge points`);
-    assert.ok(note.body.includes("## 知识点提取"), `${note.id} body should follow the literature-note template`);
-    assert.ok(note.paraphrase_text && note.paraphrase_text.length >= 24, `${note.id} needs a paraphrase_text`);
-    assert.ok(note.my_takeaway && note.my_takeaway.length >= 12, `${note.id} needs a my_takeaway`);
-    assert.ok(Array.isArray(note.candidate_permanent_notes) && note.candidate_permanent_notes.length > 0, `${note.id} needs candidates`);
-    for (const targetId of note.candidate_permanent_notes) {
-      assert.ok(permanentIds.has(targetId), `${note.id} points to missing permanent note ${targetId}`);
-    }
-  }
+test("demo includes processed and pending fleeting and literature examples", () => {
+  assert.ok(fixture.fleeting_notes.some((note) => note.status === "processed" && note.processed_into?.length), "needs processed fleeting note");
+  assert.ok(fixture.fleeting_notes.some((note) => note.status === "needs_processing"), "needs pending fleeting note");
+  assert.ok(fixture.literature_notes.some((note) => note.status === "converted"), "needs converted literature note");
+  assert.ok(fixture.literature_notes.some((note) => note.status === "needs_processing"), "needs pending literature note");
 });
 
-test("smart notes product demo fixture includes an inspection guide", () => {
-  const guide = fixture.guide_notes[0];
-  assert.equal(guide.id, "GUIDE-SN-001");
-  assert.equal(guide.note_type, "guide");
-  assert.match(guide.title, /00 从这里开始/);
-  assert.match(guide.body, /先走 5 步/);
-  assert.match(guide.body, /SRC-SMART-NOTES/);
-  assert.match(guide.body, /LN-SN-001/);
-  assert.doesNotMatch(guide.body, /LIT-SN-001/);
-  assert.match(guide.body, /PN-SN-101/);
-  assert.match(guide.body, /\[\[PN-SN-101\|/);
-  assert.doesNotMatch(guide.body, /`PN-SN-101`/);
-  assert.match(guide.body, /补一句“为什么相关”/);
-  assert.doesNotMatch(guide.body, /`IC-SN-012`/);
-  assert.match(guide.body, /打开主题索引示例/);
-  assert.match(guide.body, /可写主题/);
-  assert.match(guide.body, /3 到 7 条永久笔记/);
-  assert.doesNotMatch(guide.body, /`WP-SN-PM-001`/);
-  assert.doesNotMatch(guide.body, /`DS-SN-PM-001`/);
-  assert.match(guide.body, /打开写作中心/);
-  assert.match(guide.body, /今天只做一个动作/);
-  assert.doesNotMatch(guide.body, /队列|复核|线索/);
-});
-
-test("smart notes product demo fixture includes product-feature permanent notes", () => {
-  const productNotes = fixture.permanent_notes.filter((note) => note.demo_role === "product_feature_note");
-  const beginnerFeatureTitles = [
-    "今日整理是什么",
-    "为什么要写关系理由",
-    "主题索引不是文件夹",
-    "AI 建议只能作为候选",
-    "从主题进入写作中心怎么生成提纲",
-    "定期回顾不是大扫除",
-    "永久笔记为什么要写成自己的判断"
+test("key permanent notes contain clickable internal links by readable title or alias", () => {
+  const required = [
+    "PERM-WRITING-STARTS-BEFORE-DRAFT",
+    "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+    "PERM-RELATION-REASON-MATTERS",
+    "PERM-THEME-INDEX-IS-ENTRY",
+    "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES"
   ];
-  assert.ok(productNotes.length >= beginnerFeatureTitles.length);
-  for (const title of beginnerFeatureTitles) {
-    assert.ok(productNotes.some((note) => note.title === title), `expected product feature note: ${title}`);
-  }
-  const guide = fixture.guide_notes.find((note) => note.id === "GUIDE-SN-001");
-  const featureIndex = fixture.index_cards.find((card) => card.id === "IC-SN-FEATURE-001");
-  assert.ok(featureIndex, "product feature notes should have a theme index");
-  for (const note of productNotes.filter((item) => beginnerFeatureTitles.includes(item.title))) {
-    assert.ok(note.body.includes("## 产品含义"), `${note.id} should explain product meaning`);
-    assert.ok(note.related_index_ids?.includes("IC-SN-FEATURE-001"), `${note.id} should enter the product feature index card`);
-    assert.ok(guide.body.includes(note.id), `${note.id} should be referenced by the guide walkthrough`);
-    assert.ok(featureIndex.noteIds.includes(note.id), `${note.id} should be indexed by the product feature theme`);
-    assert.ok(fixture.relations.some((relation) => relation.from === note.id || relation.to === note.id), `${note.id} should enter the relation network`);
-    assert.doesNotMatch(note.body, /undefined/, `${note.id} should not render missing support metadata`);
-  }
-  const project = fixture.writing_projects[0];
-  for (const note of productNotes.filter((item) => beginnerFeatureTitles.includes(item.title))) {
-    assert.ok(project.basketNoteIds.includes(note.id), `${note.id} should be available in the writing project basket`);
+  for (const id of required) {
+    const note = fixture.permanent_notes.find((item) => item.id === id);
+    assert.ok(note, `missing ${id}`);
+    assert.match(note.body, /\[\[[^\]]+\]\]/, `${id} should include a clickable wikilink`);
+    assert.doesNotMatch(note.body, /\[\[(?:PN-SN|WP-SN|IC-SN)-/, `${id} should not link with legacy visible ids`);
   }
 });
 
-test("smart notes product demo fixture index cards organize ordered items and key-note anchors", () => {
+test("all visible wikilinks point to existing demo notes", () => {
+  const ids = noteIds();
+  const titles = noteTitles();
+  for (const note of allNotes()) {
+    for (const target of wikilinkTargets(note)) {
+      assert.ok(ids.has(target) || titles.has(target), `${note.id} links to missing note ${target}`);
+    }
+  }
+});
+
+test("relations point to existing notes and carry readable reasons", () => {
+  const ids = noteIds();
+  const types = new Set();
+  for (const relation of fixture.relations) {
+    assert.ok(ids.has(relation.from), `${relation.id} has missing from note ${relation.from}`);
+    assert.ok(ids.has(relation.to), `${relation.id} has missing to note ${relation.to}`);
+    assert.notEqual(relation.from, relation.to, `${relation.id} links a note to itself`);
+    assert.ok(String(relation.rationale || "").length >= 12, `${relation.id} needs a readable rationale`);
+    assert.ok(String(relation.insight_question || "").length >= 12, `${relation.id} needs an insight question`);
+    types.add(relation.relationType);
+  }
+  for (const type of ["supports", "complements", "qualifies", "contradicts", "example_of", "precedes", "bridges"]) {
+    assert.ok(types.has(type), `missing relation type ${type}`);
+  }
+});
+
+test("theme indexes include the required beginner questions and valid note links", () => {
   const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
-  const keyNoteIds = new Set(fixture.key_notes.map((note) => note.note_id));
-  const keyNotesByCluster = new Map(fixture.key_notes.map((note) => [note.cluster, note.note_id]));
-  const knowledgePointsById = new Map(fixture.knowledge_extraction.knowledge_points.map((point) => [point.id, point]));
+  const titles = new Set(fixture.index_cards.map((card) => card.title));
+  for (const title of REQUIRED_INDEX_TITLES) assert.ok(titles.has(title), `missing theme index ${title}`);
 
   for (const card of fixture.index_cards) {
     assert.equal(card.index_type, "topic");
-    assert.equal(card.template.type, "index_card");
-    assert.ok(card.items.length > 0, `${card.id} should expose ordered index items`);
-    assert.ok(card.key_note_ids.length > 0, `${card.id} should expose key note anchors`);
-    assert.ok(card.knowledge_point_ids.length > 0, `${card.id} should expose supporting knowledge points`);
-    for (const item of card.items) {
-      assert.ok(permanentIds.has(item.note_id), `${card.id} item references missing note ${item.note_id}`);
-      assert.ok(item.rationale, `${card.id} item ${item.note_id} needs a rationale`);
-    }
-    for (const keyNoteId of card.key_note_ids) {
-      assert.ok(keyNoteIds.has(keyNoteId), `${card.id} key note ${keyNoteId} should be registered`);
-    }
-    for (const knowledgePointId of card.knowledge_point_ids) {
-      const point = knowledgePointsById.get(knowledgePointId);
-      assert.ok(point, `${card.id} knowledge point ${knowledgePointId} should be registered`);
-      assert.ok(card.key_note_ids.includes(keyNotesByCluster.get(point.cluster)), `${card.id} should anchor the key note for cluster ${point.cluster}`);
-    }
+    assert.ok(card.central_question, `${card.id} needs a central question`);
+    assert.ok(card.noteIds.length > 0, `${card.id} needs noteIds`);
+    for (const noteId of card.noteIds) assert.ok(permanentIds.has(noteId), `${card.id} references missing note ${noteId}`);
+    assert.match(card.body, /\[\[[^\]]+\]\]/, `${card.id} should expose clickable note links`);
   }
 });
 
-test("smart notes product demo fixture includes one unlinked practice note for the guide", () => {
-  const practiceNote = fixture.permanent_notes.find((note) => note.id === "PN-SN-101");
-  assert.ok(practiceNote, "expected unlinked practice note");
-  assert.match(practiceNote.title, /关系练习|未关联/);
-  assert.equal(practiceNote.demo_role, "unlinked_relation_practice");
-  assert.equal(practiceNote.template_completion.has_relation_context, false);
-  assert.match(practiceNote.body, /待补充与相邻笔记的显式关系/);
-
-  const touchingRelations = fixture.relations.filter((relation) => relation.from === practiceNote.id || relation.to === practiceNote.id);
-  assert.equal(touchingRelations.length, 0, "practice note should start outside the relation network");
-});
-
-test("smart notes product demo fixture relations are typed and complete enough", () => {
-  const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
-  const fleetingIds = new Set(fixture.fleeting_notes.map((note) => note.id));
-  const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
-  const projectIds = new Set(fixture.writing_projects.map((project) => project.id));
-  const finalEssayIds = new Set(fixture.final_essays.map((note) => note.id));
-  const guideIds = new Set(fixture.guide_notes.map((note) => note.id));
-  const validTargets = new Set([...permanentIds, ...fleetingIds, ...literatureIds, ...projectIds, ...finalEssayIds, ...guideIds]);
-  const relationTypes = new Set();
-  const permanentTouchCount = new Map([...permanentIds].map((id) => [id, 0]));
-  const seenKeys = new Set();
-  const missingRationalePracticeIds = new Set(["REL-SN-418"]);
-  const seenMissingRationalePracticeIds = new Set();
-
-  for (const relation of fixture.relations) {
-    assert.ok(validTargets.has(relation.from), `${relation.id} has missing from target ${relation.from}`);
-    assert.ok(validTargets.has(relation.to), `${relation.id} has missing to target ${relation.to}`);
-    assert.notEqual(relation.from, relation.to, `${relation.id} links a note to itself`);
-    if (missingRationalePracticeIds.has(relation.id)) {
-      assert.equal(relation.demo_role, "missing_rationale_practice", `${relation.id} should be marked as a practice gap`);
-      assert.match(relation.rationale, /^待补一句关系理由/, `${relation.id} should carry an import-safe placeholder rationale`);
-      seenMissingRationalePracticeIds.add(relation.id);
-    } else {
-      assert.ok(relation.rationale.length >= 12, `${relation.id} should explain the relation`);
-    }
-    assert.ok(relation.insight_question.length >= 12, `${relation.id} should carry a follow-up question`);
-
-    const key = `${relation.from}->${relation.to}:${relation.relationType}`;
-    assert.equal(seenKeys.has(key), false, `duplicate relation key ${key}`);
-    seenKeys.add(key);
-    relationTypes.add(relation.relationType);
-
-    if (permanentTouchCount.has(relation.from)) permanentTouchCount.set(relation.from, permanentTouchCount.get(relation.from) + 1);
-    if (permanentTouchCount.has(relation.to)) permanentTouchCount.set(relation.to, permanentTouchCount.get(relation.to) + 1);
-  }
-  assert.deepEqual(seenMissingRationalePracticeIds, missingRationalePracticeIds, "fixture should include one missing-rationale practice relation");
-
-  for (const type of REQUIRED_RELATION_TYPES) {
-    assert.ok(relationTypes.has(type), `fixture should include relation type ${type}`);
-  }
-  assert.ok(relationTypes.has("belongs_to_topic"), "fixture should link ordinary notes to key notes");
-  assert.ok(relationTypes.has("bridges"), "fixture should link key notes into a reading path");
-  const intentionallyUnlinkedIds = new Set(["PN-SN-101"]);
-  for (const [noteId, count] of permanentTouchCount) {
-    if (intentionallyUnlinkedIds.has(noteId)) {
-      assert.equal(count, 0, `${noteId} should remain available for the guide relation practice`);
-      continue;
-    }
-    assert.ok(count > 0, `${noteId} should have at least one relation`);
-  }
-});
-
-test("smart notes product demo fixture writing project traces notes and sources", () => {
-  const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
-  const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
-  const indexIds = new Set(fixture.index_cards.map((card) => card.id));
-  const keyNoteIds = new Set(fixture.key_notes.map((note) => note.note_id));
-  const declaredKeyNoteIds = fixture.key_notes.map((note) => note.note_id);
+test("writing project starts from theme indexes and key permanent notes", () => {
   const project = fixture.writing_projects[0];
   const scaffold = fixture.draft_scaffolds[0];
-
-  assert.equal(scaffold.writing_project_id, project.id);
-  assert.match(project.goal, /研思录为什么不是资料仓库|思考工作台/);
-  assert.ok(project.basketNoteIds.length >= 8);
-  assert.ok(project.indexCardIds.length >= 4);
-  assert.deepEqual(project.keyNoteIds, declaredKeyNoteIds);
-  assert.deepEqual(scaffold.key_note_ids, declaredKeyNoteIds);
-
-  for (const noteId of project.basketNoteIds) {
-    assert.ok(permanentIds.has(noteId), `${project.id} basket references missing note ${noteId}`);
-  }
-  for (const cardId of project.indexCardIds) {
-    assert.ok(indexIds.has(cardId), `${project.id} references missing index card ${cardId}`);
-  }
-  for (const section of project.outline) {
-    assert.ok(section.noteTraceIds.length > 0, `${section.sectionId} should trace permanent notes`);
-    assert.ok(section.literatureTraceIds.length > 0, `${section.sectionId} should trace literature notes`);
-    assert.ok(section.keyNoteTraceIds.length > 0, `${section.sectionId} should trace key notes`);
-    for (const noteId of section.noteTraceIds) assert.ok(permanentIds.has(noteId), `${section.sectionId} missing note ${noteId}`);
-    for (const noteId of section.literatureTraceIds) assert.ok(literatureIds.has(noteId), `${section.sectionId} missing literature ${noteId}`);
-    for (const noteId of section.keyNoteTraceIds) assert.ok(keyNoteIds.has(noteId), `${section.sectionId} missing key note ${noteId}`);
-  }
-  for (const section of scaffold.sections) {
-    assert.ok(section.key_note_ids.length > 0, `${section.id} should keep scaffold key-note trace`);
-    for (const noteId of section.key_note_ids) assert.ok(keyNoteIds.has(noteId), `${section.id} missing scaffold key note ${noteId}`);
-  }
-  assert.match(fixture.final_essays[0].body, /研思录/);
-});
-
-test("smart notes product demo fixture graph exposes key-note paths", () => {
-  const sourceIds = new Set(fixture.sources.map((note) => note.id));
-  const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
-  const keyNoteIds = new Set(fixture.key_notes.map((note) => note.note_id));
   const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
   const indexIds = new Set(fixture.index_cards.map((card) => card.id));
-  const writingProjectIds = new Set(fixture.writing_projects.map((project) => project.id));
-  const finalEssayIds = new Set(fixture.final_essays.map((note) => note.id));
-  const draftScaffoldIds = new Set(fixture.draft_scaffolds.map((scaffold) => scaffold.id));
-  const validReadingPathIds = new Set([
-    ...sourceIds,
-    ...literatureIds,
-    ...permanentIds,
-    ...indexIds,
-    ...writingProjectIds,
-    ...finalEssayIds,
-    ...draftScaffoldIds
-  ]);
-  const graphClusters = new Set(fixture.graph.key_note_paths.map((path) => path.cluster));
-  const keyNoteClusters = new Set(fixture.key_notes.map((note) => note.cluster));
 
-  assert.equal(fixture.graph.key_note_paths.length, fixture.key_notes.length);
-  const expectedMainReadingPath = [
-    "SRC-SMART-NOTES",
-    "LN-SN-001",
-    "PN-SN-001",
-    "IC-SN-001",
-    "WP-SN-PM-001",
-    "ESSAY-SN-PM-001",
-    "DS-SN-PM-001"
-  ];
-  assert.deepEqual(fixture.graph.reading_path.slice(0, expectedMainReadingPath.length), expectedMainReadingPath);
-  assert.ok(fixture.graph.reading_path.includes("IC-SN-FEATURE-001"), "reading path should include the product feature theme");
-  assert.ok(fixture.graph.reading_path.includes("PN-SN-FEATURE-005"), "reading path should include writing-center product notes");
-  for (const id of fixture.graph.reading_path) {
-    assert.ok(validReadingPathIds.has(id), `reading path references missing node ${id}`);
-  }
-  assert.deepEqual([...graphClusters].sort(), [...keyNoteClusters].sort(), "graph key-note paths should cover every key-note cluster");
-  for (const path of fixture.graph.key_note_paths) {
-    assert.ok(keyNoteIds.has(path.key_note_id), `${path.key_note_id} should be a registered key note`);
-    assert.ok(indexIds.has(path.index_card_id), `${path.key_note_id} should point to an index card`);
-    assert.ok(path.cluster, `${path.key_note_id} should declare a cluster path`);
-    assert.ok(path.supporting_note_ids.length > 0, `${path.key_note_id} should have supporting notes`);
-    for (const noteId of path.supporting_note_ids) {
-      assert.ok(permanentIds.has(noteId), `${path.key_note_id} has missing support ${noteId}`);
-    }
-  }
+  assert.equal(project.id, "WRITE-SMART-NOTES-DEMO");
+  assert.match(project.title, /卡片笔记写作法/);
+  assert.ok(project.basketNoteIds.length >= 5);
+  assert.ok(project.indexCardIds.length >= 3);
+  for (const id of project.basketNoteIds) assert.ok(permanentIds.has(id), `${id} should be a permanent note`);
+  for (const id of project.indexCardIds) assert.ok(indexIds.has(id), `${id} should be an index card`);
+  assert.equal(scaffold.writing_project_id, project.id);
+  assert.ok(scaffold.sections.length >= 3);
+});
+
+test("guide note is beginner friendly and opens the complete workflow", () => {
+  const guide = fixture.guide_notes.find((note) => note.id === "GUIDE-SMART-NOTES-START");
+  assert.ok(guide, "missing starting guide");
+  assert.match(guide.body, /记录 -> 转述 -> 永久笔记 -> 建立关系 -> 主题索引 -> 写作中心|6 步/);
+  assert.match(guide.body, /\[\[手机上先记一句/);
+  assert.match(guide.body, /\[\[写作不是最后一步/);
+  assert.match(guide.body, /\[\[待关联练习/);
+  assert.match(guide.body, /\[\[为什么要关联笔记？\]\]/);
+  assert.doesNotMatch(guide.body, OLD_VISIBLE_ID_PATTERN);
 });

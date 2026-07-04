@@ -1,123 +1,71 @@
 # Smart Notes Demo Playbook (3 Minutes)
 
-Date: 2026-05-16
+Date: 2026-07-04
 
 ## Goal
 
-Show that Yansilu is not a generic note archive. It helps a user move from reading material to owned judgment, from owned judgment to connected themes, and from connected themes to writing.
+Show that Yansilu is not a generic note archive. It turns the Smart Notes method into product actions: capture, paraphrase, permanent notes, relation reasons, theme indexes, and writing center.
 
 ## Preflight Setup
 
-Use the public demo entry for the normal walkthrough:
+Use:
 
 ```text
 /demo/zettelkasten
 /prototype?demo=smart-notes-product-thinking
 ```
 
-The prototype entry auto-seeds the disposable demo data through the public API endpoint and opens the guide note `GUIDE-SN-001`. Do not seed into `vault-example`, the normal development vault, or any vault that contains user or baseline data.
+The prototype entry imports the bundled demo fixture and opens “00 从这里开始：10 分钟走完研思录”.
 
-For clean recording prep, you can still seed or reset a local disposable demo vault explicitly:
+Before recording or presenting:
 
-```powershell
-$env:DEMO_VAULT="E:\Projects\Thinking in Notes\.local-demo-vaults\smart-notes-product-thinking"
-node scripts/seed-smart-notes-product-thinking.mjs --vault $env:DEMO_VAULT
-```
-
-The generated vault is safe to delete and regenerate. It is not a source asset, not a fixture, and not intended for commit. The source of truth remains the checked-in fixture plus seed path described in `docs/RICH_DEMO_USAGE_ENTRY.md`.
-
-For the first-time user path and short explanations of relations, writing timing, and index notes, use `docs/SMART_NOTES_DEMO_HELP.md`.
-
-After opening the prototype entry:
-
-1. Confirm the status bar says the Smart Notes demo imported 100 permanent notes, 306 relations, and 1 writing project.
-2. Confirm the first selected note is `GUIDE-SN-001`.
-3. Keep the graph, index cards, and writing project panels ready.
-4. Verify you can open `PN-SN-005`, `IC-SN-001`, `WP-SN-PM-001`, and `DS-SN-PM-001`.
-5. In the writing panel, confirm the project title, writing goal, and audience are already filled instead of showing an empty project shell.
-6. If the workspace contains unrelated notes, discard the generated vault and seed a fresh disposable vault before recording or presenting.
+1. Confirm the first note shown is the 10-minute guide.
+2. Confirm visible copy uses Chinese titles, not internal ids.
+3. Confirm today review shows unfinished fleeting or literature notes.
+4. Confirm relation practice opens “待关联练习：保存关系前先写清楚为什么”.
+5. Confirm the writing center opens the project “为什么研思录要把卡片笔记写作法做进产品里”.
 
 ## Demo Order
 
-Use this order even if the audience asks feature questions early:
-
-1. Start with the source/originality boundary.
-2. Show a rough fleeting note and one literature note.
-3. Show a permanent note as owned judgment.
-4. Show graph relations with reasons.
-5. Show an index card as a question-centered entry point.
-6. Show the writing project and scaffold.
-7. Close on traceable writing readiness, not note volume.
+1. Start with a rough fleeting note.
+2. Show a literature note written in the user's own words.
+3. Open a permanent note as an owned judgment.
+4. Show relation types and relation reasons.
+5. Open a theme index as a question-centered entry point.
+6. Open the writing project and generated scaffold.
 
 ## Talk Track
 
 ### 0:00-0:30 - Frame The Demo
 
-This is a product-thinking demo based on the method of *How to Take Smart Notes*. It is not a book summary. The point is to show how reading becomes a reusable product judgment and then becomes writing.
+This demo is based on the method of *How to Take Smart Notes*, but it is not a book summary. The point is to show how Yansilu embeds the method into the workflow.
 
-Call out the source boundary first: the demo uses original paraphrases and product-manager restatements, not copied book text, long passages, or chapter-level replacement summaries.
+### 0:30-1:10 - Capture Becomes Understanding
 
-Also call out the data boundary: this is generated demo data in a disposable local vault. It should be regenerated from the seed path, not preserved by hand or mixed into the main example vault.
+Open “手机上先记一句：我总是收藏很多但不会用”, then open “阅读一开始就要面向未来写作”.
 
-### 0:30-1:10 - Reading Becomes Notes
+Explain that fleeting notes are intentionally unfinished. Literature notes are transitional: they keep the source boundary visible while requiring the user's own words.
 
-Open the guide note `GUIDE-SN-001`, then show the two fleeting notes.
+### 1:10-1:50 - Understanding Becomes Judgment
 
-Explain that fleeting notes are intentionally unfinished. They are useful capture, but the product should push them toward processing or deletion.
+Open “写作不是最后一步，而是整理笔记的方向” and “永久笔记是一条用户愿意承担的判断”.
 
-Open one literature note and point to:
+Point to thesis, three-line summary, product meaning, boundary, and internal links.
 
-- original paraphrase
-- personal takeaway
-- candidate permanent notes
+### 1:50-2:25 - Judgment Becomes Structure
 
-Say explicitly that a literature note is still transitional. It keeps the source trace visible while requiring the user's own words before anything can become an owned judgment.
+Open the relation practice note and a theme index such as “为什么要关联笔记？”.
 
-### 1:10-1:50 - Notes Become Judgments
-
-Open representative permanent notes:
-
-- `PN-SN-001`: writing starts before drafting
-- `PN-SN-037`: note count can mislead progress
-- `PN-SN-065`: index cards create entry points
-- `PN-SN-100`: the final essay should preserve traceability
-
-For each note, point to thesis, three-line summary, product-manager restatement, product implication, and boundary.
-
-The key line: permanent notes are not copied fragments. They are claims the product manager can reuse, challenge, connect, and later write from.
-
-### 1:50-2:25 - Judgments Become Structure
-
-Switch to graph and index cards.
-
-Show that relations have types and rationales. The network is not decorative: every edge should explain why two notes belong together, disagree, extend each other, or create a writing move.
-
-Open `IC-SN-001`, `IC-SN-005`, or `IC-SN-010` to show question-centered organization.
+Say clearly: the network is not decorative. Every useful edge needs a type and a reason.
 
 ### 2:25-3:00 - Structure Becomes Writing
 
-Open `WP-SN-PM-001` and `DS-SN-PM-001`.
+Open the writing project “为什么研思录要把卡片笔记写作法做进产品里”.
 
-Show that the writing project starts from selected permanent notes and index cards. The scaffold should expose evidence, gaps, counterpoints, and source traces.
-
-Close with the product message: Yansilu should reward confirmed judgment and traceable writing readiness, not raw collection volume.
-
-Do not present the demo as a substitute for reading the source book. It is a Yansilu product walkthrough that demonstrates how a user can transform source-informed learning into their own accountable writing.
+Show that the outline starts from selected permanent notes and theme indexes. Close with the product judgment: Yansilu should reward confirmed understanding and traceable writing readiness, not raw collection volume.
 
 ## Reset And Cleanup
 
-- Treat `E:\Projects\Thinking in Notes\.local-demo-vaults\smart-notes-product-thinking` as disposable/generated.
-- Re-run the seed command before an important walkthrough if you need a clean state.
-- Do not manually copy generated notes into `vault-example`.
-- Do not commit generated vault files, local SQLite state, or one-off markdown exported from a demo run.
-- If a demo exploration changes the local vault, delete the generated vault and seed it again instead of trying to curate it by hand.
-
-## Acceptance Checklist
-
-- The visitor understands why `/demo/zettelkasten` is the primary product demo.
-- The visitor sees that demo notes are original paraphrases and PM restatements.
-- The visitor understands that the local demo vault is disposable/generated.
-- The graph is explained through relation reasons, not visual density.
-- The writing project shows how notes become an essay path.
-- The demo does not present itself as a replacement for the source book.
-
+- Treat generated demo vaults as disposable.
+- Regenerate from the fixture instead of hand-curating exported notes.
+- Do not mix demo data into a real user vault.

@@ -6,28 +6,19 @@ function loadDemo() {
   return JSON.parse(fs.readFileSync("tests/fixtures/demo-smart-notes-product-thinking/demo.json", "utf8"));
 }
 
-test("Smart Notes demo guide gives a beginner five-step path", () => {
+test("Smart Notes demo guide gives a beginner title-based path", () => {
   const demo = loadDemo();
-  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SN-001");
+  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SMART-NOTES-START");
 
   assert.ok(guide, "expected Smart Notes guide note");
-  assert.match(guide.title, /00 从这里开始/);
-  assert.match(guide.body, /先走 5 步/);
-  assert.match(guide.body, /SRC-SMART-NOTES/);
-  assert.match(guide.body, /LN-SN-001/);
-  assert.doesNotMatch(guide.body, /LIT-SN-001/);
-  assert.match(guide.body, /PN-SN-001/);
-  assert.match(guide.body, /PN-SN-101/);
-  assert.match(guide.body, /\[\[PN-SN-101\|/);
-  assert.doesNotMatch(guide.body, /`PN-SN-101`/);
-  assert.match(guide.body, /补一句“为什么相关”/);
-  assert.doesNotMatch(guide.body, /`IC-SN-012`/);
-  assert.match(guide.body, /打开主题索引示例/);
-  assert.match(guide.body, /3 到 7 条永久笔记/);
-  assert.doesNotMatch(guide.body, /`WP-SN-PM-001`/);
-  assert.doesNotMatch(guide.body, /`DS-SN-PM-001`/);
-  assert.match(guide.body, /打开写作中心/);
-  assert.match(guide.body, /今天只做一个动作/);
+  assert.match(guide.title, /从这里开始/);
+  assert.match(guide.body, /你不用先学术语/);
+  assert.match(guide.body, /\[\[手机上先记一句：我总是收藏很多但不会用\]\]/);
+  assert.match(guide.body, /\[\[阅读一开始就要面向未来写作\]\]/);
+  assert.match(guide.body, /\[\[写作不是最后一步，而是整理笔记的方向\]\]/);
+  assert.match(guide.body, /\[\[待关联练习：保存关系前先写清楚为什么\]\]/);
+  assert.match(guide.body, /\[\[为什么要关联笔记？\]\]/);
+  assert.doesNotMatch(guide.body, /\b(?:PN-SN|WP-SN|IC-SN)-/);
 });
 
 test("Smart Notes demo guide has a short onboarding note set", () => {
@@ -37,39 +28,37 @@ test("Smart Notes demo guide has a short onboarding note set", () => {
     demo.guide_notes.map((note) => note.title),
     [
       "00 从这里开始：10 分钟走完研思录",
-      "01 今天先做哪一步",
-      "02 什么是永久笔记",
-      "03 为什么要建立关系",
-      "04 什么是可写主题",
-      "05 怎么从主题进入写作中心"
+      "01 今天先做哪一步？",
+      "02 什么是永久笔记？",
+      "03 为什么要建立关系？",
+      "04 什么是可写主题？",
+      "05 怎么从主题进入写作中心？"
     ]
   );
 });
 
 test("Smart Notes demo guide avoids advanced workflow jargon on the main path", () => {
   const demo = loadDemo();
-  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SN-001");
+  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SMART-NOTES-START");
 
   assert.ok(guide, "expected Smart Notes guide note");
-  assert.doesNotMatch(guide.body, /候选队列|复核|线索/);
+  assert.doesNotMatch(guide.body, /候选队列|复核队列|线索卡/);
 });
 
-test("Smart Notes demo guide references notes that exist in the fixture", () => {
+test("Smart Notes demo guide references titles that exist in the fixture", () => {
   const demo = loadDemo();
-  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SN-001");
-  const noteIds = new Set([
-    ...(demo.sources || []).map((note) => note.id),
-    ...(demo.guide_notes || []).map((note) => note.id),
-    ...(demo.fleeting_notes || []).map((note) => note.id),
-    ...(demo.literature_notes || []).map((note) => note.id),
-    ...(demo.permanent_notes || []).map((note) => note.id),
-    ...(demo.index_cards || []).map((note) => note.id),
-    ...(demo.writing_projects || []).map((note) => note.id),
-    ...(demo.draft_scaffolds || []).map((note) => note.id)
+  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SMART-NOTES-START");
+  const titles = new Set([
+    ...(demo.sources || []).map((note) => note.title),
+    ...(demo.guide_notes || []).map((note) => note.title),
+    ...(demo.fleeting_notes || []).map((note) => note.title),
+    ...(demo.literature_notes || []).map((note) => note.title),
+    ...(demo.permanent_notes || []).map((note) => note.title),
+    ...(demo.index_cards || []).map((note) => note.title)
   ]);
 
   assert.ok(guide, "expected Smart Notes guide note");
-  for (const id of guide.body.match(/[A-Z]+-SN(?:-[A-Z]+)?-\d{3}|SRC-SMART-NOTES/g) || []) {
-    assert.ok(noteIds.has(id), `${id} should exist in the Smart Notes fixture`);
+  for (const match of guide.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
+    assert.ok(titles.has(match[1]), `${match[1]} should exist as a readable note title`);
   }
 });

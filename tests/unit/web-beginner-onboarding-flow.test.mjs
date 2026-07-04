@@ -11,13 +11,13 @@ import {
 
 test("beginner flow detects Smart Notes demo and renders one focused next step", () => {
   const notes = [
-    { id: "GUIDE-SN-001" },
-    { id: "PN-SN-001" },
-    { id: "PN-SN-101" },
-    { id: "PN-SN-FEATURE-003" },
-    { id: "WP-SN-PM-001" }
+    { id: "GUIDE-SMART-NOTES-START" },
+    { id: "PERM-WRITING-STARTS-BEFORE-DRAFT" },
+    { id: "PERM-UNLINKED-PRACTICE" },
+    { id: "THEME-WHY-LINK-NOTES" },
+    { id: "WRITE-SMART-NOTES-DEMO" }
   ];
-  const flow = buildSmartNotesDemoWalkthrough({ notes, selectedNoteId: "PN-SN-FEATURE-003" });
+  const flow = buildSmartNotesDemoWalkthrough({ notes, selectedNoteId: "THEME-WHY-LINK-NOTES" });
   const html = renderSmartNotesDemoWalkthrough(flow);
 
   assert.equal(isSmartNotesDemoScope(notes), true);
@@ -30,9 +30,10 @@ test("beginner flow detects Smart Notes demo and renders one focused next step",
   assert.match(html, /sidebar-flow-current/);
   assert.match(html, /第 3 \/ 5 步/);
   assert.match(html, /读主题索引/);
-  assert.match(html, /打开主题索引示例/);
+  assert.match(html, /打开“为什么要关联笔记？”/);
   assert.doesNotMatch(html, /data-sidebar-flow-action="open-demo-note-relations"/);
   assert.doesNotMatch(html, /打开写作中心/);
+  assert.doesNotMatch(html, /\b(?:PN-SN|WP-SN|IC-SN)-/);
 });
 
 test("beginner flow does not treat arbitrary SN-looking notes as the Smart Notes demo", () => {

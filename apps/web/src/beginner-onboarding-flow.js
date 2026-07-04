@@ -9,54 +9,60 @@ function noteIdSet(notes = []) {
 export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   {
     key: "source-to-permanent",
-    title: "从来源到永久笔记",
-    note: "先看材料、文献笔记怎样转成自己的判断。",
+    title: "从记录到永久笔记",
+    note: "先看一条材料怎样经过转述，变成用户自己的判断。",
     action: "open-demo-note",
-    actionLabel: "打开 PN-SN-001",
-    targetNoteId: "PN-SN-001",
-    noteIds: ["GUIDE-SN-001", "SRC-SMART-NOTES", "FN-SN-001", "LN-SN-001", "PN-SN-001"]
+    actionLabel: "打开“写作不是最后一步”",
+    targetNoteId: "PERM-WRITING-STARTS-BEFORE-DRAFT",
+    noteIds: [
+      "GUIDE-SMART-NOTES-START",
+      "SRC-SMART-NOTES",
+      "FN-PHONE-CAPTURE-UNPROCESSED",
+      "LN-WRITING-AS-DAILY-PRACTICE",
+      "PERM-WRITING-STARTS-BEFORE-DRAFT"
+    ]
   },
   {
     key: "connect-relation",
     title: "补一条关系理由",
-    note: "让一条永久笔记进入关系网。",
+    note: "让一条孤立永久笔记进入关系网，并写清楚为什么相关。",
     action: "open-demo-note-relations",
-    actionLabel: "连接 PN-SN-101",
-    targetNoteId: "PN-SN-101",
-    noteIds: ["PN-SN-101"]
+    actionLabel: "打开“待关联练习”",
+    targetNoteId: "PERM-UNLINKED-PRACTICE",
+    noteIds: ["PERM-UNLINKED-PRACTICE"]
   },
   {
     key: "theme-index",
     title: "读主题索引",
-    note: "看中心问题和关键笔记，而不是把它当文件夹。",
+    note: "看中心问题和关键笔记，而不是把索引当文件夹。",
     action: "open-demo-note",
-    actionLabel: "打开主题索引示例",
-    targetNoteId: "PN-SN-FEATURE-003",
-    noteIds: ["PN-SN-FEATURE-003", "IC-SN-001", "IC-SN-005", "IC-SN-010"]
+    actionLabel: "打开“为什么要关联笔记？”",
+    targetNoteId: "THEME-WHY-LINK-NOTES",
+    noteIds: ["THEME-WHY-LINK-NOTES", "THEME-WHAT-IS-PERMANENT-NOTE", "THEME-INDEX-TO-WRITING"]
   },
   {
     key: "writing-outline",
     title: "进入写作中心",
-    note: "从可写主题生成文章提纲。",
+    note: "从主题索引和已确认永久笔记生成文章提纲。",
     action: "open-demo-writing",
     actionLabel: "打开写作中心",
-    targetNoteId: "WP-SN-PM-001",
-    noteIds: ["WP-SN-PM-001", "DS-SN-PM-001"]
+    targetNoteId: "WRITE-SMART-NOTES-DEMO",
+    noteIds: ["WRITE-SMART-NOTES-DEMO", "DRAFT-SMART-NOTES-DEMO"]
   },
   {
     key: "review-next",
-    title: "做一次定期回顾",
+    title: "做一次今日整理",
     note: "只找下一步动作，不做大扫除。",
     action: "open-demo-review",
     actionLabel: "打开今日整理",
-    targetNoteId: "GUIDE-SN-002",
-    noteIds: ["GUIDE-SN-002", "PN-SN-FEATURE-001", "PN-SN-FEATURE-006"]
+    targetNoteId: "GUIDE-TODAY-NEXT-STEP",
+    noteIds: ["GUIDE-TODAY-NEXT-STEP", "FN-PHONE-CAPTURE-UNPROCESSED", "LN-AI-KEEPS-CANDIDATE-STATE"]
   }
 ];
 
 export function isSmartNotesDemoScope(notes = []) {
   const ids = noteIdSet(notes);
-  return ids.has("GUIDE-SN-001") || ids.has("SRC-SMART-NOTES");
+  return ids.has("GUIDE-SMART-NOTES-START") || ids.has("GUIDE-SN-001") || ids.has("SRC-SMART-NOTES");
 }
 
 export function buildSmartNotesDemoWalkthrough({ notes = [], selectedNoteId = "" } = {}) {
@@ -67,7 +73,10 @@ export function buildSmartNotesDemoWalkthrough({ notes = [], selectedNoteId = ""
     ...step,
     available: step.noteIds.some((id) => ids.has(id)) || ids.has(step.targetNoteId)
   }));
-  const activeIndex = Math.max(0, availableSteps.findIndex((step) => step.noteIds.includes(activeNoteId) || step.targetNoteId === activeNoteId));
+  const activeIndex = Math.max(
+    0,
+    availableSteps.findIndex((step) => step.noteIds.includes(activeNoteId) || step.targetNoteId === activeNoteId)
+  );
   const steps = availableSteps.map((step, index) => ({
     ...step,
     done: index < activeIndex,

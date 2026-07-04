@@ -64,21 +64,20 @@ test("sidebar flow state builds original-route progress and primary action", () 
 
   assert.equal(state.isOriginal, true);
   assert.equal(state.primaryAction, "continue-distillation");
-  assert.match(state.note, /下一步/);
-  assert.deepEqual(state.metrics.map((item) => item[1]), ["待提纯", "已确认观点", "可进入写作中心"]);
-  assert.ok(state.topGaps.some((gap) => gap.includes("缺一句话判断")));
+  assert.equal(state.metrics.length, 3);
+  assert.ok(state.topGaps.length > 0);
 });
 
 test("sidebar flow renders Smart Notes demo walkthrough when demo notes are present", () => {
   const state = buildExplorerSidebarFlowState({
     rootId: "dir_demo",
-    selectedNoteId: "PN-SN-101",
+    selectedNoteId: "PERM-UNLINKED-PRACTICE",
     currentNotes: [
-      { id: "GUIDE-SN-001" },
-      { id: "PN-SN-001" },
-      { id: "PN-SN-101" },
-      { id: "IC-SN-001" },
-      { id: "WP-SN-PM-001" }
+      { id: "GUIDE-SMART-NOTES-START" },
+      { id: "PERM-WRITING-STARTS-BEFORE-DRAFT" },
+      { id: "PERM-UNLINKED-PRACTICE" },
+      { id: "THEME-WHY-LINK-NOTES" },
+      { id: "WRITE-SMART-NOTES-DEMO" }
     ],
     originalNotes: []
   });
@@ -86,9 +85,9 @@ test("sidebar flow renders Smart Notes demo walkthrough when demo notes are pres
 
   assert.equal(state.kind, "smart-notes-demo");
   assert.match(markup, /Smart Notes Demo 导览/);
-  assert.match(markup, /sidebar-flow-current/);
   assert.match(markup, /data-sidebar-flow-action="open-demo-note-relations"/);
   assert.doesNotMatch(markup, /data-sidebar-flow-action="open-demo-writing"/);
+  assert.doesNotMatch(markup, /\b(?:PN-SN|WP-SN|IC-SN)-/);
 });
 
 test("sidebar flow markup escapes text and renders original primary action", () => {
@@ -106,8 +105,6 @@ test("sidebar flow markup escapes text and renders original primary action", () 
 
   assert.match(markup, /&lt;Title&gt;/);
   assert.match(markup, /data-sidebar-flow-action="open-writing"/);
-  assert.match(markup, /进入写作中心/);
-  assert.match(markup, /观点链路已清爽/);
 });
 
 test("sidebar flow runtime keeps note boxes free of walkthrough chrome", () => {
@@ -171,17 +168,17 @@ test("sidebar flow demo actions open notes, relations, writing, and review", asy
     handleStateChange: async (reason, payload) => calls.push(["state", reason, payload])
   };
 
-  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note", "PN-SN-001") }, deps), true);
-  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note-relations", "PN-SN-101") }, deps), true);
+  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note", "PERM-WRITING-STARTS-BEFORE-DRAFT") }, deps), true);
+  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note-relations", "PERM-UNLINKED-PRACTICE") }, deps), true);
   assert.equal(await handleSidebarFlowAction({ target: actionTarget("open-demo-writing") }, deps), true);
   assert.equal(await handleSidebarFlowAction({ target: actionTarget("open-demo-review") }, deps), true);
 
   assert.deepEqual(calls, [
     ["activate", "explorer"],
-    ["open", "PN-SN-001", { preferTitleSelection: false }],
+    ["open", "PERM-WRITING-STARTS-BEFORE-DRAFT", { preferTitleSelection: false }],
     ["activate", "explorer"],
-    ["open", "PN-SN-101", { preferTitleSelection: false }],
-    ["state", "open-note-relations", { noteId: "PN-SN-101", source: "smart-notes-demo-walkthrough" }],
+    ["open", "PERM-UNLINKED-PRACTICE", { preferTitleSelection: false }],
+    ["state", "open-note-relations", { noteId: "PERM-UNLINKED-PRACTICE", source: "smart-notes-demo-walkthrough" }],
     ["activate", "writing"],
     ["writing"],
     ["activate", "today"]

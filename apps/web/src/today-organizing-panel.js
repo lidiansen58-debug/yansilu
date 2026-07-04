@@ -35,6 +35,10 @@ function actionCard({
 }
 
 export function renderTodayOrganizingPanel(state = {}) {
+  const firstMaterial = state.firstPendingMaterial || null;
+  const materialTitles = Array.isArray(state.pendingMaterialItems)
+    ? state.pendingMaterialItems.map((item) => item?.title).filter(Boolean).slice(0, 3)
+    : [];
   const firstIsolated = state.firstIsolated || null;
   const firstTheme = state.firstTheme || null;
   const firstWriting = state.firstWritingReady || null;
@@ -43,16 +47,29 @@ export function renderTodayOrganizingPanel(state = {}) {
       <section class="today-organizing-hero" aria-label="今日整理">
         <div>
           <span>今日整理</span>
-          <h2>今天只看三件最该做的事。</h2>
-          <p>写完一条判断，就找旧笔记、写关系理由、查看主题是否已凑到 3-7 条；凑够后再从可写主题进入写作。</p>
+          <h2>今天只看最该推进的几件事。</h2>
+          <p>先处理未完成材料，再给孤立永久笔记建立关系；当 3-7 条笔记围绕同一问题时，整理成可写主题，再进入写作中心。</p>
         </div>
         <div class="today-organizing-counts" aria-label="当前整理概览">
+          <div><strong>${escape(state.pendingMaterialCount || 0)}</strong><span>待处理材料</span></div>
           <div><strong>${escape(state.permanentCount || 0)}</strong><span>永久笔记</span></div>
           <div><strong>${escape(state.isolatedCount || 0)}</strong><span>未关联</span></div>
           <div><strong>${escape(state.themeCount || 0)}</strong><span>可成主题</span></div>
         </div>
       </section>
       <section class="today-action-grid" aria-label="今日主动作">
+        ${actionCard({
+          title: "0. 待处理材料",
+          objectTitle: firstMaterial?.title || "当前没有待处理随笔或文献笔记",
+          summary: firstMaterial
+            ? `先把这条材料转述、转换成永久笔记，或明确删除。今日整理也要接住随笔和文献笔记。${materialTitles.length ? ` 待处理：${materialTitles.join("、")}` : ""}`
+            : "随笔和文献笔记暂时都已处理，可以继续检查关系和主题。",
+          meta: firstMaterial ? `${state.pendingMaterialCount || 0} 条材料待处理` : "",
+          action: "review-material",
+          actionLabel: firstMaterial ? "查看材料" : "已处理",
+          disabled: !firstMaterial,
+          tone: "material"
+        })}
         ${actionCard({
           title: "1. 未关联笔记",
           objectTitle: firstIsolated?.title || "当前没有优先处理的未关联笔记",

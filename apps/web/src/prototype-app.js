@@ -5249,6 +5249,8 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
+    await syncNotesForDirectory("dir_fleeting_default");
+    await syncNotesForDirectory("dir_literature_default");
     const firstNoteId = smartNotesDemoStartupNoteId({ result, notes: state.notes });
     if (firstNoteId) {
       state.selectedFileId = firstNoteId;

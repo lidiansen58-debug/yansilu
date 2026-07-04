@@ -69,6 +69,13 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
       if (themeId) await deps.selectWritingThemeIndex?.(themeId);
       return;
     }
+    if (action === "review-material") {
+      const noteId = String(deps.todayState?.firstPendingMaterial?.id || "").trim();
+      if (!noteId) return;
+      deps.activateModule?.("explorer");
+      deps.openNoteById?.(noteId, { preferTitleSelection: false });
+      return;
+    }
     if (action === "connect-first-isolated") {
       const noteId = deps.todayState?.firstIsolated?.id || "";
       if (!noteId) return;

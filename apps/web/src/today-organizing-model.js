@@ -15,6 +15,19 @@ function isPermanentNote(note = null, deps = {}) {
   return type === "permanent" || type === "original";
 }
 
+function materialNoteType(note = null, deps = {}) {
+  const { typeFromFolder = () => "" } = deps;
+  return cleanText(note?.noteType || note?.note_type || (note?.folderId ? typeFromFolder(note.folderId) : "")).toLowerCase();
+}
+
+function isPendingMaterialNote(note = null, deps = {}) {
+  const type = materialNoteType(note, deps);
+  if (type !== "fleeting" && type !== "literature") return false;
+  const status = cleanText(note?.status || note?.processingStatus || note?.processing_status || note?.conversionStatus || note?.conversion_status).toLowerCase();
+  if (!status) return true;
+  return ["needs_processing", "pending", "needs_review", "draft", "paraphrased"].includes(status);
+}
+
 function relationStatus(note = null, deps = {}) {
   const { relationNetworkStatusForNote = () => "" } = deps;
   return cleanText(relationNetworkStatusForNote(note)).toLowerCase();
@@ -139,6 +152,13 @@ export function buildTodayOrganizingState({
   reviewSuggestions = []
 } = {}, deps = {}) {
   const permanentNotes = (Array.isArray(notes) ? notes : []).filter((note) => isPermanentNote(note, deps));
+  const pendingMaterialNotes = (Array.isArray(notes) ? notes : [])
+    .filter((note) => isPendingMaterialNote(note, deps))
+    .sort((a, b) => {
+      const priority = (note) => materialNoteType(note, deps) === "fleeting" ? 0 : 1;
+      return priority(a) - priority(b);
+    });
+  const firstPendingMaterial = pendingMaterialNotes[0] || null;
   const importRecommended = firstImportRecommendedNote(organizingOverview);
   const importTheme = firstImportTheme(organizingOverview);
   const isolatedNotes = permanentNotes.filter((note) => {
@@ -163,6 +183,20 @@ export function buildTodayOrganizingState({
 
   return {
     permanentCount: Math.max(permanentNotes.length, importOverviewPermanentCount(organizingOverview)),
+    pendingMaterialCount: pendingMaterialNotes.length,
+    firstPendingMaterial: firstPendingMaterial
+      ? {
+          id: cleanText(firstPendingMaterial.id),
+          title: noteTitle(firstPendingMaterial),
+          noteType: materialNoteType(firstPendingMaterial, deps),
+          status: cleanText(firstPendingMaterial.status || firstPendingMaterial.processingStatus || firstPendingMaterial.conversionStatus)
+        }
+      : null,
+    pendingMaterialItems: pendingMaterialNotes.slice(0, 3).map((note) => ({
+      id: cleanText(note.id),
+      title: noteTitle(note),
+      noteType: materialNoteType(note, deps)
+    })),
     isolatedCount: useImportRecommended ? Math.max(1, Number(organizingOverview?.isolatedCount || isolatedNotes.length || 1)) : isolatedNotes.length,
     firstIsolated: useImportRecommended
       ? {

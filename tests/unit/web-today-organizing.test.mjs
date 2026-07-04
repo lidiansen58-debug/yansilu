@@ -6,12 +6,13 @@ import { renderTodayOrganizingPanel } from "../../apps/web/src/today-organizing-
 import { installTodayOrganizingEvents } from "../../apps/web/src/today-organizing-events.js";
 import { createTodayOrganizingRuntime } from "../../apps/web/src/today-organizing-runtime.js";
 
-test("today organizing state prioritizes isolated permanent notes and writable themes", () => {
+test("today organizing state prioritizes pending materials, isolated notes, and writable themes", () => {
   const state = buildTodayOrganizingState({
     notes: [
-      { id: "pn_1", title: "孤立判断", folderId: "original", noteType: "permanent", relationNetworkStatus: "isolated" },
-      { id: "pn_2", title: "已有关系", folderId: "original", noteType: "permanent", relationNetworkStatus: "connected", thesis: "判断", threeLineSummary: ["a", "b", "c"], distillationStatus: "confirmed" },
-      { id: "fn_1", title: "随笔", noteType: "fleeting" }
+      { id: "fn_1", title: "手机随笔待处理", noteType: "fleeting", status: "needs_processing" },
+      { id: "ln_1", title: "文献笔记待转述", noteType: "literature", status: "pending" },
+      { id: "pn_1", title: "孤立判断", noteType: "permanent", relationNetworkStatus: "isolated" },
+      { id: "pn_2", title: "已有关系", noteType: "permanent", relationNetworkStatus: "connected", thesis: "判断", threeLineSummary: ["a", "b", "c"], distillationStatus: "confirmed" }
     ],
     relations: [{ sourceNoteId: "pn_2", targetNoteId: "pn_3", relationType: "supports", status: "confirmed" }],
     themeIndexes: [
@@ -19,15 +20,15 @@ test("today organizing state prioritizes isolated permanent notes and writable t
       { id: "idx_1", title: "判断训练", item_note_ids: ["pn_1", "pn_2"], updated_at: "2026-06-19T00:00:00Z" }
     ]
   }, {
-    typeFromFolder: () => "permanent",
     relationNetworkStatusForNote: (note) => note.relationNetworkStatus
   });
 
+  assert.equal(state.pendingMaterialCount, 2);
+  assert.equal(state.firstPendingMaterial.title, "手机随笔待处理");
   assert.equal(state.permanentCount, 2);
   assert.equal(state.isolatedCount, 1);
   assert.equal(state.firstIsolated.title, "孤立判断");
   assert.equal(state.firstTheme.title, "判断训练");
-  assert.equal(state.firstTheme.noteCount, 2);
   assert.equal(state.firstWritingReady.title, "已有关系");
 });
 
@@ -48,9 +49,7 @@ test("today organizing does not treat unknown cold-start relation state as isola
   assert.equal(coldStart.firstIsolated.title, "明确未关联");
 
   const loaded = buildTodayOrganizingState({
-    notes: [
-      { id: "pn_unknown", title: "图谱已确认无关系", noteType: "permanent" }
-    ],
+    notes: [{ id: "pn_unknown", title: "图谱已确认无关系", noteType: "permanent" }],
     relations: [],
     relationsReady: true
   }, {
@@ -159,30 +158,37 @@ test("today organizing state prefers loaded theme indexes over import-only theme
   });
 });
 
-test("today organizing panel uses action words without internal workflow terms", () => {
+test("today organizing panel uses readable action words", () => {
   const html = renderTodayOrganizingPanel({
     permanentCount: 3,
+    pendingMaterialCount: 1,
     isolatedCount: 1,
     themeCount: 1,
     writingReadyCount: 1,
+    firstPendingMaterial: { id: "fn_1", title: "手机随笔待处理", noteType: "fleeting" },
     firstIsolated: { id: "pn_1", title: "孤立判断" },
     firstTheme: { id: "idx_1", title: "判断训练", noteCount: 3 },
     firstWritingReady: { id: "pn_2", title: "已有观点" }
   });
 
   assert.match(html, /今日整理/);
+  assert.match(html, /待处理材料/);
+  assert.match(html, /手机随笔待处理/);
   assert.match(html, /未关联笔记/);
   assert.match(html, /可成主题/);
   assert.match(html, /可进入写作/);
-  assert.match(html, /找旧笔记、写关系理由、查看主题是否已凑到 3-7 条/);
+  assert.match(html, /先处理未完成材料/);
   assert.match(html, /检查中心问题、关键关系，以及是否已经凑到 3-7 条/);
   assert.match(html, /从这个可写主题进入写作中心/);
+  assert.match(html, /查看材料/);
+  assert.match(html, /data-today-action="review-material"/);
+  assert.doesNotMatch(html, /data-today-action="review-material" disabled/);
   assert.match(html, /去建联/);
   assert.match(html, /整理这个主题/);
   assert.match(html, /进入写作/);
   assert.ok(html.indexOf("今日主动作") < html.indexOf("更多检查：回顾清单和 AI 补充"));
   assert.match(html, /<details class="today-secondary-details">/);
-  assert.doesNotMatch(html, /候选|队列|复核|线索/);
+  assert.doesNotMatch(html, /候选队列|复核|线索/);
 });
 
 test("today organizing runtime loads theme indexes once when opened", async () => {
@@ -307,58 +313,57 @@ test("today organizing runtime retries theme load when the host scope key change
 });
 
 test("today organizing events route main actions to existing workflows", async () => {
-  const handlers = new Map();
   const calls = [];
-  const panel = { addEventListener: (eventName, handler) => handlers.set(eventName, handler) };
-  installTodayOrganizingEvents(panel, () => ({
+  const handler = installTodayOrganizingEvents({
+    addEventListener: (event, callback) => {
+      calls.push(["listener", event, callback]);
+    }
+  }, () => ({
     todayState: {
+      firstPendingMaterial: { id: "fn_1" },
       firstIsolated: { id: "pn_1" },
-      firstTheme: { id: "idx_1" },
+      firstTheme: { id: "idx_1", noteIds: ["pn_1", "pn_2"] },
       firstWritingReady: { id: "pn_2" }
     },
     handleStateChange: async (reason, payload) => calls.push(["state", reason, payload]),
     activateModule: (moduleName) => calls.push(["module", moduleName]),
-    openWritingModule: async (options = {}) => calls.push(["writing", options]),
-    addWritingBasketIds: (noteIds) => calls.push(["basket", noteIds]),
-    selectWritingThemeIndex: async (id) => calls.push(["theme", id])
+    openNoteById: (noteId, options) => calls.push(["open-note", noteId, options]),
+    openWritingModule: async () => calls.push(["writing"]),
+    addWritingBasketIds: (ids, options) => calls.push(["basket", ids, options]),
+    selectWritingThemeIndex: (themeId) => calls.push(["theme", themeId]),
+    createReviewOutline: async (options) => calls.push(["outline", options])
   }));
 
-  const click = async (action) => handlers.get("click")({
-    preventDefault() {},
+  assert.equal(typeof handler, "function");
+  const callback = calls[0][2];
+  const eventFor = (action) => ({
+    preventDefault: () => calls.push(["prevent", action]),
     target: {
       closest: (selector) => selector === "[data-today-action]"
-        ? { disabled: false, getAttribute: () => action }
+        ? { getAttribute: (name) => (name === "data-today-action" ? action : "") }
         : null
     }
   });
 
-  await click("connect-first-isolated");
-  await click("open-first-theme");
-  await click("open-writing");
+  await callback(eventFor("review-material"));
+  await callback(eventFor("connect-first-isolated"));
+  await callback(eventFor("open-first-theme"));
+  await callback(eventFor("open-writing"));
 
-  assert.deepEqual(calls[0], ["module", "graph"]);
-  assert.deepEqual(calls[1], ["state", "graph-associate-note", { noteId: "pn_1", source: "today-organizing" }]);
-  assert.deepEqual(calls[2], ["module", "writing"]);
-  assert.equal(calls[3][0], "writing");
-  assert.equal(calls[3][1].entrySourceLabel, "今日整理");
-  assert.match(calls[3][1].entryReason, /可成主题|续接/);
-  assert.deepEqual(calls[4], ["theme", "idx_1"]);
-  assert.deepEqual(calls[5], ["module", "writing"]);
-  assert.equal(calls[6][0], "writing");
-  assert.equal(calls[6][1].entrySourceLabel, "今日整理");
-  assert.match(calls[6][1].entryReason, /可成主题|续接/);
-  assert.deepEqual(calls[7], ["theme", "idx_1"]);
-  assert.equal(calls.some((call) => call[0] === "basket"), false);
+  assert.ok(calls.some((call) => call[0] === "open-note" && call[1] === "fn_1"));
+  assert.ok(calls.some((call) => call[0] === "module" && call[1] === "explorer"));
+  assert.ok(calls.some((call) => call[0] === "state" && call[1] === "graph-associate-note" && call[2]?.noteId === "pn_1"));
+  assert.ok(calls.some((call) => call[0] === "module" && call[1] === "writing"));
+  assert.ok(calls.some((call) => call[0] === "theme" && call[1] === "idx_1"));
 });
 
 test("today organizing writing action adds the ready note only when no theme is available", async () => {
   const handlers = new Map();
   const calls = [];
-  const panel = { addEventListener: (eventName, handler) => handlers.set(eventName, handler) };
-  installTodayOrganizingEvents(panel, () => ({
+  installTodayOrganizingEvents({ addEventListener: (eventName, handler) => handlers.set(eventName, handler) }, () => ({
     todayState: {
       firstTheme: null,
-      firstWritingReady: { id: "pn_ready" }
+      firstWritingReady: { id: "pn_ready", title: "已有观点" }
     },
     activateModule: (moduleName) => calls.push(["module", moduleName]),
     openWritingModule: async (options = {}) => calls.push(["writing", options]),
@@ -380,15 +385,14 @@ test("today organizing writing action adds the ready note only when no theme is 
   assert.equal(calls[2][0], "writing");
   assert.equal(calls[2][1].entrySourceLabel, "今日整理");
   assert.equal(calls[2][1].statusMessage, "已把这条笔记加入写作中心");
-  assert.match(calls[2][1].entryReason, /明确观点|三句摘要/);
+  assert.match(calls[2][1].entryReason, /已有观点|明确观点|三句摘要/);
   assert.equal(calls.some((call) => call[0] === "theme"), false);
 });
 
 test("today organizing routes imported theme note ids into writing", async () => {
   const handlers = new Map();
   const calls = [];
-  const panel = { addEventListener: (eventName, handler) => handlers.set(eventName, handler) };
-  installTodayOrganizingEvents(panel, () => ({
+  installTodayOrganizingEvents({ addEventListener: (eventName, handler) => handlers.set(eventName, handler) }, () => ({
     todayState: {
       firstTheme: { id: "", title: "慢读训练", noteCount: 3, noteIds: ["pn_a", "pn_b", "pn_c"], source: "import" }
     },

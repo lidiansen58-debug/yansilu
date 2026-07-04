@@ -8824,14 +8824,14 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
       selectedFolderId: window.__prototypeState?.selectedFolderId || ""
     }));
     assert.equal(startupState.module, "explorer");
-    assert.equal(startupState.selectedFileId, "GUIDE-SN-001");
+    assert.equal(startupState.selectedFileId, "GUIDE-SMART-NOTES-START");
     assert.equal(startupState.selectedFolderId, "dir_demo_smart_notes_product_thinking_original");
   }, 15000);
 
   const firstSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
   assert.equal(firstSeedDirectory.status, 200, JSON.stringify(firstSeedDirectory.json));
   const firstSeedDirectoryTotal = Number(firstSeedDirectory.json.total || 0);
-  assert.ok(firstSeedDirectoryTotal >= 100);
+  assert.ok(firstSeedDirectoryTotal >= 25);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
@@ -8851,7 +8851,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
         .map((item) => item.text)
         .join(" ")
     );
-    assert.match(firstVisibleGuideBlocks, /00 从这里开始|这不是一篇长教程|先走 5 步/);
+    assert.match(firstVisibleGuideBlocks, /00 从这里开始|你不用先学术语|6 步/);
     assert.doesNotMatch(firstVisibleGuideBlocks, /产品功能示例笔记/);
   }, 15000);
   await page.setViewportSize({ width: 1366, height: 900 });
@@ -8865,7 +8865,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
       selectedFileId: window.__prototypeState?.selectedFileId || ""
     }));
     assert.equal(startupState.module, "explorer");
-    assert.equal(startupState.selectedFileId, "GUIDE-SN-001");
+    assert.equal(startupState.selectedFileId, "GUIDE-SMART-NOTES-START");
   }, 15000);
 
   await page.click('.rail-btn[data-module="writing"]');
@@ -8882,11 +8882,11 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.match(writingState.basketSummary, /已选择 \d+ 条相关笔记/);
   }, 15000);
 
-  const project = await fetchJson(apiBase, "/api/v1/writing-projects/WP-SN-PM-001");
+  const project = await fetchJson(apiBase, "/api/v1/writing-projects/WRITE-SMART-NOTES-DEMO");
   assert.equal(project.status, 200, JSON.stringify(project.json));
-  assert.equal(project.json.item.scaffold_id, "DS-SN-PM-001");
+  assert.equal(project.json.item.scaffold_id, "DRAFT-SMART-NOTES-DEMO");
 
-  const scaffold = await fetchJson(apiBase, "/api/v1/draft-scaffolds/DS-SN-PM-001");
+  const scaffold = await fetchJson(apiBase, "/api/v1/draft-scaffolds/DRAFT-SMART-NOTES-DEMO");
   assert.equal(scaffold.status, 200, JSON.stringify(scaffold.json));
   assert.ok(scaffold.json.item.sections.length > 0);
 

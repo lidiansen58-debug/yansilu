@@ -525,18 +525,18 @@ test("prototype API seeds the smart notes product thinking demo through the publ
         item: {
           kind: "smart_notes_product_thinking_seed",
           demoOnly: true,
-          fixtureId: "demo-smart-notes-product-thinking-v1",
+          fixtureId: "demo-smart-notes-product-thinking-v2",
           directoryId: "dir_demo_smart_notes_product_thinking_original",
-          firstNoteId: "GUIDE-SN-001",
-          writingProjectId: "WP-SN-PM-001",
-          draftScaffoldId: "DS-SN-PM-001",
-          counts: { sources: 1, permanent_notes: 100, relations: 306, writing_projects: 1 },
+          firstNoteId: "GUIDE-SMART-NOTES-START",
+          writingProjectId: "WRITE-SMART-NOTES-DEMO",
+          draftScaffoldId: "DRAFT-SMART-NOTES-DEMO",
+          counts: { sources: 1, permanent_notes: 18, relations: 14, writing_projects: 1 },
           summary: {
             createdSources: 1,
             updatedSources: 0,
-            createdNotes: 128,
+            createdNotes: 39,
             updatedNotes: 0,
-            createdRelations: 306,
+            createdRelations: 14,
             updatedRelations: 0
           }
         }
@@ -559,12 +559,12 @@ test("prototype API seeds the smart notes product thinking demo through the publ
     assert.equal(result.kind, "smart_notes_product_thinking_seed");
     assert.equal(result.demoOnly, true);
     assert.equal(result.directoryId, "dir_demo_smart_notes_product_thinking_original");
-    assert.equal(result.firstNoteId, "GUIDE-SN-001");
-    assert.equal(result.writingProjectId, "WP-SN-PM-001");
-    assert.equal(result.draftScaffoldId, "DS-SN-PM-001");
+    assert.equal(result.firstNoteId, "GUIDE-SMART-NOTES-START");
+    assert.equal(result.writingProjectId, "WRITE-SMART-NOTES-DEMO");
+    assert.equal(result.draftScaffoldId, "DRAFT-SMART-NOTES-DEMO");
     assert.equal(result.counts.sources, 1);
-    assert.equal(result.counts.permanent_notes, 100);
-    assert.equal(result.counts.relations, 306);
+    assert.equal(result.counts.permanent_notes, 18);
+    assert.equal(result.counts.relations, 14);
     assert.equal(result.counts.writing_projects, 1);
     assert.equal(result.summary.createdSources, 1);
     assert.equal(result.summary.updatedSources, 0);
