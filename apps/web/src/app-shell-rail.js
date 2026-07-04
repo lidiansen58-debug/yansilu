@@ -2,11 +2,24 @@ export function settingsRailLabel(updateAvailable = false) {
   return updateAvailable ? "设置 · 有新版本" : "设置";
 }
 
+export function todayRailHasTasks(todayState = {}) {
+  const reviewItems = Array.isArray(todayState?.reviewChecklist?.items)
+    ? todayState.reviewChecklist.items
+    : [];
+  const maintenanceReviewItems = reviewItems.filter((item) => item?.type !== "writableTopic");
+  return Boolean(
+    todayState?.pendingMaterialCount ||
+    todayState?.isolatedCount ||
+    maintenanceReviewItems.length
+  );
+}
+
 export function syncRailSelectionDom({
   document,
   currentQuickAction = "",
   currentModule = "",
-  updateAvailable = false
+  updateAvailable = false,
+  todayHasTasks = false
 } = {}) {
   const doc = document || globalThis.document;
   doc?.querySelectorAll?.(".quick-entry").forEach((entry) => {
@@ -17,6 +30,13 @@ export function syncRailSelectionDom({
   });
   doc?.querySelectorAll?.(".rail-btn[data-module]").forEach((button) => {
     button.classList.toggle("active", button.dataset.module === currentModule);
+    if (button.dataset.module === "today") {
+      const label = todayHasTasks ? "今日整理 · 有待处理任务" : "今日整理";
+      button.classList.toggle("has-unread", todayHasTasks);
+      button.setAttribute("title", label);
+      button.setAttribute("data-tip", label);
+      button.setAttribute("aria-label", label);
+    }
     if (button.dataset.module === "settings") {
       button.classList.toggle("has-update", updateAvailable);
       const label = settingsRailLabel(updateAvailable);

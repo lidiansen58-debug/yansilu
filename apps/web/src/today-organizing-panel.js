@@ -9,6 +9,85 @@ function escape(value = "") {
     .replaceAll("'", "&#039;");
 }
 
+function buildTodayActions(state = {}) {
+  const firstMaterial = state.firstPendingMaterial || null;
+  const materialTitles = Array.isArray(state.pendingMaterialItems)
+    ? state.pendingMaterialItems.map((item) => item?.title).filter(Boolean).slice(0, 3)
+    : [];
+  const firstIsolated = state.firstIsolated || null;
+  const firstTheme = state.firstTheme || null;
+  const firstWriting = state.firstWritingReady || null;
+  return [
+    {
+      key: "material",
+      title: "处理材料",
+      objectTitle: firstMaterial?.title || "随笔和文献笔记暂时都已处理",
+      summary: firstMaterial
+        ? `先把这条材料转述成自己的判断，或明确它暂时不用。${materialTitles.length ? ` 待处理：${materialTitles.join("、")}` : ""}`
+        : "可以继续检查永久笔记之间的关系。",
+      meta: firstMaterial ? `${state.pendingMaterialCount || 0} 条材料待处理` : "没有待处理材料",
+      action: "review-material",
+      actionLabel: firstMaterial ? "查看这条材料" : "已完成",
+      disabled: !firstMaterial,
+      tone: "material"
+    },
+    {
+      key: "connect",
+      title: "补一条关系",
+      objectTitle: firstIsolated?.title || "当前没有优先处理的孤立笔记",
+      summary: firstIsolated
+        ? "给它找一条真正相关的笔记，并写清楚：支持、反驳、限制，还是类比。"
+        : "已加载的永久笔记暂时都有明确关系。",
+      meta: firstIsolated ? `还有 ${state.isolatedCount || 0} 条待建联` : "关系状态良好",
+      action: "connect-first-isolated",
+      actionLabel: firstIsolated ? "去建联" : "已完成",
+      disabled: !firstIsolated,
+      tone: "connect"
+    },
+    {
+      key: "theme",
+      title: "整理主题",
+      objectTitle: firstTheme?.title || "还没有可直接整理的主题",
+      summary: firstTheme
+        ? "检查中心问题和关键笔记，确认这组材料是否已经能支撑一篇文章。"
+        : "当几条笔记围绕同一问题聚集时，再整理成主题索引。",
+      meta: firstTheme ? `${firstTheme.noteCount || 0} 条相关笔记` : "等待更多相关笔记",
+      action: "open-first-theme",
+      actionLabel: firstTheme ? "打开主题" : "先去建联",
+      disabled: !firstTheme,
+      tone: "theme"
+    },
+    {
+      key: "writing",
+      title: "进入写作",
+      objectTitle: firstTheme?.title || firstWriting?.title || "还没有可直接写作的主题",
+      summary: firstTheme
+        ? "把这组笔记带入写作中心，先生成提纲，再决定是否起草。"
+        : firstWriting
+          ? "这条永久笔记已经有清楚观点，可以先放入写作中心继续组织。"
+          : "先完成清楚观点、明确关系和可写主题，再进入写作。",
+      meta: firstWriting ? `${state.writingReadyCount || 0} 条笔记可用` : "写作前先整理素材",
+      action: "open-writing",
+      actionLabel: firstTheme || firstWriting ? "进入写作" : "先整理主题",
+      disabled: !firstTheme && !firstWriting,
+      tone: "writing"
+    }
+  ];
+}
+
+function primaryAction(actions = []) {
+  return actions.find((item) => !item.disabled) || {
+    title: "今天可以轻量回顾",
+    objectTitle: "当前没有必须立刻处理的整理任务",
+    summary: "可以打开更多检查，看是否有标签、关系理由或主题提纲值得顺手完善。",
+    meta: "整理状态良好",
+    action: "",
+    actionLabel: "无需处理",
+    disabled: true,
+    tone: "calm"
+  };
+}
+
 function actionCard({
   title = "",
   summary = "",
@@ -27,7 +106,7 @@ function actionCard({
         <p>${escape(summary)}</p>
         ${meta ? `<small>${escape(meta)}</small>` : ""}
       </div>
-      <button class="mini-btn ${disabled ? "is-ghost" : "primary"}" type="button" data-today-action="${escape(action)}"${disabled ? " disabled" : ""}>
+      <button class="mini-btn is-ghost" type="button" data-today-action="${escape(action)}"${disabled ? " disabled" : ""}>
         ${escape(actionLabel)}
       </button>
     </article>
@@ -35,20 +114,15 @@ function actionCard({
 }
 
 export function renderTodayOrganizingPanel(state = {}) {
-  const firstMaterial = state.firstPendingMaterial || null;
-  const materialTitles = Array.isArray(state.pendingMaterialItems)
-    ? state.pendingMaterialItems.map((item) => item?.title).filter(Boolean).slice(0, 3)
-    : [];
-  const firstIsolated = state.firstIsolated || null;
-  const firstTheme = state.firstTheme || null;
-  const firstWriting = state.firstWritingReady || null;
+  const actions = buildTodayActions(state);
+  const recommended = primaryAction(actions);
   return `
     <div class="today-organizing-shell">
       <section class="today-organizing-hero" aria-label="今日整理">
         <div>
           <span>今日整理</span>
-          <h2>今天只看最该推进的几件事。</h2>
-          <p>先处理未完成材料，再给孤立永久笔记建立关系；当 3-7 条笔记围绕同一问题时，整理成可写主题，再进入写作中心。</p>
+          <h2>今天先做一件最有价值的整理。</h2>
+          <p>把随笔和文献变成永久笔记，再用关系和主题把它们接起来。这里不要求你一次做完，只给出下一步。</p>
         </div>
         <div class="today-organizing-counts" aria-label="当前整理概览">
           <div><strong>${escape(state.pendingMaterialCount || 0)}</strong><span>待处理材料</span></div>
@@ -57,60 +131,30 @@ export function renderTodayOrganizingPanel(state = {}) {
           <div><strong>${escape(state.themeCount || 0)}</strong><span>可成主题</span></div>
         </div>
       </section>
-      <section class="today-action-grid" aria-label="今日主动作">
-        ${actionCard({
-          title: "0. 待处理材料",
-          objectTitle: firstMaterial?.title || "当前没有待处理随笔或文献笔记",
-          summary: firstMaterial
-            ? `先把这条材料转述、转换成永久笔记，或明确删除。今日整理也要接住随笔和文献笔记。${materialTitles.length ? ` 待处理：${materialTitles.join("、")}` : ""}`
-            : "随笔和文献笔记暂时都已处理，可以继续检查关系和主题。",
-          meta: firstMaterial ? `${state.pendingMaterialCount || 0} 条材料待处理` : "",
-          action: "review-material",
-          actionLabel: firstMaterial ? "查看材料" : "已处理",
-          disabled: !firstMaterial,
-          tone: "material"
-        })}
-        ${actionCard({
-          title: "1. 未关联笔记",
-          objectTitle: firstIsolated?.title || "当前没有优先处理的未关联笔记",
-          summary: firstIsolated
-            ? "先为这条永久笔记找到一个相关对象，并写清它们为什么相关。"
-            : "已加载的永久笔记暂时都有明确关系，可以继续看主题或写作。",
-          meta: firstIsolated ? `今天还可处理 ${state.isolatedCount} 条` : "",
-          action: "connect-first-isolated",
-          actionLabel: firstIsolated ? "去建联" : "查看主题",
-          disabled: !firstIsolated,
-          tone: "connect"
-        })}
-        ${actionCard({
-          title: "2. 可成主题",
-          objectTitle: firstTheme?.title || "还没有可直接整理的主题",
-          summary: firstTheme
-            ? "打开这组相关笔记，检查中心问题、关键关系，以及是否已经凑到 3-7 条。"
-            : "当 3-7 条永久笔记围绕同一问题聚集时，可以把它们整理成可写主题。",
-          meta: firstTheme ? `${firstTheme.noteCount || 0} 条相关笔记` : "",
-          action: "open-first-theme",
-          actionLabel: firstTheme ? "整理这个主题" : "先去建联",
-          disabled: !firstTheme,
-          tone: "theme"
-        })}
-        ${actionCard({
-          title: "3. 可进入写作",
-          objectTitle: firstTheme?.title || firstWriting?.title || "先选择一组相关笔记",
-          summary: firstTheme
-            ? "从这个可写主题进入写作中心，生成文章提纲，再开始草稿。"
-            : firstWriting
-              ? "这条永久笔记已经有清楚观点，可以先放入写作中心。"
-              : "先完成一条清楚观点和一条明确关系，再进入写作。",
-          meta: firstWriting ? `${state.writingReadyCount} 条笔记可用` : "",
-          action: "open-writing",
-          actionLabel: firstTheme || firstWriting ? "进入写作" : "先整理主题",
-          disabled: !firstTheme && !firstWriting,
-          tone: "writing"
-        })}
+      <section class="today-primary-step tone-${escape(recommended.tone || "")}" aria-label="今日推荐下一步">
+        <div>
+          <span class="today-action-kicker">推荐下一步</span>
+          <h3>${escape(recommended.title)}</h3>
+          <strong>${escape(recommended.objectTitle)}</strong>
+          <p>${escape(recommended.summary)}</p>
+          ${recommended.meta ? `<small>${escape(recommended.meta)}</small>` : ""}
+        </div>
+        <button class="mini-btn primary" type="button" data-today-action="${escape(recommended.action)}"${recommended.disabled ? " disabled" : ""}>
+          ${escape(recommended.actionLabel)}
+        </button>
+      </section>
+      <section class="today-path-strip" aria-label="卡片笔记整理路径">
+        <span>材料</span>
+        <span>永久笔记</span>
+        <span>关系</span>
+        <span>主题</span>
+        <span>写作</span>
+      </section>
+      <section class="today-action-grid" aria-label="继续整理">
+        ${actions.filter((item) => item.key !== recommended.key).map(actionCard).join("")}
       </section>
       <details class="today-secondary-details">
-        <summary>更多检查：回顾清单和 AI 补充</summary>
+        <summary>高级检查：回顾清单和 AI 补充建议</summary>
         ${renderReviewChecklistPanel(state.reviewChecklist)}
       </details>
     </div>

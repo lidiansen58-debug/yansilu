@@ -17,7 +17,7 @@ import { createTodayOrganizingEntryRuntime } from "./today-organizing-entry-runt
 import { renderDistillationPanelView } from "./distillation-panel-view.js";
 import { installDistillationEventBindings } from "./distillation-event-bindings.js";
 import { openDistillationQueueNoteRoute } from "./distillation-note-route.js";
-import { syncRailSelectionDom } from "./app-shell-rail.js";
+import { syncRailSelectionDom, todayRailHasTasks } from "./app-shell-rail.js";
 import { installAppRailEventBindings } from "./app-rail-event-bindings.js";
 import { installQuickActionEventBindings } from "./quick-action-event-bindings.js";
 import { installAppGlobalKeyboardEvents } from "./app-global-keyboard-events.js";
@@ -3338,11 +3338,14 @@ function explorerQuickAction(rootId = state.browserRootId) {
 }
 
 function syncRailSelectionState() {
+  const todayState = todayOrganizingRuntime.currentState();
+  const todayHasTasks = todayRailHasTasks(todayState);
   syncRailSelectionDom({
     document,
     currentQuickAction: explorerQuickAction(),
     currentModule: state.module,
-    updateAvailable: shouldShowUpdateAttention(settingsState.update)
+    updateAvailable: shouldShowUpdateAttention(settingsState.update),
+    todayHasTasks
   });
 }
 
