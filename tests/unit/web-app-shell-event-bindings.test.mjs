@@ -29,13 +29,11 @@ function documentWith(selectorMap = {}) {
   };
 }
 
-test("graph entry bindings refresh graph and route graph demo buttons", async () => {
+test("graph entry bindings refresh graph and return to directory", async () => {
   const calls = [];
   const elements = {
     graphRefresh: button(),
-    graphBackToDirectory: button(),
-    graphSeedYijing: button(),
-    graphSeedYijingRich: button()
+    graphBackToDirectory: button()
   };
   const state = { selectedFileId: "note-1" };
   installGraphEntryEventBindings({
@@ -47,19 +45,15 @@ test("graph entry bindings refresh graph and route graph demo buttons", async ()
       calls.push(["refresh"]);
       return true;
     },
-    importYijingKnowledgeNetworkDemo: async () => calls.push(["seed-basic"]),
-    importYijingRichAcceptanceDemo: async () => calls.push(["seed-rich"]),
     renderAll: () => calls.push(["render"]),
     setStatus: (...args) => calls.push(["status", ...args.slice(1)])
   });
 
   await elements.graphRefresh.click();
   await elements.graphBackToDirectory.click();
-  await elements.graphSeedYijing.click();
-  await elements.graphSeedYijingRich.click();
 
   assert.equal(state.selectedFileId, null);
-  assert.deepEqual(calls.map((call) => call[0]), ["refresh", "status", "restore", "render", "status", "seed-basic", "seed-rich"]);
+  assert.deepEqual(calls.map((call) => call[0]), ["refresh", "status", "restore", "render", "status"]);
 });
 
 test("rail bindings keep graph activation guarded during async graph open", async () => {

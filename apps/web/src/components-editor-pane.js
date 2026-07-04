@@ -234,6 +234,7 @@ export class EditorPane {
     this.autoSaveTimer = null;
     this.autoSaveIdleTimer = null;
     this.emptyStartActionPending = false;
+    this.emptyStartDemoConfirming = false;
     this.wasEditingTitleLine = false;
     this.lastTitleBlurSaveAt = 0;
     this.lastTitleInputAt = 0;
@@ -5876,23 +5877,57 @@ export class EditorPane {
         button.disabled = busy;
       });
     };
+    const setEmptyDemoConfirming = (confirming) => {
+      this.emptyStartDemoConfirming = confirming;
+      const confirmPanel = this.els.emptyStart?.querySelector?.("[data-empty-demo-confirm]");
+      confirmPanel?.classList.toggle("hidden", !confirming);
+      const primaryButton = this.els.emptyStart?.querySelector?.('[data-empty-start-action="seed-demo"]');
+      primaryButton?.setAttribute("aria-expanded", confirming ? "true" : "false");
+    };
+    const setEmptyDemoStatus = (message = "", tone = "") => {
+      const status = this.els.emptyStart?.querySelector?.("[data-empty-demo-status]");
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle("is-busy", tone === "busy");
+      status.classList.toggle("is-ok", tone === "ok");
+      status.classList.toggle("is-bad", tone === "bad");
+    };
     const startEmptyAction = (event, action = "create-note") => {
       event.preventDefault();
       event.stopPropagation();
+      if (action === "seed-demo-cancel") {
+        setEmptyDemoConfirming(false);
+        setEmptyDemoStatus("");
+        return;
+      }
+      if (action === "seed-demo") {
+        setEmptyDemoConfirming(true);
+        setEmptyDemoStatus("确认后会立即开始导入。", "");
+        this.onStatus?.("请确认是否导入示例库。", "");
+        return;
+      }
       if (action === "create-note") {
         this.requestCreateNoteFromEmptyState();
         return;
       }
       if (this.emptyStartActionPending) return;
-      const reason = action === "seed-demo"
+      const reason = action === "seed-demo-confirm"
         ? "seed-smart-notes-demo"
         : action === "open-import"
           ? "open-import"
           : "";
       if (!reason) return;
       setEmptyStartBusy(true);
-      Promise.resolve(this.onStateChange(reason, { source: "empty-start" }))
+      const payload = action === "seed-demo-confirm" ? { source: "empty-start", confirmed: true } : { source: "empty-start" };
+      if (action === "seed-demo-confirm") setEmptyDemoStatus("正在导入示例库，请稍等...", "busy");
+      Promise.resolve(this.onStateChange(reason, payload))
+        .then((result) => {
+          if (action === "seed-demo-confirm") {
+            setEmptyDemoStatus(result === false ? "导入没有完成，请按状态提示重试。" : "导入成功，正在打开导览笔记...", result === false ? "bad" : "ok");
+          }
+        })
         .catch((error) => {
+          if (action === "seed-demo-confirm") setEmptyDemoStatus(`导入失败：${String(error?.message || error)}`, "bad");
           this.onStatus?.(`操作失败：${String(error?.message || error)}`, "bad");
         })
         .finally(() => {

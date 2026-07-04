@@ -61,7 +61,6 @@ test("marketing routes expose static marketing pages", async (t) => {
     ["/product", "page-product-v2"],
     ["/demo", "page-demo-v2"],
     ["/demo/zettelkasten", "page-demo-v2"],
-    ["/demo/yijing", "page-demo-v2"],
     ["/privacy", "page-privacy-v2"],
     ["/terms", "page-terms-v2"],
     ["/login", "page-login-v2"],
@@ -88,24 +87,21 @@ test("marketing routes expose static marketing pages", async (t) => {
     if (route === "/demo") {
       assert.match(html, /产品演示中心/);
       assert.match(html, /\/demo\/zettelkasten/);
-      assert.match(html, /\/demo\/yijing/);
+      assert.doesNotMatch(html, /\/demo\/yijing/);
+      assert.doesNotMatch(html, /yijing-rich/);
       assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
     }
     if (route === "/demo/zettelkasten") {
       assert.match(html, /smart-notes-product-thinking/);
       assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
-      assert.match(html, /\/demo\/yijing/);
+      assert.doesNotMatch(html, /\/demo\/yijing/);
+      assert.doesNotMatch(html, /yijing-rich/);
       assert.match(html, /306 relations/);
       assert.match(html, /自动导入这套 fixture/);
       assert.match(html, /打开导览笔记/);
       assert.doesNotMatch(html, /自动导入将在后续阶段接入/);
       assert.doesNotMatch(html, /下一阶段会让工作台自动导入/);
       assert.doesNotMatch(html, /定位到适合讲解关系与写作入口的模块/);
-    }
-    if (route === "/demo/yijing") {
-      assert.match(html, /yijing-rich/);
-      assert.match(html, /\/prototype\?demo=yijing-rich/);
-      assert.match(html, /\/demo/);
     }
   }
 });

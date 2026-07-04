@@ -25,8 +25,8 @@ export function renderWritingStrongModelRequestDetailDom(deps = {}, { noteIds = 
     return;
   }
   const plannedQuestions = [
-    "这组易经材料适合写成哪三种书？各自的读者、主线和风险是什么？",
-    "如果写《AI时代易经与人生》，部 / 章 / 节应该如何重排？",
+    "这组主题材料适合写成哪三种书？各自的读者、主线和风险是什么？",
+    "如果写成一组文章或一本小书，部 / 章 / 节应该如何重排？",
     "哪些案例、反方和开放问题必须补齐，才像完整书稿而不是长文大纲？",
     "哪些材料只适合放入案例池或反方池，不应该进入主线？"
   ];

@@ -376,7 +376,7 @@ export function writingBookStructureStats(bookStructure = {}) {
 export function writingBookProjectTitleForRuntime({
   projectTitle = "",
   inputTitle = "",
-  fallbackTitle = "AI时代易经与人生"
+  fallbackTitle = "AI时代主题与人生"
 } = {}) {
   return String(projectTitle || inputTitle || "").trim() || fallbackTitle;
 }
@@ -428,20 +428,20 @@ export function deriveWritingBookDesign({
   audience = ""
 } = {}) {
   const usableNotes = (Array.isArray(notes) ? notes : []).filter(Boolean);
-  const projectTitle = String(title || project?.title || "AI时代易经与人生").trim();
+  const projectTitle = String(title || project?.title || "AI时代主题与人生").trim();
   const projectGoal = String(goal || project?.goal || "").trim();
   const projectAudience = String(audience || project?.audience || "").trim();
   const mainline =
     projectGoal ||
-    (projectTitle.includes("易经")
-      ? "把易经从神秘答案转译为AI时代的变化判断、行动复盘和人生选择方法。"
+    (projectTitle.includes("主题")
+      ? "把主题从模糊答案转译为AI时代的变化判断、行动复盘和人生选择方法。"
       : `围绕“${projectTitle}”建立一条可被案例、反方和章节持续推进的书稿主线。`);
   const specs = [
     {
       label: "第一部",
-      title: "重新理解易经：从占问答案到变化语言",
-      keywords: ["易经", "卦", "象", "占", "神秘", "误用", "答案", "变化", "经典"],
-      fallbackChapters: ["易经到底在处理什么问题", "从符号到判断：不要把卦当成答案"]
+      title: "重新理解主题：从提问问答案到变化语言",
+      keywords: ["主题", "模型", "案例", "提问", "模糊", "误用", "答案", "变化", "材料"],
+      fallbackChapters: ["主题到底在处理什么问题", "从符号到判断：不要把模型当成答案"]
     },
     {
       label: "第二部",
@@ -521,9 +521,9 @@ export function deriveWritingBookDesign({
   ]).slice(0, 6);
   const questionPool = uniqueStrings([
     ...scaffoldQuestions,
-    projectAudience ? `这本书对${projectAudience}的第一章入口是什么？` : "目标读者最容易误解易经和AI的哪一点？",
-    "哪些卦例、现实案例和反方材料必须补齐，才像一本书而不是长文？",
-    "主线是否需要先去神秘化，再进入AI时代的人生方法？"
+    projectAudience ? `这本书对${projectAudience}的第一章入口是什么？` : "目标读者最容易误解主题和AI的哪一点？",
+    "哪些模型例、现实案例和反方材料必须补齐，才像一本书而不是长文？",
+    "主线是否需要先去模糊化，再进入AI时代的人生方法？"
   ]).slice(0, 6);
   const fallbackCasePool = usableNotes
     .slice(0, 4)
@@ -540,7 +540,7 @@ export function deriveWritingBookDesign({
       cases: casePool.length ? casePool : fallbackCasePool,
       counterarguments: counterPool.length
         ? counterPool
-        : [{ title: "还需要主动补充反方：易经是否会被误用成确定性答案？AI是否会削弱人的判断？", note_ids: [], role: "counterargument" }],
+        : [{ title: "还需要主动补充反方：主题是否会被误用成确定性答案？AI是否会削弱人的判断？", note_ids: [], role: "counterargument" }],
       open_questions: questionPool
     }
   });
@@ -549,28 +549,28 @@ export function deriveWritingBookDesign({
 export function deriveWritingLocalBookIdeas({ notes = [], project = null, title = "" } = {}) {
   const usableNotes = (Array.isArray(notes) ? notes : []).filter(Boolean);
   const noteCount = usableNotes.length;
-  const projectTitle = String(project?.title || title || "AI时代易经与人生").trim();
+  const projectTitle = String(project?.title || title || "AI时代主题与人生").trim();
   const evidence = usableNotes.slice(0, 3).map((note) => note.id);
   return [
     {
       title: "判断力训练型",
       reader: "给AI时代需要做复杂选择的知识工作者",
-      promise: "把易经当作训练时位感、边界感和复盘能力的方法，而不是求答案的工具。",
+      promise: "把主题当作训练时位感、边界感和复盘能力的方法，而不是求答案的工具。",
       risk: noteCount < 5 ? "案例还偏少，最好补充3-5个真实决策场景。" : "需要避免章节变成方法清单。",
       noteIds: evidence
     },
     {
-      title: "去神秘化解释型",
-      reader: "给想理解易经但警惕玄学化的现代读者",
-      promise: "先拆掉占卜式误解，再解释卦象如何帮助人描述变化、位置和关系。",
-      risk: "需要保留经典质感，避免只剩现代管理学翻译。",
+      title: "去模糊化解释型",
+      reader: "给想理解主题但警惕玄学化的现代读者",
+      promise: "先拆掉资料堆积的误解，再解释关系和主题如何帮助人形成判断。",
+      risk: "需要保留材料质感，避免只剩现代管理学翻译。",
       noteIds: evidence
     },
     {
       title: "AI时代人生方法型",
       reader: "给在模型、职业和生活变化中寻找稳定方法的人",
-      promise: `围绕《${projectTitle || "AI时代易经与人生"}》建立一条从技术冲击到人生选择的书稿主线。`,
-      risk: "AI与易经的连接要靠案例和反方检验，不能只做概念类比。",
+      promise: `围绕《${projectTitle || "AI时代主题与人生"}》建立一条从技术冲击到人生选择的书稿主线。`,
+      risk: "AI与主题的连接要靠案例和反方检验，不能只做概念类比。",
       noteIds: evidence
     }
   ];

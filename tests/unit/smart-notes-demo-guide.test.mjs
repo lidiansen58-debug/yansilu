@@ -18,11 +18,15 @@ test("Smart Notes demo guide gives a beginner five-step path", () => {
   assert.doesNotMatch(guide.body, /LIT-SN-001/);
   assert.match(guide.body, /PN-SN-001/);
   assert.match(guide.body, /PN-SN-101/);
+  assert.match(guide.body, /\[\[PN-SN-101\|/);
+  assert.doesNotMatch(guide.body, /`PN-SN-101`/);
   assert.match(guide.body, /补一句“为什么相关”/);
-  assert.match(guide.body, /IC-SN-012/);
+  assert.doesNotMatch(guide.body, /`IC-SN-012`/);
+  assert.match(guide.body, /打开主题索引示例/);
   assert.match(guide.body, /3 到 7 条永久笔记/);
-  assert.match(guide.body, /WP-SN-PM-001/);
-  assert.match(guide.body, /DS-SN-PM-001/);
+  assert.doesNotMatch(guide.body, /`WP-SN-PM-001`/);
+  assert.doesNotMatch(guide.body, /`DS-SN-PM-001`/);
+  assert.match(guide.body, /打开写作中心/);
   assert.match(guide.body, /今天只做一个动作/);
 });
 

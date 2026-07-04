@@ -15,6 +15,11 @@ test("empty editor first screen makes Demo import the clear primary action", () 
   assert.match(html, /第一次打开，建议先体验示例库/);
   assert.match(html, /data-empty-start-action="seed-demo"/);
   assert.match(html, /导入示例库 \/ 体验 Demo/);
+  assert.match(html, /<em>推荐<\/em>/);
+  assert.match(html, /data-empty-demo-confirm/);
+  assert.match(html, /确认导入示例库/);
+  assert.match(html, /data-empty-start-action="seed-demo-confirm"/);
+  assert.match(html, /data-empty-start-action="seed-demo-cancel"/);
   assert.match(html, /点下面按钮后会先请你确认/);
   assert.match(html, /一键导入一套可照着学的 Demo 笔记/);
   assert.match(html, /确认后创建 Smart Notes 示例笔记/);
@@ -89,6 +94,9 @@ test("empty start actions keep destructive and async actions guarded", () => {
   const source = fs.readFileSync("apps/web/src/components-editor-pane.js", "utf8");
 
   assert.match(source, /this\.emptyStartActionPending = false/);
+  assert.match(source, /this\.emptyStartDemoConfirming = false/);
+  assert.match(source, /if \(action === "seed-demo"\) \{\s*setEmptyDemoConfirming\(true\);/s);
+  assert.match(source, /action === "seed-demo-confirm" \? \{ source: "empty-start", confirmed: true \}/);
   assert.match(source, /if \(action === "create-note"\) \{\s*this\.requestCreateNoteFromEmptyState\(\);/s);
   assert.match(source, /if \(this\.emptyStartActionPending\) return/);
   assert.match(source, /querySelectorAll\?\.\("\[data-empty-start-action\]"\)\.forEach/);

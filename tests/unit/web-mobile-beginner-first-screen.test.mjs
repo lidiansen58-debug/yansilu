@@ -8,9 +8,8 @@ test("mobile CSS prioritizes demo walkthrough and softens editor toolbar", () =>
   assert.match(css, /data-smart-notes-demo-walkthrough/);
   assert.match(css, /order:\s*-20/);
   assert.match(css, /\.sidebar-flow-card\[data-smart-notes-demo-walkthrough\] \.sidebar-flow-note[\s\S]*display:\s*block/);
-  assert.match(css, /\.sidebar-flow-card\[data-smart-notes-demo-walkthrough\] \.sidebar-flow-steps[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(css, /\.sidebar-flow-card\[data-smart-notes-demo-walkthrough\] \.sidebar-flow-step[\s\S]*min-height:\s*38px/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*\.sidebar-flow-card\[data-smart-notes-demo-walkthrough\] \.sidebar-flow-steps[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(css, /\.sidebar-flow-current\s*\{/);
+  assert.match(css, /\.sidebar-flow-card\[data-smart-notes-demo-walkthrough\] \.sidebar-flow-action[\s\S]*min-height:\s*38px/);
   assert.match(css, /\.editor-stage-top \.toolbar/);
   assert.match(css, /max-height:\s*30px/);
   assert.match(css, /opacity:\s*0\.48/);

@@ -5,8 +5,6 @@ export function installGraphEntryEventBindings(deps = {}) {
     explorer = null,
     graphState = {},
     refreshDirectoryGraph = async () => false,
-    importYijingKnowledgeNetworkDemo = async () => {},
-    importYijingRichAcceptanceDemo = async () => {},
     renderAll = () => {},
     setStatus = () => {}
   } = deps;
@@ -26,11 +24,4 @@ export function installGraphEntryEventBindings(deps = {}) {
     setStatus("已返回目录关系视图", "ok");
   });
 
-  $("graphSeedYijing")?.addEventListener("click", async () => {
-    await importYijingKnowledgeNetworkDemo();
-  });
-
-  $("graphSeedYijingRich")?.addEventListener("click", async () => {
-    await importYijingRichAcceptanceDemo();
-  });
 }

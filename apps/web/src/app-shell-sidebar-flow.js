@@ -176,10 +176,9 @@ export function renderExplorerSidebarFlowMarkup(flowState = {}, deps = {}) {
 
 export function renderExplorerSidebarFlowForRuntime({ rootId = "", element = null, currentNotes = [], originalNotes = [], allNotes = [], selectedNoteId = "" } = {}, deps = {}) {
   if (!element) return null;
-  const flowState = buildExplorerSidebarFlowState({ rootId, currentNotes, originalNotes, allNotes, selectedNoteId }, deps);
-  element.classList?.remove?.("hidden");
-  element.innerHTML = renderExplorerSidebarFlowMarkup(flowState, deps);
-  return flowState;
+  element.innerHTML = "";
+  element.classList?.add?.("hidden");
+  return null;
 }
 
 export async function handleSidebarFlowAction(event, deps = {}) {
@@ -237,10 +236,12 @@ export async function handleSidebarFlowAction(event, deps = {}) {
 
 export function installSidebarFlowEventHandler(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
-  const element = $("sidebarFlow");
   const handler = async (event) => {
     await handleSidebarFlowAction(event, depsProvider());
   };
-  element?.addEventListener?.("click", handler);
-  return [{ id: "sidebarFlow", eventName: "click", handler, installed: !!element }];
+  return ["demoGuidePanel"].map((id) => {
+    const element = $(id);
+    element?.addEventListener?.("click", handler);
+    return { id, eventName: "click", handler, installed: !!element };
+  });
 }

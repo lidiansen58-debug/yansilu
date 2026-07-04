@@ -1,4 +1,4 @@
-﻿import path from "node:path";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "../../domain/src/sqlite-migrations.mjs";
 import { collectDistillationQualityWarnings } from "../../domain/src/distillation-quality.mjs";
@@ -274,8 +274,8 @@ function defaultBookMainline(project = {}) {
   const goal = cleanText(project.goal);
   if (goal) return goal;
   const title = cleanText(project.title);
-  return title.includes("易经")
-    ? "把易经从神秘答案转译为AI时代的变化判断、行动复盘和人生选择方法。"
+  return title.includes("主题")
+    ? "把主题从模糊答案转译为AI时代的变化判断、行动复盘和人生选择方法。"
     : `围绕「${title || "当前写作主题"}」建立一条可以被案例、反方和章节持续推进的书稿主线。`;
 }
 
@@ -286,7 +286,7 @@ function buildDefaultBookStructure(project = {}, basketNotes = [], options = {})
       id: "part_reframe",
       label: "第一部",
       title: "重新理解：从答案到变化语言",
-      keywords: ["易经", "卦", "象", "占", "神秘", "误用", "答案", "变化", "经典"],
+      keywords: ["主题", "模型", "案例", "提问", "模糊", "误用", "答案", "变化", "材料"],
       fallbackChapters: ["核心问题从哪里开始", "不要把材料当成答案"]
     },
     {

@@ -54,7 +54,6 @@ import {
   resolveVaultPath,
   saveNoteAsset,
   searchNotes,
-  seedYijingKnowledgeNetwork,
   restoreEncryptedVaultBackup,
   updateIndexCard,
   updateDirectory,
@@ -90,7 +89,6 @@ import {
   updateWritingProjectBookStructure,
   updateWritingProjectIntent
 } from "../../../packages/writing-engine/src/index.mjs";
-import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
 import { seedSmartNotesProductThinking } from "../../../scripts/seed-smart-notes-product-thinking.mjs";
 import {
   checkForAppUpdate,
@@ -160,7 +158,6 @@ const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${WEB_
 const CWD = process.cwd();
 const PACKAGE_JSON_PATH = path.join(CWD, "package.json");
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
-const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures", "knowledge-network", "yijing-network.json");
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
 const OLLAMA_RECOMMENDED_MODELS = [...LOCAL_AI_RECOMMENDED_MODELS];
 const DEFAULT_OLLAMA_GENERATE_TIMEOUT_MS = 60000;
@@ -1901,10 +1898,6 @@ async function loadNotesByIds(noteIds = []) {
     items.push(await getNoteById(VAULT_PATH, noteId));
   }
   return items;
-}
-
-async function readYijingKnowledgeNetworkFixture() {
-  return JSON.parse(await fs.readFile(YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH, "utf8"));
 }
 
 function defaultUserForEmail(email = "") {
@@ -5529,21 +5522,6 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    if (req.method === "POST" && url.pathname === "/api/v1/demo/knowledge-network/yijing") {
-      try {
-        await readJson(req);
-        const fixture = await readYijingKnowledgeNetworkFixture();
-        const item = await seedYijingKnowledgeNetwork(VAULT_PATH, fixture);
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err("YIJING_DEMO_SEED_INVALID", String(error?.message || error), rid, error?.details));
-      }
-    }
-
     const aiInboxSummarizeId = parseAiInboxSummarizePath(url.pathname);
     if (req.method === "POST" && aiInboxSummarizeId) {
       let runtime = null;
@@ -5697,20 +5675,6 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, err(error?.code || "AI_INBOX_SUMMARIZE_FAILED", String(error?.message || error), rid, error?.details));
       } finally {
         if (runtime && typeof runtime.close === "function") runtime.close();
-      }
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/v1/demo/acceptance/yijing-rich") {
-      try {
-        await readJson(req);
-        const item = await seedYijingRichAcceptance(VAULT_PATH);
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err("YIJING_RICH_ACCEPTANCE_SEED_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

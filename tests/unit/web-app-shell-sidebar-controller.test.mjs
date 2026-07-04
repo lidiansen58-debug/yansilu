@@ -84,6 +84,8 @@ test("app shell sidebar controller keeps graph sidebar scoped to graph navigatio
   assert.equal(elements.sidebarTitle.textContent, "图谱笔记范围");
   assert.match(elements.sidebarSubtitle.textContent, /切换图谱观察范围/);
   assert.match(elements.sidebarFoot.textContent, /待关联笔记/);
+  assert.equal(elements.sidebarFlow.innerHTML, "");
+  assert.equal(elements.sidebarFlow.classList.contains("hidden"), true);
   assert.equal(elements.listArea.classList.contains("hidden"), false);
   assert.equal(elements.moduleSidebar.classList.contains("visible"), false);
 });

@@ -73,7 +73,7 @@ import {
 } from "../../apps/web/src/graph-density-hint-controller.js";
 import {
   resetGraphDemoPresentationStateForRuntime
-} from "../../apps/web/src/graph-demo-presentation-state.js";
+} from "../../apps/web/src/graph-presentation-controller.js";
 import {
   graphResearchNavigatorState,
   renderGraphResearchNavigatorPanelView

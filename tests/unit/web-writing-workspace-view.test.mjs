@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 import {
   renderDraftVersionCardView,
@@ -108,6 +109,7 @@ test("writing project card exposes continuation and scaffold actions", () => {
   assert.match(html, /data-writing-project-action="resume-scaffold"/);
   assert.match(html, /data-writing-project-action="copy-scaffold"/);
   assert.match(html, /复制文章提纲/);
+  assert.match(html, /更多：编号、提纲、草稿和导出/);
   assert.match(html, /<b>status<\/b>/);
 });
 
@@ -134,4 +136,33 @@ test("writing scaffold and draft version cards keep action routing attributes", 
   assert.match(draft, /data-writing-draft-version-id="draft-version-1"/);
   assert.match(draft, /data-writing-draft-action="set-current"/);
   assert.match(draft, /status:draft/);
+});
+
+test("writing center hides manual note ids behind advanced details", () => {
+  const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
+  const marker = 'id="writingBasketNoteIds"';
+  const index = html.indexOf(marker);
+  assert.ok(index > 0, "expected writing basket ids textarea");
+  const detailsStart = html.lastIndexOf("<details", index);
+  const detailsEnd = html.indexOf("</details>", index);
+  assert.ok(detailsStart > 0 && detailsStart < index, "textarea should be inside details");
+  assert.ok(detailsEnd > index, "textarea should close inside details");
+  assert.match(html.slice(detailsStart, index), /高级：手动调整已选笔记编号/);
+});
+
+test("writing center separates core flow into tabs instead of one long stack", () => {
+  const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
+  assert.match(html, /class="writing-tabs"/);
+  for (const tab of ["write", "notes", "themes", "tools"]) {
+    assert.match(html, new RegExp(`data-writing-tab="${tab}"`));
+  }
+  for (const id of [
+    "writingComposePanel",
+    "writingRelatedNotesPanel",
+    "writingThemePanel",
+    "writingBookToolsPanel",
+    "writingHistoryPanel"
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
 });

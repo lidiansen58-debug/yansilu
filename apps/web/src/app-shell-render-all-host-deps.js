@@ -17,6 +17,7 @@ export function buildRenderAppShellHostDeps(host = {}) {
     renderGraphPanel: host.renderGraphPanel,
     renderSettingsPanel: host.renderSettingsPanel,
     renderExplorerSidebarFlow: host.renderExplorerSidebarFlow,
+    renderSmartNotesDemoGuide: host.renderSmartNotesDemoGuide,
     renderWritingPanel: host.renderWritingPanel,
     applyFocusModeChrome: host.applyFocusModeChrome,
     renderStatusMeta: host.renderStatusMeta,

@@ -38,7 +38,8 @@ import { syncModuleChromeClassesForRuntime } from "./app-shell-module-ui.js";
 import { createModuleWorkspaceHeaderRuntimeRoutes } from "./app-module-header-runtime-routes.js";
 import { createSidebarTitleController } from "./app-shell-sidebar-controller.js";
 import { createSidebarTitlePrototypeDepsProvider } from "./app-shell-sidebar-host-deps.js";
-import { installSidebarFlowEventHandler, renderExplorerSidebarFlowForRuntime } from "./app-shell-sidebar-flow.js";
+import { installSidebarFlowEventHandler } from "./app-shell-sidebar-flow.js";
+import { buildSmartNotesDemoWalkthrough, renderSmartNotesDemoGuidePanel } from "./beginner-onboarding-flow.js";
 import { installMobileNoteEventBindings } from "./mobile-note-event-bindings.js";
 import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-state-change-host-deps.js";
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
@@ -111,7 +112,6 @@ import { createGraphSelectionPanelRenderer } from "./graph-selection-panel-rende
 import { buildGraphWorkspaceRenderDeps, createGraphThinkingModelRuntimeDepsProvider } from "./graph-workspace-host-deps.js";
 import { graphFocusContextCollapsedState, graphFocusContextCollapsedStatus, graphFocusHelpOpenState, graphFocusHelpStatus, renderGraphFocusContextPanel as renderGraphFocusContextPanelView } from "./graph-focus-context-panel.js";
 import { GRAPH_FOCUS_CONTEXT_MODE_KEY, GRAPH_FOCUS_DEPTH_KEY, graphFocusContextModeMeta, graphFocusDepthMeta, normalizeGraphFocusContextMode, normalizeGraphFocusDepth, setGraphFocusContextModeForRuntime, setGraphFocusDepthForRuntime } from "./graph-focus-controls-state.js";
-import { yijingRichDemoPostImportPlan } from "./graph-demo-presentation-state.js";
 import { createGraphPresentationController } from "./graph-presentation-controller.js";
 import { graphClusterResearchMeta as computeGraphClusterResearchMeta, graphResearchNavigatorState as computeGraphResearchNavigatorState, graphUniqueClusterMeta as computeGraphUniqueClusterMeta, renderGraphResearchNavigatorPanelView } from "./graph-research-navigator.js";
 import { buildGraphPanelState } from "./graph-panel-state-builder.js";
@@ -146,6 +146,7 @@ import { renderDraftVersionCardView, renderScaffoldVersionCardView, renderWritin
 import { titleFromBody } from "./editor-template-workspace.js";
 import { createWritingPanelShellController } from "./writing-panel-shell.js";
 import { createWritingPanelPrototypeHostProvider } from "./writing-panel-host-deps.js";
+import { installWritingTabEvents } from "./writing-tabs.js";
 import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
 import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
 import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, parseWritingBasketIdsForRuntime, removeWritingBasketIdForRuntime, setWritingBasketIdsForRuntime } from "./writing-basket-state.js";
@@ -186,7 +187,7 @@ import { buildAiProviderConfigPayload } from "./settings-ai-provider-config-acti
 import { AI_LOCAL_MODEL_TIERS, AI_REMOTE_MODEL_TIERS, OLLAMA_CHAT_ENDPOINT_URL, OLLAMA_HEALTH_ENDPOINT_URL, OLLAMA_RECOMMENDED_MODEL, aiDefaultsForRuntimeMode, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl, enabledProviderHealthEndpointUrl, isBuiltInOllamaModel, isRemoteConfigurableProviderId, localModelDisplayProfile, modelNameExistsInList, normalizeOllamaSetupGuide, ollamaBootstrapStatusText, ollamaModelRecommendationProfiles, ollamaRecommendationForModel, preferredLocalModelName, remoteRuntimeModelFromMap, runtimeModelMapForRemoteModel, selectedLocalModelNameForInstalledModels } from "./prototype-ai-settings-controller.js";
 import { createUpdateState, shouldShowUpdateAttention, updateStateAutoCheckEnabled, updateStateIgnoreLatest, updateStateRemindLater } from "./update-state.js";
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "./prototype-update-controller.js";
-import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedYijingKnowledgeNetwork, seedYijingRichAcceptanceDemo, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
+import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
@@ -2953,24 +2954,26 @@ function ensureSelection() {
 }
 
 function renderExplorerSidebarFlow(rootId = state.browserRootId) {
-  const directoryIds = new Set(descendantDirectoryIds(rootId));
-  const originalDirectoryIds = new Set(descendantDirectoryIds("dir_original_default"));
-  return renderExplorerSidebarFlowForRuntime({
-    rootId,
-    element: $("sidebarFlow"),
-    currentNotes: state.notes.filter((note) => directoryIds.has(note.folderId)),
-    originalNotes: state.notes.filter((note) => originalDirectoryIds.has(note.folderId)),
-    allNotes: state.notes,
-    selectedNoteId: state.selectedFileId
-  }, {
-    parseLinks,
-    parseTags,
-    noteHasGeneratedOriginal,
-    distillationStatusOf,
-    noteHasBoundarySignal,
-    isPermanentLikeNote,
-    escapeHtml
-  });
+  const element = $("sidebarFlow");
+  if (element) {
+    element.innerHTML = "";
+    element.classList.add("hidden");
+  }
+  return null;
+}
+
+function renderSmartNotesDemoGuide() {
+  const element = $("demoGuidePanel");
+  if (!element) return null;
+  const demoWalkthrough = buildSmartNotesDemoWalkthrough({ notes: state.notes, selectedNoteId: state.selectedFileId });
+  const shouldShow = state.module === "explorer" && !!demoWalkthrough;
+  element.classList.toggle("hidden", !shouldShow);
+  if (!shouldShow) {
+    element.innerHTML = "";
+    return null;
+  }
+  element.innerHTML = renderSmartNotesDemoGuidePanel(demoWalkthrough, { escapeHtml });
+  return demoWalkthrough;
 }
 
 function syncNewNoteButtons() {
@@ -3313,6 +3316,7 @@ const renderAppShellController = createRenderAppShellController({
     renderGraphPanel,
     renderSettingsPanel,
     renderExplorerSidebarFlow,
+    renderSmartNotesDemoGuide,
     renderWritingPanel,
     applyFocusModeChrome,
     renderStatusMeta,
@@ -5213,83 +5217,6 @@ const {
   createGraphThemeIndexFromNoteIds,
   createGraphThemeIndexFromButton
 } = graphRouteRuntime;
-async function importYijingKnowledgeNetworkDemo(options = {}) {
-  const { startup = false } = options;
-  const button = $("graphSeedYijing");
-  const previousDisabled = Boolean(button?.disabled);
-  if (button) button.disabled = true;
-  setStatus("正在导入易经知识网络案例...", "");
-  try {
-    const result = await seedYijingKnowledgeNetwork();
-    const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
-    if (!directoryId) throw new Error("演示数据没有返回目录 ID");
-    await syncDirectoriesFromApi();
-    state.browserRootId = rootBoxIdFromFolder(state, directoryId);
-    state.selectedFolderId = directoryId;
-    await syncNotesForDirectory(directoryId);
-    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
-    if (startup) {
-      // Demo routes should always reopen into a readable, stable first-screen
-      // graph state instead of inheriting stale filters or expanded UI state
-      // from a previous session.
-      resetGraphDemoPresentationState();
-    }
-    await refreshDirectoryGraph();
-    renderAll();
-    const summary = result?.summary || {};
-    setStatus(`已导入易经案例：${summary.totalNodes || summary.notes || 0} 条笔记，${summary.totalEdges || summary.relations || 0} 条关系`, "ok");
-    return true;
-  } catch (error) {
-    setStatus(`易经案例导入失败：${String(error?.message || error)}`, "bad");
-    return false;
-  } finally {
-    if (button) button.disabled = previousDisabled;
-  }
-}
-
-async function importYijingRichAcceptanceDemo(options = {}) {
-  const { startup = false } = options;
-  const button = $("graphSeedYijingRich");
-  const previousDisabled = Boolean(button?.disabled);
-  if (button) button.disabled = true;
-  setStatus("正在导入易经官网演示案例...", "");
-  try {
-    const result = await seedYijingRichAcceptanceDemo();
-    const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
-    if (!directoryId) throw new Error("演示案例没有返回目录 ID");
-    await syncDirectoriesFromApi();
-    state.browserRootId = rootBoxIdFromFolder(state, directoryId);
-    state.selectedFolderId = directoryId;
-    await syncNotesForDirectory(directoryId);
-    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
-    const postImportPlan = yijingRichDemoPostImportPlan({ startup });
-    if (postImportPlan.resetGraphPresentationState) {
-      // Demo routes should always reopen into a readable, stable first-screen
-      // graph state instead of inheriting stale filters or expanded UI state
-      // from a previous session.
-      resetGraphDemoPresentationState();
-    }
-    if (postImportPlan.refreshDirectoryGraph) await refreshDirectoryGraph();
-    if (postImportPlan.activateModule) {
-      activateModule(postImportPlan.activateModule);
-    } else if (postImportPlan.renderAll) {
-      renderAll();
-    }
-    const counts = result?.counts || {};
-    const summary = result?.summary || {};
-    const noteCount = counts.original_notes || summary.createdNotes || summary.updatedNotes || 0;
-    const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
-    const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    setStatus(`已导入易经官网演示：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作方案`, "ok");
-    return true;
-  } catch (error) {
-    setStatus(`易经官网演示导入失败：${String(error?.message || error)}`, "bad");
-    return false;
-  } finally {
-    if (button) button.disabled = previousDisabled;
-  }
-}
-
 async function importSmartNotesProductThinkingDemo(options = {}) {
   const { startup = false } = options;
   setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
@@ -5917,6 +5844,11 @@ installWritingPanelBasketEventHandlers({
   })
 });
 
+installWritingTabEvents({
+  root: $("writingPanel")?.querySelector?.(".writing-shell"),
+  documentRef: document
+});
+
 installWritingThemeIndexEventHandlers({
   $,
   depsProvider: () => ({
@@ -6029,8 +5961,6 @@ installGraphEntryEventBindings({
   explorer,
   graphState,
   refreshDirectoryGraph,
-  importYijingKnowledgeNetworkDemo,
-  importYijingRichAcceptanceDemo,
   renderAll,
   setStatus
 });
@@ -6327,8 +6257,6 @@ function appStartupDeps() {
     renderAll,
     confirm: window.confirm.bind(window),
     importSmartNotesProductThinkingDemo,
-    importYijingKnowledgeNetworkDemo,
-    importYijingRichAcceptanceDemo,
     preferredLocalFallbackNote,
     openNoteById,
     openStartupUntitledNote,

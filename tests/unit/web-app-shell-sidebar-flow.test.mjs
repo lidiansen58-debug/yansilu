@@ -85,9 +85,10 @@ test("sidebar flow renders Smart Notes demo walkthrough when demo notes are pres
   const markup = renderExplorerSidebarFlowMarkup(state);
 
   assert.equal(state.kind, "smart-notes-demo");
-  assert.match(markup, /Smart Notes 五步 walkthrough/);
+  assert.match(markup, /Smart Notes Demo 导览/);
+  assert.match(markup, /sidebar-flow-current/);
   assert.match(markup, /data-sidebar-flow-action="open-demo-note-relations"/);
-  assert.match(markup, /data-sidebar-flow-action="open-demo-writing"/);
+  assert.doesNotMatch(markup, /data-sidebar-flow-action="open-demo-writing"/);
 });
 
 test("sidebar flow markup escapes text and renders original primary action", () => {
@@ -109,11 +110,11 @@ test("sidebar flow markup escapes text and renders original primary action", () 
   assert.match(markup, /观点链路已清爽/);
 });
 
-test("sidebar flow runtime renders into the provided element", () => {
+test("sidebar flow runtime keeps note boxes free of walkthrough chrome", () => {
   const classes = [];
   const element = {
-    innerHTML: "",
-    classList: { remove: (name) => classes.push(["remove", name]) }
+    innerHTML: "stale walkthrough",
+    classList: { add: (name) => classes.push(["add", name]) }
   };
   const flow = renderExplorerSidebarFlowForRuntime({
     rootId: "dir_fleeting_default",
@@ -130,10 +131,9 @@ test("sidebar flow runtime renders into the provided element", () => {
     escapeHtml: (value) => String(value)
   });
 
-  assert.equal(flow.isOriginal, false);
-  assert.match(element.innerHTML, /Material Route/);
-  assert.match(element.innerHTML, /随笔是想法入口/);
-  assert.deepEqual(classes, [["remove", "hidden"]]);
+  assert.equal(flow, null);
+  assert.equal(element.innerHTML, "");
+  assert.deepEqual(classes, [["add", "hidden"]]);
 });
 
 test("sidebar flow actions route to distillation writing and permanent creation", async () => {
@@ -193,8 +193,8 @@ test("sidebar flow installer reads latest deps when clicked", async () => {
   let version = "first";
   const calls = [];
   const registrations = installSidebarFlowEventHandler({
-    $: (id) => id === "sidebarFlow" ? {
-      addEventListener: (eventName, handler) => handlers.set(eventName, handler)
+    $: (id) => ["sidebarFlow", "demoGuidePanel"].includes(id) ? {
+      addEventListener: (eventName, handler) => handlers.set(`${id}:${eventName}`, handler)
     } : null,
     depsProvider: () => ({
       activateModule: (moduleName) => calls.push(["activate", version, moduleName]),
@@ -202,10 +202,10 @@ test("sidebar flow installer reads latest deps when clicked", async () => {
     })
   });
 
-  assert.deepEqual(registrations.map((item) => item.installed), [true]);
-  await handlers.get("click")({ target: actionTarget("open-writing") });
+  assert.deepEqual(registrations.map((item) => [item.id, item.installed]), [["demoGuidePanel", true]]);
+  await handlers.get("demoGuidePanel:click")({ target: actionTarget("open-writing") });
   version = "second";
-  await handlers.get("click")({ target: actionTarget("open-writing") });
+  await handlers.get("demoGuidePanel:click")({ target: actionTarget("open-writing") });
 
   assert.deepEqual(calls, [
     ["activate", "first", "writing"],

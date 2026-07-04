@@ -723,24 +723,6 @@ export async function fetchRelationReviewQueue({
   };
 }
 
-export async function seedYijingKnowledgeNetwork() {
-  const json = await request("/api/v1/demo/knowledge-network/yijing", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({})
-  });
-  return json.item || null;
-}
-
-export async function seedYijingRichAcceptanceDemo() {
-  const json = await request("/api/v1/demo/acceptance/yijing-rich", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({})
-  });
-  return json.item || null;
-}
-
 export async function seedSmartNotesProductThinkingDemo() {
   const json = await request("/api/v1/demo/product-thinking/smart-notes", {
     method: "POST",

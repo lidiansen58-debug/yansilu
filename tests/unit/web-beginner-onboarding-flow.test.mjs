@@ -9,7 +9,7 @@ import {
   writingBeginnerMainline
 } from "../../apps/web/src/beginner-onboarding-flow.js";
 
-test("beginner flow detects Smart Notes demo and renders five clickable steps", () => {
+test("beginner flow detects Smart Notes demo and renders one focused next step", () => {
   const notes = [
     { id: "GUIDE-SN-001" },
     { id: "PN-SN-001" },
@@ -26,11 +26,13 @@ test("beginner flow detects Smart Notes demo and renders five clickable steps", 
   assert.equal(flow.steps[0].done, true);
   assert.equal(flow.steps[2].active, true);
   assert.match(html, /data-smart-notes-demo-walkthrough/);
-  assert.match(html, /从来源到永久笔记/);
-  assert.match(html, /补一条关系理由/);
+  assert.match(html, /Smart Notes Demo 导览/);
+  assert.match(html, /sidebar-flow-current/);
+  assert.match(html, /第 3 \/ 5 步/);
+  assert.match(html, /读主题索引/);
   assert.match(html, /打开主题索引示例/);
-  assert.match(html, /data-sidebar-flow-action="open-demo-note-relations"/);
-  assert.match(html, /打开写作中心/);
+  assert.doesNotMatch(html, /data-sidebar-flow-action="open-demo-note-relations"/);
+  assert.doesNotMatch(html, /打开写作中心/);
 });
 
 test("beginner flow does not treat arbitrary SN-looking notes as the Smart Notes demo", () => {

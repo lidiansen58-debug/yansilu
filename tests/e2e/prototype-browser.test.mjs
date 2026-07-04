@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -8797,59 +8797,6 @@ test("prototype route shell exposes graph workspace without explorer rail assump
   }, 7000);
 });
 
-test("prototype graph panel seeds the Yijing demo network", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  await page.goto(`${webBase}/prototype?demo=yijing`, { waitUntil: "networkidle" });
-  await waitFor(async () => {
-    const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已导入易经案例/);
-  }, 15000);
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.locator("#graphPanel").waitFor({ state: "visible", timeout: 7000 });
-  if ((await page.locator("#graphBackToDirectory:not(.hidden)").count()) > 0) {
-    await page.locator("#graphBackToDirectory").click();
-  }
-
-  await waitFor(async () => {
-    const notes = await fetchJson(apiBase, "/api/v1/directories/dir_demo_yijing_knowledge_network/notes");
-    assert.equal(notes.status, 200, JSON.stringify(notes.json));
-    assert.equal(notes.json.total, 21);
-
-    const graph = await fetchJson(apiBase, "/api/v1/graph?scope=directory&directoryId=dir_demo_yijing_knowledge_network");
-    assert.equal(graph.status, 200, JSON.stringify(graph.json));
-    assert.equal(graph.json.item.totalNodes, 21);
-    assert.equal(graph.json.item.totalEdges, 27);
-
-    const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已导入易经案例|已打开永久笔记关系图谱/);
-    assert.ok((await page.locator("#graphCanvas .graph-map-node").count()) > 0);
-    assert.ok((await page.locator("#graphCanvas .graph-map-edge-group").count()) >= 1);
-  }, 15000);
-
-  await page.locator("#graphRelationTypeFilter").selectOption("supports");
-  await waitFor(async () => {
-    const summaryText = await page.locator("#graphSummary").textContent();
-    assert.match(String(summaryText || ""), /6 条关系/);
-    assert.equal(await page.locator("#graphRelationTypeFilter").inputValue(), "supports");
-    assert.equal(await page.locator("#graphCanvas .graph-map-edge-group").count(), 6);
-  }, 5000);
-
-  await page.locator("#graphRelationTypeFilter").selectOption("all");
-  await waitFor(async () => {
-    assert.ok((await page.locator("#graphCanvas .graph-map-edge-group").count()) >= 1);
-  }, 5000);
-});
 
 test("prototype smart notes startup demo opens the guide note without duplicating seed data", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {

@@ -76,7 +76,7 @@ export function buildSmartNotesDemoWalkthrough({ notes = [], selectedNoteId = ""
   const active = steps[activeIndex] || steps[0] || null;
   return {
     kind: "smart-notes-demo",
-    title: "Smart Notes 五步 walkthrough",
+    title: "Smart Notes Demo 导览",
     note: active ? `下一步：${active.title}。${active.note}` : "按五步看完从材料到文章提纲的主路径。",
     activeStepKey: active?.key || "",
     steps
@@ -86,29 +86,56 @@ export function buildSmartNotesDemoWalkthrough({ notes = [], selectedNoteId = ""
 export function renderSmartNotesDemoWalkthrough(flow = {}, deps = {}) {
   const { escapeHtml = (value) => String(value ?? "") } = deps;
   const steps = Array.isArray(flow.steps) ? flow.steps : [];
+  const activeIndex = Math.max(0, steps.findIndex((step) => step.active));
+  const active = steps[activeIndex] || steps[0] || {};
+  const action = active.action || "open-demo-note";
+  const actionLabel = active.actionLabel || "继续导览";
   return `
     <div class="sidebar-flow-card" data-smart-notes-demo-walkthrough>
       <div>
         <div class="sidebar-flow-kicker">Demo Walkthrough</div>
-        <div class="sidebar-flow-title">${escapeHtml(flow.title || "Smart Notes 五步 walkthrough")}</div>
+        <div class="sidebar-flow-title">${escapeHtml(flow.title || "Smart Notes Demo 导览")}</div>
         <div class="sidebar-flow-note">${escapeHtml(flow.note || "下一步只做一个动作。")}</div>
       </div>
-      <div class="sidebar-flow-steps" aria-label="Smart Notes demo 五步路线">
-        ${steps.map((step, index) => `
-          <button
-            class="sidebar-flow-step ${step.done ? "is-done" : ""} ${step.active ? "is-active" : ""}"
-            type="button"
-            data-sidebar-flow-action="${escapeHtml(step.action)}"
-            data-sidebar-flow-note-id="${escapeHtml(step.targetNoteId)}"
-          >
-            ${escapeHtml(index + 1)}. ${escapeHtml(step.title)}
-          </button>
-        `).join("")}
+      <div class="sidebar-flow-current" aria-label="Smart Notes demo 当前步骤">
+        <span>第 ${escapeHtml(activeIndex + 1)} / ${escapeHtml(steps.length || 5)} 步</span>
+        <strong>${escapeHtml(active.title || "继续 Demo 导览")}</strong>
       </div>
-      <div class="sidebar-flow-gaps">
-        ${steps.map((step) => `<span>${escapeHtml(step.actionLabel)}</span>`).join("")}
-      </div>
+      <button
+        class="sidebar-flow-action primary"
+        type="button"
+        data-sidebar-flow-action="${escapeHtml(action)}"
+        data-sidebar-flow-note-id="${escapeHtml(active.targetNoteId || "")}"
+      >${escapeHtml(actionLabel)}</button>
     </div>
+  `;
+}
+
+export function renderSmartNotesDemoGuidePanel(flow = {}, deps = {}) {
+  const { escapeHtml = (value) => String(value ?? "") } = deps;
+  const steps = Array.isArray(flow.steps) ? flow.steps : [];
+  const activeIndex = Math.max(0, steps.findIndex((step) => step.active));
+  const active = steps[activeIndex] || steps[0] || {};
+  const action = active.action || "open-demo-note";
+  const actionLabel = active.actionLabel || "继续导览";
+  return `
+    <section class="demo-guide-panel-card" data-smart-notes-demo-guide>
+      <div class="demo-guide-copy">
+        <span>Demo 导览</span>
+        <strong>${escapeHtml(flow.title || "Smart Notes Demo 导览")}</strong>
+        <p>${escapeHtml(flow.note || "下一步只做一个动作。")}</p>
+      </div>
+      <div class="demo-guide-current">
+        <span>第 ${escapeHtml(activeIndex + 1)} / ${escapeHtml(steps.length || 5)} 步</span>
+        <strong>${escapeHtml(active.title || "继续 Demo 导览")}</strong>
+      </div>
+      <button
+        class="demo-guide-action"
+        type="button"
+        data-sidebar-flow-action="${escapeHtml(action)}"
+        data-sidebar-flow-note-id="${escapeHtml(active.targetNoteId || "")}"
+      >${escapeHtml(actionLabel)}</button>
+    </section>
   `;
 }
 

@@ -11,8 +11,6 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     getStartupAutoOpenSuppressed = () => startupAutoOpenSuppressed,
     confirm = null,
     importSmartNotesProductThinkingDemo = async () => false,
-    importYijingKnowledgeNetworkDemo = async () => false,
-    importYijingRichAcceptanceDemo = async () => false,
     preferredLocalFallbackNote = () => null,
     rootBoxIdFromFolder = () => "",
     openNoteById = () => false,
@@ -33,9 +31,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
           importSmartNotesDemo: importSmartNotesProductThinkingDemo,
           setStatus
         })
-      : startupDemo === "yijing-rich" || startupDemo === "yijing"
-        ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo({ startup: true }) : importYijingRichAcceptanceDemo({ startup: true }))
-        : false;
+      : false;
   if (openedDemo) {
     renderAll();
     return { route: "demo", startupDemo };

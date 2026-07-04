@@ -176,23 +176,34 @@ export function renderWritingProjectCardView(project, deps = {}) {
   const primaryProjectActionLabel = String(continuation?.actionLabel || "打开主题").trim() || "打开主题";
   const primaryProjectStatus = String(continuation?.status || "打开主题").trim() || "打开主题";
   const thinkingBadge = renderThinkingStatusBadge(project?.thinkingStatus, "thinking-status-badge writing-thinking-status");
+  const projectTitle = project?.title || project?.id || "";
+  const projectGoal = String(project?.goal || "").trim();
+  const writingWhy = basketNoteLabel
+    ? `可用这些笔记开始：${basketNoteLabel}`
+    : "先选择能回答同一个问题的永久笔记，再生成提纲。";
   return `
     <article class="writing-note-card" data-writing-project-id="${escapeHtml(project?.id || "")}">
       <div class="writing-note-card-head">
         <div>
-          <div class="writing-note-title">可写主题：${escapeHtml(project?.title || project?.id || "")}</div>
-          <div class="writing-note-meta">${escapeHtml(project?.id || "")} / ${escapeHtml(writingProjectStatusLabel(project?.status))} / 相关笔记 ${escapeHtml(project?.basket_count || 0)}</div>
+          <div class="writing-note-title">可写主题：${escapeHtml(projectTitle)}</div>
+          <div class="writing-note-meta">相关笔记 ${escapeHtml(project?.basket_count || 0)} 条 · 下一步：${escapeHtml(primaryProjectStatus)}</div>
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">文章提纲：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；下一步：${escapeHtml(primaryProjectStatus)}；相关主题 ${escapeHtml(sourceCount)}</div>
-      <div class="writing-note-meta">${escapeHtml(project?.goal || "暂无写作目标说明。")}</div>
-      ${basketNoteLabel ? `<div class="writing-note-meta">相关笔记：${escapeHtml(basketNoteLabel)}</div>` : ""}
+      <div class="writing-note-meta">${escapeHtml(projectGoal || "先把这篇文章要回答的问题写清楚。")}</div>
+      <div class="writing-note-meta">${escapeHtml(writingWhy)}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-project-action="${escapeHtml(primaryProjectAction)}" data-writing-project-id="${escapeHtml(project?.id || "")}">${escapeHtml(primaryProjectActionLabel)}</button>
-        <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>复制文章提纲</button>
-        <button class="mini-btn" type="button" data-writing-project-action="export-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>导出文章提纲 .md</button>
       </div>
+      <details class="writing-advanced-details">
+        <summary>更多：编号、提纲、草稿和导出</summary>
+        <div class="writing-note-meta">主题编号：${escapeHtml(project?.id || "")} · 状态：${escapeHtml(writingProjectStatusLabel(project?.status))} · 相关主题 ${escapeHtml(sourceCount)}</div>
+        <div class="writing-note-meta">文章提纲：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}</div>
+        <div class="writing-note-actions">
+          <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>复制文章提纲</button>
+          <button class="mini-btn" type="button" data-writing-project-action="export-scaffold" data-writing-project-id="${escapeHtml(project?.id || "")}" ${hasScaffold ? "" : "disabled"}>导出文章提纲 .md</button>
+        </div>
+      </details>
     </article>
   `;
 }

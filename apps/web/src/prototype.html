@@ -119,7 +119,6 @@
         <input id="searchInput" placeholder="优先搜索观点 / 判断 / 标签 / 目录..." />
         <div id="explorerActions"></div>
       </div>
-      <div class="sidebar-flow" id="sidebarFlow"></div>
       <div class="module-sidebar" id="moduleSidebar"></div>
       <div class="list-area" id="listArea"></div>
       <div class="sidebar-foot" id="sidebarFoot">默认从永久笔记开始；随笔和文献负责把材料送到自己的判断里。</div>
@@ -127,6 +126,7 @@
 
     <main class="main">
       <section class="workspace-shell" id="editorWorkspace" tabindex="-1">
+        <div class="demo-guide-panel hidden" id="demoGuidePanel"></div>
         <div class="editor-stage-shell">
           <div class="editor-stage-top">
             <div class="tabs" id="tabs"></div>
@@ -342,9 +342,18 @@
               </div>
               <div class="editor-empty-actions">
                 <button class="editor-empty-action primary" type="button" data-empty-start-action="seed-demo">
-                  <span>导入示例库 / 体验 Demo</span>
+                  <span class="editor-empty-action-title">导入示例库 / 体验 Demo <em>推荐</em></span>
                   <small>确认后创建 Smart Notes 示例笔记，并打开“10 分钟导览”教你从记录、建联到写作。</small>
                 </button>
+                <div class="editor-empty-demo-confirm hidden" data-empty-demo-confirm>
+                  <strong>确认导入示例库？</strong>
+                  <span>会创建一套 Smart Notes 示例笔记、关系和写作项目，并打开 10 分钟导览。你可以先体验，之后再决定是否用自己的笔记库。</span>
+                  <div class="editor-empty-demo-confirm-actions">
+                    <button type="button" data-empty-start-action="seed-demo-confirm">确认导入示例库</button>
+                    <button type="button" data-empty-start-action="seed-demo-cancel">先不导入</button>
+                  </div>
+                  <div class="editor-empty-demo-status" data-empty-demo-status aria-live="polite"></div>
+                </div>
                 <button class="editor-empty-action" type="button" data-empty-start-action="create-note">
                   <span>跳过 Demo，写第一条笔记</span>
                   <small>直接记录一个想法、判断或问题；已有笔记迁移可以稍后再做。</small>
@@ -418,7 +427,13 @@
             </div>
             <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
             <div id="writingBeginnerMainline" aria-live="polite"></div>
-            <div class="writing-project-grid">
+            <nav class="writing-tabs" aria-label="写作中心功能切换" role="tablist">
+              <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">写文章</button>
+              <button class="writing-tab" type="button" data-writing-tab="notes" role="tab" aria-selected="false">选笔记</button>
+              <button class="writing-tab" type="button" data-writing-tab="themes" role="tab" aria-selected="false">主题库</button>
+              <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">更多工具</button>
+            </nav>
+            <div class="writing-project-grid" id="writingComposePanel">
               <section class="writing-section writing-output-card">
                 <div class="writing-section-head">
                   <div>
@@ -465,8 +480,11 @@
                     <div class="writing-section-note">看主题是否已确定、文章提纲是否已生成，以及能否开始草稿。</div>
                   </div>
                 </div>
-                <label for="writingBasketNoteIds" class="writing-section-note">已选相关笔记（通常不用改）</label>
-                <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="需要手动修正时，每行放一条笔记编号，也可以用逗号分隔"></textarea>
+                <details class="writing-advanced-details">
+                  <summary>高级：手动调整已选笔记编号</summary>
+                  <label for="writingBasketNoteIds" class="writing-section-note">已选相关笔记（通常不用改）</label>
+                  <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="需要手动修正时，每行放一条笔记编号，也可以用逗号分隔"></textarea>
+                </details>
                 <div class="import-result" id="writingResult">尚未开始写作。</div>
                 <details class="writing-advanced-details" id="writingOutputActionsDetails">
                   <summary>更多输出：提纲、导出和草稿</summary>
@@ -494,13 +512,13 @@
               </section>
             </div>
 
-            <details class="writing-advanced-details">
+            <details class="writing-advanced-details" id="writingBookToolsPanel">
               <summary>更多写作工具：书稿方向、最近写作和版本历史</summary>
             <section class="writing-section writing-book-workbench" aria-label="书稿设计工作台">
               <div class="writing-section-head">
                 <div>
                   <div class="writing-section-title">书稿设计</div>
-                  <div class="writing-section-note" id="writingBookDesignSummary">先选择易经相关笔记，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。</div>
+                  <div class="writing-section-note" id="writingBookDesignSummary">先选择主题相关笔记，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。</div>
                 </div>
                 <button class="mini-btn" id="btnWritingLocalBookIdeas" type="button">本地生成 3 个书稿方向</button>
               </div>
@@ -512,10 +530,10 @@
             </section>
             </details>
 
-            <div class="writing-main-grid">
+            <div class="writing-main-grid" id="writingSecondaryPanels">
               <div class="writing-stack">
-                <details class="writing-advanced-details writing-section">
-                  <summary>更多选择：可写主题与主题详情</summary>
+                <details class="writing-advanced-details writing-section" id="writingThemePanel" open>
+                  <summary>主题库：可写主题与主题详情</summary>
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">可写主题</div>
@@ -539,7 +557,7 @@
                     <div id="writingThemeDetail"></div>
                   </div>
                 </details>
-                <section class="writing-section">
+                <section class="writing-section" id="writingRelatedNotesPanel">
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">相关笔记</div>
@@ -564,7 +582,7 @@
                 </details>
               </div>
 
-              <section class="writing-section">
+              <section class="writing-section" id="writingScaffoldPanel">
                 <div class="writing-section-head">
                     <div>
                     <div class="writing-section-title">文章提纲</div>
@@ -577,7 +595,7 @@
                 </div>
               </section>
 
-              <details class="writing-advanced-details writing-stack">
+              <details class="writing-advanced-details writing-stack" id="writingHistoryPanel">
                 <summary>更多：最近写作和版本记录</summary>
                 <section class="writing-section">
                     <div class="writing-section-head">

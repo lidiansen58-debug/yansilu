@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createGraphPresentationController,
+  resetGraphDemoPresentationStateForRuntime,
   syncGraphDisclosureStateForRuntime
 } from "../../apps/web/src/graph-presentation-controller.js";
 
@@ -109,6 +110,32 @@ test("graph presentation controller resets demo presentation through relation fi
   assert.equal(graphState.selection, null);
   assert.equal(graphState.utilityDrawerOpen, false);
   assert.equal(graphState.utilityDrawerVisible, true);
+  assert.deepEqual(graphState.sectionOpen, {
+    "bridge-gaps": false,
+    "weak-relations": false,
+    "review-queue": false,
+    "ai-analysis": false
+  });
+});
+
+test("graph presentation reset stays self-contained after demo module cleanup", () => {
+  const calls = [];
+  const graphState = {
+    selection: { kind: "node", nodeId: "old" },
+    utilityDrawerOpen: true,
+    sectionOpen: { "ai-analysis": true }
+  };
+
+  const result = resetGraphDemoPresentationStateForRuntime(graphState, {
+    setRelationTypeFilter: (value, options) => calls.push([value, options])
+  });
+
+  assert.equal(result, graphState);
+  assert.deepEqual(calls, [["meaningful", { persist: false }]]);
+  assert.equal(graphState.selection, null);
+  assert.equal(graphState.readingLens, "insight");
+  assert.equal(graphState.utilityDrawerOpen, false);
+  assert.equal(graphState.thinkingPanelVisible, true);
   assert.deepEqual(graphState.sectionOpen, {
     "bridge-gaps": false,
     "weak-relations": false,
