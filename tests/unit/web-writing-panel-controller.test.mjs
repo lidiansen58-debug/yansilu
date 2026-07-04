@@ -73,8 +73,6 @@ test("writing panel controller renders status strip from injected writing state"
     describeWritingProjectEntryState: () => ({ status: "Project ready", hint: "Project hint" }),
     describeWritingMaterialStatus: () => ({ status: "Material <ready>", hint: "Use selected notes" }),
     writingIneligibleSummary: () => "Ineligible",
-    isWritingStrongModelReady: () => true,
-    describeWritingStrongModelStatus: () => ({ status: "Strong ready", hint: "Strong hint" }),
     escapeHtml
   });
 
@@ -83,7 +81,9 @@ test("writing panel controller renders status strip from injected writing state"
   assert.match(html, /data-tone="good"/);
   assert.match(html, /Material &lt;ready&gt;/);
   assert.match(html, /Project ready/);
-  assert.match(html, /Strong ready/);
+  assert.match(html, /文章提纲/);
+  assert.match(html, /开始草稿/);
+  assert.doesNotMatch(html, /Strong ready/);
 });
 
 test("writing panel controller shows entry recommendation reason in the first screen hint", () => {

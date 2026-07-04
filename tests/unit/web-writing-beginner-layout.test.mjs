@@ -21,7 +21,8 @@ test("writing center keeps beginner four-step path above folded advanced areas",
   assert.match(html, /<details class="writing-advanced-details" id="writingOutputActionsDetails">/);
   assert.match(html, /<details class="writing-advanced-details">\s*<summary>高级：AI 写作检查<\/summary>/);
   assert.match(html, /<details class="writing-advanced-details">[\s\S]*<summary>更多写作工具：书稿方向、最近写作和版本历史<\/summary>/);
-  assert.match(html, /<details class="writing-advanced-details writing-section">\s*<summary>更多选择：可写主题与主题详情<\/summary>/);
+  assert.match(html, /id="writingThemeIndexList"/);
+  assert.match(html, /id="writingThemeDetail"/);
   assert.match(html, /<details class="writing-advanced-details writing-section" id="writingCandidateDetails">\s*<summary>更多选择：当前目录永久笔记<\/summary>/);
   assert.doesNotMatch(html, /<details class="writing-advanced-details" open>/);
   assert.doesNotMatch(statusStrip, /renderWritingStatusCard\("AI 辅助"/);

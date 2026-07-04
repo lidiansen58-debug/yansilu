@@ -149,6 +149,7 @@ export function renderWritingPanelDom(deps = {}) {
   const copyScaffoldButton = $("btnWritingCopyScaffold");
   const exportScaffoldButton = $("btnWritingExportScaffold");
   const saveDraftButton = $("btnWritingSaveDraft");
+  const outputActionsDetails = $("writingOutputActionsDetails");
   const strongModelButton = $("btnWritingStrongModelAnalysis");
   const strongModelSummary = $("writingStrongModelSummary");
   const projectsHint = $("writingProjectsHint");
@@ -328,6 +329,7 @@ export function renderWritingPanelDom(deps = {}) {
   }
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
+  if (outputActionsDetails && (hasScaffold || hasDraft)) outputActionsDetails.open = true;
   if (saveDraftButton) {
     const canSaveDraft = Boolean(writingState.scaffold?.id) && projectPreflightSummary.level === "ready";
     saveDraftButton.disabled = !canSaveDraft;

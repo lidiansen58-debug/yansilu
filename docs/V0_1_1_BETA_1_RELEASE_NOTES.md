@@ -26,6 +26,7 @@ Yansilu v0.1.1-beta.1 is a Windows desktop beta for close testers who want to tr
 - Already processed AI inbox items no longer show actions that would fail.
 - External-link WYSIWYG browser smoke now uses the trusted click path and no longer waits on a long popup timeout.
 - Help now explains the computer-plus-phone workflow: keep the desktop app running, scan from the phone, confirm pairing on the computer, capture mobile notes into the desktop vault, and revoke paired devices when needed.
+- Writing center now exposes the draft-save action as soon as an outline or draft exists, so the visible next step is actually clickable.
 
 ## Known Limitations
 
@@ -34,3 +35,4 @@ Yansilu v0.1.1-beta.1 is a Windows desktop beta for close testers who want to tr
 - Updater artifacts are disabled for the local beta build; one-click update should wait for signed release feeds.
 - Native installed-WebView checks for file dialogs and OS shell reveal/open actions should be repeated before sharing beyond close testers.
 - Mobile access in this beta is intended for trusted LAN/private-network use, not direct public internet exposure.
+- A moderate DOMPurify advisory remains through `@toast-ui/editor`; the non-breaking dependency audit cleanup has removed high-severity findings, and the remaining fix path needs separate editor regression testing.
