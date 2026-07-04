@@ -11,6 +11,9 @@ import {
   assertLocalRuntimeControlAllowed
 } from "./local-runtime-control.mjs";
 import {
+  handleMobileApiRequest
+} from "./mobile-access-service.mjs";
+import {
   LOCAL_MODEL_TIERS,
   OLLAMA_INSTALL_URL,
   OLLAMA_RECOMMENDED_MODEL,
@@ -2085,7 +2088,7 @@ function sendJson(res, status, body) {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization,X-Yansilu-Local-Runtime-Control"
+    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization,X-Yansilu-Local-Runtime-Control,X-Yansilu-Mobile-Token"
   });
   res.end(status === 204 ? "" : JSON.stringify(body, null, 2));
 }
@@ -3360,6 +3363,31 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === "OPTIONS") return sendJson(res, 204, {});
+
+    if (url.pathname.startsWith("/api/v1/mobile/")) {
+      return handleMobileApiRequest({
+        req,
+        res,
+        url,
+        sendJson,
+        readJson,
+        err,
+        requestId: rid,
+        vaultPath: VAULT_PATH,
+        deps: {
+          initVault,
+          listDirectories,
+          listNotesInDirectory,
+          listIndexCards,
+          searchNotes,
+          getNoteById,
+          createNoteInDirectory,
+          saveNoteAsset,
+          updateNoteContent
+        },
+        assertDesktopControlAllowed: assertLocalRuntimeControlAllowed
+      });
+    }
 
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
       return sendHtml(

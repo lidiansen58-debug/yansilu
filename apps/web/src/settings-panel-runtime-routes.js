@@ -244,6 +244,7 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
       formatSettingsUserError,
       feedbackBaseUrl: current.feedbackBaseUrl,
       renderUpdateSettingsCard: current.renderUpdateSettingsCard,
+      renderMobileAccessSettingsCard: current.renderMobileAccessSettingsCard,
       renderNoteTemplateSettingsCard: current.renderNoteTemplateSettingsCard,
       renderAiLocalModelControls: current.renderAiLocalModelControls,
       renderAiSettingsExperience: current.renderAiSettingsExperience,

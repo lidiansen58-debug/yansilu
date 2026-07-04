@@ -51,6 +51,7 @@ export const SETTINGS_DETAIL_ITEMS = Object.freeze([
   { id: "feedback", label: "问题反馈", group: "新手帮助", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
   { id: "version-update", label: "版本更新", group: "新手帮助", sectionId: "support", cardIds: ["settingsUpdateCard"] },
   { id: "current-vault", label: "本地笔记库", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
+  { id: "mobile-access", label: "手机访问", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
   { id: "permanent-template", label: "永久笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
   { id: "literature-template", label: "文献笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
   { id: "ai-settings", label: "AI 设置", group: "进阶设置", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
@@ -206,6 +207,15 @@ export function settingsItemSidebarIconSvg(itemId = "") {
         <path d="M8 14h5"></path>
       </svg>
     `,
+    "mobile-access": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="7" y="3.5" width="10" height="17" rx="2.4"></rect>
+        <path d="M10 6h4"></path>
+        <path d="M10 17.5h4"></path>
+        <path d="M4.5 9.5c1.2-1.2 2.5-1.8 4-1.8"></path>
+        <path d="M4.5 14.5c1.2 1.2 2.5 1.8 4 1.8"></path>
+      </svg>
+    `,
     "switch-vault": `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H10l1.4 1.8H17.5A2.5 2.5 0 0 1 20 10.3v5.2A2.5 2.5 0 0 1 17.5 18h-11A2.5 2.5 0 0 1 4 15.5z"></path>
@@ -269,6 +279,7 @@ export function settingsItemSidebarIconSvg(itemId = "") {
 export function settingsItemSummary(itemId = "") {
   const summaries = {
     "current-vault": "在这里直接选择并切换笔记库路径。",
+    "mobile-access": "手机扫码连接这台电脑，用来随时记录想法、保存素材和轻量查看笔记。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
     "ai-settings": "从本地大模型或远程大模型入口开始配置。",

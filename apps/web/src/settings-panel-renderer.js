@@ -18,6 +18,7 @@ export function renderSettingsPanelForRuntime(deps = {}) {
     formatSettingsUserError = (value = "") => String(value || ""),
     feedbackBaseUrl = () => "#",
     renderUpdateSettingsCard = () => {},
+    renderMobileAccessSettingsCard = () => {},
     renderNoteTemplateSettingsCard = () => {},
     renderAiLocalModelControls = () => {},
     renderAiSettingsExperience = () => {},
@@ -60,6 +61,7 @@ export function renderSettingsPanelForRuntime(deps = {}) {
 
   renderSettingsFeedbackCard({ $, feedbackRepository, feedbackRepositoryReady, feedbackBaseUrl });
   renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVersion });
+  renderMobileAccessSettingsCard();
   renderNoteTemplateSettingsCard("permanent");
   renderNoteTemplateSettingsCard("literature");
 

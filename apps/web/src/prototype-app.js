@@ -82,6 +82,7 @@ import { createAiInboxActionRoutes } from "./ai-inbox-action-routes.js";
 import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
+import { renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
 import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
 import { createGraphFollowupController } from "./graph-followup-controller.js";
@@ -185,7 +186,7 @@ import { buildAiProviderConfigPayload } from "./settings-ai-provider-config-acti
 import { AI_LOCAL_MODEL_TIERS, AI_REMOTE_MODEL_TIERS, OLLAMA_CHAT_ENDPOINT_URL, OLLAMA_HEALTH_ENDPOINT_URL, OLLAMA_RECOMMENDED_MODEL, aiDefaultsForRuntimeMode, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl, enabledProviderHealthEndpointUrl, isBuiltInOllamaModel, isRemoteConfigurableProviderId, localModelDisplayProfile, modelNameExistsInList, normalizeOllamaSetupGuide, ollamaBootstrapStatusText, ollamaModelRecommendationProfiles, ollamaRecommendationForModel, preferredLocalModelName, remoteRuntimeModelFromMap, runtimeModelMapForRemoteModel, selectedLocalModelNameForInstalledModels } from "./prototype-ai-settings-controller.js";
 import { createUpdateState, shouldShowUpdateAttention, updateStateAutoCheckEnabled, updateStateIgnoreLatest, updateStateRemindLater } from "./update-state.js";
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "./prototype-update-controller.js";
-import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, setWritingCurrentDraftNote, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffoldVersionNote, fetchVaultInfo, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, summarizeAiInboxItem, seedYijingKnowledgeNetwork, seedYijingRichAcceptanceDemo, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
+import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, setWritingCurrentDraftNote, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedYijingKnowledgeNetwork, seedYijingRichAcceptanceDemo, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
@@ -374,6 +375,13 @@ const settingsState = {
     }
   },
   update: createUpdateState(),
+  mobileAccess: {
+    item: null,
+    loading: false,
+    actionLoading: "",
+    error: "",
+    lastLoadedAt: ""
+  },
   ai: {
     runtimeMode: "auto",
     userMode: "Auto",
@@ -482,6 +490,7 @@ const settingsPanelRuntimeRoutes = createSettingsPanelRuntimeRoutes(() => ({
   mountSettingsAutomationWorkspace,
   feedbackBaseUrl,
   renderUpdateSettingsCard,
+  renderMobileAccessSettingsCard,
   renderNoteTemplateSettingsCard,
   renderAiLocalModelControls,
   renderAiSettingsExperience,
@@ -652,6 +661,117 @@ const updateController = createPrototypeUpdateController({
   getRestartBlockers: desktopUpdateRestartBlockers
 });
 updateController.loadUpdateSettingsFromStorage();
+
+let mobileAccessRefreshTimer = 0;
+
+function isMobileAccessSettingsActive() {
+  return state.module === "settings" && settingsState.activeItem === "mobile-access";
+}
+
+function clearMobileAccessRefreshTimer() {
+  if (mobileAccessRefreshTimer && typeof window !== "undefined") {
+    window.clearTimeout(mobileAccessRefreshTimer);
+  }
+  mobileAccessRefreshTimer = 0;
+}
+
+function scheduleMobileAccessRefresh() {
+  clearMobileAccessRefreshTimer();
+  if (!isMobileAccessSettingsActive() || typeof window === "undefined") return;
+  mobileAccessRefreshTimer = window.setTimeout(() => {
+    mobileAccessRefreshTimer = 0;
+    refreshMobileAccessStatus({ silent: true });
+  }, 2500);
+}
+
+function renderMobileAccessSettingsCard() {
+  const mount = $("settingsMobileAccessPanel");
+  if (!mount) return;
+  if (!isMobileAccessSettingsActive()) clearMobileAccessRefreshTimer();
+  if (
+    settingsState.activeItem === "mobile-access" &&
+    !settingsState.mobileAccess.item &&
+    !settingsState.mobileAccess.loading &&
+    !settingsState.mobileAccess.error
+  ) {
+    window.setTimeout(() => refreshMobileAccessStatus({ silent: true }), 0);
+  }
+  mount.innerHTML = renderMobileAccessDesktopPanel({
+    state: settingsState.mobileAccess,
+    escapeHtml
+  });
+}
+
+async function refreshMobileAccessStatus({ silent = false } = {}) {
+  settingsState.mobileAccess.loading = true;
+  settingsState.mobileAccess.error = "";
+  if (!silent) renderMobileAccessSettingsCard();
+  try {
+    settingsState.mobileAccess.item = await fetchMobileDesktopAccessStatus();
+    settingsState.mobileAccess.lastLoadedAt = new Date().toISOString();
+  } catch (error) {
+    settingsState.mobileAccess.error = String(error?.message || error);
+  } finally {
+    settingsState.mobileAccess.loading = false;
+    if (state.module === "settings") renderMobileAccessSettingsCard();
+    if (isMobileAccessSettingsActive()) scheduleMobileAccessRefresh();
+  }
+}
+
+async function rotateMobileAccessPairingCodeFromUi() {
+  settingsState.mobileAccess.actionLoading = "rotate";
+  settingsState.mobileAccess.error = "";
+  renderMobileAccessSettingsCard();
+  try {
+    await rotateMobilePairingCode();
+    await refreshMobileAccessStatus({ silent: true });
+    setStatus("已刷新手机访问二维码和配对码。", "ok");
+  } catch (error) {
+    settingsState.mobileAccess.error = String(error?.message || error);
+    setStatus(`刷新手机配对码失败：${String(error?.message || error)}`, "bad");
+  } finally {
+    settingsState.mobileAccess.actionLoading = "";
+    renderMobileAccessSettingsCard();
+  }
+}
+
+async function confirmMobilePairRequestFromUi(requestId = "") {
+  const cleanRequestId = String(requestId || "").trim();
+  if (!cleanRequestId) return;
+  settingsState.mobileAccess.actionLoading = cleanRequestId;
+  settingsState.mobileAccess.error = "";
+  renderMobileAccessSettingsCard();
+  try {
+    await confirmMobilePairRequest(cleanRequestId);
+    await refreshMobileAccessStatus({ silent: true });
+    setStatus("已允许这台手机访问电脑上的研思录。", "ok");
+  } catch (error) {
+    settingsState.mobileAccess.error = String(error?.message || error);
+    setStatus(`确认手机连接失败：${String(error?.message || error)}`, "bad");
+  } finally {
+    settingsState.mobileAccess.actionLoading = "";
+    renderMobileAccessSettingsCard();
+  }
+}
+
+async function revokeMobileDeviceFromUi(deviceId = "") {
+  const cleanDeviceId = String(deviceId || "").trim();
+  if (!cleanDeviceId) return;
+  settingsState.mobileAccess.actionLoading = cleanDeviceId;
+  settingsState.mobileAccess.error = "";
+  renderMobileAccessSettingsCard();
+  try {
+    await revokeMobileDevice(cleanDeviceId);
+    await refreshMobileAccessStatus({ silent: true });
+    setStatus("已撤销这台手机的访问权限。", "ok");
+  } catch (error) {
+    settingsState.mobileAccess.error = String(error?.message || error);
+    setStatus(`撤销手机访问失败：${String(error?.message || error)}`, "bad");
+  } finally {
+    settingsState.mobileAccess.actionLoading = "";
+    renderMobileAccessSettingsCard();
+  }
+}
 
 installStartupAutoOpenEventBindings({
   documentRef: typeof document !== "undefined" ? document : null,
@@ -5656,6 +5776,10 @@ installSettingsEventBindings({
   setSettingsItem,
   activateModule,
   refreshVaultSettings,
+  refreshMobileAccessStatus,
+  rotateMobileAccessPairingCodeFromUi,
+  confirmMobilePairRequestFromUi,
+  revokeMobileDeviceFromUi,
   loadNoteTemplateSettingsFromStorage,
   syncDirectoriesFromApi,
   syncNotesForDirectory,

@@ -55,6 +55,14 @@ async function serveStaticPage(res, filename) {
   res.end(html);
 }
 
+async function serveMobilePage(res) {
+  const htmlPath = path.join(ROOT, "mobile.html");
+  const raw = await fs.readFile(htmlPath, "utf8");
+  const html = raw.replaceAll('"__MOBILE_API_BASE__"', JSON.stringify("/mobile/api"));
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  res.end(html);
+}
+
 async function serveHandoff(res) {
   const htmlPath = path.join(ROOT, "prototype-handoff.html");
   const html = await fs.readFile(htmlPath, "utf8");
@@ -151,6 +159,36 @@ async function serveAssetProxy(res, relativePath) {
   res.end(body);
 }
 
+async function proxyMobileApi(req, res, url) {
+  const targetPath = url.pathname.replace(/^\/mobile\/api/, "/api/v1/mobile");
+  const upstreamUrl = `${API_BASE}${targetPath}${url.search}`;
+  const headers = {
+    "Content-Type": req.headers["content-type"] || "application/json",
+    "X-Request-Id": req.headers["x-request-id"] || `mobile_${Date.now()}`
+  };
+  const mobileToken = req.headers["x-yansilu-mobile-token"];
+  if (mobileToken) headers["X-Yansilu-Mobile-Token"] = mobileToken;
+
+  const hasBody = !["GET", "HEAD"].includes(String(req.method || "GET").toUpperCase());
+  const chunks = [];
+  if (hasBody) {
+    for await (const chunk of req) chunks.push(chunk);
+  }
+
+  const upstream = await fetch(upstreamUrl, {
+    method: req.method,
+    headers,
+    body: hasBody ? Buffer.concat(chunks) : undefined
+  });
+  const contentType = upstream.headers.get("content-type") || "application/json; charset=utf-8";
+  const body = Buffer.from(await upstream.arrayBuffer());
+  res.writeHead(upstream.status, {
+    "Content-Type": contentType,
+    "Cache-Control": "no-store"
+  });
+  res.end(body);
+}
+
 async function serveLocalStaticFile(res, relativePath) {
   const candidate = path.resolve(ROOT, relativePath);
   if (!candidate.startsWith(ROOT)) return false;
@@ -234,6 +272,14 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === "/prototype" || url.pathname === "/editor" || url.pathname === "/app" || url.pathname === "/app/editor") {
       await servePrototype(res);
+      return;
+    }
+    if (url.pathname === "/mobile" || url.pathname === "/app/mobile") {
+      await serveMobilePage(res);
+      return;
+    }
+    if (url.pathname.startsWith("/mobile/api/")) {
+      await proxyMobileApi(req, res, url);
       return;
     }
     if (url.pathname === "/paper-workspace" || url.pathname === "/app/paper-workspace") {

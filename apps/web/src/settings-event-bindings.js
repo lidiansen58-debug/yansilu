@@ -10,6 +10,10 @@ export function installSettingsEventBindings(deps = {}) {
     setSettingsItem = () => {},
     activateModule = () => {},
     refreshVaultSettings = async () => {},
+    refreshMobileAccessStatus = async () => {},
+    rotateMobileAccessPairingCodeFromUi = async () => {},
+    confirmMobilePairRequestFromUi = async () => {},
+    revokeMobileDeviceFromUi = async () => {},
     loadNoteTemplateSettingsFromStorage = () => {},
     syncDirectoriesFromApi = async () => {},
     syncNotesForDirectory = async () => {},
@@ -54,6 +58,27 @@ export function installSettingsEventBindings(deps = {}) {
 
   $("settingsMobileItemSelect")?.addEventListener("change", (event) => {
     setSettingsItem(event.target.value, { announce: true });
+    if (event.target.value === "mobile-access") refreshMobileAccessStatus({ silent: true });
+  });
+
+  $("settingsMobileAccessPanel")?.addEventListener("click", async (event) => {
+    if (event.target.closest("[data-mobile-access-refresh]")) {
+      await refreshMobileAccessStatus();
+      return;
+    }
+    if (event.target.closest("[data-mobile-access-rotate]")) {
+      await rotateMobileAccessPairingCodeFromUi();
+      return;
+    }
+    const confirmButton = event.target.closest("[data-mobile-pair-confirm]");
+    if (confirmButton) {
+      await confirmMobilePairRequestFromUi(confirmButton.getAttribute("data-mobile-pair-confirm") || "");
+      return;
+    }
+    const revokeButton = event.target.closest("[data-mobile-device-revoke]");
+    if (revokeButton) {
+      await revokeMobileDeviceFromUi(revokeButton.getAttribute("data-mobile-device-revoke") || "");
+    }
   });
 
   $("settingsCheckUpdate")?.addEventListener("click", async () => {
@@ -102,7 +127,9 @@ export function installSettingsEventBindings(deps = {}) {
     }
     const itemButton = event.target.closest("[data-settings-item]");
     if (itemButton) {
-      setSettingsItem(itemButton.getAttribute("data-settings-item"), { announce: true });
+      const itemId = itemButton.getAttribute("data-settings-item");
+      setSettingsItem(itemId, { announce: true });
+      if (itemId === "mobile-access") refreshMobileAccessStatus({ silent: true });
       return;
     }
     const button = event.target.closest("[data-settings-section]");

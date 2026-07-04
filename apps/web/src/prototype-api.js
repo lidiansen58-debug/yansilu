@@ -88,6 +88,41 @@ export async function fetchAppVersion() {
   return json.item || null;
 }
 
+export async function fetchMobileDesktopAccessStatus() {
+  const json = await request("/api/v1/mobile/desktop/status", {
+    headers: LOCAL_RUNTIME_CONTROL_HEADERS
+  });
+  return json.item || null;
+}
+
+export async function rotateMobilePairingCode() {
+  const json = await request("/api/v1/mobile/desktop/pairing-code/rotate", {
+    method: "POST",
+    headers: LOCAL_RUNTIME_CONTROL_HEADERS
+  });
+  return json.item || null;
+}
+
+export async function confirmMobilePairRequest(requestId = "") {
+  const cleanRequestId = String(requestId || "").trim();
+  if (!cleanRequestId) throw new Error("requestId is required");
+  const json = await request(`/api/v1/mobile/desktop/pair-requests/${encodeURIComponent(cleanRequestId)}/confirm`, {
+    method: "POST",
+    headers: LOCAL_RUNTIME_CONTROL_HEADERS
+  });
+  return json.item || null;
+}
+
+export async function revokeMobileDevice(deviceId = "") {
+  const cleanDeviceId = String(deviceId || "").trim();
+  if (!cleanDeviceId) throw new Error("deviceId is required");
+  const json = await request(`/api/v1/mobile/desktop/devices/${encodeURIComponent(cleanDeviceId)}/revoke`, {
+    method: "POST",
+    headers: LOCAL_RUNTIME_CONTROL_HEADERS
+  });
+  return json.item || null;
+}
+
 export async function checkAppUpdate(payload = {}) {
   const json = await request("/api/v1/app/updates/check", {
     method: "POST",

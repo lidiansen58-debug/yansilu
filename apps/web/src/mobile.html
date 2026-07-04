@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>研思录手机记录</title>
+    <link rel="stylesheet" href="/mobile.css" />
+  </head>
+  <body>
+    <div class="mobile-shell">
+      <header class="mobile-header">
+        <div>
+          <p class="eyebrow">连接电脑</p>
+          <h1>研思录手机记录</h1>
+        </div>
+        <button class="ghost-button" id="lockButton" type="button">断开</button>
+      </header>
+
+      <main id="app" class="mobile-main" aria-live="polite">
+        <section class="panel">
+          <p class="eyebrow">等待连接</p>
+          <h2>扫码连接电脑</h2>
+          <p class="muted">手机端用于随时记录想法、保存素材和轻量回看笔记。</p>
+        </section>
+      </main>
+
+      <nav class="tabbar" aria-label="手机记录导航">
+        <button class="tab is-active" type="button" data-view="home">首页</button>
+        <button class="tab" type="button" data-view="quick">记录</button>
+        <button class="tab" type="button" data-view="notes">笔记</button>
+        <button class="tab" type="button" data-view="themes">素材</button>
+      </nav>
+    </div>
+
+    <script>
+      window.__MOBILE_API_BASE__ = "__MOBILE_API_BASE__";
+    </script>
+    <script type="module" src="/mobile.js"></script>
+  </body>
+</html>
