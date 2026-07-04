@@ -50,7 +50,7 @@ export const SETTINGS_DETAIL_ITEMS = Object.freeze([
   { id: "desktop-help", label: "本地使用说明", group: "新手帮助", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
   { id: "feedback", label: "问题反馈", group: "新手帮助", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
   { id: "version-update", label: "版本更新", group: "新手帮助", sectionId: "support", cardIds: ["settingsUpdateCard"] },
-  { id: "current-vault", label: "本地笔记库", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
+  { id: "current-vault", label: "本地笔记库", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardSwitchVault", "settingsCardVaultBackup", "settingsCardVaultRestore"] },
   { id: "mobile-access", label: "手机访问", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
   { id: "permanent-template", label: "永久笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
   { id: "literature-template", label: "文献笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },

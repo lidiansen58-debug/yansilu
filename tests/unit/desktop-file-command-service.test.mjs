@@ -46,3 +46,38 @@ test("desktop file command service forwards external link requests", async () =>
     else globalThis.window = previousWindow;
   }
 });
+
+test("desktop file command service picks encrypted backup files", async () => {
+  const previousWindow = globalThis.window;
+  const calls = [];
+  const service = createDesktopFileCommandService();
+
+  globalThis.window = {
+    __TAURI__: {
+      dialog: {
+        async open(options) {
+          calls.push(options);
+          return "E:\\Backups\\picked.yansilu-backup";
+        }
+      }
+    }
+  };
+
+  try {
+    const result = await service.pickBackupFile({ defaultPath: "E:\\Backups" });
+    assert.equal(result.path, "E:\\Backups\\picked.yansilu-backup");
+    assert.equal(result.source, "tauri");
+    assert.equal(result.purpose, "加密备份文件");
+    assert.deepEqual(calls, [
+      {
+        directory: false,
+        multiple: false,
+        defaultPath: "E:\\Backups",
+        filters: [{ name: "Yansilu backup", extensions: ["yansilu-backup"] }]
+      }
+    ]);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});

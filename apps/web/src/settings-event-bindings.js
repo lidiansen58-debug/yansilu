@@ -1,3 +1,5 @@
+import { installVaultBackupPanelEvents } from "./settings-vault-backup-panel.js";
+
 export function installSettingsEventBindings(deps = {}) {
   const {
     $ = () => null,
@@ -17,6 +19,8 @@ export function installSettingsEventBindings(deps = {}) {
     loadNoteTemplateSettingsFromStorage = () => {},
     syncDirectoriesFromApi = async () => {},
     syncNotesForDirectory = async () => {},
+    createEncryptedVaultBackup = async () => {},
+    restoreEncryptedVaultBackup = async () => {},
     renderAll = () => {},
     renderSettingsPanel = () => {},
     renderScheduledTasksWorkspace = () => {},
@@ -39,6 +43,32 @@ export function installSettingsEventBindings(deps = {}) {
     setScheduledTaskStatus = async () => {},
     applyScheduledTaskTemplateToForm = () => {}
   } = deps;
+
+  installVaultBackupPanelEvents({
+    $,
+    settingsState,
+    desktopCommands,
+    createBackup: createEncryptedVaultBackup,
+    restoreBackup: restoreEncryptedVaultBackup,
+    renderSettingsPanel,
+    setStatus,
+    openRestoredVault: async (vaultPath) => {
+      if (!editor.confirmDiscardDirtyTabs?.("打开恢复后的笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+      const nextVault = await desktopCommands.switchVault?.(vaultPath);
+      settingsState.vault = nextVault;
+      loadNoteTemplateSettingsFromStorage();
+      state.notes = [];
+      state.tabs = [];
+      state.activeTabId = null;
+      state.selectedFileId = null;
+      await syncDirectoriesFromApi();
+      state.browserRootId = "dir_original_default";
+      state.selectedFolderId = "dir_original_default";
+      await syncNotesForDirectory(state.selectedFolderId);
+      renderAll();
+      setStatus(`已打开恢复后的笔记库：${nextVault?.vaultPath || ""}`, "ok");
+    }
+  });
 
   $("settingsRefreshVault")?.addEventListener("click", async () => {
     setSettingsSection("workspace", { render: false });

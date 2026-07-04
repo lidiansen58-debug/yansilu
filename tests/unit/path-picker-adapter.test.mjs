@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { pickDirectoryPath } from "../../apps/web/src/path-picker-adapter.js";
+import { pickDirectoryPath, pickFilePath } from "../../apps/web/src/path-picker-adapter.js";
 
 test("path picker prefers tauri dialog.open when available", async () => {
   const previousWindow = globalThis.window;
@@ -140,6 +140,70 @@ test("path picker returns none when browser fallback is cancelled", async () => 
   try {
     const result = await pickDirectoryPath({ defaultPath: "E:\\Vaults\\default" });
     assert.deepEqual(result, { path: "", source: "none" });
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
+test("file picker opens tauri dialog with file filters", async () => {
+  const previousWindow = globalThis.window;
+  const calls = [];
+
+  globalThis.window = {
+    __TAURI__: {
+      dialog: {
+        async open(options) {
+          calls.push(options);
+          return "E:\\Backups\\yansilu-backup-20260704-093000.yansilu-backup";
+        }
+      }
+    }
+  };
+
+  try {
+    const result = await pickFilePath({
+      defaultPath: "E:\\Backups",
+      filters: [{ name: "Yansilu backup", extensions: ["yansilu-backup"] }]
+    });
+    assert.deepEqual(calls, [
+      {
+        directory: false,
+        multiple: false,
+        defaultPath: "E:\\Backups",
+        filters: [{ name: "Yansilu backup", extensions: ["yansilu-backup"] }]
+      }
+    ]);
+    assert.deepEqual(result, {
+      path: "E:\\Backups\\yansilu-backup-20260704-093000.yansilu-backup",
+      source: "tauri"
+    });
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
+test("file picker falls back to browser prompt for a concrete path", async () => {
+  const previousWindow = globalThis.window;
+  const prompts = [];
+
+  globalThis.window = {
+    prompt(message, defaultPath) {
+      prompts.push({ message, defaultPath });
+      return "E:\\Backups\\picked.yansilu-backup";
+    }
+  };
+
+  try {
+    const result = await pickFilePath({ defaultPath: "E:\\Backups" });
+    assert.deepEqual(prompts, [
+      {
+        message: "请输入文件路径（浏览器降级模式）",
+        defaultPath: "E:\\Backups"
+      }
+    ]);
+    assert.deepEqual(result, { path: "E:\\Backups\\picked.yansilu-backup", source: "browser" });
   } finally {
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;

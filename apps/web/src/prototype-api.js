@@ -579,6 +579,22 @@ export async function switchVault(vaultPath) {
   return json.item || null;
 }
 
+export async function createEncryptedVaultBackup(payload = {}) {
+  return request("/api/v1/vault/backups", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export async function restoreEncryptedVaultBackup(payload = {}) {
+  return request("/api/v1/vault/backups/restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+}
+
 export async function createDirectory(payload) {
   const json = await request("/api/v1/directories", {
     method: "POST",

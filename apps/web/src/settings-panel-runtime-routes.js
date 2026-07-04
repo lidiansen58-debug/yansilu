@@ -14,6 +14,7 @@ import {
 } from "./prototype-settings-navigation.js";
 import { renderSettingsDetailFocusForRuntime, renderSettingsSidebarColumnForRuntime, renderSettingsWorkbenchChromeForRuntime } from "./settings-panel-shell.js";
 import { renderSettingsPanelForRuntime } from "./settings-panel-renderer.js";
+import { renderVaultBackupPanel } from "./settings-vault-backup-panel.js";
 
 export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
   const deps = () => depsProvider() || {};
@@ -246,6 +247,11 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
       renderUpdateSettingsCard: current.renderUpdateSettingsCard,
       renderMobileAccessSettingsCard: current.renderMobileAccessSettingsCard,
       renderNoteTemplateSettingsCard: current.renderNoteTemplateSettingsCard,
+      renderVaultBackupPanel: () => renderVaultBackupPanel({
+        $: current.$,
+        settingsState: current.settingsState,
+        escapeHtml: current.escapeHtml
+      }),
       renderAiLocalModelControls: current.renderAiLocalModelControls,
       renderAiSettingsExperience: current.renderAiSettingsExperience,
       renderAiProviderConfigControls: current.renderAiProviderConfigControls,

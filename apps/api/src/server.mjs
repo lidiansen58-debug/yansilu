@@ -28,6 +28,7 @@ import {
 import {
   createDirectory,
   createIndexCard,
+  createEncryptedVaultBackup,
   createNoteInDirectory,
   createNoteRelation,
   deleteDirectory,
@@ -54,6 +55,7 @@ import {
   saveNoteAsset,
   searchNotes,
   seedYijingKnowledgeNetwork,
+  restoreEncryptedVaultBackup,
   updateIndexCard,
   updateDirectory,
   updateNoteContent,
@@ -149,6 +151,7 @@ import {
   suggestionToCanonical
 } from "../../../packages/ai-orchestrator/src/index.mjs";
 import { createImportExportService } from "./import-export-service.mjs";
+import { createVaultBackupJobGate, createVaultWriteGate } from "./vault-write-gate.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
 const WEB_PORT = Number(process.env.WEB_PORT || 5173);
@@ -178,6 +181,8 @@ let aiArtifactStorePromise = null;
 let aiSuggestionStorePromise = null;
 const potentialRelationAiCache = new PotentialRelationAiCache();
 let appVersionPromise = null;
+const vaultWriteGate = createVaultWriteGate();
+const vaultBackupJobGate = createVaultBackupJobGate();
 
 async function currentAppVersion() {
   if (!appVersionPromise) {
@@ -226,6 +231,28 @@ async function aiSuggestionStore() {
     aiSuggestionStorePromise = createSqliteSuggestionStore({ vaultPath: VAULT_PATH });
   }
   return aiSuggestionStorePromise;
+}
+
+async function closeVaultScopedStores() {
+  const stores = await Promise.allSettled([
+    aiPreferencesStorePromise,
+    aiProviderConfigStorePromise,
+    aiProviderHealthStorePromise,
+    aiScheduledTaskStorePromise,
+    aiArtifactStorePromise,
+    aiSuggestionStorePromise
+  ]);
+  for (const item of stores) {
+    if (item.status === "fulfilled" && typeof item.value?.close === "function") {
+      item.value.close();
+    }
+  }
+  aiPreferencesStorePromise = null;
+  aiProviderConfigStorePromise = null;
+  aiProviderHealthStorePromise = null;
+  aiScheduledTaskStorePromise = null;
+  aiArtifactStorePromise = null;
+  aiSuggestionStorePromise = null;
 }
 
 function advancedModelRefFrom(input = {}) {
@@ -2127,6 +2154,15 @@ function err(code, message, rid, details) {
   };
 }
 
+function isMutatingRequest(req) {
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(String(req?.method || "").toUpperCase());
+}
+
+function bypassVaultWriteGate(url) {
+  return url?.pathname === "/api/v1/vault/backups" ||
+    url?.pathname === "/api/v1/vault/backups/restore";
+}
+
 function publicVaultInfo(layout = null) {
   return {
     vaultPath: VAULT_PATH,
@@ -3360,9 +3396,13 @@ const importExportService = createImportExportService({
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const rid = requestId(req);
+  let releaseWrite = null;
 
   try {
     if (req.method === "OPTIONS") return sendJson(res, 204, {});
+    if (isMutatingRequest(req)) {
+      releaseWrite = await vaultWriteGate.enter({ bypass: bypassVaultWriteGate(url) });
+    }
 
     if (url.pathname.startsWith("/api/v1/mobile/")) {
       return handleMobileApiRequest({
@@ -3840,6 +3880,86 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("VAULT_SWITCH_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/vault/backups") {
+      const body = await readJson(req);
+      let releaseBackupJob = null;
+      try {
+        releaseBackupJob = vaultBackupJobGate.enter();
+        const version = await currentAppVersion();
+        const drain = await vaultWriteGate.pauseAndDrain({ timeoutMs: 15000 });
+        await closeVaultScopedStores();
+        const item = await createEncryptedVaultBackup({
+          vaultPath: VAULT_PATH,
+          password: body.password,
+          targetDirectory: body.targetDirectory || body.target_directory,
+          targetPath: body.targetPath || body.target_path,
+          appVersion: version
+        });
+        return sendJson(res, 201, {
+          item: {
+            ...item,
+            drain,
+            message: "Encrypted backup created. Keep the password safe; Yansilu cannot recover it."
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const statusByCode = {
+          VAULT_BACKUP_PASSWORD_REQUIRED: 400,
+          VAULT_BACKUP_TARGET_REQUIRED: 400,
+          VAULT_BACKUP_TARGET_INSIDE_VAULT: 400,
+          VAULT_BACKUP_TARGET_INVALID: 400,
+          VAULT_BACKUP_WRITES_BUSY: 423,
+          VAULT_BACKUP_ALREADY_RUNNING: 423,
+          VAULT_BACKUP_TOO_LARGE: 413,
+          VAULT_BACKUP_SPACE_NOT_ENOUGH: 507
+        };
+        const status = error?.status || statusByCode[error?.code] || 500;
+        return sendJson(res, status, err(error?.code || "VAULT_BACKUP_CREATE_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        releaseBackupJob?.();
+        vaultWriteGate.resume();
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/vault/backups/restore") {
+      const body = await readJson(req);
+      let releaseBackupJob = null;
+      try {
+        releaseBackupJob = vaultBackupJobGate.enter();
+        const item = await restoreEncryptedVaultBackup({
+          backupPath: body.backupPath || body.backup_path,
+          password: body.password,
+          targetVaultPath: body.targetVaultPath || body.target_vault_path
+        });
+        return sendJson(res, 201, {
+          item: {
+            ...item,
+            message: "Backup restored to a new vault folder. Open it when you are ready."
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const statusByCode = {
+          VAULT_BACKUP_PASSWORD_REQUIRED: 400,
+          VAULT_RESTORE_TARGET_REQUIRED: 400,
+          VAULT_RESTORE_TARGET_EXISTS: 409,
+          VAULT_BACKUP_FILE_REQUIRED: 400,
+          VAULT_BACKUP_FILE_NOT_FOUND: 404,
+          VAULT_BACKUP_PASSWORD_OR_FILE_INVALID: 400,
+          VAULT_BACKUP_FILE_DAMAGED: 400,
+          VAULT_BACKUP_FORMAT_UNSUPPORTED: 400,
+          VAULT_BACKUP_ALREADY_RUNNING: 423,
+          VAULT_RESTORE_SPACE_NOT_ENOUGH: 507
+        };
+        return sendJson(res, statusByCode[error?.code] || 500, err(error?.code || "VAULT_BACKUP_RESTORE_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        releaseBackupJob?.();
       }
     }
 
@@ -6815,7 +6935,10 @@ const server = http.createServer(async (req, res) => {
 
     return sendJson(res, 404, err("NOT_FOUND", "Route not found", rid));
   } catch (error) {
-    return sendJson(res, 500, err("INTERNAL_ERROR", String(error?.message || error), rid));
+    const status = Number(error?.status || 500);
+    return sendJson(res, status, err(error?.code || "INTERNAL_ERROR", String(error?.message || error), rid, error?.details));
+  } finally {
+    releaseWrite?.();
   }
 });
 
