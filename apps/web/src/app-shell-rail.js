@@ -31,7 +31,7 @@ export function syncRailSelectionDom({
   doc?.querySelectorAll?.(".rail-btn[data-module]").forEach((button) => {
     button.classList.toggle("active", button.dataset.module === currentModule);
     if (button.dataset.module === "today") {
-      const label = todayHasTasks ? "今日整理 · 有待处理任务" : "今日整理";
+      const label = todayHasTasks ? "首页 · 有待处理任务" : "首页";
       button.classList.toggle("has-unread", todayHasTasks);
       button.setAttribute("title", label);
       button.setAttribute("data-tip", label);

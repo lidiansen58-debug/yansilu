@@ -2,7 +2,7 @@ export function createInitialState() {
   const VAULT_ROOT = "E:\\Projects\\Thinking in Notes\\yansilu-vault";
 
   return {
-    module: "explorer",
+    module: "today",
     browserRootId: "dir_original_default",
     selectedFolderId: "dir_original_default",
     selectedFileId: null,
@@ -34,39 +34,9 @@ export function createInitialState() {
         hidden: false,
         maxCards: 500,
         fsPath: `${VAULT_ROOT}\\notes\\original`
-      },
-      {
-        id: "dir_original_method",
-        name: "写作方法",
-        parentId: "dir_original_default",
-        isDefault: false,
-        hidden: false,
-        maxCards: 500,
-        fsPath: `${VAULT_ROOT}\\notes\\original\\写作方法`
       }
     ],
-    notes: [
-      {
-        id: "pn_001",
-        title: "写作应从永久笔记中生长",
-        folderId: "dir_original_default",
-        noteType: "permanent",
-        body: "核心观点：先有思想单元，再做结构化写作。\n\n#写作 #永久笔记",
-        tags: ["写作", "永久笔记"],
-        links: [],
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: "pn_002",
-        title: "可写主题是写作入口",
-        folderId: "dir_original_method",
-        noteType: "permanent",
-        body: "索引不是标签集合，而是路径入口。\n\n[[写作应从永久笔记中生长]] #索引",
-        tags: ["索引"],
-        links: ["写作应从永久笔记中生长"],
-        updatedAt: new Date().toISOString()
-      }
-    ],
+    notes: [],
     tabs: [],
     activeTabId: null,
     searchQuery: "",
@@ -74,8 +44,8 @@ export function createInitialState() {
     inspectorVisible: false,
     previewMode: "wysiwyg",
     focusMode: false
-    };
-  }
+  };
+}
 
 export function uid(prefix) {
   return `${prefix}_${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 99)}`;
@@ -114,7 +84,7 @@ export function typeFromFolder(state, folderId) {
 }
 
 export function typeLabel(type) {
-  return type === "fleeting" ? "随笔笔记" : type === "literature" ? "文献笔记" : "永久笔记";
+  return type === "fleeting" ? "随笔" : type === "literature" ? "文献笔记" : "永久笔记";
 }
 
 export function folderById(state, id) {

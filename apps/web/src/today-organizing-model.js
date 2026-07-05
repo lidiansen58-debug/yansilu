@@ -78,10 +78,6 @@ function noteExplicitRelationCount(note = null) {
   return null;
 }
 
-function themeNoteCount(theme = null) {
-  return themeNoteIds(theme).length;
-}
-
 function themeNoteIds(theme = null) {
   const ids = Array.isArray(theme?.item_note_ids)
     ? theme.item_note_ids
@@ -91,6 +87,10 @@ function themeNoteIds(theme = null) {
         ? theme.items.map((item) => item?.note_id || item?.noteId).filter(Boolean)
         : [];
   return ids.map((item) => cleanText(item)).filter(Boolean);
+}
+
+function themeNoteCount(theme = null) {
+  return themeNoteIds(theme).length;
 }
 
 function themeUpdatedAt(theme = null) {
@@ -143,6 +143,20 @@ function shouldUseImportRecommended(importRecommended = null, permanentNotes = [
   return true;
 }
 
+function isLocalBlankPlaceholderNote(note = {}) {
+  if (!note?.isLocalOnly) return false;
+  if (cleanText(note.markdownPath || note.markdown_path)) return false;
+  const title = cleanText(note.title || note.name).toLowerCase();
+  if (title === "未命名笔记" || title === "untitled note" || title === "untitled") return true;
+  const status = cleanText(note.status).toLowerCase();
+  if (status && status !== "draft") return false;
+  if (cleanText(note.thesis)) return false;
+  if (Array.isArray(note.threeLineSummary) && note.threeLineSummary.some((line) => cleanText(line))) return false;
+  const body = String(note.body || "").replace(/\r\n/g, "\n").trim();
+  if (!body) return true;
+  return !body.replace(/^#{1,6}\s+.*(?:\n|$)/u, "").trim();
+}
+
 export function buildTodayOrganizingState({
   notes = [],
   relations = [],
@@ -151,8 +165,9 @@ export function buildTodayOrganizingState({
   organizingOverview = null,
   reviewSuggestions = []
 } = {}, deps = {}) {
-  const permanentNotes = (Array.isArray(notes) ? notes : []).filter((note) => isPermanentNote(note, deps));
-  const pendingMaterialNotes = (Array.isArray(notes) ? notes : [])
+  const allNotes = (Array.isArray(notes) ? notes : []).filter((note) => !isLocalBlankPlaceholderNote(note));
+  const permanentNotes = allNotes.filter((note) => isPermanentNote(note, deps));
+  const pendingMaterialNotes = allNotes
     .filter((note) => isPendingMaterialNote(note, deps))
     .sort((a, b) => {
       const priority = (note) => materialNoteType(note, deps) === "fleeting" ? 0 : 1;
@@ -180,8 +195,15 @@ export function buildTodayOrganizingState({
     const status = cleanText(note?.distillationStatus || note?.distillation_status || note?.authorshipStatus || note?.authorship_status).toLowerCase();
     return thesis && summary.length >= 3 && (!status || ["confirmed", "complete", "approved"].includes(status));
   });
+  const hasImportOverview = importOverviewPermanentCount(organizingOverview) > 0;
 
   return {
+    isEmptyLibrary:
+      permanentNotes.length === 0 &&
+      pendingMaterialNotes.length === 0 &&
+      !loadedTheme &&
+      !importTheme &&
+      !hasImportOverview,
     permanentCount: Math.max(permanentNotes.length, importOverviewPermanentCount(organizingOverview)),
     pendingMaterialCount: pendingMaterialNotes.length,
     firstPendingMaterial: firstPendingMaterial
@@ -216,7 +238,7 @@ export function buildTodayOrganizingState({
     firstTheme: selectedTheme
       ? {
           id: cleanText(selectedTheme.id),
-          title: noteTitle(selectedTheme, "可成主题"),
+          title: noteTitle(selectedTheme, "可写主题"),
           noteCount: themeNoteCount(selectedTheme),
           noteIds: themeNoteIds(selectedTheme),
           source: selectedTheme === importTheme ? "import" : "theme-index"
@@ -229,6 +251,6 @@ export function buildTodayOrganizingState({
           title: noteTitle(writingReadyNotes[0])
         }
       : null,
-    reviewChecklist: buildReviewChecklist({ notes, relations, themeIndexes, relationsReady, aiSuggestions: reviewSuggestions }, deps)
+    reviewChecklist: buildReviewChecklist({ notes: allNotes, relations, themeIndexes, relationsReady, aiSuggestions: reviewSuggestions }, deps)
   };
 }

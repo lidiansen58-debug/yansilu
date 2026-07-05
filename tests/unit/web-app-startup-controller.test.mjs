@@ -205,7 +205,7 @@ test("startup route opener opens existing Smart Notes Demo guide instead of show
   assert.equal(calls[2][1], "ok");
 });
 
-test("startup route opener falls back to explorer when existing Smart Notes Demo guide cannot load", async () => {
+test("startup route opener falls back to home when existing Smart Notes Demo guide cannot load", async () => {
   const calls = [];
   const state = {
     folders: [{ id: "demo-dir", title: "写作 Demo（卡片笔记写作法 x 产品思考）" }],
@@ -222,12 +222,12 @@ test("startup route opener falls back to explorer when existing Smart Notes Demo
     setStatus: (message, tone) => calls.push(["status", tone, message])
   });
 
-  assert.equal(route.route, "explorer");
+  assert.equal(route.route, "today");
   assert.deepEqual(calls[0], ["status", "warn", "Demo 导览暂时无法自动打开：locked"]);
-  assert.deepEqual(calls[1], ["module", "explorer"]);
+  assert.deepEqual(calls[1], ["module", "today"]);
 });
 
-test("startup route opener defaults to the editor when no note is requested", async () => {
+test("startup route opener defaults to organizer when no note is requested", async () => {
   const calls = [];
   const route = await openInitialStartupRouteForRuntime({
     windowRef: { location: { search: "" } },
@@ -236,6 +236,6 @@ test("startup route opener defaults to the editor when no note is requested", as
     openStartupUntitledNote: async () => calls.push(["untitled"])
   });
 
-  assert.equal(route.route, "explorer");
-  assert.deepEqual(calls, [["module", "explorer"]]);
+  assert.equal(route.route, "today");
+  assert.deepEqual(calls, [["module", "today"]]);
 });

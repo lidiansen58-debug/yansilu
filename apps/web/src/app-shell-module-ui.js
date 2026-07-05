@@ -7,19 +7,20 @@ export function currentModuleSidebarUi({
   const resolvedRootName = rootName || "当前目录";
   const configs = {
     today: {
-      sidebarTitle: "今日整理",
-      sidebarSubtitle: "打开后只看下一步该做什么。",
-      sidebarFoot: "今天只推进一个小动作：接入关系、整理可写主题，或从主题进入写作。",
-      title: "今日整理",
-      summary: "这里把卢曼方法压成当天可做的小动作：先让新永久笔记找旧笔记并写清关系理由，再把 3-7 条同问题笔记整理成可写主题，最后从主题进入写作。",
+      sidebarTitle: "首页",
+      sidebarSubtitle: "每天从这里开始，只看下一步该做什么。",
+      sidebarFoot: "首页是总入口：先处理待整理材料，再补关系、成主题，最后进入写作。",
+      title: "首页",
+      summary: "这里把卡片笔记写作法压成一条日常主线：把随笔和文献加工成永久笔记，让新笔记连接旧笔记，把同一问题下的笔记整理成可写主题，再从主题进入写作。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>使用顺序</h3>
+          <h3>每天从这里开始</h3>
           <ol class="module-sidebar-list">
-            <li>写完永久笔记，马上找一条旧笔记</li>
-            <li>建立关系，并写清为什么相关</li>
-            <li>3-7 条笔记围绕同一问题时，整理成可写主题</li>
-            <li>从可写主题进入文章提纲和草稿</li>
+            <li>先看有没有随笔、文献或孤立笔记要处理</li>
+            <li>把材料加工成永久笔记</li>
+            <li>给永久笔记补一条真正相关的关系</li>
+            <li>把同一问题下的笔记整理成可写主题</li>
+            <li>从主题进入写作中心生成提纲和草稿</li>
           </ol>
         </div>
       `

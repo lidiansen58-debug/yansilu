@@ -12,6 +12,7 @@ export function renderModuleWorkspaceHeaderForRuntime({
   renderModuleWorkspaceHeader = () => {},
   renderSettingsPanel = () => {},
   setStatus = () => {},
+  todayReturnTarget = null,
   escapeHtml = (value) => String(value ?? "")
 } = {}) {
   const {
@@ -24,8 +25,17 @@ export function renderModuleWorkspaceHeaderForRuntime({
   } = elements;
   if (!moduleTitle || !moduleSummary || !moduleHeaderActions) return false;
 
+  const todayReturnButtonHtml =
+    todayReturnTarget && state.module !== "today" && state.module !== "settings"
+      ? `<button class="mini-btn module-return-today" id="moduleBackToToday" type="button">返回</button>`
+      : "";
+  const bindTodayReturnButton = () => {
+    moduleHeaderActions.querySelector?.("#moduleBackToToday")?.addEventListener?.("click", () => activateModule("today"));
+  };
+
   if (state.module === "explorer") {
-    moduleHeaderActions.innerHTML = "";
+    moduleHeaderActions.innerHTML = todayReturnButtonHtml;
+    bindTodayReturnButton();
     return true;
   }
 
@@ -41,7 +51,8 @@ export function renderModuleWorkspaceHeaderForRuntime({
   if (state.module === "graph") {
     moduleTitle.textContent = "";
     moduleSummary.textContent = "";
-    moduleHeaderActions.innerHTML = "";
+    moduleHeaderActions.innerHTML = todayReturnButtonHtml;
+    bindTodayReturnButton();
     return true;
   }
 
@@ -55,7 +66,7 @@ export function renderModuleWorkspaceHeaderForRuntime({
     ? modelRef.slice(modelRef.lastIndexOf(":") + 1)
     : modelRef;
   const headerHealthLabelMap = {
-    healthy: "已连通",
+    healthy: "已连接",
     degraded: "需检查",
     down: "不可用",
     unknown: "待试运行"
@@ -67,14 +78,16 @@ export function renderModuleWorkspaceHeaderForRuntime({
       ? displayModelRef
       : "AI 连接暂不可用";
   if (state.module === "imports" || state.module === "today" || state.module === "writing") {
-    moduleHeaderActions.innerHTML = "";
+    moduleHeaderActions.innerHTML = state.module === "today" ? "" : todayReturnButtonHtml;
+    bindTodayReturnButton();
     return true;
   }
 
   moduleHeaderActions.innerHTML = `
+    ${todayReturnButtonHtml}
     <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
     <span class="settings-stat-badge ${localOnly ? "ok" : ""}">${escapeHtml(statusLabel)}</span>
-    <span class="settings-stat-badge ${statusTone}">${escapeHtml(headerHealthLabelMap[healthStatus] || healthStatus || "鏈煡")}</span>
+    <span class="settings-stat-badge ${statusTone}">${escapeHtml(headerHealthLabelMap[healthStatus] || healthStatus || "待确认")}</span>
     <span class="settings-stat-badge">${escapeHtml(statusDetail)}</span>
     <span class="module-ai-pack">
       <strong>AI</strong>
@@ -82,8 +95,9 @@ export function renderModuleWorkspaceHeaderForRuntime({
         ${settingsPackOptionsHtml}
       </select>
     </span>
-    <button class="mini-btn" id="moduleAiRefreshRoute" type="button">Refresh</button>
+    <button class="mini-btn" id="moduleAiRefreshRoute" type="button">刷新</button>
   `;
+  bindTodayReturnButton();
 
   (moduleHeaderActions.querySelector?.("#moduleBackToNotes") || elements.moduleBackToNotes || moduleBackToNotes)?.addEventListener?.("click", () => activateModule("explorer"));
 

@@ -51,10 +51,10 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   },
   {
     key: "review-next",
-    title: "做一次今日整理",
+    title: "打开首页",
     note: "只找下一步动作，不做大扫除。",
     action: "open-demo-review",
-    actionLabel: "打开今日整理",
+    actionLabel: "打开首页",
     targetNoteId: "GUIDE-TODAY-NEXT-STEP",
     noteIds: ["GUIDE-TODAY-NEXT-STEP", "FN-PHONE-CAPTURE-UNPROCESSED", "LN-AI-KEEPS-CANDIDATE-STATE"]
   }

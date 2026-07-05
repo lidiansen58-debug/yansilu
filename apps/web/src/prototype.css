@@ -27,12 +27,45 @@
 }
 
 .today-organizing-hero,
+.today-empty-demo-card,
 .today-primary-step,
 .today-path-strip,
 .today-action-card {
   border: 1px solid rgba(141, 170, 163, 0.28);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
+}
+
+.today-empty-demo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  align-items: center;
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid rgba(15, 118, 110, 0.42);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(232, 248, 244, 0.98), rgba(255, 255, 255, 0.94));
+  box-shadow: 0 18px 42px rgba(15, 118, 110, 0.08);
+}
+
+.today-empty-demo-card h3 {
+  margin: 6px 0 8px;
+  color: #132033;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.today-empty-demo-card p {
+  margin: 0;
+  color: #52647a;
+  line-height: 1.65;
+}
+
+.today-empty-demo-card .mini-btn {
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  font-size: 15px;
 }
 
 .today-organizing-hero {
@@ -140,32 +173,61 @@
 .today-path-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  padding: 12px;
+  gap: 0;
+  padding: 14px 18px;
+  align-items: center;
+  position: relative;
 }
 
 .today-path-strip span {
-  min-height: 38px;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(141, 170, 163, 0.28);
-  border-radius: 8px;
-  background: #fbfcfb;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #52647a;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
+  cursor: default;
+  position: relative;
+  text-align: center;
+}
+
+.today-path-strip span::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  box-shadow: 0 0 0 4px rgba(203, 213, 225, 0.2);
+  flex: 0 0 auto;
+}
+
+.today-path-strip span:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 34px);
+  right: calc(-50% + 34px);
+  height: 1px;
+  background: rgba(141, 170, 163, 0.24);
 }
 
 .today-path-strip span:first-child {
-  background: var(--brand-weak);
-  border-color: rgba(30, 140, 98, 0.28);
   color: #087568;
+}
+
+.today-path-strip span:first-child::before {
+  background: #0f766e;
+  box-shadow: 0 0 0 5px rgba(20, 184, 166, 0.14);
 }
 
 .today-action-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -174,6 +236,7 @@
   grid-template-rows: minmax(150px, 1fr) auto;
   gap: 12px;
   padding: 16px;
+  min-width: 0;
 }
 
 .today-action-card strong {
@@ -193,6 +256,45 @@
   justify-content: center;
   width: 100%;
   min-height: 44px;
+}
+
+.today-action-card .today-action-button {
+  border-color: rgba(15, 118, 110, 0.28);
+  background: linear-gradient(180deg, #ffffff 0%, #eefaf5 100%);
+  color: #0f766e;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
+}
+
+.today-action-card .today-action-button:hover,
+.today-action-card .today-action-button:focus-visible {
+  border-color: rgba(15, 118, 110, 0.48);
+  background: linear-gradient(180deg, #f6fffb 0%, #dff6ee 100%);
+  color: #0b645d;
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.12);
+}
+
+.today-action-card .today-action-button:disabled {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+  box-shadow: none;
+}
+
+.module-return-today {
+  border-color: rgba(15, 118, 110, 0.34);
+  background: linear-gradient(180deg, #ffffff 0%, #edf9f3 100%);
+  color: #0f766e;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
+}
+
+.module-return-today:hover,
+.module-return-today:focus-visible {
+  border-color: rgba(15, 118, 110, 0.5);
+  background: linear-gradient(180deg, #f7fffb 0%, #ddf4ec 100%);
+  color: #0b645d;
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.12);
 }
 
 .today-action-card.tone-material {
@@ -233,6 +335,7 @@
 
 @media (max-width: 980px) {
   .today-organizing-hero,
+  .today-empty-demo-card,
   .today-primary-step,
   .today-action-grid {
     grid-template-columns: 1fr;
@@ -1364,7 +1467,7 @@
       inset: 0;
       background: rgba(15, 23, 42, 0.32);
       backdrop-filter: blur(4px);
-      z-index: 50;
+      z-index: 1800;
       display: grid;
       place-items: center;
       padding: 20px;
@@ -1485,12 +1588,20 @@
       color: #ffffff;
     }
     .system-message-modal .modal {
-      width: min(840px, 100%);
+      width: min(880px, calc(100vw - 48px));
+      max-height: min(760px, calc(100vh - 72px));
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
     }
     .system-message-modal .modal-head {
       display: flex;
       align-items: center;
       gap: 8px;
+      min-height: 52px;
+      color: #10202a;
+      font-size: 18px;
+      line-height: 1.35;
     }
     .system-message-modal .modal-head::before {
       content: "";
@@ -1505,13 +1616,15 @@
       display: grid;
       grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.35fr);
       gap: 12px;
-      min-height: 320px;
+      min-height: 0;
+      max-height: min(560px, calc(100vh - 248px));
     }
     .system-message-list {
       display: grid;
       align-content: start;
       gap: 8px;
-      max-height: 52vh;
+      max-height: none;
+      min-height: 0;
       overflow: auto;
       padding-right: 2px;
     }
@@ -1613,9 +1726,10 @@
     }
     .system-message-detail {
       min-height: 0;
+      overflow: auto;
     }
     .system-message-detail-card {
-      min-height: 100%;
+      min-height: min(360px, 100%);
       display: grid;
       align-content: start;
       gap: 10px;
@@ -1679,6 +1793,14 @@
     .system-message-actions .mini-btn {
       min-height: 34px;
       white-space: nowrap;
+    }
+    .system-message-modal .modal-body {
+      min-height: 0;
+      overflow: hidden;
+    }
+    .system-message-modal .modal-foot {
+      flex-wrap: wrap;
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
     }
 
     /* Editor area */

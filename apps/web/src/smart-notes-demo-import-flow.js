@@ -1,5 +1,5 @@
 export const SMART_NOTES_DEMO_IMPORT_CONFIRMATION =
-  "导入 Smart Notes Demo 会自动创建一组示例笔记、关系和写作项目，并在完成后打开“00 从这里开始：10 分钟走完研思录”。\n\n确认导入吗？";
+  "导入 Smart Notes Demo 会创建一组示例笔记、关系、主题索引和写作项目，并在完成后打开“00 从这里开始：10 分钟走完研思录”。\n\n确认导入吗？";
 
 export function confirmSmartNotesDemoImport({ confirm = null, setStatus = () => {} } = {}) {
   if (typeof confirm !== "function") {

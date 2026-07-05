@@ -1,4 +1,4 @@
-﻿function escapeHtml(value) {
+function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -59,11 +59,11 @@ function renderOrganizingOverview(data = {}) {
     <section class="import-organizing-home" aria-label="导入后的整理首页">
       <div class="import-organizing-home-head">
         <div>
-          <strong>导入完成，回到今日整理</strong>
+          <strong>导入完成，回到首页</strong>
           <p>今天只保留三件事：未关联笔记、可成主题、可进入写作。</p>
         </div>
         <button class="mini-btn primary" type="button" data-import-writing-action="open-today">
-          去今日整理
+          去首页
         </button>
       </div>
       <div class="import-organizing-home-actions" aria-label="导入后的主操作">

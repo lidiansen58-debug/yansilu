@@ -121,7 +121,7 @@ export function createLocalDraftNote({ folderId, body }, {
 
 export function moduleLabel(moduleName = "") {
   const labels = {
-    today: "今日整理",
+    today: "首页",
     explorer: "笔记编辑",
     backup: "备份与恢复",
     imports: "导入导出",

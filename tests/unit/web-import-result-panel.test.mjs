@@ -91,8 +91,8 @@ test("import result panel renders organizing home after permanent-note import", 
     raw: "{}"
   });
 
-  assert.match(html, /导入完成，回到今日整理/);
-  assert.match(html, /去今日整理/);
+  assert.match(html, /导入完成，回到首页/);
+  assert.match(html, /去首页/);
   assert.match(html, /未关联笔记/);
   assert.match(html, /可成主题/);
   assert.match(html, /可进入写作/);
@@ -125,6 +125,6 @@ test("import result panel does not suggest isolated-note handling without a reco
   assert.doesNotMatch(html, /data-import-writing-action="open-first-isolated-note"/);
   assert.doesNotMatch(html, /处理第一条未关联笔记/);
   assert.match(html, /已完成/);
-  assert.match(html, /去今日整理/);
+  assert.match(html, /去首页/);
   assert.match(html, /已可写作主题/);
 });

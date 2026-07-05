@@ -158,6 +158,28 @@ test("today organizing state prefers loaded theme indexes over import-only theme
   });
 });
 
+test("today organizing ignores blank local placeholders for first-run demo entry", () => {
+  const state = buildTodayOrganizingState({
+    notes: [
+      {
+        id: "local_note_1",
+        title: "未命名笔记",
+        noteType: "permanent",
+        status: "draft",
+        markdownPath: "",
+        body: "# 未命名笔记\n\n",
+        isLocalOnly: true
+      }
+    ],
+    relations: [],
+    relationsReady: true
+  });
+
+  assert.equal(state.permanentCount, 0);
+  assert.equal(state.isolatedCount, 0);
+  assert.equal(state.isEmptyLibrary, true);
+});
+
 test("today organizing panel uses readable action words", () => {
   const html = renderTodayOrganizingPanel({
     permanentCount: 3,
@@ -171,22 +193,22 @@ test("today organizing panel uses readable action words", () => {
     firstWritingReady: { id: "pn_2", title: "已有观点" }
   });
 
-  assert.match(html, /今日整理/);
+  assert.match(html, /首页/);
   assert.match(html, /推荐下一步/);
-  assert.match(html, /今天先做一件最有价值的整理/);
+  assert.match(html, /从这里开始整理知识/);
   assert.match(html, /待处理材料/);
   assert.match(html, /手机随笔待处理/);
   assert.match(html, /补一条关系/);
   assert.match(html, /整理主题/);
   assert.match(html, /进入写作/);
-  assert.match(html, /把随笔和文献变成永久笔记/);
-  assert.match(html, /检查中心问题和关键笔记/);
+  assert.match(html, /把随笔和文献加工成永久笔记/);
+  assert.match(html, /检查中心问题、关键笔记/);
   assert.match(html, /先生成提纲，再决定是否起草/);
   assert.match(html, /查看这条材料/);
   assert.match(html, /data-today-action="review-material"/);
   assert.doesNotMatch(html, /data-today-action="review-material" disabled/);
   assert.match(html, /去建联/);
-  assert.match(html, /打开主题/);
+  assert.match(html, /打开主题索引/);
   assert.match(html, /进入写作/);
   assert.ok(html.indexOf("今日推荐下一步") < html.indexOf("高级检查：回顾清单和 AI 补充建议"));
   assert.match(html, /<details class="today-secondary-details">/);
@@ -333,6 +355,7 @@ test("today organizing events route main actions to existing workflows", async (
     openWritingModule: async () => calls.push(["writing"]),
     addWritingBasketIds: (ids, options) => calls.push(["basket", ids, options]),
     selectWritingThemeIndex: (themeId) => calls.push(["theme", themeId]),
+    applyWritingTab: (tab) => calls.push(["tab", tab]),
     createReviewOutline: async (options) => calls.push(["outline", options])
   }));
 
@@ -385,7 +408,7 @@ test("today organizing writing action adds the ready note only when no theme is 
   assert.deepEqual(calls[0], ["basket", ["pn_ready"]]);
   assert.deepEqual(calls[1], ["module", "writing"]);
   assert.equal(calls[2][0], "writing");
-  assert.equal(calls[2][1].entrySourceLabel, "今日整理");
+  assert.equal(calls[2][1].entrySourceLabel, "首页");
   assert.equal(calls[2][1].statusMessage, "已把这条笔记加入写作中心");
   assert.match(calls[2][1].entryReason, /已有观点|明确观点|三句摘要/);
   assert.equal(calls.some((call) => call[0] === "theme"), false);
@@ -416,13 +439,13 @@ test("today organizing routes imported theme note ids into writing", async () =>
   await click("open-first-theme");
   await click("open-writing");
 
-  assert.deepEqual(calls[0], ["basket", ["pn_a", "pn_b", "pn_c"]]);
-  assert.deepEqual(calls[1], ["module", "writing"]);
-  assert.equal(calls[2][0], "writing");
-  assert.equal(calls[2][1].statusMessage, "已把 3 条主题笔记加入写作中心");
+  assert.deepEqual(calls[0], ["module", "writing"]);
+  assert.equal(calls[1][0], "writing");
+  assert.deepEqual(calls[2], ["basket", ["pn_a", "pn_b", "pn_c"]]);
   assert.deepEqual(calls[3], ["basket", ["pn_a", "pn_b", "pn_c"]]);
   assert.deepEqual(calls[4], ["module", "writing"]);
   assert.equal(calls[5][0], "writing");
+  assert.equal(calls[5][1].statusMessage, "已把 3 条主题笔记加入写作中心");
   assert.match(calls[5][1].entryReason, /慢读训练/);
   assert.equal(calls.some((call) => call[0] === "theme"), false);
 });

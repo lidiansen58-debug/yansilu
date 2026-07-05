@@ -33,15 +33,15 @@ test("app shell module ui delegates settings sidebar navigation", () => {
   assert.equal(ui.sidebarHtml, "<nav>settings</nav>");
 });
 
-test("app shell module ui exposes today organizing as a plain next-step entry", () => {
+test("app shell module ui exposes organizer as the daily start entry", () => {
   const ui = currentModuleSidebarUi({ module: "today" });
 
-  assert.equal(ui.title, "今日整理");
-  assert.match(ui.summary, /找旧笔记并写清关系理由/);
-  assert.match(ui.summary, /3-7 条同问题笔记整理成可写主题/);
-  assert.match(ui.sidebarHtml, /写完永久笔记，马上找一条旧笔记/);
-  assert.match(ui.sidebarHtml, /从可写主题进入文章提纲和草稿/);
-  assert.doesNotMatch(ui.summary + ui.sidebarHtml, /候选|队列|复核|线索/);
+  assert.equal(ui.title, "首页");
+  assert.match(ui.summary, /卡片笔记写作法/);
+  assert.match(ui.summary, /可写主题/);
+  assert.match(ui.sidebarHtml, /每天从这里开始/);
+  assert.match(ui.sidebarHtml, /从主题进入写作中心/);
+  assert.doesNotMatch(ui.summary + ui.sidebarHtml, /候选队列|复核|线索/);
 });
 
 test("app shell module ui returns a stable fallback for unknown modules", () => {

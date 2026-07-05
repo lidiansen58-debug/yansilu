@@ -52,6 +52,7 @@ export function createModuleWorkspaceHeaderRuntimeRoutes(depsProvider = () => ({
       renderModuleWorkspaceHeader,
       renderSettingsPanel: current.renderSettingsPanel,
       setStatus: current.setStatus,
+      todayReturnTarget: current.todayReturnTarget,
       escapeHtml: current.escapeHtml
     });
   }

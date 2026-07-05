@@ -43,6 +43,8 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       addWritingBasketIds,
       selectWritingThemeIndex,
       createReviewOutline,
+      markTodayReturnTarget,
+      applyWritingTab,
       setStatus
     } = depsProvider() || {};
     return installTodayOrganizingEvents($("todayOrganizingPanel"), () => ({
@@ -54,6 +56,8 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       addWritingBasketIds,
       selectWritingThemeIndex,
       createReviewOutline,
+      markTodayReturnTarget,
+      applyWritingTab,
       setStatus
     }));
   }

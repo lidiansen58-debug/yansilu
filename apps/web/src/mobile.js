@@ -195,7 +195,7 @@ function renderToday() {
     <section class="panel">
       <p class="eyebrow">今日待整理</p>
       <h2>回电脑前，先把素材放好</h2>
-      <p class="muted">这里显示最近随笔。手机端不做复杂整理，回电脑端今日整理继续加工。</p>
+      <p class="muted">这里显示最近随笔。手机端不做复杂整理，回电脑端首页继续加工。</p>
       <button class="primary-button full" type="button" data-go="quick">再记录一条</button>
     </section>
     <div class="card-list">${state.todayNotes.map(compactNoteCard).join("") || `<div class="empty">还没有待整理随笔。</div>`}</div>
@@ -234,7 +234,7 @@ function renderQuick() {
     <section class="panel">
       <p class="eyebrow">快速记录</p>
       <h2>${contextTitle ? `给“${escapeHtml(contextTitle)}”补充素材` : "先抓住想法"}</h2>
-      <p class="muted">内容会保存到电脑 vault 的随笔目录，之后在电脑端今日整理里继续加工。</p>
+      <p class="muted">内容会保存到电脑 vault 的随笔目录，之后在电脑端首页继续加工。</p>
       <form class="quick-form" id="quickForm">
         <label for="quickTitle">标题</label>
         <input id="quickTitle" type="text" placeholder="可不填，系统会取正文第一行" value="${contextTitle ? escapeHtml(`${contextTitle}：`) : ""}" />
@@ -377,7 +377,7 @@ async function saveQuickNote() {
       method: "POST",
       body: JSON.stringify({ title, body, excerpt, images })
     });
-    state.message = "已保存到电脑。回到电脑端的今日整理继续加工。";
+    state.message = "已保存到电脑。回到电脑端的首页继续加工。";
     state.quickContext = null;
     state.overview = (await api("/overview")).item;
     state.todayNotes = state.overview.today?.recentFleetingNotes || [];

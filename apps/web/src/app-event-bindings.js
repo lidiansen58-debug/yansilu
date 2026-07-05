@@ -49,7 +49,7 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
       } else if (action === "open-today") {
         hideImportOperationResultModal();
         activateModule("today");
-        setStatus("已打开今日整理", "ok");
+        setStatus("已打开首页", "ok");
       } else if (action === "open-literature-queue") void openImportedLiteratureQueue();
       else if (action === "add-permanent-notes" || action === "add-permanent-notes-open-writing") {
         void addImportedPermanentNotesToWritingBasket({ openWriting: action === "add-permanent-notes-open-writing" });

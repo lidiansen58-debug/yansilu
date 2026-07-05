@@ -32,6 +32,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
 
   async function openWritingModule({
     statusMessage = "已打开写作中心",
+    activeTab = "",
     focusedCandidateNoteIds = null,
     focusedCandidateScopeLabel = "",
     preserveFocusedCandidateScope = false,
@@ -41,6 +42,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
   } = {}) {
     const {
       activateModule = () => {},
+      applyWritingTab = () => "",
       clearWritingFocusedCandidateScope = () => {},
       ensureNotesLoaded = async () => {},
       fetchWritingProject = async () => null,
@@ -86,6 +88,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     writingState.loadingDraftVersions = Boolean(writingProjectId);
     writingState.loadingRelationCounts = basketIds.length > 0;
     renderWritingPanel();
+    if (activeTab) applyWritingTab(activeTab);
     try {
       const [projects, themeIndexes, project, scaffoldVersions, draftVersions, relationPayload] = await Promise.all([
         listWritingProjects({
@@ -125,6 +128,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       writingState.loadingDraftVersions = false;
       writingState.loadingRelationCounts = false;
       renderWritingPanel();
+      if (activeTab) applyWritingTab(activeTab);
       syncWritingResultFromCurrentState();
     }
     if (statusMessage) setStatus(statusMessage, "ok", { skipIfStaleSince: statusRevisionAtStart, requireModule: "writing" });

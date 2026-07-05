@@ -21,7 +21,7 @@ function buildTodayActions(state = {}) {
     {
       key: "material",
       title: "处理材料",
-      objectTitle: firstMaterial?.title || "随笔和文献笔记暂时都已处理",
+      objectTitle: firstMaterial?.title || "随笔和文献暂时都已处理",
       summary: firstMaterial
         ? `先把这条材料转述成自己的判断，或明确它暂时不用。${materialTitles.length ? ` 待处理：${materialTitles.join("、")}` : ""}`
         : "可以继续检查永久笔记之间的关系。",
@@ -49,11 +49,11 @@ function buildTodayActions(state = {}) {
       title: "整理主题",
       objectTitle: firstTheme?.title || "还没有可直接整理的主题",
       summary: firstTheme
-        ? "检查中心问题和关键笔记，确认这组材料是否已经能支撑一篇文章。"
+        ? "先打开主题索引，检查中心问题、关键笔记和阅读顺序。"
         : "当几条笔记围绕同一问题聚集时，再整理成主题索引。",
       meta: firstTheme ? `${firstTheme.noteCount || 0} 条相关笔记` : "等待更多相关笔记",
       action: "open-first-theme",
-      actionLabel: firstTheme ? "打开主题" : "先去建联",
+      actionLabel: firstTheme ? "打开主题索引" : "先去建联",
       disabled: !firstTheme,
       tone: "theme"
     },
@@ -64,11 +64,11 @@ function buildTodayActions(state = {}) {
       summary: firstTheme
         ? "把这组笔记带入写作中心，先生成提纲，再决定是否起草。"
         : firstWriting
-          ? "这条永久笔记已经有清楚观点，可以先放入写作中心继续组织。"
-          : "先完成清楚观点、明确关系和可写主题，再进入写作。",
+          ? "这条永久笔记已经有清晰观点，可以先放入写作中心继续组织。"
+          : "先完成清晰观点、明确关系和可写主题，再进入写作。",
       meta: firstWriting ? `${state.writingReadyCount || 0} 条笔记可用` : "写作前先整理素材",
       action: "open-writing",
-      actionLabel: firstTheme || firstWriting ? "进入写作" : "先整理主题",
+      actionLabel: firstTheme || firstWriting ? "用这个主题进入写作" : "先整理主题",
       disabled: !firstTheme && !firstWriting,
       tone: "writing"
     }
@@ -79,7 +79,7 @@ function primaryAction(actions = []) {
   return actions.find((item) => !item.disabled) || {
     title: "今天可以轻量回顾",
     objectTitle: "当前没有必须立刻处理的整理任务",
-    summary: "可以打开更多检查，看是否有标签、关系理由或主题提纲值得顺手完善。",
+    summary: "可以打开高级检查，看看标签、关系理由或主题提纲是否值得顺手完善。",
     meta: "整理状态良好",
     action: "",
     actionLabel: "无需处理",
@@ -106,23 +106,39 @@ function actionCard({
         <p>${escape(summary)}</p>
         ${meta ? `<small>${escape(meta)}</small>` : ""}
       </div>
-      <button class="mini-btn is-ghost" type="button" data-today-action="${escape(action)}"${disabled ? " disabled" : ""}>
+      <button class="mini-btn today-action-button" type="button" data-today-action="${escape(action)}"${disabled ? " disabled" : ""}>
         ${escape(actionLabel)}
       </button>
     </article>
   `;
 }
 
+function renderEmptyLibraryDemoCard() {
+  return `
+    <section class="today-empty-demo-card" aria-label="第一次使用推荐">
+      <div>
+        <span class="today-action-kicker">推荐</span>
+        <h3>先体验示例库，10 分钟看懂研思录</h3>
+        <p>示例库会创建一套卡片笔记写作法 Demo：随笔、文献笔记、永久笔记、关系、主题索引和写作项目。导入前会请你确认，不会偷偷写入数据。</p>
+      </div>
+      <button class="mini-btn primary" type="button" data-today-action="seed-demo">
+        导入示例库 / 体验 Demo
+      </button>
+    </section>
+  `;
+}
+
 export function renderTodayOrganizingPanel(state = {}) {
   const actions = buildTodayActions(state);
   const recommended = primaryAction(actions);
+  const emptyDemoCard = state.isEmptyLibrary ? renderEmptyLibraryDemoCard() : "";
   return `
     <div class="today-organizing-shell">
-      <section class="today-organizing-hero" aria-label="今日整理">
+      <section class="today-organizing-hero" aria-label="首页">
         <div>
-          <span>今日整理</span>
-          <h2>今天先做一件最有价值的整理。</h2>
-          <p>把随笔和文献变成永久笔记，再用关系和主题把它们接起来。这里不要求你一次做完，只给出下一步。</p>
+          <span>首页</span>
+          <h2>从这里开始整理知识</h2>
+          <p>把随笔和文献加工成永久笔记，再用关系和主题把它们接起来。每天先看这里，只推进最值得做的下一步。</p>
         </div>
         <div class="today-organizing-counts" aria-label="当前整理概览">
           <div><strong>${escape(state.pendingMaterialCount || 0)}</strong><span>待处理材料</span></div>
@@ -131,7 +147,8 @@ export function renderTodayOrganizingPanel(state = {}) {
           <div><strong>${escape(state.themeCount || 0)}</strong><span>可成主题</span></div>
         </div>
       </section>
-      <section class="today-primary-step tone-${escape(recommended.tone || "")}" aria-label="今日推荐下一步">
+      ${emptyDemoCard}
+      <section class="today-primary-step tone-${escape(recommended.tone || "")}" aria-label="推荐下一步">
         <div>
           <span class="today-action-kicker">推荐下一步</span>
           <h3>${escape(recommended.title)}</h3>

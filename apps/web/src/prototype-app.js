@@ -146,7 +146,7 @@ import { renderDraftVersionCardView, renderScaffoldVersionCardView, renderWritin
 import { titleFromBody } from "./editor-template-workspace.js";
 import { createWritingPanelShellController } from "./writing-panel-shell.js";
 import { createWritingPanelPrototypeHostProvider } from "./writing-panel-host-deps.js";
-import { installWritingTabEvents } from "./writing-tabs.js";
+import { applyWritingTab, installWritingTabEvents } from "./writing-tabs.js";
 import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
 import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
 import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, parseWritingBasketIdsForRuntime, removeWritingBasketIdForRuntime, setWritingBasketIdsForRuntime } from "./writing-basket-state.js";
@@ -596,11 +596,13 @@ const todayOrganizingEntryRuntime = createTodayOrganizingEntryRuntime(() => ({
   activateModule,
   openNoteById,
   openWritingModule,
-  addWritingBasketIds,
-  selectWritingThemeIndex,
-  createReviewOutline: createReviewOutlineFromTodayChecklist,
-  setStatus
-}));
+    addWritingBasketIds,
+    selectWritingThemeIndex,
+    createReviewOutline: createReviewOutlineFromTodayChecklist,
+    applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
+    markTodayReturnTarget,
+    setStatus
+  }));
 const todayOrganizingRuntime = todayOrganizingEntryRuntime.runtime;
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
@@ -615,6 +617,7 @@ const SYSTEM_MESSAGES_KEY = "yansilu:system-messages:v1";
 const SYSTEM_MESSAGES_LIMIT = 80;
 let systemMessages = readStoredSystemMessages();
 let selectedSystemMessageId = systemMessages[0]?.id || "";
+let todayReturnTarget = null;
 let startupAutoOpenSuppressed = false;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
@@ -633,6 +636,17 @@ const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const AI_LOCAL_SETUP_SYNC_PENDING_KEY = "yansilu:ai:local-setup-sync-pending";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
+
+function markTodayReturnTarget(target = {}) {
+  todayReturnTarget = {
+    label: String(target.label || "首页").trim() || "首页",
+    createdAt: Date.now()
+  };
+}
+
+function clearTodayReturnTarget() {
+  todayReturnTarget = null;
+}
 
 function desktopUpdateRestartBlockers() {
   const blockers = [];
@@ -2371,6 +2385,7 @@ function clearLiteratureQueueFocus() {
 const writingEntryRuntime = createWritingEntryRuntimeHost(() => ({
   $,
   activateModule,
+  applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
   clearWritingFocusedCandidateScope,
   clearWritingSourceIndexIds,
   ensureNotesLoaded,
@@ -3022,6 +3037,7 @@ const moduleWorkspaceHeaderRuntimeRoutes = createModuleWorkspaceHeaderRuntimeRou
   settingsSidebarNavigationHtml,
   settingsState,
   setStatus,
+  todayReturnTarget,
   state
 }));
 
@@ -3743,6 +3759,7 @@ async function applySettingsAiQuickSetup(kind = "") {
 
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
+  if (normalizedModule === "today") clearTodayReturnTarget();
   if (normalizedModule === "imports") {
     state.module = "settings";
     settingsState.activeSection = "workspace";
@@ -5243,7 +5260,7 @@ const {
 } = graphRouteRuntime;
 async function importSmartNotesProductThinkingDemo(options = {}) {
   const { startup = false } = options;
-  setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
+  setStatus("正在导入 Smart Notes Demo...", "");
   try {
     const result = await seedSmartNotesProductThinkingDemo();
     const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
@@ -5254,6 +5271,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     await syncNotesForDirectory(directoryId);
     await syncNotesForDirectory("dir_fleeting_default");
     await syncNotesForDirectory("dir_literature_default");
+    await loadWritingThemeIndexes();
     const firstNoteId = smartNotesDemoStartupNoteId({ result, notes: state.notes });
     if (firstNoteId) {
       state.selectedFileId = firstNoteId;
@@ -5280,7 +5298,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
       resetGraphDemoPresentationState();
     }
     await refreshDirectoryGraph();
-    if (startup) activateModule("explorer");
+    if (startup) activateModule("today");
     renderAll();
     if (firstNoteId) {
       state.selectedFileId = firstNoteId;
@@ -5293,7 +5311,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
     const suffix = startup && firstNoteId ? "，已打开导览笔记" : "";
-    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个项目${suffix}`, "ok");
+    setStatus(`已导入 Smart Notes Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目${suffix}`, "ok");
     return true;
   } catch (error) {
     if (startup) {
@@ -5311,7 +5329,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
       const fallbackNoteId = smartNotesDemoStartupNoteId({ result: {}, notes: state.notes });
       if (fallbackNoteId) {
         state.selectedFileId = fallbackNoteId;
-        activateModule("explorer");
+        activateModule("today");
         openNoteById(fallbackNoteId, { preferTitleSelection: false });
         editor?.resetEditorViewportToStart?.();
         setStatus(smartNotesDemoOpenedExistingGuideStatus(), "ok");
@@ -5322,7 +5340,6 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     return false;
   }
 }
-
 function openImportModule() {
   activateModule("imports");
   setStatus("先选择 Obsidian 文件夹，生成预览后再确认导入。", "ok");

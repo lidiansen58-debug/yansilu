@@ -31,10 +31,10 @@ test("writing session state stores and clears entry context", () => {
 
   assert.deepEqual(setWritingEntryContextForRuntime(writingState, {
     reason: " 这组笔记已经形成主题 ",
-    sourceLabel: " 今日整理 "
+    sourceLabel: " 首页 "
   }), {
     reason: "这组笔记已经形成主题",
-    sourceLabel: "今日整理"
+    sourceLabel: "首页"
   });
   assert.deepEqual(clearWritingEntryContextForRuntime(writingState), {
     reason: "",

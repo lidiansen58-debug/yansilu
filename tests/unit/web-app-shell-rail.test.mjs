@@ -79,7 +79,7 @@ test("app shell rail shows a restrained settings update indicator", () => {
   assert.equal(settings.attributes["aria-label"], "设置 · 有新版本");
 });
 
-test("app shell rail marks today organizing when there are tasks", () => {
+test("app shell rail marks organizer when there are tasks", () => {
   const today = createButton({ module: "today" });
   const settings = createButton({ module: "settings" });
   const document = {
@@ -98,9 +98,9 @@ test("app shell rail marks today organizing when there are tasks", () => {
 
   assert.equal(today.classList.contains("active"), false);
   assert.equal(today.classList.contains("has-unread"), true);
-  assert.equal(today.attributes.title, "今日整理 · 有待处理任务");
-  assert.equal(today.attributes["data-tip"], "今日整理 · 有待处理任务");
-  assert.equal(today.attributes["aria-label"], "今日整理 · 有待处理任务");
+  assert.equal(today.attributes.title, "首页 · 有待处理任务");
+  assert.equal(today.attributes["data-tip"], "首页 · 有待处理任务");
+  assert.equal(today.attributes["aria-label"], "首页 · 有待处理任务");
 
   syncRailSelectionDom({
     document,
@@ -110,10 +110,10 @@ test("app shell rail marks today organizing when there are tasks", () => {
 
   assert.equal(today.classList.contains("active"), true);
   assert.equal(today.classList.contains("has-unread"), false);
-  assert.equal(today.attributes.title, "今日整理");
+  assert.equal(today.attributes.title, "首页");
 });
 
-test("today rail attention only reflects maintenance tasks", () => {
+test("organizer rail attention only reflects maintenance tasks", () => {
   assert.equal(todayRailHasTasks({ pendingMaterialCount: 1 }), true);
   assert.equal(todayRailHasTasks({ isolatedCount: 1 }), true);
   assert.equal(todayRailHasTasks({
