@@ -75,12 +75,12 @@ test("Smart Notes demo fixture has the required teaching surfaces", () => {
   assert.ok(fixture.sources.length >= 1);
   assert.ok(fixture.fleeting_notes.length >= 4);
   assert.ok(fixture.literature_notes.length >= 6);
-  assert.ok(fixture.permanent_notes.length >= 12);
+  assert.ok(fixture.permanent_notes.length >= 45);
   assert.ok(fixture.index_cards.length >= REQUIRED_INDEX_TITLES.length);
-  assert.ok(fixture.relations.length >= 10);
+  assert.ok(fixture.relations.length >= 40);
   assert.ok(fixture.writing_projects.length >= 1);
   assert.ok(fixture.draft_scaffolds.length >= 1);
-  assert.ok(fixture.guide_notes.length >= 5);
+  assert.ok(fixture.guide_notes.length >= 12);
 });
 
 test("user-visible demo copy does not expose legacy PN-SN WP-SN IC-SN ids", () => {
@@ -137,6 +137,34 @@ test("relations point to existing notes and carry readable reasons", () => {
   for (const type of ["supports", "complements", "qualifies", "contradicts", "example_of", "precedes", "bridges"]) {
     assert.ok(types.has(type), `missing relation type ${type}`);
   }
+});
+
+test("demo teaches relation types as writing and insight tools", () => {
+  const requiredPermanentNotes = [
+    "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+    "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+    "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+    "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+    "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+    "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+    "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+    "PERM-WRITING-USES-RELATION-ROLES"
+  ];
+  const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
+  for (const id of requiredPermanentNotes) assert.ok(permanentIds.has(id), `missing relation teaching note ${id}`);
+
+  assert.ok(
+    fixture.index_cards.some((card) => card.id === "THEME-RELATION-TYPES-TO-WRITING"),
+    "needs relation type to writing theme index"
+  );
+  assert.ok(
+    fixture.writing_projects.some((project) => project.id === "WRITE-RELATION-TO-WRITING-PRACTICE"),
+    "needs relation-to-writing writing project"
+  );
+  assert.ok(
+    fixture.final_essays.some((essay) => essay.id === "ESSAY-RELATION-TYPES-HELP"),
+    "needs relation type help article"
+  );
 });
 
 test("theme indexes include the required beginner questions and valid note links", () => {

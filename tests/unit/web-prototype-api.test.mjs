@@ -29,6 +29,54 @@ test("prototype API uses injected API base from dev server", async () => {
   assert.equal(api.getApiBase(), "http://127.0.0.1:3999");
 });
 
+test("prototype API does not expose localhost fallback before desktop API resolves", async () => {
+  const desktopWindow = {
+    __TAURI__: {
+      core: {
+        invoke: async () => "http://localhost:3001"
+      }
+    }
+  };
+  const api = await importPrototypeApi("desktop-initial-api", desktopWindow);
+  const previousWindow = globalThis.window;
+  globalThis.window = desktopWindow;
+
+  try {
+    assert.equal(api.getApiBase(), "");
+    assert.equal(api.assetPreviewUrl("attachments/demo.png"), "");
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
+test("prototype API clears static fallback when desktop API base is unavailable", async () => {
+  const desktopWindow = {
+    __TAURI__: {
+      core: {
+        invoke: async (command) => {
+          assert.equal(command, "get_desktop_api_base");
+          return "";
+        }
+      }
+    }
+  };
+  const api = await importPrototypeApi("desktop-missing-api", desktopWindow);
+  const previousWindow = globalThis.window;
+  globalThis.window = desktopWindow;
+
+  try {
+    await assert.rejects(() => api.fetchDirectories(), {
+      code: "desktop_api_unavailable"
+    });
+    assert.equal(api.getApiBase(), "");
+    assert.equal(api.assetPreviewUrl("attachments/demo.png"), "");
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
 test("prototype API fetches note relations through the public endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];

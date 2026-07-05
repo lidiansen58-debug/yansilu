@@ -108,6 +108,42 @@ test("route initializer connects API and marks browser fallback on web failures"
   assert.equal(fallbackCalls[1][1], "warn");
 });
 
+test("route initializer shows install-friendly desktop API failure message", async () => {
+  const dialogCalls = [];
+  const result = await initializeAppRouteForRuntime({
+    refreshVaultSettings: async () => {
+      throw new Error("桌面内置服务未启动");
+    },
+    getApiBase: () => "",
+    windowRef: {
+      __TAURI__: {
+        core: {
+          invoke: async (command) => {
+            assert.equal(command, "get_desktop_api_status");
+            return {
+              baseUrl: "",
+              running: false,
+              launchError: "Yansilu desktop API runtime is incomplete."
+            };
+          }
+        },
+        dialog: {
+          message: async (message, options) => dialogCalls.push([message, options])
+        }
+      }
+    },
+    setStatus: () => {}
+  });
+
+  assert.equal(result.connected, false);
+  assert.equal(dialogCalls.length, 1);
+  assert.equal(dialogCalls[0][1].title, "本地服务启动失败");
+  assert.match(dialogCalls[0][0], /本地服务没有启动完成/);
+  assert.match(dialogCalls[0][0], /runtime is incomplete/);
+  assert.doesNotMatch(dialogCalls[0][0], /npm run dev:api/);
+  assert.doesNotMatch(dialogCalls[0][0], /联系开发者获取“内置 API”的版本/);
+});
+
 test("startup route opener auto-opens demo then explicit note then fallback note", async () => {
   const demoCalls = [];
   const demo = await openInitialStartupRouteForRuntime({

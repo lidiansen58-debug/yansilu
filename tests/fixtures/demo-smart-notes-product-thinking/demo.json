@@ -1,19 +1,19 @@
 {
   "id": "demo-smart-notes-product-thinking-v2",
-  "title": "Smart Notes Demo：让笔记长出思想",
+  "title": "Smart Notes Demo：卡片笔记写作法 x 研思录",
   "generated_at": "2026-07-04T00:00:00.000Z",
-  "purpose": "让新手通过示例笔记理解研思录的核心理念：记录、重述、关联，让笔记长出思想，并为写作与创新提供基础。",
+  "purpose": "让第一次使用研思录的用户，通过一套可点击、可建联、可写作的示例库，理解卡片笔记写作法的核心思想和产品最佳路径。",
   "counts": {
     "sources": 1,
     "fleeting_notes": 4,
     "literature_notes": 9,
-    "permanent_notes": 21,
-    "index_cards": 12,
-    "relations": 17,
-    "writing_projects": 1,
-    "draft_scaffolds": 1,
-    "final_essays": 1,
-    "guide_notes": 8
+    "permanent_notes": 45,
+    "index_cards": 18,
+    "relations": 40,
+    "writing_projects": 2,
+    "draft_scaffolds": 2,
+    "final_essays": 3,
+    "guide_notes": 12
   },
   "sources": [
     {
@@ -2104,6 +2104,726 @@
         "ai_assisted": false
       },
       "originality_status": "pass"
+    },
+    {
+      "id": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
+      "note_type": "permanent",
+      "title": "记录是入口，不是知识本身",
+      "cluster": "capture",
+      "cluster_label": "记录入口",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "一条随笔只说明你抓住了材料，还不能说明它已经变成知识。",
+      "threeLineSummary": [
+        "随笔的价值是把现场、灵感和问题先留下。",
+        "它必须被转述、判断或关联，才会进入长期知识网络。",
+        "首页应该提醒用户处理下一条，而不是奖励无限收藏。"
+      ],
+      "productImplication": "首页把待处理材料放在最前面，让用户每天从一个小动作开始。",
+      "boundaryOrCounterpoint": "有些灵感可以短暂停留在随笔里；问题是不能长期堆在那里。",
+      "tags": [
+        "永久笔记",
+        "记录入口",
+        "Smart Notes Demo"
+      ],
+      "body": "# 记录是入口，不是知识本身\n\n## 核心论点\n一条随笔只说明你抓住了材料，还不能说明它已经变成知识。\n\n## 三句话压缩\n- 随笔的价值是把现场、灵感和问题先留下。\n- 它必须被转述、判断或关联，才会进入长期知识网络。\n- 首页应该提醒用户处理下一条，而不是奖励无限收藏。\n\n## 为什么重要\n很多新手失败不是因为记得太少，而是把“已经收藏”误认为“已经理解”。\n\n## 在研思录里怎么用\n首页把待处理材料放在最前面，让用户每天从一个小动作开始。\n\n## 边界或反例\n有些灵感可以短暂停留在随笔里；问题是不能长期堆在那里。\n\n## 写作时怎么用\n写作时可以用它解释为什么研思录不把收集数量当成核心指标。\n\n## 可以继续看的笔记\n- [[随笔是捕捉点，不是知识点]]\n- [[首页应该奖励处理，而不是奖励收藏]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "一条随笔只说明你抓住了材料，还不能说明它已经变成知识。",
+      "rationale": "很多新手失败不是因为记得太少，而是把“已经收藏”误认为“已经理解”。",
+      "use_boundary": "有些灵感可以短暂停留在随笔里；问题是不能长期堆在那里。",
+      "writing_use": "写作时可以用它解释为什么研思录不把收集数量当成核心指标。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-LITERATURE-NOTE-KEEPS-SOURCE-BOUNDARY",
+      "note_type": "permanent",
+      "title": "文献笔记要保留来源边界",
+      "cluster": "paraphrase",
+      "cluster_label": "转述理解",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "文献笔记必须让用户分清“作者说了什么”和“我理解成什么”。",
+      "threeLineSummary": [
+        "来源边界能防止把别人的观点误当成自己的判断。",
+        "转述不是复制，而是第一次理解检查。",
+        "永久笔记可以引用来源，但不能被来源替代。"
+      ],
+      "productImplication": "文献笔记模板应把摘录、转述、候选永久笔记分开。",
+      "boundaryOrCounterpoint": "保留来源不等于做学术脚注系统；Demo 只保留足够回看和追溯的信息。",
+      "tags": [
+        "永久笔记",
+        "转述理解",
+        "Smart Notes Demo"
+      ],
+      "body": "# 文献笔记要保留来源边界\n\n## 核心论点\n文献笔记必须让用户分清“作者说了什么”和“我理解成什么”。\n\n## 三句话压缩\n- 来源边界能防止把别人的观点误当成自己的判断。\n- 转述不是复制，而是第一次理解检查。\n- 永久笔记可以引用来源，但不能被来源替代。\n\n## 为什么重要\n卡片笔记法强调用自己的话工作，来源边界让这件事可检查。\n\n## 在研思录里怎么用\n文献笔记模板应把摘录、转述、候选永久笔记分开。\n\n## 边界或反例\n保留来源不等于做学术脚注系统；Demo 只保留足够回看和追溯的信息。\n\n## 写作时怎么用\n写作时它能提供出处、例子和论证来源，但观点仍要来自永久笔记。\n\n## 可以继续看的笔记\n- [[文献笔记要先转述，再沉淀判断]]\n- [[摘录不等于理解]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "文献笔记必须让用户分清“作者说了什么”和“我理解成什么”。",
+      "rationale": "卡片笔记法强调用自己的话工作，来源边界让这件事可检查。",
+      "use_boundary": "保留来源不等于做学术脚注系统；Demo 只保留足够回看和追溯的信息。",
+      "writing_use": "写作时它能提供出处、例子和论证来源，但观点仍要来自永久笔记。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-OWN-WORDS-ARE-FIRST-THINKING",
+      "note_type": "permanent",
+      "title": "用自己的话重说，是第一次思考",
+      "cluster": "paraphrase",
+      "cluster_label": "转述理解",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "把材料重说成自己的语言，是从收藏走向理解的第一步。",
+      "threeLineSummary": [
+        "复制能保存信息，但不能证明理解。",
+        "重说会暴露自己没看懂的地方。",
+        "只有重说之后，才容易提炼成一条永久笔记。"
+      ],
+      "productImplication": "导入 Demo 后，用户能看到文献笔记如何进入永久笔记。",
+      "boundaryOrCounterpoint": "有些原文值得保留，但原文应服务于判断，而不是替代判断。",
+      "tags": [
+        "永久笔记",
+        "转述理解",
+        "Smart Notes Demo"
+      ],
+      "body": "# 用自己的话重说，是第一次思考\n\n## 核心论点\n把材料重说成自己的语言，是从收藏走向理解的第一步。\n\n## 三句话压缩\n- 复制能保存信息，但不能证明理解。\n- 重说会暴露自己没看懂的地方。\n- 只有重说之后，才容易提炼成一条永久笔记。\n\n## 为什么重要\n新手常把“高亮很多句子”当成阅读成果，而真正的成果是能不能说清它解决什么问题。\n\n## 在研思录里怎么用\n导入 Demo 后，用户能看到文献笔记如何进入永久笔记。\n\n## 边界或反例\n有些原文值得保留，但原文应服务于判断，而不是替代判断。\n\n## 写作时怎么用\n写作时可作为“为什么不要直接从摘录开始写”的论据。\n\n## 可以继续看的笔记\n- [[文献笔记要先转述，再沉淀判断]]\n- [[摘录不等于理解]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "把材料重说成自己的语言，是从收藏走向理解的第一步。",
+      "rationale": "新手常把“高亮很多句子”当成阅读成果，而真正的成果是能不能说清它解决什么问题。",
+      "use_boundary": "有些原文值得保留，但原文应服务于判断，而不是替代判断。",
+      "writing_use": "写作时可作为“为什么不要直接从摘录开始写”的论据。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-ATOMIC-NOTE-ANSWERS-ONE-QUESTION",
+      "note_type": "permanent",
+      "title": "一条永久笔记最好只回答一个问题",
+      "cluster": "permanent",
+      "cluster_label": "永久笔记",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "永久笔记越像一个可复用判断，越应该只回答一个清楚问题。",
+      "threeLineSummary": [
+        "一条笔记塞太多观点，会让以后建联和写作都变难。",
+        "一个问题对应一个判断，关系理由才容易写清。",
+        "多个判断可以通过主题索引重新组织。"
+      ],
+      "productImplication": "永久笔记详情应突出论点、理由、边界和相关笔记。",
+      "boundaryOrCounterpoint": "复杂思想可以拆成多条永久笔记，再用主题索引串起来。",
+      "tags": [
+        "永久笔记",
+        "永久笔记",
+        "Smart Notes Demo"
+      ],
+      "body": "# 一条永久笔记最好只回答一个问题\n\n## 核心论点\n永久笔记越像一个可复用判断，越应该只回答一个清楚问题。\n\n## 三句话压缩\n- 一条笔记塞太多观点，会让以后建联和写作都变难。\n- 一个问题对应一个判断，关系理由才容易写清。\n- 多个判断可以通过主题索引重新组织。\n\n## 为什么重要\n原子化不是追求碎片，而是让笔记以后能被不同主题复用。\n\n## 在研思录里怎么用\n永久笔记详情应突出论点、理由、边界和相关笔记。\n\n## 边界或反例\n复杂思想可以拆成多条永久笔记，再用主题索引串起来。\n\n## 写作时怎么用\n写作中心可以把多条原子判断组合成段落，而不是把一条大笔记硬拆。\n\n## 可以继续看的笔记\n- [[永久笔记是一条用户愿意承担的判断]]\n- [[主题索引不是文件夹，而是问题入口]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "永久笔记越像一个可复用判断，越应该只回答一个清楚问题。",
+      "rationale": "原子化不是追求碎片，而是让笔记以后能被不同主题复用。",
+      "use_boundary": "复杂思想可以拆成多条永久笔记，再用主题索引串起来。",
+      "writing_use": "写作中心可以把多条原子判断组合成段落，而不是把一条大笔记硬拆。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-TITLE-SHOULD-BE-A-CLAIM",
+      "note_type": "permanent",
+      "title": "永久笔记标题应该像一句判断",
+      "cluster": "permanent",
+      "cluster_label": "永久笔记",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "永久笔记标题最好直接表达判断，而不是只写主题名。",
+      "threeLineSummary": [
+        "“关系”太宽，“关系理由比连线本身更重要”更有方向。",
+        "判断型标题能让用户在列表里快速回想这条笔记的立场。",
+        "它也更容易进入主题索引和写作提纲。"
+      ],
+      "productImplication": "Demo 永久笔记尽量用人话标题，避免内部编号和术语堆叠。",
+      "boundaryOrCounterpoint": "有些探索中的笔记可以先用临时标题，但确认后应该改成判断。",
+      "tags": [
+        "永久笔记",
+        "永久笔记",
+        "Smart Notes Demo"
+      ],
+      "body": "# 永久笔记标题应该像一句判断\n\n## 核心论点\n永久笔记标题最好直接表达判断，而不是只写主题名。\n\n## 三句话压缩\n- “关系”太宽，“关系理由比连线本身更重要”更有方向。\n- 判断型标题能让用户在列表里快速回想这条笔记的立场。\n- 它也更容易进入主题索引和写作提纲。\n\n## 为什么重要\n标题是笔记再次被发现时最先出现的线索。标题模糊，旧笔记就很难复用。\n\n## 在研思录里怎么用\nDemo 永久笔记尽量用人话标题，避免内部编号和术语堆叠。\n\n## 边界或反例\n有些探索中的笔记可以先用临时标题，但确认后应该改成判断。\n\n## 写作时怎么用\n写作时，判断型标题常常可以直接变成段落中心句。\n\n## 可以继续看的笔记\n- [[永久笔记是一条用户愿意承担的判断]]\n- [[一条永久笔记最好只回答一个问题]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "永久笔记标题最好直接表达判断，而不是只写主题名。",
+      "rationale": "标题是笔记再次被发现时最先出现的线索。标题模糊，旧笔记就很难复用。",
+      "use_boundary": "有些探索中的笔记可以先用临时标题，但确认后应该改成判断。",
+      "writing_use": "写作时，判断型标题常常可以直接变成段落中心句。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "note_type": "permanent",
+      "title": "关系类型是在告诉未来自己怎么读这两条笔记",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "关系类型不是给图谱上色，而是在提醒未来自己该如何把两条笔记一起读。",
+      "threeLineSummary": [
+        "支持关系提醒你找论据。",
+        "反驳或限定关系提醒你不要过度下结论。",
+        "桥接关系提醒你可能发现一个新主题。"
+      ],
+      "productImplication": "建联界面应让用户先选类型，再写一句为什么相关。",
+      "boundaryOrCounterpoint": "类型不必过细；新手先用少数几类高价值关系就够了。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 关系类型是在告诉未来自己怎么读这两条笔记\n\n## 核心论点\n关系类型不是给图谱上色，而是在提醒未来自己该如何把两条笔记一起读。\n\n## 三句话压缩\n- 支持关系提醒你找论据。\n- 反驳或限定关系提醒你不要过度下结论。\n- 桥接关系提醒你可能发现一个新主题。\n\n## 为什么重要\n同样两条笔记，关系类型不同，后续产生的洞察和文章结构也不同。\n\n## 在研思录里怎么用\n建联界面应让用户先选类型，再写一句为什么相关。\n\n## 边界或反例\n类型不必过细；新手先用少数几类高价值关系就够了。\n\n## 写作时怎么用\n写作时关系类型可以变成段落角色：证据、反方、限制、例子或过渡。\n\n## 可以继续看的笔记\n- [[关系理由比连线本身更重要]]\n- [[关系类型会改变以后发现新东西的方式]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "关系类型不是给图谱上色，而是在提醒未来自己该如何把两条笔记一起读。",
+      "rationale": "同样两条笔记，关系类型不同，后续产生的洞察和文章结构也不同。",
+      "use_boundary": "类型不必过细；新手先用少数几类高价值关系就够了。",
+      "writing_use": "写作时关系类型可以变成段落角色：证据、反方、限制、例子或过渡。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+      "note_type": "permanent",
+      "title": "支持关系以后会变成文章里的证据",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "当一条笔记支持另一条笔记时，它通常能在写作中承担证据角色。",
+      "threeLineSummary": [
+        "支持关系回答“为什么这个判断站得住”。",
+        "它适合连接原则和例子、判断和来源、主张和观察。",
+        "写作中心可以把支持关系转成论据段。"
+      ],
+      "productImplication": "关系详情可以显示“这条关系在写作中可作为论据”。",
+      "boundaryOrCounterpoint": "支持不是重复。两条笔记如果只是同义改写，应该合并或择一保留。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 支持关系以后会变成文章里的证据\n\n## 核心论点\n当一条笔记支持另一条笔记时，它通常能在写作中承担证据角色。\n\n## 三句话压缩\n- 支持关系回答“为什么这个判断站得住”。\n- 它适合连接原则和例子、判断和来源、主张和观察。\n- 写作中心可以把支持关系转成论据段。\n\n## 为什么重要\n新手如果只知道“相关”，写作时仍然不知道该怎么用；支持关系给了明确用途。\n\n## 在研思录里怎么用\n关系详情可以显示“这条关系在写作中可作为论据”。\n\n## 边界或反例\n支持不是重复。两条笔记如果只是同义改写，应该合并或择一保留。\n\n## 写作时怎么用\n用来写“为什么研思录要让用户写关系理由”的论证段。\n\n## 可以继续看的笔记\n- [[关系类型是在告诉未来自己怎么读这两条笔记]]\n- [[写作中心应该从已确认判断生成提纲]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "当一条笔记支持另一条笔记时，它通常能在写作中承担证据角色。",
+      "rationale": "新手如果只知道“相关”，写作时仍然不知道该怎么用；支持关系给了明确用途。",
+      "use_boundary": "支持不是重复。两条笔记如果只是同义改写，应该合并或择一保留。",
+      "writing_use": "用来写“为什么研思录要让用户写关系理由”的论证段。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "note_type": "permanent",
+      "title": "反驳关系会逼出更清楚的观点",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "反驳关系不是制造冲突，而是帮助用户发现判断的边界。",
+      "threeLineSummary": [
+        "好文章通常需要承认反方。",
+        "反驳关系能提示哪里需要解释、限定或改写。",
+        "它让知识网络不只是同温层。"
+      ],
+      "productImplication": "AI 建议里的冲突关系必须由用户确认，避免误伤笔记。",
+      "boundaryOrCounterpoint": "反驳关系要写清楚反驳点，不要把情绪不同当成观点冲突。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 反驳关系会逼出更清楚的观点\n\n## 核心论点\n反驳关系不是制造冲突，而是帮助用户发现判断的边界。\n\n## 三句话压缩\n- 好文章通常需要承认反方。\n- 反驳关系能提示哪里需要解释、限定或改写。\n- 它让知识网络不只是同温层。\n\n## 为什么重要\n只连支持关系，图谱会越来越像观点堆叠；加入反驳关系，判断才会更可靠。\n\n## 在研思录里怎么用\nAI 建议里的冲突关系必须由用户确认，避免误伤笔记。\n\n## 边界或反例\n反驳关系要写清楚反驳点，不要把情绪不同当成观点冲突。\n\n## 写作时怎么用\n写作时可以用它生成“可能的反对意见”和“回应”。\n\n## 可以继续看的笔记\n- [[边界和反例让永久笔记更可靠]]\n- [[AI 建议只能作为候选，不能替用户下判断]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "反驳关系不是制造冲突，而是帮助用户发现判断的边界。",
+      "rationale": "只连支持关系，图谱会越来越像观点堆叠；加入反驳关系，判断才会更可靠。",
+      "use_boundary": "反驳关系要写清楚反驳点，不要把情绪不同当成观点冲突。",
+      "writing_use": "写作时可以用它生成“可能的反对意见”和“回应”。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+      "note_type": "permanent",
+      "title": "限定关系能防止一条好判断被说过头",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "限定关系让用户知道一个判断在哪些条件下成立。",
+      "threeLineSummary": [
+        "许多笔记不是错，而是适用范围有限。",
+        "限定关系能把边界显性化。",
+        "它让写作不容易变成绝对化口号。"
+      ],
+      "productImplication": "建联时提供“限定/边界”类型，有助于形成更可靠的知识网络。",
+      "boundaryOrCounterpoint": "限定不等于削弱观点，而是让观点更可相信。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 限定关系能防止一条好判断被说过头\n\n## 核心论点\n限定关系让用户知道一个判断在哪些条件下成立。\n\n## 三句话压缩\n- 许多笔记不是错，而是适用范围有限。\n- 限定关系能把边界显性化。\n- 它让写作不容易变成绝对化口号。\n\n## 为什么重要\n卡片笔记法追求可持续思考，不追求一次写出永远正确的结论。\n\n## 在研思录里怎么用\n建联时提供“限定/边界”类型，有助于形成更可靠的知识网络。\n\n## 边界或反例\n限定不等于削弱观点，而是让观点更可相信。\n\n## 写作时怎么用\n用来写“在什么情况下这个建议不适用”的段落。\n\n## 可以继续看的笔记\n- [[边界和反例让永久笔记更可靠]]\n- [[反驳关系会逼出更清楚的观点]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "限定关系让用户知道一个判断在哪些条件下成立。",
+      "rationale": "卡片笔记法追求可持续思考，不追求一次写出永远正确的结论。",
+      "use_boundary": "限定不等于削弱观点，而是让观点更可相信。",
+      "writing_use": "用来写“在什么情况下这个建议不适用”的段落。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+      "note_type": "permanent",
+      "title": "桥接关系常常预示一个新主题正在出现",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "当两组原本分散的笔记被一条理由连接起来，新主题可能就出现了。",
+      "threeLineSummary": [
+        "桥接关系连接不同簇的判断。",
+        "它常常说明用户发现了一个更大的问题。",
+        "多个桥接关系可以触发主题索引。"
+      ],
+      "productImplication": "可写主题发现应优先看桥接和反复出现的中心问题。",
+      "boundaryOrCounterpoint": "桥接不能靠牵强类比，必须能说清共同问题。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 桥接关系常常预示一个新主题正在出现\n\n## 核心论点\n当两组原本分散的笔记被一条理由连接起来，新主题可能就出现了。\n\n## 三句话压缩\n- 桥接关系连接不同簇的判断。\n- 它常常说明用户发现了一个更大的问题。\n- 多个桥接关系可以触发主题索引。\n\n## 为什么重要\n知识网络的价值不在于同类归档，而在于让远处的判断发生新的组合。\n\n## 在研思录里怎么用\n可写主题发现应优先看桥接和反复出现的中心问题。\n\n## 边界或反例\n桥接不能靠牵强类比，必须能说清共同问题。\n\n## 写作时怎么用\n桥接关系可以成为文章的转折段或新选题来源。\n\n## 可以继续看的笔记\n- [[主题索引不是文件夹，而是问题入口]]\n- [[知识网络的复利来自旧笔记遇到新问题]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "当两组原本分散的笔记被一条理由连接起来，新主题可能就出现了。",
+      "rationale": "知识网络的价值不在于同类归档，而在于让远处的判断发生新的组合。",
+      "use_boundary": "桥接不能靠牵强类比，必须能说清共同问题。",
+      "writing_use": "桥接关系可以成为文章的转折段或新选题来源。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-EXAMPLE-RELATION-MAKES-ABSTRACT-USABLE",
+      "note_type": "permanent",
+      "title": "例子关系让抽象原则变得可操作",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "抽象原则需要被例子关系落地，用户才知道它怎么用。",
+      "threeLineSummary": [
+        "方法论笔记容易正确但空。",
+        "例子关系把原则连接到具体界面、动作或场景。",
+        "它能帮助帮助文章少讲道理、多给操作。"
+      ],
+      "productImplication": "Demo 应该把功能本身做成示例笔记，让用户通过笔记学习产品。",
+      "boundaryOrCounterpoint": "例子不是证明全部情况，只是帮助理解。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 例子关系让抽象原则变得可操作\n\n## 核心论点\n抽象原则需要被例子关系落地，用户才知道它怎么用。\n\n## 三句话压缩\n- 方法论笔记容易正确但空。\n- 例子关系把原则连接到具体界面、动作或场景。\n- 它能帮助帮助文章少讲道理、多给操作。\n\n## 为什么重要\n小白用户最需要的不是完整理论，而是“我现在该点哪里，点完会发生什么”。\n\n## 在研思录里怎么用\nDemo 应该把功能本身做成示例笔记，让用户通过笔记学习产品。\n\n## 边界或反例\n例子不是证明全部情况，只是帮助理解。\n\n## 写作时怎么用\n写帮助文章时，用例子关系把方法论转换成可执行步骤。\n\n## 可以继续看的笔记\n- [[帮助页应该按任务组织，而不是按功能堆列表]]\n- [[第一次建议导入 Demo，是为了先看到完整闭环]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "抽象原则需要被例子关系落地，用户才知道它怎么用。",
+      "rationale": "小白用户最需要的不是完整理论，而是“我现在该点哪里，点完会发生什么”。",
+      "use_boundary": "例子不是证明全部情况，只是帮助理解。",
+      "writing_use": "写帮助文章时，用例子关系把方法论转换成可执行步骤。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+      "note_type": "permanent",
+      "title": "缺口关系告诉你下一步该补什么",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "当两条笔记之间缺少证据、反例或中间环节时，这个缺口本身就是下一步任务。",
+      "threeLineSummary": [
+        "缺口关系不是失败，而是研究方向。",
+        "它可以提示继续阅读、继续观察或补一条永久笔记。",
+        "写作时，缺口能提醒用户不要急着下结论。"
+      ],
+      "productImplication": "AI 建议可以提示缺口，但保存前仍要用户确认。",
+      "boundaryOrCounterpoint": "缺口关系不要太泛，要写清缺的是证据、定义、案例还是反方。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 缺口关系告诉你下一步该补什么\n\n## 核心论点\n当两条笔记之间缺少证据、反例或中间环节时，这个缺口本身就是下一步任务。\n\n## 三句话压缩\n- 缺口关系不是失败，而是研究方向。\n- 它可以提示继续阅读、继续观察或补一条永久笔记。\n- 写作时，缺口能提醒用户不要急着下结论。\n\n## 为什么重要\n好的知识系统应该让用户看见“不知道什么”，而不是只展示已经整理好的部分。\n\n## 在研思录里怎么用\nAI 建议可以提示缺口，但保存前仍要用户确认。\n\n## 边界或反例\n缺口关系不要太泛，要写清缺的是证据、定义、案例还是反方。\n\n## 写作时怎么用\n写作时可以把缺口放进“仍需进一步观察”的部分。\n\n## 可以继续看的笔记\n- [[AI 建议只能作为候选，不能替用户下判断]]\n- [[反驳关系会逼出更清楚的观点]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "当两条笔记之间缺少证据、反例或中间环节时，这个缺口本身就是下一步任务。",
+      "rationale": "好的知识系统应该让用户看见“不知道什么”，而不是只展示已经整理好的部分。",
+      "use_boundary": "缺口关系不要太泛，要写清缺的是证据、定义、案例还是反方。",
+      "writing_use": "写作时可以把缺口放进“仍需进一步观察”的部分。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+      "note_type": "permanent",
+      "title": "关系理由是在替未来文章预写一小段",
+      "cluster": "relation",
+      "cluster_label": "关系管理",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "每次写清关系理由，都是在为未来文章准备一句可用的过渡或论证。",
+      "threeLineSummary": [
+        "关系理由说明两条笔记为什么要一起出现。",
+        "这句话以后常常可以改写成段落中的连接句。",
+        "所以建联不是维护图谱，而是在积累写作结构。"
+      ],
+      "productImplication": "建联浮层应让用户在查看笔记、选择类型、写理由、保存之间顺畅完成。",
+      "boundaryOrCounterpoint": "关系理由不用长，关键是说清关系角色。",
+      "tags": [
+        "永久笔记",
+        "关系管理",
+        "Smart Notes Demo"
+      ],
+      "body": "# 关系理由是在替未来文章预写一小段\n\n## 核心论点\n每次写清关系理由，都是在为未来文章准备一句可用的过渡或论证。\n\n## 三句话压缩\n- 关系理由说明两条笔记为什么要一起出现。\n- 这句话以后常常可以改写成段落中的连接句。\n- 所以建联不是维护图谱，而是在积累写作结构。\n\n## 为什么重要\n很多用户卡在写作，是因为笔记之间缺少可解释的连接。关系理由把连接提前写出来。\n\n## 在研思录里怎么用\n建联浮层应让用户在查看笔记、选择类型、写理由、保存之间顺畅完成。\n\n## 边界或反例\n关系理由不用长，关键是说清关系角色。\n\n## 写作时怎么用\n直接用作文章中的“因此、但是、在这种情况下”的连接。\n\n## 可以继续看的笔记\n- [[关系理由比连线本身更重要]]\n- [[支持关系以后会变成文章里的证据]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "每次写清关系理由，都是在为未来文章准备一句可用的过渡或论证。",
+      "rationale": "很多用户卡在写作，是因为笔记之间缺少可解释的连接。关系理由把连接提前写出来。",
+      "use_boundary": "关系理由不用长，关键是说清关系角色。",
+      "writing_use": "直接用作文章中的“因此、但是、在这种情况下”的连接。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "note_type": "permanent",
+      "title": "主题索引应该从一个中心问题开始",
+      "cluster": "index",
+      "cluster_label": "主题索引",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "主题索引的第一行应该是问题，而不是分类名。",
+      "threeLineSummary": [
+        "问题能决定哪些笔记该进来。",
+        "问题也能决定阅读顺序和写作方向。",
+        "没有中心问题，主题索引容易退化成文件夹。"
+      ],
+      "productImplication": "主题索引页应突出中心问题、关键笔记、为什么属于同一主题。",
+      "boundaryOrCounterpoint": "中心问题可以迭代，不需要第一次就完美。",
+      "tags": [
+        "永久笔记",
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "body": "# 主题索引应该从一个中心问题开始\n\n## 核心论点\n主题索引的第一行应该是问题，而不是分类名。\n\n## 三句话压缩\n- 问题能决定哪些笔记该进来。\n- 问题也能决定阅读顺序和写作方向。\n- 没有中心问题，主题索引容易退化成文件夹。\n\n## 为什么重要\n卡片笔记法的索引不是为了摆放资料，而是为了下一次重新进入思考。\n\n## 在研思录里怎么用\n主题索引页应突出中心问题、关键笔记、为什么属于同一主题。\n\n## 边界或反例\n中心问题可以迭代，不需要第一次就完美。\n\n## 写作时怎么用\n中心问题可以直接转成文章标题或提纲主问题。\n\n## 可以继续看的笔记\n- [[主题索引不是文件夹，而是问题入口]]\n- [[永久笔记标题应该像一句判断]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "主题索引的第一行应该是问题，而不是分类名。",
+      "rationale": "卡片笔记法的索引不是为了摆放资料，而是为了下一次重新进入思考。",
+      "use_boundary": "中心问题可以迭代，不需要第一次就完美。",
+      "writing_use": "中心问题可以直接转成文章标题或提纲主问题。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+      "note_type": "permanent",
+      "title": "主题索引要保存一条可读顺序",
+      "cluster": "index",
+      "cluster_label": "主题索引",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "主题索引不只列出笔记，还应该告诉用户先读哪条、再读哪条。",
+      "threeLineSummary": [
+        "阅读顺序能降低再次进入主题的成本。",
+        "它让新手知道从哪里开始。",
+        "写作时，阅读顺序也常常变成提纲顺序。"
+      ],
+      "productImplication": "Demo 的主题索引应展示关键笔记和阅读顺序。",
+      "boundaryOrCounterpoint": "阅读顺序不是永久固定，写作目标变化时可以调整。",
+      "tags": [
+        "永久笔记",
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "body": "# 主题索引要保存一条可读顺序\n\n## 核心论点\n主题索引不只列出笔记，还应该告诉用户先读哪条、再读哪条。\n\n## 三句话压缩\n- 阅读顺序能降低再次进入主题的成本。\n- 它让新手知道从哪里开始。\n- 写作时，阅读顺序也常常变成提纲顺序。\n\n## 为什么重要\n如果主题索引只是链接列表，用户下次仍然要重新判断。\n\n## 在研思录里怎么用\nDemo 的主题索引应展示关键笔记和阅读顺序。\n\n## 边界或反例\n阅读顺序不是永久固定，写作目标变化时可以调整。\n\n## 写作时怎么用\n用于说明“为什么主题索引是写作前的整理台”。\n\n## 可以继续看的笔记\n- [[主题索引应该从一个中心问题开始]]\n- [[05 怎么从主题进入写作中心？]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "主题索引不只列出笔记，还应该告诉用户先读哪条、再读哪条。",
+      "rationale": "如果主题索引只是链接列表，用户下次仍然要重新判断。",
+      "use_boundary": "阅读顺序不是永久固定，写作目标变化时可以调整。",
+      "writing_use": "用于说明“为什么主题索引是写作前的整理台”。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+      "note_type": "permanent",
+      "title": "主题索引是会继续生长的文章前身",
+      "cluster": "index",
+      "cluster_label": "主题索引",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "当主题索引不断加入关键笔记、边界和反方，它就会自然接近文章提纲。",
+      "threeLineSummary": [
+        "主题索引不是草稿，但比普通分类更接近写作。",
+        "它把材料按问题组织起来。",
+        "写作中心只是把这条结构进一步显性化。"
+      ],
+      "productImplication": "写作中心应从主题索引接入，而不是让用户从空白 prompt 开始。",
+      "boundaryOrCounterpoint": "主题索引还不负责语言润色，它负责结构和判断。",
+      "tags": [
+        "永久笔记",
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "body": "# 主题索引是会继续生长的文章前身\n\n## 核心论点\n当主题索引不断加入关键笔记、边界和反方，它就会自然接近文章提纲。\n\n## 三句话压缩\n- 主题索引不是草稿，但比普通分类更接近写作。\n- 它把材料按问题组织起来。\n- 写作中心只是把这条结构进一步显性化。\n\n## 为什么重要\n很多文章不是从空白页开始，而是从一个已经被反复整理的问题开始。\n\n## 在研思录里怎么用\n写作中心应从主题索引接入，而不是让用户从空白 prompt 开始。\n\n## 边界或反例\n主题索引还不负责语言润色，它负责结构和判断。\n\n## 写作时怎么用\n可作为“从主题进入写作”的核心论点。\n\n## 可以继续看的笔记\n- [[写作中心应该从已确认判断生成提纲]]\n- [[主题索引要保存一条可读顺序]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "当主题索引不断加入关键笔记、边界和反方，它就会自然接近文章提纲。",
+      "rationale": "很多文章不是从空白页开始，而是从一个已经被反复整理的问题开始。",
+      "use_boundary": "主题索引还不负责语言润色，它负责结构和判断。",
+      "writing_use": "可作为“从主题进入写作”的核心论点。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS",
+      "note_type": "permanent",
+      "title": "标签用来快速筛选，主题索引用来继续思考",
+      "cluster": "index",
+      "cluster_label": "主题索引",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "标签和主题索引不是同一种东西：标签帮你找，索引帮你想。",
+      "threeLineSummary": [
+        "标签适合粗筛和状态标记。",
+        "主题索引适合围绕问题组织关键笔记。",
+        "把两者混在一起，会让系统既难找也难写。"
+      ],
+      "productImplication": "研思录可以保留标签，但核心路径应围绕首页、关系、主题索引和写作中心。",
+      "boundaryOrCounterpoint": "标签仍然有用，只是不应该承担写作结构。",
+      "tags": [
+        "永久笔记",
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "body": "# 标签用来快速筛选，主题索引用来继续思考\n\n## 核心论点\n标签和主题索引不是同一种东西：标签帮你找，索引帮你想。\n\n## 三句话压缩\n- 标签适合粗筛和状态标记。\n- 主题索引适合围绕问题组织关键笔记。\n- 把两者混在一起，会让系统既难找也难写。\n\n## 为什么重要\n许多笔记软件把分类当成核心，但卡片笔记写作更需要问题和关系。\n\n## 在研思录里怎么用\n研思录可以保留标签，但核心路径应围绕首页、关系、主题索引和写作中心。\n\n## 边界或反例\n标签仍然有用，只是不应该承担写作结构。\n\n## 写作时怎么用\n帮助用户理解为什么“建更多文件夹”不是最佳起点。\n\n## 可以继续看的笔记\n- [[主题索引不是文件夹，而是问题入口]]\n- [[主题索引应该从一个中心问题开始]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "标签和主题索引不是同一种东西：标签帮你找，索引帮你想。",
+      "rationale": "许多笔记软件把分类当成核心，但卡片笔记写作更需要问题和关系。",
+      "use_boundary": "标签仍然有用，只是不应该承担写作结构。",
+      "writing_use": "帮助用户理解为什么“建更多文件夹”不是最佳起点。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-WRITING-USES-RELATION-ROLES",
+      "note_type": "permanent",
+      "title": "写作时要按关系角色调用笔记",
+      "cluster": "writing",
+      "cluster_label": "从关系到写作",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "写作中心不只是拿几条笔记拼接，而是按关系角色组织证据、反方、边界和例子。",
+      "threeLineSummary": [
+        "支持关系可以成为论据。",
+        "反驳和限定关系可以成为边界。",
+        "桥接关系可以成为新选题或段落转折。"
+      ],
+      "productImplication": "写作中心应优先展示“这组笔记能回答什么问题”。",
+      "boundaryOrCounterpoint": "关系角色提供结构，不替代作者的表达和取舍。",
+      "tags": [
+        "永久笔记",
+        "从关系到写作",
+        "Smart Notes Demo"
+      ],
+      "body": "# 写作时要按关系角色调用笔记\n\n## 核心论点\n写作中心不只是拿几条笔记拼接，而是按关系角色组织证据、反方、边界和例子。\n\n## 三句话压缩\n- 支持关系可以成为论据。\n- 反驳和限定关系可以成为边界。\n- 桥接关系可以成为新选题或段落转折。\n\n## 为什么重要\n如果关系在整理时写清楚，写作时就不需要重新猜每条笔记有什么用。\n\n## 在研思录里怎么用\n写作中心应优先展示“这组笔记能回答什么问题”。\n\n## 边界或反例\n关系角色提供结构，不替代作者的表达和取舍。\n\n## 写作时怎么用\n直接指导文章提纲如何从笔记网络生成。\n\n## 可以继续看的笔记\n- [[关系类型是在告诉未来自己怎么读这两条笔记]]\n- [[写作中心应该从已确认判断生成提纲]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "写作中心不只是拿几条笔记拼接，而是按关系角色组织证据、反方、边界和例子。",
+      "rationale": "如果关系在整理时写清楚，写作时就不需要重新猜每条笔记有什么用。",
+      "use_boundary": "关系角色提供结构，不替代作者的表达和取舍。",
+      "writing_use": "直接指导文章提纲如何从笔记网络生成。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "note_type": "permanent",
+      "title": "好提纲需要证据、反方和边界",
+      "cluster": "writing",
+      "cluster_label": "从关系到写作",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "一份可用提纲不只列观点，还要包含证据、反方和适用边界。",
+      "threeLineSummary": [
+        "只有观点，文章会像口号。",
+        "只有证据，文章会像资料整理。",
+        "加入反方和边界，文章才更可信。"
+      ],
+      "productImplication": "写作中心生成提纲时应提示缺口和反方，而不只是生成段落标题。",
+      "boundaryOrCounterpoint": "短文不一定每部分都写完整，但至少要知道缺在哪里。",
+      "tags": [
+        "永久笔记",
+        "从关系到写作",
+        "Smart Notes Demo"
+      ],
+      "body": "# 好提纲需要证据、反方和边界\n\n## 核心论点\n一份可用提纲不只列观点，还要包含证据、反方和适用边界。\n\n## 三句话压缩\n- 只有观点，文章会像口号。\n- 只有证据，文章会像资料整理。\n- 加入反方和边界，文章才更可信。\n\n## 为什么重要\n卡片笔记法积累的不是素材数量，而是可组合的判断结构。\n\n## 在研思录里怎么用\n写作中心生成提纲时应提示缺口和反方，而不只是生成段落标题。\n\n## 边界或反例\n短文不一定每部分都写完整，但至少要知道缺在哪里。\n\n## 写作时怎么用\n作为写作中心帮助说明的核心内容。\n\n## 可以继续看的笔记\n- [[反驳关系会逼出更清楚的观点]]\n- [[限定关系能防止一条好判断被说过头]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "一份可用提纲不只列观点，还要包含证据、反方和适用边界。",
+      "rationale": "卡片笔记法积累的不是素材数量，而是可组合的判断结构。",
+      "use_boundary": "短文不一定每部分都写完整，但至少要知道缺在哪里。",
+      "writing_use": "作为写作中心帮助说明的核心内容。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE",
+      "note_type": "permanent",
+      "title": "草稿应该能追溯到关键笔记",
+      "cluster": "writing",
+      "cluster_label": "从关系到写作",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "从笔记生成草稿时，关键段落应该能追溯到支撑它的笔记。",
+      "threeLineSummary": [
+        "追溯让用户知道一句话从哪里来。",
+        "它方便回头检查证据和边界。",
+        "也能防止 AI 或模板把观点写偏。"
+      ],
+      "productImplication": "写作项目应保留关键笔记、主题索引和提纲之间的联系。",
+      "boundaryOrCounterpoint": "不是每句话都要标注来源，但关键判断应该能回到笔记。",
+      "tags": [
+        "永久笔记",
+        "从关系到写作",
+        "Smart Notes Demo"
+      ],
+      "body": "# 草稿应该能追溯到关键笔记\n\n## 核心论点\n从笔记生成草稿时，关键段落应该能追溯到支撑它的笔记。\n\n## 三句话压缩\n- 追溯让用户知道一句话从哪里来。\n- 它方便回头检查证据和边界。\n- 也能防止 AI 或模板把观点写偏。\n\n## 为什么重要\n研思录强调用户确认，因为真正重要的是用户自己的判断链。\n\n## 在研思录里怎么用\n写作项目应保留关键笔记、主题索引和提纲之间的联系。\n\n## 边界或反例\n不是每句话都要标注来源，但关键判断应该能回到笔记。\n\n## 写作时怎么用\n可用于解释为什么写作中心不是普通 AI 写作器。\n\n## 可以继续看的笔记\n- [[AI 建议只能作为候选，不能替用户下判断]]\n- [[写作时要按关系角色调用笔记]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "从笔记生成草稿时，关键段落应该能追溯到支撑它的笔记。",
+      "rationale": "研思录强调用户确认，因为真正重要的是用户自己的判断链。",
+      "use_boundary": "不是每句话都要标注来源，但关键判断应该能回到笔记。",
+      "writing_use": "可用于解释为什么写作中心不是普通 AI 写作器。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT",
+      "note_type": "permanent",
+      "title": "帮助文章也可以由 Demo 笔记生长出来",
+      "cluster": "product",
+      "cluster_label": "产品理念",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "产品帮助不应该只是说明按钮，而应该展示一条从笔记到文章的真实路径。",
+      "threeLineSummary": [
+        "用户最容易相信自己能做到的，是看到 Demo 已经走过一遍。",
+        "帮助文章可以引用 Demo 的主题索引和永久笔记。",
+        "这样帮助本身也成为卡片笔记写作法的成果。"
+      ],
+      "productImplication": "设置里的帮助可以放从 Demo 生成的最佳实践文章。",
+      "boundaryOrCounterpoint": "帮助文章要短、按任务组织，不要变成方法论长书。",
+      "tags": [
+        "永久笔记",
+        "产品理念",
+        "Smart Notes Demo"
+      ],
+      "body": "# 帮助文章也可以由 Demo 笔记生长出来\n\n## 核心论点\n产品帮助不应该只是说明按钮，而应该展示一条从笔记到文章的真实路径。\n\n## 三句话压缩\n- 用户最容易相信自己能做到的，是看到 Demo 已经走过一遍。\n- 帮助文章可以引用 Demo 的主题索引和永久笔记。\n- 这样帮助本身也成为卡片笔记写作法的成果。\n\n## 为什么重要\n如果帮助和 Demo 分离，用户要在文档和产品之间来回翻译；把二者打通，学习成本更低。\n\n## 在研思录里怎么用\n设置里的帮助可以放从 Demo 生成的最佳实践文章。\n\n## 边界或反例\n帮助文章要短、按任务组织，不要变成方法论长书。\n\n## 写作时怎么用\n可作为“研思录如何把方法论内置到产品里”的例子。\n\n## 可以继续看的笔记\n- [[帮助页应该按任务组织，而不是按功能堆列表]]\n- [[主题索引是会继续生长的文章前身]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "产品帮助不应该只是说明按钮，而应该展示一条从笔记到文章的真实路径。",
+      "rationale": "如果帮助和 Demo 分离，用户要在文档和产品之间来回翻译；把二者打通，学习成本更低。",
+      "use_boundary": "帮助文章要短、按任务组织，不要变成方法论长书。",
+      "writing_use": "可作为“研思录如何把方法论内置到产品里”的例子。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-HOME-AS-DAILY-DESK",
+      "note_type": "permanent",
+      "title": "首页应该像每天整理知识的工作台",
+      "cluster": "product",
+      "cluster_label": "产品理念",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "首页不是永久笔记盒，也不是导航页，而是每天开始整理知识的工作台。",
+      "threeLineSummary": [
+        "用户每天只需要知道下一步最该处理什么。",
+        "材料、永久笔记、关系、主题和写作都可以从这里进入。",
+        "首页要减少选择压力，而不是堆满所有可能。"
+      ],
+      "productImplication": "首页卡片应围绕“处理材料、补关系、整理主题、进入写作”组织。",
+      "boundaryOrCounterpoint": "高级功能可以存在，但不应该抢占新手首屏。",
+      "tags": [
+        "永久笔记",
+        "产品理念",
+        "Smart Notes Demo"
+      ],
+      "body": "# 首页应该像每天整理知识的工作台\n\n## 核心论点\n首页不是永久笔记盒，也不是导航页，而是每天开始整理知识的工作台。\n\n## 三句话压缩\n- 用户每天只需要知道下一步最该处理什么。\n- 材料、永久笔记、关系、主题和写作都可以从这里进入。\n- 首页要减少选择压力，而不是堆满所有可能。\n\n## 为什么重要\n研思录的核心价值在连续小闭环，不在一次性搭建完整系统。\n\n## 在研思录里怎么用\n首页卡片应围绕“处理材料、补关系、整理主题、进入写作”组织。\n\n## 边界或反例\n高级功能可以存在，但不应该抢占新手首屏。\n\n## 写作时怎么用\n用于解释为什么“整理台”最终叫首页。\n\n## 可以继续看的笔记\n- [[首页应该奖励处理，而不是奖励收藏]]\n- [[研思录的最佳路径，是从首页开始做一个小闭环]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "首页不是永久笔记盒，也不是导航页，而是每天开始整理知识的工作台。",
+      "rationale": "研思录的核心价值在连续小闭环，不在一次性搭建完整系统。",
+      "use_boundary": "高级功能可以存在，但不应该抢占新手首屏。",
+      "writing_use": "用于解释为什么“整理台”最终叫首页。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-DEMO-IS-PRACTICE-GROUND",
+      "note_type": "permanent",
+      "title": "Demo 应该是可练习的样例库，不是静态说明书",
+      "cluster": "product",
+      "cluster_label": "产品理念",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "Smart Notes Demo 的目标是让用户亲手走完一遍，而不是读完一篇介绍。",
+      "threeLineSummary": [
+        "示例数据要包含待处理、已处理和可写作的不同状态。",
+        "用户可以安全地建联、打开主题、进入写作中心。",
+        "练一遍比读十条说明更容易理解产品。"
+      ],
+      "productImplication": "首次启动要明确展示“一键导入示例库 / 体验 Demo”。",
+      "boundaryOrCounterpoint": "Demo 不应该污染用户正式库；导入前需要用户确认。",
+      "tags": [
+        "永久笔记",
+        "产品理念",
+        "Smart Notes Demo"
+      ],
+      "body": "# Demo 应该是可练习的样例库，不是静态说明书\n\n## 核心论点\nSmart Notes Demo 的目标是让用户亲手走完一遍，而不是读完一篇介绍。\n\n## 三句话压缩\n- 示例数据要包含待处理、已处理和可写作的不同状态。\n- 用户可以安全地建联、打开主题、进入写作中心。\n- 练一遍比读十条说明更容易理解产品。\n\n## 为什么重要\n小白用户通常不是不知道概念，而是不知道下一步该怎么做。\n\n## 在研思录里怎么用\n首次启动要明确展示“一键导入示例库 / 体验 Demo”。\n\n## 边界或反例\nDemo 不应该污染用户正式库；导入前需要用户确认。\n\n## 写作时怎么用\n帮助文章可以把 Demo 路径写成练习清单。\n\n## 可以继续看的笔记\n- [[第一次建议导入 Demo，是为了先看到完整闭环]]\n- [[帮助文章也可以由 Demo 笔记生长出来]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "Smart Notes Demo 的目标是让用户亲手走完一遍，而不是读完一篇介绍。",
+      "rationale": "小白用户通常不是不知道概念，而是不知道下一步该怎么做。",
+      "use_boundary": "Demo 不应该污染用户正式库；导入前需要用户确认。",
+      "writing_use": "帮助文章可以把 Demo 路径写成练习清单。",
+      "template": {
+        "type": "permanent_note"
+      }
+    },
+    {
+      "id": "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+      "note_type": "permanent",
+      "title": "AI 只能提出候选，保存前必须由用户确认",
+      "cluster": "product",
+      "cluster_label": "产品理念",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "AI 在研思录里负责减轻发现成本，不负责替用户决定知识网络。",
+      "threeLineSummary": [
+        "AI 可以提示关系、主题和提纲。",
+        "但关系理由、是否采纳、是否归档必须由用户确认。",
+        "这样才能保护用户自己的判断链。"
+      ],
+      "productImplication": "AI 建议页应该清楚显示“未确认前不会改动笔记”。",
+      "boundaryOrCounterpoint": "本地规则和 AI 都可能有价值，但都必须保持候选状态。",
+      "tags": [
+        "永久笔记",
+        "产品理念",
+        "Smart Notes Demo"
+      ],
+      "body": "# AI 只能提出候选，保存前必须由用户确认\n\n## 核心论点\nAI 在研思录里负责减轻发现成本，不负责替用户决定知识网络。\n\n## 三句话压缩\n- AI 可以提示关系、主题和提纲。\n- 但关系理由、是否采纳、是否归档必须由用户确认。\n- 这样才能保护用户自己的判断链。\n\n## 为什么重要\n卡片笔记写作法的核心是主动判断；如果 AI 自动决定，系统会变成另一种黑箱。\n\n## 在研思录里怎么用\nAI 建议页应该清楚显示“未确认前不会改动笔记”。\n\n## 边界或反例\n本地规则和 AI 都可能有价值，但都必须保持候选状态。\n\n## 写作时怎么用\n用于解释研思录为什么不是自动写作工具。\n\n## 可以继续看的笔记\n- [[AI 建议只能作为候选，不能替用户下判断]]\n- [[草稿应该能追溯到关键笔记]]\n\n## 下一步动作\n把这条笔记和一条相邻笔记建立关系，并用一句话写清楚为什么相关。",
+      "core_claim": "AI 在研思录里负责减轻发现成本，不负责替用户决定知识网络。",
+      "rationale": "卡片笔记写作法的核心是主动判断；如果 AI 自动决定，系统会变成另一种黑箱。",
+      "use_boundary": "本地规则和 AI 都可能有价值，但都必须保持候选状态。",
+      "writing_use": "用于解释研思录为什么不是自动写作工具。",
+      "template": {
+        "type": "permanent_note"
+      }
     }
   ],
   "index_cards": [
@@ -2847,6 +3567,443 @@
         "PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE"
       ],
       "body": "# 未来产品路线可以怎样从笔记中长出来？\n\n## 中心问题\n哪些产品判断能从笔记网络进入路线讨论？\n\n## 阅读顺序\n1. [[PERM-ROADMAP-GROWS-FROM-NOTES|未来产品路线可以从笔记中长出来]]\n2. [[PERM-BACKUP-BEATS-IMPORT-EXPORT|备份与恢复比导入导出更重要]]\n3. [[PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE|手机负责快速记录，电脑负责慢慢整理]]\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-RELATION-TYPES-TO-WRITING",
+      "index_type": "topic",
+      "title": "关系类型如何帮助后续洞察和写作？",
+      "central_question": "不同关系类型在洞察和写作中分别承担什么角色？",
+      "thesis": "这组笔记把建联从“连起来”推进到“以后怎么读、怎么写、怎么发现新问题”。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "这组笔记把建联从“连起来”推进到“以后怎么读、怎么写、怎么发现新问题”。",
+      "item_note_ids": [
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+        "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+        "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+        "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+        "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+          "order": 1,
+          "rationale": "第 1 步读这条笔记，因为它能回答“不同关系类型在洞察和写作中分别承担什么角色？”的一部分。"
+        },
+        {
+          "note_id": "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+          "order": 2,
+          "rationale": "第 2 步读这条笔记，因为它能回答“不同关系类型在洞察和写作中分别承担什么角色？”的一部分。"
+        },
+        {
+          "note_id": "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+          "order": 3,
+          "rationale": "第 3 步读这条笔记，因为它能回答“不同关系类型在洞察和写作中分别承担什么角色？”的一部分。"
+        },
+        {
+          "note_id": "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+          "order": 4,
+          "rationale": "第 4 步读这条笔记，因为它能回答“不同关系类型在洞察和写作中分别承担什么角色？”的一部分。"
+        },
+        {
+          "note_id": "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+          "order": 5,
+          "rationale": "第 5 步读这条笔记，因为它能回答“不同关系类型在洞察和写作中分别承担什么角色？”的一部分。"
+        },
+        {
+          "note_id": "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+          "order": 6,
+          "rationale": "第 6 步读这条笔记，因为它能回答“不同关系类型在洞察和写作中分别承担什么角色？”的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+        "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+        "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+        "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+        "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH"
+      ],
+      "body": "# 关系类型如何帮助后续洞察和写作？\n\n## 中心问题\n不同关系类型在洞察和写作中分别承担什么角色？\n\n## 阅读顺序\n1. [[关系类型是在告诉未来自己怎么读这两条笔记]]\n2. [[支持关系以后会变成文章里的证据]]\n3. [[反驳关系会逼出更清楚的观点]]\n4. [[限定关系能防止一条好判断被说过头]]\n5. [[桥接关系常常预示一个新主题正在出现]]\n6. [[关系理由是在替未来文章预写一小段]]\n\n## 为什么这些笔记属于同一主题\n这组笔记把建联从“连起来”推进到“以后怎么读、怎么写、怎么发现新问题”。\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-INDEX-NOTE-PRACTICE",
+      "index_type": "topic",
+      "title": "主题索引笔记应该怎么创建和维护？",
+      "central_question": "怎样判断一组笔记已经值得建立主题索引？",
+      "thesis": "这组笔记说明主题索引不是分类，而是围绕中心问题组织关键笔记和阅读顺序。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "这组笔记说明主题索引不是分类，而是围绕中心问题组织关键笔记和阅读顺序。",
+      "item_note_ids": [
+        "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+        "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+        "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+        "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS",
+        "PERM-THEME-INDEX-IS-ENTRY"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+          "order": 1,
+          "rationale": "第 1 步读这条笔记，因为它能回答“怎样判断一组笔记已经值得建立主题索引？”的一部分。"
+        },
+        {
+          "note_id": "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+          "order": 2,
+          "rationale": "第 2 步读这条笔记，因为它能回答“怎样判断一组笔记已经值得建立主题索引？”的一部分。"
+        },
+        {
+          "note_id": "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+          "order": 3,
+          "rationale": "第 3 步读这条笔记，因为它能回答“怎样判断一组笔记已经值得建立主题索引？”的一部分。"
+        },
+        {
+          "note_id": "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS",
+          "order": 4,
+          "rationale": "第 4 步读这条笔记，因为它能回答“怎样判断一组笔记已经值得建立主题索引？”的一部分。"
+        },
+        {
+          "note_id": "PERM-THEME-INDEX-IS-ENTRY",
+          "order": 5,
+          "rationale": "第 5 步读这条笔记，因为它能回答“怎样判断一组笔记已经值得建立主题索引？”的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+        "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+        "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+        "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS",
+        "PERM-THEME-INDEX-IS-ENTRY"
+      ],
+      "body": "# 主题索引笔记应该怎么创建和维护？\n\n## 中心问题\n怎样判断一组笔记已经值得建立主题索引？\n\n## 阅读顺序\n1. [[主题索引应该从一个中心问题开始]]\n2. [[主题索引要保存一条可读顺序]]\n3. [[主题索引是会继续生长的文章前身]]\n4. [[标签用来快速筛选，主题索引用来继续思考]]\n5. [[主题索引不是文件夹，而是问题入口]]\n\n## 为什么这些笔记属于同一主题\n这组笔记说明主题索引不是分类，而是围绕中心问题组织关键笔记和阅读顺序。\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-WRITING-FROM-RELATIONS",
+      "index_type": "topic",
+      "title": "如何从关系网络进入写作？",
+      "central_question": "关系理由、关系类型和主题索引如何变成提纲与草稿？",
+      "thesis": "这组笔记展示写作不是从空白页开始，而是从已确认判断、关系角色和主题索引中长出来。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "这组笔记展示写作不是从空白页开始，而是从已确认判断、关系角色和主题索引中长出来。",
+      "item_note_ids": [
+        "PERM-WRITING-USES-RELATION-ROLES",
+        "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+        "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE",
+        "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+        "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-WRITING-USES-RELATION-ROLES"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-WRITING-USES-RELATION-ROLES",
+          "order": 1,
+          "rationale": "第 1 步读这条笔记，因为它能回答“关系理由、关系类型和主题索引如何变成提纲与草稿？”的一部分。"
+        },
+        {
+          "note_id": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+          "order": 2,
+          "rationale": "第 2 步读这条笔记，因为它能回答“关系理由、关系类型和主题索引如何变成提纲与草稿？”的一部分。"
+        },
+        {
+          "note_id": "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE",
+          "order": 3,
+          "rationale": "第 3 步读这条笔记，因为它能回答“关系理由、关系类型和主题索引如何变成提纲与草稿？”的一部分。"
+        },
+        {
+          "note_id": "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+          "order": 4,
+          "rationale": "第 4 步读这条笔记，因为它能回答“关系理由、关系类型和主题索引如何变成提纲与草稿？”的一部分。"
+        },
+        {
+          "note_id": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+          "order": 5,
+          "rationale": "第 5 步读这条笔记，因为它能回答“关系理由、关系类型和主题索引如何变成提纲与草稿？”的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-WRITING-USES-RELATION-ROLES",
+        "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+        "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE",
+        "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+        "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES"
+      ],
+      "body": "# 如何从关系网络进入写作？\n\n## 中心问题\n关系理由、关系类型和主题索引如何变成提纲与草稿？\n\n## 阅读顺序\n1. [[写作时要按关系角色调用笔记]]\n2. [[好提纲需要证据、反方和边界]]\n3. [[草稿应该能追溯到关键笔记]]\n4. [[主题索引是会继续生长的文章前身]]\n5. [[写作中心应该从已确认判断生成提纲]]\n\n## 为什么这些笔记属于同一主题\n这组笔记展示写作不是从空白页开始，而是从已确认判断、关系角色和主题索引中长出来。\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-YANSILU-DAILY-PATH",
+      "index_type": "topic",
+      "title": "研思录每天最推荐的使用路径是什么？",
+      "central_question": "第一次和每天打开研思录时，应该按什么顺序行动？",
+      "thesis": "这组笔记把产品首页、Demo、每日整理和小闭环连成一个新手可执行路径。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "这组笔记把产品首页、Demo、每日整理和小闭环连成一个新手可执行路径。",
+      "item_note_ids": [
+        "PERM-HOME-AS-DAILY-DESK",
+        "PERM-DEMO-IS-PRACTICE-GROUND",
+        "PERM-FIRST-TEN-MINUTES",
+        "PERM-BEST-PATH-STARTS-FROM-HOME",
+        "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-HOME-AS-DAILY-DESK"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-HOME-AS-DAILY-DESK",
+          "order": 1,
+          "rationale": "第 1 步读这条笔记，因为它能回答“第一次和每天打开研思录时，应该按什么顺序行动？”的一部分。"
+        },
+        {
+          "note_id": "PERM-DEMO-IS-PRACTICE-GROUND",
+          "order": 2,
+          "rationale": "第 2 步读这条笔记，因为它能回答“第一次和每天打开研思录时，应该按什么顺序行动？”的一部分。"
+        },
+        {
+          "note_id": "PERM-FIRST-TEN-MINUTES",
+          "order": 3,
+          "rationale": "第 3 步读这条笔记，因为它能回答“第一次和每天打开研思录时，应该按什么顺序行动？”的一部分。"
+        },
+        {
+          "note_id": "PERM-BEST-PATH-STARTS-FROM-HOME",
+          "order": 4,
+          "rationale": "第 4 步读这条笔记，因为它能回答“第一次和每天打开研思录时，应该按什么顺序行动？”的一部分。"
+        },
+        {
+          "note_id": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
+          "order": 5,
+          "rationale": "第 5 步读这条笔记，因为它能回答“第一次和每天打开研思录时，应该按什么顺序行动？”的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-HOME-AS-DAILY-DESK",
+        "PERM-DEMO-IS-PRACTICE-GROUND",
+        "PERM-FIRST-TEN-MINUTES",
+        "PERM-BEST-PATH-STARTS-FROM-HOME",
+        "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE"
+      ],
+      "body": "# 研思录每天最推荐的使用路径是什么？\n\n## 中心问题\n第一次和每天打开研思录时，应该按什么顺序行动？\n\n## 阅读顺序\n1. [[首页应该像每天整理知识的工作台]]\n2. [[Demo 应该是可练习的样例库，不是静态说明书]]\n3. [[第一次使用研思录应该先走一条小闭环]]\n4. [[研思录的最佳路径，是从首页开始做一个小闭环]]\n5. [[记录是入口，不是知识本身]]\n\n## 为什么这些笔记属于同一主题\n这组笔记把产品首页、Demo、每日整理和小闭环连成一个新手可执行路径。\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-AI-HUMAN-CONFIRMATION",
+      "index_type": "topic",
+      "title": "为什么 AI 建议必须由用户确认？",
+      "central_question": "AI 在卡片笔记写作法里应该帮助什么，又不能替代什么？",
+      "thesis": "这组笔记说明 AI 可以降低发现成本，但不能替用户决定关系、主题和观点。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "这组笔记说明 AI 可以降低发现成本，但不能替用户决定关系、主题和观点。",
+      "item_note_ids": [
+        "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+        "PERM-AI-SUGGESTION-IS-CANDIDATE",
+        "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+        "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+          "order": 1,
+          "rationale": "第 1 步读这条笔记，因为它能回答“AI 在卡片笔记写作法里应该帮助什么，又不能替代什么？”的一部分。"
+        },
+        {
+          "note_id": "PERM-AI-SUGGESTION-IS-CANDIDATE",
+          "order": 2,
+          "rationale": "第 2 步读这条笔记，因为它能回答“AI 在卡片笔记写作法里应该帮助什么，又不能替代什么？”的一部分。"
+        },
+        {
+          "note_id": "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+          "order": 3,
+          "rationale": "第 3 步读这条笔记，因为它能回答“AI 在卡片笔记写作法里应该帮助什么，又不能替代什么？”的一部分。"
+        },
+        {
+          "note_id": "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE",
+          "order": 4,
+          "rationale": "第 4 步读这条笔记，因为它能回答“AI 在卡片笔记写作法里应该帮助什么，又不能替代什么？”的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+        "PERM-AI-SUGGESTION-IS-CANDIDATE",
+        "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+        "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE"
+      ],
+      "body": "# 为什么 AI 建议必须由用户确认？\n\n## 中心问题\nAI 在卡片笔记写作法里应该帮助什么，又不能替代什么？\n\n## 阅读顺序\n1. [[AI 只能提出候选，保存前必须由用户确认]]\n2. [[AI 建议只能作为候选，不能替用户下判断]]\n3. [[缺口关系告诉你下一步该补什么]]\n4. [[草稿应该能追溯到关键笔记]]\n\n## 为什么这些笔记属于同一主题\n这组笔记说明 AI 可以降低发现成本，但不能替用户决定关系、主题和观点。\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-DEMO-AS-HELP",
+      "index_type": "topic",
+      "title": "Smart Notes Demo 如何帮助新手学会研思录？",
+      "central_question": "为什么示例库本身应该成为帮助和练习材料？",
+      "thesis": "这组笔记说明 Demo 不是静态说明书，而是可点击、可建联、可写作的练习场。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "这组笔记说明 Demo 不是静态说明书，而是可点击、可建联、可写作的练习场。",
+      "item_note_ids": [
+        "PERM-DEMO-IS-PRACTICE-GROUND",
+        "PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT",
+        "PERM-EXAMPLE-RELATION-MAKES-ABSTRACT-USABLE",
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-DEMO-IS-PRACTICE-GROUND"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-DEMO-IS-PRACTICE-GROUND",
+          "order": 1,
+          "rationale": "第 1 步读这条笔记，因为它能回答“为什么示例库本身应该成为帮助和练习材料？”的一部分。"
+        },
+        {
+          "note_id": "PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT",
+          "order": 2,
+          "rationale": "第 2 步读这条笔记，因为它能回答“为什么示例库本身应该成为帮助和练习材料？”的一部分。"
+        },
+        {
+          "note_id": "PERM-EXAMPLE-RELATION-MAKES-ABSTRACT-USABLE",
+          "order": 3,
+          "rationale": "第 3 步读这条笔记，因为它能回答“为什么示例库本身应该成为帮助和练习材料？”的一部分。"
+        },
+        {
+          "note_id": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+          "order": 4,
+          "rationale": "第 4 步读这条笔记，因为它能回答“为什么示例库本身应该成为帮助和练习材料？”的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-DEMO-IS-PRACTICE-GROUND",
+        "PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT",
+        "PERM-EXAMPLE-RELATION-MAKES-ABSTRACT-USABLE",
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED"
+      ],
+      "body": "# Smart Notes Demo 如何帮助新手学会研思录？\n\n## 中心问题\n为什么示例库本身应该成为帮助和练习材料？\n\n## 阅读顺序\n1. [[Demo 应该是可练习的样例库，不是静态说明书]]\n2. [[帮助文章也可以由 Demo 笔记生长出来]]\n3. [[例子关系让抽象原则变得可操作]]\n4. [[第一次建议导入 Demo，是为了先看到完整闭环]]\n\n## 为什么这些笔记属于同一主题\n这组笔记说明 Demo 不是静态说明书，而是可点击、可建联、可写作的练习场。\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
     }
   ],
   "relations": [
@@ -2971,16 +4128,6 @@
       "confidence": 0.9
     },
     {
-      "id": "REL-DEMO-SUPPORTS-FIRST-USE",
-      "from": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
-      "to": "PERM-FIRST-TEN-MINUTES",
-      "relationType": "supports",
-      "status": "confirmed",
-      "rationale": "先导入 Demo 能让第一次使用的小闭环变成可点击、可复现的操作路径。",
-      "insight_question": "以后写作时，这条关系能提供论据、边界、反方，还是一个新的问题入口？",
-      "confidence": 0.9
-    },
-    {
       "id": "REL-HELP-BRIDGES-DEMO",
       "from": "PERM-HELP-SHOULD-FOLLOW-TASKS",
       "to": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
@@ -3019,6 +4166,246 @@
       "rationale": "写作中心示例会把这两条笔记放进同一个文章提纲，说明产品主张。",
       "insight_question": "以后写作时，这条关系能提供论据、边界、反方，还是一个新的问题入口？",
       "confidence": 0.9
+    },
+    {
+      "id": "REL-DEMO-CAPTURE-INBOX",
+      "from": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
+      "to": "PERM-FLEETING-NOTE-IS-CAPTURE",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "“记录是入口”支撑“随笔只是捕捉点”，两者一起说明随笔不能长期停留。",
+      "insight_question": "写作时可把这条关系用作“为什么不能只收藏”的论据。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-SOURCE-BOUNDARY",
+      "from": "PERM-LITERATURE-NOTE-KEEPS-SOURCE-BOUNDARY",
+      "to": "PERM-PARAPHRASE-BEFORE-JUDGMENT",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "来源边界让转述更可靠，避免把作者观点直接当成自己的判断。",
+      "insight_question": "写作时可作为“为什么文献笔记要分层”的证据。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-OWN-WORDS",
+      "from": "PERM-OWN-WORDS-ARE-FIRST-THINKING",
+      "to": "PERM-QUOTE-IS-NOT-UNDERSTANDING",
+      "relationType": "contradicts",
+      "status": "confirmed",
+      "rationale": "“用自己的话重说”直接反驳“摘录就是理解”的误用。",
+      "insight_question": "可在文章中形成一个反方回应：为什么高亮很多不等于学会。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-ATOMIC-CLAIM",
+      "from": "PERM-ATOMIC-NOTE-ANSWERS-ONE-QUESTION",
+      "to": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "relationType": "qualifies",
+      "status": "confirmed",
+      "rationale": "永久笔记是判断，但这个判断还需要足够原子，才能被复用和建联。",
+      "insight_question": "这条限定关系能防止把大段总结误当成永久笔记。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-TITLE-CLAIM",
+      "from": "PERM-TITLE-SHOULD-BE-A-CLAIM",
+      "to": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "relationType": "complements",
+      "status": "confirmed",
+      "rationale": "判断型标题让永久笔记的立场在列表里直接可见。",
+      "insight_question": "可用于解释为什么 Demo 不使用内部编号当标题。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-RELATION-TYPE",
+      "from": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "to": "PERM-LINK-TYPES-CREATE-DISCOVERY",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "关系类型会改变发现方式，因为它规定了未来一起阅读两条笔记的方法。",
+      "insight_question": "可在帮助里解释“为什么建联时要选类型”。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-SUPPORT-EVIDENCE",
+      "from": "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+      "to": "PERM-WRITING-USES-RELATION-ROLES",
+      "relationType": "example_of",
+      "status": "confirmed",
+      "rationale": "支持关系是“按关系角色调用笔记”的一个具体例子。",
+      "insight_question": "写作时可把它作为证据角色的说明。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-CONTRAST-ARGUMENT",
+      "from": "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "to": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "反驳关系为提纲补充反方，让文章不只是单向陈述。",
+      "insight_question": "可用于生成“反方与回应”段落。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-LIMIT-BOUNDARY",
+      "from": "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+      "to": "PERM-BOUNDARY-MAKES-NOTE-RELIABLE",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "限定关系把边界写出来，正好支撑“边界让笔记可靠”。",
+      "insight_question": "可在写作中提醒哪些结论不能说过头。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-BRIDGE-THEME",
+      "from": "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+      "to": "PERM-THEME-INDEX-IS-ENTRY",
+      "relationType": "precedes",
+      "status": "confirmed",
+      "rationale": "桥接关系常常先于主题索引出现，因为它提示多个问题正在汇合。",
+      "insight_question": "可用于解释可写主题如何从关系网络中浮现。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-EXAMPLE-USABLE",
+      "from": "PERM-EXAMPLE-RELATION-MAKES-ABSTRACT-USABLE",
+      "to": "PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "例子关系让帮助文章从抽象说明变成可练习路径。",
+      "insight_question": "写帮助时可先找例子关系，再写操作步骤。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-GAP-NEXT",
+      "from": "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+      "to": "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+      "relationType": "complements",
+      "status": "confirmed",
+      "rationale": "缺口可以由 AI 提示，但是否补、怎么补仍要用户确认。",
+      "insight_question": "可说明 AI 在知识整理里是提醒者，不是裁判。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-REASON-PARAGRAPH",
+      "from": "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+      "to": "PERM-RELATION-REASON-MATTERS",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "关系理由重要，是因为它以后能转化为文章里的连接句。",
+      "insight_question": "这条关系可直接进入写作中心的“关系与写作”段落。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-INDEX-QUESTION",
+      "from": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "to": "PERM-THEME-INDEX-IS-ENTRY",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "中心问题让主题索引成为入口，而不是文件夹。",
+      "insight_question": "写作时可把中心问题变成文章主问题。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-INDEX-ORDER",
+      "from": "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+      "to": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "relationType": "complements",
+      "status": "confirmed",
+      "rationale": "中心问题决定主题边界，阅读顺序决定下次如何进入。",
+      "insight_question": "可解释主题索引为什么比链接列表更有价值。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-INDEX-OUTLINE",
+      "from": "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+      "to": "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "阅读顺序不断稳定后，主题索引就接近文章提纲。",
+      "insight_question": "可用于从主题索引进入写作中心的说明。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-TAGS-INDEX",
+      "from": "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS",
+      "to": "PERM-THEME-INDEX-IS-ENTRY",
+      "relationType": "qualifies",
+      "status": "confirmed",
+      "rationale": "主题索引不是反对标签，而是说明标签不能替代问题入口。",
+      "insight_question": "可帮助新手避免一开始就沉迷分类。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-WRITING-ROLES",
+      "from": "PERM-WRITING-USES-RELATION-ROLES",
+      "to": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "关系类型在整理时给出阅读指令，在写作时就能变成段落角色。",
+      "insight_question": "可作为“关系如何帮助写作”的核心关系。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-OUTLINE-TRACE",
+      "from": "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE",
+      "to": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "relationType": "complements",
+      "status": "confirmed",
+      "rationale": "提纲需要证据和边界，追溯则保证这些内容能回到原笔记。",
+      "insight_question": "可解释写作中心为什么要保留关键笔记路径。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-HELP-DEMO",
+      "from": "PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT",
+      "to": "PERM-DEMO-IS-PRACTICE-GROUND",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "如果 Demo 是可练习路径，帮助文章就可以直接从 Demo 输出。",
+      "insight_question": "可将帮助页和示例库打通，降低学习成本。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-HOME-PATH",
+      "from": "PERM-HOME-AS-DAILY-DESK",
+      "to": "PERM-BEST-PATH-STARTS-FROM-HOME",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "“首页是工作台”支撑“最佳路径从首页开始”。",
+      "insight_question": "写新手导览时，这条关系可以说明为什么每天先回到首页。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-AI-CONFIRM",
+      "from": "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+      "to": "PERM-AI-SUGGESTION-IS-CANDIDATE",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "AI 必须请求确认，是“AI 建议只是候选”的产品化落点。",
+      "insight_question": "可用于解释 AI 建议页为什么不自动改动笔记。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-FIRST-TEN",
+      "from": "PERM-FIRST-TEN-MINUTES",
+      "to": "PERM-DEMO-IS-PRACTICE-GROUND",
+      "relationType": "example_of",
+      "status": "confirmed",
+      "rationale": "十分钟导览是 Demo 作为练习场的具体路径。",
+      "insight_question": "可用于新手导入后的第一屏说明。",
+      "confidence": 0.88
+    },
+    {
+      "id": "REL-DEMO-INDEX-WRITING",
+      "from": "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+      "to": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "relationType": "precedes",
+      "status": "confirmed",
+      "rationale": "主题索引先稳定问题和关键笔记，写作中心再生成提纲。",
+      "insight_question": "可解释主题到写作的交接点。",
+      "confidence": 0.88
     }
   ],
   "writing_projects": [
@@ -3037,14 +4424,22 @@
         "PERM-RELATION-REASON-MATTERS",
         "PERM-THEME-INDEX-IS-ENTRY",
         "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
-        "PERM-AI-SUGGESTION-IS-CANDIDATE"
+        "PERM-AI-SUGGESTION-IS-CANDIDATE",
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "PERM-WRITING-USES-RELATION-ROLES",
+        "PERM-HOME-AS-DAILY-DESK",
+        "PERM-DEMO-IS-PRACTICE-GROUND"
       ],
       "indexCardIds": [
         "THEME-FIRST-USE",
         "THEME-HELP-BEST-PATH",
         "THEME-WHAT-IS-PERMANENT-NOTE",
         "THEME-WHY-LINK-NOTES",
-        "THEME-INDEX-TO-WRITING"
+        "THEME-INDEX-TO-WRITING",
+        "THEME-RELATION-TYPES-TO-WRITING",
+        "THEME-INDEX-NOTE-PRACTICE",
+        "THEME-WRITING-FROM-RELATIONS",
+        "THEME-YANSILU-DAILY-PATH"
       ],
       "keyNoteIds": [
         "PERM-WRITING-STARTS-BEFORE-DRAFT",
@@ -3149,6 +4544,83 @@
       "template": {
         "type": "writing_project",
         "starting_point": "theme_index_and_confirmed_notes"
+      }
+    },
+    {
+      "id": "WRITE-RELATION-TO-WRITING-PRACTICE",
+      "title": "关系类型如何把笔记网络变成文章结构",
+      "goal": "写一篇给新手看的帮助文章，说明支持、反驳、限定、桥接、例子和缺口关系如何服务洞察与写作。",
+      "intent": "把建联从“画线”解释成“为未来文章准备结构”。",
+      "target_reader": "已经导入 Demo，但不知道关系类型有什么用的新手用户。",
+      "desired_reader_takeaway": "我建联时写的类型和理由，以后会变成证据、反方、边界、例子和段落过渡。",
+      "basketNoteIds": [
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+        "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+        "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+        "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+        "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+        "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+        "PERM-WRITING-USES-RELATION-ROLES"
+      ],
+      "indexCardIds": [
+        "THEME-RELATION-TYPES",
+        "THEME-RELATION-TYPES-TO-WRITING",
+        "THEME-WRITING-FROM-RELATIONS"
+      ],
+      "keyNoteIds": [
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+        "PERM-WRITING-USES-RELATION-ROLES"
+      ],
+      "outline": [
+        {
+          "sectionId": "sec-1",
+          "title": "关系类型是未来阅读说明",
+          "goal": "解释关系类型不是装饰，而是未来如何重读两条笔记。",
+          "noteTraceIds": [
+            "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+            "PERM-RELATION-REASON-MATTERS"
+          ],
+          "keyNoteTraceIds": [
+            "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION"
+          ],
+          "gap": "需要给出一个非常小的建联例子。",
+          "counterpoint": "如果用户只想快速记录，关系类型会不会显得复杂？"
+        },
+        {
+          "sectionId": "sec-2",
+          "title": "支持、反驳和限定分别进入文章哪里",
+          "goal": "把常见关系类型映射到证据、反方和边界。",
+          "noteTraceIds": [
+            "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+            "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+            "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM"
+          ],
+          "keyNoteTraceIds": [
+            "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE"
+          ],
+          "gap": "需要提醒用户不要只连支持关系。",
+          "counterpoint": "反驳关系如果写不清，会不会造成误解？"
+        },
+        {
+          "sectionId": "sec-3",
+          "title": "桥接和缺口关系怎样带来新主题",
+          "goal": "说明洞察不是凭空出现，而是从远处笔记和缺口里浮现。",
+          "noteTraceIds": [
+            "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+            "PERM-GAP-RELATION-POINTS-TO-NEXT-READING"
+          ],
+          "keyNoteTraceIds": [
+            "PERM-BRIDGE-RELATION-FINDS-NEW-THEME"
+          ],
+          "gap": "需要展示从桥接关系到主题索引的过程。",
+          "counterpoint": "桥接关系不能牵强附会。"
+        }
+      ],
+      "template": {
+        "type": "writing_project",
+        "starting_point": "relation_type_and_theme_index"
       }
     }
   ],
@@ -3263,6 +4735,70 @@
           "counterpoint": "如果用户只想轻量记录，这一步会不会显得太重？"
         }
       ]
+    },
+    {
+      "id": "DRAFT-RELATION-TO-WRITING-PRACTICE",
+      "writing_project_id": "WRITE-RELATION-TO-WRITING-PRACTICE",
+      "generated_by": "demo-fixture",
+      "version_note": "从关系类型主题索引生成的帮助文章提纲。",
+      "key_note_ids": [
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+        "PERM-WRITING-USES-RELATION-ROLES"
+      ],
+      "key_note_path": [
+        "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+        "PERM-WRITING-USES-RELATION-ROLES"
+      ],
+      "sections": [
+        {
+          "id": "sec-1",
+          "title": "关系类型是未来阅读说明",
+          "goal": "说明为什么建联时要选类型。",
+          "note_ids": [
+            "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+            "PERM-LINK-TYPES-CREATE-DISCOVERY"
+          ],
+          "key_note_ids": [
+            "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION"
+          ],
+          "open_question": "是否需要减少新手一开始看到的类型数量？",
+          "gap": "补一个支持关系的例子。",
+          "counterpoint": "类型太多会带来负担。"
+        },
+        {
+          "id": "sec-2",
+          "title": "支持、反驳、限定对应文章角色",
+          "goal": "把关系转成证据、反方和边界。",
+          "note_ids": [
+            "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+            "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+            "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM"
+          ],
+          "key_note_ids": [
+            "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE"
+          ],
+          "open_question": "示例是否足够贴近日常？",
+          "gap": "需要补一个真实主题索引例子。",
+          "counterpoint": "不要把关系类型当成必须完成的表格。"
+        },
+        {
+          "id": "sec-3",
+          "title": "桥接和缺口产生新主题",
+          "goal": "说明洞察从关系网络里浮现。",
+          "note_ids": [
+            "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+            "PERM-GAP-RELATION-POINTS-TO-NEXT-READING"
+          ],
+          "key_note_ids": [
+            "PERM-BRIDGE-RELATION-FINDS-NEW-THEME"
+          ],
+          "open_question": "是否需要引导用户如何创建主题索引？",
+          "gap": "补主题索引入口截图或说明。",
+          "counterpoint": "桥接关系必须有共同问题。"
+        }
+      ]
     }
   ],
   "final_essays": [
@@ -3272,19 +4808,35 @@
       "title": "示例文章：从笔记长出产品判断",
       "writing_project_id": "WRITE-SMART-NOTES-DEMO",
       "body": "# 示例文章：从笔记长出产品判断\n\n这篇示例不是最终稿。它展示写作中心如何从主题索引和关键笔记生成提纲。\n\n研思录的核心判断是：记录、转述、永久笔记、关系、主题索引和写作中心不是六个孤立功能，而是一条处理链路。\n\n文章最先引用 [[第一次使用研思录应该先走一条小闭环]]，再展开 [[永久笔记是一条用户愿意承担的判断]] 和 [[关系理由比连线本身更重要]]。最后回到 [[写作中心应该从已确认判断生成提纲]]。"
+    },
+    {
+      "id": "ESSAY-RELATION-TYPES-HELP",
+      "note_type": "final_essay",
+      "title": "帮助文章：关系类型如何帮助你发现洞见并开始写作",
+      "writing_project_id": "WRITE-RELATION-TO-WRITING-PRACTICE",
+      "body": "# 帮助文章：关系类型如何帮助你发现洞见并开始写作\n\n关系不是为了让图谱更热闹，而是为了告诉未来的自己：这两条笔记应该怎样一起读。\n\n如果一条笔记支持另一条，它以后可以成为证据。比如 [[支持关系以后会变成文章里的证据]]。如果一条笔记反驳另一条，它会提醒你补充反方和回应，比如 [[反驳关系会逼出更清楚的观点]]。如果一条笔记限定另一条，它会保护你不要把话说过头，比如 [[限定关系能防止一条好判断被说过头]]。\n\n当你发现两组笔记原本不在一起，却能回答同一个更大的问题时，[[桥接关系常常预示一个新主题正在出现]]。当你发现中间缺少证据、例子或反方时，[[缺口关系告诉你下一步该补什么]]。\n\n所以建联时写一句理由并不多余。[[关系理由是在替未来文章预写一小段]]，它会在写作中心里变成证据、边界、转折和段落连接。"
+    },
+    {
+      "id": "ESSAY-YANSILU-BEST-PRACTICE",
+      "note_type": "final_essay",
+      "title": "帮助文章：研思录最佳路径，从首页走一个小闭环",
+      "writing_project_id": "WRITE-SMART-NOTES-DEMO",
+      "body": "# 帮助文章：研思录最佳路径，从首页走一个小闭环\n\n研思录的核心价值可以先记成一句话：让笔记生长为思想。\n\n每天打开时，不要先想完整分类，也不要先打开空白写作页。先回到首页。[[首页应该像每天整理知识的工作台]]，它会把最值得处理的下一步放在前面。\n\n第一步，处理一条随笔或文献笔记。[[记录是入口，不是知识本身]]，所以你要把材料转述成自己的语言。第二步，把成熟判断沉淀为永久笔记。[[永久笔记标题应该像一句判断]]，这样以后才能被复用。第三步，至少补一条关系理由。[[关系理由是在替未来文章预写一小段]]，这会让图谱从装饰变成思考工具。\n\n当几条笔记开始围绕同一个问题时，建立主题索引。[[主题索引应该从一个中心问题开始]]，再保存一条阅读顺序。最后，从主题进入写作中心，让已有判断生成提纲，而不是从空白 prompt 开始。"
     }
   ],
   "graph": {
     "reading_path": [
       "GUIDE-SMART-NOTES-START",
-      "GUIDE-HELP-TASKS",
+      "GUIDE-RELATION-TYPES",
+      "GUIDE-INDEX-PRACTICE",
+      "GUIDE-WRITING-FROM-RELATIONS",
       "FN-PHONE-CAPTURE-UNPROCESSED",
       "LN-WRITING-AS-DAILY-PRACTICE",
-      "PERM-WRITING-STARTS-BEFORE-DRAFT",
-      "PERM-UNLINKED-PRACTICE",
-      "THEME-WHY-LINK-NOTES",
-      "WRITE-SMART-NOTES-DEMO",
-      "DRAFT-SMART-NOTES-DEMO"
+      "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
+      "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "THEME-RELATION-TYPES-TO-WRITING",
+      "THEME-WRITING-FROM-RELATIONS",
+      "WRITE-RELATION-TO-WRITING-PRACTICE"
     ],
     "key_note_paths": [
       {
@@ -3312,6 +4864,46 @@
         "supporting_note_ids": [
           "PERM-COMPOUND-INTEREST-FROM-REUSE",
           "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES"
+        ]
+      },
+      {
+        "cluster": "relation",
+        "key_note_id": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "index_card_id": "THEME-RELATION-TYPES-TO-WRITING",
+        "supporting_note_ids": [
+          "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+          "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+          "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM"
+        ]
+      },
+      {
+        "cluster": "index",
+        "key_note_id": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+        "index_card_id": "THEME-INDEX-NOTE-PRACTICE",
+        "supporting_note_ids": [
+          "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+          "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+          "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS"
+        ]
+      },
+      {
+        "cluster": "relation",
+        "key_note_id": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+        "index_card_id": "THEME-RELATION-TYPES-TO-WRITING",
+        "supporting_note_ids": [
+          "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+          "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+          "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM"
+        ]
+      },
+      {
+        "cluster": "index",
+        "key_note_id": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+        "index_card_id": "THEME-INDEX-NOTE-PRACTICE",
+        "supporting_note_ids": [
+          "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+          "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+          "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS"
         ]
       }
     ]
@@ -3404,6 +4996,50 @@
         "Smart Notes Demo"
       ],
       "body": "# 07 备份、手机和 AI：先知道边界\n\n备份、手机访问和 AI 都是为了让主流程更安心，不是替代主流程。\n\n- 备份：保护整个笔记库，适合迁移和防止误删。\n- 手机：负责随时记录和轻阅读，复杂整理回电脑端。\n- AI / Ollama：提供候选关系、候选提纲和候选命名，最后仍然由用户确认。\n\n先手工走通记录、建联、主题和写作，再决定是否引入 AI，会更稳。"
+    },
+    {
+      "id": "GUIDE-RELATION-TYPES",
+      "note_type": "guide",
+      "title": "08 关系类型怎么选？",
+      "status": "active",
+      "tags": [
+        "导览",
+        "Smart Notes Demo"
+      ],
+      "body": "# 08 关系类型怎么选？\n\n先不要追求类型齐全。新手只要记住六类：支持、反驳、限定、例子、桥接、缺口。\n\n- 支持：这条笔记能当另一条的证据。先看 [[支持关系以后会变成文章里的证据]]。\n- 反驳：这条笔记提醒你有反方。先看 [[反驳关系会逼出更清楚的观点]]。\n- 限定：这条笔记说明观点在哪些情况下成立。先看 [[限定关系能防止一条好判断被说过头]]。\n- 例子：这条笔记让抽象原则落地。先看 [[例子关系让抽象原则变得可操作]]。\n- 桥接：这条笔记把两个原本分散的问题连起来。先看 [[桥接关系常常预示一个新主题正在出现]]。\n- 缺口：这条笔记提醒你还缺证据、案例、反方或中间环节。先看 [[缺口关系告诉你下一步该补什么]]。\n\n保存前只写一句话：这两条笔记放在一起，会让哪个判断更清楚？"
+    },
+    {
+      "id": "GUIDE-INDEX-PRACTICE",
+      "note_type": "guide",
+      "title": "09 主题索引怎么写？",
+      "status": "active",
+      "tags": [
+        "导览",
+        "Smart Notes Demo"
+      ],
+      "body": "# 09 主题索引怎么写？\n\n主题索引不是文件夹。先写一个中心问题，再放入能回答这个问题的关键永久笔记。\n\n一个简单模板：\n\n1. 中心问题：我到底想继续想什么？\n2. 关键笔记：哪 3-7 条永久笔记能回答它？\n3. 阅读顺序：下次回来先读哪条？\n4. 缺口：还缺证据、反方、例子还是边界？\n5. 写作入口：这组笔记能不能变成一篇文章？\n\n先看 [[主题索引应该从一个中心问题开始]]，再看 [[主题索引要保存一条可读顺序]]。"
+    },
+    {
+      "id": "GUIDE-WRITING-FROM-RELATIONS",
+      "note_type": "guide",
+      "title": "10 从关系网络进入写作",
+      "status": "active",
+      "tags": [
+        "导览",
+        "Smart Notes Demo"
+      ],
+      "body": "# 10 从关系网络进入写作\n\n写作不是把笔记复制到一起。你要先问：每条笔记在文章里承担什么角色？\n\n支持关系可以变成证据，反驳关系可以变成反方，限定关系可以变成边界，桥接关系可以变成转折或新主题，缺口关系可以变成下一步研究。\n\n建议按这个顺序练一次：\n\n1. 打开 [[关系类型如何帮助后续洞察和写作？]]。\n2. 读 [[写作时要按关系角色调用笔记]]。\n3. 打开写作项目《关系类型如何把笔记网络变成文章结构》。\n4. 看提纲如何把关系类型转成段落角色。"
+    },
+    {
+      "id": "GUIDE-DEMO-PRACTICE",
+      "note_type": "guide",
+      "title": "11 Demo 里可以怎么练习？",
+      "status": "active",
+      "tags": [
+        "导览",
+        "Smart Notes Demo"
+      ],
+      "body": "# 11 Demo 里可以怎么练习？\n\n这套 Demo 不是只用来看的。你可以放心练这些动作：\n\n1. 打开一条未处理随笔，把它加工成永久笔记。\n2. 给 [[待关联练习：保存关系前先写清楚为什么]] 找一条真正相关的笔记。\n3. 打开 [[关联笔记有哪些关系？如何设置关系？]]，看看关系类型如何组织。\n4. 打开 [[主题索引笔记应该怎么创建和维护？]]，观察中心问题和阅读顺序。\n5. 打开写作项目，看看 Demo 如何把笔记变成帮助文章。\n\n目标不是一次学完，而是走完一个小闭环。"
     }
   ],
   "conversion_templates": {
@@ -3463,6 +5099,30 @@
         "method_principle": "写作不是最后才发生，前面的记录、转述和建联都在为写作准备判断。",
         "misuse_to_avoid": "打开空白 AI prompt，让系统替用户决定观点。",
         "product_requirement": "写作中心要从主题索引和关键笔记生成提纲，并保留缺口和反方。"
+      },
+      {
+        "id": "KP-RELATION-TYPES",
+        "cluster": "relation",
+        "label": "关系类型决定后续用途",
+        "method_principle": "关系类型告诉未来自己如何一起阅读两条笔记。",
+        "misuse_to_avoid": "只写“相关”，导致以后不知道这条线有什么用。",
+        "product_requirement": "建联时提供少量清楚类型，并要求一句可读理由。"
+      },
+      {
+        "id": "KP-INDEX-PRACTICE",
+        "cluster": "index",
+        "label": "主题索引要有中心问题和阅读顺序",
+        "method_principle": "索引是重新进入问题的路径，不是把笔记装进文件夹。",
+        "misuse_to_avoid": "把索引当分类，缺少中心问题和顺序。",
+        "product_requirement": "主题索引要显示中心问题、关键笔记、为什么同属一题和写作入口。"
+      },
+      {
+        "id": "KP-WRITING-ROLES",
+        "cluster": "writing",
+        "label": "写作按关系角色组织笔记",
+        "method_principle": "支持、反驳、限定、例子、桥接和缺口都可以转化为文章结构。",
+        "misuse_to_avoid": "把笔记直接拼接成文章。",
+        "product_requirement": "写作中心要显示证据、反方、边界和缺口。"
       }
     ]
   },

@@ -2,17 +2,23 @@ import { aiSuggestionFromCanonical } from "./ai-suggestions-model.js";
 
 const STATIC_API_BASE =
   (typeof window !== "undefined" &&
+    !window.__TAURI__ &&
     typeof window.__API_BASE__ === "string" &&
     window.__API_BASE__.trim() &&
     window.__API_BASE__ !== "__API_BASE__" &&
     window.__API_BASE__.trim()) ||
-  "http://localhost:3000";
+  (typeof window !== "undefined" && window.__TAURI__ ? "" : "http://localhost:3000");
 let currentApiBase = STATIC_API_BASE;
 let desktopApiBasePromise = null;
 const LOCAL_RUNTIME_CONTROL_HEADERS = { "X-Yansilu-Local-Runtime-Control": "1" };
 
 function tauriCore() {
   return typeof window !== "undefined" ? window.__TAURI__?.core : null;
+}
+
+function clearDesktopApiBase() {
+  currentApiBase = "";
+  return "";
 }
 
 async function resolveApiBase() {
@@ -24,15 +30,20 @@ async function resolveApiBase() {
       .then((value) => {
         const base = String(value || "").trim();
         if (base) currentApiBase = base.replace(/\/+$/u, "");
-        return currentApiBase;
+        return base ? currentApiBase : clearDesktopApiBase();
       })
-      .catch(() => currentApiBase);
+      .catch(() => clearDesktopApiBase());
   }
   return desktopApiBasePromise;
 }
 
 async function request(pathname, options = {}) {
   const apiBase = await resolveApiBase();
+  if (!apiBase) {
+    const error = new Error("桌面内置服务未启动");
+    error.code = "desktop_api_unavailable";
+    throw error;
+  }
   const url = `${apiBase}${pathname}`;
   const timeoutMs = Math.max(0, Number(options?.timeoutMs || 0) || 0);
   const externalSignal = options?.signal;
@@ -887,7 +898,9 @@ export async function uploadNoteAsset(noteId, payload) {
 export function assetPreviewUrl(assetPath) {
   const cleanPath = String(assetPath || "").trim();
   if (!cleanPath) return "";
+  if (tauriCore() && !currentApiBase) return "";
   void resolveApiBase();
+  if (!currentApiBase) return "";
   return `${currentApiBase}/api/v1/assets/file?path=${encodeURIComponent(cleanPath)}`;
 }
 

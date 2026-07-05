@@ -21,6 +21,7 @@ const API_PORT_SEARCH_END: u16 = 3020;
 
 struct DesktopApiState {
     base_url: Arc<Mutex<String>>,
+    launch_error: Arc<Mutex<String>>,
 }
 
 #[tauri::command]
@@ -29,7 +30,26 @@ fn get_desktop_api_base(state: tauri::State<DesktopApiState>) -> String {
         .base_url
         .lock()
         .map(|value| value.clone())
-        .unwrap_or_else(|_| format!("http://localhost:{DEFAULT_API_PORT}"))
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn get_desktop_api_status(state: tauri::State<DesktopApiState>) -> serde_json::Value {
+    let base_url = state
+        .base_url
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
+    let launch_error = state
+        .launch_error
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
+    serde_json::json!({
+        "baseUrl": base_url,
+        "running": !base_url.is_empty() && launch_error.is_empty(),
+        "launchError": launch_error
+    })
 }
 
 #[tauri::command]
@@ -81,7 +101,10 @@ fn api_health_response(port: u16) -> Option<String> {
     let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
 
     if stream
-        .write_all(format!("GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").as_bytes())
+        .write_all(
+            format!("GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")
+                .as_bytes(),
+        )
         .is_err()
     {
         return None;
@@ -179,16 +202,20 @@ struct DesktopApiLaunch {
     base_url: String,
 }
 
-fn spawn_desktop_api(app: &tauri::App) -> Option<DesktopApiLaunch> {
-    let app_data_dir = app.path().app_data_dir().ok()?;
+fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Cannot resolve app data directory: {error}"))?;
     let vault_path = app_data_dir.join("vault");
     let _ = fs::create_dir_all(&vault_path);
     let _ = fs::create_dir_all(&app_data_dir);
 
-    let api_port = resolve_desktop_api_port(&app_data_dir, &vault_path)?;
+    let api_port = resolve_desktop_api_port(&app_data_dir, &vault_path)
+        .ok_or_else(|| "No available API port between 3000 and 3020.".to_string())?;
     let base_url = format!("http://localhost:{api_port}");
     if api_health_matches_vault(api_port, &vault_path) {
-        return Some(DesktopApiLaunch {
+        return Ok(DesktopApiLaunch {
             child: None,
             base_url,
         });
@@ -197,8 +224,9 @@ fn spawn_desktop_api(app: &tauri::App) -> Option<DesktopApiLaunch> {
     let runtime_dir = match desktop_api_runtime_dir(app) {
         Some(value) => value,
         None => {
-            append_desktop_api_log(&app_data_dir, "Yansilu desktop API runtime directory was not found.");
-            return None;
+            let message = "Yansilu desktop API runtime directory was not found.";
+            append_desktop_api_log(&app_data_dir, message);
+            return Err(message.to_string());
         }
     };
     let node_path = if cfg!(windows) {
@@ -206,10 +234,15 @@ fn spawn_desktop_api(app: &tauri::App) -> Option<DesktopApiLaunch> {
     } else {
         runtime_dir.join("node").join("node")
     };
-    let server_path = runtime_dir.join("apps").join("api").join("src").join("server.mjs");
+    let server_path = runtime_dir
+        .join("apps")
+        .join("api")
+        .join("src")
+        .join("server.mjs");
     if !node_path.exists() || !server_path.exists() {
-        append_desktop_api_log(&app_data_dir, "Yansilu desktop API runtime is incomplete.");
-        return None;
+        let message = "Yansilu desktop API runtime is incomplete.";
+        append_desktop_api_log(&app_data_dir, message);
+        return Err(message.to_string());
     }
 
     let log_path = app_data_dir.join("api.log");
@@ -235,17 +268,19 @@ fn spawn_desktop_api(app: &tauri::App) -> Option<DesktopApiLaunch> {
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
 
-    let mut child = command.spawn().ok()?;
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("Failed to spawn desktop API runtime: {error}"))?;
     if !wait_for_api_port(api_port, &vault_path, Duration::from_secs(5)) {
         let _ = child.kill();
         let _ = child.wait();
-        append_desktop_api_log(
-            &app_data_dir,
-            &format!("Yansilu desktop API did not become ready on port {api_port} within 5 seconds."),
+        let message = format!(
+            "Yansilu desktop API did not become ready on port {api_port} within 5 seconds."
         );
-        return None;
+        append_desktop_api_log(&app_data_dir, &message);
+        return Err(message);
     }
-    Some(DesktopApiLaunch {
+    Ok(DesktopApiLaunch {
         child: Some(child),
         base_url,
     })
@@ -262,22 +297,35 @@ fn stop_desktop_api(api_child: &Arc<Mutex<Option<Child>>>) {
 
 pub fn run() {
     let api_child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
-    let api_base_url: Arc<Mutex<String>> = Arc::new(Mutex::new(format!("http://localhost:{DEFAULT_API_PORT}")));
+    let api_base_url: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+    let api_launch_error: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
     let api_child_for_setup = Arc::clone(&api_child);
     let api_base_url_for_setup = Arc::clone(&api_base_url);
+    let api_launch_error_for_setup = Arc::clone(&api_launch_error);
     let api_child_for_run = Arc::clone(&api_child);
 
     tauri::Builder::default()
         .manage(DesktopApiState {
             base_url: api_base_url,
+            launch_error: api_launch_error,
         })
         .setup(move |app| {
-            if let Some(launch) = spawn_desktop_api(app) {
-                if let Ok(mut guard) = api_base_url_for_setup.lock() {
-                    *guard = launch.base_url;
+            match spawn_desktop_api(app) {
+                Ok(launch) => {
+                    if let Ok(mut guard) = api_base_url_for_setup.lock() {
+                        *guard = launch.base_url;
+                    }
+                    if let Ok(mut guard) = api_launch_error_for_setup.lock() {
+                        guard.clear();
+                    }
+                    if let Ok(mut guard) = api_child_for_setup.lock() {
+                        *guard = launch.child;
+                    }
                 }
-                if let Ok(mut guard) = api_child_for_setup.lock() {
-                    *guard = launch.child;
+                Err(error) => {
+                    if let Ok(mut guard) = api_launch_error_for_setup.lock() {
+                        *guard = error;
+                    }
                 }
             }
 
@@ -287,7 +335,11 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_desktop_api_base, open_in_explorer])
+        .invoke_handler(tauri::generate_handler![
+            get_desktop_api_base,
+            get_desktop_api_status,
+            open_in_explorer
+        ])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())

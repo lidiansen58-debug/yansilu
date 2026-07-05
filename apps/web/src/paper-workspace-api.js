@@ -1,15 +1,21 @@
 const STATIC_API_BASE =
   (typeof window !== "undefined" &&
+    !window.__TAURI__ &&
     typeof window.__API_BASE__ === "string" &&
     window.__API_BASE__.trim() &&
     window.__API_BASE__ !== "__API_BASE__" &&
     window.__API_BASE__) ||
-  "http://localhost:3000";
+  (typeof window !== "undefined" && window.__TAURI__ ? "" : "http://localhost:3000");
 let currentApiBase = STATIC_API_BASE;
 let desktopApiBasePromise = null;
 
 function tauriCore() {
   return typeof window !== "undefined" ? window.__TAURI__?.core : null;
+}
+
+function clearDesktopApiBase() {
+  currentApiBase = "";
+  return "";
 }
 
 async function resolveApiBase() {
@@ -21,15 +27,20 @@ async function resolveApiBase() {
       .then((value) => {
         const base = String(value || "").trim();
         if (base) currentApiBase = base.replace(/\/+$/u, "");
-        return currentApiBase;
+        return base ? currentApiBase : clearDesktopApiBase();
       })
-      .catch(() => currentApiBase);
+      .catch(() => clearDesktopApiBase());
   }
   return desktopApiBasePromise;
 }
 
 async function request(pathname, options = {}) {
   const apiBase = await resolveApiBase();
+  if (!apiBase) {
+    const error = new Error("桌面内置服务未启动");
+    error.code = "desktop_api_unavailable";
+    throw error;
+  }
   const response = await fetch(`${apiBase}${pathname}`, options);
   const json = await response.json().catch(() => ({}));
   if (!response.ok) {

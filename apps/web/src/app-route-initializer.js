@@ -20,19 +20,14 @@ export async function initializeAppRouteForRuntime(deps = {}) {
     if (tauri) {
       setStatus(`API 连接失败：${String(error?.message || error)}`, "bad");
       try {
-        const message =
-          `无法连接到本地 API（${getApiBase()}）。\n\n` +
-          "当前桌面版需要本地 API 服务在后台运行。\n\n" +
-          "解决办法：\n" +
-          "1) 在项目目录运行：npm run dev:api\n" +
-          "2) 保持窗口打开，然后重启桌面应用\n\n" +
-          "如果你是安装包用户，请联系开发者获取“内置 API”的版本。";
+        const status = await readDesktopApiStatus(tauri);
+        const message = desktopApiFailureMessage({ apiBase: getApiBase(), error, status });
         if (typeof tauri?.dialog?.message === "function") {
-          await tauri.dialog.message(message, { title: "API 未启动", kind: "error" });
+          await tauri.dialog.message(message, { title: "本地服务启动失败", kind: "error" });
         } else if (typeof tauri?.core?.invoke === "function") {
           await tauri.core.invoke("plugin:dialog|message", {
             message,
-            options: { title: "API 未启动", kind: "error" }
+            options: { title: "本地服务启动失败", kind: "error" }
           });
         }
       } catch {}
@@ -42,4 +37,28 @@ export async function initializeAppRouteForRuntime(deps = {}) {
     setStatus(`API 连接失败，已回退到本地示例数据：${String(error?.message || error)}`, "warn");
     return { connected: false, usingLocalFallbackData: true, error };
   }
+}
+
+async function readDesktopApiStatus(tauri) {
+  if (typeof tauri?.core?.invoke !== "function") return null;
+  try {
+    return await tauri.core.invoke("get_desktop_api_status");
+  } catch {
+    return null;
+  }
+}
+
+function desktopApiFailureMessage({ apiBase = "", error, status = null } = {}) {
+  const launchError = String(status?.launchError || "").trim();
+  const lines = [
+    "研思录的本地服务没有启动完成，所以当前还不能读取笔记库。",
+    "",
+    "这通常不是你的笔记出了问题。请先完全关闭研思录，再重新打开一次。",
+    ""
+  ];
+  if (apiBase) lines.push(`当前尝试连接：${apiBase}`);
+  if (launchError) lines.push(`启动诊断：${launchError}`);
+  else lines.push(`连接诊断：${String(error?.message || error || "未知错误")}`);
+  lines.push("", "如果重启后仍然出现，请把这段提示和 api.log 发给开发者。");
+  return lines.join("\n");
 }
