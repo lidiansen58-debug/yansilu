@@ -131,7 +131,7 @@ export function settingsSectionChromeMap({
     },
     support: {
       badge: feedbackRepositoryReady ? "反馈入口" : "待绑定",
-      meta: feedbackRepositoryReady ? "新手帮助、本地说明、问题反馈" : "问题反馈与本地说明"
+      meta: feedbackRepositoryReady ? "遇到问题先看这里、Demo、任务帮助" : "遇到问题先看这里"
     }
   };
 }

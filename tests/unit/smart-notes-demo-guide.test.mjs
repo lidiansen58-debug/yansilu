@@ -23,9 +23,9 @@ test("Smart Notes demo guide gives a beginner title-based path", () => {
 
 test("Smart Notes demo guide has a short onboarding note set", () => {
   const demo = loadDemo();
-  assert.equal(demo.guide_notes.length, 6);
+  assert.ok(demo.guide_notes.length >= 6);
   assert.deepEqual(
-    demo.guide_notes.map((note) => note.title),
+    demo.guide_notes.slice(0, 6).map((note) => note.title),
     [
       "00 从这里开始：10 分钟走完研思录",
       "01 今天先做哪一步？",
@@ -35,6 +35,8 @@ test("Smart Notes demo guide has a short onboarding note set", () => {
       "05 怎么从主题进入写作中心？"
     ]
   );
+  assert.ok(demo.guide_notes.some((note) => note.title === "06 遇到问题先看这里：按任务找帮助"));
+  assert.ok(demo.guide_notes.some((note) => note.title === "07 备份、手机和 AI：先知道边界"));
 });
 
 test("Smart Notes demo guide avoids advanced workflow jargon on the main path", () => {

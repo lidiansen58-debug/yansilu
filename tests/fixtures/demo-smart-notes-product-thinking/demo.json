@@ -7,13 +7,13 @@
     "sources": 1,
     "fleeting_notes": 4,
     "literature_notes": 9,
-    "permanent_notes": 18,
-    "index_cards": 10,
-    "relations": 14,
+    "permanent_notes": 21,
+    "index_cards": 12,
+    "relations": 17,
     "writing_projects": 1,
     "draft_scaffolds": 1,
     "final_essays": 1,
-    "guide_notes": 6
+    "guide_notes": 8
   },
   "sources": [
     {
@@ -49,11 +49,11 @@
       "status": "needs_processing",
       "tags": [
         "随笔",
-        "今日整理",
+        "首页",
         "Smart Notes Demo"
       ],
-      "body": "# 手机上先记一句：我总是收藏很多但不会用\n\n## 原始闪念\n地铁上想到：也许产品不该夸我收藏了很多，而该提醒我下一步要处理哪一条。\n\n## 为什么值得处理\n这条随笔暴露了一个产品判断，但还没有足够清楚。\n\n## 下一步处理\n待处理：转成关于今日整理反馈的永久笔记，或删除。\n\n## 已转换为\n- 暂无，留给今日整理。",
-      "next_action": "待处理：转成关于今日整理反馈的永久笔记，或删除。",
+      "body": "# 手机上先记一句：我总是收藏很多但不会用\n\n## 原始闪念\n地铁上想到：也许产品不该夸我收藏了很多，而该提醒我下一步要处理哪一条。\n\n## 为什么值得处理\n这条随笔暴露了一个产品判断，但还没有足够清楚。\n\n## 下一步处理\n待处理：转成关于首页反馈的永久笔记，或删除。\n\n## 已转换为\n- 暂无，留给首页继续整理。",
+      "next_action": "待处理：转成关于首页反馈的永久笔记，或删除。",
       "processed_into": [],
       "raw_idea": "地铁上想到：也许产品不该夸我收藏了很多，而该提醒我下一步要处理哪一条。",
       "capture_context": "手机快速记录或桌面临时捕捉。",
@@ -71,7 +71,7 @@
       "status": "processed",
       "tags": [
         "随笔",
-        "今日整理",
+        "首页",
         "Smart Notes Demo"
       ],
       "body": "# 写作中心不该从空白 prompt 开始\n\n## 原始闪念\n如果入口先问 AI 想写什么，用户可能跳过自己的判断。写作中心应该从已确认笔记开始。\n\n## 为什么值得处理\n这条随笔暴露了一个产品判断，但还没有足够清楚。\n\n## 下一步处理\n已处理：已经沉淀到 [[写作中心应该从已确认判断生成提纲]]。\n\n## 已转换为\n- [[PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES|写作中心应该从已确认判断生成提纲]]",
@@ -95,7 +95,7 @@
       "status": "processed",
       "tags": [
         "随笔",
-        "今日整理",
+        "首页",
         "Smart Notes Demo"
       ],
       "body": "# 建联时最难的是写为什么相关\n\n## 原始闪念\n只点连接很容易，写出支撑、限定还是桥接才难。这里需要一个练习样例。\n\n## 为什么值得处理\n这条随笔暴露了一个产品判断，但还没有足够清楚。\n\n## 下一步处理\n待关联：打开建联流程，为 [[待关联练习：保存关系前先写清楚为什么]] 找一条相邻笔记。\n\n## 已转换为\n- [[PERM-UNLINKED-PRACTICE|待关联练习：保存关系前先写清楚为什么]]",
@@ -119,7 +119,7 @@
       "status": "processed",
       "tags": [
         "随笔",
-        "今日整理",
+        "首页",
         "Smart Notes Demo"
       ],
       "body": "# 备份恢复可能比导入导出更让人安心\n\n## 原始闪念\n长期知识库最怕丢，不是最怕搬。这个判断可以进入产品路线写作项目。\n\n## 为什么值得处理\n这条随笔暴露了一个产品判断，但还没有足够清楚。\n\n## 下一步处理\n已处理：已经沉淀到 [[备份与恢复比导入导出更重要]]。\n\n## 已转换为\n- [[PERM-BACKUP-BEATS-IMPORT-EXPORT|备份与恢复比导入导出更重要]]",
@@ -205,7 +205,8 @@
       "candidate_permanent_notes": [
         "PERM-FLEETING-NOTE-IS-CAPTURE",
         "PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE",
-        "PERM-TODAY-REVIEW-REWARDS-PROCESSING"
+        "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED"
       ],
       "locator": "method-synthesis",
       "quote_text": "只保留方法主题边界，不复刻原文。",
@@ -213,7 +214,8 @@
       "topic_candidates": [
         "PERM-FLEETING-NOTE-IS-CAPTURE",
         "PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE",
-        "PERM-TODAY-REVIEW-REWARDS-PROCESSING"
+        "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED"
       ],
       "knowledge_point_ids": [
         "KP-CAPTURE",
@@ -235,7 +237,7 @@
       "template": {
         "type": "literature_note"
       },
-      "body": "# 临时记录必须承诺下一步\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n## 引文边界\n本 Demo 只记录主题边界和原创转述，不复刻原文。\n\n## 我的转述\n随笔的价值不是快，而是给后续处理留下入口。没有下一步，随笔会变成隐藏债务。\n\n## 我的收获\n手机记录要足够轻，但电脑端必须接住它，提醒用户转述、建联或删除。\n\n## 可转换为永久笔记\n- [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]\n- [[PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE|手机负责快速记录，电脑负责慢慢整理]]\n- [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|今日整理应该奖励处理，而不是奖励收藏]]\n\n## 处理状态\n已转换为永久笔记，可继续检查关系。",
+      "body": "# 临时记录必须承诺下一步\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n## 引文边界\n本 Demo 只记录主题边界和原创转述，不复刻原文。\n\n## 我的转述\n随笔的价值不是快，而是给后续处理留下入口。没有下一步，随笔会变成隐藏债务。\n\n## 我的收获\n手机记录要足够轻，但电脑端必须接住它，提醒用户转述、建联或删除。\n\n## 可转换为永久笔记\n- [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]\n- [[PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE|手机负责快速记录，电脑负责慢慢整理]]\n- [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|首页应该奖励处理，而不是奖励收藏]]\n- [[PERM-DEMO-FIRST-RUN-RECOMMENDED|第一次建议导入 Demo，是为了先看到完整闭环]]\n\n## 处理状态\n已转换为永久笔记，可继续检查关系。",
       "conversion_decision": {
         "status": "converted",
         "conversion_reason": "已经形成候选永久笔记。",
@@ -491,7 +493,7 @@
       "body": "# 旧笔记在新问题中产生复利\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n## 引文边界\n本 Demo 只记录主题边界和原创转述，不复刻原文。\n\n## 我的转述\n知识网络活起来，不是因为内容多，而是因为旧内容持续遇到新问题。\n\n## 我的收获\n复用次数、进入提纲次数和被修订次数，比纯新增数量更能说明系统健康。\n\n## 可转换为永久笔记\n- [[PERM-COMPOUND-INTEREST-FROM-REUSE|知识网络的复利来自旧笔记遇到新问题]]\n\n## 处理状态\n待处理：还需要确认要不要转换、关联或删除。",
       "conversion_decision": {
         "status": "pending",
-        "conversion_reason": "保留为今日整理样例。",
+        "conversion_reason": "保留为首页待处理样例。",
         "key_note_id": "PERM-COMPOUND-INTEREST-FROM-REUSE"
       }
     },
@@ -540,7 +542,7 @@
       "body": "# AI 参与时要保留候选状态\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n## 引文边界\n本 Demo 只记录主题边界和原创转述，不复刻原文。\n\n## 我的转述\nAI 可以建议关系和提纲，但最终判断必须由用户确认。\n\n## 我的收获\n所有 AI 输出都要保留候选态和改写入口，避免把流畅当成正确。\n\n## 可转换为永久笔记\n- [[PERM-AI-SUGGESTION-IS-CANDIDATE|AI 建议只能作为候选，不能替用户下判断]]\n\n## 处理状态\n待处理：还需要确认要不要转换、关联或删除。",
       "conversion_decision": {
         "status": "pending",
-        "conversion_reason": "保留为今日整理样例。",
+        "conversion_reason": "保留为首页待处理样例。",
         "key_note_id": "PERM-AI-SUGGESTION-IS-CANDIDATE"
       }
     },
@@ -559,14 +561,16 @@
       "my_takeaway": "研思录可以把笔记网络用于产品判断，而不是只用于文章写作。",
       "candidate_permanent_notes": [
         "PERM-BACKUP-BEATS-IMPORT-EXPORT",
-        "PERM-ROADMAP-GROWS-FROM-NOTES"
+        "PERM-ROADMAP-GROWS-FROM-NOTES",
+        "PERM-HELP-SHOULD-FOLLOW-TASKS"
       ],
       "locator": "method-synthesis",
       "quote_text": "只保留方法主题边界，不复刻原文。",
       "user_question": "这条材料能转成哪一个我愿意承担的判断？",
       "topic_candidates": [
         "PERM-BACKUP-BEATS-IMPORT-EXPORT",
-        "PERM-ROADMAP-GROWS-FROM-NOTES"
+        "PERM-ROADMAP-GROWS-FROM-NOTES",
+        "PERM-HELP-SHOULD-FOLLOW-TASKS"
       ],
       "knowledge_point_ids": [
         "KP-CAPTURE",
@@ -588,10 +592,10 @@
       "template": {
         "type": "literature_note"
       },
-      "body": "# 产品路线可以来自笔记中的重复问题\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n## 引文边界\n本 Demo 只记录主题边界和原创转述，不复刻原文。\n\n## 我的转述\n当多个判断反复指向同一个卡点，它就可能成为产品路线的一部分。\n\n## 我的收获\n研思录可以把笔记网络用于产品判断，而不是只用于文章写作。\n\n## 可转换为永久笔记\n- [[PERM-BACKUP-BEATS-IMPORT-EXPORT|备份与恢复比导入导出更重要]]\n- [[PERM-ROADMAP-GROWS-FROM-NOTES|未来产品路线可以从笔记中长出来]]\n\n## 处理状态\n待处理：还需要确认要不要转换、关联或删除。",
+      "body": "# 产品路线可以来自笔记中的重复问题\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n## 引文边界\n本 Demo 只记录主题边界和原创转述，不复刻原文。\n\n## 我的转述\n当多个判断反复指向同一个卡点，它就可能成为产品路线的一部分。\n\n## 我的收获\n研思录可以把笔记网络用于产品判断，而不是只用于文章写作。\n\n## 可转换为永久笔记\n- [[PERM-BACKUP-BEATS-IMPORT-EXPORT|备份与恢复比导入导出更重要]]\n- [[PERM-ROADMAP-GROWS-FROM-NOTES|未来产品路线可以从笔记中长出来]]\n- [[PERM-HELP-SHOULD-FOLLOW-TASKS|帮助页应该按任务组织，而不是按功能堆列表]]\n\n## 处理状态\n待处理：还需要确认要不要转换、关联或删除。",
       "conversion_decision": {
         "status": "pending",
-        "conversion_reason": "保留为今日整理样例。",
+        "conversion_reason": "保留为首页待处理样例。",
         "key_note_id": "PERM-BACKUP-BEATS-IMPORT-EXPORT"
       }
     }
@@ -611,7 +615,7 @@
         "从第一条材料开始，就要问它以后能回答什么问题。",
         "研思录要让每一步都看得见它离写作还有多远。"
       ],
-      "productImplication": "导入、今日整理、关系和写作中心都要围绕同一条主线：这条笔记以后能帮我写什么。",
+      "productImplication": "导入、首页、关系和写作中心都要围绕同一条主线：这条笔记以后能帮我写什么。",
       "boundaryOrCounterpoint": "这不等于每条随笔都要立刻写成文章。它只是要求用户知道下一步要把它推进到哪里。",
       "from_literature_note_ids": [
         "LN-WRITING-AS-DAILY-PRACTICE"
@@ -621,7 +625,7 @@
         "写作从已有判断开始",
         "Smart Notes Demo"
       ],
-      "body": "# 写作不是最后一步，而是整理笔记的方向\n\n## 核心论点\n写作不是最后一步，而是判断是否值得整理一条笔记的方向。\n\n## 三句话压缩\n- 如果只在最后才想写作，前面的记录就容易变成资料仓库。\n- 从第一条材料开始，就要问它以后能回答什么问题。\n- 研思录要让每一步都看得见它离写作还有多远。\n\n## 论证理由\n卡片笔记法真正有用的地方，是让材料一进入系统就面向未来表达，而不是等资料够多以后才找主题。\n\n## 产品含义\n导入、今日整理、关系和写作中心都要围绕同一条主线：这条笔记以后能帮我写什么。\n\n## 边界或反例\n这不等于每条随笔都要立刻写成文章。它只是要求用户知道下一步要把它推进到哪里。\n\n## 可以继续看的笔记\n- [[文献笔记要先转述，再沉淀判断]]\n- [[主题索引不是文件夹，而是问题入口]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
+      "body": "# 写作不是最后一步，而是整理笔记的方向\n\n## 核心论点\n写作不是最后一步，而是判断是否值得整理一条笔记的方向。\n\n## 三句话压缩\n- 如果只在最后才想写作，前面的记录就容易变成资料仓库。\n- 从第一条材料开始，就要问它以后能回答什么问题。\n- 研思录要让每一步都看得见它离写作还有多远。\n\n## 论证理由\n卡片笔记法真正有用的地方，是让材料一进入系统就面向未来表达，而不是等资料够多以后才找主题。\n\n## 产品含义\n导入、首页、关系和写作中心都要围绕同一条主线：这条笔记以后能帮我写什么。\n\n## 边界或反例\n这不等于每条随笔都要立刻写成文章。它只是要求用户知道下一步要把它推进到哪里。\n\n## 可以继续看的笔记\n- [[文献笔记要先转述，再沉淀判断]]\n- [[主题索引不是文件夹，而是问题入口]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
       "core_claim": "写作不是最后一步，而是判断是否值得整理一条笔记的方向。",
       "rationale": "卡片笔记法真正有用的地方，是让材料一进入系统就面向未来表达，而不是等资料够多以后才找主题。",
       "related_index_ids": [
@@ -1047,7 +1051,7 @@
         "电脑适合转述、拆分、建联和进入写作。",
         "两端要互动，而不是做两套笔记系统。"
       ],
-      "productImplication": "手机记录要带上下一步，电脑今日整理要接住这些待处理内容。",
+      "productImplication": "手机记录要带上下一步，电脑首页要接住这些待处理内容。",
       "boundaryOrCounterpoint": "电脑不是唯一的整理入口。轻量确认和简单建联也可以在手机上完成，但复杂写作更适合桌面。",
       "from_literature_note_ids": [
         "LN-CAPTURE-NEEDS-FOLLOWUP"
@@ -1057,7 +1061,7 @@
         "记录只是入口",
         "Smart Notes Demo"
       ],
-      "body": "# 手机负责快速记录，电脑负责慢慢整理\n\n## 核心论点\n手机和电脑的分工，应该围绕同一条处理链路，而不是复制同一个编辑器。\n\n## 三句话压缩\n- 手机适合抓住现场想法。\n- 电脑适合转述、拆分、建联和进入写作。\n- 两端要互动，而不是做两套笔记系统。\n\n## 论证理由\n移动端的优势是快，桌面端的优势是能看见结构。让两端各自做擅长的事，用户更容易持续。\n\n## 产品含义\n手机记录要带上下一步，电脑今日整理要接住这些待处理内容。\n\n## 边界或反例\n电脑不是唯一的整理入口。轻量确认和简单建联也可以在手机上完成，但复杂写作更适合桌面。\n\n## 可以继续看的笔记\n- [[随笔是捕捉点，不是知识点]]\n- [[今日整理应该奖励处理，而不是奖励收藏]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
+      "body": "# 手机负责快速记录，电脑负责慢慢整理\n\n## 核心论点\n手机和电脑的分工，应该围绕同一条处理链路，而不是复制同一个编辑器。\n\n## 三句话压缩\n- 手机适合抓住现场想法。\n- 电脑适合转述、拆分、建联和进入写作。\n- 两端要互动，而不是做两套笔记系统。\n\n## 论证理由\n移动端的优势是快，桌面端的优势是能看见结构。让两端各自做擅长的事，用户更容易持续。\n\n## 产品含义\n手机记录要带上下一步，电脑首页要接住这些待处理内容。\n\n## 边界或反例\n电脑不是唯一的整理入口。轻量确认和简单建联也可以在手机上完成，但复杂写作更适合桌面。\n\n## 可以继续看的笔记\n- [[随笔是捕捉点，不是知识点]]\n- [[首页应该奖励处理，而不是奖励收藏]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
       "core_claim": "手机和电脑的分工，应该围绕同一条处理链路，而不是复制同一个编辑器。",
       "rationale": "移动端的优势是快，桌面端的优势是能看见结构。让两端各自做擅长的事，用户更容易持续。",
       "related_index_ids": [
@@ -1073,7 +1077,7 @@
         "label": "记录只是入口",
         "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
         "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
-        "product_requirement": "今日整理要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
       },
       "template": {
         "type": "permanent_note",
@@ -1146,7 +1150,7 @@
         "label": "记录只是入口",
         "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
         "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
-        "product_requirement": "今日整理要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
       },
       "template": {
         "type": "permanent_note",
@@ -1182,18 +1186,18 @@
     {
       "id": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
       "note_type": "permanent",
-      "title": "今日整理应该奖励处理，而不是奖励收藏",
+      "title": "首页应该奖励处理，而不是奖励收藏",
       "cluster": "capture",
       "cluster_label": "记录只是入口",
       "status": "active",
       "distillation_status": "confirmed",
-      "thesis": "今日整理的反馈应该奖励处理动作，而不是奖励收藏数量。",
+      "thesis": "首页的反馈应该奖励处理动作，而不是奖励收藏数量。",
       "threeLineSummary": [
         "用户真正需要的是下一步，不是更多库存。",
-        "今日整理要把待处理和待关联的内容摆出来。",
+        "首页要把待处理和待关联的内容摆出来。",
         "完成一个小动作，也比堆十条收藏更健康。"
       ],
-      "productImplication": "今日整理应显示待转述文献、未转换随笔、未建联永久笔记和关系理由缺口。",
+      "productImplication": "首页应显示待转述文献、未转换随笔、未建联永久笔记和关系理由缺口。",
       "boundaryOrCounterpoint": "整理不等于大扫除。一次只做一个小动作，更适合新手坚持。",
       "from_literature_note_ids": [
         "LN-CAPTURE-NEEDS-FOLLOWUP"
@@ -1203,11 +1207,12 @@
         "记录只是入口",
         "Smart Notes Demo"
       ],
-      "body": "# 今日整理应该奖励处理，而不是奖励收藏\n\n## 核心论点\n今日整理的反馈应该奖励处理动作，而不是奖励收藏数量。\n\n## 三句话压缩\n- 用户真正需要的是下一步，不是更多库存。\n- 今日整理要把待处理和待关联的内容摆出来。\n- 完成一个小动作，也比堆十条收藏更健康。\n\n## 论证理由\n卡片笔记法的难点不是记录，而是持续把未完成材料推进一格。\n\n## 产品含义\n今日整理应显示待转述文献、未转换随笔、未建联永久笔记和关系理由缺口。\n\n## 边界或反例\n整理不等于大扫除。一次只做一个小动作，更适合新手坚持。\n\n## 可以继续看的笔记\n- [[随笔是捕捉点，不是知识点]]\n- [[关系理由比连线本身更重要]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
-      "core_claim": "今日整理的反馈应该奖励处理动作，而不是奖励收藏数量。",
+      "body": "# 首页应该奖励处理，而不是奖励收藏\n\n## 核心论点\n首页的反馈应该奖励处理动作，而不是奖励收藏数量。\n\n## 三句话压缩\n- 用户真正需要的是下一步，不是更多库存。\n- 首页要把待处理和待关联的内容摆出来。\n- 完成一个小动作，也比堆十条收藏更健康。\n\n## 论证理由\n卡片笔记法的难点不是记录，而是持续把未完成材料推进一格。\n\n## 产品含义\n首页应显示待转述文献、未转换随笔、未建联永久笔记和关系理由缺口。\n\n## 边界或反例\n整理不等于大扫除。一次只做一个小动作，更适合新手坚持。\n\n## 可以继续看的笔记\n- [[随笔是捕捉点，不是知识点]]\n- [[关系理由比连线本身更重要]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
+      "core_claim": "首页的反馈应该奖励处理动作，而不是奖励收藏数量。",
       "rationale": "卡片笔记法的难点不是记录，而是持续把未完成材料推进一格。",
       "related_index_ids": [
-        "THEME-MOBILE-DESKTOP"
+        "THEME-MOBILE-DESKTOP",
+        "THEME-DEMO-FIRST-RUN"
       ],
       "citations": [
         "LN-CAPTURE-NEEDS-FOLLOWUP"
@@ -1218,7 +1223,7 @@
         "label": "记录只是入口",
         "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
         "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
-        "product_requirement": "今日整理要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
       },
       "template": {
         "type": "permanent_note",
@@ -1235,7 +1240,8 @@
       "key_note_role": "topic_anchor",
       "key_question": "",
       "downstream_index_ids": [
-        "THEME-MOBILE-DESKTOP"
+        "THEME-MOBILE-DESKTOP",
+        "THEME-DEMO-FIRST-RUN"
       ],
       "use_case": "用于 Demo 教学和写作中心提纲生成。",
       "next_question": "这条判断还需要哪条旧笔记来支撑、限定或反驳？",
@@ -1277,6 +1283,7 @@
       "core_claim": "AI 建议的正确位置是候选，而不是最终判断。",
       "rationale": "永久笔记和关系理由都需要用户承担。AI 如果直接写成结论，会让系统看起来流畅，却削弱思想责任。",
       "related_index_ids": [
+        "THEME-HELP-BEST-PATH",
         "THEME-AI-CANDIDATE"
       ],
       "citations": [
@@ -1305,6 +1312,7 @@
       "key_note_role": "topic_anchor",
       "key_question": "",
       "downstream_index_ids": [
+        "THEME-HELP-BEST-PATH",
         "THEME-AI-CANDIDATE"
       ],
       "use_case": "用于 Demo 教学和写作中心提纲生成。",
@@ -1430,7 +1438,7 @@
         "label": "记录只是入口",
         "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
         "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
-        "product_requirement": "今日整理要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
       },
       "template": {
         "type": "permanent_note",
@@ -1500,7 +1508,7 @@
         "label": "记录只是入口",
         "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
         "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
-        "product_requirement": "今日整理要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
       },
       "template": {
         "type": "permanent_note",
@@ -1767,6 +1775,7 @@
       "core_claim": "第一次使用研思录，应该先走一条小闭环，而不是先设计完整知识库。",
       "rationale": "小白真正需要的是体验每一步为什么存在。闭环能让功能变成动作，而不是术语。",
       "related_index_ids": [
+        "THEME-DEMO-FIRST-RUN",
         "THEME-FIRST-USE"
       ],
       "citations": [
@@ -1778,7 +1787,7 @@
         "label": "记录只是入口",
         "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
         "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
-        "product_requirement": "今日整理要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
       },
       "template": {
         "type": "permanent_note",
@@ -1795,7 +1804,228 @@
       "key_note_role": "topic_anchor",
       "key_question": "",
       "downstream_index_ids": [
+        "THEME-DEMO-FIRST-RUN",
         "THEME-FIRST-USE"
+      ],
+      "use_case": "用于 Demo 教学和写作中心提纲生成。",
+      "next_question": "这条判断还需要哪条旧笔记来支撑、限定或反驳？",
+      "demo_role": "method_demo_note",
+      "template_completion": {
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+      "note_type": "permanent",
+      "title": "第一次建议导入 Demo，是为了先看到完整闭环",
+      "cluster": "guide",
+      "cluster_label": "记录只是入口",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "第一次使用时建议先导入 Smart Notes Demo，因为它能把抽象方法变成一条可点击的完整闭环。",
+      "threeLineSummary": [
+        "空库适合正式开始，Demo 适合理解研思录为什么这样设计。",
+        "Demo 会直接放好随笔、文献笔记、永久笔记、关系、主题索引和写作项目。",
+        "新手先走一遍样例，再回到自己的库里记录，会更知道下一步点哪里。"
+      ],
+      "productImplication": "首页和帮助都应该提供明确的 Demo 入口，并说明导入前会确认、导入后可以随时删除或换回自己的笔记库。",
+      "boundaryOrCounterpoint": "Demo 不是强制流程，也不会替用户建立真实知识库。它只是一个可照着走的样板。",
+      "from_literature_note_ids": [
+        "LN-WRITING-AS-DAILY-PRACTICE",
+        "LN-CAPTURE-NEEDS-FOLLOWUP"
+      ],
+      "tags": [
+        "永久笔记",
+        "记录只是入口",
+        "Smart Notes Demo"
+      ],
+      "body": "# 第一次建议导入 Demo，是为了先看到完整闭环\n\n## 核心论点\n第一次使用时建议先导入 Smart Notes Demo，因为它能把抽象方法变成一条可点击的完整闭环。\n\n## 三句话压缩\n- 空库适合正式开始，Demo 适合理解研思录为什么这样设计。\n- Demo 会直接放好随笔、文献笔记、永久笔记、关系、主题索引和写作项目。\n- 新手先走一遍样例，再回到自己的库里记录，会更知道下一步点哪里。\n\n## 论证理由\n卡片笔记写作法如果只靠说明文字，很容易变成术语。Demo 让用户直接看到一条想法怎样经过记录、转述、建联、主题索引和写作中心。\n\n## 产品含义\n首页和帮助都应该提供明确的 Demo 入口，并说明导入前会确认、导入后可以随时删除或换回自己的笔记库。\n\n## 边界或反例\nDemo 不是强制流程，也不会替用户建立真实知识库。它只是一个可照着走的样板。\n\n## 可以继续看的笔记\n- [[第一次使用研思录应该先走一条小闭环]]\n- [[首页应该奖励处理，而不是奖励收藏]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
+      "core_claim": "第一次使用时建议先导入 Smart Notes Demo，因为它能把抽象方法变成一条可点击的完整闭环。",
+      "rationale": "卡片笔记写作法如果只靠说明文字，很容易变成术语。Demo 让用户直接看到一条想法怎样经过记录、转述、建联、主题索引和写作中心。",
+      "related_index_ids": [
+        "THEME-DEMO-FIRST-RUN",
+        "THEME-FIRST-USE",
+        "THEME-HELP-BEST-PATH"
+      ],
+      "citations": [
+        "LN-WRITING-AS-DAILY-PRACTICE",
+        "LN-CAPTURE-NEEDS-FOLLOWUP"
+      ],
+      "knowledge_point": {
+        "id": "KP-CAPTURE",
+        "cluster": "capture",
+        "label": "记录只是入口",
+        "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
+        "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "三句话压缩",
+          "论证理由",
+          "产品含义",
+          "边界或反例",
+          "可以继续看的笔记"
+        ]
+      },
+      "is_key_note": false,
+      "key_note_role": "topic_anchor",
+      "key_question": "",
+      "downstream_index_ids": [
+        "THEME-DEMO-FIRST-RUN",
+        "THEME-FIRST-USE",
+        "THEME-HELP-BEST-PATH"
+      ],
+      "use_case": "用于 Demo 教学和写作中心提纲生成。",
+      "next_question": "这条判断还需要哪条旧笔记来支撑、限定或反驳？",
+      "demo_role": "method_demo_note",
+      "template_completion": {
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PERM-HELP-SHOULD-FOLLOW-TASKS",
+      "note_type": "permanent",
+      "title": "帮助页应该按任务组织，而不是按功能堆列表",
+      "cluster": "guide",
+      "cluster_label": "记录只是入口",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "帮助页应该按任务组织，而不是按功能名称堆列表。",
+      "threeLineSummary": [
+        "新手遇到问题时，通常不知道功能叫什么。",
+        "帮助页应该先问用户现在想完成什么任务。",
+        "每个帮助入口都要能回到一个真实模块或一条 Demo 笔记。"
+      ],
+      "productImplication": "帮助首页要用“第一次打开”“我有一条想法”“为什么要建联”“怎么进入写作”等问题组织入口，并提供打开首页、主题库、写作中心、备份、手机访问和 AI 设置的按钮。",
+      "boundaryOrCounterpoint": "任务式帮助不等于隐藏进阶设置。进阶设置仍然存在，只是不要占据新手的第一屏。",
+      "from_literature_note_ids": [
+        "LN-PRODUCT-ROADMAP-FROM-NOTES"
+      ],
+      "tags": [
+        "永久笔记",
+        "记录只是入口",
+        "Smart Notes Demo"
+      ],
+      "body": "# 帮助页应该按任务组织，而不是按功能堆列表\n\n## 核心论点\n帮助页应该按任务组织，而不是按功能名称堆列表。\n\n## 三句话压缩\n- 新手遇到问题时，通常不知道功能叫什么。\n- 帮助页应该先问用户现在想完成什么任务。\n- 每个帮助入口都要能回到一个真实模块或一条 Demo 笔记。\n\n## 论证理由\n功能列表适合熟练用户查配置，但小白更关心“我现在卡住了，该点哪里”。任务式帮助能把产品理念、Demo 数据和真实操作连起来。\n\n## 产品含义\n帮助首页要用“第一次打开”“我有一条想法”“为什么要建联”“怎么进入写作”等问题组织入口，并提供打开首页、主题库、写作中心、备份、手机访问和 AI 设置的按钮。\n\n## 边界或反例\n任务式帮助不等于隐藏进阶设置。进阶设置仍然存在，只是不要占据新手的第一屏。\n\n## 可以继续看的笔记\n- [[第一次建议导入 Demo，是为了先看到完整闭环]]\n- [[第一次使用研思录应该先走一条小闭环]]\n- [[AI 建议只能作为候选，不能替用户下判断]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
+      "core_claim": "帮助页应该按任务组织，而不是按功能名称堆列表。",
+      "rationale": "功能列表适合熟练用户查配置，但小白更关心“我现在卡住了，该点哪里”。任务式帮助能把产品理念、Demo 数据和真实操作连起来。",
+      "related_index_ids": [
+        "THEME-HELP-BEST-PATH"
+      ],
+      "citations": [
+        "LN-PRODUCT-ROADMAP-FROM-NOTES"
+      ],
+      "knowledge_point": {
+        "id": "KP-CAPTURE",
+        "cluster": "capture",
+        "label": "记录只是入口",
+        "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
+        "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "三句话压缩",
+          "论证理由",
+          "产品含义",
+          "边界或反例",
+          "可以继续看的笔记"
+        ]
+      },
+      "is_key_note": false,
+      "key_note_role": "topic_anchor",
+      "key_question": "",
+      "downstream_index_ids": [
+        "THEME-HELP-BEST-PATH"
+      ],
+      "use_case": "用于 Demo 教学和写作中心提纲生成。",
+      "next_question": "这条判断还需要哪条旧笔记来支撑、限定或反驳？",
+      "demo_role": "method_demo_note",
+      "template_completion": {
+        "has_relation_context": true
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PERM-BEST-PATH-STARTS-FROM-HOME",
+      "note_type": "permanent",
+      "title": "研思录的最佳路径，是从首页开始做一个小闭环",
+      "cluster": "guide",
+      "cluster_label": "记录只是入口",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "研思录的最佳路径，是从首页开始做一个小闭环。",
+      "threeLineSummary": [
+        "首页不是普通仪表盘，而是每天开始的工作台。",
+        "最好的路径不是先整理全部笔记，而是先推进一条内容。",
+        "一条内容走通后，用户才真正理解卡片笔记写作法。"
+      ],
+      "productImplication": "首页要把下一步动作放在最前面，帮助和 Demo 都要围绕这条路径解释功能。",
+      "boundaryOrCounterpoint": "用户可以从任意模块进入，但新手导览和帮助要默认把他们带回首页。",
+      "from_literature_note_ids": [
+        "LN-CAPTURE-NEEDS-FOLLOWUP",
+        "LN-WRITING-AS-DAILY-PRACTICE"
+      ],
+      "tags": [
+        "永久笔记",
+        "记录只是入口",
+        "Smart Notes Demo"
+      ],
+      "body": "# 研思录的最佳路径，是从首页开始做一个小闭环\n\n## 核心论点\n研思录的最佳路径，是从首页开始做一个小闭环。\n\n## 三句话压缩\n- 首页不是普通仪表盘，而是每天开始的工作台。\n- 最好的路径不是先整理全部笔记，而是先推进一条内容。\n- 一条内容走通后，用户才真正理解卡片笔记写作法。\n\n## 论证理由\n卡片笔记写作法的价值不在于一次搭好完整系统，而在于每天把一条材料向前推进：随笔变清楚、材料被转述、判断被确认、关系被写明、主题能进入写作。\n\n## 产品含义\n首页要把下一步动作放在最前面，帮助和 Demo 都要围绕这条路径解释功能。\n\n## 边界或反例\n用户可以从任意模块进入，但新手导览和帮助要默认把他们带回首页。\n\n## 可以继续看的笔记\n- [[首页应该奖励处理，而不是奖励收藏]]\n- [[如何把一条随笔加工成永久笔记？]]\n- [[如何从主题索引进入写作中心？]]\n\n## 下一步动作\n把这条判断放进一个主题索引，或者用一条关系理由连接到相邻笔记。",
+      "core_claim": "研思录的最佳路径，是从首页开始做一个小闭环。",
+      "rationale": "卡片笔记写作法的价值不在于一次搭好完整系统，而在于每天把一条材料向前推进：随笔变清楚、材料被转述、判断被确认、关系被写明、主题能进入写作。",
+      "related_index_ids": [
+        "THEME-FIRST-USE",
+        "THEME-HELP-BEST-PATH"
+      ],
+      "citations": [
+        "LN-CAPTURE-NEEDS-FOLLOWUP",
+        "LN-WRITING-AS-DAILY-PRACTICE"
+      ],
+      "knowledge_point": {
+        "id": "KP-CAPTURE",
+        "cluster": "capture",
+        "label": "记录只是入口",
+        "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
+        "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+      },
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心论点",
+          "三句话压缩",
+          "论证理由",
+          "产品含义",
+          "边界或反例",
+          "可以继续看的笔记"
+        ]
+      },
+      "is_key_note": false,
+      "key_note_role": "topic_anchor",
+      "key_question": "",
+      "downstream_index_ids": [
+        "THEME-FIRST-USE",
+        "THEME-HELP-BEST-PATH"
       ],
       "use_case": "用于 Demo 教学和写作中心提纲生成。",
       "next_question": "这条判断还需要哪条旧笔记来支撑、限定或反驳？",
@@ -2164,7 +2394,7 @@
         {
           "note_id": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
           "order": 3,
-          "rationale": "第 3 步读 [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|今日整理应该奖励处理，而不是奖励收藏]]，因为它能回答这个主题的一部分。"
+          "rationale": "第 3 步读 [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|首页应该奖励处理，而不是奖励收藏]]，因为它能回答这个主题的一部分。"
         }
       ],
       "template": {
@@ -2175,7 +2405,67 @@
         "PERM-FLEETING-NOTE-IS-CAPTURE",
         "PERM-TODAY-REVIEW-REWARDS-PROCESSING"
       ],
-      "body": "# 手机笔记功能和电脑笔记功能有什么区别？如何形成互动？\n\n## 中心问题\n手机记录和电脑整理怎样接成一条链路？\n\n## 阅读顺序\n1. [[PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE|手机负责快速记录，电脑负责慢慢整理]]\n2. [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]\n3. [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|今日整理应该奖励处理，而不是奖励收藏]]\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+      "body": "# 手机笔记功能和电脑笔记功能有什么区别？如何形成互动？\n\n## 中心问题\n手机记录和电脑整理怎样接成一条链路？\n\n## 阅读顺序\n1. [[PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE|手机负责快速记录，电脑负责慢慢整理]]\n2. [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]\n3. [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|首页应该奖励处理，而不是奖励收藏]]\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-DEMO-FIRST-RUN",
+      "index_type": "topic",
+      "title": "为什么第一次建议导入 Smart Notes Demo？",
+      "central_question": "为什么先看样例，比先读说明更容易上手？",
+      "thesis": "为什么第一次建议导入 Smart Notes Demo？ 这张索引用来帮助新手重新进入问题。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "围绕“为什么先看样例，比先读说明更容易上手？”组织关键笔记。",
+      "item_note_ids": [
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+        "PERM-FIRST-TEN-MINUTES",
+        "PERM-TODAY-REVIEW-REWARDS-PROCESSING"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+          "order": 1,
+          "rationale": "第 1 步读 [[PERM-DEMO-FIRST-RUN-RECOMMENDED|第一次建议导入 Demo，是为了先看到完整闭环]]，因为它能回答这个主题的一部分。"
+        },
+        {
+          "note_id": "PERM-FIRST-TEN-MINUTES",
+          "order": 2,
+          "rationale": "第 2 步读 [[PERM-FIRST-TEN-MINUTES|第一次使用研思录应该先走一条小闭环]]，因为它能回答这个主题的一部分。"
+        },
+        {
+          "note_id": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+          "order": 3,
+          "rationale": "第 3 步读 [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|首页应该奖励处理，而不是奖励收藏]]，因为它能回答这个主题的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+        "PERM-FIRST-TEN-MINUTES",
+        "PERM-TODAY-REVIEW-REWARDS-PROCESSING"
+      ],
+      "body": "# 为什么第一次建议导入 Smart Notes Demo？\n\n## 中心问题\n为什么先看样例，比先读说明更容易上手？\n\n## 阅读顺序\n1. [[PERM-DEMO-FIRST-RUN-RECOMMENDED|第一次建议导入 Demo，是为了先看到完整闭环]]\n2. [[PERM-FIRST-TEN-MINUTES|第一次使用研思录应该先走一条小闭环]]\n3. [[PERM-TODAY-REVIEW-REWARDS-PROCESSING|首页应该奖励处理，而不是奖励收藏]]\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
     },
     {
       "id": "THEME-FIRST-USE",
@@ -2190,6 +2480,8 @@
       ],
       "summary": "围绕“小白第一次打开时，怎样走完一个最小闭环？”组织关键笔记。",
       "item_note_ids": [
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+        "PERM-BEST-PATH-STARTS-FROM-HOME",
         "PERM-FIRST-TEN-MINUTES",
         "PERM-FLEETING-NOTE-IS-CAPTURE",
         "PERM-WRITING-STARTS-BEFORE-DRAFT"
@@ -2208,34 +2500,113 @@
         "KP-WRITING"
       ],
       "key_note_ids": [
-        "PERM-FIRST-TEN-MINUTES"
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED"
       ],
       "items": [
         {
-          "note_id": "PERM-FIRST-TEN-MINUTES",
+          "note_id": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
           "order": 1,
-          "rationale": "第 1 步读 [[PERM-FIRST-TEN-MINUTES|第一次使用研思录应该先走一条小闭环]]，因为它能回答这个主题的一部分。"
+          "rationale": "第 1 步读 [[PERM-DEMO-FIRST-RUN-RECOMMENDED|第一次建议导入 Demo，是为了先看到完整闭环]]，因为它能回答这个主题的一部分。"
+        },
+        {
+          "note_id": "PERM-BEST-PATH-STARTS-FROM-HOME",
+          "order": 2,
+          "rationale": "第 2 步读 [[PERM-BEST-PATH-STARTS-FROM-HOME|研思录的最佳路径，是从首页开始做一个小闭环]]，因为它能回答这个主题的一部分。"
+        },
+        {
+          "note_id": "PERM-FIRST-TEN-MINUTES",
+          "order": 3,
+          "rationale": "第 3 步读 [[PERM-FIRST-TEN-MINUTES|第一次使用研思录应该先走一条小闭环]]，因为它能回答这个主题的一部分。"
         },
         {
           "note_id": "PERM-FLEETING-NOTE-IS-CAPTURE",
-          "order": 2,
-          "rationale": "第 2 步读 [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]，因为它能回答这个主题的一部分。"
+          "order": 4,
+          "rationale": "第 4 步读 [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]，因为它能回答这个主题的一部分。"
         },
         {
           "note_id": "PERM-WRITING-STARTS-BEFORE-DRAFT",
-          "order": 3,
-          "rationale": "第 3 步读 [[PERM-WRITING-STARTS-BEFORE-DRAFT|写作不是最后一步，而是整理笔记的方向]]，因为它能回答这个主题的一部分。"
+          "order": 5,
+          "rationale": "第 5 步读 [[PERM-WRITING-STARTS-BEFORE-DRAFT|写作不是最后一步，而是整理笔记的方向]]，因为它能回答这个主题的一部分。"
         }
       ],
       "template": {
         "type": "index_card"
       },
       "noteIds": [
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+        "PERM-BEST-PATH-STARTS-FROM-HOME",
         "PERM-FIRST-TEN-MINUTES",
         "PERM-FLEETING-NOTE-IS-CAPTURE",
         "PERM-WRITING-STARTS-BEFORE-DRAFT"
       ],
-      "body": "# 第一次使用研思录应该先做什么？\n\n## 中心问题\n小白第一次打开时，怎样走完一个最小闭环？\n\n## 阅读顺序\n1. [[PERM-FIRST-TEN-MINUTES|第一次使用研思录应该先走一条小闭环]]\n2. [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]\n3. [[PERM-WRITING-STARTS-BEFORE-DRAFT|写作不是最后一步，而是整理笔记的方向]]\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+      "body": "# 第一次使用研思录应该先做什么？\n\n## 中心问题\n小白第一次打开时，怎样走完一个最小闭环？\n\n## 阅读顺序\n1. [[PERM-DEMO-FIRST-RUN-RECOMMENDED|第一次建议导入 Demo，是为了先看到完整闭环]]\n2. [[PERM-BEST-PATH-STARTS-FROM-HOME|研思录的最佳路径，是从首页开始做一个小闭环]]\n3. [[PERM-FIRST-TEN-MINUTES|第一次使用研思录应该先走一条小闭环]]\n4. [[PERM-FLEETING-NOTE-IS-CAPTURE|随笔是捕捉点，不是知识点]]\n5. [[PERM-WRITING-STARTS-BEFORE-DRAFT|写作不是最后一步，而是整理笔记的方向]]\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
+    },
+    {
+      "id": "THEME-HELP-BEST-PATH",
+      "index_type": "topic",
+      "title": "研思录帮助应该怎样服务新手？",
+      "central_question": "帮助、Demo 和核心流程怎样一起把新手带到下一步？",
+      "thesis": "研思录帮助应该怎样服务新手？ 这张索引用来帮助新手重新进入问题。",
+      "threeLineSummary": [
+        "先读中心问题。",
+        "再按顺序读关键永久笔记。",
+        "最后决定是否进入写作中心。"
+      ],
+      "summary": "围绕“帮助、Demo 和核心流程怎样一起把新手带到下一步？”组织关键笔记。",
+      "item_note_ids": [
+        "PERM-HELP-SHOULD-FOLLOW-TASKS",
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+        "PERM-BEST-PATH-STARTS-FROM-HOME",
+        "PERM-AI-SUGGESTION-IS-CANDIDATE"
+      ],
+      "tags": [
+        "主题索引",
+        "Smart Notes Demo"
+      ],
+      "ordering_strategy": "manual",
+      "knowledge_point_ids": [
+        "KP-CAPTURE",
+        "KP-PARAPHRASE",
+        "KP-PERMANENT",
+        "KP-RELATION",
+        "KP-INDEX",
+        "KP-WRITING"
+      ],
+      "key_note_ids": [
+        "PERM-HELP-SHOULD-FOLLOW-TASKS"
+      ],
+      "items": [
+        {
+          "note_id": "PERM-HELP-SHOULD-FOLLOW-TASKS",
+          "order": 1,
+          "rationale": "第 1 步读 [[PERM-HELP-SHOULD-FOLLOW-TASKS|帮助页应该按任务组织，而不是按功能堆列表]]，因为它能回答这个主题的一部分。"
+        },
+        {
+          "note_id": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+          "order": 2,
+          "rationale": "第 2 步读 [[PERM-DEMO-FIRST-RUN-RECOMMENDED|第一次建议导入 Demo，是为了先看到完整闭环]]，因为它能回答这个主题的一部分。"
+        },
+        {
+          "note_id": "PERM-BEST-PATH-STARTS-FROM-HOME",
+          "order": 3,
+          "rationale": "第 3 步读 [[PERM-BEST-PATH-STARTS-FROM-HOME|研思录的最佳路径，是从首页开始做一个小闭环]]，因为它能回答这个主题的一部分。"
+        },
+        {
+          "note_id": "PERM-AI-SUGGESTION-IS-CANDIDATE",
+          "order": 4,
+          "rationale": "第 4 步读 [[PERM-AI-SUGGESTION-IS-CANDIDATE|AI 建议只能作为候选，不能替用户下判断]]，因为它能回答这个主题的一部分。"
+        }
+      ],
+      "template": {
+        "type": "index_card"
+      },
+      "noteIds": [
+        "PERM-HELP-SHOULD-FOLLOW-TASKS",
+        "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+        "PERM-BEST-PATH-STARTS-FROM-HOME",
+        "PERM-AI-SUGGESTION-IS-CANDIDATE"
+      ],
+      "body": "# 研思录帮助应该怎样服务新手？\n\n## 中心问题\n帮助、Demo 和核心流程怎样一起把新手带到下一步？\n\n## 阅读顺序\n1. [[PERM-HELP-SHOULD-FOLLOW-TASKS|帮助页应该按任务组织，而不是按功能堆列表]]\n2. [[PERM-DEMO-FIRST-RUN-RECOMMENDED|第一次建议导入 Demo，是为了先看到完整闭环]]\n3. [[PERM-BEST-PATH-STARTS-FROM-HOME|研思录的最佳路径，是从首页开始做一个小闭环]]\n4. [[PERM-AI-SUGGESTION-IS-CANDIDATE|AI 建议只能作为候选，不能替用户下判断]]\n\n## 进入写作中心\n如果这些笔记已经能回答同一个问题，就可以送进写作中心生成提纲。"
     },
     {
       "id": "THEME-FLEETING-TO-PERMANENT",
@@ -2565,7 +2936,7 @@
       "to": "PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE",
       "relationType": "complements",
       "status": "confirmed",
-      "rationale": "今日整理补上手机记录之后的桌面处理承诺。",
+      "rationale": "首页补上手机记录之后的桌面处理承诺。",
       "insight_question": "以后写作时，这条关系能提供论据、边界、反方，还是一个新的问题入口？",
       "confidence": 0.9
     },
@@ -2596,6 +2967,36 @@
       "relationType": "restates",
       "status": "confirmed",
       "rationale": "第一次使用的闭环，其实是在用最短路径重述从记录到写作的主线。",
+      "insight_question": "以后写作时，这条关系能提供论据、边界、反方，还是一个新的问题入口？",
+      "confidence": 0.9
+    },
+    {
+      "id": "REL-DEMO-SUPPORTS-FIRST-USE",
+      "from": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+      "to": "PERM-FIRST-TEN-MINUTES",
+      "relationType": "supports",
+      "status": "confirmed",
+      "rationale": "先导入 Demo 能让第一次使用的小闭环变成可点击、可复现的操作路径。",
+      "insight_question": "以后写作时，这条关系能提供论据、边界、反方，还是一个新的问题入口？",
+      "confidence": 0.9
+    },
+    {
+      "id": "REL-HELP-BRIDGES-DEMO",
+      "from": "PERM-HELP-SHOULD-FOLLOW-TASKS",
+      "to": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+      "relationType": "bridges",
+      "status": "confirmed",
+      "rationale": "帮助页按任务组织，Demo 负责把每个任务变成可点击样例，两者需要互相指向。",
+      "insight_question": "以后写作时，这条关系能提供论据、边界、反方，还是一个新的问题入口？",
+      "confidence": 0.9
+    },
+    {
+      "id": "REL-HOME-EXTENDS-FIRST-USE",
+      "from": "PERM-BEST-PATH-STARTS-FROM-HOME",
+      "to": "PERM-FIRST-TEN-MINUTES",
+      "relationType": "extends",
+      "status": "confirmed",
+      "rationale": "它把第一次导览扩展成日常使用习惯：每天从首页推进一个小闭环。",
       "insight_question": "以后写作时，这条关系能提供论据、边界、反方，还是一个新的问题入口？",
       "confidence": 0.9
     },
@@ -2640,6 +3041,7 @@
       ],
       "indexCardIds": [
         "THEME-FIRST-USE",
+        "THEME-HELP-BEST-PATH",
         "THEME-WHAT-IS-PERMANENT-NOTE",
         "THEME-WHY-LINK-NOTES",
         "THEME-INDEX-TO-WRITING"
@@ -2875,6 +3277,7 @@
   "graph": {
     "reading_path": [
       "GUIDE-SMART-NOTES-START",
+      "GUIDE-HELP-TASKS",
       "FN-PHONE-CAPTURE-UNPROCESSED",
       "LN-WRITING-AS-DAILY-PRACTICE",
       "PERM-WRITING-STARTS-BEFORE-DRAFT",
@@ -2923,7 +3326,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 00 从这里开始：10 分钟走完研思录\n\n你不用先学术语。照着这 6 步点一遍，就能看到研思录怎样把卡片笔记写作法做进产品里。\n\n1. 先看 [[手机上先记一句：我总是收藏很多但不会用]]。它是一条还没处理完的随笔。\n2. 再看 [[阅读一开始就要面向未来写作]]。它展示材料如何先被转述，而不是直接复制。\n3. 打开 [[写作不是最后一步，而是整理笔记的方向]]。这是一条已经确认的永久笔记。\n4. 打开 [[待关联练习：保存关系前先写清楚为什么]]。去建联面板里为它找相邻笔记，并补一句为什么相关。\n5. 打开 [[为什么要关联笔记？]] 或 [[永久笔记是什么？]]。主题索引会告诉你按什么顺序读。\n6. 打开写作项目《为什么研思录要把卡片笔记写作法做进产品里》。看它怎样从主题和关键笔记生成提纲。\n\n今天只做一个动作也可以：处理一条随笔、转述一条文献笔记、确认一条永久笔记、补一条关系理由，或者从主题索引进入写作中心。"
+      "body": "# 00 从这里开始：10 分钟走完研思录\n\n你不用先学术语。照着这 6 步点一遍，就能看到研思录怎样把卡片笔记写作法做进产品里。\n\n如果你是第一次打开，建议先导入这套 Smart Notes Demo。它不是正式数据，而是一套可以放心试错的样例库。\n\n1. 先看 [[手机上先记一句：我总是收藏很多但不会用]]。它是一条还没处理完的随笔。\n2. 再看 [[阅读一开始就要面向未来写作]]。它展示材料如何先被转述，而不是直接复制。\n3. 打开 [[写作不是最后一步，而是整理笔记的方向]]。这是一条已经确认的永久笔记。\n4. 打开 [[待关联练习：保存关系前先写清楚为什么]]。去建联面板里为它找相邻笔记，并补一句为什么相关。\n5. 打开 [[为什么要关联笔记？]] 或 [[永久笔记是什么？]]。主题索引会告诉你按什么顺序读。\n6. 打开写作项目《为什么研思录要把卡片笔记写作法做进产品里》。看它怎样从主题和关键笔记生成提纲。\n\n首页就是每天开始的地方。今天只做一个动作也可以：处理一条随笔、转述一条文献笔记、确认一条永久笔记、补一条关系理由，或者从主题索引进入写作中心。"
     },
     {
       "id": "GUIDE-TODAY-NEXT-STEP",
@@ -2934,7 +3337,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 01 今天先做哪一步？\n\n- 如果你只有一句粗想法，先写成随笔，并补“下一步处理”。\n- 如果你刚读完一段材料，先写文献笔记，用自己的话转述。\n- 如果你已经有一个判断，写成永久笔记，并补理由和边界。\n- 如果你看到两条笔记互相解释，建立关系，并写清楚为什么。\n- 如果 3 条以上笔记围绕同一个问题，建立主题索引。\n- 如果主题索引已经有关键笔记，进入写作中心生成提纲。"
+      "body": "# 01 今天先做哪一步？\n\n打开首页，先看系统给出的下一步建议。不要一次处理所有内容，只选一件最小动作。\n\n- 如果你只有一句粗想法，先写成随笔，并补“下一步处理”。\n- 如果你刚读完一段材料，先写文献笔记，用自己的话转述。\n- 如果你已经有一个判断，写成永久笔记，并补理由和边界。\n- 如果你看到两条笔记互相解释，建立关系，并写清楚为什么。\n- 如果 3 条以上笔记围绕同一个问题，建立主题索引。\n- 如果主题索引已经有关键笔记，进入写作中心生成提纲。"
     },
     {
       "id": "GUIDE-WHAT-PERMANENT",
@@ -2979,6 +3382,28 @@
         "Smart Notes Demo"
       ],
       "body": "# 05 怎么从主题进入写作中心？\n\n从主题索引进入写作中心时，不是让 AI 从空白开始写，而是让它整理你已经确认的判断。\n\n先看 [[主题索引不是文件夹，而是问题入口]]，再看 [[写作中心应该从已确认判断生成提纲]]。"
+    },
+    {
+      "id": "GUIDE-HELP-TASKS",
+      "note_type": "guide",
+      "title": "06 遇到问题先看这里：按任务找帮助",
+      "status": "active",
+      "tags": [
+        "导览",
+        "Smart Notes Demo"
+      ],
+      "body": "# 06 遇到问题先看这里：按任务找帮助\n\n帮助不是功能说明书的目录，而是你卡住时的下一步入口。\n\n- 第一次打开：看 [[第一次建议导入 Demo，是为了先看到完整闭环]] 和 [[研思录的最佳路径，是从首页开始做一个小闭环]]。\n- 有一条想法：看 [[随笔是捕捉点，不是知识点]]，再回首页处理。\n- 不知道为什么建联：看 [[关系理由比连线本身更重要]]。\n- 想写文章：看 [[主题索引不是文件夹，而是问题入口]] 和 [[写作中心应该从已确认判断生成提纲]]。\n- 担心迁移和丢失：看 [[备份与恢复比导入导出更重要]]。\n- 想用手机：看 [[手机负责快速记录，电脑负责慢慢整理]]。\n- 想用 AI：看 [[AI 建议只能作为候选，不能替用户下判断]]。\n\n如果你不知道从哪里开始，就回到首页，只推进一条内容。"
+    },
+    {
+      "id": "GUIDE-BACKUP-MOBILE-AI",
+      "note_type": "guide",
+      "title": "07 备份、手机和 AI：先知道边界",
+      "status": "active",
+      "tags": [
+        "导览",
+        "Smart Notes Demo"
+      ],
+      "body": "# 07 备份、手机和 AI：先知道边界\n\n备份、手机访问和 AI 都是为了让主流程更安心，不是替代主流程。\n\n- 备份：保护整个笔记库，适合迁移和防止误删。\n- 手机：负责随时记录和轻阅读，复杂整理回电脑端。\n- AI / Ollama：提供候选关系、候选提纲和候选命名，最后仍然由用户确认。\n\n先手工走通记录、建联、主题和写作，再决定是否引入 AI，会更稳。"
     }
   ],
   "conversion_templates": {
@@ -2997,7 +3422,7 @@
         "label": "记录只是入口",
         "method_principle": "临时记录只负责抓住还不稳定的想法，不能长期假装成知识。",
         "misuse_to_avoid": "把随笔堆满以后，以为自己已经完成整理。",
-        "product_requirement": "今日整理要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
+        "product_requirement": "首页要把未处理随笔和文献笔记推到用户面前，并给出下一步动作。"
       },
       {
         "id": "KP-PARAPHRASE",

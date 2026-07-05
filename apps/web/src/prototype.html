@@ -1219,12 +1219,66 @@
                   <section class="settings-pane hidden" id="settingsPaneSupport" data-settings-pane="support">
                     <div class="settings-pane-head">
                       <div class="settings-pane-headline">
-                        <div class="settings-pane-kicker">Support</div>
-                        <div class="settings-pane-title">帮助与反馈</div>
+                        <div class="settings-pane-kicker">Help</div>
+                        <div class="settings-pane-title">遇到问题先看这里</div>
                       </div>
-                      <div class="settings-pane-note">先确认本地文件规则；遇到问题时，带上必要诊断信息再反馈。</div>
+                      <div class="settings-pane-note">按你现在想完成的任务找答案；需要时可以直接打开对应模块。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneSupportBody">
+                      <section class="settings-card" id="settingsDesktopHelpCard">
+                        <div class="settings-card-head">
+                          <div>
+                            <div class="settings-card-title">遇到问题先看这里</div>
+                            <div class="settings-card-note">不用先懂功能名，先按任务选择下一步。</div>
+                          </div>
+                        </div>
+                        <div class="settings-help-topic-list settings-help-task-list">
+                          <div class="settings-help-topic settings-help-topic-action">
+                            <strong>一键导入 Smart Notes Demo</strong>
+                            <span>创建一套卡片笔记写作法示例数据，包含随笔、文献笔记、永久笔记、关系、主题索引、写作项目和帮助示例。导入前会再次确认，用户可以随时重新体验。</span>
+                            <button class="mini-btn primary" id="settingsImportSmartNotesDemo" type="button" data-settings-help-action="import-demo">导入示例库 / 体验 Demo</button>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>第一次打开应该做什么</strong>
+                            <span>先从首页看下一步建议；如果还没有自己的笔记，建议先导入 Demo，读“从这里开始”和“第一次使用研思录应该先做什么”。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-home">打开首页</button>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>我有一条想法，下一步怎么处理</strong>
+                            <span>粗想法先写成随笔；读到的材料先做文献笔记；已经能说清楚的判断再沉淀成永久笔记。Demo 里有“手机上先记一句”和“阅读一开始就要面向未来写作”。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-home">去首页处理</button>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>为什么要建联</strong>
+                            <span>建联不是为了让图谱好看，而是写清楚两条笔记怎样互相支撑、限定、反驳或桥接。Demo 里有一条故意留给你练习的待关联笔记。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-graph">打开关系网络</button>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>怎么从主题进入写作</strong>
+                            <span>先看主题库里的中心问题和关键笔记，再把确认过的主题带入写作中心生成提纲。Demo 的主题索引会展示“先读什么、为什么这样读”。</span>
+                            <div class="settings-inline-actions">
+                              <button class="mini-btn" type="button" data-settings-help-action="open-theme-example">查看主题索引示例</button>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作中心</button>
+                            </div>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>如何备份和迁移</strong>
+                            <span>发布前最重要的是能把整个笔记库加密打包；换电脑时恢复到新文件夹，不覆盖当前库。Demo 也把“备份比导入导出更重要”写成了产品判断。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-backup">打开备份与恢复</button>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>手机访问电脑笔记怎么用</strong>
+                            <span>电脑保持运行，手机在同一局域网扫码配对；手机适合快速记录、拍照和轻量查看，复杂整理回电脑完成。Demo 会示范手机记录如何回到首页继续加工。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">打开手机访问</button>
+                          </div>
+                          <div class="settings-help-topic">
+                            <strong>AI / Ollama 是什么，什么时候需要</strong>
+                            <span>AI 只做候选建议，不替你确认笔记。Ollama 是本地模型运行方式；不需要 AI 时也能完整使用记录、建联和写作主流程。Demo 会说明“AI 建议为什么只能作为候选”。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-ai-settings">查看 AI 设置</button>
+                          </div>
+                        </div>
+                        <div class="settings-support-safe-note">提醒：Demo 会创建示例数据，但必须由你确认后才会导入；正式笔记仍以当前笔记库里的 Markdown 文件为主。</div>
+                      </section>
                       <section class="settings-card" id="settingsUpdateCard">
                         <div class="settings-card-head">
                           <div>
@@ -1295,10 +1349,10 @@
                           </div>
                         </div>
                       </section>
-                      <section class="settings-card" id="settingsDesktopHelpCard">
+                      <section class="settings-card" id="settingsLocalRulesCard">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">本地使用说明</div>
+                            <div class="settings-card-title">本地数据规则</div>
                             <div class="settings-card-note">研思录优先把内容放在你选择的笔记库里，方便备份、迁移和排查。</div>
                           </div>
                         </div>

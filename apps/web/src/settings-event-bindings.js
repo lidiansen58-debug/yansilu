@@ -24,6 +24,10 @@ export function installSettingsEventBindings(deps = {}) {
     renderAll = () => {},
     renderSettingsPanel = () => {},
     renderScheduledTasksWorkspace = () => {},
+    handleStateChange = async () => false,
+    openWritingModule = async () => {},
+    applyWritingTab = () => {},
+    loadWritingThemeIndexes = async () => {},
     setStatus = () => {},
     updateStateRemindLater = (value) => value,
     updateStateIgnoreLatest = (value) => value,
@@ -114,6 +118,56 @@ export function installSettingsEventBindings(deps = {}) {
   $("settingsCheckUpdate")?.addEventListener("click", async () => {
     await updateController.refreshAppVersionInfo?.();
     await updateController.runAppUpdateCheck?.({ manual: true });
+  });
+
+  $("settingsPaneSupport")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-settings-help-action]");
+    if (!button || button.disabled) return;
+    event.preventDefault();
+    const action = String(button.getAttribute("data-settings-help-action") || "").trim();
+    if (action === "import-demo") {
+      await handleStateChange("seed-smart-notes-demo", { source: "settings-help" });
+      return;
+    }
+    if (action === "open-home") {
+      activateModule("today");
+      setStatus("已打开首页。先看下一步建议，选择一个最小动作继续。", "ok");
+      return;
+    }
+    if (action === "open-graph") {
+      activateModule("graph");
+      setStatus("已打开关系网络。先选择一条笔记，再补关系类型和理由。", "ok");
+      return;
+    }
+    if (action === "open-writing") {
+      activateModule("writing");
+      await openWritingModule({ entryReason: "从帮助打开写作中心。先选择主题或相关笔记，再生成提纲。", entrySourceLabel: "帮助" });
+      setStatus("已打开写作中心。", "ok");
+      return;
+    }
+    if (action === "open-theme-example") {
+      activateModule("writing");
+      await loadWritingThemeIndexes();
+      await openWritingModule({ entryReason: "从帮助查看主题索引示例。先看中心问题和关键笔记，再决定是否进入写作。", entrySourceLabel: "帮助" });
+      applyWritingTab("themes");
+      setStatus("已打开写作中心的主题库。导入 Demo 后可查看主题索引示例。", "ok");
+      return;
+    }
+    if (action === "open-backup") {
+      activateModule("imports");
+      setStatus("已打开备份与恢复。优先创建加密备份，再考虑导入导出。", "ok");
+      return;
+    }
+    if (action === "open-mobile-access") {
+      setSettingsItem("mobile-access", { announce: true });
+      await refreshMobileAccessStatus({ silent: true });
+      setStatus("已打开手机访问设置。电脑运行时，手机可扫码配对访问。", "ok");
+      return;
+    }
+    if (action === "open-ai-settings") {
+      setSettingsItem("ai-settings", { announce: true });
+      setStatus("已打开 AI 设置。AI 是候选建议，不影响手工整理主流程。", "ok");
+    }
   });
 
   $("settingsOpenUpdateDownload")?.addEventListener("click", async () => {

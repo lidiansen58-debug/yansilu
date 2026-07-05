@@ -15255,6 +15255,24 @@
       font-size: 11px;
       line-height: 1.5;
     }
+    .settings-help-topic-action {
+      border-color: rgba(45, 212, 191, 0.34);
+      background: linear-gradient(180deg, rgba(240, 253, 250, 0.92), rgba(255, 255, 255, 0.9));
+    }
+    .settings-help-topic-action .mini-btn {
+      justify-self: start;
+      margin-top: 3px;
+    }
+    .settings-help-task-list {
+      gap: 10px;
+    }
+    .settings-help-task-list .settings-help-topic {
+      gap: 7px;
+    }
+    .settings-help-task-list .mini-btn {
+      justify-self: start;
+      min-height: 34px;
+    }
     .settings-feedback-choice {
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
