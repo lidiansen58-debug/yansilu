@@ -2,10 +2,12 @@
 
 Yansilu v0.1.1-beta.1 is a Windows desktop beta for close testers who want to try the core card-note writing workflow end to end.
 
+At its core, Yansilu is built around one idea: record, restate, and connect, so notes can grow into original thinking.
+
 ## What's Included
 
 - Beginner-first empty vault entry with Demo import, Obsidian folder import, and first-note creation.
-- Smart Notes Demo that teaches the workflow through notes: source material, literature notes, permanent notes, relation reasons, theme indexes, writing center, and review.
+- Smart Notes Demo that teaches the workflow through notes: source material, literature notes, permanent notes, relation reasons, theme indexes, writing center, and review, showing how notes can grow into original thinking.
 - Today organizing path for finding the next useful action: connect an unlinked permanent note, form a writable theme, or continue into writing.
 - Relation workflow for turning notes into a knowledge network with user-confirmed relation type and rationale.
 - Theme index and writable-theme suggestions that remain suggestions until the user confirms them.

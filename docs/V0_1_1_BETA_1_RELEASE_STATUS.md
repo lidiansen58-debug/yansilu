@@ -8,6 +8,8 @@ Yansilu v0.1.1-beta.1 is a Windows desktop beta candidate for small-scope intern
 
 Goal of this sign-off: final usability smoke from a non-IT user perspective, fix only P0/P1 issues, verify the minimum regression set, verify desktop installer startup, and confirm release materials are clear enough for beta sharing.
 
+Release message baseline: Yansilu is a local-first knowledge-writing tool built around recording, restating, and connecting notes so they can grow into original thinking.
+
 ## Source
 
 - Branch: `main`

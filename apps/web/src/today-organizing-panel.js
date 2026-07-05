@@ -134,14 +134,14 @@ function renderEmptyLibraryHome() {
     <section class="today-empty-home" aria-label="第一次使用引导">
       <div class="today-empty-home-copy">
         <span class="today-action-kicker">第一次打开，建议先体验示例库</span>
-        <h3>用 10 分钟看懂研思录怎么让笔记生长为思想</h3>
-        <p>示例库会创建一套卡片笔记写作法 Demo：随笔、文献笔记、永久笔记、关系、主题索引和写作项目。导入前会请你确认，不会自动写入。</p>
+        <h3>用 10 分钟看懂研思录怎么让笔记长出思想</h3>
+        <p>从记录、重述、关联开始，让笔记慢慢长成可写的理解。示例库会创建一套卡片笔记写作法 Demo：随笔、文献笔记、永久笔记、关系、主题索引和写作项目。导入前会请你确认，不会自动写入。</p>
       </div>
       <div class="today-empty-home-actions">
         <button class="mini-btn primary" type="button" data-today-action="seed-demo">
           导入示例库 / 体验 Demo
         </button>
-        <small>导入后会自动打开导览笔记，照着走一遍就能理解主流程。</small>
+        <small>导入后会自动打开导览笔记，照着走一遍，就能看到“记录、重述、关联，让笔记长出思想”的主流程。</small>
       </div>
     </section>
   `;

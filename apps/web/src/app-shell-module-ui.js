@@ -10,8 +10,8 @@ export function currentModuleSidebarUi({
       sidebarTitle: "首页",
       sidebarSubtitle: "每天从这里开始，只推进最值得做的一步。",
       sidebarFoot: "首页是总入口：先处理待整理材料，再补关系、成主题，最后进入写作。",
-      title: "让笔记生长为思想",
-      summary: "每天只推进最值得做的一步：处理材料、补关系、成可写主题，再写作。",
+      title: "让笔记长出思想",
+      summary: "记录、重述、关联，让笔记长出思想。每天只推进最值得做的一步：处理材料、补关系、成可写主题，再写作。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>首页是你的整理台</h3>

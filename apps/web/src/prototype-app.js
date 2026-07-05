@@ -250,8 +250,6 @@ const graphState = {
   isolatedWorkflowTabsByNoteId: {},
   isolatedRelationDraftByNoteId: {},
   isolatedRelationSaveResultByNoteId: {},
-  isolatedQueueStripCollapsed: false,
-  isolatedQueueStripAutoCollapseTimer: 0,
   relationAdjustmentFocusById: {},
   utilityDrawerOpen: false,
   utilityDrawerVisible: true,
@@ -5182,46 +5180,13 @@ const graphPanelRuntimeDeps = createGraphPanelPrototypeRuntimeDepsProvider(() =>
     renderGraphVisualMap
 }));
 
-const GRAPH_QUEUE_STRIP_AUTO_COLLAPSE_MS = 15000;
-
-function clearGraphIsolatedQueueStripAutoCollapse() {
-  if (!graphState.isolatedQueueStripAutoCollapseTimer) return;
-  window.clearTimeout(graphState.isolatedQueueStripAutoCollapseTimer);
-  graphState.isolatedQueueStripAutoCollapseTimer = 0;
-}
-
-function scheduleGraphIsolatedQueueStripAutoCollapse() {
-  if (graphState.isolatedQueueStripCollapsed) {
-    clearGraphIsolatedQueueStripAutoCollapse();
-    return;
-  }
-  const strip = $("graphCanvas")?.querySelector?.("[data-graph-isolated-queue-strip]");
-  if (!strip) {
-    clearGraphIsolatedQueueStripAutoCollapse();
-    return;
-  }
-  if (graphState.isolatedQueueStripAutoCollapseTimer) return;
-  graphState.isolatedQueueStripAutoCollapseTimer = window.setTimeout(() => {
-    graphState.isolatedQueueStripAutoCollapseTimer = 0;
-    graphState.isolatedQueueStripCollapsed = true;
-    renderGraphPanel();
-  }, GRAPH_QUEUE_STRIP_AUTO_COLLAPSE_MS);
-}
-
-function toggleGraphIsolatedQueueStrip() {
-  graphState.isolatedQueueStripCollapsed = !graphState.isolatedQueueStripCollapsed;
-  clearGraphIsolatedQueueStripAutoCollapse();
-  renderGraphPanel();
-  setStatus(graphState.isolatedQueueStripCollapsed ? "已收起待关联提示" : "已展开待关联提示", "ok");
-}
-
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   const scopeDirectoryId = graphScopeDirectoryId();
-  const rendered = renderGraphPanelShell({
+  return renderGraphPanelShell({
     appState: state,
     graphState,
     dom: { summary, canvas, backButton },
@@ -5229,8 +5194,6 @@ function renderGraphPanel() {
     scopeDirectoryId,
     canReuseScopedGraph: graphLoadedScopeCoversDirectory(scopeDirectoryId)
   }, graphPanelRuntimeDeps());
-  scheduleGraphIsolatedQueueStripAutoCollapse();
-  return rendered;
 }
 
 async function refreshDirectoryGraph() {
@@ -6147,7 +6110,6 @@ bindGraphCanvasEvents($("graphPanel"), {
   graphRelationTypeLabel,
   markGraphIsolatedRationaleUserEdited,
   filterGraphManualRelationTargets,
-  toggleGraphIsolatedQueueStrip,
   applyGraphViewModeInteraction,
   graphReadingModeMeta,
   applyGraphWheelZoomInteraction,

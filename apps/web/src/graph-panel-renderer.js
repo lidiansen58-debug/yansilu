@@ -64,16 +64,7 @@ export function renderGraphPanelForRuntime({
         queueItems: panelState.isolatedQueueItems
       })
     : "";
-  const isolatedQueueStripMarkup = !panelState.showingFocusedNote
-    ? renderGraphIsolatedQueueStrip({
-        isolatedNotes: panelState.isolatedNotes,
-        nodeMap: panelState.graphRelationTargetNodeMap,
-        edges: panelState.scopedNetworkEdges,
-        currentNoteId: panelState.currentGraphQueueNoteId,
-        queueItems: panelState.isolatedQueueItems,
-        collapsed: graphState.isolatedQueueStripCollapsed === true
-      })
-    : "";
+  const isolatedQueueStripMarkup = "";
   const supplementalSections = !panelState.showingFocusedNote
     ? `
       ${renderGraphBridgeGapSection(panelState.bridgeGaps, { open: panelState.sectionOpen["bridge-gaps"] === true })}

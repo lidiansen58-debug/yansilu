@@ -36,7 +36,7 @@ test("app shell module ui delegates settings sidebar navigation", () => {
 test("app shell module ui exposes organizer as the daily start entry", () => {
   const ui = currentModuleSidebarUi({ module: "today" });
 
-  assert.equal(ui.title, "让笔记生长为思想");
+  assert.equal(ui.title, "让笔记长出思想");
   assert.equal(ui.sidebarTitle, "首页");
   assert.match(ui.summary, /每天只推进最值得做的一步/);
   assert.match(ui.summary, /可写主题/);

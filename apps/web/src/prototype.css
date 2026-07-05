@@ -8522,6 +8522,70 @@
     .module-workspace.graph-mode .module-header {
       display: none;
     }
+    .module-workspace.graph-mode .graph-panel {
+      gap: 0;
+      padding-top: 14px;
+      overflow: visible;
+    }
+    .module-workspace.graph-mode .graph-head {
+      display: none;
+    }
+    .module-workspace.graph-mode #graphRefresh {
+      display: none;
+    }
+    .module-workspace.graph-mode .graph-inline-notice.is-info {
+      display: none;
+    }
+    .module-workspace.graph-mode .graph-map-head {
+      position: static;
+      z-index: auto;
+      display: grid;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e1e9f1;
+      background: #fff;
+      pointer-events: auto;
+    }
+    .module-workspace.graph-mode .graph-map-head > * {
+      pointer-events: auto;
+    }
+    .module-workspace.graph-mode .graph-map-primary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .module-workspace.graph-mode .graph-map-primary-actions {
+      flex: 0 1 260px;
+      margin-left: auto;
+    }
+    .module-workspace.graph-mode .graph-reading-lens-row {
+      align-items: flex-start;
+      justify-content: flex-start;
+      width: min(640px, calc(100% - 280px));
+    }
+    .module-workspace.graph-mode .graph-reading-lens {
+      flex: 0 1 auto;
+      max-width: 100%;
+      padding: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(10px);
+    }
+    .module-workspace.graph-mode .graph-reading-lens > span,
+    .module-workspace.graph-mode .graph-reading-lens small,
+    .module-workspace.graph-mode .graph-map-head .graph-section-note,
+    .module-workspace.graph-mode .graph-density-hint {
+      display: none;
+    }
+    .module-workspace.graph-mode .graph-reading-lens-side {
+      padding: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(10px);
+    }
     .graph-filters-single {
       grid-template-columns: minmax(240px, 340px);
     }

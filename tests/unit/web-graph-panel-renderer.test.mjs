@@ -105,8 +105,8 @@ test("graph panel renderer composes full graph chrome and updates selection", ()
       calls.push(["queue", payload.limit, payload.queueItems.length]);
       return "<queue></queue>";
     },
-    renderGraphIsolatedQueueStrip: (payload) => {
-      calls.push(["queue-strip", payload.currentNoteId, payload.collapsed]);
+    renderGraphIsolatedQueueStrip: () => {
+      calls.push(["queue-strip"]);
       return "<queue-strip></queue-strip>";
     },
     renderGraphBridgeGapSection: (_items, options) => `<bridge open="${options.open}"></bridge>`,
@@ -126,11 +126,10 @@ test("graph panel renderer composes full graph chrome and updates selection", ()
   assert.deepEqual(graphState.selection, { kind: "node", nodeId: "n1" });
   assert.equal(backButton.classes.has("hidden"), false);
   assert.match(canvas.innerHTML, /<notice tone="info">/);
-  assert.match(canvas.innerHTML, /<queue-strip><\/queue-strip>/);
+  assert.doesNotMatch(canvas.innerHTML, /<queue-strip><\/queue-strip>/);
   assert.match(canvas.innerHTML, /<entry q="2"><\/entry>/);
   assert.deepEqual(calls, [
     ["queue", 6, 1],
-    ["queue-strip", "n3", true],
     ["visual", 1, 1, true]
   ]);
 });

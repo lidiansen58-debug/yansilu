@@ -1274,6 +1274,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(html, /\.graph-selection-overlay \.graph-selection-panel\.is-isolated \.graph-selection-body \{[\s\S]*overflow: auto;/);
   assert.match(html, /\.graph-isolated-workflow \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
   assert.match(html, /\.graph-isolated-workflow-tab\.is-active \{[\s\S]*background: #ffffff;[\s\S]*color: #0f6f48;/);
+  assert.match(html, /\.module-workspace\.graph-mode \.graph-panel \{[\s\S]*padding-top: 14px;[\s\S]*overflow: visible;/);
+  assert.match(html, /\.module-workspace\.graph-mode \.graph-inline-notice\.is-info \{[\s\S]*display: none;/);
+  assert.match(html, /\.module-workspace\.graph-mode \.graph-map-head \{[\s\S]*position: static;[\s\S]*display: grid;[\s\S]*background: #fff;/);
+  assert.match(html, /\.module-workspace\.graph-mode \.graph-reading-lens-row \{[\s\S]*align-items: flex-start;[\s\S]*width: min\(640px, calc\(100% - 280px\)\);/);
   assert.match(html, /#moduleWorkspace\.graph-mode \.graph-head \{[\s\S]*display: none;/);
   assert.match(html, /#moduleWorkspace\.graph-mode #graphRefresh \{[\s\S]*display: none;/);
   assert.match(html, /#moduleWorkspace\.graph-mode \.graph-view-tab \{[\s\S]*min-height: 36px;/);
@@ -1528,7 +1532,6 @@ test("directory graph keeps all nodes visible and marks true zero-degree notes a
 test("graph isolated notes are organized into a continuous handling queue", () => {
   const panelStateBuilderSource = readGraphPanelStateBuilder();
   const isolatedWorkflowShellSource = readGraphIsolatedWorkflowShell();
-  const source = readPrototypeApp();
   const html = readPrototypeHtml();
   const queueItems = graphIsolatedQueueItemsForGraph({
     isolatedNotes: [
@@ -1550,20 +1553,14 @@ test("graph isolated notes are organized into a continuous handling queue", () =
   assert.match(isolatedWorkflowShellSource, /const total = queueItems\.length;/);
   assert.doesNotMatch(isolatedWorkflowShellSource, /const total = Array\.isArray\(isolatedNotes\) \? isolatedNotes\.length : queueItems\.length;/);
   assert.match(isolatedWorkflowShellSource, /data-graph-select-isolated="\$\{escapeHtml\(nextItem\.isolatedKey\)\}"/);
-  assert.match(isolatedWorkflowShellSource, /class="graph-isolated-queue-strip\$\{collapsed \? " is-collapsed" : ""\}"/);
-  assert.match(isolatedWorkflowShellSource, /data-graph-queue-strip-toggle/);
-  assert.match(source, /const GRAPH_QUEUE_STRIP_AUTO_COLLAPSE_MS = 15000;/);
-  assert.match(source, /function scheduleGraphIsolatedQueueStripAutoCollapse\(\)/);
   assert.match(isolatedWorkflowShellSource, /data-graph-open-workbench-entry="organize"/);
+  assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-renderer.js"), "utf8"), /const isolatedQueueStripMarkup = "";/);
   assert.match(isolatedWorkflowShellSource, /const isolatedQueueMarkup = renderQueue\(\{ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 \}\);/);
   assert.match(panelStateBuilderSource, /const graphRelationTargetNodeMap = graphPotentialRelationNodeMap\(\);/);
   assert.match(panelStateBuilderSource, /nodeMap: graphRelationTargetNodeMap/);
   assert.match(panelStateBuilderSource, /const isolatedQueueItems = !showingFocusedNote[\s\S]*graphIsolatedQueueItems\(\{/);
 
-  assert.match(html, /\.graph-isolated-queue-strip \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(96px, 118px\) minmax\(96px, 118px\) minmax\(72px, 88px\);/);
-  assert.match(html, /\.graph-isolated-queue-strip\.is-collapsed \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(72px, 88px\);/);
-  assert.match(html, /\.graph-isolated-queue-strip \.graph-selection-action\.is-queue \{[\s\S]*min-height: 52px;/);
-  assert.match(html, /\.graph-isolated-queue-strip\.is-collapsed \.graph-isolated-queue-detail,[\s\S]*\.graph-isolated-queue-strip\.is-collapsed \.graph-selection-action\.is-queue \{[\s\S]*display: none;/);
+  assert.doesNotMatch(fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-panel-renderer.js"), "utf8"), /renderGraphIsolatedQueueStrip\(\{/);
   assert.match(html, /\.graph-isolated-queue \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;/);
   assert.match(html, /\.graph-isolated-queue-item \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(76px, auto\);[\s\S]*min-height: 58px;/);
   assert.match(html, /\.graph-isolated-queue-item\.is-current \{[\s\S]*box-shadow: inset 4px 0 0 rgba\(217, 119, 6, 0\.65\);/);

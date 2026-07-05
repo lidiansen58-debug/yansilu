@@ -219,7 +219,7 @@ test("today organizing empty home makes demo import the primary first action", (
 
   assert.match(html, /第一次打开，建议先体验示例库/);
   assert.ok(html.includes("导入示例库 / 体验 Demo"));
-  assert.match(html, /用 10 分钟看懂研思录怎么让笔记生长为思想/);
+  assert.match(html, /用 10 分钟看懂研思录怎么让笔记长出思想/);
   assert.ok(html.indexOf("导入示例库 / 体验 Demo") < html.indexOf("先记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /辅助检查/);
