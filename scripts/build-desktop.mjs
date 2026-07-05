@@ -56,6 +56,15 @@ function resolveTauriConfigPath() {
 }
 
 const bundles = resolveBundles();
+const runtime = spawnSync(process.execPath, ["./scripts/prepare-desktop-api-runtime.mjs"], {
+  cwd: process.cwd(),
+  env,
+  stdio: "inherit",
+  shell: false
+});
+if (runtime.status !== 0) {
+  process.exit(runtime.status ?? 1);
+}
 const tauriConfigPath = resolveTauriConfigPath();
 const bundleRoot = path.resolve(process.cwd(), "apps", "desktop", "src-tauri", "target", "release", "bundle");
 

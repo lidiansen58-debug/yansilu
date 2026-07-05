@@ -1,13 +1,36 @@
-const API_BASE =
+const STATIC_API_BASE =
   (typeof window !== "undefined" &&
     typeof window.__API_BASE__ === "string" &&
     window.__API_BASE__.trim() &&
     window.__API_BASE__ !== "__API_BASE__" &&
     window.__API_BASE__) ||
   "http://localhost:3000";
+let currentApiBase = STATIC_API_BASE;
+let desktopApiBasePromise = null;
+
+function tauriCore() {
+  return typeof window !== "undefined" ? window.__TAURI__?.core : null;
+}
+
+async function resolveApiBase() {
+  const core = tauriCore();
+  if (!core || typeof core.invoke !== "function") return currentApiBase;
+  if (!desktopApiBasePromise) {
+    desktopApiBasePromise = core
+      .invoke("get_desktop_api_base")
+      .then((value) => {
+        const base = String(value || "").trim();
+        if (base) currentApiBase = base.replace(/\/+$/u, "");
+        return currentApiBase;
+      })
+      .catch(() => currentApiBase);
+  }
+  return desktopApiBasePromise;
+}
 
 async function request(pathname, options = {}) {
-  const response = await fetch(`${API_BASE}${pathname}`, options);
+  const apiBase = await resolveApiBase();
+  const response = await fetch(`${apiBase}${pathname}`, options);
   const json = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = json?.error?.message || json?.message || `HTTP ${response.status}`;
@@ -66,5 +89,5 @@ export async function savePaperPermanentNote(paperId, payload = {}) {
 }
 
 export function getPaperWorkspaceApiBase() {
-  return API_BASE;
+  return currentApiBase;
 }

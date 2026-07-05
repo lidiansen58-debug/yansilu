@@ -30,6 +30,9 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "category": "Productivity",
+    "resources": {
+      "desktop-api-runtime/": "desktop-api-runtime/"
+    },
     "icon": [
       "icons/icon.png",
       "icons/icon.ico"

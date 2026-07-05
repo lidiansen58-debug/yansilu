@@ -1,16 +1,39 @@
 import { aiSuggestionFromCanonical } from "./ai-suggestions-model.js";
 
-const API_BASE =
+const STATIC_API_BASE =
   (typeof window !== "undefined" &&
     typeof window.__API_BASE__ === "string" &&
     window.__API_BASE__.trim() &&
     window.__API_BASE__ !== "__API_BASE__" &&
     window.__API_BASE__.trim()) ||
   "http://localhost:3000";
+let currentApiBase = STATIC_API_BASE;
+let desktopApiBasePromise = null;
 const LOCAL_RUNTIME_CONTROL_HEADERS = { "X-Yansilu-Local-Runtime-Control": "1" };
 
+function tauriCore() {
+  return typeof window !== "undefined" ? window.__TAURI__?.core : null;
+}
+
+async function resolveApiBase() {
+  const core = tauriCore();
+  if (!core || typeof core.invoke !== "function") return currentApiBase;
+  if (!desktopApiBasePromise) {
+    desktopApiBasePromise = core
+      .invoke("get_desktop_api_base")
+      .then((value) => {
+        const base = String(value || "").trim();
+        if (base) currentApiBase = base.replace(/\/+$/u, "");
+        return currentApiBase;
+      })
+      .catch(() => currentApiBase);
+  }
+  return desktopApiBasePromise;
+}
+
 async function request(pathname, options = {}) {
-  const url = `${API_BASE}${pathname}`;
+  const apiBase = await resolveApiBase();
+  const url = `${apiBase}${pathname}`;
   const timeoutMs = Math.max(0, Number(options?.timeoutMs || 0) || 0);
   const externalSignal = options?.signal;
   const controller = timeoutMs > 0 ? new AbortController() : null;
@@ -864,7 +887,8 @@ export async function uploadNoteAsset(noteId, payload) {
 export function assetPreviewUrl(assetPath) {
   const cleanPath = String(assetPath || "").trim();
   if (!cleanPath) return "";
-  return `${API_BASE}/api/v1/assets/file?path=${encodeURIComponent(cleanPath)}`;
+  void resolveApiBase();
+  return `${currentApiBase}/api/v1/assets/file?path=${encodeURIComponent(cleanPath)}`;
 }
 
 export async function checkOriginality(payload) {
@@ -1089,5 +1113,5 @@ export async function createDraftScaffold(writingProjectId, versionNote = "") {
 }
 
 export function getApiBase() {
-  return API_BASE;
+  return currentApiBase;
 }
