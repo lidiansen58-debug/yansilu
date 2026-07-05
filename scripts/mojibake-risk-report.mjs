@@ -32,6 +32,8 @@ const SUSPICIOUS_PATTERN_GROUPS = [
   { key: "utf8AsLatin1Count", pattern: UTF8_AS_LATIN1_PATTERN },
   { key: "utf8AsCjkCount", pattern: UTF8_AS_CJK_PATTERN }
 ];
+const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+const DEFAULT_BASELINE_FILE = "docs/encoding-baseline.json";
 
 function normalizePath(value = "") {
   return String(value || "").replace(/\\/g, "/");
@@ -136,12 +138,22 @@ export async function collectMojibakeRiskReport({
   const files = await listTextFiles(rootDir, roots);
   const items = [];
   for (const filePath of files) {
-    const text = await fs.readFile(filePath, "utf8").catch(() => "");
+    const buffer = await fs.readFile(filePath).catch(() => null);
+    if (!buffer) continue;
+    const text = buffer.toString("utf8");
     const counts = classifyMojibakeFileText(text);
-    if (!counts.total) continue;
+    const hasBom = buffer.subarray(0, UTF8_BOM.length).equals(UTF8_BOM);
+    const crlfCount = countMatches(text, /\r\n/g);
+    const lineEndingMixed = crlfCount > 0 && text.includes("\n");
+    const total = counts.total + (hasBom ? 1 : 0) + crlfCount;
+    if (!total) continue;
     items.push({
       path: normalizePath(path.relative(rootDir, filePath)),
       ...counts,
+      hasBom,
+      crlfCount,
+      lineEndingMixed,
+      total,
       samples: sampleLines(text)
     });
   }
@@ -152,6 +164,9 @@ export async function collectMojibakeRiskReport({
       acc.replacementCount += item.replacementCount;
       acc.utf8AsLatin1Count += item.utf8AsLatin1Count;
       acc.utf8AsCjkCount += item.utf8AsCjkCount;
+      acc.bomFiles += item.hasBom ? 1 : 0;
+      acc.crlfCount += item.crlfCount;
+      acc.mixedLineEndingFiles += item.lineEndingMixed ? 1 : 0;
       acc.total += item.total;
       return acc;
     },
@@ -160,6 +175,9 @@ export async function collectMojibakeRiskReport({
       replacementCount: 0,
       utf8AsLatin1Count: 0,
       utf8AsCjkCount: 0,
+      bomFiles: 0,
+      crlfCount: 0,
+      mixedLineEndingFiles: 0,
       total: 0
     }
   );
@@ -168,6 +186,36 @@ export async function collectMojibakeRiskReport({
     totals,
     items
   };
+}
+
+async function loadBaseline(rootDir = process.cwd(), baselinePath = DEFAULT_BASELINE_FILE) {
+  const resolvedPath = path.resolve(rootDir, baselinePath);
+  const text = await fs.readFile(resolvedPath, "utf8").catch(() => "");
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function compareTotalsToBaseline(totals = {}, baseline = {}) {
+  const keys = [
+    "replacementCount",
+    "utf8AsLatin1Count",
+    "utf8AsCjkCount",
+    "bomFiles",
+    "crlfCount",
+    "mixedLineEndingFiles",
+    "total"
+  ];
+  return keys
+    .map((key) => ({
+      key,
+      actual: Number(totals[key] || 0),
+      allowed: Number(baseline[key] || 0)
+    }))
+    .filter((item) => item.actual > item.allowed);
 }
 
 function renderMarkdown(report) {
@@ -182,19 +230,24 @@ function renderMarkdown(report) {
     `| Replacement character (U+FFFD) | ${report.totals.replacementCount} |`,
     `| UTF-8 shown as Latin-1 style markers | ${report.totals.utf8AsLatin1Count} |`,
     `| UTF-8 shown as CJK-garbled markers | ${report.totals.utf8AsCjkCount} |`,
+    `| Files with UTF-8 BOM | ${report.totals.bomFiles} |`,
+    `| CRLF line endings found | ${report.totals.crlfCount} |`,
+    `| Files with mixed line endings | ${report.totals.mixedLineEndingFiles} |`,
     `| Total markers | ${report.totals.total} |`,
     "",
     "## Top Files",
     "",
-    "| File | Replacement | Latin-1 style | CJK-garbled | Total |",
-    "| --- | ---: | ---: | ---: | ---: |"
+    "| File | Replacement | Latin-1 style | CJK-garbled | BOM | CRLF | Total |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"
   ];
   for (const item of report.items.slice(0, 30)) {
-    lines.push(`| ${item.path} | ${item.replacementCount} | ${item.utf8AsLatin1Count} | ${item.utf8AsCjkCount} | ${item.total} |`);
+    lines.push(`| ${item.path} | ${item.replacementCount} | ${item.utf8AsLatin1Count} | ${item.utf8AsCjkCount} | ${item.hasBom ? 1 : 0} | ${item.crlfCount} | ${item.total} |`);
   }
   lines.push("", "## Samples", "");
   for (const item of report.items.slice(0, 12)) {
     lines.push(`### ${item.path}`, "");
+    if (item.hasBom) lines.push(`- file starts with UTF-8 BOM`);
+    if (item.crlfCount) lines.push(`- contains ${item.crlfCount} CRLF line ending marker(s)`);
     for (const sample of item.samples) {
       lines.push(`- L${sample.line}: \`${sample.text.replaceAll("`", "'")}\``);
     }
@@ -209,13 +262,37 @@ export async function runCli(args = process.argv.slice(2), {
 } = {}) {
   const json = args.includes("--json");
   const failOnRisk = args.includes("--fail-on-risk");
+  const failOnBaseline = args.includes("--fail-on-baseline");
   const rootsArgIndex = args.indexOf("--roots");
+  const baselineArgIndex = args.indexOf("--baseline");
   const roots = rootsArgIndex >= 0 && args[rootsArgIndex + 1]
     ? args[rootsArgIndex + 1].split(",").map((item) => item.trim()).filter(Boolean)
     : DEFAULT_ROOTS;
+  const baselinePath = baselineArgIndex >= 0 && args[baselineArgIndex + 1]
+    ? args[baselineArgIndex + 1]
+    : DEFAULT_BASELINE_FILE;
   const report = await collectMojibakeRiskReport({ rootDir: cwd, roots });
-  stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : renderMarkdown(report));
+  const baseline = failOnBaseline ? await loadBaseline(cwd, baselinePath) : null;
+  const regressions = baseline?.totals ? compareTotalsToBaseline(report.totals, baseline.totals) : [];
+  const outputReport = json
+    ? {
+        ...report,
+        baselinePath: failOnBaseline ? baselinePath : undefined,
+        baselineFound: Boolean(baseline),
+        regressions
+      }
+    : renderMarkdown(report) + (
+        failOnBaseline
+          ? `\nBaseline file: ${baselinePath}\nBaseline found: ${baseline ? "yes" : "no"}\n${
+              regressions.length
+                ? `Regressions: ${regressions.map((item) => `${item.key} ${item.actual} > ${item.allowed}`).join(", ")}\n`
+                : "Regressions: none\n"
+            }`
+          : ""
+      );
+  stdout.write(json ? `${JSON.stringify(outputReport, null, 2)}\n` : outputReport);
   if (failOnRisk && report.totals.total > 0) process.exitCode = 1;
+  if (failOnBaseline && (!baseline || regressions.length > 0)) process.exitCode = 1;
   return report;
 }
 

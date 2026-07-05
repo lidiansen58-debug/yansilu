@@ -22,9 +22,9 @@ repo_root="$(git rev-parse --show-toplevel)" || exit 1
 cd "$repo_root" || exit 1
 echo "[pre-commit] encoding check"
 if command -v npm.cmd >/dev/null 2>&1; then
-  npm.cmd run encoding:check:strict
+  npm.cmd run encoding:doctor
 else
-  npm run encoding:check:strict
+  npm run encoding:doctor
 fi
 exit $?
 '@
@@ -33,4 +33,4 @@ $hookContent = $hookContent -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText($hookPath, $hookContent, [System.Text.UTF8Encoding]::new($false))
 
 Write-Output "Installed pre-commit hook: $hookPath"
-Write-Output "Current hook behavior: npm run encoding:check:strict"
+Write-Output "Current hook behavior: npm run encoding:doctor"

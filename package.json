@@ -29,6 +29,7 @@
     "audit:mojibake": "node ./scripts/mojibake-risk-report.mjs",
     "encoding:check": "node ./scripts/mojibake-risk-report.mjs",
     "encoding:check:strict": "node ./scripts/mojibake-risk-report.mjs --fail-on-risk",
+    "encoding:doctor": "node ./scripts/mojibake-risk-report.mjs --fail-on-baseline",
     "terminal:utf8": "powershell -ExecutionPolicy Bypass -File ./scripts/terminal-utf8.ps1",
     "hooks:install": "powershell -ExecutionPolicy Bypass -File ./scripts/install-git-hooks.ps1",
     "test:e2e:smoke": "node --test --test-isolation=none ./tests/e2e/prototype-smoke.test.mjs",
