@@ -60,6 +60,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     graphRelationTypeLabel = noop,
     markGraphIsolatedRationaleUserEdited = noop,
     filterGraphManualRelationTargets = noop,
+    toggleGraphIsolatedQueueStrip = noop,
     applyGraphViewModeInteraction = () => ({ changed: false, meta: { label: "" } }),
     graphReadingModeMeta = noop,
     applyGraphWheelZoomInteraction = () => ({ changed: false }),
@@ -110,6 +111,12 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const graphHitTarget = event.target.closest(".graph-map-node[data-node-id], .graph-map-edge-group[data-edge-from], [data-graph-select-node]");
     if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport") && !graphHitTarget) {
       consumeGraphClick();
+      return;
+    }
+    const queueStripToggle = event.target.closest("[data-graph-queue-strip-toggle]");
+    if (queueStripToggle) {
+      consumeGraphClick();
+      toggleGraphIsolatedQueueStrip(queueStripToggle);
       return;
     }
     const relationSaveAction = event.target.closest("[data-graph-ai-candidate-apply], [data-graph-relation-candidate-apply]");

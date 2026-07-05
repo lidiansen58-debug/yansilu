@@ -62,7 +62,7 @@ export function createGraphIsolatedWorkflowShellRenderer({
           </div>
           ${
             nextItem
-              ? `<button class="graph-selection-action is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">${escapeHtml(cleanCurrentNoteId ? "关联下一条" : "开始关联")}</button>`
+              ? `<button class="graph-selection-action is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">${escapeHtml(cleanCurrentNoteId ? "关联下一条" : "关联")}</button>`
               : ""
           }
         </div>
@@ -86,7 +86,7 @@ export function createGraphIsolatedWorkflowShellRenderer({
     `;
   };
 
-  const renderQueueStrip = ({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", queueItems: providedQueueItems = null } = {}) => {
+  const renderQueueStrip = ({ isolatedNotes = [], nodeMap = new Map(), edges = [], currentNoteId = "", queueItems: providedQueueItems = null, collapsed = false } = {}) => {
     const queueItems = Array.isArray(providedQueueItems)
       ? providedQueueItems
       : isolatedQueueItems({ isolatedNotes, nodeMap, edges, currentNoteId, limit: 6 });
@@ -95,13 +95,14 @@ export function createGraphIsolatedWorkflowShellRenderer({
     if (!nextItem) return "";
     const total = queueItems.length;
     return `
-      <div class="graph-isolated-queue-strip" aria-label="待关联笔记连续整理入口">
+      <div class="graph-isolated-queue-strip${collapsed ? " is-collapsed" : ""}" data-graph-isolated-queue-strip aria-label="待关联笔记连续整理入口">
         <div>
           <strong>${escapeHtml(`${String(total)} 条笔记还没进入关系网`)}</strong>
-          <span>${escapeHtml(`下一条：${nextItem.title}`)}</span>
+          <span class="graph-isolated-queue-detail">${escapeHtml(`下一条：${nextItem.title}`)}</span>
         </div>
-        <button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">开始关联</button>
-        <button class="graph-selection-action is-queue" type="button" data-graph-open-workbench-entry="organize">查看这些笔记</button>
+        <button class="graph-selection-action is-primary is-queue" type="button" data-graph-select-isolated="${escapeHtml(nextItem.isolatedKey)}" data-graph-isolated-note="${escapeHtml(nextItem.noteId)}">关联</button>
+        <button class="graph-selection-action is-queue" type="button" data-graph-open-workbench-entry="organize">查看</button>
+        <button class="graph-isolated-queue-toggle" type="button" data-graph-queue-strip-toggle aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "展开" : "收起"}</button>
       </div>
     `;
   };

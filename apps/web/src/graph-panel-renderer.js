@@ -70,7 +70,8 @@ export function renderGraphPanelForRuntime({
         nodeMap: panelState.graphRelationTargetNodeMap,
         edges: panelState.scopedNetworkEdges,
         currentNoteId: panelState.currentGraphQueueNoteId,
-        queueItems: panelState.isolatedQueueItems
+        queueItems: panelState.isolatedQueueItems,
+        collapsed: graphState.isolatedQueueStripCollapsed === true
       })
     : "";
   const supplementalSections = !panelState.showingFocusedNote

@@ -50,9 +50,9 @@ export function renderGraphSelectionTaskView(task = null, deps = {}) {
   const actionAttrs = graphSafeActionAttrs(task.actionAttrs);
   if (!status && !detail) return "";
   return `
-    <section class="graph-selection-task is-${escapeHtml(tone)}" aria-label="当前处理任务">
+    <section class="graph-selection-task is-${escapeHtml(tone)}" aria-label="建议下一步">
       <div>
-        <span>当前任务</span>
+        <span>下一步</span>
         ${status ? `<strong>${escapeHtml(status)}</strong>` : ""}
         ${detail ? `<p>${escapeHtml(detail)}</p>` : ""}
       </div>
@@ -64,7 +64,7 @@ export function renderGraphSelectionTaskView(task = null, deps = {}) {
   `;
 }
 
-export function renderGraphPromptDetailsView(title = "思考提示（可选）", prompts = [], deps = {}) {
+export function renderGraphPromptDetailsView(title = "思考提示", prompts = [], deps = {}) {
   const { escapeHtml } = graphSelectionPanelDeps(deps);
   const items = (Array.isArray(prompts) ? prompts : []).map((prompt) => String(prompt || "").trim()).filter(Boolean);
   if (!items.length) return "";
@@ -78,14 +78,14 @@ export function renderGraphPromptDetailsView(title = "思考提示（可选）",
   `;
 }
 
-export function renderGraphSelectionShellView({ className = "", ariaLabel = "", kicker = "", title = "", meta = "", closeLabel = "收起详情", roleLabel = "", roleDetail = "", task = null, body = "", actions = "" } = {}, deps = {}) {
+export function renderGraphSelectionShellView({ className = "", ariaLabel = "", kicker = "", title = "", meta = "", closeLabel = "关闭", roleLabel = "", roleDetail = "", task = null, body = "", actions = "" } = {}, deps = {}) {
   const { escapeHtml, renderGraphIcon } = graphSelectionPanelDeps(deps);
   const classes = ["graph-selection-panel", String(className || "").trim()].filter(Boolean).join(" ");
   return `
-    <aside class="${escapeHtml(classes)}" aria-label="${escapeHtml(ariaLabel || title || "图谱思考详情")}">
+    <aside class="${escapeHtml(classes)}" aria-label="${escapeHtml(ariaLabel || title || "图谱详情")}">
       <div class="graph-selection-head">
         <div>
-          <span class="graph-selection-kicker">${escapeHtml(kicker || "图谱详情")}</span>
+          <span class="graph-selection-kicker">${escapeHtml(kicker || "详情")}</span>
           <strong>${escapeHtml(title || "未命名对象")}</strong>
           ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
         </div>

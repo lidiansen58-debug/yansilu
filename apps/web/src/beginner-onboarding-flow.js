@@ -12,7 +12,6 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
     title: "从记录到永久笔记",
     note: "先看一条材料怎样经过转述，变成用户自己的判断。",
     action: "open-demo-note",
-    actionLabel: "打开“写作不是最后一步”",
     targetNoteId: "PERM-WRITING-STARTS-BEFORE-DRAFT",
     noteIds: [
       "GUIDE-SMART-NOTES-START",
@@ -27,7 +26,6 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
     title: "补一条关系理由",
     note: "让一条孤立永久笔记进入关系网，并写清楚为什么相关。",
     action: "open-demo-note-relations",
-    actionLabel: "打开“待关联练习”",
     targetNoteId: "PERM-UNLINKED-PRACTICE",
     noteIds: ["PERM-UNLINKED-PRACTICE"]
   },
@@ -36,7 +34,6 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
     title: "读主题索引",
     note: "看中心问题和关键笔记，而不是把索引当文件夹。",
     action: "open-demo-note",
-    actionLabel: "打开“为什么要关联笔记？”",
     targetNoteId: "THEME-WHY-LINK-NOTES",
     noteIds: ["THEME-WHY-LINK-NOTES", "THEME-WHAT-IS-PERMANENT-NOTE", "THEME-INDEX-TO-WRITING"]
   },
@@ -45,7 +42,6 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
     title: "进入写作中心",
     note: "从主题索引和已确认永久笔记生成文章提纲。",
     action: "open-demo-writing",
-    actionLabel: "打开写作中心",
     targetNoteId: "WRITE-SMART-NOTES-DEMO",
     noteIds: ["WRITE-SMART-NOTES-DEMO", "DRAFT-SMART-NOTES-DEMO"]
   },
@@ -54,7 +50,6 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
     title: "打开首页",
     note: "只找下一步动作，不做大扫除。",
     action: "open-demo-review",
-    actionLabel: "打开首页",
     targetNoteId: "GUIDE-TODAY-NEXT-STEP",
     noteIds: ["GUIDE-TODAY-NEXT-STEP", "FN-PHONE-CAPTURE-UNPROCESSED", "LN-AI-KEEPS-CANDIDATE-STATE"]
   }
@@ -92,13 +87,30 @@ export function buildSmartNotesDemoWalkthrough({ notes = [], selectedNoteId = ""
   };
 }
 
+export function smartNotesDemoActionLabel(step = {}, index = 0) {
+  const action = cleanText(step.action);
+  if (action === "open-demo-note-relations") return "打开并关联";
+  if (action === "open-demo-writing") return "进入写作中心";
+  if (action === "open-demo-review") return "回到首页";
+  return `打开第 ${Number(index) + 1 || 1} 步笔记`;
+}
+
+function smartNotesDemoActionCanRun(step = {}) {
+  const action = cleanText(step.action || "open-demo-note");
+  if (action === "open-demo-note" || action === "open-demo-note-relations") {
+    return !!cleanText(step.targetNoteId);
+  }
+  return !!action;
+}
+
 export function renderSmartNotesDemoWalkthrough(flow = {}, deps = {}) {
   const { escapeHtml = (value) => String(value ?? "") } = deps;
   const steps = Array.isArray(flow.steps) ? flow.steps : [];
   const activeIndex = Math.max(0, steps.findIndex((step) => step.active));
   const active = steps[activeIndex] || steps[0] || {};
   const action = active.action || "open-demo-note";
-  const actionLabel = active.actionLabel || "继续导览";
+  const actionLabel = smartNotesDemoActionLabel(active, activeIndex);
+  const canRunAction = smartNotesDemoActionCanRun(active);
   return `
     <div class="sidebar-flow-card" data-smart-notes-demo-walkthrough>
       <div>
@@ -115,6 +127,7 @@ export function renderSmartNotesDemoWalkthrough(flow = {}, deps = {}) {
         type="button"
         data-sidebar-flow-action="${escapeHtml(action)}"
         data-sidebar-flow-note-id="${escapeHtml(active.targetNoteId || "")}"
+        ${canRunAction ? "" : "disabled"}
       >${escapeHtml(actionLabel)}</button>
     </div>
   `;
@@ -126,7 +139,8 @@ export function renderSmartNotesDemoGuidePanel(flow = {}, deps = {}) {
   const activeIndex = Math.max(0, steps.findIndex((step) => step.active));
   const active = steps[activeIndex] || steps[0] || {};
   const action = active.action || "open-demo-note";
-  const actionLabel = active.actionLabel || "继续导览";
+  const actionLabel = smartNotesDemoActionLabel(active, activeIndex);
+  const canRunAction = smartNotesDemoActionCanRun(active);
   return `
     <section class="demo-guide-panel-card" data-smart-notes-demo-guide>
       <div class="demo-guide-copy">
@@ -143,6 +157,7 @@ export function renderSmartNotesDemoGuidePanel(flow = {}, deps = {}) {
         type="button"
         data-sidebar-flow-action="${escapeHtml(action)}"
         data-sidebar-flow-note-id="${escapeHtml(active.targetNoteId || "")}"
+        ${canRunAction ? "" : "disabled"}
       >${escapeHtml(actionLabel)}</button>
     </section>
   `;

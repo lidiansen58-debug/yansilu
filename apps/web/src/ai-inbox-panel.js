@@ -136,19 +136,9 @@ function viewLabel(value = "") {
 
 function renderWorkflowGuide() {
   return `
-    <section class="ai-inbox-guide" aria-label="AI 建议处理流程">
-      <div class="ai-inbox-guide-item">
-        <strong>先看对象</strong>
-        <span>每条建议都要说清是哪条笔记、可能连到哪里。</span>
-      </div>
-      <div class="ai-inbox-guide-item">
-        <strong>再看理由</strong>
-        <span>只处理能说明“为什么相关”的建议。</span>
-      </div>
-      <div class="ai-inbox-guide-item">
-        <strong>最后确认</strong>
-        <span>确认关系、生成草稿或忽略；默认不会改动笔记。</span>
-      </div>
+    <section class="ai-inbox-principle" aria-label="AI 建议处理原则">
+      <strong>处理原则</strong>
+      <span>先看来源和理由；确认前不会改动笔记。没有把握的建议可以直接忽略。</span>
     </section>
   `;
 }
@@ -182,7 +172,10 @@ function renderFilters(filters = {}, counts = {}) {
   const normalizedFilters = normalizeAiInboxFilters(filters);
   return `
     <section class="ai-inbox-controls">
-      ${renderViewTabs(normalizedFilters, counts)}
+      <div class="ai-inbox-section-title">
+        <strong>筛选建议</strong>
+        <span>先用上方 tab 切换处理状态，再按类型、笔记或模型来源缩小范围。</span>
+      </div>
       <div class="ai-inbox-filter-row">
         <label>
           <span>建议类型</span>
@@ -285,14 +278,14 @@ function renderEvaluationSummary(state = {}) {
     filter.privacyMode ? (filter.privacyMode === "local_only" ? "只用本地模型" : filter.privacyMode) : ""
   ].filter(Boolean).join(" / ") || "全部建议";
   return `
-    <section class="ai-inbox-evaluation-summary">
-      <div class="ai-inbox-evaluation-head">
+    <details class="ai-inbox-evaluation-summary">
+      <summary>
         <div>
           <h3>处理质量</h3>
           <p>${escapeHtml(scope)}</p>
         </div>
         ${renderBadge(`${summary.artifacts?.withDecision || 0} 条已处理`, "muted")}
-      </div>
+      </summary>
       <div class="ai-inbox-metric-grid">
         ${metrics
           .map(
@@ -305,7 +298,7 @@ function renderEvaluationSummary(state = {}) {
           )
           .join("")}
       </div>
-    </section>
+    </details>
   `;
 }
 
@@ -1022,19 +1015,30 @@ export function renderAiInboxPanel(state = {}) {
       <header class="ai-inbox-topline">
         <div>
           <div class="import-card-kicker">AI 建议</div>
-          <strong>${escapeHtml(viewLabel(summary.view))}：当前显示 ${escapeHtml(summary.visible)} 条，共 ${escapeHtml(summary.viewCount)} 条</strong>
-          <p>逐条确认 AI 或本地规则发现的关系、问题和写作建议；未确认前不会改动笔记或图谱。</p>
+          <strong>只处理你确认过的建议</strong>
+          <p>${escapeHtml(viewLabel(summary.view))}：当前显示 ${escapeHtml(summary.visible)} 条，共 ${escapeHtml(summary.viewCount)} 条。这里负责暂存 AI 或本地规则发现的关系、问题和写作建议。</p>
         </div>
-        ${state.actionLoading ? renderBadge("正在处理", "warn") : renderBadge("需人工确认", "ok")}
+        <div class="ai-inbox-top-actions">
+          ${state.actionLoading ? renderBadge("正在处理", "warn") : renderBadge("需人工确认", "ok")}
+        </div>
       </header>
-      ${renderWorkflowGuide()}
-      ${renderFilters(filters, summary.counts)}
-      ${renderEvaluationSummary({ ...state, filters })}
+      <section class="ai-inbox-view-strip" aria-label="按处理状态切换 AI 建议">
+        ${renderViewTabs(filters, summary.counts)}
+      </section>
+      <section class="ai-inbox-helper-row">
+        ${renderWorkflowGuide()}
+        ${renderFilters(filters, summary.counts)}
+      </section>
       <main class="ai-inbox-grid">
         <section class="ai-inbox-list-pane">
+          <div class="ai-inbox-section-title">
+            <strong>${escapeHtml(viewLabel(summary.view))}</strong>
+            <span>当前显示 ${escapeHtml(summary.visible)} 条，共 ${escapeHtml(summary.viewCount)} 条。点一条建议后，在下方宽面板里处理。</span>
+          </div>
           ${renderList({ ...state, filters })}
         </section>
         <section class="ai-inbox-detail-pane">
+          ${renderEvaluationSummary({ ...state, filters })}
           ${renderDetail({ ...state, filters })}
         </section>
       </main>

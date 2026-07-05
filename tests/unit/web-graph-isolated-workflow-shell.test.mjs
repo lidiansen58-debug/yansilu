@@ -48,6 +48,38 @@ test("graph isolated workflow shell renders queue entries from prepared queue it
   assert.match(html, /AI 推荐 2/);
 });
 
+test("graph isolated workflow shell uses concise queue actions", () => {
+  const shell = baseShell();
+  const html = shell.renderQueueStrip({
+    currentNoteId: "",
+    queueItems: [
+      { noteId: "next", isolatedKey: "next", title: "下一条笔记", decision: { tone: "keep" }, aiCount: 1 }
+    ]
+  });
+
+  assert.match(html, />关联<\/button>/);
+  assert.match(html, />查看<\/button>/);
+  assert.match(html, /data-graph-queue-strip-toggle/);
+  assert.match(html, /aria-expanded="true">收起<\/button>/);
+  assert.doesNotMatch(html, /开始关联/);
+  assert.doesNotMatch(html, /查看这些笔记/);
+});
+
+test("graph isolated workflow shell can render the queue strip collapsed", () => {
+  const shell = baseShell();
+  const html = shell.renderQueueStrip({
+    collapsed: true,
+    currentNoteId: "",
+    queueItems: [
+      { noteId: "next", isolatedKey: "next", title: "下一条笔记", decision: { tone: "keep" }, aiCount: 1 }
+    ]
+  });
+
+  assert.match(html, /graph-isolated-queue-strip is-collapsed/);
+  assert.match(html, /aria-expanded="false">展开<\/button>/);
+  assert.match(html, /class="graph-isolated-queue-detail"/);
+});
+
 test("graph isolated workflow shell shows relation organizing flow before a note has network edges", () => {
   const shell = baseShell();
   const nodeMap = new Map([["current", { id: "current", title: "当前笔记", noteType: "permanent" }]]);

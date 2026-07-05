@@ -95,7 +95,7 @@ export function renderMobileAccessDesktopPanel({
       <div class="settings-card-head">
         <div>
           <div class="settings-card-title">手机访问</div>
-          <div class="settings-card-note">手机扫码后请求连接，必须在电脑端确认；二维码不包含长期 token。</div>
+          <div class="settings-card-note">把手机当成随身采集入口即可：扫码发起连接后，还需要在电脑端确认一次。</div>
         </div>
         <span class="settings-stat-badge">${escapeHtml(pairing.ttlSeconds ? `${pairing.ttlSeconds}s` : "待刷新")}</span>
       </div>
@@ -105,14 +105,14 @@ export function renderMobileAccessDesktopPanel({
           ${item?.qrSvg || `<div class="mobile-access-empty">二维码待生成</div>`}
         </div>
         <div class="mobile-access-copy">
-          <div class="mobile-access-kicker">第一步：手机扫码</div>
+          <div class="mobile-access-kicker">第 1 步：手机扫码</div>
           <div class="mobile-access-url">${escapeHtml(item?.accessUrl || "")}</div>
           <div class="mobile-access-code">
-            <span>配对码</span>
+            <span>临时配对码</span>
             <strong>${escapeHtml(pairing.pairCode || "------")}</strong>
           </div>
-          <p>配对码 ${escapeHtml(formatTime(pairing.expiresAt) || "短期")} 过期。手机发起请求后，在下方点“允许连接”。</p>
-          <p>电脑端操作顺序：保持研思录运行 -> 让手机扫码 -> 在“待确认手机”里允许连接 -> 需要时撤销设备。</p>
+          <p>这个配对码会在 ${escapeHtml(formatTime(pairing.expiresAt) || "短时间内")} 过期。手机扫码后，请在下方点“允许连接”。</p>
+          <p>电脑端只要记住 3 步：保持研思录运行 -> 让手机扫码 -> 在“待确认手机”里允许连接。以后不再使用时，再撤销设备。</p>
           <div class="import-actions">
             <button class="mini-btn is-subtle" type="button" data-mobile-access-refresh ${loading ? "disabled" : ""}>刷新状态</button>
             <button class="mini-btn" type="button" data-mobile-access-rotate ${actionLoading ? "disabled" : ""}>换一个配对码</button>
@@ -123,7 +123,7 @@ export function renderMobileAccessDesktopPanel({
       <div class="mobile-access-section">
         <div class="mobile-access-section-head">
           <strong>待确认手机</strong>
-          <span>只有你点允许后，手机才会获得访问 token。</span>
+          <span>只有你点“允许连接”后，这台手机才能访问当前电脑上的笔记。</span>
         </div>
         <div class="mobile-access-list">${pendingRows(item?.pendingRequests || [], escapeHtml)}</div>
       </div>
@@ -131,12 +131,12 @@ export function renderMobileAccessDesktopPanel({
       <div class="mobile-access-section">
         <div class="mobile-access-section-head">
           <strong>已配对设备</strong>
-          <span>撤销后这台手机需要重新扫码配对。</span>
+          <span>不再使用时可以直接撤销；撤销后，这台手机需要重新扫码才能再访问。</span>
         </div>
         <div class="mobile-access-list">${deviceRows(item?.devices || [], escapeHtml)}</div>
       </div>
 
-      <div class="mobile-access-note">当前版本建议在同一 Wi-Fi / 局域网内使用；不要把访问地址直接暴露到公网。出门后继续记录可作为后续云收件箱能力支持。</div>
+      <div class="mobile-access-note">建议只在同一 Wi-Fi / 局域网内使用。当前版本按本地访问设计，不要把访问地址直接暴露到公网。手机更适合记录和查看，重整理仍建议回到电脑完成。</div>
     </div>
   `;
 }

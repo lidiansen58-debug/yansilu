@@ -8,20 +8,14 @@ export function currentModuleSidebarUi({
   const configs = {
     today: {
       sidebarTitle: "首页",
-      sidebarSubtitle: "每天从这里开始，只看下一步该做什么。",
+      sidebarSubtitle: "每天从这里开始，只推进最值得做的一步。",
       sidebarFoot: "首页是总入口：先处理待整理材料，再补关系、成主题，最后进入写作。",
-      title: "首页",
-      summary: "这里把卡片笔记写作法压成一条日常主线：把随笔和文献加工成永久笔记，让新笔记连接旧笔记，把同一问题下的笔记整理成可写主题，再从主题进入写作。",
+      title: "让笔记生长为思想",
+      summary: "每天只推进最值得做的一步：处理材料、补关系、成可写主题，再写作。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>每天从这里开始</h3>
-          <ol class="module-sidebar-list">
-            <li>先看有没有随笔、文献或孤立笔记要处理</li>
-            <li>把材料加工成永久笔记</li>
-            <li>给永久笔记补一条真正相关的关系</li>
-            <li>把同一问题下的笔记整理成可写主题</li>
-            <li>从主题进入写作中心生成提纲和草稿</li>
-          </ol>
+          <h3>首页是你的整理台</h3>
+          <p>这里会把当前最值得做的一步放在最前面。先点主按钮推进一次，其他信息只作为参考。</p>
         </div>
       `
     },
@@ -101,15 +95,15 @@ export function currentModuleSidebarUi({
       sidebarHtml: ""
     },
     writing: {
-      sidebarTitle: "写作中心",
-      sidebarSubtitle: "从相关笔记进入提纲和草稿。",
-      sidebarFoot: "写作中心帮你组织文章结构，不替代最终写作。",
+      sidebarTitle: "从主题到草稿",
+      sidebarSubtitle: "把相关笔记整理成一篇文章的起点。",
+      sidebarFoot: "复杂说明放在帮助里；这里先完成下一步。",
       title: "写作中心",
-      summary: "这里回答四件事：我能写什么、用哪些笔记写、文章结构怎么起步、下一步写哪一段。先确定可写主题，再选择相关笔记，生成文章提纲，最后开始草稿。",
+      summary: "选择相关笔记，确定可写主题，生成提纲，再保存草稿。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>你要回答四件事</h3>
-          <p>这篇文章能写什么？用哪些笔记写？提纲怎么起步？下一段该写哪里？这里会帮你把相关笔记整理成可检查的文章结构。</p>
+          <h3>当前目标</h3>
+          <p>先把能回答同一问题的笔记放到一起，再把它变成提纲和草稿。</p>
         </div>
         <div class="module-sidebar-card">
           <h3>操作顺序</h3>

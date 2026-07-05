@@ -7,18 +7,17 @@ export function graphVisualMapEmptyCopy({
   if (filterActive) {
     return {
       title: "这条笔记周围暂时没有可见关系",
-      message: "可能是这条笔记还没有建立正式关系，也可能是当前显示范围太窄。可以先补一条支持、限定或连接关系。"
+      message: "可以先关联一条真正相关的笔记，或切到全部关系看看更完整的上下文。"
     };
   }
   if (graphViewModeForRelationType(relationType) === "structure") {
     return {
       title: `${modeLabel}当前没有可见笔记`,
-      message: "主题分布只看主题归属和知识分区。如果这里为空，可以切回看观点关系，或先为笔记补充主题归属。"
+      message: "这里主要看笔记属于哪些主题。如果暂时为空，可以切到观点怎么连，或先给笔记补充主题归属。"
     };
   }
   return {
     title: `${modeLabel}当前没有可见笔记`,
-    message: "当前筛选没有留下可读的观点关系。可以切到全部关系，或先从右侧待处理内容里判断潜在关联。"
+    message: "当前筛选下没有可读的观点关系。可以切到全部关系，或先处理右侧的待关联笔记。"
   };
 }
-

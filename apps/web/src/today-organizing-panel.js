@@ -23,11 +23,11 @@ function buildTodayActions(state = {}) {
       title: "处理材料",
       objectTitle: firstMaterial?.title || "随笔和文献暂时都已处理",
       summary: firstMaterial
-        ? `先把这条材料转述成自己的判断，或明确它暂时不用。${materialTitles.length ? ` 待处理：${materialTitles.join("、")}` : ""}`
-        : "可以继续检查永久笔记之间的关系。",
+        ? `先把这条材料加工成自己的判断。${materialTitles.length ? `待处理：${materialTitles.join("、")}` : ""}`
+        : "现在没有待加工材料，可以继续检查永久笔记之间的关系。",
       meta: firstMaterial ? `${state.pendingMaterialCount || 0} 条材料待处理` : "没有待处理材料",
       action: "review-material",
-      actionLabel: firstMaterial ? "查看这条材料" : "已完成",
+      actionLabel: firstMaterial ? "处理这条材料" : "已完成",
       disabled: !firstMaterial,
       tone: "material"
     },
@@ -40,7 +40,7 @@ function buildTodayActions(state = {}) {
         : "已加载的永久笔记暂时都有明确关系。",
       meta: firstIsolated ? `还有 ${state.isolatedCount || 0} 条待建联` : "关系状态良好",
       action: "connect-first-isolated",
-      actionLabel: firstIsolated ? "去建联" : "已完成",
+      actionLabel: firstIsolated ? "去关联" : "已完成",
       disabled: !firstIsolated,
       tone: "connect"
     },
@@ -49,11 +49,11 @@ function buildTodayActions(state = {}) {
       title: "整理主题",
       objectTitle: firstTheme?.title || "还没有可直接整理的主题",
       summary: firstTheme
-        ? "先打开主题索引，检查中心问题、关键笔记和阅读顺序。"
+        ? "先看中心问题、关键笔记和阅读顺序，确认这组笔记能否支撑一篇文章。"
         : "当几条笔记围绕同一问题聚集时，再整理成主题索引。",
       meta: firstTheme ? `${firstTheme.noteCount || 0} 条相关笔记` : "等待更多相关笔记",
       action: "open-first-theme",
-      actionLabel: firstTheme ? "打开主题索引" : "先去建联",
+      actionLabel: firstTheme ? "打开主题索引" : "先去关联",
       disabled: !firstTheme,
       tone: "theme"
     },
@@ -68,7 +68,7 @@ function buildTodayActions(state = {}) {
           : "先完成清晰观点、明确关系和可写主题，再进入写作。",
       meta: firstWriting ? `${state.writingReadyCount || 0} 条笔记可用` : "写作前先整理素材",
       action: "open-writing",
-      actionLabel: firstTheme || firstWriting ? "用这个主题进入写作" : "先整理主题",
+      actionLabel: firstTheme || firstWriting ? "进入写作" : "先整理主题",
       disabled: !firstTheme && !firstWriting,
       tone: "writing"
     }
@@ -79,7 +79,7 @@ function primaryAction(actions = []) {
   return actions.find((item) => !item.disabled) || {
     title: "今天可以轻量回顾",
     objectTitle: "当前没有必须立刻处理的整理任务",
-    summary: "可以打开高级检查，看看标签、关系理由或主题提纲是否值得顺手完善。",
+    summary: "可以做一次辅助检查，看看标签、关系理由或主题提纲是否值得完善。",
     meta: "整理状态良好",
     action: "",
     actionLabel: "无需处理",
@@ -113,17 +113,36 @@ function actionCard({
   `;
 }
 
-function renderEmptyLibraryDemoCard() {
+function renderOverview(state = {}) {
   return `
-    <section class="today-empty-demo-card" aria-label="第一次使用推荐">
-      <div>
-        <span class="today-action-kicker">推荐</span>
-        <h3>先体验示例库，10 分钟看懂研思录</h3>
-        <p>示例库会创建一套卡片笔记写作法 Demo：随笔、文献笔记、永久笔记、关系、主题索引和写作项目。导入前会请你确认，不会偷偷写入数据。</p>
+    <section class="today-overview-compact" aria-label="当前笔记库状态">
+      <div class="today-overview-counts">
+        <span><strong>${escape(state.pendingMaterialCount || 0)}</strong> 待处理材料</span>
+        <span><strong>${escape(state.permanentCount || 0)}</strong> 永久笔记</span>
+        <span><strong>${escape(state.isolatedCount || 0)}</strong> 未关联</span>
+        <span><strong>${escape(state.themeCount || 0)}</strong> 可成主题</span>
       </div>
-      <button class="mini-btn primary" type="button" data-today-action="seed-demo">
-        导入示例库 / 体验 Demo
-      </button>
+      <div class="today-path-inline" aria-label="卡片笔记整理路径">
+        <span>材料</span><span>永久笔记</span><span>关系</span><span>主题</span><span>写作</span>
+      </div>
+    </section>
+  `;
+}
+
+function renderEmptyLibraryHome() {
+  return `
+    <section class="today-empty-home" aria-label="第一次使用引导">
+      <div class="today-empty-home-copy">
+        <span class="today-action-kicker">第一次打开，建议先体验示例库</span>
+        <h3>用 10 分钟看懂研思录怎么让笔记生长为思想</h3>
+        <p>示例库会创建一套卡片笔记写作法 Demo：随笔、文献笔记、永久笔记、关系、主题索引和写作项目。导入前会请你确认，不会自动写入。</p>
+      </div>
+      <div class="today-empty-home-actions">
+        <button class="mini-btn primary" type="button" data-today-action="seed-demo">
+          导入示例库 / 体验 Demo
+        </button>
+        <small>导入后会自动打开导览笔记，照着走一遍就能理解主流程。</small>
+      </div>
     </section>
   `;
 }
@@ -131,26 +150,23 @@ function renderEmptyLibraryDemoCard() {
 export function renderTodayOrganizingPanel(state = {}) {
   const actions = buildTodayActions(state);
   const recommended = primaryAction(actions);
-  const emptyDemoCard = state.isEmptyLibrary ? renderEmptyLibraryDemoCard() : "";
+  if (state.isEmptyLibrary) {
+    return `
+      <div class="today-organizing-shell is-empty">
+        ${renderEmptyLibraryHome()}
+        <section class="today-empty-next" aria-label="你会学到什么">
+          <article><strong>先记录</strong><span>把随笔和材料放进自己的笔记库。</span></article>
+          <article><strong>再建联</strong><span>写清楚笔记之间为什么相关。</span></article>
+          <article><strong>后写作</strong><span>从主题索引进入写作中心生成提纲。</span></article>
+        </section>
+      </div>
+    `;
+  }
   return `
     <div class="today-organizing-shell">
-      <section class="today-organizing-hero" aria-label="首页">
-        <div>
-          <span>首页</span>
-          <h2>从这里开始整理知识</h2>
-          <p>把随笔和文献加工成永久笔记，再用关系和主题把它们接起来。每天先看这里，只推进最值得做的下一步。</p>
-        </div>
-        <div class="today-organizing-counts" aria-label="当前整理概览">
-          <div><strong>${escape(state.pendingMaterialCount || 0)}</strong><span>待处理材料</span></div>
-          <div><strong>${escape(state.permanentCount || 0)}</strong><span>永久笔记</span></div>
-          <div><strong>${escape(state.isolatedCount || 0)}</strong><span>未关联</span></div>
-          <div><strong>${escape(state.themeCount || 0)}</strong><span>可成主题</span></div>
-        </div>
-      </section>
-      ${emptyDemoCard}
       <section class="today-primary-step tone-${escape(recommended.tone || "")}" aria-label="推荐下一步">
         <div>
-          <span class="today-action-kicker">推荐下一步</span>
+          <span class="today-action-kicker">现在最重要</span>
           <h3>${escape(recommended.title)}</h3>
           <strong>${escape(recommended.objectTitle)}</strong>
           <p>${escape(recommended.summary)}</p>
@@ -160,18 +176,12 @@ export function renderTodayOrganizingPanel(state = {}) {
           ${escape(recommended.actionLabel)}
         </button>
       </section>
-      <section class="today-path-strip" aria-label="卡片笔记整理路径">
-        <span>材料</span>
-        <span>永久笔记</span>
-        <span>关系</span>
-        <span>主题</span>
-        <span>写作</span>
-      </section>
       <section class="today-action-grid" aria-label="继续整理">
         ${actions.filter((item) => item.key !== recommended.key).map(actionCard).join("")}
       </section>
+      ${renderOverview(state)}
       <details class="today-secondary-details">
-        <summary>高级检查：回顾清单和 AI 补充建议</summary>
+        <summary>辅助检查</summary>
         ${renderReviewChecklistPanel(state.reviewChecklist)}
       </details>
     </div>

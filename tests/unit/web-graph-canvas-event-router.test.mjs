@@ -170,6 +170,28 @@ test("graph canvas event router consumes click workflow actions before generic n
   assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["save-candidate", candidateButton]]);
 });
 
+test("graph canvas event router toggles the isolated queue strip before other graph actions", async () => {
+  const graphCanvas = createGraphCanvas();
+  const calls = [];
+  const toggle = elementWithAttrs({});
+
+  bindGraphCanvasEvents(graphCanvas, {
+    toggleGraphIsolatedQueueStrip: (button) => calls.push(["toggle", button]),
+    openNoteById: (noteId) => calls.push(["open-note", noteId])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    preventDefault: () => calls.push(["prevent"]),
+    stopImmediatePropagation: () => calls.push(["stop-immediate"]),
+    target: targetWithClosest({
+      "[data-graph-queue-strip-toggle]": toggle,
+      "[data-open-note]": elementWithAttrs({}, { dataset: { openNote: "n1" } })
+    })
+  });
+
+  assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["toggle", toggle]]);
+});
+
 test("graph canvas event router focuses graph AI review in the workbench", async () => {
   const graphCanvas = createGraphCanvas();
   const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "clues", thinkingPanelVisible: false, thinkingPanelOpen: false, thinkingFilter: "theme" };

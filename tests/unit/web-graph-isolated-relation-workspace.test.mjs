@@ -69,13 +69,17 @@ test("graph isolated relation workspace folds the full manual list behind search
 
   const html = renderGraphIsolatedJoinNetworkFlowHtml("source", { nodeMap, edges: [], manualTargets }, baseDeps);
 
+  assert.match(html, /graph-isolated-join-grid/);
+  assert.match(html, /graph-isolated-source-preview/);
+  assert.match(html, /当前笔记/);
   assert.match(html, /data-graph-pick-manual-target="target-120"/);
   assert.match(html, /目标预览/);
   assert.match(html, /搜索目标/);
-  assert.match(html, /为什么推荐/);
+  assert.match(html, /直接搜索你确定相关的笔记/);
   assert.match(html, /搜索目标笔记/);
   assert.match(html, /查看完整候选列表/);
   assert.match(html, /完整列表已折叠/);
+  assert.match(html, />保存关系</);
   assert.doesNotMatch(html, /手动搜索目标/);
   assert.doesNotMatch(html, mojibakeCopyPattern);
 });

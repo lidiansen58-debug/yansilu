@@ -193,26 +193,36 @@ test("today organizing panel uses readable action words", () => {
     firstWritingReady: { id: "pn_2", title: "已有观点" }
   });
 
-  assert.match(html, /首页/);
-  assert.match(html, /推荐下一步/);
-  assert.match(html, /从这里开始整理知识/);
+  assert.match(html, /现在最重要/);
+  assert.doesNotMatch(html, /从这里开始整理知识/);
   assert.match(html, /待处理材料/);
   assert.match(html, /手机随笔待处理/);
   assert.match(html, /补一条关系/);
   assert.match(html, /整理主题/);
   assert.match(html, /进入写作/);
-  assert.match(html, /把随笔和文献加工成永久笔记/);
-  assert.match(html, /检查中心问题、关键笔记/);
+  assert.match(html, /中心问题、关键笔记和阅读顺序/);
   assert.match(html, /先生成提纲，再决定是否起草/);
-  assert.match(html, /查看这条材料/);
+  assert.match(html, /处理这条材料/);
   assert.match(html, /data-today-action="review-material"/);
   assert.doesNotMatch(html, /data-today-action="review-material" disabled/);
-  assert.match(html, /去建联/);
+  assert.match(html, /去关联/);
   assert.match(html, /打开主题索引/);
   assert.match(html, /进入写作/);
-  assert.ok(html.indexOf("今日推荐下一步") < html.indexOf("高级检查：回顾清单和 AI 补充建议"));
+  assert.ok(html.indexOf("现在最重要") < html.indexOf("当前笔记库状态"));
+  assert.ok(html.indexOf("现在最重要") < html.indexOf("辅助检查"));
   assert.match(html, /<details class="today-secondary-details">/);
-  assert.doesNotMatch(html, /候选队列|复核|线索/);
+  assert.doesNotMatch(html, /候选队列|复核|线索|高级检查/);
+});
+
+test("today organizing empty home makes demo import the primary first action", () => {
+  const html = renderTodayOrganizingPanel({ isEmptyLibrary: true });
+
+  assert.match(html, /第一次打开，建议先体验示例库/);
+  assert.ok(html.includes("导入示例库 / 体验 Demo"));
+  assert.match(html, /用 10 分钟看懂研思录怎么让笔记生长为思想/);
+  assert.ok(html.indexOf("导入示例库 / 体验 Demo") < html.indexOf("先记录"));
+  assert.doesNotMatch(html, /当前笔记库状态/);
+  assert.doesNotMatch(html, /辅助检查/);
 });
 
 test("today organizing runtime loads theme indexes once when opened", async () => {

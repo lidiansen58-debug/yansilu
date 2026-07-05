@@ -77,7 +77,7 @@ export function renderModuleWorkspaceHeaderForRuntime({
     : displayModelRef
       ? displayModelRef
       : "AI 连接暂不可用";
-  if (state.module === "imports" || state.module === "today" || state.module === "writing") {
+  if (state.module === "imports" || state.module === "backup" || state.module === "aiInbox" || state.module === "today" || state.module === "writing") {
     moduleHeaderActions.innerHTML = state.module === "today" ? "" : todayReturnButtonHtml;
     bindTodayReturnButton();
     return true;

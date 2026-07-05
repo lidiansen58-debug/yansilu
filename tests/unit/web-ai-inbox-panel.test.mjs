@@ -52,6 +52,9 @@ test("AI inbox panel renders filters, list, detail, feedback, and accept-link ac
   });
 
   assert.match(html, /AI 建议/);
+  assert.match(html, /class="ai-inbox-view-strip"/);
+  assert.match(html, /class="ai-inbox-helper-row"/);
+  assert.ok(html.indexOf("ai-inbox-view-strip") < html.indexOf("ai-inbox-grid"));
   assert.doesNotMatch(html, /处理质量/);
   assert.match(html, /待判断/);
   assert.match(html, /data-ai-inbox-view="pending"/);

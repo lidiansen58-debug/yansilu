@@ -10,18 +10,18 @@ function defaultEscapeHtml(value = "") {
 export const GRAPH_READING_LENS_META = {
   insight: {
     key: "insight",
-    label: "优先处理",
-    hint: "突出孤立笔记、中心笔记和关系密集区域，先看最值得处理的地方。"
+    label: "下一步做什么",
+    hint: "系统把孤立笔记、中心笔记和关系密集区提到前面，适合不知道从哪里开始时使用。"
   },
   bridge: {
     key: "bridge",
-    label: "找缺口",
-    hint: "突出还没连起来的笔记，帮你判断哪里需要补一条关系。"
+    label: "哪里还缺",
+    hint: "突出还没连起来、缺证据、缺反方或缺边界的地方，适合补强知识网络。"
   },
   argument: {
     key: "argument",
-    label: "看观点",
-    hint: "突出证据、反方和边界，帮你检查这个想法站不站得住。"
+    label: "核心观点",
+    hint: "突出证据、反方和边界，帮助你判断哪些想法已经能进入写作。"
   }
 };
 
@@ -35,8 +35,8 @@ export function renderGraphReadingLensControls(activeLens = "insight", legendOpe
   const active = graphReadingLensMeta(activeLens);
   return `
     <div class="graph-reading-lens-row">
-      <div class="graph-reading-lens" aria-label="图谱优先查看内容">
-        <span>先看什么</span>
+      <div class="graph-reading-lens" aria-label="图谱当前任务">
+        <span>现在看</span>
         ${Object.values(GRAPH_READING_LENS_META)
           .map((item) => {
             const selected = item.key === active.key;

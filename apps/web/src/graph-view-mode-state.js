@@ -57,18 +57,18 @@ export function graphReadingModeMeta(value = "argument") {
   if (key === "structure") {
     return {
       key,
-      label: "看主题分布",
-      purpose: "用来快速看这批笔记大致聚成哪些主题。",
-      filterHint: "默认只看主题归属；要回到支持、反驳或边界，切回看观点关系。",
-      mapNote: "只保留主题归属和聚集位置。拖动画布，就能快速判断这批笔记主要落在哪些主题。"
+      label: "主题有哪些",
+      purpose: "看这批笔记主要聚成哪些主题，适合找可写方向。",
+      filterHint: "当前只看主题归属。想检查支持、反驳、边界等论证关系时，切回“观点怎么连”。",
+      mapNote: "主题视图强调聚集位置。先看哪些主题已经成形，再决定是否保存为主题索引。"
     };
   }
   return {
     key: "argument",
-    label: "看观点关系",
-    purpose: "用来判断这批笔记之间谁支持谁、谁反对谁、哪里需要限定。",
-    filterHint: "关系类型还能继续收窄，方便只看当前最重要的一类连接。",
-    mapNote: "只保留当前模式最值得看的关系。拖动画布换位置，悬停笔记或关系继续读局部。"
+    label: "观点怎么连",
+    purpose: "看笔记之间如何支持、反驳、限定或补充，用来检查一个观点是否站得住。",
+    filterHint: "当前优先显示观点关系。可以继续按关系类型收窄，只看最需要判断的一类连接。",
+    mapNote: "观点关系视图强调论证结构。点击笔记或关系，检查理由是否清楚。"
   };
 }
 
@@ -88,7 +88,7 @@ export function renderGraphViewModeSwitcher(relationType = "meaningful", deps = 
   const mode = graphViewModeForRelationType(relationType);
   const modes = [graphReadingModeMeta("argument"), graphReadingModeMeta("structure")];
   return `
-    <div class="graph-view-tabs" aria-label="图谱类型">
+    <div class="graph-view-tabs" aria-label="图谱主要视角">
       ${modes
         .map((item) => {
           const active = item.key === mode;
@@ -106,10 +106,10 @@ export function renderGraphViewModeSwitcher(relationType = "meaningful", deps = 
 export function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null, deps = {}) {
   const escapeHtml = deps.escapeHtml || defaultEscapeHtml;
   const graphFilterOptions = deps.graphFilterOptions || (() => "");
-  const graphRelationTypeLabel = deps.graphRelationTypeLabel || ((value) => String(value || "").trim() || "关联");
+  const graphRelationTypeLabel = deps.graphRelationTypeLabel || ((value) => String(value || "").trim() || "关系");
   return `
     <div class="graph-filters graph-filters-single${compact ? " graph-filters-compact" : ""}" data-graph-filters>
-      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
+      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="筛选关系类型">
         ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel, statsOverride)}
       </select>
     </div>

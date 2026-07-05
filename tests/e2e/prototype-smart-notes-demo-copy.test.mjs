@@ -28,7 +28,8 @@ test("prototype smart notes demo walkthrough uses readable title actions", async
     assert.match(String(walkthroughText || ""), /Smart Notes Demo 导览/);
     assert.match(String(walkthroughText || ""), /第 1 \/ 5 步/);
     assert.match(String(walkthroughText || ""), /从记录到永久笔记/);
-    assert.match(String(walkthroughText || ""), /打开“写作不是最后一步”/);
+    assert.match(String(walkthroughText || ""), /打开第 1 步笔记/);
+    assert.doesNotMatch(String(walkthroughText || ""), /打开“写作不是最后一步”/);
     assert.doesNotMatch(String(walkthroughText || ""), /\b(?:PN-SN|WP-SN|IC-SN)-/);
     assert.doesNotMatch(String(walkthroughText || ""), /打开写作中心/);
   }, 15000);

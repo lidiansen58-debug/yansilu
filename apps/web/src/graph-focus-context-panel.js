@@ -12,13 +12,13 @@ function defaultIcon(name = "") {
 }
 
 const DEFAULT_RELATION_GROUP_META = {
-  support: { label: "支持关系", shortLabel: "支持", detail: "说明哪条笔记支持当前判断。" },
-  conflict: { label: "反方与张力", shortLabel: "反方", detail: "说明哪里可能不成立。" },
-  boundary: { label: "适用边界", shortLabel: "边界", detail: "说明判断在哪些条件下成立。" },
-  bridge: { label: "桥接关系", shortLabel: "桥接", detail: "连接不同主题。" },
-  flow: { label: "写作顺序", shortLabel: "顺序", detail: "帮助组织文章前后顺序。" },
-  neutral: { label: "相关关系", shortLabel: "相关", detail: "暂未细分用途的关系。" },
-  index: { label: "可写主题", shortLabel: "主题", detail: "这组关系可能形成可写主题，确认后再保存。帮助里会说明它会保存成主题索引笔记。" }
+  support: { label: "支持", shortLabel: "支持", detail: "哪些笔记在支撑当前判断。" },
+  conflict: { label: "反方", shortLabel: "反方", detail: "哪些笔记提醒这个判断可能不成立。" },
+  boundary: { label: "边界", shortLabel: "边界", detail: "这个判断在什么条件下成立。" },
+  bridge: { label: "连接", shortLabel: "连接", detail: "把不同主题或问题接起来的关系。" },
+  flow: { label: "顺序", shortLabel: "顺序", detail: "写作时可以放在前后顺序里的关系。" },
+  neutral: { label: "相关", shortLabel: "相关", detail: "还没有细分用途的普通相关关系。" },
+  index: { label: "主题", shortLabel: "主题", detail: "这组关系可能形成可写主题，确认后再保存。" }
 };
 
 function graphFocusContextPanelDeps(deps = {}) {
@@ -28,7 +28,7 @@ function graphFocusContextPanelDeps(deps = {}) {
     graphNodeTitle: deps.graphNodeTitle || ((nodeMap, id, fallback = "") => nodeMap?.get?.(id)?.title || fallback || id),
     graphFocusContextModeMeta: deps.graphFocusContextModeMeta || ((value = "argument") => ({
       key: value === "writing" ? "writing" : "argument",
-      label: value === "writing" ? "看写作用途" : "看观点关系",
+      label: value === "writing" ? "写作怎么用" : "观点怎么连",
       note: value === "writing" ? "按写作用途排序关系。" : "按论证用途排序关系。"
     })),
     graphRelationStatusCountsAsNetworkEdge: deps.graphRelationStatusCountsAsNetworkEdge || (() => true),
@@ -59,7 +59,7 @@ export function graphFocusContextCollapsedState(current = false, action = "") {
 }
 
 export function graphFocusContextCollapsedStatus(collapsed = false) {
-  return collapsed ? "已收起选中笔记面板" : "已显示选中笔记面板";
+  return collapsed ? "已收起选中笔记详情" : "已显示选中笔记详情";
 }
 
 export function graphFocusHelpOpenState(current = false) {
@@ -105,63 +105,51 @@ export function renderGraphFocusContextPanel({
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(edge);
   });
-  const supportCount = (grouped.get("support") || []).length;
-  const conflictCount = (grouped.get("conflict") || []).length;
-  const boundaryCount = (grouped.get("boundary") || []).length;
-  const bridgeCount = (grouped.get("bridge") || []).length;
-  const flowCount = (grouped.get("flow") || []).length;
-  const neutralCount = (grouped.get("neutral") || []).length;
-  const indexCount = (grouped.get("index") || []).length;
-  const relationMetricItems = [
-    { key: "support", count: supportCount },
-    { key: "conflict", count: conflictCount },
-    { key: "boundary", count: boundaryCount },
-    { key: "bridge", count: bridgeCount },
-    { key: "flow", count: flowCount },
-    { key: "neutral", count: neutralCount },
-    { key: "index", count: indexCount }
-  ]
-    .filter((item) => item.count > 0)
-    .map((item) => {
-      const meta = relationGroupMeta[item.key] || relationGroupMeta.neutral || DEFAULT_RELATION_GROUP_META.neutral;
-      return `<span title="${escapeHtml(meta.detail)}">${escapeHtml(meta.shortLabel || meta.label)} ${item.count}</span>`;
+  const counts = {
+    support: (grouped.get("support") || []).length,
+    conflict: (grouped.get("conflict") || []).length,
+    boundary: (grouped.get("boundary") || []).length,
+    bridge: (grouped.get("bridge") || []).length,
+    flow: (grouped.get("flow") || []).length,
+    neutral: (grouped.get("neutral") || []).length,
+    index: (grouped.get("index") || []).length
+  };
+  const relationMetricItems = Object.entries(counts)
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => {
+      const meta = relationGroupMeta[key] || relationGroupMeta.neutral || DEFAULT_RELATION_GROUP_META.neutral;
+      return `<span title="${escapeHtml(meta.detail)}">${escapeHtml(meta.shortLabel || meta.label)} ${count}</span>`;
     })
     .join("");
   const relationHelpOpen = focusContextHelpOpen === true;
   const relationHelp = `
     <div class="graph-focus-help${relationHelpOpen ? "" : " is-collapsed"}" id="graphFocusHelp">
       <div class="graph-focus-help-block">
-        <strong>这里显示什么</strong>
-        <span>只看当前笔记已经保存的正式关系，不包含还没确认的 AI 推荐。</span>
+        <strong>这里看什么</strong>
+        <span>这里只显示已经保存的关系。AI 建议不会自动进入这里，必须由你确认。</span>
       </div>
       <div class="graph-focus-help-block">
-        <strong>怎么读这些分类</strong>
-        <span>支持关系说明“谁在帮这条判断成立”；反方与张力提醒“哪里可能不成立”；适用边界说明“在哪些条件下成立”；桥接关系帮助跨主题连接；写作顺序帮助排成文章。</span>
-      </div>
-      <div class="graph-focus-help-block">
-        <strong>AI 做了什么</strong>
-        <span>AI 只会先给可能相关的建议。只有你确认后，关系才会进入这里；这里的数量按已保存的关系类型展示。</span>
+        <strong>怎么判断</strong>
+        <span>支持让观点更站得住；反方和边界让观点不片面；连接和顺序帮助后续写文章。</span>
       </div>
     </div>
   `;
   const nextHint =
     contextMode.key === "writing"
-      ? flowCount
-        ? "这条笔记已经能进入写作。下一步检查这些前后关系能不能串成段落。"
-        : bridgeCount
-          ? "这条笔记已经有跨主题连接。下一步可以挑一条关系写成过渡段。"
-          : supportCount
-            ? "它已有支持材料。下一步可以选一条支持关系，整理成段落顺序。"
-            : "还看不出它能放进哪篇文章。先补一条桥接或前后顺序关系。"
-      : conflictCount
-        ? "这条笔记已有反方或对照。下一步检查冲突条件有没有写清楚。"
-        : boundaryCount
-          ? "这条笔记已经有适用边界。下一步可以补反方或反例，让判断更稳。"
-          : bridgeCount
-            ? "这条笔记已经连到其他主题。下一步把桥接理由写具体。"
-            : supportCount
-              ? "它已有支持材料，但还缺边界或反方，读起来会偏单边。"
-              : "这条笔记还缺清晰的支持、反方或边界关系。先补一条有理由的连接。";
+      ? counts.flow
+        ? "可以先检查这些顺序关系，看看能不能排成文章段落。"
+        : counts.bridge
+          ? "已经有跨主题连接，可以尝试写一段过渡。"
+          : counts.support
+            ? "已有支撑材料，下一步补一个反方或边界，文章会更稳。"
+            : "还看不出能放进哪篇文章，先补一条连接或顺序关系。"
+      : counts.conflict
+        ? "已经有反方或张力，下一步检查冲突条件有没有写清楚。"
+        : counts.boundary
+          ? "已经有边界，下一步补一个反例或支撑材料。"
+          : counts.support
+            ? "已有支撑，但还缺反方或边界，观点容易单薄。"
+            : "还缺清楚的支持、反方或边界关系，先补一条有理由的连接。";
   const groupOrder = contextMode.key === "writing"
     ? ["flow", "bridge", "support", "boundary", "conflict", "neutral", "index"]
     : ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"];
@@ -190,9 +178,9 @@ export function renderGraphFocusContextPanel({
                     <button class="graph-focus-card-main" type="button" data-open-note="${escapeHtml(counterpartId)}">
                       <strong>${escapeHtml(counterpartTitle)}</strong>
                       <span>${escapeHtml(direction)} / ${escapeHtml(relationLabel)} / ${escapeHtml(graphRelationSourceLabel(edge?.createdBy))}</span>
-                      <small>${escapeHtml(rationale || "还没把这条关系为什么成立写清楚。")}</small>
+                      <small>${escapeHtml(rationale || "还没有写清这条关系为什么成立。")}</small>
                     </button>
-                    <button class="graph-focus-card-action" type="button" data-graph-relation-adjustment="strengthen"${String(edge?.id || "").trim() ? ` data-graph-relation-id="${escapeHtml(String(edge.id || "").trim())}"` : ""}${String(edge?.toNoteId || "").trim() ? ` data-graph-target-note="${escapeHtml(String(edge.toNoteId || "").trim())}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${String(edge?.id || "").trim() ? "" : " disabled"}>${escapeHtml(actionMeta.label)}</button>
+                    <button class="graph-focus-card-action" type="button" data-graph-relation-adjustment="strengthen"${String(edge?.id || "").trim() ? ` data-graph-relation-id="${escapeHtml(String(edge.id || "").trim())}"` : ""}${String(edge?.toNoteId || "").trim() ? ` data-graph-target-note="${escapeHtml(String(edge.toNoteId || "").trim())}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${String(edge?.id || "").trim() ? "" : " disabled"}>${escapeHtml(actionMeta.label || "调整")}</button>
                   </div>
                 `;
               })
@@ -205,20 +193,20 @@ export function renderGraphFocusContextPanel({
     .join("");
 
   return `
-    <aside id="graphFocusContextPanel" class="graph-focus-context" aria-label="当前笔记关系上下文">
+    <aside id="graphFocusContextPanel" class="graph-focus-context" aria-label="当前笔记关系详情">
       <div class="graph-focus-summary">
         <div class="graph-focus-panel-head">
-          <div class="graph-focus-kicker">当前笔记关系</div>
+          <div class="graph-focus-kicker">当前笔记</div>
           <div class="graph-focus-panel-actions">
             <button class="graph-focus-help-toggle" type="button" data-graph-focus-help-toggle aria-expanded="${relationHelpOpen ? "true" : "false"}" aria-controls="graphFocusHelp" title="${relationHelpOpen ? "收起说明" : "查看说明"}">${renderGraphIcon("question")}<span>说明</span></button>
-            <button class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close" aria-label="收起选中笔记面板" title="收起选中笔记面板">${renderGraphIcon("close")}</button>
+            <button class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close" aria-label="收起选中笔记详情" title="收起详情">${renderGraphIcon("close")}</button>
           </div>
         </div>
         <strong>${escapeHtml(focusedTitle)}</strong>
-        <span>${directEdges.length ? `已有 ${directEdges.length} 条正式关系，按用途分组展示。` : "这条笔记还没有正式关系，可以先查找相关笔记，再保存成关系。"}</span>
+        <span>${directEdges.length ? `已有 ${directEdges.length} 条关系` : "还没有正式关系"}</span>
         ${relationHelp}
       </div>
-      <div class="graph-context-mode" aria-label="当前笔记关系查看方式">
+      <div class="graph-context-mode" aria-label="关系查看方式">
         ${["argument", "writing"]
           .map((value) => {
             const meta = graphFocusContextModeMeta(value);
@@ -232,7 +220,7 @@ export function renderGraphFocusContextPanel({
         ${relationMetricItems || `<span>暂无正式关系</span>`}
       </div>
       <div class="graph-focus-next">${escapeHtml(nextHint)}</div>
-      ${sections || `<div class="graph-empty">当前这条笔记周围还没有正式关系。先从待关联笔记或 AI 推荐里确认一条关系，再回来看图谱。</div>`}
+      ${sections || `<div class="graph-empty">这条笔记周围还没有正式关系。先从“关联”里保存一条关系，再回来看图谱。</div>`}
     </aside>
   `;
 }

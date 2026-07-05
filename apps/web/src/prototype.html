@@ -469,9 +469,9 @@
           <div class="writing-shell">
             <header class="writing-topline">
               <div class="writing-topline-main">
-                <div class="import-card-kicker">写作中心</div>
-                <strong>写作中心：从相关笔记起步，形成文章提纲和草稿</strong>
-                <p>它帮助你看清能写什么、用哪些笔记写、文章结构怎么起步，以及下一段该写哪里。</p>
+                <div class="import-card-kicker">从笔记到文章</div>
+                <strong>把相关笔记组织成提纲和草稿</strong>
+                <p>先选能回答同一问题的笔记，再确定主题、生成提纲、保存草稿。</p>
                 <div class="writing-topline-metrics" id="writingToplineMetrics" aria-label="写作中心当前速览">
                   <div class="writing-topline-metric"><span>相关笔记</span><strong>0 条</strong><small>先选择笔记</small></div>
                   <div class="writing-topline-metric"><span>可写主题</span><strong>未确定</strong><small>明确要写什么</small></div>
@@ -486,14 +486,14 @@
               <div class="writing-flow-step"><span>4</span><strong>开始草稿</strong><small>按提纲进入写作</small></div>
             </div>
             <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
-            <div id="writingBeginnerMainline" aria-live="polite"></div>
             <nav class="writing-tabs" aria-label="写作中心功能切换" role="tablist">
-              <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">写文章</button>
+              <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">开始写</button>
               <button class="writing-tab" type="button" data-writing-tab="notes" role="tab" aria-selected="false">选笔记</button>
-              <button class="writing-tab" type="button" data-writing-tab="themes" role="tab" aria-selected="false">主题库</button>
-              <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">更多工具</button>
+              <button class="writing-tab" type="button" data-writing-tab="themes" role="tab" aria-selected="false">用主题</button>
+              <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">高级工具</button>
             </nav>
             <div class="writing-project-grid" id="writingComposePanel">
+              <div id="writingBeginnerMainline" aria-live="polite"></div>
               <section class="writing-section writing-output-card">
                 <div class="writing-section-head">
                   <div>
@@ -592,11 +592,10 @@
 
             <div class="writing-main-grid" id="writingSecondaryPanels">
               <div class="writing-stack">
-                <details class="writing-advanced-details writing-section" id="writingThemePanel" open>
-                  <summary>主题库：可写主题与主题详情</summary>
+                <section class="writing-section" id="writingThemePanel">
                   <div class="writing-section-head">
                     <div>
-                      <div class="writing-section-title">可写主题</div>
+                      <div class="writing-section-title">用已有主题继续写</div>
                       <div class="writing-section-note" id="writingThemeIndexesHint">把已经成形的一组永久笔记保存为可写主题，下次可以直接继续写。需要时可在帮助里了解它会保存成“主题索引笔记”。</div>
                     </div>
                     <div class="writing-note-actions">
@@ -616,7 +615,7 @@
                     </div>
                     <div id="writingThemeDetail"></div>
                   </div>
-                </details>
+                </section>
                 <section class="writing-section" id="writingRelatedNotesPanel">
                   <div class="writing-section-head">
                     <div>
@@ -1239,8 +1238,8 @@
                             <button class="mini-btn primary" id="settingsImportSmartNotesDemo" type="button" data-settings-help-action="import-demo">导入示例库 / 体验 Demo</button>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>第一次打开应该做什么</strong>
-                            <span>先从首页看下一步建议；如果还没有自己的笔记，建议先导入 Demo，读“从这里开始”和“第一次使用研思录应该先做什么”。</span>
+                            <strong>第一次打开，先做哪一件事</strong>
+                            <span>空库时只需要先选一件开始：导入示例库、选择你已有的 Obsidian 文件夹，或者直接写第一条随笔。先开始，再逐步整理，不需要一上来理解全部功能。</span>
                             <button class="mini-btn" type="button" data-settings-help-action="open-home">打开首页</button>
                           </div>
                           <div class="settings-help-topic">
@@ -1267,8 +1266,8 @@
                             <button class="mini-btn" type="button" data-settings-help-action="open-backup">打开备份与恢复</button>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>手机访问电脑笔记怎么用</strong>
-                            <span>电脑保持运行，手机在同一局域网扫码配对；手机适合快速记录、拍照和轻量查看，复杂整理回电脑完成。Demo 会示范手机记录如何回到首页继续加工。</span>
+                            <strong>手机访问适合怎么用</strong>
+                            <span>把它当成随身采集入口更合适：手机上快速记想法、拍资料、补一条随笔，回到电脑再整理成永久笔记、建立关系和进入写作。不要把复杂整理任务放到手机端。</span>
                             <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">打开手机访问</button>
                           </div>
                           <div class="settings-help-topic">
@@ -1277,7 +1276,7 @@
                             <button class="mini-btn" type="button" data-settings-help-action="open-ai-settings">查看 AI 设置</button>
                           </div>
                         </div>
-                        <div class="settings-support-safe-note">提醒：Demo 会创建示例数据，但必须由你确认后才会导入；正式笔记仍以当前笔记库里的 Markdown 文件为主。</div>
+                        <div class="settings-support-safe-note">提醒：Demo 只会在你确认后导入；正式内容仍以当前笔记库里的 Markdown 文件为准。看不懂下一步时，优先回首页，而不是先研究所有设置。</div>
                       </section>
                       <section class="settings-card" id="settingsUpdateCard">
                         <div class="settings-card-head">
@@ -1352,49 +1351,49 @@
                       <section class="settings-card" id="settingsLocalRulesCard">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">本地数据规则</div>
-                            <div class="settings-card-note">研思录优先把内容放在你选择的笔记库里，方便备份、迁移和排查。</div>
+                            <div class="settings-card-title">本地使用说明</div>
+                            <div class="settings-card-note">先知道内容放在哪里、手机访问怎么工作、换电脑会发生什么，就足够开始稳定使用。</div>
                           </div>
                         </div>
                         <div class="settings-help-topic-list">
                           <div class="settings-help-topic">
-                            <strong>笔记放在哪里</strong>
-                            <span>Markdown 文件是主内容源，默认保存在当前笔记库目录里。</span>
+                            <strong>笔记实际存在哪里</strong>
+                            <span>你的笔记正文以 Markdown 文件形式保存在当前笔记库里。只要备份这个目录，你最重要的内容就在手里。</span>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>本地数据库做什么</strong>
-                            <span>SQLite 只负责关系、索引和查询加速，不替代 Markdown 正文。</span>
+                            <strong>本地数据库是做什么的</strong>
+                            <span>SQLite 主要负责关系、索引和查询加速，帮助系统更快找到相关笔记；它不是你长期保存正文的唯一地方。</span>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>切换笔记库会怎样</strong>
-                            <span>会重新读取目录树、标签页和缓存上下文；不会自动删除原目录内容。</span>
+                            <strong>切换笔记库会发生什么</strong>
+                            <span>系统会重新读取那个文件夹里的目录、标签和关系缓存，但不会替你删除原来的笔记内容。切换前后都建议确认当前使用的是哪一个库。</span>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>浏览目录不可用时</strong>
-                            <span>桌面版优先打开系统选择器；浏览器环境会降级为手动输入路径。</span>
+                            <strong>选文件夹失败时怎么办</strong>
+                            <span>桌面版会优先调用系统文件夹选择器；如果当前环境不支持，就改成手动输入路径。先确认路径存在、并且你有读写权限。</span>
                           </div>
                           <div class="settings-help-topic">
                             <strong>手机访问适合做什么</strong>
-                            <span>手机端是随身采集入口，适合快速记录想法、从相册选择图片、拍照保存黑板/白板/资料页，并轻量查看永久笔记和写作素材。</span>
+                            <span>手机端更适合采集和轻量查看：记一个念头、拍一张资料、从相册补图片、临时看看已有永久笔记。真正的整理、建联和写作，建议回电脑做。</span>
                           </div>
                           <div class="settings-help-topic">
                             <strong>电脑端要保持什么状态</strong>
-                            <span>手机访问时，电脑需要开机并运行研思录；手机和电脑建议在同一 Wi-Fi / 局域网内。当前版本不要把访问地址直接暴露到公网。</span>
+                            <span>手机访问时，电脑需要开机并保持研思录运行；手机和电脑最好在同一 Wi-Fi 或局域网里。当前版本按本地使用设计，不建议把访问地址直接暴露到公网。</span>
                           </div>
                           <div class="settings-help-topic">
                             <strong>扫码后为什么还要确认</strong>
-                            <span>二维码只包含访问地址和短期配对码，不包含长期 token。手机扫码后会发起连接请求，必须在电脑端“手机访问”里点允许，之后才能访问。</span>
+                            <span>二维码里只有访问地址和短期配对码，不会直接给手机长期访问权限。手机扫码后，还要在电脑端点一次“允许连接”，这样更安全，也方便你撤销设备。</span>
                           </div>
                           <div class="settings-help-topic">
                             <strong>手机拍照保存后去哪了</strong>
-                            <span>手机快速记录会保存到电脑端当前笔记库的随笔目录，图片会作为附件放入笔记库。回到电脑端“首页”继续加工成永久笔记和关系。</span>
+                            <span>手机上的随手记录会保存到当前笔记库的随笔目录，图片会作为附件放进同一个库。回到电脑后，从首页继续把它整理成永久笔记、关系和可写主题。</span>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>换手机或不再使用时</strong>
-                            <span>在“本地使用 > 手机访问”里可以查看已配对设备并撤销访问。撤销后，那台手机需要重新扫码并由电脑端确认。</span>
+                            <strong>换手机或停用旧设备时</strong>
+                            <span>在“本地使用说明 > 手机访问”里可以看到已配对设备，并随时撤销访问。撤销后，那台手机如果还想继续用，需要重新扫码并再次确认。</span>
                           </div>
                         </div>
-                        <div class="settings-support-safe-note">隐私提醒：复制诊断信息默认不带笔记库路径；提交反馈前仍建议检查内容里是否有私人信息。</div>
+                        <div class="settings-support-safe-note">隐私提醒：复制诊断信息默认不会带完整笔记库路径；提交反馈前，仍建议看一眼里面有没有不想公开的私人内容。</div>
                       </section>
 
                       <section class="settings-card" id="settingsFeedbackCard">

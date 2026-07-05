@@ -189,6 +189,7 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     state = {},
     handleStateChange = async () => {},
     openNoteById = () => false,
+    setStatus = () => {},
     dismissSafeOverlaysForNavigation = () => ({ ok: true })
   } = deps;
   const button = event?.target?.closest?.("[data-sidebar-flow-action]");
@@ -216,9 +217,16 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     const noteId = String(button.dataset?.sidebarFlowNoteId || button.getAttribute?.("data-sidebar-flow-note-id") || "").trim();
     if (!noteId) return false;
     activateModule("explorer");
-    openNoteById(noteId, { preferTitleSelection: false });
+    const opened = openNoteById(noteId, { preferTitleSelection: false });
+    if (!opened) {
+      setStatus("没有找到这一步的导览笔记，请重新导入 Smart Notes Demo。", "warn");
+      return false;
+    }
     if (action === "open-demo-note-relations") {
       await handleStateChange("open-note-relations", { noteId, source: "smart-notes-demo-walkthrough" });
+      setStatus("已打开导览笔记，可以开始补关系理由。", "ok");
+    } else {
+      setStatus("已打开导览笔记。", "ok");
     }
     return true;
   }

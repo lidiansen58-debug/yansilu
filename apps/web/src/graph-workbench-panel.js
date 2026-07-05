@@ -16,17 +16,17 @@ function defaultWorkbenchTabMeta(value = "") {
   const meta = {
     clues: {
       key: "clues",
-      label: "关系待办",
+      label: "补缺口",
       emptyLabel: "关系清楚",
-      panelTitle: "关系待办",
-      note: "先处理会影响图谱可读性的关系"
+      panelTitle: "补缺口",
+      note: "优先处理孤立笔记、缺理由关系和薄弱连接。"
     },
     questions: {
       key: "questions",
-      label: "思考问题",
-      emptyLabel: "暂无问题",
-      panelTitle: "思考问题",
-      note: "从问题里继续长出观点"
+      label: "核心观点",
+      emptyLabel: "暂无观点",
+      panelTitle: "核心观点",
+      note: "从问题、张力和可写主题里继续长出观点。"
     }
   };
   return meta[key] || meta.clues;
@@ -35,9 +35,9 @@ function defaultWorkbenchTabMeta(value = "") {
 function defaultThinkingFilterMeta(value = "") {
   const key = String(value || "all").trim().toLowerCase();
   const meta = {
-    all: { key: "all", label: "全部", note: "查看全部待确认内容" },
-    theme: { key: "theme", label: "主题", note: "查看可能形成可写主题的聚集" },
-    organize: { key: "organize", label: "关系", note: "查看待整理的关系" }
+    all: { key: "all", label: "全部", note: "查看全部待确认内容。" },
+    theme: { key: "theme", label: "主题", note: "只看可能形成可写主题的聚集。" },
+    organize: { key: "organize", label: "关系", note: "只看待整理的关系。" }
   };
   return meta[key] || meta.all;
 }
@@ -80,12 +80,12 @@ export function renderGraphWorkbenchEntryPillsView({ clueSummary = null, questio
     { meta: questionMeta, total: Number(questionSummary?.total || 0) }
   ];
   return `
-    <div class="graph-workbench-entry-group" aria-label="图谱侧栏入口">
+    <div class="graph-workbench-entry-group" aria-label="图谱处理入口">
       ${entries
         .map(({ meta, total }) => {
           const active = graphState.workbenchPanelOpen === true && graphWorkbenchTabMeta(graphState.workbenchPanelTab).key === meta.key;
           const label = total > 0 ? meta.label : meta.emptyLabel;
-          const ariaLabel = total > 0 ? `${meta.label}：${total} 项。${meta.note}` : `${meta.emptyLabel}。${meta.note}`;
+          const ariaLabel = total > 0 ? `${meta.label}，${total} 项。${meta.note}` : `${meta.emptyLabel}。${meta.note}`;
           return `
             <button class="graph-workbench-entry${active ? " is-active" : ""}${total <= 0 ? " is-empty" : ""}" type="button" data-graph-workbench-entry="${escapeHtml(meta.key)}" aria-pressed="${active}" aria-label="${escapeHtml(ariaLabel)}" title="${escapeHtml(ariaLabel)}">
               <span>${escapeHtml(label)}</span>
@@ -100,8 +100,8 @@ export function renderGraphWorkbenchEntryPillsView({ clueSummary = null, questio
 
 export function renderGraphResearchNavigatorEntryView(open = false) {
   const action = open ? "close" : "open";
-  const label = "概览";
-  const title = open ? "收起概览" : "打开概览";
+  const label = "总览";
+  const title = open ? "收起总览" : "打开总览";
   return `
     <button class="graph-workbench-entry graph-research-entry${open ? " is-active" : ""}" type="button" data-graph-research-${action} aria-pressed="${open}" title="${title}">
       <span>${label}</span>
@@ -116,9 +116,9 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
   if (!filtered.length) {
     return `
       <div class="graph-thinking-empty">
-        <strong>${escapeHtml(meta.key === "theme" ? "还没有可写主题推荐" : meta.key === "organize" ? "还没有待处理关系" : "当前没有明显问题")}</strong>
-        <span>${escapeHtml(meta.key === "theme" ? "运行图谱扫描后，可以在这里查看可能形成可写主题的笔记组。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待处理内容。")}</span>
-        <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "扫描追问"}</button>
+        <strong>${escapeHtml(meta.key === "theme" ? "还没有可写主题建议" : meta.key === "organize" ? "还没有待处理关系" : "当前没有明显问题")}</strong>
+        <span>${escapeHtml(meta.key === "theme" ? "导入或积累更多笔记后，这里会出现可能成题的笔记组。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待处理内容。")}</span>
+        <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "扫描图谱"}</button>
       </div>
     `;
   }
@@ -133,13 +133,13 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
           return `
             <article class="graph-thinking-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
               <button class="graph-thinking-item-main" type="button" ${item.actionAttrs || ""}>
-                <span class="graph-thinking-kicker">${escapeHtml(item.kicker || "可继续判断")}</span>
+                <span class="graph-thinking-kicker">${escapeHtml(item.kicker || "待判断")}</span>
                 <strong>${escapeHtml(item.title || "待处理")}</strong>
                 <small>${escapeHtml(item.meta || "")}</small>
                 <em>${escapeHtml(item.detail || "这里值得继续判断。")}</em>
                 ${item.question ? `<span class="graph-thinking-question"><small>要判断的问题</small>${escapeHtml(item.question)}</span>` : ""}
               </button>
-              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待处理")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
+              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${actionLabel}：${item.title || "待处理"}`)}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
             </article>
           `;
         })
@@ -152,7 +152,7 @@ export function renderGraphWorkbenchPriorityQueueView(items = [], activeKey = "q
   const { escapeHtml, graphThinkingHighlightAttrs, graphCompactActionLabel } = graphWorkbenchPanelDeps(deps);
   const priorityItems = graphWorkbenchPriorityItems(items, activeKey);
   if (!priorityItems.length) return "";
-  const title = activeKey === "clues" ? "先处理这 3 条" : "先看这 3 个问题";
+  const title = activeKey === "clues" ? "先补这 3 个缺口" : "先看这 3 个判断";
   const note = activeKey === "clues"
     ? "从这里开始，图谱会最快变清楚。"
     : "从这里开始，最容易长出下一步观点。";
@@ -175,7 +175,7 @@ export function renderGraphWorkbenchPriorityQueueView(items = [], activeKey = "q
                   <strong>${escapeHtml(item.title || "待处理")}</strong>
                   <small>${escapeHtml(item.question || item.detail || "这里值得继续判断。")}</small>
                 </button>
-                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待处理")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
+                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${actionLabel}：${item.title || "待处理"}`)}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
               </article>
             `;
           })
@@ -192,10 +192,10 @@ export function renderGraphThinkingReviewNoteView(summary = {}, deps = {}) {
   return `
     <div class="graph-thinking-review-note">
       <div>
-        <strong>已保存 ${escapeHtml(String(artifactCount))} 项待确认</strong>
-        <span>这些结果就在当前图谱里处理。先看待确认内容，只保存能说清理由的关系或可写主题。</span>
+        <strong>有 ${escapeHtml(String(artifactCount))} 项待确认</strong>
+        <span>只保存你能说清理由的关系或主题。</span>
       </div>
-      <button class="graph-thinking-review-action" type="button" data-graph-focus-thinking-review aria-label="查看图谱待确认内容">查看待确认</button>
+      <button class="graph-thinking-review-action" type="button" data-graph-focus-thinking-review aria-label="查看待确认内容">查看</button>
     </div>
   `;
 }
@@ -212,7 +212,7 @@ export function renderGraphThinkingPanelContentView({ summary = {}, items = [], 
     })
     .join("");
   return `
-    <div class="graph-thinking-filters" aria-label="待确认内容筛选">
+    <div class="graph-thinking-filters" aria-label="筛选待确认内容">
       ${filterButtons}
     </div>
     ${
@@ -222,7 +222,7 @@ export function renderGraphThinkingPanelContentView({ summary = {}, items = [], 
               ? `<div class="graph-thinking-categories">${categories
                   .map((item) => `<span><strong>${escapeHtml(String(item.count))}</strong>${escapeHtml(item.label)}</span>`)
                   .join("")}</div>`
-              : `<div class="graph-empty">当前范围暂时没有明显要优先判断的内容。可以继续写笔记或补充关系理由后再刷新图谱。</div>`
+              : `<div class="graph-empty">当前范围暂时没有需要优先判断的内容。</div>`
           )
         : ""
     }
@@ -238,9 +238,9 @@ export function renderGraphThinkingPanelView({ summary = {}, items = [] } = {}, 
       <div class="graph-thinking-panel-head">
         <div>
           <strong>${escapeHtml(summary.label || "待确认内容")}</strong>
-          <span>${escapeHtml(summary.detail || "按需查看可写主题推荐、待关联笔记、可能相关内容和关系确认。")}</span>
+          <span>${escapeHtml(summary.detail || "先看建议，再决定采纳、忽略或归档。")}</span>
         </div>
-        <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭待确认面板" title="关闭待确认内容">${renderGraphIcon("close")}</button>
+        <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭待确认内容" title="关闭">${renderGraphIcon("close")}</button>
       </div>
       ${renderGraphThinkingPanelContentView({ summary, items, includeSummary: true }, deps)}
     </aside>
@@ -255,13 +255,13 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
   const guide =
     activeTab.key === "clues"
       ? {
-          title: "从最影响图谱可读性的地方开始",
-          detail: "先处理待关联笔记和缺少连接；已有关系只在需要补理由时再打开。",
-          action: "AI 扫描"
+          title: "先把最影响图谱可读性的地方补上",
+          detail: "优先处理未关联笔记和缺理由关系；已清楚的关系可以先不打开。",
+          action: "扫描图谱"
         }
       : {
-          title: "每次只追一个问题",
-          detail: "打开对应笔记或关系，判断它是否能变成新的观点、边界或主题。"
+          title: "一次只判断一个问题",
+          detail: "打开对应笔记或关系，判断它能否变成新的观点、边界或主题。"
         };
   const tabs = ["clues", "questions"]
     .map((value) => {
@@ -275,25 +275,25 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
   const isolatedQueueVisible = activeTab.key === "clues" && String(isolatedQueueMarkup || "").trim();
   const bodyMarkup =
     activeTab.key === "clues"
-      ? clueSectionsMarkup || `<div class="graph-empty">当前范围暂时没有明显需要优先处理的关系。</div>`
+      ? clueSectionsMarkup || `<div class="graph-empty">当前范围没有明显需要优先处理的关系。</div>`
       : renderGraphThinkingPanelContentView({ summary: questionSummary, items: thinkingItems, includeSummary: false }, deps);
   const priorityMarkup = renderGraphWorkbenchPriorityQueueView(thinkingItems, activeTab.key, deps);
   const foldedBodyMarkup = String(bodyMarkup || "").trim()
     ? `<details class="graph-workbench-all"${priorityMarkup ? "" : " open"}>
-        <summary>${activeTab.key === "clues" ? "查看全部关系待办" : "查看全部思考问题"}</summary>
+        <summary>${activeTab.key === "clues" ? "查看全部缺口" : "查看全部判断"}</summary>
         ${bodyMarkup}
       </details>`
     : "";
   return `
-    <aside class="graph-workbench-panel" aria-label="图谱侧栏">
+    <aside class="graph-workbench-panel" aria-label="图谱处理面板">
       <div class="graph-workbench-panel-head">
         <div>
           <strong>${escapeHtml(activeTab.panelTitle || activeTab.label)}</strong>
           <span>${escapeHtml(summary?.detail || activeTab.note)}</span>
         </div>
-        <button class="graph-overlay-close graph-workbench-panel-close" type="button" data-graph-workbench-close aria-label="收起图谱侧栏" title="收起图谱侧栏">${renderGraphIcon("close")}</button>
+        <button class="graph-overlay-close graph-workbench-panel-close" type="button" data-graph-workbench-close aria-label="收起图谱处理面板" title="收起">${renderGraphIcon("close")}</button>
       </div>
-      <div class="graph-workbench-tabs" aria-label="图谱侧栏标签">
+      <div class="graph-workbench-tabs" aria-label="图谱处理标签">
         ${tabs}
       </div>
       <section class="graph-workbench-guide">

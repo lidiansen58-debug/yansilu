@@ -5,6 +5,7 @@ import {
   buildSmartNotesDemoWalkthrough,
   isSmartNotesDemoScope,
   renderSmartNotesDemoWalkthrough,
+  smartNotesDemoActionLabel,
   renderWritingBeginnerMainlineView,
   writingBeginnerMainline
 } from "../../apps/web/src/beginner-onboarding-flow.js";
@@ -30,10 +31,26 @@ test("beginner flow detects Smart Notes demo and renders one focused next step",
   assert.match(html, /sidebar-flow-current/);
   assert.match(html, /第 3 \/ 5 步/);
   assert.match(html, /读主题索引/);
-  assert.match(html, /打开“为什么要关联笔记？”/);
+  assert.match(html, /打开第 3 步笔记/);
+  assert.doesNotMatch(html, /打开“为什么要关联笔记？”/);
   assert.doesNotMatch(html, /data-sidebar-flow-action="open-demo-note-relations"/);
   assert.doesNotMatch(html, /打开写作中心/);
   assert.doesNotMatch(html, /\b(?:PN-SN|WP-SN|IC-SN)-/);
+});
+
+test("beginner demo walkthrough keeps note title separate from the action button", () => {
+  const notes = [
+    { id: "GUIDE-SMART-NOTES-START" },
+    { id: "PERM-WRITING-STARTS-BEFORE-DRAFT" }
+  ];
+  const flow = buildSmartNotesDemoWalkthrough({ notes, selectedNoteId: "GUIDE-SMART-NOTES-START" });
+  const html = renderSmartNotesDemoWalkthrough(flow);
+
+  assert.equal(smartNotesDemoActionLabel(flow.steps[0], 0), "打开第 1 步笔记");
+  assert.match(html, /从记录到永久笔记/);
+  assert.match(html, /打开第 1 步笔记/);
+  assert.doesNotMatch(html, /打开“写作不是最后一步”/);
+  assert.match(html, /data-sidebar-flow-note-id="PERM-WRITING-STARTS-BEFORE-DRAFT"/);
 });
 
 test("beginner flow does not treat arbitrary SN-looking notes as the Smart Notes demo", () => {

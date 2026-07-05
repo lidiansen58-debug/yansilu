@@ -21,7 +21,7 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
   if (!edge) return "";
   const sourceId = String(edge?.fromNoteId || "").trim();
   const targetId = String(edge?.toNoteId || "").trim();
-  const sourceTitle = edge.fromTitle || graphNodeTitle(nodeMap, sourceId, sourceId || "源笔记");
+  const sourceTitle = edge.fromTitle || graphNodeTitle(nodeMap, sourceId, sourceId || "来源笔记");
   const targetTitle = edge.toTitle || graphNodeTitle(nodeMap, targetId, targetId || "目标笔记");
   const relationType = String(edge?.relationType || "associated_with").trim().toLowerCase();
   const relationLabel = graphRelationTypeLabel(relationType);
@@ -37,27 +37,27 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
     : null;
   const prompts = [
     review.prompt,
-    "这条关系方向是否正确？是否应该反过来，或拆成两条更具体的关系？",
-    "如果这条线被删除，图谱损失的是论证结构，还是只是导航便利？"
+    "这条关系方向是否正确？是否需要反过来，或拆成两条更具体的关系？",
+    "如果删掉这条线，损失的是论证结构，还是只是导航便利？"
   ];
   return renderGraphSelectionShell({
     className: `is-edge is-${review.tone}`,
-    ariaLabel: "选中关系的确认详情",
-    kicker: "已保存关系",
-    title: `${sourceTitle} -> ${targetTitle}`,
+    ariaLabel: "选中关系",
+    kicker: "关系",
+    title: `${sourceTitle} → ${targetTitle}`,
     meta: `${group.label} · ${relationLabel} · ${graphRelationSourceLabel(edge.createdBy)}`,
-    closeLabel: "收起关系确认",
+    closeLabel: "关闭关系详情",
     roleLabel: review.label,
     roleDetail: review.detail,
     body: `
       <div class="graph-selection-reason">
-        <small>当前理由</small>
-        <p>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "还没有写清楚这条关系为什么成立。")}</p>
+        <small>关系理由</small>
+        <p>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "还没有写清这条关系为什么成立。")}</p>
       </div>
-      <section class="graph-relation-adjustment" aria-label="关系调整建议">
+      <section class="graph-relation-adjustment" aria-label="关系处理建议">
         <div class="graph-relation-adjustment-head">
-          <span>${escapeHtml(adjustment.label)}</span>
-          <p>${escapeHtml(adjustment.detail)}</p>
+          <span>${escapeHtml(adjustment.label || "可以怎么处理")}</span>
+          <p>${escapeHtml(adjustment.detail || "确认这条关系是否需要加强、改写或转成更正式的观点关系。")}</p>
         </div>
         <div class="graph-relation-adjustment-grid">
           ${adjustment.cards
@@ -76,7 +76,7 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
           selectedAdjustment
             ? `<div class="graph-selection-reason is-soft">
                 <small>当前处理方向</small>
-                <p>${escapeHtml(`${selectedAdjustment.title}：${selectedAdjustment.text}。先在这里确认判断；需要改正文时，再用“打开源笔记”。`)}</p>
+                <p>${escapeHtml(`${selectedAdjustment.title}：${selectedAdjustment.text}。先在这里确认判断；需要改正文时，再打开笔记。`)}</p>
               </div>`
             : ""
         }
@@ -88,9 +88,10 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
           { label: "来源", value: graphRelationSourceLabel(edge.createdBy) }
         ])}
       </div>
-      ${renderGraphPromptDetails("确认提示（可选）", prompts)}`,
+      ${renderGraphPromptDetails("思考提示", prompts)}`,
     actions: `
-      <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(sourceId)}">打开源笔记</button>
-      <button class="graph-selection-action is-secondary" type="button" data-graph-relation-adjustment="strengthen"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${relationId ? "" : " disabled"}>${escapeHtml(actionMeta.label)}</button>`
+      <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(sourceId)}">打开来源笔记</button>
+      <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(targetId)}">打开目标笔记</button>
+      <button class="graph-selection-action is-secondary" type="button" data-graph-relation-adjustment="strengthen"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${relationId ? "" : " disabled"}>${escapeHtml(actionMeta.label || "调整关系")}</button>`
   });
 }

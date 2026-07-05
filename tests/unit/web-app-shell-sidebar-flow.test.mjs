@@ -86,6 +86,7 @@ test("sidebar flow renders Smart Notes demo walkthrough when demo notes are pres
   assert.equal(state.kind, "smart-notes-demo");
   assert.match(markup, /Smart Notes Demo 导览/);
   assert.match(markup, /data-sidebar-flow-action="open-demo-note-relations"/);
+  assert.match(markup, /打开并关联/);
   assert.doesNotMatch(markup, /data-sidebar-flow-action="open-demo-writing"/);
   assert.doesNotMatch(markup, /\b(?:PN-SN|WP-SN|IC-SN)-/);
 });
@@ -165,7 +166,8 @@ test("sidebar flow demo actions open notes, relations, writing, and review", asy
     activateModule: (moduleName) => calls.push(["activate", moduleName]),
     openNoteById: (noteId, options) => calls.push(["open", noteId, options]),
     openWritingModule: async () => calls.push(["writing"]),
-    handleStateChange: async (reason, payload) => calls.push(["state", reason, payload])
+    handleStateChange: async (reason, payload) => calls.push(["state", reason, payload]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
   };
 
   assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note", "PERM-WRITING-STARTS-BEFORE-DRAFT") }, deps), true);
@@ -176,12 +178,34 @@ test("sidebar flow demo actions open notes, relations, writing, and review", asy
   assert.deepEqual(calls, [
     ["activate", "explorer"],
     ["open", "PERM-WRITING-STARTS-BEFORE-DRAFT", { preferTitleSelection: false }],
+    ["status", "已打开导览笔记。", "ok"],
     ["activate", "explorer"],
     ["open", "PERM-UNLINKED-PRACTICE", { preferTitleSelection: false }],
     ["state", "open-note-relations", { noteId: "PERM-UNLINKED-PRACTICE", source: "smart-notes-demo-walkthrough" }],
+    ["status", "已打开导览笔记，可以开始补关系理由。", "ok"],
     ["activate", "writing"],
     ["writing"],
     ["activate", "today"]
+  ]);
+});
+
+test("sidebar flow demo note action reports failure when the target note cannot open", async () => {
+  const calls = [];
+  const deps = {
+    activateModule: (moduleName) => calls.push(["activate", moduleName]),
+    openNoteById: (noteId, options) => {
+      calls.push(["open", noteId, options]);
+      return false;
+    },
+    handleStateChange: async (reason, payload) => calls.push(["state", reason, payload]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  };
+
+  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note-relations", "MISSING") }, deps), false);
+  assert.deepEqual(calls, [
+    ["activate", "explorer"],
+    ["open", "MISSING", { preferTitleSelection: false }],
+    ["status", "没有找到这一步的导览笔记，请重新导入 Smart Notes Demo。", "warn"]
   ]);
 });
 

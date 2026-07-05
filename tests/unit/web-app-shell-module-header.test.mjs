@@ -31,12 +31,14 @@ function headerElements() {
   };
 }
 
-test("module header renders shell-only empty actions for explorer settings graph imports today and writing", () => {
+test("module header renders shell-only empty actions for explorer settings graph imports backup ai inbox today and writing", () => {
   for (const [module, expectedTitle, expectedSummary] of [
     ["explorer", "", ""],
     ["settings", "Settings", "Settings summary"],
     ["graph", "", ""],
     ["imports", "Imports", "Import summary"],
+    ["backup", "Backup", "Backup summary"],
+    ["aiInbox", "AI Inbox", "AI Inbox summary"],
     ["today", "Today", "Today summary"],
     ["writing", "Writing", "Writing summary"]
   ]) {
@@ -46,8 +48,8 @@ test("module header renders shell-only empty actions for explorer settings graph
       state: { module },
       elements,
       moduleUi: {
-        title: module === "today" ? "Today" : module === "writing" ? "Writing" : "Imports",
-        summary: module === "today" ? "Today summary" : module === "writing" ? "Writing summary" : "Import summary"
+        title: expectedTitle || "Imports",
+        summary: expectedSummary || "Import summary"
       },
       settingsHeader: { title: "Settings", summary: "Settings summary" }
     });
@@ -97,7 +99,7 @@ test("module header renders AI route badges and binds module actions", async () 
   assert.equal(elements.moduleSummary.textContent, "Write");
   assert.match(elements.moduleHeaderActions.innerHTML, /回到笔记/);
   assert.match(elements.moduleHeaderActions.innerHTML, /云端/);
-  assert.match(elements.moduleHeaderActions.innerHTML, /已连通/);
+  assert.match(elements.moduleHeaderActions.innerHTML, /已连接/);
   assert.match(elements.moduleHeaderActions.innerHTML, /gpt-test/);
   assert.equal(packSelect.value, "Privacy First");
 
