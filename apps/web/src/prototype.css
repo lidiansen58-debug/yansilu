@@ -19509,6 +19509,7 @@
     #editorWorkspace > .toolbar .tb-label.has-icon,
     #editorWorkspace > .toolbar #btnFocusMode,
     #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon,
+    #editorWorkspace > .toolbar #btnRecordPermanent,
     #editorWorkspace > .toolbar #btnSave {
       width: 40px !important;
       min-width: 40px !important;
@@ -19520,6 +19521,7 @@
 
     #editorWorkspace > .toolbar .tb-label.has-icon span,
     #editorWorkspace > .toolbar #btnFocusMode span,
+    #editorWorkspace > .toolbar #btnRecordPermanent span,
     #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon span {
       display: none !important;
     }
@@ -20443,17 +20445,17 @@
     }
 
     .editor-stage-shell #btnRecordPermanent:not(.hidden) {
-      width: auto !important;
-      min-width: 132px !important;
-      height: 36px !important;
-      padding: 0 14px !important;
-      gap: 8px !important;
+      width: 40px !important;
+      min-width: 40px !important;
+      height: 40px !important;
+      padding: 0 !important;
+      gap: 0 !important;
       display: inline-flex !important;
       border: 1px solid rgba(13, 148, 136, 0.46) !important;
-      border-radius: 10px !important;
+      border-radius: 12px !important;
       background: linear-gradient(135deg, #0f8b73 0%, #0f766e 100%) !important;
       color: #ffffff !important;
-      box-shadow: 0 12px 24px rgba(15, 118, 110, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+      box-shadow: 0 8px 18px rgba(15, 118, 110, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
     }
 
     .editor-stage-shell #btnRecordPermanent:not(.hidden):hover,
@@ -20465,10 +20467,7 @@
     }
 
     .editor-stage-shell #btnRecordPermanent:not(.hidden) span {
-      display: inline !important;
-      white-space: nowrap;
-      line-height: 1;
-      font-weight: 850;
+      display: none !important;
     }
 
     .editor-stage-shell .editor-wrap,

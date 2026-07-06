@@ -66,6 +66,32 @@ test("graph state actions open isolated workflow when relation form is not neede
   assert.deepEqual(status.calls.at(-1), { message: "已打开建联流程", tone: "ok" });
 });
 
+test("graph state actions open today organizer isolated note directly in the relation form", async () => {
+  const status = statusRecorder();
+  const calls = [];
+
+  const result = await handleGraphAssociateNoteStateChange({ noteId: "n1", source: "today-organizing" }, {
+    state: { module: "graph", selectedFolderId: "folder-1" },
+    graphAssociateNoteRoute: () => ({ kind: "graph-open-isolated-workflow", noteId: "n1", activeTab: "ai" }),
+    applyExplorerSelectionContext: (context) => calls.push(["context", context]),
+    graphRelationWorkflowController: {
+      openIsolatedFromAction: () => assert.fail("today organizer should not stop at isolated queue selection"),
+      openRelationFormFromAction: () => assert.fail("today organizer should keep isolated return state")
+    },
+    setGraphIsolatedWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
+    openGraphSelection: (selection) => calls.push(["selection", selection]),
+    setStatus: status.setStatus
+  });
+
+  assert.equal(result, true);
+  assert.deepEqual(calls, [
+    ["context", { noteId: "n1", syncSearch: false, expandFolder: true }],
+    ["tab", "n1", "manual"],
+    ["selection", { kind: "relationForm", noteId: "n1", returnTo: "isolated" }]
+  ]);
+  assert.deepEqual(status.calls.at(-1), { message: "已打开关联表单。选择一条相关笔记，写一句理由并保存。", tone: "ok" });
+});
+
 test("graph state actions route import result through the isolated relation flow", async () => {
   const status = statusRecorder();
   const calls = [];

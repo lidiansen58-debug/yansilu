@@ -7,7 +7,7 @@ import {
 export function noteTypeGlyph(type) {
   if (type === "fleeting") return "随";
   if (type === "literature") return "文";
-  return "原";
+  return "久";
 }
 
 export function noteTypeText(type) {

@@ -40,7 +40,6 @@ import { createModuleWorkspaceHeaderRuntimeRoutes } from "./app-module-header-ru
 import { createSidebarTitleController } from "./app-shell-sidebar-controller.js";
 import { createSidebarTitlePrototypeDepsProvider } from "./app-shell-sidebar-host-deps.js";
 import { installSidebarFlowEventHandler } from "./app-shell-sidebar-flow.js";
-import { buildSmartNotesDemoWalkthrough, renderSmartNotesDemoGuidePanel } from "./beginner-onboarding-flow.js";
 import { installMobileNoteEventBindings } from "./mobile-note-event-bindings.js";
 import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-state-change-host-deps.js";
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
@@ -2988,15 +2987,9 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
 function renderSmartNotesDemoGuide() {
   const element = $("demoGuidePanel");
   if (!element) return null;
-  const demoWalkthrough = buildSmartNotesDemoWalkthrough({ notes: state.notes, selectedNoteId: state.selectedFileId });
-  const shouldShow = state.module === "explorer" && !!demoWalkthrough;
-  element.classList.toggle("hidden", !shouldShow);
-  if (!shouldShow) {
-    element.innerHTML = "";
-    return null;
-  }
-  element.innerHTML = renderSmartNotesDemoGuidePanel(demoWalkthrough, { escapeHtml });
-  return demoWalkthrough;
+  element.classList.add("hidden");
+  element.innerHTML = "";
+  return null;
 }
 
 function syncNewNoteButtons() {

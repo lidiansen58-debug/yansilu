@@ -378,6 +378,22 @@ test("editor toolbar exposes heading levels as a visible select", () => {
   );
 });
 
+test("editor toolbar keeps create permanent note as a compact icon action", () => {
+  const html = readRepoFile("apps/web/src/prototype.html");
+  const css = readRepoFile("apps/web/src/prototype.css");
+
+  assert.match(html, /id="btnRecordPermanent"/);
+  assert.match(css, /#editorWorkspace > \.toolbar #btnRecordPermanent/);
+  assert.match(
+    css,
+    /\.editor-stage-shell #btnRecordPermanent:not\(\.hidden\)\s*\{[\s\S]*?width: 40px !important;[\s\S]*?min-width: 40px !important;[\s\S]*?height: 40px !important;/
+  );
+  assert.match(
+    css,
+    /\.editor-stage-shell #btnRecordPermanent:not\(\.hidden\) span\s*\{[\s\S]*?display: none !important;/
+  );
+});
+
 test("file context menu keeps move user-facing and removes id or properties utilities", () => {
   const source = readRepoFile("apps/web/src/components-explorer-pane.js");
   const menuStart = source.indexOf('      if (kind === "file") {\n        const note = this.state.notes.find((x) => x.id === id);');

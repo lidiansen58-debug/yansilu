@@ -36,6 +36,12 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
   if (state.module === "graph") {
     explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
     explorer?.collapseDisconnectedGroup?.(graphOriginalScopeDirectoryId, { auto: true });
+    if (payload.source === "today-organizing") {
+      setGraphIsolatedWorkflowActiveTab(noteId, "manual");
+      openGraphSelection({ kind: "relationForm", noteId, returnTo: "isolated" });
+      setStatus("已打开关联表单。选择一条相关笔记，写一句理由并保存。", "ok");
+      return true;
+    }
     if (payload.source === "import-result") {
       if (graphRelationWorkflowController?.openIsolatedFromAction?.({ noteId })) {
         setStatus("已打开建联流程。选择目标笔记，写一句理由并保存。", "ok");
