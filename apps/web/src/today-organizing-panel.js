@@ -132,15 +132,16 @@ function renderOverview(state = {}) {
 function renderBeginnerGuide() {
   return `
     <section class="today-beginner-guide" aria-label="新用户使用步骤">
-      <div>
-        <span class="today-action-kicker">新用户建议这样用</span>
-        <strong>先完成一个小闭环，不用一次理解全部功能。</strong>
+      <div class="today-beginner-copy">
+        <span class="today-action-kicker">新用户建议</span>
+        <strong>从一条材料开始，走完一次小闭环。</strong>
+        <p>不用先研究所有功能。今天只做一件事：把记录加工成判断，再让它进入关系、主题和写作。</p>
       </div>
       <ol>
-        <li><span>1</span><strong>处理材料</strong><small>把随笔或文献转成自己的判断。</small></li>
-        <li><span>2</span><strong>补关系</strong><small>说明两条笔记为什么相关。</small></li>
-        <li><span>3</span><strong>成主题</strong><small>把同一问题下的笔记整理成主题。</small></li>
-        <li><span>4</span><strong>去写作</strong><small>从主题进入写作中心生成提纲。</small></li>
+        <li><span>1</span><strong>处理材料</strong><small>把随笔或文献改写成自己的判断。</small></li>
+        <li><span>2</span><strong>建立关系</strong><small>写清两条笔记为什么相关。</small></li>
+        <li><span>3</span><strong>整理主题</strong><small>把同一问题下的笔记放到一起。</small></li>
+        <li><span>4</span><strong>开始写作</strong><small>从主题进入写作中心生成提纲。</small></li>
       </ol>
     </section>
   `;
@@ -193,11 +194,16 @@ export function renderTodayOrganizingPanel(state = {}) {
           ${escape(recommended.actionLabel)}
         </button>
       </section>
-      <section class="today-action-grid" aria-label="继续整理">
+      <section class="today-action-grid" aria-label="其他可做">
         ${actions.filter((item) => item.key !== recommended.key).map(actionCard).join("")}
       </section>
-      ${renderBeginnerGuide()}
-      ${renderOverview(state)}
+      <details class="today-secondary-details">
+        <summary>新手路径和当前状态</summary>
+        <div class="today-secondary-body">
+          ${renderBeginnerGuide()}
+          ${renderOverview(state)}
+        </div>
+      </details>
       <details class="today-secondary-details">
         <summary>辅助检查</summary>
         ${renderReviewChecklistPanel(state.reviewChecklist)}

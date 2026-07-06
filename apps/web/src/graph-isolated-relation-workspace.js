@@ -92,9 +92,9 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
     preferredTargetNoteId = "",
     preferredRelationType = "",
     preferredRationale = "",
-    heading = "关联工作台",
-    helper = "把当前笔记连接到一条真正相关的永久笔记。",
-    saveHint = "保存后，这条笔记会进入关系网。",
+    heading = "关联",
+    helper = "",
+    saveHint = "保存后进入关系网。",
     relationDraft = null,
     aiCandidates = null,
     manualTargets = null,
@@ -203,8 +203,8 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
   const manualStatusText = selectedManualTitle
     ? `已选择：${selectedManualTitle}`
     : manualSearchText
-      ? "继续选择一条搜索结果。"
-    : "先搜索标题或关键词；完整列表已折叠，避免从大列表里盲选。";
+      ? "点一条结果。"
+    : "输入关键词。";
   const sourceNote = graphFullNoteById(cleanNoteId, nodeMap) || {};
   const sourcePreviewText = String(graphNotePreviewText(sourceNote) || sourceTitle || "").trim();
   const sourceTags = graphNoteTags(sourceNote).slice(0, 5);
@@ -217,61 +217,45 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
         </div>
         <span>${escapeHtml(statusText)}</span>
       </div>
-      <div class="graph-isolated-join-steps" aria-label="关联步骤">
-        <div class="graph-isolated-join-step is-current">
-          <span>1</span>
-          <div>
-            <strong>选目标笔记</strong>
-            <p>找一条能互相说明的永久笔记。</p>
-          </div>
-        </div>
-        <div class="graph-isolated-join-step">
-          <span>2</span>
-          <div>
-            <strong>确定关系</strong>
-            <p>支持、限定、反驳、例子或桥接。</p>
-          </div>
-        </div>
-        <div class="graph-isolated-join-step">
-          <span>3</span>
-          <div>
-            <strong>写理由并保存</strong>
-            <p>一句话说清为什么相关。</p>
-          </div>
-        </div>
-      </div>
       <div class="graph-isolated-join-grid">
         <div class="graph-isolated-join-main">
           <form class="graph-isolated-relation-form" data-graph-isolated-relation-form${isolatedFlow ? " data-graph-isolated-flow" : ""} data-source-note="${escapeHtml(cleanNoteId)}" data-source-title="${escapeHtml(sourceTitle)}">
+            <div class="graph-relation-fast-head">
+              <span>1</span>
+              <strong>搜索并选择关联对象</strong>
+            </div>
             <div class="graph-isolated-mode-switch" role="tablist" aria-label="选择目标笔记方式">
-              <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">看推荐</button>
-              <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">自己搜索</button>
+              <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">搜索</button>
+              <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">推荐</button>
             </div>
             <input type="hidden" data-graph-relation-source-mode value="${escapeHtml(activeMode)}">
-            <div class="graph-isolated-target-panel"${activeMode === "ai" ? "" : " hidden"} data-graph-target-panel="ai">
-              <label class="graph-isolated-field">
-                 <span>推荐目标</span>
-                 <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
-                   ${aiOptions || `<option value="">暂时没有可靠推荐</option>`}
-                 </select>
-               </label>
-              <div class="graph-isolated-target-actions">
-                <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "刷新推荐" : "查找推荐")}</button>
-                <button class="graph-selection-action is-quiet" type="button" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">自己搜索</button>
-              </div>
-              <p class="graph-isolated-helper">${escapeHtml(resolvedAiCandidates.length ? "推荐只供参考，保存前仍由你确认关系和理由。" : resolvedHasAnalysis ? "暂时没有可靠推荐，可以自己搜索。" : "可以先查找推荐，也可以直接搜索你确定相关的笔记。")}</p>
-            </div>
             <div class="graph-isolated-target-panel"${activeMode === "manual" ? "" : " hidden"} data-graph-target-panel="manual">
-              <label class="graph-isolated-field">
-                <span>搜索目标</span>
-                <input type="search" data-graph-manual-target-search autocomplete="off" placeholder="输入标题关键词，找到要关联的永久笔记" value="${escapeHtml(manualSearchText)}"${selectedManualTitle ? ` data-selected-title="${escapeHtml(selectedManualTitle)}"` : ""}>
+              <label class="graph-isolated-field is-search-first">
+                <span>输入关键词</span>
+                <input type="search" data-graph-manual-target-search autocomplete="off" autofocus placeholder="输入标题关键词，边搜边选" value="${escapeHtml(manualSearchText)}"${selectedManualTitle ? ` data-selected-title="${escapeHtml(selectedManualTitle)}"` : ""}>
                 <input type="hidden" data-graph-manual-target-id value="${escapeHtml(selectedManualTargetNoteId)}">
               </label>
               <div class="graph-manual-target-list" data-graph-manual-target-list>
-                ${manualOptions || `<span class="graph-isolated-helper">当前范围没有可关联的其他永久笔记。</span>`}
+                ${manualOptions || `<span class="graph-isolated-helper">没有可关联的其它永久笔记。</span>`}
               </div>
-              ${hiddenManualCount ? `<details class="graph-manual-target-more"><summary>查看完整候选列表（还有 ${escapeHtml(hiddenManualCount)} 条）</summary><p>继续输入关键词会优先缩小结果。</p><div class="graph-manual-target-list">${manualMoreOptions}</div></details>` : ""}
+              ${hiddenManualCount ? `<details class="graph-manual-target-more"><summary>更多候选（${escapeHtml(hiddenManualCount)}）</summary><div class="graph-manual-target-list">${manualMoreOptions}</div></details>` : ""}
               <p class="graph-isolated-helper" data-graph-manual-target-status>${escapeHtml(manualStatusText)}</p>
+            </div>
+            <div class="graph-isolated-target-panel"${activeMode === "ai" ? "" : " hidden"} data-graph-target-panel="ai">
+              <label class="graph-isolated-field">
+                 <span>推荐笔记</span>
+                 <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
+                   ${aiOptions || `<option value="">暂无推荐</option>`}
+                 </select>
+               </label>
+              <div class="graph-isolated-target-actions">
+                <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "查找中" : "查找推荐")}</button>
+                <button class="graph-selection-action is-quiet" type="button" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">去搜索</button>
+              </div>
+            </div>
+            <div class="graph-relation-fast-head">
+              <span>2</span>
+              <strong>选择关系，写一句理由</strong>
             </div>
             <div class="graph-isolated-form-grid">
               <label class="graph-isolated-field">

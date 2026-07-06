@@ -1758,7 +1758,7 @@ function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), pre
         </div>
         <strong data-graph-preview-title>先选择一条目标笔记</strong>
         <span data-graph-preview-type hidden></span>
-        <p data-graph-preview-text>选择推荐目标或搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮层内。</p>
+        <p data-graph-preview-text>选中目标后显示预览。</p>
         <div class="graph-isolated-preview-tags" data-graph-preview-tags hidden></div>
       </aside>
     `;
@@ -1777,7 +1777,7 @@ function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), pre
   `;
 }
 
-function renderGraphRelationCandidateCards(candidates = [], { title = "可能相关笔记", note = "先选一条真正相关的笔记，能说清理由再保存为关系。", sourceLabel = "本地推荐" } = {}) {
+function renderGraphRelationCandidateCards(candidates = [], { title = "可能相关笔记", note = "选中确实相关的笔记后再保存。", sourceLabel = "本地推荐" } = {}) {
   const items = Array.isArray(candidates) ? candidates.filter((candidate) => candidate && graphCandidateCanSaveRelation(candidate)) : [];
   if (!items.length) return "";
   return `

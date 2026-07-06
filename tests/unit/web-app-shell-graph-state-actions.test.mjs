@@ -55,6 +55,7 @@ test("graph state actions open isolated workflow when relation form is not neede
     applyExplorerSelectionContext: () => {},
     setGraphIsolatedWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
     openGraphSelection: (selection) => calls.push(["selection", selection]),
+    refreshDirectoryGraph: async () => calls.push(["refresh"]),
     setStatus: status.setStatus
   });
 
@@ -80,14 +81,16 @@ test("graph state actions open today organizer isolated note directly in the rel
     },
     setGraphIsolatedWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
     openGraphSelection: (selection) => calls.push(["selection", selection]),
+    refreshDirectoryGraph: async () => calls.push(["refresh"]),
     setStatus: status.setStatus
   });
 
   assert.equal(result, true);
   assert.deepEqual(calls, [
     ["context", { noteId: "n1", syncSearch: false, expandFolder: true }],
+    ["refresh"],
     ["tab", "n1", "manual"],
-    ["selection", { kind: "relationForm", noteId: "n1", returnTo: "isolated" }]
+    ["selection", { kind: "relationForm", noteId: "n1", isolatedKey: "n1", returnTo: "isolated" }]
   ]);
   assert.deepEqual(status.calls.at(-1), { message: "已打开关联表单。选择一条相关笔记，写一句理由并保存。", tone: "ok" });
 });

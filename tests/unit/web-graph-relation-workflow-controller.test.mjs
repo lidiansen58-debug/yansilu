@@ -24,7 +24,7 @@ test("relation workflow route opens isolated organizing from queue actions", () 
   }));
 
   assert.equal(route.ok, true);
-  assert.equal(route.workflowTab, "ai");
+  assert.equal(route.workflowTab, "manual");
   assert.deepEqual(route.selection, { kind: "relationForm", returnTo: "isolated", isolatedKey: "iso-key", noteId: "note-a" });
 });
 

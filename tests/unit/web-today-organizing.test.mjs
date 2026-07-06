@@ -202,9 +202,12 @@ test("today organizing panel uses readable action words", () => {
   assert.match(html, /进入写作/);
   assert.match(html, /中心问题、关键笔记和阅读顺序/);
   assert.match(html, /先生成提纲，再决定是否起草/);
-  assert.match(html, /新用户建议这样用/);
-  assert.match(html, /先完成一个小闭环/);
-  assert.match(html, /把随笔或文献转成自己的判断/);
+  assert.match(html, /新用户建议/);
+  assert.match(html, /从一条材料开始，走完一次小闭环/);
+  assert.match(html, /把记录加工成判断，再让它进入关系、主题和写作/);
+  assert.match(html, /把随笔或文献改写成自己的判断/);
+  assert.match(html, /建立关系/);
+  assert.match(html, /开始写作/);
   assert.match(html, /当前状态只作参考/);
   assert.match(html, /处理这条材料/);
   assert.match(html, /data-today-action="review-material"/);

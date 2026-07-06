@@ -9,13 +9,13 @@ export function currentModuleSidebarUi({
     today: {
       sidebarTitle: "首页",
       sidebarSubtitle: "每天从这里开始，只推进最值得做的一步。",
-      sidebarFoot: "首页是总入口：先处理待整理材料，再补关系、成主题，最后进入写作。",
+      sidebarFoot: "先完成首屏推荐动作，其他信息只作参考。",
       title: "让笔记生长为思想",
-      summary: "每天只推进一步：处理材料、补一条关系、整理一个主题，最后进入写作。",
+      summary: "每天只推进一步：做最值得做的一件事。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>从一个小动作开始</h3>
-          <p>先处理最上方的推荐任务。材料会变成永久笔记，永久笔记通过关系形成主题，主题再进入写作。</p>
+          <h3>现在只看首屏</h3>
+          <p>先点推荐动作。新手路径、统计和检查都放在下方辅助信息里。</p>
         </div>
       `
     },
@@ -99,19 +99,11 @@ export function currentModuleSidebarUi({
       sidebarSubtitle: "把相关笔记整理成一篇文章的起点。",
       sidebarFoot: "复杂说明放在帮助里；这里先完成下一步。",
       title: "写作中心",
-      summary: "选择相关笔记，确定可写主题，生成提纲，再保存草稿。",
+      summary: "先确定要写什么，再生成提纲。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>当前目标</h3>
-          <p>先把能回答同一问题的笔记放到一起，再把它变成提纲和草稿。</p>
-        </div>
-        <div class="module-sidebar-card">
-          <h3>操作顺序</h3>
-          <ol class="module-sidebar-list">
-            <li>先确认一个可写主题</li>
-            <li>选择支撑它的相关笔记</li>
-            <li>生成文章提纲，再开始草稿</li>
-          </ol>
+          <h3>当前只做一件事</h3>
+          <p>写清文章题目和要回答的问题，然后生成提纲。</p>
         </div>
       `
     },

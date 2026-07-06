@@ -394,6 +394,20 @@ test("editor toolbar keeps create permanent note as a compact icon action", () =
   );
 });
 
+test("editor toolbar keeps actions in one compact row", () => {
+  const css = readRepoFile("apps/web/src/prototype.css");
+
+  assert.match(
+    css,
+    /\.editor-stage-shell \.toolbar,[\s\S]*?flex-wrap: nowrap !important;[\s\S]*?overflow-x: auto !important;[\s\S]*?overflow-y: visible !important;/
+  );
+  assert.match(
+    css,
+    /#editorWorkspace > \.toolbar,[\s\S]*?flex-wrap: nowrap !important;[\s\S]*?overflow-x: auto !important;[\s\S]*?overflow-y: visible !important;/
+  );
+  assert.match(css, /\.editor-stage-shell \.toolbar-group-view-actions\s*\{[\s\S]*?margin-left: 0 !important;/);
+});
+
 test("file context menu keeps move user-facing and removes id or properties utilities", () => {
   const source = readRepoFile("apps/web/src/components-explorer-pane.js");
   const menuStart = source.indexOf('      if (kind === "file") {\n        const note = this.state.notes.find((x) => x.id === id);');

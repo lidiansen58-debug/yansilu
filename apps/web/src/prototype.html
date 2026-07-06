@@ -470,22 +470,24 @@
             <header class="writing-topline">
               <div class="writing-topline-main">
                 <div class="import-card-kicker">从笔记到文章</div>
-                <strong>把相关笔记组织成提纲和草稿</strong>
-                <p>先选能回答同一问题的笔记，再确定主题、生成提纲、保存草稿。</p>
-                <div class="writing-topline-metrics" id="writingToplineMetrics" aria-label="写作中心当前速览">
-                  <div class="writing-topline-metric"><span>相关笔记</span><strong>0 条</strong><small>先选择笔记</small></div>
-                  <div class="writing-topline-metric"><span>可写主题</span><strong>未确定</strong><small>明确要写什么</small></div>
-                  <div class="writing-topline-metric"><span>开始草稿</span><strong>未开始</strong><small>先生成提纲</small></div>
-                </div>
+                <strong>写清问题，生成提纲</strong>
               </div>
             </header>
-            <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
+            <details class="writing-collapsed-strip">
+              <summary>当前状态和步骤</summary>
+              <div class="writing-topline-metrics" id="writingToplineMetrics" aria-label="写作中心当前速览">
+                <div class="writing-topline-metric"><span>相关笔记</span><strong>0 条</strong><small>先选择笔记</small></div>
+                <div class="writing-topline-metric"><span>可写主题</span><strong>未确定</strong><small>明确要写什么</small></div>
+                <div class="writing-topline-metric"><span>开始草稿</span><strong>未开始</strong><small>先生成提纲</small></div>
+              </div>
+              <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
                   <div class="writing-flow-step is-active"><span>1</span><strong>可写主题</strong><small>先明确想写清什么</small></div>
               <div class="writing-flow-step"><span>2</span><strong>相关笔记</strong><small>挑 2-5 条能支撑主题的笔记</small></div>
               <div class="writing-flow-step"><span>3</span><strong>文章提纲</strong><small>检查结构、证据和缺口</small></div>
               <div class="writing-flow-step"><span>4</span><strong>开始草稿</strong><small>按提纲进入写作</small></div>
-            </div>
-            <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
+              </div>
+              <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
+            </details>
             <nav class="writing-tabs" aria-label="写作中心功能切换" role="tablist">
               <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">开始写</button>
               <button class="writing-tab" type="button" data-writing-tab="notes" role="tab" aria-selected="false">选笔记</button>
@@ -493,12 +495,15 @@
               <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">高级工具</button>
             </nav>
             <div class="writing-project-grid" id="writingComposePanel">
-              <div id="writingBeginnerMainline" aria-live="polite"></div>
+              <details class="writing-collapsed-strip" id="writingBeginnerMainlineDetails">
+                <summary>新手路径</summary>
+                <div id="writingBeginnerMainline" aria-live="polite"></div>
+              </details>
               <section class="writing-section writing-output-card">
                 <div class="writing-section-head">
                   <div>
                     <div class="writing-section-title">可写主题</div>
-                    <div class="writing-section-note">先写清这篇文章要回答的问题，再选择能支撑它的永久笔记。</div>
+                    <div class="writing-section-note">题目和问题写清楚，就可以生成提纲。</div>
                   </div>
                 </div>
                 <div class="import-grid writing-form-grid">

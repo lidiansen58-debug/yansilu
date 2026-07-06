@@ -53,6 +53,7 @@ export function buildAppShellGraphStateChangeDeps(host = {}) {
       applyExplorerSelectionContext,
       setGraphIsolatedWorkflowActiveTab,
       openGraphSelection: host.openGraphSelection || (() => {}),
+      refreshDirectoryGraph,
       setStatus,
       handleStateChange
     },

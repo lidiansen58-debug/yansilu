@@ -10,6 +10,7 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
     applyExplorerSelectionContext = () => {},
     setGraphIsolatedWorkflowActiveTab = () => {},
     openGraphSelection = () => {},
+    refreshDirectoryGraph = async () => false,
     setStatus = () => {},
     handleStateChange = async () => false
   } = deps;
@@ -37,8 +38,9 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
     explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
     explorer?.collapseDisconnectedGroup?.(graphOriginalScopeDirectoryId, { auto: true });
     if (payload.source === "today-organizing") {
+      await refreshDirectoryGraph();
       setGraphIsolatedWorkflowActiveTab(noteId, "manual");
-      openGraphSelection({ kind: "relationForm", noteId, returnTo: "isolated" });
+      openGraphSelection({ kind: "relationForm", noteId, isolatedKey: noteId, returnTo: "isolated" });
       setStatus("已打开关联表单。选择一条相关笔记，写一句理由并保存。", "ok");
       return true;
     }

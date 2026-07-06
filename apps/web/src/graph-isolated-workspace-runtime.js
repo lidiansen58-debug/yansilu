@@ -348,9 +348,9 @@ function renderGraphIsolatedJoinNetworkFlow(
     preferredTargetNoteId = "",
     preferredRelationType = "",
     preferredRationale = "",
-    heading = "关联工作台",
-    helper = "选一条目标笔记，确定关系类型，写一句理由后保存。",
-    saveHint = "保存后，这条笔记会进入关系网。",
+    heading = "关联",
+    helper = "",
+    saveHint = "保存后进入关系网。",
     isolatedFlow = true
   } = {}
 ) {
@@ -401,7 +401,7 @@ function renderGraphIsolatedNextStepActions(noteId = "", { isolatedNotes = [], n
 function graphIsolatedWorkflowTabKey(value = "") {
   const key = String(value || "").trim().toLowerCase();
   if (key === "candidates" || key === "bridge") return "ai";
-  return ["ai", "manual"].includes(key) ? key : "ai";
+  return ["ai", "manual"].includes(key) ? key : "manual";
 }
 
 function graphIsolatedDecisionMode(value = "") {

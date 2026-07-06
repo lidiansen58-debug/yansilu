@@ -69,7 +69,7 @@ export function createGraphIsolatedRelationController({
       typeEl.textContent = type;
       typeEl.hidden = !type;
     }
-    if (textEl) textEl.textContent = text || "选择推荐目标或搜索结果后，这里会显示目标笔记摘要。保存关系和继续处理都留在当前浮窗内。";
+    if (textEl) textEl.textContent = text || "选中目标后显示预览。";
     if (tagsEl) {
       tagsEl.innerHTML = tags.map((tag) => `<em>${escapeHtml(`#${tag}`)}</em>`).join("");
       tagsEl.hidden = tags.length === 0;

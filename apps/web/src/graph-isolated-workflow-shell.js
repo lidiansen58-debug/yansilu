@@ -111,11 +111,10 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const cleanNoteId = String(noteId || "").trim();
     if (!cleanNoteId) return "";
     return `
-      <section class="graph-isolated-workflow" aria-label="关联工作台">
+      <section class="graph-isolated-workflow" aria-label="关联">
         <div class="graph-isolated-workflow-head">
           <div>
-            <strong>关联工作台</strong>
-            <p>只做一件事：选一条目标笔记，写清两条笔记为什么相关。</p>
+            <strong>关联</strong>
           </div>
           <span>${escapeHtml(visibleEdgeCount ? "已有关系" : "待处理")}</span>
         </div>
@@ -123,8 +122,8 @@ export function createGraphIsolatedWorkflowShellRenderer({
           nodeMap,
           edges,
           visibleEdgeCount,
-          heading: "选目标、写理由、保存",
-          helper: "先选一条真正相关的笔记，再说明为什么相关。"
+          heading: "关联",
+          helper: ""
         })}
       </section>
     `;
@@ -150,10 +149,10 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const isolatedQueueMarkup = renderQueue({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 });
     return renderSelectionShell({
       className: `is-isolated is-${decision.tone}`,
-      ariaLabel: "关联工作台",
-      kicker: "关联工作台",
+      ariaLabel: "关联",
+      kicker: "关联",
       title,
-      meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "未关联：找到一条关系即可",
+      meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "选对象，写理由，保存",
       closeLabel: "收起关联面板",
       roleLabel: "",
       roleDetail: "",

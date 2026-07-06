@@ -23,7 +23,7 @@ export function graphRelationWorkflowIsolatedSelectionFromAction(action = null) 
   return {
     ok: true,
     reason: "",
-    workflowTab: "ai",
+    workflowTab: "manual",
     statusText: "已打开建联流程",
     noteId,
     selection: {
