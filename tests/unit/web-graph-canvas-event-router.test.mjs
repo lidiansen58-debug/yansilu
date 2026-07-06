@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { bindGraphCanvasEvents } from "../../apps/web/src/graph-canvas-event-router.js";
+import { applyGraphReadingLensInteraction } from "../../apps/web/src/graph-toolbar-interaction-controller.js";
+import { applyGraphWorkbenchTabInteraction } from "../../apps/web/src/graph-workspace-interaction-controller.js";
 
 function createGraphCanvas() {
   const listeners = new Map();
@@ -123,6 +125,7 @@ test("graph canvas event router routes relation filter, manual search and wheel 
       return { changed: true };
     },
     renderGraphPanel: () => calls.push(["render"]),
+    dismissGraphCanvasHelpHint: () => calls.push(["dismiss-hint"]),
     requestAnimationFrame: (callback) => {
       calls.push(["raf"]);
       callback();
@@ -143,7 +146,7 @@ test("graph canvas event router routes relation filter, manual search and wheel 
     target: targetWithClosest({ ".graph-map-viewport": viewport })
   });
 
-  assert.deepEqual(calls.map((call) => call[0]), ["filter", "render", "status", "manual", "prevent", "wheel", "render", "raf", "center"]);
+  assert.deepEqual(calls.map((call) => call[0]), ["filter", "render", "status", "manual", "prevent", "dismiss-hint", "wheel", "render", "raf", "center"]);
   assert.equal(calls[0][1], graphState);
   assert.equal(calls[0][2], "supports");
 });
@@ -193,6 +196,40 @@ test("graph canvas event router focuses graph AI review in the workbench", async
   assert.equal(graphState.thinkingPanelOpen, true);
   assert.equal(graphState.thinkingFilter, "all");
   assert.deepEqual(calls.map((call) => call[0]), ["render", "status"]);
+});
+
+test("graph canvas event router opens next-step workbench from insight lens", async () => {
+  const graphCanvas = createGraphCanvas();
+  const graphState = { readingLens: "bridge", workbenchPanelOpen: false, workbenchPanelTab: "questions" };
+  const calls = [];
+  const lensButton = elementWithAttrs({ "data-graph-reading-lens": "insight" });
+
+  bindGraphCanvasEvents(graphCanvas, {
+    graphState,
+    graphReadingLensMeta: (value = "") => ({
+      key: String(value || "insight").trim() || "insight",
+      label: value === "insight" ? "推荐下一步" : "其他"
+    }),
+    applyGraphReadingLensInteraction,
+    applyGraphWorkbenchTabInteraction,
+    graphWorkbenchTabMeta: (value = "") => ({
+      key: String(value || "clues").trim() || "clues",
+      label: value === "clues" ? "关联任务" : "洞察问题"
+    }),
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (message, level) => calls.push(["status", level, message])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    target: targetWithClosest({
+      "[data-graph-reading-lens]": lensButton
+    })
+  });
+
+  assert.equal(graphState.readingLens, "insight");
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+  assert.deepEqual(calls, [["render"], ["status", "ok", "已打开图谱下一步建议"]]);
 });
 
 test("graph canvas event router routes map node and relation focus clicks", async () => {

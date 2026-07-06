@@ -202,6 +202,10 @@ test("today organizing panel uses readable action words", () => {
   assert.match(html, /进入写作/);
   assert.match(html, /中心问题、关键笔记和阅读顺序/);
   assert.match(html, /先生成提纲，再决定是否起草/);
+  assert.match(html, /新用户建议这样用/);
+  assert.match(html, /先完成一个小闭环/);
+  assert.match(html, /把随笔或文献转成自己的判断/);
+  assert.match(html, /当前状态只作参考/);
   assert.match(html, /处理这条材料/);
   assert.match(html, /data-today-action="review-material"/);
   assert.doesNotMatch(html, /data-today-action="review-material" disabled/);
@@ -210,6 +214,7 @@ test("today organizing panel uses readable action words", () => {
   assert.match(html, /进入写作/);
   assert.ok(html.indexOf("现在最重要") < html.indexOf("当前笔记库状态"));
   assert.ok(html.indexOf("现在最重要") < html.indexOf("辅助检查"));
+  assert.doesNotMatch(html, /today-path-inline/);
   assert.match(html, /<details class="today-secondary-details">/);
   assert.doesNotMatch(html, /候选队列|复核|线索|高级检查/);
 });
@@ -219,7 +224,7 @@ test("today organizing empty home makes demo import the primary first action", (
 
   assert.match(html, /第一次打开，建议先体验示例库/);
   assert.ok(html.includes("导入示例库 / 体验 Demo"));
-  assert.match(html, /用 10 分钟看懂研思录怎么让笔记长出思想/);
+  assert.match(html, /用 10 分钟看懂研思录怎么让笔记生长为思想/);
   assert.ok(html.indexOf("导入示例库 / 体验 Demo") < html.indexOf("先记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /辅助检查/);

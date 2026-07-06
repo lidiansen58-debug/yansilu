@@ -3,6 +3,12 @@ import {
   scheduleGraphDensityHintDismissForRuntime,
   shouldShowGraphDensityHintForRuntime
 } from "./graph-density-hint-controller.js";
+import {
+  clearGraphCanvasHelpHintTimerForRuntime,
+  dismissGraphCanvasHelpHintForRuntime,
+  scheduleGraphCanvasHelpHintDismissForRuntime,
+  shouldShowGraphCanvasHelpHintForRuntime
+} from "./graph-canvas-help-hint-controller.js";
 
 export function resetGraphDemoPresentationStateForRuntime(graphState = {}, deps = {}) {
   const setRelationTypeFilter = deps.setRelationTypeFilter || (() => {});
@@ -68,6 +74,10 @@ export function createGraphPresentationController(deps = {}) {
     clearGraphDensityHintTimer: () => clearGraphDensityHintTimerForRuntime(densityDeps()),
     scheduleGraphDensityHintDismiss: () => scheduleGraphDensityHintDismissForRuntime(densityDeps()),
     shouldShowGraphDensityHint: (options = {}) => shouldShowGraphDensityHintForRuntime(options, densityDeps()),
+    clearGraphCanvasHelpHintTimer: () => clearGraphCanvasHelpHintTimerForRuntime(densityDeps()),
+    scheduleGraphCanvasHelpHintDismiss: () => scheduleGraphCanvasHelpHintDismissForRuntime(densityDeps()),
+    shouldShowGraphCanvasHelpHint: (options = {}) => shouldShowGraphCanvasHelpHintForRuntime(options, densityDeps()),
+    dismissGraphCanvasHelpHint: () => dismissGraphCanvasHelpHintForRuntime(densityDeps()),
     resetGraphDemoPresentationState: () => resetGraphDemoPresentationStateForRuntime(graphState, {
       setRelationTypeFilter
     })

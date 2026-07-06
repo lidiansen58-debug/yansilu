@@ -72,14 +72,56 @@ function makeSecret() {
   return `pr_${randomBytes(18).toString("base64url")}`;
 }
 
-function firstLanIpv4() {
-  const interfaces = os.networkInterfaces();
-  for (const entries of Object.values(interfaces)) {
+function ipv4Parts(address = "") {
+  const parts = String(address || "").split(".").map((part) => Number(part));
+  return parts.length === 4 && parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255) ? parts : null;
+}
+
+function isPrivateLanIpv4(address = "") {
+  const parts = ipv4Parts(address);
+  if (!parts) return false;
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
+function isAutoMobileAccessCandidate(entry = {}) {
+  const address = cleanText(entry.address);
+  if (!entry || entry.family !== "IPv4" || entry.internal || !address) return false;
+  return isPrivateLanIpv4(address);
+}
+
+function mobileInterfaceScore(name = "", address = "") {
+  const label = String(name || "").toLowerCase();
+  let score = 0;
+  if (label.includes("wi-fi") || label.includes("wifi") || label.includes("wlan")) score += 40;
+  if (label.includes("ethernet") || label.includes("以太网")) score += 30;
+  if (label.includes("wireless") || label.includes("无线")) score += 25;
+  if (label.includes("vethernet") || label.includes("virtual") || label.includes("vmware") || label.includes("hyper-v")) score -= 40;
+  if (label.includes("mihomo") || label.includes("clash") || label.includes("tailscale") || label.includes("zerotier")) score -= 80;
+  if (String(address || "").startsWith("192.168.")) score += 10;
+  return score;
+}
+
+export function resolveLanIpv4FromInterfaces(interfaces = {}) {
+  const candidates = [];
+  for (const [name, entries] of Object.entries(interfaces || {})) {
     for (const entry of entries || []) {
-      if (entry && entry.family === "IPv4" && !entry.internal && entry.address) return entry.address;
+      if (!isAutoMobileAccessCandidate(entry)) continue;
+      candidates.push({
+        address: entry.address,
+        score: mobileInterfaceScore(name, entry.address)
+      });
     }
   }
-  return "127.0.0.1";
+  candidates.sort((a, b) => b.score - a.score || a.address.localeCompare(b.address));
+  return candidates[0]?.address || "127.0.0.1";
+}
+
+function firstLanIpv4() {
+  return resolveLanIpv4FromInterfaces(os.networkInterfaces());
 }
 
 export function resolveMobileAccessUrl(env = process.env) {

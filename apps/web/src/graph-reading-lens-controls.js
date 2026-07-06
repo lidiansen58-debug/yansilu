@@ -10,17 +10,17 @@ function defaultEscapeHtml(value = "") {
 export const GRAPH_READING_LENS_META = {
   insight: {
     key: "insight",
-    label: "下一步做什么",
-    hint: "系统把孤立笔记、中心笔记和关系密集区提到前面，适合不知道从哪里开始时使用。"
+    label: "推荐下一步",
+    hint: "打开最值得先处理的关系任务，适合不知道从哪里开始时使用。"
   },
   bridge: {
     key: "bridge",
-    label: "哪里还缺",
+    label: "看缺口",
     hint: "突出还没连起来、缺证据、缺反方或缺边界的地方，适合补强知识网络。"
   },
   argument: {
     key: "argument",
-    label: "核心观点",
+    label: "看论证",
     hint: "突出证据、反方和边界，帮助你判断哪些想法已经能进入写作。"
   }
 };
@@ -36,7 +36,7 @@ export function renderGraphReadingLensControls(activeLens = "insight", legendOpe
   return `
     <div class="graph-reading-lens-row">
       <div class="graph-reading-lens" aria-label="图谱当前任务">
-        <span>现在看</span>
+        <span>阅读</span>
         ${Object.values(GRAPH_READING_LENS_META)
           .map((item) => {
             const selected = item.key === active.key;

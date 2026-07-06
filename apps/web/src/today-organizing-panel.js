@@ -117,14 +117,31 @@ function renderOverview(state = {}) {
   return `
     <section class="today-overview-compact" aria-label="当前笔记库状态">
       <div class="today-overview-counts">
-        <span><strong>${escape(state.pendingMaterialCount || 0)}</strong> 待处理材料</span>
-        <span><strong>${escape(state.permanentCount || 0)}</strong> 永久笔记</span>
-        <span><strong>${escape(state.isolatedCount || 0)}</strong> 未关联</span>
-        <span><strong>${escape(state.themeCount || 0)}</strong> 可成主题</span>
+        <span><strong>${escape(state.pendingMaterialCount || 0)}</strong><small>待处理材料</small></span>
+        <span><strong>${escape(state.permanentCount || 0)}</strong><small>永久笔记</small></span>
+        <span><strong>${escape(state.isolatedCount || 0)}</strong><small>未关联</small></span>
+        <span><strong>${escape(state.themeCount || 0)}</strong><small>可成主题</small></span>
       </div>
-      <div class="today-path-inline" aria-label="卡片笔记整理路径">
-        <span>材料</span><span>永久笔记</span><span>关系</span><span>主题</span><span>写作</span>
+      <div class="today-overview-note">
+        当前状态只作参考，下一步请以上方推荐任务为准。
       </div>
+    </section>
+  `;
+}
+
+function renderBeginnerGuide() {
+  return `
+    <section class="today-beginner-guide" aria-label="新用户使用步骤">
+      <div>
+        <span class="today-action-kicker">新用户建议这样用</span>
+        <strong>先完成一个小闭环，不用一次理解全部功能。</strong>
+      </div>
+      <ol>
+        <li><span>1</span><strong>处理材料</strong><small>把随笔或文献转成自己的判断。</small></li>
+        <li><span>2</span><strong>补关系</strong><small>说明两条笔记为什么相关。</small></li>
+        <li><span>3</span><strong>成主题</strong><small>把同一问题下的笔记整理成主题。</small></li>
+        <li><span>4</span><strong>去写作</strong><small>从主题进入写作中心生成提纲。</small></li>
+      </ol>
     </section>
   `;
 }
@@ -134,14 +151,14 @@ function renderEmptyLibraryHome() {
     <section class="today-empty-home" aria-label="第一次使用引导">
       <div class="today-empty-home-copy">
         <span class="today-action-kicker">第一次打开，建议先体验示例库</span>
-        <h3>用 10 分钟看懂研思录怎么让笔记长出思想</h3>
+        <h3>用 10 分钟看懂研思录怎么让笔记生长为思想</h3>
         <p>从记录、重述、关联开始，让笔记慢慢长成可写的理解。示例库会创建一套卡片笔记写作法 Demo：随笔、文献笔记、永久笔记、关系、主题索引和写作项目。导入前会请你确认，不会自动写入。</p>
       </div>
       <div class="today-empty-home-actions">
         <button class="mini-btn primary" type="button" data-today-action="seed-demo">
           导入示例库 / 体验 Demo
         </button>
-        <small>导入后会自动打开导览笔记，照着走一遍，就能看到“记录、重述、关联，让笔记长出思想”的主流程。</small>
+        <small>导入后会自动打开导览笔记，照着走一遍，就能看到“记录、重述、关联，让笔记生长为思想”的主流程。</small>
       </div>
     </section>
   `;
@@ -179,6 +196,7 @@ export function renderTodayOrganizingPanel(state = {}) {
       <section class="today-action-grid" aria-label="继续整理">
         ${actions.filter((item) => item.key !== recommended.key).map(actionCard).join("")}
       </section>
+      ${renderBeginnerGuide()}
       ${renderOverview(state)}
       <details class="today-secondary-details">
         <summary>辅助检查</summary>

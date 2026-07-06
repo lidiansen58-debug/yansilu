@@ -51,10 +51,10 @@ export function renderGraphNodeSelectionPanel({ selection: normalized = null, is
   const themeNoteIds = graphThemeCandidateNoteIdsForNode(normalized.nodeId, directEdges, []);
   const canCreateTheme = themeNoteIds.length >= 3;
   const themeTitle = suggestedThemeIndexTitle(themeNoteIds);
-  const taskStatus = directEdges.length ? "检查这些关系能否支撑观点" : "先补一条真正相关的关系";
+  const taskStatus = directEdges.length ? "检查这些关系能否支撑观点" : "把这条笔记连到另一条笔记";
   const taskDetail = directEdges.length
     ? "先看已保存关系；如果还缺支撑、反方、边界或桥接，再查找相关笔记。"
-    : "找一条最相关的永久笔记，写清为什么相关，再保存为正式关系。";
+    : "选择一条能互相说明的永久笔记，写一句为什么相关，然后保存。";
   const relationDetails = relationWorkspace
     ? `
       <details class="graph-selection-details">
@@ -83,7 +83,7 @@ export function renderGraphNodeSelectionPanel({ selection: normalized = null, is
       tone: directEdges.length ? "ready" : "warning",
       status: taskStatus,
       detail: taskDetail,
-      badge: directEdges.length ? `${directEdges.length} 条关系` : "待关联"
+      badge: directEdges.length ? `${directEdges.length} 条关系` : "未关联"
     },
     body: `
       ${renderGraphNodeInsightPanel(insight)}

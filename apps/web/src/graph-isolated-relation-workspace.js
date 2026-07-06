@@ -92,9 +92,9 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
     preferredTargetNoteId = "",
     preferredRelationType = "",
     preferredRationale = "",
-    heading = "这条永久笔记还没有进入关系网",
-    helper = "先用 AI 推荐或手动搜索选择目标，再选关系类型，写一句理由后保存。",
-    saveHint = "保存后这条笔记会退出未关联状态，并自动进入下一条。",
+    heading = "关联工作台",
+    helper = "把当前笔记连接到一条真正相关的永久笔记。",
+    saveHint = "保存后，这条笔记会进入关系网。",
     relationDraft = null,
     aiCandidates = null,
     manualTargets = null,
@@ -199,7 +199,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
     })
     .join("");
   const hiddenManualCount = Math.max(0, resolvedManualTargets.length - visibleManualTargetLimit);
-  const statusText = directEdges.length ? "已进入关系网" : visibleEdgeCount ? "当前图谱可见" : "还未进入关系网";
+  const statusText = directEdges.length ? "已进入关系网" : visibleEdgeCount ? "图谱可见" : "未关联";
   const manualStatusText = selectedManualTitle
     ? `已选择：${selectedManualTitle}`
     : manualSearchText
@@ -217,30 +217,53 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
         </div>
         <span>${escapeHtml(statusText)}</span>
       </div>
+      <div class="graph-isolated-join-steps" aria-label="关联步骤">
+        <div class="graph-isolated-join-step is-current">
+          <span>1</span>
+          <div>
+            <strong>选目标笔记</strong>
+            <p>找一条能互相说明的永久笔记。</p>
+          </div>
+        </div>
+        <div class="graph-isolated-join-step">
+          <span>2</span>
+          <div>
+            <strong>确定关系</strong>
+            <p>支持、限定、反驳、例子或桥接。</p>
+          </div>
+        </div>
+        <div class="graph-isolated-join-step">
+          <span>3</span>
+          <div>
+            <strong>写理由并保存</strong>
+            <p>一句话说清为什么相关。</p>
+          </div>
+        </div>
+      </div>
       <div class="graph-isolated-join-grid">
         <div class="graph-isolated-join-main">
           <form class="graph-isolated-relation-form" data-graph-isolated-relation-form${isolatedFlow ? " data-graph-isolated-flow" : ""} data-source-note="${escapeHtml(cleanNoteId)}" data-source-title="${escapeHtml(sourceTitle)}">
             <div class="graph-isolated-mode-switch" role="tablist" aria-label="选择目标笔记方式">
-              <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">推荐目标</button>
-              <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">搜索目标</button>
+              <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">看推荐</button>
+              <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">自己搜索</button>
             </div>
             <input type="hidden" data-graph-relation-source-mode value="${escapeHtml(activeMode)}">
             <div class="graph-isolated-target-panel"${activeMode === "ai" ? "" : " hidden"} data-graph-target-panel="ai">
               <label class="graph-isolated-field">
-                 <span>先看 3 个推荐目标</span>
+                 <span>推荐目标</span>
                  <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
                    ${aiOptions || `<option value="">暂时没有可靠推荐</option>`}
                  </select>
                </label>
               <div class="graph-isolated-target-actions">
                 <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "正在查找" : resolvedAiCandidates.length ? "刷新推荐" : "查找推荐")}</button>
-                <button class="graph-selection-action is-secondary" type="button" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">改用搜索</button>
+                <button class="graph-selection-action is-quiet" type="button" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">自己搜索</button>
               </div>
-              <p class="graph-isolated-helper">${escapeHtml(resolvedAiCandidates.length ? "推荐来自当前图谱和本地规则；保存前确认类型和理由。" : resolvedHasAnalysis ? "暂时没有可靠推荐，可以改用搜索。" : "先查找推荐；也可以直接搜索你确定相关的笔记。")}</p>
+              <p class="graph-isolated-helper">${escapeHtml(resolvedAiCandidates.length ? "推荐只供参考，保存前仍由你确认关系和理由。" : resolvedHasAnalysis ? "暂时没有可靠推荐，可以自己搜索。" : "可以先查找推荐，也可以直接搜索你确定相关的笔记。")}</p>
             </div>
             <div class="graph-isolated-target-panel"${activeMode === "manual" ? "" : " hidden"} data-graph-target-panel="manual">
               <label class="graph-isolated-field">
-                <span>搜索目标笔记</span>
+                <span>搜索目标</span>
                 <input type="search" data-graph-manual-target-search autocomplete="off" placeholder="输入标题关键词，找到要关联的永久笔记" value="${escapeHtml(manualSearchText)}"${selectedManualTitle ? ` data-selected-title="${escapeHtml(selectedManualTitle)}"` : ""}>
                 <input type="hidden" data-graph-manual-target-id value="${escapeHtml(selectedManualTargetNoteId)}">
               </label>
@@ -257,7 +280,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
               </label>
               <label class="graph-isolated-field">
                 <span>关联理由</span>
-                <textarea data-graph-isolated-rationale data-graph-rationale-source="${escapeHtml(defaultRationaleSource)}" rows="4" placeholder="写一句理由，例如：这条笔记为目标笔记提供例子、限制或反例。">${escapeHtml(defaultRationale)}</textarea>
+                <textarea data-graph-isolated-rationale data-graph-rationale-source="${escapeHtml(defaultRationaleSource)}" rows="4" placeholder="写一句话：当前笔记如何支持、限定、反驳、举例或桥接目标笔记。">${escapeHtml(defaultRationale)}</textarea>
               </label>
             </div>
             <input type="hidden" data-graph-isolated-insight-question value="${escapeHtml(hasActiveInsightQuestionDraft ? draftInsightQuestion : activeAiCandidate?.insightQuestionDraft || "")}">

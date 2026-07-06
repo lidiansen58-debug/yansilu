@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createExplorerPaneHostDeps } from "../../apps/web/src/explorer-host-deps.js";
 
-test("explorer host deps collect pane elements and callbacks outside prototype shell", () => {
+test("explorer host deps collect pane elements and callbacks outside prototype shell", async () => {
   const calls = [];
   const elements = new Map();
   const state = { selectedFolderId: "dir-1" };
@@ -24,6 +24,10 @@ test("explorer host deps collect pane elements and callbacks outside prototype s
     handleStateChange: (...args) => calls.push(["state", ...args]),
     selectPermanentDirectory: async () => "permanent",
     selectNoteMoveDirectory: async () => "move",
+    requestTextInput: async (...args) => {
+      calls.push(["text-input", ...args]);
+      return "renamed";
+    },
     resolveNotePath: (...args) => {
       calls.push(["path", ...args]);
       return "note.md";
@@ -32,6 +36,7 @@ test("explorer host deps collect pane elements and callbacks outside prototype s
 
   assert.equal(deps.state, state);
   assert.equal(deps.elements.searchInput.id, "searchInput");
+  assert.equal(deps.elements.searchBar.id, "searchBar");
   assert.equal(deps.elements.listArea.id, "listArea");
   assert.equal(deps.contextMenu.id, "menu");
   assert.equal(deps.createBoxDialog.id, "dialog");
@@ -40,6 +45,7 @@ test("explorer host deps collect pane elements and callbacks outside prototype s
   deps.onStateChange("refresh");
   deps.desktopFile.revealPath("note.md");
   deps.desktopFile.openPath("dir");
+  await deps.requestTextInput({ title: "Rename" });
   assert.equal(deps.resolveNotePath("note-1"), "note.md");
 
   assert.deepEqual(calls, [
@@ -48,6 +54,7 @@ test("explorer host deps collect pane elements and callbacks outside prototype s
     ["state", "refresh"],
     ["reveal", "note.md"],
     ["open-dir", "dir"],
+    ["text-input", { title: "Rename" }],
     ["path", "note-1"]
   ]);
 });

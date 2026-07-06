@@ -74,6 +74,7 @@ function createStubButton() {
 function createStubElements() {
   return {
     searchInput: { value: "", addEventListener() {}, focus() {} },
+    searchBar: { classList: { toggle() {} } },
     toggleSearchBtn: { addEventListener() {} },
     openNewBoxBtn: { addEventListener() {} },
     newNoteBtn: createStubButton(),
@@ -92,6 +93,132 @@ function createExplorerForTest(state) {
     onStateChange() {}
   });
 }
+
+test("note context rename uses the app text input dialog and saves the new title", async () => {
+  const state = createInitialState();
+  const note = {
+    id: "note-rename",
+    title: "Old title",
+    body: "# Old title\n\nBody",
+    folderId: "dir_original_default",
+    type: "original"
+  };
+  state.notes = [note];
+  const calls = [];
+  const explorer = new ExplorerPane({
+    state,
+    elements: createStubElements(),
+    contextMenu: { show() {} },
+    createBoxDialog: { setOptions() {}, open() {} },
+    requestTextInput: async (options) => {
+      calls.push(["dialog", options.title, options.value]);
+      return "New title";
+    },
+    onOpenNote() {},
+    onStatus: (...args) => calls.push(["status", ...args]),
+    onStateChange: async (...args) => {
+      calls.push(["state", ...args]);
+      return { id: note.id, title: "New title" };
+    }
+  });
+
+  await explorer.handleContextAction("rename", { kind: "file", id: note.id });
+
+  assert.deepEqual(calls[0], ["dialog", "重命名笔记", "Old title"]);
+  assert.deepEqual(calls[1], ["state", "save-note", { noteId: note.id, title: "New title" }]);
+  assert.deepEqual(calls[2], ["status", "笔记已重命名", "ok"]);
+  assert.equal(note.title, "New title");
+});
+
+test("note context rename cancellation does not save or show success", async () => {
+  const state = createInitialState();
+  const note = { id: "note-rename-cancel", title: "Keep title", body: "# Keep title", folderId: "dir_original_default" };
+  state.notes = [note];
+  const calls = [];
+  const explorer = new ExplorerPane({
+    state,
+    elements: createStubElements(),
+    contextMenu: { show() {} },
+    createBoxDialog: { setOptions() {}, open() {} },
+    requestTextInput: async () => "",
+    onOpenNote() {},
+    onStatus: (...args) => calls.push(["status", ...args]),
+    onStateChange: async (...args) => calls.push(["state", ...args])
+  });
+
+  await explorer.handleContextAction("rename", { kind: "file", id: note.id });
+
+  assert.deepEqual(calls, [["state", "file-context-action"]]);
+  assert.equal(note.title, "Keep title");
+});
+
+test("note browser search button immediately opens and closes the search field", () => {
+  const state = createInitialState();
+  let searchClick = null;
+  let focused = false;
+  const searchClasses = new Set(["hidden"]);
+  const toggleClasses = new Set(["is-ghost"]);
+  const stateCalls = [];
+  const searchInput = {
+    value: "old query",
+    addEventListener() {},
+    focus() {
+      focused = true;
+    }
+  };
+
+  const explorer = new ExplorerPane({
+    state,
+    elements: {
+      ...createStubElements(),
+      searchInput,
+      searchBar: {
+        classList: {
+          toggle(name, force) {
+            if (force) searchClasses.add(name);
+            else searchClasses.delete(name);
+          }
+        }
+      },
+      toggleSearchBtn: {
+        addEventListener(type, handler) {
+          if (type === "click") searchClick = handler;
+        },
+        classList: {
+          toggle(name, force) {
+            if (force) toggleClasses.add(name);
+            else toggleClasses.delete(name);
+          }
+        }
+      }
+    },
+    contextMenu: { show() {} },
+    createBoxDialog: { setOptions() {}, open() {} },
+    onOpenNote() {},
+    onStatus() {},
+    onStateChange: (reason) => stateCalls.push(reason)
+  });
+
+  assert.ok(explorer);
+  searchClick();
+
+  assert.equal(state.searchVisible, true);
+  assert.equal(searchClasses.has("hidden"), false);
+  assert.equal(toggleClasses.has("is-ghost"), false);
+  assert.equal(focused, true);
+  assert.deepEqual(stateCalls, ["toggle-search"]);
+
+  searchInput.value = "demo";
+  state.searchQuery = "demo";
+  searchClick();
+
+  assert.equal(state.searchVisible, false);
+  assert.equal(state.searchQuery, "");
+  assert.equal(searchInput.value, "");
+  assert.equal(searchClasses.has("hidden"), true);
+  assert.equal(toggleClasses.has("is-ghost"), true);
+  assert.deepEqual(stateCalls, ["toggle-search", "toggle-search"]);
+});
 
 test("note browser new action follows the current material root", () => {
   const state = createInitialState();

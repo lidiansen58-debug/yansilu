@@ -215,6 +215,57 @@ export function isMarkdownTableRow(line = "") {
   return cells.length >= 2;
 }
 
+function isMarkdownTableCandidateLine(line = "") {
+  return isMarkdownTableRow(line) || isMarkdownTableSeparator(line);
+}
+
+function nearestNonBlankLine(lines = [], startIndex = 0, step = 1) {
+  for (let index = startIndex; index >= 0 && index < lines.length; index += step) {
+    const line = String(lines[index] || "");
+    if (line.trim()) return { index, line };
+  }
+  return null;
+}
+
+function tableCandidateGroupHasSeparator(lines = [], anchorIndex = 0) {
+  for (let index = anchorIndex; index >= 0; index -= 1) {
+    const line = String(lines[index] || "");
+    if (!line.trim()) continue;
+    if (!isMarkdownTableCandidateLine(line)) break;
+    if (isMarkdownTableSeparator(line)) return true;
+  }
+  for (let index = anchorIndex + 1; index < lines.length; index += 1) {
+    const line = String(lines[index] || "");
+    if (!line.trim()) continue;
+    if (!isMarkdownTableCandidateLine(line)) break;
+    if (isMarkdownTableSeparator(line)) return true;
+  }
+  return false;
+}
+
+function isLooseMarkdownTableBlank(lines = [], index = 0) {
+  if (String(lines[index] || "").trim()) return false;
+  const previous = nearestNonBlankLine(lines, index - 1, -1);
+  const next = nearestNonBlankLine(lines, index + 1, 1);
+  if (!previous || !next) return false;
+  if (!isMarkdownTableCandidateLine(previous.line) || !isMarkdownTableCandidateLine(next.line)) return false;
+  return tableCandidateGroupHasSeparator(lines, previous.index) || tableCandidateGroupHasSeparator(lines, next.index);
+}
+
+export function normalizeLooseMarkdownTables(markdown = "") {
+  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+  let changed = false;
+  const compacted = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (isLooseMarkdownTableBlank(lines, index)) {
+      changed = true;
+      continue;
+    }
+    compacted.push(lines[index]);
+  }
+  return changed ? compacted.join("\n") : lines.join("\n");
+}
+
 export function isMarkdownTableStart(lines = [], index = 0) {
   return isMarkdownTableRow(lines[index]) && isMarkdownTableSeparator(lines[index + 1] || "");
 }
@@ -249,7 +300,7 @@ export function shouldKeepTightWysiwygLineBreak(lines = [], index = 0, options =
 }
 
 export function normalizeWysiwygMarkdownValue(markdown = "", offsets = []) {
-  const source = String(markdown || "").replace(/\r\n/g, "\n");
+  const source = normalizeLooseMarkdownTables(markdown);
   const mappedOffsets = offsets.map((offset) => Math.max(0, Math.min(source.length, Number(offset) || 0)));
   const lines = source.split("\n");
   let value = "";

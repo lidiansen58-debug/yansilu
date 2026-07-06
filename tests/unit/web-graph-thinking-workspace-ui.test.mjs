@@ -382,8 +382,8 @@ function graphWorkbenchViewTestDeps(overrides = {}) {
     renderGraphIcon: (name) => `<i>${name}</i>`,
     graphWorkbenchTabMeta: (value = "clues") => {
       const meta = {
-        clues: { key: "clues", label: "关系待办", emptyLabel: "关系清楚", panelTitle: "关系待办", note: "先处理关系" },
-        questions: { key: "questions", label: "思考问题", emptyLabel: "暂无问题", panelTitle: "思考问题", note: "继续追问" }
+        clues: { key: "clues", label: "关联任务", emptyLabel: "暂无关联任务", panelTitle: "关联任务", note: "先处理关系" },
+        questions: { key: "questions", label: "洞察问题", emptyLabel: "暂无洞察问题", panelTitle: "洞察问题", note: "继续追问" }
       };
       return meta[value] || meta.clues;
     },
@@ -457,9 +457,10 @@ test("graph workbench entries live beside reading lenses and legend", () => {
   assert.equal(graphReadingLensMeta("unknown").key, "insight");
   assert.match(entryMarkup, /data-graph-workbench-entry="clues"/);
   assert.match(entryMarkup, /data-graph-workbench-entry="questions"/);
-  assert.match(entryMarkup, /关系待办/);
-  assert.match(entryMarkup, /暂无问题/);
+  assert.match(entryMarkup, /关联任务/);
+  assert.match(entryMarkup, /暂无洞察问题/);
   assert.match(lensMarkup, /class="graph-reading-lens-side"/);
+  assert.doesNotMatch(lensMarkup, /graph-reading-lens-side-label/);
   assert.match(lensMarkup, /id="graphLegendToggle"/);
   assert.match(lensMarkup, /data-graph-reading-lens="bridge" aria-pressed="true"/);
   assert.match(lensMarkup, /data-graph-workbench-entry="clues"/);
@@ -585,11 +586,10 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
   assert.match(panel, /孤立待处理/);
   assert.match(panel, /关系列表/);
 
-  assert.match(html, /\.graph-workbench-panel \{[\s\S]*position: relative;[\s\S]*z-index: 8;/);
-  assert.match(html, /\.graph-side-stack \{[\s\S]*display: grid;[\s\S]*align-content: start;/);
+  assert.match(html, /\.graph-side-stack \{[\s\S]*position: absolute;[\s\S]*right: 18px;[\s\S]*bottom: 18px;/);
   assert.match(html, /\.graph-workbench-entry \{[\s\S]*min-height: 30px;[\s\S]*padding: 0 10px;/);
   assert.match(html, /\.graph-workbench-entry-group \{[\s\S]*flex-wrap: nowrap;/);
-  assert.match(html, /\.graph-side-stack \{[\s\S]*height: var\(--graph-map-height\);[\s\S]*overflow: auto;/);
+  assert.match(html, /\.graph-side-stack \{[\s\S]*max-height: calc\(var\(--graph-map-height\) - 36px\);[\s\S]*overflow: auto;/);
   assert.match(html, /\.graph-map-stage \{[\s\S]*background: transparent;[\s\S]*overflow: visible;/);
   assert.match(html, /\.graph-map-stage::before \{[\s\S]*content: none;/);
   assert.match(html, /\.graph-map-empty-canvas \{[\s\S]*background:[\s\S]*linear-gradient\(180deg, #030812 0%, #060d18 42%, #091423 100%\);/);
@@ -691,14 +691,14 @@ test("graph workbench interactions toggle entry, tab, and close state", () => {
   const deps = {
     graphWorkbenchTabMeta: (value = "") => {
       const key = String(value || "clues").trim() || "clues";
-      return { key, label: key === "clues" ? "关系" : "问题", statusLabel: key === "clues" ? "关系待办" : "思考问题" };
+      return { key, label: key === "clues" ? "关联任务" : "洞察问题", statusLabel: key === "clues" ? "关联任务" : "洞察问题" };
     }
   };
 
   assert.deepEqual(applyGraphWorkbenchEntryInteraction(graphState, "clues", deps), {
     tab: "clues",
     open: true,
-    meta: { key: "clues", label: "关系", statusLabel: "关系待办" }
+    meta: { key: "clues", label: "关联任务", statusLabel: "关联任务" }
   });
   assert.equal(graphState.workbenchPanelOpen, true);
   assert.equal(graphState.workbenchPanelTab, "clues");
@@ -854,11 +854,13 @@ test("graph map side panel does not stretch a second dark canvas below the map",
 
   assert.match(shellMarkup, /class="graph-map-stage has-side-panel has-selection-overlay"/);
   assert.match(shellMarkup, /class="graph-map-body has-side-panel"/);
+  assert.match(shellMarkup, /<div class="graph-map-canvas">[\s\S]*<aside>side<\/aside>[\s\S]*<\/div>/);
   assert.match(shellMarkup, /<aside>side<\/aside>/);
   assert.match(shellMarkup, /class="graph-selection-overlay"/);
   assert.match(html, /\.graph-map-stage\.has-side-panel \{[\s\S]*min-height: 0;[\s\S]*background: transparent;[\s\S]*overflow: visible;/);
   assert.match(html, /\.graph-map-stage\.has-side-panel::before,[\s\S]*\.graph-map-stage\.has-side-panel::after \{[\s\S]*display: none;/);
-  assert.match(html, /\.graph-map-body\.has-side-panel \{[\s\S]*align-items: start;[\s\S]*min-height: 0;/);
+  assert.match(html, /\.graph-map-body\.has-side-panel \{[\s\S]*grid-template-columns: minmax\(0, 1fr\);[\s\S]*align-items: stretch;/);
+  assert.match(html, /\.graph-side-stack \{[\s\S]*position: absolute;[\s\S]*box-shadow: 0 26px 70px/);
   assert.match(html, /\.graph-map-stage\.has-side-panel \.graph-map-canvas \{[\s\S]*overflow: hidden;[\s\S]*linear-gradient\(180deg, #030812 0%, #060d18 42%, #091423 100%\);/);
 });
 
@@ -1097,7 +1099,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /manualTargetsForNote: graphManualRelationTargetsForNote/);
   assert.match(source, /relationDraft: graphState\.isolatedRelationDraftByNoteId\?\.\[String\(noteId \|\| ""\)\.trim\(\)\] \|\| \{\}/);
   assert.match(joinWorkspaceSource, /aria-label="建立笔记关系"/);
-  assert.match(source, /这条永久笔记还没有进入关系网/);
+  assert.match(source, /关联工作台/);
   assert.match(joinWorkspaceSource, /data-graph-ai-candidate-select/);
   assert.match(joinWorkspaceSource, /const targetId = String\(candidate\.counterpartNoteId \|\| ""\)\.trim\(\);/);
   assert.match(joinWorkspaceSource, /if \(!targetId \|\| targetId === cleanNoteId\) return "";/);
@@ -1110,11 +1112,11 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(joinWorkspaceSource, /data-graph-isolated-relation-save/);
   assert.match(joinWorkspaceSource, /保存关系/);
   assert.doesNotMatch(joinWorkspaceSource, mojibakeCopyPattern);
-  assert.match(source, /saveHint = "保存后这条笔记会退出未关联状态，并自动进入下一条。"/);
-  assert.match(joinWorkspaceSource, /保存后这条笔记会退出未关联状态，并自动进入下一条。/);
+  assert.match(joinWorkspaceSource, /saveHint = "保存后，这条笔记会进入关系网。"/);
+  assert.match(joinWorkspaceSource, /保存后，这条笔记会进入关系网。/);
   assert.match(source, /function renderGraphIsolatedWorkflowTabs\(\{ noteId = "", isolatedQueueMarkup = "", decisionCards = \[\], prompts = \[\], nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
   assert.match(source, /return graphIsolatedWorkflowShell\.renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount \}\);/);
-  assert.match(isolatedWorkflowShellSource, /renderJoinNetworkFlow\(cleanNoteId, \{ nodeMap, edges, visibleEdgeCount \}\)/);
+  assert.match(isolatedWorkflowShellSource, /renderJoinNetworkFlow\(cleanNoteId, \{[\s\S]*heading: "选目标、写理由、保存"[\s\S]*helper: "先选一条真正相关的笔记，再说明为什么相关。"/);
   assert.match(source, /function renderGraphRelationFormSelectionPanel\(\{ selection = null, nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(workflowControllerSource, /kind: "relationForm"/);
   assert.match(source, /preferredTargetNoteId: targetNoteId/);
@@ -1268,16 +1270,17 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(html, /\.graph-isolated-relation-form \{[\s\S]*display: grid;/);
   assert.match(html, /\.graph-isolated-mode-switch \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
   assert.match(html, /\.graph-isolated-form-grid \{[\s\S]*grid-template-columns: minmax\(180px, 240px\) minmax\(0, 1fr\);/);
-  assert.match(html, /\.graph-selection-overlay \{[\s\S]*position: fixed;[\s\S]*z-index: 120;[\s\S]*pointer-events: auto;[\s\S]*overflow: hidden;/);
+  assert.match(html, /\.graph-selection-overlay \{[\s\S]*position: absolute;[\s\S]*inset: 0;[\s\S]*z-index: 120;[\s\S]*pointer-events: auto;[\s\S]*overflow: hidden;/);
   assert.match(html, /\.graph-map-stage\.has-selection-overlay \.graph-map-viewport \{[\s\S]*pointer-events: none;/);
-  assert.match(html, /\.graph-selection-overlay \.graph-selection-panel\.is-isolated \{[\s\S]*width: min\(1120px, 100%\);[\s\S]*height: min\(720px, calc\(100dvh - 140px\)\);/);
+  assert.match(html, /\.graph-selection-overlay \.graph-selection-panel\.is-isolated \{[\s\S]*width: min\(1120px, 100%\);[\s\S]*height: min\(720px, calc\(100% - 40px\)\);/);
   assert.match(html, /\.graph-selection-overlay \.graph-selection-panel\.is-isolated \.graph-selection-body \{[\s\S]*overflow: auto;/);
   assert.match(html, /\.graph-isolated-workflow \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
   assert.match(html, /\.graph-isolated-workflow-tab\.is-active \{[\s\S]*background: #ffffff;[\s\S]*color: #0f6f48;/);
   assert.match(html, /\.module-workspace\.graph-mode \.graph-panel \{[\s\S]*padding-top: 14px;[\s\S]*overflow: visible;/);
   assert.match(html, /\.module-workspace\.graph-mode \.graph-inline-notice\.is-info \{[\s\S]*display: none;/);
   assert.match(html, /\.module-workspace\.graph-mode \.graph-map-head \{[\s\S]*position: static;[\s\S]*display: grid;[\s\S]*background: #fff;/);
-  assert.match(html, /\.module-workspace\.graph-mode \.graph-reading-lens-row \{[\s\S]*align-items: flex-start;[\s\S]*width: min\(640px, calc\(100% - 280px\)\);/);
+  assert.match(html, /\.module-workspace\.graph-mode \.graph-reading-lens-row \{[\s\S]*align-items: center;[\s\S]*width: 100%;[\s\S]*flex-wrap: wrap;/);
+  assert.match(html, /\.module-workspace\.graph-mode \.graph-reading-lens \{[\s\S]*flex-wrap: nowrap;[\s\S]*overflow-x: auto;[\s\S]*scrollbar-width: none;/);
   assert.match(html, /#moduleWorkspace\.graph-mode \.graph-head \{[\s\S]*display: none;/);
   assert.match(html, /#moduleWorkspace\.graph-mode #graphRefresh \{[\s\S]*display: none;/);
   assert.match(html, /#moduleWorkspace\.graph-mode \.graph-view-tab \{[\s\S]*min-height: 36px;/);
@@ -2120,10 +2123,10 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
   });
 
   assert.deepEqual(applyGraphReadingLensInteraction(graphState, "bridge", {
-    graphReadingLensMeta: (value = "") => ({ key: String(value || "insight"), label: value === "bridge" ? "哪里还缺" : "下一步做什么" })
+    graphReadingLensMeta: (value = "") => ({ key: String(value || "insight"), label: value === "bridge" ? "看缺口" : "推荐下一步" })
   }), {
     lens: "bridge",
-    meta: { key: "bridge", label: "哪里还缺" }
+    meta: { key: "bridge", label: "看缺口" }
   });
   assert.equal(graphState.readingLens, "bridge");
 
@@ -2174,11 +2177,11 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
   graphState.researchNavigatorTouched = true;
   assert.deepEqual(applyGraphViewModeInteraction(graphState, "structure", {
     setGraphRelationTypeFilter: (value) => viewModeCalls.push(value),
-    graphReadingModeMeta: (value) => ({ key: value, label: value === "structure" ? "主题有哪些" : "观点怎么连" })
+    graphReadingModeMeta: (value) => ({ key: value, label: value === "structure" ? "主题分布" : "关系图" })
   }), {
     mode: "structure",
     changed: true,
-    meta: { key: "structure", label: "主题有哪些" }
+    meta: { key: "structure", label: "主题分布" }
   });
   assert.deepEqual(viewModeCalls, ["index"]);
   assert.equal(graphState.researchNavigatorHidden, false);

@@ -348,9 +348,9 @@ function renderGraphIsolatedJoinNetworkFlow(
     preferredTargetNoteId = "",
     preferredRelationType = "",
     preferredRationale = "",
-    heading = "这条永久笔记还没有进入关系网",
-    helper = "先用 AI 推荐或手动搜索选择目标，再选关系类型，写一句理由后保存。",
-    saveHint = "保存后这条笔记会退出未关联状态，并自动进入下一条。",
+    heading = "关联工作台",
+    helper = "选一条目标笔记，确定关系类型，写一句理由后保存。",
+    saveHint = "保存后，这条笔记会进入关系网。",
     isolatedFlow = true
   } = {}
 ) {

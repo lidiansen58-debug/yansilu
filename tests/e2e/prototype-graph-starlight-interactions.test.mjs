@@ -294,7 +294,7 @@ test("prototype graph AI analysis reopens the follow-up workbench after it was h
     assert.equal(await page.locator('[data-graph-workbench-entry="questions"]').getAttribute("aria-pressed"), "true");
     assert.ok(await page.locator(".graph-workbench-panel").isVisible());
     const summaryText = await page.locator(".graph-workbench-panel").textContent();
-    assert.match(String(summaryText || ""), /思考问题/);
+    assert.match(String(summaryText || ""), /洞察问题/);
     assert.match(String(summaryText || ""), /缺少连接|主题整理|Star Note/);
   }, 5000);
 });

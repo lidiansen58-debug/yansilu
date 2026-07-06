@@ -65,6 +65,7 @@ import {
   isPreviewImageUrl,
   isPreviewPdfUrl,
   normalizeCodeLanguage,
+  normalizeLooseMarkdownTables,
   normalizeWysiwygMarkdownValue,
   parseMarkdownLinkSyntax,
   parseMarkdownTableRow,
@@ -338,6 +339,7 @@ export class EditorPane {
         originalitySimilarity: note.originalitySimilarity,
         authorshipConfirmed: true,
         authorshipClaim: "",
+        preserveEditorFocus: true,
         trigger
       });
 
@@ -808,7 +810,7 @@ export class EditorPane {
   }
 
   setUnderlyingEditorValue(value) {
-    const text = String(value || "");
+    const text = normalizeLooseMarkdownTables(value);
     this.els.body.value = text;
     this.lastEditorValue = text;
     if (this.markdownEditor && this.markdownEditor.getValue() !== text) {
@@ -6999,7 +7001,8 @@ export class EditorPane {
       originalityStatus: note.originalityStatus,
       originalitySimilarity: note.originalitySimilarity,
       authorshipConfirmed: true,
-      authorshipClaim: ""
+      authorshipClaim: "",
+      preserveEditorFocus: true
     });
     if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
       tab.dirty = true;
@@ -7054,7 +7057,12 @@ export class EditorPane {
     tab.dirty = false;
     this.clearDraft(tab.noteId);
     setSavingTabUiState("saved", "当前文件：已自动同步");
-    if (savingTabIsActive()) this.setEditorValue(tab.body);
+    if (
+      savingTabIsActive() &&
+      normalizedBodyTextForDirtyCheck(this.getEditorValue()) !== normalizedBodyTextForDirtyCheck(tab.body)
+    ) {
+      this.setEditorValue(tab.body);
+    }
     if (this.isOriginalNote(note)) {
       this.onStatus(
         note.originalityStatus === "pass" ? "永久笔记已同步" : "永久笔记已同步，但仍建议继续打磨",

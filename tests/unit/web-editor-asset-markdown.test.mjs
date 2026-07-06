@@ -11,6 +11,7 @@ import {
   renderMarkdownPreview,
   validateLiteratureTemplateSource
 } from "../../apps/web/src/components-editor-pane.js";
+import { normalizeLooseMarkdownTables } from "../../apps/web/src/editor-markdown-commands.js";
 
 test("formatMarkdownLinkDestination wraps local paths that need Markdown angle destinations", () => {
   assert.equal(
@@ -92,6 +93,31 @@ test("renderMarkdownPreview supports editor heading levels and ordered lists", (
   assert.match(html, /<li>first ordered item<\/li>/);
   assert.match(html, /<li>second ordered item<\/li>/);
   assert.doesNotMatch(html, /### Section Three/);
+});
+
+test("markdown table parsing tolerates blank lines between table rows", () => {
+  const looseTable = `| 场景 | 适合选择 | 不推荐 |
+
+| --- | --- | --- |
+
+| 个人本地客户端 | samanhappy/mcphub | Nacos |
+
+| Docker 重度用户 | docker/mcp-gateway | Plane |`;
+
+  const normalized = normalizeLooseMarkdownTables(looseTable);
+  assert.equal(
+    normalized,
+    `| 场景 | 适合选择 | 不推荐 |
+| --- | --- | --- |
+| 个人本地客户端 | samanhappy/mcphub | Nacos |
+| Docker 重度用户 | docker/mcp-gateway | Plane |`
+  );
+
+  const html = renderMarkdownPreview(looseTable);
+  assert.match(html, /<table class="preview-table">/);
+  assert.match(html, /<th>场景<\/th>/);
+  assert.match(html, /<td>Docker 重度用户<\/td>/);
+  assert.doesNotMatch(html, /\| --- \| --- \| --- \|/);
 });
 
 test("parseLiteratureWorkspace reads judgment seed, question, and boundary sections", () => {

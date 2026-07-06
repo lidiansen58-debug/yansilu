@@ -170,10 +170,10 @@ function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new
   });
   return renderGraphSelectionShell({
     className: "is-node is-relation-form",
-    ariaLabel: "建立笔记关系",
-    kicker: "建立关系",
+    ariaLabel: "关联工作台",
+    kicker: "关联工作台",
     title,
-    meta: targetTitle ? `预选目标：${targetTitle}` : "这条永久笔记还没有进入关系网",
+    meta: targetTitle ? `预选目标：${targetTitle}` : "未关联：保存一条关系后进入图谱",
     closeLabel: "收起关系表单",
     body: renderGraphIsolatedJoinNetworkFlow(noteId, {
       nodeMap,
@@ -182,12 +182,12 @@ function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new
       preferredTargetNoteId: targetNoteId,
       preferredRelationType: selection?.relationType || "",
       preferredRationale: selection?.rationale || "",
-      heading: targetTitle ? "确认这条关系" : "建立关系",
+      heading: targetTitle ? "确认这条关系" : "选目标、写理由、保存",
       helper: targetTitle
-        ? "目标笔记已带入；选关系类型，写一句理由后保存。"
-        : "先用 AI 推荐或手动搜索选择目标，再选关系类型，写一句理由后保存。",
+        ? "目标笔记已带入，确认关系类型和理由后保存。"
+        : "选择目标笔记，确定关系类型，写一句理由后保存。",
       saveHint: savesIntoIsolatedFlow
-        ? "保存后这条笔记会退出未关联状态，并自动进入下一条。"
+        ? "保存后，这条笔记会进入关系网。"
         : "保存后会留在当前图谱。",
       isolatedFlow: savesIntoIsolatedFlow
     }),

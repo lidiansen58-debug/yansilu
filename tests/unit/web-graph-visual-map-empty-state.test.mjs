@@ -11,20 +11,20 @@ test("graph visual map empty state copy distinguishes focused structure and rela
   assert.match(focused.message, /全部关系/);
 
   const structure = graphVisualMapEmptyCopy({
-    modeLabel: "主题有哪些",
+    modeLabel: "主题分布",
     relationType: "index",
     graphViewModeForRelationType: () => "structure"
   });
-  assert.match(structure.title, /^主题有哪些/);
-  assert.match(structure.message, /观点怎么连/);
+  assert.match(structure.title, /^主题分布/);
+  assert.match(structure.message, /关系图/);
   assert.notEqual(structure.message, focused.message);
 
   const relation = graphVisualMapEmptyCopy({
-    modeLabel: "观点怎么连",
+    modeLabel: "关系图",
     relationType: "meaningful",
     graphViewModeForRelationType: () => "argument"
   });
-  assert.match(relation.title, /^观点怎么连/);
+  assert.match(relation.title, /^关系图/);
   assert.match(relation.message, /待关联笔记/);
   assert.notEqual(relation.message, structure.message);
 });

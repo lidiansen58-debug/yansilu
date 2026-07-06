@@ -86,6 +86,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     setGraphFocusContextMode = noop,
     graphFocusContextModeMeta = noop,
     centerGraphViewportIfZoomed = noop,
+    dismissGraphCanvasHelpHint = noop,
     requestAnimationFrame = (callback) => callback?.()
   } = deps || {};
 
@@ -477,6 +478,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const zoomButton = event.target.closest("[data-graph-zoom-option]");
     if (zoomButton) {
+      dismissGraphCanvasHelpHint();
       const result = applyGraphZoomOptionInteraction(graphState, zoomButton.getAttribute("data-graph-zoom-option"), {
         graphZoomOption
       });
@@ -487,6 +489,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const zoomStepButton = event.target.closest("[data-graph-zoom-step]");
     if (zoomStepButton) {
+      dismissGraphCanvasHelpHint();
       const result = applyGraphZoomStepInteraction(graphState, Number(zoomStepButton.getAttribute("data-graph-zoom-step") || 0), {
         graphZoomOption,
         graphZoomStep
@@ -503,8 +506,18 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       const result = applyGraphReadingLensInteraction(graphState, readingLensButton.getAttribute("data-graph-reading-lens"), {
         graphReadingLensMeta
       });
+      if (result.lens === "insight") {
+        applyGraphWorkbenchTabInteraction(graphState, "clues", {
+          graphWorkbenchTabMeta
+        });
+      }
       renderGraphPanel();
-      setStatus("图谱优先查看已切换为：" + result.meta.label, "ok");
+      setStatus(
+        result.lens === "insight"
+          ? "已打开图谱下一步建议"
+          : "图谱优先查看已切换为：" + result.meta.label,
+        "ok"
+      );
       return;
     }
     const focusDepthButton = event.target.closest("[data-graph-focus-depth]");
@@ -545,11 +558,13 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const graphNode = event.target.closest(".graph-map-node[data-node-id]");
     if (graphNode) {
       event.__yansiluGraphNodeHandled = true;
+      dismissGraphCanvasHelpHint();
       openGraphNodeSelectionFromElement(graphNode);
       return;
     }
     const graphEdge = event.target.closest(".graph-map-edge-group[data-edge-from]");
     if (graphEdge) {
+      dismissGraphCanvasHelpHint();
       const fromNoteId = String(graphEdge.getAttribute("data-edge-from") || "").trim();
       const toNoteId = String(graphEdge.getAttribute("data-edge-to") || "").trim();
       openGraphSelection({
@@ -694,6 +709,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
   graphCanvas?.addEventListener("pointerup", (event) => {
     endGraphUtilityDrawerDrag(event);
     endGraphViewportDrag(event);
+    if (event.target.closest(".graph-map-viewport")) dismissGraphCanvasHelpHint();
   });
 
   graphCanvas?.addEventListener("pointercancel", (event) => {
@@ -854,12 +870,14 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const graphNode = event.target.closest(".graph-map-node[data-node-id]");
     if (graphNode) {
       event.preventDefault();
+      dismissGraphCanvasHelpHint();
       openGraphNodeSelectionFromElement(graphNode);
       return;
     }
     const graphEdge = event.target.closest(".graph-map-edge-group[data-edge-from]");
     if (graphEdge) {
       event.preventDefault();
+      dismissGraphCanvasHelpHint();
       openGraphSelection({
         kind: "edge",
         edgeKey: String(graphEdge.getAttribute("data-edge-key") || "").trim(),
@@ -939,6 +957,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       const viewport = event.target.closest(".graph-map-viewport");
       if (!viewport) return;
       event.preventDefault();
+      dismissGraphCanvasHelpHint();
       const result = applyGraphWheelZoomInteraction(graphState, event.deltaY, {
         graphZoomOption,
         graphZoomStep

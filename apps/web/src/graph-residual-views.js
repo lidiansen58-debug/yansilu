@@ -89,6 +89,7 @@ export function createGraphResidualViews(deps = {}) {
     refinePotentialRelationCandidate,
     parseTags,
     setStatus,
+    shouldShowGraphCanvasHelpHint,
     shouldShowGraphDensityHint,
     state,
     suggestedThemeIndexTitle,
@@ -437,19 +438,19 @@ function renderGraphReadingLensControls(activeLens = "insight", legendOpen = fal
 const GRAPH_WORKBENCH_TAB_META = {
   clues: {
     key: "clues",
-    label: "关系待办",
-    emptyLabel: "暂无关系待办",
-    panelTitle: "关系待办",
-    statusLabel: "关系待办",
-    note: "优先处理待关联笔记、缺少连接和关系说明太薄的地方。"
+    label: "关联任务",
+    emptyLabel: "暂无关联任务",
+    panelTitle: "关联任务",
+    statusLabel: "关联任务",
+    note: "把还没进入关系网的笔记、缺少连接和理由太薄的关系处理清楚。"
   },
   questions: {
     key: "questions",
-    label: "思考问题",
-    emptyLabel: "暂无思考问题",
-    panelTitle: "思考问题",
-    statusLabel: "思考问题",
-    note: "把值得继续追问的主题、冲突和边界放在这里。"
+    label: "洞察问题",
+    emptyLabel: "暂无洞察问题",
+    panelTitle: "洞察问题",
+    statusLabel: "洞察问题",
+    note: "把值得继续追问的主题、冲突和边界集中到这里。"
   }
 };
 
@@ -2125,6 +2126,7 @@ const graphVisualMapController = createGraphVisualMapController({
     graphZoomOption,
     normalizeGraphSelectionForVisibleItems,
     noteTypeLabel,
+    shouldShowGraphCanvasHelpHint,
     shouldShowGraphDensityHint,
     graphThemeBoundary: renderGraphThemeBoundary,
     graphThemeBoundaryMeta

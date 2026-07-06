@@ -10,6 +10,7 @@ export function createExplorerPaneHostDeps(deps = {}) {
     handleStateChange = () => {},
     selectPermanentDirectory = async () => "",
     selectNoteMoveDirectory = async () => "",
+    requestTextInput = async () => "",
     resolveNotePath = () => ""
   } = deps;
 
@@ -17,6 +18,7 @@ export function createExplorerPaneHostDeps(deps = {}) {
     state,
     elements: {
       searchInput: $("searchInput"),
+      searchBar: $("searchBar"),
       toggleSearchBtn: $("btnToggleSearch"),
       openNewBoxBtn: $("btnOpenNewBoxDialog"),
       newNoteBtn: $("btnNewNote"),
@@ -30,6 +32,7 @@ export function createExplorerPaneHostDeps(deps = {}) {
     pickDirectory: desktopCommands.browseDirectory,
     selectPermanentDirectory,
     selectNoteMoveDirectory,
+    requestTextInput,
     desktopFile: {
       revealPath: desktopCommands.revealInFileManager,
       openPath: desktopCommands.openDirectory

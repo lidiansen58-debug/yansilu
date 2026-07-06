@@ -47,7 +47,7 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const nextItem = nextIsolatedQueueItem(queueItems, cleanCurrentNoteId);
     const total = queueItems.length;
     const currentIndex = queueItems.findIndex((item) => item.noteId === cleanCurrentNoteId);
-    const title = compact ? "继续关联其它笔记" : "还没有进入关系网的永久笔记";
+    const title = compact ? "继续处理其它未关联笔记" : "还没有进入关系网的永久笔记";
     const note = compact
       ? currentIndex >= 0
         ? `当前第 ${currentIndex + 1} 条。保存关系后，可以继续下一条。`
@@ -111,15 +111,21 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const cleanNoteId = String(noteId || "").trim();
     if (!cleanNoteId) return "";
     return `
-      <section class="graph-isolated-workflow" aria-label="孤立永久笔记关联">
+      <section class="graph-isolated-workflow" aria-label="关联工作台">
         <div class="graph-isolated-workflow-head">
           <div>
-            <strong>这条永久笔记还没有进入关系网</strong>
-            <p>只做一件事：找到一条合适关系并保存。</p>
+            <strong>关联工作台</strong>
+            <p>只做一件事：选一条目标笔记，写清两条笔记为什么相关。</p>
           </div>
-          <span>${escapeHtml(visibleEdgeCount ? "已有关系" : "未关联")}</span>
+          <span>${escapeHtml(visibleEdgeCount ? "已有关系" : "待处理")}</span>
         </div>
-        ${renderJoinNetworkFlow(cleanNoteId, { nodeMap, edges, visibleEdgeCount })}
+        ${renderJoinNetworkFlow(cleanNoteId, {
+          nodeMap,
+          edges,
+          visibleEdgeCount,
+          heading: "选目标、写理由、保存",
+          helper: "先选一条真正相关的笔记，再说明为什么相关。"
+        })}
       </section>
     `;
   };
@@ -144,10 +150,10 @@ export function createGraphIsolatedWorkflowShellRenderer({
     const isolatedQueueMarkup = renderQueue({ isolatedNotes, nodeMap, edges, currentNoteId: noteId, compact: true, limit: 6 });
     return renderSelectionShell({
       className: `is-isolated is-${decision.tone}`,
-      ariaLabel: "孤立永久笔记关联",
-      kicker: "孤立笔记",
+      ariaLabel: "关联工作台",
+      kicker: "关联工作台",
       title,
-      meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "还没有进入关系网",
+      meta: visibleEdgeCount ? `已保存 ${visibleEdgeCount} 条关系` : "未关联：找到一条关系即可",
       closeLabel: "收起关联面板",
       roleLabel: "",
       roleDetail: "",

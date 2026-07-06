@@ -11,6 +11,7 @@ import {
   isMarkdownTableSeparator,
   isMarkdownTableStart,
   normalizeCodeLanguage,
+  normalizeLooseMarkdownTables,
   parseMarkdownLinkSyntax,
   parseMarkdownTableRow,
   previewAssetUrl,
@@ -107,7 +108,7 @@ export function renderInlinePreview(text, options = {}) {
 }
 
 export function renderMarkdownPreview(markdown, options = {}) {
-  const text = String(markdown || "").replace(/\r\n/g, "\n");
+  const text = normalizeLooseMarkdownTables(markdown);
   const lines = text.split("\n");
   const blocks = [];
   const noteMarkdownPath = String(options.noteMarkdownPath || "");

@@ -31,6 +31,7 @@ test("graph visual map shell renders zoom stepper controls from options", () => 
   assert.match(markup, /data-graph-zoom-option="read"/);
   assert.match(markup, /aria-pressed="true"/);
   assert.match(markup, /data-icon="read-icon"/);
+  assert.match(markup, /也可以用鼠标滚轮缩放/);
 });
 
 test("graph visual map shell renders svg defs with relation markers", () => {
@@ -72,6 +73,7 @@ test("graph visual map shell composes canvas, svg layers, side panel, and overla
       zoomKey: "detail",
       zoomWidth: 1200,
       zoomHeight: 800,
+      canvasHelpHintVisible: true,
       layoutWidth: 1000,
       layoutHeight: 700,
       zoomStepperMarkup: "<button>zoom</button>",
@@ -91,6 +93,9 @@ test("graph visual map shell composes canvas, svg layers, side panel, and overla
   assert.match(markup, /<nav>toolbar<\/nav>/);
   assert.match(markup, /class="graph-map-stage has-side-panel has-selection-overlay"/);
   assert.match(markup, /class="graph-map-viewport" data-graph-zoom="detail"/);
+  assert.match(markup, /<div class="graph-map-canvas">[\s\S]*<section>side<\/section>[\s\S]*<\/div>/);
+  assert.match(markup, /class="graph-canvas-help-hint"/);
+  assert.match(markup, /滚轮缩放，拖动查看，点击笔记看详情/);
   assert.match(markup, /class="graph-map-svg" data-graph-zoom="detail" viewBox="0 0 1000 700"/);
   assert.match(markup, /--graph-zoom-width: 1200px; --graph-zoom-height: 800px;/);
   assert.match(markup, /class="graph-map-edges"><g>edges<\/g>/);

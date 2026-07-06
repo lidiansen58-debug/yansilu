@@ -46,6 +46,7 @@ export function buildGraphVisualMapHostDeps(host = {}) {
     graphZoomOption: host.graphZoomOption,
     normalizeGraphSelectionForVisibleItems: host.normalizeGraphSelectionForVisibleItems,
     noteTypeLabel: host.noteTypeLabel,
+    shouldShowGraphCanvasHelpHint: host.shouldShowGraphCanvasHelpHint,
     shouldShowGraphDensityHint: host.shouldShowGraphDensityHint
   };
 }

@@ -13,7 +13,7 @@ export function graphVisualMapEmptyCopy({
   if (graphViewModeForRelationType(relationType) === "structure") {
     return {
       title: `${modeLabel}当前没有可见笔记`,
-      message: "这里主要看笔记属于哪些主题。如果暂时为空，可以切到观点怎么连，或先给笔记补充主题归属。"
+      message: "这里主要看笔记属于哪些主题。如果暂时为空，可以切到关系图，或先给笔记补充主题归属。"
     };
   }
   return {

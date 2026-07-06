@@ -16,16 +16,16 @@ function defaultWorkbenchTabMeta(value = "") {
   const meta = {
     clues: {
       key: "clues",
-      label: "补缺口",
-      emptyLabel: "关系清楚",
-      panelTitle: "补缺口",
-      note: "优先处理孤立笔记、缺理由关系和薄弱连接。"
+      label: "关联任务",
+      emptyLabel: "暂无关联任务",
+      panelTitle: "关联任务",
+      note: "优先处理未关联笔记、缺理由关系和薄弱连接。"
     },
     questions: {
       key: "questions",
-      label: "核心观点",
-      emptyLabel: "暂无观点",
-      panelTitle: "核心观点",
+      label: "洞察问题",
+      emptyLabel: "暂无洞察问题",
+      panelTitle: "洞察问题",
       note: "从问题、张力和可写主题里继续长出观点。"
     }
   };
@@ -152,7 +152,7 @@ export function renderGraphWorkbenchPriorityQueueView(items = [], activeKey = "q
   const { escapeHtml, graphThinkingHighlightAttrs, graphCompactActionLabel } = graphWorkbenchPanelDeps(deps);
   const priorityItems = graphWorkbenchPriorityItems(items, activeKey);
   if (!priorityItems.length) return "";
-  const title = activeKey === "clues" ? "先补这 3 个缺口" : "先看这 3 个判断";
+  const title = activeKey === "clues" ? "先处理这 3 个关联任务" : "先看这 3 个问题";
   const note = activeKey === "clues"
     ? "从这里开始，图谱会最快变清楚。"
     : "从这里开始，最容易长出下一步观点。";

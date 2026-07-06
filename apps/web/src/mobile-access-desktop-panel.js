@@ -37,19 +37,39 @@ function deviceRows(devices = [], escapeHtml = escapeHtmlValue) {
   }).join("");
 }
 
-function pendingRows(pending = [], escapeHtml = escapeHtmlValue) {
+function pendingApprovalCard(pending = [], escapeHtml = escapeHtmlValue, actionLoading = "") {
   if (!pending.length) {
-    return `<div class="mobile-access-empty">手机扫码后，请求会出现在这里。</div>`;
-  }
-  return pending.map((request) => `
-    <div class="mobile-access-request">
-      <div>
-        <strong>${escapeHtml(request.deviceName || "手机浏览器")}</strong>
-        <span>请求时间 ${escapeHtml(formatTime(request.createdAt))} · ${escapeHtml(request.clientHint || "等待确认")}</span>
+    return `
+      <div class="mobile-access-approval is-waiting">
+        <div>
+          <div class="mobile-access-kicker">第 2 步：电脑允许连接</div>
+          <strong>扫码后，允许按钮会出现在这里</strong>
+          <span>手机发起连接请求后，不需要往下找，直接在这里点“允许连接”。</span>
+        </div>
       </div>
-      <button class="mini-btn primary" type="button" data-mobile-pair-confirm="${escapeHtml(request.id)}">允许连接</button>
+    `;
+  }
+
+  return `
+    <div class="mobile-access-approval is-pending">
+      <div>
+        <div class="mobile-access-kicker">第 2 步：电脑允许连接</div>
+        <strong>${escapeHtml(pending.length > 1 ? `${pending.length} 台手机等待确认` : "有一台手机等待确认")}</strong>
+        <span>确认是你的手机后再允许。未确认前，手机不能访问笔记。</span>
+      </div>
+      <div class="mobile-access-approval-list">
+        ${pending.map((request) => `
+          <div class="mobile-access-approval-row">
+            <div>
+              <strong>${escapeHtml(request.deviceName || "手机浏览器")}</strong>
+              <span>${escapeHtml(formatTime(request.createdAt) || "刚刚")} · ${escapeHtml(request.clientHint || "等待确认")}</span>
+            </div>
+            <button class="mini-btn primary mobile-access-approval-button" type="button" data-mobile-pair-confirm="${escapeHtml(request.id)}" ${actionLoading === request.id ? "disabled" : ""}>允许连接</button>
+          </div>
+        `).join("")}
+      </div>
     </div>
-  `).join("");
+  `;
 }
 
 export function renderMobileAccessDesktopPanel({
@@ -111,21 +131,14 @@ export function renderMobileAccessDesktopPanel({
             <span>临时配对码</span>
             <strong>${escapeHtml(pairing.pairCode || "------")}</strong>
           </div>
-          <p>这个配对码会在 ${escapeHtml(formatTime(pairing.expiresAt) || "短时间内")} 过期。手机扫码后，请在下方点“允许连接”。</p>
-          <p>电脑端只要记住 3 步：保持研思录运行 -> 让手机扫码 -> 在“待确认手机”里允许连接。以后不再使用时，再撤销设备。</p>
+          <p>这个配对码会在 ${escapeHtml(formatTime(pairing.expiresAt) || "短时间内")} 过期。手机扫码后，电脑端会在这里出现“允许连接”。</p>
+          <p>电脑端只要记住 3 步：保持研思录运行 -> 让手机扫码 -> 点“允许连接”。以后不再使用时，再撤销设备。</p>
+          ${pendingApprovalCard(item?.pendingRequests || [], escapeHtml, actionLoading)}
           <div class="import-actions">
             <button class="mini-btn is-subtle" type="button" data-mobile-access-refresh ${loading ? "disabled" : ""}>刷新状态</button>
             <button class="mini-btn" type="button" data-mobile-access-rotate ${actionLoading ? "disabled" : ""}>换一个配对码</button>
           </div>
         </div>
-      </div>
-
-      <div class="mobile-access-section">
-        <div class="mobile-access-section-head">
-          <strong>待确认手机</strong>
-          <span>只有你点“允许连接”后，这台手机才能访问当前电脑上的笔记。</span>
-        </div>
-        <div class="mobile-access-list">${pendingRows(item?.pendingRequests || [], escapeHtml)}</div>
       </div>
 
       <div class="mobile-access-section">

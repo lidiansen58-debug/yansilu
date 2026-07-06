@@ -23,11 +23,11 @@ test("graph view mode state normalizes relation filters and modes", () => {
 });
 
 test("graph view mode state exposes direct reading mode copy", () => {
-  assert.equal(graphReadingModeMeta("structure").label, "主题有哪些");
+  assert.equal(graphReadingModeMeta("structure").label, "主题分布");
   assert.match(graphReadingModeMeta("structure").mapNote, /主题/);
   assert.equal(graphReadingModeMeta("bad").key, "argument");
   assert.match(graphReadingModeMeta("argument").purpose, /支持/);
-  assert.equal(graphReadingModeMeta("argument").label, "观点怎么连");
+  assert.equal(graphReadingModeMeta("argument").label, "关系图");
 });
 
 test("graph relation type setter updates graph state and persists when allowed", () => {
@@ -46,6 +46,7 @@ test("graph relation type setter updates graph state and persists when allowed",
 
 test("graph view mode render helpers use injected escaping and filter options", () => {
   const switcher = renderGraphViewModeSwitcher("index");
+  assert.match(switcher, /看图/);
   assert.match(switcher, /data-graph-view-mode="structure"/);
   assert.match(switcher, /aria-pressed="true"/);
 

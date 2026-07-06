@@ -61,7 +61,7 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
       if (tab) {
         tab.title = note.title;
         tab.body = note.body;
-        if (state.activeTabId === tab.id) editor?.fillEditorFromTab?.();
+        if (state.activeTabId === tab.id && payload.preserveEditorFocus !== true) editor?.fillEditorFromTab?.();
       }
     }
     if (note) {

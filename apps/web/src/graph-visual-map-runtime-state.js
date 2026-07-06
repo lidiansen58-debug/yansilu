@@ -48,6 +48,7 @@ export function buildGraphVisualMapRuntimeState({
     graphRelationVisual = () => ({ key: "neutral" }),
     graphDenseGalaxyMode = () => false,
     shouldShowGraphDensityHint = () => false,
+    shouldShowGraphCanvasHelpHint = () => false,
     normalizeGraphSelectionForVisibleItems = (selection) => selection,
     graphNodeNeedsRelationWorkflow = () => false,
     graphBuildReadingLensState = () => ({ active: false }),
@@ -105,6 +106,9 @@ export function buildGraphVisualMapRuntimeState({
   return {
     ...layoutState,
     ...selectionState,
-    ...controlsState
+    ...controlsState,
+    canvasHelpHintVisible: shouldShowGraphCanvasHelpHint({
+      hasNodes: Array.isArray(layoutState?.layout?.nodes) && layoutState.layout.nodes.length > 0
+    })
   };
 }

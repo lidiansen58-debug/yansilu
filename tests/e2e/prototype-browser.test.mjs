@@ -8328,8 +8328,8 @@ test("prototype graph AI connect suggests a relation from notes without relation
 
   await waitFor(async () => {
     const panelText = await page.locator(".graph-selection-panel").first().textContent();
-    assert.match(String(panelText || ""), /AI Review Source|这条永久笔记还没有进入关系网/);
-    assert.match(String(panelText || ""), /保存并接入关系网|保存并处理下一条|手动搜索关联/);
+    assert.match(String(panelText || ""), /AI Review Source|关联工作台|未关联/);
+    assert.match(String(panelText || ""), /保存关系|查找推荐|自己搜索/);
   }, 7000);
 
   const aiCandidateSelect = page.locator(".graph-selection-panel [data-graph-ai-candidate-select]");
@@ -8399,8 +8399,8 @@ test("prototype graph local candidate save removes isolated state and updates gr
     assert.equal(await page.locator(".graph-selection-panel .graph-isolated-join").count(), 1);
     const selectionText = await page.locator(".graph-selection-panel").textContent();
     assert.match(String(selectionText || ""), /Aaa Local Source/);
-    assert.match(String(selectionText || ""), /这条永久笔记还没有进入关系网/);
-    assert.match(String(selectionText || ""), /推荐目标|搜索目标|完整列表已折叠/);
+    assert.match(String(selectionText || ""), /关联工作台|未关联/);
+    assert.match(String(selectionText || ""), /推荐目标|自己搜索|查找推荐/);
   }, 7000);
 
   await page.locator('.graph-selection-panel [data-graph-isolated-tab="manual"]').click();

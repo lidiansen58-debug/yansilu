@@ -13,6 +13,7 @@ export function buildGraphVisualMapRuntimeStateDeps(host = {}) {
     graphRelationVisual = () => ({ key: "neutral" }),
     graphDenseGalaxyMode = () => false,
     shouldShowGraphDensityHint = () => false,
+    shouldShowGraphCanvasHelpHint = () => false,
     normalizeGraphSelectionForVisibleItems = (selection) => selection,
     graphNodeNeedsRelationWorkflow = () => false,
     graphBuildReadingLensState = () => ({ active: false })
@@ -30,6 +31,7 @@ export function buildGraphVisualMapRuntimeStateDeps(host = {}) {
     graphRelationVisual,
     graphDenseGalaxyMode,
     shouldShowGraphDensityHint,
+    shouldShowGraphCanvasHelpHint,
     normalizeGraphSelectionForVisibleItems,
     graphNodeNeedsRelationWorkflow,
     graphBuildReadingLensState,

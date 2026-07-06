@@ -82,6 +82,30 @@ test("save note state action saves the active tab note and syncs explorer after 
   assert.deepEqual(status.calls.at(-1), { message: "已同步到 Markdown", tone: "ok" });
 });
 
+test("save note state action can preserve editor focus while syncing an active note title", async () => {
+  const state = {
+    activeTabId: "tab-1",
+    module: "explorer",
+    tabs: [{ id: "tab-1", noteId: "n1", title: "Old", body: "# Old\nbody" }],
+    notes: [{ id: "n1", title: "Old", body: "# Old\nbody", status: "draft" }]
+  };
+  const calls = [];
+
+  await handleSaveNoteStateChange({ title: "New", preserveEditorFocus: true }, {
+    state,
+    editor: { fillEditorFromTab: () => calls.push("fill-editor") },
+    replaceFirstMarkdownTitle: (body, title) => `# ${title}\n${body.split("\n").slice(1).join("\n")}`,
+    updateNote: async (_noteId, patch) => patch,
+    renderAll: () => calls.push("render")
+  });
+
+  assert.equal(state.notes[0].title, "New");
+  assert.equal(state.notes[0].body, "# New\nbody");
+  assert.equal(state.tabs[0].title, "New");
+  assert.equal(state.tabs[0].body, "# New\nbody");
+  assert.deepEqual(calls, ["render"]);
+});
+
 test("save note state action refreshes graph after saving in graph module", async () => {
   const calls = [];
   const state = {

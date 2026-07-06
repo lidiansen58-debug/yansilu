@@ -240,6 +240,7 @@ export class ExplorerPane {
     pickDirectory,
     selectPermanentDirectory,
     selectNoteMoveDirectory,
+    requestTextInput,
     desktopFile,
     resolveNotePath
   }) {
@@ -253,6 +254,10 @@ export class ExplorerPane {
     this.pickDirectory = pickDirectory;
     this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
     this.selectNoteMoveDirectory = typeof selectNoteMoveDirectory === "function" ? selectNoteMoveDirectory : null;
+    this.requestTextInput = typeof requestTextInput === "function" ? requestTextInput : async ({ title = "", value = "" } = {}) => {
+      if (typeof window === "undefined" || typeof window.prompt !== "function") return "";
+      return window.prompt(title, value) || "";
+    };
     this.desktopFile = desktopFile || null;
     this.resolveNotePath = resolveNotePath || null;
 
@@ -263,6 +268,12 @@ export class ExplorerPane {
     );
 
     this.bind();
+  }
+
+  syncSearchVisibility() {
+    const showSearch = Boolean(this.state.searchVisible || String(this.state.searchQuery || "").trim());
+    this.els.searchBar?.classList?.toggle?.("hidden", !showSearch);
+    this.els.toggleSearchBtn?.classList?.toggle?.("is-ghost", !showSearch);
   }
 
   syncNewNoteButton() {
@@ -302,6 +313,7 @@ export class ExplorerPane {
         this.state.searchQuery = "";
         this.els.searchInput.value = "";
       }
+      this.syncSearchVisibility();
       this.onStateChange("toggle-search");
       if (this.state.searchVisible) this.els.searchInput.focus();
     });
@@ -608,7 +620,12 @@ export class ExplorerPane {
         return;
       }
       if (action === "rename") {
-        const name = prompt("重命名目录：", f.name);
+        const name = await this.requestTextInput({
+          title: "重命名目录",
+          note: "输入新的目录名称，保存后会同步本地文件夹路径。",
+          label: "目录名称",
+          value: f.name
+        });
         if (name && name.trim()) {
           await this.onStateChange("directory-update", { directoryId: f.id, patch: { title: name.trim() } });
         }
@@ -658,12 +675,22 @@ export class ExplorerPane {
         return;
       }
       if (action === "rename") {
-        const title = prompt("重命名笔记：", n.title);
+        const originalTitle = n.title;
+        const title = await this.requestTextInput({
+          title: "重命名笔记",
+          note: "输入新的笔记标题，保存后会同步 Markdown 文件名和正文标题。",
+          label: "笔记标题",
+          value: n.title
+        });
         if (title && title.trim()) {
           n.title = title.trim();
-          await this.onStateChange("save-note", { noteId: n.id, title: n.title });
+          const result = await this.onStateChange("save-note", { noteId: n.id, title: n.title });
+          if (result?.statusTone === "bad") {
+            n.title = originalTitle;
+            return;
+          }
+          this.onStatus("笔记已重命名", "ok");
         }
-        this.onStatus("笔记已重命名", "ok");
       }
       if (action === "move") {
         if (!this.selectNoteMoveDirectory) {

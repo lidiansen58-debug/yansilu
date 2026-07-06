@@ -114,11 +114,11 @@ test("graph workbench click fallback opens summary workbench entries", () => {
 
   const installed = installGraphWorkbenchClickFallbackEvents(documentRef, {
     graphState,
-    graphWorkbenchTabMeta: (key) => ({ key, label: "关系待办", statusLabel: "关系待办" }),
+    graphWorkbenchTabMeta: (key) => ({ key, label: "关联任务", statusLabel: "关联任务" }),
     applyGraphWorkbenchEntryInteraction: (state, key) => {
       calls.push(["entry", key]);
       state.workbenchPanelOpen = true;
-      return { open: true, meta: { label: "关系待办", statusLabel: "关系待办" } };
+      return { open: true, meta: { label: "关联任务", statusLabel: "关联任务" } };
     },
     renderGraphPanel: () => calls.push(["render"]),
     setStatus: (message, tone) => calls.push(["status", message, tone])
@@ -133,6 +133,6 @@ test("graph workbench click fallback opens summary workbench entries", () => {
   assert.deepEqual(calls, [
     ["entry", "clues"],
     ["render"],
-    ["status", "已打开关系待办", "ok"]
+    ["status", "已打开关联任务", "ok"]
   ]);
 });

@@ -13,16 +13,16 @@ const tabMeta = (value = "clues") => {
   const items = {
     clues: {
       key: "clues",
-      label: "关系待办",
-      emptyLabel: "关系清楚",
-      panelTitle: "关系待办",
+      label: "关联任务",
+      emptyLabel: "暂无关联任务",
+      panelTitle: "关联任务",
       note: "处理关系"
     },
     questions: {
       key: "questions",
-      label: "思考问题",
-      emptyLabel: "暂无问题",
-      panelTitle: "思考问题",
+      label: "洞察问题",
+      emptyLabel: "暂无洞察问题",
+      panelTitle: "洞察问题",
       note: "处理问题"
     }
   };

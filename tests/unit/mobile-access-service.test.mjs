@@ -16,6 +16,7 @@ import {
   confirmPairRequest,
   createPairRequest,
   getPairRequestStatus,
+  resolveLanIpv4FromInterfaces,
   revokeMobileDevice
 } from "../../apps/api/src/mobile-pairing-service.mjs";
 
@@ -40,6 +41,25 @@ test("desktop QR payload contains only address and short pair code, not long tok
     assert.doesNotMatch(status.pairUrl, /ym_/);
     assert.match(status.qrSvg, /<svg/);
   });
+});
+
+test("mobile access URL prefers real LAN addresses over virtual proxy adapters", () => {
+  const address = resolveLanIpv4FromInterfaces({
+    "vEthernet (Default Switch)": [
+      { family: "IPv4", internal: false, address: "172.25.208.1" }
+    ],
+    WLAN: [
+      { family: "IPv4", internal: false, address: "192.168.12.203" }
+    ],
+    Mihomo: [
+      { family: "IPv4", internal: false, address: "198.18.0.1" }
+    ],
+    Loopback: [
+      { family: "IPv4", internal: true, address: "127.0.0.1" }
+    ]
+  });
+
+  assert.equal(address, "192.168.12.203");
 });
 
 test("expired pair code cannot create a mobile pair request", async () => {

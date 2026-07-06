@@ -17,12 +17,12 @@ import {
 
 test("prototype settings navigation normalizes sections and items", () => {
   assert.equal(SETTINGS_SECTIONS.length, 5);
-  assert.equal(SETTINGS_DETAIL_ITEMS.length, 8);
+  assert.equal(SETTINGS_DETAIL_ITEMS.length, 10);
   assert.equal(normalizeSettingsSection("ai"), "ai");
-  assert.equal(normalizeSettingsSection("missing"), "workspace");
-  assert.equal(settingsSectionConfig("support").label, "支持");
+  assert.equal(normalizeSettingsSection("missing"), "support");
+  assert.equal(settingsSectionConfig("support").label, "帮助");
   assert.equal(normalizeSettingsItem("version-update"), "version-update");
-  assert.equal(normalizeSettingsItem("missing"), "current-vault");
+  assert.equal(normalizeSettingsItem("missing"), "desktop-help");
   assert.equal(settingsDetailItemConfig("feedback").sectionId, "support");
 });
 
@@ -50,7 +50,7 @@ test("prototype settings navigation derives chrome from explicit state dependenc
   assert.equal(chrome.templates.badge, "1 个草稿");
   assert.equal(chrome.ai.badge, "只用本地模型");
   assert.equal(chrome.automation.badge, "5");
-  assert.equal(chrome.support.meta, "owner/repo");
+  assert.equal(chrome.support.meta, "遇到问题先看这里、Demo、任务帮助");
 });
 
 test("prototype settings navigation renders sidebar and mobile item options", () => {
@@ -64,8 +64,19 @@ test("prototype settings navigation renders sidebar and mobile item options", ()
   assert.match(html, /问题反馈与本地说明/);
 
   const options = settingsMobileItemOptionsHtml();
-  assert.match(options, /<optgroup label="智能">/);
+  assert.match(options, /<optgroup label="本地使用">/);
   assert.match(options, /<option value="ai-settings">AI 设置<\/option>/);
+});
+
+test("prototype settings navigation prioritizes mobile access in local settings", () => {
+  const localItems = SETTINGS_DETAIL_ITEMS.filter((item) => item.sectionId === "workspace").map((item) => item.id);
+  assert.deepEqual(localItems.slice(0, 3), ["mobile-access", "current-vault", "import-export"]);
+
+  const html = settingsSidebarNavigationHtml();
+  assert.equal(html.match(/data-settings-item="([^"]+)"/)?.[1], "mobile-access");
+
+  const options = settingsMobileItemOptionsHtml();
+  assert.equal(options.match(/<option value="([^"]+)"/)?.[1], "mobile-access");
 });
 
 test("prototype settings navigation keeps user-facing helper copy stable", () => {

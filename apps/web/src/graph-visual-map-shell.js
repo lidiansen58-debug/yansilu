@@ -24,10 +24,12 @@ function graphVisualMapShellDeps(deps = {}) {
       zoomLevels: "Graph zoom levels",
       zoomOut: "Zoom out",
       zoomIn: "Zoom in",
+      wheelZoomHint: "也可以用鼠标滚轮缩放",
       expand: "Expand",
       collapse: "Exit expanded view",
       panCanvas: "Pan canvas",
       panCanvasHint: "Drag the empty map area to pan",
+      canvasHelpHint: "滚轮缩放，拖动查看，点击笔记看详情",
       hoverTitle: "拖动画布，点击笔记查看周边关系",
       hoverDetail: "可以拖动画布移动视野；点击笔记或关系后，在旁边查看它附近的连接。",
       legend: "Relation color legend",
@@ -49,15 +51,16 @@ export function renderGraphZoomStepperView(
   const controls = Object.entries(zoomOptions || {})
     .map(([key, option]) => {
       const active = zoomKey === key;
-      return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
+      const title = [option.note, labels.wheelZoomHint].filter(Boolean).join(" · ");
+      return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(title)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
     })
     .join("");
   return `
-    <button class="graph-zoom-step" type="button" data-graph-zoom-step="-1" aria-label="${escapeHtml(labels.zoomOut)}" title="${escapeHtml(labels.zoomOut)}"${zoomIndex === 0 ? " disabled" : ""}>${renderGraphIcon("zoom-out")}</button>
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="-1" aria-label="${escapeHtml(labels.zoomOut)}" title="${escapeHtml(`${labels.zoomOut} · ${labels.wheelZoomHint}`)}"${zoomIndex === 0 ? " disabled" : ""}>${renderGraphIcon("zoom-out")}</button>
     <div class="graph-zoom-preset-group" aria-label="${escapeHtml(labels.zoomLevels)}">
       ${controls}
     </div>
-    <button class="graph-zoom-step" type="button" data-graph-zoom-step="1" aria-label="${escapeHtml(labels.zoomIn)}" title="${escapeHtml(labels.zoomIn)}"${zoomIndex === zoomKeys.length - 1 ? " disabled" : ""}>${renderGraphIcon("zoom-in")}</button>
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="1" aria-label="${escapeHtml(labels.zoomIn)}" title="${escapeHtml(`${labels.zoomIn} · ${labels.wheelZoomHint}`)}"${zoomIndex === zoomKeys.length - 1 ? " disabled" : ""}>${renderGraphIcon("zoom-in")}</button>
   `;
 }
 
@@ -163,6 +166,7 @@ export function renderGraphVisualMapShellView({
   zoomKey = "fit",
   zoomWidth = 0,
   zoomHeight = 0,
+  canvasHelpHintVisible = false,
   layoutWidth = 0,
   layoutHeight = 0,
   zoomStepperMarkup = "",
@@ -211,6 +215,7 @@ export function renderGraphVisualMapShellView({
                       <strong>${escapeHtml(labels.hoverTitle)}</strong>
                       <span>${escapeHtml(labels.hoverDetail)}</span>
                     </div>
+                    ${canvasHelpHintVisible ? `<div class="graph-canvas-help-hint" role="status">${escapeHtml(labels.canvasHelpHint)}</div>` : ""}
                     <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoomKey)}" viewBox="0 0 ${layoutWidth} ${layoutHeight}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="${escapeHtml(labels.mapImage)}">
                       <defs>${svgDefsMarkup}</defs>
                       <rect class="graph-map-backdrop" x="0" y="0" width="${layoutWidth}" height="${layoutHeight}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
@@ -222,8 +227,8 @@ export function renderGraphVisualMapShellView({
                       <g class="graph-map-nodes">${nodeMarkup}</g>
                     </svg>
                   </div>
+                  ${sidePanelMarkup}
                 </div>
-                ${sidePanelMarkup}
               </div>
             `
             : emptyStateMarkup

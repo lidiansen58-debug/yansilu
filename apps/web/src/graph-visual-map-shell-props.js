@@ -40,7 +40,8 @@ export function buildGraphVisualMapShellProps({
     layout = { nodes: [], width: 0, height: 0 },
     zoom = { key: "fit" },
     zoomWidth = 0,
-    zoomHeight = 0
+    zoomHeight = 0,
+    canvasHelpHintVisible = false
   } = runtimeState;
 
   const selectionKind = activeSelection?.kind || "";
@@ -66,6 +67,7 @@ export function buildGraphVisualMapShellProps({
     headContentMarkup,
     legendMarkup,
     hasNodes: Array.isArray(layout.nodes) && layout.nodes.length > 0,
+    canvasHelpHintVisible,
     sidePanelMarkup: sidePanelParts.length ? `<div class="graph-side-stack">${sidePanelParts.join("")}</div>` : "",
     selectionOverlayMarkup,
     zoomKey: zoom.key,

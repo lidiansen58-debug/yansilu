@@ -2,6 +2,7 @@ import { childFolders, createInitialState, folderById, joinFsPath, parseLinks, n
 import { ContextMenu } from "./components-context-menu.js";
 import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { PermanentNoteDialog } from "./components-permanent-note-dialog.js";
+import { createTextInputDialog } from "./components-text-input-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
 import { deriveLiteratureSectionLabelsFromTemplate, EditorPane, normalizeFieldText, parseLiteratureWorkspace, validateLiteratureTemplateSource } from "./components-editor-pane.js";
@@ -246,6 +247,9 @@ const graphState = {
   densityHintKey: "",
   densityHintVisibleUntil: 0,
   densityHintTimer: 0,
+  canvasHelpHintDismissed: false,
+  canvasHelpHintVisibleUntil: 0,
+  canvasHelpHintTimer: 0,
   selection: null,
   isolatedWorkflowTabsByNoteId: {},
   isolatedRelationDraftByNoteId: {},
@@ -305,6 +309,8 @@ const {
   clearGraphDensityHintTimer,
   scheduleGraphDensityHintDismiss,
   shouldShowGraphDensityHint,
+  shouldShowGraphCanvasHelpHint,
+  dismissGraphCanvasHelpHint,
   resetGraphDemoPresentationState
 } = graphPresentationController;
 const distillationState = {
@@ -351,8 +357,8 @@ const aiInboxState = {
   aiSummaryRequestToken: 0
 };
 const settingsState = {
-  activeSection: "support",
-  activeItem: "desktop-help",
+  activeSection: "workspace",
+  activeItem: "mobile-access",
   vault: null,
   noteTemplates: {
     permanent: {
@@ -4890,6 +4896,7 @@ const graphResidualViews = createGraphResidualViews({
   renderGraphThemeBoundaryForRuntime,
   renderGraphThemeIndexWorkspaceMarkup,
   shouldShowGraphDensityHint,
+  shouldShowGraphCanvasHelpHint,
   renderGraphThinkingItemsView,
   renderGraphThinkingPanelContentView,
   renderGraphThinkingPanelView,
@@ -5593,6 +5600,7 @@ const permanentNoteDialog = new PermanentNoteDialog({
   cancelEl: $("permanentNoteCancel"),
   createEl: $("permanentNoteCreate")
 });
+const requestTextInput = createTextInputDialog({ documentRef: document });
 
 createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
   await handleCreateDirectoryFromDialog({ name, parentId, fsPath, maxCards }, {
@@ -5666,6 +5674,7 @@ const explorer = new ExplorerPane(createExplorerPaneHostDeps({
   handleStateChange,
   selectPermanentDirectory,
   selectNoteMoveDirectory,
+  requestTextInput,
   resolveNotePath
 }));
 
@@ -6136,6 +6145,7 @@ bindGraphCanvasEvents($("graphPanel"), {
   setGraphFocusContextMode,
   graphFocusContextModeMeta,
   centerGraphViewportIfZoomed,
+  dismissGraphCanvasHelpHint,
   requestAnimationFrame: window.requestAnimationFrame.bind(window)
 });
 installAppRailEventBindings({

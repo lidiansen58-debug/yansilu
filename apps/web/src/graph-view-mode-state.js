@@ -57,15 +57,15 @@ export function graphReadingModeMeta(value = "argument") {
   if (key === "structure") {
     return {
       key,
-      label: "主题有哪些",
+      label: "主题分布",
       purpose: "看这批笔记主要聚成哪些主题，适合找可写方向。",
-      filterHint: "当前只看主题归属。想检查支持、反驳、边界等论证关系时，切回“观点怎么连”。",
+      filterHint: "当前只看主题归属。想检查支持、反驳、边界等论证关系时，切回“关系图”。",
       mapNote: "主题视图强调聚集位置。先看哪些主题已经成形，再决定是否保存为主题索引。"
     };
   }
   return {
     key: "argument",
-    label: "观点怎么连",
+    label: "关系图",
     purpose: "看笔记之间如何支持、反驳、限定或补充，用来检查一个观点是否站得住。",
     filterHint: "当前优先显示观点关系。可以继续按关系类型收窄，只看最需要判断的一类连接。",
     mapNote: "观点关系视图强调论证结构。点击笔记或关系，检查理由是否清楚。"
@@ -89,6 +89,7 @@ export function renderGraphViewModeSwitcher(relationType = "meaningful", deps = 
   const modes = [graphReadingModeMeta("argument"), graphReadingModeMeta("structure")];
   return `
     <div class="graph-view-tabs" aria-label="图谱主要视角">
+      <span class="graph-control-label">看图</span>
       ${modes
         .map((item) => {
           const active = item.key === mode;
