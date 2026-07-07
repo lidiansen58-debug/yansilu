@@ -467,14 +467,14 @@
           </div>
           <div class="panel hidden" id="writingPanel">
           <div class="writing-shell">
-            <header class="writing-topline">
-              <div class="writing-topline-main">
-                <div class="import-card-kicker">从笔记到文章</div>
-                <strong>写清问题，生成提纲</strong>
-              </div>
-            </header>
-            <details class="writing-collapsed-strip">
-              <summary>当前状态和步骤</summary>
+            <nav class="writing-tabs" aria-label="写作中心功能切换" role="tablist">
+              <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">开始写</button>
+              <button class="writing-tab" type="button" data-writing-tab="notes" role="tab" aria-selected="false">选笔记</button>
+              <button class="writing-tab" type="button" data-writing-tab="themes" role="tab" aria-selected="false">用主题</button>
+              <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">高级工具</button>
+            </nav>
+            <details class="writing-collapsed-strip writing-status-details">
+              <summary>状态和步骤</summary>
               <div class="writing-topline-metrics" id="writingToplineMetrics" aria-label="写作中心当前速览">
                 <div class="writing-topline-metric"><span>相关笔记</span><strong>0 条</strong><small>先选择笔记</small></div>
                 <div class="writing-topline-metric"><span>可写主题</span><strong>未确定</strong><small>明确要写什么</small></div>
@@ -488,22 +488,12 @@
               </div>
               <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
             </details>
-            <nav class="writing-tabs" aria-label="写作中心功能切换" role="tablist">
-              <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">开始写</button>
-              <button class="writing-tab" type="button" data-writing-tab="notes" role="tab" aria-selected="false">选笔记</button>
-              <button class="writing-tab" type="button" data-writing-tab="themes" role="tab" aria-selected="false">用主题</button>
-              <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">高级工具</button>
-            </nav>
             <div class="writing-project-grid" id="writingComposePanel">
-              <details class="writing-collapsed-strip" id="writingBeginnerMainlineDetails">
-                <summary>新手路径</summary>
-                <div id="writingBeginnerMainline" aria-live="polite"></div>
-              </details>
               <section class="writing-section writing-output-card">
                 <div class="writing-section-head">
                   <div>
-                    <div class="writing-section-title">可写主题</div>
-                    <div class="writing-section-note">题目和问题写清楚，就可以生成提纲。</div>
+                    <div class="writing-section-title">写什么</div>
+                    <div class="writing-section-note">先写清题目和问题。</div>
                   </div>
                 </div>
                 <div class="import-grid writing-form-grid">
@@ -541,8 +531,8 @@
               <section class="writing-section">
                 <div class="writing-section-head">
                   <div>
-                    <div class="writing-section-title">当前进度与输出</div>
-                    <div class="writing-section-note">看主题是否已确定、文章提纲是否已生成，以及能否开始草稿。</div>
+                    <div class="writing-section-title">输出</div>
+                    <div class="writing-section-note">生成提纲后在这里检查。</div>
                   </div>
                 </div>
                 <details class="writing-advanced-details">
@@ -575,6 +565,10 @@
                 </div>
                 </details>
               </section>
+              <details class="writing-collapsed-strip" id="writingBeginnerMainlineDetails">
+                <summary>新手路径</summary>
+                <div id="writingBeginnerMainline" aria-live="polite"></div>
+              </details>
             </div>
 
             <details class="writing-advanced-details" id="writingBookToolsPanel">

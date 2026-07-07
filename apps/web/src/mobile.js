@@ -90,8 +90,8 @@ function renderConnectGate(error = null) {
   app.innerHTML = `
     <section class="panel hero-panel">
       <p class="eyebrow">连接电脑</p>
-      <h2>${hasPairCode ? "请求连接这台电脑" : "先从电脑端扫码连接"}</h2>
-      <p class="muted">${hasPairCode ? "手机会发送连接请求，必须在电脑端点“允许连接”后才能访问笔记。" : "在电脑端打开 设置 > 手机访问，扫码后再回到这里。"}</p>
+      <h2>${hasPairCode ? "请求连接" : "扫码后开始记录"}</h2>
+      <p class="muted">${hasPairCode ? "发起后，在电脑端点“允许连接”。" : "在电脑端打开“手机访问”，用手机扫码。"}</p>
       ${error ? `<div class="inline-error">${escapeHtml(error.message || error)}</div>` : ""}
       ${hasPairCode ? `
         <form class="quick-form" id="pairForm">
@@ -100,7 +100,7 @@ function renderConnectGate(error = null) {
           <button class="primary-button" type="submit">请求连接电脑</button>
         </form>
       ` : `
-        <div class="empty">二维码不会包含长期访问 token。连接请求发出后，请回到电脑端确认。</div>
+        <div class="empty">手机只连接正在运行的电脑端。</div>
       `}
     </section>
   `;
@@ -128,15 +128,14 @@ function renderHome() {
     return;
   }
   app.innerHTML = `
-    <section class="panel hero-panel">
-      <p class="eyebrow">已连接到电脑</p>
-      <h2>随时记录，回电脑整理</h2>
-      <p class="muted">手机端专注记录素材、回看笔记和继续积累写作材料。复杂建联、图谱和写作生成回电脑完成。</p>
-      <button class="primary-button full" type="button" data-go="quick">快速记录</button>
-      <div class="action-grid">
-        <button class="secondary-button" type="button" data-go="today">今日待整理</button>
-        <button class="secondary-button" type="button" data-go="notes">永久笔记</button>
-        <button class="secondary-button" type="button" data-go="themes">写作素材</button>
+    <section class="panel mobile-capture-card">
+      <p class="eyebrow">现在就记</p>
+      <h2>把刚想到的东西先放进电脑</h2>
+      <button class="primary-button full capture-button" type="button" data-go="quick">快速记录</button>
+      <div class="mobile-home-actions">
+        <button class="secondary-button" type="button" data-go="today">待整理</button>
+        <button class="secondary-button" type="button" data-go="notes">看笔记</button>
+        <button class="secondary-button" type="button" data-go="themes">看素材</button>
       </div>
       <div class="stat-row">
         <div class="stat"><strong>${overview.counts?.fleetingNotes || 0}</strong><span>待整理</span></div>
@@ -144,14 +143,20 @@ function renderHome() {
         <div class="stat"><strong>${overview.counts?.themes || 0}</strong><span>主题</span></div>
       </div>
     </section>
-    <section>
-      <h2 class="section-title">刚保存或待整理</h2>
+    <section class="mobile-section">
+      <div class="section-head">
+        <h2 class="section-title">刚保存</h2>
+        <button class="text-button" type="button" data-go="today">查看全部</button>
+      </div>
       <div class="card-list">
         ${(overview.today?.recentFleetingNotes || []).slice(0, 4).map(compactNoteCard).join("") || `<div class="empty">还没有手机随笔。先点“快速记录”保存一个想法。</div>`}
       </div>
     </section>
-    <section>
-      <h2 class="section-title">可继续的写作素材</h2>
+    <section class="mobile-section">
+      <div class="section-head">
+        <h2 class="section-title">写作素材</h2>
+        <button class="text-button" type="button" data-go="themes">查看全部</button>
+      </div>
       <div class="card-list">
         ${(overview.themes || []).slice(0, 3).map(themeCard).join("") || `<div class="empty">还没有主题索引。回电脑端整理几条永久笔记后，这里会显示写作素材。</div>`}
       </div>
@@ -194,8 +199,7 @@ function renderToday() {
   app.innerHTML = `
     <section class="panel">
       <p class="eyebrow">今日待整理</p>
-      <h2>回电脑前，先把素材放好</h2>
-      <p class="muted">这里显示最近随笔。手机端不做复杂整理，回电脑端首页继续加工。</p>
+      <h2>这些回电脑继续加工</h2>
       <button class="primary-button full" type="button" data-go="quick">再记录一条</button>
     </section>
     <div class="card-list">${state.todayNotes.map(compactNoteCard).join("") || `<div class="empty">还没有待整理随笔。</div>`}</div>
@@ -206,7 +210,7 @@ function renderNotes() {
   app.innerHTML = `
     <section class="panel">
       <p class="eyebrow">永久笔记</p>
-      <h2>轻量回看已经沉淀的想法</h2>
+      <h2>查一条已经沉淀的想法</h2>
       <form class="search-row" id="searchForm">
         <label class="sr-only" for="searchInput">搜索永久笔记</label>
         <input id="searchInput" type="search" placeholder="搜索标题或路径" />
@@ -221,8 +225,7 @@ function renderThemes() {
   app.innerHTML = `
     <section class="panel">
       <p class="eyebrow">写作素材</p>
-      <h2>围绕主题继续积累</h2>
-      <p class="muted">这里只看主题方向、中心问题和关键笔记。生成提纲、写草稿仍回电脑端写作中心完成。</p>
+      <h2>给主题补素材</h2>
     </section>
     <div class="card-list">${state.themes.map(themeCard).join("") || `<div class="empty">还没有主题索引。</div>`}</div>
   `;
@@ -231,20 +234,21 @@ function renderThemes() {
 function renderQuick() {
   const contextTitle = state.quickContext?.themeTitle || "";
   app.innerHTML = `
-    <section class="panel">
+    <section class="panel quick-panel">
       <p class="eyebrow">快速记录</p>
-      <h2>${contextTitle ? `给“${escapeHtml(contextTitle)}”补充素材` : "先抓住想法"}</h2>
-      <p class="muted">内容会保存到电脑 vault 的随笔目录，之后在电脑端首页继续加工。</p>
+      <h2>${contextTitle ? `补充素材` : "先写下来"}</h2>
       <form class="quick-form" id="quickForm">
-        <label for="quickTitle">标题</label>
-        <input id="quickTitle" type="text" placeholder="可不填，系统会取正文第一行" value="${contextTitle ? escapeHtml(`${contextTitle}：`) : ""}" />
         <label for="quickBody">正文</label>
-        <textarea id="quickBody" placeholder="写下刚刚想到的内容、摘录或网页文字"></textarea>
-        <label for="quickExcerpt">摘录或网页片段</label>
-        <textarea id="quickExcerpt" class="compact-textarea" placeholder="可选：粘贴原文片段"></textarea>
+        <textarea id="quickBody" class="quick-main-textarea" placeholder="写一句想法、课堂内容、摘录或灵感"></textarea>
+        <details class="mobile-details">
+          <summary>标题和摘录</summary>
+          <label for="quickTitle">标题</label>
+          <input id="quickTitle" type="text" placeholder="可不填，系统会取正文第一行" value="${contextTitle ? escapeHtml(`${contextTitle}：`) : ""}" />
+          <label for="quickExcerpt">摘录</label>
+          <textarea id="quickExcerpt" class="compact-textarea" placeholder="可选：粘贴原文片段"></textarea>
+        </details>
         <div class="quick-image-picker">
           <span class="quick-image-title">图片</span>
-          <p class="muted">从手机相册选择，或直接拍照保存为素材。</p>
           <div class="quick-image-actions">
             <label class="secondary-button file-button" for="quickImagesAlbum">从相册选择</label>
             <input id="quickImagesAlbum" type="file" accept="image/*" multiple />

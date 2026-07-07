@@ -194,20 +194,22 @@ export function renderTodayOrganizingPanel(state = {}) {
           ${escape(recommended.actionLabel)}
         </button>
       </section>
+      <section class="today-secondary-tabs" aria-label="辅助信息">
+        <details class="today-secondary-details">
+          <summary>新手路径和当前状态</summary>
+          <div class="today-secondary-body">
+            ${renderBeginnerGuide()}
+            ${renderOverview(state)}
+          </div>
+        </details>
+        <details class="today-secondary-details">
+          <summary>辅助检查</summary>
+          ${renderReviewChecklistPanel(state.reviewChecklist)}
+        </details>
+      </section>
       <section class="today-action-grid" aria-label="其他可做">
         ${actions.filter((item) => item.key !== recommended.key).map(actionCard).join("")}
       </section>
-      <details class="today-secondary-details">
-        <summary>新手路径和当前状态</summary>
-        <div class="today-secondary-body">
-          ${renderBeginnerGuide()}
-          ${renderOverview(state)}
-        </div>
-      </details>
-      <details class="today-secondary-details">
-        <summary>辅助检查</summary>
-        ${renderReviewChecklistPanel(state.reviewChecklist)}
-      </details>
     </div>
   `;
 }

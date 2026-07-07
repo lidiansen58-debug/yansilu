@@ -37,11 +37,11 @@ test("app shell module ui exposes organizer as the daily start entry", () => {
   const ui = currentModuleSidebarUi({ module: "today" });
 
   assert.equal(ui.title, "让笔记生长为思想");
-  assert.equal(ui.sidebarTitle, "首页");
+  assert.equal(ui.sidebarTitle, "让笔记生长为思想");
   assert.match(ui.summary, /每天只推进一步/);
   assert.match(ui.summary, /最值得做/);
-  assert.match(ui.sidebarHtml, /现在只看首屏/);
-  assert.match(ui.sidebarHtml, /推荐动作/);
+  assert.match(ui.sidebarHtml, /首页/);
+  assert.match(ui.sidebarHtml, /右侧最重要的按钮/);
   assert.doesNotMatch(ui.sidebarHtml, /<ol class="module-sidebar-list">/);
   assert.doesNotMatch(ui.summary + ui.sidebarHtml, /候选队列|复核|线索/);
 });

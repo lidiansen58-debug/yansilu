@@ -7,15 +7,15 @@ export function currentModuleSidebarUi({
   const resolvedRootName = rootName || "当前目录";
   const configs = {
     today: {
-      sidebarTitle: "首页",
-      sidebarSubtitle: "每天从这里开始，只推进最值得做的一步。",
+      sidebarTitle: "让笔记生长为思想",
+      sidebarSubtitle: "每天只推进一步：做最值得做的一件事。",
       sidebarFoot: "先完成首屏推荐动作，其他信息只作参考。",
       title: "让笔记生长为思想",
       summary: "每天只推进一步：做最值得做的一件事。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>现在只看首屏</h3>
-          <p>先点推荐动作。新手路径、统计和检查都放在下方辅助信息里。</p>
+          <h3>首页</h3>
+          <p>先点右侧最重要的按钮。其他说明和检查只作参考。</p>
         </div>
       `
     },
@@ -102,8 +102,8 @@ export function currentModuleSidebarUi({
       summary: "先确定要写什么，再生成提纲。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>当前只做一件事</h3>
-          <p>写清文章题目和要回答的问题，然后生成提纲。</p>
+          <h3>先做主线</h3>
+          <p>选相关笔记，写清问题，生成提纲。其他工具需要时再展开。</p>
         </div>
       `
     },
@@ -132,14 +132,18 @@ export function syncModuleChromeClassesForRuntime({
   appShell = null
 } = {}) {
   const graphMode = module === "graph";
+  const todayMode = module === "today";
+  const writingMode = module === "writing";
   const importsMode = module === "imports";
   const settingsMode = module === "settings";
   const backupMode = module === "backup";
+  moduleWorkspace?.classList?.toggle?.("today-mode", todayMode);
+  moduleWorkspace?.classList?.toggle?.("writing-mode", writingMode);
   moduleWorkspace?.classList?.toggle?.("graph-mode", graphMode);
   moduleWorkspace?.classList?.toggle?.("imports-mode", importsMode);
   moduleWorkspace?.classList?.toggle?.("backup-mode", backupMode);
   moduleWorkspace?.classList?.toggle?.("settings-mode", settingsMode);
   appShell?.classList?.toggle?.("graph-mode", graphMode);
   appShell?.classList?.toggle?.("settings-desktop-lock", settingsMode);
-  return { graphMode, importsMode, backupMode, settingsMode };
+  return { todayMode, writingMode, graphMode, importsMode, backupMode, settingsMode };
 }

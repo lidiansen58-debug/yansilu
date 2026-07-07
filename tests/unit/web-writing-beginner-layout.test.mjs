@@ -16,7 +16,7 @@ test("writing center keeps beginner four-step path above folded advanced areas",
   assert.ok(mainlineIndex > 0, "writing beginner mainline should exist");
   assert.ok(mainlineIndex > composePanelIndex, "next-step guidance should live inside the write tab");
   assert.ok(mainlineIndex > tabsIndex, "next-step guidance should not sit above every writing tab");
-  assert.ok(aiAdvancedIndex > mainlineIndex, "AI writing check should be below the beginner mainline");
+  assert.ok(aiAdvancedIndex > composePanelIndex, "AI writing check should stay inside the write tab and remain folded");
   assert.ok(bookAdvancedIndex > aiAdvancedIndex, "book direction should be in a later advanced area");
   assert.ok(basketIndex > mainlineIndex, "selected note summary should stay in the beginner layer");
   assert.ok(candidateAdvancedIndex > basketIndex, "full candidate list should be folded below selected notes");
