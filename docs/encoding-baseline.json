@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-07-05",
+  "generatedAt": "2026-07-08",
   "notes": [
     "This baseline captures existing repository encoding debt so the strict doctor command can block regressions without forcing a one-shot cleanup.",
     "Lower numbers are better. Update this file only after intentional cleanup."
   ],
   "totals": {
-    "files": 204,
+    "files": 197,
     "replacementCount": 0,
     "utf8AsLatin1Count": 0,
     "utf8AsCjkCount": 0,
     "bomFiles": 52,
-    "crlfCount": 42447,
-    "mixedLineEndingFiles": 157,
-    "total": 42499
+    "crlfCount": 38325,
+    "mixedLineEndingFiles": 148,
+    "total": 38377
   }
 }
