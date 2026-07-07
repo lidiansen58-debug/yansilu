@@ -45,7 +45,7 @@ export function buildGraphVisualMapHeadContent({
     `
     : `
       <div class="graph-map-primary-row">
-        ${renderGraphViewModeSwitcher(relationType)}
+        ${renderGraphViewModeSwitcher(relationType, readingLens.key)}
         <div class="graph-map-primary-actions">
           ${compactRelationFilterMarkup}
         </div>

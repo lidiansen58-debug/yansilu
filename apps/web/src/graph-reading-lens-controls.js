@@ -38,6 +38,7 @@ export function renderGraphReadingLensControls(activeLens = "insight", legendOpe
       <div class="graph-reading-lens" aria-label="图谱当前任务">
         <span>阅读</span>
         ${Object.values(GRAPH_READING_LENS_META)
+          .filter((item) => item.key === "insight")
           .map((item) => {
             const selected = item.key === active.key;
             return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;

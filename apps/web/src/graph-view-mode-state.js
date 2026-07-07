@@ -83,10 +83,27 @@ export function setGraphRelationTypeFilterForRuntime(graphState = {}, value = ""
   return next;
 }
 
-export function renderGraphViewModeSwitcher(relationType = "meaningful", deps = {}) {
+export function renderGraphViewModeSwitcher(relationType = "meaningful", activeLens = "insight", deps = {}) {
+  if (activeLens && typeof activeLens === "object" && !Array.isArray(activeLens)) {
+    deps = activeLens;
+    activeLens = "insight";
+  }
   const escapeHtml = deps.escapeHtml || defaultEscapeHtml;
   const mode = graphViewModeForRelationType(relationType);
   const modes = [graphReadingModeMeta("argument"), graphReadingModeMeta("structure")];
+  const lensKey = String(activeLens || "insight").trim().toLowerCase();
+  const lensModes = [
+    {
+      key: "bridge",
+      label: "看缺口",
+      hint: "突出还没连起来、缺证据、缺反方或缺边界的地方。"
+    },
+    {
+      key: "argument",
+      label: "看论证",
+      hint: "突出证据、反方和边界，判断观点是否能进入写作。"
+    }
+  ];
   return `
     <div class="graph-view-tabs" aria-label="图谱主要视角">
       <span class="graph-control-label">看图</span>
@@ -96,6 +113,16 @@ export function renderGraphViewModeSwitcher(relationType = "meaningful", deps = 
           return `
             <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}" title="${escapeHtml(item.purpose)}">
               <span>${escapeHtml(item.label)}</span>
+            </button>
+          `;
+        })
+        .join("")}
+      ${lensModes
+        .map((item) => {
+          const active = item.key === lensKey;
+          return `
+            <button class="graph-reading-lens-btn${active ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${active}" title="${escapeHtml(item.hint)}">
+              ${escapeHtml(item.label)}
             </button>
           `;
         })

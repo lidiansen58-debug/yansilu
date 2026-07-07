@@ -218,7 +218,7 @@ test("today organizing panel uses readable action words", () => {
   assert.ok(html.indexOf("现在最重要") < html.indexOf("当前笔记库状态"));
   assert.ok(html.indexOf("现在最重要") < html.indexOf("辅助检查"));
   assert.doesNotMatch(html, /today-path-inline/);
-  assert.match(html, /<details class="today-secondary-details">/);
+  assert.match(html, /<details class="today-secondary-details" name="today-secondary">/);
   assert.doesNotMatch(html, /候选队列|复核|线索|高级检查/);
 });
 

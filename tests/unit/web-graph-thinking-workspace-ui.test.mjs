@@ -60,6 +60,9 @@ import {
   renderGraphReadingLensControls
 } from "../../apps/web/src/graph-reading-lens-controls.js";
 import {
+  renderGraphViewModeSwitcher
+} from "../../apps/web/src/graph-view-mode-state.js";
+import {
   graphFocusContextCollapsedState,
   graphFocusContextCollapsedStatus,
   graphFocusHelpOpenState,
@@ -453,6 +456,7 @@ test("graph workbench entries live beside reading lenses and legend", () => {
     questionSummary: { total: 0 }
   }, graphWorkbenchViewTestDeps({ graphState: { workbenchPanelOpen: true, workbenchPanelTab: "clues" } }));
   const lensMarkup = renderGraphReadingLensControls("bridge", true, entryMarkup);
+  const viewMarkup = renderGraphViewModeSwitcher("meaningful", "bridge");
 
   assert.equal(graphReadingLensMeta("unknown").key, "insight");
   assert.match(entryMarkup, /data-graph-workbench-entry="clues"/);
@@ -462,7 +466,10 @@ test("graph workbench entries live beside reading lenses and legend", () => {
   assert.match(lensMarkup, /class="graph-reading-lens-side"/);
   assert.doesNotMatch(lensMarkup, /graph-reading-lens-side-label/);
   assert.match(lensMarkup, /id="graphLegendToggle"/);
-  assert.match(lensMarkup, /data-graph-reading-lens="bridge" aria-pressed="true"/);
+  assert.match(lensMarkup, /data-graph-reading-lens="insight"/);
+  assert.doesNotMatch(lensMarkup, /data-graph-reading-lens="bridge"/);
+  assert.match(viewMarkup, /data-graph-reading-lens="bridge" aria-pressed="true"/);
+  assert.match(viewMarkup, /data-graph-reading-lens="argument"/);
   assert.match(lensMarkup, /data-graph-workbench-entry="clues"/);
 });
 test("live graph connectivity overrides stale persisted relation status once a scope is loaded", () => {

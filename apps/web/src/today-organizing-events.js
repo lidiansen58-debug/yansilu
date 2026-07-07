@@ -140,6 +140,14 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
       await openThemeForWriting(deps.todayState?.firstTheme || null, deps.todayState?.firstWritingReady || null, deps);
     }
   };
+  const toggleHandler = (event) => {
+    const current = event.target?.closest?.(".today-secondary-details");
+    if (!current?.open) return;
+    panel.querySelectorAll?.(".today-secondary-details[open]")?.forEach((details) => {
+      if (details !== current) details.open = false;
+    });
+  };
   panel.addEventListener("click", handler);
+  panel.addEventListener("toggle", toggleHandler, true);
   return handler;
 }

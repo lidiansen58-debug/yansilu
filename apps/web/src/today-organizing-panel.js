@@ -195,14 +195,14 @@ export function renderTodayOrganizingPanel(state = {}) {
         </button>
       </section>
       <section class="today-secondary-tabs" aria-label="辅助信息">
-        <details class="today-secondary-details">
+        <details class="today-secondary-details" name="today-secondary">
           <summary>新手路径和当前状态</summary>
           <div class="today-secondary-body">
             ${renderBeginnerGuide()}
             ${renderOverview(state)}
           </div>
         </details>
-        <details class="today-secondary-details">
+        <details class="today-secondary-details" name="today-secondary">
           <summary>辅助检查</summary>
           ${renderReviewChecklistPanel(state.reviewChecklist)}
         </details>
