@@ -21,7 +21,7 @@ test("empty editor first screen makes Demo import the clear primary action", () 
   assert.match(html, /data-empty-start-action="seed-demo-confirm"/);
   assert.match(html, /data-empty-start-action="seed-demo-cancel"/);
   assert.match(html, /点下面按钮后会先请你确认/);
-  assert.match(html, /一键导入一套可照着学的 Demo 笔记/);
+  assert.match(html, /导入一套可以照着走的 Demo 笔记/);
   assert.match(html, /确认后创建 Smart Notes 示例笔记/);
   assert.doesNotMatch(html, /data-empty-start-action="open-import"/);
   assert.doesNotMatch(html, /选择 Obsidian 文件夹/);
