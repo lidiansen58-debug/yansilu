@@ -62,20 +62,11 @@ export function graphFocusContextCollapsedStatus(collapsed = false) {
   return collapsed ? "已收起选中笔记详情" : "已显示选中笔记详情";
 }
 
-export function graphFocusHelpOpenState(current = false) {
-  return current !== true;
-}
-
-export function graphFocusHelpStatus(open = false) {
-  return open ? "已展开关系说明" : "已收起关系说明";
-}
-
 export function renderGraphFocusContextPanel({
   focusedNoteId = "",
   nodeMap = new Map(),
   edges = [],
-  focusContextMode = "argument",
-  focusContextHelpOpen = false
+  focusContextMode = "argument"
 } = {}, deps = {}) {
   const {
     escapeHtml,
@@ -92,6 +83,7 @@ export function renderGraphFocusContextPanel({
     relationGroupMeta
   } = graphFocusContextPanelDeps(deps);
   const cleanFocusedNoteId = String(focusedNoteId || "").trim();
+  const focusedNode = nodeMap?.get?.(cleanFocusedNoteId) || {};
   const focusedTitle = graphNodeTitle(nodeMap, cleanFocusedNoteId, cleanFocusedNoteId || "当前笔记");
   const contextMode = graphFocusContextModeMeta(focusContextMode);
   const directEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
@@ -121,19 +113,9 @@ export function renderGraphFocusContextPanel({
       return `<span title="${escapeHtml(meta.detail)}">${escapeHtml(meta.shortLabel || meta.label)} ${count}</span>`;
     })
     .join("");
-  const relationHelpOpen = focusContextHelpOpen === true;
-  const relationHelp = `
-    <div class="graph-focus-help${relationHelpOpen ? "" : " is-collapsed"}" id="graphFocusHelp">
-      <div class="graph-focus-help-block">
-        <strong>这里看什么</strong>
-        <span>这里只显示已经保存的关系。AI 建议不会自动进入这里，必须由你确认。</span>
-      </div>
-      <div class="graph-focus-help-block">
-        <strong>怎么判断</strong>
-        <span>支持让观点更站得住；反方和边界让观点不片面；连接和顺序帮助后续写文章。</span>
-      </div>
-    </div>
-  `;
+  const visibleDegree = Math.max(Number(focusedNode?.degree || 0), directEdges.length);
+  const relationSummary = directEdges.length ? `已保存 ${directEdges.length} 条关联` : "还没有关联";
+  const emptyRelationText = "这条笔记还没有和其他笔记建立关联。先点左侧“关联”，找一条真正相关的笔记，写一句为什么相关。";
   const nextHint =
     contextMode.key === "writing"
       ? counts.flow
@@ -142,14 +124,18 @@ export function renderGraphFocusContextPanel({
           ? "已经有跨主题连接，可以尝试写一段过渡。"
           : counts.support
             ? "已有支撑材料，下一步补一个反方或边界，文章会更稳。"
-            : "还看不出能放进哪篇文章，先补一条连接或顺序关系。"
+            : visibleDegree > 0
+              ? "先看它已有的关联能不能支撑文章顺序；如果看不清，就补一条更明确的关联。"
+              : "还看不出能放进哪篇文章，先补一条关联或顺序关系。"
       : counts.conflict
         ? "已经有反方或张力，下一步检查冲突条件有没有写清楚。"
         : counts.boundary
           ? "已经有边界，下一步补一个反例或支撑材料。"
           : counts.support
             ? "已有支撑，但还缺反方或边界，观点容易单薄。"
-            : "还缺清楚的支持、反方或边界关系，先补一条有理由的连接。";
+            : visibleDegree > 0
+              ? "这条笔记已有关联。下一步看这些关联是否能说清支持、反方、边界或顺序。"
+              : "还缺清楚的支持、反方或边界关系，先补一条有理由的关联。";
   const groupOrder = contextMode.key === "writing"
     ? ["flow", "bridge", "support", "boundary", "conflict", "neutral", "index"]
     : ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"];
@@ -196,15 +182,13 @@ export function renderGraphFocusContextPanel({
     <aside id="graphFocusContextPanel" class="graph-focus-context" aria-label="当前笔记关系详情">
       <div class="graph-focus-summary">
         <div class="graph-focus-panel-head">
-          <div class="graph-focus-kicker">当前笔记</div>
+          <div class="graph-focus-kicker">选中笔记</div>
           <div class="graph-focus-panel-actions">
-            <button class="graph-focus-help-toggle" type="button" data-graph-focus-help-toggle aria-expanded="${relationHelpOpen ? "true" : "false"}" aria-controls="graphFocusHelp" title="${relationHelpOpen ? "收起说明" : "查看说明"}">${renderGraphIcon("question")}<span>说明</span></button>
             <button class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close" aria-label="收起选中笔记详情" title="收起详情">${renderGraphIcon("close")}</button>
           </div>
         </div>
         <strong>${escapeHtml(focusedTitle)}</strong>
-        <span>${directEdges.length ? `已有 ${directEdges.length} 条关系` : "还没有正式关系"}</span>
-        ${relationHelp}
+        <span>${escapeHtml(relationSummary)}</span>
       </div>
       <div class="graph-context-mode" aria-label="关系查看方式">
         ${["argument", "writing"]
@@ -217,10 +201,10 @@ export function renderGraphFocusContextPanel({
       </div>
       <div class="graph-context-mode-note">${escapeHtml(contextMode.note)}</div>
       <div class="graph-focus-metrics">
-        ${relationMetricItems || `<span>暂无正式关系</span>`}
+        ${relationMetricItems || `<span>暂无关联</span>`}
       </div>
       <div class="graph-focus-next">${escapeHtml(nextHint)}</div>
-      ${sections || `<div class="graph-empty">这条笔记周围还没有正式关系。先从“关联”里保存一条关系，再回来看图谱。</div>`}
+      ${sections || `<div class="graph-empty">${escapeHtml(emptyRelationText)}</div>`}
     </aside>
   `;
 }

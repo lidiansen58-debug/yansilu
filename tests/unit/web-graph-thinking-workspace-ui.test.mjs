@@ -65,8 +65,6 @@ import {
 import {
   graphFocusContextCollapsedState,
   graphFocusContextCollapsedStatus,
-  graphFocusHelpOpenState,
-  graphFocusHelpStatus,
   renderGraphFocusContextPanel
 } from "../../apps/web/src/graph-focus-context-panel.js";
 import {
@@ -528,8 +526,7 @@ test("graph focus relation panel can be collapsed and restored explicitly", () =
     edges: [
       { id: "r1", fromNoteId: "a", toNoteId: "b", relationType: "supports", status: "accepted", rationale: "支持理由", createdBy: "manual" }
     ],
-    focusContextMode: "argument",
-    focusContextHelpOpen: false
+    focusContextMode: "argument"
   }, graphFocusPanelTestDeps());
 
   assert.match(runtimeStateSource, /buildGraphVisualMapControlsState\(/);
@@ -549,32 +546,47 @@ test("graph focus relation panel can be collapsed and restored explicitly", () =
   assert.match(html, /\.graph-focus-panel-close \{[\s\S]*position: static;[\s\S]*width: 30px;/);
 });
 
-test("graph focus relation panel uses plain wording and explains relation categories", () => {
+test("graph focus relation panel keeps relation wording simple", () => {
   const html = readPrototypeHtml();
   const panel = renderGraphFocusContextPanel({
     focusedNoteId: "a",
     nodeMap: new Map([["a", { title: "当前笔记" }]]),
     edges: [],
-    focusContextMode: "writing",
-    focusContextHelpOpen: true
+    focusContextMode: "writing"
   }, graphFocusPanelTestDeps());
 
-  assert.equal(graphFocusHelpOpenState(false), true);
-  assert.equal(graphFocusHelpOpenState(true), false);
-  assert.equal(graphFocusHelpStatus(true), "已展开关系说明");
-  assert.equal(graphFocusHelpStatus(false), "已收起关系说明");
   assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-focus-controls-state.js"), "utf8"), /label: "观点怎么连"/);
   assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-focus-controls-state.js"), "utf8"), /label: "写作怎么用"/);
   assert.match(panel, /观点怎么连/);
   assert.match(panel, /写作怎么用/);
-  assert.match(panel, /<div class="graph-focus-kicker">当前笔记<\/div>/);
-  assert.match(panel, /这里只显示已经保存的关系。AI 建议不会自动进入这里，必须由你确认。/);
-  assert.match(panel, /支持让观点更站得住/);
-  assert.match(panel, /data-graph-focus-help-toggle/);
-  assert.match(panel, /这条笔记周围还没有正式关系/);
+  assert.match(panel, /<div class="graph-focus-kicker">选中笔记<\/div>/);
+  assert.match(panel, /还没有关联/);
+  assert.match(panel, /这条笔记还没有和其他笔记建立关联/);
+  assert.doesNotMatch(panel, /data-graph-focus-help-toggle/);
+  assert.doesNotMatch(panel, /正式关系/);
 
-  assert.match(html, /\.graph-focus-help-toggle \{[\s\S]*min-height: 30px;[\s\S]*cursor: pointer;/);
-  assert.match(html, /\.graph-focus-help\.is-collapsed \{[\s\S]*display: none;/);
+  assert.match(html, /\.graph-side-stack \{[\s\S]*width: min\(560px, calc\(100% - 36px\)\);/);
+  assert.doesNotMatch(html, /\.graph-focus-help-toggle \{/);
+});
+
+test("graph focus relation panel shows saved associations for a connected note", () => {
+  const panel = renderGraphFocusContextPanel({
+    focusedNoteId: "a",
+    nodeMap: new Map([
+      ["a", { title: "当前笔记", degree: 1 }],
+      ["b", { title: "关联笔记" }]
+    ]),
+    edges: [
+      { id: "r1", fromNoteId: "a", toNoteId: "b", relationType: "supports", status: "accepted", rationale: "它支撑当前判断。" }
+    ],
+    focusContextMode: "argument"
+  }, graphFocusPanelTestDeps());
+
+  assert.match(panel, /已保存 1 条关联/);
+  assert.match(panel, /关联笔记/);
+  assert.match(panel, /它支撑当前判断。/);
+  assert.doesNotMatch(panel, /暂无关联/);
+  assert.doesNotMatch(panel, /正式关系/);
 });
 test("graph workbench panel replaces map-covering clue and question floaters", () => {
   const html = readPrototypeHtml();
@@ -1107,7 +1119,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /relationDraft: graphState\.isolatedRelationDraftByNoteId\?\.\[String\(noteId \|\| ""\)\.trim\(\)\] \|\| \{\}/);
   assert.match(joinWorkspaceSource, /aria-label="建立笔记关系"/);
   assert.doesNotMatch(source, /关联工作台/);
-  assert.match(joinWorkspaceSource, /data-graph-ai-candidate-select/);
+  assert.match(joinWorkspaceSource, /data-graph-ai-candidate-list/);
+  assert.match(joinWorkspaceSource, /data-graph-manual-relation-type/);
   assert.match(joinWorkspaceSource, /const targetId = String\(candidate\.counterpartNoteId \|\| ""\)\.trim\(\);/);
   assert.match(joinWorkspaceSource, /if \(!targetId \|\| targetId === cleanNoteId\) return "";/);
   assert.match(joinWorkspaceSource, /reversibleRelationTypes\.has\(rawRelationType\)/);
@@ -1117,10 +1130,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(joinWorkspaceSource, /data-graph-default-relation-type/);
   assert.match(joinWorkspaceSource, /data-graph-isolated-rationale/);
   assert.match(joinWorkspaceSource, /data-graph-isolated-relation-save/);
-  assert.match(joinWorkspaceSource, /保存关系/);
+  assert.match(joinWorkspaceSource, /关联/);
   assert.doesNotMatch(joinWorkspaceSource, mojibakeCopyPattern);
   assert.match(joinWorkspaceSource, /saveHint = "保存后进入关系网。"/);
-  assert.match(joinWorkspaceSource, /搜索并选择关联对象/);
+  assert.match(joinWorkspaceSource, /找目标笔记/);
   assert.match(source, /function renderGraphIsolatedWorkflowTabs\(\{ noteId = "", isolatedQueueMarkup = "", decisionCards = \[\], prompts = \[\], nodeMap = new Map\(\), edges = \[\], visibleEdgeCount = 0 \} = \{\}\) \{/);
   assert.match(source, /return graphIsolatedWorkflowShell\.renderWorkflowTabs\(\{ noteId, isolatedQueueMarkup, decisionCards, prompts, nodeMap, edges, visibleEdgeCount \}\);/);
   assert.match(isolatedWorkflowShellSource, /renderJoinNetworkFlow\(cleanNoteId, \{[\s\S]*heading: "关联"[\s\S]*helper: ""/);
@@ -1142,7 +1155,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
     renderGraphVisualMapShellView({ selectionOverlayMarkup: "<section>overlay</section>" }),
     /<div class="graph-selection-overlay" role="dialog" aria-modal="false"/
   );
-  assert.match(joinWorkspaceSource, /data-graph-ai-connect-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
+  assert.match(joinWorkspaceSource, /data-graph-ai-candidate-list/);
+  assert.match(joinWorkspaceSource, /data-graph-pick-manual-target="\$\{escapeHtml\(targetId\)\}"/);
   assert.match(source, /function syncGraphIsolatedAiCandidateForm\(select = null\) \{/);
   assert.match(source, /return graphIsolatedRelationController\.syncAiCandidateForm\(select\);/);
   assert.match(source, /function markGraphIsolatedRationaleUserEdited\(input = null\) \{/);
@@ -1237,7 +1251,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(saveControllerSource, /const rationale = rationaleIsActionable\(rationaleDraft\) \? rationaleDraft : "";/);
   assert.match(saveControllerSource, /openRelationFormInSelection\(button\);/);
   assert.match(saveControllerSource, /const transaction = await saveRelationTransaction\(\{/);
-  assert.match(saveControllerSource, /const saveResult = \{\s*\.\.\.transaction\.result,\s*nextIsolated: nextIsolatedSelection \|\| null\s*\};/);
+  assert.match(saveControllerSource, /const saveResult = \{\s*\.\.\.transaction\.result,\s*nextIsolated: null\s*\};/);
   assert.match(saveControllerSource, /graphState\.isolatedRelationSaveResultByNoteId\[cleanNoteId\] = saveResult;/);
   assert.match(saveControllerSource, /created: transaction\.relation\?\.created !== false/);
   assert.doesNotMatch(saveControllerSource, /await createNoteRelation\(cleanNoteId, \{/);
@@ -1255,10 +1269,10 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(graphCanvasEventRouterSource, /const graphAiRefineRetryButton = event\.target\.closest\("\[data-graph-ai-refine-retry\]"\);/);
   assert.match(graphCanvasEventRouterSource, /await retryGraphPotentialRelationRefine\(graphAiRefineRetryButton\);/);
   assert.match(relationSaveTransactionSource, /status = "confirmed"/);
-  assert.match(saveControllerSource, /const selectionAfterSave = nextSelection\.kind === "isolatedComplete"/);
-  assert.match(saveControllerSource, /const followUpSelection = nextIsolatedSelection/);
-  assert.match(saveControllerSource, /graphState\.selection = followUpSelection;/);
-  assert.match(saveControllerSource, /openGraphSelection\(followUpSelection\);/);
+  assert.match(saveControllerSource, /graphState\.selection = null;/);
+  assert.match(saveControllerSource, /renderGraphPanel\(\);/);
+  assert.doesNotMatch(saveControllerSource, /openGraphSelection\(followUpSelection\);/);
+  assert.doesNotMatch(saveControllerSource, /const followUpSelection = nextIsolatedSelection/);
   assert.match(source, /function renderGraphIsolatedCompletePanel\(\{ selection = null, isolatedNotes = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   const isolatedCompleteSource = extractFunctionSource(source, "renderGraphIsolatedCompletePanel");
   assert.doesNotMatch(isolatedCompleteSource, /data-graph-select-node/);
@@ -1276,8 +1290,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
 
   assert.match(html, /\.graph-isolated-join \{[\s\S]*display: grid;[\s\S]*border: 1px solid #dbe7ef;[\s\S]*border-left: 4px solid #0f6f48;/);
   assert.match(html, /\.graph-isolated-relation-form \{[\s\S]*display: grid;/);
-  assert.match(html, /\.graph-isolated-mode-switch \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
-  assert.match(html, /\.graph-isolated-form-grid \{[\s\S]*grid-template-columns: minmax\(180px, 240px\) minmax\(0, 1fr\);/);
+  assert.doesNotMatch(html, /\.graph-isolated-mode-switch \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(html, /\.graph-isolated-form-grid \{[\s\S]*grid-template-columns: minmax\(0, 1fr\);/);
   assert.match(html, /\.graph-selection-overlay \{[\s\S]*position: absolute;[\s\S]*inset: 0;[\s\S]*z-index: 120;[\s\S]*pointer-events: auto;[\s\S]*overflow: hidden;/);
   assert.match(html, /\.graph-map-stage\.has-selection-overlay \.graph-map-viewport \{[\s\S]*pointer-events: none;/);
   assert.match(html, /\.graph-selection-overlay \.graph-selection-panel\.is-isolated \{[\s\S]*width: min\(1120px, 100%\);[\s\S]*height: min\(720px, calc\(100% - 40px\)\);/);
@@ -1602,18 +1616,19 @@ test("graph isolated workspace offers non-AI relation candidates from tags and t
   assert.match(joinWorkspaceSource, /data-graph-manual-target-search/);
   assert.match(joinWorkspaceSource, /data-graph-pick-manual-target/);
   assert.match(joinWorkspaceSource, /data-graph-manual-target-id/);
-  assert.match(joinWorkspaceSource, /renderPreviewPanel\(cleanNoteId, \{ nodeMap, preferredTargetNoteId: previewTargetNoteId \}\)/);
+  assert.doesNotMatch(joinWorkspaceSource, /renderPreviewPanel\(cleanNoteId, \{ nodeMap, preferredTargetNoteId: previewTargetNoteId \}\)/);
+  assert.doesNotMatch(joinWorkspaceSource, /graph-isolated-note-preview-stack/);
   assert.match(source, /data-graph-relation-candidate-apply/);
   assert.match(graphCanvasEventRouterSource, /const graphRelationCandidateButton = event\.target\.closest\("\[data-graph-relation-candidate-apply\]"\);/);
   assert.match(graphCanvasEventRouterSource, /await saveGraphCandidateRelation\(graphRelationCandidateButton\);/);
   assert.doesNotMatch(joinWorkspaceSource, /renderGraphRelationCandidateCards\(localCandidates/);
-  assert.match(joinWorkspaceSource, /data-graph-isolated-tab="ai"/);
-  assert.match(joinWorkspaceSource, /data-graph-isolated-tab="manual"/);
-  assert.match(joinWorkspaceSource, /data-graph-isolated-note="\$\{escapeHtml\(cleanNoteId\)\}"/);
-  assert.match(joinWorkspaceSource, /role="tab" aria-selected="\$\{activeMode === "ai"\}"/);
+  assert.match(joinWorkspaceSource, /data-graph-ai-candidate-list/);
+  assert.match(joinWorkspaceSource, /data-graph-manual-relation-type/);
+  assert.doesNotMatch(joinWorkspaceSource, /data-graph-isolated-tab="ai"/);
+  assert.doesNotMatch(joinWorkspaceSource, /data-graph-isolated-tab="manual"/);
+  assert.doesNotMatch(joinWorkspaceSource, /role="tab" aria-selected="\$\{activeMode === "ai"\}"/);
   assert.match(source, /relationDraft: graphState\.isolatedRelationDraftByNoteId\?\.\[String\(noteId \|\| ""\)\.trim\(\)\] \|\| \{\}/);
   assert.match(joinWorkspaceSource, /graphIsolatedJoinNetworkFormModel\(/);
-  assert.match(joinWorkspaceSource, /data-graph-target-panel="ai"/);
   assert.match(joinWorkspaceSource, /data-graph-target-panel="manual"/);
   assert.match(source, /function activateGraphIsolatedWorkflowTab\(tabButton = null, \{ focus = false \} = \{\}\) \{/);
   assert.match(source, /return graphIsolatedRelationController\.activateWorkflowTab\(tabButton, \{ focus \}\);/);
@@ -2147,6 +2162,11 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
     depth: "all",
     meta: { key: "all", label: "查看整组相关笔记" }
   });
+  const canvasEventRouterSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-canvas-event-router.js"), "utf8");
+  assert.match(canvasEventRouterSource, /graphState\.focusContextCollapsed = true;/);
+  assert.match(canvasEventRouterSource, /图谱范围已切换到/);
+  const residualViewsSource = fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-residual-views.js"), "utf8");
+  assert.match(residualViewsSource, /function openGraphSelection[\s\S]*graphState\.focusContextCollapsed = false;/);
 
   assert.deepEqual(applyGraphFocusContextModeInteraction(graphState, "writing", {
     setGraphFocusContextMode: (value) => {
@@ -2208,6 +2228,7 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
 });
 
 test("graph rail entry does not fall through to note explorer during async refresh", () => {
+  const prototypeSource = readPrototypeApp();
   const railSource = readAppRailEventBindings();
   const quickActionSource = readQuickActionEventBindings();
 
@@ -2218,6 +2239,7 @@ test("graph rail entry does not fall through to note explorer during async refre
   assert.ok(railSource.includes('if (targetModule === "graph") setGraphModuleActivationGuardUntil(now() + 1800);'));
   assert.match(railSource, /if \(targetModule === "graph" && state\.module === "graph"\) \{[\s\S]*await refreshDirectoryGraph\(\);[\s\S]*if \(state\.module === "graph"\) setStatus\(/);
   assert.match(railSource, /if \(state\.module !== "graph" && now\(\) < getGraphModuleActivationGuardUntil\(\)\) \{[\s\S]*activateModule\("graph"\);[\s\S]*\}/);
+  assert.match(prototypeSource, /if \(normalizedModule === "graph"\) \{[\s\S]*prepareGraphEntryPresentationState\(\);[\s\S]*\}/);
   assert.ok(quickActionSource.includes('querySelectorAll?.("[data-action^=\'quick-\']")?.forEach((btn) => {'));
   assert.match(quickActionSource, /btn\.addEventListener\("click", async \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);/);
   assert.match(quickActionSource, /if \(action === "quick-original" && now\(\) < getGraphModuleActivationGuardUntil\(\)\) \{[\s\S]*setStatus\([\s\S]*return;/);

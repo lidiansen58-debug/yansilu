@@ -32,7 +32,7 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
         : edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
     const totalCount = Number.isFinite(Number(statsOverride?.totalCount)) ? Number(statsOverride.totalCount) : edges.length;
     const leadingOptions = [
-      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>先看正式关系 (${meaningfulCount})</option>`,
+      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>先看关联 (${meaningfulCount})</option>`,
       `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`
     ];
     if (noisyCount > 0) {

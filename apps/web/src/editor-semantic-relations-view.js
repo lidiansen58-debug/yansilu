@@ -18,9 +18,7 @@ import {
   RELATION_CREATE_TYPES,
   RELATION_EDIT_STATUSES,
   relationTypeGuidance,
-  relationTypeLabel,
-  renderRelationQualityMeter,
-  renderRelationTemplateVariantSwitcher
+  relationTypeLabel
 } from "./editor-relation-helpers.js";
 
 export class EditorSemanticRelationsView {
@@ -242,17 +240,11 @@ export class EditorSemanticRelationsView {
         <div class="inspector-section-head">
           <div>
             <div class="inspector-section-title">关联到另一条永久笔记</div>
-            <div class="inspector-section-note">选择一条笔记，说明它和当前笔记是什么关系。保存后这条连接会进入图谱。</div>
           </div>
           <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-create">取消</button>
         </div>
-        <div class="semantic-relation-status relation-create-summary">
-          <span class="inspector-chip">范围 ${escapeHtml(scopeFolderLabel)}</span>
-          <span class="inspector-chip">当前笔记发起</span>
-        </div>
         ${prefill?.entryHint ? `<div class="inspector-section-note" data-relation-entry-hint>${escapeHtml(prefill.entryHint)}</div>` : ""}
         <form class="semantic-relation-form" data-create-relation-form data-note-id="${escapeHtml(noteId)}">
-          ${renderRelationTemplateVariantSwitcher(templateVariants, selectedTemplateVariant, rememberedTemplateVariantLabel)}
           <label>
             <span>要关联哪条笔记</span>
             <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入标题关键词" value="${escapeHtml(targetQuery)}" autofocus />
@@ -267,14 +259,8 @@ export class EditorSemanticRelationsView {
           <label>
             <span>为什么要关联</span>
             <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
-          <label>
-            <span>继续追问（可选）</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">${escapeHtml(defaultGuidance.questionHint)}</small>
-          </label>
-          ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
+          <input type="hidden" name="insightQuestion" value="${escapeHtml(insightQuestionDraft)}">
           <div class="semantic-relation-form-error" data-relation-form-error></div>
           <div class="semantic-relation-actions">
             <button class="mini-btn primary" type="submit" ${selectedTargetId ? "" : "disabled"}>保存关联</button>
@@ -315,9 +301,7 @@ export class EditorSemanticRelationsView {
           </div>
           <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-edit">取消</button>
         </div>
-        ${context?.entryHint ? `<div class="inspector-section-note" data-relation-entry-hint>${escapeHtml(context.entryHint)}</div>` : ""}
         <form class="semantic-relation-form" data-edit-relation-form data-note-id="${escapeHtml(noteId)}" data-relation-id="${escapeHtml(link?.id || "")}">
-          ${renderRelationTemplateVariantSwitcher(templateVariants, selectedTemplateVariant, rememberedTemplateVariantLabel)}
           <label>
             <span>关系类型</span>
             <select name="relationType" required>${this.renderRelationTypeOptions(link?.relationType || "supports")}</select>
@@ -329,14 +313,8 @@ export class EditorSemanticRelationsView {
           <label>
             <span>为什么要关联</span>
             <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
-          <label>
-            <span>继续追问（可选）</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">${escapeHtml(defaultGuidance.questionHint)}</small>
-          </label>
-          ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
+          <input type="hidden" name="insightQuestion" value="${escapeHtml(insightQuestionDraft)}">
           <div class="semantic-relation-form-error" data-relation-form-error></div>
           <div class="semantic-relation-actions">
             <button class="mini-btn primary" type="submit">保存修改</button>

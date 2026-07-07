@@ -5,7 +5,8 @@ export function buildGraphVisualMapPanelMarkup({
   isolatedNotes = [],
   bridgeGaps = [],
   clueSummary = null,
-  edges = []
+  edges = [],
+  focusContextEdges = null
 } = {}, deps = {}) {
   const {
     renderGraphFocusContextPanel = () => "",
@@ -28,7 +29,7 @@ export function buildGraphVisualMapPanelMarkup({
     ? renderGraphFocusContextPanel({
         focusedNoteId: normalizedFocusedNoteId,
         nodeMap: layout.nodeMap,
-        edges
+        edges: Array.isArray(focusContextEdges) ? focusContextEdges : edges
     })
     : "";
   const selectionContextMarkup = renderGraphSelectionPanel({

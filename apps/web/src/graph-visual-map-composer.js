@@ -16,6 +16,7 @@ import {
 export function composeGraphVisualMapForRuntime({
   nodes = [],
   edges = [],
+  focusContextEdges = null,
   graphSelection = null,
   relationFilterEdges = [],
   selectionEdges = null,
@@ -85,6 +86,7 @@ export function composeGraphVisualMapForRuntime({
     graphState,
     nodes,
     edges,
+    focusContextEdges,
     graphSelection,
     relationFilterEdges,
     selectionEdges,
@@ -129,7 +131,8 @@ export function composeGraphVisualMapForRuntime({
     workbenchEntryMarkup,
     isolatedQueueStripMarkup,
     structureFallback,
-    edges
+    edges,
+    focusContextEdges: Array.isArray(focusContextEdges) ? focusContextEdges : edges
   }, {
     graphState,
     renderGraphRelationTypeFilter,

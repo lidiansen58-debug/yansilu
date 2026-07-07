@@ -45,6 +45,14 @@ export function createGraphIsolatedRelationController({
 
   const clearFormError = (form = null) => graphIsolatedRelationFormError(form, "");
 
+  const syncTargetResultSections = (form = null, { query = "" } = {}) => {
+    const hasQuery = Boolean(String(query || "").trim());
+    form?.querySelectorAll?.("[data-graph-target-results]")?.forEach((section) => {
+      const kind = String(section.getAttribute?.("data-graph-target-results") || "").trim();
+      section.hidden = kind === "recommendations" ? hasQuery : !hasQuery;
+    });
+  };
+
   const updateInlinePreview = (form = null, source = null) => {
     const panel = form?.closest?.(".graph-isolated-join")?.querySelector?.("[data-graph-isolated-preview]");
     if (!panel) return false;
@@ -142,17 +150,18 @@ export function createGraphIsolatedRelationController({
       });
       updateInlinePreview(form, null);
     }
+    syncTargetResultSections(form, { query: input?.value || "" });
     let shown = 0;
     list.querySelectorAll("[data-graph-pick-manual-target]").forEach((button) => {
       const haystack = String(button.getAttribute("data-graph-manual-search-text") || "").toLowerCase();
-      const match = !query || haystack.includes(query);
+      const match = Boolean(query) && haystack.includes(query);
       const visible = match && shown < 8;
       button.hidden = !visible;
       button.classList.toggle("is-hidden", !visible);
       if (visible) shown += 1;
     });
     const status = form.querySelector("[data-graph-manual-target-status]");
-    if (status) status.textContent = shown ? "选择一条搜索结果，然后填写关系类型和理由。" : "没有找到匹配的永久笔记。";
+    if (status) status.textContent = query ? (shown ? "选择一条结果。" : "没有找到匹配的永久笔记。") : "输入关键词。";
     clearFormError(form);
     captureDraftFromForm(form);
     return true;
@@ -169,24 +178,35 @@ export function createGraphIsolatedRelationController({
     const rationaleInput = form.querySelector("[data-graph-isolated-rationale]");
     const relationSelect = form.querySelector("[data-graph-isolated-relation-type]");
     const questionInput = form.querySelector("[data-graph-isolated-insight-question]");
+    const suggestedRelationType = String(button.getAttribute("data-graph-manual-relation-type") || "").trim().toLowerCase();
+    const suggestedRationale = String(button.getAttribute("data-graph-manual-rationale") || "").trim();
+    const suggestedQuestion = String(button.getAttribute("data-graph-insight-question-draft") || "").trim();
+    const modeInput = form.querySelector("[data-graph-relation-source-mode]");
     if (hidden) hidden.value = targetId;
+    if (modeInput) modeInput.value = "manual";
     if (input) {
       input.value = title;
       input.setAttribute("data-selected-title", title);
     }
-    if (relationSelect && !String(relationSelect.value || "").trim()) {
-      relationSelect.value = String(relationSelect.getAttribute("data-graph-default-relation-type") || "associated_with").trim().toLowerCase() || "associated_with";
+    if (relationSelect) {
+      const nextType = suggestedRelationType && relationSelectSupportsValue(relationSelect, suggestedRelationType)
+        ? suggestedRelationType
+        : String(relationSelect.value || "").trim().toLowerCase() || String(relationSelect.getAttribute("data-graph-default-relation-type") || "associated_with").trim().toLowerCase() || "associated_with";
+      relationSelect.value = relationSelectSupportsValue(relationSelect, nextType) ? nextType : relationSelect.value;
     }
-    if (questionInput) questionInput.value = "";
+    if (questionInput) questionInput.value = suggestedQuestion;
     if (rationaleInput) {
       const source = rationaleInput.getAttribute("data-graph-rationale-source");
       if (!String(rationaleInput.value || "").trim() || source === "ai" || source === "manual") {
-        rationaleInput.value = String(button.getAttribute("data-graph-manual-rationale") || "").trim();
+        rationaleInput.value = suggestedRationale;
         rationaleInput.setAttribute("data-graph-rationale-source", "manual");
       }
     }
     form.querySelectorAll("[data-graph-pick-manual-target]").forEach((item) => {
       item.classList.toggle("is-selected", item === button);
+    });
+    form.querySelectorAll("[data-graph-target-results]").forEach((section) => {
+      section.hidden = true;
     });
     if (status) status.textContent = targetId ? `已选择：${title}` : "请选择一条永久笔记。";
     updateInlinePreview(form, button);

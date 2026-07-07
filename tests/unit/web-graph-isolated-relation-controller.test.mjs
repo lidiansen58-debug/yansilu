@@ -312,3 +312,83 @@ test("graph isolated relation controller clears stale manual target when search 
   assert.equal(button.hidden, true);
   assert.match(status.textContent, /没有找到匹配/);
 });
+
+test("graph isolated relation controller hides target results after picking one", () => {
+  const graphState = { isolatedRelationDraftByNoteId: {} };
+  const controller = baseController({ graphState });
+  const searchInput = createElement({ value: "" });
+  const hiddenTarget = createElement();
+  const rationaleInput = createElement({ attrs: { "data-graph-rationale-source": "" } });
+  const resultSection = createElement();
+  const button = createElement({
+    textContent: "目标笔记",
+    attrs: {
+      "data-graph-pick-manual-target": "target-note",
+      "data-graph-manual-title": "目标笔记",
+      "data-graph-manual-rationale": "这两条笔记说明同一个问题。"
+    }
+  });
+  const form = createForm({
+    noteId: "current",
+    controls: {
+      "[data-graph-relation-source-mode]": createElement({ value: "manual" }),
+      "[data-graph-ai-candidate-select]": createElement(),
+      "[data-graph-manual-target-id]": hiddenTarget,
+      "[data-graph-manual-target-search]": searchInput,
+      "[data-graph-manual-target-list]": { querySelectorAll: () => [button] },
+      "[data-graph-manual-target-status]": createElement(),
+      "[data-graph-isolated-rationale]": rationaleInput,
+      "[data-graph-isolated-relation-type]": createElement({ value: "associated_with", attrs: { "data-graph-default-relation-type": "associated_with" } }),
+      "[data-graph-isolated-insight-question]": createElement()
+    },
+    all: {
+      "[data-graph-pick-manual-target]": [button],
+      "[data-graph-target-results]": [resultSection]
+    }
+  });
+  button.closest = (selector) => selector === "[data-graph-isolated-relation-form]" ? form : null;
+  searchInput.closest = (selector) => selector === "[data-graph-isolated-relation-form]" ? form : null;
+
+  controller.pickManualRelationTarget(button);
+
+  assert.equal(hiddenTarget.value, "target-note");
+  assert.equal(searchInput.value, "目标笔记");
+  assert.equal(resultSection.hidden, true);
+
+  searchInput.value = "另一个";
+  controller.filterManualRelationTargets(searchInput);
+
+  assert.equal(hiddenTarget.value, "");
+  assert.equal(resultSection.hidden, false);
+});
+
+test("graph isolated relation controller shows search results while typing", () => {
+  const graphState = { isolatedRelationDraftByNoteId: {} };
+  const controller = baseController({ graphState });
+  const searchInput = createElement({ value: "目标" });
+  const searchSection = createElement({ attrs: { "data-graph-target-results": "search" } });
+  const recommendationSection = createElement({ attrs: { "data-graph-target-results": "recommendations" } });
+  const button = createElement({
+    attrs: {
+      "data-graph-pick-manual-target": "target-note",
+      "data-graph-manual-search-text": "目标 笔记"
+    }
+  });
+  const form = createForm({
+    noteId: "current",
+    controls: {
+      "[data-graph-manual-target-list]": { querySelectorAll: () => [button] },
+      "[data-graph-manual-target-status]": createElement()
+    },
+    all: {
+      "[data-graph-target-results]": [recommendationSection, searchSection]
+    }
+  });
+  searchInput.closest = (selector) => selector === "[data-graph-isolated-relation-form]" ? form : null;
+
+  controller.filterManualRelationTargets(searchInput);
+
+  assert.equal(searchSection.hidden, false);
+  assert.equal(recommendationSection.hidden, true);
+  assert.equal(button.hidden, false);
+});

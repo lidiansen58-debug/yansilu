@@ -216,10 +216,73 @@ test("today organizing panel uses readable action words", () => {
   assert.match(html, /打开主题索引/);
   assert.match(html, /进入写作/);
   assert.ok(html.indexOf("现在最重要") < html.indexOf("当前笔记库状态"));
-  assert.ok(html.indexOf("现在最重要") < html.indexOf("辅助检查"));
+  assert.ok(html.indexOf("现在最重要") < html.indexOf("今日提醒"));
   assert.doesNotMatch(html, /today-path-inline/);
-  assert.match(html, /<details class="today-secondary-details" name="today-secondary">/);
+  assert.match(html, /data-today-secondary-tab="path"/);
+  assert.match(html, /data-today-secondary-tab="check"/);
+  assert.match(html, /data-today-secondary-panel="path"/);
+  assert.match(html, /data-today-secondary-panel="check" hidden/);
+  assert.doesNotMatch(html, /<details class="today-secondary-details"/);
   assert.doesNotMatch(html, /候选队列|复核|线索|高级检查/);
+});
+
+test("today organizing secondary tabs switch one full-width panel", async () => {
+  const panels = [
+    { hidden: false, getAttribute: (name) => (name === "data-today-secondary-panel" ? "path" : "") },
+    { hidden: true, getAttribute: (name) => (name === "data-today-secondary-panel" ? "check" : "") }
+  ];
+  const tabs = ["path", "check"].map((key, index) => ({
+    key,
+    attrs: { "aria-selected": index === 0 ? "true" : "false" },
+    span: { textContent: index === 0 ? "收起" : "展开" },
+    classList: { toggle(name, active) { this[name] = active; } },
+    getAttribute(name) {
+      if (name === "data-today-secondary-tab") return this.key;
+      return this.attrs[name] || "";
+    },
+    setAttribute(name, value) { this.attrs[name] = value; },
+    querySelector(selector) { return selector === "span" ? this.span : null; }
+  }));
+  const panel = {
+    listener: null,
+    addEventListener(type, handler) {
+      if (type === "click") this.listener = handler;
+    },
+    querySelector(selector) {
+      const match = selector.match(/\[data-today-secondary-tab="([^"]+)"\]/);
+      return match ? tabs.find((tab) => tab.key === match[1]) || null : null;
+    },
+    querySelectorAll(selector) {
+      if (selector === "[data-today-secondary-tab]") return tabs;
+      if (selector === "[data-today-secondary-panel]") return panels;
+      return [];
+    }
+  };
+
+  installTodayOrganizingEvents(panel, () => ({}));
+  await panel.listener({
+    preventDefault() {},
+    target: { closest: (selector) => (selector === "[data-today-secondary-tab]" ? tabs[1] : null) }
+  });
+
+  assert.equal(panels[0].hidden, true);
+  assert.equal(panels[1].hidden, false);
+  assert.equal(tabs[0].attrs["aria-selected"], "false");
+  assert.equal(tabs[1].attrs["aria-selected"], "true");
+  assert.equal(tabs[0].span.textContent, "展开");
+  assert.equal(tabs[1].span.textContent, "收起");
+
+  await panel.listener({
+    preventDefault() {},
+    target: { closest: (selector) => (selector === "[data-today-secondary-tab]" ? tabs[1] : null) }
+  });
+
+  assert.equal(panels[0].hidden, true);
+  assert.equal(panels[1].hidden, true);
+  assert.equal(tabs[0].attrs["aria-selected"], "false");
+  assert.equal(tabs[1].attrs["aria-selected"], "false");
+  assert.equal(tabs[0].span.textContent, "展开");
+  assert.equal(tabs[1].span.textContent, "展开");
 });
 
 test("today organizing empty home makes demo import the primary first action", () => {
@@ -230,7 +293,7 @@ test("today organizing empty home makes demo import the primary first action", (
   assert.match(html, /用 10 分钟看懂研思录怎么让笔记生长为思想/);
   assert.ok(html.indexOf("导入示例库 / 体验 Demo") < html.indexOf("先记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
-  assert.doesNotMatch(html, /辅助检查/);
+  assert.doesNotMatch(html, /今日提醒/);
 });
 
 test("today organizing runtime loads theme indexes once when opened", async () => {

@@ -19,6 +19,21 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
     return `${title} 已经有明确观点和三句摘要，适合先放入相关笔记继续组织。`;
   };
   const markReturnToToday = (deps) => deps.markTodayReturnTarget?.({ label: "首页" });
+  const selectSecondaryTab = (key = "") => {
+    const selected = String(key || "path").trim() || "path";
+    const selectedTab = panel.querySelector?.(`[data-today-secondary-tab="${selected}"]`);
+    const shouldCollapse = selectedTab?.getAttribute("aria-selected") === "true";
+    panel.querySelectorAll?.("[data-today-secondary-tab]")?.forEach((tab) => {
+      const active = !shouldCollapse && tab.getAttribute("data-today-secondary-tab") === selected;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+      const stateText = tab.querySelector("span");
+      if (stateText) stateText.textContent = active ? "收起" : "展开";
+    });
+    panel.querySelectorAll?.("[data-today-secondary-panel]")?.forEach((content) => {
+      content.hidden = shouldCollapse || content.getAttribute("data-today-secondary-panel") !== selected;
+    });
+  };
 
   const openThemeIndex = async (theme = null, deps = {}) => {
     const themeId = String(theme?.id || "").trim();
@@ -55,6 +70,12 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
   };
 
   const handler = async (event) => {
+    const secondaryTab = event.target?.closest?.("[data-today-secondary-tab]");
+    if (secondaryTab) {
+      event.preventDefault();
+      selectSecondaryTab(secondaryTab.getAttribute("data-today-secondary-tab"));
+      return;
+    }
     const button = event.target?.closest?.("[data-today-action]");
     if (!button) return;
     const action = String(button.getAttribute("data-today-action") || "").trim();
@@ -140,14 +161,6 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
       await openThemeForWriting(deps.todayState?.firstTheme || null, deps.todayState?.firstWritingReady || null, deps);
     }
   };
-  const toggleHandler = (event) => {
-    const current = event.target?.closest?.(".today-secondary-details");
-    if (!current?.open) return;
-    panel.querySelectorAll?.(".today-secondary-details[open]")?.forEach((details) => {
-      if (details !== current) details.open = false;
-    });
-  };
   panel.addEventListener("click", handler);
-  panel.addEventListener("toggle", toggleHandler, true);
   return handler;
 }

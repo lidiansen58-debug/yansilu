@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createGraphPresentationController,
+  prepareGraphEntryPresentationStateForRuntime,
   resetGraphDemoPresentationStateForRuntime,
   syncGraphDisclosureStateForRuntime
 } from "../../apps/web/src/graph-presentation-controller.js";
@@ -142,4 +143,31 @@ test("graph presentation reset stays self-contained after demo module cleanup", 
     "review-queue": false,
     "ai-analysis": false
   });
+});
+
+test("graph entry starts with map only and no floating panels", () => {
+  const graphState = {
+    selection: { kind: "node", nodeId: "old" },
+    focusContextCollapsed: false,
+    workbenchPanelOpen: true,
+    workbenchPanelTab: "questions",
+    thinkingPanelOpen: true,
+    utilityDrawerOpen: true,
+    legendOpen: true,
+    researchNavigatorHidden: false,
+    researchNavigatorTouched: false
+  };
+
+  const result = prepareGraphEntryPresentationStateForRuntime(graphState);
+
+  assert.equal(result, graphState);
+  assert.equal(graphState.selection, null);
+  assert.equal(graphState.focusContextCollapsed, true);
+  assert.equal(graphState.workbenchPanelOpen, false);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+  assert.equal(graphState.thinkingPanelOpen, false);
+  assert.equal(graphState.utilityDrawerOpen, false);
+  assert.equal(graphState.legendOpen, false);
+  assert.equal(graphState.researchNavigatorHidden, true);
+  assert.equal(graphState.researchNavigatorTouched, true);
 });

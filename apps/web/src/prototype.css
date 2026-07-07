@@ -393,83 +393,70 @@
 
 .today-secondary-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   align-items: start;
 }
 
-.today-secondary-details {
-  display: contents;
-  min-width: 0;
+.today-secondary-tablist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.today-secondary-details:nth-child(1) > summary {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.today-secondary-details:nth-child(2) > summary {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.today-secondary-details summary {
+.today-secondary-tab {
   min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 0 16px;
+  border: 0;
   border-radius: 8px;
   color: #0f766e;
   cursor: pointer;
+  font: inherit;
   font-weight: 900;
-  list-style: none;
   background: linear-gradient(180deg, #ffffff 0%, #f2fbf7 100%);
   box-shadow: 0 8px 18px rgba(15, 118, 110, 0.06);
 }
 
-.today-secondary-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.today-secondary-details summary::after {
-  content: "展开";
+.today-secondary-tab span {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
   padding: 0 8px;
   border-radius: 999px;
-  background: rgba(15, 118, 110, 0.1);
-  color: #0f766e;
+  border: 1px solid rgba(251, 146, 60, 0.48);
+  background: #fff7ed;
+  color: #9a3412;
   font-size: 12px;
   font-weight: 900;
 }
 
-.today-secondary-details[open] summary::after {
-  content: "收起";
-}
-
-.today-secondary-details summary:hover,
-.today-secondary-details summary:focus-visible {
+.today-secondary-tab:hover,
+.today-secondary-tab:focus-visible,
+.today-secondary-tab.is-active {
   border-color: rgba(15, 118, 110, 0.45);
   background: linear-gradient(180deg, #f7fffb 0%, #e2f6ee 100%);
   outline: none;
 }
 
-.today-secondary-details > .today-secondary-body,
-.today-secondary-details > .today-review-checklist {
-  grid-column: 1 / -1;
-  grid-row: 2;
+.today-secondary-tab:hover span,
+.today-secondary-tab:focus-visible span {
+  border-color: rgba(234, 88, 12, 0.62);
+  background: #ffedd5;
+  color: #7c2d12;
+}
+
+.today-secondary-panel {
   margin: 0;
   border: 1px solid rgba(141, 170, 163, 0.28);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
 }
 
-.today-secondary-details[open] summary {
-  border-color: rgba(15, 118, 110, 0.38);
-  background: linear-gradient(180deg, #f7fffb 0%, #e2f6ee 100%);
+.today-secondary-panel[hidden] {
+  display: none;
 }
 
 @media (max-width: 980px) {
@@ -483,10 +470,8 @@
     grid-template-columns: 1fr;
   }
 
-  .today-secondary-details:nth-child(1) > summary,
-  .today-secondary-details:nth-child(2) > summary {
-    grid-column: 1;
-    grid-row: auto;
+  .today-secondary-tablist {
+    grid-template-columns: 1fr;
   }
 
   .today-beginner-guide ol {
@@ -5279,11 +5264,6 @@
       color: #0f6f48;
       box-shadow: inset 0 0 0 1px rgba(15, 111, 72, 0.08);
     }
-    .graph-focus-depth-note {
-      color: #64748b;
-      font-size: 12px;
-      line-height: 1.5;
-    }
     .graph-reading-lens {
       flex: 1 1 auto;
       display: flex;
@@ -5700,14 +5680,15 @@
         linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 251, 250, 0.97));
     }
     .graph-selection-overlay .graph-selection-panel.is-relation-form {
+      position: relative;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      width: min(1120px, 100%);
+      grid-template-rows: auto;
+      width: min(920px, 100%);
       min-width: 0;
-      height: min(720px, calc(100% - 40px));
-      min-height: 500px;
+      height: auto;
+      min-height: 0;
       max-height: none;
-      overflow: hidden;
+      overflow: visible;
       border: 1px solid #d8e5ec;
       border-left: 1px solid #d8e5ec;
       border-radius: 22px;
@@ -5722,13 +5703,28 @@
       align-items: center;
     }
     .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-selection-head {
-      align-items: center;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+      display: block;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      box-shadow: none;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-selection-head > div {
+      display: none;
     }
     .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-head strong {
       font-size: 18px;
     }
     .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-selection-head strong {
       font-size: 18px;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-selection-close {
+      position: static;
     }
     .graph-selection-overlay .graph-selection-panel.is-isolated .graph-selection-body {
       min-height: 0;
@@ -5740,9 +5736,9 @@
     .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-selection-body {
       min-height: 0;
       max-height: none;
-      overflow: auto;
-      padding-right: 4px;
-      scrollbar-gutter: stable;
+      overflow: visible;
+      padding-right: 0;
+      scrollbar-gutter: auto;
     }
     .graph-selection-overlay .graph-selection-panel.is-isolated .graph-isolated-workflow {
       box-shadow: none;
@@ -5866,11 +5862,11 @@
       top: 18px;
       right: 18px;
       bottom: 18px;
-      z-index: 10;
+      z-index: 24;
       display: grid;
       align-content: start;
       gap: 0;
-      width: min(430px, calc(100% - 36px));
+      width: min(560px, calc(100% - 36px));
       min-width: 0;
       max-height: calc(var(--graph-map-height) - 36px);
       overflow: auto;
@@ -6325,11 +6321,13 @@
       line-height: 1.45;
     }
     .graph-focus-context {
+      position: relative;
+      z-index: 1;
       display: grid;
       align-content: start;
       gap: 12px;
-      width: 320px;
-      min-width: 320px;
+      width: 440px;
+      min-width: 360px;
       padding: 14px;
       border-left: 1px solid #e1e9f1;
       background:
@@ -6393,41 +6391,6 @@
       background: rgba(248, 251, 249, 0.92);
       color: #526174;
     }
-    .graph-focus-help-toggle {
-      min-height: 30px;
-      padding: 0 9px;
-      border: 1px solid #d7e4ea;
-      border-radius: 999px;
-      background: rgba(248, 251, 249, 0.92);
-      color: #526174;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 800;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      cursor: pointer;
-      transition: background-color .16s ease, border-color .16s ease, color .16s ease;
-    }
-    .graph-focus-help-toggle svg {
-      width: 15px;
-      height: 15px;
-      stroke: currentColor;
-      stroke-width: 1.8;
-      fill: none;
-    }
-    .graph-focus-help-toggle span {
-      color: inherit;
-      font-size: inherit;
-      line-height: 1;
-    }
-    .graph-focus-help-toggle:hover,
-    .graph-focus-help-toggle:focus-visible {
-      border-color: #9dceb4;
-      background: #edf8f1;
-      color: #0f6f48;
-      outline: none;
-    }
     .graph-focus-kicker {
       color: #0f6f48;
       font-size: 11px;
@@ -6444,34 +6407,6 @@
       color: #64748b;
       font-size: 12px;
       line-height: 1.65;
-    }
-    .graph-focus-help {
-      display: grid;
-      gap: 8px;
-      margin-top: 4px;
-      padding-top: 10px;
-      border-top: 1px solid #e4edf1;
-    }
-    .graph-focus-help.is-collapsed {
-      display: none;
-    }
-    .graph-focus-help-block {
-      display: grid;
-      gap: 3px;
-      padding: 9px 10px;
-      border: 1px solid #e0ebef;
-      border-radius: 12px;
-      background: #f8fbfa;
-    }
-    .graph-focus-help-block strong {
-      color: #17324d;
-      font-size: 12px;
-      line-height: 1.35;
-    }
-    .graph-focus-help-block span {
-      color: #526174;
-      font-size: 12px;
-      line-height: 1.6;
     }
     .graph-focus-metrics {
       display: flex;
@@ -7354,11 +7289,16 @@
     }
     .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-join {
       min-height: 100%;
+      gap: 10px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
       box-shadow: none;
     }
     .graph-isolated-join-head {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr);
       gap: 10px;
       align-items: start;
     }
@@ -7398,7 +7338,7 @@
     }
     .graph-isolated-join-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 360px);
+      grid-template-columns: minmax(0, 1fr);
       gap: 14px;
       align-items: start;
       min-width: 0;
@@ -7493,7 +7433,7 @@
     }
     .graph-isolated-relation-form {
       display: grid;
-      gap: 10px;
+      gap: 12px;
       min-width: 0;
     }
     .graph-relation-fast-head {
@@ -7518,19 +7458,9 @@
       font-size: 12px;
       font-weight: 950;
     }
-    .graph-isolated-mode-switch {
-      width: min(320px, 100%);
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 5px;
-      padding: 4px;
-      border: 1px solid #dbe7ef;
-      border-radius: 14px;
-      background: #f8fbfc;
-    }
     .graph-isolated-target-panel {
       display: grid;
-      gap: 10px;
+      gap: 8px;
       padding: 10px;
       border: 1px solid #dbe7ef;
       border-radius: 14px;
@@ -7541,8 +7471,8 @@
     }
     .graph-isolated-form-grid {
       display: grid;
-      grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
       align-items: start;
     }
     .graph-isolated-field {
@@ -7559,7 +7489,7 @@
     .graph-isolated-field input,
     .graph-isolated-field textarea {
       width: 100%;
-      min-height: 42px;
+      min-height: 38px;
       border: 1px solid #d5e3ec;
       border-radius: 12px;
       background: #ffffff;
@@ -7567,15 +7497,15 @@
       font: inherit;
       font-size: 13px;
       line-height: 1.5;
-      padding: 9px 11px;
+      padding: 8px 10px;
     }
     .graph-isolated-field textarea {
-      min-height: 92px;
+      min-height: 76px;
       resize: vertical;
       line-height: 1.65;
     }
     .graph-isolated-field.is-search-first input {
-      min-height: 52px;
+      min-height: 44px;
       border-color: #a7d9bd;
       font-size: 15px;
       font-weight: 800;
@@ -7590,15 +7520,15 @@
     }
     .graph-manual-target-list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 8px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
       min-width: 0;
     }
     .graph-manual-target {
-      min-height: 52px;
+      min-height: 40px;
       display: grid;
       gap: 2px;
-      padding: 10px 12px;
+      padding: 8px 10px;
       border: 1px solid #dbe7ef;
       border-radius: 12px;
       background: #ffffff;
@@ -7607,6 +7537,10 @@
       font: inherit;
       text-align: left;
       transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+    }
+    .graph-manual-target[hidden],
+    .graph-manual-target.is-hidden {
+      display: none;
     }
     .graph-manual-target:hover,
     .graph-manual-target:focus-visible {
@@ -7630,6 +7564,17 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .graph-manual-target span {
+      width: fit-content;
+      max-width: 100%;
+      border-radius: 999px;
+      background: #edf8f2;
+      color: #0f6f48;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1.25;
+      padding: 3px 7px;
+    }
     .graph-manual-target small {
       min-width: 0;
       color: #64748b;
@@ -7638,6 +7583,27 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .graph-target-section {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .graph-target-section[hidden] {
+      display: none;
+    }
+    .graph-target-section-head {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .graph-target-section-head strong {
+      color: #172033;
+      font-size: 13px;
+      font-weight: 950;
+      line-height: 1.35;
     }
     .graph-isolated-helper {
       margin: 0;
@@ -7657,7 +7623,7 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 10px;
-      padding-top: 2px;
+      padding-top: 0;
     }
     .graph-isolated-form-actions .graph-selection-action {
       width: auto;
@@ -7667,6 +7633,81 @@
       color: #526174;
       font-size: 12px;
       line-height: 1.45;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-relation-form {
+      gap: 10px;
+      padding-right: 42px;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-target-panel {
+      gap: 8px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-search-row {
+      width: min(620px, 100%);
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-search-row > span {
+      grid-column: 1 / -1;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-relation-search-action {
+      min-height: 46px;
+      min-width: 78px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #0f6f48;
+      border-radius: 12px;
+      background: #0f6f48;
+      color: #ffffff;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: 0 12px 24px rgba(15, 111, 72, 0.18);
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-relation-search-action:hover,
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-relation-search-action:focus-visible {
+      border-color: #0b5f3d;
+      background: #0b7b52;
+      outline: none;
+      box-shadow: 0 14px 28px rgba(15, 111, 72, 0.24);
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-form-grid {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(213, 227, 236, 0.92);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-form-grid .graph-isolated-field {
+      align-self: stretch;
+      grid-template-columns: 72px minmax(0, 1fr);
+      align-items: start;
+      column-gap: 12px;
+      row-gap: 0;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-form-grid .graph-isolated-field > span {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-form-grid .graph-isolated-field select,
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-form-grid .graph-isolated-field textarea {
+      grid-column: 2;
+    }
+    .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-field textarea {
+      min-height: 64px;
+      resize: vertical;
     }
     .graph-isolated-workflow-tabs {
       display: grid;
@@ -10760,6 +10801,9 @@
       .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-selection-body {
         max-height: none;
       }
+      .graph-selection-overlay .graph-selection-panel.is-relation-form .graph-isolated-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
       .graph-selection-actions {
         grid-template-columns: 1fr;
       }
@@ -13050,8 +13094,8 @@
       backdrop-filter: blur(9px);
     }
     .permanent-relation-panel {
-      width: min(1120px, calc(100vw - 48px));
-      max-height: min(760px, calc(100vh - 48px));
+      width: min(880px, calc(100vw - 64px));
+      max-height: min(720px, calc(100vh - 48px));
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       overflow: hidden;
@@ -13062,10 +13106,10 @@
     }
     .permanent-relation-head {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 18px;
-      padding: 16px 18px;
+      padding: 14px 18px;
       border-bottom: 1px solid #dfe8ef;
       background: #ffffff;
     }
@@ -13076,22 +13120,19 @@
     }
     .permanent-relation-head strong {
       color: #10202a;
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 900;
       line-height: 1.3;
     }
     .permanent-relation-head span {
-      color: #52657d;
-      font-size: 12px;
-      font-weight: 650;
-      line-height: 1.55;
+      display: none;
     }
     .permanent-relation-body {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(210px, 0.8fr) minmax(300px, 1.15fr) minmax(320px, 1fr);
-      gap: 12px;
-      padding: 14px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+      padding: 12px;
       overflow: auto;
     }
     .permanent-relation-source,
@@ -13100,11 +13141,16 @@
       min-width: 0;
       display: grid;
       align-content: start;
-      gap: 12px;
+      gap: 8px;
       border: 1px solid #dfe9f0;
       border-radius: 10px;
       background: #ffffff;
-      padding: 14px;
+      padding: 10px;
+    }
+    .permanent-relation-picker,
+    .permanent-relation-confirm {
+      min-height: 0;
+      overflow: auto;
     }
     .permanent-relation-source > span,
     .permanent-relation-preview > span,
@@ -13139,6 +13185,10 @@
       font-size: 12px;
       font-weight: 550;
       line-height: 1.65;
+    }
+    .permanent-relation-candidate p,
+    .permanent-relation-empty p {
+      display: none;
     }
     .permanent-relation-source-status {
       display: flex;
@@ -13187,7 +13237,21 @@
     }
     .permanent-relation-candidate-list {
       display: grid;
-      gap: 8px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+    }
+    .permanent-relation-results-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 32px;
+    }
+    .permanent-relation-results-head strong {
+      color: #10202a;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.35;
     }
     .permanent-relation-ai-picker {
       display: grid;
@@ -13236,12 +13300,12 @@
     .permanent-relation-candidate {
       min-width: 0;
       display: grid;
-      gap: 7px;
+      gap: 3px;
       text-align: left;
       border: 1px solid #dfe9f0;
       border-radius: 10px;
       background: #ffffff;
-      padding: 10px;
+      padding: 8px 10px;
       cursor: pointer;
       font: inherit;
     }
@@ -13271,6 +13335,9 @@
       font-size: 13px;
       font-weight: 900;
       line-height: 1.4;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .permanent-relation-candidate small {
       background: #f1f5f9;
@@ -13281,11 +13348,11 @@
     .permanent-relation-notice,
     .permanent-relation-result {
       display: grid;
-      gap: 8px;
+      gap: 6px;
       border: 1px solid #dfe9f0;
       border-radius: 10px;
       background: #f8fbfd;
-      padding: 12px;
+      padding: 10px;
       color: #52657d;
       font-size: 12px;
       line-height: 1.6;
@@ -13311,7 +13378,7 @@
     .permanent-relation-confirm label,
     .permanent-relation-preview {
       display: grid;
-      gap: 6px;
+      gap: 5px;
     }
     .permanent-relation-search input,
     .permanent-relation-confirm select,
@@ -13323,20 +13390,26 @@
       background: #ffffff;
       color: #172033;
       font: inherit;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 600;
       line-height: 1.5;
-      padding: 8px 9px;
+      padding: 10px 12px;
     }
     .permanent-relation-confirm textarea {
-      min-height: 76px;
+      min-height: 72px;
       resize: vertical;
     }
     .permanent-relation-preview {
       border: 1px solid #dfe9f0;
       border-radius: 10px;
       background: #f8fbfd;
-      padding: 12px;
+      padding: 10px;
+    }
+    .permanent-relation-preview > p {
+      display: none;
+    }
+    .permanent-relation-preview .mini-btn {
+      justify-self: flex-start;
     }
     .permanent-relation-preview.is-empty {
       background: #fbfdff;
@@ -13383,6 +13456,7 @@
       }
       .permanent-relation-body {
         grid-template-columns: minmax(0, 1fr);
+        overflow: auto;
         padding: 12px;
       }
     }
@@ -13623,15 +13697,20 @@
     }
     .semantic-relation-form {
       display: grid;
-      gap: 9px;
+      gap: 7px;
       border: 1px solid #e1eaf2;
       border-radius: 10px;
       background: #fbfdff;
-      padding: 10px;
+      padding: 8px;
     }
     .semantic-relations-section .semantic-relation-form {
-      gap: 10px;
-      padding: 12px;
+      gap: 8px;
+      padding: 10px;
+    }
+    .semantic-relations-section .inspector-section-note,
+    .semantic-relations-section [data-relation-entry-hint],
+    .semantic-relations-section .relation-create-summary {
+      display: none;
     }
     .semantic-relation-form label {
       display: grid;
@@ -13659,11 +13738,11 @@
       min-width: 0;
     }
     .semantic-relation-form textarea {
-      min-height: 68px;
+      min-height: 56px;
       resize: vertical;
     }
     .semantic-relation-target-search {
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .semantic-relation-target-status {
       display: block;
@@ -13674,17 +13753,14 @@
       margin-top: 5px;
     }
     .semantic-relation-quality-guidance {
-      color: #52657d;
-      font-size: 11px;
-      font-weight: 600;
-      line-height: 1.55;
+      display: none;
     }
     .semantic-relations-section .semantic-relation-quality-guidance {
       color: #64748b;
       font-weight: 500;
     }
     .semantic-relation-template-picker {
-      display: grid;
+      display: none;
       gap: 7px;
       padding: 9px 10px;
       border: 1px solid #dde7ee;
@@ -13786,6 +13862,7 @@
       gap: 7px;
     }
     .semantic-relation-quality-meter {
+      display: none;
       border: 1px solid #dce7ef;
       border-radius: 8px;
       background: #ffffff;

@@ -25,16 +25,14 @@ export function buildGraphVisualMapHeadContent({
     ? `
       <div class="graph-focus-headline">
         <div class="graph-section-title">当前笔记的关系</div>
-        <div class="graph-section-note">当前笔记在中心；范围：${escapeHtml(focusDepth.label)}。${escapeHtml(focusDepth.note || "拖动画布，查看它周围的关系。")}</div>
         <div class="graph-focus-depth" aria-label="当前笔记关系范围">
           ${["1", "2", "all"]
             .map((value) => {
               const meta = graphFocusDepthMeta(value);
               const active = meta.key === focusDepth.key;
-              return `<button class="graph-focus-depth-btn${active ? " is-active" : ""}" type="button" data-graph-focus-depth="${escapeHtml(meta.key)}" aria-pressed="${active}" title="${escapeHtml(meta.note)}">${escapeHtml(meta.label)}</button>`;
+              return `<button class="graph-focus-depth-btn${active ? " is-active" : ""}" type="button" data-graph-focus-depth="${escapeHtml(meta.key)}" aria-pressed="${active}" aria-label="${escapeHtml(`${meta.label}：${meta.note}`)}" title="${escapeHtml(meta.note)}">${escapeHtml(meta.label)}</button>`;
             })
             .join("")}
-          <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
           ${
             focusContextAvailable
               ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示侧边详情" : "收起侧边详情"}">${focusContextCollapsed ? "显示详情" : "收起详情"}</button>`

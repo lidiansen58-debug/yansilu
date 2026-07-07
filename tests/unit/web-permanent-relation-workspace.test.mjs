@@ -55,18 +55,20 @@ test("permanent relation workspace renders a large relation-only flow", () => {
   });
 
   assert.match(html, /data-permanent-relation-workspace/);
-  assert.match(html, /建立笔记关联/);
+  assert.match(html, /关联：当前永久笔记/);
   assert.match(html, /这条关系让哪个判断更清楚/);
-  assert.match(html, /当前笔记/);
   assert.match(html, /目标笔记/);
   assert.match(html, /它们是什么关系/);
   assert.match(html, /为什么要关联/);
   assert.match(html, /placeholder="这条关系让哪个判断更清楚？因为\.\.\."/);
   assert.match(html, /保存关系/);
   assert.match(html, /推荐目标/);
-  assert.match(html, /搜索目标/);
-  assert.match(html, /data-permanent-relation-ai-select/);
-  assert.match(html, /推荐只作为候选；保存前请确认关系类型和理由/);
+  assert.match(html, /搜索目标笔记/);
+  assert.match(html, /data-permanent-relation-ai-target/);
+  assert.doesNotMatch(html, />当前笔记</);
+  assert.doesNotMatch(html, /data-permanent-relation-ai-select/);
+  assert.doesNotMatch(html, /推荐只作为候选；保存前请确认关系类型和理由/);
+  assert.doesNotMatch(html, /选目标、写理由、保存/);
   assert.doesNotMatch(html, /观点提纯/);
   assert.doesNotMatch(html, /写作准备/);
   assert.doesNotMatch(html, /进入草稿/);
@@ -125,7 +127,7 @@ test("permanent relation workspace ignores wikilink-only relations when checking
   assert.equal(validation.ok, true);
 });
 
-test("permanent relation workspace counts only explicit saved relations", () => {
+test("permanent relation workspace keeps saved-relation counts out of the focused overlay", () => {
   const relations = {
     outgoingLinks: [
       {
@@ -165,8 +167,11 @@ test("permanent relation workspace counts only explicit saved relations", () => 
     deps
   });
 
-  assert.match(html, /permanent-relation-source-status[\s\S]*?>1 [^<]*<\/span>/);
-  assert.doesNotMatch(html, /permanent-relation-source-status[\s\S]*?>3 [^<]*<\/span>/);
+  assert.match(html, /搜索目标笔记/);
+  assert.match(html, /为什么要关联/);
+  assert.doesNotMatch(html, /permanent-relation-source-status/);
+  assert.doesNotMatch(html, />1 条已保存关系</);
+  assert.doesNotMatch(html, />3 条已保存关系</);
 });
 
 test("permanent relation workspace keeps non-writing relation types available", () => {
@@ -358,9 +363,10 @@ test("permanent relation AI recommendations show useful target titles without in
   assert.match(html, new RegExp(target.title));
   assert.match(html, /46%/);
   assert.match(html, /推荐目标/);
-  assert.match(html, /推荐只作为候选；保存前请确认关系类型和理由/);
+  assert.match(html, /data-permanent-relation-ai-target/);
   assert.match(html, /标题、标签或摘要/);
   assert.doesNotMatch(html, /<strong>YJ-D09<\/strong>/);
+  assert.doesNotMatch(html, /data-permanent-relation-ai-select/);
   assert.doesNotMatch(html, /查看其他候选/);
   assert.doesNotMatch(html, /质量/);
   assert.doesNotMatch(html, /本地初判发现两条笔记存在词汇或判断重叠/);

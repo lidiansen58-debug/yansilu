@@ -3756,8 +3756,7 @@ export class EditorPane {
         selectedTargetNoteId: "",
         searchState: "idle"
       }, note.id);
-      this.syncPermanentRelationManualResults();
-      this.syncPermanentRelationTargetPreview();
+      this.syncPermanentRelationWorkspaceOverlay();
       return;
     }
     try {

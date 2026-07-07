@@ -80,8 +80,6 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     graphFocusDepthMeta = noop,
     graphFocusContextCollapsedState = (_current, action) => action !== "open",
     graphFocusContextCollapsedStatus = () => "",
-    graphFocusHelpOpenState = (current) => !current,
-    graphFocusHelpStatus = () => "",
     applyGraphFocusContextModeInteraction = () => ({ meta: { label: "" } }),
     setGraphFocusContextMode = noop,
     graphFocusContextModeMeta = noop,
@@ -526,8 +524,9 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
         setGraphFocusDepth,
         graphFocusDepthMeta
       });
+      graphState.focusContextCollapsed = true;
       renderGraphPanel();
-      setStatus("当前笔记关系范围已切换到 " + result.meta.label, "ok");
+      setStatus("图谱范围已切换到 " + result.meta.label, "ok");
       return;
     }
     const focusContextToggle = event.target.closest("[data-graph-focus-context-toggle]");
@@ -536,13 +535,6 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       graphState.focusContextCollapsed = graphFocusContextCollapsedState(graphState.focusContextCollapsed, action);
       renderGraphPanel();
       setStatus(graphFocusContextCollapsedStatus(graphState.focusContextCollapsed), "ok");
-      return;
-    }
-    const focusHelpToggle = event.target.closest("[data-graph-focus-help-toggle]");
-    if (focusHelpToggle) {
-      graphState.focusContextHelpOpen = graphFocusHelpOpenState(graphState.focusContextHelpOpen);
-      renderGraphPanel();
-      setStatus(graphFocusHelpStatus(graphState.focusContextHelpOpen), "ok");
       return;
     }
     const contextModeButton = event.target.closest("[data-graph-context-mode]");

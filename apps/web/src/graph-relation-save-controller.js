@@ -31,9 +31,7 @@ export function createGraphRelationSaveController({
   graphNodeTitle = (_nodeMap, id = "", fallback = "") => fallback || id,
   relationTypeLabel = (type = "") => String(type || "").trim(),
   clearIsolatedRelationDraft = () => false,
-  openGraphSelection = null,
   openRelationFormInSelection = () => false,
-  nextIsolatedSelectionAfterSave = () => null,
   setGraphRelationTypeFilter = () => ""
 } = {}) {
   const titleForNote = (nodeMap = new Map(), noteId = "") => graphNodeTitle(
@@ -109,35 +107,17 @@ export function createGraphRelationSaveController({
       graphState.selection = nextSelection;
       await refreshDirectoryGraph();
       if (ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save", afterRefresh: true });
-      const nextIsolatedSelection = nextSelection.kind === "isolatedComplete"
-        ? nextIsolatedSelectionAfterSave(cleanNoteId)
-        : null;
       const saveResult = {
         ...transaction.result,
-        nextIsolated: nextIsolatedSelection || null
+        nextIsolated: null
       };
       graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = saveResult;
-      const selectionAfterSave = nextSelection.kind === "isolatedComplete"
-        ? { ...nextSelection, saveResult }
-        : nextSelection;
-      const followUpSelection = nextIsolatedSelection
-        ? {
-            ...nextIsolatedSelection,
-            kind: "relationForm",
-            returnTo: "isolated",
-            noteId: nextIsolatedSelection.noteId || nextIsolatedSelection.nodeId || ""
-          }
-        : selectionAfterSave;
-      graphState.selection = followUpSelection;
-      if (typeof openGraphSelection === "function") {
-        openGraphSelection(followUpSelection);
-      } else {
-        renderGraphPanel();
-      }
+      graphState.selection = null;
+      renderGraphPanel();
       setStatus(
         graphRelationSavedNextStepStatus({
           created: transaction.relation?.created !== false,
-          hasNextIsolated: Boolean(nextIsolatedSelection),
+          hasNextIsolated: false,
           relationType: cleanRelationType
         }),
         "ok"

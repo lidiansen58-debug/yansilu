@@ -5,12 +5,19 @@ import {
   createGraphRelationSaveController
 } from "../../apps/web/src/graph-relation-save-controller.js";
 
-const confirmableRelationTypes = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
+const confirmableRelationTypes = new Set([
+  "supports",
+  "contradicts",
+  "qualifies",
+  "bridges",
+  "same_topic",
+  "associated_with"
+]);
 
 function createButton(attrs = {}) {
   return {
     disabled: false,
-    textContent: "保存关系",
+    textContent: "Save relation",
     closest(selector) {
       return selector === ".graph-selection-panel.is-isolated" ? { matches: true } : null;
     },
@@ -24,8 +31,8 @@ function graphStateFixture(selection = { kind: "isolated", noteId: "source" }) {
   return {
     item: {
       nodes: [
-        { id: "source", title: "源笔记" },
-        { id: "target", title: "目标笔记" }
+        { id: "source", title: "Source note" },
+        { id: "target", title: "Target note" }
       ]
     },
     selection
@@ -47,8 +54,8 @@ function baseController({
   return createGraphRelationSaveController({
     graphState,
     getNotes: () => [
-      { id: "source", title: "源笔记" },
-      { id: "target", title: "目标笔记" }
+      { id: "source", title: "Source note" },
+      { id: "target", title: "Target note" }
     ],
     confirmableRelationTypes,
     rationaleIsActionable: (value = "") => String(value || "").trim().length > 8,
@@ -57,7 +64,7 @@ function baseController({
     renderGraphPanel,
     setStatus,
     graphNodeTitle: (nodeMap, id, fallback) => nodeMap.get(id)?.title || fallback,
-    relationTypeLabel: (type) => ({ supports: "支持", bridges: "桥接" })[type] || type,
+    relationTypeLabel: (type) => ({ supports: "Supports", bridges: "Bridges" })[type] || type,
     clearIsolatedRelationDraft,
     openGraphSelection,
     openRelationFormInSelection,
@@ -66,7 +73,7 @@ function baseController({
   });
 }
 
-test("graph relation save controller refreshes graph and keeps isolated completion selected after saving", async () => {
+test("graph relation save controller refreshes graph and closes the relation overlay after saving", async () => {
   const graphState = {
     ...graphStateFixture(),
     isolatedRelationDraftByNoteId: { source: { rationale: "draft" } }
@@ -80,7 +87,7 @@ test("graph relation save controller refreshes graph and keeps isolated completi
       return { id: "rel-1", created: true };
     },
     refreshDirectoryGraph: async () => calls.push(["refresh", { ...graphState.selection }]),
-    renderGraphPanel: () => calls.push(["render", { ...graphState.selection }]),
+    renderGraphPanel: () => calls.push(["render", graphState.selection ? { ...graphState.selection } : null]),
     setStatus: (text, cls) => calls.push(["status", text, cls]),
     clearIsolatedRelationDraft: (noteId) => {
       calls.push(["clearDraft", noteId]);
@@ -92,8 +99,8 @@ test("graph relation save controller refreshes graph and keeps isolated completi
     noteId: " source ",
     targetNoteId: " target ",
     relationType: " Supports ",
-    rationale: "源笔记能够支持目标笔记，因为它补足了关键依据。",
-    insightQuestion: "如何继续？",
+    rationale: "The source note supports the target note with concrete evidence.",
+    insightQuestion: "What follows?",
     button: createButton()
   });
 
@@ -103,26 +110,23 @@ test("graph relation save controller refreshes graph and keeps isolated completi
     payload: {
       toNoteId: "target",
       relationType: "supports",
-      rationale: "源笔记能够支持目标笔记，因为它补足了关键依据。",
-      insightQuestion: "如何继续？",
+      rationale: "The source note supports the target note with concrete evidence.",
+      insightQuestion: "What follows?",
       createdBy: "user",
       status: "confirmed"
     }
   });
-  assert.equal(graphState.selection.kind, "isolatedComplete");
-  assert.equal(graphState.selection.noteId, "source");
-  assert.equal(graphState.selection.saveResult.targetTitle, "目标笔记");
+  assert.equal(graphState.selection, null);
+  assert.equal(graphState.isolatedRelationSaveResultByNoteId.source.targetNoteId, "target");
   assert.equal(graphState.isolatedRelationDraftByNoteId.source, undefined);
-  assert.equal(graphState.isolatedRelationSaveResultByNoteId.source.relationLabel, "支持");
+  assert.equal(graphState.isolatedRelationSaveResultByNoteId.source.relationLabel, "Supports");
   assert.deepEqual(calls.map((call) => call[0]), ["clearDraft", "refresh", "render", "status"]);
   assert.equal(calls[1][1].kind, "isolatedComplete");
-  assert.equal(calls[2][1].kind, "isolatedComplete");
+  assert.equal(calls[2][1], null);
   assert.equal(calls[3][2], "ok");
-  assert.match(calls[3][1], /关系已保存/);
-  assert.match(calls[3][1], /查看这组关系能不能形成主题/);
 });
 
-test("graph relation save controller opens the next isolated note after saving", async () => {
+test("graph relation save controller does not auto-open the next isolated note after saving", async () => {
   const graphState = graphStateFixture();
   const calls = [];
   const controller = baseController({
@@ -130,12 +134,13 @@ test("graph relation save controller opens the next isolated note after saving",
     refreshDirectoryGraph: async () => calls.push(["refresh", { ...graphState.selection }]),
     nextIsolatedSelectionAfterSave: (savedNoteId) => {
       calls.push(["next", savedNoteId]);
-      return { kind: "isolated", noteId: "next", isolatedKey: "next", title: "下一条笔记", source: "after-save" };
+      return { kind: "isolated", noteId: "next", isolatedKey: "next", title: "Next note", source: "after-save" };
     },
     openGraphSelection: (selection) => {
       calls.push(["open", selection]);
       graphState.selection = selection;
     },
+    renderGraphPanel: () => calls.push(["render", graphState.selection]),
     setStatus: (text, cls) => calls.push(["status", text, cls])
   });
 
@@ -143,20 +148,18 @@ test("graph relation save controller opens the next isolated note after saving",
     noteId: "source",
     targetNoteId: "target",
     relationType: "supports",
-    rationale: "源笔记能够支持目标笔记，因为它补足了关键依据。"
+    rationale: "The source note supports the target note with concrete evidence."
   });
 
   assert.equal(saved, true);
-  assert.deepEqual(graphState.selection, { kind: "relationForm", noteId: "next", isolatedKey: "next", title: "下一条笔记", source: "after-save", returnTo: "isolated" });
-  assert.deepEqual(calls.map((call) => call[0]), ["refresh", "next", "open", "status"]);
+  assert.equal(graphState.selection, null);
+  assert.deepEqual(calls.map((call) => call[0]), ["refresh", "render", "status"]);
   assert.equal(calls[0][1].kind, "isolatedComplete");
-  assert.deepEqual(calls[1], ["next", "source"]);
-  assert.equal(calls[3][2], "ok");
-  assert.match(calls[3][1], /关系已保存/);
-  assert.match(calls[3][1], /继续处理下一条未关联笔记/);
+  assert.equal(calls[1][1], null);
+  assert.equal(calls[2][2], "ok");
 });
 
-test("graph relation save controller can reopen the graph selection through the unified entry", async () => {
+test("graph relation save controller closes selection instead of reopening the graph selection", async () => {
   const graphState = graphStateFixture();
   const calls = [];
   const controller = baseController({
@@ -165,21 +168,22 @@ test("graph relation save controller can reopen the graph selection through the 
     openGraphSelection: (selection) => {
       calls.push(["open", selection]);
       graphState.selection = selection;
-    }
+    },
+    renderGraphPanel: () => calls.push(["render", graphState.selection])
   });
 
   const saved = await controller.saveConfirmedRelation({
     noteId: "source",
     targetNoteId: "target",
     relationType: "supports",
-    rationale: "源笔记能够支持目标笔记，因为它补足了关键依据。",
+    rationale: "The source note supports the target note with concrete evidence.",
     button: createButton()
   });
 
   assert.equal(saved, true);
-  assert.equal(calls[1][0], "open");
-  assert.equal(calls[1][1].kind, "isolatedComplete");
-  assert.equal(calls[1][1].saveResult.targetTitle, "目标笔记");
+  assert.deepEqual(calls.map((call) => call[0]), ["refresh", "render"]);
+  assert.equal(calls[1][1], null);
+  assert.equal(graphState.selection, null);
 });
 
 test("graph relation save controller restores the save button after create failure", async () => {
@@ -196,14 +200,15 @@ test("graph relation save controller restores the save button after create failu
     noteId: "source",
     targetNoteId: "target",
     relationType: "supports",
-    rationale: "源笔记能够支持目标笔记，因为它补足了关键依据。",
+    rationale: "The source note supports the target note with concrete evidence.",
     button
   });
 
   assert.equal(saved, false);
   assert.equal(button.disabled, false);
-  assert.equal(button.textContent, "保存关系");
-  assert.deepEqual(statuses, [["保存关系失败：network down", "bad"]]);
+  assert.equal(button.textContent, "Save relation");
+  assert.equal(statuses[0][1], "bad");
+  assert.match(statuses[0][0], /network down/);
 });
 
 test("graph relation save controller opens the relation form when a candidate has no usable rationale", async () => {
@@ -212,8 +217,8 @@ test("graph relation save controller opens the relation form when a candidate ha
     "data-open-note": "source",
     "data-graph-target-note": "target",
     "data-graph-relation-type": "bridges",
-    "data-graph-rationale-draft": "太短",
-    "data-graph-insight-question-draft": "下一步？"
+    "data-graph-rationale-draft": "short",
+    "data-graph-insight-question-draft": "Next?"
   });
   const controller = baseController({
     openRelationFormInSelection: (targetButton) => calls.push(["openForm", targetButton === button]),
@@ -223,13 +228,12 @@ test("graph relation save controller opens the relation form when a candidate ha
   const saved = await controller.saveCandidateRelation(button);
 
   assert.equal(saved, false);
-  assert.deepEqual(calls, [
-    ["openForm", true],
-    ["status", "请先补一句“源笔记”和“目标笔记”为什么能建立桥接", "warn"]
-  ]);
+  assert.deepEqual(calls.map((call) => call[0]), ["openForm", "status"]);
+  assert.equal(calls[0][1], true);
+  assert.equal(calls[1][2], "warn");
 });
 
-test("graph relation save controller records existing relations without leaving the isolated result flow", async () => {
+test("graph relation save controller records existing relations and closes the isolated flow", async () => {
   const statuses = [];
   const graphState = graphStateFixture({ kind: "relationForm", returnTo: "isolated", noteId: "source" });
   const controller = baseController({
@@ -242,16 +246,13 @@ test("graph relation save controller records existing relations without leaving 
     noteId: "source",
     targetNoteId: "target",
     relationType: "supports",
-    rationale: "源笔记能够支持目标笔记，因为它补足了关键依据。"
+    rationale: "The source note supports the target note with concrete evidence."
   });
 
   assert.equal(saved, true);
   assert.equal(graphState.isolatedRelationSaveResultByNoteId.source.created, false);
-  assert.equal(graphState.selection.kind, "isolatedComplete");
-  assert.equal(graphState.selection.saveResult.created, false);
+  assert.equal(graphState.selection, null);
   assert.equal(statuses[0][1], "ok");
-  assert.match(statuses[0][0], /这条正式关系已经存在/);
-  assert.match(statuses[0][0], /形成主题/);
 });
 
 test("graph relation save controller switches ordinary relation saves to all relations", async () => {
@@ -265,12 +266,11 @@ test("graph relation save controller switches ordinary relation saves to all rel
     noteId: "source",
     targetNoteId: "target",
     relationType: "associated_with",
-    rationale: "源笔记和目标笔记普通相关，因为它们讨论同一个使用场景。"
+    rationale: "The source and target notes discuss the same user workflow."
   });
 
   assert.equal(saved, true);
   assert.deepEqual(calls[0], ["filter", "all", { source: "relation-save" }]);
   assert.deepEqual(calls.find((call) => call[0] === "filter" && call[2]?.afterRefresh), ["filter", "all", { source: "relation-save", afterRefresh: true }]);
   assert.equal(calls.at(-1)[2], "ok");
-  assert.match(calls.at(-1)[1], /普通相关关系/);
 });

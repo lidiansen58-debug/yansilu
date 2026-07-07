@@ -111,8 +111,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
     noteTypeLabel = (value = "") => value || "永久笔记",
     graphNotePreviewText = (note = {}) => note.summary || note.title || "",
     graphNoteTags = (note = {}) => Array.isArray(note.tags) ? note.tags : [],
-    relationFormTypeOptions = () => "",
-    renderPreviewPanel = () => ""
+    relationFormTypeOptions = () => ""
   } = deps;
   const model = graphIsolatedJoinNetworkWorkspaceModel(
     noteId,
@@ -134,16 +133,12 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
   const {
     cleanNoteId,
     sourceTitle,
-    activeMode,
-    activeAiCandidate,
-    activeAiTargetNoteId,
     selectedManualTargetNoteId,
     selectedManualTitle,
     manualSearchText,
     defaultRelationType,
     defaultRationale,
     defaultRationaleSource,
-    previewTargetNoteId,
     hasActiveInsightQuestionDraft,
     draftInsightQuestion,
     aiCandidates: resolvedAiCandidates,
@@ -153,7 +148,7 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
     loading: resolvedLoading
   } = model;
   const reversibleRelationTypes = deps.reversibleRelationTypes || new Set();
-  const aiOptions = resolvedAiCandidates.length
+  const aiItems = resolvedAiCandidates.length
     ? resolvedAiCandidates
         .map((candidate, index) => {
           const targetId = String(candidate.counterpartNoteId || "").trim();
@@ -168,94 +163,59 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
               : "associated_with";
           const rationaleDraft = relationType === rawRelationType ? String(candidate.rationaleDraft || "").trim() : "";
           const previewNote = graphFullNoteById(targetId, nodeMap) || {};
-          const selected = activeMode === "ai" ? targetId === activeAiTargetNoteId : index === 0;
+          const selected = targetId === selectedManualTargetNoteId;
           const reason = String(candidate.rationaleDraft || candidate.coarseReasons?.[0] || candidate.reason || "").trim();
-          const optionLabel = reason
-            ? `${targetTitle} - ${percent}% - ${reason}`
-            : `${targetTitle} - ${percent}%`;
-          return `<option value="${escapeHtml(targetId)}" data-graph-relation-type="${escapeHtml(relationType)}" data-graph-rationale-draft="${escapeHtml(rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft || "")}" data-graph-action-source-note="${escapeHtml(actionSourceNoteId)}" data-graph-action-target-note="${escapeHtml(candidate.actionTargetNoteId || candidate.targetNoteId || "")}" data-graph-preview-title="${escapeHtml(targetTitle)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${selected ? " selected" : ""}>${escapeHtml(optionLabel)}</option>`;
+          return `<button class="graph-manual-target${selected ? " is-selected" : ""}" type="button" data-graph-pick-manual-target="${escapeHtml(targetId)}" data-graph-manual-title="${escapeHtml(targetTitle)}" data-graph-manual-relation-type="${escapeHtml(relationType)}" data-graph-manual-rationale="${escapeHtml(rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft || "")}" data-graph-action-source-note="${escapeHtml(actionSourceNoteId)}" data-graph-action-target-note="${escapeHtml(candidate.actionTargetNoteId || candidate.targetNoteId || "")}" data-graph-preview-title="${escapeHtml(targetTitle)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"><span>推荐 ${escapeHtml(`${percent}%`)}</span><strong>${escapeHtml(targetTitle)}</strong>${reason ? `<small>${escapeHtml(reason)}</small>` : ""}</button>`;
         })
         .filter(Boolean)
         .join("")
     : "";
-  const visibleManualTargetLimit = 5;
+  const visibleManualTargetLimit = 8;
+  let visibleManualTargetCount = 0;
   const manualOptions = resolvedManualTargets
     .map((target, index) => {
       const label = target.folder ? `${target.title} - ${target.folder}` : target.title;
       const previewNote = graphFullNoteById(target.id, nodeMap) || target;
       const selected = String(target.id || "").trim() === selectedManualTargetNoteId;
-      const searchMatch = manualSearchText ? label.toLowerCase().includes(manualSearchText.toLowerCase()) : true;
-      const visible = selected || (searchMatch && index < visibleManualTargetLimit);
+      const searchMatch = manualSearchText ? label.toLowerCase().includes(manualSearchText.toLowerCase()) : false;
+      const visible = selected || (searchMatch && visibleManualTargetCount < visibleManualTargetLimit);
+      if (visible && searchMatch) visibleManualTargetCount += 1;
       return `<button class="graph-manual-target${selected ? " is-selected" : ""}${visible ? "" : " is-hidden"}" type="button" data-graph-pick-manual-target="${escapeHtml(target.id)}" data-graph-manual-title="${escapeHtml(target.title)}" data-graph-manual-rationale="" data-graph-manual-search-text="${escapeHtml(label.toLowerCase())}" data-graph-preview-title="${escapeHtml(target.title)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"${visible ? "" : " hidden"}><strong>${escapeHtml(target.title)}</strong>${target.folder ? `<small>${escapeHtml(target.folder)}</small>` : ""}</button>`;
     })
     .join("");
-  const manualMoreOptions = resolvedManualTargets
-    .slice(visibleManualTargetLimit)
-    .map((target) => {
-      const label = target.folder ? `${target.title} - ${target.folder}` : target.title;
-      const previewNote = graphFullNoteById(target.id, nodeMap) || target;
-      const selected = String(target.id || "").trim() === selectedManualTargetNoteId;
-      return `<button class="graph-manual-target${selected ? " is-selected" : ""}" type="button" data-graph-pick-manual-target="${escapeHtml(target.id)}" data-graph-manual-title="${escapeHtml(target.title)}" data-graph-manual-rationale="" data-graph-manual-search-text="${escapeHtml(label.toLowerCase())}" data-graph-preview-title="${escapeHtml(target.title)}" data-graph-preview-type="${escapeHtml(noteTypeLabel(previewNote.noteType))}" data-graph-preview-text="${escapeHtml(graphNotePreviewText(previewNote))}" data-graph-preview-tags="${escapeHtml(graphNoteTags(previewNote).slice(0, 5).join(","))}"><strong>${escapeHtml(target.title)}</strong>${target.folder ? `<small>${escapeHtml(target.folder)}</small>` : ""}</button>`;
-    })
-    .join("");
-  const hiddenManualCount = Math.max(0, resolvedManualTargets.length - visibleManualTargetLimit);
-  const statusText = directEdges.length ? "已进入关系网" : visibleEdgeCount ? "图谱可见" : "未关联";
   const manualStatusText = selectedManualTitle
     ? `已选择：${selectedManualTitle}`
     : manualSearchText
       ? "点一条结果。"
     : "输入关键词。";
-  const sourceNote = graphFullNoteById(cleanNoteId, nodeMap) || {};
-  const sourcePreviewText = String(graphNotePreviewText(sourceNote) || sourceTitle || "").trim();
-  const sourceTags = graphNoteTags(sourceNote).slice(0, 5);
   return `
     <section class="graph-isolated-join" aria-label="建立笔记关系">
-      <div class="graph-isolated-join-head">
-        <div>
-          <strong>${escapeHtml(heading)}</strong>
-          <p>${escapeHtml(helper)}</p>
-        </div>
-        <span>${escapeHtml(statusText)}</span>
-      </div>
       <div class="graph-isolated-join-grid">
         <div class="graph-isolated-join-main">
           <form class="graph-isolated-relation-form" data-graph-isolated-relation-form${isolatedFlow ? " data-graph-isolated-flow" : ""} data-source-note="${escapeHtml(cleanNoteId)}" data-source-title="${escapeHtml(sourceTitle)}">
-            <div class="graph-relation-fast-head">
-              <span>1</span>
-              <strong>搜索并选择关联对象</strong>
-            </div>
-            <div class="graph-isolated-mode-switch" role="tablist" aria-label="选择目标笔记方式">
-              <button class="graph-isolated-workflow-tab${activeMode === "manual" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "manual"}" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">搜索</button>
-              <button class="graph-isolated-workflow-tab${activeMode === "ai" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activeMode === "ai"}" data-graph-isolated-tab="ai" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">推荐</button>
-            </div>
-            <input type="hidden" data-graph-relation-source-mode value="${escapeHtml(activeMode)}">
-            <div class="graph-isolated-target-panel"${activeMode === "manual" ? "" : " hidden"} data-graph-target-panel="manual">
-              <label class="graph-isolated-field is-search-first">
-                <span>输入关键词</span>
-                <input type="search" data-graph-manual-target-search autocomplete="off" autofocus placeholder="输入标题关键词，边搜边选" value="${escapeHtml(manualSearchText)}"${selectedManualTitle ? ` data-selected-title="${escapeHtml(selectedManualTitle)}"` : ""}>
+            <input type="hidden" data-graph-relation-source-mode value="manual">
+            <div class="graph-isolated-target-panel" data-graph-target-panel="manual">
+              <label class="graph-isolated-field is-search-first graph-isolated-search-row">
+                <span>找目标笔记</span>
+                <input type="search" data-graph-manual-target-search autocomplete="off" autofocus placeholder="输入关键词，选择要关联的笔记" value="${escapeHtml(manualSearchText)}"${selectedManualTitle ? ` data-selected-title="${escapeHtml(selectedManualTitle)}"` : ""}>
+                <button class="graph-relation-search-action" type="button" data-graph-isolated-relation-save>关联</button>
                 <input type="hidden" data-graph-manual-target-id value="${escapeHtml(selectedManualTargetNoteId)}">
               </label>
-              <div class="graph-manual-target-list" data-graph-manual-target-list>
-                ${manualOptions || `<span class="graph-isolated-helper">没有可关联的其它永久笔记。</span>`}
+              ${aiItems ? `
+                <div class="graph-target-section" data-graph-target-results="recommendations"${manualSearchText || selectedManualTargetNoteId ? " hidden" : ""}>
+                  <div class="graph-target-section-head">
+                    <strong>推荐</strong>
+                  </div>
+                  <div class="graph-manual-target-list" data-graph-ai-candidate-list>
+                    ${aiItems}
+                  </div>
+                </div>
+              ` : ""}
+              <div class="graph-target-section" data-graph-target-results="search"${!manualSearchText || selectedManualTargetNoteId ? " hidden" : ""}>
+                <div class="graph-manual-target-list" data-graph-manual-target-list>
+                  ${manualOptions}
+                </div>
               </div>
-              ${hiddenManualCount ? `<details class="graph-manual-target-more"><summary>更多候选（${escapeHtml(hiddenManualCount)}）</summary><div class="graph-manual-target-list">${manualMoreOptions}</div></details>` : ""}
-              <p class="graph-isolated-helper" data-graph-manual-target-status>${escapeHtml(manualStatusText)}</p>
-            </div>
-            <div class="graph-isolated-target-panel"${activeMode === "ai" ? "" : " hidden"} data-graph-target-panel="ai">
-              <label class="graph-isolated-field">
-                 <span>推荐笔记</span>
-                 <select data-graph-ai-candidate-select data-graph-source-note="${escapeHtml(cleanNoteId)}"${resolvedAiCandidates.length ? "" : " disabled"}>
-                   ${aiOptions || `<option value="">暂无推荐</option>`}
-                 </select>
-               </label>
-              <div class="graph-isolated-target-actions">
-                <button class="graph-selection-action is-secondary" type="button" data-graph-ai-connect-note="${escapeHtml(cleanNoteId)}"${resolvedLoading ? " disabled" : ""}>${escapeHtml(resolvedLoading ? "查找中" : "查找推荐")}</button>
-                <button class="graph-selection-action is-quiet" type="button" data-graph-isolated-tab="manual" data-graph-isolated-note="${escapeHtml(cleanNoteId)}">去搜索</button>
-              </div>
-            </div>
-            <div class="graph-relation-fast-head">
-              <span>2</span>
-              <strong>选择关系，写一句理由</strong>
             </div>
             <div class="graph-isolated-form-grid">
               <label class="graph-isolated-field">
@@ -267,24 +227,10 @@ export function renderGraphIsolatedJoinNetworkFlowHtml(
                 <textarea data-graph-isolated-rationale data-graph-rationale-source="${escapeHtml(defaultRationaleSource)}" rows="4" placeholder="写一句话：当前笔记如何支持、限定、反驳、举例或桥接目标笔记。">${escapeHtml(defaultRationale)}</textarea>
               </label>
             </div>
-            <input type="hidden" data-graph-isolated-insight-question value="${escapeHtml(hasActiveInsightQuestionDraft ? draftInsightQuestion : activeAiCandidate?.insightQuestionDraft || "")}">
+            <input type="hidden" data-graph-isolated-insight-question value="${escapeHtml(hasActiveInsightQuestionDraft ? draftInsightQuestion : "")}">
             <div class="graph-isolated-form-error" data-graph-isolated-form-error></div>
-            <div class="graph-isolated-form-actions">
-              <button class="graph-selection-action is-primary" type="button" data-graph-isolated-relation-save>保存关系</button>
-              <span>${escapeHtml(saveHint)}</span>
-            </div>
           </form>
         </div>
-        <aside class="graph-isolated-note-preview-stack" aria-label="查看笔记">
-          <section class="graph-isolated-source-preview">
-            <small>当前笔记</small>
-            <strong>${escapeHtml(sourceTitle)}</strong>
-            <span>${escapeHtml(noteTypeLabel(sourceNote.noteType))}</span>
-            <p>${escapeHtml(sourcePreviewText || "先看清这条笔记，再决定它应该关联到哪里。")}</p>
-            <div class="graph-isolated-preview-tags"${sourceTags.length ? "" : " hidden"}>${sourceTags.map((tag) => `<em>${escapeHtml(`#${tag}`)}</em>`).join("")}</div>
-          </section>
-          ${renderPreviewPanel(cleanNoteId, { nodeMap, preferredTargetNoteId: previewTargetNoteId })}
-        </aside>
       </div>
     </section>
   `;

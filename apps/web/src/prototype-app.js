@@ -110,7 +110,7 @@ import { renderGraphPromptDetailsView, renderGraphSelectionMetricsView, renderGr
 import { renderGraphClusterSelectionPanelView } from "./graph-cluster-selection-panel.js";
 import { createGraphSelectionPanelRenderer } from "./graph-selection-panel-renderer.js";
 import { buildGraphWorkspaceRenderDeps, createGraphThinkingModelRuntimeDepsProvider } from "./graph-workspace-host-deps.js";
-import { graphFocusContextCollapsedState, graphFocusContextCollapsedStatus, graphFocusHelpOpenState, graphFocusHelpStatus, renderGraphFocusContextPanel as renderGraphFocusContextPanelView } from "./graph-focus-context-panel.js";
+import { graphFocusContextCollapsedState, graphFocusContextCollapsedStatus, renderGraphFocusContextPanel as renderGraphFocusContextPanelView } from "./graph-focus-context-panel.js";
 import { GRAPH_FOCUS_CONTEXT_MODE_KEY, GRAPH_FOCUS_DEPTH_KEY, graphFocusContextModeMeta, graphFocusDepthMeta, normalizeGraphFocusContextMode, normalizeGraphFocusDepth, setGraphFocusContextModeForRuntime, setGraphFocusDepthForRuntime } from "./graph-focus-controls-state.js";
 import { createGraphPresentationController } from "./graph-presentation-controller.js";
 import { graphClusterResearchMeta as computeGraphClusterResearchMeta, graphResearchNavigatorState as computeGraphResearchNavigatorState, graphUniqueClusterMeta as computeGraphUniqueClusterMeta, renderGraphResearchNavigatorPanelView } from "./graph-research-navigator.js";
@@ -231,7 +231,6 @@ const graphState = {
   focusDepth: normalizeGraphFocusDepth(readStoredText(GRAPH_FOCUS_DEPTH_KEY, "1"), "1"),
   focusContextMode: normalizeGraphFocusContextMode(readStoredText(GRAPH_FOCUS_CONTEXT_MODE_KEY, "argument"), "argument"),
   focusContextCollapsed: false,
-  focusContextHelpOpen: false,
   zoom: "fit",
   expanded: false,
   legendOpen: false,
@@ -310,6 +309,7 @@ const {
   shouldShowGraphDensityHint,
   shouldShowGraphCanvasHelpHint,
   dismissGraphCanvasHelpHint,
+  prepareGraphEntryPresentationState,
   resetGraphDemoPresentationState
 } = graphPresentationController;
 const distillationState = {
@@ -3774,6 +3774,7 @@ function activateModule(moduleName) {
       state.selectedFolderId = "dir_original_default";
     }
     state.selectedFileId = null;
+    prepareGraphEntryPresentationState();
   }
   state.module = normalizedModule;
   if (normalizedModule === "graph") expandGraphBrowserTree();
@@ -6132,8 +6133,6 @@ bindGraphCanvasEvents($("graphPanel"), {
   graphFocusDepthMeta,
   graphFocusContextCollapsedState,
   graphFocusContextCollapsedStatus,
-  graphFocusHelpOpenState,
-  graphFocusHelpStatus,
   applyGraphFocusContextModeInteraction,
   setGraphFocusContextMode,
   graphFocusContextModeMeta,

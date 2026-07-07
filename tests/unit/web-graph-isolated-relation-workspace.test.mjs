@@ -70,16 +70,19 @@ test("graph isolated relation workspace folds the full manual list behind search
   const html = renderGraphIsolatedJoinNetworkFlowHtml("source", { nodeMap, edges: [], manualTargets }, baseDeps);
 
   assert.match(html, /graph-isolated-join-grid/);
-  assert.match(html, /graph-isolated-source-preview/);
-  assert.match(html, /当前笔记/);
   assert.match(html, /data-graph-pick-manual-target="target-120"/);
-  assert.match(html, /目标预览/);
-  assert.match(html, /搜索并选择关联对象/);
-  assert.match(html, /输入标题关键词，边搜边选/);
-  assert.match(html, /更多候选/);
-  assert.match(html, /输入关键词/);
-  assert.match(html, />保存关系</);
+  assert.doesNotMatch(html, /目标预览/);
+  assert.doesNotMatch(html, /graph-isolated-note-preview-stack/);
+  assert.match(html, /找目标笔记/);
+  assert.match(html, /输入关键词，选择要关联的笔记/);
+  assert.match(html, />关联</);
+  assert.doesNotMatch(html, /推荐/);
+  assert.doesNotMatch(html, /暂无推荐/);
+  assert.doesNotMatch(html, /graph-isolated-source-preview/);
+  assert.doesNotMatch(html, /更多候选/);
+  assert.doesNotMatch(html, /搜索并选择关联对象/);
   assert.doesNotMatch(html, /手动搜索目标/);
+  assert.doesNotMatch(html, /未关联/);
   assert.doesNotMatch(html, mojibakeCopyPattern);
 });
 
@@ -147,7 +150,7 @@ test("graph isolated relation workspace preserves manual draft while AI lookup r
     { ...baseDeps, activeTabForNote: () => "ai" }
   );
 
-  assert.match(html, /aria-selected="true"[^>]*data-graph-isolated-tab="manual"/);
+  assert.match(html, /data-graph-relation-source-mode value="manual"/);
   assert.match(html, /value="target"/);
   assert.match(html, /Target Note/);
   assert.match(html, /value="bridges" selected/);
@@ -217,7 +220,7 @@ test("graph isolated relation workspace keeps intentionally cleared rationale em
   assert.equal(manualHtml.match(/<textarea data-graph-isolated-rationale[\s\S]*?>([\s\S]*?)<\/textarea>/)?.[1] || "", "");
 });
 
-test("graph isolated relation workspace preserves preferred bridge type and save hint", () => {
+test("graph isolated relation workspace preserves preferred bridge type without extra save hints", () => {
   const html = renderGraphIsolatedJoinNetworkFlowHtml(
     "source",
     {
@@ -238,7 +241,8 @@ test("graph isolated relation workspace preserves preferred bridge type and save
   assert.match(html, /data-graph-default-relation-type="bridges"/);
   assert.match(html, /<option value="bridges" selected>bridges<\/option>/);
   assert.match(html, />Bridge reason\.<\/textarea>/);
-  assert.match(html, /保存后仍留在当前图谱。/);
+  assert.match(html, />关联</);
+  assert.doesNotMatch(html, /保存后仍留在当前图谱。/);
 });
 
 test("graph isolated relation workspace downgrades directed reverse AI candidates", () => {
@@ -265,6 +269,7 @@ test("graph isolated relation workspace downgrades directed reverse AI candidate
     { ...baseDeps, activeTabForNote: () => "ai" }
   );
 
-  assert.match(html, /<option value="other"[^>]*data-graph-relation-type="associated_with"/);
+  assert.match(html, /data-graph-pick-manual-target="other"/);
+  assert.match(html, /data-graph-manual-relation-type="associated_with"/);
   assert.doesNotMatch(html, /<textarea[^>]*>Other supports current\.<\/textarea>/);
 });

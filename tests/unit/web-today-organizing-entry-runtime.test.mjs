@@ -64,11 +64,13 @@ test("today organizing entry runtime wires isolated relation entry route", async
   await panel.clickHandler({
     preventDefault() {},
     target: {
-      closest: () => ({
-        disabled: false,
-        dataset: {},
-        getAttribute: (name) => (name === "data-today-action" ? "connect-first-isolated" : "")
-      })
+      closest: (selector) => selector === "[data-today-action]"
+        ? {
+            disabled: false,
+            dataset: {},
+            getAttribute: (name) => (name === "data-today-action" ? "connect-first-isolated" : "")
+          }
+        : null
     }
   });
 

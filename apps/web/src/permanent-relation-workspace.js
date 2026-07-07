@@ -10,7 +10,6 @@ import {
   permanentRelationCandidateRationale,
   permanentRelationWorkspaceCanSave,
   permanentRelationWorkspaceExistingLink,
-  permanentRelationWorkspaceExistingLinks,
   permanentRelationWorkspaceSelectedTarget
 } from "./permanent-relation-workspace-model.js";
 
@@ -22,14 +21,6 @@ function shortText(value = "", limit = 150) {
   const text = cleanText(value).replace(/\s+/g, " ");
   if (!text) return "";
   return text.length > limit ? `${text.slice(0, limit)}...` : text;
-}
-
-function noteSummary(note = {}) {
-  const thesis = cleanText(note.thesis);
-  if (thesis) return thesis;
-  const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.map(cleanText).filter(Boolean) : [];
-  if (summary.length) return summary[0];
-  return shortText(cleanText(note.body).replace(/^#+\s*/gm, ""), 160) || "这条笔记还没有可展示的判断。";
 }
 
 function noteMeta(note = {}, deps = {}) {
@@ -112,40 +103,33 @@ function renderAiCandidates({ state, candidates = [], relations = null, notes = 
   if (!candidates.length) {
     return `
       <div class="permanent-relation-empty">
-        <strong>暂时没有可靠推荐</strong>
-        <p>可以切到“搜索目标”，直接选择你确认相关的笔记。</p>
+        <strong>暂无推荐</strong>
+        <p>直接输入关键词搜索要关联的笔记。</p>
         <button class="mini-btn" type="button" data-permanent-relation-action="run-ai">刷新推荐</button>
       </div>
     `;
   }
   const selectedId = cleanText(state.selectedTargetNoteId) || cleanText(candidates[0]?.targetNoteId);
-  const selectedCandidate = candidates.find((candidate) => cleanText(candidate.targetNoteId) === selectedId) || candidates[0] || null;
-  const selectedTarget = selectedCandidate ? noteById(notes, selectedCandidate.targetNoteId) : null;
-  const selectedTitle = selectedTarget?.title || selectedCandidate?.targetTitle || selectedCandidate?.targetNoteId || "";
-  const selectedScore = selectedCandidate ? candidateScoreText(selectedCandidate) : "";
-  const selectedReason = selectedCandidate ? candidateReasonText(selectedCandidate) : "";
-  const existing = selectedCandidate ? permanentRelationWorkspaceExistingLink(relations, state.noteId, selectedCandidate.targetNoteId) : null;
   return `
-    <div class="permanent-relation-ai-picker">
-      <label class="permanent-relation-search">
-        <span>推荐目标</span>
-        <select data-permanent-relation-ai-select>
-          ${candidates
-            .map((candidate) => {
-              const target = noteById(notes, candidate.targetNoteId);
-              const title = target?.title || candidate.targetTitle || candidate.targetNoteId;
-              const score = candidateScoreText(candidate);
-              return `<option value="${escapeHtml(candidate.targetNoteId)}"${candidate.targetNoteId === selectedId ? " selected" : ""}>${escapeHtml(`${title}${score ? ` · ${score}` : ""}`)}</option>`;
-            })
-            .join("")}
-        </select>
-      </label>
-      <div class="permanent-relation-selected-candidate">
-        <strong>${escapeHtml(selectedTitle)}</strong>
-        ${selectedScore ? `<span>相关性 ${escapeHtml(selectedScore)}</span>` : ""}
-        <p>${escapeHtml(selectedReason)}</p>
-        ${existing ? "<small>这两条笔记已经有正式关系，可以在右侧修改后保存。</small>" : "<small>推荐只作为候选；保存前请确认关系类型和理由。</small>"}
-      </div>
+    <div class="permanent-relation-candidate-list" data-permanent-relation-recommendations>
+      ${candidates
+        .slice(0, 8)
+        .map((candidate) => {
+          const target = noteById(notes, candidate.targetNoteId);
+          const title = target?.title || candidate.targetTitle || candidate.targetNoteId;
+          const score = candidateScoreText(candidate);
+          const reason = candidateReasonText(candidate);
+          const active = cleanText(candidate.targetNoteId) === selectedId;
+          const existing = permanentRelationWorkspaceExistingLink(relations, state.noteId, candidate.targetNoteId);
+          return `
+            <button class="permanent-relation-candidate ${active ? "is-active" : ""}" type="button" data-permanent-relation-ai-target="${escapeHtml(candidate.targetNoteId)}">
+              <span>${escapeHtml(existing ? "已有关系" : score ? `推荐 ${score}` : "推荐")}</span>
+              <strong>${escapeHtml(title)}</strong>
+              <p>${escapeHtml(reason)}</p>
+            </button>
+          `;
+        })
+        .join("")}
     </div>
   `;
 }
@@ -162,7 +146,7 @@ export function renderPermanentRelationManualTargets({ state, deps = {} } = {}) 
   }
   const targets = Array.isArray(state.manualTargets) ? state.manualTargets : [];
   if (!cleanText(state.manualQuery)) {
-    return `<div class="permanent-relation-empty">输入标题关键词后选择一条笔记。</div>`;
+    return "";
   }
   if (!targets.length) {
     return `<div class="permanent-relation-empty">没有匹配笔记。</div>`;
@@ -231,54 +215,37 @@ export function renderPermanentRelationWorkspace({
   });
   const existing = selectedTarget ? permanentRelationWorkspaceExistingLink(relations, note.id, selectedTarget.id) : null;
   const canSave = permanentRelationWorkspaceCanSave({ state: workspaceState, relations, allowExistingUpdate: true });
-  const modeAi = workspaceState.mode === "ai";
   const softBlockedReasons = new Set(["missing_rationale"]);
   const saveDisabled = workspaceState.saveState === "saving" || (!canSave.ok && !softBlockedReasons.has(canSave.reason));
-  const explicitRelationCount = relations ? permanentRelationWorkspaceExistingLinks(relations).length : 0;
-  const explicitRelationText = relations
-    ? explicitRelationCount > 0
-      ? `${explicitRelationCount} 条已保存关系`
-      : "还没有保存关系"
-    : "关系读取中";
+  const hasManualQuery = Boolean(cleanText(workspaceState.manualQuery));
 
   return `
     <div class="permanent-relation-overlay" data-permanent-relation-workspace data-note-id="${escapeHtml(note.id)}" role="dialog" aria-modal="true" aria-labelledby="permanentRelationWorkspaceTitle">
       <div class="permanent-relation-panel">
         <header class="permanent-relation-head">
           <div>
-            <strong id="permanentRelationWorkspaceTitle">建立笔记关联</strong>
-            <span>先选一条相关笔记，再写一句：这条关系让哪个判断更清楚。</span>
+            <strong id="permanentRelationWorkspaceTitle">关联：${escapeHtml(note.title || note.id)}</strong>
+            <span>选一条目标笔记，写清关系类型和一句理由。</span>
           </div>
           <button class="mini-btn is-ghost" type="button" data-permanent-relation-action="close">关闭</button>
         </header>
         <div class="permanent-relation-body">
-          <aside class="permanent-relation-source">
-            <span>当前笔记</span>
-            <strong>${escapeHtml(note.title || note.id)}</strong>
-            <small>${escapeHtml(noteMeta(note, deps))}</small>
-            <p>${escapeHtml(noteSummary(note))}</p>
-            <div class="permanent-relation-source-status">
-              <span>${escapeHtml(explicitRelationText)}</span>
-            </div>
-          </aside>
           <section class="permanent-relation-picker">
-            <div class="permanent-relation-mode" role="tablist" aria-label="选择目标笔记方式">
-              <button class="${modeAi ? "is-active" : ""}" type="button" role="tab" aria-selected="${modeAi ? "true" : "false"}" data-permanent-relation-mode="ai">推荐目标</button>
-              <button class="${!modeAi ? "is-active" : ""}" type="button" role="tab" aria-selected="${!modeAi ? "true" : "false"}" data-permanent-relation-mode="manual">搜索目标</button>
+            <label class="permanent-relation-search">
+              <span>搜索目标笔记</span>
+              <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="输入标题关键词，选择要关联的笔记" autocomplete="off" />
+            </label>
+            <div class="permanent-relation-results-head">
+              <strong>${hasManualQuery ? "搜索结果" : "推荐目标"}</strong>
+              ${hasManualQuery ? "" : `<button class="mini-btn is-ghost" type="button" data-permanent-relation-action="run-ai">刷新推荐</button>`}
             </div>
-            ${
-              modeAi
-                ? renderAiCandidates({ state: workspaceState, candidates: aiCandidates, relations, notes, deps })
-                : `
-                  <label class="permanent-relation-search">
-                    <span>搜索目标笔记</span>
-                    <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="输入标题关键词" autocomplete="off" />
-                  </label>
-                  <div data-permanent-relation-manual-results>
-                    ${renderPermanentRelationManualTargets({ state: workspaceState, deps })}
-                  </div>
-                `
-            }
+            <div data-permanent-relation-manual-results>
+              ${
+                hasManualQuery
+                  ? renderPermanentRelationManualTargets({ state: workspaceState, deps })
+                  : renderAiCandidates({ state: workspaceState, candidates: aiCandidates, relations, notes, deps })
+              }
+            </div>
           </section>
           <form class="permanent-relation-confirm" data-permanent-relation-form>
             <div data-permanent-relation-target-preview-slot>
@@ -293,10 +260,7 @@ export function renderPermanentRelationWorkspace({
               <span>为什么要关联</span>
               <textarea name="rationale" data-permanent-relation-field="rationale" required placeholder="这条关系让哪个判断更清楚？因为...">${escapeHtml(workspaceState.rationale)}</textarea>
             </label>
-            <label>
-              <span>补充问题（可选）</span>
-              <textarea name="insightQuestion" data-permanent-relation-field="insightQuestion" placeholder="这条连接还提示了什么问题？">${escapeHtml(workspaceState.insightQuestion)}</textarea>
-            </label>
+            <input type="hidden" name="insightQuestion" data-permanent-relation-field="insightQuestion" value="${escapeHtml(workspaceState.insightQuestion)}">
             ${workspaceState.error ? `<div class="semantic-relation-form-error">${escapeHtml(workspaceState.error)}</div>` : ""}
             ${workspaceState.notice ? `<div class="permanent-relation-notice">${escapeHtml(workspaceState.notice)}</div>` : ""}
             <div class="semantic-relation-actions">

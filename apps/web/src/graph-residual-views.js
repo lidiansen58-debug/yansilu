@@ -2161,8 +2161,7 @@ function renderGraphFocusContextPanel({ focusedNoteId = "", nodeMap = new Map(),
     focusedNoteId,
     nodeMap,
     edges,
-    focusContextMode: graphState.focusContextMode,
-    focusContextHelpOpen: graphState.focusContextHelpOpen === true
+    focusContextMode: graphState.focusContextMode
   }, {
     escapeHtml,
     renderGraphIcon,
@@ -2185,6 +2184,7 @@ function resetGraphHoverState() {
 function openGraphSelection(selection = null) {
   if (!selection || !String(selection?.kind || "").trim()) return;
   graphState.selection = selection;
+  graphState.focusContextCollapsed = false;
   graphState.thinkingPanelOpen = false;
   resetGraphHoverState();
   renderGraphPanel();

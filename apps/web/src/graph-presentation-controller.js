@@ -38,6 +38,19 @@ export function resetGraphDemoPresentationStateForRuntime(graphState = {}, deps 
   return graphState;
 }
 
+export function prepareGraphEntryPresentationStateForRuntime(graphState = {}) {
+  graphState.selection = null;
+  graphState.focusContextCollapsed = true;
+  graphState.workbenchPanelOpen = false;
+  graphState.workbenchPanelTab = "clues";
+  graphState.thinkingPanelOpen = false;
+  graphState.utilityDrawerOpen = false;
+  graphState.legendOpen = false;
+  graphState.researchNavigatorHidden = true;
+  graphState.researchNavigatorTouched = true;
+  return graphState;
+}
+
 export function syncGraphDisclosureStateForRuntime(root = null, deps = {}) {
   const { graphState = {} } = deps;
   if (!root) return false;
@@ -78,6 +91,7 @@ export function createGraphPresentationController(deps = {}) {
     scheduleGraphCanvasHelpHintDismiss: () => scheduleGraphCanvasHelpHintDismissForRuntime(densityDeps()),
     shouldShowGraphCanvasHelpHint: (options = {}) => shouldShowGraphCanvasHelpHintForRuntime(options, densityDeps()),
     dismissGraphCanvasHelpHint: () => dismissGraphCanvasHelpHintForRuntime(densityDeps()),
+    prepareGraphEntryPresentationState: () => prepareGraphEntryPresentationStateForRuntime(graphState),
     resetGraphDemoPresentationState: () => resetGraphDemoPresentationStateForRuntime(graphState, {
       setRelationTypeFilter
     })

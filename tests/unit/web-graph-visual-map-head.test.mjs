@@ -52,8 +52,9 @@ test("graph visual map head renders focused note depth controls in filter mode",
 
   assert.match(html, /graph-section-title/);
   assert.match(html, /data-graph-focus-depth="2" aria-pressed="true"/);
+  assert.match(html, /aria-label="Depth 2：&lt;2&gt;"/);
   assert.match(html, /title="&lt;2&gt;"/);
-  assert.match(html, /Around &lt;note&gt;/);
+  assert.doesNotMatch(html, /Around &lt;note&gt;/);
   assert.match(html, /data-graph-focus-context-toggle="close"/);
   assert.doesNotMatch(html, /graph-map-primary-row/);
 });

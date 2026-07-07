@@ -9,9 +9,9 @@ export function normalizeGraphFocusDepth(value = "", fallback = "1") {
 
 export function graphFocusDepthMeta(value = "") {
   const key = normalizeGraphFocusDepth(value, "1");
-  if (key === "2") return { key, label: "扩展一层", note: "除了直接相关笔记，再看这些笔记继续连向哪里。" };
-  if (key === "all") return { key, label: "整组关系", note: "显示当前笔记所在的整组相关笔记。" };
-  return { key: "1", label: "直接相关", note: "只显示当前笔记和直接相连的笔记。" };
+  if (key === "2") return { key, label: "周边一层", note: "再显示相邻笔记继续连到的笔记。" };
+  if (key === "all") return { key, label: "整组网络", note: "显示这组互相关联的笔记。" };
+  return { key: "1", label: "当前关联", note: "只显示选中笔记直接相连的笔记。" };
 }
 
 export function setGraphFocusDepthForRuntime(graphState = {}, value = "", deps = {}) {

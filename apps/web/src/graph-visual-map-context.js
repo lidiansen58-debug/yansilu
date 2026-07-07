@@ -16,7 +16,8 @@ export function buildGraphVisualMapContextMarkup({
   workbenchEntryMarkup = "",
   isolatedQueueStripMarkup = "",
   structureFallback = false,
-  edges = []
+  edges = [],
+  focusContextEdges = null
 } = {}, deps = {}) {
   const {
     graphState = {},
@@ -67,7 +68,8 @@ export function buildGraphVisualMapContextMarkup({
     isolatedNotes,
     bridgeGaps,
     clueSummary,
-    edges
+    edges,
+    focusContextEdges: Array.isArray(focusContextEdges) ? focusContextEdges : edges
   }, {
     renderGraphFocusContextPanel,
     renderGraphSelectionPanel,

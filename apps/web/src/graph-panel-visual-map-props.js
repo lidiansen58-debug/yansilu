@@ -25,6 +25,7 @@ export function buildGraphPanelVisualMapProps(panelState = {}, {
   return {
     nodes: panelState.visualNodes,
     edges: panelState.edges,
+    focusContextEdges: panelState.scopedNetworkEdges,
     graphSelection: panelState.normalizedSelection,
     relationFilterEdges: focused.edges,
     selectionEdges: panelState.scopedNetworkEdges,
