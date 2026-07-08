@@ -566,6 +566,7 @@ test("graph focus relation panel keeps relation wording simple", () => {
   assert.doesNotMatch(panel, /正式关系/);
 
   assert.match(html, /\.graph-side-stack \{[\s\S]*width: min\(560px, calc\(100% - 36px\)\);/);
+  assert.match(html, /\.graph-side-stack:has\(\.graph-focus-context\) \{[\s\S]*width: min\(920px, calc\(100% - 36px\)\);/);
   assert.doesNotMatch(html, /\.graph-focus-help-toggle \{/);
 });
 
@@ -586,7 +587,32 @@ test("graph focus relation panel shows saved associations for a connected note",
   assert.match(panel, /关联笔记/);
   assert.match(panel, /它支撑当前判断。/);
   assert.doesNotMatch(panel, /暂无关联/);
+  assert.doesNotMatch(panel, /链接 1/);
   assert.doesNotMatch(panel, /正式关系/);
+});
+
+test("graph focus relation panel turns body links into editable relation hints", () => {
+  const runtimeSource = readGraphResidualViews();
+  const panel = renderGraphFocusContextPanel({
+    focusedNoteId: "a",
+    nodeMap: new Map([
+      ["a", { title: "当前笔记", degree: 1 }],
+      ["b", { title: "正文链接笔记" }]
+    ]),
+    edges: [
+      { fromNoteId: "a", toNoteId: "b", relationType: "associated_with", status: "accepted", rationale: "markdown_wikilink" }
+    ],
+    focusContextMode: "argument"
+  }, graphFocusPanelTestDeps());
+
+  assert.match(panel, /正文链接笔记/);
+  assert.match(panel, /由正文中的双链形成。点“补关系说明”写清为什么相关。/);
+  assert.match(panel, /data-graph-relation-source="a"/);
+  assert.match(panel, /data-graph-target-note="b"/);
+  assert.match(panel, /data-graph-relation-adjustment="strengthen"/);
+  assert.doesNotMatch(panel, /markdown_wikilink/);
+  assert.doesNotMatch(panel, /graph-focus-card-action[^>]*disabled/);
+  assert.match(runtimeSource, /if \(!relationId\) return openGraphRelationFormInSelection\(button\);/);
 });
 test("graph workbench panel replaces map-covering clue and question floaters", () => {
   const html = readPrototypeHtml();

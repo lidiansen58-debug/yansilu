@@ -79,8 +79,7 @@ export function renderGraphFocusContextPanel({
     graphRelationTypeLabel,
     graphFocusedEdgeDirection,
     graphRelationSourceLabel,
-    graphFocusCardActionMeta,
-    relationGroupMeta
+    graphFocusCardActionMeta
   } = graphFocusContextPanelDeps(deps);
   const cleanFocusedNoteId = String(focusedNoteId || "").trim();
   const focusedNode = nodeMap?.get?.(cleanFocusedNoteId) || {};
@@ -106,13 +105,6 @@ export function renderGraphFocusContextPanel({
     neutral: (grouped.get("neutral") || []).length,
     index: (grouped.get("index") || []).length
   };
-  const relationMetricItems = Object.entries(counts)
-    .filter(([, count]) => count > 0)
-    .map(([key, count]) => {
-      const meta = relationGroupMeta[key] || relationGroupMeta.neutral || DEFAULT_RELATION_GROUP_META.neutral;
-      return `<span title="${escapeHtml(meta.detail)}">${escapeHtml(meta.shortLabel || meta.label)} ${count}</span>`;
-    })
-    .join("");
   const visibleDegree = Math.max(Number(focusedNode?.degree || 0), directEdges.length);
   const relationSummary = directEdges.length ? `已保存 ${directEdges.length} 条关联` : "还没有关联";
   const emptyRelationText = "这条笔记还没有和其他笔记建立关联。先点左侧“关联”，找一条真正相关的笔记，写一句为什么相关。";
@@ -143,30 +135,30 @@ export function renderGraphFocusContextPanel({
     .map((key) => {
       const items = grouped.get(key) || [];
       if (!items.length) return "";
-      const meta = relationGroupMeta[key] || relationGroupMeta.neutral || DEFAULT_RELATION_GROUP_META.neutral;
       return `
         <section class="graph-focus-section">
-          <div class="graph-focus-section-head">
-            <span class="graph-relation-badge is-${escapeHtml(key)}">${escapeHtml(meta.label)}</span>
-            <small>${items.length} 条</small>
-          </div>
           <div class="graph-focus-list">
             ${items
               .map((edge) => {
                 const { counterpartId, counterpartTitle } = graphFocusedCounterpartTitle(edge, cleanFocusedNoteId, nodeMap);
                 const rationale = String(edge?.rationale || "").trim();
+                const displayRationale = rationale === "markdown_wikilink"
+                  ? "由正文中的双链形成。点“补关系说明”写清为什么相关。"
+                  : rationale;
                 const relationLabel = graphRelationTypeLabel(edge?.relationType);
                 const direction = graphFocusedEdgeDirection(edge, cleanFocusedNoteId);
                 const relationType = String(edge?.relationType || "").trim().toLowerCase();
                 const actionMeta = graphFocusCardActionMeta(edge, contextMode.key);
+                const relationId = String(edge?.id || "").trim();
+                const targetNoteId = counterpartId || String(edge?.toNoteId || "").trim() || String(edge?.fromNoteId || "").trim();
                 return `
                   <div class="graph-focus-card">
                     <button class="graph-focus-card-main" type="button" data-open-note="${escapeHtml(counterpartId)}">
                       <strong>${escapeHtml(counterpartTitle)}</strong>
                       <span>${escapeHtml(direction)} / ${escapeHtml(relationLabel)} / ${escapeHtml(graphRelationSourceLabel(edge?.createdBy))}</span>
-                      <small>${escapeHtml(rationale || "还没有写清这条关系为什么成立。")}</small>
+                      <small>${escapeHtml(displayRationale || "这条关系还没有写清为什么成立。")}</small>
                     </button>
-                    <button class="graph-focus-card-action" type="button" data-graph-relation-adjustment="strengthen"${String(edge?.id || "").trim() ? ` data-graph-relation-id="${escapeHtml(String(edge.id || "").trim())}"` : ""}${String(edge?.toNoteId || "").trim() ? ` data-graph-target-note="${escapeHtml(String(edge.toNoteId || "").trim())}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${String(edge?.id || "").trim() ? "" : " disabled"}>${escapeHtml(actionMeta.label || "调整")}</button>
+                    <button class="graph-focus-card-action" type="button" data-graph-relation-adjustment="strengthen" data-graph-relation-source="${escapeHtml(cleanFocusedNoteId)}"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${targetNoteId ? "" : " disabled"}>${escapeHtml(actionMeta.label || "补关系说明")}</button>
                   </div>
                 `;
               })
@@ -200,9 +192,6 @@ export function renderGraphFocusContextPanel({
           .join("")}
       </div>
       <div class="graph-context-mode-note">${escapeHtml(contextMode.note)}</div>
-      <div class="graph-focus-metrics">
-        ${relationMetricItems || `<span>暂无关联</span>`}
-      </div>
       <div class="graph-focus-next">${escapeHtml(nextHint)}</div>
       ${sections || `<div class="graph-empty">${escapeHtml(emptyRelationText)}</div>`}
     </aside>

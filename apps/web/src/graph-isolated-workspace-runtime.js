@@ -630,7 +630,8 @@ function openGraphRelationFormInSelection(button = null) {
 function focusGraphRelationAdjustmentInPlace(button = null) {
   const relationId = String(button?.getAttribute?.("data-graph-relation-id") || "").trim();
   const adjustment = String(button?.getAttribute?.("data-graph-relation-adjustment") || "").trim().toLowerCase();
-  if (!relationId || !adjustment) return false;
+  if (!adjustment) return false;
+  if (!relationId) return openGraphRelationFormInSelection(button);
   graphState.relationAdjustmentFocusById = graphState.relationAdjustmentFocusById || {};
   graphState.relationAdjustmentFocusById[relationId] = adjustment;
   renderGraphPanel();

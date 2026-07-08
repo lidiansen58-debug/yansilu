@@ -53,7 +53,7 @@ test("graph filter options render relation type groups and selected fallback", (
   );
 
   assert.match(html, /先看关联 \(3\)/);
-  assert.match(html, /只看普通链接 \(1\)/);
+  assert.match(html, /只看正文链接 \(1\)/);
   assert.match(html, /value="missing_type" selected/);
   assert.match(html, /<optgroup label="支持 \(2\)">/);
   assert.match(html, /支持 \(2\)/);

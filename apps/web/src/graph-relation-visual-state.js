@@ -58,9 +58,9 @@ export const GRAPH_RELATION_GROUP_META = {
     detail: "前提、后续或进入草稿，帮助把笔记排成文章段落。"
   },
   neutral: {
-    label: "普通链接",
+    label: "正文链接",
     shortLabel: "链接",
-    detail: "同主题、重述、自由链接或重复连接，只作为辅助参考。"
+    detail: "正文里的双链或泛相关关系。它提示可能有关联，但还需要补一句为什么相关。"
   },
   index: {
     label: "主题归属",

@@ -36,7 +36,7 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
       `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`
     ];
     if (noisyCount > 0) {
-      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>只看普通链接 (${noisyCount})</option>`);
+      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>只看正文链接 (${noisyCount})</option>`);
     }
     if (indexCount > 0 || structureFallback) {
       const indexLabel = structureFallback && selectedKey === "index" ? "主题分布（自动分组）" : "只看主题归属";
@@ -57,7 +57,7 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
     if (!selectedTypeHasOption && selectedKey) {
       const selectedLabel =
         selectedKey === "noisy"
-          ? "只看普通链接"
+          ? "只看正文链接"
           : selectedKey === "index"
             ? "只看主题归属"
             : labelFn(selectedKey);
