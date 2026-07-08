@@ -45,6 +45,46 @@ function run(command, args, options = {}) {
 }
 
 function resolveNodeExe() {
+  // For macOS universal builds, build a universal (arm64+x86_64) Node.js binary
+  // by downloading both archs and merging with lipo.
+  // Node.js v26 does not ship darwin-universal prebuilt packages.
+  if (process.platform === "darwin") {
+    const nodeVersion = process.version.startsWith("v") ? process.version.slice(1) : process.version;
+    const cacheDir = path.join(repoRoot, ".cache", "node-universal");
+    const universalNode = path.join(cacheDir, "node");
+    if (fs.existsSync(universalNode)) {
+      const fileInfo = spawnSync("file", [universalNode], { encoding: "utf8" });
+      if (String(fileInfo.stdout || "").includes("universal")) {
+        return universalNode;
+      }
+      // Stale single-arch cache
+      fs.rmSync(universalNode, { force: true });
+    }
+    ensureDir(cacheDir);
+
+    const archs = ["arm64", "x64"];
+    const binaries = [];
+    for (const arch of archs) {
+      const archDir = path.join(cacheDir, arch);
+      const archBin = path.join(archDir, "bin", "node");
+      if (!fs.existsSync(archBin)) {
+        const tarFile = path.join(cacheDir, `node-${arch}.tar.gz`);
+        const url = `https://nodejs.org/dist/v${nodeVersion}/node-v${nodeVersion}-darwin-${arch}.tar.gz`;
+        console.log(`Downloading Node.js ${nodeVersion} (${arch})...`);
+        ensureDir(archDir);
+        run("curl", ["-fsSL", "-o", tarFile, url], { cwd: cacheDir });
+        run("tar", ["-xzf", tarFile, "-C", archDir, "--strip-components=1"], { cwd: cacheDir });
+        fs.unlinkSync(tarFile);
+      }
+      binaries.push(archBin);
+    }
+
+    // Merge into universal binary with lipo
+    console.log("Creating universal Node.js binary with lipo...");
+    run("lipo", ["-create", "-output", universalNode, ...binaries]);
+    console.log("Universal Node.js binary ready.");
+    return universalNode;
+  }
   if (process.platform === "win32") {
     const result = spawnSync("where.exe", ["node"], {
       encoding: "utf8",
@@ -90,6 +130,12 @@ function resolveNpmCli() {
     return localNpmCli;
   }
 
+  // Homebrew (macOS): /opt/homebrew/lib/node_modules/npm/bin/npm-cli.js
+  const homebrewNpmCli = "/opt/homebrew/lib/node_modules/npm/bin/npm-cli.js";
+  if (fs.existsSync(homebrewNpmCli)) {
+    return homebrewNpmCli;
+  }
+
   const npmCommand = resolveCommand(process.platform === "win32" ? "npm.cmd" : "npm");
   const npmDir = path.dirname(npmCommand);
   const siblingNpmCli = path.join(npmDir, "node_modules", "npm", "bin", "npm-cli.js");
@@ -103,7 +149,16 @@ function resolveNpmCli() {
 rm(runtimeRoot);
 ensureDir(runtimeRoot);
 
-copyFile(resolveNodeExe(), path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "node"));
+const nodeDest = path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "node");
+copyFile(resolveNodeExe(), nodeDest);
+// Fix permissions and clean extended attributes to prevent Tauri bundler failures
+if (process.platform === "darwin") {
+  try {
+    // Make readable+writable first so xattr and Cargo can access it
+    fs.chmodSync(nodeDest, 0o755);
+    spawnSync("xattr", ["-cr", nodeDest], { stdio: "ignore" });
+  } catch (_) { /* ignore */ }
+}
 
 copyFile(path.join(repoRoot, "package.json"), path.join(runtimeRoot, "package.json"));
 copyFile(path.join(repoRoot, "package-lock.json"), path.join(runtimeRoot, "package-lock.json"));

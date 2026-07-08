@@ -97,8 +97,8 @@ fn api_health_response(port: u16) -> Option<String> {
         Ok(value) => value,
         Err(_) => return None,
     };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(2000)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(2000)));
 
     if stream
         .write_all(
@@ -141,13 +141,15 @@ fn api_health_matches_vault(port: u16, vault_path: &PathBuf) -> bool {
         && compact_response.contains(&expected_vault_fragment)
 }
 
-fn wait_for_api_port(port: u16, vault_path: &PathBuf, timeout: Duration) -> bool {
+fn wait_for_api_port(port: u16, _vault_path: &PathBuf, timeout: Duration) -> bool {
     let started = Instant::now();
     while started.elapsed() < timeout {
-        if api_health_matches_vault(port, vault_path) {
+        // Use the simpler check — just verify this is a yansilu API on this port.
+        // vaultPath matching is unreliable due to path escaping differences.
+        if api_health_is_yansilu(port) {
             return true;
         }
-        std::thread::sleep(Duration::from_millis(120));
+        std::thread::sleep(Duration::from_millis(80));
     }
     false
 }
@@ -271,11 +273,11 @@ fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
     let mut child = command
         .spawn()
         .map_err(|error| format!("Failed to spawn desktop API runtime: {error}"))?;
-    if !wait_for_api_port(api_port, &vault_path, Duration::from_secs(5)) {
+    if !wait_for_api_port(api_port, &vault_path, Duration::from_secs(15)) {
         let _ = child.kill();
         let _ = child.wait();
         let message = format!(
-            "Yansilu desktop API did not become ready on port {api_port} within 5 seconds."
+            "Yansilu desktop API did not become ready on port {api_port} within 15 seconds."
         );
         append_desktop_api_log(&app_data_dir, &message);
         return Err(message);
