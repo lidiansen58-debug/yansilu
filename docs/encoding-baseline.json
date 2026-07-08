@@ -5,13 +5,13 @@
     "Lower numbers are better. Update this file only after intentional cleanup."
   ],
   "totals": {
-    "files": 197,
+    "files": 192,
     "replacementCount": 0,
     "utf8AsLatin1Count": 0,
     "utf8AsCjkCount": 0,
     "bomFiles": 52,
-    "crlfCount": 38325,
-    "mixedLineEndingFiles": 148,
-    "total": 38377
+    "crlfCount": 35607,
+    "mixedLineEndingFiles": 143,
+    "total": 35659
   }
 }
