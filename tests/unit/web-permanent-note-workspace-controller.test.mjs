@@ -186,8 +186,9 @@ test("permanent note workspace names the three right-side actions clearly", () =
 
   const html = controller.renderDeferredWorkspace(note, { body: "" });
 
-  assert.match(html, /整理关系/);
+  assert.match(html, /建立关系/);
   assert.match(html, /提炼观点/);
   assert.match(html, /进入写作/);
-  assert.match(html, /提炼观点、理由、边界、追问和写作主题/);
+  assert.match(html, /提炼 \/ 关联 \/ 写作/);
+  assert.doesNotMatch(html, /梳理观点、理由、边界和追问/);
 });

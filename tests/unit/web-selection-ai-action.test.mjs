@@ -21,9 +21,9 @@ test("editor renders a lightweight selection AI action near the writing surface"
 
   assert.match(html, /id="selectionAiAction"/);
   assert.match(html, /id="selectionAiActionText"/);
-  assert.match(html, /id="btnSelectionAiDistill"[\s\S]*data-selection-ai-action="distill-claim"[\s\S]*>整理观点<\/button>/);
+  assert.match(html, /id="btnSelectionAiDistill"[\s\S]*data-selection-ai-action="distill-claim"[\s\S]*>提炼这段<\/button>/);
   assert.match(css, /\.selection-ai-action\s*\{[\s\S]*?position: fixed;/);
-  assert.match(css, /\.selection-ai-action-button\s*\{[\s\S]*?background: #0f766e;/);
+  assert.match(css, /\.selection-ai-action-button\s*\{[\s\S]*?background: #ecfeff;/);
 });
 
 test("app shell passes selection AI action elements into the editor pane", () => {
@@ -65,7 +65,7 @@ test("selection AI action applies the selected text as an editable distillation 
 
   assert.match(actionSource, /selectionDistillationDraft\(selectedText\)/);
   assert.match(actionSource, /this\.setInspectorVisible\(true\)/);
-  assert.match(actionSource, /this\.renderRelated\("选区提炼"\)/);
+  assert.match(actionSource, /this\.renderRelated\("提炼这段文字"\)/);
   assert.match(actionSource, /textarea\[name="thesis"\]/);
   assert.match(actionSource, /textarea\[name="summary\$\{idx\}"\]/);
   assert.match(actionSource, /status\.value = "draft"/);

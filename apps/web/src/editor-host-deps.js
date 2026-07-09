@@ -48,6 +48,7 @@ export function createEditorPaneHostDeps(deps = {}) {
       assetPreviewOpenLink: $("assetPreviewOpenLink"),
       closeAssetPreview: $("btnCloseAssetPreview"),
       editorWrap: $("markdownPanel")?.closest(".editor-wrap"),
+      editorBodyRelationActions: $("editorBodyRelationActions"),
       editorRelationsBelow: $("editorRelationsBelow"),
       relatedPanel: $("relatedPanel"),
       result: $("resultArea"),

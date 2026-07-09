@@ -69,8 +69,8 @@ export function renderPermanentRelationTargetPreview(target = null, deps = {}, s
   if (!target) {
     return `
       <section class="permanent-relation-preview is-empty">
-        <strong>还没有选择目标笔记</strong>
-        <p>先从推荐里选一条，或搜索一条你确定相关的永久笔记。</p>
+        <strong>选一条笔记</strong>
+        <p>推荐或搜索。</p>
       </section>
     `;
   }
@@ -98,14 +98,14 @@ export function renderPermanentRelationTargetPreview(target = null, deps = {}, s
 
 function renderAiCandidates({ state, candidates = [], relations = null, notes = [], deps = {} } = {}) {
   if (state.saveState === "analysis-loading") {
-    return `<div class="permanent-relation-empty">正在查找可能相关的笔记...</div>`;
+    return `<div class="permanent-relation-empty">查找中...</div>`;
   }
   if (!candidates.length) {
     return `
       <div class="permanent-relation-empty">
         <strong>暂无推荐</strong>
-        <p>直接输入关键词搜索要关联的笔记。</p>
-        <button class="mini-btn" type="button" data-permanent-relation-action="run-ai">刷新推荐</button>
+        <p>也可以直接搜索。</p>
+        <button class="mini-btn" type="button" data-permanent-relation-action="run-ai">刷新</button>
       </div>
     `;
   }
@@ -161,7 +161,7 @@ export function renderPermanentRelationManualTargets({ state, deps = {} } = {}) 
             <button class="permanent-relation-candidate ${active ? "is-active" : ""}" type="button" data-permanent-relation-manual-target="${escapeHtml(target.id)}">
               <span>${escapeHtml(noteMeta(target, deps) || "永久笔记")}</span>
               <strong>${escapeHtml(target.title || target.id)}</strong>
-              <p>${escapeHtml(shortText(target.thesis || target.body, 120) || "选择后在右侧写清为什么要关联。")}</p>
+              <p>${escapeHtml(shortText(target.thesis || target.body, 120) || "选中后写理由。")}</p>
             </button>
           `;
         })
@@ -179,10 +179,23 @@ function renderSavedResult(state = {}) {
       <strong>${escapeHtml(resultTitle)}</strong>
       <p>${escapeHtml(`${relationTypeLabel(result.relationType)}：${result.targetTitle || result.targetNoteId}`)}</p>
       <div class="semantic-relation-actions">
-        <button class="mini-btn primary" type="button" data-permanent-relation-action="continue">继续关联下一条</button>
+        <button class="mini-btn primary" type="button" data-permanent-relation-action="continue">继续</button>
         <button class="mini-btn" type="button" data-permanent-relation-action="complete">完成</button>
       </div>
     </section>
+  `;
+}
+
+function renderPolishTabs() {
+  return `
+    <div class="permanent-polish-tabs" role="tablist" aria-label="打磨笔记操作">
+      <button class="permanent-polish-tab" type="button" role="tab" aria-selected="false" disabled>
+        <span>提炼</span>
+      </button>
+      <button class="permanent-polish-tab is-active" type="button" role="tab" aria-selected="true">
+        <span>关联</span>
+      </button>
+    </div>
   `;
 }
 
@@ -214,6 +227,9 @@ export function renderPermanentRelationWorkspace({
     notes
   });
   const existing = selectedTarget ? permanentRelationWorkspaceExistingLink(relations, note.id, selectedTarget.id) : null;
+  const isEditingExisting = Boolean(existing);
+  const relationTypeValue = workspaceState.relationType || existing?.relationType || existing?.relation_type || selectedTarget?.candidate?.relationType || "associated_with";
+  const rationaleValue = workspaceState.rationale || existing?.rationale || "";
   const canSave = permanentRelationWorkspaceCanSave({ state: workspaceState, relations, allowExistingUpdate: true });
   const softBlockedReasons = new Set(["missing_rationale"]);
   const saveDisabled = workspaceState.saveState === "saving" || (!canSave.ok && !softBlockedReasons.has(canSave.reason));
@@ -221,50 +237,63 @@ export function renderPermanentRelationWorkspace({
 
   return `
     <div class="permanent-relation-overlay" data-permanent-relation-workspace data-note-id="${escapeHtml(note.id)}" role="dialog" aria-modal="true" aria-labelledby="permanentRelationWorkspaceTitle">
-      <div class="permanent-relation-panel">
+      <div class="permanent-relation-panel ${isEditingExisting ? "is-editing-existing" : ""}">
         <header class="permanent-relation-head">
           <div>
-            <strong id="permanentRelationWorkspaceTitle">关联：${escapeHtml(note.title || note.id)}</strong>
-            <span>选一条目标笔记，写清关系类型和一句理由。</span>
+            <strong id="permanentRelationWorkspaceTitle">打磨笔记</strong>
+            <span>${escapeHtml(note.title || note.id)}</span>
           </div>
           <button class="mini-btn is-ghost" type="button" data-permanent-relation-action="close">关闭</button>
         </header>
-        <div class="permanent-relation-body">
-          <section class="permanent-relation-picker">
-            <label class="permanent-relation-search">
-              <span>搜索目标笔记</span>
-              <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="输入标题关键词，选择要关联的笔记" autocomplete="off" />
-            </label>
-            <div class="permanent-relation-results-head">
-              <strong>${hasManualQuery ? "搜索结果" : "推荐目标"}</strong>
-              ${hasManualQuery ? "" : `<button class="mini-btn is-ghost" type="button" data-permanent-relation-action="run-ai">刷新推荐</button>`}
-            </div>
-            <div data-permanent-relation-manual-results>
-              ${
-                hasManualQuery
-                  ? renderPermanentRelationManualTargets({ state: workspaceState, deps })
-                  : renderAiCandidates({ state: workspaceState, candidates: aiCandidates, relations, notes, deps })
-              }
-            </div>
-          </section>
-          <form class="permanent-relation-confirm" data-permanent-relation-form>
-            <div data-permanent-relation-target-preview-slot>
-              ${renderPermanentRelationTargetPreview(selectedTarget, deps, workspaceState)}
-            </div>
-            ${existing ? `<div class="permanent-relation-existing">这两条笔记已经有关系。你可以在这里修改关系类型和理由，然后保存修改。</div>` : ""}
+        ${renderPolishTabs()}
+        <div class="permanent-relation-body ${isEditingExisting ? "is-editing-existing" : ""}">
+          ${
+            isEditingExisting
+              ? ""
+              : `<section class="permanent-relation-picker">
+                  <label class="permanent-relation-search">
+                    <span>选笔记</span>
+                    <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="搜索标题" autocomplete="off" />
+                  </label>
+                  <div class="permanent-relation-results-head">
+                    <strong>${hasManualQuery ? "结果" : "推荐"}</strong>
+                    ${hasManualQuery ? "" : `<button class="mini-btn is-ghost" type="button" data-permanent-relation-action="run-ai">刷新</button>`}
+                  </div>
+                  <div data-permanent-relation-manual-results>
+                    ${
+                      hasManualQuery
+                        ? renderPermanentRelationManualTargets({ state: workspaceState, deps })
+                        : renderAiCandidates({ state: workspaceState, candidates: aiCandidates, relations, notes, deps })
+                    }
+                  </div>
+                </section>`
+          }
+          <form class="permanent-relation-confirm ${isEditingExisting ? "is-editing-existing" : ""}" data-permanent-relation-form>
+            ${
+              isEditingExisting
+                ? ""
+                : `<div data-permanent-relation-target-preview-slot>
+                    ${renderPermanentRelationTargetPreview(selectedTarget, deps, workspaceState)}
+                  </div>`
+            }
             <label>
-              <span>它们是什么关系</span>
-              <select name="relationType" data-permanent-relation-field="relationType" required>${relationWorkspaceTypeOptions(workspaceState.relationType || selectedTarget?.candidate?.relationType || "associated_with")}</select>
+              <span>关系</span>
+              <select name="relationType" data-permanent-relation-field="relationType" required>${relationWorkspaceTypeOptions(relationTypeValue)}</select>
             </label>
             <label>
-              <span>为什么要关联</span>
-              <textarea name="rationale" data-permanent-relation-field="rationale" required placeholder="这条关系让哪个判断更清楚？因为...">${escapeHtml(workspaceState.rationale)}</textarea>
+              <span>理由</span>
+              <textarea name="rationale" data-permanent-relation-field="rationale" required placeholder="为什么相关？">${escapeHtml(rationaleValue)}</textarea>
             </label>
             <input type="hidden" name="insightQuestion" data-permanent-relation-field="insightQuestion" value="${escapeHtml(workspaceState.insightQuestion)}">
             ${workspaceState.error ? `<div class="semantic-relation-form-error">${escapeHtml(workspaceState.error)}</div>` : ""}
             ${workspaceState.notice ? `<div class="permanent-relation-notice">${escapeHtml(workspaceState.notice)}</div>` : ""}
             <div class="semantic-relation-actions">
-              <button class="mini-btn primary" type="submit" ${saveDisabled ? "disabled" : ""}>${workspaceState.saveState === "saving" ? "保存中" : existing ? "保存修改" : "保存关系"}</button>
+              <button class="mini-btn primary" type="submit" ${saveDisabled ? "disabled" : ""}>${workspaceState.saveState === "saving" ? "保存中" : "保存"}</button>
+              ${
+                existing?.id || existing?.relationId
+                  ? `<button class="mini-btn is-danger" type="button" data-relation-action="delete" data-relation-id="${escapeHtml(existing.id || existing.relationId)}">解除</button>`
+                  : ""
+              }
             </div>
             ${renderSavedResult(workspaceState)}
           </form>

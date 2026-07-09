@@ -12,6 +12,7 @@ const relationEventsPath = new URL("../../apps/web/src/editor-relation-events.js
 const distillationControllerPath = new URL("../../apps/web/src/permanent-note-distillation-controller.js", import.meta.url);
 const workspaceControllerPath = new URL("../../apps/web/src/permanent-note-workspace-controller.js", import.meta.url);
 const workspaceViewPath = new URL("../../apps/web/src/permanent-note-workspace-view.js", import.meta.url);
+const actionPanelPath = new URL("../../apps/web/src/permanent-note-action-panel.js", import.meta.url);
 const permanentRelationWorkspacePath = new URL("../../apps/web/src/permanent-relation-workspace.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
@@ -21,6 +22,7 @@ test("relation side panel uses action-first workspace copy without noisy placeho
     await readFile(semanticRelationsViewPath, "utf8"),
     await readFile(semanticRelationsControllerPath, "utf8"),
     await readFile(relationEventsPath, "utf8"),
+    await readFile(actionPanelPath, "utf8"),
     await readFile(workspaceControllerPath, "utf8"),
     await readFile(workspaceViewPath, "utf8"),
     await readFile(permanentRelationWorkspacePath, "utf8")
@@ -38,9 +40,9 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(sidebarArchitecture, /showDeferredWorkspace/);
   assert.match(sidebarArchitecture, /activeTab/);
 
-  assert.match(shell, /<div class="panel-title">关系整理<\/div>/);
-  assert.match(shell, /先选要关联的笔记，再写清为什么。/);
-  assert.match(source, /<div class="inspector-section-title">建议先做<\/div>/);
+  assert.match(shell, /<div class="panel-title">打磨工作台<\/div>/);
+  assert.match(shell, /提炼 \/ 关联 \/ 写作/);
+  assert.match(source, /<div class="inspector-section-title">当前建议<\/div>/);
   assert.match(source, /<div class="inspector-section-title">关系网络<\/div>/);
   assert.match(source, /renderPermanentRelationWorkspace/);
   assert.match(source, /from "\.\/permanent-note-sidebar-view\.js";/);
@@ -60,12 +62,12 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(sidebarController, /relationEntryRouteForPermanentWorkspaceContinuation\(note\.id, host\.permanentRelationWorkspaceState\.entryRoute/);
   assert.match(source, /data-main-path-next-action/);
   assert.match(source, /data-deferred-workspace/);
-  assert.match(source, /永久笔记右侧/);
-  assert.match(source, /选择一个动作处理当前笔记：整理关系、提炼观点或进入写作。/);
-  assert.match(source, /key: "relations",\s+label: "整理关系"/);
+  assert.match(source, /打磨笔记/);
+  assert.match(source, /提炼 \/ 关联 \/ 写作/);
+  assert.match(source, /key: "relations",\s+label: "建立关系"/);
   assert.match(source, /key: "viewpoint",\s+label: "提炼观点"/);
   assert.match(source, /key: "writing",\s+label: "进入写作"/);
-  assert.match(source, /提炼观点、理由、边界、追问和写作主题。/);
+  assert.doesNotMatch(source, /梳理观点、理由、边界和追问。/);
   assert.match(source, /data-permanent-workspace-tab="\$\{escapeHtml\(key\)\}"/);
   assert.match(source, /data-permanent-note-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(source, /refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
@@ -78,13 +80,14 @@ test("relation side panel uses action-first workspace copy without noisy placeho
   assert.match(source, /AI 推荐/);
   assert.match(source, /手动搜索/);
   assert.match(source, /data-permanent-relation-ai-select/);
-  assert.match(source, /建立笔记关联/);
+  assert.match(source, /打磨笔记/);
   assert.match(sidebarView, /正在读取这条笔记的正式关系。读取完成后再保存新关系。/);
   assert.match(sidebarView, /AI 推荐了 \$\{escapeHtml\(String\(assist\.relationCandidates\)\)\} 条可能关联。你选择并保存后才会建立关系。/);
 
   assert.doesNotMatch(source, /提纯与 AI/);
   assert.doesNotMatch(source, /renderRelated\("当前笔记关联总览"\)/);
   assert.doesNotMatch(source, /永久笔记工作台/);
+  assert.doesNotMatch(shell, /关联侧栏/);
   assert.doesNotMatch(shell, /关联线索<\/div>/);
   assert.doesNotMatch(source, /主路径下一步/);
   assert.doesNotMatch(source, /<span class="inspector-chip">正文链接 \$\{/);
@@ -146,4 +149,5 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   assert.ok(deleteStart >= 0 && deleteEnd > deleteStart, "expected deleteRelation() to exist");
   const deleteSource = semanticRelationsController.slice(deleteStart, deleteEnd);
   assert.match(deleteSource, /if \(!host\.isActiveNoteId\(activeNoteId\)\) return/);
+  assert.match(deleteSource, /host\.closePermanentRelationWorkspace\?\.\(\)/);
 });

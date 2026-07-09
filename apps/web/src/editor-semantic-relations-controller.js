@@ -545,6 +545,7 @@ export class EditorSemanticRelationsController {
       if (!host.isActiveNoteId(activeNoteId)) return;
       host.onStatus("关系已删除", "ok");
       this.resetPanelState(activeNoteId);
+      host.closePermanentRelationWorkspace?.();
       host.renderRelated("关系已删除。");
     } catch (error) {
       if (!host.isActiveNoteId(activeNoteId)) return;

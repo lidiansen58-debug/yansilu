@@ -75,21 +75,18 @@ export class PermanentNoteWorkspaceController {
     return [
       {
         key: "relations",
-        label: "整理关系",
-        meta: meta.relations,
-        description: "选择目标笔记，写清为什么相关。"
+        label: "建立关系",
+        meta: meta.relations
       },
       {
         key: "viewpoint",
         label: "提炼观点",
-        meta: meta.viewpoint,
-        description: "提炼观点、理由、边界、追问和写作主题。"
+        meta: meta.viewpoint
       },
       {
         key: "writing",
         label: "进入写作",
-        meta: meta.writing,
-        description: "把确认后的观点作为相关笔记继续组织。"
+        meta: meta.writing
       }
     ];
   }

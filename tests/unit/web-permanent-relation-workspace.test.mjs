@@ -55,22 +55,25 @@ test("permanent relation workspace renders a large relation-only flow", () => {
   });
 
   assert.match(html, /data-permanent-relation-workspace/);
-  assert.match(html, /关联：当前永久笔记/);
-  assert.match(html, /这条关系让哪个判断更清楚/);
+  assert.match(html, /打磨笔记/);
+  assert.match(html, />当前永久笔记</);
+  assert.match(html, /role="tablist" aria-label="打磨笔记操作"/);
+  assert.match(html, />提炼</);
+  assert.match(html, />关联</);
   assert.match(html, /目标笔记/);
-  assert.match(html, /它们是什么关系/);
-  assert.match(html, /为什么要关联/);
-  assert.match(html, /placeholder="这条关系让哪个判断更清楚？因为\.\.\."/);
-  assert.match(html, /保存关系/);
-  assert.match(html, /推荐目标/);
-  assert.match(html, /搜索目标笔记/);
+  assert.match(html, />关系</);
+  assert.match(html, />理由</);
+  assert.match(html, /placeholder="为什么相关？"/);
+  assert.match(html, />保存</);
+  assert.match(html, />推荐</);
+  assert.match(html, />选笔记</);
   assert.match(html, /data-permanent-relation-ai-target/);
   assert.doesNotMatch(html, />当前笔记</);
   assert.doesNotMatch(html, /data-permanent-relation-ai-select/);
   assert.doesNotMatch(html, /推荐只作为候选；保存前请确认关系类型和理由/);
   assert.doesNotMatch(html, /选目标、写理由、保存/);
   assert.doesNotMatch(html, /观点提纯/);
-  assert.doesNotMatch(html, /写作准备/);
+  assert.doesNotMatch(html, /准备写作/);
   assert.doesNotMatch(html, /进入草稿/);
   assert.doesNotMatch(html, /appears_in_draft/);
 });
@@ -167,8 +170,8 @@ test("permanent relation workspace keeps saved-relation counts out of the focuse
     deps
   });
 
-  assert.match(html, /搜索目标笔记/);
-  assert.match(html, /为什么要关联/);
+  assert.match(html, /选笔记/);
+  assert.match(html, />理由</);
   assert.doesNotMatch(html, /permanent-relation-source-status/);
   assert.doesNotMatch(html, />1 条已保存关系</);
   assert.doesNotMatch(html, />3 条已保存关系</);
@@ -249,9 +252,19 @@ test("permanent relation workspace edits existing relations in the overlay", () 
     deps
   });
 
-  assert.match(html, /保存修改/);
+  assert.match(html, />保存</);
   assert.doesNotMatch(html, /编辑现有关系/);
+  assert.match(html, /data-relation-action="delete"/);
+  assert.match(html, /data-relation-id="rel_existing"/);
+  assert.match(html, /<option value="qualifies" selected>/);
+  assert.match(html, /is-editing-existing/);
   assert.doesNotMatch(html, /data-relation-action="open-edit"/);
+  assert.doesNotMatch(html, /data-permanent-relation-target-search/);
+  assert.doesNotMatch(html, /data-permanent-relation-manual-results/);
+  assert.doesNotMatch(html, /data-permanent-relation-recommendations/);
+  assert.doesNotMatch(html, /data-permanent-relation-target-preview-slot/);
+  assert.doesNotMatch(html, /data-permanent-relation-action="run-ai"/);
+  assert.doesNotMatch(html, /data-permanent-relation-action="preview-target"/);
   const validation = permanentRelationWorkspaceCanSave({ state, relations, allowExistingUpdate: true });
   assert.equal(validation.ok, true);
   assert.equal(validation.reason, "update_existing");
@@ -362,7 +375,7 @@ test("permanent relation AI recommendations show useful target titles without in
 
   assert.match(html, new RegExp(target.title));
   assert.match(html, /46%/);
-  assert.match(html, /推荐目标/);
+  assert.match(html, />推荐</);
   assert.match(html, /data-permanent-relation-ai-target/);
   assert.match(html, /标题、标签或摘要/);
   assert.doesNotMatch(html, /<strong>YJ-D09<\/strong>/);

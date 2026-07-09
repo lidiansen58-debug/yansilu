@@ -73,7 +73,7 @@ export function buildPermanentNoteRelationActionStep({
 } = {}) {
   const weakSignalLabel = themeInfo.badgeLabel || String(themeInfo.badge ?? wikilinkCount + tagRelatedCount);
   return {
-    label: "整理关系",
+    label: "建立关系",
     status:
       relationState === "loading"
         ? "读取中"

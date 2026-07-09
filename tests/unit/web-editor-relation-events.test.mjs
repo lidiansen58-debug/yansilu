@@ -152,3 +152,52 @@ test("permanent relation open action keeps sidebar route context", () => {
   assert.equal(opened[0].mode, "manual");
   assert.equal(opened[0].noteId, "note-current");
 });
+
+test("existing relation edit opens the permanent relation workspace", () => {
+  const opened = [];
+  const relationAction = attrElement({}, {
+    dataset: {
+      relationAction: "open-edit",
+      relationId: "rel-in"
+    }
+  });
+  const target = elementWithClosest({
+    "[data-relation-template-merge-action]": null,
+    "[data-relation-template-variant]": null,
+    "[data-permanent-relation-mode]": null,
+    "[data-permanent-relation-action]": null,
+    "[data-relation-target-choice]": null,
+    "[data-relation-action]": relationAction
+  });
+  const host = {
+    activeNote() {
+      return { id: "current" };
+    },
+    findSemanticRelation(relationId) {
+      assert.equal(relationId, "rel-in");
+      return {
+        id: "rel-in",
+        fromNoteId: "source",
+        toNoteId: "current",
+        relationType: "qualifies",
+        rationale: "source limits current",
+        insightQuestion: "what changes?"
+      };
+    },
+    openPermanentRelationWorkspace(route) {
+      opened.push(route);
+      return true;
+    },
+    openEditRelationForm() {
+      assert.fail("existing relation edit should not fall back to the hidden sidebar form");
+    }
+  };
+
+  assert.equal(routeEditorRelationClick(host, eventFor(target)), true);
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].mode, "manual");
+  assert.equal(opened[0].targetNoteId, "source");
+  assert.equal(opened[0].relationType, "qualifies");
+  assert.equal(opened[0].rationaleDraft, "source limits current");
+  assert.equal(opened[0].insightQuestionDraft, "what changes?");
+});
