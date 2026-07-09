@@ -79,9 +79,9 @@ export function editorRelationLinkConfirmState({
 } = {}) {
   const hasReason = Boolean(String(reason || "").trim());
   if (isSubmitting) return { disabled: true, label: "保存中..." };
-  if (!selectedNote) return { disabled: true, label: "选择笔记" };
-  if (!hasReason) return { disabled: true, label: "写一句理由" };
-  return { disabled: false, label: "保存关联" };
+  if (!selectedNote) return { disabled: true, label: "关联" };
+  if (!hasReason) return { disabled: true, label: "关联" };
+  return { disabled: false, label: "关联" };
 }
 
 export function normalizeEditorRelationLinkInput({
@@ -134,18 +134,18 @@ export function editorRelationLinkInsertFeedback(target, outcome) {
   switch (String(outcome || "")) {
     case "body-and-relation-existed":
       return {
-        status: `正文已有链接，语义关系也已存在：${title}`,
-        related: "正文链接与现有语义关系均已复用。"
+        status: `正文已有链接，关系也已保存：${title}`,
+        related: "已有关系已复用。"
       };
     case "body-only-existed":
       return {
-        status: `正文已有链接，已补建语义关系：${title}`,
-        related: "正文链接已保留，并补建语义关系。"
+        status: `已保存关系：${title}`,
+        related: "关系已保存。"
       };
     case "relation-only-existed":
       return {
-        status: `已插入正文链接，现有语义关系已复用：${title}`,
-        related: "正文链接已插入，现有语义关系已复用。"
+        status: `已插入关联笔记，已有关系已复用：${title}`,
+        related: "已有关系已复用。"
       };
     default:
       return {

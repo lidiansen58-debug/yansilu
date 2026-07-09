@@ -1,5 +1,5 @@
 import { createNoteRelation, fetchNoteRelations, updateNoteRelation } from "./prototype-api.js";
-import { wikilinkTokenForNote } from "./editor-link-picker.js";
+import { normalizeKnownWikilinksToReadableTitles, wikilinkTokenForNote } from "./editor-link-picker.js";
 import {
   inlineLinkRelationTypeOptionsMarkup,
   isMarkdownWikilinkRelation
@@ -28,10 +28,19 @@ export class EditorRelationLinkController {
 
   renderCandidates(query = "", preferredId = "") {
     const host = this.host;
+    const cleanQuery = String(query || "").trim();
+    const cleanPreferredId = String(preferredId || "").trim();
+    if (!cleanQuery && !cleanPreferredId && !host.currentPinnedLinkId) {
+      host.currentLinkCandidates = [];
+      host.currentLinkIndex = 0;
+      host.els.linkSearchList.innerHTML = "";
+      this.updateConfirmButton();
+      return;
+    }
     const result = editorRelationLinkCandidates({
-      query,
+      query: cleanQuery,
       candidates: host.scopedLinkCandidates(),
-      preferredId,
+      preferredId: cleanPreferredId,
       pinnedId: host.currentPinnedLinkId,
       displayTitle: (note) => host.linkCandidateDisplayTitle(note)
     });
@@ -100,6 +109,7 @@ export class EditorRelationLinkController {
     const host = this.host;
     host.closeTagPicker();
     host.hideOriginalityNotice();
+    host.hideSaveAiSuggestion?.();
     const inlineMode = Boolean(options.inlineContext);
     const anchorAtCursor = Boolean(options.anchorAtCursor);
     const focusInput = Boolean(options.focusInput);
@@ -119,11 +129,23 @@ export class EditorRelationLinkController {
       host.els.linkSearchInput.parentNode?.insertBefore(host.els.linkSearchList, linkSearchSpacer);
       if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;
     }
-    host.els.linkSearchInput.placeholder = "搜索笔记标题";
+    host.els.linkSearchInput.placeholder = "输入标题关键词，选择要关联的永久笔记";
+    host.els.linkSearchInput.type = "search";
+    host.els.linkSearchInput.name = `yansilu-link-target-${Date.now()}`;
+    host.els.linkSearchInput.setAttribute("autocomplete", "off");
+    host.els.linkSearchInput.setAttribute("autocorrect", "off");
+    host.els.linkSearchInput.setAttribute("autocapitalize", "off");
+    host.els.linkSearchInput.setAttribute("spellcheck", "false");
     host.els.linkSearchInput.value = initialQuery;
     host.currentPinnedLinkId = "";
-    host.manualLinkReturnSelection = inlineMode ? null : host.normalizedSelectionRange(host.editorSelection());
-    host.manualLinkReturnScrollState = inlineMode ? null : host.captureEditorScrollState();
+    const returnSelection =
+      host.normalizedSelectionRange(options.returnSelection) ||
+      host.normalizedSelectionRange(host.manualLinkReturnSelection) ||
+      host.normalizedSelectionRange(host.editorSelection());
+    host.manualLinkReturnSelection = inlineMode ? null : returnSelection;
+    host.manualLinkReturnScrollState = inlineMode
+      ? null
+      : options.returnScrollState || host.manualLinkReturnScrollState || host.captureEditorScrollState();
     if (host.els.linkRelationTypeSelect) {
       host.els.linkRelationTypeSelect.innerHTML = inlineLinkRelationTypeOptionsMarkup("associated_with");
       host.els.linkRelationTypeSelect.value = "associated_with";
@@ -144,9 +166,11 @@ export class EditorRelationLinkController {
       return;
     }
     if (anchorAtCursor) {
-      host.positionFloatingPicker(host.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))), {
+      host.positionFloatingPicker(host.els.linkPicker, Math.min(680, Math.max(560, Math.floor(window.innerWidth * 0.48))), {
         anchorRect: options.anchorRect || null,
-        anchorElement: options.anchorElement || null
+        anchorElement: options.anchorElement || null,
+        centerX: true,
+        offsetX: -120
       });
     }
     host.els.linkSearchInput.focus();
@@ -176,7 +200,9 @@ export class EditorRelationLinkController {
   positionInline() {
     const host = this.host;
     if (!host.currentLinkContext) return;
-    host.positionFloatingPicker(host.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))));
+    host.positionFloatingPicker(host.els.linkPicker, Math.min(680, Math.max(560, Math.floor(window.innerWidth * 0.48))), {
+      offsetX: -120
+    });
   }
 
   insertOutcome(bodyAlreadyLinked, reusedRelation) {
@@ -201,7 +227,7 @@ export class EditorRelationLinkController {
     const inlineInsert = Boolean(host.currentLinkContext);
     const { relationType, reason } = this.currentRelationInput();
     if (!reason) {
-      host.onStatus("请先写一句为什么相关，再建立正式关系。", "warn");
+      host.onStatus("请先写一句关联理由。", "warn");
       this.focusReasonInput();
       this.updateConfirmButton();
       return;
@@ -210,21 +236,15 @@ export class EditorRelationLinkController {
       ? host.normalizedSelectionRange(host.manualLinkReturnSelection) || host.normalizedSelectionRange(host.editorSelection())
       : null;
     const manualScrollState = !inlineInsert ? host.manualLinkReturnScrollState : null;
-    const currentBody = host.getEditorValue();
     const persistedSourceBody = () => {
       const sourceTab = host.state.tabs.find((tab) => tab.id === sourceTabId) || null;
       const sourceNoteAfterSave = host.state.notes.find((note) => note.id === sourceNoteId) || null;
       return String(sourceTab?.savedBody || sourceNoteAfterSave?.body || "");
     };
-    const editorBodyAlreadyLinked = !inlineInsert && host.hasResolvedLinkToNote(target.id, currentBody, scopedLinkNotes);
-    const savedBodyAlreadyLinked = !inlineInsert && host.hasResolvedLinkToNote(target.id, persistedSourceBody(), scopedLinkNotes);
-    const bodyAlreadyLinked = editorBodyAlreadyLinked;
     const token = wikilinkTokenForNote(target);
     const restoreSelection =
       manualSelection && Number.isFinite(manualSelection.from)
-        ? bodyAlreadyLinked
-          ? { from: manualSelection.to, to: manualSelection.to }
-          : { from: manualSelection.from + token.length, to: manualSelection.from + token.length }
+        ? { from: manualSelection.from + token.length, to: manualSelection.from + token.length }
         : null;
     this.setSubmitting(true);
     try {
@@ -260,9 +280,11 @@ export class EditorRelationLinkController {
             host.semanticRelationsState = "loaded";
             host.renderPreview();
           }
+          await host.refreshRelationNetworkStatuses?.(sourceNoteId, target.id);
+          host.renderAll?.();
         } catch (error) {
           relationCreateError = error;
-          host.onStatus(`关联已插入，但正式关系创建失败：${String(error?.message || error)}`, "warn");
+          host.onStatus(`链接已插入，但关系保存失败：${String(error?.message || error)}`, "warn");
         }
       };
       const verifySavedLink = () => {
@@ -270,10 +292,11 @@ export class EditorRelationLinkController {
         return host.hasResolvedLinkToNote(target.id, savedBody, scopedLinkNotes);
       };
       const saveInsertedBody = async (trigger) => {
-        const saved = await host.saveActiveNote({ trigger, skipOriginalityCheck: true });
+        host.hideSaveAiSuggestion?.();
+        const saved = await host.saveActiveNote({ trigger, skipOriginalityCheck: true, suppressSaveAiSuggestion: true });
+        host.hideSaveAiSuggestion?.();
         if (saved === false || (saved && typeof saved === "object" && saved.ok === false) || !verifySavedLink()) {
-          host.onStatus("关联正文未能同步，已保留在编辑器中，暂未建立正式关系。", "warn");
-          host.renderRelated("正文链接还没有成功保存，请同步后再建立正式关系。");
+          host.onStatus("链接已保留在编辑器中，但暂时没有同步成功。", "warn");
           return false;
         }
         return true;
@@ -285,8 +308,6 @@ export class EditorRelationLinkController {
         } else {
           host.replaceEditorRange(start, end, token);
         }
-      } else if (bodyAlreadyLinked) {
-        // Keep the existing wikilink in place and only ensure the semantic relation is tracked.
       } else if (manualSelection) {
         if (host.isWysiwygMode()) {
           host.replaceMarkdownWhileInWysiwyg(manualSelection.from, manualSelection.to, token, {
@@ -302,32 +323,43 @@ export class EditorRelationLinkController {
       } else {
         host.insertAtCursor(token);
       }
+      const normalizedBody = normalizeKnownWikilinksToReadableTitles(host.getEditorValue(), scopedLinkNotes);
+      if (normalizedBody !== host.getEditorValue()) {
+        const nextSelection = restoreSelection || host.normalizedSelectionRange(host.editorSelection());
+        if (host.isWysiwygMode()) {
+          host.replaceMarkdownWhileInWysiwyg(0, host.getEditorValue().length, normalizedBody, {
+            selectionStart: nextSelection?.from,
+            selectionEnd: nextSelection?.to
+          });
+        } else {
+          host.replaceEditorRange(0, host.getEditorValue().length, normalizedBody, {
+            selectionStart: nextSelection?.from,
+            selectionEnd: nextSelection?.to
+          });
+        }
+      }
       host.handleEditorInput();
       this.close();
       host.focusEditor();
       if (!inlineInsert) {
-        if (!savedBodyAlreadyLinked && !(await saveInsertedBody("link-insert"))) return;
+        if (!(await saveInsertedBody("link-insert"))) return;
         await ensureFormalRelation();
         if (restoreSelection) host.setEditorSelectionRange(restoreSelection.from, restoreSelection.to);
         host.scheduleEditorScrollRestore(manualScrollState);
         if (relationCreateError) {
-          host.renderRelated("正文链接已插入，但正式关系创建失败。");
           return;
         }
         const reusedRelation = relationCreateResult?.created === false;
-        const feedback = this.insertFeedback(target, this.insertOutcome(bodyAlreadyLinked, reusedRelation));
+        const feedback = this.insertFeedback(target, this.insertOutcome(false, reusedRelation));
         host.onStatus(feedback.status, "ok");
-        host.renderRelated(feedback.related);
       } else {
         if (!(await saveInsertedBody("inline-link-insert"))) return;
         await ensureFormalRelation();
         if (relationCreateError) {
-          host.renderRelated("正文链接已插入，但正式关系创建失败。");
           return;
         }
         const reusedRelation = relationCreateResult?.created === false;
-        host.onStatus(reusedRelation ? `已插入关联笔记，现有语义关系已复用：${target.title}` : `已插入关联笔记并建立正式关系：${target.title}`, "ok");
-        host.renderRelated(reusedRelation ? "正文链接已插入，现有语义关系已复用。" : "正文链接与正式关系已建立。");
+        host.onStatus(reusedRelation ? `已插入关联笔记，已有关系已复用：${target.title}` : `已插入关联笔记并保存关系：${target.title}`, "ok");
       }
     } finally {
       this.setSubmitting(false);

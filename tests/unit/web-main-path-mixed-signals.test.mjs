@@ -27,11 +27,10 @@ test("main-path summary distinguishes mixed wikilink and tag signals from explic
     }
   );
 
-  assert.equal(result.nextStep, "确认成正式关系");
-  assert.match(result.summary, /正文链接/);
+  assert.equal(result.nextStep, "补关系说明");
+  assert.match(result.summary, /可能关系/);
   assert.doesNotMatch(result.summary, /wikilink/);
-  assert.match(result.summary, /标签/);
-  assert.match(result.summary, /正式关系/);
+  assert.match(result.summary, /写清楚/);
 });
 
 test("main-path card keeps mixed weak signals in relation-building mode", () => {
@@ -58,8 +57,8 @@ test("main-path card keeps mixed weak signals in relation-building mode", () => 
   ).replace(/\s+/g, " ");
 
   assert.match(html, /data-main-path-next-action="relations"/);
-  assert.match(html, /同时有正文链接和标签接近/);
-  assert.match(html, /data-note-main-route-action="relations"[^>]*>确认成正式关系<\/button>/);
+  assert.match(html, /可能关系/);
+  assert.match(html, /data-note-main-route-action="relations"[^>]*>补关系说明<\/button>/);
   assert.doesNotMatch(html, /main-path-progress/);
   assert.doesNotMatch(html, /wikilink 1/);
 });

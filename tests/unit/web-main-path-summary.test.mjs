@@ -67,9 +67,9 @@ test("main-path summary distinguishes wikilink-only notes from fully isolated no
   );
 
   assert.equal(result.nextStep, "补关系说明");
-  assert.match(result.summary, /正文链接/);
+  assert.match(result.summary, /可能关系/);
   assert.doesNotMatch(result.summary, /wikilink/);
-  assert.match(result.summary, /正式关系/);
+  assert.match(result.summary, /写清楚/);
 });
 
 test("main-path summary distinguishes tag-only theme hints from actual network connections", () => {

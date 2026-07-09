@@ -28,7 +28,7 @@ test("main-path summary labels wikilink-only signals as body link clues", () => 
   );
 
   assert.equal(result.nextStep, "补关系说明");
-  assert.match(result.summary, /正文链接/);
+  assert.match(result.summary, /可能关系/);
   assert.doesNotMatch(result.summary, /wikilink/);
 });
 
@@ -52,8 +52,7 @@ test("main-path summary labels mixed weak signals as body links without raw wiki
     }
   );
 
-  assert.equal(result.nextStep, "确认成正式关系");
-  assert.match(result.summary, /正文链接/);
-  assert.match(result.summary, /标签接近/);
+  assert.equal(result.nextStep, "补关系说明");
+  assert.match(result.summary, /可能关系/);
   assert.doesNotMatch(result.summary, /wikilink/);
 });

@@ -85,12 +85,12 @@ export function buildPermanentNoteRelationActionStep({
               : `已建 ${explicitRelationCount}`
             : wikilinkCount
               ? tagRelatedCount > 0
-                ? `正文链接和同标签 ${weakSignalLabel}`
-                : `正文链接 ${wikilinkCount}`
+                ? `可能关系 ${weakSignalLabel}`
+                : `已有线索 ${wikilinkCount}`
               : "待建立",
     hint:
       relationState === "loading"
-        ? "先等正式关系读取完成。"
+        ? "先等关系读取完成。"
         : relationState === "error"
           ? "读取失败，但仍然可以手动补建。"
           : explicitRelationCount
@@ -99,8 +99,8 @@ export function buildPermanentNoteRelationActionStep({
               : "已经有带理由的关系。"
             : wikilinkCount
               ? tagRelatedCount > 0
-                ? "已经同时有正文链接和标签接近，但还没形成正式关系。先把最关键的关系写出来。"
-                : "已经有正文链接，下一步把关系为什么成立写清楚。"
+                ? "已经看得到几条可能关系。先挑最关键的一条，把为什么相关写清楚。"
+                : "已经看得到一条可能关系，下一步把为什么相关写清楚。"
               : tagRelatedCount > 0
                 ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
                 : "先关联一条真正相关的永久笔记。",
@@ -110,7 +110,7 @@ export function buildPermanentNoteRelationActionStep({
         ? "补关系说明"
         : wikilinkCount > 0
           ? tagRelatedCount > 0
-            ? "确认成正式关系"
+            ? "补关系说明"
             : "补关系说明"
           : Number(overview.tagRelatedCount || 0) > 0
             ? "从同标签补关系"

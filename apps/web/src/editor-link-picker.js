@@ -58,9 +58,18 @@ export function noteMatchesMarkdownReferencePath(note = {}, candidatePath = "") 
 
 export function wikilinkTokenForNote(note = {}) {
   const title = String(note?.title || note?.id || UNTITLED_NOTE_TITLE).trim() || UNTITLED_NOTE_TITLE;
-  const markdownPath = normalizeMarkdownReferencePath(note?.markdownPath || "");
-  const target = String(note?.id || "").trim() || markdownPath || title;
-  return `[[${target}|${title}]]`;
+  const readableTitle = title.replace(/[\[\]]/g, "").trim() || UNTITLED_NOTE_TITLE;
+  return `[[${readableTitle}]]`;
+}
+
+export function normalizeKnownWikilinksToReadableTitles(body = "", candidates = []) {
+  const notes = Array.isArray(candidates) ? candidates : [];
+  if (!notes.length) return String(body || "");
+  return String(body || "").replace(/\[\[([^[\]]+)\]\]/g, (match, raw) => {
+    const resolved = resolveRelationCandidateToken(raw, notes);
+    if (!resolved?.id) return match;
+    return wikilinkTokenForNote(resolved);
+  });
 }
 
 export function looksLikeStableNoteId(value = "") {

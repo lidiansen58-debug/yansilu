@@ -181,6 +181,38 @@ export {
   sortRelationTargetCandidatesForNote,
   validateLiteratureTemplateSource
 };
+
+function relationNetworkVisibleRelationCount(relations = null) {
+  const outgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks : [];
+  const backlinks = Array.isArray(relations?.backlinks) ? relations.backlinks : [];
+  return [...outgoing, ...backlinks].filter((link) => !isHiddenRelation(link)).length;
+}
+
+function relationNetworkVisibleRelationNoteIds(relations = null, currentNoteId = "") {
+  const ids = new Set([String(currentNoteId || "").trim()].filter(Boolean));
+  const outgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks : [];
+  const backlinks = Array.isArray(relations?.backlinks) ? relations.backlinks : [];
+  for (const link of [...outgoing, ...backlinks]) {
+    if (isHiddenRelation(link)) continue;
+    [
+      link?.fromNoteId,
+      link?.from_note_id,
+      link?.sourceNoteId,
+      link?.source_note_id,
+      link?.from?.id,
+      link?.toNoteId,
+      link?.to_note_id,
+      link?.targetNoteId,
+      link?.target_note_id,
+      link?.to?.id
+    ].forEach((id) => {
+      const clean = String(id || "").trim();
+      if (clean) ids.add(clean);
+    });
+  }
+  return [...ids];
+}
+
 export class EditorPane {
   constructor({
     state,
@@ -193,7 +225,8 @@ export class EditorPane {
     notifyWorkflowReminder,
     selectPermanentDirectory,
     resolveLiteratureSectionLabels,
-    resolveLiteratureSectionLabelCandidates
+    resolveLiteratureSectionLabelCandidates,
+    renderAll
   }) {
     this.state = state;
     this.els = elements;
@@ -202,6 +235,7 @@ export class EditorPane {
     this.onOpenNote = onOpenNote;
     this.onOpenExternalUrl = typeof elements?.openExternalUrl === "function" ? elements.openExternalUrl : null;
     this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
+    this.renderAll = typeof renderAll === "function" ? renderAll : () => {};
     this.resolveNoteWritingContinuation =
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
     this.notifyWorkflowReminder = typeof notifyWorkflowReminder === "function" ? notifyWorkflowReminder : () => {};
@@ -216,6 +250,7 @@ export class EditorPane {
     this.currentLinkContext = null;
     this.manualLinkReturnSelection = null;
     this.manualLinkReturnScrollState = null;
+    this.lastEditorSelection = null;
     this.isSubmittingLinkInsert = false;
     this.currentTagCandidates = [];
     this.currentTagIndex = 0;
@@ -1551,7 +1586,10 @@ export class EditorPane {
           this.scheduleRichAssetRefresh();
         },
         onKeydown: (event) => this.handleEditorKeydown(event),
-        onKeyup: () => this.updateToolbarFormattingState(),
+        onKeyup: () => {
+          this.rememberEditorSelection();
+          this.updateToolbarFormattingState();
+        },
         onClickToken: (token) => this.handleTokenAction(token)
       });
       this.els.wysiwygHost.addEventListener(
@@ -1577,6 +1615,12 @@ export class EditorPane {
         },
         true
       );
+      this.els.wysiwygHost.addEventListener("mouseup", () => {
+        setTimeout(() => this.rememberEditorSelection(), 0);
+      });
+      this.els.wysiwygHost.addEventListener("keyup", () => {
+        this.rememberEditorSelection();
+      });
       this.els.wysiwygHost.addEventListener(
         "click",
         (event) => {
@@ -1878,14 +1922,13 @@ export class EditorPane {
     if (this.isWysiwygMode() && this.markdownSelectionOverride) {
       return this.markdownSelectionOverride;
     }
-    if (this.isWysiwygMode() && this.richEditor?.selection) {
-      const richValue = this.richEditor.getValue?.() || "";
-      const selection = this.richEditor.selection();
-      const normalized = normalizeWysiwygMarkdownValue(richValue, [selection.from, selection.to]);
-      return {
-        from: normalized.offsets[0],
-        to: normalized.offsets[1]
-      };
+    if (this.isWysiwygMode()) {
+      const wysiwygSelection = this.wysiwygMarkdownSelection();
+      if (wysiwygSelection) return wysiwygSelection;
+      const remembered = this.rememberedEditorSelection();
+      if (remembered) return remembered;
+      const valueLength = this.getEditorValue().length;
+      return { from: valueLength, to: valueLength };
     }
     const editor = this.currentEditor();
     if (editor?.selection) return editor.selection();
@@ -1918,6 +1961,51 @@ export class EditorPane {
     return { from, to };
   }
 
+  wysiwygMarkdownSelection() {
+    if (!this.richEditor?.selection) return null;
+    const richValue = String(this.richEditor.getValue?.() || "");
+    const selection = this.richEditor.selection();
+    const from = Number(selection?.from);
+    const to = Number(selection?.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+    if (from < 0 || to < 0 || from > richValue.length || to > richValue.length) return null;
+    const normalized = normalizeWysiwygMarkdownValue(richValue, [from, to]);
+    return this.normalizedSelectionRangeForValue(this.getEditorValue(), {
+      from: normalized.offsets[0],
+      to: normalized.offsets[1]
+    });
+  }
+
+  wysiwygRawOffsetFromMarkdownOffset(offset = 0) {
+    const richValue = String(this.richEditor?.getValue?.() || "");
+    const normalizedValue = this.getEditorValue();
+    const target = Math.max(0, Math.min(normalizedValue.length, Number(offset) || 0));
+    let low = 0;
+    let high = richValue.length;
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+      const normalizedPrefixLength = normalizeWysiwygMarkdownValue(richValue.slice(0, mid)).value.length;
+      if (normalizedPrefixLength < target) low = mid + 1;
+      else high = mid;
+    }
+    return low;
+  }
+
+  rememberEditorSelection(range = null) {
+    if (this.isStructuredWorkspaceActive()) return null;
+    const explicitSelection = range || (this.isWysiwygMode() ? this.markdownSelectionOverride : null);
+    const selection = this.normalizedSelectionRangeForValue(
+      this.getEditorValue(),
+      explicitSelection || (this.isWysiwygMode() ? this.wysiwygMarkdownSelection() : this.editorSelection())
+    );
+    if (selection) this.lastEditorSelection = selection;
+    return selection;
+  }
+
+  rememberedEditorSelection() {
+    return this.normalizedSelectionRangeForValue(this.getEditorValue(), this.lastEditorSelection);
+  }
+
   setEditorSelectionRange(from, to) {
     if (this.isLiteratureWorkspaceActive()) {
       const target = this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle;
@@ -1929,6 +2017,18 @@ export class EditorPane {
     const start = normalized?.from ?? 0;
     const end = normalized?.to ?? start;
     this.focusEditor();
+    if (this.isWysiwygMode() && this.richEditor?.setSelectionRange) {
+      const rawStart = this.wysiwygRawOffsetFromMarkdownOffset(start);
+      const rawEnd = this.wysiwygRawOffsetFromMarkdownOffset(end);
+      try {
+        this.richEditor.setSelectionRange(rawStart, rawEnd);
+      } catch {
+        this.richEditor.focus?.();
+      }
+      this.setMarkdownSelectionOverride(start, end);
+      this.lastEditorSelection = { from: start, to: end };
+      return;
+    }
     const editor = this.currentEditor();
     if (editor?.setSelectionRange) {
       try {
@@ -3010,7 +3110,7 @@ export class EditorPane {
     if (!note) return [];
     const rootId = rootBoxIdFromFolder(this.state, note.folderId);
     return this.state.notes.filter(
-      (n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id
+      (n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id && this.isOriginalNote(n)
     );
   }
 
@@ -3284,6 +3384,34 @@ export class EditorPane {
     if (note) note.relationNetworkStatus = status;
   }
 
+  applyRelationNetworkStatusesFromRelations(noteId, relations = null) {
+    const hasVisibleRelation = relationNetworkVisibleRelationCount(relations) > 0;
+    this.applyRelationNetworkStatus(noteId, hasVisibleRelation ? "connected" : "isolated");
+    if (!hasVisibleRelation) return;
+    relationNetworkVisibleRelationNoteIds(relations, noteId).forEach((id) => {
+      this.applyRelationNetworkStatus(id, "connected");
+    });
+  }
+
+  applyRelationNetworkStatusFromLocalSignals(note, signals = null) {
+    const noteId = String(note?.id || "").trim();
+    if (!noteId) return false;
+    const linkedIds = [
+      ...(Array.isArray(signals?.forward) ? signals.forward : []),
+      ...(Array.isArray(signals?.backward) ? signals.backward : [])
+    ]
+      .map((item) => String(item?.id || "").trim())
+      .filter(Boolean);
+    if (!linkedIds.length) return false;
+    const connectedIds = this.state.graphConnectedNoteIds instanceof Set ? this.state.graphConnectedNoteIds : new Set();
+    const beforeChanged = [noteId, ...linkedIds].some((id) => {
+      const item = this.state.notes.find((candidate) => candidate.id === id);
+      return !connectedIds.has(id) || String(item?.relationNetworkStatus || "").trim().toLowerCase() !== "connected";
+    });
+    this.syncRelationNetworkConnected(noteId, ...linkedIds);
+    return beforeChanged;
+  }
+
   async refreshRelationNetworkStatuses(...noteIds) {
     const ids = [...new Set(noteIds.map((item) => String(item || "").trim()).filter(Boolean))];
     if (!ids.length) return;
@@ -3291,10 +3419,19 @@ export class EditorPane {
       ids.map(async (noteId) => {
         try {
           const relations = await fetchNoteRelations(noteId);
-          this.applyRelationNetworkStatus(noteId, countExplicitSemanticRelations(relations) > 0 ? "connected" : "isolated");
+          this.applyRelationNetworkStatusesFromRelations(noteId, relations);
         } catch {}
       })
     );
+  }
+
+  hideSaveAiSuggestion() {
+    if (typeof document === "undefined") return;
+    const root = document.getElementById("saveAiSuggestion");
+    if (!root) return;
+    root.classList.add("hidden");
+    root.dataset.action = "";
+    root.dataset.noteId = "";
   }
 
   setLinkInsertSubmitting(nextSubmitting) {
@@ -3472,7 +3609,8 @@ export class EditorPane {
     let left = viewportLeft + 180;
     let top = viewportTop + 90;
     if (rect) {
-      left = rect.left;
+      const offsetX = Number(options.offsetX || 0);
+      left = (options.centerX ? viewportLeft + (viewportWidth - resolvedWidth) / 2 : rect.left) + offsetX;
       const naturalHeight = Math.min(panel.scrollHeight || 360, Math.max(140, viewportHeight - gutter * 2));
       const viewportBottom = viewportTop + viewportHeight - gutter;
       const belowTop = rect.bottom + gap;
@@ -3945,17 +4083,19 @@ export class EditorPane {
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       this.currentSemanticRelations = relations;
       this.semanticRelationsState = "loaded";
-      this.applyRelationNetworkStatus(noteId, countExplicitSemanticRelations(relations) > 0 ? "connected" : "isolated");
+      this.applyRelationNetworkStatusesFromRelations(noteId, relations);
       const note = this.activeNote();
       const tab = this.activeTab();
       if (note?.id === noteId && tab) {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
+        const localStatusChanged = this.applyRelationNetworkStatusFromLocalSignals(note, { forward, backward, tagRelated });
         const overview = this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations, relationState: "loaded" });
         this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
         this.notifyWorkflowReminder({ kind: "relation-network", note, overview });
         this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
         this.syncPermanentRelationWorkspaceOverlay();
+        if (localStatusChanged) this.renderAll?.();
       }
       this.renderPreview();
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
@@ -3978,11 +4118,13 @@ export class EditorPane {
       const tab = this.activeTab();
       if (note?.id === noteId && tab) {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
+        const localStatusChanged = this.applyRelationNetworkStatusFromLocalSignals(note, { forward, backward, tagRelated });
         const overview = this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "error" });
         this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
         this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
         this.syncPermanentRelationWorkspaceOverlay();
+        if (localStatusChanged) this.renderAll?.();
       }
       this.renderPreview();
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
@@ -4325,16 +4467,16 @@ export class EditorPane {
     }
     if (wikilinkCount > 0 && tagRelatedCount === 0) {
       return {
-        status: `正文链接 ${themeSignalCount || wikilinkCount}`,
-        hint: "正文已经连到另一条笔记，下一步是把这条连接的理由写出来。",
+        status: `已有线索 ${themeSignalCount || wikilinkCount}`,
+        hint: "已经看得到一条可能关系，下一步是把为什么相关写清楚。",
         badge: themeSignalCount || wikilinkCount,
         badgeLabel: String(themeSignalCount || wikilinkCount)
       };
     }
     if (tagRelatedCount > 0 && wikilinkCount === 0) {
       return {
-        status: `同标签 ${themeSignalCount || tagRelatedCount}`,
-        hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
+        status: `相近笔记 ${themeSignalCount || tagRelatedCount}`,
+        hint: "目前只是看起来接近，还需要补一条有理由的关系。",
         badge: themeSignalCount || tagRelatedCount,
         badgeLabel: String(themeSignalCount || tagRelatedCount)
       };
@@ -4344,7 +4486,7 @@ export class EditorPane {
         status: `可能相关 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
         hint:
           wikilinkCount > 0 && tagRelatedCount > 0
-            ? "已经同时有正文链接和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。"
+            ? "已经看得到几条可能关系。先挑最关键的一条，把为什么相关写清楚。"
             : "已经有可能相关的内容，但还需要把“为什么相关”说清楚。",
         badge: themeSignalCount || wikilinkCount + tagRelatedCount,
         badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
@@ -4539,20 +4681,20 @@ export class EditorPane {
     if (connectedCount > 0 && thinExplicitRelationCount > 0) {
       return {
         nextStep: "补关系说明",
-        summary: `已经有 ${explicitRelationCount} 条正式关系，但其中还有 ${thinExplicitRelationCount} 条理由偏薄。先把“为什么成立”写具体，再继续推进主题或写作。`
+        summary: `已经有 ${explicitRelationCount} 条关系，但其中还有 ${thinExplicitRelationCount} 条理由偏薄。先把“为什么相关”写具体，再继续推进主题或写作。`
       };
     }
     if (connectedCount === 0) {
       if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
         return {
-          nextStep: "确认成正式关系",
-          summary: "已经同时出现正文链接和标签接近，但它们还只是可能相关，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成正式关系。"
+          nextStep: "补关系说明",
+          summary: "已经看得到几条可能关系。先挑一条最关键的，把“为什么相关”写清楚。"
         };
       }
       if (wikilinkCount > 0) {
         return {
           nextStep: "补关系说明",
-          summary: "已经有正文链接，下一步把“为什么相关”写成正式关系。"
+          summary: "已经看得到一条可能关系，下一步把“为什么相关”写清楚。"
         };
       }
       if (Number(overview.tagRelatedCount || 0) > 0) {
@@ -4729,7 +4871,7 @@ export class EditorPane {
     if (relationState === "loading") {
       return {
         status: "读取中",
-        hint: "正式关系仍在读取中，可能相关的内容先不做最终判断。",
+        hint: "关系仍在读取中，可能相关的内容先不做最终判断。",
         badge: null,
         badgeLabel: "读取中"
       };
@@ -4737,7 +4879,7 @@ export class EditorPane {
     if (relationState === "error") {
       return {
         status: "读取失败",
-        hint: "正式关系暂时读不到；如果本来应该有可能相关的内容，可以先手动补关系或稍后重试。",
+        hint: "关系暂时读不到；如果本来应该有相关内容，可以先手动补关系或稍后重试。",
         badge: null,
         badgeLabel: "读取失败"
       };
@@ -4752,24 +4894,24 @@ export class EditorPane {
     }
     if (wikilinkCount > 0 && tagRelatedCount === 0) {
       return {
-        status: `正文链接 ${themeSignalCount || wikilinkCount}`,
-        hint: "已经有正文链接，下一步是把这条连接的理由写出来。",
+        status: `已有线索 ${themeSignalCount || wikilinkCount}`,
+        hint: "已经看得到一条可能关系，下一步是把为什么相关写清楚。",
         badge: themeSignalCount || wikilinkCount,
         badgeLabel: String(themeSignalCount || wikilinkCount)
       };
     }
     if (tagRelatedCount > 0 && wikilinkCount === 0) {
       return {
-        status: `同标签 ${themeSignalCount || tagRelatedCount}`,
-        hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
+        status: `相近笔记 ${themeSignalCount || tagRelatedCount}`,
+        hint: "目前只是看起来接近，还需要补一条有理由的关系。",
         badge: themeSignalCount || tagRelatedCount,
         badgeLabel: String(themeSignalCount || tagRelatedCount)
       };
     }
       if (wikilinkCount > 0 || tagRelatedCount > 0) {
         return {
-          status: `正文链接和同标签 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
-          hint: "已经同时有正文链接和标签接近，但还没形成正式关系。先把最关键的一条关系写清楚。",
+          status: `可能关系 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
+          hint: "已经看得到几条可能关系。先挑最关键的一条，把为什么相关写清楚。",
           badge: themeSignalCount || wikilinkCount + tagRelatedCount,
           badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
         };
@@ -4850,10 +4992,10 @@ export class EditorPane {
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
           this.semanticRelationsState === "error"
-            ? "正式关系读取失败了；正文链接和同标签只作为临时参考，稍后重试后再确认。"
+            ? "关系读取失败了；这些可能关系先只作参考，稍后重试后再确认。"
             : this.semanticRelationsState === "loading"
-              ? "正在读取正式关系；先不要把正文链接或同标签当成已经连入图谱。"
-              : "这里按顺序处理：先看建议下一步，再确认正式关系，最后只处理少量待确认内容。"
+              ? "正在读取关系；先不要把可能关系当成已经确认。"
+              : "这里按顺序处理：先看建议下一步，再补清楚关系理由。"
         }
       </div>
     `;
@@ -4920,7 +5062,7 @@ export class EditorPane {
     const checks = [
       ["一句话判断", Boolean(thesis), "补判断"],
       ["三句话压缩", summary.length === 3, "补三句话"],
-      ["至少一条正式关系", hasRelation, "去关联"],
+      ["至少一条关系", hasRelation, "去关联"],
       ["边界或反方", Boolean(boundary), "补边界"]
     ];
     const ready = confirmed && hasRelation && Boolean(boundary);
@@ -6331,14 +6473,26 @@ export class EditorPane {
       this.renderContextualToolbarState();
       this.focusEditor();
     });
+    this.els.insertLink.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      this.clearMarkdownSelectionOverride();
+      this.manualLinkReturnSelection = this.rememberedEditorSelection() || this.rememberEditorSelection();
+      this.manualLinkReturnScrollState = this.captureEditorScrollState();
+    });
     this.els.insertLink.addEventListener("click", (event) => {
+      event.preventDefault();
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       if (!this.isOriginalNote(note)) return this.onStatus("关系整理请在永久笔记里进行", "warn");
       const candidates = this.scopedLinkCandidates();
       if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
       const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;
-      this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true });
+      const returnSelection =
+        this.normalizedSelectionRange(this.manualLinkReturnSelection) ||
+        this.rememberedEditorSelection() ||
+        this.rememberEditorSelection();
+      const returnScrollState = this.manualLinkReturnScrollState || this.captureEditorScrollState();
+      this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true, returnSelection, returnScrollState });
     });
 
     this.els.insertImage?.addEventListener("click", () => {
@@ -6399,8 +6553,9 @@ export class EditorPane {
       const next = Number(row.dataset.linkIndex);
       if (Number.isInteger(next)) this.currentLinkIndex = next;
       this.currentPinnedLinkId = String(row.dataset.linkNoteId || "").trim();
+      const chosen = this.currentLinkCandidates.find((note) => note.id === this.currentPinnedLinkId) || null;
       this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
-      this.els.linkSearchInput.value = row.textContent?.trim() || "";
+      this.els.linkSearchInput.value = chosen ? this.linkCandidateDisplayTitle(chosen) : row.textContent?.trim() || "";
       this.els.linkSearchList.innerHTML = "";
       this.updateLinkPickerConfirmButton();
     });
@@ -6575,7 +6730,12 @@ export class EditorPane {
       });
     }
 
-    this.els.body.addEventListener("input", () => this.handleEditorInput());
+    this.els.body.addEventListener("input", () => {
+      this.rememberEditorSelection();
+      this.handleEditorInput();
+    });
+    this.els.body.addEventListener("keyup", () => this.rememberEditorSelection());
+    this.els.body.addEventListener("mouseup", () => this.rememberEditorSelection());
 
     this.els.editorHost?.addEventListener("paste", (event) => {
       const clipboardFiles = [...(event.clipboardData?.files || [])];
@@ -7023,7 +7183,8 @@ export class EditorPane {
       originalitySimilarity: note.originalitySimilarity,
       authorshipConfirmed: true,
       authorshipClaim: "",
-      preserveEditorFocus: true
+      preserveEditorFocus: true,
+      suppressSaveAiSuggestion: options?.suppressSaveAiSuggestion === true
     });
     if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
       tab.dirty = true;

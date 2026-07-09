@@ -106,6 +106,27 @@ test("save note state action can preserve editor focus while syncing an active n
   assert.deepEqual(calls, ["render"]);
 });
 
+test("save note state action can suppress save suggestion for quiet relation-link saves", async () => {
+  const state = {
+    activeTabId: "tab-1",
+    module: "explorer",
+    tabs: [{ id: "tab-1", noteId: "n1", title: "Note", body: "# Note\n[[Target]]" }],
+    notes: [{ id: "n1", title: "Note", body: "# Note\n[[Target]]", status: "draft" }]
+  };
+  const calls = [];
+
+  await handleSaveNoteStateChange({ noteId: "n1", body: "# Note\n[[Target]]", suppressSaveAiSuggestion: true }, {
+    state,
+    updateNote: async (_noteId, patch) => patch,
+    showSaveAiSuggestionForNote: () => calls.push("suggestion"),
+    clearSaveAiSuggestion: () => calls.push("clear-suggestion"),
+    syncSourcePromotionSystemMessageForNote: (_note, suggestion) => calls.push(["system-message", suggestion]),
+    renderAll: () => calls.push("render")
+  });
+
+  assert.deepEqual(calls, ["clear-suggestion", ["system-message", null], "render"]);
+});
+
 test("save note state action refreshes graph after saving in graph module", async () => {
   const calls = [];
   const state = {

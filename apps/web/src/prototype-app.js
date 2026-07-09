@@ -5686,7 +5686,8 @@ const editor = new EditorPane(createEditorPaneHostDeps({
   currentLiteratureTemplateSectionLabels,
   literatureTemplateSectionLabelCandidates,
   renderStatusMeta,
-  renderWorkspaceStatusHint
+  renderWorkspaceStatusHint,
+  renderAll
 }));
 loadNoteTemplateSettingsFromStorage();
 window.__prototypeEditor = editor;

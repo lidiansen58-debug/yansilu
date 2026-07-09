@@ -29,7 +29,7 @@ test("main-path summary distinguishes thin explicit relations from stable connec
   );
 
   assert.equal(result.nextStep, "补关系说明");
-  assert.match(result.summary, /正式关系/);
+  assert.match(result.summary, /关系/);
   assert.match(result.summary, /理由偏薄|写具体/);
 });
 

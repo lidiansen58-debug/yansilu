@@ -180,15 +180,18 @@
         <div class="editor-wrap">
           <div class="panel hidden" id="linkPicker">
             <div class="link-picker-head">
-              <strong>建立笔记关联</strong>
-              <button class="tb" id="btnCloseLinkPicker" type="button" aria-label="关闭关联笔记窗口">关闭</button>
+              <strong>关联永久笔记</strong>
+              <button class="tb" id="btnCloseLinkPicker" type="button" aria-label="关闭关联窗口">关闭</button>
             </div>
-            <label class="link-picker-search-label" for="linkSearchInput">要关联哪条笔记</label>
-            <input id="linkSearchInput" placeholder="搜索笔记标题" />
-            <div class="link-picker-list" id="linkSearchList"></div>
+            <div class="link-picker-search-row">
+              <label class="link-picker-search-label" for="linkSearchInput">找目标笔记</label>
+              <input id="linkSearchInput" name="yansilu-link-target-search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search" placeholder="输入标题关键词，选择要关联的永久笔记" />
+              <div class="link-picker-list" id="linkSearchList"></div>
+              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>关联</button>
+            </div>
             <div class="link-picker-meta">
               <div class="link-picker-field">
-                <label for="linkRelationTypeSelect">它们是什么关系</label>
+                <label for="linkRelationTypeSelect">关系类型</label>
                 <select id="linkRelationTypeSelect">
                   <option value="associated_with" selected>相关</option>
                   <option value="supports">支持</option>
@@ -199,12 +202,9 @@
                 </select>
               </div>
               <div class="link-picker-field">
-                <label for="linkReasonInput">为什么关联</label>
-                <textarea id="linkReasonInput" placeholder="写一句理由，例如：A 支持了 B 的判断边界。"></textarea>
+                <label for="linkReasonInput">关联理由</label>
+                <textarea id="linkReasonInput" placeholder="写一句话：当前笔记如何支持、限定、反驳、举例或桥接目标笔记。"></textarea>
               </div>
-            </div>
-            <div class="semantic-relation-card-actions link-picker-actions">
-              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>选择笔记</button>
             </div>
           </div>
           <div class="panel hidden" id="tagPicker">
@@ -330,7 +330,7 @@
                 <div id="markdownPreview" class="markdown-preview"></div>
               </aside>
             </div>
-            <section class="editor-relations-below hidden" id="editorRelationsBelow" aria-label="当前笔记语义关系"></section>
+            <section class="editor-relations-below hidden" id="editorRelationsBelow" aria-label="当前笔记关系"></section>
             <section class="editor-empty-start hidden" id="editorEmptyStart" aria-label="新手开始入口">
               <div class="editor-empty-start-head">
                 <span>第一次打开，建议先体验示例库</span>

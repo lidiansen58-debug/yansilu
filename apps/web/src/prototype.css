@@ -14020,6 +14020,43 @@
       font-weight: 800;
       color: #172033;
     }
+    #linkPicker.panel {
+      color: #172033;
+      font-family: inherit;
+    }
+    #linkPicker.panel.floating:not(.inline-picker) {
+      padding: 16px;
+      border-radius: 18px;
+      border-color: rgba(0, 143, 122, 0.18);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 24px 56px rgba(15, 23, 42, 0.18);
+    }
+    .link-picker-search-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: end;
+        margin-bottom: 10px;
+    }
+    .link-picker-search-row .link-picker-search-label {
+      grid-column: 1 / -1;
+      margin: 0;
+    }
+    .link-picker-search-row input {
+      min-height: 44px;
+      border-radius: 14px;
+      border-color: rgba(0, 143, 122, 0.22);
+      background: #fff;
+      font-size: 15px;
+      font-weight: 650;
+    }
+    .link-picker-search-row .mini-btn {
+      min-width: 92px;
+      min-height: 44px;
+      border-radius: 14px;
+      font-weight: 800;
+    }
     .link-picker-search-label {
       display: block;
       margin: 0 0 6px;
@@ -14033,6 +14070,10 @@
       gap: 10px;
       margin-top: 10px;
       margin-bottom: 10px;
+    }
+    #linkPicker .link-picker-meta {
+      grid-template-columns: 1fr;
+      margin-bottom: 0;
     }
     .link-picker-meta[hidden],
     .semantic-relation-quality-guidance[hidden] {
@@ -14056,13 +14097,28 @@
       min-height: 74px;
       resize: vertical;
     }
-    .link-picker-list {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      max-height: 240px;
-      overflow: auto;
-      background: #fff;
+    #linkPicker .link-picker-meta textarea {
+      min-height: 104px;
     }
+    .link-picker-list {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        max-height: 240px;
+        overflow: auto;
+        background: #fff;
+      }
+    #linkPicker .link-picker-list {
+        position: absolute;
+        left: 0;
+        right: 102px;
+        top: calc(100% + 6px);
+        z-index: 28;
+        max-height: min(260px, 36vh);
+        margin: 0;
+        border-radius: 14px;
+        border-color: rgba(0, 143, 122, 0.18);
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+      }
     .link-picker-list:empty {
       display: none;
     }

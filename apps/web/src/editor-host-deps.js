@@ -14,6 +14,7 @@ export function createEditorPaneHostDeps(deps = {}) {
     literatureTemplateSectionLabelCandidates = () => [],
     renderStatusMeta = () => {},
     renderWorkspaceStatusHint = () => {},
+    renderAll = () => {},
     currentNoteWritingLabel = "当前笔记"
   } = deps;
 
@@ -104,6 +105,7 @@ export function createEditorPaneHostDeps(deps = {}) {
     onChromeChange: () => {
       renderStatusMeta();
       renderWorkspaceStatusHint();
-    }
+    },
+    renderAll
   };
 }
