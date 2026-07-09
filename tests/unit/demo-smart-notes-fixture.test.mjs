@@ -204,6 +204,6 @@ test("guide note is beginner friendly and opens the complete workflow", () => {
   assert.match(guide.body, /\[\[手机上先记一句/);
   assert.match(guide.body, /\[\[写作不是最后一步/);
   assert.match(guide.body, /\[\[待关联练习/);
-  assert.match(guide.body, /\[\[为什么要关联笔记？\]\]/);
+  assert.match(guide.body, /\[\[03 为什么要建立关系？\|为什么要关联笔记？\]\]/);
   assert.doesNotMatch(guide.body, OLD_VISIBLE_ID_PATTERN);
 });

@@ -12581,6 +12581,13 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .note-peek-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -20297,6 +20304,19 @@
       border: 1px solid var(--line);
       box-shadow: var(--shadow-soft);
       background: #ffffff;
+    }
+
+    .inspector-panel:has(.note-peek-section) {
+      width: min(620px, calc(100vw - 120px));
+    }
+
+    .inspector-panel:has(.note-peek-section) > .panel-head {
+      display: none;
+    }
+
+    .inspector-panel:has(.note-peek-section) .note-peek-preview h1 {
+      font-size: 30px;
+      line-height: 1.25;
     }
 
     .semantic-relation-item[data-relation-tone="support"] {

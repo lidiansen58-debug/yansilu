@@ -102,6 +102,7 @@ test("cross-folder link candidates use a folder-prefixed display label", async (
 
 test("wikilink preview avoids low-value match and count metadata", async () => {
   const source = await readEditorDomainSource();
+  const css = await fs.readFile(new URL("../../apps/web/src/prototype.css", import.meta.url), "utf8");
   const preview = editorRelationLinkCandidatePreviewText({
     title: "Preview target",
     body: "[[Other|alias]] explains the useful claim.\n\n#tag"
@@ -111,7 +112,20 @@ test("wikilink preview avoids low-value match and count metadata", async () => {
   assert.ok(source.includes('data-open-linked-note="${escapeHtml(note.id)}"'));
   assert.ok(source.includes("async openLinkedPreviewNote(noteId)"));
   assert.ok(source.includes("void this.openLinkedPreviewNote(linkedNoteButton.dataset.openLinkedNote);"));
-  assert.ok(source.includes("正文里的这个链接指向这条笔记。"));
+  assert.ok(source.includes("async resolvePreviewLinkToken(tokenValue"));
+  assert.ok(source.includes("await searchNotes({ query, excludeNoteId: this.activeNote()?.id || \"\", limit: 8 })"));
+  assert.ok(source.includes("for (const candidatePath of markdownReferencePathCandidates(query))"));
+  assert.ok(source.includes("data-close-note-peek"));
+  assert.ok(source.includes(">编辑笔记</button>"));
+  assert.doesNotMatch(source, /data-open-linked-note="\$\{escapeHtml\(note\.id\)\}">打开笔记/);
+  assert.doesNotMatch(source, /正文里的这个链接指向这条笔记。/);
+  assert.doesNotMatch(source, /快速查看这条笔记内容/);
+  assert.doesNotMatch(source, /存在重名<\/span>/);
+  assert.doesNotMatch(source, /const refreshed = this\.resolveLinkToken\(tokenValue,/);
+  assert.doesNotMatch(source, /return \{ note: items\[0\], ambiguous: items\.length > 1, mode: "search" \};/);
+  assert.match(css, /\.note-peek-actions \{[\s\S]*justify-content: space-between;/);
+  assert.match(css, /\.inspector-panel:has\(\.note-peek-section\) \{[\s\S]*width: min\(620px, calc\(100vw - 120px\)\);/);
+  assert.match(css, /\.inspector-panel:has\(\.note-peek-section\) > \.panel-head \{[\s\S]*display: none;/);
   assert.equal(preview, "alias explains the useful claim.");
   assert.doesNotMatch(source, /已匹配/);
   assert.doesNotMatch(source, /重名匹配/);
@@ -583,6 +597,28 @@ test("manual link picker does not treat ambiguous title wikilinks as an existing
 
   assert.equal(pane.hasResolvedLinkToNote("ln_duplicate_a", "[[Duplicate Title]]", candidates), false);
   assert.equal(pane.hasResolvedLinkToNote("ln_duplicate_b", "[[ln_duplicate_b|Duplicate Title]]", candidates), true);
+});
+
+test("linked preview edit opens through the host note route", async () => {
+  const opened = [];
+  const pane = Object.assign(Object.create(EditorPane.prototype), {
+    loadNoteForPreview: async () => ({ id: "note-target", title: "Target note" }),
+    onOpenNote: async (noteId, options) => {
+      opened.push({ noteId, options });
+      return true;
+    },
+    openNoteTab: () => {
+      throw new Error("host open route should handle the edit action");
+    },
+    onStateChange: () => {
+      throw new Error("host open route should trigger the full render");
+    },
+    onStatus: () => {}
+  });
+
+  await pane.openLinkedPreviewNote("note-target");
+
+  assert.deepEqual(opened, [{ noteId: "note-target", options: { preferTitleSelection: false } }]);
 });
 
 test("parseLinks returns wikilink targets without aliases or anchors", () => {

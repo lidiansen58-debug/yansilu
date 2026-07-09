@@ -5518,7 +5518,7 @@ export class EditorPane {
       if (!note) return;
       const tokenValue = linkMatch[1];
       const scoped = this.linkResolutionCandidates({ excludeNoteId: note.id });
-      const resolved = this.resolveLinkToken(tokenValue, scoped);
+      const resolved = await this.resolvePreviewLinkToken(tokenValue, scoped);
       if (resolved?.note) {
         this.setInspectorVisible(true);
         await this.showNotePreviewInInspector(resolved.note.id, {
@@ -5559,8 +5559,41 @@ export class EditorPane {
       this.onStatus("没有找到这条关联笔记。", "warn");
       return;
     }
-    this.openNoteTab(note.id, { preferTitleSelection: false });
-    this.onStatus("已打开链接笔记", "ok");
+    const openedByHost =
+      typeof this.onOpenNote === "function" ? await this.onOpenNote(note.id, { preferTitleSelection: false }) : false;
+    if (openedByHost !== true) {
+      this.openNoteTab(note.id, { preferTitleSelection: false });
+      await this.onStateChange("switch-tab");
+    }
+    this.onStatus("已在新标签中编辑这条笔记", "ok");
+  }
+
+  async resolvePreviewLinkToken(tokenValue, scopedNotes = this.linkResolutionCandidates()) {
+    const resolved = this.resolveLinkToken(tokenValue, scopedNotes);
+    if (resolved?.note) return resolved;
+    const query = wikilinkTargetFromRaw(tokenValue);
+    if (!query) return null;
+    try {
+      const result = await searchNotes({ query, excludeNoteId: this.activeNote()?.id || "", limit: 8 });
+      const items = Array.isArray(result?.items) ? result.items : [];
+      if (items.length) {
+        this.upsertApiNotes(items);
+        const scoped = this.linkResolutionCandidates({ excludeNoteId: this.activeNote()?.id || "" });
+        const byId = scoped.find((item) => normalizeText(item.id) === normalizeText(query));
+        if (byId) return { note: byId, ambiguous: false, mode: "id" };
+        for (const candidatePath of markdownReferencePathCandidates(query)) {
+          const byPath = scoped.filter((item) => noteMatchesMarkdownReferencePath(item, candidatePath));
+          if (byPath.length === 1) return { note: byPath[0], ambiguous: false, mode: "path" };
+          if (byPath.length > 1) return { note: byPath[0], ambiguous: true, mode: "path" };
+        }
+        const exactTitle = items.filter((item) => normalizeText(item.title) === normalizeText(query));
+        if (exactTitle.length === 1) return { note: exactTitle[0], ambiguous: false, mode: "search" };
+        if (exactTitle.length > 1) return { note: exactTitle[0], ambiguous: true, mode: "search" };
+      }
+    } catch (error) {
+      this.onStatus(`查找链接笔记失败：${String(error?.message || error)}`, "warn");
+    }
+    return null;
   }
 
   async showNotePreviewInInspector(noteId, options = {}) {
@@ -5570,27 +5603,11 @@ export class EditorPane {
       return;
     }
     const body = typeof note.body === "string" && note.body.trim() ? note.body : `# ${note.title || "未命名笔记"}\n`;
-    const wikilinkMode = options.mode === "wikilink";
-    const ambiguous = options.ambiguous === true;
-    const helperText = wikilinkMode
-      ? ambiguous
-        ? "正文里的这个链接找到了同名笔记，请先核对标题和内容，再决定是否打开。"
-        : "正文里的这个链接指向这条笔记。需要继续编辑或查看上下文时，直接打开笔记。"
-      : "快速查看这条笔记内容；需要继续处理时再打开笔记。";
     this.setInspectorVisible(true);
     this.els.result.innerHTML = `
-      <div class="inspector-overview">
-        <div class="inspector-overview-head">
-          <div>
-            <div class="inspector-overview-meta">${escapeHtml(options.eyebrow || "笔记预览")}</div>
-            <div class="inspector-overview-title">${escapeHtml(note.title || "未命名笔记")}</div>
-            <div class="inspector-overview-meta">${escapeHtml(helperText)}</div>
-          </div>
-          ${ambiguous ? `<span class="inspector-chip is-warning">存在重名</span>` : ""}
-        </div>
-        <div class="inspector-link-actions">
-          <button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(note.id)}">打开笔记</button>
-        </div>
+      <div class="note-peek-actions">
+        <button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(note.id)}">编辑笔记</button>
+        <button class="mini-btn icon-btn is-ghost" type="button" data-close-note-peek aria-label="关闭">×</button>
       </div>
       <section class="inspector-section note-peek-section">
         <div class="markdown-preview note-peek-preview">
@@ -6190,6 +6207,11 @@ export class EditorPane {
       const linkedNoteButton = e.target.closest("[data-open-linked-note]");
       if (linkedNoteButton?.dataset.openLinkedNote) {
         void this.openLinkedPreviewNote(linkedNoteButton.dataset.openLinkedNote);
+        return;
+      }
+      const closeNotePeekButton = e.target.closest("[data-close-note-peek]");
+      if (closeNotePeekButton) {
+        this.toggleInspector(false);
         return;
       }
       const link = e.target.closest("[data-preview-link]");
