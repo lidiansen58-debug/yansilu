@@ -7,15 +7,15 @@ export function currentModuleSidebarUi({
   const resolvedRootName = rootName || "当前目录";
   const configs = {
     today: {
-      sidebarTitle: "让笔记生长为思想",
-      sidebarSubtitle: "每天只推进一步：做最值得做的一件事。",
-      sidebarFoot: "先完成首屏推荐动作，其他信息只作参考。",
-      title: "让笔记生长为思想",
-      summary: "每天只推进一步：做最值得做的一件事。",
+      sidebarTitle: "今日整理",
+      sidebarSubtitle: "先做最重要的一步。",
+      sidebarFoot: "先完成推荐动作。",
+      title: "今日整理",
+      summary: "先做最重要的一步。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>首页</h3>
-          <p>先点右侧最重要的按钮。其他说明和检查只作参考。</p>
+          <p>看右侧推荐动作。</p>
         </div>
       `
     },

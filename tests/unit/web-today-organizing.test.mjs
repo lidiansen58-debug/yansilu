@@ -200,15 +200,13 @@ test("today organizing panel uses readable action words", () => {
   assert.match(html, /补一条关系/);
   assert.match(html, /整理主题/);
   assert.match(html, /进入写作/);
-  assert.match(html, /中心问题、关键笔记和阅读顺序/);
-  assert.match(html, /先生成提纲，再决定是否起草/);
-  assert.match(html, /新用户建议/);
-  assert.match(html, /从一条材料开始，走完一次小闭环/);
-  assert.match(html, /把记录加工成判断，再让它进入关系、主题和写作/);
-  assert.match(html, /把随笔或文献改写成自己的判断/);
+  assert.match(html, /确认这组笔记能否写成文章/);
+  assert.match(html, /生成提纲，再决定是否起草/);
+  assert.match(html, /推荐路径/);
+  assert.match(html, /材料 -> 关系 -> 主题 -> 写作/);
   assert.match(html, /建立关系/);
   assert.match(html, /开始写作/);
-  assert.match(html, /当前状态只作参考/);
+  assert.match(html, /先完成上方推荐任务/);
   assert.match(html, /处理这条材料/);
   assert.match(html, /data-today-action="review-material"/);
   assert.doesNotMatch(html, /data-today-action="review-material" disabled/);
@@ -217,10 +215,10 @@ test("today organizing panel uses readable action words", () => {
   assert.match(html, /进入写作/);
   assert.ok(html.indexOf("现在最重要") < html.indexOf("当前笔记库状态"));
   assert.ok(html.indexOf("现在最重要") < html.indexOf("今日提醒"));
-  assert.doesNotMatch(html, /today-path-inline/);
+  assert.match(html, /today-path-inline/);
   assert.match(html, /data-today-secondary-tab="path"/);
   assert.match(html, /data-today-secondary-tab="check"/);
-  assert.match(html, /data-today-secondary-panel="path"/);
+  assert.match(html, /data-today-secondary-panel="path" hidden/);
   assert.match(html, /data-today-secondary-panel="check" hidden/);
   assert.doesNotMatch(html, /<details class="today-secondary-details"/);
   assert.doesNotMatch(html, /候选队列|复核|线索|高级检查/);
@@ -288,10 +286,10 @@ test("today organizing secondary tabs switch one full-width panel", async () => 
 test("today organizing empty home makes demo import the primary first action", () => {
   const html = renderTodayOrganizingPanel({ isEmptyLibrary: true });
 
-  assert.match(html, /第一次打开，建议先体验示例库/);
-  assert.ok(html.includes("导入示例库 / 体验 Demo"));
-  assert.match(html, /用 10 分钟看懂研思录怎么让笔记生长为思想/);
-  assert.ok(html.indexOf("导入示例库 / 体验 Demo") < html.indexOf("先记录"));
+  assert.match(html, /第一次打开/);
+  assert.ok(html.includes("导入 Demo"));
+  assert.match(html, /先体验示例库/);
+  assert.ok(html.indexOf("导入 Demo") < html.indexOf("<article><strong>记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /今日提醒/);
 });

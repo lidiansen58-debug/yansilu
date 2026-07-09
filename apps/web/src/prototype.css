@@ -31,6 +31,7 @@
 .today-beginner-guide,
 .today-empty-home,
 .today-empty-next,
+.today-quick-summary,
 .today-overview-compact {
   border: 1px solid rgba(141, 170, 163, 0.28);
   border-radius: 8px;
@@ -95,10 +96,10 @@
 
 .today-primary-step {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(124px, 160px);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 18px;
+  padding: 18px 22px;
   border-color: rgba(15, 118, 110, 0.45);
   background:
     radial-gradient(circle at 100% 0%, rgba(20, 184, 166, 0.08), transparent 30%),
@@ -109,21 +110,21 @@
 .today-primary-step h3 {
   margin: 1px 0 3px;
   color: #132033;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.25;
 }
 
 .today-primary-step strong {
   display: block;
   color: #182126;
-  font-size: 15px;
+  font-size: 22px;
   line-height: 1.35;
 }
 
 .today-primary-step p {
-  margin: 3px 0 5px;
-  line-height: 1.35;
-  font-size: 13px;
+  margin: 4px 0 8px;
+  line-height: 1.5;
+  font-size: 14px;
   max-width: 760px;
 }
 
@@ -140,9 +141,10 @@
 
 .today-primary-step .mini-btn {
   justify-content: center;
-  width: 100%;
-  min-height: 38px;
-  font-size: 13px;
+  min-width: 132px;
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 14px;
   border-radius: 8px;
 }
 
@@ -226,10 +228,44 @@
   text-align: right;
 }
 
+.today-quick-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.today-path-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #52647a;
+  font-size: 13px;
+}
+
+.today-path-inline span {
+  color: #087568;
+  font-weight: 900;
+}
+
+.today-path-inline strong {
+  min-width: 0;
+  color: #132033;
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .today-beginner-guide {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
   border-color: rgba(141, 170, 163, 0.2);
   background: rgba(255, 255, 255, 0.72);
 }
@@ -241,7 +277,7 @@
 
 .today-beginner-copy strong {
   color: #132033;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.3;
 }
 
@@ -254,31 +290,31 @@
 }
 
 .today-beginner-guide ol {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
-  gap: 10px;
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .today-beginner-guide li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 2px 8px;
-  align-items: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
-  min-height: 72px;
-  padding: 13px 14px;
+  min-height: 34px;
+  padding: 4px 10px 4px 5px;
   border: 1px solid rgba(141, 170, 163, 0.22);
-  border-radius: 8px;
+  border-radius: 999px;
   background: #ffffff;
 }
 
 .today-beginner-guide li > span {
-  grid-row: span 2;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -291,7 +327,7 @@
 
 .today-beginner-guide li strong {
   color: #132033;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.25;
 }
 
@@ -304,7 +340,7 @@
 .today-action-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .today-action-card {
@@ -393,7 +429,7 @@
 
 .today-secondary-tabs {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-items: start;
 }
 
@@ -404,27 +440,28 @@
 }
 
 .today-secondary-tab {
-  min-height: 40px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 16px;
-  border: 0;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgba(141, 170, 163, 0.18);
   border-radius: 8px;
   color: #0f766e;
   cursor: pointer;
   font: inherit;
+  font-size: 13px;
   font-weight: 900;
-  background: linear-gradient(180deg, #ffffff 0%, #f2fbf7 100%);
-  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.06);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: none;
 }
 
 .today-secondary-tab span {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
+  min-height: 20px;
+  padding: 0 7px;
   border-radius: 999px;
   border: 1px solid rgba(251, 146, 60, 0.48);
   background: #fff7ed;
@@ -465,9 +502,16 @@
   .today-beginner-guide,
   .today-action-grid,
   .today-empty-next,
+  .today-quick-summary,
   .today-overview-compact,
   .today-secondary-tabs {
     grid-template-columns: 1fr;
+  }
+
+  .today-quick-summary,
+  .today-beginner-guide {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .today-secondary-tablist {
@@ -475,7 +519,7 @@
   }
 
   .today-beginner-guide ol {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: flex-start;
   }
 
   .today-overview-note {
@@ -485,7 +529,17 @@
 
 @media (max-width: 640px) {
   .today-beginner-guide ol {
+    display: grid;
     grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .today-primary-step {
+    grid-template-columns: 1fr;
+  }
+
+  .today-primary-step .mini-btn {
+    width: 100%;
   }
 }
     * { box-sizing: border-box; }
