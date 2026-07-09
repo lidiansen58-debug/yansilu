@@ -156,6 +156,38 @@ test("system message AI inbox action uses message scoped filters", async () => {
   assert.deepEqual(calls.at(-1), ["setStatus", "Inbox opened", "ok"]);
 });
 
+test("system message action buttons route before their selectable card ancestor", async () => {
+  const { calls, deps, state } = createDeps();
+
+  await handleSystemMessageModalClick({
+    target: {
+      closest(selector) {
+        if (selector === "[data-system-message-action]") {
+          return {
+            dataset: {
+              systemMessageId: "m1",
+              systemMessageAction: "open-ai-inbox"
+            }
+          };
+        }
+        if (selector === "[data-system-message-select]") {
+          return {
+            dataset: {
+              systemMessageSelect: "m2"
+            }
+          };
+        }
+        return null;
+      }
+    }
+  }, deps);
+
+  assert.equal(state.selectedId, "m1");
+  assert.ok(calls.some((call) => call[0] === "activateModule" && call[1] === "aiInbox"));
+  assert.equal(state.messages.find((message) => message.id === "m1").read, true);
+  assert.equal(state.messages.find((message) => message.id === "m2").read, false);
+});
+
 test("system message note and workflow actions route through host deps", async () => {
   const { calls, deps } = createDeps();
 

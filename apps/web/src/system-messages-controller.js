@@ -1,6 +1,4 @@
 import {
-  renderSystemMessageDetailView,
-  renderSystemMessageEmptyDetailView,
   renderSystemMessageEmptyListView,
   renderSystemMessageListView
 } from "./system-messages-view.js";
@@ -16,7 +14,6 @@ export function renderSystemMessagesDom(deps = {}) {
   } = deps;
   const systemMessages = getMessages();
   const list = $("systemMessageList");
-  const detail = $("systemMessageDetail");
   const button = $("systemMessagesButton");
   const markReadButton = $("btnSystemMessageMarkRead");
   const unreadCount = systemMessages.filter((item) => item.read !== true).length;
@@ -34,7 +31,6 @@ export function renderSystemMessagesDom(deps = {}) {
   if (!list) return;
   if (!systemMessages.length) {
     list.innerHTML = renderSystemMessageEmptyListView();
-    if (detail) detail.innerHTML = renderSystemMessageEmptyDetailView();
     return;
   }
   let selectedSystemMessageId = getSelectedMessageId();
@@ -49,8 +45,6 @@ export function renderSystemMessagesDom(deps = {}) {
     escapeHtml
   };
   list.innerHTML = renderSystemMessageListView(systemMessages, selectedMessage, viewDeps);
-  if (!detail || !selectedMessage) return;
-  detail.innerHTML = renderSystemMessageDetailView(selectedMessage, viewDeps);
 }
 
 export function openSystemMessagesDom({ latestOnly = false } = {}, deps = {}) {

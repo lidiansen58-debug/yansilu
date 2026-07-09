@@ -28,6 +28,7 @@ test("system messages view renders selectable unread list items", () => {
       id: "m1",
       title: "Review",
       body: "Needs <review>",
+      action: "open-ai-inbox",
       read: false,
       createdAt: "2026-06-22T00:00:00.000Z",
       artifactCount: 2
@@ -38,7 +39,30 @@ test("system messages view renders selectable unread list items", () => {
   assert.match(html, /system-message-item is-unread is-selected/);
   assert.match(html, /data-system-message-select="m1"/);
   assert.match(html, /Needs &lt;review>/);
+  assert.match(html, /data-system-message-action/);
   assert.match(html, /2/);
+});
+
+test("system messages view keeps full message bodies in the single-column history", () => {
+  const fullBody = "这是一条很长的系统消息，用来确认单列历史列表不会再依赖右侧详情栏显示完整内容。这里必须完整保留，而不是只留下预览摘要。";
+  const messages = [
+    {
+      id: "m-long",
+      title: "Long",
+      body: fullBody,
+      action: "open-ai-inbox",
+      read: true,
+      createdAt: "2026-06-22T00:00:00.000Z"
+    }
+  ];
+  const html = renderSystemMessageListView(messages, messages[0], {
+    ...viewDeps,
+    systemMessagePreviewText: () => "这是一条很长的系统消息..."
+  });
+
+  assert.match(html, new RegExp(fullBody));
+  assert.doesNotMatch(html, /这是一条很长的系统消息\.\.\./);
+  assert.doesNotMatch(html, /role="button"/);
 });
 
 test("system messages view renders detail action and subject", () => {

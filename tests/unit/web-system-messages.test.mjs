@@ -39,11 +39,11 @@ test("prototype exposes a system messages entry and history modal", () => {
   assert.doesNotMatch(html, /data-module="aiInbox"/);
   assert.match(html, /id="systemMessageModal"/);
   assert.match(html, /id="systemMessageList"/);
-  assert.match(html, /id="systemMessageDetail"/);
+  assert.doesNotMatch(html, /id="systemMessageDetail"/);
   assert.match(html, /id="btnSystemMessageOpenAiInbox"/);
   assert.match(css, /\.rail-btn\.has-unread::before/);
   assert.match(css, /\.system-message-layout/);
-  assert.match(css, /\.system-message-detail-card/);
+  assert.match(css, /\.system-message-row-foot/);
   assert.match(css, /body\.system-message-modal-open \.editor-helper/);
   assert.match(css, /\.system-message-item\.is-unread/);
   assert.match(css, /\.system-message-item\.is-selected/);

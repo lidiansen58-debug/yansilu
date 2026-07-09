@@ -35,7 +35,6 @@ function systemMessageDeps(overrides = {}) {
     systemMessagesButton: createElement(),
     btnSystemMessageMarkRead: createElement(),
     systemMessageList: createElement(),
-    systemMessageDetail: createElement(),
     systemMessageModal: createElement(),
     systemMessageModalNote: createElement()
   };
@@ -100,8 +99,8 @@ test("system messages controller renders unread state and normalizes selected me
   assert.equal(elements.systemMessagesButton.classList.contains("has-unread"), true);
   assert.equal(elements.btnSystemMessageMarkRead.disabled, false);
   assert.match(elements.systemMessageList.innerHTML, /data-system-message-id="latest"/);
-  assert.match(elements.systemMessageDetail.innerHTML, /data-system-message-detail-id="latest"/);
-  assert.match(elements.systemMessageDetail.innerHTML, /data-system-message-action="open-ai-inbox"/);
+  assert.doesNotMatch(elements.systemMessageList.innerHTML, /role="button"/);
+  assert.match(elements.systemMessageList.innerHTML, /data-system-message-action="open-ai-inbox"/);
 });
 
 test("system messages controller opens modal and selects latest message when requested", () => {

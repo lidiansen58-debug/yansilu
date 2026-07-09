@@ -27,6 +27,7 @@ export function renderSystemMessageListView(messages = [], selectedMessage = nul
   const {
     notes,
     escapeHtml,
+    systemMessageActionLabel,
     systemMessageDisplayTitle,
     systemMessagePreviewText,
     systemMessageSubjectText
@@ -36,17 +37,30 @@ export function renderSystemMessageListView(messages = [], selectedMessage = nul
     .map((message) => {
       const selected = message.id === selectedMessage?.id;
       const subject = systemMessageSubjectText(message, notes);
-      const preview = systemMessagePreviewText(message);
+      const fullBody = String(message.body || "").trim();
+      const bodyText = fullBody || systemMessagePreviewText(message) || "没有更多内容。";
       const title = systemMessageDisplayTitle(message, notes);
+      const actionLabel = systemMessageActionLabel(message);
+      const stateLabel = message.resolvedAt ? "已完成" : message.read ? "已读" : "未读";
       return `
-        <article class="system-message-item${message.read ? "" : " is-unread"}${selected ? " is-selected" : ""}" data-system-message-id="${escapeHtml(message.id)}" data-system-message-select="${escapeHtml(message.id)}" role="button" tabindex="0">
-          <button class="system-message-title" type="button" data-system-message-select="${escapeHtml(message.id)}" aria-current="${selected ? "true" : "false"}">
-            ${message.read ? "" : `<span class="system-message-unread-dot" aria-label="未读"></span>`}
-            <span>${escapeHtml(title)}</span>
-          </button>
-          ${subject ? `<div class="system-message-subject">${escapeHtml(subject)}</div>` : ""}
-          <div class="system-message-preview">${escapeHtml(preview)}</div>
-          <div class="system-message-meta">${message.artifactCount ? `${escapeHtml(String(message.artifactCount))} 条建议 · ` : ""}${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
+        <article class="system-message-item${message.read ? "" : " is-unread"}${selected ? " is-selected" : ""}" data-system-message-id="${escapeHtml(message.id)}">
+          <div class="system-message-card-head">
+            <button class="system-message-title" type="button" data-system-message-select="${escapeHtml(message.id)}" aria-current="${selected ? "true" : "false"}">
+              ${message.read ? "" : `<span class="system-message-unread-dot" aria-label="未读"></span>`}
+              <span>${escapeHtml(title)}</span>
+            </button>
+            <span class="system-message-state">${escapeHtml(stateLabel)}</span>
+          </div>
+          ${subject ? `<div class="system-message-focus system-message-focus-inline"><span>相关笔记</span><strong>${escapeHtml(subject)}</strong></div>` : ""}
+          <div class="system-message-body">${escapeHtml(bodyText)}</div>
+          <div class="system-message-row-foot">
+            <div class="system-message-meta">${message.artifactCount ? `${escapeHtml(String(message.artifactCount))} 条建议 · ` : ""}${escapeHtml(new Date(message.createdAt).toLocaleString())}</div>
+            ${
+              actionLabel
+                ? `<div class="system-message-actions"><button class="mini-btn primary" type="button" data-system-message-action="${escapeHtml(message.action)}" data-system-message-id="${escapeHtml(message.id)}">${escapeHtml(actionLabel)}</button></div>`
+                : ""
+            }
+          </div>
         </article>
       `;
     })

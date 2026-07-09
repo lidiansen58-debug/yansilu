@@ -65,6 +65,26 @@ export async function handleSystemMessageModalClick(event, deps = {}) {
     return { handled: true, kind: "close" };
   }
 
+  const actionButton = event?.target?.closest?.("[data-system-message-action]");
+  if (actionButton) {
+    const messageId = String(actionButton.dataset.systemMessageId || "").trim();
+    const action = String(actionButton.dataset.systemMessageAction || "").trim();
+    return handleSystemMessageActionForRuntime({
+      messages: getMessages(),
+      messageId: messageId || getSelectedMessageId(),
+      action
+    }, {
+      ...deps,
+      setStatus,
+      closeSystemMessages,
+      renderSystemMessages,
+      setSelectedMessageId,
+      markSystemMessageRead,
+      setMessages,
+      persistSystemMessages
+    });
+  }
+
   const selectButton = event?.target?.closest?.("[data-system-message-select]");
   if (selectButton) {
     const messageId = String(selectButton.dataset.systemMessageSelect || "").trim();
@@ -75,25 +95,7 @@ export async function handleSystemMessageModalClick(event, deps = {}) {
     return { handled: true, kind: "select", messageId };
   }
 
-  const actionButton = event?.target?.closest?.("[data-system-message-action]");
-  if (!actionButton) return { handled: false, kind: "" };
-
-  const messageId = String(actionButton.dataset.systemMessageId || "").trim();
-  const action = String(actionButton.dataset.systemMessageAction || "").trim();
-  return handleSystemMessageActionForRuntime({
-    messages: getMessages(),
-    messageId: messageId || getSelectedMessageId(),
-    action
-  }, {
-    ...deps,
-    setStatus,
-    closeSystemMessages,
-    renderSystemMessages,
-    setSelectedMessageId,
-    markSystemMessageRead,
-    setMessages,
-    persistSystemMessages
-  });
+  return { handled: false, kind: "" };
 }
 
 export function handleSystemMessageEscapeKey(event, deps = {}) {
