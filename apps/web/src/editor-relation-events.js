@@ -12,6 +12,13 @@ function cleanId(value = "") {
   return String(value || "").trim();
 }
 
+function escapeSelectorValue(value = "") {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(String(value));
+  }
+  return String(value).replace(/["\\]/g, "\\$&");
+}
+
 function relationPeerNoteId(link = {}, activeNoteId = "") {
   const noteId = cleanId(activeNoteId);
   const fromNoteId = cleanId(link?.fromNoteId || link?.from_note_id || link?.sourceNoteId || link?.source_note_id);
@@ -119,9 +126,10 @@ export function routeEditorRelationClick(host, event) {
   if (editorRelatedExisting) {
     const noteId = String(editorRelatedExisting.getAttribute("data-editor-related-existing") || "").trim();
     const panel = editorRelatedExisting.closest("[data-editor-related-notes-panel]");
-    const template = panel?.querySelector?.(`[data-editor-related-popover-for="${CSS.escape(noteId)}"]`);
+    const selectorNoteId = escapeSelectorValue(noteId);
+    const template = panel?.querySelector?.(`[data-editor-related-popover-for="${selectorNoteId}"]`);
     if (!template) return true;
-    const existingFloating = document.querySelector(`[data-editor-related-floating-popover][data-editor-related-popover-for="${CSS.escape(noteId)}"]`);
+    const existingFloating = document.querySelector(`[data-editor-related-floating-popover][data-editor-related-popover-for="${selectorNoteId}"]`);
     const shouldOpen = !existingFloating;
     closeEditorRelatedPopovers(document);
     if (shouldOpen) {
