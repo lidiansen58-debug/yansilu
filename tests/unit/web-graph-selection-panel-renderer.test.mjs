@@ -41,5 +41,6 @@ test("graph selection panel renderer keeps dispatcher and node edge panel wiring
   });
 
   assert.match(html, /title="Alpha"/);
-  assert.match(html, /data-graph-ai-connect-note="n1"/);
+  assert.doesNotMatch(html, /data-open-note="n1"/);
+  assert.doesNotMatch(html, /data-graph-ai-connect-note="n1"/);
 });

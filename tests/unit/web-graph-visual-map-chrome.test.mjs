@@ -18,7 +18,11 @@ test("graph visual map chrome keeps shell deps and renders zoom and defs slots",
 
   assert.equal(deps.escapeHtml, escapeHtml);
   assert.equal(deps.renderGraphIcon("x"), "<i>x</i>");
-  assert.equal(deps.labels.canvas, "Zoomable graph canvas");
+  assert.equal(deps.labels.canvas, "可缩放的关系图谱画布");
+  assert.equal(deps.labels.zoomControls, "图谱缩放");
+  assert.equal(deps.labels.zoomOut, "缩小图谱");
+  assert.equal(deps.labels.expand, "放大查看图谱");
+  assert.equal(deps.labels.panCanvasHint, "拖动空白区域移动图谱");
 
   const chrome = buildGraphVisualMapChrome({
     runtimeState: {
@@ -41,10 +45,11 @@ test("graph visual map chrome keeps shell deps and renders zoom and defs slots",
     markerColors: { support: "#fff" }
   });
 
-  assert.equal(chrome.zoomStepperMarkup, "Graph zoom:read:2");
+  assert.equal(chrome.zoomStepperMarkup, "图谱缩放:read:2");
   assert.equal(chrome.svgDefsMarkup, "defs:support");
   assert.match(chrome.headContentMarkup, /<nav>meaningful<\/nav>/);
-  assert.match(chrome.headContentMarkup, /<section>overview:false:<button>trail<\/button><\/section>/);
+  assert.match(chrome.headContentMarkup, /graph-map-mode-hint/);
+  assert.match(chrome.headContentMarkup, /看结构/);
   assert.equal(chrome.emptyStateMarkup, "empty:Argument当前没有可见笔记");
 });
 
