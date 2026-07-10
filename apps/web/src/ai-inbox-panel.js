@@ -717,7 +717,7 @@ function renderFieldSuggestionAction(artifact = {}, actionLoading = false) {
       </div>
       ${
         suggestion.adopted
-          ? `<div class="ai-inbox-detail-muted">这条字段建议已经采纳为草稿。确认观点仍需要你手动完成。</div>`
+          ? `<div class="ai-inbox-detail-muted">这条字段建议已经采纳为草稿。整理到正文仍需要你手动完成。</div>`
           : `<div class="ai-inbox-detail-muted">${escapeHtml(suggestion.value || "没有可采纳内容。")}</div>`
       }
       <button

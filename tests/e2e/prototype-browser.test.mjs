@@ -1695,12 +1695,11 @@ test("prototype permanent note distillation panel saves thesis and three-line su
   await page.fill('[data-note-distillation-form] textarea[name="summary1"]', "Line one.");
   await page.fill('[data-note-distillation-form] textarea[name="summary2"]', "Line two.");
   await page.fill('[data-note-distillation-form] textarea[name="summary3"]', "Line three.");
-  await page.selectOption('[data-note-distillation-form] select[name="distillationStatus"]', "confirmed");
-  await page.click('[data-note-distillation-form] button[type="submit"]');
+  await page.click("[data-note-distillation-confirm]");
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /观点字段已保存并确认/);
+    assert.match(String(statusText || ""), /提炼内容已整理到正文/);
   }, 10000);
 
   await waitFor(async () => {
@@ -1709,15 +1708,16 @@ test("prototype permanent note distillation panel saves thesis and three-line su
     assert.equal(note.json.item.thesis, "Distilled thesis.");
     assert.deepEqual(note.json.item.threeLineSummary, ["Line one.", "Line two.", "Line three."]);
     assert.equal(note.json.item.distillationStatus, "confirmed");
+    assert.match(note.json.item.body, /## 提炼观点/);
+    assert.match(note.json.item.body, /### 核心判断\n\nDistilled thesis\./);
   }, 10000);
 
   await page.locator("[data-permanent-workspace-pane='relations']").waitFor({ state: "visible" });
   await page.locator("[data-permanent-workspace-tab='viewpoint']", { hasText: "已确认" }).click();
-  await page.locator("[data-note-distillation-section]", { hasText: "观点提纯" }).waitFor({ state: "visible" });
-  await page.locator("[data-note-distillation-quality]", { hasText: "质量提示" }).waitFor();
-  await page.locator("[data-note-distillation-quality]", { hasText: "还缺边界、反例或反方" }).waitFor();
-  await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').waitFor({ state: "visible" });
-  assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
+  await page.locator("[data-note-distillation-section]", { hasText: "提炼观点" }).waitFor({ state: "visible" });
+  await page.locator("[data-note-distillation-close]", { hasText: "关闭" }).waitFor({ state: "visible" });
+  await page.locator("[data-note-distillation-confirm]", { hasText: "整理到正文" }).waitFor({ state: "visible" });
+  assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').count(), 0);
 });
 
 test("prototype main-path card refreshes relation state and does not leak stale relation status across note switches", async (t) => {
@@ -1893,7 +1893,7 @@ test("prototype permanent relation workspace saves manually, refreshes before sa
   }, 5000);
 });
 
-test("prototype permanent relation workspace saves an AI recommended relation in place", async (t) => {
+test("prototype permanent relation workspace saves a searched relation in place", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -1965,21 +1965,21 @@ test("prototype permanent relation workspace saves an AI recommended relation in
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "AI Relation Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
-  await page.locator('[data-permanent-relation-action="open"][data-permanent-relation-mode="ai"]').click();
+  await page.locator('[data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]').click();
 
   const workspace = page.locator("[data-permanent-relation-workspace]");
   await workspace.waitFor({ state: "visible" });
-  await page.locator('[data-permanent-relation-action="run-ai"]').click();
+  await page.locator("[data-permanent-relation-target-search]").fill("AI Relation Target");
 
   await waitFor(async () => {
-    const selectedValue = await page.locator("[data-permanent-relation-ai-select]").inputValue();
-    assert.equal(selectedValue, target.json.item.id);
     const workspaceText = await workspace.textContent();
     assert.match(String(workspaceText || ""), /AI Relation Target/);
     assert.doesNotMatch(String(workspaceText || ""), /Writing preparation|写作准备/);
   }, 10000);
 
-  await page.locator("[data-permanent-relation-ai-select]").selectOption(target.json.item.id);
+  await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
+  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("qualifies");
+  await page.locator('[data-permanent-relation-field="rationale"]').fill("AI Relation Target qualifies AI Relation Source because it explains the human confirmation boundary.");
   await page.locator("[data-permanent-relation-form] button[type='submit']").click();
 
   await waitFor(async () => {

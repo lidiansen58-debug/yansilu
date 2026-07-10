@@ -46,7 +46,7 @@ function host(overrides = {}) {
 test("permanent note sidebar controller chooses stable focus targets", () => {
   assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "note-b", mode: "manual" }), '[data-permanent-relation-field="rationale"]');
   assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "manual" }), "[data-permanent-relation-target-search]");
-  assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "ai" }), "[data-permanent-relation-ai-select]");
+  assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "ai" }), "[data-permanent-relation-target-search]");
 });
 
 test("permanent note sidebar controller opens relation workspace through a route", () => {
@@ -103,7 +103,9 @@ test("permanent note sidebar controller continuation preserves the original retu
   new PermanentNoteSidebarController(app).continueRelationWorkspace();
 
   assert.equal(app.permanentRelationWorkspaceState.open, true);
-  assert.equal(app.permanentRelationWorkspaceState.selectedTargetNoteId, "note-c");
+  assert.equal(app.permanentRelationWorkspaceState.mode, "manual");
+  assert.equal(app.permanentRelationWorkspaceState.selectedTargetNoteId, "");
+  assert.equal(app.permanentRelationWorkspaceState.rationale, "");
   assert.equal(app.permanentRelationWorkspaceState.entryRoute.returnTo, "graph");
   assert.equal(app.permanentRelationWorkspaceState.entryRoute.graphSelectionKind, "isolated");
 });
@@ -129,7 +131,7 @@ test("permanent note sidebar controller commits saved relation results in place"
   assert.equal(app.permanentRelationWorkspaceState.open, true);
   assert.equal(app.permanentRelationWorkspaceState.saveState, "saved");
   assert.equal(app.permanentRelationWorkspaceState.result.targetNoteId, "note-b");
-  assert.equal(app.renderedMessage, "saved");
+  assert.equal(app.renderedMessage, undefined);
   assert.equal(app.statusMessage, "saved");
   assert.equal(app.statusTone, "ok");
   assert.equal(app.synced, true);

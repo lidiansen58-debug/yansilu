@@ -1,8 +1,6 @@
 import {
   defaultPermanentRelationWorkspaceState,
   normalizePermanentRelationWorkspaceState,
-  permanentRelationCandidateRationale,
-  permanentRelationWorkspaceNextAiCandidate,
   resetPermanentRelationWorkspaceResult
 } from "./permanent-relation-workspace-model.js";
 import {
@@ -11,13 +9,10 @@ import {
 } from "./relation-entry-route.js";
 
 export function permanentRelationWorkspaceFocusSelector({
-  selectedTargetNoteId = "",
-  mode = "ai"
+  selectedTargetNoteId = ""
 } = {}) {
   if (selectedTargetNoteId) return '[data-permanent-relation-field="rationale"]';
-  return mode === "manual"
-    ? "[data-permanent-relation-target-search]"
-    : "[data-permanent-relation-ai-select]";
+  return "[data-permanent-relation-target-search]";
 }
 
 export class PermanentNoteSidebarController {
@@ -32,20 +27,16 @@ export class PermanentNoteSidebarController {
     const entryRoute = relationEntryRouteForPermanentWorkspace(note.id, options);
     host.setInspectorVisible(true);
     host.activatePermanentWorkspaceTab("relations");
-    const aiCandidates = host.permanentRelationWorkspaceAiCandidates(note.id);
-    const requestedMode = String(entryRoute.mode || "").trim().toLowerCase();
-    const mode = requestedMode === "manual" || (!aiCandidates.length && requestedMode !== "ai") ? "manual" : "ai";
-    const firstCandidate = permanentRelationWorkspaceNextAiCandidate(aiCandidates, host.currentSemanticRelations, note.id) || aiCandidates[0] || null;
-    const selectedTargetNoteId = String(entryRoute.targetNoteId || firstCandidate?.targetNoteId || "").trim();
-    const relationType = String(options.relationType ? entryRoute.relationType : firstCandidate?.relationType || host.relationCreateDefaultType(note) || "associated_with")
+    const selectedTargetNoteId = String(entryRoute.targetNoteId || "").trim();
+    const relationType = String(entryRoute.relationType || host.relationCreateDefaultType(note) || "associated_with")
       .trim()
       .toLowerCase();
-    const rationale = String(entryRoute.rationaleDraft || permanentRelationCandidateRationale(firstCandidate) || "").trim();
-    const insightQuestion = String(entryRoute.insightQuestionDraft || firstCandidate?.insightQuestionDraft || "").trim();
+    const rationale = String(entryRoute.rationaleDraft || "").trim();
+    const insightQuestion = String(entryRoute.insightQuestionDraft || "").trim();
     host.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
       ...defaultPermanentRelationWorkspaceState(note.id),
       open: true,
-      mode,
+      mode: "manual",
       selectedTargetNoteId,
       relationType,
       rationale,
@@ -58,8 +49,7 @@ export class PermanentNoteSidebarController {
     host.syncPermanentRelationWorkspaceOverlay();
     window.setTimeout(() => {
       host.permanentRelationWorkspaceElement()?.querySelector?.(permanentRelationWorkspaceFocusSelector({
-        selectedTargetNoteId,
-        mode
+        selectedTargetNoteId
       }))?.focus?.();
     }, 40);
     return true;
@@ -79,24 +69,6 @@ export class PermanentNoteSidebarController {
       ...patch
     }, noteId);
     host.syncPermanentRelationWorkspaceOverlay();
-  }
-
-  chooseAiCandidate(targetNoteId = "") {
-    const host = this.host;
-    const note = host.activeNote();
-    if (!note?.id) return;
-    const targetId = String(targetNoteId || "").trim();
-    const candidate = host.permanentRelationWorkspaceAiCandidates(note.id).find((item) => item.targetNoteId === targetId) || null;
-    if (!candidate) return;
-    this.patchWorkspaceState(resetPermanentRelationWorkspaceResult({
-      ...host.permanentRelationWorkspaceState,
-      mode: "ai",
-      selectedTargetNoteId: targetId,
-      relationType: candidate.relationType || "associated_with",
-      rationale: permanentRelationCandidateRationale(candidate),
-      insightQuestion: candidate.insightQuestionDraft || "",
-      dirty: true
-    }));
   }
 
   chooseManualTarget(targetNoteId = "") {
@@ -120,29 +92,23 @@ export class PermanentNoteSidebarController {
     const host = this.host;
     const note = host.activeNote();
     if (!note?.id) return;
-    const aiCandidates = host.permanentRelationWorkspaceAiCandidates(note.id);
-    const nextCandidate = permanentRelationWorkspaceNextAiCandidate(
-      aiCandidates,
-      host.currentSemanticRelations,
-      note.id,
-      [host.permanentRelationWorkspaceState.result?.targetNoteId]
-    );
+    const relationType = host.relationCreateDefaultType(note) || "associated_with";
     host.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
       ...defaultPermanentRelationWorkspaceState(note.id),
       open: true,
-      mode: nextCandidate ? "ai" : "manual",
-      selectedTargetNoteId: nextCandidate?.targetNoteId || "",
-      relationType: nextCandidate?.relationType || host.relationCreateDefaultType(note),
-      rationale: permanentRelationCandidateRationale(nextCandidate),
-      insightQuestion: nextCandidate?.insightQuestionDraft || "",
+      mode: "manual",
+      selectedTargetNoteId: "",
+      relationType,
+      rationale: "",
+      insightQuestion: "",
       entryRoute: relationEntryRouteForPermanentWorkspaceContinuation(note.id, host.permanentRelationWorkspaceState.entryRoute, {
-        mode: nextCandidate ? "ai" : "manual",
-        targetNoteId: nextCandidate?.targetNoteId || "",
-        relationType: nextCandidate?.relationType || host.relationCreateDefaultType(note),
-        rationaleDraft: permanentRelationCandidateRationale(nextCandidate),
-        insightQuestionDraft: nextCandidate?.insightQuestionDraft || ""
+        mode: "manual",
+        targetNoteId: "",
+        relationType,
+        rationaleDraft: "",
+        insightQuestionDraft: ""
       }),
-      notice: nextCandidate ? "" : "没有新的推荐，可以搜索目标笔记。"
+      notice: ""
     }, note.id);
     host.syncPermanentRelationWorkspaceOverlay();
   }
@@ -162,7 +128,7 @@ export class PermanentNoteSidebarController {
       notice: "",
       result
     }, noteId);
-    host.renderRelated(successMessage);
+    host.renderRelated();
     host.syncPermanentRelationWorkspaceOverlay();
     host.onStatus(successMessage, "ok");
   }

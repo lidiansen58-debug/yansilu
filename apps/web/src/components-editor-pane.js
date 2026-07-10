@@ -1,5 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
-﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
+import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import {
   countExplicitSemanticRelations,
   deriveNoteWritingReadiness
@@ -127,7 +127,6 @@ import {
 } from "./editor-relation-helpers.js";
 import {
   renderPermanentRelationManualTargets,
-  renderPermanentRelationTargetPreview,
   renderPermanentRelationWorkspace
 } from "./permanent-relation-workspace.js";
 import {
@@ -137,10 +136,8 @@ import {
   defaultPermanentRelationWorkspaceState,
   normalizePermanentRelationAiCandidates,
   normalizePermanentRelationWorkspaceState,
-  permanentRelationCandidateRationale,
   permanentRelationWorkspaceCanSave,
   permanentRelationWorkspaceErrorText,
-  permanentRelationWorkspaceNextAiCandidate,
   resetPermanentRelationWorkspaceResult
 } from "./permanent-relation-workspace-model.js";
 import {
@@ -3802,23 +3799,6 @@ export class EditorPane {
     return true;
   }
 
-  syncPermanentRelationTargetPreview() {
-    const slot = this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-target-preview-slot]");
-    if (!slot) return false;
-    const selected = this.permanentRelationWorkspaceSelectedTargetForPreview();
-    const target = selected?.targetNoteId
-      ? {
-          id: selected.targetNoteId,
-          title: selected.targetTitle || selected.targetNoteId,
-          thesis: selected.rationaleDraft || "",
-          body: selected.rationaleDraft || "",
-          candidate: selected
-        }
-      : selected;
-    slot.innerHTML = renderPermanentRelationTargetPreview(target, this.permanentRelationWorkspaceDeps(), this.permanentRelationWorkspaceState);
-    return true;
-  }
-
   bindPermanentRelationWorkspaceOverlayEvents(overlay) {
     if (!overlay) return;
     overlay.onclick = (event) => {
@@ -3869,10 +3849,6 @@ export class EditorPane {
     return this.permanentSidebarController().patchWorkspaceState(patch);
   }
 
-  choosePermanentRelationAiCandidate(targetNoteId = "") {
-    return this.permanentSidebarController().chooseAiCandidate(targetNoteId);
-  }
-
   choosePermanentRelationManualTarget(targetNoteId = "") {
     return this.permanentSidebarController().chooseManualTarget(targetNoteId);
   }
@@ -3887,12 +3863,12 @@ export class EditorPane {
       mode: "manual",
       manualQuery: cleanQuery,
       searchState: cleanQuery ? "loading" : "idle",
+      selectedTargetNoteId: cleanQuery ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId,
       error: "",
       notice: "",
       dirty: cleanQuery ? true : this.permanentRelationWorkspaceState.dirty === true
     }, note.id);
     this.syncPermanentRelationManualResults();
-    this.syncPermanentRelationTargetPreview();
     if (!cleanQuery) {
       this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
         ...this.permanentRelationWorkspaceState,
@@ -3901,7 +3877,6 @@ export class EditorPane {
         searchState: "idle"
       }, note.id);
       this.syncPermanentRelationManualResults();
-      this.syncPermanentRelationTargetPreview();
       return;
     }
     try {
@@ -3921,7 +3896,6 @@ export class EditorPane {
         notice: items.length ? "" : "没有匹配笔记。"
       }, note.id);
       this.syncPermanentRelationManualResults();
-      this.syncPermanentRelationTargetPreview();
     } catch (error) {
       if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
       this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
@@ -3930,7 +3904,6 @@ export class EditorPane {
         error: `搜索失败：${String(error?.message || error)}`
       }, note.id);
       this.syncPermanentRelationManualResults();
-      this.syncPermanentRelationTargetPreview();
     }
   }
 
@@ -4421,7 +4394,6 @@ export class EditorPane {
     if (result) {
       this.noteAiAnalysisByNoteId.set(noteId, result);
       if (!this.isActiveNoteId(noteId)) return;
-      this.activatePermanentWorkspaceTab("relations");
       const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
       const overview = this.buildMainPathOverviewV2({
         forward,
@@ -4432,23 +4404,16 @@ export class EditorPane {
       });
       this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
       if (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId === noteId) {
-        const aiCandidates = this.permanentRelationWorkspaceAiCandidates(noteId);
-        const firstCandidate = permanentRelationWorkspaceNextAiCandidate(aiCandidates, this.currentSemanticRelations, noteId) || aiCandidates[0] || null;
         this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
           ...this.permanentRelationWorkspaceState,
-          mode: "ai",
-          selectedTargetNoteId: firstCandidate?.targetNoteId || this.permanentRelationWorkspaceState.selectedTargetNoteId,
-          relationType: firstCandidate?.relationType || this.permanentRelationWorkspaceState.relationType,
-          rationale: permanentRelationCandidateRationale(firstCandidate) || this.permanentRelationWorkspaceState.rationale,
-          insightQuestion: firstCandidate?.insightQuestionDraft || this.permanentRelationWorkspaceState.insightQuestion,
+          mode: "manual",
           saveState: "idle",
           error: "",
-          notice: firstCandidate ? "" : "暂时没有推荐，可以手动搜索。"
+          notice: ""
         }, noteId);
         this.syncPermanentRelationWorkspaceOverlay();
       }
       this.onStatus("AI 推荐已更新，请确认是否保存关系。", "ok");
-      void this.refreshNoteAiSuggestions(noteId);
     }
   }
 
@@ -5632,15 +5597,20 @@ export class EditorPane {
         `
         : "";
 
+    const showInspectorOverview = !sidebarLayout.showDeferredWorkspace;
     this.els.result.innerHTML = `
-      <div class="inspector-overview">
-        <div class="inspector-overview-head">
-          <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
-          <div class="inspector-overview-meta">${escapeHtml(overviewMeta)}</div>
-        </div>
-        ${overviewRows}
-      </div>
-      ${sidebarLayout.showStatusSummary ? this.renderInspectorStatusSummary(note, { forward, backward, tagRelated }) : ""}
+      ${
+        showInspectorOverview
+          ? `<div class="inspector-overview">
+              <div class="inspector-overview-head">
+                <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
+                <div class="inspector-overview-meta">${escapeHtml(overviewMeta)}</div>
+              </div>
+              ${overviewRows}
+            </div>`
+          : ""
+      }
+      ${showInspectorOverview && sidebarLayout.showStatusSummary ? this.renderInspectorStatusSummary(note, { forward, backward, tagRelated }) : ""}
       ${
         sidebarLayout.showSourceGuidance
           ? `<div class="inspector-section-note" data-inspector-link-summary-note>当前编辑的是来源笔记。这里先完成永久笔记；正式打磨请在永久笔记里继续。</div>`
@@ -6337,6 +6307,11 @@ export class EditorPane {
       const distillationConfirmButton = e.target.closest("[data-note-distillation-confirm]");
       if (distillationConfirmButton) {
         void this.confirmDistillation();
+        return;
+      }
+      const distillationCloseButton = e.target.closest("[data-note-distillation-close]");
+      if (distillationCloseButton) {
+        this.toggleInspector(false);
         return;
       }
       const noteAiSuggestionAction = e.target.closest("[data-note-ai-suggestion-action]");

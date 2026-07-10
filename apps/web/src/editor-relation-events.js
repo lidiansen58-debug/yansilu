@@ -84,12 +84,6 @@ export function routeEditorRelationClick(host, event) {
     return true;
   }
 
-  const permanentRelationAiTarget = target.closest("[data-permanent-relation-ai-target]");
-  if (permanentRelationAiTarget) {
-    host.choosePermanentRelationAiCandidate(permanentRelationAiTarget.getAttribute("data-permanent-relation-ai-target"));
-    return true;
-  }
-
   const permanentRelationManualTarget = target.closest("[data-permanent-relation-manual-target]");
   if (permanentRelationManualTarget) {
     host.choosePermanentRelationManualTarget(permanentRelationManualTarget.getAttribute("data-permanent-relation-manual-target"));
@@ -157,16 +151,6 @@ export function routeEditorRelationClick(host, event) {
     }
     if (action === "continue") {
       host.continuePermanentRelationWorkspace();
-      return true;
-    }
-    if (action === "run-ai") {
-      host.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
-      void host.runPermanentNoteAnalysis();
-      return true;
-    }
-    if (action === "preview-target") {
-      const noteId = permanentRelationAction.getAttribute("data-note-id") || "";
-      if (noteId) void host.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
       return true;
     }
   }
@@ -251,12 +235,6 @@ export function routeEditorRelationInput(host, event) {
   const permanentRelationSearch = target.closest("[data-permanent-relation-target-search]");
   if (permanentRelationSearch) {
     host.queuePermanentRelationManualSearch(permanentRelationSearch);
-    return true;
-  }
-
-  const permanentRelationAiSelect = target.closest("[data-permanent-relation-ai-select]");
-  if (permanentRelationAiSelect) {
-    host.choosePermanentRelationAiCandidate(permanentRelationAiSelect.value || "");
     return true;
   }
 

@@ -149,6 +149,72 @@ function normalizeMarkdown(inputTitle, inputBody) {
   return { title, markdownBody };
 }
 
+function cleanDistillationBlockText(input) {
+  return String(input || "").replace(/\r\n/g, "\n").replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function renderConfirmedDistillationSection(note = {}) {
+  const thesis = cleanDistillationBlockText(note.thesis);
+  const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.map(cleanDistillationBlockText).filter(Boolean).slice(0, 3) : [];
+  const boundaryOrCounterpoint = cleanDistillationBlockText(note.boundaryOrCounterpoint);
+  const lines = [
+    "## 提炼观点",
+    "",
+    "### 核心判断",
+    "",
+    thesis,
+    "",
+    "### 三句话压缩",
+    ""
+  ];
+  summary.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item}`);
+  });
+  if (boundaryOrCounterpoint) {
+    lines.push("", "### 边界", "", boundaryOrCounterpoint);
+  }
+  return lines.join("\n").trim();
+}
+
+function upsertConfirmedDistillationSection(markdownBody, note = {}) {
+  const section = renderConfirmedDistillationSection(note);
+  const source = String(markdownBody || "").replace(/\r\n/g, "\n").trim();
+  const lines = source ? source.split("\n") : [];
+  const existingStart = lines.findIndex((line) => /^##\s+提炼观点\s*$/.test(String(line || "").trim()));
+  if (existingStart >= 0) {
+    let existingEnd = lines.length;
+    for (let index = existingStart + 1; index < lines.length; index += 1) {
+      if (/^##\s+\S/.test(String(lines[index] || "").trim())) {
+        existingEnd = index;
+        break;
+      }
+    }
+    const nextLines = [
+      ...lines.slice(0, existingStart),
+      ...section.split("\n"),
+      "",
+      ...lines.slice(existingEnd).filter((line, index) => index > 0 || String(line || "").trim())
+    ];
+    return `${nextLines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
+  }
+
+  const firstHeadingIndex = lines.findIndex((line) => /^#\s+\S/.test(String(line || "").trim()));
+  if (firstHeadingIndex >= 0) {
+    let insertIndex = firstHeadingIndex + 1;
+    while (insertIndex < lines.length && !String(lines[insertIndex] || "").trim()) insertIndex += 1;
+    const nextLines = [
+      ...lines.slice(0, firstHeadingIndex + 1),
+      "",
+      ...section.split("\n"),
+      "",
+      ...lines.slice(insertIndex)
+    ];
+    return `${nextLines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
+  }
+
+  return `${section}\n\n${source}`.trim() + "\n";
+}
+
 function extractLiteratureSection(markdownBody, sectionLabels = []) {
   const labels = new Set(sectionLabels.map((label) => String(label || "").trim().toLowerCase()).filter(Boolean));
   if (labels.size === 0) return "";
@@ -2628,6 +2694,7 @@ export async function confirmPermanentNoteDistillation(vaultPath, noteId, input 
     );
   }
   return updateNoteContent(vaultPath, noteId, {
+    body: upsertConfirmedDistillationSection(note.body, note),
     thesis: note.thesis,
     threeLineSummary: note.threeLineSummary,
     distillationStatus: "confirmed",

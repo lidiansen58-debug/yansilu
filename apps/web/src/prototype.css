@@ -12582,6 +12582,139 @@
       padding: 12px;
       background: #fbfbfc;
     }
+    #relatedPanel.inspector-panel {
+      top: 72px;
+      left: clamp(104px, 8vw, 132px);
+      right: clamp(16px, 2vw, 32px);
+      bottom: 32px;
+      z-index: 1420;
+      width: auto;
+      max-width: none;
+      max-height: none;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 0;
+      overflow: hidden;
+      padding: 0;
+      border: 1px solid rgba(124, 143, 157, 0.22);
+      border-radius: 20px;
+      background: rgba(252, 254, 253, 0.96);
+      box-sizing: border-box;
+      box-shadow:
+        0 0 0 9999px rgba(15, 23, 42, 0.26),
+        0 28px 76px rgba(15, 35, 45, 0.24);
+      backdrop-filter: blur(20px) saturate(135%);
+    }
+    #relatedPanel.hidden {
+      display: none;
+    }
+    #relatedPanel .panel-head {
+      min-height: 64px;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(207, 221, 218, 0.88);
+      background:
+        radial-gradient(circle at 82% 0%, rgba(20, 184, 166, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 252, 250, 0.94));
+    }
+    #relatedPanel .panel-title {
+      color: #10202a;
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    #relatedPanel .panel-note {
+      margin-top: 2px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    #relatedPanel #btnHideRelated {
+      width: 36px;
+      min-width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(241, 245, 249, 0.92);
+      color: #475569;
+    }
+    #relatedPanel #resultArea {
+      min-height: 0;
+      min-width: 0;
+      overflow: auto;
+      padding: 18px 20px 22px;
+    }
+    #relatedPanel #resultArea > *,
+    #relatedPanel .inspector-sections,
+    #relatedPanel .permanent-note-workspace,
+    #relatedPanel .inspector-deferred-body,
+    #relatedPanel .permanent-workspace-pane,
+    #relatedPanel .semantic-relations-section {
+      min-width: 0;
+    }
+    #relatedPanel .inspector-overview {
+      margin-bottom: 16px;
+      padding: 0 0 14px;
+      border: 0;
+      border-bottom: 1px solid rgba(217, 228, 225, 0.86);
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    #relatedPanel .inspector-overview-title {
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    #relatedPanel .inspector-overview-meta {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    #relatedPanel .inspector-sections {
+      gap: 0;
+    }
+    #relatedPanel .inspector-section {
+      border-top: 0;
+      padding-top: 0;
+    }
+    #relatedPanel .permanent-note-workspace .inspector-deferred-body {
+      display: grid;
+      gap: 16px;
+    }
+    #relatedPanel .semantic-relations-section {
+      display: grid;
+      gap: 12px;
+    }
+    #relatedPanel [data-note-distillation-form] {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    #relatedPanel [data-note-distillation-form] .semantic-relation-actions {
+      grid-column: 1 / -1;
+    }
+    #relatedPanel [data-note-distillation-form] .semantic-relation-actions {
+      justify-content: flex-start;
+    }
+    @media (min-width: 1500px) {
+      #relatedPanel [data-note-distillation-form] {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+    }
+    @media (max-width: 1280px) {
+      #relatedPanel.inspector-panel {
+        left: 84px;
+        right: 16px;
+      }
+    }
+    @media (max-width: 980px) {
+      #relatedPanel.inspector-panel {
+        left: 72px;
+        right: 12px;
+        top: 72px;
+        bottom: 16px;
+        border-radius: 16px;
+      }
+    }
     .editor-wrap.inspector-closed .inspector-panel {
       display: none;
     }
@@ -13231,12 +13364,12 @@
     }
     .permanent-note-workspace {
       display: grid;
-      gap: 12px;
-      padding: 12px;
-      border: 1px solid #dbe8e4;
-      border-radius: 12px;
-      background: #fbfefd;
-      box-shadow: 0 10px 24px rgba(15, 35, 45, 0.05);
+      gap: 14px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
     }
     .permanent-workspace-head {
       margin-bottom: 0;
@@ -13251,75 +13384,6 @@
       gap: 9px;
       border-top: 0;
       padding-top: 0;
-    }
-    .permanent-workspace-tabs {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      padding: 5px;
-      border: 1px solid #d9e8e4;
-      border-radius: 10px;
-      background: #ffffff;
-    }
-    .permanent-workspace-tab {
-      min-width: 0;
-      min-height: 44px;
-      display: grid;
-      gap: 3px;
-      place-items: start;
-      padding: 8px 10px;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      background: transparent;
-      color: #475569;
-      cursor: pointer;
-      font: inherit;
-      line-height: 1.3;
-      text-align: left;
-      transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
-    }
-    .permanent-workspace-tab span {
-      color: inherit;
-      font-size: 13px;
-      font-weight: 800;
-    }
-    .permanent-workspace-tab small {
-      max-width: 100%;
-      color: #64748b;
-      font-size: 10px;
-      font-weight: 700;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .permanent-workspace-tab em {
-      display: block;
-      max-width: 100%;
-      color: #52657d;
-      font-size: 10px;
-      font-style: normal;
-      font-weight: 650;
-      line-height: 1.35;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .permanent-workspace-tab:hover {
-      border-color: #c9ddd6;
-      background: #f6fbf8;
-      color: #0f6f48;
-    }
-    .permanent-workspace-tab.is-active {
-      border-color: #9fd1bb;
-      background: #ecf8f2;
-      color: #0f6f48;
-      box-shadow: inset 0 0 0 1px rgba(15, 111, 72, 0.08);
-    }
-    .permanent-workspace-tab.is-active small {
-      color: #0f766e;
-    }
-    .permanent-workspace-tab.is-active em {
-      color: #155e54;
     }
     .distillation-purpose-card {
       display: grid;
@@ -13361,17 +13425,18 @@
     }
     .permanent-workspace-pane {
       display: grid;
-      gap: 10px;
+      gap: 12px;
+      align-content: start;
     }
     .permanent-workspace-pane[hidden] {
       display: none;
     }
     .permanent-workspace-card {
       display: grid;
-      gap: 10px;
-      padding: 12px;
+      gap: 12px;
+      padding: 16px;
       border: 1px solid #dce9e4;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #ffffff;
     }
     .permanent-workspace-card strong {
@@ -13385,6 +13450,46 @@
       font-size: 12px;
       font-weight: 500;
       line-height: 1.65;
+    }
+    .permanent-workspace-secondary {
+      max-width: 720px;
+      border: 1px solid rgba(217, 228, 225, 0.86);
+      border-radius: 12px;
+      background: rgba(248, 251, 250, 0.72);
+    }
+    .permanent-workspace-secondary summary {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 14px;
+      color: #475569;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 800;
+      list-style: none;
+    }
+    .permanent-workspace-secondary summary::-webkit-details-marker {
+      display: none;
+    }
+    .permanent-workspace-secondary summary::after {
+      content: "展开";
+      color: #0f766e;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .permanent-workspace-secondary[open] summary {
+      border-bottom: 1px solid rgba(217, 228, 225, 0.86);
+    }
+    .permanent-workspace-secondary[open] summary::after {
+      content: "收起";
+    }
+    .permanent-workspace-secondary > .semantic-relations-section {
+      padding: 12px 14px 14px;
+    }
+    .permanent-workspace-secondary > .semantic-relations-section > .inspector-section-head {
+      display: none;
     }
     .permanent-workspace-card .semantic-relation-actions {
       justify-content: flex-start;
@@ -13415,10 +13520,10 @@
       backdrop-filter: blur(9px);
     }
     .permanent-relation-panel {
-      width: min(1080px, calc(100vw - 64px));
+      width: min(820px, calc(100vw - 64px));
       max-height: min(720px, calc(100vh - 48px));
       display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
       overflow: hidden;
       border: 1px solid rgba(213, 226, 236, 0.96);
       border-radius: 14px;
@@ -13511,9 +13616,9 @@
     .permanent-relation-body {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr);
-      gap: 10px;
-      padding: 12px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      padding: 18px 22px 22px;
       overflow: auto;
     }
     .permanent-relation-body.is-editing-existing {
@@ -13536,7 +13641,11 @@
     .permanent-relation-picker,
     .permanent-relation-confirm {
       min-height: 0;
-      overflow: auto;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
     }
     .permanent-relation-confirm.is-editing-existing {
       gap: 14px;
@@ -13690,6 +13799,37 @@
     }
     .permanent-relation-selected-candidate p {
       margin: 0;
+    }
+    .permanent-relation-selected-target {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      border: 1px solid #b8dcc8;
+      border-radius: 10px;
+      background: #f1fbf5;
+      padding: 9px 11px;
+    }
+    .permanent-relation-selected-target span {
+      flex: 0 0 auto;
+      color: #0f6f48;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .permanent-relation-selected-target strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #172033;
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .permanent-relation-selected-target small {
+      flex: 0 0 auto;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 750;
     }
     .permanent-relation-candidate {
       min-width: 0;
@@ -14119,6 +14259,20 @@
       display: flex;
       justify-content: flex-end;
       gap: 8px;
+    }
+    .distillation-form-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: #172033;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .distillation-form-head .mini-btn {
+      min-height: 30px;
+      padding: 0 10px;
     }
     .semantic-relation-form {
       display: grid;
@@ -21889,17 +22043,22 @@
         top: auto;
         bottom: 12px;
         width: auto;
-        max-height: min(62dvh, 520px);
-        padding: 12px;
-        border-radius: 12px;
+        max-height: min(86dvh, 720px);
+        border-radius: 16px;
         box-shadow: 0 22px 52px rgba(15, 23, 42, 0.2);
       }
 
       #relatedPanel .panel-head {
         align-items: flex-start;
+        padding: 14px 14px;
       }
 
       #relatedPanel #resultArea {
         min-width: 0;
+        padding: 14px;
+      }
+
+      #relatedPanel [data-note-distillation-form] {
+        grid-template-columns: minmax(0, 1fr);
       }
     }

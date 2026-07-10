@@ -55,19 +55,16 @@ test("permanent relation workspace renders a large relation-only flow", () => {
   });
 
   assert.match(html, /data-permanent-relation-workspace/);
-  assert.match(html, /打磨笔记/);
-  assert.match(html, />当前永久笔记</);
-  assert.match(html, /role="tablist" aria-label="打磨笔记操作"/);
-  assert.match(html, />提炼</);
   assert.match(html, />关联</);
   assert.match(html, /目标笔记/);
+  assert.match(html, /已选择/);
   assert.match(html, />关系</);
   assert.match(html, />理由</);
   assert.match(html, /placeholder="为什么相关？"/);
-  assert.match(html, />保存</);
-  assert.match(html, />推荐</);
-  assert.match(html, />选笔记</);
-  assert.match(html, /data-permanent-relation-ai-target/);
+  assert.match(html, />关联</);
+  assert.doesNotMatch(html, /role="tablist"/);
+  assert.doesNotMatch(html, /data-permanent-relation-target-preview-slot/);
+  assert.doesNotMatch(html, /data-permanent-relation-ai-target/);
   assert.doesNotMatch(html, />当前笔记</);
   assert.doesNotMatch(html, /data-permanent-relation-ai-select/);
   assert.doesNotMatch(html, /推荐只作为候选；保存前请确认关系类型和理由/);
@@ -170,7 +167,7 @@ test("permanent relation workspace keeps saved-relation counts out of the focuse
     deps
   });
 
-  assert.match(html, /选笔记/);
+  assert.match(html, /目标笔记/);
   assert.match(html, />理由</);
   assert.doesNotMatch(html, /permanent-relation-source-status/);
   assert.doesNotMatch(html, />1 条已保存关系</);
@@ -252,7 +249,7 @@ test("permanent relation workspace edits existing relations in the overlay", () 
     deps
   });
 
-  assert.match(html, />保存</);
+  assert.match(html, />保存修改</);
   assert.doesNotMatch(html, /编辑现有关系/);
   assert.match(html, /data-relation-action="delete"/);
   assert.match(html, /data-relation-id="rel_existing"/);
@@ -334,25 +331,7 @@ test("permanent relation manual search shows search errors inside the results ar
   assert.doesNotMatch(html, /没有匹配笔记/);
 });
 
-test("permanent relation workspace previews target content inside the overlay", () => {
-  const html = renderPermanentRelationWorkspace({
-    note,
-    notes: [note, target],
-    state: {
-      ...defaultPermanentRelationWorkspaceState(note.id),
-      open: true,
-      selectedTargetNoteId: target.id,
-      previewTargetNoteId: target.id
-    },
-    deps
-  });
-
-  assert.match(html, /data-permanent-relation-target-preview/);
-  assert.match(html, /好的连接/);
-  assert.doesNotMatch(html, /data-open-linked-note/);
-});
-
-test("permanent relation AI recommendations show useful target titles without internal scoring noise", () => {
+test("permanent relation workspace keeps AI recommendations out of the simple link flow", () => {
   const html = renderPermanentRelationWorkspace({
     note,
     notes: [note, target],
@@ -362,7 +341,7 @@ test("permanent relation AI recommendations show useful target titles without in
         targetTitle: "YJ-D09",
         relationType: "contrasts",
         coarseScore: 0.46,
-        rationaleDraft: "本地初判发现两条笔记存在词汇或判断重叠，建议人工确认关系。"
+        rationaleDraft: "local candidate reason"
       }
     ],
     state: {
@@ -373,91 +352,13 @@ test("permanent relation AI recommendations show useful target titles without in
     deps
   });
 
-  assert.match(html, new RegExp(target.title));
-  assert.match(html, /46%/);
-  assert.match(html, />推荐</);
-  assert.match(html, /data-permanent-relation-ai-target/);
-  assert.match(html, /标题、标签或摘要/);
-  assert.doesNotMatch(html, /<strong>YJ-D09<\/strong>/);
+  assert.match(html, /data-permanent-relation-target-search/);
+  assert.doesNotMatch(html, new RegExp(target.title));
+  assert.doesNotMatch(html, /46%/);
+  assert.doesNotMatch(html, /data-permanent-relation-ai-target/);
   assert.doesNotMatch(html, /data-permanent-relation-ai-select/);
-  assert.doesNotMatch(html, /查看其他候选/);
-  assert.doesNotMatch(html, /质量/);
-  assert.doesNotMatch(html, /本地初判发现两条笔记存在词汇或判断重叠/);
 });
 
-test("permanent relation AI recommendations hide generic local analysis templates", () => {
-  const html = renderPermanentRelationWorkspace({
-    note,
-    notes: [note, target],
-    aiCandidates: [
-      {
-        targetNoteId: target.id,
-        targetTitle: target.title,
-        relationType: "associated_with",
-        confidence: 0.18,
-        rationaleDraft: "本地初判发现弱相关信号，适合稍后人工复核。"
-      }
-    ],
-    state: {
-      ...defaultPermanentRelationWorkspaceState(note.id),
-      open: true,
-      mode: "ai"
-    },
-    deps
-  });
-
-  assert.match(html, /标题、标签或摘要/);
-  assert.doesNotMatch(html, /本地初判发现弱相关信号/);
-});
-
-test("permanent relation AI recommendations read snake_case coarse reasons", () => {
-  const html = renderPermanentRelationWorkspace({
-    note,
-    notes: [note, target],
-    aiCandidates: [
-      {
-        targetNoteId: target.id,
-        targetTitle: target.title,
-        relationType: "associated_with",
-        rationaleDraft: "本地初判发现弱相关信号，适合稍后人工复核。",
-        coarse_reasons: ["共享具体标签：易经", "标题概念接近"]
-      }
-    ],
-    state: {
-      ...defaultPermanentRelationWorkspaceState(note.id),
-      open: true,
-      mode: "ai"
-    },
-    deps
-  });
-
-  assert.match(html, /共享具体标签：易经；标题概念接近/);
-  assert.doesNotMatch(html, /标题、标签或摘要/);
-});
-
-test("permanent relation AI recommendation percent uses graph candidate scoring", () => {
-  const html = renderPermanentRelationWorkspace({
-    note,
-    notes: [note, target],
-    aiCandidates: [
-      {
-        targetNoteId: target.id,
-        targetTitle: target.title,
-        relationType: "supports",
-        coarseScore: 4
-      }
-    ],
-    state: {
-      ...defaultPermanentRelationWorkspaceState(note.id),
-      open: true,
-      mode: "ai"
-    },
-    deps
-  });
-
-  assert.match(html, /55%/);
-  assert.doesNotMatch(html, /4%/);
-});
 
 test("AI relation candidates normalize target, type and rationale for the workspace", () => {
   const candidates = normalizePermanentRelationAiCandidates(
@@ -526,7 +427,7 @@ test("AI relation candidates normalize snake_case artifact payload fields", () =
   assert.equal(candidates[0].insightQuestionDraft, "这个边界是否只适用于当前场景？");
 });
 
-test("permanent relation AI recommendations render snake_case confidence after normalization", () => {
+test("permanent relation AI recommendations normalize confidence without showing it in the simple flow", () => {
   const candidates = normalizePermanentRelationAiCandidates(
     {
       analysis: {
@@ -556,7 +457,9 @@ test("permanent relation AI recommendations render snake_case confidence after n
     deps
   });
 
-  assert.match(html, /73%/);
+  assert.equal(candidates[0].aiConfidence, 0.73);
+  assert.doesNotMatch(html, /73%/);
+  assert.doesNotMatch(html, /data-permanent-relation-ai-target/);
 });
 
 test("permanent relation workspace continues with the next unsaved AI candidate", () => {
