@@ -14600,6 +14600,7 @@
       min-height: 34px;
       padding: 5px 7px;
       border-radius: 7px;
+      width: 100%;
       max-width: 440px;
     }
     .semantic-relation-summary-row .semantic-relation-open {
@@ -14615,6 +14616,8 @@
     .semantic-relation-summary-row .semantic-relation-card-actions {
       justify-content: flex-end;
       flex-wrap: nowrap;
+      justify-self: end;
+      margin-left: auto;
     }
     .semantic-relation-summary-row .semantic-relation-card-actions .mini-btn {
       min-height: 24px;

@@ -49,6 +49,8 @@ test("permanent note workspace renders viewpoint and relation tabs", () => {
 
   assert.match(html, /data-permanent-note-workspace data-note-id="note-a"/);
   assert.match(html, /data-permanent-workspace-tab="viewpoint"/);
+  assert.match(html, />提炼<\/button>/);
+  assert.doesNotMatch(html, />观点<\/button>/);
   assert.match(html, /data-permanent-workspace-tab="relations"/);
   assert.match(html, /data-note-distillation-section/);
   assert.match(html, /data-note-relations-section/);
