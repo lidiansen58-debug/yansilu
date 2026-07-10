@@ -40,8 +40,7 @@ export class PermanentNoteDistillationController {
     return renderPermanentNoteDistillationSectionView(note, {
       noteType: host.resolvedNoteType(note),
       explicitRelationCount: host.currentExplicitRelationCount(),
-      distillationPrefill: this.currentPrefill(note?.id || ""),
-      relationNetworkPromptHtml: host.renderRelationNetworkPrompt(note)
+      distillationPrefill: this.currentPrefill(note?.id || "")
     });
   }
 
@@ -75,6 +74,17 @@ export class PermanentNoteDistillationController {
         boundaryDraft: boundary?.value || ""
       };
     }
+  }
+
+  syncDraftFromForm(form) {
+    const host = this.host;
+    const note = host.activeNote();
+    if (!note?.id || !form) return;
+    const values = permanentNoteDistillationFormValues(form);
+    applyPermanentNoteDistillationToNote(note, {
+      ...values,
+      distillationStatus: values.distillationStatus === "confirmed" ? "draft" : values.distillationStatus
+    });
   }
 
   commitTemplateVariant(choiceBox, action = "replace") {
@@ -240,6 +250,8 @@ export class PermanentNoteDistillationController {
     note.distillationStatus = "confirmed";
     note.authorship = { ...(note.authorship || {}), user_confirmed: true };
     host.renderThinkingStatus();
+    host.setInspectorVisible?.(false);
+    host.revealActiveTabBodyAtStart?.();
     host.renderRelated();
   }
 }

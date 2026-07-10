@@ -607,13 +607,13 @@ const editorPaneStateMethods = {
     this.els.relatedPanel?.classList.toggle("hidden", !visible);
     if (this.els.showRelated) {
       this.els.showRelated.classList.toggle("active", visible);
-      this.els.showRelated.dataset.tip = visible ? "收起提炼观点" : "打开提炼观点";
-      this.els.showRelated.title = visible ? "收起提炼观点" : "打开提炼观点";
+      this.els.showRelated.dataset.tip = visible ? "收起打磨笔记" : "打开打磨笔记";
+      this.els.showRelated.title = visible ? "收起打磨笔记" : "打开打磨笔记";
     }
     if (this.els.hideRelated) {
       this.els.hideRelated.classList.toggle("active", visible);
       this.els.hideRelated.textContent = visible ? "收起" : "展开";
-      this.els.hideRelated.title = visible ? "收起提炼观点" : "打开提炼观点";
+      this.els.hideRelated.title = visible ? "收起打磨笔记" : "打开打磨笔记";
     }
   },
 

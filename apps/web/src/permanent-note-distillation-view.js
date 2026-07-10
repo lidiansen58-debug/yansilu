@@ -23,10 +23,6 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
 
   return `
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
-        <div class="distillation-form-head">
-          <strong>提炼观点</strong>
-          <button class="mini-btn is-ghost" type="button" data-note-distillation-close aria-label="关闭提炼观点">关闭</button>
-        </div>
         <form class="semantic-relation-form" data-note-distillation-form>
           ${options.relationNetworkPromptHtml || ""}
           <label>

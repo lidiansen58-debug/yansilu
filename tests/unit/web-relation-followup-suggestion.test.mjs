@@ -57,7 +57,8 @@ test("relation creation stores a followup suggestion before returning to relatio
   assert.match(handlerSource, /relationFollowupSuggestionForDraft\(\{/);
   assert.match(handlerSource, /relationId: relation\?\.id \|\| relation\?\.relationId \|\| ""/);
   assert.match(handlerSource, /this\.resetPanelState\(formNoteId\);/);
-  assert.match(handlerSource, /host\.renderRelated\(relation\?\.created === false \?/);
+  assert.match(handlerSource, /await host\.refreshRelationNetworkStatuses\?\.\(note\.id, values\.toNoteId\)/);
+  assert.match(handlerSource, /await host\.refreshSemanticRelations\(note\.id, host\.relationsRequestSerial\)/);
 });
 
 test("relation followup actions focus the edit rationale or dismiss without mutation", async () => {

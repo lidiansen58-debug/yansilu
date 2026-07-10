@@ -1,19 +1,22 @@
 import {
   renderPermanentNoteWorkspace
 } from "./permanent-note-workspace-view.js";
+import { permanentNoteViewpointState } from "./permanent-note-sidebar-architecture.js";
 
 export class PermanentNoteWorkspaceController {
   constructor(host) {
     this.host = host;
     this.activeNoteId = "";
+    this.activeTab = "";
   }
 
   reset(noteId = "") {
     this.activeNoteId = String(noteId || "").trim();
+    this.activeTab = "";
   }
 
   currentTab() {
-    return "viewpoint";
+    return this.activeTab || "viewpoint";
   }
 
   workspaceElement() {
@@ -29,19 +32,38 @@ export class PermanentNoteWorkspaceController {
   renderDeferredWorkspace(note, tab) {
     if (!note?.id || !tab) return "";
     this.activeNoteId = String(note.id || "").trim();
+    if (!this.activeTab) {
+      const viewpoint = permanentNoteViewpointState(note);
+      const relationCount = Number(this.host.currentExplicitRelationCount?.() || 0);
+      this.activeTab = !viewpoint.needsViewpoint && relationCount === 0 ? "relations" : "viewpoint";
+    }
     return renderPermanentNoteWorkspace({
       note,
-      viewpointHtml: this.host.renderPermanentNoteDistillationSection(note)
+      activeTab: this.currentTab(),
+      viewpointHtml: this.host.renderPermanentNoteDistillationSection(note),
+      relationsHtml: this.host.renderCurrentRelationSection(note.id, {
+        relations: this.host.currentSemanticRelations,
+        relationState: this.host.semanticRelationsState
+      })
     });
   }
 
   refreshSnapshot(note, tab = this.host.activeTab?.(), overview = null) {
     if (!note?.id || !tab || !this.workspaceMatchesNote(note.id)) return false;
-    this.host.refreshMainPathSection?.(note, overview);
+    const workspace = this.workspaceElement();
+    if (workspace) workspace.outerHTML = this.renderDeferredWorkspace(note, tab);
     return true;
   }
 
-  activateTab() {
+  activateTab(tab = "viewpoint") {
+    const nextTab = tab === "relations" ? "relations" : "viewpoint";
+    this.activeTab = nextTab;
+    const note = this.host.activeNote?.();
+    const activeEditorTab = this.host.activeTab?.();
+    if (note?.id && activeEditorTab && this.workspaceMatchesNote(note.id)) {
+      const workspace = this.workspaceElement();
+      if (workspace) workspace.outerHTML = this.renderDeferredWorkspace(note, activeEditorTab);
+    }
     return this.workspaceMatchesNote(this.activeNoteId);
   }
 }

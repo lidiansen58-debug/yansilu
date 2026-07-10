@@ -93,14 +93,16 @@ test("relation guidance falls back to supports when no stronger signal exists", 
   assert.match(guidance.questionHint, /最值得验证的疑问/);
 });
 
-test("opening the create relation form delegates to the large relation workspace", () => {
+test("opening the create relation form keeps the large relation workspace context", () => {
   const source = readSemanticRelationsControllerSource();
   const start = source.indexOf("openCreateForm(options = {}) {");
   const end = source.indexOf("\n  openInlineCreateForm", start);
   assert.ok(start >= 0 && end > start, "expected openCreateForm body");
   const body = source.slice(start, end);
 
-  assert.match(body, /host\.openPermanentRelationWorkspace\(\{/);
+  assert.match(body, /host\.setInspectorVisible\?\.\(true\)/);
+  assert.match(body, /host\.activatePermanentWorkspaceTab\?\.\("relations"\)/);
+  assert.match(body, /this\.openInlineCreateForm\(\{/);
   assert.match(body, /targetNoteId: options\?\.targetNoteId/);
   assert.match(body, /relationType: options\?\.relationType/);
   assert.match(body, /rationaleDraft: options\?\.rationaleDraft/);
@@ -187,10 +189,12 @@ test("create relation form uses a searchable target field instead of a select bo
   assert.match(html, /type="hidden" name="toNoteId"/);
   assert.doesNotMatch(html, /data-relation-target-select/);
   assert.match(html, /value="Alpha Note"/);
-  assert.match(html, /关联到另一条永久笔记/);
-  assert.match(html, /要关联哪条笔记/);
-  assert.match(html, /为什么要关联/);
-  assert.match(html, /保存关联/);
+  assert.match(html, /\u6dfb\u52a0\u5916\u90e8\u5173\u8054/);
+  assert.match(html, /\u76ee\u6807\u7b14\u8bb0/);
+  assert.match(html, /placeholder="\u641c\u7d22\u7b14\u8bb0"/);
+  assert.match(html, /\u4fdd\u5b58\u5916\u90e8\u5173\u8054/);
+  assert.doesNotMatch(html, /data-relation-target-status/);
+  assert.doesNotMatch(html, /\u5df2\u9009\uff1a/);
   assert.doesNotMatch(html, /新建正式关联|确认建立/);
 });
 
@@ -198,7 +202,6 @@ test("relation target selection writes the chosen title back into the search fie
   const pane = Object.create(EditorPane.prototype);
   const hiddenTarget = { value: "", dataset: {} };
   const searchInput = { value: "" };
-  const status = { textContent: "" };
   const submit = { disabled: true };
   const list = { hidden: false };
   const form = {
@@ -206,7 +209,6 @@ test("relation target selection writes the chosen title back into the search fie
     querySelector(selector) {
       if (selector === "[data-relation-target-id]") return hiddenTarget;
       if (selector === "[data-relation-target-search]") return searchInput;
-      if (selector === "[data-relation-target-status]") return status;
       if (selector === 'button[type="submit"]') return submit;
       if (selector === "[data-relation-target-list]") return list;
       if (selector === 'textarea[name="rationale"]') return null;
@@ -220,7 +222,6 @@ test("relation target selection writes the chosen title back into the search fie
   assert.equal(hiddenTarget.value, "pn_target_a");
   assert.equal(hiddenTarget.dataset.targetTitle, "Alpha Note");
   assert.equal(searchInput.value, "Alpha Note");
-  assert.equal(status.textContent, "已选：Alpha Note");
   assert.equal(submit.disabled, false);
   assert.equal(list.hidden, true);
 });
@@ -229,7 +230,6 @@ test("relation target keyboard move updates the chosen candidate without closing
   const pane = Object.create(EditorPane.prototype);
   const hiddenTarget = { value: "", dataset: {} };
   const searchInput = { value: "" };
-  const status = { textContent: "" };
   const submit = { disabled: true };
   const list = { hidden: false };
   const buttons = [
@@ -257,7 +257,6 @@ test("relation target keyboard move updates the chosen candidate without closing
     querySelector(selector) {
       if (selector === "[data-relation-target-id]") return hiddenTarget;
       if (selector === "[data-relation-target-search]") return searchInput;
-      if (selector === "[data-relation-target-status]") return status;
       if (selector === 'button[type="submit"]') return submit;
       if (selector === "[data-relation-target-list]") return list;
       if (selector === 'textarea[name="rationale"]') return null;

@@ -41,9 +41,7 @@ test("permanent-note distillation renders only the compact editing form", () => 
   assert.match(html, /name="summary3"/);
   assert.match(html, /name="boundaryOrCounterpoint"/);
   assert.doesNotMatch(html, /name="distillationStatus"/);
-  assert.match(html, /data-note-distillation-close/);
-  assert.match(html, />关闭</);
-  assert.match(html, />保存草稿</);
+  assert.doesNotMatch(html, /data-note-distillation-close/);
   assert.match(html, />整理到正文</);
   assert.doesNotMatch(html, /data-note-distillation-next/);
   assert.doesNotMatch(html, /data-note-distillation-focus=/);
@@ -135,7 +133,7 @@ test("distillation focus action opens the relation workspace instead of jumping 
   assert.match(handler, /target === "confirm"/);
   assert.match(handler, /void this\.confirmDistillation\(\)/);
   assert.match(handler, /target === "relations"/);
-  assert.match(handler, /this\.openPermanentRelationWorkspace\(\{/);
+  assert.match(handler, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.doesNotMatch(handler, /target === "writing"/);
   assert.doesNotMatch(handler, /jumpToInspectorSection\("\[data-note-relations-section\]"\)/);
   assert.match(handler, /textarea\[name="boundaryOrCounterpoint"\]/);
@@ -143,13 +141,7 @@ test("distillation focus action opens the relation workspace instead of jumping 
   assert.match(handler, /textarea\[name="thesis"\]/);
 });
 
-test("distillation close action collapses the inspector panel", () => {
+test("distillation form does not add a second close action", () => {
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-editor-pane.js"), "utf8");
-  const start = source.indexOf('const distillationCloseButton = e.target.closest("[data-note-distillation-close]")');
-  const end = source.indexOf('const noteAiSuggestionAction = e.target.closest("[data-note-ai-suggestion-action]")', start);
-
-  assert.ok(start >= 0 && end > start, "expected distillation close handler");
-  const handler = source.slice(start, end);
-
-  assert.match(handler, /this\.toggleInspector\(false\)/);
+  assert.doesNotMatch(source, /data-note-distillation-close/);
 });

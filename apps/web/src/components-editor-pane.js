@@ -1898,6 +1898,23 @@ export class EditorPane {
     this.syncLiteratureWorkspaceFromBody(text);
   }
 
+  revealActiveTabBodyAtStart() {
+    const tab = this.activeTab();
+    const text = String(tab?.body || this.getEditorValue() || "");
+    this.setUnderlyingEditorValue(text);
+    if (this.richEditor?.editor && typeof this.richEditor.editor.setMarkdown === "function") {
+      this.suppressEditorChange = true;
+      try {
+        this.suppressRichEditorChange = true;
+        this.richEditor.editor.setMarkdown(text, false);
+      } finally {
+        this.suppressRichEditorChange = false;
+        this.suppressEditorChange = false;
+      }
+    }
+    this.resetEditorViewportToStart();
+  }
+
   normalizePermanentBodyForSave(body = "") {
     const raw = String(body || "").replace(/\r\n/g, "\n");
     const parsed = parsePermanentWorkspace(raw);
@@ -5618,7 +5635,6 @@ export class EditorPane {
       }
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
-        ${isPermanentNote ? this.renderEditorRelatedNotesPanel(note, tab, { relationState: "loading", relations: null }) : ""}
         ${
           sidebarLayout.showDeferredWorkspace
             ? this.renderDeferredNoteWorkspace(note, tab)
@@ -6284,9 +6300,7 @@ export class EditorPane {
           return;
         }
         if (target === "relations") {
-          this.openPermanentRelationWorkspace({
-            source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR
-          });
+          this.activatePermanentWorkspaceTab("relations");
           return;
         }
         const focusSelector =
@@ -6307,11 +6321,6 @@ export class EditorPane {
       const distillationConfirmButton = e.target.closest("[data-note-distillation-confirm]");
       if (distillationConfirmButton) {
         void this.confirmDistillation();
-        return;
-      }
-      const distillationCloseButton = e.target.closest("[data-note-distillation-close]");
-      if (distillationCloseButton) {
-        this.toggleInspector(false);
         return;
       }
       const noteAiSuggestionAction = e.target.closest("[data-note-ai-suggestion-action]");
@@ -6367,15 +6376,14 @@ export class EditorPane {
           return;
         }
         if (action === "relations") {
-          this.openPermanentRelationWorkspace({
-            source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-            notice:
-              this.semanticRelationsState === "loading"
-                ? "关系还在读取，可以先选择目标，保存前会再次确认。"
-                : this.semanticRelationsState === "error"
-                  ? "关系读取失败，你仍然可以先手动补一条确定的连接。"
-                  : ""
-          });
+          this.setInspectorVisible(true);
+          this.activatePermanentWorkspaceTab("relations");
+          if (String(mainRouteButton.dataset.noteMainRouteFocus || "").trim() === "create") {
+            this.openCreateRelationForm({
+              source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
+              mode: "manual"
+            });
+          }
           return;
         }
         if (action === "graph" || action === "writing") {
@@ -6435,7 +6443,10 @@ export class EditorPane {
       const distillationInput = e.target.closest("[data-note-distillation-form] textarea, [data-note-distillation-form] input, [data-note-distillation-form] select");
       if (distillationInput) {
         const form = distillationInput.closest("[data-note-distillation-form]");
-        if (form) this.refreshDistillationQuality(form);
+        if (form) {
+          this.permanentNoteDistillation().syncDraftFromForm(form);
+          this.refreshDistillationQuality(form);
+        }
         return;
       }
       if (routeEditorRelationInput(this, e)) {
@@ -6443,6 +6454,17 @@ export class EditorPane {
       }
     });
     this.els.editorWrap?.addEventListener("click", (e) => {
+      const mainRouteButton = e.target.closest("[data-note-main-route-action]");
+      if (mainRouteButton) {
+        const action = String(mainRouteButton.dataset.noteMainRouteAction || "").trim();
+        if (action === "relations") {
+          e.preventDefault();
+          e.stopPropagation();
+          this.setInspectorVisible(true);
+          this.activatePermanentWorkspaceTab("relations");
+          return;
+        }
+      }
       if (routeEditorRelationClick(this, e)) {
         e.preventDefault();
         e.stopPropagation();

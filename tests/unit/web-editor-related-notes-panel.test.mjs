@@ -53,6 +53,9 @@ test("editor related notes summary separates saved relations and body links", ()
   assert.equal(summary.savedCount, 2);
   assert.equal(summary.bodyLinkCount, 1);
   assert.equal(summary.linkedBodyCount, 0);
+  assert.equal(summary.externalRelationCount, 2);
+  assert.equal(summary.bodyRelationCount, 1);
+  assert.equal(summary.totalRelationCount, 3);
   assert.deepEqual(
     summary.outgoing.map((item) => item.id),
     ["rel-out"]
@@ -86,6 +89,9 @@ test("editor related notes summary does not repeat body links that already have 
   assert.equal(summary.savedCount, 1);
   assert.equal(summary.bodyLinkCount, 1);
   assert.equal(summary.linkedBodyCount, 1);
+  assert.equal(summary.externalRelationCount, 1);
+  assert.equal(summary.bodyRelationCount, 0);
+  assert.equal(summary.totalRelationCount, 1);
   assert.deepEqual(summary.bodyLinks.map((note) => note.id), ["body-link"]);
   assert.equal(summary.relationMap.get("body-link").length, 1);
 });
@@ -103,6 +109,13 @@ test("editor related notes panel renders body links with clear status actions", 
           toNoteId: "target",
           relationType: "supports",
           rationale: "目标笔记支持当前判断。"
+        },
+        {
+          id: "wiki-only",
+          fromNoteId: "current",
+          toNoteId: "body-link",
+          relationType: "associated_with",
+          rationale: "markdown_wikilink"
         }
       ],
       backlinks: []
@@ -134,6 +147,13 @@ test("editor body relation actions render existing body-link relations outside s
           toNoteId: "target",
           relationType: "supports",
           rationale: "目标笔记支持当前判断。"
+        },
+        {
+          id: "wiki-only",
+          fromNoteId: "current",
+          toNoteId: "body-link",
+          relationType: "associated_with",
+          rationale: "markdown_wikilink"
         }
       ],
       backlinks: []
@@ -142,11 +162,41 @@ test("editor body relation actions render existing body-link relations outside s
     backward: []
   });
 
-  assert.match(html, /data-editor-related-existing-overview/);
-  assert.match(html, /已有关联/);
-  assert.match(html, /data-editor-related-popover-for="editor-body-related"/);
-  assert.match(html, /data-relation-action="open-edit"/);
-  assert.match(html, /目标笔记/);
+  assert.match(html, /data-note-main-route-action="relations"/);
+  assert.match(html, /关联 2/);
+  assert.doesNotMatch(html, /data-editor-related-popover-for="editor-body-related"/);
+  assert.doesNotMatch(html, /data-relation-action="open-edit"/);
+});
+
+test("editor body relation action count includes body links and external relations", () => {
+  const html = renderEditorBodyRelationActions({
+    note: notes[0],
+    relationState: "loaded",
+    notes,
+    relations: {
+      outgoingLinks: [
+        {
+          id: "rel-out",
+          fromNoteId: "current",
+          toNoteId: "target",
+          relationType: "supports",
+          rationale: "目标笔记支持当前判断。"
+        },
+        {
+          id: "wiki-only",
+          fromNoteId: "current",
+          toNoteId: "body-link",
+          relationType: "associated_with",
+          rationale: "markdown_wikilink"
+        }
+      ],
+      backlinks: []
+    },
+    forward: [notes[1], notes[3]],
+    backward: []
+  });
+
+  assert.match(html, /关联 2/);
 });
 
 test("editor body relation actions include incoming saved relations", () => {
@@ -170,8 +220,38 @@ test("editor body relation actions include incoming saved relations", () => {
     backward: [notes[2]]
   });
 
-  assert.match(html, /data-editor-related-existing-overview/);
-  assert.match(html, /反向来源/);
-  assert.match(html, /反向来源限定当前判断/);
-  assert.match(html, /data-relation-id="rel-in"/);
+  assert.match(html, /data-note-main-route-action="relations"/);
+  assert.match(html, /关联 1/);
+  assert.doesNotMatch(html, /data-editor-related-popover-for="editor-body-related"/);
+});
+
+test("editor body relation action count includes body backlinks", () => {
+  const summary = editorRelatedNotesSummary({
+    relationState: "loaded",
+    notes,
+    relations: {
+      outgoingLinks: [],
+      backlinks: []
+    },
+    forward: [],
+    backward: [notes[4]]
+  });
+  const html = renderEditorBodyRelationActions({
+    note: notes[0],
+    relationState: "loaded",
+    notes,
+    relations: {
+      outgoingLinks: [],
+      backlinks: []
+    },
+    forward: [],
+    backward: [notes[4]]
+  });
+
+  assert.equal(summary.bodyLinkCount, 0);
+  assert.equal(summary.allBodyLinkCount, 1);
+  assert.equal(summary.bodyRelationCount, 0);
+  assert.equal(summary.externalRelationCount, 0);
+  assert.equal(summary.totalRelationCount, 0);
+  assert.equal(html, "");
 });

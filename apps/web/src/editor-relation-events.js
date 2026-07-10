@@ -170,10 +170,25 @@ export function routeEditorRelationClick(host, event) {
   if (!relationAction) return false;
 
   const action = relationAction.dataset.relationAction;
+  if (action === "switch-tab") {
+    const tab = String(relationAction.dataset.relationTab || "").trim();
+    const section = relationAction.closest("[data-note-relations-section]");
+    if (!section || !tab) return true;
+    section.querySelectorAll("[data-relation-tab]").forEach((button) => {
+      const isActive = button.getAttribute("data-relation-tab") === tab;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    section.querySelectorAll("[data-relation-tab-panel]").forEach((panel) => {
+      panel.hidden = panel.getAttribute("data-relation-tab-panel") !== tab;
+    });
+    return true;
+  }
   if (action === "open-create") {
     host.openCreateRelationForm({
       source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-      mode: "manual"
+      mode: "manual",
+      targetNoteId: relationAction.dataset.relationTargetNote || ""
     });
     return true;
   }

@@ -29,25 +29,30 @@ function host(overrides = {}) {
       }
     },
     activeTab: () => ({ body: "[[Beta]] #theme" }),
+    currentExplicitRelationCount: () => 0,
+    currentSemanticRelations: { outgoingLinks: [], backlinks: [] },
+    semanticRelationsState: "loaded",
     renderPermanentNoteDistillationSection: () => '<section data-note-distillation-section></section>',
-    refreshMainPathSection: () => {
-      app.refreshedMainPath = true;
-    },
+    renderCurrentRelationSection: () => '<section data-note-relations-section></section>',
     ...overrides
   };
   return app;
 }
 
-test("permanent note workspace renders a single viewpoint distillation pane", () => {
+test("permanent note workspace renders viewpoint and relation tabs", () => {
   const html = renderPermanentNoteWorkspace({
     note: { id: "note-a" },
-    viewpointHtml: '<section data-note-distillation-section></section>'
+    activeTab: "viewpoint",
+    viewpointHtml: '<section data-note-distillation-section></section>',
+    relationsHtml: '<section data-note-relations-section></section>'
   });
 
   assert.match(html, /data-permanent-note-workspace data-note-id="note-a"/);
+  assert.match(html, /data-permanent-workspace-tab="viewpoint"/);
+  assert.match(html, /data-permanent-workspace-tab="relations"/);
   assert.match(html, /data-note-distillation-section/);
-  assert.doesNotMatch(html, /data-permanent-workspace-tab/);
-  assert.doesNotMatch(html, /data-permanent-workspace-pane="relations"/);
+  assert.match(html, /data-note-relations-section/);
+  assert.match(html, /data-permanent-workspace-pane="relations" hidden/);
   assert.doesNotMatch(html, /data-permanent-workspace-pane="writing"/);
 });
 
@@ -65,7 +70,6 @@ test("permanent note workspace controller keeps the mounted note guard", () => {
   const controller = new PermanentNoteWorkspaceController(app);
 
   assert.equal(controller.refreshSnapshot({ id: "note-a" }, { body: "" }), false);
-  assert.equal(app.refreshedMainPath, undefined);
 });
 
 test("permanent note workspace controller refreshes only the current mounted note", () => {
@@ -83,7 +87,8 @@ test("permanent note workspace controller refreshes only the current mounted not
 
   assert.equal(controller.renderDeferredWorkspace({ id: "note-a" }, { body: "" }).includes("data-note-distillation-section"), true);
   assert.equal(controller.refreshSnapshot({ id: "note-a" }, { body: "" }), true);
-  assert.equal(app.refreshedMainPath, true);
+  assert.match(mountedWorkspace.outerHTML, /data-permanent-note-workspace/);
   assert.equal(controller.currentTab(), "viewpoint");
-  assert.equal(controller.activateTab("writing"), true);
+  assert.equal(controller.activateTab("relations"), true);
+  assert.equal(controller.currentTab(), "relations");
 });

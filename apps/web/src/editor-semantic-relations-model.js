@@ -93,16 +93,3 @@ export function nextRelationTargetHighlight({
   if (cleanSelected && items.some((item) => item?.id === cleanSelected)) return cleanSelected;
   return items[0]?.id || "";
 }
-
-export function relationTargetStatusText({
-  selectedNote = null,
-  itemCount = 0,
-  query = "",
-  hasScopedCandidates = false
-} = {}) {
-  const cleanQuery = String(query || "").trim();
-  if (selectedNote) return `已选：${selectedNote.title || selectedNote.id}`;
-  if (itemCount > 0) return cleanQuery ? `已筛选 ${itemCount} 条` : "输入关键词后选择一条笔记";
-  if (cleanQuery) return "没有匹配笔记";
-  return hasScopedCandidates ? "输入关键词后选择一条笔记" : "当前范围没有可连接笔记";
-}

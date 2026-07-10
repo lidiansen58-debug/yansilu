@@ -23,7 +23,6 @@ import {
   editorSemanticRelationFormValues,
   nextRelationTargetHighlight,
   normalizeEditorSemanticRelationPanelState,
-  relationTargetStatusText,
   validateCreateSemanticRelationForm,
   validateEditSemanticRelationForm
 } from "./editor-semantic-relations-model.js";
@@ -142,14 +141,15 @@ export class EditorSemanticRelationsController {
       noteId: note.id,
       returnTo: "right-sidebar"
     });
-    host.openPermanentRelationWorkspace({
-      source: entryRoute.source,
-      mode: entryRoute.mode || "manual",
+    host.setInspectorVisible?.(true);
+    host.activatePermanentWorkspaceTab?.("relations");
+    this.openInlineCreateForm({
       targetNoteId: options?.targetNoteId || options?.entryRoute?.targetNoteId || entryRoute.targetNoteId,
       relationType: options?.relationType || options?.entryRoute?.relationType || entryRoute.relationType,
+      entryHint: entryRoute.entryHint,
       rationaleDraft: options?.rationaleDraft || options?.entryRoute?.rationaleDraft || entryRoute.rationaleDraft,
       insightQuestionDraft: options?.insightQuestionDraft || options?.entryRoute?.insightQuestionDraft || entryRoute.insightQuestionDraft,
-      notice: entryRoute.entryHint
+      entryRoute
     });
   }
 
@@ -222,11 +222,11 @@ export class EditorSemanticRelationsController {
     const searchInput = form.querySelector("[data-relation-target-search]");
     const hiddenTargetId = form.querySelector("[data-relation-target-id]");
     const list = form.querySelector("[data-relation-target-list]");
-    const status = form.querySelector("[data-relation-target-status]");
+    const errorEl = form.querySelector("[data-relation-form-error]");
     const submit = form.querySelector('button[type="submit"]');
     const selectedBefore = String(hiddenTargetId?.value || "").trim();
     const highlightBefore = String(form.dataset.relationTargetHighlightId || "").trim();
-    if (status) status.textContent = "正在搜索 SQLite 笔记目录...";
+    if (errorEl) errorEl.textContent = "";
 
     try {
       const result = await searchNotes({
@@ -250,20 +250,12 @@ export class EditorSemanticRelationsController {
       form.dataset.relationTargetHighlightId = nextHighlightId;
       if (list) list.innerHTML = this.renderRelationTargetChoices(items, selectedBefore, query, nextHighlightId);
       if (submit) submit.disabled = !selectedBefore;
-      if (status) {
-        status.textContent = relationTargetStatusText({
-          selectedNote,
-          itemCount: items.length,
-          query: cleanQuery,
-          hasScopedCandidates: host.scopedLinkCandidates().length > 0
-        });
-      }
       if (searchInput && selectedNote && !String(searchInput.value || "").trim()) {
         searchInput.value = selectedNote.title || selectedNote.id || "";
       }
     } catch (error) {
       if (serial !== host.relationTargetSearchSerial || host.activeNote()?.id !== note.id) return;
-      if (status) status.textContent = `目标搜索失败：${String(error?.message || error)}`;
+      if (errorEl) errorEl.textContent = `目标搜索失败：${String(error?.message || error)}`;
       if (submit && !String(hiddenTargetId?.value || "").trim()) submit.disabled = true;
     }
   }
@@ -327,7 +319,6 @@ export class EditorSemanticRelationsController {
     if (!form || !cleanNoteId) return;
     const hiddenTargetId = form.querySelector("[data-relation-target-id]");
     const searchInput = form.querySelector("[data-relation-target-search]");
-    const status = form.querySelector("[data-relation-target-status]");
     const submit = form.querySelector('button[type="submit"]');
     if (hiddenTargetId) {
       hiddenTargetId.value = cleanNoteId;
@@ -336,7 +327,6 @@ export class EditorSemanticRelationsController {
     form.dataset.relationTargetHighlightId = cleanNoteId;
     if (searchInput) searchInput.value = String(noteTitle || "").trim();
     if (submit) submit.disabled = false;
-    if (status) status.textContent = `已选：${noteTitle || cleanNoteId}`;
     if (options.keepOpen) this.openTargetList(form);
     else this.closeTargetList(form);
     void host.refreshRelationTargetSearch(String(noteTitle || "").trim());
@@ -392,13 +382,7 @@ export class EditorSemanticRelationsController {
       }
       const relation = transaction.relation;
       host.syncRelationNetworkConnected(note.id, values.toNoteId);
-      if (!host.isActiveNoteId(formNoteId)) return;
-      host.onStatus(
-        relation?.created === false
-          ? `关系已存在，已复用：${note.title || note.id} -> ${target?.title || values.toNoteId}`
-          : `关系已建立：${note.title || note.id} -> ${target?.title || values.toNoteId}`,
-        "ok"
-      );
+      this.resetPanelState(formNoteId);
       host.setRelationFollowupSuggestion(
         relationFollowupSuggestionForDraft({
           noteId: note.id,
@@ -409,8 +393,11 @@ export class EditorSemanticRelationsController {
           targetTitle: target?.title || values.toNoteId
         })
       );
-      this.resetPanelState(formNoteId);
-      host.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已建立。");
+      await host.refreshRelationNetworkStatuses?.(note.id, values.toNoteId);
+      if (!host.isActiveNoteId(formNoteId)) return;
+      if (typeof host.refreshSemanticRelations === "function") await host.refreshSemanticRelations(note.id, host.relationsRequestSerial);
+      if (!host.isActiveNoteId(formNoteId)) return;
+      host.onStatus(relation?.created === false ? "关系已存在" : "关系已保存", "ok");
     } catch (error) {
       if (!host.isActiveNoteId(formNoteId)) return;
       const message = String(error?.message || error);
@@ -469,7 +456,7 @@ export class EditorSemanticRelationsController {
       host.handleEditorInput();
       await host.saveActiveNote({ autoSave: true, trigger: "promote-inline-relation", skipOriginalityCheck: true });
       if (!host.isActiveNoteId(noteId)) return;
-      host.onStatus(`已升级为正式关系：${note.title || note.id} -> ${target.title || target.id}`, "ok");
+      host.onStatus(`已转为外部关联：${note.title || note.id} -> ${target.title || target.id}`, "ok");
       host.setRelationFollowupSuggestion(
         relationFollowupSuggestionForDraft({
           noteId: note.id,
@@ -481,10 +468,10 @@ export class EditorSemanticRelationsController {
         })
       );
       this.resetPanelState(noteId);
-      host.renderRelated("已升级为正式语义关系。");
+      host.renderRelated("已转为外部关联。");
     } catch (error) {
       if (!host.isActiveNoteId(noteId)) return;
-      host.onStatus(`正式关系创建失败：${String(error?.message || error)}`, "warn");
+      host.onStatus(`外部关联创建失败：${String(error?.message || error)}`, "warn");
     }
   }
 
@@ -518,7 +505,8 @@ export class EditorSemanticRelationsController {
       if (!host.isActiveNoteId(formNoteId)) return;
       host.onStatus("关系已更新", "ok");
       this.resetPanelState(formNoteId);
-      host.renderRelated("关系已更新。");
+      if (typeof host.refreshSemanticRelations === "function") await host.refreshSemanticRelations(note.id, host.relationsRequestSerial);
+      else host.renderRelated("关系已更新。");
     } catch (error) {
       if (!host.isActiveNoteId(formNoteId)) return;
       const message = String(error?.message || error);
@@ -537,19 +525,20 @@ export class EditorSemanticRelationsController {
     const activeNoteId = String(host.activeNote()?.id || "").trim();
     const peerNoteId = String(link?.fromNoteId === activeNoteId ? link?.toNoteId || "" : link?.fromNoteId || "").trim();
     const endpoint = link ? this.relationEndpoint(link, link.fromNoteId === host.activeNote()?.id ? "outgoing" : "incoming") : null;
-    const label = endpoint?.title || "这条关系";
-    if (!window.confirm(`删除与“${label}”的这条关系？`)) return;
+    const label = endpoint?.title || "这条关联";
+    if (!window.confirm(`取消与“${label}”的外部关联？正文内容不会被删除。`)) return;
     try {
       await deleteNoteRelation(id);
       await host.refreshRelationNetworkStatuses(activeNoteId, peerNoteId);
       if (!host.isActiveNoteId(activeNoteId)) return;
-      host.onStatus("关系已删除", "ok");
+      host.onStatus("外部关联已取消", "ok");
       this.resetPanelState(activeNoteId);
       host.closePermanentRelationWorkspace?.();
-      host.renderRelated("关系已删除。");
+      if (typeof host.refreshSemanticRelations === "function") await host.refreshSemanticRelations(activeNoteId, host.relationsRequestSerial);
+      else host.renderRelated("外部关联已取消。");
     } catch (error) {
       if (!host.isActiveNoteId(activeNoteId)) return;
-      host.onStatus(`关系删除失败：${String(error?.message || error)}`, "warn");
+      host.onStatus(`取消外部关联失败：${String(error?.message || error)}`, "warn");
     }
   }
 }

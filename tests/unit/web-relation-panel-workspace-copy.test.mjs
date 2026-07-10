@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { EditorSemanticRelationsView } from "../../apps/web/src/editor-semantic-relations-view.js";
+import { editorRelatedNotesSummary } from "../../apps/web/src/editor-related-notes-panel.js";
 
 const sourcePath = new URL("../../apps/web/src/components-editor-pane.js", import.meta.url);
 const sidebarViewPath = new URL("../../apps/web/src/permanent-note-sidebar-view.js", import.meta.url);
@@ -32,10 +34,8 @@ test("relation and viewpoint polish entry stay separated", async () => {
   const relationWorkspaceSource = await readFile(permanentRelationWorkspacePath, "utf8");
   const workspaceControllerSource = await readFile(workspaceControllerPath, "utf8");
 
-  assert.match(shell, /<div class="panel-title">提炼观点<\/div>/);
-  assert.match(shell, /把当前笔记整理成清楚判断/);
-  assert.match(shell, /aria-label="提炼观点"/);
-
+  assert.match(shell, /<div class="panel-title">打磨笔记<\/div>/);
+  assert.match(shell, /aria-label="打磨笔记"/);
   assert.match(source, /renderPermanentRelationWorkspace/);
   assert.match(source, /renderPermanentNoteRelationAssistSectionView\(\{/);
   assert.match(source, /data-permanent-relation-workspace/);
@@ -48,16 +48,16 @@ test("relation and viewpoint polish entry stay separated", async () => {
   assert.match(source, /data-deferred-workspace/);
   assert.match(source, /data-permanent-note-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteDistillationSection\(note\)/);
-  assert.doesNotMatch(source, /data-permanent-workspace-tab="\$\{escapeHtml\(key\)\}"/);
-  assert.doesNotMatch(source, /key: "relations",\s+label:/);
-  assert.doesNotMatch(source, /key: "writing",\s+label:/);
+  assert.match(source, /data-permanent-workspace-tab="\$\{escapeHtml\(key\)\}"/);
+  assert.match(source, /data-permanent-workspace-pane="relations"/);
+  assert.doesNotMatch(source, /data-permanent-workspace-pane="writing"/);
   assert.doesNotMatch(workspaceControllerSource, /renderPermanentNoteWritingPrepSection\(note\)/);
   assert.doesNotMatch(workspaceControllerSource, /renderPermanentNoteRelationAssistSection\(note, overview\)/);
 
-  assert.doesNotMatch(relationWorkspaceSource, /role="tablist" aria-label="打磨笔记操作"/);
+  assert.match(source, /role="tablist" aria-label="打磨笔记"/);
   assert.doesNotMatch(source, /renderRelated\("当前笔记关联总览"\)/);
   assert.doesNotMatch(shell, /关联 \/ 写作/);
-  assert.doesNotMatch(shell, /打磨笔记/);
+  assert.match(shell, /打磨笔记/);
 });
 
 test("permanent relation manual search keeps the search input mounted while updating results", async () => {
@@ -115,4 +115,127 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   const deleteSource = semanticRelationsController.slice(deleteStart, deleteEnd);
   assert.match(deleteSource, /if \(!host\.isActiveNoteId\(activeNoteId\)\) return/);
   assert.match(deleteSource, /host\.closePermanentRelationWorkspace\?\.\(\)/);
+});
+
+test("relation workspace separates body links and external relations with user-facing actions", () => {
+  const view = new EditorSemanticRelationsView({
+    state: {
+      notes: [
+        { id: "current", title: "当前笔记", noteType: "permanent" },
+        { id: "target", title: "目标笔记", noteType: "permanent" },
+        { id: "source", title: "来源笔记", noteType: "permanent" },
+        { id: "body-only", title: "正文里的笔记", noteType: "permanent" }
+      ]
+    },
+    folderLabel() {
+      return "永久笔记";
+    }
+  });
+
+  const html = view.renderSemanticRelationsSection({
+    outgoingLinks: [
+      {
+        id: "rel-out",
+        fromNoteId: "current",
+        toNoteId: "target",
+        relationType: "supports",
+        rationale: "目标笔记支持当前判断。"
+      },
+      {
+        id: "wiki-same",
+        fromNoteId: "current",
+        toNoteId: "target",
+        relationType: "associated_with",
+        rationale: "markdown_wikilink"
+      },
+      {
+        id: "wiki-only",
+        fromNoteId: "current",
+        toNoteId: "body-only",
+        relationType: "associated_with",
+        rationale: "markdown_wikilink"
+      }
+    ],
+    backlinks: [
+      {
+        id: "rel-in",
+        fromNoteId: "source",
+        toNoteId: "current",
+        relationType: "qualifies",
+        rationale: "来源笔记限定当前判断。"
+      }
+    ]
+  }, "current");
+
+  assert.match(html, /data-relation-tab="external"/);
+  assert.match(html, /data-relation-tab="body"/);
+  assert.match(html, /外部关联/);
+  assert.match(html, /正文关联/);
+  assert.match(html, /取消外部关联/);
+  assert.match(html, />打开<\/button>/);
+  assert.doesNotMatch(html, /正文关联可以转为外部关联|转为外部关联/);
+  assert.doesNotMatch(html, /正式关系|正式关联|升级为正式|删除/);
+  assert.doesNotMatch(html, /正文关联<\/span>\s*<span class="related-item-badge">相关<\/span>/);
+  assert.equal((html.match(/目标笔记/g) || []).length, 2);
+});
+
+test("relation button count matches relation workspace tab counts", () => {
+  const notes = [
+    { id: "current", title: "当前笔记", noteType: "permanent" },
+    { id: "target", title: "目标笔记", noteType: "permanent" },
+    { id: "source", title: "来源笔记", noteType: "permanent" },
+    { id: "body-only", title: "正文里的笔记", noteType: "permanent" }
+  ];
+  const relations = {
+    outgoingLinks: [
+      {
+        id: "rel-out",
+        fromNoteId: "current",
+        toNoteId: "target",
+        relationType: "supports",
+        rationale: "目标笔记支持当前判断。"
+      },
+      {
+        id: "wiki-same",
+        fromNoteId: "current",
+        toNoteId: "target",
+        relationType: "associated_with",
+        rationale: "markdown_wikilink"
+      },
+      {
+        id: "wiki-only",
+        fromNoteId: "current",
+        toNoteId: "body-only",
+        relationType: "associated_with",
+        rationale: "markdown_wikilink"
+      }
+    ],
+    backlinks: [
+      {
+        id: "rel-in",
+        fromNoteId: "source",
+        toNoteId: "current",
+        relationType: "qualifies",
+        rationale: "来源笔记限定当前判断。"
+      }
+    ]
+  };
+  const view = new EditorSemanticRelationsView({
+    state: { notes },
+    folderLabel() {
+      return "永久笔记";
+    }
+  });
+  const html = view.renderSemanticRelationsSection(relations, "current");
+  const summary = editorRelatedNotesSummary({
+    relationState: "loaded",
+    notes,
+    relations
+  });
+
+  assert.equal(summary.externalRelationCount, 2);
+  assert.equal(summary.bodyRelationCount, 2);
+  assert.equal(summary.totalRelationCount, 4);
+  assert.match(html, /外部关联[\s\S]*?<small>2<\/small>/);
+  assert.match(html, /正文关联[\s\S]*?<small>2<\/small>/);
 });

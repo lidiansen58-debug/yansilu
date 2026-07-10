@@ -1,5 +1,9 @@
 import { escapeHtml } from "./editor-render-utils.js";
-import { relationTypeLabel } from "./editor-relation-helpers.js";
+import {
+  isHiddenRelation,
+  isMarkdownWikilinkRelation,
+  relationTypeLabel
+} from "./editor-relation-helpers.js";
 import { explicitPermanentNoteRelations } from "./permanent-note-sidebar-model.js";
 
 function noteTitle(note = null) {
@@ -60,6 +64,29 @@ function savedRelationsByEndpoint(explicit, notes = []) {
   explicit.outgoing.forEach((link) => add(savedRelationForEndpoint({ link, direction: "outgoing", notes })));
   explicit.backlinks.forEach((link) => add(savedRelationForEndpoint({ link, direction: "incoming", notes })));
   return map;
+}
+
+export function relationRowsByEndpoint(items = [], notes = []) {
+  const rows = new Map();
+  items.forEach(({ link, direction }) => {
+    const endpoint = relationEndpoint(link, direction, notes);
+    if (!endpoint.id) return;
+    const current = rows.get(endpoint.id) || {
+      endpoint,
+      links: [],
+      directions: new Set(),
+      relationTypes: new Set()
+    };
+    current.links.push({ link, direction });
+    current.directions.add(direction);
+    current.relationTypes.add(String(link?.relationType || "associated_with").trim().toLowerCase() || "associated_with");
+    rows.set(endpoint.id, current);
+  });
+  return [...rows.values()];
+}
+
+function relationRowCountByEndpoint(items = [], notes = []) {
+  return relationRowsByEndpoint(items, notes).length;
 }
 
 function renderExistingRelationPopover(note, relations = []) {
@@ -139,12 +166,32 @@ export function editorRelatedNotesSummary({
   const relationMap = savedRelationsByEndpoint(explicit, notes);
   const savedCount = explicit.all.length;
   const bodyLinks = uniqueNotes(forward);
+  const allBodyLinks = uniqueNotes([...forward, ...backward]);
   const linkedBodyCount = bodyLinks.filter((note) => (relationMap.get(noteId(note)) || []).length > 0).length;
+  const rawOutgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link)) : [];
+  const bodyRelationCount = relationRowCountByEndpoint(
+    rawOutgoing
+      .filter((link) => isMarkdownWikilinkRelation(link))
+      .map((link) => ({ link, direction: "outgoing" })),
+    notes
+  );
+  const externalRelationCount = relationRowCountByEndpoint(
+    [
+      ...explicit.outgoing.map((link) => ({ link, direction: "outgoing" })),
+      ...explicit.backlinks.map((link) => ({ link, direction: "incoming" }))
+    ],
+    notes
+  );
+  const totalRelationCount = bodyRelationCount + externalRelationCount;
   return {
     relationState: String(relationState || "idle"),
     savedCount,
     bodyLinkCount: bodyLinks.length,
     linkedBodyCount,
+    totalRelationCount,
+    bodyRelationCount,
+    externalRelationCount,
+    allBodyLinkCount: allBodyLinks.length,
     outgoing: explicit.outgoing,
     incoming: explicit.backlinks,
     relationMap,
@@ -198,46 +245,13 @@ export function renderEditorRelatedNotesPanel(options = {}) {
 
 export function renderEditorBodyRelationActions(options = {}) {
   const summary = editorRelatedNotesSummary(options);
-  const savedRelations = [...summary.relationMap.values()].flat();
-  if (summary.relationState !== "loaded" || !savedRelations.length) return "";
-
-  const rows = savedRelations
-    .map((relation) => {
-      const title = relation.endpoint?.title || relation.endpoint?.id || "";
-      const reason = relation.rationale || "还没有关系理由。";
-      return `
-        <article class="editor-related-existing-row">
-          <div>
-            <strong>${escapeHtml(title)}</strong>
-            <span>${escapeHtml(relation.label)} · ${escapeHtml(relation.relationTypeLabel)}</span>
-            <p>${escapeHtml(reason)}</p>
-          </div>
-          ${
-            relation.id
-              ? `<button class="mini-btn is-ghost" type="button" data-relation-action="open-edit" data-relation-id="${escapeHtml(relation.id)}">编辑</button>`
-              : ""
-          }
-        </article>
-      `;
-    })
-    .join("");
+  if (summary.relationState !== "loaded" || !summary.totalRelationCount) return "";
 
   return `
     <div class="editor-body-relation-actions-inner">
-      <button class="editor-body-related-button" type="button" data-editor-related-existing-overview>
-        已有关联
+      <button class="editor-body-related-button" type="button" data-note-main-route-action="relations">
+        关联 ${escapeHtml(String(summary.totalRelationCount))}
       </button>
-      <div class="editor-body-related-popovers" hidden>
-        <div class="editor-related-existing-popover" hidden data-editor-related-popover data-editor-related-popover-for="editor-body-related">
-          <div class="editor-related-existing-head">
-            <strong>这条笔记已有的关联</strong>
-            <button class="mini-btn is-ghost" type="button" data-editor-related-popover-close>关闭</button>
-          </div>
-          <div class="editor-related-existing-list">
-            ${rows}
-          </div>
-        </div>
-      </div>
     </div>
   `;
 }
