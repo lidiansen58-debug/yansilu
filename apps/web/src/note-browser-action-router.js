@@ -14,19 +14,12 @@ export function graphAssociateNoteRoute({ noteId = "", source = "", module = "",
       source: source || "explorer-browser"
     };
   }
-  if (source === "graph-context-menu" && !needsRelationWorkflow) {
-    return {
-      kind: "graph-open-relation-form",
-      handled: true,
-      noteId: cleanNoteId,
-      relationType: "associated_with"
-    };
-  }
   return {
-    kind: "graph-open-isolated-workflow",
+    kind: "graph-open-relation-form",
     handled: true,
     noteId: cleanNoteId,
-    activeTab: "manual"
+    relationType: "associated_with",
+    candidateSource: source || "graph"
   };
 }
 

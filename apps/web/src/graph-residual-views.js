@@ -57,6 +57,7 @@ export function createGraphResidualViews(deps = {}) {
     graphFullNoteByIdFromSources,
     graphIsolatedPreviewTargetForNote,
     graphIsolatedSelectionKey,
+    openRelationComposerFromGraphAction,
     graphNodeStarRank,
     graphNormalizeRelationWorkflowSelection,
     graphRelationGroupMeta,
@@ -113,7 +114,6 @@ function graphResidualRuntimeDeps(overrides = {}) {
     ...overrides
   };
 }
-
 function renderGraphIcon(...args) { return renderGraphIconView(...args); }
 
 function setGraphFocusDepth(value = "", options = {}) {
@@ -122,7 +122,6 @@ function setGraphFocusDepth(value = "", options = {}) {
     writeStoredText
   });
 }
-
 function setGraphFocusContextMode(value = "", options = {}) {
   return setGraphFocusContextModeForRuntime(graphState, value, {
     ...options,
@@ -393,8 +392,8 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOver
   return graphFilterOptionsForRuntime(edges, field, selected, allLabel, labelFn, statsOverride, graphRelationFilterOptionsDepsForRuntime());
 }
 
-const renderGraphViewModeSwitcher = (relationType = "meaningful") =>
-  renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml });
+const renderGraphViewModeSwitcher = (relationType = "meaningful", activeLens = "insight") =>
+  renderGraphViewModeSwitcherForRuntime(relationType, activeLens, { escapeHtml });
 
 const renderGraphRelationTypeFilter = (edges = [], selected = "meaningful", compact = false, statsOverride = null) =>
   renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, {
@@ -432,28 +431,27 @@ function graphReadingLensMeta(value = "insight") {
   return computeGraphReadingLensMeta(value);
 }
 
-function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false, trailingMarkup = "") {
-  return renderGraphReadingLensControlsView(activeLens, legendOpen, trailingMarkup, { escapeHtml });
+function renderGraphReadingLensControls() {
+  return renderGraphReadingLensControlsView();
 }
 const GRAPH_WORKBENCH_TAB_META = {
   clues: {
     key: "clues",
-    label: "关联任务",
-    emptyLabel: "暂无关联任务",
-    panelTitle: "关联任务",
-    statusLabel: "关联任务",
-    note: "把还没进入关系网的笔记、缺少连接和理由太薄的关系处理清楚。"
+    label: "补全关系",
+    emptyLabel: "暂无需要补的关系",
+    panelTitle: "补全关系",
+    statusLabel: "补全关系",
+    note: "找出还没连上、关系不清或需要补说明的笔记。"
   },
   questions: {
     key: "questions",
-    label: "洞察问题",
-    emptyLabel: "暂无洞察问题",
-    panelTitle: "洞察问题",
-    statusLabel: "洞察问题",
-    note: "把值得继续追问的主题、冲突和边界集中到这里。"
+    label: "形成主题",
+    emptyLabel: "暂无可形成主题的线索",
+    panelTitle: "形成主题",
+    statusLabel: "形成主题",
+    note: "看哪些笔记已经聚成一个可继续写作的问题。"
   }
 };
-
 function graphWorkbenchTabMeta(value = "clues") {
   const key = String(value || "clues").trim().toLowerCase();
   return GRAPH_WORKBENCH_TAB_META[key] || GRAPH_WORKBENCH_TAB_META.clues;
@@ -1659,6 +1657,7 @@ const graphAiConnectRuntimeController = createGraphAiConnectRuntimeController(()
   graphPotentialRelationNeedsConfirmation,
   graphRelationStatusCountsAsNetworkEdge,
   graphRelationWorkflowController,
+  openRelationComposerFromGraphAction,
   graphScopeDirectoryId,
   graphState,
   setGraphIsolatedWorkflowActiveTab,
@@ -1960,7 +1959,6 @@ const {
   pickGraphManualRelationTarget,
   saveGraphIsolatedRelationForm,
   saveGraphConfirmedRelation,
-  openGraphRelationFormInSelection,
   focusGraphRelationAdjustmentInPlace
 } = graphIsolatedWorkspaceRuntime;
 const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
@@ -1977,7 +1975,6 @@ const graphSelectionResidualView = createGraphSelectionResidualView(graphResidua
 const {
   renderGraphIsolatedSelectionPanel,
   renderGraphIsolatedCompletePanel,
-  renderGraphRelationFormSelectionPanel,
   renderGraphBridgeSelectionPanel,
   graphUniqueClusterMeta,
   graphClusterResearchMeta,
@@ -2417,11 +2414,9 @@ const {
     pickGraphManualRelationTarget,
     saveGraphIsolatedRelationForm,
     saveGraphConfirmedRelation,
-    openGraphRelationFormInSelection,
     focusGraphRelationAdjustmentInPlace,
     renderGraphIsolatedSelectionPanel,
     renderGraphIsolatedCompletePanel,
-    renderGraphRelationFormSelectionPanel,
     renderGraphBridgeSelectionPanel,
     graphUniqueClusterMeta,
     graphClusterResearchMeta,

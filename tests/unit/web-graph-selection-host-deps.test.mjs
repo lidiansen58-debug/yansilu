@@ -17,7 +17,6 @@ test("graph selection host deps builds dispatcher runtime from prototype rendere
     renderGraphThemeSelectionPanel: marker("theme"),
     renderGraphIsolatedSelectionPanel: marker("isolated"),
     renderGraphIsolatedCompletePanel: marker("isolated-complete"),
-    renderGraphRelationFormSelectionPanel: marker("relation-form"),
     renderGraphBridgeSelectionPanel: marker("bridge"),
     renderGraphNodeSelectionPanel: marker("node"),
     renderGraphEdgeSelectionPanel: marker("edge"),
@@ -27,6 +26,7 @@ test("graph selection host deps builds dispatcher runtime from prototype rendere
   const runtime = createGraphSelectionDispatcherRuntime(host);
 
   assert.equal(runtime.renderers.renderClusterPanel, host.renderGraphClusterSelectionPanel);
+  assert.equal("renderRelationFormPanel" in runtime.renderers, false);
   assert.equal(runtime.renderers.renderNodePanel, host.renderGraphNodeSelectionPanel);
   assert.equal(runtime.renderers.renderEdgePanel, host.renderGraphEdgeSelectionPanel);
   assert.equal(runtime.deps.normalizeSelection, host.normalizeGraphSelectionForVisibleItems);

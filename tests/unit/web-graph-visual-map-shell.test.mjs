@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   renderGraphMapEmptyStateView,
-  renderGraphMapLegendView,
   renderGraphMapSvgDefsView,
   renderGraphVisualMapShellView,
   renderGraphZoomStepperView
@@ -42,19 +41,6 @@ test("graph visual map shell renders svg defs with relation markers", () => {
   assert.match(markup, /markerWidth="4\.2" markerHeight="4\.2"/);
   assert.match(markup, /id="graph-node-core-fill"/);
   assert.match(markup, /id="graph-nebula-blur"/);
-});
-
-test("graph visual map shell renders legend groups as a slot-friendly view", () => {
-  const markup = renderGraphMapLegendView({
-    open: true,
-    note: "Legend note",
-    groups: [{ className: "is-support", label: "Support", detail: "Supports the claim" }]
-  });
-
-  assert.match(markup, /class="graph-map-legend"/);
-  assert.match(markup, /Legend note/);
-  assert.match(markup, /is-support/);
-  assert.match(markup, /Supports the claim/);
 });
 
 test("graph visual map shell composes canvas, svg layers, side panel, and overlay slots", () => {
@@ -109,6 +95,8 @@ test("graph visual map shell renders empty state through a slot", () => {
   assert.match(markup, /graph-map-empty-canvas/);
   assert.match(markup, /No notes/);
   assert.match(markup, /Try another mode/);
-  assert.match(markup, /data-graph-view-mode="argument"/);
-  assert.match(markup, /data-graph-view-mode="structure"/);
+  assert.match(markup, /data-graph-task-view="structure"/);
+  assert.match(markup, /data-graph-task-view="relations"/);
+  assert.match(markup, /data-graph-task-view="themes"/);
+  assert.doesNotMatch(markup, /data-graph-view-mode=/);
 });

@@ -1,11 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildGraphVisualMapControlsState,
-  buildGraphVisualMapLegendGroups
+  buildGraphVisualMapControlsState
 } from "../../apps/web/src/graph-visual-map-controls-state.js";
 
-test("graph visual map controls state derives zoom lens and legend controls", () => {
+test("graph visual map controls state derives zoom and lens state without legend controls", () => {
   const readingLensCalls = [];
   const state = buildGraphVisualMapControlsState({
     graphState: {
@@ -37,8 +36,8 @@ test("graph visual map controls state derives zoom lens and legend controls", ()
   assert.equal(state.zoomWidth, 1250);
   assert.equal(state.zoomHeight, 625);
   assert.equal(state.zoomIndex, 1);
-  assert.equal(state.legendOpen, true);
-  assert.deepEqual(state.legendGroups.map((group) => group.key), ["support", "bridge"]);
+  assert.equal(Object.prototype.hasOwnProperty.call(state, "legendOpen"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(state, "legendGroups"), false);
   assert.deepEqual(readingLensCalls[0], {
     nodes: [{ id: "n1" }],
     visibleEdges: [{ edge: { id: "e1" } }],
@@ -76,15 +75,4 @@ test("graph visual map controls state derives focus and research navigator state
   assert.equal(expanded.researchNavigatorCanOpen, false);
   assert.equal(navigatorVisible.researchNavigatorHidden, false);
   assert.equal(navigatorVisible.researchNavigatorCanOpen, true);
-});
-
-test("graph visual map legend groups preserve canonical graph order", () => {
-  assert.deepEqual(
-    buildGraphVisualMapLegendGroups({
-      neutral: { label: "Neutral" },
-      support: { label: "Support" },
-      index: { label: "Index" }
-    }).map((group) => group.key),
-    ["support", "neutral", "index"]
-  );
 });

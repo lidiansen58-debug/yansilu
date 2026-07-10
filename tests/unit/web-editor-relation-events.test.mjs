@@ -201,3 +201,33 @@ test("existing relation edit opens the permanent relation workspace", () => {
   assert.equal(opened[0].rationaleDraft, "source limits current");
   assert.equal(opened[0].insightQuestionDraft, "what changes?");
 });
+
+test("relation open-create routes through the permanent workspace composer", () => {
+  const calls = [];
+  const relationAction = attrElement({}, {
+    dataset: {
+      relationAction: "open-create",
+      relationTargetNote: "target-note"
+    }
+  });
+  const target = elementWithClosest({
+    "[data-relation-template-merge-action]": null,
+    "[data-relation-template-variant]": null,
+    "[data-permanent-relation-mode]": null,
+    "[data-permanent-relation-action]": null,
+    "[data-relation-target-choice]": null,
+    "[data-relation-action]": relationAction
+  });
+  const host = {
+    openCreateRelationForm(route) {
+      calls.push(route);
+    }
+  };
+
+  assert.equal(routeEditorRelationClick(host, eventFor(target)), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].source, "permanent-relation-workspace");
+  assert.equal(calls[0].mode, "manual");
+  assert.equal(calls[0].targetNoteId, "target-note");
+  assert.equal(calls[0].returnTo, "permanent-relation-workspace");
+});

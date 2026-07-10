@@ -5,7 +5,7 @@ function cleanText(value = "") {
 function graphSelectionNeedsConfirmation(graphState = {}) {
   const selection = graphState?.selection || null;
   const kind = cleanText(selection?.kind);
-  if (!selection || !["isolated", "relationForm"].includes(kind)) return false;
+  if (!selection || kind !== "isolated") return false;
 
   const noteId = cleanText(selection.noteId || selection.sourceNoteId || selection.nodeId);
   const draft = noteId ? graphState?.isolatedRelationDraftByNoteId?.[noteId] : null;

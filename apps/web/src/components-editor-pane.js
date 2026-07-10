@@ -6,7 +6,6 @@ import {
 } from "./writing-readiness.js";
 import {
   checkOriginality,
-  createNoteRelation,
   deleteNoteRelation,
   adoptAiInboxFieldSuggestion,
   fetchNote,
@@ -17,7 +16,6 @@ import {
   listTags,
   searchNotes,
   updateAiSuggestion,
-  updateNoteRelation,
   uploadNoteAsset
 } from "./prototype-api.js";
 import {
@@ -112,7 +110,6 @@ import {
   noteTypeText,
   normalizeRelationTemplateVariants,
   parseInlineRelationAnnotations,
-  relationFollowupSuggestionForDraft,
   relationQualityEvaluation,
   relationQualityLabel,
   relationSourceLabel,
@@ -127,18 +124,13 @@ import {
 } from "./editor-relation-helpers.js";
 import {
   renderPermanentRelationManualTargets,
-  renderPermanentRelationWorkspace
-} from "./permanent-relation-workspace.js";
-import {
-  saveRelationTransaction
-} from "./relation-save-transaction.js";
+  renderPermanentRelationComposer
+} from "./permanent-relation-composer-view.js";
+import { PermanentRelationComposerController } from "./permanent-relation-composer-controller.js";
 import {
   defaultPermanentRelationWorkspaceState,
   normalizePermanentRelationAiCandidates,
-  normalizePermanentRelationWorkspaceState,
-  permanentRelationWorkspaceCanSave,
-  permanentRelationWorkspaceErrorText,
-  resetPermanentRelationWorkspaceResult
+  normalizePermanentRelationWorkspaceState
 } from "./permanent-relation-workspace-model.js";
 import {
   RELATION_ENTRY_SOURCES
@@ -228,6 +220,7 @@ export class EditorPane {
     selectPermanentDirectory,
     resolveLiteratureSectionLabels,
     resolveLiteratureSectionLabelCandidates,
+    refreshDirectoryGraph,
     renderAll
   }) {
     this.state = state;
@@ -238,6 +231,7 @@ export class EditorPane {
     this.onOpenExternalUrl = typeof elements?.openExternalUrl === "function" ? elements.openExternalUrl : null;
     this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
     this.renderAll = typeof renderAll === "function" ? renderAll : () => {};
+    this.refreshDirectoryGraph = typeof refreshDirectoryGraph === "function" ? refreshDirectoryGraph : async () => false;
     this.resolveNoteWritingContinuation =
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
     this.notifyWorkflowReminder = typeof notifyWorkflowReminder === "function" ? notifyWorkflowReminder : () => {};
@@ -302,6 +296,7 @@ export class EditorPane {
     this.permanentRelationSearchTimer = null;
     this.editorRelationLinkController = new EditorRelationLinkController(this);
     this.editorSemanticRelationsController = new EditorSemanticRelationsController(this);
+    this.permanentRelationComposerController = new PermanentRelationComposerController(this);
     this.permanentNoteDistillationController = new PermanentNoteDistillationController(this);
     this.permanentNoteWorkspaceController = new PermanentNoteWorkspaceController(this);
     this.permanentNoteSidebarController = null;
@@ -3771,13 +3766,19 @@ export class EditorPane {
     return normalizePermanentRelationAiCandidates(this.noteAiAnalysisByNoteId.get(cleanNoteId) || null, cleanNoteId);
   }
 
-  renderPermanentRelationWorkspaceOverlay(note = this.activeNote()) {
+  permanentRelationWorkspaceSourceNote() {
+    const stateNoteId = String(this.permanentRelationWorkspaceState?.sourceNoteId || this.permanentRelationWorkspaceState?.noteId || "").trim();
+    return (stateNoteId ? this.state.notes.find((item) => item?.id === stateNoteId) : null) || this.activeNote();
+  }
+
+  renderPermanentRelationWorkspaceOverlay(note = this.permanentRelationWorkspaceSourceNote()) {
     if (!note?.id) return "";
     const state = normalizePermanentRelationWorkspaceState(this.permanentRelationWorkspaceState, note.id);
-    return renderPermanentRelationWorkspace({
+    const relations = this.isActiveNoteId(note.id) ? this.currentSemanticRelations : null;
+    return renderPermanentRelationComposer({
       note,
       state,
-      relations: this.currentSemanticRelations,
+      relations,
       aiCandidates: this.permanentRelationWorkspaceAiCandidates(note.id),
       notes: this.state.notes,
       deps: this.permanentRelationWorkspaceDeps()
@@ -3799,7 +3800,8 @@ export class EditorPane {
   permanentRelationWorkspaceSelectedTargetForPreview() {
     const targetId = String(this.permanentRelationWorkspaceState.selectedTargetNoteId || "").trim();
     if (!targetId) return null;
-    const note = this.activeNote();
+    const stateNoteId = String(this.permanentRelationWorkspaceState.sourceNoteId || this.permanentRelationWorkspaceState.noteId || "").trim();
+    const note = (stateNoteId ? this.state.notes.find((item) => item?.id === stateNoteId) : null) || this.activeNote();
     return this.state.notes.find((item) => item?.id === targetId) ||
       this.permanentRelationWorkspaceState.manualTargets.find((item) => item?.id === targetId) ||
       this.permanentRelationWorkspaceAiCandidates(note?.id || "").find((item) => item?.targetNoteId === targetId) ||
@@ -3834,7 +3836,7 @@ export class EditorPane {
 
   syncPermanentRelationWorkspaceOverlay() {
     if (typeof document === "undefined") return false;
-    const note = this.activeNote();
+    const note = this.permanentRelationWorkspaceSourceNote();
     const existing = this.permanentRelationWorkspaceElement();
     const html = note?.id ? this.renderPermanentRelationWorkspaceOverlay(note) : "";
     if (!html) {
@@ -3854,6 +3856,10 @@ export class EditorPane {
     return this.permanentNoteSidebarController;
   }
 
+  permanentRelationComposer() {
+    return this.permanentRelationComposerController;
+  }
+
   openPermanentRelationWorkspace(options = {}) {
     return this.permanentSidebarController().openRelationWorkspace(options);
   }
@@ -3863,206 +3869,27 @@ export class EditorPane {
   }
 
   patchPermanentRelationWorkspaceState(patch = {}) {
-    return this.permanentSidebarController().patchWorkspaceState(patch);
+    return this.permanentRelationComposer().patchState(patch);
   }
 
   choosePermanentRelationManualTarget(targetNoteId = "") {
-    return this.permanentSidebarController().chooseManualTarget(targetNoteId);
+    return this.permanentRelationComposer().chooseManualTarget(targetNoteId);
   }
 
   async refreshPermanentRelationManualSearch(query = "") {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const serial = ++this.permanentRelationSearchSerial;
-    const cleanQuery = String(query || "").trim();
-    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-      ...this.permanentRelationWorkspaceState,
-      mode: "manual",
-      manualQuery: cleanQuery,
-      searchState: cleanQuery ? "loading" : "idle",
-      selectedTargetNoteId: cleanQuery ? "" : this.permanentRelationWorkspaceState.selectedTargetNoteId,
-      error: "",
-      notice: "",
-      dirty: cleanQuery ? true : this.permanentRelationWorkspaceState.dirty === true
-    }, note.id);
-    this.syncPermanentRelationManualResults();
-    if (!cleanQuery) {
-      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-        ...this.permanentRelationWorkspaceState,
-        manualTargets: [],
-        selectedTargetNoteId: "",
-        searchState: "idle"
-      }, note.id);
-      this.syncPermanentRelationManualResults();
-      return;
-    }
-    try {
-      const result = await searchNotes({
-        query: cleanQuery,
-        rootDirectoryId: this.relationTargetSearchRootId(note),
-        excludeNoteId: note.id,
-        limit: 30
-      });
-      if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
-      const items = Array.isArray(result?.items) ? result.items : [];
-      this.upsertApiNotes(items);
-      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-        ...this.permanentRelationWorkspaceState,
-        manualTargets: items,
-        searchState: "loaded",
-        notice: items.length ? "" : "没有匹配笔记。"
-      }, note.id);
-      this.syncPermanentRelationManualResults();
-    } catch (error) {
-      if (serial !== this.permanentRelationSearchSerial || !this.isActiveNoteId(note.id)) return;
-      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-        ...this.permanentRelationWorkspaceState,
-        searchState: "error",
-        error: `搜索失败：${String(error?.message || error)}`
-      }, note.id);
-      this.syncPermanentRelationManualResults();
-    }
+    return this.permanentRelationComposer().refreshManualSearch(query);
   }
 
   queuePermanentRelationManualSearch(input) {
-    window.clearTimeout(this.permanentRelationSearchTimer);
-    const query = input?.value || "";
-    this.permanentRelationSearchTimer = window.setTimeout(() => {
-      void this.refreshPermanentRelationManualSearch(query);
-    }, 180);
+    return this.permanentRelationComposer().queueManualSearch(input);
   }
 
   updatePermanentRelationWorkspaceField(field = "", value = "") {
-    const key = String(field || "").trim();
-    if (!["relationType", "rationale", "insightQuestion"].includes(key)) return;
-    this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
-      ...this.permanentRelationWorkspaceState,
-      [key]: String(value || "").trim(),
-      dirty: true
-    }), this.activeNote()?.id || this.permanentRelationWorkspaceState.noteId || "");
+    return this.permanentRelationComposer().updateField(field, value);
   }
 
   async handlePermanentRelationWorkspaceSubmit(form = null) {
-    const note = this.activeNote();
-    if (!note?.id) return;
-    const data = new FormData(form);
-    const state = normalizePermanentRelationWorkspaceState({
-      ...this.permanentRelationWorkspaceState,
-      relationType: data.get("relationType"),
-      rationale: data.get("rationale"),
-      insightQuestion: data.get("insightQuestion")
-    }, note.id);
-    const validation = permanentRelationWorkspaceCanSave({
-      state,
-      relations: this.currentSemanticRelations,
-      allowExistingUpdate: true
-    });
-    if (!validation.ok) {
-      this.patchPermanentRelationWorkspaceState({
-        ...state,
-        error: permanentRelationWorkspaceErrorText(validation.reason),
-        notice: ""
-      });
-      return;
-    }
-    this.patchPermanentRelationWorkspaceState({ ...state, saveState: "saving", error: "", notice: "正在确认现有关系。" });
-    try {
-      const latestRelations = await fetchNoteRelations(note.id);
-      if (!this.isActiveNoteId(note.id)) return;
-      this.currentSemanticRelations = latestRelations;
-      this.semanticRelationsState = "loaded";
-      const latestValidation = permanentRelationWorkspaceCanSave({
-        state,
-        relations: latestRelations,
-        allowExistingUpdate: true
-      });
-      if (!latestValidation.ok) {
-        this.patchPermanentRelationWorkspaceState({
-          ...state,
-          saveState: "idle",
-          error: permanentRelationWorkspaceErrorText(latestValidation.reason),
-          notice: ""
-        });
-        return;
-      }
-      const target = this.state.notes.find((item) => item.id === state.selectedTargetNoteId) || null;
-      const existingRelationId = latestValidation.existing?.id || latestValidation.existing?.relationId || "";
-      const relationPayload = {
-        relationType: state.relationType,
-        rationale: state.rationale,
-        insightQuestion: state.insightQuestion,
-        confidence: 1,
-        status: "confirmed"
-      };
-      let relation = null;
-      let transaction = null;
-      if (existingRelationId) {
-        relation = await updateNoteRelation(existingRelationId, relationPayload);
-      } else {
-        transaction = await saveRelationTransaction({
-          noteId: note.id,
-          targetNoteId: state.selectedTargetNoteId,
-          ...relationPayload,
-          createdBy: ""
-        }, {
-          createNoteRelation,
-          targetTitle: target?.title || state.selectedTargetNoteId,
-          relationLabel: relationTypeLabel(state.relationType)
-        });
-        if (!transaction.ok) {
-          this.patchPermanentRelationWorkspaceState({
-            ...state,
-            saveState: "idle",
-            error: transaction.error,
-            notice: ""
-          });
-          return;
-        }
-        relation = transaction.relation;
-      }
-      this.syncRelationNetworkConnected(note.id, state.selectedTargetNoteId);
-      await this.refreshRelationNetworkStatuses(note.id, state.selectedTargetNoteId);
-      if (!this.isActiveNoteId(note.id)) return;
-      const savedRelations = await fetchNoteRelations(note.id).catch(() => null);
-      if (savedRelations) {
-        this.currentSemanticRelations = savedRelations;
-        this.semanticRelationsState = "loaded";
-      }
-      this.renderPreview();
-      this.setRelationFollowupSuggestion(
-        relationFollowupSuggestionForDraft({
-          noteId: note.id,
-          relationId: relation?.id || relation?.relationId || "",
-          relationType: state.relationType,
-          rationale: state.rationale,
-          insightQuestion: state.insightQuestion,
-          targetTitle: target?.title || state.selectedTargetNoteId
-        })
-      );
-      const successMessage = existingRelationId ? "关系已更新。" : relation?.created === false ? "关系已存在，已复用。" : "关系已保存。";
-      this.permanentSidebarController().commitSavedRelationWorkspaceResult({
-        noteId: note.id,
-        state,
-        successMessage,
-        result: {
-          ...(transaction?.result || {
-            targetNoteId: state.selectedTargetNoteId,
-            targetTitle: target?.title || state.selectedTargetNoteId,
-            relationType: state.relationType,
-            relationLabel: relationTypeLabel(state.relationType),
-            created: relation?.created !== false
-          }),
-          updated: Boolean(existingRelationId)
-        }
-      });
-    } catch (error) {
-      if (!this.isActiveNoteId(note.id)) return;
-      this.patchPermanentRelationWorkspaceState({
-        saveState: "error",
-        error: `保存失败：${String(error?.message || error)}`
-      });
-      this.onStatus(`关系保存失败：${String(error?.message || error)}`, "warn");
-    }
+    return this.permanentRelationComposer().submit(form);
   }
 
   continuePermanentRelationWorkspace() {
@@ -6380,8 +6207,9 @@ export class EditorPane {
           this.activatePermanentWorkspaceTab("relations");
           if (String(mainRouteButton.dataset.noteMainRouteFocus || "").trim() === "create") {
             this.openCreateRelationForm({
-              source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-              mode: "manual"
+              source: RELATION_ENTRY_SOURCES.PERMANENT_WORKSPACE,
+              mode: "manual",
+              returnTo: "permanent-relation-workspace"
             });
           }
           return;
@@ -6555,7 +6383,7 @@ export class EditorPane {
     this.els.insertLink.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       this.clearMarkdownSelectionOverride();
-      this.manualLinkReturnSelection = this.rememberedEditorSelection() || this.rememberEditorSelection();
+      this.manualLinkReturnSelection = this.rememberEditorSelection() || this.rememberedEditorSelection();
       this.manualLinkReturnScrollState = this.captureEditorScrollState();
     });
     this.els.insertLink.addEventListener("click", (event) => {
@@ -6563,15 +6391,18 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       if (!this.isOriginalNote(note)) return this.onStatus("建立关系请在永久笔记里进行", "warn");
-      const candidates = this.scopedLinkCandidates();
-      if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
-      const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;
       const returnSelection =
         this.normalizedSelectionRange(this.manualLinkReturnSelection) ||
-        this.rememberedEditorSelection() ||
-        this.rememberEditorSelection();
-      const returnScrollState = this.manualLinkReturnScrollState || this.captureEditorScrollState();
-      this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true, returnSelection, returnScrollState });
+        this.rememberEditorSelection() ||
+        this.rememberedEditorSelection();
+      this.openPermanentRelationWorkspace({
+        source: RELATION_ENTRY_SOURCES.TOOLBAR_RELATION,
+        mode: "manual",
+        noteId: note.id,
+        insertLinkOnSave: true,
+        cursorRange: returnSelection,
+        relationType: this.relationCreateDefaultType(note) || "associated_with"
+      });
     });
 
     this.els.insertImage?.addEventListener("click", () => {

@@ -383,7 +383,7 @@ test("manual link picker confirm button reflects selected target and reason", ()
   assert.equal(host.els.confirmLinkInsert.disabled, true);
 });
 
-test("toolbar relation action opens manual picker without writing a stray wikilink trigger", async () => {
+test("toolbar relation action opens the shared composer without writing a stray wikilink trigger", async () => {
   const source = await readEditorDomainSource();
   const start = source.indexOf('this.els.insertLink.addEventListener("click", (event) => {');
   const end = source.indexOf("\n\n    this.els.insertImage", start);
@@ -392,9 +392,13 @@ test("toolbar relation action opens manual picker without writing a stray wikili
 
   assert.ok(source.includes('this.els.insertLink.addEventListener("pointerdown", (event) => {'));
   assert.ok(source.includes("event.preventDefault();"));
-  assert.ok(source.includes("this.manualLinkReturnSelection = this.rememberedEditorSelection() || this.rememberEditorSelection();"));
-  assert.ok(body.includes('returnSelection, returnScrollState'));
-  assert.ok(body.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true, returnSelection, returnScrollState });'));
+  assert.ok(source.includes("this.manualLinkReturnSelection = this.rememberEditorSelection() || this.rememberedEditorSelection();"));
+  assert.ok(body.includes("this.openPermanentRelationWorkspace({"));
+  assert.ok(body.includes("source: RELATION_ENTRY_SOURCES.TOOLBAR_RELATION"));
+  assert.ok(body.includes("insertLinkOnSave: true"));
+  assert.ok(body.includes("cursorRange: returnSelection"));
+  assert.ok(body.includes("this.rememberEditorSelection() ||"));
+  assert.ok(body.includes("this.rememberedEditorSelection();"));
   assert.doesNotMatch(body, /insertAtCursor\("\[\["\)/);
   assert.doesNotMatch(body, /inlineContext: inline/);
 });
@@ -419,12 +423,10 @@ test("wysiwyg relation picker keeps the remembered body cursor when toolbar focu
   assert.deepEqual(pane.lastEditorSelection, { from: 11, to: 11 });
 });
 
-test("toolbar relation picker anchors to the click target and flips inside the viewport", async () => {
+test("inline relation picker still anchors to the click target and flips inside the viewport", async () => {
   const source = await readEditorDomainSource();
   const controllerSource = await readEditorRelationLinkControllerSource();
 
-  assert.ok(source.includes("const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;"));
-  assert.ok(source.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true, returnSelection, returnScrollState });'));
   assert.ok(controllerSource.includes("centerX: true"));
   assert.ok(controllerSource.includes("offsetX: -120"));
   assert.match(source, /positionFloatingPicker\(panel, width, options = \{\}\) \{/);

@@ -47,7 +47,7 @@ function baseController({
   setStatus = () => {},
   clearIsolatedRelationDraft = () => {},
   openGraphSelection = null,
-  openRelationFormInSelection = () => {},
+  openRelationComposerFromGraphAction = () => {},
   nextIsolatedSelectionAfterSave = () => null,
   setGraphRelationTypeFilter = () => ""
 } = {}) {
@@ -67,7 +67,7 @@ function baseController({
     relationTypeLabel: (type) => ({ supports: "Supports", bridges: "Bridges" })[type] || type,
     clearIsolatedRelationDraft,
     openGraphSelection,
-    openRelationFormInSelection,
+    openRelationComposerFromGraphAction,
     nextIsolatedSelectionAfterSave,
     setGraphRelationTypeFilter
   });
@@ -211,7 +211,7 @@ test("graph relation save controller restores the save button after create failu
   assert.match(statuses[0][0], /network down/);
 });
 
-test("graph relation save controller opens the relation form when a candidate has no usable rationale", async () => {
+test("graph relation save controller opens the shared composer when a candidate has no usable rationale", async () => {
   const calls = [];
   const button = createButton({
     "data-open-note": "source",
@@ -221,14 +221,14 @@ test("graph relation save controller opens the relation form when a candidate ha
     "data-graph-insight-question-draft": "Next?"
   });
   const controller = baseController({
-    openRelationFormInSelection: (targetButton) => calls.push(["openForm", targetButton === button]),
+    openRelationComposerFromGraphAction: (targetButton) => calls.push(["composer", targetButton === button]),
     setStatus: (text, cls) => calls.push(["status", text, cls])
   });
 
   const saved = await controller.saveCandidateRelation(button);
 
   assert.equal(saved, false);
-  assert.deepEqual(calls.map((call) => call[0]), ["openForm", "status"]);
+  assert.deepEqual(calls.map((call) => call[0]), ["composer", "status"]);
   assert.equal(calls[0][1], true);
   assert.equal(calls[1][2], "warn");
 });

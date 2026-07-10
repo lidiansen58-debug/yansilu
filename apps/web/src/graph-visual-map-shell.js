@@ -113,25 +113,6 @@ export function renderGraphMapSvgDefsView({ markerColors = {} } = {}, deps = {})
   `;
 }
 
-export function renderGraphMapLegendView({ open = false, groups = [], note = "" } = {}, deps = {}) {
-  const { escapeHtml, labels } = graphVisualMapShellDeps(deps);
-  if (!open) return "";
-  return `<div class="graph-map-legend" aria-label="${escapeHtml(labels.legend)}">
-    ${note ? `<div class="graph-map-legend-note">${escapeHtml(note)}</div>` : ""}
-    ${(Array.isArray(groups) ? groups : [])
-      .map(
-        (group) => `
-          <span>
-            <i class="${escapeHtml(group.className)}"></i>
-            <strong>${escapeHtml(group.label)}</strong>
-            <small>${escapeHtml(group.detail)}</small>
-          </span>
-        `
-      )
-      .join("")}
-  </div>`;
-}
-
 export function renderGraphMapEmptyStateView({ title = "", message = "" } = {}, deps = {}) {
   const { escapeHtml, renderGraphIcon, labels } = graphVisualMapShellDeps(deps);
   return `
@@ -144,8 +125,9 @@ export function renderGraphMapEmptyStateView({ title = "", message = "" } = {}, 
         <strong>${escapeHtml(title)}</strong>
         <span>${escapeHtml(message)}</span>
         <div class="graph-map-empty-actions">
-          <button class="mini-btn primary" type="button" data-graph-view-mode="argument">${escapeHtml(labels.argumentView)}</button>
-          <button class="mini-btn" type="button" data-graph-view-mode="structure">${escapeHtml(labels.structureView)}</button>
+          <button class="mini-btn primary" type="button" data-graph-task-view="structure">看结构</button>
+          <button class="mini-btn" type="button" data-graph-task-view="relations">找缺口</button>
+          <button class="mini-btn" type="button" data-graph-task-view="themes">找主题</button>
         </div>
       </div>
     </div>

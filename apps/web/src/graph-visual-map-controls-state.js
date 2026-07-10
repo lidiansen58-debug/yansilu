@@ -1,12 +1,3 @@
-export function buildGraphVisualMapLegendGroups(relationGroupMeta = {}) {
-  return ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"]
-    .map((key) => {
-      const meta = relationGroupMeta[key];
-      return meta ? { key, className: `is-${key}`, ...meta } : null;
-    })
-    .filter(Boolean);
-}
-
 export function buildGraphVisualMapControlsState({
   graphState = {},
   relationType = "meaningful",
@@ -25,8 +16,7 @@ export function buildGraphVisualMapControlsState({
     graphZoomOption = (value) => ({ key: value || "fit", scale: 1 }),
     graphReadingLensMeta = (value) => ({ key: value || "overview" }),
     graphBuildReadingLensState = () => ({ active: false }),
-    zoomOptions = {},
-    relationGroupMeta = {}
+    zoomOptions = {}
   } = deps;
 
   const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
@@ -36,8 +26,6 @@ export function buildGraphVisualMapControlsState({
   const readingLens = graphReadingLensMeta(graphState.readingLens);
   const zoomWidth = Math.round((layout.width || 0) * zoom.scale);
   const zoomHeight = Math.round((layout.height || 0) * zoom.scale);
-  const legendOpen = graphState.legendOpen === true;
-  const legendGroups = buildGraphVisualMapLegendGroups(relationGroupMeta);
   const zoomKeys = Object.keys(zoomOptions || {});
   const zoomIndex = Math.max(0, zoomKeys.indexOf(zoom.key));
   const focusContextAvailable = filterActive && normalizedFocusedNoteId;
@@ -62,8 +50,6 @@ export function buildGraphVisualMapControlsState({
     readingLens,
     zoomWidth,
     zoomHeight,
-    legendOpen,
-    legendGroups,
     zoomKeys,
     zoomIndex,
     focusContextAvailable,

@@ -2,6 +2,8 @@ export function installGraphNodeClickFallbackEvents(documentRef = null, {
   graphState = null,
   renderGraphPanel = () => {},
   openGraphSelection = null,
+  openRelationComposerFromGraphAction = null,
+  setStatus = () => {},
   openGraphNodeSelectionFromElement = () => false
 } = {}) {
   const documentNode = documentRef && typeof documentRef.addEventListener === "function" ? documentRef : null;
@@ -25,16 +27,19 @@ export function installGraphNodeClickFallbackEvents(documentRef = null, {
     const nodeId = String(graphNode.getAttribute?.("data-node-id") || "").trim();
     const isolatedKey = String(graphNode.getAttribute?.("data-graph-isolated-key") || "").trim();
     const degree = Number(graphNode.getAttribute?.("data-node-degree") || 0);
-    if (nodeId && (isolatedKey || degree === 0) && typeof openGraphSelection === "function") {
-      const selection = { kind: "relationForm", ...(isolatedKey ? { isolatedKey } : {}), noteId: nodeId, returnTo: "isolated" };
+    if (nodeId && (isolatedKey || degree === 0)) {
       setTimeout(() => {
-        if (graphState && typeof graphState === "object") {
-          graphState.selection = selection;
-          graphState.thinkingPanelOpen = false;
-          renderGraphPanel();
+        if (typeof openRelationComposerFromGraphAction === "function" && openRelationComposerFromGraphAction({
+          noteId: nodeId,
+          source: "graph",
+          candidateSource: "graph-isolated-node",
+          isolatedKey,
+          returnTo: "graph"
+        })) {
           return;
         }
-        openGraphSelection(selection);
+        setStatus("Relation composer did not open. Please try again.", "warn");
+        openGraphNodeSelectionFromElement(graphNode);
       }, 0);
       return;
     }

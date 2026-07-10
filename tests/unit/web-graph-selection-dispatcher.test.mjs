@@ -24,10 +24,6 @@ function recordingRenderers(calls) {
       calls.push(["isolatedComplete", context]);
       return "isolated-complete-panel";
     },
-    renderRelationFormPanel: (context) => {
-      calls.push(["relationForm", context]);
-      return "relation-form-panel";
-    },
     renderBridgePanel: (context) => {
       calls.push(["bridge", context]);
       return "bridge-panel";
@@ -49,7 +45,6 @@ test("graph selection dispatcher routes every visible selection kind to its pane
     ["theme", "theme-panel"],
     ["isolated", "isolated-panel"],
     ["isolatedComplete", "isolated-complete-panel"],
-    ["relationForm", "relation-form-panel"],
     ["bridge", "bridge-panel"],
     ["node", "node-panel"],
     ["edge", "edge-panel"]
@@ -101,6 +96,7 @@ test("graph selection dispatcher returns empty output for unknown or hidden sele
   assert.equal(graphSelectionDispatcherKind({ kind: " node " }), "node");
   assert.equal(renderGraphSelectionByKind({ selection: null }, recordingRenderers([])), "");
   assert.equal(renderGraphSelectionByKind({ selection: { kind: "unknown" } }, recordingRenderers([])), "");
+  assert.equal(renderGraphSelectionByKind({ selection: { kind: "relationForm", noteId: "note-a" } }, recordingRenderers([])), "");
   assert.equal(renderGraphSelectionPanelViaDispatcher(
     { selection: { kind: "node", nodeId: "missing" } },
     recordingRenderers([]),

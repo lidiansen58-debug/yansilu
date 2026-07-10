@@ -93,7 +93,7 @@ test("relation guidance falls back to supports when no stronger signal exists", 
   assert.match(guidance.questionHint, /最值得验证的疑问/);
 });
 
-test("opening the create relation form keeps the large relation workspace context", () => {
+test("opening the create relation form uses the shared relation composer", () => {
   const source = readSemanticRelationsControllerSource();
   const start = source.indexOf("openCreateForm(options = {}) {");
   const end = source.indexOf("\n  openInlineCreateForm", start);
@@ -102,12 +102,16 @@ test("opening the create relation form keeps the large relation workspace contex
 
   assert.match(body, /host\.setInspectorVisible\?\.\(true\)/);
   assert.match(body, /host\.activatePermanentWorkspaceTab\?\.\("relations"\)/);
-  assert.match(body, /this\.openInlineCreateForm\(\{/);
+  assert.match(body, /host\.openPermanentRelationWorkspace\(\{/);
+  assert.match(body, /source: RELATION_ENTRY_SOURCES\.PERMANENT_WORKSPACE/);
+  assert.match(body, /returnTo: "permanent-relation-workspace"/);
+  assert.match(body, /mode: entryRoute\.mode \|\| "manual"/);
   assert.match(body, /targetNoteId: options\?\.targetNoteId/);
   assert.match(body, /relationType: options\?\.relationType/);
   assert.match(body, /rationaleDraft: options\?\.rationaleDraft/);
   assert.doesNotMatch(body, /jumpToInspectorSection\("\[data-create-relation-form\]"/);
   assert.doesNotMatch(body, /renderCurrentRelationSection/);
+  assert.doesNotMatch(body, /refreshTargetSearch\(""\)/);
 });
 
 test("relation target sorting prioritizes linked notes over tag-only and plain candidates", () => {

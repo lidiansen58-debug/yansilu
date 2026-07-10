@@ -61,6 +61,7 @@ test("app shell state-change prototype host deps keeps shell collaborators in on
     "noteAnalysisSystemMessageForResult",
     "openAiInboxModule",
     "openGraphSelection",
+    "openRelationComposerFromGraphAction",
     "openImportModule",
     "openNoteById",
     "openNoteRelationEditor",

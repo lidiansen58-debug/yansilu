@@ -57,21 +57,20 @@ export function graphReadingModeMeta(value = "argument") {
   if (key === "structure") {
     return {
       key,
-      label: "主题分布",
-      purpose: "看这批笔记主要聚成哪些主题，适合找可写方向。",
-      filterHint: "当前只看主题归属。想检查支持、反驳、边界等论证关系时，切回“关系图”。",
-      mapNote: "主题视图强调聚集位置。先看哪些主题已经成形，再决定是否保存为主题索引。"
+      label: "找主题",
+      purpose: "看最值得继续整理的一组笔记。",
+      filterHint: "当前优先显示主题关系。要找缺口时切到“找缺口”。",
+      mapNote: "找主题会突出可能已经能继续写作的笔记组。"
     };
   }
   return {
     key: "argument",
-    label: "关系图",
-    purpose: "看笔记之间如何支持、反驳、限定或补充，用来检查一个观点是否站得住。",
-    filterHint: "当前优先显示观点关系。可以继续按关系类型收窄，只看最需要判断的一类连接。",
-    mapNote: "观点关系视图强调论证结构。点击笔记或关系，检查理由是否清楚。"
+    label: "看结构",
+    purpose: "看笔记如何分组，先从中心笔记读起。",
+    filterHint: "当前优先显示主要关系。要看可整理的主题时切到“找主题”。",
+    mapNote: "看结构会突出分组和中心笔记。"
   };
 }
-
 export function setGraphRelationTypeFilterForRuntime(graphState = {}, value = "", deps = {}) {
   const next = normalizeGraphRelationTypeFilter(value, "meaningful");
   if (!graphState.filters || typeof graphState.filters !== "object") graphState.filters = {};
@@ -83,46 +82,49 @@ export function setGraphRelationTypeFilterForRuntime(graphState = {}, value = ""
   return next;
 }
 
+export function graphTaskViewForState(relationType = "meaningful", activeLens = "insight") {
+  const mode = graphViewModeForRelationType(relationType);
+  const lensKey = String(activeLens || "insight").trim().toLowerCase();
+  if (mode === "structure") return "themes";
+  if (lensKey === "bridge") return "relations";
+  return "structure";
+}
+
 export function renderGraphViewModeSwitcher(relationType = "meaningful", activeLens = "insight", deps = {}) {
   if (activeLens && typeof activeLens === "object" && !Array.isArray(activeLens)) {
     deps = activeLens;
     activeLens = "insight";
   }
   const escapeHtml = deps.escapeHtml || defaultEscapeHtml;
-  const mode = graphViewModeForRelationType(relationType);
-  const modes = [graphReadingModeMeta("argument"), graphReadingModeMeta("structure")];
-  const lensKey = String(activeLens || "insight").trim().toLowerCase();
-  const lensModes = [
+  const activeKey = graphTaskViewForState(relationType, activeLens);
+  const modes = [
     {
-      key: "bridge",
-      label: "看缺口",
-      hint: "突出还没连起来、缺证据、缺反方或缺边界的地方。"
+      key: "structure",
+      label: "看结构",
+      title: "看笔记如何分组，先从中心笔记读起。",
+      attr: `data-graph-task-view="structure"`
     },
     {
-      key: "argument",
-      label: "看论证",
-      hint: "突出证据、反方和边界，判断观点是否能进入写作。"
+      key: "relations",
+      label: "找缺口",
+      title: "看还没连好、可能缺关系的地方。",
+      attr: `data-graph-task-view="relations"`
+    },
+    {
+      key: "themes",
+      label: "找主题",
+      title: "看最值得继续整理的一组笔记。",
+      attr: `data-graph-task-view="themes"`
     }
   ];
   return `
-    <div class="graph-view-tabs" aria-label="图谱主要视角">
-      <span class="graph-control-label">看图</span>
+    <div class="graph-view-tabs" aria-label="图谱任务">
       ${modes
         .map((item) => {
-          const active = item.key === mode;
+          const active = item.key === activeKey;
           return `
-            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}" title="${escapeHtml(item.purpose)}">
+            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" ${item.attr} aria-pressed="${active}" title="${escapeHtml(item.title)}">
               <span>${escapeHtml(item.label)}</span>
-            </button>
-          `;
-        })
-        .join("")}
-      ${lensModes
-        .map((item) => {
-          const active = item.key === lensKey;
-          return `
-            <button class="graph-reading-lens-btn${active ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${active}" title="${escapeHtml(item.hint)}">
-              ${escapeHtml(item.label)}
             </button>
           `;
         })
@@ -137,8 +139,9 @@ export function renderGraphRelationTypeFilter(edges = [], selected = "meaningful
   const graphRelationTypeLabel = deps.graphRelationTypeLabel || ((value) => String(value || "").trim() || "关系");
   return `
     <div class="graph-filters graph-filters-single${compact ? " graph-filters-compact" : ""}" data-graph-filters>
-      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="筛选关系类型">
-        ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel, statsOverride)}
+      <label class="graph-filter-label" for="graphRelationTypeFilter">筛选</label>
+      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="筛选关系范围">
+        ${graphFilterOptions(edges, "relationType", selected, "全部", graphRelationTypeLabel, statsOverride)}
       </select>
     </div>
   `;

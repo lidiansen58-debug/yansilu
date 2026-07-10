@@ -132,7 +132,7 @@ import { graphBuildVisualLayout as graphBuildVisualLayoutForRuntime } from "./gr
 import { createGraphViewportController } from "./graph-viewport-controller.js";
 import { createGraphUtilityDrawerController } from "./graph-utility-drawer-controller.js";
 import { GRAPH_VISUAL_ZOOM_OPTIONS, graphZoomOption, graphZoomStep } from "./graph-visual-zoom-model.js";
-import { applyGraphFocusContextModeInteraction, applyGraphFocusDepthInteraction, applyGraphReadingLensInteraction, applyGraphRelationTypeFilterInteraction, applyGraphViewModeInteraction, applyGraphWheelZoomInteraction, applyGraphZoomOptionInteraction, applyGraphZoomStepInteraction } from "./graph-toolbar-interaction-controller.js";
+import { applyGraphFocusContextModeInteraction, applyGraphFocusDepthInteraction, applyGraphReadingLensInteraction, applyGraphRelationTypeFilterInteraction, applyGraphTaskViewInteraction, applyGraphViewModeInteraction, applyGraphWheelZoomInteraction, applyGraphZoomOptionInteraction, applyGraphZoomStepInteraction } from "./graph-toolbar-interaction-controller.js";
 import { renderGraphClusterGlowView, renderGraphNebulaFieldView, renderGraphStarfieldView } from "./graph-visual-map-view.js";
 import { graphReadingLensMeta as computeGraphReadingLensMeta, renderGraphReadingLensControls as renderGraphReadingLensControlsView } from "./graph-reading-lens-controls.js";
 import { createGraphReadingLensStateController } from "./graph-reading-lens-state.js";
@@ -154,6 +154,7 @@ import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "
 import { clearWritingFocusedCandidateScopeForRuntime, clearWritingSourceIndexIdsForRuntime, clearWritingThemeRelationCountsForRuntime, resetWritingStrongModelStateForRuntime, setWritingFocusedCandidateScopeForRuntime, setWritingSourceIndexIdsForRuntime } from "./writing-session-state.js";
 import { sameUniqueStringSetForRuntime, selectedWritingThemeIndexForRuntime, setSelectedWritingThemeIndexForRuntime, writingThemeIndexByIdForRuntime, writingThemeIndexScopeDirectoryIdForRuntime, writingThemeIndexNoteIdsForRuntime } from "./writing-theme-state.js";
 import { graphAssociateNoteRoute, graphFollowupActionRoute, noteDeleteKeyRoute } from "./note-browser-action-router.js";
+import { createGraphRelationComposerEntry } from "./graph-relation-composer-entry.js";
 import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
 import { createRelationEntryRuntimeController } from "./relation-entry-runtime-controller.js";
 import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, writingScaffoldPreflightWarning, isWritingStrongModelReady } from "./writing-center-flow.js";
@@ -233,9 +234,8 @@ const graphState = {
   focusContextCollapsed: false,
   zoom: "fit",
   expanded: false,
-  legendOpen: false,
-  researchNavigatorHidden: false,
-  researchNavigatorTouched: false,
+  researchNavigatorHidden: true,
+  researchNavigatorTouched: true,
   workbenchPanelOpen: false,
   workbenchPanelTab: "clues",
   thinkingPanelOpen: false,
@@ -270,7 +270,7 @@ function setGraphRelationTypeFilter(value = "", options = {}) {
 }
 function graphStructureFallbackEdges(edges = [], filters = {}) { return graphStructureFallbackEdgesForRuntime(edges, filters, { graphEdgeMatchesFilters }); }
 function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) { return renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, { escapeHtml, graphFilterOptions, graphRelationTypeLabel }); }
-function renderGraphViewModeSwitcher(relationType = "meaningful") { return renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml }); }
+function renderGraphViewModeSwitcher(relationType = "meaningful", activeLens = "insight") { return renderGraphViewModeSwitcherForRuntime(relationType, activeLens, { escapeHtml }); }
 setGraphRelationTypeFilter(graphState.filters?.relationType, { persist: false });
 const graphViewportController = createGraphViewportController({
   graphState,
@@ -4844,6 +4844,7 @@ const graphResidualViews = createGraphResidualViews({
   graphIsolatedPreviewTargetForNote,
   graphIsolatedQueueItemsForGraph,
   graphIsolatedSelectionKey,
+  openRelationComposerFromGraphAction: (...args) => openRelationComposerFromGraphAction(...args),
   graphLiveAiAnalysisCountsForGraph,
   graphLocalRelationCandidatesForNote: computeGraphLocalRelationCandidatesForNote,
   graphManualRelationTargetsForNote: computeGraphManualRelationTargetsForNote,
@@ -5060,11 +5061,9 @@ const {
   pickGraphManualRelationTarget,
   saveGraphIsolatedRelationForm,
   saveGraphConfirmedRelation,
-  openGraphRelationFormInSelection,
   focusGraphRelationAdjustmentInPlace,
   renderGraphIsolatedSelectionPanel,
   renderGraphIsolatedCompletePanel,
-  renderGraphRelationFormSelectionPanel,
   renderGraphBridgeSelectionPanel,
   graphUniqueClusterMeta,
   graphClusterResearchMeta,
@@ -5525,6 +5524,7 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     noteAnalysisSystemMessageForResult,
     openAiInboxModule,
     openGraphSelection,
+    openRelationComposerFromGraphAction,
     openImportModule,
     openNoteById,
     openNoteRelationEditor,
@@ -5687,8 +5687,10 @@ const editor = new EditorPane(createEditorPaneHostDeps({
   literatureTemplateSectionLabelCandidates,
   renderStatusMeta,
   renderWorkspaceStatusHint,
+  refreshDirectoryGraph,
   renderAll
 }));
+const openRelationComposerFromGraphAction = createGraphRelationComposerEntry({ editor, graphState });
 loadNoteTemplateSettingsFromStorage();
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
@@ -6032,7 +6034,7 @@ bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   setStatus
 }));
 todayOrganizingEntryRuntime.installEvents();
-installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openGraphNodeSelectionFromElement });
+installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openRelationComposerFromGraphAction, setStatus, openGraphNodeSelectionFromElement });
 installGraphWorkbenchClickFallbackEvents(document, {
   graphState,
   graphWorkbenchTabMeta,
@@ -6091,7 +6093,7 @@ bindGraphCanvasEvents($("graphPanel"), {
   runGraphAiAnalysis,
   captureGraphIsolatedRelationDraftFromForm,
   runGraphAiConnectForNote,
-  openGraphRelationFormInSelection,
+  openRelationComposerFromGraphAction,
   graphRelationWorkflowController,
   saveGraphAiCandidateRelation,
   confirmGraphPotentialRelationRefine,
@@ -6115,6 +6117,7 @@ bindGraphCanvasEvents($("graphPanel"), {
   markGraphIsolatedRationaleUserEdited,
   filterGraphManualRelationTargets,
   applyGraphViewModeInteraction,
+  applyGraphTaskViewInteraction,
   graphReadingModeMeta,
   applyGraphWheelZoomInteraction,
   graphZoomOption,

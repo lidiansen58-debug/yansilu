@@ -33,7 +33,6 @@ export function createGraphSelectionPanelRenderer(hostProvider = () => ({})) {
       renderGraphThemeSelectionPanel: host.renderGraphThemeSelectionPanel,
       renderGraphIsolatedSelectionPanel: host.renderGraphIsolatedSelectionPanel,
       renderGraphIsolatedCompletePanel: host.renderGraphIsolatedCompletePanel,
-      renderGraphRelationFormSelectionPanel: host.renderGraphRelationFormSelectionPanel,
       renderGraphBridgeSelectionPanel: host.renderGraphBridgeSelectionPanel,
       renderGraphNodeSelectionPanel,
       renderGraphEdgeSelectionPanel,

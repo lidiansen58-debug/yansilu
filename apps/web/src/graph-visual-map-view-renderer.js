@@ -1,4 +1,3 @@
-import { renderGraphMapLegendView } from "./graph-visual-map-shell.js";
 import { renderGraphVisualEdgeViews } from "./graph-visual-edge-view.js";
 import { renderGraphVisualNodeViews } from "./graph-visual-node-view.js";
 
@@ -7,7 +6,7 @@ export const GRAPH_VISUAL_NODE_LABELS = {
   isolatedNodeAction: "整理待关联笔记",
   nodeRoleAction: "查看笔记角色",
   relationCountPrefix: "连接 ",
-  relationCountSuffix: "条",
+  relationCountSuffix: " 条",
   metaSeparator: " · ",
   attentionPrefix: "（",
   attentionJoiner: "、",
@@ -20,11 +19,9 @@ export const GRAPH_VISUAL_EDGE_LABELS = {
   reviewRelation: "查看关系确认",
   directionWord: "到",
   metaSeparator: " · ",
-  titleArrow: " → ",
-  rationalePrefix: "，"
+  titleArrow: " -> ",
+  rationalePrefix: "："
 };
-
-export const GRAPH_VISUAL_LEGEND_NOTE = "圆点大小表示当前值得注意的程度，不表示最终价值；虚线表示推荐或待确认关系。";
 
 export function buildGraphVisualNodeViewContext(runtimeState = {}) {
   const {
@@ -133,12 +130,6 @@ export function renderGraphVisualEdgeMarkupForRuntime(runtimeState = {}, relatio
   });
 }
 
-export function renderGraphVisualLegendMarkupForRuntime(runtimeState = {}, shellDeps = {}) {
-  const { legendOpen = false, legendGroups = [] } = runtimeState;
-
-  return renderGraphMapLegendView({
-    open: legendOpen,
-    groups: legendGroups,
-    note: GRAPH_VISUAL_LEGEND_NOTE
-  }, shellDeps);
+export function renderGraphVisualLegendMarkupForRuntime() {
+  return "";
 }

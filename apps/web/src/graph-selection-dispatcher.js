@@ -84,7 +84,6 @@ function graphSelectionRenderers(renderers = {}) {
     renderThemePanel: renderers.renderThemePanel || defaultRenderPanel,
     renderIsolatedPanel: renderers.renderIsolatedPanel || defaultRenderPanel,
     renderIsolatedCompletePanel: renderers.renderIsolatedCompletePanel || defaultRenderPanel,
-    renderRelationFormPanel: renderers.renderRelationFormPanel || defaultRenderPanel,
     renderBridgePanel: renderers.renderBridgePanel || defaultRenderPanel,
     renderNodePanel: renderers.renderNodePanel || defaultRenderPanel,
     renderEdgePanel: renderers.renderEdgePanel || defaultRenderPanel
@@ -121,9 +120,6 @@ export function renderGraphSelectionByKind(context = {}, renderers = {}) {
   }
   if (kind === "isolatedComplete") {
     return panelRenderers.renderIsolatedCompletePanel({ selection: normalized, isolatedNotes, nodeMap, edges }) || renderIsolatedCompleteFallbackClean(normalized);
-  }
-  if (kind === "relationForm") {
-    return panelRenderers.renderRelationFormPanel({ selection: normalized, isolatedNotes, nodeMap, edges });
   }
   if (kind === "bridge") {
     return panelRenderers.renderBridgePanel({ selection: normalized, bridgeGaps, nodeMap });

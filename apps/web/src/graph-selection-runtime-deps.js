@@ -4,7 +4,6 @@ export function buildGraphSelectionDispatcherDeps(host = {}) {
     renderGraphThemeSelectionPanel,
     renderGraphIsolatedSelectionPanel,
     renderGraphIsolatedCompletePanel,
-    renderGraphRelationFormSelectionPanel,
     renderGraphBridgeSelectionPanel,
     renderGraphNodeSelectionPanel,
     renderGraphEdgeSelectionPanel,
@@ -17,7 +16,6 @@ export function buildGraphSelectionDispatcherDeps(host = {}) {
       renderThemePanel: renderGraphThemeSelectionPanel,
       renderIsolatedPanel: renderGraphIsolatedSelectionPanel,
       renderIsolatedCompletePanel: renderGraphIsolatedCompletePanel,
-      renderRelationFormPanel: renderGraphRelationFormSelectionPanel,
       renderBridgePanel: renderGraphBridgeSelectionPanel,
       renderNodePanel: renderGraphNodeSelectionPanel,
       renderEdgePanel: renderGraphEdgeSelectionPanel

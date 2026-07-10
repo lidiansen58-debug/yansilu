@@ -11,9 +11,9 @@ test("app shell state change deps groups graph actions from host wiring", () => 
     state: { module: "graph" },
     explorer: { id: "explorer" },
     graphState: { loading: false },
-    graphRelationWorkflowController: { id: "workflow" },
     graphAssociateNoteRoute: () => ({ kind: "graph-open-isolated" }),
     graphNodeNeedsRelationWorkflowFromCurrentGraph: () => true,
+    openRelationComposerFromGraphAction: () => true,
     applyExplorerSelectionContext: () => {},
     setGraphIsolatedWorkflowActiveTab: () => {},
     openGraphSelection: () => {},
@@ -28,7 +28,7 @@ test("app shell state change deps groups graph actions from host wiring", () => 
   assert.notEqual(deps, host);
   assert.equal(deps.refreshGraph.graphState, host.graphState);
   assert.equal(deps.graphFocusNote.graphOriginalScopeDirectoryId, "original-root");
-  assert.equal(deps.graphAssociateNote.graphRelationWorkflowController, host.graphRelationWorkflowController);
+  assert.equal(deps.graphAssociateNote.openRelationComposerFromGraphAction, host.openRelationComposerFromGraphAction);
   assert.equal(deps.graphAssociateNote.graphAssociateNoteRoute, host.graphAssociateNoteRoute);
   assert.equal(deps.graphAssociateNote.openGraphSelection, host.openGraphSelection);
   assert.equal(deps.graphAssociateNote.handleStateChange, host.handleStateChange);

@@ -11,29 +11,31 @@ const escapeHtml = (value) => String(value ?? "")
   .replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;");
 
-test("graph visual map head renders default toolbar, lens, queue, and density slots", () => {
+test("graph visual map head renders task toolbar, queue, and density slots without legend row", () => {
   const html = buildGraphVisualMapHeadContent({
     relationType: "index",
     compactRelationFilterMarkup: "<filter></filter>",
     isolatedQueueStripMarkup: "<queue></queue>",
     structureFallback: true,
-    graphShellPreviewProps: { readingLensTrailingMarkup: "<trail></trail>" },
+    graphShellPreviewProps: { readingLensTrailingMarkup: "<overview></overview><trail></trail>" },
     runtimeState: {
       readingLens: { key: "bridge" },
       legendOpen: true,
       showDensityHint: true
     }
   }, {
-    renderGraphViewModeSwitcher: (relationType) => `<mode>${relationType}</mode>`,
+    renderGraphViewModeSwitcher: (relationType, activeLens) => `<mode>${relationType}:${activeLens}</mode>`,
     renderGraphReadingLensControls: (lens, open, trailing) => `<lens>${lens}:${open}:${trailing}</lens>`
   });
 
   assert.match(html, /graph-map-primary-row/);
-  assert.match(html, /<mode>index<\/mode>/);
+  assert.match(html, /graph-map-mode-hint/);
+  assert.match(html, /找主题/);
+  assert.match(html, /<mode>index:bridge<\/mode>/);
   assert.match(html, /<filter><\/filter>/);
-  assert.match(html, /<lens>bridge:true:<trail><\/trail><\/lens>/);
+  assert.doesNotMatch(html, /<lens>/);
   assert.match(html, /<queue><\/queue>/);
-  assert.match(html, /graph-structure-fallback-note/);
+  assert.doesNotMatch(html, /graph-structure-fallback-note/);
   assert.match(html, /graph-density-hint/);
 });
 

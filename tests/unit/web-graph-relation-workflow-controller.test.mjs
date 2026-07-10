@@ -17,55 +17,32 @@ function action(attrs = {}) {
   };
 }
 
-test("relation workflow route opens isolated organizing from queue actions", () => {
+test("legacy isolated relation workflow no longer creates graph relationForm selections", () => {
   const route = graphRelationWorkflowIsolatedSelectionFromAction(action({
     "data-graph-select-isolated": "iso-key",
     "data-graph-isolated-note": "note-a"
   }));
 
-  assert.equal(route.ok, true);
-  assert.equal(route.workflowTab, "manual");
-  assert.deepEqual(route.selection, { kind: "relationForm", returnTo: "isolated", isolatedKey: "iso-key", noteId: "note-a" });
+  assert.equal(route.ok, false);
+  assert.equal(route.reason, "legacy_relation_form_removed");
+  assert.equal(route.noteId, "note-a");
+  assert.equal(route.isolatedKey, "iso-key");
+  assert.equal(route.selection, undefined);
 });
 
-test("relation workflow route opens relation form and remembers isolated return", () => {
-  const route = graphRelationWorkflowFormSelectionFromAction(
-    action({
-      "data-graph-relation-source": "note-a",
-      "data-graph-target-note": "note-b",
-      "data-graph-relation-type": " Bridges ",
-      "data-graph-rationale-draft": "已有推荐理由。"
-    }),
-    { currentSelection: { kind: "isolated", noteId: "note-a" } }
-  );
-
-  assert.equal(route.ok, true);
-  assert.equal(route.workflowTab, "manual");
-  assert.equal(route.statusText, "已在当前建联流程中带入目标笔记");
-  assert.deepEqual({ ...route.selection, entryRoute: undefined }, {
-    kind: "relationForm",
-    noteId: "note-a",
-    targetNoteId: "note-b",
-    relationType: "bridges",
-    rationale: "已有推荐理由。",
-    returnTo: "isolated",
-    entryRoute: undefined
-  });
-  assert.equal(route.selection.entryRoute.source, "graph-node");
-  assert.equal(route.selection.entryRoute.returnTo, "graph");
-});
-
-test("relation workflow route preserves isolated return from an active relation form", () => {
+test("legacy relation form route no longer creates graph relationForm selections", () => {
   const route = graphRelationWorkflowFormSelectionFromAction(
     action({
       "data-graph-relation-source": "note-a",
       "data-graph-target-note": "note-b"
     }),
-    { currentSelection: { kind: "relationForm", noteId: "note-a", returnTo: "isolated" } }
+    { currentSelection: { kind: "isolated", noteId: "note-a" } }
   );
 
-  assert.equal(route.ok, true);
-  assert.equal(route.selection.returnTo, "isolated");
+  assert.equal(route.ok, false);
+  assert.equal(route.reason, "legacy_relation_form_removed");
+  assert.equal(route.noteId, "note-a");
+  assert.equal(route.selection, undefined);
 });
 
 test("relation workflow route keeps isolated selection after AI connect when note is still unconnected", () => {
@@ -109,18 +86,10 @@ test("relation workflow normalizes overlay selections against visible nodes", ()
     noteId: "note-a",
     title: "Note A"
   });
-  assert.deepEqual(graphNormalizeRelationWorkflowSelection(
+  assert.equal(graphNormalizeRelationWorkflowSelection(
     { kind: "relationForm", noteId: "note-a", targetNoteId: "note-b", relationType: "Same_Topic", rationale: "Because", returnTo: "Isolated" },
     { nodes }
-  ), {
-    kind: "relationForm",
-    noteId: "note-a",
-    targetNoteId: "note-b",
-    relationType: "same_topic",
-    rationale: "Because",
-    returnTo: "isolated",
-    entryRoute: null
-  });
+  ), null);
   assert.equal(graphNormalizeRelationWorkflowSelection({ kind: "isolatedComplete", noteId: "missing" }, { nodes }), null);
   assert.deepEqual(graphNormalizeRelationWorkflowSelection(
     { kind: "isolatedComplete", noteId: "note-a", saveResult: { targetTitle: "Note B" } },
@@ -132,52 +101,14 @@ test("relation workflow normalizes overlay selections against visible nodes", ()
   });
 });
 
-test("relation workflow controller mutates graph state only through route methods", () => {
-  const graphState = { selection: { kind: "isolated", noteId: "note-a" } };
-  const calls = [];
-  const controller = createGraphRelationWorkflowController({
-    graphState,
-    setWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
-    openGraphSelection: (selection) => {
-      graphState.selection = selection;
-      calls.push(["open", selection]);
-    },
-    renderGraphPanel: () => calls.push(["render"]),
-    setStatus: (text, cls) => calls.push(["status", text, cls])
-  });
-
-  assert.equal(controller.openRelationFormFromAction(action({
-    "data-open-note": "note-a",
-    "data-graph-target-note": "note-b"
-  })), true);
-
-  assert.deepEqual({ ...graphState.selection, entryRoute: undefined }, {
-    kind: "relationForm",
-    noteId: "note-a",
-    targetNoteId: "note-b",
-    relationType: "associated_with",
-    rationale: "",
-    returnTo: "isolated",
-    entryRoute: undefined
-  });
-  assert.deepEqual(calls.map((call) => call[0]), ["tab", "open", "status"]);
-});
-
-test("relation workflow controller opens isolated flows through the graph selection hook", () => {
+test("relation workflow controller only exposes non-entry graph return helpers", () => {
   const graphState = { selection: { kind: "node", nodeId: "old" } };
-  const calls = [];
   const controller = createGraphRelationWorkflowController({
-    graphState,
-    setWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
-    openGraphSelection: (selection) => {
-      graphState.selection = selection;
-      calls.push(["open", selection]);
-    },
-    renderGraphPanel: () => calls.push(["render"]),
-    setStatus: (text, cls) => calls.push(["status", text, cls])
+    graphState
   });
 
-  assert.equal(controller.openIsolatedFromAction({ noteId: "note-a" }), true);
-  assert.deepEqual(graphState.selection, { kind: "relationForm", returnTo: "isolated", noteId: "note-a" });
-  assert.deepEqual(calls.map((call) => call[0]), ["tab", "open", "status"]);
+  assert.equal("openIsolatedFromAction" in controller, false);
+  assert.equal(typeof controller.startAiConnectForNote, "function");
+  assert.equal(typeof controller.applyAiConnectRoute, "function");
+  assert.deepEqual(graphState.selection, { kind: "node", nodeId: "old" });
 });

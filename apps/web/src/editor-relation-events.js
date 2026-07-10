@@ -186,9 +186,10 @@ export function routeEditorRelationClick(host, event) {
   }
   if (action === "open-create") {
     host.openCreateRelationForm({
-      source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
+      source: RELATION_ENTRY_SOURCES.PERMANENT_WORKSPACE,
       mode: "manual",
-      targetNoteId: relationAction.dataset.relationTargetNote || ""
+      targetNoteId: relationAction.dataset.relationTargetNote || "",
+      returnTo: "permanent-relation-workspace"
     });
     return true;
   }

@@ -137,12 +137,26 @@ export class EditorSemanticRelationsController {
     const note = host.activeNote();
     if (!note?.id) return;
     const entryRoute = normalizeRelationEntryRoute(options.entryRoute || options, {
-      source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
+      source: RELATION_ENTRY_SOURCES.PERMANENT_WORKSPACE,
       noteId: note.id,
-      returnTo: "right-sidebar"
+      returnTo: "permanent-relation-workspace"
     });
     host.setInspectorVisible?.(true);
     host.activatePermanentWorkspaceTab?.("relations");
+    if (typeof host.openPermanentRelationWorkspace === "function") {
+      host.openPermanentRelationWorkspace({
+        ...entryRoute,
+        source: RELATION_ENTRY_SOURCES.PERMANENT_WORKSPACE,
+        mode: entryRoute.mode || "manual",
+        noteId: entryRoute.noteId || note.id,
+        targetNoteId: options?.targetNoteId || options?.entryRoute?.targetNoteId || entryRoute.targetNoteId,
+        relationType: options?.relationType || options?.entryRoute?.relationType || entryRoute.relationType,
+        rationaleDraft: options?.rationaleDraft || options?.entryRoute?.rationaleDraft || entryRoute.rationaleDraft,
+        insightQuestionDraft: options?.insightQuestionDraft || options?.entryRoute?.insightQuestionDraft || entryRoute.insightQuestionDraft,
+        returnTo: entryRoute.returnTo || "permanent-relation-workspace"
+      });
+      return;
+    }
     this.openInlineCreateForm({
       targetNoteId: options?.targetNoteId || options?.entryRoute?.targetNoteId || entryRoute.targetNoteId,
       relationType: options?.relationType || options?.entryRoute?.relationType || entryRoute.relationType,

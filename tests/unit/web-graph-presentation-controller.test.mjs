@@ -153,7 +153,6 @@ test("graph entry starts with map only and no floating panels", () => {
     workbenchPanelTab: "questions",
     thinkingPanelOpen: true,
     utilityDrawerOpen: true,
-    legendOpen: true,
     researchNavigatorHidden: false,
     researchNavigatorTouched: false
   };
@@ -167,7 +166,7 @@ test("graph entry starts with map only and no floating panels", () => {
   assert.equal(graphState.workbenchPanelTab, "clues");
   assert.equal(graphState.thinkingPanelOpen, false);
   assert.equal(graphState.utilityDrawerOpen, false);
-  assert.equal(graphState.legendOpen, false);
+  assert.equal(Object.prototype.hasOwnProperty.call(graphState, "legendOpen"), false);
   assert.equal(graphState.researchNavigatorHidden, true);
   assert.equal(graphState.researchNavigatorTouched, true);
 });

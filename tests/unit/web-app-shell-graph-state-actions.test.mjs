@@ -5,6 +5,7 @@ import {
   handleGraphAssociateNoteStateChange,
   handleRunNoteAiAnalysisStateChange
 } from "../../apps/web/src/app-shell-graph-state-actions.js";
+import { graphAssociateNoteRoute } from "../../apps/web/src/note-browser-action-router.js";
 
 function statusRecorder() {
   const calls = [];
@@ -16,7 +17,7 @@ function statusRecorder() {
   };
 }
 
-test("graph state actions open the relation form directly in graph mode", async () => {
+test("graph state actions open the shared relation composer in graph mode", async () => {
   const calls = [];
   const result = await handleGraphAssociateNoteStateChange({ noteId: "n1", source: "graph" }, {
     state: { module: "graph", selectedFolderId: "folder-1" },
@@ -30,8 +31,10 @@ test("graph state actions open the relation form directly in graph mode", async 
     },
     graphNodeNeedsRelationWorkflowFromCurrentGraph: () => true,
     applyExplorerSelectionContext: (context) => calls.push(["context", context]),
-    graphRelationWorkflowController: {
-      openRelationFormFromAction: (payload) => calls.push(["relation-form", payload])
+    graphRelationWorkflowController: {},
+    openRelationComposerFromGraphAction: (payload) => {
+      calls.push(["composer", payload]);
+      return true;
     }
   });
 
@@ -41,33 +44,73 @@ test("graph state actions open the relation form directly in graph mode", async 
     ["context", { noteId: "n1", syncSearch: false, expandFolder: true }],
     ["collapse", "folder-1", { auto: true }],
     ["collapse", "original-root", { auto: true }],
-    ["relation-form", { noteId: "n1", relationType: "supports" }]
+    ["composer", { noteId: "n1", relationType: "supports", source: "graph", candidateSource: "", returnTo: "graph" }]
   ]);
 });
 
-test("graph state actions open isolated workflow when relation form is not needed", async () => {
+test("graph sidebar associate action reaches the shared relation composer", async () => {
+  const calls = [];
+  const result = await handleGraphAssociateNoteStateChange({ noteId: "n1", source: "graph-sidebar-associate" }, {
+    state: { module: "graph", selectedFolderId: "folder-1" },
+    graphAssociateNoteRoute,
+    graphNodeNeedsRelationWorkflowFromCurrentGraph: () => true,
+    applyExplorerSelectionContext: (context) => calls.push(["context", context]),
+    openGraphSelection: () => assert.fail("graph sidebar associate should not open graph relationForm selection"),
+    graphRelationWorkflowController: {
+      openIsolatedFromAction: () => assert.fail("graph sidebar associate should not open the isolated relation flow")
+    },
+    openRelationComposerFromGraphAction: (payload) => {
+      calls.push(["composer", payload]);
+      return true;
+    }
+  });
+
+  assert.equal(result, true);
+  assert.deepEqual(calls, [
+    ["context", { noteId: "n1", syncSearch: false, expandFolder: true }],
+    ["composer", { noteId: "n1", relationType: "associated_with", source: "graph", candidateSource: "graph-sidebar-associate", returnTo: "graph" }]
+  ]);
+});
+
+test("graph state actions do not fall back to legacy relation form when composer fails", async () => {
   const status = statusRecorder();
   const calls = [];
+  const result = await handleGraphAssociateNoteStateChange({ noteId: "n1", source: "graph" }, {
+    state: { module: "graph", selectedFolderId: "folder-1" },
+    graphAssociateNoteRoute: (input) => ({ kind: "graph-open-relation-form", noteId: input.noteId, relationType: "supports" }),
+    applyExplorerSelectionContext: () => {},
+    graphRelationWorkflowController: {},
+    openRelationComposerFromGraphAction: () => {
+      calls.push(["composer"]);
+      return false;
+    },
+    setStatus: status.setStatus
+  });
+
+  assert.equal(result, false);
+  assert.deepEqual(calls, [["composer"]]);
+  assert.deepEqual(status.calls.at(-1), { message: "Relation composer did not open. Please try again.", tone: "warn" });
+});
+
+test("graph state actions do not fall back to graph relationForm selection for unknown graph routes", async () => {
+  const status = statusRecorder();
 
   const result = await handleGraphAssociateNoteStateChange({ noteId: "n1" }, {
     state: { module: "graph", selectedFolderId: "folder-1" },
     graphAssociateNoteRoute: () => ({ kind: "graph-open-isolated", noteId: "n1", activeTab: "review" }),
     applyExplorerSelectionContext: () => {},
-    setGraphIsolatedWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
-    openGraphSelection: (selection) => calls.push(["selection", selection]),
-    refreshDirectoryGraph: async () => calls.push(["refresh"]),
+    graphRelationWorkflowController: {
+      openIsolatedFromAction: () => false
+    },
+    openGraphSelection: () => assert.fail("graph associate should not fall back to relationForm selection"),
     setStatus: status.setStatus
   });
 
-  assert.equal(result, true);
-  assert.deepEqual(calls, [
-    ["tab", "n1", "ai"],
-    ["selection", { kind: "relationForm", noteId: "n1", returnTo: "isolated" }]
-  ]);
-  assert.deepEqual(status.calls.at(-1), { message: "已打开建联流程", tone: "ok" });
+  assert.equal(result, false);
+  assert.deepEqual(status.calls.at(-1), { message: "Relation composer did not open. Please try again.", tone: "warn" });
 });
 
-test("graph state actions open today organizer isolated note directly in the relation form", async () => {
+test("graph state actions open today organizer note in the shared relation composer", async () => {
   const status = statusRecorder();
   const calls = [];
 
@@ -76,11 +119,14 @@ test("graph state actions open today organizer isolated note directly in the rel
     graphAssociateNoteRoute: () => ({ kind: "graph-open-isolated-workflow", noteId: "n1", activeTab: "ai" }),
     applyExplorerSelectionContext: (context) => calls.push(["context", context]),
     graphRelationWorkflowController: {
-      openIsolatedFromAction: () => assert.fail("today organizer should not stop at isolated queue selection"),
-      openRelationFormFromAction: () => assert.fail("today organizer should keep isolated return state")
+      openIsolatedFromAction: () => assert.fail("today organizer should not open the isolated relation flow")
     },
-    setGraphIsolatedWorkflowActiveTab: (noteId, tab) => calls.push(["tab", noteId, tab]),
-    openGraphSelection: (selection) => calls.push(["selection", selection]),
+    setGraphIsolatedWorkflowActiveTab: () => assert.fail("today organizer should not switch isolated workflow tabs"),
+    openGraphSelection: () => assert.fail("today organizer should not open graph relationForm selection"),
+    openRelationComposerFromGraphAction: (payload) => {
+      calls.push(["composer", payload]);
+      return true;
+    },
     refreshDirectoryGraph: async () => calls.push(["refresh"]),
     setStatus: status.setStatus
   });
@@ -89,13 +135,12 @@ test("graph state actions open today organizer isolated note directly in the rel
   assert.deepEqual(calls, [
     ["context", { noteId: "n1", syncSearch: false, expandFolder: true }],
     ["refresh"],
-    ["tab", "n1", "manual"],
-    ["selection", { kind: "relationForm", noteId: "n1", isolatedKey: "n1", returnTo: "isolated" }]
+    ["composer", { noteId: "n1", relationType: undefined, source: "graph", candidateSource: "today-organizing", returnTo: "graph" }]
   ]);
-  assert.deepEqual(status.calls.at(-1), { message: "已打开关联表单。选择一条相关笔记，写一句理由并保存。", tone: "ok" });
+  assert.deepEqual(status.calls.at(-1), { message: "已打开关联笔记面板。搜索目标笔记，写清楚为什么相关后保存。", tone: "ok" });
 });
 
-test("graph state actions route import result through the isolated relation flow", async () => {
+test("graph state actions route import result through the shared relation composer", async () => {
   const status = statusRecorder();
   const calls = [];
 
@@ -104,17 +149,21 @@ test("graph state actions route import result through the isolated relation flow
     graphAssociateNoteRoute: () => ({ kind: "graph-open-isolated", noteId: "n1", activeTab: "ai" }),
     applyExplorerSelectionContext: () => {},
     graphRelationWorkflowController: {
-      openIsolatedFromAction: (payload) => {
-        calls.push(["isolated", payload]);
-        return true;
-      }
+      openIsolatedFromAction: () => assert.fail("import result should not open the isolated relation flow")
+    },
+    openGraphSelection: () => assert.fail("import result should not open graph relationForm selection"),
+    openRelationComposerFromGraphAction: (payload) => {
+      calls.push(["composer", payload]);
+      return true;
     },
     setStatus: status.setStatus
   });
 
   assert.equal(result, true);
-  assert.deepEqual(calls, [["isolated", { noteId: "n1" }]]);
-  assert.deepEqual(status.calls.at(-1), { message: "已打开建联流程。选择目标笔记，写一句理由并保存。", tone: "ok" });
+  assert.deepEqual(calls, [
+    ["composer", { noteId: "n1", relationType: undefined, source: "graph", candidateSource: "import-result", returnTo: "graph" }]
+  ]);
+  assert.deepEqual(status.calls.at(-1), { message: "已打开关联笔记面板。搜索目标笔记，写清楚为什么相关后保存。", tone: "ok" });
 });
 
 test("graph state actions route non-graph associate actions through host state change", async () => {

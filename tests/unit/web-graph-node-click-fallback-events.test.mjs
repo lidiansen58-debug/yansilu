@@ -62,7 +62,7 @@ test("graph node click fallback routes current graph canvas node clicks once", a
   assert.equal(events[0].stopped, true);
 });
 
-test("graph node click fallback opens isolated nodes directly", async () => {
+test("graph node click fallback opens isolated nodes in the shared relation composer", async () => {
   const documentRef = createDocument();
   const calls = [];
   const graphNode = {
@@ -81,14 +81,24 @@ test("graph node click fallback opens isolated nodes directly", async () => {
   };
 
   installGraphNodeClickFallbackEvents(documentRef, {
-    openGraphSelection: (selection) => calls.push(selection),
+    openRelationComposerFromGraphAction: (payload) => {
+      calls.push(["composer", payload]);
+      return true;
+    },
+    openGraphSelection: () => calls.push(["legacy-selection"]),
     openGraphNodeSelectionFromElement: () => calls.push("node")
   });
 
   documentRef.listeners.get("click")[0].handler(event);
   await nextTick();
 
-  assert.deepEqual(calls, [{ kind: "relationForm", noteId: "isolated", returnTo: "isolated" }]);
+  assert.deepEqual(calls, [["composer", {
+    noteId: "isolated",
+    source: "graph",
+    candidateSource: "graph-isolated-node",
+    isolatedKey: "",
+    returnTo: "graph"
+  }]]);
 });
 
 test("graph workbench click fallback opens summary workbench entries", () => {
@@ -114,11 +124,11 @@ test("graph workbench click fallback opens summary workbench entries", () => {
 
   const installed = installGraphWorkbenchClickFallbackEvents(documentRef, {
     graphState,
-    graphWorkbenchTabMeta: (key) => ({ key, label: "关联任务", statusLabel: "关联任务" }),
+    graphWorkbenchTabMeta: (key) => ({ key, label: "补全关系", statusLabel: "补全关系" }),
     applyGraphWorkbenchEntryInteraction: (state, key) => {
       calls.push(["entry", key]);
       state.workbenchPanelOpen = true;
-      return { open: true, meta: { label: "关联任务", statusLabel: "关联任务" } };
+      return { open: true, meta: { label: "补全关系", statusLabel: "补全关系" } };
     },
     renderGraphPanel: () => calls.push(["render"]),
     setStatus: (message, tone) => calls.push(["status", message, tone])
@@ -133,6 +143,6 @@ test("graph workbench click fallback opens summary workbench entries", () => {
   assert.deepEqual(calls, [
     ["entry", "clues"],
     ["render"],
-    ["status", "已打开关联任务", "ok"]
+    ["status", "已打开补全关系", "ok"]
   ]);
 });

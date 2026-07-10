@@ -8,7 +8,7 @@ import {
   noteMainPathRoute
 } from "../../apps/web/src/note-browser-action-router.js";
 
-test("note browser graph associate route chooses graph relation form for connected context-menu notes", () => {
+test("note browser graph associate route chooses the shared graph relation composer route", () => {
   assert.deepEqual(
     graphAssociateNoteRoute({
       noteId: "pn_1",
@@ -20,12 +20,13 @@ test("note browser graph associate route chooses graph relation form for connect
       kind: "graph-open-relation-form",
       handled: true,
       noteId: "pn_1",
-      relationType: "associated_with"
+      relationType: "associated_with",
+      candidateSource: "graph-context-menu"
     }
   );
 });
 
-test("note browser graph associate route opens isolated workflow in graph and relation editor outside graph", () => {
+test("note browser graph associate route opens composer route in graph and relation editor outside graph", () => {
   assert.deepEqual(
     graphAssociateNoteRoute({
       noteId: "pn_2",
@@ -34,10 +35,11 @@ test("note browser graph associate route opens isolated workflow in graph and re
       needsRelationWorkflow: true
     }),
     {
-      kind: "graph-open-isolated-workflow",
+      kind: "graph-open-relation-form",
       handled: true,
       noteId: "pn_2",
-      activeTab: "manual"
+      relationType: "associated_with",
+      candidateSource: "graph-sidebar-associate"
     }
   );
 

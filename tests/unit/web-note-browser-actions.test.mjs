@@ -848,7 +848,7 @@ test("note browser action buttons stop row click fallthrough", () => {
   assert.match(clickBody, /const toggleBtn = e\.target\.closest\("button\[data-toggle-folder\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
 });
 
-test("graph associate actions open the in-graph relation workflow instead of only focusing the note", () => {
+test("graph associate actions open the shared relation composer route instead of only focusing the note", () => {
   const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
 
   assert.match(explorerSource, /this\.onStateChange\("graph-associate-note", \{ noteId, source: "graph-sidebar-associate" \}\);/);
@@ -859,7 +859,11 @@ test("graph associate actions open the in-graph relation workflow instead of onl
   );
   assert.equal(
     graphAssociateNoteRoute({ noteId: "pn_1", source: "graph-sidebar-associate", module: "graph", needsRelationWorkflow: true }).kind,
-    "graph-open-isolated-workflow"
+    "graph-open-relation-form"
+  );
+  assert.equal(
+    graphAssociateNoteRoute({ noteId: "pn_1", source: "graph-sidebar-associate", module: "graph", needsRelationWorkflow: true }).candidateSource,
+    "graph-sidebar-associate"
   );
 });
 

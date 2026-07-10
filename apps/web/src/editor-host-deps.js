@@ -14,6 +14,7 @@ export function createEditorPaneHostDeps(deps = {}) {
     literatureTemplateSectionLabelCandidates = () => [],
     renderStatusMeta = () => {},
     renderWorkspaceStatusHint = () => {},
+    refreshDirectoryGraph = async () => false,
     renderAll = () => {},
     currentNoteWritingLabel = "当前笔记"
   } = deps;
@@ -101,6 +102,7 @@ export function createEditorPaneHostDeps(deps = {}) {
       }
     },
     selectPermanentDirectory,
+    refreshDirectoryGraph,
     resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
     resolveLiteratureSectionLabelCandidates: literatureTemplateSectionLabelCandidates,
     onChromeChange: () => {

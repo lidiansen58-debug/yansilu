@@ -17,6 +17,9 @@ export function createRelationEntryRuntimeController(depsProvider = () => ({})) 
     editor?.renderRelated?.();
     windowRef?.setTimeout?.(() => {
       editor?.openPermanentRelationWorkspace?.({
+        noteId: cleanNoteId,
+        sourceNoteId: cleanNoteId,
+        source: options.source || "explorer-browser",
         mode: options.mode || "",
         targetNoteId: options.targetNoteId || "",
         relationType: options.relationType || "",

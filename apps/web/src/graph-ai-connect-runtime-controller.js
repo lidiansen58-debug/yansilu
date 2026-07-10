@@ -141,6 +141,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       graphNodeTitle = (_map, _id, fallback = "") => fallback,
       graphRelationStatusCountsAsNetworkEdge = undefined,
       graphRelationWorkflowController = null,
+      openRelationComposerFromGraphAction = null,
       graphScopeDirectoryId = () => "",
       graphState = {},
       renderGraphPanel = () => {},
@@ -188,12 +189,17 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
         graphState.isolatedCandidatePreviewByNoteId[cleanNoteId] = firstTargetId;
         setGraphIsolatedWorkflowActiveTab(cleanNoteId, "ai");
         const firstCandidate = candidates[0] || {};
-        graphState.selection = {
-          kind: "relationForm", noteId: cleanNoteId, targetNoteId: firstTargetId,
-          relationType: String(firstCandidate.relationType || firstCandidate.type || "associated_with").trim() || "associated_with",
-          rationale: String(firstCandidate.rationale || firstCandidate.aiRationale || "").trim(),
-          returnTo: graphSelectionKind === "isolated" ? "isolated" : ""
-        };
+        if (typeof openRelationComposerFromGraphAction === "function") {
+          openRelationComposerFromGraphAction({
+            noteId: cleanNoteId,
+            targetNoteId: firstTargetId,
+            relationType: String(firstCandidate.relationType || firstCandidate.type || "associated_with").trim() || "associated_with",
+            rationale: String(firstCandidate.rationale || firstCandidate.aiRationale || "").trim(),
+            source: "graph",
+            candidateSource: "graph-ai-connect",
+            returnTo: "graph"
+          });
+        }
       }
       const noteTitle = graphNodeTitle(nodeMap, cleanNoteId, state.notes.find((note) => note.id === cleanNoteId)?.title || cleanNoteId);
       const candidateTitles = graphAiConnectCandidateTitles(candidates);

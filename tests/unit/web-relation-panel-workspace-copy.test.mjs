@@ -15,6 +15,7 @@ const workspaceControllerPath = new URL("../../apps/web/src/permanent-note-works
 const workspaceViewPath = new URL("../../apps/web/src/permanent-note-workspace-view.js", import.meta.url);
 const actionPanelPath = new URL("../../apps/web/src/permanent-note-action-panel.js", import.meta.url);
 const permanentRelationWorkspacePath = new URL("../../apps/web/src/permanent-relation-workspace.js", import.meta.url);
+const permanentRelationComposerControllerPath = new URL("../../apps/web/src/permanent-relation-composer-controller.js", import.meta.url);
 const shellPath = new URL("../../apps/web/src/prototype.html", import.meta.url);
 
 test("relation and viewpoint polish entry stay separated", async () => {
@@ -32,6 +33,7 @@ test("relation and viewpoint polish entry stay separated", async () => {
   const sidebarController = await readFile(sidebarControllerPath, "utf8");
   const shell = await readFile(shellPath, "utf8");
   const relationWorkspaceSource = await readFile(permanentRelationWorkspacePath, "utf8");
+  const relationComposerController = await readFile(permanentRelationComposerControllerPath, "utf8");
   const workspaceControllerSource = await readFile(workspaceControllerPath, "utf8");
 
   assert.match(shell, /<div class="panel-title">打磨笔记<\/div>/);
@@ -40,7 +42,8 @@ test("relation and viewpoint polish entry stay separated", async () => {
   assert.match(source, /renderPermanentNoteRelationAssistSectionView\(\{/);
   assert.match(source, /data-permanent-relation-workspace/);
   assert.match(source, /syncPermanentRelationManualResults\(\)/);
-  assert.match(source, /const latestRelations = await fetchNoteRelations\(note\.id\)/);
+  assert.match(source, /permanentRelationComposer\(\)\.submit\(form\)/);
+  assert.match(relationComposerController, /const latestRelations = await fetchNoteRelations\(sourceNote\.id\)/);
   assert.match(source, /permanentSidebarController\(\)\.continueRelationWorkspace\(\)/);
   assert.doesNotMatch(sidebarController, /permanentRelationWorkspaceNextAiCandidate\(/);
   assert.match(sidebarView, /data-permanent-relation-action="open"/);
@@ -63,6 +66,7 @@ test("relation and viewpoint polish entry stay separated", async () => {
 test("permanent relation manual search keeps the search input mounted while updating results", async () => {
   const source = await readFile(sourcePath, "utf8");
   const workspaceSource = await readFile(new URL("../../apps/web/src/permanent-relation-workspace.js", import.meta.url), "utf8");
+  const relationComposerController = await readFile(permanentRelationComposerControllerPath, "utf8");
   const refreshStart = source.indexOf("  async refreshPermanentRelationManualSearch(query = \"\") {");
   const refreshEnd = source.indexOf("  queuePermanentRelationManualSearch(input) {", refreshStart);
   assert.ok(refreshStart >= 0 && refreshEnd > refreshStart, "expected refreshPermanentRelationManualSearch() to exist");
@@ -70,10 +74,10 @@ test("permanent relation manual search keeps the search input mounted while upda
 
   assert.match(workspaceSource, /data-permanent-relation-manual-results/);
   assert.match(source, /renderPermanentRelationManualTargets/);
-  assert.match(refreshSource, /this\.syncPermanentRelationManualResults\(\)/);
-  assert.match(refreshSource, /selectedTargetNoteId:\s*cleanQuery \? "" : this\.permanentRelationWorkspaceState\.selectedTargetNoteId/);
-  assert.doesNotMatch(refreshSource, /this\.syncPermanentRelationTargetPreview\(\)/);
-  assert.doesNotMatch(refreshSource, /this\.syncPermanentRelationWorkspaceOverlay\(\)/);
+  assert.match(refreshSource, /permanentRelationComposer\(\)\.refreshManualSearch\(query\)/);
+  assert.match(relationComposerController, /host\.syncPermanentRelationManualResults\(\)/);
+  assert.match(relationComposerController, /selectedTargetNoteId:\s*cleanQuery \? "" : host\.permanentRelationWorkspaceState\.selectedTargetNoteId/);
+  assert.doesNotMatch(relationComposerController, /syncPermanentRelationTargetPreview\(\)/);
   assert.doesNotMatch(refreshSource, /querySelector\?\.\("\[data-permanent-relation-target-search\]"\)\?\.focus/);
 });
 
@@ -81,6 +85,7 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   const source = await readFile(sourcePath, "utf8");
   const semanticRelationsController = await readFile(semanticRelationsControllerPath, "utf8");
   const distillationController = await readFile(distillationControllerPath, "utf8");
+  const relationComposerController = await readFile(permanentRelationComposerControllerPath, "utf8");
 
   const distillationStart = distillationController.indexOf("  async handleForm(form) {");
   const distillationEnd = distillationController.indexOf("  async confirm()", distillationStart);
@@ -115,6 +120,17 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   const deleteSource = semanticRelationsController.slice(deleteStart, deleteEnd);
   assert.match(deleteSource, /if \(!host\.isActiveNoteId\(activeNoteId\)\) return/);
   assert.match(deleteSource, /host\.closePermanentRelationWorkspace\?\.\(\)/);
+
+  assert.match(relationComposerController, /const sourceIsActive = host\.isActiveNoteId\?\.\(sourceNote\.id\) === true/);
+  assert.match(relationComposerController, /const sourceStillActive = \(\) => host\.isActiveNoteId\?\.\(sourceNote\.id\) === true/);
+  assert.match(relationComposerController, /const submitSessionId = cleanText\(state\.relationComposerSessionId \|\| stateSessionId\(host\)\)/);
+  assert.match(relationComposerController, /stateSessionId\(host\) === submitSessionId/);
+  assert.match(relationComposerController, /const currentRelations = sourceIsActive \? host\.currentSemanticRelations : null/);
+  assert.match(relationComposerController, /if \(sourceStillActive\(\)\) \{\s*host\.currentSemanticRelations = latestRelations;/);
+  assert.match(relationComposerController, /if \(savedRelations && sourceStillActive\(\)\) \{/);
+  assert.match(relationComposerController, /const linkInserted = await this\.insertLinkIfRequested\(state\);\s*if \(!draftStillCurrent\(\)\) return;/);
+  assert.match(relationComposerController, /const requestSessionId = stateSessionId\(host\)/);
+  assert.match(relationComposerController, /stateSessionId\(host\) === requestSessionId/);
 });
 
 test("relation workspace separates body links and external relations with user-facing actions", () => {

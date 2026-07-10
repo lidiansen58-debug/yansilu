@@ -12,7 +12,6 @@ test("graph selection panel renderer keeps dispatcher and node edge panel wiring
     renderGraphThemeSelectionPanel: () => "theme-panel",
     renderGraphIsolatedSelectionPanel: () => "isolated-panel",
     renderGraphIsolatedCompletePanel: () => "isolated-complete-panel",
-    renderGraphRelationFormSelectionPanel: () => "relation-form-panel",
     renderGraphBridgeSelectionPanel: () => "bridge-panel",
     normalizeGraphSelectionForVisibleItems: (selection) => selection,
     graphRelationStatusCountsAsNetworkEdge: () => true,

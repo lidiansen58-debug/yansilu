@@ -31,7 +31,7 @@ export function createGraphRelationSaveController({
   graphNodeTitle = (_nodeMap, id = "", fallback = "") => fallback || id,
   relationTypeLabel = (type = "") => String(type || "").trim(),
   clearIsolatedRelationDraft = () => false,
-  openRelationFormInSelection = () => false,
+  openRelationComposerFromGraphAction = () => false,
   setGraphRelationTypeFilter = () => ""
 } = {}) {
   const titleForNote = (nodeMap = new Map(), noteId = "") => graphNodeTitle(
@@ -150,7 +150,7 @@ export function createGraphRelationSaveController({
     const relationLabel = relationTypeLabel(relationType);
     const rationale = rationaleIsActionable(rationaleDraft) ? rationaleDraft : "";
     if (!rationale) {
-      openRelationFormInSelection(button);
+      openRelationComposerFromGraphAction(button);
       setStatus(`请先补一句“${sourceTitle}”和“${targetTitle}”为什么能建立${relationLabel}`, "warn");
       return false;
     }

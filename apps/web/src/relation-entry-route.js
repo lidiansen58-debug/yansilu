@@ -13,8 +13,14 @@ const SOURCE_ALIASES = new Map([
   ["sidebar", RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR],
   ["right", RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR],
   ["right-panel", RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR],
+  ["explorer-browser", RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR],
+  ["system-message", RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR],
+  ["today-organizing", RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR],
+  ["import-result", RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR],
   ["graph", RELATION_ENTRY_SOURCES.GRAPH_NODE],
   ["graph-relation-form", RELATION_ENTRY_SOURCES.GRAPH_NODE],
+  ["graph-sidebar-associate", RELATION_ENTRY_SOURCES.GRAPH_NODE],
+  ["graph-context-menu", RELATION_ENTRY_SOURCES.GRAPH_NODE],
   ["isolated", RELATION_ENTRY_SOURCES.GRAPH_ISOLATED],
   ["graph-isolated-complete", RELATION_ENTRY_SOURCES.GRAPH_ISOLATED],
   ["ai-candidate", RELATION_ENTRY_SOURCES.GRAPH_AI_CANDIDATE],
@@ -101,6 +107,7 @@ function routeInputFromElement(element = null) {
     relationType: readAttr(element, ["data-relation-type", "data-graph-relation-type"]),
     rationaleDraft: readAttr(element, ["data-relation-rationale-draft", "data-graph-rationale-draft"]),
     insightQuestionDraft: readAttr(element, ["data-relation-insight-question-draft", "data-graph-insight-question-draft"]),
+    candidateSource: readAttr(element, ["data-relation-candidate-source", "data-graph-candidate-source"]) || (element?.hasAttribute?.("data-graph-select-isolated") ? "graph-isolated-queue" : ""),
     mode: readAttr(element, ["data-relation-entry-mode", "data-permanent-relation-mode"]),
     returnTo: readAttr(element, ["data-relation-return-to", "data-graph-return-to"]),
     entryHint: readAttr(element, ["data-relation-entry-hint"]),
@@ -111,6 +118,7 @@ function routeInputFromElement(element = null) {
 
 export function normalizeRelationEntryRoute(input = {}, defaults = {}) {
   const source = cleanSource(input.source || defaults.source);
+  const rawCandidateSource = cleanText(input.candidateSource || input.candidate_source || input.rawSource || defaults.candidateSource || defaults.candidate_source || defaults.rawSource);
   return {
     source,
     noteId: cleanText(input.noteId || input.sourceNoteId || defaults.noteId || defaults.sourceNoteId),
@@ -118,6 +126,7 @@ export function normalizeRelationEntryRoute(input = {}, defaults = {}) {
     relationType: cleanKind(input.relationType || defaults.relationType || "associated_with") || "associated_with",
     rationaleDraft: cleanText(input.rationaleDraft || input.rationale || defaults.rationaleDraft || defaults.rationale),
     insightQuestionDraft: cleanText(input.insightQuestionDraft || input.insightQuestion || defaults.insightQuestionDraft || defaults.insightQuestion),
+    candidateSource: rawCandidateSource,
     mode: cleanMode(input.mode || defaults.mode),
     returnTo: cleanReturnTo(input.returnTo || defaults.returnTo, source),
     entryHint: cleanText(input.entryHint || defaults.entryHint),
@@ -141,7 +150,8 @@ export function relationEntryRouteFromGraphAction(action = null, { currentSelect
     targetNoteId: elementRoute.targetNoteId || action?.targetNoteId,
     relationType: elementRoute.relationType || action?.relationType,
     rationaleDraft: elementRoute.rationaleDraft || action?.rationale,
-    insightQuestionDraft: elementRoute.insightQuestionDraft || action?.insightQuestion
+    insightQuestionDraft: elementRoute.insightQuestionDraft || action?.insightQuestion,
+    candidateSource: elementRoute.candidateSource || action?.candidateSource || action?.candidate_source
   }, {
     source: RELATION_ENTRY_SOURCES.GRAPH_NODE,
     returnTo,
@@ -166,6 +176,7 @@ export function relationEntryRouteForPermanentWorkspaceContinuation(noteId = "",
     relationType: options.relationType,
     rationaleDraft: options.rationaleDraft,
     insightQuestionDraft: options.insightQuestionDraft,
+    candidateSource: options.candidateSource || previous.candidateSource,
     mode: options.mode,
     returnTo: options.returnTo || previous.returnTo,
     entryHint: options.entryHint || previous.entryHint,

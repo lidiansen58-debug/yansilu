@@ -53,6 +53,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     noteAnalysisSystemMessageForResult: host.noteAnalysisSystemMessageForResult,
     openAiInboxModule: host.openAiInboxModule,
     openGraphSelection: host.openGraphSelection,
+    openRelationComposerFromGraphAction: host.openRelationComposerFromGraphAction,
     openImportModule: host.openImportModule,
     openNoteById: host.openNoteById,
     openNoteRelationEditor: host.openNoteRelationEditor,

@@ -3,12 +3,13 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
     escapeHtml = (value = "") => String(value ?? ""),
     normalizeGraphRelationTypeFilter = (value = "meaningful") => String(value || "meaningful"),
     graphRelationGroupMeta = () => ({ key: "neutral" }),
-    GRAPH_RELATION_GROUP_META = { neutral: { label: "其他" } },
+    GRAPH_RELATION_GROUP_META = { neutral: { label: "其它" } },
     GRAPH_MEANINGFUL_RELATION_TYPES = new Set(),
     GRAPH_INDEX_RELATION_TYPES = new Set(),
     GRAPH_LINK_CLUE_RELATION_TYPES = new Set()
   } = deps;
-  const fallbackCounts = edges.reduce((acc, edge) => {
+  const list = Array.isArray(edges) ? edges : [];
+  const fallbackCounts = list.reduce((acc, edge) => {
     const fallback = field === "status" ? "confirmed" : "associated_with";
     const key = String(edge?.[field] || fallback).trim().toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
@@ -18,49 +19,40 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
     const counts = statsOverride?.counts && typeof statsOverride.counts === "object" ? statsOverride.counts : fallbackCounts;
     const selectedKey = normalizeGraphRelationTypeFilter(selected, "meaningful");
     const structureFallback = statsOverride?.structureFallback === true;
-    const meaningfulCount =
-      Number.isFinite(Number(statsOverride?.meaningfulCount))
-        ? Number(statsOverride.meaningfulCount)
-        : edges.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const indexCount =
-      Number.isFinite(Number(statsOverride?.indexCount))
-        ? Number(statsOverride.indexCount)
-        : edges.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const noisyCount =
-      Number.isFinite(Number(statsOverride?.noisyCount))
-        ? Number(statsOverride.noisyCount)
-        : edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const totalCount = Number.isFinite(Number(statsOverride?.totalCount)) ? Number(statsOverride.totalCount) : edges.length;
+    const meaningfulCount = Number.isFinite(Number(statsOverride?.meaningfulCount))
+      ? Number(statsOverride.meaningfulCount)
+      : list.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const indexCount = Number.isFinite(Number(statsOverride?.indexCount))
+      ? Number(statsOverride.indexCount)
+      : list.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const noisyCount = Number.isFinite(Number(statsOverride?.noisyCount))
+      ? Number(statsOverride.noisyCount)
+      : list.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const totalCount = Number.isFinite(Number(statsOverride?.totalCount)) ? Number(statsOverride.totalCount) : list.length;
     const leadingOptions = [
-      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>先看关联 (${meaningfulCount})</option>`,
+      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>主要关系 (${meaningfulCount})</option>`,
       `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`
     ];
     if (noisyCount > 0) {
-      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>只看正文链接 (${noisyCount})</option>`);
+      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>正文链接 (${noisyCount})</option>`);
     }
     if (indexCount > 0 || structureFallback) {
-      const indexLabel = structureFallback && selectedKey === "index" ? "主题分布（自动分组）" : "只看主题归属";
       const indexDisplayCount = structureFallback && selectedKey === "index" ? meaningfulCount || totalCount : indexCount;
+      const indexLabel = structureFallback && indexCount <= 0 ? "按关系找主题" : "主题关系";
       leadingOptions.push(`<option value="index"${selectedKey === "index" ? " selected" : ""}>${escapeHtml(indexLabel)} (${indexDisplayCount})</option>`);
     }
     const selectedTypeHasOption =
       selectedKey === "meaningful" ||
       selectedKey === "all" ||
       (selectedKey === "noisy" && noisyCount > 0) ||
-      (selectedKey === "index" && structureFallback) ||
-      (selectedKey === "index" && indexCount > 0) ||
+      (selectedKey === "index" && (structureFallback || indexCount > 0)) ||
       (selectedKey !== "meaningful" &&
         selectedKey !== "all" &&
         selectedKey !== "noisy" &&
         selectedKey !== "index" &&
         Object.prototype.hasOwnProperty.call(counts, selectedKey));
     if (!selectedTypeHasOption && selectedKey) {
-      const selectedLabel =
-        selectedKey === "noisy"
-          ? "只看正文链接"
-          : selectedKey === "index"
-            ? "只看主题归属"
-            : labelFn(selectedKey);
+      const selectedLabel = selectedKey === "noisy" ? "正文链接" : selectedKey === "index" ? "主题关系" : labelFn(selectedKey);
       leadingOptions.push(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedLabel)} (0)</option>`);
     }
     const groupedCounts = new Map();
@@ -98,5 +90,5 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
       return `<option value="${escapeHtml(value)}"${selectedAttr}>${escapeHtml(labelFn(value))} (${count})</option>`;
     })
     .join("");
-  return `<option value="all"${selected === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${edges.length})</option>${options}`;
+  return `<option value="all"${selected === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${list.length})</option>${options}`;
 }
