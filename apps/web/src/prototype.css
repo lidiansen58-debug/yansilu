@@ -2666,18 +2666,23 @@
     #btnModeToggle { --tb-accent: #2563eb; }
     #btnFocusMode { --tb-accent: #b45309; }
     #btnShowRelated {
-      --tb-accent: #0e7490;
-      border-color: rgba(14, 116, 144, 0.34);
-      background: linear-gradient(180deg, #ecfeff 0%, #f8fffd 100%);
-      color: #0f5f68;
-      box-shadow: 0 10px 22px rgba(14, 116, 144, 0.12);
+      --tb-accent: #b45309;
+      border-color: rgba(245, 158, 11, 0.46);
+      background:
+        radial-gradient(circle at 78% 12%, rgba(20, 184, 166, 0.2), transparent 34%),
+        linear-gradient(180deg, #fff7ed 0%, #ecfeff 100%);
+      color: #9a5b00;
+      box-shadow: 0 10px 22px rgba(180, 83, 9, 0.14);
     }
     #btnShowRelated:hover,
     #btnShowRelated:focus-visible,
     #btnShowRelated.active {
-      border-color: rgba(14, 116, 144, 0.56);
-      background: linear-gradient(180deg, #cffafe 0%, #ecfeff 100%);
-      color: #0b5964;
+      border-color: rgba(217, 119, 6, 0.68);
+      background:
+        radial-gradient(circle at 78% 12%, rgba(20, 184, 166, 0.24), transparent 36%),
+        linear-gradient(180deg, #ffedd5 0%, #e6fffb 100%);
+      color: #7c4a03;
+      box-shadow: 0 12px 24px rgba(180, 83, 9, 0.18);
     }
     #btnRecordPermanent { --tb-accent: #0f766e; }
     #btnSave { --tb-accent: #16a34a; }
@@ -20286,6 +20291,26 @@
       font-weight: 800;
     }
 
+    #editorWorkspace > .toolbar #btnShowRelated {
+      border: 1px solid rgba(245, 158, 11, 0.52) !important;
+      background:
+        radial-gradient(circle at 78% 12%, rgba(20, 184, 166, 0.22), transparent 34%),
+        linear-gradient(180deg, #fff7ed 0%, #ecfeff 100%) !important;
+      color: #9a5b00 !important;
+      box-shadow: 0 8px 18px rgba(180, 83, 9, 0.14) !important;
+    }
+
+    #editorWorkspace > .toolbar #btnShowRelated:hover,
+    #editorWorkspace > .toolbar #btnShowRelated:focus-visible,
+    #editorWorkspace > .toolbar #btnShowRelated.active {
+      border-color: rgba(217, 119, 6, 0.72) !important;
+      background:
+        radial-gradient(circle at 78% 12%, rgba(20, 184, 166, 0.26), transparent 36%),
+        linear-gradient(180deg, #ffedd5 0%, #e6fffb 100%) !important;
+      color: #7c4a03 !important;
+      box-shadow: 0 10px 20px rgba(180, 83, 9, 0.18) !important;
+    }
+
     .mini-btn.create-original-cta {
       border-color: rgba(180, 83, 9, 0.86);
       background: #b45309;
@@ -21192,6 +21217,26 @@
     .editor-stage-shell .tb.active,
     .editor-stage-shell .toolbar-segment .tb.active {
       box-shadow: inset 0 -1px 0 rgba(47, 143, 131, 0.34) !important;
+    }
+
+    .editor-stage-shell #btnShowRelated {
+      border: 1px solid rgba(245, 158, 11, 0.52) !important;
+      background:
+        radial-gradient(circle at 78% 12%, rgba(20, 184, 166, 0.22), transparent 34%),
+        linear-gradient(180deg, #fff7ed 0%, #ecfeff 100%) !important;
+      color: #9a5b00 !important;
+      box-shadow: 0 8px 18px rgba(180, 83, 9, 0.14) !important;
+    }
+
+    .editor-stage-shell #btnShowRelated:hover,
+    .editor-stage-shell #btnShowRelated:focus-visible,
+    .editor-stage-shell #btnShowRelated.active {
+      border-color: rgba(217, 119, 6, 0.72) !important;
+      background:
+        radial-gradient(circle at 78% 12%, rgba(20, 184, 166, 0.26), transparent 36%),
+        linear-gradient(180deg, #ffedd5 0%, #e6fffb 100%) !important;
+      color: #7c4a03 !important;
+      box-shadow: 0 10px 20px rgba(180, 83, 9, 0.18) !important;
     }
 
     .editor-stage-shell .tb-label.has-icon span,
