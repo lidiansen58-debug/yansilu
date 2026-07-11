@@ -92,7 +92,7 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
   assert.equal(get("settingsAiAdvancedModelRef").value, "openai:gpt-test");
   assert.equal(get("settingsAiSecretRef").value, "AI_KEY");
   assert.equal(get("settingsAiTestPrompt").value, "ping");
-  assert.equal(get("btnAiTestChatRun").textContent, "测试一句话");
+  assert.equal(get("btnAiTestChatRun").textContent, "测试 AI");
   assert.equal(get("settingsAiTestChatMeta").textContent, "测试成功");
   assert.equal(get("settingsAiTestChatOutput").textContent, "pong");
   assert.deepEqual(calls.slice(0, 6), ["sync-rail", "layout", "mount-automation", "chrome", "sidebar", "detail"]);

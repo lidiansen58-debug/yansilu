@@ -2,6 +2,22 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+function normalizeEndpointUrl(value = "") {
+  const text = cleanText(value).replace(/\/+$/, "");
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    const pathname = url.pathname.replace(/\/+$/, "");
+    if (/\/chat\/completions$/i.test(pathname)) return url.toString().replace(/\/+$/, "");
+    url.pathname = `${pathname || ""}/chat/completions`.replace(/\/{2,}/g, "/");
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return text;
+  }
+}
+
 function normalizeHeaders(headers = {}) {
   const result = {};
   for (const [key, value] of Object.entries(headers || {})) {
@@ -47,7 +63,7 @@ function authHeaders(secret, auth = {}, options = {}) {
 }
 
 export async function buildOpenAiCompatibleFetchRequest(compatibleRequest = {}, options = {}) {
-  const endpointUrl = cleanText(options.endpointUrl || options.endpoint_url || compatibleRequest.endpointUrl);
+  const endpointUrl = normalizeEndpointUrl(options.endpointUrl || options.endpoint_url || compatibleRequest.endpointUrl);
   const method = cleanText(compatibleRequest.method) || "POST";
   const auth = {
     ...(compatibleRequest.auth || {}),

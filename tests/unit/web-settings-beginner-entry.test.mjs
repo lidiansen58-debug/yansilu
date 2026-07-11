@@ -58,7 +58,7 @@ test("settings help exposes a one-click Smart Notes Demo entrance", async () => 
   assert.match(html, /怎么开始写作/);
   assert.match(html, /如何备份和迁移/);
   assert.match(html, /手机访问适合怎么用/);
-  assert.match(html, /AI \/ Ollama 是什么，什么时候需要/);
+  assert.match(html, /AI \/ 模型运行工具是什么，什么时候需要/);
   assert.match(html, /一键导入 Smart Notes Demo/);
   assert.match(html, /导入一套可试错样例/);
   assert.match(html, /空库先导入 Demo；已有资料先选文件夹；只想记录就写第一条随笔/);

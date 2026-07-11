@@ -186,6 +186,7 @@ import { createLocalAiSetupController } from "./local-ai-setup-controller.js";
 import { isLocalAdvancedModelRefForSettings } from "./settings-ai-runtime-actions.js";
 import { createSettingsAiRuntimeController } from "./settings-ai-runtime-controller.js";
 import { buildAiProviderConfigPayload } from "./settings-ai-provider-config-actions.js";
+import { remoteApiKeySecretRef } from "./ai-settings-remote-config-model.js";
 import { AI_LOCAL_MODEL_TIERS, AI_REMOTE_MODEL_TIERS, OLLAMA_CHAT_ENDPOINT_URL, OLLAMA_HEALTH_ENDPOINT_URL, OLLAMA_RECOMMENDED_MODEL, aiDefaultsForRuntimeMode, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl, enabledProviderHealthEndpointUrl, isBuiltInOllamaModel, isRemoteConfigurableProviderId, localModelDisplayProfile, modelNameExistsInList, normalizeOllamaSetupGuide, ollamaBootstrapStatusText, ollamaModelRecommendationProfiles, ollamaRecommendationForModel, preferredLocalModelName, remoteRuntimeModelFromMap, runtimeModelMapForRemoteModel, selectedLocalModelNameForInstalledModels } from "./prototype-ai-settings-controller.js";
 import { createUpdateState, shouldShowUpdateAttention, updateStateAutoCheckEnabled, updateStateIgnoreLatest, updateStateRemindLater } from "./update-state.js";
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "./prototype-update-controller.js";
@@ -395,6 +396,7 @@ const settingsState = {
     modelPack: "Starter Auto",
     advancedModelRef: "",
     secretRef: "",
+    remoteApiKey: "",
     providerEndpointUrl: "",
     providerHealthEndpointUrl: "",
     remoteRuntimeModel: "",
@@ -421,6 +423,7 @@ const settingsState = {
     localRuntimePulling: false,
     localRuntimeError: "",
     localAiSetupSyncPending: false,
+    autoPrepareLocalAi: false,
     providerConfigs: [],
     providerConfigSaving: false,
     providerHealthChecking: false,
@@ -635,11 +638,13 @@ const AI_USER_MODE_KEY = "yansilu:ai:user-mode";
 const AI_MODEL_PACK_KEY = "yansilu:ai:model-pack";
 const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
+const AI_REMOTE_API_KEY_KEY = "yansilu:ai:remote-api-key";
 const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
 const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const AI_LOCAL_SETUP_SYNC_PENDING_KEY = "yansilu:ai:local-setup-sync-pending";
+const AI_AUTO_PREPARE_LOCAL_KEY = "yansilu:ai:auto-prepare-local";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
 
 function markTodayReturnTarget(target = {}) {
@@ -1143,16 +1148,19 @@ function loadAiSettingsFromStorage() {
   const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
+  const storedRemoteApiKey = String(readStoredText(AI_REMOTE_API_KEY_KEY, "") || "").trim();
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
   const storedRemoteRuntimeModel = String(readStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, "") || "").trim();
   const storedLocalModel = String(readStoredText(AI_LOCAL_MODEL_KEY, "") || "").trim();
   settingsState.ai.localAiSetupSyncPending = readStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, false);
+  settingsState.ai.autoPrepareLocalAi = readStoredBoolean(AI_AUTO_PREPARE_LOCAL_KEY, false);
   if (storedRuntimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(storedRuntimeMode);
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
-  settingsState.ai.secretRef = storedSecretRef;
+  settingsState.ai.remoteApiKey = storedRemoteApiKey;
+  settingsState.ai.secretRef = storedRemoteApiKey ? remoteApiKeySecretRef() : storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
   settingsState.ai.remoteRuntimeModel = storedRemoteRuntimeModel;
@@ -1166,11 +1174,13 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
+  writeStoredText(AI_REMOTE_API_KEY_KEY, settingsState.ai.remoteApiKey);
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
   writeStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, settingsState.ai.localAiSetupSyncPending === true);
+  writeStoredBoolean(AI_AUTO_PREPARE_LOCAL_KEY, settingsState.ai.autoPrepareLocalAi === true);
 }
 
 function settingsSupportedModelPack(modelPack = "") { return supportedAiSettingsModelPack(modelPack); }
@@ -1472,7 +1482,7 @@ function applyAiPreferencesToSettingsState(preferences = null, options = {}) {
   settingsState.ai.modelPack = nextAiSelection.modelPack;
   settingsState.ai.localModel = nextAiSelection.localModel;
   settingsState.ai.advancedModelRef = nextAiSelection.advancedModelRef;
-  settingsState.ai.secretRef = nextAiSelection.secretRef;
+  settingsState.ai.secretRef = settingsState.ai.remoteApiKey ? remoteApiKeySecretRef() : nextAiSelection.secretRef;
   settingsState.ai.providerEndpointUrl = "";
   settingsState.ai.providerHealthEndpointUrl = "";
   settingsState.ai.remoteRuntimeModel = "";
@@ -3649,6 +3659,7 @@ function settingsAiExperienceRuntimeDeps() {
     currentOllamaSetupGuide,
     primaryRecommendedOllamaModelName,
     currentAiProviderId,
+    isRemoteConfigurableProviderId,
     isAiLocalFlowActive,
     preferredLocalProviderPresetForSelection,
     defaultProviderEndpointUrl,
@@ -3706,19 +3717,26 @@ function renderAiProviderConfigControls() {
 function settingsAiDialogByName(name = "") {
   const normalized = String(name || "").trim();
   const map = {
-    remote: "settingsAiRemoteDialog",
     test: "settingsAiTestDialog"
   };
   return $(map[normalized] || "");
 }
 
 function closeSettingsAiDialogs() {
-  ["settingsAiRemoteDialog", "settingsAiTestDialog"].forEach((id) => {
+  ["settingsAiTestDialog"].forEach((id) => {
     $(id)?.classList.add("hidden");
   });
 }
 
 function openSettingsAiDialog(name = "") {
+  if (String(name || "").trim() === "remote") {
+    const section = $("settingsAiRemoteSection");
+    if (section instanceof HTMLDetailsElement) section.open = true;
+    section?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    const firstField = $("settingsAiProviderEndpointUrl");
+    if (firstField instanceof HTMLElement) firstField.focus({ preventScroll: true });
+    return;
+  }
   const dialog = settingsAiDialogByName(name);
   if (!dialog) return;
   closeSettingsAiDialogs();
@@ -3754,6 +3772,23 @@ async function applySettingsAiQuickSetup(kind = "") {
     return;
   }
   setStatus(normalized === "local" ? "已切换为本地大模型设置流程" : "已切换为远程大模型设置流程", "ok");
+}
+
+function confirmRemoteAiUse() {
+  if (typeof window?.confirm !== "function") return true;
+  return window.confirm("远程 AI 会把相关内容发送到你填写的服务。确认继续吗？");
+}
+
+async function autoPrepareLocalAiOnStartup() {
+  if (settingsState.ai.autoPrepareLocalAi !== true) return;
+  if (!localOllamaSetupActive() || !shouldUseOllamaLocalRuntime()) return;
+  await bootstrapOllamaLocalAiFromUi({
+    ...localAiPreviewOptionsForAction("settings_refresh"),
+    autoStart: true,
+    pullModel: false,
+    silent: true,
+    render: false
+  });
 }
 
 function activateModule(moduleName) {
@@ -5834,8 +5869,10 @@ installSettingsAiEventBindings({
   copyTextToClipboard,
   applySettingsAiQuickSetup,
   openSettingsAiDialog,
-  closeSettingsAiDialogs
+  closeSettingsAiDialogs,
+  confirmRemoteAiUse
 });
+void autoPrepareLocalAiOnStartup();
 bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({
   settingsState,
   aiSuggestionFiltersFromUi,

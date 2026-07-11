@@ -1559,6 +1559,12 @@ test("openai-compatible executor builds authenticated fetch requests through sec
   assert.equal(fetchRequest.metadata.secretRef, "secret_gateway");
   assert.equal(fetchRequest.metadata.secretConfigured, true);
   assert.equal(JSON.parse(fetchRequest.init.body).model, "standard");
+
+  const baseUrlFetchRequest = await buildOpenAiCompatibleFetchRequest(compatibleRequest, {
+    endpointUrl: "https://gateway.example.test/v1",
+    secrets: { secret_gateway: "test-secret-value" }
+  });
+  assert.equal(baseUrlFetchRequest.url, "https://gateway.example.test/v1/chat/completions");
 });
 
 test("openai-compatible adapter normalizes responses and errors", async () => {

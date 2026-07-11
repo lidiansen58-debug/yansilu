@@ -968,9 +968,11 @@ test("graph research details cover nodes and relation gravity lines with next ac
   assert.match(selectionPanelSource, /class="graph-overlay-close graph-selection-close"/);
   assert.doesNotMatch(selectionPanelSource, /data-graph-selection-close[^>]*>收起<\/button>/);
   assert.match(nodeSelectionPanelSource, /kicker: "笔记"/);
-  assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
-  assert.match(nodeSelectionPanelSource, /已保存关系/);
-  assert.match(nodeSelectionPanelSource, /手动关联/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
+  assert.match(nodeSelectionPanelSource, /已保存关系 \$\{directEdges\.length\}/);
+  assert.match(nodeSelectionPanelSource, /task: null/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /手动关联/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /data-graph-create-theme-index/);
   assert.match(edgeSelectionPanelSource, /kicker: "关系"/);
   assert.match(edgeSelectionPanelSource, /roleLabel: review\.label/);
   assert.match(edgeSelectionPanelSource, /renderGraphPromptDetails\("思考提示", prompts\)/);
@@ -1358,8 +1360,8 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(html, /#moduleWorkspace\.graph-mode \.graph-view-tab \{[\s\S]*min-height: 36px;/);
   assert.match(html, /#moduleWorkspace\.graph-mode \.graph-map-stage,[\s\S]*--graph-map-height: clamp\(420px, 62dvh, 640px\);/);
   assert.match(html, /\.graph-ai-connect \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
-  assert.match(html, /\.graph-ai-connect-card \{[\s\S]*border-radius: 14px;/);
-  assert.match(html, /\.graph-ai-connect-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(112px, 1fr\)\);/);
+  assert.match(html, /\.graph-ai-connect-card \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*border-radius: 12px;/);
+  assert.match(html, /\.graph-ai-connect-actions \{[\s\S]*display: flex;[\s\S]*justify-content: flex-end;/);
 });
 
 test("graph selection upgrades isolated notes to connected nodes after a saved relation and keeps summary counts scoped instead of filter-limited", () => {
@@ -1760,7 +1762,7 @@ test("graph relation save rejects placeholder rationales", () => {
   assert.equal(graphRelationRationaleIsActionable("甲能作为乙的边界条件，因为它说明了适用范围。"), true);
 });
 
-test("graph relation candidates explain reason, possible relation, and review question", () => {
+test("graph relation candidates stay minimal and keep one clear action", () => {
   const source = readGraphResidualViews();
   const html = readPrototypeHtml();
   const connectStart = source.indexOf('function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edges = [], hideEmpty = false } = {}) {');
@@ -1778,19 +1780,22 @@ test("graph relation candidates explain reason, possible relation, and review qu
   assert.match(source, /return computeGraphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit, blockedPairKeys \}\);/);
   assert.match(connectSource, /const blockedPairKeys = graphBlockedAiRelationPairKeysForNote\(noteId\);/);
   assert.match(connectSource, /const candidates = graphMergeRelationCandidatesForDisplay\(aiCandidates, localCandidates, \{ limit: 6, blockedPairKeys \}\);/);
-  assert.match(connectSource, /选择这条笔记/);
-  assert.match(connectSource, /预览目标/);
-  assert.match(connectSource, /data-graph-preview-candidate=/);
+  assert.match(connectSource, />关联<\/button>/);
+  assert.match(connectSource, /graph-ai-connect-empty-action/);
+  assert.match(connectSource, /data-graph-ai-connect-note="\$\{escapeHtml\(noteId\)\}"/);
+  assert.doesNotMatch(connectSource, />选择<\/button>/);
+  assert.doesNotMatch(connectSource, /选择这条笔记/);
+  assert.doesNotMatch(connectSource, /预览目标/);
+  assert.doesNotMatch(connectSource, /data-graph-preview-candidate=/);
+  assert.doesNotMatch(connectSource, /graph-candidate-details/);
+  assert.doesNotMatch(connectSource, /renderGraphCandidateReviewRows\(candidate/);
   assert.doesNotMatch(connectSource, /data-graph-select-node=/);
   assert.doesNotMatch(connectSource, /用这条建立关系/);
   assert.match(source, /<span>为什么推荐<\/span>/);
   assert.match(source, /<span>建议关系<\/span>/);
   assert.match(source, /<span>保存前想一想<\/span>/);
   assert.match(source, /graphCandidateRelationReviewQuestion\(candidate\)/);
-  assert.match(source, /renderGraphCandidateReviewRows\(candidate, \{ aiCandidate: !isLocal \}\)/);
-  assert.match(source, /renderGraphCandidateReviewRows\(candidate, \{ aiCandidate: false \}\)/);
   assert.match(html, /\.graph-candidate-review \{[\s\S]*display: grid;[\s\S]*gap: 6px;/);
-  assert.match(html, /\.graph-candidate-details \{[\s\S]*border: 1px solid #e0ebf1;/);
 });
 
 test("graph AI candidate card saves reversed candidates from the current note", () => {
@@ -1896,7 +1901,7 @@ test("isolated note panel gives a continuous next step after confirming a relati
   assert.match(html, /\.graph-isolated-next-step \{[\s\S]*border: 1px solid #cfe4d9;/);
 });
 
-test("graph node selection summarizes position, relation quality, and next action", () => {
+test("graph node selection keeps the node popup focused on the next action", () => {
   const source = readGraphResidualViews();
   const selectionPanelSource = readGraphSelectionPanel();
   const nodeSelectionPanelSource = readGraphNodeSelectionPanel();
@@ -1906,15 +1911,14 @@ test("graph node selection summarizes position, relation quality, and next actio
   assert.match(source, /function renderGraphNodeInsightPanel\(insight = \{\}\) \{/);
   assert.match(source, /function renderGraphSelectionTask\(task = null\) \{/);
   assert.match(selectionPanelSource, /aria-label="[^"]+"/);
-  assert.match(nodeSelectionPanelSource, /检查这些关系能否支撑观点/);
-  assert.match(source, /当前状态/);
-  assert.match(source, /建议下一步/);
-  assert.match(source, /为什么这样判断/);
-  assert.match(nodeSelectionPanelSource, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
-  assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
-  assert.match(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)[\s\S]*\$\{relationDetails\}[\s\S]*\$\{candidatePanel\}/);
-  assert.match(html, /\.graph-node-insight \{[\s\S]*display: grid;[\s\S]*border: 1px solid #d8e7ef;/);
-  assert.match(html, /\.graph-selection-task \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*border-left: 4px solid #38a3c9;/);
+  assert.match(nodeSelectionPanelSource, /task: null/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /data-open-note="\$\{escapeHtml\(normalized\.nodeId\)\}"/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /把它连到一条相关笔记/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /data-graph-open-relation-form/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
+  assert.match(nodeSelectionPanelSource, /\$\{relationDetails\}[\s\S]*\$\{candidatePanel\}/);
+  assert.match(html, /\.graph-ai-connect-card \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;/);
   assert.match(html, /\.graph-selection-details summary \{[\s\S]*min-height: 44px;[\s\S]*cursor: pointer;/);
 });
 
@@ -1932,7 +1936,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(source, /function renderGraphRelationWorkspaceForNote\(noteId = "", \{ nodeMap = new Map\(\), edges = \[\], title = "关联整理" \} = \{\}\) \{/);
   assert.match(workspaceSource, /graphThemeCandidateNoteIdsForNode\(cleanNoteId, directEdges, \[\]\)/);
   assert.match(joinWorkspaceSource, /aiCandidatesForNote\(cleanNoteId, \{ nodeMap, edges, limit: 3 \}\)/);
-  assert.match(nodeSelectionPanelSource, /graphThemeCandidateNoteIdsForNode\(normalized\.nodeId, directEdges, \[\]\)/);
+  assert.doesNotMatch(nodeSelectionPanelSource, /graphThemeCandidateNoteIdsForNode\(normalized\.nodeId, directEdges, \[\]\)/);
   assert.match(workspaceSource, /data-graph-theme-note-ids="\$\{escapeHtml\(themeNoteIds\.join\(","\)\)\}"/);
   assert.match(workspaceSource, /data-graph-select-edge="\$\{escapeHtml\(edgeKey\)\}"/);
   assert.match(workspaceSource, /data-graph-create-theme-index/);
@@ -1949,7 +1953,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(systemMessageWorkflowSource, /await selectWritingThemeIndex\(indexCardId\)/);
   assert.match(systemMessageSource, /basketNoteIds: String\(item\.workflowRoute\.basketNoteIds/);
 
-  assert.match(html, /\.graph-selection-actions \{[\s\S]*grid-template-columns: repeat\(auto-fit, minmax\(112px, 1fr\)\);/);
+  assert.match(html, /\.graph-ai-connect-actions \{[\s\S]*display: flex;[\s\S]*justify-content: flex-end;/);
   assert.match(html, /\.graph-relation-workspace \{[\s\S]*display: grid;[\s\S]*gap: 10px;/);
   assert.match(html, /\.graph-theme-index-workspace \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;/);
 });

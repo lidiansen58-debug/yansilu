@@ -71,5 +71,5 @@ test("prototype AI settings helpers normalize setup guides and bootstrap status"
     commands: ["brew install ollama"],
     steps: []
   });
-  assert.match(ollamaBootstrapStatusText({ status: "needs_model", model: "qwen3:8b" }), /ollama pull qwen3:8b/);
+  assert.match(ollamaBootstrapStatusText({ status: "needs_model", model: "qwen3:8b" }), /请先下载本地模型：qwen3:8b/);
 });

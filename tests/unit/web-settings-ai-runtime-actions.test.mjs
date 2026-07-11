@@ -56,7 +56,7 @@ test("AI settings runtime payload includes touched remote provider configuration
     userMode: "Balanced",
     providerEndpointUrl: " https://ai.example/v1 ",
     remoteRuntimeModel: " deepseek-chat ",
-    secretRef: " ai-secret ",
+    remoteApiKey: " sk-test-key ",
     providerDraftTouched: {
       providerEndpointUrl: true,
       remoteRuntimeModel: true,
@@ -67,9 +67,10 @@ test("AI settings runtime payload includes touched remote provider configuration
   });
 
   assert.equal(payload.providerPreset, "openai_compatible_gateway");
-  assert.equal(payload.endpointUrl, "https://ai.example/v1");
+  assert.equal(payload.endpointUrl, "https://ai.example/v1/chat/completions");
   assert.equal(payload.runtimeModelMap["openai_compatible_gateway:standard"], "deepseek-chat");
-  assert.equal(payload.advancedSettings.secretRef, "ai-secret");
+  assert.equal(payload.advancedSettings.secretRef, "local:settings-remote-api-key");
+  assert.equal(payload.secrets["local:settings-remote-api-key"], "sk-test-key");
   assert.equal(payload.advancedSettings.runtimeMode, "cloud_only");
 });
 
@@ -94,7 +95,7 @@ test("AI provider config payload enables local and remote configs from injected 
     providerEndpointUrl: "https://ai.example/v1",
     providerHealthEndpointUrl: "https://ai.example/health",
     remoteRuntimeModel: "deepseek-chat",
-    secretRef: "secret_ref"
+    remoteApiKey: "sk-test-key"
   }, {
     providerId: "openai_compatible_gateway",
     authMode: "api_key",
@@ -103,14 +104,17 @@ test("AI provider config payload enables local and remote configs from injected 
   });
 
   assert.equal(remotePayload.status, "enabled");
-  assert.equal(remotePayload.secretRef, "secret_ref");
+  assert.equal(remotePayload.endpointUrl, "https://ai.example/v1/chat/completions");
+  assert.equal(remotePayload.secretRef, "local:settings-remote-api-key");
+  assert.equal(remotePayload.secrets["local:settings-remote-api-key"], "sk-test-key");
   assert.equal(remotePayload.runtimeModelMap["openai_compatible_gateway:standard"], "deepseek-chat");
   assert.equal(remotePayload.healthCheck.enabled, true);
 
   const disabledRemote = buildAiProviderConfigPayload({
     providerEndpointUrl: "https://ai.example/v1",
     remoteRuntimeModel: "deepseek-chat",
-    secretRef: ""
+    remoteApiKey: "",
+    providerDraftTouched: { secretRef: true }
   }, {
     providerId: "openai_compatible_gateway",
     authMode: "api_key",
@@ -119,6 +123,28 @@ test("AI provider config payload enables local and remote configs from injected 
   });
 
   assert.equal(disabledRemote.status, "disabled");
+  assert.deepEqual(disabledRemote.deleteSecrets, ["local:settings-remote-api-key"]);
+});
+
+test("AI settings payload deletes the local remote API key when the key field is cleared", () => {
+  const payload = buildAiSettingsPayload({
+    runtimeMode: "cloud_only",
+    modelPack: "Global Optimized",
+    providerEndpointUrl: "https://ai.example/v1",
+    remoteRuntimeModel: "deepseek-chat",
+    remoteApiKey: "",
+    providerDraftTouched: {
+      providerEndpointUrl: true,
+      remoteRuntimeModel: true,
+      secretRef: true
+    }
+  }, {
+    installedLocalModelReady: () => false
+  });
+
+  assert.equal(payload.advancedSettings.secretRef, "");
+  assert.equal(payload.secrets, undefined);
+  assert.deepEqual(payload.deleteSecrets, ["local:settings-remote-api-key"]);
 });
 
 test("Ollama pull plan derives model command and enable flag from runtime mode", () => {

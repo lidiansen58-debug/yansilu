@@ -16,6 +16,7 @@ test("AI settings state normalizes runtime aliases and local pack detection", ()
   assert.equal(normalizeAiRuntimeMode("local"), "local_only");
   assert.equal(normalizeAiRuntimeMode("mixed"), "hybrid");
   assert.equal(normalizeAiRuntimeMode("remote"), "cloud_only");
+  assert.equal(normalizeAiRuntimeMode("off"), "off");
   assert.equal(isLocalModelPack("Privacy First"), true);
   assert.equal(isLocalModelPack("privacy_first"), true);
   assert.equal(isLocalModelPack("MiniCPM Local"), true);

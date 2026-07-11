@@ -254,7 +254,7 @@ test("Ollama bootstrap exposes guided install commands for supported platforms",
   assert.match(source, /function assertAllowedManagedOllamaProviderConfigInput/);
   assert.match(source, /function assertAllowedManagedOllamaSettings/);
   assert.match(source, /store\.getProviderConfig\(\{ id: lookup, providerId \}\)/);
-  assert.match(source, /assertAllowedManagedOllamaProviderConfigInput\(body, existing \|\| \{\}\)/);
+  assert.match(source, /assertAllowedManagedOllamaProviderConfigInput\(providerConfigInput, existing \|\| \{\}\)/);
   assert.match(source, /assertAllowedManagedOllamaProviderConfig\(providerConfig\)/);
   assert.match(source, /assertAllowedManagedOllamaSettings\(settingsInput\)/);
   assert.match(source, /assertAllowedManagedOllamaSettings\(preferencesInput\)/);

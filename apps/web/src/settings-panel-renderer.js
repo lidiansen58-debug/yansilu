@@ -140,7 +140,7 @@ export function renderSettingsAiTestPanel({
   const testRunButton = $("btnAiTestChatRun");
   if (testRunButton) {
     testRunButton.disabled = ai.testRunning || Boolean(testBlockedReason);
-    testRunButton.textContent = ai.testRunning ? "测试中..." : testBlockedReason ? "先完成设置" : "测试一句话";
+    testRunButton.textContent = ai.testRunning ? "测试中..." : testBlockedReason ? "先完成设置" : "测试 AI";
     if (testBlockedReason) testRunButton.setAttribute("title", testBlockedReason);
     else testRunButton.removeAttribute("title");
   }

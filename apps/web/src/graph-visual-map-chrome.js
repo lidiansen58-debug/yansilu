@@ -6,25 +6,25 @@ import {
 } from "./graph-visual-map-empty-state.js";
 
 export const GRAPH_VISUAL_MAP_SHELL_LABELS = {
-  mapPanel: "Graph map",
-  canvas: "Zoomable graph canvas",
-  mapImage: "Permanent note relation graph",
-  tools: "Graph tools",
-  zoomControls: "Graph zoom",
-  zoomLevels: "Graph zoom levels",
-  zoomOut: "Zoom out",
-  zoomIn: "Zoom in",
-  expand: "Expand graph",
-  collapse: "Collapse graph",
-  panCanvas: "Pan canvas",
-  panCanvasHint: "Drag blank space to pan the graph",
+  mapPanel: "关系图谱",
+  canvas: "可缩放的关系图谱画布",
+  mapImage: "永久笔记关系图",
+  tools: "图谱工具",
+  zoomControls: "图谱缩放",
+  zoomLevels: "图谱缩放级别",
+  zoomOut: "缩小图谱",
+  zoomIn: "放大图谱",
+  expand: "放大查看图谱",
+  collapse: "退出放大查看",
+  panCanvas: "拖动画布",
+  panCanvasHint: "拖动空白区域移动图谱",
   hoverTitle: "拖动画布，点击笔记查看周边关系",
   hoverDetail: "可以拖动画布移动视野；点击笔记或关系后，在旁边查看它附近的连接。",
-  legend: "Relation color legend",
-  selectionOverlay: "Relation workflow overlay",
-  closeEmpty: "Close hint and return to relation graph",
-  argumentView: "View argument relations",
-  structureView: "View topic structure"
+  legend: "关系颜色说明",
+  selectionOverlay: "图谱处理浮层",
+  closeEmpty: "关闭提示并返回图谱",
+  argumentView: "查看观点关系",
+  structureView: "查看主题结构"
 };
 
 export function createGraphVisualMapShellDeps({

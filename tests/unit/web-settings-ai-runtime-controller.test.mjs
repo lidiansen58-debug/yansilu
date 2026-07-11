@@ -63,6 +63,30 @@ test("settings AI runtime controller pulls recommended Ollama model and persists
   assert.equal(calls.some((call) => call[0] === "status" && /qwen3:8b/.test(call[1]) && call[2] === "ok"), true);
 });
 
+test("settings AI runtime controller clears a pending stop state when starting Ollama", async () => {
+  const settingsState = {
+    ai: {
+      localRuntimeManagedStopPending: true,
+      localRuntimeStarting: false
+    }
+  };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaRuntimePreview: (runtime) => runtime.models,
+    persistOllamaRuntimeSelectionAfterPreview: async () => {},
+    renderSettingsPanel: () => {},
+    setStatus: () => {},
+    settingsState,
+    startOllamaRuntime: async () => ({
+      runtime: { status: "available", models: ["qwen3:8b"] }
+    })
+  }));
+
+  await controller.startOllamaRuntimeFromUi();
+
+  assert.equal(settingsState.ai.localRuntimeManagedStopPending, false);
+  assert.equal(settingsState.ai.localRuntimeStarting, false);
+});
+
 test("settings AI runtime controller previews Ollama bootstrap and clears unavailable selection", async () => {
   const calls = [];
   const settingsState = { ai: { runtimeMode: "local_only", localModel: "qwen3:8b" } };
