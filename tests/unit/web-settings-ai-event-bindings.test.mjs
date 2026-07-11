@@ -61,15 +61,13 @@ function createHarness() {
     "settingsAiTestChatMeta",
     "settingsAiTestChatOutput",
     "btnAiTestChatRun",
-    "btnAiTestChatCopy",
     "settingsAiProviderHealthEndpointUrl",
     "settingsAiSaveProviderConfig",
     "settingsAiCheckProviderHealth",
     "settingsAiRemoteHelp",
     "settingsAiRemoteHelpToggle",
     "settingsAiDetectOllama",
-    "settingsAiStartOllama",
-    "settingsAiStopOllama",
+    "settingsAiRuntimeToggle",
     "settingsAiPullOllamaModel",
     "settingsAiCopyOllamaInstallCommand",
     "settingsAiTopAction",
@@ -144,7 +142,6 @@ test("settings AI event bindings route core field changes and delegated actions"
     startOllamaRuntimeFromUi: async () => harness.calls.push(["start"]),
     stopOllamaRuntimeFromUi: async () => harness.calls.push(["stop"]),
     pullRecommendedOllamaModel: async (...args) => harness.calls.push(["pull", ...args]),
-    copyTextToClipboard: async (...args) => harness.calls.push(["copy", ...args]),
     applySettingsAiQuickSetup: async (...args) => harness.calls.push(["quick", ...args]),
     openSettingsAiDialog: (...args) => harness.calls.push(["open-dialog", ...args]),
     closeSettingsAiDialogs: () => harness.calls.push(["close-dialog"])
@@ -161,7 +158,6 @@ test("settings AI event bindings route core field changes and delegated actions"
   assert.equal(settingsState.ai.testOutput, "");
   harness.elements.get("settingsAiTestPrompt").value = "hello";
   await harness.listeners.get("btnAiTestChatRun:click")({});
-  await harness.listeners.get("btnAiTestChatCopy:click")({});
   await harness.listeners.get("settingsCardAiSettings:click")({
     target: harness.target({
       "[data-settings-ai-quick-setup]": harness.attrNode({ "data-settings-ai-quick-setup": "starter" })
@@ -180,13 +176,12 @@ test("settings AI event bindings route core field changes and delegated actions"
   assert.equal(settingsState.ai.secretRef, "local:settings-remote-api-key");
   assert.equal(settingsState.ai.testRunning, false);
   assert.equal(settingsState.ai.testOutput, "done");
-  assert.deepEqual(harness.calls.filter((call) => ["runtime", "pack", "local-model", "provider-sync", "test-chat", "clipboard", "quick", "open-dialog", "close-dialog"].includes(call[0])), [
+  assert.deepEqual(harness.calls.filter((call) => ["runtime", "pack", "local-model", "provider-sync", "test-chat", "quick", "open-dialog", "close-dialog"].includes(call[0])), [
     ["runtime", "local"],
     ["runtime", "auto"],
     ["pack", "Local Fast", { source: "settings" }],
     ["local-model", "qwen"],
     ["test-chat", "hello", "secret", "key", "model"],
-    ["clipboard", "done"],
     ["quick", "starter"],
     ["open-dialog", "remote"],
     ["close-dialog"]

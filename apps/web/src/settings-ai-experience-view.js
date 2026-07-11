@@ -45,7 +45,9 @@ export function renderAiSettingsExperienceForRuntime(deps = {}) {
     modelPack: ai.modelPack,
     providerId
   });
-  const localReady = localFlowActive && installedLocalModelReady(localModel);
+  const localReady = localFlowActive
+    && localStatus === "available"
+    && installedLocalModelReady(localModel);
   const remoteConfigurable = isRemoteConfigurableProviderId(providerId);
   const remoteConfigReady = Boolean(String(ai.providerEndpointUrl || "").trim() && String(ai.remoteRuntimeModel || "").trim() && String(ai.secretRef || "").trim());
   const onboarding = buildSettingsAiOnboardingView({

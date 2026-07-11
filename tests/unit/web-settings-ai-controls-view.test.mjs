@@ -96,7 +96,8 @@ test("settings AI local controls render available local model state", () => {
   assert.equal(get("settingsAiAutoPrepareLocal").disabled, false);
   assert.deepEqual(get("settingsAiUseLocalSetup").toggles.find((item) => item[0] === "hidden"), ["hidden", true]);
   assert.equal(get("settingsAiDetectOllama").textContent, "重新检测");
-  assert.deepEqual(get("settingsAiStopOllama").toggles.find((item) => item[0] === "hidden"), ["hidden", false]);
+  assert.deepEqual(get("settingsAiRuntimeToggle").toggles.find((item) => item[0] === "hidden"), ["hidden", false]);
+  assert.equal(get("settingsAiRuntimeToggle").textContent, "停止本地模型");
   assert.equal(get("settingsAiPullOllamaModel").textContent, "下载 llama3.2（轻量）");
   assert.equal(get("recommendationRenderMarker").textContent, "called");
 });
@@ -116,6 +117,34 @@ test("settings AI local controls hide the local toolbar outside local mode", () 
   }));
 
   assert.deepEqual(get("settingsAiLocalOptions").toggles.find((item) => item[0] === "hidden"), ["hidden", true]);
+});
+
+test("settings AI local controls keep the Ollama runtime action visible when stopped", () => {
+  const { get } = elementMap();
+
+  renderAiLocalModelControlsForRuntime(baseLocalDeps(get, {
+    ai: {
+      localRuntimeStatus: "unavailable",
+      localRuntimeReadinessStatus: "installed_not_running"
+    }
+  }));
+
+  assert.deepEqual(get("settingsAiRuntimeToggle").toggles.find((item) => item[0] === "hidden"), ["hidden", false]);
+  assert.equal(get("settingsAiRuntimeToggle").textContent, "启动本地模型");
+});
+
+test("settings AI local controls hide runtime start before the first detection", () => {
+  const { get } = elementMap();
+
+  renderAiLocalModelControlsForRuntime(baseLocalDeps(get, {
+    ai: {
+      localRuntimeStatus: "unknown",
+      localRuntimeReadinessStatus: "unknown"
+    }
+  }));
+
+  assert.deepEqual(get("settingsAiRuntimeToggle").toggles.find((item) => item[0] === "hidden"), ["hidden", true]);
+  assert.deepEqual(get("settingsAiDetectOllama").toggles.find((item) => item[0] === "hidden"), ["hidden", true]);
 });
 
 test("settings AI local recommendations show selected installed and download actions", () => {

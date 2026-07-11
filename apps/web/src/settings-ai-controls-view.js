@@ -93,8 +93,9 @@ function renderLocalRuntimeButtons(input) {
   }
   const detectButton = $("settingsAiDetectOllama");
   if (detectButton) {
-    detectButton.classList.toggle("hidden", !localSetupActive);
-    detectButton.disabled = !localSetupActive || runtimeBusy;
+    const showDetectButton = localSetupActive && runtimeAvailable;
+    detectButton.classList.toggle("hidden", !showDetectButton);
+    detectButton.disabled = !showDetectButton || runtimeBusy;
     detectButton.textContent = !localSetupActive
       ? "先启用本地模型"
       : ai.localRuntimeChecking
@@ -109,20 +110,15 @@ function renderLocalRuntimeButtons(input) {
 
 function renderLocalStartStopButtons({ $, ai, localSetupActive, runtimeAvailable, runtimeBusy }) {
   const managedStopPending = ai.localRuntimeManagedStopPending === true;
-  const startButton = $("settingsAiStartOllama");
-  if (startButton) {
-    const canStartOllama = ai.localRuntimeReadinessStatus === "installed_not_running";
-    startButton.classList.toggle("hidden", !localSetupActive || runtimeAvailable || managedStopPending || !canStartOllama);
-    startButton.disabled = !localSetupActive || runtimeAvailable || managedStopPending || !canStartOllama || runtimeBusy;
-    startButton.textContent = ai.localRuntimeStarting ? "正在启动..." : "启动 Ollama";
-  }
-  const stopButton = $("settingsAiStopOllama");
-  if (stopButton) {
-    const canStopOllama = runtimeAvailable || managedStopPending;
-    stopButton.classList.toggle("hidden", !localSetupActive || !canStopOllama);
-    stopButton.disabled = !localSetupActive || !canStopOllama || runtimeBusy;
-    stopButton.textContent = ai.localRuntimeStopping ? "正在停止..." : managedStopPending ? "继续停止" : "停止 Ollama";
-  }
+  const runtimeToggle = $("settingsAiRuntimeToggle");
+  if (!runtimeToggle) return;
+  const canStartOllama = ai.localRuntimeReadinessStatus === "installed_not_running";
+  const canOperate = runtimeAvailable || canStartOllama;
+  runtimeToggle.classList.toggle("hidden", !localSetupActive || managedStopPending || !canOperate);
+  runtimeToggle.disabled = !localSetupActive || managedStopPending || !canOperate || runtimeBusy;
+  runtimeToggle.textContent = runtimeAvailable
+    ? ai.localRuntimeStopping ? "正在停止..." : "停止本地模型"
+    : ai.localRuntimeStarting ? "正在启动..." : "启动本地模型";
 }
 
 function renderDownloadControls({
@@ -138,7 +134,7 @@ function renderDownloadControls({
   hasLocalModel
 }) {
   const downloadLink = $("settingsAiDownloadOllama");
-  downloadLink?.classList.toggle("hidden", !localSetupActive || runtimeAvailable);
+  downloadLink?.classList.toggle("hidden", true);
   if (downloadLink) {
     const guide = currentOllamaSetupGuide();
     const installUrl = String(guide?.installUrl || "https://ollama.com/download").trim() || "https://ollama.com/download";

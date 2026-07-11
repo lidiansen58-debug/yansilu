@@ -989,9 +989,8 @@
                                     <option value="">检测后选择</option>
                                   </select>
                                   <button class="mini-btn" id="settingsAiDetectOllama" type="button">重新检测</button>
-                                  <button class="mini-btn hidden" id="settingsAiStartOllama" type="button">启动 Ollama</button>
-                                  <button class="mini-btn hidden" id="settingsAiStopOllama" type="button">停止 Ollama</button>
-                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
+                                  <button class="mini-btn hidden" id="settingsAiRuntimeToggle" type="button">启动本地模型</button>
+                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">安装模型运行工具</a>
                                   <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载推荐模型</button>
                                 </div>
                                 <label class="settings-ai-toggle-row">
@@ -1108,20 +1107,18 @@
                           <div class="settings-ai-popover-panel">
                             <div class="settings-ai-popover-head">
                               <div>
-                                <div class="settings-ai-popover-title" id="settingsAiTestDialogTitle">测试一句话</div>
-                                <div class="settings-ai-popover-note">用一句不含敏感内容的话确认当前 AI 能正常回复。</div>
+                                <div class="settings-ai-popover-title" id="settingsAiTestDialogTitle">测试 AI</div>
+                                <div class="settings-ai-popover-note">输入一条测试内容，确认当前 AI 可用。</div>
                               </div>
                               <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
                             </div>
                             <div class="settings-ai-popover-body">
                               <div class="settings-ai-grid">
                                 <label for="settingsAiTestPrompt">测试内容</label>
-                                <textarea id="settingsAiTestPrompt" rows="3" placeholder="例如：请用一句话总结“研究笔记应该先记录问题，再整理结论”。"></textarea>
-                                <div class="settings-field-note">返回结果只用于确认连接和模型选择。</div>
+                                <textarea id="settingsAiTestPrompt" rows="3" placeholder="例如：用一句话总结研究笔记的作用"></textarea>
                                 <div></div>
                                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                  <button class="mini-btn primary" id="btnAiTestChatRun" type="button">测试一句话</button>
-                                  <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
+                                  <button class="mini-btn primary" id="btnAiTestChatRun" type="button">测试 AI</button>
                                   <span class="settings-stat-badge" id="settingsAiTestChatMeta">未测试</span>
                                 </div>
                               </div>
@@ -1206,7 +1203,7 @@
                             <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">打开手机访问</button>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>AI / Ollama 是什么，什么时候需要</strong>
+                            <strong>AI / 模型运行工具是什么，什么时候需要</strong>
                             <span>AI 只做候选建议，不替你确认笔记。不需要 AI，也能完整使用记录、关联和写作主流程。</span>
                             <button class="mini-btn" type="button" data-settings-help-action="open-ai-settings">查看 AI 设置</button>
                           </div>

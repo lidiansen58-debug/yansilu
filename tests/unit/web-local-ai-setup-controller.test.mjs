@@ -25,11 +25,10 @@ test("local AI setup message explains missing Ollama, model choice, and non-AI c
   });
 
   assert.match(message, /AI 建联推荐需要本地 AI/);
-  assert.match(message, /先安装 Ollama/);
+  assert.match(message, /先安装模型运行工具/);
   assert.match(message, /qwen3:8b/);
   assert.match(message, /普通 16GB 内存电脑/);
   assert.match(message, /不影响继续写笔记、手工整理关系和进入写作中心/);
-  assert.match(message, /一句话测试/);
 });
 
 test("local AI setup controller opens AI settings and blocks model feature when recommended model is missing", async () => {

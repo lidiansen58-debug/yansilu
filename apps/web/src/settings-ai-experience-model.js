@@ -33,7 +33,7 @@ export function buildSettingsAiOnboardingView(input = {}) {
   }
 
   if (localFlowActive) {
-    if (localReady) {
+    if (localReady && localStatus === "available") {
       return {
         title: "本地 AI 可用",
         body: "",
@@ -49,18 +49,21 @@ export function buildSettingsAiOnboardingView(input = {}) {
     }
     if (localStatus !== "available") {
       const notRunning = localReadinessStatus === "installed_not_running";
-      const notInstalled = !notRunning;
+      const notInstalled = localReadinessStatus === "not_installed";
+      const checkFailed = localReadinessStatus === "check_failed";
+      const notChecked = !notRunning && !notInstalled && !checkFailed;
+      const needsRecheck = checkFailed;
       return {
-        title: notRunning ? "Ollama 未运行" : "Ollama 未安装",
+        title: notRunning ? "模型运行工具未运行" : notInstalled ? "模型运行工具未安装" : checkFailed ? "模型运行工具检测失败" : "尚未检测模型运行工具",
         body: "",
-        status: notRunning ? "Ollama 未启动" : "未安装 Ollama",
+        status: notRunning ? "模型运行工具未启动" : notInstalled ? "模型运行工具未安装" : checkFailed ? "需要重新检测" : "尚未检测",
         statusTone: "warn",
         mode: "本地 AI",
-        primaryAction: notRunning ? "启动 Ollama" : "安装 Ollama",
-        primaryActionKind: notRunning ? "start-local" : "install-ollama",
-        secondaryAction: "重新检测",
-        secondaryActionKind: "detect-local",
-        helper: notInstalled ? "打开官方下载页" : ""
+        primaryAction: notRunning ? "启动本地模型" : notInstalled ? "安装模型运行工具" : checkFailed ? "重新检测" : "检测本地环境",
+        primaryActionKind: notRunning ? "start-local" : notInstalled ? "install-ollama" : "detect-local",
+        secondaryAction: needsRecheck ? "安装模型运行工具" : notChecked ? "" : "重新检测",
+        secondaryActionKind: needsRecheck ? "install-ollama" : notChecked ? "" : "detect-local",
+        helper: notInstalled ? "打开官方下载页" : needsRecheck ? "请确认模型运行工具已安装并运行" : ""
       };
     }
     if (!models.length) {

@@ -113,9 +113,9 @@ test("settings AI experience view points installed Ollama users to start local A
     localRuntimeReadinessStatus: "installed_not_running"
   }));
 
-  assert.equal(get("settingsAiTopStatus").textContent, "Ollama 未启动");
+  assert.equal(get("settingsAiTopStatus").textContent, "模型运行工具未启动");
   assert.equal(get("settingsAiTopMode").textContent, "本地 AI");
-  assert.equal(get("settingsAiTopAction").textContent, "启动 Ollama");
+  assert.equal(get("settingsAiTopAction").textContent, "启动本地模型");
   assert.equal(get("settingsAiTopAction").dataset.settingsAiPrimaryAction, "start-local");
   assert.equal(get("settingsAiSecondaryAction").textContent, "重新检测");
   assert.equal(get("settingsAiSecondaryAction").dataset.settingsAiPrimaryAction, "detect-local");
@@ -157,4 +157,20 @@ test("settings AI experience view hides setup guidance when local model is ready
   assert.equal(get("settingsAiSetupTitle").textContent, "本地 AI 可用");
   assert.equal(get("settingsAiLabBadge").textContent, "测试成功");
   assert.deepEqual(get("settingsAiSetupBody").toggles.at(-1), ["hidden", true]);
+});
+
+test("settings AI experience view does not report a stopped local runtime as ready", () => {
+  const { get } = elementMap();
+
+  renderAiSettingsExperienceForRuntime(baseDeps(get, {
+    runtimeMode: "local_only",
+    modelPack: "Ollama Local",
+    localRuntimeStatus: "unavailable",
+    localRuntimeReadinessStatus: "installed_not_running",
+    localRuntimeModels: [{ name: "qwen3:4b" }],
+    localModel: "qwen3:4b"
+  }));
+
+  assert.equal(get("settingsAiSetupTitle").textContent, "模型运行工具未运行");
+  assert.equal(get("settingsAiTopAction").textContent, "启动本地模型");
 });

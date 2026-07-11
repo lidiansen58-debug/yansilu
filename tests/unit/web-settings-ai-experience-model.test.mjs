@@ -85,7 +85,7 @@ test("settings AI onboarding prompts start, download, and save local model steps
     localFlowActive: true,
     localStatus: "unavailable",
     localReadinessStatus: "installed_not_running"
-  }).primaryAction, "启动 Ollama");
+  }).primaryAction, "启动本地模型");
 
   assert.equal(buildSettingsAiOnboardingView({
     runtimeMode: "local_only",
@@ -102,6 +102,38 @@ test("settings AI onboarding prompts start, download, and save local model steps
     models: [{ name: "qwen3:8b" }],
     localModel: ""
   }).primaryAction, "保存模型");
+});
+
+test("settings AI onboarding keeps unavailable local runtime states recoverable", () => {
+  const view = buildSettingsAiOnboardingView({
+    runtimeMode: "local_only",
+    localFlowActive: true,
+    localStatus: "unavailable",
+    localReadinessStatus: "check_failed",
+    localReady: true,
+    localModel: "qwen3:8b",
+    models: [{ name: "qwen3:8b" }]
+  });
+
+  assert.equal(view.title, "模型运行工具检测失败");
+  assert.equal(view.primaryAction, "重新检测");
+  assert.equal(view.primaryActionKind, "detect-local");
+  assert.equal(view.secondaryAction, "安装模型运行工具");
+  assert.equal(view.secondaryActionKind, "install-ollama");
+});
+
+test("settings AI onboarding gives an initial detection action before runtime status is known", () => {
+  const view = buildSettingsAiOnboardingView({
+    runtimeMode: "local_only",
+    localFlowActive: true,
+    localStatus: "unknown",
+    localReadinessStatus: "unknown"
+  });
+
+  assert.equal(view.title, "尚未检测模型运行工具");
+  assert.equal(view.primaryAction, "检测本地环境");
+  assert.equal(view.primaryActionKind, "detect-local");
+  assert.equal(view.secondaryAction, "");
 });
 
 test("settings AI onboarding requires testing before remote completion", () => {

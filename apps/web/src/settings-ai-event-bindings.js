@@ -8,7 +8,6 @@ export function installSettingsAiEventBindings(deps = {}) {
     $ = () => null,
     settingsState = { ai: {} },
     documentRef = globalThis.document,
-    clipboard = globalThis.navigator?.clipboard,
     normalizeAiRuntimeMode = (value) => value,
     applyAiRuntimeModeChange = async () => {},
     persistAiSettingsToStorage = () => {},
@@ -30,17 +29,12 @@ export function installSettingsAiEventBindings(deps = {}) {
     startOllamaRuntimeFromUi = async () => {},
     stopOllamaRuntimeFromUi = async () => {},
     pullRecommendedOllamaModel = async () => {},
-    copyTextToClipboard = async () => {},
     applySettingsAiQuickSetup = async () => {},
     openSettingsAiDialog = () => {},
     closeSettingsAiDialogs = () => {},
     confirmRemoteAiUse = () => true
   } = deps;
 
-  async function writeClipboardText(text) {
-    if (!clipboard?.writeText) throw new Error("clipboard unavailable");
-    await clipboard.writeText(text);
-  }
   function clearAiTestResultForSettingsChange() {
     settingsState.ai.testMeta = "";
     settingsState.ai.testOutput = "";
@@ -233,17 +227,6 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   }
 });
 
-$("btnAiTestChatCopy")?.addEventListener("click", async () => {
-  const text = String(settingsState.ai.testOutput || "").trim();
-  if (!text) return setStatus("没有可复制的输出", "warn");
-  try {
-    await writeClipboardText(text);
-    setStatus("已复制输出", "ok");
-  } catch {
-    setStatus("复制失败（浏览器权限限制）", "warn");
-  }
-});
-
 $("settingsAiProviderHealthEndpointUrl")?.addEventListener("input", (event) => {
   markAiProviderDraftTouched("providerHealthEndpointUrl");
   settingsState.ai.providerHealthEndpointUrl = String(event?.target?.value || "").trim();
@@ -305,27 +288,13 @@ $("settingsAiDetectOllama")?.addEventListener("click", async () => {
   await detectOllamaModels();
 });
 
-$("settingsAiStartOllama")?.addEventListener("click", async () => {
-  await startOllamaRuntimeFromUi();
-});
-
-$("settingsAiStopOllama")?.addEventListener("click", async () => {
-  await stopOllamaRuntimeFromUi();
+$("settingsAiRuntimeToggle")?.addEventListener("click", async () => {
+  if (settingsState.ai.localRuntimeStatus === "available") await stopOllamaRuntimeFromUi();
+  else await startOllamaRuntimeFromUi();
 });
 
 $("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
   await pullRecommendedOllamaModel();
-});
-
-$("settingsAiCopyOllamaInstallCommand")?.addEventListener("click", async (event) => {
-  const command = String(event?.currentTarget?.dataset?.command || "").trim();
-  if (!command) return setStatus("当前没有可复制的安装命令", "warn");
-  try {
-    await copyTextToClipboard(command);
-    setStatus("已复制安装命令", "ok");
-  } catch {
-    setStatus("复制失败，请手动复制安装命令", "warn");
-  }
 });
 
 $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
