@@ -75,6 +75,8 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       syncWritingLocalBookIdeasFromProject(project);
       writingState.scaffold = null;
       writingState.scaffoldMarkdown = "";
+      writingState.draftMarkdown = "";
+      writingState.draftSaveState = "idle";
       showWritingResult({
         stage: "writing_project",
         writingProjectId: project?.id,

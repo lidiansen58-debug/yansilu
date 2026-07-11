@@ -35,6 +35,15 @@ import {
 import {
   renderWritableThemeDiscoveryPanelDom
 } from "./writable-theme-discovery-panel.js";
+import {
+  updateWritingRelatedNoteCounters
+} from "./writing-related-notes-panel.js";
+import {
+  writingWorkbenchHasTopic
+} from "./writing-workbench-model.js";
+import {
+  syncWritingTopicPickerAction
+} from "./writing-sidebar-actions.js";
 
 export {
   renderWritingBookDesignDom
@@ -124,6 +133,7 @@ export function renderWritingPanelDom(deps = {}) {
     renderScaffoldVersionCard,
     renderDraftVersionCard,
     describeWritingStrongModelIdleSummary,
+    writingThemeIndexNoteIds = () => [],
     escapeHtml
   } = deps;
   const renderWritingNoteCard = (note, options) => renderWritingNoteCardDom(deps, note, options);
@@ -148,7 +158,10 @@ export function renderWritingPanelDom(deps = {}) {
   const openDraftButton = $("btnWritingOpenDraft");
   const copyScaffoldButton = $("btnWritingCopyScaffold");
   const exportScaffoldButton = $("btnWritingExportScaffold");
+  const moreMenu = $("writingMoreMenu");
   const saveDraftButton = $("btnWritingSaveDraft");
+  const startDraftButton = $("btnWritingStartDraft");
+  const draftEditor = $("writingDraftEditor");
   const outputActionsDetails = $("writingOutputActionsDetails");
   const strongModelButton = $("btnWritingStrongModelAnalysis");
   const strongModelSummary = $("writingStrongModelSummary");
@@ -158,6 +171,7 @@ export function renderWritingPanelDom(deps = {}) {
   const scaffoldVersionsList = $("writingScaffoldVersionsList");
   const draftVersionsHint = $("writingDraftVersionsHint");
   const draftVersionsList = $("writingDraftVersionsList");
+  const shell = $("writingPanel")?.querySelector?.(".writing-shell") || null;
   if (!current) return;
   const note = state.notes.find((item) => item.id === state.selectedFileId);
   const scopeFolder = folderById(state, state.selectedFolderId);
@@ -210,46 +224,57 @@ export function renderWritingPanelDom(deps = {}) {
   current.textContent = panelState.currentLabel;
   if (scopeHint) {
     const entryContextText = writingEntryContextText(writingState);
+    const shouldShowScopeHint = Boolean(candidateFocusPlan.usingFocusedScope);
     const scopeText = candidateFocusPlan.usingFocusedScope
-        ? `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱进入写作中心的，下面会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；已选相关笔记和可写主题仍保持当前目录范围。`
-      : `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里的永久笔记，不展示原始导入资料；写作中心默认从已有观点开始。`;
-    scopeHint.textContent = entryContextText ? `${scopeText} ${entryContextText}` : scopeText;
+        ? `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱进入写作的，下面会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；已选相关笔记和可写主题仍保持当前目录范围。`
+      : `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里的永久笔记，不展示原始导入资料；写作默认从已有观点开始。`;
+    scopeHint.hidden = !shouldShowScopeHint;
+    scopeHint.textContent = shouldShowScopeHint ? (entryContextText ? `${scopeText} ${entryContextText}` : scopeText) : "";
   }
   renderWritingStatusStripDom(deps);
   if (themeIndexesHint) {
-    if (writingState.loadingThemeIndexes && writingState.themeIndexes.length) {
-      themeIndexesHint.textContent = `正在刷新可写主题... 当前显示 ${writingState.themeIndexes.length} 个。`;
-    } else if (writingState.loadingThemeIndexes) {
-      themeIndexesHint.textContent = "正在读取可写主题...";
-    } else if (writingState.themeIndexes.length) {
-      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个可写主题，可以直接续接写作。`;
-    } else {
-      themeIndexesHint.textContent = "当前范围还没有可写主题。先把一组成熟永久笔记组织成相关笔记，再保存为可写主题。";
-    }
+    themeIndexesHint.textContent = writingState.loadingThemeIndexes ? "正在读取主题..." : "";
   }
+  const selectedTheme = resolveWritingThemeSelectionForPanel(deps);
+  const explicitSelectedTheme = writingState.selectedThemeIndexId ? selectedTheme : null;
+  const themeRelatedEntries = explicitSelectedTheme
+    ? writingThemeIndexNoteIds(explicitSelectedTheme)
+        .map((noteId) => writingKnownNoteById(noteId) || null)
+        .filter(Boolean)
+    : [];
+  const relatedEntries = basketEntries.length ? basketEntries : themeRelatedEntries;
+  const hasWorkbenchTopic = writingWorkbenchHasTopic({ writingState, basketIds, selectedTheme: explicitSelectedTheme });
+  if (shell) {
+    shell.dataset.writingHasTopic = hasWorkbenchTopic ? "true" : "false";
+    updateWritingRelatedNoteCounters(relatedEntries.length, { root: shell });
+    syncWritingTopicPickerAction(shell.dataset.writingView === "topic-picker");
+  }
+  const themeIndexes = Array.isArray(writingState.themeIndexes) ? writingState.themeIndexes : [];
+  const visibleThemeIndexes = themeIndexes.slice(0, 3);
   if (themeIndexList) {
     if (writingState.loadingThemeIndexes) {
-      themeIndexList.innerHTML = writingState.themeIndexes.length
-        ? writingState.themeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("")
+      themeIndexList.innerHTML = visibleThemeIndexes.length
+        ? visibleThemeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("")
         : `<div class="writing-empty">正在加载可写主题...</div>`;
-    } else if (writingState.themeIndexes.length) {
-      themeIndexList.innerHTML = writingState.themeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("");
+    } else if (visibleThemeIndexes.length) {
+      themeIndexList.innerHTML = visibleThemeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("");
     } else {
       themeIndexList.innerHTML = `<div class="writing-empty">还没有可写主题。用当前相关笔记保存一个，后续就能从这里继续写。</div>`;
     }
   }
   if (themeDiscoverySuggestions) {
-    themeDiscoverySuggestions.innerHTML = renderWritableThemeDiscoveryPanelDom(deps);
+    const discoverySuggestions = Array.isArray(writingState.themeDiscoverySuggestions) ? writingState.themeDiscoverySuggestions : [];
+    const showDiscoverySuggestions = Boolean(writingState.themeDiscoveryLoading || discoverySuggestions.length);
+    themeDiscoverySuggestions.hidden = !showDiscoverySuggestions;
+    themeDiscoverySuggestions.innerHTML = showDiscoverySuggestions ? renderWritableThemeDiscoveryPanelDom(deps) : "";
   }
-
-  const selectedTheme = resolveWritingThemeSelectionForPanel(deps);
   if (themeDetailHint) {
-    themeDetailHint.textContent = selectedTheme
-      ? writingThemeDetailHintText(selectedTheme)
+    themeDetailHint.textContent = explicitSelectedTheme
+      ? writingThemeDetailHintText(explicitSelectedTheme)
       : writingThemeDetailHintText(null);
   }
   if (themeDetail) {
-    themeDetail.innerHTML = renderWritingThemeDetailDom(deps, selectedTheme);
+    themeDetail.innerHTML = renderWritingThemeDetailDom(deps, explicitSelectedTheme);
   }
 
   if (toplineMetrics) {
@@ -268,28 +293,32 @@ export function renderWritingPanelDom(deps = {}) {
     }, { escapeHtml });
   }
   if (basketSummary) {
-    const sourcePart = sourceIndexSummary ? `可续接的写作入口：${sourceIndexSummary}。` : "可续接的写作入口：尚未记录。";
-    basketSummary.textContent = basketEntries.length
-      ? `已选择 ${basketEntries.length} 条相关笔记。当前阶段：${relationCountsErrored ? "关系读取失败" : relationCountsReady ? basketReadiness.status : "正在读取关系"}。${relationCountsErrored ? "正式关系暂时读取失败，先稍后重试或回到笔记里确认关系。" : relationCountsReady ? basketReadiness.hint : "等正式关系读取完成后，再判断是否能形成文章。"} ${sourcePart}`
-      : `还没有选择相关笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
-  }
-  if (basketList) {
-    basketList.innerHTML = basketEntries.length
-      ? basketEntries.map((entry) => renderWritingNoteCard(entry, { selected: true, action: "remove", actionLabel: "移出相关笔记" })).join("")
-      : `<div class="writing-empty">先在左侧打开一条原创笔记，点击“加入当前笔记”，或从下面选择已经成熟的永久笔记。</div>`;
+    basketSummary.textContent = relatedEntries.length
+      ? `已选 ${relatedEntries.length} 条。保留真正会用到的笔记即可。`
+      : "还没有相关笔记。";
   }
   const basketIdSet = new Set(parseWritingBasketIds());
+  const outlineUsageFor = (noteId) => {
+    const headings = (writingState.scaffold?.sections || [])
+      .filter((section) => Array.isArray(section?.evidence_note_ids) && section.evidence_note_ids.includes(noteId))
+      .map((section) => String(section.heading || "").trim())
+      .filter(Boolean);
+    return headings.length ? `用于：${headings.join("、")}` : "尚未用于章节";
+  };
+  if (basketList) {
+    basketList.innerHTML = relatedEntries.length
+      ? relatedEntries.map((entry) => renderWritingNoteCard(entry, {
+          selected: true,
+          action: basketIdSet.has(entry.id) ? "remove" : "open",
+          actionLabel: "移出相关笔记",
+          usageText: outlineUsageFor(entry.id)
+        })).join("")
+      : `<div class="writing-empty">先在左侧打开一条原创笔记，点击“加入当前笔记”，或从下面选择已经成熟的永久笔记。</div>`;
+  }
   if (candidateSummary) {
-    const candidateListExpanded = Boolean(candidateDetails?.open);
-    const candidateLimit = candidateListExpanded ? candidates.length : Math.min(candidates.length, 12);
-    const hiddenCandidateCount = Math.max(0, candidates.length - candidateLimit);
     candidateSummary.textContent = candidates.length
-      ? candidateFocusPlan.usingFocusedScope
-        ? `${candidateFocusPlan.scopeLabel}里有 ${candidates.length} 条可作为相关笔记的永久笔记，${writingThemeSummary(candidates)}。${hiddenCandidateCount ? `默认先加载 ${candidateLimit} 条，展开后再看完整列表。` : ""}先沿着这段图谱结构推进，再决定哪些笔记适合写进同一篇文章。`
-        : `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。${hiddenCandidateCount ? `默认先加载 ${candidateLimit} 条，展开后再看完整列表。` : ""}先确认自己的判断，再选择哪些笔记适合写进同一篇文章。`
-      : candidateFocusPlan.usingFocusedScope
-        ? `${candidateFocusPlan.scopeLabel}里暂时还没有可作为相关笔记的永久笔记。可以先回图谱继续补关系，或回到目录范围挑选成熟观点。`
-        : "当前目录里还没有已加载的永久笔记。可以先回到永久笔记目录形成几条自己的观点，再来组织可写主题。";
+      ? `可添加 ${candidates.length} 条笔记。`
+      : "当前目录没有可添加的笔记。";
   }
   if (candidateList) {
     const candidateListExpanded = Boolean(candidateDetails?.open);
@@ -324,15 +353,27 @@ export function renderWritingPanelDom(deps = {}) {
     createProjectButton.textContent = hasProject ? "主题已确定" : projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
-    createScaffoldButton.disabled = panelState.scaffoldButtonState.disabled;
-    createScaffoldButton.textContent = panelState.scaffoldButtonState.text;
+    createScaffoldButton.disabled = !hasProject && !basketEntries.length && !explicitSelectedTheme;
+    createScaffoldButton.textContent = "生成提纲";
   }
-  if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
-  if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
+  if (copyScaffoldButton) {
+    copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
+    copyScaffoldButton.hidden = !hasScaffold;
+  }
+  if (exportScaffoldButton) {
+    exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
+    exportScaffoldButton.hidden = !hasScaffold;
+  }
+  if (openDraftButton) openDraftButton.hidden = !hasDraft;
+  if (moreMenu) {
+    moreMenu.hidden = !hasScaffold && !hasDraft;
+    if (moreMenu.hidden) moreMenu.open = false;
+  }
   if (outputActionsDetails && (hasScaffold || hasDraft)) outputActionsDetails.open = true;
   if (saveDraftButton) {
-    const canSaveDraft = Boolean(writingState.scaffold?.id) && projectPreflightSummary.level === "ready";
-    saveDraftButton.disabled = !canSaveDraft;
+    const canSaveDraft = Boolean(writingState.scaffold?.id);
+    const draftSaveState = String(writingState.draftSaveState || "idle");
+    saveDraftButton.disabled = !canSaveDraft || draftSaveState === "saving";
     saveDraftButton.textContent = !writingState.scaffold?.id
       ? !writingState.project?.id
         ? projectEntry?.projectId && projectEntry?.actionLabel
@@ -345,11 +386,20 @@ export function renderWritingPanelDom(deps = {}) {
           : projectPreflightSummary.level === "has_gaps"
             ? "先补主题缺口"
             : "先生成文章提纲"
-      : projectPreflightSummary.level === "needs_clarification"
-        ? "先澄清主题问题"
-        : projectPreflightSummary.level === "has_gaps"
-          ? "先补主题缺口"
-          : "保存为草稿笔记";
+      : hasDraft
+        ? draftSaveState === "saving"
+          ? "正在保存..."
+          : draftSaveState === "saved"
+            ? "已保存"
+            : draftSaveState === "error"
+              ? "保存失败，重试"
+              : "保存草稿"
+        : "保存为草稿笔记";
+  }
+  if (startDraftButton) startDraftButton.disabled = !hasScaffold;
+  if (draftEditor && (typeof document === "undefined" || document.activeElement !== draftEditor)) {
+    const draftBody = String(writingState.draftMarkdown || writingState.project?.draft_note?.body || writingState.scaffoldMarkdown || "").trim();
+    draftEditor.value = draftBody;
   }
   const strongModelBasketIds = renderWritingStrongModelSummaryDom({
     writingState,

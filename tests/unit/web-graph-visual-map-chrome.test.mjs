@@ -50,6 +50,7 @@ test("graph visual map chrome keeps shell deps and renders zoom and defs slots",
   assert.match(chrome.headContentMarkup, /<nav>meaningful<\/nav>/);
   assert.match(chrome.headContentMarkup, /graph-map-mode-hint/);
   assert.match(chrome.headContentMarkup, /看结构/);
+  assert.doesNotMatch(chrome.headContentMarkup, /<section>overview:false:<button>trail<\/button><\/section>/);
   assert.equal(chrome.emptyStateMarkup, "empty:Argument当前没有可见笔记");
 });
 

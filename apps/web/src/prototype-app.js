@@ -86,6 +86,7 @@ import { renderSettingsAutomationRunHistory } from "./settings-automation-run-hi
 import { renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
 import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
+import { resolveWritingProjectFormTitle, syncWritingThemeFormFields } from "./writing-theme-form-sync.js";
 import { createGraphFollowupController } from "./graph-followup-controller.js";
 import { clearGraphIsolatedRelationDraftForState } from "./graph-relation-drafts.js";
 import { createGraphIsolatedRelationController } from "./graph-isolated-relation-controller.js";
@@ -147,6 +148,9 @@ import { titleFromBody } from "./editor-template-workspace.js";
 import { createWritingPanelShellController } from "./writing-panel-shell.js";
 import { createWritingPanelPrototypeHostProvider } from "./writing-panel-host-deps.js";
 import { applyWritingTab, installWritingTabEvents } from "./writing-tabs.js";
+import { writingDraftMarkdown } from "./writing-workbench-model.js";
+import { installWritingRelatedPanelEvents } from "./writing-related-notes-panel.js";
+import { installWritingSidebarActionEvents } from "./writing-sidebar-actions.js";
 import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
 import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
 import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, parseWritingBasketIdsForRuntime, removeWritingBasketIdForRuntime, setWritingBasketIdsForRuntime } from "./writing-basket-state.js";
@@ -157,13 +161,13 @@ import { graphAssociateNoteRoute, graphFollowupActionRoute, noteDeleteKeyRoute }
 import { createGraphRelationComposerEntry } from "./graph-relation-composer-entry.js";
 import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
 import { createRelationEntryRuntimeController } from "./relation-entry-runtime-controller.js";
-import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, writingScaffoldPreflightWarning, isWritingStrongModelReady } from "./writing-center-flow.js";
+import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, isWritingStrongModelReady } from "./writing-center-flow.js";
 import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeProjectPreflight, noteHasBoundarySignal } from "./writing-readiness.js";
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
 import { findReviewOutlineProjectWithRefresh } from "./review-checklist-outline-entry.js";
 import { createWritingEntryRuntimeHost } from "./writing-entry-runtime-host.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
-import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingProjectEntryTitle as computeWritingProjectEntryTitle, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
+import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
 import { createWritableThemeDiscoveryController } from "./writable-theme-discovery-controller.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
@@ -190,7 +194,7 @@ import { remoteApiKeySecretRef } from "./ai-settings-remote-config-model.js";
 import { AI_LOCAL_MODEL_TIERS, AI_REMOTE_MODEL_TIERS, OLLAMA_CHAT_ENDPOINT_URL, OLLAMA_HEALTH_ENDPOINT_URL, OLLAMA_RECOMMENDED_MODEL, aiDefaultsForRuntimeMode, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl, enabledProviderHealthEndpointUrl, isBuiltInOllamaModel, isRemoteConfigurableProviderId, localModelDisplayProfile, modelNameExistsInList, normalizeOllamaSetupGuide, ollamaBootstrapStatusText, ollamaModelRecommendationProfiles, ollamaRecommendationForModel, preferredLocalModelName, remoteRuntimeModelFromMap, runtimeModelMapForRemoteModel, selectedLocalModelNameForInstalledModels } from "./prototype-ai-settings-controller.js";
 import { createUpdateState, shouldShowUpdateAttention, updateStateAutoCheckEnabled, updateStateIgnoreLatest, updateStateRemindLater } from "./update-state.js";
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "./prototype-update-controller.js";
-import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
+import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, syncWritingProject, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffold, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
@@ -548,6 +552,9 @@ const writingState = {
   project: null,
   scaffold: null,
   scaffoldMarkdown: "",
+  outlineSaveQueue: null,
+  draftMarkdown: "",
+  draftSaveState: "idle",
   relationCounts: {},
   relationCountErrors: {},
   loadingRelationCounts: false,
@@ -2544,12 +2551,10 @@ async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [
   return handleWritingCreateScaffoldClick({
     $,
     writingState,
-    describeWritingProjectPreflight,
     currentWritingContinuationEntry,
     continueWritingProjectEntry,
     writingCenterContinuationStatusMessage,
     writingCenterContinuationFailureMessage,
-    writingScaffoldPreflightWarning,
     createDraftScaffold,
     currentWritingVersionNote,
     showWritingResult,
@@ -2564,6 +2569,7 @@ async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
   if (!id) throw new Error("indexCardId is required");
+  const previousSelectedThemeIndexId = String(writingState.selectedThemeIndexId || "").trim();
   const indexCard = writingThemeIndexById(id) || (await fetchIndexCard(id));
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
@@ -2609,7 +2615,17 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
       );
     }
   }
-  if (!$("writingTitle")?.value.trim()) $("writingTitle").value = normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds));
+  // “开始写” must leave one concrete topic selected for the next action.
+  setSelectedWritingThemeIndex(id);
+  syncWritingThemeFormFields({
+    $,
+    indexCard,
+    noteIds,
+    previousSelectedThemeIndexId,
+    selectedThemeIndexId: id,
+    normalizeWritingProjectTitleSeed,
+    suggestedWritingProjectTitle
+  });
   renderWritingPanel();
   return {
     indexCard,
@@ -3529,6 +3545,8 @@ function resetWritingProjectContext({ title = "", goal = "", audience = "", tone
   writingState.project = null;
   writingState.scaffold = null;
   writingState.scaffoldMarkdown = "";
+  writingState.draftMarkdown = "";
+  writingState.draftSaveState = "idle";
   writingState.scaffoldVersions = [];
   writingState.draftVersions = [];
   if ($("writingTitle")) $("writingTitle").value = title;
@@ -4261,7 +4279,7 @@ function findExistingWritingProjectForTheme(indexCard, noteIds = []) {
     projects.find((project) => {
       const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
       const basketNoteIds = uniqueStrings(project?.basket_note_ids || project?.basketNoteIds || []);
-      if (themeId && relatedIndexIds.includes(themeId)) return true;
+      if (themeId) return relatedIndexIds.includes(themeId);
       return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
     }) || null
   );
@@ -4275,7 +4293,7 @@ function writingProjectMatchesContext(project, { themeId = "", noteIds = [] } = 
   const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
   const basketNoteIds = uniqueStrings(project?.basket_note_ids || project?.basketNoteIds || []);
 
-  if (normalizedThemeId && relatedIndexIds.includes(normalizedThemeId)) return true;
+  if (normalizedThemeId) return relatedIndexIds.includes(normalizedThemeId);
   return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
 }
 
@@ -4363,29 +4381,22 @@ function writingDraftDirectoryId() {
 }
 
 function writingDraftTitle() {
-  const themeTitle = String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "未命名主题";
-  return `${themeTitle} 草稿`;
-}
-
-function rewriteMarkdownHeading(markdown, title) {
-  const cleanTitle = String(title || "").trim() || "未命名草稿";
-  const text = String(markdown || "").replace(/\r\n/g, "\n").trim();
-  if (!text) return `# ${cleanTitle}\n`;
-  if (/^#\s+/.test(text)) return text.replace(/^#\s+.*$/m, `# ${cleanTitle}`);
-  return `# ${cleanTitle}\n\n${text}\n`;
+  return String($("writingTitle")?.value || writingState.project?.title || "").trim() || "未命名文章";
 }
 
 function writingDraftBody() {
   const headingTitle = writingDraftTitle();
-  const scaffoldMarkdown = rewriteMarkdownHeading(writingState.scaffoldMarkdown, headingTitle).trimEnd();
   const projectId = writingState.project?.id || "";
   const scaffoldId = writingState.scaffold?.id || "";
   const references = uniqueStrings([
     projectId ? `可写主题：${projectId}` : "",
     scaffoldId ? `文章提纲：${scaffoldId}` : ""
   ]);
-  const tail = references.length ? `\n\n---\n${references.join("\n")}\n` : "\n";
-  return `${scaffoldMarkdown}${tail}`;
+  return writingDraftMarkdown({
+    markdown: writingState.draftMarkdown || writingState.project?.draft_note?.body || writingState.scaffoldMarkdown,
+    title: headingTitle,
+    references
+  });
 }
 
 function writingScaffoldFileName(title = "") {
@@ -4440,7 +4451,7 @@ function writingNoteExcerpt(note) {
     .replace(/^#.*$/m, "")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text) return "这条永久笔记还没有正文摘要。";
+  if (!text) return "";
   return text.length > 120 ? `${text.slice(0, 120)}...` : text;
 }
 
@@ -4478,19 +4489,19 @@ async function loadWritingThemeIndexes() {
 }
 
 function writingThemeDetailHintText(indexCard) {
-  if (!indexCard?.id) return "查看中心问题、主题压缩和相关笔记，并确认一条可续接的写作入口。";
-  const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
-  const themeLabel = String(indexCard.title || indexCard.id || "当前主题").trim() || "当前主题";
-  return `${themeLabel}：写作中心入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前主题还是确定新的可写主题。"}`;
+  return indexCard?.id ? "确认题目和问题，然后生成提纲。" : "写下题目和你想回答的问题。";
 }
 
 function populateWritingFormFromProject(project) {
   if (!project) return;
-  if ($("writingTitle")) $("writingTitle").value = computeWritingProjectEntryTitle(project);
+  const relatedIndexIds = uniqueStrings(project.related_index_ids || []);
+  const selectedTheme = relatedIndexIds.map((indexId) => writingThemeIndexById(indexId)).find(Boolean) || null;
+  if ($("writingTitle")) $("writingTitle").value = resolveWritingProjectFormTitle({ project, indexCard: selectedTheme });
   if ($("writingGoal")) $("writingGoal").value = project.goal || "";
   if ($("writingAudience")) $("writingAudience").value = project.audience || "";
   if ($("writingTone")) $("writingTone").value = project.tone || "";
-  setWritingSourceIndexIds(project.related_index_ids || []);
+  setWritingSourceIndexIds(relatedIndexIds);
+  setSelectedWritingThemeIndex(relatedIndexIds[0] || "");
   setWritingBasketIds(project.basket_note_ids || []);
   syncWritingLocalBookIdeasFromProject(project);
 }
@@ -4572,8 +4583,10 @@ async function loadWritingDraftVersions() {
 
 async function openWritingProject(projectId) {
   resetWritingStrongModelState();
+  writingState.draftSaveState = "idle";
   const project = await fetchWritingProject(projectId);
   writingState.project = project;
+  setWritingBasketIds(project?.basket_note_ids || []);
   populateWritingFormFromProject(project);
   if (project?.scaffold_id) {
     try {
@@ -4589,7 +4602,18 @@ async function openWritingProject(projectId) {
     writingState.scaffoldMarkdown = "";
   }
   await refreshWritingRelationCounts(parseWritingBasketIds(), { render: false });
-  await refreshWritingProjectState();
+  const refreshedProject = await refreshWritingProjectState();
+  const draftNoteId = String(refreshedProject?.draft_note_id || writingState.project?.draft_note_id || "").trim();
+  if (draftNoteId) {
+    try {
+      const draftNote = await fetchNote(draftNoteId);
+      writingState.draftMarkdown = String(draftNote?.body || refreshedProject?.draft_note?.body || writingState.project?.draft_note?.body || "");
+    } catch {
+      writingState.draftMarkdown = String(refreshedProject?.draft_note?.body || writingState.project?.draft_note?.body || "");
+    }
+  } else {
+    writingState.draftMarkdown = "";
+  }
   await loadWritingScaffoldVersions();
   await loadWritingDraftVersions();
   renderWritingPanel();
@@ -4609,10 +4633,15 @@ async function openWritingDraftNoteById(draftNoteId) {
 }
 
 async function continueWritingProjectEntry(projectId, { openDraft = false, statusMessage = "" } = {}) {
+  activateModule("writing");
   const project = await openWritingProject(projectId);
   const route = writingProjectContinuationRoute({ projectId, project, openDraft, statusMessage });
   if (route.kind === "missing-draft" || route.kind === "invalid-project") throw new Error(route.errorMessage);
-  if (route.kind === "open-draft") await openWritingDraftNoteById(route.draftNoteId);
+  const continuationTab = route.kind === "open-draft" ? "draft" : (project?.scaffold_id ? "outline" : "theme");
+  applyWritingTab(continuationTab, {
+    root: $("writingPanel")?.querySelector?.(".writing-shell"),
+    documentRef: document
+  });
   setStatus(route.statusMessage, "ok");
   return project;
 }
@@ -5911,6 +5940,9 @@ installWritingPanelBasketEventHandlers({
     writingState,
     writingNoteEligibility,
     continueWritingEntry,
+    parseWritingBasketIds,
+    setWritingBasketIds,
+    syncWritingProject,
     normalizeWritingProjectTitleSeed: computeNormalizeWritingProjectTitleSeed,
     writingCandidateNotes,
     uniqueStrings,
@@ -5943,6 +5975,15 @@ installWritingPanelBasketEventHandlers({
 installWritingTabEvents({
   root: $("writingPanel")?.querySelector?.(".writing-shell"),
   documentRef: document
+});
+installWritingRelatedPanelEvents({
+  root: $("writingPanel")?.querySelector?.(".writing-shell"),
+  documentRef: document
+});
+installWritingSidebarActionEvents({
+  root: $("moduleSidebar"),
+  documentRef: document,
+  applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document })
 });
 
 installWritingThemeIndexEventHandlers({
@@ -6025,25 +6066,31 @@ installWritingDraftActionEventHandlers({
     state,
     writingState,
     createWritingProjectFromCurrentBasket,
-    describeWritingProjectPreflight,
+    createWritingProjectFromThemeIndex,
     currentWritingContinuationEntry,
     continueWritingProjectEntry,
     writingCenterContinuationStatusMessage,
     writingCenterContinuationFailureMessage,
-    writingScaffoldPreflightWarning,
     createDraftScaffold,
+    updateDraftScaffold,
+    syncWritingProject,
     currentWritingVersionNote,
     showWritingResult,
     loadWritingProjectsList,
     loadWritingScaffoldVersions,
     loadWritingDraftVersions,
     renderWritingPanel,
+    applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
     copyWritingScaffold,
     exportWritingScaffold,
     writingDraftDirectoryId,
     writingDraftTitle,
     writingDraftBody,
+    parseWritingBasketIds,
+    setWritingBasketIds,
+    uniqueStrings,
     createNote,
+    updateNote,
     bindWritingDraftNote,
     mapNoteItem,
     openWritingDraftNoteById,

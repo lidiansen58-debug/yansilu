@@ -368,10 +368,30 @@ function buildDefaultBookStructure(project = {}, basketNotes = [], options = {})
   });
 }
 
-async function loadBasketNotes(vaultPath, noteIds) {
+async function loadBasketNotes(vaultPath, noteIds, { tolerateMissing = false } = {}) {
   const notes = [];
   for (const noteId of noteIds) {
-    const note = await getNoteById(vaultPath, noteId);
+    let note;
+    try {
+      note = await getNoteById(vaultPath, noteId);
+    } catch (error) {
+      if (!tolerateMissing) throw error;
+      notes.push({
+        id: noteId,
+        title: "缺失笔记",
+        note_type: "missing",
+        status: "missing",
+        markdown_path: "",
+        excerpt: "",
+        thesis: "",
+        threeLineSummary: [],
+        distillationStatus: "missing",
+        authorship: { user_confirmed: false, ai_assisted: false },
+        body: "",
+        boundaryOrCounterpoint: ""
+      });
+      continue;
+    }
     const noteType = cleanText(note.noteType);
     if (noteType !== "permanent" && noteType !== "original") {
       throw new Error(`writing basket only accepts permanent notes: ${noteId}`);
@@ -652,6 +672,9 @@ function preflightCheck(id, label, status, message, details = {}) {
 
 function buildScaffoldPreflight(project, basketNotes) {
   const basketCount = basketNotes.length;
+  const missingSourceNotes = basketNotes.filter(
+    (note) => cleanText(note.status) === "missing" || cleanText(note.note_type || note.noteType) === "missing"
+  );
   const confirmedNotes = basketNotes.filter(
     (note) =>
       cleanText(note.thesis) &&
@@ -674,6 +697,15 @@ function buildScaffoldPreflight(project, basketNotes) {
     .map((item) => `${item.noteTitle}: ${item.message}`)
     .join(" ");
   const checks = [
+    preflightCheck(
+      "source_files",
+      "相关笔记来源",
+      missingSourceNotes.length ? "warning" : "pass",
+      missingSourceNotes.length
+        ? `${missingSourceNotes.length} 条相关笔记的来源文件已不存在。可以查看已有内容，但请补回材料或移出这些笔记后再修改提纲。`
+        : "相关笔记的来源文件都可读取。",
+      { count: missingSourceNotes.length, targetNoteIds: missingSourceNotes.map((note) => note.id) }
+    ),
     preflightCheck(
       "basket_size",
       "永久笔记篮",
@@ -956,7 +988,7 @@ export async function createDraftScaffold(vaultPath, input = {}) {
 export async function getWritingProject(vaultPath, writingProjectId) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const project = await loadProject(vaultPath, writingProjectId);
-  const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids);
+  const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids, { tolerateMissing: true });
   const relatedIndexCards = await loadRelatedIndexCards(vaultPath, project.related_index_ids);
   return {
     ...project,
@@ -1317,6 +1349,55 @@ export async function updateDraftScaffoldVersionNote(vaultPath, draftScaffoldId,
   return getDraftScaffold(vaultPath, id);
 }
 
+export async function updateDraftScaffold(vaultPath, draftScaffoldId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = cleanText(draftScaffoldId);
+  if (!id) throw new Error("draftScaffoldId is required");
+  if (!Array.isArray(input.sections)) throw new Error("sections is required");
+
+  const existing = await getDraftScaffold(vaultPath, id);
+  const project = await getWritingProject(vaultPath, existing.writing_project_id);
+  const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids);
+  const relatedIndexCards = await loadRelatedIndexCards(vaultPath, project.related_index_ids);
+  const sections = input.sections.map((section, index) => ({
+    heading: cleanText(section?.heading) || `第 ${index + 1} 节`,
+    purpose: cleanText(section?.purpose),
+    evidence_note_ids: uniqueIds(section?.evidence_note_ids || []),
+    gaps: Array.isArray(section?.gaps) ? section.gaps.map(cleanText).filter(Boolean) : [],
+    counterpoints: Array.isArray(section?.counterpoints) ? section.counterpoints.map(cleanText).filter(Boolean) : [],
+    open_questions: Array.isArray(section?.open_questions) ? section.open_questions.map(cleanText).filter(Boolean) : [],
+    order: index + 1
+  }));
+  const openQuestions = Array.isArray(input.openQuestions || input.open_questions)
+    ? (input.openQuestions || input.open_questions).map(cleanText).filter(Boolean)
+    : existing.open_questions;
+  const scaffold = {
+    ...existing,
+    sections,
+    open_questions: openQuestions
+  };
+  const preflight = buildScaffoldPreflight(project, basketNotes);
+  const markdown = renderMarkdown(project, scaffold, basketNotes, {
+    preflight,
+    indexCards: relatedIndexCards
+  });
+  const now = new Date().toISOString();
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    db.prepare(
+      `UPDATE draft_scaffolds
+       SET sections_json = ?, open_questions_json = ?, markdown = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(JSON.stringify(sections), JSON.stringify(openQuestions), markdown, now, id);
+  } finally {
+    db.close();
+  }
+
+  return getDraftScaffold(vaultPath, id);
+}
+
 export async function updateDraftNoteVersionNote(vaultPath, draftVersionId, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = cleanText(draftVersionId);
@@ -1359,7 +1440,9 @@ export async function getDraftScaffold(vaultPath, draftScaffoldId) {
     if (!row) throw new Error(`draftScaffoldId not found: ${id}`);
     const scaffold = mapScaffoldRow(row);
     const project = await loadProject(vaultPath, scaffold.writing_project_id);
-    const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids);
+    // Existing outlines remain readable when an old source file has been removed.
+    // Creating or editing derived content still requires the source notes above.
+    const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids, { tolerateMissing: true });
     return {
       ...scaffold,
       preflight: buildScaffoldPreflight(project, basketNotes)

@@ -49,6 +49,7 @@ test("writing panel prototype host deps keeps shell-owned writing helpers in one
     "renderDraftVersionCard",
     "writingBookProjectGoal",
     "writingBookProjectAudience",
+    "isWritingCandidateDetailsExpanded",
     "escapeHtml"
   ];
   for (const key of keys) host[key] = { key };

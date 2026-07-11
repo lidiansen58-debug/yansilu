@@ -31,7 +31,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
 
   async function openWritingModule({
-    statusMessage = "已打开写作中心",
+    statusMessage = "已打开写作",
     activeTab = "",
     focusedCandidateNoteIds = null,
     focusedCandidateScopeLabel = "",

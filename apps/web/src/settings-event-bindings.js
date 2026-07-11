@@ -160,8 +160,8 @@ export function installSettingsEventBindings(deps = {}) {
     }
     if (action === "open-writing") {
       activateModule("writing");
-      await openWritingModule({ entryReason: "从帮助打开写作中心。先选择主题或相关笔记，再生成提纲。", entrySourceLabel: "帮助" });
-      setStatus("已打开写作中心。", "ok");
+      await openWritingModule({ entryReason: "从帮助打开写作。先选择主题或相关笔记，再生成提纲。", entrySourceLabel: "帮助" });
+      setStatus("已打开写作。", "ok");
       return;
     }
     if (action === "open-theme-example") {
@@ -169,7 +169,7 @@ export function installSettingsEventBindings(deps = {}) {
       await loadWritingThemeIndexes();
       await openWritingModule({ entryReason: "从帮助查看主题索引示例。先看中心问题和关键笔记，再决定是否进入写作。", entrySourceLabel: "帮助" });
       applyWritingTab("themes");
-      setStatus("已打开写作中心的主题库。导入 Demo 后可查看主题索引示例。", "ok");
+      setStatus("已打开写作的主题库。导入 Demo 后可查看主题索引示例。", "ok");
       return;
     }
     if (action === "open-backup") {

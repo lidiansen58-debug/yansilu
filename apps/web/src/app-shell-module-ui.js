@@ -95,15 +95,19 @@ export function currentModuleSidebarUi({
       sidebarHtml: ""
     },
     writing: {
-      sidebarTitle: "从主题到草稿",
-      sidebarSubtitle: "把相关笔记整理成一篇文章的起点。",
-      sidebarFoot: "复杂说明放在帮助里；这里先完成下一步。",
-      title: "写作中心",
-      summary: "先确定要写什么，再生成提纲。",
+      sidebarTitle: "写作",
+      sidebarSubtitle: "完成一篇文章",
+      sidebarFoot: "",
+      title: "写作",
+      summary: "选择一个可写主题，沿着主题、提纲、草稿完成一篇文章。",
       sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>先做主线</h3>
-          <p>选相关笔记，写清问题，生成提纲。其他工具需要时再展开。</p>
+        <div class="writing-sidebar-actions" aria-label="写作操作">
+          <button class="writing-sidebar-action" type="button" data-writing-sidebar-action="topics">
+            主题库
+          </button>
+          <button class="writing-sidebar-action" type="button" data-writing-sidebar-action="related">
+            相关笔记 <span id="writingSidebarRelatedCount">0</span>
+          </button>
         </div>
       `
     },

@@ -89,7 +89,7 @@ test("graph route runtime saves a first-class theme index and transfers writing 
   assert.deepEqual(calls.find((call) => call[0] === "open-writing"), [
     "open-writing",
     {
-      statusMessage: "已从可写主题打开写作中心：关系如何变成写作入口",
+      statusMessage: "已从可写主题打开写作：关系如何变成写作入口",
       preserveFocusedCandidateScope: true,
       entryReason: "从图谱可写主题继续写作",
       entrySourceLabel: "可写主题"

@@ -80,8 +80,8 @@ export async function handleOpenNoteMainRouteStateChange(payload = {}, deps = {}
       const addedCount = Number(plan?.addedNoteIds?.length || 0);
       const statusMessage =
         addedCount > 0
-          ? `已把“${note.title || noteId}”加入相关笔记，并打开写作中心`
-          : `“${note.title || noteId}”已在相关笔记中，已打开写作中心`;
+          ? `已把“${note.title || noteId}”加入相关笔记，并打开写作`
+          : `“${note.title || noteId}”已在相关笔记中，已打开写作`;
       if (mode === "project") {
         await openWritingModule({ statusMessage: "" });
         if (noteContinuation?.projectId) {

@@ -88,7 +88,7 @@ test("graph visual map controller composes runtime state into shell, node, and e
   assert.match(html, /data-test-toolbar/);
   assert.match(html, /class="graph-map-node/);
   assert.match(html, /class="graph-map-edge-group/);
-  assert.match(html, /data-test-reading-lens/);
+  assert.doesNotMatch(html, /data-test-reading-lens/);
 });
 
 test("graph visual map controller keeps isolated relation workflow in the selection overlay", () => {

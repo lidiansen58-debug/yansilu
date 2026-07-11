@@ -70,10 +70,10 @@
             <path d="M5.6 4.7l4.8 0M4.9 5.4l2.2 4.4M11.1 5.4l-2.2 4.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
           </svg>
         </button>
-        <button class="rail-btn" data-module="writing" title="写作中心" data-tip="写作中心" aria-label="写作中心">
+        <button class="rail-btn" data-module="writing" title="写作" data-tip="写作" aria-label="写作">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M4 2.4h8a1.2 1.2 0 0 1 1.2 1.2v8.8L10.7 10H4A1.2 1.2 0 0 1 2.8 8.8V3.6A1.2 1.2 0 0 1 4 2.4z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-            <path d="M5.3 5.4h5.4M5.3 7.8h5.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+            <path d="m4 11.9 1.1-3.2L10.8 3a1.35 1.35 0 0 1 1.9 1.9L7 10.6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+            <path d="m9.8 4 2.2 2.2M3.7 12.3h4.7" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
@@ -466,244 +466,162 @@
           </div>
           </div>
           <div class="panel hidden" id="writingPanel">
-          <div class="writing-shell">
-            <nav class="writing-tabs" aria-label="写作中心功能切换" role="tablist">
-              <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">开始写</button>
-              <button class="writing-tab" type="button" data-writing-tab="notes" role="tab" aria-selected="false">选笔记</button>
-              <button class="writing-tab" type="button" data-writing-tab="themes" role="tab" aria-selected="false">用主题</button>
-              <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">高级工具</button>
-            </nav>
-            <details class="writing-collapsed-strip writing-status-details">
-              <summary>状态和步骤</summary>
-              <div class="writing-topline-metrics" id="writingToplineMetrics" aria-label="写作中心当前速览">
-                <div class="writing-topline-metric"><span>相关笔记</span><strong>0 条</strong><small>先选择笔记</small></div>
-                <div class="writing-topline-metric"><span>可写主题</span><strong>未确定</strong><small>明确要写什么</small></div>
-                <div class="writing-topline-metric"><span>开始草稿</span><strong>未开始</strong><small>先生成提纲</small></div>
-              </div>
-              <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
-                  <div class="writing-flow-step is-active"><span>1</span><strong>可写主题</strong><small>先明确想写清什么</small></div>
-              <div class="writing-flow-step"><span>2</span><strong>相关笔记</strong><small>挑 2-5 条能支撑主题的笔记</small></div>
-              <div class="writing-flow-step"><span>3</span><strong>文章提纲</strong><small>检查结构、证据和缺口</small></div>
-              <div class="writing-flow-step"><span>4</span><strong>开始草稿</strong><small>按提纲进入写作</small></div>
-              </div>
-              <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
-            </details>
-            <div class="writing-project-grid" id="writingComposePanel">
-              <section class="writing-section writing-output-card">
-                <div class="writing-section-head">
-                  <div>
-                    <div class="writing-section-title">写什么</div>
-                    <div class="writing-section-note">先写清题目和问题。</div>
-                  </div>
-                </div>
-                <div class="import-grid writing-form-grid">
-                  <label>当前笔记</label>
-                  <div class="writing-current-note" id="writingCurrentNote">尚未选择</div>
-                  <label for="writingTitle">文章题目</label>
-                  <input id="writingTitle" placeholder="例如：从卡片到文章提纲" />
-                  <label for="writingGoal">想写清什么</label>
-                  <textarea id="writingGoal" style="min-height:70px;" placeholder="这篇文章要解决什么问题？"></textarea>
-                  <label for="writingAudience">读者</label>
-                  <input id="writingAudience" placeholder="例如：知识工作者" />
-                </div>
-                <details class="writing-advanced-details">
-                  <summary>更多写作细节：语气和本次修改说明</summary>
-                  <div class="import-grid writing-form-grid">
-                    <label for="writingTone">语气</label>
-                    <input id="writingTone" placeholder="例如：冷静、克制、有证据感" />
-                    <label for="writingVersionNote">本次修改说明</label>
-                    <textarea id="writingVersionNote" style="min-height:58px;" placeholder="例如：调整段落顺序，先铺背景再落论点"></textarea>
-                  </div>
-                </details>
-                <div class="writing-actions-primary">
-                  <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
-                  <button class="mini-btn primary" id="btnWritingCreateProject">确定可写主题</button>
-                  <button class="mini-btn primary" id="btnWritingCreateScaffold">生成文章提纲</button>
-                </div>
-                <details class="writing-advanced-details" id="writingBasketActionsDetails">
-                  <summary>更多相关笔记操作</summary>
-                  <div class="writing-actions-secondary">
-                    <button class="mini-btn" id="btnWritingAddVisible">加入当前目录笔记</button>
-                    <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空相关笔记</button>
-                  </div>
-                </details>
-              </section>
-              <section class="writing-section">
-                <div class="writing-section-head">
-                  <div>
-                    <div class="writing-section-title">输出</div>
-                    <div class="writing-section-note">生成提纲后在这里检查。</div>
-                  </div>
-                </div>
-                <details class="writing-advanced-details">
-                  <summary>高级：手动调整已选笔记编号</summary>
-                  <label for="writingBasketNoteIds" class="writing-section-note">已选相关笔记（通常不用改）</label>
-                  <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="需要手动修正时，每行放一条笔记编号，也可以用逗号分隔"></textarea>
-                </details>
-                <div class="import-result" id="writingResult">尚未开始写作。</div>
-                <details class="writing-advanced-details" id="writingOutputActionsDetails">
-                  <summary>更多输出：提纲、导出和草稿</summary>
-                  <div class="writing-actions-secondary">
-                    <button class="mini-btn" id="btnWritingCopyScaffold">复制文章提纲 Markdown</button>
-                    <button class="mini-btn" id="btnWritingExportScaffold">导出文章提纲 .md</button>
-                    <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿</button>
-                    <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
-                  </div>
-                </details>
-                <details class="writing-advanced-details">
-                  <summary>高级：AI 写作检查</summary>
-                <div class="writing-ai-card" aria-label="AI 写作检查">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">AI 写作检查</div>
-                      <div class="writing-section-note">让 AI 帮你检查结构、证据、缺口和反方；结果需要你确认后才会进入笔记。</div>
-                    </div>
-                    <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">先选择相关笔记</button>
-                  </div>
-                  <div class="writing-summary" id="writingStrongModelSummary">先选择相关笔记，再准备 AI 写作检查。</div>
-                  <div class="writing-strong-request-detail" id="writingStrongModelRequestDetail"></div>
-                </div>
-                </details>
-              </section>
-              <details class="writing-collapsed-strip" id="writingBeginnerMainlineDetails">
-                <summary>新手路径</summary>
-                <div id="writingBeginnerMainline" aria-live="polite"></div>
-              </details>
-            </div>
-
-            <details class="writing-advanced-details" id="writingBookToolsPanel">
-              <summary>更多写作工具：书稿方向、最近写作和版本历史</summary>
-            <section class="writing-section writing-book-workbench" aria-label="书稿设计工作台">
-              <div class="writing-section-head">
+            <div class="writing-shell" data-writing-active-tab="theme" data-writing-has-topic="false">
+              <div class="writing-workbench-head">
                 <div>
-                  <div class="writing-section-title">书稿设计</div>
-                  <div class="writing-section-note" id="writingBookDesignSummary">先选择主题相关笔记，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。</div>
+                  <div class="writing-page-title">写作</div>
+                  <div class="writing-page-subtitle" id="writingScopeHint">选一个主题，写完一篇文章。</div>
                 </div>
-                <button class="mini-btn" id="btnWritingLocalBookIdeas" type="button">本地生成 3 个书稿方向</button>
+                <div class="writing-head-actions">
+                  <button class="mini-btn writing-mobile-topic-picker" type="button" data-writing-topic-picker>主题库</button>
+                  <button class="mini-btn icon-btn" type="button" data-writing-help-toggle aria-label="帮助" title="帮助" data-tip="帮助">?</button>
+                  <details class="writing-more-menu" id="writingMoreMenu">
+                    <summary class="mini-btn icon-btn" aria-label="更多" title="更多" data-tip="更多">⋯</summary>
+                    <div class="writing-more-menu-panel">
+                      <button class="mini-btn" id="btnWritingCopyScaffold" type="button">复制提纲 Markdown</button>
+                      <button class="mini-btn" id="btnWritingExportScaffold" type="button">导出提纲 .md</button>
+                      <button class="mini-btn" id="btnWritingOpenDraft" type="button">打开当前草稿</button>
+                    </div>
+                  </details>
+                </div>
               </div>
-              <div class="writing-book-map" id="writingBookStructure"></div>
-              <div class="writing-book-columns">
-                <div class="writing-book-pool" id="writingBookPools"></div>
-                <div class="writing-book-pool" id="writingBookLocalIdeas"></div>
-              </div>
-            </section>
-            </details>
 
-            <div class="writing-main-grid" id="writingSecondaryPanels">
-              <div class="writing-stack">
-                <section class="writing-section" id="writingThemePanel">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">用已有主题继续写</div>
-                      <div class="writing-section-note" id="writingThemeIndexesHint">把已经成形的一组永久笔记保存为可写主题，下次可以直接继续写。需要时可在帮助里了解它会保存成“主题索引笔记”。</div>
-                    </div>
-                    <div class="writing-note-actions">
-                      <button class="mini-btn" id="btnWritingDiscoverThemes">发现可写主题建议</button>
-                      <button class="mini-btn" id="btnWritingSaveThemeIndex">保存为可写主题</button>
-                      <button class="mini-btn" id="btnWritingRefreshThemeIndexes">刷新可写主题</button>
-                    </div>
-                  </div>
-                  <div class="writing-note-list" id="writingThemeDiscoverySuggestions"></div>
-                  <div class="writing-note-list" id="writingThemeIndexList"></div>
-                  <div class="writing-theme-detail-panel">
+              <div class="writing-help-popover" id="writingHelpPopover" hidden>
+                <strong>从主题到草稿</strong>
+                <span>先确认中心问题和相关笔记，再生成提纲，最后保存草稿。导出和打开草稿在“更多”里。</span>
+              </div>
+
+              <section class="writing-empty-topic" id="writingEmptyTopic">
+                <div class="writing-empty-topic-copy">
+                  <h2>选择一个可写主题</h2>
+                </div>
+                <div class="writing-note-list writing-theme-picks" id="writingThemeIndexList"></div>
+                <div id="writingThemeIndexesHint" hidden></div>
+                <div class="writing-note-list" id="writingThemeDiscoverySuggestions"></div>
+              </section>
+
+              <div class="writing-workbench-active" id="writingWorkbenchActive">
+                <nav class="writing-tabs" aria-label="写作步骤" role="tablist">
+                  <button class="writing-tab is-active" type="button" data-writing-tab="theme" role="tab" aria-selected="true">主题</button>
+                  <button class="writing-tab" type="button" data-writing-tab="outline" role="tab" aria-selected="false">提纲</button>
+                  <button class="writing-tab" type="button" data-writing-tab="draft" role="tab" aria-selected="false">草稿</button>
+                </nav>
+
+                <div class="writing-tab-panels" id="writingSecondaryPanels">
+                  <section class="writing-section writing-topic-panel" id="writingThemePanel">
                     <div class="writing-section-head">
                       <div>
-                        <div class="writing-section-title">主题详情</div>
-                        <div class="writing-section-note" id="writingThemeDetailHint">查看中心问题、相关笔记和缺口，判断是否已经足够形成一篇文章。</div>
+                        <div class="writing-section-title">先定题目</div>
+                        <div class="writing-section-note" id="writingThemeDetailHint">写下题目和你想回答的问题。</div>
+                      </div>
+                      <button class="mini-btn" type="button" data-writing-related-open>
+                        相关笔记 <span id="writingRelatedNotesCount">0</span>
+                      </button>
+                    </div>
+                    <div class="writing-topic-layout">
+                      <div class="import-grid writing-form-grid">
+                        <label for="writingTitle">文章题目</label>
+                        <input id="writingTitle" placeholder="例如：从卡片到文章提纲" />
+                        <label for="writingGoal">想回答的问题</label>
+                        <textarea id="writingGoal" rows="4" placeholder="例如：为什么这件事值得做？"></textarea>
+                      </div>
+                      <div id="writingThemeDetail" class="writing-theme-detail-panel"></div>
+                    </div>
+                    <input id="writingAudience" type="hidden" />
+                    <div class="writing-current-note" id="writingCurrentNote" hidden>尚未选择</div>
+                    <div class="writing-actions-primary">
+                      <button class="mini-btn primary" id="btnWritingCreateScaffold" type="button">生成提纲</button>
+                    </div>
+                    <p class="writing-action-feedback" id="writingActionFeedback" aria-live="polite" hidden></p>
+                  </section>
+
+                  <section class="writing-section" id="writingScaffoldPanel">
+                    <div class="writing-section-head">
+                      <div>
+                        <div class="writing-section-title">提纲</div>
+                        <div class="writing-section-note">把文章的主要段落排好，再开始写正文。</div>
+                      </div>
+                      <div class="writing-section-head-actions">
+                        <button class="mini-btn" type="button" data-writing-related-open>
+                          相关笔记 <span id="writingRelatedNotesCountOutline">0</span>
+                        </button>
+                        <button class="mini-btn" id="btnWritingOutlineCheckPlaceholder" type="button" data-writing-disabled-action="检查提纲">检查提纲</button>
+                        <button class="mini-btn primary" id="btnWritingStartDraft" type="button" data-writing-tab-jump="draft">开始写草稿</button>
                       </div>
                     </div>
-                    <div id="writingThemeDetail"></div>
-                  </div>
-                </section>
-                <section class="writing-section" id="writingRelatedNotesPanel">
+                    <div class="writing-preview writing-outline-editor" id="writingScaffoldPreview">
+                      <div class="writing-empty">生成提纲后这里会显示章节结构。</div>
+                    </div>
+                  </section>
+
+                  <section class="writing-section writing-draft-panel" id="writingDraftPanel">
+                    <div class="writing-section-head">
+                      <div>
+                        <div class="writing-section-title">草稿</div>
+                        <div class="writing-section-note">按提纲写正文。</div>
+                      </div>
+                      <button class="mini-btn" type="button" data-writing-related-open>
+                        相关笔记 <span id="writingRelatedNotesCountDraft">0</span>
+                      </button>
+                    </div>
+                    <textarea class="writing-draft-editor" id="writingDraftEditor" placeholder="从提纲开始写正文。保存草稿会创建或绑定当前草稿笔记。"></textarea>
+                    <div class="writing-actions-primary">
+                      <button class="mini-btn" type="button" data-writing-tab-jump="outline">返回提纲</button>
+                      <button class="mini-btn primary" id="btnWritingSaveDraft" type="button">保存草稿</button>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <aside class="writing-related-overlay" id="writingRelatedOverlay" aria-hidden="true">
+                <div class="writing-related-backdrop" data-writing-related-close></div>
+                <section class="writing-related-panel" id="writingRelatedNotesPanel" aria-label="相关笔记">
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">相关笔记</div>
-                      <div class="writing-section-note" id="writingScopeHint">当前目录内已转化出的永久笔记会出现在这里。挑选能支撑同一主题的笔记，再生成文章提纲。</div>
+                      <div class="writing-section-note" id="writingBasketSummary">还没有选择相关笔记。</div>
                     </div>
+                    <button class="mini-btn icon-btn" type="button" data-writing-related-close aria-label="关闭相关笔记">×</button>
                   </div>
-                  <div class="writing-summary" id="writingBasketSummary">还没有选择相关笔记。</div>
-                  <details class="writing-advanced-details" id="writingBasketDetails">
-                    <summary>已选相关笔记（通常不用改）</summary>
-                    <div class="writing-note-list" id="writingBasketList"></div>
+                  <div class="writing-note-list" id="writingBasketList"></div>
+                  <details class="writing-advanced-details" id="writingCandidateDetails">
+                    <summary>添加笔记</summary>
+                    <div class="writing-section-note" id="writingCandidateSummary">从当前目录选择要用到的笔记。</div>
+                    <div class="writing-note-list" id="writingCandidateList"></div>
                   </details>
+                  <textarea id="writingBasketNoteIds" hidden></textarea>
+                  <button class="mini-btn" id="btnWritingSaveThemeIndex" type="button" hidden>保存为可写主题</button>
                 </section>
-                <details class="writing-advanced-details writing-section" id="writingCandidateDetails">
-                  <summary>更多选择：当前目录永久笔记</summary>
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">当前目录永久笔记</div>
-                      <div class="writing-section-note" id="writingCandidateSummary">&#x5C1A;&#x672A;&#x8BFB;&#x53D6;&#x53EF;&#x5199;&#x4E3B;&#x9898;&#x5019;&#x9009;&#x3002;</div>
-                    </div>
-                  </div>
-                  <div class="writing-note-list" id="writingCandidateList"></div>
-                </details>
+              </aside>
+
+              <div class="writing-hidden-workbench" aria-hidden="true">
+                <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
+                <div class="writing-topline-metrics" id="writingToplineMetrics"></div>
+                <div class="writing-flow-strip" id="writingFlowSteps"></div>
+                <div class="import-result" id="writingResult">尚未开始写作。</div>
+                <input id="writingTone" />
+                <textarea id="writingVersionNote"></textarea>
+                <button class="mini-btn" id="btnWritingCreateProject" type="button">确定可写主题</button>
+                <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">检查</button>
+                <div id="writingStrongModelSummary"></div>
+                <div id="writingStrongModelRequestDetail"></div>
+                <div id="writingBeginnerMainline"></div>
+                <button class="mini-btn" id="btnWritingLocalBookIdeas" type="button">本地生成 3 个书稿方向</button>
+                <div id="writingBookDesignSummary"></div>
+                <div id="writingBookStructure"></div>
+                <div id="writingBookPools"></div>
+                <div id="writingBookLocalIdeas"></div>
+                <div id="writingProjectsHint"></div>
+                <input id="writingProjectsSearch" />
+                <select id="writingProjectsStatusFilter"><option value="all">全部</option><option value="draft">草稿中</option><option value="active">进行中</option></select>
+                <select id="writingProjectsDraftFilter"><option value="all">全部</option><option value="true">有草稿</option><option value="false">无草稿</option></select>
+                <div id="writingProjectsList"></div>
+                <div id="writingScaffoldVersionsHint"></div>
+                <div id="writingScaffoldVersionsList"></div>
+                <div id="writingDraftVersionsHint"></div>
+                <div id="writingDraftVersionsList"></div>
               </div>
-
-              <section class="writing-section" id="writingScaffoldPanel">
-                <div class="writing-section-head">
-                    <div>
-                    <div class="writing-section-title">文章提纲</div>
-                    <div class="writing-section-note">生成后先检查章节、证据、缺口和反方，再决定是否开始草稿。</div>
-                  </div>
-                </div>
-                <div class="writing-preview" id="writingScaffoldPreview">
-                  <h4>文章提纲预览</h4>
-                  <div class="writing-empty">生成后这里会显示章节结构、证据映射和 Markdown 文档预览。</div>
-                </div>
-              </section>
-
-              <details class="writing-advanced-details writing-stack" id="writingHistoryPanel">
-                <summary>更多：最近写作和版本记录</summary>
-                <section class="writing-section">
-                    <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">最近写作</div>
-                      <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作主题，支持恢复到当前工作区。</div>
-                      </div>
-                    <button class="mini-btn" id="btnWritingRefreshProjects" type="button">刷新写作记录</button>
-                    </div>
-                    <div class="import-grid" style="margin-bottom:12px;">
-                      <label for="writingProjectsSearch">搜索</label>
-                      <input id="writingProjectsSearch" placeholder="按题目、目标或记录 ID 搜索" />
-                      <label for="writingProjectsStatusFilter">状态</label>
-                      <select id="writingProjectsStatusFilter">
-                        <option value="all">全部</option>
-                        <option value="draft">草稿中</option>
-                        <option value="active">进行中</option>
-                      </select>
-                      <label for="writingProjectsDraftFilter">草稿</label>
-                      <select id="writingProjectsDraftFilter">
-                        <option value="all">全部</option>
-                        <option value="true">有草稿</option>
-                        <option value="false">无草稿</option>
-                      </select>
-                    </div>
-                    <div class="writing-note-list" id="writingProjectsList"></div>
-                  </section>
-                <section class="writing-section">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">文章提纲版本</div>
-                      <div class="writing-section-note" id="writingScaffoldVersionsHint">每次生成文章提纲都会保留历史版本。</div>
-                    </div>
-                    <button class="mini-btn" id="btnWritingRefreshScaffolds">刷新版本</button>
-                  </div>
-                  <div class="writing-note-list" id="writingScaffoldVersionsList"></div>
-                </section>
-                <section class="writing-section">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">草稿版本</div>
-                      <div class="writing-section-note" id="writingDraftVersionsHint">每次保存草稿都会保留一个新版本，并记录来源文章提纲。</div>
-                    </div>
-                    <button class="mini-btn" id="btnWritingRefreshDraftVersions">刷新草稿版本</button>
-                  </div>
-                  <div class="writing-note-list" id="writingDraftVersionsList"></div>
-                </section>
-              </details>
             </div>
-          </div>
           </div>
           <div class="panel hidden" id="settingsPanel">
             <div class="settings-shell">
@@ -1157,7 +1075,7 @@
                         <div class="settings-help-topic-list settings-help-task-list">
                           <div class="settings-help-topic">
                             <strong>研思录最核心的路径</strong>
-                            <span>从首页开始：处理一条材料，补一条关系，形成一个主题，再进入写作中心。一天只推进一个动作也可以。</span>
+                            <span>从首页开始：处理一条材料，补一条关系，形成一个主题，再进入写作。一天只推进一个动作也可以。</span>
                           </div>
                           <div class="settings-help-topic settings-help-topic-action">
                             <strong>一键导入 Smart Notes Demo</strong>
@@ -1181,10 +1099,10 @@
                           </div>
                           <div class="settings-help-topic">
                             <strong>怎么开始写作</strong>
-                            <span>先选能回答同一问题的笔记，确认主题，再进入写作中心生成提纲。</span>
+                            <span>先选能回答同一问题的笔记，确认主题，再进入写作生成提纲。</span>
                             <div class="settings-inline-actions">
                               <button class="mini-btn" type="button" data-settings-help-action="open-theme-example">查看主题索引示例</button>
-                              <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作中心</button>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作</button>
                             </div>
                           </div>
                           <div class="settings-help-topic">

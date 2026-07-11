@@ -1024,6 +1024,17 @@ export async function fetchWritingProject(writingProjectId) {
   return json.item || null;
 }
 
+export async function syncWritingProject(writingProjectId, payload = {}) {
+  const cleanWritingProjectId = String(writingProjectId || "").trim();
+  if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
+  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function updateWritingProjectBookStructure(writingProjectId, payload = {}) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
@@ -1048,6 +1059,17 @@ export async function updateDraftScaffoldVersionNote(draftScaffoldId, versionNot
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ versionNote: String(versionNote || "").trim() })
+  });
+  return json.item || null;
+}
+
+export async function updateDraftScaffold(draftScaffoldId, payload = {}) {
+  const cleanDraftScaffoldId = String(draftScaffoldId || "").trim();
+  if (!cleanDraftScaffoldId) throw new Error("draftScaffoldId is required");
+  const json = await request(`/api/v1/draft-scaffolds/${encodeURIComponent(cleanDraftScaffoldId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
   });
   return json.item || null;
 }

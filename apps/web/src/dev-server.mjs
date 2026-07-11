@@ -266,7 +266,7 @@ const server = http.createServer(async (req, res) => {
       await serveStaticPage(res, "marketing-checkout-cancel.html");
       return;
     }
-    if (url.pathname === "/prototype" || url.pathname === "/editor" || url.pathname === "/app" || url.pathname === "/app/editor") {
+    if (url.pathname === "/prototype" || url.pathname === "/prototype.html" || url.pathname === "/editor" || url.pathname === "/app" || url.pathname === "/app/editor") {
       await servePrototype(res);
       return;
     }

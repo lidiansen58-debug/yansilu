@@ -84,6 +84,8 @@ import {
   listProjectScaffolds,
   listWritingProjects,
   setCurrentDraftNote,
+  syncWritingProject,
+  updateDraftScaffold,
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote,
   updateWritingProjectBookStructure,
@@ -6743,6 +6745,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     const writingProjectMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)$/);
+    if (req.method === "PATCH" && writingProjectMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await syncWritingProject(VAULT_PATH, decodeURIComponent(writingProjectMatch[1]), body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("WRITING_PROJECT_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
     if (req.method === "GET" && writingProjectMatch) {
       try {
         await initVault(VAULT_PATH);
@@ -6931,7 +6947,9 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       try {
         await initVault(VAULT_PATH);
-        const item = await updateDraftScaffoldVersionNote(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body);
+        const item = Array.isArray(body.sections)
+          ? await updateDraftScaffold(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body)
+          : await updateDraftScaffoldVersionNote(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body);
         return sendJson(res, 200, {
           item,
           requestId: rid,
