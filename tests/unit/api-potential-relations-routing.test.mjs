@@ -44,6 +44,30 @@ test("potential relation refine follows current AI provider settings by default"
   assert.doesNotMatch(endpoint, /confirmationRequired: false/);
 });
 
+test("analysis provider execution uses locally saved remote API secrets", () => {
+  const source = readServer();
+  const start = source.indexOf("async function resolveAnalysisProviderExecution(");
+  const end = source.indexOf("\nfunction cloneJson", start);
+  assert.ok(start >= 0 && end > start, "expected resolveAnalysisProviderExecution helper");
+  const helper = source.slice(start, end);
+
+  assert.match(helper, /createProviderAdapterRegistry\(\{/);
+  assert.match(helper, /secrets: await upsertLocalAiSecrets\(input\)/);
+});
+
+test("provider config save strips raw and deleted secret fields from stored config", () => {
+  const source = readServer();
+  const start = source.indexOf('req.method === "POST" && url.pathname === "/api/v1/ai/provider-configs"');
+  const end = source.indexOf('if (req.method === "POST" && url.pathname.startsWith("/api/v1/ai/provider-configs/")', start);
+  assert.ok(start >= 0 && end > start, "expected provider config save endpoint");
+  const endpoint = source.slice(start, end);
+
+  assert.match(endpoint, /await upsertLocalAiSecrets\(body\)/);
+  assert.match(endpoint, /deleteSecrets: _deleteSecrets/);
+  assert.match(endpoint, /delete_secrets: _delete_secrets/);
+  assert.match(endpoint, /store\.setProviderConfig\(providerConfigInput\)/);
+});
+
 test("potential relation endpoints accept noteId as a focus alias and infer its directory", () => {
   const source = readServer();
   const helperStart = source.indexOf("async function resolvePotentialRelationScope(body = {})");
