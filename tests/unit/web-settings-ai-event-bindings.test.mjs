@@ -52,6 +52,7 @@ function createHarness() {
     "settingsAiUserMode",
     "settingsAiModelPack",
     "settingsAiLocalModel",
+    "settingsAiAutoPrepareLocal",
     "settingsAiAdvancedModelRef",
     "settingsAiSecretRef",
     "settingsAiRemoteRuntimeModel",
@@ -71,6 +72,7 @@ function createHarness() {
     "settingsAiStopOllama",
     "settingsAiPullOllamaModel",
     "settingsAiCopyOllamaInstallCommand",
+    "settingsAiTopAction",
     "settingsCardAiSettings"
   ].forEach((id) => element(id));
 
@@ -153,6 +155,7 @@ test("settings AI event bindings route core field changes and delegated actions"
   harness.listeners.get("settingsAiUserMode:change")({ target: { value: "Manual" } });
   harness.listeners.get("settingsAiModelPack:change")({ target: { value: "Local Fast" } });
   await harness.listeners.get("settingsAiLocalModel:change")({ target: { value: "qwen" } });
+  harness.listeners.get("settingsAiAutoPrepareLocal:change")({ target: { checked: true } });
   await harness.listeners.get("settingsAiSecretRef:blur")({ target: { value: "vault-key" } });
   assert.equal(settingsState.ai.testMeta, "");
   assert.equal(settingsState.ai.testOutput, "");
@@ -172,7 +175,9 @@ test("settings AI event bindings route core field changes and delegated actions"
   harness.listeners.get("document:keydown")({ key: "Escape" });
 
   assert.equal(settingsState.ai.userMode, "Manual");
-  assert.equal(settingsState.ai.secretRef, "vault-key");
+  assert.equal(settingsState.ai.autoPrepareLocalAi, true);
+  assert.equal(settingsState.ai.remoteApiKey, "vault-key");
+  assert.equal(settingsState.ai.secretRef, "local:settings-remote-api-key");
   assert.equal(settingsState.ai.testRunning, false);
   assert.equal(settingsState.ai.testOutput, "done");
   assert.deepEqual(harness.calls.filter((call) => ["runtime", "pack", "local-model", "provider-sync", "test-chat", "clipboard", "quick", "open-dialog", "close-dialog"].includes(call[0])), [
@@ -180,7 +185,6 @@ test("settings AI event bindings route core field changes and delegated actions"
     ["runtime", "auto"],
     ["pack", "Local Fast", { source: "settings" }],
     ["local-model", "qwen"],
-    ["provider-sync"],
     ["test-chat", "hello", "secret", "key", "model"],
     ["clipboard", "done"],
     ["quick", "starter"],
@@ -193,7 +197,8 @@ test("settings AI event bindings do not clear successful test when remote field 
   const harness = createHarness();
   const settingsState = {
     ai: {
-      secretRef: "AI_KEY",
+      remoteApiKey: "AI_KEY",
+      secretRef: "local:settings-remote-api-key",
       testMeta: "remote / model (ok)",
       testStatus: "success",
       testOutput: "pong"
@@ -209,13 +214,51 @@ test("settings AI event bindings do not clear successful test when remote field 
     renderSettingsPanel: () => harness.calls.push(["render"]),
     setStatus: () => {},
     markAiProviderDraftTouched: (...args) => harness.calls.push(["touch", ...args]),
-    syncAiProviderConfigToApi: async () => true
+    syncAiProviderConfigToApi: async () => harness.calls.push(["provider-sync"])
   });
 
   await harness.listeners.get("settingsAiSecretRef:blur")({ target: { value: "AI_KEY" } });
 
   assert.equal(settingsState.ai.testStatus, "success");
   assert.equal(settingsState.ai.testOutput, "pong");
+  assert.ok(!harness.calls.some((call) => call[0] === "provider-sync"));
+});
+
+test("settings AI remote field blur only stores drafts until explicit tested save", async () => {
+  const harness = createHarness();
+  const settingsState = {
+    ai: {
+      providerEndpointUrl: "",
+      remoteRuntimeModel: "",
+      secretRef: "",
+      remoteApiKey: "",
+      providerDraftTouched: {},
+      testStatus: ""
+    }
+  };
+
+  installSettingsAiEventBindings({
+    $: harness.$,
+    settingsState,
+    documentRef: harness.documentRef,
+    clipboard: harness.clipboard,
+    persistAiSettingsToStorage: () => harness.calls.push(["persist"]),
+    renderSettingsPanel: () => harness.calls.push(["render"]),
+    setStatus: (...args) => harness.calls.push(["status", ...args]),
+    markAiProviderDraftTouched: (...args) => harness.calls.push(["touch", ...args]),
+    syncAiProviderConfigToApi: async () => harness.calls.push(["provider-sync"])
+  });
+
+  await harness.listeners.get("settingsAiSecretRef:blur")({ target: { value: "sk-test-key" } });
+  await harness.listeners.get("settingsAiRemoteRuntimeModel:blur")({ target: { value: "gpt-4.1-mini" } });
+  await harness.listeners.get("settingsAiProviderEndpointUrl:blur")({ target: { value: "https://api.example.com/v1/chat/completions" } });
+
+  assert.equal(settingsState.ai.remoteApiKey, "sk-test-key");
+  assert.equal(settingsState.ai.secretRef, "local:settings-remote-api-key");
+  assert.equal(settingsState.ai.remoteRuntimeModel, "gpt-4.1-mini");
+  assert.equal(settingsState.ai.providerEndpointUrl, "https://api.example.com/v1");
+  assert.ok(!harness.calls.some((call) => call[0] === "provider-sync"));
+  assert.ok(harness.calls.some((call) => call[0] === "status" && /测试连接后再保存远程设置/.test(call[1])));
 });
 
 test("settings AI event bindings mark blocked and failed test runs without success status", async () => {
@@ -255,4 +298,146 @@ test("settings AI event bindings mark blocked and failed test runs without succe
   await failedHarness.listeners.get("btnAiTestChatRun:click")({});
   assert.equal(failedState.ai.testStatus, "failed");
   assert.equal(failedState.ai.testOutput, "timeout");
+});
+
+test("settings AI event bindings require remote test and privacy confirmation before saving", async () => {
+  const untestedHarness = createHarness();
+  const untestedState = {
+    ai: {
+      providerEndpointUrl: "https://api.example/v1/chat/completions",
+      remoteRuntimeModel: "gpt-test",
+      secretRef: "sk-test",
+      providerHealthResult: null,
+      testStatus: ""
+    }
+  };
+  installSettingsAiEventBindings({
+    $: untestedHarness.$,
+    settingsState: untestedState,
+    documentRef: untestedHarness.documentRef,
+    clipboard: untestedHarness.clipboard,
+    setStatus: (...args) => untestedHarness.calls.push(["status", ...args]),
+    currentAiProviderId: () => "openai_compatible_gateway",
+    syncAiProviderConfigToApi: async () => untestedHarness.calls.push(["provider-sync"]),
+    openSettingsAiDialog: (...args) => untestedHarness.calls.push(["open-dialog", ...args])
+  });
+
+  await untestedHarness.listeners.get("settingsAiSaveProviderConfig:click")({});
+
+  assert.deepEqual(untestedHarness.calls.filter((call) => ["open-dialog", "provider-sync"].includes(call[0])), [
+    ["open-dialog", "test"]
+  ]);
+
+  const testedHarness = createHarness();
+  const testedState = {
+    ai: {
+      providerEndpointUrl: "https://api.example/v1/chat/completions",
+      remoteRuntimeModel: "gpt-test",
+      secretRef: "sk-test",
+      providerHealthResult: { record: { status: "healthy" } },
+      testStatus: ""
+    }
+  };
+  installSettingsAiEventBindings({
+    $: testedHarness.$,
+    settingsState: testedState,
+    documentRef: testedHarness.documentRef,
+    clipboard: testedHarness.clipboard,
+    setStatus: (...args) => testedHarness.calls.push(["status", ...args]),
+    currentAiProviderId: () => "openai_compatible_gateway",
+    syncAiProviderConfigToApi: async () => testedHarness.calls.push(["provider-sync"]),
+    confirmRemoteAiUse: () => {
+      testedHarness.calls.push(["confirm-remote"]);
+      return true;
+    }
+  });
+
+  await testedHarness.listeners.get("settingsAiSaveProviderConfig:click")({});
+
+  assert.deepEqual(testedHarness.calls.filter((call) => ["confirm-remote", "provider-sync"].includes(call[0])), [
+    ["confirm-remote"],
+    ["provider-sync"]
+  ]);
+});
+
+test("settings AI event bindings save a cleared remote API key without requiring a remote test", async () => {
+  const harness = createHarness();
+  const settingsState = {
+    ai: {
+      providerEndpointUrl: "https://api.example/v1/chat/completions",
+      remoteRuntimeModel: "gpt-test",
+      remoteApiKey: "",
+      providerDraftTouched: { secretRef: true },
+      providerHealthResult: null,
+      testStatus: ""
+    }
+  };
+
+  installSettingsAiEventBindings({
+    $: harness.$,
+    settingsState,
+    documentRef: harness.documentRef,
+    clipboard: harness.clipboard,
+    setStatus: (...args) => harness.calls.push(["status", ...args]),
+    currentAiProviderId: () => "openai_compatible_gateway",
+    syncAiProviderConfigToApi: async () => harness.calls.push(["provider-sync"]),
+    openSettingsAiDialog: (...args) => harness.calls.push(["open-dialog", ...args]),
+    confirmRemoteAiUse: () => {
+      harness.calls.push(["confirm-remote"]);
+      return true;
+    }
+  });
+
+  await harness.listeners.get("settingsAiSaveProviderConfig:click")({});
+
+  assert.deepEqual(harness.calls.filter((call) => ["open-dialog", "confirm-remote", "provider-sync"].includes(call[0])), [
+    ["provider-sync"]
+  ]);
+});
+
+test("settings AI event bindings routes first-screen action buttons to existing setup actions", async () => {
+  const harness = createHarness();
+  const settingsState = { ai: {} };
+
+  installSettingsAiEventBindings({
+    $: harness.$,
+    settingsState,
+    documentRef: harness.documentRef,
+    clipboard: harness.clipboard,
+    setStatus: (...args) => harness.calls.push(["status", ...args]),
+    applyAiRuntimeModeChange: async (...args) => harness.calls.push(["runtime", ...args]),
+    applySettingsAiQuickSetup: async (...args) => harness.calls.push(["quick", ...args]),
+    detectOllamaModels: async () => harness.calls.push(["detect"]),
+    startOllamaRuntimeFromUi: async () => harness.calls.push(["start"]),
+    pullRecommendedOllamaModel: async () => harness.calls.push(["pull"]),
+    openSettingsAiDialog: (...args) => harness.calls.push(["open-dialog", ...args])
+  });
+
+  await harness.listeners.get("settingsCardAiSettings:click")({
+    target: harness.target({
+      "[data-settings-ai-primary-action]": harness.attrNode({ "data-settings-ai-primary-action": "start-local" })
+    })
+  });
+  await harness.listeners.get("settingsCardAiSettings:click")({
+    target: harness.target({
+      "[data-settings-ai-primary-action]": harness.attrNode({ "data-settings-ai-primary-action": "download-local-model" })
+    })
+  });
+  await harness.listeners.get("settingsCardAiSettings:click")({
+    target: harness.target({
+      "[data-settings-ai-primary-action]": harness.attrNode({ "data-settings-ai-primary-action": "test-remote" })
+    })
+  });
+  await harness.listeners.get("settingsCardAiSettings:click")({
+    target: harness.target({
+      "[data-settings-ai-primary-action]": harness.attrNode({ "data-settings-ai-primary-action": "off" })
+    })
+  });
+
+  assert.deepEqual(harness.calls.filter((call) => ["start", "pull", "open-dialog", "runtime"].includes(call[0])), [
+    ["start"],
+    ["pull"],
+    ["open-dialog", "test"],
+    ["runtime", "off"]
+  ]);
 });

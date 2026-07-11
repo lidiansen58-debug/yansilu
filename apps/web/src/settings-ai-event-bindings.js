@@ -1,3 +1,8 @@
+import {
+  displayOpenAiCompatibleBaseUrl,
+  remoteApiKeySecretRef
+} from "./ai-settings-remote-config-model.js";
+
 export function installSettingsAiEventBindings(deps = {}) {
   const {
     $ = () => null,
@@ -28,7 +33,8 @@ export function installSettingsAiEventBindings(deps = {}) {
     copyTextToClipboard = async () => {},
     applySettingsAiQuickSetup = async () => {},
     openSettingsAiDialog = () => {},
-    closeSettingsAiDialogs = () => {}
+    closeSettingsAiDialogs = () => {},
+    confirmRemoteAiUse = () => true
   } = deps;
 
   async function writeClipboardText(text) {
@@ -68,6 +74,18 @@ $("settingsAiLocalModel")?.addEventListener("change", async (event) => {
   await selectInstalledLocalModelFromUi(event?.target?.value || "");
 });
 
+$("settingsAiAutoPrepareLocal")?.addEventListener("change", (event) => {
+  settingsState.ai.autoPrepareLocalAi = event?.target?.checked === true;
+  persistAiSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(
+    settingsState.ai.autoPrepareLocalAi
+      ? "已开启：研思录启动时会尝试准备本地 AI。"
+      : "已关闭启动时自动准备本地 AI。",
+    settingsState.ai.autoPrepareLocalAi ? "ok" : "warn"
+  );
+});
+
 $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   const next = String(event?.target?.value || "").trim();
   settingsState.ai.advancedModelRef = next;
@@ -80,25 +98,22 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
 
 $("settingsAiSecretRef")?.addEventListener("blur", async (event) => {
   const next = String(event?.target?.value || "").trim();
-  const previous = String(settingsState.ai.secretRef || "").trim();
+  const previous = String(settingsState.ai.remoteApiKey || "").trim();
   markAiProviderDraftTouched("secretRef");
-  settingsState.ai.secretRef = next;
+  settingsState.ai.remoteApiKey = next;
+  settingsState.ai.secretRef = next ? remoteApiKeySecretRef() : "";
   if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
-  const saved = await syncAiProviderConfigToApi();
-  if (!saved) {
-    renderSettingsPanel();
-    return;
-  }
   renderSettingsPanel();
-  setStatus(next ? "密钥名称已保存到服务连接" : "密钥名称已清空，服务连接已停用", "ok");
+  setStatus(next ? "API Key 已暂存；测试连接后再保存远程设置。" : "API Key 已清空。", next ? "warn" : "ok");
 });
 
 $("settingsAiSecretRef")?.addEventListener("input", (event) => {
-  const previous = String(settingsState.ai.secretRef || "").trim();
+  const previous = String(settingsState.ai.remoteApiKey || "").trim();
   const next = String(event?.target?.value || "").trim();
   markAiProviderDraftTouched("secretRef");
-  settingsState.ai.secretRef = next;
+  settingsState.ai.remoteApiKey = next;
+  settingsState.ai.secretRef = next ? remoteApiKeySecretRef() : "";
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
   if (previous !== next) clearAiTestResultForSettingsChange();
@@ -125,13 +140,8 @@ $("settingsAiRemoteRuntimeModel")?.addEventListener("blur", async (event) => {
   settingsState.ai.remoteRuntimeModel = next;
   if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
-  const saved = await syncAiProviderConfigToApi();
-  if (!saved) {
-    renderSettingsPanel();
-    return;
-  }
   renderSettingsPanel();
-  setStatus(settingsState.ai.remoteRuntimeModel ? "远程模型已保存到服务连接" : "远程模型已清空，服务连接已停用", "ok");
+  setStatus(settingsState.ai.remoteRuntimeModel ? "模型名称已暂存；测试连接后再保存远程设置。" : "模型名称已清空。", settingsState.ai.remoteRuntimeModel ? "warn" : "ok");
 });
 
 $("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
@@ -147,18 +157,14 @@ $("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
 });
 
 $("settingsAiProviderEndpointUrl")?.addEventListener("blur", async (event) => {
-  const next = String(event?.target?.value || "").trim();
+  const next = displayOpenAiCompatibleBaseUrl(event?.target?.value || "");
   const previous = String(settingsState.ai.providerEndpointUrl || "").trim();
   markAiProviderDraftTouched("providerEndpointUrl");
   settingsState.ai.providerEndpointUrl = next;
   if (previous !== next) clearAiTestResultForSettingsChange();
   persistAiSettingsToStorage();
-  const saved = await syncAiProviderConfigToApi();
-  if (!saved) {
-    renderSettingsPanel();
-    return;
-  }
   renderSettingsPanel();
+  if (next) setStatus("API 地址已暂存；测试连接后再保存远程设置。", "warn");
 });
 
 $("settingsAiTestPrompt")?.addEventListener("input", (event) => {
@@ -255,10 +261,33 @@ $("settingsAiProviderHealthEndpointUrl")?.addEventListener("blur", (event) => {
 });
 
 $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
+  const providerId = currentAiProviderId();
+  const isRemote = providerId && !["platform_managed_openai", "local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId);
+  const tested = settingsState.ai.testStatus === "success" || settingsState.ai.providerHealthResult?.record?.status === "healthy";
+  const remoteKeyCleared = isRemote && !String(settingsState.ai.remoteApiKey || "").trim() && settingsState.ai.providerDraftTouched?.secretRef === true;
+  if (isRemote && !tested && !remoteKeyCleared) {
+    openSettingsAiDialog("test");
+    setStatus("先测试连接，确认远程 AI 能正常回复后再保存。", "warn");
+    return;
+  }
+  if (isRemote && !remoteKeyCleared && confirmRemoteAiUse() === false) {
+    setStatus("已取消启用远程 AI。", "warn");
+    return;
+  }
   await syncAiProviderConfigToApi();
 });
 
 $("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
+  const healthEndpoint = String(settingsState.ai.providerHealthEndpointUrl || "").trim();
+  if (!healthEndpoint) {
+    openSettingsAiDialog("test");
+    setStatus("用一句不含敏感内容的话测试远程 AI。", "warn");
+    return;
+  }
+  if (confirmRemoteAiUse() === false) {
+    setStatus("已取消测试远程 AI。", "warn");
+    return;
+  }
   await checkCurrentAiProviderHealth();
 });
 
@@ -330,6 +359,30 @@ $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
   const quickSetupButton = event.target.closest("[data-settings-ai-quick-setup]");
   if (quickSetupButton) {
     await applySettingsAiQuickSetup(quickSetupButton.getAttribute("data-settings-ai-quick-setup"));
+    return;
+  }
+  const primaryActionButton = event.target.closest("[data-settings-ai-primary-action]");
+  if (primaryActionButton) {
+    const action = primaryActionButton.getAttribute("data-settings-ai-primary-action");
+    if (action === "local") await applySettingsAiQuickSetup("local");
+    else if (action === "remote") await applySettingsAiQuickSetup("remote");
+    else if (action === "off") await applyAiRuntimeModeChange("off");
+    else if (action === "install-ollama") $("settingsAiDownloadOllama")?.click?.();
+    else if (action === "detect-local") await detectOllamaModels();
+    else if (action === "start-local") await startOllamaRuntimeFromUi();
+    else if (action === "download-local-model") await pullRecommendedOllamaModel();
+    else if (action === "test" || action === "test-remote") openSettingsAiDialog("test");
+    else if (action === "choose-local-model") {
+      const selected = String(settingsState.ai.localModel || "").trim();
+      const firstModel = Array.isArray(settingsState.ai.localRuntimeModels)
+        ? String(settingsState.ai.localRuntimeModels[0]?.name || settingsState.ai.localRuntimeModels[0] || "").trim()
+        : "";
+      const model = selected || firstModel;
+      if (model) await selectInstalledLocalModelFromUi(model);
+      else $("settingsAiLocalModel")?.focus?.();
+      openSettingsAiDialog("test");
+    }
+    else setStatus("AI 设置已完成。", "ok");
     return;
   }
   const openButton = event.target.closest("[data-settings-ai-dialog-open]");

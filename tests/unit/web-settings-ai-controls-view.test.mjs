@@ -13,6 +13,7 @@ function createElement() {
     textContent: "",
     innerHTML: "",
     value: "",
+    checked: false,
     disabled: false,
     placeholder: "",
     dataset: {},
@@ -53,6 +54,7 @@ function baseLocalDeps(get, overrides = {}) {
         localRuntimeStatus: "available",
         localRuntimeModels: [{ name: "qwen3:4b" }],
         localModel: "qwen3:4b",
+        autoPrepareLocalAi: true,
         ...overrides.ai
       }
     },
@@ -89,11 +91,31 @@ test("settings AI local controls render available local model state", () => {
   assert.equal(get("settingsAiRuntimeMode").value, "local_only");
   assert.match(get("settingsAiLocalModel").innerHTML, /qwen3:4b/);
   assert.equal(get("settingsAiLocalModel").value, "qwen3:4b");
+  assert.deepEqual(get("settingsAiLocalOptions").toggles.find((item) => item[0] === "hidden"), ["hidden", false]);
+  assert.equal(get("settingsAiAutoPrepareLocal").checked, true);
+  assert.equal(get("settingsAiAutoPrepareLocal").disabled, false);
   assert.deepEqual(get("settingsAiUseLocalSetup").toggles.find((item) => item[0] === "hidden"), ["hidden", true]);
   assert.equal(get("settingsAiDetectOllama").textContent, "重新检测");
   assert.deepEqual(get("settingsAiStopOllama").toggles.find((item) => item[0] === "hidden"), ["hidden", false]);
   assert.equal(get("settingsAiPullOllamaModel").textContent, "下载 llama3.2（轻量）");
   assert.equal(get("recommendationRenderMarker").textContent, "called");
+});
+
+test("settings AI local controls hide the local toolbar outside local mode", () => {
+  const { get } = elementMap();
+
+  renderAiLocalModelControlsForRuntime(baseLocalDeps(get, {
+    ai: {
+      runtimeMode: "cloud_only",
+      modelPack: "Global Optimized"
+    },
+    deps: {
+      isAiLocalFlowActive: () => false,
+      isLocalModelPack: () => false
+    }
+  }));
+
+  assert.deepEqual(get("settingsAiLocalOptions").toggles.find((item) => item[0] === "hidden"), ["hidden", true]);
 });
 
 test("settings AI local recommendations show selected installed and download actions", () => {
@@ -250,4 +272,57 @@ test("settings AI provider controls do not mark incomplete remote config as read
   assert.equal(get("settingsAiProviderConfigBadge").textContent, "未完成");
   assert.ok(get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "warn" && force === true));
   assert.ok(!get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
+});
+
+test("settings AI provider controls require a successful remote test before saving", () => {
+  const { get } = elementMap();
+
+  renderAiProviderConfigControlsForRuntime({
+    $: get,
+    settingsState: {
+      ai: {
+        remoteRuntimeModel: "gpt-test",
+        providerEndpointUrl: "https://api.example/v1/chat/completions",
+        secretRef: "sk-test",
+        testStatus: ""
+      }
+    },
+    currentAiProviderId: () => "openai_compatible_gateway",
+    isRemoteConfigurableProviderId: () => true,
+    activeAiProviderConfig: () => null,
+    remoteRuntimeModelFromMap: () => "",
+    defaultProviderEndpointUrl: () => "",
+    defaultProviderHealthEndpointUrl: () => ""
+  });
+
+  assert.equal(get("settingsAiSaveProviderConfig").disabled, true);
+  assert.equal(get("settingsAiSaveProviderConfig").textContent, "先测试连接");
+  assert.equal(get("settingsAiCheckProviderHealth").disabled, false);
+  assert.equal(get("settingsAiCheckProviderHealth").textContent, "测试连接");
+});
+
+test("settings AI provider controls allow saving a cleared remote API key", () => {
+  const { get } = elementMap();
+
+  renderAiProviderConfigControlsForRuntime({
+    $: get,
+    settingsState: {
+      ai: {
+        remoteRuntimeModel: "gpt-test",
+        providerEndpointUrl: "https://api.example/v1/chat/completions",
+        remoteApiKey: "",
+        providerDraftTouched: { secretRef: true },
+        testStatus: ""
+      }
+    },
+    currentAiProviderId: () => "openai_compatible_gateway",
+    isRemoteConfigurableProviderId: () => true,
+    activeAiProviderConfig: () => null,
+    remoteRuntimeModelFromMap: () => "",
+    defaultProviderEndpointUrl: () => "",
+    defaultProviderHealthEndpointUrl: () => ""
+  });
+
+  assert.equal(get("settingsAiSaveProviderConfig").disabled, false);
+  assert.equal(get("settingsAiSaveProviderConfig").textContent, "保存清空");
 });

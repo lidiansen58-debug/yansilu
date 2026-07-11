@@ -166,6 +166,7 @@ const managedOllamaProcessIds = new Set();
 const APP_UPDATE_CHANNEL = String(process.env.YANSILU_UPDATE_CHANNEL || "beta").trim() || "beta";
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
+let AI_SECRET_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "ai-secrets.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
 const STRIPE_PRICE_PRO_MONTHLY = String(process.env.STRIPE_PRICE_PRO_MONTHLY || "").trim();
 const STRIPE_WEBHOOK_SECRET = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
@@ -228,6 +229,51 @@ async function aiSuggestionStore() {
     aiSuggestionStorePromise = createSqliteSuggestionStore({ vaultPath: VAULT_PATH });
   }
   return aiSuggestionStorePromise;
+}
+
+function normalizeSecretMap(input = {}) {
+  const secrets = {};
+  if (!input || typeof input !== "object" || Array.isArray(input)) return secrets;
+  for (const [key, value] of Object.entries(input)) {
+    const name = cleanText(key);
+    const secret = cleanText(value);
+    if (name && secret) secrets[name] = secret;
+  }
+  return secrets;
+}
+
+function normalizeSecretRefList(input = []) {
+  const values = Array.isArray(input) ? input : [input];
+  return values.map((value) => cleanText(value)).filter(Boolean);
+}
+
+async function readLocalAiSecrets() {
+  try {
+    const raw = await fs.readFile(AI_SECRET_STATE_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return normalizeSecretMap(parsed?.secrets || parsed);
+  } catch {
+    return {};
+  }
+}
+
+async function writeLocalAiSecrets(secrets = {}) {
+  const cleanSecrets = normalizeSecretMap(secrets);
+  await fs.mkdir(path.dirname(AI_SECRET_STATE_PATH), { recursive: true });
+  await fs.writeFile(AI_SECRET_STATE_PATH, JSON.stringify({ secrets: cleanSecrets }, null, 2), "utf8");
+  return cleanSecrets;
+}
+
+async function upsertLocalAiSecrets(input = {}) {
+  const incoming = normalizeSecretMap(input?.secrets || input?.secretValues || input?.secret_values);
+  const deleteSecrets = normalizeSecretRefList(input?.deleteSecrets || input?.delete_secrets);
+  if (!Object.keys(incoming).length && !deleteSecrets.length) return readLocalAiSecrets();
+  const current = await readLocalAiSecrets();
+  for (const secretRef of deleteSecrets) delete current[secretRef];
+  return writeLocalAiSecrets({
+    ...current,
+    ...incoming
+  });
 }
 
 async function closeVaultScopedStores() {
@@ -1595,7 +1641,8 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
     useMockProviderAdapters,
     useOpenAiCompatibleAdapter: !useMockProviderAdapters && !disabledFlag(input, "useOpenAiCompatibleAdapter", "use_openai_compatible_adapter"),
     networkEnabled: !disabledFlag(input, "networkEnabled", "network_enabled"),
-    createExecutor: true
+    createExecutor: true,
+    secrets: await upsertLocalAiSecrets(input)
   });
   const adapterSelection = registry.getAdapter({
     ...mergedSettings,
@@ -3858,6 +3905,7 @@ const server = http.createServer(async (req, res) => {
         const layout = await initVault(nextVaultPath);
         VAULT_PATH = layout.vaultPath;
         AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
+        AI_SECRET_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "ai-secrets.json");
         importRecords.clear();
         aiPreferencesStorePromise = null;
         aiProviderConfigStorePromise = null;
@@ -4101,12 +4149,21 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
+        await upsertLocalAiSecrets(body);
+        const {
+          secrets: _secrets,
+          secretValues: _secretValues,
+          secret_values: _secret_values,
+          deleteSecrets: _deleteSecrets,
+          delete_secrets: _delete_secrets,
+          ...providerConfigInput
+        } = body;
         const store = await aiProviderConfigStore();
-        const lookup = cleanText(body.id || body.configId || body.config_id);
-        const providerId = cleanText(body.providerId || body.provider_id);
+        const lookup = cleanText(providerConfigInput.id || providerConfigInput.configId || providerConfigInput.config_id);
+        const providerId = cleanText(providerConfigInput.providerId || providerConfigInput.provider_id);
         const existing = (lookup || providerId) ? store.getProviderConfig({ id: lookup, providerId }) : null;
-        assertAllowedManagedOllamaProviderConfigInput(body, existing || {});
-        const item = store.setProviderConfig(body);
+        assertAllowedManagedOllamaProviderConfigInput(providerConfigInput, existing || {});
+        const item = store.setProviderConfig(providerConfigInput);
         return sendJson(res, 200, {
           item,
           requestId: rid,
@@ -4193,6 +4250,7 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
+        const localAiSecrets = await upsertLocalAiSecrets(body);
         const store = await aiPreferencesStore();
         const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" }) || {};
         const baseSettingsInput = preferencesToSettingsInput(prefs);
@@ -4293,7 +4351,8 @@ const server = http.createServer(async (req, res) => {
           tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
           useOpenAiCompatibleAdapter: true,
           networkEnabled: true,
-          createExecutor: true
+          createExecutor: true,
+          secrets: localAiSecrets
         });
 
         const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
@@ -5044,7 +5103,8 @@ const server = http.createServer(async (req, res) => {
         runtime = await createAiHarnessRuntime({
           storageMode: "sqlite",
           vaultPath: VAULT_PATH,
-          tools: createCoreNoteTools({ vaultPath: VAULT_PATH })
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
+          secrets: await readLocalAiSecrets()
         });
         const summary = await runDueScheduledAgentTasks({
           harness: runtime,
@@ -5584,7 +5644,8 @@ const server = http.createServer(async (req, res) => {
           tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
           useOpenAiCompatibleAdapter: true,
           networkEnabled: true,
-          createExecutor: true
+          createExecutor: true,
+          secrets: await readLocalAiSecrets()
         });
         const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
           ...mergedSettings,
@@ -6912,6 +6973,7 @@ server.listen(PORT, async () => {
   try {
     await initVault(VAULT_PATH);
     AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
+    AI_SECRET_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "ai-secrets.json");
     await loadAuthState();
     console.log("Vault initialized.");
   } catch (error) {

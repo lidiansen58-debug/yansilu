@@ -12,6 +12,12 @@ import {
   ollamaRecommendationForModel,
   runtimeModelMapForRemoteModel
 } from "./prototype-ai-settings-controller.js";
+import {
+  normalizeOpenAiCompatibleBaseUrl,
+  remoteDeletedSecretsForPayload,
+  remoteSecretRefForState,
+  remoteSecretsForPayload
+} from "./ai-settings-remote-config-model.js";
 
 export function isLocalAdvancedModelRefForSettings(value = "") {
   return /^(local_private_gateway|ollama_local_gateway|minicpm_local_gateway):/i.test(String(value || "").trim());
@@ -27,8 +33,15 @@ export function buildAiSettingsPayload(aiState = {}, options = {}) {
   const localProviderPreset = options.preferredLocalProviderPreset || localProviderPresetForModelPack(aiState.modelPack) || "local_private_gateway";
   const providerPreset = providerPresetForModelPack(selection.modelPack);
   const draftTouched = aiState.providerDraftTouched || {};
-  const endpointUrl = String(aiState.providerEndpointUrl || "").trim();
-  const secretRef = String(aiState.secretRef || "").trim();
+  const remoteSelected = selection.runtimeMode === "cloud_only" || providerPreset === "openai_compatible_gateway";
+  const endpointUrl = remoteSelected
+    ? normalizeOpenAiCompatibleBaseUrl(aiState.providerEndpointUrl)
+    : String(aiState.providerEndpointUrl || "").trim();
+  const secretRef = remoteSelected
+    ? remoteSecretRefForState(aiState)
+    : String(aiState.secretRef || "").trim();
+  const secrets = remoteSelected ? remoteSecretsForPayload(aiState) : {};
+  const deleteSecrets = remoteSelected ? remoteDeletedSecretsForPayload(aiState) : [];
   const remoteRuntimeModelMap = runtimeModelMapForRemoteModel(providerPreset, aiState.remoteRuntimeModel);
   const localModelAllowed = ["local_only", "hybrid"].includes(selection.runtimeMode);
   const localModelReady = localModelAllowed && options.installedLocalModelReady?.(aiState.localModel) === true;
@@ -41,6 +54,8 @@ export function buildAiSettingsPayload(aiState = {}, options = {}) {
     ...(providerPreset ? { providerPreset } : {}),
     ...(draftTouched.providerEndpointUrl || endpointUrl ? { endpointUrl } : {}),
     ...(draftTouched.remoteRuntimeModel || Object.keys(remoteRuntimeModelMap).length ? { runtimeModelMap: remoteRuntimeModelMap } : {}),
+    ...(Object.keys(secrets).length ? { secrets } : {}),
+    ...(deleteSecrets.length ? { deleteSecrets } : {}),
     privacy: aiPrivacyPolicyForRuntimeMode(selection.runtimeMode),
     fallbackPolicy: aiFallbackPolicyForRuntimeMode(selection.runtimeMode),
     advancedSettings: {

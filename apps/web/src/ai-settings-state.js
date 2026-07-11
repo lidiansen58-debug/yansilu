@@ -30,6 +30,7 @@ export function normalizeAiRuntimeMode(value = "") {
   if (["local", "local_only", "private"].includes(mode)) return "local_only";
   if (["cloud", "cloud_only", "remote"].includes(mode)) return "cloud_only";
   if (["hybrid", "mixed", "local_cloud"].includes(mode)) return "hybrid";
+  if (["off", "disabled", "none", "no_ai"].includes(mode)) return "off";
   return "auto";
 }
 
