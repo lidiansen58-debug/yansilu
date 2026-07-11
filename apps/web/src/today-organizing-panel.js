@@ -199,8 +199,6 @@ export function renderTodayOrganizingPanel(state = {}) {
     <div class="today-organizing-shell">
       <section class="today-primary-step tone-${escape(recommended.tone || "")}" aria-label="推荐下一步">
         <div>
-          <span class="today-action-kicker">现在最重要</span>
-          <h3>${escape(recommended.title)}</h3>
           <strong>${escape(recommended.objectTitle)}</strong>
           <p>${escape(recommended.summary)}</p>
           ${recommended.meta ? `<small>${escape(recommended.meta)}</small>` : ""}
