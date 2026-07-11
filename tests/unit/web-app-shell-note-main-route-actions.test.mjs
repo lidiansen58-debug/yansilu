@@ -134,7 +134,7 @@ test("note main route adds a note to the writing basket before opening writing",
   assert.deepEqual(calls, [
     "load",
     ["continue-entry", ["n1"], { title: "seed:Claim", source: "note_main_path" }],
-    ["open-writing", { statusMessage: "已把“Claim”加入相关笔记，并打开写作中心" }]
+    ["open-writing", { statusMessage: "已把“Claim”加入相关笔记，并打开写作" }]
   ]);
 });
 

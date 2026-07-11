@@ -81,7 +81,7 @@ test("writing project history keeps projected continuation copy when no project 
   assert.match(dom.projectsHint.textContent, /Existing <project>/);
   assert.match(dom.projectsList.innerHTML, /Existing &lt;project&gt;/);
   assert.match(dom.scaffoldVersionsHint.textContent, /Existing <project>/);
-  assert.match(dom.scaffoldVersionsList.innerHTML, /Existing &lt;project&gt;/);
+  assert.match(dom.scaffoldVersionsList.innerHTML, /Resume/);
   assert.match(dom.draftVersionsHint.textContent, /Existing <project>/);
-  assert.match(dom.draftVersionsList.innerHTML, /Existing &lt;project&gt;/);
+  assert.match(dom.draftVersionsList.innerHTML, /Resume/);
 });

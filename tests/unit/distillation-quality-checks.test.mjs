@@ -46,3 +46,19 @@ test("writing readiness reports intent and basket note gaps without blocking sca
   assert.ok(readiness.checks.some((item) => item.code === "basket_notes_missing_thesis"));
   assert.equal(readiness.checks.every((item) => item.blocking === false), true);
 });
+
+test("writing readiness explains when a related note source is missing", () => {
+  const readiness = analyzeWritingProjectReadiness(
+    {
+      basket_note_ids: ["pn_missing"],
+      intent: "说明旧材料缺失时如何继续处理。",
+      desired_reader_takeaway: "先补回材料，再生成新的提纲。"
+    },
+    {
+      notes: [{ id: "pn_missing", note_type: "missing", status: "missing" }]
+    }
+  );
+
+  assert.equal(readiness.status, "needs_clarification");
+  assert.ok(readiness.checks.some((item) => item.code === "basket_notes_missing_source"));
+});

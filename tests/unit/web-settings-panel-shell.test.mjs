@@ -107,7 +107,7 @@ test("settings panel shell renders sidebar focus and escapes checklist notes", (
   assert.equal(get("settingsSidebarFocusPill").textContent, "AI 设置 · AI");
   assert.equal(get("settingsSidebarFocusBody").textContent, "先确认 AI 路线。");
   assert.equal(get("settingsSidebarChecklist").innerHTML, "<li>&lt;本地&gt;</li><li>远程</li>");
-  assert.equal(navCardNote.textContent, "先在左侧选中设置项，再在右侧修改这一项的具体参数。");
+  assert.equal(navCardNote.textContent, "新手帮助、本地使用说明和问题反馈在最前面；进阶设置需要时再打开。");
 });
 
 test("settings panel shell focuses the selected detail cards", () => {

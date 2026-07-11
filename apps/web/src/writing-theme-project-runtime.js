@@ -58,6 +58,8 @@ export function createWritingThemeProjectRuntime(deps = {}) {
     syncWritingLocalBookIdeasFromProject(project);
     writingState.scaffold = null;
     writingState.scaffoldMarkdown = "";
+    writingState.draftMarkdown = "";
+    writingState.draftSaveState = "idle";
     populateWritingFormFromProject(project);
     showWritingResult({
       stage: "writing_project",

@@ -128,7 +128,7 @@ export function moduleLabel(moduleName = "") {
     aiInbox: "AI 建议",
     distillation: "观点提纯",
     graph: "关系图谱",
-    writing: "写作中心",
+    writing: "写作",
     settings: "设置"
   };
   return labels[String(moduleName || "").trim()] || "工作台";

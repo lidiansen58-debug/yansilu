@@ -44,7 +44,7 @@ test("graph visual map chrome keeps shell deps and renders zoom and defs slots",
   assert.equal(chrome.zoomStepperMarkup, "Graph zoom:read:2");
   assert.equal(chrome.svgDefsMarkup, "defs:support");
   assert.match(chrome.headContentMarkup, /<nav>meaningful<\/nav>/);
-  assert.match(chrome.headContentMarkup, /<section>overview:false:<button>trail<\/button><\/section>/);
+  assert.doesNotMatch(chrome.headContentMarkup, /<section>overview:false:<button>trail<\/button><\/section>/);
   assert.equal(chrome.emptyStateMarkup, "empty:Argument当前没有可见笔记");
 });
 

@@ -94,6 +94,19 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
   if (!basketIds.length && !notes.length) {
     checks.push(check("missing_basket_notes", "basket_note_ids", "Add at least one permanent note before building a scaffold.", "next"));
   }
+  const missingSourceNotes = notes.filter(
+    (note) => cleanText(note.status) === "missing" || cleanText(note.noteType || note.note_type) === "missing"
+  );
+  if (missingSourceNotes.length) {
+    checks.push(
+      check(
+        "basket_notes_missing_source",
+        "basket_note_ids",
+        `${missingSourceNotes.length} 条相关笔记的来源文件已不存在。请移出这些笔记，或补回来源文件。`,
+        "next"
+      )
+    );
+  }
   if (!intent) {
     checks.push(check("missing_intent", "intent", "先说清这篇文章到底想表达什么。", "next"));
   }

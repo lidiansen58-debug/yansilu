@@ -98,7 +98,7 @@ test("prototype web server loads against a real API service", async (t) => {
   assert.ok(html.includes(`window.__API_BASE__ = "${apiBase}"`));
   assert.match(html, /prototype-app\.js/);
   assert.match(html, /id="importPageMount"/);
-  assert.match(html, /data-module="imports"/);
+  assert.match(html, /id="importPanel"/);
   assert.match(html, /id="writingPanel"/);
   assert.match(html, /id="btnWritingCreateProject"/);
   assert.match(html, /id="btnWritingCreateScaffold"/);

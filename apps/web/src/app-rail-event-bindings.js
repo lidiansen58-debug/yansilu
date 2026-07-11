@@ -48,10 +48,10 @@ export function installAppRailEventBindings(deps = {}) {
       }
       if (targetModule === "writing" && state.module === "writing") {
         await openWritingModule({
-          activeTab: "write",
+          activeTab: "theme",
           entrySourceLabel: "侧栏",
-          entryReason: "直接进入写作中心时，先写清这篇文章要回答的问题，再生成提纲。",
-          statusMessage: "已打开写作中心，可先写清问题并生成提纲"
+          entryReason: "直接进入写作时，先选择一个可写主题，再生成提纲。",
+          statusMessage: "已打开写作，可先选择主题并生成提纲"
         });
       }
       if (targetModule === "distillation" && state.module === "distillation") {

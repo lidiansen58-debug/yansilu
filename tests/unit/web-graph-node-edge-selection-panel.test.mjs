@@ -117,7 +117,7 @@ test("graph edge selection panel keeps relation adjustment and open-note actions
     relationAdjustmentFocusById: { "rel-1": "split" }
   });
 
-  assert.match(html, /data-title="Source -&gt; Target"/);
+  assert.match(html, /data-title="Source → Target"/);
   assert.match(html, /Source supports target\./);
   assert.match(html, /data-graph-relation-adjustment="strengthen"/);
   assert.match(html, /data-graph-relation-adjustment="split"/);

@@ -184,7 +184,7 @@ export function createGraphRouteRuntime(deps = {}) {
         sourceIndexIds: [card.id]
       });
       await openWritingModule({
-        statusMessage: `已从可写主题打开写作中心：${cleanTitle}`,
+        statusMessage: `已从可写主题打开写作：${cleanTitle}`,
         preserveFocusedCandidateScope: true,
         entryReason: "从图谱可写主题继续写作",
         entrySourceLabel: "可写主题"

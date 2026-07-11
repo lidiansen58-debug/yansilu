@@ -1,6 +1,4 @@
-import {
-  buildAppShellStateChangeDeps
-} from "./app-shell-state-change-deps.js";
+import { buildAppShellStateChangeDeps } from "./app-shell-state-change-deps.js";
 
 export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
   return {
