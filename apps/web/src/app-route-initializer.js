@@ -5,6 +5,7 @@ export async function initializeAppRouteForRuntime(deps = {}) {
     syncNotesForDirectoryTree = async () => {},
     state = {},
     getApiBase = () => "",
+    isApiConnectionError = () => false, apiConnectionErrorMessage = (error) => String(error?.message || error),
     setStatus = () => {},
     setUsingLocalFallbackData = () => {},
     windowRef = typeof window !== "undefined" ? window : undefined
@@ -16,6 +17,11 @@ export async function initializeAppRouteForRuntime(deps = {}) {
     setStatus(`已连接 API：${getApiBase()}`, "ok");
     return { connected: true, usingLocalFallbackData: false };
   } catch (error) {
+    if (isApiConnectionError(error)) {
+      setUsingLocalFallbackData(false);
+      setStatus(apiConnectionErrorMessage(error), "bad");
+      return { connected: false, usingLocalFallbackData: false, error };
+    }
     const tauri = typeof windowRef !== "undefined" ? windowRef.__TAURI__ : null;
     if (tauri) {
       setStatus(`API 连接失败：${String(error?.message || error)}`, "bad");
@@ -43,9 +49,7 @@ async function readDesktopApiStatus(tauri) {
   if (typeof tauri?.core?.invoke !== "function") return null;
   try {
     return await tauri.core.invoke("get_desktop_api_status");
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 function desktopApiFailureMessage({ apiBase = "", error, status = null } = {}) {

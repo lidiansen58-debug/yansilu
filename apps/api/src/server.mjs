@@ -181,6 +181,8 @@ let aiArtifactStorePromise = null;
 let aiSuggestionStorePromise = null;
 const potentialRelationAiCache = new PotentialRelationAiCache();
 let appVersionPromise = null;
+let apiReady = false;
+let apiStartupError = "";
 const vaultWriteGate = createVaultWriteGate();
 const vaultBackupJobGate = createVaultBackupJobGate();
 
@@ -189,6 +191,20 @@ async function currentAppVersion() {
     appVersionPromise = readPackageVersion(PACKAGE_JSON_PATH).catch(() => "0.0.0");
   }
   return appVersionPromise;
+}
+
+async function apiHealthPayload() {
+  return {
+    app: "yansilu",
+    ok: apiReady,
+    service: "api",
+    pid: process.pid,
+    port: PORT,
+    vaultPath: VAULT_PATH,
+    timestamp: new Date().toISOString(),
+    version: await currentAppVersion(),
+    startupError: apiStartupError || undefined
+  };
 }
 
 async function aiPreferencesStore() {
@@ -3558,8 +3574,13 @@ const server = http.createServer(async (req, res) => {
       );
     }
 
-    if (req.method === "GET" && url.pathname === "/health") {
-      return sendJson(res, 200, { ok: true, service: "api", requestId: rid, vaultPath: VAULT_PATH, time: new Date().toISOString() });
+    if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/api/v1/health")) {
+      const health = await apiHealthPayload();
+      return sendJson(res, 200, {
+        ...health,
+        requestId: rid,
+        time: health.timestamp
+      });
     }
 
     if (req.method === "GET" && url.pathname === "/api/v1/app/version") {
@@ -6993,8 +7014,12 @@ server.listen(PORT, async () => {
     AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
     AI_SECRET_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "ai-secrets.json");
     await loadAuthState();
+    apiReady = true;
+    apiStartupError = "";
     console.log("Vault initialized.");
   } catch (error) {
-    console.error(`Vault initialization failed: ${String(error?.message || error)}`);
+    apiReady = false;
+    apiStartupError = String(error?.message || error);
+    console.error(`Vault initialization failed: ${apiStartupError}`);
   }
 });

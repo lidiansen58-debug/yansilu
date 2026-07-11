@@ -6,11 +6,23 @@ const STATIC_API_BASE =
     typeof window.__API_BASE__ === "string" &&
     window.__API_BASE__.trim() &&
     window.__API_BASE__ !== "__API_BASE__" &&
-    window.__API_BASE__.trim()) ||
-  (typeof window !== "undefined" && window.__TAURI__ ? "" : "http://localhost:3000");
+    window.__API_BASE__.trim().replace(/\/+$/u, "")) ||
+  (typeof window !== "undefined" && window.__TAURI__ ? "" : "http://127.0.0.1:3000");
 let currentApiBase = STATIC_API_BASE;
 let desktopApiBasePromise = null;
 const LOCAL_RUNTIME_CONTROL_HEADERS = { "X-Yansilu-Local-Runtime-Control": "1" };
+
+export function isApiConnectionError(error) {
+  const code = String(error?.code || "").trim();
+  return code === "api_unavailable" || code === "desktop_api_unavailable" || code === "request_timeout";
+}
+
+export function apiConnectionErrorMessage(error) {
+  if (!isApiConnectionError(error)) return String(error?.message || error);
+  const apiBase = String(error?.apiBase || currentApiBase || "").trim();
+  const suffix = apiBase ? `当前尝试地址：${apiBase}` : "当前还没有可用的 API 地址。";
+  return `API 未连接，不能读取笔记库。${suffix} 请重启研思录，或重新运行 npm run dev。`;
+}
 
 function tauriCore() {
   return typeof window !== "undefined" ? window.__TAURI__?.core : null;
@@ -40,8 +52,10 @@ async function resolveApiBase() {
 async function request(pathname, options = {}) {
   const apiBase = await resolveApiBase();
   if (!apiBase) {
-    const error = new Error("桌面内置服务未启动");
+    const error = new Error("API 未连接：本地服务还没有准备好。请完全关闭研思录后重新打开。");
     error.code = "desktop_api_unavailable";
+    error.apiBase = "";
+    error.pathname = pathname;
     throw error;
   }
   const url = `${apiBase}${pathname}`;
@@ -72,7 +86,12 @@ async function request(pathname, options = {}) {
       timeoutError.timeoutMs = timeoutMs;
       throw timeoutError;
     }
-    throw error;
+    const apiError = new Error(`API 未连接：无法连接到 ${apiBase}。请重启研思录，或重新运行 npm run dev。`);
+    apiError.code = "api_unavailable";
+    apiError.apiBase = apiBase;
+    apiError.pathname = pathname;
+    apiError.cause = error;
+    throw apiError;
   }
   if (timeoutId) globalThis.clearTimeout(timeoutId);
   const json = await response.json().catch(() => ({}));

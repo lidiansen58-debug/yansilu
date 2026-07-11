@@ -108,6 +108,30 @@ test("route initializer connects API and marks browser fallback on web failures"
   assert.equal(fallbackCalls[1][1], "warn");
 });
 
+test("route initializer does not mask API connection failures as local empty data", async () => {
+  const calls = [];
+  const apiError = new Error("API 未连接");
+  apiError.code = "api_unavailable";
+  apiError.apiBase = "http://127.0.0.1:3999";
+
+  const result = await initializeAppRouteForRuntime({
+    refreshVaultSettings: async () => {
+      throw apiError;
+    },
+    windowRef: {},
+    isApiConnectionError: (error) => error?.code === "api_unavailable",
+    apiConnectionErrorMessage: (error) => `API 未连接，不能读取笔记库。当前尝试地址：${error.apiBase}`,
+    setUsingLocalFallbackData: (value) => calls.push(["fallback", value]),
+    setStatus: (message, tone) => calls.push(["status", tone, message])
+  });
+
+  assert.equal(result.connected, false);
+  assert.equal(result.usingLocalFallbackData, false);
+  assert.deepEqual(calls[0], ["fallback", false]);
+  assert.equal(calls[1][1], "bad");
+  assert.match(calls[1][2], /API 未连接/);
+});
+
 test("route initializer shows install-friendly desktop API failure message", async () => {
   const dialogCalls = [];
   const result = await initializeAppRouteForRuntime({

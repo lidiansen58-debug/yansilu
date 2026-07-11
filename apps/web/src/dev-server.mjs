@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 
 const PORT = Number(process.env.WEB_PORT || 5173);
-const API_BASE = process.env.API_BASE || "http://localhost:3000";
+const API_BASE = String(process.env.API_BASE || "http://127.0.0.1:3000").trim().replace(/\/+$/u, "");
 
 const ROOT = path.resolve(process.cwd(), "apps", "web", "src");
 const DESKTOP_ROOT = path.resolve(process.cwd(), "apps", "desktop", "src-tauri");
@@ -296,9 +296,13 @@ const server = http.createServer(async (req, res) => {
       res.end(
         JSON.stringify(
           {
+            app: "yansilu",
             ok: true,
             service: "web",
+            pid: process.pid,
+            port: PORT,
             apiBase: API_BASE,
+            timestamp: new Date().toISOString(),
             time: new Date().toISOString()
           },
           null,
