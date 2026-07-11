@@ -559,5 +559,11 @@ lockButton.addEventListener("click", () => {
   renderConnectGate();
 });
 
-if (state.token) loadHome();
-else renderConnectGate();
+if (state.token) {
+  loadHome();
+} else if (state.pairCode) {
+  renderConnectGate();
+  window.setTimeout(() => submitPairRequest(), 0);
+} else {
+  renderConnectGate();
+}

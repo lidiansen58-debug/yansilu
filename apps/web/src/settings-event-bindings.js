@@ -74,6 +74,25 @@ export function installSettingsEventBindings(deps = {}) {
     }
   });
 
+  const moduleHeaderActions = $("moduleHeaderActions");
+  if (moduleHeaderActions && !moduleHeaderActions.dataset.settingsTemplateActionsBound) {
+    moduleHeaderActions.dataset.settingsTemplateActionsBound = "true";
+    moduleHeaderActions.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("[data-settings-template-action]");
+      if (!button) return;
+      const kind = button.closest?.("[data-settings-template-kind]")?.dataset?.settingsTemplateKind || "permanent";
+      const action = button.dataset.settingsTemplateAction;
+      if (action === "preview") {
+        setSettingsSection("templates", { render: false });
+        openNoteTemplatePreview(kind);
+      } else if (action === "save") {
+        saveNoteTemplateFromEditor(kind);
+      } else if (action === "reset") {
+        resetNoteTemplateToDefault(kind);
+      }
+    });
+  }
+
   $("settingsRefreshVault")?.addEventListener("click", async () => {
     setSettingsSection("workspace", { render: false });
     try {

@@ -29,9 +29,9 @@ export function renderSettingsWorkbenchChromeForRuntime(deps = {}) {
   const overviewKicker = document?.querySelector?.("#settingsPanel .settings-overview-kicker");
   const overviewTitle = document?.querySelector?.("#settingsPanel .settings-overview-title");
   const overviewBody = document?.querySelector?.("#settingsPanel .settings-overview-body");
-  if (overviewKicker) overviewKicker.textContent = "帮助中心";
-  if (overviewTitle) overviewTitle.textContent = "先看新手帮助、本地使用说明和问题反馈。";
-  if (overviewBody) overviewBody.textContent = "常用帮助放在最前面；笔记库、模板、AI 和自动处理等进阶设置需要时再打开。";
+  if (overviewKicker) overviewKicker.textContent = "设置分类";
+  if (overviewTitle) overviewTitle.textContent = "按类别管理研思录。";
+  if (overviewBody) overviewBody.textContent = "工作区、模板、AI、自动处理和帮助各自归类。";
   if (overviewLabels.length >= 3) {
     overviewLabels[0].textContent = "工作区";
     overviewLabels[1].textContent = "AI 路线";
@@ -41,7 +41,6 @@ export function renderSettingsWorkbenchChromeForRuntime(deps = {}) {
   SETTINGS_SECTIONS.forEach((section, index) => {
     const pane = $(section.paneId);
     const button = $(section.buttonId);
-    const badge = $(section.badgeId);
     const meta = $(section.metaId);
     const title = button?.querySelector?.(".settings-nav-title");
     const isActive = section.id === activeSection;
@@ -50,7 +49,6 @@ export function renderSettingsWorkbenchChromeForRuntime(deps = {}) {
     button?.setAttribute("aria-pressed", isActive ? "true" : "false");
     if (button?.style) button.style.order = String(index);
     if (title) title.textContent = section.label;
-    if (badge) badge.textContent = chromeMap[section.id]?.badge || section.label;
     if (meta) meta.textContent = chromeMap[section.id]?.meta || section.label;
   });
 
@@ -90,8 +88,8 @@ export function renderSettingsSidebarColumnForRuntime(deps = {}) {
   const navCardNote = document?.querySelector?.("#settingsSectionNav")?.closest(".settings-nav-card")?.querySelector(".settings-nav-card-note");
 
   $("settingsNavEntryCard")?.classList.remove("hidden");
-  if ($("settingsSidebarIntroNote")) $("settingsSidebarIntroNote").textContent = "新手帮助、本地使用说明和问题反馈在最前面；进阶设置需要时再打开。";
-  if (navCardNote) navCardNote.textContent = "新手帮助、本地使用说明和问题反馈在最前面；进阶设置需要时再打开。";
+  if ($("settingsSidebarIntroNote")) $("settingsSidebarIntroNote").textContent = "按工作区、模板、AI、自动处理和帮助分类。";
+  if (navCardNote) navCardNote.textContent = "按工作区、模板、AI、自动处理和帮助分类。";
   if ($("settingsSidebarFocusPill")) {
     const badge = chromeMap[activeSection]?.badge || activeItem.label;
     $("settingsSidebarFocusPill").textContent = `${activeItem.label} · ${badge}`;

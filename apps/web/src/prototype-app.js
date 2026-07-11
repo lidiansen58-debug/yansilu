@@ -734,7 +734,13 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
   settingsState.mobileAccess.error = "";
   if (!silent) renderMobileAccessSettingsCard();
   try {
-    settingsState.mobileAccess.item = await fetchMobileDesktopAccessStatus();
+    const previousAccessUrl = String(settingsState.mobileAccess.item?.accessUrl || "").trim();
+    const nextItem = await fetchMobileDesktopAccessStatus();
+    settingsState.mobileAccess.item = nextItem;
+    const nextAccessUrl = String(nextItem?.accessUrl || "").trim();
+    if (previousAccessUrl && nextAccessUrl && previousAccessUrl !== nextAccessUrl) {
+      setStatus("网络已切换，二维码已更新，请重新扫描。", "ok");
+    }
     settingsState.mobileAccess.lastLoadedAt = new Date().toISOString();
   } catch (error) {
     settingsState.mobileAccess.error = String(error?.message || error);

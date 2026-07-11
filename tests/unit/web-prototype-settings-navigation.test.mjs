@@ -19,10 +19,10 @@ test("prototype settings navigation normalizes sections and items", () => {
   assert.equal(SETTINGS_SECTIONS.length, 5);
   assert.equal(SETTINGS_DETAIL_ITEMS.length, 10);
   assert.equal(normalizeSettingsSection("ai"), "ai");
-  assert.equal(normalizeSettingsSection("missing"), "support");
-  assert.equal(settingsSectionConfig("support").label, "帮助");
+  assert.equal(normalizeSettingsSection("missing"), "workspace");
+  assert.equal(settingsSectionConfig("support").label, "帮助与反馈");
   assert.equal(normalizeSettingsItem("version-update"), "version-update");
-  assert.equal(normalizeSettingsItem("missing"), "desktop-help");
+  assert.equal(normalizeSettingsItem("missing"), "mobile-access");
   assert.equal(settingsDetailItemConfig("feedback").sectionId, "support");
 });
 
@@ -64,11 +64,11 @@ test("prototype settings navigation renders sidebar and mobile item options", ()
   assert.match(html, /问题反馈与本地说明/);
 
   const options = settingsMobileItemOptionsHtml();
-  assert.match(options, /<optgroup label="本地使用">/);
+  assert.match(options, /<optgroup label="工作区与数据">/);
   assert.match(options, /<option value="ai-settings">AI 设置<\/option>/);
 });
 
-test("prototype settings navigation prioritizes mobile access in local settings", () => {
+test("prototype settings navigation prioritizes the vault in workspace settings", () => {
   const localItems = SETTINGS_DETAIL_ITEMS.filter((item) => item.sectionId === "workspace").map((item) => item.id);
   assert.deepEqual(localItems.slice(0, 3), ["mobile-access", "current-vault", "import-export"]);
 

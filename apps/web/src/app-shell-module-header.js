@@ -42,7 +42,16 @@ export function renderModuleWorkspaceHeaderForRuntime({
   if (state.module === "settings") {
     moduleTitle.textContent = settingsHeader?.title || "";
     moduleSummary.textContent = settingsHeader?.summary || "";
-    moduleHeaderActions.innerHTML = "";
+    const templateKind = String(settingsHeader?.templateKind || "").trim();
+    moduleHeaderActions.innerHTML = templateKind
+      ? `
+        <div class="module-template-actions" data-settings-template-kind="${escapeHtml(templateKind)}">
+          <button class="mini-btn" type="button" data-settings-template-action="preview">预览</button>
+          <button class="mini-btn primary" type="button" data-settings-template-action="save">保存</button>
+          <button class="mini-btn is-subtle" type="button" data-settings-template-action="reset">恢复默认</button>
+        </div>
+      `
+      : "";
     return true;
   }
 

@@ -1,19 +1,9 @@
 export const SETTINGS_SECTIONS = Object.freeze([
   {
-    id: "support",
-    label: "帮助",
-    paneId: "settingsPaneSupport",
-    buttonId: "settingsNavSupport",
-    badgeId: "settingsNavSupportBadge",
-    metaId: "settingsNavSupportMeta",
-    bodyId: "settingsPaneSupportBody"
-  },
-  {
     id: "workspace",
     label: "本地笔记库",
     paneId: "settingsPaneWorkspace",
     buttonId: "settingsNavWorkspace",
-    badgeId: "settingsNavWorkspaceBadge",
     metaId: "settingsNavWorkspaceMeta",
     bodyId: "settingsPaneWorkspaceBody"
   },
@@ -22,7 +12,6 @@ export const SETTINGS_SECTIONS = Object.freeze([
     label: "笔记模板",
     paneId: "settingsPaneTemplates",
     buttonId: "settingsNavTemplates",
-    badgeId: "settingsNavTemplatesBadge",
     metaId: "settingsNavTemplatesMeta",
     bodyId: "settingsPaneTemplatesBody"
   },
@@ -31,7 +20,6 @@ export const SETTINGS_SECTIONS = Object.freeze([
     label: "AI 设置",
     paneId: "settingsPaneAi",
     buttonId: "settingsNavAi",
-    badgeId: "settingsNavAiBadge",
     metaId: "settingsNavAiMeta",
     bodyId: "settingsPaneAiBody"
   },
@@ -40,26 +28,33 @@ export const SETTINGS_SECTIONS = Object.freeze([
     label: "自动处理",
     paneId: "settingsPaneAutomation",
     buttonId: "settingsNavAutomation",
-    badgeId: "settingsNavAutomationBadge",
     metaId: "settingsNavAutomationMeta",
     bodyId: "settingsPaneAutomationBody"
+  },
+  {
+    id: "support",
+    label: "帮助与反馈",
+    paneId: "settingsPaneSupport",
+    buttonId: "settingsNavSupport",
+    metaId: "settingsNavSupportMeta",
+    bodyId: "settingsPaneSupportBody"
   }
 ]);
 
 export const SETTINGS_DETAIL_ITEMS = Object.freeze([
-  { id: "desktop-help", label: "本地使用说明", group: "新手帮助", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
-  { id: "feedback", label: "问题反馈", group: "新手帮助", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
-  { id: "version-update", label: "版本更新", group: "新手帮助", sectionId: "support", cardIds: ["settingsUpdateCard"] },
-  { id: "mobile-access", label: "手机访问", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
-  { id: "current-vault", label: "本地笔记库", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
-  { id: "import-export", label: "导入导出", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardImportExport"] },
-  { id: "permanent-template", label: "永久笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
-  { id: "literature-template", label: "文献笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
-  { id: "ai-settings", label: "AI 设置", group: "进阶设置", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
-  { id: "automation", label: "自动处理", group: "进阶设置", sectionId: "automation", cardIds: ["settingsCardAutomation"] }
+  { id: "mobile-access", label: "手机访问", group: "手机访问", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
+  { id: "current-vault", label: "本地笔记库", group: "工作区与数据", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
+  { id: "import-export", label: "导入导出", group: "工作区与数据", sectionId: "workspace", cardIds: ["settingsCardImportExport"] },
+  { id: "permanent-template", label: "永久笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
+  { id: "literature-template", label: "文献笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
+  { id: "ai-settings", label: "AI 设置", group: "AI", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
+  { id: "automation", label: "自动处理", group: "自动处理", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
+  { id: "desktop-help", label: "本地使用说明", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
+  { id: "feedback", label: "问题反馈", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
+  { id: "version-update", label: "版本更新", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsUpdateCard"] }
 ]);
 
-const SETTINGS_DETAIL_GROUPS = ["本地使用", "新手帮助", "进阶设置"];
+const SETTINGS_DETAIL_GROUPS = ["手机访问", "工作区与数据", "笔记模板", "AI", "自动处理", "帮助与反馈"];
 
 function escapeHtmlValue(value) {
   return String(value ?? "")
@@ -72,7 +67,7 @@ function escapeHtmlValue(value) {
 
 export function normalizeSettingsSection(sectionId = "") {
   const requested = String(sectionId || "").trim().toLowerCase();
-  return SETTINGS_SECTIONS.some((section) => section.id === requested) ? requested : "support";
+  return SETTINGS_SECTIONS.some((section) => section.id === requested) ? requested : "workspace";
 }
 
 export function settingsSectionConfig(sectionId = "") {
@@ -290,7 +285,7 @@ export function settingsItemSummary(itemId = "") {
   const summaries = {
     "current-vault": "在这里直接选择并切换笔记库路径。",
     "import-export": "导入外部资料或导出永久笔记；日常保护数据请优先使用左侧的备份与恢复。",
-    "mobile-access": "手机扫码连接这台电脑，用来随时记录想法、保存素材和轻量查看笔记。",
+    "mobile-access": "扫码连接手机。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
     "ai-settings": "从本地大模型或远程大模型入口开始配置。",
@@ -386,7 +381,6 @@ export function settingsSidebarNavigationHtml({
             <span class="settings-sidebar-menu-title">${escapeHtml(item.label)}</span>
             <span class="settings-sidebar-menu-meta">${escapeHtml(chrome.meta || settingsSectionConfig(item.sectionId).label)}</span>
           </span>
-          <span class="settings-sidebar-menu-badge">${escapeHtml(chrome.badge || settingsSectionConfig(item.sectionId).label)}</span>
         </button>
       `;
     }).join("");
@@ -425,6 +419,11 @@ export function settingsModuleHeaderCopy({ settingsState = {} } = {}) {
   const activeItem = settingsDetailItemConfig(settingsState.activeItem);
   return {
     title: activeItem.label,
-    summary: settingsItemSummary(activeItem.id)
+    summary: settingsItemSummary(activeItem.id),
+    templateKind: activeItem.id === "literature-template"
+      ? "literature"
+      : activeItem.id === "permanent-template"
+        ? "permanent"
+        : ""
   };
 }

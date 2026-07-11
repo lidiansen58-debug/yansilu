@@ -11,14 +11,14 @@ import { readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-test("settings keeps beginner help entries available before technical configuration", () => {
-  assert.equal(SETTINGS_SECTIONS[0].id, "support");
-  assert.equal(normalizeSettingsSection(""), "support");
+test("settings puts mobile access first and keeps help available at the end", () => {
+  assert.equal(SETTINGS_SECTIONS[0].id, "workspace");
+  assert.equal(normalizeSettingsSection(""), "workspace");
   assert.deepEqual(
     SETTINGS_DETAIL_ITEMS.slice(0, 3).map((item) => item.id),
-    ["desktop-help", "feedback", "version-update"]
+    ["mobile-access", "current-vault", "import-export"]
   );
-  assert.equal(SETTINGS_DETAIL_ITEMS[0].group, "新手帮助");
+  assert.equal(SETTINGS_DETAIL_ITEMS[0].group, "手机访问");
 });
 
 test("settings opens mobile access by default", async () => {
