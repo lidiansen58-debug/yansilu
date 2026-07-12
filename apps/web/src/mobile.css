@@ -377,6 +377,58 @@ button {
   line-height: 1.5;
 }
 
+.quick-image-selected {
+  display: grid;
+  gap: 8px;
+}
+
+.quick-image-chip {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 6px 8px 6px 6px;
+}
+
+.quick-image-chip img {
+  width: 52px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #eef2f1;
+}
+
+.quick-image-chip span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-image-chip small {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.quick-image-remove {
+  min-height: 34px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff7f7;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
 .note-body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
