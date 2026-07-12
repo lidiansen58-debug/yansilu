@@ -28,6 +28,8 @@ const state = {
 const app = document.querySelector("#app");
 const lockButton = document.querySelector("#lockButton");
 const tabs = [...document.querySelectorAll(".tab")];
+let quickSelectedImageFiles = [];
+let quickImagePreviewUrls = [];
 
 function defaultDeviceName() {
   const ua = navigator.userAgent || "";
@@ -50,6 +52,22 @@ function formatDate(value = "") {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatBytes(bytes = 0) {
+  const size = Number(bytes) || 0;
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function clearQuickImagePreviewUrls() {
+  quickImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+  quickImagePreviewUrls = [];
+}
+
+function clearQuickSelectedImages() {
+  quickSelectedImageFiles = [];
+  clearQuickImagePreviewUrls();
 }
 
 async function api(path, options = {}) {
@@ -129,9 +147,9 @@ function renderHome() {
   }
   app.innerHTML = `
     <section class="panel mobile-capture-card">
-      <p class="eyebrow">现在就记</p>
+      <p class="eyebrow">手机随笔</p>
       <h2>把刚想到的东西先放进电脑</h2>
-      <button class="primary-button full capture-button" type="button" data-go="quick">快速记录</button>
+      <button class="primary-button full capture-button" type="button" data-go="quick">记一条</button>
       <div class="mobile-home-actions">
         <button class="secondary-button" type="button" data-go="today">待整理</button>
         <button class="secondary-button" type="button" data-go="notes">看笔记</button>
@@ -149,7 +167,7 @@ function renderHome() {
         <button class="text-button" type="button" data-go="today">查看全部</button>
       </div>
       <div class="card-list">
-        ${(overview.today?.recentFleetingNotes || []).slice(0, 4).map(compactNoteCard).join("") || `<div class="empty">还没有手机随笔。先点“快速记录”保存一个想法。</div>`}
+        ${(overview.today?.recentFleetingNotes || []).slice(0, 4).map(compactNoteCard).join("") || `<div class="empty">还没有手机随笔。先点“记一条”保存一个想法。</div>`}
       </div>
     </section>
     <section class="mobile-section">
@@ -232,11 +250,11 @@ function renderThemes() {
 }
 
 function renderQuick() {
+  clearQuickSelectedImages();
   const contextTitle = state.quickContext?.themeTitle || "";
   app.innerHTML = `
     <section class="panel quick-panel">
-      <p class="eyebrow">快速记录</p>
-      <h2>${contextTitle ? `补充素材` : "先写下来"}</h2>
+      <h2>${contextTitle ? `给主题补一条随笔` : "手机随笔"}</h2>
       <form class="quick-form" id="quickForm">
         <label for="quickBody">正文</label>
         <textarea id="quickBody" class="quick-main-textarea" placeholder="写一句想法、课堂内容、摘录或灵感"></textarea>
@@ -256,6 +274,7 @@ function renderQuick() {
             <input id="quickImagesCamera" type="file" accept="image/*" capture="environment" />
           </div>
           <div class="quick-image-summary" id="quickImageSummary">最多添加 4 张图片。</div>
+          <div class="quick-image-selected" id="quickImageSelected" aria-live="polite"></div>
         </div>
         <button class="primary-button full" type="submit">保存到电脑</button>
       </form>
@@ -381,7 +400,7 @@ async function saveQuickNote() {
       method: "POST",
       body: JSON.stringify({ title, body, excerpt, images })
     });
-    state.message = "已保存到电脑。回到电脑端的首页继续加工。";
+    state.message = "随笔已保存到电脑。回到电脑端继续整理。";
     state.quickContext = null;
     state.overview = (await api("/overview")).item;
     state.todayNotes = state.overview.today?.recentFleetingNotes || [];
@@ -392,21 +411,46 @@ async function saveQuickNote() {
 }
 
 function quickImageFiles() {
-  const albumFiles = [...(document.querySelector("#quickImagesAlbum")?.files || [])];
-  const cameraFiles = [...(document.querySelector("#quickImagesCamera")?.files || [])];
-  return [...albumFiles, ...cameraFiles].slice(0, QUICK_IMAGE_LIMIT);
+  return quickSelectedImageFiles.slice(0, QUICK_IMAGE_LIMIT);
+}
+
+function addQuickImageFiles(files = []) {
+  const incoming = [...files].filter(Boolean);
+  if (!incoming.length) return;
+  quickSelectedImageFiles = [...quickSelectedImageFiles, ...incoming].slice(0, QUICK_IMAGE_LIMIT);
+}
+
+function removeQuickImage(index) {
+  quickSelectedImageFiles = quickSelectedImageFiles.filter((_, itemIndex) => itemIndex !== index);
+  updateQuickImageSummary();
 }
 
 function updateQuickImageSummary() {
   const summary = document.querySelector("#quickImageSummary");
+  const selected = document.querySelector("#quickImageSelected");
   if (!summary) return;
   const files = quickImageFiles();
+  clearQuickImagePreviewUrls();
   if (!files.length) {
     summary.textContent = "最多添加 4 张图片。";
+    if (selected) selected.innerHTML = "";
     return;
   }
   const totalMb = files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
   summary.textContent = `已选择 ${files.length} 张图片，约 ${totalMb.toFixed(1)} MB。`;
+  if (!selected) return;
+  selected.innerHTML = files.map((file, index) => {
+    const previewUrl = URL.createObjectURL(file);
+    quickImagePreviewUrls.push(previewUrl);
+    return `
+      <div class="quick-image-chip">
+        <img src="${previewUrl}" alt="已选图片 ${index + 1}" />
+        <span>${escapeHtml(file.name || `照片 ${index + 1}`)}</span>
+        <small>${escapeHtml(formatBytes(file.size))}</small>
+        <button class="quick-image-remove" type="button" data-remove-quick-image="${index}" aria-label="删除已选图片 ${index + 1}">删除</button>
+      </div>
+    `;
+  }).join("");
 }
 
 function readFileAsDataUrl(file) {
@@ -515,6 +559,10 @@ document.addEventListener("click", async (event) => {
     state.pairMessage = "";
     renderConnectGate();
   }
+  const removeQuickImageIndex = event.target.closest("[data-remove-quick-image]")?.dataset.removeQuickImage;
+  if (removeQuickImageIndex !== undefined) {
+    removeQuickImage(Number(removeQuickImageIndex));
+  }
 });
 
 document.addEventListener("submit", async (event) => {
@@ -534,6 +582,8 @@ document.addEventListener("submit", async (event) => {
 
 document.addEventListener("change", (event) => {
   if (event.target.id === "quickImagesAlbum" || event.target.id === "quickImagesCamera") {
+    addQuickImageFiles(event.target.files || []);
+    event.target.value = "";
     updateQuickImageSummary();
   }
 });

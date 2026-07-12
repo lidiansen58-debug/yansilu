@@ -21938,16 +21938,18 @@
       .editor-stage-shell .editor-stage-top .toolbar,
       .app[data-focus-mode="true"] .editor-stage-shell .editor-stage-top .toolbar,
       html.editor-only .editor-stage-shell .editor-stage-top .toolbar {
-        max-height: 30px !important;
-        opacity: 0.48 !important;
+        min-height: 44px !important;
+        max-height: none !important;
+        opacity: 1 !important;
         overflow-x: auto !important;
         overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
       }
 
       .editor-stage-shell .editor-stage-top:focus-within .toolbar,
       .editor-stage-shell .editor-stage-top .toolbar:focus-within,
       .editor-stage-shell .editor-stage-top .toolbar:hover {
-        max-height: 132px !important;
+        max-height: none !important;
         opacity: 1 !important;
       }
     }
@@ -22009,8 +22011,9 @@
       }
 
       .editor-stage-top .toolbar {
-        max-height: 30px;
-        opacity: 0.48;
+        min-height: 44px;
+        max-height: none;
+        opacity: 1;
         overflow-x: auto;
         overflow-y: hidden;
         transition: max-height 0.18s ease, opacity 0.18s ease;
@@ -22019,14 +22022,14 @@
       .editor-stage-top:focus-within .toolbar,
       .editor-stage-top .toolbar:focus-within,
       .editor-stage-top .toolbar:hover {
-        max-height: 132px;
+        max-height: none;
         opacity: 1;
       }
 
       .editor-stage-top .toolbar .toolbar-group-editor-actions,
       .editor-stage-top .toolbar .toolbar-group-structure,
       .editor-stage-top .toolbar .toolbar-group-insert {
-        transform: scale(0.94);
+        transform: none;
         transform-origin: left center;
       }
 
@@ -22067,6 +22070,66 @@
 
       .mobile-new-note-fab {
         display: inline-flex;
+      }
+
+      .app {
+        grid-template-columns: 46px minmax(0, 1fr);
+        overflow-x: hidden;
+      }
+
+      .sidebar {
+        display: none !important;
+      }
+
+      .main,
+      .workspace-shell,
+      #editorWorkspace,
+      .editor-stage-shell,
+      .editor-stage-top,
+      .editor-stage-shell .tabs,
+      .editor-stage-shell .tabs-shell,
+      .editor-stage-shell .tabs-list,
+      .editor-stage-shell .toolbar {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .editor-stage-shell {
+        margin: 6px 6px calc(64px + env(safe-area-inset-bottom));
+      }
+
+      .editor-stage-shell .editor-stage-top .toolbar,
+      .app[data-focus-mode="true"] .editor-stage-shell .editor-stage-top .toolbar,
+      html.editor-only .editor-stage-shell .editor-stage-top .toolbar {
+        scrollbar-width: none;
+      }
+
+      .editor-stage-shell .editor-stage-top .toolbar::-webkit-scrollbar,
+      .app[data-focus-mode="true"] .editor-stage-shell .editor-stage-top .toolbar::-webkit-scrollbar,
+      html.editor-only .editor-stage-shell .editor-stage-top .toolbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .editor-stage-shell .heading-segment,
+      .editor-stage-shell .tb,
+      .editor-stage-shell .toolbar-segment .tb,
+      .editor-stage-shell .tb-icon,
+      .editor-stage-shell .tb-label,
+      .editor-stage-shell .tb-label.has-icon,
+      .editor-stage-shell #btnFocusMode,
+      .editor-stage-shell .toolbar-group-structure .tb-label.has-icon,
+      .editor-stage-shell #btnSave {
+        width: 40px !important;
+        min-width: 40px !important;
+        height: 40px !important;
+      }
+
+      .mobile-new-note-fab {
+        left: 58px;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        z-index: 180;
+        width: 44px;
+        height: 44px;
       }
 
       #editorWorkspace > .editor-wrap,
