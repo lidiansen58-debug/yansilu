@@ -350,8 +350,6 @@ export class EditorPane {
     button.className = "tb tb-label has-icon hidden";
     button.id = "btnCheckNoteAi";
     button.type = "button";
-    button.title = "检查这条笔记";
-    button.dataset.tip = "检查这条笔记";
     button.dataset.contextualAiActionId = "check_note";
     button.setAttribute("aria-label", "检查这条笔记");
     button.innerHTML = `
