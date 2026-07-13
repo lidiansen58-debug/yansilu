@@ -14246,6 +14246,55 @@
       font-weight: 900;
       line-height: 1.4;
     }
+    .permanent-relation-empty.is-loading {
+      gap: 9px;
+      border-color: rgba(15, 118, 110, 0.2);
+      background: #f7fcfa;
+    }
+    .permanent-relation-empty.is-loading p {
+      display: block;
+    }
+    .permanent-relation-loading-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .permanent-relation-loading-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .permanent-relation-loading-dots i {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: #0f766e;
+      opacity: 0.34;
+      animation: permanentRelationLoadingDot 1s ease-in-out infinite;
+    }
+    .permanent-relation-loading-dots i:nth-child(2) {
+      animation-delay: 0.16s;
+    }
+    .permanent-relation-loading-dots i:nth-child(3) {
+      animation-delay: 0.32s;
+    }
+    @keyframes permanentRelationLoadingDot {
+      0%, 80%, 100% {
+        opacity: 0.34;
+        transform: translateY(0);
+      }
+      40% {
+        opacity: 1;
+        transform: translateY(-3px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .permanent-relation-loading-dots i {
+        animation: none;
+        opacity: 0.7;
+      }
+    }
     .permanent-relation-existing {
       border-color: #f0d49b;
       background: #fffaf0;

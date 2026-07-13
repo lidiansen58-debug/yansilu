@@ -362,6 +362,25 @@ test("permanent relation workspace shows AI recommendations only in recommendati
   assert.match(html, /data-permanent-relation-form hidden/);
 });
 
+test("permanent relation workspace shows active wait state while AI recommendations prepare", () => {
+  const html = renderPermanentRelationWorkspace({
+    note,
+    notes: [note, target],
+    aiCandidates: [],
+    state: {
+      ...defaultPermanentRelationWorkspaceState(note.id),
+      open: true,
+      mode: "ai"
+    },
+    deps
+  });
+
+  assert.match(html, /permanent-relation-empty is-loading/);
+  assert.match(html, /正在分析当前笔记，可能需要等一下/);
+  assert.match(html, /permanent-relation-loading-dots/);
+  assert.match(html, /aria-live="polite"/);
+});
+
 
 test("AI relation candidates normalize target, type and rationale for the workspace", () => {
   const candidates = normalizePermanentRelationAiCandidates(

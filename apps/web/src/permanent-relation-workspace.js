@@ -121,9 +121,12 @@ function renderAiTargets({ state = {}, aiCandidates = [], deps = {} } = {}) {
   if (!candidates.length) {
     return `
       <section class="permanent-relation-picker">
-        <div class="permanent-relation-empty">
-          <strong>正在准备推荐</strong>
-          <p>没有可用推荐时，可以改用搜索笔记。</p>
+        <div class="permanent-relation-empty is-loading" aria-live="polite">
+          <div class="permanent-relation-loading-head">
+            <strong>正在准备推荐</strong>
+            <span class="permanent-relation-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          </div>
+          <p>正在分析当前笔记，可能需要等一下。没有可用推荐时，可以改用搜索笔记。</p>
           <div class="semantic-relation-actions">
             <button class="mini-btn" type="button" data-permanent-relation-mode="manual">搜索笔记</button>
           </div>
