@@ -147,8 +147,8 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   const sectionSource = editorSource.slice(sectionStart, sectionEnd);
   assert.doesNotMatch(editorWorkspaceSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(sectionSource, /renderPermanentNoteRelationAssistSectionView\(\{/);
-  assert.match(sidebarViewSource, /条建议/);
-  assert.match(sidebarViewSource, /搜索笔记/);
+  assert.match(sidebarViewSource, /data-relation-ai-count/);
+  assert.doesNotMatch(sidebarViewSource, /条建议/);
   assert.doesNotMatch(sectionSource, /分析结果会进入 AI Inbox/);
   assert.doesNotMatch(editorSource, /renderPermanentNoteAiAnalysisSection/);
   assert.doesNotMatch(editorSource, /data-note-ai-analysis-open-inbox/);

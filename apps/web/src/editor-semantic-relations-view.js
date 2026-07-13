@@ -38,6 +38,12 @@ export class EditorSemanticRelationsView {
     };
   }
 
+  relationAiButtonLabel(noteId = "") {
+    const analysis = this.host?.noteAiAnalysisByNoteId?.get?.(noteId) || null;
+    const count = Array.isArray(analysis?.analysis?.relationCandidates) ? analysis.analysis.relationCandidates.length : 0;
+    return count > 0 ? `AI推荐 ${count}` : "AI推荐";
+  }
+
   renderRelationFollowupSuggestion(noteId = "") {
     const suggestion = this.host.relationFollowupSuggestion;
     if (!suggestion || String(suggestion.noteId || "") !== String(noteId || "")) return "";
@@ -79,8 +85,8 @@ export class EditorSemanticRelationsView {
         <div class="inspector-section-head">
           <div class="inspector-section-title">关系网络</div>
           <div class="semantic-relation-head-actions">
-            <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">AI推荐</button>
-            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">添加外部关联</button>
+            <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">${escapeHtml(this.relationAiButtonLabel(noteId))}</button>
+            <button class="mini-btn semantic-relation-add-btn" type="button" data-relation-action="open-create">添加外部关联</button>
             <div class="inspector-count">读取中</div>
           </div>
         </div>
@@ -352,8 +358,8 @@ export class EditorSemanticRelationsView {
         <div class="inspector-section-head">
           <div class="inspector-section-title">关联</div>
           <div class="semantic-relation-head-actions">
-            <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">AI推荐</button>
-            <button class="mini-btn" type="button" data-relation-action="open-create">添加外部关联</button>
+            <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">${escapeHtml(this.relationAiButtonLabel(noteId))}</button>
+            <button class="mini-btn semantic-relation-add-btn" type="button" data-relation-action="open-create">添加外部关联</button>
           </div>
         </div>
         <div class="semantic-relation-tabs" role="tablist" aria-label="关联类型">

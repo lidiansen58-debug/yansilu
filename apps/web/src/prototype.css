@@ -13542,6 +13542,17 @@
       gap: 8px;
       min-width: 0;
     }
+    .semantic-relation-head-actions .semantic-relation-add-btn {
+      border-color: rgba(15, 118, 110, 0.26);
+      background: #f8fffc;
+      color: #0f766e;
+      box-shadow: 0 8px 16px rgba(15, 118, 110, 0.06);
+    }
+    .semantic-relation-head-actions .semantic-relation-add-btn:hover {
+      border-color: rgba(15, 118, 110, 0.46);
+      background: #ecfdf5;
+      color: #0f6f48;
+    }
     .semantic-relation-tabs {
       display: inline-flex;
       align-items: center;

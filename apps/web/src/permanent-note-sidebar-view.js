@@ -57,7 +57,7 @@ export function permanentNoteRelationAssistViewState({
   return {
     ...assistState,
     relationText,
-    primaryLabel: "AI推荐"
+    primaryLabel: assistState.relationCandidates > 0 ? `AI推荐 ${assistState.relationCandidates}` : "AI推荐"
   };
 }
 
@@ -75,17 +75,5 @@ export function renderPermanentNoteRelationAssistSection({
     tagRelatedCount,
     analysis
   });
-  return `
-    <section class="permanent-workspace-card relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}">
-      <div>
-        <strong>关联笔记</strong>
-        <p>${escapeHtml(assist.relationText)}</p>
-      </div>
-      ${
-        analysis && assist.relationCandidates
-          ? `<div class="permanent-workspace-ai-note">${escapeHtml(String(assist.relationCandidates))} 条建议</div>`
-          : ""
-      }
-    </section>
-  `;
+  return `<div class="relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}" data-relation-ai-count="${escapeHtml(String(assist.relationCandidates || 0))}" hidden></div>`;
 }
