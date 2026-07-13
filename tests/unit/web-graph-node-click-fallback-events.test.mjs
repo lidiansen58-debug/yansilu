@@ -182,3 +182,34 @@ test("graph workbench click fallback keeps empty scan mode in relation workbench
   assert.equal(graphState.workbenchPanelTab, "clues");
   assert.deepEqual(calls, [["render"], ["run"]]);
 });
+
+test("graph workbench click fallback toggles guide entry", () => {
+  const documentRef = createDocument();
+  const graphState = { workbenchGuideOpen: false };
+  const calls = [];
+  const button = {};
+  const event = {
+    prevented: false,
+    stopped: false,
+    preventDefault() { this.prevented = true; },
+    stopImmediatePropagation() { this.stopped = true; },
+    target: {
+      closest(selector) {
+        return selector === "[data-graph-workbench-guide-toggle]" ? button : null;
+      }
+    }
+  };
+
+  installGraphWorkbenchClickFallbackEvents(documentRef, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
+
+  documentRef.listeners.get("click")[0].handler(event);
+
+  assert.equal(event.prevented, true);
+  assert.equal(event.stopped, true);
+  assert.equal(graphState.workbenchGuideOpen, true);
+  assert.deepEqual(calls, [["render"], ["status", "已展开说明", "ok"]]);
+});

@@ -6177,11 +6177,19 @@
       border: 1px solid #b8d9cb;
       border-radius: 999px;
       background: #edf8f2;
+      cursor: pointer;
       color: #0f6f48 !important;
+      font: inherit;
       font-size: 12px !important;
       font-weight: 900;
       line-height: 1;
       padding: 0 10px;
+    }
+    .graph-workbench-guide-action:hover,
+    .graph-workbench-guide-action:focus-visible {
+      border-color: #0f766e;
+      background: #e1f4eb;
+      outline: none;
     }
     .graph-workbench-theme-overview {
       display: grid;

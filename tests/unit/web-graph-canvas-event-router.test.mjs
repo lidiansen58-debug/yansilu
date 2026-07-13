@@ -353,6 +353,28 @@ test("graph canvas event router opens theme workbench only for theme scan mode",
   assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["stop"], ["render"], ["run"]]);
 });
 
+test("graph canvas event router toggles workbench guide entry", async () => {
+  const graphCanvas = createGraphCanvas();
+  const graphState = { workbenchGuideOpen: false };
+  const calls = [];
+  const guideButton = elementWithAttrs({ "data-graph-workbench-guide-toggle": "" });
+
+  bindGraphCanvasEvents(graphCanvas, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (message, level) => calls.push(["status", level, message])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    target: targetWithClosest({
+      "[data-graph-workbench-guide-toggle]": guideButton
+    })
+  });
+
+  assert.equal(graphState.workbenchGuideOpen, true);
+  assert.deepEqual(calls, [["render"], ["status", "ok", "已展开说明"]]);
+});
+
 test("graph canvas event router opens next-step workbench from insight lens", async () => {
   const graphCanvas = createGraphCanvas();
   const graphState = { readingLens: "bridge", workbenchPanelOpen: false, workbenchPanelTab: "questions" };

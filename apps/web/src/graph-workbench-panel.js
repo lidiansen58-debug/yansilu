@@ -262,6 +262,7 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
     : themeOverviewItems.length
       ? "先看下面这些成组线索，再判断它们是否在回答同一个问题。"
       : "先看成组笔记、共同问题和能否写成一句判断。";
+  const guideOpen = graphState.workbenchGuideOpen === true;
   return `
     <aside class="graph-workbench-panel" aria-label="${escapeHtml(title)}">
       <div class="graph-workbench-panel-head">
@@ -273,8 +274,8 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
       </div>
       <div class="graph-workbench-panel-body">
         <section class="graph-workbench-guide" aria-label="${escapeHtml(guideTitle)}">
-          <span class="graph-workbench-guide-action">${escapeHtml(guideTitle)}</span>
-          <span>${escapeHtml(guideNote)}</span>
+          <button class="graph-workbench-guide-action" type="button" data-graph-workbench-guide-toggle aria-expanded="${guideOpen}" aria-label="${escapeHtml(guideTitle)}">${escapeHtml(guideTitle)}</button>
+          ${guideOpen ? `<span>${escapeHtml(guideNote)}</span>` : ""}
         </section>
         ${
           themeOverviewItems.length
