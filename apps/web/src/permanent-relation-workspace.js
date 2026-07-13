@@ -50,10 +50,10 @@ function renderSelectedTargetSummary(target = null, deps = {}) {
 }
 
 export function renderPermanentRelationManualTargets({ state, deps = {} } = {}) {
-  if (state.searchState === "loading") return `<div class="permanent-relation-empty">正在搜索笔记...</div>`;
+  if (state.searchState === "loading") return `<div class="permanent-relation-dropdown-empty">正在搜索笔记...</div>`;
   if (state.searchState === "error") {
     return `
-      <div class="permanent-relation-empty is-error">
+      <div class="permanent-relation-dropdown-empty is-error">
         <strong>搜索暂时失败</strong>
         <p>${escapeHtml(state.error || "请稍后重试，或换一个关键词。")}</p>
       </div>
@@ -65,19 +65,17 @@ export function renderPermanentRelationManualTargets({ state, deps = {} } = {}) 
     return "";
   }
   if (!targets.length) {
-    return `<div class="permanent-relation-empty">没有匹配笔记。</div>`;
+    return `<div class="permanent-relation-dropdown-empty">没有匹配笔记。</div>`;
   }
   return `
-    <div class="permanent-relation-candidate-list">
+    <div class="permanent-relation-candidate-list is-dropdown">
       ${targets
         .slice(0, 12)
         .map((target) => {
           const active = target.id === state.selectedTargetNoteId;
           return `
             <button class="permanent-relation-candidate ${active ? "is-active" : ""}" type="button" data-permanent-relation-manual-target="${escapeHtml(target.id)}">
-              <span>${escapeHtml(noteMeta(target, deps) || "永久笔记")}</span>
               <strong>${escapeHtml(target.title || target.id)}</strong>
-              <p>${escapeHtml(shortText(target.thesis || target.body, 120) || "选中后写理由。")}</p>
             </button>
           `;
         })
@@ -206,23 +204,23 @@ export function renderPermanentRelationWorkspace({
               : showingAiTargets
                 ? renderAiTargets({ state: workspaceState, aiCandidates, deps: { ...deps, notes } })
                 : `<section class="permanent-relation-picker">
-                  <label class="permanent-relation-search">
-                    <span>目标笔记</span>
+                  <div class="permanent-relation-search">
+                    <label>目标笔记</label>
                     <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="${selectedTarget ? "已选择目标笔记" : "输入关键词，选择要关联的永久笔记"}" autocomplete="off" />
-                  </label>
+                    <div class="permanent-relation-dropdown" data-permanent-relation-manual-results${selectedTarget || !hasManualQuery ? " hidden" : ""}>
+                      ${
+                        selectedTarget
+                          ? ""
+                          : hasManualQuery
+                            ? renderPermanentRelationManualTargets({ state: workspaceState, deps })
+                            : ""
+                      }
+                    </div>
+                  </div>
                   <div class="semantic-relation-actions">
                     <button class="mini-btn" type="button" data-permanent-relation-action="recommend">AI推荐</button>
                   </div>
                   ${renderSelectedTargetSummary(selectedTarget, deps)}
-                  <div data-permanent-relation-manual-results>
-                    ${
-                      selectedTarget
-                        ? ""
-                        : hasManualQuery
-                          ? renderPermanentRelationManualTargets({ state: workspaceState, deps })
-                          : ""
-                    }
-                  </div>
                 </section>`
           }
           <form class="permanent-relation-confirm ${isEditingExisting ? "is-editing-existing" : ""}" data-permanent-relation-form ${showingAiTargets ? "hidden" : ""}>

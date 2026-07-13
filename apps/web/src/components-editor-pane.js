@@ -3859,10 +3859,12 @@ export class EditorPane {
   syncPermanentRelationManualResults() {
     const results = this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-manual-results]");
     if (!results) return false;
-    results.innerHTML = renderPermanentRelationManualTargets({
+    const html = renderPermanentRelationManualTargets({
       state: this.permanentRelationWorkspaceState,
       deps: this.permanentRelationWorkspaceDeps()
     });
+    results.innerHTML = html;
+    results.hidden = !html.trim();
     return true;
   }
 

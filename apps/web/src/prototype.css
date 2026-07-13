@@ -14016,7 +14016,7 @@
     }
     .permanent-relation-source > span,
     .permanent-relation-preview > span,
-    .permanent-relation-search span,
+    .permanent-relation-search label,
     .permanent-relation-confirm label span {
       color: #64748b;
       font-size: 11px;
@@ -14101,6 +14101,16 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 6px;
+    }
+    .permanent-relation-candidate-list.is-dropdown {
+      gap: 0;
+      max-height: 228px;
+      overflow: auto;
+      border: 1px solid #d8e6ef;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+      padding: 4px;
     }
     .permanent-relation-results-head {
       display: flex;
@@ -14202,6 +14212,12 @@
       cursor: pointer;
       font: inherit;
     }
+    .permanent-relation-candidate-list.is-dropdown .permanent-relation-candidate {
+      min-height: 42px;
+      border-color: transparent;
+      border-radius: 7px;
+      padding: 8px 10px;
+    }
     .permanent-relation-candidate-top {
       min-width: 0;
       display: flex;
@@ -14235,6 +14251,41 @@
     .permanent-relation-candidate small {
       background: #f1f5f9;
       color: #64748b;
+    }
+    .permanent-relation-dropdown {
+      position: absolute;
+      z-index: 30;
+      top: calc(100% + 4px);
+      right: 0;
+      left: 0;
+    }
+    .permanent-relation-dropdown:empty {
+      display: none;
+    }
+    .permanent-relation-dropdown-empty {
+      display: grid;
+      gap: 4px;
+      border: 1px solid #d8e6ef;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+      padding: 10px 12px;
+      color: #52657d;
+      font-size: 12px;
+      font-weight: 750;
+      line-height: 1.5;
+    }
+    .permanent-relation-dropdown-empty p {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 550;
+      line-height: 1.55;
+    }
+    .permanent-relation-dropdown-empty strong {
+      color: #10202a;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.35;
     }
     .permanent-relation-empty,
     .permanent-relation-existing,
@@ -14321,6 +14372,10 @@
     .permanent-relation-preview {
       display: grid;
       gap: 5px;
+    }
+    .permanent-relation-search {
+      position: relative;
+      z-index: 5;
     }
     .permanent-relation-search input,
     .permanent-relation-confirm select,

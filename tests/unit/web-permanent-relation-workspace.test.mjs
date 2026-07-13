@@ -292,7 +292,7 @@ test("permanent relation workspace labels updated relation results clearly", () 
   assert.doesNotMatch(html, /关系已存在，已复用/);
 });
 
-test("permanent relation workspace omits unknown directory noise in manual candidates", () => {
+test("permanent relation workspace renders manual candidates as a title-only dropdown", () => {
   const html = renderPermanentRelationWorkspace({
     note,
     state: {
@@ -308,8 +308,12 @@ test("permanent relation workspace omits unknown directory noise in manual candi
     }
   });
 
-  assert.match(html, /永久笔记/);
+  assert.match(html, /permanent-relation-dropdown/);
+  assert.match(html, /permanent-relation-candidate-list is-dropdown/);
+  assert.match(html, new RegExp(target.title));
+  assert.doesNotMatch(html, />永久笔记</);
   assert.doesNotMatch(html, /未知目录/);
+  assert.doesNotMatch(html, /选中后写理由/);
 });
 
 test("permanent relation manual search shows search errors inside the results area", () => {
@@ -327,6 +331,7 @@ test("permanent relation manual search shows search errors inside the results ar
   });
 
   assert.match(html, /搜索暂时失败/);
+  assert.match(html, /permanent-relation-dropdown-empty is-error/);
   assert.match(html, /搜索失败：网络不可用/);
   assert.doesNotMatch(html, /没有匹配笔记/);
 });
