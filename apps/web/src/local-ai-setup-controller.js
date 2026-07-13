@@ -76,13 +76,14 @@ export function createLocalAiSetupController(depsProvider = () => ({})) {
         return { ready: false, result, message, reason: "local_ai_setup_save_failed" };
       }
       if (!localAiFeatureReady()) {
+        const message = "请先完成 AI 设置并测试通过，再回来使用 AI 推荐。";
         if (options.openSettings !== false) {
+          setStatus(message, "warn", { priority: 3, holdMs: 8000 });
           activateModule("settings");
           setSettingsItem("ai-settings", { render: false });
           renderSettingsPanel();
         }
-        const message = "请先测试 AI，确认当前本地模型能正常回复。";
-        setStatus(message, "warn", { priority: 3, holdMs: 8000 });
+        if (options.openSettings === false) setStatus(message, "warn", { priority: 3, holdMs: 8000 });
         return { ready: false, result, message, reason: "local_ai_needs_test" };
       }
       return { ready: true, result };
@@ -103,8 +104,11 @@ export function createLocalAiSetupController(depsProvider = () => ({})) {
       modelProfile: ollamaRecommendationForModel(readyModel, currentOllamaModelTiers()),
       statusText: ollamaBootstrapStatusText(result)
     });
-    setStatus(message, "warn", { priority: 3, holdMs: 8000 });
-    return { ready: false, result, message };
+    const setupMessage = options.openSettings !== false
+      ? `请先完成 AI 设置并测试通过，再回来使用 AI 推荐。${message ? ` ${message}` : ""}`
+      : message;
+    setStatus(setupMessage, "warn", { priority: 3, holdMs: 8000 });
+    return { ready: false, result, message: setupMessage };
   }
 
   return {

@@ -352,7 +352,7 @@ test("permanent relation workspace shows AI recommendations only in recommendati
     deps
   });
 
-  assert.match(html, /推荐关联/);
+  assert.match(html, /AI推荐/);
   assert.match(html, /data-permanent-relation-ai-target="pn_target"/);
   assert.match(html, new RegExp(target.title));
   assert.doesNotMatch(html, /YJ-D09/);

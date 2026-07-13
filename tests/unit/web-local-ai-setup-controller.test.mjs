@@ -122,7 +122,7 @@ test("local AI setup controller requires a successful local AI test after bootst
   assert.equal(readiness.reason, "local_ai_needs_test");
   assert.deepEqual(calls.find((call) => call[0] === "module"), ["module", "settings"]);
   assert.deepEqual(calls.find((call) => call[0] === "settings-item"), ["settings-item", "ai-settings", { render: false }]);
-  assert.match(calls.find((call) => call[0] === "status")[1], /测试 AI/);
+  assert.match(calls.find((call) => call[0] === "status")[1], /完成 AI 设置并测试通过/);
 });
 
 test("local AI setup controller trusts an already tested local model", async () => {

@@ -79,6 +79,7 @@ export class EditorSemanticRelationsView {
         <div class="inspector-section-head">
           <div class="inspector-section-title">关系网络</div>
           <div class="semantic-relation-head-actions">
+            <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">AI推荐</button>
             <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">添加外部关联</button>
             <div class="inspector-count">读取中</div>
           </div>
@@ -350,7 +351,10 @@ export class EditorSemanticRelationsView {
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
           <div class="inspector-section-title">关联</div>
-          <button class="mini-btn primary" type="button" data-relation-action="open-create">添加外部关联</button>
+          <div class="semantic-relation-head-actions">
+            <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">AI推荐</button>
+            <button class="mini-btn" type="button" data-relation-action="open-create">添加外部关联</button>
+          </div>
         </div>
         <div class="semantic-relation-tabs" role="tablist" aria-label="关联类型">
           ${this.renderRelationTabButton("external", "外部关联", externalRows.length, activeTab)}

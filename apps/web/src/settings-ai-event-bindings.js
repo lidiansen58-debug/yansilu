@@ -213,8 +213,8 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   const providerId = currentAiProviderId();
   const isRemote = isRemoteAiProvider(providerId);
   settingsState.ai.testRunning = true;
-  settingsState.ai.testMeta = "";
-  settingsState.ai.testOutput = "";
+  settingsState.ai.testMeta = "测试中，请稍等";
+  settingsState.ai.testOutput = "正在等待 AI 回复，可能需要一点时间。请先停留在这里查看测试结果。";
   settingsState.ai.testStatus = "running";
   settingsState.ai.testModel = isRemote ? "" : String(settingsState.ai.localModel || "").trim();
   settingsState.ai.testProviderId = isRemote ? String(providerId || "").trim() : "";
@@ -223,6 +223,7 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   settingsState.ai.testSecretRef = isRemote ? String(settingsState.ai.secretRef || "").trim() : "";
   persistAiSettingsToStorage();
   renderSettingsPanel();
+  setStatus("正在测试 AI，可能需要一点时间，请等测试结果出来。", "warn");
   try {
     const settingsPayload = aiSettingsPayload();
     const advancedSettings = settingsPayload.advancedSettings || {};

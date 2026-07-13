@@ -192,7 +192,7 @@ export function renderPermanentRelationWorkspace({
       <div class="permanent-relation-panel ${isEditingExisting ? "is-editing-existing" : ""}">
         <header class="permanent-relation-head">
           <div>
-            <strong id="permanentRelationWorkspaceTitle">${isEditingExisting ? "编辑关联" : showingAiTargets ? "推荐关联" : "关联"}</strong>
+            <strong id="permanentRelationWorkspaceTitle">${isEditingExisting ? "编辑关联" : showingAiTargets ? "AI推荐" : "关联"}</strong>
           </div>
           <button class="mini-btn is-ghost" type="button" data-permanent-relation-action="close">关闭</button>
         </header>
@@ -208,7 +208,7 @@ export function renderPermanentRelationWorkspace({
                     <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="${selectedTarget ? "已选择目标笔记" : "输入关键词，选择要关联的永久笔记"}" autocomplete="off" />
                   </label>
                   <div class="semantic-relation-actions">
-                    <button class="mini-btn" type="button" data-permanent-relation-action="recommend">推荐关联</button>
+                    <button class="mini-btn" type="button" data-permanent-relation-action="recommend">AI推荐</button>
                   </div>
                   ${renderSelectedTargetSummary(selectedTarget, deps)}
                   <div data-permanent-relation-manual-results>
