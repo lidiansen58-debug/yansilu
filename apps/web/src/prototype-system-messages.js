@@ -91,7 +91,6 @@ export function aiInboxFiltersForSystemMessage(message = {}) {
   return normalizeAiInboxFilters({
     view: String(filters.view || "pending").trim() || "pending",
     type: String(filters.type || "all").trim() || "all",
-    privacyMode: String(filters.privacyMode || "").trim(),
     sourceNoteId: hasSourceNote
   });
 }
@@ -100,7 +99,6 @@ export function globalPendingAiInboxFilters() {
   return normalizeAiInboxFilters({
     view: "pending",
     type: "all",
-    privacyMode: "",
     sourceNoteId: ""
   });
 }

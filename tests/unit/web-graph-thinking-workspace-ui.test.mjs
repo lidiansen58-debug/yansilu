@@ -991,16 +991,17 @@ test("graph AI analysis opens the question workbench instead of navigating away"
   assert.match(match[1], /graphState\.thinkingPanelOpen = true;/);
   assert.match(match[1], /graphState\.thinkingFilter = "all";/);
   assert.match(match[1], /graphState\.workbenchPanelOpen = true;/);
-  assert.match(match[1], /graphState\.workbenchPanelTab = "questions";/);
+  assert.match(match[1], /if \(graphState\.workbenchPanelTab !== "clues"\) \{[\s\S]*graphState\.workbenchPanelTab = "questions";/);
   assert.doesNotMatch(match[1], /addSystemMessage\(\{/);
   assert.match(match[1], /graphState\.aiReviewSystemMessageId = "";/);
   assert.doesNotMatch(match[1], /openAiInboxModule/, "graph scan should not auto-navigate away from the graph");
 });
 
-test("graph AI scan button immediately opens the question workbench", () => {
+test("graph AI scan button opens the right workbench for the action mode", () => {
   const source = readGraphCanvasEventRouter();
 
-  assert.match(source, /graphState\.workbenchPanelOpen = true;[\s\S]*graphState\.workbenchPanelTab = "questions";[\s\S]*void runGraphAiAnalysis\(\);/);
+  assert.match(source, /const mode = String\(graphAiButton\.getAttribute\("data-run-graph-ai-analysis"\)/);
+  assert.match(source, /graphState\.workbenchPanelOpen = true;[\s\S]*graphState\.workbenchPanelTab = mode === "gap" \? "clues" : "questions";[\s\S]*void runGraphAiAnalysis\(\);/);
 });
 
 test("graph AI review action stays inside the graph workbench", () => {

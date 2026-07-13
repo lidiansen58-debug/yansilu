@@ -40,11 +40,17 @@ export class PermanentNoteWorkspaceController {
     return renderPermanentNoteWorkspace({
       note,
       activeTab: this.currentTab(),
-      viewpointHtml: this.host.renderPermanentNoteDistillationSection(note),
-      relationsHtml: this.host.renderCurrentRelationSection(note.id, {
-        relations: this.host.currentSemanticRelations,
-        relationState: this.host.semanticRelationsState
-      })
+      viewpointHtml: `
+        ${this.host.renderPermanentNoteDistillationSection(note)}
+        ${this.host.renderNoteEmbeddedAiWorkspaceSectionForNote(note)}
+      `,
+      relationsHtml: `
+        ${this.host.renderPermanentNoteRelationAssistSection(note)}
+        ${this.host.renderCurrentRelationSection(note.id, {
+          relations: this.host.currentSemanticRelations,
+          relationState: this.host.semanticRelationsState
+        })}
+      `
     });
   }
 

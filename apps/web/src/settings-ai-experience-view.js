@@ -3,6 +3,7 @@ import {
   buildSettingsAiOnboardingView,
   buildSettingsAiSetupBadges
 } from "./settings-ai-experience-model.js";
+import { remoteConnectionReadyForProvider } from "./settings-ai-remote-readiness.js";
 
 export function renderAiSettingsExperienceForRuntime(deps = {}) {
   const {
@@ -50,6 +51,15 @@ export function renderAiSettingsExperienceForRuntime(deps = {}) {
     && installedLocalModelReady(localModel);
   const remoteConfigurable = isRemoteConfigurableProviderId(providerId);
   const remoteConfigReady = Boolean(String(ai.providerEndpointUrl || "").trim() && String(ai.remoteRuntimeModel || "").trim() && String(ai.secretRef || "").trim());
+  const localTestSucceeded = ai.testStatus === "success"
+    && String(ai.testModel || "").trim()
+    && String(ai.testModel || "").trim() === localModel;
+  const activeTestSucceeded = localFlowActive ? localTestSucceeded : remoteConnectionReadyForProvider(ai, providerId);
+  const activeTestStatus = activeTestSucceeded
+    ? "success"
+    : ai.testStatus === "success"
+      ? ""
+      : ai.testStatus;
   const onboarding = buildSettingsAiOnboardingView({
     runtimeMode,
     localFlowActive,
@@ -58,7 +68,8 @@ export function renderAiSettingsExperienceForRuntime(deps = {}) {
     localModel,
     models,
     localReady,
-    testStatus: ai.testStatus,
+    testStatus: activeTestStatus,
+    testSucceeded: activeTestSucceeded,
     remoteConfigurable,
     remoteConfigReady,
     providerId,
@@ -120,7 +131,7 @@ export function renderAiSettingsExperienceForRuntime(deps = {}) {
     advancedFields,
     hasMeaningfulAdvancedOverride: Boolean(ai.routePreview?.route?.advancedOverride),
     testRunning: ai.testRunning,
-    testStatus: ai.testStatus,
+    testStatus: activeTestStatus,
     runtimeMode
   });
   if (advancedBadge) {

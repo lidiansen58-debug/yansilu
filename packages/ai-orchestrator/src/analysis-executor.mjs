@@ -120,7 +120,9 @@ export async function runPermanentNoteLocalModelAnalysis(request = {}, adapter =
 }
 
 export async function runWritingStrongModelAnalysis(request = {}, adapter = {}, context = {}) {
-  if (request.privacy?.userConfirmed !== true) {
+  const privacyMode = cleanText(request.privacy?.mode || context.privacyMode || context.privacy_mode) || "remote_after_confirmation";
+  const localOnly = privacyMode === "local_only";
+  if (!localOnly && request.privacy?.userConfirmed !== true) {
     const error = new Error("writing strong-model execution requires explicit user confirmation");
     error.code = "WRITING_REMOTE_MODEL_CONFIRMATION_REQUIRED";
     throw error;
@@ -130,14 +132,14 @@ export async function runWritingStrongModelAnalysis(request = {}, adapter = {}, 
       ...request,
       privacy: {
         ...(request.privacy || {}),
-        mode: "remote_after_confirmation",
-        cloudModelAllowed: true
+        mode: privacyMode,
+        cloudModelAllowed: !localOnly
       }
     },
     adapter,
     {
       ...context,
-      privacyMode: "remote_after_confirmation",
+      privacyMode,
       purpose: "writing_strong_model_analysis"
     }
   );
@@ -145,6 +147,7 @@ export async function runWritingStrongModelAnalysis(request = {}, adapter = {}, 
     providerResponse,
     ...mergeWritingStrongModelResponse(request, responsePayload(providerResponse), {
       ...context,
+      privacyMode,
       model: request.model
     })
   };

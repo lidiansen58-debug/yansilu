@@ -90,6 +90,22 @@ export function routeEditorRelationClick(host, event) {
     return true;
   }
 
+  const permanentRelationAiTarget = target.closest("[data-permanent-relation-ai-target]");
+  if (permanentRelationAiTarget) {
+    const targetNoteId = cleanId(permanentRelationAiTarget.getAttribute("data-permanent-relation-ai-target"));
+    if (!targetNoteId) return true;
+    host.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+      ...host.permanentRelationWorkspaceState,
+      mode: "ai",
+      selectedTargetNoteId: targetNoteId,
+      relationType: cleanId(permanentRelationAiTarget.getAttribute("data-relation-type")).toLowerCase() || "associated_with",
+      rationale: cleanId(permanentRelationAiTarget.getAttribute("data-relation-rationale-draft")),
+      insightQuestion: cleanId(permanentRelationAiTarget.getAttribute("data-relation-insight-question-draft")),
+      dirty: true
+    }));
+    return true;
+  }
+
   const editorRelatedPopoverClose = target.closest("[data-editor-related-popover-close]");
   if (editorRelatedPopoverClose) {
     const popover = editorRelatedPopoverClose.closest("[data-editor-related-popover]");
@@ -139,10 +155,18 @@ export function routeEditorRelationClick(host, event) {
   if (permanentRelationAction) {
     const action = String(permanentRelationAction.getAttribute("data-permanent-relation-action") || "").trim();
     if (action === "open") {
-      host.openPermanentRelationWorkspace(relationEntryRouteFromElement(permanentRelationAction, {
+      const route = relationEntryRouteFromElement(permanentRelationAction, {
         source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
         noteId: host.activeNote()?.id || ""
-      }));
+      });
+      const opened = host.openPermanentRelationWorkspace(route);
+      const noteId = cleanId(route.noteId || host.activeNote?.()?.id || "");
+      const candidates = typeof host.permanentRelationWorkspaceAiCandidates === "function"
+        ? host.permanentRelationWorkspaceAiCandidates(noteId)
+        : [];
+      if (opened && route.mode === "ai" && !candidates.length && typeof host.runPermanentNoteAnalysis === "function") {
+        void host.runPermanentNoteAnalysis();
+      }
       return true;
     }
     if (action === "close" || action === "complete") {
@@ -151,6 +175,21 @@ export function routeEditorRelationClick(host, event) {
     }
     if (action === "continue") {
       host.continuePermanentRelationWorkspace();
+      return true;
+    }
+    if (action === "recommend") {
+      const noteId = cleanId(host.permanentRelationWorkspaceState?.noteId || host.activeNote?.()?.id || "");
+      host.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+        ...host.permanentRelationWorkspaceState,
+        mode: "ai",
+        selectedTargetNoteId: ""
+      }));
+      const candidates = typeof host.permanentRelationWorkspaceAiCandidates === "function"
+        ? host.permanentRelationWorkspaceAiCandidates(noteId)
+        : [];
+      if (!candidates.length && typeof host.runPermanentNoteAnalysis === "function") {
+        void host.runPermanentNoteAnalysis();
+      }
       return true;
     }
   }

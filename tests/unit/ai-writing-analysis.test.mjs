@@ -52,6 +52,21 @@ test("writing strong-model request is remote-confirmed and review-only", () => {
   assert.match(payload.instructions.join("\n"), /Do not write final prose/);
 });
 
+test("writing analysis request allows local-only execution without remote confirmation", () => {
+  const request = buildWritingStrongModelRequest({
+    privacyMode: "local_only",
+    writingGoal: "提炼当前材料",
+    notes: [{ noteId: "fn_local", body: "本地材料只应发送给本机模型。" }],
+    model: "qwen-local"
+  });
+
+  assert.equal(request.privacy.mode, "local_only");
+  assert.equal(request.privacy.cloudModelAllowed, false);
+  assert.equal(request.privacy.userConfirmed, false);
+  const payload = JSON.parse(request.messages[1].content);
+  assert.equal(payload.privacyMode, "local_only");
+});
+
 test("writing strong-model response becomes pending review artifacts only", () => {
   const request = buildWritingStrongModelRequest({
     userConfirmedRemoteModel: true,
@@ -108,4 +123,24 @@ test("writing strong-model response becomes pending review artifacts only", () =
   assert.ok(result.artifacts.every((item) => item.origin === "ai_generated"));
   assert.ok(result.artifacts.every((item) => item.privacy.cloudModelUsed === true));
   assert.equal(result.artifacts[0].payload.sourceNoteIds[0], "pn_review");
+});
+
+test("local-only writing response keeps local provenance", () => {
+  const request = buildWritingStrongModelRequest({
+    privacyMode: "local_only",
+    writingGoal: "提炼当前材料",
+    notes: [{ noteId: "fn_local", body: "本地材料。" }]
+  });
+  const result = mergeWritingStrongModelResponse(
+    request,
+    {
+      content: `{"writingMoves":[{"moveType":"claim","text":"本地模型提出一个判断。","sourceNoteIds":["fn_local"]}]}`
+    },
+    { privacyMode: "local_only", artifactIdSalt: "local_writing" }
+  );
+
+  assert.equal(result.analysisMode, "local_model_writing");
+  assert.equal(result.provenance.cloudModelUsed, false);
+  assert.equal(result.provenance.userConfirmedRemoteModel, false);
+  assert.ok(result.artifacts.every((item) => item.privacy.cloudModelUsed === false));
 });

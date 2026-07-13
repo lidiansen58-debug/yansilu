@@ -3,6 +3,7 @@ export const LOCAL_AI_FEATURE_LABELS = Object.freeze({
   graph_connect: "AI 建联推荐",
   theme_index: "AI 主题命名和中心问题建议",
   note_analysis: "当前笔记 AI 分析",
+  distill_material: "帮我提炼",
   writing_check: "AI 写作检查",
   ai_summary: "AI 摘要整理"
 });

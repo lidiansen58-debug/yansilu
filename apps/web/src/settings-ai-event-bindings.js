@@ -2,6 +2,10 @@ import {
   displayOpenAiCompatibleBaseUrl,
   remoteApiKeySecretRef
 } from "./ai-settings-remote-config-model.js";
+import {
+  isRemoteAiProvider,
+  remoteConnectionReadyForProvider
+} from "./settings-ai-remote-readiness.js";
 
 export function installSettingsAiEventBindings(deps = {}) {
   const {
@@ -32,14 +36,26 @@ export function installSettingsAiEventBindings(deps = {}) {
     applySettingsAiQuickSetup = async () => {},
     openSettingsAiDialog = () => {},
     closeSettingsAiDialogs = () => {},
-    confirmRemoteAiUse = () => true
+    confirmRemoteAiUse = () => true,
+    onAiSettingsReady = async () => {}
   } = deps;
 
   function clearAiTestResultForSettingsChange() {
     settingsState.ai.testMeta = "";
     settingsState.ai.testOutput = "";
     settingsState.ai.testStatus = "";
+    settingsState.ai.testModel = "";
+    settingsState.ai.testProviderId = "";
+    settingsState.ai.testEndpointUrl = "";
+    settingsState.ai.testRemoteModel = "";
+    settingsState.ai.testSecretRef = "";
+    settingsState.ai.providerHealthProviderId = "";
+    settingsState.ai.providerHealthEndpointUrlSnapshot = "";
+    settingsState.ai.providerHealthCheckEndpointUrlSnapshot = "";
+    settingsState.ai.providerHealthRemoteModel = "";
+    settingsState.ai.providerHealthSecretRef = "";
   }
+
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
   await applyAiRuntimeModeChange(event?.target?.value || "auto");
 });
@@ -194,13 +210,20 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
     renderSettingsPanel();
     return setStatus(`${blockedReason}，再试运行`, "warn");
   }
+  const providerId = currentAiProviderId();
+  const isRemote = isRemoteAiProvider(providerId);
   settingsState.ai.testRunning = true;
   settingsState.ai.testMeta = "";
   settingsState.ai.testOutput = "";
   settingsState.ai.testStatus = "running";
+  settingsState.ai.testModel = isRemote ? "" : String(settingsState.ai.localModel || "").trim();
+  settingsState.ai.testProviderId = isRemote ? String(providerId || "").trim() : "";
+  settingsState.ai.testEndpointUrl = isRemote ? String(settingsState.ai.providerEndpointUrl || "").trim() : "";
+  settingsState.ai.testRemoteModel = isRemote ? String(settingsState.ai.remoteRuntimeModel || "").trim() : "";
+  settingsState.ai.testSecretRef = isRemote ? String(settingsState.ai.secretRef || "").trim() : "";
+  persistAiSettingsToStorage();
   renderSettingsPanel();
   try {
-    const providerId = currentAiProviderId();
     const settingsPayload = aiSettingsPayload();
     const advancedSettings = settingsPayload.advancedSettings || {};
     const result = await runAiTestChat({
@@ -216,6 +239,7 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
     settingsState.ai.testOutput = String(result?.output?.content || "").trim() || JSON.stringify(result?.output?.json || result || {}, null, 2);
     settingsState.ai.testStatus = "success";
     setStatus("AI 试运行已完成", "ok");
+    if (!isRemote) await onAiSettingsReady({ source: "test" });
   } catch (error) {
     settingsState.ai.testMeta = "运行失败";
     settingsState.ai.testOutput = String(error?.message || error);
@@ -223,6 +247,7 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
     setStatus(`AI 试运行失败：${settingsState.ai.testOutput}`, "bad");
   } finally {
     settingsState.ai.testRunning = false;
+    persistAiSettingsToStorage();
     renderSettingsPanel();
   }
 });
@@ -232,6 +257,11 @@ $("settingsAiProviderHealthEndpointUrl")?.addEventListener("input", (event) => {
   settingsState.ai.providerHealthEndpointUrl = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
+  settingsState.ai.providerHealthProviderId = "";
+  settingsState.ai.providerHealthEndpointUrlSnapshot = "";
+  settingsState.ai.providerHealthCheckEndpointUrlSnapshot = "";
+  settingsState.ai.providerHealthRemoteModel = "";
+  settingsState.ai.providerHealthSecretRef = "";
   persistAiSettingsToStorage();
 });
 
@@ -239,14 +269,20 @@ $("settingsAiProviderHealthEndpointUrl")?.addEventListener("blur", (event) => {
   const next = String(event?.target?.value || "").trim();
   markAiProviderDraftTouched("providerHealthEndpointUrl");
   settingsState.ai.providerHealthEndpointUrl = next;
+  settingsState.ai.providerHealthResult = null;
+  settingsState.ai.providerHealthProviderId = "";
+  settingsState.ai.providerHealthEndpointUrlSnapshot = "";
+  settingsState.ai.providerHealthCheckEndpointUrlSnapshot = "";
+  settingsState.ai.providerHealthRemoteModel = "";
+  settingsState.ai.providerHealthSecretRef = "";
   persistAiSettingsToStorage();
   renderSettingsPanel();
 });
 
 $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
   const providerId = currentAiProviderId();
-  const isRemote = providerId && !["platform_managed_openai", "local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId);
-  const tested = settingsState.ai.testStatus === "success" || settingsState.ai.providerHealthResult?.record?.status === "healthy";
+  const isRemote = isRemoteAiProvider(providerId);
+  const tested = remoteConnectionReadyForProvider(settingsState.ai, providerId);
   const remoteKeyCleared = isRemote && !String(settingsState.ai.remoteApiKey || "").trim() && settingsState.ai.providerDraftTouched?.secretRef === true;
   if (isRemote && !tested && !remoteKeyCleared) {
     openSettingsAiDialog("test");
@@ -257,7 +293,8 @@ $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
     setStatus("已取消启用远程 AI。", "warn");
     return;
   }
-  await syncAiProviderConfigToApi();
+  const saved = await syncAiProviderConfigToApi();
+  if (saved !== false) await onAiSettingsReady({ source: "save" });
 });
 
 $("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
@@ -286,31 +323,39 @@ $("settingsAiRemoteHelpToggle")?.addEventListener("click", () => {
 
 $("settingsAiDetectOllama")?.addEventListener("click", async () => {
   await detectOllamaModels();
+  await onAiSettingsReady({ source: "local-detect" });
 });
 
 $("settingsAiRuntimeToggle")?.addEventListener("click", async () => {
   if (settingsState.ai.localRuntimeStatus === "available") await stopOllamaRuntimeFromUi();
-  else await startOllamaRuntimeFromUi();
+  else {
+    await startOllamaRuntimeFromUi();
+    await onAiSettingsReady({ source: "local-start" });
+  }
 });
 
 $("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
   await pullRecommendedOllamaModel();
+  await onAiSettingsReady({ source: "local-model" });
 });
 
 $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
   const selectLocalModelButton = event.target.closest("[data-settings-ai-select-local-model]");
   if (selectLocalModelButton) {
     await selectInstalledLocalModelFromUi(selectLocalModelButton.getAttribute("data-settings-ai-select-local-model"));
+    await onAiSettingsReady({ source: "local-model" });
     return;
   }
   const detectOllamaButton = event.target.closest("[data-settings-ai-detect-ollama]");
   if (detectOllamaButton) {
     await detectOllamaModels();
+    await onAiSettingsReady({ source: "local-detect" });
     return;
   }
   const pullLocalModelButton = event.target.closest("[data-settings-ai-pull-local-model]");
   if (pullLocalModelButton) {
     await pullRecommendedOllamaModel(pullLocalModelButton.getAttribute("data-settings-ai-pull-local-model"));
+    await onAiSettingsReady({ source: "local-model" });
     return;
   }
   const copyLocalModelCommandButton = event.target.closest("[data-settings-ai-copy-command]");
@@ -337,9 +382,18 @@ $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
     else if (action === "remote") await applySettingsAiQuickSetup("remote");
     else if (action === "off") await applyAiRuntimeModeChange("off");
     else if (action === "install-ollama") $("settingsAiDownloadOllama")?.click?.();
-    else if (action === "detect-local") await detectOllamaModels();
-    else if (action === "start-local") await startOllamaRuntimeFromUi();
-    else if (action === "download-local-model") await pullRecommendedOllamaModel();
+    else if (action === "detect-local") {
+      await detectOllamaModels();
+      await onAiSettingsReady({ source: "local-detect" });
+    }
+    else if (action === "start-local") {
+      await startOllamaRuntimeFromUi();
+      await onAiSettingsReady({ source: "local-start" });
+    }
+    else if (action === "download-local-model") {
+      await pullRecommendedOllamaModel();
+      await onAiSettingsReady({ source: "local-model" });
+    }
     else if (action === "test" || action === "test-remote") openSettingsAiDialog("test");
     else if (action === "choose-local-model") {
       const selected = String(settingsState.ai.localModel || "").trim();
@@ -347,11 +401,17 @@ $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
         ? String(settingsState.ai.localRuntimeModels[0]?.name || settingsState.ai.localRuntimeModels[0] || "").trim()
         : "";
       const model = selected || firstModel;
-      if (model) await selectInstalledLocalModelFromUi(model);
+      if (model) {
+        await selectInstalledLocalModelFromUi(model);
+        const resumed = await onAiSettingsReady({ source: "local-model" });
+        if (!resumed) openSettingsAiDialog("test");
+      }
       else $("settingsAiLocalModel")?.focus?.();
-      openSettingsAiDialog("test");
     }
-    else setStatus("AI 设置已完成。", "ok");
+    else {
+      setStatus("AI 设置已完成。", "ok");
+      await onAiSettingsReady({ source: "primary-action" });
+    }
     return;
   }
   const openButton = event.target.closest("[data-settings-ai-dialog-open]");

@@ -81,14 +81,12 @@ test("system message titles and filters derive stable user-facing state", () => 
   assert.deepEqual(filters, {
     view: "pending",
     type: "all",
-    privacyMode: "",
     sourceNoteId: "note-1",
     limit: 50
   });
   assert.deepEqual(globalPendingAiInboxFilters(), {
     view: "pending",
     type: "all",
-    privacyMode: "",
     sourceNoteId: "",
     limit: 50
   });
@@ -189,7 +187,6 @@ test("writing strong-model analysis persists review artifacts into system messag
   assert.deepEqual(artifactMessage.aiInboxFilters, {
     view: "pending",
     type: "all",
-    privacyMode: "",
     sourceNoteId: "",
     limit: 50
   });

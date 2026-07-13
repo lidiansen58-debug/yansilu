@@ -20,7 +20,8 @@ import {
 } from "./prototype-api.js";
 import {
   noteSuggestionReviewContent,
-  renderNoteEmbeddedAiWorkspace
+  renderNoteEmbeddedAiWorkspace,
+  renderNoteEmbeddedAiWorkspaceSection
 } from "./note-embedded-ai-workspace.js";
 import { aiSuggestionStatusLabel } from "./ai-suggestions-model.js";
 import {
@@ -156,6 +157,13 @@ import {
 } from "./permanent-note-sidebar-view.js";
 import { PermanentNoteSidebarController } from "./permanent-note-sidebar-controller.js";
 import { renderSourceNotePromotionPanel } from "./source-note-promotion-panel.js";
+import {
+  CONTEXTUAL_AI_ACTION_STATUS
+} from "./contextual-ai-action-model.js";
+import {
+  contextualAiActionIdFromElement,
+  contextualAiResultInputValues
+} from "./contextual-ai-result-panel.js";
 
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
@@ -301,6 +309,8 @@ export class EditorPane {
     this.permanentNoteWorkspaceController = new PermanentNoteWorkspaceController(this);
     this.permanentNoteSidebarController = null;
     this.fleetingCleanupDismissedNoteIds = new Set();
+    this.sourceDistillAiState = null;
+    this.pendingContextualAiAction = null;
     this.noteAiAnalysisByNoteId = new Map();
     this.noteAiSuggestionsState = {
       noteId: "",
@@ -326,10 +336,33 @@ export class EditorPane {
     this.bottomNoticeTimer = null;
     this.lastBottomNoticeKey = "";
     this.lastThinkingStatusNoticeKey = "";
+    this.ensureContextualAiToolbarButtons();
     this.bind();
     this.renderPreviewVisibility();
     this.initRichEditor();
     this.initMarkdownEditor();
+  }
+
+  ensureContextualAiToolbarButtons() {
+    if (this.els.checkNoteAi || !this.els.distillSourceAi?.parentElement) return;
+    const button = document.createElement("button");
+    button.className = "tb tb-label has-icon hidden";
+    button.id = "btnCheckNoteAi";
+    button.type = "button";
+    button.title = "检查这条笔记";
+    button.dataset.tip = "检查这条笔记";
+    button.dataset.contextualAiActionId = "check_note";
+    button.setAttribute("aria-label", "检查这条笔记");
+    button.innerHTML = `
+      <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M4 2.4h6.2L13 5.2v7.1a1.3 1.3 0 0 1-1.3 1.3H4.3A1.3 1.3 0 0 1 3 12.3V3.7a1.3 1.3 0 0 1 1.3-1.3z" fill="none" stroke="currentColor" stroke-width="1.15"/>
+        <path d="M10.2 2.5v2a.8.8 0 0 0 .8.8h2M5.2 7.2h4.4M5.2 9.4h2.6" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
+        <path d="M10.1 10.8l1 1 2-2.3" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>检查这条笔记</span>
+    `;
+    this.els.distillSourceAi.parentElement.insertBefore(button, this.els.distillSourceAi.nextSibling);
+    this.els.checkNoteAi = button;
   }
 
   async autoSaveTabById(tabId, trigger = "idle") {
@@ -1070,7 +1103,11 @@ export class EditorPane {
       generatedDirectoryLabel: generatedOriginal?.folderId ? this.folderLabel(generatedOriginal.folderId) : "",
       isOpen: Boolean(activeTab?.noteId && generatedOriginal?.id && activeTab.noteId === generatedOriginal.id),
       literatureCompletion: noteType === "literature" ? this.literatureCompletionState(note) : null,
-      showFleetingCleanup: this.shouldShowFleetingCleanupPrompt(note)
+      showFleetingCleanup: this.shouldShowFleetingCleanupPrompt(note),
+      aiActionState:
+        this.sourceDistillAiState?.noteId === note.id
+          ? this.sourceDistillAiState
+          : null
     });
   }
 
@@ -1511,7 +1548,19 @@ export class EditorPane {
     const active = this.detectActiveFormatting();
     const structured = this.isStructuredWorkspaceActive();
     const canUseRelationLink = this.isOriginalNote(this.activeNote());
+    const noteType = this.resolvedNoteType(this.activeNote());
+    const canDistillSource = this.isOriginalRecordableSource(this.activeNote());
+    const canCheckNote = noteType === "permanent" || noteType === "original";
     this.els.insertLink?.classList.toggle("hidden", !canUseRelationLink);
+    this.els.distillSourceAi?.classList.toggle("hidden", !canDistillSource);
+    this.els.checkNoteAi?.classList.toggle("hidden", canDistillSource || !canCheckNote);
+    if (this.els.distillSourceAi) {
+      this.els.distillSourceAi.title = "帮我提炼";
+      this.els.distillSourceAi.dataset.tip = "帮我提炼";
+      this.els.distillSourceAi.setAttribute("aria-label", "帮我提炼");
+      const label = this.els.distillSourceAi.querySelector("span");
+      if (label) label.textContent = "帮我提炼";
+    }
     if (!canUseRelationLink) this.closeLinkPicker();
     if (this.els.headingLevel) {
       const value = Number(active.headingLevel || 0);
@@ -4229,36 +4278,308 @@ export class EditorPane {
       if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) return;
       if (!this.isActiveNoteId(noteId)) return;
     }
-    const result = await this.onStateChange("run-note-ai-analysis", {
+    const ready = await this.onStateChange("ensure-ai-ready-for-feature", {
+      feature: "note_analysis",
       noteId,
-      relatedNoteIds: this.relatedPermanentNoteIds(note),
-      persistArtifacts: true,
-      openInbox: false
+      returnContext: { view: "note", noteId }
     });
-    if (result) {
-      this.noteAiAnalysisByNoteId.set(noteId, result);
-      if (!this.isActiveNoteId(noteId)) return;
-      const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
-      const overview = this.buildMainPathOverviewV2({
-        forward,
-        backward,
-        tagRelated,
-        relations: this.currentSemanticRelations,
-        relationState: this.semanticRelationsState
+    if (ready?.ready === false) {
+      this.rememberPendingContextualAiAction("note_analysis", { noteId });
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsStateForNote(noteId),
+        noteId,
+        loading: false,
+        error: "",
+        items: []
+      };
+      if (
+        this.permanentRelationWorkspaceState.open &&
+        this.permanentRelationWorkspaceState.noteId === noteId &&
+        this.permanentRelationWorkspaceState.mode === "ai"
+      ) {
+        this.closePermanentRelationWorkspace();
+      }
+      this.renderEmbeddedAiWorkspaceMount(noteId);
+      return;
+    }
+    this.clearPendingContextualAiAction("note_analysis", noteId);
+    let result = null;
+    try {
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsStateForNote(noteId),
+        noteId,
+        loading: true,
+        error: "",
+        items: []
+      };
+      this.renderEmbeddedAiWorkspaceMount(noteId);
+      result = await this.onStateChange("run-note-ai-analysis", {
+        noteId,
+        relatedNoteIds: this.relatedPermanentNoteIds(note),
+        persistArtifacts: true,
+        openInbox: false
       });
-      this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
-      if (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId === noteId) {
+    } catch (error) {
+      if (!this.isActiveNoteId(noteId)) return;
+      const message = String(error?.message || error || "检查失败");
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsStateForNote(noteId),
+        noteId,
+        loading: false,
+        error: message,
+        items: []
+      };
+      this.renderEmbeddedAiWorkspaceMount(noteId);
+      if (
+        this.permanentRelationWorkspaceState.open &&
+        this.permanentRelationWorkspaceState.noteId === noteId &&
+        this.permanentRelationWorkspaceState.mode === "ai"
+      ) {
         this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
           ...this.permanentRelationWorkspaceState,
-          mode: "manual",
           saveState: "idle",
-          error: "",
-          notice: ""
+          error: "推荐失败，可以改用搜索笔记。"
         }, noteId);
         this.syncPermanentRelationWorkspaceOverlay();
       }
-      this.onStatus("AI 推荐已更新，请确认是否保存关系。", "ok");
+      this.onStatus("检查失败，请稍后重试", "warn");
+      return;
     }
+    if (!result) {
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsStateForNote(noteId),
+        noteId,
+        loading: false,
+        error: "没有生成检查结果，请稍后重试。",
+        items: []
+      };
+      this.renderEmbeddedAiWorkspaceMount(noteId);
+      if (
+        this.permanentRelationWorkspaceState.open &&
+        this.permanentRelationWorkspaceState.noteId === noteId &&
+        this.permanentRelationWorkspaceState.mode === "ai"
+      ) {
+        this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+          ...this.permanentRelationWorkspaceState,
+          saveState: "idle",
+          error: "暂时没有推荐，可以改用搜索笔记。"
+        }, noteId);
+        this.syncPermanentRelationWorkspaceOverlay();
+      }
+      return;
+    }
+    this.noteAiAnalysisByNoteId.set(noteId, result);
+    if (!this.isActiveNoteId(noteId)) return;
+    const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
+    const overview = this.buildMainPathOverviewV2({
+      forward,
+      backward,
+      tagRelated,
+      relations: this.currentSemanticRelations,
+      relationState: this.semanticRelationsState
+    });
+    this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
+    await this.refreshNoteAiSuggestions(noteId, { preserveActionFeedback: true });
+    if (!this.isActiveNoteId(noteId)) return;
+    if (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId === noteId) {
+      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+        ...this.permanentRelationWorkspaceState,
+        mode: "manual",
+        saveState: "idle",
+        error: "",
+        notice: ""
+      }, noteId);
+      this.syncPermanentRelationWorkspaceOverlay();
+    }
+    this.onStatus("检查结果已更新", "ok");
+  }
+
+  setSourceDistillAiState(nextState = null) {
+    this.sourceDistillAiState = nextState;
+    if (this.els?.result) this.renderRelated?.();
+  }
+
+  rememberPendingContextualAiAction(actionId = "", context = {}) {
+    const noteId = String(context.noteId || "").trim();
+    const cleanActionId = String(actionId || "").trim();
+    if (!cleanActionId || !noteId) return null;
+    this.pendingContextualAiAction = {
+      actionId: cleanActionId,
+      noteId
+    };
+    return this.pendingContextualAiAction;
+  }
+
+  clearPendingContextualAiAction(actionId = "", noteId = "") {
+    const pending = this.pendingContextualAiAction;
+    if (!pending) return false;
+    const cleanActionId = String(actionId || "").trim();
+    const cleanNoteId = String(noteId || "").trim();
+    if (cleanActionId && pending.actionId !== cleanActionId) return false;
+    if (cleanNoteId && pending.noteId !== cleanNoteId) return false;
+    this.pendingContextualAiAction = null;
+    return true;
+  }
+
+  async resumePendingContextualAiAction() {
+    const pending = this.pendingContextualAiAction;
+    if (!pending?.actionId || !pending?.noteId) return false;
+    const note = (this.state.notes || []).find((item) => item.id === pending.noteId);
+    if (!note) {
+      this.pendingContextualAiAction = null;
+      this.onStatus("刚才的笔记已不可用，已取消 AI 操作。", "warn");
+      return false;
+    }
+    if (!this.isActiveNoteId(pending.noteId)) {
+      const opened = this.onOpenNote?.(pending.noteId);
+      if (opened === false) {
+        this.pendingContextualAiAction = null;
+        this.onStatus("没有找到刚才的笔记，已取消 AI 操作。", "warn");
+        return false;
+      }
+    }
+    if (pending.actionId === "distill_material") {
+      this.pendingContextualAiAction = null;
+      await this.runSourceDistillAction();
+      return true;
+    }
+    if (pending.actionId === "note_analysis") {
+      this.pendingContextualAiAction = null;
+      await this.runPermanentNoteAnalysis();
+      return true;
+    }
+    this.pendingContextualAiAction = null;
+    return false;
+  }
+
+  sourceDistillContext(note, options = {}) {
+    return {
+      noteId: note?.id || "",
+      sourceNoteId: note?.id || "",
+      sourceType: this.resolvedNoteType(note),
+      sourceTitle: note?.title || "",
+      sourceBody: this.getEditorValue(),
+      returnContext: { view: "editor", noteId: note?.id || "" },
+      remoteConfirmed: options.remoteConfirmed === true
+    };
+  }
+
+  sourceDistillDraftFromValues(values = []) {
+    const draft = this.sourceDistillAiState?.result?.draft || {};
+    const keys = ["title", "coreArgument", "content", "questions"].filter((key) => draft[key] !== undefined);
+    const nextDraft = { ...draft };
+    values.forEach((item) => {
+      const key = item.field || keys[item.index];
+      if (key) nextDraft[key] = item.value;
+    });
+    return nextDraft;
+  }
+
+  permanentDraftBodyFromSourceDistill(draft = {}) {
+    const title = String(draft.title || "").trim() || "未命名永久笔记";
+    const coreArgument = String(draft.coreArgument || "").trim();
+    const content = String(draft.content || "").trim();
+    const questions = String(draft.questions || "").trim();
+    return [
+      `# ${title}`,
+      "",
+      "## 核心观点",
+      coreArgument,
+      "",
+      "## 说明",
+      content,
+      "",
+      "## 待确认问题",
+      questions
+    ].join("\n").trim();
+  }
+
+  async createPermanentNoteFromSourceDistill(values = []) {
+    const note = this.activeNote();
+    if (!note || !this.isOriginalRecordableSource(note)) return false;
+    const draft = this.sourceDistillDraftFromValues(values);
+    const directoryId = await this.pickPermanentDirectoryForNote(note);
+    if (!directoryId) return false;
+    const created = await this.onStateChange("record-original-from-note", {
+      sourceNoteId: note.id,
+      sourceType: this.resolvedNoteType(note),
+      sourceTitle: note.title,
+      sourceBody: this.getEditorValue(),
+      draftTitle: draft.title || note.title,
+      draftBody: this.permanentDraftBodyFromSourceDistill(draft),
+      directoryId
+    });
+    if (!created) {
+      this.setSourceDistillAiState({
+        ...(this.sourceDistillAiState || {}),
+        status: CONTEXTUAL_AI_ACTION_STATUS.failed,
+        error: "永久笔记创建失败，请重试。"
+      });
+      return false;
+    }
+    this.setSourceDistillAiState({
+      ...(this.sourceDistillAiState || {}),
+      status: CONTEXTUAL_AI_ACTION_STATUS.adopted
+    });
+    return true;
+  }
+
+  async runSourceDistillAction(options = {}) {
+    const note = this.activeNote();
+    if (!note || !this.isOriginalRecordableSource(note)) {
+      this.onStatus("随笔笔记和文献笔记才能提炼", "warn");
+      return false;
+    }
+    const ready = await this.onStateChange("ensure-ai-ready-for-feature", {
+      feature: "distill_material",
+      returnContext: { view: "editor", noteId: note.id }
+    });
+    if (ready?.ready === false) {
+      this.rememberPendingContextualAiAction("distill_material", { noteId: note.id });
+      return false;
+    }
+    this.clearPendingContextualAiAction("distill_material", note.id);
+    if (ready?.mode === "remote" && options.remoteConfirmed !== true) {
+      this.setSourceDistillAiState({
+        actionId: "distill_material",
+        noteId: note.id,
+        status: CONTEXTUAL_AI_ACTION_STATUS.needs_remote_confirmation,
+        result: null,
+        error: "",
+        returnContext: { view: "editor", noteId: note.id }
+      });
+      return false;
+    }
+    this.setSourceDistillAiState({
+      actionId: "distill_material",
+      noteId: note.id,
+      status: CONTEXTUAL_AI_ACTION_STATUS.running,
+      result: null,
+      error: "",
+      returnContext: { view: "editor", noteId: note.id }
+    });
+    try {
+      const result = await this.onStateChange("run-source-distill-ai", this.sourceDistillContext(note, options));
+      if (!result) throw new Error("没有生成可用草稿");
+      this.setSourceDistillAiState({
+        actionId: "distill_material",
+        noteId: note.id,
+        status: CONTEXTUAL_AI_ACTION_STATUS.awaiting_confirmation,
+        result,
+        error: "",
+        returnContext: { view: "editor", noteId: note.id }
+      });
+    } catch (error) {
+      this.setSourceDistillAiState({
+        actionId: "distill_material",
+        noteId: note.id,
+        status: CONTEXTUAL_AI_ACTION_STATUS.failed,
+        result: null,
+        error: String(error?.message || error || "提炼失败"),
+        returnContext: { view: "editor", noteId: note.id }
+      });
+    }
+    return true;
   }
 
   legacyPermanentNoteMainPathSummary(note, overview = {}) {
@@ -5040,6 +5361,11 @@ export class EditorPane {
     return renderNoteEmbeddedAiWorkspace(this.noteAiSuggestionsStateForNote(noteId));
   }
 
+  renderNoteEmbeddedAiWorkspaceSectionForNote(note) {
+    if (!note?.id) return "";
+    return renderNoteEmbeddedAiWorkspaceSection(note, this.noteAiSuggestionsStateForNote(note.id));
+  }
+
   noteAiSuggestionsStateForNote(noteId = "") {
     const cleanNoteId = String(noteId || "").trim();
     if (cleanNoteId && this.noteAiSuggestionsState.noteId === cleanNoteId) return this.noteAiSuggestionsState;
@@ -5178,7 +5504,7 @@ export class EditorPane {
       }
       if (!cleanArtifactId) cleanArtifactId = String(latest?.sourceArtifactId || currentSuggestion?.sourceArtifactId || "").trim();
       if (cleanAction === "adopted_as_draft") {
-        if (!cleanArtifactId) throw new Error("这条建议缺少 source artifact，暂时不能采纳为草稿。");
+        if (!cleanArtifactId) throw new Error("这条建议缺少来源内容，暂时不能采纳为草稿。");
         await adoptAiInboxFieldSuggestion(cleanArtifactId, { confirm: true, canonical: true });
         const refreshed = await fetchNote(noteId);
         if (refreshed) Object.assign(note, refreshed);
@@ -6109,7 +6435,6 @@ export class EditorPane {
       }
       const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");
       if (aiAnalysisButton) {
-        this.activatePermanentWorkspaceTab("relations");
         void this.runPermanentNoteAnalysis();
         return;
       }
@@ -6165,6 +6490,21 @@ export class EditorPane {
           noteId: this.activeNote()?.id || "",
           artifactId: noteAiOpenInbox.getAttribute("data-note-ai-open-inbox") || ""
         });
+        return;
+      }
+
+      const sourceContextualAiAction = e.target.closest("[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]");
+      if (sourceContextualAiAction && sourceContextualAiAction.closest("[data-source-note-flow-section]")) {
+        const actionId = contextualAiActionIdFromElement(sourceContextualAiAction, "distill_material");
+        if (actionId !== "distill_material") return;
+        if (sourceContextualAiAction.hasAttribute("data-contextual-ai-confirm-remote")) {
+          void this.runSourceDistillAction({ remoteConfirmed: true });
+        } else if (sourceContextualAiAction.hasAttribute("data-contextual-ai-adopt")) {
+          void this.createPermanentNoteFromSourceDistill(contextualAiResultInputValues(this.els.result));
+        } else {
+          this.setSourceDistillAiState(null);
+          this.onStatus("已关闭提炼结果", "ok");
+        }
         return;
       }
 
@@ -6552,7 +6892,7 @@ export class EditorPane {
       await this.saveActiveNote();
     });
 
-    this.els.recordPermanent?.addEventListener("click", async () => {
+    const recordSourceAsPermanent = async () => {
       const note = this.activeNote();
       if (!note || !this.isOriginalRecordableSource(note)) {
         this.onStatus("随笔笔记和文献笔记才能创建永久笔记", "warn");
@@ -6567,6 +6907,14 @@ export class EditorPane {
         sourceBody: this.getEditorValue(),
         directoryId
       });
+    };
+
+    this.els.recordPermanent?.addEventListener("click", recordSourceAsPermanent);
+    this.els.distillSourceAi?.addEventListener("click", () => {
+      void this.runSourceDistillAction();
+    });
+    this.els.checkNoteAi?.addEventListener("click", () => {
+      void this.runPermanentNoteAnalysis();
     });
 
     this.els.completeNote?.addEventListener("click", async () => {

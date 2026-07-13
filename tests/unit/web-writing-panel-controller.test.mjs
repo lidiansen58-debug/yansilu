@@ -385,7 +385,7 @@ test("writing panel controller renders strong model request details", () => {
   });
 
   const html = nodes.get("writingStrongModelRequestDetail").innerHTML;
-  assert.match(html, /gpt-test/);
+  assert.doesNotMatch(html, /gpt-test/);
   assert.match(html, /Note &lt;one&gt;/);
   assert.match(html, /Write &lt;clearly&gt;/);
   assert.match(html, /Readers/);

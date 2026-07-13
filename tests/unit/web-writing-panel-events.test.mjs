@@ -65,6 +65,15 @@ function buttonTarget(selector, button) {
   };
 }
 
+function contextualAiButton(actionAttrs = {}, actionId = "check_outline") {
+  return {
+    hasAttribute: (name) => actionAttrs[name] === true,
+    closest: (selector) => selector === "[data-contextual-ai-action-id]"
+      ? { getAttribute: () => actionId }
+      : null
+  };
+}
+
 test("writing panel basket installer wires core basket controls through latest deps", async () => {
   const handlers = new Map();
   let version = "first";
@@ -76,6 +85,7 @@ test("writing panel basket installer wires core basket controls through latest d
     ["btnWritingClearBasket", {}],
     ["writingBasketNoteIds", {}],
     ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
     ["btnWritingLocalBookIdeas", {}],
     ["writingCandidateList", {}],
     ["writingBasketList", {}],
@@ -106,7 +116,7 @@ test("writing panel basket installer wires core basket controls through latest d
     })
   });
 
-  assert.equal(registrations.length, 9);
+  assert.equal(registrations.length, 10);
   assert.equal(registrations.every((item) => item.installed), true);
 
   handlers.get("btnWritingUseCurrent:click")();
@@ -119,6 +129,229 @@ test("writing panel basket installer wires core basket controls through latest d
   assert.deepEqual(calls.at(-3), ["manual", "second"]);
   assert.deepEqual(calls.at(-2), ["render", "second"]);
   assert.deepEqual(calls.at(-1), ["strong", "second"]);
+});
+
+test("writing panel contextual AI remote confirmation resumes outline check in place", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      prepareWritingStrongModelAnalysis: async (options) => calls.push(["prepare", options]),
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget("[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]", {
+      hasAttribute: (name) => name === "data-contextual-ai-confirm-remote"
+    }),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [["prepare", { remoteConfirmed: true }], ["render"]]);
+});
+
+test("writing panel contextual AI remote confirmation uses a generic handler for non-outline actions", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      confirmContextualAiAction: async (...args) => {
+        calls.push(["confirm", ...args]);
+        return true;
+      },
+      prepareWritingStrongModelAnalysis: async (...args) => calls.push(["prepare", ...args]),
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-confirm-remote": true }, "suggest_theme")
+    ),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [
+    ["confirm", { actionId: "suggest_theme", remoteConfirmed: true }],
+    ["render"]
+  ]);
+});
+
+test("writing panel contextual AI remote confirmation does not run outline check for another action", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      prepareWritingStrongModelAnalysis: async (...args) => calls.push(["prepare", ...args]),
+      renderWritingPanel: () => calls.push(["render"]),
+      setStatus: (...args) => calls.push(["status", ...args])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-confirm-remote": true }, "suggest_theme")
+    ),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [
+    ["status", "当前 AI 操作还不能在这里继续。", "warn"],
+    ["render"]
+  ]);
+});
+
+test("writing panel contextual AI adopt action passes edited values to the controller", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      contextualAiController: {
+        adopt: async (...args) => calls.push(["adopt", ...args])
+      },
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-adopt": true }, "suggest_theme")
+    ),
+    currentTarget: {
+      querySelectorAll: () => [
+        { getAttribute: (name) => name === "data-contextual-ai-field" ? "title" : "0", value: "  updated title  " },
+        { getAttribute: (name) => name === "data-contextual-ai-field" ? "body" : "1", value: "updated body" }
+      ]
+    }
+  });
+
+  assert.deepEqual(calls, [
+    ["adopt", "suggest_theme", { values: [
+      { field: "title", index: 0, value: "updated title" },
+      { field: "body", index: 1, value: "updated body" }
+    ] }],
+    ["render"]
+  ]);
+});
+
+test("writing panel contextual AI close action uses the panel action id", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      contextualAiController: {
+        ignore: async (...args) => calls.push(["ignore", ...args])
+      },
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-ignore": true }, "recommend_relation")
+    ),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [
+    ["ignore", "recommend_relation"],
+    ["render"]
+  ]);
 });
 
 test("writing panel current-note handler validates note eligibility", () => {
@@ -753,7 +986,8 @@ test("writing draft action installer wires primary draft buttons through latest 
     ["writingGoal", {}],
     ["writingScaffoldPreview", {}],
     ["btnWritingStartDraft", {}],
-    ["btnWritingOutlineCheckPlaceholder", {}]
+    ["btnWritingOutlineCheckPlaceholder", {}],
+    ["writingPanel", {}]
   ]);
   for (const [id, element] of elements) {
     element.addEventListener = (eventName, handler) => handlers.set(`${id}:${eventName}`, handler);
@@ -779,6 +1013,7 @@ test("writing draft action installer wires primary draft buttons through latest 
         return { fileName: "s.md" };
       },
       openWritingDraftNoteById: async (noteId) => calls.push(["openDraft", version, noteId]),
+      prepareWritingStrongModelAnalysis: async () => calls.push(["check-outline", version]),
       writingDraftBody: () => "# Draft from outline",
       loadWritingProjectsList: async () => calls.push(["projects", version]),
       loadWritingScaffoldVersions: async () => calls.push(["scaffolds", version]),
@@ -788,7 +1023,7 @@ test("writing draft action installer wires primary draft buttons through latest 
     })
   });
 
-  assert.equal(registrations.length, 14);
+  assert.equal(registrations.length, 15);
   assert.equal(registrations.every((item) => item.installed), true);
 
   await handlers.get("btnWritingCreateProject:click")();
@@ -816,6 +1051,11 @@ test("writing draft action installer wires primary draft buttons through latest 
   });
   handlers.get("btnWritingStartDraft:click")();
   await handlers.get("btnWritingOutlineCheckPlaceholder:click")();
+  await handlers.get("writingPanel:click")({
+    target: {
+      closest: (selector) => selector === "#btnWritingOutlineCheckPlaceholder" ? {} : null
+    }
+  });
 
   assert.deepEqual(calls[0], ["createProject", "first"]);
   assert.ok(calls.some((call) => call[0] === "createScaffold" && call[1] === "second"));
@@ -824,7 +1064,7 @@ test("writing draft action installer wires primary draft buttons through latest 
   assert.ok(calls.some((call) => call[0] === "openDraft" && call[1] === "second" && call[2] === "n1"));
   assert.equal(writingState.draftMarkdown, "edited draft");
   assert.equal(writingState.scaffoldMarkdown, "md");
-  assert.ok(calls.some((call) => call[0] === "status" && call[2] === "检查提纲入口已保留，本次不执行 AI 检查。"));
+  assert.equal(calls.filter((call) => call[0] === "check-outline" && call[1] === "second").length, 2);
 });
 
 test("writing outline handlers edit sections and report status", () => {

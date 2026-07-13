@@ -118,7 +118,7 @@ export function settingsSectionChromeMap({
     },
     ai: {
       badge: settingsAiRuntimeModeLabel(settingsState.ai?.runtimeMode),
-      meta: aiSummary.meta || "本地环境、远程环境与使用方式"
+      meta: aiSummary.meta || "本机 AI、在线 AI 与使用方式"
     },
     automation: {
       badge: String(automationCount),
@@ -288,13 +288,16 @@ export function settingsItemSummary(itemId = "") {
     "mobile-access": "扫码连接手机。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
-    "ai-settings": "从本地大模型或远程大模型入口开始配置。",
+    "ai-settings": "",
     automation: "处理待确认建议，必要时再查看后台任务和运行结果。",
     "version-update": "检查新版本，必要时打开下载页。",
     "desktop-help": "说明笔记文件、数据库和笔记库切换规则。",
     feedback: "反馈问题或复制排查信息。"
   };
-  return summaries[normalizeSettingsItem(itemId)] || "右侧只显示当前点击设置项相关的内容。";
+  const key = normalizeSettingsItem(itemId);
+  return Object.prototype.hasOwnProperty.call(summaries, key)
+    ? summaries[key]
+    : "右侧只显示当前点击设置项相关的内容。";
 }
 
 export function formatSettingsUserError(errorMessage = "") {
@@ -333,10 +336,10 @@ export function settingsSectionGuidanceMap({
       ]
     },
     ai: {
-      focus: `先选择“本地大模型”或“远程大模型”入口，再确认当前 AI 方案 ${aiSummary.value} 是否适合日常研究。`,
+      focus: `先选择“本机 AI”或“在线 AI”，再确认当前方案 ${aiSummary.value} 是否适合日常研究。`,
       notes: [
-        "本地大模型适合敏感资料和离线研究。",
-        "远程大模型适合团队网关、云端模型或统一服务。",
+        "本机 AI 适合敏感资料和离线研究。",
+        "在线 AI 适合团队网关、云端模型或统一服务。",
         "入口向导完成后，再用一句不含敏感内容的短句试运行。"
       ]
     },

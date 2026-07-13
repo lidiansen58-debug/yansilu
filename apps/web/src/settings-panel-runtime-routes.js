@@ -86,11 +86,20 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
     const routeModelName = routeModel.includes(":") ? routeModel.slice(routeModel.lastIndexOf(":") + 1) : routeModel;
     const rawValue = routeModelName || localModel || String(current.settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
     const value = settingsAiModelPackDisplayLabel(rawValue);
-    const metaParts = [
-      settingsAiRuntimeModeLabel(current.settingsState.ai.runtimeMode),
-      settingsAiUserModeDisplayLabel(current.settingsState.ai.userMode)
-    ];
-    if (providerName) metaParts.push(settingsAiProviderDisplayLabel(providerName));
+    const runtimeMode = normalizeAiRuntimeMode(current.settingsState.ai.runtimeMode || "auto");
+    const advancedModelRef = String(current.settingsState.ai.advancedModelRef || "").trim();
+    const secretRef = String(current.settingsState.ai.secretRef || "").trim();
+    const hasUserConfig = Boolean(localModel || advancedModelRef || secretRef || runtimeMode === "local_only" || runtimeMode === "cloud_only" || runtimeMode === "off");
+    const metaParts = [];
+    if (runtimeMode === "off") {
+      metaParts.push("停用");
+    } else if (!hasUserConfig) {
+      metaParts.push("未配置");
+    } else if (providerName) {
+      metaParts.push(settingsAiProviderDisplayLabel(providerName));
+    } else {
+      metaParts.push(settingsAiRuntimeModeLabel(runtimeMode));
+    }
     return {
       value,
       meta: metaParts.filter(Boolean).join(" / ")

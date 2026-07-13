@@ -81,10 +81,9 @@ export function aiInboxTypeOptions() {
 export function normalizeAiInboxFilters(filters = {}) {
   const view = VIEW_VALUES.includes(cleanText(filters.view)) ? cleanText(filters.view) : "pending";
   const type = TYPE_VALUES.includes(cleanText(filters.type)) ? cleanText(filters.type) : "all";
-  const privacyMode = cleanText(filters.privacyMode);
   const sourceNoteId = cleanText(filters.sourceNoteId);
   const limit = Math.max(1, Math.min(100, Number(filters.limit || 50) || 50));
-  return { view, type, privacyMode, sourceNoteId, limit };
+  return { view, type, sourceNoteId, limit };
 }
 
 export function aiInboxStatusLabel(status = "") {

@@ -84,17 +84,17 @@ export function noteSuggestionReviewContent(note = {}, suggestion = {}) {
 export function renderNoteEmbeddedAiWorkspace(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
   if (state.loading) {
-    return `<div class="related-empty">正在读取这条笔记的 AI 建议...</div>`;
+    return `<div class="related-empty">正在检查这条笔记…</div>`;
   }
   if (state.error) {
-    return `<div class="related-empty bad">AI 建议加载失败：${escapeHtml(state.error)}</div>`;
+    return `<div class="related-empty bad">检查失败：${escapeHtml(state.error)}</div>`;
   }
   if (!items.length) {
     return `
       <div class="related-empty">
-        这条笔记暂时没有待处理 AI 建议。可以先运行这条笔记的 AI 分析；生成的建议会留在这里，由你决定是否采纳。
+        还没有检查结果。
         <div class="semantic-relation-actions">
-          <button class="mini-btn" type="button" data-note-ai-analysis>运行这条笔记的 AI 分析</button>
+          <button class="mini-btn" type="button" data-note-ai-analysis>检查这条笔记</button>
         </div>
       </div>
     `;
@@ -103,14 +103,12 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
   return `
     <div class="semantic-relation-group">
       <div class="semantic-relation-group-head">
-        <strong>当前笔记的 AI 建议</strong>
-        <span>${escapeHtml(items.length)}</span>
-      </div>
-      <div class="related-empty">
-        先在当前笔记里审阅：采纳只是写入草稿，确认前仍需要你检查和编辑。
+        <strong>检查结果</strong>
+        <span>${escapeHtml(Math.min(items.length, 3))}</span>
       </div>
       <div class="inspector-list">
         ${items
+          .slice(0, 3)
           .map((item) => {
             const field = normalizeFieldName(item?.target?.field);
             const actions = aiSuggestionActionSet(item);
@@ -125,10 +123,6 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
                   <span class="ai-inbox-badge tone-${escapeHtml(aiSuggestionStatusTone(item.status) || "muted")}">${escapeHtml(aiSuggestionStatusLabel(item.status))}</span>
                 </span>
                 <span class="related-item-preview">${escapeHtml(suggestionPreview(item.content, field) || "这条建议还没有可展示的内容。")}</span>
-                <span class="related-item-badges">
-                  <span class="related-item-badge">${escapeHtml(item.target?.field ? `字段：${fieldLabel(field)}` : "对象级建议")}</span>
-                  ${item.sourceArtifactId ? `<span class="related-item-badge">来源 ${escapeHtml(item.sourceArtifactId)}</span>` : ""}
-                </span>
                 ${
                   notice
                     ? `<div class="related-empty ${escapeHtml(state.actionNoticeTone || "")}" data-note-ai-suggestion-notice="true">${escapeHtml(notice)}</div>`
@@ -152,14 +146,6 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
                       `
                     )
                     .join("")}
-                  <button
-                    class="mini-btn"
-                    type="button"
-                    data-note-ai-open-inbox="${escapeHtml(item.sourceArtifactId || "")}"
-                    ${busy ? "disabled" : ""}
-                  >
-                    打开完整审阅
-                  </button>
                 </div>
               </section>
             `;
@@ -167,5 +153,19 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
           .join("")}
       </div>
     </div>
+  `;
+}
+
+export function renderNoteEmbeddedAiWorkspaceSection(note = {}, state = {}) {
+  if (!note?.id) return "";
+  return `
+    <section class="permanent-workspace-card note-ai-check-panel" data-note-ai-check-section data-note-id="${escapeHtml(note.id)}">
+      <div class="semantic-relation-group-head">
+        <strong>检查笔记</strong>
+      </div>
+      <div data-note-embedded-ai-workspace data-note-id="${escapeHtml(note.id)}">
+        ${renderNoteEmbeddedAiWorkspace(state)}
+      </div>
+    </section>
   `;
 }

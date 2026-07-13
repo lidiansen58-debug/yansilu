@@ -334,12 +334,12 @@ export function renderWritingPanelDom(deps = {}) {
               actionLabel: basketIdSet.has(entry.id) ? "移出相关笔记" : "加入相关笔记"
             })
           )
-          .join("")}${hiddenCandidateCount ? `<div class="writing-empty">还有 ${hiddenCandidateCount} 条候选。展开本区块后会加载完整列表，避免首屏一次铺开太多按钮。</div>` : ""}`
+          .join("")}${hiddenCandidateCount ? `<div class="writing-empty">还有 ${hiddenCandidateCount} 条笔记。展开后可继续添加。</div>` : ""}`
       : `<div class="writing-empty">${candidateFocusPlan.usingFocusedScope ? `${candidateFocusPlan.scopeLabel}里还没有可用的永久笔记。` : "当前目录还没有可用的永久笔记。"}</div>`;
   }
   if ($("btnWritingAddVisible")) {
     const candidateListExpanded = Boolean(candidateDetails?.open);
-    $("btnWritingAddVisible").textContent = candidateListExpanded ? candidateFocusPlan.addActionLabel : "加入已加载候选";
+    $("btnWritingAddVisible").textContent = candidateListExpanded ? candidateFocusPlan.addActionLabel : "加入已显示笔记";
     $("btnWritingAddVisible").disabled = candidates.length === 0;
   }
 
@@ -408,6 +408,7 @@ export function renderWritingPanelDom(deps = {}) {
     basketIds,
     strongModelButton,
     strongModelSummary,
+    contextualAiState: writingState.contextualAiActionState,
     describeWritingStrongModelIdleSummary
   });
   renderWritingStrongModelRequestDetailDom(deps, { noteIds: strongModelBasketIds, strongModelReady });

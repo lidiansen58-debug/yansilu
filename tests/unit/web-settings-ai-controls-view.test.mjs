@@ -185,9 +185,9 @@ test("settings AI provider controls separate connection health from successful A
 
   assert.equal(get("settingsAiRemoteRuntimeModel").value, "deepseek-chat");
   assert.equal(get("settingsAiRemoteRuntimeModel").disabled, false);
-  assert.equal(get("settingsAiProviderConfigBadge").textContent, "连接正常");
+  assert.notEqual(get("settingsAiProviderConfigBadge").textContent, "连接正常");
   assert.ok(!get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
-  assert.equal(get("settingsAiSaveProviderConfig").textContent, "保存远程设置");
+  assert.equal(get("settingsAiSaveProviderConfig").textContent, "先测试连接");
   assert.equal(get("settingsAiCheckProviderHealth").textContent, "测试连接");
   assert.equal(get("settingsAiCheckProviderHealth").disabled, false);
 });
@@ -205,6 +205,10 @@ test("settings AI provider controls marks provider ready only after test output"
         secretRef: "AI_KEY",
         providerHealthResult: { record: { status: "healthy", latencyMs: 42 } },
         testStatus: "success",
+        testProviderId: "openai_compatible_gateway",
+        testEndpointUrl: "https://api.example/v1/chat",
+        testRemoteModel: "deepseek-chat",
+        testSecretRef: "AI_KEY",
         testOutput: "pong"
       }
     },
@@ -236,7 +240,16 @@ test("settings AI provider controls do not mark failed test output as successful
         providerHealthEndpointUrl: "",
         secretRef: "AI_KEY",
         providerHealthResult: { record: { status: "healthy", latencyMs: 42 } },
+        providerHealthProviderId: "openai_compatible_gateway",
+        providerHealthEndpointUrlSnapshot: "https://api.example/v1/chat",
+        providerHealthCheckEndpointUrlSnapshot: "",
+        providerHealthRemoteModel: "deepseek-chat",
+        providerHealthSecretRef: "AI_KEY",
         testStatus: "failed",
+        testProviderId: "openai_compatible_gateway",
+        testEndpointUrl: "https://api.example/v1/chat",
+        testRemoteModel: "deepseek-chat",
+        testSecretRef: "AI_KEY",
         testOutput: "timeout"
       }
     },
@@ -252,8 +265,11 @@ test("settings AI provider controls do not mark failed test output as successful
     defaultProviderHealthEndpointUrl: () => "https://api.example/health"
   });
 
-  assert.equal(get("settingsAiProviderConfigBadge").textContent, "连接正常");
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "需检查");
   assert.ok(!get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "ok" && force === true));
+  assert.ok(get("settingsAiProviderConfigBadge").toggles.some(([name, force]) => name === "warn" && force === true));
+  assert.equal(get("settingsAiSaveProviderConfig").disabled, true);
+  assert.equal(get("settingsAiSaveProviderConfig").textContent, "先测试连接");
 });
 
 test("settings AI provider controls disable platform managed provider actions", () => {

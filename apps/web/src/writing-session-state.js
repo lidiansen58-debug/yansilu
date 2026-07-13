@@ -49,5 +49,7 @@ export function resetWritingStrongModelStateForRuntime(writingState = {}) {
   writingState.strongModelLoading = false;
   writingState.strongModelResult = null;
   writingState.strongModelError = "";
+  writingState.contextualAiActionState = null;
+  writingState.pendingContextualAiAction = null;
   return writingState.strongModelRevision;
 }

@@ -2716,12 +2716,14 @@
       color: #7c4a03;
       box-shadow: 0 12px 24px rgba(180, 83, 9, 0.18);
     }
-    #btnRecordPermanent { --tb-accent: #0f766e; }
+    #btnRecordPermanent,
+    #btnDistillSourceAi { --tb-accent: #0f766e; }
     #btnSave { --tb-accent: #16a34a; }
     #btnInsertImage { --tb-accent: #0284c7; }
     #btnInsertLink { --tb-accent: #2563eb; }
     #btnInsertTag { --tb-accent: #db2777; }
-    #btnRecordPermanent:not(.hidden) {
+    #btnRecordPermanent:not(.hidden),
+    #btnDistillSourceAi:not(.hidden) {
       min-width: 128px;
       padding: 0 14px;
       border-color: rgba(13, 148, 136, 0.46);
@@ -2729,7 +2731,8 @@
       color: #ffffff;
       box-shadow: 0 12px 24px rgba(15, 118, 110, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.22);
     }
-    #btnRecordPermanent:not(.hidden):hover {
+    #btnRecordPermanent:not(.hidden):hover,
+    #btnDistillSourceAi:not(.hidden):hover {
       border-color: rgba(13, 148, 136, 0.62);
       background: linear-gradient(135deg, #0d806a 0%, #0d6f66 100%);
       color: #ffffff;
@@ -20597,6 +20600,7 @@
     #editorWorkspace > .toolbar #btnFocusMode,
     #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon,
     #editorWorkspace > .toolbar #btnRecordPermanent,
+    #editorWorkspace > .toolbar #btnDistillSourceAi,
     #editorWorkspace > .toolbar #btnSave {
       width: 40px !important;
       min-width: 40px !important;
@@ -20609,6 +20613,7 @@
     #editorWorkspace > .toolbar .tb-label.has-icon span,
     #editorWorkspace > .toolbar #btnFocusMode span,
     #editorWorkspace > .toolbar #btnRecordPermanent span,
+    #editorWorkspace > .toolbar #btnDistillSourceAi span,
     #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon span {
       display: none !important;
     }
@@ -20622,6 +20627,20 @@
     }
 
     #editorWorkspace > .toolbar .relation-primary:not(.hidden) span {
+      display: inline !important;
+      white-space: nowrap;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    #editorWorkspace > .toolbar #btnDistillSourceAi:not(.hidden) {
+      width: auto !important;
+      min-width: 112px !important;
+      padding: 0 14px !important;
+      gap: 8px !important;
+    }
+
+    #editorWorkspace > .toolbar #btnDistillSourceAi:not(.hidden) span {
       display: inline !important;
       white-space: nowrap;
       line-height: 1;
@@ -21597,7 +21616,8 @@
       font-weight: 800;
     }
 
-    .editor-stage-shell #btnRecordPermanent:not(.hidden) {
+    .editor-stage-shell #btnRecordPermanent:not(.hidden),
+    .editor-stage-shell #btnDistillSourceAi:not(.hidden) {
       width: 40px !important;
       min-width: 40px !important;
       height: 40px !important;
@@ -21612,15 +21632,32 @@
     }
 
     .editor-stage-shell #btnRecordPermanent:not(.hidden):hover,
-    .editor-stage-shell #btnRecordPermanent:not(.hidden):focus-visible {
+    .editor-stage-shell #btnRecordPermanent:not(.hidden):focus-visible,
+    .editor-stage-shell #btnDistillSourceAi:not(.hidden):hover,
+    .editor-stage-shell #btnDistillSourceAi:not(.hidden):focus-visible {
       background: linear-gradient(135deg, #0d806a 0%, #0d6f66 100%) !important;
       border-color: rgba(13, 148, 136, 0.62) !important;
       color: #ffffff !important;
       box-shadow: 0 14px 26px rgba(15, 118, 110, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
     }
 
-    .editor-stage-shell #btnRecordPermanent:not(.hidden) span {
+    .editor-stage-shell #btnRecordPermanent:not(.hidden) span,
+    .editor-stage-shell #btnDistillSourceAi:not(.hidden) span {
       display: none !important;
+    }
+
+    .editor-stage-shell #btnDistillSourceAi:not(.hidden) {
+      width: auto !important;
+      min-width: 112px !important;
+      padding: 0 14px !important;
+      gap: 8px !important;
+    }
+
+    .editor-stage-shell #btnDistillSourceAi:not(.hidden) span {
+      display: inline !important;
+      white-space: nowrap;
+      line-height: 1;
+      font-weight: 800;
     }
 
     .editor-stage-shell .editor-wrap,

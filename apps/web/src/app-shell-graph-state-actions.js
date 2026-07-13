@@ -109,7 +109,7 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
     });
     const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
     let systemMessage = null;
-    if (artifactCount > 0) {
+    if (artifactCount > 0 && payload.openInbox !== false) {
       const noteTitle = (state.notes || []).find((item) => item.id === noteId)?.title || noteId;
       systemMessage = noteAnalysisSystemMessageForResult({ noteId, noteTitle, result });
       if (systemMessage) addSystemMessage(systemMessage, { interrupt: true });

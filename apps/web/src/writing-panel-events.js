@@ -2,6 +2,10 @@ import {
   applyWritingOutlineAction,
   updateWritingOutlineSection
 } from "./writing-workbench-model.js";
+import {
+  contextualAiActionIdFromElement,
+  contextualAiResultInputValues
+} from "./contextual-ai-result-panel.js";
 
 export function installWritingPanelBasketEventHandlers(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
@@ -22,6 +26,27 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
   });
   add("btnWritingStrongModelAnalysis", "click", async () => {
     await deps().prepareWritingStrongModelAnalysis?.();
+  });
+  add("writingStrongModelSummary", "click", async (event) => {
+    const action = event.target.closest?.("[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]");
+    if (!action) return;
+    const currentDeps = deps();
+    const actionId = contextualAiActionIdFromElement(action, currentDeps.writingState?.contextualAiActionState?.actionId || "check_outline");
+    if (action.hasAttribute("data-contextual-ai-confirm-remote")) {
+      const handled = await currentDeps.confirmContextualAiAction?.({ actionId, remoteConfirmed: true });
+      if (handled !== true && actionId === "check_outline") {
+        await currentDeps.prepareWritingStrongModelAnalysis?.({ remoteConfirmed: true });
+      } else if (handled !== true) {
+        currentDeps.setStatus?.("当前 AI 操作还不能在这里继续。", "warn");
+      }
+    } else if (action.hasAttribute("data-contextual-ai-adopt")) {
+      await currentDeps.contextualAiController?.adopt(actionId, {
+        values: contextualAiResultInputValues(event.currentTarget)
+      });
+    } else {
+      await currentDeps.contextualAiController?.ignore(actionId);
+    }
+    currentDeps.renderWritingPanel?.();
   });
   add("btnWritingLocalBookIdeas", "click", async () => {
     await handleWritingLocalBookIdeas(deps());
@@ -247,8 +272,18 @@ export function installWritingDraftActionEventHandlers(options = {}) {
   add("btnWritingStartDraft", "click", () => {
     handleWritingStartDraftClick(deps());
   });
-  add("btnWritingOutlineCheckPlaceholder", "click", () => {
-    deps().setStatus?.("检查提纲入口已保留，本次不执行 AI 检查。", "ok");
+  const runOutlineCheck = async () => {
+    const currentDeps = deps();
+    setWritingActionFeedback(currentDeps.$ || $, "正在检查提纲...", "");
+    await currentDeps.prepareWritingStrongModelAnalysis?.();
+  };
+  add("btnWritingOutlineCheckPlaceholder", "click", async (event) => {
+    event?.stopPropagation?.();
+    await runOutlineCheck();
+  });
+  add("writingPanel", "click", async (event) => {
+    if (!event?.target?.closest?.("#btnWritingOutlineCheckPlaceholder")) return;
+    await runOutlineCheck();
   });
 
   return registrations;

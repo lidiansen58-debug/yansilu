@@ -172,7 +172,7 @@ import { createWritingBookRuntime } from "./writing-book-runtime.js";
 import { createWritableThemeDiscoveryController } from "./writable-theme-discovery-controller.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
 import { createScheduledTasksRuntimeController } from "./scheduled-tasks-runtime-controller.js";
-import { aiSettingsSelectionFromPreferences, canonicalizeAiSettingsSelection, isAiLocalFlowActive, isLocalModelPack, localProviderPresetForModelPack, normalizeAiRuntimeMode, providerPresetForModelPack, shouldUseOllamaLocalRuntimeForSelection, supportedAiSettingsModelPack } from "./ai-settings-state.js";
+import { aiSettingsSelectionFromPreferences, canonicalizeAiSettingsSelection, isAiLocalFlowActive, isLocalModelPack, isLocalProviderId, localProviderPresetForModelPack, normalizeAiRuntimeMode, providerPresetForModelPack, shouldUseOllamaLocalRuntimeForSelection, supportedAiSettingsModelPack } from "./ai-settings-state.js";
 import { renderAiLocalModelControlsForRuntime, renderAiLocalModelRecommendationsForRuntime, renderAiProviderConfigControlsForRuntime } from "./settings-ai-controls-view.js";
 import { renderAiSettingsExperienceForRuntime } from "./settings-ai-experience-view.js";
 import { renderAiRoutePreviewForRuntime } from "./settings-ai-route-preview-view.js";
@@ -187,6 +187,10 @@ import { aiTestBlockedReasonForState, currentOllamaModelTiersForState, installed
 import { localAiPreviewOptionsForAction, ollamaStopRuntimeUiOutcome } from "./ai-local-runtime-ui-model.js";
 import { activateLocalAiSetupSelection } from "./local-ai-setup-activation.js";
 import { createLocalAiSetupController } from "./local-ai-setup-controller.js";
+import {
+  buildSourceNoteDistillDraft,
+  buildSourceNoteDistillDraftFromAiResult
+} from "./source-note-distill-ai-draft.js";
 import { isLocalAdvancedModelRefForSettings } from "./settings-ai-runtime-actions.js";
 import { createSettingsAiRuntimeController } from "./settings-ai-runtime-controller.js";
 import { buildAiProviderConfigPayload } from "./settings-ai-provider-config-actions.js";
@@ -328,7 +332,6 @@ const aiInboxState = {
     view: "pending",
     type: "all",
     sourceNoteId: "",
-    privacyMode: "",
     limit: 50
   },
   selectedArtifactId: "",
@@ -440,6 +443,11 @@ const settingsState = {
     testRunning: false,
     testMeta: "",
     testOutput: "",
+    testModel: "",
+    testProviderId: "",
+    testEndpointUrl: "",
+    testRemoteModel: "",
+    testSecretRef: "",
     suggestions: [],
     suggestionsTotal: 0,
     suggestionFilters: {
@@ -652,6 +660,14 @@ const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const AI_LOCAL_SETUP_SYNC_PENDING_KEY = "yansilu:ai:local-setup-sync-pending";
 const AI_AUTO_PREPARE_LOCAL_KEY = "yansilu:ai:auto-prepare-local";
+const AI_TEST_STATUS_KEY = "yansilu:ai:test-status";
+const AI_TEST_META_KEY = "yansilu:ai:test-meta";
+const AI_TEST_OUTPUT_KEY = "yansilu:ai:test-output";
+const AI_TEST_MODEL_KEY = "yansilu:ai:test-model";
+const AI_TEST_PROVIDER_ID_KEY = "yansilu:ai:test-provider-id";
+const AI_TEST_ENDPOINT_URL_KEY = "yansilu:ai:test-endpoint-url";
+const AI_TEST_REMOTE_MODEL_KEY = "yansilu:ai:test-remote-model";
+const AI_TEST_SECRET_REF_KEY = "yansilu:ai:test-secret-ref";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
 
 function markTodayReturnTarget(target = {}) {
@@ -1166,6 +1182,14 @@ function loadAiSettingsFromStorage() {
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
   const storedRemoteRuntimeModel = String(readStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, "") || "").trim();
   const storedLocalModel = String(readStoredText(AI_LOCAL_MODEL_KEY, "") || "").trim();
+  const storedTestStatus = String(readStoredText(AI_TEST_STATUS_KEY, "") || "").trim();
+  const storedTestMeta = String(readStoredText(AI_TEST_META_KEY, "") || "").trim();
+  const storedTestOutput = String(readStoredText(AI_TEST_OUTPUT_KEY, "") || "").trim();
+  const storedTestModel = String(readStoredText(AI_TEST_MODEL_KEY, "") || "").trim();
+  const storedTestProviderId = String(readStoredText(AI_TEST_PROVIDER_ID_KEY, "") || "").trim();
+  const storedTestEndpointUrl = String(readStoredText(AI_TEST_ENDPOINT_URL_KEY, "") || "").trim();
+  const storedTestRemoteModel = String(readStoredText(AI_TEST_REMOTE_MODEL_KEY, "") || "").trim();
+  const storedTestSecretRef = String(readStoredText(AI_TEST_SECRET_REF_KEY, "") || "").trim();
   settingsState.ai.localAiSetupSyncPending = readStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, false);
   settingsState.ai.autoPrepareLocalAi = readStoredBoolean(AI_AUTO_PREPARE_LOCAL_KEY, false);
   if (storedRuntimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(storedRuntimeMode);
@@ -1178,6 +1202,14 @@ function loadAiSettingsFromStorage() {
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
   settingsState.ai.remoteRuntimeModel = storedRemoteRuntimeModel;
   settingsState.ai.localModel = storedLocalModel;
+  settingsState.ai.testStatus = storedTestStatus;
+  settingsState.ai.testMeta = storedTestMeta;
+  settingsState.ai.testOutput = storedTestOutput;
+  settingsState.ai.testModel = storedTestModel;
+  settingsState.ai.testProviderId = storedTestProviderId;
+  settingsState.ai.testEndpointUrl = storedTestEndpointUrl;
+  settingsState.ai.testRemoteModel = storedTestRemoteModel;
+  settingsState.ai.testSecretRef = storedTestSecretRef;
   reconcileAiSelectionState();
 }
 
@@ -1192,6 +1224,14 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
+  writeStoredText(AI_TEST_STATUS_KEY, settingsState.ai.testStatus);
+  writeStoredText(AI_TEST_META_KEY, settingsState.ai.testMeta);
+  writeStoredText(AI_TEST_OUTPUT_KEY, settingsState.ai.testOutput);
+  writeStoredText(AI_TEST_MODEL_KEY, settingsState.ai.testModel);
+  writeStoredText(AI_TEST_PROVIDER_ID_KEY, settingsState.ai.testProviderId);
+  writeStoredText(AI_TEST_ENDPOINT_URL_KEY, settingsState.ai.testEndpointUrl);
+  writeStoredText(AI_TEST_REMOTE_MODEL_KEY, settingsState.ai.testRemoteModel);
+  writeStoredText(AI_TEST_SECRET_REF_KEY, settingsState.ai.testSecretRef);
   writeStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, settingsState.ai.localAiSetupSyncPending === true);
   writeStoredBoolean(AI_AUTO_PREPARE_LOCAL_KEY, settingsState.ai.autoPrepareLocalAi === true);
 }
@@ -1330,6 +1370,35 @@ function providerAuthModeRequiresSecret(authMode = "") { return ["workspace_mana
 
 function currentAiProviderId() { return String(settingsState.ai.routePreview?.provider?.providerId || providerPresetForModelPack(settingsState.ai.modelPack)).trim(); }
 
+function remoteAiExplicitlyEnabledForFeatures() {
+  return normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "cloud_only" && !isLocalProviderId(currentAiProviderId());
+}
+
+function featureAiProviderId() {
+  return remoteAiExplicitlyEnabledForFeatures()
+    ? currentAiProviderId()
+    : preferredLocalProviderPresetForSelection();
+}
+
+function featureAiRuntimeMode() {
+  return remoteAiExplicitlyEnabledForFeatures() ? "cloud_only" : "local_only";
+}
+
+function featureAiRequestOptions() {
+  const providerId = featureAiProviderId();
+  const localProvider = !remoteAiExplicitlyEnabledForFeatures();
+  return {
+    userConfirmedRemoteModel: !localProvider,
+    executeModel: true,
+    modelPack: settingsState.ai.modelPack,
+    userMode: settingsState.ai.userMode,
+    providerPreset: providerId,
+    authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
+    modelTier: localProvider ? "local_private" : "strong_reasoning",
+    privacyMode: localProvider ? "local_only" : "remote_after_confirmation"
+  };
+}
+
 const settingsAiStateRuntime = createSettingsAiStateRuntime({
   applyAiPreferencesToSettingsState,
   activeAiProviderConfig,
@@ -1428,6 +1497,7 @@ const localAiSetupController = createLocalAiSetupController(() => ({
   currentOllamaModelTiers,
   localAiSetupSyncPending,
   localAiPreviewOptionsForAction,
+  localAiFeatureReady,
   localOllamaSetupActive,
   ollamaBootstrapStatusText,
   ollamaRecommendationForModel,
@@ -1444,9 +1514,64 @@ async function ensureLocalAiReadyForFeature(options = {}) {
   return localAiSetupController.ensureReadyForAiFeature(options);
 }
 
+async function ensureAiReadyForFeature(options = {}) {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  if (runtimeMode === "off") {
+    if (options.openSettings !== false) {
+      activateModule("settings");
+      setSettingsItem("ai-settings", { render: false });
+      renderSettingsPanel();
+    }
+    setStatus("AI 已停用，请先在设置中启用。", "warn", { priority: 3, holdMs: 8000 });
+    return { ready: false, reason: "ai_off" };
+  }
+  if (!remoteAiExplicitlyEnabledForFeatures()) {
+    return ensureLocalAiReadyForFeature(options);
+  }
+  if (settingsState.ai.routePreview?.access?.ready === true) {
+    const providerId = currentAiProviderId();
+    return { ready: true, mode: "remote", providerId };
+  }
+  if (options.openSettings !== false) {
+    activateModule("settings");
+    setSettingsItem("ai-settings", { render: false });
+    renderSettingsPanel();
+  }
+  setStatus("请先完成在线 AI 设置。", "warn", { priority: 3, holdMs: 8000 });
+  return { ready: false, reason: "remote_not_ready" };
+}
+
+async function runSourceDistillAi(payload = {}) {
+  const requestOptions = featureAiRequestOptions();
+  const localProvider = requestOptions.privacyMode === "local_only";
+  if (!localProvider && payload.remoteConfirmed !== true) {
+    const error = new Error("在线 AI 需要先确认发送当前笔记内容。");
+    error.code = "REMOTE_AI_CONFIRMATION_REQUIRED";
+    throw error;
+  }
+  const analysis = await analyzeWritingWithStrongModel({
+    userConfirmedRemoteModel: !localProvider,
+    executeModel: true,
+    persistArtifacts: false,
+    projectId: `source_distill_${String(payload.sourceNoteId || payload.noteId || "note").trim() || "note"}`,
+    writingGoal: "把当前材料提炼成一条可编辑的永久笔记草稿。",
+    audience: "自己",
+    notes: [{
+      id: String(payload.sourceNoteId || payload.noteId || "").trim(),
+      noteId: String(payload.sourceNoteId || payload.noteId || "").trim(),
+      title: String(payload.sourceTitle || "").trim(),
+      noteType: String(payload.sourceType || "").trim(),
+      body: String(payload.sourceBody || "").trim()
+    }],
+    ...requestOptions
+  });
+  return buildSourceNoteDistillDraftFromAiResult(analysis, payload) || buildSourceNoteDistillDraft(payload);
+}
+
 function shouldGuideLocalAiSetupForFeature() {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   if (runtimeMode !== "auto") return false;
+  if (localAiFeatureReady()) return false;
   if (settingsState.ai.routePreview?.access?.ready === true) return false;
   return true;
 }
@@ -1537,6 +1662,18 @@ function currentOllamaModelTiers() { return currentOllamaModelTiersForState(sett
 function hasLocalModel(modelName = "") { return modelNameExistsInList(modelName, settingsState.ai.localRuntimeModels); }
 
 function installedLocalModelReady(modelName = settingsState.ai.localModel) { return installedLocalModelReadyForState(settingsState.ai, modelName); }
+
+function localAiFeatureReady() {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  if (!["auto", "local_only", "hybrid"].includes(runtimeMode)) return false;
+  const localModel = String(settingsState.ai.localModel || "").trim();
+  const testStatus = String(settingsState.ai.testStatus || "").trim();
+  const testModel = String(settingsState.ai.testModel || "").trim();
+  return installedLocalModelReady()
+    && Boolean(localModel)
+    && testStatus === "success"
+    && testModel === localModel;
+}
 
 function localOllamaSetupActive() {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
@@ -2447,7 +2584,10 @@ function continueWritingEntry(noteIds = [], options = {}) { return writingEntryR
 
 const writingProjectRuntimeController = createWritingProjectRuntimeController(() => ({
   $,
-  addSystemMessage,
+  activateModule,
+  aiFeatureRequestOptions: featureAiRequestOptions,
+  aiAvailable: settingsState.ai.routePreview?.access?.ready === true,
+  aiRuntimeMode: featureAiRuntimeMode(),
   analyzeWritingWithStrongModel,
   beginWritingEntry,
   createWritingProject,
@@ -2461,7 +2601,10 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   openWritingModule,
   parseWritingBasketIds,
   populateWritingFormFromProject,
+  refreshAiRoutePreview,
+  renderSettingsPanel,
   renderWritingPanel,
+  setSettingsItem,
   setStatus,
   showWritingResult,
   suggestedWritingProjectTitle,
@@ -3797,7 +3940,7 @@ async function applySettingsAiQuickSetup(kind = "") {
     setStatus("已进入本地 AI 设置。下载模型前会先等待你确认。", "ok");
     return;
   }
-  setStatus(normalized === "local" ? "已切换为本地大模型设置流程" : "已切换为远程大模型设置流程", "ok");
+  setStatus(normalized === "local" ? "已切换为本机 AI 设置" : "已切换为在线 AI 设置", "ok");
 }
 
 function confirmRemoteAiUse() {
@@ -4648,7 +4791,7 @@ async function continueWritingProjectEntry(projectId, { openDraft = false, statu
   return project;
 }
 
-async function prepareWritingStrongModelAnalysis() { return writingProjectRuntimeController.prepareWritingStrongModelAnalysis(); }
+async function prepareWritingStrongModelAnalysis(options = {}) { return writingProjectRuntimeController.prepareWritingStrongModelAnalysis(options); }
 
 async function scaffoldBundleForProject(projectLike = null) {
   const project = projectLike || writingState.project;
@@ -5566,6 +5709,8 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     deleteNote,
     descendantDirectoryIds,
     editor,
+    ensureAiReadyForFeature,
+    ensureLocalAiReadyForFeature,
     ensureNoteBodyLoaded,
     expandGraphBrowserTree,
     explorer,
@@ -5612,6 +5757,7 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     renderDistillationPanel,
     replaceFirstMarkdownTitle,
     rootBoxIdFromFolder,
+    runSourceDistillAi,
     saveAiSuggestion,
     setGraphIsolatedWorkflowActiveTab,
     setStatus,
@@ -5879,6 +6025,11 @@ async function applyAiRuntimeModeChange(nextMode = "auto") {
   });
 }
 
+async function resumePendingAiSettingsAction(...args) {
+  if (await writingProjectRuntimeController.resumePendingContextualAiAction(...args)) return true;
+  return editor.resumePendingContextualAiAction?.(...args) || false;
+}
+
 installSettingsAiEventBindings({
   $,
   settingsState,
@@ -5907,7 +6058,8 @@ installSettingsAiEventBindings({
   applySettingsAiQuickSetup,
   openSettingsAiDialog,
   closeSettingsAiDialogs,
-  confirmRemoteAiUse
+  confirmRemoteAiUse,
+  onAiSettingsReady: resumePendingAiSettingsAction
 });
 void autoPrepareLocalAiOnStartup();
 bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({
@@ -5962,6 +6114,7 @@ installWritingPanelBasketEventHandlers({
     showWritingResult,
     handleWritingBasketManualInput,
     prepareWritingStrongModelAnalysis,
+    contextualAiController: writingProjectRuntimeController.contextualAiController,
     writingBasketEntries,
     deriveWritingLocalBookIdeas,
     currentWritingBookStructure,
@@ -6081,6 +6234,7 @@ installWritingDraftActionEventHandlers({
     loadWritingProjectsList,
     loadWritingScaffoldVersions,
     loadWritingDraftVersions,
+    prepareWritingStrongModelAnalysis,
     renderWritingPanel,
     applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
     copyWritingScaffold,

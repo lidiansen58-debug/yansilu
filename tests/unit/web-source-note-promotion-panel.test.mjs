@@ -54,6 +54,29 @@ test("source note promotion panel shows generated result and open state", () => 
   assert.match(html, /data-source-note-action="record-permanent"[\s\S]*>重新生成</);
 });
 
+test("source note promotion panel hides legacy create action while AI draft is pending", () => {
+  const html = renderSourceNotePromotionPanel({
+    note: { id: "fn_1", title: "随笔", noteType: "fleeting" },
+    noteType: "fleeting",
+    aiActionState: {
+      actionId: "distill_material",
+      status: "awaiting_confirmation",
+      result: {
+        kind: "draft",
+        draft: {
+          title: "草稿",
+          coreArgument: "观点",
+          content: "正文",
+          questions: "问题"
+        }
+      }
+    }
+  });
+
+  assert.match(html, /data-contextual-ai-adopt/);
+  assert.doesNotMatch(html, /data-source-note-action="record-permanent"/);
+});
+
 test("source note promotion state keeps incomplete literature from looking ready", () => {
   const state = sourceNotePromotionState({
     note: { id: "ln_2", title: "文献材料" },

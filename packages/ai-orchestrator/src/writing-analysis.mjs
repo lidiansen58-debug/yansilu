@@ -40,6 +40,8 @@ function normalizeWritingNote(input = {}) {
 }
 
 function ensureRemoteConfirmation(input = {}, context = {}) {
+  const privacyMode = cleanText(input.privacyMode || input.privacy_mode || context.privacyMode || context.privacy_mode || context.privacy?.mode);
+  if (privacyMode === "local_only") return;
   const confirmed =
     input.userConfirmedRemoteModel === true ||
     input.user_confirmed_remote_model === true ||
@@ -50,6 +52,14 @@ function ensureRemoteConfirmation(input = {}, context = {}) {
     error.code = "WRITING_REMOTE_MODEL_CONFIRMATION_REQUIRED";
     throw error;
   }
+}
+
+function writingPrivacyMode(input = {}, context = {}) {
+  return cleanText(input.privacyMode || input.privacy_mode || context.privacyMode || context.privacy_mode || context.privacy?.mode) || "remote_after_confirmation";
+}
+
+function isLocalWritingRequest(input = {}, context = {}) {
+  return writingPrivacyMode(input, context) === "local_only";
 }
 
 function extractJsonObject(value) {
@@ -69,6 +79,8 @@ function extractJsonObject(value) {
 }
 
 function artifactContext(context = {}, request = {}) {
+  const privacyMode = cleanText(context.privacyMode || context.privacy_mode || context.privacy?.mode || request.privacy?.mode) || "remote_after_confirmation";
+  const localOnly = privacyMode === "local_only";
   return {
     agentRunId: cleanText(context.agentRunId || context.agent_run_id) || "run_writing_strong_model_analysis",
     contextPackId: cleanText(context.contextPackId || context.context_pack_id),
@@ -79,8 +91,8 @@ function artifactContext(context = {}, request = {}) {
       mode: "Remote / Confirmed"
     },
     privacy: context.privacy || {
-      mode: "remote_after_confirmation",
-      cloudModelUsed: true
+      mode: privacyMode,
+      cloudModelUsed: !localOnly
     },
     now: context.now
   };
@@ -88,6 +100,8 @@ function artifactContext(context = {}, request = {}) {
 
 export function buildWritingStrongModelRequest(input = {}, context = {}) {
   ensureRemoteConfirmation(input, context);
+  const localOnly = isLocalWritingRequest(input, context);
+  const privacyMode = localOnly ? "local_only" : "remote_after_confirmation";
   const notes = (Array.isArray(input.notes) ? input.notes : [])
     .map(normalizeWritingNote)
     .filter((note) => note.noteId)
@@ -96,7 +110,7 @@ export function buildWritingStrongModelRequest(input = {}, context = {}) {
   const projectId = cleanText(input.projectId || input.project_id);
   const payload = {
     task: "writing_strong_model_analysis",
-    privacyMode: "remote_after_user_confirmation",
+    privacyMode: localOnly ? "local_only" : "remote_after_user_confirmation",
     instructions: [
       "Only return JSON.",
       "Use the selected notes as source material.",
@@ -153,10 +167,10 @@ export function buildWritingStrongModelRequest(input = {}, context = {}) {
   return {
     requestType: "writing_strong_model_analysis",
     privacy: {
-      mode: "remote_after_confirmation",
-      cloudModelAllowed: true,
+      mode: privacyMode,
+      cloudModelAllowed: !localOnly,
       cloudModelUsed: false,
-      userConfirmed: true
+      userConfirmed: localOnly ? false : true
     },
     model: context.model || {
       provider: cleanText(input.provider) || "remote_strong_model",
@@ -280,6 +294,8 @@ function sourceGapArtifact(gap = {}, index = 0, request = {}, context = {}) {
 }
 
 export function mergeWritingStrongModelResponse(request = {}, response = {}, context = {}) {
+  const privacyMode = cleanText(context.privacyMode || context.privacy_mode || context.privacy?.mode || request.privacy?.mode) || "remote_after_confirmation";
+  const localOnly = privacyMode === "local_only";
   const parsed = extractJsonObject(response?.content ?? response?.text ?? response?.output ?? response);
   const writingMoves = Array.isArray(parsed.writingMoves || parsed.writing_moves)
     ? parsed.writingMoves || parsed.writing_moves
@@ -297,12 +313,12 @@ export function mergeWritingStrongModelResponse(request = {}, response = {}, con
   ].filter(Boolean);
 
   return {
-    analysisMode: "remote_strong_model_writing",
+    analysisMode: localOnly ? "local_model_writing" : "remote_strong_model_writing",
     provenance: {
       contentOrigin: "ai_generated",
       modelUsed: true,
-      cloudModelUsed: true,
-      userConfirmedRemoteModel: true,
+      cloudModelUsed: !localOnly,
+      userConfirmedRemoteModel: localOnly ? false : true,
       canAutoConfirm: false
     },
     artifacts,

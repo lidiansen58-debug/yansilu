@@ -66,6 +66,60 @@ test("app shell state change router preserves graph associate recursion through 
   ]);
 });
 
+test("app shell state change router delegates AI feature readiness checks", async () => {
+  const calls = [];
+  const result = await routeAppShellStateChange("ensure-ai-ready-for-feature", {
+    feature: "distill_material",
+    returnContext: { noteId: "n1" }
+  }, {
+    ensureLocalAiReadyForFeature: async (payload) => {
+      calls.push(payload);
+      return { ready: false };
+    }
+  });
+
+  assert.deepEqual(result, { ready: false });
+  assert.deepEqual(calls, [{
+    feature: "distill_material",
+    returnContext: { noteId: "n1" }
+  }]);
+});
+
+test("app shell state change router prefers general AI readiness checks over local setup", async () => {
+  const calls = [];
+  const result = await routeAppShellStateChange("ensure-ai-ready-for-feature", {
+    feature: "distill_material"
+  }, {
+    ensureAiReadyForFeature: async (payload) => {
+      calls.push(["general", payload.feature]);
+      return { ready: false, reason: "remote_not_ready" };
+    },
+    ensureLocalAiReadyForFeature: async (payload) => {
+      calls.push(["local", payload.feature]);
+      return { ready: true };
+    }
+  });
+
+  assert.deepEqual(result, { ready: false, reason: "remote_not_ready" });
+  assert.deepEqual(calls, [["general", "distill_material"]]);
+});
+
+test("app shell state change router delegates source-note AI distill actions", async () => {
+  const calls = [];
+  const result = await routeAppShellStateChange("run-source-distill-ai", {
+    sourceNoteId: "fn_1",
+    sourceBody: "材料正文"
+  }, {
+    runSourceDistillAi: async (payload) => {
+      calls.push(payload);
+      return { kind: "draft", draft: { title: "材料草稿" } };
+    }
+  });
+
+  assert.deepEqual(result, { kind: "draft", draft: { title: "材料草稿" } });
+  assert.deepEqual(calls, [{ sourceNoteId: "fn_1", sourceBody: "材料正文" }]);
+});
+
 test("app shell state change router keeps simple shell fallbacks in the router", async () => {
   const calls = [];
   const result = await routeAppShellStateChange("switch-tab", {}, {

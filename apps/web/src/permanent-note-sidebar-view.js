@@ -57,7 +57,7 @@ export function permanentNoteRelationAssistViewState({
   return {
     ...assistState,
     relationText,
-    primaryLabel: analysis ? "看推荐" : "推荐关联",
+    primaryLabel: "推荐关联",
     manualLabel: "搜索笔记"
   };
 }
@@ -84,7 +84,7 @@ export function renderPermanentNoteRelationAssistSection({
       </div>
       ${
         analysis && assist.relationCandidates
-          ? `<div class="permanent-workspace-ai-note">${escapeHtml(String(assist.relationCandidates))} 条推荐</div>`
+          ? `<div class="permanent-workspace-ai-note">${escapeHtml(String(assist.relationCandidates))} 条建议</div>`
           : ""
       }
       <div class="semantic-relation-actions">
