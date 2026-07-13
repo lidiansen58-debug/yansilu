@@ -222,42 +222,42 @@ function renderGraphAiAnalysisCard(options = {}) {
   const error = graphState.aiAnalysisError;
   const shouldOpen = options.open === true || loading || Boolean(error);
   return `
-    <details class="graph-section graph-collapsible-section" data-graph-section="ai-analysis"${shouldOpen ? " open" : analysis ? "" : ""} aria-label="AI 图谱初判">
+    <details class="graph-section graph-collapsible-section" data-graph-section="ai-analysis"${shouldOpen ? " open" : analysis ? "" : ""} aria-label="找缺口">
       <summary class="graph-collapsible-summary">
         <div>
-          <div class="graph-section-title">AI 图谱初判</div>
-          <div class="graph-section-note">只生成待确认推荐：主题、缺少连接、弱关系和待关联笔记都不会直接写入图谱。</div>
+          <div class="graph-section-title">找缺口</div>
+          <div class="graph-section-note">只提示一组值得处理的关系或主题，确认后才会保存。</div>
         </div>
-        <span class="graph-collapsible-badge">${loading ? "分析中" : `${totalCandidates} 项`}</span>
+        <span class="graph-collapsible-badge">${loading ? "查找中" : `${totalCandidates} 项`}</span>
       </summary>
       <div class="graph-collapsible-body">
         <div class="graph-section-head">
           <div></div>
           <button class="secondary-btn small" type="button" data-run-graph-ai-analysis ${loading ? "disabled" : ""}>
-            ${loading ? "分析中..." : analysis ? "重新分析" : "AI 扫描"}
+            ${loading ? "查找中…" : analysis ? "再找一次" : "找缺口"}
           </button>
         </div>
         ${
           error
-            ? `<div class="graph-empty bad">AI 图谱初判失败：${escapeHtml(error)}</div>`
+            ? `<div class="graph-empty bad">找缺口失败：${escapeHtml(error)}</div>`
             : analysis
               ? `
-                <div class="graph-metrics" aria-label="AI 图谱初判摘要">
-                  ${renderGraphMetricCard("待确认项", pendingCount, "当前图谱内处理", pendingCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("可写主题推荐", topicCount, "确认后才会保存", topicCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("关系推荐", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("可能相关/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
+                <div class="graph-metrics" aria-label="找缺口结果">
+                  ${renderGraphMetricCard("建议处理", pendingCount, "在当前图谱内确认", pendingCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("主题线索", topicCount, "确认后创建", topicCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("关系线索", relationCount, "确认后关联", relationCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("待补连接", `${bridgeCount}/${isolatedCount}`, "先补说不清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
                 </div>
                 <div class="graph-next-card">
-                  <strong>确认顺序</strong>
+                  <strong>下一步</strong>
                   <small>${escapeHtml(
                     pendingCount
-                      ? "先在图谱里判断结构是否成立；只确认能说清理由的关系或主题。"
-                      : "当前没有新的图谱推荐。"
+                      ? "打开一条建议，能说清理由再确认。"
+                      : "当前没有新的建议。"
                   )}</small>
                 </div>
               `
-              : `<div class="graph-empty">运行一次本地图谱扫描，查看可能的主题、缺少连接和待关联笔记。</div>`
+              : `<div class="graph-empty">查找可能缺少的关系或主题线索。</div>`
         }
       </div>
     </details>

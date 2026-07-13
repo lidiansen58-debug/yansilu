@@ -8,6 +8,7 @@ import {
   normalizeSettingsSection,
   settingsDetailItemConfig,
   settingsMobileItemOptionsHtml,
+  settingsItemSummary,
   settingsModuleHeaderCopy,
   settingsSectionChromeMap,
   settingsSectionConfig,
@@ -83,6 +84,7 @@ test("prototype settings navigation keeps user-facing helper copy stable", () =>
   assert.equal(formatSettingsUserError("ENOENT: missing path"), "找不到当前笔记库路径，请重新选择或切换笔记库。");
   assert.equal(formatSettingsUserError("permission denied"), "当前路径没有访问权限，请检查文件夹权限后再试。");
   assert.equal(settingsModuleHeaderCopy({ settingsState: { activeItem: "feedback" } }).title, "问题反馈");
+  assert.equal(settingsItemSummary("ai-settings"), "");
   assert.match(
     settingsSectionGuidanceMap({
       settingsState: { vault: { vaultPath: "/vault/main" } },

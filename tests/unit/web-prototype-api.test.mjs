@@ -21,7 +21,7 @@ async function importPrototypeApi(caseName, windowValue) {
 
 test("prototype API falls back when packaged API placeholder is not replaced", async () => {
   const api = await importPrototypeApi("placeholder", { __API_BASE__: "__API_BASE__" });
-  assert.equal(api.getApiBase(), "http://localhost:3000");
+  assert.equal(api.getApiBase(), "http://127.0.0.1:3000");
 });
 
 test("prototype API uses injected API base from dev server", async () => {
@@ -710,8 +710,7 @@ test("prototype API fetches AI inbox evaluation summary with filters", async () 
     const item = await api.fetchAiInboxEvaluationSummary({
       view: "reviewed",
       type: "ReflectionPrompt",
-      sourceNoteId: "note_1",
-      privacyMode: "local_only"
+      sourceNoteId: "note_1"
     });
     const url = new URL(capturedUrl);
     assert.equal(url.origin, "http://127.0.0.1:3999");
@@ -719,7 +718,7 @@ test("prototype API fetches AI inbox evaluation summary with filters", async () 
     assert.equal(url.searchParams.get("view"), "reviewed");
     assert.equal(url.searchParams.get("type"), "ReflectionPrompt");
     assert.equal(url.searchParams.get("sourceNoteId"), "note_1");
-    assert.equal(url.searchParams.get("privacyMode"), "local_only");
+    assert.equal(url.searchParams.has("privacyMode"), false);
     assert.equal(item.feedback.all.useful, 1);
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;

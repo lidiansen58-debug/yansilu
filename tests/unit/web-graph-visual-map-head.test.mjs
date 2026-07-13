@@ -31,12 +31,27 @@ test("graph visual map head renders task toolbar, queue, and density slots witho
   assert.match(html, /graph-map-primary-row/);
   assert.match(html, /graph-map-mode-hint/);
   assert.match(html, /找主题/);
+  assert.doesNotMatch(html, /data-run-graph-ai-analysis/);
   assert.match(html, /<mode>index:bridge<\/mode>/);
   assert.match(html, /<filter><\/filter>/);
   assert.doesNotMatch(html, /<lens>/);
   assert.match(html, /<queue><\/queue>/);
   assert.doesNotMatch(html, /graph-structure-fallback-note/);
   assert.match(html, /graph-density-hint/);
+});
+
+test("graph visual map head marks gap action as gap mode", () => {
+  const html = buildGraphVisualMapHeadContent({
+    relationType: "meaningful",
+    runtimeState: {
+      readingLens: { key: "bridge" }
+    }
+  }, {
+    renderGraphViewModeSwitcher: () => ""
+  });
+
+  assert.match(html, /data-run-graph-ai-analysis="gap"/);
+  assert.match(html, />找缺口<\/button>/);
 });
 
 test("graph visual map head renders focused note depth controls in filter mode", () => {

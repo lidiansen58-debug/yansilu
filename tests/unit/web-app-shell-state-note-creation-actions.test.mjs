@@ -164,6 +164,41 @@ test("note creation actions keep the created note when source marker save fails"
   assert.equal(status.calls.at(-1).tone, "ok");
 });
 
+test("note creation actions use adopted AI draft body when provided", async () => {
+  const state = {
+    notes: [{ id: "src", title: "Source", body: "source body", folderId: "fleeting" }],
+    tabs: []
+  };
+  const calls = [];
+
+  const result = await handleRecordOriginalFromNoteStateChange({
+    sourceNoteId: "src",
+    draftTitle: "Edited Draft",
+    draftBody: "# Edited Draft\n\n正文"
+  }, {
+    state,
+    rootBoxIdFromFolder: () => "dir_original_default",
+    originalDraftBodyFromSource: () => {
+      calls.push(["legacy-draft"]);
+      return "legacy body";
+    },
+    titleFromSeedText: () => "Legacy",
+    createNote: async (payload) => {
+      calls.push(["create", payload]);
+      return { id: "new", title: "Edited Draft", body: payload.body };
+    },
+    mapNoteItem: (item) => item,
+    syncNoteRelationNetworkStatus: () => {},
+    isOriginalRecordableSource: () => false,
+    activateModule: () => {},
+    openNoteById: () => {},
+    setStatus: () => {}
+  });
+
+  assert.equal(result.title, "Edited Draft");
+  assert.deepEqual(calls, [["create", { directoryId: "dir_original_default", status: "draft", body: "# Edited Draft\n\n正文" }]]);
+});
+
 test("note creation actions report record failures", async () => {
   const status = statusRecorder();
   const result = await handleRecordOriginalFromNoteStateChange({}, {

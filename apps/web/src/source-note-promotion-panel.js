@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { renderContextualAiResultPanel } from "./contextual-ai-result-panel.js";
 
 export function sourceNotePromotionState({
   note = {},
@@ -66,6 +67,8 @@ export function sourceNotePromotionState({
 export function renderSourceNotePromotionPanel(input = {}) {
   const state = sourceNotePromotionState(input);
   if (!state) return "";
+  const aiResult = input.aiActionState ? renderContextualAiResultPanel(input.aiActionState) : "";
+  const showActions = !aiResult;
 
   const resultRows = state.hasGenerated
     ? `
@@ -110,6 +113,7 @@ export function renderSourceNotePromotionPanel(input = {}) {
         }
       </div>
       ${resultRows}
+      ${aiResult}
       ${
         state.showFleetingCleanup
           ? `
@@ -121,7 +125,7 @@ export function renderSourceNotePromotionPanel(input = {}) {
           `
           : ""
       }
-      <div class="source-promotion-actions">
+      ${showActions ? `<div class="source-promotion-actions">
         ${
           state.hasGenerated
             ? `<button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(state.generated.id)}">${escapeHtml(state.primaryActionLabel)}</button>`
@@ -132,7 +136,7 @@ export function renderSourceNotePromotionPanel(input = {}) {
             ? `<button class="mini-btn" type="button" data-source-note-action="record-permanent">${escapeHtml(state.secondaryActionLabel)}</button>`
             : ""
         }
-      </div>
+      </div>` : ""}
     </section>
   `;
 }

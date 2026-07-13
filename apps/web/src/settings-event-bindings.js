@@ -185,7 +185,7 @@ export function installSettingsEventBindings(deps = {}) {
     }
     if (action === "open-ai-settings") {
       setSettingsItem("ai-settings", { announce: true });
-      setStatus("已打开 AI 设置。AI 是候选建议，不影响手工整理主流程。", "ok");
+      setStatus("已打开 AI 设置。AI 只做参考建议，不影响手工整理主流程。", "ok");
     }
   });
 

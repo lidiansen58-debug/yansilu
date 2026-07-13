@@ -17,8 +17,7 @@ export function aiInboxFiltersFromWorkspace({ getElement, state } = {}) {
   return normalizeAiInboxFilters({
     ...filters,
     type: getElement?.("aiInboxTypeFilter")?.value || filters.type,
-    sourceNoteId: getElement?.("aiInboxSourceNoteFilter")?.value || "",
-    privacyMode: getElement?.("aiInboxPrivacyFilter")?.value || ""
+    sourceNoteId: getElement?.("aiInboxSourceNoteFilter")?.value || ""
   });
 }
 

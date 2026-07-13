@@ -15,5 +15,6 @@ test("writing topic screen starts from a concrete next action", () => {
 
   assert.match(html, /选一个主题，写完一篇文章。/);
   assert.match(html, /选择一个可写主题/);
+  assert.match(html, /btnWritingDiscoverThemes" type="button">建议主题/);
   assert.doesNotMatch(html, /查看中心问题、主题压缩、相关永久笔记，并从主题直接确定可写主题。/);
 });

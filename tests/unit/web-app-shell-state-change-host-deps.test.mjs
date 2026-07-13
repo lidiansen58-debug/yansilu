@@ -31,6 +31,7 @@ test("app shell state-change prototype host deps keeps shell collaborators in on
     "deleteNote",
     "descendantDirectoryIds",
     "editor",
+    "ensureAiReadyForFeature",
     "ensureNoteBodyLoaded",
     "expandGraphBrowserTree",
     "ensureLocalAiReadyForFeature",

@@ -275,6 +275,32 @@ test("graph canvas event router focuses graph AI review in the workbench", async
   assert.deepEqual(calls.map((call) => call[0]), ["render", "status"]);
 });
 
+test("graph canvas event router keeps gap analysis in relation workbench", async () => {
+  const graphCanvas = createGraphCanvas();
+  const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "questions" };
+  const calls = [];
+  const gapButton = elementWithAttrs({ "data-run-graph-ai-analysis": "gap" });
+
+  bindGraphCanvasEvents(graphCanvas, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    runGraphAiAnalysis: () => calls.push(["run"])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    preventDefault: () => calls.push(["prevent"]),
+    stopImmediatePropagation: () => calls.push(["stop-immediate"]),
+    stopPropagation: () => calls.push(["stop"]),
+    target: targetWithClosest({
+      "[data-run-graph-ai-analysis]": gapButton
+    })
+  });
+
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+  assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["stop"], ["render"], ["run"]]);
+});
+
 test("graph canvas event router opens next-step workbench from insight lens", async () => {
   const graphCanvas = createGraphCanvas();
   const graphState = { readingLens: "bridge", workbenchPanelOpen: false, workbenchPanelTab: "questions" };

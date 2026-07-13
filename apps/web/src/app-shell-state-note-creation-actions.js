@@ -89,13 +89,15 @@ export async function handleRecordOriginalFromNoteStateChange(payload = {}, deps
     ""
   ).trim().toLowerCase();
   const sourceTitle = String(payload.sourceTitle || sourceNote?.title || "").trim();
-  const body = originalDraftBodyFromSource({
+  const explicitDraftBody = String(payload.draftBody || "").trim();
+  const body = explicitDraftBody || originalDraftBodyFromSource({
     ...payload,
     sourceType,
     sourceTitle,
     sourceBody: payload.sourceBody || sourceNote?.body || ""
   });
-  const title = titleFromSeedText(
+  const explicitDraftTitle = String(payload.draftTitle || "").trim();
+  const title = explicitDraftTitle || titleFromSeedText(
     payload.paraphrase || payload.sourceBody || payload.sourceTitle || sourceTitle || "",
     sourceTitle || "未命名永久笔记"
   );

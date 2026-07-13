@@ -104,6 +104,24 @@ test("settings AI onboarding prompts start, download, and save local model steps
   }).primaryAction, "保存模型");
 });
 
+test("settings AI onboarding requires testing before local completion", () => {
+  const view = buildSettingsAiOnboardingView({
+    runtimeMode: "local_only",
+    localFlowActive: true,
+    localStatus: "available",
+    localReady: true,
+    models: [{ name: "qwen3:8b" }],
+    localModel: "qwen3:8b",
+    testStatus: ""
+  });
+
+  assert.equal(view.title, "测试本地 AI");
+  assert.equal(view.status, "需要测试");
+  assert.equal(view.statusTone, "warn");
+  assert.equal(view.primaryAction, "测试 AI");
+  assert.equal(view.primaryActionKind, "test");
+});
+
 test("settings AI onboarding keeps unavailable local runtime states recoverable", () => {
   const view = buildSettingsAiOnboardingView({
     runtimeMode: "local_only",
@@ -120,6 +138,22 @@ test("settings AI onboarding keeps unavailable local runtime states recoverable"
   assert.equal(view.primaryActionKind, "detect-local");
   assert.equal(view.secondaryAction, "安装模型运行工具");
   assert.equal(view.secondaryActionKind, "install-ollama");
+});
+
+test("settings AI onboarding does not reuse stale test success for local completion", () => {
+  const view = buildSettingsAiOnboardingView({
+    runtimeMode: "local_only",
+    localFlowActive: true,
+    localStatus: "available",
+    localReady: true,
+    models: [{ name: "qwen3:8b" }],
+    localModel: "qwen3:8b",
+    testStatus: "success",
+    testSucceeded: false
+  });
+
+  assert.equal(view.primaryActionKind, "test");
+  assert.equal(view.statusTone, "warn");
 });
 
 test("settings AI onboarding gives an initial detection action before runtime status is known", () => {
@@ -148,6 +182,20 @@ test("settings AI onboarding requires testing before remote completion", () => {
   assert.equal(view.status, "待验证");
   assert.equal(view.primaryAction, "测试连接");
   assert.equal(view.helper, "配置已填写，验证连接后保存。");
+});
+
+test("settings AI onboarding does not reuse stale test success for remote completion", () => {
+  const view = buildSettingsAiOnboardingView({
+    runtimeMode: "cloud_only",
+    providerId: "openai_compatible_gateway",
+    remoteConfigurable: true,
+    remoteConfigReady: true,
+    testStatus: "success",
+    testSucceeded: false
+  });
+
+  assert.equal(view.primaryActionKind, "test-remote");
+  assert.equal(view.statusTone, "warn");
 });
 
 test("settings AI onboarding keeps explicit remote setup on the remote path", () => {

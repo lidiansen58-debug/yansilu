@@ -21,6 +21,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     deleteNote: host.deleteNote,
     descendantDirectoryIds: host.descendantDirectoryIds,
     editor: host.editor,
+    ensureAiReadyForFeature: host.ensureAiReadyForFeature,
     ensureNoteBodyLoaded: host.ensureNoteBodyLoaded,
     expandGraphBrowserTree: host.expandGraphBrowserTree,
     ensureLocalAiReadyForFeature: host.ensureLocalAiReadyForFeature,

@@ -1,4 +1,11 @@
 import { renderAiLocalModelRecommendationsForRuntime } from "./settings-ai-local-model-recommendations-view.js";
+import {
+  remoteConnectionReadyForProvider,
+  remoteHealthBelongsToAiConfig,
+  remoteHealthMatchesAiConfig,
+  remoteTestFailedForAiConfig,
+  remoteTestMatchesAiConfig
+} from "./settings-ai-remote-readiness.js";
 
 export { renderAiLocalModelRecommendationsForRuntime };
 
@@ -217,18 +224,21 @@ function renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiPr
   const configReady = remoteConfigurable
     ? Boolean(String(endpointValue || "").trim() && String(remoteModelValue || "").trim() && String(secretValue || "").trim())
     : Boolean(String(endpointValue || secretValue || remoteModelValue || "").trim());
-  const healthy = healthRecord?.status === "healthy";
-  const tested = ai.testStatus === "success";
+  const currentHealth = Boolean(healthRecord) && remoteHealthBelongsToAiConfig(ai, providerId);
+  const healthy = remoteHealthMatchesAiConfig(ai, providerId);
+  const tested = remoteTestMatchesAiConfig(ai, providerId);
+  const failedTest = remoteTestFailedForAiConfig(ai, providerId);
   const platformManaged = providerId === "platform_managed_openai";
   const disabled = config && String(config.status || "").trim() === "disabled";
-  const ok = tested || platformManaged;
-  const warn = disabled || (!ok && (!healthy || !configReady));
+  const ok = !failedTest && (tested || healthy || platformManaged);
+  const warn = failedTest || disabled || (!ok && (!healthy || !configReady));
   badge.classList.toggle("ok", ok && !disabled);
   badge.classList.toggle("warn", warn);
   if (ai.providerHealthChecking) badge.textContent = "测试中";
   else if (tested) badge.textContent = "测试成功";
-  else if (healthRecord?.status === "healthy") badge.textContent = "连接正常";
-  else if (healthRecord) badge.textContent = "连接失败";
+  else if (failedTest) badge.textContent = "需检查";
+  else if (healthy) badge.textContent = "连接正常";
+  else if (currentHealth) badge.textContent = "连接失败";
   else if (ai.providerConfigSaving) badge.textContent = "保存中";
   else if (ai.providerConfigError) badge.textContent = "需检查";
   else if (platformManaged) badge.textContent = "可用";
@@ -240,7 +250,7 @@ function renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiPr
 function renderProviderButtons({ $, ai, providerId, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl }) {
   const platformManaged = providerId === "platform_managed_openai";
   const remoteConfigurable = providerId && !platformManaged && !["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId);
-  const remoteTestPassed = ai.testStatus === "success" || ai.providerHealthResult?.record?.status === "healthy";
+  const remoteTestPassed = remoteConnectionReadyForProvider(ai, providerId);
   const remoteKeyCleared = remoteConfigurable && !String(ai.remoteApiKey || "").trim() && ai.providerDraftTouched?.secretRef === true;
   const saveButton = $("settingsAiSaveProviderConfig");
   if (saveButton) {

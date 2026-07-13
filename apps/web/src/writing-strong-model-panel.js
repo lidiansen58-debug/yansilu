@@ -1,3 +1,5 @@
+import { renderContextualAiResultPanel } from "./contextual-ai-result-panel.js";
+
 export function renderWritingStrongModelSummaryDom({
   writingState = {},
   panelState = {},
@@ -5,6 +7,7 @@ export function renderWritingStrongModelSummaryDom({
   basketIds = [],
   strongModelButton = null,
   strongModelSummary = null,
+  contextualAiState = null,
   describeWritingStrongModelIdleSummary = () => ""
 } = {}) {
   const strongModelBasketIds = basketIds;
@@ -13,17 +16,21 @@ export function renderWritingStrongModelSummaryDom({
     strongModelButton.textContent = panelState.strongModelButtonState.text;
   }
   if (strongModelSummary) {
+    if (contextualAiState?.actionId === "check_outline" && contextualAiState.status !== "idle") {
+      strongModelSummary.innerHTML = renderContextualAiResultPanel(contextualAiState);
+      return strongModelBasketIds;
+    }
     const result = writingState.strongModelResult;
     const request = result?.request;
     const artifactCount = Number(result?.result?.summary?.artifactCount || result?.result?.artifacts?.length || 0);
     if (writingState.strongModelError) {
-      strongModelSummary.textContent = `AI 写作检查准备失败：${writingState.strongModelError}`;
+      strongModelSummary.textContent = `检查提纲失败：${writingState.strongModelError}`;
     } else if (writingState.strongModelLoading) {
-      strongModelSummary.textContent = "正在准备 AI 写作检查请求...";
+      strongModelSummary.textContent = "正在检查提纲…";
     } else if (request) {
       strongModelSummary.textContent = result?.result
-        ? `已整理 ${artifactCount} 条写作建议，全部进入系统消息，等你决定是否采用。`
-        : `已准备 ${request.model?.model || "strong_model"} 写作检查内容；当前没有直接调用远程模型。`;
+        ? `已整理 ${artifactCount} 条写作建议，请确认后再修改提纲。`
+        : "检查结果已准备好，请确认后再修改提纲。";
     } else {
       strongModelSummary.textContent = describeWritingStrongModelIdleSummary({
         basketCount: strongModelBasketIds.length,

@@ -179,12 +179,12 @@ test("AI inbox panel renders field suggestion adoption for InsightCard artifacts
         id: "artifact_field_1",
         type: "InsightCard",
         title: "字段建议：补充 thesis",
-        body: "AI 候选必须先成为草稿。",
+        body: "AI 建议必须先成为草稿。",
         payload: {
           targetField: "thesis",
           fieldSuggestion: {
             target: { type: "permanent_note", id: "pn_1", field: "thesis" },
-            content: { thesis: "AI 候选必须先成为草稿。" }
+            content: { thesis: "AI 建议必须先成为草稿。" }
           }
         }
       }
@@ -192,12 +192,12 @@ test("AI inbox panel renders field suggestion adoption for InsightCard artifacts
   });
 
   assert.match(html, /可采纳为观点草稿/);
-  assert.match(html, /采纳为草稿字段/);
+  assert.match(html, /写入草稿/);
   assert.match(html, /data-ai-inbox-adopt-field="artifact_field_1"/);
   assert.match(html, /data-ai-inbox-suggestion-id=""/);
 });
 
-test("AI inbox panel surfaces suggestion traceability and review history inside inbox detail", () => {
+test("AI inbox panel keeps traceability and review history out of the main detail", () => {
   const html = renderAiInboxPanel({
     items: [{ ...item, artifactId: "artifact_field_trace", type: "InsightCard", title: "Field suggestion trace" }],
     counts: { pending: 1 },
@@ -247,18 +247,19 @@ test("AI inbox panel surfaces suggestion traceability and review history inside 
     }
   });
 
-  assert.match(html, /Suggestion trace/);
-  assert.match(html, /Next step/);
-  assert.match(html, /Reviewed content/);
-  assert.match(html, /Suggestion provenance/);
-  assert.match(html, /Suggestion history/);
+  assert.match(html, /观点草稿建议/);
+  assert.doesNotMatch(html, /Suggestion trace/);
+  assert.doesNotMatch(html, /Next step/);
+  assert.doesNotMatch(html, /Reviewed content/);
+  assert.doesNotMatch(html, /Suggestion provenance/);
+  assert.doesNotMatch(html, /Suggestion history/);
   assert.match(html, /data-ai-inbox-suggestion-status="edited"/);
   assert.match(html, /data-ai-inbox-suggestion-id="suggestion_field_trace"/);
-  assert.match(html, /id="aiInboxSuggestionContentEditor"/);
-  assert.match(html, /data-ai-inbox-open-note="pn_1"/);
+  assert.doesNotMatch(html, /id="aiInboxSuggestionContentEditor"/);
+  assert.match(html, /data-ai-inbox-open-note="note_a"[\s\S]*打开来源笔记 1/);
 });
 
-test("AI inbox panel renders trace placeholders and target-missing guidance when linked trace is incomplete", () => {
+test("AI inbox panel hides incomplete trace placeholders from the main detail", () => {
   const html = renderAiInboxPanel({
     items: [{ ...item, artifactId: "artifact_field_placeholder", type: "InsightCard", title: "Field suggestion placeholder" }],
     counts: { pending: 1 },
@@ -281,13 +282,13 @@ test("AI inbox panel renders trace placeholders and target-missing guidance when
     }
   });
 
-  assert.match(html, /Trace placeholder: this linked review item exists, but its source\/target trace is incomplete\./);
-  assert.match(html, /missing target note/);
-  assert.match(html, /This linked review item is not connected to a target note yet\./);
-  assert.match(html, /data-ai-inbox-open-note=""[\s\S]*disabled/);
+  assert.match(html, /观点草稿建议/);
+  assert.doesNotMatch(html, /这条建议的来源或目标信息不完整/);
+  assert.doesNotMatch(html, /这条建议还没有连接到目标笔记/);
+  assert.doesNotMatch(html, /data-ai-inbox-open-note=""[\s\S]*disabled/);
 });
 
-test("AI inbox panel prefers canonical trace fields over incomplete suggestion targets", () => {
+test("AI inbox panel keeps canonical trace fields inside collapsed technical details", () => {
   const html = renderAiInboxPanel({
     items: [{ ...item, artifactId: "artifact_field_trace_priority", type: "InsightCard", title: "Field suggestion trace priority" }],
     counts: { pending: 1 },
@@ -325,9 +326,9 @@ test("AI inbox panel prefers canonical trace fields over incomplete suggestion t
   });
 
   assert.match(html, /artifact_trace_priority/);
-  assert.match(html, /Target note<\/dt><dd>pn_trace/);
-  assert.match(html, /Target field<\/dt><dd>thesis/);
-  assert.doesNotMatch(html, /Trace placeholder:/);
+  assert.match(html, /目标笔记<\/dt><dd>pn_trace/);
+  assert.match(html, /目标字段<\/dt><dd>thesis/);
+  assert.doesNotMatch(html, /来源或目标信息不完整/);
 });
 
 test("AI inbox panel advances suggestion review actions from edited to confirmed", () => {
@@ -374,9 +375,9 @@ test("AI inbox panel advances suggestion review actions from edited to confirmed
   });
 
   assert.match(html, /data-ai-inbox-suggestion-status="confirmed"/);
-  assert.match(html, /Confirm/);
-  assert.match(html, /Ready to confirm/);
-  assert.match(html, /Reviewed content/);
+  assert.match(html, /确认/);
+  assert.doesNotMatch(html, /Ready to confirm/);
+  assert.doesNotMatch(html, /Reviewed content/);
 });
 
 test("AI inbox panel surfaces review action errors inside the detail pane", () => {
@@ -407,7 +408,7 @@ test("AI inbox panel surfaces review action errors inside the detail pane", () =
     }
   });
 
-  assert.match(html, /AI inbox review failed: action boom/);
+  assert.match(html, /建议处理失败：action boom/);
   assert.match(html, /data-ai-inbox-suggestion-status="confirmed"/);
 });
 
@@ -532,7 +533,7 @@ test("AI inbox panel does not surface stale suggestion review notices when the a
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
   assert.doesNotMatch(detailPane, /This reviewed suggestion is already confirmed\./);
-  assert.match(detailPane, /Suggestion<\/dt><dd>suggestion_new<\/dd>/);
+  assert.match(detailPane, /data-ai-inbox-suggestion-id="suggestion_new"/);
   assert.match(detailPane, /data-ai-inbox-suggestion-status="confirmed"/);
 });
 
@@ -583,8 +584,8 @@ test("AI inbox panel does not keep rendering stale detail when selection has mov
   assert.doesNotMatch(detailPane, /Selected artifact A/);
   assert.match(detailPane, /Selected artifact B/);
   assert.doesNotMatch(detailPane, /Should not leak from stale detail/);
-  assert.match(detailPane, /Review safety/);
-  assert.match(detailPane, /Load the latest detail before running review actions/);
+  assert.match(detailPane, /正在读取详情/);
+  assert.match(detailPane, /详情读取完成后再处理/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-suggestion-status=/);
 });
@@ -595,15 +596,15 @@ test("AI inbox panel keeps owned review notices visible behind the review-safety
     counts: { reviewed: 1 },
     selectedArtifactId: "artifact_b",
     actionNoticeArtifactId: "artifact_b",
-    actionNotice: "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.",
+    actionNotice: "另一条建议正在处理，请稍后再处理当前建议。",
     actionNoticeTone: "warn",
     detail: null
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.match(detailPane, /Review safety/);
+  assert.match(detailPane, /正在读取详情/);
   assert.match(detailPane, /data-ai-inbox-action-notice="true"/);
-  assert.match(detailPane, /Another AI inbox review action is still running/);
+  assert.match(detailPane, /另一条建议正在处理/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
 });
 
@@ -618,8 +619,8 @@ test("AI inbox panel keeps owned review errors visible behind the review-safety 
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.match(detailPane, /Review safety/);
-  assert.match(detailPane, /AI inbox review failed: action boom/);
+  assert.match(detailPane, /正在读取详情/);
+  assert.match(detailPane, /建议处理失败：action boom/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
 });
 
@@ -631,14 +632,14 @@ test("AI inbox panel keeps owned busy state visible behind the review-safety gat
     actionLoading: true,
     actionArtifactId: "artifact_b",
     actionNoticeArtifactId: "artifact_b",
-    actionNotice: "Another AI inbox review action is still running. Wait for it to finish before reviewing a different item.",
+    actionNotice: "另一条建议正在处理，请稍后再处理当前建议。",
     actionNoticeTone: "warn",
     detail: null
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
   assert.match(detailPane, /class="ai-inbox-detail is-busy"/);
-  assert.match(detailPane, /Review safety/);
+  assert.match(detailPane, /正在读取详情/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
 });
 
@@ -654,7 +655,7 @@ test("AI inbox panel does not keep review safety busy when the artifact stays se
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.match(detailPane, /Review safety/);
+  assert.match(detailPane, /正在读取详情/);
   assert.doesNotMatch(detailPane, /class="ai-inbox-detail is-busy"/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
 });
@@ -670,8 +671,8 @@ test("AI inbox panel keeps review safety visible while the selected latest detai
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.match(detailPane, /Review safety/);
-  assert.match(detailPane, /Loading latest detail/);
+  assert.match(detailPane, /正在读取详情/);
+  assert.match(detailPane, /正在读取最新详情/);
   assert.match(detailPane, /class="ai-inbox-detail is-busy"/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
 });
@@ -687,8 +688,8 @@ test("AI inbox panel keeps review safety visible when the selected latest detail
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.match(detailPane, /Review safety/);
-  assert.match(detailPane, /AI inbox detail failed to load: detail boom/);
+  assert.match(detailPane, /正在读取详情/);
+  assert.match(detailPane, /详情读取失败：detail boom/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
 });
 
@@ -709,7 +710,7 @@ test("AI inbox panel does not surface stale review action errors after selection
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.doesNotMatch(detailPane, /AI inbox review failed: action boom/);
+  assert.doesNotMatch(detailPane, /建议处理失败：action boom/);
   assert.match(detailPane, /data-ai-inbox-accept-link="artifact_b"/);
 });
 
@@ -742,8 +743,8 @@ test("AI inbox panel does not surface stale suggestion review errors when the ar
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
-  assert.doesNotMatch(detailPane, /AI inbox review failed: action boom/);
-  assert.match(detailPane, /Suggestion<\/dt><dd>suggestion_new<\/dd>/);
+  assert.doesNotMatch(detailPane, /建议处理失败：action boom/);
+  assert.match(detailPane, /data-ai-inbox-suggestion-id="suggestion_new"/);
   assert.match(detailPane, /data-ai-inbox-suggestion-status="confirmed"/);
 });
 
@@ -800,7 +801,7 @@ test("AI inbox panel still disables artifact-scoped controls when the artifact s
     actionSuggestionId: "suggestion_old",
     aiSummaryArtifactId: "artifact_same",
     aiSummarySuggestionId: "suggestion_current",
-    aiSummary: "Recommended action: accept_link",
+    aiSummary: "建议：建立关系",
     aiSummaryMeta: "local_private_gateway / qwen2.5:3b",
     aiSummaryRecommendedAction: "accept_link"
   });
@@ -839,7 +840,7 @@ test("AI inbox panel disables current-item actions while the current artifact ac
     },
     aiSummaryArtifactId: "artifact_link_busy",
     aiSummarySuggestionId: "suggestion_busy",
-    aiSummary: "Recommended action: accept_link",
+    aiSummary: "建议：建立关系",
     aiSummaryMeta: "local_private_gateway / qwen2.5:3b",
     aiSummaryRecommendedAction: "accept_link"
   });
@@ -865,14 +866,14 @@ test("AI inbox panel renders an actionable AI summary recommendation outside gra
     selectedArtifactId: "artifact_insight_summary",
     detail: { item: insightItem, artifact: insightArtifact },
     aiSummaryArtifactId: "artifact_insight_summary",
-    aiSummary: "Recommended action: accept_link",
+    aiSummary: "建议：建立关系",
     aiSummaryMeta: "local_private_gateway / qwen2.5:3b",
     aiSummaryRecommendedAction: "accept_link"
   });
 
-  assert.match(html, /Recommended action/);
+  assert.match(html, /建议建立关系/);
   assert.match(html, /data-ai-inbox-recommended-action="accept_link"/);
-  assert.match(html, /Apply: create relation/);
+  assert.match(html, /建立关系/);
 });
 
 test("AI inbox panel does not keep rendering stale AI summary when selection has moved", () => {
@@ -895,7 +896,7 @@ test("AI inbox panel does not keep rendering stale AI summary when selection has
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
   assert.doesNotMatch(detailPane, /Old summary should not leak/);
-  assert.doesNotMatch(detailPane, /Recommended action/);
+  assert.doesNotMatch(detailPane, /建议建立关系/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-recommended-action=/);
 });
 
@@ -933,7 +934,7 @@ test("AI inbox panel does not keep rendering stale AI summary when the artifact 
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
   assert.doesNotMatch(detailPane, /Old summary should not leak across suggestion changes/);
-  assert.doesNotMatch(detailPane, /Recommended action/);
+  assert.doesNotMatch(detailPane, /建议建立关系/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-recommended-action=/);
   assert.match(detailPane, /id="btnAiInboxSummarize"/);
   assert.doesNotMatch(detailPane, /id="btnAiInboxSummarize"[^>]*disabled/);
@@ -956,7 +957,7 @@ test("AI inbox panel disables draft note promotion after an artifact is promoted
     }
   });
 
-  assert.match(html, /已经生成笔记 note_1/);
+  assert.match(html, /已经生成一条草稿笔记/);
   assert.match(html, /data-ai-inbox-promote-note="artifact_question_2"[\s\S]*disabled/);
 });
 

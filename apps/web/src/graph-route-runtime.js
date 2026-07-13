@@ -59,14 +59,16 @@ export function createGraphRouteRuntime(deps = {}) {
       graphState.thinkingPanelOpen = true;
       graphState.thinkingFilter = "all";
       graphState.workbenchPanelOpen = true;
-      graphState.workbenchPanelTab = "questions";
+      if (graphState.workbenchPanelTab !== "clues") {
+        graphState.workbenchPanelTab = "questions";
+      }
       setStatus(
-        count ? `目录批处理已生成 ${count} 条待确认推荐，已在追问中展开` : "目录批处理完成，已打开追问",
+        count ? `已找到 ${count} 条建议，请逐条确认` : "当前没有新的建议",
         count ? "ok" : ""
       );
     } catch (error) {
       graphState.aiAnalysisError = String(error?.message || error);
-      setStatus(`AI 图谱初判失败：${graphState.aiAnalysisError}`, "warn");
+      setStatus(`找缺口失败：${graphState.aiAnalysisError}`, "warn");
     } finally {
       graphState.aiAnalysisLoading = false;
       renderGraphPanel();

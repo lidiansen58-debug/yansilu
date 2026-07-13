@@ -66,25 +66,12 @@ export function currentModuleSidebarUi({
       `
     },
     aiInbox: {
-      sidebarTitle: "AI 建议",
-      sidebarSubtitle: "从系统消息进入，是否落地由你确认。",
-      sidebarFoot: "系统消息会先承接 AI 建议。只有你点击采纳、建立关系或生成草稿后，才会进入笔记系统。",
-      title: "AI 建议",
-      summary: "这里处理需要你确认的关系、问题、冲突和写作建议。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
-      sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>它用来做什么</h3>
-          <p>把 AI 的输出拦在“待确认”层：有价值的关系可以进入图谱，有价值的问题可以生成草稿，没用的建议直接忽略。</p>
-        </div>
-        <div class="module-sidebar-card">
-          <h3>处理顺序</h3>
-          <ol class="module-sidebar-list">
-            <li>先看待判断建议</li>
-            <li>核对来源笔记和关系说明</li>
-            <li>确认后再建立关系或生成草稿</li>
-          </ol>
-        </div>
-      `
+      sidebarTitle: "待确认建议",
+      sidebarSubtitle: "确认后才会写入。",
+      sidebarFoot: "",
+      title: "待确认建议",
+      summary: "先看来源和理由，再决定采纳、忽略或归档。",
+      sidebarHtml: ""
     },
     graph: {
       sidebarTitle: "永久笔记关系图谱",

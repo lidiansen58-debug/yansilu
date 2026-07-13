@@ -14,7 +14,9 @@ export function buildSettingsAiOnboardingView(input = {}) {
   const localModel = String(input.localModel || "").trim();
   const models = Array.isArray(input.models) ? input.models : [];
   const localReady = Boolean(input.localReady);
-  const testSucceeded = input.testStatus === "success";
+  const testSucceeded = Object.hasOwn(input, "testSucceeded")
+    ? input.testSucceeded === true
+    : input.testStatus === "success";
   const remoteConfigurable = Boolean(input.remoteConfigurable);
   const remoteConfigReady = Boolean(input.remoteConfigReady);
   const recommendedModel = String(input.primaryRecommendedModel || "qwen3:8b").trim() || "qwen3:8b";
@@ -34,14 +36,28 @@ export function buildSettingsAiOnboardingView(input = {}) {
 
   if (localFlowActive) {
     if (localReady && localStatus === "available") {
+      if (!testSucceeded) {
+        return {
+          title: "测试本地 AI",
+          body: "",
+          status: "需要测试",
+          statusTone: "warn",
+          mode: "本地 AI",
+          primaryAction: "测试 AI",
+          primaryActionKind: "test",
+          secondaryAction: "",
+          secondaryActionKind: "",
+          helper: ""
+        };
+      }
       return {
         title: "本地 AI 可用",
         body: "",
         status: "AI 可用",
         statusTone: "ok",
         mode: "本地 AI",
-        primaryAction: testSucceeded ? "已完成" : "测试 AI",
-        primaryActionKind: testSucceeded ? "done" : "test",
+        primaryAction: "已完成",
+        primaryActionKind: "done",
         secondaryAction: "",
         secondaryActionKind: "",
         helper: ""

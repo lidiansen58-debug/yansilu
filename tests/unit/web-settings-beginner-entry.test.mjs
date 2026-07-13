@@ -63,7 +63,7 @@ test("settings help exposes a one-click Smart Notes Demo entrance", async () => 
   assert.match(html, /导入一套可试错样例/);
   assert.match(html, /空库先导入 Demo；已有资料先选文件夹；只想记录就写第一条随笔/);
   assert.match(html, /关联不是为了图好看/);
-  assert.match(html, /AI 只做候选建议/);
+  assert.match(html, /AI 只做参考建议/);
   assert.match(html, /Demo 只会在你确认后导入/);
   assert.match(html, /id="settingsImportSmartNotesDemo"/);
   assert.match(html, /导入示例库 \/ 体验 Demo/);

@@ -15,6 +15,33 @@ import {
   ollamaRecommendationForModel
 } from "./prototype-ai-settings-controller.js";
 
+function clearAiTestResult(aiState = {}) {
+  aiState.testMeta = "";
+  aiState.testOutput = "";
+  aiState.testStatus = "";
+  aiState.testModel = "";
+  aiState.testProviderId = "";
+  aiState.testEndpointUrl = "";
+  aiState.testRemoteModel = "";
+  aiState.testSecretRef = "";
+  aiState.providerHealthProviderId = "";
+  aiState.providerHealthEndpointUrlSnapshot = "";
+  aiState.providerHealthCheckEndpointUrlSnapshot = "";
+  aiState.providerHealthRemoteModel = "";
+  aiState.providerHealthSecretRef = "";
+}
+
+function clearAiChatTestResult(aiState = {}) {
+  aiState.testMeta = "";
+  aiState.testOutput = "";
+  aiState.testStatus = "";
+  aiState.testModel = "";
+  aiState.testProviderId = "";
+  aiState.testEndpointUrl = "";
+  aiState.testRemoteModel = "";
+  aiState.testSecretRef = "";
+}
+
 export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
 
@@ -309,6 +336,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
     const {
       applyOllamaRuntimePreview = () => [],
       fetchOllamaModels = async () => null,
+      persistAiSettingsToStorage = () => {},
       renderSettingsPanel = () => {},
       setStatus = () => {},
       settingsState = {},
@@ -335,6 +363,8 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       } else if (stopOutcome.status === "stopped") {
         settingsState.ai.localRuntimeModels = [];
         settingsState.ai.localRuntimeError = stopOutcome.error;
+        clearAiTestResult(settingsState.ai);
+        persistAiSettingsToStorage();
         setStatus("本地 AI 已停止。需要本地模型时可以再启动。", "ok");
       } else if (stopOutcome.status === "stopping") {
         settingsState.ai.localRuntimeError = stopOutcome.error;
@@ -373,7 +403,9 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
     const requested = String(modelName || "").trim();
     const inCatalog = Boolean(ollamaRecommendationForModel(requested, currentOllamaModelTiers()));
     const next = requested && inCatalog && hasLocalModel(requested) ? requested : "";
+    const previous = String(settingsState.ai.localModel || "").trim();
     settingsState.ai.localModel = next;
+    if (next !== previous) clearAiTestResult(settingsState.ai);
     clearLocalOllamaSelectionState({ clearModel: false });
     if (next) applyOllamaLocalModelDefaults();
     persistAiSettingsToStorage();
@@ -468,6 +500,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       applyActiveAiProviderConfigToState = () => {},
       checkAiProviderHealth = async () => null,
       currentAiProviderId = () => "",
+      refreshAiRoutePreview = async () => {},
       renderSettingsPanel = () => {},
       resetAiProviderDraftTouched = () => {},
       saveAiProviderConfig = async () => null,
@@ -497,9 +530,16 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       upsertAiProviderConfig(saved);
       resetAiProviderDraftTouched();
       applyActiveAiProviderConfigToState();
+      await refreshAiRoutePreview({ render: false });
       const result = await checkAiProviderHealth(healthPlan.providerId, healthPlan.request);
       settingsState.ai.providerHealthResult = result;
+      settingsState.ai.providerHealthProviderId = String(providerId || "").trim();
+      settingsState.ai.providerHealthEndpointUrlSnapshot = String(settingsState.ai.providerEndpointUrl || "").trim();
+      settingsState.ai.providerHealthCheckEndpointUrlSnapshot = String(settingsState.ai.providerHealthEndpointUrl || "").trim();
+      settingsState.ai.providerHealthRemoteModel = String(settingsState.ai.remoteRuntimeModel || "").trim();
+      settingsState.ai.providerHealthSecretRef = String(settingsState.ai.secretRef || "").trim();
       const healthStatus = providerHealthResultStatus(result);
+      if (healthStatus.healthy) clearAiChatTestResult(settingsState.ai);
       setStatus(`AI 服务 ${healthStatus.label}`, healthStatus.healthy ? "ok" : "warn");
       return true;
     } catch (error) {

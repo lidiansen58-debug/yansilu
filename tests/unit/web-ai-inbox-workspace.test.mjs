@@ -38,8 +38,7 @@ test("AI inbox workspace render mounts panel html from injected renderer", () =>
 test("AI inbox workspace reads filters and feedback from the current DOM", () => {
   const elements = {
     aiInboxTypeFilter: { value: "LinkSuggestion" },
-    aiInboxSourceNoteFilter: { value: "note_1" },
-    aiInboxPrivacyFilter: { value: "local_only" }
+    aiInboxSourceNoteFilter: { value: "note_1" }
   };
   const filters = aiInboxFiltersFromWorkspace({
     state: { filters: { view: "pending", type: "all" } },
@@ -49,7 +48,6 @@ test("AI inbox workspace reads filters and feedback from the current DOM", () =>
     view: "pending",
     type: "LinkSuggestion",
     sourceNoteId: "note_1",
-    privacyMode: "local_only",
     limit: 50
   });
 

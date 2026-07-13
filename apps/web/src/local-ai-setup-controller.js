@@ -7,6 +7,7 @@ const FEATURE_ACTIONS = Object.freeze({
   graph_connect: "graph_connect",
   theme_index: "graph_analysis",
   note_analysis: "note_analysis",
+  distill_material: "ai_summary",
   writing_check: "writing_check",
   ai_summary: "ai_summary"
 });
@@ -40,6 +41,7 @@ export function createLocalAiSetupController(depsProvider = () => ({})) {
       ollamaBootstrapStatusText = () => "",
       ollamaRecommendationForModel = () => null,
       currentOllamaModelTiers = () => [],
+      localAiFeatureReady = () => false,
       shouldGuideLocalAiSetupForFeature = () => false,
       localAiSetupSyncPending = () => false,
       activateModule = () => {},
@@ -48,6 +50,9 @@ export function createLocalAiSetupController(depsProvider = () => ({})) {
       renderSettingsPanel = () => {},
       setStatus = () => {}
     } = deps();
+    if (localAiFeatureReady() && !localAiSetupSyncPending()) {
+      return { ready: true, skipped: true, reason: "local_ai_ready" };
+    }
     if (!localOllamaSetupActive() && !shouldGuideLocalAiSetupForFeature(options)) {
       return { ready: true, skipped: true, reason: "not_local_ai_setup_flow" };
     }
@@ -69,6 +74,16 @@ export function createLocalAiSetupController(depsProvider = () => ({})) {
         const message = "本地 AI 已可用，但保存为当前 AI 设置失败。请打开 AI 设置重试；不影响继续写笔记、手工整理关系和进入写作中心。";
         setStatus(message, "warn", { priority: 3, holdMs: 8000 });
         return { ready: false, result, message, reason: "local_ai_setup_save_failed" };
+      }
+      if (!localAiFeatureReady()) {
+        if (options.openSettings !== false) {
+          activateModule("settings");
+          setSettingsItem("ai-settings", { render: false });
+          renderSettingsPanel();
+        }
+        const message = "请先测试 AI，确认当前本地模型能正常回复。";
+        setStatus(message, "warn", { priority: 3, holdMs: 8000 });
+        return { ready: false, result, message, reason: "local_ai_needs_test" };
       }
       return { ready: true, result };
     }

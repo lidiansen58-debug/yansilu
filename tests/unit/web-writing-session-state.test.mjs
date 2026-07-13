@@ -67,11 +67,15 @@ test("writing session state resets strong model state and increments revision", 
     strongModelRevision: 4,
     strongModelLoading: true,
     strongModelResult: { ok: true },
-    strongModelError: "failed"
+    strongModelError: "failed",
+    contextualAiActionState: { actionId: "check_outline", status: "awaiting_confirmation" },
+    pendingContextualAiAction: { actionId: "check_outline" }
   };
 
   assert.equal(resetWritingStrongModelStateForRuntime(writingState), 5);
   assert.equal(writingState.strongModelLoading, false);
   assert.equal(writingState.strongModelResult, null);
   assert.equal(writingState.strongModelError, "");
+  assert.equal(writingState.contextualAiActionState, null);
+  assert.equal(writingState.pendingContextualAiAction, null);
 });

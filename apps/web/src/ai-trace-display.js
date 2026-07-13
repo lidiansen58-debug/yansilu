@@ -30,9 +30,9 @@ export function traceDisplayState({
 
 export function tracePlaceholderCopy({ suggestionId = "", sourceArtifactId = "", targetNoteId = "" } = {}) {
   if (cleanText(sourceArtifactId) || cleanText(targetNoteId)) return "";
-  return "Trace placeholder: this linked review item exists, but its source/target trace is incomplete.";
+  return "这条建议的来源或目标信息不完整。";
 }
 
 export function traceMissingTargetCopy() {
-  return "This linked review item is not connected to a target note yet.";
+  return "这条建议还没有连接到目标笔记。";
 }

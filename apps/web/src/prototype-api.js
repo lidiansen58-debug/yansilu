@@ -301,12 +301,10 @@ export async function fetchAiInbox(options = {}) {
   const view = String(options?.view || "pending").trim();
   const type = String(options?.type || "").trim();
   const sourceNoteId = String(options?.sourceNoteId || "").trim();
-  const privacyMode = String(options?.privacyMode || "").trim();
   const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
   if (view) params.set("view", view);
   if (type && type !== "all") params.set("type", type);
   if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
-  if (privacyMode) params.set("privacyMode", privacyMode);
   if (options?.canonical === true) params.set("canonical", "true");
   params.set("limit", String(limit));
   const json = await request(`/api/v1/ai/inbox?${params.toString()}`);
@@ -323,11 +321,9 @@ export async function fetchAiInboxEvaluationSummary(options = {}) {
   const view = String(options?.view || "all").trim();
   const type = String(options?.type || "").trim();
   const sourceNoteId = String(options?.sourceNoteId || "").trim();
-  const privacyMode = String(options?.privacyMode || "").trim();
   if (view) params.set("view", view);
   if (type && type !== "all") params.set("type", type);
   if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
-  if (privacyMode) params.set("privacyMode", privacyMode);
   const json = await request(`/api/v1/ai/inbox/evaluation-summary?${params.toString()}`);
   return json.item || null;
 }

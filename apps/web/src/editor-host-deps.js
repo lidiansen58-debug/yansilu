@@ -84,6 +84,8 @@ export function createEditorPaneHostDeps(deps = {}) {
       hideRelated: $("btnHideRelated"),
       completeNote: $("btnCompleteNote"),
       recordPermanent: $("btnRecordPermanent"),
+      distillSourceAi: $("btnDistillSourceAi"),
+      checkNoteAi: $("btnCheckNoteAi"),
       save: $("btnSave"),
       statusHint: $("statusHint"),
       authorshipPanel: $("authorshipPanel"),

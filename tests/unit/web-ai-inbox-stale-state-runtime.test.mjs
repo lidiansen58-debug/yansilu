@@ -3071,7 +3071,7 @@ test("refreshAiInboxEvaluationSummary ignores stale failures and keeps the lates
   let resolveSecond;
   const renders = [];
   const aiInboxState = {
-    filters: { view: "pending", type: "all", sourceNoteId: "", privacyMode: "" },
+    filters: { view: "pending", type: "all", sourceNoteId: "" },
     evaluationSummary: { filter: { view: "all" }, artifacts: { total: 9 } },
     evaluationError: "stale evaluation error",
     evaluationLoading: false,

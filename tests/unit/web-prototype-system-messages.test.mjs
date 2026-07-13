@@ -98,7 +98,6 @@ test("system message AI review filters default to pending global review", () => 
   assert.deepEqual(aiInboxFiltersForSystemMessage({}), {
     view: "pending",
     type: "all",
-    privacyMode: "",
     sourceNoteId: "",
     limit: 50
   });

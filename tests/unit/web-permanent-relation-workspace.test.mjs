@@ -331,7 +331,7 @@ test("permanent relation manual search shows search errors inside the results ar
   assert.doesNotMatch(html, /没有匹配笔记/);
 });
 
-test("permanent relation workspace keeps AI recommendations out of the simple link flow", () => {
+test("permanent relation workspace shows AI recommendations only in recommendation mode", () => {
   const html = renderPermanentRelationWorkspace({
     note,
     notes: [note, target],
@@ -352,11 +352,14 @@ test("permanent relation workspace keeps AI recommendations out of the simple li
     deps
   });
 
-  assert.match(html, /data-permanent-relation-target-search/);
-  assert.doesNotMatch(html, new RegExp(target.title));
+  assert.match(html, /推荐关联/);
+  assert.match(html, /data-permanent-relation-ai-target="pn_target"/);
+  assert.match(html, new RegExp(target.title));
+  assert.doesNotMatch(html, /YJ-D09/);
+  assert.match(html, /local candidate reason/);
   assert.doesNotMatch(html, /46%/);
-  assert.doesNotMatch(html, /data-permanent-relation-ai-target/);
   assert.doesNotMatch(html, /data-permanent-relation-ai-select/);
+  assert.match(html, /data-permanent-relation-form hidden/);
 });
 
 
@@ -459,7 +462,8 @@ test("permanent relation AI recommendations normalize confidence without showing
 
   assert.equal(candidates[0].aiConfidence, 0.73);
   assert.doesNotMatch(html, /73%/);
-  assert.doesNotMatch(html, /data-permanent-relation-ai-target/);
+  assert.match(html, /data-permanent-relation-ai-target="pn_target"/);
+  assert.match(html, /目标笔记可以支持当前判断。/);
 });
 
 test("permanent relation workspace continues with the next unsaved AI candidate", () => {

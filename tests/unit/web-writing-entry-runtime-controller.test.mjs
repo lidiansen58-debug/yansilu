@@ -13,6 +13,7 @@ test("writing entry runtime controller begins a fresh basket entry", () => {
   const calls = [];
   const writingState = {
     strongModelEpoch: 1,
+    contextualAiActionState: { actionId: "check_outline", status: "awaiting_confirmation" },
     sourceIndexIds: ["idx_old"],
     selectedThemeIndexId: "idx_old"
   };
@@ -41,6 +42,7 @@ test("writing entry runtime controller begins a fresh basket entry", () => {
   assert.equal(ok, true);
   assert.equal(writingState.strongModelEpoch, 2);
   assert.equal(writingState.strongModelLoading, false);
+  assert.equal(writingState.contextualAiActionState, null);
   assert.equal(writingState.loadingRelationCounts, true);
   assert.deepEqual(calls.find((call) => call[0] === "basket"), ["basket", ["n1", "n2"]]);
   assert.deepEqual(calls.find((call) => call[0] === "theme"), ["theme", ""]);
@@ -61,6 +63,7 @@ test("writing entry runtime controller continues an existing basket entry", () =
   const calls = [];
   const writingState = {
     strongModelEpoch: 0,
+    contextualAiActionState: { actionId: "check_outline", status: "awaiting_confirmation" },
     sourceIndexIds: ["idx_existing"],
     selectedThemeIndexId: "idx_existing"
   };
@@ -90,6 +93,7 @@ test("writing entry runtime controller continues an existing basket entry", () =
   });
 
   assert.equal(plan.entryMode, "append");
+  assert.equal(writingState.contextualAiActionState, null);
   assert.deepEqual(plan.basketNoteIds, ["n1", "n2"]);
   assert.equal(plan.resolvedTitle, "Existing title");
   assert.deepEqual(calls.find((call) => call[0] === "source"), ["source", ["idx_existing", "idx_new"]]);

@@ -92,6 +92,32 @@ test("settings AI experience view keeps empty remote setup on remote path", () =
   assert.equal(get("settingsAiSecondaryAction").dataset.settingsAiPrimaryAction, "local");
 });
 
+test("settings AI experience view treats current remote health success as ready", () => {
+  const { get } = elementMap();
+
+  renderAiSettingsExperienceForRuntime(baseDeps(get, {
+    runtimeMode: "cloud_only",
+    modelPack: "Global Optimized",
+    providerId: "openai_compatible_gateway",
+    providerEndpointUrl: "https://api.example/v1/chat/completions",
+    providerHealthEndpointUrl: "",
+    remoteRuntimeModel: "gpt-test",
+    secretRef: "sk-test",
+    providerHealthResult: { record: { status: "healthy" } },
+    providerHealthProviderId: "openai_compatible_gateway",
+    providerHealthEndpointUrlSnapshot: "https://api.example/v1/chat/completions",
+    providerHealthCheckEndpointUrlSnapshot: "",
+    providerHealthRemoteModel: "gpt-test",
+    providerHealthSecretRef: "sk-test"
+  }));
+
+  assert.equal(get("settingsAiTopStatus").textContent, "已就绪");
+  assert.equal(get("settingsAiTopAction").textContent, "已完成");
+  assert.equal(get("settingsAiTopAction").dataset.settingsAiPrimaryAction, "done");
+  assert.equal(get("settingsAiSetupTitle").textContent, "远程 AI 已就绪");
+  assert.equal(get("settingsAiLabBadge").textContent, "测试成功");
+});
+
 test("settings AI experience view hides pause action when AI is already off", () => {
   const { get } = elementMap();
 
@@ -149,6 +175,7 @@ test("settings AI experience view hides setup guidance when local model is ready
     localRuntimeModels: [{ name: "qwen3:4b" }],
     localModel: "qwen3:4b",
     testStatus: "success",
+    testModel: "qwen3:4b",
     testOutput: "pong"
   }));
 
