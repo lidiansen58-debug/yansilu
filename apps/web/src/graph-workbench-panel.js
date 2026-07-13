@@ -73,6 +73,18 @@ function graphTaskItems(items = [], activeKey = "questions") {
   return (filtered.length ? filtered : list).slice(0, 3);
 }
 
+function graphWorkbenchThemeOverviewItems(items = []) {
+  return graphTaskItems(items, "questions")
+    .map((item) => {
+      const title = String(item?.title || "").trim();
+      const detail = String(item?.question || item?.detail || item?.meta || "").trim();
+      if (!title && !detail) return null;
+      return { title: title || "主题线索", detail };
+    })
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 export function renderGraphWorkbenchEntryPillsView({ clueSummary = null, questionSummary = null } = {}, deps = {}) {
   const { escapeHtml, graphWorkbenchTabMeta, graphState } = graphWorkbenchPanelDeps(deps);
   const entries = [
@@ -225,6 +237,7 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
   const summary = isRelation ? clueSummary : questionSummary;
   const title = isRelation ? "补全关系" : "找主题";
   const total = Number(summary?.total || 0);
+  const themeOverviewItems = isRelation ? [] : graphWorkbenchThemeOverviewItems(thinkingItems);
   const lead = isRelation
     ? total
       ? `图里有 ${total} 个地方可能还没连清楚。`
@@ -243,6 +256,12 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
         "判断它们是否在回答同一个问题。",
         "真正整理主题，到主题或写作功能里完成。"
       ];
+  const guideTitle = isRelation ? "如何找缺口" : "如何发现主题";
+  const guideNote = isRelation
+    ? "先看断开的笔记、关系薄的地方和缺少理由的连接。"
+    : themeOverviewItems.length
+      ? "先看下面这些成组线索，再判断它们是否在回答同一个问题。"
+      : "先看成组笔记、共同问题和能否写成一句判断。";
   return `
     <aside class="graph-workbench-panel" aria-label="${escapeHtml(title)}">
       <div class="graph-workbench-panel-head">
@@ -253,6 +272,26 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
         <button class="graph-overlay-close graph-workbench-panel-close" type="button" data-graph-workbench-close aria-label="收起${escapeHtml(title)}" title="收起">${renderGraphIcon("close")}</button>
       </div>
       <div class="graph-workbench-panel-body">
+        <section class="graph-workbench-guide" aria-label="${escapeHtml(guideTitle)}">
+          <span class="graph-workbench-guide-action">${escapeHtml(guideTitle)}</span>
+          <span>${escapeHtml(guideNote)}</span>
+        </section>
+        ${
+          themeOverviewItems.length
+            ? `<section class="graph-workbench-theme-overview" aria-label="主题线索概述">
+                ${themeOverviewItems
+                  .map(
+                    (item) => `
+                      <article>
+                        <strong>${escapeHtml(item.title)}</strong>
+                        ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ""}
+                      </article>
+                    `
+                  )
+                  .join("")}
+              </section>`
+            : ""
+        }
         <ul class="graph-workbench-note-list">
           ${tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("")}
         </ul>

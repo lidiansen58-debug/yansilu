@@ -292,7 +292,7 @@ test("permanent relation workspace labels updated relation results clearly", () 
   assert.doesNotMatch(html, /关系已存在，已复用/);
 });
 
-test("permanent relation workspace omits unknown directory noise in manual candidates", () => {
+test("permanent relation workspace renders manual candidates as a title-only dropdown", () => {
   const html = renderPermanentRelationWorkspace({
     note,
     state: {
@@ -308,8 +308,12 @@ test("permanent relation workspace omits unknown directory noise in manual candi
     }
   });
 
-  assert.match(html, /永久笔记/);
+  assert.match(html, /permanent-relation-dropdown/);
+  assert.match(html, /permanent-relation-candidate-list is-dropdown/);
+  assert.match(html, new RegExp(target.title));
+  assert.doesNotMatch(html, />永久笔记</);
   assert.doesNotMatch(html, /未知目录/);
+  assert.doesNotMatch(html, /选中后写理由/);
 });
 
 test("permanent relation manual search shows search errors inside the results area", () => {
@@ -327,6 +331,7 @@ test("permanent relation manual search shows search errors inside the results ar
   });
 
   assert.match(html, /搜索暂时失败/);
+  assert.match(html, /permanent-relation-dropdown-empty is-error/);
   assert.match(html, /搜索失败：网络不可用/);
   assert.doesNotMatch(html, /没有匹配笔记/);
 });
@@ -379,6 +384,27 @@ test("permanent relation workspace shows active wait state while AI recommendati
   assert.match(html, /正在分析当前笔记，可能需要等一下/);
   assert.match(html, /permanent-relation-loading-dots/);
   assert.match(html, /aria-live="polite"/);
+});
+
+test("permanent relation workspace tells the user when AI finds no recommendations", () => {
+  const html = renderPermanentRelationWorkspace({
+    note,
+    notes: [note, target],
+    aiCandidates: [],
+    state: {
+      ...defaultPermanentRelationWorkspaceState(note.id),
+      open: true,
+      mode: "ai",
+      notice: "这条笔记暂时没有可推荐的关联，可以改用搜索笔记。"
+    },
+    deps
+  });
+
+  assert.match(html, /暂时没有推荐/);
+  assert.match(html, /这条笔记暂时没有可推荐的关联/);
+  assert.match(html, /data-permanent-relation-mode="manual"/);
+  assert.doesNotMatch(html, /正在准备推荐/);
+  assert.doesNotMatch(html, /permanent-relation-loading-dots/);
 });
 
 

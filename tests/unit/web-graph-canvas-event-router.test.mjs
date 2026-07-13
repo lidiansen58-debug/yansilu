@@ -301,6 +301,58 @@ test("graph canvas event router keeps gap analysis in relation workbench", async
   assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["stop"], ["render"], ["run"]]);
 });
 
+test("graph canvas event router does not treat empty scan mode as theme search", async () => {
+  const graphCanvas = createGraphCanvas();
+  const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "" };
+  const calls = [];
+  const scanButton = elementWithAttrs({ "data-run-graph-ai-analysis": "" });
+
+  bindGraphCanvasEvents(graphCanvas, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    runGraphAiAnalysis: () => calls.push(["run"])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    preventDefault: () => calls.push(["prevent"]),
+    stopImmediatePropagation: () => calls.push(["stop-immediate"]),
+    stopPropagation: () => calls.push(["stop"]),
+    target: targetWithClosest({
+      "[data-run-graph-ai-analysis]": scanButton
+    })
+  });
+
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+  assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["stop"], ["render"], ["run"]]);
+});
+
+test("graph canvas event router opens theme workbench only for theme scan mode", async () => {
+  const graphCanvas = createGraphCanvas();
+  const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "clues" };
+  const calls = [];
+  const themeButton = elementWithAttrs({ "data-run-graph-ai-analysis": "theme" });
+
+  bindGraphCanvasEvents(graphCanvas, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    runGraphAiAnalysis: () => calls.push(["run"])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    preventDefault: () => calls.push(["prevent"]),
+    stopImmediatePropagation: () => calls.push(["stop-immediate"]),
+    stopPropagation: () => calls.push(["stop"]),
+    target: targetWithClosest({
+      "[data-run-graph-ai-analysis]": themeButton
+    })
+  });
+
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "questions");
+  assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["stop"], ["render"], ["run"]]);
+});
+
 test("graph canvas event router opens next-step workbench from insight lens", async () => {
   const graphCanvas = createGraphCanvas();
   const graphState = { readingLens: "bridge", workbenchPanelOpen: false, workbenchPanelTab: "questions" };

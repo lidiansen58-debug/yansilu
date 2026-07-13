@@ -155,6 +155,15 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
 
   const analysisStart = editorSource.indexOf("  async runPermanentNoteAnalysis() {");
   const analysisEnd = editorSource.indexOf("  legacyPermanentNoteMainPathSummary", analysisStart);
+  const toolbarButtonStart = editorSource.indexOf("  ensureContextualAiToolbarButtons() {");
+  const toolbarButtonEnd = editorSource.indexOf("  async autoSaveTabById", toolbarButtonStart);
+
+  assert.ok(toolbarButtonStart >= 0 && toolbarButtonEnd > toolbarButtonStart, "expected ensureContextualAiToolbarButtons() to exist");
+  const toolbarButtonSource = editorSource.slice(toolbarButtonStart, toolbarButtonEnd);
+  assert.match(toolbarButtonSource, /button\.dataset\.contextualAiActionId = "check_note"/);
+  assert.doesNotMatch(toolbarButtonSource, /button\.dataset\.noteAiAnalysis = ""/);
+  assert.doesNotMatch(toolbarButtonSource, /button\.title = "检查这条笔记"/);
+  assert.doesNotMatch(toolbarButtonSource, /button\.dataset\.tip = "检查这条笔记"/);
 
   assert.ok(analysisStart >= 0 && analysisEnd > analysisStart, "expected runPermanentNoteAnalysis() to exist");
   const analysisSource = editorSource.slice(analysisStart, analysisEnd);
@@ -166,6 +175,9 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   assert.match(analysisSource, /openInbox: false/);
   assert.match(analysisSource, /this\.noteAiAnalysisByNoteId\.set\(noteId, result\)/);
   assert.match(analysisSource, /if \(!this\.isActiveNoteId\(noteId\)\) return/);
+  assert.match(analysisSource, /permanentRelationAiRecommendationTimer/);
+  assert.match(analysisSource, /暂时还没有找到可推荐的关联/);
+  assert.match(analysisSource, /这条笔记暂时没有可推荐的关联/);
   assert.doesNotMatch(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.match(analysisSource, /this\.refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
   assert.match(analysisSource, /await this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
@@ -179,6 +191,11 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   const clickSource = editorSource.slice(clickStart, clickEnd);
   assert.match(clickSource, /void this\.runPermanentNoteAnalysis\(\)/);
   assert.doesNotMatch(clickSource, /activatePermanentWorkspaceTab\("relations"\)/);
+
+  const bindStart = editorSource.indexOf("    this.els.checkNoteAi?.addEventListener(\"click\"");
+  const bindEnd = editorSource.indexOf("    this.els.completeNote?.addEventListener", bindStart);
+  assert.ok(bindStart >= 0 && bindEnd > bindStart, "expected toolbar check button click binding to exist");
+  assert.match(editorSource.slice(bindStart, bindEnd), /void this\.runPermanentNoteAnalysis\(\)/);
 
   const applyStart = editorSource.indexOf("  async applyNoteAiSuggestionAction");
   const applyEnd = editorSource.indexOf("  jumpToInspectorSection", applyStart);
