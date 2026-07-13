@@ -31,7 +31,7 @@ test("workspace status hint renders focus-mode guidance from note growth stage",
   const model = buildWorkspaceStatusHintModel({
     activeNote: { id: "note-1" },
     focusMode: true,
-    growthStage: "已串联"
+    growthStage: "已有关系"
   });
 
   assert.equal(model.visible, true);

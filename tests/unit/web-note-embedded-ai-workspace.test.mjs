@@ -162,13 +162,14 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   const toolbarButtonSource = editorSource.slice(toolbarButtonStart, toolbarButtonEnd);
   assert.match(toolbarButtonSource, /button\.dataset\.contextualAiActionId = "check_note"/);
   assert.doesNotMatch(toolbarButtonSource, /button\.dataset\.noteAiAnalysis = ""/);
-  assert.doesNotMatch(toolbarButtonSource, /button\.title = "检查这条笔记"/);
-  assert.doesNotMatch(toolbarButtonSource, /button\.dataset\.tip = "检查这条笔记"/);
+  assert.match(toolbarButtonSource, /button\.title = "检查这条笔记"/);
+  assert.match(toolbarButtonSource, /button\.dataset\.tip = "检查这条笔记"/);
 
   assert.ok(analysisStart >= 0 && analysisEnd > analysisStart, "expected runPermanentNoteAnalysis() to exist");
   const analysisSource = editorSource.slice(analysisStart, analysisEnd);
 
   assert.match(analysisSource, /ensure-ai-ready-for-feature/);
+  assert.match(analysisSource, /正在检查这条笔记，结果可能需要等一下。/);
   assert.match(analysisSource, /feature: "note_analysis"/);
   assert.match(analysisSource, /this\.rememberPendingContextualAiAction\("note_analysis", \{ noteId \}\)/);
   assert.match(analysisSource, /this\.closePermanentRelationWorkspace\(\)/);
