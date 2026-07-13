@@ -3374,7 +3374,7 @@ function noteGrowthStage(note, body = "") {
 
   if (noteType === "fleeting") return "捕捉中";
   if (noteType === "literature") return "转述中";
-  if (linkCount >= 2 || (linkCount >= 1 && tagCount >= 2)) return "已串联";
+  if (linkCount >= 2 || (linkCount >= 1 && tagCount >= 2)) return "已有关系";
   if (bodyLength >= 140 || tagCount >= 2) return "正在成形";
   return "提炼中";
 }

@@ -351,6 +351,8 @@ export class EditorPane {
     button.id = "btnCheckNoteAi";
     button.type = "button";
     button.dataset.contextualAiActionId = "check_note";
+    button.title = "检查这条笔记";
+    button.dataset.tip = "检查这条笔记";
     button.setAttribute("aria-label", "检查这条笔记");
     button.innerHTML = `
       <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
@@ -4278,6 +4280,7 @@ export class EditorPane {
       if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) return;
       if (!this.isActiveNoteId(noteId)) return;
     }
+    this.onStatus("正在检查这条笔记，结果可能需要等一下。", "warn");
     const ready = await this.onStateChange("ensure-ai-ready-for-feature", {
       feature: "note_analysis",
       noteId,
