@@ -19691,6 +19691,32 @@
       display: none;
     }
 
+    .sidebar.is-home-module .vault-subtitle {
+      display: block;
+      color: #52647a;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .sidebar.is-home-module .home-sidebar-slogan,
+    .sidebar.is-home-module .home-sidebar-tip {
+      display: block;
+    }
+
+    .sidebar.is-home-module .home-sidebar-slogan {
+      color: #0f766e;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .sidebar.is-home-module .home-sidebar-tip {
+      margin-top: 6px;
+      color: #52647a;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
     .mini-btn,
     .tb {
       touch-action: manipulation;

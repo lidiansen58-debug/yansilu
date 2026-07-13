@@ -7,17 +7,12 @@ export function currentModuleSidebarUi({
   const resolvedRootName = rootName || "当前目录";
   const configs = {
     today: {
-      sidebarTitle: "今日整理",
-      sidebarSubtitle: "先做最重要的一步。",
-      sidebarFoot: "先完成推荐动作。",
+      sidebarTitle: "首页",
+      sidebarSubtitle: "让笔记生长为思想",
+      sidebarFoot: "今日小提示：先把一条记录加工成判断，再补清它和其他笔记的关系。",
       title: "今日整理",
       summary: "先做最重要的一步。",
-      sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>首页</h3>
-          <p>看右侧推荐动作。</p>
-        </div>
-      `
+      sidebarHtml: ""
     },
     distillation: {
       sidebarTitle: "观点整理",

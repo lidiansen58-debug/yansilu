@@ -8,6 +8,12 @@ export function renderSidebarTitleForRuntime({
   currentModuleUi = () => ({}),
   syncNewNoteButtons = () => {}
 } = {}) {
+  const escapeHtml = (value = "") => String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
   const {
     sidebarTitle = null,
     sidebarPrimaryActions = null,
@@ -21,6 +27,8 @@ export function renderSidebarTitleForRuntime({
     explorerActions = null
   } = elements;
   const editorMode = state.module === "explorer";
+  const sidebarRoot = sidebarTitle?.closest?.(".sidebar") || null;
+  sidebarRoot?.classList.toggle("is-home-module", state.module === "today");
 
   if (editorMode) {
     if (sidebarTitle) sidebarTitle.textContent = root ? displayFolderName(root) : "目录";
@@ -84,7 +92,14 @@ export function renderSidebarTitleForRuntime({
   if (sidebarTitle) sidebarTitle.textContent = moduleUi.sidebarTitle || "";
   if (sidebarSubtitle) {
     sidebarSubtitle.classList.remove("hidden");
-    sidebarSubtitle.textContent = compactImportSidebar ? "先预览，再写入。" : (moduleUi.sidebarSubtitle || "当前功能页。");
+    if (state.module === "today") {
+      sidebarSubtitle.innerHTML = `
+        <strong class="home-sidebar-slogan">${escapeHtml(moduleUi.sidebarSubtitle || "")}</strong>
+        <span class="home-sidebar-tip">${escapeHtml(moduleUi.sidebarFoot || "")}</span>
+      `;
+    } else {
+      sidebarSubtitle.textContent = compactImportSidebar ? "先预览，再写入。" : (moduleUi.sidebarSubtitle || "当前功能页。");
+    }
   }
   explorerActions?.classList.add("hidden");
   if (explorerActions) explorerActions.innerHTML = "";
@@ -96,7 +111,7 @@ export function renderSidebarTitleForRuntime({
   moduleSidebar?.classList.toggle("visible", !compactImportSidebar);
   if (moduleSidebar) moduleSidebar.innerHTML = compactImportSidebar ? "" : (moduleUi.sidebarHtml || "");
   if (sidebarFoot) {
-    if (compactImportSidebar) {
+    if (compactImportSidebar || state.module === "today") {
       sidebarFoot.textContent = "";
       sidebarFoot.classList.add("hidden");
     } else {
