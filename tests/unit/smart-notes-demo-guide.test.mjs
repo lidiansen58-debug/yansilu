@@ -37,7 +37,7 @@ test("Smart Notes demo guide has a short onboarding note set", () => {
     ]
   );
   assert.ok(demo.guide_notes.some((note) => note.title === "06 遇到问题先看这里：按任务找帮助"));
-  assert.ok(demo.guide_notes.some((note) => note.title === "07 备份、手机和 AI：先知道边界"));
+  assert.ok(demo.guide_notes.some((note) => note.title === "07 手机和 AI：先知道边界"));
 });
 
 test("Smart Notes demo guide avoids advanced workflow jargon on the main path", () => {

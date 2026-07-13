@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "demo:refresh": "node ./scripts/refresh-smart-notes-demo-fixture.mjs",
     "dev": "node ./scripts/dev-all.mjs",
     "dev:api": "node ./apps/api/src/server.mjs",
     "dev:desktop": "node ./scripts/dev-desktop.mjs",
