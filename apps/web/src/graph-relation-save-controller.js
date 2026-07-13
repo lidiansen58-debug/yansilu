@@ -141,7 +141,7 @@ export function createGraphRelationSaveController({
     const insightQuestionDraft = String(button?.getAttribute?.("data-graph-insight-question-draft") || "").trim();
     if (!noteId || !targetNoteId) return false;
     if (!confirmableRelationTypes.has(relationType) || relationType === "no_relation") {
-      setStatus("这条可选关系不能保存为正式关系，请重新选择一条能说明理由的关联。", "warn");
+      setStatus("这条可选关系不能保存为关联，请重新选择一条能说明理由的关联。", "warn");
       return false;
     }
     const nodeMap = graphNodeMapForState(graphState);

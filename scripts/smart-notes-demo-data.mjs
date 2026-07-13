@@ -22,6 +22,8 @@ const permanentDefinitions = [
   ["PERM-HELP-SHOULD-FOLLOW-TASKS", "帮助页应该按任务组织，而不是按功能堆列表", "帮助", "用户遇到问题时想知道下一步怎么做，而不是阅读功能目录。", "帮助按导入 Demo、处理材料、关联、主题、写作和 AI 设置组织。", "方法解释保持简短，详细背景放在可选文章里。", ["Demo 应该是可练习的样例库，不是静态说明书", "研思录的最佳路径，是从首页开始做一个小闭环"]],
   ["PERM-BEST-PATH-STARTS-FROM-HOME", "研思录的最佳路径，是从首页开始做一个小闭环", "首页", "首页应把最值得推进的动作放在首屏，其他功能按需进入。", "处理材料、补关系、整理主题或进入写作都从首页承接。", "用户也可以从笔记盒直接编辑，不必被固定流程限制。", ["首页应该像每天整理知识的工作台", "第一次使用研思录应该先走一条小闭环"]],
   ["PERM-UNLINKED-PRACTICE", "待关联练习：保存关系前先写清楚为什么", "关联", "真正的关联由对象、类型和一句理由组成。", "在 Demo 中搜索一条永久笔记，选择关系类型并保存。", "找不到清楚理由时可以关闭，不必勉强关联。", ["关系理由比连线本身更重要", "关系类型是在告诉未来自己怎么读这两条笔记"]],
+  ["PERM-PRACTICE-UNLINKED-QUESTION", "练习：这个判断还需要找一条支撑笔记", "关联练习", "有些判断先单独放着，等找到真正相关的笔记后再关联。", "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。", "找不到清楚理由时，不要为了消除提醒而勉强连接。", []],
+  ["PERM-PRACTICE-UNLINKED-BOUNDARY", "练习：这条边界暂时还没有放进网络", "关联练习", "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。", "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。", "没有合适对象时，保持独立比保存一条空关系更好。", []],
   ["PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE", "记录是入口，不是知识本身", "记录", "捕捉只是把想法放进收件箱，整理才让它进入知识网络。", "首页显示待处理材料并给出下一步。", "有些记录会被删除，删除也是整理。", ["随笔是捕捉点，不是知识点", "首页应该奖励处理，而不是奖励收藏"]],
   ["PERM-LITERATURE-NOTE-KEEPS-SOURCE-BOUNDARY", "文献笔记要保留来源边界", "文献笔记", "把作者原意和自己的理解分开，才能避免误把摘录当观点。", "文献笔记保留来源、转述和处理状态。", "这里不要求复杂学术引用，只要能回到来源。", ["摘录不等于理解", "用自己的话重说，是第一次思考"]],
   ["PERM-OWN-WORDS-ARE-FIRST-THINKING", "用自己的话重说，是第一次思考", "文献笔记", "重说材料会暴露没看懂的地方，也会产生自己的问题。", "用户可以手动转述，也可让 AI 先给可编辑草稿。", "AI 草稿必须由用户改写或确认。", ["文献笔记要先转述，再沉淀判断", "材料提炼只生成可编辑草稿"]],
@@ -272,7 +274,19 @@ const existingRelationIds = [
   "REL-DEMO-INDEX-WRITING"
 ];
 
-function buildRelations() {
+function relationPairKey(from = "", to = "") {
+  return [String(from || "").trim(), String(to || "").trim()].sort().join("::");
+}
+
+function safeRelationIdPart(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96);
+}
+
+function manualRelations() {
   return relationSeeds.map(([suffix, from, to, relationType, rationale], index) => ({
     id: existingRelationIds[index] || `REL-DEMO-V3-${String(index + 1).padStart(2, "0")}-${suffix}`,
     from,
@@ -280,9 +294,66 @@ function buildRelations() {
     relationType,
     status: "confirmed",
     rationale,
+    source: "manual",
+    relationSource: "manual",
     insight_question: "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
     confidence: 1
   }));
+}
+
+function wikilinkTargets(body = "") {
+  const targets = [];
+  for (const match of String(body || "").matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
+    const target = String(match[1] || "").trim();
+    if (target) targets.push(target);
+  }
+  return targets;
+}
+
+function buildBodyWikilinkRelations({ notes = [], permanentNotes = [], existingRelations = [] } = {}) {
+  const permanentByTitle = new Map();
+  const permanentById = new Map();
+  for (const note of permanentNotes) {
+    if (note?.id) permanentById.set(String(note.id), note);
+    if (note?.title) permanentByTitle.set(String(note.title), note);
+  }
+
+  const existingPairs = new Set(existingRelations.map((relation) => relationPairKey(relation.from, relation.to)));
+  const createdPairs = new Set();
+  const relations = [];
+  for (const note of notes) {
+    const from = String(note?.id || "").trim();
+    if (!from) continue;
+    for (const target of wikilinkTargets(note?.body || "")) {
+      const targetNote = permanentByTitle.get(target) || permanentById.get(target);
+      const to = String(targetNote?.id || "").trim();
+      if (!to || to === from) continue;
+      const pairKey = relationPairKey(from, to);
+      if (existingPairs.has(pairKey) || createdPairs.has(pairKey)) continue;
+      createdPairs.add(pairKey);
+      relations.push({
+        id: `REL-DEMO-BODY-${safeRelationIdPart(from)}-${safeRelationIdPart(to)}`,
+        from,
+        to,
+        relationType: "associated_with",
+        status: "confirmed",
+        rationale: "markdown_wikilink",
+        source: "body_wikilink",
+        relationSource: "body_wikilink",
+        insight_question: "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+        confidence: 0.55
+      });
+    }
+  }
+  return relations;
+}
+
+function buildRelations({ notes = [], permanentNotes = [] } = {}) {
+  const explicitRelations = manualRelations();
+  return [
+    ...explicitRelations,
+    ...buildBodyWikilinkRelations({ notes, permanentNotes, existingRelations: explicitRelations })
+  ];
 }
 
 function writingProject() {
@@ -371,6 +442,12 @@ export function buildSmartNotesDemoFixture() {
   const permanent_notes = permanentDefinitions.map(permanentNote);
   const writingProjectMain = writingProject();
   const writingProjectRelations = relationWritingProject();
+  const final_essays = [
+    { id: "ESSAY-SMART-NOTES-DEMO", note_type: "final_essay", title: "示例文章：让笔记从记录走到写作", writing_project_id: writingProjectMain.id, body: "# 示例文章：让笔记从记录走到写作\n\n研思录把记录、永久笔记、关联、主题和写作连成一条路。先看 [[记录是入口，不是知识本身]]，再看 [[关系理由比连线本身更重要]]，最后进入 [[写作中心应该从已确认判断生成提纲]]。AI 可以帮助提炼和检查，但保存前仍由用户确认。" },
+    { id: "ESSAY-RELATION-TYPES-HELP", note_type: "final_essay", title: "帮助文章：关系类型以后怎么用于写作", writing_project_id: writingProjectRelations.id, body: "# 帮助文章：关系类型以后怎么用于写作\n\n支持可以成为证据，反驳可以成为反方，限定可以成为边界，桥接可以成为过渡。关键不在类型数量，而在一句可读的关系理由。" },
+    { id: "ESSAY-YANSILU-BEST-PRACTICE", note_type: "final_essay", title: "帮助文章：第一次使用研思录怎么走", writing_project_id: writingProjectMain.id, body: "# 帮助文章：第一次使用研思录怎么走\n\n从首页开始，只推进一个动作。处理一条材料，形成一条永久笔记，补一条关系，整理一个主题，再进入写作中心。" }
+  ];
+  const guide_notes = guideNotes();
   const fixture = {
     id: "demo-smart-notes-product-thinking-v3",
     title: "Smart Notes Demo：卡片笔记写作法 x 研思录",
@@ -391,15 +468,14 @@ export function buildSmartNotesDemoFixture() {
     literature_notes: literatureDefinitions.map(literatureNote),
     permanent_notes,
     index_cards: indexDefinitions.map(indexCard),
-    relations: buildRelations(),
+    relations: buildRelations({
+      permanentNotes: permanent_notes,
+      notes: permanent_notes
+    }),
     writing_projects: [writingProjectMain, writingProjectRelations],
     draft_scaffolds: [scaffold(writingProjectMain, "DRAFT-SMART-NOTES-DEMO"), scaffold(writingProjectRelations, "DRAFT-RELATION-TO-WRITING-PRACTICE")],
-    final_essays: [
-      { id: "ESSAY-SMART-NOTES-DEMO", note_type: "final_essay", title: "示例文章：让笔记从记录走到写作", writing_project_id: writingProjectMain.id, body: "# 示例文章：让笔记从记录走到写作\n\n研思录把记录、永久笔记、关联、主题和写作连成一条路。先看 [[记录是入口，不是知识本身]]，再看 [[关系理由比连线本身更重要]]，最后进入 [[写作中心应该从已确认判断生成提纲]]。AI 可以帮助提炼和检查，但保存前仍由用户确认。" },
-      { id: "ESSAY-RELATION-TYPES-HELP", note_type: "final_essay", title: "帮助文章：关系类型以后怎么用于写作", writing_project_id: writingProjectRelations.id, body: "# 帮助文章：关系类型以后怎么用于写作\n\n支持可以成为证据，反驳可以成为反方，限定可以成为边界，桥接可以成为过渡。关键不在类型数量，而在一句可读的关系理由。" },
-      { id: "ESSAY-YANSILU-BEST-PRACTICE", note_type: "final_essay", title: "帮助文章：第一次使用研思录怎么走", writing_project_id: writingProjectMain.id, body: "# 帮助文章：第一次使用研思录怎么走\n\n从首页开始，只推进一个动作。处理一条材料，形成一条永久笔记，补一条关系，整理一个主题，再进入写作中心。" }
-    ],
-    guide_notes: guideNotes()
+    final_essays,
+    guide_notes
   };
   fixture.counts = {
     sources: fixture.sources.length,

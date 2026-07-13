@@ -285,7 +285,7 @@ export class PermanentRelationComposerController {
       host.permanentSidebarController().commitSavedRelationWorkspaceResult({
         noteId: sourceNote.id,
         state,
-        successMessage: linkInserted ? `${successMessage} 正文关联已插入。` : successMessage,
+        successMessage: linkInserted ? `${successMessage} 关联已插入。` : successMessage,
         result: {
           ...(transaction?.result || {
             targetNoteId: state.selectedTargetNoteId,

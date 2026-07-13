@@ -82,7 +82,7 @@ test("graph next action uses an explicit first-relation action when the graph ha
   assert.equal(nextAction.noteId, "pn_first_edge_1");
   assert.equal(nextAction.title, "下一步：关联第一条笔记");
   assert.equal(nextAction.actionLabel, "去关联笔记");
-  assert.match(nextAction.note, /第一条正式关联/);
+  assert.match(nextAction.note, /第一条关联/);
   assert.doesNotMatch(nextAction.note, /\[\[关联笔记\]\]/);
 });
 
@@ -171,7 +171,7 @@ test("graph next action keeps sparse multi-note slices in relation-building mode
   assert.equal(nextAction.action, "relations");
   assert.equal(nextAction.noteId, "pn_sparse_1");
   assert.equal(nextAction.actionLabel, "先补关键关系");
-  assert.match(nextAction.note, /正式关系/);
+  assert.match(nextAction.note, /关联/);
   assert.match(nextAction.note, /下一步写作/);
   assert.doesNotMatch(nextAction.note, /写作中心/);
 });
@@ -205,7 +205,7 @@ test("graph next action prefers strengthening thin rationale before entering the
   assert.equal(nextAction.noteId, "pn_basic_1");
   assert.equal(nextAction.actionLabel, "先补关系说明");
   assert.match(nextAction.note, /2/);
-  assert.match(nextAction.note, /正式关系/);
+  assert.match(nextAction.note, /关联/);
   assert.match(nextAction.note, /下一步写作/);
   assert.doesNotMatch(nextAction.note, /写作中心/);
 });

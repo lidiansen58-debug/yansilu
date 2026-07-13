@@ -45,7 +45,7 @@ export function permanentNoteReadinessItems(note = {}, options = {}) {
     },
     {
       key: "relation",
-      label: "正式关系",
+      label: "关联",
       done: relationCount > 0,
       action: "补一条关系理由"
     }

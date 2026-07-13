@@ -246,7 +246,7 @@ test("writing project entry keeps blocking states explicit without old jargon", 
   });
   assert.equal(errored.canCreateProject, false);
   assert.equal(errored.status, "读取失败");
-  assert.match(errored.hint, /正式关系读取失败/);
+  assert.match(errored.hint, /关联读取失败/);
 
   const needsDistillation = describeWritingProjectEntryState({
     relationCountsReady: true,

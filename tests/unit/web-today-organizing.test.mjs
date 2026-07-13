@@ -71,7 +71,7 @@ test("today organizing counts only explicit saved relations from note link summa
       },
       {
         id: "pn_formal",
-        title: "已有正式关系",
+        title: "已有关联",
         noteType: "permanent",
         outgoingLinks: [{ relationType: "supports", rationale: "这条关系有明确理由。", status: "confirmed" }]
       }
@@ -193,7 +193,7 @@ test("today organizing panel uses readable action words", () => {
     firstWritingReady: { id: "pn_2", title: "已有观点" }
   });
 
-  assert.match(html, /现在最重要/);
+  assert.match(html, /手机随笔待处理/);
   assert.doesNotMatch(html, /从这里开始整理知识/);
   assert.match(html, /待处理材料/);
   assert.match(html, /手机随笔待处理/);
@@ -213,8 +213,8 @@ test("today organizing panel uses readable action words", () => {
   assert.match(html, /去关联/);
   assert.match(html, /打开主题索引/);
   assert.match(html, /进入写作/);
-  assert.ok(html.indexOf("现在最重要") < html.indexOf("当前笔记库状态"));
-  assert.ok(html.indexOf("现在最重要") < html.indexOf("今日提醒"));
+  assert.ok(html.indexOf('data-today-action="review-material"') < html.indexOf('data-today-secondary-tab="path"'));
+  assert.ok(html.indexOf('data-today-action="review-material"') < html.indexOf('data-today-secondary-tab="check"'));
   assert.match(html, /today-path-inline/);
   assert.match(html, /data-today-secondary-tab="path"/);
   assert.match(html, /data-today-secondary-tab="check"/);

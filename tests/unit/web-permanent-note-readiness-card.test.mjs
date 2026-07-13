@@ -27,7 +27,7 @@ test("permanent note readiness card names beginner action gaps", () => {
     "原创确认",
     "一句话判断 / 三句压缩",
     "边界 / 反例",
-    "正式关系"
+    "关联"
   ]);
   assert.match(html, /data-permanent-note-readiness-card/);
   assert.match(html, /补一句自己的判断/);

@@ -89,7 +89,7 @@ test("editor follows the current folder root even when noteType metadata is stal
   assert.equal(pane.isOriginalNote(fleetingInFleetingBox), false);
 });
 
-test("editor shows a single distill action for source notes even when noteType is missing", () => {
+test("editor shows a single create-permanent action for source notes even when noteType is missing", () => {
   const state = createInitialState();
   const pane = Object.create(EditorPane.prototype);
   const button = createToolbarButtonStub();
@@ -101,14 +101,16 @@ test("editor shows a single distill action for source notes even when noteType i
 
   pane.renderRecordPermanentButton();
 
-  assert.equal(distillSourceAi.disabled, false);
-  assert.equal(distillSourceAi.classList.contains("hidden"), false);
-  assert.equal(distillSourceAi.dataset.sourceNoteId, "fn_missing");
-  assert.equal(distillSourceAi.title, "帮我提炼");
-  assert.equal(distillSourceAi["aria-label"], "帮我提炼");
-  assert.equal(button.classList.contains("hidden"), true);
+  assert.equal(distillSourceAi.disabled, true);
+  assert.equal(distillSourceAi.classList.contains("hidden"), true);
+  assert.equal(distillSourceAi.dataset.sourceNoteId, "");
+  assert.equal(distillSourceAi.title, "创建永久笔记");
+  assert.equal(distillSourceAi["aria-label"], "创建永久笔记");
+  assert.equal(button.classList.contains("hidden"), false);
   assert.equal(button.disabled, false);
   assert.equal(button.dataset.sourceNoteId, "fn_missing");
+  assert.equal(button.title, "创建永久笔记");
+  assert.equal(button["aria-label"], "创建永久笔记");
 });
 
 test("source-note distill action checks AI readiness before creating a permanent note", async () => {

@@ -105,7 +105,7 @@ export class EditorSemanticRelationsView {
               ${draft.rationale ? `<span class="related-item-preview">${escapeHtml(draft.rationale)}</span>` : ""}
             </button>
             <div class="related-item-badges">
-              <span class="related-item-badge">正文关联</span>
+              <span class="related-item-badge">正文链接</span>
             </div>
             <div class="semantic-relation-card-actions">
               <button class="mini-btn is-ghost" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">打开</button>
@@ -117,7 +117,7 @@ export class EditorSemanticRelationsView {
     return `
       <section class="inspector-section semantic-relations-section">
         <div class="inspector-section-head">
-          <div class="inspector-section-title">正文关联</div>
+          <div class="inspector-section-title">正文链接</div>
           <div class="inspector-count">${drafts.length}</div>
         </div>
         <div class="inspector-list">${items}</div>
@@ -358,7 +358,7 @@ export class EditorSemanticRelationsView {
         </div>
         <div class="semantic-relation-tabs" role="tablist" aria-label="关联类型">
           ${this.renderRelationTabButton("external", "外部关联", externalRows.length, activeTab)}
-          ${this.renderRelationTabButton("body", "正文关联", bodyRows.length, activeTab)}
+          ${this.renderRelationTabButton("body", "正文链接", bodyRows.length, activeTab)}
         </div>
         <div class="semantic-relation-tab-panel" data-relation-tab-panel="external"${activeTab === "external" ? "" : " hidden"}>
           ${externalPanel}

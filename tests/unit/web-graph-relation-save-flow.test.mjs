@@ -81,13 +81,13 @@ test("relation save result records reuse versus newly created relation", () => {
 
 test("relation save status points to the next note or theme formation", () => {
   const themeStatus = graphRelationSavedNextStepStatus({ created: true, hasNextIsolated: false });
-  assert.match(themeStatus, /关系已保存到图谱的正式关系/);
+  assert.match(themeStatus, /关系已保存到图谱的关联/);
   assert.match(themeStatus, /继续处理/);
-  assert.match(themeStatus, /转到正式关系视图/);
+  assert.match(themeStatus, /转到关联视图/);
   assert.match(themeStatus, /形成主题/);
 
   const nextStatus = graphRelationSavedNextStepStatus({ created: false, hasNextIsolated: true });
-  assert.match(nextStatus, /这条正式关系已经存在/);
+  assert.match(nextStatus, /这条关联已经存在/);
   assert.match(nextStatus, /继续处理下一条未关联笔记/);
   assert.match(nextStatus, /查看刚保存的关系/);
 });
@@ -99,8 +99,7 @@ test("ordinary relation save status does not imply a formal relation", () => {
     relationType: "associated_with"
   });
 
-  assert.match(status, /普通相关关系/);
-  assert.match(status, /还不是支持、反驳这类正式观点关系/);
+  assert.match(status, /关联已保存/);
   assert.match(status, /切到全部关系查看/);
-  assert.doesNotMatch(status, /保存到图谱的正式关系/);
+  assert.doesNotMatch(status, /保存到图谱的关联/);
 });

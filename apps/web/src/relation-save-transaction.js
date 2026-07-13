@@ -50,7 +50,7 @@ export function relationSaveTransactionErrorText(reason = "") {
   if (key === "missing_note") return "请先打开一条笔记。";
   if (key === "missing_target") return "请选择要关联的笔记。";
   if (key === "self_relation") return "不能把笔记关联到它自己，请重新选择目标笔记";
-  if (key === "unsupported_type") return "请选择一种可以保存为正式关系的类型";
+  if (key === "unsupported_type") return "请选择一种可以保存为关联的类型";
   if (key === "missing_rationale") return "请先把为什么相关写完整，再保存关系";
   return "关系暂时不能保存。";
 }

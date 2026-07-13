@@ -199,7 +199,7 @@ test("create relation form uses a searchable target field instead of a select bo
   assert.match(html, /\u4fdd\u5b58\u5916\u90e8\u5173\u8054/);
   assert.doesNotMatch(html, /data-relation-target-status/);
   assert.doesNotMatch(html, /\u5df2\u9009\uff1a/);
-  assert.doesNotMatch(html, /新建正式关联|确认建立/);
+  assert.doesNotMatch(html, /新建关联|确认建立/);
 });
 
 test("relation target selection writes the chosen title back into the search field", () => {

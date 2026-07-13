@@ -1200,6 +1200,88 @@
       "originality_status": "pass"
     },
     {
+      "id": "PERM-PRACTICE-UNLINKED-QUESTION",
+      "note_type": "permanent",
+      "title": "练习：这个判断还需要找一条支撑笔记",
+      "cluster": "关联练习",
+      "cluster_label": "关联练习",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "有些判断先单独放着，等找到真正相关的笔记后再关联。",
+      "threeLineSummary": [
+        "有些判断先单独放着，等找到真正相关的笔记后再关联。",
+        "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。",
+        "找不到清楚理由时，不要为了消除提醒而勉强连接。"
+      ],
+      "productImplication": "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。",
+      "boundaryOrCounterpoint": "找不到清楚理由时，不要为了消除提醒而勉强连接。",
+      "from_literature_note_ids": [],
+      "tags": [
+        "永久笔记",
+        "关联练习",
+        "Smart Notes Demo"
+      ],
+      "body": "# 练习：这个判断还需要找一条支撑笔记\n\n## 核心判断\n有些判断先单独放着，等找到真正相关的笔记后再关联。\n\n## 为什么\nDemo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。\n\n## 边界\n找不到清楚理由时，不要为了消除提醒而勉强连接。\n\n## 继续看\n",
+      "core_claim": "有些判断先单独放着，等找到真正相关的笔记后再关联。",
+      "rationale": "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。",
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心判断",
+          "为什么",
+          "边界",
+          "继续看"
+        ]
+      },
+      "is_key_note": false,
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
+      "id": "PERM-PRACTICE-UNLINKED-BOUNDARY",
+      "note_type": "permanent",
+      "title": "练习：这条边界暂时还没有放进网络",
+      "cluster": "关联练习",
+      "cluster_label": "关联练习",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "thesis": "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。",
+      "threeLineSummary": [
+        "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。",
+        "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。",
+        "没有合适对象时，保持独立比保存一条空关系更好。"
+      ],
+      "productImplication": "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。",
+      "boundaryOrCounterpoint": "没有合适对象时，保持独立比保存一条空关系更好。",
+      "from_literature_note_ids": [],
+      "tags": [
+        "永久笔记",
+        "关联练习",
+        "Smart Notes Demo"
+      ],
+      "body": "# 练习：这条边界暂时还没有放进网络\n\n## 核心判断\n边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。\n\n## 为什么\n这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。\n\n## 边界\n没有合适对象时，保持独立比保存一条空关系更好。\n\n## 继续看\n",
+      "core_claim": "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。",
+      "rationale": "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。",
+      "template": {
+        "type": "permanent_note",
+        "required_sections": [
+          "核心判断",
+          "为什么",
+          "边界",
+          "继续看"
+        ]
+      },
+      "is_key_note": false,
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
+    },
+    {
       "id": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
       "note_type": "permanent",
       "title": "记录是入口，不是知识本身",
@@ -3281,6 +3363,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "转述把材料变成自己的判断，因此支撑面向写作的整理方式。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3291,6 +3375,8 @@
       "relationType": "precedes",
       "status": "confirmed",
       "rationale": "先形成清楚判断，之后才有值得说明的笔记关系。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3301,6 +3387,8 @@
       "relationType": "qualifies",
       "status": "confirmed",
       "rationale": "边界限定判断的适用范围，让永久笔记更可靠。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3311,6 +3399,8 @@
       "relationType": "precedes",
       "status": "confirmed",
       "rationale": "主题索引先组织关键笔记，再进入写作中心生成提纲。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3321,6 +3411,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "主题索引让旧笔记进入新问题，支撑知识复利。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3331,6 +3423,8 @@
       "relationType": "example_of",
       "status": "confirmed",
       "rationale": "手机快速记录是随笔作为捕捉入口的具体例子。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3341,6 +3435,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "首页工作台支撑从一个小闭环开始的最佳路径。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3351,6 +3447,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "Demo 提供现成数据，让新手能在十分钟内走完整路径。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3361,6 +3459,8 @@
       "relationType": "complements",
       "status": "confirmed",
       "rationale": "按任务组织的帮助和可练习 Demo 共同降低上手成本。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3371,6 +3471,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "确认机制确保 AI 始终停留在候选位置。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3381,6 +3483,8 @@
       "relationType": "qualifies",
       "status": "confirmed",
       "rationale": "没有 AI 也能走主流程，限定了 AI 在产品中的角色。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3391,6 +3495,8 @@
       "relationType": "example_of",
       "status": "confirmed",
       "rationale": "材料旁的提炼草稿，是 AI 贴近具体任务的例子。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3401,6 +3507,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "候选关联说明理由，才能真正帮助用户判断关系。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3411,6 +3519,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "AI 检查指出证据和边界缺口，支撑完整提纲。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3421,6 +3531,8 @@
       "relationType": "contradicts",
       "status": "confirmed",
       "rationale": "AI 自动替用户定论会削弱反方审视，因此必须保留人工判断。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3431,6 +3543,8 @@
       "relationType": "bridges",
       "status": "confirmed",
       "rationale": "桥接线索常会产生新的中心问题，进而形成主题。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3441,6 +3555,8 @@
       "relationType": "complements",
       "status": "confirmed",
       "rationale": "例子补充支持关系，让抽象证据变得可理解。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3451,6 +3567,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "关系角色为写作中心组织提纲提供结构。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3461,6 +3579,8 @@
       "relationType": "precedes",
       "status": "confirmed",
       "rationale": "先检查提纲中的证据和边界，再进入可追溯草稿。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3471,6 +3591,8 @@
       "relationType": "qualifies",
       "status": "confirmed",
       "rationale": "标签只负责筛选，限定了主题索引不能被分类替代。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3481,6 +3603,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "摘录不等于理解，支撑先转述再形成判断的做法。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3491,6 +3615,8 @@
       "relationType": "complements",
       "status": "confirmed",
       "rationale": "一个问题对应一个判断，补充了判断型标题的写法。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3501,6 +3627,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "关系理由保存了未来段落可直接使用的论证线索。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3511,6 +3639,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "可读顺序让主题索引逐渐长成文章前身。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3521,6 +3651,8 @@
       "relationType": "complements",
       "status": "confirmed",
       "rationale": "来源追溯补充了写作中心从已确认判断出发的要求。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3531,6 +3663,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "由 Demo 笔记生成帮助文章，支撑按任务解释产品。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3541,6 +3675,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "发现缺口能明确下一次阅读和提纲补充方向。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3551,6 +3687,8 @@
       "relationType": "example_of",
       "status": "confirmed",
       "rationale": "桥接关系是关系类型帮助发现新主题的具体例子。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3561,6 +3699,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "反驳关系会迫使用户补充条件和边界。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3571,6 +3711,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "记录是收件箱的判断，支撑随笔只是捕捉点。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3581,6 +3723,8 @@
       "relationType": "precedes",
       "status": "confirmed",
       "rationale": "先分清来源与自己的话，才能完成真正转述。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3591,6 +3735,8 @@
       "relationType": "qualifies",
       "status": "confirmed",
       "rationale": "AI 草稿只能辅助重说，不能替代用户自己的理解。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3601,6 +3747,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "候选关联的理由为用户确认提供依据。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3611,6 +3759,8 @@
       "relationType": "complements",
       "status": "confirmed",
       "rationale": "指出写作缺口和保留笔记追溯共同保护用户观点。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3621,6 +3771,8 @@
       "relationType": "qualifies",
       "status": "confirmed",
       "rationale": "限定关系提醒证据支持到哪里为止。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3631,6 +3783,8 @@
       "relationType": "example_of",
       "status": "confirmed",
       "rationale": "待关联练习具体展示了保存前先写理由。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3641,6 +3795,8 @@
       "relationType": "bridges",
       "status": "confirmed",
       "rationale": "主题索引把关系网络桥接到写作中心。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3651,6 +3807,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "首页每天推进一条材料，支撑写作从整理阶段开始。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3661,6 +3819,8 @@
       "relationType": "complements",
       "status": "confirmed",
       "rationale": "手机捕捉与电脑首页整理互相补充。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3671,6 +3831,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "可练习样例让十分钟小闭环真正可操作。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3681,6 +3843,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "关系类型决定未来读法，因此会影响后续发现。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3691,6 +3855,8 @@
       "relationType": "complements",
       "status": "confirmed",
       "rationale": "具体例子与适用边界共同避免抽象观点被说过头。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3701,6 +3867,8 @@
       "relationType": "qualifies",
       "status": "confirmed",
       "rationale": "AI 贴近任务提供帮助，但手动主流程始终可用。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3711,6 +3879,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "按任务组织帮助，能让用户更快回到首页小闭环。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3721,6 +3891,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "从首页开始推进一个动作，支撑十分钟走完第一次小闭环。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3731,6 +3903,8 @@
       "relationType": "supports",
       "status": "confirmed",
       "rationale": "反驳关系为提纲提供必要的反方位置。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3741,6 +3915,8 @@
       "relationType": "bridges",
       "status": "confirmed",
       "rationale": "桥接笔记产生的新问题可以进入主题索引。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3751,6 +3927,8 @@
       "relationType": "qualifies",
       "status": "confirmed",
       "rationale": "AI 只能补充候选，限定了提纲必须从用户确认内容出发。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3761,6 +3939,8 @@
       "relationType": "associated_with",
       "status": "confirmed",
       "rationale": "两条笔记都在说明新手如何从首页开始完成第一次小闭环。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
     },
@@ -3771,8 +3951,442 @@
       "relationType": "same_topic",
       "status": "confirmed",
       "rationale": "两条笔记共同回答主题索引应该怎样组织关键笔记。",
+      "source": "manual",
+      "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
       "confidence": 1
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-WRITING-STARTS-BEFORE-DRAFT-PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "from": "PERM-WRITING-STARTS-BEFORE-DRAFT",
+      "to": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-WRITING-STARTS-BEFORE-DRAFT-PERM-THEME-INDEX-IS-ENTRY",
+      "from": "PERM-WRITING-STARTS-BEFORE-DRAFT",
+      "to": "PERM-THEME-INDEX-IS-ENTRY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-PARAPHRASE-BEFORE-JUDGMENT-PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "from": "PERM-PARAPHRASE-BEFORE-JUDGMENT",
+      "to": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-PERMANENT-NOTE-IS-JUDGMENT-PERM-TITLE-SHOULD-BE-A-CLAIM",
+      "from": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "to": "PERM-TITLE-SHOULD-BE-A-CLAIM",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-RELATION-REASON-MATTERS-PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "from": "PERM-RELATION-REASON-MATTERS",
+      "to": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-RELATION-REASON-MATTERS-PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+      "from": "PERM-RELATION-REASON-MATTERS",
+      "to": "PERM-RELATION-REASON-WRITES-FUTURE-PARAGRAPH",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-THEME-INDEX-IS-ENTRY-PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "from": "PERM-THEME-INDEX-IS-ENTRY",
+      "to": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-THEME-INDEX-IS-ENTRY-PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+      "from": "PERM-THEME-INDEX-IS-ENTRY",
+      "to": "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-COMPOUND-INTEREST-FROM-REUSE-PERM-LINK-TYPES-CREATE-DISCOVERY",
+      "from": "PERM-COMPOUND-INTEREST-FROM-REUSE",
+      "to": "PERM-LINK-TYPES-CREATE-DISCOVERY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-COMPOUND-INTEREST-FROM-REUSE-PERM-INDEX-CARD-KEEPS-READING-ORDER",
+      "from": "PERM-COMPOUND-INTEREST-FROM-REUSE",
+      "to": "PERM-INDEX-CARD-KEEPS-READING-ORDER",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-TODAY-REVIEW-REWARDS-PROCESSING-PERM-HOME-AS-DAILY-DESK",
+      "from": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+      "to": "PERM-HOME-AS-DAILY-DESK",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-TODAY-REVIEW-REWARDS-PROCESSING-PERM-FIRST-TEN-MINUTES",
+      "from": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+      "to": "PERM-FIRST-TEN-MINUTES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES-PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "from": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "to": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-ROADMAP-GROWS-FROM-NOTES-PERM-AI-RELATION-EXPLAINS-WHY",
+      "from": "PERM-ROADMAP-GROWS-FROM-NOTES",
+      "to": "PERM-AI-RELATION-EXPLAINS-WHY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-BOUNDARY-MAKES-NOTE-RELIABLE-PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+      "from": "PERM-BOUNDARY-MAKES-NOTE-RELIABLE",
+      "to": "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-QUOTE-IS-NOT-UNDERSTANDING-PERM-OWN-WORDS-ARE-FIRST-THINKING",
+      "from": "PERM-QUOTE-IS-NOT-UNDERSTANDING",
+      "to": "PERM-OWN-WORDS-ARE-FIRST-THINKING",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-LINK-TYPES-CREATE-DISCOVERY-PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "from": "PERM-LINK-TYPES-CREATE-DISCOVERY",
+      "to": "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-DEMO-FIRST-RUN-RECOMMENDED-PERM-DEMO-IS-PRACTICE-GROUND",
+      "from": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+      "to": "PERM-DEMO-IS-PRACTICE-GROUND",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-DEMO-FIRST-RUN-RECOMMENDED-PERM-HELP-SHOULD-FOLLOW-TASKS",
+      "from": "PERM-DEMO-FIRST-RUN-RECOMMENDED",
+      "to": "PERM-HELP-SHOULD-FOLLOW-TASKS",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-UNLINKED-PRACTICE-PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "from": "PERM-UNLINKED-PRACTICE",
+      "to": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE-PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+      "from": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
+      "to": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-LITERATURE-NOTE-KEEPS-SOURCE-BOUNDARY-PERM-QUOTE-IS-NOT-UNDERSTANDING",
+      "from": "PERM-LITERATURE-NOTE-KEEPS-SOURCE-BOUNDARY",
+      "to": "PERM-QUOTE-IS-NOT-UNDERSTANDING",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-OWN-WORDS-ARE-FIRST-THINKING-PERM-PARAPHRASE-BEFORE-JUDGMENT",
+      "from": "PERM-OWN-WORDS-ARE-FIRST-THINKING",
+      "to": "PERM-PARAPHRASE-BEFORE-JUDGMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-ATOMIC-NOTE-ANSWERS-ONE-QUESTION-PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+      "from": "PERM-ATOMIC-NOTE-ANSWERS-ONE-QUESTION",
+      "to": "PERM-INDEX-CARD-IS-LIVING-OUTLINE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION-PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+      "from": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "to": "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION-PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+      "from": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "to": "PERM-BRIDGE-RELATION-FINDS-NEW-THEME",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-SUPPORT-RELATION-BECOMES-EVIDENCE-PERM-WRITING-USES-RELATION-ROLES",
+      "from": "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+      "to": "PERM-WRITING-USES-RELATION-ROLES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-SUPPORT-RELATION-BECOMES-EVIDENCE-PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "from": "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE",
+      "to": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM-PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "from": "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM",
+      "to": "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-EXAMPLE-RELATION-MAKES-ABSTRACT-USABLE-PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "from": "PERM-EXAMPLE-RELATION-MAKES-ABSTRACT-USABLE",
+      "to": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-GAP-RELATION-POINTS-TO-NEXT-READING-PERM-AI-RELATION-EXPLAINS-WHY",
+      "from": "PERM-GAP-RELATION-POINTS-TO-NEXT-READING",
+      "to": "PERM-AI-RELATION-EXPLAINS-WHY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS-PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "from": "PERM-TAGS-ARE-FAST-FILTERS-INDEXES-ARE-QUESTIONS",
+      "to": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-WRITING-USES-RELATION-ROLES-PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "from": "PERM-WRITING-USES-RELATION-ROLES",
+      "to": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT-PERM-DEMO-IS-PRACTICE-GROUND",
+      "from": "PERM-HELP-ARTICLES-CAN-BE-DEMO-OUTPUT",
+      "to": "PERM-DEMO-IS-PRACTICE-GROUND",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-AI-DISTILL-DRAFT-PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+      "from": "PERM-AI-DISTILL-DRAFT",
+      "to": "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-PERM-AI-WRITING-CHECK-DOES-NOT-REWRITE-PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+      "from": "PERM-AI-WRITING-CHECK-DOES-NOT-REWRITE",
+      "to": "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
     }
   ],
   "writing_projects": [
@@ -4279,9 +4893,9 @@
     "sources": 1,
     "fleeting_notes": 4,
     "literature_notes": 9,
-    "permanent_notes": 48,
+    "permanent_notes": 50,
     "index_cards": 18,
-    "relations": 50,
+    "relations": 86,
     "writing_projects": 2,
     "draft_scaffolds": 2,
     "final_essays": 3,

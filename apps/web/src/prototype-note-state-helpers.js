@@ -305,7 +305,7 @@ export function relationNetworkWorkflowMessageForNote(note = null, overview = {}
     type: "workflow",
     category: "relation-network",
     title: `${noteTitle} 还没关联`,
-    body: `“${noteTitle}”已经是一条永久笔记，但还没有和其他永久笔记建立正式关联。打开它后先关联一条真正相关的笔记，并写清它们是支持、反驳、限定还是桥接；如果暂时独立，也在边界里写下理由。`,
+    body: `“${noteTitle}”已经是一条永久笔记，但还没有和其他永久笔记建立关联。打开它后先关联一条真正相关的笔记，并写清它们是支持、反驳、限定还是桥接；如果暂时独立，也在边界里写下理由。`,
     action: "open-note-workflow",
     actionLabel: "关联一条笔记",
     noteId: note.id,

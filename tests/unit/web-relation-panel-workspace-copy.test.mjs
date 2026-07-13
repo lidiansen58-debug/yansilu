@@ -46,7 +46,7 @@ test("relation and viewpoint polish entry stay separated", async () => {
   assert.match(relationComposerController, /const latestRelations = await fetchNoteRelations\(sourceNote\.id\)/);
   assert.match(source, /permanentSidebarController\(\)\.continueRelationWorkspace\(\)/);
   assert.doesNotMatch(sidebarController, /permanentRelationWorkspaceNextAiCandidate\(/);
-  assert.match(sidebarView, /data-permanent-relation-action="open"/);
+  assert.match(source, /data-permanent-relation-workspace/);
 
   assert.match(source, /data-deferred-workspace/);
   assert.match(source, /data-permanent-note-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
@@ -186,12 +186,12 @@ test("relation workspace separates body links and external relations with user-f
   assert.match(html, /data-relation-tab="external"/);
   assert.match(html, /data-relation-tab="body"/);
   assert.match(html, /外部关联/);
-  assert.match(html, /正文关联/);
+  assert.match(html, /正文链接/);
   assert.match(html, /取消外部关联/);
   assert.match(html, />打开<\/button>/);
-  assert.doesNotMatch(html, /正文关联可以转为外部关联|转为外部关联/);
+  assert.doesNotMatch(html, /正文链接可以补充为关联|补充为关联/);
   assert.doesNotMatch(html, /正式关系|正式关联|升级为正式|删除/);
-  assert.doesNotMatch(html, /正文关联<\/span>\s*<span class="related-item-badge">相关<\/span>/);
+  assert.doesNotMatch(html, /正文链接<\/span>\s*<span class="related-item-badge">相关<\/span>/);
   assert.equal((html.match(/目标笔记/g) || []).length, 2);
 });
 
@@ -253,5 +253,5 @@ test("relation button count matches relation workspace tab counts", () => {
   assert.equal(summary.bodyRelationCount, 2);
   assert.equal(summary.totalRelationCount, 4);
   assert.match(html, /外部关联[\s\S]*?<small>2<\/small>/);
-  assert.match(html, /正文关联[\s\S]*?<small>2<\/small>/);
+  assert.match(html, /正文链接[\s\S]*?<small>2<\/small>/);
 });

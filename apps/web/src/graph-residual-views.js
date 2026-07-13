@@ -134,7 +134,7 @@ function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, c
     <section class="graph-orientation" aria-label="图谱读法">
       <div class="graph-orientation-main">
         <strong>这张图谱帮你判断：这组永久笔记能不能形成一个清楚观点</strong>
-        <span>每个点是一条永久笔记，每条线是一条正式关系。先看哪些笔记在支撑，哪里有反方、边界或缺少连接。下面这组数字按当前目录的全部关系统计，不受上方筛选影响。</span>
+        <span>每个点是一条永久笔记，每条线是一条关联。先看哪些笔记在支撑，哪里有反方、边界或缺少连接。下面这组数字按当前目录的全部关系统计，不受上方筛选影响。</span>
       </div>
       <div class="graph-read-steps">
         <span>1 找中心观点</span>
@@ -887,7 +887,7 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
   const localCandidates = graphLocalRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
   const themeNoteIds = graphThemeCandidateNoteIdsForNode(noteId, directEdges, []);
   let quality = "关系清楚";
-  let qualityDetail = "它已经有正式关系，可以从这里继续阅读周边笔记，看看是否能形成主题。";
+  let qualityDetail = "它已经有关联，可以从这里继续阅读周边笔记，看看是否能形成主题。";
   if (!degree) {
     quality = "还没有进入关系网";
     qualityDetail = aiCandidates.length || localCandidates.length ? "已经找到可能相关的笔记，先确认一条真正成立的关系。" : "先找一条能说清理由的关系。";
@@ -1477,7 +1477,7 @@ function graphCandidateRelationVerdict(candidate = {}) {
   const relationType = String(candidate.aiRelationType || candidate.relationType || candidate.coarseType || "associated_with").trim().toLowerCase();
   const relationLabel = graphRelationTypeLabel(relationType === "no_relation" ? "associated_with" : relationType);
   const confidenceLabel = graphAiConfidenceLabel(candidate.aiConfidence || candidate.confidence);
-  if (decision === "reject" || relationType === "no_relation") return "暂不建议直接保存为正式关系";
+  if (decision === "reject" || relationType === "no_relation") return "暂不建议直接保存为关联";
   if (decision === "uncertain") return `可以先按“${relationLabel}”检查`;
   if (decision === "accept") return `可以保存为“${relationLabel}”`;
   return `建议关系：${relationLabel} · ${confidenceLabel}`;

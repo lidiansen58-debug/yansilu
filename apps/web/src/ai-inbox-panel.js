@@ -148,7 +148,7 @@ function aiInboxReadableSummary(value = {}) {
     return summary || "两条笔记可能需要一条能说清理由的连接。";
   }
   if (type === "QuestionCard" && String(payload.suggestedAction || payload.suggested_action || "").includes("missing_relations")) {
-    return "这条永久笔记还没有正式关系，先判断是否需要接入图谱。";
+    return "这条永久笔记还没有关联，先判断是否需要接入图谱。";
   }
   if (type === "LinkSuggestion") {
     return readableAiText(summary || payload.rationale) || "发现一条可能关系，确认后才会写入图谱。";
@@ -805,7 +805,7 @@ function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false)
       }
       <div class="ai-inbox-review-main">
         <strong>${escapeHtml(isIsolated ? "为什么提醒" : "推荐理由")}</strong>
-        <p>${escapeHtml(readableAiText(reason) || (isIsolated ? "这条永久笔记还没有正式关系，需要处理关联。" : "这条建议还没有足够明确的理由，建议谨慎处理。"))}</p>
+        <p>${escapeHtml(readableAiText(reason) || (isIsolated ? "这条永久笔记还没有关联，需要处理关联。" : "这条建议还没有足够明确的理由，建议谨慎处理。"))}</p>
       </div>
       ${
         reviewQuestion
@@ -814,7 +814,7 @@ function renderGraphReviewBrief(artifact = {}, item = {}, actionLoading = false)
       }
       ${
         link && !link.canAccept
-          ? `<div class="ai-inbox-detail-muted">这条建议不是“笔记到笔记”的关系，不能直接写入图谱。可以打开相关笔记，手工整理成正式关系。</div>`
+          ? `<div class="ai-inbox-detail-muted">这条建议不是“笔记到笔记”的关系，不能直接写入图谱。可以打开相关笔记，手工整理成关联。</div>`
           : ""
       }
       <div class="ai-inbox-actions">

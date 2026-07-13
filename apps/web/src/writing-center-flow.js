@@ -200,7 +200,7 @@ export function describeWritingProjectEntryState({
     return {
       level: "error",
       status: "读取失败",
-      hint: "正式关系读取失败，先稍后重试或回到笔记里手动确认关系。",
+      hint: "关联读取失败，先稍后重试或回到笔记里手动确认关系。",
       actionLabel: "关系读取失败",
       canCreateProject: false
     };
@@ -209,7 +209,7 @@ export function describeWritingProjectEntryState({
     return {
       level: "loading",
       status: "读取中",
-      hint: "正在读取正式关系，再判断是否能形成可写主题。",
+      hint: "正在读取关联，再判断是否能形成可写主题。",
       actionLabel: "正在读取关系",
       canCreateProject: false
     };
@@ -698,14 +698,14 @@ export function describeWritingStrongModelStatus({
   if (relationCountsErrored) {
     return {
       status: "读取失败",
-      hint: "正式关系读取失败，先重试或回到笔记里确认关系。",
+      hint: "关联读取失败，先重试或回到笔记里确认关系。",
       buttonLabel: "关系读取失败"
     };
   }
   if (!relationCountsReady) {
     return {
       status: "读取中",
-      hint: "正在读取正式关系，等结果回来后再判断是否适合让 AI 辅助写作。",
+      hint: "正在读取关联，等结果回来后再判断是否适合让 AI 辅助写作。",
       buttonLabel: "正在读取关系"
     };
   }

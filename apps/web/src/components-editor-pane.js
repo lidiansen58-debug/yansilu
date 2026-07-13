@@ -1549,17 +1549,16 @@ export class EditorPane {
     const structured = this.isStructuredWorkspaceActive();
     const canUseRelationLink = this.isOriginalNote(this.activeNote());
     const noteType = this.resolvedNoteType(this.activeNote());
-    const canDistillSource = this.isOriginalRecordableSource(this.activeNote());
     const canCheckNote = noteType === "permanent" || noteType === "original";
     this.els.insertLink?.classList.toggle("hidden", !canUseRelationLink);
-    this.els.distillSourceAi?.classList.toggle("hidden", !canDistillSource);
-    this.els.checkNoteAi?.classList.toggle("hidden", canDistillSource || !canCheckNote);
+    this.els.distillSourceAi?.classList.add("hidden");
+    this.els.checkNoteAi?.classList.toggle("hidden", this.isOriginalRecordableSource(this.activeNote()) || !canCheckNote);
     if (this.els.distillSourceAi) {
-      this.els.distillSourceAi.title = "帮我提炼";
-      this.els.distillSourceAi.dataset.tip = "帮我提炼";
-      this.els.distillSourceAi.setAttribute("aria-label", "帮我提炼");
+      this.els.distillSourceAi.title = "创建永久笔记";
+      this.els.distillSourceAi.dataset.tip = "创建永久笔记";
+      this.els.distillSourceAi.setAttribute("aria-label", "创建永久笔记");
       const label = this.els.distillSourceAi.querySelector("span");
-      if (label) label.textContent = "帮我提炼";
+      if (label) label.textContent = "创建永久笔记";
     }
     if (!canUseRelationLink) this.closeLinkPicker();
     if (this.els.headingLevel) {
@@ -5340,7 +5339,7 @@ export class EditorPane {
           <strong>待关联笔记</strong>
           <span>${escapeHtml(title)}</span>
         </div>
-        <p class="related-empty">还没有和其他永久笔记建立正式关联。先找一条最相关的笔记，说明它们是支持、反驳、限定还是桥接；如果暂时独立，就把理由写在边界里。</p>
+        <p class="related-empty">还没有和其他永久笔记建立关联。先找一条最相关的笔记，说明它们是支持、反驳、限定还是桥接；如果暂时独立，就把理由写在边界里。</p>
         <div class="semantic-relation-actions">
           <button class="mini-btn primary" type="button" data-note-main-route-action="relations">关联一条笔记</button>
           <button class="mini-btn" type="button" data-note-isolated-hold>记录暂时独立</button>
@@ -6910,9 +6909,7 @@ export class EditorPane {
     };
 
     this.els.recordPermanent?.addEventListener("click", recordSourceAsPermanent);
-    this.els.distillSourceAi?.addEventListener("click", () => {
-      void this.runSourceDistillAction();
-    });
+    this.els.distillSourceAi?.addEventListener("click", recordSourceAsPermanent);
     this.els.checkNoteAi?.addEventListener("click", () => {
       void this.runPermanentNoteAnalysis();
     });

@@ -83,7 +83,7 @@ test("review checklist keeps wikilink-only notes in the isolated action queue", 
         title: "只有正文链接",
         noteType: "permanent",
         outgoingLinks: [{ relationType: "markdown_link", rationale: "markdown_wikilink", status: "confirmed" }],
-        body: "这条笔记只写了 [[另一条笔记]]，还没有正式关系。"
+        body: "这条笔记只写了 [[另一条笔记]]，还没有关联。"
       }
     ],
     relations: [],
@@ -121,7 +121,7 @@ test("review checklist does not mark relation-loaded connected notes as isolated
       }
     ],
     relations: [
-      { sourceNoteId: "pn_connected", targetNoteId: "pn_other", relationType: "supports", rationale: "正式关系理由" }
+      { sourceNoteId: "pn_connected", targetNoteId: "pn_other", relationType: "supports", rationale: "关联理由" }
     ],
     relationsReady: true
   });

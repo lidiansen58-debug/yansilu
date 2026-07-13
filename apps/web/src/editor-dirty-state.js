@@ -724,14 +724,20 @@ const editorPaneStateMethods = {
       button.dataset.tip = button.title;
       button.setAttribute("aria-label", button.title);
     };
-    configure(this.els.distillSourceAi || this.els.recordPermanent, this.els.distillSourceAi ? "帮我提炼" : "创建永久笔记");
+    configure(this.els.recordPermanent, "创建永久笔记");
     if (this.els.distillSourceAi && this.els.recordPermanent) {
-      this.els.recordPermanent.classList.add("hidden");
+      this.els.recordPermanent.classList.toggle("hidden", !visible);
       this.els.recordPermanent.disabled = !visible;
       this.els.recordPermanent.dataset.sourceNoteId = visible ? note.id : "";
-      this.els.recordPermanent.title = visible ? "帮我提炼" : "当前笔记不需要创建永久笔记";
+      this.els.recordPermanent.title = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
       this.els.recordPermanent.dataset.tip = this.els.recordPermanent.title;
       this.els.recordPermanent.setAttribute("aria-label", this.els.recordPermanent.title);
+      this.els.distillSourceAi.classList.add("hidden");
+      this.els.distillSourceAi.disabled = true;
+      this.els.distillSourceAi.dataset.sourceNoteId = "";
+      this.els.distillSourceAi.title = "创建永久笔记";
+      this.els.distillSourceAi.dataset.tip = "创建永久笔记";
+      this.els.distillSourceAi.setAttribute("aria-label", "创建永久笔记");
     }
   },
 

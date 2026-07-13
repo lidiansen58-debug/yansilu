@@ -572,7 +572,7 @@ test("graph focus relation panel keeps relation wording simple", () => {
   assert.match(panel, /还没有关联/);
   assert.match(panel, /这条笔记还没有和其他笔记建立关联/);
   assert.doesNotMatch(panel, /data-graph-focus-help-toggle/);
-  assert.doesNotMatch(panel, /正式关系/);
+  assert.doesNotMatch(panel, /正式关系|正式关联|链接 1/);
 
   assert.match(html, /\.graph-side-stack \{[\s\S]*width: min\(560px, calc\(100% - 36px\)\);/);
   assert.match(html, /\.graph-side-stack:has\(\.graph-focus-context\) \{[\s\S]*width: min\(920px, calc\(100% - 36px\)\);/);
@@ -597,7 +597,7 @@ test("graph focus relation panel shows saved associations for a connected note",
   assert.match(panel, /它支撑当前判断。/);
   assert.doesNotMatch(panel, /暂无关联/);
   assert.doesNotMatch(panel, /链接 1/);
-  assert.doesNotMatch(panel, /正式关系/);
+  assert.doesNotMatch(panel, /正式关系|正式关联|链接 1/);
 });
 
 test("graph focus relation panel turns body links into editable relation hints", () => {

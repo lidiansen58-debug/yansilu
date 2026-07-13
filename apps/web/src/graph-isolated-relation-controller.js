@@ -282,7 +282,7 @@ export function createGraphIsolatedRelationController({
     });
     if (!validation.ok) {
       const messages = {
-        invalid_relation_type: "请选择一种可以保存为正式关系的类型。",
+        invalid_relation_type: "请选择一种可以保存为关联的类型。",
         missing_manual_target: "请先搜索并选择一条目标笔记。",
         missing_ai_target: "请先选择一条推荐目标。",
         self_relation: "不能把笔记关联到它自己，请重新选择目标笔记。",

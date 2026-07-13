@@ -141,7 +141,7 @@ test("graph isolated relation controller rejects invalid relation types before s
 
   assert.equal(saved, false);
   assert.equal(confirmed, false);
-  assert.match(form.error.textContent, /请选择一种可以保存为正式关系的类型/);
+  assert.match(form.error.textContent, /请选择一种可以保存为关联的类型/);
 });
 
 test("graph isolated relation controller does not overwrite user rationale when picking a manual target", () => {

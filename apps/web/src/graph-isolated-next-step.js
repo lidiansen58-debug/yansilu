@@ -43,8 +43,8 @@ export function renderGraphIsolatedNextStepActionsHtml(
   const formalCount = directEdges.filter((edge) => !relationTypeIsOrdinary(edge?.relationType)).length;
   const ordinaryCount = directEdges.length - formalCount;
   const savedText = formalCount
-    ? `已保存 ${formalCount} 条正式关系到图谱${ordinaryCount ? `，另有 ${ordinaryCount} 条普通相关关系` : ""}。`
-    : `已保存 ${ordinaryCount} 条普通相关关系；它会出现在全部关系里，尚未转成正式观点关系。`;
+    ? `已保存 ${formalCount} 条关联到图谱${ordinaryCount ? `，另有 ${ordinaryCount} 条关联` : ""}。`
+    : `已保存 ${ordinaryCount} 条关联。`;
   const nextText = nextItem
     ? `${savedText} 下一条待关联笔记：${nextItem.title}`
     : `${savedText} 当前范围暂时没有下一条待关联笔记，可以回到这条笔记周边继续阅读。`;

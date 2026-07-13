@@ -52,7 +52,7 @@ export function permanentNoteRelationAssistViewState({
       : explicitRelationCount > 0
         ? `已有 ${explicitRelationCount} 条关系。`
         : wikilinkCount || tagRelatedCount
-          ? "有线索，选一条保存为正式关系。"
+          ? "有线索，选一条保存为关联。"
           : "找一条真正相关的笔记。";
   return {
     ...assistState,

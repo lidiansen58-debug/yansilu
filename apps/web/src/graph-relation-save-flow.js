@@ -53,15 +53,15 @@ export function graphRelationSavedNextStepStatus({ created = true, hasNextIsolat
   const ordinaryRelation = graphRelationSaveIsOrdinaryRelation(relationType);
   const relationState = ordinaryRelation
     ? created
-      ? "已保存为普通相关关系，会出现在全部关系里；它还不是支持、反驳这类正式观点关系。"
-      : "这条普通相关关系已经存在，已复用。"
+      ? "关联已保存。"
+      : "这条关联已经存在，已复用。"
     : created
-      ? "关系已保存到图谱的正式关系。"
-      : "这条正式关系已经存在，已复用。";
+      ? "关系已保存到图谱的关联。"
+      : "这条关联已经存在，已复用。";
   const nextStep = hasNextIsolated
     ? "下一步可以继续处理下一条未关联笔记，也可以查看刚保存的关系。"
     : ordinaryRelation
-      ? "下一步可以继续处理、转为正式观点关系，或切到全部关系查看这条连接。"
-      : "下一步可以继续处理、转到正式关系视图检查理由，或查看这组关系能不能形成主题。";
+      ? "下一步可以继续处理，或切到全部关系查看这条连接。"
+      : "下一步可以继续处理、转到关联视图检查理由，或查看这组关系能不能形成主题。";
   return `${relationState}${nextStep}`;
 }

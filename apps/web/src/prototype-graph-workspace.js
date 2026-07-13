@@ -53,9 +53,9 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
       <div class="graph-relation-workspace-head">
         <div>
           <strong>${escapeHtml(title)}</strong>
-          <span>这里只显示已经保存到图谱的正式关系。新的推荐关系在上方确认后才会进入这里。</span>
+          <span>这里只显示已经保存到图谱的关联。新的推荐关系在上方确认后才会进入这里。</span>
         </div>
-        <small>${escapeHtml(String(directEdges.length))} 条正式关系</small>
+        <small>${escapeHtml(String(directEdges.length))} 条关联</small>
       </div>
       ${
         relationCards.length
@@ -79,7 +79,7 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
                 .join("")}
             </section>`
           : `<section class="graph-relation-workspace-empty">
-              <strong>还没有正式关系</strong>
+              <strong>还没有关联</strong>
               <p>先从上方可选关系里保存一条真正成立的连接。</p>
             </section>`
       }

@@ -661,7 +661,7 @@ test("writing theme detail does not add explanatory cards to the writing flow", 
       noteIds: ["n1"],
       readiness: {
         level: "basket_ready",
-        hint: "当前相关笔记还缺正式关系。",
+        hint: "当前相关笔记还缺关联。",
         actionLabel: "加入相关笔记"
       },
       projectEntry: {
@@ -670,7 +670,7 @@ test("writing theme detail does not add explanatory cards to the writing flow", 
         canCreateProject: false,
         actionLabel: "加入相关笔记",
         status: "可作为相关笔记",
-        hint: "当前相关笔记还缺正式关系。"
+        hint: "当前相关笔记还缺关联。"
       }
     }),
     writingKnownNoteById: () => ({ id: "n1", title: "Note one" }),

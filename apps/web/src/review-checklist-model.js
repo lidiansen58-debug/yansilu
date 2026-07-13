@@ -172,7 +172,7 @@ function firstIsolatedNoteItem(permanentNotes = [], relations = [], relationsRea
     title: "孤立笔记",
     objectTitle: noteTitle(note),
     summary: "补一条关系，让这条永久笔记进入卡片盒网络。",
-    meta: "本地规则：没有正式关系",
+    meta: "本地规则：没有关联",
     action: "review-connect-isolated",
     actionLabel: "补一条关系",
     noteId: cleanText(note.id),
