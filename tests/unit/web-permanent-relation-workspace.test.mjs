@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 import { renderPermanentRelationWorkspace } from "../../apps/web/src/permanent-relation-workspace.js";
 import {
@@ -10,6 +11,8 @@ import {
   permanentRelationWorkspaceExistingLink,
   permanentRelationWorkspaceNextAiCandidate
 } from "../../apps/web/src/permanent-relation-workspace-model.js";
+
+const prototypeCss = fs.readFileSync(new URL("../../apps/web/src/prototype.css", import.meta.url), "utf8");
 
 const note = {
   id: "pn_source",
@@ -383,6 +386,10 @@ test("permanent relation workspace shows AI recommendations only in recommendati
   assert.doesNotMatch(html, /46%/);
   assert.doesNotMatch(html, /data-permanent-relation-ai-select/);
   assert.match(html, /data-permanent-relation-form hidden/);
+});
+
+test("permanent relation workspace CSS hides the form while AI recommendations are shown", () => {
+  assert.match(prototypeCss, /\.permanent-relation-confirm\[hidden\]\s*\{[\s\S]*display:\s*none;/);
 });
 
 test("permanent relation workspace shows active wait state while AI recommendations prepare", () => {

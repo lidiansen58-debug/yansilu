@@ -147,9 +147,25 @@ test("graph workbench theme panel summarizes likely theme areas", () => {
 
   assert.match(html, /图里有 22 个地方可能已经聚成主题/);
   assert.match(html, /如何发现主题/);
+  assert.match(html, /data-graph-workbench-guide-toggle/);
+  assert.match(html, /aria-expanded="false"/);
   assert.match(html, /graph-workbench-theme-overview/);
   assert.match(html, /AI 应该在具体任务旁提供帮助/);
   assert.match(html, /这些笔记是否都在回答 AI 何时出现/);
   assert.match(html, /关系类型怎么选/);
   assert.doesNotMatch(html, /补关系/);
+});
+
+test("graph workbench guide button expands theme explanation", () => {
+  const html = renderGraphWorkbenchPanelView(
+    {
+      questionSummary: { total: 1 },
+      thinkingItems: [{ view: "theme", title: "主题 A" }]
+    },
+    deps({ workbenchPanelOpen: true, workbenchPanelTab: "questions", workbenchGuideOpen: true })
+  );
+
+  assert.match(html, /data-graph-workbench-guide-toggle/);
+  assert.match(html, /aria-expanded="true"/);
+  assert.match(html, /先看下面这些成组线索/);
 });

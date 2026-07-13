@@ -87,6 +87,14 @@ export function installGraphWorkbenchClickFallbackEvents(documentRef = null, {
       setStatus(`已切换到${result.meta.statusLabel || result.meta.label}`, "ok");
       return;
     }
+    const workbenchGuideToggle = target?.closest?.("[data-graph-workbench-guide-toggle]");
+    if (workbenchGuideToggle) {
+      consume(event);
+      graphState.workbenchGuideOpen = graphState.workbenchGuideOpen !== true;
+      renderGraphPanel();
+      setStatus(graphState.workbenchGuideOpen ? "已展开说明" : "已收起说明", "ok");
+      return;
+    }
     const workbenchClose = target?.closest?.("[data-graph-workbench-close]");
     if (workbenchClose) {
       consume(event);
