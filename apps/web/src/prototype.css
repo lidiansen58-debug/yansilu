@@ -6169,6 +6169,47 @@
       font-size: 11px;
       line-height: 1.55;
     }
+    .graph-workbench-guide-action {
+      width: fit-content;
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border: 1px solid #b8d9cb;
+      border-radius: 999px;
+      background: #edf8f2;
+      color: #0f6f48 !important;
+      font-size: 12px !important;
+      font-weight: 900;
+      line-height: 1;
+      padding: 0 10px;
+    }
+    .graph-workbench-theme-overview {
+      display: grid;
+      gap: 7px;
+    }
+    .graph-workbench-theme-overview article {
+      display: grid;
+      gap: 3px;
+      border: 1px solid #dbe6ea;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.88);
+      padding: 8px 10px;
+    }
+    .graph-workbench-theme-overview strong {
+      min-width: 0;
+      color: #172033;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .graph-workbench-theme-overview span {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.5;
+    }
     .graph-workbench-categories {
       display: flex;
       flex-wrap: wrap;

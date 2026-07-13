@@ -98,8 +98,9 @@ export function installGraphWorkbenchClickFallbackEvents(documentRef = null, {
     const graphAiButton = target?.closest?.("[data-run-graph-ai-analysis]");
     if (graphAiButton) {
       consume(event);
+      const mode = String(graphAiButton.getAttribute("data-run-graph-ai-analysis") || "").trim();
       graphState.workbenchPanelOpen = true;
-      graphState.workbenchPanelTab = "questions";
+      graphState.workbenchPanelTab = mode === "theme" ? "questions" : mode === "gap" ? "clues" : graphState.workbenchPanelTab === "questions" ? "questions" : "clues";
       renderGraphPanel();
       void runGraphAiAnalysis();
     }

@@ -253,7 +253,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       consumeGraphClick();
       const mode = String(graphAiButton.getAttribute("data-run-graph-ai-analysis") || "").trim();
       graphState.workbenchPanelOpen = true;
-      graphState.workbenchPanelTab = mode === "gap" ? "clues" : "questions";
+      graphState.workbenchPanelTab = mode === "theme" ? "questions" : mode === "gap" ? "clues" : graphState.workbenchPanelTab === "questions" ? "questions" : "clues";
       renderGraphPanel();
       void runGraphAiAnalysis();
       return;
@@ -622,7 +622,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       event.stopPropagation();
       const mode = String(graphAiButton.getAttribute("data-run-graph-ai-analysis") || "").trim();
       graphState.workbenchPanelOpen = true;
-      graphState.workbenchPanelTab = mode === "gap" ? "clues" : "questions";
+      graphState.workbenchPanelTab = mode === "theme" ? "questions" : mode === "gap" ? "clues" : graphState.workbenchPanelTab === "questions" ? "questions" : "clues";
       renderGraphPanel();
       void runGraphAiAnalysis();
       return;

@@ -130,3 +130,26 @@ test("graph workbench panel renders only a minimal read-only explanation", () =>
   assert.doesNotMatch(html, /孤立笔记|全部关系|data-action="x"/);
   assert.doesNotMatch(html, /关联任务|洞察问题/);
 });
+
+test("graph workbench theme panel summarizes likely theme areas", () => {
+  const html = renderGraphWorkbenchPanelView(
+    {
+      clueSummary: { total: 0 },
+      questionSummary: { total: 22, detail: "22 个主题线索" },
+      thinkingItems: [
+        { view: "theme", title: "AI 应该在具体任务旁提供帮助", question: "这些笔记是否都在回答 AI 何时出现？" },
+        { view: "question", title: "关系类型怎么选", detail: "围绕关联判断和理由写法。" },
+        { view: "organize", title: "补关系" }
+      ]
+    },
+    deps({ workbenchPanelOpen: true, workbenchPanelTab: "questions" })
+  );
+
+  assert.match(html, /图里有 22 个地方可能已经聚成主题/);
+  assert.match(html, /如何发现主题/);
+  assert.match(html, /graph-workbench-theme-overview/);
+  assert.match(html, /AI 应该在具体任务旁提供帮助/);
+  assert.match(html, /这些笔记是否都在回答 AI 何时出现/);
+  assert.match(html, /关系类型怎么选/);
+  assert.doesNotMatch(html, /补关系/);
+});

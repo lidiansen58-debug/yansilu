@@ -146,3 +146,39 @@ test("graph workbench click fallback opens summary workbench entries", () => {
     ["status", "已打开补全关系", "ok"]
   ]);
 });
+
+test("graph workbench click fallback keeps empty scan mode in relation workbench", () => {
+  const documentRef = createDocument();
+  const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "" };
+  const calls = [];
+  const button = {
+    getAttribute(name) {
+      return name === "data-run-graph-ai-analysis" ? "" : "";
+    }
+  };
+  const event = {
+    prevented: false,
+    stopped: false,
+    preventDefault() { this.prevented = true; },
+    stopImmediatePropagation() { this.stopped = true; },
+    target: {
+      closest(selector) {
+        return selector === "[data-run-graph-ai-analysis]" ? button : null;
+      }
+    }
+  };
+
+  installGraphWorkbenchClickFallbackEvents(documentRef, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    runGraphAiAnalysis: () => calls.push(["run"])
+  });
+
+  documentRef.listeners.get("click")[0].handler(event);
+
+  assert.equal(event.prevented, true);
+  assert.equal(event.stopped, true);
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+  assert.deepEqual(calls, [["render"], ["run"]]);
+});

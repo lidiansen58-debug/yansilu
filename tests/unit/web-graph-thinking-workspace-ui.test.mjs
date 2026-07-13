@@ -1001,7 +1001,7 @@ test("graph AI scan button opens the right workbench for the action mode", () =>
   const source = readGraphCanvasEventRouter();
 
   assert.match(source, /const mode = String\(graphAiButton\.getAttribute\("data-run-graph-ai-analysis"\)/);
-  assert.match(source, /graphState\.workbenchPanelOpen = true;[\s\S]*graphState\.workbenchPanelTab = mode === "gap" \? "clues" : "questions";[\s\S]*void runGraphAiAnalysis\(\);/);
+  assert.match(source, /graphState\.workbenchPanelOpen = true;[\s\S]*graphState\.workbenchPanelTab = mode === "theme" \? "questions" : mode === "gap" \? "clues" : graphState\.workbenchPanelTab === "questions" \? "questions" : "clues";[\s\S]*void runGraphAiAnalysis\(\);/);
 });
 
 test("graph AI review action stays inside the graph workbench", () => {
