@@ -151,7 +151,7 @@ export function renderSettingsAiTestPanel({
     const testFailed = ai.testStatus === "failed";
     const testBlocked = ai.testStatus === "blocked";
     testMeta.textContent = ai.testRunning
-      ? "正在测试"
+      ? "测试中，请稍等"
       : testSucceeded
         ? "测试成功"
         : ai.testMeta || testBlockedReason || "还没有测试";
@@ -159,5 +159,9 @@ export function renderSettingsAiTestPanel({
   }
 
   const testOutput = $("settingsAiTestChatOutput");
-  if (testOutput) testOutput.textContent = ai.testOutput || "还没有测试结果";
+  if (testOutput) {
+    testOutput.textContent = ai.testRunning
+      ? (ai.testOutput || "正在等待 AI 回复，可能需要一点时间。请先停留在这里查看测试结果。")
+      : ai.testOutput || "还没有测试结果";
+  }
 }

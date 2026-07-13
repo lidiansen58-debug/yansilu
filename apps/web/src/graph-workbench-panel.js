@@ -24,10 +24,10 @@ function defaultWorkbenchTabMeta(value = "") {
     },
     questions: {
       key: "questions",
-      label: "形成主题",
-      emptyLabel: "暂无可形成主题的线索",
-      panelTitle: "形成主题",
-      statusLabel: "形成主题",
+      label: "找主题",
+      emptyLabel: "暂无可找主题的线索",
+      panelTitle: "找主题",
+      statusLabel: "找主题",
       note: "看哪些笔记已经聚成一个可继续写作的问题。"
     }
   };
@@ -38,7 +38,7 @@ function defaultThinkingFilterMeta(value = "") {
   const key = String(value || "all").trim().toLowerCase();
   const meta = {
     all: { key: "all", label: "全部", note: "查看全部建议。" },
-    theme: { key: "theme", label: "形成主题", note: "只看可能聚成主题的笔记。" },
+    theme: { key: "theme", label: "找主题", note: "只看可能聚成主题的笔记。" },
     organize: { key: "organize", label: "补全关系", note: "只看需要补关系的笔记。" }
   };
   return meta[key] || meta.all;
@@ -107,8 +107,8 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
   if (!filtered.length) {
     return `
       <div class="graph-thinking-empty">
-        <strong>${escapeHtml(meta.key === "theme" ? "还没有可形成主题的线索" : meta.key === "organize" ? "还没有需要补的关系" : "当前没有明显建议")}</strong>
-        <span>${escapeHtml(meta.key === "theme" ? "先补几条有理由的关系，再回来判断是否能形成主题。" : "继续写笔记或补关系后，这里会出现更具体的建议。")}</span>
+        <strong>${escapeHtml(meta.key === "theme" ? "还没有可找主题的线索" : meta.key === "organize" ? "还没有需要补的关系" : "当前没有明显建议")}</strong>
+        <span>${escapeHtml(meta.key === "theme" ? "先补几条有理由的关系，再回来找主题。" : "继续写笔记或补关系后，这里会出现更具体的建议。")}</span>
         <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "重新检查"}</button>
       </div>
     `;
@@ -223,7 +223,7 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
   const activeTab = graphWorkbenchTabMeta(graphState.workbenchPanelTab);
   const isRelation = activeTab.key === "clues";
   const summary = isRelation ? clueSummary : questionSummary;
-  const title = isRelation ? "补全关系" : "形成主题";
+  const title = isRelation ? "补全关系" : "找主题";
   const total = Number(summary?.total || 0);
   const lead = isRelation
     ? total
@@ -231,7 +231,7 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
       : "当前没有明显断开的地方。"
     : total
       ? `图里有 ${total} 个地方可能已经聚成主题。`
-      : "当前还没有明显可形成主题的线索。";
+      : "当前还没有明显可找主题的线索。";
   const tips = isRelation
     ? [
         "看哪些笔记仍然散着。",

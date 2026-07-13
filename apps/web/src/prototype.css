@@ -13581,7 +13581,8 @@
       display: none;
     }
     .semantic-relation-tab-panel .inspector-list {
-      max-width: 440px;
+      width: min(100%, 720px);
+      max-width: none;
     }
     .semantic-relation-status {
       display: flex;

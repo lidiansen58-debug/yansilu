@@ -1517,12 +1517,12 @@ async function ensureLocalAiReadyForFeature(options = {}) {
 async function ensureAiReadyForFeature(options = {}) {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   if (runtimeMode === "off") {
+    setStatus("请先完成 AI 设置并测试通过，再回来使用 AI 推荐。", "warn", { priority: 3, holdMs: 8000 });
     if (options.openSettings !== false) {
       activateModule("settings");
       setSettingsItem("ai-settings", { render: false });
       renderSettingsPanel();
     }
-    setStatus("AI 已停用，请先在设置中启用。", "warn", { priority: 3, holdMs: 8000 });
     return { ready: false, reason: "ai_off" };
   }
   if (!remoteAiExplicitlyEnabledForFeatures()) {
@@ -1533,11 +1533,11 @@ async function ensureAiReadyForFeature(options = {}) {
     return { ready: true, mode: "remote", providerId };
   }
   if (options.openSettings !== false) {
+    setStatus("请先完成 AI 设置并测试通过，再回来使用 AI 推荐。", "warn", { priority: 3, holdMs: 8000 });
     activateModule("settings");
     setSettingsItem("ai-settings", { render: false });
     renderSettingsPanel();
   }
-  setStatus("请先完成在线 AI 设置。", "warn", { priority: 3, holdMs: 8000 });
   return { ready: false, reason: "remote_not_ready" };
 }
 
