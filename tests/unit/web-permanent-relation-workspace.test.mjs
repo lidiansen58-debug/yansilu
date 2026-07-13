@@ -386,6 +386,27 @@ test("permanent relation workspace shows active wait state while AI recommendati
   assert.match(html, /aria-live="polite"/);
 });
 
+test("permanent relation workspace tells the user when AI finds no recommendations", () => {
+  const html = renderPermanentRelationWorkspace({
+    note,
+    notes: [note, target],
+    aiCandidates: [],
+    state: {
+      ...defaultPermanentRelationWorkspaceState(note.id),
+      open: true,
+      mode: "ai",
+      notice: "这条笔记暂时没有可推荐的关联，可以改用搜索笔记。"
+    },
+    deps
+  });
+
+  assert.match(html, /暂时没有推荐/);
+  assert.match(html, /这条笔记暂时没有可推荐的关联/);
+  assert.match(html, /data-permanent-relation-mode="manual"/);
+  assert.doesNotMatch(html, /正在准备推荐/);
+  assert.doesNotMatch(html, /permanent-relation-loading-dots/);
+});
+
 
 test("AI relation candidates normalize target, type and rationale for the workspace", () => {
   const candidates = normalizePermanentRelationAiCandidates(

@@ -102,11 +102,12 @@ function renderSavedResult(state = {}) {
 
 function renderAiTargets({ state = {}, aiCandidates = [], deps = {} } = {}) {
   if (state.mode !== "ai") return "";
+  const candidates = Array.isArray(aiCandidates) ? aiCandidates.filter((item) => item?.targetNoteId).slice(0, 5) : [];
   if (state.error) {
     return `
       <section class="permanent-relation-picker">
         <div class="permanent-relation-empty is-error">
-          <strong>暂时没有推荐</strong>
+          <strong>推荐失败</strong>
           <p>${escapeHtml(state.error || "可以改用搜索笔记。")}</p>
           <div class="semantic-relation-actions">
             <button class="mini-btn" type="button" data-permanent-relation-mode="manual">搜索笔记</button>
@@ -115,7 +116,19 @@ function renderAiTargets({ state = {}, aiCandidates = [], deps = {} } = {}) {
       </section>
     `;
   }
-  const candidates = Array.isArray(aiCandidates) ? aiCandidates.filter((item) => item?.targetNoteId).slice(0, 5) : [];
+  if (!candidates.length && state.notice) {
+    return `
+      <section class="permanent-relation-picker">
+        <div class="permanent-relation-empty" aria-live="polite">
+          <strong>暂时没有推荐</strong>
+          <p>${escapeHtml(state.notice || "可以改用搜索笔记。")}</p>
+          <div class="semantic-relation-actions">
+            <button class="mini-btn" type="button" data-permanent-relation-mode="manual">搜索笔记</button>
+          </div>
+        </div>
+      </section>
+    `;
+  }
   if (!candidates.length) {
     return `
       <section class="permanent-relation-picker">

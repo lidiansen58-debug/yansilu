@@ -302,6 +302,7 @@ export class EditorPane {
     this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
     this.permanentRelationSearchSerial = 0;
     this.permanentRelationSearchTimer = null;
+    this.permanentRelationAiRecommendationTimer = null;
     this.editorRelationLinkController = new EditorRelationLinkController(this);
     this.editorSemanticRelationsController = new EditorSemanticRelationsController(this);
     this.permanentRelationComposerController = new PermanentRelationComposerController(this);
@@ -4304,6 +4305,12 @@ export class EditorPane {
       return;
     }
     this.clearPendingContextualAiAction("note_analysis", noteId);
+    const timerHost = this.windowRef || (typeof window !== "undefined" ? window : null);
+    const clearAiRecommendationTimer = () => {
+      timerHost?.clearTimeout?.(this.permanentRelationAiRecommendationTimer);
+      this.permanentRelationAiRecommendationTimer = null;
+    };
+    clearAiRecommendationTimer();
     let result = null;
     try {
       this.noteAiSuggestionsState = {
@@ -4314,6 +4321,33 @@ export class EditorPane {
         items: []
       };
       this.renderEmbeddedAiWorkspaceMount(noteId);
+      if (
+        this.permanentRelationWorkspaceState.open &&
+        this.permanentRelationWorkspaceState.noteId === noteId &&
+        this.permanentRelationWorkspaceState.mode === "ai"
+      ) {
+        this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+          ...this.permanentRelationWorkspaceState,
+          error: "",
+          notice: ""
+        }, noteId);
+        this.syncPermanentRelationWorkspaceOverlay();
+        this.permanentRelationAiRecommendationTimer = timerHost?.setTimeout?.(() => {
+          if (
+            this.permanentRelationWorkspaceState.open &&
+            this.permanentRelationWorkspaceState.noteId === noteId &&
+            this.permanentRelationWorkspaceState.mode === "ai" &&
+            !this.permanentRelationWorkspaceAiCandidates(noteId).length
+          ) {
+            this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
+              ...this.permanentRelationWorkspaceState,
+              error: "",
+              notice: "暂时还没有找到可推荐的关联，可以先改用搜索笔记。"
+            }, noteId);
+            this.syncPermanentRelationWorkspaceOverlay();
+          }
+        }, 18000) || null;
+      }
       result = await this.onStateChange("run-note-ai-analysis", {
         noteId,
         relatedNoteIds: this.relatedPermanentNoteIds(note),
@@ -4321,6 +4355,7 @@ export class EditorPane {
         openInbox: false
       });
     } catch (error) {
+      clearAiRecommendationTimer();
       if (!this.isActiveNoteId(noteId)) return;
       const message = String(error?.message || error || "检查失败");
       this.noteAiSuggestionsState = {
@@ -4347,6 +4382,7 @@ export class EditorPane {
       return;
     }
     if (!result) {
+      clearAiRecommendationTimer();
       this.noteAiSuggestionsState = {
         ...this.noteAiSuggestionsStateForNote(noteId),
         noteId,
@@ -4363,13 +4399,15 @@ export class EditorPane {
         this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
           ...this.permanentRelationWorkspaceState,
           saveState: "idle",
-          error: "暂时没有推荐，可以改用搜索笔记。"
+          error: "",
+          notice: "暂时没有可推荐的关联，可以改用搜索笔记。"
         }, noteId);
         this.syncPermanentRelationWorkspaceOverlay();
       }
       return;
     }
     this.noteAiAnalysisByNoteId.set(noteId, result);
+    clearAiRecommendationTimer();
     if (!this.isActiveNoteId(noteId)) return;
     const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
     const overview = this.buildMainPathOverviewV2({
@@ -4383,13 +4421,24 @@ export class EditorPane {
     await this.refreshNoteAiSuggestions(noteId, { preserveActionFeedback: true });
     if (!this.isActiveNoteId(noteId)) return;
     if (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId === noteId) {
-      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState({
-        ...this.permanentRelationWorkspaceState,
-        mode: "manual",
-        saveState: "idle",
-        error: "",
-        notice: ""
-      }, noteId);
+      const candidates = this.permanentRelationWorkspaceAiCandidates(noteId);
+      const nextWorkspaceState =
+        this.permanentRelationWorkspaceState.mode === "ai"
+          ? {
+              ...this.permanentRelationWorkspaceState,
+              mode: "ai",
+              saveState: "idle",
+              error: "",
+              notice: candidates.length ? "" : "这条笔记暂时没有可推荐的关联，可以改用搜索笔记。"
+            }
+          : {
+              ...this.permanentRelationWorkspaceState,
+              mode: "manual",
+              saveState: "idle",
+              error: "",
+              notice: ""
+            };
+      this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState(nextWorkspaceState, noteId);
       this.syncPermanentRelationWorkspaceOverlay();
     }
     this.onStatus("检查结果已更新", "ok");

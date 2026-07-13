@@ -166,6 +166,9 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   assert.match(analysisSource, /openInbox: false/);
   assert.match(analysisSource, /this\.noteAiAnalysisByNoteId\.set\(noteId, result\)/);
   assert.match(analysisSource, /if \(!this\.isActiveNoteId\(noteId\)\) return/);
+  assert.match(analysisSource, /permanentRelationAiRecommendationTimer/);
+  assert.match(analysisSource, /暂时还没有找到可推荐的关联/);
+  assert.match(analysisSource, /这条笔记暂时没有可推荐的关联/);
   assert.doesNotMatch(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.match(analysisSource, /this\.refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
   assert.match(analysisSource, /await this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
