@@ -20,9 +20,9 @@ const tabMeta = (value = "clues") => {
     },
     questions: {
       key: "questions",
-      label: "形成主题",
-      emptyLabel: "暂无可形成主题的线索",
-      panelTitle: "形成主题",
+      label: "找主题",
+      emptyLabel: "暂无可找主题的线索",
+      panelTitle: "找主题",
       note: "处理主题"
     }
   };
@@ -32,7 +32,7 @@ const tabMeta = (value = "clues") => {
 const filterMeta = (value = "all") => {
   const items = {
     all: { key: "all", label: "全部", note: "全部" },
-    theme: { key: "theme", label: "形成主题", note: "形成主题" },
+    theme: { key: "theme", label: "找主题", note: "找主题" },
     organize: { key: "organize", label: "补全关系", note: "补全关系" }
   };
   return items[value] || items.all;
@@ -59,7 +59,7 @@ test("graph workbench entry pills keep only task labels", () => {
   assert.match(html, /data-graph-workbench-entry="clues"/);
   assert.match(html, /data-graph-workbench-entry="questions"/);
   assert.match(html, /补全关系/);
-  assert.match(html, /形成主题/);
+  assert.match(html, /找主题/);
   assert.match(html, /is-active/);
   assert.match(html, /is-empty/);
   assert.match(html, />2<\/strong>/);

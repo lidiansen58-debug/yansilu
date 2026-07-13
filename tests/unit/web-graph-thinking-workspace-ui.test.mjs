@@ -384,7 +384,7 @@ function graphWorkbenchViewTestDeps(overrides = {}) {
     graphWorkbenchTabMeta: (value = "clues") => {
       const meta = {
         clues: { key: "clues", label: "补全关系", emptyLabel: "暂无需要补的关系", panelTitle: "补全关系", note: "先处理关系" },
-        questions: { key: "questions", label: "形成主题", emptyLabel: "暂无可形成主题的线索", panelTitle: "形成主题", note: "继续追问" }
+        questions: { key: "questions", label: "找主题", emptyLabel: "暂无可找主题的线索", panelTitle: "找主题", note: "继续追问" }
       };
       return meta[value] || meta.clues;
     },
@@ -755,7 +755,7 @@ test("graph workbench interactions toggle entry, tab, and close state", () => {
   const deps = {
     graphWorkbenchTabMeta: (value = "") => {
       const key = String(value || "clues").trim() || "clues";
-      return { key, label: key === "clues" ? "补全关系" : "形成主题", statusLabel: key === "clues" ? "补全关系" : "形成主题" };
+      return { key, label: key === "clues" ? "补全关系" : "找主题", statusLabel: key === "clues" ? "补全关系" : "找主题" };
     }
   };
 

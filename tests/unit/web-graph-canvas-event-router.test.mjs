@@ -319,7 +319,7 @@ test("graph canvas event router opens next-step workbench from insight lens", as
     applyGraphWorkbenchTabInteraction,
     graphWorkbenchTabMeta: (value = "") => ({
       key: String(value || "clues").trim() || "clues",
-      label: value === "clues" ? "补全关系" : "形成主题"
+      label: value === "clues" ? "补全关系" : "找主题"
     }),
     renderGraphPanel: () => calls.push(["render"]),
     setStatus: (message, level) => calls.push(["status", level, message])

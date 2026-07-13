@@ -445,10 +445,10 @@ const GRAPH_WORKBENCH_TAB_META = {
   },
   questions: {
     key: "questions",
-    label: "形成主题",
-    emptyLabel: "暂无可形成主题的线索",
-    panelTitle: "形成主题",
-    statusLabel: "形成主题",
+    label: "找主题",
+    emptyLabel: "暂无可找主题的线索",
+    panelTitle: "找主题",
+    statusLabel: "找主题",
     note: "看哪些笔记已经聚成一个可继续写作的问题。"
   }
 };
