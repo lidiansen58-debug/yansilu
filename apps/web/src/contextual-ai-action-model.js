@@ -1,6 +1,6 @@
 export const CONTEXTUAL_AI_TASK_LABELS = Object.freeze({
   distill_material: "帮我提炼",
-  check_note: "检查这条笔记",
+  check_note: "AI 建议",
   recommend_relation: "AI推荐",
   suggest_theme: "建议主题",
   generate_outline: "生成提纲",

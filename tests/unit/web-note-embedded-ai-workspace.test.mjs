@@ -21,12 +21,12 @@ function readRepoFile(...segments) {
 }
 
 test("embedded note AI workspace renders clear loading, error, and empty states", () => {
-  assert.match(renderNoteEmbeddedAiWorkspace({ loading: true }), /正在检查这条笔记/);
-  assert.match(renderNoteEmbeddedAiWorkspace({ error: "fetch failed" }), /检查失败：fetch failed/);
+  assert.match(renderNoteEmbeddedAiWorkspace({ loading: true }), /正在生成 AI 建议/);
+  assert.match(renderNoteEmbeddedAiWorkspace({ error: "fetch failed" }), /AI 建议生成失败：fetch failed/);
 
   const empty = renderNoteEmbeddedAiWorkspace({ items: [] });
-  assert.match(empty, /还没有检查结果/);
-  assert.match(empty, /检查这条笔记/);
+  assert.match(empty, /还没有 AI 建议/);
+  assert.match(empty, /生成 AI 建议/);
   assert.match(empty, /data-note-ai-analysis/);
 });
 
@@ -37,7 +37,7 @@ test("embedded note AI workspace section provides the permanent note mount", () 
   assert.match(html, /data-note-id="pn_1"/);
   assert.match(html, /data-note-embedded-ai-workspace/);
   assert.match(html, /data-note-ai-analysis/);
-  assert.match(html, /检查这条笔记/);
+  assert.match(html, /AI 建议/);
 });
 
 test("embedded note AI workspace renders field-level suggestions with review actions", () => {
@@ -54,7 +54,7 @@ test("embedded note AI workspace renders field-level suggestions with review act
     ]
   });
 
-  assert.match(html, /检查结果/);
+  assert.match(html, /AI 建议/);
   assert.match(html, /一句话判断/);
   assert.match(html, /字段建议/);
   assert.match(html, /候选判断应该先作为草稿进入编辑器/);
@@ -162,14 +162,17 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   const toolbarButtonSource = editorSource.slice(toolbarButtonStart, toolbarButtonEnd);
   assert.match(toolbarButtonSource, /button\.dataset\.contextualAiActionId = "check_note"/);
   assert.doesNotMatch(toolbarButtonSource, /button\.dataset\.noteAiAnalysis = ""/);
-  assert.match(toolbarButtonSource, /button\.title = "检查这条笔记"/);
-  assert.match(toolbarButtonSource, /button\.dataset\.tip = "检查这条笔记"/);
+  assert.match(toolbarButtonSource, /button\.title = "生成 AI 建议"/);
+  assert.match(toolbarButtonSource, /button\.dataset\.tip = "生成 AI 建议"/);
 
   assert.ok(analysisStart >= 0 && analysisEnd > analysisStart, "expected runPermanentNoteAnalysis() to exist");
   const analysisSource = editorSource.slice(analysisStart, analysisEnd);
 
   assert.match(analysisSource, /ensure-ai-ready-for-feature/);
-  assert.match(analysisSource, /正在检查这条笔记，结果可能需要等一下。/);
+  assert.match(analysisSource, /this\.setInspectorVisible\(true\)/);
+  assert.match(analysisSource, /this\.activatePermanentWorkspaceTab\("viewpoint"\)/);
+  assert.match(analysisSource, /this\.renderRelated\(\)/);
+  assert.match(analysisSource, /正在生成 AI 建议，结果可能需要等一下。/);
   assert.match(analysisSource, /feature: "note_analysis"/);
   assert.match(analysisSource, /this\.rememberPendingContextualAiAction\("note_analysis", \{ noteId \}\)/);
   assert.match(analysisSource, /this\.closePermanentRelationWorkspace\(\)/);
@@ -182,9 +185,8 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   assert.doesNotMatch(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.match(analysisSource, /this\.refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
   assert.match(analysisSource, /await this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
-  assert.match(analysisSource, /this\.onStatus\("检查结果已更新", "ok"\)/);
+  assert.match(analysisSource, /this\.onStatus\("AI 建议已更新", "ok"\)/);
   assert.doesNotMatch(analysisSource, /请确认是否保存关系/);
-  assert.doesNotMatch(analysisSource, /this\.renderRelated\(\)/);
 
   const clickStart = editorSource.indexOf("      const aiAnalysisButton = e.target.closest(\"[data-note-ai-analysis]\");");
   const clickEnd = editorSource.indexOf("      const permanentWorkspaceTab = e.target.closest", clickStart);

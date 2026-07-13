@@ -351,16 +351,16 @@ export class EditorPane {
     button.id = "btnCheckNoteAi";
     button.type = "button";
     button.dataset.contextualAiActionId = "check_note";
-    button.title = "检查这条笔记";
-    button.dataset.tip = "检查这条笔记";
-    button.setAttribute("aria-label", "检查这条笔记");
+    button.title = "生成 AI 建议";
+    button.dataset.tip = "生成 AI 建议";
+    button.setAttribute("aria-label", "生成 AI 建议");
     button.innerHTML = `
       <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
         <path d="M4 2.4h6.2L13 5.2v7.1a1.3 1.3 0 0 1-1.3 1.3H4.3A1.3 1.3 0 0 1 3 12.3V3.7a1.3 1.3 0 0 1 1.3-1.3z" fill="none" stroke="currentColor" stroke-width="1.15"/>
         <path d="M10.2 2.5v2a.8.8 0 0 0 .8.8h2M5.2 7.2h4.4M5.2 9.4h2.6" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
         <path d="M10.1 10.8l1 1 2-2.3" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span>检查这条笔记</span>
+      <span>AI 建议</span>
     `;
     this.els.distillSourceAi.parentElement.insertBefore(button, this.els.distillSourceAi.nextSibling);
     this.els.checkNoteAi = button;
@@ -4280,7 +4280,10 @@ export class EditorPane {
       if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) return;
       if (!this.isActiveNoteId(noteId)) return;
     }
-    this.onStatus("正在检查这条笔记，结果可能需要等一下。", "warn");
+    this.setInspectorVisible(true);
+    this.activatePermanentWorkspaceTab("viewpoint");
+    this.renderRelated();
+    this.onStatus("正在生成 AI 建议，结果可能需要等一下。", "warn");
     const ready = await this.onStateChange("ensure-ai-ready-for-feature", {
       feature: "note_analysis",
       noteId,
@@ -4358,7 +4361,7 @@ export class EditorPane {
     } catch (error) {
       clearAiRecommendationTimer();
       if (!this.isActiveNoteId(noteId)) return;
-      const message = String(error?.message || error || "检查失败");
+      const message = String(error?.message || error || "AI 建议生成失败");
       this.noteAiSuggestionsState = {
         ...this.noteAiSuggestionsStateForNote(noteId),
         noteId,
@@ -4379,7 +4382,7 @@ export class EditorPane {
         }, noteId);
         this.syncPermanentRelationWorkspaceOverlay();
       }
-      this.onStatus("检查失败，请稍后重试", "warn");
+      this.onStatus("AI 建议生成失败，请稍后重试", "warn");
       return;
     }
     if (!result) {
@@ -4388,7 +4391,7 @@ export class EditorPane {
         ...this.noteAiSuggestionsStateForNote(noteId),
         noteId,
         loading: false,
-        error: "没有生成检查结果，请稍后重试。",
+        error: "没有生成 AI 建议，请稍后重试。",
         items: []
       };
       this.renderEmbeddedAiWorkspaceMount(noteId);
@@ -4442,7 +4445,7 @@ export class EditorPane {
       this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState(nextWorkspaceState, noteId);
       this.syncPermanentRelationWorkspaceOverlay();
     }
-    this.onStatus("检查结果已更新", "ok");
+    this.onStatus("AI 建议已更新", "ok");
   }
 
   setSourceDistillAiState(nextState = null) {
