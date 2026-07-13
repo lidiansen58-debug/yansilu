@@ -10,6 +10,8 @@ export function buildWorkspaceStatusHintModel(input = {}) {
     isPermanentLike = false
   } = input;
 
+  const stageCopy = permanentStageCopy(growthStage);
+
   if (!activeNote) {
     return {
       visible: true,
@@ -66,9 +68,9 @@ export function buildWorkspaceStatusHintModel(input = {}) {
       helperAction: "noop",
       targetNoteId: "",
       kicker: "永久笔记",
-      title: `当前在${growthStage}`,
-      body: "先把观点写清楚，再决定是否补连接、标签和证据。原创性检测现在会以浮窗方式提醒，不再把确认操作压在编辑器底部。",
-      actionText: "继续提炼"
+      title: stageCopy.title,
+      body: stageCopy.body,
+      actionText: "知道了"
     };
   }
 
@@ -89,8 +91,27 @@ export function buildWorkspaceStatusHintModel(input = {}) {
     helperAction: "noop",
     targetNoteId: "",
     kicker: "随笔笔记",
-    title: `当前在${growthStage}`,
+    title: growthStage === "捕捉中" ? "这条记录还在捕捉阶段" : "继续整理这条记录",
     body: "随笔只负责抓住还不稳定的想法，不必在这里完成所有整理。等你判断它值得长期保留时，再点“记录永久笔记”。",
-    actionText: "继续记录"
+    actionText: "知道了"
+  };
+}
+
+function permanentStageCopy(growthStage = "") {
+  if (growthStage === "已有关系") {
+    return {
+      title: "这条笔记已有关系",
+      body: "可以继续补清关系理由，也可以把它放进主题或写作里使用。"
+    };
+  }
+  if (growthStage === "正在成形") {
+    return {
+      title: "这条笔记正在成形",
+      body: "先确认判断是否清楚，再补一条真正相关的笔记。"
+    };
+  }
+  return {
+    title: "先把判断写清楚",
+    body: "永久笔记要表达一个自己的判断。写清楚后，再补关系、标签或证据。"
   };
 }
