@@ -14055,6 +14055,9 @@
       background: transparent;
       padding: 0;
     }
+    .permanent-relation-confirm[hidden] {
+      display: none;
+    }
     .permanent-relation-source > span,
     .permanent-relation-preview > span,
     .permanent-relation-search label,
