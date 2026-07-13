@@ -1,71 +1,32 @@
-# Smart Notes Demo Playbook (3 Minutes)
+# Smart Notes Demo 三分钟演示
 
-Date: 2026-07-04
+## 演示目标
 
-## Goal
+让第一次接触研思录的人看到：记录不是终点，笔记会通过判断、关联和主题进入写作。
 
-Show that Yansilu is not a generic note archive. It turns the Smart Notes method into product actions: capture, paraphrase, permanent notes, relation reasons, theme indexes, and writing center.
+## 演示顺序
 
-## Preflight Setup
+1. 打开未处理随笔“手机上先记一句：我总是收藏很多但不会用”。
+2. 打开文献笔记“阅读一开始就要面向未来写作”，说明摘录和自己的转述是两件事。
+3. 打开永久笔记“永久笔记是一条用户愿意承担的判断”。
+4. 给“待关联练习：保存关系前先写清楚为什么”建立一条关联。
+5. 打开主题“为什么要关联笔记？”。
+6. 从主题进入写作中心，查看提纲来源。
 
-Use:
+## AI 可选演示
 
-```text
-/demo/zettelkasten
-/prototype?demo=smart-notes-product-thinking
-```
+已配置 AI 时，只演示一个贴近任务的动作：
 
-The prototype entry imports the bundled demo fixture and opens “00 从这里开始：10 分钟走完研思录”.
+- 在材料旁点击“帮我提炼”；或
+- 在关联时查看候选推荐；或
+- 在写作中心生成提纲。
 
-Before recording or presenting:
+强调：结果先预览，用户确认后才保存。不配置 AI 不影响主流程。
 
-1. Confirm the first note shown is the 10-minute guide.
-2. Confirm visible copy uses Chinese titles, not internal ids.
-3. Confirm today review shows unfinished fleeting or literature notes.
-4. Confirm relation practice opens “待关联练习：保存关系前先写清楚为什么”.
-5. Confirm the writing center opens the project “为什么研思录要把卡片笔记写作法做进产品里”.
+## 演示前检查
 
-## Demo Order
-
-1. Start with a rough fleeting note.
-2. Show a literature note written in the user's own words.
-3. Open a permanent note as an owned judgment.
-4. Show relation types and relation reasons.
-5. Open a theme index as a question-centered entry point.
-6. Open the writing project and generated scaffold.
-
-## Talk Track
-
-### 0:00-0:30 - Frame The Demo
-
-This demo is based on the method of *How to Take Smart Notes*, but it is not a book summary. The point is to show how Yansilu embeds the method into the workflow.
-
-### 0:30-1:10 - Capture Becomes Understanding
-
-Open “手机上先记一句：我总是收藏很多但不会用”, then open “阅读一开始就要面向未来写作”.
-
-Explain that fleeting notes are intentionally unfinished. Literature notes are transitional: they keep the source boundary visible while requiring the user's own words.
-
-### 1:10-1:50 - Understanding Becomes Judgment
-
-Open “写作不是最后一步，而是整理笔记的方向” and “永久笔记是一条用户愿意承担的判断”.
-
-Point to thesis, three-line summary, product meaning, boundary, and internal links.
-
-### 1:50-2:25 - Judgment Becomes Structure
-
-Open the relation practice note and a theme index such as “为什么要关联笔记？”.
-
-Say clearly: the network is not decorative. Every useful edge needs a type and a reason.
-
-### 2:25-3:00 - Structure Becomes Writing
-
-Open the writing project “为什么研思录要把卡片笔记写作法做进产品里”.
-
-Show that the outline starts from selected permanent notes and theme indexes. Close with the product judgment: Yansilu should reward confirmed understanding and traceable writing readiness, not raw collection volume.
-
-## Reset And Cleanup
-
-- Treat generated demo vaults as disposable.
-- Regenerate from the fixture instead of hand-curating exported notes.
-- Do not mix demo data into a real user vault.
+- 可见标题不包含内部编号。
+- 首页能看到待处理材料。
+- 关联可搜索目标、选择类型、填写理由并保存。
+- 主题能进入写作中心。
+- Demo 与真实用户笔记分开。
