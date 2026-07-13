@@ -316,6 +316,24 @@ test("permanent relation workspace renders manual candidates as a title-only dro
   assert.doesNotMatch(html, /选中后写理由/);
 });
 
+test("permanent relation workspace places AI recommendation before manual search", () => {
+  const html = renderPermanentRelationWorkspace({
+    note,
+    state: {
+      ...defaultPermanentRelationWorkspaceState(note.id),
+      open: true,
+      mode: "manual"
+    },
+    deps
+  });
+
+  const recommendIndex = html.indexOf('data-permanent-relation-action="recommend"');
+  const searchIndex = html.indexOf("data-permanent-relation-target-search");
+  assert.ok(recommendIndex >= 0, "expected AI recommendation action");
+  assert.ok(searchIndex >= 0, "expected manual target search");
+  assert.ok(recommendIndex < searchIndex, "AI recommendation should appear before the search input");
+});
+
 test("permanent relation manual search shows search errors inside the results area", () => {
   const html = renderPermanentRelationWorkspace({
     note,
