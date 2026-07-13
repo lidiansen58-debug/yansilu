@@ -217,6 +217,9 @@ export function renderPermanentRelationWorkspace({
               : showingAiTargets
                 ? renderAiTargets({ state: workspaceState, aiCandidates, deps: { ...deps, notes } })
                 : `<section class="permanent-relation-picker">
+                  <div class="semantic-relation-actions">
+                    <button class="mini-btn" type="button" data-permanent-relation-action="recommend">AI推荐</button>
+                  </div>
                   <div class="permanent-relation-search">
                     <label>目标笔记</label>
                     <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="${selectedTarget ? "已选择目标笔记" : "输入关键词，选择要关联的永久笔记"}" autocomplete="off" />
@@ -229,9 +232,6 @@ export function renderPermanentRelationWorkspace({
                             : ""
                       }
                     </div>
-                  </div>
-                  <div class="semantic-relation-actions">
-                    <button class="mini-btn" type="button" data-permanent-relation-action="recommend">AI推荐</button>
                   </div>
                   ${renderSelectedTargetSummary(selectedTarget, deps)}
                 </section>`
