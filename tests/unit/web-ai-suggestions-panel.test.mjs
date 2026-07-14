@@ -18,6 +18,10 @@ function detailPane(html = "") {
   return html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 }
 
+function visibleText(html = "") {
+  return html.replace(/<[^>]*>/g, " ");
+}
+
 test("AI suggestions panel hides internal filters and renders readable list/detail text", () => {
   const html = renderAiSuggestionsPanel({
     items: [suggestion],
@@ -32,7 +36,7 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.doesNotMatch(html, /id="aiSuggestionTargetTypeFilter"/);
   assert.doesNotMatch(html, /id="aiSuggestionTargetIdFilter"/);
   assert.doesNotMatch(html, /id="aiSuggestionScopeFilter"/);
-  assert.match(html, /pn_1 · 核心观点/);
+  assert.match(html, /核心观点/);
   assert.match(html, /永久笔记/);
   assert.match(html, /写入：核心观点/);
   assert.match(html, /来自：AI 整理/);
@@ -42,6 +46,7 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.doesNotMatch(html, /permanent_note \/ pn_1 \/ thesis/);
   assert.doesNotMatch(html, /note_field/);
   assert.doesNotMatch(html, /\{"thesis"/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel keeps primary actions next to the selected suggestion header", () => {
@@ -116,9 +121,9 @@ test("AI suggestions panel surfaces canonical traceability without artifact ids 
     }
   });
 
-  assert.match(html, /放到哪里/);
-  assert.match(html, /保存位置<\/dt><dd>核心观点/);
-  assert.match(html, /当前状态<\/dt><dd>已经改过，可以确认写入。/);
+  assert.doesNotMatch(html, /放到哪里/);
+  assert.doesNotMatch(html, /来源笔记/);
+  assert.doesNotMatch(html, /目标笔记/);
   assert.match(html, /处理记录/);
   assert.match(html, /Tightened the wording/);
   assert.match(html, /data-ai-suggestion-status="confirmed"/);
@@ -128,6 +133,7 @@ test("AI suggestions panel surfaces canonical traceability without artifact ids 
   assert.doesNotMatch(html, /字段建议状态/);
   assert.doesNotMatch(html, />thesis</);
   assert.doesNotMatch(html, /\{\s*&quot;thesis&quot;/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel renders readable guidance when detail is incomplete", () => {
@@ -143,10 +149,10 @@ test("AI suggestions panel renders readable guidance when detail is incomplete",
     }
   });
 
-  assert.match(html, /这条建议缺少完整来源/);
-  assert.match(html, /缺少目标笔记/);
+  assert.match(html, /这条整理暂时找不到要打开的笔记/);
   assert.match(html, /data-ai-suggestion-open-note=""[\s\S]*disabled/);
   assert.doesNotMatch(html, /Trace placeholder:/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel prefers canonical trace fields over incomplete item targets", () => {
@@ -179,10 +185,11 @@ test("AI suggestions panel prefers canonical trace fields over incomplete item t
     }
   });
 
-  assert.match(html, /pn_trace · 核心观点/);
-  assert.match(html, /目标笔记<\/dt><dd>pn_trace/);
-  assert.match(html, /保存位置<\/dt><dd>核心观点/);
+  assert.match(html, /核心观点/);
+  assert.doesNotMatch(html, /目标笔记<\/dt><dd>pn_trace/);
+  assert.doesNotMatch(html, /放到哪里/);
   assert.doesNotMatch(html, /artifact_trace_priority/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel renders confirm action only after a suggestion is edited", () => {
@@ -213,8 +220,8 @@ test("AI suggestions panel does not keep rendering stale detail when selection h
     }
   }));
 
-  assert.doesNotMatch(pane, /pn_a · 核心观点/);
-  assert.match(pane, /pn_b · 核心观点/);
+  assert.match(pane, /核心观点/);
+  assert.doesNotMatch(visibleText(pane), /\bpn_[\w-]+/);
   assert.match(pane, /正在确认/);
   assert.match(pane, /先读取最新内容/);
   assert.doesNotMatch(pane, /data-ai-suggestion-status=/);
@@ -273,7 +280,8 @@ test("AI suggestions panel ignores stale detail loading and errors after selecti
     detailLoading: true
   }));
   assert.doesNotMatch(loadingPane, /正在加载建议详情/);
-  assert.match(loadingPane, /pn_b · 核心观点/);
+  assert.match(loadingPane, /核心观点/);
+  assert.doesNotMatch(visibleText(loadingPane), /\bpn_[\w-]+/);
 
   const errorPane = detailPane(renderAiSuggestionsPanel({
     items: [
@@ -287,7 +295,8 @@ test("AI suggestions panel ignores stale detail loading and errors after selecti
     detailError: "detail boom"
   }));
   assert.doesNotMatch(errorPane, /详情加载失败：detail boom/);
-  assert.match(errorPane, /pn_b · 核心观点/);
+  assert.match(errorPane, /核心观点/);
+  assert.doesNotMatch(visibleText(errorPane), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel surfaces scoped action errors and notices only for the selected suggestion", () => {
@@ -315,7 +324,8 @@ test("AI suggestions panel surfaces scoped action errors and notices only for th
     actionNoticeTone: "ok"
   }));
   assert.doesNotMatch(staleNoticePane, /This reviewed suggestion is already confirmed\./);
-  assert.match(staleNoticePane, /pn_b · 核心观点/);
+  assert.match(staleNoticePane, /核心观点/);
+  assert.doesNotMatch(visibleText(staleNoticePane), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel does not mutate scoped detail or action state back onto the input state", () => {
