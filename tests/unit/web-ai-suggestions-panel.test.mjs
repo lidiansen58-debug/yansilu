@@ -18,6 +18,11 @@ function detailPane(html = "") {
   return html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 }
 
+function listPane(html = "") {
+  const afterStart = html.split('<section class="ai-inbox-list-pane">')[1] || "";
+  return afterStart.split('<section class="ai-inbox-detail-pane">')[0] || afterStart;
+}
+
 function visibleText(html = "") {
   return html.replace(/<[^>]*>/g, " ");
 }
@@ -38,10 +43,10 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.doesNotMatch(html, /id="aiSuggestionScopeFilter"/);
   assert.match(html, /Inbox review target/);
   assert.match(html, /核心观点/);
-  assert.match(html, /准备处理：核心观点/);
-  assert.match(html, /补核心观点/);
+  assert.match(html, /缺：核心观点/);
+  assert.match(html, /AI 建议：核心观点：A reviewable claim starts life as a draft/);
+  assert.match(html, /查看处理/);
   assert.doesNotMatch(html, /来自：AI 整理/);
-  assert.match(html, /建议内容/);
   assert.match(html, /保存为草稿/);
   assert.match(html, /忽略/);
   assert.match(html, /data-ai-suggestion-open-note="pn_1"/);
@@ -52,7 +57,7 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
-test("AI suggestions panel keeps primary actions next to the selected suggestion header", () => {
+test("AI suggestions panel keeps actions under the suggestion they affect", () => {
   const pane = detailPane(renderAiSuggestionsPanel({
     items: [suggestion],
     total: 1,
@@ -60,8 +65,8 @@ test("AI suggestions panel keeps primary actions next to the selected suggestion
     detail: suggestion
   }));
 
-  assert.ok(pane.indexOf("ai-suggestion-action-row") > -1);
-  assert.ok(pane.indexOf("ai-suggestion-action-row") < pane.indexOf("建议内容"));
+  assert.ok(pane.indexOf("<h3>核心观点</h3>") > -1);
+  assert.ok(pane.indexOf("ai-suggestion-primary-actions") > pane.indexOf("<h3>核心观点</h3>"));
   assert.match(pane, /打开笔记/);
   assert.match(pane, /保存为草稿/);
   assert.match(pane, /忽略/);
@@ -80,7 +85,8 @@ test("AI suggestions detail keeps the note title when latest detail omits it", (
   }));
 
   assert.match(pane, /Inbox review target/);
-  assert.match(pane, /补三行摘要/);
+  assert.match(pane, /缺：三行摘要/);
+  assert.match(pane, /<h3>三行摘要<\/h3>/);
   assert.doesNotMatch(pane, /<h2>三行摘要<\/h2>/);
   assert.doesNotMatch(visibleText(pane), /\bpn_[\w-]+/);
   assert.match(pane, /data-ai-suggestion-open-note="pn_1"/);
@@ -100,11 +106,71 @@ test("AI suggestions panel replaces vague missing-note titles with the work to d
     detail: untitledSuggestion
   });
 
-  assert.match(html, /补核心观点/);
-  assert.match(html, /建议：临时记录必须承诺下一步/);
-  assert.match(html, /缺少笔记标题，先打开确认/);
+  assert.match(html, /未命名笔记/);
+  assert.match(html, /缺：核心观点/);
+  assert.match(html, /AI 建议：核心观点：临时记录必须承诺下一步/);
+  assert.doesNotMatch(html, /缺少笔记标题/);
   assert.doesNotMatch(html, /这篇笔记/);
   assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
+});
+
+test("AI suggestions panel groups several suggestions from the same note", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [
+      suggestion,
+      {
+        ...suggestion,
+        id: "suggestion_summary",
+        target: { ...suggestion.target, field: "three_line_summary" },
+        content: { threeLineSummary: ["First line", "Second line", "Third line"] }
+      }
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_1",
+    detail: suggestion
+  });
+  const list = listPane(html);
+  const pane = detailPane(html);
+
+  assert.equal((list.match(/class="ai-inbox-item(?:\s|")/g) || []).length, 1);
+  assert.match(list, /Inbox review target/);
+  assert.match(list, /缺：核心观点、三行摘要/);
+  assert.match(list, /核心观点：A reviewable claim starts life as a draft/);
+  assert.match(list, /三行摘要：First line Second line Third line/);
+  assert.match(list, /查看处理/);
+  assert.match(pane, /<h3>核心观点<\/h3>/);
+  assert.match(pane, /<h3>三行摘要<\/h3>/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
+});
+
+test("AI suggestions panel only lets the selected grouped suggestion be edited", () => {
+  const summarySuggestion = {
+    ...suggestion,
+    id: "suggestion_summary",
+    status: "adopted_as_draft",
+    target: { ...suggestion.target, field: "three_line_summary" },
+    content: { threeLineSummary: ["First line", "Second line", "Third line"] }
+  };
+  const pane = detailPane(renderAiSuggestionsPanel({
+    items: [
+      { ...suggestion, status: "adopted_as_draft" },
+      summarySuggestion
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_1",
+    detail: { ...suggestion, status: "adopted_as_draft" },
+    actionSuggestionId: "suggestion_summary",
+    actionError: "Second suggestion failed"
+  }));
+  const summaryStart = pane.indexOf("<h3>三行摘要</h3>");
+  const summarySection = pane.slice(summaryStart, pane.indexOf("</section>", summaryStart));
+
+  assert.match(pane, /id="aiSuggestionContentEditor"/);
+  assert.doesNotMatch(pane, /id="aiSuggestionContentEditor-suggestion_summary"/);
+  assert.match(summarySection, /class="ai-suggestion-content-text"/);
+  assert.match(summarySection, /Second suggestion failed/);
+  assert.match(summarySection, /data-ai-suggestion-id="suggestion_summary"[\s\S]*查看处理/);
+  assert.doesNotMatch(summarySection, /我已改好/);
 });
 
 test("AI suggestions panel renders edited action for adopted draft suggestions in plain language", () => {

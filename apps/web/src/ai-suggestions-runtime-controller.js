@@ -208,9 +208,17 @@ export async function applyAiSuggestionStatusForRuntime(deps = {}, suggestionId 
     setStatus(retryStatusMessage, "warn");
     return null;
   }
-  if (selectedSuggestionId && selectedSuggestionId === cleanSuggestionId && !detail) {
-    aiState.suggestionActionNoticeSuggestionId = cleanSuggestionId;
+  if (!detail) {
     if (!aiState.suggestionDetailLoading) await loadAiSuggestionDetail(cleanSuggestionId);
+    const loadedDetailId = String(aiState.suggestionDetail?.item?.id || aiState.suggestionDetail?.id || "").trim();
+    if (loadedDetailId === cleanSuggestionId) {
+      aiState.suggestionActionNoticeSuggestionId = "";
+      aiState.suggestionActionNotice = "";
+      aiState.suggestionActionNoticeTone = "";
+      render();
+      return null;
+    }
+    aiState.suggestionActionNoticeSuggestionId = cleanSuggestionId;
     aiState.suggestionActionNotice = reviewSafetyNotice;
     aiState.suggestionActionNoticeTone = "warn";
     render();

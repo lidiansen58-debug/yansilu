@@ -10,12 +10,46 @@ export function normalizeVisibleSuggestionFilters(filters = {}) {
   });
 }
 
-export function renderAiSuggestionsWorkspaceView({ mount, state, renderPanel = renderAiSuggestionsPanel } = {}) {
+function cleanText(value = "") {
+  return String(value || "").trim();
+}
+
+function domIdPart(value = "") {
+  return String(value || "").replace(/[^A-Za-z0-9_-]/g, "_");
+}
+
+function suggestionContentEditorId(suggestionId = "") {
+  const cleanId = cleanText(suggestionId);
+  return cleanId ? `aiSuggestionContentEditor-${domIdPart(cleanId)}` : "aiSuggestionContentEditor";
+}
+
+export function enrichAiSuggestionsWithNoteTitles(items = [], notes = []) {
+  const titleById = new Map(
+    (Array.isArray(notes) ? notes : [])
+      .map((note) => [cleanText(note?.id), cleanText(note?.title || note?.name || note?.thesis)])
+      .filter(([id, title]) => id && title)
+  );
+  return (Array.isArray(items) ? items : []).map((item) => {
+    const targetId = cleanText(item?.target?.id);
+    const existingTitle = cleanText(item?.target?.title || item?.target?.noteTitle || item?.target?.note_title || item?.target?.name);
+    const title = existingTitle || titleById.get(targetId) || "";
+    if (!title) return item;
+    return {
+      ...item,
+      target: {
+        ...(item.target || {}),
+        title
+      }
+    };
+  });
+}
+
+export function renderAiSuggestionsWorkspaceView({ mount, state, notes = [], renderPanel = renderAiSuggestionsPanel } = {}) {
   if (!mount) return false;
   const visibleFilters = normalizeVisibleSuggestionFilters(state?.suggestionFilters || {});
   if (state) state.suggestionFilters = visibleFilters;
   mount.innerHTML = renderPanel({
-    items: state?.suggestions,
+    items: enrichAiSuggestionsWithNoteTitles(state?.suggestions, notes),
     total: state?.suggestionsTotal,
     filters: visibleFilters,
     selectedSuggestionId: state?.selectedSuggestionId,
@@ -48,7 +82,9 @@ export function aiSuggestionFiltersFromWorkspace({ getElement, state } = {}) {
 }
 
 export function aiSuggestionReviewedContentFromWorkspace({ getElement, current = {} } = {}) {
-  const editorValue = getElement?.("aiSuggestionContentEditor")?.value;
+  const editorValue =
+    getElement?.(suggestionContentEditorId(current.id))?.value ??
+    getElement?.("aiSuggestionContentEditor")?.value;
   if (editorValue === undefined) return current.content;
   const raw = String(editorValue || "");
   if (typeof current.content === "string") {
