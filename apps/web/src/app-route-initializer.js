@@ -1,3 +1,8 @@
+import {
+  desktopServiceStatusMessage,
+  readDesktopServiceStatus
+} from "./desktop-service-status.js";
+
 export async function initializeAppRouteForRuntime(deps = {}) {
   const {
     refreshVaultSettings = async () => {},
@@ -19,7 +24,8 @@ export async function initializeAppRouteForRuntime(deps = {}) {
   } catch (error) {
     if (isApiConnectionError(error)) {
       setUsingLocalFallbackData(false);
-      setStatus(apiConnectionErrorMessage(error), "bad");
+      const status = error?.serviceStatus || await readDesktopServiceStatus(windowRef);
+      setStatus(desktopServiceStatusMessage(status, error, error?.apiBase || getApiBase()) || apiConnectionErrorMessage(error), "bad");
       return { connected: false, usingLocalFallbackData: false, error };
     }
     const tauri = typeof windowRef !== "undefined" ? windowRef.__TAURI__ : null;
@@ -46,18 +52,19 @@ export async function initializeAppRouteForRuntime(deps = {}) {
 }
 
 async function readDesktopApiStatus(tauri) {
+  const status = await readDesktopServiceStatus({ __TAURI__: tauri });
+  if (status) return status;
   if (typeof tauri?.core?.invoke !== "function") return null;
-  try {
-    return await tauri.core.invoke("get_desktop_api_status");
-  } catch { return null; }
+  try { return await tauri.core.invoke("get_desktop_api_status"); } catch { return null; }
 }
 
 function desktopApiFailureMessage({ apiBase = "", error, status = null } = {}) {
-  const launchError = String(status?.launchError || "").trim();
+  const serviceMessage = desktopServiceStatusMessage(status?.serviceStatus || status, error, apiBase);
+  const launchError = String(status?.launchError || status?.services?.api?.lastError || "").trim();
   const lines = [
     "研思录的本地服务没有启动完成，所以当前还不能读取笔记库。",
     "",
-    "这通常不是你的笔记出了问题。请先完全关闭研思录，再重新打开一次。",
+    serviceMessage || "这通常不是你的笔记出了问题。请先完全关闭研思录，再重新打开一次。",
     ""
   ];
   if (apiBase) lines.push(`当前尝试连接：${apiBase}`);

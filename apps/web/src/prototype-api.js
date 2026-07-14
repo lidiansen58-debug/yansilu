@@ -1,4 +1,10 @@
 import { aiSuggestionFromCanonical } from "./ai-suggestions-model.js";
+import {
+  apiBaseFromDesktopServiceStatus,
+  desktopServiceStatusMessage,
+  readDesktopServiceLog,
+  readDesktopServiceStatus
+} from "./desktop-service-status.js";
 
 const STATIC_API_BASE =
   (typeof window !== "undefined" &&
@@ -10,6 +16,7 @@ const STATIC_API_BASE =
   (typeof window !== "undefined" && window.__TAURI__ ? "" : "http://127.0.0.1:3000");
 let currentApiBase = STATIC_API_BASE;
 let desktopApiBasePromise = null;
+let desktopServiceStatusPromise = null;
 const LOCAL_RUNTIME_CONTROL_HEADERS = { "X-Yansilu-Local-Runtime-Control": "1" };
 
 export function isApiConnectionError(error) {
@@ -19,6 +26,9 @@ export function isApiConnectionError(error) {
 
 export function apiConnectionErrorMessage(error) {
   if (!isApiConnectionError(error)) return String(error?.message || error);
+  if (error?.serviceStatus) {
+    return desktopServiceStatusMessage(error.serviceStatus, error, error.apiBase || currentApiBase);
+  }
   const apiBase = String(error?.apiBase || currentApiBase || "").trim();
   const suffix = apiBase ? `当前尝试地址：${apiBase}` : "当前还没有可用的 API 地址。";
   return `API 未连接，不能读取笔记库。${suffix} 请重启研思录，或重新运行 npm run dev。`;
@@ -37,25 +47,49 @@ async function resolveApiBase() {
   const core = tauriCore();
   if (!core || typeof core.invoke !== "function") return currentApiBase;
   if (!desktopApiBasePromise) {
-    desktopApiBasePromise = core
-      .invoke("get_desktop_api_base")
-      .then((value) => {
+    desktopApiBasePromise = (async () => {
+      const serviceStatus = await fetchDesktopServiceStatus();
+      const serviceBase = apiBaseFromDesktopServiceStatus(serviceStatus);
+      if (serviceBase) {
+        currentApiBase = serviceBase;
+        return currentApiBase;
+      }
+      return core.invoke("get_desktop_api_base").then((value) => {
         const base = String(value || "").trim();
         if (base) currentApiBase = base.replace(/\/+$/u, "");
         return base ? currentApiBase : clearDesktopApiBase();
-      })
-      .catch(() => clearDesktopApiBase());
+      });
+    })().catch(() => clearDesktopApiBase());
   }
   return desktopApiBasePromise;
+}
+
+export async function fetchDesktopServiceStatus() {
+  if (!desktopServiceStatusPromise) {
+    desktopServiceStatusPromise = readDesktopServiceStatus().catch(() => null);
+  }
+  return desktopServiceStatusPromise;
+}
+
+export function resetDesktopServiceStatusCache() {
+  desktopServiceStatusPromise = null;
+  desktopApiBasePromise = null;
+}
+
+export async function fetchDesktopServiceLog() {
+  return readDesktopServiceLog();
 }
 
 async function request(pathname, options = {}) {
   const apiBase = await resolveApiBase();
   if (!apiBase) {
-    const error = new Error("API 未连接：本地服务还没有准备好。请完全关闭研思录后重新打开。");
+    const serviceStatus = await fetchDesktopServiceStatus();
+    const error = new Error(desktopServiceStatusMessage(serviceStatus, null, ""));
     error.code = "desktop_api_unavailable";
     error.apiBase = "";
     error.pathname = pathname;
+    error.serviceStatus = serviceStatus;
+    resetDesktopServiceStatusCache();
     throw error;
   }
   const url = `${apiBase}${pathname}`;
@@ -86,10 +120,13 @@ async function request(pathname, options = {}) {
       timeoutError.timeoutMs = timeoutMs;
       throw timeoutError;
     }
-    const apiError = new Error(`API 未连接：无法连接到 ${apiBase}。请重启研思录，或重新运行 npm run dev。`);
+    resetDesktopServiceStatusCache();
+    const serviceStatus = await fetchDesktopServiceStatus();
+    const apiError = new Error(desktopServiceStatusMessage(serviceStatus, error, apiBase));
     apiError.code = "api_unavailable";
     apiError.apiBase = apiBase;
     apiError.pathname = pathname;
+    apiError.serviceStatus = serviceStatus;
     apiError.cause = error;
     throw apiError;
   }
@@ -217,6 +254,26 @@ export async function fetchOllamaBootstrapStatus(options = {}) {
   if (runtimeMode) params.set("runtimeMode", runtimeMode);
   const suffix = params.toString();
   const json = await request(`/api/v1/ai/local-runtimes/ollama/bootstrap${suffix ? `?${suffix}` : ""}`);
+  return json.item || null;
+}
+
+export async function fetchOllamaRecoveryStatus(options = {}) {
+  const params = new URLSearchParams();
+  const model = String(options?.model || options?.modelName || "").trim();
+  const runtimeMode = String(options?.runtimeMode || options?.runtime_mode || "").trim();
+  if (model) params.set("model", model);
+  if (runtimeMode) params.set("runtimeMode", runtimeMode);
+  const suffix = params.toString();
+  const json = await request(`/api/v1/ai/local-runtimes/ollama/recovery${suffix ? `?${suffix}` : ""}`);
+  return json.item || null;
+}
+
+export async function recoverOllamaLocalAi(options = {}) {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/recovery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...LOCAL_RUNTIME_CONTROL_HEADERS },
+    body: JSON.stringify(options || {})
+  });
   return json.item || null;
 }
 

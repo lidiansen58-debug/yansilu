@@ -6,7 +6,8 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tauri::Manager;
 
@@ -19,38 +20,62 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 const DEFAULT_API_PORT: u16 = 3000;
 const API_PORT_SEARCH_END: u16 = 3020;
 const API_STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
+const API_HEALTH_INTERVAL: Duration = Duration::from_secs(2);
+const API_MAX_RESTARTS: u32 = 5;
+const API_STABLE_HEALTH_CHECKS: u32 = 2;
 
 struct DesktopApiState {
-    base_url: Arc<Mutex<String>>,
-    launch_error: Arc<Mutex<String>>,
+    service_status: Arc<Mutex<serde_json::Value>>,
 }
 
 #[tauri::command]
 fn get_desktop_api_base(state: tauri::State<DesktopApiState>) -> String {
     state
-        .base_url
+        .service_status
         .lock()
-        .map(|value| value.clone())
+        .ok()
+        .and_then(|value| value.pointer("/services/api/baseUrl").and_then(|item| item.as_str()).map(String::from))
         .unwrap_or_default()
 }
 
 #[tauri::command]
 fn get_desktop_api_status(state: tauri::State<DesktopApiState>) -> serde_json::Value {
-    let base_url = state
-        .base_url
-        .lock()
-        .map(|value| value.clone())
-        .unwrap_or_default();
-    let launch_error = state
-        .launch_error
-        .lock()
-        .map(|value| value.clone())
-        .unwrap_or_default();
+    let status = desktop_service_status_snapshot(&state);
+    let api = status.get("services").and_then(|value| value.get("api"));
     serde_json::json!({
-        "baseUrl": base_url,
-        "running": !base_url.is_empty() && launch_error.is_empty(),
-        "launchError": launch_error
+        "baseUrl": api.and_then(|value| value.get("baseUrl")).and_then(|value| value.as_str()).unwrap_or(""),
+        "running": api.and_then(|value| value.get("status")).and_then(|value| value.as_str()) == Some("healthy"),
+        "launchError": api.and_then(|value| value.get("lastError")).and_then(|value| value.as_str()).unwrap_or(""),
+        "serviceStatus": status
     })
+}
+
+#[tauri::command]
+fn get_desktop_service_status(state: tauri::State<DesktopApiState>) -> serde_json::Value {
+    desktop_service_status_snapshot(&state)
+}
+
+#[tauri::command]
+fn get_desktop_service_log(state: tauri::State<DesktopApiState>) -> serde_json::Value {
+    let status = desktop_service_status_snapshot(&state);
+    let log_path = status
+        .pointer("/services/api/logPath")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    let content = fs::read_to_string(log_path).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().rev().take(80).collect();
+    serde_json::json!({
+        "path": log_path,
+        "lines": lines.into_iter().rev().collect::<Vec<&str>>()
+    })
+}
+
+fn desktop_service_status_snapshot(state: &tauri::State<DesktopApiState>) -> serde_json::Value {
+    state
+        .service_status
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_else(|_| default_service_status())
 }
 
 #[tauri::command]
@@ -249,6 +274,62 @@ fn append_desktop_api_log(app_data_dir: &PathBuf, message: &str) {
     }
 }
 
+fn now_string() -> String {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_secs())
+        .unwrap_or_default();
+    seconds.to_string()
+}
+
+fn default_service_status() -> serde_json::Value {
+    serde_json::json!({
+        "overall": "recovering",
+        "updatedAt": now_string(),
+        "services": {
+            "api": {
+                "status": "starting",
+                "baseUrl": "",
+                "pid": null,
+                "managed": false,
+                "restartCount": 0,
+                "consecutiveFailures": 0,
+                "lastError": "",
+                "lastStartedAt": "",
+                "lastRecoveredAt": "",
+                "nextRetryMs": 0,
+                "logPath": ""
+            },
+            "ollama": {
+                "status": "external_unknown",
+                "managed": false,
+                "requiresUserAction": false,
+                "message": "Ollama is checked by the local API when AI settings need it."
+            }
+        }
+    })
+}
+
+fn update_service_status(
+    service_status: &Arc<Mutex<serde_json::Value>>,
+    api_patch: serde_json::Value,
+    overall: &str,
+) {
+    if let Ok(mut status) = service_status.lock() {
+        if !status.is_object() {
+            *status = default_service_status();
+        }
+        status["overall"] = serde_json::json!(overall);
+        status["updatedAt"] = serde_json::json!(now_string());
+        let api = &mut status["services"]["api"];
+        if let Some(entries) = api_patch.as_object() {
+            for (key, value) in entries {
+                api[key] = value.clone();
+            }
+        }
+    }
+}
+
 #[cfg(unix)]
 fn ensure_executable(path: &Path) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
@@ -266,12 +347,21 @@ fn ensure_executable(_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Clone)]
+struct DesktopApiConfig {
+    app_data_dir: PathBuf,
+    vault_path: PathBuf,
+    runtime_dir: Option<PathBuf>,
+}
+
 struct DesktopApiLaunch {
     child: Option<Child>,
     base_url: String,
+    pid: Option<u32>,
+    managed: bool,
 }
 
-fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
+fn desktop_api_config(app: &tauri::App) -> Result<DesktopApiConfig, String> {
     let app_data_dir = app
         .path()
         .app_data_dir()
@@ -279,22 +369,31 @@ fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
     let vault_path = app_data_dir.join("vault");
     let _ = fs::create_dir_all(&vault_path);
     let _ = fs::create_dir_all(&app_data_dir);
+    Ok(DesktopApiConfig {
+        app_data_dir,
+        vault_path,
+        runtime_dir: desktop_api_runtime_dir(app),
+    })
+}
 
-    let api_port = resolve_desktop_api_port(&app_data_dir, &vault_path)
+fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, String> {
+    let api_port = resolve_desktop_api_port(&config.app_data_dir, &config.vault_path)
         .ok_or_else(|| "No available API port between 3000 and 3020.".to_string())?;
     let base_url = format!("http://localhost:{api_port}");
-    if api_health_matches_vault(api_port, &vault_path) {
+    if api_health_matches_vault(api_port, &config.vault_path) {
         return Ok(DesktopApiLaunch {
             child: None,
             base_url,
+            pid: api_health_json(api_port).and_then(|json| json.get("pid").and_then(|value| value.as_u64()).map(|value| value as u32)),
+            managed: false,
         });
     }
 
-    let runtime_dir = match desktop_api_runtime_dir(app) {
+    let runtime_dir = match config.runtime_dir.clone() {
         Some(value) => value,
         None => {
             let message = "Yansilu desktop API runtime directory was not found.";
-            append_desktop_api_log(&app_data_dir, message);
+            append_desktop_api_log(&config.app_data_dir, message);
             return Err(message.to_string());
         }
     };
@@ -314,15 +413,15 @@ fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
             node_path.display(),
             server_path.display()
         );
-        append_desktop_api_log(&app_data_dir, &message);
+        append_desktop_api_log(&config.app_data_dir, &message);
         return Err(message);
     }
     if let Err(message) = ensure_executable(&node_path) {
-        append_desktop_api_log(&app_data_dir, &message);
+        append_desktop_api_log(&config.app_data_dir, &message);
         return Err(message);
     }
 
-    let log_path = app_data_dir.join("api.log");
+    let log_path = config.app_data_dir.join("api.log");
 
     let mut command = Command::new(node_path);
     command
@@ -330,7 +429,7 @@ fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
         .current_dir(runtime_dir)
         .env("API_PORT", api_port.to_string())
         .env("WEB_PORT", "5173")
-        .env("VAULT_PATH", &vault_path)
+        .env("VAULT_PATH", &config.vault_path)
         .env("YANSILU_DESKTOP_API", "1");
 
     if let Ok(log_file) = OpenOptions::new().create(true).append(true).open(log_path) {
@@ -348,15 +447,18 @@ fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
     let mut child = command
         .spawn()
         .map_err(|error| format!("Failed to spawn desktop API runtime: {error}"))?;
-    if let Err(message) = wait_for_api_port(api_port, &vault_path, &mut child, API_STARTUP_TIMEOUT) {
+    let pid = child.id();
+    if let Err(message) = wait_for_api_port(api_port, &config.vault_path, &mut child, API_STARTUP_TIMEOUT) {
         let _ = child.kill();
         let _ = child.wait();
-        append_desktop_api_log(&app_data_dir, &message);
+        append_desktop_api_log(&config.app_data_dir, &message);
         return Err(message);
     }
     Ok(DesktopApiLaunch {
         child: Some(child),
         base_url,
+        pid: Some(pid),
+        managed: true,
     })
 }
 
@@ -369,37 +471,205 @@ fn stop_desktop_api(api_child: &Arc<Mutex<Option<Child>>>) {
     }
 }
 
+fn supervise_desktop_api(
+    config: DesktopApiConfig,
+    api_child: Arc<Mutex<Option<Child>>>,
+    service_status: Arc<Mutex<serde_json::Value>>,
+) {
+    let log_path = config.app_data_dir.join("api.log");
+    update_service_status(
+        &service_status,
+        serde_json::json!({
+            "status": "starting",
+            "logPath": log_path.to_string_lossy()
+        }),
+        "recovering",
+    );
+
+    let mut restart_count: u32 = 0;
+    let mut consecutive_failures: u32 = 0;
+    let backoffs = [0_u64, 1_000, 3_000, 10_000, 30_000];
+    loop {
+        if consecutive_failures >= API_MAX_RESTARTS {
+            update_service_status(
+                &service_status,
+                serde_json::json!({
+                    "status": "blocked",
+                    "nextRetryMs": 0,
+                    "restartCount": restart_count,
+                    "consecutiveFailures": consecutive_failures
+                }),
+                "blocked",
+            );
+            append_desktop_api_log(&config.app_data_dir, "Yansilu desktop API supervisor stopped after repeated failures.");
+            break;
+        }
+
+        let retry_ms = backoffs
+            .get(usize::try_from(consecutive_failures).unwrap_or_default())
+            .copied()
+            .unwrap_or(30_000);
+        if retry_ms > 0 {
+            update_service_status(
+                &service_status,
+                serde_json::json!({
+                    "status": "recovering",
+                    "nextRetryMs": retry_ms,
+                    "restartCount": restart_count,
+                    "consecutiveFailures": consecutive_failures
+                }),
+                "recovering",
+            );
+            thread::sleep(Duration::from_millis(retry_ms));
+        }
+
+        match spawn_desktop_api(&config) {
+            Ok(launch) => {
+                let mut stable_health_checks: u32 = 0;
+                let port = launch
+                    .base_url
+                    .rsplit(':')
+                    .next()
+                    .and_then(|value| value.parse::<u16>().ok())
+                    .unwrap_or(DEFAULT_API_PORT);
+                update_service_status(
+                    &service_status,
+                    serde_json::json!({
+                        "status": "healthy",
+                        "baseUrl": launch.base_url,
+                        "pid": launch.pid,
+                        "managed": launch.managed,
+                        "restartCount": restart_count,
+                        "consecutiveFailures": consecutive_failures,
+                        "lastError": "",
+                        "lastStartedAt": now_string(),
+                        "lastRecoveredAt": now_string(),
+                        "nextRetryMs": 0,
+                        "logPath": log_path.to_string_lossy()
+                    }),
+                    "healthy",
+                );
+                append_desktop_api_log(&config.app_data_dir, "Yansilu desktop API supervisor marked API healthy.");
+                if let Ok(mut guard) = api_child.lock() {
+                    *guard = launch.child;
+                }
+
+                loop {
+                    thread::sleep(API_HEALTH_INTERVAL);
+                    let exited = if let Ok(mut guard) = api_child.lock() {
+                        match guard.as_mut().and_then(|child| child.try_wait().ok()).flatten() {
+                            Some(status) => {
+                                *guard = None;
+                                Some(format!("API process exited: {status}."))
+                            }
+                            None => None,
+                        }
+                    } else {
+                        Some("API supervisor could not lock process state.".to_string())
+                    };
+                    if let Some(message) = exited {
+                        restart_count += 1;
+                        consecutive_failures += 1;
+                        append_desktop_api_log(&config.app_data_dir, &message);
+                        update_service_status(
+                            &service_status,
+                            serde_json::json!({
+                                "status": "recovering",
+                                "lastError": message,
+                                "restartCount": restart_count,
+                                "consecutiveFailures": consecutive_failures,
+                                "baseUrl": "",
+                                "pid": null
+                            }),
+                            "recovering",
+                        );
+                        break;
+                    }
+                    if !api_health_matches_vault(port, &config.vault_path) {
+                        restart_count += 1;
+                        consecutive_failures += 1;
+                        let message = format!("API health check failed on port {port}; restarting managed service.");
+                        append_desktop_api_log(&config.app_data_dir, &message);
+                        stop_desktop_api(&api_child);
+                        update_service_status(
+                            &service_status,
+                            serde_json::json!({
+                                "status": "recovering",
+                                "lastError": message,
+                                "restartCount": restart_count,
+                                "consecutiveFailures": consecutive_failures,
+                                "baseUrl": "",
+                                "pid": null
+                            }),
+                            "recovering",
+                        );
+                        break;
+                    }
+                    if consecutive_failures > 0 {
+                        stable_health_checks += 1;
+                        if stable_health_checks >= API_STABLE_HEALTH_CHECKS {
+                            consecutive_failures = 0;
+                            update_service_status(
+                                &service_status,
+                                serde_json::json!({
+                                    "consecutiveFailures": consecutive_failures,
+                                    "lastRecoveredAt": now_string()
+                                }),
+                                "healthy",
+                            );
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                restart_count += 1;
+                consecutive_failures += 1;
+                append_desktop_api_log(&config.app_data_dir, &error);
+                update_service_status(
+                    &service_status,
+                    serde_json::json!({
+                        "status": if consecutive_failures >= API_MAX_RESTARTS { "blocked" } else { "recovering" },
+                        "lastError": error,
+                        "restartCount": restart_count,
+                        "consecutiveFailures": consecutive_failures,
+                        "baseUrl": "",
+                        "pid": null,
+                        "managed": false
+                    }),
+                    if consecutive_failures >= API_MAX_RESTARTS { "blocked" } else { "recovering" },
+                );
+            }
+        }
+    }
+}
+
 pub fn run() {
     let api_child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
-    let api_base_url: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
-    let api_launch_error: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
+    let service_status: Arc<Mutex<serde_json::Value>> = Arc::new(Mutex::new(default_service_status()));
     let api_child_for_setup = Arc::clone(&api_child);
-    let api_base_url_for_setup = Arc::clone(&api_base_url);
-    let api_launch_error_for_setup = Arc::clone(&api_launch_error);
+    let service_status_for_setup = Arc::clone(&service_status);
     let api_child_for_run = Arc::clone(&api_child);
 
     tauri::Builder::default()
         .manage(DesktopApiState {
-            base_url: api_base_url,
-            launch_error: api_launch_error,
+            service_status,
         })
         .setup(move |app| {
-            match spawn_desktop_api(app) {
-                Ok(launch) => {
-                    if let Ok(mut guard) = api_base_url_for_setup.lock() {
-                        *guard = launch.base_url;
-                    }
-                    if let Ok(mut guard) = api_launch_error_for_setup.lock() {
-                        guard.clear();
-                    }
-                    if let Ok(mut guard) = api_child_for_setup.lock() {
-                        *guard = launch.child;
-                    }
+            match desktop_api_config(app) {
+                Ok(config) => {
+                    thread::spawn(move || {
+                        supervise_desktop_api(config, api_child_for_setup, service_status_for_setup);
+                    });
                 }
                 Err(error) => {
-                    if let Ok(mut guard) = api_launch_error_for_setup.lock() {
-                        *guard = error;
-                    }
+                    update_service_status(
+                        &service_status_for_setup,
+                        serde_json::json!({
+                            "status": "blocked",
+                            "lastError": error
+                        }),
+                        "blocked",
+                    );
                 }
             }
 
@@ -412,6 +682,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_desktop_api_base,
             get_desktop_api_status,
+            get_desktop_service_status,
+            get_desktop_service_log,
             open_in_explorer
         ])
         .plugin(tauri_plugin_dialog::init())
