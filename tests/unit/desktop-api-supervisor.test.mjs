@@ -13,20 +13,27 @@ function desktopLibSource() {
 test("desktop API supervisor exposes status and recovery loop", () => {
   const source = desktopLibSource();
 
+  assert.match(source, /const API_STARTUP_TIMEOUT: Duration = Duration::from_secs\(45\);/);
   assert.match(source, /const API_HEALTH_INTERVAL: Duration = Duration::from_secs\(2\);/);
   assert.match(source, /const API_MAX_RESTARTS: u32 = 5;/);
   assert.match(source, /const API_STABLE_HEALTH_CHECKS: u32 = 2;/);
+  assert.match(source, /fn candidate_desktop_api_runtime_roots/);
+  assert.match(source, /fn desktop_api_runtime_candidates/);
   assert.match(source, /fn get_desktop_service_status/);
   assert.match(source, /fn get_desktop_service_log/);
   assert.match(source, /fn supervise_desktop_api/);
   assert.match(source, /thread::spawn/);
   assert.match(source, /spawn_desktop_api\(&config\)/);
+  assert.match(source, /spawn_desktop_api_with_runtime/);
   assert.match(source, /api_health_matches_vault/);
   assert.match(source, /stop_desktop_api\(&api_child\)/);
   assert.match(source, /"recovering"/);
   assert.match(source, /"blocked"/);
   assert.match(source, /"healthy"/);
   assert.match(source, /api\.log/);
+  assert.match(source, /macOS Contents\/Resources/);
+  assert.match(source, /system node fallback/);
+  assert.match(source, /Runtime candidate failed/);
 });
 
 test("desktop API supervisor blocks only on consecutive failures", () => {

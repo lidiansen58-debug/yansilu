@@ -19,7 +19,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 const DEFAULT_API_PORT: u16 = 3000;
 const API_PORT_SEARCH_END: u16 = 3020;
-const API_STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
+const API_STARTUP_TIMEOUT: Duration = Duration::from_secs(45);
 const API_HEALTH_INTERVAL: Duration = Duration::from_secs(2);
 const API_MAX_RESTARTS: u32 = 5;
 const API_STABLE_HEALTH_CHECKS: u32 = 2;
@@ -34,7 +34,12 @@ fn get_desktop_api_base(state: tauri::State<DesktopApiState>) -> String {
         .service_status
         .lock()
         .ok()
-        .and_then(|value| value.pointer("/services/api/baseUrl").and_then(|item| item.as_str()).map(String::from))
+        .and_then(|value| {
+            value
+                .pointer("/services/api/baseUrl")
+                .and_then(|item| item.as_str())
+                .map(String::from)
+        })
         .unwrap_or_default()
 }
 
@@ -258,12 +263,80 @@ fn resolve_desktop_api_port(app_data_dir: &PathBuf, vault_path: &PathBuf) -> Opt
     None
 }
 
-fn desktop_api_runtime_dir(app: &tauri::App) -> Option<PathBuf> {
-    app.path()
-        .resource_dir()
-        .ok()
-        .map(|path| path.join("desktop-api-runtime"))
-        .filter(|path| path.exists())
+fn candidate_desktop_api_runtime_roots(app: &tauri::App) -> Vec<(PathBuf, String)> {
+    let mut roots: Vec<(PathBuf, String)> = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        roots.push((
+            resource_dir.join("desktop-api-runtime"),
+            "tauri resource_dir".to_string(),
+        ));
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            roots.push((
+                exe_dir.join("desktop-api-runtime"),
+                "executable directory".to_string(),
+            ));
+
+            #[cfg(target_os = "macos")]
+            if let Some(contents_dir) = exe_dir.parent() {
+                roots.push((
+                    contents_dir.join("Resources").join("desktop-api-runtime"),
+                    "macOS Contents/Resources".to_string(),
+                ));
+            }
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        roots.push((
+            cwd.join("apps")
+                .join("desktop")
+                .join("src-tauri")
+                .join("desktop-api-runtime"),
+            "repo src-tauri runtime".to_string(),
+        ));
+    }
+
+    let mut deduped: Vec<(PathBuf, String)> = Vec::new();
+    for (root, label) in roots {
+        if deduped.iter().any(|(existing, _)| existing == &root) {
+            continue;
+        }
+        deduped.push((root, label));
+    }
+    deduped
+}
+
+fn desktop_api_runtime_candidates(app: &tauri::App) -> Vec<DesktopApiRuntime> {
+    let mut runtimes = Vec::new();
+    for (root, label) in candidate_desktop_api_runtime_roots(app) {
+        let bundled_node_path = if cfg!(windows) {
+            root.join("node").join("node.exe")
+        } else {
+            root.join("node").join("node")
+        };
+        let server_path = root.join("apps").join("api").join("src").join("server.mjs");
+        if !server_path.exists() {
+            continue;
+        }
+
+        if bundled_node_path.exists() {
+            runtimes.push(DesktopApiRuntime {
+                root: root.clone(),
+                node_path: bundled_node_path,
+                label: format!("{label}; bundled node"),
+            });
+        }
+        runtimes.push(DesktopApiRuntime {
+            root,
+            node_path: PathBuf::from(if cfg!(windows) { "node.exe" } else { "node" }),
+            label: format!("{label}; system node fallback"),
+        });
+    }
+    runtimes
 }
 
 fn append_desktop_api_log(app_data_dir: &PathBuf, message: &str) {
@@ -348,10 +421,17 @@ fn ensure_executable(_path: &Path) -> Result<(), String> {
 }
 
 #[derive(Clone)]
+struct DesktopApiRuntime {
+    root: PathBuf,
+    node_path: PathBuf,
+    label: String,
+}
+
+#[derive(Clone)]
 struct DesktopApiConfig {
     app_data_dir: PathBuf,
     vault_path: PathBuf,
-    runtime_dir: Option<PathBuf>,
+    runtimes: Vec<DesktopApiRuntime>,
 }
 
 struct DesktopApiLaunch {
@@ -369,64 +449,80 @@ fn desktop_api_config(app: &tauri::App) -> Result<DesktopApiConfig, String> {
     let vault_path = app_data_dir.join("vault");
     let _ = fs::create_dir_all(&vault_path);
     let _ = fs::create_dir_all(&app_data_dir);
+    let runtimes = desktop_api_runtime_candidates(app);
+    if runtimes.is_empty() {
+        append_desktop_api_log(
+            &app_data_dir,
+            "Yansilu desktop API runtime was not found in any known location.",
+        );
+        for (root, label) in candidate_desktop_api_runtime_roots(app) {
+            append_desktop_api_log(
+                &app_data_dir,
+                &format!("Checked runtime candidate ({label}): {}", root.display()),
+            );
+        }
+    } else {
+        for runtime in &runtimes {
+            append_desktop_api_log(
+                &app_data_dir,
+                &format!(
+                    "API runtime candidate: label={}, root={}, node={}",
+                    runtime.label,
+                    runtime.root.display(),
+                    runtime.node_path.display()
+                ),
+            );
+        }
+    }
     Ok(DesktopApiConfig {
         app_data_dir,
         vault_path,
-        runtime_dir: desktop_api_runtime_dir(app),
+        runtimes,
     })
 }
 
-fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, String> {
-    let api_port = resolve_desktop_api_port(&config.app_data_dir, &config.vault_path)
-        .ok_or_else(|| "No available API port between 3000 and 3020.".to_string())?;
-    let base_url = format!("http://localhost:{api_port}");
-    if api_health_matches_vault(api_port, &config.vault_path) {
-        return Ok(DesktopApiLaunch {
-            child: None,
-            base_url,
-            pid: api_health_json(api_port).and_then(|json| json.get("pid").and_then(|value| value.as_u64()).map(|value| value as u32)),
-            managed: false,
-        });
-    }
-
-    let runtime_dir = match config.runtime_dir.clone() {
-        Some(value) => value,
-        None => {
-            let message = "Yansilu desktop API runtime directory was not found.";
-            append_desktop_api_log(&config.app_data_dir, message);
-            return Err(message.to_string());
-        }
-    };
-    let node_path = if cfg!(windows) {
-        runtime_dir.join("node").join("node.exe")
-    } else {
-        runtime_dir.join("node").join("node")
-    };
-    let server_path = runtime_dir
+fn spawn_desktop_api_with_runtime(
+    config: &DesktopApiConfig,
+    runtime: &DesktopApiRuntime,
+    api_port: u16,
+    base_url: &str,
+) -> Result<DesktopApiLaunch, String> {
+    let server_path = runtime
+        .root
         .join("apps")
         .join("api")
         .join("src")
         .join("server.mjs");
-    if !node_path.exists() || !server_path.exists() {
-        let message = format!(
-            "Yansilu desktop API runtime is incomplete. node={}, server={}",
-            node_path.display(),
+    if !server_path.exists() {
+        return Err(format!(
+            "Yansilu desktop API server entry is missing: {}",
             server_path.display()
-        );
-        append_desktop_api_log(&config.app_data_dir, &message);
-        return Err(message);
+        ));
     }
-    if let Err(message) = ensure_executable(&node_path) {
-        append_desktop_api_log(&config.app_data_dir, &message);
-        return Err(message);
+    if runtime.node_path.exists() {
+        if let Err(message) = ensure_executable(&runtime.node_path) {
+            return Err(message);
+        }
     }
+
+    append_desktop_api_log(
+        &config.app_data_dir,
+        &format!(
+            "Starting Yansilu desktop API with runtime label={}, root={}, node={}, port={}, vault={}",
+            runtime.label,
+            runtime.root.display(),
+            runtime.node_path.display(),
+            api_port,
+            config.vault_path.display()
+        ),
+    );
 
     let log_path = config.app_data_dir.join("api.log");
 
-    let mut command = Command::new(node_path);
+    let mut command = Command::new(&runtime.node_path);
     command
         .arg("apps/api/src/server.mjs")
-        .current_dir(runtime_dir)
+        .current_dir(&runtime.root)
         .env("API_PORT", api_port.to_string())
         .env("WEB_PORT", "5173")
         .env("VAULT_PATH", &config.vault_path)
@@ -444,22 +540,70 @@ fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, Stri
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
 
-    let mut child = command
-        .spawn()
-        .map_err(|error| format!("Failed to spawn desktop API runtime: {error}"))?;
+    let mut child = command.spawn().map_err(|error| {
+        format!(
+            "Failed to spawn desktop API runtime via {}: {error}",
+            runtime.node_path.display()
+        )
+    })?;
     let pid = child.id();
-    if let Err(message) = wait_for_api_port(api_port, &config.vault_path, &mut child, API_STARTUP_TIMEOUT) {
+    if let Err(message) = wait_for_api_port(
+        api_port,
+        &config.vault_path,
+        &mut child,
+        API_STARTUP_TIMEOUT,
+    ) {
         let _ = child.kill();
         let _ = child.wait();
-        append_desktop_api_log(&config.app_data_dir, &message);
         return Err(message);
     }
     Ok(DesktopApiLaunch {
         child: Some(child),
-        base_url,
+        base_url: base_url.to_string(),
         pid: Some(pid),
         managed: true,
     })
+}
+
+fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, String> {
+    let api_port = resolve_desktop_api_port(&config.app_data_dir, &config.vault_path)
+        .ok_or_else(|| "No available API port between 3000 and 3020.".to_string())?;
+    let base_url = format!("http://localhost:{api_port}");
+    if api_health_matches_vault(api_port, &config.vault_path) {
+        return Ok(DesktopApiLaunch {
+            child: None,
+            base_url,
+            pid: api_health_json(api_port).and_then(|json| {
+                json.get("pid")
+                    .and_then(|value| value.as_u64())
+                    .map(|value| value as u32)
+            }),
+            managed: false,
+        });
+    }
+
+    if config.runtimes.is_empty() {
+        let message = "Yansilu desktop API runtime directory was not found.";
+        append_desktop_api_log(&config.app_data_dir, message);
+        return Err(message.to_string());
+    }
+
+    let mut errors = Vec::new();
+    for runtime in &config.runtimes {
+        match spawn_desktop_api_with_runtime(config, runtime, api_port, &base_url) {
+            Ok(launch) => return Ok(launch),
+            Err(error) => {
+                let message = format!("Runtime candidate failed ({}): {error}", runtime.label);
+                append_desktop_api_log(&config.app_data_dir, &message);
+                errors.push(message);
+            }
+        }
+    }
+
+    Err(format!(
+        "Yansilu desktop API failed to start from all runtime candidates. {}",
+        errors.join(" | ")
+    ))
 }
 
 fn stop_desktop_api(api_child: &Arc<Mutex<Option<Child>>>) {
@@ -501,7 +645,10 @@ fn supervise_desktop_api(
                 }),
                 "blocked",
             );
-            append_desktop_api_log(&config.app_data_dir, "Yansilu desktop API supervisor stopped after repeated failures.");
+            append_desktop_api_log(
+                &config.app_data_dir,
+                "Yansilu desktop API supervisor stopped after repeated failures.",
+            );
             break;
         }
 
@@ -549,7 +696,10 @@ fn supervise_desktop_api(
                     }),
                     "healthy",
                 );
-                append_desktop_api_log(&config.app_data_dir, "Yansilu desktop API supervisor marked API healthy.");
+                append_desktop_api_log(
+                    &config.app_data_dir,
+                    "Yansilu desktop API supervisor marked API healthy.",
+                );
                 if let Ok(mut guard) = api_child.lock() {
                     *guard = launch.child;
                 }
@@ -557,7 +707,11 @@ fn supervise_desktop_api(
                 loop {
                     thread::sleep(API_HEALTH_INTERVAL);
                     let exited = if let Ok(mut guard) = api_child.lock() {
-                        match guard.as_mut().and_then(|child| child.try_wait().ok()).flatten() {
+                        match guard
+                            .as_mut()
+                            .and_then(|child| child.try_wait().ok())
+                            .flatten()
+                        {
                             Some(status) => {
                                 *guard = None;
                                 Some(format!("API process exited: {status}."))
@@ -588,7 +742,9 @@ fn supervise_desktop_api(
                     if !api_health_matches_vault(port, &config.vault_path) {
                         restart_count += 1;
                         consecutive_failures += 1;
-                        let message = format!("API health check failed on port {port}; restarting managed service.");
+                        let message = format!(
+                            "API health check failed on port {port}; restarting managed service."
+                        );
                         append_desktop_api_log(&config.app_data_dir, &message);
                         stop_desktop_api(&api_child);
                         update_service_status(
@@ -636,7 +792,11 @@ fn supervise_desktop_api(
                         "pid": null,
                         "managed": false
                     }),
-                    if consecutive_failures >= API_MAX_RESTARTS { "blocked" } else { "recovering" },
+                    if consecutive_failures >= API_MAX_RESTARTS {
+                        "blocked"
+                    } else {
+                        "recovering"
+                    },
                 );
             }
         }
@@ -645,20 +805,23 @@ fn supervise_desktop_api(
 
 pub fn run() {
     let api_child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
-    let service_status: Arc<Mutex<serde_json::Value>> = Arc::new(Mutex::new(default_service_status()));
+    let service_status: Arc<Mutex<serde_json::Value>> =
+        Arc::new(Mutex::new(default_service_status()));
     let api_child_for_setup = Arc::clone(&api_child);
     let service_status_for_setup = Arc::clone(&service_status);
     let api_child_for_run = Arc::clone(&api_child);
 
     tauri::Builder::default()
-        .manage(DesktopApiState {
-            service_status,
-        })
+        .manage(DesktopApiState { service_status })
         .setup(move |app| {
             match desktop_api_config(app) {
                 Ok(config) => {
                     thread::spawn(move || {
-                        supervise_desktop_api(config, api_child_for_setup, service_status_for_setup);
+                        supervise_desktop_api(
+                            config,
+                            api_child_for_setup,
+                            service_status_for_setup,
+                        );
                     });
                 }
                 Err(error) => {
