@@ -3931,6 +3931,33 @@
       flex-wrap: wrap;
       gap: 8px;
     }
+    .ai-suggestion-action-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ai-suggestion-action-row .scheduled-task-actions {
+      margin: 0;
+    }
+    .ai-suggestion-primary-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ai-suggestion-content-text {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 12px;
+      color: #243044;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
     .ai-inbox-feedback-controls label {
       border: 1px solid #dbe3ec;
       border-radius: 999px;

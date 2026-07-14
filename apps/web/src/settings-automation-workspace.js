@@ -21,15 +21,9 @@ export function renderSettingsAutomationWorkspace() {
         </div>
 
         <div class="settings-automation-tab-panels">
-          <section class="settings-automation-section settings-automation-panel-pending" aria-labelledby="settingsAutomationSuggestionsTitle">
-            <div class="settings-automation-section-head">
-              <div>
-                <div class="settings-automation-section-title" id="settingsAutomationSuggestionsTitle">待处理</div>
-                <div class="settings-automation-section-note">这里的内容不会自动写入笔记；确认后才会保存。</div>
-              </div>
-            </div>
+          <section class="settings-automation-section settings-automation-panel-pending" aria-label="待处理">
             <div id="${SETTINGS_AUTOMATION_PANEL_IDS.suggestions}">
-              <div class="scheduled-task-empty">暂无待处理内容。</div>
+              <div class="scheduled-task-empty">现在没有待处理。</div>
             </div>
           </section>
 

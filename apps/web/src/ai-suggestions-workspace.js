@@ -1,12 +1,23 @@
 import { renderAiSuggestionsPanel } from "./ai-suggestions-panel.js";
 import { normalizeAiSuggestionFilters } from "./ai-suggestions-model.js";
 
+export function normalizeVisibleSuggestionFilters(filters = {}) {
+  return normalizeAiSuggestionFilters({
+    ...filters,
+    targetType: "",
+    targetId: "",
+    scope: ""
+  });
+}
+
 export function renderAiSuggestionsWorkspaceView({ mount, state, renderPanel = renderAiSuggestionsPanel } = {}) {
   if (!mount) return false;
+  const visibleFilters = normalizeVisibleSuggestionFilters(state?.suggestionFilters || {});
+  if (state) state.suggestionFilters = visibleFilters;
   mount.innerHTML = renderPanel({
     items: state?.suggestions,
     total: state?.suggestionsTotal,
-    filters: state?.suggestionFilters,
+    filters: visibleFilters,
     selectedSuggestionId: state?.selectedSuggestionId,
     detail: state?.suggestionDetail,
     detailSuggestionId: state?.suggestionDetailSuggestionId,
@@ -27,7 +38,7 @@ export function renderAiSuggestionsWorkspaceView({ mount, state, renderPanel = r
 
 export function aiSuggestionFiltersFromWorkspace({ getElement, state } = {}) {
   const filters = state?.suggestionFilters || {};
-  return normalizeAiSuggestionFilters({
+  return normalizeVisibleSuggestionFilters({
     ...filters,
     status: getElement?.("aiSuggestionStatusFilter")?.value || filters.status,
     targetType: getElement?.("aiSuggestionTargetTypeFilter")?.value || "",
@@ -52,11 +63,34 @@ export function aiSuggestionReviewedContentFromWorkspace({ getElement, current =
     }
     return raw;
   }
+  const isSingleObjectContent = current.content && typeof current.content === "object" && !Array.isArray(current.content);
+  const keys = isSingleObjectContent ? Object.keys(current.content) : [];
   try {
-    return JSON.parse(raw);
-  } catch {
+    const parsed = JSON.parse(raw);
+    if (!isSingleObjectContent || (parsed && typeof parsed === "object" && !Array.isArray(parsed))) return parsed;
+  } catch {}
+  if (isSingleObjectContent) {
+    if (keys.length === 1) {
+      const key = keys[0];
+      const previousValue = current.content[key];
+      if (Array.isArray(previousValue)) {
+        return { ...current.content, [key]: raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) };
+      }
+      if (typeof previousValue === "number") {
+        const number = Number(raw);
+        if (Number.isFinite(number)) return { ...current.content, [key]: number };
+        throw new Error("Reviewed suggestion content must keep the original number format before it can be marked edited or confirmed");
+      }
+      if (typeof previousValue === "boolean") {
+        const clean = raw.trim().toLowerCase();
+        if (clean === "true" || clean === "false") return { ...current.content, [key]: clean === "true" };
+        throw new Error("Reviewed suggestion content must keep the original true/false format before it can be marked edited or confirmed");
+      }
+      return { ...current.content, [key]: raw };
+    }
     throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
   }
+  throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
 }
 
 export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {

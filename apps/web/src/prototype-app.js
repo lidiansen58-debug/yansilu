@@ -60,7 +60,7 @@ import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxW
 import { createAiInboxWorkspaceHostDeps } from "./ai-inbox-host-deps.js";
 import { dismissSaveAiSuggestionForLater, saveAiSuggestionPrimaryRoute } from "./save-ai-suggestion-model.js";
 import { createSaveAiSuggestionWorkflowRoutes } from "./save-ai-suggestion-workflow-routes.js";
-import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorkspace, bindAiSuggestionsWorkspaceEvents, renderAiSuggestionsWorkspaceView } from "./ai-suggestions-workspace.js";
+import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorkspace, bindAiSuggestionsWorkspaceEvents, normalizeVisibleSuggestionFilters, renderAiSuggestionsWorkspaceView } from "./ai-suggestions-workspace.js";
 import { createAiSuggestionsWorkspaceHostDeps } from "./ai-suggestions-host-deps.js";
 import { applyAiRuntimeModeChangeForRuntime } from "./ai-runtime-mode-controller.js";
 import { aiInboxActionLabel, aiArtifactFromCanonical, aiInboxItemFromCanonical, normalizeAiInboxFilters } from "./ai-inbox-model.js";
@@ -2057,7 +2057,7 @@ async function refreshAiSuggestions(options = {}) {
   return refreshAiSuggestionsForRuntime({
     aiState: settingsState.ai,
     fetchAiSuggestions,
-    normalizeAiSuggestionFilters,
+    normalizeAiSuggestionFilters: normalizeVisibleSuggestionFilters,
     rememberAiDebugSnapshot,
     render: renderAiSuggestionsWorkspace,
     setStatus,

@@ -5,6 +5,7 @@ import {
   loadAiSuggestionDetailForRuntime,
   refreshAiSuggestionsForRuntime
 } from "../../apps/web/src/ai-suggestions-runtime-controller.js";
+import { normalizeVisibleSuggestionFilters } from "../../apps/web/src/ai-suggestions-workspace.js";
 
 function createApplyAiSuggestionStatus(
   _select,
@@ -56,6 +57,52 @@ function createRefreshAiSuggestions(settingsState, deps = {}) {
     loadDetail: deps.loadAiSuggestionDetail || (async () => null)
   }, options);
 }
+
+test("refreshAiSuggestions can clear hidden filters before fetching suggestions", async () => {
+  let capturedFilters = null;
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "edited", targetType: "permanent_note", targetId: "old-note", scope: "note_field", limit: 25 },
+      suggestions: [],
+      suggestionsTotal: 0,
+      selectedSuggestionId: "",
+      suggestionDetail: null,
+      suggestionDetailRequestToken: 0,
+      suggestionsRequestToken: 0,
+      suggestionsLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    normalizeAiSuggestionFilters: normalizeVisibleSuggestionFilters,
+    fetchAiSuggestions: async (filters) => {
+      capturedFilters = filters;
+      return { items: [], total: 0 };
+    }
+  });
+
+  await refreshAiSuggestions({ silent: true });
+
+  assert.deepEqual(capturedFilters, {
+    status: "edited",
+    targetType: "",
+    targetId: "",
+    scope: "",
+    limit: 25,
+    canonical: true
+  });
+  assert.deepEqual(settingsState.ai.suggestionFilters, {
+    status: "edited",
+    targetType: "",
+    targetId: "",
+    scope: "",
+    limit: 25
+  });
+});
 
 test("loadAiSuggestionDetail ignores stale responses and keeps the latest selected suggestion detail", async () => {
   let resolveFirst;
