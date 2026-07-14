@@ -33,7 +33,7 @@ export function isAllowedLocalOrigin(origin = "") {
 
 export function localRuntimeControlAllowedPorts(env = process.env) {
   return new Set(
-    String(env?.YANSILU_LOCAL_APP_PORTS || "3000,5173,5174,5175")
+    String(env?.YANSILU_LOCAL_APP_PORTS || "3000,5173,5174,5175,5176,5177,5178,5179")
       .split(",")
       .map((port) => port.trim())
       .filter(Boolean)

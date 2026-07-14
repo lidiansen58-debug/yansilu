@@ -56,3 +56,16 @@ test("mobile access panel keeps the waiting state concise before a phone scans",
   assert.doesNotMatch(html, /手机发起连接请求后，不需要往下找/);
   assert.doesNotMatch(html, /待确认手机/);
 });
+
+test("mobile access panel hides internal local runtime errors", () => {
+  const html = renderPanel({
+    item: null,
+    state: {
+      error: "local runtime controls only accept the Yansilu local app origin"
+    }
+  });
+
+  assert.match(html, /手机访问只能从这台电脑上的研思录打开/);
+  assert.doesNotMatch(html, /local runtime controls/);
+  assert.doesNotMatch(html, /Yansilu local app origin/);
+});

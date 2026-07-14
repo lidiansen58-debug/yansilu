@@ -19,6 +19,14 @@ function formatTime(value = "") {
   });
 }
 
+export function readableMobileAccessError(error = "") {
+  const message = String(error || "").trim();
+  if (/local runtime controls/i.test(message) || /Yansilu local app origin/i.test(message)) {
+    return "手机访问只能从这台电脑上的研思录打开。请刷新页面，或完全关闭研思录后重新打开。";
+  }
+  return message;
+}
+
 function deviceRows(devices = [], escapeHtml = escapeHtmlValue) {
   if (!devices.length) {
     return `<div class="mobile-access-empty">暂无已配对设备。</div>`;
@@ -77,7 +85,7 @@ export function renderMobileAccessDesktopPanel({
   const item = state.item || null;
   const loading = Boolean(state.loading);
   const actionLoading = Boolean(state.actionLoading);
-  const error = String(state.error || "").trim();
+  const error = readableMobileAccessError(state.error);
   if (!item && loading) {
     return `
       <div class="mobile-access-card">

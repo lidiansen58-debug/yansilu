@@ -112,6 +112,12 @@ test("local runtime control origin guard rejects arbitrary localhost ports", () 
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:7777", "127.0.0.1:3999", env), false);
 });
 
+test("local runtime control default ports include Vite auto-increment ports", () => {
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:5176", "127.0.0.1:3999", {}), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:5179", "127.0.0.1:3999", {}), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:7777", "127.0.0.1:3999", {}), false);
+});
+
 test("Ollama local runtime mutation endpoints are protected by the local runtime guard", () => {
   const source = loadServerSource();
   const routePaths = [

@@ -83,7 +83,7 @@ import { createAiInboxActionRoutes } from "./ai-inbox-action-routes.js";
 import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
-import { renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
+import { readableMobileAccessError, renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
 import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
 import { resolveWritingProjectFormTitle, syncWritingThemeFormFields } from "./writing-theme-form-sync.js";
@@ -714,6 +714,10 @@ updateController.loadUpdateSettingsFromStorage();
 
 let mobileAccessRefreshTimer = 0;
 
+function mobileAccessErrorMessage(error) {
+  return readableMobileAccessError(error?.message || error);
+}
+
 function isMobileAccessSettingsActive() {
   return state.module === "settings" && settingsState.activeItem === "mobile-access";
 }
@@ -766,7 +770,7 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
     }
     settingsState.mobileAccess.lastLoadedAt = new Date().toISOString();
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
+    settingsState.mobileAccess.error = mobileAccessErrorMessage(error);
   } finally {
     settingsState.mobileAccess.loading = false;
     if (state.module === "settings") renderMobileAccessSettingsCard();
@@ -783,8 +787,9 @@ async function rotateMobileAccessPairingCodeFromUi() {
     await refreshMobileAccessStatus({ silent: true });
     setStatus("已刷新手机访问二维码和配对码。", "ok");
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
-    setStatus(`刷新手机配对码失败：${String(error?.message || error)}`, "bad");
+    const message = mobileAccessErrorMessage(error);
+    settingsState.mobileAccess.error = message;
+    setStatus(`刷新手机配对码失败：${message}`, "bad");
   } finally {
     settingsState.mobileAccess.actionLoading = "";
     renderMobileAccessSettingsCard();
@@ -802,8 +807,9 @@ async function confirmMobilePairRequestFromUi(requestId = "") {
     await refreshMobileAccessStatus({ silent: true });
     setStatus("已允许这台手机访问电脑上的研思录。", "ok");
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
-    setStatus(`确认手机连接失败：${String(error?.message || error)}`, "bad");
+    const message = mobileAccessErrorMessage(error);
+    settingsState.mobileAccess.error = message;
+    setStatus(`确认手机连接失败：${message}`, "bad");
   } finally {
     settingsState.mobileAccess.actionLoading = "";
     renderMobileAccessSettingsCard();
@@ -821,8 +827,9 @@ async function revokeMobileDeviceFromUi(deviceId = "") {
     await refreshMobileAccessStatus({ silent: true });
     setStatus("已撤销这台手机的访问权限。", "ok");
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
-    setStatus(`撤销手机访问失败：${String(error?.message || error)}`, "bad");
+    const message = mobileAccessErrorMessage(error);
+    settingsState.mobileAccess.error = message;
+    setStatus(`撤销手机访问失败：${message}`, "bad");
   } finally {
     settingsState.mobileAccess.actionLoading = "";
     renderMobileAccessSettingsCard();
