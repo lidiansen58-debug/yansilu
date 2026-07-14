@@ -23,7 +23,7 @@ test("graph route runtime blocks graph AI analysis behind default local setup gu
 
   await runtime.runGraphAiAnalysis();
 
-  assert.deepEqual(calls.find((call) => call[0] === "ready"), ["ready", { feature: "graph_analysis" }]);
+  assert.deepEqual(calls.find((call) => call[0] === "ready"), ["ready", { feature: "graph_analysis", openSettings: false }]);
   assert.equal(calls.some((call) => call[0] === "analyze"), false);
   assert.equal(calls.some((call) => call[0] === "status"), false);
 });
