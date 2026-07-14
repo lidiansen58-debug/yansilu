@@ -8,7 +8,6 @@ import {
 } from "./ai-suggestions-model.js";
 import {
   traceDisplayState,
-  traceMissingTargetCopy,
   tracePlaceholderCopy
 } from "./ai-trace-display.js";
 
@@ -94,9 +93,7 @@ function suggestionField(item = {}, display = null) {
 }
 
 function suggestionTitle(item = {}, display = null) {
-  const noteId = suggestionTargetNoteId(item, display);
-  const fieldLabel = readableFieldLabel(suggestionField(item, display));
-  return noteId ? `${noteId} · ${fieldLabel}` : fieldLabel;
+  return readableFieldLabel(suggestionField(item, display));
 }
 
 function singleContentEntry(content) {
@@ -302,26 +299,14 @@ function renderTrace(detail = {}) {
     sourceArtifactId: display.sourceArtifactId,
     targetNoteId: display.targetNoteId
   });
-  const placeholder = placeholderText ? `<div class="scheduled-task-empty">这条建议缺少完整来源，处理前请先确认内容可靠。</div>` : "";
   const targetNoteId = suggestionTargetNoteId(item, display);
-  const targetField = suggestionField(item, display);
-  const status = display.status || String(item.status || "").trim();
-  const targetHint = targetNoteId
-    ? ""
-    : `<div class="scheduled-task-empty">${escapeHtml(traceMissingTargetCopy())}</div>`;
-  const sourceText = display.sourceNoteIds.join(", ") || display.primarySourceNoteId || targetNoteId || "未记录";
+  if (targetNoteId && !placeholderText) return "";
+  const missingTarget = targetNoteId ? "" : "这条整理暂时找不到要打开的笔记。";
+  const missingSource = placeholderText ? "这条整理缺少完整来源，处理前请先确认内容可靠。" : "";
+  const message = missingTarget || missingSource;
+  if (!message) return "";
   return `
-    <section class="ai-inbox-detail-section">
-      <h3>放到哪里</h3>
-      ${placeholder}
-      <dl class="ai-inbox-kv">
-        <dt>来源笔记</dt><dd>${escapeHtml(sourceText)}</dd>
-        <dt>目标笔记</dt><dd>${escapeHtml(targetNoteId || "缺少目标笔记")}</dd>
-        <dt>保存位置</dt><dd>${escapeHtml(readableFieldLabel(targetField))}</dd>
-        <dt>当前状态</dt><dd>${escapeHtml(readableStatusHint(status))}</dd>
-      </dl>
-      ${targetHint}
-    </section>
+    <div class="scheduled-task-empty">${escapeHtml(message)}</div>
   `;
 }
 
