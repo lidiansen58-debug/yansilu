@@ -56,6 +56,21 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
+test("AI suggestions panel keeps the detail modal closed until a suggestion is selected", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [suggestion],
+    total: 1,
+    filters: { status: "suggested" },
+    selectedSuggestionId: "",
+    detail: null
+  });
+
+  assert.match(html, /Inbox review target/);
+  assert.match(html, /处理建议/);
+  assert.doesNotMatch(html, /ai-suggestion-modal/);
+  assert.doesNotMatch(html, /ai-suggestion-modal-dialog/);
+});
+
 test("AI suggestions panel opens suggestions in one modal action area", () => {
   const pane = detailPane(renderAiSuggestionsPanel({
     items: [suggestion],
