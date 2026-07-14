@@ -3,7 +3,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -18,6 +18,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 const DEFAULT_API_PORT: u16 = 3000;
 const API_PORT_SEARCH_END: u16 = 3020;
+const API_STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
 
 struct DesktopApiState {
     base_url: Arc<Mutex<String>>,
@@ -54,26 +55,52 @@ fn get_desktop_api_status(state: tauri::State<DesktopApiState>) -> serde_json::V
 
 #[tauri::command]
 fn open_in_explorer(path: String) -> Result<(), String> {
-    use std::path::Path;
-
     let p = Path::new(&path);
     if !p.exists() {
         return Err(format!("Path does not exist: {path}"));
     }
 
-    // Use Windows Explorer directly instead of tauri_plugin_opener for local paths.
-    // This avoids sporadic hangs we observed with non-ASCII (CJK) directory names.
+    let mut cmd = platform_file_reveal_command(p, &path);
+
+    cmd.spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to reveal path: {e}"))
+}
+
+#[cfg(windows)]
+fn platform_file_reveal_command(p: &Path, path: &str) -> Command {
     let mut cmd = Command::new("explorer.exe");
     if p.is_dir() {
-        cmd.arg(&path);
+        cmd.arg(path);
     } else {
         // explorer.exe expects /select,"C:\path\file.ext"
         cmd.arg(format!("/select,\"{path}\""));
     }
+    cmd
+}
 
-    cmd.spawn()
-        .map(|_| ())
-        .map_err(|e| format!("Failed to spawn explorer.exe: {e}"))
+#[cfg(target_os = "macos")]
+fn platform_file_reveal_command(p: &Path, path: &str) -> Command {
+    let mut cmd = Command::new("open");
+    if p.is_dir() {
+        cmd.arg(path);
+    } else {
+        cmd.arg("-R").arg(path);
+    }
+    cmd
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn platform_file_reveal_command(p: &Path, path: &str) -> Command {
+    let mut cmd = Command::new("xdg-open");
+    if p.is_dir() {
+        cmd.arg(path);
+    } else if let Some(parent) = p.parent() {
+        cmd.arg(parent);
+    } else {
+        cmd.arg(path);
+    }
+    cmd
 }
 
 fn api_port_is_open(port: u16) -> bool {
@@ -118,38 +145,63 @@ fn api_health_response(port: u16) -> Option<String> {
     Some(response)
 }
 
-fn api_health_is_yansilu(port: u16) -> bool {
+fn api_health_json(port: u16) -> Option<serde_json::Value> {
     let Some(response) = api_health_response(port) else {
+        return None;
+    };
+    if !response.starts_with("HTTP/1.1 200") {
+        return None;
+    }
+    let body = response.split("\r\n\r\n").nth(1)?;
+    serde_json::from_str(body).ok()
+}
+
+fn api_health_is_yansilu(port: u16) -> bool {
+    let Some(json) = api_health_json(port) else {
         return false;
     };
-    let compact_response: String = response.chars().filter(|ch| !ch.is_whitespace()).collect();
-    response.starts_with("HTTP/1.1 200")
-        && compact_response.contains("\"ok\":true")
-        && compact_response.contains("\"service\":\"api\"")
+    json.get("ok").and_then(|value| value.as_bool()) == Some(true)
+        && json.get("service").and_then(|value| value.as_str()) == Some("api")
 }
 
 fn api_health_matches_vault(port: u16, vault_path: &PathBuf) -> bool {
-    let Some(response) = api_health_response(port) else {
+    let Some(json) = api_health_json(port) else {
         return false;
     };
-    let compact_response: String = response.chars().filter(|ch| !ch.is_whitespace()).collect();
-    let expected_vault_path = vault_path.to_string_lossy().replace('\\', "\\\\");
-    let expected_vault_fragment = format!("\"vaultPath\":\"{expected_vault_path}\"");
-    response.starts_with("HTTP/1.1 200")
-        && compact_response.contains("\"ok\":true")
-        && compact_response.contains("\"service\":\"api\"")
-        && compact_response.contains(&expected_vault_fragment)
+    json.get("ok").and_then(|value| value.as_bool()) == Some(true)
+        && json.get("service").and_then(|value| value.as_str()) == Some("api")
+        && json.get("vaultPath").and_then(|value| value.as_str())
+            == Some(vault_path.to_string_lossy().as_ref())
 }
 
-fn wait_for_api_port(port: u16, vault_path: &PathBuf, timeout: Duration) -> bool {
+fn wait_for_api_port(
+    port: u16,
+    vault_path: &PathBuf,
+    child: &mut Child,
+    timeout: Duration,
+) -> Result<(), String> {
     let started = Instant::now();
     while started.elapsed() < timeout {
         if api_health_matches_vault(port, vault_path) {
-            return true;
+            return Ok(());
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                return Err(format!(
+                    "Yansilu desktop API exited before it became ready on port {port}: {status}."
+                ));
+            }
+            Ok(None) => {}
+            Err(error) => {
+                return Err(format!("Yansilu desktop API process check failed: {error}"));
+            }
         }
         std::thread::sleep(Duration::from_millis(120));
     }
-    false
+    Err(format!(
+        "Yansilu desktop API did not become ready on port {port} within {} seconds.",
+        timeout.as_secs()
+    ))
 }
 
 fn resolve_desktop_api_port(app_data_dir: &PathBuf, vault_path: &PathBuf) -> Option<u16> {
@@ -197,6 +249,23 @@ fn append_desktop_api_log(app_data_dir: &PathBuf, message: &str) {
     }
 }
 
+#[cfg(unix)]
+fn ensure_executable(path: &Path) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let metadata = fs::metadata(path)
+        .map_err(|error| format!("Cannot inspect executable {}: {error}", path.display()))?;
+    let mut permissions = metadata.permissions();
+    permissions.set_mode(permissions.mode() | 0o755);
+    fs::set_permissions(path, permissions)
+        .map_err(|error| format!("Cannot mark executable {}: {error}", path.display()))
+}
+
+#[cfg(not(unix))]
+fn ensure_executable(_path: &Path) -> Result<(), String> {
+    Ok(())
+}
+
 struct DesktopApiLaunch {
     child: Option<Child>,
     base_url: String,
@@ -240,9 +309,17 @@ fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
         .join("src")
         .join("server.mjs");
     if !node_path.exists() || !server_path.exists() {
-        let message = "Yansilu desktop API runtime is incomplete.";
-        append_desktop_api_log(&app_data_dir, message);
-        return Err(message.to_string());
+        let message = format!(
+            "Yansilu desktop API runtime is incomplete. node={}, server={}",
+            node_path.display(),
+            server_path.display()
+        );
+        append_desktop_api_log(&app_data_dir, &message);
+        return Err(message);
+    }
+    if let Err(message) = ensure_executable(&node_path) {
+        append_desktop_api_log(&app_data_dir, &message);
+        return Err(message);
     }
 
     let log_path = app_data_dir.join("api.log");
@@ -271,12 +348,9 @@ fn spawn_desktop_api(app: &tauri::App) -> Result<DesktopApiLaunch, String> {
     let mut child = command
         .spawn()
         .map_err(|error| format!("Failed to spawn desktop API runtime: {error}"))?;
-    if !wait_for_api_port(api_port, &vault_path, Duration::from_secs(5)) {
+    if let Err(message) = wait_for_api_port(api_port, &vault_path, &mut child, API_STARTUP_TIMEOUT) {
         let _ = child.kill();
         let _ = child.wait();
-        let message = format!(
-            "Yansilu desktop API did not become ready on port {api_port} within 5 seconds."
-        );
         append_desktop_api_log(&app_data_dir, &message);
         return Err(message);
     }

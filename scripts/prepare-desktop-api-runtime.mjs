@@ -19,6 +19,11 @@ function copyFile(source, target) {
   fs.copyFileSync(source, target);
 }
 
+function makeExecutable(target) {
+  if (process.platform === "win32") return;
+  fs.chmodSync(target, 0o755);
+}
+
 function copyDir(source, target, options = {}) {
   const { filter = () => true } = options;
   fs.cpSync(source, target, {
@@ -103,7 +108,9 @@ function resolveNpmCli() {
 rm(runtimeRoot);
 ensureDir(runtimeRoot);
 
-copyFile(resolveNodeExe(), path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "node"));
+const bundledNodePath = path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "node");
+copyFile(resolveNodeExe(), bundledNodePath);
+makeExecutable(bundledNodePath);
 
 copyFile(path.join(repoRoot, "package.json"), path.join(runtimeRoot, "package.json"));
 copyFile(path.join(repoRoot, "package-lock.json"), path.join(runtimeRoot, "package-lock.json"));
@@ -127,6 +134,8 @@ run(resolveNodeExe(), [resolveNpmCli(), "ci", "--omit=dev", "--ignore-scripts", 
 const manifest = {
   generatedAt: new Date().toISOString(),
   node: process.version,
+  platform: process.platform,
+  arch: process.arch,
   entry: "apps/api/src/server.mjs"
 };
 fs.writeFileSync(path.join(runtimeRoot, "desktop-api-runtime.json"), `${JSON.stringify(manifest, null, 2)}\n`);
