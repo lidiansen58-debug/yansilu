@@ -92,6 +92,6 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(sourceId)}">打开来源笔记</button>
       <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(targetId)}">打开目标笔记</button>
-      <button class="graph-selection-action is-secondary" type="button" data-graph-relation-adjustment="strengthen"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${relationId ? "" : " disabled"}>${escapeHtml(actionMeta.label || "调整关系")}</button>`
+      <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(sourceId)}" data-graph-relation-adjustment="strengthen"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${sourceId && targetId ? "" : " disabled"}>${escapeHtml(actionMeta.label || "调整关系")}</button>`
   });
 }
