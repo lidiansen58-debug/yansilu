@@ -384,15 +384,28 @@
           <div class="panel hidden" id="importPanel"></div>
           <div class="panel hidden" id="backupPanel">
             <div class="settings-pane backup-module-pane">
-              <div class="settings-pane-head">
-                <div class="settings-pane-headline">
-                  <div class="settings-pane-kicker">Backup</div>
-                  <div class="settings-pane-title">备份与恢复</div>
-                </div>
-                <div class="settings-pane-note">把整个笔记库加密打包，或恢复到新文件夹。</div>
-              </div>
               <div class="settings-pane-stack">
-                <section class="settings-card" id="settingsCardVaultBackup">
+                <div class="import-workspace-tabs backup-workspace-tabs" role="tablist" aria-label="备份与恢复切换">
+                  <button class="import-workspace-tab backup-workspace-tab is-active" id="settingsBackupTab" type="button" role="tab" aria-selected="true" aria-controls="settingsCardVaultBackup" data-vault-backup-tab="backup">
+                    <span class="import-workspace-tab-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" focusable="false"><path d="M5 8.5V5.5h10v3M6.5 11.5 10 15l3.5-3.5M10 5.5V15"/></svg>
+                    </span>
+                    <span class="import-workspace-tab-copy">
+                      <span class="import-workspace-tab-label">备份</span>
+                      <span class="import-workspace-tab-detail">创建加密备份文件</span>
+                    </span>
+                  </button>
+                  <button class="import-workspace-tab backup-workspace-tab" id="settingsRestoreTab" type="button" role="tab" aria-selected="false" aria-controls="settingsCardVaultRestore" data-vault-backup-tab="restore">
+                    <span class="import-workspace-tab-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" focusable="false"><path d="M15 11.5v3H5v-3M13.5 8.5 10 5 6.5 8.5M10 5v10"/></svg>
+                    </span>
+                    <span class="import-workspace-tab-copy">
+                      <span class="import-workspace-tab-label">恢复</span>
+                      <span class="import-workspace-tab-detail">恢复到新文件夹</span>
+                    </span>
+                  </button>
+                </div>
+                <section class="settings-card backup-tab-panel" id="settingsCardVaultBackup" role="tabpanel" aria-labelledby="settingsBackupTab" data-vault-backup-tab-panel="backup">
                   <div class="settings-card-head">
                     <div>
                       <div class="settings-card-title">加密备份</div>
@@ -417,7 +430,7 @@
                   </div>
                   <div id="settingsBackupResult"></div>
                 </section>
-                <section class="settings-card" id="settingsCardVaultRestore">
+                <section class="settings-card backup-tab-panel hidden" id="settingsCardVaultRestore" role="tabpanel" aria-labelledby="settingsRestoreTab" data-vault-backup-tab-panel="restore">
                   <div class="settings-card-head">
                     <div>
                       <div class="settings-card-title">恢复备份 / 迁移到另一台电脑</div>

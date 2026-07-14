@@ -1,5 +1,6 @@
 export function createDefaultVaultBackupState() {
   return {
+    activeTab: "backup",
     creating: false,
     restoring: false,
     backupTargetDirectory: "",
@@ -18,7 +19,21 @@ export function createDefaultVaultBackupState() {
 
 function ensureBackupState(settingsState = {}) {
   if (!settingsState.backup) settingsState.backup = createDefaultVaultBackupState();
+  if (settingsState.backup.activeTab !== "restore") settingsState.backup.activeTab = "backup";
   return settingsState.backup;
+}
+
+function setActiveVaultBackupTab($, activeTab = "backup") {
+  const selectedTab = activeTab === "restore" ? "restore" : "backup";
+  ["backup", "restore"].forEach((tab) => {
+    const isActive = tab === selectedTab;
+    const button = $(`settings${tab === "backup" ? "Backup" : "Restore"}Tab`);
+    button?.classList.toggle("is-active", isActive);
+    button?.setAttribute("aria-selected", isActive ? "true" : "false");
+    const panel = $(`settingsCardVault${tab === "backup" ? "Backup" : "Restore"}`);
+    panel?.classList.toggle("hidden", !isActive);
+    if (panel) panel.hidden = !isActive;
+  });
 }
 
 function backupErrorMessage(error) {
@@ -81,6 +96,7 @@ export function renderVaultBackupPanel({
   escapeHtml = (value = "") => String(value ?? "")
 } = {}) {
   const backup = ensureBackupState(settingsState);
+  setActiveVaultBackupTab($, backup.activeTab);
   setInputValue($, "settingsBackupTargetDirectory", backup.backupTargetDirectory);
   setInputValue($, "settingsRestoreBackupPath", backup.restoreBackupPath);
   setInputValue($, "settingsRestoreTargetVaultPath", backup.restoreTargetVaultPath);
@@ -140,6 +156,14 @@ export function installVaultBackupPanelEvents(deps = {}) {
   } = deps;
   const backup = ensureBackupState(settingsState);
 
+  ["settingsBackupTab", "settingsRestoreTab"].forEach((id) => {
+    $(id)?.addEventListener("click", (event) => {
+      const nextTab = event.currentTarget?.getAttribute("data-vault-backup-tab") === "restore" ? "restore" : "backup";
+      backup.activeTab = nextTab;
+      renderSettingsPanel();
+    });
+  });
+
   $("settingsBrowseBackupTarget")?.addEventListener("click", async () => {
     const picked = await desktopCommands.browseDirectory?.({
       defaultPath: backup.backupTargetDirectory || settingsState.vault?.vaultPath || "",
@@ -155,24 +179,28 @@ export function installVaultBackupPanelEvents(deps = {}) {
     backup.backupPassword = String($("settingsBackupPassword")?.value || "");
     const confirmPassword = String($("settingsBackupPasswordConfirm")?.value || "");
     if (!backup.backupTargetDirectory) {
+      backup.activeTab = "backup";
       backup.status = "请选择加密备份保存位置，例如 U 盘、网盘、NAS 或本地文件夹。";
       backup.statusType = "bad";
       renderSettingsPanel();
       return;
     }
     if (!backup.backupPassword) {
+      backup.activeTab = "backup";
       backup.status = "请输入备份密码。请牢记密码，研思录无法找回。";
       backup.statusType = "bad";
       renderSettingsPanel();
       return;
     }
     if (backup.backupPassword !== confirmPassword) {
+      backup.activeTab = "backup";
       backup.status = "两次输入的密码不一致。";
       backup.statusType = "bad";
       renderSettingsPanel();
       return;
     }
     backup.creating = true;
+    backup.activeTab = "backup";
     backup.status = "正在暂停新的写入并等待当前保存完成，然后创建加密备份...";
     backup.statusType = "warn";
     renderSettingsPanel();
@@ -182,6 +210,7 @@ export function installVaultBackupPanelEvents(deps = {}) {
         password: backup.backupPassword
       });
       backup.lastBackup = response?.item || null;
+      backup.activeTab = "backup";
       backup.status = `加密备份已创建：${backup.lastBackup?.fileName || "备份文件"}`;
       backup.statusType = "ok";
       setStatus("加密备份已创建。请把备份文件保存到可靠位置，并牢记密码。", "ok");
@@ -210,6 +239,7 @@ export function installVaultBackupPanelEvents(deps = {}) {
     });
     if (!picked?.path) return;
     backup.restoreTargetVaultPath = pathJoinLike(picked.path, restoreFolderName());
+    backup.activeTab = "restore";
     renderSettingsPanel();
   });
 
@@ -219,6 +249,7 @@ export function installVaultBackupPanelEvents(deps = {}) {
     });
     if (!picked?.path) return;
     backup.restoreBackupPath = picked.path;
+    backup.activeTab = "restore";
     renderSettingsPanel();
   });
 
@@ -227,12 +258,14 @@ export function installVaultBackupPanelEvents(deps = {}) {
     backup.restoreTargetVaultPath = String($("settingsRestoreTargetVaultPath")?.value || "").trim();
     backup.restorePassword = String($("settingsRestorePassword")?.value || "");
     if (!backup.restoreBackupPath || !backup.restoreTargetVaultPath || !backup.restorePassword) {
+      backup.activeTab = "restore";
       backup.restoreStatus = "请填写备份文件路径、新文件夹路径和备份密码。";
       backup.restoreStatusType = "bad";
       renderSettingsPanel();
       return;
     }
     backup.restoring = true;
+    backup.activeTab = "restore";
     backup.restoreStatus = "正在解密并恢复到新文件夹，不会覆盖当前笔记库...";
     backup.restoreStatusType = "warn";
     renderSettingsPanel();
@@ -243,6 +276,7 @@ export function installVaultBackupPanelEvents(deps = {}) {
         password: backup.restorePassword
       });
       backup.lastRestore = response?.item || null;
+      backup.activeTab = "restore";
       backup.restoreStatus = "恢复成功。下一步：打开恢复后的笔记库。";
       backup.restoreStatusType = "ok";
       setStatus("恢复备份成功，可以打开恢复后的笔记库。", "ok");
