@@ -64,9 +64,9 @@ function renderControls(state = {}) {
             .join("")}
         </select>
       </label>
-      <button class="mini-btn" id="btnScheduledTasksApplyFilters" type="button">应用筛选</button>
+      <button class="mini-btn" id="btnScheduledTasksApplyFilters" type="button">筛选</button>
       <button class="mini-btn" id="btnScheduledTasksRefresh" type="button">刷新</button>
-      <button class="mini-btn primary" id="btnScheduledTasksRunDue" type="button" ${state.actionLoading ? "disabled" : ""}>立即运行到期任务</button>
+      <button class="mini-btn primary" id="btnScheduledTasksRunDue" type="button" ${state.actionLoading ? "disabled" : ""}>立即整理到期内容</button>
     </div>
   `;
 }
@@ -84,8 +84,8 @@ function renderTaskForm(state = {}) {
     <form class="scheduled-task-form" id="scheduledTaskForm">
       <div class="scheduled-task-form-head">
         <div>
-          <div class="settings-card-title">${editing ? "编辑计划任务" : "创建计划任务"}</div>
-          <div class="settings-card-note">只使用安全模板。新的输出会先进入系统消息，等待人工确认。</div>
+          <div class="settings-card-title">${editing ? "编辑整理规则" : "新建整理规则"}</div>
+          <div class="settings-card-note">整理结果会先进入待处理内容，确认后才会写入笔记。</div>
         </div>
         <div class="settings-stat-row">
           ${editing ? badge(`编辑中 ${form.scheduledTaskId}`, "warn") : badge("草稿", "muted")}
@@ -103,7 +103,7 @@ function renderTaskForm(state = {}) {
           </select>
         </label>
         <label>
-          <span>名称</span>
+          <span>规则名称</span>
           <input id="scheduledTaskNameInput" value="${attr(form.name)}" placeholder="每周关系建议" />
         </label>
         <label>
@@ -114,7 +114,7 @@ function renderTaskForm(state = {}) {
           </select>
         </label>
         <label>
-          <span>调度方式</span>
+          <span>整理时间</span>
           <select id="scheduledTaskScheduleTypeSelect">
             <option value="weekly" ${form.scheduleType === "weekly" ? "selected" : ""}>每周</option>
             <option value="interval" ${form.scheduleType === "interval" ? "selected" : ""}>间隔</option>
@@ -142,17 +142,17 @@ function renderTaskForm(state = {}) {
           <input id="scheduledTaskTimeInput" type="time" value="${attr(form.time)}" />
         </label>
         <label>
-          <span>间隔分钟</span>
+          <span>间隔时间</span>
           <input id="scheduledTaskIntervalInput" type="number" min="5" step="5" value="${attr(form.intervalMinutes)}" />
-        </label>
-        <label>
-          <span>笔记 ID</span>
+      </label>
+      <label>
+          <span>指定笔记编号</span>
           <input id="scheduledTaskNoteIdsInput" value="${attr(form.noteIdsText)}" placeholder="note_1, note_2" />
-        </label>
-        <label>
-          <span>目录 ID</span>
+      </label>
+      <label>
+          <span>指定目录编号</span>
           <input id="scheduledTaskDirectoryIdsInput" value="${attr(form.directoryIdsText)}" placeholder="dir_original_default" />
-        </label>
+      </label>
         <label>
           <span>标签</span>
           <input id="scheduledTaskTagsInput" value="${attr(form.tagsText)}" placeholder="writing, source-gap" />
@@ -169,9 +169,9 @@ function renderTaskForm(state = {}) {
       <div class="scheduled-task-form-actions">
         <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentNote" type="button" ${state.currentNoteId ? "" : "disabled"}>使用当前笔记</button>
         <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentDirectory" type="button" ${state.currentDirectoryId ? "" : "disabled"}>使用当前目录</button>
-        <button class="mini-btn" id="btnScheduledTaskClearForm" type="button">新建</button>
+        <button class="mini-btn" id="btnScheduledTaskClearForm" type="button">新规则</button>
         <button class="mini-btn primary" id="btnScheduledTaskSave" type="button" ${state.actionLoading || !templates.length ? "disabled" : ""}>
-          ${editing ? "保存任务" : "创建任务"}
+          ${editing ? "保存规则" : "创建规则"}
         </button>
       </div>
     </form>
@@ -201,19 +201,18 @@ function renderTask(task = {}, actionLoading = false) {
     <article class="scheduled-task-row" data-scheduled-task-id="${attr(id)}">
       <div class="scheduled-task-main">
         <div>
-          <strong>${escapeHtml(task.name || id || "计划任务")}</strong>
-          <p>${escapeHtml(scheduledTaskTypeLabel(task.taskType))} / ${escapeHtml(task.agentId || "任务代理")}</p>
+          <strong>${escapeHtml(task.name || id || "整理规则")}</strong>
+          <p>${escapeHtml(scheduledTaskTypeLabel(task.taskType))}</p>
         </div>
         ${badge(scheduledTaskStatusLabel(task.status), tone)}
       </div>
       <div class="scheduled-task-meta">
-        <span>调度：${escapeHtml(scheduledTaskScheduleLabel(task.schedule || {}))}</span>
+        <span>频率：${escapeHtml(scheduledTaskScheduleLabel(task.schedule || {}))}</span>
         <span>范围：${escapeHtml(scheduledTaskScopeSummary(task.scope || {}))}</span>
-        <span>预算：${escapeHtml(scheduledTaskBudgetSummary(task.budget || {}))}</span>
+        <span>用量：${escapeHtml(scheduledTaskBudgetSummary(task.budget || {}))}</span>
         <span>下次：${escapeHtml(nextRun || task.nextRunAt || "未安排")}</span>
         <span>上次：${escapeHtml(lastRun || task.lastRunAt || "从未运行")}${task.lastRunStatus ? ` / ${escapeHtml(task.lastRunStatus)}` : ""}</span>
         ${task.lastRunReason ? `<span>原因：${escapeHtml(task.lastRunReason)}</span>` : ""}
-        ${task.lastAgentRunId ? `<span>运行：${escapeHtml(task.lastAgentRunId)}</span>` : ""}
       </div>
       ${
         action.nextStatus
@@ -246,9 +245,9 @@ function renderTask(task = {}, actionLoading = false) {
 
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
-  if (state.loading) return `<div class="scheduled-task-empty">正在加载后台任务...</div>`;
-  if (state.error) return `<div class="scheduled-task-empty is-bad">后台任务加载失败：${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的后台任务。</div>`;
+  if (state.loading) return `<div class="scheduled-task-empty">正在加载整理规则...</div>`;
+  if (state.error) return `<div class="scheduled-task-empty is-bad">整理规则加载失败：${escapeHtml(state.error)}</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的整理规则。</div>`;
   return `<div class="scheduled-task-list">${items.map((item) => renderTask(item, state.actionLoading)).join("")}</div>`;
 }
 
@@ -258,7 +257,7 @@ function renderTaskFormSlot(state = {}) {
   const openAttr = state.formOpen ? " open" : "";
   return `
     <details class="scheduled-task-form-details"${openAttr}>
-      <summary>新建后台任务</summary>
+      <summary>新建整理规则</summary>
       ${form}
     </details>
   `;
@@ -270,8 +269,8 @@ export function renderScheduledTasksPanel(state = {}) {
     <div class="scheduled-task-panel">
       <div class="scheduled-task-head">
         <div>
-          <div class="settings-card-title">后台任务</div>
-          <div class="settings-card-note">定时或手动生成建议；你确认后才会写入笔记。</div>
+          <div class="settings-card-title">整理规则</div>
+          <div class="settings-card-note">定时或手动整理内容；你确认后才会写入笔记。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}

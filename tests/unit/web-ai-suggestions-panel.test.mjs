@@ -23,7 +23,7 @@ test("AI suggestions panel renders filters, list, detail, and review actions", (
     detail: suggestion
   });
 
-  assert.match(html, /待确认建议/);
+  assert.match(html, /待处理内容/);
   assert.match(html, /id="aiSuggestionStatusFilter"/);
   assert.match(html, /id="aiSuggestionTargetTypeFilter"/);
   assert.match(html, /data-ai-suggestion-id="suggestion_1"/);
@@ -93,7 +93,7 @@ test("AI suggestions panel surfaces canonical traceability and review history in
     }
   });
 
-  assert.match(html, /Source artifact|来源对象/);
+  assert.match(html, /Source artifact|整理来源/);
   assert.match(html, /artifact_trace/);
   assert.match(html, /Linked artifact|关联对象/);
   assert.match(html, /Field suggestion status|字段建议状态/);
@@ -116,7 +116,7 @@ test("AI suggestions panel renders trace placeholders and target-missing guidanc
     }
   });
 
-  assert.match(html, /Trace|来源链路/);
+  assert.match(html, /Trace|来源/);
   assert.match(html, /Trace placeholder: this linked review item exists, but its source\/target trace is incomplete\.|这条关联审阅项已经存在，但来源\/目标链路还不完整。/);
   assert.match(html, /missing target note|缺少目标笔记/);
   assert.match(html, /This linked review item is not connected to a target note yet\.|这条关联审阅项还没有连接到目标笔记。/i);
@@ -155,7 +155,7 @@ test("AI suggestions panel prefers canonical trace fields over incomplete item t
 
   assert.match(html, /artifact_trace_priority/);
   assert.match(html, /Target note<\/dt><dd>pn_trace|目标笔记<\/dt><dd>pn_trace/);
-  assert.match(html, /Target field<\/dt><dd>thesis|目标字段<\/dt><dd>thesis/);
+  assert.match(html, /Target field<\/dt><dd>thesis|保存位置<\/dt><dd>thesis/);
   assert.doesNotMatch(html, /Trace placeholder:/);
 });
 
@@ -464,6 +464,6 @@ test("AI suggestions panel marks the current suggestion detail busy while its re
 });
 
 test("AI suggestions panel renders loading and empty states", () => {
-  assert.match(renderAiSuggestionsPanel({ loading: true }), /正在加载待确认建议/);
-  assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合这些筛选条件的待确认建议/);
+  assert.match(renderAiSuggestionsPanel({ loading: true }), /正在加载待处理内容/);
+  assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合这些筛选条件的待处理内容/);
 });

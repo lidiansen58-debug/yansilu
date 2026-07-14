@@ -17119,7 +17119,7 @@
       gap: 16px;
       min-width: 0;
     }
-    .settings-automation-flow {
+    .settings-automation-status {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -17133,38 +17133,83 @@
       font-size: 12px;
       font-weight: 800;
       line-height: 1.35;
-      white-space: nowrap;
+      white-space: normal;
     }
-    .settings-automation-flow span {
-      width: 14px;
-      height: 1px;
-      background: rgba(15, 118, 110, 0.36);
+    .settings-automation-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #14b8a6;
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
     }
-    .settings-automation-layout {
+    .settings-automation-tabs {
       display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
-      gap: 14px;
-      align-items: start;
-      min-width: 0;
+      gap: 12px;
     }
-    .settings-automation-side {
-      display: grid;
-      gap: 14px;
+    .settings-automation-tab-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .settings-automation-tab-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid rgba(214, 226, 232, 0.96);
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.86);
+    }
+    .settings-automation-tab {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #475569;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 850;
+      line-height: 1.2;
+      user-select: none;
+    }
+    #settingsAutomationTabPending:checked ~ .settings-automation-tab-list label[for="settingsAutomationTabPending"],
+    #settingsAutomationTabRules:checked ~ .settings-automation-tab-list label[for="settingsAutomationTabRules"],
+    #settingsAutomationTabHistory:checked ~ .settings-automation-tab-list label[for="settingsAutomationTabHistory"] {
+      border-color: rgba(20, 184, 166, 0.22);
+      background: #ffffff;
+      color: #0f766e;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.07);
+    }
+    #settingsAutomationTabPending:focus-visible ~ .settings-automation-tab-list label[for="settingsAutomationTabPending"],
+    #settingsAutomationTabRules:focus-visible ~ .settings-automation-tab-list label[for="settingsAutomationTabRules"],
+    #settingsAutomationTabHistory:focus-visible ~ .settings-automation-tab-list label[for="settingsAutomationTabHistory"] {
+      outline: 2px solid rgba(20, 184, 166, 0.68);
+      outline-offset: 2px;
+    }
+    .settings-automation-tab-panels {
       min-width: 0;
     }
     .settings-automation-section {
+      display: none;
       min-width: 0;
       padding: 14px;
       border: 1px solid rgba(214, 226, 232, 0.96);
-      border-radius: 16px;
+      border-radius: 12px;
       background: rgba(255, 255, 255, 0.88);
       overflow: hidden;
     }
-    .settings-automation-primary {
+    #settingsAutomationTabPending:checked ~ .settings-automation-tab-panels .settings-automation-panel-pending,
+    #settingsAutomationTabRules:checked ~ .settings-automation-tab-panels .settings-automation-panel-rules,
+    #settingsAutomationTabHistory:checked ~ .settings-automation-tab-panels .settings-automation-panel-history {
+      display: block;
+    }
+    .settings-automation-panel-pending {
       border-color: rgba(153, 213, 190, 0.96);
       background:
         linear-gradient(180deg, rgba(246, 253, 249, 0.92), rgba(255, 255, 255, 0.96));
-      box-shadow: inset 4px 0 0 rgba(16, 133, 112, 0.88);
     }
     .settings-automation-section-head {
       display: flex;
@@ -17248,6 +17293,36 @@
     }
     .settings-automation-run-diagnostics .settings-canonical-grid {
       margin-top: 8px;
+    }
+    .settings-automation-action-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+      padding: 11px 12px;
+      border: 1px solid rgba(214, 226, 232, 0.96);
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.78);
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .settings-automation-action-strip > div:first-child {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .settings-automation-action-strip strong {
+      color: #172033;
+      font-weight: 850;
+    }
+    .settings-automation-action-state {
+      flex: 0 0 auto;
+      color: #64748b;
+      font-weight: 750;
+      white-space: nowrap;
     }
     .settings-template-editor {
       display: grid;
@@ -18928,15 +19003,20 @@
       .settings-ai-primary-head,
       .settings-ai-compact-grid,
       .settings-ai-advanced-body .settings-ai-compact-grid,
-      .settings-ai-quick-actions,
-      .settings-automation-layout {
+      .settings-ai-quick-actions {
         grid-template-columns: minmax(0, 1fr);
       }
       .settings-automation-head {
         display: grid;
       }
-      .settings-automation-flow {
+      .settings-automation-status {
         justify-self: start;
+        white-space: normal;
+      }
+      .settings-automation-action-strip {
+        display: grid;
+      }
+      .settings-automation-action-state {
         white-space: normal;
       }
       .settings-ai-primary-head {
