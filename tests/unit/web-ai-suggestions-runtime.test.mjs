@@ -104,6 +104,46 @@ test("refreshAiSuggestions can clear hidden filters before fetching suggestions"
   });
 });
 
+test("refreshAiSuggestions leaves the detail modal closed until the user selects a suggestion", async () => {
+  const detailLoads = [];
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "suggested", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [],
+      suggestionsTotal: 0,
+      selectedSuggestionId: "",
+      suggestionDetail: null,
+      suggestionDetailSuggestionId: "",
+      suggestionDetailRequestToken: 0,
+      suggestionsRequestToken: 0,
+      suggestionsLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
+      items: [{ id: "suggestion_1", status: "suggested" }],
+      total: 1
+    }),
+    loadAiSuggestionDetail: async (suggestionId) => {
+      detailLoads.push(suggestionId);
+      return { id: suggestionId };
+    }
+  });
+
+  await refreshAiSuggestions({ silent: true });
+
+  assert.deepEqual(settingsState.ai.suggestions.map((item) => item.id), ["suggestion_1"]);
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionDetail, null);
+  assert.equal(settingsState.ai.suggestionDetailSuggestionId, "");
+  assert.deepEqual(detailLoads, []);
+});
+
 test("loadAiSuggestionDetail ignores stale responses and keeps the latest selected suggestion detail", async () => {
   let resolveFirst;
   let resolveSecond;
@@ -1073,7 +1113,7 @@ test("applyAiSuggestionStatus keeps a failed review action bound to the original
   assert.deepEqual(statuses, [{ message: "AI suggestion update failed: failed after selection moved", tone: "bad" }]);
 });
 
-test("refreshAiSuggestions invalidates stale detail state when a list refresh switches the selected suggestion", async () => {
+test("refreshAiSuggestions closes stale detail when the selected suggestion disappears", async () => {
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -1102,7 +1142,7 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
 
   await refreshAiSuggestions({ silent: true });
 
-  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetail, null);
   assert.equal(settingsState.ai.suggestionDetailSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetailLoading, false);
@@ -1229,8 +1269,8 @@ test("refreshAiSuggestions ignores an older list response after a newer filter r
 
   assert.equal(settingsState.ai.suggestionsRequestToken, 2);
   assert.deepEqual(settingsState.ai.suggestions.map((item) => item.id), ["suggestion_new"]);
-  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_new");
-  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_new");
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionDetail, null);
   assert.equal(settingsState.ai.suggestionsError, "");
   assert.equal(settingsState.ai.suggestionsLoading, false);
 });
@@ -1330,7 +1370,7 @@ test("refreshAiSuggestions with preserveDetail keeps selection but invalidates s
   assert.equal(settingsState.ai.suggestionActionError, "");
 });
 
-test("refreshAiSuggestions with preserveDetail realigns selection and clears stale detail when the item disappears", async () => {
+test("refreshAiSuggestions with preserveDetail closes stale detail when the item disappears", async () => {
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -1359,7 +1399,7 @@ test("refreshAiSuggestions with preserveDetail realigns selection and clears sta
 
   await refreshAiSuggestions({ silent: true, preserveDetail: true });
 
-  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetail, null);
   assert.equal(settingsState.ai.suggestionDetailSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetailLoading, false);
