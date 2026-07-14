@@ -56,6 +56,12 @@ function readableFieldLabel(value = "") {
   return labels[clean] || (clean ? "笔记内容" : "保存位置");
 }
 
+function compactText(value = "", maxLength = 80) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
 function suggestionTargetNoteId(item = {}, display = null) {
   return String(
     display?.targetNoteId ||
@@ -64,9 +70,16 @@ function suggestionTargetNoteId(item = {}, display = null) {
   ).trim();
 }
 
-function suggestionNoteTitle(item = {}) {
-  const title = String(item.target?.title || item.target?.name || "").trim();
-  return title || "这篇笔记";
+function suggestionNoteTitle(item = {}, display = null) {
+  return String(
+    display?.targetTitle ||
+    display?.targetName ||
+    item.target?.title ||
+    item.target?.noteTitle ||
+    item.target?.note_title ||
+    item.target?.name ||
+    ""
+  ).trim();
 }
 
 function suggestionField(item = {}, display = null) {
@@ -74,7 +87,15 @@ function suggestionField(item = {}, display = null) {
 }
 
 function suggestionTitle(item = {}, display = null) {
-  return suggestionNoteTitle(item, display);
+  return suggestionNoteTitle(item, display) || `补${readableFieldLabel(suggestionField(item, display))}`;
+}
+
+function suggestionWorkLabel(item = {}, display = null) {
+  return `补${readableFieldLabel(suggestionField(item, display))}`;
+}
+
+function suggestionContentPreview(item = {}) {
+  return compactText(readableContent(item.content), 100);
 }
 
 function suggestionWithListContext(item = null, listItem = null) {
@@ -162,6 +183,9 @@ function renderControls(state = {}) {
 function renderItem(item = {}, selectedId = "") {
   const active = String(item.id || "") === String(selectedId || "");
   const fieldLabel = readableFieldLabel(item.target?.field);
+  const noteTitle = suggestionNoteTitle(item);
+  const workLabel = suggestionWorkLabel(item);
+  const preview = suggestionContentPreview(item);
   return `
     <button
       class="ai-inbox-item ${active ? "is-active" : ""}"
@@ -169,12 +193,13 @@ function renderItem(item = {}, selectedId = "") {
       data-ai-suggestion-id="${attr(item.id)}"
     >
       <span class="ai-inbox-item-head">
-        <strong>${escapeHtml(suggestionTitle(item))}</strong>
+        <strong>${escapeHtml(noteTitle || workLabel)}</strong>
         ${badge(readableStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
       </span>
-      <span class="ai-inbox-item-summary">${escapeHtml(readableContent(item.content))}</span>
+      ${noteTitle ? `<span class="ai-inbox-item-meta">准备处理：${escapeHtml(fieldLabel)}</span>` : ""}
+      <span class="ai-inbox-item-summary">${escapeHtml(preview ? `建议：${preview}` : "这条建议没有可预览的内容。")}</span>
       <span class="ai-inbox-item-meta">
-        <span>准备写入：${escapeHtml(fieldLabel)}</span>
+        <span>${escapeHtml(noteTitle ? "满意后保存为草稿" : "缺少笔记标题，先打开确认")}</span>
       </span>
     </button>
   `;
@@ -356,13 +381,16 @@ function renderLatestDetailState(detailLoading = false, detailError = "") {
 }
 
 function renderReviewSafety(item = {}, detailLoading = false, detailError = "", actionLoading = false, actionError = "", actionNotice = "", actionNoticeTone = "") {
+  const noteTitle = suggestionNoteTitle(item);
+  const workLabel = suggestionWorkLabel(item);
+  const preview = suggestionContentPreview(item);
   return `
     <article class="ai-inbox-detail ${actionLoading || detailLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">整理建议</div>
-          <h2>${escapeHtml(suggestionTitle(item))}</h2>
-          <p>${escapeHtml(`准备写入：${readableFieldLabel(suggestionField(item))} · ${readableStatusHint(item.status)}`)}</p>
+          <h2>${escapeHtml(noteTitle || workLabel)}</h2>
+          <p>${escapeHtml(noteTitle ? `${workLabel} · ${readableStatusHint(item.status)}` : `建议：${preview || "先读取详情再处理"}`)}</p>
         </div>
         ${badge(readableStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
       </header>
@@ -412,13 +440,16 @@ function renderDetail(state = {}) {
   });
   const displayStatus = display.status || String(item.status || "").trim();
   const displayItem = { ...item, status: displayStatus };
+  const noteTitle = suggestionNoteTitle(item, display);
+  const workLabel = suggestionWorkLabel(item, display);
+  const preview = suggestionContentPreview(item);
   return `
     <article class="ai-inbox-detail ${actionLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">整理建议</div>
-          <h2>${escapeHtml(suggestionTitle(item, display))}</h2>
-          <p>${escapeHtml(`准备写入：${readableFieldLabel(suggestionField(item, display))} · ${readableStatusHint(displayStatus)}`)}</p>
+          <h2>${escapeHtml(noteTitle || workLabel)}</h2>
+          <p>${escapeHtml(noteTitle ? `${workLabel} · ${readableStatusHint(displayStatus)}` : `建议：${preview || "先读取详情再处理"}`)}</p>
         </div>
         ${badge(readableStatusLabel(displayStatus), aiSuggestionStatusTone(displayStatus))}
       </header>

@@ -38,7 +38,8 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.doesNotMatch(html, /id="aiSuggestionScopeFilter"/);
   assert.match(html, /Inbox review target/);
   assert.match(html, /核心观点/);
-  assert.match(html, /准备写入：核心观点/);
+  assert.match(html, /准备处理：核心观点/);
+  assert.match(html, /补核心观点/);
   assert.doesNotMatch(html, /来自：AI 整理/);
   assert.match(html, /建议内容/);
   assert.match(html, /保存为草稿/);
@@ -79,10 +80,31 @@ test("AI suggestions detail keeps the note title when latest detail omits it", (
   }));
 
   assert.match(pane, /Inbox review target/);
-  assert.match(pane, /准备写入：三行摘要/);
+  assert.match(pane, /补三行摘要/);
   assert.doesNotMatch(pane, /<h2>三行摘要<\/h2>/);
   assert.doesNotMatch(visibleText(pane), /\bpn_[\w-]+/);
   assert.match(pane, /data-ai-suggestion-open-note="pn_1"/);
+});
+
+test("AI suggestions panel replaces vague missing-note titles with the work to do", () => {
+  const untitledSuggestion = {
+    ...suggestion,
+    id: "suggestion_missing_title",
+    target: { type: "permanent_note", id: "pn_missing_title", field: "thesis" },
+    content: "临时记录必须承诺下一步"
+  };
+  const html = renderAiSuggestionsPanel({
+    items: [untitledSuggestion],
+    total: 1,
+    selectedSuggestionId: "suggestion_missing_title",
+    detail: untitledSuggestion
+  });
+
+  assert.match(html, /补核心观点/);
+  assert.match(html, /建议：临时记录必须承诺下一步/);
+  assert.match(html, /缺少笔记标题，先打开确认/);
+  assert.doesNotMatch(html, /这篇笔记/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel renders edited action for adopted draft suggestions in plain language", () => {
