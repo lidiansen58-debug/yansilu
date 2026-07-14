@@ -104,6 +104,34 @@ test("graph canvas event router keeps escape key selection handling outside prot
   assert.equal(calls[1][1], "ok");
 });
 
+test("graph canvas event router lets selection close bypass suppressed viewport clicks", async () => {
+  const graphCanvas = createGraphCanvas();
+  const graphState = { selection: { kind: "node", nodeId: "a" } };
+  const calls = [];
+
+  bindGraphCanvasEvents(graphCanvas, {
+    graphState,
+    graphViewportDragState: { suppressClickUntil: Date.now() + 1000 },
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (message, level) => calls.push(["status", level, message])
+  });
+
+  await graphCanvas.listeners.get("click")[0].handler({
+    preventDefault: () => calls.push(["prevent"]),
+    stopImmediatePropagation: () => calls.push(["stop-immediate"]),
+    stopPropagation: () => calls.push(["stop"]),
+    target: targetWithClosest({
+      "[data-graph-selection-close]": elementWithAttrs({ "data-graph-selection-close": "" }),
+      ".graph-map-viewport": elementWithAttrs({})
+    })
+  });
+
+  assert.equal(graphState.selection, null);
+  assert.deepEqual(calls.slice(0, 3), [["prevent"], ["stop-immediate"], ["stop"]]);
+  assert.equal(calls[3][0], "render");
+  assert.equal(calls[4][0], "status");
+});
+
 test("graph canvas event router opens relation composer without falling back to legacy graph form", async () => {
   const graphCanvas = createGraphCanvas();
   const calls = [];
