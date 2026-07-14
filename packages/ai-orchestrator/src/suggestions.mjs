@@ -48,6 +48,8 @@ function normalizeTarget(input = {}) {
   );
   const id = cleanText(target.id || input.targetId || input.target_id);
   const field = cleanText(target.field || input.targetField || input.target_field);
+  const title = cleanText(target.title || target.noteTitle || target.note_title || input.targetTitle || input.target_title);
+  const name = cleanText(target.name || input.targetName || input.target_name);
 
   if (!type || !id) {
     throw createSuggestionError(
@@ -56,7 +58,13 @@ function normalizeTarget(input = {}) {
     );
   }
 
-  return field ? { type, id, field } : { type, id };
+  return {
+    type,
+    id,
+    ...(field ? { field } : {}),
+    ...(title ? { title } : {}),
+    ...(name && !title ? { name } : {})
+  };
 }
 
 function normalizeContent(value) {

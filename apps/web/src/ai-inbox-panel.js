@@ -277,7 +277,7 @@ function renderList(state = {}) {
     return `<div class="ai-inbox-empty is-bad">AI 建议加载失败：${escapeHtml(state.error)}</div>`;
   }
   if (!items.length) {
-    return `<div class="ai-inbox-empty">当前筛选下没有待处理建议。你可以刷新，或运行一次关系扫描/反思任务后再回来处理。</div>`;
+    return `<div class="ai-inbox-empty">当前筛选下没有待处理建议。你可以刷新，或运行一次“发现相关笔记”/“提醒我回看”/“发现可写主题”后再回来处理。</div>`;
   }
   return `<div class="ai-inbox-list">${items.map((item) => renderItem(item, state.selectedArtifactId)).join("")}</div>`;
 }

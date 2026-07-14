@@ -685,7 +685,7 @@ function shouldPreferLocalForHybridRoute({ settingsInput = {}, userSettings = {}
   const tier = requestedModelTier(input, agent);
   if (agentId === "connection_agent") return { preferLocal: true, reason: "lightweight_agent" };
   if (["router_fast", "cheap_fast", "guardrail", "local_private"].includes(tier)) return { preferLocal: true, reason: "lightweight_tier" };
-  if (/relation|link|tag|classif|summar|summary|title|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
+  if (/relation|link|tag|classif|summar|summary|title|theme|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
   return { preferLocal: false, reason: "cloud_preferred_task" };
 }
 
@@ -1963,6 +1963,21 @@ async function loadNotesByIds(noteIds = []) {
     items.push(await getNoteById(VAULT_PATH, noteId));
   }
   return items;
+}
+
+async function suggestionWithReadableTarget(item = null) {
+  if (!item?.target?.id || item.target.title || item.target.name) return item;
+  try {
+    const note = await getNoteById(VAULT_PATH, item.target.id);
+    const title = cleanText(note?.title || note?.thesis);
+    return title ? { ...item, target: { ...item.target, title } } : item;
+  } catch {
+    return item;
+  }
+}
+
+async function suggestionsWithReadableTargets(items = []) {
+  return Promise.all((Array.isArray(items) ? items : []).map((item) => suggestionWithReadableTarget(item)));
 }
 
 function defaultUserForEmail(email = "") {
@@ -4520,13 +4535,14 @@ const server = http.createServer(async (req, res) => {
           scope: url.searchParams.get("scope") || "",
           limit: Number(url.searchParams.get("limit") || 50)
         });
+        const readableItems = await suggestionsWithReadableTargets(items);
         return sendJson(res, 200, withCanonical({
-          items,
-          total: items.length,
+          items: readableItems,
+          total: readableItems.length,
           requestId: rid,
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
-          items: items.map((item) => suggestionToCanonical(item))
+          items: readableItems.map((item) => suggestionToCanonical(item))
         } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LIST_FAILED", String(error?.message || error), rid, error?.details));
@@ -4538,7 +4554,7 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const store = await aiSuggestionStore();
-        const item = store.create(body, { now: new Date().toISOString() });
+        const item = await suggestionWithReadableTarget(store.create(body, { now: new Date().toISOString() }));
         return sendJson(res, 201, withCanonical({
           item,
           requestId: rid,
@@ -4556,7 +4572,7 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const store = await aiSuggestionStore();
-        const item = store.get(aiSuggestionId);
+        const item = await suggestionWithReadableTarget(store.get(aiSuggestionId));
         if (!item) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
         const sourceArtifact = await sourceArtifactForSuggestion(item);
         const projectedArtifact = artifactWithProjectedSuggestionState(sourceArtifact, item);
@@ -4605,10 +4621,10 @@ const server = http.createServer(async (req, res) => {
             sourceArtifact,
             body
           });
-          item = rejected.item;
+          item = await suggestionWithReadableTarget(rejected.item);
           syncedArtifact = rejected.artifact;
         } else {
-          item = store.transition(aiSuggestionId, toStatus, body);
+          item = await suggestionWithReadableTarget(store.transition(aiSuggestionId, toStatus, body));
         }
         const finalSourceArtifact = syncedArtifact || (await sourceArtifactForSuggestion(item));
         const projectedArtifact = artifactWithProjectedSuggestionState(finalSourceArtifact, item);

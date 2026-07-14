@@ -13,22 +13,31 @@ const TASK_TYPES = new Set([
   "research_scan",
   "source_monitor",
   "relation_scan",
+  "writable_theme_discovery",
   "project_digest",
   "reflection_prompt",
   "originality_check"
 ]);
 
+const LOCAL_DISCOVERY_TASK_TYPES = new Set(["relation_scan", "writable_theme_discovery"]);
+
+function defaultAgentIdForTaskType(taskType = "") {
+  if (taskType === "relation_scan") return "connection_agent";
+  if (taskType === "writable_theme_discovery") return "theme_agent";
+  return "reflection_agent";
+}
+
 const SCHEDULED_TASK_TEMPLATES = [
   {
     templateId: "weekly_link_suggestions",
-    name: "Weekly link suggestions",
-    description: "Find candidate relationships among selected notes or keyword scopes.",
+    name: "发现相关笔记",
+    description: "定期找出可能有关联的笔记，先放到待处理里等你确认。",
     implementationReady: true,
     defaultStatus: "active",
     task: {
       taskType: "relation_scan",
       agentId: "connection_agent",
-      schedule: { type: "weekly", timezone: "local", dayOfWeek: "monday", time: "09:00" },
+      schedule: { type: "daily", timezone: "local", time: "16:00" },
       scope: { noteIds: [], keywords: [], includePrivateNotes: false },
       model: { userMode: "Economy", maxTier: "standard", allowStrongReasoning: false },
       budget: { maxRunsPerPeriod: 1, maxEstimatedCostPerRun: 0.25, maxEstimatedCostPerPeriod: 0.5, period: "week" },
@@ -38,19 +47,40 @@ const SCHEDULED_TASK_TEMPLATES = [
   },
   {
     templateId: "reflection_reminder",
-    name: "Reflection reminder",
-    description: "Surface one high-signal question from a selected note or theme.",
+    name: "提醒我回看",
+    description: "定期挑出值得回看的笔记，先放到待处理里等你确认。",
     implementationReady: true,
     defaultStatus: "active",
     task: {
       taskType: "reflection_prompt",
       agentId: "reflection_agent",
-      schedule: { type: "weekly", timezone: "local", dayOfWeek: "friday", time: "16:00" },
+      schedule: { type: "daily", timezone: "local", time: "16:00" },
       scope: { noteIds: [], keywords: [], includePrivateNotes: false },
       model: { userMode: "Balanced", maxTier: "standard", allowStrongReasoning: false },
       budget: { maxRunsPerPeriod: 1, maxEstimatedCostPerRun: 0.35, maxEstimatedCostPerPeriod: 0.7, period: "week" },
       privacy: { mode: "normal", allowCloudModels: true, requireConfirmationForPrivateNotes: true },
       output: { destination: "ai_inbox", artifactTypes: ["ReflectionPrompt"], notifyUser: "only_if_high_signal" }
+    }
+  },
+  {
+    templateId: "writable_theme_discovery",
+    name: "发现可写主题",
+    description: "定期从笔记里找出适合开始写作的主题，先放到待处理里等你确认。",
+    implementationReady: true,
+    defaultStatus: "active",
+    task: {
+      taskType: "writable_theme_discovery",
+      agentId: "theme_agent",
+      schedule: { type: "daily", timezone: "local", time: "16:00" },
+      scope: { noteIds: [], keywords: [], includePrivateNotes: false },
+      model: { userMode: "Economy", maxTier: "standard", allowStrongReasoning: false },
+      budget: { maxRunsPerPeriod: 1, maxEstimatedCostPerRun: 0.25, maxEstimatedCostPerPeriod: 0.5, period: "week" },
+      privacy: { mode: "normal", allowCloudModels: true, requireConfirmationForPrivateNotes: true },
+      output: { destination: "ai_inbox", artifactTypes: ["InsightCard"], notifyUser: "digest" },
+      runInput: {
+        userInstruction:
+          "Find writable themes supported by the selected notes. Prefer concrete theme titles, source note ids, and a clear next action."
+      }
     }
   },
   {
@@ -322,7 +352,7 @@ export function normalizeScheduledAgentTask(input = {}, existing = {}) {
     taskType,
     agentId:
       cleanText(input.agentId || input.agent_id || existing.agentId || existing.agent_id) ||
-      (taskType === "relation_scan" ? "connection_agent" : "reflection_agent"),
+      defaultAgentIdForTaskType(taskType),
     schedule: normalizeSchedule({ schedule: input.schedule || existing.schedule || {} }),
     scope: normalizeScope({ scope: input.scope || existing.scope || {} }),
     model: normalizeModel({ model: input.model || existing.model || {}, ...input }),
@@ -634,12 +664,12 @@ export function buildScheduledTaskHarnessInput(task = {}, input = {}) {
     modelTier: task.model?.maxTier || "standard",
     privacyMode: task.privacy?.mode || "normal",
     expectedArtifactType: outputArtifactTypes[0],
-    timeoutMs: task.taskType === "relation_scan" ? DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS : undefined,
-    batchSize: task.taskType === "relation_scan" ? DEFAULT_SCHEDULED_LOCAL_AI_BATCH_SIZE : undefined,
+    timeoutMs: LOCAL_DISCOVERY_TASK_TYPES.has(task.taskType) ? DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS : undefined,
+    batchSize: LOCAL_DISCOVERY_TASK_TYPES.has(task.taskType) ? DEFAULT_SCHEDULED_LOCAL_AI_BATCH_SIZE : undefined,
     reviewOnly: true,
     progress: {
       status: "queued",
-      label: task.taskType === "relation_scan" ? "Scanning potential relation candidates" : "Running scheduled AI task",
+      label: LOCAL_DISCOVERY_TASK_TYPES.has(task.taskType) ? "Scanning notes for suggestions" : "Running scheduled AI task",
       retryable: true
     },
     budget: {
@@ -649,7 +679,7 @@ export function buildScheduledTaskHarnessInput(task = {}, input = {}) {
     },
     ...(noteIds.length ? { noteIds } : {}),
     ...(!noteIds.length && searchNotes ? { searchNotes } : {}),
-    ...(task.taskType === "relation_scan"
+    ...(LOCAL_DISCOVERY_TASK_TYPES.has(task.taskType)
       ? {
           graphContext: {
             includeTags: true,

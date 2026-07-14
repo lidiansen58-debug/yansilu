@@ -56,36 +56,17 @@ function readableFieldLabel(value = "") {
   return labels[clean] || (clean ? "笔记内容" : "保存位置");
 }
 
-function readableTypeLabel(value = "") {
-  const clean = String(value || "").trim();
-  const labels = {
-    permanent_note: "永久笔记",
-    literature_note: "文献笔记",
-    fleeting_note: "临时笔记",
-    project_note: "项目笔记"
-  };
-  return labels[clean] || "笔记";
-}
-
-function readableOriginLabel(value = "") {
-  const clean = String(value || "").trim();
-  const labels = {
-    ai_generated: "AI 整理",
-    system_rule: "整理规则",
-    permanent_note_distillation: "笔记提炼",
-    note_field: "笔记字段"
-  };
-  return labels[clean] || "自动整理";
-}
-
 function suggestionTargetNoteId(item = {}, display = null) {
   return String(
     display?.targetNoteId ||
-    item.target?.title ||
-    item.target?.name ||
     item.target?.id ||
     ""
   ).trim();
+}
+
+function suggestionNoteTitle(item = {}) {
+  const title = String(item.target?.title || item.target?.name || "").trim();
+  return title || "这篇笔记";
 }
 
 function suggestionField(item = {}, display = null) {
@@ -93,7 +74,22 @@ function suggestionField(item = {}, display = null) {
 }
 
 function suggestionTitle(item = {}, display = null) {
-  return readableFieldLabel(suggestionField(item, display));
+  return suggestionNoteTitle(item, display);
+}
+
+function suggestionWithListContext(item = null, listItem = null) {
+  if (!item) return listItem;
+  if (!listItem) return item;
+  const listTitle = String(listItem.target?.title || listItem.target?.name || "").trim();
+  const itemTitle = String(item.target?.title || item.target?.name || "").trim();
+  if (itemTitle || !listTitle) return item;
+  return {
+    ...item,
+    target: {
+      ...(item.target || {}),
+      title: listTitle
+    }
+  };
 }
 
 function singleContentEntry(content) {
@@ -166,7 +162,6 @@ function renderControls(state = {}) {
 function renderItem(item = {}, selectedId = "") {
   const active = String(item.id || "") === String(selectedId || "");
   const fieldLabel = readableFieldLabel(item.target?.field);
-  const typeLabel = readableTypeLabel(item.target?.type);
   return `
     <button
       class="ai-inbox-item ${active ? "is-active" : ""}"
@@ -179,9 +174,7 @@ function renderItem(item = {}, selectedId = "") {
       </span>
       <span class="ai-inbox-item-summary">${escapeHtml(readableContent(item.content))}</span>
       <span class="ai-inbox-item-meta">
-        <span>${escapeHtml(typeLabel)}</span>
-        <span>写入：${escapeHtml(fieldLabel)}</span>
-        <span>来自：${escapeHtml(readableOriginLabel(item.origin))}</span>
+        <span>准备写入：${escapeHtml(fieldLabel)}</span>
       </span>
     </button>
   `;
@@ -369,7 +362,7 @@ function renderReviewSafety(item = {}, detailLoading = false, detailError = "", 
         <div>
           <div class="ai-inbox-detail-kicker">整理建议</div>
           <h2>${escapeHtml(suggestionTitle(item))}</h2>
-          <p>${escapeHtml(readableStatusHint(item.status))}</p>
+          <p>${escapeHtml(`准备写入：${readableFieldLabel(suggestionField(item))} · ${readableStatusHint(item.status)}`)}</p>
         </div>
         ${badge(readableStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
       </header>
@@ -393,7 +386,7 @@ function renderDetail(state = {}) {
   const selectedListItem = state.items?.find((entry) => String(entry.id || "") === selectedSuggestionId) || null;
   const detail = suggestionDetailRecord(state.detail);
   const detailMatchesSelection = String(detail.item?.id || "").trim() && String(detail.item?.id || "").trim() === selectedSuggestionId;
-  const item = (detailMatchesSelection ? detail.item : null) || selectedListItem || null;
+  const item = detailMatchesSelection ? suggestionWithListContext(detail.item, selectedListItem) : selectedListItem;
   if (!item) {
     if (detailLoading) return `<div class="scheduled-task-empty">正在加载建议详情...</div>`;
     if (detailError) return `<div class="scheduled-task-empty is-bad">详情加载失败：${escapeHtml(detailError)}</div>`;
@@ -425,7 +418,7 @@ function renderDetail(state = {}) {
         <div>
           <div class="ai-inbox-detail-kicker">整理建议</div>
           <h2>${escapeHtml(suggestionTitle(item, display))}</h2>
-          <p>${escapeHtml(`${readableTypeLabel(item.target?.type)} · ${readableStatusHint(displayStatus)}`)}</p>
+          <p>${escapeHtml(`准备写入：${readableFieldLabel(suggestionField(item, display))} · ${readableStatusHint(displayStatus)}`)}</p>
         </div>
         ${badge(readableStatusLabel(displayStatus), aiSuggestionStatusTone(displayStatus))}
       </header>

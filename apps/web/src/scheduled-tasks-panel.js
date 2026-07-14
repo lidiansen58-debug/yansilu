@@ -44,6 +44,25 @@ function badge(text = "", tone = "") {
   return `<span class="settings-stat-badge ${cleanTone ? escapeHtml(cleanTone) : ""}">${escapeHtml(text)}</span>`;
 }
 
+function splitTextList(value = "") {
+  return String(value || "")
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function selectedScopeLabel(value = "", { currentId = "", currentLabel = "", kind = "笔记" } = {}) {
+  const items = splitTextList(value);
+  if (!items.length) return "";
+  const cleanCurrentId = String(currentId || "").trim();
+  const label = String(currentLabel || "").trim();
+  if (items.length === 1 && cleanCurrentId && items[0] === cleanCurrentId) {
+    return label ? `当前${kind}：${label}` : `当前${kind}`;
+  }
+  const unit = kind === "笔记" ? "条" : "个";
+  return `已选择 ${items.length} ${unit}${kind}`;
+}
+
 function renderControls(state = {}) {
   const filters = normalizeScheduledTaskFilters(state.filters || {});
   return `
@@ -81,6 +100,16 @@ function renderTaskForm(state = {}) {
   const form = { ...fallbackForm, ...(state.form || {}) };
   const editing = Boolean(String(form.scheduledTaskId || "").trim());
   const showHead = !state.compact || editing || state.templatesLoading || state.templatesError;
+  const noteScopeLabel = selectedScopeLabel(form.noteIdsText, {
+    currentId: state.currentNoteId || "",
+    currentLabel: state.currentNoteLabel || "",
+    kind: "笔记"
+  });
+  const directoryScopeLabel = selectedScopeLabel(form.directoryIdsText, {
+    currentId: state.currentDirectoryId || "",
+    currentLabel: state.currentDirectoryLabel || "",
+    kind: "目录"
+  });
   return `
     <form class="scheduled-task-form" id="scheduledTaskForm">
       ${showHead ? `
@@ -91,23 +120,24 @@ function renderTaskForm(state = {}) {
           </div>
           <div class="settings-stat-row">
             ${editing ? badge(`编辑中 ${form.scheduledTaskId}`, "warn") : badge("草稿", "muted")}
-            ${state.templatesLoading ? badge("模板加载中", "warn") : ""}
-            ${state.templatesError ? badge("模板加载失败", "bad") : ""}
+            ${state.templatesLoading ? badge("整理类型加载中", "warn") : ""}
+            ${state.templatesError ? badge("整理类型加载失败", "bad") : ""}
           </div>
         </div>
       ` : ""}
       <div class="scheduled-task-form-grid">
         <label>
-          <span>模板</span>
+          <span>整理类型</span>
           <select id="scheduledTaskTemplateSelect" ${editing ? "disabled" : ""}>
             ${templates
               .map((template) => `<option value="${attr(template.value)}" ${template.value === form.templateId ? "selected" : ""}>${escapeHtml(template.label)}</option>`)
               .join("")}
           </select>
+          <small>决定这条规则要做什么；结果会先放到待处理。</small>
         </label>
         <label>
           <span>规则名称</span>
-          <input id="scheduledTaskNameInput" value="${attr(form.name)}" placeholder="每周关系建议" />
+          <input id="scheduledTaskNameInput" value="${attr(form.name)}" placeholder="例如：每周整理写作关系" />
         </label>
         <label>
           <span>状态</span>
@@ -119,6 +149,7 @@ function renderTaskForm(state = {}) {
         <label>
           <span>整理时间</span>
           <select id="scheduledTaskScheduleTypeSelect">
+            <option value="daily" ${form.scheduleType === "daily" ? "selected" : ""}>每天</option>
             <option value="weekly" ${form.scheduleType === "weekly" ? "selected" : ""}>每周</option>
             <option value="interval" ${form.scheduleType === "interval" ? "selected" : ""}>间隔</option>
             <option value="manual_only" ${form.scheduleType === "manual_only" ? "selected" : ""}>仅手动</option>
@@ -149,20 +180,22 @@ function renderTaskForm(state = {}) {
           <input id="scheduledTaskIntervalInput" type="number" min="5" step="5" value="${attr(form.intervalMinutes)}" />
       </label>
       <label>
-          <span>指定笔记编号</span>
-          <input id="scheduledTaskNoteIdsInput" value="${attr(form.noteIdsText)}" placeholder="note_1, note_2" />
+          <span>只整理这些笔记</span>
+          <input id="scheduledTaskNoteIdsDisplayInput" value="${attr(noteScopeLabel)}" placeholder="默认不限制；可点下方选择当前笔记" readonly />
+          <input id="scheduledTaskNoteIdsInput" type="hidden" value="${attr(form.noteIdsText)}" />
       </label>
       <label>
-          <span>指定目录编号</span>
-          <input id="scheduledTaskDirectoryIdsInput" value="${attr(form.directoryIdsText)}" placeholder="dir_original_default" />
+          <span>只整理这些目录</span>
+          <input id="scheduledTaskDirectoryIdsDisplayInput" value="${attr(directoryScopeLabel)}" placeholder="默认不限制；可点下方选择当前目录" readonly />
+          <input id="scheduledTaskDirectoryIdsInput" type="hidden" value="${attr(form.directoryIdsText)}" />
       </label>
         <label>
           <span>标签</span>
-          <input id="scheduledTaskTagsInput" value="${attr(form.tagsText)}" placeholder="writing, source-gap" />
+          <input id="scheduledTaskTagsInput" value="${attr(form.tagsText)}" placeholder="#写作, #素材缺口" />
         </label>
         <label>
           <span>关键词</span>
-          <input id="scheduledTaskKeywordsInput" value="${attr(form.keywordsText)}" placeholder="bridge concept" />
+          <input id="scheduledTaskKeywordsInput" value="${attr(form.keywordsText)}" placeholder="关系、概念、证据" />
         </label>
         <label class="scheduled-task-checkbox">
           <input id="scheduledTaskIncludePrivateInput" type="checkbox" ${form.includePrivateNotes ? "checked" : ""} />
