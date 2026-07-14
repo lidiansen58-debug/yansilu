@@ -6075,6 +6075,7 @@ bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps(
   refreshAiSuggestions,
   loadAiSuggestionDetail,
   applyAiSuggestionStatus,
+  render: renderAiSuggestionsWorkspace,
   activateModule,
   openNoteById,
   setStatus
