@@ -194,16 +194,62 @@ async function currentAppVersion() {
 }
 
 async function apiHealthPayload() {
+  const readiness = await apiReadinessPayload();
   return {
     app: "yansilu",
-    ok: apiReady,
+    ok: apiReady && readiness.ready,
     service: "api",
     pid: process.pid,
     port: PORT,
     vaultPath: VAULT_PATH,
+    ready: apiReady && readiness.ready,
+    readiness,
     timestamp: new Date().toISOString(),
     version: await currentAppVersion(),
     startupError: apiStartupError || undefined
+  };
+}
+
+async function pathWritableStatus(targetDir = "") {
+  const filePath = path.join(targetDir, ".yansilu", ".healthcheck-write");
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, String(Date.now()), "utf8");
+    await fs.rm(filePath, { force: true });
+    return { status: "ready", writable: true, message: "" };
+  } catch (error) {
+    return {
+      status: "blocked",
+      writable: false,
+      message: cleanText(error?.message || error)
+    };
+  }
+}
+
+async function apiReadinessPayload() {
+  const vaultExists = await fs.stat(VAULT_PATH).then((item) => item.isDirectory()).catch(() => false);
+  const storage = vaultExists ? await pathWritableStatus(VAULT_PATH) : {
+    status: "blocked",
+    writable: false,
+    message: "Vault directory does not exist."
+  };
+  const vaultStatus = vaultExists && storage.writable ? "ready" : "blocked";
+  return {
+    ready: apiReady && vaultStatus === "ready" && storage.status === "ready",
+    vault: {
+      status: vaultStatus,
+      path: VAULT_PATH,
+      exists: vaultExists
+    },
+    storage,
+    dependencies: {
+      ollama: {
+        status: "external",
+        managed: false,
+        baseUrl: OLLAMA_BASE_URL,
+        recovery: "bounded_by_local_runtime_control"
+      }
+    }
   };
 }
 
@@ -4054,6 +4100,63 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 500, err("AI_PREFERENCES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/local-runtimes/ollama/recovery") {
+      try {
+        const model = url.searchParams.get("model") || "";
+        const runtimeMode = url.searchParams.get("runtimeMode") || url.searchParams.get("runtime_mode") || "";
+        const runtime = await buildOllamaModelsPreview();
+        const bootstrap = await buildOllamaBootstrapPreview({ model, runtimeMode });
+        return sendJson(res, 200, {
+          item: {
+            runtimeId: "ollama",
+            status: bootstrap.status,
+            ready: bootstrap.ready,
+            nextAction: bootstrap.nextAction,
+            message: bootstrap.message,
+            runtime,
+            bootstrap,
+            boundary: {
+              externalProcessSafe: true,
+              stopsUserProcesses: false,
+              canStopManagedSessionOnly: true
+            }
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, error?.status || 500, err("OLLAMA_RECOVERY_PREVIEW_FAILED", String(error?.message || error), rid, error?.details || {}));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/recovery") {
+      try {
+        assertLocalRuntimeControlAllowed(req);
+        const body = await readJson(req);
+        const item = await bootstrapOllamaLocalAi({
+          ...body,
+          autoStart: body.autoStart !== false && body.auto_start !== false,
+          pullModel: body.pullModel !== false && body.pull_model !== false,
+          enableConfig: body.enableConfig !== false && body.enable_config !== false,
+          healthCheck: body.healthCheck !== false && body.health_check !== false
+        });
+        return sendJson(res, 200, {
+          item: {
+            ...item,
+            boundary: {
+              externalProcessSafe: true,
+              stopsUserProcesses: false,
+              canStopManagedSessionOnly: true
+            }
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, error?.status || 502, err("OLLAMA_RECOVERY_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 
