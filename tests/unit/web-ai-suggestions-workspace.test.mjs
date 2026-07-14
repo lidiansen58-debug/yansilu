@@ -65,6 +65,30 @@ test("AI suggestions workspace render mounts panel html from injected renderer",
   });
 });
 
+test("AI suggestions workspace fills missing target titles from known notes", () => {
+  const mount = { innerHTML: "" };
+  const state = {
+    suggestions: [
+      {
+        id: "suggestion_title",
+        target: { type: "permanent_note", id: "pn_title", field: "thesis" },
+        content: "Draft claim"
+      }
+    ],
+    suggestionsTotal: 1,
+    suggestionFilters: { status: "suggested" }
+  };
+  const rendered = renderAiSuggestionsWorkspaceView({
+    mount,
+    state,
+    notes: [{ id: "pn_title", title: "真正的笔记标题" }],
+    renderPanel: (panelState) => `<section>${panelState.items[0].target.title}:${panelState.items[0].target.id}</section>`
+  });
+
+  assert.equal(rendered, true);
+  assert.equal(mount.innerHTML, "<section>真正的笔记标题:pn_title</section>");
+});
+
 test("AI suggestions workspace reads filters and reviewed content from the current DOM", () => {
   const elements = {
     aiSuggestionStatusFilter: { value: "suggested" },
@@ -136,6 +160,23 @@ test("AI suggestions workspace reads filters and reviewed content from the curre
     getElement: (id) => elements[id],
     current: { content: { title: "Original", summary: "Keep" } }
   }), /valid JSON/);
+});
+
+test("AI suggestions workspace reads the editor for the suggestion being reviewed", () => {
+  const elements = {
+    aiSuggestionContentEditor: { value: "First suggestion text" },
+    "aiSuggestionContentEditor-suggestion_summary": { value: "Second suggestion text" }
+  };
+
+  assert.equal(aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { id: "suggestion_summary", content: "Original summary" }
+  }), "Second suggestion text");
+
+  assert.equal(aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { id: "suggestion_missing_editor", content: "Original thesis" }
+  }), "First suggestion text");
 });
 
 test("AI suggestions workspace routes filter, list, action, and open-note clicks through injected handlers", async () => {

@@ -401,6 +401,102 @@ test("applyAiSuggestionStatus reloads the latest detail instead of submitting ag
   assert.equal(result, null);
   assert.equal(updateCalls, 0);
   assert.deepEqual(loadCalls, ["suggestion_1"]);
+  assert.deepEqual(statuses, []);
+  assert.equal(settingsState.ai.suggestionActionNoticeSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionActionNotice, "");
+  assert.equal(settingsState.ai.suggestionActionNoticeTone, "");
+});
+
+test("applyAiSuggestionStatus loads the clicked grouped suggestion before submitting it", async () => {
+  const statuses = [];
+  const loadCalls = [];
+  let updateCalls = 0;
+  const settingsState = {
+    ai: {
+      suggestions: [
+        { id: "suggestion_1", status: "edited", content: { thesis: "Current detail." } },
+        { id: "suggestion_2", status: "edited", content: { threeLineSummary: ["List fallback only."] } }
+      ],
+      suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Current detail." } } },
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionError: ""
+    }
+  };
+
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
+    () => ({ value: "" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ threeLineSummary: ["Edited"] }),
+    async () => {
+      updateCalls += 1;
+      return null;
+    },
+    async () => null,
+    async (suggestionId) => {
+      loadCalls.push(suggestionId);
+      settingsState.ai.suggestionDetail = {
+        item: { id: suggestionId, status: "edited", content: { threeLineSummary: ["Fresh detail."] } }
+      };
+      settingsState.ai.selectedSuggestionId = suggestionId;
+      return settingsState.ai.suggestionDetail;
+    },
+    () => {},
+    (message, tone) => statuses.push({ message, tone }),
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_2", "confirmed");
+  assert.equal(result, null);
+  assert.equal(updateCalls, 0);
+  assert.deepEqual(loadCalls, ["suggestion_2"]);
+  assert.deepEqual(statuses, []);
+  assert.equal(settingsState.ai.suggestionActionNoticeSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionActionNotice, "");
+  assert.equal(settingsState.ai.suggestionActionNoticeTone, "");
+});
+
+test("applyAiSuggestionStatus shows a safety notice when clicked suggestion detail still is not available", async () => {
+  const statuses = [];
+  const loadCalls = [];
+  let updateCalls = 0;
+  const settingsState = {
+    ai: {
+      suggestions: [{ id: "suggestion_1", status: "edited", content: { thesis: "List fallback only." } }],
+      suggestionDetail: null,
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionError: ""
+    }
+  };
+
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
+    () => ({ value: "" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ thesis: "Edited" }),
+    async () => {
+      updateCalls += 1;
+      return null;
+    },
+    async () => null,
+    async (suggestionId) => {
+      loadCalls.push(suggestionId);
+      settingsState.ai.suggestionDetail = null;
+      return null;
+    },
+    () => {},
+    (message, tone) => statuses.push({ message, tone }),
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
+  assert.equal(result, null);
+  assert.equal(updateCalls, 0);
+  assert.deepEqual(loadCalls, ["suggestion_1"]);
   assert.deepEqual(statuses, [
     {
       message: "AI suggestion detail is not ready yet. Retry after the latest detail loads.",

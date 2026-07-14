@@ -2037,7 +2037,8 @@ function renderScheduledTasksWorkspace() {
 function renderAiSuggestionsWorkspace() {
   renderAiSuggestionsWorkspaceView({
     mount: $("settingsAiSuggestionsPanel"),
-    state: settingsState.ai
+    state: settingsState.ai,
+    notes: state.notes
   });
 }
 
