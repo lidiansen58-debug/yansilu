@@ -20,8 +20,7 @@ import {
 } from "./prototype-api.js";
 import {
   noteSuggestionReviewContent,
-  renderNoteEmbeddedAiWorkspace,
-  renderNoteEmbeddedAiWorkspaceSection
+  renderNoteEmbeddedAiWorkspace
 } from "./note-embedded-ai-workspace.js";
 import { aiSuggestionStatusLabel } from "./ai-suggestions-model.js";
 import {
@@ -337,33 +336,10 @@ export class EditorPane {
     this.bottomNoticeTimer = null;
     this.lastBottomNoticeKey = "";
     this.lastThinkingStatusNoticeKey = "";
-    this.ensureContextualAiToolbarButtons();
     this.bind();
     this.renderPreviewVisibility();
     this.initRichEditor();
     this.initMarkdownEditor();
-  }
-
-  ensureContextualAiToolbarButtons() {
-    if (this.els.checkNoteAi || !this.els.distillSourceAi?.parentElement) return;
-    const button = document.createElement("button");
-    button.className = "tb tb-label has-icon hidden";
-    button.id = "btnCheckNoteAi";
-    button.type = "button";
-    button.dataset.contextualAiActionId = "check_note";
-    button.title = "生成 AI 建议";
-    button.dataset.tip = "生成 AI 建议";
-    button.setAttribute("aria-label", "生成 AI 建议");
-    button.innerHTML = `
-      <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M4 2.4h6.2L13 5.2v7.1a1.3 1.3 0 0 1-1.3 1.3H4.3A1.3 1.3 0 0 1 3 12.3V3.7a1.3 1.3 0 0 1 1.3-1.3z" fill="none" stroke="currentColor" stroke-width="1.15"/>
-        <path d="M10.2 2.5v2a.8.8 0 0 0 .8.8h2M5.2 7.2h4.4M5.2 9.4h2.6" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>
-        <path d="M10.1 10.8l1 1 2-2.3" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span>AI 建议</span>
-    `;
-    this.els.distillSourceAi.parentElement.insertBefore(button, this.els.distillSourceAi.nextSibling);
-    this.els.checkNoteAi = button;
   }
 
   async autoSaveTabById(tabId, trigger = "idle") {
@@ -1549,11 +1525,8 @@ export class EditorPane {
     const active = this.detectActiveFormatting();
     const structured = this.isStructuredWorkspaceActive();
     const canUseRelationLink = this.isOriginalNote(this.activeNote());
-    const noteType = this.resolvedNoteType(this.activeNote());
-    const canCheckNote = noteType === "permanent" || noteType === "original";
     this.els.insertLink?.classList.toggle("hidden", !canUseRelationLink);
     this.els.distillSourceAi?.classList.add("hidden");
-    this.els.checkNoteAi?.classList.toggle("hidden", this.isOriginalRecordableSource(this.activeNote()) || !canCheckNote);
     if (this.els.distillSourceAi) {
       this.els.distillSourceAi.title = "创建永久笔记";
       this.els.distillSourceAi.dataset.tip = "创建永久笔记";
@@ -4283,7 +4256,7 @@ export class EditorPane {
     this.setInspectorVisible(true);
     this.activatePermanentWorkspaceTab("viewpoint");
     this.renderRelated();
-    this.onStatus("正在生成 AI 建议，结果可能需要等一下。", "warn");
+    this.onStatus("正在让 AI 帮你看这条笔记，结果可能需要等一下。", "warn");
     const ready = await this.onStateChange("ensure-ai-ready-for-feature", {
       feature: "note_analysis",
       noteId,
@@ -4361,7 +4334,7 @@ export class EditorPane {
     } catch (error) {
       clearAiRecommendationTimer();
       if (!this.isActiveNoteId(noteId)) return;
-      const message = String(error?.message || error || "AI 建议生成失败");
+      const message = String(error?.message || error || "AI帮看失败");
       this.noteAiSuggestionsState = {
         ...this.noteAiSuggestionsStateForNote(noteId),
         noteId,
@@ -4382,7 +4355,7 @@ export class EditorPane {
         }, noteId);
         this.syncPermanentRelationWorkspaceOverlay();
       }
-      this.onStatus("AI 建议生成失败，请稍后重试", "warn");
+      this.onStatus("AI帮看失败，请稍后重试", "warn");
       return;
     }
     if (!result) {
@@ -4391,7 +4364,7 @@ export class EditorPane {
         ...this.noteAiSuggestionsStateForNote(noteId),
         noteId,
         loading: false,
-        error: "没有生成 AI 建议，请稍后重试。",
+        error: "AI 暂时没有给出建议，请稍后重试。",
         items: []
       };
       this.renderEmbeddedAiWorkspaceMount(noteId);
@@ -4445,7 +4418,7 @@ export class EditorPane {
       this.permanentRelationWorkspaceState = normalizePermanentRelationWorkspaceState(nextWorkspaceState, noteId);
       this.syncPermanentRelationWorkspaceOverlay();
     }
-    this.onStatus("AI 建议已更新", "ok");
+    this.onStatus("AI帮看已完成", "ok");
   }
 
   setSourceDistillAiState(nextState = null) {
@@ -5413,11 +5386,6 @@ export class EditorPane {
 
   renderNoteEmbeddedAiWorkspaceForNote(noteId = "") {
     return renderNoteEmbeddedAiWorkspace(this.noteAiSuggestionsStateForNote(noteId));
-  }
-
-  renderNoteEmbeddedAiWorkspaceSectionForNote(note) {
-    if (!note?.id) return "";
-    return renderNoteEmbeddedAiWorkspaceSection(note, this.noteAiSuggestionsStateForNote(note.id));
   }
 
   noteAiSuggestionsStateForNote(noteId = "") {
@@ -6965,9 +6933,6 @@ export class EditorPane {
 
     this.els.recordPermanent?.addEventListener("click", recordSourceAsPermanent);
     this.els.distillSourceAi?.addEventListener("click", recordSourceAsPermanent);
-    this.els.checkNoteAi?.addEventListener("click", () => {
-      void this.runPermanentNoteAnalysis();
-    });
 
     this.els.completeNote?.addEventListener("click", async () => {
       await this.saveActiveNote({ markLiteratureComplete: true });

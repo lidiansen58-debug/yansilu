@@ -31,7 +31,8 @@ test("graph visual map head renders task toolbar, queue, and density slots witho
   assert.match(html, /graph-map-primary-row/);
   assert.match(html, /graph-map-mode-hint/);
   assert.match(html, /找主题/);
-  assert.doesNotMatch(html, /data-run-graph-ai-analysis/);
+  assert.match(html, /data-run-graph-ai-analysis="theme"/);
+  assert.match(html, />找主题<\/button>/);
   assert.match(html, /<mode>index:bridge<\/mode>/);
   assert.match(html, /<filter><\/filter>/);
   assert.doesNotMatch(html, /<lens>/);

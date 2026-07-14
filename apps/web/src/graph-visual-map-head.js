@@ -42,8 +42,12 @@ export function buildGraphVisualMapHeadContent({
   } = runtimeState;
   const modeHint = graphMapModeHint(relationType, readingLens.key);
   const gapMode = !filterActive && relationType !== "index" && readingLens.key === "bridge";
+  const themeMode = !filterActive && relationType === "index";
   const gapAction = gapMode
     ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="gap">找缺口</button>`
+    : "";
+  const themeAction = themeMode
+    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="theme">找主题</button>`
     : "";
   return filterActive
     ? `
@@ -70,6 +74,7 @@ export function buildGraphVisualMapHeadContent({
         ${renderGraphViewModeSwitcher(relationType, readingLens.key)}
         <div class="graph-map-primary-actions">
           ${gapAction}
+          ${themeAction}
           ${compactRelationFilterMarkup}
         </div>
       </div>

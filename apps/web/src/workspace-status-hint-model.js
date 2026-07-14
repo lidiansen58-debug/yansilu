@@ -63,6 +63,9 @@ export function buildWorkspaceStatusHintModel(input = {}) {
   }
 
   if (isPermanentLike) {
+    if (growthStage === "已有关系") {
+      return { visible: false };
+    }
     return {
       visible: true,
       helperAction: "noop",
@@ -98,12 +101,6 @@ export function buildWorkspaceStatusHintModel(input = {}) {
 }
 
 function permanentStageCopy(growthStage = "") {
-  if (growthStage === "已有关系") {
-    return {
-      title: "这条笔记已有关系",
-      body: "可以继续补清关系理由，也可以把它放进主题或写作里使用。"
-    };
-  }
   if (growthStage === "正在成形") {
     return {
       title: "这条笔记正在成形",

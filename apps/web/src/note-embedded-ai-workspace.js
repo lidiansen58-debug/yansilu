@@ -84,17 +84,17 @@ export function noteSuggestionReviewContent(note = {}, suggestion = {}) {
 export function renderNoteEmbeddedAiWorkspace(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
   if (state.loading) {
-    return `<div class="related-empty">正在生成 AI 建议…</div>`;
+    return `<div class="related-empty">正在让 AI 帮你看这条笔记…</div>`;
   }
   if (state.error) {
-    return `<div class="related-empty bad">AI 建议生成失败：${escapeHtml(state.error)}</div>`;
+    return `<div class="related-empty bad">AI帮看失败：${escapeHtml(state.error)}</div>`;
   }
   if (!items.length) {
     return `
       <div class="related-empty">
         还没有 AI 建议。
         <div class="semantic-relation-actions">
-          <button class="mini-btn primary" type="button" data-note-ai-analysis>生成 AI 建议</button>
+          <button class="mini-btn primary" type="button" data-note-ai-analysis>AI帮看</button>
         </div>
       </div>
     `;
@@ -153,19 +153,5 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
           .join("")}
       </div>
     </div>
-  `;
-}
-
-export function renderNoteEmbeddedAiWorkspaceSection(note = {}, state = {}) {
-  if (!note?.id) return "";
-  return `
-    <section class="permanent-workspace-card note-ai-check-panel" data-note-ai-check-section data-note-id="${escapeHtml(note.id)}">
-      <div class="semantic-relation-group-head">
-        <strong>AI 建议</strong>
-      </div>
-      <div data-note-embedded-ai-workspace data-note-id="${escapeHtml(note.id)}">
-        ${renderNoteEmbeddedAiWorkspace(state)}
-      </div>
-    </section>
   `;
 }

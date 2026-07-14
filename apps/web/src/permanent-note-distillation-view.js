@@ -50,6 +50,7 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
             边界 / 反例 / 不适用条件
             <textarea name="boundaryOrCounterpoint" rows="3" placeholder="这条判断在哪些条件下不成立？">${escapeHtml(boundaryOrCounterpoint)}</textarea>
           </label>
+          ${options.aiWorkspaceHtml ? `<div class="note-distillation-ai-assist">${options.aiWorkspaceHtml}</div>` : ""}
           <div class="semantic-relation-actions">
             <button class="mini-btn" type="submit">保存草稿</button>
             <button class="mini-btn primary" type="button" data-note-distillation-confirm>整理到正文</button>

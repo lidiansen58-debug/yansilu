@@ -78,8 +78,10 @@ function graphWorkbenchThemeOverviewItems(items = []) {
     .map((item) => {
       const title = String(item?.title || "").trim();
       const detail = String(item?.question || item?.detail || item?.meta || "").trim();
+      const actionAttrs = String(item?.actionAttrs || "").trim();
+      const actionLabel = String(item?.actionLabel || "查看").trim() || "查看";
       if (!title && !detail) return null;
-      return { title: title || "主题线索", detail };
+      return { title: title || "主题线索", detail, actionAttrs, actionLabel };
     })
     .filter(Boolean)
     .slice(0, 3);
@@ -282,8 +284,13 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
             ? `<section class="graph-workbench-theme-overview" aria-label="主题线索概述">
                 ${themeOverviewItems
                   .map(
-                    (item) => `
-                      <article>
+                    (item) => item.actionAttrs ? `
+                      <button class="graph-workbench-theme-overview-item" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${item.actionLabel}：${item.title}`)}">
+                        <strong>${escapeHtml(item.title)}</strong>
+                        ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ""}
+                      </button>
+                    ` : `
+                      <article class="graph-workbench-theme-overview-item">
                         <strong>${escapeHtml(item.title)}</strong>
                         ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ""}
                       </article>

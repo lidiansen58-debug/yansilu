@@ -5341,15 +5341,27 @@
     .graph-map-primary-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 8px;
     }
     .graph-map-primary-actions {
-      margin-left: auto;
+      margin-left: 12px;
       min-width: 0;
-      flex: 0 1 360px;
+      flex: 0 1 auto;
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+    .graph-map-primary-actions > .mini-btn.primary[data-run-graph-ai-analysis] {
+      min-height: 40px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .graph-map-primary-actions > .graph-filters-compact {
+      margin-left: auto;
     }
     .graph-map-mode-hint {
       display: flex;
@@ -6195,13 +6207,25 @@
       display: grid;
       gap: 7px;
     }
-    .graph-workbench-theme-overview article {
+    .graph-workbench-theme-overview-item {
       display: grid;
       gap: 3px;
+      width: 100%;
       border: 1px solid #dbe6ea;
       border-radius: 10px;
       background: rgba(255, 255, 255, 0.88);
       padding: 8px 10px;
+      text-align: left;
+    }
+    button.graph-workbench-theme-overview-item {
+      cursor: pointer;
+      font: inherit;
+    }
+    button.graph-workbench-theme-overview-item:hover,
+    button.graph-workbench-theme-overview-item:focus-visible {
+      border-color: #0f766e;
+      background: #f0fdfa;
+      outline: none;
     }
     .graph-workbench-theme-overview strong {
       min-width: 0;
@@ -9070,12 +9094,12 @@
     .module-workspace.graph-mode .graph-map-primary-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 8px;
     }
     .module-workspace.graph-mode .graph-map-primary-actions {
-      flex: 0 1 260px;
-      margin-left: auto;
+      flex: 0 1 auto;
+      margin-left: 12px;
     }
     .module-workspace.graph-mode .graph-reading-lens-row {
       align-items: center;
@@ -22405,12 +22429,19 @@
       }
 
       #moduleWorkspace.graph-mode .graph-view-tabs {
-        margin-inline: 12px;
+        margin-inline: 0 12px;
       }
 
       #moduleWorkspace.graph-mode .graph-view-tab {
         min-height: 36px;
         padding: 0 12px;
+      }
+
+      #moduleWorkspace.graph-mode .graph-view-tab[data-graph-task-view="relations"],
+      #moduleWorkspace.graph-mode .graph-view-tab[data-graph-task-view="themes"] {
+        min-width: 118px;
+        min-height: 44px;
+        padding-inline: 18px;
       }
 
       #moduleWorkspace.graph-mode .graph-view-tab small,

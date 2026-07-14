@@ -42,7 +42,6 @@ export class PermanentNoteWorkspaceController {
       activeTab: this.currentTab(),
       viewpointHtml: `
         ${this.host.renderPermanentNoteDistillationSection(note)}
-        ${this.host.renderNoteEmbeddedAiWorkspaceSectionForNote(note)}
       `,
       relationsHtml: `
         ${this.host.renderPermanentNoteRelationAssistSection(note)}

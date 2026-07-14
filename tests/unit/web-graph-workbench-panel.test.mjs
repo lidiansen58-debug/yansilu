@@ -137,7 +137,7 @@ test("graph workbench theme panel summarizes likely theme areas", () => {
       clueSummary: { total: 0 },
       questionSummary: { total: 22, detail: "22 个主题线索" },
       thinkingItems: [
-        { view: "theme", title: "AI 应该在具体任务旁提供帮助", question: "这些笔记是否都在回答 AI 何时出现？" },
+        { view: "theme", title: "AI 应该在具体任务旁提供帮助", question: "这些笔记是否都在回答 AI 何时出现？", actionLabel: "确认主题", actionAttrs: 'data-graph-select-theme="topic-a"' },
         { view: "question", title: "关系类型怎么选", detail: "围绕关联判断和理由写法。" },
         { view: "organize", title: "补关系" }
       ]
@@ -150,6 +150,8 @@ test("graph workbench theme panel summarizes likely theme areas", () => {
   assert.match(html, /data-graph-workbench-guide-toggle/);
   assert.match(html, /aria-expanded="false"/);
   assert.match(html, /graph-workbench-theme-overview/);
+  assert.match(html, /graph-workbench-theme-overview-item/);
+  assert.match(html, /data-graph-select-theme="topic-a"/);
   assert.match(html, /AI 应该在具体任务旁提供帮助/);
   assert.match(html, /这些笔记是否都在回答 AI 何时出现/);
   assert.match(html, /关系类型怎么选/);

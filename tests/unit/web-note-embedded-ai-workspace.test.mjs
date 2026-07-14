@@ -6,8 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   noteSuggestionReviewContent,
-  renderNoteEmbeddedAiWorkspace,
-  renderNoteEmbeddedAiWorkspaceSection
+  renderNoteEmbeddedAiWorkspace
 } from "../../apps/web/src/note-embedded-ai-workspace.js";
 import {
   handleRunNoteAiAnalysisStateChange
@@ -21,23 +20,13 @@ function readRepoFile(...segments) {
 }
 
 test("embedded note AI workspace renders clear loading, error, and empty states", () => {
-  assert.match(renderNoteEmbeddedAiWorkspace({ loading: true }), /正在生成 AI 建议/);
-  assert.match(renderNoteEmbeddedAiWorkspace({ error: "fetch failed" }), /AI 建议生成失败：fetch failed/);
+  assert.match(renderNoteEmbeddedAiWorkspace({ loading: true }), /正在让 AI 帮你看这条笔记/);
+  assert.match(renderNoteEmbeddedAiWorkspace({ error: "fetch failed" }), /AI帮看失败：fetch failed/);
 
   const empty = renderNoteEmbeddedAiWorkspace({ items: [] });
   assert.match(empty, /还没有 AI 建议/);
-  assert.match(empty, /生成 AI 建议/);
+  assert.match(empty, /AI帮看/);
   assert.match(empty, /data-note-ai-analysis/);
-});
-
-test("embedded note AI workspace section provides the permanent note mount", () => {
-  const html = renderNoteEmbeddedAiWorkspaceSection({ id: "pn_1" }, { items: [] });
-
-  assert.match(html, /data-note-ai-check-section/);
-  assert.match(html, /data-note-id="pn_1"/);
-  assert.match(html, /data-note-embedded-ai-workspace/);
-  assert.match(html, /data-note-ai-analysis/);
-  assert.match(html, /AI 建议/);
 });
 
 test("embedded note AI workspace renders field-level suggestions with review actions", () => {
@@ -118,11 +107,12 @@ test("embedded note AI workspace derives reviewed content from note fields", () 
   );
 });
 
-test("editor-triggered note AI analysis no longer mounts inside viewpoint distillation", async () => {
+test("note AI assist lives inside the distillation pane, not the editor toolbar", async () => {
   const editorSource = readRepoFile("apps/web/src/components-editor-pane.js");
   const distillationViewSource = readRepoFile("apps/web/src/permanent-note-distillation-view.js");
   const sidebarViewSource = readRepoFile("apps/web/src/permanent-note-sidebar-view.js");
   const workspaceControllerSource = readRepoFile("apps/web/src/permanent-note-workspace-controller.js");
+  const distillationControllerSource = readRepoFile("apps/web/src/permanent-note-distillation-controller.js");
   const workspaceViewSource = readRepoFile("apps/web/src/permanent-note-workspace-view.js");
   const editorWorkspaceSource = `${editorSource}\n${distillationViewSource}\n${workspaceControllerSource}\n${workspaceViewSource}`;
   const renderStart = editorSource.indexOf("  renderRelated(extraTitle = \"\") {");
@@ -137,9 +127,12 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   const deferredSource = editorSource.slice(deferredStart, deferredEnd);
   assert.match(deferredSource, /this\.permanentNoteWorkspace\(\)\.renderDeferredWorkspace\(note, tab\)/);
   assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteDistillationSection\(note\)/);
-  assert.match(workspaceControllerSource, /this\.host\.renderNoteEmbeddedAiWorkspaceSectionForNote\(note\)/);
+  assert.doesNotMatch(workspaceControllerSource, /this\.host\.renderNoteEmbeddedAiWorkspaceSectionForNote\(note\)/);
   assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteRelationAssistSection\(note\)/);
   assert.match(workspaceViewSource, /data-deferred-workspace/);
+  assert.match(distillationViewSource, /note-distillation-ai-assist/);
+  assert.match(distillationViewSource, /options\.aiWorkspaceHtml/);
+  assert.match(distillationControllerSource, /aiWorkspaceHtml: host\.renderNoteEmbeddedAiWorkspaceForNote\(note\?\.id \|\| ""\)/);
 
   const sectionStart = editorSource.indexOf("  renderPermanentNoteRelationAssistSection(note, overview = {}) {");
   const sectionEnd = editorSource.indexOf("  renderPermanentNoteWritingPrepSection", sectionStart);
@@ -155,15 +148,10 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
 
   const analysisStart = editorSource.indexOf("  async runPermanentNoteAnalysis() {");
   const analysisEnd = editorSource.indexOf("  legacyPermanentNoteMainPathSummary", analysisStart);
-  const toolbarButtonStart = editorSource.indexOf("  ensureContextualAiToolbarButtons() {");
-  const toolbarButtonEnd = editorSource.indexOf("  async autoSaveTabById", toolbarButtonStart);
-
-  assert.ok(toolbarButtonStart >= 0 && toolbarButtonEnd > toolbarButtonStart, "expected ensureContextualAiToolbarButtons() to exist");
-  const toolbarButtonSource = editorSource.slice(toolbarButtonStart, toolbarButtonEnd);
-  assert.match(toolbarButtonSource, /button\.dataset\.contextualAiActionId = "check_note"/);
-  assert.doesNotMatch(toolbarButtonSource, /button\.dataset\.noteAiAnalysis = ""/);
-  assert.match(toolbarButtonSource, /button\.title = "生成 AI 建议"/);
-  assert.match(toolbarButtonSource, /button\.dataset\.tip = "生成 AI 建议"/);
+  assert.doesNotMatch(editorSource, /ensureContextualAiToolbarButtons/);
+  assert.doesNotMatch(editorSource, /button\.id = "btnCheckNoteAi"/);
+  assert.doesNotMatch(editorSource, /button\.dataset\.contextualAiActionId = "check_note"/);
+  assert.doesNotMatch(editorSource, /checkNoteAi/);
 
   assert.ok(analysisStart >= 0 && analysisEnd > analysisStart, "expected runPermanentNoteAnalysis() to exist");
   const analysisSource = editorSource.slice(analysisStart, analysisEnd);
@@ -172,7 +160,7 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   assert.match(analysisSource, /this\.setInspectorVisible\(true\)/);
   assert.match(analysisSource, /this\.activatePermanentWorkspaceTab\("viewpoint"\)/);
   assert.match(analysisSource, /this\.renderRelated\(\)/);
-  assert.match(analysisSource, /正在生成 AI 建议，结果可能需要等一下。/);
+  assert.match(analysisSource, /正在让 AI 帮你看这条笔记，结果可能需要等一下。/);
   assert.match(analysisSource, /feature: "note_analysis"/);
   assert.match(analysisSource, /this\.rememberPendingContextualAiAction\("note_analysis", \{ noteId \}\)/);
   assert.match(analysisSource, /this\.closePermanentRelationWorkspace\(\)/);
@@ -185,7 +173,7 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   assert.doesNotMatch(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.match(analysisSource, /this\.refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
   assert.match(analysisSource, /await this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
-  assert.match(analysisSource, /this\.onStatus\("AI 建议已更新", "ok"\)/);
+  assert.match(analysisSource, /this\.onStatus\("AI帮看已完成", "ok"\)/);
   assert.doesNotMatch(analysisSource, /请确认是否保存关系/);
 
   const clickStart = editorSource.indexOf("      const aiAnalysisButton = e.target.closest(\"[data-note-ai-analysis]\");");
@@ -195,10 +183,7 @@ test("editor-triggered note AI analysis no longer mounts inside viewpoint distil
   assert.match(clickSource, /void this\.runPermanentNoteAnalysis\(\)/);
   assert.doesNotMatch(clickSource, /activatePermanentWorkspaceTab\("relations"\)/);
 
-  const bindStart = editorSource.indexOf("    this.els.checkNoteAi?.addEventListener(\"click\"");
-  const bindEnd = editorSource.indexOf("    this.els.completeNote?.addEventListener", bindStart);
-  assert.ok(bindStart >= 0 && bindEnd > bindStart, "expected toolbar check button click binding to exist");
-  assert.match(editorSource.slice(bindStart, bindEnd), /void this\.runPermanentNoteAnalysis\(\)/);
+  assert.doesNotMatch(editorSource, /this\.els\.checkNoteAi\?\.addEventListener\("click"/);
 
   const applyStart = editorSource.indexOf("  async applyNoteAiSuggestionAction");
   const applyEnd = editorSource.indexOf("  jumpToInspectorSection", applyStart);

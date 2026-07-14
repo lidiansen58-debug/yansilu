@@ -29,7 +29,7 @@ test("workspace status hint guides active permanent notes outside focus mode", (
   assert.equal(model.actionText, "知道了");
 });
 
-test("workspace status hint names permanent notes with relationships clearly", () => {
+test("workspace status hint does not repeat already-linked permanent note state", () => {
   const model = buildWorkspaceStatusHintModel({
     activeNote: { id: "note-1" },
     noteType: "permanent",
@@ -38,10 +38,7 @@ test("workspace status hint names permanent notes with relationships clearly", (
     isPermanentLike: true
   });
 
-  assert.equal(model.visible, true);
-  assert.equal(model.title, "这条笔记已有关系");
-  assert.match(model.body, /关系理由/);
-  assert.doesNotMatch(model.title, /当前在/);
+  assert.equal(model.visible, false);
 });
 
 test("workspace status hint renders focus-mode guidance from note growth stage", () => {

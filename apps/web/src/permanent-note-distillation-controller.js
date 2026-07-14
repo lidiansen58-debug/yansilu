@@ -40,7 +40,8 @@ export class PermanentNoteDistillationController {
     return renderPermanentNoteDistillationSectionView(note, {
       noteType: host.resolvedNoteType(note),
       explicitRelationCount: host.currentExplicitRelationCount(),
-      distillationPrefill: this.currentPrefill(note?.id || "")
+      distillationPrefill: this.currentPrefill(note?.id || ""),
+      aiWorkspaceHtml: host.renderNoteEmbeddedAiWorkspaceForNote(note?.id || "")
     });
   }
 
