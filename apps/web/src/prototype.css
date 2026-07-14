@@ -17110,36 +17110,6 @@
       gap: 16px;
       padding: 18px;
     }
-    .settings-automation-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      min-width: 0;
-    }
-    .settings-automation-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 0 0 auto;
-      max-width: 100%;
-      padding: 7px 10px;
-      border: 1px solid rgba(187, 218, 207, 0.95);
-      border-radius: 999px;
-      background: rgba(239, 253, 246, 0.86);
-      color: #0f766e;
-      font-size: 12px;
-      font-weight: 800;
-      line-height: 1.35;
-      white-space: normal;
-    }
-    .settings-automation-status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #14b8a6;
-      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
-    }
     .settings-automation-tabs {
       display: grid;
       gap: 12px;
@@ -17281,45 +17251,6 @@
     .settings-automation-run-main span {
       flex: 0 0 auto;
       color: #64748b;
-      white-space: nowrap;
-    }
-    .settings-automation-run-diagnostics summary {
-      color: #0f766e;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 750;
-    }
-    .settings-automation-run-diagnostics .settings-canonical-grid {
-      margin-top: 8px;
-    }
-    .settings-automation-action-strip {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      min-width: 0;
-      padding: 11px 12px;
-      border: 1px solid rgba(214, 226, 232, 0.96);
-      border-radius: 12px;
-      background: rgba(248, 250, 252, 0.78);
-      color: #475569;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    .settings-automation-action-strip > div:first-child {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      min-width: 0;
-    }
-    .settings-automation-action-strip strong {
-      color: #172033;
-      font-weight: 850;
-    }
-    .settings-automation-action-state {
-      flex: 0 0 auto;
-      color: #64748b;
-      font-weight: 750;
       white-space: nowrap;
     }
     .settings-template-editor {
@@ -17712,6 +17643,12 @@
       gap: 8px;
       align-items: end;
     }
+    .scheduled-task-panel.is-compact .scheduled-task-toolbar {
+      padding: 8px;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      border-radius: 10px;
+      background: rgba(248, 250, 252, 0.58);
+    }
     .scheduled-task-toolbar label {
       display: grid;
       gap: 4px;
@@ -17795,6 +17732,9 @@
       border-radius: 12px;
       background: rgba(248, 250, 252, 0.72);
       overflow: hidden;
+    }
+    .scheduled-task-panel.is-compact .scheduled-task-form-details {
+      background: rgba(255, 255, 255, 0.82);
     }
     .scheduled-task-form-details summary {
       padding: 10px 12px;
@@ -19003,19 +18943,6 @@
       .settings-ai-advanced-body .settings-ai-compact-grid,
       .settings-ai-quick-actions {
         grid-template-columns: minmax(0, 1fr);
-      }
-      .settings-automation-head {
-        display: grid;
-      }
-      .settings-automation-status {
-        justify-self: start;
-        white-space: normal;
-      }
-      .settings-automation-action-strip {
-        display: grid;
-      }
-      .settings-automation-action-state {
-        white-space: normal;
       }
       .settings-ai-primary-head {
         display: grid;

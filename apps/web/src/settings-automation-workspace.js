@@ -8,18 +8,7 @@ export const SETTINGS_AUTOMATION_PANEL_IDS = Object.freeze({
 
 export function renderSettingsAutomationWorkspace() {
   return `
-    <section class="settings-card settings-automation-workspace" id="${SETTINGS_AUTOMATION_PANEL_IDS.card}">
-      <div class="settings-automation-head">
-        <div>
-          <div class="settings-card-title">自动整理</div>
-          <div class="settings-card-note">先看待处理内容，再决定是否整理到笔记里。</div>
-        </div>
-        <div class="settings-automation-status" aria-label="自动整理状态">
-          <span class="settings-automation-status-dot"></span>
-          需要你确认后才会写入笔记
-        </div>
-      </div>
-
+    <section class="settings-card settings-automation-workspace" id="${SETTINGS_AUTOMATION_PANEL_IDS.card}" aria-label="自动整理">
       <div class="settings-automation-tabs">
         <input class="settings-automation-tab-input" id="settingsAutomationTabPending" name="settingsAutomationTab" type="radio" checked />
         <input class="settings-automation-tab-input" id="settingsAutomationTabRules" name="settingsAutomationTab" type="radio" />
@@ -70,13 +59,6 @@ export function renderSettingsAutomationWorkspace() {
         </div>
       </div>
 
-      <div class="settings-automation-action-strip" aria-label="自动整理操作区">
-        <div>
-          <strong>当前状态</strong>
-          <span>待处理内容需确认后写入。</span>
-        </div>
-        <div class="settings-automation-action-state">默认从待处理开始</div>
-      </div>
     </section>
   `;
 }

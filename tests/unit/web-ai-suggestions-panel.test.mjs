@@ -117,9 +117,9 @@ test("AI suggestions panel renders trace placeholders and target-missing guidanc
   });
 
   assert.match(html, /Trace|来源/);
-  assert.match(html, /Trace placeholder: this linked review item exists, but its source\/target trace is incomplete\.|这条关联审阅项已经存在，但来源\/目标链路还不完整。/);
+  assert.match(html, /Trace placeholder: this linked review item exists, but its source\/target trace is incomplete\.|这条建议的来源或目标信息不完整。/);
   assert.match(html, /missing target note|缺少目标笔记/);
-  assert.match(html, /This linked review item is not connected to a target note yet\.|这条关联审阅项还没有连接到目标笔记。/i);
+  assert.match(html, /This linked review item is not connected to a target note yet\.|这条建议还没有连接到目标笔记。/i);
   assert.match(html, /data-ai-suggestion-open-note=""[\s\S]*disabled/);
 });
 
@@ -466,4 +466,29 @@ test("AI suggestions panel marks the current suggestion detail busy while its re
 test("AI suggestions panel renders loading and empty states", () => {
   assert.match(renderAiSuggestionsPanel({ loading: true }), /正在加载待处理内容/);
   assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合这些筛选条件的待处理内容/);
+});
+
+test("AI suggestions compact mode keeps an empty automation tab quiet", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [],
+    total: 0,
+    compact: true
+  });
+
+  assert.match(html, /现在没有待处理内容/);
+  assert.doesNotMatch(html, /id="btnAiSuggestionsApplyFilters"/);
+  assert.doesNotMatch(html, /ai-inbox-detail-pane/);
+  assert.doesNotMatch(html, /0\/0 可见/);
+});
+
+test("AI suggestions compact mode keeps filters visible when an empty filter is active", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [],
+    total: 0,
+    compact: true,
+    filters: { status: "suggested" }
+  });
+
+  assert.match(html, /现在没有待处理内容/);
+  assert.match(html, /id="btnAiSuggestionsApplyFilters"/);
 });

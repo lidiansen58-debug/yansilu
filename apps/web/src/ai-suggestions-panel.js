@@ -44,6 +44,22 @@ function formatDate(value = "") {
 
 function renderControls(state = {}) {
   const filters = normalizeAiSuggestionFilters(state.filters || {});
+  if (state.compact) {
+    return `
+      <div class="scheduled-task-toolbar is-compact">
+        <label>
+          <span>状态</span>
+          <select id="aiSuggestionStatusFilter">
+            ${aiSuggestionStatusOptions()
+              .map((option) => `<option value="${attr(option.value)}" ${option.value === filters.status ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <button class="mini-btn" id="btnAiSuggestionsApplyFilters" type="button">筛选</button>
+        <button class="mini-btn" id="btnAiSuggestionsRefresh" type="button">刷新</button>
+      </div>
+    `;
+  }
   return `
     <div class="scheduled-task-toolbar">
       <label>
@@ -97,7 +113,7 @@ function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
   if (state.loading) return `<div class="scheduled-task-empty">正在加载待处理内容...</div>`;
   if (state.error) return `<div class="scheduled-task-empty is-bad">待处理内容加载失败：${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的待处理内容。</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">${state.compact ? "现在没有待处理内容。" : "没有符合这些筛选条件的待处理内容。"}</div>`;
   return `<div class="ai-inbox-list">${items.map((item) => renderItem(item, state.selectedSuggestionId)).join("")}</div>`;
 }
 
@@ -419,25 +435,37 @@ function renderDetail(state = {}) {
 
 export function renderAiSuggestionsPanel(state = {}) {
   const summary = aiSuggestionSummary({ items: state.items, total: state.total });
+  const items = Array.isArray(state.items) ? state.items : [];
+  const filters = normalizeAiSuggestionFilters(state.filters || {});
+  const hasActiveFilters = filters.status !== "all" || Boolean(filters.targetType || filters.targetId || filters.scope);
+  const emptyCompact = state.compact && !state.loading && !state.error && !items.length;
   return `
-    <div class="scheduled-task-panel">
-      <div class="scheduled-task-head">
-        <div>
-          <div class="settings-card-title">待处理内容</div>
-          <div class="settings-card-note">先看内容和理由；确认后才写入笔记、图谱或当前写作主题。</div>
+    <div class="scheduled-task-panel ${state.compact ? "is-compact" : ""}">
+      ${state.compact ? "" : `
+        <div class="scheduled-task-head">
+          <div>
+            <div class="settings-card-title">待处理内容</div>
+            <div class="settings-card-note">先看内容和理由；确认后才写入笔记、图谱或当前写作主题。</div>
+          </div>
+          <div class="settings-stat-row">
+            ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
+            ${badge(`${summary.counts.suggested || 0} 待建议`, "warn")}
+            ${badge(`${summary.counts.confirmed || 0} 已确认`, "ok")}
+            ${summary.counts.rejected ? badge(`${summary.counts.rejected} 已拒绝`, "muted") : ""}
+          </div>
         </div>
-        <div class="settings-stat-row">
-          ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
-          ${badge(`${summary.counts.suggested || 0} 待建议`, "warn")}
-          ${badge(`${summary.counts.confirmed || 0} 已确认`, "ok")}
-          ${summary.counts.rejected ? badge(`${summary.counts.rejected} 已拒绝`, "muted") : ""}
-        </div>
-      </div>
-      ${renderControls(state)}
-      <div class="ai-inbox-grid">
-        <section class="ai-inbox-list-pane">${renderList(state)}</section>
-        <section class="ai-inbox-detail-pane">${renderDetail(state)}</section>
-      </div>
+      `}
+      ${emptyCompact && !hasActiveFilters ? "" : renderControls(state)}
+      ${emptyCompact
+        ? renderList(state)
+        : `
+          <div class="ai-inbox-grid">
+            <section class="ai-inbox-list-pane">${renderList(state)}</section>
+            ${items.length || state.selectedSuggestionId || state.detailLoading || state.detailError
+              ? `<section class="ai-inbox-detail-pane">${renderDetail(state)}</section>`
+              : ""}
+          </div>
+        `}
     </div>
   `;
 }

@@ -19,7 +19,8 @@ export function renderAiSuggestionsWorkspaceView({ mount, state, renderPanel = r
     actionNotice: state?.suggestionActionNotice,
     actionNoticeTone: state?.suggestionActionNoticeTone,
     actionError: state?.suggestionActionError,
-    error: state?.suggestionsError
+    error: state?.suggestionsError,
+    compact: true
   });
   return true;
 }
