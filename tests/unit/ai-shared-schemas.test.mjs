@@ -82,6 +82,7 @@ test("AI shared schemas declare the canonical contracts we want to stabilize", a
   assert.ok(scheduledTask.required.includes("schedule"));
   assert.ok(scheduledTask.properties.status.enum.includes("paused"));
   assert.ok(scheduledTask.properties.task_type.enum.includes("reflection_prompt"));
+  assert.ok(scheduledTask.properties.task_type.enum.includes("writable_theme_discovery"));
 });
 
 test("AI shared schemas accept representative canonical payloads", async () => {

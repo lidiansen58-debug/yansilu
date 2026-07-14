@@ -62,6 +62,16 @@ function reflectionAgentTask() {
   ].join("\n");
 }
 
+function themeAgentTask() {
+  return [
+    "Task: find a small number of writable themes from the provided notes.",
+    "A writable theme is a concrete writing direction supported by more than one note, tension, example, or reusable question.",
+    "Create InsightCard artifacts only for themes the user could reasonably turn into a draft.",
+    "Each payload must include themeTitle, whyWritable, sourceNoteIds, suggestedAngle, and suggestedNextAction.",
+    'Use suggestedNextAction "start_writing", "collect_more_notes", or "review_theme".'
+  ].join("\n");
+}
+
 function writingBridgeAgentTask(expectedArtifactType) {
   const common = [
     "Task: find source-grounded writing moves from the selected notes.",
@@ -93,6 +103,7 @@ function writingBridgeAgentTask(expectedArtifactType) {
 
 function taskPromptForAgent(agent = {}, expectedArtifactType) {
   if (agent.agentId === "connection_agent" || expectedArtifactType === "LinkSuggestion") return connectionAgentTask();
+  if (agent.agentId === "theme_agent") return themeAgentTask();
   if (
     agent.agentId === "writing_bridge_agent" ||
     ["WritingMove", "OutlineDraft", "SourceGap"].includes(cleanText(expectedArtifactType))

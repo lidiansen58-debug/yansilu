@@ -685,7 +685,7 @@ function shouldPreferLocalForHybridRoute({ settingsInput = {}, userSettings = {}
   const tier = requestedModelTier(input, agent);
   if (agentId === "connection_agent") return { preferLocal: true, reason: "lightweight_agent" };
   if (["router_fast", "cheap_fast", "guardrail", "local_private"].includes(tier)) return { preferLocal: true, reason: "lightweight_tier" };
-  if (/relation|link|tag|classif|summar|summary|title|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
+  if (/relation|link|tag|classif|summar|summary|title|theme|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
   return { preferLocal: false, reason: "cloud_preferred_task" };
 }
 

@@ -2009,6 +2009,10 @@ async function runAiInboxSummary(artifactId) {
 function renderScheduledTasksWorkspace() {
   const el = $("settingsScheduledTasksPanel");
   if (!el) return;
+  const currentNoteId = state.selectedFileId || state.activeTabId || "";
+  const currentDirectoryId = state.selectedFolderId || "";
+  const currentNote = (Array.isArray(state.notes) ? state.notes : []).find((note) => note?.id === currentNoteId) || null;
+  const currentDirectory = (Array.isArray(state.folders) ? state.folders : []).find((folder) => folder?.id === currentDirectoryId) || null;
   el.innerHTML = renderScheduledTasksPanel({
     items: settingsState.ai.scheduledTasks,
     total: settingsState.ai.scheduledTasksTotal,
@@ -2016,8 +2020,10 @@ function renderScheduledTasksWorkspace() {
     templatesLoading: settingsState.ai.scheduledTaskTemplatesLoading,
     templatesError: settingsState.ai.scheduledTaskTemplatesError,
     form: settingsState.ai.scheduledTaskForm,
-    currentNoteId: state.selectedFileId || state.activeTabId || "",
-    currentDirectoryId: state.selectedFolderId || "",
+    currentNoteId,
+    currentNoteLabel: currentNote?.title || currentNote?.name || "",
+    currentDirectoryId,
+    currentDirectoryLabel: currentDirectory?.name || currentDirectory?.title || "",
     filters: settingsState.ai.scheduledTaskFilters,
     loading: settingsState.ai.scheduledTasksLoading,
     actionLoading: settingsState.ai.scheduledTaskActionLoading,

@@ -37,6 +37,7 @@
         "research_scan",
         "source_monitor",
         "relation_scan",
+        "writable_theme_discovery",
         "project_digest",
         "reflection_prompt",
         "originality_check"

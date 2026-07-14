@@ -130,6 +130,41 @@ test("writing bridge agent prepares review-only writing move prompts", () => {
   assert.match(messages[2].content, /sourceNoteIds/);
 });
 
+test("theme agent prepares review-only writable theme prompts", () => {
+  const registry = createAgentRegistry();
+  const agent = registry.get("theme_agent");
+  const contextPack = createContextPack({
+    contextPackId: "ctx_theme_agent",
+    taskId: "task_theme_agent",
+    agentRunId: "run_theme_agent",
+    privacyMode: "normal",
+    items: [
+      {
+        kind: "note",
+        sourceId: "note_theme",
+        title: "Theme seed",
+        content: "Several notes point toward a practical writing theme about durable thinking.",
+        origin: "human_authored",
+        includedReason: "selected_note"
+      }
+    ]
+  });
+  const messages = buildAgentMessages({
+    agent,
+    contextPack,
+    expectedArtifactType: "InsightCard",
+    userInstruction: "Find themes worth turning into drafts."
+  });
+
+  assert.deepEqual(agent.outputArtifactTypes, ["InsightCard"]);
+  assert.equal(agent.canWriteHumanNote, false);
+  assert.equal(agent.canRunInBackground, true);
+  assert.match(messages[1].content, /Every artifact\.type must be "InsightCard"/);
+  assert.match(messages[2].content, /find a small number of writable themes/);
+  assert.match(messages[2].content, /themeTitle/);
+  assert.match(messages[2].content, /sourceNoteIds/);
+});
+
 test("writing bridge agent stores WritingMove artifacts without mutating notes", async () => {
   const agentRuntime = createOpenAiAgentsSdkRuntime({
     async execute(request) {
@@ -937,6 +972,21 @@ test("hybrid runtime routes lightweight tasks to local model and keeps deep task
   assert.equal(relationProvider.summary.hybridRoutingReason, "lightweight_agent");
   assert.equal(relationRoute.summary.modelRef, "local_private_gateway:qwen2.5:3b");
 
+  const theme = await harness.runTask({
+    taskId: "task_hybrid_theme",
+    agentId: "theme_agent",
+    taskType: "writable_theme_discovery",
+    currentNote: {
+      id: "note_hybrid_theme",
+      title: "Hybrid theme note",
+      body: "Hybrid local routing should handle lightweight theme discovery."
+    }
+  });
+  const themeProvider = theme.run.events.find((event) => event.eventType === "provider_adapter_selected");
+  const themeRoute = theme.run.events.find((event) => event.eventType === "model_route_selected");
+  assert.equal(themeProvider.summary.providerId, "local_private_gateway");
+  assert.equal(themeRoute.summary.modelRef, "local_private_gateway:qwen2.5:3b");
+
   const reflection = await harness.runTask({
     taskId: "task_hybrid_reflection",
     agentId: "reflection_agent",
@@ -952,6 +1002,23 @@ test("hybrid runtime routes lightweight tasks to local model and keeps deep task
   assert.equal(reflectionProvider.summary.providerId, "platform_managed_openai");
   assert.equal(reflectionProvider.summary.hybridRoutingReason, "");
   assert.equal(reflectionRoute.summary.selectedTier, "strong_reasoning");
+
+  const writing = await harness.runTask({
+    taskId: "task_hybrid_writing",
+    agentId: "writing_bridge_agent",
+    taskType: "writing_strong_model_analysis",
+    expectedArtifactType: "WritingMove",
+    currentNote: {
+      id: "note_hybrid_writing",
+      title: "Hybrid writing note",
+      body: "Hybrid mode should not route deep writing analysis to the local lightweight model."
+    }
+  });
+  const writingProvider = writing.run.events.find((event) => event.eventType === "provider_adapter_selected");
+  const writingRoute = writing.run.events.find((event) => event.eventType === "model_route_selected");
+  assert.equal(writingProvider.summary.providerId, "platform_managed_openai");
+  assert.equal(writingProvider.summary.hybridRoutingReason, "");
+  assert.equal(writingRoute.summary.selectedTier, "strong_reasoning");
 });
 
 test("harness pauses expensive runs before provider calls until budget is confirmed", async () => {

@@ -22,6 +22,17 @@ const DEFAULT_AGENTS = [
     canWriteHumanNote: false
   },
   {
+    agentId: "theme_agent",
+    agentVersion: "v1",
+    purpose: "Find reviewable writable themes from related notes.",
+    defaultModelTier: "cheap_fast",
+    requiredCapabilities: ["structured_output"],
+    allowedTools: ["search_notes", "read_note", "create_ai_artifact"],
+    outputArtifactTypes: ["InsightCard"],
+    canRunInBackground: true,
+    canWriteHumanNote: false
+  },
+  {
     agentId: "writing_bridge_agent",
     agentVersion: "v1",
     purpose: "Create source-grounded writing moves and scaffold suggestions from selected notes.",
