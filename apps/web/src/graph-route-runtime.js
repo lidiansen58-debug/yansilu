@@ -77,7 +77,8 @@ export function createGraphRouteRuntime(deps = {}) {
 
   async function ensureGraphLocalAiReadyForAnalysis() {
     const readiness = await ensureLocalAiReadyForFeature({
-      feature: "graph_analysis"
+      feature: "graph_analysis",
+      openSettings: false
     });
     if (readiness?.ready === true) {
       renderGraphPanel();
@@ -92,7 +93,8 @@ export function createGraphRouteRuntime(deps = {}) {
 
   async function runGraphAiConnectForNote(noteId = "") {
     const readiness = await ensureLocalAiReadyForFeature({
-      feature: "graph_connect"
+      feature: "graph_connect",
+      openSettings: false
     });
     if (readiness?.ready === false) return false;
     return graphAiConnectRuntimeController.runGraphAiConnectForNote(noteId);

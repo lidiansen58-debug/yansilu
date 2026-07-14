@@ -124,6 +124,7 @@ test("graph edge selection panel keeps relation adjustment and open-note actions
   assert.match(html, /data-graph-relation-id="rel-1"/);
   assert.match(html, /data-graph-target-note="target"/);
   assert.match(html, /data-graph-relation-type="supports"/);
+  assert.match(html, /data-graph-open-relation-form data-graph-relation-source="source"/);
   assert.match(html, /data-edge-metrics/);
   assert.match(html, /data-open-note="source"/);
 });

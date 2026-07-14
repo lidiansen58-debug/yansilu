@@ -113,6 +113,18 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       event.stopImmediatePropagation();
       event.stopPropagation();
     };
+    const earlySelectionClose = event.target.closest("[data-graph-selection-close]");
+    if (earlySelectionClose) {
+      consumeGraphClick();
+      if (typeof dismissSafeOverlaysForEscape === "function") {
+        dismissSafeOverlaysForEscape(event);
+      } else {
+        graphState.selection = null;
+        renderGraphPanel();
+        setStatus("Graph selection closed.", "ok");
+      }
+      return;
+    }
     const graphHitTarget = event.target.closest(".graph-map-node[data-node-id], .graph-map-edge-group[data-edge-from], [data-graph-select-node]");
     if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport") && !graphHitTarget) {
       consumeGraphClick();
