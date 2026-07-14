@@ -25,7 +25,7 @@ export const SETTINGS_SECTIONS = Object.freeze([
   },
   {
     id: "automation",
-    label: "自动处理",
+    label: "自动整理",
     paneId: "settingsPaneAutomation",
     buttonId: "settingsNavAutomation",
     metaId: "settingsNavAutomationMeta",
@@ -48,13 +48,13 @@ export const SETTINGS_DETAIL_ITEMS = Object.freeze([
   { id: "permanent-template", label: "永久笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
   { id: "literature-template", label: "文献笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
   { id: "ai-settings", label: "AI 设置", group: "AI", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
-  { id: "automation", label: "自动处理", group: "自动处理", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
+  { id: "automation", label: "自动整理", group: "自动整理", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
   { id: "desktop-help", label: "本地使用说明", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
   { id: "feedback", label: "问题反馈", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
   { id: "version-update", label: "版本更新", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsUpdateCard"] }
 ]);
 
-const SETTINGS_DETAIL_GROUPS = ["手机访问", "工作区与数据", "笔记模板", "AI", "自动处理", "帮助与反馈"];
+const SETTINGS_DETAIL_GROUPS = ["手机访问", "工作区与数据", "笔记模板", "AI", "自动整理", "帮助与反馈"];
 
 function escapeHtmlValue(value) {
   return String(value ?? "")
@@ -122,7 +122,7 @@ export function settingsSectionChromeMap({
     },
     automation: {
       badge: String(automationCount),
-      meta: `待确认 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 后台任务 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`
+      meta: `待处理 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 整理规则 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`
     },
     support: {
       badge: feedbackRepositoryReady ? "反馈入口" : "待绑定",
@@ -289,7 +289,7 @@ export function settingsItemSummary(itemId = "") {
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
     "ai-settings": "",
-    automation: "处理待确认建议，必要时再查看后台任务和运行结果。",
+    automation: "先看待处理内容；需要调整时再看整理规则和历史记录。",
     "version-update": "检查新版本，必要时打开下载页。",
     "desktop-help": "说明笔记文件、数据库和笔记库切换规则。",
     feedback: "反馈问题或复制排查信息。"
@@ -344,11 +344,11 @@ export function settingsSectionGuidanceMap({
       ]
     },
     automation: {
-      focus: "先处理需要你确认的建议；后台任务和运行结果只在需要调整或排查时查看。",
+      focus: "先处理待处理内容；整理规则和历史记录只在需要调整或排查时查看。",
       notes: [
-        "待确认建议不会自动写入笔记或图谱。",
-        "后台任务只负责生成推荐结果，最终是否采纳仍由你决定。",
-        "运行结果用于排查失败和确认最近一次处理。"
+        "待处理内容不会自动写入笔记或图谱。",
+        "整理规则只负责生成推荐结果，最终是否采纳仍由你决定。",
+        "历史记录用于排查失败和确认最近一次整理。"
       ]
     },
     support: {

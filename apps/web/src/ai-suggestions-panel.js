@@ -55,18 +55,18 @@ function renderControls(state = {}) {
         </select>
       </label>
       <label>
-        <span>目标类型</span>
+        <span>内容类型</span>
         <input id="aiSuggestionTargetTypeFilter" value="${attr(filters.targetType)}" placeholder="permanent_note" />
       </label>
       <label>
-        <span>目标 ID</span>
+        <span>关联笔记编号</span>
         <input id="aiSuggestionTargetIdFilter" value="${attr(filters.targetId)}" placeholder="pn_..." />
       </label>
       <label>
-        <span>范围</span>
+        <span>位置</span>
         <input id="aiSuggestionScopeFilter" value="${attr(filters.scope)}" placeholder="note_field" />
       </label>
-      <button class="mini-btn" id="btnAiSuggestionsApplyFilters" type="button">应用筛选</button>
+      <button class="mini-btn" id="btnAiSuggestionsApplyFilters" type="button">筛选</button>
       <button class="mini-btn" id="btnAiSuggestionsRefresh" type="button">刷新</button>
     </div>
   `;
@@ -86,8 +86,8 @@ function renderItem(item = {}, selectedId = "") {
       </span>
       <span class="ai-inbox-item-summary">${escapeHtml(typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}))}</span>
       <span class="ai-inbox-item-meta">
-        <span>${escapeHtml(item.scope || "scope")}</span>
-        <span>${escapeHtml(item.origin || "ai_generated")}</span>
+        <span>${escapeHtml(item.scope || "未标明位置")}</span>
+        <span>${escapeHtml(item.origin || "自动整理")}</span>
       </span>
     </button>
   `;
@@ -95,9 +95,9 @@ function renderItem(item = {}, selectedId = "") {
 
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
-  if (state.loading) return `<div class="scheduled-task-empty">正在加载待确认建议...</div>`;
-  if (state.error) return `<div class="scheduled-task-empty is-bad">待确认建议加载失败：${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的待确认建议。</div>`;
+  if (state.loading) return `<div class="scheduled-task-empty">正在加载待处理内容...</div>`;
+  if (state.error) return `<div class="scheduled-task-empty is-bad">待处理内容加载失败：${escapeHtml(state.error)}</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的待处理内容。</div>`;
   return `<div class="ai-inbox-list">${items.map((item) => renderItem(item, state.selectedSuggestionId)).join("")}</div>`;
 }
 
@@ -196,16 +196,16 @@ function renderTrace(detail = {}) {
   const targetHint = targetNoteId
     ? ""
       : `<div class="scheduled-task-empty">${escapeHtml(traceMissingTargetCopy())}</div>`;
-  const sourceText = display.sourceNoteIds.join(", ") || display.primarySourceNoteId || "not recorded";
+  const sourceText = display.sourceNoteIds.join(", ") || display.primarySourceNoteId || "未记录";
   return `
     <section class="ai-inbox-detail-section">
-      <h3>来源链路</h3>
+      <h3>来源</h3>
       ${placeholder}
       <dl class="ai-inbox-kv">
-        <dt>来源对象</dt><dd>${escapeHtml(display.sourceArtifactId || "未记录")}</dd>
+        <dt>整理来源</dt><dd>${escapeHtml(display.sourceArtifactId || "未记录")}</dd>
         <dt>来源笔记</dt><dd>${escapeHtml(sourceText)}</dd>
         <dt>目标笔记</dt><dd>${escapeHtml(targetNoteId || "缺少目标笔记")}</dd>
-        <dt>目标字段</dt><dd>${escapeHtml(targetField || "未记录")}</dd>
+        <dt>保存位置</dt><dd>${escapeHtml(targetField || "未记录")}</dd>
         <dt>状态</dt><dd>${escapeHtml(status ? aiSuggestionStatusLabel(status) : "未记录")}</dd>
       </dl>
       ${targetHint}
@@ -241,10 +241,10 @@ function renderProvenance(detail = {}) {
     <section class="ai-inbox-detail-section">
       <h3>来源说明</h3>
       <dl class="ai-inbox-kv">
-        <dt>来源</dt><dd>${escapeHtml(item.provenance?.contentOrigin || item.origin || "ai_generated")}</dd>
+        <dt>来源</dt><dd>${escapeHtml(item.provenance?.contentOrigin || item.origin || "自动整理")}</dd>
         <dt>人工编辑</dt><dd>${escapeHtml(item.provenance?.humanEdited ? "是" : "否")}</dd>
         <dt>人工确认</dt><dd>${escapeHtml(item.provenance?.humanConfirmed ? "是" : "否")}</dd>
-        <dt>来源对象</dt><dd>${escapeHtml(item.sourceArtifactId || detail.trace?.sourceArtifactId || "未记录")}</dd>
+        <dt>整理来源</dt><dd>${escapeHtml(item.sourceArtifactId || detail.trace?.sourceArtifactId || "未记录")}</dd>
       </dl>
     </section>
   `;
@@ -339,7 +339,7 @@ function renderReviewSafety(item = {}, detailLoading = false, detailError = "", 
         <div>
           <div class="ai-inbox-detail-kicker">AI 建议</div>
           <h2>${escapeHtml(aiSuggestionTargetLabel(item))}</h2>
-          <p>${escapeHtml(item.scope || "scope")}</p>
+          <p>${escapeHtml(item.scope || "未标明位置")}</p>
         </div>
         ${badge(aiSuggestionStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
       </header>
@@ -386,7 +386,7 @@ function renderDetail(state = {}) {
         <div>
           <div class="ai-inbox-detail-kicker">AI 建议</div>
           <h2>${escapeHtml(aiSuggestionTargetLabel(item))}</h2>
-          <p>${escapeHtml(item.scope || "scope")}</p>
+          <p>${escapeHtml(item.scope || "未标明位置")}</p>
         </div>
         ${badge(aiSuggestionStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
       </header>
@@ -423,8 +423,8 @@ export function renderAiSuggestionsPanel(state = {}) {
     <div class="scheduled-task-panel">
       <div class="scheduled-task-head">
         <div>
-          <div class="settings-card-title">待确认建议</div>
-          <div class="settings-card-note">先看对象和理由；确认后才写入笔记、图谱或当前写作主题。</div>
+          <div class="settings-card-title">待处理内容</div>
+          <div class="settings-card-note">先看内容和理由；确认后才写入笔记、图谱或当前写作主题。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}

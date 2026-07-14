@@ -30,7 +30,7 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
     runSummary: { total: 1, succeeded: 1, skipped: 0, failed: 0 }
   });
 
-  assert.match(html, /后台任务/);
+  assert.match(html, /整理规则/);
   assert.match(html, /你确认后才会写入笔记/);
   assert.match(html, /id="scheduledTaskStatusFilter"/);
   assert.match(html, /id="scheduledTaskTypeFilter"/);
@@ -57,9 +57,9 @@ test("scheduled tasks panel renders resume action and empty states", () => {
   assert.match(pausedHtml, /data-scheduled-task-status="active"/);
   assert.match(pausedHtml, /恢复启用/);
 
-  assert.match(renderScheduledTasksPanel({ loading: true }), /正在加载后台任务/);
-  assert.match(renderScheduledTasksPanel({ error: "boom" }), /后台任务加载失败：boom/);
-  assert.match(renderScheduledTasksPanel({ items: [], total: 0 }), /没有符合这些筛选条件的后台任务/);
+  assert.match(renderScheduledTasksPanel({ loading: true }), /正在加载整理规则/);
+  assert.match(renderScheduledTasksPanel({ error: "boom" }), /整理规则加载失败：boom/);
+  assert.match(renderScheduledTasksPanel({ items: [], total: 0 }), /没有符合这些筛选条件的整理规则/);
 });
 
 test("scheduled tasks panel can collapse creation form in compact mode", () => {
@@ -70,8 +70,8 @@ test("scheduled tasks panel can collapse creation form in compact mode", () => {
   });
 
   assert.match(html, /<details class="scheduled-task-form-details">/);
-  assert.match(html, /新建后台任务/);
-  assert.match(html, /没有符合这些筛选条件的后台任务/);
+  assert.match(html, /新建整理规则/);
+  assert.match(html, /没有符合这些筛选条件的整理规则/);
 
   const openHtml = renderScheduledTasksPanel({
     items: [],

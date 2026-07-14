@@ -31,11 +31,11 @@ export function renderSettingsWorkbenchChromeForRuntime(deps = {}) {
   const overviewBody = document?.querySelector?.("#settingsPanel .settings-overview-body");
   if (overviewKicker) overviewKicker.textContent = "设置分类";
   if (overviewTitle) overviewTitle.textContent = "按类别管理研思录。";
-  if (overviewBody) overviewBody.textContent = "工作区、模板、AI、自动处理和帮助各自归类。";
+  if (overviewBody) overviewBody.textContent = "工作区、模板、AI、自动整理和帮助各自归类。";
   if (overviewLabels.length >= 3) {
     overviewLabels[0].textContent = "工作区";
     overviewLabels[1].textContent = "AI 路线";
-    overviewLabels[2].textContent = "自动处理";
+    overviewLabels[2].textContent = "自动整理";
   }
 
   SETTINGS_SECTIONS.forEach((section, index) => {
@@ -68,8 +68,8 @@ export function renderSettingsWorkbenchChromeForRuntime(deps = {}) {
   }
   if ($("settingsOverviewAiRoute")) $("settingsOverviewAiRoute").textContent = aiSummary.value;
   if ($("settingsOverviewAiMeta")) $("settingsOverviewAiMeta").textContent = aiSummary.meta || "当前使用的模型、服务和连接状态。";
-  if ($("settingsOverviewAutomation")) $("settingsOverviewAutomation").textContent = `${automationCount} 个待看项`;
-  if ($("settingsOverviewAutomationMeta")) $("settingsOverviewAutomationMeta").textContent = `待确认 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 后台任务 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`;
+  if ($("settingsOverviewAutomation")) $("settingsOverviewAutomation").textContent = `${automationCount} 个待处理`;
+  if ($("settingsOverviewAutomationMeta")) $("settingsOverviewAutomationMeta").textContent = `待处理 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 整理规则 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`;
 }
 
 export function renderSettingsSidebarColumnForRuntime(deps = {}) {
@@ -88,8 +88,8 @@ export function renderSettingsSidebarColumnForRuntime(deps = {}) {
   const navCardNote = document?.querySelector?.("#settingsSectionNav")?.closest(".settings-nav-card")?.querySelector(".settings-nav-card-note");
 
   $("settingsNavEntryCard")?.classList.remove("hidden");
-  if ($("settingsSidebarIntroNote")) $("settingsSidebarIntroNote").textContent = "按工作区、模板、AI、自动处理和帮助分类。";
-  if (navCardNote) navCardNote.textContent = "按工作区、模板、AI、自动处理和帮助分类。";
+  if ($("settingsSidebarIntroNote")) $("settingsSidebarIntroNote").textContent = "按工作区、模板、AI、自动整理和帮助分类。";
+  if (navCardNote) navCardNote.textContent = "按工作区、模板、AI、自动整理和帮助分类。";
   if ($("settingsSidebarFocusPill")) {
     const badge = chromeMap[activeSection]?.badge || activeItem.label;
     $("settingsSidebarFocusPill").textContent = `${activeItem.label} · ${badge}`;
