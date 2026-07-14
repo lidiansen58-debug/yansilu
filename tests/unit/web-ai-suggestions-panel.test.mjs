@@ -67,6 +67,8 @@ test("AI suggestions panel keeps actions under the suggestion they affect", () =
 
   assert.ok(pane.indexOf("<h3>核心观点</h3>") > -1);
   assert.ok(pane.indexOf("ai-suggestion-primary-actions") > pane.indexOf("<h3>核心观点</h3>"));
+  assert.ok(pane.indexOf("ai-suggestion-detail-tools") < pane.indexOf("<h3>核心观点</h3>"));
+  assert.doesNotMatch(pane, /ai-suggestion-action-row/);
   assert.match(pane, /打开笔记/);
   assert.match(pane, /保存为草稿/);
   assert.match(pane, /忽略/);
@@ -169,7 +171,7 @@ test("AI suggestions panel only lets the selected grouped suggestion be edited",
   assert.doesNotMatch(pane, /id="aiSuggestionContentEditor-suggestion_summary"/);
   assert.match(summarySection, /class="ai-suggestion-content-text"/);
   assert.match(summarySection, /Second suggestion failed/);
-  assert.match(summarySection, /data-ai-suggestion-id="suggestion_summary"[\s\S]*查看处理/);
+  assert.match(summarySection, /data-ai-suggestion-id="suggestion_summary"[\s\S]*处理这项/);
   assert.doesNotMatch(summarySection, /我已改好/);
 });
 
