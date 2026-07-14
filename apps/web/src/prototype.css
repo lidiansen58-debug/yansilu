@@ -3811,6 +3811,10 @@
       gap: 12px;
       align-items: start;
     }
+    .settings-automation-panel-pending .ai-inbox-grid {
+      grid-template-columns: minmax(280px, .85fr) minmax(360px, 1.15fr);
+      gap: 14px;
+    }
     .ai-inbox-list-pane,
     .ai-inbox-detail-pane {
       min-height: 0;
@@ -3826,10 +3830,20 @@
       gap: 10px;
       align-content: start;
     }
+    .settings-automation-panel-pending .ai-inbox-detail-pane {
+      position: sticky;
+      top: 12px;
+      max-height: min(720px, calc(100vh - 120px));
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
     .ai-inbox-list {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 8px;
+    }
+    .settings-automation-panel-pending .ai-inbox-list {
+      grid-template-columns: minmax(0, 1fr);
     }
     .ai-inbox-item {
       width: 100%;
@@ -3941,9 +3955,17 @@
     .ai-suggestion-action-row .scheduled-task-actions {
       margin: 0;
     }
+    .ai-suggestion-detail-tools {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .ai-suggestion-primary-actions {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 8px;
       flex-wrap: wrap;
     }
@@ -4159,6 +4181,14 @@
       .ai-inbox-helper-row,
       .ai-inbox-detail-grid {
         grid-template-columns: 1fr;
+      }
+      .settings-automation-panel-pending .ai-inbox-grid {
+        grid-template-columns: 1fr;
+      }
+      .settings-automation-panel-pending .ai-inbox-detail-pane {
+        position: static;
+        max-height: none;
+        overflow: visible;
       }
       .ai-inbox-tabs {
         grid-template-columns: 1fr;
@@ -17205,6 +17235,7 @@
       border-color: rgba(153, 213, 190, 0.96);
       background:
         linear-gradient(180deg, rgba(246, 253, 249, 0.92), rgba(255, 255, 255, 0.96));
+      overflow: visible;
     }
     .settings-automation-section-head {
       display: flex;

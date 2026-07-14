@@ -290,19 +290,17 @@ function renderActions(item = {}, actionLoading = false) {
   `;
 }
 
-function renderOpenNoteAction(item = {}, actionLoading = false, display = null) {
+function renderOpenNoteButton(item = {}, actionLoading = false, display = null) {
   const targetNoteId = suggestionTargetNoteId(item, display);
   return `
-    <div class="ai-suggestion-action-row">
-      <button
-        class="mini-btn"
-        type="button"
-        data-ai-suggestion-open-note="${attr(targetNoteId)}"
-        ${targetNoteId && !actionLoading ? "" : "disabled"}
-      >
-        打开笔记
-      </button>
-    </div>
+    <button
+      class="mini-btn"
+      type="button"
+      data-ai-suggestion-open-note="${attr(targetNoteId)}"
+      ${targetNoteId && !actionLoading ? "" : "disabled"}
+    >
+      打开笔记
+    </button>
   `;
 }
 
@@ -340,7 +338,7 @@ function renderSuggestionBlock(item = {}, options = {}) {
       ${editor || `<div class="ai-suggestion-content-text">${escapeHtml(readableContent(item.content))}</div>`}
       ${selected ? renderActions(displayItem, actionLoading) : `
         <div class="scheduled-task-actions ai-suggestion-primary-actions">
-          <button class="mini-btn" type="button" data-ai-suggestion-id="${attr(item.id)}">查看处理</button>
+          <button class="mini-btn" type="button" data-ai-suggestion-id="${attr(item.id)}">处理这项</button>
         </div>
       `}
       ${renderActionError(actionError)}
@@ -532,7 +530,10 @@ function renderDetail(state = {}) {
           <h2>${escapeHtml(suggestionDisplayTitle(item, display))}</h2>
           <p>${escapeHtml(suggestionMissingLabel(displayGroupItems))}</p>
         </div>
-        ${badge(readableStatusLabel(displayStatus), aiSuggestionStatusTone(displayStatus))}
+        <div class="ai-suggestion-detail-tools">
+          ${badge(readableStatusLabel(displayStatus), aiSuggestionStatusTone(displayStatus))}
+          ${renderOpenNoteButton(displayItem, actionLoading, display)}
+        </div>
       </header>
       ${displayGroupItems.map((entry) => {
         const entryId = String(entry.id || "").trim();
@@ -551,7 +552,6 @@ function renderDetail(state = {}) {
       ${renderTrace(activeDetail)}
       ${renderDraftEditingGuide(displayItem)}
       ${renderHistory(activeDetail)}
-      ${renderOpenNoteAction(displayItem, actionLoading, display)}
     </article>
   `;
 }
