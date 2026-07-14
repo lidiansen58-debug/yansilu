@@ -6,6 +6,7 @@ import {
   aiSuggestionReviewedContentFromWorkspace,
   bindAiSuggestionsWorkspaceEvents,
   handleAiSuggestionsWorkspaceClick,
+  normalizeVisibleSuggestionFilters,
   renderAiSuggestionsWorkspaceView
 } from "../../apps/web/src/ai-suggestions-workspace.js";
 
@@ -23,20 +24,45 @@ function targetFor(matches = {}) {
   };
 }
 
+test("AI suggestions workspace keeps only visible suggestion filters", () => {
+  assert.deepEqual(normalizeVisibleSuggestionFilters({
+    status: "edited",
+    targetType: "permanent_note",
+    targetId: "pn_1",
+    scope: "note_field",
+    limit: 25
+  }), {
+    status: "edited",
+    targetType: "",
+    targetId: "",
+    scope: "",
+    limit: 25
+  });
+});
+
 test("AI suggestions workspace render mounts panel html from injected renderer", () => {
   const mount = { innerHTML: "" };
+  const state = {
+    suggestions: [{ id: "suggestion_1" }],
+    suggestionsTotal: 7,
+    suggestionFilters: { status: "suggested", targetType: "permanent_note", targetId: "pn_1", scope: "note_field", limit: 25 },
+    suggestionActionError: "failed"
+  };
   const rendered = renderAiSuggestionsWorkspaceView({
     mount,
-    state: {
-      suggestions: [{ id: "suggestion_1" }],
-      suggestionsTotal: 7,
-      suggestionActionError: "failed"
-    },
+    state,
     renderPanel: (state) => `<section>${state.items[0].id}:${state.total}:${state.actionError}</section>`
   });
 
   assert.equal(rendered, true);
   assert.equal(mount.innerHTML, "<section>suggestion_1:7:failed</section>");
+  assert.deepEqual(state.suggestionFilters, {
+    status: "suggested",
+    targetType: "",
+    targetId: "",
+    scope: "",
+    limit: 25
+  });
 });
 
 test("AI suggestions workspace reads filters and reviewed content from the current DOM", () => {
@@ -54,9 +80,9 @@ test("AI suggestions workspace reads filters and reviewed content from the curre
   });
   assert.deepEqual(filters, {
     status: "suggested",
-    targetType: "PermanentNote",
-    targetId: "note_1",
-    scope: "local",
+    targetType: "",
+    targetId: "",
+    scope: "",
     limit: 25
   });
 
@@ -71,9 +97,44 @@ test("AI suggestions workspace reads filters and reviewed content from the curre
     current: { content: "Original" }
   }), "plain text");
 
-  assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
+  assert.deepEqual(aiSuggestionReviewedContentFromWorkspace({
     getElement: (id) => elements[id],
     current: { content: { title: "Original" } }
+  }), { title: "plain text" });
+
+  elements.aiSuggestionContentEditor.value = "First line\nSecond line\n";
+  assert.deepEqual(aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { content: { threeLineSummary: ["Original"] } }
+  }), { threeLineSummary: ["First line", "Second line"] });
+
+  elements.aiSuggestionContentEditor.value = "42";
+  assert.deepEqual(aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { content: { priority: 1 } }
+  }), { priority: 42 });
+
+  elements.aiSuggestionContentEditor.value = "not a number";
+  assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { content: { priority: 1 } }
+  }), /number format/);
+
+  elements.aiSuggestionContentEditor.value = "false";
+  assert.deepEqual(aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { content: { enabled: true } }
+  }), { enabled: false });
+
+  elements.aiSuggestionContentEditor.value = "sometimes";
+  assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { content: { enabled: true } }
+  }), /true\/false format/);
+
+  assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id],
+    current: { content: { title: "Original", summary: "Keep" } }
   }), /valid JSON/);
 });
 

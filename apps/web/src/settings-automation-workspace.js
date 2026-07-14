@@ -8,18 +8,7 @@ export const SETTINGS_AUTOMATION_PANEL_IDS = Object.freeze({
 
 export function renderSettingsAutomationWorkspace() {
   return `
-    <section class="settings-card settings-automation-workspace" id="${SETTINGS_AUTOMATION_PANEL_IDS.card}">
-      <div class="settings-automation-head">
-        <div>
-          <div class="settings-card-title">自动整理</div>
-          <div class="settings-card-note">先看待处理内容，再决定是否整理到笔记里。</div>
-        </div>
-        <div class="settings-automation-status" aria-label="自动整理状态">
-          <span class="settings-automation-status-dot"></span>
-          需要你确认后才会写入笔记
-        </div>
-      </div>
-
+    <section class="settings-card settings-automation-workspace" id="${SETTINGS_AUTOMATION_PANEL_IDS.card}" aria-label="自动整理">
       <div class="settings-automation-tabs">
         <input class="settings-automation-tab-input" id="settingsAutomationTabPending" name="settingsAutomationTab" type="radio" checked />
         <input class="settings-automation-tab-input" id="settingsAutomationTabRules" name="settingsAutomationTab" type="radio" />
@@ -32,15 +21,9 @@ export function renderSettingsAutomationWorkspace() {
         </div>
 
         <div class="settings-automation-tab-panels">
-          <section class="settings-automation-section settings-automation-panel-pending" aria-labelledby="settingsAutomationSuggestionsTitle">
-            <div class="settings-automation-section-head">
-              <div>
-                <div class="settings-automation-section-title" id="settingsAutomationSuggestionsTitle">待处理</div>
-                <div class="settings-automation-section-note">这里的内容不会自动写入笔记；确认后才会保存。</div>
-              </div>
-            </div>
+          <section class="settings-automation-section settings-automation-panel-pending" aria-label="待处理">
             <div id="${SETTINGS_AUTOMATION_PANEL_IDS.suggestions}">
-              <div class="scheduled-task-empty">暂无待处理内容。</div>
+              <div class="scheduled-task-empty">现在没有待处理。</div>
             </div>
           </section>
 
@@ -70,13 +53,6 @@ export function renderSettingsAutomationWorkspace() {
         </div>
       </div>
 
-      <div class="settings-automation-action-strip" aria-label="自动整理操作区">
-        <div>
-          <strong>当前状态</strong>
-          <span>待处理内容需确认后写入。</span>
-        </div>
-        <div class="settings-automation-action-state">默认从待处理开始</div>
-      </div>
     </section>
   `;
 }

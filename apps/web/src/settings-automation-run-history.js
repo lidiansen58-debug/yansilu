@@ -56,24 +56,6 @@ export function automationRunHistoryItems(snapshots = {}) {
     });
 }
 
-function renderDiagnosticPayload(item) {
-  return `
-    <details class="settings-automation-run-diagnostics">
-      <summary>查看细节</summary>
-      <div class="settings-canonical-grid">
-        <div class="settings-canonical-block">
-          <div class="settings-canonical-label">整理状态</div>
-          <pre class="settings-code settings-canonical-code">${escapeHtmlValue(JSON.stringify(item.runtime, null, 2) || "null")}</pre>
-        </div>
-        <div class="settings-canonical-block">
-          <div class="settings-canonical-label">记录内容</div>
-          <pre class="settings-code settings-canonical-code">${escapeHtmlValue(JSON.stringify(item.canonical, null, 2) || "null")}</pre>
-        </div>
-      </div>
-    </details>
-  `;
-}
-
 export function renderSettingsAutomationRunHistory({ snapshots = {} } = {}) {
   const items = automationRunHistoryItems(snapshots);
   if (!items.length) {
@@ -87,7 +69,6 @@ export function renderSettingsAutomationRunHistory({ snapshots = {} } = {}) {
             <strong>${escapeHtmlValue(item.title)}</strong>
             <span>${escapeHtmlValue(formatCapturedAt(item.capturedAt))}</span>
           </div>
-          ${renderDiagnosticPayload(item)}
         </article>
       `).join("")}
     </div>

@@ -27,7 +27,8 @@ test("automation run history renders concise recent activity instead of open JSO
   const html = renderSettingsAutomationRunHistory({ snapshots });
   assert.match(html, /建议处理结果/);
   assert.match(html, /待处理建议列表/);
-  assert.match(html, /<summary>查看细节<\/summary>/);
+  assert.doesNotMatch(html, /<summary>查看细节<\/summary>/);
+  assert.doesNotMatch(html, /settings-canonical-code/);
   assert.doesNotMatch(html, /AI 建议决策/);
   assert.doesNotMatch(html, /最近一次建议审阅更新结果/);
 });

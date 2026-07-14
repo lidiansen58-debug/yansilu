@@ -80,19 +80,22 @@ function renderTaskForm(state = {}) {
   });
   const form = { ...fallbackForm, ...(state.form || {}) };
   const editing = Boolean(String(form.scheduledTaskId || "").trim());
+  const showHead = !state.compact || editing || state.templatesLoading || state.templatesError;
   return `
     <form class="scheduled-task-form" id="scheduledTaskForm">
-      <div class="scheduled-task-form-head">
-        <div>
-          <div class="settings-card-title">${editing ? "编辑整理规则" : "新建整理规则"}</div>
-          <div class="settings-card-note">整理结果会先进入待处理内容，确认后才会写入笔记。</div>
+      ${showHead ? `
+        <div class="scheduled-task-form-head">
+          <div>
+            <div class="settings-card-title">${editing ? "编辑整理规则" : "新建整理规则"}</div>
+            <div class="settings-card-note">整理结果会先进入待处理内容，确认后才会写入笔记。</div>
+          </div>
+          <div class="settings-stat-row">
+            ${editing ? badge(`编辑中 ${form.scheduledTaskId}`, "warn") : badge("草稿", "muted")}
+            ${state.templatesLoading ? badge("模板加载中", "warn") : ""}
+            ${state.templatesError ? badge("模板加载失败", "bad") : ""}
+          </div>
         </div>
-        <div class="settings-stat-row">
-          ${editing ? badge(`编辑中 ${form.scheduledTaskId}`, "warn") : badge("草稿", "muted")}
-          ${state.templatesLoading ? badge("模板加载中", "warn") : ""}
-          ${state.templatesError ? badge("模板加载失败", "bad") : ""}
-        </div>
-      </div>
+      ` : ""}
       <div class="scheduled-task-form-grid">
         <label>
           <span>模板</span>
@@ -247,7 +250,7 @@ function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
   if (state.loading) return `<div class="scheduled-task-empty">正在加载整理规则...</div>`;
   if (state.error) return `<div class="scheduled-task-empty is-bad">整理规则加载失败：${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的整理规则。</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">${state.compact ? "还没有整理规则。" : "没有符合这些筛选条件的整理规则。"}</div>`;
   return `<div class="scheduled-task-list">${items.map((item) => renderTask(item, state.actionLoading)).join("")}</div>`;
 }
 
@@ -255,9 +258,10 @@ function renderTaskFormSlot(state = {}) {
   const form = renderTaskForm(state);
   if (!state.compact) return form;
   const openAttr = state.formOpen ? " open" : "";
+  const editing = Boolean(String(state.form?.scheduledTaskId || "").trim());
   return `
     <details class="scheduled-task-form-details"${openAttr}>
-      <summary>新建整理规则</summary>
+      <summary>${editing ? "编辑整理规则" : "新建整理规则"}</summary>
       ${form}
     </details>
   `;
@@ -265,21 +269,26 @@ function renderTaskFormSlot(state = {}) {
 
 export function renderScheduledTasksPanel(state = {}) {
   const summary = scheduledTasksSummary({ items: state.items, total: state.total });
+  const filters = normalizeScheduledTaskFilters(state.filters || {});
+  const hasActiveFilters = filters.status !== "all" || filters.taskType !== "all";
+  const emptyCompact = state.compact && !state.loading && !state.error && !(Array.isArray(state.items) && state.items.length);
   return `
-    <div class="scheduled-task-panel">
-      <div class="scheduled-task-head">
-        <div>
-          <div class="settings-card-title">整理规则</div>
-          <div class="settings-card-note">定时或手动整理内容；你确认后才会写入笔记。</div>
+    <div class="scheduled-task-panel ${state.compact ? "is-compact" : ""}">
+      ${state.compact ? "" : `
+        <div class="scheduled-task-head">
+          <div>
+            <div class="settings-card-title">整理规则</div>
+            <div class="settings-card-note">定时或手动整理内容；你确认后才会写入笔记。</div>
+          </div>
+          <div class="settings-stat-row">
+            ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
+            ${badge(`${summary.counts.active || 0} 启用`, "ok")}
+            ${badge(`${summary.counts.paused || 0} 暂停`, "warn")}
+            ${summary.counts.failed ? badge(`${summary.counts.failed} 失败`, "bad") : ""}
+          </div>
         </div>
-        <div class="settings-stat-row">
-          ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
-          ${badge(`${summary.counts.active || 0} 启用`, "ok")}
-          ${badge(`${summary.counts.paused || 0} 暂停`, "warn")}
-          ${summary.counts.failed ? badge(`${summary.counts.failed} 失败`, "bad") : ""}
-        </div>
-      </div>
-      ${renderControls(state)}
+      `}
+      ${emptyCompact && !hasActiveFilters ? "" : renderControls(state)}
       ${renderTaskFormSlot(state)}
       ${renderRunSummary(state.runSummary)}
       ${renderList(state)}

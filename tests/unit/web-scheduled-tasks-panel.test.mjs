@@ -71,7 +71,10 @@ test("scheduled tasks panel can collapse creation form in compact mode", () => {
 
   assert.match(html, /<details class="scheduled-task-form-details">/);
   assert.match(html, /新建整理规则/);
-  assert.match(html, /没有符合这些筛选条件的整理规则/);
+  assert.match(html, /还没有整理规则/);
+  assert.doesNotMatch(html, /0\/0 可见/);
+  assert.doesNotMatch(html, /id="btnScheduledTasksApplyFilters"/);
+  assert.doesNotMatch(html, /<div class="settings-card-title">新建整理规则<\/div>/);
 
   const openHtml = renderScheduledTasksPanel({
     items: [],
@@ -80,4 +83,16 @@ test("scheduled tasks panel can collapse creation form in compact mode", () => {
     formOpen: true
   });
   assert.match(openHtml, /<details class="scheduled-task-form-details" open>/);
+});
+
+test("scheduled tasks compact mode keeps filters visible when an empty filter is active", () => {
+  const html = renderScheduledTasksPanel({
+    items: [],
+    total: 0,
+    compact: true,
+    filters: { status: "active", taskType: "all" }
+  });
+
+  assert.match(html, /还没有整理规则/);
+  assert.match(html, /id="btnScheduledTasksApplyFilters"/);
 });
