@@ -5,7 +5,7 @@ import { renderAiSuggestionsPanel } from "../../apps/web/src/ai-suggestions-pane
 
 const suggestion = {
   id: "suggestion_1",
-  target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+  target: { type: "permanent_note", id: "pn_1", title: "Inbox review target", field: "thesis" },
   scope: "note_field",
   content: "A reviewable claim starts life as a draft.",
   status: "suggested",
@@ -36,13 +36,15 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.doesNotMatch(html, /id="aiSuggestionTargetTypeFilter"/);
   assert.doesNotMatch(html, /id="aiSuggestionTargetIdFilter"/);
   assert.doesNotMatch(html, /id="aiSuggestionScopeFilter"/);
+  assert.match(html, /Inbox review target/);
   assert.match(html, /核心观点/);
-  assert.match(html, /永久笔记/);
-  assert.match(html, /写入：核心观点/);
-  assert.match(html, /来自：AI 整理/);
+  assert.match(html, /准备写入：核心观点/);
+  assert.doesNotMatch(html, /来自：AI 整理/);
   assert.match(html, /建议内容/);
   assert.match(html, /保存为草稿/);
   assert.match(html, /忽略/);
+  assert.match(html, /data-ai-suggestion-open-note="pn_1"/);
+  assert.doesNotMatch(html, /data-ai-suggestion-open-note="Inbox review target"/);
   assert.doesNotMatch(html, /permanent_note \/ pn_1 \/ thesis/);
   assert.doesNotMatch(html, /note_field/);
   assert.doesNotMatch(html, /\{"thesis"/);
@@ -62,6 +64,25 @@ test("AI suggestions panel keeps primary actions next to the selected suggestion
   assert.match(pane, /打开笔记/);
   assert.match(pane, /保存为草稿/);
   assert.match(pane, /忽略/);
+});
+
+test("AI suggestions detail keeps the note title when latest detail omits it", () => {
+  const pane = detailPane(renderAiSuggestionsPanel({
+    items: [suggestion],
+    total: 1,
+    selectedSuggestionId: "suggestion_1",
+    detail: {
+      ...suggestion,
+      target: { type: "permanent_note", id: "pn_1", field: "three_line_summary" },
+      content: { threeLineSummary: ["First line", "Second line", "Third line"] }
+    }
+  }));
+
+  assert.match(pane, /Inbox review target/);
+  assert.match(pane, /准备写入：三行摘要/);
+  assert.doesNotMatch(pane, /<h2>三行摘要<\/h2>/);
+  assert.doesNotMatch(visibleText(pane), /\bpn_[\w-]+/);
+  assert.match(pane, /data-ai-suggestion-open-note="pn_1"/);
 });
 
 test("AI suggestions panel renders edited action for adopted draft suggestions in plain language", () => {

@@ -169,10 +169,11 @@ test("note analysis input normalization and tokenization expose stable helper co
 });
 
 test("note analysis review items convert local findings into pending artifacts and suggested fields", () => {
+  const noteTitle = "AI relation candidate note";
   const { analysis, reviewItems } = analyzePermanentNoteForReview(
     {
       noteId: "pn_review",
-      title: "AI 关系候选",
+      title: noteTitle,
       body: "# AI 关系候选\n\n这条笔记记录 AI 如何提示关系，但还没有确认判断。",
       relatedNotes: [
         {
@@ -190,12 +191,14 @@ test("note analysis review items convert local findings into pending artifacts a
   );
 
   assert.equal(analysis.noteId, "pn_review");
+  assert.equal(analysis.title, noteTitle);
   assert.equal(reviewItems.noteId, "pn_review");
   assert.equal(reviewItems.summary.canAutoConfirm, false);
   assert.ok(reviewItems.artifacts.some((item) => item.type === "LinkSuggestion"));
   assert.ok(reviewItems.artifacts.every((item) => item.status === "pending_review"));
   assert.ok(reviewItems.artifacts.every((item) => item.origin === "system_rule"));
   assert.ok(reviewItems.suggestions.length >= 1);
+  assert.ok(reviewItems.suggestions.every((item) => item.target.title === noteTitle));
   assert.ok(reviewItems.suggestions.every((item) => item.status === "suggested"));
   assert.ok(reviewItems.suggestions.every((item) => item.provenance.humanConfirmed === false));
   assert.ok(
