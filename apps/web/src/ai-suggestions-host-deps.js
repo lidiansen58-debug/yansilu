@@ -7,6 +7,7 @@ export function createAiSuggestionsWorkspaceHostDeps(deps = {}) {
     applyAiSuggestionStatus = async () => {},
     activateModule = () => {},
     openNoteById = () => {},
+    render = () => {},
     setStatus = () => {}
   } = deps;
 
@@ -16,6 +17,7 @@ export function createAiSuggestionsWorkspaceHostDeps(deps = {}) {
     refreshAiSuggestions,
     loadAiSuggestionDetail,
     applyAiSuggestionStatus,
+    render,
     openTargetNote: async (noteId) => {
       const cleanNoteId = String(noteId || "").trim();
       if (!cleanNoteId) {

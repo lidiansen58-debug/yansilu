@@ -15,12 +15,12 @@ const suggestion = {
 };
 
 function detailPane(html = "") {
-  return html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  return html.split('<div class="ai-suggestion-modal-dialog">')[1] || "";
 }
 
 function listPane(html = "") {
   const afterStart = html.split('<section class="ai-inbox-list-pane">')[1] || "";
-  return afterStart.split('<section class="ai-inbox-detail-pane">')[0] || afterStart;
+  return afterStart.split('<div class="ai-suggestion-modal"')[0] || afterStart;
 }
 
 function visibleText(html = "") {
@@ -45,19 +45,18 @@ test("AI suggestions panel hides internal filters and renders readable list/deta
   assert.match(html, /核心观点/);
   assert.match(html, /缺：核心观点/);
   assert.match(html, /AI 建议：核心观点：A reviewable claim starts life as a draft/);
-  assert.match(html, /查看处理/);
+  assert.match(html, /处理建议/);
   assert.doesNotMatch(html, /来自：AI 整理/);
-  assert.match(html, /保存为草稿/);
-  assert.match(html, /忽略/);
-  assert.match(html, /data-ai-suggestion-open-note="pn_1"/);
-  assert.doesNotMatch(html, /data-ai-suggestion-open-note="Inbox review target"/);
+  assert.match(html, /保存这篇建议/);
+  assert.match(html, /暂不处理/);
+  assert.doesNotMatch(html, /data-ai-suggestion-open-note=/);
   assert.doesNotMatch(html, /permanent_note \/ pn_1 \/ thesis/);
   assert.doesNotMatch(html, /note_field/);
   assert.doesNotMatch(html, /\{"thesis"/);
   assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
-test("AI suggestions panel keeps actions under the suggestion they affect", () => {
+test("AI suggestions panel opens suggestions in one modal action area", () => {
   const pane = detailPane(renderAiSuggestionsPanel({
     items: [suggestion],
     total: 1,
@@ -66,12 +65,13 @@ test("AI suggestions panel keeps actions under the suggestion they affect", () =
   }));
 
   assert.ok(pane.indexOf("<h3>核心观点</h3>") > -1);
-  assert.ok(pane.indexOf("ai-suggestion-primary-actions") > pane.indexOf("<h3>核心观点</h3>"));
   assert.ok(pane.indexOf("ai-suggestion-detail-tools") < pane.indexOf("<h3>核心观点</h3>"));
   assert.doesNotMatch(pane, /ai-suggestion-action-row/);
-  assert.match(pane, /打开笔记/);
-  assert.match(pane, /保存为草稿/);
-  assert.match(pane, /忽略/);
+  assert.doesNotMatch(pane, /打开笔记/);
+  assert.match(pane, /data-ai-suggestion-close="true"/);
+  assert.match(pane, /data-ai-suggestion-group-status="adopted_as_draft"/);
+  assert.match(pane, /data-ai-suggestion-group-status="rejected"/);
+  assert.equal((pane.match(/ai-suggestion-modal-actions/g) || []).length, 1);
 });
 
 test("AI suggestions detail keeps the note title when latest detail omits it", () => {
@@ -91,7 +91,7 @@ test("AI suggestions detail keeps the note title when latest detail omits it", (
   assert.match(pane, /<h3>三行摘要<\/h3>/);
   assert.doesNotMatch(pane, /<h2>三行摘要<\/h2>/);
   assert.doesNotMatch(visibleText(pane), /\bpn_[\w-]+/);
-  assert.match(pane, /data-ai-suggestion-open-note="pn_1"/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-open-note=/);
 });
 
 test("AI suggestions panel replaces vague missing-note titles with the work to do", () => {
@@ -139,10 +139,51 @@ test("AI suggestions panel groups several suggestions from the same note", () =>
   assert.match(list, /缺：核心观点、三行摘要/);
   assert.match(list, /核心观点：A reviewable claim starts life as a draft/);
   assert.match(list, /三行摘要：First line Second line Third line/);
-  assert.match(list, /查看处理/);
+  assert.match(list, /处理建议/);
   assert.match(pane, /<h3>核心观点<\/h3>/);
   assert.match(pane, /<h3>三行摘要<\/h3>/);
+  assert.match(pane, /data-ai-suggestion-ids="suggestion_1,suggestion_summary"/);
+  assert.equal((pane.match(/data-ai-suggestion-group-status=/g) || []).length, 2);
+  assert.doesNotMatch(pane, /处理这项/);
   assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
+});
+
+test("AI suggestions panel does not present the note title as generated content", () => {
+  const title = "02 什么是永久笔记？";
+  const html = renderAiSuggestionsPanel({
+    items: [
+      {
+        ...suggestion,
+        id: "suggestion_title_thesis",
+        target: { ...suggestion.target, title, field: "thesis" },
+        content: title
+      },
+      {
+        ...suggestion,
+        id: "suggestion_title_summary",
+        target: { ...suggestion.target, title, field: "three_line_summary" },
+        content: { threeLineSummary: [title] }
+      }
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_title_thesis",
+    detail: {
+      ...suggestion,
+      id: "suggestion_title_thesis",
+      target: { ...suggestion.target, title, field: "thesis" },
+      content: title
+    }
+  });
+  const list = listPane(html);
+  const pane = detailPane(html);
+
+  assert.match(list, /AI 建议：暂无可用内容/);
+  assert.doesNotMatch(list, /核心观点：02 什么是永久笔记/);
+  assert.doesNotMatch(list, /三行摘要：02 什么是永久笔记/);
+  assert.match(pane, /没有生成可用建议/);
+  assert.doesNotMatch(pane, /保存这篇建议/);
+  assert.match(pane, /data-ai-suggestion-group-status="rejected"/);
+  assert.match(pane, /data-ai-suggestion-ids="suggestion_title_thesis,suggestion_title_summary"/);
 });
 
 test("AI suggestions panel only lets the selected grouped suggestion be edited", () => {
@@ -261,7 +302,7 @@ test("AI suggestions panel renders readable guidance when detail is incomplete",
   });
 
   assert.match(html, /这条整理暂时找不到要打开的笔记/);
-  assert.match(html, /data-ai-suggestion-open-note=""[\s\S]*disabled/);
+  assert.doesNotMatch(html, /data-ai-suggestion-open-note=/);
   assert.doesNotMatch(html, /Trace placeholder:/);
   assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });

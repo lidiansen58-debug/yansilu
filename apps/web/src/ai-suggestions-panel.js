@@ -95,7 +95,9 @@ function suggestionWorkLabel(item = {}, display = null) {
 }
 
 function suggestionContentPreview(item = {}) {
-  return compactText(readableContent(item.content), 100);
+  const content = readableContent(item.content);
+  if (!isUsefulSuggestionContent(item, null, content)) return "";
+  return compactText(content, 100);
 }
 
 function suggestionDisplayTitle(item = {}, display = null) {
@@ -149,7 +151,15 @@ function renderGroupPreview(items = []) {
       return `${suggestionFieldLabel(item)}：${preview}`;
     })
     .filter(Boolean);
-  return previews.length ? `AI 建议：${previews.join("；")}` : "AI 建议：暂无可预览内容";
+  return previews.length ? `AI 建议：${previews.join("；")}` : "AI 建议：暂无可用内容";
+}
+
+function suggestionIdsForStatus(items = [], status = "suggested") {
+  return uniqueLabels(
+    (Array.isArray(items) ? items : [])
+      .filter((item) => String(item.status || "").trim() === status)
+      .map((item) => item.id)
+  );
 }
 
 function suggestionWithListContext(item = null, listItem = null) {
@@ -188,6 +198,22 @@ function readableContent(content) {
     if (values.length) return values.join("\n");
   }
   return "这条建议没有可预览的内容。";
+}
+
+function normalizeComparableText(value = "") {
+  return String(value || "")
+    .replace(/[“”"']/g, "")
+    .replace(/[，。！？、；：,.!?:;\s]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isUsefulSuggestionContent(item = {}, display = null, contentText = null) {
+  const text = String((contentText ?? readableContent(item.content)) || "").trim();
+  if (!text || text === "这条建议没有可预览的内容。") return false;
+  const title = suggestionDisplayTitle(item, display);
+  if (!title) return true;
+  return normalizeComparableText(text) !== normalizeComparableText(title);
 }
 
 function readableStatusLabel(status = "") {
@@ -250,7 +276,7 @@ function renderItem(group = {}) {
       <span class="ai-inbox-item-meta">${escapeHtml(suggestionMissingLabel(items))}</span>
       <span class="ai-inbox-item-summary">${escapeHtml(renderGroupPreview(items))}</span>
       <span class="ai-inbox-item-meta">
-        <span>查看处理</span>
+        <span>处理建议</span>
       </span>
     </button>
   `;
@@ -344,6 +370,53 @@ function renderSuggestionBlock(item = {}, options = {}) {
       ${renderActionError(actionError)}
       ${renderActionNotice(actionNotice, actionNoticeTone)}
     </section>
+  `;
+}
+
+function renderSuggestionPreviewBlock(item = {}, display = null) {
+  const useful = isUsefulSuggestionContent(item, display);
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>${escapeHtml(suggestionFieldLabel(item, display))}</h3>
+      <div class="ai-suggestion-content-text ${useful ? "" : "is-muted"}">${escapeHtml(useful ? readableContent(item.content) : "没有生成可用建议。")}</div>
+    </section>
+  `;
+}
+
+function renderGroupActions(items = [], actionLoading = false) {
+  const suggestedItems = (Array.isArray(items) ? items : [])
+    .filter((item) => String(item.status || "").trim() === "suggested");
+  const suggestedIds = suggestionIdsForStatus(suggestedItems, "suggested");
+  const usefulIds = suggestionIdsForStatus(
+    suggestedItems.filter((item) => isUsefulSuggestionContent(item)),
+    "suggested"
+  );
+  if (!suggestedIds.length) return "";
+  const rejectIds = suggestedIds.join(",");
+  const saveIds = usefulIds.join(",");
+  return `
+    <div class="ai-suggestion-modal-actions">
+      ${usefulIds.length ? `
+        <button
+          class="mini-btn primary"
+          type="button"
+          data-ai-suggestion-group-status="adopted_as_draft"
+          data-ai-suggestion-ids="${attr(saveIds)}"
+          ${actionLoading ? "disabled" : ""}
+        >
+          保存这篇建议
+        </button>
+      ` : ""}
+      <button
+        class="mini-btn"
+        type="button"
+        data-ai-suggestion-group-status="rejected"
+        data-ai-suggestion-ids="${attr(rejectIds)}"
+        ${actionLoading ? "disabled" : ""}
+      >
+        暂不处理
+      </button>
+    </div>
   `;
 }
 
@@ -522,6 +595,7 @@ function renderDetail(state = {}) {
   const displayStatus = display.status || String(item.status || "").trim();
   const displayItem = { ...item, status: displayStatus };
   const displayGroupItems = groupItems.map((entry) => String(entry.id || "") === String(item.id || "") ? displayItem : entry);
+  const canHandleAsGroup = displayGroupItems.some((entry) => String(entry.status || "").trim() === "suggested");
   return `
     <article class="ai-inbox-detail ${actionLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
@@ -531,28 +605,43 @@ function renderDetail(state = {}) {
           <p>${escapeHtml(suggestionMissingLabel(displayGroupItems))}</p>
         </div>
         <div class="ai-suggestion-detail-tools">
-          ${badge(readableStatusLabel(displayStatus), aiSuggestionStatusTone(displayStatus))}
-          ${renderOpenNoteButton(displayItem, actionLoading, display)}
+          ${canHandleAsGroup ? "" : renderOpenNoteButton(displayItem, actionLoading, display)}
+          <button class="mini-btn ai-suggestion-modal-close" type="button" data-ai-suggestion-close="true" aria-label="关闭">×</button>
         </div>
       </header>
-      ${displayGroupItems.map((entry) => {
-        const entryId = String(entry.id || "").trim();
-        const isSelectedEntry = entryId === String(item.id || "").trim();
-        const entryActionNotice = actionNoticeSuggestionId === entryId ? state.actionNotice : "";
-        return renderSuggestionBlock(entry, {
-          actionLoading: state.actionLoading && actionSuggestionId === entryId,
-          actionError: actionSuggestionId === entryId ? state.actionError : "",
-          actionNotice: entryActionNotice,
-          actionNoticeTone: entryActionNotice ? state.actionNoticeTone : "",
-          display: isSelectedEntry ? display : null,
-          selected: isSelectedEntry,
-          useLegacyEditorId: isSelectedEntry
-        });
-      }).join("")}
+      ${canHandleAsGroup
+        ? displayGroupItems.map((entry) => renderSuggestionPreviewBlock(entry, String(entry.id || "").trim() === String(item.id || "").trim() ? display : null)).join("")
+        : displayGroupItems.map((entry) => {
+            const entryId = String(entry.id || "").trim();
+            const isSelectedEntry = entryId === String(item.id || "").trim();
+            const entryActionNotice = actionNoticeSuggestionId === entryId ? state.actionNotice : "";
+            return renderSuggestionBlock(entry, {
+              actionLoading: state.actionLoading && actionSuggestionId === entryId,
+              actionError: actionSuggestionId === entryId ? state.actionError : "",
+              actionNotice: entryActionNotice,
+              actionNoticeTone: entryActionNotice ? state.actionNoticeTone : "",
+              display: isSelectedEntry ? display : null,
+              selected: isSelectedEntry,
+              useLegacyEditorId: isSelectedEntry
+            });
+          }).join("")}
       ${renderTrace(activeDetail)}
+      ${canHandleAsGroup ? renderGroupActions(displayGroupItems, actionLoading) : ""}
       ${renderDraftEditingGuide(displayItem)}
       ${renderHistory(activeDetail)}
     </article>
+  `;
+}
+
+function renderDetailModal(state = {}) {
+  if (!state.selectedSuggestionId && !state.detailLoading && !state.detailError) return "";
+  return `
+    <div class="ai-suggestion-modal" role="dialog" aria-modal="true" aria-label="整理建议">
+      <div class="ai-suggestion-modal-backdrop" data-ai-suggestion-close="true"></div>
+      <div class="ai-suggestion-modal-dialog">
+        ${renderDetail(state)}
+      </div>
+    </div>
   `;
 }
 
@@ -584,10 +673,8 @@ export function renderAiSuggestionsPanel(state = {}) {
         : `
           <div class="ai-inbox-grid">
             <section class="ai-inbox-list-pane">${renderList(state)}</section>
-            ${items.length || state.selectedSuggestionId || state.detailLoading || state.detailError
-              ? `<section class="ai-inbox-detail-pane">${renderDetail(state)}</section>`
-              : ""}
           </div>
+          ${renderDetailModal(state)}
         `}
     </div>
   `;

@@ -3811,10 +3811,6 @@
       gap: 12px;
       align-items: start;
     }
-    .settings-automation-panel-pending .ai-inbox-grid {
-      grid-template-columns: minmax(280px, .85fr) minmax(360px, 1.15fr);
-      gap: 14px;
-    }
     .ai-inbox-list-pane,
     .ai-inbox-detail-pane {
       min-height: 0;
@@ -3829,13 +3825,6 @@
       display: grid;
       gap: 10px;
       align-content: start;
-    }
-    .settings-automation-panel-pending .ai-inbox-detail-pane {
-      position: sticky;
-      top: 12px;
-      max-height: min(720px, calc(100vh - 120px));
-      overflow: auto;
-      overscroll-behavior: contain;
     }
     .ai-inbox-list {
       display: grid;
@@ -3945,22 +3934,61 @@
       flex-wrap: wrap;
       gap: 8px;
     }
-    .ai-suggestion-action-row {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .ai-suggestion-action-row .scheduled-task-actions {
-      margin: 0;
-    }
     .ai-suggestion-detail-tools {
       display: flex;
       align-items: center;
       justify-content: flex-end;
       gap: 8px;
       flex-wrap: wrap;
+    }
+    .ai-suggestion-modal-close {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .ai-suggestion-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1900;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+    }
+    .ai-suggestion-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, .34);
+      backdrop-filter: blur(6px);
+    }
+    .ai-suggestion-modal-dialog {
+      position: relative;
+      width: min(720px, 100%);
+      max-height: min(760px, calc(100vh - 44px));
+      overflow: auto;
+      overscroll-behavior: contain;
+      border: 1px solid #d7e0ea;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 28px 72px rgba(15, 23, 42, .24);
+    }
+    .ai-suggestion-modal-dialog .ai-inbox-detail {
+      padding: 18px;
+    }
+    .ai-suggestion-modal-actions {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 2px -18px -18px;
+      padding: 14px 18px;
+      border-top: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, .96);
+      backdrop-filter: blur(10px);
     }
     .ai-suggestion-primary-actions {
       display: flex;
@@ -3979,6 +4007,10 @@
       line-height: 1.7;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+    }
+    .ai-suggestion-content-text.is-muted {
+      color: #64748b;
+      background: #f8fafc;
     }
     .ai-inbox-feedback-controls label {
       border: 1px solid #dbe3ec;
@@ -4182,13 +4214,11 @@
       .ai-inbox-detail-grid {
         grid-template-columns: 1fr;
       }
-      .settings-automation-panel-pending .ai-inbox-grid {
-        grid-template-columns: 1fr;
+      .ai-suggestion-modal {
+        padding: 12px;
       }
-      .settings-automation-panel-pending .ai-inbox-detail-pane {
-        position: static;
-        max-height: none;
-        overflow: visible;
+      .ai-suggestion-modal-dialog {
+        max-height: calc(100vh - 24px);
       }
       .ai-inbox-tabs {
         grid-template-columns: 1fr;

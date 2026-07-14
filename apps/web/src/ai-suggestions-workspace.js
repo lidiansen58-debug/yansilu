@@ -139,6 +139,7 @@ export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {
     loadAiSuggestionDetail = async () => null,
     applyAiSuggestionStatus = async () => null,
     openTargetNote = async () => null,
+    render = () => {},
     setStatus = () => {},
     refreshStatusMessage = "AI suggestions refreshed"
   } = deps;
@@ -161,6 +162,37 @@ export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {
   if (openTargetNoteButton) {
     const noteId = String(openTargetNoteButton.getAttribute("data-ai-suggestion-open-note") || "").trim();
     await openTargetNote(noteId);
+    return true;
+  }
+
+  if (target.closest("[data-ai-suggestion-close]")) {
+    settingsAiState.selectedSuggestionId = "";
+    settingsAiState.suggestionDetail = null;
+    settingsAiState.suggestionDetailSuggestionId = "";
+    settingsAiState.suggestionDetailError = "";
+    settingsAiState.suggestionActionError = "";
+    settingsAiState.suggestionActionNoticeSuggestionId = "";
+    settingsAiState.suggestionActionNotice = "";
+    settingsAiState.suggestionActionNoticeTone = "";
+    render();
+    return true;
+  }
+
+  const groupStatusButton = target.closest("[data-ai-suggestion-group-status]");
+  if (groupStatusButton) {
+    const status = String(groupStatusButton.getAttribute("data-ai-suggestion-group-status") || "").trim();
+    const ids = String(groupStatusButton.getAttribute("data-ai-suggestion-ids") || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    for (const suggestionId of ids) {
+      await loadAiSuggestionDetail(suggestionId);
+      await applyAiSuggestionStatus(suggestionId, status);
+    }
+    settingsAiState.selectedSuggestionId = "";
+    settingsAiState.suggestionDetail = null;
+    settingsAiState.suggestionDetailSuggestionId = "";
+    render();
     return true;
   }
 

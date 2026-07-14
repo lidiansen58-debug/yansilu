@@ -228,6 +228,66 @@ test("AI suggestions workspace routes filter, list, action, and open-note clicks
   ]);
 });
 
+test("AI suggestions workspace closes the suggestion modal", async () => {
+  const calls = [];
+  const settingsAiState = {
+    selectedSuggestionId: "suggestion_1",
+    suggestionDetail: { item: { id: "suggestion_1" } },
+    suggestionDetailSuggestionId: "suggestion_1",
+    suggestionDetailError: "old error",
+    suggestionActionError: "old action error",
+    suggestionActionNoticeSuggestionId: "suggestion_1",
+    suggestionActionNotice: "old notice",
+    suggestionActionNoticeTone: "warn"
+  };
+
+  await handleAiSuggestionsWorkspaceClick({
+    target: targetFor({ "[data-ai-suggestion-close]": { "data-ai-suggestion-close": "true" } })
+  }, {
+    settingsAiState,
+    render: () => calls.push("render")
+  });
+
+  assert.equal(settingsAiState.selectedSuggestionId, "");
+  assert.equal(settingsAiState.suggestionDetail, null);
+  assert.equal(settingsAiState.suggestionDetailSuggestionId, "");
+  assert.equal(settingsAiState.suggestionActionNotice, "");
+  assert.deepEqual(calls, ["render"]);
+});
+
+test("AI suggestions workspace applies one modal action to grouped suggestions", async () => {
+  const calls = [];
+  const settingsAiState = {
+    selectedSuggestionId: "suggestion_1",
+    suggestionDetail: { item: { id: "suggestion_1" } },
+    suggestionDetailSuggestionId: "suggestion_1"
+  };
+
+  await handleAiSuggestionsWorkspaceClick({
+    target: targetFor({
+      "[data-ai-suggestion-group-status]": {
+        "data-ai-suggestion-group-status": "adopted_as_draft",
+        "data-ai-suggestion-ids": "suggestion_1,suggestion_summary"
+      }
+    })
+  }, {
+    settingsAiState,
+    loadAiSuggestionDetail: async (id) => calls.push(["detail", id]),
+    applyAiSuggestionStatus: async (id, status) => calls.push(["status", id, status]),
+    render: () => calls.push(["render"])
+  });
+
+  assert.deepEqual(calls, [
+    ["detail", "suggestion_1"],
+    ["status", "suggestion_1", "adopted_as_draft"],
+    ["detail", "suggestion_summary"],
+    ["status", "suggestion_summary", "adopted_as_draft"],
+    ["render"]
+  ]);
+  assert.equal(settingsAiState.selectedSuggestionId, "");
+  assert.equal(settingsAiState.suggestionDetail, null);
+});
+
 test("AI suggestions workspace binding attaches and detaches the click handler", async () => {
   const listeners = [];
   const panel = {
