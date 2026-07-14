@@ -5354,6 +5354,7 @@
       gap: 8px;
     }
     .graph-map-primary-actions > .mini-btn.primary[data-run-graph-ai-analysis] {
+      min-width: 100px;
       min-height: 40px;
       padding: 9px 18px;
       border-radius: 8px;
@@ -5361,7 +5362,7 @@
       font-weight: 800;
     }
     .graph-map-primary-actions > .graph-filters-compact {
-      margin-left: auto;
+      margin-left: 24px;
     }
     .graph-map-mode-hint {
       display: flex;

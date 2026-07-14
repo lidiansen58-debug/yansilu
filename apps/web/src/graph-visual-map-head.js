@@ -44,10 +44,10 @@ export function buildGraphVisualMapHeadContent({
   const gapMode = !filterActive && relationType !== "index" && readingLens.key === "bridge";
   const themeMode = !filterActive && relationType === "index";
   const gapAction = gapMode
-    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="gap">找缺口</button>`
+    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="gap">检查缺口</button>`
     : "";
   const themeAction = themeMode
-    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="theme">找主题</button>`
+    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="theme">发现主题</button>`
     : "";
   return filterActive
     ? `
