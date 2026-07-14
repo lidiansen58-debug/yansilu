@@ -5343,11 +5343,12 @@
       align-items: center;
       justify-content: flex-start;
       gap: 8px;
+      width: 100%;
     }
     .graph-map-primary-actions {
       margin-left: 12px;
       min-width: 0;
-      flex: 0 1 auto;
+      flex: 1 1 auto;
       display: flex;
       align-items: center;
       justify-content: flex-start;
@@ -5362,7 +5363,7 @@
       font-weight: 800;
     }
     .graph-map-primary-actions > .graph-filters-compact {
-      margin-left: 24px;
+      margin-left: auto;
     }
     .graph-map-mode-hint {
       display: flex;
@@ -9097,9 +9098,10 @@
       align-items: center;
       justify-content: flex-start;
       gap: 8px;
+      width: 100%;
     }
     .module-workspace.graph-mode .graph-map-primary-actions {
-      flex: 0 1 auto;
+      flex: 1 1 auto;
       margin-left: 12px;
     }
     .module-workspace.graph-mode .graph-reading-lens-row {
