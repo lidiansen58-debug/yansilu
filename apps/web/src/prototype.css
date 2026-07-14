@@ -16207,6 +16207,15 @@
       gap: 14px;
       min-width: 0;
     }
+    .backup-workspace-tabs {
+      align-self: start;
+    }
+    .backup-workspace-tab {
+      min-height: 52px;
+    }
+    .backup-tab-panel[hidden] {
+      display: none;
+    }
     .settings-support-grid {
       grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
       align-items: start;
