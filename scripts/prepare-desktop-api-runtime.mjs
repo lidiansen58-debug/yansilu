@@ -49,6 +49,17 @@ function run(command, args, options = {}) {
   }
 }
 
+function assertDesktopApiServerHasHostBinding(serverPath) {
+  const source = fs.readFileSync(serverPath, "utf8");
+  const hasHostConfig = source.includes('const HOST = String(process.env.API_HOST || "127.0.0.1");');
+  const listensOnConfiguredHost = source.includes("server.listen(PORT, HOST,");
+  if (!hasHostConfig || !listensOnConfiguredHost) {
+    throw new Error(
+      `Desktop API runtime server must bind to a configured host before bundling: ${serverPath}`
+    );
+  }
+}
+
 function resolveNodeExe() {
   // macOS: build universal (arm64+x86_64) Node.js via lipo
   if (process.platform === "darwin") {
@@ -160,6 +171,7 @@ if (process.platform === "darwin") {
 copyFile(path.join(repoRoot, "package.json"), path.join(runtimeRoot, "package.json"));
 copyFile(path.join(repoRoot, "package-lock.json"), path.join(runtimeRoot, "package-lock.json"));
 copyDir(path.join(repoRoot, "apps", "api"), path.join(runtimeRoot, "apps", "api"));
+assertDesktopApiServerHasHostBinding(path.join(runtimeRoot, "apps", "api", "src", "server.mjs"));
 copyDir(path.join(repoRoot, "packages"), path.join(runtimeRoot, "packages"));
 
 ensureDir(path.join(runtimeRoot, "scripts"));

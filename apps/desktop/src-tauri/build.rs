@@ -1,9 +1,11 @@
+#[cfg(unix)]
 use std::fs;
+#[cfg(unix)]
 use std::path::Path;
-
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+#[cfg(unix)]
 fn fix_permissions_recursive(path: &Path) {
     if !path.exists() {
         return;
@@ -22,11 +24,14 @@ fn fix_permissions_recursive(path: &Path) {
 }
 
 fn main() {
-    let runtime_dir = Path::new("desktop-api-runtime");
-    if runtime_dir.exists() {
-        fix_permissions_recursive(runtime_dir);
-        let node_bin = runtime_dir.join("node").join("node");
-        let _ = fs::set_permissions(&node_bin, fs::Permissions::from_mode(0o755));
+    #[cfg(unix)]
+    {
+        let runtime_dir = Path::new("desktop-api-runtime");
+        if runtime_dir.exists() {
+            fix_permissions_recursive(runtime_dir);
+            let node_bin = runtime_dir.join("node").join("node");
+            let _ = fs::set_permissions(&node_bin, fs::Permissions::from_mode(0o755));
+        }
     }
     tauri_build::build()
 }

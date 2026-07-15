@@ -40,6 +40,10 @@ export function localRuntimeControlAllowedPorts(env = process.env) {
   );
 }
 
+export function isPackagedDesktopApiRuntime(env = process.env) {
+  return String(env?.YANSILU_DESKTOP_API || "").trim() === "1";
+}
+
 export function isPackagedDesktopAppOrigin(parsedUrl = null) {
   const protocol = String(parsedUrl?.protocol || "").trim().toLowerCase();
   const hostname = String(parsedUrl?.hostname || "").trim().toLowerCase();
@@ -63,18 +67,31 @@ export function isAllowedLocalRuntimeControlOrigin(origin = "", host = "", env =
   const originHost = parsed.host.toLowerCase();
   if (requestHost && originHost === requestHost) return true;
   if (isPackagedDesktopAppOrigin(parsed)) return true;
+  if (
+    isPackagedDesktopApiRuntime(env) &&
+    !parsed.port &&
+    parsed.protocol === "http:" &&
+    isLoopbackHost(parsed.hostname)
+  ) {
+    return true;
+  }
   return localRuntimeControlAllowedPorts(env).has(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
 }
 
 export function assertLocalRuntimeControlAllowed(req, env = process.env) {
-  if (!isLoopbackRemoteAddress(req?.socket?.remoteAddress || "")) {
+  const remoteAddress = req?.socket?.remoteAddress || "";
+  const origin = req?.headers?.origin || "";
+  const host = req?.headers?.host || "";
+  if (!isLoopbackRemoteAddress(remoteAddress)) {
     const error = new Error("local runtime controls only accept requests from this computer");
     error.status = 403;
+    error.details = { remoteAddress };
     throw error;
   }
-  if (!isAllowedLocalRuntimeControlOrigin(req?.headers?.origin || "", req?.headers?.host || "", env)) {
+  if (!isAllowedLocalRuntimeControlOrigin(origin, host, env)) {
     const error = new Error("local runtime controls only accept the Yansilu local app origin");
     error.status = 403;
+    error.details = { origin, host, remoteAddress };
     throw error;
   }
   if (String(req?.headers?.["x-yansilu-local-runtime-control"] || "").trim() !== "1") {
