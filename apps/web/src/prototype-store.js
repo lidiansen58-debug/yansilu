@@ -43,7 +43,8 @@ export function createInitialState() {
     searchVisible: false,
     inspectorVisible: false,
     previewMode: "wysiwyg",
-    focusMode: false
+    focusMode: false,
+    todayNoticeMessage: ""
   };
 }
 

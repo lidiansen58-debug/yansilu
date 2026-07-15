@@ -224,6 +224,23 @@ test("today organizing panel uses readable action words", () => {
   assert.doesNotMatch(html, /候选队列|复核|线索|高级检查/);
 });
 
+test("today organizing panel shows demo import completion notice", () => {
+  const state = buildTodayOrganizingState({
+    notes: [{ id: "pn_1", title: "导入后的笔记", noteType: "permanent" }],
+    relationsReady: true,
+    noticeMessage: "已导入 Smart Notes Demo：3 条永久笔记，2 条关系，1 个写作项目。首页已刷新。"
+  });
+  const html = renderTodayOrganizingPanel({
+    ...state,
+    isEmptyLibrary: false
+  });
+
+  assert.equal(state.noticeMessage, "已导入 Smart Notes Demo：3 条永久笔记，2 条关系，1 个写作项目。首页已刷新。");
+  assert.match(html, /today-import-notice/);
+  assert.match(html, /导入完成/);
+  assert.match(html, /首页已刷新/);
+});
+
 test("today organizing secondary tabs switch one full-width panel", async () => {
   const panels = [
     { hidden: false, getAttribute: (name) => (name === "data-today-secondary-panel" ? "path" : "") },
@@ -289,9 +306,11 @@ test("today organizing empty home makes demo import the primary first action", (
   assert.match(html, /第一次打开/);
   assert.ok(html.includes("导入 Demo"));
   assert.match(html, /先体验示例库/);
+  assert.match(html, /导入后会提示结果，并刷新首页/);
   assert.ok(html.indexOf("导入 Demo") < html.indexOf("<article><strong>记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /今日提醒/);
+  assert.doesNotMatch(html, /导入后自动打开导览笔记/);
 });
 
 test("today organizing runtime loads theme indexes once when opened", async () => {

@@ -145,7 +145,17 @@ export function installSettingsEventBindings(deps = {}) {
     event.preventDefault();
     const action = String(button.getAttribute("data-settings-help-action") || "").trim();
     if (action === "import-demo") {
-      await handleStateChange("seed-smart-notes-demo", { source: "settings-help" });
+      const previousText = button.textContent;
+      button.disabled = true;
+      button.textContent = "\u6b63\u5728\u5bfc\u5165...";
+      try {
+        await handleStateChange("seed-smart-notes-demo", { source: "settings-help" });
+      } catch (error) {
+        setStatus(`\u5bfc\u5165 Demo \u5931\u8d25\uff1a${String(error?.message || error)}`, "bad");
+      } finally {
+        button.disabled = false;
+        button.textContent = previousText;
+      }
       return;
     }
     if (action === "open-home") {

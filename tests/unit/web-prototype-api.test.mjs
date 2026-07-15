@@ -159,7 +159,129 @@ test("prototype API refreshes desktop service status after an early recovering s
     await assert.rejects(() => api.fetchDirectories(), { code: "desktop_api_unavailable" });
     await api.fetchDirectories();
     assert.deepEqual(calls, ["get_desktop_service_status", "get_desktop_api_base", "get_desktop_service_status"]);
-    assert.deepEqual(fetchCalls, ["http://localhost:3011/api/v1/directories"]);
+    assert.ok(fetchCalls.includes("http://localhost:3011/api/v1/directories"));
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API probes local desktop API when supervisor status lags behind", async () => {
+  const calls = [];
+  const desktopWindow = {
+    __TAURI__: {
+      core: {
+        invoke: async (command) => {
+          calls.push(command);
+          assert.ok(["get_desktop_service_status", "get_desktop_api_base"].includes(command));
+          if (command === "get_desktop_api_base") return "";
+          return {
+            overall: "recovering",
+            services: { api: { status: "starting", baseUrl: "", vaultPath: "/Users/demo/Library/Application Support/yansilu/vault" } }
+          };
+        }
+      }
+    }
+  };
+  const previousWindow = globalThis.window;
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("desktop-service-status-probe", desktopWindow);
+  globalThis.window = desktopWindow;
+  const fetchCalls = [];
+  globalThis.fetch = async (url) => {
+    const rawUrl = String(url);
+    fetchCalls.push(rawUrl);
+    const parsed = new URL(rawUrl);
+    if (parsed.pathname === "/health") {
+      const healthy = parsed.port === "3002";
+      return new Response(
+        JSON.stringify(healthy
+          ? {
+              app: "yansilu",
+              service: "api",
+              ok: true,
+              ready: true,
+              vaultPath: "/Users/demo/Library/Application Support/yansilu/vault"
+            }
+          : { app: "other" }),
+        {
+          status: healthy ? 200 : 404,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+    return new Response(JSON.stringify({ items: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  try {
+    await api.fetchDirectories();
+    assert.deepEqual(calls, ["get_desktop_service_status", "get_desktop_api_base"]);
+    assert.equal(api.getApiBase(), "http://127.0.0.1:3002");
+    assert.ok(fetchCalls.includes("http://127.0.0.1:3002/health"));
+    assert.ok(fetchCalls.includes("http://127.0.0.1:3002/api/v1/directories"));
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API ignores probed desktop APIs for a different vault", async () => {
+  const desktopWindow = {
+    __TAURI__: {
+      core: {
+        invoke: async (command) => {
+          assert.ok(["get_desktop_service_status", "get_desktop_api_base"].includes(command));
+          if (command === "get_desktop_api_base") return "";
+          return {
+            overall: "recovering",
+            services: { api: { status: "starting", baseUrl: "", vaultPath: "/Users/demo/current-vault" } }
+          };
+        }
+      }
+    }
+  };
+  const previousWindow = globalThis.window;
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("desktop-service-status-probe-vault-mismatch", desktopWindow);
+  globalThis.window = desktopWindow;
+  const fetchCalls = [];
+  globalThis.fetch = async (url) => {
+    const rawUrl = String(url);
+    fetchCalls.push(rawUrl);
+    const parsed = new URL(rawUrl);
+    if (parsed.pathname === "/health" && parsed.port === "3002") {
+      return new Response(
+        JSON.stringify({
+          app: "yansilu",
+          service: "api",
+          ok: true,
+          ready: true,
+          vaultPath: "/Users/demo/other-vault"
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+    return new Response(JSON.stringify({ app: "other" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  try {
+    await assert.rejects(() => api.fetchDirectories(), { code: "desktop_api_unavailable" });
+    assert.equal(api.getApiBase(), "");
+    assert.ok(fetchCalls.includes("http://127.0.0.1:3002/health"));
+    assert.ok(!fetchCalls.includes("http://127.0.0.1:3002/api/v1/directories"));
   } finally {
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;

@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -23,6 +23,7 @@ const API_STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
 const API_HEALTH_INTERVAL: Duration = Duration::from_secs(2);
 const API_MAX_RESTARTS: u32 = 5;
 const API_STABLE_HEALTH_CHECKS: u32 = 2;
+const API_LOG_TAIL_MAX_BYTES: u64 = 64 * 1024;
 
 struct DesktopApiState {
     service_status: Arc<Mutex<serde_json::Value>>,
@@ -62,11 +63,10 @@ fn get_desktop_service_log(state: tauri::State<DesktopApiState>) -> serde_json::
         .pointer("/services/api/logPath")
         .and_then(|value| value.as_str())
         .unwrap_or("");
-    let content = fs::read_to_string(log_path).unwrap_or_default();
-    let lines: Vec<&str> = content.lines().rev().take(80).collect();
+    let lines = desktop_api_log_tail_lines(Path::new(log_path), 80);
     serde_json::json!({
         "path": log_path,
-        "lines": lines.into_iter().rev().collect::<Vec<&str>>()
+        "lines": lines
     })
 }
 
@@ -278,6 +278,55 @@ fn append_desktop_api_log(app_data_dir: &PathBuf, message: &str) {
     }
 }
 
+fn desktop_api_log_tail_lines(log_path: &Path, max_lines: usize) -> Vec<String> {
+    let Ok(mut file) = fs::File::open(log_path) else {
+        return Vec::new();
+    };
+    let Ok(metadata) = file.metadata() else {
+        return Vec::new();
+    };
+    let file_len = metadata.len();
+    let start = file_len.saturating_sub(API_LOG_TAIL_MAX_BYTES);
+    if file.seek(SeekFrom::Start(start)).is_err() {
+        return Vec::new();
+    }
+    let mut bytes = Vec::new();
+    if file.read_to_end(&mut bytes).is_err() {
+        return Vec::new();
+    }
+    let content = String::from_utf8_lossy(&bytes);
+    let lines: Vec<String> = content
+        .lines()
+        .rev()
+        .filter(|line| !line.trim().is_empty())
+        .take(max_lines)
+        .map(String::from)
+        .collect();
+    lines.into_iter().rev().collect()
+}
+
+fn desktop_api_log_tail(app_data_dir: &PathBuf, max_lines: usize) -> String {
+    let log_path = app_data_dir.join("api.log");
+    desktop_api_log_tail_lines(&log_path, max_lines).join(" / ")
+}
+
+fn truncate_desktop_api_message(message: String, max_chars: usize) -> String {
+    let mut result: String = message.chars().take(max_chars).collect();
+    if result.chars().count() < message.chars().count() {
+        result.push_str("...");
+    }
+    result
+}
+
+fn desktop_api_error_with_log_tail(app_data_dir: &PathBuf, message: String) -> String {
+    let tail = truncate_desktop_api_message(desktop_api_log_tail(app_data_dir, 8), 1600);
+    if tail.is_empty() {
+        message
+    } else {
+        format!("{message} Recent API log: {tail}")
+    }
+}
+
 fn now_string() -> String {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -296,6 +345,7 @@ fn default_service_status() -> serde_json::Value {
                 "baseUrl": "",
                 "pid": null,
                 "managed": false,
+                "vaultPath": "",
                 "restartCount": 0,
                 "consecutiveFailures": 0,
                 "lastError": "",
@@ -429,12 +479,14 @@ fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, Stri
 
     let mut command = Command::new(node_path);
     command
+        .arg("--trace-uncaught")
         .arg("apps/api/src/server.mjs")
         .current_dir(runtime_dir)
         .env("API_PORT", api_port.to_string())
         .env("WEB_PORT", "5173")
         .env("VAULT_PATH", &config.vault_path)
-        .env("YANSILU_DESKTOP_API", "1");
+        .env("YANSILU_DESKTOP_API", "1")
+        .env_remove("NODE_OPTIONS");
 
     if let Ok(log_file) = OpenOptions::new().create(true).append(true).open(log_path) {
         if let Ok(stdout_file) = log_file.try_clone() {
@@ -456,7 +508,7 @@ fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, Stri
         let _ = child.kill();
         let _ = child.wait();
         append_desktop_api_log(&config.app_data_dir, &message);
-        return Err(message);
+        return Err(desktop_api_error_with_log_tail(&config.app_data_dir, message));
     }
     Ok(DesktopApiLaunch {
         child: Some(child),
@@ -485,6 +537,7 @@ fn supervise_desktop_api(
         &service_status,
         serde_json::json!({
             "status": "starting",
+            "vaultPath": config.vault_path.to_string_lossy(),
             "logPath": log_path.to_string_lossy()
         }),
         "recovering",
@@ -519,6 +572,7 @@ fn supervise_desktop_api(
                 serde_json::json!({
                     "status": "recovering",
                     "nextRetryMs": retry_ms,
+                    "vaultPath": config.vault_path.to_string_lossy(),
                     "restartCount": restart_count,
                     "consecutiveFailures": consecutive_failures
                 }),
@@ -543,6 +597,7 @@ fn supervise_desktop_api(
                         "baseUrl": launch.base_url,
                         "pid": launch.pid,
                         "managed": launch.managed,
+                        "vaultPath": config.vault_path.to_string_lossy(),
                         "restartCount": restart_count,
                         "consecutiveFailures": consecutive_failures,
                         "lastError": "",
@@ -582,6 +637,7 @@ fn supervise_desktop_api(
                                 "lastError": message,
                                 "restartCount": restart_count,
                                 "consecutiveFailures": consecutive_failures,
+                                "vaultPath": config.vault_path.to_string_lossy(),
                                 "baseUrl": "",
                                 "pid": null
                             }),
@@ -602,6 +658,7 @@ fn supervise_desktop_api(
                                 "lastError": message,
                                 "restartCount": restart_count,
                                 "consecutiveFailures": consecutive_failures,
+                                "vaultPath": config.vault_path.to_string_lossy(),
                                 "baseUrl": "",
                                 "pid": null
                             }),
@@ -636,6 +693,7 @@ fn supervise_desktop_api(
                         "lastError": error,
                         "restartCount": restart_count,
                         "consecutiveFailures": consecutive_failures,
+                        "vaultPath": config.vault_path.to_string_lossy(),
                         "baseUrl": "",
                         "pid": null,
                         "managed": false

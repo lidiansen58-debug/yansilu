@@ -78,6 +78,42 @@ test("startup controller keeps confirmed import results visible", async () => {
   ]);
 });
 
+test("startup controller keeps the shell usable when startup initialization throws", async () => {
+  const calls = [];
+  let fallback = true;
+  await bootstrapAppForRuntime({
+    state: { browserRootId: "root" },
+    importState: { importRecordId: "import-1" },
+    setUsingLocalFallbackData: (value) => {
+      calls.push(["fallback", value]);
+      fallback = value;
+    },
+    getUsingLocalFallbackData: () => fallback,
+    renderImportPageShell: () => calls.push(["renderImportShell"]),
+    createImportToolbarActions: () => ({}),
+    renderImportToolbar: () => calls.push(["renderToolbar"]),
+    bindImportWorkspaceEvents: () => calls.push(["bindEvents"]),
+    initializeAppRoute: async () => {
+      throw new Error("dev instance is still running");
+    },
+    renderAll: () => calls.push(["renderAll"]),
+    activateModule: (moduleName) => calls.push(["module", moduleName]),
+    openInitialStartupRoute: async () => calls.push(["unexpectedStartupRoute"]),
+    setStatus: (message, tone, options) => calls.push(["status", tone, /dev instance is still running/.test(message), options?.force])
+  });
+
+  assert.deepEqual(calls, [
+    ["fallback", false],
+    ["renderImportShell"],
+    ["renderToolbar"],
+    ["bindEvents"],
+    ["fallback", false],
+    ["module", "today"],
+    ["renderAll"],
+    ["status", "bad", true, true]
+  ]);
+});
+
 test("route initializer connects API and marks browser fallback on web failures", async () => {
   const successCalls = [];
   const success = await initializeAppRouteForRuntime({

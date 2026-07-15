@@ -17,6 +17,7 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /const API_HEALTH_INTERVAL: Duration = Duration::from_secs\(2\);/);
   assert.match(source, /const API_MAX_RESTARTS: u32 = 5;/);
   assert.match(source, /const API_STABLE_HEALTH_CHECKS: u32 = 2;/);
+  assert.match(source, /const API_LOG_TAIL_MAX_BYTES: u64 = 64 \* 1024;/);
   assert.match(source, /fn candidate_desktop_api_runtime_roots/);
   assert.match(source, /fn desktop_api_runtime_candidates/);
   assert.match(source, /fn get_desktop_service_status/);
@@ -25,6 +26,13 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /thread::spawn/);
   assert.match(source, /spawn_desktop_api\(&config\)/);
   assert.match(source, /spawn_desktop_api_with_runtime/);
+  assert.match(source, /desktop_api_log_tail/);
+  assert.match(source, /SeekFrom::Start/);
+  assert.doesNotMatch(source, /fs::read_to_string\(log_path\)/);
+  assert.match(source, /desktop_api_error_with_log_tail/);
+  assert.match(source, /truncate_desktop_api_message/);
+  assert.match(source, /\.arg\("--trace-uncaught"\)/);
+  assert.match(source, /\.env_remove\("NODE_OPTIONS"\)/);
   assert.match(source, /api_health_matches_vault/);
   assert.match(source, /stop_desktop_api\(&api_child\)/);
   assert.match(source, /"recovering"/);
@@ -34,6 +42,11 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /macOS Contents\/Resources/);
   assert.match(source, /system node fallback/);
   assert.match(source, /Runtime candidate failed/);
+  assert.match(source, /"vaultPath": config\.vault_path\.to_string_lossy\(\)/);
+  assert.ok(
+    (source.match(/"vaultPath": config\.vault_path\.to_string_lossy\(\)/g) || []).length >= 6,
+    "expected every desktop API status transition to preserve vaultPath"
+  );
 });
 
 test("desktop API supervisor blocks only on consecutive failures", () => {

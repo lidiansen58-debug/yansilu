@@ -24,6 +24,7 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       relations: graphState.item?.edges || [],
       relationsReady: Boolean(graphState.item) || state.graphConnectivityReady === true,
       themeIndexes: writingState.themeIndexes,
+      noticeMessage: state.todayNoticeMessage,
       organizingOverview: Number(organizingOverview?.permanentCount || 0) > 0 ? organizingOverview : null,
       loadingThemeIndexes: writingState.loadingThemeIndexes,
       loadThemeIndexes: loadWritingThemeIndexes,
