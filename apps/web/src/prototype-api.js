@@ -885,7 +885,8 @@ export async function seedSmartNotesProductThinkingDemo() {
   const json = await request("/api/v1/demo/product-thinking/smart-notes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({})
+    body: JSON.stringify({}),
+    timeoutMs: 60000
   });
   return json.item || null;
 }

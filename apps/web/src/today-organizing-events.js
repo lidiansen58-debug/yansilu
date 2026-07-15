@@ -91,11 +91,34 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
       button.disabled = true;
       button.setAttribute("aria-busy", "true");
       button.textContent = "正在导入...";
+      const startedAt = Date.now();
+      const timerHost = typeof window !== "undefined" ? window : globalThis;
+      let importProgressTimer = 0;
+      const updateImportProgressHint = () => {
+        if (!hint) return;
+        const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+        const message = elapsedSeconds < 8
+          ? "正在连接本地服务并准备 Demo"
+          : elapsedSeconds < 25
+            ? "本地服务可能还在启动，正在自动等待"
+            : elapsedSeconds < 55
+              ? "正在导入示例笔记，完成后会刷新首页"
+              : "仍在导入；如果超过 1 分钟没有完成，会提示失败";
+        hint.textContent = `${message}（已等待 ${elapsedSeconds} 秒）`;
+        hint.setAttribute("aria-live", "polite");
+      };
       if (hint) {
-        hint.textContent = "正在导入 Demo，请稍等，不要重复点击。";
+        hint.textContent = "正在连接本地服务并准备 Demo，完成后会自动刷新首页。";
         hint.setAttribute("aria-live", "polite");
       }
-      if (progress) progress.hidden = false;
+      updateImportProgressHint();
+      if (hint && typeof timerHost.setInterval === "function") {
+        importProgressTimer = timerHost.setInterval(updateImportProgressHint, 3000);
+      }
+      if (progress) {
+        progress.hidden = false;
+        progress.setAttribute?.("aria-valuetext", "正在导入 Demo");
+      }
       deps.setStatus?.("正在导入 Smart Notes Demo，完成后会刷新首页。", "busy");
       let shouldRestoreHint = true;
       try {
@@ -106,6 +129,8 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
             hint.textContent = "导入没有完成。如果本地服务还在启动，请稍后再试。";
             hint.setAttribute("aria-live", "polite");
           }
+        } else {
+          deps.activateModule?.("today");
         }
       } catch (error) {
         shouldRestoreHint = false;
@@ -115,11 +140,17 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
           hint.setAttribute("aria-live", "polite");
         }
       } finally {
+        if (importProgressTimer && typeof timerHost.clearInterval === "function") {
+          timerHost.clearInterval(importProgressTimer);
+        }
         button.disabled = false;
         button.removeAttribute("aria-busy");
         button.textContent = originalText;
         if (hint && shouldRestoreHint) hint.textContent = originalHint;
-        if (progress) progress.hidden = true;
+        if (progress) {
+          progress.hidden = true;
+          progress.removeAttribute?.("aria-valuetext");
+        }
       }
       return;
     }

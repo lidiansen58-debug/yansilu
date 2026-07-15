@@ -340,7 +340,14 @@ test("today organizing demo import shows immediate busy feedback", async () => {
     }
   };
   const progress = {
-    hidden: true
+    hidden: true,
+    attrs: {},
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    },
+    removeAttribute(name) {
+      delete this.attrs[name];
+    }
   };
   const button = {
     disabled: false,
@@ -371,9 +378,11 @@ test("today organizing demo import shows immediate busy feedback", async () => {
 
   installTodayOrganizingEvents(panel, () => ({
     setStatus: (message, tone) => calls.push(["status", message, tone]),
+    activateModule: (moduleName) => calls.push(["module", moduleName]),
     handleStateChange: async (reason, payload) => {
       calls.push(["state", reason, payload.source]);
       await importPromise;
+      return true;
     }
   }));
 
@@ -389,8 +398,9 @@ test("today organizing demo import shows immediate busy feedback", async () => {
   assert.equal(button.disabled, true);
   assert.equal(button.attrs["aria-busy"], "true");
   assert.equal(button.textContent, "正在导入...");
-  assert.equal(hint.textContent, "正在导入 Demo，请稍等，不要重复点击。");
+  assert.match(hint.textContent, /^正在连接本地服务并准备 Demo（已等待 \d+ 秒）$/);
   assert.equal(progress.hidden, false);
+  assert.equal(progress.attrs["aria-valuetext"], "正在导入 Demo");
   assert.deepEqual(calls[0], ["status", "正在导入 Smart Notes Demo，完成后会刷新首页。", "busy"]);
 
   resolveImport();
@@ -401,7 +411,93 @@ test("today organizing demo import shows immediate busy feedback", async () => {
   assert.equal(button.textContent, "导入 Demo");
   assert.equal(hint.textContent, "导入后会提示结果，并刷新首页。");
   assert.equal(progress.hidden, true);
+  assert.equal(progress.attrs["aria-valuetext"], undefined);
   assert.deepEqual(calls[1], ["state", "seed-smart-notes-demo", "today-empty-start"]);
+  assert.deepEqual(calls[2], ["module", "today"]);
+});
+
+test("today organizing demo import keeps updating visible progress while pending", async () => {
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let intervalCallback = null;
+  let clearedTimer = 0;
+  globalThis.setInterval = (callback) => {
+    intervalCallback = callback;
+    return 42;
+  };
+  globalThis.clearInterval = (timerId) => {
+    clearedTimer = timerId;
+  };
+
+  try {
+    let resolveImport;
+    const importPromise = new Promise((resolve) => {
+      resolveImport = resolve;
+    });
+    const hint = {
+      textContent: "导入后会提示结果，并刷新首页。",
+      attrs: {},
+      setAttribute(name, value) {
+        this.attrs[name] = value;
+      }
+    };
+    const progress = {
+      hidden: true,
+      setAttribute() {},
+      removeAttribute() {}
+    };
+    const button = {
+      disabled: false,
+      textContent: "导入 Demo",
+      attrs: { "data-today-action": "seed-demo" },
+      dataset: {},
+      getAttribute(name) {
+        return this.attrs[name] || "";
+      },
+      setAttribute(name, value) {
+        this.attrs[name] = value;
+      },
+      removeAttribute(name) {
+        delete this.attrs[name];
+      }
+    };
+    const panel = {
+      listener: null,
+      addEventListener(type, handler) {
+        if (type === "click") this.listener = handler;
+      },
+      querySelector(selector) {
+        if (selector === "[data-today-demo-status]") return hint;
+        if (selector === "[data-today-demo-progress]") return progress;
+        return null;
+      }
+    };
+
+    installTodayOrganizingEvents(panel, () => ({
+      setStatus: () => {},
+      handleStateChange: async () => importPromise
+    }));
+
+    const handling = panel.listener({
+      preventDefault() {},
+      target: {
+        closest(selector) {
+          return selector === "[data-today-action]" ? button : null;
+        }
+      }
+    });
+
+    assert.equal(typeof intervalCallback, "function");
+    intervalCallback();
+    assert.match(hint.textContent, /已等待 \d+ 秒/);
+
+    resolveImport(true);
+    await handling;
+    assert.equal(clearedTimer, 42);
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
 });
 
 test("today organizing demo import keeps a visible message when import does not complete", async () => {
@@ -413,7 +509,9 @@ test("today organizing demo import keeps a visible message when import does not 
     }
   };
   const progress = {
-    hidden: true
+    hidden: true,
+    setAttribute() {},
+    removeAttribute() {}
   };
   const button = {
     disabled: false,
