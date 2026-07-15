@@ -308,6 +308,8 @@ test("today organizing empty home makes demo import the primary first action", (
   assert.match(html, /先体验示例库/);
   assert.match(html, /导入后会提示结果，并刷新首页/);
   assert.match(html, /data-today-demo-status/);
+  assert.match(html, /data-today-demo-progress/);
+  assert.match(html, /role="progressbar"/);
   assert.ok(html.indexOf("导入 Demo") < html.indexOf("<article><strong>记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /今日提醒/);
@@ -326,6 +328,9 @@ test("today organizing demo import shows immediate busy feedback", async () => {
     setAttribute(name, value) {
       this.attrs[name] = value;
     }
+  };
+  const progress = {
+    hidden: true
   };
   const button = {
     disabled: false,
@@ -348,7 +353,9 @@ test("today organizing demo import shows immediate busy feedback", async () => {
       if (type === "click") this.listener = handler;
     },
     querySelector(selector) {
-      return selector === "[data-today-demo-status]" ? hint : null;
+      if (selector === "[data-today-demo-status]") return hint;
+      if (selector === "[data-today-demo-progress]") return progress;
+      return null;
     }
   };
 
@@ -373,6 +380,7 @@ test("today organizing demo import shows immediate busy feedback", async () => {
   assert.equal(button.attrs["aria-busy"], "true");
   assert.equal(button.textContent, "正在导入...");
   assert.equal(hint.textContent, "正在导入 Demo，请稍等，不要重复点击。");
+  assert.equal(progress.hidden, false);
   assert.deepEqual(calls[0], ["status", "正在导入 Smart Notes Demo，完成后会刷新首页。", "busy"]);
 
   resolveImport();
@@ -382,6 +390,7 @@ test("today organizing demo import shows immediate busy feedback", async () => {
   assert.equal(button.attrs["aria-busy"], undefined);
   assert.equal(button.textContent, "导入 Demo");
   assert.equal(hint.textContent, "导入后会提示结果，并刷新首页。");
+  assert.equal(progress.hidden, true);
   assert.deepEqual(calls[1], ["state", "seed-smart-notes-demo", "today-empty-start"]);
 });
 

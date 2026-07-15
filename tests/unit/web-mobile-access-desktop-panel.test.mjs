@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { renderMobileAccessDesktopPanel } from "../../apps/web/src/mobile-access-desktop-panel.js";
 import {
   prepareMobileAccessAutoRefreshState,
-  shouldAutoRefreshMobileAccess
+  shouldAutoRefreshMobileAccess,
+  shouldPromoteMobileAccessRefreshRender
 } from "../../apps/web/src/mobile-access-settings-refresh.js";
 
 function renderPanel(overrides = {}) {
@@ -108,5 +109,25 @@ test("mobile access settings auto-refreshes a stale error when opened", () => {
     autoRefreshQueued: false,
     error: "still failing",
     attemptedAfterError: true
+  }), false);
+});
+
+test("mobile access settings promotes the first successful refresh to a full settings render", () => {
+  assert.equal(shouldPromoteMobileAccessRefreshRender({
+    active: true,
+    hadItemBeforeRefresh: false,
+    item: { accessUrl: "http://192.168.65.60:5173/mobile" }
+  }), true);
+
+  assert.equal(shouldPromoteMobileAccessRefreshRender({
+    active: true,
+    hadItemBeforeRefresh: true,
+    item: { accessUrl: "http://192.168.65.60:5173/mobile" }
+  }), false);
+
+  assert.equal(shouldPromoteMobileAccessRefreshRender({
+    active: false,
+    hadItemBeforeRefresh: false,
+    item: { accessUrl: "http://192.168.65.60:5173/mobile" }
   }), false);
 });

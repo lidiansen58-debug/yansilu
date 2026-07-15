@@ -23,3 +23,11 @@ export function prepareMobileAccessAutoRefreshState(mobileAccess = {}) {
   mobileAccess.loading = true;
   return true;
 }
+
+export function shouldPromoteMobileAccessRefreshRender({
+  active = false,
+  hadItemBeforeRefresh = false,
+  item = null
+} = {}) {
+  return Boolean(active && !hadItemBeforeRefresh && item);
+}

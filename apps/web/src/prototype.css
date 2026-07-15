@@ -82,6 +82,38 @@
   line-height: 1.55;
 }
 
+.today-demo-progress {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.today-demo-progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f766e, #1e8c62);
+  animation: today-demo-progress 1.2s ease-in-out infinite;
+}
+
+@keyframes today-demo-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  55% {
+    transform: translateX(65%);
+  }
+
+  100% {
+    transform: translateX(245%);
+  }
+}
+
 .today-import-notice {
   display: grid;
   gap: 4px;

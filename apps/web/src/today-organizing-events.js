@@ -86,6 +86,7 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
     if (action === "seed-demo") {
       const originalText = button.textContent;
       const hint = panel.querySelector?.("[data-today-demo-status]");
+      const progress = panel.querySelector?.("[data-today-demo-progress]");
       const originalHint = hint?.textContent || "";
       button.disabled = true;
       button.setAttribute("aria-busy", "true");
@@ -94,6 +95,7 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
         hint.textContent = "正在导入 Demo，请稍等，不要重复点击。";
         hint.setAttribute("aria-live", "polite");
       }
+      if (progress) progress.hidden = false;
       deps.setStatus?.("正在导入 Smart Notes Demo，完成后会刷新首页。", "busy");
       try {
         await deps.handleStateChange?.("seed-smart-notes-demo", { source: "today-empty-start" });
@@ -104,6 +106,7 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
         button.removeAttribute("aria-busy");
         button.textContent = originalText;
         if (hint) hint.textContent = originalHint;
+        if (progress) progress.hidden = true;
       }
       return;
     }

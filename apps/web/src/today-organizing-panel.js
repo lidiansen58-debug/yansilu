@@ -159,6 +159,9 @@ function renderEmptyLibraryHome() {
           导入 Demo
         </button>
         <small data-today-demo-status>导入后会提示结果，并刷新首页。</small>
+        <div class="today-demo-progress" data-today-demo-progress role="progressbar" aria-label="Demo 导入进度" hidden>
+          <span></span>
+        </div>
       </div>
     </section>
   `;

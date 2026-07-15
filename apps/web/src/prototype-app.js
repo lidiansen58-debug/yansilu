@@ -84,7 +84,7 @@ import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
 import { readableMobileAccessError, renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
-import { prepareMobileAccessAutoRefreshState, shouldAutoRefreshMobileAccess } from "./mobile-access-settings-refresh.js";
+import { prepareMobileAccessAutoRefreshState, shouldAutoRefreshMobileAccess, shouldPromoteMobileAccessRefreshRender } from "./mobile-access-settings-refresh.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
 import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
 import { resolveWritingProjectFormTitle, syncWritingThemeFormFields } from "./writing-theme-form-sync.js";
@@ -775,6 +775,7 @@ function renderMobileAccessSettingsCard() {
 }
 
 async function refreshMobileAccessStatus({ silent = false } = {}) {
+  const hadItemBeforeRefresh = Boolean(settingsState.mobileAccess.item);
   settingsState.mobileAccess.loading = true;
   settingsState.mobileAccess.error = "";
   if (!silent) renderMobileAccessSettingsCard();
@@ -793,7 +794,15 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
     mobileAccessAutoRefreshAfterErrorAttempted = true;
   } finally {
     settingsState.mobileAccess.loading = false;
-    if (state.module === "settings") renderMobileAccessSettingsCard();
+    if (shouldPromoteMobileAccessRefreshRender({
+      active: isMobileAccessSettingsActive(),
+      hadItemBeforeRefresh,
+      item: settingsState.mobileAccess.item
+    })) {
+      renderSettingsPanel();
+    } else if (state.module === "settings") {
+      renderMobileAccessSettingsCard();
+    }
     if (isMobileAccessSettingsActive()) scheduleMobileAccessRefresh();
   }
 }
