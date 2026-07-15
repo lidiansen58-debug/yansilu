@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   createMobileQuickNote,
   getMobileNote,
+  handleMobileApiRequest,
   listMobilePermanentNotes
 } from "../../apps/api/src/mobile-access-service.mjs";
 import {
@@ -60,6 +61,56 @@ test("mobile access URL prefers real LAN addresses over virtual proxy adapters",
   });
 
   assert.equal(address, "192.168.12.203");
+});
+
+test("desktop mobile access control rejection logs request diagnostics", async () => {
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (message) => warnings.push(String(message));
+  try {
+    const response = await handleMobileApiRequest({
+      req: {
+        method: "GET",
+        url: "/api/v1/mobile/desktop/status",
+        headers: {
+          origin: "https://tauri.localhost",
+          host: "127.0.0.1:3000",
+          "x-yansilu-local-runtime-control": "1"
+        },
+        socket: { remoteAddress: "::1" }
+      },
+      res: {},
+      url: new URL("http://127.0.0.1:3000/api/v1/mobile/desktop/status"),
+      sendJson: (_res, status, body) => ({ status, body }),
+      readJson: async () => ({}),
+      err: (code, message, requestId, details) => ({ error: { code, message, details }, requestId }),
+      requestId: "req-control-denied",
+      vaultPath: "vault",
+      deps: { initVault: async () => {} },
+      assertDesktopControlAllowed: () => {
+        const error = new Error("local runtime controls only accept the Yansilu local app origin");
+        error.code = "LOCAL_RUNTIME_CONTROL_ORIGIN_DENIED";
+        error.status = 403;
+        error.details = {
+          origin: "https://tauri.localhost",
+          host: "127.0.0.1:3000",
+          remoteAddress: "::1",
+          method: "GET",
+          path: "/api/v1/mobile/desktop/status"
+        };
+        throw error;
+      }
+    });
+
+    assert.equal(response.status, 403);
+    assert.equal(response.body.error.code, "LOCAL_RUNTIME_CONTROL_ORIGIN_DENIED");
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /Mobile desktop control rejected/);
+    assert.match(warnings[0], /https:\/\/tauri\.localhost/);
+    assert.match(warnings[0], /req-control-denied/);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test("expired pair code cannot create a mobile pair request", async () => {
