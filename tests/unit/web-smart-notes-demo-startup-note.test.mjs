@@ -75,11 +75,25 @@ test("smart notes demo import syncs the directory tree and refreshes the home mo
   const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
 
   assert.match(source, /const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport\(options\);/);
+  assert.match(source, /seedSmartNotesProductThinkingDemoWithStartupRetry\(\)/);
   assert.match(source, /await syncNotesForDirectoryTree\(directoryId\);/);
   assert.match(source, /if \(shouldRefreshHome\) activateModule\("today"\);/);
   assert.match(source, /const importedStatus = smartNotesDemoImportedStatus\(result, \{ openedGuide: shouldOpenGuide, refreshedHome: shouldRefreshHome \}\);/);
-  assert.match(source, /state\.todayNoticeMessage = importedStatus;/);
+  assert.match(source, /if \(shouldRefreshHome\) \{\s*state\.todayNoticeMessage = importedStatus;\s*renderAll\(\);\s*\}/);
   assert.match(source, /setStatus\(importedStatus, "ok"\);/);
+});
+
+test("smart notes demo import keeps progress visible while the desktop API starts", () => {
+  const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
+  const apiSource = fs.readFileSync("apps/web/src/prototype-api.js", "utf8");
+
+  assert.match(source, /const SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS = \[/);
+  assert.match(source, /function shouldRetrySmartNotesDemoImport\(error = null\)/);
+  assert.match(source, /async function seedSmartNotesProductThinkingDemoWithStartupRetry\(\)/);
+  assert.match(source, /if \(!shouldRetrySmartNotesDemoImport\(error\) \|\| retryDelay === undefined\) throw error;/);
+  assert.match(source, /setStatus\("本地服务正在启动，正在自动重试导入 Demo\.\.\.", "busy"\);/);
+  assert.match(source, /await waitForSmartNotesDemoImportRetry\(retryDelay\);/);
+  assert.match(apiSource, /timeoutMs: 60000/);
 });
 
 test("smart notes demo startup falls back to an existing guide when seed is locked", () => {

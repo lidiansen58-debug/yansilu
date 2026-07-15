@@ -5518,13 +5518,43 @@ const {
   createGraphThemeIndexFromNoteIds,
   createGraphThemeIndexFromButton
 } = graphRouteRuntime;
+const SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS = [1000, 1500, 2000, 2500, 3000];
+
+function waitForSmartNotesDemoImportRetry(delayMs = 0) {
+  return new Promise((resolve) => {
+    const timerHost = typeof window !== "undefined" ? window : globalThis;
+    timerHost.setTimeout(resolve, Math.max(0, Number(delayMs || 0) || 0));
+  });
+}
+
+function shouldRetrySmartNotesDemoImport(error = null) {
+  const code = String(error?.code || "").trim();
+  return code === "api_unavailable" || code === "desktop_api_unavailable";
+}
+
+async function seedSmartNotesProductThinkingDemoWithStartupRetry() {
+  let lastError = null;
+  for (let attempt = 0; attempt <= SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      resetDesktopServiceStatusCache();
+      return await seedSmartNotesProductThinkingDemo();
+    } catch (error) {
+      lastError = error;
+      const retryDelay = SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS[attempt];
+      if (!shouldRetrySmartNotesDemoImport(error) || retryDelay === undefined) throw error;
+      setStatus("本地服务正在启动，正在自动重试导入 Demo...", "busy");
+      await waitForSmartNotesDemoImportRetry(retryDelay);
+    }
+  }
+  throw lastError;
+}
+
 async function importSmartNotesProductThinkingDemo(options = {}) {
   const { startup = false } = options;
   const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport(options);
   setStatus("正在导入 Smart Notes Demo...", "");
   try {
-    resetDesktopServiceStatusCache();
-    const result = await seedSmartNotesProductThinkingDemo();
+    const result = await seedSmartNotesProductThinkingDemoWithStartupRetry();
     const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
     if (!directoryId) throw new Error("Demo 导入结果缺少目录 ID");
     await syncDirectoriesFromApi();
