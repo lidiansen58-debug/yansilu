@@ -146,7 +146,8 @@ function renderBeginnerGuide() {
   `;
 }
 
-function renderEmptyLibraryHome() {
+function renderEmptyLibraryHome(state = {}) {
+  const startupPending = state.startupPending === true;
   return `
     <section class="today-empty-home" aria-label="第一次使用引导">
       <div class="today-empty-home-copy">
@@ -155,11 +156,11 @@ function renderEmptyLibraryHome() {
         <p>导入一套 Demo，快速看完记录、转述、关联和写作。导入前会请你确认。</p>
       </div>
       <div class="today-empty-home-actions">
-        <button class="mini-btn primary" type="button" data-today-action="seed-demo">
-          导入 Demo
+        <button class="mini-btn primary" type="button" data-today-action="seed-demo"${startupPending ? ` disabled aria-busy="true"` : ""}>
+          ${startupPending ? "正在准备..." : "导入 Demo"}
         </button>
-        <small data-today-demo-status>导入后会提示结果，并刷新首页。</small>
-        <div class="today-demo-progress" data-today-demo-progress role="progressbar" aria-label="Demo 导入进度" hidden>
+        <small data-today-demo-status>${startupPending ? "正在启动本地服务，准备好后就能导入 Demo。" : "导入后会提示结果，并刷新首页。"}</small>
+        <div class="today-demo-progress" data-today-demo-progress role="progressbar" aria-label="Demo 导入进度"${startupPending ? "" : " hidden"}>
           <span></span>
         </div>
       </div>
@@ -200,7 +201,7 @@ export function renderTodayOrganizingPanel(state = {}) {
   if (state.isEmptyLibrary) {
     return `
       <div class="today-organizing-shell is-empty">
-        ${renderEmptyLibraryHome()}
+        ${renderEmptyLibraryHome(state)}
         <section class="today-empty-next" aria-label="你会学到什么">
           <article><strong>记录</strong><span>放入材料。</span></article>
           <article><strong>关联</strong><span>写清理由。</span></article>

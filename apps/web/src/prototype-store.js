@@ -44,6 +44,7 @@ export function createInitialState() {
     inspectorVisible: false,
     previewMode: "wysiwyg",
     focusMode: false,
+    appStartupPending: false,
     todayNoticeMessage: ""
   };
 }

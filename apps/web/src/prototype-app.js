@@ -199,7 +199,7 @@ import { remoteApiKeySecretRef } from "./ai-settings-remote-config-model.js";
 import { AI_LOCAL_MODEL_TIERS, AI_REMOTE_MODEL_TIERS, OLLAMA_CHAT_ENDPOINT_URL, OLLAMA_HEALTH_ENDPOINT_URL, OLLAMA_RECOMMENDED_MODEL, aiDefaultsForRuntimeMode, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl, enabledProviderHealthEndpointUrl, isBuiltInOllamaModel, isRemoteConfigurableProviderId, localModelDisplayProfile, modelNameExistsInList, normalizeOllamaSetupGuide, ollamaBootstrapStatusText, ollamaModelRecommendationProfiles, ollamaRecommendationForModel, preferredLocalModelName, remoteRuntimeModelFromMap, runtimeModelMapForRemoteModel, selectedLocalModelNameForInstalledModels } from "./prototype-ai-settings-controller.js";
 import { createUpdateState, shouldShowUpdateAttention, updateStateAutoCheckEnabled, updateStateIgnoreLatest, updateStateRemindLater } from "./update-state.js";
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "./prototype-update-controller.js";
-import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, syncWritingProject, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffold, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion, apiConnectionErrorMessage, isApiConnectionError } from "./prototype-api.js";
+import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, syncWritingProject, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffold, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion, apiConnectionErrorMessage, isApiConnectionError, resetDesktopServiceStatusCache } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
@@ -747,7 +747,7 @@ function renderMobileAccessSettingsCard() {
   if (!isMobileAccessSettingsActive()) clearMobileAccessRefreshTimer();
   if (
     shouldAutoRefreshMobileAccess({
-      active: settingsState.activeItem === "mobile-access",
+      active: isMobileAccessSettingsActive(),
       item: settingsState.mobileAccess.item,
       loading: settingsState.mobileAccess.loading,
       refreshTimer: mobileAccessRefreshTimer,
@@ -761,7 +761,7 @@ function renderMobileAccessSettingsCard() {
     window.setTimeout(() => {
       mobileAccessAutoRefreshQueued = false;
       if (
-        settingsState.activeItem === "mobile-access" &&
+        isMobileAccessSettingsActive() &&
         !settingsState.mobileAccess.item
       ) {
         refreshMobileAccessStatus({ silent: true });
@@ -781,6 +781,7 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
   if (!silent) renderMobileAccessSettingsCard();
   try {
     const previousAccessUrl = String(settingsState.mobileAccess.item?.accessUrl || "").trim();
+    resetDesktopServiceStatusCache();
     const nextItem = await fetchMobileDesktopAccessStatus();
     settingsState.mobileAccess.item = nextItem;
     mobileAccessAutoRefreshAfterErrorAttempted = false;
@@ -794,8 +795,10 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
     mobileAccessAutoRefreshAfterErrorAttempted = true;
   } finally {
     settingsState.mobileAccess.loading = false;
+    const activeAfterRefresh = isMobileAccessSettingsActive();
+    if (activeAfterRefresh) scheduleMobileAccessRefresh();
     if (shouldPromoteMobileAccessRefreshRender({
-      active: isMobileAccessSettingsActive(),
+      active: activeAfterRefresh,
       hadItemBeforeRefresh,
       item: settingsState.mobileAccess.item
     })) {
@@ -803,7 +806,6 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
     } else if (state.module === "settings") {
       renderMobileAccessSettingsCard();
     }
-    if (isMobileAccessSettingsActive()) scheduleMobileAccessRefresh();
   }
 }
 
@@ -5521,6 +5523,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
   const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport(options);
   setStatus("正在导入 Smart Notes Demo...", "");
   try {
+    resetDesktopServiceStatusCache();
     const result = await seedSmartNotesProductThinkingDemo();
     const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
     if (!directoryId) throw new Error("Demo 导入结果缺少目录 ID");

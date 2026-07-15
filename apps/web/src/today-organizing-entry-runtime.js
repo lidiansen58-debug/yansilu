@@ -29,6 +29,7 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       loadingThemeIndexes: writingState.loadingThemeIndexes,
       loadThemeIndexes: loadWritingThemeIndexes,
       themeLoadKey: `${currentVaultPath()}|${importState.importRecordId}|${importState.lastResultPayload?.stage || ""}`,
+      startupPending: state.appStartupPending === true,
       typeFromFolder: (folderId) => typeFromFolder(state, folderId),
       relationNetworkStatusForNote
     };

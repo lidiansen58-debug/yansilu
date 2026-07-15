@@ -97,15 +97,28 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
       }
       if (progress) progress.hidden = false;
       deps.setStatus?.("正在导入 Smart Notes Demo，完成后会刷新首页。", "busy");
+      let shouldRestoreHint = true;
       try {
-        await deps.handleStateChange?.("seed-smart-notes-demo", { source: "today-empty-start" });
+        const result = await deps.handleStateChange?.("seed-smart-notes-demo", { source: "today-empty-start" });
+        if (result === false) {
+          shouldRestoreHint = false;
+          if (hint) {
+            hint.textContent = "导入没有完成。如果本地服务还在启动，请稍后再试。";
+            hint.setAttribute("aria-live", "polite");
+          }
+        }
       } catch (error) {
+        shouldRestoreHint = false;
         deps.setStatus?.(`导入 Demo 失败：${String(error?.message || error)}`, "bad");
+        if (hint) {
+          hint.textContent = "导入没有完成。如果本地服务还在启动，请稍后再试。";
+          hint.setAttribute("aria-live", "polite");
+        }
       } finally {
         button.disabled = false;
         button.removeAttribute("aria-busy");
         button.textContent = originalText;
-        if (hint) hint.textContent = originalHint;
+        if (hint && shouldRestoreHint) hint.textContent = originalHint;
         if (progress) progress.hidden = true;
       }
       return;

@@ -37,6 +37,7 @@ export async function bootstrapAppForRuntime(deps = {}) {
   } = deps;
 
   setUsingLocalFallbackData(false);
+  state.appStartupPending = true;
   renderImportPageShell();
   const importToolbarActions = createImportToolbarActions({
     getToolbarValues: currentImportToolbarValues,
@@ -94,14 +95,17 @@ export async function bootstrapAppForRuntime(deps = {}) {
 
   renderImportToolbar();
   bindImportWorkspaceEvents({ ...deps, importToolbarActions });
+  renderAll();
   try {
     await initializeAppRoute(deps);
+    state.appStartupPending = false;
     renderAll();
     await openInitialStartupRoute({
       ...deps,
       usingLocalFallbackData: getUsingLocalFallbackData()
     });
   } catch (error) {
+    state.appStartupPending = false;
     setUsingLocalFallbackData(false);
     activateModule("today");
     renderAll();
