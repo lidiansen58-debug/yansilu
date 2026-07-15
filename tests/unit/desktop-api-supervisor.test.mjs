@@ -41,6 +41,10 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /port 3000 is occupied by an unverified service; trying another port/);
   assert.doesNotMatch(source, /port 3000 is occupied; reusing/);
   assert.match(source, /api_health_matches_vault/);
+  assert.match(source, /fn comparable_vault_path/);
+  assert.match(source, /json\.get\("app"\)[\s\S]*Some\("yansilu"\)/);
+  assert.match(source, /json[\s\S]*\.get\("vaultPath"\)/);
+  assert.match(source, /comparable_vault_path\(api_vault_path\)[\s\S]*==[\s\S]*comparable_vault_path\(&vault_path\.to_string_lossy\(\)\)/);
   assert.match(source, /stop_desktop_api\(&api_child\)/);
   assert.match(source, /"recovering"/);
   assert.match(source, /"blocked"/);

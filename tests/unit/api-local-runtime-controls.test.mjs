@@ -130,6 +130,10 @@ test("local runtime control origin guard accepts packaged desktop app origins", 
   assert.equal(isAllowedLocalRuntimeControlOrigin("tauri://evil.example", "127.0.0.1:3000", env), false);
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost", "127.0.0.1:3000", desktopEnv), true);
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1", "127.0.0.1:3000", desktopEnv), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("https://tauri.localhost", "127.0.0.1:3000", desktopEnv), false);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:1420", "127.0.0.1:3000", desktopEnv), false);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:62731", "127.0.0.1:3000", desktopEnv), false);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("https://example.com", "127.0.0.1:3000", desktopEnv), false);
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost", "127.0.0.1:3000", env), false);
   assert.doesNotThrow(() => assertLocalRuntimeControlAllowed({
     headers: {
@@ -139,6 +143,29 @@ test("local runtime control origin guard accepts packaged desktop app origins", 
     },
     socket: { remoteAddress: "::1" }
   }, desktopEnv));
+  assert.throws(
+    () => assertLocalRuntimeControlAllowed({
+      method: "GET",
+      url: "/api/v1/mobile/desktop/status",
+      headers: {
+        origin: "https://tauri.localhost",
+        host: "127.0.0.1:3000",
+        "x-yansilu-local-runtime-control": "1"
+      },
+      socket: { remoteAddress: "::1" }
+    }, desktopEnv),
+    (error) => {
+      assert.equal(error.code, "LOCAL_RUNTIME_CONTROL_ORIGIN_DENIED");
+      assert.deepEqual(error.details, {
+        origin: "https://tauri.localhost",
+        host: "127.0.0.1:3000",
+        remoteAddress: "::1",
+        method: "GET",
+        path: "/api/v1/mobile/desktop/status"
+      });
+      return true;
+    }
+  );
 });
 
 test("local runtime control default ports include Vite auto-increment ports", () => {

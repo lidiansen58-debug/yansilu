@@ -192,11 +192,34 @@ fn api_health_is_yansilu(port: u16) -> bool {
         && json.get("service").and_then(|value| value.as_str()) == Some("api")
 }
 
-fn api_health_matches_vault(port: u16, _vault_path: &PathBuf) -> bool {
+fn comparable_vault_path(path: &str) -> String {
+    let normalized = path.trim().replace('\\', "/");
+    let trimmed = normalized.trim_end_matches('/').to_string();
+    #[cfg(windows)]
+    {
+        trimmed.to_lowercase()
+    }
+    #[cfg(not(windows))]
+    {
+        trimmed
+    }
+}
+
+fn api_health_matches_vault(port: u16, vault_path: &PathBuf) -> bool {
     let Some(json) = api_health_json(port) else {
         return false;
     };
-    json.get("service").and_then(|value| value.as_str()) == Some("api")
+    if json.get("app").and_then(|value| value.as_str()) != Some("yansilu")
+        || json.get("service").and_then(|value| value.as_str()) != Some("api")
+    {
+        return false;
+    }
+    let api_vault_path = json
+        .get("vaultPath")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    comparable_vault_path(api_vault_path)
+        == comparable_vault_path(&vault_path.to_string_lossy())
 }
 
 fn wait_for_api_port(

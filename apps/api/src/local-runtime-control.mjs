@@ -82,21 +82,27 @@ export function assertLocalRuntimeControlAllowed(req, env = process.env) {
   const remoteAddress = req?.socket?.remoteAddress || "";
   const origin = req?.headers?.origin || "";
   const host = req?.headers?.host || "";
+  const method = req?.method || "";
+  const path = req?.url || "";
   if (!isLoopbackRemoteAddress(remoteAddress)) {
     const error = new Error("local runtime controls only accept requests from this computer");
+    error.code = "LOCAL_RUNTIME_CONTROL_REMOTE_DENIED";
     error.status = 403;
-    error.details = { remoteAddress };
+    error.details = { origin, host, remoteAddress, method, path };
     throw error;
   }
   if (!isAllowedLocalRuntimeControlOrigin(origin, host, env)) {
     const error = new Error("local runtime controls only accept the Yansilu local app origin");
+    error.code = "LOCAL_RUNTIME_CONTROL_ORIGIN_DENIED";
     error.status = 403;
-    error.details = { origin, host, remoteAddress };
+    error.details = { origin, host, remoteAddress, method, path };
     throw error;
   }
   if (String(req?.headers?.["x-yansilu-local-runtime-control"] || "").trim() !== "1") {
     const error = new Error("local runtime controls require an explicit Yansilu runtime-control header");
+    error.code = "LOCAL_RUNTIME_CONTROL_HEADER_REQUIRED";
     error.status = 403;
+    error.details = { origin, host, remoteAddress, method, path };
     throw error;
   }
 }
