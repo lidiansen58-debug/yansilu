@@ -40,6 +40,15 @@ export function localRuntimeControlAllowedPorts(env = process.env) {
   );
 }
 
+export function isPackagedDesktopAppOrigin(parsedUrl = null) {
+  const protocol = String(parsedUrl?.protocol || "").trim().toLowerCase();
+  const hostname = String(parsedUrl?.hostname || "").trim().toLowerCase();
+  const port = String(parsedUrl?.port || "").trim();
+  if (port) return false;
+  if (protocol === "tauri:" && isLoopbackHost(hostname)) return true;
+  return protocol === "http:" && hostname === "tauri.localhost";
+}
+
 export function isAllowedLocalRuntimeControlOrigin(origin = "", host = "", env = process.env) {
   const raw = String(origin || "").trim();
   if (!raw) return true;
@@ -53,6 +62,7 @@ export function isAllowedLocalRuntimeControlOrigin(origin = "", host = "", env =
   const requestHost = String(host || "").trim().toLowerCase();
   const originHost = parsed.host.toLowerCase();
   if (requestHost && originHost === requestHost) return true;
+  if (isPackagedDesktopAppOrigin(parsed)) return true;
   return localRuntimeControlAllowedPorts(env).has(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
 }
 

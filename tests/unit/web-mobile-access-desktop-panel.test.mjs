@@ -51,6 +51,8 @@ test("mobile access panel keeps allow connection in the first-screen pairing are
 test("mobile access panel keeps the waiting state concise before a phone scans", () => {
   const html = renderPanel();
 
+  assert.match(html, /手机和电脑需要连接同一个 Wi-Fi/);
+  assert.match(html, /这个地址绑定在当前 Wi-Fi 网络上/);
   assert.match(html, /等待连接/);
   assert.match(html, /扫码后在这里允许连接/);
   assert.doesNotMatch(html, /手机发起连接请求后，不需要往下找/);
