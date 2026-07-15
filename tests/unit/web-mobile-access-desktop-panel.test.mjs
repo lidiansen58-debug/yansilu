@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { renderMobileAccessDesktopPanel } from "../../apps/web/src/mobile-access-desktop-panel.js";
+import {
+  prepareMobileAccessAutoRefreshState,
+  shouldAutoRefreshMobileAccess
+} from "../../apps/web/src/mobile-access-settings-refresh.js";
 
 function renderPanel(overrides = {}) {
   return renderMobileAccessDesktopPanel({
@@ -70,4 +74,39 @@ test("mobile access panel hides internal local runtime errors", () => {
   assert.match(html, /手机访问只能从这台电脑上的研思录打开/);
   assert.doesNotMatch(html, /local runtime controls/);
   assert.doesNotMatch(html, /Yansilu local app origin/);
+});
+
+test("mobile access settings auto-refreshes a stale error when opened", () => {
+  const state = {
+    item: null,
+    loading: false,
+    error: "手机访问只能从这台电脑上的研思录打开。"
+  };
+
+  assert.equal(shouldAutoRefreshMobileAccess({
+    active: true,
+    item: state.item,
+    loading: state.loading,
+    refreshTimer: 0,
+    autoRefreshQueued: false,
+    error: state.error,
+    attemptedAfterError: false
+  }), true);
+
+  assert.equal(prepareMobileAccessAutoRefreshState(state), true);
+  assert.deepEqual(state, {
+    item: null,
+    loading: true,
+    error: ""
+  });
+
+  assert.equal(shouldAutoRefreshMobileAccess({
+    active: true,
+    item: null,
+    loading: false,
+    refreshTimer: 0,
+    autoRefreshQueued: false,
+    error: "still failing",
+    attemptedAfterError: true
+  }), false);
 });

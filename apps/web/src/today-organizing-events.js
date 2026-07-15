@@ -84,7 +84,27 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
     const deps = depsProvider() || {};
 
     if (action === "seed-demo") {
-      await deps.handleStateChange?.("seed-smart-notes-demo", { source: "today-empty-start" });
+      const originalText = button.textContent;
+      const hint = panel.querySelector?.("[data-today-demo-status]");
+      const originalHint = hint?.textContent || "";
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = "正在导入...";
+      if (hint) {
+        hint.textContent = "正在导入 Demo，请稍等，不要重复点击。";
+        hint.setAttribute("aria-live", "polite");
+      }
+      deps.setStatus?.("正在导入 Smart Notes Demo，完成后会刷新首页。", "busy");
+      try {
+        await deps.handleStateChange?.("seed-smart-notes-demo", { source: "today-empty-start" });
+      } catch (error) {
+        deps.setStatus?.(`导入 Demo 失败：${String(error?.message || error)}`, "bad");
+      } finally {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        button.textContent = originalText;
+        if (hint) hint.textContent = originalHint;
+      }
       return;
     }
     if (action === "review-connect-isolated") {

@@ -307,10 +307,82 @@ test("today organizing empty home makes demo import the primary first action", (
   assert.ok(html.includes("导入 Demo"));
   assert.match(html, /先体验示例库/);
   assert.match(html, /导入后会提示结果，并刷新首页/);
+  assert.match(html, /data-today-demo-status/);
   assert.ok(html.indexOf("导入 Demo") < html.indexOf("<article><strong>记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /今日提醒/);
   assert.doesNotMatch(html, /导入后自动打开导览笔记/);
+});
+
+test("today organizing demo import shows immediate busy feedback", async () => {
+  let resolveImport;
+  const importPromise = new Promise((resolve) => {
+    resolveImport = resolve;
+  });
+  const calls = [];
+  const hint = {
+    textContent: "导入后会提示结果，并刷新首页。",
+    attrs: {},
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    }
+  };
+  const button = {
+    disabled: false,
+    textContent: "导入 Demo",
+    attrs: { "data-today-action": "seed-demo" },
+    dataset: {},
+    getAttribute(name) {
+      return this.attrs[name] || "";
+    },
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    },
+    removeAttribute(name) {
+      delete this.attrs[name];
+    }
+  };
+  const panel = {
+    listener: null,
+    addEventListener(type, handler) {
+      if (type === "click") this.listener = handler;
+    },
+    querySelector(selector) {
+      return selector === "[data-today-demo-status]" ? hint : null;
+    }
+  };
+
+  installTodayOrganizingEvents(panel, () => ({
+    setStatus: (message, tone) => calls.push(["status", message, tone]),
+    handleStateChange: async (reason, payload) => {
+      calls.push(["state", reason, payload.source]);
+      await importPromise;
+    }
+  }));
+
+  const handling = panel.listener({
+    preventDefault() {},
+    target: {
+      closest(selector) {
+        return selector === "[data-today-action]" ? button : null;
+      }
+    }
+  });
+
+  assert.equal(button.disabled, true);
+  assert.equal(button.attrs["aria-busy"], "true");
+  assert.equal(button.textContent, "正在导入...");
+  assert.equal(hint.textContent, "正在导入 Demo，请稍等，不要重复点击。");
+  assert.deepEqual(calls[0], ["status", "正在导入 Smart Notes Demo，完成后会刷新首页。", "busy"]);
+
+  resolveImport();
+  await handling;
+
+  assert.equal(button.disabled, false);
+  assert.equal(button.attrs["aria-busy"], undefined);
+  assert.equal(button.textContent, "导入 Demo");
+  assert.equal(hint.textContent, "导入后会提示结果，并刷新首页。");
+  assert.deepEqual(calls[1], ["state", "seed-smart-notes-demo", "today-empty-start"]);
 });
 
 test("today organizing runtime loads theme indexes once when opened", async () => {
