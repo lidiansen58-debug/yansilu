@@ -158,7 +158,7 @@ function renderEmptyLibraryHome() {
         <button class="mini-btn primary" type="button" data-today-action="seed-demo">
           导入 Demo
         </button>
-        <small>导入后会提示结果，并刷新首页。</small>
+        <small data-today-demo-status>导入后会提示结果，并刷新首页。</small>
       </div>
     </section>
   `;

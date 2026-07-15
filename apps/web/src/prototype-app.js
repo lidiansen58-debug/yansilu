@@ -84,6 +84,7 @@ import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
 import { readableMobileAccessError, renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
+import { prepareMobileAccessAutoRefreshState, shouldAutoRefreshMobileAccess } from "./mobile-access-settings-refresh.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
 import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
 import { resolveWritingProjectFormTitle, syncWritingThemeFormFields } from "./writing-theme-form-sync.js";
@@ -713,6 +714,8 @@ const updateController = createPrototypeUpdateController({
 updateController.loadUpdateSettingsFromStorage();
 
 let mobileAccessRefreshTimer = 0;
+let mobileAccessAutoRefreshQueued = false;
+let mobileAccessAutoRefreshAfterErrorAttempted = false;
 
 function mobileAccessErrorMessage(error) {
   return readableMobileAccessError(error?.message || error);
@@ -743,12 +746,27 @@ function renderMobileAccessSettingsCard() {
   if (!mount) return;
   if (!isMobileAccessSettingsActive()) clearMobileAccessRefreshTimer();
   if (
-    settingsState.activeItem === "mobile-access" &&
-    !settingsState.mobileAccess.item &&
-    !settingsState.mobileAccess.loading &&
-    !settingsState.mobileAccess.error
+    shouldAutoRefreshMobileAccess({
+      active: settingsState.activeItem === "mobile-access",
+      item: settingsState.mobileAccess.item,
+      loading: settingsState.mobileAccess.loading,
+      refreshTimer: mobileAccessRefreshTimer,
+      autoRefreshQueued: mobileAccessAutoRefreshQueued,
+      error: settingsState.mobileAccess.error,
+      attemptedAfterError: mobileAccessAutoRefreshAfterErrorAttempted
+    })
   ) {
-    window.setTimeout(() => refreshMobileAccessStatus({ silent: true }), 0);
+    prepareMobileAccessAutoRefreshState(settingsState.mobileAccess);
+    mobileAccessAutoRefreshQueued = true;
+    window.setTimeout(() => {
+      mobileAccessAutoRefreshQueued = false;
+      if (
+        settingsState.activeItem === "mobile-access" &&
+        !settingsState.mobileAccess.item
+      ) {
+        refreshMobileAccessStatus({ silent: true });
+      }
+    }, 0);
   }
   mount.innerHTML = renderMobileAccessDesktopPanel({
     state: settingsState.mobileAccess,
@@ -764,6 +782,7 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
     const previousAccessUrl = String(settingsState.mobileAccess.item?.accessUrl || "").trim();
     const nextItem = await fetchMobileDesktopAccessStatus();
     settingsState.mobileAccess.item = nextItem;
+    mobileAccessAutoRefreshAfterErrorAttempted = false;
     const nextAccessUrl = String(nextItem?.accessUrl || "").trim();
     if (previousAccessUrl && nextAccessUrl && previousAccessUrl !== nextAccessUrl) {
       setStatus("网络已切换，二维码已更新，请重新扫描。", "ok");
@@ -771,6 +790,7 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
     settingsState.mobileAccess.lastLoadedAt = new Date().toISOString();
   } catch (error) {
     settingsState.mobileAccess.error = mobileAccessErrorMessage(error);
+    mobileAccessAutoRefreshAfterErrorAttempted = true;
   } finally {
     settingsState.mobileAccess.loading = false;
     if (state.module === "settings") renderMobileAccessSettingsCard();
