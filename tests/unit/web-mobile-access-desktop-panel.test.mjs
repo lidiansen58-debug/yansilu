@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 import { renderMobileAccessDesktopPanel } from "../../apps/web/src/mobile-access-desktop-panel.js";
 import {
   prepareMobileAccessAutoRefreshState,
-  shouldAutoRefreshMobileAccess
+  shouldAutoRefreshMobileAccess,
+  shouldPromoteMobileAccessRefreshRender
 } from "../../apps/web/src/mobile-access-settings-refresh.js";
 
 function renderPanel(overrides = {}) {
@@ -108,5 +110,48 @@ test("mobile access settings auto-refreshes a stale error when opened", () => {
     autoRefreshQueued: false,
     error: "still failing",
     attemptedAfterError: true
+  }), true);
+});
+
+test("mobile access auto-refresh enters loading even without a previous error", () => {
+  const state = {
+    item: null,
+    loading: false,
+    error: ""
+  };
+
+  assert.equal(prepareMobileAccessAutoRefreshState(state), true);
+  assert.deepEqual(state, {
+    item: null,
+    loading: true,
+    error: ""
+  });
+});
+
+test("mobile access settings promotes the first successful refresh to a full settings render", () => {
+  assert.equal(shouldPromoteMobileAccessRefreshRender({
+    active: true,
+    hadItemBeforeRefresh: false,
+    item: { accessUrl: "http://192.168.65.60:5173/mobile" }
+  }), true);
+
+  assert.equal(shouldPromoteMobileAccessRefreshRender({
+    active: true,
+    hadItemBeforeRefresh: true,
+    item: { accessUrl: "http://192.168.65.60:5173/mobile" }
   }), false);
+
+  assert.equal(shouldPromoteMobileAccessRefreshRender({
+    active: false,
+    hadItemBeforeRefresh: false,
+    item: { accessUrl: "http://192.168.65.60:5173/mobile" }
+  }), false);
+});
+
+test("mobile access auto-refresh only starts when the settings item is visible", () => {
+  const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
+
+  assert.match(source, /shouldAutoRefreshMobileAccess\(\{\s*active: isMobileAccessSettingsActive\(\)/s);
+  assert.match(source, /if \(\s*isMobileAccessSettingsActive\(\) &&\s*!settingsState\.mobileAccess\.item\s*\)/s);
+  assert.doesNotMatch(source, /active: settingsState\.activeItem === "mobile-access"/);
 });

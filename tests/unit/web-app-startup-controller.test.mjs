@@ -35,6 +35,7 @@ test("startup controller wires import toolbar events then initializes route and 
     ["createToolbar", "function", "function"],
     ["renderToolbar"],
     ["bindEvents", true],
+    ["renderAll"],
     ["initRoute"],
     ["renderAll"],
     ["openStartup", false]
@@ -107,6 +108,7 @@ test("startup controller keeps the shell usable when startup initialization thro
     ["renderImportShell"],
     ["renderToolbar"],
     ["bindEvents"],
+    ["renderAll"],
     ["fallback", false],
     ["module", "today"],
     ["renderAll"],

@@ -6,8 +6,11 @@ export function createTodayOrganizingRuntime(depsProvider = () => ({})) {
   let themeIndexesLoadAttemptKey = "";
 
   function currentState() {
-    const { notes = [], relations = [], themeIndexes = [], relationsReady = false, organizingOverview = null, reviewSuggestions = [], noticeMessage = "", typeFromFolder = () => "", relationNetworkStatusForNote = () => ({}) } = depsProvider() || {};
-    return buildTodayOrganizingState({ notes, relations, themeIndexes, relationsReady, organizingOverview, reviewSuggestions, noticeMessage }, { typeFromFolder, relationNetworkStatusForNote });
+    const { notes = [], relations = [], themeIndexes = [], relationsReady = false, organizingOverview = null, reviewSuggestions = [], noticeMessage = "", startupPending = false, typeFromFolder = () => "", relationNetworkStatusForNote = () => ({}) } = depsProvider() || {};
+    return {
+      ...buildTodayOrganizingState({ notes, relations, themeIndexes, relationsReady, organizingOverview, reviewSuggestions, noticeMessage }, { typeFromFolder, relationNetworkStatusForNote }),
+      startupPending: startupPending === true
+    };
   }
 
   function ensureThemeIndexesLoaded() {
@@ -18,7 +21,7 @@ export function createTodayOrganizingRuntime(depsProvider = () => ({})) {
       themeLoadKey = "default"
     } = depsProvider() || {};
     const cleanKey = String(themeLoadKey || "default").trim() || "default";
-    if (themeIndexes.length || themeIndexesLoadAttemptKey === cleanKey || externalLoading || loadingThemeIndexes || typeof loadThemeIndexes !== "function") return;
+    if (depsProvider()?.startupPending === true || themeIndexes.length || themeIndexesLoadAttemptKey === cleanKey || externalLoading || loadingThemeIndexes || typeof loadThemeIndexes !== "function") return;
     themeIndexesLoadAttemptKey = cleanKey;
     loadingThemeIndexes = true;
     let shouldRender = false;

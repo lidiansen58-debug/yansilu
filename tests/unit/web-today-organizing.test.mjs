@@ -308,10 +308,22 @@ test("today organizing empty home makes demo import the primary first action", (
   assert.match(html, /先体验示例库/);
   assert.match(html, /导入后会提示结果，并刷新首页/);
   assert.match(html, /data-today-demo-status/);
+  assert.match(html, /data-today-demo-progress/);
+  assert.match(html, /role="progressbar"/);
   assert.ok(html.indexOf("导入 Demo") < html.indexOf("<article><strong>记录"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /今日提醒/);
   assert.doesNotMatch(html, /导入后自动打开导览笔记/);
+});
+
+test("today organizing empty home shows startup preparation before demo import is ready", () => {
+  const html = renderTodayOrganizingPanel({ isEmptyLibrary: true, startupPending: true });
+
+  assert.match(html, /正在准备\.\.\./);
+  assert.match(html, /正在启动本地服务，准备好后就能导入 Demo。/);
+  assert.match(html, /data-today-action="seed-demo" disabled aria-busy="true"/);
+  assert.match(html, /data-today-demo-progress/);
+  assert.doesNotMatch(html, /data-today-demo-progress[^>]+hidden/);
 });
 
 test("today organizing demo import shows immediate busy feedback", async () => {
@@ -326,6 +338,9 @@ test("today organizing demo import shows immediate busy feedback", async () => {
     setAttribute(name, value) {
       this.attrs[name] = value;
     }
+  };
+  const progress = {
+    hidden: true
   };
   const button = {
     disabled: false,
@@ -348,7 +363,9 @@ test("today organizing demo import shows immediate busy feedback", async () => {
       if (type === "click") this.listener = handler;
     },
     querySelector(selector) {
-      return selector === "[data-today-demo-status]" ? hint : null;
+      if (selector === "[data-today-demo-status]") return hint;
+      if (selector === "[data-today-demo-progress]") return progress;
+      return null;
     }
   };
 
@@ -373,6 +390,7 @@ test("today organizing demo import shows immediate busy feedback", async () => {
   assert.equal(button.attrs["aria-busy"], "true");
   assert.equal(button.textContent, "正在导入...");
   assert.equal(hint.textContent, "正在导入 Demo，请稍等，不要重复点击。");
+  assert.equal(progress.hidden, false);
   assert.deepEqual(calls[0], ["status", "正在导入 Smart Notes Demo，完成后会刷新首页。", "busy"]);
 
   resolveImport();
@@ -382,7 +400,66 @@ test("today organizing demo import shows immediate busy feedback", async () => {
   assert.equal(button.attrs["aria-busy"], undefined);
   assert.equal(button.textContent, "导入 Demo");
   assert.equal(hint.textContent, "导入后会提示结果，并刷新首页。");
+  assert.equal(progress.hidden, true);
   assert.deepEqual(calls[1], ["state", "seed-smart-notes-demo", "today-empty-start"]);
+});
+
+test("today organizing demo import keeps a visible message when import does not complete", async () => {
+  const hint = {
+    textContent: "导入后会提示结果，并刷新首页。",
+    attrs: {},
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    }
+  };
+  const progress = {
+    hidden: true
+  };
+  const button = {
+    disabled: false,
+    textContent: "导入 Demo",
+    attrs: { "data-today-action": "seed-demo" },
+    dataset: {},
+    getAttribute(name) {
+      return this.attrs[name] || "";
+    },
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    },
+    removeAttribute(name) {
+      delete this.attrs[name];
+    }
+  };
+  const panel = {
+    listener: null,
+    addEventListener(type, handler) {
+      if (type === "click") this.listener = handler;
+    },
+    querySelector(selector) {
+      if (selector === "[data-today-demo-status]") return hint;
+      if (selector === "[data-today-demo-progress]") return progress;
+      return null;
+    }
+  };
+
+  installTodayOrganizingEvents(panel, () => ({
+    setStatus: () => {},
+    handleStateChange: async () => false
+  }));
+
+  await panel.listener({
+    preventDefault() {},
+    target: {
+      closest(selector) {
+        return selector === "[data-today-action]" ? button : null;
+      }
+    }
+  });
+
+  assert.equal(button.disabled, false);
+  assert.equal(button.textContent, "导入 Demo");
+  assert.equal(progress.hidden, true);
+  assert.equal(hint.textContent, "导入没有完成。如果本地服务还在启动，请稍后再试。");
 });
 
 test("today organizing runtime loads theme indexes once when opened", async () => {
