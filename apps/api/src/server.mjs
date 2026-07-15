@@ -154,6 +154,7 @@ import { createImportExportService } from "./import-export-service.mjs";
 import { createVaultBackupJobGate, createVaultWriteGate } from "./vault-write-gate.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
+const HOST = String(process.env.API_HOST || "127.0.0.1");
 const WEB_PORT = Number(process.env.WEB_PORT || 5173);
 const PROTOTYPE_URL = String(process.env.PROTOTYPE_URL || `http://127.0.0.1:${WEB_PORT}/prototype`);
 const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${WEB_PORT}`);
@@ -7125,8 +7126,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, async () => {
-  console.log(`API running on http://localhost:${PORT}`);
+server.listen(PORT, HOST, async () => {
+  console.log(`API running on http://${HOST}:${PORT}`);
   console.log(`Vault path: ${VAULT_PATH}`);
   try {
     await initVault(VAULT_PATH);

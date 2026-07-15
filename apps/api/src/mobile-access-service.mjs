@@ -402,6 +402,6 @@ export async function handleMobileApiRequest({
     return sendJson(res, 404, err("MOBILE_ROUTE_NOT_FOUND", "Mobile route not found.", requestId));
   } catch (error) {
     const status = Number(error?.status || 400);
-    return sendJson(res, status, err(error?.code || "MOBILE_ACCESS_ERROR", String(error?.message || error), requestId));
+    return sendJson(res, status, err(error?.code || "MOBILE_ACCESS_ERROR", String(error?.message || error), requestId, error?.details));
   }
 }

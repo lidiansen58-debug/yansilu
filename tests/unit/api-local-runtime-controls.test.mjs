@@ -8,6 +8,7 @@ import {
   assertLocalRuntimeControlAllowed,
   isAllowedLocalOrigin,
   isAllowedLocalRuntimeControlOrigin,
+  isPackagedDesktopApiRuntime,
   isPackagedDesktopAppOrigin
 } from "../../apps/api/src/local-runtime-control.mjs";
 import {
@@ -115,23 +116,29 @@ test("local runtime control origin guard rejects arbitrary localhost ports", () 
 
 test("local runtime control origin guard accepts packaged desktop app origins", () => {
   const env = { YANSILU_LOCAL_APP_PORTS: "3000,5173" };
+  const desktopEnv = { ...env, YANSILU_DESKTOP_API: "1" };
 
   assert.equal(isPackagedDesktopAppOrigin(new URL("tauri://localhost")), true);
   assert.equal(isPackagedDesktopAppOrigin(new URL("http://tauri.localhost")), true);
   assert.equal(isPackagedDesktopAppOrigin(new URL("https://tauri.localhost")), false);
   assert.equal(isPackagedDesktopAppOrigin(new URL("tauri://evil.example")), false);
+  assert.equal(isPackagedDesktopApiRuntime(desktopEnv), true);
+  assert.equal(isPackagedDesktopApiRuntime(env), false);
   assert.equal(isAllowedLocalRuntimeControlOrigin("tauri://localhost", "127.0.0.1:3000", env), true);
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://tauri.localhost", "127.0.0.1:3000", env), true);
   assert.equal(isAllowedLocalRuntimeControlOrigin("https://tauri.localhost", "127.0.0.1:3000", env), false);
   assert.equal(isAllowedLocalRuntimeControlOrigin("tauri://evil.example", "127.0.0.1:3000", env), false);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost", "127.0.0.1:3000", desktopEnv), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1", "127.0.0.1:3000", desktopEnv), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost", "127.0.0.1:3000", env), false);
   assert.doesNotThrow(() => assertLocalRuntimeControlAllowed({
     headers: {
-      origin: "tauri://localhost",
+      origin: "http://localhost",
       host: "127.0.0.1:3000",
       "x-yansilu-local-runtime-control": "1"
     },
     socket: { remoteAddress: "::1" }
-  }));
+  }, desktopEnv));
 });
 
 test("local runtime control default ports include Vite auto-increment ports", () => {
@@ -167,6 +174,8 @@ test("API health exposes readiness and dependency boundaries", () => {
   const healthSource = extractFunctionSource(source, "async function apiHealthPayload(");
   const readinessSource = extractFunctionSource(source, "async function apiReadinessPayload(");
 
+  assert.match(source, /const HOST = String\(process\.env\.API_HOST \|\| "127\.0\.0\.1"\);/);
+  assert.match(source, /server\.listen\(PORT, HOST,/);
   assert.match(healthSource, /const readiness = await apiReadinessPayload\(\)/);
   assert.match(healthSource, /ready: apiReady && readiness\.ready/);
   assert.match(healthSource, /readiness/);

@@ -129,7 +129,7 @@ fn platform_file_reveal_command(p: &Path, path: &str) -> Command {
 }
 
 fn api_port_is_open(port: u16) -> bool {
-    let address: SocketAddr = match format!("[::1]:{port}").parse() {
+    let address: SocketAddr = match format!("127.0.0.1:{port}").parse() {
         Ok(value) => value,
         Err(_) => return false,
     };
@@ -137,14 +137,14 @@ fn api_port_is_open(port: u16) -> bool {
 }
 
 fn api_port_is_available(port: u16) -> bool {
-    // Try both IPv4 and IPv6 — the API binds to :: (IPv6 all interfaces).
-    // Binding only to 127.0.0.1 would succeed even when :: is in use.
-    TcpListener::bind(("0.0.0.0", port)).is_ok()
-        || TcpListener::bind(("[::]", port)).is_ok()
+    // The API listens on 127.0.0.1, but Windows can still report EADDRINUSE
+    // when an IPv6 listener already owns the same port.
+    TcpListener::bind(("127.0.0.1", port)).is_ok()
+        && TcpListener::bind(("::1", port)).is_ok()
 }
 
 fn api_health_response(port: u16) -> Option<String> {
-    let address: SocketAddr = match format!("[::1]:{port}").parse() {
+    let address: SocketAddr = match format!("127.0.0.1:{port}").parse() {
         Ok(value) => value,
         Err(_) => return None,
     };
@@ -157,7 +157,7 @@ fn api_health_response(port: u16) -> Option<String> {
 
     if stream
         .write_all(
-            format!("GET /health HTTP/1.1\r\nHost: [::1]:{port}\r\nConnection: close\r\n\r\n")
+            format!("GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")
                 .as_bytes(),
         )
         .is_err()
@@ -245,14 +245,11 @@ fn resolve_desktop_api_port(app_data_dir: &PathBuf, vault_path: &PathBuf) -> Opt
             return Some(port);
         }
         if port == DEFAULT_API_PORT && api_port_is_open(port) {
-            // Port is occupied — likely our own API from the setup() handler.
-            // The health check may fail in some configurations but the port is
-            // definitely in use, so assume it is ours and reuse it.
             append_desktop_api_log(
                 app_data_dir,
-                "Yansilu desktop API port 3000 is occupied; reusing.",
+                "Yansilu desktop API port 3000 is occupied by an unverified service; trying another port.",
             );
-            return Some(port);
+            continue;
         }
     }
     append_desktop_api_log(
@@ -274,7 +271,7 @@ fn append_desktop_api_log(app_data_dir: &PathBuf, message: &str) {
     let _ = fs::create_dir_all(app_data_dir);
     let log_path = app_data_dir.join("api.log");
     if let Ok(mut log_file) = OpenOptions::new().create(true).append(true).open(log_path) {
-        let _ = writeln!(log_file, "{message}");
+        let _ = writeln!(log_file, "[{}] {message}", now_string());
     }
 }
 
@@ -482,6 +479,7 @@ fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, Stri
         .arg("--trace-uncaught")
         .arg("apps/api/src/server.mjs")
         .current_dir(runtime_dir)
+        .env("API_HOST", "127.0.0.1")
         .env("API_PORT", api_port.to_string())
         .env("WEB_PORT", "5173")
         .env("VAULT_PATH", &config.vault_path)

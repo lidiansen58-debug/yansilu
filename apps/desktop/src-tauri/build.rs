@@ -26,12 +26,12 @@ fn fix_permissions_recursive(path: &Path) {
 fn main() {
     #[cfg(unix)]
     {
-    let runtime_dir = Path::new("desktop-api-runtime");
-    if runtime_dir.exists() {
-        fix_permissions_recursive(runtime_dir);
-        let node_bin = runtime_dir.join("node").join("node");
-        let _ = fs::set_permissions(&node_bin, fs::Permissions::from_mode(0o755));
-    }
+        let runtime_dir = Path::new("desktop-api-runtime");
+        if runtime_dir.exists() {
+            fix_permissions_recursive(runtime_dir);
+            let node_bin = runtime_dir.join("node").join("node");
+            let _ = fs::set_permissions(&node_bin, fs::Permissions::from_mode(0o755));
+        }
     }
     tauri_build::build()
 }
