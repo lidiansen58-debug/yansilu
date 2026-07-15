@@ -127,7 +127,7 @@ function firstLanIpv4() {
 export function resolveMobileAccessUrl(env = process.env) {
   const explicit = cleanText(env.MOBILE_ACCESS_URL);
   if (explicit) return explicit.replace(/\/+$/, "");
-  const port = Number(env.WEB_PORT || 5173) || 5173;
+  const port = Number(env.API_PORT || env.WEB_PORT || 5173) || 5173;
   return `http://${firstLanIpv4()}:${port}/mobile`;
 }
 

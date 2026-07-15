@@ -182,6 +182,22 @@ copyFile(
 copyDir(
   path.join(repoRoot, "tests", "fixtures", "demo-smart-notes-product-thinking"),
   path.join(runtimeRoot, "tests", "fixtures", "demo-smart-notes-product-thinking")
+
+);
+// Copy mobile web files for phone access
+const mobileWebDir = path.join(runtimeRoot, "apps", "web", "src");
+ensureDir(mobileWebDir);
+copyFile(
+  path.join(repoRoot, "apps", "web", "src", "mobile.html"),
+  path.join(mobileWebDir, "mobile.html")
+);
+copyFile(
+  path.join(repoRoot, "apps", "web", "src", "mobile.js"),
+  path.join(mobileWebDir, "mobile.js")
+);
+copyFile(
+  path.join(repoRoot, "apps", "web", "src", "mobile.css"),
+  path.join(mobileWebDir, "mobile.css")
 );
 
 run(resolveNodeExe(), [resolveNpmCli(), "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], {
