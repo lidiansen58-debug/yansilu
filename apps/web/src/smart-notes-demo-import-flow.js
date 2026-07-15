@@ -20,7 +20,12 @@ export async function runConfirmedSmartNotesDemoImport(payload = {}, deps = {}) 
     setStatus = () => {},
     importSmartNotesDemo = async () => false
   } = deps;
-  if (payload?.startup === true || payload?.confirmed === true) return importSmartNotesDemo({ ...payload, confirmed: true });
+  const importingMessage = "\u6b63\u5728\u5bfc\u5165 Smart Notes Demo\uff0c\u5b8c\u6210\u540e\u4f1a\u5237\u65b0\u9996\u9875\u3002";
+  if (payload?.startup === true || payload?.confirmed === true) {
+    setStatus(importingMessage, "busy");
+    return importSmartNotesDemo({ ...payload, confirmed: true });
+  }
   if (!confirmSmartNotesDemoImport({ confirm, setStatus })) return false;
+  setStatus(importingMessage, "busy");
   return importSmartNotesDemo({ ...payload, confirmed: true });
 }

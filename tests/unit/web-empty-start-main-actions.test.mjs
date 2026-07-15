@@ -69,6 +69,7 @@ test("startup Smart Notes Demo import does not block on a confirmation dialog", 
   const calls = [];
   const result = await runConfirmedSmartNotesDemoImport({ startup: true }, {
     confirm: () => calls.push("unexpected-confirm"),
+    setStatus: (message, tone) => calls.push(["status", message, tone]),
     importSmartNotesDemo: async (payload) => {
       calls.push(["demo", payload.startup, payload.confirmed]);
       return true;
@@ -76,7 +77,10 @@ test("startup Smart Notes Demo import does not block on a confirmation dialog", 
   });
 
   assert.equal(result, true);
-  assert.deepEqual(calls, [["demo", true, true]]);
+  assert.deepEqual(calls, [
+    ["status", "正在导入 Smart Notes Demo，完成后会刷新首页。", "busy"],
+    ["demo", true, true]
+  ]);
 });
 
 test("empty start does not import Smart Notes Demo without a confirmation function", async () => {

@@ -64,7 +64,8 @@ function createHarness() {
     "settingsLiteratureTemplateEditor",
     "settingsTemplatePreviewClose",
     "settingsTemplatePreviewModal",
-    "settingsPaneAutomationBody"
+    "settingsPaneAutomationBody",
+    "settingsPaneSupport"
   ];
   ids.forEach((id) => element(id));
 
@@ -119,6 +120,76 @@ test("settings event bindings route section, item, and template actions", () => 
     ["save-template", "literature"],
     ["update-template", "permanent"],
     ["close-template"]
+  ]);
+});
+
+test("settings demo import button shows progress while import is running", async () => {
+  const harness = createHarness();
+  let finishImport = null;
+  const importButton = harness.attrNode({
+    "data-settings-help-action": "import-demo",
+    disabled: false,
+    textContent: "导入示例库 / 体验 Demo"
+  });
+
+  installSettingsEventBindings({
+    $: harness.$,
+    handleStateChange: (reason, payload) => {
+      harness.calls.push(["state", reason, payload.source]);
+      return new Promise((resolve) => {
+        finishImport = () => resolve(true);
+      });
+    }
+  });
+
+  const importPromise = harness.listeners.get("settingsPaneSupport:click")({
+    preventDefault: () => harness.calls.push(["prevent"]),
+    target: harness.target({
+      "[data-settings-help-action]": importButton
+    })
+  });
+
+  assert.equal(importButton.disabled, true);
+  assert.equal(importButton.textContent, "正在导入...");
+  finishImport();
+  await importPromise;
+
+  assert.equal(importButton.disabled, false);
+  assert.equal(importButton.textContent, "导入示例库 / 体验 Demo");
+  assert.deepEqual(harness.calls, [
+    ["prevent"],
+    ["state", "seed-smart-notes-demo", "settings-help"]
+  ]);
+});
+
+test("settings demo import reports failure and restores the button", async () => {
+  const harness = createHarness();
+  const importButton = harness.attrNode({
+    "data-settings-help-action": "import-demo",
+    disabled: false,
+    textContent: "导入示例库 / 体验 Demo"
+  });
+
+  installSettingsEventBindings({
+    $: harness.$,
+    handleStateChange: async () => {
+      throw new Error("service unavailable");
+    },
+    setStatus: (message, tone) => harness.calls.push(["status", message, tone])
+  });
+
+  await harness.listeners.get("settingsPaneSupport:click")({
+    preventDefault: () => harness.calls.push(["prevent"]),
+    target: harness.target({
+      "[data-settings-help-action]": importButton
+    })
+  });
+
+  assert.equal(importButton.disabled, false);
+  assert.equal(importButton.textContent, "导入示例库 / 体验 Demo");
+  assert.deepEqual(harness.calls, [
+    ["prevent"],
+    ["status", "导入 Demo 失败：service unavailable", "bad"]
   ]);
 });
 
