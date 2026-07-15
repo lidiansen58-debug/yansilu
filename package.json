@@ -52,7 +52,11 @@
     "wt:deps": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-link-node-modules.ps1",
     "wt:list": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-list.ps1",
     "wt:remove": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-remove.ps1",
-    "wt:run": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-run-dev.ps1"
+    "wt:run": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-run-dev.ps1",
+    "build:desktop:mac:signed": "node ./scripts/build-desktop.mjs app dmg",
+    "notarize:dmg": "bash ./scripts/notarize-dmg.sh",
+    "sign:verify": "codesign --verify --deep --strict --verbose=1 \"apps/desktop/src-tauri/target/release/bundle/macos/研思录.app\"",
+    "release:mac": "bash ./scripts/build-mac-release.sh"
   },
   "devDependencies": {
     "@codemirror/lang-markdown": "^6.5.0",

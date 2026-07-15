@@ -27,3 +27,4 @@ vault-example/yansilu-vault/notes/literature/*.md
 vault-example/yansilu-vault/notes/permanent/*.md
 !vault-example/yansilu-vault/notes/permanent/.gitkeep
 vault-example/yansilu-vault/notes/sources/*.md
+.cache/
