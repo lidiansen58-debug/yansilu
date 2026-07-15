@@ -18,6 +18,7 @@ let currentApiBase = STATIC_API_BASE;
 let desktopApiBasePromise = null;
 let desktopServiceStatusPromise = null;
 const LOCAL_RUNTIME_CONTROL_HEADERS = { "X-Yansilu-Local-Runtime-Control": "1" };
+const DESKTOP_API_PROBE_PORTS = Array.from({ length: 21 }, (_, index) => 3000 + index);
 
 export function isApiConnectionError(error) {
   const code = String(error?.code || "").trim();
@@ -43,6 +44,50 @@ function clearDesktopApiBase() {
   return "";
 }
 
+function expectedVaultPathFromDesktopServiceStatus(status = null) {
+  return String(status?.services?.api?.vaultPath || "").trim();
+}
+
+function healthMatchesExpectedVault(json = {}, expectedVaultPath = "") {
+  const expected = String(expectedVaultPath || "").trim();
+  if (!expected) return false;
+  return json?.app === "yansilu" &&
+    json?.service === "api" &&
+    json?.ok === true &&
+    json?.ready === true &&
+    String(json?.vaultPath || "").trim() === expected;
+}
+
+async function probeDesktopApiBaseOnPort(port, expectedVaultPath = "") {
+  if (typeof fetch !== "function") return "";
+  const base = `http://127.0.0.1:${port}`;
+  const timeoutMs = 350;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller ? globalThis.setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetch(`${base}/health`, {
+      cache: "no-store",
+      signal: controller?.signal
+    });
+    if (!response.ok) return "";
+    const json = await response.json().catch(() => ({}));
+    if (healthMatchesExpectedVault(json, expectedVaultPath)) {
+      return base;
+    }
+  } catch {
+    return "";
+  } finally {
+    if (timeoutId) globalThis.clearTimeout(timeoutId);
+  }
+  return "";
+}
+
+async function probeDesktopApiBase(expectedVaultPath = "") {
+  if (!String(expectedVaultPath || "").trim()) return "";
+  const results = await Promise.all(DESKTOP_API_PROBE_PORTS.map((port) => probeDesktopApiBaseOnPort(port, expectedVaultPath)));
+  return results.find(Boolean) || "";
+}
+
 async function resolveApiBase() {
   const core = tauriCore();
   if (!core || typeof core.invoke !== "function") return currentApiBase;
@@ -57,7 +102,14 @@ async function resolveApiBase() {
       return core.invoke("get_desktop_api_base").then((value) => {
         const base = String(value || "").trim();
         if (base) currentApiBase = base.replace(/\/+$/u, "");
-        return base ? currentApiBase : clearDesktopApiBase();
+        if (base) return currentApiBase;
+        return probeDesktopApiBase(expectedVaultPathFromDesktopServiceStatus(serviceStatus)).then((probedBase) => {
+          if (probedBase) {
+            currentApiBase = probedBase;
+            return currentApiBase;
+          }
+          return clearDesktopApiBase();
+        });
       });
     })().catch(() => clearDesktopApiBase());
   }

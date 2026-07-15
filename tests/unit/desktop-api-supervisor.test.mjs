@@ -34,6 +34,11 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /macOS Contents\/Resources/);
   assert.match(source, /system node fallback/);
   assert.match(source, /Runtime candidate failed/);
+  assert.match(source, /"vaultPath": config\.vault_path\.to_string_lossy\(\)/);
+  assert.ok(
+    (source.match(/"vaultPath": config\.vault_path\.to_string_lossy\(\)/g) || []).length >= 6,
+    "expected every desktop API status transition to preserve vaultPath"
+  );
 });
 
 test("desktop API supervisor blocks only on consecutive failures", () => {

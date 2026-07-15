@@ -365,6 +365,7 @@ fn default_service_status() -> serde_json::Value {
                 "baseUrl": "",
                 "pid": null,
                 "managed": false,
+                "vaultPath": "",
                 "restartCount": 0,
                 "consecutiveFailures": 0,
                 "lastError": "",
@@ -625,6 +626,7 @@ fn supervise_desktop_api(
         &service_status,
         serde_json::json!({
             "status": "starting",
+            "vaultPath": config.vault_path.to_string_lossy(),
             "logPath": log_path.to_string_lossy()
         }),
         "recovering",
@@ -662,6 +664,7 @@ fn supervise_desktop_api(
                 serde_json::json!({
                     "status": "recovering",
                     "nextRetryMs": retry_ms,
+                    "vaultPath": config.vault_path.to_string_lossy(),
                     "restartCount": restart_count,
                     "consecutiveFailures": consecutive_failures
                 }),
@@ -686,6 +689,7 @@ fn supervise_desktop_api(
                         "baseUrl": launch.base_url,
                         "pid": launch.pid,
                         "managed": launch.managed,
+                        "vaultPath": config.vault_path.to_string_lossy(),
                         "restartCount": restart_count,
                         "consecutiveFailures": consecutive_failures,
                         "lastError": "",
@@ -732,6 +736,7 @@ fn supervise_desktop_api(
                                 "lastError": message,
                                 "restartCount": restart_count,
                                 "consecutiveFailures": consecutive_failures,
+                                "vaultPath": config.vault_path.to_string_lossy(),
                                 "baseUrl": "",
                                 "pid": null
                             }),
@@ -754,6 +759,7 @@ fn supervise_desktop_api(
                                 "lastError": message,
                                 "restartCount": restart_count,
                                 "consecutiveFailures": consecutive_failures,
+                                "vaultPath": config.vault_path.to_string_lossy(),
                                 "baseUrl": "",
                                 "pid": null
                             }),
@@ -788,6 +794,7 @@ fn supervise_desktop_api(
                         "lastError": error,
                         "restartCount": restart_count,
                         "consecutiveFailures": consecutive_failures,
+                        "vaultPath": config.vault_path.to_string_lossy(),
                         "baseUrl": "",
                         "pid": null,
                         "managed": false
