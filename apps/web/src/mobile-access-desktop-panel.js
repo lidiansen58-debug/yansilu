@@ -121,7 +121,7 @@ export function renderMobileAccessDesktopPanel({
       <div class="settings-card-head">
         <div>
           <div class="settings-card-title">手机访问</div>
-          <div class="settings-card-note">扫码连接手机。</div>
+          <div class="settings-card-note">手机和电脑需要连接同一个 Wi-Fi。</div>
         </div>
         <span class="settings-stat-badge">${escapeHtml(pairing.ttlSeconds ? `${pairing.ttlSeconds}s` : "待刷新")}</span>
       </div>
@@ -133,6 +133,7 @@ export function renderMobileAccessDesktopPanel({
         <div class="mobile-access-copy">
           <div class="mobile-access-kicker">扫码连接</div>
           <div class="mobile-access-url">${escapeHtml(item?.accessUrl || "")}</div>
+          <div class="mobile-access-note">这个地址绑定在当前 Wi-Fi 网络上，换网络后请刷新二维码。</div>
           <div class="mobile-access-code">
             <span>临时配对码</span>
             <strong>${escapeHtml(pairing.pairCode || "------")}</strong>

@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import {
   assertLocalRuntimeControlAllowed,
   isAllowedLocalOrigin,
-  isAllowedLocalRuntimeControlOrigin
+  isAllowedLocalRuntimeControlOrigin,
+  isPackagedDesktopAppOrigin
 } from "../../apps/api/src/local-runtime-control.mjs";
 import {
   assertAllowedOllamaCatalogModel,
@@ -110,6 +111,27 @@ test("local runtime control origin guard rejects arbitrary localhost ports", () 
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:3999", "127.0.0.1:3999", env), true);
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:5174", "127.0.0.1:3999", env), true);
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:7777", "127.0.0.1:3999", env), false);
+});
+
+test("local runtime control origin guard accepts packaged desktop app origins", () => {
+  const env = { YANSILU_LOCAL_APP_PORTS: "3000,5173" };
+
+  assert.equal(isPackagedDesktopAppOrigin(new URL("tauri://localhost")), true);
+  assert.equal(isPackagedDesktopAppOrigin(new URL("http://tauri.localhost")), true);
+  assert.equal(isPackagedDesktopAppOrigin(new URL("https://tauri.localhost")), false);
+  assert.equal(isPackagedDesktopAppOrigin(new URL("tauri://evil.example")), false);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("tauri://localhost", "127.0.0.1:3000", env), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://tauri.localhost", "127.0.0.1:3000", env), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("https://tauri.localhost", "127.0.0.1:3000", env), false);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("tauri://evil.example", "127.0.0.1:3000", env), false);
+  assert.doesNotThrow(() => assertLocalRuntimeControlAllowed({
+    headers: {
+      origin: "tauri://localhost",
+      host: "127.0.0.1:3000",
+      "x-yansilu-local-runtime-control": "1"
+    },
+    socket: { remoteAddress: "::1" }
+  }));
 });
 
 test("local runtime control default ports include Vite auto-increment ports", () => {
