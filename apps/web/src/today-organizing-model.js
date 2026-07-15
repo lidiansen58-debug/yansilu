@@ -163,7 +163,8 @@ export function buildTodayOrganizingState({
   themeIndexes = [],
   relationsReady = false,
   organizingOverview = null,
-  reviewSuggestions = []
+  reviewSuggestions = [],
+  noticeMessage = ""
 } = {}, deps = {}) {
   const allNotes = (Array.isArray(notes) ? notes : []).filter((note) => !isLocalBlankPlaceholderNote(note));
   const permanentNotes = allNotes.filter((note) => isPermanentNote(note, deps));
@@ -198,6 +199,7 @@ export function buildTodayOrganizingState({
   const hasImportOverview = importOverviewPermanentCount(organizingOverview) > 0;
 
   return {
+    noticeMessage: cleanText(noticeMessage),
     isEmptyLibrary:
       permanentNotes.length === 0 &&
       pendingMaterialNotes.length === 0 &&

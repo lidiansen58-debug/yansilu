@@ -158,7 +158,7 @@ function renderEmptyLibraryHome() {
         <button class="mini-btn primary" type="button" data-today-action="seed-demo">
           导入 Demo
         </button>
-        <small>导入后自动打开导览笔记。</small>
+        <small>导入后会提示结果，并刷新首页。</small>
       </div>
     </section>
   `;
@@ -180,6 +180,17 @@ function renderTodaySummary(state = {}) {
   `;
 }
 
+function renderTodayNotice(message = "") {
+  const text = String(message || "").trim();
+  if (!text) return "";
+  return `
+    <section class="today-import-notice" aria-live="polite">
+      <strong>导入完成</strong>
+      <span>${escape(text)}</span>
+    </section>
+  `;
+}
+
 export function renderTodayOrganizingPanel(state = {}) {
   const actions = buildTodayActions(state);
   const recommended = primaryAction(actions);
@@ -197,6 +208,7 @@ export function renderTodayOrganizingPanel(state = {}) {
   }
   return `
     <div class="today-organizing-shell">
+      ${renderTodayNotice(state.noticeMessage)}
       <section class="today-primary-step tone-${escape(recommended.tone || "")}" aria-label="推荐下一步">
         <div>
           <strong>${escape(recommended.objectTitle)}</strong>

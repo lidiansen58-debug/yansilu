@@ -45,7 +45,7 @@ import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-stat
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
 import { routeAppShellStateChange } from "./app-shell-state-change-router.js";
 import { bootstrapAppForRuntime } from "./app-startup-controller.js";
-import { smartNotesDemoExistingFolder, smartNotesDemoOpenedExistingGuideStatus, smartNotesDemoStartupNoteId } from "./smart-notes-demo-startup-note.js";
+import { smartNotesDemoExistingFolder, smartNotesDemoImportedStatus, smartNotesDemoOpenedExistingGuideStatus, smartNotesDemoStartupNoteId, shouldRefreshHomeAfterSmartNotesDemoImport } from "./smart-notes-demo-startup-note.js";
 import { candidatePreviewItemIds, candidatePreviewItems, confirmSkipReasonMap, confirmSkippedCandidateIds, selectionSummary as summarizeCandidateSelection } from "./import-candidate-preview-model.js";
 import { renderCandidatePreview, renderConfirmSkipBreakdown } from "./import-candidate-preview-panel.js";
 import { selectedCandidateIdsForImportAction } from "./import-selection-actions.js";
@@ -5489,6 +5489,7 @@ const {
 } = graphRouteRuntime;
 async function importSmartNotesProductThinkingDemo(options = {}) {
   const { startup = false } = options;
+  const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport(options);
   setStatus("正在导入 Smart Notes Demo...", "");
   try {
     const result = await seedSmartNotesProductThinkingDemo();
@@ -5497,12 +5498,13 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     await syncDirectoriesFromApi();
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
-    await syncNotesForDirectory(directoryId);
+    await syncNotesForDirectoryTree(directoryId);
     await syncNotesForDirectory("dir_fleeting_default");
     await syncNotesForDirectory("dir_literature_default");
     await loadWritingThemeIndexes();
     const firstNoteId = smartNotesDemoStartupNoteId({ result, notes: state.notes });
-    if (firstNoteId) {
+    const shouldOpenGuide = Boolean(firstNoteId) && (startup || !shouldRefreshHome);
+    if (shouldOpenGuide) {
       state.selectedFileId = firstNoteId;
       openNoteById(firstNoteId, { preferTitleSelection: false });
     }
@@ -5527,20 +5529,19 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
       resetGraphDemoPresentationState();
     }
     await refreshDirectoryGraph();
-    if (startup) activateModule("today");
+    if (shouldRefreshHome) activateModule("today");
     renderAll();
-    if (firstNoteId) {
+    if (shouldOpenGuide) {
       state.selectedFileId = firstNoteId;
       openNoteById(firstNoteId, { preferTitleSelection: false });
       editor?.resetEditorViewportToStart?.();
     }
-    const counts = result?.counts || {};
-    const summary = result?.summary || {};
-    const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
-    const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
-    const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    const suffix = startup && firstNoteId ? "，已打开导览笔记" : "";
-    setStatus(`已导入 Smart Notes Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目${suffix}`, "ok");
+    const importedStatus = smartNotesDemoImportedStatus(result, { openedGuide: shouldOpenGuide, refreshedHome: shouldRefreshHome });
+    if (shouldRefreshHome) {
+      state.todayNoticeMessage = importedStatus;
+      renderAll();
+    }
+    setStatus(importedStatus, "ok");
     return true;
   } catch (error) {
     if (startup) {
