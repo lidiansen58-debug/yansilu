@@ -91,7 +91,6 @@ export function aiInboxFiltersForSystemMessage(message = {}) {
   return normalizeAiInboxFilters({
     view: String(filters.view || "pending").trim() || "pending",
     type: String(filters.type || "all").trim() || "all",
-    privacyMode: String(filters.privacyMode || "").trim(),
     sourceNoteId: hasSourceNote
   });
 }
@@ -100,7 +99,6 @@ export function globalPendingAiInboxFilters() {
   return normalizeAiInboxFilters({
     view: "pending",
     type: "all",
-    privacyMode: "",
     sourceNoteId: ""
   });
 }
@@ -151,7 +149,7 @@ export function noteAnalysisSystemMessageForResult({
     id: `ai-analysis:${String(noteId || "").trim()}:${now()}`,
     type: "ai",
     title: `${titleText} 找到可能关系`,
-    body: `AI 为“${titleText}”找到 ${relationCount} 条可能关系。请先看目标笔记和理由，再决定是否保存为正式关系。`,
+    body: `AI 为“${titleText}”找到 ${relationCount} 条可能关系。请先看目标笔记和理由，再决定是否保存为关联。`,
     action: "open-ai-inbox",
     actionLabel: "确认关系建议",
     noteId: String(noteId || "").trim(),

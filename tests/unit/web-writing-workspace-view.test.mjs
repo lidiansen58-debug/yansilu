@@ -138,31 +138,25 @@ test("writing scaffold and draft version cards keep action routing attributes", 
   assert.match(draft, /status:draft/);
 });
 
-test("writing center hides manual note ids behind advanced details", () => {
+test("writing workbench keeps manual note ids out of the related-note flow", () => {
   const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
   const marker = 'id="writingBasketNoteIds"';
   const index = html.indexOf(marker);
   assert.ok(index > 0, "expected writing basket ids textarea");
-  const detailsStart = html.lastIndexOf("<details", index);
-  const detailsEnd = html.indexOf("</details>", index);
-  assert.ok(detailsStart > 0 && detailsStart < index, "textarea should be inside details");
-  assert.ok(detailsEnd > index, "textarea should close inside details");
-  assert.match(html.slice(detailsStart, index), /高级：手动调整已选笔记编号/);
+  assert.match(html.slice(index - 80, index + 120), /hidden/);
+  assert.doesNotMatch(html, /手动调整已选笔记编号/);
+  assert.match(html, /<summary>添加笔记<\/summary>/);
 });
 
-test("writing center separates core flow into tabs instead of one long stack", () => {
+test("writing workbench separates the core flow into stable theme outline draft tabs", () => {
   const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
   assert.match(html, /class="writing-tabs"/);
-  for (const tab of ["write", "notes", "themes", "tools"]) {
+  for (const tab of ["theme", "outline", "draft"]) {
     assert.match(html, new RegExp(`data-writing-tab="${tab}"`));
   }
-  for (const id of [
-    "writingComposePanel",
-    "writingRelatedNotesPanel",
-    "writingThemePanel",
-    "writingBookToolsPanel",
-    "writingHistoryPanel"
-  ]) {
+  for (const id of ["writingEmptyTopic", "writingThemePanel", "writingScaffoldPanel", "writingDraftPanel", "writingRelatedOverlay"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
+  assert.doesNotMatch(html, /data-writing-tab="tools"/);
+  assert.doesNotMatch(html, /data-writing-tab="notes"/);
 });

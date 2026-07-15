@@ -212,7 +212,7 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
       focusRelationCreate(
         cleanAction === "bridge"
           ? `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”关联为一条${relationLabel}。`
-          : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”建立为带理由的正式关联。`
+          : `从图谱进入：把“${sourceLabel}”和“${targetLabel || "目标笔记"}”建立为带理由的关联。`
       );
       const status = graphFollowupOpenedNoteStatus({ action: cleanAction });
       setStatus(status.message, status.tone, followupStatusOptions);

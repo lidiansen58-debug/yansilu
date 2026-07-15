@@ -16,17 +16,19 @@ function defaultWorkbenchTabMeta(value = "") {
   const meta = {
     clues: {
       key: "clues",
-      label: "关联任务",
-      emptyLabel: "暂无关联任务",
-      panelTitle: "关联任务",
-      note: "优先处理未关联笔记、缺理由关系和薄弱连接。"
+      label: "补全关系",
+      emptyLabel: "暂无需要补的关系",
+      panelTitle: "补全关系",
+      statusLabel: "补全关系",
+      note: "找出还没连上、关系不清或需要补说明的笔记。"
     },
     questions: {
       key: "questions",
-      label: "洞察问题",
-      emptyLabel: "暂无洞察问题",
-      panelTitle: "洞察问题",
-      note: "从问题、张力和可写主题里继续长出观点。"
+      label: "找主题",
+      emptyLabel: "暂无可找主题的线索",
+      panelTitle: "找主题",
+      statusLabel: "找主题",
+      note: "看哪些笔记已经聚成一个可继续写作的问题。"
     }
   };
   return meta[key] || meta.clues;
@@ -35,9 +37,9 @@ function defaultWorkbenchTabMeta(value = "") {
 function defaultThinkingFilterMeta(value = "") {
   const key = String(value || "all").trim().toLowerCase();
   const meta = {
-    all: { key: "all", label: "全部", note: "查看全部待确认内容。" },
-    theme: { key: "theme", label: "主题", note: "只看可能形成可写主题的聚集。" },
-    organize: { key: "organize", label: "关系", note: "只看待整理的关系。" }
+    all: { key: "all", label: "全部", note: "查看全部建议。" },
+    theme: { key: "theme", label: "找主题", note: "只看可能聚成主题的笔记。" },
+    organize: { key: "organize", label: "补全关系", note: "只看需要补关系的笔记。" }
   };
   return meta[key] || meta.all;
 }
@@ -48,15 +50,6 @@ function defaultCompactActionLabel(label = "") {
 
 function defaultHighlightAttrs() {
   return "";
-}
-
-function graphWorkbenchPriorityItems(items = [], activeKey = "questions") {
-  const list = Array.isArray(items) ? items : [];
-  const filtered =
-    activeKey === "clues"
-      ? list.filter((item) => item.view === "organize" || ["bridge", "review", "isolated"].includes(String(item.tone || "").trim()))
-      : list;
-  return filtered.slice(0, 3);
 }
 
 function graphWorkbenchPanelDeps(deps = {}) {
@@ -71,24 +64,43 @@ function graphWorkbenchPanelDeps(deps = {}) {
   };
 }
 
+function graphTaskItems(items = [], activeKey = "questions") {
+  const list = Array.isArray(items) ? items : [];
+  const filtered =
+    activeKey === "clues"
+      ? list.filter((item) => item.view === "organize" || ["bridge", "review", "isolated"].includes(String(item.tone || "").trim()))
+      : list.filter((item) => item.view === "theme" || item.view === "question" || String(item.tone || "").trim() === "theme");
+  return (filtered.length ? filtered : list).slice(0, 3);
+}
+
+function graphWorkbenchThemeOverviewItems(items = []) {
+  return graphTaskItems(items, "questions")
+    .map((item) => {
+      const title = String(item?.title || "").trim();
+      const detail = String(item?.question || item?.detail || item?.meta || "").trim();
+      const actionAttrs = String(item?.actionAttrs || "").trim();
+      const actionLabel = String(item?.actionLabel || "查看").trim() || "查看";
+      if (!title && !detail) return null;
+      return { title: title || "主题线索", detail, actionAttrs, actionLabel };
+    })
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 export function renderGraphWorkbenchEntryPillsView({ clueSummary = null, questionSummary = null } = {}, deps = {}) {
   const { escapeHtml, graphWorkbenchTabMeta, graphState } = graphWorkbenchPanelDeps(deps);
-  const clueMeta = graphWorkbenchTabMeta("clues");
-  const questionMeta = graphWorkbenchTabMeta("questions");
   const entries = [
-    { meta: clueMeta, total: Number(clueSummary?.total || 0) },
-    { meta: questionMeta, total: Number(questionSummary?.total || 0) }
+    { meta: graphWorkbenchTabMeta("clues"), total: Number(clueSummary?.total || 0) },
+    { meta: graphWorkbenchTabMeta("questions"), total: Number(questionSummary?.total || 0) }
   ];
   return `
-    <div class="graph-workbench-entry-group" aria-label="图谱处理入口">
+    <div class="graph-workbench-entry-group" aria-label="图谱详情入口">
       ${entries
         .map(({ meta, total }) => {
           const active = graphState.workbenchPanelOpen === true && graphWorkbenchTabMeta(graphState.workbenchPanelTab).key === meta.key;
-          const label = total > 0 ? meta.label : meta.emptyLabel;
-          const ariaLabel = total > 0 ? `${meta.label}，${total} 项。${meta.note}` : `${meta.emptyLabel}。${meta.note}`;
           return `
-            <button class="graph-workbench-entry${active ? " is-active" : ""}${total <= 0 ? " is-empty" : ""}" type="button" data-graph-workbench-entry="${escapeHtml(meta.key)}" aria-pressed="${active}" aria-label="${escapeHtml(ariaLabel)}" title="${escapeHtml(ariaLabel)}">
-              <span>${escapeHtml(label)}</span>
+            <button class="graph-workbench-entry${active ? " is-active" : ""}${total <= 0 ? " is-empty" : ""}" type="button" data-graph-workbench-entry="${escapeHtml(meta.key)}" aria-pressed="${active}" title="${escapeHtml(meta.note)}">
+              <span>${escapeHtml(meta.label)}</span>
               ${total > 0 ? `<strong>${escapeHtml(String(total))}</strong>` : ""}
             </button>
           `;
@@ -98,15 +110,8 @@ export function renderGraphWorkbenchEntryPillsView({ clueSummary = null, questio
   `;
 }
 
-export function renderGraphResearchNavigatorEntryView(open = false) {
-  const action = open ? "close" : "open";
-  const label = "总览";
-  const title = open ? "收起总览" : "打开总览";
-  return `
-    <button class="graph-workbench-entry graph-research-entry${open ? " is-active" : ""}" type="button" data-graph-research-${action} aria-pressed="${open}" title="${title}">
-      <span>${label}</span>
-    </button>
-  `;
+export function renderGraphResearchNavigatorEntryView() {
+  return "";
 }
 
 export function renderGraphThinkingItemsView(items = [], filter = "all", deps = {}) {
@@ -116,9 +121,9 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
   if (!filtered.length) {
     return `
       <div class="graph-thinking-empty">
-        <strong>${escapeHtml(meta.key === "theme" ? "还没有可写主题建议" : meta.key === "organize" ? "还没有待处理关系" : "当前没有明显问题")}</strong>
-        <span>${escapeHtml(meta.key === "theme" ? "导入或积累更多笔记后，这里会出现可能成题的笔记组。" : "继续写笔记、补关系理由或运行图谱扫描后，这里会出现新的待处理内容。")}</span>
-        <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "扫描图谱"}</button>
+        <strong>${escapeHtml(meta.key === "theme" ? "还没有可找主题的线索" : meta.key === "organize" ? "还没有需要补的关系" : "当前没有明显建议")}</strong>
+        <span>${escapeHtml(meta.key === "theme" ? "先补几条有理由的关系，再回来找主题。" : "继续写笔记或补关系后，这里会出现更具体的建议。")}</span>
+        <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "重新检查"}</button>
       </div>
     `;
   }
@@ -128,18 +133,15 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
         .slice(0, 8)
         .map((item) => {
           const highlightAttrs = graphThinkingHighlightAttrs(item);
-          const actionLabel = item.actionLabel || "查看";
+          const actionLabel = item.actionLabel || "打开";
           const compactActionLabel = graphCompactActionLabel(actionLabel);
           return `
             <article class="graph-thinking-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
               <button class="graph-thinking-item-main" type="button" ${item.actionAttrs || ""}>
-                <span class="graph-thinking-kicker">${escapeHtml(item.kicker || "待判断")}</span>
-                <strong>${escapeHtml(item.title || "待处理")}</strong>
-                <small>${escapeHtml(item.meta || "")}</small>
-                <em>${escapeHtml(item.detail || "这里值得继续判断。")}</em>
-                ${item.question ? `<span class="graph-thinking-question"><small>要判断的问题</small>${escapeHtml(item.question)}</span>` : ""}
+                <strong>${escapeHtml(item.title || "待处理笔记")}</strong>
+                <small>${escapeHtml(item.meta || item.detail || "")}</small>
               </button>
-              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${actionLabel}：${item.title || "待处理"}`)}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
+              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${actionLabel}：${item.title || "待处理笔记"}`)}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
             </article>
           `;
         })
@@ -150,12 +152,12 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
 
 export function renderGraphWorkbenchPriorityQueueView(items = [], activeKey = "questions", deps = {}) {
   const { escapeHtml, graphThinkingHighlightAttrs, graphCompactActionLabel } = graphWorkbenchPanelDeps(deps);
-  const priorityItems = graphWorkbenchPriorityItems(items, activeKey);
+  const priorityItems = graphTaskItems(items, activeKey);
   if (!priorityItems.length) return "";
-  const title = activeKey === "clues" ? "先处理这 3 个关联任务" : "先看这 3 个问题";
+  const title = activeKey === "clues" ? "建议先补这几条关系" : "建议先看这几个主题线索";
   const note = activeKey === "clues"
-    ? "从这里开始，图谱会最快变清楚。"
-    : "从这里开始，最容易长出下一步观点。";
+    ? "打开笔记，补清楚它和哪条笔记互相说明。"
+    : "看这些笔记是否在回答同一个问题。";
   return `
     <section class="graph-priority-queue" aria-label="${escapeHtml(title)}">
       <div class="graph-priority-queue-head">
@@ -164,18 +166,17 @@ export function renderGraphWorkbenchPriorityQueueView(items = [], activeKey = "q
       </div>
       <div class="graph-priority-queue-list">
         ${priorityItems
-          .map((item, index) => {
+          .map((item) => {
             const highlightAttrs = graphThinkingHighlightAttrs(item);
-            const actionLabel = item.actionLabel || "查看";
+            const actionLabel = item.actionLabel || "打开";
             const compactActionLabel = graphCompactActionLabel(actionLabel);
             return `
               <article class="graph-priority-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
                 <button class="graph-priority-item-main" type="button" ${item.actionAttrs || ""}>
-                  <span>${escapeHtml(`${index + 1}. ${item.kicker || "待判断"}`)}</span>
-                  <strong>${escapeHtml(item.title || "待处理")}</strong>
-                  <small>${escapeHtml(item.question || item.detail || "这里值得继续判断。")}</small>
+                  <strong>${escapeHtml(item.title || "待处理笔记")}</strong>
+                  <small>${escapeHtml(item.question || item.detail || item.meta || "")}</small>
                 </button>
-                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${actionLabel}：${item.title || "待处理"}`)}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
+                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${actionLabel}：${item.title || "待处理笔记"}`)}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
               </article>
             `;
           })
@@ -192,8 +193,8 @@ export function renderGraphThinkingReviewNoteView(summary = {}, deps = {}) {
   return `
     <div class="graph-thinking-review-note">
       <div>
-        <strong>有 ${escapeHtml(String(artifactCount))} 项待确认</strong>
-        <span>只保存你能说清理由的关系或主题。</span>
+        <strong>${escapeHtml(String(artifactCount))} 项待确认</strong>
+        <span>只保留你能说清理由的关系或主题。</span>
       </div>
       <button class="graph-thinking-review-action" type="button" data-graph-focus-thinking-review aria-label="查看待确认内容">查看</button>
     </div>
@@ -202,28 +203,11 @@ export function renderGraphThinkingReviewNoteView(summary = {}, deps = {}) {
 
 export function renderGraphThinkingPanelContentView({ summary = {}, items = [], includeSummary = true } = {}, deps = {}) {
   const { escapeHtml, graphState, graphThinkingFilterMeta } = graphWorkbenchPanelDeps(deps);
-  const categories = Array.isArray(summary.categories) ? summary.categories : [];
   const activeFilter = graphThinkingFilterMeta(graphState.thinkingFilter);
-  const filterButtons = ["all", "theme", "organize"]
-    .map((value) => {
-      const meta = graphThinkingFilterMeta(value);
-      const active = meta.key === activeFilter.key;
-      return `<button class="graph-thinking-filter${active ? " is-active" : ""}" type="button" data-graph-thinking-filter="${escapeHtml(meta.key)}" aria-pressed="${active}" title="${escapeHtml(meta.note)}">${escapeHtml(meta.label)}</button>`;
-    })
-    .join("");
   return `
-    <div class="graph-thinking-filters" aria-label="筛选待确认内容">
-      ${filterButtons}
-    </div>
     ${
       includeSummary
-        ? (
-            categories.length
-              ? `<div class="graph-thinking-categories">${categories
-                  .map((item) => `<span><strong>${escapeHtml(String(item.count))}</strong>${escapeHtml(item.label)}</span>`)
-                  .join("")}</div>`
-              : `<div class="graph-empty">当前范围暂时没有需要优先判断的内容。</div>`
-          )
+        ? `<div class="graph-thinking-categories"><span><strong>${escapeHtml(String(summary?.total || items.length || 0))}</strong>${escapeHtml(activeFilter.label)}</span></div>`
         : ""
     }
     ${includeSummary ? renderGraphThinkingReviewNoteView(summary, deps) : ""}
@@ -234,13 +218,13 @@ export function renderGraphThinkingPanelContentView({ summary = {}, items = [], 
 export function renderGraphThinkingPanelView({ summary = {}, items = [] } = {}, deps = {}) {
   const { escapeHtml, renderGraphIcon } = graphWorkbenchPanelDeps(deps);
   return `
-    <aside class="graph-thinking-panel" aria-label="待确认内容">
+    <aside class="graph-thinking-panel" aria-label="图谱建议">
       <div class="graph-thinking-panel-head">
         <div>
-          <strong>${escapeHtml(summary.label || "待确认内容")}</strong>
-          <span>${escapeHtml(summary.detail || "先看建议，再决定采纳、忽略或归档。")}</span>
+          <strong>${escapeHtml(summary.label || "图谱建议")}</strong>
+          <span>${escapeHtml(summary.detail || "先看建议，再决定是否采纳。")}</span>
         </div>
-        <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭待确认内容" title="关闭">${renderGraphIcon("close")}</button>
+        <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭图谱建议" title="关闭">${renderGraphIcon("close")}</button>
       </div>
       ${renderGraphThinkingPanelContentView({ summary, items, includeSummary: true }, deps)}
     </aside>
@@ -249,68 +233,76 @@ export function renderGraphThinkingPanelView({ summary = {}, items = [] } = {}, 
 
 export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummary = {}, clueSectionsMarkup = "", thinkingItems = [], isolatedQueueMarkup = "" } = {}, deps = {}) {
   const { escapeHtml, renderGraphIcon, graphState, graphWorkbenchTabMeta } = graphWorkbenchPanelDeps(deps);
-  const open = graphState.workbenchPanelOpen === true;
-  if (!open) return "";
+  if (graphState.workbenchPanelOpen !== true) return "";
   const activeTab = graphWorkbenchTabMeta(graphState.workbenchPanelTab);
-  const guide =
-    activeTab.key === "clues"
-      ? {
-          title: "先把最影响图谱可读性的地方补上",
-          detail: "优先处理未关联笔记和缺理由关系；已清楚的关系可以先不打开。",
-          action: "扫描图谱"
-        }
-      : {
-          title: "一次只判断一个问题",
-          detail: "打开对应笔记或关系，判断它能否变成新的观点、边界或主题。"
-        };
-  const tabs = ["clues", "questions"]
-    .map((value) => {
-      const meta = graphWorkbenchTabMeta(value);
-      const total = Number((value === "clues" ? clueSummary?.total : questionSummary?.total) || 0);
-      const active = meta.key === activeTab.key;
-      return `<button class="graph-workbench-tab${active ? " is-active" : ""}" type="button" data-graph-workbench-tab="${escapeHtml(meta.key)}" aria-pressed="${active}">${escapeHtml(meta.label)}${total > 0 ? ` <strong>${escapeHtml(String(total))}</strong>` : ""}</button>`;
-    })
-    .join("");
-  const summary = activeTab.key === "clues" ? clueSummary : questionSummary;
-  const isolatedQueueVisible = activeTab.key === "clues" && String(isolatedQueueMarkup || "").trim();
-  const bodyMarkup =
-    activeTab.key === "clues"
-      ? clueSectionsMarkup || `<div class="graph-empty">当前范围没有明显需要优先处理的关系。</div>`
-      : renderGraphThinkingPanelContentView({ summary: questionSummary, items: thinkingItems, includeSummary: false }, deps);
-  const priorityMarkup = renderGraphWorkbenchPriorityQueueView(thinkingItems, activeTab.key, deps);
-  const foldedBodyMarkup = String(bodyMarkup || "").trim()
-    ? `<details class="graph-workbench-all"${priorityMarkup ? "" : " open"}>
-        <summary>${activeTab.key === "clues" ? "查看全部缺口" : "查看全部判断"}</summary>
-        ${bodyMarkup}
-      </details>`
-    : "";
+  const isRelation = activeTab.key === "clues";
+  const summary = isRelation ? clueSummary : questionSummary;
+  const title = isRelation ? "补全关系" : "找主题";
+  const total = Number(summary?.total || 0);
+  const themeOverviewItems = isRelation ? [] : graphWorkbenchThemeOverviewItems(thinkingItems);
+  const lead = isRelation
+    ? total
+      ? `图里有 ${total} 个地方可能还没连清楚。`
+      : "当前没有明显断开的地方。"
+    : total
+      ? `图里有 ${total} 个地方可能已经聚成主题。`
+      : "当前还没有明显可找主题的线索。";
+  const tips = isRelation
+    ? [
+        "看哪些笔记仍然散着。",
+        "看哪里缺一条能说明理由的连接。",
+        "真正补关系，到笔记或关联功能里完成。"
+      ]
+    : [
+        "看哪些笔记已经聚成一组。",
+        "判断它们是否在回答同一个问题。",
+        "真正整理主题，到主题或写作功能里完成。"
+      ];
+  const guideTitle = isRelation ? "如何找缺口" : "如何发现主题";
+  const guideNote = isRelation
+    ? "先看断开的笔记、关系薄的地方和缺少理由的连接。"
+    : themeOverviewItems.length
+      ? "先看下面这些成组线索，再判断它们是否在回答同一个问题。"
+      : "先看成组笔记、共同问题和能否写成一句判断。";
+  const guideOpen = graphState.workbenchGuideOpen === true;
   return `
-    <aside class="graph-workbench-panel" aria-label="图谱处理面板">
+    <aside class="graph-workbench-panel" aria-label="${escapeHtml(title)}">
       <div class="graph-workbench-panel-head">
         <div>
-          <strong>${escapeHtml(activeTab.panelTitle || activeTab.label)}</strong>
-          <span>${escapeHtml(summary?.detail || activeTab.note)}</span>
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(lead)}</span>
         </div>
-        <button class="graph-overlay-close graph-workbench-panel-close" type="button" data-graph-workbench-close aria-label="收起图谱处理面板" title="收起">${renderGraphIcon("close")}</button>
+        <button class="graph-overlay-close graph-workbench-panel-close" type="button" data-graph-workbench-close aria-label="收起${escapeHtml(title)}" title="收起">${renderGraphIcon("close")}</button>
       </div>
-      <div class="graph-workbench-tabs" aria-label="图谱处理标签">
-        ${tabs}
-      </div>
-      <section class="graph-workbench-guide">
-        <div>
-          <strong>${escapeHtml(guide.title)}</strong>
-          <span>${escapeHtml(guide.detail)}</span>
-        </div>
+      <div class="graph-workbench-panel-body">
+        <section class="graph-workbench-guide" aria-label="${escapeHtml(guideTitle)}">
+          <button class="graph-workbench-guide-action" type="button" data-graph-workbench-guide-toggle aria-expanded="${guideOpen}" aria-label="${escapeHtml(guideTitle)}">${escapeHtml(guideTitle)}</button>
+          ${guideOpen ? `<span>${escapeHtml(guideNote)}</span>` : ""}
+        </section>
         ${
-          guide.action
-            ? `<button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : escapeHtml(guide.action)}</button>`
+          themeOverviewItems.length
+            ? `<section class="graph-workbench-theme-overview" aria-label="主题线索概述">
+                ${themeOverviewItems
+                  .map(
+                    (item) => item.actionAttrs ? `
+                      <button class="graph-workbench-theme-overview-item" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${item.actionLabel}：${item.title}`)}">
+                        <strong>${escapeHtml(item.title)}</strong>
+                        ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ""}
+                      </button>
+                    ` : `
+                      <article class="graph-workbench-theme-overview-item">
+                        <strong>${escapeHtml(item.title)}</strong>
+                        ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ""}
+                      </article>
+                    `
+                  )
+                  .join("")}
+              </section>`
             : ""
         }
-      </section>
-      <div class="graph-workbench-panel-body">
-        ${isolatedQueueVisible ? isolatedQueueMarkup : ""}
-        ${priorityMarkup}
-        ${foldedBodyMarkup}
+        <ul class="graph-workbench-note-list">
+          ${tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("")}
+        </ul>
       </div>
     </aside>
   `;

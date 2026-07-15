@@ -558,6 +558,26 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(updatedScaffoldNote.status, 200, JSON.stringify(updatedScaffoldNote.json));
   assert.equal(updatedScaffoldNote.json.item.version_note, "Updated scaffold explanation after review.");
 
+  const syncedProjectViaApi = await patchJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}`, {
+    title: "Writing mainline revised",
+    goal: "Explain the revised writing path.",
+    basketNoteIds: project.json.item.basket_note_ids
+  });
+  assert.equal(syncedProjectViaApi.status, 200, JSON.stringify(syncedProjectViaApi.json));
+  assert.equal(syncedProjectViaApi.json.item.title, "Writing mainline revised");
+  assert.equal(syncedProjectViaApi.json.item.goal, "Explain the revised writing path.");
+
+  const updatedScaffold = await patchJson(baseUrl, `/api/v1/draft-scaffolds/${encodeURIComponent(scaffold.json.item.id)}`, {
+    sections: [{ heading: "Revised opening", purpose: "State the revised problem.", evidence_note_ids: ["pn-1"] }],
+    openQuestions: ["What still needs evidence?"]
+  });
+  assert.equal(updatedScaffold.status, 200, JSON.stringify(updatedScaffold.json));
+  assert.equal(updatedScaffold.json.item.sections[0].heading, "Revised opening");
+  const rereadScaffold = await getJson(baseUrl, `/api/v1/draft-scaffolds/${encodeURIComponent(scaffold.json.item.id)}`);
+  assert.equal(rereadScaffold.status, 200, JSON.stringify(rereadScaffold.json));
+  assert.equal(rereadScaffold.json.item.sections[0].heading, "Revised opening");
+  assert.match(rereadScaffold.json.export.markdown, /Revised opening/);
+
   const draftNote = await postJson(baseUrl, "/api/v1/notes", {
     directoryId: "dir_original_default",
     status: "draft",
@@ -777,4 +797,49 @@ test("core writing flow keeps working when status guidance is ignored", async (t
   assert.equal(fetchedProject.status, 200, JSON.stringify(fetchedProject.json));
   assert.equal(fetchedProject.json.item.scaffold_id, scaffold.json.item.id);
   assert.equal(fetchedProject.json.item.thinkingStatus.status, "needs_intent");
+});
+
+test("existing writing work stays readable when an old source note file is missing", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-writing-missing-source-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const note = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 可恢复的旧材料\n\n已有提纲和草稿不应因为源文件后来被移除而打不开。"
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+
+  const project = await postJson(baseUrl, "/api/v1/writing-projects", {
+    title: "缺失材料的旧项目",
+    goal: "验证旧提纲仍然可以打开。",
+    basketNoteIds: [note.json.item.id]
+  });
+  assert.equal(project.status, 201, JSON.stringify(project.json));
+
+  const scaffold = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
+    writingProjectId: project.json.item.id
+  });
+  assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
+
+  await fs.rm(path.join(vaultPath, note.json.item.markdownPath));
+
+  const fetchedProject = await getJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}`);
+  assert.equal(fetchedProject.status, 200, JSON.stringify(fetchedProject.json));
+  assert.equal(fetchedProject.json.item.basket_notes[0].status, "missing");
+  assert.ok(fetchedProject.json.item.preflight.checks.some((check) => check.code === "basket_notes_missing_source"));
+
+  const fetchedScaffold = await getJson(baseUrl, `/api/v1/draft-scaffolds/${encodeURIComponent(scaffold.json.item.id)}`);
+  assert.equal(fetchedScaffold.status, 200, JSON.stringify(fetchedScaffold.json));
+  assert.ok(fetchedScaffold.json.item.preflight.checks.some((check) => check.id === "source_files"));
+
+  const replacementScaffold = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
+    writingProjectId: project.json.item.id
+  });
+  assert.equal(replacementScaffold.status, 400, JSON.stringify(replacementScaffold.json));
+  assert.equal(replacementScaffold.json.error.code, "DRAFT_SCAFFOLD_INVALID");
 });

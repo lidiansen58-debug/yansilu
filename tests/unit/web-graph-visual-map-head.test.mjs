@@ -11,30 +11,48 @@ const escapeHtml = (value) => String(value ?? "")
   .replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;");
 
-test("graph visual map head renders default toolbar, lens, queue, and density slots", () => {
+test("graph visual map head renders task toolbar, queue, and density slots without legend row", () => {
   const html = buildGraphVisualMapHeadContent({
     relationType: "index",
     compactRelationFilterMarkup: "<filter></filter>",
     isolatedQueueStripMarkup: "<queue></queue>",
     structureFallback: true,
-    graphShellPreviewProps: { readingLensTrailingMarkup: "<trail></trail>" },
+    graphShellPreviewProps: { readingLensTrailingMarkup: "<overview></overview><trail></trail>" },
     runtimeState: {
       readingLens: { key: "bridge" },
       legendOpen: true,
       showDensityHint: true
     }
   }, {
-    renderGraphViewModeSwitcher: (relationType) => `<mode>${relationType}</mode>`,
+    renderGraphViewModeSwitcher: (relationType, activeLens) => `<mode>${relationType}:${activeLens}</mode>`,
     renderGraphReadingLensControls: (lens, open, trailing) => `<lens>${lens}:${open}:${trailing}</lens>`
   });
 
   assert.match(html, /graph-map-primary-row/);
-  assert.match(html, /<mode>index<\/mode>/);
+  assert.match(html, /graph-map-mode-hint/);
+  assert.match(html, /找主题/);
+  assert.match(html, /data-run-graph-ai-analysis="theme"/);
+  assert.match(html, />发现主题<\/button>/);
+  assert.match(html, /<mode>index:bridge<\/mode>/);
   assert.match(html, /<filter><\/filter>/);
-  assert.match(html, /<lens>bridge:true:<trail><\/trail><\/lens>/);
+  assert.doesNotMatch(html, /<lens>/);
   assert.match(html, /<queue><\/queue>/);
-  assert.match(html, /graph-structure-fallback-note/);
+  assert.doesNotMatch(html, /graph-structure-fallback-note/);
   assert.match(html, /graph-density-hint/);
+});
+
+test("graph visual map head marks gap action as gap mode", () => {
+  const html = buildGraphVisualMapHeadContent({
+    relationType: "meaningful",
+    runtimeState: {
+      readingLens: { key: "bridge" }
+    }
+  }, {
+    renderGraphViewModeSwitcher: () => ""
+  });
+
+  assert.match(html, /data-run-graph-ai-analysis="gap"/);
+  assert.match(html, />检查缺口<\/button>/);
 });
 
 test("graph visual map head renders focused note depth controls in filter mode", () => {

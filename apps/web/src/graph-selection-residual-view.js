@@ -156,45 +156,6 @@ function renderGraphIsolatedCompletePanel({ selection = null, isolatedNotes = []
   });
 }
 
-function renderGraphRelationFormSelectionPanel({ selection = null, nodeMap = new Map(), edges = [] } = {}) {
-  const noteId = String(selection?.noteId || selection?.nodeId || "").trim();
-  if (!noteId) return "";
-  const note = graphFullNoteById(noteId, nodeMap) || {};
-  const title = graphNodeTitle(nodeMap, noteId, note.title || "当前笔记");
-  const targetNoteId = String(selection?.targetNoteId || "").trim();
-  const targetTitle = targetNoteId ? graphNodeTitle(nodeMap, targetNoteId, targetNoteId) : "";
-  const returnTo = String(selection?.returnTo || "").trim().toLowerCase();
-  const savesIntoIsolatedFlow = returnTo === "isolated";
-  const visibleEdgeCount = computeGraphDirectNetworkEdgeCount(noteId, edges, {
-    relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
-  });
-  return renderGraphSelectionShell({
-    className: "is-node is-relation-form",
-    ariaLabel: "关联",
-    kicker: "关联",
-    title,
-    meta: targetTitle ? `目标：${targetTitle}` : "选对象，写理由，保存",
-    closeLabel: "收起关系表单",
-    body: renderGraphIsolatedJoinNetworkFlow(noteId, {
-      nodeMap,
-      edges,
-      visibleEdgeCount,
-      preferredTargetNoteId: targetNoteId,
-      preferredRelationType: selection?.relationType || "",
-      preferredRationale: selection?.rationale || "",
-      heading: targetTitle ? "确认关系" : "建立关联",
-      helper: targetTitle
-        ? "确认后保存。"
-        : "",
-      saveHint: savesIntoIsolatedFlow
-        ? "保存后进入关系网。"
-        : "保存到当前图谱。",
-      isolatedFlow: savesIntoIsolatedFlow
-    }),
-    actions: ""
-  });
-}
-
 function renderGraphBridgeSelectionPanel({ selection = null, bridgeGaps = [], nodeMap = new Map() } = {}) {
   const bridge = resolveGraphBridgeSelection(selection, bridgeGaps, [...nodeMap.values()]);
   if (!bridge) return "";
@@ -279,7 +240,6 @@ const graphSelectionPanelRenderer = createGraphSelectionPanelRenderer(() => ({
   renderGraphThemeSelectionPanel,
   renderGraphIsolatedSelectionPanel,
   renderGraphIsolatedCompletePanel,
-  renderGraphRelationFormSelectionPanel,
   renderGraphBridgeSelectionPanel,
   normalizeGraphSelectionForVisibleItems,
   graphRelationStatusCountsAsNetworkEdge,

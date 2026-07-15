@@ -89,22 +89,271 @@ test("editor follows the current folder root even when noteType metadata is stal
   assert.equal(pane.isOriginalNote(fleetingInFleetingBox), false);
 });
 
-test("editor keeps the permanent-note button visible for fleeting notes even when noteType is missing", () => {
+test("editor shows a single create-permanent action for source notes even when noteType is missing", () => {
   const state = createInitialState();
   const pane = Object.create(EditorPane.prototype);
   const button = createToolbarButtonStub();
+  const distillSourceAi = createToolbarButtonStub();
 
   pane.state = state;
-  pane.els = { recordPermanent: button };
+  pane.els = { recordPermanent: button, distillSourceAi };
   pane.activeNote = () => ({ id: "fn_missing", folderId: "dir_fleeting_default", noteType: "" });
 
   pane.renderRecordPermanentButton();
 
-  assert.equal(button.disabled, false);
+  assert.equal(distillSourceAi.disabled, true);
+  assert.equal(distillSourceAi.classList.contains("hidden"), true);
+  assert.equal(distillSourceAi.dataset.sourceNoteId, "");
+  assert.equal(distillSourceAi.title, "创建永久笔记");
+  assert.equal(distillSourceAi["aria-label"], "创建永久笔记");
   assert.equal(button.classList.contains("hidden"), false);
+  assert.equal(button.disabled, false);
   assert.equal(button.dataset.sourceNoteId, "fn_missing");
   assert.equal(button.title, "创建永久笔记");
   assert.equal(button["aria-label"], "创建永久笔记");
+});
+
+test("source-note distill action checks AI readiness before creating a permanent note", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const calls = [];
+
+  pane.state = state;
+  pane.els = {};
+  pane.activeNote = () => ({
+    id: "fn_ai",
+    folderId: "dir_fleeting_default",
+    noteType: "",
+    title: "材料笔记"
+  });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "材料正文";
+  pane.pickPermanentDirectoryForNote = async () => "dir_original_default";
+  pane.onStatus = (...args) => calls.push(["status", ...args]);
+  pane.onStateChange = async (reason, payload) => {
+    calls.push(["state", reason, payload]);
+    if (reason === "ensure-ai-ready-for-feature") return { ready: false };
+    return true;
+  };
+
+  await pane.runSourceDistillAction();
+
+  assert.deepEqual(calls.map((call) => call[1]), ["ensure-ai-ready-for-feature"]);
+  assert.equal(calls.some((call) => call[1] === "record-original-from-note"), false);
+  assert.deepEqual(pane.pendingContextualAiAction, { actionId: "distill_material", noteId: "fn_ai" });
+});
+
+test("source-note distill resumes after AI settings become ready", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const calls = [];
+  let currentId = "other";
+  const note = {
+    id: "fn_pending",
+    folderId: "dir_fleeting_default",
+    noteType: "",
+    title: "材料笔记"
+  };
+  state.notes.push(note);
+
+  pane.state = state;
+  pane.els = {};
+  pane.pendingContextualAiAction = { actionId: "distill_material", noteId: "fn_pending" };
+  pane.activeNote = () => (currentId === "fn_pending" ? note : { id: currentId });
+  pane.isOriginalRecordableSource = (item) => item?.id === "fn_pending";
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "材料正文";
+  pane.renderRelated = () => calls.push(["render-related"]);
+  pane.onOpenNote = (noteId) => {
+    calls.push(["open", noteId]);
+    currentId = noteId;
+    return true;
+  };
+  pane.onStatus = (...args) => calls.push(["status", ...args]);
+  pane.onStateChange = async (reason, payload) => {
+    calls.push(["state", reason, payload]);
+    if (reason === "ensure-ai-ready-for-feature") return { ready: true };
+    if (reason === "run-source-distill-ai") {
+      return {
+        kind: "draft",
+        draft: {
+          title: "材料笔记",
+          coreArgument: "观点",
+          content: "正文",
+          questions: "问题"
+        }
+      };
+    }
+    return true;
+  };
+
+  const resumed = await pane.resumePendingContextualAiAction();
+
+  assert.equal(resumed, true);
+  assert.deepEqual(calls.find((call) => call[0] === "open"), ["open", "fn_pending"]);
+  assert.deepEqual(calls.filter((call) => call[0] === "state").map((call) => call[1]), ["ensure-ai-ready-for-feature", "run-source-distill-ai"]);
+  assert.equal(pane.pendingContextualAiAction, null);
+  assert.equal(pane.sourceDistillAiState.status, "awaiting_confirmation");
+});
+
+test("source-note distill action renders an editable draft after AI is ready", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const calls = [];
+
+  pane.state = state;
+  pane.els = {};
+  pane.activeNote = () => ({
+    id: "fn_ai_ready",
+    folderId: "dir_fleeting_default",
+    noteType: "",
+    title: "材料笔记"
+  });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "材料正文";
+  pane.pickPermanentDirectoryForNote = async () => "dir_original_default";
+  pane.onStatus = (...args) => calls.push(["status", ...args]);
+  pane.onStateChange = async (reason, payload) => {
+    calls.push(["state", reason, payload]);
+    if (reason === "ensure-ai-ready-for-feature") return { ready: true };
+    if (reason === "run-source-distill-ai") {
+      return {
+        kind: "draft",
+        draft: {
+          title: "材料笔记",
+          coreArgument: "观点",
+          content: "正文",
+          questions: "问题"
+        }
+      };
+    }
+    return true;
+  };
+
+  await pane.runSourceDistillAction();
+
+  assert.deepEqual(calls.map((call) => call[1]), ["ensure-ai-ready-for-feature", "run-source-distill-ai"]);
+  assert.equal(calls.at(-1)[2].sourceNoteId, "fn_ai_ready");
+  assert.equal(pane.sourceDistillAiState.status, "awaiting_confirmation");
+  assert.equal(pane.sourceDistillAiState.result.draft.title, "材料笔记");
+  assert.equal(calls.some((call) => call[1] === "record-original-from-note"), false);
+});
+
+test("source-note distill action asks before sending remote content", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const calls = [];
+
+  pane.state = state;
+  pane.els = {};
+  pane.activeNote = () => ({
+    id: "fn_ai_remote",
+    folderId: "dir_fleeting_default",
+    noteType: "",
+    title: "材料笔记"
+  });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "材料正文";
+  pane.onStatus = (...args) => calls.push(["status", ...args]);
+  pane.onStateChange = async (reason, payload) => {
+    calls.push(["state", reason, payload]);
+    if (reason === "ensure-ai-ready-for-feature") return { ready: true, mode: "remote" };
+    return true;
+  };
+
+  await pane.runSourceDistillAction();
+
+  assert.deepEqual(calls.map((call) => call[1]), ["ensure-ai-ready-for-feature"]);
+  assert.equal(pane.sourceDistillAiState.status, "needs_remote_confirmation");
+});
+
+test("source-note distill draft creates a permanent note only after adoption", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const calls = [];
+
+  pane.state = state;
+  pane.els = {};
+  pane.activeNote = () => ({
+    id: "fn_ai_adopt",
+    folderId: "dir_fleeting_default",
+    noteType: "",
+    title: "材料笔记"
+  });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "材料正文";
+  pane.pickPermanentDirectoryForNote = async () => "dir_original_default";
+  pane.onStateChange = async (reason, payload) => {
+    calls.push(["state", reason, payload]);
+    return true;
+  };
+  pane.sourceDistillAiState = {
+    actionId: "distill_material",
+    noteId: "fn_ai_adopt",
+    status: "awaiting_confirmation",
+    result: {
+      kind: "draft",
+      draft: {
+        title: "原标题",
+        coreArgument: "原观点",
+        content: "原正文",
+        questions: "原问题"
+      }
+    }
+  };
+
+  await pane.createPermanentNoteFromSourceDistill([
+    { index: 0, field: "title", value: "新标题" },
+    { index: 1, field: "content", value: "改过的正文" }
+  ]);
+
+  assert.deepEqual(calls.map((call) => call[1]), ["record-original-from-note"]);
+  assert.equal(calls[0][2].draftTitle, "新标题");
+  assert.match(calls[0][2].draftBody, /# 新标题/);
+  assert.match(calls[0][2].draftBody, /改过的正文/);
+});
+
+test("source-note distill draft does not mark adopted when note creation fails", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+
+  pane.state = state;
+  pane.els = {};
+  pane.activeNote = () => ({
+    id: "fn_ai_fail",
+    folderId: "dir_fleeting_default",
+    noteType: "",
+    title: "材料笔记"
+  });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "材料正文";
+  pane.pickPermanentDirectoryForNote = async () => "dir_original_default";
+  pane.onStateChange = async () => false;
+  pane.sourceDistillAiState = {
+    actionId: "distill_material",
+    noteId: "fn_ai_fail",
+    status: "awaiting_confirmation",
+    result: {
+      kind: "draft",
+      draft: {
+        title: "标题",
+        content: "正文"
+      }
+    }
+  };
+
+  const result = await pane.createPermanentNoteFromSourceDistill([
+    { index: 0, field: "title", value: "标题" }
+  ]);
+
+  assert.equal(result, false);
+  assert.equal(pane.sourceDistillAiState.status, "failed");
+  assert.match(pane.sourceDistillAiState.error, /创建失败/);
 });
 
 test("editor keeps related-panel access and inline insert for permanent notes in the plain editor", () => {
@@ -184,7 +433,7 @@ test("editor inspector shows source-note promote flow instead of relation panels
   pane.renderRelated();
 
   assert.match(pane.els.result.innerHTML, /生成永久笔记/);
-  assert.match(pane.els.result.innerHTML, /这里只有创建永久笔记的下一步；正式关联整理请在永久笔记里继续/);
+  assert.match(pane.els.result.innerHTML, /这里先完成永久笔记；正式打磨请在永久笔记里继续/);
   assert.match(pane.els.result.innerHTML, /可以生成永久笔记/);
   assert.match(pane.els.result.innerHTML, /生成状态[\s\S]*未生成/);
   assert.match(pane.els.result.innerHTML, /随笔只负责抓住还不稳定的想法；值得长期保留时/);

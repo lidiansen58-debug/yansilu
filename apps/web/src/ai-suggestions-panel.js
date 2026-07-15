@@ -4,12 +4,10 @@ import {
   aiSuggestionStatusOptions,
   aiSuggestionStatusTone,
   aiSuggestionSummary,
-  aiSuggestionTargetLabel,
   normalizeAiSuggestionFilters
 } from "./ai-suggestions-model.js";
 import {
   traceDisplayState,
-  traceMissingTargetCopy,
   tracePlaceholderCopy
 } from "./ai-trace-display.js";
 
@@ -24,6 +22,10 @@ function escapeHtml(value) {
 
 function attr(value) {
   return escapeHtml(value ?? "");
+}
+
+function domIdPart(value = "") {
+  return String(value || "").replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
 function badge(text = "", tone = "") {
@@ -42,52 +44,239 @@ function formatDate(value = "") {
   });
 }
 
+function readableFieldLabel(value = "") {
+  const clean = String(value || "").trim();
+  const labels = {
+    thesis: "核心观点",
+    three_line_summary: "三行摘要",
+    threeLineSummary: "三行摘要",
+    title: "标题",
+    summary: "摘要",
+    body: "正文",
+    content: "正文",
+    tags: "标签",
+    relations: "关联"
+  };
+  return labels[clean] || (clean ? "笔记内容" : "保存位置");
+}
+
+function compactText(value = "", maxLength = 80) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
+function suggestionTargetNoteId(item = {}, display = null) {
+  return String(
+    display?.targetNoteId ||
+    item.target?.id ||
+    ""
+  ).trim();
+}
+
+function suggestionNoteTitle(item = {}, display = null) {
+  return String(
+    display?.targetTitle ||
+    display?.targetName ||
+    item.target?.title ||
+    item.target?.noteTitle ||
+    item.target?.note_title ||
+    item.target?.name ||
+    ""
+  ).trim();
+}
+
+function suggestionField(item = {}, display = null) {
+  return String(display?.targetField || item.target?.field || "").trim();
+}
+
+function suggestionWorkLabel(item = {}, display = null) {
+  return `补${readableFieldLabel(suggestionField(item, display))}`;
+}
+
+function suggestionContentPreview(item = {}) {
+  const content = readableContent(item.content);
+  if (!isUsefulSuggestionContent(item, null, content)) return "";
+  return compactText(content, 100);
+}
+
+function suggestionDisplayTitle(item = {}, display = null) {
+  return suggestionNoteTitle(item, display) || "未命名笔记";
+}
+
+function uniqueLabels(labels = []) {
+  return [...new Set(labels.map((label) => String(label || "").trim()).filter(Boolean))];
+}
+
+function suggestionFieldLabel(item = {}, display = null) {
+  return readableFieldLabel(suggestionField(item, display));
+}
+
+function suggestionMissingLabel(items = []) {
+  const labels = uniqueLabels(items.map((item) => suggestionFieldLabel(item)));
+  return labels.length ? `缺：${labels.join("、")}` : "缺：待确认内容";
+}
+
+function suggestionGroupKey(item = {}) {
+  return suggestionTargetNoteId(item) || String(item.id || "").trim() || "unknown";
+}
+
+function groupedSuggestions(items = [], selectedId = "") {
+  const groups = [];
+  const groupByKey = new Map();
+  for (const item of Array.isArray(items) ? items : []) {
+    const key = suggestionGroupKey(item);
+    if (!groupByKey.has(key)) {
+      const group = { key, items: [] };
+      groupByKey.set(key, group);
+      groups.push(group);
+    }
+    groupByKey.get(key).items.push(item);
+  }
+  return groups.map((group) => ({
+    ...group,
+    active: group.items.some((item) => String(item.id || "") === String(selectedId || ""))
+  }));
+}
+
+function selectedSuggestionGroup(items = [], selectedId = "") {
+  return groupedSuggestions(items, selectedId).find((group) => group.active) || null;
+}
+
+function renderGroupPreview(items = []) {
+  const previews = items
+    .map((item) => {
+      const preview = suggestionContentPreview(item);
+      if (!preview) return "";
+      return `${suggestionFieldLabel(item)}：${preview}`;
+    })
+    .filter(Boolean);
+  return previews.length ? `AI 建议：${previews.join("；")}` : "AI 建议：暂无可用内容";
+}
+
+function suggestionIdsForStatus(items = [], status = "suggested") {
+  return uniqueLabels(
+    (Array.isArray(items) ? items : [])
+      .filter((item) => String(item.status || "").trim() === status)
+      .map((item) => item.id)
+  );
+}
+
+function suggestionWithListContext(item = null, listItem = null) {
+  if (!item) return listItem;
+  if (!listItem) return item;
+  const listTitle = String(listItem.target?.title || listItem.target?.name || "").trim();
+  const itemTitle = String(item.target?.title || item.target?.name || "").trim();
+  if (itemTitle || !listTitle) return item;
+  return {
+    ...item,
+    target: {
+      ...(item.target || {}),
+      title: listTitle
+    }
+  };
+}
+
+function singleContentEntry(content) {
+  if (!content || typeof content !== "object" || Array.isArray(content)) return null;
+  const entries = Object.entries(content);
+  return entries.length === 1 ? entries[0] : null;
+}
+
+function readableContent(content) {
+  if (typeof content === "string") return content;
+  const single = singleContentEntry(content);
+  if (single) {
+    const value = single[1];
+    return Array.isArray(value) ? value.join("\n") : String(value ?? "");
+  }
+  if (content && typeof content === "object") {
+    const values = Object.values(content)
+      .flatMap((value) => Array.isArray(value) ? value : [value])
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean);
+    if (values.length) return values.join("\n");
+  }
+  return "这条建议没有可预览的内容。";
+}
+
+function normalizeComparableText(value = "") {
+  return String(value || "")
+    .replace(/[“”"']/g, "")
+    .replace(/[，。！？、；：,.!?:;\s]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isUsefulSuggestionContent(item = {}, display = null, contentText = null) {
+  const text = String((contentText ?? readableContent(item.content)) || "").trim();
+  if (!text || text === "这条建议没有可预览的内容。") return false;
+  const title = suggestionDisplayTitle(item, display);
+  if (!title) return true;
+  return normalizeComparableText(text) !== normalizeComparableText(title);
+}
+
+function readableStatusLabel(status = "") {
+  const clean = String(status || "").trim();
+  const labels = {
+    all: "全部",
+    suggested: "待确认",
+    adopted_as_draft: "已存草稿",
+    edited: "已修改",
+    confirmed: "已确认",
+    rejected: "已忽略"
+  };
+  return labels[clean] || aiSuggestionStatusLabel(clean);
+}
+
+function readableStatusHint(status = "") {
+  const clean = String(status || "").trim();
+  const hints = {
+    suggested: "先看内容，满意就保存为草稿；不需要就忽略。",
+    adopted_as_draft: "草稿已放进笔记，改完后点“我已改好”。",
+    edited: "已经改过，可以确认写入。",
+    confirmed: "已经处理完成。",
+    rejected: "已经忽略。"
+  };
+  return hints[clean] || "先确认内容，再决定是否写入笔记。";
+}
+
 function renderControls(state = {}) {
   const filters = normalizeAiSuggestionFilters(state.filters || {});
+  const className = state.compact ? "scheduled-task-toolbar is-compact" : "scheduled-task-toolbar";
   return `
-    <div class="scheduled-task-toolbar">
+    <div class="${className}">
       <label>
         <span>状态</span>
         <select id="aiSuggestionStatusFilter">
           ${aiSuggestionStatusOptions()
-            .map((option) => `<option value="${attr(option.value)}" ${option.value === filters.status ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+            .map((option) => `<option value="${attr(option.value)}" ${option.value === filters.status ? "selected" : ""}>${escapeHtml(readableStatusLabel(option.value))}</option>`)
             .join("")}
         </select>
       </label>
-      <label>
-        <span>目标类型</span>
-        <input id="aiSuggestionTargetTypeFilter" value="${attr(filters.targetType)}" placeholder="permanent_note" />
-      </label>
-      <label>
-        <span>目标 ID</span>
-        <input id="aiSuggestionTargetIdFilter" value="${attr(filters.targetId)}" placeholder="pn_..." />
-      </label>
-      <label>
-        <span>范围</span>
-        <input id="aiSuggestionScopeFilter" value="${attr(filters.scope)}" placeholder="note_field" />
-      </label>
-      <button class="mini-btn" id="btnAiSuggestionsApplyFilters" type="button">应用筛选</button>
+      <button class="mini-btn" id="btnAiSuggestionsApplyFilters" type="button">筛选</button>
       <button class="mini-btn" id="btnAiSuggestionsRefresh" type="button">刷新</button>
     </div>
   `;
 }
 
-function renderItem(item = {}, selectedId = "") {
-  const active = String(item.id || "") === String(selectedId || "");
+function renderItem(group = {}) {
+  const items = Array.isArray(group.items) ? group.items : [];
+  const item = items[0] || {};
   return `
     <button
-      class="ai-inbox-item ${active ? "is-active" : ""}"
+      class="ai-inbox-item ${group.active ? "is-active" : ""}"
       type="button"
       data-ai-suggestion-id="${attr(item.id)}"
     >
       <span class="ai-inbox-item-head">
-        <strong>${escapeHtml(aiSuggestionTargetLabel(item))}</strong>
-        ${badge(aiSuggestionStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
+        <strong>${escapeHtml(suggestionDisplayTitle(item))}</strong>
+        ${badge(readableStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
       </span>
-      <span class="ai-inbox-item-summary">${escapeHtml(typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}))}</span>
+      <span class="ai-inbox-item-meta">${escapeHtml(suggestionMissingLabel(items))}</span>
+      <span class="ai-inbox-item-summary">${escapeHtml(renderGroupPreview(items))}</span>
       <span class="ai-inbox-item-meta">
-        <span>${escapeHtml(item.scope || "scope")}</span>
-        <span>${escapeHtml(item.origin || "ai_generated")}</span>
+        <span>处理建议</span>
       </span>
     </button>
   `;
@@ -95,26 +284,26 @@ function renderItem(item = {}, selectedId = "") {
 
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
-  if (state.loading) return `<div class="scheduled-task-empty">正在加载待确认建议...</div>`;
-  if (state.error) return `<div class="scheduled-task-empty is-bad">待确认建议加载失败：${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的待确认建议。</div>`;
-  return `<div class="ai-inbox-list">${items.map((item) => renderItem(item, state.selectedSuggestionId)).join("")}</div>`;
+  if (state.loading) return `<div class="scheduled-task-empty">正在加载待处理...</div>`;
+  if (state.error) return `<div class="scheduled-task-empty is-bad">待处理加载失败：${escapeHtml(state.error)}</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">${state.compact ? "现在没有待处理。" : "没有符合筛选条件的待处理。"}</div>`;
+  return `<div class="ai-inbox-list">${groupedSuggestions(items, state.selectedSuggestionId).map((group) => renderItem(group)).join("")}</div>`;
 }
 
 function renderActions(item = {}, actionLoading = false) {
   const actions = aiSuggestionActionSet(item);
   if (!actions.length) return "";
   const labels = {
-    adopted_as_draft: "采纳为草稿",
-    edited: "标记为已编辑",
-    rejected: "拒绝",
-    confirmed: "确认"
+    adopted_as_draft: "保存为草稿",
+    edited: "我已改好",
+    rejected: "忽略",
+    confirmed: "确认写入"
   };
   return `
-    <div class="scheduled-task-actions">
+    <div class="scheduled-task-actions ai-suggestion-primary-actions">
       ${actions.map((action) => `
         <button
-          class="mini-btn ${action === "confirmed" ? "primary" : ""}"
+          class="mini-btn ${action === "adopted_as_draft" || action === "confirmed" ? "primary" : ""}"
           type="button"
           data-ai-suggestion-status="${attr(action)}"
           data-ai-suggestion-id="${attr(item.id)}"
@@ -127,21 +316,125 @@ function renderActions(item = {}, actionLoading = false) {
   `;
 }
 
+function renderOpenNoteButton(item = {}, actionLoading = false, display = null) {
+  const targetNoteId = suggestionTargetNoteId(item, display);
+  return `
+    <button
+      class="mini-btn"
+      type="button"
+      data-ai-suggestion-open-note="${attr(targetNoteId)}"
+      ${targetNoteId && !actionLoading ? "" : "disabled"}
+    >
+      打开笔记
+    </button>
+  `;
+}
+
+function renderSuggestionEditor(item = {}, actionLoading = false, useLegacyId = false) {
+  const status = String(item.status || "").trim();
+  if (status !== "adopted_as_draft" && status !== "edited") return "";
+  const id = useLegacyId ? "aiSuggestionContentEditor" : `aiSuggestionContentEditor-${domIdPart(item.id)}`;
+  return `
+    <textarea
+      id="${attr(id)}"
+      data-ai-suggestion-content-editor="${attr(item.id)}"
+      rows="8"
+      placeholder="可以直接改这段文字。"
+      ${actionLoading ? "disabled" : ""}
+    >${escapeHtml(readableContent(item.content))}</textarea>
+  `;
+}
+
+function renderSuggestionBlock(item = {}, options = {}) {
+  const {
+    actionLoading = false,
+    actionError = "",
+    actionNotice = "",
+    actionNoticeTone = "",
+    display = null,
+    selected = false,
+    useLegacyEditorId = false
+  } = options;
+  const displayStatus = display?.status || String(item.status || "").trim();
+  const displayItem = { ...item, status: displayStatus };
+  const editor = selected ? renderSuggestionEditor(displayItem, actionLoading, useLegacyEditorId) : "";
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>${escapeHtml(suggestionFieldLabel(item, display))}</h3>
+      ${editor || `<div class="ai-suggestion-content-text">${escapeHtml(readableContent(item.content))}</div>`}
+      ${selected ? renderActions(displayItem, actionLoading) : `
+        <div class="scheduled-task-actions ai-suggestion-primary-actions">
+          <button class="mini-btn" type="button" data-ai-suggestion-id="${attr(item.id)}">处理这项</button>
+        </div>
+      `}
+      ${renderActionError(actionError)}
+      ${renderActionNotice(actionNotice, actionNoticeTone)}
+    </section>
+  `;
+}
+
+function renderSuggestionPreviewBlock(item = {}, display = null) {
+  const useful = isUsefulSuggestionContent(item, display);
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>${escapeHtml(suggestionFieldLabel(item, display))}</h3>
+      <div class="ai-suggestion-content-text ${useful ? "" : "is-muted"}">${escapeHtml(useful ? readableContent(item.content) : "没有生成可用建议。")}</div>
+    </section>
+  `;
+}
+
+function renderGroupActions(items = [], actionLoading = false) {
+  const suggestedItems = (Array.isArray(items) ? items : [])
+    .filter((item) => String(item.status || "").trim() === "suggested");
+  const suggestedIds = suggestionIdsForStatus(suggestedItems, "suggested");
+  const usefulIds = suggestionIdsForStatus(
+    suggestedItems.filter((item) => isUsefulSuggestionContent(item)),
+    "suggested"
+  );
+  if (!suggestedIds.length) return "";
+  const rejectIds = suggestedIds.join(",");
+  const saveIds = usefulIds.join(",");
+  return `
+    <div class="ai-suggestion-modal-actions">
+      ${usefulIds.length ? `
+        <button
+          class="mini-btn primary"
+          type="button"
+          data-ai-suggestion-group-status="adopted_as_draft"
+          data-ai-suggestion-ids="${attr(saveIds)}"
+          ${actionLoading ? "disabled" : ""}
+        >
+          保存这篇建议
+        </button>
+      ` : ""}
+      <button
+        class="mini-btn"
+        type="button"
+        data-ai-suggestion-group-status="rejected"
+        data-ai-suggestion-ids="${attr(rejectIds)}"
+        ${actionLoading ? "disabled" : ""}
+      >
+        暂不处理
+      </button>
+    </div>
+  `;
+}
+
 function renderDraftEditingGuide(item = {}) {
   const status = String(item.status || "").trim();
   if (status === "adopted_as_draft") {
     return `
       <section class="ai-inbox-detail-section">
         <h3>下一步</h3>
-        <p>打开目标笔记，在笔记里直接编辑已采纳的草稿，然后回到这里把建议标记为“已编辑”。</p>
+        <p>草稿已经放进笔记。打开笔记改到满意后，回到这里点“我已改好”。</p>
       </section>
     `;
   }
   if (status === "edited") {
     return `
       <section class="ai-inbox-detail-section">
-        <h3>可确认</h3>
-        <p>这条建议已经被人工标记为“已编辑”。只有当目标笔记的表述已经反映最终由用户负责的判断时，才进行确认。</p>
+        <h3>可以确认</h3>
+        <p>确认前再看一眼内容。确认后，这条整理就算完成。</p>
       </section>
     `;
   }
@@ -163,18 +456,6 @@ function suggestionDetailRecord(detail = null) {
   };
 }
 
-function renderContentEditor(item = {}, actionLoading = false) {
-  const status = String(item.status || "").trim();
-  if (status !== "adopted_as_draft" && status !== "edited") return "";
-  const content = typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2);
-  return `
-    <section class="ai-inbox-detail-section">
-      <h3>审阅后内容</h3>
-      <textarea id="aiSuggestionContentEditor" rows="8" placeholder="在标记为已编辑或确认之前，先更新这里的草稿内容。" ${actionLoading ? "disabled" : ""}>${escapeHtml(content)}</textarea>
-    </section>
-  `;
-}
-
 function renderTrace(detail = {}) {
   const item = detail.item || {};
   const display = traceDisplayState({
@@ -189,121 +470,41 @@ function renderTrace(detail = {}) {
     sourceArtifactId: display.sourceArtifactId,
     targetNoteId: display.targetNoteId
   });
-  const placeholder = placeholderText ? `<div class="scheduled-task-empty">${escapeHtml(placeholderText)}</div>` : "";
-  const targetNoteId = display.targetNoteId;
-  const targetField = display.targetField;
-  const status = display.status || String(item.status || "").trim();
-  const targetHint = targetNoteId
-    ? ""
-      : `<div class="scheduled-task-empty">${escapeHtml(traceMissingTargetCopy())}</div>`;
-  const sourceText = display.sourceNoteIds.join(", ") || display.primarySourceNoteId || "not recorded";
+  const targetNoteId = suggestionTargetNoteId(item, display);
+  if (targetNoteId && !placeholderText) return "";
+  const missingTarget = targetNoteId ? "" : "这条整理暂时找不到要打开的笔记。";
+  const missingSource = placeholderText ? "这条整理缺少完整来源，处理前请先确认内容可靠。" : "";
+  const message = missingTarget || missingSource;
+  if (!message) return "";
   return `
-    <section class="ai-inbox-detail-section">
-      <h3>来源链路</h3>
-      ${placeholder}
-      <dl class="ai-inbox-kv">
-        <dt>来源对象</dt><dd>${escapeHtml(display.sourceArtifactId || "未记录")}</dd>
-        <dt>来源笔记</dt><dd>${escapeHtml(sourceText)}</dd>
-        <dt>目标笔记</dt><dd>${escapeHtml(targetNoteId || "缺少目标笔记")}</dd>
-        <dt>目标字段</dt><dd>${escapeHtml(targetField || "未记录")}</dd>
-        <dt>状态</dt><dd>${escapeHtml(status ? aiSuggestionStatusLabel(status) : "未记录")}</dd>
-      </dl>
-      ${targetHint}
-    </section>
-  `;
-}
-
-function renderLinkedArtifact(detail = {}) {
-  const artifact = detail.linkedArtifact || null;
-  if (!artifact) return "";
-  const fieldSuggestionStatus = String(
-    artifact.payload?.fieldSuggestion?.status ||
-    artifact.payload?.field_suggestion?.status ||
-    ""
-  ).trim();
-  return `
-    <section class="ai-inbox-detail-section">
-      <h3>关联对象</h3>
-      <dl class="ai-inbox-kv">
-        <dt>对象</dt><dd>${escapeHtml(artifact.id || "未知对象")}</dd>
-        <dt>类型</dt><dd>${escapeHtml(artifact.type || "未知")}</dd>
-        <dt>状态</dt><dd>${escapeHtml(artifact.status || "未记录")}</dd>
-        <dt>标题</dt><dd>${escapeHtml(artifact.title || "未命名对象")}</dd>
-        <dt>字段建议状态</dt><dd>${escapeHtml(fieldSuggestionStatus || "未记录")}</dd>
-      </dl>
-    </section>
-  `;
-}
-
-function renderProvenance(detail = {}) {
-  const item = detail.item || {};
-  return `
-    <section class="ai-inbox-detail-section">
-      <h3>来源说明</h3>
-      <dl class="ai-inbox-kv">
-        <dt>来源</dt><dd>${escapeHtml(item.provenance?.contentOrigin || item.origin || "ai_generated")}</dd>
-        <dt>人工编辑</dt><dd>${escapeHtml(item.provenance?.humanEdited ? "是" : "否")}</dd>
-        <dt>人工确认</dt><dd>${escapeHtml(item.provenance?.humanConfirmed ? "是" : "否")}</dd>
-        <dt>来源对象</dt><dd>${escapeHtml(item.sourceArtifactId || detail.trace?.sourceArtifactId || "未记录")}</dd>
-      </dl>
-    </section>
+    <div class="scheduled-task-empty">${escapeHtml(message)}</div>
   `;
 }
 
 function renderHistory(detail = {}) {
   const reviewEvents = Array.isArray(detail.reviewEvents) ? detail.reviewEvents : [];
-  if (reviewEvents.length) {
-    return `
-      <section class="ai-inbox-detail-section">
-        <h3>审阅历史</h3>
-        <div class="ai-inbox-decision-list">
-          ${reviewEvents
-            .slice()
-            .reverse()
-            .map((event) => `
-              <div class="ai-inbox-decision">
-                <div>
-                  <strong>${escapeHtml(aiSuggestionStatusLabel(event.eventType || event.metadata?.toStatus))}</strong>
-                  <span>${escapeHtml(formatDate(event.createdAt) || event.createdAt || "")}</span>
-                </div>
-                  <p>${escapeHtml(`${event.metadata?.fromStatus || "未知"} -> ${event.metadata?.toStatus || event.eventType || "未知"}`)}</p>
-                ${event.adoptionEventId ? `<p>${escapeHtml(`审阅事件：${event.adoptionEventId}`)}</p>` : ""}
-                ${event.comment ? `<p>${escapeHtml(event.comment)}</p>` : ""}
-              </div>
-            `)
-            .join("")}
-        </div>
-      </section>
-    `;
-  }
-
-  const history = Array.isArray(detail.item?.history) ? detail.item.history : [];
-  if (!history.length) {
-    return `
-      <section class="ai-inbox-detail-section">
-        <h3>审阅历史</h3>
-        <div class="scheduled-task-empty">还没有审阅事件记录。</div>
-      </section>
-    `;
-  }
+  const history = reviewEvents.length ? reviewEvents : Array.isArray(detail.item?.history) ? detail.item.history : [];
+  if (!history.length) return "";
 
   return `
     <section class="ai-inbox-detail-section">
-        <h3>审阅历史</h3>
+      <h3>处理记录</h3>
       <div class="ai-inbox-decision-list">
         ${history
           .slice()
           .reverse()
-          .map((entry) => `
-            <div class="ai-inbox-decision">
-              <div>
-                <strong>${escapeHtml(aiSuggestionStatusLabel(entry.toStatus || entry.action))}</strong>
-                <span>${escapeHtml(formatDate(entry.createdAt) || entry.createdAt || "")}</span>
+          .map((entry) => {
+            const status = entry.eventType || entry.metadata?.toStatus || entry.toStatus || entry.action;
+            return `
+              <div class="ai-inbox-decision">
+                <div>
+                  <strong>${escapeHtml(readableStatusLabel(status))}</strong>
+                  <span>${escapeHtml(formatDate(entry.createdAt) || entry.createdAt || "")}</span>
+                </div>
+                ${entry.comment ? `<p>${escapeHtml(entry.comment)}</p>` : ""}
               </div>
-              <p>${escapeHtml(`${entry.fromStatus || "未知"} -> ${entry.toStatus || entry.action || "未知"}`)}</p>
-              ${entry.comment ? `<p>${escapeHtml(entry.comment)}</p>` : ""}
-            </div>
-          `)
+            `;
+          })
           .join("")}
       </div>
     </section>
@@ -313,7 +514,7 @@ function renderHistory(detail = {}) {
 function renderActionError(message = "") {
   const text = String(message || "").trim();
   if (!text) return "";
-  return `<div class="scheduled-task-empty is-bad">AI 建议审阅失败：${escapeHtml(text)}</div>`;
+  return `<div class="scheduled-task-empty is-bad">处理失败：${escapeHtml(text)}</div>`;
 }
 
 function renderActionNotice(message = "", tone = "") {
@@ -325,27 +526,29 @@ function renderActionNotice(message = "", tone = "") {
 
 function renderLatestDetailState(detailLoading = false, detailError = "") {
   if (detailLoading) {
-    return `<div class="ai-inbox-detail-muted">正在加载最新详情...</div>`;
+    return `<div class="ai-inbox-detail-muted">正在加载最新内容...</div>`;
   }
   const text = String(detailError || "").trim();
   if (!text) return "";
-  return `<div class="scheduled-task-empty is-bad">AI 建议详情加载失败：${escapeHtml(text)}</div>`;
+  return `<div class="scheduled-task-empty is-bad">详情加载失败：${escapeHtml(text)}</div>`;
 }
 
 function renderReviewSafety(item = {}, detailLoading = false, detailError = "", actionLoading = false, actionError = "", actionNotice = "", actionNoticeTone = "") {
+  const workLabel = suggestionWorkLabel(item);
+  const preview = suggestionContentPreview(item);
   return `
     <article class="ai-inbox-detail ${actionLoading || detailLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
         <div>
-          <div class="ai-inbox-detail-kicker">AI 建议</div>
-          <h2>${escapeHtml(aiSuggestionTargetLabel(item))}</h2>
-          <p>${escapeHtml(item.scope || "scope")}</p>
+          <div class="ai-inbox-detail-kicker">整理建议</div>
+          <h2>${escapeHtml(suggestionDisplayTitle(item))}</h2>
+          <p>${escapeHtml(`${workLabel} · ${preview ? `AI 建议：${preview}` : "先读取详情再处理"}`)}</p>
         </div>
-        ${badge(aiSuggestionStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
+        ${badge(readableStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
       </header>
       <section class="ai-inbox-detail-section">
-        <h3>审阅安全</h3>
-        <div class="ai-inbox-detail-muted">先加载最新详情，再执行审阅动作，避免决策和当前标准建议脱节。</div>
+        <h3>正在确认</h3>
+        <div class="ai-inbox-detail-muted">先读取最新内容，再处理这条建议，避免把过期内容写进笔记。</div>
       </section>
       ${renderLatestDetailState(detailLoading, detailError)}
       ${renderActionError(actionError)}
@@ -361,83 +564,118 @@ function renderDetail(state = {}) {
   const detailError = detailSuggestionId === selectedSuggestionId ? state.detailError : "";
   const actionSuggestionId = String(state.actionSuggestionId || "").trim();
   const selectedListItem = state.items?.find((entry) => String(entry.id || "") === selectedSuggestionId) || null;
+  const selectedGroup = selectedSuggestionGroup(state.items, selectedSuggestionId);
   const detail = suggestionDetailRecord(state.detail);
   const detailMatchesSelection = String(detail.item?.id || "").trim() && String(detail.item?.id || "").trim() === selectedSuggestionId;
-  const item = (detailMatchesSelection ? detail.item : null) || selectedListItem || null;
+  const item = detailMatchesSelection ? suggestionWithListContext(detail.item, selectedListItem) : selectedListItem;
   if (!item) {
     if (detailLoading) return `<div class="scheduled-task-empty">正在加载建议详情...</div>`;
-    if (detailError) return `<div class="scheduled-task-empty is-bad">AI 建议详情加载失败：${escapeHtml(detailError)}</div>`;
-    return `<div class="scheduled-task-empty">选择一条建议后，可在这里查看它的目标、内容和审阅历史。</div>`;
+    if (detailError) return `<div class="scheduled-task-empty is-bad">详情加载失败：${escapeHtml(detailError)}</div>`;
+    return `<div class="scheduled-task-empty">选择一条待处理内容后，在这里查看建议内容和操作。</div>`;
   }
-  const actionLoading = state.actionLoading && actionSuggestionId === String(item.id || "").trim();
-  const actionError = actionSuggestionId === String(item.id || "").trim() ? state.actionError : "";
+  const groupItems = (selectedGroup?.items || [item]).map((entry) => String(entry.id || "") === String(item.id || "") ? item : entry);
+  const actionLoading = state.actionLoading && groupItems.some((entry) => actionSuggestionId === String(entry.id || "").trim());
   const actionNoticeSuggestionId = String(state.actionNoticeSuggestionId || "").trim();
+  const actionError = actionSuggestionId === String(item.id || "").trim() ? state.actionError : "";
   const actionNotice = actionNoticeSuggestionId === String(item.id || "").trim() ? state.actionNotice : "";
   const actionNoticeTone = actionNotice ? state.actionNoticeTone : "";
   if (selectedListItem && !detailMatchesSelection) {
     return renderReviewSafety(selectedListItem, detailLoading, detailError, actionLoading, actionError, actionNotice, actionNoticeTone);
   }
   if (detailLoading) return `<div class="scheduled-task-empty">正在加载建议详情...</div>`;
-  if (detailError) return `<div class="scheduled-task-empty is-bad">AI 建议详情加载失败：${escapeHtml(detailError)}</div>`;
+  if (detailError) return `<div class="scheduled-task-empty is-bad">详情加载失败：${escapeHtml(detailError)}</div>`;
   const activeDetail = detailMatchesSelection ? { ...detail, item } : { item };
+  const display = traceDisplayState({
+    trace: activeDetail.trace,
+    target: item.target,
+    sourceArtifactId: item.sourceArtifactId || item.source_artifact_id,
+    linkedArtifactId: activeDetail.linkedArtifact?.id,
+    status: item.status
+  });
+  const displayStatus = display.status || String(item.status || "").trim();
+  const displayItem = { ...item, status: displayStatus };
+  const displayGroupItems = groupItems.map((entry) => String(entry.id || "") === String(item.id || "") ? displayItem : entry);
+  const canHandleAsGroup = displayGroupItems.some((entry) => String(entry.status || "").trim() === "suggested");
   return `
     <article class="ai-inbox-detail ${actionLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
         <div>
-          <div class="ai-inbox-detail-kicker">AI 建议</div>
-          <h2>${escapeHtml(aiSuggestionTargetLabel(item))}</h2>
-          <p>${escapeHtml(item.scope || "scope")}</p>
+          <div class="ai-inbox-detail-kicker">整理建议</div>
+          <h2>${escapeHtml(suggestionDisplayTitle(item, display))}</h2>
+          <p>${escapeHtml(suggestionMissingLabel(displayGroupItems))}</p>
         </div>
-        ${badge(aiSuggestionStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
+        <div class="ai-suggestion-detail-tools">
+          ${canHandleAsGroup ? "" : renderOpenNoteButton(displayItem, actionLoading, display)}
+          <button class="mini-btn ai-suggestion-modal-close" type="button" data-ai-suggestion-close="true" aria-label="关闭">×</button>
+        </div>
       </header>
-      <section class="ai-inbox-detail-section">
-        <h3>内容</h3>
-        <pre class="ai-inbox-json">${escapeHtml(typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2))}</pre>
-      </section>
+      ${canHandleAsGroup
+        ? displayGroupItems.map((entry) => renderSuggestionPreviewBlock(entry, String(entry.id || "").trim() === String(item.id || "").trim() ? display : null)).join("")
+        : displayGroupItems.map((entry) => {
+            const entryId = String(entry.id || "").trim();
+            const isSelectedEntry = entryId === String(item.id || "").trim();
+            const entryActionNotice = actionNoticeSuggestionId === entryId ? state.actionNotice : "";
+            return renderSuggestionBlock(entry, {
+              actionLoading: state.actionLoading && actionSuggestionId === entryId,
+              actionError: actionSuggestionId === entryId ? state.actionError : "",
+              actionNotice: entryActionNotice,
+              actionNoticeTone: entryActionNotice ? state.actionNoticeTone : "",
+              display: isSelectedEntry ? display : null,
+              selected: isSelectedEntry,
+              useLegacyEditorId: isSelectedEntry
+            });
+          }).join("")}
       ${renderTrace(activeDetail)}
-      ${renderLinkedArtifact(activeDetail)}
-      ${renderDraftEditingGuide(item)}
-      ${renderContentEditor(item, actionLoading)}
-      ${renderProvenance(activeDetail)}
+      ${canHandleAsGroup ? renderGroupActions(displayGroupItems, actionLoading) : ""}
+      ${renderDraftEditingGuide(displayItem)}
       ${renderHistory(activeDetail)}
-      ${renderActionError(actionError)}
-      ${renderActionNotice(actionNotice, actionNoticeTone)}
-      <div class="scheduled-task-actions">
-        <button
-          class="mini-btn"
-          type="button"
-          data-ai-suggestion-open-note="${attr(item.target?.id || "")}"
-          ${item.target?.id && !actionLoading ? "" : "disabled"}
-        >
-          打开目标笔记
-        </button>
-      </div>
-      ${renderActions(item, actionLoading)}
     </article>
+  `;
+}
+
+function renderDetailModal(state = {}) {
+  if (!state.selectedSuggestionId && !state.detailLoading && !state.detailError) return "";
+  return `
+    <div class="ai-suggestion-modal" role="dialog" aria-modal="true" aria-label="整理建议">
+      <div class="ai-suggestion-modal-backdrop" data-ai-suggestion-close="true"></div>
+      <div class="ai-suggestion-modal-dialog">
+        ${renderDetail(state)}
+      </div>
+    </div>
   `;
 }
 
 export function renderAiSuggestionsPanel(state = {}) {
   const summary = aiSuggestionSummary({ items: state.items, total: state.total });
+  const items = Array.isArray(state.items) ? state.items : [];
+  const filters = normalizeAiSuggestionFilters(state.filters || {});
+  const hasActiveFilters = filters.status !== "all";
+  const emptyCompact = state.compact && !state.loading && !state.error && !items.length;
   return `
-    <div class="scheduled-task-panel">
-      <div class="scheduled-task-head">
-        <div>
-          <div class="settings-card-title">待确认建议</div>
-          <div class="settings-card-note">先看对象和理由；确认后才写入笔记、图谱或当前写作主题。</div>
+    <div class="scheduled-task-panel ${state.compact ? "is-compact" : ""}">
+      ${state.compact ? "" : `
+        <div class="scheduled-task-head">
+          <div>
+            <div class="settings-card-title">待处理</div>
+            <div class="settings-card-note">先看建议内容，满意再保存到笔记；不需要的直接忽略。</div>
+          </div>
+          <div class="settings-stat-row">
+            ${badge(`${summary.visible}/${summary.total} 条`, "muted")}
+            ${badge(`${summary.counts.suggested || 0} 待确认`, "warn")}
+            ${badge(`${summary.counts.confirmed || 0} 已确认`, "ok")}
+            ${summary.counts.rejected ? badge(`${summary.counts.rejected} 已忽略`, "muted") : ""}
+          </div>
         </div>
-        <div class="settings-stat-row">
-          ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
-          ${badge(`${summary.counts.suggested || 0} 待建议`, "warn")}
-          ${badge(`${summary.counts.confirmed || 0} 已确认`, "ok")}
-          ${summary.counts.rejected ? badge(`${summary.counts.rejected} 已拒绝`, "muted") : ""}
-        </div>
-      </div>
-      ${renderControls(state)}
-      <div class="ai-inbox-grid">
-        <section class="ai-inbox-list-pane">${renderList(state)}</section>
-        <section class="ai-inbox-detail-pane">${renderDetail(state)}</section>
-      </div>
+      `}
+      ${emptyCompact && !hasActiveFilters ? "" : renderControls(state)}
+      ${emptyCompact
+        ? renderList(state)
+        : `
+          <div class="ai-inbox-grid">
+            <section class="ai-inbox-list-pane">${renderList(state)}</section>
+          </div>
+          ${renderDetailModal(state)}
+        `}
     </div>
   `;
 }

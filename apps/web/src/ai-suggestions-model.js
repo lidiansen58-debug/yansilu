@@ -15,7 +15,9 @@ export function aiSuggestionFromCanonical(item = {}) {
     target: {
       type: cleanText(item.target?.type),
       id: cleanText(item.target?.id),
-      ...(cleanText(item.target?.field) ? { field: cleanText(item.target.field) } : {})
+      ...(cleanText(item.target?.field) ? { field: cleanText(item.target.field) } : {}),
+      ...(cleanText(item.target?.title || item.target?.note_title) ? { title: cleanText(item.target?.title || item.target?.note_title) } : {}),
+      ...(cleanText(item.target?.name) && !cleanText(item.target?.title || item.target?.note_title) ? { name: cleanText(item.target.name) } : {})
     },
     scope: cleanText(item.scope),
     content: item.content ?? null,

@@ -3,6 +3,7 @@ export const LOCAL_AI_FEATURE_LABELS = Object.freeze({
   graph_connect: "AI 建联推荐",
   theme_index: "AI 主题命名和中心问题建议",
   note_analysis: "当前笔记 AI 分析",
+  distill_material: "帮我提炼",
   writing_check: "AI 写作检查",
   ai_summary: "AI 摘要整理"
 });
@@ -19,11 +20,11 @@ export function localAiFeatureLabel(feature = "") {
 
 export function localAiSetupActionLabel(result = null) {
   const status = cleanText(result?.status);
-  if (status === "needs_install") return "先安装 Ollama";
-  if (status === "needs_start") return "先启动 Ollama 服务";
+  if (status === "needs_install") return "先安装模型运行工具";
+  if (status === "needs_start") return "先启动本地模型";
   if (status === "needs_model") return `先下载推荐模型 ${cleanText(result?.model) || "qwen3:8b"}`;
   if (status === "needs_config") return "保存为本地 AI 模型";
-  if (status === "needs_health_check") return "用一句话测试并完成健康检查";
+  if (status === "needs_health_check") return "测试 AI";
   return "打开 AI 设置完成本地 AI 准备";
 }
 
@@ -47,5 +48,5 @@ export function localAiSetupStatusMessage(input = {}) {
   const reason = cleanText(input.statusText || result?.message);
   const reasonText = reason ? `${reason}；` : "";
   const modelText = modelHint ? `推荐模型：${modelHint}；` : "";
-  return `${feature}需要本地 AI。${reasonText}${action}，完成后可以用“一句话测试”确认可用。${modelText}${MAIN_FLOW_HINT}`;
+  return `${feature}需要本地 AI。${reasonText}${action}。${modelText}${MAIN_FLOW_HINT}`;
 }

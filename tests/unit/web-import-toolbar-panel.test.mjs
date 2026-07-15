@@ -31,9 +31,8 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.doesNotMatch(html, /当前任务/);
   assert.match(html, /来源仓库/);
   assert.match(html, /导入到/);
-  assert.match(html, /默认导入永久笔记目录/);
-  assert.match(html, /明确是随笔或文献/);
-  assert.match(html, /兼容设置（通常不用填）/);
+  assert.match(html, /默认进入永久笔记目录/);
+  assert.match(html, /高级导入设置/);
   assert.match(html, /覆盖请求（可选）/);
   assert.match(html, /兼容规则（可选）/);
   assert.match(html, /detectWikilinks/);
@@ -51,7 +50,7 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.match(html, /<details class="import-compat-details">/);
   assert.match(html, /id="importRecordId"/);
   assert.match(html, /id="btnImportPreview"/);
-  assert.match(html, />生成预览</);
+  assert.match(html, />第 2 步：生成预览</);
   assert.match(html, /id="btnImportConfirm" disabled/);
   assert.match(html, /确认导入（0\/3）/);
   assert.doesNotMatch(html, /导入参数 JSON/);

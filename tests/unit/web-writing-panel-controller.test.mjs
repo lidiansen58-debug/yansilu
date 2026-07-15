@@ -138,7 +138,143 @@ test("writing panel controller shows entry recommendation reason in the first sc
   assert.match(nodes.get("writingScopeHint").textContent, /已作为相关笔记带入/);
 });
 
-test("writing panel controller renders scaffold preview empty continuity guidance", () => {
+test("writing panel controller keeps the choose-topic first screen until a theme is explicit", () => {
+  const shell = {
+    dataset: {},
+    querySelectorAll: () => [{ textContent: "" }, { textContent: "" }, { textContent: "" }]
+  };
+  const nodes = new Map([
+    ["writingPanel", { querySelector: (selector) => selector === ".writing-shell" ? shell : null }],
+    ["writingCurrentNote", { textContent: "" }],
+    ["writingScopeHint", { textContent: "" }],
+    ["writingThemeIndexList", { innerHTML: "" }],
+    ["writingThemeIndexesHint", { textContent: "" }],
+    ["writingThemeDetail", { innerHTML: "" }],
+    ["writingThemeDetailHint", { textContent: "" }]
+  ]);
+
+  renderWritingPanelDom({
+    $: (id) => nodes.get(id) || null,
+    state: { notes: [], selectedFileId: "", selectedFolderId: "dir" },
+    writingState: {
+      themeIndexes: [{ id: "theme-1", title: "Fallback theme", items: [] }],
+      selectedThemeIndexId: "",
+      sourceIndexIds: []
+    },
+    folderById: () => ({ name: "永久笔记" }),
+    rootBoxIdFromFolder: () => "root",
+    writingCandidateNotes: () => [],
+    writingSourceIndexSummary: () => "",
+    writingBasketEntries: () => [],
+    parseWritingBasketIds: () => [],
+    buildWritingPanelState: () => ({
+      currentLabel: "尚未选择",
+      candidateFocusPlan: { usingFocusedScope: false, scopeLabel: "", addActionLabel: "" },
+      candidates: [],
+      relationCountsReady: false,
+      relationCountsErrored: false,
+      basketReadiness: {},
+      hasProject: false,
+      hasScaffold: false,
+      hasDraft: false,
+      projectEntry: { canCreateProject: false, actionLabel: "先选主题" },
+      projectPreflightSummary: {},
+      strongModelReady: false,
+      strongModelState: {},
+      openDraftButtonState: { disabled: true, text: "暂无草稿" },
+      scaffoldButtonState: { disabled: true, text: "先选主题" },
+      strongModelButtonState: { disabled: true, text: "先选主题" },
+      toplineMetrics: []
+    }),
+    selectedWritingThemeIndex: () => ({ id: "theme-1", title: "Fallback theme", items: [] }),
+    writingThemeIndexNoteIds: () => [],
+    findExistingWritingProjectForTheme: () => null,
+    describeWritingContinuationAction: () => ({}),
+    renderThinkingStatusBadge: () => "",
+    writingThemeProjectEntry: () => ({ noteIds: [], readiness: {}, projectEntry: {} }),
+    writingThemeDetailHintText: (theme) => theme ? "selected" : "empty",
+    escapeHtml
+  });
+
+  assert.equal(shell.dataset.writingHasTopic, "false");
+  assert.match(nodes.get("writingThemeIndexList").innerHTML, /Fallback theme/);
+  assert.equal(nodes.get("writingThemeDetail").innerHTML, "");
+});
+
+test("writing panel controller shows selected theme notes in the related-note overlay", () => {
+  const shell = {
+    dataset: {},
+    counters: [{ textContent: "" }, { textContent: "" }, { textContent: "" }],
+    querySelectorAll() {
+      return this.counters;
+    }
+  };
+  const nodes = new Map([
+    ["writingPanel", { querySelector: (selector) => selector === ".writing-shell" ? shell : null }],
+    ["writingCurrentNote", { textContent: "" }],
+    ["writingScopeHint", { textContent: "" }],
+    ["writingBasketSummary", { textContent: "" }],
+    ["writingBasketList", { innerHTML: "" }],
+    ["writingThemeDetail", { innerHTML: "" }],
+    ["writingThemeDetailHint", { textContent: "" }],
+    ["btnWritingStartDraft", { disabled: false }]
+  ]);
+
+  renderWritingPanelDom({
+    $: (id) => nodes.get(id) || null,
+    state: { notes: [], selectedFileId: "", selectedFolderId: "dir" },
+    writingState: {
+      themeIndexes: [],
+      selectedThemeIndexId: "theme-1",
+      sourceIndexIds: []
+    },
+    folderById: () => ({ name: "永久笔记" }),
+    rootBoxIdFromFolder: () => "root",
+    writingCandidateNotes: () => [],
+    writingSourceIndexSummary: () => "",
+    writingBasketEntries: () => [],
+    parseWritingBasketIds: () => [],
+    buildWritingPanelState: () => ({
+      currentLabel: "尚未选择",
+      candidateFocusPlan: { usingFocusedScope: false, scopeLabel: "", addActionLabel: "" },
+      candidates: [],
+      relationCountsReady: true,
+      relationCountsErrored: false,
+      basketReadiness: { status: "可写", hint: "可以继续" },
+      hasProject: false,
+      hasScaffold: false,
+      hasDraft: false,
+      projectEntry: { canCreateProject: true, actionLabel: "生成提纲" },
+      projectPreflightSummary: {},
+      strongModelReady: false,
+      strongModelState: {},
+      openDraftButtonState: { disabled: true, text: "暂无草稿" },
+      scaffoldButtonState: { disabled: false, text: "生成提纲" },
+      strongModelButtonState: { disabled: true, text: "先选主题" },
+      toplineMetrics: []
+    }),
+    selectedWritingThemeIndex: () => ({ id: "theme-1", title: "Theme", items: [] }),
+    writingThemeIndexNoteIds: () => ["n1", "n2"],
+    writingKnownNoteById: (id) => ({ id, title: id === "n1" ? "Theme Note A" : "Theme Note B" }),
+    findExistingWritingProjectForTheme: () => null,
+    describeWritingContinuationAction: () => ({}),
+    renderThinkingStatusBadge: () => "",
+    writingThemeProjectEntry: () => ({ noteIds: [], readiness: {}, projectEntry: {} }),
+    writingThemeDetailHintText: () => "selected",
+    writingNoteMeta: (note) => note.id,
+    writingNoteExcerpt: () => "摘要",
+    escapeHtml
+  });
+
+  assert.equal(shell.dataset.writingHasTopic, "true");
+  assert.deepEqual(shell.counters.map((counter) => counter.textContent), ["2", "2", "2"]);
+  assert.match(nodes.get("writingBasketSummary").textContent, /已选 2 条/);
+  assert.match(nodes.get("writingBasketList").innerHTML, /Theme Note A/);
+  assert.match(nodes.get("writingBasketList").innerHTML, /Theme Note B/);
+  assert.equal(nodes.get("btnWritingStartDraft").disabled, true);
+});
+
+test("writing panel controller keeps an empty outline focused on the next action", () => {
   const nodes = new Map([
     ["writingScaffoldPreview", { innerHTML: "" }]
   ]);
@@ -150,22 +286,15 @@ test("writing panel controller renders scaffold preview empty continuity guidanc
       project: null,
       scaffold: null
     },
-    currentWritingContinuationEntry: () => ({
-      projectId: "project-1",
-      status: "Existing project",
-      actionLabel: "Continue project"
-    }),
-    describeWritingProjectPreflight: () => ({ level: "ready", status: "Ready", hint: "" }),
     escapeHtml
   });
 
   const html = nodes.get("writingScaffoldPreview").innerHTML;
   assert.match(html, /writing-empty/);
-  assert.match(html, /Existing project/);
-  assert.match(html, /Continue project/);
+  assert.match(html, /先回到主题页生成提纲/);
 });
 
-test("writing panel controller renders scaffold sections preflight and markdown", () => {
+test("writing panel controller renders editable outline sections without diagnostics", () => {
   const nodes = new Map([
     ["writingScaffoldPreview", { innerHTML: "" }]
   ]);
@@ -200,30 +329,17 @@ test("writing panel controller renders scaffold sections preflight and markdown"
       },
       scaffoldMarkdown: "# Draft"
     },
-    currentWritingContinuationEntry: () => null,
-    describeWritingProjectPreflight: () => ({ level: "ready", status: "Project ready", hint: "" }),
-    describeProjectPreflight: () => ({ level: "has_gaps", status: "Needs work", hint: "Has gaps" }),
-    groupWritingPreflightChecks: (preflight) => ({
-      checks: preflight.checks,
-      blocking: [],
-      warnings: preflight.checks.filter((check) => check.status !== "pass"),
-      passes: preflight.checks.filter((check) => check.status === "pass")
-    }),
-    writingDraftDirectoryId: () => "drafts",
-    folderById: () => ({ name: "Draft Folder" }),
-    parseWritingBasketIds: () => ["n1", "n2"],
-    describeWritingNextActionFromState: () => ({ title: "Save draft", note: "Ready to write." }),
     escapeHtml
   });
 
   const html = nodes.get("writingScaffoldPreview").innerHTML;
-  assert.match(html, /scaffold-1/);
-  assert.match(html, /Draft Folder/);
-  assert.match(html, /Save draft/);
-  assert.match(html, /Opening &lt;claim&gt;/);
-  assert.match(html, /case/);
-  assert.match(html, /larger question/);
-  assert.match(html, /# Draft/);
+  assert.match(html, /data-writing-outline-field="heading"/);
+  assert.match(html, /value="Opening &lt;claim&gt;"/);
+  assert.match(html, /data-writing-outline-action="add"/);
+  assert.match(html, /Set direction/);
+  assert.doesNotMatch(html, /larger question/);
+  assert.doesNotMatch(html, /# Draft/);
+  assert.doesNotMatch(html, /待补缺口/);
 });
 
 test("writing panel controller renders strong model request empty state", () => {
@@ -269,7 +385,7 @@ test("writing panel controller renders strong model request details", () => {
   });
 
   const html = nodes.get("writingStrongModelRequestDetail").innerHTML;
-  assert.match(html, /gpt-test/);
+  assert.doesNotMatch(html, /gpt-test/);
   assert.match(html, /Note &lt;one&gt;/);
   assert.match(html, /Write &lt;clearly&gt;/);
   assert.match(html, /Readers/);
@@ -360,12 +476,33 @@ test("writing panel controller renders book design structure pools and ideas", (
 });
 
 test("writing panel controller renders theme index card continuation actions", () => {
-  const html = renderWritingThemeIndexCardDom({
+  const baseDeps = {
     writingState: {
       sourceIndexIds: ["theme-1"],
       selectedThemeIndexId: ""
     },
     writingThemeIndexNoteIds: () => ["n1", "n2"],
+    renderThinkingStatusBadge: () => "<b>status</b>",
+    escapeHtml
+  };
+  const freshHtml = renderWritingThemeIndexCardDom({
+    ...baseDeps,
+    findExistingWritingProjectForTheme: () => null,
+    describeWritingContinuationAction: () => ({})
+  }, {
+    id: "theme-1",
+    title: "Theme <one>",
+    index_type: "topic",
+    directory_title: "Dir",
+    summary: "Summary",
+    items: [
+      { note_id: "n1", short_label: "First" },
+      { note_id: "n2", note: { title: "Second" } }
+    ],
+    note_count: 3
+  });
+  const resumedHtml = renderWritingThemeIndexCardDom({
+    ...baseDeps,
     findExistingWritingProjectForTheme: () => ({
       id: "project-1",
       scaffold_id: "scaffold-1",
@@ -375,9 +512,7 @@ test("writing panel controller renders theme index card continuation actions", (
       projectId: "project-1",
       action: "resume-scaffold",
       actionLabel: "Resume scaffold"
-    }),
-    renderThinkingStatusBadge: () => "<b>status</b>",
-    escapeHtml
+    })
   }, {
     id: "theme-1",
     title: "Theme <one>",
@@ -391,12 +526,20 @@ test("writing panel controller renders theme index card continuation actions", (
     note_count: 3
   });
 
-  assert.match(html, /writing-note-card selected/);
-  assert.match(html, /Theme &lt;one&gt;/);
-  assert.match(html, /data-writing-index-action="use"/);
-  assert.match(html, /data-writing-index-action="resume-scaffold"/);
-  assert.match(html, /project-1/);
-  assert.match(html, /<b>status<\/b>/);
+  assert.match(freshHtml, /writing-start-topic selected/);
+  assert.match(freshHtml, /Theme &lt;one&gt;/);
+  assert.match(freshHtml, /相关笔记 3 条/);
+  assert.match(freshHtml, /开始写/);
+  assert.match(freshHtml, /data-writing-index-action="use"/);
+  assert.match(resumedHtml, /继续提纲/);
+  assert.match(resumedHtml, /data-writing-index-action="resume-scaffold"/);
+  assert.match(resumedHtml, /project-1/);
+  for (const html of [freshHtml, resumedHtml]) {
+    assert.doesNotMatch(html, /为什么可写/);
+    assert.doesNotMatch(html, /建议提纲入口/);
+    assert.doesNotMatch(html, /继续状态/);
+    assert.doesNotMatch(html, /查看这些笔记/);
+  }
 });
 
 test("writing panel controller renders writing note card actions", () => {
@@ -426,6 +569,21 @@ test("writing panel controller renders writing note card actions", () => {
   assert.match(html, /<b>status<\/b>/);
 });
 
+test("writing note card omits an empty summary", () => {
+  const html = renderWritingNoteCardDom({
+    renderThinkingStatusBadge: () => "",
+    writingNoteMeta: () => "永久笔记",
+    writingNoteExcerpt: () => "",
+    escapeHtml
+  }, {
+    id: "note-1",
+    title: "只有标题的笔记"
+  });
+
+  assert.equal((html.match(/writing-note-meta/g) || []).length, 1);
+  assert.doesNotMatch(html, /还没有正文摘要/);
+});
+
 test("writing panel controller renders writing project card through workspace view deps", () => {
   const html = renderWritingProjectCardDom({
     renderThinkingStatusBadge: () => "<b>project-status</b>",
@@ -452,14 +610,14 @@ test("writing panel controller renders writing project card through workspace vi
   assert.match(html, /<b>project-status<\/b>/);
 });
 
-test("writing panel controller renders theme detail form and note actions", () => {
+test("writing panel controller keeps legacy theme fields hidden from the writing flow", () => {
   const empty = renderWritingThemeDetailDom({
     writingThemeProjectEntry: () => ({ noteIds: [], readiness: {}, projectEntry: {} }),
     writingKnownNoteById: () => null,
     renderThinkingStatusBadge: () => "",
     escapeHtml
   }, null);
-  assert.match(empty, /writing-empty/);
+  assert.equal(empty, "");
 
   const html = renderWritingThemeDetailDom({
     writingThemeProjectEntry: () => ({
@@ -489,29 +647,21 @@ test("writing panel controller renders theme detail form and note actions", () =
     items: [{ note_id: "n1", rationale: "Because" }]
   });
 
-  assert.match(html, /data-writing-theme-id="theme-1"/);
-  assert.match(html, /data-writing-theme-action="create-project"/);
   assert.match(html, /writingThemeDetailTitle/);
-  assert.match(html, /这不是文章正文，而是回到同一问题的入口/);
-  assert.match(html, /写作助手会先帮你看三件事/);
-  assert.match(html, /为什么这组笔记值得写/);
-  assert.match(html, /这些判断能互相说明/);
-  assert.match(html, /下一步：Create project/);
-  assert.match(html, /先写什么提纲/);
-  assert.match(html, /下一步可以写什么/);
-  assert.match(html, /Note &lt;one&gt;/);
-  assert.match(html, /Because/);
-  assert.match(html, /data-writing-theme-action="open-note"/);
-  assert.match(html, /<b>theme<\/b>/);
+  assert.match(html, /Question/);
+  assert.match(html, /hidden/);
+  assert.doesNotMatch(html, /写作中心/);
+  assert.doesNotMatch(html, /Note &lt;one&gt;/);
+  assert.doesNotMatch(html, /data-writing-theme-action=/);
 });
 
-test("writing theme detail explains unfinished themes as worth organizing first", () => {
+test("writing theme detail does not add explanatory cards to the writing flow", () => {
   const html = renderWritingThemeDetailDom({
     writingThemeProjectEntry: () => ({
       noteIds: ["n1"],
       readiness: {
         level: "basket_ready",
-        hint: "当前相关笔记还缺正式关系。",
+        hint: "当前相关笔记还缺关联。",
         actionLabel: "加入相关笔记"
       },
       projectEntry: {
@@ -520,7 +670,7 @@ test("writing theme detail explains unfinished themes as worth organizing first"
         canCreateProject: false,
         actionLabel: "加入相关笔记",
         status: "可作为相关笔记",
-        hint: "当前相关笔记还缺正式关系。"
+        hint: "当前相关笔记还缺关联。"
       }
     }),
     writingKnownNoteById: () => ({ id: "n1", title: "Note one" }),
@@ -534,8 +684,7 @@ test("writing theme detail explains unfinished themes as worth organizing first"
     items: [{ note_id: "n1" }]
   });
 
-  assert.match(html, /为什么这组笔记值得写/);
-  assert.match(html, /更适合继续整理/);
-  assert.match(html, /下一步：加入相关笔记/);
-  assert.doesNotMatch(html, /它值得写，不是因为笔记数量多/);
+  assert.match(html, /writing-theme-hidden-fields/);
+  assert.doesNotMatch(html, /会用到的永久笔记/);
+  assert.doesNotMatch(html, /下一步：/);
 });

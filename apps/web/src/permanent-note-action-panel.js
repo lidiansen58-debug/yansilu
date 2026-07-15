@@ -14,7 +14,7 @@ export function renderPermanentNoteActionPanel(model = {}) {
       <section class="inspector-section permanent-workspace-current" data-note-main-path-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">建议先做</div>
+            <div class="inspector-section-title">当前建议</div>
             <div class="inspector-section-note">${escapeHtml(model.noteSummary || "")}</div>
           </div>
         </div>

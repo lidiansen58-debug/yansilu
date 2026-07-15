@@ -51,6 +51,7 @@ test("graph visual map host deps keeps shell-owned helpers in one mapping", () =
     "graphZoomOption",
     "normalizeGraphSelectionForVisibleItems",
     "noteTypeLabel",
+    "shouldShowGraphCanvasHelpHint",
     "shouldShowGraphDensityHint"
   ];
   for (const key of keys) host[key] = { key };

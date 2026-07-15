@@ -19,9 +19,62 @@ export function applyGraphZoomStepInteraction(graphState = {}, direction = 0, de
 
 export function applyGraphReadingLensInteraction(graphState = {}, lensValue = "", deps = {}) {
   const graphReadingLensMeta = deps.graphReadingLensMeta || ((value) => ({ key: String(value || "insight").trim() || "insight", label: String(value || "insight").trim() || "insight" }));
+  const setGraphRelationTypeFilter = deps.setGraphRelationTypeFilter || (() => "");
   const meta = graphReadingLensMeta(lensValue);
   graphState.readingLens = meta.key;
-  return { lens: meta.key, meta };
+  graphState.researchNavigatorHidden = true;
+  graphState.researchNavigatorTouched = true;
+  const relationType = setGraphRelationTypeFilter("meaningful");
+  return { lens: meta.key, meta, relationType };
+}
+
+export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", deps = {}) {
+  const key = String(viewValue || "structure").trim().toLowerCase();
+  const setGraphRelationTypeFilter = deps.setGraphRelationTypeFilter || (() => "");
+  const graphReadingLensMeta = deps.graphReadingLensMeta || ((value) => ({ key: String(value || "insight").trim() || "insight", label: String(value || "insight").trim() || "insight" }));
+  const metaByKey = {
+    structure: {
+      key: "structure",
+      label: "看结构",
+      relationType: "meaningful",
+      lens: "insight",
+      workbenchPanelOpen: false,
+      workbenchPanelTab: "clues",
+      researchNavigatorHidden: true,
+      thinkingFilter: ""
+    },
+    relations: {
+      key: "relations",
+      label: "找缺口",
+      relationType: "meaningful",
+      lens: "bridge",
+      workbenchPanelOpen: false,
+      workbenchPanelTab: "clues",
+      researchNavigatorHidden: true,
+      thinkingFilter: "organize"
+    },
+    themes: {
+      key: "themes",
+      label: "找主题",
+      relationType: "index",
+      lens: "insight",
+      workbenchPanelOpen: false,
+      workbenchPanelTab: "questions",
+      researchNavigatorHidden: true,
+      thinkingFilter: "theme"
+    }
+  };
+  const meta = metaByKey[key];
+  if (!meta) return { view: key, changed: false, meta: metaByKey.structure, lens: graphReadingLensMeta(graphState.readingLens || "insight") };
+  const relationType = setGraphRelationTypeFilter(meta.relationType);
+  graphState.readingLens = meta.lens;
+  graphState.workbenchPanelOpen = meta.workbenchPanelOpen;
+  graphState.workbenchPanelTab = meta.workbenchPanelTab;
+  graphState.researchNavigatorHidden = meta.researchNavigatorHidden;
+  graphState.researchNavigatorTouched = true;
+  graphState.thinkingFilter = meta.thinkingFilter;
+  const lens = graphReadingLensMeta(meta.lens);
+  return { view: meta.key, changed: true, meta, lens, relationType };
 }
 
 export function applyGraphFocusDepthInteraction(graphState = {}, depthValue = "", deps = {}) {
@@ -69,8 +122,9 @@ export function applyGraphViewModeInteraction(graphState = {}, modeValue = "", d
   } else {
     return { mode, changed: false, meta: graphReadingModeMeta("argument") };
   }
-  graphState.researchNavigatorHidden = false;
-  graphState.researchNavigatorTouched = false;
+  graphState.readingLens = "insight";
+  graphState.researchNavigatorHidden = true;
+  graphState.researchNavigatorTouched = true;
   return { mode, changed: true, meta: graphReadingModeMeta(mode) };
 }
 

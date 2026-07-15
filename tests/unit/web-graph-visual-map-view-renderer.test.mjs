@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   GRAPH_VISUAL_EDGE_LABELS,
-  GRAPH_VISUAL_LEGEND_NOTE,
   GRAPH_VISUAL_NODE_LABELS,
   buildGraphVisualEdgeViewContext,
   buildGraphVisualNodeViewContext,
@@ -65,7 +64,7 @@ test("graph visual map view renderer builds node and edge contexts from runtime 
   assert.equal(edgeContext.layoutNodeMap.get("n2").clusterIndex, 1);
 });
 
-test("graph visual map view renderer supplies graph-specific Chinese node, edge, and legend labels", () => {
+test("graph visual map view renderer supplies graph-specific Chinese node and edge labels without a legend", () => {
   const deps = {
     graphNodeClass: () => "is-permanent",
     graphNodeStarRank: () => 5,
@@ -92,5 +91,5 @@ test("graph visual map view renderer supplies graph-specific Chinese node, edge,
   assert.equal(GRAPH_VISUAL_EDGE_LABELS.sourceFallback, "源笔记");
   assert.match(nodeMarkup, /整理待关联笔记 Alpha/);
   assert.match(edgeMarkup, /查看关系确认 n1 到 n2/);
-  assert.match(legendMarkup, new RegExp(GRAPH_VISUAL_LEGEND_NOTE));
+  assert.equal(legendMarkup, "");
 });

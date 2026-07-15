@@ -23,11 +23,11 @@ test("graph view mode state normalizes relation filters and modes", () => {
 });
 
 test("graph view mode state exposes direct reading mode copy", () => {
-  assert.equal(graphReadingModeMeta("structure").label, "主题分布");
-  assert.match(graphReadingModeMeta("structure").mapNote, /主题/);
+  assert.equal(graphReadingModeMeta("structure").label, "找主题");
+  assert.match(graphReadingModeMeta("structure").mapNote, /继续写作/);
   assert.equal(graphReadingModeMeta("bad").key, "argument");
-  assert.match(graphReadingModeMeta("argument").purpose, /支持/);
-  assert.equal(graphReadingModeMeta("argument").label, "关系图");
+  assert.match(graphReadingModeMeta("argument").purpose, /中心笔记/);
+  assert.equal(graphReadingModeMeta("argument").label, "看结构");
 });
 
 test("graph relation type setter updates graph state and persists when allowed", () => {
@@ -46,9 +46,12 @@ test("graph relation type setter updates graph state and persists when allowed",
 
 test("graph view mode render helpers use injected escaping and filter options", () => {
   const switcher = renderGraphViewModeSwitcher("index");
-  assert.match(switcher, /看图/);
-  assert.match(switcher, /data-graph-view-mode="structure"/);
-  assert.match(switcher, /aria-pressed="true"/);
+  assert.doesNotMatch(switcher, /看图/);
+  assert.match(switcher, /data-graph-task-view="themes" aria-pressed="true"/);
+  assert.match(renderGraphViewModeSwitcher("meaningful", "bridge"), /data-graph-task-view="relations" aria-pressed="true"/);
+  assert.match(renderGraphViewModeSwitcher("meaningful", "argument"), /data-graph-task-view="structure" aria-pressed="true"/);
+  assert.doesNotMatch(switcher, /data-graph-view-mode=/);
+  assert.doesNotMatch(switcher, /data-graph-reading-lens=/);
 
   const filter = renderGraphRelationTypeFilter([{ relationType: "supports" }], "supports", true, { supports: 1 }, {
     graphFilterOptions: (edges, field, selected, allLabel, labelFn, stats) =>
@@ -56,7 +59,8 @@ test("graph view mode render helpers use injected escaping and filter options", 
     graphRelationTypeLabel: () => "支持"
   });
   assert.match(filter, /graph-filters-compact/);
-  assert.match(filter, /1:relationType:supports:全部关系:支持:1/);
+  assert.match(filter, /筛选/);
+  assert.match(filter, /1:relationType:supports:全部:支持:1/);
 });
 
 test("graph view mode state detects meaningful structure and filters fallback edges", () => {

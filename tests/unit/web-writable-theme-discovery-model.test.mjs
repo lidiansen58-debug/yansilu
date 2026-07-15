@@ -34,7 +34,7 @@ test("writable theme discovery clusters related permanent notes as editable sugg
   assert.match(suggestions[0].membershipReason, /本地关系|共享/);
   assert.match(suggestions[0].explanation.commonQuestion, /这些永久笔记共同在回答什么问题/);
   assert.ok(suggestions[0].explanation.keyNotes.some((item) => item.includes("主题发现入口")));
-  assert.ok(suggestions[0].explanation.sharedSignals.some((item) => /正式关系|本地关系/.test(item)));
+  assert.ok(suggestions[0].explanation.sharedSignals.some((item) => /关联|本地关系/.test(item)));
   assert.match(suggestions[0].explanation.gap, /中心问题|关系理由|边界|反例|追问/);
   assert.match(suggestions[0].explanation.confirmationSummary, /主题索引笔记/);
   assert.match(suggestions[0].explanation.confirmationSummary, /不会自动创建文章/);

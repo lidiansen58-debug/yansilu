@@ -19,9 +19,17 @@ function formatTime(value = "") {
   });
 }
 
+export function readableMobileAccessError(error = "") {
+  const message = String(error || "").trim();
+  if (/local runtime controls/i.test(message) || /Yansilu local app origin/i.test(message)) {
+    return "手机访问只能从这台电脑上的研思录打开。请刷新页面，或完全关闭研思录后重新打开。";
+  }
+  return message;
+}
+
 function deviceRows(devices = [], escapeHtml = escapeHtmlValue) {
   if (!devices.length) {
-    return `<div class="mobile-access-empty">还没有已配对的手机。扫码后需要在这里确认。</div>`;
+    return `<div class="mobile-access-empty">暂无已配对设备。</div>`;
   }
   return devices.map((device) => {
     const revoked = Boolean(device.revokedAt);
@@ -42,9 +50,8 @@ function pendingApprovalCard(pending = [], escapeHtml = escapeHtmlValue, actionL
     return `
       <div class="mobile-access-approval is-waiting">
         <div>
-          <div class="mobile-access-kicker">第 2 步：电脑允许连接</div>
-          <strong>扫码后，允许按钮会出现在这里</strong>
-          <span>手机发起连接请求后，不需要往下找，直接在这里点“允许连接”。</span>
+          <div class="mobile-access-kicker">等待连接</div>
+          <strong>扫码后在这里允许连接</strong>
         </div>
       </div>
     `;
@@ -53,9 +60,8 @@ function pendingApprovalCard(pending = [], escapeHtml = escapeHtmlValue, actionL
   return `
     <div class="mobile-access-approval is-pending">
       <div>
-        <div class="mobile-access-kicker">第 2 步：电脑允许连接</div>
+        <div class="mobile-access-kicker">待确认</div>
         <strong>${escapeHtml(pending.length > 1 ? `${pending.length} 台手机等待确认` : "有一台手机等待确认")}</strong>
-        <span>确认是你的手机后再允许。未确认前，手机不能访问笔记。</span>
       </div>
       <div class="mobile-access-approval-list">
         ${pending.map((request) => `
@@ -79,7 +85,7 @@ export function renderMobileAccessDesktopPanel({
   const item = state.item || null;
   const loading = Boolean(state.loading);
   const actionLoading = Boolean(state.actionLoading);
-  const error = String(state.error || "").trim();
+  const error = readableMobileAccessError(state.error);
   if (!item && loading) {
     return `
       <div class="mobile-access-card">
@@ -100,7 +106,7 @@ export function renderMobileAccessDesktopPanel({
         <div class="settings-card-head">
           <div>
             <div class="settings-card-title">手机访问</div>
-            <div class="settings-card-note">手机端只用于随身记录和轻量查看。</div>
+          <div class="settings-card-note">手机访问暂不可用。</div>
           </div>
         </div>
         <div class="mobile-access-error">${escapeHtml(error)}</div>
@@ -115,7 +121,7 @@ export function renderMobileAccessDesktopPanel({
       <div class="settings-card-head">
         <div>
           <div class="settings-card-title">手机访问</div>
-          <div class="settings-card-note">把手机当成随身采集入口即可：扫码发起连接后，还需要在电脑端确认一次。</div>
+          <div class="settings-card-note">扫码连接手机。</div>
         </div>
         <span class="settings-stat-badge">${escapeHtml(pairing.ttlSeconds ? `${pairing.ttlSeconds}s` : "待刷新")}</span>
       </div>
@@ -125,18 +131,16 @@ export function renderMobileAccessDesktopPanel({
           ${item?.qrSvg || `<div class="mobile-access-empty">二维码待生成</div>`}
         </div>
         <div class="mobile-access-copy">
-          <div class="mobile-access-kicker">第 1 步：手机扫码</div>
+          <div class="mobile-access-kicker">扫码连接</div>
           <div class="mobile-access-url">${escapeHtml(item?.accessUrl || "")}</div>
           <div class="mobile-access-code">
             <span>临时配对码</span>
             <strong>${escapeHtml(pairing.pairCode || "------")}</strong>
           </div>
-          <p>这个配对码会在 ${escapeHtml(formatTime(pairing.expiresAt) || "短时间内")} 过期。手机扫码后，电脑端会在这里出现“允许连接”。</p>
-          <p>电脑端只要记住 3 步：保持研思录运行 -> 让手机扫码 -> 点“允许连接”。以后不再使用时，再撤销设备。</p>
           ${pendingApprovalCard(item?.pendingRequests || [], escapeHtml, actionLoading)}
           <div class="import-actions">
-            <button class="mini-btn is-subtle" type="button" data-mobile-access-refresh ${loading ? "disabled" : ""}>刷新状态</button>
-            <button class="mini-btn" type="button" data-mobile-access-rotate ${actionLoading ? "disabled" : ""}>换一个配对码</button>
+            <button class="mini-btn is-subtle" type="button" data-mobile-access-refresh ${loading ? "disabled" : ""}>刷新二维码</button>
+            <button class="mini-btn" type="button" data-mobile-access-rotate ${actionLoading ? "disabled" : ""}>生成新二维码</button>
           </div>
         </div>
       </div>
@@ -144,12 +148,10 @@ export function renderMobileAccessDesktopPanel({
       <div class="mobile-access-section">
         <div class="mobile-access-section-head">
           <strong>已配对设备</strong>
-          <span>不再使用时可以直接撤销；撤销后，这台手机需要重新扫码才能再访问。</span>
         </div>
         <div class="mobile-access-list">${deviceRows(item?.devices || [], escapeHtml)}</div>
       </div>
 
-      <div class="mobile-access-note">建议只在同一 Wi-Fi / 局域网内使用。当前版本按本地访问设计，不要把访问地址直接暴露到公网。手机更适合记录和查看，重整理仍建议回到电脑完成。</div>
     </div>
   `;
 }

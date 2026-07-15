@@ -7,17 +7,12 @@ export function currentModuleSidebarUi({
   const resolvedRootName = rootName || "当前目录";
   const configs = {
     today: {
-      sidebarTitle: "让笔记生长为思想",
-      sidebarSubtitle: "每天只推进一步：做最值得做的一件事。",
-      sidebarFoot: "先完成首屏推荐动作，其他信息只作参考。",
-      title: "让笔记生长为思想",
-      summary: "每天只推进一步：做最值得做的一件事。",
-      sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>首页</h3>
-          <p>先点右侧最重要的按钮。其他说明和检查只作参考。</p>
-        </div>
-      `
+      sidebarTitle: "首页",
+      sidebarSubtitle: "让笔记生长为思想",
+      sidebarFoot: "今日小提示：先把一条记录加工成判断，再补清它和其他笔记的关系。",
+      title: "今日整理",
+      summary: "先做最重要的一步。",
+      sidebarHtml: ""
     },
     distillation: {
       sidebarTitle: "观点整理",
@@ -66,25 +61,12 @@ export function currentModuleSidebarUi({
       `
     },
     aiInbox: {
-      sidebarTitle: "AI 建议",
-      sidebarSubtitle: "从系统消息进入，是否落地由你确认。",
-      sidebarFoot: "系统消息会先承接 AI 建议。只有你点击采纳、建立关系或生成草稿后，才会进入笔记系统。",
-      title: "AI 建议",
-      summary: "这里处理需要你确认的关系、问题、冲突和写作建议。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
-      sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>它用来做什么</h3>
-          <p>把 AI 的输出拦在“待确认”层：有价值的关系可以进入图谱，有价值的问题可以生成草稿，没用的建议直接忽略。</p>
-        </div>
-        <div class="module-sidebar-card">
-          <h3>处理顺序</h3>
-          <ol class="module-sidebar-list">
-            <li>先看待判断建议</li>
-            <li>核对来源笔记和关系说明</li>
-            <li>确认后再建立关系或生成草稿</li>
-          </ol>
-        </div>
-      `
+      sidebarTitle: "待确认建议",
+      sidebarSubtitle: "确认后才会写入。",
+      sidebarFoot: "",
+      title: "待确认建议",
+      summary: "先看来源和理由，再决定采纳、忽略或归档。",
+      sidebarHtml: ""
     },
     graph: {
       sidebarTitle: "永久笔记关系图谱",
@@ -95,15 +77,19 @@ export function currentModuleSidebarUi({
       sidebarHtml: ""
     },
     writing: {
-      sidebarTitle: "从主题到草稿",
-      sidebarSubtitle: "把相关笔记整理成一篇文章的起点。",
-      sidebarFoot: "复杂说明放在帮助里；这里先完成下一步。",
-      title: "写作中心",
-      summary: "先确定要写什么，再生成提纲。",
+      sidebarTitle: "写作",
+      sidebarSubtitle: "完成一篇文章",
+      sidebarFoot: "",
+      title: "写作",
+      summary: "选择一个可写主题，沿着主题、提纲、草稿完成一篇文章。",
       sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>先做主线</h3>
-          <p>选相关笔记，写清问题，生成提纲。其他工具需要时再展开。</p>
+        <div class="writing-sidebar-actions" aria-label="写作操作">
+          <button class="writing-sidebar-action" type="button" data-writing-sidebar-action="topics">
+            主题库
+          </button>
+          <button class="writing-sidebar-action" type="button" data-writing-sidebar-action="related">
+            相关笔记 <span id="writingSidebarRelatedCount">0</span>
+          </button>
         </div>
       `
     },

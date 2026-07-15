@@ -4,12 +4,10 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
     graphState = {},
     explorer = null,
     graphOriginalScopeDirectoryId = "",
-    graphRelationWorkflowController = null,
+    openRelationComposerFromGraphAction = null,
     graphAssociateNoteRoute = () => ({ kind: "" }),
     graphNodeNeedsRelationWorkflowFromCurrentGraph = () => false,
     applyExplorerSelectionContext = () => {},
-    setGraphIsolatedWorkflowActiveTab = () => {},
-    openGraphSelection = () => {},
     refreshDirectoryGraph = async () => false,
     setStatus = () => {},
     handleStateChange = async () => false
@@ -34,38 +32,51 @@ export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {
     syncSearch: false,
     expandFolder: true
   });
+
+  const openSharedGraphComposer = (action = {}) => {
+    if (typeof openRelationComposerFromGraphAction !== "function") return false;
+    return openRelationComposerFromGraphAction({
+      noteId: action.noteId || noteId,
+      relationType: action.relationType,
+      source: "graph",
+      candidateSource: action.candidateSource || "",
+      returnTo: "graph"
+    });
+  };
+
   if (state.module === "graph") {
     explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
     explorer?.collapseDisconnectedGroup?.(graphOriginalScopeDirectoryId, { auto: true });
     if (payload.source === "today-organizing") {
       await refreshDirectoryGraph();
-      setGraphIsolatedWorkflowActiveTab(noteId, "manual");
-      openGraphSelection({ kind: "relationForm", noteId, isolatedKey: noteId, returnTo: "isolated" });
-      setStatus("已打开关联表单。选择一条相关笔记，写一句理由并保存。", "ok");
+      if (!openSharedGraphComposer({ candidateSource: "today-organizing" })) {
+        setStatus("Relation composer did not open. Please try again.", "warn");
+        return false;
+      }
+      setStatus("已打开关联笔记面板。搜索目标笔记，写清楚为什么相关后保存。", "ok");
       return true;
     }
     if (payload.source === "import-result") {
-      if (graphRelationWorkflowController?.openIsolatedFromAction?.({ noteId })) {
-        setStatus("已打开建联流程。选择目标笔记，写一句理由并保存。", "ok");
-        return true;
+      if (!openSharedGraphComposer({ candidateSource: "import-result" })) {
+        setStatus("Relation composer did not open. Please try again.", "warn");
+        return false;
       }
-      setGraphIsolatedWorkflowActiveTab(noteId, "manual");
-      openGraphSelection({ kind: "relationForm", noteId, returnTo: "isolated" });
-      setStatus("已打开未关联笔记的关系建立表单。选择一条相关笔记，写一句理由并保存。", "ok");
+      setStatus("已打开关联笔记面板。搜索目标笔记，写清楚为什么相关后保存。", "ok");
       return true;
     }
     if (route.kind === "graph-open-relation-form") {
-      graphRelationWorkflowController?.openRelationFormFromAction?.({ noteId: route.noteId, relationType: route.relationType });
-      return true;
+      if (openSharedGraphComposer({
+        noteId: route.noteId,
+        relationType: route.relationType,
+        candidateSource: route.candidateSource
+      })) {
+        return true;
+      }
+      setStatus("Relation composer did not open. Please try again.", "warn");
+      return false;
     }
-    if (graphRelationWorkflowController?.openIsolatedFromAction?.({ noteId: route.noteId, isolatedKey: route.isolatedKey })) {
-      return true;
-    }
-    const activeTab = String(route.activeTab || "").trim().toLowerCase();
-    setGraphIsolatedWorkflowActiveTab(route.noteId, ["ai", "manual"].includes(activeTab) ? activeTab : "ai");
-    openGraphSelection({ kind: "relationForm", noteId: route.noteId, returnTo: "isolated" });
-    setStatus("已打开建联流程", "ok");
-    return true;
+    setStatus("Relation composer did not open. Please try again.", "warn");
+    return false;
   }
   return handleStateChange(route.kind, { noteId: route.noteId, source: route.source });
 }
@@ -98,7 +109,7 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
     });
     const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
     let systemMessage = null;
-    if (artifactCount > 0) {
+    if (artifactCount > 0 && payload.openInbox !== false) {
       const noteTitle = (state.notes || []).find((item) => item.id === noteId)?.title || noteId;
       systemMessage = noteAnalysisSystemMessageForResult({ noteId, noteTitle, result });
       if (systemMessage) addSystemMessage(systemMessage, { interrupt: true });

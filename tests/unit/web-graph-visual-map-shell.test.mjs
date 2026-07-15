@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   renderGraphMapEmptyStateView,
-  renderGraphMapLegendView,
   renderGraphMapSvgDefsView,
   renderGraphVisualMapShellView,
   renderGraphZoomStepperView
@@ -44,19 +43,6 @@ test("graph visual map shell renders svg defs with relation markers", () => {
   assert.match(markup, /id="graph-nebula-blur"/);
 });
 
-test("graph visual map shell renders legend groups as a slot-friendly view", () => {
-  const markup = renderGraphMapLegendView({
-    open: true,
-    note: "Legend note",
-    groups: [{ className: "is-support", label: "Support", detail: "Supports the claim" }]
-  });
-
-  assert.match(markup, /class="graph-map-legend"/);
-  assert.match(markup, /Legend note/);
-  assert.match(markup, /is-support/);
-  assert.match(markup, /Supports the claim/);
-});
-
 test("graph visual map shell composes canvas, svg layers, side panel, and overlay slots", () => {
   const markup = renderGraphVisualMapShellView(
     {
@@ -93,6 +79,12 @@ test("graph visual map shell composes canvas, svg layers, side panel, and overla
   assert.match(markup, /<nav>toolbar<\/nav>/);
   assert.match(markup, /class="graph-map-stage has-side-panel has-selection-overlay"/);
   assert.match(markup, /class="graph-map-viewport" data-graph-zoom="detail"/);
+  assert.match(markup, /aria-label="关系图谱"/);
+  assert.match(markup, /aria-label="可缩放的关系图谱画布"/);
+  assert.match(markup, /aria-label="图谱工具"/);
+  assert.match(markup, /title="退出放大查看"/);
+  assert.match(markup, /title="拖动空白区域移动图谱"/);
+  assert.doesNotMatch(markup, /Graph map|Graph tools|Zoom out|Expand|Pan canvas|Drag the empty map area/);
   assert.match(markup, /<div class="graph-map-canvas">[\s\S]*<section>side<\/section>[\s\S]*<\/div>/);
   assert.match(markup, /class="graph-canvas-help-hint"/);
   assert.match(markup, /滚轮缩放，拖动查看，点击笔记看详情/);
@@ -109,6 +101,8 @@ test("graph visual map shell renders empty state through a slot", () => {
   assert.match(markup, /graph-map-empty-canvas/);
   assert.match(markup, /No notes/);
   assert.match(markup, /Try another mode/);
-  assert.match(markup, /data-graph-view-mode="argument"/);
-  assert.match(markup, /data-graph-view-mode="structure"/);
+  assert.match(markup, /data-graph-task-view="structure"/);
+  assert.match(markup, /data-graph-task-view="relations"/);
+  assert.match(markup, /data-graph-task-view="themes"/);
+  assert.doesNotMatch(markup, /data-graph-view-mode=/);
 });

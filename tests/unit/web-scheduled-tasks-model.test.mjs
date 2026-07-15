@@ -29,21 +29,23 @@ test("scheduled tasks model normalizes filters and labels", () => {
     taskType: "relation_scan",
     limit: 12
   });
-  assert.equal(scheduledTaskTypeLabel("reflection_prompt"), "反思提醒");
+  assert.equal(scheduledTaskTypeLabel("reflection_prompt"), "提醒我回看");
+  assert.equal(scheduledTaskTypeLabel("writable_theme_discovery"), "发现可写主题");
   assert.equal(scheduledTaskStatusTone("active"), "ok");
   assert.equal(scheduledTaskStatusTone("failed"), "bad");
   assert.deepEqual(
     scheduledTaskTemplateOptions([
       { templateId: "reflection_reminder", name: "Reflection reminder", implementationReady: true, task: { taskType: "reflection_prompt" } },
+      { templateId: "writable_theme_discovery", name: "Writable theme discovery", implementationReady: true, task: { taskType: "writable_theme_discovery" } },
       { templateId: "weekly_research_scan", name: "Research scan", implementationReady: false }
     ]).map((item) => item.value),
-    ["reflection_reminder"]
+    ["reflection_reminder", "writable_theme_discovery"]
   );
 });
 
 test("scheduled tasks model summarizes schedule scope budget and runs", () => {
   assert.equal(scheduledTaskScheduleLabel({ type: "interval", intervalMinutes: 30 }), "每 30 分钟");
-  assert.equal(scheduledTaskScheduleLabel({ type: "weekly", dayOfWeek: "monday", time: "09:00" }), "monday 09:00");
+  assert.equal(scheduledTaskScheduleLabel({ type: "daily", time: "16:00" }), "每天 16:00");
   assert.equal(
     scheduledTaskScopeSummary({ noteIds: ["n1", "n2"], directoryIds: ["dir_1"], tags: ["writing"], keywords: ["spacing"], includePrivateNotes: true }),
     "2 条笔记 / 1 个目录 / 1 个标签 / 1 个关键词 / 包含私密内容"
@@ -152,7 +154,10 @@ test("scheduled tasks model builds safe create and edit payloads", () => {
     templates: [{ templateId: "weekly_link_suggestions", name: "Weekly link suggestions", implementationReady: true }],
     currentDirectoryId: "dir_original_default"
   });
-  assert.equal(defaults.status, "paused");
+  assert.equal(defaults.status, "active");
+  assert.equal(defaults.name, "发现相关笔记");
+  assert.equal(defaults.scheduleType, "daily");
+  assert.equal(defaults.time, "16:00");
   assert.equal(defaults.directoryIdsText, "dir_original_default");
 
   const payload = scheduledTaskPayloadFromForm({
@@ -168,6 +173,11 @@ test("scheduled tasks model builds safe create and edit payloads", () => {
   assert.deepEqual(payload.scope.tags, ["writing", "source-gap"]);
   assert.deepEqual(payload.scope.keywords, ["bridge", "concept"]);
 
+  const dailyPayload = scheduledTaskPayloadFromForm(defaults);
+  assert.equal(dailyPayload.status, "active");
+  assert.equal(dailyPayload.schedule.type, "daily");
+  assert.equal(dailyPayload.schedule.time, "16:00");
+
   const form = scheduledTaskFormFromTask({
     scheduledTaskId: "sched_1",
     name: "Edited",
@@ -179,4 +189,14 @@ test("scheduled tasks model builds safe create and edit payloads", () => {
   assert.equal(form.templateId, "weekly_link_suggestions");
   assert.equal(form.noteIdsText, "note_1");
   assert.equal(form.directoryIdsText, "dir_1");
+
+  const themeForm = scheduledTaskFormFromTask({
+    scheduledTaskId: "sched_theme",
+    name: "发现可写主题",
+    taskType: "writable_theme_discovery",
+    status: "active",
+    schedule: { type: "daily", time: "16:00" },
+    scope: {}
+  });
+  assert.equal(themeForm.templateId, "writable_theme_discovery");
 });

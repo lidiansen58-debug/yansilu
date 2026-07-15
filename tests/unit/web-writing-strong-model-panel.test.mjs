@@ -39,7 +39,7 @@ test("writing strong model panel summarizes prepared and completed requests", ()
     panelState: { strongModelButtonState: { disabled: false, text: "" } },
     strongModelSummary: prepared
   });
-  assert.match(prepared.textContent, /gpt-test/);
+  assert.match(prepared.textContent, /检查结果已准备好/);
 
   const completed = { textContent: "" };
   renderWritingStrongModelSummaryDom({

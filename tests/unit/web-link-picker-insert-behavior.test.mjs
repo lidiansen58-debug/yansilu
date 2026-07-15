@@ -12,6 +12,7 @@ import {
   normalizeEditorRelationLinkInput,
   renderEditorRelationLinkCandidateList
 } from "../../apps/web/src/editor-relation-link-model.js";
+import { normalizeKnownWikilinksToReadableTitles } from "../../apps/web/src/editor-link-picker.js";
 import { parseLinks } from "../../apps/web/src/prototype-store.js";
 import {
   QUICK_WIKILINK_ASSOCIATION_MARKER,
@@ -32,16 +33,112 @@ async function readEditorLinkPickerSource() {
   return fs.readFile(new URL("../../apps/web/src/editor-link-picker.js", import.meta.url), "utf8");
 }
 
-test("link picker inserts stable wikilinks instead of inline relation comments", async () => {
+test("link picker inserts readable title wikilinks instead of internal ids or inline relation comments", async () => {
   const source = await readEditorRelationLinkControllerSource();
   const linkPickerSource = await readEditorLinkPickerSource();
 
   assert.ok(source.includes("const token = wikilinkTokenForNote(target);"));
-  assert.ok(linkPickerSource.includes('const target = String(note?.id || "").trim() || markdownPath || title;'));
-  assert.ok(linkPickerSource.includes("return `[[${target}|${title}]]`;"));
+  assert.ok(linkPickerSource.includes("return `[[${readableTitle}]]`;"));
+  assert.doesNotMatch(linkPickerSource, /\|\$\{title\}/);
   assert.doesNotMatch(linkPickerSource, /hasDuplicateTitle/);
   assert.doesNotMatch(source, /const annotation = reason/);
   assert.doesNotMatch(source, /<!-- rel:type=\$\{escapeHtml\(relationType\)\}/);
+});
+
+test("toolbar relation picker always inserts the readable target title at the saved cursor position", async () => {
+  const source = await readEditorRelationLinkControllerSource();
+
+  assert.ok(source.includes("const token = wikilinkTokenForNote(target);"));
+  assert.ok(source.includes("normalizeKnownWikilinksToReadableTitles(host.getEditorValue(), scopedLinkNotes);"));
+  assert.ok(source.includes("suppressSaveAiSuggestion: true"));
+  assert.ok(source.includes('if (!(await saveInsertedBody("link-insert"))) return;'));
+  assert.ok(source.includes("host.insertAtCursor(token);"));
+  assert.doesNotMatch(source, /else if \(bodyAlreadyLinked\)/);
+  assert.doesNotMatch(source, /savedBodyAlreadyLinked/);
+  assert.doesNotMatch(source, /bodyAlreadyLinked \?/);
+});
+
+test("toolbar relation picker inserts a readable title even when an old id-alias wikilink already exists", async () => {
+  const target = { id: "PERM-RELATION-REASON-MATTERS", title: "关系理由比连线本身更重要" };
+  const oldBody = "# 当前笔记\n\n[[PERM-RELATION-REASON-MATTERS|关系理由比连线本身更重要]]";
+  let body = `${oldBody}\n\n`;
+  let savedOptions = null;
+  const classList = { add() {}, remove() {} };
+  const host = {
+    isSubmittingLinkInsert: false,
+    currentLinkContext: null,
+    currentPinnedLinkId: target.id,
+    currentLinkCandidates: [target],
+    currentLinkIndex: 0,
+    currentSemanticRelations: null,
+    semanticRelationsState: "",
+    manualLinkReturnSelection: { from: body.length, to: body.length },
+    manualLinkReturnScrollState: null,
+    state: {
+      activeTabId: "tab-1",
+      tabs: [{ id: "tab-1", noteId: "source", savedBody: body }],
+      notes: [{ id: "source", title: "当前笔记", body }, target]
+    },
+    els: {
+      confirmLinkInsert: { disabled: false, textContent: "" },
+      linkRelationTypeSelect: { value: "supports" },
+      linkReasonInput: { value: "它支撑当前判断" },
+      linkPicker: { classList, style: {} },
+      insertLink: { classList, blur() {} }
+    },
+    activeNote: () => host.state.notes[0],
+    activeTab: () => host.state.tabs[0],
+    scopedLinkCandidates: () => [target],
+    normalizedSelectionRange: (selection) => selection,
+    editorSelection: () => ({ from: body.length, to: body.length }),
+    captureEditorScrollState: () => null,
+    getEditorValue: () => body,
+    isWysiwygMode: () => false,
+    replaceEditorRange: (from, to, text) => {
+      body = `${body.slice(0, from)}${text}${body.slice(to)}`;
+      host.state.tabs[0].savedBody = body;
+      host.state.tabs[0].body = body;
+      host.state.notes[0].body = body;
+    },
+    insertAtCursor: (text) => {
+      body += text;
+      host.state.tabs[0].savedBody = body;
+      host.state.tabs[0].body = body;
+      host.state.notes[0].body = body;
+    },
+    handleEditorInput() {},
+    closeTagPicker() {},
+    hideOriginalityNotice() {},
+    resetToolbarTransientButtons() {},
+    focusEditor() {},
+    saveActiveNote: async (options) => {
+      savedOptions = options;
+      return false;
+    },
+    hasResolvedLinkToNote: () => true,
+    onStatus() {},
+    setEditorSelectionRange() {},
+    scheduleEditorScrollRestore() {},
+    syncRelationNetworkConnected() {},
+    isActiveNoteId: () => true,
+    renderPreview() {}
+  };
+
+  const controller = new EditorRelationLinkController(host);
+  await controller.insertSelected(target.id);
+
+  assert.ok(body.endsWith("[[关系理由比连线本身更重要]]"));
+  assert.doesNotMatch(body, /PERM-RELATION-REASON-MATTERS\|/);
+  assert.equal(savedOptions?.suppressSaveAiSuggestion, true);
+});
+
+test("known id-alias wikilinks are normalized to readable title links", () => {
+  const body = "[[PERM-RELATION-REASON-MATTERS|关系理由比连线本身更重要]] [[unknown_id|保留]]";
+  const normalized = normalizeKnownWikilinksToReadableTitles(body, [
+    { id: "PERM-RELATION-REASON-MATTERS", title: "关系理由比连线本身更重要" }
+  ]);
+
+  assert.equal(normalized, "[[关系理由比连线本身更重要]] [[unknown_id|保留]]");
 });
 
 test("editor link picker shows relation fields for both inline and toolbar entry", async () => {
@@ -102,6 +199,7 @@ test("cross-folder link candidates use a folder-prefixed display label", async (
 
 test("wikilink preview avoids low-value match and count metadata", async () => {
   const source = await readEditorDomainSource();
+  const css = await fs.readFile(new URL("../../apps/web/src/prototype.css", import.meta.url), "utf8");
   const preview = editorRelationLinkCandidatePreviewText({
     title: "Preview target",
     body: "[[Other|alias]] explains the useful claim.\n\n#tag"
@@ -111,7 +209,20 @@ test("wikilink preview avoids low-value match and count metadata", async () => {
   assert.ok(source.includes('data-open-linked-note="${escapeHtml(note.id)}"'));
   assert.ok(source.includes("async openLinkedPreviewNote(noteId)"));
   assert.ok(source.includes("void this.openLinkedPreviewNote(linkedNoteButton.dataset.openLinkedNote);"));
-  assert.ok(source.includes("正文里的这个链接指向这条笔记。"));
+  assert.ok(source.includes("async resolvePreviewLinkToken(tokenValue"));
+  assert.ok(source.includes("await searchNotes({ query, excludeNoteId: this.activeNote()?.id || \"\", limit: 8 })"));
+  assert.ok(source.includes("for (const candidatePath of markdownReferencePathCandidates(query))"));
+  assert.ok(source.includes("data-close-note-peek"));
+  assert.ok(source.includes(">编辑笔记</button>"));
+  assert.doesNotMatch(source, /data-open-linked-note="\$\{escapeHtml\(note\.id\)\}">打开笔记/);
+  assert.doesNotMatch(source, /正文里的这个链接指向这条笔记。/);
+  assert.doesNotMatch(source, /快速查看这条笔记内容/);
+  assert.doesNotMatch(source, /存在重名<\/span>/);
+  assert.doesNotMatch(source, /const refreshed = this\.resolveLinkToken\(tokenValue,/);
+  assert.doesNotMatch(source, /return \{ note: items\[0\], ambiguous: items\.length > 1, mode: "search" \};/);
+  assert.match(css, /\.note-peek-actions \{[\s\S]*justify-content: space-between;/);
+  assert.match(css, /\.inspector-panel:has\(\.note-peek-section\) \{[\s\S]*width: min\(620px, calc\(100vw - 120px\)\);/);
+  assert.match(css, /\.inspector-panel:has\(\.note-peek-section\) > \.panel-head \{[\s\S]*display: none;/);
   assert.equal(preview, "alias explains the useful claim.");
   assert.doesNotMatch(source, /已匹配/);
   assert.doesNotMatch(source, /重名匹配/);
@@ -126,7 +237,7 @@ test("confirm button requires a target and relation reason for inline and toolba
 
   const ready = editorRelationLinkConfirmState({ selectedNote: { id: "a" }, reason: "clear reason" });
   assert.equal(ready.disabled, false);
-  assert.match(ready.label, /保存|淇濆瓨/);
+  assert.equal(ready.label, "关联");
 });
 
 test("manual link picker keeps only information needed to save a relation", async () => {
@@ -134,17 +245,18 @@ test("manual link picker keeps only information needed to save a relation", asyn
   const source = await readEditorRelationLinkControllerSource();
   const helperSource = await readEditorRelationHelpersSource();
 
-  assert.match(html, /<strong>建立笔记关联<\/strong>/);
-  assert.match(html, /<label class="link-picker-search-label" for="linkSearchInput">要关联哪条笔记<\/label>/);
-  assert.match(html, /<label for="linkRelationTypeSelect">它们是什么关系<\/label>/);
-  assert.match(html, /<label for="linkReasonInput">为什么关联<\/label>/);
-  assert.match(html, /<button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>选择笔记<\/button>/);
+  assert.match(html, /<strong>关联永久笔记<\/strong>/);
+  assert.match(html, /<label class="link-picker-search-label" for="linkSearchInput">找目标笔记<\/label>/);
+  assert.match(html, /<label for="linkRelationTypeSelect">关系类型<\/label>/);
+  assert.match(html, /<label for="linkReasonInput">关联理由<\/label>/);
+  assert.match(html, /<button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>关联<\/button>/);
   assert.match(html, /<option value="associated_with" selected>相关<\/option>/);
+  assert.doesNotMatch(html, />选择笔记<\/button>/);
   assert.doesNotMatch(html, /<option value="appears_in_draft">/);
   assert.match(helperSource, /const INLINE_LINK_RELATION_TYPES = \[[\s\S]*"associated_with",[\s\S]*"supports",[\s\S]*"complements",[\s\S]*"qualifies",[\s\S]*"contradicts",[\s\S]*"bridges"[\s\S]*\];/);
   assert.doesNotMatch(html, /AI 只提供关联建议/);
   assert.doesNotMatch(html, /不会替你确认关系/);
-  assert.match(source, /host\.els\.linkSearchInput\.placeholder = "搜索笔记标题";/);
+  assert.match(source, /host\.els\.linkSearchInput\.placeholder = "输入标题关键词，选择要关联的永久笔记";/);
 });
 
 test("selecting a link picker candidate pins it without inserting immediately", async () => {
@@ -264,32 +376,63 @@ test("manual link picker confirm button reflects selected target and reason", ()
 
   controller.updateConfirmButton();
   assert.equal(host.els.confirmLinkInsert.disabled, false);
-  assert.match(host.els.confirmLinkInsert.textContent, /保存|淇濆瓨/);
+  assert.equal(host.els.confirmLinkInsert.textContent, "关联");
 
   host.els.linkReasonInput.value = "";
   controller.updateConfirmButton();
   assert.equal(host.els.confirmLinkInsert.disabled, true);
 });
 
-test("toolbar relation action opens manual picker without writing a stray wikilink trigger", async () => {
+test("toolbar relation action opens the shared composer without writing a stray wikilink trigger", async () => {
   const source = await readEditorDomainSource();
   const start = source.indexOf('this.els.insertLink.addEventListener("click", (event) => {');
   const end = source.indexOf("\n\n    this.els.insertImage", start);
   assert.ok(start >= 0 && end > start, "expected toolbar link handler");
   const body = source.slice(start, end);
 
-  assert.ok(body.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true });'));
+  assert.ok(source.includes('this.els.insertLink.addEventListener("pointerdown", (event) => {'));
+  assert.ok(source.includes("event.preventDefault();"));
+  assert.ok(source.includes("this.manualLinkReturnSelection = this.rememberEditorSelection() || this.rememberedEditorSelection();"));
+  assert.ok(body.includes("this.openPermanentRelationWorkspace({"));
+  assert.ok(body.includes("source: RELATION_ENTRY_SOURCES.TOOLBAR_RELATION"));
+  assert.ok(body.includes("insertLinkOnSave: true"));
+  assert.ok(body.includes("cursorRange: returnSelection"));
+  assert.ok(body.includes("this.rememberEditorSelection() ||"));
+  assert.ok(body.includes("this.rememberedEditorSelection();"));
   assert.doesNotMatch(body, /insertAtCursor\("\[\["\)/);
   assert.doesNotMatch(body, /inlineContext: inline/);
 });
 
-test("toolbar relation picker anchors to the click target and flips inside the viewport", async () => {
-  const source = await readEditorDomainSource();
+test("wysiwyg relation picker keeps the remembered body cursor when toolbar focus makes selection unreliable", () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.isStructuredWorkspaceActive = () => false;
+  pane.isWysiwygMode = () => true;
+  pane.getEditorValue = () => "alpha beta gamma";
+  pane.markdownSelectionOverride = null;
+  pane.lastEditorSelection = { from: 6, to: 6 };
+  pane.richEditor = {
+    getValue: () => "alpha beta gamma",
+    selection: () => ({ from: 999, to: 999 })
+  };
 
-  assert.ok(source.includes("const anchorRect = event.currentTarget?.getBoundingClientRect?.() || null;"));
-  assert.ok(source.includes('this.openLinkPicker("", { anchorAtCursor: true, anchorRect, focusInput: true });'));
+  assert.deepEqual(pane.wysiwygMarkdownSelection(), null);
+  assert.deepEqual(pane.editorSelection(), { from: 6, to: 6 });
+
+  pane.markdownSelectionOverride = { from: 11, to: 11 };
+  assert.deepEqual(pane.rememberEditorSelection(), { from: 11, to: 11 });
+  assert.deepEqual(pane.lastEditorSelection, { from: 11, to: 11 });
+});
+
+test("inline relation picker still anchors to the click target and flips inside the viewport", async () => {
+  const source = await readEditorDomainSource();
+  const controllerSource = await readEditorRelationLinkControllerSource();
+
+  assert.ok(controllerSource.includes("centerX: true"));
+  assert.ok(controllerSource.includes("offsetX: -120"));
   assert.match(source, /positionFloatingPicker\(panel, width, options = \{\}\) \{/);
   assert.ok(source.includes("const rect = options.anchorRect || options.anchorElement?.getBoundingClientRect?.() || this.currentSelectionRect();"));
+  assert.ok(source.includes("const offsetX = Number(options.offsetX || 0);"));
+  assert.ok(source.includes("left = (options.centerX ? viewportLeft + (viewportWidth - resolvedWidth) / 2 : rect.left) + offsetX;"));
   assert.ok(source.includes("const openAbove = belowSpace < Math.min(naturalHeight, 180) && aboveSpace > belowSpace;"));
   assert.ok(source.includes("panel.style.maxHeight = `${Math.floor(availableHeight)}px`;"));
   assert.ok(source.includes("const explicitMaxHeight = Number.parseFloat(panel.style.maxHeight);"));
@@ -435,6 +578,30 @@ test("quick association synchronizes both note endpoints as connected", async ()
   assert.equal(pane.state.graphConnectedNoteIds.has("target"), true);
   assert.equal(pane.state.notes.find((note) => note.id === "source").relationNetworkStatus, "connected");
   assert.equal(pane.state.notes.find((note) => note.id === "target").relationNetworkStatus, "connected");
+});
+
+test("local readable wikilinks mark both endpoints as connected for the explorer", () => {
+  const pane = Object.create(EditorPane.prototype);
+  const source = { id: "source", title: "Source", noteType: "permanent", relationNetworkStatus: "isolated" };
+  const target = { id: "target", title: "Target", noteType: "permanent", relationNetworkStatus: "isolated" };
+  pane.state = {
+    graphConnectedNoteIds: new Set(),
+    notes: [source, target],
+    folders: [
+      { id: "root", parentId: null },
+      { id: "folder", parentId: "root" }
+    ]
+  };
+  pane.buildLocalRelationSignals = () => ({ forward: [target], backward: [], tagRelated: [] });
+  pane.syncRelationNetworkConnected = EditorPane.prototype.syncRelationNetworkConnected;
+
+  const changed = pane.applyRelationNetworkStatusFromLocalSignals(source, pane.buildLocalRelationSignals());
+
+  assert.equal(changed, true);
+  assert.equal(pane.state.graphConnectedNoteIds.has("source"), true);
+  assert.equal(pane.state.graphConnectedNoteIds.has("target"), true);
+  assert.equal(source.relationNetworkStatus, "connected");
+  assert.equal(target.relationNetworkStatus, "connected");
 });
 
 test("confirmed wikilink association upgrades to a formal relation transaction", async () => {
@@ -583,6 +750,28 @@ test("manual link picker does not treat ambiguous title wikilinks as an existing
 
   assert.equal(pane.hasResolvedLinkToNote("ln_duplicate_a", "[[Duplicate Title]]", candidates), false);
   assert.equal(pane.hasResolvedLinkToNote("ln_duplicate_b", "[[ln_duplicate_b|Duplicate Title]]", candidates), true);
+});
+
+test("linked preview edit opens through the host note route", async () => {
+  const opened = [];
+  const pane = Object.assign(Object.create(EditorPane.prototype), {
+    loadNoteForPreview: async () => ({ id: "note-target", title: "Target note" }),
+    onOpenNote: async (noteId, options) => {
+      opened.push({ noteId, options });
+      return true;
+    },
+    openNoteTab: () => {
+      throw new Error("host open route should handle the edit action");
+    },
+    onStateChange: () => {
+      throw new Error("host open route should trigger the full render");
+    },
+    onStatus: () => {}
+  });
+
+  await pane.openLinkedPreviewNote("note-target");
+
+  assert.deepEqual(opened, [{ noteId: "note-target", options: { preferTitleSelection: false } }]);
 });
 
 test("parseLinks returns wikilink targets without aliases or anchors", () => {

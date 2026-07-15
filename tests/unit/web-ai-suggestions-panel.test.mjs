@@ -5,7 +5,7 @@ import { renderAiSuggestionsPanel } from "../../apps/web/src/ai-suggestions-pane
 
 const suggestion = {
   id: "suggestion_1",
-  target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+  target: { type: "permanent_note", id: "pn_1", title: "Inbox review target", field: "thesis" },
   scope: "note_field",
   content: "A reviewable claim starts life as a draft.",
   status: "suggested",
@@ -14,7 +14,20 @@ const suggestion = {
   history: []
 };
 
-test("AI suggestions panel renders filters, list, detail, and review actions", () => {
+function detailPane(html = "") {
+  return html.split('<div class="ai-suggestion-modal-dialog">')[1] || "";
+}
+
+function listPane(html = "") {
+  const afterStart = html.split('<section class="ai-inbox-list-pane">')[1] || "";
+  return afterStart.split('<div class="ai-suggestion-modal"')[0] || afterStart;
+}
+
+function visibleText(html = "") {
+  return html.replace(/<[^>]*>/g, " ");
+}
+
+test("AI suggestions panel hides internal filters and renders readable list/detail text", () => {
   const html = renderAiSuggestionsPanel({
     items: [suggestion],
     total: 1,
@@ -23,16 +36,202 @@ test("AI suggestions panel renders filters, list, detail, and review actions", (
     detail: suggestion
   });
 
-  assert.match(html, /待确认建议/);
+  assert.match(html, /待处理/);
   assert.match(html, /id="aiSuggestionStatusFilter"/);
-  assert.match(html, /id="aiSuggestionTargetTypeFilter"/);
-  assert.match(html, /data-ai-suggestion-id="suggestion_1"/);
-  assert.match(html, /permanent_note \/ pn_1 \/ thesis/);
-  assert.match(html, /Adopt as draft|采纳为草稿/);
-  assert.match(html, /Reject|拒绝/);
+  assert.doesNotMatch(html, /id="aiSuggestionTargetTypeFilter"/);
+  assert.doesNotMatch(html, /id="aiSuggestionTargetIdFilter"/);
+  assert.doesNotMatch(html, /id="aiSuggestionScopeFilter"/);
+  assert.match(html, /Inbox review target/);
+  assert.match(html, /核心观点/);
+  assert.match(html, /缺：核心观点/);
+  assert.match(html, /AI 建议：核心观点：A reviewable claim starts life as a draft/);
+  assert.match(html, /处理建议/);
+  assert.doesNotMatch(html, /来自：AI 整理/);
+  assert.match(html, /保存这篇建议/);
+  assert.match(html, /暂不处理/);
+  assert.doesNotMatch(html, /data-ai-suggestion-open-note=/);
+  assert.doesNotMatch(html, /permanent_note \/ pn_1 \/ thesis/);
+  assert.doesNotMatch(html, /note_field/);
+  assert.doesNotMatch(html, /\{"thesis"/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
-test("AI suggestions panel renders edited action for adopted draft suggestions", () => {
+test("AI suggestions panel keeps the detail modal closed until a suggestion is selected", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [suggestion],
+    total: 1,
+    filters: { status: "suggested" },
+    selectedSuggestionId: "",
+    detail: null
+  });
+
+  assert.match(html, /Inbox review target/);
+  assert.match(html, /处理建议/);
+  assert.doesNotMatch(html, /ai-suggestion-modal/);
+  assert.doesNotMatch(html, /ai-suggestion-modal-dialog/);
+});
+
+test("AI suggestions panel opens suggestions in one modal action area", () => {
+  const pane = detailPane(renderAiSuggestionsPanel({
+    items: [suggestion],
+    total: 1,
+    selectedSuggestionId: "suggestion_1",
+    detail: suggestion
+  }));
+
+  assert.ok(pane.indexOf("<h3>核心观点</h3>") > -1);
+  assert.ok(pane.indexOf("ai-suggestion-detail-tools") < pane.indexOf("<h3>核心观点</h3>"));
+  assert.doesNotMatch(pane, /ai-suggestion-action-row/);
+  assert.doesNotMatch(pane, /打开笔记/);
+  assert.match(pane, /data-ai-suggestion-close="true"/);
+  assert.match(pane, /data-ai-suggestion-group-status="adopted_as_draft"/);
+  assert.match(pane, /data-ai-suggestion-group-status="rejected"/);
+  assert.equal((pane.match(/ai-suggestion-modal-actions/g) || []).length, 1);
+});
+
+test("AI suggestions detail keeps the note title when latest detail omits it", () => {
+  const pane = detailPane(renderAiSuggestionsPanel({
+    items: [suggestion],
+    total: 1,
+    selectedSuggestionId: "suggestion_1",
+    detail: {
+      ...suggestion,
+      target: { type: "permanent_note", id: "pn_1", field: "three_line_summary" },
+      content: { threeLineSummary: ["First line", "Second line", "Third line"] }
+    }
+  }));
+
+  assert.match(pane, /Inbox review target/);
+  assert.match(pane, /缺：三行摘要/);
+  assert.match(pane, /<h3>三行摘要<\/h3>/);
+  assert.doesNotMatch(pane, /<h2>三行摘要<\/h2>/);
+  assert.doesNotMatch(visibleText(pane), /\bpn_[\w-]+/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-open-note=/);
+});
+
+test("AI suggestions panel replaces vague missing-note titles with the work to do", () => {
+  const untitledSuggestion = {
+    ...suggestion,
+    id: "suggestion_missing_title",
+    target: { type: "permanent_note", id: "pn_missing_title", field: "thesis" },
+    content: "临时记录必须承诺下一步"
+  };
+  const html = renderAiSuggestionsPanel({
+    items: [untitledSuggestion],
+    total: 1,
+    selectedSuggestionId: "suggestion_missing_title",
+    detail: untitledSuggestion
+  });
+
+  assert.match(html, /未命名笔记/);
+  assert.match(html, /缺：核心观点/);
+  assert.match(html, /AI 建议：核心观点：临时记录必须承诺下一步/);
+  assert.doesNotMatch(html, /缺少笔记标题/);
+  assert.doesNotMatch(html, /这篇笔记/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
+});
+
+test("AI suggestions panel groups several suggestions from the same note", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [
+      suggestion,
+      {
+        ...suggestion,
+        id: "suggestion_summary",
+        target: { ...suggestion.target, field: "three_line_summary" },
+        content: { threeLineSummary: ["First line", "Second line", "Third line"] }
+      }
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_1",
+    detail: suggestion
+  });
+  const list = listPane(html);
+  const pane = detailPane(html);
+
+  assert.equal((list.match(/class="ai-inbox-item(?:\s|")/g) || []).length, 1);
+  assert.match(list, /Inbox review target/);
+  assert.match(list, /缺：核心观点、三行摘要/);
+  assert.match(list, /核心观点：A reviewable claim starts life as a draft/);
+  assert.match(list, /三行摘要：First line Second line Third line/);
+  assert.match(list, /处理建议/);
+  assert.match(pane, /<h3>核心观点<\/h3>/);
+  assert.match(pane, /<h3>三行摘要<\/h3>/);
+  assert.match(pane, /data-ai-suggestion-ids="suggestion_1,suggestion_summary"/);
+  assert.equal((pane.match(/data-ai-suggestion-group-status=/g) || []).length, 2);
+  assert.doesNotMatch(pane, /处理这项/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
+});
+
+test("AI suggestions panel does not present the note title as generated content", () => {
+  const title = "02 什么是永久笔记？";
+  const html = renderAiSuggestionsPanel({
+    items: [
+      {
+        ...suggestion,
+        id: "suggestion_title_thesis",
+        target: { ...suggestion.target, title, field: "thesis" },
+        content: title
+      },
+      {
+        ...suggestion,
+        id: "suggestion_title_summary",
+        target: { ...suggestion.target, title, field: "three_line_summary" },
+        content: { threeLineSummary: [title] }
+      }
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_title_thesis",
+    detail: {
+      ...suggestion,
+      id: "suggestion_title_thesis",
+      target: { ...suggestion.target, title, field: "thesis" },
+      content: title
+    }
+  });
+  const list = listPane(html);
+  const pane = detailPane(html);
+
+  assert.match(list, /AI 建议：暂无可用内容/);
+  assert.doesNotMatch(list, /核心观点：02 什么是永久笔记/);
+  assert.doesNotMatch(list, /三行摘要：02 什么是永久笔记/);
+  assert.match(pane, /没有生成可用建议/);
+  assert.doesNotMatch(pane, /保存这篇建议/);
+  assert.match(pane, /data-ai-suggestion-group-status="rejected"/);
+  assert.match(pane, /data-ai-suggestion-ids="suggestion_title_thesis,suggestion_title_summary"/);
+});
+
+test("AI suggestions panel only lets the selected grouped suggestion be edited", () => {
+  const summarySuggestion = {
+    ...suggestion,
+    id: "suggestion_summary",
+    status: "adopted_as_draft",
+    target: { ...suggestion.target, field: "three_line_summary" },
+    content: { threeLineSummary: ["First line", "Second line", "Third line"] }
+  };
+  const pane = detailPane(renderAiSuggestionsPanel({
+    items: [
+      { ...suggestion, status: "adopted_as_draft" },
+      summarySuggestion
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_1",
+    detail: { ...suggestion, status: "adopted_as_draft" },
+    actionSuggestionId: "suggestion_summary",
+    actionError: "Second suggestion failed"
+  }));
+  const summaryStart = pane.indexOf("<h3>三行摘要</h3>");
+  const summarySection = pane.slice(summaryStart, pane.indexOf("</section>", summaryStart));
+
+  assert.match(pane, /id="aiSuggestionContentEditor"/);
+  assert.doesNotMatch(pane, /id="aiSuggestionContentEditor-suggestion_summary"/);
+  assert.match(summarySection, /class="ai-suggestion-content-text"/);
+  assert.match(summarySection, /Second suggestion failed/);
+  assert.match(summarySection, /data-ai-suggestion-id="suggestion_summary"[\s\S]*处理这项/);
+  assert.doesNotMatch(summarySection, /我已改好/);
+});
+
+test("AI suggestions panel renders edited action for adopted draft suggestions in plain language", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, status: "adopted_as_draft" }],
     total: 1,
@@ -40,14 +239,14 @@ test("AI suggestions panel renders edited action for adopted draft suggestions",
     detail: { ...suggestion, status: "adopted_as_draft" }
   });
 
-  assert.match(html, /Mark edited|标记已编辑|标记为已编辑/);
+  assert.match(html, /已存草稿/);
   assert.match(html, /data-ai-suggestion-status="edited"/);
-  assert.match(html, /Open target note|打开目标笔记/);
+  assert.match(html, /我已改好/);
+  assert.match(html, /打开笔记改到满意后/);
   assert.match(html, /id="aiSuggestionContentEditor"/);
-  assert.match(html, /edit the adopted draft in the note itself|打开目标笔记，在笔记里直接编辑已采纳的草稿/i);
 });
 
-test("AI suggestions panel surfaces canonical traceability and review history inside suggestion detail", () => {
+test("AI suggestions panel surfaces canonical traceability without artifact ids or raw field names", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_trace", status: "edited" }],
     total: 1,
@@ -84,26 +283,27 @@ test("AI suggestions panel surfaces canonical traceability and review history in
         type: "InsightCard",
         title: "Field suggestion artifact",
         status: "adopted_as_draft",
-        payload: {
-          fieldSuggestion: {
-            status: "edited"
-          }
-        }
+        payload: { fieldSuggestion: { status: "edited" } }
       }
     }
   });
 
-  assert.match(html, /Source artifact|来源对象/);
-  assert.match(html, /artifact_trace/);
-  assert.match(html, /Linked artifact|关联对象/);
-  assert.match(html, /Field suggestion status|字段建议状态/);
-  assert.match(html, /Review history|审阅历史/);
-  assert.match(html, /Review event: evt_trace|审阅事件：evt_trace/);
+  assert.doesNotMatch(html, /放到哪里/);
+  assert.doesNotMatch(html, /来源笔记/);
+  assert.doesNotMatch(html, /目标笔记/);
+  assert.match(html, /处理记录/);
   assert.match(html, /Tightened the wording/);
   assert.match(html, /data-ai-suggestion-status="confirmed"/);
+  assert.match(html, /确认写入/);
+  assert.doesNotMatch(html, /artifact_trace/);
+  assert.doesNotMatch(html, /关联对象/);
+  assert.doesNotMatch(html, /字段建议状态/);
+  assert.doesNotMatch(html, />thesis</);
+  assert.doesNotMatch(html, /\{\s*&quot;thesis&quot;/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
-test("AI suggestions panel renders trace placeholders and target-missing guidance when detail is incomplete", () => {
+test("AI suggestions panel renders readable guidance when detail is incomplete", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_missing_target", target: { type: "permanent_note", id: "", field: "" }, sourceArtifactId: "" }],
     total: 1,
@@ -116,11 +316,10 @@ test("AI suggestions panel renders trace placeholders and target-missing guidanc
     }
   });
 
-  assert.match(html, /Trace|来源链路/);
-  assert.match(html, /Trace placeholder: this linked review item exists, but its source\/target trace is incomplete\.|这条关联审阅项已经存在，但来源\/目标链路还不完整。/);
-  assert.match(html, /missing target note|缺少目标笔记/);
-  assert.match(html, /This linked review item is not connected to a target note yet\.|这条关联审阅项还没有连接到目标笔记。/i);
-  assert.match(html, /data-ai-suggestion-open-note=""[\s\S]*disabled/);
+  assert.match(html, /这条整理暂时找不到要打开的笔记/);
+  assert.doesNotMatch(html, /data-ai-suggestion-open-note=/);
+  assert.doesNotMatch(html, /Trace placeholder:/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel prefers canonical trace fields over incomplete item targets", () => {
@@ -153,10 +352,11 @@ test("AI suggestions panel prefers canonical trace fields over incomplete item t
     }
   });
 
-  assert.match(html, /artifact_trace_priority/);
-  assert.match(html, /Target note<\/dt><dd>pn_trace|目标笔记<\/dt><dd>pn_trace/);
-  assert.match(html, /Target field<\/dt><dd>thesis|目标字段<\/dt><dd>thesis/);
-  assert.doesNotMatch(html, /Trace placeholder:/);
+  assert.match(html, /核心观点/);
+  assert.doesNotMatch(html, /目标笔记<\/dt><dd>pn_trace/);
+  assert.doesNotMatch(html, /放到哪里/);
+  assert.doesNotMatch(html, /artifact_trace_priority/);
+  assert.doesNotMatch(visibleText(html), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel renders confirm action only after a suggestion is edited", () => {
@@ -167,14 +367,14 @@ test("AI suggestions panel renders confirm action only after a suggestion is edi
     detail: { ...suggestion, status: "edited" }
   });
 
-  assert.match(html, /Confirm|确认/);
+  assert.match(html, /确认写入/);
   assert.match(html, /data-ai-suggestion-status="confirmed"/);
-  assert.match(html, /Ready to confirm|可确认/);
+  assert.match(html, /可以确认/);
   assert.match(html, /id="aiSuggestionContentEditor"/);
 });
 
 test("AI suggestions panel does not keep rendering stale detail when selection has moved", () => {
-  const html = renderAiSuggestionsPanel({
+  const pane = detailPane(renderAiSuggestionsPanel({
     items: [
       { ...suggestion, id: "suggestion_a", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
       { ...suggestion, id: "suggestion_b", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
@@ -185,70 +385,57 @@ test("AI suggestions panel does not keep rendering stale detail when selection h
       item: { ...suggestion, id: "suggestion_a", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
       trace: { sourceArtifactId: "artifact_a", targetNoteId: "pn_a", targetField: "thesis" }
     }
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
 
-  assert.doesNotMatch(detailPane, /permanent_note \/ pn_a \/ thesis/);
-  assert.match(detailPane, /permanent_note \/ pn_b \/ thesis/);
-  assert.match(detailPane, /Review safety|审阅安全/);
-  assert.match(detailPane, /Load the latest detail before running review actions|先加载最新详情，再执行审阅动作/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-status=/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-open-note=/);
+  assert.match(pane, /核心观点/);
+  assert.doesNotMatch(visibleText(pane), /\bpn_[\w-]+/);
+  assert.match(pane, /正在确认/);
+  assert.match(pane, /先读取最新内容/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-status=/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-open-note=/);
 });
 
-test("AI suggestions panel stops on review safety when the latest detail has not loaded yet", () => {
-  const html = renderAiSuggestionsPanel({
+test("AI suggestions panel stops on safety while selected latest detail is unavailable", () => {
+  const pane = detailPane(renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_pending", status: "edited" }],
     total: 1,
     selectedSuggestionId: "suggestion_pending",
     detail: null
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
 
-  assert.match(detailPane, /Review safety|审阅安全/);
-  assert.match(detailPane, /Load the latest detail before running review actions|先加载最新详情，再执行审阅动作/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-status=/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-open-note=/);
-  assert.doesNotMatch(detailPane, /id="aiSuggestionContentEditor"/);
+  assert.match(pane, /正在确认/);
+  assert.match(pane, /先读取最新内容/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-status=/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-open-note=/);
+  assert.doesNotMatch(pane, /id="aiSuggestionContentEditor"/);
 });
 
-test("AI suggestions panel keeps review safety visible while the selected latest detail is hydrating", () => {
-  const html = renderAiSuggestionsPanel({
+test("AI suggestions panel keeps safety state visible while latest detail hydrates or fails", () => {
+  const loadingPane = detailPane(renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_loading", status: "adopted_as_draft" }],
     total: 1,
     selectedSuggestionId: "suggestion_loading",
     detail: null,
     detailSuggestionId: "suggestion_loading",
     detailLoading: true
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
+  assert.match(loadingPane, /正在加载最新内容/);
+  assert.match(loadingPane, /class="ai-inbox-detail is-busy"/);
 
-  assert.match(detailPane, /Review safety|审阅安全/);
-  assert.match(detailPane, /Loading latest detail|正在加载最新详情/);
-  assert.match(detailPane, /class="ai-inbox-detail is-busy"/);
-  assert.doesNotMatch(detailPane, /id="aiSuggestionContentEditor"/);
-});
-
-test("AI suggestions panel keeps review safety visible when the selected latest detail fails to load", () => {
-  const html = renderAiSuggestionsPanel({
+  const errorPane = detailPane(renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_detail_error" }],
     total: 1,
     selectedSuggestionId: "suggestion_detail_error",
     detail: null,
     detailSuggestionId: "suggestion_detail_error",
     detailError: "detail boom"
-  });
-
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
-
-  assert.match(html, /data-ai-suggestion-id="suggestion_detail_error"/);
-  assert.match(detailPane, /Review safety|审阅安全/);
-  assert.match(detailPane, /AI suggestion detail failed to load: detail boom|AI 建议详情加载失败：detail boom/);
-  assert.doesNotMatch(html, /AI suggestions failed to load|AI 建议加载失败/);
+  }));
+  assert.match(errorPane, /详情加载失败：detail boom/);
+  assert.doesNotMatch(errorPane, /待处理加载失败/);
 });
 
-test("AI suggestions panel does not keep rendering stale detail loading after selection has moved", () => {
-  const html = renderAiSuggestionsPanel({
+test("AI suggestions panel ignores stale detail loading and errors after selection has moved", () => {
+  const loadingPane = detailPane(renderAiSuggestionsPanel({
     items: [
       { ...suggestion, id: "suggestion_a", status: "edited", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
       { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
@@ -258,15 +445,12 @@ test("AI suggestions panel does not keep rendering stale detail loading after se
     detail: { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } },
     detailSuggestionId: "suggestion_a",
     detailLoading: true
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
+  assert.doesNotMatch(loadingPane, /正在加载建议详情/);
+  assert.match(loadingPane, /核心观点/);
+  assert.doesNotMatch(visibleText(loadingPane), /\bpn_[\w-]+/);
 
-  assert.doesNotMatch(detailPane, /Loading suggestion detail|正在加载建议详情/);
-  assert.match(detailPane, /permanent_note \/ pn_b \/ thesis/);
-});
-
-test("AI suggestions panel does not keep rendering stale detail errors after selection has moved", () => {
-  const html = renderAiSuggestionsPanel({
+  const errorPane = detailPane(renderAiSuggestionsPanel({
     items: [
       { ...suggestion, id: "suggestion_a", status: "edited", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
       { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
@@ -276,15 +460,14 @@ test("AI suggestions panel does not keep rendering stale detail errors after sel
     detail: { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } },
     detailSuggestionId: "suggestion_a",
     detailError: "detail boom"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
-
-  assert.doesNotMatch(detailPane, /AI suggestion detail failed to load: detail boom|AI 建议详情加载失败：detail boom/);
-  assert.match(detailPane, /permanent_note \/ pn_b \/ thesis/);
+  }));
+  assert.doesNotMatch(errorPane, /详情加载失败：detail boom/);
+  assert.match(errorPane, /核心观点/);
+  assert.doesNotMatch(visibleText(errorPane), /\bpn_[\w-]+/);
 });
 
-test("AI suggestions panel surfaces review action errors inside the detail pane", () => {
-  const html = renderAiSuggestionsPanel({
+test("AI suggestions panel surfaces scoped action errors and notices only for the selected suggestion", () => {
+  const errorHtml = renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_action_error", status: "edited" }],
     total: 1,
     selectedSuggestionId: "suggestion_action_error",
@@ -292,9 +475,24 @@ test("AI suggestions panel surfaces review action errors inside the detail pane"
     actionSuggestionId: "suggestion_action_error",
     actionError: "action boom"
   });
+  assert.match(errorHtml, /处理失败：action boom/);
+  assert.match(errorHtml, /data-ai-suggestion-status="confirmed"/);
 
-  assert.match(html, /AI suggestion review failed: action boom|AI 建议审阅失败：action boom/);
-  assert.match(html, /data-ai-suggestion-status="confirmed"/);
+  const staleNoticePane = detailPane(renderAiSuggestionsPanel({
+    items: [
+      { ...suggestion, id: "suggestion_a", status: "edited", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
+      { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_b",
+    detail: { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } },
+    actionNoticeSuggestionId: "suggestion_a",
+    actionNotice: "This reviewed suggestion is already confirmed.",
+    actionNoticeTone: "ok"
+  }));
+  assert.doesNotMatch(staleNoticePane, /This reviewed suggestion is already confirmed\./);
+  assert.match(staleNoticePane, /核心观点/);
+  assert.doesNotMatch(visibleText(staleNoticePane), /\bpn_[\w-]+/);
 });
 
 test("AI suggestions panel does not mutate scoped detail or action state back onto the input state", () => {
@@ -322,114 +520,45 @@ test("AI suggestions panel does not mutate scoped detail or action state back on
   assert.equal(state.actionNoticeTone, "ok");
 });
 
-test("AI suggestions panel surfaces inline review notices inside the detail pane", () => {
-  const html = renderAiSuggestionsPanel({
-    items: [{ ...suggestion, id: "suggestion_action_notice", status: "confirmed" }],
-    total: 1,
-    selectedSuggestionId: "suggestion_action_notice",
-    detail: { ...suggestion, id: "suggestion_action_notice", status: "confirmed" },
-    actionNoticeSuggestionId: "suggestion_action_notice",
-    actionNotice: "This reviewed suggestion is already confirmed.",
-    actionNoticeTone: "ok"
-  });
-
-  assert.match(html, /data-ai-suggestion-action-notice="true"/);
-  assert.match(html, /class="scheduled-task-empty tone-ok" data-ai-suggestion-action-notice="true"/);
-  assert.match(html, /This reviewed suggestion is already confirmed\./);
-});
-
-test("AI suggestions panel keeps owned review notices visible behind the review-safety gate", () => {
-  const html = renderAiSuggestionsPanel({
+test("AI suggestions panel keeps owned notices, errors, and busy state behind the safety gate", () => {
+  const noticePane = detailPane(renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_action_notice", status: "confirmed" }],
     total: 1,
     selectedSuggestionId: "suggestion_action_notice",
     detail: null,
     actionNoticeSuggestionId: "suggestion_action_notice",
-    actionNotice: "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.",
+    actionNotice: "Another AI suggestion review is still running.",
     actionNoticeTone: "warn"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
+  assert.match(noticePane, /正在确认/);
+  assert.match(noticePane, /class="scheduled-task-empty tone-warn" data-ai-suggestion-action-notice="true"/);
+  assert.doesNotMatch(noticePane, /data-ai-suggestion-status=/);
 
-  assert.match(detailPane, /Review safety|审阅安全/);
-  assert.match(detailPane, /class="scheduled-task-empty tone-warn" data-ai-suggestion-action-notice="true"/);
-  assert.match(detailPane, /Another AI suggestion review is still running/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-status=/);
-});
-
-test("AI suggestions panel keeps owned review errors visible behind the review-safety gate", () => {
-  const html = renderAiSuggestionsPanel({
+  const errorPane = detailPane(renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_action_error", status: "edited" }],
     total: 1,
     selectedSuggestionId: "suggestion_action_error",
     detail: null,
     actionSuggestionId: "suggestion_action_error",
     actionError: "action boom"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
+  assert.match(errorPane, /处理失败：action boom/);
+  assert.doesNotMatch(errorPane, /data-ai-suggestion-status=/);
 
-  assert.match(detailPane, /Review safety|审阅安全/);
-  assert.match(detailPane, /AI suggestion review failed: action boom|AI 建议审阅失败：action boom/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-status=/);
-});
-
-test("AI suggestions panel keeps owned busy state visible behind the review-safety gate", () => {
-  const html = renderAiSuggestionsPanel({
+  const busyPane = detailPane(renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_busy", status: "edited" }],
     total: 1,
     selectedSuggestionId: "suggestion_busy",
     detail: null,
     actionLoading: true,
-    actionSuggestionId: "suggestion_busy",
-    actionNoticeSuggestionId: "suggestion_busy",
-    actionNotice: "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.",
-    actionNoticeTone: "warn"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
-
-  assert.match(detailPane, /class="ai-inbox-detail is-busy"/);
-  assert.match(detailPane, /Review safety|审阅安全/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-status=/);
-});
-
-test("AI suggestions panel does not surface stale review notices after selection has moved", () => {
-  const html = renderAiSuggestionsPanel({
-    items: [
-      { ...suggestion, id: "suggestion_a", status: "edited", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
-      { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
-    ],
-    total: 2,
-    selectedSuggestionId: "suggestion_b",
-    detail: { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } },
-    actionNoticeSuggestionId: "suggestion_a",
-    actionNotice: "This reviewed suggestion is already confirmed.",
-    actionNoticeTone: "ok"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
-
-  assert.doesNotMatch(detailPane, /This reviewed suggestion is already confirmed\./);
-  assert.match(detailPane, /permanent_note \/ pn_b \/ thesis/);
-});
-
-test("AI suggestions panel does not surface stale review action errors after selection has moved", () => {
-  const html = renderAiSuggestionsPanel({
-    items: [
-      { ...suggestion, id: "suggestion_a", status: "edited", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
-      { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
-    ],
-    total: 2,
-    selectedSuggestionId: "suggestion_b",
-    detail: { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } },
-    actionSuggestionId: "suggestion_a",
-    actionError: "action boom"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
-
-  assert.doesNotMatch(detailPane, /AI suggestion review failed: action boom|AI 建议审阅失败：action boom/);
-  assert.match(detailPane, /permanent_note \/ pn_b \/ thesis/);
+    actionSuggestionId: "suggestion_busy"
+  }));
+  assert.match(busyPane, /class="ai-inbox-detail is-busy"/);
+  assert.match(busyPane, /正在确认/);
 });
 
 test("AI suggestions panel does not keep disabling review actions after selection has moved", () => {
-  const html = renderAiSuggestionsPanel({
+  const pane = detailPane(renderAiSuggestionsPanel({
     items: [
       { ...suggestion, id: "suggestion_a", status: "edited", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
       { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
@@ -439,31 +568,56 @@ test("AI suggestions panel does not keep disabling review actions after selectio
     detail: { ...suggestion, id: "suggestion_b", status: "edited", target: { type: "permanent_note", id: "pn_b", field: "thesis" } },
     actionLoading: true,
     actionSuggestionId: "suggestion_a"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
 
-  assert.match(detailPane, /data-ai-suggestion-status="confirmed"/);
-  assert.doesNotMatch(detailPane, /data-ai-suggestion-status="confirmed"[\s\S]*disabled/);
+  assert.match(pane, /data-ai-suggestion-status="confirmed"/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-status="confirmed"[\s\S]*disabled/);
 });
 
 test("AI suggestions panel marks the current suggestion detail busy while its review action is in flight", () => {
-  const html = renderAiSuggestionsPanel({
+  const pane = detailPane(renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_busy", status: "edited", target: { type: "permanent_note", id: "pn_busy", field: "thesis" } }],
     total: 1,
     selectedSuggestionId: "suggestion_busy",
     detail: { ...suggestion, id: "suggestion_busy", status: "edited", target: { type: "permanent_note", id: "pn_busy", field: "thesis" } },
     actionLoading: true,
     actionSuggestionId: "suggestion_busy"
-  });
-  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+  }));
 
-  assert.match(detailPane, /class="ai-inbox-detail is-busy"/);
-  assert.match(detailPane, /id="aiSuggestionContentEditor"[^>]*disabled/);
-  assert.match(detailPane, /data-ai-suggestion-open-note="pn_busy"[^>]*disabled/);
-  assert.match(detailPane, /data-ai-suggestion-status="confirmed"[\s\S]*disabled/);
+  assert.match(pane, /class="ai-inbox-detail is-busy"/);
+  assert.match(pane, /id="aiSuggestionContentEditor"[^>]*disabled/);
+  assert.match(pane, /data-ai-suggestion-open-note="pn_busy"[^>]*disabled/);
+  assert.match(pane, /data-ai-suggestion-status="confirmed"[\s\S]*disabled/);
 });
 
 test("AI suggestions panel renders loading and empty states", () => {
-  assert.match(renderAiSuggestionsPanel({ loading: true }), /正在加载待确认建议/);
-  assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合这些筛选条件的待确认建议/);
+  assert.match(renderAiSuggestionsPanel({ loading: true }), /正在加载待处理/);
+  assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合筛选条件的待处理/);
+});
+
+test("AI suggestions compact mode keeps an empty automation tab quiet", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [],
+    total: 0,
+    compact: true
+  });
+
+  assert.match(html, /现在没有待处理/);
+  assert.doesNotMatch(html, /待处理内容/);
+  assert.doesNotMatch(html, /id="btnAiSuggestionsApplyFilters"/);
+  assert.doesNotMatch(html, /ai-inbox-detail-pane/);
+  assert.doesNotMatch(html, /0\/0 条/);
+});
+
+test("AI suggestions compact mode keeps filters visible when an empty filter is active", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [],
+    total: 0,
+    compact: true,
+    filters: { status: "suggested" }
+  });
+
+  assert.match(html, /现在没有待处理/);
+  assert.match(html, /id="btnAiSuggestionsApplyFilters"/);
+  assert.match(html, /待确认/);
 });

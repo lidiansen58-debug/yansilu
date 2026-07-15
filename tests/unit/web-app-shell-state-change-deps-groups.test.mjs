@@ -20,9 +20,9 @@ test("app shell graph state-change deps keeps graph and navigation actions toget
     state: { module: "graph" },
     explorer: { id: "explorer" },
     graphState: { loading: false },
-    graphRelationWorkflowController: { id: "workflow" },
     graphAssociateNoteRoute: () => ({ kind: "graph-open-isolated" }),
     graphNodeNeedsRelationWorkflowFromCurrentGraph: () => true,
+    openRelationComposerFromGraphAction: () => true,
     applyExplorerSelectionContext: () => {},
     setGraphIsolatedWorkflowActiveTab: () => {},
     openGraphSelection: () => {},
@@ -37,7 +37,7 @@ test("app shell graph state-change deps keeps graph and navigation actions toget
 
   assert.equal(deps.refreshGraph.graphState, host.graphState);
   assert.equal(deps.graphFocusNote.graphOriginalScopeDirectoryId, "original-root");
-  assert.equal(deps.graphAssociateNote.graphRelationWorkflowController, host.graphRelationWorkflowController);
+  assert.equal(deps.graphAssociateNote.openRelationComposerFromGraphAction, host.openRelationComposerFromGraphAction);
   assert.equal(deps.graphAssociateNote.openGraphSelection, host.openGraphSelection);
   assert.equal(deps.openNoteRelations.openNoteRelationEditor, host.openNoteRelationEditor);
   assert.equal("saveNote" in deps, false);

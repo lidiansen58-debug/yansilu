@@ -48,17 +48,16 @@ export function permanentNoteRelationAssistViewState({
   });
   const relationText =
     explicitRelationCount === null
-      ? "正在读取这条笔记的正式关系。读取完成后再保存新关系。"
+      ? "正在读取关系。"
       : explicitRelationCount > 0
-        ? `已有 ${explicitRelationCount} 条正式关系。还可以继续补一条更关键的连接。`
+        ? `已有 ${explicitRelationCount} 条关系。`
         : wikilinkCount || tagRelatedCount
-          ? "现在只有正文链接或同标签接近，还不是正式关系。请选择一条最关键的连接并写清理由。"
-          : "还没有正式关系。请先关联一条真正相关的永久笔记，并写清为什么相关。";
+          ? "有线索，选一条保存为关联。"
+          : "找一条真正相关的笔记。";
   return {
     ...assistState,
     relationText,
-    primaryLabel: analysis ? "查看 AI 推荐" : "AI 找关联",
-    manualLabel: "手动搜索"
+    primaryLabel: assistState.relationCandidates > 0 ? `AI推荐 ${assistState.relationCandidates}` : "AI推荐"
   };
 }
 
@@ -76,21 +75,5 @@ export function renderPermanentNoteRelationAssistSection({
     tagRelatedCount,
     analysis
   });
-  return `
-    <section class="permanent-workspace-card relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}">
-      <div>
-        <strong>建立一条正式关系</strong>
-        <p>${escapeHtml(assist.relationText)}</p>
-      </div>
-      ${
-        analysis && assist.relationCandidates
-          ? `<div class="permanent-workspace-ai-note">AI 推荐了 ${escapeHtml(String(assist.relationCandidates))} 条可能关联。你选择并保存后才会建立关系。</div>`
-          : ""
-      }
-      <div class="semantic-relation-actions">
-        <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai">${escapeHtml(assist.primaryLabel)}</button>
-        <button class="mini-btn" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="manual">${escapeHtml(assist.manualLabel)}</button>
-      </div>
-    </section>
-  `;
+  return `<div class="relation-assist-panel" data-note-relation-assist-section data-note-id="${escapeHtml(note.id)}" data-relation-ai-count="${escapeHtml(String(assist.relationCandidates || 0))}" hidden></div>`;
 }

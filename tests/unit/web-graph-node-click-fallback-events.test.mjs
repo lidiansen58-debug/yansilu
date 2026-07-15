@@ -62,7 +62,7 @@ test("graph node click fallback routes current graph canvas node clicks once", a
   assert.equal(events[0].stopped, true);
 });
 
-test("graph node click fallback opens isolated nodes directly", async () => {
+test("graph node click fallback opens isolated nodes in the shared relation composer", async () => {
   const documentRef = createDocument();
   const calls = [];
   const graphNode = {
@@ -81,14 +81,24 @@ test("graph node click fallback opens isolated nodes directly", async () => {
   };
 
   installGraphNodeClickFallbackEvents(documentRef, {
-    openGraphSelection: (selection) => calls.push(selection),
+    openRelationComposerFromGraphAction: (payload) => {
+      calls.push(["composer", payload]);
+      return true;
+    },
+    openGraphSelection: () => calls.push(["legacy-selection"]),
     openGraphNodeSelectionFromElement: () => calls.push("node")
   });
 
   documentRef.listeners.get("click")[0].handler(event);
   await nextTick();
 
-  assert.deepEqual(calls, [{ kind: "relationForm", noteId: "isolated", returnTo: "isolated" }]);
+  assert.deepEqual(calls, [["composer", {
+    noteId: "isolated",
+    source: "graph",
+    candidateSource: "graph-isolated-node",
+    isolatedKey: "",
+    returnTo: "graph"
+  }]]);
 });
 
 test("graph workbench click fallback opens summary workbench entries", () => {
@@ -114,11 +124,11 @@ test("graph workbench click fallback opens summary workbench entries", () => {
 
   const installed = installGraphWorkbenchClickFallbackEvents(documentRef, {
     graphState,
-    graphWorkbenchTabMeta: (key) => ({ key, label: "关联任务", statusLabel: "关联任务" }),
+    graphWorkbenchTabMeta: (key) => ({ key, label: "补全关系", statusLabel: "补全关系" }),
     applyGraphWorkbenchEntryInteraction: (state, key) => {
       calls.push(["entry", key]);
       state.workbenchPanelOpen = true;
-      return { open: true, meta: { label: "关联任务", statusLabel: "关联任务" } };
+      return { open: true, meta: { label: "补全关系", statusLabel: "补全关系" } };
     },
     renderGraphPanel: () => calls.push(["render"]),
     setStatus: (message, tone) => calls.push(["status", message, tone])
@@ -133,6 +143,73 @@ test("graph workbench click fallback opens summary workbench entries", () => {
   assert.deepEqual(calls, [
     ["entry", "clues"],
     ["render"],
-    ["status", "已打开关联任务", "ok"]
+    ["status", "已打开补全关系", "ok"]
   ]);
+});
+
+test("graph workbench click fallback keeps empty scan mode in relation workbench", () => {
+  const documentRef = createDocument();
+  const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "" };
+  const calls = [];
+  const button = {
+    getAttribute(name) {
+      return name === "data-run-graph-ai-analysis" ? "" : "";
+    }
+  };
+  const event = {
+    prevented: false,
+    stopped: false,
+    preventDefault() { this.prevented = true; },
+    stopImmediatePropagation() { this.stopped = true; },
+    target: {
+      closest(selector) {
+        return selector === "[data-run-graph-ai-analysis]" ? button : null;
+      }
+    }
+  };
+
+  installGraphWorkbenchClickFallbackEvents(documentRef, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    runGraphAiAnalysis: () => calls.push(["run"])
+  });
+
+  documentRef.listeners.get("click")[0].handler(event);
+
+  assert.equal(event.prevented, true);
+  assert.equal(event.stopped, true);
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "clues");
+  assert.deepEqual(calls, [["render"], ["run"]]);
+});
+
+test("graph workbench click fallback toggles guide entry", () => {
+  const documentRef = createDocument();
+  const graphState = { workbenchGuideOpen: false };
+  const calls = [];
+  const button = {};
+  const event = {
+    prevented: false,
+    stopped: false,
+    preventDefault() { this.prevented = true; },
+    stopImmediatePropagation() { this.stopped = true; },
+    target: {
+      closest(selector) {
+        return selector === "[data-graph-workbench-guide-toggle]" ? button : null;
+      }
+    }
+  };
+
+  installGraphWorkbenchClickFallbackEvents(documentRef, {
+    graphState,
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
+
+  documentRef.listeners.get("click")[0].handler(event);
+
+  assert.equal(event.prevented, true);
+  assert.equal(event.stopped, true);
+  assert.equal(graphState.workbenchGuideOpen, true);
+  assert.deepEqual(calls, [["render"], ["status", "已展开说明", "ok"]]);
 });

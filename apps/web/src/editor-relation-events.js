@@ -8,6 +8,52 @@ function eventTarget(event) {
   return event?.target?.closest ? event.target : null;
 }
 
+function cleanId(value = "") {
+  return String(value || "").trim();
+}
+
+function escapeSelectorValue(value = "") {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(String(value));
+  }
+  return String(value).replace(/["\\]/g, "\\$&");
+}
+
+function relationPeerNoteId(link = {}, activeNoteId = "") {
+  const noteId = cleanId(activeNoteId);
+  const fromNoteId = cleanId(link?.fromNoteId || link?.from_note_id || link?.sourceNoteId || link?.source_note_id);
+  const toNoteId = cleanId(link?.toNoteId || link?.to_note_id || link?.targetNoteId || link?.target_note_id);
+  if (fromNoteId === noteId) return toNoteId;
+  if (toNoteId === noteId) return fromNoteId;
+  return toNoteId || fromNoteId;
+}
+
+function openExistingRelationWorkspace(host, relationId = "") {
+  const cleanRelationId = cleanId(relationId);
+  const relation = cleanRelationId ? host.findSemanticRelation?.(cleanRelationId) : null;
+  const activeNoteId = cleanId(host.activeNote?.()?.id);
+  const targetNoteId = relationPeerNoteId(relation, activeNoteId);
+  if (!relation || !targetNoteId || !host.openPermanentRelationWorkspace) return false;
+  closeEditorRelatedPopovers(typeof document !== "undefined" ? document : host.els?.editorWrap || null);
+  return host.openPermanentRelationWorkspace({
+    source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
+    mode: "manual",
+    targetNoteId,
+    relationType: relation.relationType || relation.relation_type || "associated_with",
+    rationaleDraft: relation.rationale || "",
+    insightQuestionDraft: relation.insightQuestion || relation.insight_question || ""
+  }) === true;
+}
+
+export function closeEditorRelatedPopovers(scope = typeof document !== "undefined" ? document : null) {
+  scope?.querySelectorAll?.("[data-editor-related-popover]")?.forEach((popover) => {
+    popover.hidden = true;
+  });
+  scope?.querySelectorAll?.("[data-editor-related-floating-popover]")?.forEach((popover) => {
+    popover.remove();
+  });
+}
+
 export function routeEditorRelationClick(host, event) {
   const target = eventTarget(event);
   if (!target) return false;
@@ -38,15 +84,70 @@ export function routeEditorRelationClick(host, event) {
     return true;
   }
 
-  const permanentRelationAiTarget = target.closest("[data-permanent-relation-ai-target]");
-  if (permanentRelationAiTarget) {
-    host.choosePermanentRelationAiCandidate(permanentRelationAiTarget.getAttribute("data-permanent-relation-ai-target"));
-    return true;
-  }
-
   const permanentRelationManualTarget = target.closest("[data-permanent-relation-manual-target]");
   if (permanentRelationManualTarget) {
     host.choosePermanentRelationManualTarget(permanentRelationManualTarget.getAttribute("data-permanent-relation-manual-target"));
+    return true;
+  }
+
+  const permanentRelationAiTarget = target.closest("[data-permanent-relation-ai-target]");
+  if (permanentRelationAiTarget) {
+    const targetNoteId = cleanId(permanentRelationAiTarget.getAttribute("data-permanent-relation-ai-target"));
+    if (!targetNoteId) return true;
+    host.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+      ...host.permanentRelationWorkspaceState,
+      mode: "ai",
+      selectedTargetNoteId: targetNoteId,
+      relationType: cleanId(permanentRelationAiTarget.getAttribute("data-relation-type")).toLowerCase() || "associated_with",
+      rationale: cleanId(permanentRelationAiTarget.getAttribute("data-relation-rationale-draft")),
+      insightQuestion: cleanId(permanentRelationAiTarget.getAttribute("data-relation-insight-question-draft")),
+      dirty: true
+    }));
+    return true;
+  }
+
+  const editorRelatedPopoverClose = target.closest("[data-editor-related-popover-close]");
+  if (editorRelatedPopoverClose) {
+    const popover = editorRelatedPopoverClose.closest("[data-editor-related-popover]");
+    if (popover?.hasAttribute("data-editor-related-floating-popover")) popover.remove();
+    else if (popover) popover.hidden = true;
+    return true;
+  }
+
+  const editorRelatedExistingOverview = target.closest("[data-editor-related-existing-overview]");
+  if (editorRelatedExistingOverview) {
+    const actions = editorRelatedExistingOverview.closest("[data-editor-body-relation-actions]");
+    const template = actions?.querySelector?.("[data-editor-related-popover]");
+    if (!template) return true;
+    const existingFloating = document.querySelector("[data-editor-related-floating-popover][data-editor-body-relation-popover]");
+    const shouldOpen = !existingFloating;
+    closeEditorRelatedPopovers(document);
+    if (shouldOpen) {
+      const floating = template.cloneNode(true);
+      floating.hidden = false;
+      floating.setAttribute("data-editor-related-floating-popover", "");
+      floating.setAttribute("data-editor-body-relation-popover", "");
+      (host.els?.editorWrap || document.body).appendChild(floating);
+    }
+    return true;
+  }
+
+  const editorRelatedExisting = target.closest("[data-editor-related-existing]");
+  if (editorRelatedExisting) {
+    const noteId = String(editorRelatedExisting.getAttribute("data-editor-related-existing") || "").trim();
+    const panel = editorRelatedExisting.closest("[data-editor-related-notes-panel]");
+    const selectorNoteId = escapeSelectorValue(noteId);
+    const template = panel?.querySelector?.(`[data-editor-related-popover-for="${selectorNoteId}"]`);
+    if (!template) return true;
+    const existingFloating = document.querySelector(`[data-editor-related-floating-popover][data-editor-related-popover-for="${selectorNoteId}"]`);
+    const shouldOpen = !existingFloating;
+    closeEditorRelatedPopovers(document);
+    if (shouldOpen) {
+      const floating = template.cloneNode(true);
+      floating.hidden = false;
+      floating.setAttribute("data-editor-related-floating-popover", "");
+      (host.els?.result || document.body).appendChild(floating);
+    }
     return true;
   }
 
@@ -54,10 +155,18 @@ export function routeEditorRelationClick(host, event) {
   if (permanentRelationAction) {
     const action = String(permanentRelationAction.getAttribute("data-permanent-relation-action") || "").trim();
     if (action === "open") {
-      host.openPermanentRelationWorkspace(relationEntryRouteFromElement(permanentRelationAction, {
+      const route = relationEntryRouteFromElement(permanentRelationAction, {
         source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
         noteId: host.activeNote()?.id || ""
-      }));
+      });
+      const opened = host.openPermanentRelationWorkspace(route);
+      const noteId = cleanId(route.noteId || host.activeNote?.()?.id || "");
+      const candidates = typeof host.permanentRelationWorkspaceAiCandidates === "function"
+        ? host.permanentRelationWorkspaceAiCandidates(noteId)
+        : [];
+      if (opened && route.mode === "ai" && !candidates.length && typeof host.runPermanentNoteAnalysis === "function") {
+        void host.runPermanentNoteAnalysis();
+      }
       return true;
     }
     if (action === "close" || action === "complete") {
@@ -68,14 +177,19 @@ export function routeEditorRelationClick(host, event) {
       host.continuePermanentRelationWorkspace();
       return true;
     }
-    if (action === "run-ai") {
-      host.patchPermanentRelationWorkspaceState({ saveState: "analysis-loading", error: "", notice: "" });
-      void host.runPermanentNoteAnalysis();
-      return true;
-    }
-    if (action === "preview-target") {
-      const noteId = permanentRelationAction.getAttribute("data-note-id") || "";
-      if (noteId) void host.showNotePreviewInInspector(noteId, { eyebrow: "目标笔记" });
+    if (action === "recommend") {
+      const noteId = cleanId(host.permanentRelationWorkspaceState?.noteId || host.activeNote?.()?.id || "");
+      host.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
+        ...host.permanentRelationWorkspaceState,
+        mode: "ai",
+        selectedTargetNoteId: ""
+      }));
+      const candidates = typeof host.permanentRelationWorkspaceAiCandidates === "function"
+        ? host.permanentRelationWorkspaceAiCandidates(noteId)
+        : [];
+      if (!candidates.length && typeof host.runPermanentNoteAnalysis === "function") {
+        void host.runPermanentNoteAnalysis();
+      }
       return true;
     }
   }
@@ -95,10 +209,26 @@ export function routeEditorRelationClick(host, event) {
   if (!relationAction) return false;
 
   const action = relationAction.dataset.relationAction;
+  if (action === "switch-tab") {
+    const tab = String(relationAction.dataset.relationTab || "").trim();
+    const section = relationAction.closest("[data-note-relations-section]");
+    if (!section || !tab) return true;
+    section.querySelectorAll("[data-relation-tab]").forEach((button) => {
+      const isActive = button.getAttribute("data-relation-tab") === tab;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    section.querySelectorAll("[data-relation-tab-panel]").forEach((panel) => {
+      panel.hidden = panel.getAttribute("data-relation-tab-panel") !== tab;
+    });
+    return true;
+  }
   if (action === "open-create") {
     host.openCreateRelationForm({
-      source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
-      mode: "manual"
+      source: RELATION_ENTRY_SOURCES.PERMANENT_WORKSPACE,
+      mode: "manual",
+      targetNoteId: relationAction.dataset.relationTargetNote || "",
+      returnTo: "permanent-relation-workspace"
     });
     return true;
   }
@@ -127,6 +257,7 @@ export function routeEditorRelationClick(host, event) {
     return true;
   }
   if (action === "open-edit") {
+    if (openExistingRelationWorkspace(host, relationAction.dataset.relationId)) return true;
     host.openEditRelationForm(relationAction.dataset.relationId);
     return true;
   }
@@ -159,12 +290,6 @@ export function routeEditorRelationInput(host, event) {
   const permanentRelationSearch = target.closest("[data-permanent-relation-target-search]");
   if (permanentRelationSearch) {
     host.queuePermanentRelationManualSearch(permanentRelationSearch);
-    return true;
-  }
-
-  const permanentRelationAiSelect = target.closest("[data-permanent-relation-ai-select]");
-  if (permanentRelationAiSelect) {
-    host.choosePermanentRelationAiCandidate(permanentRelationAiSelect.value || "");
     return true;
   }
 

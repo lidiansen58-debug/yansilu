@@ -46,7 +46,7 @@ export function buildGraphVisualMapSelectionState({
   const fallbackSelectionKind = String(graphSelection?.kind || "").trim();
   const fallbackSelectionNoteId = String(graphSelection?.noteId || graphSelection?.nodeId || "").trim();
   const activeSelection = normalizedSelection || (
-    fallbackSelectionNoteId && ["isolated", "isolatedComplete", "relationForm"].includes(fallbackSelectionKind)
+    fallbackSelectionNoteId && ["isolated", "isolatedComplete"].includes(fallbackSelectionKind)
       ? { ...graphSelection, kind: fallbackSelectionKind, noteId: fallbackSelectionNoteId }
       : null
   );

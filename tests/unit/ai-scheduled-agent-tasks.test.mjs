@@ -46,13 +46,21 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
     scope: { directoryIds: ["dir_original_default"], tags: ["writing"], keywords: ["model neutrality", "note links"] },
     now: "2026-05-11T00:00:00.000Z"
   });
+  const themeTask = createScheduledTaskFromTemplate({
+    templateId: "writable_theme_discovery",
+    workspaceId: "workspace_templates",
+    userId: "user_templates",
+    now: "2026-05-11T00:00:00.000Z"
+  });
 
   assert.deepEqual(
     readyTemplates.map((template) => template.templateId).sort(),
-    ["reflection_reminder", "weekly_link_suggestions"].sort()
+    ["reflection_reminder", "weekly_link_suggestions", "writable_theme_discovery"].sort()
   );
   assert.equal(researchTemplate.implementationReady, false);
   assert.equal(linkTask.status, "active");
+  assert.equal(linkTask.name, "发现相关笔记");
+  assert.equal(linkTask.schedule.type, "daily");
   assert.equal(linkTask.agentId, "connection_agent");
   assert.equal(linkTask.model.userMode, "Economy");
   assert.equal(linkTask.model.maxTier, "standard");
@@ -61,7 +69,7 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
   assert.equal(linkTask.privacy.mode, "normal");
   assert.equal(linkTask.privacy.allowCloudModels, true);
   assert.equal(linkTask.privacy.requireConfirmationForPrivateNotes, true);
-  assert.equal(linkTask.nextRunAt, "2026-05-18T00:00:00.000Z");
+  assert.equal(linkTask.nextRunAt, "2026-05-12T00:00:00.000Z");
   assert.deepEqual(linkTask.scope.directoryIds, ["dir_original_default"]);
   assert.deepEqual(linkTask.scope.tags, ["writing"]);
   const harnessInput = buildScheduledTaskHarnessInput(linkTask);
@@ -76,7 +84,21 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
     rootDirectoryIds: ["dir_original_default"],
     limit: 10
   });
-  assert.equal(getScheduledAgentTaskTemplate("reflection_reminder").task.output.destination, "ai_inbox");
+  const reflectionTemplate = getScheduledAgentTaskTemplate("reflection_reminder");
+  assert.equal(reflectionTemplate.name, "提醒我回看");
+  assert.equal(reflectionTemplate.task.schedule.type, "daily");
+  assert.equal(reflectionTemplate.task.output.destination, "ai_inbox");
+  assert.equal(themeTask.status, "active");
+  assert.equal(themeTask.name, "发现可写主题");
+  assert.equal(themeTask.schedule.type, "daily");
+  assert.equal(themeTask.agentId, "theme_agent");
+  assert.equal(themeTask.output.artifactTypes[0], "InsightCard");
+  assert.equal(themeTask.nextRunAt, "2026-05-12T00:00:00.000Z");
+  const themeHarnessInput = buildScheduledTaskHarnessInput(themeTask);
+  assert.equal(themeHarnessInput.expectedArtifactType, "InsightCard");
+  assert.equal(themeHarnessInput.timeoutMs, DEFAULT_SCHEDULED_LOCAL_AI_TIMEOUT_MS);
+  assert.equal(themeHarnessInput.progress.label, "Scanning notes for suggestions");
+  assert.match(themeHarnessInput.userInstruction, /writable themes/);
 });
 
 test("contract-only research template stays paused unless explicitly allowed", () => {

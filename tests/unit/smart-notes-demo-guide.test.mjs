@@ -17,7 +17,8 @@ test("Smart Notes demo guide gives a beginner title-based path", () => {
   assert.match(guide.body, /\[\[阅读一开始就要面向未来写作\]\]/);
   assert.match(guide.body, /\[\[写作不是最后一步，而是整理笔记的方向\]\]/);
   assert.match(guide.body, /\[\[待关联练习：保存关系前先写清楚为什么\]\]/);
-  assert.match(guide.body, /\[\[为什么要关联笔记？\]\]/);
+  assert.match(guide.body, /\[\[03 为什么要建立关系？\|为什么要关联笔记？\]\]/);
+  assert.match(guide.body, /\[\[02 什么是永久笔记？\|永久笔记是什么？\]\]/);
   assert.doesNotMatch(guide.body, /\b(?:PN-SN|WP-SN|IC-SN)-/);
 });
 
@@ -36,7 +37,7 @@ test("Smart Notes demo guide has a short onboarding note set", () => {
     ]
   );
   assert.ok(demo.guide_notes.some((note) => note.title === "06 遇到问题先看这里：按任务找帮助"));
-  assert.ok(demo.guide_notes.some((note) => note.title === "07 备份、手机和 AI：先知道边界"));
+  assert.ok(demo.guide_notes.some((note) => note.title === "07 手机和 AI：先知道边界"));
 });
 
 test("Smart Notes demo guide avoids advanced workflow jargon on the main path", () => {

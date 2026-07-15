@@ -74,6 +74,25 @@ export function installSettingsEventBindings(deps = {}) {
     }
   });
 
+  const moduleHeaderActions = $("moduleHeaderActions");
+  if (moduleHeaderActions && !moduleHeaderActions.dataset.settingsTemplateActionsBound) {
+    moduleHeaderActions.dataset.settingsTemplateActionsBound = "true";
+    moduleHeaderActions.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("[data-settings-template-action]");
+      if (!button) return;
+      const kind = button.closest?.("[data-settings-template-kind]")?.dataset?.settingsTemplateKind || "permanent";
+      const action = button.dataset.settingsTemplateAction;
+      if (action === "preview") {
+        setSettingsSection("templates", { render: false });
+        openNoteTemplatePreview(kind);
+      } else if (action === "save") {
+        saveNoteTemplateFromEditor(kind);
+      } else if (action === "reset") {
+        resetNoteTemplateToDefault(kind);
+      }
+    });
+  }
+
   $("settingsRefreshVault")?.addEventListener("click", async () => {
     setSettingsSection("workspace", { render: false });
     try {
@@ -141,8 +160,8 @@ export function installSettingsEventBindings(deps = {}) {
     }
     if (action === "open-writing") {
       activateModule("writing");
-      await openWritingModule({ entryReason: "从帮助打开写作中心。先选择主题或相关笔记，再生成提纲。", entrySourceLabel: "帮助" });
-      setStatus("已打开写作中心。", "ok");
+      await openWritingModule({ entryReason: "从帮助打开写作。先选择主题或相关笔记，再生成提纲。", entrySourceLabel: "帮助" });
+      setStatus("已打开写作。", "ok");
       return;
     }
     if (action === "open-theme-example") {
@@ -150,7 +169,7 @@ export function installSettingsEventBindings(deps = {}) {
       await loadWritingThemeIndexes();
       await openWritingModule({ entryReason: "从帮助查看主题索引示例。先看中心问题和关键笔记，再决定是否进入写作。", entrySourceLabel: "帮助" });
       applyWritingTab("themes");
-      setStatus("已打开写作中心的主题库。导入 Demo 后可查看主题索引示例。", "ok");
+      setStatus("已打开写作的主题库。导入 Demo 后可查看主题索引示例。", "ok");
       return;
     }
     if (action === "open-backup") {
@@ -166,7 +185,7 @@ export function installSettingsEventBindings(deps = {}) {
     }
     if (action === "open-ai-settings") {
       setSettingsItem("ai-settings", { announce: true });
-      setStatus("已打开 AI 设置。AI 是候选建议，不影响手工整理主流程。", "ok");
+      setStatus("已打开 AI 设置。AI 只做参考建议，不影响手工整理主流程。", "ok");
     }
   });
 

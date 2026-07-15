@@ -46,7 +46,7 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       templateId: getElement("scheduledTaskTemplateSelect")?.value || settingsState.ai.scheduledTaskForm.templateId,
       name: getElement("scheduledTaskNameInput")?.value || "",
       status: getElement("scheduledTaskStatusSelect")?.value || "paused",
-      scheduleType: getElement("scheduledTaskScheduleTypeSelect")?.value || "weekly",
+      scheduleType: getElement("scheduledTaskScheduleTypeSelect")?.value || "daily",
       dayOfWeek: getElement("scheduledTaskDaySelect")?.value || "monday",
       time: getElement("scheduledTaskTimeInput")?.value || "09:00",
       intervalMinutes: getElement("scheduledTaskIntervalInput")?.value || 30,

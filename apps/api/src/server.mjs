@@ -84,6 +84,8 @@ import {
   listProjectScaffolds,
   listWritingProjects,
   setCurrentDraftNote,
+  syncWritingProject,
+  updateDraftScaffold,
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote,
   updateWritingProjectBookStructure,
@@ -166,6 +168,7 @@ const managedOllamaProcessIds = new Set();
 const APP_UPDATE_CHANNEL = String(process.env.YANSILU_UPDATE_CHANNEL || "beta").trim() || "beta";
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
+let AI_SECRET_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "ai-secrets.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
 const STRIPE_PRICE_PRO_MONTHLY = String(process.env.STRIPE_PRICE_PRO_MONTHLY || "").trim();
 const STRIPE_WEBHOOK_SECRET = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
@@ -178,6 +181,8 @@ let aiArtifactStorePromise = null;
 let aiSuggestionStorePromise = null;
 const potentialRelationAiCache = new PotentialRelationAiCache();
 let appVersionPromise = null;
+let apiReady = false;
+let apiStartupError = "";
 const vaultWriteGate = createVaultWriteGate();
 const vaultBackupJobGate = createVaultBackupJobGate();
 
@@ -186,6 +191,66 @@ async function currentAppVersion() {
     appVersionPromise = readPackageVersion(PACKAGE_JSON_PATH).catch(() => "0.0.0");
   }
   return appVersionPromise;
+}
+
+async function apiHealthPayload() {
+  const readiness = await apiReadinessPayload();
+  return {
+    app: "yansilu",
+    ok: apiReady && readiness.ready,
+    service: "api",
+    pid: process.pid,
+    port: PORT,
+    vaultPath: VAULT_PATH,
+    ready: apiReady && readiness.ready,
+    readiness,
+    timestamp: new Date().toISOString(),
+    version: await currentAppVersion(),
+    startupError: apiStartupError || undefined
+  };
+}
+
+async function pathWritableStatus(targetDir = "") {
+  const filePath = path.join(targetDir, ".yansilu", ".healthcheck-write");
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, String(Date.now()), "utf8");
+    await fs.rm(filePath, { force: true });
+    return { status: "ready", writable: true, message: "" };
+  } catch (error) {
+    return {
+      status: "blocked",
+      writable: false,
+      message: cleanText(error?.message || error)
+    };
+  }
+}
+
+async function apiReadinessPayload() {
+  const vaultExists = await fs.stat(VAULT_PATH).then((item) => item.isDirectory()).catch(() => false);
+  const storage = vaultExists ? await pathWritableStatus(VAULT_PATH) : {
+    status: "blocked",
+    writable: false,
+    message: "Vault directory does not exist."
+  };
+  const vaultStatus = vaultExists && storage.writable ? "ready" : "blocked";
+  return {
+    ready: apiReady && vaultStatus === "ready" && storage.status === "ready",
+    vault: {
+      status: vaultStatus,
+      path: VAULT_PATH,
+      exists: vaultExists
+    },
+    storage,
+    dependencies: {
+      ollama: {
+        status: "external",
+        managed: false,
+        baseUrl: OLLAMA_BASE_URL,
+        recovery: "bounded_by_local_runtime_control"
+      }
+    }
+  };
 }
 
 async function aiPreferencesStore() {
@@ -228,6 +293,51 @@ async function aiSuggestionStore() {
     aiSuggestionStorePromise = createSqliteSuggestionStore({ vaultPath: VAULT_PATH });
   }
   return aiSuggestionStorePromise;
+}
+
+function normalizeSecretMap(input = {}) {
+  const secrets = {};
+  if (!input || typeof input !== "object" || Array.isArray(input)) return secrets;
+  for (const [key, value] of Object.entries(input)) {
+    const name = cleanText(key);
+    const secret = cleanText(value);
+    if (name && secret) secrets[name] = secret;
+  }
+  return secrets;
+}
+
+function normalizeSecretRefList(input = []) {
+  const values = Array.isArray(input) ? input : [input];
+  return values.map((value) => cleanText(value)).filter(Boolean);
+}
+
+async function readLocalAiSecrets() {
+  try {
+    const raw = await fs.readFile(AI_SECRET_STATE_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return normalizeSecretMap(parsed?.secrets || parsed);
+  } catch {
+    return {};
+  }
+}
+
+async function writeLocalAiSecrets(secrets = {}) {
+  const cleanSecrets = normalizeSecretMap(secrets);
+  await fs.mkdir(path.dirname(AI_SECRET_STATE_PATH), { recursive: true });
+  await fs.writeFile(AI_SECRET_STATE_PATH, JSON.stringify({ secrets: cleanSecrets }, null, 2), "utf8");
+  return cleanSecrets;
+}
+
+async function upsertLocalAiSecrets(input = {}) {
+  const incoming = normalizeSecretMap(input?.secrets || input?.secretValues || input?.secret_values);
+  const deleteSecrets = normalizeSecretRefList(input?.deleteSecrets || input?.delete_secrets);
+  if (!Object.keys(incoming).length && !deleteSecrets.length) return readLocalAiSecrets();
+  const current = await readLocalAiSecrets();
+  for (const secretRef of deleteSecrets) delete current[secretRef];
+  return writeLocalAiSecrets({
+    ...current,
+    ...incoming
+  });
 }
 
 async function closeVaultScopedStores() {
@@ -621,7 +731,7 @@ function shouldPreferLocalForHybridRoute({ settingsInput = {}, userSettings = {}
   const tier = requestedModelTier(input, agent);
   if (agentId === "connection_agent") return { preferLocal: true, reason: "lightweight_agent" };
   if (["router_fast", "cheap_fast", "guardrail", "local_private"].includes(tier)) return { preferLocal: true, reason: "lightweight_tier" };
-  if (/relation|link|tag|classif|summar|summary|title|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
+  if (/relation|link|tag|classif|summar|summary|title|theme|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
   return { preferLocal: false, reason: "cloud_preferred_task" };
 }
 
@@ -1595,7 +1705,8 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
     useMockProviderAdapters,
     useOpenAiCompatibleAdapter: !useMockProviderAdapters && !disabledFlag(input, "useOpenAiCompatibleAdapter", "use_openai_compatible_adapter"),
     networkEnabled: !disabledFlag(input, "networkEnabled", "network_enabled"),
-    createExecutor: true
+    createExecutor: true,
+    secrets: await upsertLocalAiSecrets(input)
   });
   const adapterSelection = registry.getAdapter({
     ...mergedSettings,
@@ -1898,6 +2009,21 @@ async function loadNotesByIds(noteIds = []) {
     items.push(await getNoteById(VAULT_PATH, noteId));
   }
   return items;
+}
+
+async function suggestionWithReadableTarget(item = null) {
+  if (!item?.target?.id || item.target.title || item.target.name) return item;
+  try {
+    const note = await getNoteById(VAULT_PATH, item.target.id);
+    const title = cleanText(note?.title || note?.thesis);
+    return title ? { ...item, target: { ...item.target, title } } : item;
+  } catch {
+    return item;
+  }
+}
+
+async function suggestionsWithReadableTargets(items = []) {
+  return Promise.all((Array.isArray(items) ? items : []).map((item) => suggestionWithReadableTarget(item)));
 }
 
 function defaultUserForEmail(email = "") {
@@ -3509,8 +3635,13 @@ const server = http.createServer(async (req, res) => {
       );
     }
 
-    if (req.method === "GET" && url.pathname === "/health") {
-      return sendJson(res, 200, { ok: true, service: "api", requestId: rid, vaultPath: VAULT_PATH, time: new Date().toISOString() });
+    if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/api/v1/health")) {
+      const health = await apiHealthPayload();
+      return sendJson(res, 200, {
+        ...health,
+        requestId: rid,
+        time: health.timestamp
+      });
     }
 
     if (req.method === "GET" && url.pathname === "/api/v1/app/version") {
@@ -3858,6 +3989,7 @@ const server = http.createServer(async (req, res) => {
         const layout = await initVault(nextVaultPath);
         VAULT_PATH = layout.vaultPath;
         AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
+        AI_SECRET_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "ai-secrets.json");
         importRecords.clear();
         aiPreferencesStorePromise = null;
         aiProviderConfigStorePromise = null;
@@ -3968,6 +4100,63 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 500, err("AI_PREFERENCES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/local-runtimes/ollama/recovery") {
+      try {
+        const model = url.searchParams.get("model") || "";
+        const runtimeMode = url.searchParams.get("runtimeMode") || url.searchParams.get("runtime_mode") || "";
+        const runtime = await buildOllamaModelsPreview();
+        const bootstrap = await buildOllamaBootstrapPreview({ model, runtimeMode });
+        return sendJson(res, 200, {
+          item: {
+            runtimeId: "ollama",
+            status: bootstrap.status,
+            ready: bootstrap.ready,
+            nextAction: bootstrap.nextAction,
+            message: bootstrap.message,
+            runtime,
+            bootstrap,
+            boundary: {
+              externalProcessSafe: true,
+              stopsUserProcesses: false,
+              canStopManagedSessionOnly: true
+            }
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, error?.status || 500, err("OLLAMA_RECOVERY_PREVIEW_FAILED", String(error?.message || error), rid, error?.details || {}));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/recovery") {
+      try {
+        assertLocalRuntimeControlAllowed(req);
+        const body = await readJson(req);
+        const item = await bootstrapOllamaLocalAi({
+          ...body,
+          autoStart: body.autoStart !== false && body.auto_start !== false,
+          pullModel: body.pullModel !== false && body.pull_model !== false,
+          enableConfig: body.enableConfig !== false && body.enable_config !== false,
+          healthCheck: body.healthCheck !== false && body.health_check !== false
+        });
+        return sendJson(res, 200, {
+          item: {
+            ...item,
+            boundary: {
+              externalProcessSafe: true,
+              stopsUserProcesses: false,
+              canStopManagedSessionOnly: true
+            }
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, error?.status || 502, err("OLLAMA_RECOVERY_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 
@@ -4101,12 +4290,21 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
+        await upsertLocalAiSecrets(body);
+        const {
+          secrets: _secrets,
+          secretValues: _secretValues,
+          secret_values: _secret_values,
+          deleteSecrets: _deleteSecrets,
+          delete_secrets: _delete_secrets,
+          ...providerConfigInput
+        } = body;
         const store = await aiProviderConfigStore();
-        const lookup = cleanText(body.id || body.configId || body.config_id);
-        const providerId = cleanText(body.providerId || body.provider_id);
+        const lookup = cleanText(providerConfigInput.id || providerConfigInput.configId || providerConfigInput.config_id);
+        const providerId = cleanText(providerConfigInput.providerId || providerConfigInput.provider_id);
         const existing = (lookup || providerId) ? store.getProviderConfig({ id: lookup, providerId }) : null;
-        assertAllowedManagedOllamaProviderConfigInput(body, existing || {});
-        const item = store.setProviderConfig(body);
+        assertAllowedManagedOllamaProviderConfigInput(providerConfigInput, existing || {});
+        const item = store.setProviderConfig(providerConfigInput);
         return sendJson(res, 200, {
           item,
           requestId: rid,
@@ -4193,6 +4391,7 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
+        const localAiSecrets = await upsertLocalAiSecrets(body);
         const store = await aiPreferencesStore();
         const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" }) || {};
         const baseSettingsInput = preferencesToSettingsInput(prefs);
@@ -4293,7 +4492,8 @@ const server = http.createServer(async (req, res) => {
           tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
           useOpenAiCompatibleAdapter: true,
           networkEnabled: true,
-          createExecutor: true
+          createExecutor: true,
+          secrets: localAiSecrets
         });
 
         const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
@@ -4438,13 +4638,14 @@ const server = http.createServer(async (req, res) => {
           scope: url.searchParams.get("scope") || "",
           limit: Number(url.searchParams.get("limit") || 50)
         });
+        const readableItems = await suggestionsWithReadableTargets(items);
         return sendJson(res, 200, withCanonical({
-          items,
-          total: items.length,
+          items: readableItems,
+          total: readableItems.length,
           requestId: rid,
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
-          items: items.map((item) => suggestionToCanonical(item))
+          items: readableItems.map((item) => suggestionToCanonical(item))
         } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LIST_FAILED", String(error?.message || error), rid, error?.details));
@@ -4456,7 +4657,7 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const store = await aiSuggestionStore();
-        const item = store.create(body, { now: new Date().toISOString() });
+        const item = await suggestionWithReadableTarget(store.create(body, { now: new Date().toISOString() }));
         return sendJson(res, 201, withCanonical({
           item,
           requestId: rid,
@@ -4474,7 +4675,7 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const store = await aiSuggestionStore();
-        const item = store.get(aiSuggestionId);
+        const item = await suggestionWithReadableTarget(store.get(aiSuggestionId));
         if (!item) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
         const sourceArtifact = await sourceArtifactForSuggestion(item);
         const projectedArtifact = artifactWithProjectedSuggestionState(sourceArtifact, item);
@@ -4523,10 +4724,10 @@ const server = http.createServer(async (req, res) => {
             sourceArtifact,
             body
           });
-          item = rejected.item;
+          item = await suggestionWithReadableTarget(rejected.item);
           syncedArtifact = rejected.artifact;
         } else {
-          item = store.transition(aiSuggestionId, toStatus, body);
+          item = await suggestionWithReadableTarget(store.transition(aiSuggestionId, toStatus, body));
         }
         const finalSourceArtifact = syncedArtifact || (await sourceArtifactForSuggestion(item));
         const projectedArtifact = artifactWithProjectedSuggestionState(finalSourceArtifact, item);
@@ -5044,7 +5245,8 @@ const server = http.createServer(async (req, res) => {
         runtime = await createAiHarnessRuntime({
           storageMode: "sqlite",
           vaultPath: VAULT_PATH,
-          tools: createCoreNoteTools({ vaultPath: VAULT_PATH })
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
+          secrets: await readLocalAiSecrets()
         });
         const summary = await runDueScheduledAgentTasks({
           harness: runtime,
@@ -5584,7 +5786,8 @@ const server = http.createServer(async (req, res) => {
           tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
           useOpenAiCompatibleAdapter: true,
           networkEnabled: true,
-          createExecutor: true
+          createExecutor: true,
+          secrets: await readLocalAiSecrets()
         });
         const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
           ...mergedSettings,
@@ -6682,6 +6885,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     const writingProjectMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)$/);
+    if (req.method === "PATCH" && writingProjectMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await syncWritingProject(VAULT_PATH, decodeURIComponent(writingProjectMatch[1]), body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("WRITING_PROJECT_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
     if (req.method === "GET" && writingProjectMatch) {
       try {
         await initVault(VAULT_PATH);
@@ -6870,7 +7087,9 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       try {
         await initVault(VAULT_PATH);
-        const item = await updateDraftScaffoldVersionNote(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body);
+        const item = Array.isArray(body.sections)
+          ? await updateDraftScaffold(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body)
+          : await updateDraftScaffoldVersionNote(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body);
         return sendJson(res, 200, {
           item,
           requestId: rid,
@@ -6912,9 +7131,14 @@ server.listen(PORT, async () => {
   try {
     await initVault(VAULT_PATH);
     AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
+    AI_SECRET_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "ai-secrets.json");
     await loadAuthState();
+    apiReady = true;
+    apiStartupError = "";
     console.log("Vault initialized.");
   } catch (error) {
-    console.error(`Vault initialization failed: ${String(error?.message || error)}`);
+    apiReady = false;
+    apiStartupError = String(error?.message || error);
+    console.error(`Vault initialization failed: ${apiStartupError}`);
   }
 });

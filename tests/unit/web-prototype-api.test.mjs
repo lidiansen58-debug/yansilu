@@ -21,7 +21,7 @@ async function importPrototypeApi(caseName, windowValue) {
 
 test("prototype API falls back when packaged API placeholder is not replaced", async () => {
   const api = await importPrototypeApi("placeholder", { __API_BASE__: "__API_BASE__" });
-  assert.equal(api.getApiBase(), "http://localhost:3000");
+  assert.equal(api.getApiBase(), "http://127.0.0.1:3000");
 });
 
 test("prototype API uses injected API base from dev server", async () => {
@@ -50,6 +50,48 @@ test("prototype API does not expose localhost fallback before desktop API resolv
   }
 });
 
+test("prototype API resolves desktop base from supervisor service status", async () => {
+  const calls = [];
+  const desktopWindow = {
+    __TAURI__: {
+      core: {
+        invoke: async (command) => {
+          calls.push(command);
+          assert.equal(command, "get_desktop_service_status");
+          return {
+            overall: "healthy",
+            services: {
+              api: {
+                status: "healthy",
+                baseUrl: "http://localhost:3010"
+              }
+            }
+          };
+        }
+      }
+    }
+  };
+  const api = await importPrototypeApi("desktop-service-status-api", desktopWindow);
+  const previousWindow = globalThis.window;
+  const previousFetch = globalThis.fetch;
+  globalThis.window = desktopWindow;
+  globalThis.fetch = async (url) => new Response(JSON.stringify({ items: [] }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+
+  try {
+    await api.fetchDirectories();
+    assert.deepEqual(calls, ["get_desktop_service_status"]);
+    assert.equal(api.getApiBase(), "http://localhost:3010");
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API clears static fallback when desktop API base is unavailable", async () => {
   const desktopWindow = {
     __TAURI__: {
@@ -74,6 +116,55 @@ test("prototype API clears static fallback when desktop API base is unavailable"
   } finally {
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;
+  }
+});
+
+test("prototype API refreshes desktop service status after an early recovering state", async () => {
+  const calls = [];
+  const desktopWindow = {
+    __TAURI__: {
+      core: {
+        invoke: async (command) => {
+          calls.push(command);
+          assert.ok(["get_desktop_service_status", "get_desktop_api_base"].includes(command));
+          if (command === "get_desktop_api_base") return "";
+          if (calls.length === 1) {
+            return {
+              overall: "recovering",
+              services: { api: { status: "starting", baseUrl: "" } }
+            };
+          }
+          return {
+            overall: "healthy",
+            services: { api: { status: "healthy", baseUrl: "http://localhost:3011" } }
+          };
+        }
+      }
+    }
+  };
+  const previousWindow = globalThis.window;
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("desktop-service-status-refresh", desktopWindow);
+  globalThis.window = desktopWindow;
+  const fetchCalls = [];
+  globalThis.fetch = async (url) => {
+    fetchCalls.push(String(url));
+    return new Response(JSON.stringify({ items: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  try {
+    await assert.rejects(() => api.fetchDirectories(), { code: "desktop_api_unavailable" });
+    await api.fetchDirectories();
+    assert.deepEqual(calls, ["get_desktop_service_status", "get_desktop_api_base", "get_desktop_service_status"]);
+    assert.deepEqual(fetchCalls, ["http://localhost:3011/api/v1/directories"]);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
   }
 });
 
@@ -710,8 +801,7 @@ test("prototype API fetches AI inbox evaluation summary with filters", async () 
     const item = await api.fetchAiInboxEvaluationSummary({
       view: "reviewed",
       type: "ReflectionPrompt",
-      sourceNoteId: "note_1",
-      privacyMode: "local_only"
+      sourceNoteId: "note_1"
     });
     const url = new URL(capturedUrl);
     assert.equal(url.origin, "http://127.0.0.1:3999");
@@ -719,7 +809,7 @@ test("prototype API fetches AI inbox evaluation summary with filters", async () 
     assert.equal(url.searchParams.get("view"), "reviewed");
     assert.equal(url.searchParams.get("type"), "ReflectionPrompt");
     assert.equal(url.searchParams.get("sourceNoteId"), "note_1");
-    assert.equal(url.searchParams.get("privacyMode"), "local_only");
+    assert.equal(url.searchParams.has("privacyMode"), false);
     assert.equal(item.feedback.all.useful, 1);
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
@@ -837,6 +927,49 @@ test("prototype API can run the Ollama local AI bootstrap", async () => {
     assert.equal(calls[0].options.headers["X-Yansilu-Local-Runtime-Control"], "1");
     assert.deepEqual(JSON.parse(calls[0].options.body), { model: "qwen3:8b", pullModel: true, runtimeMode: "hybrid" });
     assert.equal(result.ready, true);
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API can preview and run bounded Ollama recovery", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-recovery", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          status: "ready",
+          ready: true,
+          boundary: {
+            externalProcessSafe: true,
+            stopsUserProcesses: false
+          }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const preview = await api.fetchOllamaRecoveryStatus({ model: "qwen3:8b", runtimeMode: "local_only" });
+    const recovered = await api.recoverOllamaLocalAi({ model: "qwen3:8b", pullModel: true });
+
+    assert.equal(new URL(calls[0].url).pathname, "/api/v1/ai/local-runtimes/ollama/recovery");
+    assert.equal(new URL(calls[0].url).searchParams.get("model"), "qwen3:8b");
+    assert.equal(calls[0].options.method, undefined);
+    assert.equal(calls[1].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/recovery");
+    assert.equal(calls[1].options.method, "POST");
+    assert.equal(calls[1].options.headers["X-Yansilu-Local-Runtime-Control"], "1");
+    assert.equal(preview.boundary.stopsUserProcesses, false);
+    assert.equal(recovered.ready, true);
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;

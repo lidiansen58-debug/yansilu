@@ -134,3 +134,63 @@ test("writing strong model executor requires confirmed request and normalizes ar
   assert.deepEqual(result.artifacts.map((item) => item.type), ["WritingMove", "OutlineDraft"]);
   assert.ok(result.artifacts.every((item) => item.status === "pending_review"));
 });
+
+test("writing analysis executor runs local-only request on local adapter without remote confirmation", async () => {
+  const request = buildWritingStrongModelRequest({
+    privacyMode: "local_only",
+    writingGoal: "Prepare a local source-grounded draft.",
+    notes: [{ noteId: "fn_local_writing", body: "Local material stays local." }]
+  });
+  const adapter = createMockProviderAdapter({
+    localExecution: true,
+    responses: [
+      {
+        status: "succeeded",
+        providerId: "local_mock",
+        modelRef: "local_mock:qwen",
+        output: {
+          type: "json",
+          json: {
+            writingMoves: [
+              {
+                moveType: "claim",
+                text: "Keep local source material local.",
+                sourceNoteIds: ["fn_local_writing"]
+              }
+            ],
+            outlineDrafts: [],
+            sourceGaps: []
+          },
+          content: "",
+          toolCalls: []
+        }
+      }
+    ]
+  });
+
+  const result = await runWritingStrongModelAnalysis(request, adapter, {
+    agentRunId: "run_local_writing_executor",
+    artifactIdSalt: "local_writing_executor"
+  });
+
+  assert.equal(adapter.callCount, 1);
+  assert.equal(adapter.lastRequest.policy.privacyMode, "local_only");
+  assert.equal(adapter.lastRequest.policy.allowCloud, false);
+  assert.equal(result.analysisMode, "local_model_writing");
+  assert.equal(result.provenance.cloudModelUsed, false);
+  assert.ok(result.artifacts.every((item) => item.privacy.cloudModelUsed === false));
+});
+
+test("writing analysis executor blocks local-only request on cloud adapter", async () => {
+  const request = buildWritingStrongModelRequest({
+    privacyMode: "local_only",
+    writingGoal: "Prepare a local source-grounded draft.",
+    notes: [{ noteId: "fn_local_blocked", body: "Local material stays local." }]
+  });
+  const adapter = createMockProviderAdapter({ localExecution: false });
+
+  await assert.rejects(
+    () => runWritingStrongModelAnalysis(request, adapter),
+    /local_only context cannot be sent to a cloud provider/
+  );
+});

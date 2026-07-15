@@ -77,7 +77,7 @@ test("graph visual shell props keep regular selections in side panel", () => {
   assert.equal(props.sidePanelMarkup, '<div class="graph-side-stack"><aside>workbench</aside><section>node selection</section></div>');
 });
 
-test("graph visual shell props expose research navigator entry to reading lens controls", () => {
+test("graph visual shell props keeps task details in the side panel instead of a lower action row", () => {
   const props = buildGraphVisualMapShellProps({
     runtimeState: runtime({ researchNavigatorCanOpen: true }),
     workbenchEntryMarkup: "<button>workbench</button>",
@@ -86,7 +86,7 @@ test("graph visual shell props expose research navigator entry to reading lens c
   });
 
   assert.equal(props.researchNavigatorOpen, true);
-  assert.equal(props.readingLensTrailingMarkup, "<button>workbench</button><button>navigator</button>");
+  assert.equal(props.readingLensTrailingMarkup, "");
   assert.equal(props.sidePanelMarkup, '<div class="graph-side-stack"><aside>navigator</aside></div>');
 });
 

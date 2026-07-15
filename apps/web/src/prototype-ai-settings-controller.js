@@ -233,10 +233,10 @@ export function ollamaBootstrapStatusText(result = null) {
   const status = String(result?.status || "").trim();
   const model = String(result?.model || OLLAMA_RECOMMENDED_MODEL).trim();
   if (result?.ready === true || status === "ready") return `本地 AI 已就绪：${model}`;
-  if (status === "needs_install") return "请先安装本地 AI 运行环境，然后重新运行引导";
-  if (status === "needs_start") return "本地 AI 已安装，但服务还没有启动";
-  if (status === "needs_model") return `请先下载本地模型：ollama pull ${model}`;
+  if (status === "needs_install") return "请先安装模型运行工具，然后重新检测";
+  if (status === "needs_start") return "模型运行工具已安装，请启动本地模型";
+  if (status === "needs_model") return `请先下载本地模型：${model}`;
   if (status === "needs_config") return `已检测到 ${model}，还需要保存为本地 AI 模型`;
-  if (status === "needs_health_check") return "本地 AI 配置已保存，还需要通过健康检查";
+  if (status === "needs_health_check") return "本地模型配置已保存，请测试 AI";
   return String(result?.message || "本地 AI 引导尚未完成").trim();
 }

@@ -49,7 +49,7 @@ export function buildGraphPanelState({
       kind: "loading",
       ...fallbackConnectivity,
       summaryText: `正在加载“${folder?.name || "永久笔记目录"}”的永久笔记关系...`,
-      emptyMessage: "正在读取永久笔记盒及其子目录里的笔记、正式关系和待补说明。"
+      emptyMessage: "正在读取永久笔记盒及其子目录里的笔记、关联和待补说明。"
     };
   }
   if (graphState.error && !canReuseScopedGraph) {

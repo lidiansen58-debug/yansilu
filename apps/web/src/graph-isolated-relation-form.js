@@ -35,7 +35,8 @@ export function graphIsolatedJoinNetworkFormModel(
     ? safeAiCandidates.some((candidate) => String(candidate?.counterpartNoteId || candidate?.targetNoteId || "").trim() === cleanPreferredTargetNoteId)
     : false;
   const defaultActiveMode = workflowTabKey(activeTabForNote(cleanNoteId));
-  const activeMode = cleanPreferredTargetNoteId && !preferredTargetIsAiCandidate ? "manual" : draftMode || defaultActiveMode;
+  const fallbackActiveMode = !safeAiCandidates.length && safeManualTargets.length ? "manual" : defaultActiveMode;
+  const activeMode = cleanPreferredTargetNoteId && !preferredTargetIsAiCandidate ? "manual" : draftMode || fallbackActiveMode;
   const activeRelationTypeKey = activeMode === "manual" ? "manualRelationType" : "aiRelationType";
   const activeRationaleKey = activeMode === "manual" ? "manualRationale" : "aiRationale";
   const activeRationaleSourceKey = activeMode === "manual" ? "manualRationaleSource" : "aiRationaleSource";

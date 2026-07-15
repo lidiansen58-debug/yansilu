@@ -70,10 +70,10 @@
             <path d="M5.6 4.7l4.8 0M4.9 5.4l2.2 4.4M11.1 5.4l-2.2 4.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
           </svg>
         </button>
-        <button class="rail-btn" data-module="writing" title="写作中心" data-tip="写作中心" aria-label="写作中心">
+        <button class="rail-btn" data-module="writing" title="写作" data-tip="写作" aria-label="写作">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M4 2.4h8a1.2 1.2 0 0 1 1.2 1.2v8.8L10.7 10H4A1.2 1.2 0 0 1 2.8 8.8V3.6A1.2 1.2 0 0 1 4 2.4z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-            <path d="M5.3 5.4h5.4M5.3 7.8h5.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+            <path d="m4 11.9 1.1-3.2L10.8 3a1.35 1.35 0 0 1 1.9 1.9L7 10.6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+            <path d="m9.8 4 2.2 2.2M3.7 12.3h4.7" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
@@ -163,11 +163,12 @@
               <button class="tb tb-label has-icon hidden" id="btnModeSplit" title="" data-tip="" aria-label="保留"></button>
             </div>
             <button class="tb tb-label has-icon" id="btnFocusMode" title="专注模式：收起导航和关联，只保留当前笔记" data-tip="专注模式：收起导航和关联，只保留当前笔记" aria-label="专注模式" aria-pressed="false"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2c1.3 1.45 2.95 2.25 5 2.45-.25 4.25-1.95 6.9-5 9.1-3.05-2.2-4.75-4.85-5-9.1 2.05-.2 3.7-1 5-2.45z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.2 8.05c1.05-.2 1.9-.7 2.8-1.6.72.74 1.55 1.25 2.62 1.48" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>专注模式</span></button>
-            <button class="tb tb-label has-icon" id="btnShowRelated" title="展开关联侧栏" data-tip="展开关联侧栏" aria-label="关联侧栏"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.15" y="2.45" width="11.7" height="11.1" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M6.05 3.45v9.1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><rect x="3.1" y="4.2" width="2.05" height="7.6" rx="1.02" fill="currentColor" opacity=".12"/><path d="M7.8 5.3h3.2M7.8 8h3.2M7.8 10.7h2.2" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" opacity=".92"/></svg></button>
+            <button class="tb tb-label has-icon" id="btnShowRelated" title="打开打磨笔记" data-tip="打开打磨笔记" aria-label="打磨笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 3.15h7.1a1.7 1.7 0 0 1 1.7 1.7v6.3a1.7 1.7 0 0 1-1.7 1.7H3.1z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.05 6h4.5M5.05 8.05h3.55M5.05 10.1h2.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M12.45 1.9l.38.94.97.38-.97.38-.38.94-.38-.94-.97-.38.97-.38.38-.94zM12.9 8.75l.28.7.72.28-.72.28-.28.7-.28-.7-.72-.28.72-.28.28-.7z" fill="currentColor"/></svg><span>打磨笔记</span></button>
           </div>
           <div class="toolbar-group">
             <button class="tb tb-label has-icon hidden" id="btnCompleteNote" title="标记完成" data-tip="标记完成" aria-label="标记完成"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 8.2l2 2.05 4.1-4.15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button class="tb tb-label has-icon hidden" id="btnRecordPermanent" title="创建永久笔记" data-tip="创建永久笔记" aria-label="创建永久笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.3h5.1L12 5.2v7.1a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.3V3.7a1.4 1.4 0 0 1 1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M9.1 2.3v2.2a.9.9 0 0 0 .9.9h2.2M7.5 6.6v4M5.5 8.6h4" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg><span>创建永久笔记</span></button>
+            <button class="tb tb-label has-icon hidden" id="btnDistillSourceAi" title="帮我提炼" data-tip="帮我提炼" aria-label="帮我提炼" data-contextual-ai-action-id="distill_material"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.3h5.2L12 5.1v7.2a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.3V3.7a1.4 1.4 0 0 1 1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M9.2 2.4v2.1a.8.8 0 0 0 .8.8h2M5.4 7h4.8M5.4 9h3.5" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M11.9 8.7l.32.78.78.32-.78.32-.32.78-.32-.78-.78-.32.78-.32.32-.78z" fill="currentColor"/></svg><span>帮我提炼</span></button>
             <button class="tb tb-label has-icon hidden" id="btnSave" title="手动同步 Ctrl/Cmd+S" data-tip="手动同步 Ctrl/Cmd+S" aria-label="手动同步"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
           </div>
           <div class="toolbar-group toolbar-group-structure toolbar-group-insert">
@@ -178,17 +179,21 @@
         </div>
           </div>
         <div class="editor-wrap">
+          <div id="editorBodyRelationActions" class="editor-body-relation-actions" data-editor-body-relation-actions hidden></div>
           <div class="panel hidden" id="linkPicker">
             <div class="link-picker-head">
-              <strong>建立笔记关联</strong>
-              <button class="tb" id="btnCloseLinkPicker" type="button" aria-label="关闭关联笔记窗口">关闭</button>
+              <strong>关联永久笔记</strong>
+              <button class="tb" id="btnCloseLinkPicker" type="button" aria-label="关闭关联窗口">关闭</button>
             </div>
-            <label class="link-picker-search-label" for="linkSearchInput">要关联哪条笔记</label>
-            <input id="linkSearchInput" placeholder="搜索笔记标题" />
-            <div class="link-picker-list" id="linkSearchList"></div>
+            <div class="link-picker-search-row">
+              <label class="link-picker-search-label" for="linkSearchInput">找目标笔记</label>
+              <input id="linkSearchInput" name="yansilu-link-target-search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search" placeholder="输入标题关键词，选择要关联的永久笔记" />
+              <div class="link-picker-list" id="linkSearchList"></div>
+              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>关联</button>
+            </div>
             <div class="link-picker-meta">
               <div class="link-picker-field">
-                <label for="linkRelationTypeSelect">它们是什么关系</label>
+                <label for="linkRelationTypeSelect">关系类型</label>
                 <select id="linkRelationTypeSelect">
                   <option value="associated_with" selected>相关</option>
                   <option value="supports">支持</option>
@@ -199,12 +204,9 @@
                 </select>
               </div>
               <div class="link-picker-field">
-                <label for="linkReasonInput">为什么关联</label>
-                <textarea id="linkReasonInput" placeholder="写一句理由，例如：A 支持了 B 的判断边界。"></textarea>
+                <label for="linkReasonInput">关联理由</label>
+                <textarea id="linkReasonInput" placeholder="写一句话：当前笔记如何支持、限定、反驳、举例或桥接目标笔记。"></textarea>
               </div>
-            </div>
-            <div class="semantic-relation-card-actions link-picker-actions">
-              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>选择笔记</button>
             </div>
           </div>
           <div class="panel hidden" id="tagPicker">
@@ -224,8 +226,8 @@
             <div class="floating-notice-body" id="originalityNoticeBody">这里会对永久笔记提示原创性风险和下一步建议。</div>
           </div>
           <div class="selection-ai-action hidden" id="selectionAiAction" aria-live="polite">
-            <span class="selection-ai-action-text" id="selectionAiActionText">可整理当前选区</span>
-            <button class="selection-ai-action-button" id="btnSelectionAiDistill" type="button" data-selection-ai-action="distill-claim">整理观点</button>
+            <span class="selection-ai-action-text" id="selectionAiActionText">可提炼当前选区</span>
+            <button class="selection-ai-action-button" id="btnSelectionAiDistill" type="button" data-selection-ai-action="distill-claim">帮我提炼</button>
           </div>
           <div class="panel md-panel" id="markdownPanel">
             <div class="panel-head compact editor-intent">
@@ -330,7 +332,7 @@
                 <div id="markdownPreview" class="markdown-preview"></div>
               </aside>
             </div>
-            <section class="editor-relations-below hidden" id="editorRelationsBelow" aria-label="当前笔记语义关系"></section>
+            <section class="editor-relations-below hidden" id="editorRelationsBelow" aria-label="当前笔记关系"></section>
             <section class="editor-empty-start hidden" id="editorEmptyStart" aria-label="新手开始入口">
               <div class="editor-empty-start-head">
                 <span>第一次打开，建议先体验示例库</span>
@@ -360,12 +362,11 @@
           <div class="panel inspector-panel" id="relatedPanel">
             <div class="panel-head">
               <div>
-                <div class="panel-title">关系整理</div>
-                <div class="panel-note">先选要关联的笔记，再写清为什么。</div>
+                <div class="panel-title">打磨笔记</div>
               </div>
-              <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起关联窗口" data-tip="收起关联窗口" aria-label="收起关联窗口">×</button>
+              <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起打磨笔记" data-tip="收起打磨笔记" aria-label="收起打磨笔记">收起</button>
             </div>
-            <div id="resultArea">打开笔记后，这里会显示相关引用、回链和标签结果。</div>
+            <div id="resultArea">打开永久笔记后可打磨笔记。</div>
           </div>
         </div>
       </div>
@@ -383,15 +384,28 @@
           <div class="panel hidden" id="importPanel"></div>
           <div class="panel hidden" id="backupPanel">
             <div class="settings-pane backup-module-pane">
-              <div class="settings-pane-head">
-                <div class="settings-pane-headline">
-                  <div class="settings-pane-kicker">Backup</div>
-                  <div class="settings-pane-title">备份与恢复</div>
-                </div>
-                <div class="settings-pane-note">把整个笔记库加密打包，或恢复到新文件夹。</div>
-              </div>
               <div class="settings-pane-stack">
-                <section class="settings-card" id="settingsCardVaultBackup">
+                <div class="import-workspace-tabs backup-workspace-tabs" role="tablist" aria-label="备份与恢复切换">
+                  <button class="import-workspace-tab backup-workspace-tab is-active" id="settingsBackupTab" type="button" role="tab" aria-selected="true" aria-controls="settingsCardVaultBackup" data-vault-backup-tab="backup">
+                    <span class="import-workspace-tab-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" focusable="false"><path d="M5 8.5V5.5h10v3M6.5 11.5 10 15l3.5-3.5M10 5.5V15"/></svg>
+                    </span>
+                    <span class="import-workspace-tab-copy">
+                      <span class="import-workspace-tab-label">备份</span>
+                      <span class="import-workspace-tab-detail">创建加密备份文件</span>
+                    </span>
+                  </button>
+                  <button class="import-workspace-tab backup-workspace-tab" id="settingsRestoreTab" type="button" role="tab" aria-selected="false" aria-controls="settingsCardVaultRestore" data-vault-backup-tab="restore">
+                    <span class="import-workspace-tab-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" focusable="false"><path d="M15 11.5v3H5v-3M13.5 8.5 10 5 6.5 8.5M10 5v10"/></svg>
+                    </span>
+                    <span class="import-workspace-tab-copy">
+                      <span class="import-workspace-tab-label">恢复</span>
+                      <span class="import-workspace-tab-detail">恢复到新文件夹</span>
+                    </span>
+                  </button>
+                </div>
+                <section class="settings-card backup-tab-panel" id="settingsCardVaultBackup" role="tabpanel" aria-labelledby="settingsBackupTab" data-vault-backup-tab-panel="backup">
                   <div class="settings-card-head">
                     <div>
                       <div class="settings-card-title">加密备份</div>
@@ -416,7 +430,7 @@
                   </div>
                   <div id="settingsBackupResult"></div>
                 </section>
-                <section class="settings-card" id="settingsCardVaultRestore">
+                <section class="settings-card backup-tab-panel hidden" id="settingsCardVaultRestore" role="tabpanel" aria-labelledby="settingsRestoreTab" data-vault-backup-tab-panel="restore">
                   <div class="settings-card-head">
                     <div>
                       <div class="settings-card-title">恢复备份 / 迁移到另一台电脑</div>
@@ -466,244 +480,163 @@
           </div>
           </div>
           <div class="panel hidden" id="writingPanel">
-          <div class="writing-shell">
-            <nav class="writing-tabs" aria-label="写作中心功能切换" role="tablist">
-              <button class="writing-tab is-active" type="button" data-writing-tab="write" role="tab" aria-selected="true">开始写</button>
-              <button class="writing-tab" type="button" data-writing-tab="notes" role="tab" aria-selected="false">选笔记</button>
-              <button class="writing-tab" type="button" data-writing-tab="themes" role="tab" aria-selected="false">用主题</button>
-              <button class="writing-tab" type="button" data-writing-tab="tools" role="tab" aria-selected="false">高级工具</button>
-            </nav>
-            <details class="writing-collapsed-strip writing-status-details">
-              <summary>状态和步骤</summary>
-              <div class="writing-topline-metrics" id="writingToplineMetrics" aria-label="写作中心当前速览">
-                <div class="writing-topline-metric"><span>相关笔记</span><strong>0 条</strong><small>先选择笔记</small></div>
-                <div class="writing-topline-metric"><span>可写主题</span><strong>未确定</strong><small>明确要写什么</small></div>
-                <div class="writing-topline-metric"><span>开始草稿</span><strong>未开始</strong><small>先生成提纲</small></div>
-              </div>
-              <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
-                  <div class="writing-flow-step is-active"><span>1</span><strong>可写主题</strong><small>先明确想写清什么</small></div>
-              <div class="writing-flow-step"><span>2</span><strong>相关笔记</strong><small>挑 2-5 条能支撑主题的笔记</small></div>
-              <div class="writing-flow-step"><span>3</span><strong>文章提纲</strong><small>检查结构、证据和缺口</small></div>
-              <div class="writing-flow-step"><span>4</span><strong>开始草稿</strong><small>按提纲进入写作</small></div>
-              </div>
-              <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
-            </details>
-            <div class="writing-project-grid" id="writingComposePanel">
-              <section class="writing-section writing-output-card">
-                <div class="writing-section-head">
-                  <div>
-                    <div class="writing-section-title">写什么</div>
-                    <div class="writing-section-note">先写清题目和问题。</div>
-                  </div>
-                </div>
-                <div class="import-grid writing-form-grid">
-                  <label>当前笔记</label>
-                  <div class="writing-current-note" id="writingCurrentNote">尚未选择</div>
-                  <label for="writingTitle">文章题目</label>
-                  <input id="writingTitle" placeholder="例如：从卡片到文章提纲" />
-                  <label for="writingGoal">想写清什么</label>
-                  <textarea id="writingGoal" style="min-height:70px;" placeholder="这篇文章要解决什么问题？"></textarea>
-                  <label for="writingAudience">读者</label>
-                  <input id="writingAudience" placeholder="例如：知识工作者" />
-                </div>
-                <details class="writing-advanced-details">
-                  <summary>更多写作细节：语气和本次修改说明</summary>
-                  <div class="import-grid writing-form-grid">
-                    <label for="writingTone">语气</label>
-                    <input id="writingTone" placeholder="例如：冷静、克制、有证据感" />
-                    <label for="writingVersionNote">本次修改说明</label>
-                    <textarea id="writingVersionNote" style="min-height:58px;" placeholder="例如：调整段落顺序，先铺背景再落论点"></textarea>
-                  </div>
-                </details>
-                <div class="writing-actions-primary">
-                  <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
-                  <button class="mini-btn primary" id="btnWritingCreateProject">确定可写主题</button>
-                  <button class="mini-btn primary" id="btnWritingCreateScaffold">生成文章提纲</button>
-                </div>
-                <details class="writing-advanced-details" id="writingBasketActionsDetails">
-                  <summary>更多相关笔记操作</summary>
-                  <div class="writing-actions-secondary">
-                    <button class="mini-btn" id="btnWritingAddVisible">加入当前目录笔记</button>
-                    <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空相关笔记</button>
-                  </div>
-                </details>
-              </section>
-              <section class="writing-section">
-                <div class="writing-section-head">
-                  <div>
-                    <div class="writing-section-title">输出</div>
-                    <div class="writing-section-note">生成提纲后在这里检查。</div>
-                  </div>
-                </div>
-                <details class="writing-advanced-details">
-                  <summary>高级：手动调整已选笔记编号</summary>
-                  <label for="writingBasketNoteIds" class="writing-section-note">已选相关笔记（通常不用改）</label>
-                  <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="需要手动修正时，每行放一条笔记编号，也可以用逗号分隔"></textarea>
-                </details>
-                <div class="import-result" id="writingResult">尚未开始写作。</div>
-                <details class="writing-advanced-details" id="writingOutputActionsDetails">
-                  <summary>更多输出：提纲、导出和草稿</summary>
-                  <div class="writing-actions-secondary">
-                    <button class="mini-btn" id="btnWritingCopyScaffold">复制文章提纲 Markdown</button>
-                    <button class="mini-btn" id="btnWritingExportScaffold">导出文章提纲 .md</button>
-                    <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿</button>
-                    <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
-                  </div>
-                </details>
-                <details class="writing-advanced-details">
-                  <summary>高级：AI 写作检查</summary>
-                <div class="writing-ai-card" aria-label="AI 写作检查">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">AI 写作检查</div>
-                      <div class="writing-section-note">让 AI 帮你检查结构、证据、缺口和反方；结果需要你确认后才会进入笔记。</div>
-                    </div>
-                    <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">先选择相关笔记</button>
-                  </div>
-                  <div class="writing-summary" id="writingStrongModelSummary">先选择相关笔记，再准备 AI 写作检查。</div>
-                  <div class="writing-strong-request-detail" id="writingStrongModelRequestDetail"></div>
-                </div>
-                </details>
-              </section>
-              <details class="writing-collapsed-strip" id="writingBeginnerMainlineDetails">
-                <summary>新手路径</summary>
-                <div id="writingBeginnerMainline" aria-live="polite"></div>
-              </details>
-            </div>
-
-            <details class="writing-advanced-details" id="writingBookToolsPanel">
-              <summary>更多写作工具：书稿方向、最近写作和版本历史</summary>
-            <section class="writing-section writing-book-workbench" aria-label="书稿设计工作台">
-              <div class="writing-section-head">
+            <div class="writing-shell" data-writing-active-tab="theme" data-writing-has-topic="false">
+              <div class="writing-workbench-head">
                 <div>
-                  <div class="writing-section-title">书稿设计</div>
-                  <div class="writing-section-note" id="writingBookDesignSummary">先选择主题相关笔记，这里会把文章级材料重排成主线、部、章、节、案例池和反方池。</div>
+                  <div class="writing-page-title">写作</div>
+                  <div class="writing-page-subtitle" id="writingScopeHint">选一个主题，写完一篇文章。</div>
                 </div>
-                <button class="mini-btn" id="btnWritingLocalBookIdeas" type="button">本地生成 3 个书稿方向</button>
+                <div class="writing-head-actions">
+                  <button class="mini-btn writing-mobile-topic-picker" type="button" data-writing-topic-picker>主题库</button>
+                  <button class="mini-btn icon-btn" type="button" data-writing-help-toggle aria-label="帮助" title="帮助" data-tip="帮助">?</button>
+                  <details class="writing-more-menu" id="writingMoreMenu">
+                    <summary class="mini-btn icon-btn" aria-label="更多" title="更多" data-tip="更多">⋯</summary>
+                    <div class="writing-more-menu-panel">
+                      <button class="mini-btn" id="btnWritingCopyScaffold" type="button">复制提纲 Markdown</button>
+                      <button class="mini-btn" id="btnWritingExportScaffold" type="button">导出提纲 .md</button>
+                      <button class="mini-btn" id="btnWritingOpenDraft" type="button">打开当前草稿</button>
+                    </div>
+                  </details>
+                </div>
               </div>
-              <div class="writing-book-map" id="writingBookStructure"></div>
-              <div class="writing-book-columns">
-                <div class="writing-book-pool" id="writingBookPools"></div>
-                <div class="writing-book-pool" id="writingBookLocalIdeas"></div>
-              </div>
-            </section>
-            </details>
 
-            <div class="writing-main-grid" id="writingSecondaryPanels">
-              <div class="writing-stack">
-                <section class="writing-section" id="writingThemePanel">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">用已有主题继续写</div>
-                      <div class="writing-section-note" id="writingThemeIndexesHint">把已经成形的一组永久笔记保存为可写主题，下次可以直接继续写。需要时可在帮助里了解它会保存成“主题索引笔记”。</div>
-                    </div>
-                    <div class="writing-note-actions">
-                      <button class="mini-btn" id="btnWritingDiscoverThemes">发现可写主题建议</button>
-                      <button class="mini-btn" id="btnWritingSaveThemeIndex">保存为可写主题</button>
-                      <button class="mini-btn" id="btnWritingRefreshThemeIndexes">刷新可写主题</button>
-                    </div>
-                  </div>
-                  <div class="writing-note-list" id="writingThemeDiscoverySuggestions"></div>
-                  <div class="writing-note-list" id="writingThemeIndexList"></div>
-                  <div class="writing-theme-detail-panel">
+              <div class="writing-help-popover" id="writingHelpPopover" hidden>
+                <strong>从主题到草稿</strong>
+                <span>先确认中心问题和相关笔记，再生成提纲，最后保存草稿。导出和打开草稿在“更多”里。</span>
+              </div>
+
+              <section class="writing-empty-topic" id="writingEmptyTopic">
+                <div class="writing-empty-topic-copy">
+                  <h2>选择一个可写主题</h2>
+                  <button class="mini-btn" id="btnWritingDiscoverThemes" type="button">建议主题</button>
+                </div>
+                <div class="writing-note-list writing-theme-picks" id="writingThemeIndexList"></div>
+                <div id="writingThemeIndexesHint" hidden></div>
+                <div class="writing-note-list" id="writingThemeDiscoverySuggestions"></div>
+              </section>
+
+              <div class="writing-workbench-active" id="writingWorkbenchActive">
+                <nav class="writing-tabs" aria-label="写作步骤" role="tablist">
+                  <button class="writing-tab is-active" type="button" data-writing-tab="theme" role="tab" aria-selected="true">主题</button>
+                  <button class="writing-tab" type="button" data-writing-tab="outline" role="tab" aria-selected="false">提纲</button>
+                  <button class="writing-tab" type="button" data-writing-tab="draft" role="tab" aria-selected="false">草稿</button>
+                </nav>
+
+                <div class="writing-tab-panels" id="writingSecondaryPanels">
+                  <section class="writing-section writing-topic-panel" id="writingThemePanel">
                     <div class="writing-section-head">
                       <div>
-                        <div class="writing-section-title">主题详情</div>
-                        <div class="writing-section-note" id="writingThemeDetailHint">查看中心问题、相关笔记和缺口，判断是否已经足够形成一篇文章。</div>
+                        <div class="writing-section-title">先定题目</div>
+                        <div class="writing-section-note" id="writingThemeDetailHint">写下题目和你想回答的问题。</div>
+                      </div>
+                      <button class="mini-btn" type="button" data-writing-related-open>
+                        相关笔记 <span id="writingRelatedNotesCount">0</span>
+                      </button>
+                    </div>
+                    <div class="writing-topic-layout">
+                      <div class="import-grid writing-form-grid">
+                        <label for="writingTitle">文章题目</label>
+                        <input id="writingTitle" placeholder="例如：从卡片到文章提纲" />
+                        <label for="writingGoal">想回答的问题</label>
+                        <textarea id="writingGoal" rows="4" placeholder="例如：为什么这件事值得做？"></textarea>
+                      </div>
+                      <div id="writingThemeDetail" class="writing-theme-detail-panel"></div>
+                    </div>
+                    <input id="writingAudience" type="hidden" />
+                    <div class="writing-current-note" id="writingCurrentNote" hidden>尚未选择</div>
+                    <div class="writing-actions-primary">
+                      <button class="mini-btn primary" id="btnWritingCreateScaffold" type="button">生成提纲</button>
+                    </div>
+                    <p class="writing-action-feedback" id="writingActionFeedback" aria-live="polite" hidden></p>
+                  </section>
+
+                  <section class="writing-section" id="writingScaffoldPanel">
+                    <div class="writing-section-head">
+                      <div>
+                        <div class="writing-section-title">提纲</div>
+                        <div class="writing-section-note">把文章的主要段落排好，再开始写正文。</div>
+                      </div>
+                      <div class="writing-section-head-actions">
+                        <button class="mini-btn" type="button" data-writing-related-open>
+                          相关笔记 <span id="writingRelatedNotesCountOutline">0</span>
+                        </button>
+                        <button class="mini-btn" id="btnWritingOutlineCheckPlaceholder" type="button">检查提纲</button>
+                        <button class="mini-btn primary" id="btnWritingStartDraft" type="button" data-writing-tab-jump="draft">开始写草稿</button>
                       </div>
                     </div>
-                    <div id="writingThemeDetail"></div>
-                  </div>
-                </section>
-                <section class="writing-section" id="writingRelatedNotesPanel">
+                    <div class="writing-preview writing-outline-editor" id="writingScaffoldPreview">
+                      <div class="writing-empty">生成提纲后这里会显示章节结构。</div>
+                    </div>
+                  </section>
+
+                  <section class="writing-section writing-draft-panel" id="writingDraftPanel">
+                    <div class="writing-section-head">
+                      <div>
+                        <div class="writing-section-title">草稿</div>
+                        <div class="writing-section-note">按提纲写正文。</div>
+                      </div>
+                      <button class="mini-btn" type="button" data-writing-related-open>
+                        相关笔记 <span id="writingRelatedNotesCountDraft">0</span>
+                      </button>
+                    </div>
+                    <textarea class="writing-draft-editor" id="writingDraftEditor" placeholder="从提纲开始写正文。保存草稿会创建或绑定当前草稿笔记。"></textarea>
+                    <div class="writing-actions-primary">
+                      <button class="mini-btn" type="button" data-writing-tab-jump="outline">返回提纲</button>
+                      <button class="mini-btn primary" id="btnWritingSaveDraft" type="button">保存草稿</button>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <aside class="writing-related-overlay" id="writingRelatedOverlay" aria-hidden="true">
+                <div class="writing-related-backdrop" data-writing-related-close></div>
+                <section class="writing-related-panel" id="writingRelatedNotesPanel" aria-label="相关笔记">
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">相关笔记</div>
-                      <div class="writing-section-note" id="writingScopeHint">当前目录内已转化出的永久笔记会出现在这里。挑选能支撑同一主题的笔记，再生成文章提纲。</div>
+                      <div class="writing-section-note" id="writingBasketSummary">还没有选择相关笔记。</div>
                     </div>
+                    <button class="mini-btn icon-btn" type="button" data-writing-related-close aria-label="关闭相关笔记">×</button>
                   </div>
-                  <div class="writing-summary" id="writingBasketSummary">还没有选择相关笔记。</div>
-                  <details class="writing-advanced-details" id="writingBasketDetails">
-                    <summary>已选相关笔记（通常不用改）</summary>
-                    <div class="writing-note-list" id="writingBasketList"></div>
+                  <div class="writing-note-list" id="writingBasketList"></div>
+                  <details class="writing-advanced-details" id="writingCandidateDetails">
+                    <summary>添加笔记</summary>
+                    <div class="writing-section-note" id="writingCandidateSummary">从当前目录选择要用到的笔记。</div>
+                    <div class="writing-note-list" id="writingCandidateList"></div>
                   </details>
+                  <textarea id="writingBasketNoteIds" hidden></textarea>
+                  <button class="mini-btn" id="btnWritingSaveThemeIndex" type="button" hidden>保存为可写主题</button>
                 </section>
-                <details class="writing-advanced-details writing-section" id="writingCandidateDetails">
-                  <summary>更多选择：当前目录永久笔记</summary>
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">当前目录永久笔记</div>
-                      <div class="writing-section-note" id="writingCandidateSummary">&#x5C1A;&#x672A;&#x8BFB;&#x53D6;&#x53EF;&#x5199;&#x4E3B;&#x9898;&#x5019;&#x9009;&#x3002;</div>
-                    </div>
-                  </div>
-                  <div class="writing-note-list" id="writingCandidateList"></div>
-                </details>
+              </aside>
+
+              <div class="writing-hidden-workbench" aria-hidden="true">
+                <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
+                <div class="writing-topline-metrics" id="writingToplineMetrics"></div>
+                <div class="writing-flow-strip" id="writingFlowSteps"></div>
+                <div class="import-result" id="writingResult">尚未开始写作。</div>
+                <input id="writingTone" />
+                <textarea id="writingVersionNote"></textarea>
+                <button class="mini-btn" id="btnWritingCreateProject" type="button">确定可写主题</button>
+                <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">检查提纲</button>
+                <div id="writingStrongModelSummary"></div>
+                <div id="writingStrongModelRequestDetail"></div>
+                <div id="writingBeginnerMainline"></div>
+                <button class="mini-btn" id="btnWritingLocalBookIdeas" type="button">本地生成 3 个书稿方向</button>
+                <div id="writingBookDesignSummary"></div>
+                <div id="writingBookStructure"></div>
+                <div id="writingBookPools"></div>
+                <div id="writingBookLocalIdeas"></div>
+                <div id="writingProjectsHint"></div>
+                <input id="writingProjectsSearch" />
+                <select id="writingProjectsStatusFilter"><option value="all">全部</option><option value="draft">草稿中</option><option value="active">进行中</option></select>
+                <select id="writingProjectsDraftFilter"><option value="all">全部</option><option value="true">有草稿</option><option value="false">无草稿</option></select>
+                <div id="writingProjectsList"></div>
+                <div id="writingScaffoldVersionsHint"></div>
+                <div id="writingScaffoldVersionsList"></div>
+                <div id="writingDraftVersionsHint"></div>
+                <div id="writingDraftVersionsList"></div>
               </div>
-
-              <section class="writing-section" id="writingScaffoldPanel">
-                <div class="writing-section-head">
-                    <div>
-                    <div class="writing-section-title">文章提纲</div>
-                    <div class="writing-section-note">生成后先检查章节、证据、缺口和反方，再决定是否开始草稿。</div>
-                  </div>
-                </div>
-                <div class="writing-preview" id="writingScaffoldPreview">
-                  <h4>文章提纲预览</h4>
-                  <div class="writing-empty">生成后这里会显示章节结构、证据映射和 Markdown 文档预览。</div>
-                </div>
-              </section>
-
-              <details class="writing-advanced-details writing-stack" id="writingHistoryPanel">
-                <summary>更多：最近写作和版本记录</summary>
-                <section class="writing-section">
-                    <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">最近写作</div>
-                      <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作主题，支持恢复到当前工作区。</div>
-                      </div>
-                    <button class="mini-btn" id="btnWritingRefreshProjects" type="button">刷新写作记录</button>
-                    </div>
-                    <div class="import-grid" style="margin-bottom:12px;">
-                      <label for="writingProjectsSearch">搜索</label>
-                      <input id="writingProjectsSearch" placeholder="按题目、目标或记录 ID 搜索" />
-                      <label for="writingProjectsStatusFilter">状态</label>
-                      <select id="writingProjectsStatusFilter">
-                        <option value="all">全部</option>
-                        <option value="draft">草稿中</option>
-                        <option value="active">进行中</option>
-                      </select>
-                      <label for="writingProjectsDraftFilter">草稿</label>
-                      <select id="writingProjectsDraftFilter">
-                        <option value="all">全部</option>
-                        <option value="true">有草稿</option>
-                        <option value="false">无草稿</option>
-                      </select>
-                    </div>
-                    <div class="writing-note-list" id="writingProjectsList"></div>
-                  </section>
-                <section class="writing-section">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">文章提纲版本</div>
-                      <div class="writing-section-note" id="writingScaffoldVersionsHint">每次生成文章提纲都会保留历史版本。</div>
-                    </div>
-                    <button class="mini-btn" id="btnWritingRefreshScaffolds">刷新版本</button>
-                  </div>
-                  <div class="writing-note-list" id="writingScaffoldVersionsList"></div>
-                </section>
-                <section class="writing-section">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">草稿版本</div>
-                      <div class="writing-section-note" id="writingDraftVersionsHint">每次保存草稿都会保留一个新版本，并记录来源文章提纲。</div>
-                    </div>
-                    <button class="mini-btn" id="btnWritingRefreshDraftVersions">刷新草稿版本</button>
-                  </div>
-                  <div class="writing-note-list" id="writingDraftVersionsList"></div>
-                </section>
-              </details>
             </div>
-          </div>
           </div>
           <div class="panel hidden" id="settingsPanel">
             <div class="settings-shell">
@@ -711,12 +644,12 @@
                 <aside class="settings-nav-column">
                   <section class="settings-nav-card settings-nav-entry-card" id="settingsNavEntryCard">
                     <div class="settings-map-head">
-                        <div class="settings-map-eyebrow">帮助中心</div>
+                        <div class="settings-map-eyebrow">设置导航</div>
                       <div class="settings-map-title-row">
                         <div>
-                          <h2 class="settings-nav-card-title">先从帮助开始</h2>
+                          <h2 class="settings-nav-card-title">设置分类</h2>
                           <p class="settings-nav-card-note" id="settingsSidebarIntroNote">
-                            新手帮助、本地使用说明和问题反馈在最前面；进阶配置需要时再打开。
+                            按工作区、模板、AI、自动整理和帮助分类。
                           </p>
                         </div>
                         <div class="settings-map-status" aria-live="polite">
@@ -742,7 +675,6 @@
                           <span class="settings-nav-title">工作区</span>
                           <span class="settings-nav-meta" id="settingsNavWorkspaceMeta">笔记库、路径与切换</span>
                         </span>
-                        <span class="settings-stat-badge" id="settingsNavWorkspaceBadge">待同步</span>
                       </button>
                       <button class="settings-nav-button" id="settingsNavTemplates" type="button" data-settings-section="templates" aria-pressed="false">
                         <span class="settings-nav-icon" aria-hidden="true">
@@ -757,7 +689,6 @@
                           <span class="settings-nav-title">模板</span>
                           <span class="settings-nav-meta" id="settingsNavTemplatesMeta">永久笔记与文献模板</span>
                         </span>
-                        <span class="settings-stat-badge" id="settingsNavTemplatesBadge">2 项</span>
                       </button>
                       <button class="settings-nav-button" id="settingsNavAi" type="button" data-settings-section="ai" aria-pressed="false">
                         <span class="settings-nav-icon" aria-hidden="true">
@@ -775,9 +706,8 @@
                         </span>
                         <span class="settings-nav-body">
                           <span class="settings-nav-title">AI</span>
-                          <span class="settings-nav-meta" id="settingsNavAiMeta">本地环境、远程环境与使用方式</span>
+                          <span class="settings-nav-meta" id="settingsNavAiMeta">本机 AI、在线 AI 与使用方式</span>
                         </span>
-                        <span class="settings-stat-badge" id="settingsNavAiBadge">Auto</span>
                       </button>
                       <button class="settings-nav-button" id="settingsNavAutomation" type="button" data-settings-section="automation" aria-pressed="false">
                         <span class="settings-nav-icon" aria-hidden="true">
@@ -787,10 +717,9 @@
                           </svg>
                         </span>
                         <span class="settings-nav-body">
-                          <span class="settings-nav-title">自动处理</span>
-                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">待确认建议、后台任务和运行结果</span>
+                          <span class="settings-nav-title">自动整理</span>
+                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">待处理、整理规则和历史记录</span>
                         </span>
-                        <span class="settings-stat-badge" id="settingsNavAutomationBadge">0</span>
                       </button>
                       <button class="settings-nav-button" id="settingsNavSupport" type="button" data-settings-section="support" aria-pressed="false">
                         <span class="settings-nav-icon" aria-hidden="true">
@@ -807,7 +736,6 @@
                           <span class="settings-nav-title">支持</span>
                           <span class="settings-nav-meta" id="settingsNavSupportMeta">问题反馈、帮助入口与本地说明</span>
                         </span>
-                        <span class="settings-stat-badge" id="settingsNavSupportBadge">反馈</span>
                       </button>
                     </div>
                   </section>
@@ -955,7 +883,7 @@
                         <div class="settings-pane-kicker">AI</div>
                         <div class="settings-pane-title">AI 设置</div>
                       </div>
-                      <div class="settings-pane-note">选择使用本地模型或远程模型，然后测试一句话确认是否可用。</div>
+                      <div class="settings-pane-note">配置本地或远程 AI。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAiBody">
                       <section class="settings-card" id="settingsCardAiSettings">
@@ -963,73 +891,94 @@
                           <section class="settings-ai-primary" aria-label="AI 主要设置">
                             <div class="settings-ai-primary-head">
                               <div>
-                                <div class="settings-ai-primary-title">选择 AI 使用方式</div>
-                                <div class="settings-ai-primary-note">本地模型隐私更好，速度取决于电脑；远程模型效果可能更好，需要网络和密钥名称。</div>
+                                <div class="settings-ai-primary-title" id="settingsAiSetupTitle">还未设置 AI</div>
+                                <div class="settings-ai-primary-note" id="settingsAiSetupBody">需要 AI 功能时，再从这里设置本地 AI 或远程 AI。</div>
                               </div>
-                              <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
+                              <span class="settings-stat-badge muted" id="settingsAiTopStatus">还未设置</span>
                             </div>
-                            <div class="settings-ai-topline">
-                              <div class="settings-ai-field">
-                                <label for="settingsAiRuntimeMode">使用方式</label>
-                                <select id="settingsAiRuntimeMode">
-                                  <option value="auto">自动选择</option>
-                                  <option value="local_only">使用本地模型</option>
-                                  <option value="cloud_only">使用远程模型</option>
-                                </select>
+                            <div class="settings-ai-task-card" aria-label="AI 当前状态">
+                              <div class="settings-ai-task-meta">
+                                <span class="settings-ai-mode-label">当前模式</span>
+                                <span id="settingsAiTopMode">未启用</span>
                               </div>
-                              <button class="settings-ai-tool-button" type="button" data-settings-ai-dialog-open="test">
-                                <span class="settings-ai-tool-title">测试一句话</span>
-                                <span class="settings-ai-tool-note">确认当前 AI 设置是否可用。</span>
-                                <span class="settings-stat-badge muted" id="settingsAiLabBadge">未测试</span>
-                              </button>
+                              <div class="settings-ai-task-actions">
+                                <button class="mini-btn primary" id="settingsAiTopAction" type="button" data-settings-ai-primary-action="local">配置本地 AI</button>
+                                <button class="mini-btn is-subtle hidden" id="settingsAiSecondaryAction" type="button" data-settings-ai-primary-action="">重新检测</button>
+                                <button class="mini-btn is-subtle" id="settingsAiOffAction" type="button" data-settings-ai-primary-action="off">停用 AI</button>
+                              </div>
+                              <div class="settings-ai-inline-note" id="settingsAiTopHint">默认推荐本地 AI。</div>
                             </div>
-                            <section class="settings-ai-local-control-console" aria-label="本地 AI 管理">
-                              <div class="settings-ai-local-console-head">
-                                <div>
-                                  <div class="settings-ai-local-console-title">本地模型</div>
-                                  <div class="settings-ai-local-console-note">需要私密处理时使用。先检测这台电脑是否可用，再选择一个本地模型。</div>
-                                </div>
-                                <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
-                              </div>
-                              <span class="settings-ai-local-home-steps" id="settingsAiLocalHomeSteps" aria-live="polite"></span>
-                              <div class="settings-ai-local-guide" id="settingsAiLocalGuide" data-state="idle">
-                                <div class="settings-ai-local-guide-copy">
-                                  <span class="settings-stat-badge muted" id="settingsAiLocalGuideBadge">第 1 步</span>
-                                  <div class="settings-ai-local-guide-title" id="settingsAiLocalGuideTitle">启用本地模型</div>
-                                  <div class="settings-ai-local-guide-body" id="settingsAiLocalGuideBody">点击“使用本地模型”，然后检测这台电脑是否已经准备好。</div>
-                                  <div class="settings-ai-local-guide-hint" id="settingsAiLocalGuideHint">没有安装时，会在这里给出官方下载入口。</div>
-                                </div>
-                                <div class="settings-ai-local-guide-actions" aria-label="本地模型设置操作">
-                                  <button class="mini-btn primary" id="settingsAiUseLocalSetup" type="button" data-settings-ai-quick-setup="local">使用本地模型</button>
-                                  <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测本地模型</button>
-                                  <button class="mini-btn primary hidden" id="settingsAiStartOllama" type="button">启动本地模型</button>
-                                  <button class="mini-btn is-subtle hidden" id="settingsAiStopOllama" type="button">停止本地模型</button>
-                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载本地模型工具</a>
-                                  <button class="mini-btn is-subtle hidden" id="settingsAiCopyOllamaInstallCommand" type="button">复制安装命令</button>
+                            <section class="settings-ai-local-panel" id="settingsAiLocalOptions" aria-label="本地 AI">
+                              <div class="settings-ai-local-panel-title">本地 AI</div>
+                              <div class="settings-ai-local-panel-body">
+                                <div class="settings-ai-local-toolbar">
+                                  <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">模型</label>
+                                  <select id="settingsAiLocalModel">
+                                    <option value="">检测后选择</option>
+                                  </select>
+                                  <button class="mini-btn" id="settingsAiDetectOllama" type="button">重新检测</button>
+                                  <button class="mini-btn hidden" id="settingsAiRuntimeToggle" type="button">启动本地模型</button>
+                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">安装模型运行工具</a>
                                   <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载推荐模型</button>
                                 </div>
+                                <label class="settings-ai-toggle-row">
+                                  <input id="settingsAiAutoPrepareLocal" type="checkbox" />
+                                  <span>启动研思录时准备本地 AI</span>
+                                </label>
+                                <details class="settings-ai-advanced settings-ai-model-list">
+                                  <summary class="settings-ai-advanced-summary">
+                                    <span class="settings-ai-advanced-copy">
+                                      <span class="settings-ai-advanced-title">更多模型</span>
+                                    </span>
+                                  </summary>
+                                  <div class="settings-ai-advanced-body">
+                                    <div class="settings-ai-local-recommendations hidden" id="settingsAiLocalModelRecommendations" aria-live="polite"></div>
+                                  </div>
+                                </details>
                               </div>
-                              <div class="settings-ai-grid">
-                                <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
-                                <select id="settingsAiLocalModel">
-                                  <option value="">检测后选择</option>
-                                </select>
-                                <div class="settings-field-note">选择后建议测试一句话，确认能正常回复。</div>
-                              </div>
-                              <div class="settings-ai-local-recommendations hidden" id="settingsAiLocalModelRecommendations" aria-live="polite"></div>
-                              <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模型适合私密材料，第一次使用需要安装和检测。</div>
-                              <div class="settings-ai-step-list" id="settingsAiSetupSteps"></div>
                             </section>
+                            <details class="settings-ai-advanced settings-ai-remote-section" id="settingsAiRemoteSection" aria-label="远程模型">
+                              <summary class="settings-ai-advanced-summary">
+                                <span class="settings-ai-advanced-copy">
+                                  <span class="settings-ai-advanced-title">远程 AI</span>
+                                </span>
+                              </summary>
+                              <div class="settings-ai-advanced-body">
+                              <div class="settings-ai-grid">
+                                <label for="settingsAiProviderEndpointUrl">API 地址</label>
+                                <input id="settingsAiProviderEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="https://api.example.com/v1" />
+
+                                <label for="settingsAiSecretRef">API Key</label>
+                                <input id="settingsAiSecretRef" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴服务商提供的 API Key" />
+
+                                <label for="settingsAiRemoteRuntimeModel">模型名称</label>
+                                <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：gpt-4.1-mini 或 deepseek-chat" />
+                              </div>
+                              <div class="settings-ai-privacy-notice">启用远程 AI 后，相关内容将发送至此服务。</div>
+                              <div class="settings-ai-actions">
+                                <div class="settings-ai-actions-secondary">
+                                  <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
+                                  <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存远程设置</button>
+                                </div>
+                              </div>
+                              </div>
+                            </details>
                             <details class="settings-ai-advanced" id="settingsAiAdvancedOptions">
                               <summary class="settings-ai-advanced-summary">
                                 <span class="settings-ai-advanced-copy">
-                                  <span class="settings-ai-advanced-title">高级设置</span>
-                                  <span class="settings-ai-advanced-meta">通常不用展开；需要填写远程服务、密钥名称或指定模型时再用。</span>
+                                  <span class="settings-ai-advanced-title">诊断</span>
                                 </span>
-                                <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
                               </summary>
                               <div class="settings-ai-advanced-body">
                                 <div class="settings-ai-compact-grid">
+                                  <div class="settings-ai-field">
+                                    <label>测试状态</label>
+                                    <span class="settings-stat-badge muted" id="settingsAiLabBadge">未测试</span>
+                                  </div>
+                                  <div class="settings-ai-field">
+                                    <label>连接状态</label>
+                                    <span class="settings-stat-badge muted" id="settingsAiProviderConfigBadge">未配置</span>
+                                  </div>
                                   <div class="settings-ai-field">
                                     <label for="settingsAiModelPack">使用场景</label>
                                     <select id="settingsAiModelPack">
@@ -1059,7 +1008,15 @@
                                     <div class="settings-field-note">简单任务优先在本机处理；需要更强效果时可能使用远程模型。</div>
                                   </div>
                                 </div>
-                                <button class="mini-btn is-subtle" type="button" data-settings-ai-dialog-open="remote">填写远程模型</button>
+                                <div class="settings-ai-grid">
+                                  <label for="settingsAiProviderHealthEndpointUrl">检测地址</label>
+                                  <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="可选，例如：https://gateway.example.com/health" />
+                                  <div class="settings-field-note">可留空；不填时用“测试 AI”确认连接。</div>
+
+                                  <label for="settingsAiAdvancedModelRef">指定模型</label>
+                                  <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择" />
+                                  <div class="settings-field-note">通常留空，只有排查问题时才填写。</div>
+                                </div>
                                 <div class="settings-ai-compact-preview">
                                   <div class="settings-stat-row" id="settingsAiSetupBadges">
                                     <span class="settings-stat-badge warn">等待同步</span>
@@ -1074,122 +1031,22 @@
                           </section>
 
                         </div>
-                        <div class="settings-ai-popover hidden" id="settingsAiRemoteDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiRemoteDialogTitle">
-                          <div class="settings-ai-popover-panel">
-                            <div class="settings-ai-popover-head">
-                              <div>
-                                <div class="settings-ai-popover-title" id="settingsAiRemoteDialogTitle">远程模型</div>
-                                <div class="settings-ai-popover-note">远程模型效果可能更好；需要网络。使用自己的服务时，再填写服务地址和密钥名称。</div>
-                              </div>
-                              <div class="settings-ai-popover-head-actions">
-                                <button class="mini-btn is-subtle" id="settingsAiRemoteHelpToggle" type="button" aria-expanded="false" aria-controls="settingsAiRemoteHelp">帮助</button>
-                                <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
-                              </div>
-                            </div>
-                            <div class="settings-ai-popover-body">
-                              <div class="settings-ai-remote-help hidden" id="settingsAiRemoteHelp">
-                                <div>
-                                  <div class="settings-ai-remote-help-title">远程模型怎么填</div>
-                                  <p class="settings-ai-remote-help-copy">先到服务商控制台创建密钥；研思录里只填写“密钥名称”或环境变量引用，不粘贴真实密钥。保存后用一句短句测试是否可用。</p>
-                                </div>
-                                <div class="settings-ai-remote-help-grid">
-                                  <div class="settings-ai-remote-help-group">
-                                    <div class="settings-ai-remote-help-title">国内常用</div>
-                                    <div class="settings-ai-remote-provider-list">
-                                      <div class="settings-ai-remote-provider"><a href="https://platform.deepseek.com/" target="_blank" rel="noreferrer">DeepSeek</a><span>性价比高，适合日常摘要、整理和推理；模型名常见 deepseek-chat / deepseek-reasoner。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://www.aliyun.com/product/bailian" target="_blank" rel="noreferrer">阿里云百炼 / 通义千问</a><span>企业云接入方便，适合中文写作和团队统一管理；模型名按百炼控制台选择。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://platform.moonshot.ai/" target="_blank" rel="noreferrer">Kimi / Moonshot</a><span>长文本体验好，适合文献、访谈、报告等长材料处理。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://bigmodel.cn/" target="_blank" rel="noreferrer">智谱 GLM</a><span>适合中文研究、结构化整理和通用助手场景；模型名以 BigModel 控制台为准。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://cloud.baidu.com/product-s/qianfan_home" target="_blank" rel="noreferrer">百度千帆 / 文心</a><span>适合已有百度云资源或企业账号的团队接入。</span></div>
-                                    </div>
-                                  </div>
-                                  <div class="settings-ai-remote-help-group">
-                                    <div class="settings-ai-remote-help-title">国外常用</div>
-                                    <div class="settings-ai-remote-provider-list">
-                                      <div class="settings-ai-remote-provider"><a href="https://developers.openai.com/api/docs/models" target="_blank" rel="noreferrer">OpenAI</a><span>综合能力强，适合默认远程模型、复杂写作和多语言任务。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://platform.claude.com/docs/en/about-claude/models/overview" target="_blank" rel="noreferrer">Anthropic Claude</a><span>长文档阅读和稳健写作表现好，适合研究资料分析。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noreferrer">Google Gemini</a><span>多模态和长上下文选择多，适合图文资料和跨语言任务。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://docs.mistral.ai/" target="_blank" rel="noreferrer">Mistral AI</a><span>欧洲服务商，适合需要开源生态、部署弹性或企业方案的团队。</span></div>
-                                      <div class="settings-ai-remote-provider"><a href="https://docs.cohere.com/docs/models" target="_blank" rel="noreferrer">Cohere</a><span>适合企业文本处理、检索增强和分类整理场景。</span></div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div class="settings-ai-wizard-list">
-                                <div class="settings-ai-wizard-step">
-                                  <span class="settings-ai-wizard-index">1</span>
-                                  <div class="settings-ai-wizard-copy">
-                                    <span class="settings-ai-wizard-title">使用远程模型</span>
-                                    <span class="settings-ai-wizard-note">适合追求更好效果，或者已经有可用的远程服务。</span>
-                                    <div class="settings-ai-wizard-action">
-                                      <button class="mini-btn primary" type="button" data-settings-ai-quick-setup="remote">使用远程模型</button>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div class="settings-ai-wizard-step">
-                                  <span class="settings-ai-wizard-index">2</span>
-                                  <div class="settings-ai-wizard-copy">
-                                    <span class="settings-ai-wizard-title">填写必要信息</span>
-                                    <span class="settings-ai-wizard-note">只填密钥名称，不要在这里粘贴真实密钥。</span>
-                                  </div>
-                                </div>
-                                <div class="settings-ai-wizard-step">
-                                  <span class="settings-ai-wizard-index">3</span>
-                                  <div class="settings-ai-wizard-copy">
-                                  <span class="settings-ai-wizard-title">保存并测试一句话</span>
-                                  <span class="settings-ai-wizard-note">保存后用一句普通话确认 AI 能正常回复。</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div class="settings-ai-grid">
-                                <label for="settingsAiRemoteRuntimeModel">模型名</label>
-                                <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：deepseek-chat" />
-                                <div class="settings-field-note">按服务商控制台显示的模型名填写。</div>
-
-                                <label for="settingsAiSecretRef">密钥名称</label>
-                                <input id="settingsAiSecretRef" spellcheck="false" placeholder="例如：AI_API_KEY" />
-                                <div class="settings-field-note is-important">这里只写密钥名称或环境变量引用，不要粘贴真实密钥。</div>
-
-                                <label for="settingsAiProviderEndpointUrl">服务地址</label>
-                                <input id="settingsAiProviderEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="https://gateway.example.com/v1/chat/completions" />
-                                <div class="settings-field-note">远程服务建议使用 HTTPS。</div>
-
-                                <label for="settingsAiProviderHealthEndpointUrl">检测地址</label>
-                                <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="可选，例如：https://gateway.example.com/health" />
-                                <div class="settings-field-note">可留空；不填时用“测试一句话”确认连接。</div>
-
-                                <label for="settingsAiAdvancedModelRef">指定模型</label>
-                                <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择" />
-                                <div class="settings-field-note">通常留空，只有排查问题时才填写。</div>
-                              </div>
-                              <div class="settings-ai-actions">
-                                <div class="settings-ai-actions-secondary">
-                                <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存远程设置</button>
-                                  <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
                         <div class="settings-ai-popover hidden" id="settingsAiTestDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiTestDialogTitle">
                           <div class="settings-ai-popover-panel">
                             <div class="settings-ai-popover-head">
                               <div>
-                                <div class="settings-ai-popover-title" id="settingsAiTestDialogTitle">测试一句话</div>
-                                <div class="settings-ai-popover-note">用一句不含敏感内容的话确认当前 AI 能正常回复。</div>
+                                <div class="settings-ai-popover-title" id="settingsAiTestDialogTitle">测试 AI</div>
+                                <div class="settings-ai-popover-note">输入一条测试内容，测试可能需要一点时间，请等结果出来。</div>
                               </div>
                               <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
                             </div>
                             <div class="settings-ai-popover-body">
                               <div class="settings-ai-grid">
                                 <label for="settingsAiTestPrompt">测试内容</label>
-                                <textarea id="settingsAiTestPrompt" rows="3" placeholder="例如：请用一句话总结“研究笔记应该先记录问题，再整理结论”。"></textarea>
-                                <div class="settings-field-note">返回结果只用于确认连接和模型选择。</div>
+                                <textarea id="settingsAiTestPrompt" rows="3" placeholder="例如：用一句话总结研究笔记的作用"></textarea>
                                 <div></div>
                                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                  <button class="mini-btn primary" id="btnAiTestChatRun" type="button">测试一句话</button>
-                                  <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
+                                  <button class="mini-btn primary" id="btnAiTestChatRun" type="button">测试 AI</button>
                                   <span class="settings-stat-badge" id="settingsAiTestChatMeta">未测试</span>
                                 </div>
                               </div>
@@ -1205,9 +1062,9 @@
                     <div class="settings-pane-head">
                       <div class="settings-pane-headline">
                         <div class="settings-pane-kicker">Automation</div>
-                        <div class="settings-pane-title">自动处理</div>
+                        <div class="settings-pane-title">自动整理</div>
                       </div>
-                      <div class="settings-pane-note">待确认建议、后台任务和运行结果。</div>
+                      <div class="settings-pane-note">待处理、整理规则和历史记录。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAutomationBody">
                       <div id="settingsAutomationWorkspaceMount"></div>
@@ -1233,7 +1090,7 @@
                         <div class="settings-help-topic-list settings-help-task-list">
                           <div class="settings-help-topic">
                             <strong>研思录最核心的路径</strong>
-                            <span>从首页开始：处理一条材料，补一条关系，形成一个主题，再进入写作中心。一天只推进一个动作也可以。</span>
+                            <span>从首页开始：处理一条材料，补一条关系，形成一个主题，再进入写作。一天只推进一个动作也可以。</span>
                           </div>
                           <div class="settings-help-topic settings-help-topic-action">
                             <strong>一键导入 Smart Notes Demo</strong>
@@ -1257,10 +1114,10 @@
                           </div>
                           <div class="settings-help-topic">
                             <strong>怎么开始写作</strong>
-                            <span>先选能回答同一问题的笔记，确认主题，再进入写作中心生成提纲。</span>
+                            <span>先选能回答同一问题的笔记，确认主题，再进入写作生成提纲。</span>
                             <div class="settings-inline-actions">
                               <button class="mini-btn" type="button" data-settings-help-action="open-theme-example">查看主题索引示例</button>
-                              <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作中心</button>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作</button>
                             </div>
                           </div>
                           <div class="settings-help-topic">
@@ -1274,8 +1131,8 @@
                             <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">打开手机访问</button>
                           </div>
                           <div class="settings-help-topic">
-                            <strong>AI / Ollama 是什么，什么时候需要</strong>
-                            <span>AI 只做候选建议，不替你确认笔记。不需要 AI，也能完整使用记录、关联和写作主流程。</span>
+                            <strong>AI 可以帮什么</strong>
+                            <span>在材料旁提炼，在关联时补充候选，在写作时生成提纲或检查缺口。结果可编辑、可忽略，确认后才保存；不用 AI 也能完整使用。</span>
                             <button class="mini-btn" type="button" data-settings-help-action="open-ai-settings">查看 AI 设置</button>
                           </div>
                         </div>
@@ -1465,7 +1322,7 @@
         <button class="editor-helper-close" id="btnDismissEditorHelper" type="button" aria-label="关闭提示">×</button>
         <div class="editor-helper-kicker" id="editorHelperKicker">当前任务</div>
         <div class="editor-helper-title" id="editorHelperTitle">把资料慢慢提炼成自己的判断</div>
-        <div class="editor-helper-body" id="editorHelperBody">这里会根据你当前正在处理的笔记，提示下一步推荐、相关任务和未来的大模型协作入口。</div>
+        <div class="editor-helper-body" id="editorHelperBody">这里会根据你当前正在处理的笔记，提示下一步推荐、相关任务和未来的 AI 协作入口。</div>
         <div class="editor-helper-actions">
           <button class="editor-helper-action" id="btnEditorHelperAction" type="button">知道了</button>
           <button class="editor-helper-action is-secondary" id="btnEditorHelperMute" type="button">不再提示</button>
@@ -1500,12 +1357,11 @@
       <div class="modal-body">
         <div class="modal-note" id="systemMessageModalNote">这里汇总需要你确认的关系、问题和写作建议。</div>
         <div class="system-message-layout">
-          <div class="system-message-list" id="systemMessageList" aria-label="系统消息列表" aria-live="polite"></div>
-          <div class="system-message-detail" id="systemMessageDetail" aria-label="系统消息详情" aria-live="polite"></div>
+          <div class="system-message-list" id="systemMessageList" aria-label="系统消息历史列表" aria-live="polite"></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">查看全部待确认建议</button>
+        <button class="mini-btn" id="btnSystemMessageOpenAiInbox" type="button">查看全部待处理内容</button>
         <button class="mini-btn" id="btnSystemMessageMarkRead" type="button">全部标记已读</button>
         <button class="mini-btn primary" id="btnSystemMessageClose" type="button">关闭</button>
       </div>

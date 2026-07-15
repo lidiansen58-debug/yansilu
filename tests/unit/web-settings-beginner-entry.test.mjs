@@ -11,14 +11,14 @@ import { readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-test("settings keeps beginner help entries available before technical configuration", () => {
-  assert.equal(SETTINGS_SECTIONS[0].id, "support");
-  assert.equal(normalizeSettingsSection(""), "support");
+test("settings puts mobile access first and keeps help available at the end", () => {
+  assert.equal(SETTINGS_SECTIONS[0].id, "workspace");
+  assert.equal(normalizeSettingsSection(""), "workspace");
   assert.deepEqual(
     SETTINGS_DETAIL_ITEMS.slice(0, 3).map((item) => item.id),
-    ["desktop-help", "feedback", "version-update"]
+    ["mobile-access", "current-vault", "import-export"]
   );
-  assert.equal(SETTINGS_DETAIL_ITEMS[0].group, "新手帮助");
+  assert.equal(SETTINGS_DETAIL_ITEMS[0].group, "手机访问");
 });
 
 test("settings opens mobile access by default", async () => {
@@ -58,12 +58,12 @@ test("settings help exposes a one-click Smart Notes Demo entrance", async () => 
   assert.match(html, /怎么开始写作/);
   assert.match(html, /如何备份和迁移/);
   assert.match(html, /手机访问适合怎么用/);
-  assert.match(html, /AI \/ Ollama 是什么，什么时候需要/);
+  assert.match(html, /AI 可以帮什么/);
   assert.match(html, /一键导入 Smart Notes Demo/);
   assert.match(html, /导入一套可试错样例/);
   assert.match(html, /空库先导入 Demo；已有资料先选文件夹；只想记录就写第一条随笔/);
   assert.match(html, /关联不是为了图好看/);
-  assert.match(html, /AI 只做候选建议/);
+  assert.match(html, /结果可编辑、可忽略，确认后才保存/);
   assert.match(html, /Demo 只会在你确认后导入/);
   assert.match(html, /id="settingsImportSmartNotesDemo"/);
   assert.match(html, /导入示例库 \/ 体验 Demo/);

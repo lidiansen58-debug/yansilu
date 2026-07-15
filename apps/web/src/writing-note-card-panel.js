@@ -2,9 +2,10 @@ import {
   renderWritingProjectCardView
 } from "./writing-workspace-view.js";
 
-export function renderWritingNoteCardDom(deps = {}, note, { selected = false, action = "add", actionLabel = "加入相关笔记" } = {}) {
+export function renderWritingNoteCardDom(deps = {}, note, { selected = false, action = "add", actionLabel = "加入相关笔记", usageText = "" } = {}) {
   const { escapeHtml, renderThinkingStatusBadge, writingNoteMeta, writingNoteExcerpt } = deps;
   const thinkingBadge = renderThinkingStatusBadge(note?.thinkingStatus, "thinking-status-badge writing-thinking-status");
+  const excerpt = String(writingNoteExcerpt(note) || "").trim();
   return `
     <article class="writing-note-card ${selected ? "selected" : ""}" data-writing-note-id="${escapeHtml(note.id)}">
       <div class="writing-note-card-head">
@@ -14,9 +15,10 @@ export function renderWritingNoteCardDom(deps = {}, note, { selected = false, ac
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">${escapeHtml(writingNoteExcerpt(note))}</div>
+      ${excerpt ? `<div class="writing-note-meta">${escapeHtml(excerpt)}</div>` : ""}
+      ${usageText ? `<div class="writing-note-meta">${escapeHtml(usageText)}</div>` : ""}
       <div class="writing-note-actions">
-        <button class="mini-btn" type="button" data-writing-action="${escapeHtml(action)}" data-writing-note-id="${escapeHtml(note.id)}">${escapeHtml(actionLabel)}</button>
+        ${action === "open" ? "" : `<button class="mini-btn" type="button" data-writing-action="${escapeHtml(action)}" data-writing-note-id="${escapeHtml(note.id)}">${escapeHtml(actionLabel)}</button>`}
         <button class="mini-btn" type="button" data-writing-action="open" data-writing-note-id="${escapeHtml(note.id)}">打开笔记</button>
       </div>
     </article>

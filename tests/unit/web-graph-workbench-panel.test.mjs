@@ -13,17 +13,17 @@ const tabMeta = (value = "clues") => {
   const items = {
     clues: {
       key: "clues",
-      label: "关联任务",
-      emptyLabel: "暂无关联任务",
-      panelTitle: "关联任务",
+      label: "补全关系",
+      emptyLabel: "暂无需要补的关系",
+      panelTitle: "补全关系",
       note: "处理关系"
     },
     questions: {
       key: "questions",
-      label: "洞察问题",
-      emptyLabel: "暂无洞察问题",
-      panelTitle: "洞察问题",
-      note: "处理问题"
+      label: "找主题",
+      emptyLabel: "暂无可找主题的线索",
+      panelTitle: "找主题",
+      note: "处理主题"
     }
   };
   return items[value] || items.clues;
@@ -32,8 +32,8 @@ const tabMeta = (value = "clues") => {
 const filterMeta = (value = "all") => {
   const items = {
     all: { key: "all", label: "全部", note: "全部" },
-    theme: { key: "theme", label: "主题", note: "主题" },
-    organize: { key: "organize", label: "关系", note: "关系" }
+    theme: { key: "theme", label: "找主题", note: "找主题" },
+    organize: { key: "organize", label: "补全关系", note: "补全关系" }
   };
   return items[value] || items.all;
 };
@@ -49,7 +49,7 @@ function deps(graphState = {}) {
   };
 }
 
-test("graph workbench entry pills expose clue and question entry state", () => {
+test("graph workbench entry pills keep only task labels", () => {
   const html = renderGraphWorkbenchEntryPillsView(
     { clueSummary: { total: 2 }, questionSummary: { total: 0 } },
     deps({ workbenchPanelOpen: true, workbenchPanelTab: "clues" })
@@ -58,14 +58,17 @@ test("graph workbench entry pills expose clue and question entry state", () => {
   assert.match(html, /graph-workbench-entry-group/);
   assert.match(html, /data-graph-workbench-entry="clues"/);
   assert.match(html, /data-graph-workbench-entry="questions"/);
+  assert.match(html, /补全关系/);
+  assert.match(html, /找主题/);
   assert.match(html, /is-active/);
   assert.match(html, /is-empty/);
   assert.match(html, />2<\/strong>/);
+  assert.doesNotMatch(html, /关联任务|洞察问题/);
 });
 
-test("graph research navigator entry toggles open and close actions", () => {
-  assert.match(renderGraphResearchNavigatorEntryView(false), /data-graph-research-open/);
-  assert.match(renderGraphResearchNavigatorEntryView(true), /data-graph-research-close/);
+test("graph research navigator entry is no longer a separate lower-row button", () => {
+  assert.equal(renderGraphResearchNavigatorEntryView(false), "");
+  assert.equal(renderGraphResearchNavigatorEntryView(true), "");
 });
 
 test("graph thinking items filter content and keep action attrs", () => {
@@ -85,29 +88,29 @@ test("graph thinking items filter content and keep action attrs", () => {
   assert.match(html, /data-graph-select-node="n1"/);
 });
 
-test("graph thinking panel content renders filters, summary, review note, and body", () => {
+test("graph thinking panel content removes secondary filters but keeps summary and review action", () => {
   const html = renderGraphThinkingPanelContentView(
     {
-      summary: { categories: [{ count: 3, label: "待补理由" }], artifactCount: 2 },
+      summary: { total: 1, artifactCount: 2 },
       items: [{ view: "organize", title: "补理由" }],
       includeSummary: true
     },
     deps({ thinkingFilter: "organize" })
   );
 
-  assert.match(html, /data-graph-thinking-filter="organize"/);
+  assert.doesNotMatch(html, /data-graph-thinking-filter=/);
   assert.match(html, /graph-thinking-categories/);
   assert.match(html, /data-graph-focus-thinking-review/);
-  assert.match(html, /查看待确认/);
-  assert.doesNotMatch(html, /系统消息/);
+  assert.match(html, /2 项待确认/);
+  assert.doesNotMatch(html, /系统消息|关联任务|洞察问题/);
   assert.match(html, /补理由/);
 });
 
-test("graph workbench panel renders active tabs, priority queue, and folded body", () => {
+test("graph workbench panel renders only a minimal read-only explanation", () => {
   const html = renderGraphWorkbenchPanelView(
     {
       clueSummary: { total: 4, detail: "4 条关系" },
-      questionSummary: { total: 1, detail: "1 个问题" },
+      questionSummary: { total: 1, detail: "1 个主题线索" },
       clueSectionsMarkup: "<section>全部关系</section>",
       thinkingItems: [
         { view: "organize", title: "先处理", tone: "bridge", actionAttrs: 'data-action="x"', actionLabel: "处理" }
@@ -118,10 +121,53 @@ test("graph workbench panel renders active tabs, priority queue, and folded body
   );
 
   assert.match(html, /graph-workbench-panel/);
-  assert.match(html, /data-graph-workbench-tab="clues"/);
-  assert.match(html, /class="graph-workbench-guide"[\s\S]*data-run-graph-ai-analysis/);
-  assert.match(html, /graph-priority-queue/);
-  assert.match(html, /孤立笔记/);
-  assert.match(html, /全部关系/);
+  assert.match(html, /aria-label="补全关系"/);
+  assert.match(html, /graph-workbench-note-list/);
   assert.match(html, /data-graph-workbench-close/);
+  assert.doesNotMatch(html, /data-graph-workbench-tab=/);
+  assert.doesNotMatch(html, /graph-priority-queue/);
+  assert.doesNotMatch(html, /graph-workbench-all/);
+  assert.doesNotMatch(html, /孤立笔记|全部关系|data-action="x"/);
+  assert.doesNotMatch(html, /关联任务|洞察问题/);
+});
+
+test("graph workbench theme panel summarizes likely theme areas", () => {
+  const html = renderGraphWorkbenchPanelView(
+    {
+      clueSummary: { total: 0 },
+      questionSummary: { total: 22, detail: "22 个主题线索" },
+      thinkingItems: [
+        { view: "theme", title: "AI 应该在具体任务旁提供帮助", question: "这些笔记是否都在回答 AI 何时出现？", actionLabel: "确认主题", actionAttrs: 'data-graph-select-theme="topic-a"' },
+        { view: "question", title: "关系类型怎么选", detail: "围绕关联判断和理由写法。" },
+        { view: "organize", title: "补关系" }
+      ]
+    },
+    deps({ workbenchPanelOpen: true, workbenchPanelTab: "questions" })
+  );
+
+  assert.match(html, /图里有 22 个地方可能已经聚成主题/);
+  assert.match(html, /如何发现主题/);
+  assert.match(html, /data-graph-workbench-guide-toggle/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /graph-workbench-theme-overview/);
+  assert.match(html, /graph-workbench-theme-overview-item/);
+  assert.match(html, /data-graph-select-theme="topic-a"/);
+  assert.match(html, /AI 应该在具体任务旁提供帮助/);
+  assert.match(html, /这些笔记是否都在回答 AI 何时出现/);
+  assert.match(html, /关系类型怎么选/);
+  assert.doesNotMatch(html, /补关系/);
+});
+
+test("graph workbench guide button expands theme explanation", () => {
+  const html = renderGraphWorkbenchPanelView(
+    {
+      questionSummary: { total: 1 },
+      thinkingItems: [{ view: "theme", title: "主题 A" }]
+    },
+    deps({ workbenchPanelOpen: true, workbenchPanelTab: "questions", workbenchGuideOpen: true })
+  );
+
+  assert.match(html, /data-graph-workbench-guide-toggle/);
+  assert.match(html, /aria-expanded="true"/);
+  assert.match(html, /先看下面这些成组线索/);
 });

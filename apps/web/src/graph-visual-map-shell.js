@@ -16,27 +16,27 @@ function graphVisualMapShellDeps(deps = {}) {
     escapeHtml: deps.escapeHtml || defaultEscapeHtml,
     renderGraphIcon: deps.renderGraphIcon || defaultIcon,
     labels: {
-      mapPanel: "Graph map",
-      canvas: "Zoomable graph canvas",
-      mapImage: "Permanent note relation graph",
-      tools: "Graph tools",
-      zoomControls: "Graph zoom",
-      zoomLevels: "Graph zoom levels",
-      zoomOut: "Zoom out",
-      zoomIn: "Zoom in",
+      mapPanel: "关系图谱",
+      canvas: "可缩放的关系图谱画布",
+      mapImage: "永久笔记关系图",
+      tools: "图谱工具",
+      zoomControls: "图谱缩放",
+      zoomLevels: "图谱缩放级别",
+      zoomOut: "缩小图谱",
+      zoomIn: "放大图谱",
       wheelZoomHint: "也可以用鼠标滚轮缩放",
-      expand: "Expand",
-      collapse: "Exit expanded view",
-      panCanvas: "Pan canvas",
-      panCanvasHint: "Drag the empty map area to pan",
+      expand: "放大查看图谱",
+      collapse: "退出放大查看",
+      panCanvas: "拖动画布",
+      panCanvasHint: "拖动空白区域移动图谱",
       canvasHelpHint: "滚轮缩放，拖动查看，点击笔记看详情",
       hoverTitle: "拖动画布，点击笔记查看周边关系",
       hoverDetail: "可以拖动画布移动视野；点击笔记或关系后，在旁边查看它附近的连接。",
-      legend: "Relation color legend",
-      selectionOverlay: "Selection overlay",
-      closeEmpty: "Close notice",
-      argumentView: "Argument relations",
-      structureView: "Theme distribution",
+      legend: "关系颜色说明",
+      selectionOverlay: "图谱处理浮层",
+      closeEmpty: "关闭提示",
+      argumentView: "观点关系",
+      structureView: "主题结构",
       ...(deps.labels || {})
     }
   };
@@ -113,25 +113,6 @@ export function renderGraphMapSvgDefsView({ markerColors = {} } = {}, deps = {})
   `;
 }
 
-export function renderGraphMapLegendView({ open = false, groups = [], note = "" } = {}, deps = {}) {
-  const { escapeHtml, labels } = graphVisualMapShellDeps(deps);
-  if (!open) return "";
-  return `<div class="graph-map-legend" aria-label="${escapeHtml(labels.legend)}">
-    ${note ? `<div class="graph-map-legend-note">${escapeHtml(note)}</div>` : ""}
-    ${(Array.isArray(groups) ? groups : [])
-      .map(
-        (group) => `
-          <span>
-            <i class="${escapeHtml(group.className)}"></i>
-            <strong>${escapeHtml(group.label)}</strong>
-            <small>${escapeHtml(group.detail)}</small>
-          </span>
-        `
-      )
-      .join("")}
-  </div>`;
-}
-
 export function renderGraphMapEmptyStateView({ title = "", message = "" } = {}, deps = {}) {
   const { escapeHtml, renderGraphIcon, labels } = graphVisualMapShellDeps(deps);
   return `
@@ -144,8 +125,9 @@ export function renderGraphMapEmptyStateView({ title = "", message = "" } = {}, 
         <strong>${escapeHtml(title)}</strong>
         <span>${escapeHtml(message)}</span>
         <div class="graph-map-empty-actions">
-          <button class="mini-btn primary" type="button" data-graph-view-mode="argument">${escapeHtml(labels.argumentView)}</button>
-          <button class="mini-btn" type="button" data-graph-view-mode="structure">${escapeHtml(labels.structureView)}</button>
+          <button class="mini-btn primary" type="button" data-graph-task-view="structure">看结构</button>
+          <button class="mini-btn" type="button" data-graph-task-view="relations">找缺口</button>
+          <button class="mini-btn" type="button" data-graph-task-view="themes">找主题</button>
         </div>
       </div>
     </div>

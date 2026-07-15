@@ -5,6 +5,7 @@ import {
   loadAiSuggestionDetailForRuntime,
   refreshAiSuggestionsForRuntime
 } from "../../apps/web/src/ai-suggestions-runtime-controller.js";
+import { normalizeVisibleSuggestionFilters } from "../../apps/web/src/ai-suggestions-workspace.js";
 
 function createApplyAiSuggestionStatus(
   _select,
@@ -56,6 +57,92 @@ function createRefreshAiSuggestions(settingsState, deps = {}) {
     loadDetail: deps.loadAiSuggestionDetail || (async () => null)
   }, options);
 }
+
+test("refreshAiSuggestions can clear hidden filters before fetching suggestions", async () => {
+  let capturedFilters = null;
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "edited", targetType: "permanent_note", targetId: "old-note", scope: "note_field", limit: 25 },
+      suggestions: [],
+      suggestionsTotal: 0,
+      selectedSuggestionId: "",
+      suggestionDetail: null,
+      suggestionDetailRequestToken: 0,
+      suggestionsRequestToken: 0,
+      suggestionsLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    normalizeAiSuggestionFilters: normalizeVisibleSuggestionFilters,
+    fetchAiSuggestions: async (filters) => {
+      capturedFilters = filters;
+      return { items: [], total: 0 };
+    }
+  });
+
+  await refreshAiSuggestions({ silent: true });
+
+  assert.deepEqual(capturedFilters, {
+    status: "edited",
+    targetType: "",
+    targetId: "",
+    scope: "",
+    limit: 25,
+    canonical: true
+  });
+  assert.deepEqual(settingsState.ai.suggestionFilters, {
+    status: "edited",
+    targetType: "",
+    targetId: "",
+    scope: "",
+    limit: 25
+  });
+});
+
+test("refreshAiSuggestions leaves the detail modal closed until the user selects a suggestion", async () => {
+  const detailLoads = [];
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "suggested", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [],
+      suggestionsTotal: 0,
+      selectedSuggestionId: "",
+      suggestionDetail: null,
+      suggestionDetailSuggestionId: "",
+      suggestionDetailRequestToken: 0,
+      suggestionsRequestToken: 0,
+      suggestionsLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+  const refreshAiSuggestions = createRefreshAiSuggestions(settingsState, {
+    fetchAiSuggestions: async () => ({
+      items: [{ id: "suggestion_1", status: "suggested" }],
+      total: 1
+    }),
+    loadAiSuggestionDetail: async (suggestionId) => {
+      detailLoads.push(suggestionId);
+      return { id: suggestionId };
+    }
+  });
+
+  await refreshAiSuggestions({ silent: true });
+
+  assert.deepEqual(settingsState.ai.suggestions.map((item) => item.id), ["suggestion_1"]);
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionDetail, null);
+  assert.equal(settingsState.ai.suggestionDetailSuggestionId, "");
+  assert.deepEqual(detailLoads, []);
+});
 
 test("loadAiSuggestionDetail ignores stale responses and keeps the latest selected suggestion detail", async () => {
   let resolveFirst;
@@ -344,6 +431,102 @@ test("applyAiSuggestionStatus reloads the latest detail instead of submitting ag
       loadCalls.push(suggestionId);
       settingsState.ai.suggestionDetail = { item: { id: suggestionId, status: "edited", content: { thesis: "Fresh detail." } } };
       return settingsState.ai.suggestionDetail;
+    },
+    () => {},
+    (message, tone) => statuses.push({ message, tone }),
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
+  assert.equal(result, null);
+  assert.equal(updateCalls, 0);
+  assert.deepEqual(loadCalls, ["suggestion_1"]);
+  assert.deepEqual(statuses, []);
+  assert.equal(settingsState.ai.suggestionActionNoticeSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionActionNotice, "");
+  assert.equal(settingsState.ai.suggestionActionNoticeTone, "");
+});
+
+test("applyAiSuggestionStatus loads the clicked grouped suggestion before submitting it", async () => {
+  const statuses = [];
+  const loadCalls = [];
+  let updateCalls = 0;
+  const settingsState = {
+    ai: {
+      suggestions: [
+        { id: "suggestion_1", status: "edited", content: { thesis: "Current detail." } },
+        { id: "suggestion_2", status: "edited", content: { threeLineSummary: ["List fallback only."] } }
+      ],
+      suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Current detail." } } },
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionError: ""
+    }
+  };
+
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
+    () => ({ value: "" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ threeLineSummary: ["Edited"] }),
+    async () => {
+      updateCalls += 1;
+      return null;
+    },
+    async () => null,
+    async (suggestionId) => {
+      loadCalls.push(suggestionId);
+      settingsState.ai.suggestionDetail = {
+        item: { id: suggestionId, status: "edited", content: { threeLineSummary: ["Fresh detail."] } }
+      };
+      settingsState.ai.selectedSuggestionId = suggestionId;
+      return settingsState.ai.suggestionDetail;
+    },
+    () => {},
+    (message, tone) => statuses.push({ message, tone }),
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_2", "confirmed");
+  assert.equal(result, null);
+  assert.equal(updateCalls, 0);
+  assert.deepEqual(loadCalls, ["suggestion_2"]);
+  assert.deepEqual(statuses, []);
+  assert.equal(settingsState.ai.suggestionActionNoticeSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionActionNotice, "");
+  assert.equal(settingsState.ai.suggestionActionNoticeTone, "");
+});
+
+test("applyAiSuggestionStatus shows a safety notice when clicked suggestion detail still is not available", async () => {
+  const statuses = [];
+  const loadCalls = [];
+  let updateCalls = 0;
+  const settingsState = {
+    ai: {
+      suggestions: [{ id: "suggestion_1", status: "edited", content: { thesis: "List fallback only." } }],
+      suggestionDetail: null,
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionDetailLoading: false,
+      suggestionActionError: ""
+    }
+  };
+
+  const applyAiSuggestionStatus = createApplyAiSuggestionStatus(
+    () => ({ value: "" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ thesis: "Edited" }),
+    async () => {
+      updateCalls += 1;
+      return null;
+    },
+    async () => null,
+    async (suggestionId) => {
+      loadCalls.push(suggestionId);
+      settingsState.ai.suggestionDetail = null;
+      return null;
     },
     () => {},
     (message, tone) => statuses.push({ message, tone }),
@@ -930,7 +1113,7 @@ test("applyAiSuggestionStatus keeps a failed review action bound to the original
   assert.deepEqual(statuses, [{ message: "AI suggestion update failed: failed after selection moved", tone: "bad" }]);
 });
 
-test("refreshAiSuggestions invalidates stale detail state when a list refresh switches the selected suggestion", async () => {
+test("refreshAiSuggestions closes stale detail when the selected suggestion disappears", async () => {
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -959,7 +1142,7 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
 
   await refreshAiSuggestions({ silent: true });
 
-  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetail, null);
   assert.equal(settingsState.ai.suggestionDetailSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetailLoading, false);
@@ -1086,8 +1269,8 @@ test("refreshAiSuggestions ignores an older list response after a newer filter r
 
   assert.equal(settingsState.ai.suggestionsRequestToken, 2);
   assert.deepEqual(settingsState.ai.suggestions.map((item) => item.id), ["suggestion_new"]);
-  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_new");
-  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_new");
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionDetail, null);
   assert.equal(settingsState.ai.suggestionsError, "");
   assert.equal(settingsState.ai.suggestionsLoading, false);
 });
@@ -1187,7 +1370,7 @@ test("refreshAiSuggestions with preserveDetail keeps selection but invalidates s
   assert.equal(settingsState.ai.suggestionActionError, "");
 });
 
-test("refreshAiSuggestions with preserveDetail realigns selection and clears stale detail when the item disappears", async () => {
+test("refreshAiSuggestions with preserveDetail closes stale detail when the item disappears", async () => {
   const settingsState = {
     ai: {
       suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
@@ -1216,7 +1399,7 @@ test("refreshAiSuggestions with preserveDetail realigns selection and clears sta
 
   await refreshAiSuggestions({ silent: true, preserveDetail: true });
 
-  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetail, null);
   assert.equal(settingsState.ai.suggestionDetailSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetailLoading, false);

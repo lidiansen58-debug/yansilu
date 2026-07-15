@@ -20,9 +20,8 @@ test("theme signal summary keeps mixed weak-signal hints on the mixed wording pa
     }
   );
 
-  assert.match(result.status, /正文链接和同标签/);
-  assert.match(result.hint, /正文链接/);
-  assert.match(result.hint, /标签接近/);
+  assert.match(result.status, /可能关系/);
+  assert.match(result.hint, /可能关系/);
   assert.doesNotMatch(result.status, /主题线索/);
   assert.doesNotMatch(result.hint, /基础线索/);
 });

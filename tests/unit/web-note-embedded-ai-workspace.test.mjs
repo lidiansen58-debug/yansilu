@@ -20,14 +20,13 @@ function readRepoFile(...segments) {
 }
 
 test("embedded note AI workspace renders clear loading, error, and empty states", () => {
-  assert.match(renderNoteEmbeddedAiWorkspace({ loading: true }), /正在读取这条笔记的 AI 建议/);
-  assert.match(renderNoteEmbeddedAiWorkspace({ error: "fetch failed" }), /AI 建议加载失败：fetch failed/);
+  assert.match(renderNoteEmbeddedAiWorkspace({ loading: true }), /正在让 AI 帮你看这条笔记/);
+  assert.match(renderNoteEmbeddedAiWorkspace({ error: "fetch failed" }), /AI帮看失败：fetch failed/);
 
   const empty = renderNoteEmbeddedAiWorkspace({ items: [] });
-  assert.match(empty, /暂时没有待处理 AI 建议/);
-  assert.match(empty, /运行这条笔记的 AI 分析/);
+  assert.match(empty, /还没有 AI 建议/);
+  assert.match(empty, /AI帮看/);
   assert.match(empty, /data-note-ai-analysis/);
-  assert.match(empty, /由你决定是否采纳/);
 });
 
 test("embedded note AI workspace renders field-level suggestions with review actions", () => {
@@ -44,7 +43,7 @@ test("embedded note AI workspace renders field-level suggestions with review act
     ]
   });
 
-  assert.match(html, /当前笔记的 AI 建议/);
+  assert.match(html, /AI 建议/);
   assert.match(html, /一句话判断/);
   assert.match(html, /字段建议/);
   assert.match(html, /候选判断应该先作为草稿进入编辑器/);
@@ -52,7 +51,7 @@ test("embedded note AI workspace renders field-level suggestions with review act
   assert.match(html, />\s*采纳为草稿\s*<\/button>/);
   assert.match(html, /data-note-ai-suggestion-action="rejected"/);
   assert.match(html, />\s*忽略\s*<\/button>/);
-  assert.match(html, />\s*打开完整审阅\s*<\/button>/);
+  assert.doesNotMatch(html, /打开完整审阅/);
   assert.doesNotMatch(html, /data-note-ai-suggestion-action="confirmed"/);
 });
 
@@ -108,11 +107,12 @@ test("embedded note AI workspace derives reviewed content from note fields", () 
   );
 });
 
-test("editor-triggered note AI analysis stays in the current note workspace", async () => {
+test("note AI assist lives inside the distillation pane, not the editor toolbar", async () => {
   const editorSource = readRepoFile("apps/web/src/components-editor-pane.js");
   const distillationViewSource = readRepoFile("apps/web/src/permanent-note-distillation-view.js");
   const sidebarViewSource = readRepoFile("apps/web/src/permanent-note-sidebar-view.js");
   const workspaceControllerSource = readRepoFile("apps/web/src/permanent-note-workspace-controller.js");
+  const distillationControllerSource = readRepoFile("apps/web/src/permanent-note-distillation-controller.js");
   const workspaceViewSource = readRepoFile("apps/web/src/permanent-note-workspace-view.js");
   const editorWorkspaceSource = `${editorSource}\n${distillationViewSource}\n${workspaceControllerSource}\n${workspaceViewSource}`;
   const renderStart = editorSource.indexOf("  renderRelated(extraTitle = \"\") {");
@@ -126,35 +126,64 @@ test("editor-triggered note AI analysis stays in the current note workspace", as
   assert.ok(deferredStart >= 0 && deferredEnd > deferredStart, "expected renderDeferredNoteWorkspace() to exist");
   const deferredSource = editorSource.slice(deferredStart, deferredEnd);
   assert.match(deferredSource, /this\.permanentNoteWorkspace\(\)\.renderDeferredWorkspace\(note, tab\)/);
-  assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteRelationAssistSection\(note, overview\)/);
   assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteDistillationSection\(note\)/);
+  assert.doesNotMatch(workspaceControllerSource, /this\.host\.renderNoteEmbeddedAiWorkspaceSectionForNote\(note\)/);
+  assert.match(workspaceControllerSource, /this\.host\.renderPermanentNoteRelationAssistSection\(note\)/);
   assert.match(workspaceViewSource, /data-deferred-workspace/);
+  assert.match(distillationViewSource, /note-distillation-ai-assist/);
+  assert.match(distillationViewSource, /options\.aiWorkspaceHtml/);
+  assert.match(distillationControllerSource, /aiWorkspaceHtml: host\.renderNoteEmbeddedAiWorkspaceForNote\(note\?\.id \|\| ""\)/);
 
   const sectionStart = editorSource.indexOf("  renderPermanentNoteRelationAssistSection(note, overview = {}) {");
   const sectionEnd = editorSource.indexOf("  renderPermanentNoteWritingPrepSection", sectionStart);
   assert.ok(sectionStart >= 0 && sectionEnd > sectionStart, "expected renderPermanentNoteRelationAssistSection() to exist");
   const sectionSource = editorSource.slice(sectionStart, sectionEnd);
-  assert.match(editorWorkspaceSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
+  assert.doesNotMatch(editorWorkspaceSource, /data-note-embedded-ai-workspace data-note-id="\$\{escapeHtml\(note\.id\)\}"/);
   assert.match(sectionSource, /renderPermanentNoteRelationAssistSectionView\(\{/);
-  assert.match(sidebarViewSource, /AI 推荐/);
-  assert.match(sidebarViewSource, /手动搜索/);
+  assert.match(sidebarViewSource, /data-relation-ai-count/);
+  assert.doesNotMatch(sidebarViewSource, /条建议/);
   assert.doesNotMatch(sectionSource, /分析结果会进入 AI Inbox/);
   assert.doesNotMatch(editorSource, /renderPermanentNoteAiAnalysisSection/);
   assert.doesNotMatch(editorSource, /data-note-ai-analysis-open-inbox/);
 
   const analysisStart = editorSource.indexOf("  async runPermanentNoteAnalysis() {");
   const analysisEnd = editorSource.indexOf("  legacyPermanentNoteMainPathSummary", analysisStart);
+  assert.doesNotMatch(editorSource, /ensureContextualAiToolbarButtons/);
+  assert.doesNotMatch(editorSource, /button\.id = "btnCheckNoteAi"/);
+  assert.doesNotMatch(editorSource, /button\.dataset\.contextualAiActionId = "check_note"/);
+  assert.doesNotMatch(editorSource, /checkNoteAi/);
 
   assert.ok(analysisStart >= 0 && analysisEnd > analysisStart, "expected runPermanentNoteAnalysis() to exist");
   const analysisSource = editorSource.slice(analysisStart, analysisEnd);
 
+  assert.match(analysisSource, /ensure-ai-ready-for-feature/);
+  assert.match(analysisSource, /this\.setInspectorVisible\(true\)/);
+  assert.match(analysisSource, /this\.activatePermanentWorkspaceTab\("viewpoint"\)/);
+  assert.match(analysisSource, /this\.renderRelated\(\)/);
+  assert.match(analysisSource, /正在让 AI 帮你看这条笔记，结果可能需要等一下。/);
+  assert.match(analysisSource, /feature: "note_analysis"/);
+  assert.match(analysisSource, /this\.rememberPendingContextualAiAction\("note_analysis", \{ noteId \}\)/);
+  assert.match(analysisSource, /this\.closePermanentRelationWorkspace\(\)/);
   assert.match(analysisSource, /openInbox: false/);
   assert.match(analysisSource, /this\.noteAiAnalysisByNoteId\.set\(noteId, result\)/);
   assert.match(analysisSource, /if \(!this\.isActiveNoteId\(noteId\)\) return/);
-  assert.match(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
+  assert.match(analysisSource, /permanentRelationAiRecommendationTimer/);
+  assert.match(analysisSource, /暂时还没有找到可推荐的关联/);
+  assert.match(analysisSource, /这条笔记暂时没有可推荐的关联/);
+  assert.doesNotMatch(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.match(analysisSource, /this\.refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
-  assert.match(analysisSource, /void this\.refreshNoteAiSuggestions\(noteId\)/);
-  assert.doesNotMatch(analysisSource, /this\.renderRelated\(\)/);
+  assert.match(analysisSource, /await this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
+  assert.match(analysisSource, /this\.onStatus\("AI帮看已完成", "ok"\)/);
+  assert.doesNotMatch(analysisSource, /请确认是否保存关系/);
+
+  const clickStart = editorSource.indexOf("      const aiAnalysisButton = e.target.closest(\"[data-note-ai-analysis]\");");
+  const clickEnd = editorSource.indexOf("      const permanentWorkspaceTab = e.target.closest", clickStart);
+  assert.ok(clickStart >= 0 && clickEnd > clickStart, "expected note AI analysis click branch to exist");
+  const clickSource = editorSource.slice(clickStart, clickEnd);
+  assert.match(clickSource, /void this\.runPermanentNoteAnalysis\(\)/);
+  assert.doesNotMatch(clickSource, /activatePermanentWorkspaceTab\("relations"\)/);
+
+  assert.doesNotMatch(editorSource, /this\.els\.checkNoteAi\?\.addEventListener\("click"/);
 
   const applyStart = editorSource.indexOf("  async applyNoteAiSuggestionAction");
   const applyEnd = editorSource.indexOf("  jumpToInspectorSection", applyStart);

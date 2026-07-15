@@ -85,6 +85,14 @@ export async function routeAppShellStateChange(reason, payload = {}, deps = {}) 
     return handleRunNoteAiAnalysisStateChange(payload, deps.runNoteAiAnalysis);
   }
 
+  if (reason === "ensure-ai-ready-for-feature") {
+    return deps.ensureAiReadyForFeature?.(payload) || deps.ensureLocalAiReadyForFeature?.(payload) || { ready: true };
+  }
+
+  if (reason === "run-source-distill-ai") {
+    return deps.runSourceDistillAi?.(payload) || null;
+  }
+
   if (reason === "open-note-ai-inbox") {
     return handleOpenNoteAiInboxStateChange(payload, deps.openNoteAiInbox);
   }

@@ -25,7 +25,6 @@ test("AI inbox model normalizes filters and counts", () => {
     view: "pending",
     type: "all",
     sourceNoteId: "",
-    privacyMode: "",
     limit: 100
   });
   assert.deepEqual(aiInboxCounts({ pending: 2.7, reviewed: "3", archived: -1, all: "x" }), {

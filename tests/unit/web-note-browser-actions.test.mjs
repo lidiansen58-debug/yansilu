@@ -58,6 +58,22 @@ function readRepoFile(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
 }
 
+function addPermanentNoteSeeds(state) {
+  state.folders.push({
+    id: "dir_original_method",
+    name: "写作方法",
+    parentId: "dir_original_default",
+    isDefault: false,
+    hidden: false,
+    maxCards: 500,
+    fsPath: "notes/original/method"
+  });
+  state.notes.push(
+    { id: "pn_001", title: "永久笔记一", folderId: "dir_original_default", noteType: "permanent" },
+    { id: "pn_002", title: "永久笔记二", folderId: "dir_original_method", noteType: "permanent" }
+  );
+}
+
 function createStubButton() {
   return {
     classList: { add() {}, remove() {}, toggle() {} },
@@ -498,15 +514,10 @@ test("folder context menu removes id and properties utilities", () => {
   assert.match(menuSource, /在系统文件管理器中显示/);
 });
 
-test("prototype fallback state keeps local permanent note seeds for reviewable main-path flows", () => {
+test("prototype fallback state starts without local demo permanent note seeds", () => {
   const state = createInitialState();
 
-  assert.deepEqual(
-    state.notes.map((note) => note.id),
-    ["pn_001", "pn_002"]
-  );
-  assert.equal(state.notes[0].noteType, "permanent");
-  assert.equal(state.notes[1].folderId, "dir_original_method");
+  assert.deepEqual(state.notes, []);
 });
 
 test("save-note re-syncs explorer context before repainting the note tree", () => {
@@ -810,6 +821,7 @@ test("graph note browser uses the same pending-relation style as permanent note 
 
 test("graph browser keeps folder selection ahead of current editor note highlight", () => {
   const state = createInitialState();
+  addPermanentNoteSeeds(state);
   const explorer = createExplorerForTest(state);
 
   state.module = "graph";
@@ -848,7 +860,7 @@ test("note browser action buttons stop row click fallthrough", () => {
   assert.match(clickBody, /const toggleBtn = e\.target\.closest\("button\[data-toggle-folder\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
 });
 
-test("graph associate actions open the in-graph relation workflow instead of only focusing the note", () => {
+test("graph associate actions open the shared relation composer route instead of only focusing the note", () => {
   const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
 
   assert.match(explorerSource, /this\.onStateChange\("graph-associate-note", \{ noteId, source: "graph-sidebar-associate" \}\);/);
@@ -859,7 +871,11 @@ test("graph associate actions open the in-graph relation workflow instead of onl
   );
   assert.equal(
     graphAssociateNoteRoute({ noteId: "pn_1", source: "graph-sidebar-associate", module: "graph", needsRelationWorkflow: true }).kind,
-    "graph-open-isolated-workflow"
+    "graph-open-relation-form"
+  );
+  assert.equal(
+    graphAssociateNoteRoute({ noteId: "pn_1", source: "graph-sidebar-associate", module: "graph", needsRelationWorkflow: true }).candidateSource,
+    "graph-sidebar-associate"
   );
 });
 
@@ -891,6 +907,7 @@ test("dragged note move updates client state when using local fallback data", ()
 
 test("note browsers show isolated folder flags without counts only for the permanent root scope", () => {
   const state = createInitialState();
+  addPermanentNoteSeeds(state);
   const explorer = createExplorerForTest(state);
 
   state.folders.push({ id: "dir_custom_root", name: "Custom Root", parentId: null, hidden: false });

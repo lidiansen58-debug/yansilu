@@ -112,9 +112,16 @@ test("local runtime control origin guard rejects arbitrary localhost ports", () 
   assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:7777", "127.0.0.1:3999", env), false);
 });
 
+test("local runtime control default ports include Vite auto-increment ports", () => {
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://127.0.0.1:5176", "127.0.0.1:3999", {}), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:5179", "127.0.0.1:3999", {}), true);
+  assert.equal(isAllowedLocalRuntimeControlOrigin("http://localhost:7777", "127.0.0.1:3999", {}), false);
+});
+
 test("Ollama local runtime mutation endpoints are protected by the local runtime guard", () => {
   const source = loadServerSource();
   const routePaths = [
+    "/api/v1/ai/local-runtimes/ollama/recovery",
     "/api/v1/ai/local-runtimes/ollama/bootstrap",
     "/api/v1/ai/local-runtimes/ollama/start",
     "/api/v1/ai/local-runtimes/ollama/stop",
@@ -131,6 +138,39 @@ test("Ollama local runtime mutation endpoints are protected by the local runtime
     assert.match(routeSource, /assertLocalRuntimeControlAllowed\(req\);/);
     assert.match(routeSource, /error\?\.status \|\|/);
   }
+});
+
+test("API health exposes readiness and dependency boundaries", () => {
+  const source = loadServerSource();
+  const healthSource = extractFunctionSource(source, "async function apiHealthPayload(");
+  const readinessSource = extractFunctionSource(source, "async function apiReadinessPayload(");
+
+  assert.match(healthSource, /const readiness = await apiReadinessPayload\(\)/);
+  assert.match(healthSource, /ready: apiReady && readiness\.ready/);
+  assert.match(healthSource, /readiness/);
+  assert.match(readinessSource, /vault/);
+  assert.match(readinessSource, /storage/);
+  assert.match(readinessSource, /dependencies/);
+  assert.match(readinessSource, /ollama/);
+  assert.match(readinessSource, /managed: false/);
+  assert.match(readinessSource, /bounded_by_local_runtime_control/);
+});
+
+test("Ollama recovery route preserves external process boundary", () => {
+  const source = loadServerSource();
+  const previewStart = source.indexOf('req.method === "GET" && url.pathname === "/api/v1/ai/local-runtimes/ollama/recovery"');
+  const runStart = source.indexOf('req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/recovery"');
+  assert.ok(previewStart >= 0, "expected Ollama recovery preview route");
+  assert.ok(runStart > previewStart, "expected Ollama recovery run route");
+  const routeSource = source.slice(previewStart, source.indexOf('if (req.method === "GET" && url.pathname === "/api/v1/ai/local-runtimes/ollama/models"', runStart));
+
+  assert.match(routeSource, /buildOllamaModelsPreview\(\)/);
+  assert.match(routeSource, /buildOllamaBootstrapPreview/);
+  assert.match(routeSource, /assertLocalRuntimeControlAllowed\(req\);/);
+  assert.match(routeSource, /bootstrapOllamaLocalAi/);
+  assert.match(routeSource, /externalProcessSafe: true/);
+  assert.match(routeSource, /stopsUserProcesses: false/);
+  assert.match(routeSource, /canStopManagedSessionOnly: true/);
 });
 
 test("Ollama start probes common installed binary paths before falling back to PATH", () => {
@@ -254,7 +294,7 @@ test("Ollama bootstrap exposes guided install commands for supported platforms",
   assert.match(source, /function assertAllowedManagedOllamaProviderConfigInput/);
   assert.match(source, /function assertAllowedManagedOllamaSettings/);
   assert.match(source, /store\.getProviderConfig\(\{ id: lookup, providerId \}\)/);
-  assert.match(source, /assertAllowedManagedOllamaProviderConfigInput\(body, existing \|\| \{\}\)/);
+  assert.match(source, /assertAllowedManagedOllamaProviderConfigInput\(providerConfigInput, existing \|\| \{\}\)/);
   assert.match(source, /assertAllowedManagedOllamaProviderConfig\(providerConfig\)/);
   assert.match(source, /assertAllowedManagedOllamaSettings\(settingsInput\)/);
   assert.match(source, /assertAllowedManagedOllamaSettings\(preferencesInput\)/);

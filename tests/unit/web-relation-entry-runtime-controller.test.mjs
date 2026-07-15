@@ -46,6 +46,9 @@ test("relation entry runtime opens note relation workspace through editor shell"
     [
       "workspace",
       {
+        noteId: "pn_1",
+        sourceNoteId: "pn_1",
+        source: "explorer-browser",
         mode: "manual",
         targetNoteId: "pn_2",
         relationType: "supports",

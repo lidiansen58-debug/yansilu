@@ -83,6 +83,21 @@ test("Smart Notes demo fixture has the required teaching surfaces", () => {
   assert.ok(fixture.guide_notes.length >= 12);
 });
 
+test("Smart Notes demo fixture exposes accurate counts for import feedback", () => {
+  assert.deepEqual(fixture.counts, {
+    sources: fixture.sources.length,
+    fleeting_notes: fixture.fleeting_notes.length,
+    literature_notes: fixture.literature_notes.length,
+    permanent_notes: fixture.permanent_notes.length,
+    index_cards: fixture.index_cards.length,
+    relations: fixture.relations.length,
+    writing_projects: fixture.writing_projects.length,
+    draft_scaffolds: fixture.draft_scaffolds.length,
+    final_essays: fixture.final_essays.length,
+    guide_notes: fixture.guide_notes.length
+  });
+});
+
 test("user-visible demo copy does not expose legacy PN-SN WP-SN IC-SN ids", () => {
   for (const item of allNotes()) {
     assert.doesNotMatch(visibleText(item), OLD_VISIBLE_ID_PATTERN, `${item.id} exposes a legacy id`);
@@ -134,7 +149,7 @@ test("relations point to existing notes and carry readable reasons", () => {
     assert.ok(String(relation.insight_question || "").length >= 12, `${relation.id} needs an insight question`);
     types.add(relation.relationType);
   }
-  for (const type of ["supports", "complements", "qualifies", "contradicts", "example_of", "precedes", "bridges"]) {
+  for (const type of ["supports", "complements", "qualifies", "contradicts", "example_of", "precedes", "bridges", "associated_with", "same_topic"]) {
     assert.ok(types.has(type), `missing relation type ${type}`);
   }
 });
@@ -204,6 +219,6 @@ test("guide note is beginner friendly and opens the complete workflow", () => {
   assert.match(guide.body, /\[\[手机上先记一句/);
   assert.match(guide.body, /\[\[写作不是最后一步/);
   assert.match(guide.body, /\[\[待关联练习/);
-  assert.match(guide.body, /\[\[为什么要关联笔记？\]\]/);
+  assert.match(guide.body, /\[\[03 为什么要建立关系？\|为什么要关联笔记？\]\]/);
   assert.doesNotMatch(guide.body, OLD_VISIBLE_ID_PATTERN);
 });

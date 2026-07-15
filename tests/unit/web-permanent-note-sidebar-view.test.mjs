@@ -7,7 +7,7 @@ import {
   renderPermanentNoteStatusSummary
 } from "../../apps/web/src/permanent-note-sidebar-view.js";
 
-test("permanent note sidebar view renders relation entry buttons", () => {
+test("permanent note sidebar view keeps relation assist as hidden metadata", () => {
   const html = renderPermanentNoteRelationAssistSection({
     note: { id: "note-a" },
     explicitRelationCount: 0,
@@ -18,9 +18,11 @@ test("permanent note sidebar view renders relation entry buttons", () => {
 
   assert.match(html, /data-note-relation-assist-section/);
   assert.match(html, /data-note-id="note-a"/);
-  assert.match(html, /data-permanent-relation-action="open"/);
-  assert.match(html, /data-permanent-relation-mode="ai"/);
-  assert.match(html, /data-permanent-relation-mode="manual"/);
+  assert.match(html, /data-relation-ai-count="0"/);
+  assert.match(html, /hidden/);
+  assert.doesNotMatch(html, /关联笔记/);
+  assert.doesNotMatch(html, /找一条真正相关的笔记/);
+  assert.doesNotMatch(html, /条建议/);
 });
 
 test("permanent note sidebar view changes the primary label when AI analysis exists", () => {

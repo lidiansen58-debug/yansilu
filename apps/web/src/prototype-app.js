@@ -60,7 +60,7 @@ import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxW
 import { createAiInboxWorkspaceHostDeps } from "./ai-inbox-host-deps.js";
 import { dismissSaveAiSuggestionForLater, saveAiSuggestionPrimaryRoute } from "./save-ai-suggestion-model.js";
 import { createSaveAiSuggestionWorkflowRoutes } from "./save-ai-suggestion-workflow-routes.js";
-import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorkspace, bindAiSuggestionsWorkspaceEvents, renderAiSuggestionsWorkspaceView } from "./ai-suggestions-workspace.js";
+import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorkspace, bindAiSuggestionsWorkspaceEvents, normalizeVisibleSuggestionFilters, renderAiSuggestionsWorkspaceView } from "./ai-suggestions-workspace.js";
 import { createAiSuggestionsWorkspaceHostDeps } from "./ai-suggestions-host-deps.js";
 import { applyAiRuntimeModeChangeForRuntime } from "./ai-runtime-mode-controller.js";
 import { aiInboxActionLabel, aiArtifactFromCanonical, aiInboxItemFromCanonical, normalizeAiInboxFilters } from "./ai-inbox-model.js";
@@ -83,9 +83,10 @@ import { createAiInboxActionRoutes } from "./ai-inbox-action-routes.js";
 import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
-import { renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
+import { readableMobileAccessError, renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
 import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
+import { resolveWritingProjectFormTitle, syncWritingThemeFormFields } from "./writing-theme-form-sync.js";
 import { createGraphFollowupController } from "./graph-followup-controller.js";
 import { clearGraphIsolatedRelationDraftForState } from "./graph-relation-drafts.js";
 import { createGraphIsolatedRelationController } from "./graph-isolated-relation-controller.js";
@@ -132,7 +133,7 @@ import { graphBuildVisualLayout as graphBuildVisualLayoutForRuntime } from "./gr
 import { createGraphViewportController } from "./graph-viewport-controller.js";
 import { createGraphUtilityDrawerController } from "./graph-utility-drawer-controller.js";
 import { GRAPH_VISUAL_ZOOM_OPTIONS, graphZoomOption, graphZoomStep } from "./graph-visual-zoom-model.js";
-import { applyGraphFocusContextModeInteraction, applyGraphFocusDepthInteraction, applyGraphReadingLensInteraction, applyGraphRelationTypeFilterInteraction, applyGraphViewModeInteraction, applyGraphWheelZoomInteraction, applyGraphZoomOptionInteraction, applyGraphZoomStepInteraction } from "./graph-toolbar-interaction-controller.js";
+import { applyGraphFocusContextModeInteraction, applyGraphFocusDepthInteraction, applyGraphReadingLensInteraction, applyGraphRelationTypeFilterInteraction, applyGraphTaskViewInteraction, applyGraphViewModeInteraction, applyGraphWheelZoomInteraction, applyGraphZoomOptionInteraction, applyGraphZoomStepInteraction } from "./graph-toolbar-interaction-controller.js";
 import { renderGraphClusterGlowView, renderGraphNebulaFieldView, renderGraphStarfieldView } from "./graph-visual-map-view.js";
 import { graphReadingLensMeta as computeGraphReadingLensMeta, renderGraphReadingLensControls as renderGraphReadingLensControlsView } from "./graph-reading-lens-controls.js";
 import { createGraphReadingLensStateController } from "./graph-reading-lens-state.js";
@@ -147,6 +148,9 @@ import { titleFromBody } from "./editor-template-workspace.js";
 import { createWritingPanelShellController } from "./writing-panel-shell.js";
 import { createWritingPanelPrototypeHostProvider } from "./writing-panel-host-deps.js";
 import { applyWritingTab, installWritingTabEvents } from "./writing-tabs.js";
+import { writingDraftMarkdown } from "./writing-workbench-model.js";
+import { installWritingRelatedPanelEvents } from "./writing-related-notes-panel.js";
+import { installWritingSidebarActionEvents } from "./writing-sidebar-actions.js";
 import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
 import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
 import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, parseWritingBasketIdsForRuntime, removeWritingBasketIdForRuntime, setWritingBasketIdsForRuntime } from "./writing-basket-state.js";
@@ -154,20 +158,21 @@ import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "
 import { clearWritingFocusedCandidateScopeForRuntime, clearWritingSourceIndexIdsForRuntime, clearWritingThemeRelationCountsForRuntime, resetWritingStrongModelStateForRuntime, setWritingFocusedCandidateScopeForRuntime, setWritingSourceIndexIdsForRuntime } from "./writing-session-state.js";
 import { sameUniqueStringSetForRuntime, selectedWritingThemeIndexForRuntime, setSelectedWritingThemeIndexForRuntime, writingThemeIndexByIdForRuntime, writingThemeIndexScopeDirectoryIdForRuntime, writingThemeIndexNoteIdsForRuntime } from "./writing-theme-state.js";
 import { graphAssociateNoteRoute, graphFollowupActionRoute, noteDeleteKeyRoute } from "./note-browser-action-router.js";
+import { createGraphRelationComposerEntry } from "./graph-relation-composer-entry.js";
 import { generatedOriginalNoteIdFromBody, isPersistableRelationNetworkStatus, notePersistenceFieldsForSave, stripGeneratedOriginalMarker, withGeneratedOriginalMarker, withGeneratedOriginalReference } from "./note-persistence-policy.js";
 import { createRelationEntryRuntimeController } from "./relation-entry-runtime-controller.js";
-import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, writingScaffoldPreflightWarning, isWritingStrongModelReady } from "./writing-center-flow.js";
+import { describeWritingContinuationAction, describeWritingStrongModelStatus, describeWritingBatchAppendStatus, planWritingCandidateFocus, describeWritingThemeProjectEntryState, describeWritingProjectPreflight, planWritingBasketEntry, planWritingThemeIndexEntry, resolveWritingSelectedThemeIndexId, resolveWritingSourceIndexIds, resolveWritingEntryTitle, shouldPreserveWritingThemeContext, writingThemeIndexContinuationRoute, writingCenterContinuationFailureMessage, writingCenterContinuationStatusMessage, isWritingStrongModelReady } from "./writing-center-flow.js";
 import { countExplicitSemanticRelations, deriveBasketWritingReadiness, describeProjectPreflight, noteHasBoundarySignal } from "./writing-readiness.js";
 import { createWritingProjectRuntimeController } from "./writing-project-runtime-controller.js";
 import { findReviewOutlineProjectWithRefresh } from "./review-checklist-outline-entry.js";
 import { createWritingEntryRuntimeHost } from "./writing-entry-runtime-host.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
-import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingProjectEntryTitle as computeWritingProjectEntryTitle, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
+import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
 import { createWritableThemeDiscoveryController } from "./writable-theme-discovery-controller.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
 import { createScheduledTasksRuntimeController } from "./scheduled-tasks-runtime-controller.js";
-import { aiSettingsSelectionFromPreferences, canonicalizeAiSettingsSelection, isAiLocalFlowActive, isLocalModelPack, localProviderPresetForModelPack, normalizeAiRuntimeMode, providerPresetForModelPack, shouldUseOllamaLocalRuntimeForSelection, supportedAiSettingsModelPack } from "./ai-settings-state.js";
+import { aiSettingsSelectionFromPreferences, canonicalizeAiSettingsSelection, isAiLocalFlowActive, isLocalModelPack, isLocalProviderId, localProviderPresetForModelPack, normalizeAiRuntimeMode, providerPresetForModelPack, shouldUseOllamaLocalRuntimeForSelection, supportedAiSettingsModelPack } from "./ai-settings-state.js";
 import { renderAiLocalModelControlsForRuntime, renderAiLocalModelRecommendationsForRuntime, renderAiProviderConfigControlsForRuntime } from "./settings-ai-controls-view.js";
 import { renderAiSettingsExperienceForRuntime } from "./settings-ai-experience-view.js";
 import { renderAiRoutePreviewForRuntime } from "./settings-ai-route-preview-view.js";
@@ -182,13 +187,18 @@ import { aiTestBlockedReasonForState, currentOllamaModelTiersForState, installed
 import { localAiPreviewOptionsForAction, ollamaStopRuntimeUiOutcome } from "./ai-local-runtime-ui-model.js";
 import { activateLocalAiSetupSelection } from "./local-ai-setup-activation.js";
 import { createLocalAiSetupController } from "./local-ai-setup-controller.js";
+import {
+  buildSourceNoteDistillDraft,
+  buildSourceNoteDistillDraftFromAiResult
+} from "./source-note-distill-ai-draft.js";
 import { isLocalAdvancedModelRefForSettings } from "./settings-ai-runtime-actions.js";
 import { createSettingsAiRuntimeController } from "./settings-ai-runtime-controller.js";
 import { buildAiProviderConfigPayload } from "./settings-ai-provider-config-actions.js";
+import { remoteApiKeySecretRef } from "./ai-settings-remote-config-model.js";
 import { AI_LOCAL_MODEL_TIERS, AI_REMOTE_MODEL_TIERS, OLLAMA_CHAT_ENDPOINT_URL, OLLAMA_HEALTH_ENDPOINT_URL, OLLAMA_RECOMMENDED_MODEL, aiDefaultsForRuntimeMode, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl, enabledProviderHealthEndpointUrl, isBuiltInOllamaModel, isRemoteConfigurableProviderId, localModelDisplayProfile, modelNameExistsInList, normalizeOllamaSetupGuide, ollamaBootstrapStatusText, ollamaModelRecommendationProfiles, ollamaRecommendationForModel, preferredLocalModelName, remoteRuntimeModelFromMap, runtimeModelMapForRemoteModel, selectedLocalModelNameForInstalledModels } from "./prototype-ai-settings-controller.js";
 import { createUpdateState, shouldShowUpdateAttention, updateStateAutoCheckEnabled, updateStateIgnoreLatest, updateStateRemindLater } from "./update-state.js";
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "./prototype-update-controller.js";
-import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion } from "./prototype-api.js";
+import { analyzeDirectoryGraph, analyzePermanentNote, analyzeWritingWithStrongModel, refinePotentialRelationCandidate, bindWritingDraftNote, acceptAiInboxLink, checkAppUpdate, checkAiProviderHealth, confirmMobilePairRequest, confirmPermanentNoteDistillation, confirmImport, createDirectory, createDraftScaffold, createEncryptedVaultBackup, createAiSuggestion, createIndexCard, createNote, createWritingProject, deleteDirectory, deleteNote, exportMarkdown, fetchDraftScaffold, fetchDirectories, fetchGraphConflicts, fetchDirectoryGraph, fetchAiInbox, fetchAiInboxEvaluationSummary, fetchAiInboxItem, fetchAiInboxItemWithOptions, fetchAiSuggestion, fetchAiSuggestions, fetchAiScheduledTasks, fetchAiScheduledTaskTemplates, fetchRelationReviewQueue, fetchIndexCard, updateIndexCard, fetchDirectoryNotes, fetchAiProviderConfigs, fetchAiPreferences, fetchAppVersion, fetchMobileDesktopAccessStatus, fetchOllamaModels, fetchOllamaBootstrapStatus, bootstrapOllamaLocalAi, pullOllamaModel, startOllamaRuntime, stopOllamaRuntime, listIndexCards, fetchNote, fetchNoteRelations, searchNotes, createNoteRelation, fetchWritingProject, listProjectDraftVersions, listProjectScaffolds, listWritingProjects, restoreEncryptedVaultBackup, setWritingCurrentDraftNote, syncWritingProject, updateWritingProjectBookStructure, updateDraftNoteVersionNote, updateDraftScaffold, updateDraftScaffoldVersionNote, fetchVaultInfo, rotateMobilePairingCode, saveAiPreferences, saveAiProviderConfig, runAiTestChat, getApiBase, moveNote, previewAiRoute, previewImport, promoteAiInboxNote, recordAiInboxDecision, revokeMobileDevice, summarizeAiInboxItem, seedSmartNotesProductThinkingDemo, runDueAiScheduledTasks, saveAiScheduledTask, switchVault, updateDirectory, updateAiScheduledTaskStatus, updateAiScheduledTaskStatusWithOptions, updateAiSuggestion, updateNote, updatePermanentNoteDistillation, adoptAiInboxFieldSuggestion, apiConnectionErrorMessage, isApiConnectionError } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
@@ -233,9 +243,8 @@ const graphState = {
   focusContextCollapsed: false,
   zoom: "fit",
   expanded: false,
-  legendOpen: false,
-  researchNavigatorHidden: false,
-  researchNavigatorTouched: false,
+  researchNavigatorHidden: true,
+  researchNavigatorTouched: true,
   workbenchPanelOpen: false,
   workbenchPanelTab: "clues",
   thinkingPanelOpen: false,
@@ -270,7 +279,7 @@ function setGraphRelationTypeFilter(value = "", options = {}) {
 }
 function graphStructureFallbackEdges(edges = [], filters = {}) { return graphStructureFallbackEdgesForRuntime(edges, filters, { graphEdgeMatchesFilters }); }
 function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) { return renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, { escapeHtml, graphFilterOptions, graphRelationTypeLabel }); }
-function renderGraphViewModeSwitcher(relationType = "meaningful") { return renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml }); }
+function renderGraphViewModeSwitcher(relationType = "meaningful", activeLens = "insight") { return renderGraphViewModeSwitcherForRuntime(relationType, activeLens, { escapeHtml }); }
 setGraphRelationTypeFilter(graphState.filters?.relationType, { persist: false });
 const graphViewportController = createGraphViewportController({
   graphState,
@@ -323,7 +332,6 @@ const aiInboxState = {
     view: "pending",
     type: "all",
     sourceNoteId: "",
-    privacyMode: "",
     limit: 50
   },
   selectedArtifactId: "",
@@ -395,6 +403,7 @@ const settingsState = {
     modelPack: "Starter Auto",
     advancedModelRef: "",
     secretRef: "",
+    remoteApiKey: "",
     providerEndpointUrl: "",
     providerHealthEndpointUrl: "",
     remoteRuntimeModel: "",
@@ -421,6 +430,7 @@ const settingsState = {
     localRuntimePulling: false,
     localRuntimeError: "",
     localAiSetupSyncPending: false,
+    autoPrepareLocalAi: false,
     providerConfigs: [],
     providerConfigSaving: false,
     providerHealthChecking: false,
@@ -433,6 +443,11 @@ const settingsState = {
     testRunning: false,
     testMeta: "",
     testOutput: "",
+    testModel: "",
+    testProviderId: "",
+    testEndpointUrl: "",
+    testRemoteModel: "",
+    testSecretRef: "",
     suggestions: [],
     suggestionsTotal: 0,
     suggestionFilters: {
@@ -545,6 +560,9 @@ const writingState = {
   project: null,
   scaffold: null,
   scaffoldMarkdown: "",
+  outlineSaveQueue: null,
+  draftMarkdown: "",
+  draftSaveState: "idle",
   relationCounts: {},
   relationCountErrors: {},
   loadingRelationCounts: false,
@@ -635,11 +653,21 @@ const AI_USER_MODE_KEY = "yansilu:ai:user-mode";
 const AI_MODEL_PACK_KEY = "yansilu:ai:model-pack";
 const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
+const AI_REMOTE_API_KEY_KEY = "yansilu:ai:remote-api-key";
 const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
 const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const AI_LOCAL_SETUP_SYNC_PENDING_KEY = "yansilu:ai:local-setup-sync-pending";
+const AI_AUTO_PREPARE_LOCAL_KEY = "yansilu:ai:auto-prepare-local";
+const AI_TEST_STATUS_KEY = "yansilu:ai:test-status";
+const AI_TEST_META_KEY = "yansilu:ai:test-meta";
+const AI_TEST_OUTPUT_KEY = "yansilu:ai:test-output";
+const AI_TEST_MODEL_KEY = "yansilu:ai:test-model";
+const AI_TEST_PROVIDER_ID_KEY = "yansilu:ai:test-provider-id";
+const AI_TEST_ENDPOINT_URL_KEY = "yansilu:ai:test-endpoint-url";
+const AI_TEST_REMOTE_MODEL_KEY = "yansilu:ai:test-remote-model";
+const AI_TEST_SECRET_REF_KEY = "yansilu:ai:test-secret-ref";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
 
 function markTodayReturnTarget(target = {}) {
@@ -686,6 +714,10 @@ updateController.loadUpdateSettingsFromStorage();
 
 let mobileAccessRefreshTimer = 0;
 
+function mobileAccessErrorMessage(error) {
+  return readableMobileAccessError(error?.message || error);
+}
+
 function isMobileAccessSettingsActive() {
   return state.module === "settings" && settingsState.activeItem === "mobile-access";
 }
@@ -729,10 +761,16 @@ async function refreshMobileAccessStatus({ silent = false } = {}) {
   settingsState.mobileAccess.error = "";
   if (!silent) renderMobileAccessSettingsCard();
   try {
-    settingsState.mobileAccess.item = await fetchMobileDesktopAccessStatus();
+    const previousAccessUrl = String(settingsState.mobileAccess.item?.accessUrl || "").trim();
+    const nextItem = await fetchMobileDesktopAccessStatus();
+    settingsState.mobileAccess.item = nextItem;
+    const nextAccessUrl = String(nextItem?.accessUrl || "").trim();
+    if (previousAccessUrl && nextAccessUrl && previousAccessUrl !== nextAccessUrl) {
+      setStatus("网络已切换，二维码已更新，请重新扫描。", "ok");
+    }
     settingsState.mobileAccess.lastLoadedAt = new Date().toISOString();
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
+    settingsState.mobileAccess.error = mobileAccessErrorMessage(error);
   } finally {
     settingsState.mobileAccess.loading = false;
     if (state.module === "settings") renderMobileAccessSettingsCard();
@@ -749,8 +787,9 @@ async function rotateMobileAccessPairingCodeFromUi() {
     await refreshMobileAccessStatus({ silent: true });
     setStatus("已刷新手机访问二维码和配对码。", "ok");
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
-    setStatus(`刷新手机配对码失败：${String(error?.message || error)}`, "bad");
+    const message = mobileAccessErrorMessage(error);
+    settingsState.mobileAccess.error = message;
+    setStatus(`刷新手机配对码失败：${message}`, "bad");
   } finally {
     settingsState.mobileAccess.actionLoading = "";
     renderMobileAccessSettingsCard();
@@ -768,8 +807,9 @@ async function confirmMobilePairRequestFromUi(requestId = "") {
     await refreshMobileAccessStatus({ silent: true });
     setStatus("已允许这台手机访问电脑上的研思录。", "ok");
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
-    setStatus(`确认手机连接失败：${String(error?.message || error)}`, "bad");
+    const message = mobileAccessErrorMessage(error);
+    settingsState.mobileAccess.error = message;
+    setStatus(`确认手机连接失败：${message}`, "bad");
   } finally {
     settingsState.mobileAccess.actionLoading = "";
     renderMobileAccessSettingsCard();
@@ -787,8 +827,9 @@ async function revokeMobileDeviceFromUi(deviceId = "") {
     await refreshMobileAccessStatus({ silent: true });
     setStatus("已撤销这台手机的访问权限。", "ok");
   } catch (error) {
-    settingsState.mobileAccess.error = String(error?.message || error);
-    setStatus(`撤销手机访问失败：${String(error?.message || error)}`, "bad");
+    const message = mobileAccessErrorMessage(error);
+    settingsState.mobileAccess.error = message;
+    setStatus(`撤销手机访问失败：${message}`, "bad");
   } finally {
     settingsState.mobileAccess.actionLoading = "";
     renderMobileAccessSettingsCard();
@@ -1143,20 +1184,39 @@ function loadAiSettingsFromStorage() {
   const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
+  const storedRemoteApiKey = String(readStoredText(AI_REMOTE_API_KEY_KEY, "") || "").trim();
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
   const storedRemoteRuntimeModel = String(readStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, "") || "").trim();
   const storedLocalModel = String(readStoredText(AI_LOCAL_MODEL_KEY, "") || "").trim();
+  const storedTestStatus = String(readStoredText(AI_TEST_STATUS_KEY, "") || "").trim();
+  const storedTestMeta = String(readStoredText(AI_TEST_META_KEY, "") || "").trim();
+  const storedTestOutput = String(readStoredText(AI_TEST_OUTPUT_KEY, "") || "").trim();
+  const storedTestModel = String(readStoredText(AI_TEST_MODEL_KEY, "") || "").trim();
+  const storedTestProviderId = String(readStoredText(AI_TEST_PROVIDER_ID_KEY, "") || "").trim();
+  const storedTestEndpointUrl = String(readStoredText(AI_TEST_ENDPOINT_URL_KEY, "") || "").trim();
+  const storedTestRemoteModel = String(readStoredText(AI_TEST_REMOTE_MODEL_KEY, "") || "").trim();
+  const storedTestSecretRef = String(readStoredText(AI_TEST_SECRET_REF_KEY, "") || "").trim();
   settingsState.ai.localAiSetupSyncPending = readStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, false);
+  settingsState.ai.autoPrepareLocalAi = readStoredBoolean(AI_AUTO_PREPARE_LOCAL_KEY, false);
   if (storedRuntimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(storedRuntimeMode);
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
-  settingsState.ai.secretRef = storedSecretRef;
+  settingsState.ai.remoteApiKey = storedRemoteApiKey;
+  settingsState.ai.secretRef = storedRemoteApiKey ? remoteApiKeySecretRef() : storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
   settingsState.ai.remoteRuntimeModel = storedRemoteRuntimeModel;
   settingsState.ai.localModel = storedLocalModel;
+  settingsState.ai.testStatus = storedTestStatus;
+  settingsState.ai.testMeta = storedTestMeta;
+  settingsState.ai.testOutput = storedTestOutput;
+  settingsState.ai.testModel = storedTestModel;
+  settingsState.ai.testProviderId = storedTestProviderId;
+  settingsState.ai.testEndpointUrl = storedTestEndpointUrl;
+  settingsState.ai.testRemoteModel = storedTestRemoteModel;
+  settingsState.ai.testSecretRef = storedTestSecretRef;
   reconcileAiSelectionState();
 }
 
@@ -1166,11 +1226,21 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
+  writeStoredText(AI_REMOTE_API_KEY_KEY, settingsState.ai.remoteApiKey);
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
+  writeStoredText(AI_TEST_STATUS_KEY, settingsState.ai.testStatus);
+  writeStoredText(AI_TEST_META_KEY, settingsState.ai.testMeta);
+  writeStoredText(AI_TEST_OUTPUT_KEY, settingsState.ai.testOutput);
+  writeStoredText(AI_TEST_MODEL_KEY, settingsState.ai.testModel);
+  writeStoredText(AI_TEST_PROVIDER_ID_KEY, settingsState.ai.testProviderId);
+  writeStoredText(AI_TEST_ENDPOINT_URL_KEY, settingsState.ai.testEndpointUrl);
+  writeStoredText(AI_TEST_REMOTE_MODEL_KEY, settingsState.ai.testRemoteModel);
+  writeStoredText(AI_TEST_SECRET_REF_KEY, settingsState.ai.testSecretRef);
   writeStoredBoolean(AI_LOCAL_SETUP_SYNC_PENDING_KEY, settingsState.ai.localAiSetupSyncPending === true);
+  writeStoredBoolean(AI_AUTO_PREPARE_LOCAL_KEY, settingsState.ai.autoPrepareLocalAi === true);
 }
 
 function settingsSupportedModelPack(modelPack = "") { return supportedAiSettingsModelPack(modelPack); }
@@ -1307,6 +1377,35 @@ function providerAuthModeRequiresSecret(authMode = "") { return ["workspace_mana
 
 function currentAiProviderId() { return String(settingsState.ai.routePreview?.provider?.providerId || providerPresetForModelPack(settingsState.ai.modelPack)).trim(); }
 
+function remoteAiExplicitlyEnabledForFeatures() {
+  return normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "cloud_only" && !isLocalProviderId(currentAiProviderId());
+}
+
+function featureAiProviderId() {
+  return remoteAiExplicitlyEnabledForFeatures()
+    ? currentAiProviderId()
+    : preferredLocalProviderPresetForSelection();
+}
+
+function featureAiRuntimeMode() {
+  return remoteAiExplicitlyEnabledForFeatures() ? "cloud_only" : "local_only";
+}
+
+function featureAiRequestOptions() {
+  const providerId = featureAiProviderId();
+  const localProvider = !remoteAiExplicitlyEnabledForFeatures();
+  return {
+    userConfirmedRemoteModel: !localProvider,
+    executeModel: true,
+    modelPack: settingsState.ai.modelPack,
+    userMode: settingsState.ai.userMode,
+    providerPreset: providerId,
+    authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
+    modelTier: localProvider ? "local_private" : "strong_reasoning",
+    privacyMode: localProvider ? "local_only" : "remote_after_confirmation"
+  };
+}
+
 const settingsAiStateRuntime = createSettingsAiStateRuntime({
   applyAiPreferencesToSettingsState,
   activeAiProviderConfig,
@@ -1405,6 +1504,7 @@ const localAiSetupController = createLocalAiSetupController(() => ({
   currentOllamaModelTiers,
   localAiSetupSyncPending,
   localAiPreviewOptionsForAction,
+  localAiFeatureReady,
   localOllamaSetupActive,
   ollamaBootstrapStatusText,
   ollamaRecommendationForModel,
@@ -1421,9 +1521,64 @@ async function ensureLocalAiReadyForFeature(options = {}) {
   return localAiSetupController.ensureReadyForAiFeature(options);
 }
 
+async function ensureAiReadyForFeature(options = {}) {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  if (runtimeMode === "off") {
+    setStatus("请先完成 AI 设置并测试通过，再回来使用 AI 推荐。", "warn", { priority: 3, holdMs: 8000 });
+    if (options.openSettings !== false) {
+      activateModule("settings");
+      setSettingsItem("ai-settings", { render: false });
+      renderSettingsPanel();
+    }
+    return { ready: false, reason: "ai_off" };
+  }
+  if (!remoteAiExplicitlyEnabledForFeatures()) {
+    return ensureLocalAiReadyForFeature(options);
+  }
+  if (settingsState.ai.routePreview?.access?.ready === true) {
+    const providerId = currentAiProviderId();
+    return { ready: true, mode: "remote", providerId };
+  }
+  if (options.openSettings !== false) {
+    setStatus("请先完成 AI 设置并测试通过，再回来使用 AI 推荐。", "warn", { priority: 3, holdMs: 8000 });
+    activateModule("settings");
+    setSettingsItem("ai-settings", { render: false });
+    renderSettingsPanel();
+  }
+  return { ready: false, reason: "remote_not_ready" };
+}
+
+async function runSourceDistillAi(payload = {}) {
+  const requestOptions = featureAiRequestOptions();
+  const localProvider = requestOptions.privacyMode === "local_only";
+  if (!localProvider && payload.remoteConfirmed !== true) {
+    const error = new Error("在线 AI 需要先确认发送当前笔记内容。");
+    error.code = "REMOTE_AI_CONFIRMATION_REQUIRED";
+    throw error;
+  }
+  const analysis = await analyzeWritingWithStrongModel({
+    userConfirmedRemoteModel: !localProvider,
+    executeModel: true,
+    persistArtifacts: false,
+    projectId: `source_distill_${String(payload.sourceNoteId || payload.noteId || "note").trim() || "note"}`,
+    writingGoal: "把当前材料提炼成一条可编辑的永久笔记草稿。",
+    audience: "自己",
+    notes: [{
+      id: String(payload.sourceNoteId || payload.noteId || "").trim(),
+      noteId: String(payload.sourceNoteId || payload.noteId || "").trim(),
+      title: String(payload.sourceTitle || "").trim(),
+      noteType: String(payload.sourceType || "").trim(),
+      body: String(payload.sourceBody || "").trim()
+    }],
+    ...requestOptions
+  });
+  return buildSourceNoteDistillDraftFromAiResult(analysis, payload) || buildSourceNoteDistillDraft(payload);
+}
+
 function shouldGuideLocalAiSetupForFeature() {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   if (runtimeMode !== "auto") return false;
+  if (localAiFeatureReady()) return false;
   if (settingsState.ai.routePreview?.access?.ready === true) return false;
   return true;
 }
@@ -1472,7 +1627,7 @@ function applyAiPreferencesToSettingsState(preferences = null, options = {}) {
   settingsState.ai.modelPack = nextAiSelection.modelPack;
   settingsState.ai.localModel = nextAiSelection.localModel;
   settingsState.ai.advancedModelRef = nextAiSelection.advancedModelRef;
-  settingsState.ai.secretRef = nextAiSelection.secretRef;
+  settingsState.ai.secretRef = settingsState.ai.remoteApiKey ? remoteApiKeySecretRef() : nextAiSelection.secretRef;
   settingsState.ai.providerEndpointUrl = "";
   settingsState.ai.providerHealthEndpointUrl = "";
   settingsState.ai.remoteRuntimeModel = "";
@@ -1514,6 +1669,18 @@ function currentOllamaModelTiers() { return currentOllamaModelTiersForState(sett
 function hasLocalModel(modelName = "") { return modelNameExistsInList(modelName, settingsState.ai.localRuntimeModels); }
 
 function installedLocalModelReady(modelName = settingsState.ai.localModel) { return installedLocalModelReadyForState(settingsState.ai, modelName); }
+
+function localAiFeatureReady() {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  if (!["auto", "local_only", "hybrid"].includes(runtimeMode)) return false;
+  const localModel = String(settingsState.ai.localModel || "").trim();
+  const testStatus = String(settingsState.ai.testStatus || "").trim();
+  const testModel = String(settingsState.ai.testModel || "").trim();
+  return installedLocalModelReady()
+    && Boolean(localModel)
+    && testStatus === "success"
+    && testModel === localModel;
+}
 
 function localOllamaSetupActive() {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
@@ -1849,6 +2016,10 @@ async function runAiInboxSummary(artifactId) {
 function renderScheduledTasksWorkspace() {
   const el = $("settingsScheduledTasksPanel");
   if (!el) return;
+  const currentNoteId = state.selectedFileId || state.activeTabId || "";
+  const currentDirectoryId = state.selectedFolderId || "";
+  const currentNote = (Array.isArray(state.notes) ? state.notes : []).find((note) => note?.id === currentNoteId) || null;
+  const currentDirectory = (Array.isArray(state.folders) ? state.folders : []).find((folder) => folder?.id === currentDirectoryId) || null;
   el.innerHTML = renderScheduledTasksPanel({
     items: settingsState.ai.scheduledTasks,
     total: settingsState.ai.scheduledTasksTotal,
@@ -1856,8 +2027,10 @@ function renderScheduledTasksWorkspace() {
     templatesLoading: settingsState.ai.scheduledTaskTemplatesLoading,
     templatesError: settingsState.ai.scheduledTaskTemplatesError,
     form: settingsState.ai.scheduledTaskForm,
-    currentNoteId: state.selectedFileId || state.activeTabId || "",
-    currentDirectoryId: state.selectedFolderId || "",
+    currentNoteId,
+    currentNoteLabel: currentNote?.title || currentNote?.name || "",
+    currentDirectoryId,
+    currentDirectoryLabel: currentDirectory?.name || currentDirectory?.title || "",
     filters: settingsState.ai.scheduledTaskFilters,
     loading: settingsState.ai.scheduledTasksLoading,
     actionLoading: settingsState.ai.scheduledTaskActionLoading,
@@ -1871,7 +2044,8 @@ function renderScheduledTasksWorkspace() {
 function renderAiSuggestionsWorkspace() {
   renderAiSuggestionsWorkspaceView({
     mount: $("settingsAiSuggestionsPanel"),
-    state: settingsState.ai
+    state: settingsState.ai,
+    notes: state.notes
   });
 }
 
@@ -1897,7 +2071,7 @@ async function refreshAiSuggestions(options = {}) {
   return refreshAiSuggestionsForRuntime({
     aiState: settingsState.ai,
     fetchAiSuggestions,
-    normalizeAiSuggestionFilters,
+    normalizeAiSuggestionFilters: normalizeVisibleSuggestionFilters,
     rememberAiDebugSnapshot,
     render: renderAiSuggestionsWorkspace,
     setStatus,
@@ -2424,7 +2598,10 @@ function continueWritingEntry(noteIds = [], options = {}) { return writingEntryR
 
 const writingProjectRuntimeController = createWritingProjectRuntimeController(() => ({
   $,
-  addSystemMessage,
+  activateModule,
+  aiFeatureRequestOptions: featureAiRequestOptions,
+  aiAvailable: settingsState.ai.routePreview?.access?.ready === true,
+  aiRuntimeMode: featureAiRuntimeMode(),
   analyzeWritingWithStrongModel,
   beginWritingEntry,
   createWritingProject,
@@ -2438,7 +2615,10 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   openWritingModule,
   parseWritingBasketIds,
   populateWritingFormFromProject,
+  refreshAiRoutePreview,
+  renderSettingsPanel,
   renderWritingPanel,
+  setSettingsItem,
   setStatus,
   showWritingResult,
   suggestedWritingProjectTitle,
@@ -2528,12 +2708,10 @@ async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [
   return handleWritingCreateScaffoldClick({
     $,
     writingState,
-    describeWritingProjectPreflight,
     currentWritingContinuationEntry,
     continueWritingProjectEntry,
     writingCenterContinuationStatusMessage,
     writingCenterContinuationFailureMessage,
-    writingScaffoldPreflightWarning,
     createDraftScaffold,
     currentWritingVersionNote,
     showWritingResult,
@@ -2548,6 +2726,7 @@ async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
   if (!id) throw new Error("indexCardId is required");
+  const previousSelectedThemeIndexId = String(writingState.selectedThemeIndexId || "").trim();
   const indexCard = writingThemeIndexById(id) || (await fetchIndexCard(id));
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
@@ -2593,7 +2772,17 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
       );
     }
   }
-  if (!$("writingTitle")?.value.trim()) $("writingTitle").value = normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds));
+  // “开始写” must leave one concrete topic selected for the next action.
+  setSelectedWritingThemeIndex(id);
+  syncWritingThemeFormFields({
+    $,
+    indexCard,
+    noteIds,
+    previousSelectedThemeIndexId,
+    selectedThemeIndexId: id,
+    normalizeWritingProjectTitleSeed,
+    suggestedWritingProjectTitle
+  });
   renderWritingPanel();
   return {
     indexCard,
@@ -2711,7 +2900,9 @@ async function refreshImportedNotesView() {
     await syncDirectoriesFromApi();
     await syncNotesForDirectory(state.selectedFolderId);
     renderAll();
-  } catch {}
+  } catch (error) {
+    if (isApiConnectionError(error)) setStatus(apiConnectionErrorMessage(error), "bad", { force: true, holdMs: 10000, priority: 5 });
+  }
 }
 
 function mapNoteItem(item) {
@@ -3197,7 +3388,7 @@ function noteGrowthStage(note, body = "") {
 
   if (noteType === "fleeting") return "捕捉中";
   if (noteType === "literature") return "转述中";
-  if (linkCount >= 2 || (linkCount >= 1 && tagCount >= 2)) return "已串联";
+  if (linkCount >= 2 || (linkCount >= 1 && tagCount >= 2)) return "已有关系";
   if (bodyLength >= 140 || tagCount >= 2) return "正在成形";
   return "提炼中";
 }
@@ -3513,6 +3704,8 @@ function resetWritingProjectContext({ title = "", goal = "", audience = "", tone
   writingState.project = null;
   writingState.scaffold = null;
   writingState.scaffoldMarkdown = "";
+  writingState.draftMarkdown = "";
+  writingState.draftSaveState = "idle";
   writingState.scaffoldVersions = [];
   writingState.draftVersions = [];
   if ($("writingTitle")) $("writingTitle").value = title;
@@ -3649,6 +3842,7 @@ function settingsAiExperienceRuntimeDeps() {
     currentOllamaSetupGuide,
     primaryRecommendedOllamaModelName,
     currentAiProviderId,
+    isRemoteConfigurableProviderId,
     isAiLocalFlowActive,
     preferredLocalProviderPresetForSelection,
     defaultProviderEndpointUrl,
@@ -3706,19 +3900,26 @@ function renderAiProviderConfigControls() {
 function settingsAiDialogByName(name = "") {
   const normalized = String(name || "").trim();
   const map = {
-    remote: "settingsAiRemoteDialog",
     test: "settingsAiTestDialog"
   };
   return $(map[normalized] || "");
 }
 
 function closeSettingsAiDialogs() {
-  ["settingsAiRemoteDialog", "settingsAiTestDialog"].forEach((id) => {
+  ["settingsAiTestDialog"].forEach((id) => {
     $(id)?.classList.add("hidden");
   });
 }
 
 function openSettingsAiDialog(name = "") {
+  if (String(name || "").trim() === "remote") {
+    const section = $("settingsAiRemoteSection");
+    if (section instanceof HTMLDetailsElement) section.open = true;
+    section?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    const firstField = $("settingsAiProviderEndpointUrl");
+    if (firstField instanceof HTMLElement) firstField.focus({ preventScroll: true });
+    return;
+  }
   const dialog = settingsAiDialogByName(name);
   if (!dialog) return;
   closeSettingsAiDialogs();
@@ -3753,7 +3954,24 @@ async function applySettingsAiQuickSetup(kind = "") {
     setStatus("已进入本地 AI 设置。下载模型前会先等待你确认。", "ok");
     return;
   }
-  setStatus(normalized === "local" ? "已切换为本地大模型设置流程" : "已切换为远程大模型设置流程", "ok");
+  setStatus(normalized === "local" ? "已切换为本机 AI 设置" : "已切换为在线 AI 设置", "ok");
+}
+
+function confirmRemoteAiUse() {
+  if (typeof window?.confirm !== "function") return true;
+  return window.confirm("远程 AI 会把相关内容发送到你填写的服务。确认继续吗？");
+}
+
+async function autoPrepareLocalAiOnStartup() {
+  if (settingsState.ai.autoPrepareLocalAi !== true) return;
+  if (!localOllamaSetupActive() || !shouldUseOllamaLocalRuntime()) return;
+  await bootstrapOllamaLocalAiFromUi({
+    ...localAiPreviewOptionsForAction("settings_refresh"),
+    autoStart: true,
+    pullModel: false,
+    silent: true,
+    render: false
+  });
 }
 
 function activateModule(moduleName) {
@@ -4220,7 +4438,7 @@ function findExistingWritingProjectForTheme(indexCard, noteIds = []) {
     projects.find((project) => {
       const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
       const basketNoteIds = uniqueStrings(project?.basket_note_ids || project?.basketNoteIds || []);
-      if (themeId && relatedIndexIds.includes(themeId)) return true;
+      if (themeId) return relatedIndexIds.includes(themeId);
       return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
     }) || null
   );
@@ -4234,7 +4452,7 @@ function writingProjectMatchesContext(project, { themeId = "", noteIds = [] } = 
   const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
   const basketNoteIds = uniqueStrings(project?.basket_note_ids || project?.basketNoteIds || []);
 
-  if (normalizedThemeId && relatedIndexIds.includes(normalizedThemeId)) return true;
+  if (normalizedThemeId) return relatedIndexIds.includes(normalizedThemeId);
   return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
 }
 
@@ -4322,29 +4540,22 @@ function writingDraftDirectoryId() {
 }
 
 function writingDraftTitle() {
-  const themeTitle = String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "未命名主题";
-  return `${themeTitle} 草稿`;
-}
-
-function rewriteMarkdownHeading(markdown, title) {
-  const cleanTitle = String(title || "").trim() || "未命名草稿";
-  const text = String(markdown || "").replace(/\r\n/g, "\n").trim();
-  if (!text) return `# ${cleanTitle}\n`;
-  if (/^#\s+/.test(text)) return text.replace(/^#\s+.*$/m, `# ${cleanTitle}`);
-  return `# ${cleanTitle}\n\n${text}\n`;
+  return String($("writingTitle")?.value || writingState.project?.title || "").trim() || "未命名文章";
 }
 
 function writingDraftBody() {
   const headingTitle = writingDraftTitle();
-  const scaffoldMarkdown = rewriteMarkdownHeading(writingState.scaffoldMarkdown, headingTitle).trimEnd();
   const projectId = writingState.project?.id || "";
   const scaffoldId = writingState.scaffold?.id || "";
   const references = uniqueStrings([
     projectId ? `可写主题：${projectId}` : "",
     scaffoldId ? `文章提纲：${scaffoldId}` : ""
   ]);
-  const tail = references.length ? `\n\n---\n${references.join("\n")}\n` : "\n";
-  return `${scaffoldMarkdown}${tail}`;
+  return writingDraftMarkdown({
+    markdown: writingState.draftMarkdown || writingState.project?.draft_note?.body || writingState.scaffoldMarkdown,
+    title: headingTitle,
+    references
+  });
 }
 
 function writingScaffoldFileName(title = "") {
@@ -4399,7 +4610,7 @@ function writingNoteExcerpt(note) {
     .replace(/^#.*$/m, "")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text) return "这条永久笔记还没有正文摘要。";
+  if (!text) return "";
   return text.length > 120 ? `${text.slice(0, 120)}...` : text;
 }
 
@@ -4437,19 +4648,19 @@ async function loadWritingThemeIndexes() {
 }
 
 function writingThemeDetailHintText(indexCard) {
-  if (!indexCard?.id) return "查看中心问题、主题压缩和相关笔记，并确认一条可续接的写作入口。";
-  const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
-  const themeLabel = String(indexCard.title || indexCard.id || "当前主题").trim() || "当前主题";
-  return `${themeLabel}：写作中心入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前主题还是确定新的可写主题。"}`;
+  return indexCard?.id ? "确认题目和问题，然后生成提纲。" : "写下题目和你想回答的问题。";
 }
 
 function populateWritingFormFromProject(project) {
   if (!project) return;
-  if ($("writingTitle")) $("writingTitle").value = computeWritingProjectEntryTitle(project);
+  const relatedIndexIds = uniqueStrings(project.related_index_ids || []);
+  const selectedTheme = relatedIndexIds.map((indexId) => writingThemeIndexById(indexId)).find(Boolean) || null;
+  if ($("writingTitle")) $("writingTitle").value = resolveWritingProjectFormTitle({ project, indexCard: selectedTheme });
   if ($("writingGoal")) $("writingGoal").value = project.goal || "";
   if ($("writingAudience")) $("writingAudience").value = project.audience || "";
   if ($("writingTone")) $("writingTone").value = project.tone || "";
-  setWritingSourceIndexIds(project.related_index_ids || []);
+  setWritingSourceIndexIds(relatedIndexIds);
+  setSelectedWritingThemeIndex(relatedIndexIds[0] || "");
   setWritingBasketIds(project.basket_note_ids || []);
   syncWritingLocalBookIdeasFromProject(project);
 }
@@ -4531,8 +4742,10 @@ async function loadWritingDraftVersions() {
 
 async function openWritingProject(projectId) {
   resetWritingStrongModelState();
+  writingState.draftSaveState = "idle";
   const project = await fetchWritingProject(projectId);
   writingState.project = project;
+  setWritingBasketIds(project?.basket_note_ids || []);
   populateWritingFormFromProject(project);
   if (project?.scaffold_id) {
     try {
@@ -4548,7 +4761,18 @@ async function openWritingProject(projectId) {
     writingState.scaffoldMarkdown = "";
   }
   await refreshWritingRelationCounts(parseWritingBasketIds(), { render: false });
-  await refreshWritingProjectState();
+  const refreshedProject = await refreshWritingProjectState();
+  const draftNoteId = String(refreshedProject?.draft_note_id || writingState.project?.draft_note_id || "").trim();
+  if (draftNoteId) {
+    try {
+      const draftNote = await fetchNote(draftNoteId);
+      writingState.draftMarkdown = String(draftNote?.body || refreshedProject?.draft_note?.body || writingState.project?.draft_note?.body || "");
+    } catch {
+      writingState.draftMarkdown = String(refreshedProject?.draft_note?.body || writingState.project?.draft_note?.body || "");
+    }
+  } else {
+    writingState.draftMarkdown = "";
+  }
   await loadWritingScaffoldVersions();
   await loadWritingDraftVersions();
   renderWritingPanel();
@@ -4568,15 +4792,20 @@ async function openWritingDraftNoteById(draftNoteId) {
 }
 
 async function continueWritingProjectEntry(projectId, { openDraft = false, statusMessage = "" } = {}) {
+  activateModule("writing");
   const project = await openWritingProject(projectId);
   const route = writingProjectContinuationRoute({ projectId, project, openDraft, statusMessage });
   if (route.kind === "missing-draft" || route.kind === "invalid-project") throw new Error(route.errorMessage);
-  if (route.kind === "open-draft") await openWritingDraftNoteById(route.draftNoteId);
+  const continuationTab = route.kind === "open-draft" ? "draft" : (project?.scaffold_id ? "outline" : "theme");
+  applyWritingTab(continuationTab, {
+    root: $("writingPanel")?.querySelector?.(".writing-shell"),
+    documentRef: document
+  });
   setStatus(route.statusMessage, "ok");
   return project;
 }
 
-async function prepareWritingStrongModelAnalysis() { return writingProjectRuntimeController.prepareWritingStrongModelAnalysis(); }
+async function prepareWritingStrongModelAnalysis(options = {}) { return writingProjectRuntimeController.prepareWritingStrongModelAnalysis(options); }
 
 async function scaffoldBundleForProject(projectLike = null) {
   const project = projectLike || writingState.project;
@@ -4844,6 +5073,7 @@ const graphResidualViews = createGraphResidualViews({
   graphIsolatedPreviewTargetForNote,
   graphIsolatedQueueItemsForGraph,
   graphIsolatedSelectionKey,
+  openRelationComposerFromGraphAction: (...args) => openRelationComposerFromGraphAction(...args),
   graphLiveAiAnalysisCountsForGraph,
   graphLocalRelationCandidatesForNote: computeGraphLocalRelationCandidatesForNote,
   graphManualRelationTargetsForNote: computeGraphManualRelationTargetsForNote,
@@ -5060,11 +5290,9 @@ const {
   pickGraphManualRelationTarget,
   saveGraphIsolatedRelationForm,
   saveGraphConfirmedRelation,
-  openGraphRelationFormInSelection,
   focusGraphRelationAdjustmentInPlace,
   renderGraphIsolatedSelectionPanel,
   renderGraphIsolatedCompletePanel,
-  renderGraphRelationFormSelectionPanel,
   renderGraphBridgeSelectionPanel,
   graphUniqueClusterMeta,
   graphClusterResearchMeta,
@@ -5495,6 +5723,8 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     deleteNote,
     descendantDirectoryIds,
     editor,
+    ensureAiReadyForFeature,
+    ensureLocalAiReadyForFeature,
     ensureNoteBodyLoaded,
     expandGraphBrowserTree,
     explorer,
@@ -5525,6 +5755,7 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     noteAnalysisSystemMessageForResult,
     openAiInboxModule,
     openGraphSelection,
+    openRelationComposerFromGraphAction,
     openImportModule,
     openNoteById,
     openNoteRelationEditor,
@@ -5540,6 +5771,7 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     renderDistillationPanel,
     replaceFirstMarkdownTitle,
     rootBoxIdFromFolder,
+    runSourceDistillAi,
     saveAiSuggestion,
     setGraphIsolatedWorkflowActiveTab,
     setStatus,
@@ -5686,8 +5918,11 @@ const editor = new EditorPane(createEditorPaneHostDeps({
   currentLiteratureTemplateSectionLabels,
   literatureTemplateSectionLabelCandidates,
   renderStatusMeta,
-  renderWorkspaceStatusHint
+  renderWorkspaceStatusHint,
+  refreshDirectoryGraph,
+  renderAll
 }));
+const openRelationComposerFromGraphAction = createGraphRelationComposerEntry({ editor, graphState });
 loadNoteTemplateSettingsFromStorage();
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
@@ -5804,6 +6039,11 @@ async function applyAiRuntimeModeChange(nextMode = "auto") {
   });
 }
 
+async function resumePendingAiSettingsAction(...args) {
+  if (await writingProjectRuntimeController.resumePendingContextualAiAction(...args)) return true;
+  return editor.resumePendingContextualAiAction?.(...args) || false;
+}
+
 installSettingsAiEventBindings({
   $,
   settingsState,
@@ -5831,14 +6071,18 @@ installSettingsAiEventBindings({
   copyTextToClipboard,
   applySettingsAiQuickSetup,
   openSettingsAiDialog,
-  closeSettingsAiDialogs
+  closeSettingsAiDialogs,
+  confirmRemoteAiUse,
+  onAiSettingsReady: resumePendingAiSettingsAction
 });
+void autoPrepareLocalAiOnStartup();
 bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({
   settingsState,
   aiSuggestionFiltersFromUi,
   refreshAiSuggestions,
   loadAiSuggestionDetail,
   applyAiSuggestionStatus,
+  render: renderAiSuggestionsWorkspace,
   activateModule,
   openNoteById,
   setStatus
@@ -5865,6 +6109,9 @@ installWritingPanelBasketEventHandlers({
     writingState,
     writingNoteEligibility,
     continueWritingEntry,
+    parseWritingBasketIds,
+    setWritingBasketIds,
+    syncWritingProject,
     normalizeWritingProjectTitleSeed: computeNormalizeWritingProjectTitleSeed,
     writingCandidateNotes,
     uniqueStrings,
@@ -5882,6 +6129,7 @@ installWritingPanelBasketEventHandlers({
     showWritingResult,
     handleWritingBasketManualInput,
     prepareWritingStrongModelAnalysis,
+    contextualAiController: writingProjectRuntimeController.contextualAiController,
     writingBasketEntries,
     deriveWritingLocalBookIdeas,
     currentWritingBookStructure,
@@ -5897,6 +6145,15 @@ installWritingPanelBasketEventHandlers({
 installWritingTabEvents({
   root: $("writingPanel")?.querySelector?.(".writing-shell"),
   documentRef: document
+});
+installWritingRelatedPanelEvents({
+  root: $("writingPanel")?.querySelector?.(".writing-shell"),
+  documentRef: document
+});
+installWritingSidebarActionEvents({
+  root: $("moduleSidebar"),
+  documentRef: document,
+  applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document })
 });
 
 installWritingThemeIndexEventHandlers({
@@ -5979,25 +6236,32 @@ installWritingDraftActionEventHandlers({
     state,
     writingState,
     createWritingProjectFromCurrentBasket,
-    describeWritingProjectPreflight,
+    createWritingProjectFromThemeIndex,
     currentWritingContinuationEntry,
     continueWritingProjectEntry,
     writingCenterContinuationStatusMessage,
     writingCenterContinuationFailureMessage,
-    writingScaffoldPreflightWarning,
     createDraftScaffold,
+    updateDraftScaffold,
+    syncWritingProject,
     currentWritingVersionNote,
     showWritingResult,
     loadWritingProjectsList,
     loadWritingScaffoldVersions,
     loadWritingDraftVersions,
+    prepareWritingStrongModelAnalysis,
     renderWritingPanel,
+    applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
     copyWritingScaffold,
     exportWritingScaffold,
     writingDraftDirectoryId,
     writingDraftTitle,
     writingDraftBody,
+    parseWritingBasketIds,
+    setWritingBasketIds,
+    uniqueStrings,
     createNote,
+    updateNote,
     bindWritingDraftNote,
     mapNoteItem,
     openWritingDraftNoteById,
@@ -6031,7 +6295,7 @@ bindAiInboxWorkspaceEvents($("aiInboxPanel"), createAiInboxWorkspaceHostDeps({
   setStatus
 }));
 todayOrganizingEntryRuntime.installEvents();
-installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openGraphNodeSelectionFromElement });
+installGraphNodeClickFallbackEvents(document, { graphState, renderGraphPanel, openGraphSelection, openRelationComposerFromGraphAction, setStatus, openGraphNodeSelectionFromElement });
 installGraphWorkbenchClickFallbackEvents(document, {
   graphState,
   graphWorkbenchTabMeta,
@@ -6090,7 +6354,7 @@ bindGraphCanvasEvents($("graphPanel"), {
   runGraphAiAnalysis,
   captureGraphIsolatedRelationDraftFromForm,
   runGraphAiConnectForNote,
-  openGraphRelationFormInSelection,
+  openRelationComposerFromGraphAction,
   graphRelationWorkflowController,
   saveGraphAiCandidateRelation,
   confirmGraphPotentialRelationRefine,
@@ -6114,6 +6378,7 @@ bindGraphCanvasEvents($("graphPanel"), {
   markGraphIsolatedRationaleUserEdited,
   filterGraphManualRelationTargets,
   applyGraphViewModeInteraction,
+  applyGraphTaskViewInteraction,
   graphReadingModeMeta,
   applyGraphWheelZoomInteraction,
   graphZoomOption,
@@ -6303,6 +6568,8 @@ function appStartupDeps() {
     syncDirectoriesFromApi,
     syncNotesForDirectoryTree,
     getApiBase,
+    isApiConnectionError,
+    apiConnectionErrorMessage,
     activateModule,
     renderAll,
     confirm: window.confirm.bind(window),

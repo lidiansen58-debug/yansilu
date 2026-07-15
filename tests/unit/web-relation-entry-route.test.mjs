@@ -39,12 +39,35 @@ test("relation entry route normalizes source, note, target and return context", 
     relationType: "supports",
     rationaleDraft: "because",
     insightQuestionDraft: "question",
+    candidateSource: "",
     mode: "",
     returnTo: "graph",
     entryHint: "",
     isolatedKey: "",
     graphSelectionKind: ""
   });
+});
+
+test("graph action route keeps raw candidate source while using graph entry source", () => {
+  const route = relationEntryRouteFromGraphAction({
+    noteId: "note-a",
+    source: "graph",
+    candidateSource: "today-organizing"
+  });
+
+  assert.equal(route.source, RELATION_ENTRY_SOURCES.GRAPH_NODE);
+  assert.equal(route.noteId, "note-a");
+  assert.equal(route.candidateSource, "today-organizing");
+  assert.equal(route.returnTo, "graph");
+});
+
+test("relation entry route keeps real entry aliases out of unknown source", () => {
+  assert.equal(normalizeRelationEntryRoute({ source: "explorer-browser" }).source, RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR);
+  assert.equal(normalizeRelationEntryRoute({ source: "system-message" }).source, RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR);
+  assert.equal(normalizeRelationEntryRoute({ source: "today-organizing" }).source, RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR);
+  assert.equal(normalizeRelationEntryRoute({ source: "import-result" }).source, RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR);
+  assert.equal(normalizeRelationEntryRoute({ source: "graph-sidebar-associate" }).source, RELATION_ENTRY_SOURCES.GRAPH_NODE);
+  assert.equal(normalizeRelationEntryRoute({ source: "graph-context-menu" }).source, RELATION_ENTRY_SOURCES.GRAPH_NODE);
 });
 
 test("right sidebar permanent workspace route keeps mode and returns to sidebar", () => {
@@ -76,6 +99,18 @@ test("graph action route reads data attributes and remembers graph return", () =
   assert.equal(route.rationaleDraft, "draft reason");
   assert.equal(route.returnTo, "graph");
   assert.equal(route.graphSelectionKind, "isolated");
+});
+
+test("graph isolated queue route preserves candidate source for the shared composer", () => {
+  const route = relationEntryRouteFromGraphAction(element({
+    "data-graph-select-isolated": "iso-a",
+    "data-graph-isolated-note": "note-a"
+  }));
+
+  assert.equal(route.source, RELATION_ENTRY_SOURCES.GRAPH_ISOLATED);
+  assert.equal(route.noteId, "note-a");
+  assert.equal(route.candidateSource, "graph-isolated-queue");
+  assert.equal(route.returnTo, "graph");
 });
 
 test("AI candidate action route has a distinct source", () => {
@@ -119,6 +154,7 @@ test("permanent workspace continuation keeps source context without reusing prev
     relationType: "supports",
     rationaleDraft: "old reason",
     insightQuestionDraft: "old question",
+    candidateSource: "import-result",
     returnTo: "graph",
     graphSelectionKind: "isolated"
   }, {
@@ -132,6 +168,7 @@ test("permanent workspace continuation keeps source context without reusing prev
   assert.equal(next.source, RELATION_ENTRY_SOURCES.GRAPH_NODE);
   assert.equal(next.returnTo, "graph");
   assert.equal(next.graphSelectionKind, "isolated");
+  assert.equal(next.candidateSource, "import-result");
   assert.equal(next.noteId, "note-a");
   assert.equal(next.targetNoteId, "");
   assert.equal(next.relationType, "same_topic");

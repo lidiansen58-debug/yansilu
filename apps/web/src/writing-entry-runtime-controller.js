@@ -6,6 +6,7 @@ import {
 } from "./prototype-thinking-status.js";
 import {
   clearWritingEntryContextForRuntime,
+  resetWritingStrongModelStateForRuntime,
   setWritingEntryContextForRuntime
 } from "./writing-session-state.js";
 
@@ -18,10 +19,8 @@ function writingFormContext($ = () => null) {
 }
 
 function resetWritingEntryRuntimeState(writingState = {}, basketNoteIds = []) {
-  writingState.strongModelEpoch += 1;
-  writingState.strongModelLoading = false;
-  writingState.strongModelResult = null;
-  writingState.strongModelError = "";
+  writingState.strongModelEpoch = Number(writingState.strongModelEpoch || 0) + 1;
+  resetWritingStrongModelStateForRuntime(writingState);
   writingState.relationCounts = {};
   writingState.relationCountErrors = {};
   writingState.loadingRelationCounts = basketNoteIds.length > 0;
@@ -31,7 +30,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
 
   async function openWritingModule({
-    statusMessage = "已打开写作中心",
+    statusMessage = "已打开写作",
     activeTab = "",
     focusedCandidateNoteIds = null,
     focusedCandidateScopeLabel = "",

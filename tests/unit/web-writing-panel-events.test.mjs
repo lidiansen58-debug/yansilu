@@ -5,7 +5,12 @@ import {
   handleWritingAddVisible,
   handleWritingCreateScaffoldClick,
   handleWritingDraftVersionsListClick,
+  handleWritingOutlineClick,
+  handleWritingOutlineInput,
+  handleWritingStartDraftClick,
   handleWritingNoteListClick,
+  persistWritingOutline,
+  persistWritingProjectForm,
   handleWritingProjectsListClick,
   handleWritingSaveDraftClick,
   handleWritingScaffoldVersionsListClick,
@@ -35,12 +40,13 @@ function actionTarget(action, noteId = "n1") {
   };
 }
 
-test("writing draft title normalizes old project suffixes to theme draft wording", () => {
-  assert.equal(normalizeWritingDraftTitle("Writing UI Project"), "Writing UI 主题 草稿");
-  assert.equal(normalizeWritingDraftTitle("Writing UI Project 草稿"), "Writing UI 主题 草稿");
-  assert.equal(normalizeWritingDraftTitle("Evidence 项目"), "Evidence 主题 草稿");
-  assert.equal(normalizeWritingDraftTitle("Evidence 项目 草稿"), "Evidence 主题 草稿");
-  assert.equal(normalizeWritingDraftTitle("Evidence 主题"), "Evidence 主题 草稿");
+test("writing draft title removes legacy draft suffixes without changing the article title", () => {
+  assert.equal(normalizeWritingDraftTitle("Writing UI Project"), "Writing UI Project");
+  assert.equal(normalizeWritingDraftTitle("Writing UI Project 草稿"), "Writing UI Project");
+  assert.equal(normalizeWritingDraftTitle("Evidence 项目"), "Evidence 项目");
+  assert.equal(normalizeWritingDraftTitle("Evidence 项目 草稿"), "Evidence 项目");
+  assert.equal(normalizeWritingDraftTitle("Evidence 主题"), "Evidence 主题");
+  assert.equal(normalizeWritingDraftTitle("为什么《易经》不是答案机器 主题 草稿"), "为什么《易经》不是答案机器");
 });
 
 function indexTarget(selector, attrs = {}) {
@@ -53,16 +59,33 @@ function indexTarget(selector, attrs = {}) {
   };
 }
 
+function buttonTarget(selector, button) {
+  return {
+    closest: (requested) => requested === selector ? button : null
+  };
+}
+
+function contextualAiButton(actionAttrs = {}, actionId = "check_outline") {
+  return {
+    hasAttribute: (name) => actionAttrs[name] === true,
+    closest: (selector) => selector === "[data-contextual-ai-action-id]"
+      ? { getAttribute: () => actionId }
+      : null
+  };
+}
+
 test("writing panel basket installer wires core basket controls through latest deps", async () => {
   const handlers = new Map();
   let version = "first";
   const calls = [];
+  const writingState = { project: { id: "p1", draft_note_id: "n1" }, scaffold: { id: "s1" }, scaffoldMarkdown: "outline" };
   const elements = new Map([
     ["btnWritingUseCurrent", {}],
     ["btnWritingAddVisible", {}],
     ["btnWritingClearBasket", {}],
     ["writingBasketNoteIds", {}],
     ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
     ["btnWritingLocalBookIdeas", {}],
     ["writingCandidateList", {}],
     ["writingBasketList", {}],
@@ -93,7 +116,7 @@ test("writing panel basket installer wires core basket controls through latest d
     })
   });
 
-  assert.equal(registrations.length, 9);
+  assert.equal(registrations.length, 10);
   assert.equal(registrations.every((item) => item.installed), true);
 
   handlers.get("btnWritingUseCurrent:click")();
@@ -106,6 +129,229 @@ test("writing panel basket installer wires core basket controls through latest d
   assert.deepEqual(calls.at(-3), ["manual", "second"]);
   assert.deepEqual(calls.at(-2), ["render", "second"]);
   assert.deepEqual(calls.at(-1), ["strong", "second"]);
+});
+
+test("writing panel contextual AI remote confirmation resumes outline check in place", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      prepareWritingStrongModelAnalysis: async (options) => calls.push(["prepare", options]),
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget("[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]", {
+      hasAttribute: (name) => name === "data-contextual-ai-confirm-remote"
+    }),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [["prepare", { remoteConfirmed: true }], ["render"]]);
+});
+
+test("writing panel contextual AI remote confirmation uses a generic handler for non-outline actions", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      confirmContextualAiAction: async (...args) => {
+        calls.push(["confirm", ...args]);
+        return true;
+      },
+      prepareWritingStrongModelAnalysis: async (...args) => calls.push(["prepare", ...args]),
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-confirm-remote": true }, "suggest_theme")
+    ),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [
+    ["confirm", { actionId: "suggest_theme", remoteConfirmed: true }],
+    ["render"]
+  ]);
+});
+
+test("writing panel contextual AI remote confirmation does not run outline check for another action", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      prepareWritingStrongModelAnalysis: async (...args) => calls.push(["prepare", ...args]),
+      renderWritingPanel: () => calls.push(["render"]),
+      setStatus: (...args) => calls.push(["status", ...args])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-confirm-remote": true }, "suggest_theme")
+    ),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [
+    ["status", "当前 AI 操作还不能在这里继续。", "warn"],
+    ["render"]
+  ]);
+});
+
+test("writing panel contextual AI adopt action passes edited values to the controller", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      contextualAiController: {
+        adopt: async (...args) => calls.push(["adopt", ...args])
+      },
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-adopt": true }, "suggest_theme")
+    ),
+    currentTarget: {
+      querySelectorAll: () => [
+        { getAttribute: (name) => name === "data-contextual-ai-field" ? "title" : "0", value: "  updated title  " },
+        { getAttribute: (name) => name === "data-contextual-ai-field" ? "body" : "1", value: "updated body" }
+      ]
+    }
+  });
+
+  assert.deepEqual(calls, [
+    ["adopt", "suggest_theme", { values: [
+      { field: "title", index: 0, value: "updated title" },
+      { field: "body", index: 1, value: "updated body" }
+    ] }],
+    ["render"]
+  ]);
+});
+
+test("writing panel contextual AI close action uses the panel action id", async () => {
+  const handlers = new Map();
+  const calls = [];
+  const elements = new Map([
+    ["btnWritingUseCurrent", {}],
+    ["btnWritingAddVisible", {}],
+    ["btnWritingClearBasket", {}],
+    ["writingBasketNoteIds", {}],
+    ["btnWritingStrongModelAnalysis", {}],
+    ["writingStrongModelSummary", {}],
+    ["btnWritingLocalBookIdeas", {}],
+    ["writingCandidateList", {}],
+    ["writingBasketList", {}],
+    ["writingCandidateDetails", {}]
+  ]);
+  for (const [id, element] of elements) {
+    element.addEventListener = (eventName, handler) => {
+      handlers.set(`${id}:${eventName}`, handler);
+    };
+  }
+  installWritingPanelBasketEventHandlers({
+    $: (id) => elements.get(id) || null,
+    depsProvider: () => ({
+      contextualAiController: {
+        ignore: async (...args) => calls.push(["ignore", ...args])
+      },
+      renderWritingPanel: () => calls.push(["render"])
+    })
+  });
+
+  await handlers.get("writingStrongModelSummary:click")({
+    target: buttonTarget(
+      "[data-contextual-ai-ignore], [data-contextual-ai-confirm-remote], [data-contextual-ai-adopt]",
+      contextualAiButton({ "data-contextual-ai-ignore": true }, "recommend_relation")
+    ),
+    currentTarget: { querySelectorAll: () => [] }
+  });
+
+  assert.deepEqual(calls, [
+    ["ignore", "recommend_relation"],
+    ["render"]
+  ]);
 });
 
 test("writing panel current-note handler validates note eligibility", () => {
@@ -323,6 +569,51 @@ test("writing theme index list handler uses index cards and continuation routes"
 
   assert.deepEqual(calls[0], ["use", "idx1", { replaceBasket: false, resetContext: false, source: "writing_theme_index_list" }]);
   assert.deepEqual(calls[2], ["continue", "p1", { openDraft: true, statusMessage: "resume" }]);
+});
+
+test("writing theme index actions show pending state and never fail silently", async () => {
+  const calls = [];
+  let resolveUse;
+  const useButton = {
+    disabled: false,
+    textContent: "开始写",
+    getAttribute: (name) => {
+      if (name === "data-writing-index-action") return "use";
+      if (name === "data-writing-index-id") return "idx1";
+      return "";
+    }
+  };
+  const usePromise = handleWritingThemeIndexListClick({
+    target: buttonTarget("[data-writing-index-action]", useButton)
+  }, {
+    writingThemeIndexContinuationRoute: () => ({ kind: "" }),
+    useThemeIndexAsWritingEntry: async () => new Promise((resolve) => {
+      resolveUse = () => resolve({ indexCard: { title: "Theme" }, noteIds: ["n1"], addedCount: 1 });
+    }),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
+
+  assert.equal(useButton.disabled, true);
+  assert.equal(useButton.textContent, "正在选择...");
+  resolveUse();
+  await usePromise;
+  assert.equal(useButton.disabled, false);
+  assert.equal(useButton.textContent, "开始写");
+  assert.ok(calls.some((call) => call[0] === "status" && call[2] === "ok"));
+
+  const missingButton = {
+    disabled: false,
+    textContent: "继续草稿",
+    getAttribute: (name) => name === "data-writing-index-action" ? "open-draft" : ""
+  };
+  await handleWritingThemeIndexListClick({
+    target: buttonTarget("[data-writing-index-action]", missingButton)
+  }, {
+    writingThemeIndexContinuationRoute: () => ({ kind: "missing-project" }),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  });
+
+  assert.ok(calls.some((call) => call[0] === "status" && call[2] === "warn" && call[1].includes("没有可继续")));
 });
 
 test("writing theme detail installer wires the detail surface through latest deps", async () => {
@@ -682,13 +973,21 @@ test("writing draft action installer wires primary draft buttons through latest 
   const handlers = new Map();
   let version = "first";
   const calls = [];
+  const writingState = { project: { id: "p1", draft_note_id: "n1" }, scaffold: { id: "s1" }, scaffoldMarkdown: "outline" };
   const elements = new Map([
     ["btnWritingCreateProject", {}],
     ["btnWritingCreateScaffold", { textContent: "" }],
     ["btnWritingCopyScaffold", {}],
     ["btnWritingExportScaffold", {}],
     ["btnWritingSaveDraft", { textContent: "" }],
-    ["btnWritingOpenDraft", {}]
+    ["btnWritingOpenDraft", {}],
+    ["writingDraftEditor", {}],
+    ["writingTitle", {}],
+    ["writingGoal", {}],
+    ["writingScaffoldPreview", {}],
+    ["btnWritingStartDraft", {}],
+    ["btnWritingOutlineCheckPlaceholder", {}],
+    ["writingPanel", {}]
   ]);
   for (const [id, element] of elements) {
     element.addEventListener = (eventName, handler) => handlers.set(`${id}:${eventName}`, handler);
@@ -698,7 +997,7 @@ test("writing draft action installer wires primary draft buttons through latest 
     $: (id) => elements.get(id) || null,
     depsProvider: () => ({
       $: (id) => elements.get(id) || null,
-      writingState: { project: { id: "p1", draft_note_id: "n1" }, scaffold: { id: "s1" }, scaffoldMarkdown: "md" },
+      writingState,
       createWritingProjectFromCurrentBasket: async () => calls.push(["createProject", version]),
       describeWritingProjectPreflight: () => ({ level: "ready" }),
       createDraftScaffold: async () => {
@@ -714,6 +1013,8 @@ test("writing draft action installer wires primary draft buttons through latest 
         return { fileName: "s.md" };
       },
       openWritingDraftNoteById: async (noteId) => calls.push(["openDraft", version, noteId]),
+      prepareWritingStrongModelAnalysis: async () => calls.push(["check-outline", version]),
+      writingDraftBody: () => "# Draft from outline",
       loadWritingProjectsList: async () => calls.push(["projects", version]),
       loadWritingScaffoldVersions: async () => calls.push(["scaffolds", version]),
       loadWritingDraftVersions: async () => calls.push(["drafts", version]),
@@ -722,7 +1023,7 @@ test("writing draft action installer wires primary draft buttons through latest 
     })
   });
 
-  assert.equal(registrations.length, 6);
+  assert.equal(registrations.length, 15);
   assert.equal(registrations.every((item) => item.installed), true);
 
   await handlers.get("btnWritingCreateProject:click")();
@@ -731,12 +1032,213 @@ test("writing draft action installer wires primary draft buttons through latest 
   await handlers.get("btnWritingCopyScaffold:click")();
   await handlers.get("btnWritingExportScaffold:click")();
   await handlers.get("btnWritingOpenDraft:click")();
+  handlers.get("writingDraftEditor:input")({ target: { value: "edited draft" } });
+  assert.equal(writingState.draftSaveState, "dirty");
+  handlers.get("writingScaffoldPreview:input")({
+    target: {
+      value: "live outline",
+      closest: (selector) => selector === "[data-writing-outline-field]"
+        ? {
+            value: "live outline",
+            getAttribute: (name) => {
+              if (name === "data-writing-outline-index") return "0";
+              if (name === "data-writing-outline-field") return "heading";
+              return "";
+            }
+          }
+        : null
+    }
+  });
+  handlers.get("btnWritingStartDraft:click")();
+  await handlers.get("btnWritingOutlineCheckPlaceholder:click")();
+  await handlers.get("writingPanel:click")({
+    target: {
+      closest: (selector) => selector === "#btnWritingOutlineCheckPlaceholder" ? {} : null
+    }
+  });
 
   assert.deepEqual(calls[0], ["createProject", "first"]);
   assert.ok(calls.some((call) => call[0] === "createScaffold" && call[1] === "second"));
   assert.ok(calls.some((call) => call[0] === "copy" && call[1] === "second"));
   assert.ok(calls.some((call) => call[0] === "export" && call[1] === "second"));
   assert.ok(calls.some((call) => call[0] === "openDraft" && call[1] === "second" && call[2] === "n1"));
+  assert.equal(writingState.draftMarkdown, "edited draft");
+  assert.equal(writingState.scaffoldMarkdown, "md");
+  assert.equal(calls.filter((call) => call[0] === "check-outline" && call[1] === "second").length, 2);
+});
+
+test("writing outline handlers edit sections and report status", () => {
+  const calls = [];
+  const writingState = {
+    project: { title: "主题" },
+    scaffold: {
+      sections: [{ heading: "旧标题", purpose: "" }],
+      open_questions: []
+    },
+    scaffoldMarkdown: ""
+  };
+  const deps = {
+    writingState,
+    renderWritingPanel: () => calls.push(["render"]),
+    setStatus: (message, tone) => calls.push(["status", message, tone])
+  };
+
+  const inputOk = handleWritingOutlineInput({
+    target: {
+      value: "新标题",
+      closest: (selector) => selector === "[data-writing-outline-field]"
+        ? {
+            value: "新标题",
+            getAttribute: (name) => {
+              if (name === "data-writing-outline-index") return "0";
+              if (name === "data-writing-outline-field") return "heading";
+              return "";
+            }
+          }
+        : null
+    }
+  }, deps);
+  assert.equal(inputOk, true);
+  assert.equal(writingState.scaffold.sections[0].heading, "新标题");
+
+  const clickOk = handleWritingOutlineClick({
+    target: {
+      closest: (selector) => selector === "[data-writing-outline-action]"
+        ? {
+            getAttribute: (name) => {
+              if (name === "data-writing-outline-index") return "0";
+              if (name === "data-writing-outline-action") return "add";
+              return "";
+            }
+          }
+        : null
+    }
+  }, deps);
+
+  assert.equal(clickOk, true);
+  assert.equal(writingState.scaffold.sections.length, 2);
+  assert.ok(calls.some((call) => call[0] === "render"));
+  assert.ok(calls.some((call) => call[0] === "status" && call[2] === "ok"));
+});
+
+test("writing start draft uses the current edited outline before a draft exists", () => {
+  const draftEditor = { value: "" };
+  const writingState = {
+    project: { id: "p1" },
+    scaffoldMarkdown: "# Edited outline"
+  };
+
+  const ok = handleWritingStartDraftClick({
+    $: (id) => id === "writingDraftEditor" ? draftEditor : null,
+    writingState,
+    writingDraftBody: () => "# Edited outline\n\n正文起点"
+  });
+
+  assert.equal(ok, true);
+  assert.equal(writingState.draftMarkdown, "# Edited outline\n\n正文起点");
+  assert.equal(draftEditor.value, "# Edited outline\n\n正文起点");
+});
+
+test("writing outline saves changes in edit order and only applies the latest response", async () => {
+  const requests = [];
+  const resolvers = [];
+  const writingState = {
+    scaffold: {
+      id: "scaffold-1",
+      sections: [{ heading: "第一节", purpose: "" }],
+      open_questions: []
+    },
+    scaffoldMarkdown: ""
+  };
+  const deps = {
+    writingState,
+    updateDraftScaffold: (id, payload) => new Promise((resolve) => {
+      requests.push({ id, payload });
+      resolvers.push(() => resolve({ id, ...payload, markdown: payload.sections[0].heading }));
+    }),
+    renderWritingPanel: () => {},
+    setStatus: () => {}
+  };
+
+  const firstSave = persistWritingOutline(deps);
+  await Promise.resolve();
+  writingState.scaffold.sections[0].heading = "第二节";
+  const secondSave = persistWritingOutline(deps);
+  await Promise.resolve();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].payload.sections[0].heading, "第一节");
+
+  resolvers.shift()();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].payload.sections[0].heading, "第二节");
+
+  resolvers.shift()();
+  await Promise.all([firstSave, secondSave]);
+
+  assert.equal(writingState.scaffold.sections[0].heading, "第二节");
+  assert.equal(writingState.scaffoldMarkdown, "第二节");
+});
+
+test("writing workbench persists topic, outline, and material changes for an existing project", async () => {
+  const calls = [];
+  const inputs = new Map([
+    ["writingTitle", { value: "更新后的题目" }],
+    ["writingGoal", { value: "更新后的中心问题" }],
+    ["writingAudience", { value: "读者" }],
+    ["writingTone", { value: "冷静" }]
+  ]);
+  const writingState = {
+    project: {
+      id: "project-1",
+      title: "旧题目",
+      goal: "旧问题",
+      audience: "读者",
+      tone: "冷静",
+      intent: "意图",
+      desired_reader_takeaway: "收获",
+      related_index_ids: ["theme-1"],
+      status: "draft",
+      basket_note_ids: ["n1"]
+    },
+    scaffold: {
+      id: "scaffold-1",
+      sections: [{ heading: "第一节", purpose: "说明", evidence_note_ids: ["n1"] }],
+      open_questions: []
+    },
+    scaffoldMarkdown: "旧提纲"
+  };
+  const deps = {
+    $: (id) => inputs.get(id) || null,
+    writingState,
+    parseWritingBasketIds: () => ["n1"],
+    setWritingBasketIds: (ids) => calls.push(["set-basket", ids]),
+    uniqueStrings: (ids) => [...new Set(ids)],
+    syncWritingProject: async (id, payload) => {
+      calls.push(["sync", id, payload]);
+      return { ...writingState.project, ...payload, basket_note_ids: payload.basketNoteIds };
+    },
+    updateDraftScaffold: async (id, payload) => {
+      calls.push(["outline", id, payload]);
+      return { ...writingState.scaffold, ...payload, markdown: "新提纲" };
+    },
+    renderWritingPanel: () => calls.push(["render"]),
+    setStatus: (message, tone) => calls.push(["status", message, tone]),
+    writingKnownNoteById: (id) => ({ id, title: id }),
+    writingNoteById: (id) => ({ id, title: id })
+  };
+
+  await persistWritingProjectForm(deps);
+  await persistWritingOutline(deps);
+  await handleWritingNoteListClick({ target: actionTarget("add", "n2") }, deps);
+
+  assert.equal(calls.filter((call) => call[0] === "sync").length, 2);
+  assert.deepEqual(calls.find((call) => call[0] === "sync")[2].basketNoteIds, ["n1"]);
+  assert.deepEqual(calls.find((call) => call[0] === "outline")[2].sections[0].heading, "第一节");
+  assert.equal(writingState.scaffoldMarkdown, "新提纲");
+  assert.ok(calls.some((call) => call[0] === "set-basket" && call[1].includes("n2")));
+  assert.equal(writingState.project.id, "project-1");
 });
 
 test("writing create scaffold handler resumes continuation before warning about missing project", async () => {
@@ -755,23 +1257,66 @@ test("writing create scaffold handler resumes continuation before warning about 
   assert.deepEqual(calls, [["continue", "p1", { openDraft: true, statusMessage: "resume" }]]);
 });
 
+test("writing create scaffold handler creates project from selected theme", async () => {
+  const calls = [];
+  const writingState = {
+    selectedThemeIndexId: "theme-1",
+    project: null
+  };
+
+  await handleWritingCreateScaffoldClick({
+    $: () => ({ textContent: "生成提纲" }),
+    writingState,
+    describeWritingProjectPreflight: () => ({ level: "ready" }),
+    createWritingProjectFromThemeIndex: async (themeId) => {
+      calls.push(["theme-project", themeId]);
+      writingState.project = { id: "p-theme", preflight: {} };
+    },
+    createDraftScaffold: async (projectId) => {
+      calls.push(["scaffold", projectId]);
+      return {
+        item: { id: "s-theme", sections: [], writing_project: { id: projectId, scaffold_id: "s-theme" } },
+        export: { markdown: "outline" }
+      };
+    },
+    showWritingResult: (payload) => calls.push(["result", payload.writingProjectId, payload.draftScaffoldId]),
+    loadWritingProjectsList: async () => calls.push(["projects"]),
+    loadWritingScaffoldVersions: async () => calls.push(["scaffolds"]),
+    loadWritingDraftVersions: async () => calls.push(["drafts"]),
+    renderWritingPanel: () => calls.push(["render"])
+  });
+
+  assert.deepEqual(calls.slice(0, 3), [
+    ["theme-project", "theme-1"],
+    ["scaffold", "p-theme"],
+    ["result", "p-theme", "s-theme"]
+  ]);
+  assert.equal(writingState.project.scaffold_id, "s-theme");
+});
+
 test("writing create scaffold and save draft handlers persist generated state", async () => {
   const calls = [];
   const state = { notes: [] };
+  const actionFeedback = { textContent: "", hidden: true, dataset: {} };
+  const createScaffoldButton = { textContent: "生成提纲", disabled: false };
   const writingState = {
     project: { id: "p1", preflight: {} }
   };
   const sharedDeps = {
-    $: () => ({ textContent: "" }),
+    $: (id) => {
+      if (id === "writingActionFeedback") return actionFeedback;
+      if (id === "btnWritingCreateScaffold") return createScaffoldButton;
+      return { textContent: "" };
+    },
     state,
     writingState,
-    describeWritingProjectPreflight: () => ({ level: "ready" }),
     currentWritingVersionNote: () => "note",
     showWritingResult: (payload) => calls.push(["result", payload.stage, payload.noteId || payload.draftScaffoldId]),
     loadWritingProjectsList: async () => calls.push(["projects"]),
     loadWritingScaffoldVersions: async () => calls.push(["scaffolds"]),
     loadWritingDraftVersions: async () => calls.push(["drafts"]),
     renderWritingPanel: () => calls.push(["render"]),
+    applyWritingTab: (tab) => calls.push(["tab", tab]),
     setStatus: (message, tone) => calls.push(["status", message, tone])
   };
 
@@ -801,8 +1346,90 @@ test("writing create scaffold and save draft handlers persist generated state", 
 
   assert.equal(writingState.scaffold.id, "s1");
   assert.equal(writingState.scaffoldMarkdown, "body");
+  assert.equal(actionFeedback.hidden, false);
+  assert.equal(actionFeedback.textContent, "提纲已生成。现在可以编辑章节，或开始写草稿。");
+  assert.equal(actionFeedback.dataset.tone, "ok");
+  assert.equal(createScaffoldButton.disabled, false);
+  assert.ok(calls.some((call) => call[0] === "tab" && call[1] === "outline"));
   assert.equal(writingState.project.draft_note_id, "n1");
   assert.equal(state.notes[0].mapped, true);
-  assert.ok(calls.some((call) => call[0] === "create-note" && call[1] === "Writing UI 主题 草稿" && /^# Writing UI 主题 草稿/.test(call[2])));
+  assert.ok(calls.some((call) => call[0] === "create-note" && call[1] === "Writing UI Project" && /^# Writing UI Project/.test(call[2])));
   assert.ok(calls.some((call) => call[0] === "bind" && call[1] === "p1" && call[2] === "n1" && call[3] === "s1"));
+});
+
+test("writing save draft updates the current draft instead of creating another version", async () => {
+  const calls = [];
+  const saveButton = { textContent: "保存草稿", disabled: false };
+  const writingState = {
+    project: { id: "p1", draft_note_id: "n1", draft_note: { id: "n1", body: "old" } },
+    scaffold: { id: "s1" },
+    scaffoldMarkdown: "# Updated draft\n\nbody"
+  };
+
+  await handleWritingSaveDraftClick({
+    $: (id) => id === "btnWritingSaveDraft" ? saveButton : null,
+    state: { notes: [] },
+    writingState,
+    writingDraftDirectoryId: () => "dir1",
+    writingDraftTitle: () => "Writing UI Project",
+    writingDraftBody: () => "# Writing UI Project 草稿\n\nupdated body",
+    createNote: async () => {
+      calls.push("create");
+      return { id: "unexpected" };
+    },
+    updateNote: async (noteId, payload) => {
+      calls.push(["update", noteId, payload]);
+      return { id: noteId, title: payload.title, body: payload.body };
+    },
+    bindWritingDraftNote: async () => {
+      calls.push("bind");
+      return null;
+    },
+    mapNoteItem: (note) => note,
+    loadWritingProjectsList: async () => {},
+    loadWritingScaffoldVersions: async () => {},
+    loadWritingDraftVersions: async () => {},
+    renderWritingPanel: () => {},
+    setStatus: (message) => calls.push(["status", message])
+  });
+
+  assert.deepEqual(calls.find((call) => Array.isArray(call) && call[0] === "update")?.slice(0, 2), ["update", "n1"]);
+  assert.equal(calls.includes("create"), false);
+  assert.equal(calls.includes("bind"), false);
+  assert.equal(writingState.project.draft_note_id, "n1");
+  assert.match(writingState.draftMarkdown, /updated body/);
+  assert.equal(writingState.draftSaveState, "saved");
+  assert.equal(saveButton.disabled, false);
+  assert.equal(saveButton.textContent, "已保存");
+  assert.ok(calls.some((call) => Array.isArray(call) && call[0] === "status" && call[1] === "草稿已保存"));
+});
+
+test("writing save draft keeps retry feedback on the button after failure", async () => {
+  const saveButton = { textContent: "保存草稿", disabled: false };
+  const calls = [];
+  const writingState = {
+    project: { id: "p1", draft_note_id: "n1" },
+    scaffold: { id: "s1" },
+    scaffoldMarkdown: "outline"
+  };
+
+  await handleWritingSaveDraftClick({
+    $: (id) => id === "btnWritingSaveDraft" ? saveButton : null,
+    state: { notes: [] },
+    writingState,
+    writingDraftDirectoryId: () => "dir1",
+    writingDraftTitle: () => "文章",
+    writingDraftBody: () => "# 文章\n\n正文",
+    updateNote: async () => {
+      assert.equal(saveButton.disabled, true);
+      assert.equal(saveButton.textContent, "正在保存...");
+      throw new Error("network down");
+    },
+    setStatus: (message, tone) => calls.push([message, tone])
+  });
+
+  assert.equal(saveButton.disabled, false);
+  assert.equal(saveButton.textContent, "保存失败，重试");
+  assert.equal(writingState.draftSaveState, "error");
+  assert.ok(calls.some(([message, tone]) => message.includes("network down") && tone === "bad"));
 });

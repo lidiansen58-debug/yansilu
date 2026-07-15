@@ -43,7 +43,7 @@ test("graph isolated workflow shell renders queue entries from prepared queue it
     ]
   });
 
-  assert.match(html, /继续关联其它笔记/);
+  assert.match(html, /继续处理其它未关联笔记/);
   assert.match(html, /data-graph-select-isolated="next"/);
   assert.match(html, /AI 推荐 2/);
 });
@@ -92,7 +92,7 @@ test("graph isolated workflow shell shows relation organizing flow before a note
   });
 
   assert.match(html, /class="is-isolated is-bridge"/);
-  assert.match(html, /data-meta="还没有进入关系网"/);
+  assert.match(html, /data-meta="选对象，写理由，保存"/);
   assert.match(html, /当前判断需要接入关系网。/);
   assert.match(html, /data-join-flow="current"/);
   assert.doesNotMatch(html, /data-relation-workspace="current"/);

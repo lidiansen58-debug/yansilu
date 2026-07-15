@@ -607,13 +607,13 @@ const editorPaneStateMethods = {
     this.els.relatedPanel?.classList.toggle("hidden", !visible);
     if (this.els.showRelated) {
       this.els.showRelated.classList.toggle("active", visible);
-      this.els.showRelated.dataset.tip = visible ? "收起关联侧栏" : "展开关联侧栏";
-      this.els.showRelated.title = visible ? "收起关联侧栏" : "展开关联侧栏";
+      this.els.showRelated.dataset.tip = visible ? "收起打磨笔记" : "打开打磨笔记";
+      this.els.showRelated.title = visible ? "收起打磨笔记" : "打开打磨笔记";
     }
     if (this.els.hideRelated) {
       this.els.hideRelated.classList.toggle("active", visible);
       this.els.hideRelated.textContent = visible ? "收起" : "展开";
-      this.els.hideRelated.title = visible ? "收起关联侧栏" : "展开关联侧栏";
+      this.els.hideRelated.title = visible ? "收起打磨笔记" : "打开打磨笔记";
     }
   },
 
@@ -713,16 +713,32 @@ const editorPaneStateMethods = {
   },
 
   renderRecordPermanentButton() {
-    const button = this.els.recordPermanent;
-    if (!button) return;
     const note = this.activeNote();
     const visible = Boolean(note && this.isOriginalRecordableSource(note) && !this.hasGeneratedOriginal(note));
-    button.classList.toggle("hidden", !visible);
-    button.disabled = !visible;
-    button.dataset.sourceNoteId = visible ? note.id : "";
-    button.title = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.dataset.tip = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.setAttribute("aria-label", visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记");
+    const configure = (button, label) => {
+      if (!button) return;
+      button.classList.toggle("hidden", !visible);
+      button.disabled = !visible;
+      button.dataset.sourceNoteId = visible ? note.id : "";
+      button.title = visible ? label : "当前笔记不需要创建永久笔记";
+      button.dataset.tip = button.title;
+      button.setAttribute("aria-label", button.title);
+    };
+    configure(this.els.recordPermanent, "创建永久笔记");
+    if (this.els.distillSourceAi && this.els.recordPermanent) {
+      this.els.recordPermanent.classList.toggle("hidden", !visible);
+      this.els.recordPermanent.disabled = !visible;
+      this.els.recordPermanent.dataset.sourceNoteId = visible ? note.id : "";
+      this.els.recordPermanent.title = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
+      this.els.recordPermanent.dataset.tip = this.els.recordPermanent.title;
+      this.els.recordPermanent.setAttribute("aria-label", this.els.recordPermanent.title);
+      this.els.distillSourceAi.classList.add("hidden");
+      this.els.distillSourceAi.disabled = true;
+      this.els.distillSourceAi.dataset.sourceNoteId = "";
+      this.els.distillSourceAi.title = "创建永久笔记";
+      this.els.distillSourceAi.dataset.tip = "创建永久笔记";
+      this.els.distillSourceAi.setAttribute("aria-label", "创建永久笔记");
+    }
   },
 
   renderRelationToolbarButtons() {

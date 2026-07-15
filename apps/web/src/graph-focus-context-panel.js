@@ -17,7 +17,7 @@ const DEFAULT_RELATION_GROUP_META = {
   boundary: { label: "边界", shortLabel: "边界", detail: "这个判断在什么条件下成立。" },
   bridge: { label: "连接", shortLabel: "连接", detail: "把不同主题或问题接起来的关系。" },
   flow: { label: "顺序", shortLabel: "顺序", detail: "写作时可以放在前后顺序里的关系。" },
-  neutral: { label: "相关", shortLabel: "相关", detail: "还没有细分用途的普通相关关系。" },
+  neutral: { label: "相关", shortLabel: "相关", detail: "还没有细分用途的关联。" },
   index: { label: "主题", shortLabel: "主题", detail: "这组关系可能形成可写主题，确认后再保存。" }
 };
 

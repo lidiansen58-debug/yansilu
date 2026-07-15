@@ -143,3 +143,51 @@ test("distillation controller leaves note and writing status alone when save fai
   assert.equal(note.thesis, undefined);
   assert.deepEqual(calls, [["save-note-distillation"]]);
 });
+
+test("distillation controller refreshes the editor after confirming into the body", async () => {
+  const note = { id: "pn1", title: "Note", status: "active", noteType: "permanent" };
+  const form = distillationForm({
+    thesis: "Thesis",
+    summary1: "One",
+    summary2: "Two",
+    summary3: "Three",
+    distillationStatus: "draft"
+  });
+  const calls = [];
+  const controller = new PermanentNoteDistillationController({
+    activeNote: () => note,
+    resolvedNoteType: () => "permanent",
+    els: {
+      result: {
+        querySelector: (selector) => (selector === "[data-note-distillation-form]" ? form : null)
+      }
+    },
+    autoSaveActiveNote: async () => true,
+    isActiveNoteId: (id) => id === note.id,
+    onStateChange: async (action) => {
+      calls.push([action]);
+      return action === "confirm-note-distillation" ? { id: note.id, body: "# Note\n\n## 提炼观点\n\nThesis\n" } : true;
+    },
+    fillEditorFromTab() {
+      calls.push(["fill-editor"]);
+    },
+    renderThinkingStatus() {
+      calls.push(["thinking"]);
+    },
+    renderRelated() {
+      calls.push(["related"]);
+    },
+    readTemplateVariantPreference: () => "",
+    templateVariantPreferenceMeta: () => ({ key: "", label: "" })
+  });
+
+  await controller.confirm();
+
+  assert.deepEqual(calls, [
+    ["save-note-distillation"],
+    ["confirm-note-distillation"],
+    ["fill-editor"],
+    ["thinking"],
+    ["related"]
+  ]);
+});

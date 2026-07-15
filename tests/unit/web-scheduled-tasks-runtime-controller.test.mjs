@@ -13,9 +13,9 @@ function baseSettingsState() {
       scheduledTaskTemplates: [
         {
           templateId: "reflection_reminder",
-          name: "Reflection reminder",
+          name: "提醒我回看",
           implementationReady: true,
-          task: { schedule: { type: "weekly", dayOfWeek: "friday", time: "16:00" } }
+          task: { schedule: { type: "daily", time: "16:00" } }
         }
       ],
       scheduledTaskTemplatesLoading: false,
@@ -46,7 +46,7 @@ test("scheduled tasks runtime controller resets and applies template defaults", 
 
   controller.applyTemplateToForm("reflection_reminder");
   assert.equal(settingsState.ai.scheduledTaskForm.templateId, "reflection_reminder");
-  assert.equal(settingsState.ai.scheduledTaskForm.scheduleType, "weekly");
+  assert.equal(settingsState.ai.scheduledTaskForm.scheduleType, "daily");
   assert.equal(settingsState.ai.scheduledTaskForm.time, "16:00");
   assert.equal(calls.filter((call) => call[0] === "render").length >= 2, true);
 });
@@ -56,9 +56,9 @@ test("scheduled tasks runtime controller refreshes tasks and saves from UI", asy
   const settingsState = baseSettingsState();
   const elements = new Map([
     ["scheduledTaskTemplateSelect", { value: "reflection_reminder" }],
-    ["scheduledTaskNameInput", { value: "Weekly reflection" }],
+    ["scheduledTaskNameInput", { value: "提醒我回看" }],
     ["scheduledTaskStatusSelect", { value: "paused" }],
-    ["scheduledTaskScheduleTypeSelect", { value: "weekly" }],
+    ["scheduledTaskScheduleTypeSelect", { value: "daily" }],
     ["scheduledTaskDaySelect", { value: "monday" }],
     ["scheduledTaskTimeInput", { value: "09:00" }],
     ["scheduledTaskIntervalInput", { value: "30" }],

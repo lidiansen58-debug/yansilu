@@ -164,7 +164,7 @@ export function graphNextActionForSummary({
   if (!hasEdges) {
     return {
       title: "下一步：关联第一条笔记",
-      note: "先把两条最相关的永久笔记建立成第一条正式关联，再刷新图谱查看局部结构。",
+      note: "先把两条最相关的永久笔记建立成第一条关联，再刷新图谱查看局部结构。",
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "去关联笔记"
@@ -184,7 +184,7 @@ export function graphNextActionForSummary({
   if (thinRationaleFromNoteId) {
     return {
       title: "先补关系说明",
-      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条正式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再决定下一步写作会更稳。`,
+      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条关联，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再决定下一步写作会更稳。`,
       noteId: String(thinRationaleFromNoteId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补关系说明"
@@ -293,7 +293,7 @@ export function graphNextActionForSummary({
   if (Number(visibleNodeCount || 0) >= 3 && Number(visibleEdgeCount || 0) <= 1) {
     return {
       title: "下一步：先补关键关系",
-      note: "当前切片里已经不止两条永久笔记，但正式关系还太少。先补出 1-2 条最关键的关系，再决定下一步写作会更稳。",
+      note: "当前切片里已经不止两条永久笔记，但关联还太少。先补出 1-2 条最关键的关系，再决定下一步写作会更稳。",
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补关键关系"

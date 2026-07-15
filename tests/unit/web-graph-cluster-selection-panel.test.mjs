@@ -65,7 +65,7 @@ test("graph cluster selection panel renders cluster summary actions and core not
     ["meta", "c1", true, 1],
     ["metrics", "笔记|组内关系|外部连接|反方/边界"],
     ["theme", "n1,n2,n3", "Theme A", 2, "testing"],
-    ["prompts", "思考提示（可选）", 3],
+    ["prompts", "思考提示", 3],
     ["shell", "is-cluster", "Theme A", "Testing"]
   ]);
 });

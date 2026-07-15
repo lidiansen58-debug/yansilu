@@ -26,12 +26,13 @@ test("automation run history renders concise recent activity instead of open JSO
 
   const html = renderSettingsAutomationRunHistory({ snapshots });
   assert.match(html, /建议处理结果/);
-  assert.match(html, /待确认建议列表/);
-  assert.match(html, /<summary>诊断数据<\/summary>/);
+  assert.match(html, /待处理建议列表/);
+  assert.doesNotMatch(html, /<summary>查看细节<\/summary>/);
+  assert.doesNotMatch(html, /settings-canonical-code/);
   assert.doesNotMatch(html, /AI 建议决策/);
   assert.doesNotMatch(html, /最近一次建议审阅更新结果/);
 });
 
 test("automation run history keeps empty state short", () => {
-  assert.match(renderSettingsAutomationRunHistory(), /还没有运行记录/);
+  assert.match(renderSettingsAutomationRunHistory(), /还没有整理记录/);
 });

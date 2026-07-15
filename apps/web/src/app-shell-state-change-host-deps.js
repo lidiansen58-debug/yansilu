@@ -1,6 +1,4 @@
-import {
-  buildAppShellStateChangeDeps
-} from "./app-shell-state-change-deps.js";
+import { buildAppShellStateChangeDeps } from "./app-shell-state-change-deps.js";
 
 export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
   return {
@@ -23,6 +21,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     deleteNote: host.deleteNote,
     descendantDirectoryIds: host.descendantDirectoryIds,
     editor: host.editor,
+    ensureAiReadyForFeature: host.ensureAiReadyForFeature,
     ensureNoteBodyLoaded: host.ensureNoteBodyLoaded,
     expandGraphBrowserTree: host.expandGraphBrowserTree,
     ensureLocalAiReadyForFeature: host.ensureLocalAiReadyForFeature,
@@ -53,6 +52,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     noteAnalysisSystemMessageForResult: host.noteAnalysisSystemMessageForResult,
     openAiInboxModule: host.openAiInboxModule,
     openGraphSelection: host.openGraphSelection,
+    openRelationComposerFromGraphAction: host.openRelationComposerFromGraphAction,
     openImportModule: host.openImportModule,
     openNoteById: host.openNoteById,
     openNoteRelationEditor: host.openNoteRelationEditor,

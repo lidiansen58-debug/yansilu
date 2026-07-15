@@ -158,7 +158,7 @@ export function renderImportWritingActions(payload = {}, { literatureBatchSummar
         加入写作相关笔记 ${permanentNoteIds.length}
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
-        加入并打开写作中心
+        加入并打开写作
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="create-writing-project">
         确定可写主题

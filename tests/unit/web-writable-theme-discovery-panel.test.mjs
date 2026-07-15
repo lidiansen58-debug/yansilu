@@ -16,7 +16,7 @@ test("writable theme discovery panel explains suggestion before confirmation", (
         membershipReason: "这些笔记都在说明判断如何进入写作。",
         explanation: {
           keyNotes: ["判断先行", "关系理由", "文章提纲"],
-          sharedSignals: ["2 条正式关系", "共享标签"],
+          sharedSignals: ["2 条关联", "共享标签"],
           gap: "还缺一个反例。",
           confirmationSummary: "确认后会保存一张主题索引笔记，不会自动创建文章、草稿或关系。"
         },

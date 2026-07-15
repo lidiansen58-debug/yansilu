@@ -83,7 +83,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "basket_ready",
       status: "可作为相关笔记",
-      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成正式关系，才适合形成文章。" : "判断和边界已经具备，但最好补一条关系再写文章。",
+      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成关联，才适合形成文章。" : "判断和边界已经具备，但最好补一条关系再写文章。",
       actionLabel: "加入相关笔记"
     };
   }
@@ -159,7 +159,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
     return {
       level: "basket_ready",
       status: "可作为相关笔记",
-      hint: "正式关系暂时读取失败，先稍后重试或回到笔记里手动确认关系。",
+      hint: "关联暂时读取失败，先稍后重试或回到笔记里手动确认关系。",
       actionLabel: "加入相关笔记"
     };
   }
@@ -170,7 +170,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
       status: "可作为相关笔记",
       hint: boundaryMissing.length
         ? `${boundaryMissing.length} 条笔记还缺边界或反例。`
-        : "当前相关笔记还缺正式关系，建议补一条关系再形成文章。",
+        : "当前相关笔记还缺关联，建议补一条关系再形成文章。",
       actionLabel: "加入相关笔记"
     };
   }

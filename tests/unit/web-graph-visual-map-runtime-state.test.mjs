@@ -50,11 +50,7 @@ test("graph visual map runtime state derives layout zoom and active selection co
       visibleEdgeCount: visibleEdges.length,
       bridgeGapCount: bridgeGaps.length
     }),
-    zoomOptions: { fit: {}, wide: {}, close: {} },
-    relationGroupMeta: {
-      support: { label: "Support" },
-      bridge: { label: "Bridge" }
-    }
+    zoomOptions: { fit: {}, wide: {}, close: {} }
   });
 
   assert.equal(state.zoomWidth, 1500);
@@ -66,7 +62,8 @@ test("graph visual map runtime state derives layout zoom and active selection co
   assert.equal(state.visibleEdges.length, 2);
   assert.equal(state.readingLensState.visibleEdgeCount, 2);
   assert.equal(state.readingLensState.bridgeGapCount, 1);
-  assert.deepEqual(state.legendGroups.map((group) => group.key), ["support", "bridge"]);
+  assert.equal(Object.prototype.hasOwnProperty.call(state, "legendGroups"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(state, "legendOpen"), false);
 });
 
 test("graph visual map runtime state handles dense navigator and relation workflow selection", () => {

@@ -51,6 +51,7 @@ export function createGraphIsolatedWorkspaceRuntime(deps = {}) {
     renderGraphPanel,
     setStatus,
     openGraphSelection,
+    openRelationComposerFromGraphAction,
     openNote,
     saveNote,
     graphComputedIsolatedNotesForGraph,
@@ -308,7 +309,7 @@ const graphRelationSaveController = createGraphRelationSaveController({
   relationTypeLabel: graphRelationTypeLabel,
   clearIsolatedRelationDraft: clearGraphIsolatedRelationDraft,
   openGraphSelection,
-  openRelationFormInSelection: openGraphRelationFormInSelection,
+  openRelationComposerFromGraphAction,
   nextIsolatedSelectionAfterSave,
   setGraphRelationTypeFilter
 });
@@ -623,15 +624,14 @@ async function saveGraphConfirmedRelation({ noteId = "", targetNoteId = "", rela
   return graphRelationSaveController.saveConfirmedRelation({ noteId, targetNoteId, relationType, rationale, insightQuestion, button });
 }
 
-function openGraphRelationFormInSelection(button = null) {
-  return graphRelationWorkflowController.openRelationFormFromAction(button);
-}
-
 function focusGraphRelationAdjustmentInPlace(button = null) {
   const relationId = String(button?.getAttribute?.("data-graph-relation-id") || "").trim();
   const adjustment = String(button?.getAttribute?.("data-graph-relation-adjustment") || "").trim().toLowerCase();
   if (!adjustment) return false;
-  if (!relationId) return openGraphRelationFormInSelection(button);
+  if (!relationId) {
+    setStatus("Relation context is missing. Open the shared relation composer from the relation action.", "warn");
+    return false;
+  }
   graphState.relationAdjustmentFocusById = graphState.relationAdjustmentFocusById || {};
   graphState.relationAdjustmentFocusById[relationId] = adjustment;
   renderGraphPanel();
@@ -694,7 +694,6 @@ function focusGraphRelationAdjustmentInPlace(button = null) {
     pickGraphManualRelationTarget,
     saveGraphIsolatedRelationForm,
     saveGraphConfirmedRelation,
-    openGraphRelationFormInSelection,
     focusGraphRelationAdjustmentInPlace
   };
 }

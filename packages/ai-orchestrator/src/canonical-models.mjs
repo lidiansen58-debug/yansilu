@@ -122,6 +122,12 @@ function canonicalSuggestionFallback(input = {}, context = {}) {
       id: cleanText(target.id || input.targetId || input.target_id),
       ...(cleanText(target.field || input.targetField || input.target_field)
         ? { field: cleanText(target.field || input.targetField || input.target_field) }
+        : {}),
+      ...(cleanText(target.title || target.noteTitle || target.note_title || input.targetTitle || input.target_title)
+        ? { title: cleanText(target.title || target.noteTitle || target.note_title || input.targetTitle || input.target_title) }
+        : {}),
+      ...(cleanText(target.name || input.targetName || input.target_name) && !cleanText(target.title || target.noteTitle || target.note_title || input.targetTitle || input.target_title)
+        ? { name: cleanText(target.name || input.targetName || input.target_name) }
         : {})
     },
     scope: cleanText(input.scope || context.scope),

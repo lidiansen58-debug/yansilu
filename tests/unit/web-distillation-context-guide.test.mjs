@@ -25,7 +25,7 @@ function createPane() {
   });
 }
 
-test("permanent-note distillation shows one next action and a compact readiness checklist", () => {
+test("permanent-note distillation renders only the compact editing form", () => {
   const pane = createPane();
   const html = pane.renderPermanentNoteDistillationSection({
     id: "pn_missing_thesis",
@@ -35,29 +35,28 @@ test("permanent-note distillation shows one next action and a compact readiness 
     distillationStatus: "missing"
   });
 
-  assert.match(html, /data-note-distillation-next/);
-  assert.match(html, /data-note-distillation-focus="thesis"/);
-  assert.match(html, /data-note-distillation-readiness/);
-  assert.match(html, /data-permanent-note-readiness-card/);
-  assert.match(html, /完成条件/);
-  assert.match(html, /可写材料成熟度/);
-  assert.match(html, /待提纯/);
-  assert.match(html, /一句话判断/);
-  assert.match(html, /三句话压缩/);
-  assert.match(html, /边界或反方/);
-  assert.match(html, /作者确认/);
-  assert.match(html, /原创确认/);
-  assert.match(html, /正式关系/);
-  assert.match(html, /用户确认/);
-  assert.match(html, />保存草稿</);
-  assert.match(html, />确认观点</);
+  assert.match(html, /name="thesis"/);
+  assert.match(html, /name="summary1"/);
+  assert.match(html, /name="summary2"/);
+  assert.match(html, /name="summary3"/);
+  assert.match(html, /name="boundaryOrCounterpoint"/);
+  assert.doesNotMatch(html, /name="distillationStatus"/);
+  assert.doesNotMatch(html, /data-note-distillation-close/);
+  assert.match(html, />整理到正文</);
+  assert.doesNotMatch(html, /data-note-distillation-next/);
+  assert.doesNotMatch(html, /data-note-distillation-focus=/);
+  assert.doesNotMatch(html, /inspector-section-head-compact/);
+  assert.doesNotMatch(html, /data-note-distillation-readiness/);
+  assert.doesNotMatch(html, /data-permanent-note-readiness-card/);
+  assert.doesNotMatch(html, /data-note-embedded-ai-workspace/);
+  assert.doesNotMatch(html, /data-note-distillation-quality/);
   assert.doesNotMatch(html, /distillation-path-strip/);
   assert.doesNotMatch(html, /证据 \/ 来源/);
   assert.doesNotMatch(html, /写作可用性/);
   assert.doesNotMatch(html, />missing</);
 });
 
-test("distillation next action moves through summary, boundary, confirmation, and relations", () => {
+test("distillation form stays compact across distillation states", () => {
   const pane = createPane();
   const summaryHtml = pane.renderPermanentNoteDistillationSection({
     id: "pn_needs_summary",
@@ -98,14 +97,13 @@ test("distillation next action moves through summary, boundary, confirmation, an
     distillationStatus: "confirmed"
   });
 
-  assert.match(summaryHtml, /data-note-distillation-focus="summary2"/);
-  assert.match(boundaryHtml, /data-note-distillation-focus="boundary"/);
-  assert.match(confirmHtml, /data-note-distillation-focus="confirm"/);
-  assert.match(relationsHtml, /data-note-distillation-focus="relations"/);
-  assert.match(confirmHtml, /先给它补一条关系/);
-  assert.match(relationsHtml, /先补一条关系/);
-  assert.match(relationsHtml, /长成可写主题/);
-  assert.match(relationsHtml, /4\/4/);
+  assert.doesNotMatch(summaryHtml, /data-note-distillation-next/);
+  assert.doesNotMatch(boundaryHtml, /data-note-distillation-next/);
+  assert.doesNotMatch(confirmHtml, /data-note-distillation-next/);
+  assert.doesNotMatch(relationsHtml, /data-note-distillation-next/);
+  assert.doesNotMatch(relationsHtml, /data-note-distillation-focus=/);
+  assert.doesNotMatch(relationsHtml, /data-note-distillation-readiness/);
+  assert.doesNotMatch(relationsHtml, /data-permanent-note-readiness-card/);
 });
 
 test("distillation next action points connected confirmed notes toward themes", () => {
@@ -135,10 +133,15 @@ test("distillation focus action opens the relation workspace instead of jumping 
   assert.match(handler, /target === "confirm"/);
   assert.match(handler, /void this\.confirmDistillation\(\)/);
   assert.match(handler, /target === "relations"/);
-  assert.match(handler, /this\.openPermanentRelationWorkspace\(\{/);
+  assert.match(handler, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.doesNotMatch(handler, /target === "writing"/);
   assert.doesNotMatch(handler, /jumpToInspectorSection\("\[data-note-relations-section\]"\)/);
   assert.match(handler, /textarea\[name="boundaryOrCounterpoint"\]/);
   assert.match(handler, /textarea\[name="\$\{target\}"\]/);
   assert.match(handler, /textarea\[name="thesis"\]/);
+});
+
+test("distillation form does not add a second close action", () => {
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-editor-pane.js"), "utf8");
+  assert.doesNotMatch(source, /data-note-distillation-close/);
 });

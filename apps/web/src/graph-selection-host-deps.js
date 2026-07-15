@@ -10,7 +10,6 @@ export function createGraphSelectionDispatcherRuntime(host = {}) {
     renderGraphThemeSelectionPanel: host.renderGraphThemeSelectionPanel,
     renderGraphIsolatedSelectionPanel: host.renderGraphIsolatedSelectionPanel,
     renderGraphIsolatedCompletePanel: host.renderGraphIsolatedCompletePanel,
-    renderGraphRelationFormSelectionPanel: host.renderGraphRelationFormSelectionPanel,
     renderGraphBridgeSelectionPanel: host.renderGraphBridgeSelectionPanel,
     renderGraphNodeSelectionPanel: host.renderGraphNodeSelectionPanel,
     renderGraphEdgeSelectionPanel: host.renderGraphEdgeSelectionPanel,

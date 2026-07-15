@@ -17,7 +17,6 @@ test("graph selection dispatcher deps groups panel renderers and normalization",
     renderGraphThemeSelectionPanel: marker("theme"),
     renderGraphIsolatedSelectionPanel: marker("isolated"),
     renderGraphIsolatedCompletePanel: marker("isolated-complete"),
-    renderGraphRelationFormSelectionPanel: marker("relation-form"),
     renderGraphBridgeSelectionPanel: marker("bridge"),
     renderGraphNodeSelectionPanel: marker("node"),
     renderGraphEdgeSelectionPanel: marker("edge"),
@@ -30,7 +29,7 @@ test("graph selection dispatcher deps groups panel renderers and normalization",
   assert.equal(runtime.renderers.renderThemePanel, host.renderGraphThemeSelectionPanel);
   assert.equal(runtime.renderers.renderIsolatedPanel, host.renderGraphIsolatedSelectionPanel);
   assert.equal(runtime.renderers.renderIsolatedCompletePanel, host.renderGraphIsolatedCompletePanel);
-  assert.equal(runtime.renderers.renderRelationFormPanel, host.renderGraphRelationFormSelectionPanel);
+  assert.equal("renderRelationFormPanel" in runtime.renderers, false);
   assert.equal(runtime.renderers.renderBridgePanel, host.renderGraphBridgeSelectionPanel);
   assert.equal(runtime.renderers.renderNodePanel, host.renderGraphNodeSelectionPanel);
   assert.equal(runtime.renderers.renderEdgePanel, host.renderGraphEdgeSelectionPanel);

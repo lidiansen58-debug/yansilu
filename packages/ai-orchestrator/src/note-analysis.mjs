@@ -411,6 +411,7 @@ export function analyzePermanentNoteLocally(input = {}) {
 
   return {
     noteId: note.noteId,
+    title: note.title,
     analysisMode: "local_rule",
     analysisStatus,
     distillation,
@@ -669,6 +670,7 @@ function distillationSuggestions(analysis = {}, context = {}) {
   const model = modelForSuggestion(context);
   const now = context.now;
   const origin = artifactOrigin(context);
+  const targetTitle = cleanText(analysis.title);
   const shouldSuggestThesis =
     distillation.reasons?.includes("thesis_missing") ||
     distillation.reasons?.includes("local_model_thesis_suggestion") ||
@@ -682,7 +684,7 @@ function distillationSuggestions(analysis = {}, context = {}) {
       normalizeSuggestion(
         {
           id: stableId("suggestion_note_analysis", [analysis.noteId, "thesis"]),
-          target: { type: "permanent_note", id: analysis.noteId, field: "thesis" },
+          target: { type: "permanent_note", id: analysis.noteId, field: "thesis", ...(targetTitle ? { title: targetTitle } : {}) },
           scope: "permanent_note_distillation",
           content: {
             thesis: distillation.suggestedThesis
@@ -705,7 +707,7 @@ function distillationSuggestions(analysis = {}, context = {}) {
       normalizeSuggestion(
         {
           id: stableId("suggestion_note_analysis", [analysis.noteId, "three_line_summary"]),
-          target: { type: "permanent_note", id: analysis.noteId, field: "three_line_summary" },
+          target: { type: "permanent_note", id: analysis.noteId, field: "three_line_summary", ...(targetTitle ? { title: targetTitle } : {}) },
           scope: "permanent_note_distillation",
           content: {
             threeLineSummary: distillation.suggestedThreeLineSummary

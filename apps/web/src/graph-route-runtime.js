@@ -59,14 +59,16 @@ export function createGraphRouteRuntime(deps = {}) {
       graphState.thinkingPanelOpen = true;
       graphState.thinkingFilter = "all";
       graphState.workbenchPanelOpen = true;
-      graphState.workbenchPanelTab = "questions";
+      if (graphState.workbenchPanelTab !== "clues") {
+        graphState.workbenchPanelTab = "questions";
+      }
       setStatus(
-        count ? `目录批处理已生成 ${count} 条待确认推荐，已在追问中展开` : "目录批处理完成，已打开追问",
+        count ? `已找到 ${count} 条建议，请逐条确认` : "当前没有新的建议",
         count ? "ok" : ""
       );
     } catch (error) {
       graphState.aiAnalysisError = String(error?.message || error);
-      setStatus(`AI 图谱初判失败：${graphState.aiAnalysisError}`, "warn");
+      setStatus(`找缺口失败：${graphState.aiAnalysisError}`, "warn");
     } finally {
       graphState.aiAnalysisLoading = false;
       renderGraphPanel();
@@ -75,7 +77,8 @@ export function createGraphRouteRuntime(deps = {}) {
 
   async function ensureGraphLocalAiReadyForAnalysis() {
     const readiness = await ensureLocalAiReadyForFeature({
-      feature: "graph_analysis"
+      feature: "graph_analysis",
+      openSettings: false
     });
     if (readiness?.ready === true) {
       renderGraphPanel();
@@ -90,7 +93,8 @@ export function createGraphRouteRuntime(deps = {}) {
 
   async function runGraphAiConnectForNote(noteId = "") {
     const readiness = await ensureLocalAiReadyForFeature({
-      feature: "graph_connect"
+      feature: "graph_connect",
+      openSettings: false
     });
     if (readiness?.ready === false) return false;
     return graphAiConnectRuntimeController.runGraphAiConnectForNote(noteId);
@@ -184,7 +188,7 @@ export function createGraphRouteRuntime(deps = {}) {
         sourceIndexIds: [card.id]
       });
       await openWritingModule({
-        statusMessage: `已从可写主题打开写作中心：${cleanTitle}`,
+        statusMessage: `已从可写主题打开写作：${cleanTitle}`,
         preserveFocusedCandidateScope: true,
         entryReason: "从图谱可写主题继续写作",
         entrySourceLabel: "可写主题"

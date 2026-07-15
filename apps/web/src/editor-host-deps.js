@@ -14,6 +14,8 @@ export function createEditorPaneHostDeps(deps = {}) {
     literatureTemplateSectionLabelCandidates = () => [],
     renderStatusMeta = () => {},
     renderWorkspaceStatusHint = () => {},
+    refreshDirectoryGraph = async () => false,
+    renderAll = () => {},
     currentNoteWritingLabel = "当前笔记"
   } = deps;
 
@@ -47,6 +49,7 @@ export function createEditorPaneHostDeps(deps = {}) {
       assetPreviewOpenLink: $("assetPreviewOpenLink"),
       closeAssetPreview: $("btnCloseAssetPreview"),
       editorWrap: $("markdownPanel")?.closest(".editor-wrap"),
+      editorBodyRelationActions: $("editorBodyRelationActions"),
       editorRelationsBelow: $("editorRelationsBelow"),
       relatedPanel: $("relatedPanel"),
       result: $("resultArea"),
@@ -81,6 +84,7 @@ export function createEditorPaneHostDeps(deps = {}) {
       hideRelated: $("btnHideRelated"),
       completeNote: $("btnCompleteNote"),
       recordPermanent: $("btnRecordPermanent"),
+      distillSourceAi: $("btnDistillSourceAi"),
       save: $("btnSave"),
       statusHint: $("statusHint"),
       authorshipPanel: $("authorshipPanel"),
@@ -99,11 +103,13 @@ export function createEditorPaneHostDeps(deps = {}) {
       }
     },
     selectPermanentDirectory,
+    refreshDirectoryGraph,
     resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
     resolveLiteratureSectionLabelCandidates: literatureTemplateSectionLabelCandidates,
     onChromeChange: () => {
       renderStatusMeta();
       renderWorkspaceStatusHint();
-    }
+    },
+    renderAll
   };
 }

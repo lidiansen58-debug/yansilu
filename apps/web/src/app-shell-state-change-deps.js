@@ -21,6 +21,9 @@ export function buildAppShellStateChangeDeps(host = {}) {
     confirm,
     importSmartNotesDemo,
     openImportModule,
+    ensureAiReadyForFeature: host.ensureAiReadyForFeature,
+    ensureLocalAiReadyForFeature: host.ensureLocalAiReadyForFeature,
+    runSourceDistillAi: host.runSourceDistillAi,
     syncExplorerContextToActiveTab,
     setStatus,
     renderAll

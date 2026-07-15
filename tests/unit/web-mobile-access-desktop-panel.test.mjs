@@ -48,10 +48,24 @@ test("mobile access panel keeps allow connection in the first-screen pairing are
   assert.match(html, />允许连接<\/button>/);
 });
 
-test("mobile access panel shows where the allow button will appear before a phone scans", () => {
+test("mobile access panel keeps the waiting state concise before a phone scans", () => {
   const html = renderPanel();
 
-  assert.match(html, /第 2 步：电脑允许连接/);
-  assert.match(html, /扫码后，允许按钮会出现在这里/);
+  assert.match(html, /等待连接/);
+  assert.match(html, /扫码后在这里允许连接/);
+  assert.doesNotMatch(html, /手机发起连接请求后，不需要往下找/);
   assert.doesNotMatch(html, /待确认手机/);
+});
+
+test("mobile access panel hides internal local runtime errors", () => {
+  const html = renderPanel({
+    item: null,
+    state: {
+      error: "local runtime controls only accept the Yansilu local app origin"
+    }
+  });
+
+  assert.match(html, /手机访问只能从这台电脑上的研思录打开/);
+  assert.doesNotMatch(html, /local runtime controls/);
+  assert.doesNotMatch(html, /Yansilu local app origin/);
 });

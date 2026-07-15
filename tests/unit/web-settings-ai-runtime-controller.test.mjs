@@ -63,6 +63,30 @@ test("settings AI runtime controller pulls recommended Ollama model and persists
   assert.equal(calls.some((call) => call[0] === "status" && /qwen3:8b/.test(call[1]) && call[2] === "ok"), true);
 });
 
+test("settings AI runtime controller clears a pending stop state when starting Ollama", async () => {
+  const settingsState = {
+    ai: {
+      localRuntimeManagedStopPending: true,
+      localRuntimeStarting: false
+    }
+  };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaRuntimePreview: (runtime) => runtime.models,
+    persistOllamaRuntimeSelectionAfterPreview: async () => {},
+    renderSettingsPanel: () => {},
+    setStatus: () => {},
+    settingsState,
+    startOllamaRuntime: async () => ({
+      runtime: { status: "available", models: ["qwen3:8b"] }
+    })
+  }));
+
+  await controller.startOllamaRuntimeFromUi();
+
+  assert.equal(settingsState.ai.localRuntimeManagedStopPending, false);
+  assert.equal(settingsState.ai.localRuntimeStarting, false);
+});
+
 test("settings AI runtime controller previews Ollama bootstrap and clears unavailable selection", async () => {
   const calls = [];
   const settingsState = { ai: { runtimeMode: "local_only", localModel: "qwen3:8b" } };
@@ -176,6 +200,79 @@ test("settings AI runtime controller selects installed local model and refreshes
   assert.equal(calls.some((call) => call[0] === "status" && call[2] === "ok"), true);
 });
 
+test("settings AI runtime controller clears local test result when selecting another local model", async () => {
+  const calls = [];
+  const settingsState = {
+    ai: {
+      runtimeMode: "hybrid",
+      localModel: "qwen3:8b",
+      localRuntimeModels: ["qwen3:8b", "llama3.1:8b"],
+      testStatus: "success",
+      testMeta: "ready",
+      testOutput: "pong",
+      testModel: "qwen3:8b"
+    }
+  };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaLocalModelDefaults: () => calls.push(["defaults"]),
+    clearLocalOllamaSelectionState: () => {},
+    currentOllamaModelTiers: () => [{ name: "qwen3:8b" }, { name: "llama3.1:8b" }],
+    hasLocalModel: (model) => ["qwen3:8b", "llama3.1:8b"].includes(model),
+    installedLocalModelReady: () => true,
+    persistAiSettingsToStorage: () => calls.push(["persist"]),
+    refreshAiRoutePreview: async () => calls.push(["route"]),
+    renderSettingsPanel: () => calls.push(["render"]),
+    saveLocalOllamaProviderConfig: async () => {},
+    setStatus: () => {},
+    settingsState,
+    shouldUseOllamaLocalRuntime: () => true,
+    syncAiSettingsToApi: async () => {}
+  }));
+
+  await controller.selectInstalledLocalModelFromUi("llama3.1:8b");
+
+  assert.equal(settingsState.ai.localModel, "llama3.1:8b");
+  assert.equal(settingsState.ai.testStatus, "");
+  assert.equal(settingsState.ai.testMeta, "");
+  assert.equal(settingsState.ai.testOutput, "");
+  assert.equal(settingsState.ai.testModel, "");
+  assert.equal(calls.some((call) => call[0] === "persist"), true);
+});
+
+test("settings AI runtime controller clears local test result after stopping local model", async () => {
+  const calls = [];
+  const settingsState = {
+    ai: {
+      localRuntimeStopping: false,
+      testStatus: "success",
+      testMeta: "ready",
+      testOutput: "pong",
+      testModel: "qwen3:8b"
+    }
+  };
+  const controller = createSettingsAiRuntimeController(() => ({
+    applyOllamaRuntimePreview: (runtime) => {
+      settingsState.ai.localRuntimeStatus = runtime.status;
+      settingsState.ai.localRuntimeModels = runtime.models;
+    },
+    persistAiSettingsToStorage: () => calls.push(["persist"]),
+    renderSettingsPanel: () => calls.push(["render"]),
+    setStatus: (...args) => calls.push(["status", ...args]),
+    settingsState,
+    stopOllamaRuntime: async () => ({ runtime: { status: "unavailable", models: [] } }),
+    window: { confirm: () => true }
+  }));
+
+  await controller.stopOllamaRuntimeFromUi();
+
+  assert.equal(settingsState.ai.testStatus, "");
+  assert.equal(settingsState.ai.testMeta, "");
+  assert.equal(settingsState.ai.testOutput, "");
+  assert.equal(settingsState.ai.testModel, "");
+  assert.equal(calls.some((call) => call[0] === "persist"), true);
+  assert.equal(calls.some((call) => call[0] === "status" && call[2] === "ok"), true);
+});
+
 test("settings AI runtime controller refreshes route preview through injected API", async () => {
   const calls = [];
   const settingsState = { ai: { routePreview: null, routePreviewError: "" } };
@@ -207,9 +304,9 @@ test("settings AI runtime controller saves provider config and refreshes preview
     applyActiveAiProviderConfigToState: () => calls.push(["apply-active"]),
     currentAiProviderId: () => "openai_compatible_gateway",
     persistAiSettingsToStorage: () => calls.push(["persist"]),
-    refreshAiRoutePreview: async (options) => calls.push(["route", options]),
     renderSettingsPanel: () => calls.push(["render"]),
     resetAiProviderDraftTouched: () => calls.push(["reset"]),
+    refreshAiRoutePreview: async (options) => calls.push(["route", options]),
     saveAiProviderConfig: async (payload) => {
       calls.push(["save", payload.providerId]);
       return { providerId: payload.providerId };
@@ -252,7 +349,16 @@ test("settings AI runtime controller checks provider health through injected API
   const settingsState = {
     ai: {
       providerEndpointUrl: "https://ai.example/v1",
-      providerHealthEndpointUrl: "https://ai.example/health"
+      providerHealthEndpointUrl: "https://ai.example/health",
+      remoteRuntimeModel: "gpt-test",
+      secretRef: "local:key",
+      testMeta: "运行失败",
+      testOutput: "timeout",
+      testStatus: "failed",
+      testProviderId: "openai_compatible_gateway",
+      testEndpointUrl: "https://ai.example/v1",
+      testRemoteModel: "gpt-test",
+      testSecretRef: "local:key"
     }
   };
   const controller = createSettingsAiRuntimeController(() => ({
@@ -263,6 +369,7 @@ test("settings AI runtime controller checks provider health through injected API
       return { record: { status: "healthy" } };
     },
     currentAiProviderId: () => "openai_compatible_gateway",
+    refreshAiRoutePreview: async (options) => calls.push(["route-preview", options]),
     renderSettingsPanel: () => calls.push(["render"]),
     resetAiProviderDraftTouched: () => calls.push(["reset"]),
     saveAiProviderConfig: async (payload) => {
@@ -278,7 +385,18 @@ test("settings AI runtime controller checks provider health through injected API
 
   assert.equal(ok, true);
   assert.deepEqual(settingsState.ai.providerHealthResult, { record: { status: "healthy" } });
+  assert.equal(settingsState.ai.providerHealthProviderId, "openai_compatible_gateway");
+  assert.equal(settingsState.ai.providerHealthEndpointUrlSnapshot, "https://ai.example/v1");
+  assert.equal(settingsState.ai.providerHealthCheckEndpointUrlSnapshot, "https://ai.example/health");
+  assert.equal(settingsState.ai.providerHealthRemoteModel, "gpt-test");
+  assert.equal(settingsState.ai.providerHealthSecretRef, "local:key");
+  assert.equal(settingsState.ai.testStatus, "");
+  assert.equal(settingsState.ai.testProviderId, "");
+  assert.equal(settingsState.ai.testEndpointUrl, "");
+  assert.equal(settingsState.ai.testRemoteModel, "");
+  assert.equal(settingsState.ai.testSecretRef, "");
   assert.equal(settingsState.ai.providerHealthChecking, false);
+  assert.deepEqual(calls.find((call) => call[0] === "route-preview"), ["route-preview", { render: false }]);
   assert.deepEqual(calls.find((call) => call[0] === "health"), ["health", "openai_compatible_gateway", "https://ai.example/health"]);
   assert.equal(calls.some((call) => call[0] === "status" && call[2] === "ok"), true);
 });

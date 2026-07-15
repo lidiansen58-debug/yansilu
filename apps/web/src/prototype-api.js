@@ -1,4 +1,10 @@
 import { aiSuggestionFromCanonical } from "./ai-suggestions-model.js";
+import {
+  apiBaseFromDesktopServiceStatus,
+  desktopServiceStatusMessage,
+  readDesktopServiceLog,
+  readDesktopServiceStatus
+} from "./desktop-service-status.js";
 
 const STATIC_API_BASE =
   (typeof window !== "undefined" &&
@@ -6,11 +12,27 @@ const STATIC_API_BASE =
     typeof window.__API_BASE__ === "string" &&
     window.__API_BASE__.trim() &&
     window.__API_BASE__ !== "__API_BASE__" &&
-    window.__API_BASE__.trim()) ||
-  (typeof window !== "undefined" && window.__TAURI__ ? "" : "http://localhost:3000");
+    window.__API_BASE__.trim().replace(/\/+$/u, "")) ||
+  (typeof window !== "undefined" && window.__TAURI__ ? "" : "http://127.0.0.1:3000");
 let currentApiBase = STATIC_API_BASE;
 let desktopApiBasePromise = null;
+let desktopServiceStatusPromise = null;
 const LOCAL_RUNTIME_CONTROL_HEADERS = { "X-Yansilu-Local-Runtime-Control": "1" };
+
+export function isApiConnectionError(error) {
+  const code = String(error?.code || "").trim();
+  return code === "api_unavailable" || code === "desktop_api_unavailable" || code === "request_timeout";
+}
+
+export function apiConnectionErrorMessage(error) {
+  if (!isApiConnectionError(error)) return String(error?.message || error);
+  if (error?.serviceStatus) {
+    return desktopServiceStatusMessage(error.serviceStatus, error, error.apiBase || currentApiBase);
+  }
+  const apiBase = String(error?.apiBase || currentApiBase || "").trim();
+  const suffix = apiBase ? `当前尝试地址：${apiBase}` : "当前还没有可用的 API 地址。";
+  return `API 未连接，不能读取笔记库。${suffix} 请重启研思录，或重新运行 npm run dev。`;
+}
 
 function tauriCore() {
   return typeof window !== "undefined" ? window.__TAURI__?.core : null;
@@ -25,23 +47,49 @@ async function resolveApiBase() {
   const core = tauriCore();
   if (!core || typeof core.invoke !== "function") return currentApiBase;
   if (!desktopApiBasePromise) {
-    desktopApiBasePromise = core
-      .invoke("get_desktop_api_base")
-      .then((value) => {
+    desktopApiBasePromise = (async () => {
+      const serviceStatus = await fetchDesktopServiceStatus();
+      const serviceBase = apiBaseFromDesktopServiceStatus(serviceStatus);
+      if (serviceBase) {
+        currentApiBase = serviceBase;
+        return currentApiBase;
+      }
+      return core.invoke("get_desktop_api_base").then((value) => {
         const base = String(value || "").trim();
         if (base) currentApiBase = base.replace(/\/+$/u, "");
         return base ? currentApiBase : clearDesktopApiBase();
-      })
-      .catch(() => clearDesktopApiBase());
+      });
+    })().catch(() => clearDesktopApiBase());
   }
   return desktopApiBasePromise;
+}
+
+export async function fetchDesktopServiceStatus() {
+  if (!desktopServiceStatusPromise) {
+    desktopServiceStatusPromise = readDesktopServiceStatus().catch(() => null);
+  }
+  return desktopServiceStatusPromise;
+}
+
+export function resetDesktopServiceStatusCache() {
+  desktopServiceStatusPromise = null;
+  desktopApiBasePromise = null;
+}
+
+export async function fetchDesktopServiceLog() {
+  return readDesktopServiceLog();
 }
 
 async function request(pathname, options = {}) {
   const apiBase = await resolveApiBase();
   if (!apiBase) {
-    const error = new Error("桌面内置服务未启动");
+    const serviceStatus = await fetchDesktopServiceStatus();
+    const error = new Error(desktopServiceStatusMessage(serviceStatus, null, ""));
     error.code = "desktop_api_unavailable";
+    error.apiBase = "";
+    error.pathname = pathname;
+    error.serviceStatus = serviceStatus;
+    resetDesktopServiceStatusCache();
     throw error;
   }
   const url = `${apiBase}${pathname}`;
@@ -72,7 +120,15 @@ async function request(pathname, options = {}) {
       timeoutError.timeoutMs = timeoutMs;
       throw timeoutError;
     }
-    throw error;
+    resetDesktopServiceStatusCache();
+    const serviceStatus = await fetchDesktopServiceStatus();
+    const apiError = new Error(desktopServiceStatusMessage(serviceStatus, error, apiBase));
+    apiError.code = "api_unavailable";
+    apiError.apiBase = apiBase;
+    apiError.pathname = pathname;
+    apiError.serviceStatus = serviceStatus;
+    apiError.cause = error;
+    throw apiError;
   }
   if (timeoutId) globalThis.clearTimeout(timeoutId);
   const json = await response.json().catch(() => ({}));
@@ -201,6 +257,26 @@ export async function fetchOllamaBootstrapStatus(options = {}) {
   return json.item || null;
 }
 
+export async function fetchOllamaRecoveryStatus(options = {}) {
+  const params = new URLSearchParams();
+  const model = String(options?.model || options?.modelName || "").trim();
+  const runtimeMode = String(options?.runtimeMode || options?.runtime_mode || "").trim();
+  if (model) params.set("model", model);
+  if (runtimeMode) params.set("runtimeMode", runtimeMode);
+  const suffix = params.toString();
+  const json = await request(`/api/v1/ai/local-runtimes/ollama/recovery${suffix ? `?${suffix}` : ""}`);
+  return json.item || null;
+}
+
+export async function recoverOllamaLocalAi(options = {}) {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/recovery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...LOCAL_RUNTIME_CONTROL_HEADERS },
+    body: JSON.stringify(options || {})
+  });
+  return json.item || null;
+}
+
 export async function bootstrapOllamaLocalAi(options = {}) {
   const json = await request("/api/v1/ai/local-runtimes/ollama/bootstrap", {
     method: "POST",
@@ -282,12 +358,10 @@ export async function fetchAiInbox(options = {}) {
   const view = String(options?.view || "pending").trim();
   const type = String(options?.type || "").trim();
   const sourceNoteId = String(options?.sourceNoteId || "").trim();
-  const privacyMode = String(options?.privacyMode || "").trim();
   const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
   if (view) params.set("view", view);
   if (type && type !== "all") params.set("type", type);
   if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
-  if (privacyMode) params.set("privacyMode", privacyMode);
   if (options?.canonical === true) params.set("canonical", "true");
   params.set("limit", String(limit));
   const json = await request(`/api/v1/ai/inbox?${params.toString()}`);
@@ -304,11 +378,9 @@ export async function fetchAiInboxEvaluationSummary(options = {}) {
   const view = String(options?.view || "all").trim();
   const type = String(options?.type || "").trim();
   const sourceNoteId = String(options?.sourceNoteId || "").trim();
-  const privacyMode = String(options?.privacyMode || "").trim();
   if (view) params.set("view", view);
   if (type && type !== "all") params.set("type", type);
   if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
-  if (privacyMode) params.set("privacyMode", privacyMode);
   const json = await request(`/api/v1/ai/inbox/evaluation-summary?${params.toString()}`);
   return json.item || null;
 }
@@ -1024,6 +1096,17 @@ export async function fetchWritingProject(writingProjectId) {
   return json.item || null;
 }
 
+export async function syncWritingProject(writingProjectId, payload = {}) {
+  const cleanWritingProjectId = String(writingProjectId || "").trim();
+  if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
+  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function updateWritingProjectBookStructure(writingProjectId, payload = {}) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
@@ -1048,6 +1131,17 @@ export async function updateDraftScaffoldVersionNote(draftScaffoldId, versionNot
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ versionNote: String(versionNote || "").trim() })
+  });
+  return json.item || null;
+}
+
+export async function updateDraftScaffold(draftScaffoldId, payload = {}) {
+  const cleanDraftScaffoldId = String(draftScaffoldId || "").trim();
+  if (!cleanDraftScaffoldId) throw new Error("draftScaffoldId is required");
+  const json = await request(`/api/v1/draft-scaffolds/${encodeURIComponent(cleanDraftScaffoldId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
   });
   return json.item || null;
 }

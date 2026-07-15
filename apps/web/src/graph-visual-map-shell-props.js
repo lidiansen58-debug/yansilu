@@ -2,7 +2,6 @@ export function graphSelectionUsesOverlay(selectionKind = "", selectionNodeNeeds
   return (
     selectionKind === "isolated" ||
     selectionKind === "isolatedComplete" ||
-    selectionKind === "relationForm" ||
     selectionNodeNeedsRelationWorkflow === true
   );
 }
@@ -51,8 +50,7 @@ export function buildGraphVisualMapShellProps({
   const sideSelectionContextMarkup = selectionOverlayMarkup ? "" : selectionContextMarkup;
   const navigatorOpen = (researchNavigatorOpen === true || researchNavigatorCanOpen === true) && !selectionContextMarkup;
   const visibleResearchNavigatorMarkup = navigatorOpen ? researchNavigatorMarkup : "";
-  const visibleResearchNavigatorEntryMarkup = !filterActive && !selectionContextMarkup ? researchNavigatorEntryMarkup : "";
-  const readingLensTrailingMarkup = `${workbenchEntryMarkup}${visibleResearchNavigatorEntryMarkup}`;
+  const readingLensTrailingMarkup = "";
   const sidePanelParts = [
     !filterActive ? workbenchPanelMarkup : "",
     sideSelectionContextMarkup || focusContextMarkup || visibleResearchNavigatorMarkup

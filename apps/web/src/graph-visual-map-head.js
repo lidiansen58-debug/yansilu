@@ -1,3 +1,24 @@
+function graphMapModeHint(relationType = "meaningful", readingLensKey = "insight") {
+  const relationKey = String(relationType || "meaningful").trim().toLowerCase();
+  const lensKey = String(readingLensKey || "insight").trim().toLowerCase();
+  if (relationKey === "index") {
+    return {
+      label: "找主题",
+      text: "亮起来的是最值得继续整理的一组笔记。"
+    };
+  }
+  if (lensKey === "bridge") {
+    return {
+      label: "找缺口",
+      text: "亮起来的是还没连好、可能缺关系的地方。"
+    };
+  }
+  return {
+    label: "看结构",
+    text: "同一块里的笔记更相关，先看最大的块和中心笔记。"
+  };
+}
+
 export function buildGraphVisualMapHeadContent({
   filterActive = false,
   relationType = "meaningful",
@@ -10,17 +31,24 @@ export function buildGraphVisualMapHeadContent({
   const {
     escapeHtml = (value) => String(value ?? ""),
     renderGraphViewModeSwitcher = () => "",
-    renderGraphReadingLensControls = () => "",
     graphFocusDepthMeta = (value) => ({ key: value, label: value, note: "" })
   } = deps;
   const {
     focusDepth = { key: "1", label: "1", note: "" },
     readingLens = { key: "overview" },
-    legendOpen = false,
     showDensityHint = false,
     focusContextAvailable = false,
     focusContextCollapsed = false
   } = runtimeState;
+  const modeHint = graphMapModeHint(relationType, readingLens.key);
+  const gapMode = !filterActive && relationType !== "index" && readingLens.key === "bridge";
+  const themeMode = !filterActive && relationType === "index";
+  const gapAction = gapMode
+    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="gap">检查缺口</button>`
+    : "";
+  const themeAction = themeMode
+    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="theme">发现主题</button>`
+    : "";
   return filterActive
     ? `
       <div class="graph-focus-headline">
@@ -35,7 +63,7 @@ export function buildGraphVisualMapHeadContent({
             .join("")}
           ${
             focusContextAvailable
-              ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示侧边详情" : "收起侧边详情"}">${focusContextCollapsed ? "显示详情" : "收起详情"}</button>`
+              ? `<button class="graph-focus-panel-toggle" type="button" data-graph-focus-context-toggle="${focusContextCollapsed ? "open" : "close"}" aria-expanded="${focusContextCollapsed ? "false" : "true"}" aria-controls="graphFocusContextPanel" title="${focusContextCollapsed ? "显示详情" : "收起详情"}">${focusContextCollapsed ? "显示详情" : "收起详情"}</button>`
               : ""
           }
         </div>
@@ -45,12 +73,16 @@ export function buildGraphVisualMapHeadContent({
       <div class="graph-map-primary-row">
         ${renderGraphViewModeSwitcher(relationType, readingLens.key)}
         <div class="graph-map-primary-actions">
+          ${gapAction}
+          ${themeAction}
           ${compactRelationFilterMarkup}
         </div>
       </div>
-      ${renderGraphReadingLensControls(readingLens.key, legendOpen, graphShellPreviewProps.readingLensTrailingMarkup)}
+      <div class="graph-map-mode-hint" role="status">
+        <strong>${escapeHtml(modeHint.label)}</strong>
+        <span>${escapeHtml(modeHint.text)}</span>
+      </div>
       ${isolatedQueueStripMarkup}
-      ${structureFallback ? `<div class="graph-structure-fallback-note">还没有明确的主题归属，已先按笔记关系自动分组。</div>` : ""}
       ${showDensityHint ? `<div class="graph-density-hint">当前图较密，可以拖到局部区域或放大查看。</div>` : ""}
     `;
 }

@@ -23,6 +23,8 @@ import {
   registerMarkdownNoteInCatalog,
   searchNotes,
   serializeMarkdownWithFrontmatter,
+  confirmPermanentNoteDistillation,
+  updatePermanentNoteDistillation,
   updateNoteRelation,
   updateNoteContent,
   writeLiteratureNoteIfAbsent,
@@ -1416,6 +1418,56 @@ test("updateNoteContent recomputes originality through healed linked literature 
   assert.match(updated.body, /Linked evidence/);
   const healedLiterature = await getNoteById(vaultPath, "ln_originality_heal");
   assert.equal(healedLiterature.markdownPath, path.relative(vaultPath, liveLiterature.path).replaceAll("\\", "/"));
+});
+
+test("confirmPermanentNoteDistillation writes the distilled viewpoint into the visible note body", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const now = new Date().toISOString();
+  const permanentWrite = await writePermanentNoteIfAbsent(vaultPath, {
+    id: "pn_distillation_body",
+    title: "Distillation body note",
+    core_claim: "Original body stays below the distilled viewpoint.",
+    rationale: "Rationale",
+    authorship: { user_confirmed: false, ai_assisted: false },
+    originality_status: "pass",
+    status: "draft",
+    created_at: now,
+    updated_at: now
+  });
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "pn_distillation_body",
+    noteType: "permanent",
+    title: "Distillation body note",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, permanentWrite.path).replaceAll("\\", "/"),
+    directoryId: "dir_original_default"
+  });
+
+  await updatePermanentNoteDistillation(vaultPath, "pn_distillation_body", {
+    thesis: "Confirmed viewpoint should be visible in the note.",
+    threeLineSummary: ["It clarifies the claim.", "It keeps the original body.", "It supports later writing."],
+    boundaryOrCounterpoint: "It should not replace the user's original prose."
+  });
+  const confirmed = await confirmPermanentNoteDistillation(vaultPath, "pn_distillation_body");
+
+  assert.match(confirmed.body, /^# Distillation body note\n\n## 提炼观点/);
+  assert.match(confirmed.body, /### 核心判断\n\nConfirmed viewpoint should be visible in the note\./);
+  assert.match(confirmed.body, /1\. It clarifies the claim\.\n2\. It keeps the original body\.\n3\. It supports later writing\./);
+  assert.match(confirmed.body, /### 边界\n\nIt should not replace the user's original prose\./);
+  assert.match(confirmed.body, /Original body stays below the distilled viewpoint\./);
+  assert.equal((confirmed.body.match(/## 提炼观点/g) || []).length, 1);
+
+  await updatePermanentNoteDistillation(vaultPath, "pn_distillation_body", {
+    thesis: "Updated viewpoint replaces the old visible block.",
+    threeLineSummary: ["Updated one.", "Updated two.", "Updated three."],
+    boundaryOrCounterpoint: ""
+  });
+  const reconfirmed = await confirmPermanentNoteDistillation(vaultPath, "pn_distillation_body");
+
+  assert.match(reconfirmed.body, /Updated viewpoint replaces the old visible block\./);
+  assert.doesNotMatch(reconfirmed.body, /Confirmed viewpoint should be visible in the note\./);
+  assert.equal((reconfirmed.body.match(/## 提炼观点/g) || []).length, 1);
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {

@@ -83,10 +83,16 @@ export async function refreshAiSuggestionsForRuntime(deps = {}, options = {}) {
     rememberAiDebugSnapshot("suggestionsList", result);
     aiState.suggestionsError = "";
     const currentSelectedId = String(aiState.selectedSuggestionId || "").trim();
-    const currentListItem = result.items.find((item) => String(item.id || "").trim() === currentSelectedId) || null;
-    const selectedListItem = currentListItem || result.items.find((item) => String(item.id || "").trim() === previousSelectedId) || null;
+    const selectionChangedDuringRequest = currentSelectedId !== previousSelectedId;
+    const currentListItem = currentSelectedId
+      ? result.items.find((item) => String(item.id || "").trim() === currentSelectedId) || null
+      : null;
+    const previousListItem = !selectionChangedDuringRequest && previousSelectedId
+      ? result.items.find((item) => String(item.id || "").trim() === previousSelectedId) || null
+      : null;
+    const selectedListItem = currentListItem || previousListItem;
     const selectedStillVisible = Boolean(selectedListItem);
-    const nextSelectedSuggestionId = selectedStillVisible ? String(selectedListItem.id || "").trim() : result.items[0]?.id || "";
+    const nextSelectedSuggestionId = selectedStillVisible ? String(selectedListItem.id || "").trim() : "";
     const selectionChanged = nextSelectedSuggestionId !== previousSelectedId;
     const detailItem = aiState.suggestionDetail?.item || aiState.suggestionDetail || null;
     const detailMatchesSelection = String(detailItem?.id || "").trim() === previousSelectedId;
@@ -208,9 +214,17 @@ export async function applyAiSuggestionStatusForRuntime(deps = {}, suggestionId 
     setStatus(retryStatusMessage, "warn");
     return null;
   }
-  if (selectedSuggestionId && selectedSuggestionId === cleanSuggestionId && !detail) {
-    aiState.suggestionActionNoticeSuggestionId = cleanSuggestionId;
+  if (!detail) {
     if (!aiState.suggestionDetailLoading) await loadAiSuggestionDetail(cleanSuggestionId);
+    const loadedDetailId = String(aiState.suggestionDetail?.item?.id || aiState.suggestionDetail?.id || "").trim();
+    if (loadedDetailId === cleanSuggestionId) {
+      aiState.suggestionActionNoticeSuggestionId = "";
+      aiState.suggestionActionNotice = "";
+      aiState.suggestionActionNoticeTone = "";
+      render();
+      return null;
+    }
+    aiState.suggestionActionNoticeSuggestionId = cleanSuggestionId;
     aiState.suggestionActionNotice = reviewSafetyNotice;
     aiState.suggestionActionNoticeTone = "warn";
     render();

@@ -57,6 +57,7 @@ export function createGraphResidualViews(deps = {}) {
     graphFullNoteByIdFromSources,
     graphIsolatedPreviewTargetForNote,
     graphIsolatedSelectionKey,
+    openRelationComposerFromGraphAction,
     graphNodeStarRank,
     graphNormalizeRelationWorkflowSelection,
     graphRelationGroupMeta,
@@ -113,7 +114,6 @@ function graphResidualRuntimeDeps(overrides = {}) {
     ...overrides
   };
 }
-
 function renderGraphIcon(...args) { return renderGraphIconView(...args); }
 
 function setGraphFocusDepth(value = "", options = {}) {
@@ -122,7 +122,6 @@ function setGraphFocusDepth(value = "", options = {}) {
     writeStoredText
   });
 }
-
 function setGraphFocusContextMode(value = "", options = {}) {
   return setGraphFocusContextModeForRuntime(graphState, value, {
     ...options,
@@ -135,7 +134,7 @@ function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, c
     <section class="graph-orientation" aria-label="图谱读法">
       <div class="graph-orientation-main">
         <strong>这张图谱帮你判断：这组永久笔记能不能形成一个清楚观点</strong>
-        <span>每个点是一条永久笔记，每条线是一条正式关系。先看哪些笔记在支撑，哪里有反方、边界或缺少连接。下面这组数字按当前目录的全部关系统计，不受上方筛选影响。</span>
+        <span>每个点是一条永久笔记，每条线是一条关联。先看哪些笔记在支撑，哪里有反方、边界或缺少连接。下面这组数字按当前目录的全部关系统计，不受上方筛选影响。</span>
       </div>
       <div class="graph-read-steps">
         <span>1 找中心观点</span>
@@ -393,8 +392,8 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOver
   return graphFilterOptionsForRuntime(edges, field, selected, allLabel, labelFn, statsOverride, graphRelationFilterOptionsDepsForRuntime());
 }
 
-const renderGraphViewModeSwitcher = (relationType = "meaningful") =>
-  renderGraphViewModeSwitcherForRuntime(relationType, { escapeHtml });
+const renderGraphViewModeSwitcher = (relationType = "meaningful", activeLens = "insight") =>
+  renderGraphViewModeSwitcherForRuntime(relationType, activeLens, { escapeHtml });
 
 const renderGraphRelationTypeFilter = (edges = [], selected = "meaningful", compact = false, statsOverride = null) =>
   renderGraphRelationTypeFilterForRuntime(edges, selected, compact, statsOverride, {
@@ -432,28 +431,27 @@ function graphReadingLensMeta(value = "insight") {
   return computeGraphReadingLensMeta(value);
 }
 
-function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false, trailingMarkup = "") {
-  return renderGraphReadingLensControlsView(activeLens, legendOpen, trailingMarkup, { escapeHtml });
+function renderGraphReadingLensControls() {
+  return renderGraphReadingLensControlsView();
 }
 const GRAPH_WORKBENCH_TAB_META = {
   clues: {
     key: "clues",
-    label: "关联任务",
-    emptyLabel: "暂无关联任务",
-    panelTitle: "关联任务",
-    statusLabel: "关联任务",
-    note: "把还没进入关系网的笔记、缺少连接和理由太薄的关系处理清楚。"
+    label: "补全关系",
+    emptyLabel: "暂无需要补的关系",
+    panelTitle: "补全关系",
+    statusLabel: "补全关系",
+    note: "找出还没连上、关系不清或需要补说明的笔记。"
   },
   questions: {
     key: "questions",
-    label: "洞察问题",
-    emptyLabel: "暂无洞察问题",
-    panelTitle: "洞察问题",
-    statusLabel: "洞察问题",
-    note: "把值得继续追问的主题、冲突和边界集中到这里。"
+    label: "找主题",
+    emptyLabel: "暂无可找主题的线索",
+    panelTitle: "找主题",
+    statusLabel: "找主题",
+    note: "看哪些笔记已经聚成一个可继续写作的问题。"
   }
 };
-
 function graphWorkbenchTabMeta(value = "clues") {
   const key = String(value || "clues").trim().toLowerCase();
   return GRAPH_WORKBENCH_TAB_META[key] || GRAPH_WORKBENCH_TAB_META.clues;
@@ -889,7 +887,7 @@ function graphNodeInsightMeta(node = {}, directEdges = [], { nodeMap = new Map()
   const localCandidates = graphLocalRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
   const themeNoteIds = graphThemeCandidateNoteIdsForNode(noteId, directEdges, []);
   let quality = "关系清楚";
-  let qualityDetail = "它已经有正式关系，可以从这里继续阅读周边笔记，看看是否能形成主题。";
+  let qualityDetail = "它已经有关联，可以从这里继续阅读周边笔记，看看是否能形成主题。";
   if (!degree) {
     quality = "还没有进入关系网";
     qualityDetail = aiCandidates.length || localCandidates.length ? "已经找到可能相关的笔记，先确认一条真正成立的关系。" : "先找一条能说清理由的关系。";
@@ -1479,7 +1477,7 @@ function graphCandidateRelationVerdict(candidate = {}) {
   const relationType = String(candidate.aiRelationType || candidate.relationType || candidate.coarseType || "associated_with").trim().toLowerCase();
   const relationLabel = graphRelationTypeLabel(relationType === "no_relation" ? "associated_with" : relationType);
   const confidenceLabel = graphAiConfidenceLabel(candidate.aiConfidence || candidate.confidence);
-  if (decision === "reject" || relationType === "no_relation") return "暂不建议直接保存为正式关系";
+  if (decision === "reject" || relationType === "no_relation") return "暂不建议直接保存为关联";
   if (decision === "uncertain") return `可以先按“${relationLabel}”检查`;
   if (decision === "accept") return `可以保存为“${relationLabel}”`;
   return `建议关系：${relationLabel} · ${confidenceLabel}`;
@@ -1659,6 +1657,7 @@ const graphAiConnectRuntimeController = createGraphAiConnectRuntimeController(()
   graphPotentialRelationNeedsConfirmation,
   graphRelationStatusCountsAsNetworkEdge,
   graphRelationWorkflowController,
+  openRelationComposerFromGraphAction,
   graphScopeDirectoryId,
   graphState,
   setGraphIsolatedWorkflowActiveTab,
@@ -1777,7 +1776,7 @@ function renderGraphIsolatedPreviewPanel(noteId = "", { nodeMap = new Map(), pre
   `;
 }
 
-function renderGraphRelationCandidateCards(candidates = [], { title = "可能相关笔记", note = "选中确实相关的笔记后再保存。", sourceLabel = "本地推荐" } = {}) {
+function renderGraphRelationCandidateCards(candidates = [], { title = "可能相关笔记" } = {}) {
   const items = Array.isArray(candidates) ? candidates.filter((candidate) => candidate && graphCandidateCanSaveRelation(candidate)) : [];
   if (!items.length) return "";
   return `
@@ -1786,25 +1785,17 @@ function renderGraphRelationCandidateCards(candidates = [], { title = "可能相
         <strong>${escapeHtml(title)}</strong>
         <span>${items.length} 个可选目标</span>
       </div>
-      <p>${escapeHtml(note)}</p>
       <div class="graph-ai-connect-list">
         ${items
           .map(
             (candidate) => `
               <article class="graph-ai-connect-card">
                 <div class="graph-ai-connect-card-head">
-                  <span>${escapeHtml(graphCandidateSourceLabel(candidate, sourceLabel))}</span>
                   <strong>${escapeHtml(candidate.counterpartTitle || candidate.targetTitle)}</strong>
-                  <small>${escapeHtml(candidate.relationLabel)} · ${escapeHtml(graphAiConfidenceLabel(candidate.confidence))}</small>
+                  <small>${escapeHtml(graphCandidateEvidenceText(candidate))}</small>
                 </div>
-                <p>${escapeHtml(graphCandidateEvidenceText(candidate))}</p>
-                <details class="graph-candidate-details">
-                  <summary>查看依据</summary>
-                  ${renderGraphCandidateReviewRows(candidate, { aiCandidate: false })}
-                </details>
                 <div class="graph-ai-connect-actions">
-                  <button class="graph-selection-action is-primary" type="button" data-graph-relation-candidate-apply data-open-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">选择这条笔记</button>
-                  <button class="graph-selection-action is-quiet" type="button" data-graph-preview-candidate="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}" data-graph-preview-source="${escapeHtml(candidate.sourceNoteId)}">预览目标</button>
+                  <button class="graph-selection-action is-secondary" type="button" data-graph-relation-candidate-apply data-open-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}" data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">关联</button>
                 </div>
               </article>
             `
@@ -1830,7 +1821,7 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
           <strong>可能相关笔记</strong>
           <span>${loading ? "查找中" : hasAnalysis ? "暂时没有" : "还没查找"}</span>
         </div>
-        <p>${loading ? "正在从当前图谱范围内查找可以连接的笔记。" : hasAnalysis ? "暂时没有清楚的相关笔记。可以手动搜索，或先把这条笔记的中心判断写清楚。" : "点击“查找可能关联”后，系统会列出可能相关的笔记；只有你保存后才会写入正式关系。"}</p>
+        ${loading ? `<p>正在查找相关笔记。</p>` : hasAnalysis ? `<p>暂时没有明显相关的笔记。</p>` : `<button class="graph-selection-action is-secondary graph-ai-connect-empty-action" type="button" data-graph-ai-connect-note="${escapeHtml(noteId)}">查找相关笔记</button>`}
       </section>
     `;
   }
@@ -1840,7 +1831,6 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
         <strong>可能相关笔记</strong>
         <span>${candidates.length} 个可选目标</span>
       </div>
-      <p>从这里挑一条真正相关的笔记。能说清“为什么相连”再保存。</p>
       <div class="graph-ai-connect-list">
         ${candidates
           .map(
@@ -1855,17 +1845,12 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
               return `
                 <article class="graph-ai-connect-card">
                   <div class="graph-ai-connect-card-head">
-                    <span>${escapeHtml(isLocal ? "本地推荐" : "AI 推荐")}</span>
+                    ${isLocal ? "" : `<span>${escapeHtml("AI 推荐")}</span>`}
                     <strong>${escapeHtml(candidate.counterpartTitle || candidate.targetTitle)}</strong>
-                    <small>${escapeHtml(candidate.relationLabel)} · ${escapeHtml(graphAiConfidenceLabel(candidate.confidence))}${candidate.componentBridge ? " · 可连接两组笔记" : ""}</small>
+                    <small>${escapeHtml(graphCandidateEvidenceText(candidate))}</small>
                   </div>
-                  <p>${escapeHtml(graphCandidateEvidenceText(candidate))}</p>
-                  <details class="graph-candidate-details">
-                    <summary>查看依据</summary>
-                    ${renderGraphCandidateReviewRows(candidate, { aiCandidate: !isLocal })}
-                  </details>
                   <div class="graph-ai-connect-actions">
-                    <button class="graph-selection-action is-primary" type="button" ${applyAttrs} data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">选择这条笔记</button>
+                    <button class="graph-selection-action is-secondary" type="button" ${applyAttrs} data-graph-relation-type="${escapeHtml(candidate.relationType)}" data-graph-rationale-draft="${escapeHtml(candidate.rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(candidate.insightQuestionDraft)}">关联</button>
                     ${
                       !isLocal && needsConfirmation
                         ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-confirm data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">生成理由</button>`
@@ -1873,7 +1858,6 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
                         ? `<button class="graph-selection-action is-ai" type="button" data-graph-ai-refine-retry data-graph-candidate-id="${escapeHtml(candidate.id)}" data-graph-source-note="${escapeHtml(candidate.sourceNoteId)}" data-graph-target-note="${escapeHtml(candidate.targetNoteId)}">重新生成理由</button>`
                         : ""
                     }
-                    <button class="graph-selection-action is-quiet" type="button" data-graph-preview-candidate="${escapeHtml(candidate.counterpartNoteId || candidate.targetNoteId)}" data-graph-preview-source="${escapeHtml(noteId)}">预览目标</button>
                   </div>
                 </article>
               `;
@@ -1960,7 +1944,6 @@ const {
   pickGraphManualRelationTarget,
   saveGraphIsolatedRelationForm,
   saveGraphConfirmedRelation,
-  openGraphRelationFormInSelection,
   focusGraphRelationAdjustmentInPlace
 } = graphIsolatedWorkspaceRuntime;
 const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
@@ -1977,7 +1960,6 @@ const graphSelectionResidualView = createGraphSelectionResidualView(graphResidua
 const {
   renderGraphIsolatedSelectionPanel,
   renderGraphIsolatedCompletePanel,
-  renderGraphRelationFormSelectionPanel,
   renderGraphBridgeSelectionPanel,
   graphUniqueClusterMeta,
   graphClusterResearchMeta,
@@ -2417,11 +2399,9 @@ const {
     pickGraphManualRelationTarget,
     saveGraphIsolatedRelationForm,
     saveGraphConfirmedRelation,
-    openGraphRelationFormInSelection,
     focusGraphRelationAdjustmentInPlace,
     renderGraphIsolatedSelectionPanel,
     renderGraphIsolatedCompletePanel,
-    renderGraphRelationFormSelectionPanel,
     renderGraphBridgeSelectionPanel,
     graphUniqueClusterMeta,
     graphClusterResearchMeta,

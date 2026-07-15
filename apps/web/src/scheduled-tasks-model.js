@@ -2,6 +2,7 @@ const STATUS_VALUES = ["all", "active", "paused", "disabled", "failed"];
 const TASK_TYPE_VALUES = [
   "all",
   "relation_scan",
+  "writable_theme_discovery",
   "reflection_prompt",
   "research_scan",
   "source_monitor",
@@ -44,9 +45,10 @@ export function scheduledTaskStatusOptions() {
 
 export function scheduledTaskTypeOptions() {
   return [
-    { value: "all", label: "全部任务类型" },
-    { value: "relation_scan", label: "关系扫描" },
-    { value: "reflection_prompt", label: "反思提醒" },
+    { value: "all", label: "全部整理类型" },
+    { value: "relation_scan", label: "发现相关笔记" },
+    { value: "writable_theme_discovery", label: "发现可写主题" },
+    { value: "reflection_prompt", label: "提醒我回看" },
     { value: "research_scan", label: "研究扫描" },
     { value: "source_monitor", label: "来源监测" },
     { value: "project_digest", label: "项目摘要" },
@@ -56,10 +58,12 @@ export function scheduledTaskTypeOptions() {
 
 export function scheduledTaskTemplateOptions(templates = []) {
   const templateLabelMap = {
-    weekly_link_suggestions: "每周关系建议",
-    reflection_reminder: "反思提醒",
-    "Weekly link suggestions": "每周关系建议",
-    "Reflection reminder": "反思提醒"
+    weekly_link_suggestions: "发现相关笔记",
+    reflection_reminder: "提醒我回看",
+    writable_theme_discovery: "发现可写主题",
+    "Weekly link suggestions": "发现相关笔记",
+    "Reflection reminder": "提醒我回看",
+    "Writable theme discovery": "发现可写主题"
   };
   const list = Array.isArray(templates) ? templates : [];
   return list
@@ -253,9 +257,9 @@ export function scheduledTaskFormDefaults({ templates = [], currentNoteId = "", 
   return {
     scheduledTaskId: "",
     templateId,
-    name: templateOptions[0]?.label || "反思提醒",
-    status: "paused",
-    scheduleType: "weekly",
+    name: templateOptions[0]?.label || "提醒我回看",
+    status: "active",
+    scheduleType: "daily",
     dayOfWeek: "friday",
     time: "16:00",
     intervalMinutes: 30,
@@ -270,9 +274,14 @@ export function scheduledTaskFormDefaults({ templates = [], currentNoteId = "", 
 export function scheduledTaskFormFromTask(task = {}) {
   const schedule = task.schedule || {};
   const scope = task.scope || {};
+  const templateByTaskType = {
+    relation_scan: "weekly_link_suggestions",
+    reflection_prompt: "reflection_reminder",
+    writable_theme_discovery: "writable_theme_discovery"
+  };
   return {
     scheduledTaskId: cleanText(task.scheduledTaskId),
-    templateId: task.taskType === "relation_scan" ? "weekly_link_suggestions" : "reflection_reminder",
+    templateId: templateByTaskType[cleanText(task.taskType)] || "reflection_reminder",
     name: cleanText(task.name),
     status: cleanText(task.status) || "paused",
     scheduleType: cleanText(schedule.type) || "weekly",
@@ -288,13 +297,15 @@ export function scheduledTaskFormFromTask(task = {}) {
 }
 
 export function scheduledTaskPayloadFromForm(form = {}) {
-  const scheduleType = cleanText(form.scheduleType) || "weekly";
+  const scheduleType = cleanText(form.scheduleType) || "daily";
   const schedule = {
     type: scheduleType,
     timezone: "local"
   };
   if (scheduleType === "interval") {
     schedule.intervalMinutes = Math.max(5, normalizeCount(form.intervalMinutes || 30));
+  } else if (scheduleType === "daily") {
+    schedule.time = cleanText(form.time) || "16:00";
   } else if (scheduleType === "weekly") {
     schedule.dayOfWeek = cleanText(form.dayOfWeek) || "monday";
     schedule.time = cleanText(form.time) || "09:00";
@@ -304,7 +315,7 @@ export function scheduledTaskPayloadFromForm(form = {}) {
     ...(cleanText(form.scheduledTaskId) ? { scheduledTaskId: cleanText(form.scheduledTaskId) } : {}),
     templateId: cleanText(form.templateId) || "reflection_reminder",
     name: cleanText(form.name) || "计划代理任务",
-    status: cleanText(form.status) || "paused",
+    status: cleanText(form.status) || "active",
     schedule,
     scope: {
       noteIds: splitList(form.noteIdsText),

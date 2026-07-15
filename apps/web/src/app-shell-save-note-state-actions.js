@@ -95,7 +95,9 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
         }
         syncExplorerContextToNote(note);
         setStatus("已同步到 Markdown", "ok");
-        const suggestion = showSaveAiSuggestionForNote(note);
+        const shouldSuppressSaveSuggestion = payload.suppressSaveAiSuggestion === true;
+        if (shouldSuppressSaveSuggestion) clearSaveAiSuggestion();
+        const suggestion = shouldSuppressSaveSuggestion ? null : showSaveAiSuggestionForNote(note);
         syncSourcePromotionSystemMessageForNote(note, suggestion);
         editor?.clearDraft?.(note.id);
         if (state.module === "graph") await refreshDirectoryGraph();

@@ -1,12 +1,12 @@
 const SNAPSHOT_LABELS = Object.freeze({
-  inboxList: "系统消息列表",
-  inboxDetail: "系统消息详情",
-  inboxDecision: "系统消息处理",
-  suggestionsList: "待确认建议列表",
+  inboxList: "待处理内容列表",
+  inboxDetail: "待处理内容详情",
+  inboxDecision: "待处理内容结果",
+  suggestionsList: "待处理建议列表",
   suggestionDetail: "建议详情",
   suggestionDecision: "建议处理结果",
-  scheduledTasksList: "后台任务列表",
-  scheduledTaskAction: "后台任务操作"
+  scheduledTasksList: "整理规则列表",
+  scheduledTaskAction: "整理规则操作"
 });
 
 const SNAPSHOT_ORDER = Object.freeze([
@@ -56,28 +56,10 @@ export function automationRunHistoryItems(snapshots = {}) {
     });
 }
 
-function renderDiagnosticPayload(item) {
-  return `
-    <details class="settings-automation-run-diagnostics">
-      <summary>诊断数据</summary>
-      <div class="settings-canonical-grid">
-        <div class="settings-canonical-block">
-          <div class="settings-canonical-label">运行态</div>
-          <pre class="settings-code settings-canonical-code">${escapeHtmlValue(JSON.stringify(item.runtime, null, 2) || "null")}</pre>
-        </div>
-        <div class="settings-canonical-block">
-          <div class="settings-canonical-label">标准载荷</div>
-          <pre class="settings-code settings-canonical-code">${escapeHtmlValue(JSON.stringify(item.canonical, null, 2) || "null")}</pre>
-        </div>
-      </div>
-    </details>
-  `;
-}
-
 export function renderSettingsAutomationRunHistory({ snapshots = {} } = {}) {
   const items = automationRunHistoryItems(snapshots);
   if (!items.length) {
-    return `<div class="settings-canonical-empty">还没有运行记录。</div>`;
+    return `<div class="settings-canonical-empty">还没有整理记录。</div>`;
   }
   return `
     <div class="settings-automation-run-list">
@@ -87,7 +69,6 @@ export function renderSettingsAutomationRunHistory({ snapshots = {} } = {}) {
             <strong>${escapeHtmlValue(item.title)}</strong>
             <span>${escapeHtmlValue(formatCapturedAt(item.capturedAt))}</span>
           </div>
-          ${renderDiagnosticPayload(item)}
         </article>
       `).join("")}
     </div>

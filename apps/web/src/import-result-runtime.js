@@ -293,7 +293,7 @@ export function createImportResultRuntime(deps = {}) {
         source: "import_permanent_notes"
       });
       activateModule("writing");
-      await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入相关笔记，并打开写作中心` });
+      await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入相关笔记，并打开写作` });
     } else {
       clearWritingSourceIndexIds();
       addWritingBasketIds(noteIds);

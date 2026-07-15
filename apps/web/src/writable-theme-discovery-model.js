@@ -179,7 +179,7 @@ function normalizeCluster(cluster = {}, context = {}) {
   const membershipReason = cleanText(aiTopic?.rationale || aiTopic?.summary) || cluster.reason || suggestion.thesis;
   const keyNotes = suggestion.items.map((item) => cleanText(item.shortLabel || item.noteId)).filter(Boolean);
   const sharedSignals = uniqueStrings([
-    relationCount ? `${relationCount} 条正式关系` : "",
+    relationCount ? `${relationCount} 条关联` : "",
     cluster.source === "tags" ? "共享标签" : "",
     cluster.source === "title_terms" ? "题名/判断信号相近" : "",
     aiTopic ? "AI 只补充命名和中心问题" : "",
@@ -188,7 +188,7 @@ function normalizeCluster(cluster = {}, context = {}) {
   const gap = noteIds.length < 4
     ? "最好再补 1 条相关永久笔记，或补清边界/反例后再写。"
     : relationCount === 0
-      ? "当前主要来自共同信号，保存前最好补一条正式关系理由。"
+      ? "当前主要来自共同信号，保存前最好补一条关联理由。"
       : "保存前请确认中心问题是否足够具体，缺口是否值得继续追问。";
   const key = clusterKey(noteIds);
   return {

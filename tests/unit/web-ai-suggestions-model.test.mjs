@@ -13,6 +13,7 @@ test("AI suggestions model hydrates runtime suggestions from canonical payloads"
     target: {
       type: "permanent_note",
       id: "pn_1",
+      title: "Inbox review target",
       field: "thesis"
     },
     scope: "note_field",
@@ -44,6 +45,7 @@ test("AI suggestions model hydrates runtime suggestions from canonical payloads"
   assert.equal(suggestion.id, "suggestion_1");
   assert.equal(suggestion.target.type, "permanent_note");
   assert.equal(suggestion.target.field, "thesis");
+  assert.equal(suggestion.target.title, "Inbox review target");
   assert.equal(suggestion.status, "confirmed");
   assert.equal(suggestion.sourceArtifactId, "artifact_1");
   assert.equal(suggestion.provenance.humanConfirmed, true);

@@ -43,12 +43,12 @@ export async function handleSaveNoteDistillationStateChange(payload = {}, deps =
       Object.assign(note, mapNoteItem(finalUpdated), { bodyLoaded: true });
       syncDistillationTabFromNote(state, note, finalUpdated);
     }
-    setStatus(shouldConfirm ? "观点字段已保存并确认" : "观点字段已保存", "ok");
+    setStatus(shouldConfirm ? "提炼内容已整理到正文" : "提炼草稿已保存", "ok");
     renderDistillationPanel();
     renderAll();
     return finalUpdated || true;
   } catch (error) {
-    setStatus(`观点字段保存失败：${String(error?.message || error)}`, "bad");
+    setStatus(`提炼内容保存失败：${String(error?.message || error)}`, "bad");
     return false;
   }
 }
@@ -70,12 +70,15 @@ export async function handleConfirmNoteDistillationStateChange(payload = {}, dep
     const updated = await confirmPermanentNoteDistillation(note.id, {
       aiAssisted: Boolean(note.authorship?.ai_assisted)
     });
-    if (updated) Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
-    setStatus("观点已确认", "ok");
+    if (updated) {
+      Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
+      syncDistillationTabFromNote(state, note, updated);
+    }
+    setStatus("提炼内容已整理到正文", "ok");
     renderAll();
     return updated || true;
   } catch (error) {
-    setStatus(`观点确认失败：${String(error?.message || error)}`, "bad");
+    setStatus(`整理到正文失败：${String(error?.message || error)}`, "bad");
     return false;
   }
 }

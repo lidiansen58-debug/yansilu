@@ -6,6 +6,7 @@ import {
   canTransitionSuggestionStatus,
   createInMemorySuggestionStore,
   normalizeSuggestion,
+  suggestionToCanonical,
   suggestionStatuses,
   transitionSuggestionStatus
 } from "../../packages/ai-orchestrator/src/index.mjs";
@@ -38,6 +39,20 @@ test("normalizeSuggestion creates a reviewable AI candidate with target, scope, 
   assert.equal(suggestion.origin, "ai_generated");
   assert.equal(suggestion.provenance.humanConfirmed, false);
   assert.ok(suggestionStatuses().includes("confirmed"));
+});
+
+test("normalizeSuggestion keeps a readable target title when one is provided", () => {
+  const suggestion = createSuggestion({
+    target: { type: "note", id: "note_1", title: "Inbox review target", field: "thesis" }
+  });
+
+  assert.deepEqual(suggestion.target, {
+    type: "note",
+    id: "note_1",
+    field: "thesis",
+    title: "Inbox review target"
+  });
+  assert.equal(suggestionToCanonical(suggestion).target.title, "Inbox review target");
 });
 
 test("normalizeSuggestion rejects candidates missing required review boundaries", () => {

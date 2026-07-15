@@ -1,19 +1,9 @@
 export const SETTINGS_SECTIONS = Object.freeze([
   {
-    id: "support",
-    label: "帮助",
-    paneId: "settingsPaneSupport",
-    buttonId: "settingsNavSupport",
-    badgeId: "settingsNavSupportBadge",
-    metaId: "settingsNavSupportMeta",
-    bodyId: "settingsPaneSupportBody"
-  },
-  {
     id: "workspace",
     label: "本地笔记库",
     paneId: "settingsPaneWorkspace",
     buttonId: "settingsNavWorkspace",
-    badgeId: "settingsNavWorkspaceBadge",
     metaId: "settingsNavWorkspaceMeta",
     bodyId: "settingsPaneWorkspaceBody"
   },
@@ -22,7 +12,6 @@ export const SETTINGS_SECTIONS = Object.freeze([
     label: "笔记模板",
     paneId: "settingsPaneTemplates",
     buttonId: "settingsNavTemplates",
-    badgeId: "settingsNavTemplatesBadge",
     metaId: "settingsNavTemplatesMeta",
     bodyId: "settingsPaneTemplatesBody"
   },
@@ -31,35 +20,41 @@ export const SETTINGS_SECTIONS = Object.freeze([
     label: "AI 设置",
     paneId: "settingsPaneAi",
     buttonId: "settingsNavAi",
-    badgeId: "settingsNavAiBadge",
     metaId: "settingsNavAiMeta",
     bodyId: "settingsPaneAiBody"
   },
   {
     id: "automation",
-    label: "自动处理",
+    label: "自动整理",
     paneId: "settingsPaneAutomation",
     buttonId: "settingsNavAutomation",
-    badgeId: "settingsNavAutomationBadge",
     metaId: "settingsNavAutomationMeta",
     bodyId: "settingsPaneAutomationBody"
+  },
+  {
+    id: "support",
+    label: "帮助与反馈",
+    paneId: "settingsPaneSupport",
+    buttonId: "settingsNavSupport",
+    metaId: "settingsNavSupportMeta",
+    bodyId: "settingsPaneSupportBody"
   }
 ]);
 
 export const SETTINGS_DETAIL_ITEMS = Object.freeze([
-  { id: "desktop-help", label: "本地使用说明", group: "新手帮助", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
-  { id: "feedback", label: "问题反馈", group: "新手帮助", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
-  { id: "version-update", label: "版本更新", group: "新手帮助", sectionId: "support", cardIds: ["settingsUpdateCard"] },
-  { id: "mobile-access", label: "手机访问", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
-  { id: "current-vault", label: "本地笔记库", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
-  { id: "import-export", label: "导入导出", group: "本地使用", sectionId: "workspace", cardIds: ["settingsCardImportExport"] },
-  { id: "permanent-template", label: "永久笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
-  { id: "literature-template", label: "文献笔记模板", group: "进阶设置", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
-  { id: "ai-settings", label: "AI 设置", group: "进阶设置", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
-  { id: "automation", label: "自动处理", group: "进阶设置", sectionId: "automation", cardIds: ["settingsCardAutomation"] }
+  { id: "mobile-access", label: "手机访问", group: "手机访问", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
+  { id: "current-vault", label: "本地笔记库", group: "工作区与数据", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
+  { id: "import-export", label: "导入导出", group: "工作区与数据", sectionId: "workspace", cardIds: ["settingsCardImportExport"] },
+  { id: "permanent-template", label: "永久笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
+  { id: "literature-template", label: "文献笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
+  { id: "ai-settings", label: "AI 设置", group: "AI", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
+  { id: "automation", label: "自动整理", group: "自动整理", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
+  { id: "desktop-help", label: "本地使用说明", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
+  { id: "feedback", label: "问题反馈", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
+  { id: "version-update", label: "版本更新", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsUpdateCard"] }
 ]);
 
-const SETTINGS_DETAIL_GROUPS = ["本地使用", "新手帮助", "进阶设置"];
+const SETTINGS_DETAIL_GROUPS = ["手机访问", "工作区与数据", "笔记模板", "AI", "自动整理", "帮助与反馈"];
 
 function escapeHtmlValue(value) {
   return String(value ?? "")
@@ -72,7 +67,7 @@ function escapeHtmlValue(value) {
 
 export function normalizeSettingsSection(sectionId = "") {
   const requested = String(sectionId || "").trim().toLowerCase();
-  return SETTINGS_SECTIONS.some((section) => section.id === requested) ? requested : "support";
+  return SETTINGS_SECTIONS.some((section) => section.id === requested) ? requested : "workspace";
 }
 
 export function settingsSectionConfig(sectionId = "") {
@@ -123,11 +118,11 @@ export function settingsSectionChromeMap({
     },
     ai: {
       badge: settingsAiRuntimeModeLabel(settingsState.ai?.runtimeMode),
-      meta: aiSummary.meta || "本地环境、远程环境与使用方式"
+      meta: aiSummary.meta || "本机 AI、在线 AI 与使用方式"
     },
     automation: {
       badge: String(automationCount),
-      meta: `待确认 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 后台任务 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`
+      meta: `待处理 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 整理规则 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`
     },
     support: {
       badge: feedbackRepositoryReady ? "反馈入口" : "待绑定",
@@ -290,16 +285,19 @@ export function settingsItemSummary(itemId = "") {
   const summaries = {
     "current-vault": "在这里直接选择并切换笔记库路径。",
     "import-export": "导入外部资料或导出永久笔记；日常保护数据请优先使用左侧的备份与恢复。",
-    "mobile-access": "手机扫码连接这台电脑，用来随时记录想法、保存素材和轻量查看笔记。",
+    "mobile-access": "扫码连接手机。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
-    "ai-settings": "从本地大模型或远程大模型入口开始配置。",
-    automation: "处理待确认建议，必要时再查看后台任务和运行结果。",
+    "ai-settings": "",
+    automation: "先看待处理内容；需要调整时再看整理规则和历史记录。",
     "version-update": "检查新版本，必要时打开下载页。",
     "desktop-help": "说明笔记文件、数据库和笔记库切换规则。",
     feedback: "反馈问题或复制排查信息。"
   };
-  return summaries[normalizeSettingsItem(itemId)] || "右侧只显示当前点击设置项相关的内容。";
+  const key = normalizeSettingsItem(itemId);
+  return Object.prototype.hasOwnProperty.call(summaries, key)
+    ? summaries[key]
+    : "右侧只显示当前点击设置项相关的内容。";
 }
 
 export function formatSettingsUserError(errorMessage = "") {
@@ -338,19 +336,19 @@ export function settingsSectionGuidanceMap({
       ]
     },
     ai: {
-      focus: `先选择“本地大模型”或“远程大模型”入口，再确认当前 AI 方案 ${aiSummary.value} 是否适合日常研究。`,
+      focus: `先选择“本机 AI”或“在线 AI”，再确认当前方案 ${aiSummary.value} 是否适合日常研究。`,
       notes: [
-        "本地大模型适合敏感资料和离线研究。",
-        "远程大模型适合团队网关、云端模型或统一服务。",
+        "本机 AI 适合敏感资料和离线研究。",
+        "在线 AI 适合团队网关、云端模型或统一服务。",
         "入口向导完成后，再用一句不含敏感内容的短句试运行。"
       ]
     },
     automation: {
-      focus: "先处理需要你确认的建议；后台任务和运行结果只在需要调整或排查时查看。",
+      focus: "先处理待处理内容；整理规则和历史记录只在需要调整或排查时查看。",
       notes: [
-        "待确认建议不会自动写入笔记或图谱。",
-        "后台任务只负责生成推荐结果，最终是否采纳仍由你决定。",
-        "运行结果用于排查失败和确认最近一次处理。"
+        "待处理内容不会自动写入笔记或图谱。",
+        "整理规则只负责生成推荐结果，最终是否采纳仍由你决定。",
+        "历史记录用于排查失败和确认最近一次整理。"
       ]
     },
     support: {
@@ -386,7 +384,6 @@ export function settingsSidebarNavigationHtml({
             <span class="settings-sidebar-menu-title">${escapeHtml(item.label)}</span>
             <span class="settings-sidebar-menu-meta">${escapeHtml(chrome.meta || settingsSectionConfig(item.sectionId).label)}</span>
           </span>
-          <span class="settings-sidebar-menu-badge">${escapeHtml(chrome.badge || settingsSectionConfig(item.sectionId).label)}</span>
         </button>
       `;
     }).join("");
@@ -425,6 +422,11 @@ export function settingsModuleHeaderCopy({ settingsState = {} } = {}) {
   const activeItem = settingsDetailItemConfig(settingsState.activeItem);
   return {
     title: activeItem.label,
-    summary: settingsItemSummary(activeItem.id)
+    summary: settingsItemSummary(activeItem.id),
+    templateKind: activeItem.id === "literature-template"
+      ? "literature"
+      : activeItem.id === "permanent-template"
+        ? "permanent"
+        : ""
   };
 }

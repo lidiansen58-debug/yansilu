@@ -15,6 +15,33 @@ import {
   ollamaRecommendationForModel
 } from "./prototype-ai-settings-controller.js";
 
+function clearAiTestResult(aiState = {}) {
+  aiState.testMeta = "";
+  aiState.testOutput = "";
+  aiState.testStatus = "";
+  aiState.testModel = "";
+  aiState.testProviderId = "";
+  aiState.testEndpointUrl = "";
+  aiState.testRemoteModel = "";
+  aiState.testSecretRef = "";
+  aiState.providerHealthProviderId = "";
+  aiState.providerHealthEndpointUrlSnapshot = "";
+  aiState.providerHealthCheckEndpointUrlSnapshot = "";
+  aiState.providerHealthRemoteModel = "";
+  aiState.providerHealthSecretRef = "";
+}
+
+function clearAiChatTestResult(aiState = {}) {
+  aiState.testMeta = "";
+  aiState.testOutput = "";
+  aiState.testStatus = "";
+  aiState.testModel = "";
+  aiState.testProviderId = "";
+  aiState.testEndpointUrl = "";
+  aiState.testRemoteModel = "";
+  aiState.testSecretRef = "";
+}
+
 export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
 
@@ -241,7 +268,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
           setStatus(count ? `已检测到 ${count} 个本地模型。` : "本地 AI 可连接，但还没有本地模型。", count ? "ok" : "warn");
         } else {
           const message = settingsState.ai.localRuntimeError || "本地 AI 当前不可用。";
-          setStatus(`未检测到本地 AI：${message}。请先下载安装并启动本地 AI。`, "warn");
+          setStatus(`未检测到模型运行工具：${message}。请先安装模型运行工具，再启动本地模型。`, "warn");
         }
       }
       return runtime;
@@ -255,7 +282,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       settingsState.ai.localRuntimeChatEndpointUrl = "";
       settingsState.ai.localRuntimeHealthEndpointUrl = "";
       settingsState.ai.localRuntimeError = String(error?.message || error);
-      if (options.silent !== true) setStatus(`本地 AI 检测失败：${settingsState.ai.localRuntimeError}。请先下载安装并启动本地 AI。`, "warn");
+      if (options.silent !== true) setStatus(`模型运行工具检测失败：${settingsState.ai.localRuntimeError}。请重新检测或安装模型运行工具。`, "warn");
       return null;
     } finally {
       settingsState.ai.localRuntimeChecking = false;
@@ -274,6 +301,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       startOllamaRuntime = async () => null
     } = runtimeDeps();
     settingsState.ai.localRuntimeStarting = true;
+    settingsState.ai.localRuntimeManagedStopPending = false;
     settingsState.ai.localRuntimeError = "";
     renderSettingsPanel();
     setStatus("正在启动本地 AI...", "warn");
@@ -296,7 +324,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       settingsState.ai.localRuntimeApiReachable = false;
       settingsState.ai.localRuntimeDefaultModelInstalled = false;
       settingsState.ai.localRuntimeError = String(error?.message || error);
-      setStatus(`启动本地 AI 失败：${settingsState.ai.localRuntimeError}。如果还没安装，请先下载本地 AI 运行环境。`, "warn");
+      setStatus(`启动本地模型失败：${settingsState.ai.localRuntimeError}。请重新检测模型运行工具。`, "warn");
       return null;
     } finally {
       settingsState.ai.localRuntimeStarting = false;
@@ -308,6 +336,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
     const {
       applyOllamaRuntimePreview = () => [],
       fetchOllamaModels = async () => null,
+      persistAiSettingsToStorage = () => {},
       renderSettingsPanel = () => {},
       setStatus = () => {},
       settingsState = {},
@@ -316,7 +345,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
     } = runtimeDeps();
     const confirmed = typeof window === "undefined" || typeof window.confirm !== "function"
       ? true
-      : window.confirm("停止本地 AI 会结束这台电脑上的本地模型服务，可能影响其他正在使用本地模型的软件。确定停止吗？");
+      : window.confirm("停止本地模型会结束模型运行工具，可能影响其他正在使用本地模型的软件。确定停止吗？");
     if (!confirmed) return null;
     settingsState.ai.localRuntimeStopping = true;
     settingsState.ai.localRuntimeError = "";
@@ -330,10 +359,12 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       settingsState.ai.localRuntimeManagedStopPending = stopOutcome.managedStopPending;
       if (stopOutcome.status === "manual_stop_required") {
         settingsState.ai.localRuntimeError = stopOutcome.error;
-        setStatus(`需要手动管理本地 AI：${settingsState.ai.localRuntimeError}`, "warn");
+        setStatus("模型运行工具由其他程序启动，请在系统中停止后重新检测。", "warn");
       } else if (stopOutcome.status === "stopped") {
         settingsState.ai.localRuntimeModels = [];
         settingsState.ai.localRuntimeError = stopOutcome.error;
+        clearAiTestResult(settingsState.ai);
+        persistAiSettingsToStorage();
         setStatus("本地 AI 已停止。需要本地模型时可以再启动。", "ok");
       } else if (stopOutcome.status === "stopping") {
         settingsState.ai.localRuntimeError = stopOutcome.error;
@@ -372,7 +403,9 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
     const requested = String(modelName || "").trim();
     const inCatalog = Boolean(ollamaRecommendationForModel(requested, currentOllamaModelTiers()));
     const next = requested && inCatalog && hasLocalModel(requested) ? requested : "";
+    const previous = String(settingsState.ai.localModel || "").trim();
     settingsState.ai.localModel = next;
+    if (next !== previous) clearAiTestResult(settingsState.ai);
     clearLocalOllamaSelectionState({ clearModel: false });
     if (next) applyOllamaLocalModelDefaults();
     persistAiSettingsToStorage();
@@ -467,6 +500,7 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       applyActiveAiProviderConfigToState = () => {},
       checkAiProviderHealth = async () => null,
       currentAiProviderId = () => "",
+      refreshAiRoutePreview = async () => {},
       renderSettingsPanel = () => {},
       resetAiProviderDraftTouched = () => {},
       saveAiProviderConfig = async () => null,
@@ -496,9 +530,16 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       upsertAiProviderConfig(saved);
       resetAiProviderDraftTouched();
       applyActiveAiProviderConfigToState();
+      await refreshAiRoutePreview({ render: false });
       const result = await checkAiProviderHealth(healthPlan.providerId, healthPlan.request);
       settingsState.ai.providerHealthResult = result;
+      settingsState.ai.providerHealthProviderId = String(providerId || "").trim();
+      settingsState.ai.providerHealthEndpointUrlSnapshot = String(settingsState.ai.providerEndpointUrl || "").trim();
+      settingsState.ai.providerHealthCheckEndpointUrlSnapshot = String(settingsState.ai.providerHealthEndpointUrl || "").trim();
+      settingsState.ai.providerHealthRemoteModel = String(settingsState.ai.remoteRuntimeModel || "").trim();
+      settingsState.ai.providerHealthSecretRef = String(settingsState.ai.secretRef || "").trim();
       const healthStatus = providerHealthResultStatus(result);
+      if (healthStatus.healthy) clearAiChatTestResult(settingsState.ai);
       setStatus(`AI 服务 ${healthStatus.label}`, healthStatus.healthy ? "ok" : "warn");
       return true;
     } catch (error) {

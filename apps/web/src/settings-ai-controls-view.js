@@ -1,4 +1,11 @@
 import { renderAiLocalModelRecommendationsForRuntime } from "./settings-ai-local-model-recommendations-view.js";
+import {
+  remoteConnectionReadyForProvider,
+  remoteHealthBelongsToAiConfig,
+  remoteHealthMatchesAiConfig,
+  remoteTestFailedForAiConfig,
+  remoteTestMatchesAiConfig
+} from "./settings-ai-remote-readiness.js";
 
 export { renderAiLocalModelRecommendationsForRuntime };
 
@@ -30,7 +37,9 @@ export function renderAiLocalModelControlsForRuntime(deps = {}) {
   const localSetupActive = showLocalModel && (runtimeMode === "local_only" || runtimeMode === "hybrid" || isLocalModelPack(ai.modelPack));
   const runtimeAvailable = ai.localRuntimeStatus === "available";
   const runtimeBusy = ai.localRuntimeChecking || ai.localRuntimeStarting || ai.localRuntimeStopping || ai.localRuntimePulling;
+  $("settingsAiLocalOptions")?.classList.toggle("hidden", !showLocalModel);
   renderLocalModelSelect({ $, escapeHtml, ai, showLocalModel, ollamaModelRecommendationProfiles, currentOllamaModelTiers });
+  renderAutoPrepareLocalToggle({ $, ai, showLocalModel });
   renderLocalRuntimeButtons({
     $,
     ai,
@@ -44,6 +53,13 @@ export function renderAiLocalModelControlsForRuntime(deps = {}) {
     hasLocalModel
   });
   renderAiLocalModelRecommendations(deps);
+}
+
+function renderAutoPrepareLocalToggle({ $, ai, showLocalModel }) {
+  const toggle = $("settingsAiAutoPrepareLocal");
+  if (!toggle) return;
+  toggle.checked = ai.autoPrepareLocalAi === true;
+  toggle.disabled = !showLocalModel;
 }
 
 function renderLocalModelSelect({ $, escapeHtml, ai, showLocalModel, ollamaModelRecommendationProfiles, currentOllamaModelTiers }) {
@@ -84,8 +100,9 @@ function renderLocalRuntimeButtons(input) {
   }
   const detectButton = $("settingsAiDetectOllama");
   if (detectButton) {
-    detectButton.classList.toggle("hidden", !localSetupActive);
-    detectButton.disabled = !localSetupActive || runtimeBusy;
+    const showDetectButton = localSetupActive && runtimeAvailable;
+    detectButton.classList.toggle("hidden", !showDetectButton);
+    detectButton.disabled = !showDetectButton || runtimeBusy;
     detectButton.textContent = !localSetupActive
       ? "先启用本地模型"
       : ai.localRuntimeChecking
@@ -100,20 +117,15 @@ function renderLocalRuntimeButtons(input) {
 
 function renderLocalStartStopButtons({ $, ai, localSetupActive, runtimeAvailable, runtimeBusy }) {
   const managedStopPending = ai.localRuntimeManagedStopPending === true;
-  const startButton = $("settingsAiStartOllama");
-  if (startButton) {
-    const canStartOllama = ai.localRuntimeReadinessStatus === "installed_not_running";
-    startButton.classList.toggle("hidden", !localSetupActive || runtimeAvailable || managedStopPending || !canStartOllama);
-    startButton.disabled = !localSetupActive || runtimeAvailable || managedStopPending || !canStartOllama || runtimeBusy;
-    startButton.textContent = ai.localRuntimeStarting ? "正在启动..." : "启动本地模型";
-  }
-  const stopButton = $("settingsAiStopOllama");
-  if (stopButton) {
-    const canStopOllama = runtimeAvailable || managedStopPending;
-    stopButton.classList.toggle("hidden", !localSetupActive || !canStopOllama);
-    stopButton.disabled = !localSetupActive || !canStopOllama || runtimeBusy;
-    stopButton.textContent = ai.localRuntimeStopping ? "正在停止..." : managedStopPending ? "继续停止" : "停止本地模型";
-  }
+  const runtimeToggle = $("settingsAiRuntimeToggle");
+  if (!runtimeToggle) return;
+  const canStartOllama = ai.localRuntimeReadinessStatus === "installed_not_running";
+  const canOperate = runtimeAvailable || canStartOllama;
+  runtimeToggle.classList.toggle("hidden", !localSetupActive || managedStopPending || !canOperate);
+  runtimeToggle.disabled = !localSetupActive || managedStopPending || !canOperate || runtimeBusy;
+  runtimeToggle.textContent = runtimeAvailable
+    ? ai.localRuntimeStopping ? "正在停止..." : "停止本地模型"
+    : ai.localRuntimeStarting ? "正在启动..." : "启动本地模型";
 }
 
 function renderDownloadControls({
@@ -129,7 +141,7 @@ function renderDownloadControls({
   hasLocalModel
 }) {
   const downloadLink = $("settingsAiDownloadOllama");
-  downloadLink?.classList.toggle("hidden", !localSetupActive || runtimeAvailable);
+  downloadLink?.classList.toggle("hidden", true);
   if (downloadLink) {
     const guide = currentOllamaSetupGuide();
     const installUrl = String(guide?.installUrl || "https://ollama.com/download").trim() || "https://ollama.com/download";
@@ -184,6 +196,7 @@ export function renderAiProviderConfigControlsForRuntime(deps = {}) {
     remoteModelInput.placeholder = remoteConfigurable ? "填写服务商提供的模型名" : "当前不需要填写";
   }
   syncInput($("settingsAiProviderEndpointUrl"), ai.providerEndpointUrl);
+  syncInput($("settingsAiSecretRef"), ai.remoteApiKey);
   syncInput($("settingsAiProviderHealthEndpointUrl"), ai.providerHealthEndpointUrl);
   renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiProviderConfig, remoteRuntimeModelFromMap });
   renderProviderButtons({ $, ai, providerId, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl });
@@ -202,25 +215,30 @@ function renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiPr
   const healthRecord = ai.providerHealthResult?.record || null;
   const draftTouched = ai.providerDraftTouched || {};
   const endpointValue = draftTouched.providerEndpointUrl ? ai.providerEndpointUrl : ai.providerEndpointUrl || config?.endpointUrl || config?.endpoint_url || "";
-  const secretValue = draftTouched.secretRef ? ai.secretRef : ai.secretRef || config?.secretRef || config?.secret_ref || "";
+  const secretValue = draftTouched.secretRef
+    ? ai.remoteApiKey || ai.secretRef
+    : ai.remoteApiKey || ai.secretRef || config?.secretRef || config?.secret_ref || "";
   const remoteModelValue = draftTouched.remoteRuntimeModel
     ? ai.remoteRuntimeModel
     : ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, config?.runtimeModelMap || config?.runtime_model_map || {}) || "";
   const configReady = remoteConfigurable
     ? Boolean(String(endpointValue || "").trim() && String(remoteModelValue || "").trim() && String(secretValue || "").trim())
     : Boolean(String(endpointValue || secretValue || remoteModelValue || "").trim());
-  const healthy = healthRecord?.status === "healthy";
-  const tested = ai.testStatus === "success";
+  const currentHealth = Boolean(healthRecord) && remoteHealthBelongsToAiConfig(ai, providerId);
+  const healthy = remoteHealthMatchesAiConfig(ai, providerId);
+  const tested = remoteTestMatchesAiConfig(ai, providerId);
+  const failedTest = remoteTestFailedForAiConfig(ai, providerId);
   const platformManaged = providerId === "platform_managed_openai";
   const disabled = config && String(config.status || "").trim() === "disabled";
-  const ok = tested || platformManaged;
-  const warn = disabled || (!ok && (!healthy || !configReady));
+  const ok = !failedTest && (tested || healthy || platformManaged);
+  const warn = failedTest || disabled || (!ok && (!healthy || !configReady));
   badge.classList.toggle("ok", ok && !disabled);
   badge.classList.toggle("warn", warn);
   if (ai.providerHealthChecking) badge.textContent = "测试中";
   else if (tested) badge.textContent = "测试成功";
-  else if (healthRecord?.status === "healthy") badge.textContent = "连接正常";
-  else if (healthRecord) badge.textContent = "连接失败";
+  else if (failedTest) badge.textContent = "需检查";
+  else if (healthy) badge.textContent = "连接正常";
+  else if (currentHealth) badge.textContent = "连接失败";
   else if (ai.providerConfigSaving) badge.textContent = "保存中";
   else if (ai.providerConfigError) badge.textContent = "需检查";
   else if (platformManaged) badge.textContent = "可用";
@@ -231,21 +249,32 @@ function renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiPr
 
 function renderProviderButtons({ $, ai, providerId, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl }) {
   const platformManaged = providerId === "platform_managed_openai";
+  const remoteConfigurable = providerId && !platformManaged && !["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId);
+  const remoteTestPassed = remoteConnectionReadyForProvider(ai, providerId);
+  const remoteKeyCleared = remoteConfigurable && !String(ai.remoteApiKey || "").trim() && ai.providerDraftTouched?.secretRef === true;
   const saveButton = $("settingsAiSaveProviderConfig");
   if (saveButton) {
-    saveButton.disabled = ai.providerConfigSaving || ai.providerHealthChecking || !providerId || platformManaged;
-    saveButton.textContent = ai.providerConfigSaving ? "保存中..." : platformManaged ? "无需保存" : "保存远程设置";
+    saveButton.disabled = ai.providerConfigSaving || ai.providerHealthChecking || !providerId || platformManaged || (remoteConfigurable && !remoteTestPassed && !remoteKeyCleared);
+    saveButton.textContent = ai.providerConfigSaving
+      ? "保存中..."
+      : platformManaged
+        ? "无需保存"
+        : remoteKeyCleared
+          ? "保存清空"
+        : remoteConfigurable && !remoteTestPassed
+          ? "先测试连接"
+          : "保存远程设置";
   }
   const checkButton = $("settingsAiCheckProviderHealth");
   if (!checkButton) return;
   const endpointUrl = String(ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
   const healthEndpointUrl = String(ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || "").trim();
-  checkButton.disabled = ai.providerConfigSaving || ai.providerHealthChecking || !providerId || platformManaged || !healthEndpointUrl;
+  checkButton.disabled = ai.providerConfigSaving || ai.providerHealthChecking || !providerId || platformManaged || !endpointUrl;
   checkButton.textContent = ai.providerHealthChecking
     ? "测试中..."
     : platformManaged
       ? "已内置"
-      : !healthEndpointUrl
+      : !endpointUrl
         ? "填写后测试"
         : "测试连接";
 }

@@ -37,8 +37,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     refreshDirectoryGraph = async () => false,
     captureGraphIsolatedRelationDraftFromForm = noop,
     runGraphAiConnectForNote = asyncNoop,
-    openGraphRelationFormInSelection = noop,
-    graphRelationWorkflowController = { openIsolatedFromAction: noop },
+    openRelationComposerFromGraphAction = null,
     saveGraphAiCandidateRelation = asyncNoop,
     confirmGraphPotentialRelationRefine = asyncNoop,
     retryGraphPotentialRelationRefine = asyncNoop,
@@ -61,6 +60,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     markGraphIsolatedRationaleUserEdited = noop,
     filterGraphManualRelationTargets = noop,
     applyGraphViewModeInteraction = () => ({ changed: false, meta: { label: "" } }),
+    applyGraphTaskViewInteraction = () => ({ changed: false, meta: { label: "" } }),
     graphReadingModeMeta = noop,
     applyGraphWheelZoomInteraction = () => ({ changed: false }),
     graphZoomOption = noop,
@@ -101,11 +101,30 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     return true;
   }
 
+  function openGraphRelationComposerOnly(button = null) {
+    if (typeof openRelationComposerFromGraphAction === "function" && openRelationComposerFromGraphAction(button)) return true;
+    setStatus("Relation composer did not open. Please try again.", "warn");
+    return false;
+  }
+
   graphCanvas?.addEventListener("click", async (event) => {
     const consumeGraphClick = () => {
       event.preventDefault();
       event.stopImmediatePropagation();
+      event.stopPropagation();
     };
+    const earlySelectionClose = event.target.closest("[data-graph-selection-close]");
+    if (earlySelectionClose) {
+      consumeGraphClick();
+      if (typeof dismissSafeOverlaysForEscape === "function") {
+        dismissSafeOverlaysForEscape(event);
+      } else {
+        graphState.selection = null;
+        renderGraphPanel();
+        setStatus("Graph selection closed.", "ok");
+      }
+      return;
+    }
     const graphHitTarget = event.target.closest(".graph-map-node[data-node-id], .graph-map-edge-group[data-edge-from], [data-graph-select-node]");
     if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport") && !graphHitTarget) {
       consumeGraphClick();
@@ -139,7 +158,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const graphRelationFormButton = event.target.closest("[data-graph-open-relation-form]");
     if (graphRelationFormButton) {
       consumeGraphClick();
-      openGraphRelationFormInSelection(graphRelationFormButton);
+      openGraphRelationComposerOnly(graphRelationFormButton);
       return;
     }
     const researchClose = event.target.closest("[data-graph-research-close]");
@@ -185,6 +204,13 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       });
       renderGraphPanel();
       setStatus(`已切换到${result.meta.statusLabel || result.meta.label}`, "ok");
+      return;
+    }
+    const workbenchGuideToggle = event.target.closest("[data-graph-workbench-guide-toggle]");
+    if (workbenchGuideToggle) {
+      graphState.workbenchGuideOpen = graphState.workbenchGuideOpen !== true;
+      renderGraphPanel();
+      setStatus(graphState.workbenchGuideOpen ? "已展开说明" : "已收起说明", "ok");
       return;
     }
     const workbenchClose = event.target.closest("[data-graph-workbench-close]");
@@ -244,8 +270,9 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const graphAiButton = event.target.closest("[data-run-graph-ai-analysis]");
     if (graphAiButton) {
       consumeGraphClick();
+      const mode = String(graphAiButton.getAttribute("data-run-graph-ai-analysis") || "").trim();
       graphState.workbenchPanelOpen = true;
-      graphState.workbenchPanelTab = "questions";
+      graphState.workbenchPanelTab = mode === "theme" ? "questions" : mode === "gap" ? "clues" : graphState.workbenchPanelTab === "questions" ? "questions" : "clues";
       renderGraphPanel();
       void runGraphAiAnalysis();
       return;
@@ -316,7 +343,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const isolatedSelection = event.target.closest("[data-graph-select-isolated]");
     if (isolatedSelection) {
-      graphRelationWorkflowController.openIsolatedFromAction(isolatedSelection);
+      openGraphRelationComposerOnly(isolatedSelection);
       return;
     }
     const bridgeSelection = event.target.closest("[data-graph-select-bridge]");
@@ -502,7 +529,8 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const readingLensButton = event.target.closest("[data-graph-reading-lens]");
     if (readingLensButton) {
       const result = applyGraphReadingLensInteraction(graphState, readingLensButton.getAttribute("data-graph-reading-lens"), {
-        graphReadingLensMeta
+        graphReadingLensMeta,
+        setGraphRelationTypeFilter
       });
       if (result.lens === "insight") {
         applyGraphWorkbenchTabInteraction(graphState, "clues", {
@@ -598,6 +626,15 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
       setStatus(`已切换到${result.meta.statusLabel || result.meta.label}`, "ok");
       return;
     }
+    const workbenchGuideToggle = event.target?.closest?.("[data-graph-workbench-guide-toggle]");
+    if (workbenchGuideToggle) {
+      event.preventDefault();
+      event.stopPropagation();
+      graphState.workbenchGuideOpen = graphState.workbenchGuideOpen !== true;
+      renderGraphPanel();
+      setStatus(graphState.workbenchGuideOpen ? "已展开说明" : "已收起说明", "ok");
+      return;
+    }
     const workbenchClose = event.target?.closest?.("[data-graph-workbench-close]");
     if (workbenchClose) {
       event.preventDefault();
@@ -611,8 +648,9 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     if (graphAiButton) {
       event.preventDefault();
       event.stopPropagation();
+      const mode = String(graphAiButton.getAttribute("data-run-graph-ai-analysis") || "").trim();
       graphState.workbenchPanelOpen = true;
-      graphState.workbenchPanelTab = "questions";
+      graphState.workbenchPanelTab = mode === "theme" ? "questions" : mode === "gap" ? "clues" : graphState.workbenchPanelTab === "questions" ? "questions" : "clues";
       renderGraphPanel();
       void runGraphAiAnalysis();
       return;
@@ -767,7 +805,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const graphRelationFormButton = event.target.closest("[data-graph-open-relation-form]");
     if (graphRelationFormButton) {
       event.preventDefault();
-      openGraphRelationFormInSelection(graphRelationFormButton);
+      openGraphRelationComposerOnly(graphRelationFormButton);
       return;
     }
     const graphAiCandidateButton = event.target.closest("[data-graph-ai-candidate-apply]");
@@ -925,11 +963,16 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
   });
 
   graphCanvas?.addEventListener("click", (event) => {
-    const legendToggle = event.target.closest("#graphLegendToggle");
-    if (legendToggle) {
-      graphState.legendOpen = graphState.legendOpen !== true;
+    const taskViewToggle = event.target.closest("[data-graph-task-view]");
+    if (taskViewToggle) {
+      const result = applyGraphTaskViewInteraction(graphState, taskViewToggle.getAttribute("data-graph-task-view"), {
+        setGraphRelationTypeFilter,
+        graphReadingLensMeta
+      });
+      if (!result.changed) return;
       renderGraphPanel();
-      setStatus(graphState.legendOpen ? "已显示关系图例" : "已隐藏关系图例", "ok");
+      requestAnimationFrame(centerGraphViewportIfZoomed);
+      setStatus(`图谱已切换到：${result.meta.label}`, "ok");
       return;
     }
     const toggle = event.target.closest("[data-graph-view-mode]");
