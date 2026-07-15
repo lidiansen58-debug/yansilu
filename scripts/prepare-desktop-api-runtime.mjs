@@ -50,15 +50,43 @@ function run(command, args, options = {}) {
 }
 
 function resolveNodeExe() {
+  // macOS: build universal (arm64+x86_64) Node.js via lipo
+  if (process.platform === "darwin") {
+    const nodeVersion = process.version.startsWith("v") ? process.version.slice(1) : process.version;
+    const cacheDir = path.join(repoRoot, ".cache", "node-universal");
+    const universalNode = path.join(cacheDir, "node");
+    if (fs.existsSync(universalNode)) {
+      const fileInfo = spawnSync("file", [universalNode], { encoding: "utf8" });
+      if (String(fileInfo.stdout || "").includes("universal")) {
+        return universalNode;
+      }
+      fs.rmSync(universalNode, { force: true });
+    }
+    ensureDir(cacheDir);
+    const archs = ["arm64", "x64"];
+    const binaries = [];
+    for (const arch of archs) {
+      const archDir = path.join(cacheDir, arch);
+      const archBin = path.join(archDir, "bin", "node");
+      if (!fs.existsSync(archBin)) {
+        const tarFile = path.join(cacheDir, `node-${arch}.tar.gz`);
+        const url = `https://nodejs.org/dist/v${nodeVersion}/node-v${nodeVersion}-darwin-${arch}.tar.gz`;
+        console.log(`Downloading Node.js ${nodeVersion} (${arch})...`);
+        ensureDir(archDir);
+        run("curl", ["-fsSL", "-o", tarFile, url], { cwd: cacheDir });
+        run("tar", ["-xzf", tarFile, "-C", archDir, "--strip-components=1"], { cwd: cacheDir });
+        fs.unlinkSync(tarFile);
+      }
+      binaries.push(archBin);
+    }
+    console.log("Creating universal Node.js binary with lipo...");
+    run("lipo", ["-create", "-output", universalNode, ...binaries]);
+    console.log("Universal Node.js binary ready.");
+    return universalNode;
+  }
   if (process.platform === "win32") {
-    const result = spawnSync("where.exe", ["node"], {
-      encoding: "utf8",
-      shell: false
-    });
-    const first = String(result.stdout || "")
-      .split(/\r?\n/u)
-      .map((item) => item.trim())
-      .find(Boolean);
+    const result = spawnSync("where.exe", ["node"], { encoding: "utf8", shell: false });
+    const first = String(result.stdout || "").split(/\r?\n/u).map(item => item.trim()).find(Boolean);
     if (first && fs.existsSync(first)) return first;
   }
   return process.execPath;
@@ -95,6 +123,12 @@ function resolveNpmCli() {
     return localNpmCli;
   }
 
+  // Homebrew (macOS): /opt/homebrew/lib/node_modules/npm/bin/npm-cli.js
+  const homebrewNpmCli = "/opt/homebrew/lib/node_modules/npm/bin/npm-cli.js";
+  if (fs.existsSync(homebrewNpmCli)) {
+    return homebrewNpmCli;
+  }
+
   const npmCommand = resolveCommand(process.platform === "win32" ? "npm.cmd" : "npm");
   const npmDir = path.dirname(npmCommand);
   const siblingNpmCli = path.join(npmDir, "node_modules", "npm", "bin", "npm-cli.js");
@@ -111,6 +145,17 @@ ensureDir(runtimeRoot);
 const bundledNodePath = path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "node");
 copyFile(resolveNodeExe(), bundledNodePath);
 makeExecutable(bundledNodePath);
+
+// On macOS, the Node.js binary depends on libnode.*.dylib in ../lib relative to bin/node.
+// Copy the lib directory alongside the binary so it works after bundling into .app.
+if (process.platform === "darwin") {
+  const nodeExePath = resolveNodeExe();
+  const libSrcDir = path.join(path.dirname(nodeExePath), "..", "lib");
+  const libDestDir = path.join(runtimeRoot, "node", "lib");
+  if (fs.existsSync(libSrcDir)) {
+    copyDir(libSrcDir, libDestDir);
+  }
+}
 
 copyFile(path.join(repoRoot, "package.json"), path.join(runtimeRoot, "package.json"));
 copyFile(path.join(repoRoot, "package-lock.json"), path.join(runtimeRoot, "package-lock.json"));
@@ -130,6 +175,13 @@ copyDir(
 run(resolveNodeExe(), [resolveNpmCli(), "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], {
   cwd: runtimeRoot
 });
+
+// Fix permissions: npm ci may create read-only files/dirs
+if (process.platform === "darwin") {
+  run("chmod", ["-R", "u+w", runtimeRoot]);
+  run("find", [runtimeRoot, "-type", "d", "-exec", "chmod", "755", "{}", "+"]);
+  run("xattr", ["-rc", runtimeRoot]);
+}
 
 const manifest = {
   generatedAt: new Date().toISOString(),
