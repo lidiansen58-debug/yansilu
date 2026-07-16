@@ -160,6 +160,7 @@ const PROTOTYPE_URL = String(process.env.PROTOTYPE_URL || `http://127.0.0.1:${WE
 const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${WEB_PORT}`);
 const CWD = process.cwd();
 const PACKAGE_JSON_PATH = path.join(CWD, "package.json");
+const MOBILE_WEB_DIR = path.join(CWD, "apps", "web", "src");
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
 const OLLAMA_RECOMMENDED_MODELS = [...LOCAL_AI_RECOMMENDED_MODELS];
@@ -3515,6 +3516,11 @@ const importExportService = createImportExportService({
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+
+    // Desktop mode: rewrite /mobile/api/* to /api/v1/mobile/*
+    if (url.pathname.startsWith("/mobile/api/")) {
+      url.pathname = url.pathname.replace("/mobile/api", "/api/v1/mobile");
+    }
   const rid = requestId(req);
   let releaseWrite = null;
 
@@ -7117,6 +7123,42 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+
+    // Desktop mode: serve mobile page and static files for phone access
+    if (req.method === "GET") {
+      if (url.pathname === "/mobile" || url.pathname === "/app/mobile") {
+        const mobileHtmlPath = path.join(MOBILE_WEB_DIR, "mobile.html");
+        try {
+          const raw = await fs.readFile(mobileHtmlPath, "utf8");
+          const html = raw.replaceAll('"__MOBILE_API_BASE__"', JSON.stringify("/mobile/api"));
+          return sendHtml(res, 200, html);
+        } catch (error) {
+          return sendJson(res, 500, err("MOBILE_PAGE_ERROR", "Mobile page not found in runtime.", rid));
+        }
+      }
+      if (url.pathname === "/mobile.js") {
+        const filePath = path.join(MOBILE_WEB_DIR, "mobile.js");
+        try {
+          const content = await fs.readFile(filePath, "utf8");
+          res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+          res.end(content);
+          return;
+        } catch {
+          return sendJson(res, 404, err("MOBILE_JS_NOT_FOUND", "mobile.js not found", rid));
+        }
+      }
+      if (url.pathname === "/mobile.css") {
+        const filePath = path.join(MOBILE_WEB_DIR, "mobile.css");
+        try {
+          const content = await fs.readFile(filePath, "utf8");
+          res.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
+          res.end(content);
+          return;
+        } catch {
+          return sendJson(res, 404, err("MOBILE_CSS_NOT_FOUND", "mobile.css not found", rid));
+        }
+      }
+    }
     return sendJson(res, 404, err("NOT_FOUND", "Route not found", rid));
   } catch (error) {
     const status = Number(error?.status || 500);

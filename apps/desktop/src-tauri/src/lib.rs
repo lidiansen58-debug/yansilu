@@ -502,7 +502,7 @@ fn spawn_desktop_api(config: &DesktopApiConfig) -> Result<DesktopApiLaunch, Stri
         .arg("--trace-uncaught")
         .arg("apps/api/src/server.mjs")
         .current_dir(runtime_dir)
-        .env("API_HOST", "127.0.0.1")
+        .env("API_HOST", "0.0.0.0")
         .env("API_PORT", api_port.to_string())
         .env("WEB_PORT", "5173")
         .env("VAULT_PATH", &config.vault_path)
