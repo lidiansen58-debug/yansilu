@@ -1,6 +1,6 @@
 {
   "version": "0.1.1-beta.1",
-  "releaseDate": "2026-07-16T06:48:58.612Z",
+  "releaseDate": "2026-07-16T08:01:11.680Z",
   "channel": "beta",
   "changelog": [
     "Yansilu v0.1.1-beta.1 is a Windows desktop beta for close testers who want to try the core card-note writing workflow end to end.",
@@ -35,13 +35,13 @@
   "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/tag/v0.1.1-beta.1",
   "assets": [
     {
-      "file": "nsis/研思录_0.1.1-beta.1_x64-setup.exe",
+      "file": "研思录_0.1.1-beta.1_x64-setup.exe",
       "platform": "windows-x86_64",
-      "bytes": 33097232,
+      "bytes": 33102784,
       "url": "https://github.com/lidiansen58-debug/yansilu/releases/download/v0.1.1-beta.1/%E7%A0%94%E6%80%9D%E5%BD%95_0.1.1-beta.1_x64-setup.exe",
       "checksum": {
         "algorithm": "sha256",
-        "value": "934E1743C010552E3C2E0ADBB38A944B3182516B5F2E37DC2DADA89231DFE7E7"
+        "value": "507CB6AA042544FC58B8FAEE27ABF98F49104235C9B1275A711F63372D46B50D"
       }
     }
   ],
@@ -49,6 +49,6 @@
   "critical": false,
   "checksum": {
     "algorithm": "sha256",
-    "value": "934E1743C010552E3C2E0ADBB38A944B3182516B5F2E37DC2DADA89231DFE7E7"
+    "value": "507CB6AA042544FC58B8FAEE27ABF98F49104235C9B1275A711F63372D46B50D"
   }
 }
