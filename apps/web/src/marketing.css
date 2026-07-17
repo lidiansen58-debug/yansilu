@@ -3118,7 +3118,7 @@ img {
 
 .v2-workflow-rail {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
 }
 
@@ -4314,7 +4314,7 @@ body.page-home-v3 {
 
 .thought-path {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 18px;
 }
 
