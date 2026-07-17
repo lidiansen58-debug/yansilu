@@ -59,13 +59,12 @@ test("marketing routes expose static marketing pages", async (t) => {
   const routes = [
     ["/about", "page-about-v2"],
     ["/product", "page-product-v2"],
+    ["/pricing", "page-pricing-v2"],
+    ["/download", "page-download-v2"],
     ["/demo", "page-demo-v2"],
     ["/demo/zettelkasten", "page-demo-v2"],
     ["/privacy", "page-privacy-v2"],
-    ["/terms", "page-terms-v2"],
-    ["/login", "page-login-v2"],
-    ["/register", "page-register-v2"],
-    ["/billing", "page-billing-v2"]
+    ["/terms", "page-terms-v2"]
   ];
 
   for (const [route, bodyClass] of routes) {
@@ -76,16 +75,15 @@ test("marketing routes expose static marketing pages", async (t) => {
     assert.match(html, new RegExp(`body class="[^"]*${bodyClass}`));
     assert.match(html, /<main id="main"/);
     assert.match(html, /marketing-site\.js/);
-    if (route === "/login" || route === "/register") {
-      assert.match(html, /id="authForm"/);
-      assert.match(html, /class="auth-card"/);
-    }
-    if (route === "/billing") {
-      assert.match(html, /data-billing-plan/);
-      assert.match(html, /data-billing-status/);
+    assert.doesNotMatch(html, /href="\/(?:login|register|billing)"/);
+    assert.doesNotMatch(html, /marketing-session\.js/);
+    if (route === "/product") {
+      assert.match(html, /v2-workflow-rail/);
+      assert.match(html, /v2-orbit-map/);
+      assert.match(html, /v2-final-cta/);
+      assert.doesNotMatch(html, />连接<\/span>/);
     }
     if (route === "/demo") {
-      assert.match(html, /产品演示中心/);
       assert.match(html, /\/demo\/zettelkasten/);
       assert.doesNotMatch(html, /\/demo\/yijing/);
       assert.doesNotMatch(html, /yijing-rich/);
@@ -97,12 +95,23 @@ test("marketing routes expose static marketing pages", async (t) => {
       assert.doesNotMatch(html, /\/demo\/yijing/);
       assert.doesNotMatch(html, /yijing-rich/);
       assert.match(html, /306 relations/);
-      assert.match(html, /自动导入这套 fixture/);
-      assert.match(html, /打开导览笔记/);
-      assert.doesNotMatch(html, /自动导入将在后续阶段接入/);
-      assert.doesNotMatch(html, /下一阶段会让工作台自动导入/);
-      assert.doesNotMatch(html, /定位到适合讲解关系与写作入口的模块/);
+      assert.doesNotMatch(html, /fixture/);
     }
+  }
+});
+test("removed marketing account routes return not found", async (t) => {
+  const webBase = await withWebServer(t);
+  for (const route of [
+    "/login",
+    "/register",
+    "/billing",
+    "/account/billing",
+    "/marketing-login.html",
+    "/marketing-register.html",
+    "/marketing-billing.html"
+  ]) {
+    const res = await fetch(`${webBase}${route}`, { redirect: "manual" });
+    assert.equal(res.status, 404, route);
   }
 });
 
@@ -112,11 +121,33 @@ test("marketing home exposes the smart notes demo story", async (t) => {
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type") || "", /text\/html/);
   const html = await res.text();
-  assert.match(html, /home-v3-demo/);
+  assert.match(html, /page-home-workbench/);
+  assert.match(html, /workbench-preview/);
   assert.match(html, /smart-notes-product-thinking/);
   assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
+  assert.match(html, /本地优先 · 免费使用 · AI 可选/);
+  assert.match(html, /打开后，先知道今天该整理哪一条/);
+  assert.match(html, /3 个可推进任务/);
+  assert.match(html, /先处理今天/);
+  assert.match(html, /再补关系/);
+  assert.match(html, /最后进入写作/);
+  assert.match(html, /笔记库在本地/);
+  assert.match(html, /AI 只是可选择的助手/);
+  assert.match(html, /手机轻记录/);
+  assert.match(html, /对应供应商/);
 });
-
+test("marketing pricing states the permanent-free and third-party cost boundary", async (t) => {
+  const webBase = await withWebServer(t);
+  const res = await fetch(`${webBase}/pricing`);
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /page-pricing-v2/);
+  assert.match(html, /promise-price/);
+  assert.match(html, /v2-faq-grid/);
+  assert.doesNotMatch(html, /cost-ledger/);
+  assert.doesNotMatch(html, /token/);
+  assert.doesNotMatch(html, /Stripe/);
+});
 test("asset proxy refuses html documents before calling the API", async (t) => {
   const webBase = await withWebServer(t);
   const res = await fetch(`${webBase}/assets/index.html`);

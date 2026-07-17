@@ -3,248 +3,138 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>研思录 | 从笔记走到可写的判断</title>
-  <meta
-    name="description"
-    content="研思录是一套面向研究、学习与写作的本地优先工作台，把快速记录、材料转述、关系确认、主题索引和写作准备连成一条清楚路径。"
-  />
+  <title>研思录 | 面向整理、关联和写作的本地笔记工作台</title>
+  <meta name="description" content="研思录是本地优先的笔记工作台，帮助你从今天要处理的记录开始，整理观点、建立关联，并把成熟材料带入写作。" />
   <link rel="stylesheet" href="/marketing.css" />
   <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
 </head>
-<body class="site-v2 page-home-v3">
+<body class="site-v2 page-home-v3 page-home-workbench">
   <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="marketing-shell">
     <header class="site-header">
       <div class="container site-header-inner">
         <a class="brand" href="/">
           <img class="brand-mark" src="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" alt="研思录" />
-          <span class="brand-text">
-            <span class="brand-name">研思录</span>
-            <span class="brand-sub">Thinking in Notes</span>
-          </span>
+          <span class="brand-text"><span class="brand-name">研思录</span><span class="brand-sub">Thinking in Notes</span></span>
         </a>
         <nav class="site-nav" aria-label="主导航">
-          <a href="/product">产品</a>
-          <a href="/pricing">定价</a>
-          <a href="/demo">Demo</a>
-          <a href="/download">下载</a>
-          <a href="/app">工作台</a>
-          <a href="/login" data-guest-only>登录</a>
-          <a href="/billing" data-auth-only hidden>账户</a>
+          <a href="/product">产品</a><a href="/pricing">费用</a><a href="/demo">演示</a><a href="/download">下载</a><a href="/about">关于</a><a href="/app">工作台</a>
         </nav>
         <div class="header-actions">
-          <span class="session-chip" data-auth-only hidden>
-            <strong data-session-plan>FREE</strong>
-            <span data-session-email></span>
-          </span>
-          <a class="btn btn-secondary" href="/login" data-guest-only>登录</a>
-          <a class="btn btn-primary" href="/register" data-guest-only>免费开始</a>
-          <a class="btn btn-secondary" href="/" data-session-logout data-auth-only hidden>退出登录</a>
+          <a class="btn btn-primary" href="/download">免费下载</a>
         </div>
       </div>
     </header>
 
-    <main id="main" class="home-v3-main">
-      <section class="home-v3-hero" aria-labelledby="homeHeroTitle">
-        <div class="home-v3-scene" aria-hidden="true">
-          <div class="scene-sheet scene-source">
-            <span>原始材料</span>
-            <p>AI 可以生成段落，但作者是否仍然参与了观点形成？</p>
+    <main id="main" class="home-v3-main workbench-home-main">
+      <section class="workbench-hero" aria-labelledby="homeHeroTitle">
+        <div class="container workbench-hero-grid">
+          <div class="workbench-hero-copy">
+            <p class="home-v3-eyebrow">本地优先 · 免费使用 · AI 可选</p>
+            <h1 id="homeHeroTitle">打开后，先知道今天该整理哪一条。</h1>
+            <p class="workbench-lead">研思录不把首页做成概念墙。它把随手记录、文献材料、待关联观点和写作准备放进同一个工作台，让你每次回来都有一个清楚的下一步。</p>
+            <div class="home-v3-actions">
+              <a class="btn btn-primary" href="/download">下载桌面版</a>
+              <a class="btn btn-secondary" href="/prototype?demo=smart-notes-product-thinking">打开交互演示</a>
+            </div>
           </div>
-          <div class="scene-sheet scene-paraphrase">
-            <span>我的转述</span>
-            <p>风险不是代写本身，而是跳过理解、判断和论证组织。</p>
-          </div>
-          <div class="scene-sheet scene-thesis">
-            <span>一句话判断</span>
-            <strong>AI 写作削弱原创性的地方，是让作者绕过形成判断的过程。</strong>
-          </div>
-          <div class="scene-scaffold">
-            <span>写作脚手架</span>
-            <ol>
-              <li>效率与原创性的真实矛盾</li>
-              <li>为什么判断必须先于生成</li>
-              <li>AI 应该成为结构助手，而不是作者</li>
-            </ol>
-          </div>
-        </div>
 
-        <div class="container home-v3-hero-copy">
-          <p class="home-v3-eyebrow">Thinking in Notes</p>
-          <h1 id="homeHeroTitle">研思录</h1>
-          <p class="home-v3-tagline">从随手记录，到可写文章的判断网络。</p>
-          <p class="home-v3-lead">快速收集、转述材料、确认关系、整理主题、进入写作中心，一条线完成。AI 只给候选，你来决定哪些判断成立。</p>
-          <div class="home-v3-actions">
-            <a class="btn btn-primary" href="/register">免费开始</a>
-            <a class="btn btn-secondary" href="/demo">查看 Demo</a>
-          </div>
-          <ul class="home-v3-proof" aria-label="产品原则">
-            <li>本地 Vault</li>
-            <li>关系需确认</li>
-            <li>写作可追溯</li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="home-v3-section home-v3-contrast" aria-labelledby="contrastTitle">
-        <div class="container home-v3-two-col">
-          <div class="home-v3-section-copy">
-            <p class="home-v3-eyebrow">Why</p>
-            <h2 id="contrastTitle">不要再把“以后再整理”留给以后。</h2>
-            <p>研思录把每天的新材料、新想法和旧笔记放回一个可处理的队列，让每条内容都有下一步。</p>
-          </div>
-          <div class="contrast-board" role="list">
-            <article role="listitem">
-              <span>之前</span>
-              <strong>收集很多，真正写作时重新开始</strong>
-              <p>高亮、链接和临时想法都在，但还没有形成自己的判断。</p>
-            </article>
-            <article role="listitem">
-              <span>现在</span>
-              <strong>每天打开，就知道先处理哪一条</strong>
-              <p>材料、关系、主题和写作入口连在一起，不再靠临时记忆接力。</p>
-            </article>
+          <div class="workbench-preview" aria-label="研思录工作台预览">
+            <div class="workbench-window-bar">
+              <span>今天</span>
+              <strong>3 个可推进任务</strong>
+            </div>
+            <div class="workbench-preview-layout">
+              <aside class="workbench-preview-rail" aria-label="工作台模块">
+                <span class="is-active">整理</span>
+                <span>关联</span>
+                <span>写作</span>
+              </aside>
+              <div class="workbench-preview-main">
+                <article class="workbench-task is-primary">
+                  <span>下一步</span>
+                  <h2>把这条随手记录整理成自己的判断</h2>
+                  <p>先保留来源，再用自己的话写出可复用的观点。</p>
+                  <span class="workbench-task-cta">继续整理</span>
+                </article>
+                <div class="workbench-task-row">
+                  <article class="workbench-task">
+                    <span>待关联</span>
+                    <strong>2 条观点还孤立</strong>
+                    <p>找一条真正相关的笔记，并写清楚理由。</p>
+                  </article>
+                  <article class="workbench-task">
+                    <span>可写主题</span>
+                    <strong>1 组笔记可以进入提纲</strong>
+                    <p>确认问题、材料和文章方向。</p>
+                  </article>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="home-v3-section" aria-labelledby="pathTitle">
+      <section class="workbench-strip" aria-labelledby="workflowTitle">
         <div class="container">
-          <div class="home-v3-section-header">
-            <p class="home-v3-eyebrow">Flow</p>
-            <h2 id="pathTitle">五步，把材料送进写作。</h2>
-            <p>不用先搭一个庞大的知识库，从今天的一条记录开始，就能进入完整流程。</p>
+          <div class="workbench-section-head">
+            <p class="home-v3-eyebrow">核心交互</p>
+            <h2 id="workflowTitle">不是往下读完介绍，而是在同一屏完成选择。</h2>
           </div>
-          <div class="thought-path">
+          <div class="workbench-action-grid">
             <article>
               <span>01</span>
-              <h3>快速记录</h3>
-              <p>手机或桌面先收进来，别让想法散掉。</p>
+              <h3>先处理今天</h3>
+              <p>首页优先显示当前最该推进的一条记录，而不是让用户先理解整套方法。</p>
             </article>
             <article>
               <span>02</span>
-              <h3>转述材料</h3>
-              <p>保留来源，用自己的话说明这段内容。</p>
+              <h3>再补关系</h3>
+              <p>关系不是装饰性的线，而是“为什么相关”的人工确认。</p>
             </article>
             <article>
               <span>03</span>
-              <h3>确认关系</h3>
-              <p>连接相关笔记，并写清楚为什么有关。</p>
-            </article>
-            <article>
-              <span>04</span>
-              <h3>组织主题</h3>
-              <p>把判断放进问题、主题和论证层级里。</p>
-            </article>
-            <article>
-              <span>05</span>
-              <h3>开始写作</h3>
-              <p>从已确认的笔记进入提纲和段落。</p>
+              <h3>最后进入写作</h3>
+              <p>成熟观点、证据和主题聚合后，再生成提纲和草稿。</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="home-v3-section home-v3-studio" aria-labelledby="studioTitle">
-        <div class="container home-v3-studio-grid">
-          <div class="studio-copy">
-            <p class="home-v3-eyebrow">What you get</p>
-            <h2 id="studioTitle">打开后，先看今天该处理什么。</h2>
-            <p>快速记录、待转述材料、候选关系和写作主题都回到同一条主路径。其他细节放到需要时再出现。</p>
+      <section class="workbench-split" aria-labelledby="localTitle">
+        <div class="container workbench-split-grid">
+          <div>
+            <p class="home-v3-eyebrow">数据边界</p>
+            <h2 id="localTitle">笔记库在本地，AI 只是可选择的助手。</h2>
+            <p>笔记、附件、关系、主题和写作项目保存在你选择的本地文件夹。日常整理可以使用本地模型；只有你主动启用远程模型时，必要内容才会发送给对应供应商。</p>
           </div>
-          <div class="studio-stack" role="list">
-            <article role="listitem">
-              <strong>整理今天</strong>
-              <p>把新记录、新摘录和待确认事项收进清单。</p>
-            </article>
-            <article role="listitem">
-              <strong>确认关系</strong>
-              <p>AI 可以给候选，你确认类型、方向和理由。</p>
-            </article>
-            <article role="listitem">
-              <strong>进入写作</strong>
-              <p>从主题索引和已确认判断生成提纲，而不是从空白页开始。</p>
-            </article>
+          <div class="workbench-boundary-list" role="list">
+            <article role="listitem"><strong>本地保存</strong><span>文件位置由你决定，可备份、迁移和恢复。</span></article>
+            <article role="listitem"><strong>人工确认</strong><span>AI 建议不会自动变成正式笔记或关系。</span></article>
+            <article role="listitem"><strong>手机轻记录</strong><span>手机负责快速采集，深度整理回到电脑完成。</span></article>
           </div>
         </div>
       </section>
 
-      <section class="home-v3-section home-v3-demo" aria-labelledby="demoTitle">
-        <div class="container home-v3-demo-grid">
-          <div class="home-v3-demo-copy">
-            <p class="home-v3-eyebrow">Demo</p>
-            <h2 id="demoTitle">先看一个完整例子。</h2>
-            <p>用《卡片笔记写作法》Demo，看快速记录、永久笔记、显式关系和写作主题怎样连起来。</p>
-            <div class="home-v3-actions">
-              <a class="btn btn-primary" href="/demo">进入 Demo</a>
-              <a class="btn btn-secondary" href="/prototype?demo=smart-notes-product-thinking">打开工作台</a>
-            </div>
-          </div>
-          <div class="home-demo-board" aria-label="卡片笔记写作法 Demo 关系样例">
-            <div class="home-demo-stats" role="list" aria-label="Demo 数据">
-              <span role="listitem"><strong>24</strong> 文献笔记</span>
-              <span role="listitem"><strong>100</strong> 永久笔记</span>
-              <span role="listitem"><strong>159</strong> 显式关系</span>
-            </div>
-            <div class="home-demo-relations" role="list">
-              <article role="listitem">
-                <span>关系</span>
-                <strong>快速记录，必须被处理成可承担的判断。</strong>
-              </article>
-              <article role="listitem">
-                <span>写作</span>
-                <strong>写作主题从已确认笔记开始，而不是从空白 prompt 开始。</strong>
-              </article>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="home-v3-final" aria-labelledby="homeCtaTitle">
-        <div class="container home-v3-final-inner">
-          <p class="home-v3-eyebrow">Start</p>
+      <section class="workbench-final" aria-labelledby="homeCtaTitle">
+        <div class="container workbench-final-inner">
           <h2 id="homeCtaTitle">从今天的一条记录开始。</h2>
-          <p>先完成一次转述、一次关系确认、一个可以继续写下去的主题。</p>
+          <p>不用先搭一套复杂系统。打开工作台，处理最值得推进的一条，然后继续下一步。</p>
           <div class="home-v3-actions">
-            <a class="btn btn-primary" href="/register">免费开始</a>
-            <a class="btn btn-secondary" href="/download">下载桌面版</a>
+            <a class="btn btn-primary" href="/download">免费下载</a>
+            <a class="btn btn-secondary" href="/demo">查看演示</a>
           </div>
         </div>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="container footer-inner">
-        <div class="footer-grid">
-          <div class="footer-brand">
-            <strong>研思录 · Thinking in Notes</strong>
-            <p>帮助用户把材料、关系、主题和写作放回一条可追溯的思考路径。</p>
-            <p class="footer-meta">© <span data-current-year></span> 研思录</p>
-          </div>
-          <div class="footer-link-group">
-            <h3>了解产品</h3>
-            <a href="/product">产品介绍</a>
-            <a href="/pricing">定价方案</a>
-            <a href="/download">下载桌面版</a>
-          </div>
-          <div class="footer-link-group">
-            <h3>开始使用</h3>
-            <a href="/register">免费开始</a>
-            <a href="/login">登录账户</a>
-            <a href="/billing">账户与订阅</a>
-          </div>
-          <div class="footer-link-group">
-            <h3>合规</h3>
-            <a href="/privacy">隐私</a>
-            <a href="/terms">条款</a>
-            <a href="/about">关于</a>
-          </div>
-        </div>
-      </div>
-    </footer>
+    <footer class="footer"><div class="container footer-inner"><div class="footer-grid">
+      <div class="footer-brand"><strong>研思录 · Thinking in Notes</strong><p>本地优先的笔记整理、关联和写作工作台。软件永久免费。</p><p class="footer-meta">© <span data-current-year></span> 研思录</p></div>
+      <div class="footer-link-group"><h3>了解产品</h3><a href="/product">产品介绍</a><a href="/pricing">费用说明</a><a href="/demo">产品演示</a></div>
+      <div class="footer-link-group"><h3>开始使用</h3><a href="/download">免费下载</a><a href="/app">进入工作台</a></div>
+      <div class="footer-link-group"><h3>信任与承诺</h3><a href="/about">关于我们</a><a href="/privacy">隐私说明</a><a href="/terms">使用条款</a></div>
+    </div></div></footer>
   </div>
-
   <script type="module" src="/marketing-site.js"></script>
-  <script type="module" src="/marketing-session.js"></script>
 </body>
 </html>
