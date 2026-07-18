@@ -21,7 +21,7 @@ test("editor renders a lightweight selection AI action near the writing surface"
 
   assert.match(html, /id="selectionAiAction"/);
   assert.match(html, /id="selectionAiActionText"/);
-  assert.match(html, /id="btnSelectionAiDistill"[\s\S]*data-selection-ai-action="distill-claim"[\s\S]*>提炼这段<\/button>/);
+  assert.match(html, /id="btnSelectionAiDistill"[\s\S]*data-selection-ai-action="distill-claim"[\s\S]*>帮我提炼<\/button>/);
   assert.match(css, /\.selection-ai-action\s*\{[\s\S]*?position: fixed;/);
   assert.match(css, /\.selection-ai-action-button\s*\{[\s\S]*?background: #ecfeff;/);
 });

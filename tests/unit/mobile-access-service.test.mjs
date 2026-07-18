@@ -127,6 +127,69 @@ test("expired pair code cannot create a mobile pair request", async () => {
   });
 });
 
+test("repeated invalid pair codes are rate limited per client", async () => {
+  await withTempVault(async (vaultPath) => {
+    const status = await buildDesktopMobileAccessStatus(vaultPath);
+    const meta = { clientAddress: "192.168.1.50" };
+    const invalidCode = status.pairing.pairCode === "000000" ? "000001" : "000000";
+    for (let index = 1; index < MOBILE_PAIRING_TESTING.PAIR_FAILURE_LIMIT; index += 1) {
+      await assert.rejects(
+        () => createPairRequest(vaultPath, { pairCode: invalidCode }, meta),
+        (error) => error?.code === "MOBILE_PAIR_CODE_INVALID"
+      );
+    }
+    await assert.rejects(
+      () => createPairRequest(vaultPath, { pairCode: invalidCode }, meta),
+      (error) => error?.code === "MOBILE_PAIR_RATE_LIMITED" && error?.status === 429
+    );
+    await assert.rejects(
+      () => createPairRequest(vaultPath, { pairCode: status.pairing.pairCode }, meta),
+      (error) => error?.code === "MOBILE_PAIR_RATE_LIMITED"
+    );
+
+    const otherClient = await createPairRequest(
+      vaultPath,
+      { pairCode: status.pairing.pairCode, deviceName: "Trusted phone" },
+      { clientAddress: "192.168.1.51" }
+    );
+    assert.equal(otherClient.request.status, "pending");
+  });
+});
+
+test("pair failure tracking expires stale clients and stays bounded per vault", async () => {
+  await withTempVault(async (vaultPath) => {
+    const status = await buildDesktopMobileAccessStatus(vaultPath);
+    const invalidCode = status.pairing.pairCode === "000000" ? "000001" : "000000";
+    const now = Date.now();
+    const maximum = MOBILE_PAIRING_TESTING.PAIR_FAILURE_MAX_CLIENTS_PER_VAULT;
+
+    for (let index = 0; index < maximum + 20; index += 1) {
+      await assert.rejects(
+        () => createPairRequest(
+          vaultPath,
+          { pairCode: invalidCode },
+          { clientAddress: `fd12:3456::${(index + 1).toString(16)}`, now }
+        ),
+        (error) => error?.code === "MOBILE_PAIR_CODE_INVALID"
+      );
+    }
+
+    const key = path.resolve(vaultPath);
+    assert.equal(MOBILE_PAIRING_TESTING.pairFailuresByVault.get(key)?.size, maximum);
+
+    const afterExpiry = now + MOBILE_PAIRING_TESTING.PAIR_BLOCK_MS + 1;
+    await assert.rejects(
+      () => createPairRequest(
+        vaultPath,
+        { pairCode: invalidCode },
+        { clientAddress: "fd12:3456::ffff", now: afterExpiry }
+      ),
+      (error) => error?.code === "MOBILE_PAIR_CODE_INVALID"
+    );
+    assert.equal(MOBILE_PAIRING_TESTING.pairFailuresByVault.get(key)?.size, 1);
+  });
+});
+
 test("mobile token is unavailable before desktop confirmation, then works until revoked", async () => {
   await withTempVault(async (vaultPath) => {
     const status = await buildDesktopMobileAccessStatus(vaultPath);

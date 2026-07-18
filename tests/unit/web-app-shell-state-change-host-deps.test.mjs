@@ -156,6 +156,7 @@ test("app shell state-change deps provider keeps empty-start demo import depende
 
   assert.deepEqual(calls, [
     ["import", "empty-start"],
+    ["status", "正在导入 Smart Notes Demo，完成后会刷新首页。", "busy"],
     ["demo", "empty-start", true]
   ]);
 });

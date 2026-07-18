@@ -83,13 +83,16 @@ test("local AI setup keeps bootstrap behind explicit settings actions", () => {
   assert.equal(localAiGraphActionRequiresReady("graph_connect"), true);
   assert.equal(localAiGraphActionRequiresReady("settings_refresh"), false);
 
-  assert.match(htmlSource, /settings-ai-local-control-console/);
+  assert.match(htmlSource, /id="settingsAiLocalOptions"/);
+  assert.match(htmlSource, /id="settingsAiDetectOllama"/);
+  assert.match(htmlSource, /id="settingsAiDownloadOllama"/);
+  assert.match(htmlSource, /id="settingsAiPullOllamaModel"/);
   assert.doesNotMatch(htmlSource, /id="settingsAiLocalDialog"/);
   assert.match(htmlSource, /settingsMobileItemSelect/);
-  assert.match(htmlSource, /settings-ai-topline/);
+  assert.match(htmlSource, /settings-ai-local-panel/);
   assert.doesNotMatch(htmlSource, /data-settings-support-item="desktop-help"/);
   assert.doesNotMatch(htmlSource, /data-settings-support-item="feedback"/);
-  assert.match(htmlSource, /settingsAiCopyOllamaInstallCommand/);
+  assert.doesNotMatch(htmlSource, /settingsAiCopyOllamaInstallCommand/);
 });
 test("local Ollama eval prefers qwen3 8b by default", () => {
   const currentFile = fileURLToPath(import.meta.url);

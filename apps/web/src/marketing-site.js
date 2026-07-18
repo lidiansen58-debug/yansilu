@@ -1,6 +1,7 @@
+import { initMarketingTabs } from "./marketing-tabs.js";
+
 function normalizePath(pathname) {
   if (!pathname) return "/";
-  if (pathname === "/account/billing") return "/billing";
   return pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
 }
 
@@ -39,3 +40,4 @@ function initHeaderState() {
 initActiveNav();
 initFooterYear();
 initHeaderState();
+initMarketingTabs();

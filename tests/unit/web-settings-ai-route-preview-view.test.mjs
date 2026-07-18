@@ -61,7 +61,7 @@ test("settings AI route preview falls back to local ready state when preview err
     localModel: "qwen3:4b"
   }));
 
-  assert.match(get("settingsAiRouteStats").innerHTML, /使用本地模型/);
+  assert.match(get("settingsAiRouteStats").innerHTML, /本地 AI/);
   assert.match(get("settingsAiRoutePreview").innerHTML, /本地模型可用/);
   assert.match(get("settingsAiRoutePreview").innerHTML, /测试一句话/);
 });

@@ -402,11 +402,11 @@ test("editor toolbar keeps create permanent note as a compact icon action", () =
   assert.match(css, /#editorWorkspace > \.toolbar #btnRecordPermanent/);
   assert.match(
     css,
-    /\.editor-stage-shell #btnRecordPermanent:not\(\.hidden\)\s*\{[\s\S]*?width: 40px !important;[\s\S]*?min-width: 40px !important;[\s\S]*?height: 40px !important;/
+    /\.editor-stage-shell #btnRecordPermanent:not\(\.hidden\)[^{}]*\{[\s\S]*?width: 40px !important;[\s\S]*?min-width: 40px !important;[\s\S]*?height: 40px !important;/
   );
   assert.match(
     css,
-    /\.editor-stage-shell #btnRecordPermanent:not\(\.hidden\) span\s*\{[\s\S]*?display: none !important;/
+    /\.editor-stage-shell #btnRecordPermanent:not\(\.hidden\) span[^{}]*\{[\s\S]*?display: none !important;/
   );
 });
 

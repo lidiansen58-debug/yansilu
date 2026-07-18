@@ -171,7 +171,6 @@ docs/growth/customer-stories/01-blank-page-writer.md
 ```text
 docs/MARKETING_SITE_HOMEPAGE_V1.md
 docs/MARKETING_SITE_PRODUCT_DOC.md
-docs/CONTEXT_HANDOFF_WEBSITE_2026-05-09.md
 docs/PRICING_PAGE_COPY_V1.md
 ```
 

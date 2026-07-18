@@ -160,16 +160,16 @@ test("local book ideas reset on basket changes and sync when opening a project",
   assert.equal(writingState.localBookIdeasGeneratedAt, "2026-01-01T00:00:00.000Z");
 });
 
-test("strong model request package shows included notes, questions, and exclusions", async () => {
+test("strong model request package shows included notes, checks, and boundaries", async () => {
   const panelControllerSource = await readWritingPanelControllerSource();
   const strongModelRequestPanelSource = await readWritingStrongModelRequestPanelSource();
 
   assert.match(panelControllerSource, /from "\.\/writing-strong-model-request-panel\.js"/);
   assert.match(strongModelRequestPanelSource, /function renderWritingStrongModelRequestDetailDom/);
-  assert.match(strongModelRequestPanelSource, /const plannedQuestions = \[/);
-  assert.match(strongModelRequestPanelSource, /const notSent = \[/);
-  assert.match(strongModelRequestPanelSource, /plannedQuestions\.map/);
-  assert.match(strongModelRequestPanelSource, /notSent\.map/);
+  assert.match(strongModelRequestPanelSource, /const checkItems = \[/);
+  assert.match(strongModelRequestPanelSource, /const safetyNotes = \[/);
+  assert.match(strongModelRequestPanelSource, /checkItems\.map/);
+  assert.match(strongModelRequestPanelSource, /safetyNotes\.map/);
 });
 
 test("strong model request package history does not interrupt when no artifacts are created", () => {

@@ -6,10 +6,15 @@ import QRCode from "qrcode";
 
 const PAIR_CODE_TTL_MS = 5 * 60 * 1000;
 const PAIR_REQUEST_TTL_MS = 5 * 60 * 1000;
+const PAIR_FAILURE_WINDOW_MS = 60 * 1000;
+const PAIR_FAILURE_LIMIT = 8;
+const PAIR_BLOCK_MS = 5 * 60 * 1000;
+const PAIR_FAILURE_MAX_CLIENTS_PER_VAULT = 256;
 const TOKEN_BYTES = 24;
 
 const pairingSessionsByVault = new Map();
 const pendingRequestsByVault = new Map();
+const pairFailuresByVault = new Map();
 
 function cleanText(value = "") {
   return String(value || "").trim();
@@ -137,6 +142,77 @@ function pendingMapForVault(vaultPath) {
   return pendingRequestsByVault.get(key);
 }
 
+function pairFailureMapForVault(vaultPath) {
+  const key = vaultKey(vaultPath);
+  if (!pairFailuresByVault.has(key)) pairFailuresByVault.set(key, new Map());
+  return pairFailuresByVault.get(key);
+}
+
+function purgeExpiredPairFailures(vaultPath, now) {
+  const key = vaultKey(vaultPath);
+  const failures = pairFailuresByVault.get(key);
+  if (!failures) return;
+  for (const [attemptKey, state] of failures) {
+    const expiresAt = Math.max(
+      Number(state?.blockedUntil || 0),
+      Number(state?.windowStartedAt || 0) + PAIR_FAILURE_WINDOW_MS
+    );
+    if (expiresAt <= now) failures.delete(attemptKey);
+  }
+  if (failures.size === 0) pairFailuresByVault.delete(key);
+}
+
+function trimPairFailures(failures, currentAttemptKey) {
+  if (failures.size <= PAIR_FAILURE_MAX_CLIENTS_PER_VAULT) return;
+  const oldest = [...failures.entries()]
+    .filter(([attemptKey]) => attemptKey !== currentAttemptKey)
+    .sort((left, right) => Number(left[1]?.lastAttemptAt || 0) - Number(right[1]?.lastAttemptAt || 0));
+  for (const [attemptKey] of oldest) {
+    if (failures.size <= PAIR_FAILURE_MAX_CLIENTS_PER_VAULT) break;
+    failures.delete(attemptKey);
+  }
+}
+
+function clearPairFailure(vaultPath, attemptKey) {
+  const key = vaultKey(vaultPath);
+  const failures = pairFailuresByVault.get(key);
+  if (!failures) return;
+  failures.delete(attemptKey);
+  if (failures.size === 0) pairFailuresByVault.delete(key);
+}
+
+function pairAttemptKey(meta = {}) {
+  return cleanText(meta.clientAddress || meta.clientHint) || "unknown-client";
+}
+
+function pairRateLimitError() {
+  const error = new Error("配对尝试过于频繁，请稍后刷新电脑端二维码再试。");
+  error.code = "MOBILE_PAIR_RATE_LIMITED";
+  error.status = 429;
+  return error;
+}
+
+function assertPairAttemptAllowed(vaultPath, attemptKey, now) {
+  purgeExpiredPairFailures(vaultPath, now);
+  const state = pairFailuresByVault.get(vaultKey(vaultPath))?.get(attemptKey);
+  if (state?.blockedUntil > now) throw pairRateLimitError();
+}
+
+function recordPairFailure(vaultPath, attemptKey, now) {
+  purgeExpiredPairFailures(vaultPath, now);
+  const failures = pairFailureMapForVault(vaultPath);
+  const current = failures.get(attemptKey);
+  const state = !current || now - current.windowStartedAt >= PAIR_FAILURE_WINDOW_MS
+    ? { count: 0, windowStartedAt: now, blockedUntil: 0 }
+    : current;
+  state.count += 1;
+  state.lastAttemptAt = now;
+  if (state.count >= PAIR_FAILURE_LIMIT) state.blockedUntil = now + PAIR_BLOCK_MS;
+  failures.set(attemptKey, state);
+  trimPairFailures(failures, attemptKey);
+  if (state.blockedUntil > now) throw pairRateLimitError();
+}
+
 function activePairingSession(vaultPath, now = Date.now()) {
   const key = vaultKey(vaultPath);
   const current = pairingSessionsByVault.get(key);
@@ -245,9 +321,17 @@ export async function buildDesktopMobileAccessStatus(vaultPath, options = {}) {
 }
 
 export async function createPairRequest(vaultPath, input = {}, meta = {}) {
-  const now = Date.now();
+  const now = Number.isFinite(meta.now) ? meta.now : Date.now();
+  const attemptKey = pairAttemptKey(meta);
   purgeExpiredPairRequests(vaultPath, now);
-  assertPairCodeValid(vaultPath, input.pairCode || input.pair_code, now);
+  assertPairAttemptAllowed(vaultPath, attemptKey, now);
+  try {
+    assertPairCodeValid(vaultPath, input.pairCode || input.pair_code, now);
+  } catch (error) {
+    if (error?.code === "MOBILE_PAIR_CODE_INVALID") recordPairFailure(vaultPath, attemptKey, now);
+    throw error;
+  }
+  clearPairFailure(vaultPath, attemptKey);
   const id = `mpr_${randomUUID().slice(0, 12)}`;
   const requestSecret = makeSecret();
   const request = {
@@ -373,9 +457,14 @@ export async function listMobileDevices(vaultPath) {
 export const MOBILE_PAIRING_TESTING = {
   PAIR_CODE_TTL_MS,
   PAIR_REQUEST_TTL_MS,
+  PAIR_FAILURE_WINDOW_MS,
+  PAIR_FAILURE_LIMIT,
+  PAIR_BLOCK_MS,
+  PAIR_FAILURE_MAX_CLIENTS_PER_VAULT,
   sha256,
   readMobileState,
   writeMobileState,
   pairingSessionsByVault,
-  pendingRequestsByVault
+  pendingRequestsByVault,
+  pairFailuresByVault
 };

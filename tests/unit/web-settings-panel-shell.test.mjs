@@ -72,7 +72,7 @@ test("settings panel shell toggles active section and updates overview metrics",
   assert.equal(get("settingsMobileItemSelect").value, "ai-settings");
   assert.equal(get("settingsOverviewWorkspaceName").textContent, "Main");
   assert.equal(get("settingsOverviewAiRoute").textContent, "本地优先");
-  assert.equal(get("settingsOverviewAutomation").textContent, "5 个待看项");
+  assert.equal(get("settingsOverviewAutomation").textContent, "5 个待处理");
   assert.equal(labels[0].textContent, "工作区");
 });
 
@@ -107,7 +107,7 @@ test("settings panel shell renders sidebar focus and escapes checklist notes", (
   assert.equal(get("settingsSidebarFocusPill").textContent, "AI 设置 · AI");
   assert.equal(get("settingsSidebarFocusBody").textContent, "先确认 AI 路线。");
   assert.equal(get("settingsSidebarChecklist").innerHTML, "<li>&lt;本地&gt;</li><li>远程</li>");
-  assert.equal(navCardNote.textContent, "按工作区、模板、AI、自动处理和帮助分类。");
+  assert.equal(navCardNote.textContent, "按工作区、模板、AI、自动整理和帮助分类。");
 });
 
 test("settings panel shell focuses the selected detail cards", () => {

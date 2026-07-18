@@ -33,6 +33,7 @@ function host(overrides = {}) {
     currentSemanticRelations: { outgoingLinks: [], backlinks: [] },
     semanticRelationsState: "loaded",
     renderPermanentNoteDistillationSection: () => '<section data-note-distillation-section></section>',
+    renderPermanentNoteRelationAssistSection: () => '<section data-note-relation-assist-section></section>',
     renderCurrentRelationSection: () => '<section data-note-relations-section></section>',
     ...overrides
   };

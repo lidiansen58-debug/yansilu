@@ -19,7 +19,6 @@ Date: 2026-05-18
 - `apps/web/src/marketing.css`
 - public route checks under `tests/e2e/marketing-routes.test.mjs`
 - public/demo docs such as:
-  - `docs/MARKETING_SITE_REDESIGN_V2.md`
   - `docs/MARKETING_SITE_PRODUCT_DOC.md`
   - `docs/MARKETING_SITE_HOMEPAGE_V1.md`
   - `docs/OFFICIAL_SITE_AND_DEMO_REPLAN_2026-05-16.md`

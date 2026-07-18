@@ -34,7 +34,10 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /desktop_api_error_with_log_tail/);
   assert.match(source, /truncate_desktop_api_message/);
   assert.match(source, /\.arg\("--trace-uncaught"\)/);
-  assert.match(source, /\.env\("API_HOST", "127\.0\.0\.1"\)/);
+  assert.match(source, /\.env\("API_HOST", "0\.0\.0\.0"\)/);
+  const apiSource = repoFileSource("apps/api/src/server.mjs");
+  assert.match(apiSource, /requestMayAccessLan\(req, url\.pathname\)/);
+  assert.match(apiSource, /LOCAL_API_LAN_FORBIDDEN/);
   assert.match(source, /\.env_remove\("NODE_OPTIONS"\)/);
   assert.match(source, /TcpListener::bind\(\("127\.0\.0\.1", port\)\)\.is_ok\(\)[\s\S]*&&[\s\S]*TcpListener::bind\(\("::1", port\)\)\.is_ok\(\)/);
   assert.match(source, /writeln!\(log_file, "\[\{\}\] \{message\}", now_string\(\)\)/);

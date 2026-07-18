@@ -100,17 +100,17 @@ const MUST_KEEP_CASES = [
     file: "tests/unit/web-ai-inbox-panel.test.mjs",
     snippets: [
       'test("AI inbox panel surfaces review action errors inside the detail pane"',
-      'test("AI inbox panel surfaces suggestion traceability and review history inside inbox detail"',
-      'test("AI inbox panel renders trace placeholders and target-missing guidance when linked trace is incomplete"',
+      'test("AI inbox panel keeps traceability and review history out of the main detail"',
+      'test("AI inbox panel hides incomplete trace placeholders from the main detail"',
       'test("AI inbox panel does not keep rendering stale detail when selection has moved"'
     ]
   },
   {
     file: "tests/unit/web-ai-suggestions-panel.test.mjs",
     snippets: [
-      'test("AI suggestions panel keeps review safety visible when the selected latest detail fails to load"',
-      'test("AI suggestions panel surfaces review action errors inside the detail pane"',
-      'test("AI suggestions panel renders trace placeholders and target-missing guidance when detail is incomplete"',
+      'test("AI suggestions panel keeps safety state visible while latest detail hydrates or fails"',
+      'test("AI suggestions panel surfaces scoped action errors and notices only for the selected suggestion"',
+      'test("AI suggestions panel renders readable guidance when detail is incomplete"',
       'test("AI suggestions panel does not keep rendering stale detail when selection has moved"'
     ]
   },

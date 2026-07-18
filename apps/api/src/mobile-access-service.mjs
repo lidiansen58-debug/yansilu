@@ -350,7 +350,10 @@ export async function handleMobileApiRequest({
     if (req.method === "POST" && url.pathname === "/api/v1/mobile/pair-requests") {
       await deps.initVault(vaultPath);
       const body = await readJson(req);
-      const item = await createPairRequest(vaultPath, body, { clientHint: clientHintFromRequest(req) });
+      const item = await createPairRequest(vaultPath, body, {
+        clientAddress: cleanText(req?.socket?.remoteAddress || ""),
+        clientHint: clientHintFromRequest(req)
+      });
       return sendJson(res, 201, { item, requestId, timestamp: new Date().toISOString() });
     }
 

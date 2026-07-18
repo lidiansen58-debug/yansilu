@@ -3,6 +3,8 @@
 .codex-run/
 .playwright-cli/
 output/
+artifacts/
+tmp/
 release-artifacts/
 node_modules/
 .DS_Store
@@ -15,6 +17,7 @@ apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/desktop-api-runtime/
 apps/desktop/src-tauri/tauri.conf.no-updater-artifacts.json
 vault-example/yansilu-vault/.yansilu/auth-state.json
+vault-example/yansilu-vault/.yansilu/mobile-access.json
 vault-example/yansilu-vault/.yansilu/vault.json
 vault-example/yansilu-vault/assets/files/
 vault-example/yansilu-vault/assets/images/*

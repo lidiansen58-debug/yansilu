@@ -75,12 +75,25 @@ test("marketing routes expose static marketing pages", async (t) => {
     assert.match(html, new RegExp(`body class="[^"]*${bodyClass}`));
     assert.match(html, /<main id="main"/);
     assert.match(html, /marketing-site\.js/);
+    assert.match(html, /brand-slogan">让笔记生长为思想</);
     assert.doesNotMatch(html, /href="\/(?:login|register|billing)"/);
     assert.doesNotMatch(html, /marketing-session\.js/);
+    if (route === "/privacy" || route === "/terms") {
+      assert.match(html, /生效日期：2026 年 7 月 17 日/);
+      assert.match(html, /github\.com\/lidiansen58-debug\/yansilu\/issues/);
+    }
     if (route === "/product") {
-      assert.match(html, /v2-workflow-rail/);
+      assert.equal((html.match(/data-marketing-tabs/g) || []).length, 2);
+      assert.doesNotMatch(html, /role="tabpanel"[^>]*\shidden(?:\s|>)/);
+      assert.match(html, /形成自己的观点/);
+      assert.match(html, /从积累中发现洞察/);
+      assert.match(html, /用已有知识完成写作/);
+      assert.match(html, /手机快速记录/);
+      assert.match(html, /AI 减少重复劳动/);
+      assert.match(html, /本地数据与备份/);
       assert.match(html, /v2-orbit-map/);
       assert.match(html, /v2-final-cta/);
+      assert.doesNotMatch(html, /v2-workflow-rail/);
       assert.doesNotMatch(html, />连接<\/span>/);
     }
     if (route === "/demo") {
@@ -99,16 +112,20 @@ test("marketing routes expose static marketing pages", async (t) => {
     }
   }
 });
-test("removed marketing account routes return not found", async (t) => {
+test("removed marketing account and checkout routes return not found", async (t) => {
   const webBase = await withWebServer(t);
   for (const route of [
     "/login",
     "/register",
     "/billing",
     "/account/billing",
+    "/checkout/success",
+    "/checkout/cancel",
     "/marketing-login.html",
     "/marketing-register.html",
-    "/marketing-billing.html"
+    "/marketing-billing.html",
+    "/marketing-checkout-success.html",
+    "/marketing-checkout-cancel.html"
   ]) {
     const res = await fetch(`${webBase}${route}`, { redirect: "manual" });
     assert.equal(res.status, 404, route);
@@ -122,15 +139,21 @@ test("marketing home exposes the smart notes demo story", async (t) => {
   assert.match(res.headers.get("content-type") || "", /text\/html/);
   const html = await res.text();
   assert.match(html, /page-home-workbench/);
+  assert.match(html, /brand-slogan">让笔记生长为思想</);
   assert.match(html, /workbench-preview/);
+  assert.match(html, /让每一条笔记，都成为下一次洞察和写作的起点/);
+  assert.match(html, /个人知识增长飞轮/);
+  assert.match(html, /知识复利/);
+  assert.match(html, /把材料变成自己的观点/);
+  assert.match(html, /让新观点与旧积累发生作用/);
+  assert.match(html, /用已有观点完成作品/);
+  assert.equal((html.match(/data-marketing-tabs/g) || []).length, 1);
+  assert.doesNotMatch(html, /role="tabpanel"[^>]*\shidden(?:\s|>)/);
+  assert.doesNotMatch(html, /概念墙|不是往下读完介绍/);
   assert.match(html, /smart-notes-product-thinking/);
   assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
   assert.match(html, /本地优先 · 免费使用 · AI 可选/);
-  assert.match(html, /打开后，先知道今天该整理哪一条/);
   assert.match(html, /3 个可推进任务/);
-  assert.match(html, /先处理今天/);
-  assert.match(html, /再补关系/);
-  assert.match(html, /最后进入写作/);
   assert.match(html, /笔记库在本地/);
   assert.match(html, /AI 只是可选择的助手/);
   assert.match(html, /手机轻记录/);

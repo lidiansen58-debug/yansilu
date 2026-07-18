@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>下载与安装 | 研思录</title>
-  <meta name="description" content="下载研思录桌面版，查看当前可下载版本、安装流程、Tauri 自动更新签名和 Windows 安装包说明。" />
+  <meta name="description" content="免费下载研思录桌面版。软件全部功能永久免费，笔记保存在本地，支持本地 AI、可选远程大模型和加密备份。" />
   <link rel="stylesheet" href="/marketing.css" />
   <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
 </head>
@@ -17,26 +17,21 @@
           <img class="brand-mark" src="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" alt="研思录" />
           <span class="brand-text">
             <span class="brand-name">研思录</span>
-            <span class="brand-sub">Thinking in Notes</span>
+            <span class="brand-slogan">让笔记生长为思想</span>
           </span>
         </a>
         <nav class="site-nav" aria-label="主导航">
           <a href="/product">产品</a>
-          <a href="/pricing">定价</a>
-          <a href="/demo">Demo</a>
+          <a href="/pricing">费用</a>
+          <a href="/demo">演示</a>
           <a href="/download">下载</a>
           <a href="/app">工作台</a>
-          <a href="/login" data-guest-only>登录</a>
-          <a href="/billing" data-auth-only hidden>账户</a>
+          <a href="/about">关于</a>
         </nav>
         <div class="header-actions">
-          <span class="session-chip" data-auth-only hidden>
-            <strong data-session-plan>FREE</strong>
-            <span data-session-email></span>
-          </span>
-          <a class="btn btn-secondary" href="/login" data-guest-only>登录</a>
-          <a class="btn btn-primary" href="/register" data-guest-only>免费开始</a>
-          <a class="btn btn-secondary" href="/" data-session-logout data-auth-only hidden>退出登录</a>
+
+          <a class="btn btn-primary" href="#releaseTitle">免费下载</a>
+
         </div>
       </div>
     </header>
@@ -45,13 +40,14 @@
       <section class="v2-page-hero" aria-labelledby="downloadHeroTitle">
         <div class="container v2-page-hero-grid">
           <div class="v2-page-hero-copy">
-            <h1 id="downloadHeroTitle">把长期研究、快速记录和写作放回本地工作台。</h1>
+            <p class="v2-eyebrow">Windows 桌面版</p>
+            <h1 id="downloadHeroTitle">免费下载，在自己的电脑上建立知识网络与原创写作系统。</h1>
             <p>
-              桌面版是研思录最完整的入口。它适合本地 Vault、长期资料积累、结构化笔记、手机快速记录接入和持续写作。
+              软件本身及全部功能永久免费。安装后创建或选择一个本地笔记库，就可以把随手记录加工为永久笔记，建立观点关联、发现主题，并继续写成文章或书籍。
             </p>
             <div class="v2-hero-actions">
-              <a class="btn btn-primary" href="/app">先进入工作台</a>
-              <a class="btn btn-secondary" href="/demo">卡片笔记写作法 Demo</a>
+              <a class="btn btn-primary" href="#releaseTitle">获取安装包</a>
+              <a class="btn btn-secondary" href="/demo">先看产品演示</a>
               <a class="btn btn-secondary" href="/product">了解产品</a>
             </div>
           </div>
@@ -62,9 +58,9 @@
               <span></span>
             </div>
             <strong>Yansilu Desktop</strong>
-            <p>Windows installer · Tauri updater feed</p>
+            <p>永久免费 · 本地存储 · 自动更新</p>
             <div class="v2-device-line"></div>
-            <small>Local-first vault · Research workflow · Writing scaffold</small>
+            <small>永久笔记 · 知识网络 · 原创写作</small>
           </aside>
         </div>
       </section>
@@ -73,7 +69,7 @@
         <div class="container">
           <div class="v2-section-header">
             <h2 id="releaseTitle">当前发布状态</h2>
-            <p>下载页会优先展示真实构建产物。当前 beta 版本的安装包、更新 manifest 和 Tauri 更新签名会一起进入发布目录。</p>
+            <p>这里读取当前已发布的真实构建信息。请选择适合自己系统的安装包。</p>
           </div>
 
           <section class="status-card v2-release-card">
@@ -82,12 +78,12 @@
               <article class="pricing-card">
                 <div class="plan-name">应用版本</div>
                 <div class="plan-price" data-download-version>0.1.0</div>
-                <div class="plan-meta">官网会优先展示当前桌面版版本信息。</div>
+                <div class="plan-meta">当前可下载的桌面版版本。</div>
               </article>
               <article class="pricing-card">
                 <div class="plan-name">最近产物生成</div>
                 <div class="plan-price" data-download-generated>读取中</div>
-                <div class="plan-meta">运行桌面打包后，这里会显示最近一次生成时间。</div>
+                <div class="plan-meta">用于确认安装包是否为最新发布产物。</div>
               </article>
             </div>
             <div class="cta-actions">
@@ -102,29 +98,29 @@
       <section class="v2-section v2-split-section" aria-labelledby="installerTitle">
         <div class="container v2-split-grid">
           <div class="v2-sticky-copy">
-            <h2 id="installerTitle">Windows 安装包是主入口，自动更新已进入签名发布流程。</h2>
-            <p>当前发布策略先保证标准安装、卸载、本地启动和 Tauri 更新校验稳定。Windows SmartScreen 需要 Authenticode 代码签名证书，和 Tauri 更新签名不是同一件事。</p>
+            <h2 id="installerTitle">安装后，你的数据默认保存在本地。</h2>
+            <p>Windows 安装包是当前主要入口。应用内自动更新会校验数字签名；如果 Windows SmartScreen 提示未知发布者，请先核对下载来源和文件名。</p>
           </div>
           <div class="v2-capability-grid">
             <article>
-              <strong>Windows 分发</strong>
-              <h3>Windows NSIS</h3>
-              <p>适合大多数 Windows 用户，作为当前 beta 的主要下载和安装入口。</p>
+              <strong>安装方式</strong>
+              <h3>标准 Windows 安装包</h3>
+              <p>支持安装、卸载和后续应用内更新，适合大多数 Windows 用户。</p>
             </article>
             <article>
-              <strong>本地工作区</strong>
-              <h3>本地 Vault</h3>
-              <p>内容以本地目录和文件为核心，更适合长期研究、结构化整理与写作。</p>
+              <strong>数据位置</strong>
+              <h3>本地笔记库</h3>
+              <p>首次启动时由你选择文件夹。笔记、附件、关系和写作项目都保存在这里。</p>
             </article>
             <article>
-              <strong>发布目录</strong>
-              <h3>Manifest 驱动</h3>
-              <p>下载页读取当前构建 manifest，展示真实版本和当前可下载构建产物。</p>
+              <strong>数据保护</strong>
+              <h3>加密备份</h3>
+              <p>可生成带密码的完整备份，再复制到网盘、硬盘、U 盘或 NAS。</p>
             </article>
             <article>
-              <strong>更新校验</strong>
-              <h3>Tauri 签名</h3>
-              <p>update-manifest.json、latest.json 和 .sig 文件用于应用内更新校验，不等同于 Windows 代码签名。</p>
+              <strong>AI 选择</strong>
+              <h3>本地优先，远程可选</h3>
+              <p>日常任务可配置本地模型；复杂长文可按需连接第三方远程模型。</p>
             </article>
           </div>
         </div>
@@ -134,21 +130,21 @@
         <div class="container v2-install-panel">
           <h2 id="installFlowTitle">推荐安装流程</h2>
           <ol class="v2-step-list">
-            <li><span>01</span><p>进入下载页或 GitHub Release，选择 Windows 安装包。</p></li>
-            <li><span>02</span><p>下载安装包，并完成标准安装；如遇 SmartScreen 提醒，请确认来源后继续。</p></li>
-            <li><span>03</span><p>首次启动后选择或创建本地 Vault。</p></li>
-            <li><span>04</span><p>登录账户，同步订阅和授权状态。</p></li>
-            <li><span>05</span><p>后续在“设置 -> 版本更新”里检查新版本。</p></li>
+            <li><span>01</span><p>从本页或官方 GitHub Release 下载 Windows 安装包。</p></li>
+            <li><span>02</span><p>核对版本与文件名后安装；如遇 SmartScreen 提醒，请确认下载来源。</p></li>
+            <li><span>03</span><p>首次启动后创建或选择一个本地笔记库文件夹。</p></li>
+            <li><span>04</span><p>可选：在“手机访问”中生成二维码，让同一 Wi-Fi 下的手机扫码并等待电脑确认。</p></li>
+            <li><span>05</span><p>先记录第一条想法，再按需要设置 AI，并定期创建加密备份。</p></li>
           </ol>
         </div>
       </section>
 
       <section class="v2-final-cta" aria-labelledby="downloadCtaTitle">
         <div class="container v2-final-inner">
-          <h2 id="downloadCtaTitle">想先看界面，再决定是否安装？</h2>
-          <p>可以先进入工作台确认这套从记录到写作的工作流是否适合你，再回到这里下载桌面版。</p>
+          <h2 id="downloadCtaTitle">还不确定是否适合？先看一次完整流程。</h2>
+          <p>演示会展示一条材料怎样被自己的语言加工为永久笔记，通过有理由的关联进入知识网络，再发展为主题和原创文章。</p>
           <div class="cta-actions">
-            <a class="btn btn-primary" href="/app">进入工作台</a>
+            <a class="btn btn-primary" href="/demo">查看产品演示</a>
             <a class="btn btn-secondary" href="/product">了解产品</a>
           </div>
         </div>
@@ -160,33 +156,33 @@
         <div class="footer-grid">
           <div class="footer-brand">
             <strong>研思录 · Thinking in Notes</strong>
-            <p>桌面版是研思录长期的主入口，适合在本地环境中持续积累材料、判断、关系与写作结构。</p>
+            <p>永久笔记、知识网络、原创写作。软件永久免费。</p>
             <p class="footer-meta">© <span data-current-year></span> 研思录</p>
           </div>
           <div class="footer-link-group">
             <h3>了解产品</h3>
             <a href="/product">产品介绍</a>
-            <a href="/pricing">定价方案</a>
+            <a href="/pricing">费用说明</a>
             <a href="/download">下载桌面版</a>
           </div>
           <div class="footer-link-group">
             <h3>开始使用</h3>
-            <a href="/register">免费开始</a>
-            <a href="/login">登录账户</a>
-            <a href="/billing">账户与订阅</a>
+            <a href="/download">免费下载</a>
+
+            <a href="/app">进入工作台</a>
           </div>
           <div class="footer-link-group">
-            <h3>合规</h3>
-            <a href="/privacy">隐私</a>
-            <a href="/terms">条款</a>
-            <a href="/about">关于</a>
+            <h3>信任与承诺</h3>
+            <a href="/about">关于我们</a>
+            <a href="/privacy">隐私说明</a>
+            <a href="/terms">使用条款</a>
           </div>
         </div>
       </div>
     </footer>
   </div>
   <script type="module" src="/marketing-site.js"></script>
-  <script type="module" src="/marketing-session.js"></script>
+
   <script type="module" src="/marketing-download.js"></script>
 </body>
 </html>

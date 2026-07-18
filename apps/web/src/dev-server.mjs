@@ -234,10 +234,6 @@ const server = http.createServer(async (req, res) => {
       await serveStaticPage(res, "marketing-download.html");
       return;
     }
-    if (url.pathname === "/register") {
-      await serveStaticPage(res, "marketing-register.html");
-      return;
-    }
     if (url.pathname === "/about") {
       await serveStaticPage(res, "marketing-about.html");
       return;
@@ -248,22 +244,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === "/terms") {
       await serveStaticPage(res, "marketing-terms.html");
-      return;
-    }
-    if (url.pathname === "/login") {
-      await serveStaticPage(res, "marketing-login.html");
-      return;
-    }
-    if (url.pathname === "/billing" || url.pathname === "/account/billing") {
-      await serveStaticPage(res, "marketing-billing.html");
-      return;
-    }
-    if (url.pathname === "/checkout/success") {
-      await serveStaticPage(res, "marketing-checkout-success.html");
-      return;
-    }
-    if (url.pathname === "/checkout/cancel") {
-      await serveStaticPage(res, "marketing-checkout-cancel.html");
       return;
     }
     if (url.pathname === "/prototype" || url.pathname === "/prototype.html" || url.pathname === "/editor" || url.pathname === "/app" || url.pathname === "/app/editor") {
