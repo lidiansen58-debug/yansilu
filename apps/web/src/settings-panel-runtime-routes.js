@@ -113,9 +113,7 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
       settingsVaultPathMissing,
       settingsLeafLabel,
       settingsAiOverviewSummary,
-      settingsAiRuntimeModeLabel,
-      feedbackRepository: current.feedbackRepository,
-      feedbackRepositoryReady: current.feedbackRepositoryReady
+      settingsAiRuntimeModeLabel
     });
   }
 
@@ -241,8 +239,6 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
       state: current.state,
       settingsState: current.settingsState,
       appVersion: current.appVersion,
-      feedbackRepository: current.feedbackRepository,
-      feedbackRepositoryReady: current.feedbackRepositoryReady,
       syncRailSelectionState: current.syncRailSelectionState,
       ensureSettingsWorkbenchLayout,
       mountSettingsAutomationWorkspace: current.mountSettingsAutomationWorkspace,
@@ -252,7 +248,6 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
       settingsLeafLabel,
       settingsVaultPathMissing,
       formatSettingsUserError,
-      feedbackBaseUrl: current.feedbackBaseUrl,
       renderUpdateSettingsCard: current.renderUpdateSettingsCard,
       renderMobileAccessSettingsCard: current.renderMobileAccessSettingsCard,
       renderNoteTemplateSettingsCard: current.renderNoteTemplateSettingsCard,

@@ -41,9 +41,7 @@ test("prototype settings navigation derives chrome from explicit state dependenc
     settingsVaultPathMissing: () => false,
     settingsLeafLabel: (value) => String(value).split("\\").at(-1),
     settingsAiOverviewSummary: () => ({ value: "本地私密", meta: "只用本地模型 / 自动" }),
-    settingsAiRuntimeModeLabel: () => "只用本地模型",
-    feedbackRepository: "owner/repo",
-    feedbackRepositoryReady: true
+    settingsAiRuntimeModeLabel: () => "只用本地模型"
   });
 
   assert.equal(chrome.workspace.badge, "已初始化");

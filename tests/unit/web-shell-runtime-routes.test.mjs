@@ -109,8 +109,6 @@ test("settings panel runtime routes update section and item state without protot
     document: { querySelectorAll: () => [] },
     state: { module: "settings" },
     settingsState,
-    feedbackRepository: "owner/repo",
-    feedbackRepositoryReady: true,
     escapeHtml: (value) => String(value),
     setStatus: (...args) => statuses.push(args),
     renderSidebarTitle: () => {}

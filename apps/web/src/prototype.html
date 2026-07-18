@@ -1259,42 +1259,18 @@
                       <section class="settings-card" id="settingsFeedbackCard">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">用户反馈</div>
-                            <div class="settings-card-note">选择最接近的反馈类型，研思录会自动带上版本、模块和页面上下文。</div>
+                            <div class="settings-card-title">问题反馈</div>
+                            <div class="settings-card-note">遇到问题时，直接发邮件告诉我们。</div>
                           </div>
                         </div>
                         <div class="settings-help-meta">
                           <div class="settings-stat-row">
-                            <span class="settings-stat-badge">MVP 反馈入口</span>
-                            <span class="settings-stat-badge" id="settingsFeedbackRepoBadge">待绑定仓库</span>
+                            <span class="settings-stat-badge" id="settingsFeedbackBadge">邮件反馈</span>
                           </div>
-                          <div id="settingsFeedbackDetail" class="settings-card-note">当前反馈入口。</div>
-                          <a id="settingsFeedbackLink" class="settings-help-link" href="#" target="_blank" rel="noreferrer noopener">查看反馈入口</a>
+                          <div id="settingsFeedbackDetail" class="settings-card-note">会打开邮件并填入必要的环境信息。</div>
+                          <button class="mini-btn primary" id="settingsOpenFeedbackEmail" type="button">反馈问题</button>
                         </div>
-                        <div class="settings-feedback-choice-list" aria-label="反馈类型">
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>遇到问题</strong>
-                              <span>报错、卡住、数据异常、界面异常。</span>
-                            </div>
-                            <button class="mini-btn" id="settingsOpenBugReport" type="button">反馈问题</button>
-                          </div>
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>有改进想法</strong>
-                              <span>流程建议、产品方向、模型体验、交互优化。</span>
-                            </div>
-                            <button class="mini-btn" id="settingsOpenFeatureRequest" type="button">功能建议</button>
-                          </div>
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>需要排查</strong>
-                              <span>复制版本、模块、页面和当前选中对象，不直接带笔记库路径。</span>
-                            </div>
-                            <button class="mini-btn is-subtle" id="settingsCopyFeedbackDiagnostics" type="button">复制问题信息</button>
-                          </div>
-                        </div>
-                        <div class="settings-support-safe-note">反馈会打开 GitHub Issue；提交前请删除截图、描述或正文里不想公开的信息。</div>
+                        <div class="settings-support-safe-note">不会自动上传笔记内容、笔记路径、备份文件或 API 密钥。提交前请检查邮件中是否有不想公开的信息。</div>
                       </section>
                     </div>
                   </section>

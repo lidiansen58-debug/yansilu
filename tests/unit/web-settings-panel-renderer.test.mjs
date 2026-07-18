@@ -61,8 +61,6 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
       }
     },
     appVersion: "1.2.3",
-    feedbackRepository: "owner/repo",
-    feedbackRepositoryReady: true,
     syncRailSelectionState: () => calls.push("sync-rail"),
     ensureSettingsWorkbenchLayout: () => calls.push("layout"),
     mountSettingsAutomationWorkspace: () => calls.push("mount-automation"),
@@ -70,7 +68,6 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
     renderSettingsSidebarColumn: () => calls.push("sidebar"),
     renderSettingsDetailFocus: () => calls.push("detail"),
     settingsLeafLabel: (value) => String(value).split("/").at(-1),
-    feedbackBaseUrl: () => "https://github.com/owner/repo/issues/new",
     renderUpdateSettingsCard: ({ appVersion }) => calls.push(`update-${appVersion}`),
     renderNoteTemplateSettingsCard: (kind) => calls.push(`template-${kind}`),
     renderAiLocalModelControls: () => calls.push("ai-local"),
@@ -87,8 +84,8 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
 
   assert.equal(get("settingsVaultPath").value, "E:/Vaults/Main");
   assert.equal(get("settingsVaultSwitchHint").textContent, "当前使用：Main · 已就绪");
-  assert.equal(get("settingsFeedbackRepoBadge").textContent, "owner/repo");
-  assert.equal(get("settingsFeedbackLink").href, "https://github.com/owner/repo/issues/new");
+  assert.equal(get("settingsFeedbackBadge").textContent, "邮件反馈");
+  assert.equal(get("settingsFeedbackDetail").textContent, "会打开邮件，并填入版本 1.2.3、系统、当前页面和所在模块。");
   assert.equal(get("settingsAiAdvancedModelRef").value, "openai:gpt-test");
   assert.equal(get("settingsAiSecretRef").value, "AI_KEY");
   assert.equal(get("settingsAiTestPrompt").value, "ping");
@@ -100,20 +97,17 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
   assert.equal(calls.at(-1), "module-header");
 });
 
-test("settings feedback card renders unbound repository state", () => {
+test("settings feedback card explains the local-safe email flow", () => {
   const { get } = elementMap();
 
   renderSettingsFeedbackCard({
     $: get,
-    feedbackRepository: "owner/repo",
-    feedbackRepositoryReady: false,
-    feedbackBaseUrl: () => "https://github.com/owner/repo/issues/new"
+    appVersion: "1.2.3"
   });
 
-  assert.equal(get("settingsFeedbackRepoBadge").textContent, "待绑定仓库");
-  assert.deepEqual(get("settingsFeedbackRepoBadge").toggles, [["ok", false], ["warn", true]]);
-  assert.equal(get("settingsFeedbackLink").href, "#");
-  assert.equal(get("settingsFeedbackLink").attrs["aria-disabled"], "true");
+  assert.equal(get("settingsFeedbackBadge").textContent, "邮件反馈");
+  assert.deepEqual(get("settingsFeedbackBadge").toggles, [["ok", true]]);
+  assert.equal(get("settingsFeedbackDetail").textContent, "会打开邮件，并填入版本 1.2.3、系统、当前页面和所在模块。");
 });
 
 test("settings AI input sync preserves current values when already aligned", () => {

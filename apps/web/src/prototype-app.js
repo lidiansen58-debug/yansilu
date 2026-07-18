@@ -507,11 +507,8 @@ const settingsPanelRuntimeRoutes = createSettingsPanelRuntimeRoutes(() => ({
   state,
   settingsState,
   appVersion: APP_VERSION,
-  feedbackRepository: FEEDBACK_REPOSITORY,
-  feedbackRepositoryReady: FEEDBACK_REPOSITORY_READY,
   syncRailSelectionState,
   mountSettingsAutomationWorkspace,
-  feedbackBaseUrl,
   renderUpdateSettingsCard,
   renderMobileAccessSettingsCard,
   renderNoteTemplateSettingsCard,
@@ -643,9 +640,7 @@ let systemMessages = readStoredSystemMessages();
 let selectedSystemMessageId = systemMessages[0]?.id || "";
 let todayReturnTarget = null;
 let startupAutoOpenSuppressed = false;
-const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
-const FEEDBACK_REPOSITORY_READY =
-  Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
+const FEEDBACK_EMAIL = "lidiansen58@gmail.com";
 const APP_VERSION = "0.1.1-beta.1";
 const UPDATE_SETTINGS_KEY = "yansilu:update:settings:v1";
 const UPDATE_LAST_RESULT_KEY = "yansilu:update:last-result:v1";
@@ -874,59 +869,39 @@ installStartupAutoOpenEventBindings({
   }
 });
 
-function feedbackBaseUrl() { return `https://github.com/${FEEDBACK_REPOSITORY}/issues/new`; }
 function activePrototypeUrl() {
   if (typeof window === "undefined") return "/app";
   return window.location.href || `${window.location.origin}/app`;
 }
 
-function buildFeedbackUrl(kind = "bug") {
-  const issueType = kind === "feature" ? "feature_request" : "bug_report";
-  const moduleName = moduleLabel(state.module);
-  const note = state.notes.find((item) => item.id === state.selectedFileId);
-  const titlePrefix = kind === "feature" ? "[建议]" : "[反馈]";
-  const title = `${titlePrefix} ${moduleName}：`;
+function feedbackSystemLabel() {
+  const userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
+  if (/Windows/i.test(userAgent)) return "Windows";
+  if (/Macintosh|Mac OS X/i.test(userAgent)) return "macOS";
+  if (/Linux/i.test(userAgent)) return "Linux";
+  return typeof navigator !== "undefined" ? String(navigator.platform || "未知系统") : "未知系统";
+}
+
+function buildFeedbackMailtoUrl() {
   const bodyLines = [
-    "## 背景",
+    "反馈类型：问题",
+    `软件版本：${APP_VERSION}`,
+    `操作系统：${feedbackSystemLabel()}`,
+    `当前模块：${moduleLabel(state.module)}`,
+    `当前页面：${activePrototypeUrl()}`,
     "",
-    "请描述你遇到的问题或建议改进的体验。",
+    "请描述遇到的情况：",
     "",
-    "## 当前环境",
-    `- 版本：${APP_VERSION}`,
-    `- 模块：${moduleName}`,
-    `- 页面：${activePrototypeUrl()}`,
-    `- 当前笔记：${note?.title || "未选中"}`,
-    "",
-    "## 补充信息",
-    "- 预期发生什么：",
-    "- 实际发生什么：",
-    "- 复现步骤："
+    "为保护隐私，请不要附上笔记内容、笔记路径、备份文件或 API 密钥。"
   ];
-  const url = new URL(feedbackBaseUrl());
-  url.searchParams.set("template", `${issueType}.md`);
-  url.searchParams.set("title", title);
-  url.searchParams.set("body", bodyLines.join("\n"));
-  return url.toString();
+  const query = new URLSearchParams({
+    subject: "[研思录反馈] 问题",
+    body: bodyLines.join("\n")
+  });
+  return `mailto:${FEEDBACK_EMAIL}?${query.toString()}`;
 }
 
-function buildFeedbackDiagnosticText() {
-  const note = state.notes.find((item) => item.id === state.selectedFileId);
-  const folder = folderById(state, state.selectedFolderId);
-  const lines = [
-    "# Yansilu Feedback Diagnostics",
-    `capturedAt: ${new Date().toISOString()}`,
-    `repository: ${FEEDBACK_REPOSITORY}`,
-    `appVersion: ${APP_VERSION}`,
-    `module: ${moduleLabel(state.module)}`,
-    `page: ${activePrototypeUrl()}`,
-    `selectedFolder: ${folder?.name || state.selectedFolderId || "未选中"}`,
-    `selectedNote: ${note?.title || "未选中"}`,
-    `userAgent: ${typeof navigator !== "undefined" ? navigator.userAgent || "unknown" : "unknown"}`
-  ];
-  return lines.join("\n");
-}
-
-async function openFeedbackUrl(url = "") {
+async function openFeedbackMailtoUrl(url = "") {
   const result = await desktopCommands.openExternalUrl(url);
   return Boolean(result?.ok);
 }
@@ -6152,11 +6127,8 @@ bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps(
 }));
 installSettingsFeedbackEventBindings({
   $,
-  feedbackRepositoryReady: FEEDBACK_REPOSITORY_READY,
-  copyTextToClipboard,
-  buildFeedbackDiagnosticText,
-  buildFeedbackUrl,
-  openFeedbackUrl,
+  buildFeedbackMailtoUrl,
+  openFeedbackMailtoUrl,
   setStatus
 });
 

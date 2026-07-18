@@ -32,12 +32,9 @@ test("settings opens mobile access by default", async () => {
 });
 
 test("settings support entry uses user help wording before implementation channels", () => {
-  const chrome = settingsSectionChromeMap({
-    feedbackRepository: "owner/repo-feedback",
-    feedbackRepositoryReady: true
-  });
+  const chrome = settingsSectionChromeMap();
 
-  assert.equal(chrome.support.badge, "反馈入口");
+  assert.equal(chrome.support.badge, "问题反馈");
   assert.match(chrome.support.meta, /遇到问题先看这里/);
   assert.doesNotMatch(chrome.support.meta, /owner\/repo/);
 });

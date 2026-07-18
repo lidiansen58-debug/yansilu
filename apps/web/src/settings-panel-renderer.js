@@ -5,8 +5,6 @@ export function renderSettingsPanelForRuntime(deps = {}) {
     state = {},
     settingsState = {},
     appVersion = "",
-    feedbackRepository = "",
-    feedbackRepositoryReady = false,
     syncRailSelectionState = () => {},
     ensureSettingsWorkbenchLayout = () => {},
     mountSettingsAutomationWorkspace = () => {},
@@ -16,7 +14,6 @@ export function renderSettingsPanelForRuntime(deps = {}) {
     settingsLeafLabel = (value = "", fallback = "默认笔记库") => String(value || fallback).trim() || fallback,
     settingsVaultPathMissing = () => false,
     formatSettingsUserError = (value = "") => String(value || ""),
-    feedbackBaseUrl = () => "#",
     renderUpdateSettingsCard = () => {},
     renderMobileAccessSettingsCard = () => {},
     renderNoteTemplateSettingsCard = () => {},
@@ -62,7 +59,7 @@ export function renderSettingsPanelForRuntime(deps = {}) {
     switchButton.textContent = "选好后切换";
   }
 
-  renderSettingsFeedbackCard({ $, feedbackRepository, feedbackRepositoryReady, feedbackBaseUrl });
+  renderSettingsFeedbackCard({ $, appVersion });
   renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVersion });
   renderMobileAccessSettingsCard();
   renderNoteTemplateSettingsCard("permanent");
@@ -85,28 +82,16 @@ export function renderSettingsPanelForRuntime(deps = {}) {
 
 export function renderSettingsFeedbackCard({
   $ = () => null,
-  feedbackRepository = "",
-  feedbackRepositoryReady = false,
-  feedbackBaseUrl = () => "#"
+  appVersion = ""
 } = {}) {
-  const feedbackBadge = $("settingsFeedbackRepoBadge");
+  const feedbackBadge = $("settingsFeedbackBadge");
   const feedbackDetail = $("settingsFeedbackDetail");
-  const feedbackLink = $("settingsFeedbackLink");
   if (feedbackBadge) {
-    feedbackBadge.textContent = feedbackRepositoryReady ? feedbackRepository : "待绑定仓库";
-    feedbackBadge.classList.toggle("ok", feedbackRepositoryReady);
-    feedbackBadge.classList.toggle("warn", !feedbackRepositoryReady);
+    feedbackBadge.textContent = "邮件反馈";
+    feedbackBadge.classList.toggle("ok", true);
   }
   if (feedbackDetail) {
-    feedbackDetail.textContent = feedbackRepositoryReady
-      ? "会打开反馈页面，并带上版本、模块和当前页面信息。提交前请确认不含隐私内容。"
-      : "填好反馈仓库后，这里会变成问题反馈入口。";
-  }
-  if (feedbackLink) {
-    const href = feedbackRepositoryReady ? feedbackBaseUrl() : "#";
-    feedbackLink.href = href;
-    feedbackLink.textContent = feedbackRepositoryReady ? "打开反馈页面" : "等待填写反馈仓库";
-    feedbackLink.setAttribute("aria-disabled", feedbackRepositoryReady ? "false" : "true");
+    feedbackDetail.textContent = `会打开邮件，并填入版本 ${String(appVersion || "未知版本")}、系统、当前页面和所在模块。`;
   }
 }
 

@@ -66,36 +66,27 @@ test("startup and beforeunload shell bindings stay outside prototype app", () =>
   assert.equal(event.returnValue, "");
 });
 
-test("settings feedback bindings copy diagnostics and open feedback routes", async () => {
+test("settings feedback bindings open the prepared email", async () => {
   const elements = {
-    settingsCopyFeedbackDiagnostics: button(),
-    settingsOpenBugReport: button(),
-    settingsOpenFeatureRequest: button()
+    settingsOpenFeedbackEmail: button()
   };
   const opened = [];
   const statuses = [];
 
   installSettingsFeedbackEventBindings({
     $: registry(elements),
-    feedbackRepositoryReady: true,
-    copyTextToClipboard: async (text) => statuses.push(["copied", text]),
-    buildFeedbackDiagnosticText: () => "diagnostics",
-    buildFeedbackUrl: (kind) => `url:${kind}`,
-    openFeedbackUrl: async (url) => {
+    buildFeedbackMailtoUrl: () => "mailto:lidiansen58@gmail.com?subject=feedback",
+    openFeedbackMailtoUrl: async (url) => {
       opened.push(url);
       return true;
     },
     setStatus: (...args) => statuses.push(args)
   });
 
-  await elements.settingsCopyFeedbackDiagnostics.click();
-  await elements.settingsOpenBugReport.click();
-  await elements.settingsOpenFeatureRequest.click();
+  await elements.settingsOpenFeedbackEmail.click();
 
-  assert.deepEqual(opened, ["url:bug", "url:feature"]);
-  assert.deepEqual(statuses[0], ["copied", "diagnostics"]);
-  assert.equal(statuses.some(([message]) => String(message).includes("已复制问题信息")), true);
-  assert.equal(statuses.some(([message]) => String(message).includes("已打开问题反馈入口")), true);
+  assert.deepEqual(opened, ["mailto:lidiansen58@gmail.com?subject=feedback"]);
+  assert.deepEqual(statuses, [["已打开反馈邮件", "ok"]]);
 });
 
 test("editor shell bindings route focus helper and delayed save actions", async () => {

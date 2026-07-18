@@ -90,9 +90,7 @@ export function settingsSectionChromeMap({
   settingsVaultPathMissing = () => false,
   settingsLeafLabel = (value = "", fallback = "默认笔记库") => String(value || fallback).trim() || fallback,
   settingsAiOverviewSummary = () => ({}),
-  settingsAiRuntimeModeLabel = () => "自动",
-  feedbackRepository = "",
-  feedbackRepositoryReady = false
+  settingsAiRuntimeModeLabel = () => "自动"
 } = {}) {
   const vault = settingsState.vault;
   const missingPath = settingsVaultPathMissing();
@@ -125,8 +123,8 @@ export function settingsSectionChromeMap({
       meta: `待处理 ${Number(settingsState.ai?.suggestionsTotal || 0)} / 整理规则 ${Number(settingsState.ai?.scheduledTasksTotal || 0)}`
     },
     support: {
-      badge: feedbackRepositoryReady ? "反馈入口" : "待绑定",
-      meta: feedbackRepositoryReady ? "遇到问题先看这里、Demo、任务帮助" : "遇到问题先看这里"
+      badge: "问题反馈",
+      meta: "遇到问题先看这里、Demo、任务帮助"
     }
   };
 }

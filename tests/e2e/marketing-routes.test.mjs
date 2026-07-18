@@ -83,7 +83,8 @@ test("marketing routes expose static marketing pages", async (t) => {
     assert.doesNotMatch(html, /marketing-session\.js/);
     if (route === "/privacy" || route === "/terms") {
       assert.match(html, /生效日期：2026 年 7 月 17 日/);
-      assert.match(html, /github\.com\/lidiansen58-debug\/yansilu\/issues/);
+      assert.match(html, /mailto:lidiansen58@gmail\.com/);
+      assert.doesNotMatch(html, /github\.com\/lidiansen58-debug\/yansilu\/issues/);
     }
     if (route === "/product") {
       assert.equal((html.match(/data-marketing-tabs/g) || []).length, 2);
