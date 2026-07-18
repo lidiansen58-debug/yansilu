@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/marketing.css" />
   <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
 </head>
-<body class="site-v2 page-home-v3 page-home-workbench">
+<body class="site-v2 page-home-v3 page-home-carousel">
   <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="marketing-shell">
     <header class="site-header">
@@ -18,7 +18,7 @@
           <span class="brand-text"><span class="brand-name">研思录</span><span class="brand-slogan">让笔记生长为思想</span></span>
         </a>
         <nav class="site-nav" aria-label="主导航">
-          <a href="/product">产品</a><a href="/pricing">费用</a><a href="/demo">演示</a><a href="/download">下载</a><a href="/about">关于</a><a href="/app">工作台</a>
+          <a href="/product">产品</a><a href="/pricing">费用</a><a href="/demo">演示</a><a href="/about">关于</a>
         </nav>
         <div class="header-actions">
           <a class="btn btn-primary" href="/download">免费下载</a>
@@ -26,118 +26,61 @@
       </div>
     </header>
 
-    <main id="main" class="home-v3-main workbench-home-main">
-      <section class="workbench-hero" aria-labelledby="homeHeroTitle">
-        <div class="container workbench-hero-grid">
-          <div class="workbench-hero-copy">
-            <p class="home-v3-eyebrow">本地优先 · 免费使用 · AI 可选</p>
-            <h1 id="homeHeroTitle">让每一条笔记，都成为下一次洞察和写作的起点。</h1>
-            <p class="workbench-lead">研思录把永久笔记、知识网络和原创写作连成个人知识增长飞轮：形成自己的观点，让新旧知识相互作用，再用积累完成原创输出。</p>
-            <div class="home-v3-actions">
-              <a class="btn btn-primary" href="/download">下载桌面版</a>
-              <a class="btn btn-secondary" href="/prototype?demo=smart-notes-product-thinking">打开交互演示</a>
+    <main id="main" class="home-carousel-main">
+      <section class="home-carousel-hero" aria-labelledby="homeHeroTitle">
+        <div class="container home-product-hero-grid">
+          <div class="home-carousel-heading">
+            <p class="home-carousel-kicker">本地优先 · 永久免费 · AI 可选</p>
+            <h1 id="homeHeroTitle">研思录</h1>
+            <strong>让笔记生长为思想</strong>
+            <p>把零散记录加工成自己的观点，让长期积累形成知识网络，再用这些笔记完成原创写作。</p>
+            <div class="home-carousel-actions">
+              <a class="btn btn-primary" href="/download">免费下载</a>
+              <a class="btn btn-secondary" href="/demo">查看产品演示</a>
             </div>
           </div>
 
-          <div class="workbench-preview" aria-label="研思录工作台预览">
-            <div class="workbench-window-bar">
-              <span>今天</span>
-              <strong>3 个可推进任务</strong>
-            </div>
-            <div class="workbench-preview-layout">
-              <aside class="workbench-preview-rail" aria-label="工作台模块">
-                <span class="is-active">整理</span>
-                <span>关联</span>
-                <span>写作</span>
-              </aside>
-              <div class="workbench-preview-main">
-                <article class="workbench-task is-primary">
-                  <span>下一步</span>
-                  <h2>把这条随手记录整理成自己的判断</h2>
-                  <p>先保留来源，再用自己的话写出可复用的观点。</p>
-                  <span class="workbench-task-cta">继续整理</span>
-                </article>
-                <div class="workbench-task-row">
-                  <article class="workbench-task">
-                    <span>待关联</span>
-                    <strong>2 条观点还孤立</strong>
-                    <p>找一条真正相关的笔记，并写清楚理由。</p>
-                  </article>
-                  <article class="workbench-task">
-                    <span>可写主题</span>
-                    <strong>1 组笔记可以进入提纲</strong>
-                    <p>确认问题、材料和文章方向。</p>
-                  </article>
+          <div class="home-carousel-stage" data-marketing-tabs data-tab-autoplay="6500">
+            <div class="home-carousel-panels">
+              <article class="home-carousel-panel" role="tabpanel" id="home-panel-note" aria-labelledby="home-tab-note">
+                <img src="/assets/marketing/permanent-note.png" alt="研思录永久笔记编辑界面" width="1440" height="900" fetchpriority="high" decoding="async" />
+                <div class="home-carousel-value"><p>永久笔记</p><h2>把材料变成自己的观点</h2><span>保留来源，用自己的语言重述和判断。</span></div>
+              </article>
+              <article class="home-carousel-panel home-carousel-network-panel" role="tabpanel" id="home-panel-network" aria-labelledby="home-tab-network" hidden>
+                <div class="home-network-visual">
+                  <img src="/assets/marketing/knowledge-network.png" alt="研思录实际 Smart Notes Demo 的知识网络，展示 63 条永久笔记和 107 条关系" width="2360" height="920" loading="lazy" decoding="async" />
                 </div>
+                <div class="home-carousel-value"><p>知识网络</p><h2>看见观点之间的关系</h2><span>这张图来自 Smart Notes Demo 的 63 条永久笔记和 107 条关系。</span></div>
+              </article>
+              <article class="home-carousel-panel" role="tabpanel" id="home-panel-writing" aria-labelledby="home-tab-writing" hidden>
+                <img src="/assets/marketing/original-writing.png" alt="研思录原创写作界面" width="1440" height="900" loading="lazy" decoding="async" />
+                <div class="home-carousel-value"><p>原创写作</p><h2>用长期积累完成作品</h2><span>从自己的观点和证据出发，组织文章、章节与书稿。</span></div>
+              </article>
+            </div>
+            <div class="home-carousel-controls">
+              <div class="home-carousel-tabs" role="tablist" aria-label="研思录核心价值">
+                <button type="button" role="tab" id="home-tab-note" aria-selected="true" aria-controls="home-panel-note"><span>01</span>永久笔记</button>
+                <button type="button" role="tab" id="home-tab-network" aria-selected="false" aria-controls="home-panel-network" tabindex="-1"><span>02</span>知识网络</button>
+                <button type="button" role="tab" id="home-tab-writing" aria-selected="false" aria-controls="home-panel-writing" tabindex="-1"><span>03</span>原创写作</button>
               </div>
+              <button class="home-carousel-toggle" type="button" data-tab-autoplay-toggle aria-label="自动播放" aria-pressed="true" title="暂停自动播放" hidden>Ⅱ</button>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="knowledge-flywheel-section" aria-labelledby="workflowTitle">
-        <div class="container">
-          <div class="workbench-section-head">
-            <p class="home-v3-eyebrow">个人知识增长飞轮</p>
-            <h2 id="workflowTitle">让知识越用越多，而不是记完就沉底。</h2>
-            <p>三个环节彼此推动。每完成一轮，你都会多一批自己的观点、更清楚的知识结构和新的写作方向。</p>
+      <section class="home-trust-band" aria-labelledby="localTitle">
+        <div class="container home-trust-grid">
+          <div class="home-trust-copy">
+            <p>数据归你</p>
+            <h2 id="localTitle">你的知识，始终在你的掌控之中。</h2>
+            <span>笔记库保存在本地。AI 建议由你确认，远程模型只有在你主动启用时才会调用。</span>
           </div>
-          <div class="knowledge-flywheel" data-marketing-tabs>
-            <div class="flywheel-map" role="tablist" aria-label="个人知识增长飞轮">
-              <div class="flywheel-ring" aria-hidden="true"></div>
-              <div class="flywheel-core" aria-hidden="true"><span>↻</span><strong>知识复利</strong></div>
-              <button class="flywheel-tab flywheel-tab-note" type="button" role="tab" id="flywheel-tab-note" aria-selected="false" aria-controls="flywheel-panel-note" tabindex="-1"><span>01</span>永久笔记</button>
-              <button class="flywheel-tab flywheel-tab-network" type="button" role="tab" id="flywheel-tab-network" aria-selected="true" aria-controls="flywheel-panel-network"><span>02</span>知识网络</button>
-              <button class="flywheel-tab flywheel-tab-writing" type="button" role="tab" id="flywheel-tab-writing" aria-selected="false" aria-controls="flywheel-panel-writing" tabindex="-1"><span>03</span>原创写作</button>
-              <p class="flywheel-loop-note">永久笔记 → 知识网络 → 原创写作 → 新问题 ↻</p>
-            </div>
-            <div class="flywheel-panels">
-              <article class="flywheel-panel" role="tabpanel" id="flywheel-panel-note" aria-labelledby="flywheel-tab-note">
-                <p class="home-v3-eyebrow">永久笔记</p>
-                <h3>把材料变成自己的观点。</h3>
-                <p>保留来源，再用自己的语言重述和判断。以后需要时，可以直接使用，不必重新读完整份材料。</p>
-                <strong>每一轮都增加新的可复用观点。</strong>
-              </article>
-              <article class="flywheel-panel" role="tabpanel" id="flywheel-panel-network" aria-labelledby="flywheel-tab-network">
-                <p class="home-v3-eyebrow">知识网络</p>
-                <h3>让新观点与旧积累发生作用。</h3>
-                <p>写清支持、补充、延伸或反驳。随着关联增加，反复出现的主题、分歧和知识空白会逐渐显现。</p>
-                <strong>积累越多，下一次理解越快，洞察越深。</strong>
-              </article>
-              <article class="flywheel-panel" role="tabpanel" id="flywheel-panel-writing" aria-labelledby="flywheel-tab-writing">
-                <p class="home-v3-eyebrow">原创写作</p>
-                <h3>用已有观点完成作品。</h3>
-                <p>从知识网络中选择观点和证据，组织文章、章节与书稿。写作暴露的新问题，会回到下一轮永久笔记。</p>
-                <strong>输出不是终点，而是知识继续增长的入口。</strong>
-              </article>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="workbench-split" aria-labelledby="localTitle">
-        <div class="container workbench-split-grid">
-          <div>
-            <p class="home-v3-eyebrow">数据边界</p>
-            <h2 id="localTitle">笔记库在本地，AI 只是可选择的助手。</h2>
-            <p>笔记、附件、关系、主题和写作项目保存在你选择的本地文件夹。日常整理可以使用本地模型；只有你主动启用远程模型时，必要内容才会发送给对应供应商。</p>
-          </div>
-          <div class="workbench-boundary-list" role="list">
-            <article role="listitem"><strong>本地保存</strong><span>文件位置由你决定，可备份、迁移和恢复。</span></article>
-            <article role="listitem"><strong>人工确认</strong><span>AI 建议不会自动变成正式笔记或关系。</span></article>
-            <article role="listitem"><strong>手机轻记录</strong><span>手机负责快速采集，深度整理回到电脑完成。</span></article>
-          </div>
-        </div>
-      </section>
-
-      <section class="workbench-final" aria-labelledby="homeCtaTitle">
-        <div class="container workbench-final-inner">
-          <h2 id="homeCtaTitle">从今天的一条记录开始。</h2>
-          <p>不用先搭一套复杂系统。打开工作台，处理最值得推进的一条，然后继续下一步。</p>
-          <div class="home-v3-actions">
-            <a class="btn btn-primary" href="/download">免费下载</a>
-            <a class="btn btn-secondary" href="/demo">查看演示</a>
-          </div>
+          <ul>
+            <li><strong>本地保存</strong><span>文件可备份、迁移和恢复</span></li>
+            <li><strong>手机轻记</strong><span>同一 Wi-Fi 快速上传随笔</span></li>
+            <li><strong>软件免费</strong><span>仅第三方远程模型可能收费</span></li>
+          </ul>
         </div>
       </section>
     </main>
@@ -145,7 +88,7 @@
     <footer class="footer"><div class="container footer-inner"><div class="footer-grid">
       <div class="footer-brand"><strong>研思录 · Thinking in Notes</strong><p>永久笔记、知识网络、原创写作。软件永久免费。</p><p class="footer-meta">© <span data-current-year></span> 研思录</p></div>
       <div class="footer-link-group"><h3>了解产品</h3><a href="/product">产品介绍</a><a href="/pricing">费用说明</a><a href="/demo">产品演示</a></div>
-      <div class="footer-link-group"><h3>开始使用</h3><a href="/download">免费下载</a><a href="/app">进入工作台</a></div>
+      <div class="footer-link-group"><h3>开始使用</h3><a href="/download">免费下载</a><a href="/demo">查看演示</a></div>
       <div class="footer-link-group"><h3>信任与承诺</h3><a href="/about">关于我们</a><a href="/privacy">隐私说明</a><a href="/terms">使用条款</a></div>
     </div></div></footer>
   </div>

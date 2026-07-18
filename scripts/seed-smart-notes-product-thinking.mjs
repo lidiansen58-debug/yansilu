@@ -16,6 +16,7 @@ import {
   getIndexCard,
   updateIndexCard,
   initVault,
+  syncMarkdownNoteCatalogRelations,
   serializeNote
 } from "../packages/domain/src/index.mjs";
 import { createDraftScaffold, createWritingProject, getDraftScaffold, syncWritingProject } from "../packages/writing-engine/src/index.mjs";
@@ -493,10 +494,23 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     ...(Array.isArray(fixture?.final_essays) ? fixture.final_essays : [])
   ];
   for (const note of batches) noteIds.push(await upsertNote(vaultPath, note, counters));
+  const relationSyncNoteIds = batches
+    .filter((note) => fixtureNoteType(note) !== "source")
+    .map((note) => cleanText(note?.id))
+    .filter(Boolean);
   const noteIdSet = new Set(noteIds.filter(Boolean).map(String));
 
   if (Array.isArray(fixture?.relations)) {
-    for (const relation of fixture.relations) await upsertRelation(vaultPath, relation, counters, noteIdSet);
+    for (const relation of fixture.relations) {
+      const relationSource = cleanText(relation?.relationSource || relation?.source).toLowerCase();
+      // Markdown links are reconciled from the saved note bodies. Importing the fixture copy too would duplicate them.
+      if (relationSource === "body_wikilink") continue;
+      await upsertRelation(vaultPath, relation, counters, noteIdSet);
+    }
+  }
+  // Reconcile body links after manual relations are present, so one note pair is never duplicated.
+  for (const noteId of relationSyncNoteIds) {
+    await syncMarkdownNoteCatalogRelations(vaultPath, noteId);
   }
 
   if (Array.isArray(fixture?.index_cards)) {
@@ -543,4 +557,3 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     process.exit(1);
   });
 }
-

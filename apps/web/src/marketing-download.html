@@ -24,13 +24,11 @@
           <a href="/product">产品</a>
           <a href="/pricing">费用</a>
           <a href="/demo">演示</a>
-          <a href="/download">下载</a>
-          <a href="/app">工作台</a>
           <a href="/about">关于</a>
         </nav>
         <div class="header-actions">
 
-          <a class="btn btn-primary" href="#releaseTitle">免费下载</a>
+          <a class="btn btn-primary" href="#downloadOptions">免费下载</a>
 
         </div>
       </div>
@@ -40,15 +38,13 @@
       <section class="v2-page-hero" aria-labelledby="downloadHeroTitle">
         <div class="container v2-page-hero-grid">
           <div class="v2-page-hero-copy">
-            <p class="v2-eyebrow">Windows 桌面版</p>
-            <h1 id="downloadHeroTitle">免费下载，在自己的电脑上建立知识网络与原创写作系统。</h1>
-            <p>
-              软件本身及全部功能永久免费。安装后创建或选择一个本地笔记库，就可以把随手记录加工为永久笔记，建立观点关联、发现主题，并继续写成文章或书籍。
-            </p>
-            <div class="v2-hero-actions">
-              <a class="btn btn-primary" href="#releaseTitle">获取安装包</a>
-              <a class="btn btn-secondary" href="/demo">先看产品演示</a>
-              <a class="btn btn-secondary" href="/product">了解产品</a>
+            <p class="v2-eyebrow">桌面版</p>
+            <h1 id="downloadHeroTitle">免费下载研思录。</h1>
+            <p>在自己的电脑上保存笔记、建立知识网络，并用长期积累完成原创写作。</p>
+            <div class="download-hero-actions" id="downloadOptions" aria-live="polite">
+              <p class="download-availability" data-download-status>正在读取可用安装包...</p>
+              <div class="download-platform-actions" data-download-buttons></div>
+              <p class="plan-meta" data-download-primary-note></p>
             </div>
           </div>
           <aside class="v2-download-device" aria-label="桌面版状态概览">
@@ -65,52 +61,22 @@
         </div>
       </section>
 
-      <section class="v2-section" aria-labelledby="releaseTitle">
-        <div class="container">
-          <div class="v2-section-header">
-            <h2 id="releaseTitle">当前发布状态</h2>
-            <p>这里读取当前已发布的真实构建信息。请选择适合自己系统的安装包。</p>
-          </div>
-
-          <section class="status-card v2-release-card">
-            <div class="auth-message" data-download-status data-tone="info">正在读取当前桌面构建状态...</div>
-            <div class="v2-release-grid">
-              <article class="pricing-card">
-                <div class="plan-name">应用版本</div>
-                <div class="plan-price" data-download-version>0.1.0</div>
-                <div class="plan-meta">当前可下载的桌面版版本。</div>
-              </article>
-              <article class="pricing-card">
-                <div class="plan-name">最近产物生成</div>
-                <div class="plan-price" data-download-generated>读取中</div>
-                <div class="plan-meta">用于确认安装包是否为最新发布产物。</div>
-              </article>
-            </div>
-            <div class="cta-actions">
-              <a class="btn btn-primary" href="/app" data-download-primary hidden>进入工作台</a>
-            </div>
-            <p class="plan-meta" data-download-primary-note>正在检测当前是否已有可下载产物。</p>
-            <ul class="bullet-list download-files" data-download-files></ul>
-          </section>
-        </div>
-      </section>
-
       <section class="v2-section v2-split-section" aria-labelledby="installerTitle">
         <div class="container v2-split-grid">
           <div class="v2-sticky-copy">
             <h2 id="installerTitle">安装后，你的数据默认保存在本地。</h2>
-            <p>Windows 安装包是当前主要入口。应用内自动更新会校验数字签名；如果 Windows SmartScreen 提示未知发布者，请先核对下载来源和文件名。</p>
+            <p>Windows 和 macOS 都提供桌面版。笔记库、附件、关系和写作项目默认保存在你选择的本地文件夹。</p>
           </div>
           <div class="v2-capability-grid">
             <article>
-              <strong>安装方式</strong>
-              <h3>标准 Windows 安装包</h3>
-              <p>支持安装、卸载和后续应用内更新，适合大多数 Windows 用户。</p>
+              <strong>Windows</strong>
+              <h3>标准安装包</h3>
+              <p>支持安装、卸载和后续应用内更新。</p>
             </article>
             <article>
-              <strong>数据位置</strong>
-              <h3>本地笔记库</h3>
-              <p>首次启动时由你选择文件夹。笔记、附件、关系和写作项目都保存在这里。</p>
+              <strong>macOS</strong>
+              <h3>DMG 安装包</h3>
+              <p>下载后打开 DMG，将研思录拖入“应用程序”即可。</p>
             </article>
             <article>
               <strong>数据保护</strong>
@@ -126,29 +92,6 @@
         </div>
       </section>
 
-      <section class="v2-section" aria-labelledby="installFlowTitle">
-        <div class="container v2-install-panel">
-          <h2 id="installFlowTitle">推荐安装流程</h2>
-          <ol class="v2-step-list">
-            <li><span>01</span><p>从本页或官方 GitHub Release 下载 Windows 安装包。</p></li>
-            <li><span>02</span><p>核对版本与文件名后安装；如遇 SmartScreen 提醒，请确认下载来源。</p></li>
-            <li><span>03</span><p>首次启动后创建或选择一个本地笔记库文件夹。</p></li>
-            <li><span>04</span><p>可选：在“手机访问”中生成二维码，让同一 Wi-Fi 下的手机扫码并等待电脑确认。</p></li>
-            <li><span>05</span><p>先记录第一条想法，再按需要设置 AI，并定期创建加密备份。</p></li>
-          </ol>
-        </div>
-      </section>
-
-      <section class="v2-final-cta" aria-labelledby="downloadCtaTitle">
-        <div class="container v2-final-inner">
-          <h2 id="downloadCtaTitle">还不确定是否适合？先看一次完整流程。</h2>
-          <p>演示会展示一条材料怎样被自己的语言加工为永久笔记，通过有理由的关联进入知识网络，再发展为主题和原创文章。</p>
-          <div class="cta-actions">
-            <a class="btn btn-primary" href="/demo">查看产品演示</a>
-            <a class="btn btn-secondary" href="/product">了解产品</a>
-          </div>
-        </div>
-      </section>
     </main>
 
     <footer class="footer">
@@ -163,13 +106,12 @@
             <h3>了解产品</h3>
             <a href="/product">产品介绍</a>
             <a href="/pricing">费用说明</a>
-            <a href="/download">下载桌面版</a>
           </div>
           <div class="footer-link-group">
             <h3>开始使用</h3>
             <a href="/download">免费下载</a>
 
-            <a href="/app">进入工作台</a>
+            <a href="/demo">查看演示</a>
           </div>
           <div class="footer-link-group">
             <h3>信任与承诺</h3>

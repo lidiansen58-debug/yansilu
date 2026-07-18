@@ -224,7 +224,7 @@ const relationSeeds = [
   ["WRITING-COUNTER", "PERM-CONTRAST-RELATION-CREATES-ARGUMENT", "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY", "supports", "反驳关系为提纲提供必要的反方位置。"],
   ["TOPIC-BRIDGE", "PERM-BRIDGE-RELATION-FINDS-NEW-THEME", "PERM-THEME-INDEX-IS-ENTRY", "bridges", "桥接笔记产生的新问题可以进入主题索引。"],
   ["AI-BOUNDARY", "PERM-AI-SUGGESTION-IS-CANDIDATE", "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES", "qualifies", "AI 只能补充候选，限定了提纲必须从用户确认内容出发。"],
-  ["RELATED", "PERM-FIRST-TEN-MINUTES", "PERM-BEST-PATH-STARTS-FROM-HOME", "associated_with", "两条笔记都在说明新手如何从首页开始完成第一次小闭环。"],
+  ["ONBOARDING-PRACTICE", "PERM-FIRST-TEN-MINUTES", "PERM-UNLINKED-PRACTICE", "example_of", "十分钟路径把首次上手落到一次真实的关联练习上。"],
   ["SAME-TOPIC", "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION", "PERM-INDEX-CARD-KEEPS-READING-ORDER", "same_topic", "两条笔记共同回答主题索引应该怎样组织关键笔记。"]
 ];
 
@@ -439,7 +439,9 @@ function guideNotes() {
 }
 
 export function buildSmartNotesDemoFixture() {
-  const permanent_notes = permanentDefinitions.map(permanentNote);
+  const permanent_notes = permanentDefinitions
+    .filter(([id]) => !["PERM-PRACTICE-UNLINKED-QUESTION", "PERM-PRACTICE-UNLINKED-BOUNDARY"].includes(id))
+    .map(permanentNote);
   const writingProjectMain = writingProject();
   const writingProjectRelations = relationWritingProject();
   const final_essays = [
@@ -448,6 +450,29 @@ export function buildSmartNotesDemoFixture() {
     { id: "ESSAY-YANSILU-BEST-PRACTICE", note_type: "final_essay", title: "帮助文章：第一次使用研思录怎么走", writing_project_id: writingProjectMain.id, body: "# 帮助文章：第一次使用研思录怎么走\n\n从首页开始，只推进一个动作。处理一条材料，形成一条永久笔记，补一条关系，整理一个主题，再进入写作中心。" }
   ];
   const guide_notes = guideNotes();
+  const guideLinkTargets = {
+    "GUIDE-TODAY-NEXT-STEP": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+    "GUIDE-INDEX-TO-WRITING": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+    "GUIDE-HELP-TASKS": "PERM-HELP-SHOULD-FOLLOW-TASKS",
+    "GUIDE-BACKUP-MOBILE-AI": "PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE",
+    "GUIDE-RELATION-TYPES": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+    "GUIDE-INDEX-PRACTICE": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+    "GUIDE-WRITING-FROM-RELATIONS": "PERM-WRITING-USES-RELATION-ROLES",
+    "GUIDE-DEMO-PRACTICE": "PERM-FIRST-TEN-MINUTES"
+  };
+  guide_notes.forEach((note) => {
+    const targetId = guideLinkTargets[note.id];
+    if (targetId) note.body += `\n\n继续：[[${targetId}|继续阅读]]`;
+  });
+  const finalEssayLinkTargets = {
+    "ESSAY-SMART-NOTES-DEMO": "PERM-COMPOUND-INTEREST-FROM-REUSE",
+    "ESSAY-RELATION-TYPES-HELP": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+    "ESSAY-YANSILU-BEST-PRACTICE": "PERM-FIRST-TEN-MINUTES"
+  };
+  final_essays.forEach((note) => {
+    const targetId = finalEssayLinkTargets[note.id];
+    if (targetId) note.body += `\n\n延伸：[[${targetId}|继续阅读]]`;
+  });
   const fixture = {
     id: "demo-smart-notes-product-thinking-v3",
     title: "Smart Notes Demo：卡片笔记写作法 x 研思录",
@@ -470,7 +495,7 @@ export function buildSmartNotesDemoFixture() {
     index_cards: indexDefinitions.map(indexCard),
     relations: buildRelations({
       permanentNotes: permanent_notes,
-      notes: permanent_notes
+      notes: [...permanent_notes, ...guide_notes, ...final_essays]
     }),
     writing_projects: [writingProjectMain, writingProjectRelations],
     draft_scaffolds: [scaffold(writingProjectMain, "DRAFT-SMART-NOTES-DEMO"), scaffold(writingProjectRelations, "DRAFT-RELATION-TO-WRITING-PRACTICE")],

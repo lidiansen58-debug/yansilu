@@ -1200,88 +1200,6 @@
       "originality_status": "pass"
     },
     {
-      "id": "PERM-PRACTICE-UNLINKED-QUESTION",
-      "note_type": "permanent",
-      "title": "练习：这个判断还需要找一条支撑笔记",
-      "cluster": "关联练习",
-      "cluster_label": "关联练习",
-      "status": "active",
-      "distillation_status": "confirmed",
-      "thesis": "有些判断先单独放着，等找到真正相关的笔记后再关联。",
-      "threeLineSummary": [
-        "有些判断先单独放着，等找到真正相关的笔记后再关联。",
-        "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。",
-        "找不到清楚理由时，不要为了消除提醒而勉强连接。"
-      ],
-      "productImplication": "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。",
-      "boundaryOrCounterpoint": "找不到清楚理由时，不要为了消除提醒而勉强连接。",
-      "from_literature_note_ids": [],
-      "tags": [
-        "永久笔记",
-        "关联练习",
-        "Smart Notes Demo"
-      ],
-      "body": "# 练习：这个判断还需要找一条支撑笔记\n\n## 核心判断\n有些判断先单独放着，等找到真正相关的笔记后再关联。\n\n## 为什么\nDemo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。\n\n## 边界\n找不到清楚理由时，不要为了消除提醒而勉强连接。\n\n## 继续看\n",
-      "core_claim": "有些判断先单独放着，等找到真正相关的笔记后再关联。",
-      "rationale": "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。",
-      "template": {
-        "type": "permanent_note",
-        "required_sections": [
-          "核心判断",
-          "为什么",
-          "边界",
-          "继续看"
-        ]
-      },
-      "is_key_note": false,
-      "authorship": {
-        "user_confirmed": true,
-        "ai_assisted": false
-      },
-      "originality_status": "pass"
-    },
-    {
-      "id": "PERM-PRACTICE-UNLINKED-BOUNDARY",
-      "note_type": "permanent",
-      "title": "练习：这条边界暂时还没有放进网络",
-      "cluster": "关联练习",
-      "cluster_label": "关联练习",
-      "status": "active",
-      "distillation_status": "confirmed",
-      "thesis": "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。",
-      "threeLineSummary": [
-        "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。",
-        "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。",
-        "没有合适对象时，保持独立比保存一条空关系更好。"
-      ],
-      "productImplication": "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。",
-      "boundaryOrCounterpoint": "没有合适对象时，保持独立比保存一条空关系更好。",
-      "from_literature_note_ids": [],
-      "tags": [
-        "永久笔记",
-        "关联练习",
-        "Smart Notes Demo"
-      ],
-      "body": "# 练习：这条边界暂时还没有放进网络\n\n## 核心判断\n边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。\n\n## 为什么\n这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。\n\n## 边界\n没有合适对象时，保持独立比保存一条空关系更好。\n\n## 继续看\n",
-      "core_claim": "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。",
-      "rationale": "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。",
-      "template": {
-        "type": "permanent_note",
-        "required_sections": [
-          "核心判断",
-          "为什么",
-          "边界",
-          "继续看"
-        ]
-      },
-      "is_key_note": false,
-      "authorship": {
-        "user_confirmed": true,
-        "ai_assisted": false
-      },
-      "originality_status": "pass"
-    },
-    {
       "id": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
       "note_type": "permanent",
       "title": "记录是入口，不是知识本身",
@@ -3933,12 +3851,12 @@
       "confidence": 1
     },
     {
-      "id": "REL-DEMO-V3-49-RELATED",
+      "id": "REL-DEMO-V3-49-ONBOARDING-PRACTICE",
       "from": "PERM-FIRST-TEN-MINUTES",
-      "to": "PERM-BEST-PATH-STARTS-FROM-HOME",
-      "relationType": "associated_with",
+      "to": "PERM-UNLINKED-PRACTICE",
+      "relationType": "example_of",
       "status": "confirmed",
-      "rationale": "两条笔记都在说明新手如何从首页开始完成第一次小闭环。",
+      "rationale": "十分钟路径把首次上手落到一次真实的关联练习上。",
       "source": "manual",
       "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
@@ -4387,6 +4305,234 @@
       "relationSource": "body_wikilink",
       "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
       "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-SMART-NOTES-START-PERM-WRITING-STARTS-BEFORE-DRAFT",
+      "from": "GUIDE-SMART-NOTES-START",
+      "to": "PERM-WRITING-STARTS-BEFORE-DRAFT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-SMART-NOTES-START-PERM-UNLINKED-PRACTICE",
+      "from": "GUIDE-SMART-NOTES-START",
+      "to": "PERM-UNLINKED-PRACTICE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-TODAY-NEXT-STEP-PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+      "from": "GUIDE-TODAY-NEXT-STEP",
+      "to": "PERM-TODAY-REVIEW-REWARDS-PROCESSING",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-WHAT-PERMANENT-PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "from": "GUIDE-WHAT-PERMANENT",
+      "to": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-WHY-RELATE-PERM-RELATION-REASON-MATTERS",
+      "from": "GUIDE-WHY-RELATE",
+      "to": "PERM-RELATION-REASON-MATTERS",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-WRITABLE-THEME-PERM-THEME-INDEX-IS-ENTRY",
+      "from": "GUIDE-WRITABLE-THEME",
+      "to": "PERM-THEME-INDEX-IS-ENTRY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-INDEX-TO-WRITING-PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "from": "GUIDE-INDEX-TO-WRITING",
+      "to": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-HELP-TASKS-PERM-HELP-SHOULD-FOLLOW-TASKS",
+      "from": "GUIDE-HELP-TASKS",
+      "to": "PERM-HELP-SHOULD-FOLLOW-TASKS",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-BACKUP-MOBILE-AI-PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE",
+      "from": "GUIDE-BACKUP-MOBILE-AI",
+      "to": "PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-RELATION-TYPES-PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "from": "GUIDE-RELATION-TYPES",
+      "to": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-INDEX-PRACTICE-PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "from": "GUIDE-INDEX-PRACTICE",
+      "to": "PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-WRITING-FROM-RELATIONS-PERM-WRITING-USES-RELATION-ROLES",
+      "from": "GUIDE-WRITING-FROM-RELATIONS",
+      "to": "PERM-WRITING-USES-RELATION-ROLES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-GUIDE-DEMO-PRACTICE-PERM-FIRST-TEN-MINUTES",
+      "from": "GUIDE-DEMO-PRACTICE",
+      "to": "PERM-FIRST-TEN-MINUTES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-ESSAY-SMART-NOTES-DEMO-PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
+      "from": "ESSAY-SMART-NOTES-DEMO",
+      "to": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-ESSAY-SMART-NOTES-DEMO-PERM-RELATION-REASON-MATTERS",
+      "from": "ESSAY-SMART-NOTES-DEMO",
+      "to": "PERM-RELATION-REASON-MATTERS",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-ESSAY-SMART-NOTES-DEMO-PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "from": "ESSAY-SMART-NOTES-DEMO",
+      "to": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-ESSAY-SMART-NOTES-DEMO-PERM-COMPOUND-INTEREST-FROM-REUSE",
+      "from": "ESSAY-SMART-NOTES-DEMO",
+      "to": "PERM-COMPOUND-INTEREST-FROM-REUSE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-ESSAY-RELATION-TYPES-HELP-PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "from": "ESSAY-RELATION-TYPES-HELP",
+      "to": "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-ESSAY-YANSILU-BEST-PRACTICE-PERM-FIRST-TEN-MINUTES",
+      "from": "ESSAY-YANSILU-BEST-PRACTICE",
+      "to": "PERM-FIRST-TEN-MINUTES",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
     }
   ],
   "writing_projects": [
@@ -4738,21 +4884,21 @@
       "note_type": "final_essay",
       "title": "示例文章：让笔记从记录走到写作",
       "writing_project_id": "WRITE-SMART-NOTES-DEMO",
-      "body": "# 示例文章：让笔记从记录走到写作\n\n研思录把记录、永久笔记、关联、主题和写作连成一条路。先看 [[记录是入口，不是知识本身]]，再看 [[关系理由比连线本身更重要]]，最后进入 [[写作中心应该从已确认判断生成提纲]]。AI 可以帮助提炼和检查，但保存前仍由用户确认。"
+      "body": "# 示例文章：让笔记从记录走到写作\n\n研思录把记录、永久笔记、关联、主题和写作连成一条路。先看 [[记录是入口，不是知识本身]]，再看 [[关系理由比连线本身更重要]]，最后进入 [[写作中心应该从已确认判断生成提纲]]。AI 可以帮助提炼和检查，但保存前仍由用户确认。\n\n延伸：[[PERM-COMPOUND-INTEREST-FROM-REUSE|继续阅读]]"
     },
     {
       "id": "ESSAY-RELATION-TYPES-HELP",
       "note_type": "final_essay",
       "title": "帮助文章：关系类型以后怎么用于写作",
       "writing_project_id": "WRITE-RELATION-TO-WRITING-PRACTICE",
-      "body": "# 帮助文章：关系类型以后怎么用于写作\n\n支持可以成为证据，反驳可以成为反方，限定可以成为边界，桥接可以成为过渡。关键不在类型数量，而在一句可读的关系理由。"
+      "body": "# 帮助文章：关系类型以后怎么用于写作\n\n支持可以成为证据，反驳可以成为反方，限定可以成为边界，桥接可以成为过渡。关键不在类型数量，而在一句可读的关系理由。\n\n延伸：[[PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION|继续阅读]]"
     },
     {
       "id": "ESSAY-YANSILU-BEST-PRACTICE",
       "note_type": "final_essay",
       "title": "帮助文章：第一次使用研思录怎么走",
       "writing_project_id": "WRITE-SMART-NOTES-DEMO",
-      "body": "# 帮助文章：第一次使用研思录怎么走\n\n从首页开始，只推进一个动作。处理一条材料，形成一条永久笔记，补一条关系，整理一个主题，再进入写作中心。"
+      "body": "# 帮助文章：第一次使用研思录怎么走\n\n从首页开始，只推进一个动作。处理一条材料，形成一条永久笔记，补一条关系，整理一个主题，再进入写作中心。\n\n延伸：[[PERM-FIRST-TEN-MINUTES|继续阅读]]"
     }
   ],
   "guide_notes": [
@@ -4776,7 +4922,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 01 今天先做哪一步？\n\n回到首页，只做最靠前的一个动作：处理材料、补一条关系、整理主题，或进入写作。"
+      "body": "# 01 今天先做哪一步？\n\n回到首页，只做最靠前的一个动作：处理材料、补一条关系、整理主题，或进入写作。\n\n继续：[[PERM-TODAY-REVIEW-REWARDS-PROCESSING|继续阅读]]"
     },
     {
       "id": "GUIDE-WHAT-PERMANENT",
@@ -4820,7 +4966,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 05 怎么从主题进入写作中心？\n\n打开主题，确认中心问题和关键笔记，再进入写作中心生成提纲。提纲可修改，不会自动写成文章。"
+      "body": "# 05 怎么从主题进入写作中心？\n\n打开主题，确认中心问题和关键笔记，再进入写作中心生成提纲。提纲可修改，不会自动写成文章。\n\n继续：[[PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES|继续阅读]]"
     },
     {
       "id": "GUIDE-HELP-TASKS",
@@ -4831,7 +4977,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 06 遇到问题先看这里：按任务找帮助\n\n帮助按你正在做的事组织：导入 Demo、处理材料、关联、主题、写作、手机访问和 AI 设置。"
+      "body": "# 06 遇到问题先看这里：按任务找帮助\n\n帮助按你正在做的事组织：导入 Demo、处理材料、关联、主题、写作、手机访问和 AI 设置。\n\n继续：[[PERM-HELP-SHOULD-FOLLOW-TASKS|继续阅读]]"
     },
     {
       "id": "GUIDE-BACKUP-MOBILE-AI",
@@ -4842,7 +4988,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 07 手机和 AI：先知道边界\n\n手机用来快速记录和轻量查看，复杂整理回到电脑。AI 用来提炼、推荐候选关联、生成提纲和检查草稿；不用 AI 也能完整使用。"
+      "body": "# 07 手机和 AI：先知道边界\n\n手机用来快速记录和轻量查看，复杂整理回到电脑。AI 用来提炼、推荐候选关联、生成提纲和检查草稿；不用 AI 也能完整使用。\n\n继续：[[PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE|继续阅读]]"
     },
     {
       "id": "GUIDE-RELATION-TYPES",
@@ -4853,7 +4999,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 08 关系类型怎么选？\n\n支持是证据，反驳是反方，限定是边界，桥接连接两个问题，例子让抽象判断更具体。不确定时先选“相关”，理由要写清楚。"
+      "body": "# 08 关系类型怎么选？\n\n支持是证据，反驳是反方，限定是边界，桥接连接两个问题，例子让抽象判断更具体。不确定时先选“相关”，理由要写清楚。\n\n继续：[[PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION|继续阅读]]"
     },
     {
       "id": "GUIDE-INDEX-PRACTICE",
@@ -4864,7 +5010,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 09 主题索引怎么写？\n\n先写一个中心问题，再选三到七条关键笔记，调整阅读顺序。能形成结构时，就可以进入写作。"
+      "body": "# 09 主题索引怎么写？\n\n先写一个中心问题，再选三到七条关键笔记，调整阅读顺序。能形成结构时，就可以进入写作。\n\n继续：[[PERM-INDEX-CARD-STARTS-WITH-CENTRAL-QUESTION|继续阅读]]"
     },
     {
       "id": "GUIDE-WRITING-FROM-RELATIONS",
@@ -4875,7 +5021,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 10 从关系网络进入写作\n\n把支持关系放进证据，把反驳放进反方，把限定放进边界，把桥接放进过渡。写作中心会保留相关笔记供你检查。"
+      "body": "# 10 从关系网络进入写作\n\n把支持关系放进证据，把反驳放进反方，把限定放进边界，把桥接放进过渡。写作中心会保留相关笔记供你检查。\n\n继续：[[PERM-WRITING-USES-RELATION-ROLES|继续阅读]]"
     },
     {
       "id": "GUIDE-DEMO-PRACTICE",
@@ -4886,16 +5032,16 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 11 Demo 里可以怎么练习？\n\n处理一条随笔，确认一条永久笔记，建立一条关系，打开一个主题，再进入写作中心。AI 已配置时，可以试一次提炼或提纲；所有结果都要先确认。"
+      "body": "# 11 Demo 里可以怎么练习？\n\n处理一条随笔，确认一条永久笔记，建立一条关系，打开一个主题，再进入写作中心。AI 已配置时，可以试一次提炼或提纲；所有结果都要先确认。\n\n继续：[[PERM-FIRST-TEN-MINUTES|继续阅读]]"
     }
   ],
   "counts": {
     "sources": 1,
     "fleeting_notes": 4,
     "literature_notes": 9,
-    "permanent_notes": 50,
+    "permanent_notes": 48,
     "index_cards": 18,
-    "relations": 86,
+    "relations": 105,
     "writing_projects": 2,
     "draft_scaffolds": 2,
     "final_essays": 3,

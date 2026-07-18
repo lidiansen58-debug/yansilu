@@ -1,17 +1,9 @@
-const DOWNLOAD_API_BASE = window.location.origin;
+const DOWNLOAD_API_BASE = globalThis.window?.location?.origin || "";
+const RELEASES_URL = "https://github.com/lidiansen58-debug/yansilu/releases";
+const RELEASES_API_URL = "https://api.github.com/repos/lidiansen58-debug/yansilu/releases";
 
 const COPY = {
-  readFailed: "\u8bfb\u53d6\u4e0b\u8f7d\u4fe1\u606f\u5931\u8d25\u3002",
-  notBuilt:
-    "\u5f53\u524d\u4ed3\u5e93\u8fd8\u6ca1\u6709\u751f\u6210\u6b63\u5f0f\u5b89\u88c5\u5305\u3002\u8fd0\u884c\u684c\u9762\u6253\u5305\u540e\uff0c\u8fd9\u91cc\u4f1a\u5c55\u793a\u6700\u65b0\u53ef\u4e0b\u8f7d\u4ea7\u7269\u3002",
-  notBuiltShort: "\u5c1a\u672a\u751f\u6210",
-  notBuiltNote: "\u5f53\u524d\u8fd8\u6ca1\u6709\u6b63\u5f0f\u5b89\u88c5\u5305\u53ef\u4e0b\u8f7d\u3002",
-  builtSummaryPrefix: "\u5f53\u524d\u5df2\u751f\u6210 ",
-  builtSummarySuffix:
-    " \u4e2a\u684c\u9762\u6784\u5efa\u4ea7\u7269\uff0c\u53ef\u7528\u4e8e\u5b89\u88c5\u5305\u5206\u53d1\u548c\u4e0b\u8f7d\u9875\u5c55\u793a\u3002",
-  builtJustNow: "\u521a\u521a\u751f\u6210",
-  primaryDownload:
-    "\u4e0b\u8f7d\u6700\u65b0\u7248 Windows \u5b89\u88c5\u5305"
+  choosePlatform: "\u9009\u62e9\u4f60\u7684\u7cfb\u7edf\uff1a"
 };
 
 function setText(selector, value) {
@@ -19,30 +11,75 @@ function setText(selector, value) {
   if (el) el.textContent = value;
 }
 
-function setLink(selector, href, text) {
-  const el = document.querySelector(selector);
-  if (!el) return;
-  el.setAttribute("href", href);
-  if (text) el.textContent = text;
-  el.hidden = false;
+export function platformForFile(item) {
+  const file = String(item?.file || "").toLowerCase();
+  if (file.endsWith(".dmg")) return { key: "macos", label: "下载 macOS 版" };
+  if (file.endsWith(".exe") || file.endsWith(".msi")) return { key: "windows", label: "下载 Windows 版" };
+  return null;
 }
 
-function renderFileList(items) {
-  const list = document.querySelector("[data-download-files]");
-  if (!list) return;
+export function renderDownloadButtons(items, { fallback = false } = {}) {
+  const container = document.querySelector("[data-download-buttons]");
+  if (!container) return [];
 
-  list.innerHTML = "";
-  for (const item of items.slice(0, 6)) {
-    const li = document.createElement("li");
+  container.replaceChildren();
+  const platforms = new Map();
+  for (const item of items) {
+    const platform = platformForFile(item);
+    if (platform && item?.downloadUrl && !platforms.has(platform.key)) {
+      platforms.set(platform.key, { ...platform, item });
+    }
+  }
+
+  for (const { label, item } of platforms.values()) {
     const link = document.createElement("a");
-    link.href = item.downloadUrl || "#";
-    link.textContent = `${item.file} - ${(item.bytes / 1024 / 1024).toFixed(2)} MB`;
-    li.appendChild(link);
-    list.appendChild(li);
+    link.className = "btn btn-primary";
+    link.href = item.downloadUrl;
+    link.textContent = label;
+    container.appendChild(link);
+  }
+
+  if (fallback) {
+    const link = document.createElement("a");
+    link.className = "btn btn-secondary";
+    link.href = RELEASES_URL;
+    link.textContent = "前往官方下载页";
+    container.appendChild(link);
+  }
+  return [...platforms.values()];
+}
+
+async function fetchReleaseAssets(version = "") {
+  const endpoint = version
+    ? `${RELEASES_API_URL}/tags/v${encodeURIComponent(version)}`
+    : `${RELEASES_API_URL}?per_page=1`;
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) return [];
+    const payload = await response.json();
+    const release = Array.isArray(payload) ? payload.find((item) => !item.draft) : payload;
+    return Array.isArray(release?.assets)
+      ? release.assets.map((asset) => ({ file: asset.name, downloadUrl: asset.browser_download_url }))
+      : [];
+  } catch {
+    return [];
   }
 }
 
-async function initDownloadPage() {
+function showDownloads(status, items, version) {
+  const platforms = renderDownloadButtons(items);
+  if (!platforms.length) {
+    status.textContent = "当前没有可直接安装的文件，请前往官方下载页选择 Windows 或 macOS 版本。";
+    setText("[data-download-primary-note]", "GitHub Release 提供全部已发布版本。");
+    renderDownloadButtons([], { fallback: true });
+    return false;
+  }
+  status.textContent = COPY.choosePlatform;
+  setText("[data-download-primary-note]", version ? `当前版本 ${version}` : "来自最新发布版本");
+  return true;
+}
+
+export async function initDownloadPage() {
   const status = document.querySelector("[data-download-status]");
   if (!status) return;
 
@@ -57,32 +94,20 @@ async function initDownloadPage() {
     setText("[data-download-version]", item.version || "0.1.0");
 
     if (!item.bundleReady) {
+      const releaseAssets = await fetchReleaseAssets(item.version);
       status.dataset.tone = "info";
-      status.textContent = COPY.notBuilt;
-      setText("[data-download-generated]", COPY.notBuiltShort);
-      setText("[data-download-primary-note]", COPY.notBuiltNote);
-      renderFileList([]);
+      showDownloads(status, releaseAssets, item.version);
       return;
     }
 
     status.dataset.tone = "info";
-    status.textContent = `${COPY.builtSummaryPrefix}${item.totalFiles}${COPY.builtSummarySuffix}`;
-    setText(
-      "[data-download-generated]",
-      item.generatedAt ? new Date(item.generatedAt).toLocaleString() : COPY.builtJustNow
-    );
-
-    const primary = Array.isArray(item.items) ? item.items[0] : null;
-    if (primary?.downloadUrl) {
-      setLink("[data-download-primary]", primary.downloadUrl, COPY.primaryDownload);
-      setText("[data-download-primary-note]", primary.file);
-    }
-
-    renderFileList(Array.isArray(item.items) ? item.items : []);
-  } catch (error) {
+    const releaseAssets = await fetchReleaseAssets(item.version);
+    showDownloads(status, [...(Array.isArray(item.items) ? item.items : []), ...releaseAssets], item.version);
+  } catch {
+    const releaseAssets = await fetchReleaseAssets();
     status.dataset.tone = "error";
-    status.textContent = String(error?.message || error);
+    showDownloads(status, releaseAssets, "");
   }
 }
 
-initDownloadPage();
+if (globalThis.document) initDownloadPage();

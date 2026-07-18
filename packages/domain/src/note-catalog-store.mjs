@@ -1522,6 +1522,16 @@ function syncMarkdownRelations(db, noteId, markdownBody) {
   }
 
   for (const linkedNote of linkedNotesById.values()) {
+    const existingRelation = db
+      .prepare(
+        `SELECT id
+         FROM links
+         WHERE (from_note_id = ? AND to_note_id = ?)
+            OR (from_note_id = ? AND to_note_id = ?)
+         LIMIT 1`
+      )
+      .get(noteId, linkedNote.id, linkedNote.id, noteId);
+    if (existingRelation) continue;
     db.prepare(
       `INSERT OR IGNORE INTO links
        (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at, status, updated_at)
