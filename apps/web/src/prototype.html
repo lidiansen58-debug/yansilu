@@ -1212,48 +1212,34 @@
                         <div class="settings-card-head">
                           <div>
                             <div class="settings-card-title">本地使用说明</div>
-                            <div class="settings-card-note">先知道内容放在哪里、手机访问怎么工作、换电脑会发生什么，就足够开始稳定使用。</div>
+                            <div class="settings-card-note">你的笔记留在自己的设备上。需要时，按下面三件事处理即可。</div>
                           </div>
                         </div>
-                        <div class="settings-help-topic-list">
+                        <div class="settings-help-topic-list settings-local-help-list">
                           <div class="settings-help-topic">
-                            <strong>笔记实际存在哪里</strong>
-                            <span>你的笔记正文以 Markdown 文件形式保存在当前笔记库里。只要备份这个目录，你最重要的内容就在手里。</span>
+                            <strong>笔记在哪儿</strong>
+                            <span>正文和附件都在当前笔记库里，正文是 Markdown 文件。备份这个目录，你的重要内容就始终在手里。</span>
+                            <details class="settings-local-help-details">
+                              <summary>查看本地索引说明</summary>
+                              <p>SQLite 只用于关系、索引和查询加速，不是保存笔记正文的唯一地方。切换笔记库只会重新读取目标文件夹，不会删除原来的笔记。</p>
+                            </details>
                           </div>
-                          <div class="settings-help-topic">
-                            <strong>本地数据库是做什么的</strong>
-                            <span>SQLite 主要负责关系、索引和查询加速，帮助系统更快找到相关笔记；它不是你长期保存正文的唯一地方。</span>
+                          <div class="settings-help-topic settings-help-topic-action">
+                            <strong>手机怎么用</strong>
+                            <span>手机适合随手记录、拍资料和轻量查看；整理关系和写作回到电脑完成。使用时让电脑保持运行，并和手机处于同一 Wi-Fi。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">管理手机访问</button>
                           </div>
-                          <div class="settings-help-topic">
-                            <strong>切换笔记库会发生什么</strong>
-                            <span>系统会重新读取那个文件夹里的目录、标签和关系缓存，但不会替你删除原来的笔记内容。切换前后都建议确认当前使用的是哪一个库。</span>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>选文件夹失败时怎么办</strong>
-                            <span>桌面版会优先调用系统文件夹选择器；如果当前环境不支持，就改成手动输入路径。先确认路径存在、并且你有读写权限。</span>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>手机访问适合做什么</strong>
-                            <span>手机端更适合采集和轻量查看：记一个念头、拍一张资料、从相册补图片、临时看看已有永久笔记。真正的整理、建联和写作，建议回电脑做。</span>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>电脑端要保持什么状态</strong>
-                            <span>手机访问时，电脑需要开机并保持研思录运行；手机和电脑最好在同一 Wi-Fi 或局域网里。当前版本按本地使用设计，不建议把访问地址直接暴露到公网。</span>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>扫码后为什么还要确认</strong>
-                            <span>二维码里只有访问地址和短期配对码，不会直接给手机长期访问权限。手机扫码后，还要在电脑端点一次“允许连接”，这样更安全，也方便你撤销设备。</span>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>手机拍照保存后去哪了</strong>
-                            <span>手机上的随手记录会保存到当前笔记库的随笔目录，图片会作为附件放进同一个库。回到电脑后，从首页继续把它整理成永久笔记、关系和可写主题。</span>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>换手机或停用旧设备时</strong>
-                            <span>在“本地使用说明 > 手机访问”里可以看到已配对设备，并随时撤销访问。撤销后，那台手机如果还想继续用，需要重新扫码并再次确认。</span>
+                          <div class="settings-help-topic settings-help-topic-action">
+                            <strong>换电脑前做什么</strong>
+                            <span>先创建加密备份，再把备份文件复制到任意你信任的位置。新电脑恢复到新的笔记库，原来的内容不会被覆盖。</span>
+                            <button class="mini-btn" type="button" data-settings-help-action="open-backup">打开备份与恢复</button>
                           </div>
                         </div>
-                        <div class="settings-support-safe-note">隐私提醒：复制诊断信息默认不会带完整笔记库路径；提交反馈前，仍建议看一眼里面有没有不想公开的私人内容。</div>
+                        <details class="settings-local-help-details settings-local-help-troubleshooting">
+                          <summary>选不到文件夹或无法打开笔记库</summary>
+                          <p>先确认路径存在，并且当前账户有读写权限。系统选择器不可用时，可以手动输入路径。</p>
+                        </details>
+                        <div class="settings-support-safe-note">隐私提醒：手机访问只建议在自己的局域网内使用，不要把访问地址直接暴露到公网。发送反馈前，也请检查邮件里是否有不想公开的信息。</div>
                       </section>
 
                       <section class="settings-card" id="settingsFeedbackCard">

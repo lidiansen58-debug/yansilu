@@ -17239,6 +17239,25 @@
       justify-self: start;
       min-height: 34px;
     }
+    .settings-local-help-list {
+      gap: 10px;
+    }
+    .settings-local-help-details {
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .settings-local-help-details summary {
+      width: fit-content;
+      color: #2563eb;
+      cursor: pointer;
+    }
+    .settings-local-help-details p {
+      margin: 7px 0 0;
+    }
+    .settings-local-help-troubleshooting {
+      padding: 1px 1px 0;
+    }
     .settings-feedback-choice {
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;

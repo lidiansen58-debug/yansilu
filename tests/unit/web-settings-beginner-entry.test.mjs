@@ -73,3 +73,17 @@ test("settings help exposes a one-click Smart Notes Demo entrance", async () => 
   assert.match(settingsEvents, /setSettingsItem\("mobile-access"/);
   assert.match(settingsEvents, /setSettingsItem\("ai-settings"/);
 });
+
+test("local help keeps the first screen focused on data, phone access, and moving computers", async () => {
+  const html = await readPrototypeHtmlSource();
+
+  assert.match(html, /id="settingsLocalRulesCard"/);
+  assert.match(html, /你的笔记留在自己的设备上/);
+  assert.match(html, /笔记在哪儿/);
+  assert.match(html, /手机怎么用/);
+  assert.match(html, /换电脑前做什么/);
+  assert.match(html, /管理手机访问/);
+  assert.match(html, /打开备份与恢复/);
+  assert.match(html, /查看本地索引说明/);
+  assert.match(html, /选不到文件夹或无法打开笔记库/);
+});
