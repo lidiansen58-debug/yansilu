@@ -3,6 +3,7 @@
 .codex-run/
 .playwright-cli/
 output/
+dist/
 artifacts/
 tmp/
 release-artifacts/

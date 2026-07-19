@@ -19,6 +19,8 @@
     "release:update-manifest": "node ./scripts/generate-update-manifest.mjs",
     "release:validate": "node ./scripts/release-validate-tag.mjs",
     "dev:web": "node ./apps/web/src/dev-server.mjs",
+    "build:marketing": "node ./scripts/build-marketing-site.mjs",
+    "deploy:marketing": "npm run build:marketing && npm exec wrangler pages deploy dist/marketing-site --project-name yansilu",
     "dev:worker": "node ./apps/worker/src/worker.mjs",
     "build:codemirror": "node ./scripts/build-codemirror.mjs",
     "build:toastui": "node ./scripts/build-toastui.mjs",
