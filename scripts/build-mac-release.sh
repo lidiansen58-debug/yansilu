@@ -3,12 +3,12 @@ set -euo pipefail
 
 # ============================================================
 # 研思录 (Yansilu) macOS Release Build Script
-# Universal Binary (arm64 + x86_64) + Code Sign + DMG + Notarize
+# Native architecture build + Code Sign + DMG + Notarize
 # ============================================================
 # Prerequisites:
 #   1. Apple Developer ID Application certificate in keychain
 #   2. App-specific password for notarization (https://appleid.apple.com)
-#   3. Rust targets: aarch64-apple-darwin + x86_64-apple-darwin
+#   3. Rust target for the current Mac architecture
 #
 # Usage (set env vars before running):
 #   export APPLE_ID="your@email.com"
@@ -26,6 +26,15 @@ APP_NAME="研思录"
 BUNDLE_ID="com.notesprout.yansilu"
 TAURI_DIR="$PROJECT_DIR/apps/desktop/src-tauri"
 ENTITLEMENTS="$TAURI_DIR/entitlements.plist"
+APP_VERSION=$(node -p "require('$PROJECT_DIR/apps/desktop/src-tauri/tauri.conf.json').version")
+MACHINE_ARCH=$(uname -m)
+if [ "$MACHINE_ARCH" = "arm64" ]; then
+  BUNDLE_ARCH="aarch64"
+  RUST_TARGET="aarch64-apple-darwin"
+else
+  BUNDLE_ARCH="x64"
+  RUST_TARGET="x86_64-apple-darwin"
+fi
 
 # Notarization credentials (from env vars)
 APPLE_ID="${APPLE_ID:-}"
@@ -58,13 +67,11 @@ check_prereqs() {
     exit 1
   fi
 
-  # Check Rust targets
-  for target in aarch64-apple-darwin x86_64-apple-darwin; do
-    if ! rustup target list --installed 2>/dev/null | grep -q "$target"; then
-      warn "Rust target $target not installed. Installing..."
-      rustup target add "$target"
-    fi
-  done
+  # The Tauri build targets the architecture of the current Mac.
+  if ! rustup target list --installed 2>/dev/null | grep -qx "$RUST_TARGET"; then
+    warn "Rust target $RUST_TARGET not installed. Installing..."
+    rustup target add "$RUST_TARGET"
+  fi
 
   # Check certificate
   if ! security find-identity -v -p codesigning 2>/dev/null | grep -q "Developer ID Application"; then
@@ -85,7 +92,7 @@ prepare_runtime() {
 
 # --- Step 2: Build Tauri app ---
 build_app() {
-  log "Step 2/5: Building Tauri desktop app (Universal Binary)..."
+  log "Step 2/5: Building Tauri desktop app ($BUNDLE_ARCH)..."
   cd "$TAURI_DIR"
   cargo clean 2>/dev/null || true
   cd "$PROJECT_DIR"
@@ -133,58 +140,21 @@ create_dmg() {
   log "Step 4/5: Creating DMG..."
 
   local bundle_dir=$(find "$TAURI_DIR/target" -path "*/release/bundle/macos" -type d 2>/dev/null | head -1)
-  cd "$bundle_dir"
-
   local app_path="$bundle_dir/${APP_NAME}.app"
-  local dmg_name="${APP_NAME}.dmg"
-  local staging="/tmp/yansilu-dmg-staging"
+  local dmg_dir="$TAURI_DIR/target/release/bundle/dmg"
+  local dmg_name="${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
+  local dmg_path="$dmg_dir/$dmg_name"
 
-  rm -rf "$staging"
-  mkdir -p "$staging"
-  cp -R "$app_path" "$staging/"
-  ln -s /Applications "$staging/Applications"
-
-  # Create read-write DMG for layout customization
-  hdiutil create -volname "$APP_NAME" \
-    -srcfolder "$staging" \
-    -ov -format UDRW "${APP_NAME}_rw.dmg"
-
-  # Mount and customize layout
-  hdiutil attach "${APP_NAME}_rw.dmg" -readwrite
-
-  osascript -e "
-  tell application \"Finder\"
-    tell disk \"$APP_NAME\"
-      open
-      set current view of container window to icon view
-      set toolbar visible of container window to false
-      set statusbar visible of container window to false
-      set bounds of container window to {400, 100, 900, 400}
-      set theViewOptions to the icon view options of container window
-      set arrangement of theViewOptions to not arranged
-      set icon size of theViewOptions to 128
-      set position of item \"$APP_NAME.app\" of container window to {150, 100}
-      set position of item \"Applications\" of container window to {350, 100}
-      update without registering applications
-      delay 1
-      close
-    end tell
-  end tell
-  " 2>/dev/null || true
-
-  hdiutil detach "/Volumes/$APP_NAME" 2>/dev/null || true
-
-  # Convert to compressed read-only DMG
-  rm -f "$dmg_name"
-  hdiutil convert "${APP_NAME}_rw.dmg" -format UDZO -o "$dmg_name"
-  rm -f "${APP_NAME}_rw.dmg"
-  rm -rf "$staging"
+  node "$PROJECT_DIR/scripts/package-macos-dmg.mjs" \
+    --app "$app_path" \
+    --out "$dmg_path" \
+    --volume-name "$APP_NAME"
 
   # Sign DMG
   log "  Signing DMG..."
-  codesign --force --sign "$CERT_NAME" --timestamp "$dmg_name"
+  codesign --force --sign "$CERT_NAME" --timestamp "$dmg_path"
 
-  ok "DMG created: $bundle_dir/$dmg_name"
+  ok "DMG created: $dmg_path"
 }
 
 # --- Step 5: Notarize and staple ---
@@ -199,26 +169,30 @@ notarize_dmg() {
     return 0
   fi
 
-  local bundle_dir=$(find "$TAURI_DIR/target" -path "*/release/bundle/macos" -type d 2>/dev/null | head -1)
-  cd "$bundle_dir"
-  local dmg_name="${APP_NAME}.dmg"
+  local dmg_path="$TAURI_DIR/target/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
 
   log "  Submitting to Apple notary service..."
-  xcrun notarytool submit "$dmg_name" \
+  xcrun notarytool submit "$dmg_path" \
     --apple-id "$APPLE_ID" \
     --team-id "$APPLE_TEAM_ID" \
     --password "$APPLE_APP_PASSWORD" \
     --wait
 
   log "  Stapling notarization ticket..."
-  xcrun stapler staple "$dmg_name"
+  xcrun stapler staple "$dmg_path"
 
   # Verify
   log "  Verifying notarization..."
-  spctl -a -vvv -t install "$dmg_name" 2>&1 || true
-  xcrun stapler validate "$dmg_name" 2>&1 || true
+  spctl -a -vvv -t install "$dmg_path" 2>&1 || true
+  xcrun stapler validate "$dmg_path" 2>&1 || true
 
   ok "DMG notarized and stapled"
+}
+
+sign_tauri_dmg() {
+  local dmg_path="$TAURI_DIR/target/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
+  log "Generating Tauri signature..."
+  node "$PROJECT_DIR/scripts/sign-tauri-artifact.mjs" --required "$dmg_path"
 }
 
 # --- Main ---
@@ -245,14 +219,14 @@ main() {
     warn "  bash scripts/build-mac-release.sh"
   fi
 
-  local bundle_dir=$(find "$TAURI_DIR/target" -path "*/release/bundle/macos" -type d 2>/dev/null | head -1)
+  sign_tauri_dmg
 
   echo ""
   echo -e "${GREEN}============================================${NC}"
   echo -e "${GREEN}  Build Complete!${NC}"
   echo -e "${GREEN}============================================${NC}"
   echo ""
-  echo -e "  DMG: ${CYAN}$bundle_dir/${APP_NAME}.dmg${NC}"
+  echo -e "  DMG: ${CYAN}$TAURI_DIR/target/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg${NC}"
   echo ""
 }
 

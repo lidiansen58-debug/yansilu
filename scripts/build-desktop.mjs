@@ -67,6 +67,7 @@ if (runtime.status !== 0) {
 }
 const tauriConfigPath = resolveTauriConfigPath();
 const bundleRoot = path.resolve(process.cwd(), "apps", "desktop", "src-tauri", "target", "release", "bundle");
+const tauriConfig = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), TAURI_CONFIG_PATH), "utf8"));
 
 for (const bundle of bundles) {
   const bundleDir = path.join(bundleRoot, bundle);
@@ -84,13 +85,7 @@ if (!hasCommand("cargo", env) || !hasCommand("rustc", env)) {
 
 console.log(`Desktop bundle targets: ${bundles.join(", ")}`);
 
-// Universal binary: build for both arm64 and x86_64 on macOS
-const rustTarget = process.platform === "darwin"
-  ? "universal-apple-darwin"
-  : null;
-const tauriArgs = rustTarget
-  ? ["build", "--target", rustTarget, "--bundles", bundles.join(","), "--config", tauriConfigPath]
-  : ["build", "--bundles", bundles.join(","), "--config", tauriConfigPath];
+const tauriArgs = ["build", "--bundles", bundles.join(","), "--config", tauriConfigPath];
 const npmBin = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function quoteWindowsArg(arg) {
@@ -129,6 +124,34 @@ child.on("exit", (code, signal) => {
     }
   }
   if ((code ?? 0) === 0 || fs.existsSync(path.resolve(bundleRoot, "macos", "研思录.app", "Contents", "MacOS", "yansilu-desktop"))) {
+    if (process.platform === "darwin" && bundles.includes("dmg")) {
+      const appPath = path.resolve(bundleRoot, "macos", `${tauriConfig.productName}.app`);
+      const architecture = process.arch === "arm64" ? "aarch64" : process.arch;
+      const dmgPath = path.resolve(bundleRoot, "dmg", `${tauriConfig.productName}_${tauriConfig.version}_${architecture}.dmg`);
+      const dmg = spawnSync(process.execPath, [
+        "./scripts/package-macos-dmg.mjs",
+        "--app", appPath,
+        "--out", dmgPath,
+        "--volume-name", tauriConfig.productName
+      ], {
+        cwd: process.cwd(),
+        env,
+        stdio: "inherit",
+        shell: false
+      });
+      if (dmg.status !== 0) process.exit(dmg.status ?? 1);
+      const signature = spawnSync(process.execPath, [
+        "./scripts/sign-tauri-artifact.mjs",
+        ...(envFlagIsEnabled(process.env.YANSILU_DESKTOP_UPDATER_ARTIFACTS) ? ["--required"] : []),
+        dmgPath
+      ], {
+        cwd: process.cwd(),
+        env,
+        stdio: "inherit",
+        shell: false
+      });
+      if (signature.status !== 0) process.exit(signature.status ?? 1);
+    }
     const manifest = spawnSync(process.execPath, ["./scripts/desktop-bundle-manifest.mjs"], {
       cwd: process.cwd(),
       env,

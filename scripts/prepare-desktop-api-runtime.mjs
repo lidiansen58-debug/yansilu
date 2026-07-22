@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { macosNodeRuntimeLayout } from "./macos-runtime-layout.mjs";
 
 const repoRoot = process.cwd();
 const tauriRoot = path.join(repoRoot, "apps", "desktop", "src-tauri");
@@ -61,40 +62,6 @@ function assertDesktopApiServerHasHostBinding(serverPath) {
 }
 
 function resolveNodeExe() {
-  // macOS: build universal (arm64+x86_64) Node.js via lipo
-  if (process.platform === "darwin") {
-    const nodeVersion = process.version.startsWith("v") ? process.version.slice(1) : process.version;
-    const cacheDir = path.join(repoRoot, ".cache", "node-universal");
-    const universalNode = path.join(cacheDir, "node");
-    if (fs.existsSync(universalNode)) {
-      const fileInfo = spawnSync("file", [universalNode], { encoding: "utf8" });
-      if (String(fileInfo.stdout || "").includes("universal")) {
-        return universalNode;
-      }
-      fs.rmSync(universalNode, { force: true });
-    }
-    ensureDir(cacheDir);
-    const archs = ["arm64", "x64"];
-    const binaries = [];
-    for (const arch of archs) {
-      const archDir = path.join(cacheDir, arch);
-      const archBin = path.join(archDir, "bin", "node");
-      if (!fs.existsSync(archBin)) {
-        const tarFile = path.join(cacheDir, `node-${arch}.tar.gz`);
-        const url = `https://nodejs.org/dist/v${nodeVersion}/node-v${nodeVersion}-darwin-${arch}.tar.gz`;
-        console.log(`Downloading Node.js ${nodeVersion} (${arch})...`);
-        ensureDir(archDir);
-        run("curl", ["-fsSL", "-o", tarFile, url], { cwd: cacheDir });
-        run("tar", ["-xzf", tarFile, "-C", archDir, "--strip-components=1"], { cwd: cacheDir });
-        fs.unlinkSync(tarFile);
-      }
-      binaries.push(archBin);
-    }
-    console.log("Creating universal Node.js binary with lipo...");
-    run("lipo", ["-create", "-output", universalNode, ...binaries]);
-    console.log("Universal Node.js binary ready.");
-    return universalNode;
-  }
   if (process.platform === "win32") {
     const result = spawnSync("where.exe", ["node"], { encoding: "utf8", shell: false });
     const first = String(result.stdout || "").split(/\r?\n/u).map(item => item.trim()).find(Boolean);
@@ -153,19 +120,25 @@ function resolveNpmCli() {
 rm(runtimeRoot);
 ensureDir(runtimeRoot);
 
-const bundledNodePath = path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "node");
+const bundledNodePath = process.platform === "darwin"
+  ? macosNodeRuntimeLayout(runtimeRoot).nodePath
+  : path.join(runtimeRoot, "node", process.platform === "win32" ? "node.exe" : "node");
 copyFile(resolveNodeExe(), bundledNodePath);
 makeExecutable(bundledNodePath);
 
-// On macOS, the Node.js binary depends on libnode.*.dylib in ../lib relative to bin/node.
-// Copy the lib directory alongside the binary so it works after bundling into .app.
+// On macOS, Node resolves libnode.*.dylib from ../lib relative to its executable.
+// The packaged executable lives in desktop-api-runtime/node/node, so lib must live
+// in desktop-api-runtime/lib rather than inside the node directory.
 if (process.platform === "darwin") {
   const nodeExePath = resolveNodeExe();
   const libSrcDir = path.join(path.dirname(nodeExePath), "..", "lib");
-  const libDestDir = path.join(runtimeRoot, "node", "lib");
+  const libDestDir = macosNodeRuntimeLayout(runtimeRoot).libraryDir;
   if (fs.existsSync(libSrcDir)) {
     copyDir(libSrcDir, libDestDir);
   }
+
+  // Fail the build here instead of shipping a DMG whose local API cannot start.
+  run(bundledNodePath, ["--version"], { cwd: runtimeRoot });
 }
 
 copyFile(path.join(repoRoot, "package.json"), path.join(runtimeRoot, "package.json"));
