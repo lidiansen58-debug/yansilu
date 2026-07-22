@@ -17229,6 +17229,18 @@
       justify-self: start;
       margin-top: 3px;
     }
+    .settings-demo-import-status {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: pre-line;
+    }
+    .settings-demo-import-status[data-tone="busy"] {
+      color: #0f766e;
+    }
+    .settings-demo-import-status[data-tone="bad"] {
+      color: #b42318;
+    }
     .settings-help-task-list {
       gap: 10px;
     }

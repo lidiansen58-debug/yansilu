@@ -5607,7 +5607,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
       }
     }
     setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
-    return false;
+    throw error;
   }
 }
 function openImportModule() {

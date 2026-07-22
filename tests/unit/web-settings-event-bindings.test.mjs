@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { installSettingsEventBindings } from "../../apps/web/src/settings-event-bindings.js";
+import {
+  describeSettingsDemoImportError,
+  installSettingsEventBindings
+} from "../../apps/web/src/settings-event-bindings.js";
 
 function createHarness() {
   const listeners = new Map();
@@ -12,6 +15,7 @@ function createHarness() {
       id,
       value: "",
       checked: false,
+      dataset: {},
       addEventListener(type, handler) {
         listeners.set(`${id}:${type}`, handler);
       },
@@ -34,6 +38,12 @@ function createHarness() {
     return {
       getAttribute(name) {
         return attrs[name] || "";
+      },
+      setAttribute(name, value) {
+        attrs[name] = value;
+      },
+      removeAttribute(name) {
+        delete attrs[name];
       },
       ...attrs
     };
@@ -65,7 +75,8 @@ function createHarness() {
     "settingsTemplatePreviewClose",
     "settingsTemplatePreviewModal",
     "settingsPaneAutomationBody",
-    "settingsPaneSupport"
+    "settingsPaneSupport",
+    "settingsImportSmartNotesDemoStatus"
   ];
   ids.forEach((id) => element(id));
 
@@ -151,6 +162,8 @@ test("settings demo import button shows progress while import is running", async
 
   assert.equal(importButton.disabled, true);
   assert.equal(importButton.textContent, "正在导入...");
+  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, "正在导入示例库。完成后会自动打开首页。");
+  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").dataset.tone, "busy");
   finishImport();
   await importPromise;
 
@@ -162,7 +175,7 @@ test("settings demo import button shows progress while import is running", async
   ]);
 });
 
-test("settings demo import reports failure and restores the button", async () => {
+test("settings demo import shows details when the import flow reports its original error", async () => {
   const harness = createHarness();
   const importButton = harness.attrNode({
     "data-settings-help-action": "import-demo",
@@ -173,7 +186,10 @@ test("settings demo import reports failure and restores the button", async () =>
   installSettingsEventBindings({
     $: harness.$,
     handleStateChange: async () => {
-      throw new Error("service unavailable");
+      const error = new Error("service unavailable");
+      error.code = "api_unavailable";
+      error.details = { port: 3001, lastError: "EADDRINUSE" };
+      throw error;
     },
     setStatus: (message, tone) => harness.calls.push(["status", message, tone])
   });
@@ -187,10 +203,52 @@ test("settings demo import reports failure and restores the button", async () =>
 
   assert.equal(importButton.disabled, false);
   assert.equal(importButton.textContent, "导入示例库 / 体验 Demo");
+  assert.match(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, /导入失败：service unavailable/);
+  assert.match(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, /错误代码：api_unavailable/);
+  assert.match(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, /详情：port: 3001；lastError: EADDRINUSE/);
+  assert.match(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, /请完全退出研思录后重新打开/);
+  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").dataset.tone, "bad");
   assert.deepEqual(harness.calls, [
     ["prevent"],
-    ["status", "导入 Demo 失败：service unavailable", "bad"]
+    ["status", harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, "bad"]
   ]);
+});
+
+test("settings demo import error describes timeout, code, and underlying cause", () => {
+  const error = new Error("Request timed out after 60000ms");
+  error.code = "request_timeout";
+  error.cause = new Error("socket stalled");
+
+  const message = describeSettingsDemoImportError(error);
+
+  assert.match(message, /错误代码：request_timeout/);
+  assert.match(message, /原因：socket stalled/);
+  assert.match(message, /请稍等片刻后重试/);
+});
+
+test("settings demo import keeps cancellation separate from an import failure", async () => {
+  const harness = createHarness();
+  const importButton = harness.attrNode({
+    "data-settings-help-action": "import-demo",
+    disabled: false,
+    textContent: "导入示例库 / 体验 Demo"
+  });
+
+  installSettingsEventBindings({
+    $: harness.$,
+    handleStateChange: async () => false,
+    setStatus: (message, tone) => harness.calls.push(["status", message, tone])
+  });
+
+  await harness.listeners.get("settingsPaneSupport:click")({
+    preventDefault: () => {},
+    target: harness.target({
+      "[data-settings-help-action]": importButton
+    })
+  });
+
+  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, "已取消导入。需要时可再次点击按钮。");
+  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").dataset.tone, "");
 });
 
 test("settings event bindings keep update and scheduled task actions behavior-driven", async () => {
