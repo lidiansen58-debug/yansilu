@@ -83,6 +83,12 @@ test("smart notes demo import syncs the directory tree and refreshes the home mo
   assert.match(source, /setStatus\(importedStatus, "ok"\);/);
 });
 
+test("smart notes demo import notice clears after leaving the home module", () => {
+  const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
+
+  assert.match(source, /if \(state\.module === "today" && normalizedModule !== "today"\) \{\s*state\.todayNoticeMessage = "";\s*\}/);
+});
+
 test("smart notes demo import keeps progress visible while the desktop API starts", () => {
   const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
   const apiSource = fs.readFileSync("apps/web/src/prototype-api.js", "utf8");

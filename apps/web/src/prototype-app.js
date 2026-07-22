@@ -3982,6 +3982,9 @@ async function autoPrepareLocalAiOnStartup() {
 
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
+  if (state.module === "today" && normalizedModule !== "today") {
+    state.todayNoticeMessage = "";
+  }
   if (normalizedModule === "today") clearTodayReturnTarget();
   if (normalizedModule === "imports") {
     state.module = "settings";
