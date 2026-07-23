@@ -133,6 +133,21 @@ sign_app() {
     err "Signature verification failed"
     exit 1
   fi
+
+  local node_entitlements
+  node_entitlements=$(mktemp)
+  if ! codesign -d --entitlements "$node_entitlements" "$node_bin" >/dev/null 2>&1; then
+    rm -f "$node_entitlements"
+    err "Could not read embedded Node.js entitlements"
+    exit 1
+  fi
+  if ! /usr/libexec/PlistBuddy -c "Print :com.apple.security.cs.allow-jit" "$node_entitlements" 2>/dev/null | grep -qx "true"; then
+    rm -f "$node_entitlements"
+    err "Embedded Node.js is missing com.apple.security.cs.allow-jit"
+    exit 1
+  fi
+  rm -f "$node_entitlements"
+  ok "Embedded Node.js JIT entitlement verified"
 }
 
 # --- Step 4: Create DMG (with Applications shortcut) ---
