@@ -165,14 +165,17 @@ test("sidebar flow demo actions open notes, relations, writing, and review", asy
   const deps = {
     activateModule: (moduleName) => calls.push(["activate", moduleName]),
     openNoteById: (noteId, options) => calls.push(["open", noteId, options]),
-    openWritingModule: async () => calls.push(["writing"]),
+    continueWritingProjectEntry: async (projectId, options) => {
+      calls.push(["writing-project", projectId, options]);
+      return { id: projectId, scaffold_id: "DRAFT-SMART-NOTES-DEMO" };
+    },
     handleStateChange: async (reason, payload) => calls.push(["state", reason, payload]),
     setStatus: (message, tone) => calls.push(["status", message, tone])
   };
 
   assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note", "PERM-WRITING-STARTS-BEFORE-DRAFT") }, deps), true);
   assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note-relations", "PERM-UNLINKED-PRACTICE") }, deps), true);
-  assert.equal(await handleSidebarFlowAction({ target: actionTarget("open-demo-writing") }, deps), true);
+  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-writing", "WRITE-SMART-NOTES-DEMO") }, deps), true);
   assert.equal(await handleSidebarFlowAction({ target: actionTarget("open-demo-review") }, deps), true);
 
   assert.deepEqual(calls, [
@@ -183,8 +186,10 @@ test("sidebar flow demo actions open notes, relations, writing, and review", asy
     ["open", "PERM-UNLINKED-PRACTICE", { preferTitleSelection: false }],
     ["state", "open-note-relations", { noteId: "PERM-UNLINKED-PRACTICE", source: "smart-notes-demo-walkthrough" }],
     ["status", "已打开导览笔记，可以开始补关系理由。", "ok"],
-    ["activate", "writing"],
-    ["writing"],
+    ["writing-project", "WRITE-SMART-NOTES-DEMO", {
+      openDraft: false,
+      statusMessage: "已打开 Smart Notes Demo 的可追溯文章提纲。"
+    }],
     ["activate", "today"]
   ]);
 });

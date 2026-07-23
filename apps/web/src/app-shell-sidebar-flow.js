@@ -186,6 +186,7 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     activateModule = () => {},
     openDistillationModule = async () => {},
     openWritingModule = async () => {},
+    continueWritingProjectEntry = async () => null,
     state = {},
     handleStateChange = async () => {},
     openNoteById = () => false,
@@ -231,9 +232,22 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     return true;
   }
   if (action === "open-demo-writing") {
-    activateModule("writing");
-    await openWritingModule();
-    return true;
+    const projectId = String(button.dataset?.sidebarFlowNoteId || button.getAttribute?.("data-sidebar-flow-note-id") || "").trim();
+    if (!projectId) {
+      setStatus("没有找到示例写作项目，请重新导入 Smart Notes Demo。", "warn");
+      return false;
+    }
+    try {
+      const project = await continueWritingProjectEntry(projectId, {
+        openDraft: false,
+        statusMessage: "已打开 Smart Notes Demo 的可追溯文章提纲。"
+      });
+      if (!project) throw new Error("示例写作项目不可用");
+      return true;
+    } catch (error) {
+      setStatus(`打开示例文章提纲失败：${String(error?.message || error)}`, "warn");
+      return false;
+    }
   }
   if (action === "open-demo-review") {
     activateModule("today");

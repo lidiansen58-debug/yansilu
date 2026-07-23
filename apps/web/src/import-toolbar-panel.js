@@ -40,7 +40,7 @@ export function renderImportToolbarPanel(input = {}) {
             <input id="importPath" placeholder="选择 Obsidian 仓库目录" value="${escapeHtml(model.path)}" />
             <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
           </div>
-          <div class="import-field-help">第 1 步：选择你的 Obsidian 文件夹。这里只读取预览，确认前不会写入研思录。</div>
+          <div class="import-field-help">先预览确认：默认不修改原 Vault；导入后的笔记可随时导回 Markdown。</div>
         </section>
         <section class="import-field-panel">
           <label class="import-field-label" for="importDirectoryId">导入到</label>

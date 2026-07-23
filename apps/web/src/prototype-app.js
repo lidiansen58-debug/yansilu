@@ -6496,6 +6496,7 @@ installSidebarFlowEventHandler({
     activateModule,
     openDistillationModule,
     openWritingModule,
+    continueWritingProjectEntry,
     handleStateChange,
     openNoteById,
     setStatus,

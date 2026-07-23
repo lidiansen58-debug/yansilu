@@ -1161,18 +1161,18 @@
     {
       "id": "PERM-UNLINKED-PRACTICE",
       "note_type": "permanent",
-      "title": "待关联练习：保存关系前先写清楚为什么",
+      "title": "关系理由练习：给已有笔记补一条说明",
       "cluster": "关联",
       "cluster_label": "关联",
       "status": "active",
       "distillation_status": "confirmed",
-      "thesis": "真正的关联由对象、类型和一句理由组成。",
+      "thesis": "正文链接和人工关系都能让笔记进入知识网络；真正值得补的是一条可读的关系理由。",
       "threeLineSummary": [
-        "真正的关联由对象、类型和一句理由组成。",
-        "在 Demo 中搜索一条永久笔记，选择关系类型并保存。",
+        "正文链接和人工关系都能让笔记进入知识网络；真正值得补的是一条可读的关系理由。",
+        "先看这条笔记已有的正文链接和人工关系；再在 Demo 中搜索一条新笔记，选择关系类型并写清为什么相关。",
         "找不到清楚理由时可以关闭，不必勉强关联。"
       ],
-      "productImplication": "在 Demo 中搜索一条永久笔记，选择关系类型并保存。",
+      "productImplication": "先看这条笔记已有的正文链接和人工关系；再在 Demo 中搜索一条新笔记，选择关系类型并写清为什么相关。",
       "boundaryOrCounterpoint": "找不到清楚理由时可以关闭，不必勉强关联。",
       "from_literature_note_ids": [],
       "tags": [
@@ -1180,9 +1180,9 @@
         "关联",
         "Smart Notes Demo"
       ],
-      "body": "# 待关联练习：保存关系前先写清楚为什么\n\n## 核心判断\n真正的关联由对象、类型和一句理由组成。\n\n## 为什么\n在 Demo 中搜索一条永久笔记，选择关系类型并保存。\n\n## 边界\n找不到清楚理由时可以关闭，不必勉强关联。\n\n## 继续看\n- [[关系理由比连线本身更重要]]\n- [[关系类型是在告诉未来自己怎么读这两条笔记]]",
-      "core_claim": "真正的关联由对象、类型和一句理由组成。",
-      "rationale": "在 Demo 中搜索一条永久笔记，选择关系类型并保存。",
+      "body": "# 关系理由练习：给已有笔记补一条说明\n\n## 核心判断\n正文链接和人工关系都能让笔记进入知识网络；真正值得补的是一条可读的关系理由。\n\n## 为什么\n先看这条笔记已有的正文链接和人工关系；再在 Demo 中搜索一条新笔记，选择关系类型并写清为什么相关。\n\n## 边界\n找不到清楚理由时可以关闭，不必勉强关联。\n\n## 继续看\n- [[关系理由比连线本身更重要]]\n- [[关系类型是在告诉未来自己怎么读这两条笔记]]",
+      "core_claim": "正文链接和人工关系都能让笔记进入知识网络；真正值得补的是一条可读的关系理由。",
+      "rationale": "先看这条笔记已有的正文链接和人工关系；再在 Demo 中搜索一条新笔记，选择关系类型并写清为什么相关。",
       "template": {
         "type": "permanent_note",
         "required_sections": [
@@ -3700,7 +3700,7 @@
       "to": "PERM-RELATION-REASON-MATTERS",
       "relationType": "example_of",
       "status": "confirmed",
-      "rationale": "待关联练习具体展示了保存前先写理由。",
+      "rationale": "关系理由练习具体展示了保存前先写理由。",
       "source": "manual",
       "relationSource": "manual",
       "insight_question": "这条关系在以后思考或写作时，可以作为证据、反方、边界、例子还是过渡？",
@@ -4463,18 +4463,6 @@
       "confidence": 0.55
     },
     {
-      "id": "REL-DEMO-BODY-ESSAY-SMART-NOTES-DEMO-PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
-      "from": "ESSAY-SMART-NOTES-DEMO",
-      "to": "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
-      "relationType": "associated_with",
-      "status": "confirmed",
-      "rationale": "markdown_wikilink",
-      "source": "body_wikilink",
-      "relationSource": "body_wikilink",
-      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
-      "confidence": 0.55
-    },
-    {
       "id": "REL-DEMO-BODY-ESSAY-SMART-NOTES-DEMO-PERM-RELATION-REASON-MATTERS",
       "from": "ESSAY-SMART-NOTES-DEMO",
       "to": "PERM-RELATION-REASON-MATTERS",
@@ -4538,11 +4526,11 @@
   "writing_projects": [
     {
       "id": "WRITE-SMART-NOTES-DEMO",
-      "title": "为什么研思录要把卡片笔记写作法做进产品里",
-      "goal": "用真实 Demo 笔记说明研思录怎样帮助用户从记录走到写作。",
+      "title": "怎样把已有笔记变成清晰观点和写作结构",
+      "goal": "用真实 Demo 笔记展示：先形成自己的判断，再通过关系和主题进入可追溯的写作结构。",
       "intent": "解释核心方法和当前产品，不写宣传稿。",
       "target_reader": "第一次使用研思录的人。",
-      "desired_reader_takeaway": "我只要先走一个小闭环，就能开始积累自己的知识和写作素材。",
+      "desired_reader_takeaway": "我能看见一条判断怎样带着来源和关系进入可追溯提纲，再开始写作。",
       "basketNoteIds": [
         "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
         "PERM-PARAPHRASE-BEFORE-JUDGMENT",
@@ -4571,8 +4559,8 @@
       "outline": [
         {
           "sectionId": "sec-1",
-          "title": "从记录到自己的判断",
-          "goal": "用关键笔记说清“从记录到自己的判断”。",
+          "title": "把材料加工成自己的判断",
+          "goal": "用关键笔记说清“把材料加工成自己的判断”。",
           "noteTraceIds": [
             "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
             "PERM-PARAPHRASE-BEFORE-JUDGMENT",
@@ -4730,7 +4718,7 @@
       "id": "DRAFT-SMART-NOTES-DEMO",
       "writing_project_id": "WRITE-SMART-NOTES-DEMO",
       "generated_by": "demo-fixture",
-      "version_note": "从主题索引和关键笔记生成的示例提纲，可由用户继续修改。",
+      "version_note": "由判断、关系理由和主题索引组成的示例提纲；每一节都可追溯到关键笔记。",
       "key_note_ids": [
         "PERM-PERMANENT-NOTE-IS-JUDGMENT",
         "PERM-RELATION-REASON-MATTERS",
@@ -4744,8 +4732,8 @@
       "sections": [
         {
           "id": "sec-1",
-          "title": "从记录到自己的判断",
-          "goal": "用关键笔记说清“从记录到自己的判断”。",
+          "title": "把材料加工成自己的判断",
+          "goal": "用关键笔记说清“把材料加工成自己的判断”。",
           "note_ids": [
             "PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE",
             "PERM-PARAPHRASE-BEFORE-JUDGMENT",
@@ -4882,9 +4870,9 @@
     {
       "id": "ESSAY-SMART-NOTES-DEMO",
       "note_type": "final_essay",
-      "title": "示例文章：让笔记从记录走到写作",
+      "title": "示例文章：把已有笔记变成写作结构",
       "writing_project_id": "WRITE-SMART-NOTES-DEMO",
-      "body": "# 示例文章：让笔记从记录走到写作\n\n研思录把记录、永久笔记、关联、主题和写作连成一条路。先看 [[记录是入口，不是知识本身]]，再看 [[关系理由比连线本身更重要]]，最后进入 [[写作中心应该从已确认判断生成提纲]]。AI 可以帮助提炼和检查，但保存前仍由用户确认。\n\n延伸：[[PERM-COMPOUND-INTEREST-FROM-REUSE|继续阅读]]"
+      "body": "# 示例文章：把已有笔记变成写作结构\n\n研思录先把已有材料加工成用户愿意承担的判断，再用 [[关系理由比连线本身更重要]] 说明这些判断如何互相支撑，最后通过 [[写作中心应该从已确认判断生成提纲]] 组织成可追溯提纲。AI 可以帮助提炼和检查，但判断、关系和保存仍由用户确认。\n\n延伸：[[PERM-COMPOUND-INTEREST-FROM-REUSE|继续阅读]]"
     },
     {
       "id": "ESSAY-RELATION-TYPES-HELP",
@@ -4911,7 +4899,7 @@
         "导览",
         "Smart Notes Demo"
       ],
-      "body": "# 00 从这里开始：10 分钟走完研思录\n\n你不用先学术语。照着 6 步试一遍：记录 -> 转述 -> 永久笔记 -> 建立关系 -> 主题索引 -> 写作中心。\n\n1. 看 [[手机上先记一句：我总是收藏很多但不会用]]。\n2. 看 [[阅读一开始就要面向未来写作]]。\n3. 看 [[写作不是最后一步，而是整理笔记的方向]]。\n4. 给 [[待关联练习：保存关系前先写清楚为什么]] 找一条相关笔记。\n5. 打开 [[03 为什么要建立关系？|为什么要关联笔记？]] 或 [[02 什么是永久笔记？|永久笔记是什么？]]。\n6. 从主题进入写作中心，查看示例提纲。\n\n今天只做一个动作也可以。先动手，再理解。"
+      "body": "# 00 从这里开始：10 分钟走完研思录\n\n你不用先学术语。照着 6 步试一遍：记录材料 -> 用自己的话转述 -> 形成一条判断 -> 写清关系理由 -> 组织主题 -> 查看可追溯提纲。\n\n1. 看 [[手机上先记一句：我总是收藏很多但不会用]]。\n2. 看 [[阅读一开始就要面向未来写作]]。\n3. 看 [[写作不是最后一步，而是整理笔记的方向]]。\n4. 打开 [[关系理由练习：给已有笔记补一条说明]]，先看正文链接和人工关系，再补一条自己的理由。\n5. 打开 [[03 为什么要建立关系？|为什么要关联笔记？]] 或 [[02 什么是永久笔记？|永久笔记是什么？]]。\n6. 从主题进入写作中心，查看示例提纲。\n\n今天只做一个动作也可以。先动手，再理解。"
     },
     {
       "id": "GUIDE-TODAY-NEXT-STEP",
@@ -5041,7 +5029,7 @@
     "literature_notes": 9,
     "permanent_notes": 48,
     "index_cards": 18,
-    "relations": 105,
+    "relations": 104,
     "writing_projects": 2,
     "draft_scaffolds": 2,
     "final_essays": 3,

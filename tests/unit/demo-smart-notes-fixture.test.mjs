@@ -3,10 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { buildSmartNotesDemoFixture } from "../../scripts/smart-notes-demo-data.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "..", "fixtures", "demo-smart-notes-product-thinking", "demo.json");
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+
+test("Smart Notes Demo fixture stays synchronized with its source generator", () => {
+  assert.deepEqual(fixture, buildSmartNotesDemoFixture());
+});
 
 const OLD_VISIBLE_ID_PATTERN = /\b(?:PN-SN|WP-SN|IC-SN)-[A-Z0-9-]*\b/;
 const FORBIDDEN_TOPIC_PATTERN = /易经|卦|君子是行动者模型/;
@@ -203,7 +208,8 @@ test("writing project starts from theme indexes and key permanent notes", () => 
   const indexIds = new Set(fixture.index_cards.map((card) => card.id));
 
   assert.equal(project.id, "WRITE-SMART-NOTES-DEMO");
-  assert.match(project.title, /卡片笔记写作法/);
+  assert.match(project.title, /已有笔记变成清晰观点和写作结构/);
+  assert.match(project.desired_reader_takeaway, /可追溯提纲/);
   assert.ok(project.basketNoteIds.length >= 5);
   assert.ok(project.indexCardIds.length >= 3);
   for (const id of project.basketNoteIds) assert.ok(permanentIds.has(id), `${id} should be a permanent note`);
@@ -215,10 +221,10 @@ test("writing project starts from theme indexes and key permanent notes", () => 
 test("guide note is beginner friendly and opens the complete workflow", () => {
   const guide = fixture.guide_notes.find((note) => note.id === "GUIDE-SMART-NOTES-START");
   assert.ok(guide, "missing starting guide");
-  assert.match(guide.body, /记录 -> 转述 -> 永久笔记 -> 建立关系 -> 主题索引 -> 写作中心|6 步/);
+  assert.match(guide.body, /记录材料 -> 用自己的话转述 -> 形成一条判断 -> 写清关系理由 -> 组织主题 -> 查看可追溯提纲/);
   assert.match(guide.body, /\[\[手机上先记一句/);
   assert.match(guide.body, /\[\[写作不是最后一步/);
-  assert.match(guide.body, /\[\[待关联练习/);
+  assert.match(guide.body, /\[\[关系理由练习：给已有笔记补一条说明\]\]/);
   assert.match(guide.body, /\[\[03 为什么要建立关系？\|为什么要关联笔记？\]\]/);
   assert.doesNotMatch(guide.body, OLD_VISIBLE_ID_PATTERN);
 });

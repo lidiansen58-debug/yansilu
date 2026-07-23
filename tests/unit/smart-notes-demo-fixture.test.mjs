@@ -45,6 +45,9 @@ test("Smart Notes Demo fixture teaches the current home-first beginner path", as
   assert.ok(fixture.relations.some((relation) => relation.from === "PERM-BEST-PATH-STARTS-FROM-HOME"));
   assert.ok(fixture.writing_projects.length > 0);
   assert.ok(fixture.draft_scaffolds.length > 0);
+  const demoProject = fixture.writing_projects.find((project) => project.id === "WRITE-SMART-NOTES-DEMO");
+  const demoScaffold = fixture.draft_scaffolds.find((scaffold) => scaffold.id === "DRAFT-SMART-NOTES-DEMO");
+  assert.equal(demoScaffold?.writing_project_id, demoProject?.id);
 });
 
 test("Smart Notes Demo turns permanent-note wikilinks into lightweight body relations", async () => {
@@ -72,16 +75,13 @@ test("Smart Notes Demo turns permanent-note wikilinks into lightweight body rela
   assert.ok(manualRelations.every((relation) => relation.rationale && relation.rationale !== "markdown_wikilink"));
 });
 
-test("Smart Notes Demo still keeps a few permanent notes available for relation practice", async () => {
+test("Smart Notes Demo keeps a named permanent note for relation practice", async () => {
   const fixture = await readFixture();
-  const relationNoteIds = new Set();
-  for (const relation of fixture.relations) {
-    relationNoteIds.add(relation.from);
-    relationNoteIds.add(relation.to);
-  }
-  const isolatedPermanentNotes = fixture.permanent_notes.filter((note) => !relationNoteIds.has(note.id));
+  const practiceNote = fixture.permanent_notes.find((note) => note.id === "PERM-UNLINKED-PRACTICE");
 
-  assert.ok(isolatedPermanentNotes.length >= 2);
+  assert.match(practiceNote?.title || "", /关系理由练习/);
+  assert.match(practiceNote?.body || "", /正文链接和人工关系/);
+  assert.match(practiceNote?.body || "", /选择关系类型并写清为什么相关/);
 });
 
 test("Smart Notes Demo teaches current contextual AI without making it a required path", async () => {

@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
-
 async function findFreePort() {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -149,13 +148,14 @@ test("marketing home exposes the smart notes demo story", async (t) => {
   assert.match(html, /data-tab-autoplay="6500"/);
   assert.match(html, /data-tab-autoplay-toggle[^>]*aria-label="自动播放"[^>]*hidden/);
   assert.match(html, /让笔记生长为思想/);
-  assert.match(html, /把零散记录加工成自己的观点/);
+  assert.match(html, /把已有笔记变成清晰观点和写作结构/);
   assert.match(html, /把材料变成自己的观点/);
   assert.match(html, /看见观点之间的关系/);
   assert.match(html, /用长期积累完成作品/);
   assert.match(html, /assets\/marketing\/permanent-note\.png/);
   assert.match(html, /assets\/marketing\/knowledge-network\.png/);
-  assert.match(html, /实际 Smart Notes Demo 的知识网络/);
+  assert.match(html, /展示笔记之间的关联与主题簇/);
+  assert.match(html, /让分散的观点逐渐形成主题簇，也看见它们为什么相关/);
   assert.match(html, /assets\/marketing\/original-writing\.png/);
   assert.equal((html.match(/data-marketing-tabs/g) || []).length, 1);
   assert.equal((html.match(/role="tabpanel"[^>]*\shidden(?:\s|>)/g) || []).length, 2);

@@ -21,7 +21,7 @@ const permanentDefinitions = [
   ["PERM-DEMO-FIRST-RUN-RECOMMENDED", "第一次建议导入 Demo，是为了先看到完整闭环", "上手", "真实样例比一页功能说明更容易让新手理解产品。", "Demo 由用户确认后一键导入，并可单独体验。", "Demo 不应自动混进用户自己的笔记。", ["Demo 应该是可练习的样例库，不是静态说明书", "帮助页应该按任务组织，而不是按功能堆列表"]],
   ["PERM-HELP-SHOULD-FOLLOW-TASKS", "帮助页应该按任务组织，而不是按功能堆列表", "帮助", "用户遇到问题时想知道下一步怎么做，而不是阅读功能目录。", "帮助按导入 Demo、处理材料、关联、主题、写作和 AI 设置组织。", "方法解释保持简短，详细背景放在可选文章里。", ["Demo 应该是可练习的样例库，不是静态说明书", "研思录的最佳路径，是从首页开始做一个小闭环"]],
   ["PERM-BEST-PATH-STARTS-FROM-HOME", "研思录的最佳路径，是从首页开始做一个小闭环", "首页", "首页应把最值得推进的动作放在首屏，其他功能按需进入。", "处理材料、补关系、整理主题或进入写作都从首页承接。", "用户也可以从笔记盒直接编辑，不必被固定流程限制。", ["首页应该像每天整理知识的工作台", "第一次使用研思录应该先走一条小闭环"]],
-  ["PERM-UNLINKED-PRACTICE", "待关联练习：保存关系前先写清楚为什么", "关联", "真正的关联由对象、类型和一句理由组成。", "在 Demo 中搜索一条永久笔记，选择关系类型并保存。", "找不到清楚理由时可以关闭，不必勉强关联。", ["关系理由比连线本身更重要", "关系类型是在告诉未来自己怎么读这两条笔记"]],
+  ["PERM-UNLINKED-PRACTICE", "关系理由练习：给已有笔记补一条说明", "关联", "正文链接和人工关系都能让笔记进入知识网络；真正值得补的是一条可读的关系理由。", "先看这条笔记已有的正文链接和人工关系；再在 Demo 中搜索一条新笔记，选择关系类型并写清为什么相关。", "找不到清楚理由时可以关闭，不必勉强关联。", ["关系理由比连线本身更重要", "关系类型是在告诉未来自己怎么读这两条笔记"]],
   ["PERM-PRACTICE-UNLINKED-QUESTION", "练习：这个判断还需要找一条支撑笔记", "关联练习", "有些判断先单独放着，等找到真正相关的笔记后再关联。", "Demo 故意保留少量未关联笔记，让用户练习从搜索、选择到保存关系的过程。", "找不到清楚理由时，不要为了消除提醒而勉强连接。", []],
   ["PERM-PRACTICE-UNLINKED-BOUNDARY", "练习：这条边界暂时还没有放进网络", "关联练习", "边界判断也需要找到对应观点，才能在写作时提醒用户不要说过头。", "这条笔记用于练习补关系，用户可以给它找一个被限定或被反驳的目标。", "没有合适对象时，保持独立比保存一条空关系更好。", []],
   ["PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE", "记录是入口，不是知识本身", "记录", "捕捉只是把想法放进收件箱，整理才让它进入知识网络。", "首页显示待处理材料并给出下一步。", "有些记录会被删除，删除也是整理。", ["随笔是捕捉点，不是知识点", "首页应该奖励处理，而不是奖励收藏"]],
@@ -211,7 +211,7 @@ const relationSeeds = [
   ["AI-RELATE", "PERM-AI-RELATION-EXPLAINS-WHY", "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION", "supports", "候选关联的理由为用户确认提供依据。"],
   ["AI-CHECK", "PERM-AI-WRITING-CHECK-DOES-NOT-REWRITE", "PERM-DRAFT-SHOULD-KEEP-NOTE-TRACE", "complements", "指出写作缺口和保留笔记追溯共同保护用户观点。"],
   ["LIMIT", "PERM-LIMIT-RELATION-PROTECTS-OVERCLAIM", "PERM-SUPPORT-RELATION-BECOMES-EVIDENCE", "qualifies", "限定关系提醒证据支持到哪里为止。"],
-  ["RELATED", "PERM-UNLINKED-PRACTICE", "PERM-RELATION-REASON-MATTERS", "example_of", "待关联练习具体展示了保存前先写理由。"],
+  ["RELATED", "PERM-UNLINKED-PRACTICE", "PERM-RELATION-REASON-MATTERS", "example_of", "关系理由练习具体展示了保存前先写理由。"],
   ["THEME-WRITING", "PERM-INDEX-CARD-IS-LIVING-OUTLINE", "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES", "bridges", "主题索引把关系网络桥接到写作中心。"],
   ["HOME-WRITING", "PERM-TODAY-REVIEW-REWARDS-PROCESSING", "PERM-WRITING-STARTS-BEFORE-DRAFT", "supports", "首页每天推进一条材料，支撑写作从整理阶段开始。"],
   ["MOBILE-HOME", "PERM-MOBILE-CAPTURE-DESKTOP-ORGANIZE", "PERM-HOME-AS-DAILY-DESK", "complements", "手机捕捉与电脑首页整理互相补充。"],
@@ -358,18 +358,18 @@ function buildRelations({ notes = [], permanentNotes = [] } = {}) {
 
 function writingProject() {
   const sections = [
-    ["从记录到自己的判断", ["PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE", "PERM-PARAPHRASE-BEFORE-JUDGMENT", "PERM-PERMANENT-NOTE-IS-JUDGMENT"]],
+    ["把材料加工成自己的判断", ["PERM-CAPTURE-IS-INBOX-NOT-KNOWLEDGE", "PERM-PARAPHRASE-BEFORE-JUDGMENT", "PERM-PERMANENT-NOTE-IS-JUDGMENT"]],
     ["为什么要写清关联", ["PERM-RELATION-REASON-MATTERS", "PERM-RELATION-TYPE-IS-A-READING-INSTRUCTION", "PERM-COMPOUND-INTEREST-FROM-REUSE"]],
     ["主题如何进入写作", ["PERM-THEME-INDEX-IS-ENTRY", "PERM-INDEX-CARD-IS-LIVING-OUTLINE", "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES"]],
     ["AI 怎样帮助但不替用户决定", ["PERM-AI-DISTILL-DRAFT", "PERM-AI-RELATION-EXPLAINS-WHY", "PERM-AI-SHOULD-ASK-FOR-CONFIRMATION"]]
   ].map(([title, noteIds], index) => ({ sectionId: `sec-${index + 1}`, title, goal: `用关键笔记说清“${title}”。`, noteTraceIds: noteIds, literatureTraceIds: [], keyNoteTraceIds: noteIds.slice(0, 1), openQuestion: "还需要补一个更具体的使用例子吗？", gap: "避免抽象术语，落到用户动作。", counterpoint: "这一步能否继续简化？" }));
   return {
     id: "WRITE-SMART-NOTES-DEMO",
-    title: "为什么研思录要把卡片笔记写作法做进产品里",
-    goal: "用真实 Demo 笔记说明研思录怎样帮助用户从记录走到写作。",
+    title: "怎样把已有笔记变成清晰观点和写作结构",
+    goal: "用真实 Demo 笔记展示：先形成自己的判断，再通过关系和主题进入可追溯的写作结构。",
     intent: "解释核心方法和当前产品，不写宣传稿。",
     target_reader: "第一次使用研思录的人。",
-    desired_reader_takeaway: "我只要先走一个小闭环，就能开始积累自己的知识和写作素材。",
+    desired_reader_takeaway: "我能看见一条判断怎样带着来源和关系进入可追溯提纲，再开始写作。",
     basketNoteIds: sections.flatMap((section) => section.noteTraceIds),
     indexCardIds: ["THEME-FIRST-USE", "THEME-WHY-LINK-NOTES", "THEME-INDEX-TO-WRITING", "THEME-PRODUCT-ROADMAP"],
     keyNoteIds: ["PERM-PERMANENT-NOTE-IS-JUDGMENT", "PERM-RELATION-REASON-MATTERS", "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES"],
@@ -404,7 +404,9 @@ function scaffold(project, id) {
     id,
     writing_project_id: project.id,
     generated_by: "demo-fixture",
-    version_note: "从主题索引和关键笔记生成的示例提纲，可由用户继续修改。",
+    version_note: project.id === "WRITE-SMART-NOTES-DEMO"
+      ? "由判断、关系理由和主题索引组成的示例提纲；每一节都可追溯到关键笔记。"
+      : "从主题索引和关键笔记生成的示例提纲，可由用户继续修改。",
     key_note_ids: project.keyNoteIds,
     key_note_path: project.keyNoteIds,
     sections: project.outline.map((section) => ({
@@ -423,7 +425,7 @@ function scaffold(project, id) {
 
 function guideNotes() {
   return [
-    ["GUIDE-SMART-NOTES-START", "00 从这里开始：10 分钟走完研思录", `你不用先学术语。照着 6 步试一遍：记录 -> 转述 -> 永久笔记 -> 建立关系 -> 主题索引 -> 写作中心。\n\n1. 看 [[手机上先记一句：我总是收藏很多但不会用]]。\n2. 看 [[阅读一开始就要面向未来写作]]。\n3. 看 [[写作不是最后一步，而是整理笔记的方向]]。\n4. 给 [[待关联练习：保存关系前先写清楚为什么]] 找一条相关笔记。\n5. 打开 [[03 为什么要建立关系？|为什么要关联笔记？]] 或 [[02 什么是永久笔记？|永久笔记是什么？]]。\n6. 从主题进入写作中心，查看示例提纲。\n\n今天只做一个动作也可以。先动手，再理解。`],
+    ["GUIDE-SMART-NOTES-START", "00 从这里开始：10 分钟走完研思录", `你不用先学术语。照着 6 步试一遍：记录材料 -> 用自己的话转述 -> 形成一条判断 -> 写清关系理由 -> 组织主题 -> 查看可追溯提纲。\n\n1. 看 [[手机上先记一句：我总是收藏很多但不会用]]。\n2. 看 [[阅读一开始就要面向未来写作]]。\n3. 看 [[写作不是最后一步，而是整理笔记的方向]]。\n4. 打开 [[关系理由练习：给已有笔记补一条说明]]，先看正文链接和人工关系，再补一条自己的理由。\n5. 打开 [[03 为什么要建立关系？|为什么要关联笔记？]] 或 [[02 什么是永久笔记？|永久笔记是什么？]]。\n6. 从主题进入写作中心，查看示例提纲。\n\n今天只做一个动作也可以。先动手，再理解。`],
     ["GUIDE-TODAY-NEXT-STEP", "01 今天先做哪一步？", "回到首页，只做最靠前的一个动作：处理材料、补一条关系、整理主题，或进入写作。"],
     ["GUIDE-WHAT-PERMANENT", "02 什么是永久笔记？", "永久笔记是一条你愿意承担的判断。标题说观点，正文写理由和边界。\n\n继续看：[[永久笔记是一条用户愿意承担的判断]]。"],
     ["GUIDE-WHY-RELATE", "03 为什么要建立关系？", "关联让两条判断互相解释。选择对象、关系类型，写一句为什么相关，然后保存。\n\n继续看：[[关系理由比连线本身更重要]]。"],
@@ -445,7 +447,7 @@ export function buildSmartNotesDemoFixture() {
   const writingProjectMain = writingProject();
   const writingProjectRelations = relationWritingProject();
   const final_essays = [
-    { id: "ESSAY-SMART-NOTES-DEMO", note_type: "final_essay", title: "示例文章：让笔记从记录走到写作", writing_project_id: writingProjectMain.id, body: "# 示例文章：让笔记从记录走到写作\n\n研思录把记录、永久笔记、关联、主题和写作连成一条路。先看 [[记录是入口，不是知识本身]]，再看 [[关系理由比连线本身更重要]]，最后进入 [[写作中心应该从已确认判断生成提纲]]。AI 可以帮助提炼和检查，但保存前仍由用户确认。" },
+    { id: "ESSAY-SMART-NOTES-DEMO", note_type: "final_essay", title: "示例文章：把已有笔记变成写作结构", writing_project_id: writingProjectMain.id, body: "# 示例文章：把已有笔记变成写作结构\n\n研思录先把已有材料加工成用户愿意承担的判断，再用 [[关系理由比连线本身更重要]] 说明这些判断如何互相支撑，最后通过 [[写作中心应该从已确认判断生成提纲]] 组织成可追溯提纲。AI 可以帮助提炼和检查，但判断、关系和保存仍由用户确认。" },
     { id: "ESSAY-RELATION-TYPES-HELP", note_type: "final_essay", title: "帮助文章：关系类型以后怎么用于写作", writing_project_id: writingProjectRelations.id, body: "# 帮助文章：关系类型以后怎么用于写作\n\n支持可以成为证据，反驳可以成为反方，限定可以成为边界，桥接可以成为过渡。关键不在类型数量，而在一句可读的关系理由。" },
     { id: "ESSAY-YANSILU-BEST-PRACTICE", note_type: "final_essay", title: "帮助文章：第一次使用研思录怎么走", writing_project_id: writingProjectMain.id, body: "# 帮助文章：第一次使用研思录怎么走\n\n从首页开始，只推进一个动作。处理一条材料，形成一条永久笔记，补一条关系，整理一个主题，再进入写作中心。" }
   ];

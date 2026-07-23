@@ -24,7 +24,7 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   {
     key: "connect-relation",
     title: "补一条关系理由",
-    note: "让一条孤立永久笔记进入关系网，并写清楚为什么相关。",
+    note: "查看正文链接和人工关系怎样共同进入关系网，再补一条你自己的理由。",
     action: "open-demo-note-relations",
     targetNoteId: "PERM-UNLINKED-PRACTICE",
     noteIds: ["PERM-UNLINKED-PRACTICE"]

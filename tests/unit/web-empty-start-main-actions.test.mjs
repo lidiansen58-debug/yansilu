@@ -12,7 +12,9 @@ import {
 test("empty editor first screen makes Demo import the clear primary action", () => {
   const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
 
-  assert.match(html, /第一次打开，建议先体验示例库/);
+  assert.match(html, /第一次打开，先形成一条判断/);
+  assert.match(html, /首次完成不是创建笔记库：先形成一条判断/);
+  assert.match(html, /Demo 会带你看到它如何进入可追溯的写作结构/);
   assert.match(html, /data-empty-start-action="seed-demo"/);
   assert.match(html, /导入示例库 \/ 体验 Demo/);
   assert.match(html, /<em>推荐<\/em>/);
@@ -20,13 +22,13 @@ test("empty editor first screen makes Demo import the clear primary action", () 
   assert.match(html, /确认导入示例库/);
   assert.match(html, /data-empty-start-action="seed-demo-confirm"/);
   assert.match(html, /data-empty-start-action="seed-demo-cancel"/);
-  assert.match(html, /点下面按钮后会先请你确认/);
-  assert.match(html, /导入一套可以照着走的 Demo 笔记/);
-  assert.match(html, /确认后创建 Smart Notes 示例笔记/);
+  assert.match(html, /首次完成不是创建笔记库/);
+  assert.match(html, /确认后创建 Smart Notes 示例笔记、关系和写作项目/);
   assert.doesNotMatch(html, /data-empty-start-action="open-import"/);
   assert.doesNotMatch(html, /选择 Obsidian 文件夹/);
   assert.match(html, /data-empty-start-action="create-note"/);
-  assert.match(html, /跳过 Demo，写第一条笔记/);
+  assert.match(html, /跳过 Demo，写下第一条判断/);
+  assert.match(html, /观点、依据、来源、关系和反例的结构/);
 });
 
 test("empty start routes demo import with confirmation and the existing-notes import module through shell actions", async () => {
