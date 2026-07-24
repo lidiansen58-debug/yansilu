@@ -8,7 +8,8 @@ import {
   githubReleasePageUrl,
   inferReleaseChannel,
   parseGithubRepositoryFromRemote,
-  selectPrimaryBundleItem
+  selectPrimaryBundleItem,
+  tauriPlatformKeysForBundleItem
 } from "../../packages/app-update/src/release-manifest.mjs";
 
 const bundleManifest = {
@@ -62,6 +63,21 @@ test("release manifest builds a signed Tauri static updater feed", () => {
   assert.equal(feed.platforms["windows-x86_64"].signature, "WINDOWS_SIG");
   assert.equal(feed.platforms["darwin-x86_64"].signature, "MAC_SIG");
   assert.match(feed.platforms["windows-x86_64"].url, /releases\/download\/v0\.1\.2/);
+});
+
+test("universal macOS updater artifacts serve both Apple Silicon and Intel clients", () => {
+  const item = { file: "macos/研思录_universal.app.tar.gz" };
+  assert.deepEqual(tauriPlatformKeysForBundleItem(item), ["darwin-aarch64", "darwin-x86_64"]);
+
+  const feed = buildTauriStaticUpdateManifestFromBundleManifest({
+    bundleManifest: { items: [item, { file: `${item.file}.sig` }] },
+    packageVersion: "0.1.2",
+    repository: "lidiansen58-debug/yansilu",
+    signatureByFile: { [`${item.file}.sig`]: "UNIVERSAL_MAC_SIG" }
+  });
+
+  assert.equal(feed.platforms["darwin-aarch64"].signature, "UNIVERSAL_MAC_SIG");
+  assert.equal(feed.platforms["darwin-x86_64"].signature, "UNIVERSAL_MAC_SIG");
 });
 
 test("release manifest refuses a Tauri updater feed without signatures", () => {

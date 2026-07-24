@@ -34,9 +34,14 @@ test("macOS desktop build wires the runtime layout and DMG packager into the rel
   ]);
 
   assert.match(runtimeScript, /macosNodeRuntimeLayout\(runtimeRoot\)\.libraryDir/);
+  assert.match(buildScript, /prepare-universal-desktop-api-runtime\.mjs/);
+  assert.match(buildScript, /universal-apple-darwin/);
   assert.match(runtimeScript, /run\(bundledNodePath, \["--version"\]/);
   assert.doesNotMatch(runtimeScript, /node-universal/);
   assert.match(buildScript, /package-macos-dmg\.mjs/);
+  assert.match(buildScript, /bundles\.filter\(\(bundle\) => bundle !== "dmg"\)/);
+  assert.match(buildScript, /verify-macos-bundle-architecture\.mjs/);
+  assert.match(buildScript, /renameUniversalMacosUpdaterArtifacts/);
   assert.match(buildScript, /bundles\.includes\("dmg"\)/);
   assert.match(buildScript, /sign-tauri-artifact\.mjs/);
   assert.match(dmgScript, /fs\.symlink\("\/Applications"/);
@@ -49,12 +54,14 @@ test("signed macOS releases repackage and notarize the same DMG path", async () 
   const releaseScript = await fs.readFile(path.resolve("scripts", "build-mac-release.sh"), "utf8");
 
   assert.match(releaseScript, /package-macos-dmg\.mjs/);
-  assert.match(releaseScript, /target\/release\/bundle\/dmg/);
+  assert.match(releaseScript, /target\/\$MACOS_BUILD_TARGET\/release\/bundle\/dmg/);
   assert.match(releaseScript, /xcrun notarytool submit "\$dmg_path"/);
   assert.match(releaseScript, /sign_tauri_dmg/);
   assert.match(releaseScript, /sign-tauri-artifact\.mjs" --required "\$dmg_path"/);
   assert.doesNotMatch(releaseScript, /yansilu-dmg-staging/);
-  assert.match(releaseScript, /RUST_TARGET="aarch64-apple-darwin"/);
-  assert.match(releaseScript, /RUST_TARGET="x86_64-apple-darwin"/);
-  assert.doesNotMatch(releaseScript, /Universal Binary/);
+  assert.match(releaseScript, /MACOS_BUILD_TARGET="universal-apple-darwin"/);
+  assert.match(releaseScript, /rust_target in aarch64-apple-darwin x86_64-apple-darwin/);
+  assert.match(releaseScript, /APPLE_SIGNING_IDENTITY="\$CERT_NAME" YANSILU_DESKTOP_TARGET="\$MACOS_BUILD_TARGET" npm run build:desktop:mac/);
+  assert.match(releaseScript, /Universal macOS builds must run on an Apple Silicon Mac or ARM macOS CI runner/);
+  assert.match(releaseScript, /APPLE_SIGNING_IDENTITY:-Developer ID Application/);
 });

@@ -2,9 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+const desktopTarget = String(process.env.YANSILU_DESKTOP_TARGET || "").trim();
 const bundleRoot = path.resolve(
   process.cwd(),
-  "apps", "desktop", "src-tauri", "target", "release", "bundle"
+  "apps", "desktop", "src-tauri", "target", ...(desktopTarget ? [desktopTarget] : []), "release", "bundle"
 );
 const appPath = path.join(bundleRoot, "macos", "研思录.app");
 

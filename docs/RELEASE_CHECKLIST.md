@@ -111,8 +111,9 @@ The `desktop-release` workflow builds:
 
 - Windows NSIS installer
 - Linux `.deb` and AppImage
-- macOS Apple Silicon `.app` / `.dmg`
-- macOS Intel `.app` / `.dmg`
+- macOS Universal `.app` / `.dmg`（同时支持 Apple Silicon 与 Intel）
+
+Universal macOS 包必须在 Apple Silicon 构建机生成，并完成 Developer ID 签名与 Apple 公证；不要发布未签名的 CI 产物。
 
 It creates or updates a draft GitHub Release for the tag.
 The draft release includes flattened installer assets, `.sig` files, `bundle-manifest.json`, `bundle-manifest.sha256.txt`, `update-manifest.json`, and `latest.json`.

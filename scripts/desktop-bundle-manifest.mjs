@@ -3,7 +3,17 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 const REPO_ROOT = process.cwd();
-const BUNDLE_ROOT = path.resolve(REPO_ROOT, "apps", "desktop", "src-tauri", "target", "release", "bundle");
+const desktopTarget = String(process.env.YANSILU_DESKTOP_TARGET || "").trim();
+const BUNDLE_ROOT = path.resolve(
+  REPO_ROOT,
+  "apps",
+  "desktop",
+  "src-tauri",
+  "target",
+  ...(desktopTarget ? [desktopTarget] : []),
+  "release",
+  "bundle"
+);
 const MANIFEST_FILE_NAMES = new Set(["bundle-manifest.json", "bundle-manifest.sha256.txt"]);
 
 async function collectFiles(rootPath) {

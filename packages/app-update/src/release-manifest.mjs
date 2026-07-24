@@ -74,10 +74,17 @@ function scoreTauriUpdaterItem(item = {}) {
 }
 
 export function tauriPlatformKeyForBundleItem(item = {}) {
+  return tauriPlatformKeysForBundleItem(item)[0] || "";
+}
+
+export function tauriPlatformKeysForBundleItem(item = {}) {
   const file = normalizeSlashPath(item.file);
   const os = inferTauriOsFromFile(file);
-  if (!os) return "";
-  return `${os}-${inferArchFromFile(file)}`;
+  if (!os) return [];
+  if (os === "darwin" && /universal/.test(file.toLowerCase())) {
+    return ["darwin-aarch64", "darwin-x86_64"];
+  }
+  return [`${os}-${inferArchFromFile(file)}`];
 }
 
 export function selectPrimaryBundleItem(bundleManifest = {}, options = {}) {
@@ -190,11 +197,12 @@ export function buildTauriStaticUpdateManifestFromBundleManifest({
     const signatureFile = `${file}.sig`;
     const signature = cleanText(signatureMap[file] || signatureMap[signatureFile] || item.signature);
     if (!signature) continue;
-    const platformKey = tauriPlatformKeyForBundleItem(item);
-    if (!platformKey) continue;
-    const existing = selectedByPlatform.get(platformKey);
-    if (!existing || scoreTauriUpdaterItem(item) > scoreTauriUpdaterItem(existing.item)) {
-      selectedByPlatform.set(platformKey, { item, signature });
+    const platformKeys = tauriPlatformKeysForBundleItem(item);
+    for (const platformKey of platformKeys) {
+      const existing = selectedByPlatform.get(platformKey);
+      if (!existing || scoreTauriUpdaterItem(item) > scoreTauriUpdaterItem(existing.item)) {
+        selectedByPlatform.set(platformKey, { item, signature });
+      }
     }
   }
 

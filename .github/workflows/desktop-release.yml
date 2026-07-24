@@ -38,18 +38,25 @@ jobs:
             artifact_name: yansilu-linux-bundles
           - os: macos-latest
             bundle_env: app,dmg
-            artifact_name: yansilu-macos-arm64-bundles
-          - os: macos-15-intel
-            bundle_env: app,dmg
-            artifact_name: yansilu-macos-intel-bundles
+            artifact_name: yansilu-macos-universal-bundles
+            macos_arch: arm64
+            desktop_target: universal-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
     env:
       YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
+      YANSILU_DESKTOP_TARGET: ${{ matrix.desktop_target }}
       YANSILU_DESKTOP_UPDATER_ARTIFACTS: "true"
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
 
     steps:
       - name: Checkout
@@ -78,6 +85,41 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Install macOS universal Rust targets
+        if: matrix.desktop_target == 'universal-apple-darwin'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Verify macOS runner architecture
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(uname -m)"
+          expected="${{ matrix.macos_arch }}"
+          test "$actual" = "$expected"
+          echo "Building macOS $actual bundle"
+
+      - name: Import Apple Developer ID certificate
+        if: matrix.desktop_target == 'universal-apple-darwin'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret_name in APPLE_ID APPLE_APP_PASSWORD APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD; do
+            if [ -z "${!secret_name:-}" ]; then
+              echo "::error::$secret_name is required for signed and notarized macOS releases."
+              exit 1
+            fi
+          done
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/apple-developer-id.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import "$RUNNER_TEMP/apple-developer-id.p12" -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" build.keychain
+          security list-keychain -d user -s build.keychain
+          security default-keychain -s build.keychain
+          security find-identity -v -p codesigning build.keychain | grep -q "Developer ID Application"
+
       - name: Require Tauri updater signing secrets
         shell: bash
         run: |
@@ -95,16 +137,26 @@ jobs:
         run: npm run build:desktop:check
 
       - name: Build desktop bundles
+        if: runner.os != 'macOS'
         run: npm run build:desktop
+
+      - name: Build signed and notarized Universal macOS bundle
+        if: matrix.desktop_target == 'universal-apple-darwin'
+        run: bash ./scripts/build-mac-release.sh
 
       - name: Upload desktop bundles
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            apps/desktop/src-tauri/target/release/bundle/**
-            !apps/desktop/src-tauri/target/release/bundle/**/*.dSYM/**
+            apps/desktop/src-tauri/target/**/release/bundle/**
+            !apps/desktop/src-tauri/target/**/release/bundle/**/*.dSYM/**
           if-no-files-found: error
+
+      - name: Remove temporary signing keychain
+        if: always() && matrix.desktop_target == 'universal-apple-darwin'
+        shell: bash
+        run: security delete-keychain build.keychain || true
 
   draft-release:
     needs: build

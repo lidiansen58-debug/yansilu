@@ -7,6 +7,7 @@ import { hasCommand, withCargoBin } from "./rust-env.mjs";
 const env = withCargoBin({ ...process.env });
 const requestedBundles = process.argv.slice(2).filter(Boolean);
 const TAURI_CONFIG_PATH = "./apps/desktop/src-tauri/tauri.conf.json";
+const desktopTarget = String(process.env.YANSILU_DESKTOP_TARGET || "").trim();
 
 function defaultBundlesForPlatform(platform) {
   if (platform === "win32") return ["nsis"];
@@ -56,7 +57,10 @@ function resolveTauriConfigPath() {
 }
 
 const bundles = resolveBundles();
-const runtime = spawnSync(process.execPath, ["./scripts/prepare-desktop-api-runtime.mjs"], {
+const runtimePreparationScript = desktopTarget === "universal-apple-darwin"
+  ? "./scripts/prepare-universal-desktop-api-runtime.mjs"
+  : "./scripts/prepare-desktop-api-runtime.mjs";
+const runtime = spawnSync(process.execPath, [runtimePreparationScript], {
   cwd: process.cwd(),
   env,
   stdio: "inherit",
@@ -66,7 +70,10 @@ if (runtime.status !== 0) {
   process.exit(runtime.status ?? 1);
 }
 const tauriConfigPath = resolveTauriConfigPath();
-const bundleRoot = path.resolve(process.cwd(), "apps", "desktop", "src-tauri", "target", "release", "bundle");
+const targetRoot = desktopTarget
+  ? path.join("apps", "desktop", "src-tauri", "target", desktopTarget, "release")
+  : path.join("apps", "desktop", "src-tauri", "target", "release");
+const bundleRoot = path.resolve(process.cwd(), targetRoot, "bundle");
 const tauriConfig = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), TAURI_CONFIG_PATH), "utf8"));
 
 for (const bundle of bundles) {
@@ -85,13 +92,30 @@ if (!hasCommand("cargo", env) || !hasCommand("rustc", env)) {
 
 console.log(`Desktop bundle targets: ${bundles.join(", ")}`);
 
-const tauriArgs = ["build", "--bundles", bundles.join(","), "--config", tauriConfigPath];
+const requestedTauriBundles = process.platform === "darwin"
+  ? bundles.filter((bundle) => bundle !== "dmg")
+  : bundles;
+const tauriBundles = requestedTauriBundles.length ? requestedTauriBundles : ["app"];
+const tauriArgs = ["build", "--bundles", tauriBundles.join(","), "--config", tauriConfigPath];
+if (desktopTarget) tauriArgs.push("--target", desktopTarget);
 const npmBin = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function quoteWindowsArg(arg) {
   const value = String(arg);
   if (!/[\s"]/u.test(value)) return value;
   return `"${value.replaceAll('"', '""')}"`;
+}
+
+function renameUniversalMacosUpdaterArtifacts() {
+  if (desktopTarget !== "universal-apple-darwin") return;
+  const macosBundleDir = path.join(bundleRoot, "macos");
+  if (!fs.existsSync(macosBundleDir)) return;
+  for (const fileName of fs.readdirSync(macosBundleDir)) {
+    const suffix = fileName.endsWith(".app.tar.gz.sig") ? ".app.tar.gz.sig" : fileName.endsWith(".app.tar.gz") ? ".app.tar.gz" : "";
+    if (!suffix || fileName.includes("_universal.app.tar.gz")) continue;
+    const universalName = `${fileName.slice(0, -suffix.length)}_universal${suffix}`;
+    fs.renameSync(path.join(macosBundleDir, fileName), path.join(macosBundleDir, universalName));
+  }
 }
 
 const child =
@@ -124,10 +148,28 @@ child.on("exit", (code, signal) => {
     }
   }
   if ((code ?? 0) === 0 || fs.existsSync(path.resolve(bundleRoot, "macos", "研思录.app", "Contents", "MacOS", "yansilu-desktop"))) {
+    renameUniversalMacosUpdaterArtifacts();
     if (process.platform === "darwin" && bundles.includes("dmg")) {
       const appPath = path.resolve(bundleRoot, "macos", `${tauriConfig.productName}.app`);
-      const architecture = process.arch === "arm64" ? "aarch64" : process.arch;
+      const architecture = desktopTarget === "universal-apple-darwin"
+        ? "universal"
+        : process.arch === "arm64"
+          ? "aarch64"
+          : process.arch;
       const dmgPath = path.resolve(bundleRoot, "dmg", `${tauriConfig.productName}_${tauriConfig.version}_${architecture}.dmg`);
+      const architectureCheck = spawnSync(process.execPath, [
+        "./scripts/verify-macos-bundle-architecture.mjs",
+        "--app",
+        appPath,
+        "--expected",
+        desktopTarget === "universal-apple-darwin" ? "universal" : process.arch
+      ], {
+        cwd: process.cwd(),
+        env,
+        stdio: "inherit",
+        shell: false
+      });
+      if (architectureCheck.status !== 0) process.exit(architectureCheck.status ?? 1);
       const dmg = spawnSync(process.execPath, [
         "./scripts/package-macos-dmg.mjs",
         "--app", appPath,

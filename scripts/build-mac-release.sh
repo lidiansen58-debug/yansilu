@@ -21,20 +21,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # --- Config ---
-CERT_NAME="Developer ID Application: Beijing Chuangcache Technology Co.,Ltd. (T7G29AJ3L5)"
+CERT_NAME="${APPLE_SIGNING_IDENTITY:-Developer ID Application: Beijing Chuangcache Technology Co.,Ltd. (T7G29AJ3L5)}"
 APP_NAME="研思录"
 BUNDLE_ID="com.notesprout.yansilu"
 TAURI_DIR="$PROJECT_DIR/apps/desktop/src-tauri"
 ENTITLEMENTS="$TAURI_DIR/entitlements.plist"
 APP_VERSION=$(node -p "require('$PROJECT_DIR/apps/desktop/src-tauri/tauri.conf.json').version")
-MACHINE_ARCH=$(uname -m)
-if [ "$MACHINE_ARCH" = "arm64" ]; then
-  BUNDLE_ARCH="aarch64"
-  RUST_TARGET="aarch64-apple-darwin"
-else
-  BUNDLE_ARCH="x64"
-  RUST_TARGET="x86_64-apple-darwin"
-fi
+MACOS_BUILD_TARGET="universal-apple-darwin"
+BUNDLE_ARCH="universal"
 
 # Notarization credentials (from env vars)
 APPLE_ID="${APPLE_ID:-}"
@@ -57,6 +51,11 @@ err()  { echo -e "${RED}[✗]${NC} $*"; }
 check_prereqs() {
   log "Checking prerequisites..."
 
+  if [ "$(uname -m)" != "arm64" ]; then
+    err "Universal macOS builds must run on an Apple Silicon Mac or ARM macOS CI runner."
+    exit 1
+  fi
+
   if ! command -v cargo &>/dev/null; then
     err "Rust/Cargo not found. Install from https://rustup.rs"
     exit 1
@@ -67,11 +66,12 @@ check_prereqs() {
     exit 1
   fi
 
-  # The Tauri build targets the architecture of the current Mac.
-  if ! rustup target list --installed 2>/dev/null | grep -qx "$RUST_TARGET"; then
-    warn "Rust target $RUST_TARGET not installed. Installing..."
-    rustup target add "$RUST_TARGET"
-  fi
+  for rust_target in aarch64-apple-darwin x86_64-apple-darwin; do
+    if ! rustup target list --installed 2>/dev/null | grep -qx "$rust_target"; then
+      warn "Rust target $rust_target not installed. Installing..."
+      rustup target add "$rust_target"
+    fi
+  done
 
   # Check certificate
   if ! security find-identity -v -p codesigning 2>/dev/null | grep -q "Developer ID Application"; then
@@ -84,19 +84,17 @@ check_prereqs() {
 
 # --- Step 1: Prepare API runtime ---
 prepare_runtime() {
-  log "Step 1/5: Preparing desktop API runtime..."
-  sudo rm -rf "$TAURI_DIR/desktop-api-runtime" 2>/dev/null || true
-  node "$PROJECT_DIR/scripts/prepare-desktop-api-runtime.mjs"
-  ok "Runtime prepared"
+  log "Step 1/5: Preparing universal desktop API runtime during build..."
+  ok "Runtime preparation queued"
 }
 
 # --- Step 2: Build Tauri app ---
 build_app() {
-  log "Step 2/5: Building Tauri desktop app ($BUNDLE_ARCH)..."
+  log "Step 2/5: Building universal Tauri desktop app..."
   cd "$TAURI_DIR"
   cargo clean 2>/dev/null || true
   cd "$PROJECT_DIR"
-  npm run build:desktop:mac
+  APPLE_SIGNING_IDENTITY="$CERT_NAME" YANSILU_DESKTOP_TARGET="$MACOS_BUILD_TARGET" npm run build:desktop:mac
   ok "App built"
 }
 
@@ -104,7 +102,7 @@ build_app() {
 sign_app() {
   log "Step 3/5: Signing .app bundle..."
 
-  local bundle_dir=$(find "$TAURI_DIR/target" -path "*/release/bundle/macos" -type d 2>/dev/null | head -1)
+  local bundle_dir="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/macos"
   if [ -z "$bundle_dir" ]; then
     err "Bundle directory not found"
     exit 1
@@ -154,9 +152,9 @@ sign_app() {
 create_dmg() {
   log "Step 4/5: Creating DMG..."
 
-  local bundle_dir=$(find "$TAURI_DIR/target" -path "*/release/bundle/macos" -type d 2>/dev/null | head -1)
+  local bundle_dir="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/macos"
   local app_path="$bundle_dir/${APP_NAME}.app"
-  local dmg_dir="$TAURI_DIR/target/release/bundle/dmg"
+  local dmg_dir="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/dmg"
   local dmg_name="${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
   local dmg_path="$dmg_dir/$dmg_name"
 
@@ -184,7 +182,7 @@ notarize_dmg() {
     return 0
   fi
 
-  local dmg_path="$TAURI_DIR/target/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
+  local dmg_path="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
 
   log "  Submitting to Apple notary service..."
   xcrun notarytool submit "$dmg_path" \
@@ -205,7 +203,7 @@ notarize_dmg() {
 }
 
 sign_tauri_dmg() {
-  local dmg_path="$TAURI_DIR/target/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
+  local dmg_path="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
   log "Generating Tauri signature..."
   node "$PROJECT_DIR/scripts/sign-tauri-artifact.mjs" --required "$dmg_path"
 }
@@ -241,7 +239,7 @@ main() {
   echo -e "${GREEN}  Build Complete!${NC}"
   echo -e "${GREEN}============================================${NC}"
   echo ""
-  echo -e "  DMG: ${CYAN}$TAURI_DIR/target/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg${NC}"
+  echo -e "  DMG: ${CYAN}$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg${NC}"
   echo ""
 }
 
