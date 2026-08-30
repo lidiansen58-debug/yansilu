@@ -3,6 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
+import { createNoteMoveOperations } from "./note-move-operations.mjs";
+
+const noteMoveOperations = createNoteMoveOperations();
 
 import {
   publicImportRecord,
@@ -3480,7 +3483,9 @@ const server = http.createServer(async (req, res) => {
       try {
         const layout = await initVault(VAULT_PATH);
         return sendJson(res, 200, {
-          item: publicVaultInfo(layout),
+          item: { ...publicVaultInfo(layout), ...(url.searchParams.has("targetVaultPath") ? {
+            targetVaultMatchesCurrent: path.relative(layout.vaultPath, path.resolve(url.searchParams.get("targetVaultPath"))) === ""
+          } : {}) },
           requestId: rid,
           timestamp: new Date().toISOString()
         });
@@ -5490,8 +5495,16 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/v1/notes") {
       const body = await readJson(req);
       try {
-        await initVault(VAULT_PATH);
-        const created = await createNoteInDirectory(VAULT_PATH, {
+        const creationVaultPath = VAULT_PATH;
+        if (body.expectedVaultPath !== undefined && path.relative(creationVaultPath, path.resolve(String(body.expectedVaultPath))) !== "") {
+          return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次创建已取消。请在当前笔记库重新新建。", rid));
+        }
+        if (body.clientCreationId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(body.clientCreationId))) {
+          throw new Error("Invalid clientCreationId");
+        }
+        await initVault(creationVaultPath);
+        const created = await createNoteInDirectory(creationVaultPath, {
+          id: body.clientCreationId ? `note_${body.clientCreationId}` : undefined,
           directoryId: body.directoryId,
           title: body.title,
           body: body.body,
@@ -5906,19 +5919,34 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    const moveStatusMatch = url.pathname.match(/^\/api\/v1\/notes\/([^/]+)\/move-status$/);
+    if (req.method === "POST" && moveStatusMatch) {
+      const body = await readJson(req);
+      try {
+        const id = decodeURIComponent(moveStatusMatch[1]);
+        const item = body.action === "prepare" ? noteMoveOperations.prepare(body.operationId, id)
+          : noteMoveOperations.check(body.operationId, id, body.instanceId);
+        return sendJson(res, 200, { item, requestId: rid });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "NOTE_MOVE_INVALID", String(error?.message || error), rid));
+      }
+    }
     const moveNoteId = parseMoveNotePath(url.pathname);
     if (req.method === "POST" && moveNoteId) {
       const body = await readJson(req);
       try {
-        await initVault(VAULT_PATH);
-        const item = await moveNoteToDirectory(VAULT_PATH, moveNoteId, body.directoryId);
+        const moveVaultPath = VAULT_PATH;
+        const item = await noteMoveOperations.run(body.operationId, moveNoteId, async () => {
+          await initVault(moveVaultPath);
+          return moveNoteToDirectory(moveVaultPath, moveNoteId, body.directoryId);
+        }, body.instanceId);
         return sendJson(res, 200, {
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("NOTE_MOVE_INVALID", String(error?.message || error), rid));
+        return sendJson(res, 400, err(error?.code || "NOTE_MOVE_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

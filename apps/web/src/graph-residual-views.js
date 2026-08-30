@@ -1399,7 +1399,7 @@ function graphExistingRelationPairKeys(edges = []) {
   return computeGraphExistingRelationPairKeys(edges);
 }
 
-const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
+const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "example_of", "bridges", "same_topic", "associated_with"]);
 const GRAPH_REVERSIBLE_POTENTIAL_RELATION_TYPES = new Set(["bridges", "same_topic", "associated_with"]);
 
 function graphPreferredPotentialRelationType(candidate = {}) {

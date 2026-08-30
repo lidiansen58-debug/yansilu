@@ -1,0 +1,15 @@
+.note-search-mask[hidden] { display: none; }
+.note-search-mask { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: start center; padding: 8vh 16px 16px; background: #14231e70; }
+.note-search-dialog { display: flex; flex-direction: column; width: min(720px, 100%); max-height: 80vh; background: #fff; color: #172b24; border: 1px solid #c9d3ce; border-radius: 8px; box-shadow: 0 12px 50px #0003; overflow: hidden; }
+.note-search-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #e1e6e3; }
+.note-search-head label { font-weight: 700; white-space: nowrap; }
+.note-search-head input { flex: 1; min-width: 0; padding: 9px; font: inherit; border: 1px solid #a7b8b0; border-radius: 4px; }
+.note-search-head button { border: 0; background: transparent; color: inherit; width: 32px; height: 32px; font-size: 24px; cursor: pointer; }
+#noteSearchStatus { padding: 10px 18px; font-size: 13px; color: #58695f; overflow-wrap: anywhere; }
+#noteSearchResults { overflow: auto; overscroll-behavior: contain; }
+.note-search-result { display: grid; gap: 6px; width: 100%; text-align: left; padding: 14px 18px; border: 0; border-top: 1px solid #e5e9e7; background: #fff; color: #20392d; cursor: pointer; font: inherit; overflow-wrap: anywhere; }
+.note-search-result:hover,.note-search-result:focus-visible { background: #edf5f1; outline: 2px solid #23765a; outline-offset: -2px; }
+.note-search-result strong { font-size: 15px; }
+.note-search-result span { color: #384f43; font-size: 14px; line-height: 1.6; }
+.note-search-result small { color: #64746b; font-size: 12px; }
+@media (max-width: 600px) { .note-search-mask { padding: 12px; } .note-search-dialog { max-height: calc(100dvh - 24px); } .note-search-head { flex-wrap: wrap; padding: 12px; gap: 8px; } .note-search-head label { flex-basis: calc(100% - 44px); } .note-search-head input { order: 2; flex-basis: 100%; } }

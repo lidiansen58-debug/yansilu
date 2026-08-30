@@ -87,8 +87,10 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
       button.disabled = true;
       button.setAttribute("aria-busy", "true");
       try {
-        await deps.openStartupUntitledNote?.();
-        deps.activateModule?.("explorer");
+        if (typeof deps.openStartupUntitledNote !== "function") throw new Error("新建入口尚未就绪，请重新打开研思录");
+        const result = await deps.openStartupUntitledNote();
+        if (result?.note) deps.activateModule?.("explorer");
+        else if (!result?.error) throw new Error("本地服务没有返回笔记，请刷新目录后确认");
       } catch (error) {
         deps.setStatus?.(`无法新建第一条记录：${String(error?.message || error)}`, "bad");
       } finally {

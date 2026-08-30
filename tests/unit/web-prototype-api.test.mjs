@@ -24,6 +24,46 @@ test("prototype API falls back when packaged API placeholder is not replaced", a
   assert.equal(api.getApiBase(), "http://127.0.0.1:3000");
 });
 
+test("move preparation cancelled during verification cannot submit a late POST", async t => {
+  const api = await importPrototypeApi("cancel-late-move", { __API_BASE__: "http://127.0.0.1:3999" });
+  let finish, started, posts = 0;
+  const began = new Promise(resolve => { started = resolve; });
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    const body = JSON.parse(options.body);
+    if (body.action === "prepare") {
+      started();
+      return new Promise(resolve => { finish = () => resolve(Response.json({ item: { state: "ready", instanceId: "old-server" } })); });
+    }
+    if (String(url).endsWith("/move-status")) return Response.json({ item: { state: "cancelled" } });
+    posts++;
+    return Response.json({ item: {} });
+  });
+  const options = { operationId: "id", context: {} };
+  const moving = api.moveNote("n", "target", options);
+  await began;
+  assert.equal((await api.checkNoteMove("n", "id", { context: options.context })).state, "cancelled");
+  finish();
+  await assert.rejects(moving, { code: "NOTE_MOVE_CANCELLED" });
+  assert.equal(posts, 0);
+});
+
+test("move rechecks retain the original instance across repeated restart verification", async t => {
+  const api = await importPrototypeApi("move-instance", { __API_BASE__: "http://127.0.0.1:3999" });
+  const sent = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    const body = JSON.parse(options.body);
+    if (body.action === "prepare") return Response.json({ item: { state: "ready", instanceId: "old-server" } });
+    if (String(url).endsWith("/move-status")) { sent.push(body); return Response.json({ item: { state: "interrupted" } }); }
+    assert.equal(body.instanceId, "old-server");
+    throw new Error("Disconnected");
+  });
+  const options = { operationId: "id", context: {} };
+  await assert.rejects(api.moveNote("n", "target", options), { code: "api_unavailable" });
+  for (let i = 0; i < 2; i++) await api.checkNoteMove("n", "id", { context: options.context });
+  assert.equal(sent.length, 2);
+  assert.ok(sent.every(body => body.instanceId === "old-server"));
+});
+
 test("prototype API uses injected API base from dev server", async () => {
   const api = await importPrototypeApi("injected", { __API_BASE__: "http://127.0.0.1:3999" });
   assert.equal(api.getApiBase(), "http://127.0.0.1:3999");
@@ -513,7 +553,8 @@ test("prototype API searches notes through the public endpoint", async () => {
         rootDirectoryId: "dir_original_default",
         query: "target",
         items: [{ id: "pn_target", title: "Target note", directoryId: "dir_child" }],
-        total: 1
+        total: 1,
+        unreadableCount: 2
       }),
       {
         status: 200,
@@ -539,6 +580,7 @@ test("prototype API searches notes through the public endpoint", async () => {
     assert.equal(calls[0].options.method, undefined);
     assert.equal(result.total, 1);
     assert.equal(result.items[0].id, "pn_target");
+    assert.equal(result.unreadableCount, 2);
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;

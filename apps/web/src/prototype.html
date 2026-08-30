@@ -19,12 +19,14 @@
     })();
   </script>
   <link rel="stylesheet" href="./prototype.css" />
+  <link rel="stylesheet" href="./global-note-search.css" />
 </head>
 <body>
   <a class="skip-link" href="#editorWorkspace">跳到正文</a>
   <div class="app">
     <aside class="rail">
       <div class="rail-group">
+        <button class="rail-btn" id="btnToggleSearch" type="button" title="搜索全部笔记 (Ctrl/Cmd+Shift+F)" data-tip="搜索笔记" aria-label="搜索全部笔记"><svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="3.75" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M9.9 9.9l2.85 2.85" stroke="currentColor" stroke-width="1.25"/></svg></button>
         <button class="rail-btn" data-module="today" title="首页" data-tip="首页" aria-label="首页">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M3.2 3.2h9.6v9.6H3.2z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
@@ -106,13 +108,11 @@
           <div class="sidebar-actions-main">
             <button class="mini-btn icon-btn new-note-action" id="btnNewNote" title="新建永久笔记" data-tip="新建永久笔记" aria-label="在当前目录新建永久笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.35v5.3M5.35 8h5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span class="new-note-action-label"></span><span class="new-note-action-meta" id="btnNewNoteMeta" aria-hidden="true"></span></button>
             <button class="mini-btn icon-btn" id="btnOpenNewBoxDialog" title="新建卡片盒" data-tip="新建卡片盒" aria-label="新建卡片盒"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.45 4.15h4.2l1.05 1.3h5.75a1.05 1.05 0 0 1 1.02 1.26l-.67 3.46a1.5 1.5 0 0 1-1.47 1.22H3.68a1.5 1.5 0 0 1-1.47-1.22L1.54 6.7a1.05 1.05 0 0 1 .91-1.29z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M8 6.55v3.15M6.42 8.12h3.16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg></button>
-            <button class="mini-btn icon-btn is-ghost" id="btnToggleSearch" title="搜索笔记" data-tip="搜索笔记" aria-label="搜索笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="3.75" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M9.9 9.9l2.85 2.85" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg></button>
           </div>
         </div>
       </div>
 
       <div class="filter compact-search hidden" id="searchBar">
-        <input id="searchInput" placeholder="优先搜索观点 / 判断 / 标签 / 目录..." />
         <div id="explorerActions"></div>
       </div>
       <div class="module-sidebar" id="moduleSidebar"></div>
@@ -195,12 +195,11 @@
               <div class="link-picker-field">
                 <label for="linkRelationTypeSelect">关系类型</label>
                 <select id="linkRelationTypeSelect">
-                  <option value="associated_with" selected>相关</option>
-                  <option value="supports">支持</option>
-                  <option value="complements">补充</option>
-                  <option value="qualifies">限定</option>
-                  <option value="contradicts">反驳</option>
-                  <option value="bridges">桥接</option>
+                  <option value="associated_with" selected>只是有关</option>
+                  <option value="supports">支持这个观点</option>
+                  <option value="contradicts">提出不同看法</option>
+                  <option value="qualifies">补充适用条件</option>
+                  <option value="example_of">提供一个例子</option>
                 </select>
               </div>
               <div class="link-picker-field">
@@ -1100,7 +1099,7 @@
                           </div>
                           <div class="settings-help-topic">
                             <strong>第一次打开先做什么</strong>
-                            <span>空库先导入 Demo；已有资料先处理一条材料并写下当前观点；只想记录就先写第一条随笔。</span>
+                            <span>先记一条随笔，或选择一条已有材料整理成自己的观点。想跟着练习时，再导入 Demo。</span>
                             <button class="mini-btn" type="button" data-settings-help-action="open-home">打开首页</button>
                           </div>
                           <div class="settings-help-topic">
@@ -1142,11 +1141,12 @@
                       <section class="settings-card" id="settingsUpdateCard">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">版本更新</div>
+                            <div class="settings-card-title">关于与更新</div>
                             <div class="settings-card-note">研思录只检查更新并展示下载入口，不会静默替换程序或迁移你的笔记库。</div>
                           </div>
                         </div>
                         <div class="settings-help-meta settings-update-meta">
+                          <p><a href="./help/quick-start.html" target="_blank" rel="noopener">离线使用指南与常见问题</a></p>
                           <div class="settings-stat-row">
                             <span class="settings-stat-badge" id="settingsUpdateStatusBadge">等待检查</span>
                             <span class="settings-stat-badge muted" id="settingsUpdateCurrentVersion">当前版本：--</span>
@@ -1303,8 +1303,16 @@
           </div>
         </div>
       </div>
-      <div class="status" id="statusBar">
+      <div class="note-search-mask" id="noteSearchDialog" role="dialog" aria-modal="true" aria-label="搜索全部笔记" hidden>
+        <section class="note-search-dialog">
+          <div class="note-search-head"><label for="globalNoteSearchInput">搜索笔记</label><input id="globalNoteSearchInput" type="search" placeholder="标题、正文、标签或来源" autocomplete="off"><button type="button" data-close-note-search aria-label="关闭搜索" title="关闭搜索">×</button></div>
+          <div id="noteSearchStatus" role="status" aria-live="polite"></div>
+          <div id="noteSearchResults"></div>
+        </section>
+      </div>
+      <div class="status" id="statusBar" role="status" aria-live="polite" aria-atomic="true">
         <span id="statusText" class="status-pill">就绪</span>
+        <button type="button" data-dismiss-status aria-label="关闭提示" title="关闭提示">×</button>
       </div>
       <div class="save-ai-suggestion hidden" id="saveAiSuggestion" aria-live="polite" role="status">
         <div class="save-ai-suggestion-text" id="saveAiSuggestionText"></div>

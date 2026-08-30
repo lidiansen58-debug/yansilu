@@ -49,7 +49,7 @@ async function ensureNoteMode(page) {
   });
 }
 
-test("prototype main-path wikilink guidance asks to explain the relation instead of treating the note as fully isolated", async (t) => {
+test("prototype body links are visible as saved relations rather than isolated notes", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -91,30 +91,15 @@ test("prototype main-path wikilink guidance asks to explain the relation instead
     (noteId) => Array.isArray(window.__prototypeState?.notes) && window.__prototypeState.notes.some((item) => item?.id === noteId),
     source.json.item.id
   );
-  await page.evaluate((noteId) => {
-    window.__prototypeState.selectedFileId = noteId;
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeEditor?.openNoteTab?.(noteId, { preferTitleSelection: false });
-  }, source.json.item.id);
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${source.json.item.id}"]`).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-
+  const action = page.locator('[data-note-main-route-action="relations"]').first();
+  await action.waitFor();
+  assert.match(await action.innerText(), /关联 1/);
+  await action.click();
   await waitFor(async () => {
-    const mainPathText = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(mainPathText || ""), /补关系理由/);
-    assert.match(String(mainPathText || ""), /正文链接/);
-    assert.doesNotMatch(String(mainPathText || ""), /wikilink/);
-    assert.match(String(mainPathText || ""), /正式关系/);
-    assert.doesNotMatch(String(mainPathText || ""), /补关系，不要让它孤立/);
-  }, 10000);
-
-  const relationStepText = await page.locator("[data-note-main-path-section]").textContent();
-  assert.match(String(relationStepText || ""), /补关系理由/);
-  assert.match(String(relationStepText || ""), /关系为什么成立/);
-
-  const actionButtonText = await page
-    .locator('[data-note-main-route-action="relations"]')
-    .first()
-    .textContent();
-  assert.match(String(actionButtonText || ""), /补关系理由/);
+    assert.match(await page.locator("#resultArea").innerText(), /Wikilink Guidance Target/);
+    assert.doesNotMatch(await page.locator("#resultArea").innerText(), /markdown_wikilink|不要让它孤立/);
+  });
 });

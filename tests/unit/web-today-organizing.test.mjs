@@ -733,7 +733,7 @@ test("today organizing first-run actions create a record or open import", async 
   const handlers = new Map();
   const calls = [];
   installTodayOrganizingEvents({ addEventListener: (eventName, handler) => handlers.set(eventName, handler) }, () => ({
-    openStartupUntitledNote: async () => calls.push(["start-note"]),
+    openStartupUntitledNote: async () => { calls.push(["start-note"]); return { note: { id: "fn_1" } }; },
     activateModule: (moduleName) => calls.push(["module", moduleName]),
     handleStateChange: async (reason, payload) => calls.push(["state", reason, payload])
   }));

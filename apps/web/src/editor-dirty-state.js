@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { syncNoteMoveReadOnly } from "./note-move-recovery.js";
 import { typeFromFolder } from "./prototype-store.js";
 import {
   authorshipSeedFromBody,
@@ -469,6 +470,7 @@ const editorPaneStateMethods = {
   },
 
   fillEditorFromTab() {
+    syncNoteMoveReadOnly(this.state);
     const t = this.activeTab();
     if (!t) {
       this.lastFilledNoteId = "";

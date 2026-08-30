@@ -8,7 +8,7 @@ import {
   graphRelationStatusKey
 } from "./graph-relation-state-query.js";
 
-export const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"]);
+export const GRAPH_CONFIRMABLE_RELATION_TYPES = new Set(["supports", "contradicts", "qualifies", "example_of", "bridges", "same_topic", "associated_with"]);
 
 export {
   graphCandidateEndpointIds,

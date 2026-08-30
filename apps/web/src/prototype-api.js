@@ -214,14 +214,15 @@ function withCanonical(result, json, options = {}) {
   };
 }
 
-export async function fetchDirectories(includeHidden = false) {
+export async function fetchDirectories(includeHidden = false, options = {}) {
   const query = includeHidden ? "?includeHidden=true" : "";
-  const json = await request(`/api/v1/directories${query}`);
+  const json = await request(`/api/v1/directories${query}`, { signal: options.signal, timeoutMs: options.timeoutMs });
   return Array.isArray(json.items) ? json.items : [];
 }
 
-export async function fetchVaultInfo() {
-  const json = await request("/api/v1/vault");
+export async function fetchVaultInfo(options = {}) {
+  const query = options.targetVaultPath ? `?${new URLSearchParams({ targetVaultPath: options.targetVaultPath })}` : "";
+  const json = await request(`/api/v1/vault${query}`, { timeoutMs: options.timeoutMs });
   return json.item || null;
 }
 
@@ -730,6 +731,7 @@ export async function switchVault(vaultPath) {
   const cleanVaultPath = String(vaultPath || "").trim();
   if (!cleanVaultPath) throw new Error("vaultPath is required");
   const json = await request("/api/v1/vault", {
+    timeoutMs: 15000,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ vaultPath: cleanVaultPath })
@@ -777,9 +779,9 @@ export async function deleteDirectory(directoryId) {
   return request(`/api/v1/directories/${encodeURIComponent(directoryId)}`, { method: "DELETE" });
 }
 
-export async function fetchDirectoryNotes(directoryId) {
+export async function fetchDirectoryNotes(directoryId, options = {}) {
   if (!directoryId) return [];
-  const json = await request(`/api/v1/directories/${encodeURIComponent(directoryId)}/notes`);
+  const json = await request(`/api/v1/directories/${encodeURIComponent(directoryId)}/notes`, { signal: options.signal, timeoutMs: options.timeoutMs });
   return Array.isArray(json.items) ? json.items : [];
 }
 
@@ -931,7 +933,8 @@ export async function searchNotes({ query = "", rootDirectoryId = "", directoryI
     rootDirectoryId: json.rootDirectoryId || null,
     query: json.query || "",
     items: Array.isArray(json.items) ? json.items : [],
-    total: Number(json.total || 0)
+    total: Number(json.total || 0),
+    unreadableCount: Number(json.unreadableCount || 0)
   };
 }
 
@@ -944,9 +947,9 @@ export async function createNote(payload) {
   return json.item || null;
 }
 
-export async function fetchNote(noteId) {
+export async function fetchNote(noteId, options = {}) {
   if (!noteId) return null;
-  const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}`);
+  const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}`, { timeoutMs: options.timeoutMs, signal: options.signal });
   return json.item || null;
 }
 
@@ -991,13 +994,34 @@ export async function updateNote(noteId, payload) {
   return json.item || null;
 }
 
-export async function moveNote(noteId, directoryId) {
+export async function checkNoteMove(noteId, operationId, options = {}) {
+  const pending = options.context;
+  const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}/move-status`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ operationId, instanceId: pending?.instanceId }), timeoutMs: options.timeoutMs
+  });
+  if (["cancelled", "interrupted"].includes(json.item?.state) && pending) pending.cancelled = true;
+  return json.item || null;
+}
+
+export async function moveNote(noteId, directoryId, options = {}) {
   if (!noteId) throw new Error("noteId is required");
   if (!directoryId) throw new Error("directoryId is required");
+  let pending;
+  if (options.operationId) {
+    pending = options.context ||= {};
+    const prepared = await request(`/api/v1/notes/${encodeURIComponent(noteId)}/move-status`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ operationId: options.operationId, action: "prepare" })
+    });
+    pending.instanceId = prepared.item?.instanceId;
+    if (pending.cancelled || prepared.item?.state === "cancelled") throw Object.assign(new Error("本次移动已取消，未修改笔记。"), { code: "NOTE_MOVE_CANCELLED" });
+    if (!pending.instanceId) throw Object.assign(new Error("未能确认本地服务，请重试。"), { code: "NOTE_MOVE_OPERATION_INVALID" });
+  }
   const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}/move`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ directoryId })
+    body: JSON.stringify({ directoryId, ...(options.operationId ? { operationId: options.operationId, instanceId: pending.instanceId } : {}) })
   });
   return json.item || null;
 }

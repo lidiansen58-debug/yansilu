@@ -55,6 +55,12 @@ import { literatureQueueLaneForNote as computeLiteratureQueueLaneForNote, prefer
 import { normalizeAuthorshipItem, normalizeThinkingStatusItem, renderThinkingStatusBadge as renderThinkingStatusBadgeHtml, uniqueStrings } from "./prototype-thinking-status.js";
 import { deriveWritingProjectIntent, deriveWritingProjectTakeaway, directoryPathLabel as computeDirectoryPathLabel, displayFolderName, distillationReasonOf, distillationStageLabel, distillationStageOf, distillationStatusLabel, distillationStatusOf, mapDirectoryItem, moduleLabel, mapNoteItem as computeMapNoteItem, noteMatchesSearchQuery, noteTypeLabel, saveAiSuggestionKey, sourceNoteTypeLabel, writingProjectStatusLabel } from "./prototype-note-state-helpers.js";
 import { createNotePlaceholderRuntime } from "./note-placeholder-runtime.js";
+import { updateOperationNotice } from "./operation-notice.js";
+import { applyMovedNoteToClientState } from "./note-move-client-state.js";
+import { installGlobalNoteSearch } from "./global-note-search.js";
+import { createSearchNoteOpener } from "./search-note-opener.js";
+import { createNoteCreationController } from "./note-creation-controller.js";
+import { checkNoteMove } from "./prototype-api.js";
 import { createNoteRuntimeController } from "./note-runtime-controller.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxWorkspaceEvents, renderAiInboxWorkspaceView } from "./ai-inbox-workspace.js";
@@ -615,6 +621,7 @@ const todayOrganizingEntryRuntime = createTodayOrganizingEntryRuntime(() => ({
   typeFromFolder,
   relationNetworkStatusForNote,
   handleStateChange,
+  openStartupUntitledNote,
   activateModule,
   openNoteById,
   openWritingModule,
@@ -966,6 +973,7 @@ function setStatus(text, cls = "", options = {}) {
   $("statusText").textContent = text;
   const statusBar = $("statusBar");
   if (statusBar) statusBar.dataset.tone = cls || "";
+  updateOperationNotice(statusBar, { tone: cls, notify: options.notify === true });
   const holdMs = Math.max(0, Number(options?.holdMs || 0) || 0);
   if (holdMs > 0) {
     statusHoldUntil = now + holdMs;
@@ -2912,14 +2920,14 @@ async function refreshImportedNotesView() {
   }
 }
 
-function mapNoteItem(item) {
+function mapNoteItem(item, options = {}) {
   return computeMapNoteItem(item, {
     generatedOriginalNoteIdFromBody,
     normalizeAuthorshipItem,
     normalizeOptionalNumber,
     normalizeThinkingStatusItem,
     relationNetworkStatusForNote,
-    state,
+    state: options.mappingState || state,
     typeFromFolder
   });
 }
@@ -2927,7 +2935,7 @@ function mapNoteItem(item) {
 function isLocalOnlyNote(note) { return Boolean(note?.isLocalOnly); }
 
 const UNTITLED_NOTE_TITLE = "未命名笔记";
-const STARTUP_NOTE_FOLDER_ID = "dir_original_default";
+const STARTUP_NOTE_FOLDER_ID = "dir_fleeting_default";
 
 const notePlaceholderRuntime = createNotePlaceholderRuntime(() => ({
   applyTitleToNoteTemplate,
@@ -2967,10 +2975,6 @@ async function refreshUntitledPlaceholderForCurrentTemplate(note) { return noteR
 function noteTabFor(noteId = "") { return state.tabs.find((item) => item.noteId === noteId) || null; }
 
 function isUntitledPlaceholderNote(note) { return notePlaceholderRuntime.isUntitledPlaceholderNote(note); }
-
-async function ensureNoteLoadedForPlaceholderCheck(note) { return notePlaceholderRuntime.ensureNoteLoadedForPlaceholderCheck(note); }
-
-async function cleanupDuplicateUntitledPlaceholders(folderId) { return notePlaceholderRuntime.cleanupDuplicateUntitledPlaceholders(folderId); }
 
 function replaceLocalNoteIdentity(previousNoteId, savedItem) { return notePlaceholderRuntime.replaceLocalNoteIdentity(previousNoteId, savedItem); }
 
@@ -3611,63 +3615,10 @@ function initialBodyForFolder(folderId = "") {
   return "# 未命名笔记\n\n";
 }
 
-async function createNoteInSelectedFolder(options = {}) {
-  const folderId = state.selectedFolderId;
-  const preferTitleSelection = options.preferTitleSelection !== false;
-  const openInStandalone = options.openInStandalone === true;
-  const reuseUntitled = options.reuseUntitled !== false;
-  const preferPlainEditor = options.preferPlainEditor === true;
-  try {
-    const cleanup = await cleanupDuplicateUntitledPlaceholders(folderId);
-    if (reuseUntitled && cleanup.kept) {
-      await refreshUntitledPlaceholderForCurrentTemplate(cleanup.kept);
-      if (openInStandalone) {
-        openStandaloneEditorWindow(cleanup.kept.id);
-      } else {
-        openNoteById(cleanup.kept.id, { preferTitleSelection, preferPlainEditor });
-      }
-      return { note: cleanup.kept, remote: !isLocalOnlyNote(cleanup.kept), reused: true, cleanedCount: cleanup.removed };
-    }
-    const initialBody = initialBodyForFolder(folderId);
-    const created = await createNote({
-      directoryId: folderId,
-      body: initialBody
-    });
-    if (!created) throw new Error("创建笔记失败");
-    const note = mapNoteItem({
-      ...created,
-      body: ensureEditableNoteBody(typeof created?.body === "string" ? created.body : initialBody)
-    });
-    state.notes.unshift(note);
-    if (openInStandalone) {
-      openStandaloneEditorWindow(note.id);
-    } else {
-      openNoteById(note.id, { preferTitleSelection, preferPlainEditor });
-    }
-    return { note, remote: true, cleanedCount: cleanup.removed };
-  } catch (error) {
-    const fallback = {
-      id: uid("pn"),
-      title: "未命名笔记",
-      folderId,
-      noteType: typeFromFolder(state, folderId),
-      status: "draft",
-      body: ensureEditableNoteBody(initialBodyForFolder(folderId)),
-      tags: [],
-      links: [],
-      updatedAt: new Date().toISOString(),
-      bodyLoaded: true,
-      isLocalOnly: true
-    };
-    state.notes.unshift(fallback);
-    if (openInStandalone) {
-      openStandaloneEditorWindow(fallback.id);
-    } else {
-      openNoteById(fallback.id, { preferTitleSelection, preferPlainEditor });
-    }
-    return { note: fallback, remote: false, error };
-  }
-}
+const createNoteInSelectedFolder = createNoteCreationController({ state, folderById,
+  findUntitledPlaceholder: (...args) => notePlaceholderRuntime.findUntitledPlaceholder(...args),
+  isLocalOnlyNote, initialBodyForFolder, createNote, fetchNote, mapNoteItem, ensureEditableNoteBody,
+  openStandaloneEditorWindow, openNoteById, getVaultPath: () => settingsState.vault?.vaultPath || "" });
 
 async function createPrimaryOriginalNote(options = {}) {
   const previousRootId = state.browserRootId;
@@ -3687,6 +3638,11 @@ async function createPrimaryOriginalNote(options = {}) {
 
   try {
     const result = await createNoteInSelectedFolder({ ...options, preferPlainEditor: true });
+    if (result.error?.code === "vault_changed") return result;
+    if (!result.note) {
+      state.browserRootId = previousRootId;
+      state.selectedFolderId = previousFolderId;
+    }
     return { ...result, switchedToOriginal, previousRootId, previousFolderId };
   } catch (error) {
     state.browserRootId = previousRootId;
@@ -3696,11 +3652,15 @@ async function createPrimaryOriginalNote(options = {}) {
 }
 
 async function openStartupUntitledNote() {
+  const previousRootId = state.browserRootId;
+  const previousFolderId = state.selectedFolderId;
+  setStatus("正在创建笔记...", "busy", { notify: true, force: true });
   if (folderById(state, STARTUP_NOTE_FOLDER_ID)) {
     state.browserRootId = rootBoxIdFromFolder(state, STARTUP_NOTE_FOLDER_ID);
     state.selectedFolderId = STARTUP_NOTE_FOLDER_ID;
   }
   const result = await createNoteInSelectedFolder({ preferTitleSelection: true });
+  if (result.error?.code === "vault_changed") return result;
   if (result.reused) {
     setStatus(
       result.cleanedCount
@@ -3709,9 +3669,12 @@ async function openStartupUntitledNote() {
       result.cleanedCount ? "warn" : "ok"
     );
   } else if (result.remote) {
-    setStatus("已打开新的未命名笔记", "ok");
+    setStatus("笔记已保存到本地", "ok", { notify: true, force: true });
   } else {
-    setStatus(`API 不可用，已打开本地未命名笔记：${String(result.error?.message || result.error)}`, "warn");
+    state.browserRootId = previousRootId;
+    state.selectedFolderId = previousFolderId;
+    const pending = result.error?.code === "creation_pending";
+    setStatus(pending ? result.error.message : `未能创建笔记：${String(result.error?.message || result.error)}。请检查笔记库与本地服务后重试。`, pending ? "warn" : "bad", { notify: true, force: true });
   }
   return result;
 }
@@ -5753,18 +5716,7 @@ function removeNoteFromClientState(noteId = "") {
 }
 
 function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
-  const cleanNoteId = String(noteId || "").trim();
-  const cleanDirectoryId = String(directoryId || "").trim();
-  if (!cleanNoteId || !cleanDirectoryId) return false;
-  const note = state.notes.find((item) => item.id === cleanNoteId);
-  if (!note) return false;
-  note.folderId = String(moved?.directoryId || cleanDirectoryId).trim() || cleanDirectoryId;
-  note.noteType = typeFromFolder(state, note.folderId);
-  note.markdownPath = moved?.markdownPath || note.markdownPath;
-  note.updatedAt = moved?.updatedAt || new Date().toISOString();
-  state.selectedFolderId = note.folderId;
-  state.selectedFileId = note.id;
-  return true;
+  return applyMovedNoteToClientState(state, noteId, directoryId, moved, { typeFromFolder, rootBoxIdFromFolder });
 }
 
 const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider(() => ({
@@ -5803,7 +5755,7 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     isOriginalRecordableSource,
     isPermanentLikeNote,
     mapNoteItem,
-    moveNote,
+    moveNote, fetchNote, checkNoteMove,
     moveNoteInClientState,
     movedDirectoryFsPath,
     noteGeneratedOriginalNoteId,
@@ -5937,12 +5889,12 @@ async function selectNoteMoveDirectory({
 } = {}) {
   const options = noteMoveDirectoryOptions(currentDirectoryId);
   if (!options.length) {
-    setStatus("当前文件盒里没有其他可移动目录", "warn");
+    setStatus("还没有其他可用目录", "warn");
     return "";
   }
   return permanentNoteDialog.open({
-    modalTitle: "移动笔记",
-    modalNote: "选择要移动到的目录。这里只显示当前文件盒里可用的目录。",
+    modalTitle: "归类与移动",
+    modalNote: "选择随笔、文献笔记或永久笔记下的目录。正文和关系会保留；改变类型后按草稿继续整理。",
     sourceCardVisible: false,
     directoryLabel: "目标目录",
     directoryOptions: options,
@@ -6053,8 +6005,8 @@ installSettingsEventBindings({
   confirmMobilePairRequestFromUi,
   revokeMobileDeviceFromUi,
   loadNoteTemplateSettingsFromStorage,
-  syncDirectoriesFromApi,
-  syncNotesForDirectory,
+  fetchDirectories, fetchDirectoryNotes,
+  mapDirectoryItem, mapNoteItem,
   createEncryptedVaultBackup,
   restoreEncryptedVaultBackup,
   renderAll,
@@ -6166,7 +6118,7 @@ installDirtyTabsBeforeUnloadEventBindings({
 installWritingPanelBasketEventHandlers({
   $,
   depsProvider: () => ({
-    state,
+    state, editor, mapNoteItem, activateModule,
     writingState,
     writingNoteEligibility,
     continueWritingEntry,
@@ -6558,6 +6510,11 @@ installQuickActionEventBindings({
   syncRailSelectionState,
   renderAll,
   setStatus
+});
+
+installGlobalNoteSearch({
+  searchNotes,
+  openNote: createSearchNoteOpener({ state, fetchNote, mapNoteItem, openNoteById, activateModule })
 });
 
 installAppGlobalKeyboardEvents({

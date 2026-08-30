@@ -15,7 +15,7 @@ const notes = [
   { id: "backlink", title: "提到当前的笔记" }
 ];
 
-test("editor related notes summary separates saved relations and body links", () => {
+test("editor related notes summary counts body relations equally without counting them twice", () => {
   const summary = editorRelatedNotesSummary({
     relationState: "loaded",
     notes,
@@ -50,15 +50,15 @@ test("editor related notes summary separates saved relations and body links", ()
     backward: [notes[4]]
   });
 
-  assert.equal(summary.savedCount, 2);
+  assert.equal(summary.savedCount, 3);
   assert.equal(summary.bodyLinkCount, 1);
-  assert.equal(summary.linkedBodyCount, 0);
+  assert.equal(summary.linkedBodyCount, 1);
   assert.equal(summary.externalRelationCount, 2);
   assert.equal(summary.bodyRelationCount, 1);
   assert.equal(summary.totalRelationCount, 3);
   assert.deepEqual(
     summary.outgoing.map((item) => item.id),
-    ["rel-out"]
+    ["rel-out", "wiki-only"]
   );
   assert.deepEqual(
     summary.incoming.map((item) => item.id),
@@ -128,8 +128,8 @@ test("editor related notes panel renders body links with clear status actions", 
   assert.doesNotMatch(html, /已保存的关系/);
   assert.doesNotMatch(html, /已有关联/);
   assert.doesNotMatch(html, /data-editor-related-existing="target"/);
-  assert.match(html, /data-permanent-relation-action="open"/);
-  assert.match(html, /data-permanent-relation-target-note="body-link"/);
+  assert.doesNotMatch(html, /data-permanent-relation-action="open"/);
+  assert.match(html, /data-preview-note="body-link"/);
   assert.match(html, /目标笔记/);
   assert.match(html, /正文提到的笔记/);
 });

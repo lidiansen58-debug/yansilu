@@ -1,3 +1,4 @@
+import { LOCAL_RELEASE_NOTES } from "./local-release-notes.js";
 import {
   createUpdateState,
   normalizeUpdateSettings,
@@ -438,8 +439,8 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
       `).join("")
       : `
         <div class="settings-help-topic">
-          <strong>更新说明</strong>
-          <span>检查更新后显示。</span>
+          <strong>本机版本说明</strong>
+          <span>${LOCAL_RELEASE_NOTES.map(escapeHtml).join("<br>")}</span>
         </div>
       `;
   }

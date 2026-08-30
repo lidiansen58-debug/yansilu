@@ -70,9 +70,10 @@ export function normalizePosixPath(input) {
 }
 
 export function resolveAssetPathForNote(rawPath, noteMarkdownPath = "") {
-  const target = unformatMarkdownLinkDestination(rawPath);
+  let target = unformatMarkdownLinkDestination(rawPath);
   if (!target) return "";
   if (/^(https?:|data:)/i.test(target)) return target;
+  target = decodePreviewUrl(target);
   if (target.startsWith("assets/")) return normalizePosixPath(target);
   const normalizedNotePath = String(noteMarkdownPath || "").replaceAll("\\", "/");
   const slash = normalizedNotePath.lastIndexOf("/");
@@ -116,8 +117,8 @@ export function resolvePreviewableAsset(rawPath, noteMarkdownPath = "") {
 }
 
 export function isPreviewImageUrl(url = "") {
-  const value = String(url || "").trim();
-  return /^data:image\//i.test(value) || /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?|$)/i.test(value);
+  const value = decodePreviewUrl(url);
+  return /^data:image\//i.test(value) || /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)([?#&]|$)/i.test(value);
 }
 
 export function isPreviewPdfUrl(url = "") {

@@ -36,7 +36,7 @@ test("note creation actions report reused primary note placeholders", async () =
   });
 });
 
-test("note creation actions clear active editor tab before creating in selected folder", async () => {
+test("note creation actions preserve active editor while creating in selected folder", async () => {
   const status = statusRecorder();
   const state = { activeTabId: "tab-1" };
   const calls = [];
@@ -56,17 +56,30 @@ test("note creation actions clear active editor tab before creating in selected 
   });
 
   assert.equal(result.remote, true);
-  assert.equal(state.activeTabId, null);
+  assert.equal(state.activeTabId, "tab-1");
   assert.deepEqual(calls, [
     ["context", { folderId: "d2", clearSelectedFile: true, expandFolder: true }],
-    "fill-editor",
-    "render-tabs",
     ["create", { preferTitleSelection: true }]
   ]);
   assert.deepEqual(status.calls.at(-1), {
-    message: "已在当前目录创建 Markdown 文件（已落盘）",
+    message: "笔记已保存到本地",
     tone: "ok"
   });
+});
+
+test("failed creation leaves the current editor intact and reports failure", async () => {
+  const state = { activeTabId: "draft-1" };
+  const status = statusRecorder();
+  const result = await handleCreateNoteInSelectedFolderStateChange({}, {
+    state,
+    createNoteInSelectedFolder: async () => ({ note: null, error: new Error("disk is read-only") }),
+    setStatus: status.setStatus
+  });
+  assert.equal(result, false);
+  assert.equal(state.activeTabId, "draft-1");
+  assert.equal(status.calls.at(-1).tone, "bad");
+  assert.match(status.calls.at(-1).message, /disk is read-only/);
+  assert.doesNotMatch(status.calls.at(-1).message, /已创建|降级/);
 });
 
 test("note creation actions record original notes and update the source note marker", async () => {

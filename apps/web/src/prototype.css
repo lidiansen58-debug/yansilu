@@ -18543,6 +18543,74 @@
     .status {
       display: none;
     }
+    .note-move-progress {
+      padding: 20px 28px;
+      border: 1px solid #cbd5d1;
+      border-radius: 6px;
+      background: #fff;
+      color: #20392d;
+      font: inherit;
+    }
+    .note-move-progress::backdrop { background: #14231e55; }
+    [data-vault-switch-recovery] { width: min(440px, calc(100vw - 32px)); box-sizing: border-box; }
+    [data-vault-switch-recovery] p { margin: 0 0 16px; line-height: 1.6; }
+    .note-move-recovery {
+      position: fixed;
+      z-index: 10001;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: min(600px, calc(100vw - 32px));
+      padding: 12px;
+      border: 1px solid #b6c6be;
+      border-radius: 6px;
+      background: #fff;
+      color: #20392d;
+    }
+    .note-move-recovery button { flex-shrink: 0; }
+    #statusBar.is-visible {
+      position: fixed;
+      z-index: 10000;
+      right: 16px;
+      bottom: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: min(520px, calc(100vw - 32px));
+      max-height: min(240px, 40vh);
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid #cbd5d1;
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 6px 24px #0002;
+    }
+    #statusBar.is-visible .status-pill {
+      flex: 1;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    #statusBar.is-visible .status-pill::before { content: none; }
+    #statusBar [data-dismiss-status] {
+      flex: 0 0 28px;
+      height: 28px;
+      border: 0;
+      background: transparent;
+      color: #46564e;
+      font-size: 20px;
+      cursor: pointer;
+    }
     .status-pill {
       display: inline-flex;
       align-items: center;
@@ -18560,7 +18628,7 @@
       backdrop-filter: blur(12px);
     }
     .status-pill::before {
-      content: "鈥?;
+      content: "";
       font-size: 12px;
       line-height: 1;
     }
@@ -18872,6 +18940,9 @@
       padding: 18px;
       background:
         linear-gradient(180deg, rgba(250, 251, 252, 0.98), rgba(244, 247, 249, 0.98));
+    }
+    .asset-preview-body > [hidden] {
+      display: none !important;
     }
     .asset-preview-image {
       display: block;

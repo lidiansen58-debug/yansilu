@@ -1,9 +1,24 @@
+function creationFailure(setStatus, error) {
+  if (error?.code === "vault_changed") return false;
+  if (error?.code === "creation_pending") {
+    setStatus(error.message, "warn", { notify: true, force: true, holdMs: 12000 });
+    return false;
+  }
+  setStatus(`未能创建笔记：${String(error?.message || error || "本地服务没有返回保存结果")}。正在编辑的内容已保留，请检查笔记库和本地服务后重试。`, "bad", { notify: true, force: true, holdMs: 12000 });
+  return false;
+}
+
 export async function handleCreatePrimaryNoteStateChange(payload = {}, deps = {}) {
   const {
     createPrimaryOriginalNote = async () => ({}),
     setStatus = () => {}
   } = deps;
-  const result = await createPrimaryOriginalNote({ preferTitleSelection: true });
+  setStatus("正在创建笔记...", "busy", { notify: true, force: true });
+  let result;
+  try {
+    result = await createPrimaryOriginalNote({ preferTitleSelection: true });
+  } catch (error) { return creationFailure(setStatus, error); }
+  if (result?.error) return creationFailure(setStatus, result.error);
   if (result.reused) {
     setStatus(
       result.cleanedCount
@@ -12,17 +27,15 @@ export async function handleCreatePrimaryNoteStateChange(payload = {}, deps = {}
       result.cleanedCount ? "warn" : "ok"
     );
   } else if (result.remote) {
-    setStatus(result.switchedToOriginal ? "已切到永久笔记并创建 Markdown 文件" : "已创建新的永久笔记 Markdown 文件", "ok");
+    setStatus("笔记已保存到本地", "ok", { notify: true, force: true });
   } else {
-    setStatus(`API 不可用，已降级本地创建永久笔记：${String(result.error?.message || result.error)}`, "warn");
+    return creationFailure(setStatus, result.error);
   }
   return result || true;
 }
 
 export async function handleCreateNoteInSelectedFolderStateChange(payload = {}, deps = {}) {
   const {
-    state = {},
-    editor = null,
     applyExplorerSelectionContext = () => {},
     createNoteInSelectedFolder = async () => ({}),
     setStatus = () => {}
@@ -36,13 +49,12 @@ export async function handleCreateNoteInSelectedFolderStateChange(payload = {}, 
     });
   }
 
-  if (state.activeTabId) {
-    state.activeTabId = null;
-    editor?.fillEditorFromTab?.();
-    editor?.renderTabs?.();
-  }
-
-  const result = await createNoteInSelectedFolder({ preferTitleSelection: true });
+  setStatus("正在创建笔记...", "busy", { notify: true, force: true });
+  let result;
+  try {
+    result = await createNoteInSelectedFolder({ preferTitleSelection: true });
+  } catch (error) { return creationFailure(setStatus, error); }
+  if (result?.error) return creationFailure(setStatus, result.error);
   if (result.reused) {
     setStatus(
       result.cleanedCount
@@ -51,9 +63,9 @@ export async function handleCreateNoteInSelectedFolderStateChange(payload = {}, 
       result.cleanedCount ? "warn" : "ok"
     );
   } else if (result.remote) {
-    setStatus("已在当前目录创建 Markdown 文件（已落盘）", "ok");
+    setStatus("笔记已保存到本地", "ok", { notify: true, force: true });
   } else {
-    setStatus(`API 不可用，已降级本地创建：${String(result.error?.message || result.error)}`, "warn");
+    return creationFailure(setStatus, result.error);
   }
   return result || true;
 }

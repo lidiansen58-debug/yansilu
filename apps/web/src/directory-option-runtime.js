@@ -33,15 +33,19 @@ export function createDirectoryOptionRuntime(depsProvider = () => ({})) {
 
   function noteMoveDirectoryOptions(currentDirectoryId = "") {
     const current = deps();
-    const currentFolder = current.folderById(current.state, currentDirectoryId);
-    const rootId = currentFolder ? current.rootBoxIdFromFolder(current.state, currentFolder.id) : "";
+    const types = { dir_fleeting_default: "随笔", dir_literature_default: "文献笔记", dir_original_default: "永久笔记" };
+    const sourceRoot = current.rootBoxIdFromFolder(current.state, currentDirectoryId);
+    const typeLabel = folder => types[current.rootBoxIdFromFolder(current.state, folder.id)] || "当前文件盒";
     return current.state.folders
-      .filter((folder) => folder?.id && !folder.hidden && folder.id !== currentDirectoryId && current.rootBoxIdFromFolder(current.state, folder.id) === rootId)
+      .filter((folder) => folder?.id && !folder.hidden && folder.id !== currentDirectoryId &&
+        (types[current.rootBoxIdFromFolder(current.state, folder.id)] || current.rootBoxIdFromFolder(current.state, folder.id) === sourceRoot))
       .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"))
       .map((folder) => ({
         id: folder.id,
-        label: directoryPathLabel(folder.id),
-        hint: `移动后会放到“${current.displayFolderName(folder)}”目录。`
+        label: `${typeLabel(folder)} · ${directoryPathLabel(folder.id)}`,
+        hint: current.rootBoxIdFromFolder(current.state, folder.id) === sourceRoot
+          ? "移动到这个目录，正文、类型和已有关系保留。"
+          : `归为${typeLabel(folder)}。正文和已有关系保留；改变类型后按草稿继续整理。`
       }));
   }
 

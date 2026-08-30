@@ -78,8 +78,9 @@ test("smart notes demo import syncs the directory tree and refreshes the home mo
   assert.match(source, /seedSmartNotesProductThinkingDemoWithStartupRetry\(\)/);
   assert.match(source, /await syncNotesForDirectoryTree\(directoryId\);/);
   assert.match(source, /if \(shouldRefreshHome\) activateModule\("today"\);/);
-  assert.match(source, /const importedStatus = smartNotesDemoImportedStatus\(result, \{ openedGuide: shouldOpenGuide, refreshedHome: shouldRefreshHome \}\);/);
-  assert.match(source, /if \(shouldRefreshHome\) \{\s*state\.todayNoticeMessage = importedStatus;\s*renderAll\(\);\s*\}/);
+  assert.match(source, /const refreshedHome = shouldRefreshHome && !shouldOpenGuide;/);
+  assert.match(source, /const importedStatus = smartNotesDemoImportedStatus\(result, \{ openedGuide: shouldOpenGuide, refreshedHome \}\);/);
+  assert.match(source, /if \(refreshedHome\) \{\s*state\.todayNoticeMessage = importedStatus;\s*renderAll\(\);\s*\}/);
   assert.match(source, /setStatus\(importedStatus, "ok"\);/);
 });
 

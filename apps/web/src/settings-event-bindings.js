@@ -1,51 +1,7 @@
 import { installVaultBackupPanelEvents } from "./settings-vault-backup-panel.js";
-
-function importErrorDetailsText(details) {
-  const valueText = (value) => {
-    if (typeof value === "string") return value.trim();
-    try {
-      return JSON.stringify(value) || "";
-    } catch {
-      return String(value || "").trim();
-    }
-  };
-  if (typeof details === "string") return details.trim();
-  if (Array.isArray(details)) {
-    return details
-      .map(valueText)
-      .filter(Boolean)
-      .slice(0, 3)
-      .join("；");
-  }
-  if (!details || typeof details !== "object") return "";
-  return Object.entries(details)
-    .map(([key, value]) => {
-      const text = valueText(value);
-      return text ? `${key}: ${text}` : "";
-    })
-    .filter(Boolean)
-    .slice(0, 3)
-    .join("；");
-}
-
-export function describeSettingsDemoImportError(error = null) {
-  const code = String(error?.code || "").trim();
-  const message = String(error?.message || error || "未知错误").trim() || "未知错误";
-  const detail = importErrorDetailsText(error?.details);
-  const cause = String(error?.cause?.message || "").trim();
-  const recovery = code === "desktop_api_unavailable" || code === "api_unavailable"
-    ? "本地服务没有准备好。请完全退出研思录后重新打开，再重试。"
-    : code === "request_timeout"
-      ? "等待本地服务超过预期时间。请稍等片刻后重试；仍失败请重启研思录。"
-      : "";
-  return [
-    `导入失败：${message}`,
-    code ? `错误代码：${code}` : "",
-    detail ? `详情：${detail}` : "",
-    cause ? `原因：${cause}` : "",
-    recovery
-  ].filter(Boolean).join("\n");
-}
+import { createSettingsVaultSwitcher } from "./settings-vault-switch.js";
+import { runSettingsDemoImport } from "./settings-demo-import-action.js";
+export { describeSettingsDemoImportError } from "./settings-demo-import-action.js";
 
 export function installSettingsEventBindings(deps = {}) {
   const {
@@ -64,8 +20,8 @@ export function installSettingsEventBindings(deps = {}) {
     confirmMobilePairRequestFromUi = async () => {},
     revokeMobileDeviceFromUi = async () => {},
     loadNoteTemplateSettingsFromStorage = () => {},
-    syncDirectoriesFromApi = async () => {},
-    syncNotesForDirectory = async () => {},
+    fetchDirectories = async () => [], fetchDirectoryNotes = async () => [],
+    mapDirectoryItem = item => item, mapNoteItem = item => item,
     createEncryptedVaultBackup = async () => {},
     restoreEncryptedVaultBackup = async () => {},
     renderAll = () => {},
@@ -95,6 +51,8 @@ export function installSettingsEventBindings(deps = {}) {
     applyScheduledTaskTemplateToForm = () => {}
   } = deps;
 
+  const openVault = createSettingsVaultSwitcher({ state, settingsState, desktopCommands,
+    loadNoteTemplateSettingsFromStorage, fetchDirectories, fetchDirectoryNotes, mapDirectoryItem, mapNoteItem, renderAll, setStatus });
   installVaultBackupPanelEvents({
     $,
     settingsState,
@@ -105,19 +63,8 @@ export function installSettingsEventBindings(deps = {}) {
     setStatus,
     openRestoredVault: async (vaultPath) => {
       if (!editor.confirmDiscardDirtyTabs?.("打开恢复后的笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
-      const nextVault = await desktopCommands.switchVault?.(vaultPath);
-      settingsState.vault = nextVault;
-      loadNoteTemplateSettingsFromStorage();
-      state.notes = [];
-      state.tabs = [];
-      state.activeTabId = null;
-      state.selectedFileId = null;
-      await syncDirectoriesFromApi();
-      state.browserRootId = "dir_original_default";
-      state.selectedFolderId = "dir_original_default";
-      await syncNotesForDirectory(state.selectedFolderId);
-      renderAll();
-      setStatus(`已打开恢复后的笔记库：${nextVault?.vaultPath || ""}`, "ok");
+      try { await openVault(vaultPath); }
+      catch (error) { setStatus(`打开笔记库失败：${String(error?.message || error)}`, "bad"); }
     }
   });
 
@@ -192,32 +139,7 @@ export function installSettingsEventBindings(deps = {}) {
     event.preventDefault();
     const action = String(button.getAttribute("data-settings-help-action") || "").trim();
     if (action === "import-demo") {
-      const previousText = button.textContent;
-      const status = $("settingsImportSmartNotesDemoStatus");
-      const setImportFeedback = (message, tone = "") => {
-        if (!status) return;
-        status.textContent = message;
-        status.dataset.tone = tone;
-      };
-      button.disabled = true;
-      button.setAttribute("aria-busy", "true");
-      button.textContent = "\u6b63\u5728\u5bfc\u5165...";
-      setImportFeedback("正在导入示例库。完成后会自动打开首页。", "busy");
-      try {
-        const imported = await handleStateChange("seed-smart-notes-demo", { source: "settings-help" });
-        if (imported === false) {
-          setImportFeedback("已取消导入。需要时可再次点击按钮。", "");
-          setStatus("已取消 Demo 导入。", "");
-        }
-      } catch (error) {
-        const description = describeSettingsDemoImportError(error);
-        setImportFeedback(description, "bad");
-        setStatus(description, "bad");
-      } finally {
-        button.disabled = false;
-        button.removeAttribute("aria-busy");
-        button.textContent = previousText;
-      }
+      await runSettingsDemoImport(button, { $, handleStateChange, setStatus });
       return;
     }
     if (action === "open-home") {
@@ -337,19 +259,7 @@ export function installSettingsEventBindings(deps = {}) {
         if ($("settingsVaultPath")) $("settingsVaultPath").value = nextPath;
       }
       if (!editor.confirmDiscardDirtyTabs?.("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
-      const nextVault = await desktopCommands.switchVault?.(nextPath);
-      settingsState.vault = nextVault;
-      loadNoteTemplateSettingsFromStorage();
-      state.notes = [];
-      state.tabs = [];
-      state.activeTabId = null;
-      state.selectedFileId = null;
-      await syncDirectoriesFromApi();
-      state.browserRootId = "dir_original_default";
-      state.selectedFolderId = "dir_original_default";
-      await syncNotesForDirectory(state.selectedFolderId);
-      renderAll();
-      setStatus(`已重新选择并初始化笔记库：${nextVault?.vaultPath || ""}`, "ok");
+      await openVault(nextPath);
     } catch (error) {
       setStatus(`切换笔记库失败：${String(error?.message || error)}`, "bad");
     }

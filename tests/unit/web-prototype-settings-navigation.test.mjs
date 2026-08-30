@@ -59,7 +59,7 @@ test("prototype settings navigation renders sidebar and mobile item options", ()
   });
   assert.match(html, /data-settings-item="version-update"/);
   assert.match(html, /class="settings-sidebar-menu-item is-active"/);
-  assert.match(html, /版本更新/);
+  assert.match(html, /关于与更新/);
   assert.match(html, /问题反馈与本地说明/);
 
   const options = settingsMobileItemOptionsHtml();

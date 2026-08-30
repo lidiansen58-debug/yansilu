@@ -177,7 +177,7 @@ export function editorRelatedNotesSummary({
   );
   const externalRelationCount = relationRowCountByEndpoint(
     [
-      ...explicit.outgoing.map((link) => ({ link, direction: "outgoing" })),
+      ...explicit.outgoing.filter((link) => !isMarkdownWikilinkRelation(link)).map((link) => ({ link, direction: "outgoing" })),
       ...explicit.backlinks.map((link) => ({ link, direction: "incoming" }))
     ],
     notes

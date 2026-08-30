@@ -70,6 +70,7 @@ import {
   resolvePreviewableAsset
 } from "./editor-markdown-commands.js";
 import { renderMarkdownPreview } from "./editor-preview-renderer.js";
+import { renderImageAssetPreview } from "./image-asset-preview.js";
 import { applyEditorPaneStateMethods } from "./editor-dirty-state.js";
 import {
   highlightMatch,
@@ -1142,7 +1143,7 @@ export class EditorPane {
             .map(({ link, direction }) => {
               const endpoint = this.relationEndpoint(link, direction);
               const directionLabel = direction === "outgoing" ? "关联到" : "关联自";
-              const rationale = String(link?.rationale || "").trim();
+              const rationale = isMarkdownWikilinkRelation(link) ? "正文中提到的笔记" : String(link?.rationale || "").trim();
               return `
                 <button class="preview-relation-link" type="button" data-open-linked-note="${escapeHtml(endpoint.id)}">
                   <span>${escapeHtml(directionLabel)} · ${escapeHtml(relationTypeLabel(link?.relationType || "associated_with"))}</span>
@@ -1257,7 +1258,7 @@ export class EditorPane {
     this.els.assetPreviewTitle.textContent = previewLabel;
     if (this.els.assetPreviewOpenLink) this.els.assetPreviewOpenLink.href = cleanUrl;
     if (isPreviewImageUrl(cleanUrl)) {
-      this.els.assetPreviewBody.innerHTML = `<img class="asset-preview-image" src="${escapeHtml(cleanUrl)}" alt="${escapeHtml(previewLabel)}">`;
+      renderImageAssetPreview(this.els.assetPreviewBody, cleanUrl, previewLabel);
     } else if (isPreviewPdfUrl(cleanUrl) || isPreviewDocumentUrl(cleanUrl)) {
       this.els.assetPreviewBody.innerHTML = `<iframe class="asset-preview-frame" src="${escapeHtml(cleanUrl)}" title="${escapeHtml(previewLabel)}"></iframe>`;
     } else {
@@ -7054,6 +7055,8 @@ export class EditorPane {
 
     const handleGlobalSaveShortcut = (e) => {
       if (e.__yansiluSaveHandled) return;
+      if (this.state.pendingNoteMoveId) return;
+      if (document.getElementById("noteSearchDialog")?.hidden === false) return;
       const mod = e.ctrlKey || e.metaKey;
       if (!mod || String(e.key || "").toLowerCase() !== "s" || e.isComposing) return;
       if (!this.activeTab()) return;
@@ -7325,6 +7328,7 @@ export class EditorPane {
   }
 
   async saveActiveNote(options = {}) {
+    if (this.state.noteMoveVaultSwitching || this.state.noteMoveVaultUncertain || (this.state.unresolvedNoteMove && this.state.unresolvedNoteMove.noteId === this.activeTab()?.noteId)) return false;
     if (this.savingPromise) {
       const inFlightSave = this.savingPromise;
       if (!options?.autoSave) {

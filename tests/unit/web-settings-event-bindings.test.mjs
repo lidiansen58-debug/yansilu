@@ -162,7 +162,7 @@ test("settings demo import button shows progress while import is running", async
 
   assert.equal(importButton.disabled, true);
   assert.equal(importButton.textContent, "正在导入...");
-  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, "正在导入示例库。完成后会自动打开首页。");
+  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, "正在导入示例库。完成后会打开练习入口。");
   assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").dataset.tone, "busy");
   finishImport();
   await importPromise;

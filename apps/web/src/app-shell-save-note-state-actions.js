@@ -50,6 +50,12 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
   } = deps;
 
   const noteId = payload.noteId || (state.tabs || []).find((tab) => tab.id === state.activeTabId)?.noteId || null;
+  if (state.noteMoveVaultSwitching || state.noteMoveVaultUncertain || state.unresolvedNoteMove?.noteId === noteId) {
+    const message = state.noteMoveVaultSwitching || state.noteMoveVaultUncertain
+      ? "当前笔记库尚未确认，请先重新核查，暂不能保存。" : "移动结果尚未确认，请先重新核查，此笔记暂不能保存。";
+    setStatus(message, "warn", { notify: true });
+    return { ok: false, saveMode: "blocked", saveMessage: message };
+  }
   let savedNote = null;
   let noteForExplorerSync = null;
   if (noteId) {

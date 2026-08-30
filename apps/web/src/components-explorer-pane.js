@@ -302,20 +302,9 @@ export class ExplorerPane {
   }
 
   bind() {
-    this.els.searchInput.addEventListener("input", () => {
+    this.els.searchInput?.addEventListener("input", () => {
       this.state.searchQuery = this.els.searchInput.value || "";
       this.render();
-    });
-
-    this.els.toggleSearchBtn?.addEventListener("click", () => {
-      this.state.searchVisible = !this.state.searchVisible;
-      if (!this.state.searchVisible) {
-        this.state.searchQuery = "";
-        this.els.searchInput.value = "";
-      }
-      this.syncSearchVisibility();
-      this.onStateChange("toggle-search");
-      if (this.state.searchVisible) this.els.searchInput.focus();
     });
 
     this.els.openNewBoxBtn.addEventListener("click", () => {
@@ -328,7 +317,10 @@ export class ExplorerPane {
 
     this.els.newNoteBtn.addEventListener("click", () => {
       const folderId = resolveExplorerNewNoteFolderId(this.state);
-      if (!folderById(this.state, folderId)) return;
+      if (!folderById(this.state, folderId)) {
+        this.onStatus("还没有可写入的目录，请先在设置中选择笔记库。", "warn");
+        return;
+      }
       this.onStateChange("create-note-in-selected-folder", { folderId });
     });
 
@@ -496,7 +488,7 @@ export class ExplorerPane {
                 { key: "open", label: "打开笔记", icon: "↗" },
                 ...(canRecordPermanentFromNote(this.state, note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
                 { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
-                { key: "move", label: "移动到...", icon: "⇄" },
+                { key: "move", label: "归类与移动...", icon: "⇄" },
                 { key: "reveal-note", label: "显示 Markdown 文件位置", icon: "⌂" },
                 { type: "separator" },
                 { key: "delete", label: "删除", danger: true, icon: "✕" }
@@ -685,7 +677,7 @@ export class ExplorerPane {
         if (title && title.trim()) {
           n.title = title.trim();
           const result = await this.onStateChange("save-note", { noteId: n.id, title: n.title });
-          if (result?.statusTone === "bad") {
+          if (result === false || result?.ok === false || result?.statusTone === "bad") {
             n.title = originalTitle;
             return;
           }
@@ -948,7 +940,7 @@ export class ExplorerPane {
       <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderState ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
-          <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="展开/折叠">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
+          <button class="tree-toggle" data-toggle-folder="${folder.id}" aria-expanded="${expanded}" aria-label="${expanded ? "收起" : "展开"}${escapeHtml(displayFolderName(folder))}" title="${hasChildren ? (expanded ? "收起目录" : "展开目录") : "空目录"}">${expanded ? "&#9662;" : "&#9656;"}</button>
           <span class="icon tree-state-icon" data-folder-state="${escapeHtml(folderState)}" ${folderTitle ? `title="${escapeHtml(folderTitle)}" aria-label="${escapeHtml(folderTitle)}"` : ""}>${folderIconSvg(isRoot, folderState)}</span>
           <span class="name"><strong>${displayFolderName(folder)}</strong></span>
         </div>
@@ -968,7 +960,8 @@ export class ExplorerPane {
         : allFiles.map((note) => this.renderFileNode(note, depth + 1)).join("");
     const childFolderRows = allChildren.map((c) => this.renderFolderNode(c, depth + 1, q, memo)).join("");
 
-    return `${folderRow}${childFolderRows}${fileRows}`;
+    const emptyRow = !hasChildren ? `<div class="explorer-empty" data-empty-folder="${folder.id}">这个目录还没有笔记。</div>` : "";
+    return `${folderRow}${childFolderRows}${fileRows}${emptyRow}`;
   }
 
   currentEditorNoteId() {

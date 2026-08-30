@@ -28,7 +28,7 @@ test("Smart Notes Demo fixture teaches one complete beginner knowledge chain", a
 
   assert.doesNotMatch(allText, /PN-SN|WP-SN|IC-SN/);
   assert.doesNotMatch(allText, /今日整理/);
-  assert.match(allText, /记录材料 -> 用自己的话转述 -> 形成一条判断/);
+  assert.match(allText, /记录材料 -> 用自己的话转述 -> 保存当前观点 -> 看它为什么变化/);
 
   for (const id of [
     "PERM-FLEETING-NOTE-IS-CAPTURE",

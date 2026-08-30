@@ -21,7 +21,9 @@ export function buildPermanentNoteMainPathActionModel({
       ? "distillation"
       : relationState === "loading" || relationState === "error" || explicitRelationCount === 0 || thinExplicitRelationCount > 0
         ? "relations"
-        : "writing";
+        : distillationInfo.focusTarget === "boundary"
+          ? "distillation"
+          : "writing";
   const steps = [
     {
       label: "提炼观点",

@@ -48,6 +48,8 @@ test("app shell state-change prototype host deps keeps shell collaborators in on
     "isPermanentLikeNote",
     "mapNoteItem",
     "moveNote",
+    "fetchNote",
+    "checkNoteMove",
     "moveNoteInClientState",
     "movedDirectoryFsPath",
     "noteGeneratedOriginalNoteId",

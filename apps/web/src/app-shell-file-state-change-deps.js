@@ -2,14 +2,18 @@ export function buildAppShellFileStateChangeDeps(host = {}) {
   const {
     deleteDirectory = async () => null,
     deleteNote = async () => null,
+    editor = null,
     descendantDirectoryIds = () => [],
     folderById = () => null,
     movedDirectoryFsPath = () => "",
     moveNote = async () => null,
+    checkNoteMove = null,
+    fetchNote = async () => null,
     moveNoteInClientState = () => {},
     removeNoteFromClientState = () => {},
     renamedDirectoryFsPath = () => "",
     renderAll = () => {},
+    refreshDirectoryGraph = async () => {},
     rootBoxIdFromFolder = () => "",
     setStatus = () => {},
     state = {},
@@ -21,13 +25,19 @@ export function buildAppShellFileStateChangeDeps(host = {}) {
 
   return {
     noteMove: {
+      editor,
+      state,
+      refreshDirectoryGraph,
       usingLocalFallbackData,
       moveNote,
+      checkNoteMove,
+      fetchNote,
       moveNoteInClientState,
       setStatus,
       renderAll
     },
     noteDelete: {
+      state,
       usingLocalFallbackData,
       deleteNote,
       removeNoteFromClientState,

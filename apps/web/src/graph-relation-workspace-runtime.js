@@ -1,3 +1,5 @@
+import { commonRelationTypeOptionsMarkup } from "./editor-relation-helpers.js";
+
 export function createGraphRelationWorkspaceRuntime(deps = {}) {
   const {
     GRAPH_CONFIRMABLE_RELATION_TYPES,
@@ -158,13 +160,10 @@ function renderGraphThemeIndexWorkspace(noteIds = [], { title = "可写主题推
   return renderGraphThemeIndexWorkspaceMarkup(noteIds, { title, relationCount, tone, deps: graphWorkspaceRenderDeps() });
 }
 
-const GRAPH_RELATION_FORM_TYPES = ["supports", "contradicts", "qualifies", "bridges", "same_topic", "associated_with"];
+const GRAPH_RELATION_FORM_TYPES = ["associated_with", "supports", "contradicts", "qualifies", "example_of", "bridges", "same_topic"];
 
 function graphRelationFormTypeOptions(selectedType = "associated_with") {
-  const selected = String(selectedType || "associated_with").trim().toLowerCase() || "associated_with";
-  return GRAPH_RELATION_FORM_TYPES.map(
-    (type) => `<option value="${escapeHtml(type)}"${type === selected ? " selected" : ""}>${escapeHtml(graphRelationTypeLabel(type))}</option>`
-  ).join("");
+  return commonRelationTypeOptionsMarkup(selectedType, GRAPH_RELATION_FORM_TYPES);
 }
 
 function graphCandidatePercent(candidate = {}) {

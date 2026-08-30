@@ -1,6 +1,7 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import {
   noteTypeText,
+  COMMON_RELATION_CHOICES,
   RELATION_CREATE_TYPES,
   relationTypeLabel
 } from "./editor-relation-helpers.js";
@@ -29,34 +30,6 @@ function noteMeta(note = {}, deps = {}) {
 }
 
 const PERMANENT_RELATION_WORKSPACE_TYPES = RELATION_CREATE_TYPES.filter((type) => type !== "appears_in_draft");
-
-const COMMON_RELATION_CHOICES = [
-  {
-    type: "associated_with",
-    title: "只是有关",
-    note: "先记下关联，之后再判断具体关系。"
-  },
-  {
-    type: "supports",
-    title: "支持这个观点",
-    note: "它增加了证据或理由。"
-  },
-  {
-    type: "contradicts",
-    title: "提出不同看法",
-    note: "它带来了反例或不同判断。"
-  },
-  {
-    type: "qualifies",
-    title: "补充适用条件",
-    note: "它说明这个观点何时成立。"
-  },
-  {
-    type: "example_of",
-    title: "提供一个例子",
-    note: "它让这个观点更具体。"
-  }
-];
 
 function relationWorkspaceTypeOptions(selected = "associated_with") {
   const active = cleanText(selected).toLowerCase() || "associated_with";

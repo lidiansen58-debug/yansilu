@@ -37,7 +37,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     isOriginalRecordableSource: host.isOriginalRecordableSource,
     isPermanentLikeNote: host.isPermanentLikeNote,
     mapNoteItem: host.mapNoteItem,
-    moveNote: host.moveNote,
+    moveNote: host.moveNote, fetchNote: host.fetchNote, checkNoteMove: host.checkNoteMove,
     moveNoteInClientState: host.moveNoteInClientState,
     movedDirectoryFsPath: host.movedDirectoryFsPath,
     noteGeneratedOriginalNoteId: host.noteGeneratedOriginalNoteId,

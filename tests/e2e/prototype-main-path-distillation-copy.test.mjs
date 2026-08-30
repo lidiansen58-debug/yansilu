@@ -81,18 +81,14 @@ test("prototype needs-distillation copy points toward viewpoint distillation", a
     (noteId) => Array.isArray(window.__prototypeState?.notes) && window.__prototypeState.notes.some((item) => item?.id === noteId),
     note.json.item.id
   );
-  await page.evaluate((noteId) => {
-    window.__prototypeState.selectedFileId = noteId;
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeEditor?.openNoteTab?.(noteId, { preferTitleSelection: false });
-  }, note.json.item.id);
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${note.json.item.id}"]`).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
-
+  const panel = page.locator("#resultArea");
   await waitFor(async () => {
-    const mainPathText = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(mainPathText || ""), /提炼观点|确认观点/);
-    assert.match(String(mainPathText || ""), /继续提纯|把这条观点确认下来/);
-    assert.doesNotMatch(String(mainPathText || ""), /进入写作中心/);
-  }, 10000);
+    assert.match(await panel.innerText(), /你现在认为是什么/);
+    assert.equal(await panel.getByRole("button", { name: "保存当前观点", exact: true }).isVisible(), true);
+    assert.doesNotMatch(await panel.innerText(), /进入写作中心/);
+  });
 });

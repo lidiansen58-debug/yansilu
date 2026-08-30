@@ -41,8 +41,9 @@ test("app shell state change router delegates note creation actions", async () =
   });
 
   assert.deepEqual(result, { id: "n1", remote: true });
-  assert.equal(calls[0], "create");
-  assert.deepEqual(calls.at(-1), ["status", "已创建新的永久笔记 Markdown 文件", "ok"]);
+  assert.deepEqual(calls[0], ["status", "正在创建笔记...", "busy"]);
+  assert.equal(calls[1], "create");
+  assert.deepEqual(calls.at(-1), ["status", "笔记已保存到本地", "ok"]);
 });
 
 test("app shell state change router preserves graph associate recursion through host state change", async () => {

@@ -68,14 +68,24 @@ export const RELATION_CREATE_TYPES = [
   "appears_in_draft"
 ];
 
-export const INLINE_LINK_RELATION_TYPES = [
-  "associated_with",
-  "supports",
-  "complements",
-  "qualifies",
-  "contradicts",
-  "bridges"
+export const COMMON_RELATION_CHOICES = [
+  { type: "associated_with", title: "只是有关", note: "先记下关联，之后再判断具体关系。" },
+  { type: "supports", title: "支持这个观点", note: "它增加了证据或理由。" },
+  { type: "contradicts", title: "提出不同看法", note: "它带来了反例或不同判断。" },
+  { type: "qualifies", title: "补充适用条件", note: "它说明这个观点何时成立。" },
+  { type: "example_of", title: "提供一个例子", note: "它让这个观点更具体。" }
 ];
+
+export const INLINE_LINK_RELATION_TYPES = COMMON_RELATION_CHOICES.map((choice) => choice.type);
+
+export function commonRelationTypeOptionsMarkup(selected = "associated_with", types = RELATION_CREATE_TYPES) {
+  const active = String(selected || "associated_with").trim().toLowerCase();
+  const option = (type, label) => `<option value="${escapeHtml(type)}"${type === active ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  const common = COMMON_RELATION_CHOICES.filter((choice) => types.includes(choice.type));
+  const more = types.filter((type) => !common.some((choice) => choice.type === type));
+  return `<optgroup label="常用">${common.map((choice) => option(choice.type, choice.title)).join("")}</optgroup>` +
+    (more.length ? `<optgroup label="更多关系">${more.map((type) => option(type, relationTypeLabel(type))).join("")}</optgroup>` : "");
+}
 
 export function relationCreateTypeOptionsMarkup(selected = "supports") {
   const normalized = String(selected || "supports").trim().toLowerCase() || "supports";
@@ -86,11 +96,9 @@ export function relationCreateTypeOptionsMarkup(selected = "supports") {
 }
 
 export function inlineLinkRelationTypeOptionsMarkup(selected = "associated_with") {
-  const normalized = String(selected || "associated_with").trim().toLowerCase() || "associated_with";
-  return INLINE_LINK_RELATION_TYPES.map((type) => {
-    const isSelected = type === normalized;
-    return `<option value="${escapeHtml(type)}"${isSelected ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`;
-  }).join("");
+  const types = [...INLINE_LINK_RELATION_TYPES];
+  if (RELATION_CREATE_TYPES.includes(selected) && !types.includes(selected)) types.push(selected);
+  return commonRelationTypeOptionsMarkup(selected, types);
 }
 
 export const RELATION_EDIT_STATUSES = ["confirmed", "draft", "suggested", "dismissed", "archived"];

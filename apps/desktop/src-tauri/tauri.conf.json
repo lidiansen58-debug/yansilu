@@ -31,7 +31,8 @@
     "targets": "all",
     "category": "Productivity",
     "resources": {
-      "desktop-api-runtime/": "desktop-api-runtime/"
+      "desktop-api-runtime/": "desktop-api-runtime/",
+      "../../web/src/help/": "help/"
     },
     "icon": [
       "icons/icon.png",

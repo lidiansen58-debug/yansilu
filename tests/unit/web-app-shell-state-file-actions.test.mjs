@@ -19,6 +19,44 @@ function statusRecorder() {
   };
 }
 
+test("moving a dirty note preserves it and asks the user to save first", async () => {
+  const status = statusRecorder();
+  let moved = false;
+  const result = await handleNoteMoveStateChange({ noteId: "n1", directoryId: "d2" }, {
+    state: { tabs: [{ noteId: "n1", dirty: true }] },
+    moveNote: async () => { moved = true; },
+    setStatus: status.setStatus
+  });
+  assert.equal(result, false);
+  assert.equal(moved, false);
+  assert.match(status.calls[0].message, /保存后再归类/);
+});
+
+for (const fail of [false, true]) {
+  test(`note move locks interaction, rejects duplicate moves and releases on ${fail ? "failure" : "success"}`, async () => {
+    const state = { tabs: [{ id: "t1", noteId: "n1", dirty: false }], activeTabId: "t1" };
+    let resolveMove, locked = false, calls = 0, editorRefreshed = false;
+    const pending = new Promise(resolve => { resolveMove = resolve; });
+    const deps = {
+      state,
+      editor: { fillEditorFromTab: () => { assert.equal(locked, true); editorRefreshed = true; } },
+      beginMoveInteraction: () => { locked = true; return () => { locked = false; }; },
+      moveNote: async () => { calls++; await pending; if (fail) throw new Error("unavailable"); return { id: "n1" }; },
+      moveNoteInClientState: () => assert.equal(locked, true)
+    };
+    const result = handleNoteMoveStateChange({ noteId: "n1", directoryId: "d2" }, deps);
+    assert.equal(locked, true);
+    assert.equal(state.pendingNoteMoveId, "n1");
+    assert.equal(await handleNoteMoveStateChange({ noteId: "n1", directoryId: "d3" }, deps), false);
+    assert.equal(calls, 1);
+    resolveMove();
+    assert.equal(await result, !fail);
+    assert.equal(editorRefreshed, !fail);
+    assert.equal(locked, false);
+    assert.equal(state.pendingNoteMoveId, "");
+  });
+}
+
 test("state file actions move notes remotely before updating client state", async () => {
   const status = statusRecorder();
   const calls = [];

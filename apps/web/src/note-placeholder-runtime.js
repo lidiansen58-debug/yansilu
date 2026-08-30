@@ -63,45 +63,35 @@ export function createNotePlaceholderRuntime(depsProvider = () => ({})) {
     return isUntitledTitle(title) && isEmptyUntitledMarkdown(body, note.folderId);
   }
 
-  async function ensureNoteLoadedForPlaceholderCheck(note) {
+  async function findUntitledPlaceholder(folderId, { isCurrent = () => true, signal } = {}) {
     const current = deps();
-    if (!note || note.bodyLoaded || current.isLocalOnlyNote(note)) return note;
-    try {
-      const full = await current.fetchNote(note.id);
-      if (!full) return note;
-      Object.assign(note, current.mapNoteItem(full), { bodyLoaded: typeof full.body === "string" });
-    } catch {}
-    return note;
-  }
-
-  async function cleanupDuplicateUntitledPlaceholders(folderId) {
-    const current = deps();
-    const candidates = current.state.notes.filter((item) => item.folderId === folderId && isUntitledTitle(item.title));
-    for (const note of candidates) {
-      await ensureNoteLoadedForPlaceholderCheck(note);
+    const candidates = current.state.notes.filter(note => note.folderId === folderId && isUntitledTitle(note.title));
+    for (const candidate of candidates) {
+      if (!isCurrent()) return null;
+      const expectedBody = candidate.body, expectedTitle = candidate.title, expectedUpdatedAt = candidate.updatedAt;
+      const initialTab = current.noteTabFor(candidate.id);
+      if (initialTab?.dirty) continue;
+      const expectedTabBody = initialTab?.body, expectedTabTitle = initialTab?.title;
+      let note = candidate;
+      if (!current.isLocalOnlyNote(note)) {
+        try {
+          const full = await current.fetchNote(note.id, { signal });
+          if (!isCurrent()) return null;
+          if (!full) continue;
+          note = { ...current.mapNoteItem(full), bodyLoaded: typeof full.body === "string" };
+        } catch { continue; }
+      }
+      const latest = current.state.notes.find(item => item.id === candidate.id);
+      if (!latest || latest !== candidate || latest.folderId !== folderId || latest.body !== expectedBody || latest.title !== expectedTitle || latest.updatedAt !== expectedUpdatedAt) continue;
+      const tab = current.noteTabFor(candidate.id);
+      if (tab?.dirty || (initialTab && (tab !== initialTab || tab.body !== expectedTabBody || tab.title !== expectedTabTitle))) continue;
+      if (tab?.title && !isUntitledTitle(tab.title)) continue;
+      // Reuse only the authoritative body matching today's template, never a stale tab or template history.
+      if (isCurrent() && note.folderId === folderId && isUntitledTitle(note.title) && typeof note.body === "string"
+        && (note.bodyLoaded || current.isLocalOnlyNote(note))
+        && note.body.replace(/\r\n/g, "\n").trim() === normalizedDefaultUntitledBody(folderId)) return note;
     }
-    const placeholders = candidates.filter(isUntitledPlaceholderNote);
-    if (placeholders.length <= 1) {
-      return { kept: placeholders[0] || null, removed: 0 };
-    }
-
-    const [kept, ...duplicates] = placeholders;
-    const duplicateIds = new Set(duplicates.map((item) => item.id));
-    for (const note of duplicates) {
-      if (current.isLocalOnlyNote(note)) continue;
-      try {
-        await current.deleteNote(note.id);
-      } catch {}
-    }
-    current.state.notes = current.state.notes.filter((item) => !duplicateIds.has(item.id));
-    current.state.tabs = current.state.tabs.filter((item) => !duplicateIds.has(item.noteId));
-    if (current.state.activeTabId && !current.state.tabs.some((item) => item.id === current.state.activeTabId)) {
-      current.state.activeTabId = current.state.tabs[0]?.id || null;
-    }
-    if (duplicateIds.has(current.state.selectedFileId)) {
-      current.state.selectedFileId = kept?.id || null;
-    }
-    return { kept, removed: duplicateIds.size };
+    return null;
   }
 
   function replaceLocalNoteIdentity(previousNoteId, savedItem) {
@@ -136,9 +126,8 @@ export function createNotePlaceholderRuntime(depsProvider = () => ({})) {
   }
 
   return {
-    cleanupDuplicateUntitledPlaceholders,
+    findUntitledPlaceholder,
     createLocalDraftNote,
-    ensureNoteLoadedForPlaceholderCheck,
     historicalUntitledTemplateBodies,
     isEmptyUntitledMarkdown,
     isUntitledPlaceholderNote,

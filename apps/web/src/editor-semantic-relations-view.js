@@ -13,6 +13,7 @@ import {
   parseInlineRelationAnnotations,
   relationStatusLabel,
   relationTone,
+  commonRelationTypeOptionsMarkup,
   RELATION_CREATE_TYPES,
   RELATION_EDIT_STATUSES,
   relationTypeGuidance,
@@ -194,21 +195,7 @@ export class EditorSemanticRelationsView {
   }
 
   renderCreateRelationTypeOptions(selectedType = "") {
-    const selected = String(selectedType || "supports").trim().toLowerCase() || "supports";
-    const common = [
-      ["supports", "支持它"],
-      ["contradicts", "不同意它"],
-      ["associated_with", "让我想到它"]
-    ];
-    const commonIds = new Set(common.map(([type]) => type));
-    const commonOptions = common.map(([type, label]) =>
-      `<option value="${escapeHtml(type)}"${type === selected ? " selected" : ""}>${escapeHtml(label)}</option>`
-    ).join("");
-    const moreOptions = RELATION_CREATE_TYPES
-      .filter((type) => !commonIds.has(type))
-      .map((type) => `<option value="${escapeHtml(type)}"${type === selected ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`)
-      .join("");
-    return `<optgroup label="常用">${commonOptions}</optgroup><optgroup label="更多关系">${moreOptions}</optgroup>`;
+    return commonRelationTypeOptionsMarkup(selectedType || "associated_with");
   }
 
   renderCreateRelationFormSection(noteId, prefill = {}) {

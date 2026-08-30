@@ -51,7 +51,7 @@ test("preview relation links render outgoing and incoming saved relations", () =
   assert.match(html, /data-open-linked-note="note-c"/);
 });
 
-test("preview relation links skip markdown wikilink-only relations", () => {
+test("preview relation links include body relations equally", () => {
   const pane = paneWithRelations({
     outgoingLinks: [
       {
@@ -65,5 +65,7 @@ test("preview relation links skip markdown wikilink-only relations", () => {
     backlinks: []
   });
 
-  assert.equal(pane.renderPreviewRelationLinks({ id: "note-a" }), "");
+  const html = pane.renderPreviewRelationLinks({ id: "note-a" });
+  assert.match(html, /data-open-linked-note="note-b"/);
+  assert.doesNotMatch(html, /markdown_wikilink/);
 });

@@ -77,13 +77,13 @@ function buildTodayActions(state = {}) {
 
 function primaryAction(actions = []) {
   return actions.find((item) => !item.disabled) || {
-    title: "轻量回顾",
-    objectTitle: "暂无必做任务",
-    summary: "可检查标签、关系或提纲。",
-    meta: "状态良好",
-    action: "",
-    actionLabel: "无需处理",
-    disabled: true,
+    title: "随手记录",
+    objectTitle: "记下一个新想法",
+    summary: "先写下来，之后再整理成自己的观点。",
+    meta: "",
+    action: "start-first-note",
+    actionLabel: "记一条",
+    disabled: false,
     tone: "calm"
   };
 }
@@ -231,13 +231,17 @@ export function renderTodayOrganizingPanel(state = {}) {
       ${renderTodaySummary(state)}
       <section class="today-secondary-tabs" aria-label="辅助信息">
         <div class="today-secondary-tablist" role="tablist" aria-label="辅助信息切换">
-          <button class="today-secondary-tab" type="button" role="tab" aria-selected="false" data-today-secondary-tab="path">路径和状态 <span>展开</span></button>
+          <button class="today-secondary-tab" type="button" role="tab" aria-selected="false" data-today-secondary-tab="path">其他步骤 <span>展开</span></button>
           <button class="today-secondary-tab" type="button" role="tab" aria-selected="false" data-today-secondary-tab="check">今日提醒 <span>展开</span></button>
+          ${recommended.action !== "start-first-note" ? `<button class="mini-btn" type="button" data-today-action="start-first-note">记一条</button>` : ""}
         </div>
         <div class="today-secondary-panel" role="tabpanel" data-today-secondary-panel="path" hidden>
           <div class="today-secondary-body">
             ${renderBeginnerGuide()}
             ${renderOverview(state)}
+            <section class="today-action-grid" aria-label="其他可做">
+              ${actions.filter((item) => item.key !== recommended.key && !item.disabled).map(actionCard).join("")}
+            </section>
           </div>
         </div>
         <div class="today-secondary-panel" role="tabpanel" data-today-secondary-panel="check" hidden>
@@ -245,9 +249,6 @@ export function renderTodayOrganizingPanel(state = {}) {
             ${renderReviewChecklistPanel(state.reviewChecklist)}
           </div>
         </div>
-      </section>
-      <section class="today-action-grid" aria-label="其他可做">
-        ${actions.filter((item) => item.key !== recommended.key).map(actionCard).join("")}
       </section>
     </div>
   `;

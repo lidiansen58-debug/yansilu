@@ -1,3 +1,4 @@
+import { renderWritingEntryPreparation } from "./writing-entry-preparation.js";
 import {
   renderWritingMainlineGuideView,
   renderWritingFlowStepsView,
@@ -306,14 +307,15 @@ export function renderWritingPanelDom(deps = {}) {
     return headings.length ? `用于：${headings.join("、")}` : "尚未用于章节";
   };
   if (basketList) {
-    basketList.innerHTML = relatedEntries.length
+    const preparation = renderWritingEntryPreparation(note, { escapeHtml, isWritingEligibleNote });
+    basketList.innerHTML = preparation + (relatedEntries.length
       ? relatedEntries.map((entry) => renderWritingNoteCard(entry, {
           selected: true,
           action: basketIdSet.has(entry.id) ? "remove" : "open",
           actionLabel: "移出相关笔记",
           usageText: outlineUsageFor(entry.id)
         })).join("")
-      : `<div class="writing-empty">先在左侧打开一条原创笔记，点击“加入当前笔记”，或从下面选择已经成熟的永久笔记。</div>`;
+      : preparation ? "" : `<div class="writing-empty">从下面添加已确认的永久笔记。要使用其他笔记，先在永久笔记盒打开它，再回到这里。</div>`);
   }
   if (candidateSummary) {
     candidateSummary.textContent = candidates.length

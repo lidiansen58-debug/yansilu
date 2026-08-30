@@ -1,3 +1,4 @@
+import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
 import {
   applyWritingOutlineAction,
   updateWritingOutlineSection
@@ -1371,9 +1372,25 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
   } = deps;
   const button = event?.target?.closest?.("[data-writing-action]");
   if (!button) return;
-  const action = String(button.getAttribute("data-writing-action") || "");
+  let action = String(button.getAttribute("data-writing-action") || "");
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
+  if (action === "prepare") {
+    if (button.disabled) return;
+    const feedback = button.closest?.("article")?.querySelector?.("[data-writing-preparation-status]");
+    button.disabled = true;
+    if (feedback) feedback.textContent = "正在检查笔记...";
+    try {
+      const prepare = deps.prepareWritingNote || (id => prepareWritingEntryNote(id, deps));
+      if (!await prepare(noteId)) { if (feedback) feedback.textContent = "已取消，笔记未加入写作。"; return; }
+      action = "add";
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (feedback) feedback.textContent = message;
+      setStatus(message, "warn");
+      return;
+    } finally { button.disabled = false; }
+  }
   const noteLabel = writingKnownNoteById(noteId)?.title || noteId;
   const currentProjectId = String(writingState.project?.id || "").trim();
   const projectBasketIds = parseWritingBasketIds().length
@@ -1426,6 +1443,7 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
   }
   if (action === "open") {
     openNoteById(noteId);
+    deps.activateModule?.("explorer");
     setStatus(`已打开永久笔记：${noteLabel}`, "ok");
   }
 }

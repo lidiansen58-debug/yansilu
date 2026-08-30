@@ -51,7 +51,7 @@ export const SETTINGS_DETAIL_ITEMS = Object.freeze([
   { id: "automation", label: "自动整理", group: "自动整理", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
   { id: "desktop-help", label: "本地使用说明", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
   { id: "feedback", label: "问题反馈", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
-  { id: "version-update", label: "版本更新", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsUpdateCard"] }
+  { id: "version-update", label: "关于与更新", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsUpdateCard"] }
 ]);
 
 const SETTINGS_DETAIL_GROUPS = ["手机访问", "工作区与数据", "笔记模板", "AI", "自动整理", "帮助与反馈"];

@@ -250,10 +250,10 @@ test("manual link picker keeps only information needed to save a relation", asyn
   assert.match(html, /<label for="linkRelationTypeSelect">关系类型<\/label>/);
   assert.match(html, /<label for="linkReasonInput">关联理由<\/label>/);
   assert.match(html, /<button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>关联<\/button>/);
-  assert.match(html, /<option value="associated_with" selected>相关<\/option>/);
+  assert.match(html, /<option value="associated_with" selected>只是有关<\/option>/);
   assert.doesNotMatch(html, />选择笔记<\/button>/);
   assert.doesNotMatch(html, /<option value="appears_in_draft">/);
-  assert.match(helperSource, /const INLINE_LINK_RELATION_TYPES = \[[\s\S]*"associated_with",[\s\S]*"supports",[\s\S]*"complements",[\s\S]*"qualifies",[\s\S]*"contradicts",[\s\S]*"bridges"[\s\S]*\];/);
+  assert.match(helperSource, /INLINE_LINK_RELATION_TYPES = COMMON_RELATION_CHOICES\.map/);
   assert.doesNotMatch(html, /AI 只提供关联建议/);
   assert.doesNotMatch(html, /不会替你确认关系/);
   assert.match(source, /host\.els\.linkSearchInput\.placeholder = "输入标题关键词，选择要关联的永久笔记";/);

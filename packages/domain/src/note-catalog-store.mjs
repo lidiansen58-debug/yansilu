@@ -2,13 +2,15 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
-import { listMarkdownFiles, writeMarkdownIfAbsent } from "./vault.mjs";
+import { listMarkdownFiles } from "./vault.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
 import { relativeMarkdownLinkPath } from "./markdown-asset-links.mjs";
 import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
 import { deriveNoteThinkingStatus } from "./thinking-status.mjs";
 import { analyzePermanentNoteDistillation } from "./quality-checks.mjs";
 import { originalityGuard } from "../../originality-guard/src/index.mjs";
+import { searchNoteContent } from "./note-content-search.mjs";
+import { prepareNoteMoveFiles } from "./note-move-files.mjs";
 
 const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
 
@@ -81,10 +83,20 @@ async function resolveUniqueMarkdownPath(directoryPath, title, options = {}) {
 }
 
 async function createUniqueMarkdownFile(directoryPath, title, content, options = {}) {
+  await fs.mkdir(directoryPath, { recursive: true });
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const candidate = await resolveUniqueMarkdownPath(directoryPath, title, options);
-    const result = await writeMarkdownIfAbsent(candidate, content);
-    if (result.written) return candidate;
+    let handle;
+    try {
+      handle = await fs.open(candidate, "wx");
+      try { await handle.writeFile(content, "utf8"); }
+      finally { await handle.close(); }
+      return candidate;
+    } catch (error) {
+      if (!handle && error.code === "EEXIST") continue;
+      if (handle) await fs.unlink(candidate);
+      throw error;
+    }
   }
   throw new Error(`Unable to create markdown file for title: ${title}`);
 }
@@ -992,6 +1004,7 @@ const NOTE_SEARCH_RANKING_PRIORITY = [
   "path_prefix",
   "id_contains",
   "path_contains",
+  "body_contains",
   "recent"
 ];
 
@@ -1726,6 +1739,9 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
     const normalized = normalizeMarkdown(input.title, input.body);
     assertLiteratureCompletionAllowed(noteType, requestedStatus, normalized.markdownBody);
     const noteId = String(input.id || makeNoteId(noteType));
+    if (db.prepare("SELECT id FROM notes WHERE id = ?").get(noteId)) {
+      throw noteValidationError("NOTE_ID_EXISTS", "A note with this creation ID already exists.", { noteId });
+    }
     const boundaryOrCounterpoint = noteType === "permanent" ? boundaryValueFromInput(input) : "";
     const permanentMeta = noteType === "permanent" ? permanentMetadataFromInput(input, {}) : null;
     assertConfirmedDistillationAllowed(noteType, input, permanentMeta);
@@ -1785,8 +1801,10 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
     });
 
     const relPath = path.relative(path.resolve(vaultPath), absMarkdownPath).replaceAll("\\", "/");
-    db.exec("BEGIN IMMEDIATE;");
+    let transactionOpen = false;
     try {
+      db.exec("BEGIN IMMEDIATE;");
+      transactionOpen = true;
       db.prepare(
         `INSERT INTO notes (id, note_type, title, status, markdown_path, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -1804,8 +1822,13 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
       }
       syncMarkdownRelations(db, noteId, normalized.markdownBody);
       db.exec("COMMIT;");
+      transactionOpen = false;
     } catch (error) {
-      db.exec("ROLLBACK;");
+      if (transactionOpen) db.exec("ROLLBACK;");
+      try { await fs.unlink(absMarkdownPath); }
+      catch (cleanupError) {
+        throw noteValidationError("NOTE_CREATE_CLEANUP_FAILED", `Creation failed; could not remove the new file at ${absMarkdownPath}: ${cleanupError.message}`);
+      }
       throw error;
     }
 
@@ -2094,24 +2117,6 @@ export async function searchNotes(vaultPath, options = {}) {
     }
     await healCatalogScope(vaultPath, db, { rootDirectoryId });
 
-    const matchClause =
-      "(? = '' OR LOWER(n.title) LIKE '%' || ? || '%' OR LOWER(n.id) LIKE '%' || ? || '%' OR LOWER(n.markdown_path) LIKE '%' || ? || '%')";
-    const orderClause = `CASE
-        WHEN ? = '' THEN 8
-        WHEN LOWER(n.title) = ? THEN 0
-        WHEN LOWER(n.id) = ? THEN 1
-        WHEN LOWER(n.title) LIKE ? || '%' THEN 2
-        WHEN LOWER(n.id) LIKE ? || '%' THEN 3
-        WHEN LOWER(n.title) LIKE '%' || ? || '%' THEN 4
-        WHEN LOWER(n.markdown_path) LIKE ? || '%' THEN 5
-        WHEN LOWER(n.id) LIKE '%' || ? || '%' THEN 6
-        WHEN LOWER(n.markdown_path) LIKE '%' || ? || '%' THEN 7
-        ELSE 8
-      END,
-      n.updated_at DESC,
-      LOWER(n.title) ASC`;
-    const queryArgs = [query, query, query, query, query, query, query, query, query, query, query, query, query];
-
     const rows = rootDirectoryId
       ? db
           .prepare(
@@ -2123,11 +2128,9 @@ export async function searchNotes(vaultPath, options = {}) {
              JOIN notes n ON n.id = ndm.note_id
              WHERE n.deleted_at IS NULL
                AND (? = '' OR n.id != ?)
-               AND ${matchClause}
-             ORDER BY ${orderClause}
-             LIMIT ?`
+             ORDER BY n.updated_at DESC, LOWER(n.title) ASC`
           )
-          .all(rootDirectoryId, excludeNoteId, excludeNoteId, ...queryArgs, limit)
+          .all(rootDirectoryId, excludeNoteId, excludeNoteId)
       : db
           .prepare(
             `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path,
@@ -2136,14 +2139,15 @@ export async function searchNotes(vaultPath, options = {}) {
              LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
              WHERE n.deleted_at IS NULL
                AND (? = '' OR n.id != ?)
-               AND ${matchClause}
-             ORDER BY ${orderClause}
-             LIMIT ?`
+             ORDER BY n.updated_at DESC, LOWER(n.title) ASC`
           )
-          .all(excludeNoteId, excludeNoteId, ...queryArgs, limit);
+          .all(excludeNoteId, excludeNoteId);
 
-    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
-    const items = normalizedRows.map((row) => mapNoteSearchRow(row, query));
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, query ? rows : rows.slice(0, limit));
+    const { matches, unreadableCount } = query
+      ? await searchNoteContent(vaultPath, normalizedRows, query, mapNoteSearchRow)
+      : { matches: normalizedRows.map((row) => mapNoteSearchRow(row, query)), unreadableCount: 0 };
+    const items = matches.slice(0, limit);
     return {
       rootDirectoryId: rootDirectoryId || null,
       query,
@@ -2152,7 +2156,8 @@ export async function searchNotes(vaultPath, options = {}) {
         priority: NOTE_SEARCH_RANKING_PRIORITY
       },
       items,
-      total: items.length
+      total: matches.length,
+      unreadableCount
     };
   } finally {
     db.close();
@@ -3240,13 +3245,13 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       created_at: effectiveRow.created_at,
       updated_at: now
     };
-    delete nextFrontmatter.boundaryOrCounterpoint;
-    delete nextFrontmatter.threeLineSummary;
-    delete nextFrontmatter.distillationStatus;
-    delete nextFrontmatter.startingQuestion;
-    delete nextFrontmatter.viewpointHistory;
-    delete nextFrontmatter.pendingViewpointRevision;
     if (effectiveRow.note_type === "permanent") {
+      delete nextFrontmatter.boundaryOrCounterpoint;
+      delete nextFrontmatter.threeLineSummary;
+      delete nextFrontmatter.distillationStatus;
+      delete nextFrontmatter.startingQuestion;
+      delete nextFrontmatter.viewpointHistory;
+      delete nextFrontmatter.pendingViewpointRevision;
       const boundaryOrCounterpoint = boundaryValueFromInput(input, preservedFrontmatter.boundary_or_counterpoint || preservedFrontmatter.boundaryOrCounterpoint);
       if (boundaryOrCounterpoint) nextFrontmatter.boundary_or_counterpoint = boundaryOrCounterpoint;
       else delete nextFrontmatter.boundary_or_counterpoint;
@@ -3275,8 +3280,6 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       } else {
         delete nextFrontmatter.distillation_status;
       }
-    } else {
-      delete nextFrontmatter.boundary_or_counterpoint;
     }
     const markdown = serializeMarkdownWithFrontmatter(nextFrontmatter, normalized.markdownBody);
     const nextMarkdownPath = await resolveUniqueMarkdownPath(effectiveRow.directory_fs_path, normalized.title, {
@@ -3407,26 +3410,63 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
     }
 
     const oldAbsPath = resolved.fullPath;
+    const originalMarkdown = await fs.readFile(oldAbsPath, "utf8");
+    const parsed = parseMarkdownWithFrontmatter(originalMarkdown);
+    const targetType = resolveNoteTypeFromDirectory(db, targetDirectoryId);
+    const typeChanged = targetType !== effectiveRow.note_type;
+    let permanentMeta = null;
+    if (typeChanged && targetType === "permanent") {
+      permanentMeta = permanentMetadataFromFrontmatter(parsed.frontmatter || {});
+      const originality = await evaluatePermanentOriginality(db, vaultPath, id, parsed.body);
+      if (originality?.status === "blocked") {
+        throw noteValidationError("PERMANENT_ORIGINALITY_BLOCKED", "请先用自己的话改写内容，再归为永久笔记。", { originality });
+      }
+      if (originality) {
+        permanentMeta.originalityStatus = originality.status;
+        permanentMeta.originalitySimilarity = originality.similarity;
+      }
+    }
+    const nextStatus = typeChanged ? "draft" : effectiveRow.status;
     const newAbsPath = await resolveUniqueMarkdownPath(targetDir.fs_path, effectiveRow.title, {
       fallbackStem: effectiveRow.id
     });
     await fs.mkdir(path.dirname(newAbsPath), { recursive: true });
-    await fs.rename(oldAbsPath, newAbsPath);
     const relPath = path.relative(path.resolve(vaultPath), newAbsPath).replaceAll("\\", "/");
     const now = new Date().toISOString();
+    let movedBody = parsed.body;
+    const files = await prepareNoteMoveFiles(oldAbsPath, newAbsPath, stagedPath =>
+      rewriteAssetLinksInMarkdownFile(stagedPath, effectiveRow.markdown_path, relPath, now,
+        typeChanged ? { note_type: targetType, status: nextStatus,
+          ...(permanentMeta ? { originality_status: permanentMeta.originalityStatus, originality_similarity: permanentMeta.originalitySimilarity } : {}) } : {}), originalMarkdown);
+    let committed = false;
+    let transactionOpen = false;
 
-    db.exec("BEGIN IMMEDIATE;");
     try {
-      await rewriteAssetLinksInMarkdownFile(newAbsPath, effectiveRow.markdown_path, relPath, now);
-      db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(relPath, now, id);
+      db.exec("BEGIN IMMEDIATE;");
+      transactionOpen = true;
+      await files.publish();
+      movedBody = parseMarkdownWithFrontmatter(await fs.readFile(newAbsPath, "utf8")).body;
+      await files.assertUnchanged();
+      db.prepare("UPDATE notes SET markdown_path = ?, note_type = ?, status = ?, updated_at = ? WHERE id = ?")
+        .run(relPath, targetType, nextStatus, now, id);
+      if (permanentMeta) upsertPermanentNoteMeta(db, id, permanentMeta, parsed.frontmatter?.boundary_or_counterpoint || "");
       ensureSingleDirectoryMembership(db, id, targetDirectoryId);
       db.exec("COMMIT;");
+      transactionOpen = false;
+      committed = true;
     } catch (error) {
-      db.exec("ROLLBACK;");
+      if (transactionOpen) db.exec("ROLLBACK;");
       try {
-        await fs.rename(newAbsPath, oldAbsPath);
-      } catch {}
+        await files.rollback();
+      } catch (rollbackError) {
+        throw noteValidationError("NOTE_MOVE_RECOVERY_REQUIRED",
+          `移动失败，恢复原位置也失败。完整原件保留在 ${files.recoveryPath}，请勿删除或覆盖；请核对文件并恢复到 ${oldAbsPath} 后重新核查。${rollbackError.message}`,
+          { noteId: id, originalDirectoryId: effectiveRow.directory_id, originalMarkdownPath: effectiveRow.markdown_path,
+            originalPath: oldAbsPath, remainingPath: files.recoveryPath, targetPath: newAbsPath, cause: String(error?.message || error) });
+      }
       throw error;
+    } finally {
+      await files.cleanup(committed);
     }
 
     const refreshed = db
@@ -3438,7 +3478,13 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
          LIMIT 1`
       )
       .get(id);
-    return mapNoteRow(refreshed);
+    return attachNoteThinkingStatus({ ...mapNoteRow(refreshed), body: movedBody,
+      ...(targetType === "permanent" ? { ...permanentMetadataFromFrontmatter({
+        ...parsed.frontmatter,
+        ...(permanentMeta ? { originality_status: permanentMeta.originalityStatus,
+          originality_similarity: permanentMeta.originalitySimilarity } : {})
+      }), boundaryOrCounterpoint: boundaryValueFromInput(parsed.frontmatter || {}) } : {})
+    }, db);
   } finally {
     db.close();
   }

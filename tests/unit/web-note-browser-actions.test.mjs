@@ -168,7 +168,7 @@ test("note context rename cancellation does not save or show success", async () 
   assert.equal(note.title, "Keep title");
 });
 
-test("note browser search button immediately opens and closes the search field", () => {
+test("note browser leaves the shared global search trigger to its controller", () => {
   const state = createInitialState();
   let searchClick = null;
   let focused = false;
@@ -216,24 +216,9 @@ test("note browser search button immediately opens and closes the search field",
   });
 
   assert.ok(explorer);
-  searchClick();
-
-  assert.equal(state.searchVisible, true);
-  assert.equal(searchClasses.has("hidden"), false);
-  assert.equal(toggleClasses.has("is-ghost"), false);
-  assert.equal(focused, true);
-  assert.deepEqual(stateCalls, ["toggle-search"]);
-
-  searchInput.value = "demo";
-  state.searchQuery = "demo";
-  searchClick();
-
-  assert.equal(state.searchVisible, false);
-  assert.equal(state.searchQuery, "");
-  assert.equal(searchInput.value, "");
-  assert.equal(searchClasses.has("hidden"), true);
-  assert.equal(toggleClasses.has("is-ghost"), true);
-  assert.deepEqual(stateCalls, ["toggle-search", "toggle-search"]);
+  assert.equal(searchClick, null);
+  assert.equal(focused, false);
+  assert.deepEqual(stateCalls, []);
 });
 
 test("note browser new action follows the current material root", () => {
@@ -432,7 +417,7 @@ test("file context menu keeps move user-facing and removes id or properties util
   assert.ok(menuStart >= 0 && menuEnd > menuStart, "expected file context menu definition to exist");
   const menuSource = source.slice(menuStart, menuEnd);
 
-  assert.match(menuSource, /label: "移动到\.\.\."/);
+  assert.match(menuSource, /label: "归类与移动\.\.\."/);
   assert.doesNotMatch(menuSource, /复制笔记 ID/);
   assert.doesNotMatch(menuSource, /label: "属性"/);
 });
