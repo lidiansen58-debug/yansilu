@@ -1375,6 +1375,15 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
   let action = String(button.getAttribute("data-writing-action") || "");
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
+  const preparing = action === "prepare";
+  const startedProjectId = String(writingState.project?.id || "").trim();
+  const startedThemeId = String(writingState.selectedThemeIndexId || "");
+  const vaultScope = deps.state ? (deps.state.noteMoveVaultScope ||= {}) : null;
+  const preparationIsCurrent = () => !preparing || (
+    String(writingState.project?.id || "").trim() === startedProjectId &&
+    String(writingState.selectedThemeIndexId || "") === startedThemeId &&
+    (!deps.state || (deps.state.noteMoveVaultScope === vaultScope && !deps.state.noteMoveVaultSwitching && !deps.state.noteMoveVaultUncertain))
+  );
   if (action === "prepare") {
     if (button.disabled) return;
     const feedback = button.closest?.("article")?.querySelector?.("[data-writing-preparation-status]");
@@ -1383,6 +1392,7 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
     try {
       const prepare = deps.prepareWritingNote || (id => prepareWritingEntryNote(id, deps));
       if (!await prepare(noteId)) { if (feedback) feedback.textContent = "已取消，笔记未加入写作。"; return; }
+      if (!preparationIsCurrent()) throw new Error("写作主题已切换或笔记库已改变，本次未自动加入。请在目标主题重新操作。");
       action = "add";
     } catch (error) {
       const message = String(error?.message || error);
@@ -1401,11 +1411,13 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
       const basketNoteIds = uniqueStrings([...projectBasketIds, noteId]);
       try {
         const project = await syncWritingProject(currentProjectId, writingProjectSyncPayload(deps, basketNoteIds));
+        if (!preparationIsCurrent()) return;
         if (project) writingState.project = project;
         setWritingBasketIds(basketNoteIds);
         renderWritingPanel();
         setStatus(`已加入相关笔记：${noteLabel}`, "ok");
       } catch (error) {
+        if (!preparationIsCurrent()) return;
         setStatus(`加入相关笔记失败：${String(error?.message || error)}`, "bad");
       }
       return;

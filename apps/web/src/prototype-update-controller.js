@@ -430,19 +430,17 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
   }
   if (changelogEl) {
     const changelog = Array.isArray(update.changelog) ? update.changelog : [];
-    changelogEl.innerHTML = changelog.length
-      ? changelog.map((item, index) => `
-        <div class="settings-help-topic">
-          <strong>${index === 0 ? "更新说明" : `变更 ${index + 1}`}</strong>
-          <span>${escapeHtml(item)}</span>
-        </div>
-      `).join("")
-      : `
+    changelogEl.innerHTML = `
         <div class="settings-help-topic">
           <strong>本机版本说明</strong>
           <span>${LOCAL_RELEASE_NOTES.map(escapeHtml).join("<br>")}</span>
         </div>
-      `;
+      ` + (changelog.length ? `
+        <details class="settings-help-topic">
+          <summary>远端版本说明${latestLabel ? ` (${escapeHtml(latestLabel)})` : ""}</summary>
+          <p>${changelog.map(escapeHtml).join("<br>")}</p>
+        </details>
+      ` : "");
   }
   if (checkButton) {
     checkButton.disabled = update.status === UPDATE_STATUS.CHECKING;

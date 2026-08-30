@@ -3,6 +3,26 @@ import assert from "node:assert/strict";
 
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "../../apps/web/src/prototype-update-controller.js";
 import { createUpdateState } from "../../apps/web/src/update-state.js";
+import { LOCAL_RELEASE_NOTES } from "../../apps/web/src/local-release-notes.js";
+import { escapeHtml } from "../../apps/web/src/editor-render-utils.js";
+
+for (const status of ["idle", "up-to-date", "update-available", "failed"]) {
+  test(`local release notes remain visible with ${status} remote update state`, () => {
+    const element = { innerHTML: "" };
+    renderUpdateSettingsCard({
+      $: id => id === "settingsUpdateChangelog" ? element : null,
+      escapeHtml, appVersion: "0.1.0",
+      settingsState: { update: createUpdateState({ status, latestVersion: "0.2.0", changelog: status === "idle" ? [] : ["Remote <notes>"] }) }
+    });
+    assert.match(element.innerHTML, /本机版本说明/);
+    for (const line of LOCAL_RELEASE_NOTES) assert.ok(element.innerHTML.includes(escapeHtml(line)));
+    if (status !== "idle") {
+      assert.match(element.innerHTML, /Remote &lt;notes&gt;/);
+      assert.match(element.innerHTML, /远端版本说明/);
+      assert.match(element.innerHTML, /0\.2\.0/);
+    }
+  });
+}
 
 function createElement() {
   return {

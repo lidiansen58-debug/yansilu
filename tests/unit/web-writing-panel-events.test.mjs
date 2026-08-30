@@ -469,6 +469,64 @@ test("writing note list handler routes add remove and open actions", () => {
   assert.ok(calls.some((call) => call[0] === "open" && call[1] === "n1"));
 });
 
+for (const change of ["project", "theme", "new-project"]) {
+  test(`writing preparation does not add after changing ${change}`, async () => {
+    let finish;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const writingState = { project: change === "new-project" ? null : { id: "project-a" }, selectedThemeIndexId: "theme-a" };
+    const calls = [];
+    const button = { disabled: false, getAttribute: name => name === "data-writing-action" ? "prepare" : "n1", closest: () => null };
+    const work = handleWritingNoteListClick({ target: { closest: () => button } }, {
+      writingState, prepareWritingNote: () => pending,
+      syncWritingProject: async () => { calls.push("sync"); },
+      continueWritingEntry: () => { calls.push("add"); },
+      setWritingBasketIds: () => calls.push("basket"),
+      setStatus: message => calls.push(message)
+    });
+    if (change === "theme") writingState.selectedThemeIndexId = "theme-b";
+    else writingState.project = { id: "project-b" };
+    finish(true);
+    await work;
+    assert.equal(calls.includes("sync"), false);
+    assert.equal(calls.includes("add"), false);
+    assert.equal(calls.includes("basket"), false);
+    assert.ok(calls.some(message => /主题已切换/.test(message)));
+    assert.equal(button.disabled, false);
+  });
+}
+
+test("writing preparation does not replace the current project with a late save", async () => {
+  let finishSave, saving;
+  const started = new Promise(resolve => { saving = resolve; });
+  const pending = new Promise(resolve => { finishSave = resolve; });
+  const writingState = { project: { id: "project-a", basket_note_ids: ["a"] } };
+  const calls = [];
+  const button = { disabled: false, getAttribute: name => name === "data-writing-action" ? "prepare" : "n1", closest: () => null };
+  const work = handleWritingNoteListClick({ target: { closest: () => button } }, {
+    writingState, prepareWritingNote: async () => true,
+    syncWritingProject: async id => { calls.push(id); saving(); return pending; },
+    setWritingBasketIds: () => calls.push("basket"), renderWritingPanel: () => calls.push("render")
+  });
+  await started;
+  writingState.project = { id: "project-b", basket_note_ids: ["b"] };
+  finishSave({ id: "project-a", basket_note_ids: ["a", "n1"] });
+  await work;
+  assert.equal(writingState.project.id, "project-b");
+  assert.deepEqual(calls, ["project-a"]);
+});
+
+test("writing preparation adds to the unchanged project", async () => {
+  const calls = [];
+  const writingState = { project: { id: "project-a", basket_note_ids: ["a"] } };
+  const button = { disabled: false, getAttribute: name => name === "data-writing-action" ? "prepare" : "n1", closest: () => null };
+  await handleWritingNoteListClick({ target: { closest: () => button } }, {
+    writingState, prepareWritingNote: async () => true,
+    syncWritingProject: async (id, payload) => { calls.push([id, payload.basketNoteIds]); return null; },
+    setWritingBasketIds: ids => calls.push(ids)
+  });
+  assert.deepEqual(calls, [["project-a", ["a", "n1"]], ["a", "n1"]]);
+});
+
 test("writing theme index installer wires refresh save and list clicks through latest deps", async () => {
   const handlers = new Map();
   let version = "first";
