@@ -39,7 +39,7 @@ export function searchExcerpt(text, query, length = 180) {
   return `${start ? "…" : ""}${normalized.slice(start, start + length)}${start + length < normalized.length ? "…" : ""}`;
 }
 
-export async function searchNoteContent(vaultPath, rows, query, mapMetadata) {
+export async function searchNoteContent(vaultPath, rows, query, mapMetadata, bodyMatchRank = 8) {
   const matches = [];
   let unreadableCount = 0;
   // Bounded reads keep large libraries from exhausting file handles.
@@ -51,7 +51,7 @@ export async function searchNoteContent(vaultPath, rows, query, mapMetadata) {
       catch { unreadableCount += 1; }
       const excerpt = searchExcerpt(text, query);
       if (item.matchKind === "recent" && !excerpt) return null;
-      return { ...item, ...(item.matchKind === "recent" ? { matchKind: "body_contains", rank: 8 } : {}), excerpt };
+      return { ...item, ...(item.matchKind === "recent" ? { matchKind: "body_contains", rank: bodyMatchRank } : {}), excerpt };
     }));
     matches.push(...batch.filter(Boolean));
   }

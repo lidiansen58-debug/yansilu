@@ -11,6 +11,7 @@ import { analyzePermanentNoteDistillation } from "./quality-checks.mjs";
 import { originalityGuard } from "../../originality-guard/src/index.mjs";
 import { searchNoteContent } from "./note-content-search.mjs";
 import { prepareNoteMoveFiles } from "./note-move-files.mjs";
+import { findLinkAliasRows, linkAliasMatchesReference, readLinkAliases, renamedLinkAliases, syncLinkAliases } from "./note-link-aliases.mjs";
 
 const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
 
@@ -700,13 +701,14 @@ function escapeSqlLikePattern(value) {
   return String(value || "").replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-function mapNoteRow(row) {
+function mapNoteRow(row, db = null) {
   return {
     id: row.id,
     noteType: row.note_type,
     title: row.title,
     status: row.status,
     markdownPath: row.markdown_path,
+    linkAliases: row.linkAliases || (db ? readLinkAliases(db, row.id) : []),
     directoryId: row.directory_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -803,6 +805,7 @@ async function recoverCatalogMarkdownPath(vaultPath, db, row) {
       row.id
     );
     ensureSingleDirectoryMembership(db, row.id, directory.id);
+    syncLinkAliases(db, row.id, parsed.frontmatter);
     syncMarkdownRelations(db, row.id, parsed.body);
     db.exec("COMMIT;");
   } catch (error) {
@@ -844,7 +847,7 @@ async function resolveCatalogRowState(vaultPath, db, row, options = {}) {
 
   try {
     const loaded = await loadFromRow(row);
-    return { row, ...loaded, recovered: false, missing: false };
+    return { row: { ...row, linkAliases: readLinkAliases(db, row.id) }, ...loaded, recovered: false, missing: false };
   } catch (error) {
     if (String(error?.code || "").trim() !== "ENOENT") {
       if (tolerateMissing) return { row, fullPath: null, markdown: null, parsed: null, recovered: false, missing: true };
@@ -858,6 +861,7 @@ async function resolveCatalogRowState(vaultPath, db, row, options = {}) {
     return {
       row: {
         ...row,
+        linkAliases: readLinkAliases(db, row.id),
         title: recovered.title,
         status: recovered.status,
         markdown_path: recovered.markdownPath,
@@ -998,6 +1002,7 @@ async function mapNoteRowsWithThinkingStatus(vaultPath, db, rows = []) {
 const NOTE_SEARCH_RANKING_PRIORITY = [
   "exact_title",
   "exact_id",
+  "exact_alias",
   "title_prefix",
   "id_prefix",
   "title_contains",
@@ -1016,6 +1021,7 @@ function noteSearchMatchKind(row, query) {
   const markdownPath = String(row?.markdown_path || row?.markdownPath || "").trim().toLowerCase();
   if (title === q) return "exact_title";
   if (id === q) return "exact_id";
+  if ((row.linkAliases || []).some(alias => linkAliasMatchesReference(alias, q))) return "exact_alias";
   if (title.startsWith(q)) return "title_prefix";
   if (id.startsWith(q)) return "id_prefix";
   if (title.includes(q)) return "title_contains";
@@ -1526,12 +1532,12 @@ function findNoteByWikilinkTarget(db, target, excludeNoteId, options = {}) {
   const pathCandidates = pathCandidatesForWikilinkTarget(target);
   for (const candidatePath of pathCandidates) {
     if (preferredNoteType) {
-      const preferredPathRows = pathRowsForCandidate(candidatePath, preferredNoteType);
+      const preferredPathRows = [...pathRowsForCandidate(candidatePath, preferredNoteType), ...findLinkAliasRows(db, candidatePath, excludeNoteId, preferredNoteType)];
       const preferredPathRow = uniqueRow(preferredPathRows);
       if (preferredPathRow) return preferredPathRow;
       if (preferredPathRows.length > 1) return null;
     }
-    const pathRows = pathRowsForCandidate(candidatePath);
+    const pathRows = [...pathRowsForCandidate(candidatePath), ...findLinkAliasRows(db, candidatePath, excludeNoteId)];
     const pathRow = uniqueRow(pathRows);
     if (pathRow) return pathRow;
     if (pathRows.length > 1) return null;
@@ -1570,6 +1576,7 @@ function findNoteByWikilinkTarget(db, target, excludeNoteId, options = {}) {
            LIMIT 2`
         )
         .all(title, excludeNoteId, preferredNoteType);
+      preferredRows.push(...findLinkAliasRows(db, title, excludeNoteId, preferredNoteType));
       const preferredRow = uniqueRow(preferredRows);
       if (preferredRow) return preferredRow;
       if (preferredRows.length > 1) return null;
@@ -1583,6 +1590,7 @@ function findNoteByWikilinkTarget(db, target, excludeNoteId, options = {}) {
          LIMIT 2`
       )
       .all(title, excludeNoteId);
+    rows.push(...findLinkAliasRows(db, title, excludeNoteId));
     const row = uniqueRow(rows);
     if (row) return row;
     if (rows.length > 1) return null;
@@ -1909,6 +1917,7 @@ export async function registerMarkdownNoteInCatalog(vaultPath, input = {}) {
           rationale: input.rationale || ""
         }, boundaryOrCounterpoint);
       }
+      syncLinkAliases(db, noteId, parsed.frontmatter);
       syncMarkdownRelations(db, noteId, parsed.body);
       db.exec("COMMIT;");
     } catch (error) {
@@ -1925,7 +1934,7 @@ export async function registerMarkdownNoteInCatalog(vaultPath, input = {}) {
          LIMIT 1`
       )
       .get(noteId);
-    return mapNoteRow(row);
+    return mapNoteRow(row, db);
   } finally {
     db.close();
   }
@@ -1953,6 +1962,7 @@ export async function syncMarkdownNoteCatalogRelations(vaultPath, noteId) {
 
     db.exec("BEGIN IMMEDIATE;");
     try {
+      syncLinkAliases(db, id, parsed.frontmatter);
       const result = syncMarkdownRelations(db, id, parsed.body);
       db.exec("COMMIT;");
       return result;
@@ -2145,7 +2155,7 @@ export async function searchNotes(vaultPath, options = {}) {
 
     const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, query ? rows : rows.slice(0, limit));
     const { matches, unreadableCount } = query
-      ? await searchNoteContent(vaultPath, normalizedRows, query, mapNoteSearchRow)
+      ? await searchNoteContent(vaultPath, normalizedRows, query, mapNoteSearchRow, NOTE_SEARCH_RANKING_PRIORITY.indexOf("body_contains"))
       : { matches: normalizedRows.map((row) => mapNoteSearchRow(row, query)), unreadableCount: 0 };
     const items = matches.slice(0, limit);
     return {
@@ -2582,7 +2592,7 @@ export async function detectGraphConflicts(vaultPath, input = {}) {
       const key = String(row.title || "").trim().toLowerCase();
       if (!key) continue;
       if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(mapNoteRow(row));
+      groups.get(key).push(mapNoteRow(row, db));
     }
 
     const conflicts = [...groups.entries()]
@@ -2764,7 +2774,7 @@ export async function getNoteById(vaultPath, noteId) {
     const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
     const permanentMeta = effectiveRow.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
     return attachNoteThinkingStatus({
-      ...mapNoteRow(effectiveRow),
+      ...mapNoteRow(effectiveRow, db),
       body: parsed.body,
       markdown: resolved.markdown,
       ...(permanentMeta
@@ -2810,7 +2820,7 @@ export async function getNoteCatalogEntryById(vaultPath, noteId) {
     if (!row) throw new Error(`noteId not found: ${id}`);
     const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: true });
     return {
-      ...mapNoteRow(resolved.row),
+      ...mapNoteRow(resolved.row, db),
       directoryFsPath: resolved.row.directory_fs_path || null
     };
   } finally {
@@ -2838,7 +2848,7 @@ export async function listNoteCatalogEntriesByType(vaultPath, noteType) {
       .all(normalizedType);
     const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
     return normalizedRows.map((row) => ({
-      ...mapNoteRow(row),
+      ...mapNoteRow(row, db),
       directoryFsPath: row.directory_fs_path || null
     }));
   } finally {
@@ -3245,6 +3255,9 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       created_at: effectiveRow.created_at,
       updated_at: now
     };
+    if (normalized.title !== effectiveRow.title) {
+      nextFrontmatter.yansilu_link_aliases = renamedLinkAliases(preservedFrontmatter, effectiveRow);
+    }
     if (effectiveRow.note_type === "permanent") {
       delete nextFrontmatter.boundaryOrCounterpoint;
       delete nextFrontmatter.threeLineSummary;
@@ -3325,6 +3338,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
           rationale: input.rationale || ""
         }, nextFrontmatter.boundary_or_counterpoint || "");
       }
+      syncLinkAliases(db, effectiveRow.id, nextFrontmatter);
       syncMarkdownRelations(db, effectiveRow.id, normalized.markdownBody);
       db.exec("COMMIT;");
     } catch (error) {
@@ -3350,7 +3364,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       )
       .get(effectiveRow.id);
     return attachNoteThinkingStatus({
-      ...mapNoteRow(refreshed),
+      ...mapNoteRow(refreshed, db),
       body: normalized.markdownBody,
       markdown,
       ...(effectiveRow.note_type === "permanent"
@@ -3406,7 +3420,7 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
     if (!targetDir) throw new Error(`directoryId not found: ${targetDirectoryId}`);
 
     if (effectiveRow.directory_id === targetDirectoryId) {
-      return mapNoteRow({ ...effectiveRow, directory_id: targetDirectoryId });
+      return mapNoteRow({ ...effectiveRow, directory_id: targetDirectoryId }, db);
     }
 
     const oldAbsPath = resolved.fullPath;
@@ -3478,7 +3492,7 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
          LIMIT 1`
       )
       .get(id);
-    return attachNoteThinkingStatus({ ...mapNoteRow(refreshed), body: movedBody,
+    return attachNoteThinkingStatus({ ...mapNoteRow(refreshed, db), body: movedBody,
       ...(targetType === "permanent" ? { ...permanentMetadataFromFrontmatter({
         ...parsed.frontmatter,
         ...(permanentMeta ? { originality_status: permanentMeta.originalityStatus,

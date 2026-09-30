@@ -74,6 +74,28 @@ function startApi(port, vaultPath) {
   return child;
 }
 
+test("article export API requires local controls and an unchanged vault, then writes current text", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-article-vault-");
+  const targetPath = await makeTempDir("yansilu-api-article-target-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+  try {
+    await waitForHealth(baseUrl);
+    const body = { expectedVaultPath: vaultPath, targetPath, fileName: "文章.md", markdown: "# 文章\nAPI-CURRENT-BODY\n" };
+    const denied = await postJson(baseUrl, "/api/v1/exports/article", body);
+    assert.equal(denied.response.status, 403);
+    const send = (payload, origin) => fetch(`${baseUrl}/api/v1/exports/article`, { method: "POST", headers: { "Content-Type": "application/json", "X-Yansilu-Local-Runtime-Control": "1", ...(origin ? { Origin: origin } : {}) }, body: JSON.stringify(payload) });
+    assert.equal((await send(body, "https://example.com")).status, 403);
+    assert.equal((await send({ ...body, expectedVaultPath: path.join(vaultPath, "other") })).status, 409);
+    const response = await send(body);
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.status, "completed");
+    assert.match(await fs.readFile(result.articlePath, "utf8"), /API-CURRENT-BODY/);
+  } finally { await stopApi(api); }
+});
+
 async function stopApi(child) {
   if (!child || child.exitCode !== null) {
     return;
