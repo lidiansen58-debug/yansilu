@@ -6,6 +6,7 @@ import { getNoteById } from "../../domain/src/index.mjs";
 import { getIndexCard } from "../../domain/src/index-card-store.mjs";
 import { deriveWritingProjectThinkingStatus } from "../../domain/src/thinking-status.mjs";
 import { analyzeWritingProjectReadiness } from "../../domain/src/quality-checks.mjs";
+import { hasBookChapterDrafts, preserveBookChapterDrafts, validateBookChapterDrafts } from "./book-chapter-drafts.mjs";
 
 const GENERATED_BY = "writing-engine:v1";
 
@@ -186,6 +187,9 @@ function normalizeBookStructure(input = {}) {
           id: cleanText(chapter.id) || `chapter_${partIndex + 1}_${chapterIndex + 1}`,
           title: cleanText(chapter.title) || `第${chapterIndex + 1}章`,
           purpose: cleanText(chapter.purpose),
+          ...(cleanText(chapter.draft_note_id || chapter.draftNoteId)
+            ? { draft_note_id: cleanText(chapter.draft_note_id || chapter.draftNoteId) }
+            : {}),
           sections: (Array.isArray(chapter.sections) ? chapter.sections : []).map((section, sectionIndex) => ({
             id: cleanText(section.id) || `section_${partIndex + 1}_${chapterIndex + 1}_${sectionIndex + 1}`,
             title: cleanText(section.title) || `第${sectionIndex + 1}节`,
@@ -545,6 +549,7 @@ export async function createWritingProject(vaultPath, input = {}) {
   const bookStructure = normalizedProvidedBookStructure?.parts?.length
     ? normalizedProvidedBookStructure
     : buildDefaultBookStructure(project, basketNotes);
+  await validateBookChapterDrafts(vaultPath, bookStructure);
 
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
@@ -1033,16 +1038,20 @@ export async function updateWritingProjectBookStructure(vaultPath, writingProjec
   const existingProject = await getWritingProject(vaultPath, id);
   const basketNotes = await loadBasketNotes(vaultPath, existingProject.basket_note_ids);
   const shouldRegenerate = Boolean(input.regenerate);
+  if (shouldRegenerate && hasBookChapterDrafts(existingProject.book_structure)) {
+    throw new Error("Cannot regenerate book structure with saved chapter drafts; edit the existing chapters instead.");
+  }
   const providedBookStructure = input.bookStructure !== undefined ? input.bookStructure : input.book_structure;
   if (!shouldRegenerate && providedBookStructure === undefined) {
     throw new Error("bookStructure or regenerate is required");
   }
   const bookStructure = shouldRegenerate
     ? buildDefaultBookStructure(existingProject, basketNotes)
-    : normalizeBookStructure(providedBookStructure);
+    : normalizeBookStructure(preserveBookChapterDrafts(providedBookStructure, existingProject.book_structure));
   if (!bookStructure.parts.length) {
     throw new Error("bookStructure.parts is required");
   }
+  await validateBookChapterDrafts(vaultPath, bookStructure);
   const now = new Date().toISOString();
 
   const DatabaseSync = await loadDatabaseSync();
@@ -1094,8 +1103,8 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
   const goalChanged = goal !== (existingProject.goal || "");
   const audienceChanged = audience !== (existingProject.audience || "");
   const bookStructure = explicitBookStructure
-    ? normalizeBookStructure(providedBookStructure)
-    : basketChanged || !existingBookStructure.parts.length
+    ? normalizeBookStructure(preserveBookChapterDrafts(providedBookStructure, existingBookStructure))
+    : (basketChanged && !hasBookChapterDrafts(existingBookStructure)) || !existingBookStructure.parts.length
       ? buildDefaultBookStructure({ ...existingProject, title, goal, audience, tone, intent, desired_reader_takeaway: desiredReaderTakeaway }, basketNotes)
       : normalizeBookStructure({
           ...existingBookStructure,
@@ -1105,6 +1114,7 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
   if (explicitBookStructure && !bookStructure.parts.length) {
     throw new Error("bookStructure.parts is required");
   }
+  if (explicitBookStructure) await validateBookChapterDrafts(vaultPath, bookStructure);
   const now = new Date().toISOString();
 
   const DatabaseSync = await loadDatabaseSync();

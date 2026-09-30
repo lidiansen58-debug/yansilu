@@ -119,6 +119,102 @@ function startApi(port, vaultPath) {
   });
 }
 
+test("book chapters preserve separate Markdown drafts through legacy updates, reorder and project sync", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-book-chapters-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const sources = [];
+  const drafts = [];
+  const draftFiles = [];
+  for (let index = 1; index <= 3; index += 1) {
+    const source = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_original_default", body: `# Source ${index}\n\nEvidence ${index}.`
+    });
+    assert.equal(source.status, 201, JSON.stringify(source.json));
+    sources.push(source.json.item.id);
+    const draft = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_original_default", body: `# Chapter ${index}\n\nUNIQUE-CHAPTER-${index}\n\n[[Source ${index}]]`
+    });
+    assert.equal(draft.status, 201, JSON.stringify(draft.json));
+    drafts.push(draft.json.item.id);
+    const filename = path.join(vaultPath, draft.json.item.markdownPath);
+    draftFiles.push({ filename, content: await fs.readFile(filename, "utf8") });
+  }
+
+  const legacyStructure = { schema_version: 1, parts: [{ id: "part_main", chapters: sources.map((id, index) => ({
+    id: `chapter_${index + 1}`, title: `Chapter ${index + 1}`, evidence_note_ids: [id]
+  })) }] };
+  const created = await postJson(baseUrl, "/api/v1/writing-projects", {
+    title: "A three-chapter book", basketNoteIds: sources, bookStructure: legacyStructure
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  assert.equal(created.json.item.book_structure.schema_version, 1);
+  assert.ok(created.json.item.book_structure.parts[0].chapters.every((chapter) => !Object.hasOwn(chapter, "draft_note_id")));
+  const projectPath = `/api/v1/writing-projects/${created.json.item.id}`;
+  const structurePath = `${projectPath}/book-structure`;
+  const bookStructure = structuredClone(created.json.item.book_structure);
+  bookStructure.parts[0].chapters.forEach((chapter, index) => { chapter.draft_note_id = drafts[index]; });
+  const saved = await patchJson(baseUrl, structurePath, { bookStructure });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.deepEqual(saved.json.item.book_structure.parts[0].chapters.map((chapter) => chapter.draft_note_id), drafts);
+  assert.equal(saved.json.item.draft_note_id, null, "chapter bindings do not replace the article draft");
+
+  const oldClientStructure = structuredClone(legacyStructure);
+  oldClientStructure.parts[0].chapters.reverse();
+  oldClientStructure.parts[0].chapters[0].title = "Reordered third chapter";
+  const reordered = await patchJson(baseUrl, structurePath, { bookStructure: oldClientStructure });
+  assert.equal(reordered.status, 200, JSON.stringify(reordered.json));
+  assert.deepEqual(reordered.json.item.book_structure.parts[0].chapters.map((chapter) => chapter.draft_note_id), [...drafts].reverse());
+  const synced = await syncWritingProject(vaultPath, created.json.item.id, { basketNoteIds: [...sources].reverse() });
+  assert.deepEqual(synced.book_structure.parts, reordered.json.item.book_structure.parts);
+  const reopened = await getJson(baseUrl, projectPath);
+  assert.equal(reopened.status, 200, JSON.stringify(reopened.json));
+  assert.deepEqual(reopened.json.item.book_structure.parts, synced.book_structure.parts);
+
+  const regenerate = await patchJson(baseUrl, structurePath, { regenerate: true });
+  assert.equal(regenerate.status, 400);
+  assert.match(regenerate.json.error.message, /saved chapter drafts/);
+  const duplicate = structuredClone(reopened.json.item.book_structure);
+  duplicate.parts[0].chapters[1].draft_note_id = drafts[2];
+  const duplicateResult = await patchJson(baseUrl, structurePath, { bookStructure: duplicate });
+  assert.equal(duplicateResult.status, 400);
+  assert.match(duplicateResult.json.error.message, /separate draft notes/);
+  const duplicateChapter = structuredClone(reopened.json.item.book_structure);
+  duplicateChapter.parts[0].chapters[1].id = duplicateChapter.parts[0].chapters[0].id;
+  assert.equal((await patchJson(baseUrl, structurePath, { bookStructure: duplicateChapter })).status, 400);
+  const missing = structuredClone(reopened.json.item.book_structure);
+  missing.parts[0].chapters[0].draft_note_id = "pn_missing";
+  assert.equal((await patchJson(baseUrl, structurePath, { bookStructure: missing })).status, 400);
+  assert.equal((await postJson(baseUrl, "/api/v1/writing-projects", {
+    title: "Invalid chapter binding", basketNoteIds: sources, bookStructure: missing
+  })).status, 400);
+  const literature = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_literature_default", body: "# A source, not chapter prose\n\nOriginal reading material."
+  });
+  assert.equal(literature.status, 201, JSON.stringify(literature.json));
+  const wrongType = structuredClone(reopened.json.item.book_structure);
+  wrongType.parts[0].chapters[0].draft_note_id = literature.json.item.id;
+  const wrongTypeResult = await patchJson(baseUrl, structurePath, { bookStructure: wrongType });
+  assert.equal(wrongTypeResult.status, 400);
+  assert.match(wrongTypeResult.json.error.message, /draft must be a permanent note/);
+  await assert.rejects(syncWritingProject(vaultPath, created.json.item.id, { bookStructure: missing }));
+  assert.deepEqual((await getJson(baseUrl, projectPath)).json.item.book_structure.parts, reopened.json.item.book_structure.parts);
+
+  const detached = structuredClone(reopened.json.item.book_structure);
+  detached.parts[0].chapters[0].draft_note_id = null;
+  const detachment = await patchJson(baseUrl, projectPath, { bookStructure: detached });
+  assert.equal(detachment.status, 200, JSON.stringify(detachment.json));
+  assert.equal(Object.hasOwn(detachment.json.item.book_structure.parts[0].chapters[0], "draft_note_id"), false);
+  const removed = structuredClone(detachment.json.item.book_structure);
+  removed.parts[0].chapters.splice(1, 1);
+  assert.equal((await patchJson(baseUrl, structurePath, { bookStructure: removed })).status, 200);
+  for (const { filename, content } of draftFiles) assert.equal(await fs.readFile(filename, "utf8"), content);
+});
+
 test("writing AI analysis API requires confirmation and stores review-only remote artifacts", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-writing-ai-vault-");
   const port = await findFreePort();

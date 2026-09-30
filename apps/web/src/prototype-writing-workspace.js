@@ -296,6 +296,9 @@ export function normalizeWritingBookStructure(value = {}) {
       id: String(chapter.id || `chapter_${partIndex + 1}_${chapterIndex + 1}`).trim(),
       title: String(chapter.title || `第${chapterIndex + 1}章`).trim(),
       purpose: String(chapter.purpose || "").trim(),
+      ...(String(chapter.draft_note_id || chapter.draftNoteId || "").trim()
+        ? { draft_note_id: String(chapter.draft_note_id || chapter.draftNoteId).trim() }
+        : {}),
       evidence_note_ids: uniqueStrings(chapter.evidence_note_ids || chapter.evidenceNoteIds || chapter.noteIds || []),
       sections: (Array.isArray(chapter.sections) ? chapter.sections : []).map((section, sectionIndex) => {
         if (typeof section === "string") {
