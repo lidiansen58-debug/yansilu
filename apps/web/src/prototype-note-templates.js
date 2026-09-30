@@ -202,6 +202,9 @@ export function composePermanentTemplateDraft(fields = {}, deps = {}) {
   const { permanentNoteTemplateBody = defaultPermanentTemplateSource } = deps;
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
   const templateBody = permanentNoteTemplateBody(title);
+  if (normalizeDraftBuffer(templateBody).trim() === defaultPermanentTemplateSource(title).trim()) {
+    return composePermanentWorkspace({ ...fields, title });
+  }
   const parsedTemplate = parsePermanentWorkspace(templateBody);
   const hasTemplateStructure =
     parsedTemplate.structured === true ||

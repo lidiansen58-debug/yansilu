@@ -739,10 +739,10 @@ test("graph empty map card can be closed back to argument relations", () => {
   assert.deepEqual(applyGraphEmptyCloseInteraction(graphState, {
     setRelationTypeFilter: (...args) => relationFilterCalls.push(args)
   }), {
-    relationType: "meaningful",
+    relationType: "all",
     selection: null
   });
-  assert.deepEqual(relationFilterCalls, [["meaningful"]]);
+  assert.deepEqual(relationFilterCalls, [["all"]]);
   assert.equal(graphState.selection, null);
 });
 
@@ -2210,10 +2210,10 @@ test("graph toolbar interactions update zoom, lens, focus depth, and context mod
   }), {
     lens: "bridge",
     meta: { key: "bridge", label: "缺口" },
-    relationType: "meaningful"
+    relationType: "all"
   });
   assert.equal(graphState.readingLens, "bridge");
-  assert.equal(graphState.filters.relationType, "meaningful");
+  assert.equal(graphState.filters.relationType, "all");
   assert.equal(graphState.researchNavigatorHidden, true);
   assert.equal(graphState.researchNavigatorTouched, true);
 

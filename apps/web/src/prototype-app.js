@@ -93,7 +93,7 @@ import { renderSettingsAutomationRunHistory } from "./settings-automation-run-hi
 import { readableMobileAccessError, renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
 import { prepareMobileAccessAutoRefreshState, shouldAutoRefreshMobileAccess, shouldPromoteMobileAccessRefreshRender } from "./mobile-access-settings-refresh.js";
 import { graphFocusCardActionMeta as computeGraphFocusCardActionMeta, graphIsolatedNodeIds, graphFollowupActionForRelationType, graphNextActionForSummary, graphSelectEdgeActionAttrs as computeGraphSelectEdgeActionAttrs, graphWritingCandidateNoteIds, graphWritingContinuationInput } from "./graph-followup.js";
-import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
+import { createWritingManualThemeController } from "./writing-manual-theme-controller.js";
 import { resolveWritingProjectFormTitle, syncWritingThemeFormFields } from "./writing-theme-form-sync.js";
 import { createGraphFollowupController } from "./graph-followup-controller.js";
 import { clearGraphIsolatedRelationDraftForState } from "./graph-relation-drafts.js";
@@ -145,7 +145,7 @@ import { applyGraphFocusContextModeInteraction, applyGraphFocusDepthInteraction,
 import { renderGraphClusterGlowView, renderGraphNebulaFieldView, renderGraphStarfieldView } from "./graph-visual-map-view.js";
 import { graphReadingLensMeta as computeGraphReadingLensMeta, renderGraphReadingLensControls as renderGraphReadingLensControlsView } from "./graph-reading-lens-controls.js";
 import { createGraphReadingLensStateController } from "./graph-reading-lens-state.js";
-import { GRAPH_INDEX_RELATION_TYPES, GRAPH_LINK_CLUE_RELATION_TYPES, GRAPH_MEANINGFUL_RELATION_TYPES, GRAPH_RELATION_TYPE_FILTER_KEY, graphHasMeaningfulStructureEdges, graphReadingModeMeta, graphStructureFallbackEdges as graphStructureFallbackEdgesForRuntime, graphViewModeForRelationType, normalizeGraphRelationTypeFilter, renderGraphRelationTypeFilter as renderGraphRelationTypeFilterForRuntime, renderGraphViewModeSwitcher as renderGraphViewModeSwitcherForRuntime, setGraphRelationTypeFilterForRuntime } from "./graph-view-mode-state.js";
+import { GRAPH_INDEX_RELATION_TYPES, GRAPH_LINK_CLUE_RELATION_TYPES, GRAPH_MEANINGFUL_RELATION_TYPES, initialGraphRelationTypeFilter, graphHasMeaningfulStructureEdges, graphReadingModeMeta, graphStructureFallbackEdges as graphStructureFallbackEdgesForRuntime, graphViewModeForRelationType, normalizeGraphRelationTypeFilter, renderGraphRelationTypeFilter as renderGraphRelationTypeFilterForRuntime, renderGraphViewModeSwitcher as renderGraphViewModeSwitcherForRuntime, setGraphRelationTypeFilterForRuntime } from "./graph-view-mode-state.js";
 import { GRAPH_RELATION_GROUP_META, GRAPH_RELATION_MARKER_COLORS, graphEdgeSelectionKey, graphRelationGroupMeta, graphRelationVisual } from "./graph-relation-visual-state.js";
 import { graphDenseGalaxyMode, graphEdgePath as graphEdgePathForRuntime, graphEdgeShouldRender as graphEdgeShouldRenderForRuntime, graphEdgeVisibleAtFit as graphEdgeVisibleAtFitForRuntime, graphHash, graphNodeAttentionReasons, graphNodeRadiusByTier, graphNodeShowsAsPoint, graphNodeStarRank, graphNodeStarTier, graphShortTitle, graphThemeBoundaryMeta as graphThemeBoundaryMetaForRuntime, renderGraphThemeBoundary as renderGraphThemeBoundaryForRuntime } from "./graph-visual-geometry.js";
 import { graphBridgeSelectionKey, graphIsolatedSelectionKey, graphNodeClass, graphThemeNoteIds, graphThemeSelectionKey } from "./graph-visual-selection-state.js";
@@ -156,12 +156,20 @@ import { titleFromBody } from "./editor-template-workspace.js";
 import { createWritingPanelShellController } from "./writing-panel-shell.js";
 import { createWritingPanelPrototypeHostProvider } from "./writing-panel-host-deps.js";
 import { applyWritingTab, installWritingTabEvents } from "./writing-tabs.js";
-import { writingDraftMarkdown } from "./writing-workbench-model.js";
+import { hideWritingTopicPicker } from "./writing-sidebar-actions.js";
+import { writingDraftContent, writingDraftMarkdown } from "./writing-workbench-model.js";
+import { originalDraftBodyFromSource as buildOriginalDraftBodyFromSource } from "./source-permanent-note-template.js";
+import { installWritingArticleOutputEvents } from "./writing-article-output.js";
+import { buildWritingOutlineOutput } from "./writing-outline-output.js";
+import { configureSmartNotesDemoProgress, smartNotesDemoCompletedStepsForState } from "./smart-notes-demo-practice-progress.js";
+import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
+import { createWritingProjectOpenController } from "./writing-project-open-controller.js";
+import { exportWritingArticle } from "./prototype-api.js";
 import { installWritingRelatedPanelEvents } from "./writing-related-notes-panel.js";
 import { installWritingSidebarActionEvents } from "./writing-sidebar-actions.js";
 import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
 import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
-import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, parseWritingBasketIdsForRuntime, removeWritingBasketIdForRuntime, setWritingBasketIdsForRuntime } from "./writing-basket-state.js";
+import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, createWritingBasketSession, removeWritingBasketIdForRuntime } from "./writing-basket-state.js";
 import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "./writing-entry-route-model.js";
 import { clearWritingFocusedCandidateScopeForRuntime, clearWritingSourceIndexIdsForRuntime, clearWritingThemeRelationCountsForRuntime, resetWritingStrongModelStateForRuntime, setWritingFocusedCandidateScopeForRuntime, setWritingSourceIndexIdsForRuntime } from "./writing-session-state.js";
 import { sameUniqueStringSetForRuntime, selectedWritingThemeIndexForRuntime, setSelectedWritingThemeIndexForRuntime, writingThemeIndexByIdForRuntime, writingThemeIndexScopeDirectoryIdForRuntime, writingThemeIndexNoteIdsForRuntime } from "./writing-theme-state.js";
@@ -243,7 +251,7 @@ const graphState = {
   lastErrorAt: "",
   requestSerial: 0,
   filters: {
-    relationType: normalizeGraphRelationTypeFilter(readStoredText(GRAPH_RELATION_TYPE_FILTER_KEY, "meaningful"), "meaningful"),
+    relationType: initialGraphRelationTypeFilter(readStoredText),
     status: "all"
   },
   focusDepth: normalizeGraphFocusDepth(readStoredText(GRAPH_FOCUS_DEPTH_KEY, "1"), "1"),
@@ -2522,13 +2530,18 @@ function suggestedWritingProjectTitle(noteIds = []) { return computeSuggestedWri
 function normalizeWritingProjectTitleSeed(title = "") { return computeNormalizeWritingProjectTitleSeed(title); }
 
 async function ensureNotesLoaded(noteIds, { force = false } = {}) {
+  const vaultPath = currentVaultPath();
+  const vaultScope = state.noteMoveVaultScope;
+  const isCurrent = () => currentVaultPath() === vaultPath && state.noteMoveVaultScope === vaultScope;
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   for (const noteId of uniqueIds) {
+    if (!isCurrent()) return;
     const existing = writingNoteById(noteId);
     if (existing) {
       if (force && !isLocalOnlyNote(existing)) {
         try {
           const fetched = await fetchNote(noteId);
+          if (!isCurrent()) return;
           if (!fetched) continue;
           const mapped = mapNoteItem(fetched);
           state.notes = [mapped, ...state.notes.filter((item) => item.id !== mapped.id)];
@@ -2542,6 +2555,7 @@ async function ensureNotesLoaded(noteIds, { force = false } = {}) {
     }
     try {
       const fetched = await fetchNote(noteId);
+      if (!isCurrent()) return;
       if (!fetched) continue;
       const mapped = mapNoteItem(fetched);
       state.notes = [mapped, ...state.notes.filter((item) => item.id !== mapped.id)];
@@ -2583,6 +2597,7 @@ const writingEntryRuntime = createWritingEntryRuntimeHost(() => ({
   clearWritingFocusedCandidateScope,
   clearWritingSourceIndexIds,
   ensureNotesLoaded,
+  getVaultPath: currentVaultPath,
   fetchWritingProject,
   listIndexCards,
   listProjectDraftVersions,
@@ -2738,7 +2753,8 @@ async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [
   });
 }
 
-async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
+async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index", assertCurrent = () => {} } = {}) {
+  if (replaceBasket || resetContext) assertWritingDraftCanLeave(writingState);
   const id = String(indexCardId || "").trim();
   if (!id) throw new Error("indexCardId is required");
   const previousSelectedThemeIndexId = String(writingState.selectedThemeIndexId || "").trim();
@@ -2746,6 +2762,8 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
   await ensureNotesLoaded(noteIds);
+  assertCurrent();
+  if (replaceBasket || resetContext) assertWritingDraftCanLeave(writingState);
   const entryPlan = planWritingThemeIndexEntry({
     existingNoteIds: parseWritingBasketIds(),
     themeNoteIds: noteIds,
@@ -2808,35 +2826,7 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
 }
 
 async function saveWritingBasketAsThemeIndex() {
-  const basketNoteIds = parseWritingBasketIds();
-  if (!basketNoteIds.length) throw new Error("writing basket is empty");
-  if (basketNoteIds.length < THEME_INDEX_MIN_NOTE_COUNT) {
-    throw new Error(`至少需要 ${THEME_INDEX_MIN_NOTE_COUNT} 条相关永久笔记，才适合保存为可写主题`);
-  }
-  await ensureNotesLoaded(basketNoteIds);
-  const suggestedTitle = suggestedThemeIndexTitle(basketNoteIds);
-  const title = window.prompt("可写主题标题", suggestedTitle);
-  if (title === null) return null;
-  const cleanTitle = String(title || "").trim();
-  if (!cleanTitle) throw new Error("title is required");
-  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续可续接的写作入口。";
-  const summary = window.prompt("可写主题说明", summarySeed);
-  if (summary === null) return null;
-  const themePayload = buildThemeIndexCreatePayload({
-    directoryId: writingThemeIndexScopeDirectoryId(),
-    noteIds: basketNoteIds,
-    title: cleanTitle,
-    noteById: writingNoteById
-  });
-  const customSummary = String(summary || "").trim();
-  const card = await createIndexCard({
-    ...themePayload,
-    summary: customSummary ? `${themePayload.summary}\n\n${customSummary}` : themePayload.summary
-  });
-  setWritingSourceIndexIds([card.id]);
-  await loadWritingThemeIndexes();
-  renderWritingPanel();
-  return card;
+  return writingManualThemeController.save();
 }
 
 const writableThemeDiscoveryController = createWritableThemeDiscoveryController(() => ({
@@ -2896,19 +2886,6 @@ const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   writingRelationCountsReady,
   writingThemeNotesLoaded
 });
-
-async function refreshWritingProjectState() {
-  const writingProjectId = String(writingState.project?.id || "").trim();
-  if (!writingProjectId) return null;
-  try {
-    const project = await fetchWritingProject(writingProjectId);
-    writingState.project = project;
-    renderWritingPanel();
-    return project;
-  } catch {
-    return writingState.project;
-  }
-}
 
 async function refreshImportedNotesView() {
   try {
@@ -3027,82 +3004,11 @@ function titleFromSeedText(text, fallback = "未命名笔记") {
   return (singleLine || String(fallback || "").trim() || "未命名笔记").slice(0, 48);
 }
 
-function citationSummaryLines(citation = {}) {
-  const fields = citation && typeof citation === "object" ? citation : {};
-  const lines = [
-    fields.sourceTitle ? `- 文献标题：${fields.sourceTitle}` : "",
-    fields.authors ? `- 作者：${fields.authors}` : "",
-    fields.year ? `- 年份：${fields.year}` : "",
-    fields.container ? `- 容器：${fields.container}` : "",
-    fields.publisher ? `- 出版社 / 来源：${fields.publisher}` : "",
-    fields.locator ? `- 页码 / 定位：${fields.locator}` : "",
-    fields.identifier ? `- DOI / ISBN / arXiv / URL / PDF：${fields.identifier}` : ""
-  ].filter(Boolean);
-  return lines.length ? lines : ["- 引用信息：尚未补齐"];
-}
-
 function originalDraftBodyFromSource(payload = {}) {
-  const sourceType = String(payload.sourceType || "").trim().toLowerCase();
-  if (sourceType === "literature") {
-    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "", {
-      sectionLabelCandidates: literatureTemplateSectionLabelCandidates()
-    });
-    const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名文献笔记";
-    const claim = String(payload.paraphrase || parsed.paraphrase || "").trim();
-    const whyKeep = String(payload.whyKeep || parsed.whyKeep || "").trim();
-    const supportsJudgment = String(payload.supportsJudgment || parsed.supportsJudgment || "").trim();
-    const question = String(payload.question || parsed.question || "").trim();
-    const boundary = String(payload.boundary || parsed.boundary || "").trim();
-    const originalText = String(payload.originalText || parsed.originalText || "").trim();
-    const citation = payload.citation && typeof payload.citation === "object" ? payload.citation : parsed.citation;
-    const titleSeed =
-      sourceTitle === "未命名文献笔记"
-        ? titleFromSeedText(citation?.sourceTitle || supportsJudgment || question || claim || originalText, "未命名永久笔记")
-        : sourceTitle;
-    const relatedClues = [
-      `- 来自文献笔记：[[${sourceTitle}]]`,
-      payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
-      ...citationSummaryLines(citation)
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const supplement = [
-      claim ? "- 已有用户转述仍保留在来源文献笔记中，写永久笔记时请继续改写，不要直接复述。" : "",
-      whyKeep ? `- 来源文献里的保留原因：${whyKeep}` : "",
-      question ? `- 还待回答的追问：${question}` : "",
-      originalText ? "- 原文摘录与证据链仍以来源文献笔记为准，永久笔记里不重复复制。" : "",
-      supportsJudgment ? `- 来源里的判断种子：${supportsJudgment}` : ""
-    ]
-      .filter(Boolean)
-      .join("\n");
-    return composePermanentTemplateDraft({
-      title: titleSeed,
-      coreClaim: supportsJudgment
-        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
-        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
-      whyTrue: question
-        ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
-        : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
-      boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
-      relatedClues,
-      supplement
-    });
-  }
-  const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
-  const sourceBody = stripGeneratedOriginalMarker(String(payload.sourceBody || payload.body || "").trim());
-  const excerpt = sourceBody
-    .replace(/^#\s+[^\n]*\n?/m, "")
-    .trim();
-  const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名永久笔记" : sourceTitle);
-  return composePermanentTemplateDraft({
-    title: titleSeed,
-    coreClaim: "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
-    whyTrue: "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
-    boundary: "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
-    relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
-      .filter(Boolean)
-      .join("\n"),
-    supplement: excerpt ? `- 原始材料摘录：${excerpt}` : ""
+  return buildOriginalDraftBodyFromSource(payload, {
+    permanentNoteTemplateBody,
+    titleFromSeedText,
+    sectionLabelCandidates: literatureTemplateSectionLabelCandidates()
   });
 }
 
@@ -3191,13 +3097,17 @@ function renderSmartNotesDemoGuide() {
   if (!element) return null;
   const flow = buildSmartNotesDemoWalkthrough({
     notes: state.notes,
-    completedSteps: state.smartNotesDemoCompletedSteps
+    completedSteps: smartNotesDemoCompletedStepsForState(state)
   });
-  if (!flow) {
+  const demoProjectId = flow?.steps?.find(step => step.action === "open-demo-writing")?.targetNoteId;
+  const writingGuide = state.module === "writing" && writingState.project?.id === demoProjectId;
+  if (!flow || (state.module === "writing" && !writingGuide)) {
     element.classList.add("hidden");
     element.innerHTML = "";
     return null;
   }
+  const host = $(writingGuide ? "writingPanel" : "editorWorkspace");
+  if (host && element.parentElement !== host) host.prepend(element);
   element.innerHTML = renderSmartNotesDemoGuidePanel(flow, { escapeHtml });
   element.classList.remove("hidden");
   return flow;
@@ -3680,6 +3590,8 @@ async function openStartupUntitledNote() {
 }
 
 function resetWritingProjectContext({ title = "", goal = "", audience = "", tone = "" } = {}) {
+  writingState.projectOpenRevision = Number(writingState.projectOpenRevision || 0) + 1;
+  writingState.openingProjectId = "";
   writingState.project = null;
   writingState.scaffold = null;
   writingState.scaffoldMarkdown = "";
@@ -3687,6 +3599,7 @@ function resetWritingProjectContext({ title = "", goal = "", audience = "", tone
   writingState.draftSaveState = "idle";
   writingState.scaffoldVersions = [];
   writingState.draftVersions = [];
+  writingState.pendingDraftBinding = null;
   if ($("writingTitle")) $("writingTitle").value = title;
   if ($("writingGoal")) $("writingGoal").value = goal;
   if ($("writingAudience")) $("writingAudience").value = audience;
@@ -4084,6 +3997,7 @@ function upsertWritingThemeIndex(indexCard) {
 async function selectWritingThemeIndex(indexId) {
   const id = String(indexId || "").trim();
   if (!id) return null;
+  if (id !== writingState.selectedThemeIndexId) assertWritingDraftCanLeave(writingState);
   const fetched = await fetchIndexCard(id);
   if (!fetched?.id) return null;
   const noteIds = writingThemeIndexNoteIds(fetched);
@@ -4094,6 +4008,7 @@ async function selectWritingThemeIndex(indexId) {
     sameSet: sameUniqueStringSet
   });
   await ensureNotesLoaded(noteIds);
+  if (id !== writingState.selectedThemeIndexId) assertWritingDraftCanLeave(writingState);
   upsertWritingThemeIndex(fetched);
   setSelectedWritingThemeIndex(fetched.id);
   writingState.themeNoteDetailIds = noteIds;
@@ -4207,9 +4122,32 @@ function isDirectoryUnderOriginalRoot(directoryId) { return rootBoxIdFromFolder(
 
 function writingNoteEligibility(note) { return writingThemeProjectRuntime.writingNoteEligibility(note); }
 
-function parseWritingBasketIds() { return parseWritingBasketIdsForRuntime({ $ }); }
+configureSmartNotesDemoProgress(state, { getVaultPath: currentVaultPath, getStorage: () => window.localStorage });
 
-function setWritingBasketIds(noteIds) { return setWritingBasketIdsForRuntime(noteIds, { $ }); }
+const writingBasketSession = createWritingBasketSession({
+  $, getVaultPath: currentVaultPath, getStorage: () => window.localStorage,
+  onScopeChange: () => {
+    resetWritingStrongModelState();
+    resetWritingProjectContext();
+    resetWritingLocalBookIdeas();
+    clearWritingSourceIndexIds();
+    setSelectedWritingThemeIndex("");
+    clearWritingFocusedCandidateScope();
+    writingState.projects = [];
+    writingState.themeIndexes = [];
+    writingState.relationCounts = {};
+    writingState.relationCountErrors = {};
+    writingState.loadingProjects = false;
+    writingState.loadingThemeIndexes = false;
+    writingState.loadingScaffoldVersions = false;
+    writingState.loadingDraftVersions = false;
+    writingState.loadingRelationCounts = false;
+  }
+});
+
+function parseWritingBasketIds() { return writingBasketSession.read(); }
+
+function setWritingBasketIds(noteIds) { return writingBasketSession.set(noteIds); }
 
 function addWritingBasketIds(noteIds) {
   return addWritingBasketIdsForRuntime(noteIds, {
@@ -4242,6 +4180,7 @@ let writingBasketManualRefreshTimer = 0;
 
 function handleWritingBasketManualInput() {
   const basketIds = parseWritingBasketIds();
+  writingBasketSession.persist();
   const title = String($("writingTitle")?.value || "").trim();
   const goal = String($("writingGoal")?.value || "").trim();
   const audience = String($("writingAudience")?.value || "").trim();
@@ -4533,16 +4472,9 @@ function writingDraftTitle() {
 
 function writingDraftBody() {
   const headingTitle = writingDraftTitle();
-  const projectId = writingState.project?.id || "";
-  const scaffoldId = writingState.scaffold?.id || "";
-  const references = uniqueStrings([
-    projectId ? `可写主题：${projectId}` : "",
-    scaffoldId ? `文章提纲：${scaffoldId}` : ""
-  ]);
   return writingDraftMarkdown({
-    markdown: writingState.draftMarkdown || writingState.project?.draft_note?.body || writingState.scaffoldMarkdown,
-    title: headingTitle,
-    references
+    markdown: writingDraftContent({ writingState, title: headingTitle, notes: writingBasketEntries() }),
+    title: headingTitle
   });
 }
 
@@ -4583,7 +4515,8 @@ function downloadTextFile(fileName, text) {
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  // Allow the browser to consume the download before releasing its object URL.
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
   window.__lastWritingExport__ = {
     fileName,
     bytes: blob.size,
@@ -4728,44 +4661,14 @@ async function loadWritingDraftVersions() {
   }
 }
 
-async function openWritingProject(projectId) {
-  resetWritingStrongModelState();
-  writingState.draftSaveState = "idle";
-  const project = await fetchWritingProject(projectId);
-  writingState.project = project;
-  setWritingBasketIds(project?.basket_note_ids || []);
-  populateWritingFormFromProject(project);
-  if (project?.scaffold_id) {
-    try {
-      const scaffold = await fetchDraftScaffold(project.scaffold_id);
-      writingState.scaffold = scaffold.item || null;
-      writingState.scaffoldMarkdown = scaffold.export?.markdown || scaffold.item?.markdown || "";
-    } catch {
-      writingState.scaffold = null;
-      writingState.scaffoldMarkdown = "";
-    }
-  } else {
-    writingState.scaffold = null;
-    writingState.scaffoldMarkdown = "";
-  }
-  await refreshWritingRelationCounts(parseWritingBasketIds(), { render: false });
-  const refreshedProject = await refreshWritingProjectState();
-  const draftNoteId = String(refreshedProject?.draft_note_id || writingState.project?.draft_note_id || "").trim();
-  if (draftNoteId) {
-    try {
-      const draftNote = await fetchNote(draftNoteId);
-      writingState.draftMarkdown = String(draftNote?.body || refreshedProject?.draft_note?.body || writingState.project?.draft_note?.body || "");
-    } catch {
-      writingState.draftMarkdown = String(refreshedProject?.draft_note?.body || writingState.project?.draft_note?.body || "");
-    }
-  } else {
-    writingState.draftMarkdown = "";
-  }
-  await loadWritingScaffoldVersions();
-  await loadWritingDraftVersions();
-  renderWritingPanel();
-  return project;
-}
+const writingProjectOpenController = createWritingProjectOpenController(() => ({
+  state, writingState, getVaultPath: currentVaultPath, parseWritingBasketIds,
+  getWritingFormSnapshot: () => JSON.stringify(["writingTitle", "writingGoal", "writingAudience", "writingTone"].map(id => $(id)?.value || "")),
+  fetchWritingProject, fetchDraftScaffold, fetchNote, ensureNotesLoaded,
+  listProjectScaffolds, listProjectDraftVersions, loadWritingRelationCounts,
+  resetWritingStrongModelState, populateWritingFormFromProject, renderWritingPanel, setStatus
+}));
+async function openWritingProject(projectId) { return writingProjectOpenController.open(projectId); }
 
 async function openWritingDraftNoteById(draftNoteId) {
   const id = String(draftNoteId || "").trim();
@@ -4782,9 +4685,11 @@ async function openWritingDraftNoteById(draftNoteId) {
 async function continueWritingProjectEntry(projectId, { openDraft = false, statusMessage = "" } = {}) {
   activateModule("writing");
   const project = await openWritingProject(projectId);
+  if (!project) return null;
   const route = writingProjectContinuationRoute({ projectId, project, openDraft, statusMessage });
   if (route.kind === "missing-draft" || route.kind === "invalid-project") throw new Error(route.errorMessage);
   const continuationTab = route.kind === "open-draft" ? "draft" : (project?.scaffold_id ? "outline" : "theme");
+  hideWritingTopicPicker({ root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document });
   applyWritingTab(continuationTab, {
     root: $("writingPanel")?.querySelector?.(".writing-shell"),
     documentRef: document
@@ -4833,8 +4738,7 @@ async function openScaffoldVersion(scaffoldId) {
 
 async function copyWritingScaffold(projectLike = null) {
   const bundle = await scaffoldBundleForProject(projectLike);
-  const markdown = String(bundle.markdown || "").trim();
-  if (!markdown) throw new Error("scaffold markdown is empty");
+  const markdown = buildWritingOutlineOutput(bundle).trim();
   await copyTextToClipboard(markdown);
   const fileName = writingScaffoldFileName(bundle.project?.title);
   showWritingResult({
@@ -4844,13 +4748,12 @@ async function copyWritingScaffold(projectLike = null) {
     fileName,
     characters: markdown.length
   });
-  return { ...bundle, fileName, characters: markdown.length };
+  return { ...bundle, markdown, fileName, characters: markdown.length };
 }
 
 async function exportWritingScaffold(projectLike = null) {
   const bundle = await scaffoldBundleForProject(projectLike);
-  const markdown = String(bundle.markdown || "").trim();
-  if (!markdown) throw new Error("scaffold markdown is empty");
+  const markdown = buildWritingOutlineOutput(bundle).trim();
   const fileName = writingScaffoldFileName(bundle.project?.title);
   const bytes = downloadTextFile(fileName, `${markdown}\n`);
   showWritingResult({
@@ -4861,7 +4764,7 @@ async function exportWritingScaffold(projectLike = null) {
     characters: markdown.length,
     bytes
   });
-  return { ...bundle, fileName, characters: markdown.length, bytes };
+  return { ...bundle, markdown, fileName, characters: markdown.length, bytes };
 }
 
 function renderWritingToplineMetric(label, value, note, tone = "") { return renderWritingToplineMetricView(label, value, note, tone, { escapeHtml }); }
@@ -5004,8 +4907,8 @@ const GRAPH_CONFLICT_RELATION_TYPES = new Set(["contradicts", "counterexample_to
 
 function graphRelationTypeLabel(type) {
   const key = String(type || "associated_with").trim().toLowerCase();
-  if (key === "meaningful") return "有解释力的关系";
-  if (key === "noisy") return "链接提醒";
+  if (key === "meaningful") return "支持、反驳等";
+  if (key === "noisy") return "相关、引用等";
   if (key === "index") return "主题归属";
   return GRAPH_RELATION_TYPE_LABELS[key] || key || "关联";
 }
@@ -5622,8 +5525,9 @@ function openNoteById(id, options = {}) {
   editor.openNoteTab(id, options);
   renderAll();
   if (options.focusDistillation) {
-    state.inspectorVisible = false;
-    editor?.setInspectorVisible?.(false);
+    state.inspectorVisible = true;
+    editor?.setInspectorVisible?.(true);
+    editor?.activatePermanentWorkspaceTab?.("viewpoint");
     window.setTimeout(() => {
       editor?.jumpToInspectorSection?.("[data-note-distillation-section]");
     }, 80);
@@ -5842,6 +5746,17 @@ const permanentNoteDialog = new PermanentNoteDialog({
   createEl: $("permanentNoteCreate")
 });
 const requestTextInput = createTextInputDialog({ documentRef: document });
+const writingManualThemeController = createWritingManualThemeController({
+  state, writingState, parseWritingBasketIds, writingThemeIndexScopeDirectoryId, ensureNotesLoaded,
+  writingNoteById, isWritingEligibleNote, requestTextInput, createIndexCard,
+  upsertWritingThemeIndex, useThemeIndexAsWritingEntry,
+  openTheme: () => {
+    const root = $("writingPanel")?.querySelector?.(".writing-shell");
+    hideWritingTopicPicker({ root, documentRef: document });
+    applyWritingTab("theme", { root, documentRef: document });
+    renderWritingPanel();
+  }
+});
 
 createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
   await handleCreateDirectoryFromDialog({ name, parentId, fsPath, maxCards }, {
@@ -6242,6 +6157,11 @@ installWritingProjectHistoryEventHandlers({
   })
 });
 
+installWritingArticleOutputEvents({
+  $,
+  depsProvider: () => ({ writingState, state, renderAll, copyTextToClipboard, exportWritingArticle, pickExportDirectory: desktopCommands.browseDirectory, getVaultPath: currentVaultPath, setStatus })
+});
+
 installWritingDraftActionEventHandlers({
   $,
   depsProvider: () => ({
@@ -6270,6 +6190,8 @@ installWritingDraftActionEventHandlers({
     writingDraftDirectoryId,
     writingDraftTitle,
     writingDraftBody,
+    getVaultPath: currentVaultPath,
+    listProjectDraftVersions,
     parseWritingBasketIds,
     setWritingBasketIds,
     uniqueStrings,
@@ -6278,6 +6200,7 @@ installWritingDraftActionEventHandlers({
     bindWritingDraftNote,
     mapNoteItem,
     openWritingDraftNoteById,
+    renderAll,
     setStatus
   })
 });
@@ -6467,7 +6390,13 @@ installDistillationEventBindings({
 installSidebarFlowEventHandler({
   $,
   depsProvider: () => ({
+    $,
     state,
+    writingState,
+    writingDraftBody,
+    createDraftScaffold,
+    getVaultPath: currentVaultPath,
+    applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
     activateModule,
     openDistillationModule,
     openWritingModule,

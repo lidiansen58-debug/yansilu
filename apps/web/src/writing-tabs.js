@@ -1,4 +1,4 @@
-import { hideWritingTopicPicker, showWritingTopicPicker } from "./writing-sidebar-actions.js";
+import { hideWritingTopicPicker, toggleWritingTopicPicker } from "./writing-sidebar-actions.js";
 
 const WRITING_TABS = new Set(["theme", "outline", "draft"]);
 const WRITING_TAB_ALIASES = {
@@ -37,7 +37,7 @@ export function installWritingTabEvents({ root = null, documentRef = typeof docu
     }
     const topicPicker = event.target?.closest?.("[data-writing-topic-picker]");
     if (topicPicker && shell.contains(topicPicker)) {
-      showWritingTopicPicker({ documentRef, applyWritingTab: (tab) => applyWritingTab(tab, { root: shell, documentRef }) });
+      toggleWritingTopicPicker({ documentRef, applyWritingTab: (tab) => applyWritingTab(tab, { root: shell, documentRef }) });
       return;
     }
     const jump = event.target?.closest?.("[data-writing-tab-jump]");

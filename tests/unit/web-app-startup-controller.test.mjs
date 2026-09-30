@@ -306,6 +306,21 @@ test("startup route opener opens existing Smart Notes Demo guide instead of show
   assert.equal(calls[4][1], "ok");
 });
 
+test("startup loads demo practice targets without overriding a restored active note", async () => {
+  const calls = [];
+  const state = { activeTabId: "restored-tab", selectedFileId: "user-note", folders: [{ id: "demo-dir", title: "写作 Demo" }], notes: [] };
+  const result = await openInitialStartupRouteForRuntime({
+    state, windowRef: { location: { search: "" } },
+    syncNotesForDirectoryTree: async (id) => calls.push(["tree", id]),
+    syncNotesForDirectory: async (id) => { state.notes.push({ id: "GUIDE-SMART-NOTES-START" }); calls.push(["notes", id]); },
+    openNoteById: () => assert.fail("must not change restored selection"),
+    renderAll: () => calls.push(["render"])
+  });
+  assert.equal(result.route, "skipped");
+  assert.equal(state.selectedFileId, "user-note");
+  assert.deepEqual(calls, [["tree", "demo-dir"], ["notes", "dir_demo_smart_notes_product_thinking_guide"], ["render"]]);
+});
+
 test("startup route opener falls back to home when existing Smart Notes Demo guide cannot load", async () => {
   const calls = [];
   const state = {

@@ -2,6 +2,7 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { withShortSmartNotesPractice } from "./smart-notes-short-practice.mjs";
 
 import {
   createDirectory,
@@ -10,16 +11,14 @@ import {
   createNoteRelation,
   getNoteById,
   getNotePath,
-  updateNoteContent,
-  updateNoteRelation,
+  listNoteRelations,
   createIndexCard,
   getIndexCard,
-  updateIndexCard,
   initVault,
   syncMarkdownNoteCatalogRelations,
   serializeNote
 } from "../packages/domain/src/index.mjs";
-import { createDraftScaffold, createWritingProject, getDraftScaffold, syncWritingProject } from "../packages/writing-engine/src/index.mjs";
+import { createDraftScaffold, createWritingProject, getDraftScaffold, getWritingProject } from "../packages/writing-engine/src/index.mjs";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "demo-smart-notes-product-thinking", "demo.json");
@@ -257,7 +256,8 @@ function normalizeOrderingStrategy(input) {
 async function getExistingNote(vaultPath, noteId) {
   try {
     return await getNoteById(vaultPath, noteId);
-  } catch {
+  } catch (error) {
+    if (error?.code !== "NOTE_NOT_FOUND" && error?.message !== `noteId not found: ${noteId}`) throw error;
     return null;
   }
 }
@@ -303,12 +303,11 @@ async function upsertSource(vaultPath, note, counters) {
   const filePath = getNotePath(vaultPath, "source", payload.id);
   const content = serializeNote("source", payload);
   try {
-    await fs.access(filePath);
-    await fs.writeFile(filePath, content, "utf8");
-    counters.updatedSources += 1;
-  } catch {
-    await fs.writeFile(filePath, content, "utf8");
+    await fs.writeFile(filePath, content, { encoding: "utf8", flag: "wx" });
     counters.createdSources += 1;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    counters.preservedSources += 1;
   }
   return payload.id;
 }
@@ -340,8 +339,7 @@ async function upsertNote(vaultPath, note, counters) {
 
   const existing = await getExistingNote(vaultPath, payload.id);
   if (existing) {
-    await updateNoteContent(vaultPath, payload.id, payload);
-    counters.updatedNotes += 1;
+    counters.preservedNotes += 1;
     return payload.id;
   }
   await createNoteInDirectory(vaultPath, payload);
@@ -363,20 +361,17 @@ async function upsertRelation(vaultPath, relation, counters, noteIdSet) {
   if (!payload.fromNoteId || !payload.toNoteId) return null;
   if (noteIdSet && (!noteIdSet.has(payload.fromNoteId) || !noteIdSet.has(payload.toNoteId))) return null;
 
-  try {
-    await updateNoteRelation(vaultPath, payload.id, payload);
-    counters.updatedRelations += 1;
+  const existingRelations = await listNoteRelations(vaultPath, payload.fromNoteId);
+  if (existingRelations.outgoingLinks.some((item) => item.id === payload.id)) {
+    counters.preservedRelations += 1;
     return payload.id;
-  } catch (error) {
-    if (error?.code !== "RELATION_NOT_FOUND") throw error;
   }
 
   const created = await createNoteRelation(vaultPath, payload.fromNoteId, payload);
   if (created?.created) {
     counters.createdRelations += 1;
   } else {
-    await updateNoteRelation(vaultPath, created?.id || payload.id, payload);
-    counters.updatedRelations += 1;
+    counters.preservedRelations += 1;
   }
   return created?.id || payload.id;
 }
@@ -404,10 +399,10 @@ async function upsertIndexCard(vaultPath, card, counters) {
 
   try {
     await getIndexCard(vaultPath, payload.id);
-    await updateIndexCard(vaultPath, payload.id, payload);
-    counters.updatedIndexCards += 1;
+    counters.preservedIndexCards += 1;
     return payload.id;
-  } catch {
+  } catch (error) {
+    if (error?.message !== `indexCardId not found: ${payload.id}`) throw error;
     await createIndexCard(vaultPath, payload);
     counters.createdIndexCards += 1;
     return payload.id;
@@ -427,18 +422,10 @@ async function upsertWritingProjectAndScaffold(vaultPath, fixture, counters) {
 
     let writingProject = null;
     try {
-      writingProject = await syncWritingProject(vaultPath, projectId, {
-        title,
-        goal: cleanText(project?.goal || project?.writing_goal || project?.writingGoal),
-        intent: cleanText(project?.intent),
-        audience: cleanText(project?.target_reader || project?.targetReader),
-        desiredReaderTakeaway: cleanText(project?.desired_reader_takeaway || project?.desiredReaderTakeaway),
-        basketNoteIds,
-        relatedIndexIds,
-        status: "draft"
-      });
-      counters.updatedWritingProjects += 1;
-    } catch {
+      writingProject = await getWritingProject(vaultPath, projectId);
+      counters.preservedWritingProjects += 1;
+    } catch (error) {
+      if (error?.message !== `writingProjectId not found: ${projectId}`) throw error;
       writingProject = await createWritingProject(vaultPath, {
         id: projectId,
         title,
@@ -456,13 +443,18 @@ async function upsertWritingProjectAndScaffold(vaultPath, fixture, counters) {
     const scaffoldFixture = Array.isArray(fixture?.draft_scaffolds)
       ? fixture.draft_scaffolds.find((item) => cleanText(item?.writing_project_id) === cleanText(writingProject?.id))
       : null;
-    const scaffoldId = cleanText(scaffoldFixture?.id) || `ds_${cleanText(writingProject.id)}`;
+    if (project.deferScaffold === true && !writingProject.scaffold_id) {
+      results.push({ writingProjectId: writingProject.id, scaffoldId: null });
+      continue;
+    }
+    const scaffoldId = cleanText(writingProject.scaffold_id) || cleanText(scaffoldFixture?.id) || `ds_${cleanText(writingProject.id)}`;
     const versionNote = cleanText(scaffoldFixture?.version_note);
 
     try {
       await getDraftScaffold(vaultPath, scaffoldId);
-      counters.updatedDraftScaffolds += 1;
-    } catch {
+      counters.preservedDraftScaffolds += 1;
+    } catch (error) {
+      if (error?.message !== `draftScaffoldId not found: ${scaffoldId}`) throw error;
       await createDraftScaffold(vaultPath, {
         id: scaffoldId,
         writingProjectId: writingProject.id,
@@ -490,7 +482,8 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
   await ensureOriginalDirectory(vaultPath);
   await ensureGuideDirectory(vaultPath);
 
-  const { fixturePath, fixture } = await loadFixture(options.fixturePath);
+  const { fixturePath, fixture: loadedFixture } = await loadFixture(options.fixturePath);
+  const fixture = withShortSmartNotesPractice(loadedFixture);
   const counts = fixture?.counts && typeof fixture.counts === "object" ? fixture.counts : {};
   const counters = {
     createdSources: 0,
@@ -504,10 +497,17 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     createdWritingProjects: 0,
     updatedWritingProjects: 0,
     createdDraftScaffolds: 0,
-    updatedDraftScaffolds: 0
+    updatedDraftScaffolds: 0,
+    preservedSources: 0,
+    preservedNotes: 0,
+    preservedRelations: 0,
+    preservedIndexCards: 0,
+    preservedWritingProjects: 0,
+    preservedDraftScaffolds: 0
   };
 
   const noteIds = [];
+  const relationSyncNoteIds = [];
   const batches = [
     ...(Array.isArray(fixture?.sources) ? fixture.sources : []),
     ...(Array.isArray(fixture?.guide_notes) ? fixture.guide_notes : []),
@@ -516,11 +516,12 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     ...(Array.isArray(fixture?.permanent_notes) ? fixture.permanent_notes : []),
     ...(Array.isArray(fixture?.final_essays) ? fixture.final_essays : [])
   ];
-  for (const note of batches) noteIds.push(await upsertNote(vaultPath, note, counters));
-  const relationSyncNoteIds = batches
-    .filter((note) => fixtureNoteType(note) !== "source")
-    .map((note) => cleanText(note?.id))
-    .filter(Boolean);
+  for (const note of batches) {
+    const createdBefore = counters.createdNotes;
+    const noteId = await upsertNote(vaultPath, note, counters);
+    noteIds.push(noteId);
+    if (counters.createdNotes > createdBefore) relationSyncNoteIds.push(noteId);
+  }
   const noteIdSet = new Set(noteIds.filter(Boolean).map(String));
 
   if (Array.isArray(fixture?.relations)) {
@@ -531,7 +532,7 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
       await upsertRelation(vaultPath, relation, counters, noteIdSet);
     }
   }
-  // Reconcile body links after manual relations are present, so one note pair is never duplicated.
+  // Only new notes need reconciliation here; reimport must not recreate existing body-link IDs.
   for (const noteId of relationSyncNoteIds) {
     await syncMarkdownNoteCatalogRelations(vaultPath, noteId);
   }
@@ -541,8 +542,8 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
   }
 
   const writingEntries = await upsertWritingProjectAndScaffold(vaultPath, fixture, counters);
-  const primaryWritingEntry = writingEntries[0] || null;
-  const preferredFirstNoteId = cleanText(fixture?.guide_notes?.[0]?.id) || noteIds.find(Boolean) || null;
+  const primaryWritingEntry = writingEntries.find((entry) => entry.writingProjectId === fixture.practiceProjectId) || writingEntries[0] || null;
+  const preferredFirstNoteId = cleanText(fixture.practiceGuideId || fixture?.guide_notes?.[0]?.id) || noteIds.find(Boolean) || null;
 
   return {
     kind: "smart_notes_product_thinking_seed",

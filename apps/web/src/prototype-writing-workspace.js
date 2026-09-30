@@ -167,12 +167,7 @@ export function buildWritingPanelState({
 }
 
 export function normalizeWritingProjectTitleSeed(title = "") {
-  const cleanTitle = String(title || "").trim();
-  if (!cleanTitle) return "未命名主题";
-  const legacyProjectSuffix = "写作" + "项目";
-  if (cleanTitle.endsWith(legacyProjectSuffix)) return `${cleanTitle.slice(0, -legacyProjectSuffix.length).trim()} 主题`.trim();
-  if (cleanTitle.endsWith("项目")) return `${cleanTitle.slice(0, -"项目".length).trim()} 主题`.trim();
-  return `${cleanTitle} 主题`;
+  return String(title || "").trim() || "未命名文章";
 }
 
 export function suggestedWritingProjectTitle(noteIds = [], { noteById = () => null } = {}) {

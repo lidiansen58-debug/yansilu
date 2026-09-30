@@ -71,6 +71,29 @@ export function writingDraftMarkdown({ markdown = "", title = "", references = [
     : `${body.trimEnd()}\n`;
 }
 
+export function writingInitialDraftMarkdown({ title = "", scaffold = {}, notes = [] } = {}) {
+  const noteById = new Map(notes.map((note) => [note.id, note]));
+  const lines = [`# ${cleanText(title) || "未命名文章"}`, ""];
+  normalizeWritingOutlineSections(scaffold).forEach((section, index) => {
+    lines.push(`## ${sectionHeading(section, index)}`, "");
+    const titles = [...new Set(section.evidence_note_ids.map((id) => cleanText(noteById.get(id)?.title)).filter(Boolean))];
+    if (titles.length) lines.push(`参考笔记：${titles.map((name) => `[[${name}]]`).join("、")}`, "");
+    const missingCount = section.evidence_note_ids.filter((id) => !cleanText(noteById.get(id)?.title)).length;
+    if (missingCount) lines.push(`参考笔记：${missingCount} 条来源暂时不可用，请回到提纲核对。`, "");
+  });
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
+export function writingDraftContent({ writingState = {}, title = "", notes = [] } = {}) {
+  if (["dirty", "error", "saving"].includes(writingState.draftSaveState) && typeof writingState.draftMarkdown === "string") {
+    return writingState.draftMarkdown;
+  }
+  const savedOrEdited = writingState.draftMarkdown || writingState.project?.draft_note?.body;
+  return savedOrEdited || (writingState.scaffold
+    ? writingInitialDraftMarkdown({ title: title || writingState.project?.title, scaffold: writingState.scaffold, notes })
+    : "");
+}
+
 export function syncWritingScaffoldMarkdown(writingState = {}) {
   if (!writingState.scaffold) return "";
   const title = cleanText(writingState.project?.title) || cleanText(writingState.scaffold?.title) || "未命名主题";

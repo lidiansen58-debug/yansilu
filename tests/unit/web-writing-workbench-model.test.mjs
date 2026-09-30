@@ -7,6 +7,8 @@ import {
   syncWritingScaffoldMarkdown,
   updateWritingOutlineSection,
   writingDraftMarkdown,
+  writingDraftContent,
+  writingInitialDraftMarkdown,
   writingOutlineMarkdown,
   writingWorkbenchHasTopic
 } from "../../apps/web/src/writing-workbench-model.js";
@@ -87,4 +89,36 @@ test("writing draft markdown keeps one generated footer across repeated saves", 
   assert.equal((second.match(/可写主题：p1/g) || []).length, 1);
   assert.equal((second.match(/文章提纲：s1/g) || []).length, 1);
   assert.match(second, /补充一句。/);
+});
+
+test("initial article draft uses real section order and note titles without report metadata", () => {
+  const scaffold = {
+    sections: [
+      { heading: "先检查反例", purpose: "说明适用条件。", evidence_note_ids: ["n2", "n2"], counterpoints: ["无反馈时无法判断。"] },
+      { heading: "再组织写作", purpose: "用结构检验观点。", evidence_note_ids: ["n1"] }
+    ],
+    markdown: "## 就绪检查\nbasket_note_ids: n1,n2"
+  };
+  const markdown = writingInitialDraftMarkdown({ title: "如何检验理解", scaffold, notes: [{ id: "n1", title: "写作检验" }, { id: "n2", title: "用反例限定判断" }] });
+  assert.match(markdown, /^# 如何检验理解/);
+  assert.ok(markdown.indexOf("## 先检查反例") < markdown.indexOf("## 再组织写作"));
+  assert.doesNotMatch(markdown, /说明适用条件|无反馈时无法判断/);
+  assert.equal(scaffold.sections[0].purpose, "说明适用条件。");
+  assert.deepEqual(scaffold.sections[0].counterpoints, ["无反馈时无法判断。"]);
+  assert.equal((markdown.match(/\[\[用反例限定判断\]\]/g) || []).length, 1);
+  assert.match(markdown, /\[\[写作检验\]\]/);
+  assert.doesNotMatch(markdown, /就绪检查|basket_note_ids|n1|n2|段落-证据对照表/);
+});
+
+test("initial draft reports unavailable references without exposing internal IDs", () => {
+  const markdown = writingInitialDraftMarkdown({ scaffold: { sections: [{ heading: "待核对", evidence_note_ids: ["missing-internal-id"] }] } });
+  assert.match(markdown, /1 条来源暂时不可用，请回到提纲核对/);
+  assert.doesNotMatch(markdown, /missing-internal-id/);
+});
+
+test("draft content preserves edited or saved prose and only generates for a new draft", () => {
+  assert.equal(writingDraftContent({ writingState: { draftMarkdown: "未保存正文", project: { draft_note: { body: "旧正文" } } } }), "未保存正文");
+  assert.equal(writingDraftContent({ writingState: { project: { draft_note: { body: "保存正文" } }, scaffold: { sections: [] } } }), "保存正文");
+  assert.equal(writingDraftContent({ writingState: { scaffoldMarkdown: "内部报告" } }), "");
+  assert.match(writingDraftContent({ writingState: { project: { title: "新文章" }, scaffold: { sections: [{ heading: "真实章节" }] }, scaffoldMarkdown: "内部报告" } }), /## 真实章节/);
 });

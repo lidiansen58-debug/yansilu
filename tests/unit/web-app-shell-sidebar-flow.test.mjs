@@ -84,10 +84,10 @@ test("sidebar flow renders Smart Notes demo walkthrough when demo notes are pres
   const markup = renderExplorerSidebarFlowMarkup(state);
 
   assert.equal(state.kind, "smart-notes-demo");
-  assert.match(markup, /3 分钟示例/);
-  assert.match(markup, /从记录到写作/);
+  assert.match(markup, /动手练习/);
+  assert.match(markup, /从观点到文章/);
   assert.match(markup, /data-sidebar-flow-action="open-demo-note"/);
-  assert.match(markup, /打开第 1 步笔记/);
+  assert.match(markup, /改写示例观点/);
   assert.doesNotMatch(markup, /data-sidebar-flow-action="open-demo-writing"/);
   assert.doesNotMatch(markup, /\b(?:PN-SN|WP-SN|IC-SN)-/);
 });
@@ -189,10 +189,39 @@ test("sidebar flow demo actions open notes, relations, writing, and review", asy
     ["status", "已打开导览笔记，可以开始补关系理由。", "ok"],
     ["writing-project", "WRITE-SMART-NOTES-DEMO", {
       openDraft: false,
-      statusMessage: "已打开 Smart Notes Demo 的可追溯文章提纲。"
+      statusMessage: "已打开示例草稿，写一段自己的解释后保存。"
     }],
     ["activate", "today"]
   ]);
+});
+
+test("opening a demo task arms comparison data without completing the task", async () => {
+  const state = { notes: [{ id: "practice", thesis: "原来的观点" }], noteMoveVaultScope: "vault-a" };
+  const target = actionTargetWithNote("open-demo-note", "practice");
+  const originalClosest = target.closest;
+  target.closest = (selector) => { const node = originalClosest(selector); node.dataset.sidebarFlowStepKey = "first-judgment"; return node; };
+  const calls = [];
+  await handleSidebarFlowAction({ target }, { state, openNoteById: (_id, options) => { calls.push(options); return true; } });
+  assert.deepEqual(state.smartNotesDemoCompletedSteps, []);
+  assert.equal(state.smartNotesDemoPendingSteps["first-judgment"].baseline, "原来的观点");
+  assert.equal(calls[0].focusDistillation, true);
+  await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-writing", "demo-project") }, {
+    state, continueWritingProjectEntry: async () => ({ id: "demo-project", draft_note: { body: "# 示例\n\n原正文" } })
+  });
+  assert.deepEqual(state.smartNotesDemoCompletedSteps, []);
+  assert.equal(state.smartNotesDemoPendingSteps["write-from-notes"].baseline, "# 示例\n\n原正文");
+});
+
+test("a demo with only an outline starts an unsaved draft and compares against that template", async () => {
+  const state = {}, writingState = { project: { id: "demo" }, scaffoldMarkdown: "提纲" }, tabs = [];
+  await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-writing", "demo") }, {
+    state, writingState, writingDraftBody: () => "# 示例\n\n来自真实笔记的模板正文",
+    continueWritingProjectEntry: async () => writingState.project, applyWritingTab: (tab) => tabs.push(tab)
+  });
+  assert.equal(writingState.draftSaveState, "dirty");
+  assert.deepEqual(tabs, ["draft"]);
+  assert.equal(state.smartNotesDemoPendingSteps["write-from-notes"].baseline, writingState.draftMarkdown);
+  assert.deepEqual(state.smartNotesDemoCompletedSteps, []);
 });
 
 test("sidebar flow demo note action reports failure when the target note cannot open", async () => {

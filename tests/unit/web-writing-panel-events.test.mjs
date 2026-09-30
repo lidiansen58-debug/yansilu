@@ -59,6 +59,14 @@ function indexTarget(selector, attrs = {}) {
   };
 }
 
+test("superseded project open does not announce a false success", async () => {
+  const messages = [];
+  await handleWritingProjectsListClick({ target: indexTarget("[data-writing-project-action]", {
+    "data-writing-project-action": "open", "data-writing-project-id": "stale"
+  }) }, { openWritingProject: async () => null, setStatus: message => messages.push(message) });
+  assert.deepEqual(messages, []);
+});
+
 function buttonTarget(selector, button) {
   return {
     closest: (requested) => requested === selector ? button : null

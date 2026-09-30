@@ -1,3 +1,5 @@
+import { completeSmartNotesDemoSavedJudgment, smartNotesDemoPendingJudgment } from "./smart-notes-demo-practice-progress.js";
+
 function syncDistillationTabFromNote(state = {}, note = null, updated = null) {
   if (!note || !updated || typeof updated.body !== "string") return;
   const tab = (state.tabs || []).find((item) => item.noteId === note.id);
@@ -23,6 +25,7 @@ export async function handleSaveNoteDistillationStateChange(payload = {}, deps =
   const noteId = String(payload.noteId || "").trim();
   const note = (state.notes || []).find((item) => item.id === noteId);
   if (!note) return false;
+  const demoPending = smartNotesDemoPendingJudgment(state, noteId);
 
   try {
     const requestedStatus = String(payload.distillationStatus || "draft").trim();
@@ -55,6 +58,7 @@ export async function handleSaveNoteDistillationStateChange(payload = {}, deps =
     if (finalUpdated) {
       Object.assign(note, mapNoteItem(finalUpdated), { bodyLoaded: true });
       syncDistillationTabFromNote(state, note, finalUpdated);
+      completeSmartNotesDemoSavedJudgment(state, finalUpdated, demoPending);
     }
     setStatus(shouldConfirm ? "当前观点已保存" : "观点草稿已保存", "ok");
     renderDistillationPanel();
@@ -78,6 +82,7 @@ export async function handleConfirmNoteDistillationStateChange(payload = {}, dep
   const noteId = String(payload.noteId || "").trim();
   const note = (state.notes || []).find((item) => item.id === noteId);
   if (!note) return false;
+  const demoPending = smartNotesDemoPendingJudgment(state, noteId);
 
   try {
     const updated = await confirmPermanentNoteDistillation(note.id, {
@@ -86,6 +91,7 @@ export async function handleConfirmNoteDistillationStateChange(payload = {}, dep
     if (updated) {
       Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
       syncDistillationTabFromNote(state, note, updated);
+      completeSmartNotesDemoSavedJudgment(state, updated, demoPending);
     }
     setStatus("提炼内容已整理到正文", "ok");
     renderAll();

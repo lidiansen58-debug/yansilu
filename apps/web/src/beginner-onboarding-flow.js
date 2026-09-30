@@ -9,8 +9,8 @@ function noteIdSet(notes = []) {
 export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   {
     key: "first-judgment",
-    title: "看看当前观点怎样形成",
-    note: "先看一条材料怎样经过转述，成为当前观点；再看最初的问题、改变原因和依据。",
+    title: "改写并保存一个观点",
+    note: "在“打磨笔记”中改写当前观点，再点“保存当前观点”。原来的问题和来源仍可查看。",
     action: "open-demo-note",
     targetNoteId: "PERM-PERMANENT-NOTE-IS-JUDGMENT",
     noteIds: [
@@ -24,45 +24,64 @@ export const SMART_NOTES_DEMO_WALKTHROUGH_STEPS = [
   },
   {
     key: "first-relation",
-    title: "把关系变成以后看得懂的线索",
-    note: "正文链接已经会进入网络；再选择一条笔记，写一句它怎样影响当前观点。",
+    title: "保存一句关系理由",
+    note: "选择一条笔记，写清它怎样支持或限制当前观点，再保存。正文链接和手动关联同样进入网络。",
     action: "open-demo-note-relations",
     targetNoteId: "PERM-UNLINKED-PRACTICE",
     noteIds: ["PERM-UNLINKED-PRACTICE"]
   },
   {
     key: "write-from-notes",
-    title: "看看观点怎样进入写作",
-    note: "从一个问题和已有观点开始组织文章，不必从空白页硬写。",
+    title: "写一段并保存草稿",
+    note: "在示例文章中写一段自己的解释，再点“保存草稿”。提纲中的来源可回到原笔记。",
     action: "open-demo-writing",
     targetNoteId: "WRITE-SMART-NOTES-DEMO",
     noteIds: ["WRITE-SMART-NOTES-DEMO", "DRAFT-SMART-NOTES-DEMO"]
   },
 ];
 
+export const SMART_NOTES_SHORT_PRACTICE_STEPS = [
+  ["practice-explain", "用自己的话检查理解", "PERM-PRACTICE-EXPLAIN"],
+  ["practice-reuse", "留下可复用的判断", "PERM-PRACTICE-REUSE"],
+  ["practice-write", "让阅读帮助写作", "PERM-PRACTICE-WRITE"]
+].map(([key, title, targetNoteId]) => ({
+  key, title, targetNoteId, noteIds: [targetNoteId], action: "open-demo-note",
+  note: "读卡片中的材料。在“打磨笔记”中写自己的判断、理由和适用条件，再保存当前观点。"
+})).concat([
+  { key: "practice-relation", title: "说明两个观点为什么有关", targetNoteId: "PERM-PRACTICE-EXPLAIN", noteIds: ["PERM-PRACTICE-EXPLAIN"], action: "open-demo-note-relations", note: "选择“我的观点：怎样留下可复用的笔记”，说明它怎样支持或限制当前判断，再保存。正文链接和手动关联同样进入网络。" },
+  { key: "practice-draft", title: "把三个观点写成一段正文", targetNoteId: "WRITE-SHORT-PRACTICE", noteIds: ["WRITE-SHORT-PRACTICE"], action: "open-demo-writing", note: "提纲来自刚保存的三个判断。看完提纲后开始写草稿，写一段自己的解释，再保存。" },
+  { key: "practice-export", title: "导出你的短文", targetNoteId: "WRITE-SHORT-PRACTICE", noteIds: ["WRITE-SHORT-PRACTICE"], action: "open-demo-export", note: "打开草稿，在“更多”中选择“导出文章 .md”。选一个笔记库以外的目录，得到可分享的正文。" }
+]);
+
+export function smartNotesDemoJudgmentStep(key) {
+  return key === "first-judgment" || SMART_NOTES_SHORT_PRACTICE_STEPS.slice(0, 3).some((step) => step.key === key);
+}
+
 function normalizedCompletedSteps(value = []) {
-  const allowed = new Set(SMART_NOTES_DEMO_WALKTHROUGH_STEPS.map((step) => step.key));
+  const allowed = new Set([...SMART_NOTES_DEMO_WALKTHROUGH_STEPS, ...SMART_NOTES_SHORT_PRACTICE_STEPS].map((step) => step.key));
   return [...new Set((Array.isArray(value) ? value : []).map((item) => cleanText(item)).filter((key) => allowed.has(key)))];
 }
 
 export function completeSmartNotesDemoStep(completedSteps = [], stepKey = "") {
   const completed = normalizedCompletedSteps(completedSteps);
   const cleanKey = cleanText(stepKey);
-  return cleanKey && SMART_NOTES_DEMO_WALKTHROUGH_STEPS.some((step) => step.key === cleanKey)
+  return cleanKey && [...SMART_NOTES_DEMO_WALKTHROUGH_STEPS, ...SMART_NOTES_SHORT_PRACTICE_STEPS].some((step) => step.key === cleanKey)
     ? [...new Set([...completed, cleanKey])]
     : completed;
 }
 
 export function isSmartNotesDemoScope(notes = []) {
   const ids = noteIdSet(notes);
-  return ids.has("GUIDE-SMART-NOTES-START") || ids.has("GUIDE-SN-001") || ids.has("SRC-SMART-NOTES");
+  return ids.has("GUIDE-SHORT-PRACTICE") || ids.has("GUIDE-SMART-NOTES-START") || ids.has("GUIDE-SN-001") || ids.has("SRC-SMART-NOTES");
 }
 
 export function buildSmartNotesDemoWalkthrough({ notes = [], completedSteps = [] } = {}) {
   const ids = noteIdSet(notes);
   if (!isSmartNotesDemoScope(notes)) return null;
-  const completed = normalizedCompletedSteps(completedSteps);
-  const availableSteps = SMART_NOTES_DEMO_WALKTHROUGH_STEPS.map((step) => ({
+  const short = ids.has("GUIDE-SHORT-PRACTICE");
+  const definitions = short ? SMART_NOTES_SHORT_PRACTICE_STEPS : SMART_NOTES_DEMO_WALKTHROUGH_STEPS;
+  const completed = normalizedCompletedSteps(completedSteps).filter((key) => definitions.some((step) => step.key === key));
+  const availableSteps = definitions.map((step) => ({
     ...step,
     available: step.noteIds.some((id) => ids.has(id)) || ids.has(step.targetNoteId)
   }));
@@ -76,8 +95,8 @@ export function buildSmartNotesDemoWalkthrough({ notes = [], completedSteps = []
   const active = finished ? null : steps[activeIndex] || null;
   return {
     kind: "smart-notes-demo",
-    title: "从记录到写作",
-    note: finished ? "你已经看完第一条知识链：记录会形成当前观点，观点带着变化理由和关系进入写作。" : `下一步：${active.title}。${active.note}`,
+    title: "从观点到文章",
+    note: finished ? (short ? "三个判断、关系理由和正文已保存，短文已导出。接下来可以用自己的材料再做一遍。" : "观点、关系理由和草稿修改已保存。需要带走正文时，在写作的“更多”中导出文章。") : active.note,
     activeStepKey: active?.key || "",
     completedCount: completed.length,
     finished,
@@ -88,8 +107,11 @@ export function buildSmartNotesDemoWalkthrough({ notes = [], completedSteps = []
 export function smartNotesDemoActionLabel(step = {}, index = 0) {
   const action = cleanText(step.action);
   if (action === "open-demo-note-relations") return "打开并关联";
-  if (action === "open-demo-writing") return "进入写作中心";
+  if (action === "open-demo-writing") return step.key === "practice-draft" ? "查看短文提纲" : "继续示例草稿";
+  if (action === "open-demo-export") return "打开短文草稿";
   if (action === "open-demo-review") return "回到首页";
+  if (cleanText(step.key) === "first-judgment") return "改写示例观点";
+  if (smartNotesDemoJudgmentStep(step.key)) return "写下我的判断";
   return `打开第 ${Number(index) + 1 || 1} 步笔记`;
 }
 
@@ -122,7 +144,7 @@ export function renderSmartNotesDemoWalkthrough(flow = {}, deps = {}) {
   return `
     <div class="sidebar-flow-card" data-smart-notes-demo-walkthrough>
       <div>
-        <div class="sidebar-flow-kicker">3 分钟示例</div>
+        <div class="sidebar-flow-kicker">动手练习</div>
         <div class="sidebar-flow-title">${escapeHtml(flow.title || "从记录到写作")}</div>
         <div class="sidebar-flow-note">${escapeHtml(flow.note || "下一步只做一个动作。")}</div>
       </div>
@@ -151,7 +173,7 @@ export function renderSmartNotesDemoGuidePanel(flow = {}, deps = {}) {
   return `
     <section class="demo-guide-panel-card" data-smart-notes-demo-guide>
       <div class="demo-guide-copy">
-        <span>3 分钟示例</span>
+        <span>动手练习</span>
         <strong>${escapeHtml(flow.title || "从记录到写作")}</strong>
         <p>${escapeHtml(flow.note || "下一步只做一个动作。")}</p>
       </div>

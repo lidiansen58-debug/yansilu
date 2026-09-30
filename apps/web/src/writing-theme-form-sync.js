@@ -7,7 +7,8 @@ export function isGeneratedWritingTitle(value = "") {
   if (!title) return true;
   return /^缺失笔记(?:\s+等\s+\d+\s+条笔记)?(?:的可写)?\s*主题?$/u.test(title)
     || /^导入笔记主题\s*\d*$/u.test(title)
-    || /^(?:未命名|新的可写)主题$/u.test(title);
+    || /^(?:未命名|新的可写)主题$/u.test(title)
+    || title === "未命名文章";
 }
 
 export function resolveWritingProjectFormTitle({ project = null, indexCard = null } = {}) {

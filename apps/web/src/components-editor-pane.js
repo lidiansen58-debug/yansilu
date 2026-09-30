@@ -81,6 +81,7 @@ import {
   normalizeClickedTag,
   normalizeText,
   noteMatchesMarkdownReferencePath,
+  noteMatchesLinkAlias,
   relationCreateDefaultTypeForNote,
   renderPickerSections,
   sortRelationTargetCandidatesForNote,
@@ -3226,12 +3227,12 @@ export class EditorPane {
 
     const pathCandidates = markdownReferencePathCandidates(raw);
     for (const candidatePath of pathCandidates) {
-      const byPath = scopedNotes.filter((n) => noteMatchesMarkdownReferencePath(n, candidatePath));
+      const byPath = scopedNotes.filter((n) => noteMatchesMarkdownReferencePath(n, candidatePath) || noteMatchesLinkAlias(n, candidatePath));
       if (byPath.length === 1) return { note: byPath[0], ambiguous: false, mode: "path" };
       if (byPath.length > 1) return { note: byPath[0], ambiguous: true, mode: "path" };
     }
 
-    const exactTitle = scopedNotes.filter((n) => normalizeText(n.title) === normalizeText(raw));
+    const exactTitle = scopedNotes.filter((n) => normalizeText(n.title) === normalizeText(raw) || noteMatchesLinkAlias(n, raw));
     if (exactTitle.length === 1) return { note: exactTitle[0], ambiguous: false, mode: "title" };
     if (exactTitle.length > 1) return { note: exactTitle[0], ambiguous: true, mode: "title" };
 
@@ -3259,6 +3260,7 @@ export class EditorPane {
         existing.folderId = item.directoryId || item.folderId || existing.folderId;
         existing.noteType = item.noteType || existing.noteType;
         existing.markdownPath = item.markdownPath || existing.markdownPath;
+        if (Array.isArray(item.linkAliases)) existing.linkAliases = item.linkAliases;
         if (Object.prototype.hasOwnProperty.call(item, "thinkingStatus")) {
           existing.thinkingStatus = item.thinkingStatus || null;
         }
@@ -3296,6 +3298,7 @@ export class EditorPane {
         folderId: item.directoryId || item.folderId,
         noteType: item.noteType || "original",
         markdownPath: item.markdownPath || "",
+        linkAliases: Array.isArray(item.linkAliases) ? item.linkAliases : [],
         thesis: item.thesis || "",
         threeLineSummary: Array.isArray(item.threeLineSummary) ? item.threeLineSummary : [],
         distillationStatus: item.distillationStatus || "",
@@ -5900,19 +5903,22 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return;
       const tokenValue = linkMatch[1];
+      const contextCurrent = this.previewContextGuard();
       const scoped = this.linkResolutionCandidates({ excludeNoteId: note.id });
       const resolved = await this.resolvePreviewLinkToken(tokenValue, scoped);
+      if (!contextCurrent()) return;
+      if (resolved?.ambiguous) {
+        this.onStatus(`链接有多个匹配：${tokenValue}。请核对来源笔记后更新链接。`, "warn");
+        return;
+      }
       if (resolved?.note) {
         this.setInspectorVisible(true);
         await this.showNotePreviewInInspector(resolved.note.id, {
           eyebrow: "正文链接",
-          mode: "wikilink",
-          ambiguous: resolved.ambiguous === true
+          mode: "wikilink"
         });
-        this.onStatus(
-          resolved.ambiguous ? `已打开链接笔记预览：${resolved.note.title}（存在重名，请核对）` : `已打开链接笔记预览：${resolved.note.title}`,
-          resolved.ambiguous ? "warn" : "ok"
-        );
+        if (!contextCurrent()) return;
+        this.onStatus(`已打开链接笔记预览：${resolved.note.title}`, "ok");
       } else {
         this.onStatus(`未找到关联笔记：${tokenValue}`, "warn");
       }
@@ -5920,17 +5926,20 @@ export class EditorPane {
   }
 
   async loadNoteForPreview(noteId) {
+    const contextCurrent = this.previewContextGuard();
     const cleanId = String(noteId || "").trim();
     if (!cleanId) return null;
     let note = this.state.notes.find((item) => item.id === cleanId) || null;
     if (note?.bodyLoaded && typeof note.body === "string") return note;
     try {
       const fetched = await fetchNote(cleanId);
+      if (!contextCurrent()) return null;
       if (fetched) {
         this.upsertApiNotes([fetched]);
         note = this.state.notes.find((item) => item.id === cleanId) || note;
       }
     } catch (error) {
+      if (!contextCurrent()) return null;
       this.onStatus(`预览笔记加载失败：${String(error?.message || error)}`, "warn");
     }
     return note;
@@ -5952,12 +5961,14 @@ export class EditorPane {
   }
 
   async resolvePreviewLinkToken(tokenValue, scopedNotes = this.linkResolutionCandidates()) {
+    const contextCurrent = this.previewContextGuard();
     const resolved = this.resolveLinkToken(tokenValue, scopedNotes);
-    if (resolved?.note) return resolved;
+    if (resolved?.ambiguous || resolved?.mode === "id") return resolved;
     const query = wikilinkTargetFromRaw(tokenValue);
     if (!query) return null;
     try {
-      const result = await searchNotes({ query, excludeNoteId: this.activeNote()?.id || "", limit: 8 });
+      const result = await this.searchNotesForResolution({ query, excludeNoteId: this.activeNote()?.id || "", limit: 8 });
+      if (!contextCurrent()) return null;
       const items = Array.isArray(result?.items) ? result.items : [];
       if (items.length) {
         this.upsertApiNotes(items);
@@ -5965,22 +5976,35 @@ export class EditorPane {
         const byId = scoped.find((item) => normalizeText(item.id) === normalizeText(query));
         if (byId) return { note: byId, ambiguous: false, mode: "id" };
         for (const candidatePath of markdownReferencePathCandidates(query)) {
-          const byPath = scoped.filter((item) => noteMatchesMarkdownReferencePath(item, candidatePath));
+          const byPath = scoped.filter((item) => noteMatchesMarkdownReferencePath(item, candidatePath) || noteMatchesLinkAlias(item, candidatePath));
           if (byPath.length === 1) return { note: byPath[0], ambiguous: false, mode: "path" };
           if (byPath.length > 1) return { note: byPath[0], ambiguous: true, mode: "path" };
         }
-        const exactTitle = items.filter((item) => normalizeText(item.title) === normalizeText(query));
+        const exactTitle = scoped.filter((item) => normalizeText(item.title) === normalizeText(query) || noteMatchesLinkAlias(item, query));
         if (exactTitle.length === 1) return { note: exactTitle[0], ambiguous: false, mode: "search" };
         if (exactTitle.length > 1) return { note: exactTitle[0], ambiguous: true, mode: "search" };
       }
     } catch (error) {
+      if (!contextCurrent()) return null;
       this.onStatus(`查找链接笔记失败：${String(error?.message || error)}`, "warn");
     }
     return null;
   }
 
+  async searchNotesForResolution(options) {
+    return searchNotes(options);
+  }
+
+  previewContextGuard() {
+    const noteId = this.activeNote()?.id || "";
+    const vault = this.vaultScope?.() || "";
+    return () => (this.activeNote()?.id || "") === noteId && (this.vaultScope?.() || "") === vault;
+  }
+
   async showNotePreviewInInspector(noteId, options = {}) {
+    const contextCurrent = this.previewContextGuard();
     const note = await this.loadNoteForPreview(noteId);
+    if (!contextCurrent()) return;
     if (!note) {
       this.els.result.innerHTML = `<div class="related-empty bad">没有找到这条笔记。</div>`;
       return;
@@ -7375,6 +7399,7 @@ export class EditorPane {
     };
     const markLiteratureComplete = options?.markLiteratureComplete === true;
     const skipOriginalityCheck = options?.skipOriginalityCheck === true;
+    const editorBodySnapshot = String(tab.body || "");
 
     note.body = tab.body;
     note.noteType = typeFromFolder(this.state, note.folderId);
@@ -7496,8 +7521,9 @@ export class EditorPane {
     const liveMatchesSaved = normalizedBodyTextForDirtyCheck(liveBodyAtCompletion) === normalizedBodyTextForDirtyCheck(savedBody);
     const changedSinceSaveStarted =
       !liveMatchesSaved &&
-      (this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
-      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot));
+      // Formatting performed by this save is not a new user edit.
+      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, editorBodySnapshot) &&
+      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot);
     tab.savedBody = savedBody;
     tab.savedTitle = savedTitle;
     this.syncPlaceholderTitleArmed(tab);

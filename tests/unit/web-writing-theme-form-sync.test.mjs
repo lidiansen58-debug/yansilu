@@ -98,6 +98,7 @@ test("writing theme form sync uses the readable theme title without adding an in
 
 test("writing project form title replaces missing-note placeholders with its theme title", () => {
   assert.equal(isGeneratedWritingTitle("缺失笔记 等 11 条笔记 主题"), true);
+  assert.equal(resolveWritingProjectFormTitle({ project: { title: "未命名文章" }, indexCard: { title: "自己的问题" } }), "自己的问题");
   assert.equal(resolveWritingProjectFormTitle({
     project: { title: "缺失笔记 等 11 条笔记 主题" },
     indexCard: { title: "卦象与变化模型" }

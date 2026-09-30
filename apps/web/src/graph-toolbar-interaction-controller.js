@@ -1,3 +1,5 @@
+import { GRAPH_DEFAULT_RELATION_TYPE_FILTER } from "./graph-view-mode-state.js";
+
 export function applyGraphZoomOptionInteraction(graphState = {}, zoomValue = "", deps = {}) {
   const graphZoomOption = deps.graphZoomOption || ((value) => ({ key: String(value || "fit").trim() || "fit", label: String(value || "fit").trim() || "fit" }));
   const nextZoom = graphZoomOption(zoomValue);
@@ -24,7 +26,7 @@ export function applyGraphReadingLensInteraction(graphState = {}, lensValue = ""
   graphState.readingLens = meta.key;
   graphState.researchNavigatorHidden = true;
   graphState.researchNavigatorTouched = true;
-  const relationType = setGraphRelationTypeFilter("meaningful");
+  const relationType = setGraphRelationTypeFilter(GRAPH_DEFAULT_RELATION_TYPE_FILTER);
   return { lens: meta.key, meta, relationType };
 }
 
@@ -36,7 +38,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
     structure: {
       key: "structure",
       label: "看结构",
-      relationType: "meaningful",
+      relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
       lens: "insight",
       workbenchPanelOpen: false,
       workbenchPanelTab: "clues",
@@ -46,7 +48,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
     relations: {
       key: "relations",
       label: "找缺口",
-      relationType: "meaningful",
+      relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
       lens: "bridge",
       workbenchPanelOpen: false,
       workbenchPanelTab: "clues",
@@ -116,7 +118,7 @@ export function applyGraphViewModeInteraction(graphState = {}, modeValue = "", d
   const setGraphRelationTypeFilter = deps.setGraphRelationTypeFilter || (() => "");
   const graphReadingModeMeta = deps.graphReadingModeMeta || ((value) => ({ key: String(value || "argument").trim() || "argument", label: String(value || "argument").trim() || "argument" }));
   if (mode === "argument") {
-    setGraphRelationTypeFilter("meaningful");
+    setGraphRelationTypeFilter(GRAPH_DEFAULT_RELATION_TYPE_FILTER);
   } else if (mode === "structure") {
     setGraphRelationTypeFilter("index");
   } else {

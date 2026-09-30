@@ -1,5 +1,5 @@
 export const SMART_NOTES_DEMO_IMPORT_CONFIRMATION =
-  "导入 Smart Notes Demo 示例库会创建一套可试错的卡片笔记样例，并打开第一条“从这里开始”。\n\n确认导入吗？";
+  "导入示例，跟着完成观点、关联和写作练习。已有示例和你的修改会保留，只补齐缺失内容。\n\n确认导入吗？";
 
 export function confirmSmartNotesDemoImport({ confirm = null, setStatus = () => {} } = {}) {
   if (typeof confirm !== "function") {

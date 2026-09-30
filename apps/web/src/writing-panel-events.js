@@ -1,4 +1,7 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
+import { recordWritingDraftInput } from "./writing-draft-save-controller.js";
+export { handleWritingSaveDraftClick, normalizeWritingDraftTitle } from "./writing-draft-save-controller.js";
+import { handleWritingSaveDraftClick } from "./writing-draft-save-controller.js";
 import {
   applyWritingOutlineAction,
   updateWritingOutlineSection
@@ -62,15 +65,6 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
   return registrations;
 }
 
-export function normalizeWritingDraftTitle(title = "") {
-  const cleanTitle = String(title || "").trim();
-  if (!cleanTitle) return "未命名文章";
-  return cleanTitle
-    .replace(/\s+主题\s+草稿$/u, "")
-    .replace(/\s+草稿$/u, "")
-    .trim() || "未命名文章";
-}
-
 export function installWritingThemeIndexEventHandlers(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
   const deps = () => depsProvider();
@@ -88,7 +82,12 @@ export function installWritingThemeIndexEventHandlers(options = {}) {
     await handleWritingDiscoverThemeSuggestions(deps());
   });
   add("btnWritingSaveThemeIndex", "click", async () => {
-    await handleWritingSaveThemeIndex(deps());
+    const resetButton = setButtonPending($("btnWritingSaveThemeIndex"), true, "正在创建...");
+    try {
+      await handleWritingSaveThemeIndex(deps());
+    } finally {
+      resetButton();
+    }
   });
   add("writingThemeIndexList", "click", async (event) => {
     await handleWritingThemeIndexListClick(event, deps());
@@ -244,14 +243,7 @@ export function installWritingDraftActionEventHandlers(options = {}) {
     await handleWritingOpenDraftClick(deps());
   });
   add("writingDraftEditor", "input", (event) => {
-    const currentDeps = deps();
-    currentDeps.writingState.draftMarkdown = String(event?.target?.value || "");
-    currentDeps.writingState.draftSaveState = "dirty";
-    const saveButton = currentDeps.$?.("btnWritingSaveDraft");
-    if (saveButton && currentDeps.writingState.scaffold?.id) {
-      saveButton.disabled = false;
-      saveButton.textContent = "保存草稿";
-    }
+    recordWritingDraftInput(deps(), event?.target?.value);
   });
   add("writingTitle", "change", async () => {
     await persistWritingProjectForm(deps());
@@ -448,7 +440,8 @@ export async function handleWritingProjectsListClick(event, deps = {}) {
   }
   if (action === "open") {
     try {
-      await openWritingProject(projectId);
+      const project = await openWritingProject(projectId);
+      if (!project) return;
       setStatus(`已恢复可写主题：${projectId}`, "ok");
     } catch (error) {
       setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
@@ -862,114 +855,6 @@ export async function handleWritingExportScaffoldClick(deps = {}) {
       code: error?.code || null
     });
     setStatus(`导出文章提纲失败：${String(error?.message || error)}`, "bad");
-  }
-}
-
-export async function handleWritingSaveDraftClick(deps = {}) {
-  const {
-    $ = () => null,
-    state = {},
-    writingState = {},
-    showWritingResult = () => {},
-    writingDraftDirectoryId = () => "",
-    writingDraftTitle = () => "",
-    writingDraftBody = () => "",
-    createNote = async () => ({}),
-    updateNote = async () => ({}),
-    bindWritingDraftNote = async () => ({}),
-    currentWritingVersionNote = () => "",
-    mapNoteItem = (item) => item,
-    loadWritingProjectsList = async () => {},
-    loadWritingScaffoldVersions = async () => {},
-    loadWritingDraftVersions = async () => {},
-    renderWritingPanel = () => {},
-    setStatus = () => {}
-  } = deps;
-  const missingScaffoldLabel = String($("btnWritingSaveDraft")?.textContent || "").trim();
-  if (!writingState.scaffold || !String(writingState.scaffoldMarkdown || "").trim()) {
-    showWritingResult({
-      stage: "writing_draft_note_error",
-      message: "scaffold is required before creating a draft note",
-      code: "WRITING_DRAFT_INVALID"
-    });
-    return setStatus(missingScaffoldLabel || "先生成文章提纲", "warn");
-  }
-  const directoryId = writingDraftDirectoryId();
-  const title = normalizeWritingDraftTitle(writingDraftTitle() || writingState.project?.title || "");
-  const body = String(writingDraftBody() || "").replace(/^#\s+.*$/m, `# ${title}`);
-  const currentDraftNoteId = String(writingState.project?.draft_note_id || "").trim();
-  writingState.draftSaveState = "saving";
-  const saveButton = $("btnWritingSaveDraft");
-  const resetSaveButton = setButtonPending(saveButton, true, "正在保存...");
-  try {
-    const payload = {
-      directoryId,
-      title,
-      status: "draft",
-      body
-    };
-    const saved = currentDraftNoteId
-      ? await updateNote(currentDraftNoteId, payload)
-      : await createNote(payload);
-    const project = currentDraftNoteId
-      ? writingState.project
-      : await bindWritingDraftNote(
-        writingState.project?.id,
-        saved?.id,
-        writingState.scaffold?.id,
-        currentWritingVersionNote()
-      );
-    writingState.project = {
-      ...(project || writingState.project || {}),
-      draft_note_id: currentDraftNoteId || saved?.id || null,
-      draft_note: {
-        ...(writingState.project?.draft_note || {}),
-        ...saved,
-        body: typeof saved?.body === "string" ? saved.body : body
-      }
-    };
-    writingState.draftMarkdown = typeof saved?.body === "string" ? saved.body : body;
-    writingState.draftSaveState = "saved";
-    const note = mapNoteItem({
-      ...saved,
-      body: typeof saved?.body === "string" ? saved.body : body
-    });
-    state.notes = [note, ...(state.notes || []).filter((item) => item.id !== note.id)];
-    showWritingResult({
-      stage: "writing_draft_note",
-      writingProjectId: writingState.project?.id,
-      draftScaffoldId: writingState.scaffold?.id,
-      noteId: note.id,
-      directoryId,
-      title: note.title
-    });
-    await loadWritingProjectsList();
-    await loadWritingScaffoldVersions();
-    await loadWritingDraftVersions();
-    renderWritingPanel();
-    const renderedSaveButton = $("btnWritingSaveDraft");
-    if (renderedSaveButton) {
-      renderedSaveButton.disabled = false;
-      renderedSaveButton.textContent = "已保存";
-    }
-    setStatus(currentDraftNoteId ? "草稿已保存" : "草稿已创建", "ok");
-  } catch (error) {
-    writingState.draftSaveState = "error";
-    resetSaveButton();
-    const renderedSaveButton = $("btnWritingSaveDraft");
-    if (renderedSaveButton) {
-      renderedSaveButton.disabled = false;
-      renderedSaveButton.textContent = "保存失败，重试";
-    }
-    showWritingResult({
-      stage: "writing_draft_note_error",
-      writingProjectId: writingState.project?.id,
-      draftScaffoldId: writingState.scaffold?.id,
-      message: String(error?.message || error),
-      code: error?.code || null,
-      details: error?.details || null
-    });
-    setStatus(`草稿笔记创建失败：${String(error?.message || error)}`, "bad");
   }
 }
 

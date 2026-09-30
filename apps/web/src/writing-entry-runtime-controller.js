@@ -4,6 +4,7 @@ import {
 import {
   uniqueStrings
 } from "./prototype-thinking-status.js";
+import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import {
   clearWritingEntryContextForRuntime,
   resetWritingStrongModelStateForRuntime,
@@ -44,6 +45,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       applyWritingTab = () => "",
       clearWritingFocusedCandidateScope = () => {},
       ensureNotesLoaded = async () => {},
+      getVaultPath = () => "",
       fetchWritingProject = async () => null,
       listIndexCards = async () => [],
       listProjectDraftVersions = async () => [],
@@ -79,8 +81,15 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       clearWritingEntryContextForRuntime(writingState);
     }
     activateModule("writing");
-    const writingProjectId = String(writingState.project?.id || "").trim();
     const basketIds = parseWritingBasketIds();
+    const writingProjectId = String(writingState.project?.id || "").trim();
+    const vaultPath = getVaultPath();
+    const projectOpenRevision = writingState.projectOpenRevision;
+    const isCurrent = () => getVaultPath() === vaultPath && String(writingState.project?.id || "").trim() === writingProjectId
+      && writingState.projectOpenRevision === projectOpenRevision
+      && JSON.stringify(parseWritingBasketIds()) === JSON.stringify(basketIds);
+    await ensureNotesLoaded(basketIds);
+    if (!isCurrent()) return;
     writingState.loadingProjects = true;
     writingState.loadingThemeIndexes = true;
     writingState.loadingScaffoldVersions = Boolean(writingProjectId);
@@ -110,6 +119,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
           errors: writingState.relationCountErrors
         }))
       ]);
+      if (!isCurrent()) return;
       writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
       writingState.themeIndexes = Array.isArray(themeIndexes) ? themeIndexes : writingState.themeIndexes;
       if (project) writingState.project = project;
@@ -121,6 +131,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
           relationPayload.errors && typeof relationPayload.errors === "object" ? relationPayload.errors : writingState.relationCountErrors;
       }
     } finally {
+      if (!isCurrent()) return;
       writingState.loadingProjects = false;
       writingState.loadingThemeIndexes = false;
       writingState.loadingScaffoldVersions = false;
@@ -148,6 +159,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     } = runtimeDeps();
     const normalizedIds = uniqueStrings(noteIds);
     if (!normalizedIds.length) return false;
+    assertWritingDraftCanLeave(writingState);
     const formContext = writingFormContext($);
     resetWritingEntryRuntimeState(writingState, normalizedIds);
     resetWritingLocalBookIdeas();
@@ -194,6 +206,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       currentSelectedThemeIndexId: writingState.selectedThemeIndexId
     });
     if (!plan?.basketNoteIds?.length) return null;
+    assertWritingDraftCanLeave(writingState);
     const formContext = writingFormContext($);
 
     resetWritingEntryRuntimeState(writingState, plan.basketNoteIds);

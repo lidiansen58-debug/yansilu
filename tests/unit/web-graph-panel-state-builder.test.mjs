@@ -4,6 +4,19 @@ import {
   buildGraphPanelState
 } from "../../apps/web/src/graph-panel-state-builder.js";
 
+test("missing graph filters default to the complete mixed-source network", () => {
+  const nodes = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  const edges = [
+    { id: "body", fromNoteId: "a", toNoteId: "b", relationType: "associated_with", source: "markdown_wikilink" },
+    { id: "manual", fromNoteId: "b", toNoteId: "c", relationType: "supports", source: "manual" }
+  ];
+  const result = buildGraphPanelState({ graphState: { item: { nodes, edges }, filters: {} }, canReuseScopedGraph: true }, {
+    graphEdgeMatchesFilters: (edge, filters) => filters.relationType === "all" || filters.relationType === edge.relationType
+  });
+  assert.equal(result.effectiveRelationType, "all");
+  assert.deepEqual(result.edges, edges);
+});
+
 test("graph panel state builder returns loading and error mount states without a graph", () => {
   const loading = buildGraphPanelState({
     graphState: { loading: true },

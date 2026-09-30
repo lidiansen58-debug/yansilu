@@ -59,3 +59,17 @@ test("prototype note template helpers apply titles and compose permanent drafts"
   assert.match(draft, /核心判断/);
   assert.match(draft, /来源生成提示/);
 });
+
+test("generated default permanent template uses one source section and one prompt per field", () => {
+  const draft = composePermanentTemplateDraft({
+    title: "自己的判断",
+    coreClaim: "写出自己的判断。",
+    whyTrue: "真实依据",
+    boundary: "实际边界",
+    relatedClues: "- 来源：[[真实材料]]"
+  });
+  assert.equal((draft.match(/^## 相关笔记$/gm) || []).length, 1);
+  assert.match(draft, /\[\[真实材料\]\]/);
+  assert.match(draft, /实际边界/);
+  assert.doesNotMatch(draft, /来自哪条文献笔记|写成一句可被反驳|来源生成提示/);
+});

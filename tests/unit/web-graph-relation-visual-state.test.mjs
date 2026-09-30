@@ -23,7 +23,9 @@ test("graph relation visual state merges group copy with class metadata", () => 
     shortLabel: "桥接",
     detail: "把当前笔记连到另一个主题、问题或过渡概念。"
   });
-  assert.equal(graphRelationGroupMeta("free_link").shortLabel, "链接");
+  assert.equal(graphRelationGroupMeta("free_link").shortLabel, "相关");
+  assert.equal(graphRelationGroupMeta("associated_with").label, "相关、引用等");
+  assert.match(graphRelationGroupMeta("associated_with").detail, /正文链接和外部关联/);
 });
 
 test("graph relation visual state derives stable edge selection keys", () => {

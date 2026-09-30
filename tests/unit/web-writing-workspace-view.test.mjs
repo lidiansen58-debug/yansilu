@@ -160,3 +160,10 @@ test("writing workbench separates the core flow into stable theme outline draft 
   assert.doesNotMatch(html, /data-writing-tab="tools"/);
   assert.doesNotMatch(html, /data-writing-tab="notes"/);
 });
+
+test("manual theme creation is a single visible action in the topic picker", () => {
+  const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
+  assert.equal((html.match(/id="btnWritingSaveThemeIndex"/g) || []).length, 1);
+  const emptyTopic = html.slice(html.indexOf('id="writingEmptyTopic"'), html.indexOf('id="writingWorkbenchActive"'));
+  assert.match(emptyTopic, /class="mini-btn primary" id="btnWritingSaveThemeIndex" type="button">新建主题/);
+});

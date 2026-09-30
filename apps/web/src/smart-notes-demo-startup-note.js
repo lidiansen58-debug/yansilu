@@ -1,6 +1,8 @@
 export const SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID = "dir_demo_smart_notes_product_thinking_guide";
 
 export function smartNotesDemoStartupNoteId({ result = {}, notes = [] } = {}) {
+  const practice = (Array.isArray(notes) ? notes : []).find((note) => note.id === "GUIDE-SHORT-PRACTICE");
+  if (practice) return practice.id;
   const firstNoteId = String(result?.firstNoteId || "").trim();
   const guideById = firstNoteId
     ? (Array.isArray(notes) ? notes : []).find((note) => String(note?.id || "").trim() === firstNoteId)
@@ -38,6 +40,9 @@ export function smartNotesDemoImportedStatus(result = {}, { openedGuide = false,
       : openedGuide
         ? "已打开导览笔记。"
         : "可以继续体验。";
+  if (Object.entries(result?.summary || {}).some(([key, value]) => key.startsWith("preserved") && Number(value) > 0)) {
+    return `示例已准备好，保留已有内容和你的修改。${suffix}`;
+  }
   return `已导入 Smart Notes Demo：${detail}。${suffix}`;
 }
 
@@ -55,5 +60,5 @@ export function smartNotesDemoExistingFolder(folders = []) {
 }
 
 export function smartNotesDemoOpenedExistingGuideStatus() {
-  return "Smart Notes Demo 已存在，已为你打开导览笔记。可以继续按 10 分钟导览体验卡片笔记写作法。";
+  return "示例已存在，保留你的修改，可以继续练习。";
 }

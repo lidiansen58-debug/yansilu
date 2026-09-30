@@ -20,6 +20,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     preferredLocalFallbackNote = () => null,
     rootBoxIdFromFolder = () => "",
     syncNotesForDirectory = async () => {},
+    syncNotesForDirectoryTree = syncNotesForDirectory,
     openNoteById = () => false,
     openStartupUntitledNote = async () => null,
     activateModule = () => {},
@@ -49,14 +50,18 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     openNoteById(explicitNoteId);
     return { route: "note", noteId: explicitNoteId };
   }
-  if (!usingLocalFallbackData && !shouldSkipAutoOpen()) {
+  if (!usingLocalFallbackData) {
     const demoFolder = smartNotesDemoExistingFolder(state.folders);
     if (demoFolder?.id) {
       try {
+        await syncNotesForDirectoryTree(demoFolder.id);
+        await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
+        if (shouldSkipAutoOpen()) {
+          renderAll();
+          return { route: "skipped" };
+        }
         state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
         state.selectedFolderId = demoFolder.id;
-        await syncNotesForDirectory(demoFolder.id);
-        await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
         const guideNoteId = smartNotesDemoStartupNoteId({ notes: state.notes });
         if (guideNoteId) {
           state.selectedFileId = guideNoteId;
