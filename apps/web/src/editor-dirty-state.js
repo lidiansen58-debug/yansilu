@@ -362,21 +362,23 @@ const editorPaneStateMethods = {
     const idx = this.state.tabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return;
     const tab = this.state.tabs[idx];
-    this.clearAutoSaveTimer();
     if (!this.confirmDiscardTab(tab)) return false;
+    const closingActiveTab = this.state.activeTabId === tabId;
+    if (closingActiveTab) this.clearAutoSaveTimer();
     this.clearDraft(tab.noteId);
     this.state.tabs.splice(idx, 1);
-    if (this.state.activeTabId === tabId) {
+    if (closingActiveTab) {
       this.state.activeTabId = this.state.tabs[idx]?.id || this.state.tabs[idx - 1]?.id || null;
     }
     this.fillEditorFromTab();
+    if (closingActiveTab && this.activeTab()?.dirty) this.scheduleAutoSave();
     this.onStateChange("switch-tab");
     return true;
   },
 
   closeAllTabs() {
-    this.clearAutoSaveTimer();
     if (!this.confirmDiscardDirtyTabs()) return false;
+    this.clearAutoSaveTimer();
     for (const tab of this.dirtyTabs()) this.clearDraft(tab.noteId);
     this.state.tabs = [];
     this.state.activeTabId = null;
