@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
-for (const kind of ["original", "fleeting"]) {
+for (const kind of ["original", "fleeting", "literature"]) {
 for (const mode of ["wysiwyg", "source"]) {
 test(`a new ${kind} note accepts title and body in ${mode} mode`, async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
@@ -33,6 +33,10 @@ test(`a new ${kind} note accepts title and body in ${mode} mode`, async t => {
   if (kind === "original") {
     assert.match(body, /^# 今天的观察\n\n先把想法记下来，再慢慢整理。\n\n## 核心观点\n/);
     assert.deepEqual(body.slice(body.indexOf("## 核心观点")).split("\n").filter(Boolean), template.split("\n").filter(Boolean));
+  } else if (kind === "literature") {
+    assert.match(body, /^# 今天的观察\n\n先把想法记下来，再慢慢整理。\n\n## /);
+    const lines = text => text.split("\n").filter(Boolean).map(line => line.replace(/^[*-] /, "- "));
+    assert.deepEqual(lines(body.slice(body.indexOf("## "))), lines(template));
   } else {
     assert.equal(body.trimEnd(), "# 今天的观察\n\n先把想法记下来，再慢慢整理。");
   }
