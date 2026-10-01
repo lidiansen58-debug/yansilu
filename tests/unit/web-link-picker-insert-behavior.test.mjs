@@ -40,7 +40,7 @@ test("body links retain the chosen note identity with a readable label", async (
 
 test("body link insertion changes only the selected range and does not save semantic relations", async () => {
   const source = await readEditorRelationLinkControllerSource();
-  assert.ok(source.includes("const token = bodyLinkTokenForNote(target);"));
+  assert.ok(source.includes("const token = bodyLinkTokenForNote(target, editing);"));
   assert.ok(source.includes("suppressSaveAiSuggestion: true"));
   assert.doesNotMatch(source, /normalizeKnownWikilinksToReadableTitles|createNoteRelation|updateNoteRelation/);
 });
@@ -488,9 +488,9 @@ test("manual link picker keeps duplicate-submit protection", async () => {
   const source = await readEditorDomainSource();
   const controllerSource = await readEditorRelationLinkControllerSource();
 
-  assert.ok(controllerSource.includes("host.isSubmittingLinkInsert = false;"));
+  assert.ok(controllerSource.includes("host.isSubmittingLinkInsert = this.insertionPending;"));
   assert.ok(source.includes("setLinkInsertSubmitting(nextSubmitting) {"));
-  assert.ok(controllerSource.includes("if (!noteId || host.isSubmittingLinkInsert) return;"));
+  assert.ok(controllerSource.includes("if (!noteId || this.insertionPending || host.isSubmittingLinkInsert) return;"));
   assert.ok(controllerSource.includes("this.setSubmitting(true);"));
   assert.ok(controllerSource.includes("this.setSubmitting(false);"));
 });

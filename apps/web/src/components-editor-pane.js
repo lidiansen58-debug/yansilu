@@ -6780,6 +6780,7 @@ export class EditorPane {
       const resolved = existingLink ? this.resolveLinkToken(existingLink.raw) : null;
       this.openLinkPicker(resolved?.note?.title || "", {
         returnSelection: existingLink || returnSelection,
+        editingLink: existingLink ? { ...existingLink, noteId: resolved?.ambiguous !== true ? resolved?.note?.id : null, noteTitle: resolved?.note?.title || "" } : null,
         preferredId: resolved?.ambiguous !== true ? resolved?.note?.id || "" : "",
         anchorAtCursor: true,
         anchorElement: this.els.insertLink
@@ -6857,6 +6858,7 @@ export class EditorPane {
       const next = Number(row.dataset.linkIndex);
       if (!Number.isInteger(next) || next === this.currentLinkIndex) return;
       this.currentLinkIndex = next;
+      this.currentPinnedLinkId = "";
       this.renderLinkCandidates(this.els.linkSearchInput.value, this.currentLinkCandidates[next]?.id || "");
     });
     this.els.confirmLinkInsert?.addEventListener("click", () => {

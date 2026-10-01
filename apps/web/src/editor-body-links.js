@@ -1,6 +1,13 @@
 import { sourceNoteReference } from "./note-persistence-policy.js";
 
-export function bodyLinkTokenForNote(note = {}) {
+export function bodyLinkTokenForNote(note = {}, existing = null) {
+  // Confirming the current target must not discard a path, anchor or custom label.
+  if (existing?.noteId && existing.noteId === note.id) return `[[${existing.raw}]]`;
+  const separator = String(existing?.raw || "").indexOf("|");
+  const alias = separator >= 0 ? existing.raw.slice(separator + 1).trim() : "";
+  if (alias && alias !== String(existing?.noteTitle || "").trim()) {
+    return sourceNoteReference(alias, note.id);
+  }
   return sourceNoteReference(note.title, note.id);
 }
 

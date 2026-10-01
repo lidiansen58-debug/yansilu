@@ -74,3 +74,49 @@ for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "s
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   });
 }
+
+for (const mode of ["source", "wysiwyg"]) {
+  test(`editing a body link keeps its alias and keyboard selection changes the target (${mode})`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t);
+    if (!pw) return;
+    const { page, apiBase } = await startPrototypeStack(t, pw);
+    page.setDefaultTimeout(7000);
+    const create = async body => (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_original_default", body })).json.item;
+    const first = await create("# 重名材料\n\n## 段落\n\n第一条材料。");
+    const second = await create("# 重名材料\n\n第二条材料。");
+    const token = `[[${first.id}#段落|我的引用]]`;
+    const source = await create(`# 编辑链接验证\n\n前文 ${token} 后文。`);
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    if (mode === "source") await page.locator("#btnModeToggle").click();
+    if (mode === "wysiwyg") await page.setViewportSize({ width: 390, height: 900 });
+    await page.evaluate(ids => { const e = window.__prototypeEditor; e.state.notes = e.state.notes.filter(n => !ids.includes(n.id)); }, [first.id, second.id]);
+    const openExisting = async raw => {
+      await page.evaluate(raw => { const e = window.__prototypeEditor, at = e.getEditorValue().indexOf(raw) + 3; e.setEditorSelectionRange(at, at); e.focusEditor(); }, raw);
+      await page.locator("#btnInsertLink").click();
+      assert.equal(await page.locator("#linkPicker .link-picker-head strong").textContent(), "修改笔记链接");
+      assert.equal(await page.locator("#btnConfirmLinkInsert").textContent(), "保存链接");
+    };
+    await openExisting(token);
+    await page.locator("#btnConfirmLinkInsert").click();
+    await page.waitForFunction(() => !window.__prototypeEditor.isSubmittingLinkInsert);
+    assert.ok((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.includes(token));
+    await openExisting(token);
+    await page.locator(`[data-link-note-id="${second.id}"]`).waitFor();
+    // The old target is pinned on open. An arrow must make the other row authoritative.
+    await page.locator("#linkSearchInput").press("ArrowDown");
+    assert.equal(await page.locator("#linkSearchList .active").getAttribute("data-link-note-id"), second.id);
+    await page.locator("#btnConfirmLinkInsert").click();
+    const replacement = `[[${second.id}|我的引用]]`;
+    await waitFor(async () => {
+      const body = (await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body;
+      assert.ok(body.includes(replacement)); assert.ok(!body.includes(token));
+      assert.ok(body.includes(`前文 ${replacement} 后文。`));
+    });
+    await page.waitForFunction(() => !window.__prototypeEditor.activeTab()?.dirty);
+    await page.screenshot({ path: `output/note-editor-validation/link-edit-alias-${mode}.png`, fullPage: true });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  });
+}

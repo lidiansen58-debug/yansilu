@@ -1,4 +1,5 @@
 import { bodyLinkTokenForNote } from "./editor-body-links.js";
+import { looksLikeStableNoteId, wikilinkTargetFromRaw } from "./editor-link-picker.js";
 import {
   editorRelationLinkCandidatePreviewText,
   editorRelationLinkCandidates,
@@ -15,6 +16,8 @@ export class EditorRelationLinkController {
   constructor(host) {
     this.host = host;
     this.searchRevision = 0;
+    this.editingLink = null;
+    this.insertionPending = false;
   }
 
   renderCandidates(query = "", preferredId = "") {
@@ -52,7 +55,7 @@ export class EditorRelationLinkController {
       reason: host.els.linkReasonInput?.value || ""
     });
     button.disabled = state.disabled;
-    button.textContent = state.label;
+    button.textContent = !host.isSubmittingLinkInsert && this.editingLink ? "保存链接" : state.label;
   }
 
   selectedCandidate() {
@@ -98,6 +101,9 @@ export class EditorRelationLinkController {
 
   open(initialQuery = "", options = {}) {
     const host = this.host;
+    this.editingLink = options.editingLink || null;
+    const heading = host.els.linkPicker.querySelector(".link-picker-head strong");
+    if (heading) heading.textContent = this.editingLink ? "修改笔记链接" : "插入笔记链接";
     host.closeTagPicker();
     host.hideOriginalityNotice();
     host.hideSaveAiSuggestion?.();
@@ -132,6 +138,7 @@ export class EditorRelationLinkController {
     host.lastInlinePickerAnchor = host.currentLinkContext?.end || 0;
     this.renderCandidates(initialQuery, options.preferredId || "");
     void this.searchCandidates(initialQuery);
+    if (this.editingLink && !this.editingLink.noteId) void this.resolveEditingTarget();
     host.els.insertLink?.classList.add("active");
     if (inlineMode) {
       this.positionInline();
@@ -170,7 +177,8 @@ export class EditorRelationLinkController {
     host.currentPinnedLinkId = "";
     host.manualLinkReturnSelection = null;
     host.manualLinkReturnScrollState = null;
-    host.isSubmittingLinkInsert = false;
+    this.editingLink = null;
+    host.isSubmittingLinkInsert = this.insertionPending;
     host.resetToolbarTransientButtons();
     if (host.els.linkReasonInput) host.els.linkReasonInput.value = "";
     this.updateConfirmButton();
@@ -203,16 +211,37 @@ export class EditorRelationLinkController {
       const result = await host.searchNotesForResolution({ query: cleanQuery, excludeNoteId: noteId, limit: 50 });
       if (revision !== this.searchRevision || host.activeNote()?.id !== noteId || host.state.noteMoveVaultScope !== vaultScope) return;
       host.upsertApiNotes?.(result.items || []);
-      this.renderCandidates(cleanQuery, host.currentPinnedLinkId);
+      this.renderCandidates(cleanQuery, host.currentPinnedLinkId || host.currentLinkCandidates?.[host.currentLinkIndex]?.id || "");
       if (host.currentLinkContext) this.positionInline();
     } catch (error) {
       if (revision === this.searchRevision) host.onStatus(`笔记搜索失败：${String(error?.message || error)}`, "warn");
     }
   }
 
+  async resolveEditingTarget() {
+    const host = this.host, editing = this.editingLink;
+    const revision = this.searchRevision, noteId = host.activeNote()?.id, vaultScope = host.state.noteMoveVaultScope;
+    try {
+      const resolved = looksLikeStableNoteId(editing.raw)
+        ? { note: await host.fetchNoteForResolution(wikilinkTargetFromRaw(editing.raw)) }
+        : await host.resolvePreviewLinkToken(editing.raw);
+      // Never guess which of several same-title notes an old reference meant.
+      const target = resolved?.note;
+      if (!target || resolved.ambiguous || this.editingLink !== editing || revision !== this.searchRevision || host.activeNote()?.id !== noteId || host.state.noteMoveVaultScope !== vaultScope) return;
+      host.upsertApiNotes([target]);
+      editing.noteId = target.id;
+      editing.noteTitle = target.title || "";
+      host.currentPinnedLinkId = target.id;
+      host.els.linkSearchInput.value = target.title || "";
+      this.renderCandidates(target.title || "", target.id);
+    } catch {
+      // A missing target can still be repaired by choosing another note.
+    }
+  }
+
   async insertSelected(noteId) {
     const host = this.host;
-    if (!noteId || host.isSubmittingLinkInsert) return;
+    if (!noteId || this.insertionPending || host.isSubmittingLinkInsert) return;
     const sourceNoteId = host.activeNote()?.id;
     const vaultScope = host.state.noteMoveVaultScope;
     const target = host.state.notes.find(note => note.id === noteId);
@@ -221,8 +250,10 @@ export class EditorRelationLinkController {
     const range = inline ? { from: inline.start, to: inline.end }
       : host.normalizedSelectionRange(host.manualLinkReturnSelection) || host.normalizedSelectionRange(host.editorSelection());
     const scroll = host.manualLinkReturnScrollState;
-    const token = bodyLinkTokenForNote(target);
+    const editing = this.editingLink;
+    const token = bodyLinkTokenForNote(target, editing);
     const cursor = range ? range.from + token.length : null;
+    this.insertionPending = true;
     this.setSubmitting(true);
     try {
       if (range) {
@@ -245,10 +276,11 @@ export class EditorRelationLinkController {
         if (cursor !== null) host.setEditorSelectionRange(cursor, cursor);
         if (!inline) host.scheduleEditorScrollRestore(scroll);
       }
-      host.onStatus(`已插入笔记链接：${target.title || "未命名笔记"}`, "ok");
+      host.onStatus(`${editing ? "已修改" : "已插入"}笔记链接：${target.title || "未命名笔记"}`, "ok");
     } catch (error) {
       if (host.activeNote()?.id === sourceNoteId && host.state.noteMoveVaultScope === vaultScope) host.onStatus(`链接未同步，修改仍保留：${String(error?.message || error)}`, "warn");
     } finally {
+      this.insertionPending = false;
       this.setSubmitting(false);
     }
   }
@@ -258,6 +290,7 @@ export class EditorRelationLinkController {
     if (!host.currentLinkCandidates.length) return;
     host.currentLinkIndex = nextEditorRelationLinkIndex(host.currentLinkIndex, host.currentLinkCandidates.length, step);
     const preferredId = host.currentLinkCandidates[host.currentLinkIndex]?.id || "";
+    host.currentPinnedLinkId = "";
     this.renderCandidates(host.els.linkSearchInput.value, preferredId);
     if (host.currentLinkContext) this.positionInline();
   }
