@@ -9,6 +9,7 @@ import {
   saveRelationTransaction
 } from "./relation-save-transaction.js";
 import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
+import { graphSelectionContextKey } from "./graph-selection-context.js";
 
 function graphNodeMapForState(graphState = {}) {
   const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
@@ -73,6 +74,7 @@ export function createGraphRelationSaveController({
     const targetTitle = titleForNote(nodeMap, cleanTargetNoteId);
     const relationLabel = relationTypeLabel(cleanRelationType);
     const selectionAtStart = graphState.selection;
+    const selectionContextAtStart = graphSelectionContextKey(selectionAtStart);
     const previousSelection = selectionAtStart && typeof selectionAtStart === "object" ? { ...selectionAtStart } : null;
     const nextSelection = graphRelationSaveSelection({ previousSelection, button, noteId: cleanNoteId });
     const previousText = button?.textContent || "";
@@ -105,19 +107,20 @@ export function createGraphRelationSaveController({
       graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
       clearIsolatedRelationDraft(cleanNoteId);
       const ordinaryRelationSaved = graphRelationSaveIsOrdinaryRelation(cleanRelationType);
-      const selectionStillCurrent = graphState.selection === selectionAtStart;
+      const selectionStillCurrent = graphSelectionContextKey(graphState.selection) === selectionContextAtStart;
       if (selectionStillCurrent) {
         if (ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save" });
         graphState.selection = nextSelection;
       }
       await refreshGraphAfterRelationMutation({ refreshDirectoryGraph }, { returnTo: "graph" });
-      if (selectionStillCurrent && graphState.selection === nextSelection && ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save", afterRefresh: true });
+      const selectionStillOwned = selectionStillCurrent && graphSelectionContextKey(graphState.selection) === graphSelectionContextKey(nextSelection);
+      if (selectionStillOwned && ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save", afterRefresh: true });
       const saveResult = {
         ...transaction.result,
         nextIsolated: null
       };
       graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = saveResult;
-      if (selectionStillCurrent && graphState.selection === nextSelection) graphState.selection = null;
+      if (selectionStillOwned) graphState.selection = null;
       renderGraphPanel();
       setStatus(
         graphRelationSavedNextStepStatus({

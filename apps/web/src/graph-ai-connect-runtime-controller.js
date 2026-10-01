@@ -1,4 +1,5 @@
 import { graphAiConnectAnalysisOptions, graphAiConnectArtifactCount, graphAiConnectCandidateTitles, graphAiConnectPreviewTargetId } from "./graph-ai-connect-model.js";
+import { graphSelectionContextKey } from "./graph-selection-context.js";
 export function createGraphAiConnectRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
   const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -151,9 +152,15 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
     } = runtimeDeps();
     const cleanNoteId = String(noteId || "").trim();
     if (!cleanNoteId || graphState.aiAnalysisLoading) return false;
-    await waitForGraphLoad(graphState);
+    const startingDirectoryId = graphScopeDirectoryId();
+    const startingModule = state.module;
+    if (!await waitForGraphLoad(graphState)) return false;
+    if (graphScopeDirectoryId() !== startingDirectoryId || state.module !== startingModule) return false;
     const directoryId = graphScopeDirectoryId();
     const previousSelection = graphState.selection;
+    const requestGraph = graphState.item;
+    const requestSerial = (graphState.aiConnectRequestSerial || 0) + 1;
+    graphState.aiConnectRequestSerial = requestSerial;
     graphState.aiAnalysisLoading = true;
     graphState.aiAnalysisError = "";
     graphRelationWorkflowController?.startAiConnectForNote?.(cleanNoteId);
@@ -165,14 +172,23 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       edges: currentEdges,
       relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
     });
+    const requestSelection = graphSelectionContextKey(graphState.selection);
+    const contextStillCurrent = () =>
+      graphState.aiConnectRequestSerial === requestSerial &&
+      graphState.item === requestGraph &&
+      graphSelectionContextKey(graphState.selection) === requestSelection &&
+      graphScopeDirectoryId() === directoryId &&
+      state.module === startingModule;
     renderGraphPanel();
     try {
       const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
+      if (!contextStillCurrent()) return false;
       if (!localAiReady) {
         setStatus("已打开关系整理；当前 AI 不可用，可以先用本地推荐或手工搜索建立关系。", "warn");
         return true;
       }
       const result = await analyzeDirectoryGraph(directoryId, graphAiConnectAnalysisOptions(cleanNoteId));
+      if (!contextStillCurrent()) return false;
       graphState.aiAnalysis = result;
       const route = graphRelationWorkflowController?.applyAiConnectRoute?.({
         noteId: cleanNoteId,
@@ -227,12 +243,15 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       if (candidates.length && !firstTargetId) void refineGraphPotentialRelationsForNote(cleanNoteId, candidates, { directoryId });
       return true;
     } catch (error) {
+      if (!contextStillCurrent()) return false;
       graphState.aiAnalysisError = String(error?.message || error);
       setStatus(`AI 找连接失败：${graphState.aiAnalysisError}`, "warn");
       return false;
     } finally {
-      graphState.aiAnalysisLoading = false;
-      renderGraphPanel();
+      if (graphState.aiConnectRequestSerial === requestSerial) {
+        graphState.aiAnalysisLoading = false;
+        renderGraphPanel();
+      }
     }
   }
   return { refineGraphPotentialRelationCandidate, refineGraphPotentialRelationsForNote, runGraphAiConnectForNote };

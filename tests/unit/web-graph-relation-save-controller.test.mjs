@@ -26,6 +26,16 @@ test("a committed graph relation survives a graph refresh rejection", async () =
   assert.deepEqual(statuses, ["ok"]);
 });
 
+test("graph relation completion recognizes its selection after renderer normalization", async () => {
+  const graphState = graphStateFixture();
+  const controller = baseController({ graphState, refreshDirectoryGraph: async () => {
+    graphState.selection = { ...graphState.selection, title: "updated title", isolatedIndex: 2 };
+  } });
+  assert.equal(await controller.saveConfirmedRelation({ noteId: "source", targetNoteId: "target",
+    relationType: "supports", rationale: "A concrete reason that supports the target." }), true);
+  assert.equal(graphState.selection, null);
+});
+
 for (const phase of ["save", "refresh"]) {
   test(`a graph relation finishing during ${phase} preserves the user's new selection`, async () => {
     const graphState = graphStateFixture();
