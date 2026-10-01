@@ -3,6 +3,58 @@ import assert from "node:assert/strict";
 import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 for (const mode of ["source", "wysiwyg"]) {
+  test(`code examples cannot be edited as body links (${mode})`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t);
+    if (!pw) return;
+    const { page, apiBase } = await startPrototypeStack(t, pw);
+    page.setDefaultTimeout(7000);
+    const token = "[[note_missing|代码示例]]";
+    const literalWrapper = "$$widget0 [[字面示例]]$$ #代码标签";
+    const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_literature_default", body: `# 代码链接边界\n\n行内 \`${token}\`。\n\n\`\`\`md\n${token}\n${literalWrapper}\n输入：\n\`\`\`\n\n正文 [[note_missing|真实引用]]。` })).json.item;
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    if (mode === "source") await page.locator("#btnModeToggle").click();
+    const before = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
+    assert.ok(before.includes(literalWrapper));
+    if (mode === "wysiwyg") assert.equal(await page.locator("#wysiwygHost code [data-wikilink], #wysiwygHost pre [data-wikilink]").count(), 0);
+    for (const occurrence of [0, 1]) {
+      if (occurrence === 1) {
+        await page.evaluate(() => { const e = window.__prototypeEditor, at = e.getEditorValue().indexOf("真实引用") - 3; e.setEditorSelectionRange(at, at); e.focusEditor(); });
+        await page.locator("#btnInsertLink").click();
+        assert.equal(await page.locator("#linkPicker").isVisible(), true);
+      }
+      await page.evaluate(({ token, occurrence }) => { const e = window.__prototypeEditor, body = e.getEditorValue(), first = body.indexOf(token), at = (occurrence ? body.indexOf(token, first + token.length) : first) + 3; e.setEditorSelectionRange(at, at); e.focusEditor(); }, { token, occurrence });
+      await page.locator("#btnInsertLink").click();
+      assert.equal(await page.locator("#linkPicker").isVisible(), false);
+      assert.equal(await page.locator("#statusText").textContent(), "请在代码外插入笔记链接。");
+      assert.equal(await page.evaluate(() => window.__prototypeEditor.getEditorValue()), before);
+    }
+    await page.evaluate(() => { const e = window.__prototypeEditor, at = e.getEditorValue().indexOf("输入：") + 3; e.setEditorSelectionRange(at, at); e.focusEditor(); });
+    await page.keyboard.type("[[示例");
+    await page.waitForTimeout(350);
+    assert.equal(await page.locator("#linkPicker").isVisible(), false);
+    await page.evaluate(() => { const e = window.__prototypeEditor, at = e.getEditorValue().indexOf("真实引用") - 3; e.setEditorSelectionRange(at, at); e.focusEditor(); });
+    await page.locator("#btnInsertLink").click();
+    await page.locator("#btnRemoveBodyLink").click();
+    await page.waitForFunction(() => !window.__prototypeEditor.isSubmittingLinkInsert);
+    await waitFor(async () => {
+      const saved = (await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body;
+      assert.equal(saved.split(token).length - 1, 2, saved);
+      assert.ok(saved.includes("输入：[[示例"));
+      assert.ok(saved.includes("正文 真实引用。"));
+      assert.ok(saved.includes(literalWrapper));
+    });
+    await page.reload({ waitUntil: "networkidle" });
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    assert.equal((await page.evaluate(() => window.__prototypeEditor.getEditorValue())).split(token).length - 1, 2);
+  });
+}
+
+for (const mode of ["source", "wysiwyg"]) {
   test(`removing broken links retains literal Markdown labels (${mode})`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
     const pw = await optionalPlaywright(t);

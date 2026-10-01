@@ -1,5 +1,6 @@
 import { sourceNoteReference } from "./note-persistence-policy.js";
 import { wikilinkLabelFromRaw } from "./editor-link-picker.js";
+import { markdownCharacterIsEscaped, selectionTouchesMarkdownCode } from "./markdown-code-context.js";
 
 export function bodyLinkTextForRemoval(existing = {}) {
   const raw = String(existing.raw || "");
@@ -36,9 +37,11 @@ export function bodyLinkLabelAtSelection(body = "", selection = null) {
 // Reuse the insertion action to replace the whole link under the cursor.
 export function bodyLinkRangeAtSelection(body = "", selection = null) {
   if (!selection || !Number.isFinite(selection.from) || !Number.isFinite(selection.to)) return null;
+  if (selectionTouchesMarkdownCode(body, selection)) return null;
   const from = Math.min(selection.from, selection.to), to = Math.max(selection.from, selection.to);
   for (const match of String(body).matchAll(/\[\[([^\[\]\n]+)\]\]/g)) {
     const start = match.index, end = start + match[0].length;
+    if (markdownCharacterIsEscaped(String(body), start)) continue;
     if (from >= start && to <= end && (from < end || from !== to)) {
       return { from: start, to: end, raw: match[1] };
     }

@@ -1,18 +1,10 @@
 // ToastUI exports its link/tag widgets with internal wrappers. Keep their text
 // and map cursor offsets without exposing those wrappers in the saved Markdown.
+import { markdownCodeRanges } from "./markdown-code-context.js";
 export function normalizeToastuiWidgetMarkdown(markdown = "", offsets = []) {
   const source = String(markdown);
   const pattern = /\$\$widget\d+\s+(\[\[[^\]\n]+\]\]|#[A-Za-z0-9_\-\u4e00-\u9fff]+)\$\$/g;
-  const codeRanges = [...source.matchAll(/(`+)[^\n]*?\1/g)].map(match => [match.index, match.index + match[0].length]);
-  let fence = null;
-  for (const match of source.matchAll(/^ {0,3}(`{3,}|~{3,})[^\n]*$/gm)) {
-    if (!fence) fence = { start: match.index, marker: match[1] };
-    else if (match[1][0] === fence.marker[0] && match[1].length >= fence.marker.length) {
-      codeRanges.push([fence.start, match.index + match[0].length]);
-      fence = null;
-    }
-  }
-  if (fence) codeRanges.push([fence.start, source.length]);
+  const codeRanges = markdownCodeRanges(source);
   const matches = [...source.matchAll(pattern)].filter(match => !codeRanges.some(([from, to]) => match.index >= from && match.index < to));
   const mapped = offsets.map(offset => {
     const original = Math.max(0, Math.min(source.length, Number(offset) || 0));
