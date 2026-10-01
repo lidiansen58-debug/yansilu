@@ -36,6 +36,12 @@ test("removing a link retains a readable label and escapes Markdown syntax", () 
   assert.equal(bodyLinkTextForRemoval({ raw: "target|**原话** [附注]" }), "\\*\\*原话\\*\\* \\[附注\\]");
 });
 
+test("removed labels cannot become lists, rules, headings or strikethrough", () => {
+  for (const [label, expected] of [["- 清单", "\\- 清单"], ["+ 清单", "\\+ 清单"], ["1. 顺序", "1\\. 顺序"], ["2) 顺序", "2\\) 顺序"], ["---", "\\-\\-\\-"], ["===", "\\=\\=\\="], ["~~划线~~", "\\~\\~划线\\~\\~"], ["a|b", "a\\|b"]]) {
+    assert.equal(bodyLinkTextForRemoval({ raw: `missing|${label}` }), expected);
+  }
+});
+
 for (const outcome of ["saved", "failed", "missing-change", "later-input"]) {
   test(`removing only one repeated link preserves text after ${outcome}`, async () => {
     const raw = "target#heading|引用", token = `[[${raw}]]`;

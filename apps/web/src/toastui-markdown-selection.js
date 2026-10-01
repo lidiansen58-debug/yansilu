@@ -37,14 +37,27 @@ export function toastuiWysiwygSelection(editor, from, to = from) {
   };
   const find = offset => {
     let low = blocks[0].from, high = blocks.at(-1).to;
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2), position = textPosition(mid);
-      const mapped = toastuiMarkdownSelection(editor, { from: position, to: position });
+    let found = null;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      let probe = mid, position = textPosition(probe);
+      let mapped = toastuiMarkdownSelection(editor, { from: position, to: position });
+      // A marker inside an escaped list prefix can change Markdown escaping.
+      // Skip only nearby unserializable positions; never mutate the document.
+      for (let distance = 1; !mapped && distance <= 32; distance++) {
+        for (const next of [mid - distance, mid + distance]) {
+          if (next < low || next > high) continue;
+          probe = next;
+          position = textPosition(probe);
+          mapped = toastuiMarkdownSelection(editor, { from: position, to: position });
+          if (mapped) break;
+        }
+      }
       if (!mapped) return null;
-      if (mapped.from < offset) low = mid + 1;
-      else high = mid;
+      if (mapped.from < offset) low = probe + 1;
+      else { found = position; high = probe - 1; }
     }
-    return textPosition(low);
+    return found ?? blocks.at(-1).to;
   };
   const start = find(from), end = from === to ? start : find(to);
   return start === null || end === null ? null : { from: start, to: end };

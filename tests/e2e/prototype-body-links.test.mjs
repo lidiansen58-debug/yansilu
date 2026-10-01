@@ -2,6 +2,43 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
+for (const mode of ["source", "wysiwyg"]) {
+  test(`removing broken links retains literal Markdown labels (${mode})`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t);
+    if (!pw) return;
+    const { page, apiBase } = await startPrototypeStack(t, pw);
+    page.setDefaultTimeout(7000);
+    const labels = ["- 清单", "1. 顺序", "~~划线~~", "---", "==="];
+    const tokens = labels.map(label => `[[note_missing|${label}]]`);
+    const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_fleeting_default", body: "# 保留原文字\n\n" + tokens.join("\n\n") })).json.item;
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    if (mode === "source") await page.locator("#btnModeToggle").click();
+    for (const token of tokens) {
+      assert.ok((await page.evaluate(() => window.__prototypeEditor.getEditorValue())).includes(token), `Current token ${token}: ${await page.evaluate(() => window.__prototypeEditor.getEditorValue())}`);
+      await page.evaluate(token => { const e = window.__prototypeEditor, at = e.getEditorValue().indexOf(token) + 3; e.setEditorSelectionRange(at, at); e.focusEditor(); }, token);
+      await page.locator("#btnInsertLink").click();
+      assert.equal(await page.locator("#linkPicker .link-picker-head strong").textContent(), "修改笔记链接", JSON.stringify(await page.evaluate(() => { const e = window.__prototypeEditor; return { selection: e.editorSelection(), manual: e.manualLinkReturnSelection, body: e.getEditorValue() }; })));
+      await page.locator("#btnRemoveBodyLink").click();
+      await page.waitForFunction(() => !window.__prototypeEditor.isSubmittingLinkInsert);
+      assert.equal(await page.locator("#statusText").textContent(), "已移除链接，文字已保留。");
+      await waitFor(async () => assert.ok(!(await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.includes(token)));
+    }
+    await page.reload({ waitUntil: "networkidle" });
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    if (!(await page.evaluate(() => window.__prototypeEditor.isWysiwygMode()))) await page.locator("#btnModeToggle").click();
+    const editor = page.locator("#wysiwygHost .ProseMirror:visible");
+    for (const label of labels) assert.ok((await editor.innerText()).includes(label));
+    assert.equal(await editor.locator("ul, ol, hr, del, h2").count(), 0);
+    assert.equal(await editor.locator("h1").count(), 1);
+    await page.screenshot({ path: `output/note-editor-validation/link-literal-${mode}.png`, fullPage: true });
+  });
+}
+
 for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "source", 1366], ["literature", "source", 1366], ["original", "wysiwyg", 1366], ["fleeting", "wysiwyg", 390]]) {
   test(`${kind} body links insert, replace and open the chosen note (${mode}, ${width}px)`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }

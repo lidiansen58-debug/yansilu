@@ -5,7 +5,9 @@ export function bodyLinkTextForRemoval(existing = {}) {
   const raw = String(existing.raw || "");
   const separator = raw.indexOf("|");
   const label = separator >= 0 ? raw.slice(separator + 1).trim() : existing.noteTitle || wikilinkLabelFromRaw(raw);
-  return String(label || existing.noteTitle || "未命名笔记").replace(/[\\`*_\[\]<>#]/g, "\\$&");
+  return String(label || existing.noteTitle || "未命名笔记")
+    .replace(/[\\`*_\[\]<>#~|+=-]/g, "\\$&")
+    .replace(/^(\d{1,9})([.)])(?=\s)/, "$1\\$2");
 }
 
 export function bodyLinkTokenForNote(note = {}, existing = null, selectedLabel = "") {

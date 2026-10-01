@@ -19,3 +19,12 @@
 浏览器验证使用临时笔记库，没有改动用户数据。未验证真实系统输入法、手机软键盘、安装版桌面应用或长文档性能；以上通过数仅针对相关用例。
 
 日志位于 `output/note-editor-validation/`：`link-remove-unit-final.log`、`link-remove-browser-final.log`、`link-remove-legacy.log`、`link-remove-encoding.log`。截图：`link-remove-picker-source.png`、`link-remove-picker-wysiwyg.png`。
+
+## 后续：特殊文字与连续编辑
+
+- 移除链接时保留 `- 清单`、`1. 顺序`、`2) 顺序`、`~~划线~~`、`---`、`===` 和竖线等文字，避免意外转换为列表、删除线、分隔线、标题或表格语法。
+- 修正富文本逆向选区转换：临时标记落在转义的列表前缀中时，可能改变 Markdown 序列化，因此该位置不能参与定位。现在只在附近 32 个位置内寻找通过一致性检查的位置，继续缩小查找范围；所有标记仍只存在于未提交的文档副本。源码和生成的 ToastUI bundle 同步。
+- 新增源码、富文本浏览器测试，在同一篇随笔内连续移除五个失效链接，逐次检查修改窗口和成功反馈，保存刷新后检查原文字以及没有新生成列表、删除线、分隔线或标题。
+- 本轮 557 项相关单元测试、26 项相关浏览器用例通过；ToastUI 构建成功，编码检查无新增问题，差异检查通过。截图 `link-literal-source.png`、`link-literal-wysiwyg.png` 已检查。
+
+本轮日志：`link-literal-unit-all.log`、`link-literal-browser-final.log`、`link-literal-legacy.log`、`link-literal-build.log`、`link-literal-encoding.log`，目录同上。仍未测长文档性能和真实系统输入法；局部查找没有扩展为全篇遍历。
