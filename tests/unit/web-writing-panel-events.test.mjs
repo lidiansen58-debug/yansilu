@@ -1048,6 +1048,11 @@ test("writing draft action installer wires primary draft buttons through latest 
     ["btnWritingSaveDraft", { textContent: "" }],
     ["btnWritingOpenDraft", {}],
     ["writingDraftEditor", {}],
+    ["writingDraftTarget", {}],
+    ["btnWritingChapterAdd", {}],
+    ["btnWritingChapterRemove", {}],
+    ["btnWritingChapterUp", {}],
+    ["btnWritingChapterDown", {}],
     ["writingTitle", {}],
     ["writingGoal", {}],
     ["writingScaffoldPreview", {}],
@@ -1089,7 +1094,7 @@ test("writing draft action installer wires primary draft buttons through latest 
     })
   });
 
-  assert.equal(registrations.length, 15);
+  assert.equal(registrations.length, 20);
   assert.equal(registrations.every((item) => item.installed), true);
 
   await handlers.get("btnWritingCreateProject:click")();
@@ -1399,9 +1404,10 @@ test("writing create scaffold and save draft handlers persist generated state", 
     writingDraftDirectoryId: () => "dir1",
     writingDraftTitle: () => "Writing UI Project",
     writingDraftBody: () => "# Writing UI Project 草稿\n\nbody",
+    createNoteId: () => "12345678-1234-4234-8234-123456789abc",
     createNote: async (payload) => {
       calls.push(["create-note", payload.title, payload.body]);
-      return { id: "n1", title: payload.title };
+      return { id: `note_${payload.clientCreationId}`, ...payload };
     },
     bindWritingDraftNote: async (projectId, noteId, scaffoldId, versionNote) => {
       calls.push(["bind", projectId, noteId, scaffoldId, versionNote]);
@@ -1417,10 +1423,10 @@ test("writing create scaffold and save draft handlers persist generated state", 
   assert.equal(actionFeedback.dataset.tone, "ok");
   assert.equal(createScaffoldButton.disabled, false);
   assert.ok(calls.some((call) => call[0] === "tab" && call[1] === "outline"));
-  assert.equal(writingState.project.draft_note_id, "n1");
+  assert.equal(writingState.project.draft_note_id, "note_12345678-1234-4234-8234-123456789abc");
   assert.equal(state.notes[0].mapped, true);
   assert.ok(calls.some((call) => call[0] === "create-note" && call[1] === "Writing UI Project" && /^# Writing UI Project/.test(call[2])));
-  assert.ok(calls.some((call) => call[0] === "bind" && call[1] === "p1" && call[2] === "n1" && call[3] === "s1"));
+  assert.ok(calls.some((call) => call[0] === "bind" && call[1] === "p1" && call[2] === "note_12345678-1234-4234-8234-123456789abc" && call[3] === "s1"));
 });
 
 test("writing save draft updates the current draft instead of creating another version", async () => {
@@ -1474,7 +1480,7 @@ test("writing save draft keeps retry feedback on the button after failure", asyn
   const saveButton = { textContent: "保存草稿", disabled: false };
   const calls = [];
   const writingState = {
-    project: { id: "p1", draft_note_id: "n1" },
+    project: { id: "p1", draft_note_id: "n1", draft_note: { id: "n1", body: "saved" } },
     scaffold: { id: "s1" },
     scaffoldMarkdown: "outline"
   };

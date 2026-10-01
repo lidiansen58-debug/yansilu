@@ -1,13 +1,15 @@
 import { withMoveDeadline } from "./note-move-recovery.js";
 import { applyLoadedNoteToClientState } from "./loaded-note-client-state.js";
+import { noteCreationStorage } from "./note-creation-storage.js";
 
-const uncertain = error => ["request_timeout", "api_unavailable"].includes(error?.code);
+const uncertain = error => !["NOTE_PAYLOAD_INVALID", "VAULT_CHANGED", "desktop_api_unavailable"].includes(error?.code);
 const failure = error => ({ note: null, remote: false, error });
 
 export function createNoteCreationController({ state, folderById, findUntitledPlaceholder,
   isLocalOnlyNote, initialBodyForFolder, createNote,
   fetchNote, mapNoteItem, ensureEditableNoteBody, openStandaloneEditorWindow, openNoteById,
-  getVaultPath = () => "", createId = () => crypto.randomUUID(), timeoutMs = 15000, verifyTimeoutMs = 5000 }) {
+  getVaultPath = () => "", getStorage = () => typeof window === "undefined" ? null : window.localStorage,
+  createId = () => crypto.randomUUID(), timeoutMs = 15000, verifyTimeoutMs = 5000 }) {
   let pending = null;
   let inFlight = null;
   const scope = () => state.noteMoveVaultScope ||= {};
@@ -25,16 +27,19 @@ export function createNoteCreationController({ state, folderById, findUntitledPl
       return { note: kept, remote: !isLocalOnlyNote(kept), reused: true, reuseSnapshot: noteSnapshot(kept.id) };
     }
     op.body = initialBodyForFolder(op.folderId);
+    op.journal?.write(op);
     op.posted = true;
     const created = await createNote({ directoryId: op.folderId, body: op.body, clientCreationId: op.id,
       ...(op.vaultPath ? { expectedVaultPath: op.vaultPath } : {}) });
-    if (!created) throw Object.assign(new Error("本地服务没有返回创建结果"), { code: "api_unavailable" });
+    if (created?.id !== `note_${op.id}` || !created.directoryId || typeof created.body !== "string") {
+      throw Object.assign(new Error("本地服务没有返回匹配的创建结果"), { code: "api_unavailable" });
+    }
     return { created };
   };
   const finish = (op, result) => {
     assertCurrent(op);
-    const loaded = result.note || mapNoteItem({ ...result.created,
-      body: ensureEditableNoteBody(typeof result.created.body === "string" ? result.created.body : op.body) });
+    op.journal?.clear(op.id);
+    const loaded = result.note || mapNoteItem(result.created);
     const note = applyLoadedNoteToClientState(state, loaded, {
       refreshLoaded: Boolean(result.reused && result.reuseSnapshot === noteSnapshot(loaded.id))
     });
@@ -48,11 +53,13 @@ export function createNoteCreationController({ state, folderById, findUntitledPl
   const reconcile = async op => {
     assertCurrent(op);
     if (op.result && !op.needsVerification) return finish(op, op.result);
-    if (op.error && (!op.posted || !uncertain(op.error))) {
+    if (op.error && (!op.posted || ["VAULT_CHANGED", "desktop_api_unavailable"].includes(op.error.code))) {
+      op.journal?.clear(op.id);
       release(op);
       pending = null;
       return failure(op.error);
     }
+    let confirmedMissing = false;
     if (op.posted || op.result?.note) {
       try {
         const noteId = op.result?.note?.id || `note_${op.id}`;
@@ -61,17 +68,28 @@ export function createNoteCreationController({ state, folderById, findUntitledPl
         if (created?.id === noteId && created.directoryId && typeof created.body === "string") {
           return finish(op, { created });
         }
+        confirmedMissing = created == null;
       } catch { /* A missing response does not prove that creation failed. */ }
     }
     assertCurrent(op);
-    if (op.error && (!op.posted || !uncertain(op.error))) { release(op); pending = null; return failure(op.error); }
+    if (op.error && !uncertain(op.error) && confirmedMissing) { op.journal?.clear(op.id); release(op); pending = null; return failure(op.error); }
     return failure(Object.assign(new Error("创建结果尚未确认。再次点击新建会核查同一条笔记，不会重复创建；请检查本地服务。"), { code: "creation_pending" }));
   };
   const run = async options => {
     if (state.noteMoveVaultSwitching || state.noteMoveVaultUncertain) return failure(new Error("请先确认当前笔记库。"));
     if (pending && pending.scope !== scope()) { release(pending); pending = null; }
+    if (!pending) {
+      const vaultPath = getVaultPath();
+      const journal = noteCreationStorage(getStorage(), vaultPath);
+      const saved = journal?.read();
+      if (saved) {
+        pending = { ...saved, journal, scope: scope(), controller: new AbortController(), options: { ...options }, posted: true, needsVerification: true };
+        state.pendingNoteCreation = pending;
+      }
+    }
     if (pending) { pending.needsVerification = true; return reconcile(pending); }
     const op = { scope: scope(), controller: new AbortController(), vaultPath: getVaultPath(), folderId: state.selectedFolderId, options: { ...options }, id: createId() };
+    op.journal = noteCreationStorage(getStorage(), op.vaultPath);
     pending = op;
     state.pendingNoteCreation = op;
     const work = prepare(op).then(result => { op.result = result; release(op); }, error => {

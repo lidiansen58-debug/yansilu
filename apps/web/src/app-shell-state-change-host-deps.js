@@ -44,6 +44,8 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     noteMainPathWritingContinuationEntry: host.noteMainPathWritingContinuationEntry,
     notePersistenceFieldsForSave: host.notePersistenceFieldsForSave,
     noteSaveFailureFeedback: host.noteSaveFailureFeedback,
+    getVaultPath: host.getVaultPath,
+    checkNoteSave: host.checkNoteSave,
     normalizeAiInboxFilters: host.normalizeAiInboxFilters,
     normalizeAuthorshipItem: host.normalizeAuthorshipItem,
     normalizeOptionalNumber: host.normalizeOptionalNumber,

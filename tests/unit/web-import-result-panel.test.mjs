@@ -2,6 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportResultPanel } from "../../apps/web/src/import-result-panel.js";
 
+test("interrupted file inventory never truncates the missing or unconfirmed item", () => {
+  const html = renderImportResultPanel({ data: { stage: "confirm_pending", importRecord: { recoveryResult: {
+    checkpointAvailable: true, files: [
+      { status: "verified", relativePath: "one.md" }, { status: "changed", relativePath: "two.md" },
+      { status: "missing", relativePath: "three.md" }, { status: "verified", relativePath: "<four>.md" }
+    ], pending: { noteId: "last-pending" }
+  } } }, warnings: [{ code: "IMPORT_RECOVERY_FILE", message: "duplicate" }] });
+  assert.match(html, /文件已缺失：three.md/);
+  assert.match(html, /结果未确认：last-pending/);
+  assert.match(html, /&lt;four&gt;.md/);
+  assert.doesNotMatch(html, /duplicate/);
+});
+
 test("import result panel renders localized zero-candidate preview feedback", () => {
   const html = renderImportResultPanel({
     data: { stage: "preview" },

@@ -15,6 +15,44 @@ function statusRecorder() {
   };
 }
 
+test("uncertain save keeps input and returns a warning instead of success", async () => {
+  const body = "My unsaved edit";
+  const state = { notes: [{ id: "n1", body }], tabs: [] };
+  const result = await handleSaveNoteStateChange({ noteId: "n1", body }, {
+    state,
+    updateNote: async () => { throw Object.assign(new Error("Result not confirmed"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" }); }
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.saveMode, "uncertain");
+  assert.equal(result.statusTone, "warn");
+  assert.equal(state.notes[0].body, body);
+});
+
+test("recovered saves do not display a saved-content AI suggestion for later input", async () => {
+  let suggestions = 0, cleared = 0;
+  const updated = { id: "n", body: "EARLIER", recoveredSave: true };
+  const result = await handleSaveNoteStateChange({ noteId: "n", body: "LATER" }, {
+    state: { notes: [{ id: "n", body: "LATER" }], tabs: [{ noteId: "n", dirty: true }] },
+    updateNote: async () => updated,
+    clearSaveAiSuggestion: () => { cleared++; },
+    showSaveAiSuggestionForNote: () => { suggestions++; }
+  });
+  assert.equal(result, updated);
+  assert.equal(suggestions, 0);
+  assert.equal(cleared, 1);
+});
+
+test("an explicit editor save without a loaded baseline fails before persistence", async () => {
+  let writes = 0;
+  const result = await handleSaveNoteStateChange({ noteId: "n", body: "My edit", expectedBody: undefined }, {
+    state: { notes: [{ id: "n", body: "My edit" }] },
+    updateNote: async () => { writes++; return {}; }
+  });
+  assert.equal(result.ok, false);
+  assert.equal(writes, 0);
+  assert.match(result.statusMessage, /缺少已保存正文/);
+});
+
 test("save note state action saves the active tab note and syncs explorer after markdown persistence", async () => {
   const status = statusRecorder();
   const state = {

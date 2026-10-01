@@ -1,5 +1,8 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
 import { recordWritingDraftInput } from "./writing-draft-save-controller.js";
+import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
+import { selectWritingDraftTarget, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
+import { changeWritingBookDirectory } from "./writing-book-directory-controller.js";
 export { handleWritingSaveDraftClick, normalizeWritingDraftTitle } from "./writing-draft-save-controller.js";
 import { handleWritingSaveDraftClick } from "./writing-draft-save-controller.js";
 import {
@@ -245,6 +248,12 @@ export function installWritingDraftActionEventHandlers(options = {}) {
   add("writingDraftEditor", "input", (event) => {
     recordWritingDraftInput(deps(), event?.target?.value);
   });
+  add("writingDraftTarget", "change", async (event) => {
+    await selectWritingDraftTarget({ ...deps(), assertWritingDraftCanLeave }, event.target.value);
+  });
+  for (const [id, action] of [["btnWritingChapterAdd", "add"], ["btnWritingChapterRemove", "remove"], ["btnWritingChapterUp", "up"], ["btnWritingChapterDown", "down"]]) {
+    add(id, "click", async () => changeWritingBookDirectory({ ...deps(), assertWritingDraftCanLeave }, action));
+  }
   add("writingTitle", "change", async () => {
     await persistWritingProjectForm(deps());
   });
@@ -313,6 +322,7 @@ export function handleWritingStartDraftClick(deps = {}) {
     writingState = {},
     writingDraftBody = () => ""
   } = deps;
+  if (selectedWritingBookChapter(writingState)) return false;
   if (writingState.project?.draft_note_id) return false;
   const body = String(writingDraftBody() || writingState.scaffoldMarkdown || "").trim();
   if (!body) return false;
@@ -726,6 +736,14 @@ export async function handleWritingCreateScaffoldClick(deps = {}) {
     applyWritingTab = () => {},
     setStatus = () => {}
   } = deps;
+  try {
+    assertWritingDraftCanLeave(writingState);
+  } catch (error) {
+    const message = String(error?.message || error);
+    setWritingActionFeedback($, message, "warn");
+    setStatus(message, "warn");
+    return;
+  }
   let writingProjectId = writingState.project?.id;
   const continuation = !writingProjectId ? currentWritingContinuationEntry("当前相关笔记") : null;
   const missingProjectLabel = String($("btnWritingCreateScaffold")?.textContent || "").trim();

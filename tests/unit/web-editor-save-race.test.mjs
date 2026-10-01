@@ -24,6 +24,65 @@ function createNormalizedSavePane() {
   return { pane, note, tab, editor, rawBody };
 }
 
+for (const automatic of [false, true]) test(`uncertain ${automatic ? "automatic" : "manual"} save pauses later autosaves and keeps the draft`, async () => {
+  const { pane, tab, editor } = createNormalizedSavePane();
+  let writes = 0;
+  const baseline = tab.savedBody;
+  pane.onStateChange = (_reason, payload) => handleSaveNoteStateChange(payload, {
+    state: pane.state, editor: pane,
+    updateNote: async () => { writes++; throw Object.assign(new Error("Result not confirmed"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" }); }
+  });
+  if (automatic) await pane.autoSaveTabById(tab.id);
+  else await pane.performSaveActiveNote();
+  assert.equal(tab.saveUiState.mode, "uncertain");
+  assert.equal(tab.saveConflict, true);
+  assert.equal(tab.dirty, true);
+  assert.equal(tab.savedBody, baseline);
+  assert.deepEqual(editor.cleared, []);
+  tab.saveUiState = { mode: "dirty", message: "" };
+  editor.value += "\nMore typing";
+  pane.scheduleAutoSave();
+  assert.equal(pane.autoSaveTimer, null);
+  assert.equal(pane.autoSaveIdleTimer, null);
+  await pane.autoSaveTabById(tab.id);
+  await pane.autoSaveActiveNote();
+  assert.equal(writes, 1);
+});
+
+test("restoring an ordinary draft retains its old baseline instead of accepting external changes", t => {
+  const { pane, tab, note } = createNormalizedSavePane();
+  const previous = globalThis.window;
+  globalThis.window = { confirm: () => true };
+  t.after(() => { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; });
+  const draft = { body: "# My unsaved input", savedBody: "# OLD BASELINE", savedTitle: "Old title", savedFileRevision: "a".repeat(64) };
+  tab.dirty = false;
+  pane.readDraft = () => draft;
+  pane.maybeRestoreDraft(tab, { ...note, body: "# EXTERNAL BODY", fileRevision: "b".repeat(64) });
+  assert.equal(tab.body, draft.body);
+  assert.equal(tab.savedBody, draft.savedBody);
+  assert.equal(tab.savedFileRevision, draft.savedFileRevision);
+  assert.equal(tab.savedTitle, draft.savedTitle);
+  assert.equal(tab.dirty, true);
+});
+
+for (const automatic of [false, true]) test(`recovering an older receipt preserves current input for ${automatic ? "automatic" : "manual"} save`, async () => {
+  const { pane, note, tab, editor, rawBody } = createNormalizedSavePane();
+  pane.normalizePermanentBodyForSave = value => value;
+  pane.scheduleAutoSave = () => {};
+  const oldSubmission = "# Normalized note\n\nOLD SAVED SUBMISSION";
+  pane.onStateChange = async () => ({ ...note, body: oldSubmission, fileRevision: "a".repeat(64), recoveredSave: true });
+  if (automatic) await pane.autoSaveTabById(tab.id);
+  else await pane.performSaveActiveNote();
+  assert.equal(editor.value, rawBody);
+  assert.equal(tab.body, rawBody);
+  assert.equal(tab.savedBody, oldSubmission);
+  assert.equal(tab.savedFileRevision, "a".repeat(64));
+  assert.equal(tab.dirty, true);
+  assert.equal(tab.saveUiState.mode, "dirty");
+  assert.deepEqual(editor.cleared, []);
+  assert.deepEqual(editor.repaints, []);
+});
+
 test("normalizing permanent-note Markdown does not leave a saved editor dirty", async () => {
   const { pane, note, tab, editor, rawBody } = createNormalizedSavePane();
   const normalized = pane.normalizePermanentBodyForSave(rawBody);
@@ -38,6 +97,21 @@ test("normalizing permanent-note Markdown does not leave a saved editor dirty", 
   assert.deepEqual(editor.repaints, [normalized]);
   assert.deepEqual(editor.drafts, []);
   assert.deepEqual(editor.cleared, [note.id]);
+});
+
+test("autosave uses the acknowledged canonical body as the next save baseline", async () => {
+  const { pane, tab, note } = createNormalizedSavePane();
+  const expected = tab.savedBody;
+  let canonical;
+  pane.onStateChange = async (_reason, payload) => {
+    assert.equal(payload.expectedBody, expected);
+    canonical = `${payload.body.trimEnd()}\n`;
+    return { ...note, body: canonical };
+  };
+  await pane.autoSaveTabById(tab.id);
+  assert.equal(tab.savedBody, canonical);
+  assert.equal(tab.body, canonical);
+  assert.equal(tab.dirty, false);
 });
 
 test("normalization still preserves real editor changes made during save", async () => {

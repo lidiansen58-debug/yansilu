@@ -24,6 +24,44 @@ test("prototype API falls back when packaged API placeholder is not replaced", a
   assert.equal(api.getApiBase(), "http://127.0.0.1:3000");
 });
 
+test("note update keeps the caller's operation ID and vault binding during readback", async t => {
+  const api = await importPrototypeApi("editor-save-operation", { __API_BASE__: "http://127.0.0.1:3999" });
+  const note = { id: "n", body: "submitted", fileRevision: "a".repeat(64) };
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (options.method === "PUT") {
+      assert.equal(JSON.parse(options.body).operationId, "stable-operation-1");
+      assert.equal(JSON.parse(options.body).expectedVaultPath, "E:/vault A");
+      throw new TypeError("lost response");
+    }
+    const query = new URL(String(url)).searchParams;
+    assert.equal(query.get("operationId"), "stable-operation-1");
+    assert.equal(query.get("expectedVaultPath"), "E:/vault A");
+    assert.equal(options.cache, "no-store");
+    return Response.json({ item: { state: "completed", note, fileRevision: note.fileRevision } });
+  });
+  assert.deepEqual(await api.updateNote("n", { body: "submitted", expectedVaultPath: "E:/vault A" }, { operationId: "stable-operation-1" }), note);
+  assert.equal(calls.length, 2);
+});
+
+test("import confirmation API recovers a lost response with an uncached GET and no second POST", async t => {
+  const api = await importPrototypeApi("import-confirm-readback", { __API_BASE__: "http://127.0.0.1:3999" });
+  const result = { created: { sources: 1, literatureNotes: 0, permanentNotes: 0 }, createdFiles: [{ path: "one.md" }] };
+  let writes = 0, reads = 0;
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (options.method === "POST") { writes++; throw new TypeError("response lost"); }
+    reads++;
+    assert.equal(options.cache, "no-store");
+    assert.equal(String(url), "http://127.0.0.1:3999/api/v1/imports/imp-readback");
+    return Response.json({ importRecord: { importRecordId: "imp-readback", status: "completed", confirmResult: result } });
+  });
+  assert.deepEqual((await api.confirmImport("imp-readback", {})).result, result);
+  await api.confirmImport("imp-readback", {});
+  assert.equal(writes, 1);
+  assert.equal(reads, 1);
+});
+
 test("move preparation cancelled during verification cannot submit a late POST", async t => {
   const api = await importPrototypeApi("cancel-late-move", { __API_BASE__: "http://127.0.0.1:3999" });
   let finish, started, posts = 0;

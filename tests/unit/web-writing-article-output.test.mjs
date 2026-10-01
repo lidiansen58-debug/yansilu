@@ -80,6 +80,24 @@ test("blank current editor never falls back to a saved old body", async () => {
   assert.match(calls[0][1], /请先写入正文/);
 });
 
+test("chapter prose cannot be accidentally exported through the article command", async () => {
+  const { controller, calls, deps } = setup();
+  deps.writingState.bookChapter = { projectId: "p1", id: "chapter-one" };
+  await controller.export();
+  assert.equal(calls.length, 1);
+  assert.match(calls[0][1], /切回文章正文/);
+});
+
+test("late article output feedback is silent after selecting a chapter", async () => {
+  let resolve;
+  const { controller, calls, deps } = setup({ copyTextToClipboard: () => new Promise(done => { resolve = done; }) });
+  const copying = controller.copy();
+  deps.writingState.bookChapter = { projectId: "p1", id: "chapter-one" };
+  resolve();
+  await copying;
+  assert.deepEqual(calls, []);
+});
+
 test("pending copy suppresses repeat clicks and late feedback in a different vault", async () => {
   let resolve;
   const { controller, calls, deps } = setup({ copyTextToClipboard: () => new Promise((done) => { resolve = done; }) });

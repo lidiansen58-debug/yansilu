@@ -67,6 +67,7 @@ test("prototype note state helpers map directories and notes", () => {
     id: "n1",
     title: "Title",
     linkAliases: ["Earlier title"],
+    fileRevision: "a".repeat(64),
     directoryId: "lit",
     body: "origin body",
     originality_similarity: "0.12",
@@ -75,6 +76,7 @@ test("prototype note state helpers map directories and notes", () => {
     thinkingStatus: { label: "Next" }
   }, deps);
   assert.equal(note.noteType, "literature");
+  assert.equal(note.fileRevision, "a".repeat(64));
   assert.deepEqual(note.linkAliases, ["Earlier title"]);
   assert.equal(note.originalitySimilarity, 0.12);
   assert.deepEqual(note.authorship, { user_confirmed: true, ai_assisted: false });

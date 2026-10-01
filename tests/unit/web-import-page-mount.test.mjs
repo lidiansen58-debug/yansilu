@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportPageMount } from "../../apps/web/src/import-page-mount.js";
 
+test("redrawn result dialog keeps the active import or export body visible", () => {
+  const html = renderImportPageMount({ resultVisible: true, resultMode: "export", exportResult: { html: "EXPORT-RECEIPT" } });
+  assert.match(html, /class="modal-mask import-result-modal"/);
+  assert.match(html, /id="exportResult">EXPORT-RECEIPT/);
+  assert.match(html, /id="importResult" hidden/);
+  assert.match(renderImportPageMount({ resultVisible: false }), /import-result-modal hidden/);
+});
+
 test("import page mount renders compact import export workspace and result modal", () => {
   const html = renderImportPageMount({
     toolbar: {

@@ -123,6 +123,8 @@ export function createImportResultRuntime(deps = {}) {
   }
 
   function showImportOperationResultModal(mode = "import", title = "操作结果") {
+    importState.operationResultVisible = true;
+    importState.operationResultMode = mode;
     const modal = $("importOperationResultModal");
     const titleEl = $("importOperationResultTitle");
     const importResult = $("importResult");
@@ -135,6 +137,7 @@ export function createImportResultRuntime(deps = {}) {
   }
 
   function hideImportOperationResultModal() {
+    importState.operationResultVisible = false;
     $("importOperationResultModal")?.classList.add("hidden");
   }
 
@@ -149,6 +152,7 @@ export function createImportResultRuntime(deps = {}) {
   }
 
   function showExportResult(payload) {
+    importState.lastExportResultPayload = payload;
     const directoryId = String(payload?.directoryId || "").trim();
     if (directoryId && !payload.directoryLabel) payload.directoryLabel = directoryPathLabel(directoryId);
     renderResult($("exportResult"), payload);
@@ -339,6 +343,7 @@ export function createImportResultRuntime(deps = {}) {
     });
     button.disabled = state.disabled;
     button.textContent = state.label;
+    deps.checkpointImportWorkspace?.();
   }
 
   function rerenderImportResult() {

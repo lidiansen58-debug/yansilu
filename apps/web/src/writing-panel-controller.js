@@ -1,4 +1,6 @@
 import { renderWritingEntryPreparation } from "./writing-entry-preparation.js";
+import { renderWritingBookChapterSelector, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
+import { renderWritingBookDirectoryTools, writingBookDirectoryPending } from "./writing-book-directory-controller.js";
 import {
   renderWritingMainlineGuideView,
   renderWritingFlowStepsView,
@@ -367,11 +369,21 @@ export function renderWritingPanelDom(deps = {}) {
     exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
     exportScaffoldButton.hidden = !hasScaffold;
   }
-  if (openDraftButton) openDraftButton.hidden = !hasDraft;
+  const bookChapter = selectedWritingBookChapter(writingState);
+  renderWritingBookChapterSelector({ ...deps, escapeHtml });
+  renderWritingBookDirectoryTools(deps);
+  const directoryPending = writingBookDirectoryPending(writingState);
+  const bookExportButton = $("btnWritingExportBook");
+  if (bookExportButton) {
+    bookExportButton.hidden = !(writingState.project?.book_structure?.parts || []).some(part => part.chapters?.length);
+    bookExportButton.disabled = directoryPending || writingState.bookExportPending?.projectId === writingState.project?.id || writingState.draftSaveState === "saving" || bookChapter?.saveState === "saving";
+  }
+  if ($("writingDraftTarget")) $("writingDraftTarget").disabled ||= directoryPending;
+  if (openDraftButton) openDraftButton.hidden = !hasDraft || Boolean(bookChapter);
   for (const id of ["btnWritingCopyArticle", "btnWritingExportArticle"]) {
     const button = $(id);
     if (button) {
-      button.hidden = !hasDraft && !writingState.draftMarkdown;
+      button.hidden = Boolean(bookChapter) || (!hasDraft && !writingState.draftMarkdown);
       button.disabled = writingState.draftSaveState === "saving";
     }
   }
@@ -381,10 +393,12 @@ export function renderWritingPanelDom(deps = {}) {
   }
   if (outputActionsDetails && (hasScaffold || hasDraft)) outputActionsDetails.open = true;
   if (saveDraftButton) {
-    const canSaveDraft = Boolean(writingState.scaffold?.id);
-    const draftSaveState = String(writingState.draftSaveState || "idle");
-    saveDraftButton.disabled = !canSaveDraft || draftSaveState === "saving";
-    saveDraftButton.textContent = !writingState.scaffold?.id
+    const canSaveDraft = Boolean(bookChapter || writingState.scaffold?.id);
+    const draftSaveState = String(bookChapter?.saveState || writingState.draftSaveState || "idle");
+    saveDraftButton.disabled = directoryPending || !canSaveDraft || draftSaveState === "saving";
+    saveDraftButton.textContent = bookChapter
+      ? draftSaveState === "saving" ? "正在保存..." : draftSaveState === "error" ? bookChapter.saveErrorCode === "NOTE_SAVE_RESULT_UNCERTAIN" ? "核查后再保存" : "保存失败，重试" : draftSaveState === "saved" ? "已保存" : "保存章节"
+      : !writingState.scaffold?.id
       ? !writingState.project?.id
         ? projectEntry?.projectId && projectEntry?.actionLabel
           ? `先${projectEntry.actionLabel}`
@@ -404,7 +418,8 @@ export function renderWritingPanelDom(deps = {}) {
             ? "已保存"
             : hasDraft ? "保存草稿" : "保存为草稿笔记";
   }
-  if (startDraftButton) startDraftButton.disabled = !hasScaffold;
+  if (startDraftButton) startDraftButton.disabled = !hasScaffold || Boolean(bookChapter);
+  if (draftEditor) draftEditor.disabled = directoryPending || (!hasScaffold && !bookChapter);
   if (draftEditor && (typeof document === "undefined" || document.activeElement !== draftEditor)) {
     const draftBody = String(writingDraftContent({ writingState, title: $("writingTitle")?.value, notes: basketEntries })).trim();
     draftEditor.value = draftBody;

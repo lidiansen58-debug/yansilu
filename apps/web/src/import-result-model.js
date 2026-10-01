@@ -13,6 +13,8 @@ function uniqueStrings(items = []) {
 function statusValue(status) {
   const labels = {
     preview: "待确认",
+    confirming: "正在导入",
+    interrupted: "导入曾中断，结果待核查",
     completed: "已导入",
     rolled_back: "已回滚",
     cancelled: "已取消",
@@ -102,6 +104,7 @@ export function resultTitle(stage) {
     preview: "导入预览已生成",
     preview_error: "导入预览失败",
     confirm: "导入完成",
+    confirm_pending: "导入结果待核查",
     confirm_error: "导入失败",
     cancel: "导入已取消",
     cancel_error: "取消导入失败",
@@ -127,6 +130,7 @@ export function resultTitle(stage) {
 
 export function resultTone(payload = {}) {
   const stage = String(payload.stage || "");
+  if (stage === "confirm_pending") return "warn";
   if (stage.includes("error")) return "bad";
   const importRecordStatus = String(payload.importRecord?.status || payload.importRecord?.state || "").trim();
   if (importRecordStatus === "failed") return "bad";
@@ -176,6 +180,13 @@ export function resultMetrics(payload = {}) {
   if (stage === "record") {
     push("来源", importConnectorLabel(payload.importRecord?.connector));
     push("状态", statusValue(payload.importRecord?.status));
+    const recovery = payload.importRecord?.recoveryResult;
+    if (recovery) {
+      push("文件已核对", recovery.files.filter(item => item.status === "verified").length);
+      push("文件已变化", recovery.files.filter(item => item.status === "changed").length);
+      push("文件已缺失", recovery.files.filter(item => item.status === "missing").length);
+      if (recovery.pending) push("待核查", recovery.pending.noteId);
+    }
     const summary = payload.importRecord?.summary || {};
     if (summary && Object.keys(summary).length) {
       push("摘要", `${Number(summary.sources || 0)} 来源 / ${Number(summary.literatureNotes || 0)} 文献 / ${Number(summary.permanentNotes || 0)} 永久`);
@@ -218,13 +229,21 @@ export function resultMetrics(payload = {}) {
     return metrics;
   }
 
-  push("状态", statusValue(payload.status));
+  push("状态", statusValue(payload.importRecord?.status || payload.status));
   if (payload.message) push("说明", payload.message);
   return metrics;
 }
 
 export function warningItems(payload = {}) {
   const warnings = [];
+  const recovery = payload.importRecord?.recoveryResult;
+  if (recovery) {
+    warnings.push({ code: "IMPORT_INTERRUPTED", message: "导入中断，不会自动重复执行。",
+      detail: recovery.checkpointAvailable ? "下列文件按当前实际内容核对；待核查项不算导入成功。" : "旧记录没有逐项检查点，请手动核对笔记库。" });
+    for (const file of recovery.files) warnings.push({ code: "IMPORT_RECOVERY_FILE",
+      message: `${file.status === "verified" ? "内容已核对" : file.status === "changed" ? "内容已变化" : "文件已缺失"}：${file.relativePath}` });
+    if (recovery.pending) warnings.push({ code: "IMPORT_RECOVERY_PENDING", message: `结果未确认：${recovery.pending.noteId}` });
+  }
   if (Array.isArray(payload.warnings)) {
     warnings.push(
       ...payload.warnings.map((item) => ({
@@ -234,7 +253,7 @@ export function warningItems(payload = {}) {
       }))
     );
   }
-  if (payload.code) {
+  if (payload.code && payload.stage !== "confirm_pending") {
     warnings.push({
       code: payload.code,
       message: warningSummaryText(payload.code, payload.message || ""),
@@ -356,6 +375,7 @@ export function resultStatusLabel(tone) {
 }
 
 export function resultBrief(payload = {}, tone = resultTone(payload)) {
+  if (payload.stage === "confirm_pending") return "尚未确认最终结果，请先核查这次导入。";
   const stage = String(payload.stage || "").trim();
   if (tone === "bad") return "这一步没有完成，请先处理下面的问题。";
   if (stage === "preview" && previewCandidateTotal(payload) === 0) {

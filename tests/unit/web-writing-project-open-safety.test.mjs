@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWritingProjectOpenController } from "../../apps/web/src/writing-project-open-controller.js";
+import { saveWritingInput } from "../../apps/web/src/writing-input-recovery.js";
 
 function deferred() {
   let resolve, reject;
@@ -32,6 +33,29 @@ function setup() {
   return { deps, state, writingState, commits, controller: createWritingProjectOpenController(() => deps) };
 }
 
+test("article open restores empty local input and its original save baseline", async () => {
+  const s = setup();
+  const records = new Map();
+  s.deps.recoveryStorage = { getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value) };
+  saveWritingInput(s.deps, JSON.stringify(["article", "new", "s-new"]), {
+    markdown: "", noteId: "d-new", savedBody: "Old disk body", savedFileRevision: "old-revision"
+  });
+  await s.controller.open("new");
+  assert.equal(s.writingState.draftMarkdown, "");
+  assert.equal(s.writingState.draftSaveState, "dirty");
+  assert.equal(s.writingState.project.draft_note.body, "Old disk body");
+  assert.equal(s.writingState.project.draft_note.fileRevision, "old-revision");
+});
+
+test("damaged recovery record leaves the original project untouched", async () => {
+  const s = setup();
+  s.deps.recoveryStorage = { getItem: () => "{broken" };
+  await assert.rejects(s.controller.open("new"), /本机草稿恢复记录/);
+  assert.equal(s.writingState.project.id, "old");
+  assert.equal(s.writingState.draftMarkdown, "Old body");
+  assert.deepEqual(s.commits, []);
+});
+
 test("last requested project wins when an earlier project response is late", async () => {
   const { deps, controller, writingState, commits } = setup();
   const oldFetch = deps.fetchWritingProject;
@@ -44,6 +68,19 @@ test("last requested project wins when an earlier project response is late", asy
   assert.equal(writingState.project.id, "b");
   assert.equal(writingState.draftMarkdown, "Body d-b");
   assert.deepEqual(commits, ["b"]);
+});
+
+test("dirty or saving chapter blocks project replacement and saved chapter is reset on open", async () => {
+  const s = setup();
+  for (const saveState of ["dirty", "error", "saving"]) {
+    s.writingState.bookChapter = { projectId: "old", id: "chapter-old", markdown: "Own prose", saveState };
+    await assert.rejects(s.controller.open("new"), /章节/);
+    assert.equal(s.writingState.project.id, "old");
+  }
+  s.writingState.bookChapter.saveState = "saved";
+  await s.controller.open("new");
+  assert.equal(s.writingState.bookChapter, null);
+  assert.equal(s.writingState.draftMarkdown, "Body d-new");
 });
 
 test("late failed read is silent after a newer project succeeds", async () => {

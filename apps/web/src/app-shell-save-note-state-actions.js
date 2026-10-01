@@ -1,3 +1,5 @@
+import { saveEditorNoteWithRecovery } from "./editor-save-recovery.js";
+
 function applyUpdatedNoteFields(note = null, updated = null, deps = {}) {
   if (!note || !updated) return;
   const {
@@ -12,6 +14,7 @@ function applyUpdatedNoteFields(note = null, updated = null, deps = {}) {
   note.body = updated.body || note.body;
   note.status = updated.status || note.status;
   note.markdownPath = updated.markdownPath || note.markdownPath;
+  note.fileRevision = updated.fileRevision;
   note.originalityStatus = updated.originalityStatus || note.originalityStatus;
   note.originalitySimilarity = normalizeOptionalNumber(updated.originalitySimilarity ?? note.originalitySimilarity);
   note.authorship = normalizeAuthorshipItem(updated.authorship) || note.authorship;
@@ -81,6 +84,9 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
     if (note) {
       noteForExplorerSync = note;
       try {
+        if (Object.hasOwn(payload, "expectedBody") && typeof payload.expectedBody !== "string") {
+          throw new Error("缺少已保存正文，请先保留当前修改，再重新打开笔记核对。");
+        }
         if (typeof payload.body === "string") note.body = payload.body;
         if (typeof payload.title === "string") note.title = payload.title || note.title;
         note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(note) || generatedOriginalNoteIdFromBody(note.body);
@@ -88,7 +94,9 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
           String(payload.status || "").trim() ||
           (payload.originalityStatus === "pass" ? "active" : note.status || "draft");
         note.status = resolvedStatus;
-        const updated = await updateNote(note.id, {
+        const updated = await saveEditorNoteWithRecovery({ ...deps, updateNote }, note.id, {
+          ...(Object.hasOwn(payload, "expectedBody") ? { expectedBody: payload.expectedBody } : {}),
+          ...(payload.expectedRevision !== undefined ? { expectedRevision: payload.expectedRevision } : {}),
           title: note.title,
           body: note.body,
           status: resolvedStatus,
@@ -109,8 +117,8 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
           savedNote = updated;
         }
         syncExplorerContextToNote(note);
-        setStatus("已同步到 Markdown", "ok");
-        const shouldSuppressSaveSuggestion = payload.suppressSaveAiSuggestion === true;
+        setStatus(updated.recoveredSave ? "已核查上次保存；当前输入不同的内容仍待同步。" : "已同步到 Markdown", updated.recoveredSave ? "warn" : "ok");
+        const shouldSuppressSaveSuggestion = payload.suppressSaveAiSuggestion === true || updated.recoveredSave === true;
         if (shouldSuppressSaveSuggestion) clearSaveAiSuggestion();
         const suggestion = shouldSuppressSaveSuggestion ? null : showSaveAiSuggestionForNote(note);
         syncSourcePromotionSystemMessageForNote(note, suggestion);
@@ -118,7 +126,15 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
         if (!hasUnsavedTab) editor?.clearDraft?.(note.id);
         if (state.module === "graph") await refreshDirectoryGraph();
       } catch (error) {
-        const feedback = noteSaveFailureFeedback(error);
+        const feedback = error?.code === "NOTE_SAVE_CONFLICT" ? {
+          ok: false, saveMode: "conflict",
+          saveMessage: "笔记已在其他地方修改，本次未覆盖。当前输入仍保留，请先保留修改，再重新打开核对。",
+          statusMessage: "笔记已在其他地方修改，本次未覆盖。当前输入仍保留，请先保留修改，再重新打开核对。",
+          statusTone: "bad"
+        } : error?.code === "NOTE_SAVE_RESULT_UNCERTAIN" ? {
+          ok: false, saveMode: "uncertain", saveMessage: error.message,
+          statusMessage: error.message, statusTone: "warn"
+        } : noteSaveFailureFeedback(error);
         setStatus(feedback.statusMessage, feedback.statusTone);
         if (saveAiSuggestion?.noteId === note.id) clearSaveAiSuggestion();
         renderAll();

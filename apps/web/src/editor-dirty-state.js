@@ -268,9 +268,9 @@ const editorPaneStateMethods = {
   scheduleAutoSave() {
     this.clearAutoSaveTimer();
     const tab = this.activeTab();
-    if (!tab?.dirty) return;
+    if (!tab?.dirty || tab.saveConflict || tab.saveUiState?.mode === "conflict") return;
     const kickoff = () => {
-      if (!this.activeTab()?.dirty) return;
+      if (!this.activeTab()?.dirty || this.activeTab()?.saveConflict || this.activeTab()?.saveUiState?.mode === "conflict") return;
       void this.autoSaveActiveNote("interval");
     };
     this.autoSaveTimer = setInterval(kickoff, AUTO_SAVE_INTERVAL_MS);
@@ -280,6 +280,7 @@ const editorPaneStateMethods = {
   async autoSaveActiveNote(trigger = "idle") {
     const tab = this.updateActiveTabFromEditor();
     if (!tab?.dirty) return true;
+    if (tab.saveConflict || tab.saveUiState?.mode === "conflict") return false;
     if (this.savingPromise) return false;
     try {
       await this.saveActiveNote({ autoSave: true, trigger });
@@ -304,8 +305,9 @@ const editorPaneStateMethods = {
     }
     tab.body = draft.body;
     tab.title = titleFromBody(draft.body);
-    tab.savedBody = note.body || "";
-    tab.savedTitle = note.title || "未命名笔记";
+    tab.savedBody = typeof draft.savedBody === "string" ? draft.savedBody : undefined;
+    tab.savedFileRevision = draft.savedFileRevision;
+    tab.savedTitle = draft.savedTitle || note.title || "未命名笔记";
     tab.dirty = true;
     tab.authorshipState = {
       claim: String(draft.authorshipClaim || authorshipSeedFromBody(draft.body)),
@@ -339,6 +341,7 @@ const editorPaneStateMethods = {
         body: n.body,
         savedTitle: n.title,
         savedBody: n.body,
+        savedFileRevision: n.fileRevision,
         dirty: false,
         authorshipState: this.defaultAuthorshipState(n),
         saveUiState: this.defaultSaveUiState({ dirty: false }),
@@ -349,7 +352,7 @@ const editorPaneStateMethods = {
       this.syncPlaceholderTitleArmed(t);
     }
     t.preferPlainEditor = options.preferPlainEditor === true;
-    if (typeof t.savedBody !== "string") t.savedBody = t.body || "";
+    if (typeof t.savedBody !== "string" && !t.dirty) t.savedBody = t.body || "";
     if (typeof t.savedTitle !== "string") t.savedTitle = t.title || "未命名笔记";
     if (typeof t.dirty !== "boolean") t.dirty = false;
     this.ensureTabSaveUiState(t);

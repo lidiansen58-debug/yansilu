@@ -73,6 +73,9 @@ function tabButtonMarkup(tab, activeTab) {
 export function renderImportPageMount({
   toolbar = {},
   result = null,
+  exportResult = null,
+  resultVisible = false,
+  resultMode = "import",
   activeTab = "import"
 } = {}) {
   const normalizedActiveTab = activeTab === "export" ? "export" : "import";
@@ -109,15 +112,15 @@ export function renderImportPageMount({
           </section>
         </section>
       </div>
-      <div id="importOperationResultModal" class="modal-mask import-result-modal hidden" role="dialog" aria-modal="true" aria-labelledby="importOperationResultTitle">
+      <div id="importOperationResultModal" class="modal-mask import-result-modal${resultVisible ? "" : " hidden"}" role="dialog" aria-modal="true" aria-labelledby="importOperationResultTitle">
         <div class="modal import-result-dialog">
           <div class="modal-head import-result-dialog-head">
-            <span id="importOperationResultTitle">操作结果</span>
+            <span id="importOperationResultTitle">${resultMode === "export" ? "导出结果" : "导入结果"}</span>
             <button class="mini-btn is-ghost" id="btnCloseImportOperationResult" type="button">关闭</button>
           </div>
           <div class="modal-body import-result-dialog-body">
-            <div class="import-result" id="importResult">${renderResultSection(result)}</div>
-            <div class="import-result" id="exportResult" hidden></div>
+            <div class="import-result" id="importResult"${resultMode === "export" ? " hidden" : ""}>${renderResultSection(result)}</div>
+            <div class="import-result" id="exportResult"${resultMode === "export" ? "" : " hidden"}>${renderResultSection(exportResult)}</div>
           </div>
         </div>
       </div>

@@ -7,6 +7,31 @@ import {
   validateImportDirectorySelection
 } from "../../apps/web/src/import-toolbar-actions.js";
 
+test("unknown confirmation is a warning, not a failed import", async () => {
+  const statuses = [], results = [];
+  const importRecord = { importRecordId: "imp", status: "interrupted", recoveryResult: { files: [], pending: { noteId: "pending" } } };
+  const actions = createImportToolbarActions({ getToolbarValues: () => ({ importRecordId: "imp" }),
+    confirmImport: async () => { throw Object.assign(new Error("Please check"), { code: "IMPORT_CONFIRM_UNCERTAIN", importRecord }); },
+    setStatus: (message, tone) => statuses.push({ message, tone }), showImportResult: value => results.push(value) });
+  await actions.handleConfirm();
+  assert.equal(statuses.at(-1).tone, "warn");
+  assert.equal(results.at(-1).stage, "confirm_pending");
+  assert.equal(results.at(-1).importRecord, importRecord);
+  assert.doesNotMatch(statuses.at(-1).message, /导入失败/);
+});
+
+test("refresh failure after completed confirmation cannot report import failure", async () => {
+  const statuses = [], errors = [];
+  const result = { status: "completed" };
+  const actions = createImportToolbarActions({ getToolbarValues: () => ({ importRecordId: "imp" }),
+    confirmImport: async () => result, refreshImportedNotesView: async () => { throw new Error("refresh failed"); },
+    setStatus: (message, tone) => statuses.push({ message, tone }), showImportResult: value => errors.push(value) });
+  assert.equal(await actions.handleConfirm(), result);
+  assert.equal(statuses.at(-1).tone, "warn");
+  assert.match(statuses.at(-1).message, /导入已完成/);
+  assert.deepEqual(errors, []);
+});
+
 test("import toolbar actions parse JSON and build payloads", () => {
   assert.deepEqual(parseJsonOrEmpty('{"detectAliases":true}', "Options"), { detectAliases: true });
   assert.deepEqual(buildImportPayload({ connector: "obsidian", path: "E:\\vault" }), { path: "E:\\vault" });
@@ -181,6 +206,23 @@ test("import toolbar actions emit stable confirm error payloads", async () => {
     text: "导入失败：missing",
     tone: "bad"
   });
+});
+
+test("confirmation result is rendered after view replacement, including refresh failures", async () => {
+  for (const fails of [false, true]) {
+    const calls = [];
+    const actions = createImportToolbarActions({
+      getToolbarValues: () => ({ importRecordId: "imp_order" }),
+      confirmImport: async () => ({ status: "completed" }),
+      refreshImportedNotesView: async () => {
+        calls.push("refresh");
+        if (fails) throw new Error("view failed");
+      },
+      onConfirmSuccess: async () => calls.push("result")
+    });
+    assert.equal((await actions.handleConfirm()).status, "completed");
+    assert.deepEqual(calls, ["refresh", "result"]);
+  }
 });
 
 test("validateImportDirectorySelection is a no-op in simplified mode", () => {

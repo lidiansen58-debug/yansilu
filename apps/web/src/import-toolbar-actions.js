@@ -92,19 +92,28 @@ export function createImportToolbarActions({
       if (options.overrideOriginality === true) confirmPayload.overrideOriginality = true;
       const result = await confirmImport(importRecordId, confirmPayload);
       setStatus?.(`导入完成：${importRecordId}`, "ok");
-      await onConfirmSuccess?.({ importRecordId, result, preview });
-      await refreshImportHistory?.({ silent: true });
-      await refreshImportedNotesView?.();
+      try {
+        try {
+          await refreshImportHistory?.({ silent: true });
+          await refreshImportedNotesView?.();
+        } finally {
+          await onConfirmSuccess?.({ importRecordId, result, preview });
+        }
+      } catch (error) {
+        setStatus?.(`导入已完成，但界面刷新失败：${String(error?.message || error)}。请刷新查看，不要重新导入。`, "warn");
+      }
       return result;
     } catch (error) {
+      const unconfirmed = ["IMPORT_CONFIRM_UNCERTAIN", "IMPORT_CONFIRM_PENDING"].includes(error?.code);
       showImportResult?.({
-        stage: "confirm_error",
+        stage: unconfirmed ? "confirm_pending" : "confirm_error",
         importRecordId,
         message: String(error?.message || error),
         code: error?.code || null,
-        details: error?.details || null
+        details: error?.details || null,
+        ...(error?.importRecord ? { importRecord: error.importRecord } : {})
       });
-      setStatus?.(`导入失败：${String(error?.message || error)}`, "bad");
+      setStatus?.(unconfirmed ? error.message : `导入失败：${String(error?.message || error)}`, unconfirmed ? "warn" : "bad");
       return null;
     }
   }

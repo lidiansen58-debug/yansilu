@@ -34,6 +34,14 @@ function fileTypeSummary(files = []) {
 }
 
 function renderFileInventory(data = {}) {
+  const recovery = data.importRecord?.recoveryResult;
+  if (recovery) {
+    const labels = { verified: "内容已核对", changed: "内容已变化", missing: "文件已缺失" };
+    return `<div class="result-file-inventory"><strong>中断后的文件核查</strong>
+      <ul>${recovery.files.map(file => `<li>${escapeHtml(labels[file.status] || "待核查")}：${escapeHtml(file.relativePath)}</li>`).join("")}
+      ${recovery.pending ? `<li>结果未确认：${escapeHtml(recovery.pending.noteId)}</li>` : ""}</ul>
+      <p>${recovery.checkpointAvailable ? "未确认项不会自动重导，请核对后再处理。" : "旧记录没有逐项检查点，请手动核对笔记库。"}</p></div>`;
+  }
   const createdFiles = createdFilesFromResultData(data);
   if (!createdFiles.length) return "";
   return `
@@ -117,6 +125,8 @@ export function renderImportResultPanel({
   raw = ""
 } = {}) {
   const stage = String(data.stage || "");
+  const visibleWarnings = data.importRecord?.recoveryResult
+    ? warnings.filter(item => !["IMPORT_INTERRUPTED", "IMPORT_RECOVERY_FILE", "IMPORT_RECOVERY_PENDING"].includes(item.code)) : warnings;
   return `
     <div class="result-card" data-result-stage="${escapeHtml(stage)}">
       <div class="result-card-head">
@@ -137,8 +147,8 @@ export function renderImportResultPanel({
       ${renderFileInventory(data)}
       ${renderOrganizingOverview(data)}
       ${
-        warnings.length
-          ? `<div class="result-warnings simple"><div class="result-warnings-title">需要处理</div><ul>${warnings
+        visibleWarnings.length
+          ? `<div class="result-warnings simple"><div class="result-warnings-title">需要处理</div><ul>${visibleWarnings
               .slice(0, 3)
               .map((item) => `<li>${escapeHtml(warningText(item))}</li>`)
               .join("")}</ul></div>`

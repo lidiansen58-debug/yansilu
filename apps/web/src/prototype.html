@@ -493,6 +493,7 @@
                     <div class="writing-more-menu-panel">
                       <button class="mini-btn" id="btnWritingCopyArticle" type="button" title="复制当前编辑内容，不会保存草稿">复制正文</button>
                       <button class="mini-btn" id="btnWritingExportArticle" type="button" title="选择目录，导出当前正文与引用的附件，不会保存草稿">导出文章 .md</button>
+                      <button class="mini-btn" id="btnWritingExportBook" type="button" title="按目录导出所有已保存章节及附件">导出整稿 .md</button>
                       <button class="mini-btn" id="btnWritingCopyScaffold" type="button">复制提纲 Markdown</button>
                       <button class="mini-btn" id="btnWritingExportScaffold" type="button">导出提纲 .md</button>
                       <button class="mini-btn" id="btnWritingOpenDraft" type="button">打开当前草稿</button>
@@ -581,7 +582,17 @@
                         相关笔记 <span id="writingRelatedNotesCountDraft">0</span>
                       </button>
                     </div>
-                    <textarea class="writing-draft-editor" id="writingDraftEditor" placeholder="从提纲开始写正文。保存草稿会创建或绑定当前草稿笔记。"></textarea>
+                    <label for="writingDraftTarget">选择正文</label>
+                    <div class="writing-draft-target-row">
+                      <select id="writingDraftTarget" aria-label="选择正文"><option value="">文章正文</option></select>
+                      <div class="writing-chapter-tools" role="group" aria-label="章节目录操作">
+                        <button class="mini-btn icon-btn" id="btnWritingChapterAdd" type="button" title="新增章节" data-tip="新增章节" aria-label="新增章节">+</button>
+                        <button class="mini-btn icon-btn" id="btnWritingChapterUp" type="button" title="本部内上移章节" data-tip="本部内上移章节" aria-label="本部内上移章节">↑</button>
+                        <button class="mini-btn icon-btn" id="btnWritingChapterDown" type="button" title="本部内下移章节" data-tip="本部内下移章节" aria-label="本部内下移章节">↓</button>
+                        <button class="mini-btn icon-btn" id="btnWritingChapterRemove" type="button" title="移出目录，保留正文" data-tip="移出目录，保留正文" aria-label="移出目录，保留正文">−</button>
+                      </div>
+                    </div>
+                    <textarea class="writing-draft-editor" id="writingDraftEditor" placeholder="写下正文，保存后可继续修改。"></textarea>
                     <div class="writing-actions-primary">
                       <button class="mini-btn" type="button" data-writing-tab-jump="outline">返回提纲</button>
                       <button class="mini-btn primary" id="btnWritingSaveDraft" type="button">保存草稿</button>

@@ -4,9 +4,13 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
 import { createNoteMoveOperations } from "./note-move-operations.mjs";
-import { exportArticle } from "../../../packages/export-engine/src/index.mjs";
+import { createNoteSaveOperations } from "./note-save-operations.mjs";
+import { createNoteSaveJournal } from "./note-save-journal.mjs";
+import { createImportRecordJournal } from "./import-record-journal.mjs";
+import { exportArticle, exportBook } from "../../../packages/export-engine/src/index.mjs";
 
 const noteMoveOperations = createNoteMoveOperations();
+const noteSaveOperations = createNoteSaveOperations({ journal: createNoteSaveJournal() });
 
 import {
   publicImportRecord,
@@ -3278,18 +3282,19 @@ function titleForCatalogNote(candidate) {
   return firstLine || String(candidate?.id || "imported-note");
 }
 
-async function registerImportCatalogNote(candidate, noteType, writeResult, directoryId = "") {
+async function registerImportCatalogNote(candidate, noteType, writeResult, directoryId = "", targetVaultPath = VAULT_PATH) {
   if (!writeResult?.written) return null;
-  return registerMarkdownNoteInCatalog(VAULT_PATH, {
+  return registerMarkdownNoteInCatalog(targetVaultPath, {
     noteId: candidate.id,
     noteType,
     title: titleForCatalogNote(candidate),
     status: candidate.status || "draft",
-    markdownPath: path.relative(path.resolve(VAULT_PATH), writeResult.path).replaceAll("\\", "/"),
+    markdownPath: path.relative(path.resolve(targetVaultPath), writeResult.path).replaceAll("\\", "/"),
     directoryId: String(directoryId || "").trim() || defaultDirectoryIdForImportNoteType(noteType)
   });
 }
 const importExportService = createImportExportService({
+  recordJournal: createImportRecordJournal(),
   getVaultPath: () => VAULT_PATH,
   getCwd: () => CWD,
   importRecords,
@@ -5494,9 +5499,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/notes") {
-      const body = await readJson(req);
+      const creationVaultPath = VAULT_PATH;
       try {
-        const creationVaultPath = VAULT_PATH;
+        const body = await readJson(req);
+        if (VAULT_PATH !== creationVaultPath) {
+          return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次创建已取消。请在当前笔记库重新新建。", rid));
+        }
         if (body.expectedVaultPath !== undefined && path.relative(creationVaultPath, path.resolve(String(body.expectedVaultPath))) !== "") {
           return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次创建已取消。请在当前笔记库重新新建。", rid));
         }
@@ -5504,6 +5512,9 @@ const server = http.createServer(async (req, res) => {
           throw new Error("Invalid clientCreationId");
         }
         await initVault(creationVaultPath);
+        if (VAULT_PATH !== creationVaultPath) {
+          return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次创建已取消。请在当前笔记库重新新建。", rid));
+        }
         const created = await createNoteInDirectory(creationVaultPath, {
           id: body.clientCreationId ? `note_${body.clientCreationId}` : undefined,
           directoryId: body.directoryId,
@@ -5870,6 +5881,28 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    const noteSaveStatusMatch = url.pathname.match(/^\/api\/v1\/notes\/([^/]+)\/save-status$/);
+    if (req.method === "GET" && noteSaveStatusMatch) {
+      const vaultPath = VAULT_PATH;
+      const id = decodeURIComponent(noteSaveStatusMatch[1]);
+      try {
+        const expectedVaultPath = url.searchParams.get("expectedVaultPath");
+        if (expectedVaultPath && path.relative(vaultPath, path.resolve(expectedVaultPath)) !== "") {
+          return sendJson(res, 409, err("NOTE_SAVE_VAULT_CHANGED", "笔记库已切换，不能核查原笔记库的保存结果。", rid));
+        }
+        const item = noteSaveOperations.check(url.searchParams.get("operationId"), id, vaultPath);
+        if (item.state === "completed") {
+          const note = await getNoteById(vaultPath, id);
+          if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("NOTE_SAVE_VAULT_CHANGED", "笔记库已切换，不能确认保存结果。", rid));
+          if (note.fileRevision !== item.fileRevision) item.state = "changed";
+          else item.note = note;
+        }
+        return sendJson(res, 200, { item, requestId: rid });
+      } catch (error) {
+        return sendJson(res, 409, err(error?.code || "NOTE_SAVE_VERIFY_FAILED", String(error?.message || error), rid));
+      }
+    }
+
     const noteId = parseNotePath(url.pathname);
     if (req.method === "GET" && noteId) {
       try {
@@ -5886,10 +5919,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "PUT" && noteId) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
       try {
-        await initVault(VAULT_PATH);
-        const item = await updateNoteContent(VAULT_PATH, noteId, {
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("NOTE_SAVE_VAULT_CHANGED", "笔记库已切换，本次保存未执行。", rid));
+        if (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "") {
+          return sendJson(res, 409, err("NOTE_SAVE_VAULT_CHANGED", "笔记库已切换，本次保存未执行。", rid));
+        }
+        await initVault(vaultPath);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("NOTE_SAVE_VAULT_CHANGED", "笔记库已切换，本次保存未执行。", rid));
+        const save = () => updateNoteContent(vaultPath, noteId, {
+          expectedBody: body.expectedBody,
+          expectedRevision: body.expectedRevision,
           title: body.title,
           body: body.body,
           status: body.status,
@@ -5906,6 +5947,7 @@ const server = http.createServer(async (req, res) => {
           authorshipConfirmed: body.authorshipConfirmed,
           authorshipAiAssisted: body.authorshipAiAssisted
         });
+        const item = body.operationId ? await noteSaveOperations.run(body.operationId, noteId, vaultPath, save) : await save();
         return sendJson(res, 200, {
           item,
           requestId: rid,
@@ -6190,8 +6232,12 @@ const server = http.createServer(async (req, res) => {
 
     const confirmId = parseConfirmPath(url.pathname);
     if (req.method === "POST" && confirmId) {
+      const confirmationVaultPath = VAULT_PATH;
       const body = await readJson(req);
       const record = await importExportService.getImportRecord(confirmId);
+      if (VAULT_PATH !== confirmationVaultPath) {
+        return sendJson(res, 409, err("IMPORT_VAULT_CHANGED", "笔记库已切换，请重新预览后导入。", rid));
+      }
       if (!record) return sendJson(res, 404, err("IMPORT_RECORD_NOT_FOUND", "import record not found", rid));
       try {
         const result = await importExportService.confirmImport(record, body, rid);
@@ -6200,6 +6246,8 @@ const server = http.createServer(async (req, res) => {
         const status =
           error.code === "IMPORT_ORIGINALITY_BLOCKED"
             ? 409
+            : error.code === "IMPORT_CONFIRM_PENDING" || error.code === "IMPORT_VAULT_CHANGED"
+              ? 409
             : error.code === "IMPORT_STATUS_INVALID"
               ? 400
               : 400;
@@ -6216,6 +6264,21 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, result);
       } catch (error) {
         return sendJson(res, 400, err(error.code || "IMPORT_STATUS_INVALID", String(error?.message || error), rid, error.details));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/exports/book") {
+      const vaultPath = VAULT_PATH;
+      try {
+        assertLocalRuntimeControlAllowed(req);
+        const body = await readJson(req);
+        if (!body.expectedVaultPath || path.resolve(body.expectedVaultPath) !== path.resolve(vaultPath) || VAULT_PATH !== vaultPath) {
+          return sendJson(res, 409, err("BOOK_EXPORT_VAULT_CHANGED", "笔记库已变化，请重开书稿后导出。", rid));
+        }
+        const result = await exportBook({ vaultPath, targetPath: body.targetPath, projectId: body.projectId, expectedBookStructure: body.expectedBookStructure });
+        return sendJson(res, 200, result);
+      } catch (error) {
+        return sendJson(res, error?.status || 400, err(error?.code || "BOOK_EXPORT_FAILED", String(error?.message || error), rid));
       }
     }
 
@@ -6502,10 +6565,14 @@ const server = http.createServer(async (req, res) => {
 
     const writingProjectBookStructureMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)\/book-structure$/);
     if (req.method === "PATCH" && writingProjectBookStructureMatch) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
+      if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+        return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重开主题后重试。", rid));
+      }
       try {
-        await initVault(VAULT_PATH);
-        const item = await updateWritingProjectBookStructure(VAULT_PATH, decodeURIComponent(writingProjectBookStructureMatch[1]), body);
+        await initVault(vaultPath);
+        const item = await updateWritingProjectBookStructure(vaultPath, decodeURIComponent(writingProjectBookStructureMatch[1]), body);
         return sendJson(res, 200, {
           item,
           requestId: rid,
@@ -6518,10 +6585,14 @@ const server = http.createServer(async (req, res) => {
 
     const writingDraftBindingMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)\/draft-note$/);
     if (req.method === "POST" && writingDraftBindingMatch) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
+      if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+        return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重开主题后重试。", rid));
+      }
       try {
-        await initVault(VAULT_PATH);
-        const item = await bindDraftNoteToProject(VAULT_PATH, {
+        await initVault(vaultPath);
+        const item = await bindDraftNoteToProject(vaultPath, {
           writingProjectId: decodeURIComponent(writingDraftBindingMatch[1]),
           draftNoteId: body.draftNoteId || body.draft_note_id,
           sourceScaffoldId: body.sourceScaffoldId || body.source_scaffold_id,

@@ -17,6 +17,7 @@ import {
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
 import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
 import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
+import { createImportWriteProgress } from "./import-write-progress.mjs";
 
 function stableAssetId(importRecordId, relativePath) {
   const hash = createHash("sha1").update(`${importRecordId}:${relativePath}`).digest("hex").slice(0, 12);
@@ -409,20 +410,22 @@ export function createImportExportService({
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
   deleteNoteById,
-  registerImportCatalogNote
+  registerImportCatalogNote,
+  recordJournal = null
 }) {
   const vaultPath = () => getVaultPath();
   const cwd = () => getCwd();
+  const pendingConfirmations = new Set();
 
-  async function createdFileFromCleanupEntry(entry) {
-    return createdEntryFromVaultPath(vaultPath(), {
+  async function createdFileFromCleanupEntry(entry, targetVaultPath) {
+    return createdEntryFromVaultPath(targetVaultPath, {
       noteId: entry.noteId,
       noteType: entry.noteType,
       filePath: entry.filePath
     });
   }
 
-  async function cleanupTrackedEntries(entries = []) {
+  async function cleanupTrackedEntries(entries = [], targetVaultPath) {
     const seen = new Set();
     let firstError = null;
     for (const entry of [...entries].reverse()) {
@@ -435,7 +438,7 @@ export function createImportExportService({
           continue;
         }
         if (typeof deleteNoteById === "function") {
-          await deleteNoteById(vaultPath(), entry.noteId);
+          await deleteNoteById(targetVaultPath, entry.noteId);
         } else {
           await fs.unlink(entry.filePath);
         }
@@ -471,6 +474,7 @@ export function createImportExportService({
   }
 
   async function createPreview(connector, payload, options, _requestId) {
+    const targetVaultPath = vaultPath();
     if (connector !== "obsidian") {
       const error = new Error("only obsidian imports are supported in the simplified importer");
       error.code = "IMPORT_CONNECTOR_UNSUPPORTED";
@@ -506,26 +510,41 @@ export function createImportExportService({
       createdAt: new Date().toISOString()
     };
 
-    await initVault(vaultPath());
-    importRecords.set(importRecordId, {
+    await initVault(targetVaultPath);
+    const record = {
       ...preview,
       state: "preview",
+      targetVaultPath,
       payload,
       options,
       candidates: built,
       originalityGuard: originalityGuardPayload(guard),
       updatedAt: preview.createdAt
-    });
+    };
+    await recordJournal?.write(record);
+    importRecords.set(importRecordId, record);
     return preview;
   }
 
   async function getImportRecord(recordId) {
-    return importRecords.get(recordId) || null;
+    const target = vaultPath();
+    let record = importRecords.get(recordId);
+    if ((!record || record.state === "interrupted") && recordJournal) {
+      record = await recordJournal.read(target, recordId);
+      if (record && vaultPath() === target) importRecords.set(recordId, record);
+    }
+    return record && (!record.targetVaultPath || path.relative(record.targetVaultPath, vaultPath()) === "") ? record : null;
   }
 
   async function getImportRecordList({ limit = 50 } = {}) {
+    const target = vaultPath();
+    for (const record of await recordJournal?.list(target) || []) {
+      if (vaultPath() === target && (!importRecords.has(record.importRecordId)
+        || importRecords.get(record.importRecordId)?.state === "interrupted")) importRecords.set(record.importRecordId, record);
+    }
     const requestedLimit = Number.isFinite(Number(limit)) ? Math.max(0, Math.min(200, Number(limit))) : 50;
-    const records = sortRecords([...importRecords.values()]);
+    const records = sortRecords([...importRecords.values()].filter(record =>
+      !record.targetVaultPath || path.relative(record.targetVaultPath, vaultPath()) === ""));
     return {
       total: records.length,
       items: records.slice(0, requestedLimit)
@@ -533,11 +552,45 @@ export function createImportExportService({
   }
 
   async function confirmImport(record, body, _requestId) {
+    if (pendingConfirmations.has(record.importRecordId)) {
+      const error = new Error("这次导入仍在处理中，请先核查导入记录，不要重复确认。");
+      error.code = "IMPORT_CONFIRM_PENDING";
+      throw error;
+    }
     if (record.state !== "preview") {
       const error = new Error("import status invalid");
       error.code = "IMPORT_STATUS_INVALID";
       throw error;
     }
+    const targetVaultPath = record.targetVaultPath || vaultPath();
+    if (path.relative(targetVaultPath, vaultPath()) !== "") {
+      const error = new Error("笔记库已切换，请在当前笔记库重新预览后导入。");
+      error.code = "IMPORT_VAULT_CHANGED";
+      throw error;
+    }
+
+    pendingConfirmations.add(record.importRecordId);
+    record.targetVaultPath = targetVaultPath;
+    record.state = "confirming";
+    let writingStarted = false;
+    try {
+      await recordJournal?.write(record);
+      const result = await confirmImportOnce(record, body, targetVaultPath, () => { writingStarted = true; });
+      await recordJournal?.write(record);
+      return result;
+    } catch (error) {
+      if (record.state === "confirming") {
+        if (writingStarted) markImportFailed(record, error);
+        else record.state = "preview";
+      }
+      await recordJournal?.write(record);
+      throw error;
+    } finally {
+      pendingConfirmations.delete(record.importRecordId);
+    }
+  }
+
+  async function confirmImportOnce(record, body, targetVaultPath, onWritingStarted) {
 
     if (body.confirm === false) {
       const finishedAt = new Date().toISOString();
@@ -553,7 +606,7 @@ export function createImportExportService({
       throw error;
     }
 
-    await initVault(vaultPath());
+    await initVault(targetVaultPath);
 
     const selected = buildSelectedImportCandidates(record.candidates, body.selectedCandidateIds);
     const confirmPlan = normalizeOriginalityPlan(body.originalityPlan || record.originalityGuard?.plan || {});
@@ -571,7 +624,7 @@ export function createImportExportService({
       throw error;
     }
 
-    const directories = await listDirectories(vaultPath(), { includeHidden: true });
+    const directories = await listDirectories(targetVaultPath, { includeHidden: true });
     const selectedDirectoryId = String(body.directoryId || "").trim();
     const selectedDirectory = selectedDirectoryId ? directoryById(directories, selectedDirectoryId) : null;
     if (selectedDirectoryId && !selectedDirectory) {
@@ -587,12 +640,12 @@ export function createImportExportService({
 
     const [sourcePathIndex, literaturePathIndex, permanentPathIndex, sourceCatalogEntries, literatureCatalogEntries, permanentCatalogEntries] =
       await Promise.all([
-        selected.candidates.sources.length ? buildNotePathIndex(vaultPath(), "source") : null,
-        selected.candidates.literature.length ? buildNotePathIndex(vaultPath(), "literature") : null,
-        selected.candidates.permanent.length ? buildNotePathIndex(vaultPath(), "permanent") : null,
-        selected.candidates.sources.length ? listNoteCatalogEntriesByType(vaultPath(), "source") : [],
-        selected.candidates.literature.length ? listNoteCatalogEntriesByType(vaultPath(), "literature") : [],
-        selected.candidates.permanent.length ? listNoteCatalogEntriesByType(vaultPath(), "permanent") : []
+        selected.candidates.sources.length ? buildNotePathIndex(targetVaultPath, "source") : null,
+        selected.candidates.literature.length ? buildNotePathIndex(targetVaultPath, "literature") : null,
+        selected.candidates.permanent.length ? buildNotePathIndex(targetVaultPath, "permanent") : null,
+        selected.candidates.sources.length ? listNoteCatalogEntriesByType(targetVaultPath, "source") : [],
+        selected.candidates.literature.length ? listNoteCatalogEntriesByType(targetVaultPath, "literature") : [],
+        selected.candidates.permanent.length ? listNoteCatalogEntriesByType(targetVaultPath, "permanent") : []
       ]);
 
     const sourceCatalogById = catalogEntryMap(sourceCatalogEntries);
@@ -606,42 +659,50 @@ export function createImportExportService({
     const relationRefreshNoteIds = [];
     const assetPlans = await collectObsidianAssetPlans(record, cwd, selected.candidates);
     const assetPathByTarget = new Map([...assetPlans.entries()].map(([key, value]) => [key, value.assetRelativePath]));
+    const progress = createImportWriteProgress(record, recordJournal);
 
+    onWritingStarted();
     try {
       for (const source of selected.candidates.sources) {
-        const result = await writeSourceIfAbsent(vaultPath(), source, {
+        await progress.begin(source.id, "source");
+        const result = await writeSourceIfAbsent(targetVaultPath, source, {
           notePathIndex: sourcePathIndex,
           catalogEntriesById: sourceCatalogById,
           skipInit: true
         });
         if (!result.written) {
+          await progress.finish(result, source.id, "source");
           skipped.conflicted += 1;
           continue;
         }
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
-        await registerImportCatalogNote(source, "source", result);
+        await registerImportCatalogNote(source, "source", result, "", targetVaultPath);
+        await progress.finish(result, source.id, "source");
         relationRefreshNoteIds.push(String(source.id || "").trim());
         created.sources += 1;
         writtenPaths.add(path.dirname(result.path));
       }
 
       for (const note of selected.candidates.literature) {
-        const result = await writeLiteratureNoteIfAbsent(vaultPath(), note, {
+        await progress.begin(note.id, "literature");
+        const result = await writeLiteratureNoteIfAbsent(targetVaultPath, note, {
           directoryFsPath: literatureTargetDirectory?.fsPath || "",
           notePathIndex: literaturePathIndex,
           catalogEntriesById: literatureCatalogById,
           skipInit: true
         });
         if (!result.written) {
+          await progress.finish(result, note.id, "literature");
           skipped.conflicted += 1;
           continue;
         }
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
-        await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId);
+        await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId, targetVaultPath);
         relationRefreshNoteIds.push(String(note.id || "").trim());
-        await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
+        await rewriteImportedAssetLinksInFile(result.path, targetVaultPath, assetPathByTarget);
+        await progress.finish(result, note.id, "literature");
         created.literatureNotes += 1;
         writtenPaths.add(path.dirname(result.path));
       }
@@ -656,41 +717,47 @@ export function createImportExportService({
           ...note,
           originality_status: evalItem?.status || note.originality_status || "warning"
         };
-        const result = await writePermanentNoteIfAbsent(vaultPath(), noteToWrite, {
+        await progress.begin(note.id, "permanent");
+        const result = await writePermanentNoteIfAbsent(targetVaultPath, noteToWrite, {
           directoryFsPath: permanentTargetDirectory?.fsPath || "",
           notePathIndex: permanentPathIndex,
           catalogEntriesById: permanentCatalogById,
           skipInit: true
         });
         if (!result.written) {
+          await progress.finish(result, note.id, "permanent");
           skipped.conflicted += 1;
           continue;
         }
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
-        await registerImportCatalogNote(noteToWrite, "permanent", result, permanentTargetDirectoryId);
+        await registerImportCatalogNote(noteToWrite, "permanent", result, permanentTargetDirectoryId, targetVaultPath);
         relationRefreshNoteIds.push(String(noteToWrite.id || "").trim());
-        await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
+        await rewriteImportedAssetLinksInFile(result.path, targetVaultPath, assetPathByTarget);
+        await progress.finish(result, note.id, "permanent");
         created.permanentNotes += 1;
         writtenPaths.add(path.dirname(result.path));
       }
 
       for (const noteId of [...new Set(relationRefreshNoteIds.filter(Boolean))]) {
-        await syncMarkdownNoteCatalogRelations(vaultPath(), noteId);
+        await syncMarkdownNoteCatalogRelations(targetVaultPath, noteId);
       }
 
       for (const [normalizedTarget, plan] of assetPlans.entries()) {
-        const destinationPath = path.join(vaultPath(), plan.assetRelativePath);
+        const destinationPath = path.join(targetVaultPath, plan.assetRelativePath);
+        const assetId = stableAssetId(record.importRecordId, normalizedTarget);
+        await progress.begin(assetId, "asset");
         await fs.mkdir(path.dirname(destinationPath), { recursive: true });
         await fs.copyFile(plan.sourcePath, destinationPath);
         const cleanupEntry = cleanupEntryFromAsset(stableAssetId(record.importRecordId, normalizedTarget), destinationPath);
         cleanupEntries.push(cleanupEntry);
+        await progress.finish({ written: true, path: destinationPath }, assetId, "asset");
         writtenPaths.add(path.dirname(destinationPath));
       }
     } catch (error) {
       let finalError = error;
       try {
-        await cleanupTrackedEntries(cleanupEntries);
+        await cleanupTrackedEntries(cleanupEntries, targetVaultPath);
       } catch (cleanupError) {
         if (!cleanupError.cause) cleanupError.cause = error;
         finalError = cleanupError;
@@ -705,9 +772,9 @@ export function createImportExportService({
 
     const createdFiles = [];
     for (const entry of cleanupEntries) {
-      createdFiles.push(await createdFileFromCleanupEntry(entry));
+      createdFiles.push(await createdFileFromCleanupEntry(entry, targetVaultPath));
     }
-    const organizingOverview = await buildImportOrganizingOverview(vaultPath(), createdFiles);
+    const organizingOverview = await buildImportOrganizingOverview(targetVaultPath, createdFiles);
 
     const targetDirectories = [];
     if (created.literatureNotes > 0 && literatureTargetDirectoryId) {
@@ -732,7 +799,7 @@ export function createImportExportService({
       selection: selected.selection,
       targetDirectories,
       organizingOverview,
-      writtenPaths: [...writtenPaths].map((item) => portablePath(path.relative(vaultPath(), item))),
+      writtenPaths: [...writtenPaths].map((item) => portablePath(path.relative(targetVaultPath, item))),
       createdFiles,
       finishedAt
     };

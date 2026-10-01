@@ -15,6 +15,23 @@ function targetFor(selector, attrs = {}) {
   };
 }
 
+test("import actions survive settings replacing the mount and ignore outside clicks", () => {
+  const handlers = new Map();
+  const document = { addEventListener: (name, handler) => handlers.set(name, handler) };
+  const mount = { ownerDocument: document, addEventListener: () => assert.fail("unstable mount") };
+  let confirmations = 0;
+  bindImportWorkspaceEventsForRuntime({
+    $: id => id === "importPageMount" ? mount : null,
+    importToolbarActions: { handleConfirm: () => { confirmations += 1; } }
+  });
+  const replacement = {};
+  handlers.get("click")({ target: { closest: selector =>
+    selector === "#importPageMount" ? replacement : selector === "#btnImportConfirm" ? {} : null } });
+  assert.equal(confirmations, 1);
+  handlers.get("click")({ target: targetFor("#btnImportConfirm") });
+  assert.equal(confirmations, 1);
+});
+
 test("import event bindings route tabs preview and writing actions", async () => {
   const handlers = new Map();
   const calls = [];
