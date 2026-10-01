@@ -1770,23 +1770,24 @@ test("prototype main-path card refreshes relation state and does not leak stale 
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
 
-  await page.waitForFunction(() => {
-    const text = document.querySelector("[data-note-main-path-section]")?.textContent || "";
-    return text.trim().length > 0;
+  const relationAction = page.locator(".editor-body-related-button");
+  await waitFor(async () => assert.match(await relationAction.textContent(), /关联 1/), 10000);
+
+  let releaseRead;
+  const heldRead = new Promise(resolve => { releaseRead = resolve; });
+  t.after(() => releaseRead());
+  await page.route(`**/api/v1/notes/${plain.json.item.id}/relations`, async route => {
+    await heldRead;
+    const response = await route.fetch();
+    await route.fulfill({ response });
   });
-
-  await waitFor(async () => {
-    const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(text || ""), /已加入 1|笔记 1/);
-  }, 10000);
-
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Plain Note" }).click();
-
-  await waitFor(async () => {
-    const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.doesNotMatch(String(text || ""), /已加入 1|笔记 1/);
-    assert.match(String(text || ""), /关系|未连接|关系 0/);
-  }, 10000);
+  await page.waitForFunction(() => window.__prototypeEditor.semanticRelationsState === "loading");
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.currentSemanticRelations), null);
+  assert.equal(await relationAction.count(), 0);
+  releaseRead();
+  await page.waitForFunction(() => window.__prototypeEditor.semanticRelationsState === "loaded");
+  assert.equal(await relationAction.count(), 0);
 });
 
 test("prototype permanent relation workspace saves manually, refreshes before save, and resets on note switch", async (t) => {

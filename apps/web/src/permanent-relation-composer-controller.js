@@ -4,6 +4,7 @@ import { completeSmartNotesDemoSavedRelation } from "./smart-notes-demo-practice
 import { wikilinkTokenForNote } from "./editor-link-picker.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
 import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
+import { rememberRelationSnapshot } from "./relation-snapshot.js";
 import {
   normalizeRelationDraft,
   relationDraftCanSave,
@@ -223,6 +224,7 @@ export class PermanentRelationComposerController {
       if (!draftStillCurrent()) return;
       if (sourceStillActive()) {
         host.currentSemanticRelations = latestRelations;
+        rememberRelationSnapshot(host, sourceNote.id, latestRelations);
         host.semanticRelationsState = "loaded";
       }
       const latestValidation = relationDraftCanSave({
@@ -278,6 +280,7 @@ export class PermanentRelationComposerController {
       const savedRelations = await fetchNoteRelations(sourceNote.id).catch(() => null);
       if (savedRelations && sourceStillActive()) {
         host.currentSemanticRelations = savedRelations;
+        rememberRelationSnapshot(host, sourceNote.id, savedRelations);
         host.semanticRelationsState = "loaded";
       }
       if (!draftStillCurrent()) return;

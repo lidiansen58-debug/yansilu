@@ -108,7 +108,7 @@ const groups = [
     description: "Permanent-note relation workspace flows for manual search, AI recommendation, pre-save refresh, continuity, and note switching.",
     tests: [
       "prototype permanent relation workspace saves manually, refreshes before save, and resets on note switch",
-      "prototype permanent relation workspace saves an AI recommended relation in place",
+      "prototype permanent relation workspace saves a searched relation in place",
       "prototype right sidebar relation entry saves through overlay and appears in graph"
     ]
   },
