@@ -3,6 +3,7 @@ import { relationFollowupSuggestionForDraft, relationTypeLabel } from "./editor-
 import { completeSmartNotesDemoSavedRelation } from "./smart-notes-demo-practice-progress.js";
 import { wikilinkTokenForNote } from "./editor-link-picker.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
+import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
 import {
   normalizeRelationDraft,
   relationDraftCanSave,
@@ -286,10 +287,8 @@ export class PermanentRelationComposerController {
       if (!draftStillCurrent()) return;
       completePendingSmartNotesDemoRelation(host.state, sourceNote.id, relation, state.rationale);
       host.renderAll?.();
-      if (state.entryRoute?.returnTo === "graph") {
-        await host.refreshDirectoryGraph?.();
-        if (!draftStillCurrent()) return;
-      }
+      await refreshGraphAfterRelationMutation(host, { returnTo: state.entryRoute?.returnTo });
+      if (!draftStillCurrent()) return;
       const successMessage = existingRelationId ? "关联已更新。" : relation?.created === false ? "关联已存在，已直接复用。" : "关联已保存。";
       host.permanentSidebarController().commitSavedRelationWorkspaceResult({
         noteId: sourceNote.id,

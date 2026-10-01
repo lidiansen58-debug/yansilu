@@ -13,6 +13,7 @@ import {
   renderRelationQualityMeter
 } from "./editor-relation-helpers.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
+import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
 import {
   RELATION_ENTRY_SOURCES,
   normalizeRelationEntryRoute
@@ -408,6 +409,7 @@ export class EditorSemanticRelationsController {
         })
       );
       await host.refreshRelationNetworkStatuses?.(note.id, values.toNoteId);
+      await refreshGraphAfterRelationMutation(host);
       if (!host.isActiveNoteId(formNoteId)) return;
       if (typeof host.refreshSemanticRelations === "function") await host.refreshSemanticRelations(note.id, host.relationsRequestSerial);
       if (!host.isActiveNoteId(formNoteId)) return;
@@ -516,6 +518,7 @@ export class EditorSemanticRelationsController {
         insightQuestion: values.insightQuestion
       });
       await host.refreshRelationNetworkStatuses(note.id, peerNoteId);
+      await refreshGraphAfterRelationMutation(host);
       if (!host.isActiveNoteId(formNoteId)) return;
       host.onStatus("关系已更新", "ok");
       this.resetPanelState(formNoteId);
@@ -544,6 +547,7 @@ export class EditorSemanticRelationsController {
     try {
       await deleteNoteRelation(id);
       await host.refreshRelationNetworkStatuses(activeNoteId, peerNoteId);
+      await refreshGraphAfterRelationMutation(host);
       if (!host.isActiveNoteId(activeNoteId)) return;
       host.onStatus("外部关联已取消", "ok");
       this.resetPanelState(activeNoteId);
