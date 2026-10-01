@@ -2,6 +2,7 @@ import { createGraphIsolatedWorkspaceRuntime } from "./graph-isolated-workspace-
 import { createGraphRelationWorkspaceRuntime } from "./graph-relation-workspace-runtime.js";
 import { createGraphSelectionResidualView } from "./graph-selection-residual-view.js";
 import { createGraphThinkingPanelResidualView } from "./graph-thinking-panel-residual-view.js";
+import { renderGraphPromptDetailsView } from "./graph-selection-panel.js";
 
 export function createGraphResidualViews(deps = {}) {
   const {
@@ -1875,6 +1876,7 @@ function renderGraphAiConnectCandidates(noteId = "", { nodeMap = new Map(), edge
 
 
 const graphRelationWorkspaceRuntime = createGraphRelationWorkspaceRuntime(graphResidualRuntimeDeps({
+  graphRelationStatusCountsAsNetworkEdge,
   graphRelationGroupCounts,
   graphNodeTitle,
   renderGraphSelectionMetrics
@@ -1947,6 +1949,15 @@ const {
   focusGraphRelationAdjustmentInPlace
 } = graphIsolatedWorkspaceRuntime;
 const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
+  graphRelationStatusCountsAsNetworkEdge,
+  graphNodeNeedsRelationWorkflow,
+  graphNodeRoleMeta,
+  normalizeGraphSelectionForVisibleItems,
+  graphEdgeReviewMeta,
+  graphEdgeAdjustmentPlan,
+  graphFocusCardActionMeta,
+  renderGraphSelectionMetrics,
+  renderGraphPromptDetails,
   graphFullNoteById,
   graphIsolatedWorkflowShell,
   graphRelationFormTypeOptions,
