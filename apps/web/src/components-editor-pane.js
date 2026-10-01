@@ -1,7 +1,7 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { refreshRelationNetworkStatusesForHost } from "./relation-network-refresh.js";
 import { hasIndependentGraphRelationComposer } from "./relation-composer-context.js";
-import { rememberRelationSnapshot, currentRelationSnapshot, clearRelationSnapshot } from "./relation-snapshot.js";
+import { beginRelationSnapshotRead, rememberRelationSnapshot, currentRelationSnapshot, clearRelationSnapshot } from "./relation-snapshot.js";
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import { recordEditorSourceAsPermanent } from "./source-note-editor-promotion.js";
 import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
@@ -3988,9 +3988,10 @@ export class EditorPane {
   }
 
   async refreshSemanticRelations(noteId, requestSerial) {
+    const readStillCurrent = beginRelationSnapshotRead(this, noteId);
     try {
       const relations = await fetchNoteRelations(noteId);
-      if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
+      if (!readStillCurrent() || requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       this.currentSemanticRelations = relations;
       rememberRelationSnapshot(this, noteId, relations);
       this.semanticRelationsState = "loaded";
@@ -4030,7 +4031,7 @@ export class EditorPane {
         this.els.editorRelationsBelow.classList.add("hidden");
       }
     } catch (error) {
-      if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
+      if (!readStillCurrent() || requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       this.currentSemanticRelations = currentRelationSnapshot(this, noteId);
       this.semanticRelationsState = "error";
       const note = this.activeNote();

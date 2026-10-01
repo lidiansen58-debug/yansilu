@@ -1,6 +1,71 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PermanentRelationComposerController } from "../../apps/web/src/permanent-relation-composer-controller.js";
+import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
+import { currentRelationSnapshot } from "../../apps/web/src/relation-snapshot.js";
+
+for (const scenario of ["save-save", "sidebar-save", "save-sidebar", "sidebar-error-save"]) {
+  test(`relation reads retain the newer snapshot when responses arrive out of order: ${scenario}`, async t => {
+    const originalFetch = globalThis.fetch, originalFormData = globalThis.FormData;
+    let releaseOldRead, oldReadStarted;
+    const held = new Promise(resolve => { releaseOldRead = resolve; });
+    const started = new Promise(resolve => { oldReadStarted = resolve; });
+    t.after(() => { releaseOldRead(); globalThis.fetch = originalFetch; globalThis.FormData = originalFormData; });
+    let readCount = 0;
+    const stored = [];
+    const oldIsSidebar = scenario.startsWith("sidebar");
+    const response = item => new Response(JSON.stringify({ item }), { status: 200 });
+    globalThis.FormData = class {
+      get(key) { return { relationType: "supports", rationale: "A concrete reason", insightQuestion: "" }[key]; }
+    };
+    globalThis.fetch = async (_url, options = {}) => {
+      if (options.method === "POST") {
+        const link = { id: `r${stored.length + 1}`, fromNoteId: "source", ...JSON.parse(options.body) };
+        stored.push(link);
+        return response(link);
+      }
+      const snapshot = structuredClone({ outgoingLinks: stored, backlinks: [] });
+      if (++readCount === (oldIsSidebar ? 1 : 2)) {
+        oldReadStarted();
+        await held;
+        if (scenario === "sidebar-error-save") throw new Error("obsolete sidebar failure");
+      }
+      return response(snapshot);
+    };
+    const source = { id: "source" };
+    const draft = (session, target) => ({ open: true, sourceNoteId: source.id, noteId: source.id,
+      relationComposerSessionId: session, selectedTargetNoteId: target, relationType: "supports", rationale: "A concrete reason" });
+    const host = {
+      state: { module: "explorer", notes: [source, { id: "target1" }, { id: "target2" }] },
+      permanentRelationWorkspaceState: draft("one", "target1"),
+      currentSemanticRelations: { outgoingLinks: [], backlinks: [] }, relationsRequestSerial: 1,
+      activeNote: () => source, activeTab: () => null, isActiveNoteId: id => id === source.id, vaultScope: () => "vault",
+      syncPermanentRelationWorkspaceOverlay() {}, syncRelationNetworkConnected() {}, async refreshRelationNetworkStatuses() {},
+      renderPreview() {}, setRelationFollowupSuggestion() {}, renderAll() {},
+      applyRelationNetworkStatusesFromRelations() {}, els: {},
+      permanentSidebarController: () => ({ commitSavedRelationWorkspaceResult() {} })
+    };
+    const controller = new PermanentRelationComposerController(host);
+    const sidebarRead = () => EditorPane.prototype.refreshSemanticRelations.call(host, source.id, 1);
+    const oldRequest = oldIsSidebar ? sidebarRead() : controller.submit({});
+    await started;
+    if (scenario === "save-sidebar") {
+      stored.push({ id: "r2", fromNoteId: source.id, toNoteId: "target2", relationType: "supports" });
+      await sidebarRead();
+    } else {
+      host.permanentRelationWorkspaceState = draft("two", "target2");
+      await controller.submit({});
+    }
+    const expectedIds = stored.map(link => link.id);
+    assert.deepEqual(host.currentSemanticRelations.outgoingLinks.map(link => link.id), expectedIds);
+    releaseOldRead();
+    await oldRequest;
+    assert.deepEqual(host.currentSemanticRelations.outgoingLinks.map(link => link.id), expectedIds);
+    assert.deepEqual(currentRelationSnapshot(host, source.id).outgoingLinks.map(link => link.id), expectedIds);
+    assert.equal(host.semanticRelationsState, "loaded");
+    assert.equal(host.permanentRelationWorkspaceState.relationComposerSessionId, scenario === "save-sidebar" ? "one" : "two");
+  });
+}
 
 test("a redundant search change event preserves the newly selected target", () => {
   const draft = { manualQuery: "same query", selectedTargetNoteId: "selected" };

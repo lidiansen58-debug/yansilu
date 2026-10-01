@@ -4,7 +4,7 @@ import { completeSmartNotesDemoSavedRelation } from "./smart-notes-demo-practice
 import { wikilinkTokenForNote } from "./editor-link-picker.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
 import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
-import { rememberRelationSnapshot } from "./relation-snapshot.js";
+import { beginRelationSnapshotRead, rememberRelationSnapshot } from "./relation-snapshot.js";
 import {
   normalizeRelationDraft,
   relationDraftCanSave,
@@ -236,9 +236,10 @@ export class PermanentRelationComposerController {
     }
     this.patchState({ ...state, saveState: "saving", error: "", notice: "正在保存关联..." });
     try {
+      const preflightReadStillCurrent = beginRelationSnapshotRead(host, sourceNote.id);
       const latestRelations = await fetchNoteRelations(sourceNote.id);
       if (!draftStillCurrent()) return;
-      if (sourceStillActive()) {
+      if (sourceStillActive() && preflightReadStillCurrent()) {
         host.currentSemanticRelations = latestRelations;
         rememberRelationSnapshot(host, sourceNote.id, latestRelations);
         host.semanticRelationsState = "loaded";
@@ -293,8 +294,9 @@ export class PermanentRelationComposerController {
       if (!vaultStillCurrent()) return;
       await refreshGraphAfterRelationMutation(host, { returnTo: state.entryRoute?.returnTo });
       if (!vaultStillCurrent()) return;
+      const savedReadStillCurrent = beginRelationSnapshotRead(host, sourceNote.id);
       const savedRelations = await fetchNoteRelations(sourceNote.id).catch(() => null);
-      if (savedRelations && sourceStillActive()) {
+      if (savedRelations && sourceStillActive() && savedReadStillCurrent()) {
         host.currentSemanticRelations = savedRelations;
         rememberRelationSnapshot(host, sourceNote.id, savedRelations);
         host.semanticRelationsState = "loaded";

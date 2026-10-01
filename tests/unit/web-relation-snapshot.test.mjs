@@ -1,6 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rememberRelationSnapshot, currentRelationSnapshot, clearRelationSnapshot } from "../../apps/web/src/relation-snapshot.js";
+import { beginRelationSnapshotRead, rememberRelationSnapshot, currentRelationSnapshot, clearRelationSnapshot } from "../../apps/web/src/relation-snapshot.js";
+
+test("snapshot reads share note ownership and invalidate on vault changes and reset", () => {
+  let vault = "a";
+  const host = { vaultScope: () => vault };
+  const oldRead = beginRelationSnapshotRead(host, "note");
+  const otherNoteRead = beginRelationSnapshotRead(host, "other");
+  const newRead = beginRelationSnapshotRead(host, "note");
+  assert.equal(oldRead(), false);
+  assert.equal(newRead(), true);
+  assert.equal(otherNoteRead(), true);
+  const otherHostRead = beginRelationSnapshotRead({ vaultScope: () => vault }, "note");
+  vault = "b";
+  assert.equal(newRead(), false);
+  assert.equal(otherHostRead(), false);
+  const resetRead = beginRelationSnapshotRead(host, "note");
+  clearRelationSnapshot(host);
+  assert.equal(resetRead(), false);
+});
 
 test("relation snapshots survive repeated reads of the same note and accept an empty replacement", () => {
   const host = { vaultScope: () => "vault-a" };
