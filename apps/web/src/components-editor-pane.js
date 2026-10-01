@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { refreshRelationNetworkStatusesForHost } from "./relation-network-refresh.js";
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import { recordEditorSourceAsPermanent } from "./source-note-editor-promotion.js";
 import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
@@ -3470,30 +3471,7 @@ export class EditorPane {
   }
 
   async refreshRelationNetworkStatuses(...noteIds) {
-    const ids = [...new Set(noteIds.map((item) => String(item || "").trim()).filter(Boolean))];
-    if (!ids.length) return;
-    let thinkingStatusChanged = false;
-    await Promise.all(
-      ids.map(async (noteId) => {
-        try {
-          const [relations, refreshedNote] = await Promise.all([
-            fetchNoteRelations(noteId),
-            fetchNote(noteId)
-          ]);
-          this.applyRelationNetworkStatusesFromRelations(noteId, relations);
-          const note = this.state.notes.find((item) => item.id === noteId);
-          if (note && refreshedNote && Object.prototype.hasOwnProperty.call(refreshedNote, "thinkingStatus")) {
-            const previousStatus = JSON.stringify(note.thinkingStatus || null);
-            note.thinkingStatus = refreshedNote.thinkingStatus || null;
-            if (JSON.stringify(note.thinkingStatus) !== previousStatus) thinkingStatusChanged = true;
-          }
-        } catch {}
-      })
-    );
-    if (thinkingStatusChanged) {
-      this.renderThinkingStatus();
-      this.renderAll?.();
-    }
+    return refreshRelationNetworkStatusesForHost(this, noteIds, { fetchNoteRelations, fetchNote });
   }
 
   hideSaveAiSuggestion() {

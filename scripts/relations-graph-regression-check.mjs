@@ -7,6 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 
 export const RELATIONS_GRAPH_UNIT_TEST_FILES = [
+  "tests/unit/web-relation-network-refresh.test.mjs",
+  "tests/unit/web-relation-composer-source.test.mjs",
+  "tests/unit/web-relation-graph-refresh.test.mjs",
+  "tests/unit/web-graph-ai-connect-runtime-controller.test.mjs",
+  "tests/unit/web-graph-ai-candidates.test.mjs",
+  "tests/unit/web-relation-workspace-shared.test.mjs",
+  "tests/unit/web-graph-canvas-event-router.test.mjs",
+  "tests/unit/web-graph-canvas-help-hint-controller.test.mjs",
   "tests/unit/web-relation-entry-route.test.mjs",
   "tests/unit/web-graph-relation-state-query.test.mjs",
   "tests/unit/web-relation-save-transaction.test.mjs",

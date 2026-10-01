@@ -85,8 +85,10 @@ export class PermanentRelationComposerController {
     const serial = ++host.permanentRelationSearchSerial;
     const requestSourceNoteId = sourceNote.id;
     const requestSessionId = stateSessionId(host);
+    const requestVaultScope = host.vaultScope?.();
     const stillCurrentSearch = () =>
       serial === host.permanentRelationSearchSerial &&
+      host.vaultScope?.() === requestVaultScope &&
       stateSourceNoteId(host) === requestSourceNoteId &&
       stateSessionId(host) === requestSessionId;
     const cleanQuery = cleanText(query);
