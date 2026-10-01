@@ -3,6 +3,47 @@ import assert from "node:assert/strict";
 
 import { pickDirectoryPath, pickFilePath } from "../../apps/web/src/path-picker-adapter.js";
 
+test("browser path selection uses the in-app dialog when native prompt is unsupported", async () => {
+  const previousWindow = globalThis.window;
+  const elements = new Map();
+  const root = { classList: { add() {}, remove() {} }, setAttribute() {}, addEventListener() {}, querySelector(selector) {
+    if (!elements.has(selector)) elements.set(selector, { value: "", setAttribute() {}, focus() {}, select() {}, addEventListener(event, callback) { this[event] = callback; } });
+    return elements.get(selector);
+  } };
+  globalThis.window = {
+    document: { body: { appendChild() {} }, createElement: () => root },
+    prompt() { throw new Error("prompt is unsupported"); }
+  };
+  try {
+    const pending = pickDirectoryPath({ defaultPath: "E:\\Exports" });
+    await Promise.resolve();
+    const input = elements.get("[data-text-input-field]");
+    assert.equal(input.value, "E:\\Exports");
+    input.value = " E:\\Chosen ";
+    elements.get("[data-text-input-confirm]").click();
+    assert.deepEqual(await pending, { path: "E:\\Chosen", source: "browser" });
+    const cancelled = pickFilePath();
+    await Promise.resolve();
+    elements.get("[data-text-input-cancel]").click();
+    assert.deepEqual(await cancelled, { path: "", source: "none" });
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
+test("cancelling a native directory or file dialog does not open the browser fallback", async () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { __TAURI__: { core: { invoke: async () => null } }, prompt: () => { throw new Error("must not prompt after cancellation"); } };
+  try {
+    assert.deepEqual(await pickDirectoryPath(), { path: "", source: "tauri" });
+    assert.deepEqual(await pickFilePath(), { path: "", source: "tauri" });
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
 test("path picker prefers tauri dialog.open when available", async () => {
   const previousWindow = globalThis.window;
   const calls = [];

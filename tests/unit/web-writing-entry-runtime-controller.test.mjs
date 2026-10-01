@@ -9,6 +9,81 @@ function fieldValues(values = {}) {
   return (id) => ({ value: values[id] || "" });
 }
 
+test("new writing entries cannot replace unsaved or saving drafts", () => {
+  for (const draftSaveState of ["dirty", "error", "saving"]) {
+    for (const method of ["beginWritingEntry", "continueWritingEntry"]) {
+      const calls = [];
+      const writingState = { draftSaveState, project: { id: "existing" }, draftMarkdown: "Keep my text" };
+      const before = structuredClone(writingState);
+      const controller = createWritingEntryRuntimeController(() => ({
+        writingState, parseWritingBasketIds: () => ["n1"],
+        resetWritingProjectContext: () => calls.push("reset"),
+        setWritingBasketIds: () => calls.push("basket")
+      }));
+      assert.throws(() => controller[method](["n2"]), /保存/);
+      assert.deepEqual(writingState, before);
+      assert.deepEqual(calls, []);
+    }
+  }
+});
+
+test("opening writing hydrates restored basket notes before rendering their titles", async () => {
+  const calls = [];
+  const controller = createWritingEntryRuntimeController(() => ({
+    writingState: { projectFilters: {} },
+    parseWritingBasketIds: () => ["restored"],
+    ensureNotesLoaded: async (ids) => calls.push(["hydrate", ids]),
+    renderWritingPanel: () => calls.push(["render"])
+  }));
+  await controller.openWritingModule({ statusMessage: "" });
+  assert.deepEqual(calls[0], ["hydrate", ["restored"]]);
+  assert.equal(calls.some(([type]) => type === "render"), true);
+});
+
+test("opening writing aborts after hydration if vault, basket, project or open request changed", async () => {
+  for (const change of ["vault", "basket", "project", "open-request"]) {
+    let release;
+    let vault = "/one";
+    let ids = ["n1"];
+    const state = { project: null, projectFilters: {} };
+    const calls = [];
+    const controller = createWritingEntryRuntimeController(() => ({
+      writingState: state, getVaultPath: () => vault, parseWritingBasketIds: () => ids,
+      ensureNotesLoaded: () => new Promise(resolve => { release = resolve; }),
+      listWritingProjects: async () => { calls.push("projects"); return []; },
+      renderWritingPanel: () => calls.push("render"),
+      setStatus: () => calls.push("status")
+    }));
+    const pending = controller.openWritingModule();
+    if (change === "vault") vault = "/two";
+    if (change === "basket") ids = ["n2"];
+    if (change === "project") state.project = { id: "another" };
+    if (change === "open-request") state.projectOpenRevision = 1;
+    release();
+    await pending;
+    assert.deepEqual(calls, [], change);
+  }
+});
+
+test("late workspace refresh cannot replace a new vault's writing state", async () => {
+  let vault = "/one";
+  let release;
+  const state = { project: null, projectFilters: {}, projects: [] };
+  const controller = createWritingEntryRuntimeController(() => ({
+    writingState: state, getVaultPath: () => vault, parseWritingBasketIds: () => ["n1"],
+    listWritingProjects: () => new Promise(resolve => { release = resolve; })
+  }));
+  const pending = controller.openWritingModule({ statusMessage: "" });
+  await Promise.resolve();
+  vault = "/two";
+  state.projects = [{ id: "new-vault-project" }];
+  state.loadingProjects = true;
+  release([{ id: "old-vault-project" }]);
+  await pending;
+  assert.deepEqual(state.projects, [{ id: "new-vault-project" }]);
+  assert.equal(state.loadingProjects, true);
+});
+
 test("writing entry runtime controller begins a fresh basket entry", () => {
   const calls = [];
   const writingState = {

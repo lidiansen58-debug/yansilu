@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   GRAPH_RELATION_TYPE_FILTER_KEY,
+  GRAPH_DEFAULT_RELATION_TYPE_FILTER,
+  initialGraphRelationTypeFilter,
   graphHasMeaningfulStructureEdges,
   graphReadingModeMeta,
   graphStructureFallbackEdges,
@@ -12,6 +14,40 @@ import {
   renderGraphViewModeSwitcher,
   setGraphRelationTypeFilterForRuntime
 } from "../../apps/web/src/graph-view-mode-state.js";
+import { graphFilterOptionsForRuntime } from "../../apps/web/src/graph-filter-options-view.js";
+import { GRAPH_MEANINGFUL_RELATION_TYPES, GRAPH_LINK_CLUE_RELATION_TYPES, GRAPH_INDEX_RELATION_TYPES } from "../../apps/web/src/graph-view-mode-state.js";
+
+test("graph starts with all relations and preserves an explicit saved filter", () => {
+  assert.equal(GRAPH_DEFAULT_RELATION_TYPE_FILTER, "all");
+  assert.equal(initialGraphRelationTypeFilter(), "all");
+  for (const filter of ["meaningful", "noisy", "index", "supports", "all"]) {
+    assert.equal(initialGraphRelationTypeFilter((key) => {
+      assert.equal(key, GRAPH_RELATION_TYPE_FILTER_KEY);
+      return filter;
+    }), filter);
+  }
+  assert.equal(initialGraphRelationTypeFilter(() => "obsolete"), "all");
+  assert.equal(normalizeGraphRelationTypeFilter(), "all");
+});
+
+test("filter counts classify relation types, not body-link versus external origin", () => {
+  const edges = [
+    { relationType: "associated_with", source: "markdown_wikilink" },
+    { relationType: "associated_with", source: "manual" },
+    { relationType: "supports", source: "manual" }
+  ];
+  const options = graphFilterOptionsForRuntime(edges, "relationType", "", "全部", type => type, null, {
+    normalizeGraphRelationTypeFilter, GRAPH_MEANINGFUL_RELATION_TYPES, GRAPH_LINK_CLUE_RELATION_TYPES, GRAPH_INDEX_RELATION_TYPES
+  });
+  assert.match(options, /^<option value="all" selected>全部 \(3\)/);
+  assert.match(options, /相关、引用等 \(2\)/);
+  assert.match(options, /支持、反驳等 \(1\)/);
+  assert.doesNotMatch(options, /正文链接|主要关系/);
+  const filter = renderGraphRelationTypeFilter(undefined, undefined, false, null, {
+    graphFilterOptions: (_edges, _field, selected) => `<option>${selected}</option>`
+  });
+  assert.match(filter, /<option>all<\/option>/);
+});
 
 test("graph view mode state normalizes relation filters and modes", () => {
   assert.equal(normalizeGraphRelationTypeFilter(" belongs_to_topic "), "index");

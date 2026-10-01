@@ -30,15 +30,18 @@ export function createWritingThemeProjectRuntime(deps = {}) {
   } = deps;
 
   async function createWritingProjectFromThemeIndex(indexCardId) {
+    const currentTheme = String(writingState.selectedThemeIndexId || "").trim() === String(indexCardId || "").trim();
+    const form = currentTheme ? Object.fromEntries(["Title", "Goal", "Audience", "Tone"]
+      .map((field) => [field, String($(`writing${field}`)?.value || "").trim()])) : {};
     const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexCardId, {
       replaceBasket: true,
       resetContext: true,
       source: "writing_theme_create_project"
     });
-    const title = String($("writingTitle")?.value || "").trim() || normalizeWritingProjectTitleSeed(indexCard.title || indexCard.id);
-    const goal = String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim();
-    const audience = String($("writingAudience")?.value || "").trim();
-    const tone = String($("writingTone")?.value || "").trim();
+    const title = form.Title || String($("writingTitle")?.value || "").trim() || normalizeWritingProjectTitleSeed(indexCard.title || indexCard.id);
+    const goal = form.Goal || String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim();
+    const audience = form.Audience ?? String($("writingAudience")?.value || "").trim();
+    const tone = form.Tone ?? String($("writingTone")?.value || "").trim();
     const bookStructure = currentWritingBookStructure({
       notes: noteIds.map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId }),
       includeLocalIdeas: true

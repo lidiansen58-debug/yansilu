@@ -55,6 +55,16 @@ export function noteMatchesMarkdownReferencePath(note = {}, candidatePath = "") 
   return notePath === candidate || notePath.endsWith(`/${candidate}`);
 }
 
+export function noteMatchesLinkAlias(note = {}, reference = "") {
+  const key = normalizeMarkdownReferencePath(reference).toLowerCase();
+  const pathReference = key.includes("/") || /\.md$/i.test(key);
+  return Boolean(key) && (Array.isArray(note.linkAliases) ? note.linkAliases : [])
+    .some(alias => {
+      const aliasKey = normalizeMarkdownReferencePath(alias).toLowerCase();
+      return aliasKey === key || (pathReference && aliasKey.endsWith(`/${key}`));
+    });
+}
+
 export function wikilinkTokenForNote(note = {}) {
   const title = String(note?.title || note?.id || UNTITLED_NOTE_TITLE).trim() || UNTITLED_NOTE_TITLE;
   const readableTitle = title.replace(/[\[\]]/g, "").trim() || UNTITLED_NOTE_TITLE;

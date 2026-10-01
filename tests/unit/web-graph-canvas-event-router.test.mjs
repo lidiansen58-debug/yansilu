@@ -434,7 +434,7 @@ test("graph canvas event router opens next-step workbench from insight lens", as
   });
 
   assert.equal(graphState.readingLens, "insight");
-  assert.deepEqual(relationTypeCalls, ["meaningful"]);
+  assert.deepEqual(relationTypeCalls, ["all"]);
   assert.equal(graphState.workbenchPanelOpen, true);
   assert.equal(graphState.workbenchPanelTab, "clues");
   assert.deepEqual(calls, [["render"], ["status", "ok", "已打开图谱下一步建议"]]);
@@ -471,16 +471,16 @@ test("graph canvas event router switches bridge and argument lenses inside relat
     });
 
     assert.equal(graphState.readingLens, lens);
-    assert.equal(graphState.filters.relationType, "meaningful");
-    assert.deepEqual(relationTypeCalls, ["meaningful"]);
+    assert.equal(graphState.filters.relationType, "all");
+    assert.deepEqual(relationTypeCalls, ["all"]);
     assert.deepEqual(calls, [["render"], ["status", "ok", `图谱优先查看已切换为：${label}`]]);
   }
 });
 
 test("graph canvas event router switches graph task views with matching detail panels", async () => {
   const cases = [
-    ["structure", "meaningful", "insight", false, "clues", true, ""],
-    ["relations", "meaningful", "bridge", false, "clues", true, "organize"],
+    ["structure", "all", "insight", false, "clues", true, ""],
+    ["relations", "all", "bridge", false, "clues", true, "organize"],
     ["themes", "index", "insight", false, "questions", true, "theme"]
   ];
 

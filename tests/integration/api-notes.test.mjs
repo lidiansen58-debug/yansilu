@@ -517,9 +517,10 @@ test("notes search returns explicit ranking metadata for relation target lookup"
   );
   assert.equal(search.status, 200, JSON.stringify(search.json));
   assert.equal(search.json.ranking.method, "sqlite_catalog_note_search_v1");
-  assert.deepEqual(search.json.ranking.priority.slice(0, 5), [
+  assert.deepEqual(search.json.ranking.priority.slice(0, 6), [
     "exact_title",
     "exact_id",
+    "exact_alias",
     "title_prefix",
     "id_prefix",
     "title_contains"
@@ -533,7 +534,7 @@ test("notes search returns explicit ranking metadata for relation target lookup"
   );
   assert.deepEqual(
     search.json.items.slice(0, 4).map((item) => item.rank),
-    [0, 2, 4, 7]
+    [0, 3, 5, 8]
   );
 });
 

@@ -1,3 +1,5 @@
+import { GRAPH_DEFAULT_RELATION_TYPE_FILTER } from "./graph-view-mode-state.js";
+
 function defaultTabMeta(value = "") {
   const key = String(value || "clues").trim().toLowerCase();
   return { key: key || "clues", label: key || "clues" };
@@ -38,10 +40,10 @@ export function applyGraphWorkbenchCloseInteraction(graphState = {}) {
 
 export function applyGraphEmptyCloseInteraction(graphState = {}, deps = {}) {
   const setRelationTypeFilter = deps.setRelationTypeFilter || (() => {});
-  setRelationTypeFilter("meaningful");
+  setRelationTypeFilter(GRAPH_DEFAULT_RELATION_TYPE_FILTER);
   graphState.selection = null;
   return {
-    relationType: "meaningful",
+    relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
     selection: null
   };
 }

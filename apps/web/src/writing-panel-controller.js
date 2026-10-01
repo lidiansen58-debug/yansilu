@@ -40,7 +40,8 @@ import {
   updateWritingRelatedNoteCounters
 } from "./writing-related-notes-panel.js";
 import {
-  writingWorkbenchHasTopic
+  writingWorkbenchHasTopic,
+  writingDraftContent
 } from "./writing-workbench-model.js";
 import {
   syncWritingTopicPickerAction
@@ -260,7 +261,7 @@ export function renderWritingPanelDom(deps = {}) {
     } else if (visibleThemeIndexes.length) {
       themeIndexList.innerHTML = visibleThemeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("");
     } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">还没有可写主题。用当前相关笔记保存一个，后续就能从这里继续写。</div>`;
+      themeIndexList.innerHTML = `<div class="writing-empty">先选择至少 3 条相关笔记，再新建主题。</div>`;
     }
   }
   if (themeDiscoverySuggestions) {
@@ -367,6 +368,13 @@ export function renderWritingPanelDom(deps = {}) {
     exportScaffoldButton.hidden = !hasScaffold;
   }
   if (openDraftButton) openDraftButton.hidden = !hasDraft;
+  for (const id of ["btnWritingCopyArticle", "btnWritingExportArticle"]) {
+    const button = $(id);
+    if (button) {
+      button.hidden = !hasDraft && !writingState.draftMarkdown;
+      button.disabled = writingState.draftSaveState === "saving";
+    }
+  }
   if (moreMenu) {
     moreMenu.hidden = !hasScaffold && !hasDraft;
     if (moreMenu.hidden) moreMenu.open = false;
@@ -388,19 +396,17 @@ export function renderWritingPanelDom(deps = {}) {
           : projectPreflightSummary.level === "has_gaps"
             ? "先补主题缺口"
             : "先生成文章提纲"
-      : hasDraft
-        ? draftSaveState === "saving"
-          ? "正在保存..."
+      : draftSaveState === "saving"
+        ? "正在保存..."
+        : draftSaveState === "error"
+          ? "保存失败，重试"
           : draftSaveState === "saved"
             ? "已保存"
-            : draftSaveState === "error"
-              ? "保存失败，重试"
-              : "保存草稿"
-        : "保存为草稿笔记";
+            : hasDraft ? "保存草稿" : "保存为草稿笔记";
   }
   if (startDraftButton) startDraftButton.disabled = !hasScaffold;
   if (draftEditor && (typeof document === "undefined" || document.activeElement !== draftEditor)) {
-    const draftBody = String(writingState.draftMarkdown || writingState.project?.draft_note?.body || writingState.scaffoldMarkdown || "").trim();
+    const draftBody = String(writingDraftContent({ writingState, title: $("writingTitle")?.value, notes: basketEntries })).trim();
     draftEditor.value = draftBody;
   }
   const strongModelBasketIds = renderWritingStrongModelSummaryDom({

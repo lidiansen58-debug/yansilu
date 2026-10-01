@@ -11,6 +11,14 @@ import {
   readWritingPanelShellSource
 } from "./copy-source-helpers.mjs";
 
+test("successful project continuation exits the topic picker only after validating its route", async () => {
+  const source = await readPrototypeAppSource();
+  const start = source.indexOf("async function continueWritingProjectEntry(");
+  const end = source.indexOf("async function prepareWritingStrongModelAnalysis", start);
+  const continuation = source.slice(start, end);
+  assert.match(continuation, /await openWritingProject\(projectId\)[\s\S]*throw new Error\(route.errorMessage\)[\s\S]*hideWritingTopicPicker\([\s\S]*applyWritingTab\(continuationTab/);
+});
+
 test("prototype writing shell keeps the main writing surfaces wired", async () => {
   const source = await readPrototypeAppSource();
 

@@ -210,7 +210,7 @@ test("wikilink preview avoids low-value match and count metadata", async () => {
   assert.ok(source.includes("async openLinkedPreviewNote(noteId)"));
   assert.ok(source.includes("void this.openLinkedPreviewNote(linkedNoteButton.dataset.openLinkedNote);"));
   assert.ok(source.includes("async resolvePreviewLinkToken(tokenValue"));
-  assert.ok(source.includes("await searchNotes({ query, excludeNoteId: this.activeNote()?.id || \"\", limit: 8 })"));
+  assert.ok(source.includes("await this.searchNotesForResolution({ query, excludeNoteId: this.activeNote()?.id || \"\", limit: 8 })"));
   assert.ok(source.includes("for (const candidatePath of markdownReferencePathCandidates(query))"));
   assert.ok(source.includes("data-close-note-peek"));
   assert.ok(source.includes(">编辑笔记</button>"));

@@ -1,7 +1,7 @@
 export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, labelFn, statsOverride = null, deps = {}) {
   const {
     escapeHtml = (value = "") => String(value ?? ""),
-    normalizeGraphRelationTypeFilter = (value = "meaningful") => String(value || "meaningful"),
+    normalizeGraphRelationTypeFilter = (value = "all") => String(value || "all"),
     graphRelationGroupMeta = () => ({ key: "neutral" }),
     GRAPH_RELATION_GROUP_META = { neutral: { label: "其它" } },
     GRAPH_MEANINGFUL_RELATION_TYPES = new Set(),
@@ -17,7 +17,7 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
   }, {});
   if (field === "relationType") {
     const counts = statsOverride?.counts && typeof statsOverride.counts === "object" ? statsOverride.counts : fallbackCounts;
-    const selectedKey = normalizeGraphRelationTypeFilter(selected, "meaningful");
+    const selectedKey = normalizeGraphRelationTypeFilter(selected, "all");
     const structureFallback = statsOverride?.structureFallback === true;
     const meaningfulCount = Number.isFinite(Number(statsOverride?.meaningfulCount))
       ? Number(statsOverride.meaningfulCount)
@@ -30,11 +30,11 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
       : list.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
     const totalCount = Number.isFinite(Number(statsOverride?.totalCount)) ? Number(statsOverride.totalCount) : list.length;
     const leadingOptions = [
-      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>主要关系 (${meaningfulCount})</option>`,
-      `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`
+      `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`,
+      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>支持、反驳等 (${meaningfulCount})</option>`
     ];
     if (noisyCount > 0) {
-      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>正文链接 (${noisyCount})</option>`);
+      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>相关、引用等 (${noisyCount})</option>`);
     }
     if (indexCount > 0 || structureFallback) {
       const indexDisplayCount = structureFallback && selectedKey === "index" ? meaningfulCount || totalCount : indexCount;
@@ -52,7 +52,7 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
         selectedKey !== "index" &&
         Object.prototype.hasOwnProperty.call(counts, selectedKey));
     if (!selectedTypeHasOption && selectedKey) {
-      const selectedLabel = selectedKey === "noisy" ? "正文链接" : selectedKey === "index" ? "主题关系" : labelFn(selectedKey);
+      const selectedLabel = selectedKey === "noisy" ? "相关、引用等" : selectedKey === "index" ? "主题关系" : labelFn(selectedKey);
       leadingOptions.push(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedLabel)} (0)</option>`);
     }
     const groupedCounts = new Map();

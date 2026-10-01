@@ -1085,6 +1085,14 @@ export async function confirmImport(importRecordId, payload = {}) {
   });
 }
 
+export async function exportWritingArticle(payload) {
+  return request("/api/v1/exports/article", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...LOCAL_RUNTIME_CONTROL_HEADERS },
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function exportMarkdown(targetPathOrOptions, maybeOptions = {}) {
   const options =
     typeof targetPathOrOptions === "object" && targetPathOrOptions !== null

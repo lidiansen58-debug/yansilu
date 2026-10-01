@@ -1,8 +1,11 @@
 import {
   buildSmartNotesDemoWalkthrough,
-  completeSmartNotesDemoStep,
-  renderSmartNotesDemoWalkthrough
+  renderSmartNotesDemoWalkthrough,
+  smartNotesDemoJudgmentStep
 } from "./beginner-onboarding-flow.js";
+import { beginSmartNotesDemoPractice } from "./smart-notes-demo-practice-progress.js";
+import { handleWritingStartDraftClick } from "./writing-panel-events.js";
+import { openShortPracticeWriting } from "./smart-notes-practice-writing-entry.js";
 
 export function sidebarFlowNoteHasNetworkSignal(note = null, deps = {}) {
   const {
@@ -217,40 +220,52 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     const noteId = String(button.dataset?.sidebarFlowNoteId || button.getAttribute?.("data-sidebar-flow-note-id") || "").trim();
     if (!noteId) return false;
     activateModule("explorer");
-    const opened = openNoteById(noteId, { preferTitleSelection: false });
+    const stepKey = String(button.dataset?.sidebarFlowStepKey || "").trim();
+    const opened = openNoteById(noteId, { preferTitleSelection: false, ...(smartNotesDemoJudgmentStep(stepKey) ? { focusDistillation: true } : {}) });
     if (!opened) {
       setStatus("没有找到这一步的导览笔记，请重新导入 Smart Notes Demo。", "warn");
       return false;
     }
     if (action === "open-demo-note-relations") {
-      state.smartNotesDemoPendingRelationStep = {
-        key: String(button.dataset?.sidebarFlowStepKey || "first-relation").trim() || "first-relation",
-        noteId
-      };
+      beginSmartNotesDemoPractice(state, { key: stepKey || "first-relation", noteId });
       await handleStateChange("open-note-relations", { noteId, source: "smart-notes-demo-walkthrough" });
       setStatus("已打开导览笔记，可以开始补关系理由。", "ok");
     } else {
-      const stepKey = String(button.dataset?.sidebarFlowStepKey || "").trim();
-      if (stepKey) state.smartNotesDemoCompletedSteps = completeSmartNotesDemoStep(state.smartNotesDemoCompletedSteps, stepKey);
+      if (smartNotesDemoJudgmentStep(stepKey)) beginSmartNotesDemoPractice(state, {
+        key: stepKey, noteId, baseline: state.notes?.find((note) => note.id === noteId)?.thesis || ""
+      });
       renderAll();
       setStatus("已打开导览笔记。", "ok");
     }
     return true;
   }
-  if (action === "open-demo-writing") {
+  if (action === "open-demo-writing" || action === "open-demo-export") {
     const projectId = String(button.dataset?.sidebarFlowNoteId || button.getAttribute?.("data-sidebar-flow-note-id") || "").trim();
     if (!projectId) {
       setStatus("没有找到示例写作项目，请重新导入 Smart Notes Demo。", "warn");
       return false;
     }
     try {
+      const stepKey = String(button.dataset?.sidebarFlowStepKey || "").trim();
+      if (["practice-draft", "practice-export"].includes(stepKey)) {
+        const project = await openShortPracticeWriting(projectId, deps, { exportStep: action === "open-demo-export" });
+        if (!project) return false;
+        beginSmartNotesDemoPractice(state, { key: stepKey, projectId,
+          baseline: project.draft_note?.body ?? deps.writingDraftBody?.() ?? "" });
+        renderAll();
+        return true;
+      }
       const project = await continueWritingProjectEntry(projectId, {
         openDraft: false,
-        statusMessage: "已打开 Smart Notes Demo 的可追溯文章提纲。"
+        statusMessage: "已打开示例草稿，写一段自己的解释后保存。"
       });
       if (!project) throw new Error("示例写作项目不可用");
-      const stepKey = String(button.dataset?.sidebarFlowStepKey || "").trim();
-      if (stepKey) state.smartNotesDemoCompletedSteps = completeSmartNotesDemoStep(state.smartNotesDemoCompletedSteps, stepKey);
+      handleWritingStartDraftClick(deps);
+      deps.applyWritingTab?.("draft");
+      beginSmartNotesDemoPractice(state, {
+        key: "write-from-notes", projectId: project.id,
+        baseline: project.draft_note?.body ?? deps.writingState?.draftMarkdown ?? ""
+      });
       renderAll();
       return true;
     } catch (error) {

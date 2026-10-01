@@ -41,8 +41,17 @@ test("writing workspace helpers derive project titles from note lookup", () => {
         { id: "n1", title: "Alpha" }
       ]
     }),
-    /Beta.*主题/
+    /Beta.*等 2 条笔记/
   );
+});
+
+test("writing title seeds preserve authored suffixes and do not accumulate labels", () => {
+  for (const title of ["自己的观点", "我的研究主题", "开源项目", "写作项目"]) {
+    assert.equal(normalizeWritingProjectTitleSeed(`  ${title}  `), title);
+    assert.equal(normalizeWritingProjectTitleSeed(normalizeWritingProjectTitleSeed(title)), title);
+  }
+  assert.equal(normalizeWritingProjectTitleSeed(""), "未命名文章");
+  assert.equal(suggestedWritingProjectTitle(["n1"], { noteById }), "Alpha");
 });
 
 test("writing workspace helpers derive theme labels from tags before titles", () => {

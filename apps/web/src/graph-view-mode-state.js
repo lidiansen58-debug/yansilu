@@ -1,4 +1,5 @@
 export const GRAPH_RELATION_TYPE_FILTER_KEY = "yansilu:graph:relation-type-filter";
+export const GRAPH_DEFAULT_RELATION_TYPE_FILTER = "all";
 
 export const GRAPH_INDEX_RELATION_TYPES = new Set(["belongs_to_topic"]);
 export const GRAPH_LINK_CLUE_RELATION_TYPES = new Set(["associated_with", "free_link", "duplicates", "same_topic", "restates"]);
@@ -44,12 +45,16 @@ export function graphViewModeForRelationType(value = "") {
   return "argument";
 }
 
-export function normalizeGraphRelationTypeFilter(value = "", fallback = "meaningful") {
+export function normalizeGraphRelationTypeFilter(value = "", fallback = GRAPH_DEFAULT_RELATION_TYPE_FILTER) {
   const key = String(value || "").trim().toLowerCase();
-  const normalizedFallback = String(fallback || "meaningful").trim().toLowerCase() || "meaningful";
+  const normalizedFallback = String(fallback || GRAPH_DEFAULT_RELATION_TYPE_FILTER).trim().toLowerCase() || GRAPH_DEFAULT_RELATION_TYPE_FILTER;
   const allowed = new Set(["meaningful", "all", "noisy", "index", ...GRAPH_RELATION_TYPE_KEYS]);
   if (GRAPH_INDEX_RELATION_TYPES.has(key)) return "index";
   return allowed.has(key) ? key : normalizedFallback;
+}
+
+export function initialGraphRelationTypeFilter(readStoredText = () => "") {
+  return normalizeGraphRelationTypeFilter(readStoredText(GRAPH_RELATION_TYPE_FILTER_KEY, GRAPH_DEFAULT_RELATION_TYPE_FILTER));
 }
 
 export function graphReadingModeMeta(value = "argument") {
@@ -67,12 +72,12 @@ export function graphReadingModeMeta(value = "argument") {
     key: "argument",
     label: "看结构",
     purpose: "看笔记如何分组，先从中心笔记读起。",
-    filterHint: "当前优先显示主要关系。要看可整理的主题时切到“找主题”。",
+    filterHint: "正文链接与外部关联同等展示，可按关系类型筛选。",
     mapNote: "看结构会突出分组和中心笔记。"
   };
 }
 export function setGraphRelationTypeFilterForRuntime(graphState = {}, value = "", deps = {}) {
-  const next = normalizeGraphRelationTypeFilter(value, "meaningful");
+  const next = normalizeGraphRelationTypeFilter(value);
   if (!graphState.filters || typeof graphState.filters !== "object") graphState.filters = {};
   graphState.filters.relationType = next;
   if (deps.persist !== false) {
@@ -133,7 +138,7 @@ export function renderGraphViewModeSwitcher(relationType = "meaningful", activeL
   `;
 }
 
-export function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null, deps = {}) {
+export function renderGraphRelationTypeFilter(edges = [], selected = GRAPH_DEFAULT_RELATION_TYPE_FILTER, compact = false, statsOverride = null, deps = {}) {
   const escapeHtml = deps.escapeHtml || defaultEscapeHtml;
   const graphFilterOptions = deps.graphFilterOptions || (() => "");
   const graphRelationTypeLabel = deps.graphRelationTypeLabel || ((value) => String(value || "").trim() || "关系");

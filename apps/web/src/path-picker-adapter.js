@@ -1,3 +1,7 @@
+import { createTextInputDialog } from "./components-text-input-dialog.js";
+
+let browserPathInput = null;
+
 function normalizePickedPath(result) {
   if (!result) return "";
   if (typeof result === "string") return result.trim();
@@ -10,7 +14,7 @@ function normalizePickedPath(result) {
 
 async function pickByTauri({ defaultPath = "", directory = true, filters } = {}) {
   const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;
-  if (!tauri) return "";
+  if (!tauri) return null;
 
   const options = {
     directory,
@@ -29,7 +33,7 @@ async function pickByTauri({ defaultPath = "", directory = true, filters } = {})
     return normalizePickedPath(result);
   }
 
-  return "";
+  return null;
 }
 
 async function pickByBrowser({ defaultPath = "", promptMessage = "请输入目录路径（浏览器降级模式）" } = {}) {
@@ -38,13 +42,18 @@ async function pickByBrowser({ defaultPath = "", promptMessage = "请输入目�
   // Browser directory handles do not expose a local absolute path, but vault switching
   // requires a concrete path string. Keep the browser fallback on the explicit prompt flow.
 
+  if (window.document?.body) {
+    browserPathInput ||= createTextInputDialog({ documentRef: window.document });
+    const selected = await browserPathInput({ title: "选择本地路径", label: "完整路径", note: promptMessage, value: defaultPath });
+    return String(selected || "").trim();
+  }
   const selected = window.prompt(promptMessage, defaultPath || "");
   return selected ? String(selected).trim() : "";
 }
 
 export async function pickDirectoryPath({ defaultPath = "" } = {}) {
   const fromTauri = await pickByTauri({ defaultPath, directory: true });
-  if (fromTauri) return { path: fromTauri, source: "tauri" };
+  if (fromTauri !== null) return { path: fromTauri, source: "tauri" };
 
   const fromBrowser = await pickByBrowser({ defaultPath, promptMessage: "请输入目录路径（浏览器降级模式）" });
   if (fromBrowser) return { path: fromBrowser, source: "browser" };
@@ -54,7 +63,7 @@ export async function pickDirectoryPath({ defaultPath = "" } = {}) {
 
 export async function pickFilePath({ defaultPath = "", filters } = {}) {
   const fromTauri = await pickByTauri({ defaultPath, directory: false, filters });
-  if (fromTauri) return { path: fromTauri, source: "tauri" };
+  if (fromTauri !== null) return { path: fromTauri, source: "tauri" };
 
   const fromBrowser = await pickByBrowser({ defaultPath, promptMessage: "请输入文件路径（浏览器降级模式）" });
   if (fromBrowser) return { path: fromBrowser, source: "browser" };

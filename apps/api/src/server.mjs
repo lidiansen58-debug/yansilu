@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
 import { createNoteMoveOperations } from "./note-move-operations.mjs";
+import { exportArticle } from "../../../packages/export-engine/src/index.mjs";
 
 const noteMoveOperations = createNoteMoveOperations();
 
@@ -6215,6 +6216,21 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, result);
       } catch (error) {
         return sendJson(res, 400, err(error.code || "IMPORT_STATUS_INVALID", String(error?.message || error), rid, error.details));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/exports/article") {
+      const vaultPath = VAULT_PATH;
+      try {
+        assertLocalRuntimeControlAllowed(req);
+        const body = await readJson(req);
+        if (!body.expectedVaultPath || path.resolve(body.expectedVaultPath) !== path.resolve(vaultPath) || VAULT_PATH !== vaultPath) {
+          return sendJson(res, 409, err("ARTICLE_EXPORT_VAULT_CHANGED", "笔记库已变化，请重开草稿后重新导出。", rid));
+        }
+        const result = await exportArticle({ ...body, vaultPath });
+        return sendJson(res, 200, result);
+      } catch (error) {
+        return sendJson(res, error?.status || 400, err(error?.code || "ARTICLE_EXPORT_FAILED", String(error?.message || error), rid));
       }
     }
 

@@ -1,3 +1,5 @@
+import { GRAPH_DEFAULT_RELATION_TYPE_FILTER } from "./graph-view-mode-state.js";
+
 function defaultSetFrom(values = []) {
   return new Set((Array.isArray(values) ? values : []).filter(Boolean));
 }
@@ -12,7 +14,7 @@ export function buildGraphPanelState({
   const {
     graphRelationStatusCountsAsNetworkEdge = () => false,
     graphScopedItems = (graph) => ({ nodes: graph?.nodes || [], allNodes: graph?.nodes || [], edges: graph?.edges || [] }),
-    normalizeGraphRelationTypeFilter = (value) => value || "meaningful",
+    normalizeGraphRelationTypeFilter = (value) => value || GRAPH_DEFAULT_RELATION_TYPE_FILTER,
     graphEdgeMatchesFilters = () => true,
     graphFocusedItems = (nodes = [], edges = [], allNodes = []) => ({ nodes, edges, allNodes, focused: false, focusedNoteId: "" }),
     graphNodeIdsInScope = (nodes = []) => defaultSetFrom(nodes.map((node) => node?.id)),
@@ -78,7 +80,7 @@ export function buildGraphPanelState({
   );
   const scoped = graphScopedItems(graph, { scopeDirectoryId });
   const filters = graphState.filters || { relationType: "all", status: "all" };
-  const effectiveRelationType = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
+  const effectiveRelationType = normalizeGraphRelationTypeFilter(filters.relationType, GRAPH_DEFAULT_RELATION_TYPE_FILTER);
   const activeFilters = { ...filters, relationType: effectiveRelationType };
   const focusTraversalEdges = scoped.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
   const focused = graphFocusedItems(scoped.nodes, scoped.edges, scoped.allNodes, focusTraversalEdges);

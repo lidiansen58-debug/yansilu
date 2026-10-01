@@ -11,10 +11,22 @@ export function syncWritingTopicPickerAction(open = false, { documentRef = typeo
 export function showWritingTopicPicker({ documentRef = typeof document !== "undefined" ? document : null, applyWritingTab = () => {} } = {}) {
   const shell = documentRef?.querySelector?.(".writing-shell");
   if (!shell) return false;
+  if (shell.dataset.writingView !== "topic-picker") shell.dataset.writingReturnTab = shell.dataset.writingActiveTab || "theme";
   shell.dataset.writingView = "topic-picker";
   syncWritingTopicPickerAction(true, { documentRef });
   applyWritingTab("theme");
   return true;
+}
+
+export function toggleWritingTopicPicker({ documentRef = typeof document !== "undefined" ? document : null, applyWritingTab = () => {} } = {}) {
+  const shell = documentRef?.querySelector?.(".writing-shell");
+  if (shell?.dataset.writingView === "topic-picker" && shell.dataset.writingHasTopic === "true") {
+    const returnTab = shell.dataset.writingReturnTab || "theme";
+    hideWritingTopicPicker({ root: shell, documentRef });
+    applyWritingTab(returnTab);
+    return true;
+  }
+  return showWritingTopicPicker({ documentRef, applyWritingTab });
 }
 
 export function hideWritingTopicPicker({ root = null, documentRef = typeof document !== "undefined" ? document : null } = {}) {
@@ -31,7 +43,7 @@ export function installWritingSidebarActionEvents({ root = null, documentRef = t
     const action = event.target?.closest?.("[data-writing-sidebar-action]")?.dataset?.writingSidebarAction;
     if (!action || !root.contains?.(event.target)) return;
     if (action === "topics") {
-      showWritingTopicPicker({ documentRef, applyWritingTab });
+      toggleWritingTopicPicker({ documentRef, applyWritingTab });
       return;
     }
     if (action === "related") {

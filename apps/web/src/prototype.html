@@ -491,6 +491,8 @@
                   <details class="writing-more-menu" id="writingMoreMenu">
                     <summary class="mini-btn icon-btn" aria-label="更多" title="更多" data-tip="更多">⋯</summary>
                     <div class="writing-more-menu-panel">
+                      <button class="mini-btn" id="btnWritingCopyArticle" type="button" title="复制当前编辑内容，不会保存草稿">复制正文</button>
+                      <button class="mini-btn" id="btnWritingExportArticle" type="button" title="选择目录，导出当前正文与引用的附件，不会保存草稿">导出文章 .md</button>
                       <button class="mini-btn" id="btnWritingCopyScaffold" type="button">复制提纲 Markdown</button>
                       <button class="mini-btn" id="btnWritingExportScaffold" type="button">导出提纲 .md</button>
                       <button class="mini-btn" id="btnWritingOpenDraft" type="button">打开当前草稿</button>
@@ -507,6 +509,7 @@
               <section class="writing-empty-topic" id="writingEmptyTopic">
                 <div class="writing-empty-topic-copy">
                   <h2>选择一个可写主题</h2>
+                  <button class="mini-btn primary" id="btnWritingSaveThemeIndex" type="button">新建主题</button>
                   <button class="mini-btn" id="btnWritingDiscoverThemes" type="button">建议主题</button>
                 </div>
                 <div class="writing-note-list writing-theme-picks" id="writingThemeIndexList"></div>
@@ -604,7 +607,6 @@
                     <div class="writing-note-list" id="writingCandidateList"></div>
                   </details>
                   <textarea id="writingBasketNoteIds" hidden></textarea>
-                  <button class="mini-btn" id="btnWritingSaveThemeIndex" type="button" hidden>保存为可写主题</button>
                 </section>
               </aside>
 

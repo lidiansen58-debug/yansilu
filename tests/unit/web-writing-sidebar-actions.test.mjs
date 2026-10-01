@@ -5,6 +5,7 @@ import {
   hideWritingTopicPicker,
   installWritingSidebarActionEvents,
   showWritingTopicPicker,
+  toggleWritingTopicPicker,
   syncWritingTopicPickerAction
 } from "../../apps/web/src/writing-sidebar-actions.js";
 
@@ -32,6 +33,25 @@ test("writing sidebar returns an active workbench to the topic picker", () => {
   assert.equal(shell.dataset.writingView, undefined);
   assert.equal(sidebarButton.classList.contains("is-active"), false);
   assert.equal(syncWritingTopicPickerAction(true, { documentRef }), true);
+});
+
+test("topic picker returns to the existing draft without reloading or replacing its input", () => {
+  const shell = { dataset: { writingActiveTab: "draft", writingHasTopic: "true" } };
+  const documentRef = { querySelector: selector => selector === ".writing-shell" ? shell : null };
+  const applyWritingTab = tab => { shell.dataset.writingActiveTab = tab; };
+  toggleWritingTopicPicker({ documentRef, applyWritingTab });
+  assert.equal(shell.dataset.writingView, "topic-picker");
+  assert.equal(shell.dataset.writingReturnTab, "draft");
+  toggleWritingTopicPicker({ documentRef, applyWritingTab });
+  assert.equal(shell.dataset.writingView, undefined);
+  assert.equal(shell.dataset.writingActiveTab, "draft");
+});
+
+test("topic picker remains open when there is no active topic", () => {
+  const shell = { dataset: { writingView: "topic-picker", writingHasTopic: "false" } };
+  const documentRef = { querySelector: selector => selector === ".writing-shell" ? shell : null };
+  toggleWritingTopicPicker({ documentRef });
+  assert.equal(shell.dataset.writingView, "topic-picker");
 });
 
 test("writing sidebar routes theme and related-note actions", () => {
