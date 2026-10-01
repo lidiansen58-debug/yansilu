@@ -3,6 +3,18 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { renderPermanentRelationWorkspace } from "../../apps/web/src/permanent-relation-workspace.js";
+
+test("graph edit can request fresh relation validation without an editor snapshot but blocks a known missing relation", () => {
+  const options = { note: { id: "source" }, state: {
+    open: true, noteId: "source", editingRelationId: "relation", selectedTargetNoteId: "target",
+    relationType: "supports", rationale: "保存的依据。"
+  } };
+  const unknown = renderPermanentRelationWorkspace(options);
+  assert.match(unknown, /编辑关联/);
+  assert.match(unknown, /type="submit"\s*>保存修改/);
+  const missing = renderPermanentRelationWorkspace({ ...options, relations: { outgoingLinks: [], incomingLinks: [] } });
+  assert.match(missing, /type="submit" disabled>保存修改/);
+});
 import { EditorSemanticRelationsView } from "../../apps/web/src/editor-semantic-relations-view.js";
 import {
   defaultPermanentRelationWorkspaceState,

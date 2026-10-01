@@ -3,6 +3,22 @@ import assert from "node:assert/strict";
 
 import { createGraphRelationComposerEntry } from "../../apps/web/src/graph-relation-composer-entry.js";
 
+test("graph relation adjustment carries the saved relation identity while new candidates remain new", () => {
+  const routes = [];
+  const open = createGraphRelationComposerEntry({ editor: {
+    openPermanentRelationWorkspace: route => { routes.push(route); return true; }
+  } });
+  open({ getAttribute: name => ({
+    "data-graph-relation-source": "source", "data-graph-target-note": "target",
+    "data-graph-relation-id": " relation-1 "
+  })[name] || "" });
+  open({ noteId: "source", targetNoteId: "target" });
+  assert.equal(routes[0].editingRelationId, "relation-1");
+  assert.equal(routes[0].noteId, "source");
+  assert.equal(routes[0].targetNoteId, "target");
+  assert.equal(routes[1].editingRelationId, "");
+});
+
 test("graph relation composer entry preserves graph source and return context", () => {
   const calls = [];
   const graphState = { selection: { kind: "node", nodeId: "source-note" } };

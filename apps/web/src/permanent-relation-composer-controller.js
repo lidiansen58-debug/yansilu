@@ -214,7 +214,9 @@ export class PermanentRelationComposerController {
       relations: currentRelations,
       allowExistingUpdate: true
     });
-    if (!validation.ok) {
+    // A graph-only composer has no editor relation snapshot yet. Verify the
+    // saved identity against the fresh preflight read before accepting a save.
+    if (!validation.ok && !(validation.reason === "missing_relation" && !currentRelations)) {
       this.patchState({ ...state, error: relationDraftErrorText(validation.reason), notice: "" });
       return;
     }

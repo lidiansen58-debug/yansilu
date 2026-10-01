@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, createWritingReadyPermanentNote, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 for (const input of ["keyboard", "touch"]) {
   test(`graph filters and endpoint navigation work with ${input}`, async t => {
@@ -64,7 +64,8 @@ for (const input of ["keyboard", "touch"]) {
   });
 }
 
-test("graph directory scope includes descendants and saves the selected network as a theme", async t => {
+for (const writingReady of [false, true]) {
+test(`graph directory scope saves the selected network as a theme${writingReady ? " and continues writing" : ""}`, async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t);
   if (!pw) return;
@@ -81,9 +82,13 @@ test("graph directory scope includes descendants and saves the selected network 
   };
   const parent = await directory("关联范围", "dir_original_default", ["navigation-scope"]);
   const child = await directory("子目录", parent.id, ["navigation-scope", "child"]);
-  const create = async (title, directoryId) => (await postJson(apiBase, "/api/v1/notes", {
-    directoryId, body: `# ${title}\n\n观点。`
-  })).json.item;
+  const create = async (title, directoryId) => (writingReady
+    ? await createWritingReadyPermanentNote(apiBase, {
+      title, directoryId, body: `# ${title}\n\n关联的理由需要可追溯。`,
+      thesis: "关联的理由需要可追溯。", threeLineSummary: ["明确判断。", "说明依据。", "讨论边界。"],
+      boundaryOrCounterpoint: "相似主题并不自动构成支持关系。"
+    })
+    : await postJson(apiBase, "/api/v1/notes", { directoryId, body: `# ${title}\n\n观点。` })).json.item;
   const source = await create("范围来源", parent.id), target = await create("范围目标", parent.id);
   const descendant = await create("子目录观点", child.id), outside = await create("范围之外", "dir_original_default");
   for (const note of [target, descendant]) {
@@ -112,4 +117,14 @@ test("graph directory scope includes descendants and saves the selected network 
     assert.ok(theme, JSON.stringify(indexes.json));
     assert.ok(!theme.item_note_ids.includes(outside.id));
   });
+  if (writingReady) {
+    await page.waitForFunction(() => window.__prototypeState.module === "writing");
+    await waitFor(async () => {
+      assert.match(await page.locator("#writingBasketSummary").textContent(), /已选 3 条/);
+      const ids = await page.locator('.writing-note-card.selected[data-writing-note-id]').evaluateAll(nodes => nodes.map(node => node.dataset.writingNoteId));
+      for (const note of [source, target, descendant]) assert.ok(ids.includes(note.id), JSON.stringify(ids));
+      assert.ok(!ids.includes(outside.id));
+    });
+  }
 });
+}

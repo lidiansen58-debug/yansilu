@@ -229,11 +229,12 @@ export function renderPermanentRelationWorkspace({
     notes
   });
   const existing = selectedTarget ? permanentRelationWorkspaceExistingLink(relations, note.id, selectedTarget.id, workspaceState.editingRelationId) : null;
-  const isEditingExisting = Boolean(existing);
+  const isEditingExisting = Boolean(existing || workspaceState.editingRelationId);
   const relationTypeValue = workspaceState.relationType || existing?.relationType || existing?.relation_type || selectedTarget?.candidate?.relationType || "associated_with";
   const rationaleValue = workspaceState.rationale || existing?.rationale || "";
   const canSave = permanentRelationWorkspaceCanSave({ state: workspaceState, relations, allowExistingUpdate: true });
   const softBlockedReasons = new Set(["missing_rationale"]);
+  if (!relations) softBlockedReasons.add("missing_relation");
   const saveDisabled = workspaceState.saveState === "saving" || (!canSave.ok && !softBlockedReasons.has(canSave.reason));
   const hasManualQuery = Boolean(cleanText(workspaceState.manualQuery));
   const showingAiTargets = workspaceState.mode === "ai" && !selectedTarget;
@@ -282,7 +283,7 @@ export function renderPermanentRelationWorkspace({
             ${workspaceState.error ? `<div class="semantic-relation-form-error">${escapeHtml(workspaceState.error)}</div>` : ""}
             ${workspaceState.notice ? `<div class="permanent-relation-notice">${escapeHtml(workspaceState.notice)}</div>` : ""}
             <div class="semantic-relation-actions">
-              <button class="mini-btn primary" type="submit" ${saveDisabled ? "disabled" : ""}>${workspaceState.saveState === "saving" ? "保存中" : existing ? "保存修改" : "关联"}</button>
+              <button class="mini-btn primary" type="submit" ${saveDisabled ? "disabled" : ""}>${workspaceState.saveState === "saving" ? "保存中" : isEditingExisting ? "保存修改" : "关联"}</button>
               ${
                 existing?.id || existing?.relationId
                   ? `<button class="mini-btn is-danger" type="button" data-relation-action="delete" data-relation-id="${escapeHtml(existing.id || existing.relationId)}">解除</button>`
