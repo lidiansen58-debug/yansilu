@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { relationWorkspaceAvailableTargetCandidates } from "./relation-workspace-shared.js";
 import {
   noteTypeText,
   COMMON_RELATION_CHOICES,
@@ -9,6 +10,7 @@ import {
   normalizePermanentRelationWorkspaceState,
   permanentRelationWorkspaceCanSave,
   permanentRelationWorkspaceExistingLink,
+  permanentRelationWorkspaceExistingLinks,
   permanentRelationWorkspaceSelectedTarget
 } from "./permanent-relation-workspace-model.js";
 
@@ -131,9 +133,12 @@ function renderSavedResult(state = {}) {
   `;
 }
 
-function renderAiTargets({ state = {}, aiCandidates = [], deps = {} } = {}) {
+function renderAiTargets({ state = {}, aiCandidates = [], relations = null, deps = {} } = {}) {
   if (state.mode !== "ai") return "";
-  const candidates = Array.isArray(aiCandidates) ? aiCandidates.filter((item) => item?.targetNoteId).slice(0, 5) : [];
+  const candidates = relationWorkspaceAvailableTargetCandidates(aiCandidates, {
+    sourceNoteId: state.sourceNoteId || state.noteId,
+    edges: permanentRelationWorkspaceExistingLinks(relations)
+  }).slice(0, 5);
   if (state.error) {
     return `
       <section class="permanent-relation-picker">
@@ -147,7 +152,7 @@ function renderAiTargets({ state = {}, aiCandidates = [], deps = {} } = {}) {
       </section>
     `;
   }
-  if (!candidates.length && state.notice) {
+  if (!candidates.length && (state.notice || (Array.isArray(aiCandidates) && aiCandidates.length))) {
     return `
       <section class="permanent-relation-picker">
         <div class="permanent-relation-empty" aria-live="polite">
@@ -246,7 +251,7 @@ export function renderPermanentRelationWorkspace({
             isEditingExisting
               ? ""
               : showingAiTargets
-                ? renderAiTargets({ state: workspaceState, aiCandidates, deps: { ...deps, notes } })
+                ? renderAiTargets({ state: workspaceState, aiCandidates, relations, deps: { ...deps, notes } })
                 : `<section class="permanent-relation-picker">
                   <div class="semantic-relation-actions">
                     <button class="mini-btn" type="button" data-permanent-relation-action="recommend">AI推荐</button>

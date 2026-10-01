@@ -36,6 +36,30 @@ const deps = {
   typeFromFolder: () => "permanent"
 };
 
+test("recommendation picker filters saved pairs, self targets and duplicates before its limit", () => {
+  const blocked = [note.id, "outgoing", "incoming", "outgoing", "incoming"];
+  const candidates = [...blocked, "next", "next", "another"].map(id => ({ targetNoteId: id, targetTitle: id }));
+  const relations = {
+    outgoingLinks: [{ fromNoteId: note.id, toNoteId: "outgoing" }],
+    backlinks: [{ fromNoteId: "incoming", toNoteId: note.id }]
+  };
+  const html = renderPermanentRelationWorkspace({ note, relations, aiCandidates: candidates,
+    state: { open: true, mode: "ai", noteId: note.id }, deps });
+  const visible = [...html.matchAll(/data-permanent-relation-ai-target="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(visible, ["next", "another"]);
+  assert.equal(permanentRelationWorkspaceNextAiCandidate(candidates, relations, note.id)?.targetNoteId, visible[0]);
+});
+
+test("exhausted recommendations show an empty result instead of indefinite loading", () => {
+  const html = renderPermanentRelationWorkspace({ note,
+    aiCandidates: [{ targetNoteId: target.id }],
+    relations: { backlinks: [{ fromNoteId: target.id, toNoteId: note.id }] },
+    state: { open: true, mode: "ai", noteId: note.id }, deps });
+  assert.match(html, /暂时没有推荐/);
+  assert.match(html, /搜索笔记/);
+  assert.doesNotMatch(html, /正在准备推荐|data-permanent-relation-ai-target=/);
+});
+
 test("editing a specific relation keeps its identity among multiple edges", () => {
   const first = { id: "other", fromNoteId: note.id, toNoteId: target.id, relationType: "supports", rationale: "first reason" };
   const edited = { id: "chosen", fromNoteId: target.id, toNoteId: note.id, relationType: "qualifies", rationale: "chosen reason" };

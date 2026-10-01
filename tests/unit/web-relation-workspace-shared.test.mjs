@@ -3,10 +3,20 @@ import assert from "node:assert/strict";
 
 import {
   relationWorkspaceDirectEdges,
+  relationWorkspaceAvailableTargetCandidates,
   relationWorkspaceExistingEdge,
   relationWorkspaceNextTargetCandidate,
   relationWorkspaceOtherEndpoint
 } from "../../apps/web/src/relation-workspace-shared.js";
+
+test("available recommendation targets exclude self, duplicates and both saved directions", () => {
+  const candidates = [null, { targetNoteId: " a " }, { targetNoteId: "b" },
+    { targetNoteId: "c" }, { targetNoteId: "d" }, { targetNoteId: " d " }, { targetNoteId: "e" }];
+  const edges = [{ fromNoteId: "a", toNoteId: "b" }, { fromNoteId: "c", toNoteId: "a" }];
+  const options = { sourceNoteId: "a", edges, excludeTargetIds: ["e"] };
+  assert.deepEqual(relationWorkspaceAvailableTargetCandidates(candidates, options), [{ targetNoteId: "d" }]);
+  assert.deepEqual(relationWorkspaceNextTargetCandidate(candidates, options), { targetNoteId: "d" });
+});
 
 test("relation workspace shared helpers treat saved edges as bidirectionally visible", () => {
   const edges = [

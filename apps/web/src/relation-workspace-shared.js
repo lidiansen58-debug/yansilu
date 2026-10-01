@@ -42,14 +42,21 @@ export function relationWorkspaceCandidateTargetId(candidate = {}) {
   return cleanText(candidate?.targetNoteId || candidate?.counterpartNoteId || candidate?.toNoteId || candidate?.to_note_id || candidate?.to?.id);
 }
 
-export function relationWorkspaceNextTargetCandidate(candidates = [], {
+export function relationWorkspaceAvailableTargetCandidates(candidates = [], {
   sourceNoteId = "",
   edges = [],
   excludeTargetIds = []
 } = {}) {
-  const blockedTargetIds = new Set((Array.isArray(excludeTargetIds) ? excludeTargetIds : []).map(cleanText).filter(Boolean));
-  return (Array.isArray(candidates) ? candidates : []).find((candidate) => {
+  const sourceId = cleanText(sourceNoteId);
+  const seenTargetIds = new Set((Array.isArray(excludeTargetIds) ? excludeTargetIds : []).map(cleanText).filter(Boolean));
+  return (Array.isArray(candidates) ? candidates : []).filter((candidate) => {
     const targetId = relationWorkspaceCandidateTargetId(candidate);
-    return targetId && !blockedTargetIds.has(targetId) && !relationWorkspaceExistingEdge(edges, sourceNoteId, targetId);
-  }) || null;
+    if (!targetId || targetId === sourceId || seenTargetIds.has(targetId) || relationWorkspaceExistingEdge(edges, sourceId, targetId)) return false;
+    seenTargetIds.add(targetId);
+    return true;
+  });
+}
+
+export function relationWorkspaceNextTargetCandidate(candidates = [], options = {}) {
+  return relationWorkspaceAvailableTargetCandidates(candidates, options)[0] || null;
 }
