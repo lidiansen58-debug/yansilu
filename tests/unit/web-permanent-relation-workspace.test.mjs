@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { renderPermanentRelationWorkspace } from "../../apps/web/src/permanent-relation-workspace.js";
+import { EditorSemanticRelationsView } from "../../apps/web/src/editor-semantic-relations-view.js";
 import {
   defaultPermanentRelationWorkspaceState,
   normalizePermanentRelationAiCandidates,
@@ -34,6 +35,26 @@ const deps = {
   folderLabel: () => "永久笔记",
   typeFromFolder: () => "permanent"
 };
+
+test("editing a specific relation keeps its identity among multiple edges", () => {
+  const first = { id: "other", fromNoteId: note.id, toNoteId: target.id, relationType: "supports", rationale: "first reason" };
+  const edited = { id: "chosen", fromNoteId: target.id, toNoteId: note.id, relationType: "qualifies", rationale: "chosen reason" };
+  const state = { noteId: note.id, selectedTargetNoteId: target.id, editingRelationId: edited.id, relationType: "contradicts", rationale: "updated reason" };
+  assert.equal(permanentRelationWorkspaceCanSave({ state, relations: { outgoingLinks: [first], backlinks: [edited] }, allowExistingUpdate: true }).existing?.id, edited.id);
+  assert.equal(permanentRelationWorkspaceCanSave({ state, relations: { outgoingLinks: [first] }, allowExistingUpdate: true }).reason, "missing_relation");
+});
+
+test("a grouped relation row offers both incoming and outgoing edges for editing", () => {
+  const view = new EditorSemanticRelationsView({});
+  const html = view.renderRelationSummaryRow({ endpoint: target, links: [
+    { link: { id: "outgoing", relationType: "supports" }, direction: "outgoing" },
+    { link: { id: "incoming", relationType: "qualifies" }, direction: "incoming" }
+  ] });
+  assert.match(html, /data-relation-action="open-edit" data-relation-id="outgoing"/);
+  assert.match(html, /data-relation-action="open-edit" data-relation-id="incoming"/);
+  assert.match(html, /当前 → 对方/);
+  assert.match(html, /对方 → 当前/);
+});
 
 test("permanent relation workspace renders a large relation-only flow", () => {
   const html = renderPermanentRelationWorkspace({

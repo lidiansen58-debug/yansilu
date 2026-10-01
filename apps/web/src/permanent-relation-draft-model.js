@@ -63,6 +63,7 @@ export function relationDraftFromRoute(route = {}, defaults = {}) {
     sourceKind: route.sourceKind || route.source || defaults.sourceKind || defaults.source || "manual",
     candidateSource: route.candidateSource || defaults.candidateSource || "",
     relationComposerSessionId: route.relationComposerSessionId || defaults.relationComposerSessionId || "",
+    editingRelationId: route.editingRelationId || defaults.editingRelationId || "",
     insertLinkOnSave: route.insertLinkOnSave === true || defaults.insertLinkOnSave === true,
     cursorRange: route.cursorRange || defaults.cursorRange || null,
     notice: route.notice || defaults.notice || "",

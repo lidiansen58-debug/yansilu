@@ -105,6 +105,7 @@ export async function saveRelationTransaction(input = {}, {
   const validation = validateRelationSaveTransactionInput(input, { confirmableRelationTypes, rationaleIsActionable });
   if (!validation.ok) return { ok: false, reason: validation.reason, input: validation.input, error: relationSaveTransactionErrorText(validation.reason) };
   const relation = await createNoteRelation(validation.input.noteId, relationPayloadFromTransactionInput(validation.input));
+  if (!relationIdOf(relation)) return { ok: false, reason: "missing_result", input: validation.input, error: "本地服务未返回关系保存结果，请重试。" };
   return {
     ok: true,
     reason: "",
@@ -154,6 +155,7 @@ export async function saveOrUpgradeWikilinkRelationTransaction(input = {}, {
   const finalRelation = relationWasWikilinkOnly
     ? await updateNoteRelation(relationIdOf(relation), payload)
     : relation;
+  if (!relationIdOf(finalRelation)) return { ok: false, reason: "missing_result", input: validation.input, error: "本地服务未返回关系保存结果，请重试。" };
   return {
     ok: true,
     reason: "",

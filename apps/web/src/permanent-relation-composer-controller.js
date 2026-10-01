@@ -70,6 +70,7 @@ export class PermanentRelationComposerController {
       ...host.permanentRelationWorkspaceState,
       mode: "manual",
       selectedTargetNoteId: targetId,
+      editingRelationId: "",
       relationType: host.permanentRelationWorkspaceState.relationType || "associated_with",
       rationale: host.permanentRelationWorkspaceState.rationale || "",
       dirty: true
@@ -94,6 +95,7 @@ export class PermanentRelationComposerController {
       manualQuery: cleanQuery,
       searchState: cleanQuery ? "loading" : "idle",
       selectedTargetNoteId: cleanQuery ? "" : host.permanentRelationWorkspaceState.selectedTargetNoteId,
+      editingRelationId: cleanQuery ? "" : host.permanentRelationWorkspaceState.editingRelationId,
       error: "",
       notice: "",
       dirty: cleanQuery ? true : host.permanentRelationWorkspaceState.dirty === true
@@ -234,12 +236,13 @@ export class PermanentRelationComposerController {
         rationale: state.rationale,
         insightQuestion: state.insightQuestion,
         confidence: 1,
-        status: "confirmed"
+        status: state.editingRelationId ? latestValidation.existing.status || "confirmed" : "confirmed"
       };
       let relation = null;
       let transaction = null;
       if (existingRelationId) {
         relation = await updateNoteRelation(existingRelationId, relationPayload);
+        if (!relation?.id && !relation?.relationId) throw new Error("本地服务未返回关系保存结果，请重试。");
       } else {
         transaction = await saveRelationTransaction({
           noteId: sourceNote.id,
@@ -308,7 +311,8 @@ export class PermanentRelationComposerController {
       if (!draftStillCurrent()) return;
       this.patchState({
         saveState: "error",
-        error: `Save failed: ${String(error?.message || error)}`
+        notice: "",
+        error: `保存失败：${String(error?.message || error)}`
       });
       host.onStatus?.(`关联保存失败：${String(error?.message || error)}`, "warn");
     }

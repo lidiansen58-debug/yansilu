@@ -27,6 +27,7 @@ export function defaultPermanentRelationWorkspaceState(noteId = "") {
     sourceNoteId: cleanId(noteId),
     mode: "manual",
     selectedTargetNoteId: "",
+    editingRelationId: "",
     relationType: "",
     rationale: "",
     insightQuestion: "",
@@ -58,6 +59,7 @@ export function normalizePermanentRelationWorkspaceState(state = {}, noteId = ""
     sourceNoteId: cleanId(state.sourceNoteId || noteId || state.noteId),
     mode: PERMANENT_RELATION_WORKSPACE_MODES.has(mode) ? mode : "manual",
     selectedTargetNoteId: cleanId(state.selectedTargetNoteId),
+    editingRelationId: cleanId(state.editingRelationId),
     relationType: cleanType(state.relationType),
     rationale: cleanText(state.rationale),
     insightQuestion: cleanText(state.insightQuestion),
@@ -196,8 +198,10 @@ export function permanentRelationWorkspaceExistingLinks(relations = null) {
   ].filter((link) => !isHiddenSemanticRelation(link));
 }
 
-export function permanentRelationWorkspaceExistingLink(relations = null, sourceNoteId = "", targetNoteId = "") {
-  return relationWorkspaceExistingEdge(permanentRelationWorkspaceExistingLinks(relations), sourceNoteId, targetNoteId);
+export function permanentRelationWorkspaceExistingLink(relations = null, sourceNoteId = "", targetNoteId = "", relationId = "") {
+  const links = permanentRelationWorkspaceExistingLinks(relations);
+  if (relationId) return links.find(link => cleanId(link.id || link.relationId) === relationId && relationWorkspaceExistingEdge([link], sourceNoteId, targetNoteId)) || null;
+  return relationWorkspaceExistingEdge(links, sourceNoteId, targetNoteId);
 }
 
 export function permanentRelationWorkspaceNextAiCandidate(aiCandidates = [], relations = null, sourceNoteId = "", excludeTargetIds = []) {
@@ -240,7 +244,8 @@ export function permanentRelationWorkspaceCanSave({
   if (normalized.selectedTargetNoteId === normalized.noteId) return { ok: false, reason: "self_relation" };
   if (!normalized.relationType) return { ok: false, reason: "missing_type" };
   if (!normalized.rationale) return { ok: false, reason: "missing_rationale" };
-  const existing = permanentRelationWorkspaceExistingLink(relations, normalized.noteId, normalized.selectedTargetNoteId);
+  const existing = permanentRelationWorkspaceExistingLink(relations, normalized.noteId, normalized.selectedTargetNoteId, normalized.editingRelationId);
+  if (normalized.editingRelationId && !existing) return { ok: false, reason: "missing_relation" };
   if (existing && allowExistingUpdate) return { ok: true, reason: "update_existing", existing };
   if (existing) return { ok: false, reason: "existing_relation", existing };
   return { ok: true, reason: "" };
@@ -254,5 +259,6 @@ export function permanentRelationWorkspaceErrorText(reason = "") {
   if (key === "missing_type") return "请选择关系类型。";
   if (key === "missing_rationale") return "请写一句为什么要关联。";
   if (key === "existing_relation") return "这两条笔记已经有关系。";
+  if (key === "missing_relation") return "这条关系已不存在，请关闭后重新选择。";
   return "关系暂时不能保存。";
 }

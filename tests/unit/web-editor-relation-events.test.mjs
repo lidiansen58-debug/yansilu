@@ -223,6 +223,7 @@ test("existing relation edit opens the permanent relation workspace", () => {
   assert.equal(routeEditorRelationClick(host, eventFor(target)), true);
   assert.equal(opened.length, 1);
   assert.equal(opened[0].mode, "manual");
+  assert.equal(opened[0].editingRelationId, "rel-in");
   assert.equal(opened[0].targetNoteId, "source");
   assert.equal(opened[0].relationType, "qualifies");
   assert.equal(opened[0].rationaleDraft, "source limits current");

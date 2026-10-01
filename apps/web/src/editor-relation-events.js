@@ -38,6 +38,7 @@ function openExistingRelationWorkspace(host, relationId = "") {
   return host.openPermanentRelationWorkspace({
     source: RELATION_ENTRY_SOURCES.RIGHT_SIDEBAR,
     mode: "manual",
+    editingRelationId: cleanRelationId,
     targetNoteId,
     relationType: relation.relationType || relation.relation_type || "associated_with",
     rationaleDraft: relation.rationale || "",
