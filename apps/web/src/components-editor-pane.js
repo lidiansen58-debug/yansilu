@@ -2187,6 +2187,8 @@ export class EditorPane {
   }
 
   enterBodyFromTitle() {
+    // The rich editor splits its heading into a paragraph with its native Enter handling.
+    if (this.isWysiwygMode()) return false;
     const context = this.firstHeadingEntryContext();
     if (!context) return false;
     const { value, headingEnd } = context;
@@ -2200,6 +2202,10 @@ export class EditorPane {
       return true;
     };
     const afterHeading = value.slice(headingEnd);
+    const leadingBreaks = afterHeading.match(/^\n*/)[0].length;
+    if (afterHeading.slice(leadingBreaks).trim() && leadingBreaks < 4) {
+      return replaceHeadingBreak(headingEnd, headingEnd + leadingBreaks, "\n\n\n\n", headingEnd + 2);
+    }
     if (afterHeading.startsWith("\n\n")) {
       this.setEditorSelectionRange(headingEnd + 2, headingEnd + 2);
       return true;
@@ -2263,20 +2269,12 @@ export class EditorPane {
     const applyPlaceholderSelection = () => {
       const markdownRange = this.placeholderTitleSelectionRange();
       if (!markdownRange) return false;
-      this.setMarkdownSelectionOverride(markdownRange.from, markdownRange.to);
-      if (this.isWysiwygMode() && this.els.wysiwygHost) {
-        const heading = this.els.wysiwygHost.querySelector(".toastui-editor-contents h1");
-        const titleNode = heading?.firstChild;
-        const titleText = String(heading?.textContent || "").trim();
-        if (!titleNode || !titleText || normalizedNoteTitleText(titleText) !== UNTITLED_NOTE_TITLE) return false;
-        this.richEditor?.focus?.();
-        const selection = window.getSelection?.();
-        if (!selection) return false;
-        const range = document.createRange();
-        range.setStart(titleNode, 0);
-        range.setEnd(titleNode, titleText.length);
-        selection.removeAllRanges();
-        selection.addRange(range);
+      if (this.isWysiwygMode()) {
+        if (!this.richEditor?.editor?.setSelection) return false;
+        this.richEditor.focus();
+        // Rich-editor positions count document nodes, not Markdown's '# ' prefix.
+        this.richEditor.editor.setSelection(1, 1 + UNTITLED_NOTE_TITLE.length);
+        this.setMarkdownSelectionOverride(markdownRange.from, markdownRange.to);
         return true;
       }
       this.setEditorSelectionRange(markdownRange.from, markdownRange.to);
