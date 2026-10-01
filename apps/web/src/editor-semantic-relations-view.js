@@ -318,10 +318,13 @@ export class EditorSemanticRelationsView {
     const link = primary.link || {};
     const endpoint = row.endpoint || {};
     const actions = kind === "external"
-      ? `
-        <button class="mini-btn is-ghost" type="button" data-relation-action="open-edit" data-relation-id="${escapeHtml(link?.id || "")}">编辑</button>
-        <button class="mini-btn is-ghost" type="button" data-relation-action="delete" data-relation-id="${escapeHtml(link?.id || "")}">取消外部关联</button>
-      `
+      ? row.links.map(({ link: item, direction }) => `
+        <div class="semantic-relation-card-actions">
+          <span>${direction === "incoming" ? "对方 → 当前" : "当前 → 对方"} · ${escapeHtml(relationTypeLabel(item.relationType))}</span>
+          <button class="mini-btn is-ghost" type="button" data-relation-action="open-edit" data-relation-id="${escapeHtml(item?.id || "")}">编辑</button>
+          <button class="mini-btn is-ghost" type="button" data-relation-action="delete" data-relation-id="${escapeHtml(item?.id || "")}">取消外部关联</button>
+        </div>
+      `).join("")
       : `<button class="mini-btn is-ghost" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">打开</button>`;
 
     return `
@@ -329,7 +332,7 @@ export class EditorSemanticRelationsView {
         <button class="semantic-relation-open" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">
           <span class="related-item-title">${escapeHtml(endpoint.title || endpoint.id || "未命名笔记")}</span>
         </button>
-        <div class="semantic-relation-card-actions">
+        <div class="semantic-relation-summary-actions">
           ${actions}
         </div>
       </article>

@@ -223,7 +223,7 @@ export function renderPermanentRelationWorkspace({
     aiCandidates,
     notes
   });
-  const existing = selectedTarget ? permanentRelationWorkspaceExistingLink(relations, note.id, selectedTarget.id) : null;
+  const existing = selectedTarget ? permanentRelationWorkspaceExistingLink(relations, note.id, selectedTarget.id, workspaceState.editingRelationId) : null;
   const isEditingExisting = Boolean(existing);
   const relationTypeValue = workspaceState.relationType || existing?.relationType || existing?.relation_type || selectedTarget?.candidate?.relationType || "associated_with";
   const rationaleValue = workspaceState.rationale || existing?.rationale || "";

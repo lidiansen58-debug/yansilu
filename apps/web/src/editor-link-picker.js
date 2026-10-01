@@ -77,6 +77,8 @@ export function normalizeKnownWikilinksToReadableTitles(body = "", candidates = 
   return String(body || "").replace(/\[\[([^[\]]+)\]\]/g, (match, raw) => {
     const resolved = resolveRelationCandidateToken(raw, notes);
     if (!resolved?.id) return match;
+    // Keep an explicit identity: readable titles alone become ambiguous after duplicates or renames.
+    if (wikilinkTargetFromRaw(raw) === resolved.id) return match;
     return wikilinkTokenForNote(resolved);
   });
 }

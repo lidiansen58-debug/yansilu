@@ -356,6 +356,7 @@ const editorPaneStateMethods = {
     this.pendingEditorFocus = options.preferTitleSelection ? "select-placeholder-title" : "focus-editor";
     this.state.activeTabId = tabId;
     this.fillEditorFromTab();
+    if (t.dirty) this.scheduleAutoSave();
   },
 
   closeTab(tabId) {

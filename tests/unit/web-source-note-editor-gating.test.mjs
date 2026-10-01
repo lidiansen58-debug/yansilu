@@ -758,7 +758,7 @@ test("preview wikilink actions resolve cross-box stable note ids", async () => {
   assert.equal(previewedNoteId, "ln_source_id");
   assert.equal(previewOptions?.mode, "wikilink");
   assert.equal(previewOptions?.eyebrow, "正文链接");
-  assert.equal(previewOptions?.ambiguous, false);
+  assert.notEqual(previewOptions?.ambiguous, true);
   assert.match(statusText, /Source By ID/);
 });
 

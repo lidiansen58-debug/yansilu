@@ -128,17 +128,17 @@ test("toolbar relation picker inserts a readable title even when an old id-alias
   await controller.insertSelected(target.id);
 
   assert.ok(body.endsWith("[[关系理由比连线本身更重要]]"));
-  assert.doesNotMatch(body, /PERM-RELATION-REASON-MATTERS\|/);
+  assert.match(body, /PERM-RELATION-REASON-MATTERS\|/);
   assert.equal(savedOptions?.suppressSaveAiSuggestion, true);
 });
 
-test("known id-alias wikilinks are normalized to readable title links", () => {
+test("known id-alias wikilinks retain their stable target when inserting another link", () => {
   const body = "[[PERM-RELATION-REASON-MATTERS|关系理由比连线本身更重要]] [[unknown_id|保留]]";
   const normalized = normalizeKnownWikilinksToReadableTitles(body, [
     { id: "PERM-RELATION-REASON-MATTERS", title: "关系理由比连线本身更重要" }
   ]);
 
-  assert.equal(normalized, "[[关系理由比连线本身更重要]] [[unknown_id|保留]]");
+  assert.equal(normalized, body);
 });
 
 test("editor link picker shows relation fields for both inline and toolbar entry", async () => {

@@ -45,6 +45,7 @@ export class PermanentNoteSidebarController {
     host.permanentRelationWorkspaceState = relationDraftFromRoute(entryRoute, {
       noteId: note.id,
       relationComposerSessionId: nextRelationComposerSessionId(host),
+      editingRelationId: options.editingRelationId || "",
       mode: "manual",
       selectedTargetNoteId,
       relationType,

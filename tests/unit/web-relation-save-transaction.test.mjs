@@ -13,6 +13,17 @@ import {
 const confirmableRelationTypes = new Set(["supports", "qualifies", "same_topic", "associated_with"]);
 const rationaleIsActionable = (value = "") => String(value || "").trim().length >= 6;
 
+for (const result of [null, {}]) {
+  for (const save of [saveRelationTransaction, saveOrUpgradeWikilinkRelationTransaction]) {
+    test(`${save.name} refuses a missing persistence acknowledgement: ${JSON.stringify(result)}`, async () => {
+      const transaction = await save({ noteId: "a", targetNoteId: "b", rationale: "A clear reason" }, { createNoteRelation: async () => result });
+      assert.equal(transaction.ok, false);
+      assert.equal(transaction.reason, "missing_result");
+      assert.equal(transaction.result, undefined);
+    });
+  }
+}
+
 test("relation save transaction normalizes input and validates common failures", () => {
   assert.deepEqual(normalizeRelationSaveTransactionInput({
     noteId: " source ",

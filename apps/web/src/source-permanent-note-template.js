@@ -1,5 +1,5 @@
 import { parseLiteratureWorkspace } from "./editor-template-workspace.js";
-import { stripGeneratedOriginalMarker } from "./note-persistence-policy.js";
+import { sourceNoteReference, stripGeneratedOriginalMarker } from "./note-persistence-policy.js";
 import { composePermanentTemplateDraft } from "./prototype-note-templates.js";
 
 function citationSummaryLines(citation = {}) {
@@ -36,7 +36,7 @@ export function originalDraftBodyFromSource(payload = {}, deps = {}) {
       coreClaim: "用自己的话写出一个判断，不直接照抄来源。",
       whyTrue: "写清理由，以及支持它的证据或观察。",
       boundary: boundary || "它在哪些条件下不成立？",
-      relatedClues: [`- 来源：[[${sourceTitle}]]`, ...citationSummaryLines(citation)].join("\n"),
+      relatedClues: [`- 来源：${sourceNoteReference(sourceTitle, payload.sourceNoteId)}`, ...citationSummaryLines(citation)].join("\n"),
       supplement: [
         seed ? `- 来源中的判断：${seed}` : "",
         question ? `- 待回答：${question}` : "",
@@ -52,7 +52,7 @@ export function originalDraftBodyFromSource(payload = {}, deps = {}) {
     coreClaim: "用自己的话，把这个想法写成一个清楚的判断。",
     whyTrue: "写清理由，以及支持它的观察或经验。",
     boundary: "它在哪些条件下不成立？还有什么需要验证？",
-    relatedClues: `- 来源：[[${sourceTitle}]]`,
+    relatedClues: `- 来源：${sourceNoteReference(sourceTitle, payload.sourceNoteId)}`,
     supplement: excerpt ? `原始记录：\n\n${excerpt}` : ""
   });
 }

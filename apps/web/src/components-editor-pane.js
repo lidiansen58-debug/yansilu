@@ -1,5 +1,6 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
+import { recordEditorSourceAsPermanent } from "./source-note-editor-promotion.js";
 import {
   countExplicitSemanticRelations,
   deriveNoteWritingReadiness
@@ -4555,16 +4556,9 @@ export class EditorPane {
     const note = this.activeNote();
     if (!note || !this.isOriginalRecordableSource(note)) return false;
     const draft = this.sourceDistillDraftFromValues(values);
-    const directoryId = await this.pickPermanentDirectoryForNote(note);
-    if (!directoryId) return false;
-    const created = await this.onStateChange("record-original-from-note", {
-      sourceNoteId: note.id,
-      sourceType: this.resolvedNoteType(note),
-      sourceTitle: note.title,
-      sourceBody: this.getEditorValue(),
+    const created = await recordEditorSourceAsPermanent(this, {
       draftTitle: draft.title || note.title,
-      draftBody: this.permanentDraftBodyFromSourceDistill(draft),
-      directoryId
+      draftBody: this.permanentDraftBodyFromSourceDistill(draft)
     });
     if (!created) {
       this.setSourceDistillAiState({
@@ -6946,15 +6940,7 @@ export class EditorPane {
         this.onStatus("随笔笔记和文献笔记才能创建永久笔记", "warn");
         return;
       }
-      const directoryId = await this.pickPermanentDirectoryForNote(note);
-      if (!directoryId) return;
-      await this.onStateChange("record-original-from-note", {
-        sourceNoteId: note.id,
-        sourceType: this.resolvedNoteType(note),
-        sourceTitle: note.title,
-        sourceBody: this.getEditorValue(),
-        directoryId
-      });
+      await recordEditorSourceAsPermanent(this);
     };
 
     this.els.recordPermanent?.addEventListener("click", recordSourceAsPermanent);
