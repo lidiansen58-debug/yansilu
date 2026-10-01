@@ -56,6 +56,21 @@ test("article export keeps literal attachment examples and copies only the live 
   assert.equal(await fs.readFile(path.join(result.targetPath, relative), "utf8"), "真实附件");
 });
 
+test("article export retains attachment locators and copies the physical file once", async () => {
+  const input = await fixture(), relative = "assets/files/材料 (最终).pdf";
+  await fs.mkdir(path.join(input.vaultPath, "assets/files"), { recursive: true });
+  await fs.writeFile(path.join(input.vaultPath, relative), "附件原始内容", "utf8");
+  const literal = "`![[../../assets/missing.pdf#第二页^block|示例]]`";
+  input.markdown = `# 附件定位\n\n[第二页](<../../${relative}#page=2>)\n\n![[../../${relative}#第二页^block-1|自定义|别名]]\n\n${literal}`;
+  const result = await exportArticle(input);
+  assert.equal(result.assetCount, 1);
+  assert.equal(await fs.readFile(path.join(result.targetPath, relative), "utf8"), "附件原始内容");
+  const exported = await fs.readFile(result.articlePath, "utf8");
+  assert.ok(exported.includes(`[第二页](<${relative}#page=2>)`));
+  assert.ok(exported.includes(`![[${relative}#第二页^block-1|自定义|别名]]`));
+  assert.ok(exported.includes(literal));
+});
+
 test("missing attachments fail before publishing any article", async () => {
   const input = await fixture();
   await assert.rejects(exportArticle({ ...input, markdown: "# A\n![image](../../assets/missing.png)" }), /找不到附件.*missing/);

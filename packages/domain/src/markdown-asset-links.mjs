@@ -25,7 +25,7 @@ function resolveVaultAssetPath(rawTarget, noteMarkdownPath) {
   const { target } = unwrapMarkdownTarget(rawTarget);
   if (!target || /^(https?:|data:|mailto:|file:)/i.test(target)) return "";
 
-  const normalizedTarget = normalizePosixRelativePath(target);
+  const normalizedTarget = normalizePosixRelativePath(target.split("#", 1)[0]);
   if (!normalizedTarget) return "";
   if (normalizedTarget.startsWith("assets/")) return path.posix.normalize(normalizedTarget);
 
@@ -67,8 +67,10 @@ export function rewriteVaultAssetLinks(markdownBody, fromNoteMarkdownPath, toNot
     if (isLiteralAssetReference(body, codeRanges, fullMatch, index)) return fullMatch;
     const assetPath = resolveVaultAssetPath(rawTarget, fromPath);
     if (!assetPath) return fullMatch;
-    let nextTarget = relativeMarkdownLinkPath(toPath, assetPath);
-    const { wrapped } = unwrapMarkdownTarget(rawTarget);
+    const { target, wrapped } = unwrapMarkdownTarget(rawTarget);
+    const fragmentIndex = target.indexOf("#");
+    const fragment = fragmentIndex >= 0 ? target.slice(fragmentIndex) : "";
+    let nextTarget = relativeMarkdownLinkPath(toPath, assetPath) + fragment;
     if (wrapped || /\s/.test(nextTarget)) nextTarget = `<${nextTarget}>`;
     return `${prefix}${nextTarget}${suffix}`;
   });
@@ -80,10 +82,9 @@ export function rewriteVaultAssetLinks(markdownBody, fromNoteMarkdownPath, toNot
     if (!assetPath) return fullMatch;
     const nextTarget = relativeMarkdownLinkPath(toPath, assetPath);
     const raw = String(rawTarget || "");
-    const pipeIndex = raw.indexOf("|");
-    if (pipeIndex < 0) return `${bang}[[${nextTarget}]]`;
-    const alias = raw.slice(pipeIndex + 1);
-    return `${bang}[[${nextTarget}|${alias}]]`;
+    const suffixIndex = raw.search(/[#^|]/);
+    const suffix = suffixIndex >= 0 ? raw.slice(suffixIndex) : "";
+    return `${bang}[[${nextTarget}${suffix}]]`;
   });
 }
 
