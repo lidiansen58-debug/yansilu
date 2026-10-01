@@ -40,6 +40,22 @@ function host(overrides = {}) {
   return app;
 }
 
+test("relation snapshot repaint preserves an opened boundary area only in the mounted note", () => {
+  let mounted = workspace("note-a");
+  const oldDetails = { open: true }, newDetails = { open: false };
+  mounted.querySelector = () => oldDetails;
+  Object.defineProperty(mounted, "outerHTML", { set() {
+    mounted = workspace("note-a");
+    mounted.querySelector = () => newDetails;
+  } });
+  const app = host({ els: { result: { querySelector: () => mounted } } });
+  const controller = new PermanentNoteWorkspaceController(app);
+  assert.equal(controller.refreshSnapshot({ id: "note-b" }, {}), false);
+  assert.equal(newDetails.open, false);
+  assert.equal(controller.refreshSnapshot({ id: "note-a" }, {}), true);
+  assert.equal(newDetails.open, true);
+});
+
 test("permanent note workspace renders viewpoint and relation tabs", () => {
   const html = renderPermanentNoteWorkspace({
     note: { id: "note-a" },

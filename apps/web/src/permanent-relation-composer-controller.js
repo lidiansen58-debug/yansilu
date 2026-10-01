@@ -145,10 +145,24 @@ export class PermanentRelationComposerController {
 
   queueManualSearch(input) {
     const host = this.host;
+    const query = input?.value || "";
+    if (query === host.permanentRelationWorkspaceState.manualQuery) return;
     const timerHost = host.windowRef || window;
     timerHost.clearTimeout?.(host.permanentRelationSearchTimer);
-    const query = input?.value || "";
+    // Editing the search text invalidates the previous choice immediately,
+    // before the debounced request can run.
+    host.permanentRelationWorkspaceState = normalizeRelationDraft({
+      ...host.permanentRelationWorkspaceState,
+      manualQuery: query, selectedTargetNoteId: "", editingRelationId: "",
+      manualTargets: [], searchState: query.trim() ? "loading" : "idle"
+    }, this.sourceNote()?.id || stateSourceNoteId(host));
+    host.permanentRelationSearchSerial += 1;
+    host.syncPermanentRelationManualResults?.();
+    const submit = host.permanentRelationWorkspaceElement?.()?.querySelector?.('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    const sourceId = stateSourceNoteId(host), sessionId = stateSessionId(host), vault = host.vaultScope?.();
     host.permanentRelationSearchTimer = timerHost.setTimeout(() => {
+      if (stateSourceNoteId(host) !== sourceId || stateSessionId(host) !== sessionId || host.vaultScope?.() !== vault) return;
       void this.refreshManualSearch(query);
     }, 180);
   }

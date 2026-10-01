@@ -17,7 +17,9 @@ import {
 } from "./graph-followup-draft-templates.js";
 
 export function createGraphFollowupController(depsProvider = () => ({})) {
+  let requestSerial = 0;
   function openGraphFollowupNote(noteId = "", action = "", options = {}) {
+    const serial = ++requestSerial;
     const {
       activateModule = () => {},
       continueWritingEntry = () => {},
@@ -120,6 +122,10 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
     }
     activateModule("explorer");
     openNoteById(cleanNoteId, { preferTitleSelection: false });
+    const vaultScope = editor?.vaultScope?.();
+    const stillCurrent = () => serial === requestSerial &&
+      editor?.vaultScope?.() === vaultScope && state.module === "explorer" &&
+      (editor?.activeNote?.()?.id || state.selectedFileId) === cleanNoteId;
     state.inspectorVisible = true;
     editor?.setInspectorVisible?.(true);
     editor?.renderRelated?.("图谱下一步");
@@ -145,8 +151,21 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
       });
       editor?.jumpToInspectorSection?.("[data-note-relations-section]");
       const tryOpen = () => {
+        if (!stillCurrent() || editor?.permanentRelationWorkspaceState?.open) return true;
         const relation = editor?.findSemanticRelation?.(cleanRelationId);
         if (!relation) return false;
+        if (editor?.openPermanentRelationWorkspace) {
+          const fromId = String(relation.fromNoteId || relation.from_note_id || "").trim();
+          const toId = String(relation.toNoteId || relation.to_note_id || "").trim();
+          return editor.openPermanentRelationWorkspace({
+            noteId: cleanNoteId, editingRelationId: cleanRelationId,
+            targetNoteId: fromId === cleanNoteId ? toId : fromId,
+            relationType: relation.relationType || relation.relation_type || cleanRelationType,
+            rationaleDraft: providedRationaleDraft || relation.rationale || relationDrafts.rationaleDraft,
+            insightQuestionDraft: providedInsightQuestionDraft || relation.insightQuestion || relation.insight_question || "",
+            source: "right-sidebar", mode: "manual", returnTo: "right-sidebar", notice: entryHint
+          }) === true;
+        }
         editor?.openEditRelationForm?.(cleanRelationId, {
           entryHint,
           rationaleDraft: relationDrafts.rationaleDraft,
@@ -155,6 +174,7 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
           selectedTemplateVariant: relationDrafts.selectedVariant
         });
         window.setTimeout(() => {
+          if (!stillCurrent()) return;
           editor?.jumpToInspectorSection?.("[data-edit-relation-form]", {
             focus: true,
             focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
@@ -171,6 +191,7 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
     };
   
     const focusBoundaryField = () => {
+      editor?.activatePermanentWorkspaceTab?.("viewpoint");
       editor?.setDistillationPrefill?.(cleanNoteId, {
         boundaryDraft: relationDrafts.boundaryDraft,
         draftVariants: relationDrafts.variants,
@@ -179,10 +200,14 @@ export function createGraphFollowupController(depsProvider = () => ({})) {
       editor?.renderRelated?.("图谱下一步");
       const selectorNoteId = cleanNoteId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       const tryFocus = () => {
+        if (!stillCurrent()) return true;
         const textarea = document.querySelector(
           `[data-note-distillation-section][data-note-id="${selectorNoteId}"] [data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]`
         );
         if (!textarea) return false;
+        for (let parent = textarea.parentElement; parent; parent = parent.parentElement) {
+          if (parent.tagName === "DETAILS") parent.open = true;
+        }
         if (!String(textarea.value || "").trim() && relationDrafts.boundaryDraft) {
           textarea.value = relationDrafts.boundaryDraft;
           textarea.dispatchEvent(new EventCtor("input", { bubbles: true }));

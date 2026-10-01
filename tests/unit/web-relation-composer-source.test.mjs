@@ -2,6 +2,36 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PermanentRelationComposerController } from "../../apps/web/src/permanent-relation-composer-controller.js";
 
+test("a redundant search change event preserves the newly selected target", () => {
+  const draft = { manualQuery: "same query", selectedTargetNoteId: "selected" };
+  const host = { permanentRelationWorkspaceState: draft };
+  new PermanentRelationComposerController(host).queueManualSearch({ value: "same query" });
+  assert.equal(host.permanentRelationWorkspaceState, draft);
+  assert.equal(draft.selectedTargetNoteId, "selected");
+});
+
+for (const change of ["vault", "session", "note"]) {
+  test(`editing target search clears the old choice immediately and cancels queued work after ${change} changes`, () => {
+    let callback, vault = "vault-a", searches = 0;
+    const submit = { disabled: false }, source = { id: "source" };
+    const host = { state: { notes: [source] }, activeNote: () => source, vaultScope: () => vault,
+      permanentRelationSearchSerial: 0, permanentRelationWorkspaceState: {
+        sourceNoteId: source.id, noteId: source.id, relationComposerSessionId: "session-a", selectedTargetNoteId: "old-target"
+      }, windowRef: { clearTimeout: () => {}, setTimeout: fn => { callback = fn; } },
+      syncPermanentRelationManualResults: () => {}, permanentRelationWorkspaceElement: () => ({ querySelector: () => submit }) };
+    const controller = new PermanentRelationComposerController(host);
+    controller.refreshManualSearch = () => { searches++; };
+    controller.queueManualSearch({ value: "new query" });
+    assert.equal(host.permanentRelationWorkspaceState.selectedTargetNoteId, "");
+    assert.equal(submit.disabled, true);
+    if (change === "vault") vault = "vault-b";
+    if (change === "session") host.permanentRelationWorkspaceState.relationComposerSessionId = "session-b";
+    if (change === "note") host.permanentRelationWorkspaceState.sourceNoteId = "other";
+    callback();
+    assert.equal(searches, 0);
+  });
+}
+
 test("a missing explicit relation source does not fall back to a different active note", () => {
   const active = { id: "active" };
   const host = { state: { notes: [active] }, activeNote: () => active,

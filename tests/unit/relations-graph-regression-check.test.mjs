@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   RELATIONS_GRAPH_BROWSER_GROUPS,
+  RELATIONS_GRAPH_BROWSER_TEST_FILES,
   RELATIONS_GRAPH_UNIT_TEST_FILES
 } from "../../scripts/relations-graph-regression-check.mjs";
 
@@ -26,6 +27,18 @@ test("relations graph regression suite covers the extracted graph and relation l
     assert.ok(RELATIONS_GRAPH_UNIT_TEST_FILES.includes(file), `${file} should be in the regression suite`);
     assert.ok(fs.existsSync(path.join(repoRoot, file)), `${file} should exist`);
   }
+});
+
+test("relations graph browser acceptance includes real mutation, race, scope, input and writing flows", () => {
+  for (const file of ["prototype-relation-edit-safety", "prototype-relation-graph-sync",
+    "prototype-relation-save-context", "prototype-graph-ai-relation-flow", "prototype-relation-vault-isolation",
+    "prototype-relation-snapshot-refresh", "prototype-relation-recommendation-eligibility",
+    "prototype-graph-navigation-input", "prototype-graph-relation-adjustment", "prototype-graph-followup-context"]) {
+    const entry = `tests/e2e/${file}.test.mjs`;
+    assert.ok(RELATIONS_GRAPH_BROWSER_TEST_FILES.includes(entry));
+    assert.ok(fs.existsSync(path.join(repoRoot, entry)));
+  }
+  assert.equal(new Set(RELATIONS_GRAPH_BROWSER_TEST_FILES).size, RELATIONS_GRAPH_BROWSER_TEST_FILES.length);
 });
 
 test("relations graph browser acceptance suite includes graph closeout and permanent relation workspace flows", () => {

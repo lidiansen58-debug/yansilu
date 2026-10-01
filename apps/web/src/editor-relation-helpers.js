@@ -305,19 +305,15 @@ export function renderDistillationTemplateVariantSwitcher(variants = [], selecte
   if (normalized.items.length < 2) return "";
   const cleanRemembered = String(rememberedLabel || "").trim();
   return `
+    ${cleanRemembered ? `<div class="semantic-template-memory" data-template-memory>
+      <span>已记住你最近常用的：${escapeHtml(cleanRemembered)}</span>
+      <button class="semantic-template-memory-action" type="button" data-template-preference-clear="distillation">改回默认</button>
+    </div>` : ""}
     <div class="semantic-relation-template-picker" data-distillation-template-picker>
       <div class="semantic-relation-template-head">
         <strong>边界起手模板</strong>
         <small>先选当前视角，再在这段草稿上继续改写。</small>
       </div>
-      ${
-        cleanRemembered
-          ? `<div class="semantic-template-memory" data-template-memory>
-              <span>已记住你最近常用的：${escapeHtml(cleanRemembered)}</span>
-              <button class="semantic-template-memory-action" type="button" data-template-preference-clear="distillation">改回默认</button>
-            </div>`
-          : ""
-      }
       <div class="semantic-relation-template-options">
         ${normalized.items
           .map((variant) => {

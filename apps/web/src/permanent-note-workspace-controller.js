@@ -58,8 +58,17 @@ export class PermanentNoteWorkspaceController {
   refreshSnapshot(note, tab = this.host.activeTab?.(), overview = null) {
     if (!note?.id || !tab || !this.workspaceMatchesNote(note.id)) return false;
     const workspace = this.workspaceElement();
-    if (workspace) workspace.outerHTML = this.renderDeferredWorkspace(note, tab);
+    if (workspace) this.replaceWorkspace(workspace, note, tab);
     return true;
+  }
+
+  replaceWorkspace(workspace, note, tab) {
+    const optionalDetailsOpen = workspace.querySelector?.(".viewpoint-optional-details")?.open === true;
+    workspace.outerHTML = this.renderDeferredWorkspace(note, tab);
+    if (optionalDetailsOpen) {
+      const details = this.workspaceElement()?.querySelector?.(".viewpoint-optional-details");
+      if (details) details.open = true;
+    }
   }
 
   activateTab(tab = "viewpoint") {
@@ -69,7 +78,7 @@ export class PermanentNoteWorkspaceController {
     const activeEditorTab = this.host.activeTab?.();
     if (note?.id && activeEditorTab && this.workspaceMatchesNote(note.id)) {
       const workspace = this.workspaceElement();
-      if (workspace) workspace.outerHTML = this.renderDeferredWorkspace(note, activeEditorTab);
+      if (workspace) this.replaceWorkspace(workspace, note, activeEditorTab);
     }
     return this.workspaceMatchesNote(this.activeNoteId);
   }

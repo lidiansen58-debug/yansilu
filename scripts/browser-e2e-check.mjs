@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const testFile = "./tests/e2e/prototype-browser.test.mjs";
 
@@ -153,6 +154,15 @@ if (missing.length) {
 
 let passed = 0;
 const total = selectedGroups.reduce((sum, group) => sum + group.tests.length, 0);
+const testSource = readFileSync(testFile, "utf8");
+for (const group of selectedGroups) {
+  for (const testName of group.tests) {
+    if (!testSource.includes(`test(${JSON.stringify(testName)},`)) {
+      console.error(`Browser E2E test is missing in ${testFile}: ${testName}`);
+      process.exit(1);
+    }
+  }
+}
 
 for (const group of selectedGroups) {
   console.log(`\n## Browser E2E group: ${group.name}`);
