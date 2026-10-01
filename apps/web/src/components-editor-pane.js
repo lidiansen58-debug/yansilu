@@ -1,5 +1,6 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { refreshRelationNetworkStatusesForHost } from "./relation-network-refresh.js";
+import { hasIndependentGraphRelationComposer } from "./relation-composer-context.js";
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import { recordEditorSourceAsPermanent } from "./source-note-editor-promotion.js";
 import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
@@ -5690,6 +5691,7 @@ export class EditorPane {
   }
 
   renderRelated(extraTitle = "") {
+    const preserveGraphComposer = hasIndependentGraphRelationComposer(this.state, this.permanentRelationWorkspaceState);
     const note = this.activeNote();
     const tab = this.activeTab();
     if (this.els.editorRelationsBelow) {
@@ -5701,7 +5703,7 @@ export class EditorPane {
       this.currentSemanticRelations = null;
       this.semanticRelationsState = "idle";
       this.resetRelationPanelState("");
-      this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
+      if (!preserveGraphComposer) this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
       this.permanentNoteWorkspace().reset("");
       this.syncPermanentRelationWorkspaceOverlay();
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后可打磨。</div>`;
@@ -5716,7 +5718,7 @@ export class EditorPane {
     const isPermanentNote = this.isOriginalNote(note);
     const isRecordableSource = this.isOriginalRecordableSource(note);
     const sidebarLayout = permanentNoteSidebarLayout({ isPermanentNote, isRecordableSource, tags });
-    if (!isPermanentNote || (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId && this.permanentRelationWorkspaceState.noteId !== note.id)) {
+    if (!preserveGraphComposer && (!isPermanentNote || (this.permanentRelationWorkspaceState.open && this.permanentRelationWorkspaceState.noteId && this.permanentRelationWorkspaceState.noteId !== note.id))) {
       this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState(isPermanentNote ? note.id : "");
       this.syncPermanentRelationWorkspaceOverlay();
     }
