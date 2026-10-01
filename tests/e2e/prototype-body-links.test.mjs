@@ -9,9 +9,13 @@ for (const mode of ["source", "wysiwyg"]) {
     if (!pw) return;
     const { page, apiBase } = await startPrototypeStack(t, pw);
     page.setDefaultTimeout(7000);
-    const token = "[[note_missing|代码示例]]";
+    const target = (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_literature_default", body: "# 代码与正文引用的目标\n\n材料。" })).json.item;
+    const token = `[[${target.id}|代码示例]]`;
     const literalWrapper = "$$widget0 [[字面示例]]$$ #代码标签";
-    const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_literature_default", body: `# 代码链接边界\n\n行内 \`${token}\`。\n\n\`\`\`md\n${token}\n${literalWrapper}\n输入：\n\`\`\`\n\n正文 [[note_missing|真实引用]]。` })).json.item;
+    const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_literature_default", body: `# 代码链接边界\n\n行内 \`${token}\`。\n\n\`\`\`md\n${token}\n${literalWrapper}\n输入：\n\`\`\`\n\n正文 [[${target.id}|真实引用]]。` })).json.item;
+    const independent = (await postJson(apiBase, `/api/v1/notes/${source.id}/relations`, { toNoteId: target.id, relationType: "supports", rationale: "代码示例外独立建立的支持关系。" })).json.item;
+    const readRelations = async () => (await fetchJson(apiBase, `/api/v1/notes/${source.id}/relations`)).json.item.outgoingLinks;
+    assert.ok((await readRelations()).some(link => link.rationale === "markdown_wikilink"));
     await page.locator("#btnToggleSearch").click();
     await page.locator(`[data-search-note="${source.id}"]`).click();
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
@@ -46,11 +50,18 @@ for (const mode of ["source", "wysiwyg"]) {
       assert.ok(saved.includes("正文 真实引用。"));
       assert.ok(saved.includes(literalWrapper));
     });
+    const remaining = await readRelations();
+    assert.equal(remaining.length, 1);
+    assert.equal(remaining[0].id, independent.id);
+    assert.equal(remaining[0].relationType, "supports");
+    assert.equal(remaining[0].rationale, "代码示例外独立建立的支持关系。");
+    assert.deepEqual(await page.evaluate(() => window.__prototypeEditor.activeNote().links), []);
     await page.reload({ waitUntil: "networkidle" });
     await page.locator("#btnToggleSearch").click();
     await page.locator(`[data-search-note="${source.id}"]`).click();
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
     assert.equal((await page.evaluate(() => window.__prototypeEditor.getEditorValue())).split(token).length - 1, 2);
+    assert.equal((await readRelations()).length, 1);
   });
 }
 

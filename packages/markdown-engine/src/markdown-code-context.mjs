@@ -1,4 +1,3 @@
-// Generated from packages/markdown-engine/src/markdown-code-context.mjs by build:toastui.
 export function markdownCharacterIsEscaped(text, position) {
   let slashes = 0;
   while (position > 0 && text[--position] === "\\") slashes++;

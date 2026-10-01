@@ -20,4 +20,6 @@
 
 本轮范围是编辑器识别与代码原文保护，未调整服务端自动关联、导入及重命名所用的链接解析。服务端当前仍使用正则提取代码中的引用，需要后续单独统一边界规则；本报告不表示该自动关联行为已经修复。嵌套列表/引用中的代码块、真实系统输入法和长文档性能未验证。
 
+后续已统一服务端自动关联、导入和前端引用元数据的边界，详见 [代码引用与自动关联的解析边界](NOTE_CODE_LINK_ASSOCIATIONS_2026-10-01.md)。重命名时的正文重写不在该后续改动范围内。
+
 日志目录：`output/note-editor-validation/`。文件：`link-code-unit-all.log`、`link-code-browser-final.log`、`link-code-browser-guard.log`、`link-code-legacy.log`、`link-code-build.log`、`link-code-encoding.log`。

@@ -5,6 +5,8 @@ import { build } from "esbuild";
 const root = process.cwd();
 const vendorDir = path.join(root, "apps", "web", "src", "vendor");
 await fs.mkdir(vendorDir, { recursive: true });
+const sharedCodeContext = await fs.readFile(path.join(root, "packages/markdown-engine/src/markdown-code-context.mjs"), "utf8");
+await fs.writeFile(path.join(root, "apps/web/src/markdown-code-context.js"), "// Generated from packages/markdown-engine/src/markdown-code-context.mjs by build:toastui.\n" + sharedCodeContext, "utf8");
 
 await build({
   entryPoints: ["apps/web/src/toastui-entry.js"],

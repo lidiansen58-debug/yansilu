@@ -1,3 +1,5 @@
+import { markdownWikilinkMatches } from "./markdown-code-context.js";
+
 export function createInitialState() {
   const VAULT_ROOT = "E:\\Projects\\Thinking in Notes\\yansilu-vault";
 
@@ -59,8 +61,8 @@ export function parseTags(text) {
 
 export function parseLinks(text) {
   const links = [];
-  for (const match of String(text || "").matchAll(/\[\[([^[\]]+)\]\]/g)) {
-    const raw = String(match[1] || "").trim();
+  for (const match of markdownWikilinkMatches(text || "")) {
+    const raw = match.raw;
     const [targetPart] = raw.split("|");
     const [pathAndHeading] = String(targetPart || "").split("^");
     const [targetRaw] = String(pathAndHeading || "").split("#");
