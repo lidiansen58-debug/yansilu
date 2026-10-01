@@ -18,6 +18,7 @@ export class EditorRelationLinkController {
     this.searchRevision = 0;
     this.editingLink = null;
     this.insertionPending = false;
+    this.returnContext = null;
   }
 
   renderCandidates(query = "", preferredId = "") {
@@ -134,6 +135,12 @@ export class EditorRelationLinkController {
     host.manualLinkReturnScrollState = inlineMode
       ? null
       : options.returnScrollState || host.manualLinkReturnScrollState || host.captureEditorScrollState();
+    this.returnContext = {
+      noteId: host.activeNote()?.id, vaultScope: host.state.noteMoveVaultScope,
+      body: host.getEditorValue(),
+      selection: inlineMode ? null : host.normalizedSelectionRange(options.cancelSelection) || returnSelection,
+      scroll: host.manualLinkReturnScrollState
+    };
     host.currentLinkContext = options.inlineContext || null;
     host.lastInlinePickerAnchor = host.currentLinkContext?.end || 0;
     this.renderCandidates(initialQuery, options.preferredId || "");
@@ -178,6 +185,7 @@ export class EditorRelationLinkController {
     host.manualLinkReturnSelection = null;
     host.manualLinkReturnScrollState = null;
     this.editingLink = null;
+    this.returnContext = null;
     host.isSubmittingLinkInsert = this.insertionPending;
     host.resetToolbarTransientButtons();
     if (host.els.linkReasonInput) host.els.linkReasonInput.value = "";
@@ -216,6 +224,16 @@ export class EditorRelationLinkController {
     } catch (error) {
       if (revision === this.searchRevision) host.onStatus(`笔记搜索失败：${String(error?.message || error)}`, "warn");
     }
+  }
+
+  cancel() {
+    const host = this.host, context = this.returnContext;
+    this.close();
+    if (!context || host.activeNote()?.id !== context.noteId || host.state.noteMoveVaultScope !== context.vaultScope) return;
+    host.focusEditor();
+    if (host.getEditorValue() !== context.body) return;
+    if (context.selection) host.setEditorSelectionRange(context.selection.from, context.selection.to);
+    if (context.scroll) host.scheduleEditorScrollRestore(context.scroll);
   }
 
   async resolveEditingTarget() {
@@ -297,13 +315,23 @@ export class EditorRelationLinkController {
 
   async confirmSelectedCandidate() {
     const host = this.host;
+    if (host.currentPinnedLinkId) return this.insertSelected(host.currentPinnedLinkId);
     const chosen = host.currentLinkCandidates[host.currentLinkIndex] || host.currentLinkCandidates[0];
     if (!chosen) return;
-    if (host.currentPinnedLinkId === chosen.id) return this.insertSelected(chosen.id);
+    this.chooseCandidate(chosen.id);
+  }
+
+  chooseCandidate(noteId) {
+    const host = this.host;
+    const chosen = host.currentLinkCandidates.find(note => note.id === noteId) || host.state.notes.find(note => note.id === noteId);
+    if (!chosen) return;
+    this.searchRevision += 1;
     host.currentPinnedLinkId = chosen.id;
     this.renderCandidates(host.els.linkSearchInput.value, chosen.id);
     host.els.linkSearchInput.value = host.linkCandidateDisplayTitle(chosen);
     host.els.linkSearchList.innerHTML = "";
     this.updateConfirmButton();
+    if (host.currentLinkContext) host.focusEditor();
+    else host.els.linkSearchInput.focus();
   }
 }

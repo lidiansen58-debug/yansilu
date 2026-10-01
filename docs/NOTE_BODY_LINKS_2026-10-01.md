@@ -47,3 +47,14 @@ git diff --check
 本轮 **538 项相关单元测试、18 项浏览器用例通过**（7 项正文链接、5 项编辑往返与草稿、2 项独立关系、4 项原有入口）。新增浏览器用例覆盖未加载的原目标、原链接确认、别名与段落定位保留、重名目标的方向键更换，以及 390px 富文本布局。编码无新增问题，`git diff --check` 通过。本轮未修改 ToastUI 源码或 bundle。
 
 日志：`output/note-editor-validation/link-edit-unit-all.log`、`link-edit-browser-final.log`、`link-edit-legacy.log`、`link-edit-encoding.log`；窄屏截图：`link-edit-alias-wysiwyg.png`。验证范围和上一轮限制相同。
+
+## 第三轮：取消后继续写与键盘确认
+
+- 按 Escape 或点“关闭”取消链接窗口后，焦点回到编辑器；正文未变化时恢复打开前的选区与滚动。修改已有链接时恢复原光标或选区，而不是扩展后的整条链接范围。
+- 切换笔记/笔记库后取消旧窗口不会夺取当前焦点；正文已有新输入时不恢复过期选区。
+- 鼠标选择目标后可直接按 Enter 插入。已选目标不依赖候选列表是否为空；原有键盘两次 Enter 的流程继续保留。
+- 选择目标即取消未完成搜索的界面更新，避免迟到结果重新展开候选列表或改变已选目标。
+
+本轮 **544 项相关单元测试、20 项浏览器用例通过**。新增两项浏览器用例使用真实键盘选区，在源码和 390px 富文本中分别取消搜索、继续替换选中文字，并通过 Ctrl+S 验证磁盘结果。原五项正文链接用例改为鼠标选择后直接 Enter 插入，覆盖三类笔记与两种编辑模式。编码检查无新增问题，`git diff --check` 通过。
+
+日志：`output/note-editor-validation/link-keyboard-unit-all.log`、`link-keyboard-browser-final.log`、`link-keyboard-legacy.log`、`link-keyboard-encoding.log`。本轮不涉及 ToastUI bundle；验证限制与前两轮相同。

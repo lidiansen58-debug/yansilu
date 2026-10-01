@@ -6780,6 +6780,7 @@ export class EditorPane {
       const resolved = existingLink ? this.resolveLinkToken(existingLink.raw) : null;
       this.openLinkPicker(resolved?.note?.title || "", {
         returnSelection: existingLink || returnSelection,
+        cancelSelection: returnSelection,
         editingLink: existingLink ? { ...existingLink, noteId: resolved?.ambiguous !== true ? resolved?.note?.id : null, noteTitle: resolved?.note?.title || "" } : null,
         preferredId: resolved?.ambiguous !== true ? resolved?.note?.id || "" : "",
         anchorAtCursor: true,
@@ -6810,7 +6811,7 @@ export class EditorPane {
     this.els.linkPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
     this.els.tagPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
 
-    this.els.closeLinkPicker.addEventListener("click", () => this.closeLinkPicker());
+    this.els.closeLinkPicker.addEventListener("click", () => this.editorRelationLink().cancel());
     this.els.linkSearchInput.addEventListener("input", () => {
       this.currentPinnedLinkId = "";
       this.renderLinkCandidates(this.els.linkSearchInput.value);
@@ -6820,7 +6821,9 @@ export class EditorPane {
     this.els.linkSearchInput.addEventListener("keydown", (e) => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === "Escape") {
-        this.closeLinkPicker();
+        this.editorRelationLink().cancel();
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
       if (e.key === "ArrowDown") {
@@ -6843,14 +6846,7 @@ export class EditorPane {
     this.els.linkSearchList.addEventListener("click", (e) => {
       const row = e.target.closest("[data-link-note-id]");
       if (!row) return;
-      const next = Number(row.dataset.linkIndex);
-      if (Number.isInteger(next)) this.currentLinkIndex = next;
-      this.currentPinnedLinkId = String(row.dataset.linkNoteId || "").trim();
-      const chosen = this.currentLinkCandidates.find((note) => note.id === this.currentPinnedLinkId) || null;
-      this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
-      this.els.linkSearchInput.value = chosen ? this.linkCandidateDisplayTitle(chosen) : row.textContent?.trim() || "";
-      this.els.linkSearchList.innerHTML = "";
-      this.updateLinkPickerConfirmButton();
+      this.editorRelationLink().chooseCandidate(String(row.dataset.linkNoteId || "").trim());
     });
     this.els.linkSearchList.addEventListener("mouseover", (e) => {
       const row = e.target.closest("[data-link-index]");

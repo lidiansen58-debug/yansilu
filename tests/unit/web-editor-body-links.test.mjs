@@ -95,6 +95,53 @@ test("remote search completion retains the candidate selected with arrows", asyn
   assert.equal(controller.selectedCandidate().id, "b");
 });
 
+for (const change of ["unchanged", "body", "note", "vault"]) {
+  test(`canceling a picker restores only a current unchanged selection (${change})`, () => {
+    let focused = 0, restored = null, scrolled = 0;
+    const host = { state: { noteMoveVaultScope: change === "vault" ? "other" : "vault" },
+      activeNote: () => ({ id: change === "note" ? "other" : "source" }),
+      getEditorValue: () => change === "body" ? "继续输入" : "正文",
+      focusEditor: () => focused++, setEditorSelectionRange: (from, to) => { restored = { from, to }; },
+      scheduleEditorScrollRestore: () => scrolled++ };
+    const controller = new EditorRelationLinkController(host);
+    controller.returnContext = { noteId: "source", vaultScope: "vault", body: "正文", selection: { from: 1, to: 2 }, scroll: {} };
+    controller.close = () => { controller.returnContext = null; };
+    controller.cancel();
+    assert.equal(focused, ["unchanged", "body"].includes(change) ? 1 : 0);
+    assert.deepEqual(restored, change === "unchanged" ? { from: 1, to: 2 } : null);
+    assert.equal(scrolled, change === "unchanged" ? 1 : 0);
+  });
+}
+
+test("Enter confirms a pinned note even when the rendered search list is empty", async () => {
+  const host = { currentPinnedLinkId: "chosen", currentLinkCandidates: [] };
+  const controller = new EditorRelationLinkController(host);
+  let inserted;
+  controller.insertSelected = async id => { inserted = id; };
+  await controller.confirmSelectedCandidate();
+  assert.equal(inserted, "chosen");
+});
+
+test("choosing a target invalidates pending search and returns focus for Enter confirmation", async () => {
+  const chosen = { id: "chosen", title: "目标" };
+  let resolve, focused = 0;
+  const pendingSearch = new Promise(r => { resolve = r; });
+  const host = { state: { notes: [chosen] }, activeNote: () => ({ id: "source" }),
+    currentLinkCandidates: [chosen], currentLinkIndex: 0, searchNotesForResolution: () => pendingSearch,
+    upsertApiNotes: () => assert.fail("A chosen target must not be overwritten by pending search"),
+    linkCandidateDisplayTitle: note => note.title,
+    els: { linkSearchInput: { value: "目", focus: () => focused++ }, linkSearchList: { innerHTML: "" } } };
+  const controller = new EditorRelationLinkController(host);
+  controller.renderCandidates = () => {};
+  const pending = controller.searchCandidates("目");
+  controller.chooseCandidate(chosen.id);
+  resolve({ items: [] });
+  await pending;
+  assert.equal(host.currentPinnedLinkId, chosen.id);
+  assert.equal(focused, 1);
+  assert.equal(host.els.linkSearchInput.value, chosen.title);
+});
+
 for (const change of ["query", "note", "vault"]) {
   test(`late link search results cannot overwrite the changed ${change}`, async () => {
     let resolve;

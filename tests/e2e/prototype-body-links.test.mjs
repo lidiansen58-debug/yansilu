@@ -32,7 +32,7 @@ for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "s
     await page.locator("#linkSearchInput").fill("同名目标");
     await page.locator(`[data-link-note-id="${chosen.id}"]`).click();
     assert.equal(await page.locator("#linkReasonInput").count(), 0);
-    await page.locator("#btnConfirmLinkInsert").click();
+    await page.keyboard.press("Enter");
     const token = `[[${chosen.id}|同名目标]]`;
     await waitFor(async () => assert.ok((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.includes(token)));
     const inserted = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
@@ -72,6 +72,41 @@ for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "s
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, replacement.id);
     assert.ok((await page.evaluate(() => window.__prototypeEditor.getEditorValue())).includes("更换后的链接目标"));
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  });
+}
+
+for (const mode of ["source", "wysiwyg"]) {
+  test(`canceling the link picker resumes writing at the original selection (${mode})`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t);
+    if (!pw) return;
+    const { page, apiBase } = await startPrototypeStack(t, pw);
+    page.setDefaultTimeout(7000);
+    const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_fleeting_default", body: "# 取消链接后继续写\n\n前文 选择文字 后文。" })).json.item;
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    if (mode === "source") await page.locator("#btnModeToggle").click();
+    if (mode === "wysiwyg") await page.setViewportSize({ width: 390, height: 900 });
+    for (const [action, selected, replacement] of [["escape", "选择文字", "接着写"], ["close", "接着写", "新文字"]]) {
+      await page.locator(mode === "source" ? "#editorHost .cm-content:visible" : "#wysiwygHost .ProseMirror:visible").click();
+      await page.keyboard.press("Control+End");
+      if (mode === "source") await page.keyboard.press("ArrowUp");
+      await page.keyboard.press("Home");
+      for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");
+      for (let i = 0; i < selected.length; i++) await page.keyboard.press("Shift+ArrowRight");
+      const before = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
+      await page.locator("#btnInsertLink").click();
+      await page.locator("#linkSearchInput").fill("准备取消的搜索");
+      if (action === "escape") await page.keyboard.press("Escape");
+      else await page.locator("#btnCloseLinkPicker").click();
+      await page.locator("#linkPicker").waitFor({ state: "hidden" });
+      assert.equal(await page.evaluate(() => window.__prototypeEditor.getEditorValue()), before);
+      assert.ok(await page.evaluate(() => Boolean(document.activeElement?.closest("#editorHost, #wysiwygHost"))), "Cancel must return focus to writing");
+      await page.keyboard.type(replacement);
+      await page.keyboard.press("Control+s");
+      await waitFor(async () => assert.ok((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.includes(`前文 ${replacement} 后文。`)));
+    }
   });
 }
 

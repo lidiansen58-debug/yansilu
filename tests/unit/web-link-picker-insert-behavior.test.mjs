@@ -237,7 +237,7 @@ test("selecting a link picker candidate pins it without inserting immediately", 
     isSubmittingLinkInsert: false,
     state: { notes: [] },
     els: {
-      linkSearchInput: { value: "perm" },
+      linkSearchInput: { value: "perm", focus() {} },
       linkSearchList: {
         innerHTML: "",
         querySelector: () => null
@@ -268,7 +268,7 @@ test("selecting a link picker candidate pins it without inserting immediately", 
 test("Enter selects the highlighted candidate before the explicit associate action", async () => {
   const pane = Object.create(EditorPane.prototype);
   const rerenders = [];
-  const linkSearchInput = { value: "perm" };
+  const linkSearchInput = { value: "perm", focus() {} };
   const linkSearchList = { innerHTML: "", querySelector: () => null };
   let insertedNoteId = "";
 
@@ -299,7 +299,7 @@ test("Enter selects the highlighted candidate before the explicit associate acti
 test("inline link picker Enter also selects before the explicit associate action", async () => {
   const pane = Object.create(EditorPane.prototype);
   const rerenders = [];
-  const linkSearchInput = { value: "perm" };
+  const linkSearchInput = { value: "perm", focus() {} };
   const linkSearchList = { innerHTML: "", querySelector: () => null };
   let insertedNoteId = "";
 
@@ -307,6 +307,7 @@ test("inline link picker Enter also selects before the explicit associate action
   pane.currentLinkIndex = 0;
   pane.currentPinnedLinkId = "";
   pane.currentLinkContext = { start: 0, end: 2, query: "" };
+  pane.focusEditor = () => {};
   pane.state = { notes: [] };
   pane.els = { linkSearchInput, linkSearchList };
   pane.scopedLinkCandidates = () => {
