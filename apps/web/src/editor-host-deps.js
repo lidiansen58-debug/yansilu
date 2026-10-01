@@ -60,6 +60,7 @@ export function createEditorPaneHostDeps(deps = {}) {
       linkRelationTypeSelect: $("linkRelationTypeSelect"),
       linkReasonInput: $("linkReasonInput"),
       confirmLinkInsert: $("btnConfirmLinkInsert"),
+      removeLink: $("btnRemoveBodyLink"),
       closeLinkPicker: $("btnCloseLinkPicker"),
       tagPicker: $("tagPicker"),
       tagSearchInput: $("tagSearchInput"),

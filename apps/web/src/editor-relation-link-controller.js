@@ -1,5 +1,6 @@
-import { bodyLinkLabelAtSelection, bodyLinkTokenForNote } from "./editor-body-links.js";
+import { bodyLinkLabelAtSelection, bodyLinkTextForRemoval, bodyLinkTokenForNote } from "./editor-body-links.js";
 import { looksLikeStableNoteId, wikilinkTargetFromRaw } from "./editor-link-picker.js";
+import { fitLinkPickerToEditor } from "./editor-link-picker-layout.js";
 import {
   editorRelationLinkCandidatePreviewText,
   editorRelationLinkCandidates,
@@ -48,6 +49,11 @@ export class EditorRelationLinkController {
 
   updateConfirmButton() {
     const host = this.host;
+    const removeButton = host.els.removeLink;
+    if (removeButton) {
+      removeButton.classList.toggle("hidden", !this.editingLink);
+      removeButton.disabled = host.isSubmittingLinkInsert || !this.editingLink;
+    }
     const button = host.els.confirmLinkInsert;
     if (!button) return;
     const state = editorRelationLinkConfirmState({
@@ -164,6 +170,7 @@ export class EditorRelationLinkController {
         centerX: true,
         offsetX: -120
       });
+      fitLinkPickerToEditor(host.els.linkPicker);
     }
     host.els.linkSearchInput.focus();
     host.els.linkSearchInput.select();
@@ -198,6 +205,7 @@ export class EditorRelationLinkController {
     host.positionFloatingPicker(host.els.linkPicker, Math.min(680, Math.max(560, Math.floor(window.innerWidth * 0.48))), {
       offsetX: -120
     });
+    fitLinkPickerToEditor(host.els.linkPicker);
   }
 
   insertOutcome(bodyAlreadyLinked, reusedRelation) {
@@ -258,12 +266,21 @@ export class EditorRelationLinkController {
   }
 
   async insertSelected(noteId) {
+    return this.changeLink({ noteId });
+  }
+
+  async removeLink() {
+    if (!this.editingLink) return;
+    return this.changeLink({ remove: true });
+  }
+
+  async changeLink({ noteId = "", remove = false } = {}) {
     const host = this.host;
-    if (!noteId || this.insertionPending || host.isSubmittingLinkInsert) return;
+    if ((!remove && !noteId) || this.insertionPending || host.isSubmittingLinkInsert) return;
     const sourceNoteId = host.activeNote()?.id;
     const vaultScope = host.state.noteMoveVaultScope;
     const target = host.state.notes.find(note => note.id === noteId);
-    if (!sourceNoteId || !target || target.id === sourceNoteId) return;
+    if (!sourceNoteId || (!remove && (!target || target.id === sourceNoteId))) return;
     const inline = host.currentLinkContext;
     const context = this.returnContext;
     if (!inline && context && (context.noteId !== sourceNoteId || context.vaultScope !== vaultScope)) {
@@ -279,32 +296,37 @@ export class EditorRelationLinkController {
       : host.normalizedSelectionRange(host.manualLinkReturnSelection) || host.normalizedSelectionRange(host.editorSelection());
     const scroll = host.manualLinkReturnScrollState;
     const editing = this.editingLink;
-    const token = bodyLinkTokenForNote(target, editing, inline ? "" : bodyLinkLabelAtSelection(host.getEditorValue(), range));
-    const cursor = range ? range.from + token.length : null;
+    if (remove && (!editing || !range || host.getEditorValue().slice(range.from, range.to) !== `[[${editing.raw}]]`)) return;
+    const replacement = remove ? bodyLinkTextForRemoval(editing)
+      : bodyLinkTokenForNote(target, editing, inline ? "" : bodyLinkLabelAtSelection(host.getEditorValue(), range));
+    const cursor = range ? range.from + replacement.length : null;
+    const oldToken = remove ? `[[${editing.raw}]]` : "";
+    const oldCount = remove ? host.getEditorValue().split(oldToken).length - 1 : 0;
     this.insertionPending = true;
     this.setSubmitting(true);
     try {
       if (range) {
-        if (host.isWysiwygMode()) host.replaceMarkdownWhileInWysiwyg(range.from, range.to, token, { selectionStart: cursor, selectionEnd: cursor });
-        else host.replaceEditorRange(range.from, range.to, token, { selectionStart: cursor, selectionEnd: cursor });
-      } else host.insertAtCursor(token);
+        if (host.isWysiwygMode()) host.replaceMarkdownWhileInWysiwyg(range.from, range.to, replacement, { selectionStart: cursor, selectionEnd: cursor });
+        else host.replaceEditorRange(range.from, range.to, replacement, { selectionStart: cursor, selectionEnd: cursor });
+      } else host.insertAtCursor(replacement);
       const insertedBody = host.getEditorValue();
       host.handleEditorInput();
       this.close();
       this.setSubmitting(true);
       host.focusEditor();
       const isCurrent = () => host.activeNote()?.id === sourceNoteId && host.state.noteMoveVaultScope === vaultScope;
-      const saved = await host.saveActiveNote({ trigger: inline ? "inline-link-insert" : "link-insert", skipOriginalityCheck: true, suppressSaveAiSuggestion: true });
+      const saved = await host.saveActiveNote({ trigger: remove ? "link-remove" : inline ? "inline-link-insert" : "link-insert", skipOriginalityCheck: true, suppressSaveAiSuggestion: true });
       if (!isCurrent()) return;
-      if (saved === false || saved?.ok === false || !String(host.activeTab()?.savedBody || "").includes(token.trim())) {
-        host.onStatus("链接已保留在编辑器中，但暂时没有同步成功。", "warn");
+      const savedBody = String(host.activeTab()?.savedBody || "");
+      if (saved === false || saved?.ok === false || !savedBody.includes(replacement.trim()) || (remove && savedBody.split(oldToken).length - 1 >= oldCount)) {
+        host.onStatus("修改已保留在编辑器中，但暂时没有同步成功。", "warn");
         return;
       }
       if (host.getEditorValue() === insertedBody) {
         if (cursor !== null) host.setEditorSelectionRange(cursor, cursor);
         if (!inline) host.scheduleEditorScrollRestore(scroll);
       }
-      host.onStatus(`${editing ? "已修改" : "已插入"}笔记链接：${target.title || "未命名笔记"}`, "ok");
+      host.onStatus(remove ? "已移除链接，文字已保留。" : `${editing ? "已修改" : "已插入"}笔记链接：${target.title || "未命名笔记"}`, "ok");
     } catch (error) {
       if (host.activeNote()?.id === sourceNoteId && host.state.noteMoveVaultScope === vaultScope) host.onStatus(`链接未同步，修改仍保留：${String(error?.message || error)}`, "warn");
     } finally {

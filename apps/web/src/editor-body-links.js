@@ -1,4 +1,12 @@
 import { sourceNoteReference } from "./note-persistence-policy.js";
+import { wikilinkLabelFromRaw } from "./editor-link-picker.js";
+
+export function bodyLinkTextForRemoval(existing = {}) {
+  const raw = String(existing.raw || "");
+  const separator = raw.indexOf("|");
+  const label = separator >= 0 ? raw.slice(separator + 1).trim() : existing.noteTitle || wikilinkLabelFromRaw(raw);
+  return String(label || existing.noteTitle || "未命名笔记").replace(/[\\`*_\[\]<>#]/g, "\\$&");
+}
 
 export function bodyLinkTokenForNote(note = {}, existing = null, selectedLabel = "") {
   // Confirming the current target must not discard a path, anchor or custom label.

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bodyLinkLabelAtSelection, bodyLinkRangeAtSelection, bodyLinkTokenForNote } from "../../apps/web/src/editor-body-links.js";
+import { bodyLinkLabelAtSelection, bodyLinkRangeAtSelection, bodyLinkTextForRemoval, bodyLinkTokenForNote } from "../../apps/web/src/editor-body-links.js";
 import { EditorRelationLinkController } from "../../apps/web/src/editor-relation-link-controller.js";
 import { normalizeToastuiWidgetMarkdown } from "../../apps/web/src/toastui-widget-markdown.js";
 
@@ -28,6 +28,45 @@ test("linking selected prose retains its words instead of replacing them with th
   assert.equal(bodyLinkLabelAtSelection("`代码`", { from: 0, to: 4 }), "");
   assert.equal(bodyLinkLabelAtSelection(body, { from: 3, to: 3 }), "");
 });
+
+test("removing a link retains a readable label and escapes Markdown syntax", () => {
+  assert.equal(bodyLinkTextForRemoval({ raw: "target#heading|我的引用" }), "我的引用");
+  assert.equal(bodyLinkTextForRemoval({ raw: "target", noteTitle: "材料标题" }), "材料标题");
+  assert.equal(bodyLinkTextForRemoval({ raw: "folder/材料.md#heading" }), "材料");
+  assert.equal(bodyLinkTextForRemoval({ raw: "target|**原话** [附注]" }), "\\*\\*原话\\*\\* \\[附注\\]");
+});
+
+for (const outcome of ["saved", "failed", "missing-change", "later-input"]) {
+  test(`removing only one repeated link preserves text after ${outcome}`, async () => {
+    const raw = "target#heading|引用", token = `[[${raw}]]`;
+    const before = `前文 ${token} 后文 ${token}。`;
+    let body = before, cursorMoves = 0;
+    const tab = { savedBody: before, body, dirty: false }, messages = [];
+    const host = { state: { notes: [] }, activeNote: () => ({ id: "source" }), activeTab: () => tab,
+      manualLinkReturnSelection: { from: 3, to: 3 + token.length }, normalizedSelectionRange: r => r,
+      getEditorValue: () => body, isWysiwygMode: () => false,
+      replaceEditorRange: (from, to, text) => { body = body.slice(0, from) + text + body.slice(to); },
+      handleEditorInput: () => { tab.body = body; tab.dirty = true; }, focusEditor() {},
+      setEditorSelectionRange: () => cursorMoves++, scheduleEditorScrollRestore() {},
+      onStatus: (message, tone) => messages.push({ message, tone }),
+      saveActiveNote: async () => {
+        if (outcome === "failed") return false;
+        if (outcome !== "missing-change") tab.savedBody = body;
+        if (outcome === "later-input") body += "继续写";
+        return true;
+      } };
+    const controller = new EditorRelationLinkController(host);
+    controller.editingLink = { raw, from: 3, to: 3 + token.length };
+    controller.close = () => {};
+    controller.updateConfirmButton = () => {};
+    await controller.removeLink();
+    assert.ok(body.startsWith(`前文 引用 后文 ${token}。`));
+    assert.equal(body.split(token).length - 1, 1);
+    assert.equal(host.isSubmittingLinkInsert, false);
+    assert.equal(cursorMoves, outcome === "saved" ? 1 : 0);
+    assert.equal(messages.at(-1).tone, ["failed", "missing-change"].includes(outcome) ? "warn" : "ok");
+  });
+}
 
 test("link confirmation cannot replace an outdated selection after new editor input", async () => {
   let body = "前文 新输入 后文", canceled = false;

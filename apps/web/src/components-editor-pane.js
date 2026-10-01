@@ -6813,6 +6813,7 @@ export class EditorPane {
     this.els.tagPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
 
     this.els.closeLinkPicker.addEventListener("click", () => this.editorRelationLink().cancel());
+    this.els.removeLink?.addEventListener("click", () => { void this.editorRelationLink().removeLink(); });
     this.els.linkSearchInput.addEventListener("input", () => {
       this.currentPinnedLinkId = "";
       this.renderLinkCandidates(this.els.linkSearchInput.value);

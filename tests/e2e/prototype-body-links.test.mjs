@@ -76,6 +76,74 @@ for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "s
 }
 
 for (const mode of ["source", "wysiwyg"]) {
+  test(`removing a body link keeps its words and independent relation (${mode})`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t);
+    if (!pw) return;
+    const { page, apiBase } = await startPrototypeStack(t, pw);
+    page.setDefaultTimeout(7000);
+    const create = async body => (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_original_default", body })).json.item;
+    const target = await create("# 链接移除目标\n\n独立的材料。");
+    const other = await create("# 其他独立关系目标\n\n与正文链接独立。");
+    const token = `[[${target.id}|我的引用]]`;
+    const source = await create(`# 移除正文关联\n\n第一处 ${token}。\n\n第二处 ${token}。`);
+    const independent = (await postJson(apiBase, `/api/v1/notes/${source.id}/relations`, { toNoteId: other.id, relationType: "supports", rationale: "这条独立支持关系需要保留。" })).json.item;
+    const readRelations = async () => (await fetchJson(apiBase, `/api/v1/notes/${source.id}/relations`)).json.item.outgoingLinks;
+    const checkRelations = async hasBodyLink => {
+      const links = await readRelations();
+      assert.equal(links.some(link => link.toNoteId === target.id && link.rationale === "markdown_wikilink"), hasBodyLink);
+      const kept = links.find(link => link.id === independent.id);
+      assert.equal(kept.relationType, "supports"); assert.equal(kept.rationale, "这条独立支持关系需要保留。");
+    };
+    await checkRelations(true);
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    if (mode === "source") await page.locator("#btnModeToggle").click();
+    if (mode === "wysiwyg") await page.setViewportSize({ width: 390, height: 900 });
+    const openLink = async () => {
+      await page.evaluate(token => { const e = window.__prototypeEditor, at = e.getEditorValue().indexOf(token) + 3; e.setEditorSelectionRange(at, at); e.focusEditor(); }, token);
+      await page.locator("#btnInsertLink").click();
+      await page.locator("#btnRemoveBodyLink").waitFor({ state: "visible" });
+      assert.ok(await page.evaluate(() => ["btnRemoveBodyLink", "btnCloseLinkPicker", "btnConfirmLinkInsert"].every(id => { const r = document.getElementById(id).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })), "All link controls must fit the viewport");
+    };
+    const deletedRelations = [];
+    page.on("request", r => { if (r.method() === "DELETE" && /\/relations\//.test(r.url())) deletedRelations.push(r.url()); });
+    const endpoint = `**/api/v1/notes/${source.id}`;
+    await page.route(endpoint, route => route.request().method() === "PUT" ? route.fulfill({ status: 500, json: { error: { message: "模拟保存失败" } } }) : route.continue());
+    await openLink();
+    await page.screenshot({ path: `output/note-editor-validation/link-remove-picker-${mode}.png`, fullPage: true });
+    await page.locator("#btnRemoveBodyLink").click();
+    await page.waitForFunction(() => !window.__prototypeEditor.isSubmittingLinkInsert);
+    assert.ok((await page.evaluate(() => window.__prototypeEditor.getEditorValue())).includes(`第一处 我的引用。\n\n第二处 ${token}。`));
+    assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.split(token).length - 1, 2);
+    await checkRelations(true);
+    await page.unroute(endpoint);
+    await page.keyboard.press("Control+s");
+    await waitFor(async () => assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.split(token).length - 1, 1));
+    await checkRelations(true);
+    await openLink();
+    const samePair = (await postJson(apiBase, `/api/v1/notes/${source.id}/relations`, { toNoteId: target.id, relationType: "supports", rationale: "同一目标的独立支持关系也要保留。" })).json.item;
+    await page.locator("#btnRemoveBodyLink").click();
+    await waitFor(async () => assert.ok(!(await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.includes(token)));
+    await checkRelations(false);
+    const samePairKept = (await readRelations()).find(link => link.id === samePair.id);
+    assert.equal(samePairKept.relationType, "supports");
+    assert.equal(samePairKept.rationale, "同一目标的独立支持关系也要保留。");
+    assert.equal(deletedRelations.length, 0);
+    await page.waitForFunction(() => !window.__prototypeEditor.activeTab()?.dirty);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+    const reopened = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
+    assert.ok(reopened.includes("第一处 我的引用。")); assert.ok(reopened.includes("第二处 我的引用。"));
+    assert.ok(!reopened.includes(token));
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  });
+}
+
+for (const mode of ["source", "wysiwyg"]) {
   test(`linking selected prose preserves its label and surrounding spaces (${mode})`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
     const pw = await optionalPlaywright(t);
