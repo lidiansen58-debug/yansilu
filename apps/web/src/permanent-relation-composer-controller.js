@@ -236,14 +236,10 @@ export class PermanentRelationComposerController {
     }
     this.patchState({ ...state, saveState: "saving", error: "", notice: "正在保存关联..." });
     try {
-      const preflightReadStillCurrent = beginRelationSnapshotRead(host, sourceNote.id);
+      // This read validates the mutation only. It must not displace a sidebar
+      // refresh that still needs to finish when the draft is cancelled or fails.
       const latestRelations = await fetchNoteRelations(sourceNote.id);
       if (!draftStillCurrent()) return;
-      if (sourceStillActive() && preflightReadStillCurrent()) {
-        host.currentSemanticRelations = latestRelations;
-        rememberRelationSnapshot(host, sourceNote.id, latestRelations);
-        host.semanticRelationsState = "loaded";
-      }
       const latestValidation = relationDraftCanSave({
         state,
         relations: latestRelations,

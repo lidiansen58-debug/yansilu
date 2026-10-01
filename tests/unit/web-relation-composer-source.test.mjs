@@ -3,6 +3,58 @@ import assert from "node:assert/strict";
 import { PermanentRelationComposerController } from "../../apps/web/src/permanent-relation-composer-controller.js";
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { currentRelationSnapshot } from "../../apps/web/src/relation-snapshot.js";
+import { PermanentNoteSidebarController } from "../../apps/web/src/permanent-note-sidebar-controller.js";
+
+for (const outcome of ["cancel", "fail", "cancel-fail"]) {
+  for (const sidebarFirst of [false, true]) {
+    test(`initial sidebar load completes across preflight ${outcome}, sidebar finishes ${sidebarFirst ? "first" : "last"}`, async t => {
+      const originalFetch = globalThis.fetch, originalFormData = globalThis.FormData;
+      const releases = [], starts = [];
+      const begun = [0, 1].map(i => new Promise(resolve => { starts[i] = resolve; }));
+      const pending = [0, 1].map(i => new Promise(resolve => { releases[i] = resolve; }));
+      t.after(() => { releases.forEach(release => release()); globalThis.fetch = originalFetch; globalThis.FormData = originalFormData; });
+      let reads = 0, writes = 0, renders = 0;
+      const relations = { outgoingLinks: [{ id: "existing", fromNoteId: "source", toNoteId: "other" }], backlinks: [] };
+      globalThis.FormData = class {
+        get(key) { return { relationType: "supports", rationale: "A concrete reason", insightQuestion: "" }[key]; }
+      };
+      globalThis.fetch = async (_url, options = {}) => {
+        if (options.method === "POST") { writes++; throw new Error("unexpected write"); }
+        const i = reads++;
+        starts[i]();
+        await pending[i];
+        if (i === 1 && outcome.includes("fail")) throw new Error("preflight unavailable");
+        return new Response(JSON.stringify({ item: relations }), { status: 200 });
+      };
+      const source = { id: "source" };
+      const host = {
+        state: { module: "explorer", notes: [source, { id: "target" }] },
+        permanentRelationWorkspaceState: { open: true, noteId: source.id, sourceNoteId: source.id,
+          relationComposerSessionId: "one", selectedTargetNoteId: "target", relationType: "supports", rationale: "A concrete reason" },
+        currentSemanticRelations: null, semanticRelationsState: "loading", relationsRequestSerial: 1,
+        activeNote: () => source, activeTab: () => null, isActiveNoteId: id => id === source.id, vaultScope: () => "vault",
+        syncPermanentRelationWorkspaceOverlay() {}, applyRelationNetworkStatusesFromRelations() {},
+        renderPreview() { renders++; }, els: {}
+      };
+      const sidebar = EditorPane.prototype.refreshSemanticRelations.call(host, source.id, 1);
+      await begun[0];
+      const save = new PermanentRelationComposerController(host).submit({});
+      await begun[1];
+      if (outcome.includes("cancel")) new PermanentNoteSidebarController(host).closeRelationWorkspace();
+      if (sidebarFirst) { releases[0](); await sidebar; }
+      releases[1]();
+      await save;
+      if (!sidebarFirst) { releases[0](); await sidebar; }
+      assert.equal(writes, 0);
+      assert.equal(host.semanticRelationsState, "loaded");
+      assert.deepEqual(host.currentSemanticRelations, relations);
+      assert.deepEqual(currentRelationSnapshot(host, source.id), relations);
+      assert.equal(renders, 1);
+      if (outcome.includes("cancel")) assert.equal(host.permanentRelationWorkspaceState.open, false);
+      else assert.equal(host.permanentRelationWorkspaceState.saveState, "error");
+    });
+  }
+}
 
 for (const scenario of ["save-save", "sidebar-save", "save-sidebar", "sidebar-error-save"]) {
   test(`relation reads retain the newer snapshot when responses arrive out of order: ${scenario}`, async t => {
