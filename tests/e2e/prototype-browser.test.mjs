@@ -2051,7 +2051,7 @@ test("prototype right sidebar relation entry saves through overlay and appears i
   await workspace.waitFor({ state: "visible" });
   await page.locator("[data-permanent-relation-target-search]").fill("Sidebar Route Target");
   await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
-  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("supports");
+  await workspace.locator('[data-permanent-relation-type-choice="supports"]').click();
   await page.locator('[data-permanent-relation-field="rationale"]').fill(
     "The source supports the target because both describe the same entry route from sidebar overlay to graph visibility."
   );
@@ -7955,8 +7955,7 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   }, 7000);
   await page.locator(`#graphCanvas .graph-map-node[data-node-id="${targetNote.json.item.id}"]`).click();
   await page.locator(".graph-selection-panel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
-  await page.locator(".graph-selection-panel", { hasText: /当前笔记|连接|打开笔记/ }).waitFor({ timeout: 3000 });
-  await page.locator(`.graph-selection-panel [data-open-note="${targetNote.json.item.id}"]`).first().click();
+  await page.locator(`.graph-selection-panel [data-open-note="${targetNote.json.item.id}"]`).click();
   await page.waitForFunction((noteId) => {
     const state = window.__prototypeState || {};
     const activeTab = Array.isArray(state.tabs) ? state.tabs.find((tab) => tab.id === state.activeTabId) : null;

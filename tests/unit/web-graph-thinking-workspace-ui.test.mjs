@@ -1913,7 +1913,7 @@ test("graph node selection keeps the node popup focused on the next action", () 
   assert.match(source, /function renderGraphSelectionTask\(task = null\) \{/);
   assert.match(selectionPanelSource, /aria-label="[^"]+"/);
   assert.match(nodeSelectionPanelSource, /task: null/);
-  assert.doesNotMatch(nodeSelectionPanelSource, /data-open-note="\$\{escapeHtml\(normalized\.nodeId\)\}"/);
+  assert.match(nodeSelectionPanelSource, /data-open-note="\$\{escapeHtml\(normalized\.nodeId\)\}"/);
   assert.doesNotMatch(nodeSelectionPanelSource, /把它连到一条相关笔记/);
   assert.doesNotMatch(nodeSelectionPanelSource, /data-graph-open-relation-form/);
   assert.doesNotMatch(nodeSelectionPanelSource, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);

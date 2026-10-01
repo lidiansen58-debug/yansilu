@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, startPrototypeStack, postJson } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, postJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 for (const width of [1366, 390]) {
   test(`recommendations exclude saved pairs and disappear after saving (${width}px)`, async t => {
@@ -45,7 +45,8 @@ for (const width of [1366, 390]) {
       editor.permanentRelationWorkspaceState.mode = "ai";
       editor.syncPermanentRelationWorkspaceOverlay();
     });
-    assert.equal(await choices.count(), 0);
+    // Saving repaints the sidebar and starts its asynchronous relation read.
+    await waitFor(async () => assert.equal(await choices.count(), 0));
     assert.match(await workspace.innerText(), /暂时没有推荐/);
     assert.doesNotMatch(await workspace.innerText(), /正在准备推荐/);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
