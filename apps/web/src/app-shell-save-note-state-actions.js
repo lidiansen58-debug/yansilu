@@ -44,7 +44,13 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
     showSaveAiSuggestionForNote = () => null,
     syncSourcePromotionSystemMessageForNote = () => {},
     refreshDirectoryGraph = async () => {},
-    noteSaveFailureFeedback = (error) => ({ statusMessage: String(error?.message || error), statusTone: "bad" }),
+    noteSaveFailureFeedback = (error) => ({
+      ok: false,
+      saveMode: "error",
+      saveMessage: "当前文件：保存失败，修改仍保留在编辑器中。",
+      statusMessage: String(error?.message || error),
+      statusTone: "bad"
+    }),
     clearSaveAiSuggestion = () => {},
     renderAll = () => {}
   } = deps;
@@ -60,7 +66,9 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
   let noteForExplorerSync = null;
   if (noteId) {
     const note = (state.notes || []).find((item) => item.id === noteId);
-    if (note && payload.title) {
+    // An explicit body is a save snapshot; the editor may already contain newer work.
+    // Only title-only actions should rewrite the live tab here.
+    if (note && payload.title && typeof payload.body !== "string") {
       note.title = payload.title;
       note.body = replaceFirstMarkdownTitle(note.body, payload.title);
       const tab = (state.tabs || []).find((item) => item.noteId === note.id);
@@ -89,6 +97,7 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
           originalitySimilarity: payload.originalitySimilarity,
           authorship: isPermanentLikeNote(note) ? note.authorship : undefined
         });
+        if (!updated) throw new Error("本地服务未返回保存结果，请重试。修改仍保留在编辑器中。");
         if (updated) {
           applyUpdatedNoteFields(note, updated, {
             normalizeOptionalNumber,
@@ -105,7 +114,8 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
         if (shouldSuppressSaveSuggestion) clearSaveAiSuggestion();
         const suggestion = shouldSuppressSaveSuggestion ? null : showSaveAiSuggestionForNote(note);
         syncSourcePromotionSystemMessageForNote(note, suggestion);
-        editor?.clearDraft?.(note.id);
+        const hasUnsavedTab = (state.tabs || []).some(tab => tab.noteId === note.id && tab.dirty);
+        if (!hasUnsavedTab) editor?.clearDraft?.(note.id);
         if (state.module === "graph") await refreshDirectoryGraph();
       } catch (error) {
         const feedback = noteSaveFailureFeedback(error);

@@ -7472,14 +7472,6 @@ export class EditorPane {
       }
     }
 
-    if (!this.isOriginalNote(note)) {
-      this.onStatus(
-        note.noteType === "literature" && nextStatus === "active"
-          ? "文献笔记已完成"
-          : "当前修改已同步",
-        "ok"
-      );
-    }
     this.renderRelated();
     const saved = await this.onStateChange("save-note", {
       noteId: savingNoteId,
@@ -7557,6 +7549,13 @@ export class EditorPane {
       this.onStatus(
         note.originalityStatus === "pass" ? "永久笔记已同步" : "永久笔记已同步，但仍建议继续打磨",
         note.originalityStatus === "pass" ? "ok" : "warn"
+      );
+    } else {
+      this.onStatus(
+        note.noteType === "literature" && nextStatus === "active"
+          ? "文献笔记已完成"
+          : "当前修改已同步",
+        "ok"
       );
     }
     this.renderTabs();

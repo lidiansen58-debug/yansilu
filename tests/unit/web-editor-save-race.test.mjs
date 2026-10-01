@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { createInitialState } from "../../apps/web/src/prototype-store.js";
+import { handleSaveNoteStateChange } from "../../apps/web/src/app-shell-save-note-state-actions.js";
 
 function createNormalizedSavePane() {
   const rawBody = "# Normalized note\n\n## 核心观点\nAn independent judgment.\n\n## 为什么成立\nA concrete reason.";
@@ -77,6 +78,41 @@ test("normalization does not repaint a different tab selected during save", asyn
   assert.deepEqual(editor.drafts, []);
 });
 
+for (const succeeds of [true, false]) {
+  test(`saving an earlier snapshot preserves edits made before switching tabs (${succeeds})`, async () => {
+    const { pane, note, tab, editor, rawBody } = createNormalizedSavePane();
+    const originalSavedBody = tab.savedBody;
+    let finishCheck;
+    pane.runOriginalityCheck = () => new Promise(resolve => { finishCheck = resolve; });
+    let persistedBody;
+    pane.onStateChange = (_reason, payload) => handleSaveNoteStateChange(payload, {
+      state: pane.state, editor: pane,
+      updateNote: async (_id, patch) => {
+        if (!succeeds) throw new Error("Disk unavailable");
+        persistedBody = patch.body;
+        return { ...note, ...patch };
+      }
+    });
+    const saving = pane.performSaveActiveNote();
+    const latest = rawBody.replace("Normalized note", "Updated title") + "\n\nKeep this later thought.";
+    editor.value = latest;
+    pane.updateActiveTabFromEditor();
+    pane.state.activeTabId = "another-tab";
+    editor.value = "# Another note\n\nDo not replace this editor.";
+    finishCheck({ status: "warning", similarity: 0 });
+    await saving;
+
+    assert.equal(tab.body, latest);
+    assert.equal(tab.title, "Updated title");
+    assert.equal(tab.dirty, true);
+    assert.equal(tab.savedBody, succeeds ? persistedBody : originalSavedBody);
+    assert.match(editor.value, /Do not replace this editor/);
+    assert.deepEqual(editor.repaints, []);
+    assert.deepEqual(editor.drafts, [latest]);
+    assert.deepEqual(editor.cleared, []);
+  });
+}
+
 function createSaveRacePane({ dirty = true, inFlightResult = true } = {}) {
   const tab = {
     id: "tab-1",
@@ -113,6 +149,33 @@ function createSaveRacePane({ dirty = true, inFlightResult = true } = {}) {
     }
   });
   return { pane, tab };
+}
+
+for (const kind of ["fleeting", "literature"]) {
+  for (const succeeds of [true, false]) {
+    test(`${kind} editor reports success only after persistence succeeds (${succeeds})`, async () => {
+      const { pane, note, tab, editor } = createNormalizedSavePane();
+      note.folderId = `dir_${kind}_default`;
+      note.noteType = kind;
+      pane.literatureCompletionState = () => ({ hasParaphrase: true, hasOriginalText: true, hasCitationMetadata: true });
+      const messages = [];
+      pane.onStatus = (message, tone) => messages.push({ message, tone });
+      let finish;
+      pane.onStateChange = () => new Promise(resolve => { finish = resolve; });
+      const saving = pane.performSaveActiveNote({ markLiteratureComplete: kind === "literature" });
+      const earlySuccesses = messages.filter(item => item.tone === "ok");
+      finish(succeeds ? { ...note } : { ok: false, saveMode: "error", saveMessage: "Save failed" });
+      await saving;
+
+      assert.deepEqual(earlySuccesses, []);
+      assert.equal(tab.dirty, !succeeds);
+      assert.deepEqual(editor.cleared, succeeds ? [note.id] : []);
+      assert.deepEqual(editor.drafts, succeeds ? [] : [tab.body]);
+      assert.deepEqual(messages, succeeds ? [{
+        message: kind === "literature" ? "文献笔记已完成" : "当前修改已同步", tone: "ok"
+      }] : []);
+    });
+  }
 }
 
 test("manual save waits for an in-flight save and then saves the latest dirty tab", async () => {

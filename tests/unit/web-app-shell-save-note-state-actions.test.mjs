@@ -196,3 +196,24 @@ test("save note state action keeps save AI suggestion when failure is for anothe
 
   assert.deepEqual(calls, ["render"]);
 });
+
+test("missing save acknowledgement keeps the draft and reports failure", async () => {
+  const status = statusRecorder();
+  const cleared = [], suggestions = [];
+  const body = "# Keep this edit\n\nNot yet confirmed on disk.";
+  const state = { notes: [{ id: "n1", body }], tabs: [] };
+  const result = await handleSaveNoteStateChange({ noteId: "n1", body }, {
+    state,
+    updateNote: async () => null,
+    editor: { clearDraft: id => cleared.push(id) },
+    showSaveAiSuggestionForNote: note => suggestions.push(note.id),
+    setStatus: status.setStatus
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.saveMode, "error");
+  assert.equal(state.notes[0].body, body);
+  assert.equal(status.calls.some(item => item.tone === "ok"), false);
+  assert.match(result.statusMessage, /未返回保存结果/);
+  assert.deepEqual(cleared, []);
+  assert.deepEqual(suggestions, []);
+});
