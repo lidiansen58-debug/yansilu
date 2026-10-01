@@ -1,5 +1,6 @@
 import { assetPreviewUrl } from "./prototype-api.js";
 import { escapeHtml } from "./editor-render-utils.js";
+import { normalizeToastuiWidgetMarkdown } from "./toastui-widget-markdown.js";
 
 export function formatMarkdownLinkDestination(value = "") {
   const target = String(value || "").trim();
@@ -301,8 +302,9 @@ export function shouldKeepTightWysiwygLineBreak(lines = [], index = 0, options =
 }
 
 export function normalizeWysiwygMarkdownValue(markdown = "", offsets = []) {
-  const source = normalizeLooseMarkdownTables(markdown);
-  const mappedOffsets = offsets.map((offset) => Math.max(0, Math.min(source.length, Number(offset) || 0)));
+  const widgets = normalizeToastuiWidgetMarkdown(normalizeLooseMarkdownTables(markdown), offsets);
+  const source = widgets.value;
+  const mappedOffsets = widgets.offsets;
   const lines = source.split("\n");
   let value = "";
   let sourceOffset = 0;

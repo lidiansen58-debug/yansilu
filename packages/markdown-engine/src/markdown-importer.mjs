@@ -1,3 +1,5 @@
+import { markdownWikilinkMatches } from "./markdown-code-context.mjs";
+
 export function extractTags(text) {
   const tags = new Set();
   for (const match of String(text ?? "").matchAll(/(^|[^\p{L}\p{N}_/-])#([\p{L}\p{N}_/-]+)/gu)) {
@@ -8,8 +10,8 @@ export function extractTags(text) {
 
 export function extractWikilinks(text) {
   const links = new Set();
-  for (const match of String(text ?? "").matchAll(/\[\[([^\]]+)\]\]/g)) {
-    links.add(match[1].trim());
+  for (const match of markdownWikilinkMatches(text ?? "")) {
+    links.add(match.raw);
   }
   return [...links];
 }
@@ -35,11 +37,11 @@ export function parseWikilink(raw, embed = false) {
 export function parseWikilinks(text) {
   const seenRaw = new Set();
   const parsed = [];
-  for (const match of String(text ?? "").matchAll(/(!)?\[\[([^\]]+)\]\]/g)) {
-    const raw = match[2].trim();
+  for (const match of markdownWikilinkMatches(text ?? "")) {
+    const raw = match.raw;
     if (seenRaw.has(raw)) continue;
     seenRaw.add(raw);
-    parsed.push(parseWikilink(raw, Boolean(match[1])));
+    parsed.push(parseWikilink(raw, match.embed));
   }
   return parsed;
 }

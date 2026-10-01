@@ -1,5 +1,6 @@
 import Editor from "@toast-ui/editor";
 import "@toast-ui/editor/dist/i18n/zh-cn";
+import { toastuiMarkdownSelection, toastuiWysiwygSelection } from "./toastui-markdown-selection.js";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -153,9 +154,17 @@ export function createWysiwygMarkdownEditor({
       editor.setMarkdown(value, false);
     },
     selection() {
+      if (editor.isWysiwygMode()) return toastuiMarkdownSelection(editor);
       return normalizeSelection(editor.getMarkdown(), editor.getSelection());
     },
     setSelectionRange(from, to = from) {
+      if (editor.isWysiwygMode()) {
+        const selection = toastuiWysiwygSelection(editor, from, to);
+        if (!selection) return;
+        editor.setSelection(selection.from, selection.to);
+        editor.focus();
+        return;
+      }
       const markdown = editor.getMarkdown();
       editor.setSelection(offsetToMdPos(markdown, from), offsetToMdPos(markdown, to));
       editor.focus();

@@ -2,6 +2,7 @@ import { escapeHtml } from "./editor-render-utils.js";
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import { recordEditorSourceAsPermanent } from "./source-note-editor-promotion.js";
 import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
+import { markdownCharacterIsEscaped, selectionTouchesMarkdownCode } from "./markdown-code-context.js";
 import {
   countExplicitSemanticRelations,
   deriveNoteWritingReadiness
@@ -2028,7 +2029,7 @@ export class EditorPane {
     let high = richValue.length;
     while (low < high) {
       const mid = Math.floor((low + high) / 2);
-      const normalizedPrefixLength = normalizeWysiwygMarkdownValue(richValue.slice(0, mid)).value.length;
+      const normalizedPrefixLength = normalizeWysiwygMarkdownValue(richValue, [mid]).offsets[0];
       if (normalizedPrefixLength < target) low = mid + 1;
       else high = mid;
     }
@@ -3323,12 +3324,15 @@ export class EditorPane {
     if (selection.from !== selection.to) return null;
     const text = this.getEditorValue();
     const cursor = selection.from || 0;
+    if (selectionTouchesMarkdownCode(text, selection)) return null;
+    if (bodyLinkRangeAtSelection(text, selection)) return null;
     const tryCursor = (candidateCursor) => {
       const left = text.slice(0, candidateCursor);
       const asciiStart = left.lastIndexOf("[[");
       const fullWidthStart = left.lastIndexOf("【【");
       const start = Math.max(asciiStart, fullWidthStart);
       if (start < 0) return null;
+      if (markdownCharacterIsEscaped(text, start)) return null;
       const lastClose = Math.max(left.lastIndexOf("]]"), left.lastIndexOf("】】"));
       if (lastClose > start) return null;
       const query = left.slice(start + 2);
@@ -6776,6 +6780,11 @@ export class EditorPane {
         this.normalizedSelectionRange(this.manualLinkReturnSelection) ||
         this.rememberEditorSelection() ||
         this.rememberedEditorSelection();
+      if (selectionTouchesMarkdownCode(this.getEditorValue(), returnSelection)) {
+        this.closeLinkPicker();
+        this.focusEditor();
+        return this.onStatus("请在代码外插入笔记链接。", "warn");
+      }
       const existingLink = bodyLinkRangeAtSelection(this.getEditorValue(), returnSelection);
       const resolved = existingLink ? this.resolveLinkToken(existingLink.raw) : null;
       this.openLinkPicker(resolved?.note?.title || "", {
@@ -6812,6 +6821,7 @@ export class EditorPane {
     this.els.tagPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
 
     this.els.closeLinkPicker.addEventListener("click", () => this.editorRelationLink().cancel());
+    this.els.removeLink?.addEventListener("click", () => { void this.editorRelationLink().removeLink(); });
     this.els.linkSearchInput.addEventListener("input", () => {
       this.currentPinnedLinkId = "";
       this.renderLinkCandidates(this.els.linkSearchInput.value);

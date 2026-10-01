@@ -10,6 +10,7 @@ import { deriveNoteThinkingStatus } from "./thinking-status.mjs";
 import { analyzePermanentNoteDistillation } from "./quality-checks.mjs";
 import { originalityGuard } from "../../originality-guard/src/index.mjs";
 import { searchNoteContent } from "./note-content-search.mjs";
+import { parseWikilinks, wikilinkTargets } from "../../markdown-engine/src/markdown-importer.mjs";
 import { prepareNoteMoveFiles } from "./note-move-files.mjs";
 import { findLinkAliasRows, linkAliasMatchesReference, readLinkAliases, renamedLinkAliases, syncLinkAliases } from "./note-link-aliases.mjs";
 
@@ -668,18 +669,7 @@ function extractMarkdownTags(text) {
 }
 
 function parseMarkdownWikilinkTargets(text) {
-  const targets = new Set();
-  const source = String(text || "");
-  for (const match of source.matchAll(/(!)?\[\[([^\]]+)\]\]/g)) {
-    const raw = String(match[2] || "").trim();
-    if (!raw) continue;
-    const [targetPart] = raw.split("|");
-    const [pathAndHeading] = String(targetPart || "").split("^");
-    const [targetRaw] = String(pathAndHeading || "").split("#");
-    const target = String(targetRaw || "").trim();
-    if (target) targets.add(target);
-  }
-  return [...targets];
+  return wikilinkTargets(parseWikilinks(text || ""));
 }
 
 function titleCandidatesForWikilinkTarget(target) {

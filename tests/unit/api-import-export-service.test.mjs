@@ -350,6 +350,28 @@ test("confirmImport syncs imported wikilinks into relation links after all notes
   assert.equal(targetRelations.backlinks[0].fromNoteId, sourceCandidate.id);
 });
 
+test("confirmImport ignores code-only wikilinks after all targets are registered", async () => {
+  const vaultPath = await makeTempDir("yansilu-import-code-relations-");
+  const importRoot = await makeTempDir("yansilu-import-code-relations-input-");
+  const service = createService(vaultPath);
+  const code = "`[[Code Target]]`\n\n```md\n[[Code Target]]\n```\n\n\\[[Code Target]]";
+  await fs.writeFile(path.join(importRoot, "a-source.md"), `---\ntitle: Import Code Source\n---\n\n[[Real Target]]\n\n${code}`, "utf8");
+  await fs.writeFile(path.join(importRoot, "y-code.md"), "---\ntitle: Code Target\n---\n\n代码示例的目标。", "utf8");
+  await fs.writeFile(path.join(importRoot, "z-real.md"), "---\ntitle: Real Target\n---\n\n真实引用的目标。", "utf8");
+  const preview = await service.createPreview("obsidian", { path: importRoot }, { detectWikilinks: true }, "req_code_links");
+  const record = await service.getImportRecord(preview.importRecordId);
+  const source = record.candidates.literature.find(item => item.title === "Import Code Source");
+  const target = record.candidates.literature.find(item => item.title === "Real Target");
+  const codeTarget = record.candidates.literature.find(item => item.title === "Code Target");
+  assert.deepEqual(source.wikilink_targets, ["Real Target"]);
+  const result = await service.confirmImport(record, { confirm: true, directoryId: "dir_literature_default", overrideOriginality: true }, "req_code_links_confirm");
+  assert.equal(result.status, "completed");
+  assert.equal(result.result.created.literatureNotes, 3);
+  const relations = await listNoteRelations(vaultPath, source.id);
+  assert.deepEqual(relations.outgoingLinks.map(link => link.toNoteId), [target.id]);
+  assert.deepEqual((await listNoteRelations(vaultPath, codeTarget.id)).backlinks, []);
+});
+
 test("confirmImport copies permanent-note embedded assets even when only permanent candidates are selected", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-permanent-assets-");
   const importRoot = await makeTempDir("yansilu-service-confirm-permanent-assets-import-");
