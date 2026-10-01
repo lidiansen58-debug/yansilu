@@ -40,6 +40,22 @@ test("repeated export creates separate bundles without overwriting existing work
   assert.match(await fs.readFile(first.articlePath, "utf8"), /NEW-BODY/);
 });
 
+test("article export keeps literal attachment examples and copies only the live wrapped path", async () => {
+  const input = await fixture();
+  const relative = "assets/files/材料 (最终).txt";
+  const asset = path.join(input.vaultPath, relative);
+  await fs.mkdir(path.dirname(asset), { recursive: true });
+  await fs.writeFile(asset, "真实附件", "utf8");
+  const examples = "`![示例](../../assets/missing-inline.png)`\n\n```md\n![[../../assets/missing-fence.png]]\n```\n\n\\![[../../assets/missing-escaped.png]]";
+  input.markdown = `# 导出附件边界\n\n[材料](<../../${relative}>)\n\n${examples}`;
+  const result = await exportArticle(input);
+  assert.equal(result.assetCount, 1);
+  const exported = await fs.readFile(result.articlePath, "utf8");
+  assert.ok(exported.includes(examples));
+  assert.ok(exported.includes(`[材料](<${relative}>)`));
+  assert.equal(await fs.readFile(path.join(result.targetPath, relative), "utf8"), "真实附件");
+});
+
 test("missing attachments fail before publishing any article", async () => {
   const input = await fixture();
   await assert.rejects(exportArticle({ ...input, markdown: "# A\n![image](../../assets/missing.png)" }), /找不到附件.*missing/);
