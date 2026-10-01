@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bodyLinkRangeAtSelection, bodyLinkTokenForNote } from "../../apps/web/src/editor-body-links.js";
+import { bodyLinkLabelAtSelection, bodyLinkRangeAtSelection, bodyLinkTokenForNote } from "../../apps/web/src/editor-body-links.js";
 import { EditorRelationLinkController } from "../../apps/web/src/editor-relation-link-controller.js";
+import { normalizeToastuiWidgetMarkdown } from "../../apps/web/src/toastui-widget-markdown.js";
 
 test("a cursor inside a link selects its whole token for replacement", () => {
   const body = "前文 [[target#heading|别名]] 后文 [[other]]";
@@ -16,6 +17,64 @@ test("duplicate titles retain the chosen identity and labels cannot corrupt link
   assert.equal(bodyLinkTokenForNote({ id: "first", title: "同名标题" }), "[[first|同名标题]]");
   assert.equal(bodyLinkTokenForNote({ id: "safe", title: "[标题]|换\n行" }), "[[safe|标题  换 行]]");
 });
+
+test("linking selected prose retains its words instead of replacing them with the target title", () => {
+  const body = "前文 提炼出来的判断 后文";
+  const label = bodyLinkLabelAtSelection(body, { from: 3, to: 10 });
+  assert.equal(bodyLinkTokenForNote({ id: "target", title: "材料笔记" }, null, label), "[[target|提炼出来的判断]]");
+  assert.equal(bodyLinkTokenForNote({ id: "target", title: "材料笔记" }, null, "  原话  "), "  [[target|原话]]  ");
+  assert.equal(bodyLinkLabelAtSelection("[[旧链接]]", { from: 0, to: 7 }), "");
+  assert.equal(bodyLinkLabelAtSelection("跨段\n文字", { from: 0, to: 5 }), "");
+  assert.equal(bodyLinkLabelAtSelection("`代码`", { from: 0, to: 4 }), "");
+  assert.equal(bodyLinkLabelAtSelection(body, { from: 3, to: 3 }), "");
+});
+
+test("link confirmation cannot replace an outdated selection after new editor input", async () => {
+  let body = "前文 新输入 后文", canceled = false;
+  const host = { state: { notes: [{ id: "target", title: "目标" }] }, activeNote: () => ({ id: "source" }),
+    getEditorValue: () => body, onStatus: message => assert.match(message, /正文已变化/),
+    replaceEditorRange: () => assert.fail("Must not overwrite changed text"), saveActiveNote: () => assert.fail("Must not save a stale replacement") };
+  const controller = new EditorRelationLinkController(host);
+  controller.returnContext = { noteId: "source", body: "前文 旧选区 后文" };
+  controller.cancel = () => { canceled = true; };
+  await controller.insertSelected("target");
+  assert.equal(body, "前文 新输入 后文");
+  assert.equal(canceled, true);
+});
+
+test("widget normalization preserves link identity and maps selections after links and tags", () => {
+  const raw = "前文 $$widget0 [[target#段落|引用]]$$ 和 $$widget1 #标签$$ 后文";
+  const normalized = normalizeToastuiWidgetMarkdown(raw, [raw.indexOf("引用"), raw.indexOf("后文"), raw.length]);
+  assert.equal(normalized.value, "前文 [[target#段落|引用]] 和 #标签 后文");
+  assert.deepEqual(normalized.offsets, [normalized.value.indexOf("引用"), normalized.value.indexOf("后文"), normalized.value.length]);
+});
+
+test("widget normalization leaves ordinary math and links unchanged", () => {
+  const body = "$$x + y$$ 与 [[target|引用]] 和 #标签";
+  assert.deepEqual(normalizeToastuiWidgetMarkdown(body, [0, body.length]), { value: body, offsets: [0, body.length] });
+});
+
+test("literal widget syntax inside code remains intact", () => {
+  const body = "`$$widget0 #示例$$`\n\n```md\n$$widget1 [[target|代码示例]]$$\n```\n\n$$widget2 #正常标签$$";
+  const normalized = normalizeToastuiWidgetMarkdown(body, [body.indexOf("代码示例")]);
+  assert.equal(normalized.value, body.replace("$$widget2 #正常标签$$", "#正常标签"));
+  assert.equal(normalized.offsets[0], body.indexOf("代码示例"));
+});
+
+for (const change of ["note", "vault"]) {
+  test(`link confirmation ignores a picker opened in another ${change}`, async () => {
+    let closed = false;
+    const host = { state: { notes: [{ id: "target", title: "目标" }], noteMoveVaultScope: change === "vault" ? "new" : "old" },
+      activeNote: () => ({ id: change === "note" ? "new" : "old" }), getEditorValue: () => "正文",
+      onStatus: () => assert.fail("Do not show old-context feedback"),
+      replaceEditorRange: () => assert.fail("Do not replace text in new context") };
+    const controller = new EditorRelationLinkController(host);
+    controller.returnContext = { noteId: "old", vaultScope: "old", body: "正文" };
+    controller.close = () => { closed = true; };
+    await controller.insertSelected("target");
+    assert.equal(closed, true);
+  });
+}
 
 test("editing keeps the current reference intact and custom labels survive a target change", () => {
   const existing = { raw: "folder/材料.md#段落|我的引用", noteId: "old", noteTitle: "材料" };

@@ -40,7 +40,7 @@ test("body links retain the chosen note identity with a readable label", async (
 
 test("body link insertion changes only the selected range and does not save semantic relations", async () => {
   const source = await readEditorRelationLinkControllerSource();
-  assert.ok(source.includes("const token = bodyLinkTokenForNote(target, editing);"));
+  assert.ok(source.includes("const token = bodyLinkTokenForNote(target, editing, inline ? \"\" : bodyLinkLabelAtSelection(host.getEditorValue(), range));"));
   assert.ok(source.includes("suppressSaveAiSuggestion: true"));
   assert.doesNotMatch(source, /normalizeKnownWikilinksToReadableTitles|createNoteRelation|updateNoteRelation/);
 });

@@ -2028,7 +2028,7 @@ export class EditorPane {
     let high = richValue.length;
     while (low < high) {
       const mid = Math.floor((low + high) / 2);
-      const normalizedPrefixLength = normalizeWysiwygMarkdownValue(richValue.slice(0, mid)).value.length;
+      const normalizedPrefixLength = normalizeWysiwygMarkdownValue(richValue, [mid]).offsets[0];
       if (normalizedPrefixLength < target) low = mid + 1;
       else high = mid;
     }
@@ -3323,6 +3323,7 @@ export class EditorPane {
     if (selection.from !== selection.to) return null;
     const text = this.getEditorValue();
     const cursor = selection.from || 0;
+    if (bodyLinkRangeAtSelection(text, selection)) return null;
     const tryCursor = (candidateCursor) => {
       const left = text.slice(0, candidateCursor);
       const asciiStart = left.lastIndexOf("[[");

@@ -1,4 +1,4 @@
-import { bodyLinkTokenForNote } from "./editor-body-links.js";
+import { bodyLinkLabelAtSelection, bodyLinkTokenForNote } from "./editor-body-links.js";
 import { looksLikeStableNoteId, wikilinkTargetFromRaw } from "./editor-link-picker.js";
 import {
   editorRelationLinkCandidatePreviewText,
@@ -265,11 +265,21 @@ export class EditorRelationLinkController {
     const target = host.state.notes.find(note => note.id === noteId);
     if (!sourceNoteId || !target || target.id === sourceNoteId) return;
     const inline = host.currentLinkContext;
+    const context = this.returnContext;
+    if (!inline && context && (context.noteId !== sourceNoteId || context.vaultScope !== vaultScope)) {
+      this.close();
+      return;
+    }
+    if (!inline && context && context.body !== host.getEditorValue()) {
+      this.cancel();
+      host.onStatus("正文已变化，请重新选择要关联的文字。", "warn");
+      return;
+    }
     const range = inline ? { from: inline.start, to: inline.end }
       : host.normalizedSelectionRange(host.manualLinkReturnSelection) || host.normalizedSelectionRange(host.editorSelection());
     const scroll = host.manualLinkReturnScrollState;
     const editing = this.editingLink;
-    const token = bodyLinkTokenForNote(target, editing);
+    const token = bodyLinkTokenForNote(target, editing, inline ? "" : bodyLinkLabelAtSelection(host.getEditorValue(), range));
     const cursor = range ? range.from + token.length : null;
     this.insertionPending = true;
     this.setSubmitting(true);
@@ -286,7 +296,7 @@ export class EditorRelationLinkController {
       const isCurrent = () => host.activeNote()?.id === sourceNoteId && host.state.noteMoveVaultScope === vaultScope;
       const saved = await host.saveActiveNote({ trigger: inline ? "inline-link-insert" : "link-insert", skipOriginalityCheck: true, suppressSaveAiSuggestion: true });
       if (!isCurrent()) return;
-      if (saved === false || saved?.ok === false || !String(host.activeTab()?.savedBody || "").includes(token)) {
+      if (saved === false || saved?.ok === false || !String(host.activeTab()?.savedBody || "").includes(token.trim())) {
         host.onStatus("链接已保留在编辑器中，但暂时没有同步成功。", "warn");
         return;
       }

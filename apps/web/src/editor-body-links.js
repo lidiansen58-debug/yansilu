@@ -1,6 +1,6 @@
 import { sourceNoteReference } from "./note-persistence-policy.js";
 
-export function bodyLinkTokenForNote(note = {}, existing = null) {
+export function bodyLinkTokenForNote(note = {}, existing = null, selectedLabel = "") {
   // Confirming the current target must not discard a path, anchor or custom label.
   if (existing?.noteId && existing.noteId === note.id) return `[[${existing.raw}]]`;
   const separator = String(existing?.raw || "").indexOf("|");
@@ -8,7 +8,19 @@ export function bodyLinkTokenForNote(note = {}, existing = null) {
   if (alias && alias !== String(existing?.noteTitle || "").trim()) {
     return sourceNoteReference(alias, note.id);
   }
-  return sourceNoteReference(note.title, note.id);
+  const token = sourceNoteReference(!existing && selectedLabel ? selectedLabel : note.title, note.id);
+  return !existing && selectedLabel
+    ? selectedLabel.match(/^\s*/)[0] + token + selectedLabel.match(/\s*$/)[0]
+    : token;
+}
+
+export function bodyLinkLabelAtSelection(body = "", selection = null) {
+  if (!selection || !Number.isFinite(selection.from) || !Number.isFinite(selection.to)) return "";
+  const from = Math.min(selection.from, selection.to), to = Math.max(selection.from, selection.to);
+  if (from < 0 || to > String(body).length || from === to) return "";
+  const selected = String(body).slice(from, to);
+  // Only plain, single-line prose is suitable as a display label.
+  return !selected.trim() || /[\r\n\[\]|`*]/.test(selected) ? "" : selected;
 }
 
 // Reuse the insertion action to replace the whole link under the cursor.
