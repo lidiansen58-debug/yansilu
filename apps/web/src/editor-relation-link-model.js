@@ -77,11 +77,9 @@ export function editorRelationLinkConfirmState({
   selectedNote = null,
   reason = ""
 } = {}) {
-  const hasReason = Boolean(String(reason || "").trim());
   if (isSubmitting) return { disabled: true, label: "保存中..." };
-  if (!selectedNote) return { disabled: true, label: "关联" };
-  if (!hasReason) return { disabled: true, label: "关联" };
-  return { disabled: false, label: "关联" };
+  if (!selectedNote) return { disabled: true, label: "插入链接" };
+  return { disabled: false, label: "插入链接" };
 }
 
 export function normalizeEditorRelationLinkInput({

@@ -174,7 +174,7 @@
           <div class="toolbar-group toolbar-group-structure toolbar-group-insert">
               <button class="tb tb-label has-icon" id="btnInsertImage" title="插入图片" data-tip="插入图片" aria-label="插入图片"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.45" y="3.05" width="11.1" height="9.9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5.35" cy="6.05" r="1.1" fill="currentColor"/><path d="M3.55 10.8l2.55-2.65 1.95 1.75 2.2-2.55 2.2 3.45" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>图片</span></button>
             <button class="tb tb-label has-icon" id="btnInsertTag" title="插入标签 #" data-tip="插入标签 #" aria-label="插入标签"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.1 2.75h5.05l2.1 2.1v5.05l-4.9 4.1a1.2 1.2 0 0 1-1.66-.1L2.1 9.3a1.2 1.2 0 0 1-.1-1.66z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="9.6" cy="5.9" r="1" fill="currentColor"/></svg><span>标签</span></button>
-            <button class="tb tb-label has-icon relation-primary hidden" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>关联笔记</span></button>
+            <button class="tb tb-label has-icon relation-primary hidden" id="btnInsertLink" title="插入链接 [[" data-tip="插入链接 [[" aria-label="插入链接"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>插入链接</span></button>
           </div>
         </div>
           </div>
@@ -182,30 +182,14 @@
           <div id="editorBodyRelationActions" class="editor-body-relation-actions" data-editor-body-relation-actions hidden></div>
           <div class="panel hidden" id="linkPicker">
             <div class="link-picker-head">
-              <strong>关联永久笔记</strong>
+              <strong>插入笔记链接</strong>
               <button class="tb" id="btnCloseLinkPicker" type="button" aria-label="关闭关联窗口">关闭</button>
             </div>
             <div class="link-picker-search-row">
               <label class="link-picker-search-label" for="linkSearchInput">找目标笔记</label>
-              <input id="linkSearchInput" name="yansilu-link-target-search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search" placeholder="输入标题关键词，选择要关联的永久笔记" />
+              <input id="linkSearchInput" name="yansilu-link-target-search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search" placeholder="搜索笔记标题" />
               <div class="link-picker-list" id="linkSearchList"></div>
-              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>关联</button>
-            </div>
-            <div class="link-picker-meta">
-              <div class="link-picker-field">
-                <label for="linkRelationTypeSelect">关系类型</label>
-                <select id="linkRelationTypeSelect">
-                  <option value="associated_with" selected>只是有关</option>
-                  <option value="supports">支持这个观点</option>
-                  <option value="contradicts">提出不同看法</option>
-                  <option value="qualifies">补充适用条件</option>
-                  <option value="example_of">提供一个例子</option>
-                </select>
-              </div>
-              <div class="link-picker-field">
-                <label for="linkReasonInput">关联理由</label>
-                <textarea id="linkReasonInput" placeholder="写一句话：当前笔记如何支持、限定、反驳、举例或桥接目标笔记。"></textarea>
-              </div>
+              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>插入链接</button>
             </div>
           </div>
           <div class="panel hidden" id="tagPicker">

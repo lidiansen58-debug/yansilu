@@ -1,9 +1,4 @@
-import { createNoteRelation, fetchNoteRelations, updateNoteRelation } from "./prototype-api.js";
-import { normalizeKnownWikilinksToReadableTitles, wikilinkTokenForNote } from "./editor-link-picker.js";
-import {
-  inlineLinkRelationTypeOptionsMarkup,
-  isMarkdownWikilinkRelation
-} from "./editor-relation-helpers.js";
+import { bodyLinkTokenForNote } from "./editor-body-links.js";
 import {
   editorRelationLinkCandidatePreviewText,
   editorRelationLinkCandidates,
@@ -15,15 +10,11 @@ import {
   normalizeEditorRelationLinkInput,
   selectedEditorRelationLinkCandidate
 } from "./editor-relation-link-model.js";
-import {
-  QUICK_WIKILINK_ASSOCIATION_MARKER,
-  saveOrUpgradeWikilinkRelationTransaction
-} from "./relation-save-transaction.js";
-import { relationEntryRouteForInlineLink } from "./relation-entry-route.js";
 
 export class EditorRelationLinkController {
   constructor(host) {
     this.host = host;
+    this.searchRevision = 0;
   }
 
   renderCandidates(query = "", preferredId = "") {
@@ -120,16 +111,7 @@ export class EditorRelationLinkController {
     host.els.linkPicker.style.width = "";
     host.els.linkPicker.style.maxHeight = "";
     host.els.linkPicker.classList.remove("hidden");
-    const linkPickerMeta = host.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");
-    if (linkPickerMeta) linkPickerMeta.hidden = false;
-    const linkPickerGuidance = linkPickerMeta?.nextElementSibling;
-    if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = false;
-    const linkSearchSpacer = host.els.linkSearchInput?.nextElementSibling;
-    if (linkSearchSpacer && linkSearchSpacer !== host.els.linkSearchList) {
-      host.els.linkSearchInput.parentNode?.insertBefore(host.els.linkSearchList, linkSearchSpacer);
-      if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;
-    }
-    host.els.linkSearchInput.placeholder = "输入标题关键词，选择要关联的永久笔记";
+    host.els.linkSearchInput.placeholder = "搜索笔记标题";
     host.els.linkSearchInput.type = "search";
     host.els.linkSearchInput.name = `yansilu-link-target-${Date.now()}`;
     host.els.linkSearchInput.setAttribute("autocomplete", "off");
@@ -137,7 +119,7 @@ export class EditorRelationLinkController {
     host.els.linkSearchInput.setAttribute("autocapitalize", "off");
     host.els.linkSearchInput.setAttribute("spellcheck", "false");
     host.els.linkSearchInput.value = initialQuery;
-    host.currentPinnedLinkId = "";
+    host.currentPinnedLinkId = String(options.preferredId || "").trim();
     const returnSelection =
       host.normalizedSelectionRange(options.returnSelection) ||
       host.normalizedSelectionRange(host.manualLinkReturnSelection) ||
@@ -146,14 +128,10 @@ export class EditorRelationLinkController {
     host.manualLinkReturnScrollState = inlineMode
       ? null
       : options.returnScrollState || host.manualLinkReturnScrollState || host.captureEditorScrollState();
-    if (host.els.linkRelationTypeSelect) {
-      host.els.linkRelationTypeSelect.innerHTML = inlineLinkRelationTypeOptionsMarkup("associated_with");
-      host.els.linkRelationTypeSelect.value = "associated_with";
-    }
-    if (host.els.linkReasonInput) host.els.linkReasonInput.value = "";
     host.currentLinkContext = options.inlineContext || null;
     host.lastInlinePickerAnchor = host.currentLinkContext?.end || 0;
     this.renderCandidates(initialQuery, options.preferredId || "");
+    void this.searchCandidates(initialQuery);
     host.els.insertLink?.classList.add("active");
     if (inlineMode) {
       this.positionInline();
@@ -179,6 +157,7 @@ export class EditorRelationLinkController {
 
   close() {
     const host = this.host;
+    this.searchRevision += 1;
     host.els.linkPicker.classList.add("hidden");
     host.els.linkPicker.classList.remove("floating");
     host.els.linkPicker.classList.remove("inline-picker");
@@ -213,154 +192,62 @@ export class EditorRelationLinkController {
     return editorRelationLinkInsertFeedback(target, outcome);
   }
 
+  async searchCandidates(query = "") {
+    const host = this.host;
+    const revision = ++this.searchRevision;
+    const noteId = host.activeNote()?.id;
+    const vaultScope = host.state.noteMoveVaultScope;
+    const cleanQuery = String(query).trim();
+    if (!cleanQuery || !host.searchNotesForResolution) return;
+    try {
+      const result = await host.searchNotesForResolution({ query: cleanQuery, excludeNoteId: noteId, limit: 50 });
+      if (revision !== this.searchRevision || host.activeNote()?.id !== noteId || host.state.noteMoveVaultScope !== vaultScope) return;
+      host.upsertApiNotes?.(result.items || []);
+      this.renderCandidates(cleanQuery, host.currentPinnedLinkId);
+      if (host.currentLinkContext) this.positionInline();
+    } catch (error) {
+      if (revision === this.searchRevision) host.onStatus(`笔记搜索失败：${String(error?.message || error)}`, "warn");
+    }
+  }
+
   async insertSelected(noteId) {
     const host = this.host;
-    if (!noteId) return;
-    if (host.isSubmittingLinkInsert) return;
-    const sourceNote = host.activeNote();
-    const sourceNoteId = String(sourceNote?.id || "").trim();
-    const sourceTabId = String(host.activeTab()?.id || "").trim();
-    if (!sourceNoteId) return;
-    const target = host.state.notes.find((note) => note.id === noteId);
-    if (!target) return;
-    const scopedLinkNotes = host.scopedLinkCandidates();
-    const inlineInsert = Boolean(host.currentLinkContext);
-    const { relationType, reason } = this.currentRelationInput();
-    if (!reason) {
-      host.onStatus("请先写一句关联理由。", "warn");
-      this.focusReasonInput();
-      this.updateConfirmButton();
-      return;
-    }
-    const manualSelection = !inlineInsert
-      ? host.normalizedSelectionRange(host.manualLinkReturnSelection) || host.normalizedSelectionRange(host.editorSelection())
-      : null;
-    const manualScrollState = !inlineInsert ? host.manualLinkReturnScrollState : null;
-    const persistedSourceBody = () => {
-      const sourceTab = host.state.tabs.find((tab) => tab.id === sourceTabId) || null;
-      const sourceNoteAfterSave = host.state.notes.find((note) => note.id === sourceNoteId) || null;
-      return String(sourceTab?.savedBody || sourceNoteAfterSave?.body || "");
-    };
-    const token = wikilinkTokenForNote(target);
-    const restoreSelection =
-      manualSelection && Number.isFinite(manualSelection.from)
-        ? { from: manualSelection.from + token.length, to: manualSelection.from + token.length }
-        : null;
+    if (!noteId || host.isSubmittingLinkInsert) return;
+    const sourceNoteId = host.activeNote()?.id;
+    const vaultScope = host.state.noteMoveVaultScope;
+    const target = host.state.notes.find(note => note.id === noteId);
+    if (!sourceNoteId || !target || target.id === sourceNoteId) return;
+    const inline = host.currentLinkContext;
+    const range = inline ? { from: inline.start, to: inline.end }
+      : host.normalizedSelectionRange(host.manualLinkReturnSelection) || host.normalizedSelectionRange(host.editorSelection());
+    const scroll = host.manualLinkReturnScrollState;
+    const token = bodyLinkTokenForNote(target);
+    const cursor = range ? range.from + token.length : null;
     this.setSubmitting(true);
     try {
-      let relationCreateResult = null;
-      let relationCreateError = null;
-      const ensureFormalRelation = async () => {
-        try {
-          const entryRoute = relationEntryRouteForInlineLink(sourceNoteId, target.id, {
-            source: editorRelationLinkEntrySource(inlineInsert),
-            relationType,
-            rationaleDraft: reason,
-            insightQuestionDraft: QUICK_WIKILINK_ASSOCIATION_MARKER
-          });
-          const transaction = await saveOrUpgradeWikilinkRelationTransaction({
-            noteId: sourceNoteId,
-            targetNoteId: target.id,
-            relationType: entryRoute.relationType,
-            rationale: entryRoute.rationaleDraft,
-            insightQuestion: entryRoute.insightQuestionDraft,
-            confidence: 1
-          }, {
-            fetchNoteRelations,
-            createNoteRelation,
-            updateNoteRelation,
-            isMarkdownWikilinkRelation
-          });
-          if (!transaction.ok) throw new Error(transaction.error || "关系暂时不能保存");
-          relationCreateResult = transaction.relation;
-          host.syncRelationNetworkConnected(sourceNoteId, target.id);
-          const relations = await fetchNoteRelations(sourceNoteId).catch(() => null);
-          if (relations && host.isActiveNoteId(sourceNoteId)) {
-            host.currentSemanticRelations = relations;
-            host.semanticRelationsState = "loaded";
-            host.renderPreview();
-          }
-          await host.refreshRelationNetworkStatuses?.(sourceNoteId, target.id);
-          host.renderAll?.();
-        } catch (error) {
-          relationCreateError = error;
-          host.onStatus(`链接已插入，但关系保存失败：${String(error?.message || error)}`, "warn");
-        }
-      };
-      const verifySavedLink = () => {
-        const savedBody = persistedSourceBody();
-        return host.hasResolvedLinkToNote(target.id, savedBody, scopedLinkNotes);
-      };
-      const saveInsertedBody = async (trigger) => {
-        host.hideSaveAiSuggestion?.();
-        const saved = await host.saveActiveNote({ trigger, skipOriginalityCheck: true, suppressSaveAiSuggestion: true });
-        host.hideSaveAiSuggestion?.();
-        if (saved === false || (saved && typeof saved === "object" && saved.ok === false) || !verifySavedLink()) {
-          host.onStatus("链接已保留在编辑器中，但暂时没有同步成功。", "warn");
-          return false;
-        }
-        return true;
-      };
-      if (inlineInsert) {
-        const { start, end } = host.currentLinkContext;
-        if (host.isWysiwygMode()) {
-          host.replaceMarkdownWhileInWysiwyg(start, end, token);
-        } else {
-          host.replaceEditorRange(start, end, token);
-        }
-      } else if (manualSelection) {
-        if (host.isWysiwygMode()) {
-          host.replaceMarkdownWhileInWysiwyg(manualSelection.from, manualSelection.to, token, {
-            selectionStart: restoreSelection?.from,
-            selectionEnd: restoreSelection?.to
-          });
-        } else {
-          host.replaceEditorRange(manualSelection.from, manualSelection.to, token, {
-            selectionStart: restoreSelection?.from,
-            selectionEnd: restoreSelection?.to
-          });
-        }
-      } else {
-        host.insertAtCursor(token);
-      }
-      const normalizedBody = normalizeKnownWikilinksToReadableTitles(host.getEditorValue(), scopedLinkNotes);
-      if (normalizedBody !== host.getEditorValue()) {
-        const nextSelection = restoreSelection || host.normalizedSelectionRange(host.editorSelection());
-        if (host.isWysiwygMode()) {
-          host.replaceMarkdownWhileInWysiwyg(0, host.getEditorValue().length, normalizedBody, {
-            selectionStart: nextSelection?.from,
-            selectionEnd: nextSelection?.to
-          });
-        } else {
-          host.replaceEditorRange(0, host.getEditorValue().length, normalizedBody, {
-            selectionStart: nextSelection?.from,
-            selectionEnd: nextSelection?.to
-          });
-        }
-      }
+      if (range) {
+        if (host.isWysiwygMode()) host.replaceMarkdownWhileInWysiwyg(range.from, range.to, token, { selectionStart: cursor, selectionEnd: cursor });
+        else host.replaceEditorRange(range.from, range.to, token, { selectionStart: cursor, selectionEnd: cursor });
+      } else host.insertAtCursor(token);
+      const insertedBody = host.getEditorValue();
       host.handleEditorInput();
       this.close();
+      this.setSubmitting(true);
       host.focusEditor();
-      if (!inlineInsert) {
-        if (!(await saveInsertedBody("link-insert"))) return;
-        await ensureFormalRelation();
-        if (restoreSelection) host.setEditorSelectionRange(restoreSelection.from, restoreSelection.to);
-        host.scheduleEditorScrollRestore(manualScrollState);
-        if (relationCreateError) {
-          return;
-        }
-        const reusedRelation = relationCreateResult?.created === false;
-        const feedback = this.insertFeedback(target, this.insertOutcome(false, reusedRelation));
-        host.onStatus(feedback.status, "ok");
-      } else {
-        if (!(await saveInsertedBody("inline-link-insert"))) return;
-        await ensureFormalRelation();
-        if (relationCreateError) {
-          return;
-        }
-        const reusedRelation = relationCreateResult?.created === false;
-        host.onStatus(reusedRelation ? `已插入关联笔记，已有关系已复用：${target.title}` : `已插入关联笔记并保存关系：${target.title}`, "ok");
+      const isCurrent = () => host.activeNote()?.id === sourceNoteId && host.state.noteMoveVaultScope === vaultScope;
+      const saved = await host.saveActiveNote({ trigger: inline ? "inline-link-insert" : "link-insert", skipOriginalityCheck: true, suppressSaveAiSuggestion: true });
+      if (!isCurrent()) return;
+      if (saved === false || saved?.ok === false || !String(host.activeTab()?.savedBody || "").includes(token)) {
+        host.onStatus("链接已保留在编辑器中，但暂时没有同步成功。", "warn");
+        return;
       }
+      if (host.getEditorValue() === insertedBody) {
+        if (cursor !== null) host.setEditorSelectionRange(cursor, cursor);
+        if (!inline) host.scheduleEditorScrollRestore(scroll);
+      }
+      host.onStatus(`已插入笔记链接：${target.title || "未命名笔记"}`, "ok");
+    } catch (error) {
+      if (host.activeNote()?.id === sourceNoteId && host.state.noteMoveVaultScope === vaultScope) host.onStatus(`链接未同步，修改仍保留：${String(error?.message || error)}`, "warn");
     } finally {
       this.setSubmitting(false);
     }
@@ -379,6 +266,7 @@ export class EditorRelationLinkController {
     const host = this.host;
     const chosen = host.currentLinkCandidates[host.currentLinkIndex] || host.currentLinkCandidates[0];
     if (!chosen) return;
+    if (host.currentPinnedLinkId === chosen.id) return this.insertSelected(chosen.id);
     host.currentPinnedLinkId = chosen.id;
     this.renderCandidates(host.els.linkSearchInput.value, chosen.id);
     host.els.linkSearchInput.value = host.linkCandidateDisplayTitle(chosen);

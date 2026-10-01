@@ -749,14 +749,13 @@ const editorPaneStateMethods = {
   renderRelationToolbarButtons() {
     const note = this.activeNote();
     const visible = Boolean(note && this.isOriginalNote(note));
-    const allowInlineInsert = visible && !this.isStructuredWorkspaceActive(note);
 
     if (this.els.insertLink) {
-      this.els.insertLink.classList.toggle("hidden", !visible);
-      this.els.insertLink.disabled = !allowInlineInsert;
-      this.els.insertLink.title = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
+      this.els.insertLink.classList.toggle("hidden", !note);
+      this.els.insertLink.disabled = !note || this.isStructuredWorkspaceActive(note);
+      this.els.insertLink.title = "插入或修改笔记链接 [[";
       this.els.insertLink.dataset.tip = this.els.insertLink.title;
-      this.els.insertLink.setAttribute("aria-label", visible ? "关联笔记" : "只有永久笔记才能关联其他笔记");
+      this.els.insertLink.setAttribute("aria-label", "插入或修改笔记链接");
     }
 
     if (this.els.showRelated) {
