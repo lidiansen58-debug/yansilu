@@ -371,12 +371,12 @@ test("editor keeps related-panel access and inline insert for permanent notes in
 
   assert.equal(insertLink.classList.contains("hidden"), false);
   assert.equal(insertLink.disabled, false);
-  assert.equal(insertLink.title, "关联笔记 [[");
+  assert.equal(insertLink.title, "插入或修改笔记链接 [[");
   assert.equal(showRelated.classList.contains("hidden"), false);
   assert.equal(showRelated.disabled, false);
 });
 
-test("editor hides relation actions for source notes", () => {
+test("source notes can insert body links while semantic relation actions remain scoped", () => {
   const state = createInitialState();
   const pane = Object.create(EditorPane.prototype);
   const insertLink = createToolbarButtonStub();
@@ -388,9 +388,9 @@ test("editor hides relation actions for source notes", () => {
 
   pane.renderRelationToolbarButtons();
 
-  assert.equal(insertLink.classList.contains("hidden"), true);
-  assert.equal(insertLink.disabled, true);
-  assert.equal(insertLink.title, "只有永久笔记才能关联其他笔记");
+  assert.equal(insertLink.classList.contains("hidden"), false);
+  assert.equal(insertLink.disabled, false);
+  assert.equal(insertLink.title, "插入或修改笔记链接 [[");
   assert.equal(showRelated.classList.contains("hidden"), true);
   assert.equal(showRelated.disabled, true);
 });

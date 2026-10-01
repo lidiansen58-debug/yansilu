@@ -52,6 +52,8 @@ function createTokenWidget(type, rawText) {
   button.textContent = rawText;
   if (type === "wikilink") {
     button.dataset.wikilink = rawText.slice(2, -2).trim();
+    const alias = button.dataset.wikilink.split("|").slice(1).join("|").trim();
+    if (alias) button.textContent = `[[${alias}]]`;
   }
   if (type === "tag") {
     button.dataset.tagToken = rawText.replace(/^#/, "").trim();

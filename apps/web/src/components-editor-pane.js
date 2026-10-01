@@ -1,6 +1,7 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import { recordEditorSourceAsPermanent } from "./source-note-editor-promotion.js";
+import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
 import {
   countExplicitSemanticRelations,
   deriveNoteWritingReadiness
@@ -1529,7 +1530,7 @@ export class EditorPane {
   renderContextualToolbarState() {
     const active = this.detectActiveFormatting();
     const structured = this.isStructuredWorkspaceActive();
-    const canUseRelationLink = this.isOriginalNote(this.activeNote());
+    const canUseRelationLink = Boolean(this.activeNote());
     this.els.insertLink?.classList.toggle("hidden", !canUseRelationLink);
     this.els.distillSourceAi?.classList.add("hidden");
     if (this.els.distillSourceAi) {
@@ -1845,7 +1846,9 @@ export class EditorPane {
         if (!event.ctrlKey && !event.metaKey) return;
         const position = this.markdownEditor?.view?.posAtCoords?.({ x: event.clientX, y: event.clientY });
         if (typeof position !== "number") return;
-        const token = tokenAtCursor(this.getEditorValue(), position);
+        const body = this.getEditorValue();
+        const link = bodyLinkRangeAtSelection(body, { from: position, to: position });
+        const token = link ? body.slice(link.from, link.to) : tokenAtCursor(body, position);
         this.handleTokenAction(token);
       });
       this.markdownEditor?.view?.contentDOM?.addEventListener(
@@ -3147,10 +3150,7 @@ export class EditorPane {
   scopedLinkCandidates() {
     const note = this.activeNote();
     if (!note) return [];
-    const rootId = rootBoxIdFromFolder(this.state, note.folderId);
-    return this.state.notes.filter(
-      (n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id && this.isOriginalNote(n)
-    );
+    return this.state.notes.filter(n => n.id !== note.id);
   }
 
   linkResolutionCandidates(options = {}) {
@@ -6772,18 +6772,19 @@ export class EditorPane {
       event.preventDefault();
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
-      if (!this.isOriginalNote(note)) return this.onStatus("建立关系请在永久笔记里进行", "warn");
       const returnSelection =
         this.normalizedSelectionRange(this.manualLinkReturnSelection) ||
         this.rememberEditorSelection() ||
         this.rememberedEditorSelection();
-      this.openPermanentRelationWorkspace({
-        source: RELATION_ENTRY_SOURCES.TOOLBAR_RELATION,
-        mode: "manual",
-        noteId: note.id,
-        insertLinkOnSave: true,
-        cursorRange: returnSelection,
-        relationType: this.relationCreateDefaultType(note) || "associated_with"
+      const existingLink = bodyLinkRangeAtSelection(this.getEditorValue(), returnSelection);
+      const resolved = existingLink ? this.resolveLinkToken(existingLink.raw) : null;
+      this.openLinkPicker(resolved?.note?.title || "", {
+        returnSelection: existingLink || returnSelection,
+        cancelSelection: returnSelection,
+        editingLink: existingLink ? { ...existingLink, noteId: resolved?.ambiguous !== true ? resolved?.note?.id : null, noteTitle: resolved?.note?.title || "" } : null,
+        preferredId: resolved?.ambiguous !== true ? resolved?.note?.id || "" : "",
+        anchorAtCursor: true,
+        anchorElement: this.els.insertLink
       });
     });
 
@@ -6810,16 +6811,19 @@ export class EditorPane {
     this.els.linkPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
     this.els.tagPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
 
-    this.els.closeLinkPicker.addEventListener("click", () => this.closeLinkPicker());
+    this.els.closeLinkPicker.addEventListener("click", () => this.editorRelationLink().cancel());
     this.els.linkSearchInput.addEventListener("input", () => {
       this.currentPinnedLinkId = "";
       this.renderLinkCandidates(this.els.linkSearchInput.value);
+      void this.editorRelationLink().searchCandidates(this.els.linkSearchInput.value);
       if (this.currentLinkContext) this.positionInlineLinkPicker();
     });
     this.els.linkSearchInput.addEventListener("keydown", (e) => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === "Escape") {
-        this.closeLinkPicker();
+        this.editorRelationLink().cancel();
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
       if (e.key === "ArrowDown") {
@@ -6842,14 +6846,7 @@ export class EditorPane {
     this.els.linkSearchList.addEventListener("click", (e) => {
       const row = e.target.closest("[data-link-note-id]");
       if (!row) return;
-      const next = Number(row.dataset.linkIndex);
-      if (Number.isInteger(next)) this.currentLinkIndex = next;
-      this.currentPinnedLinkId = String(row.dataset.linkNoteId || "").trim();
-      const chosen = this.currentLinkCandidates.find((note) => note.id === this.currentPinnedLinkId) || null;
-      this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
-      this.els.linkSearchInput.value = chosen ? this.linkCandidateDisplayTitle(chosen) : row.textContent?.trim() || "";
-      this.els.linkSearchList.innerHTML = "";
-      this.updateLinkPickerConfirmButton();
+      this.editorRelationLink().chooseCandidate(String(row.dataset.linkNoteId || "").trim());
     });
     this.els.linkSearchList.addEventListener("mouseover", (e) => {
       const row = e.target.closest("[data-link-index]");
@@ -6857,6 +6854,7 @@ export class EditorPane {
       const next = Number(row.dataset.linkIndex);
       if (!Number.isInteger(next) || next === this.currentLinkIndex) return;
       this.currentLinkIndex = next;
+      this.currentPinnedLinkId = "";
       this.renderLinkCandidates(this.els.linkSearchInput.value, this.currentLinkCandidates[next]?.id || "");
     });
     this.els.confirmLinkInsert?.addEventListener("click", () => {

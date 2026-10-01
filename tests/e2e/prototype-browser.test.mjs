@@ -1021,7 +1021,7 @@ test("prototype literature note keeps permanent-note actions out of the editor t
     assert.doesNotMatch(String(editorValue || ""), /判断种子|追问|边界\s*\/\s*反例|保留原因/);
   }, 7000);
   assert.equal(await page.locator("#btnRunGuard").count(), 0);
-  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), true);
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
@@ -1085,7 +1085,7 @@ test("prototype literature note with missing metadata has no toolbar recording a
   const originalIdsBefore = originalsBefore.json.items.map((item) => item.id).sort();
 
   assert.equal(await page.locator("#btnRunGuard").count(), 0);
-  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), true);
 
   const originals = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(originals.status, 200);
@@ -1483,7 +1483,7 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   await waitFor(async () => {
     assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Fleeting Source Note");
   }, 7000);
-  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), true);
   assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
   assert.equal(await page.locator("#literatureWorkspace").isVisible(), false);
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
@@ -1499,7 +1499,7 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   await waitFor(async () => {
     assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Literature Source Note");
   }, 7000);
-  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), true);
   assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
   assert.equal(await page.locator("#literatureWorkspace").isVisible(), true);
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
@@ -4416,13 +4416,9 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
   await page.keyboard.press("Enter");
   await waitFor(async () => {
     assert.equal(await page.locator("#linkSearchInput").inputValue(), "Gamma target");
-    assert.equal(await page.locator("#btnConfirmLinkInsert").isDisabled(), true);
-  }, 3000);
-  await page.locator("#linkReasonInput").fill("Gamma target explains the related idea.");
-  await waitFor(async () => {
     assert.equal(await page.locator("#btnConfirmLinkInsert").isDisabled(), false);
   }, 3000);
-  await page.locator("#btnConfirmLinkInsert").click();
+  await page.locator("#linkSearchInput").press("Enter");
   await page.waitForFunction(
     (targetId) => document.querySelector("#editorBody")?.value?.includes(`[[${targetId}|Gamma target]]`),
     gammaTarget.json.item.id
@@ -4434,7 +4430,7 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
     assert.equal(relation.status, 200, JSON.stringify(relation.json));
     const saved = relation.json.item.outgoingLinks.find((item) => item.toNoteId === gammaTarget.json.item.id);
     assert.ok(saved, JSON.stringify(relation.json));
-    assert.equal(saved.rationale, "Gamma target explains the related idea.");
+    assert.equal(saved.rationale, "markdown_wikilink");
   }, 5000);
 });
 
