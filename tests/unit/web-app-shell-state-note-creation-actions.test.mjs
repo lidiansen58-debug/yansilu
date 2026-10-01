@@ -93,7 +93,7 @@ test("note creation actions record original notes and update the source note mar
   };
   const state = {
     notes: [sourceNote],
-    tabs: [{ noteId: "src", body: "old", savedBody: "old", title: "Source", savedTitle: "Source", dirty: true }]
+    tabs: [{ noteId: "src", body: "original text", savedBody: "old", title: "Source", savedTitle: "Source", dirty: true }]
   };
   const calls = [];
 
@@ -124,7 +124,7 @@ test("note creation actions record original notes and update the source note mar
     parseLinks: (body) => [`link:${body.includes("ref")}`],
     updateNote: async (noteId, patch) => {
       calls.push(["update-source", noteId, patch.generatedOriginalNoteId]);
-      return { ...sourceNote, ...patch, title: "Source saved" };
+      return { ...sourceNote, ...patch };
     },
     activateModule: (moduleId) => calls.push(["activate", moduleId]),
     openNoteById: (noteId, options) => calls.push(["open", noteId, options]),
@@ -141,7 +141,8 @@ test("note creation actions record original notes and update the source note mar
     savedBody: "original text\nref:Claim\nmarker:new",
     title: "Source",
     savedTitle: "Source",
-    dirty: false
+    dirty: false,
+    saveUiState: { mode: "saved", message: "当前文件：已自动同步" }
   });
   assert.deepEqual(calls.filter((call) => call[0] === "activate" || call[0] === "open"), [
     ["activate", "explorer"],
@@ -172,9 +173,8 @@ test("note creation actions keep the created note when source marker save fails"
   });
 
   assert.equal(result.id, "new");
-  assert.equal(status.calls.at(-2).message, "永久笔记已创建，但来源笔记标记保存失败：disk");
-  assert.equal(status.calls.at(-2).tone, "warn");
-  assert.equal(status.calls.at(-1).tone, "ok");
+  assert.equal(status.calls.at(-1).message, "永久笔记已创建，但来源笔记标记保存失败：disk");
+  assert.equal(status.calls.at(-1).tone, "warn");
 });
 
 test("note creation actions use adopted AI draft body when provided", async () => {
@@ -209,7 +209,7 @@ test("note creation actions use adopted AI draft body when provided", async () =
   });
 
   assert.equal(result.title, "Edited Draft");
-  assert.deepEqual(calls, [["create", { directoryId: "dir_original_default", status: "draft", body: "# Edited Draft\n\n正文" }]]);
+  assert.deepEqual(calls, [["create", { directoryId: "dir_original_default", status: "draft", body: "# Edited Draft\n\n正文\n\n来源：[[src|Source]]" }]]);
 });
 
 test("note creation actions report record failures", async () => {
@@ -221,7 +221,7 @@ test("note creation actions report record failures", async () => {
 
   assert.equal(result, false);
   assert.deepEqual(status.calls.at(-1), {
-    message: "记录永久笔记失败：创建永久笔记失败",
+    message: "记录永久笔记失败：创建永久笔记失败：本地服务未返回创建结果",
     tone: "bad"
   });
 });

@@ -1,0 +1,137 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { handleRecordOriginalFromNoteStateChange as promote } from "../../apps/web/src/app-shell-state-note-creation-actions.js";
+import { withGeneratedOriginalMarker, withGeneratedOriginalReference } from "../../apps/web/src/note-persistence-policy.js";
+import { recordEditorSourceAsPermanent } from "../../apps/web/src/source-note-editor-promotion.js";
+import { normalizeKnownWikilinksToReadableTitles } from "../../apps/web/src/editor-link-picker.js";
+
+function deferred() {
+  let resolve;
+  const promise = new Promise(r => { resolve = r; });
+  return { promise, resolve };
+}
+
+function fixture() {
+  const body = "# 来源标题\n\n最初的记录。";
+  const source = { id: "source", title: "来源标题", body, folderId: "fleeting", status: "draft" };
+  const tab = { id: "tab-source", noteId: source.id, body, savedBody: body, title: source.title, savedTitle: source.title, dirty: false };
+  const state = { notes: [source], tabs: [tab], activeTabId: tab.id };
+  const drafts = [], messages = [], created = [], persisted = [];
+  const editor = { writeDraft: t => drafts.push(t.body), clearDraft() {}, clearAutoSaveTimer() {}, scheduleAutoSave() {} };
+  const deps = {
+    state, editor, typeFromFolder: () => "fleeting", isOriginalRecordableSource: () => true,
+    originalDraftBodyFromSource: () => "# 永久观点\n\n独立判断。",
+    withGeneratedOriginalReference, withGeneratedOriginalMarker,
+    createNote: async payload => { created.push(payload); return { id: "permanent", title: "永久观点", body: payload.body }; },
+    updateNote: async (id, patch) => { persisted.push(patch); return { ...source, ...patch }; },
+    setStatus: (message, tone) => messages.push({ message, tone }),
+    openNoteById: id => { state.activeTabId = `tab-${id}`; }
+  };
+  return { source, tab, state, deps, drafts, messages, created, persisted, payload: { sourceNoteId: source.id, sourceBody: body } };
+}
+
+for (const result of ["failure", "null", "empty", "wrong-id"]) {
+  test(`promotion retains an unsaved source draft after marker save: ${result}`, async () => {
+    const f = fixture();
+    f.tab.body += "\n\n尚未保存的输入。";
+    f.tab.dirty = true;
+    f.payload.sourceBody = f.tab.body;
+    const before = f.tab.savedBody;
+    f.deps.updateNote = async () => {
+      if (result === "null") return null;
+      if (result === "empty") return {};
+      if (result === "wrong-id") return { id: "other", body: "wrong note" };
+      throw new Error("disk full");
+    };
+    assert.equal((await promote(f.payload, f.deps)).id, "permanent");
+    assert.equal(f.tab.dirty, true);
+    assert.equal(f.tab.savedBody, before);
+    assert.equal(f.source.id, "source");
+    assert.match(f.tab.body, /尚未保存的输入/);
+    assert.match(f.tab.body, /generated-original=permanent/);
+    assert.equal(f.drafts.at(-1), f.tab.body);
+    assert.equal(f.messages.at(-1).tone, "warn");
+  });
+}
+
+test("a missing creation result never marks or opens a permanent note", async () => {
+  const f = fixture();
+  f.deps.createNote = async () => ({});
+  assert.equal(await promote(f.payload, f.deps), false);
+  assert.equal(f.persisted.length, 0);
+  assert.equal(f.state.notes.length, 1);
+  assert.equal(f.state.activeTabId, "tab-source");
+  assert.equal(f.messages.at(-1).tone, "bad");
+});
+
+test("promotion preserves edits and renamed title made during creation and source persistence", async () => {
+  const f = fixture(), creation = deferred(), saving = deferred(), enteredSave = deferred();
+  f.deps.createNote = () => creation.promise;
+  f.deps.updateNote = async (_id, patch) => { enteredSave.resolve(patch); return saving.promise; };
+  const pending = promote(f.payload, f.deps);
+  f.tab.body = "# 新标题\n\n创建期间输入。";
+  f.tab.title = "新标题";
+  f.tab.dirty = true;
+  creation.resolve({ id: "permanent", title: "永久观点", body: "# 永久观点" });
+  const patch = await enteredSave.promise;
+  assert.match(patch.body, /创建期间输入/);
+  assert.equal(patch.title, "新标题");
+  assert.equal(f.tab.dirty, true);
+  f.tab.body += "\n\n保存期间继续输入。";
+  saving.resolve({ ...f.source, ...patch });
+  await pending;
+  assert.match(f.tab.body, /保存期间继续输入/);
+  assert.doesNotMatch(f.tab.savedBody, /保存期间继续输入/);
+  assert.match(f.tab.savedBody, /创建期间输入/);
+  assert.equal(f.tab.dirty, true);
+  assert.equal(f.drafts.at(-1), f.tab.body);
+});
+
+test("repeated promotion clicks share creation and wait for the current editor save", async () => {
+  const f = fixture(), saving = deferred();
+  f.deps.editor.savingPromise = saving.promise;
+  const first = promote(f.payload, f.deps);
+  const second = promote(f.payload, f.deps);
+  await Promise.resolve();
+  assert.equal(f.created.length, 0);
+  saving.resolve(true);
+  const results = await Promise.all([first, second]);
+  assert.equal(f.created.length, 1);
+  assert.equal(results[0].id, results[1].id);
+  assert.equal(f.deps.editor.savingPromise, null);
+});
+
+test("a vault switch during creation never writes the source into the next vault", async () => {
+  const f = fixture(), creation = deferred(), entered = deferred();
+  f.deps.createNote = () => { entered.resolve(); return creation.promise; };
+  const pending = promote(f.payload, f.deps);
+  await entered.promise;
+  f.state.noteMoveVaultScope = {};
+  creation.resolve({ id: "permanent", title: "永久观点", body: "# 永久观点" });
+  assert.equal(await pending, false);
+  assert.equal(f.persisted.length, 0);
+  assert.equal(f.state.notes.length, 1);
+});
+
+for (const changed of ["note", "vault"]) {
+  test(`choosing a directory after changing ${changed} never promotes the wrong editor`, async () => {
+    const choosing = deferred();
+    let note = { id: "source" };
+    const editor = { state: {}, activeNote: () => note, isOriginalRecordableSource: () => true,
+      pickPermanentDirectoryForNote: () => choosing.promise,
+      onStateChange: () => assert.fail("The old dialog must be cancelled") };
+    const pending = recordEditorSourceAsPermanent(editor);
+    if (changed === "note") note = { id: "other" };
+    else editor.state.noteMoveVaultScope = {};
+    choosing.resolve("dir_original_default");
+    assert.equal(await pending, false);
+  });
+}
+
+test("promotion links keep their identity when titles are duplicated and other links are inserted", () => {
+  const link = withGeneratedOriginalReference("# Source", "Duplicate", "permanent");
+  assert.match(link, /\[\[permanent\|Duplicate\]\]/);
+  assert.equal(normalizeKnownWikilinksToReadableTitles(link, [
+    { id: "permanent", title: "Duplicate" }, { id: "other", title: "Duplicate" }
+  ]), link);
+});

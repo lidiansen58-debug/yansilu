@@ -62,11 +62,17 @@ export function withGeneratedOriginalMarker(body = "", originalNoteId = "") {
   return `${base}${separator}<!-- yansilu:generated-original=${cleanId} -->`;
 }
 
-export function withGeneratedOriginalReference(body = "", originalTitle = "") {
+export function sourceNoteReference(title = "", noteId = "") {
+  const label = String(title || "").replace(/[\[\]|\r\n]/g, " ").trim() || "未命名笔记";
+  const id = String(noteId || "").trim();
+  return id ? `[[${id}|${label}]]` : `[[${label}]]`;
+}
+
+export function withGeneratedOriginalReference(body = "", originalTitle = "", originalNoteId = "") {
   const cleanTitle = String(originalTitle || "").trim();
   const base = stripGeneratedOriginalMarker(body);
   if (!cleanTitle) return base;
-  const visibleLink = `[[${cleanTitle}]]`;
+  const visibleLink = sourceNoteReference(cleanTitle, originalNoteId);
   const visibleLine = `关联永久笔记：${visibleLink}`;
   if (base.includes(visibleLine)) return base;
   const separator = base.trim() ? "\n\n" : "";

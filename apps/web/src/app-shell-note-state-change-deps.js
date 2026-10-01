@@ -55,6 +55,7 @@ export function buildAppShellNoteStateChangeDeps(host = {}) {
     },
     recordOriginalFromNote: {
       state,
+      editor,
       typeFromFolder,
       rootBoxIdFromFolder,
       originalDraftBodyFromSource,
