@@ -8,6 +8,7 @@ import {
   relationSaveTransactionErrorText,
   saveRelationTransaction
 } from "./relation-save-transaction.js";
+import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
 
 function graphNodeMapForState(graphState = {}) {
   const nodes = Array.isArray(graphState.item?.nodes) ? graphState.item.nodes : [];
@@ -71,7 +72,8 @@ export function createGraphRelationSaveController({
     const nodeMap = graphNodeMapForState(graphState);
     const targetTitle = titleForNote(nodeMap, cleanTargetNoteId);
     const relationLabel = relationTypeLabel(cleanRelationType);
-    const previousSelection = graphState.selection && typeof graphState.selection === "object" ? { ...graphState.selection } : null;
+    const selectionAtStart = graphState.selection;
+    const previousSelection = selectionAtStart && typeof selectionAtStart === "object" ? { ...selectionAtStart } : null;
     const nextSelection = graphRelationSaveSelection({ previousSelection, button, noteId: cleanNoteId });
     const previousText = button?.textContent || "";
     if (button) {
@@ -103,16 +105,19 @@ export function createGraphRelationSaveController({
       graphState.isolatedRelationSaveResultByNoteId = graphState.isolatedRelationSaveResultByNoteId || {};
       clearIsolatedRelationDraft(cleanNoteId);
       const ordinaryRelationSaved = graphRelationSaveIsOrdinaryRelation(cleanRelationType);
-      if (ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save" });
-      graphState.selection = nextSelection;
-      await refreshDirectoryGraph();
-      if (ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save", afterRefresh: true });
+      const selectionStillCurrent = graphState.selection === selectionAtStart;
+      if (selectionStillCurrent) {
+        if (ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save" });
+        graphState.selection = nextSelection;
+      }
+      await refreshGraphAfterRelationMutation({ refreshDirectoryGraph }, { returnTo: "graph" });
+      if (selectionStillCurrent && graphState.selection === nextSelection && ordinaryRelationSaved) setGraphRelationTypeFilter("all", { source: "relation-save", afterRefresh: true });
       const saveResult = {
         ...transaction.result,
         nextIsolated: null
       };
       graphState.isolatedRelationSaveResultByNoteId[cleanNoteId] = saveResult;
-      graphState.selection = null;
+      if (selectionStillCurrent && graphState.selection === nextSelection) graphState.selection = null;
       renderGraphPanel();
       setStatus(
         graphRelationSavedNextStepStatus({

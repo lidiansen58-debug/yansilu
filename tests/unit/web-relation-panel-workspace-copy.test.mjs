@@ -122,7 +122,7 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   assert.match(deleteSource, /host\.closePermanentRelationWorkspace\?\.\(\)/);
 
   assert.match(relationComposerController, /const sourceIsActive = host\.isActiveNoteId\?\.\(sourceNote\.id\) === true/);
-  assert.match(relationComposerController, /const sourceStillActive = \(\) => host\.isActiveNoteId\?\.\(sourceNote\.id\) === true/);
+  assert.match(relationComposerController, /const sourceStillActive = \(\) => vaultStillCurrent\(\) && host\.isActiveNoteId\?\.\(sourceNote\.id\) === true/);
   assert.match(relationComposerController, /const submitSessionId = cleanText\(state\.relationComposerSessionId \|\| stateSessionId\(host\)\)/);
   assert.match(relationComposerController, /stateSessionId\(host\) === submitSessionId/);
   assert.match(relationComposerController, /const currentRelations = sourceIsActive \? host\.currentSemanticRelations : null/);

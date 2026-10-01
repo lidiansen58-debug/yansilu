@@ -17,7 +17,7 @@ function cleanText(value = "") {
 
 function stateSourceNote(host) {
   const stateNoteId = cleanText(host.permanentRelationWorkspaceState?.sourceNoteId || host.permanentRelationWorkspaceState?.noteId);
-  return (stateNoteId ? host.state?.notes?.find?.((note) => note?.id === stateNoteId) : null) || host.activeNote?.() || null;
+  return stateNoteId ? host.state?.notes?.find?.((note) => note?.id === stateNoteId) || null : host.activeNote?.() || null;
 }
 
 function stateSourceNoteId(host) {
@@ -196,10 +196,13 @@ export class PermanentRelationComposerController {
       insightQuestion: data.get("insightQuestion")
     }, sourceNote.id);
     const sourceIsActive = host.isActiveNoteId?.(sourceNote.id) === true;
-    const sourceStillActive = () => host.isActiveNoteId?.(sourceNote.id) === true;
+    const submitVaultScope = host.vaultScope?.();
+    const vaultStillCurrent = () => host.vaultScope?.() === submitVaultScope;
+    const sourceStillActive = () => vaultStillCurrent() && host.isActiveNoteId?.(sourceNote.id) === true;
     const submitSessionId = cleanText(state.relationComposerSessionId || stateSessionId(host));
     const draftStillCurrent = () =>
       Boolean(submitSessionId) &&
+      vaultStillCurrent() &&
       stateSourceNoteId(host) === sourceNote.id &&
       stateSessionId(host) === submitSessionId;
     const currentRelations = sourceIsActive ? host.currentSemanticRelations : null;
@@ -255,23 +258,27 @@ export class PermanentRelationComposerController {
           targetTitle: target?.title || state.selectedTargetNoteId,
           relationLabel: relationTypeLabel(state.relationType)
         });
-        if (!draftStillCurrent()) return;
         if (!transaction.ok) {
+          if (!draftStillCurrent()) return;
           this.patchState({ ...state, saveState: "idle", error: transaction.error, notice: "" });
           return;
         }
         relation = transaction.relation;
       }
-      if (!draftStillCurrent()) return;
+      // Closing the composer cancels its UI, not a mutation already committed
+      // by the service. Reconcile that mutation without reopening the old draft.
+      if (!vaultStillCurrent()) return;
       host.syncRelationNetworkConnected?.(sourceNote.id, state.selectedTargetNoteId);
       await host.refreshRelationNetworkStatuses?.(sourceNote.id, state.selectedTargetNoteId);
-      if (!draftStillCurrent()) return;
+      if (!vaultStillCurrent()) return;
+      await refreshGraphAfterRelationMutation(host, { returnTo: state.entryRoute?.returnTo });
+      if (!vaultStillCurrent()) return;
       const savedRelations = await fetchNoteRelations(sourceNote.id).catch(() => null);
-      if (!draftStillCurrent()) return;
       if (savedRelations && sourceStillActive()) {
         host.currentSemanticRelations = savedRelations;
         host.semanticRelationsState = "loaded";
       }
+      if (!draftStillCurrent()) return;
       if (sourceStillActive()) {
         host.renderPreview?.();
         host.setRelationFollowupSuggestion?.(relationFollowupSuggestionForDraft({
@@ -287,8 +294,6 @@ export class PermanentRelationComposerController {
       if (!draftStillCurrent()) return;
       completePendingSmartNotesDemoRelation(host.state, sourceNote.id, relation, state.rationale);
       host.renderAll?.();
-      await refreshGraphAfterRelationMutation(host, { returnTo: state.entryRoute?.returnTo });
-      if (!draftStillCurrent()) return;
       const successMessage = existingRelationId ? "关联已更新。" : relation?.created === false ? "关联已存在，已直接复用。" : "关联已保存。";
       host.permanentSidebarController().commitSavedRelationWorkspaceResult({
         noteId: sourceNote.id,

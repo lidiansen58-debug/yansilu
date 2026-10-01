@@ -1309,7 +1309,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(saveControllerSource, /created: transaction\.relation\?\.created !== false/);
   assert.doesNotMatch(saveControllerSource, /await createNoteRelation\(cleanNoteId, \{/);
   assert.match(saveControllerSource, /if \(cleanNoteId === cleanTargetNoteId\) \{/);
-  assert.match(saveControllerSource, /await refreshDirectoryGraph\(\);/);
+  assert.match(saveControllerSource, /await refreshGraphAfterRelationMutation\(\{ refreshDirectoryGraph \}, \{ returnTo: "graph" \}\);/);
   assert.match(saveControllerSource, /normalizeRelationSaveTransactionInput\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion \}\)/);
   assert.match(graphFollowupDraftTemplatesSource, /rationaleDraft:/);
   assert.match(graphFollowupDraftTemplatesSource, /insightQuestionDraft:/);
