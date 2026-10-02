@@ -33,6 +33,24 @@ test("graph AI candidates resolve endpoints from common payload shapes", () => {
   assert.equal(graphRelationPairKey("b", "a"), "a::b");
 });
 
+test("graph recommendation merge blocks rejected pairs and removes duplicates before the limit", () => {
+  const result = graphMergeRelationCandidatesForDisplay([
+    { sourceNoteId: "a", targetNoteId: "blocked" },
+    { sourceNoteId: "a", targetNoteId: "a" },
+    { sourceNoteId: "a", targetNoteId: "b" },
+    { source_note_id: "b", target_note_id: "a" },
+    { sourceNoteId: "a", targetNoteId: "c" }
+  ], [
+    { sourceNoteId: "a", targetNoteId: "blocked" },
+    { sourceNoteId: "a", targetNoteId: "a" },
+    { targetNoteId: "missing-source" },
+    { sourceNoteId: "a", targetNoteId: "d" }
+  ], { limit: 3, blockedPairKeys: new Set(["a::blocked"]) });
+  assert.deepEqual(result.map(item => [item.targetNoteId, item.candidateSource]), [
+    ["b", "ai"], ["c", "ai"], ["d", "local"]
+  ]);
+});
+
 test("graph AI candidates reject no-relation or rejected outputs", () => {
   assert.equal(graphCandidateCanSaveRelation({ sourceNoteId: "a", targetNoteId: "b", relationType: "supports" }), true);
   assert.equal(graphCandidateCanSaveRelation({ sourceNoteId: "a", targetNoteId: "b", aiDecision: "reject", relationType: "supports" }), false);

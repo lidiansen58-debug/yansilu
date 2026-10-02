@@ -1770,23 +1770,24 @@ test("prototype main-path card refreshes relation state and does not leak stale 
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
 
-  await page.waitForFunction(() => {
-    const text = document.querySelector("[data-note-main-path-section]")?.textContent || "";
-    return text.trim().length > 0;
+  const relationAction = page.locator(".editor-body-related-button");
+  await waitFor(async () => assert.match(await relationAction.textContent(), /关联 1/), 10000);
+
+  let releaseRead;
+  const heldRead = new Promise(resolve => { releaseRead = resolve; });
+  t.after(() => releaseRead());
+  await page.route(`**/api/v1/notes/${plain.json.item.id}/relations`, async route => {
+    await heldRead;
+    const response = await route.fetch();
+    await route.fulfill({ response });
   });
-
-  await waitFor(async () => {
-    const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(text || ""), /已加入 1|笔记 1/);
-  }, 10000);
-
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Plain Note" }).click();
-
-  await waitFor(async () => {
-    const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.doesNotMatch(String(text || ""), /已加入 1|笔记 1/);
-    assert.match(String(text || ""), /关系|未连接|关系 0/);
-  }, 10000);
+  await page.waitForFunction(() => window.__prototypeEditor.semanticRelationsState === "loading");
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.currentSemanticRelations), null);
+  assert.equal(await relationAction.count(), 0);
+  releaseRead();
+  await page.waitForFunction(() => window.__prototypeEditor.semanticRelationsState === "loaded");
+  assert.equal(await relationAction.count(), 0);
 });
 
 test("prototype permanent relation workspace saves manually, refreshes before save, and resets on note switch", async (t) => {
@@ -2051,7 +2052,7 @@ test("prototype right sidebar relation entry saves through overlay and appears i
   await workspace.waitFor({ state: "visible" });
   await page.locator("[data-permanent-relation-target-search]").fill("Sidebar Route Target");
   await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
-  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("supports");
+  await workspace.locator('[data-permanent-relation-type-choice="supports"]').click();
   await page.locator('[data-permanent-relation-field="rationale"]').fill(
     "The source supports the target because both describe the same entry route from sidebar overlay to graph visibility."
   );
@@ -7955,8 +7956,7 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   }, 7000);
   await page.locator(`#graphCanvas .graph-map-node[data-node-id="${targetNote.json.item.id}"]`).click();
   await page.locator(".graph-selection-panel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
-  await page.locator(".graph-selection-panel", { hasText: /当前笔记|连接|打开笔记/ }).waitFor({ timeout: 3000 });
-  await page.locator(`.graph-selection-panel [data-open-note="${targetNote.json.item.id}"]`).first().click();
+  await page.locator(`.graph-selection-panel [data-open-note="${targetNote.json.item.id}"]`).click();
   await page.waitForFunction((noteId) => {
     const state = window.__prototypeState || {};
     const activeTab = Array.isArray(state.tabs) ? state.tabs.find((tab) => tab.id === state.activeTabId) : null;
@@ -8223,11 +8223,11 @@ test("prototype graph ai analysis badge counts candidates and opens on failure",
     if (sectionCount > 0) {
       assert.equal(await page.locator('[data-graph-section="ai-analysis"]').evaluate((node) => node.hasAttribute("open")), true);
       const errorText = await page.locator('[data-graph-section="ai-analysis"] .graph-empty.bad').textContent();
-      assert.match(String(errorText || ""), /AI 图谱初判失败/);
+      assert.match(String(errorText || ""), /找缺口失败|AI 图谱初判失败/);
       return;
     }
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /AI 图谱初判失败/);
+    assert.match(String(statusText || ""), /找缺口失败|AI 图谱初判失败/);
   }, 7000);
 });
 
@@ -8331,17 +8331,13 @@ test("prototype graph AI connect suggests a relation from notes without relation
   await page.locator(`#graphCanvas .graph-map-node[data-node-id="${sourceNoteId}"]`).waitFor({ timeout: 7000 });
   await page.evaluate((noteId) => window.__prototypeGraph?.runAiConnectForNote?.(noteId), sourceNoteId);
 
-  await waitFor(async () => {
-    const panelText = await page.locator(".graph-selection-panel").first().textContent();
-    assert.match(String(panelText || ""), /AI Review Source|关联工作台|未关联/);
-    assert.match(String(panelText || ""), /保存关系|查找推荐|自己搜索/);
-  }, 7000);
-
-  const aiCandidateSelect = page.locator(".graph-selection-panel [data-graph-ai-candidate-select]");
-  await aiCandidateSelect.waitFor({ state: "visible", timeout: 7000 });
-  await aiCandidateSelect.selectOption(targetNoteId);
-  await page.locator(".graph-selection-panel [data-graph-isolated-rationale]").fill("AI 推荐指出两条笔记都在说明候选关系需要人工确认。");
-  await page.locator(".graph-selection-panel [data-graph-isolated-relation-save]").click();
+  const composer = page.locator("[data-permanent-relation-workspace]");
+  await composer.waitFor({ state: "visible" });
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.permanentRelationWorkspaceState.selectedTargetNoteId), targetNoteId);
+  const pending = await fetchJson(apiBase, `/api/v1/notes/${sourceNoteId}/relations`);
+  assert.equal(pending.json.item.outgoingLinks.length, 0);
+  await composer.locator('textarea[name="rationale"]').fill("AI 推荐指出两条笔记都在说明候选关系需要人工确认。");
+  await composer.locator('button[type="submit"]').click();
   await waitFor(async () => {
     const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(sourceNoteId)}/relations`);
     assert.equal(relations.status, 200, JSON.stringify(relations.json));
@@ -8400,45 +8396,25 @@ test("prototype graph local candidate save removes isolated state and updates gr
   await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 7000 });
   await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).click();
 
+  const composer = page.locator("[data-permanent-relation-workspace]");
+  await composer.waitFor({ state: "visible" });
+  const search = composer.locator("[data-permanent-relation-target-search]");
+  const choose = composer.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`);
+  await search.fill("Bbb");
+  await choose.click();
+  await composer.locator('[data-permanent-relation-type-choice="supports"]').click();
+  await composer.locator('textarea[name="rationale"]').fill("两条笔记都在说明同一个测试主题，需要放入同一张关系网。");
+  await search.fill("No stale target");
   await waitFor(async () => {
-    assert.equal(await page.locator(".graph-selection-panel .graph-isolated-join").count(), 1);
-    const selectionText = await page.locator(".graph-selection-panel").textContent();
-    assert.match(String(selectionText || ""), /Aaa Local Source/);
-    assert.match(String(selectionText || ""), /关联工作台|未关联/);
-    assert.match(String(selectionText || ""), /推荐目标|自己搜索|查找推荐/);
-  }, 7000);
-
-  await page.locator('.graph-selection-panel [data-graph-isolated-tab="manual"]').click();
-  await page.locator(".graph-selection-panel [data-graph-manual-target-search]").fill("Bbb");
-  await waitFor(async () => {
-    assert.equal(await page.locator('.graph-selection-panel [data-graph-pick-manual-target]:has-text("Bbb Local Target")').first().isVisible(), true);
-    assert.equal(await page.locator("[data-create-relation-form]").count(), 0);
-  }, 7000);
-
-  await page.locator('.graph-selection-panel [data-graph-pick-manual-target]:has-text("Bbb Local Target")').first().click();
-  await page.locator(".graph-selection-panel [data-graph-isolated-relation-type]").selectOption("supports");
-  await page.locator(".graph-selection-panel [data-graph-isolated-rationale]").fill("两条笔记都在说明同一个测试主题，需要放入同一张关系网。");
-  await page.locator(".graph-selection-panel [data-graph-manual-target-search]").fill("No stale target");
-  await page.locator(".graph-selection-panel [data-graph-isolated-relation-save]").click();
-  await waitFor(async () => {
-    const errorText = await page.locator(".graph-selection-panel [data-graph-isolated-form-error]").textContent();
-    assert.match(String(errorText || ""), /请先搜索并选择一条目标笔记/);
-    const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
-    assert.equal(relations.status, 200, JSON.stringify(relations.json));
-    assert.equal(relations.json.item.outgoingLinks.length, 0);
-  }, 7000);
-
-  await page.locator(".graph-selection-panel [data-graph-manual-target-search]").fill("Bbb");
-  await page.locator('.graph-selection-panel [data-graph-pick-manual-target]:has-text("Bbb Local Target")').first().click();
-  await page.locator(".graph-selection-panel [data-graph-isolated-relation-save]").click();
-  await waitFor(async () => {
-    const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
-    assert.equal(relations.status, 200, JSON.stringify(relations.json));
-    assert.equal(relations.json.item.outgoingLinks.length, 1);
-    assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
-    assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
-  }, 10000);
-
+    assert.equal(await composer.locator('button[type="submit"]').isDisabled(), true);
+    assert.equal(await page.evaluate(() => window.__prototypeEditor.permanentRelationWorkspaceState.selectedTargetNoteId), "");
+    const read = await fetchJson(apiBase, `/api/v1/notes/${source.json.item.id}/relations`);
+    assert.equal(read.json.item.outgoingLinks.length, 0);
+  });
+  await search.fill("Bbb");
+  await choose.click();
+  await composer.locator('button[type="submit"]').click();
+  await composer.locator(".permanent-relation-result").waitFor();
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
   assert.equal(relations.status, 200, JSON.stringify(relations.json));
   assert.equal(relations.json.item.outgoingLinks.length, 1);
@@ -8464,14 +8440,7 @@ test("prototype graph local candidate save removes isolated state and updates gr
     assert.equal(savedEdgeCount, 1);
   }, 7000);
 
-  await waitFor(async () => {
-    assert.equal(await page.locator(".graph-selection-panel .graph-isolated-join").count(), 0);
-    assert.equal(await page.locator(".graph-selection-panel .graph-isolated-complete-card").count(), 1);
-    const workspaceText = await page.locator(".graph-selection-panel").textContent();
-    assert.match(String(workspaceText || ""), /已接入关系网|关系已保存/);
-    assert.match(String(workspaceText || ""), /Bbb Local Target/);
-    assert.equal(await page.locator("[data-graph-isolated-relation-form]").count(), 0);
-  }, 7000);
+  assert.match(await composer.textContent(), /Bbb Local Target/);
 });
 
 test("prototype graph relation workspace creates a theme index from linked notes", async (t) => {

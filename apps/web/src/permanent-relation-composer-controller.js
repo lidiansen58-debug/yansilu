@@ -3,6 +3,7 @@ import { relationFollowupSuggestionForDraft, relationTypeLabel } from "./editor-
 import { completeSmartNotesDemoSavedRelation } from "./smart-notes-demo-practice-progress.js";
 import { wikilinkTokenForNote } from "./editor-link-picker.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
+import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
 import {
   normalizeRelationDraft,
   relationDraftCanSave,
@@ -16,7 +17,7 @@ function cleanText(value = "") {
 
 function stateSourceNote(host) {
   const stateNoteId = cleanText(host.permanentRelationWorkspaceState?.sourceNoteId || host.permanentRelationWorkspaceState?.noteId);
-  return (stateNoteId ? host.state?.notes?.find?.((note) => note?.id === stateNoteId) : null) || host.activeNote?.() || null;
+  return stateNoteId ? host.state?.notes?.find?.((note) => note?.id === stateNoteId) || null : host.activeNote?.() || null;
 }
 
 function stateSourceNoteId(host) {
@@ -84,8 +85,10 @@ export class PermanentRelationComposerController {
     const serial = ++host.permanentRelationSearchSerial;
     const requestSourceNoteId = sourceNote.id;
     const requestSessionId = stateSessionId(host);
+    const requestVaultScope = host.vaultScope?.();
     const stillCurrentSearch = () =>
       serial === host.permanentRelationSearchSerial &&
+      host.vaultScope?.() === requestVaultScope &&
       stateSourceNoteId(host) === requestSourceNoteId &&
       stateSessionId(host) === requestSessionId;
     const cleanQuery = cleanText(query);
@@ -141,10 +144,24 @@ export class PermanentRelationComposerController {
 
   queueManualSearch(input) {
     const host = this.host;
+    const query = input?.value || "";
+    if (query === host.permanentRelationWorkspaceState.manualQuery) return;
     const timerHost = host.windowRef || window;
     timerHost.clearTimeout?.(host.permanentRelationSearchTimer);
-    const query = input?.value || "";
+    // Editing the search text invalidates the previous choice immediately,
+    // before the debounced request can run.
+    host.permanentRelationWorkspaceState = normalizeRelationDraft({
+      ...host.permanentRelationWorkspaceState,
+      manualQuery: query, selectedTargetNoteId: "", editingRelationId: "",
+      manualTargets: [], searchState: query.trim() ? "loading" : "idle"
+    }, this.sourceNote()?.id || stateSourceNoteId(host));
+    host.permanentRelationSearchSerial += 1;
+    host.syncPermanentRelationManualResults?.();
+    const submit = host.permanentRelationWorkspaceElement?.()?.querySelector?.('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    const sourceId = stateSourceNoteId(host), sessionId = stateSessionId(host), vault = host.vaultScope?.();
     host.permanentRelationSearchTimer = timerHost.setTimeout(() => {
+      if (stateSourceNoteId(host) !== sourceId || stateSessionId(host) !== sessionId || host.vaultScope?.() !== vault) return;
       void this.refreshManualSearch(query);
     }, 180);
   }
@@ -195,10 +212,13 @@ export class PermanentRelationComposerController {
       insightQuestion: data.get("insightQuestion")
     }, sourceNote.id);
     const sourceIsActive = host.isActiveNoteId?.(sourceNote.id) === true;
-    const sourceStillActive = () => host.isActiveNoteId?.(sourceNote.id) === true;
+    const submitVaultScope = host.vaultScope?.();
+    const vaultStillCurrent = () => host.vaultScope?.() === submitVaultScope;
+    const sourceStillActive = () => vaultStillCurrent() && host.isActiveNoteId?.(sourceNote.id) === true;
     const submitSessionId = cleanText(state.relationComposerSessionId || stateSessionId(host));
     const draftStillCurrent = () =>
       Boolean(submitSessionId) &&
+      vaultStillCurrent() &&
       stateSourceNoteId(host) === sourceNote.id &&
       stateSessionId(host) === submitSessionId;
     const currentRelations = sourceIsActive ? host.currentSemanticRelations : null;
@@ -207,18 +227,18 @@ export class PermanentRelationComposerController {
       relations: currentRelations,
       allowExistingUpdate: true
     });
-    if (!validation.ok) {
+    // A graph-only composer has no editor relation snapshot yet. Verify the
+    // saved identity against the fresh preflight read before accepting a save.
+    if (!validation.ok && !(validation.reason === "missing_relation" && !currentRelations)) {
       this.patchState({ ...state, error: relationDraftErrorText(validation.reason), notice: "" });
       return;
     }
     this.patchState({ ...state, saveState: "saving", error: "", notice: "正在保存关联..." });
     try {
+      // This read validates the mutation only. It must not displace a sidebar
+      // refresh that still needs to finish when the draft is cancelled or fails.
       const latestRelations = await fetchNoteRelations(sourceNote.id);
       if (!draftStillCurrent()) return;
-      if (sourceStillActive()) {
-        host.currentSemanticRelations = latestRelations;
-        host.semanticRelationsState = "loaded";
-      }
       const latestValidation = relationDraftCanSave({
         state,
         relations: latestRelations,
@@ -254,23 +274,25 @@ export class PermanentRelationComposerController {
           targetTitle: target?.title || state.selectedTargetNoteId,
           relationLabel: relationTypeLabel(state.relationType)
         });
-        if (!draftStillCurrent()) return;
         if (!transaction.ok) {
+          if (!draftStillCurrent()) return;
           this.patchState({ ...state, saveState: "idle", error: transaction.error, notice: "" });
           return;
         }
         relation = transaction.relation;
       }
-      if (!draftStillCurrent()) return;
+      // Closing the composer cancels its UI, not a mutation already committed
+      // by the service. Reconcile that mutation without reopening the old draft.
+      if (!vaultStillCurrent()) return;
       host.syncRelationNetworkConnected?.(sourceNote.id, state.selectedTargetNoteId);
       await host.refreshRelationNetworkStatuses?.(sourceNote.id, state.selectedTargetNoteId);
+      if (!vaultStillCurrent()) return;
+      await refreshGraphAfterRelationMutation(host, { returnTo: state.entryRoute?.returnTo });
+      if (!vaultStillCurrent()) return;
+      // Refresh owns both the snapshot and its loaded/error UI, even when the
+      // composer has closed. A read failure does not undo the committed save.
+      if (sourceStillActive()) await host.refreshSemanticRelations?.(sourceNote.id, host.relationsRequestSerial);
       if (!draftStillCurrent()) return;
-      const savedRelations = await fetchNoteRelations(sourceNote.id).catch(() => null);
-      if (!draftStillCurrent()) return;
-      if (savedRelations && sourceStillActive()) {
-        host.currentSemanticRelations = savedRelations;
-        host.semanticRelationsState = "loaded";
-      }
       if (sourceStillActive()) {
         host.renderPreview?.();
         host.setRelationFollowupSuggestion?.(relationFollowupSuggestionForDraft({
@@ -286,10 +308,6 @@ export class PermanentRelationComposerController {
       if (!draftStillCurrent()) return;
       completePendingSmartNotesDemoRelation(host.state, sourceNote.id, relation, state.rationale);
       host.renderAll?.();
-      if (state.entryRoute?.returnTo === "graph") {
-        await host.refreshDirectoryGraph?.();
-        if (!draftStillCurrent()) return;
-      }
       const successMessage = existingRelationId ? "关联已更新。" : relation?.created === false ? "关联已存在，已直接复用。" : "关联已保存。";
       host.permanentSidebarController().commitSavedRelationWorkspaceResult({
         noteId: sourceNote.id,

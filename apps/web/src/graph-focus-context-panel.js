@@ -179,7 +179,9 @@ export function renderGraphFocusContextPanel({
             <button class="graph-overlay-close graph-focus-panel-close" type="button" data-graph-focus-context-toggle="close" aria-label="收起选中笔记详情" title="收起详情">${renderGraphIcon("close")}</button>
           </div>
         </div>
-        <strong>${escapeHtml(focusedTitle)}</strong>
+        <button class="graph-focus-card-main" type="button" data-open-note="${escapeHtml(cleanFocusedNoteId)}" aria-label="打开笔记：${escapeHtml(focusedTitle)}">
+          <strong>${escapeHtml(focusedTitle)}</strong>
+        </button>
         <span>${escapeHtml(relationSummary)}</span>
       </div>
       <div class="graph-context-mode" aria-label="关系查看方式">

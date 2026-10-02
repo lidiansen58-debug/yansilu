@@ -739,7 +739,11 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
   graphCanvas?.addEventListener("pointerup", (event) => {
     endGraphUtilityDrawerDrag(event);
     endGraphViewportDrag(event);
-    if (event.target.closest(".graph-map-viewport")) dismissGraphCanvasHelpHint();
+    // Let the native click reach its node/edge before hint dismissal repaints
+    // the canvas and replaces the pointer target.
+    if (event.target.closest(".graph-map-viewport")) {
+      setTimeout(() => dismissGraphCanvasHelpHint(), 0);
+    }
   });
 
   graphCanvas?.addEventListener("pointercancel", (event) => {

@@ -14,6 +14,50 @@ const confirmableRelationTypes = new Set([
   "associated_with"
 ]);
 
+test("a committed graph relation survives a graph refresh rejection", async () => {
+  const graphState = graphStateFixture();
+  const statuses = [];
+  const controller = baseController({ graphState,
+    refreshDirectoryGraph: async () => { throw new Error("graph offline"); },
+    setStatus: (text, kind) => statuses.push(kind) });
+  assert.equal(await controller.saveConfirmedRelation({ noteId: "source", targetNoteId: "target",
+    relationType: "supports", rationale: "A concrete reason that supports the target." }), true);
+  assert.equal(graphState.isolatedRelationSaveResultByNoteId.source.targetNoteId, "target");
+  assert.deepEqual(statuses, ["ok"]);
+});
+
+test("graph relation completion recognizes its selection after renderer normalization", async () => {
+  const graphState = graphStateFixture();
+  const controller = baseController({ graphState, refreshDirectoryGraph: async () => {
+    graphState.selection = { ...graphState.selection, title: "updated title", isolatedIndex: 2 };
+  } });
+  assert.equal(await controller.saveConfirmedRelation({ noteId: "source", targetNoteId: "target",
+    relationType: "supports", rationale: "A concrete reason that supports the target." }), true);
+  assert.equal(graphState.selection, null);
+});
+
+for (const phase of ["save", "refresh"]) {
+  test(`a graph relation finishing during ${phase} preserves the user's new selection`, async () => {
+    const graphState = graphStateFixture();
+    const newSelection = { kind: "node", noteId: "other" };
+    let release, started;
+    const held = new Promise(resolve => { release = resolve; });
+    const entered = new Promise(resolve => { started = resolve; });
+    const pause = async () => { started(); await held; };
+    const controller = baseController({ graphState,
+      createNoteRelation: async () => { if (phase === "save") await pause(); return { id: "saved", created: true }; },
+      refreshDirectoryGraph: async () => { if (phase === "refresh") await pause(); } });
+    const saving = controller.saveConfirmedRelation({ noteId: "source", targetNoteId: "target",
+      relationType: "supports", rationale: "A concrete reason that supports the target." });
+    await entered;
+    graphState.selection = newSelection;
+    release();
+    assert.equal(await saving, true);
+    assert.equal(graphState.selection, newSelection);
+    assert.equal(graphState.isolatedRelationSaveResultByNoteId.source.targetNoteId, "target");
+  });
+}
+
 function createButton(attrs = {}) {
   return {
     disabled: false,

@@ -3,6 +3,18 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { renderPermanentRelationWorkspace } from "../../apps/web/src/permanent-relation-workspace.js";
+
+test("graph edit can request fresh relation validation without an editor snapshot but blocks a known missing relation", () => {
+  const options = { note: { id: "source" }, state: {
+    open: true, noteId: "source", editingRelationId: "relation", selectedTargetNoteId: "target",
+    relationType: "supports", rationale: "保存的依据。"
+  } };
+  const unknown = renderPermanentRelationWorkspace(options);
+  assert.match(unknown, /编辑关联/);
+  assert.match(unknown, /type="submit"\s*>保存修改/);
+  const missing = renderPermanentRelationWorkspace({ ...options, relations: { outgoingLinks: [], incomingLinks: [] } });
+  assert.match(missing, /type="submit" disabled>保存修改/);
+});
 import { EditorSemanticRelationsView } from "../../apps/web/src/editor-semantic-relations-view.js";
 import {
   defaultPermanentRelationWorkspaceState,
@@ -35,6 +47,30 @@ const deps = {
   folderLabel: () => "永久笔记",
   typeFromFolder: () => "permanent"
 };
+
+test("recommendation picker filters saved pairs, self targets and duplicates before its limit", () => {
+  const blocked = [note.id, "outgoing", "incoming", "outgoing", "incoming"];
+  const candidates = [...blocked, "next", "next", "another"].map(id => ({ targetNoteId: id, targetTitle: id }));
+  const relations = {
+    outgoingLinks: [{ fromNoteId: note.id, toNoteId: "outgoing" }],
+    backlinks: [{ fromNoteId: "incoming", toNoteId: note.id }]
+  };
+  const html = renderPermanentRelationWorkspace({ note, relations, aiCandidates: candidates,
+    state: { open: true, mode: "ai", noteId: note.id }, deps });
+  const visible = [...html.matchAll(/data-permanent-relation-ai-target="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(visible, ["next", "another"]);
+  assert.equal(permanentRelationWorkspaceNextAiCandidate(candidates, relations, note.id)?.targetNoteId, visible[0]);
+});
+
+test("exhausted recommendations show an empty result instead of indefinite loading", () => {
+  const html = renderPermanentRelationWorkspace({ note,
+    aiCandidates: [{ targetNoteId: target.id }],
+    relations: { backlinks: [{ fromNoteId: target.id, toNoteId: note.id }] },
+    state: { open: true, mode: "ai", noteId: note.id }, deps });
+  assert.match(html, /暂时没有推荐/);
+  assert.match(html, /搜索笔记/);
+  assert.doesNotMatch(html, /正在准备推荐|data-permanent-relation-ai-target=/);
+});
 
 test("editing a specific relation keeps its identity among multiple edges", () => {
   const first = { id: "other", fromNoteId: note.id, toNoteId: target.id, relationType: "supports", rationale: "first reason" };

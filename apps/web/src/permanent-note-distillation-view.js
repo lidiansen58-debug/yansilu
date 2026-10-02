@@ -74,7 +74,7 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
               </fieldset>
             ` : ""}
           </div>
-          <details class="viewpoint-optional-details">
+          <details class="viewpoint-optional-details"${distillationPrefill.boundaryDraft ? " open" : ""}>
             <summary>补充说明和边界（可选）</summary>
             <div class="viewpoint-optional-fields">
               <label>

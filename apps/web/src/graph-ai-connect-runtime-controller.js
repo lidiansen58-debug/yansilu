@@ -1,6 +1,24 @@
 import { graphAiConnectAnalysisOptions, graphAiConnectArtifactCount, graphAiConnectCandidateTitles, graphAiConnectPreviewTargetId } from "./graph-ai-connect-model.js";
+import { graphSelectionContextKey } from "./graph-selection-context.js";
+import { graphCandidateEndpointIds } from "./graph-relation-state-query.js";
 export function createGraphAiConnectRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
+  const refinementRequests = new Map();
+  const contextGuard = ({ includeAnalysis = false } = {}) => {
+    const deps = runtimeDeps();
+    const item = deps.graphState?.item;
+    const analysis = deps.graphState?.aiAnalysis;
+    const selection = graphSelectionContextKey(deps.graphState?.selection);
+    const directory = deps.graphScopeDirectoryId?.();
+    const module = deps.state?.module;
+    return () => {
+      const current = runtimeDeps();
+      return current.graphState?.item === item &&
+        (!includeAnalysis || current.graphState?.aiAnalysis === analysis) &&
+        graphSelectionContextKey(current.graphState?.selection) === selection &&
+        current.graphScopeDirectoryId?.() === directory && current.state?.module === module;
+    };
+  };
   const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
   async function waitForGraphLoad(graphState = {}, { timeoutMs = 15000, intervalMs = 50 } = {}) {
     if (!graphState.loading) return true;
@@ -13,12 +31,14 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
     const cleanNoteId = String(noteId || "").trim();
     const items = (Array.isArray(candidates) ? candidates : []).filter(Boolean).slice(0, 3);
     if (!cleanNoteId || !items.length) return;
+    const contextStillCurrent = contextGuard();
     let generatedThisRun = 0;
     let waitingConfirmationThisRun = 0;
     let failedThisRun = 0;
     let removedThisRun = 0;
     for (const candidate of items) {
       const refineResult = await refineGraphPotentialRelationCandidate(cleanNoteId, candidate, { directoryId });
+      if (!contextStillCurrent() || refineResult?.stale) return;
       if (refineResult?.aiReasonGenerated) generatedThisRun += 1;
       if (refineResult?.removed) {
         removedThisRun += 1;
@@ -72,6 +92,15 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
     } = runtimeDeps();
     const cleanNoteId = String(noteId || candidate?.sourceNoteId || candidate?.fromNoteId || "").trim();
     if (!cleanNoteId || !candidate) return { ok: false, needsConfirmation: false };
+    const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
+    const requestKey = JSON.stringify([cleanNoteId, sourceNoteId, targetNoteId,
+      candidate.id || candidate.candidateId || candidate.candidate_id || "",
+      String(candidate.relationType || candidate.relation_type || "").trim().toLowerCase()]);
+    const request = {};
+    refinementRequests.set(requestKey, request);
+    const contextStillCurrent = contextGuard({ includeAnalysis: true });
+    const requestStillCurrent = () => contextStillCurrent() && refinementRequests.get(requestKey) === request;
+    const staleResult = () => ({ ok: false, needsConfirmation: false, merged: false, stale: true });
     try {
       const refined = await refinePotentialRelationCandidate({
         directoryId,
@@ -82,6 +111,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
         timeoutMs: 60000,
         ...(confirmationApproved ? { confirmationApproved: true, confirmBudget: true } : {})
       });
+      if (!requestStillCurrent()) return staleResult();
       const merged = Boolean(refined && mergePotentialRelationCandidateIntoGraphAnalysis(refined));
       if (merged) renderGraphPanel();
       const aiReason = String(refined?.aiRationale || "").trim();
@@ -112,6 +142,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       }
       return { ok: true, needsConfirmation: false, merged, aiReasonGenerated: Boolean(aiReason) };
     } catch (error) {
+      if (!requestStillCurrent()) return staleResult();
       const code = String(error?.code || "").trim();
       if (code === "POTENTIAL_RELATION_CANDIDATE_NOT_FOUND") {
         const removed = removePotentialRelationCandidateFromGraphAnalysis(candidate);
@@ -130,6 +161,8 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       if (needsConfirmation) setStatus("当前 AI 设置需要确认后才能生成这条关系说明", "warn");
       else setStatus(`生成关系说明失败：${String(error?.message || error)}`, "warn");
       return { ok: false, needsConfirmation, merged: true };
+    } finally {
+      if (refinementRequests.get(requestKey) === request) refinementRequests.delete(requestKey);
     }
   }
   async function runGraphAiConnectForNote(noteId = "") {
@@ -151,9 +184,15 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
     } = runtimeDeps();
     const cleanNoteId = String(noteId || "").trim();
     if (!cleanNoteId || graphState.aiAnalysisLoading) return false;
-    await waitForGraphLoad(graphState);
+    const startingDirectoryId = graphScopeDirectoryId();
+    const startingModule = state.module;
+    if (!await waitForGraphLoad(graphState)) return false;
+    if (graphScopeDirectoryId() !== startingDirectoryId || state.module !== startingModule) return false;
     const directoryId = graphScopeDirectoryId();
     const previousSelection = graphState.selection;
+    const requestGraph = graphState.item;
+    const requestSerial = (graphState.aiConnectRequestSerial || 0) + 1;
+    graphState.aiConnectRequestSerial = requestSerial;
     graphState.aiAnalysisLoading = true;
     graphState.aiAnalysisError = "";
     graphRelationWorkflowController?.startAiConnectForNote?.(cleanNoteId);
@@ -165,14 +204,23 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       edges: currentEdges,
       relationStatusCountsAsNetworkEdge: graphRelationStatusCountsAsNetworkEdge
     });
+    const requestSelection = graphSelectionContextKey(graphState.selection);
+    const contextStillCurrent = () =>
+      graphState.aiConnectRequestSerial === requestSerial &&
+      graphState.item === requestGraph &&
+      graphSelectionContextKey(graphState.selection) === requestSelection &&
+      graphScopeDirectoryId() === directoryId &&
+      state.module === startingModule;
     renderGraphPanel();
     try {
       const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
+      if (!contextStillCurrent()) return false;
       if (!localAiReady) {
         setStatus("已打开关系整理；当前 AI 不可用，可以先用本地推荐或手工搜索建立关系。", "warn");
         return true;
       }
       const result = await analyzeDirectoryGraph(directoryId, graphAiConnectAnalysisOptions(cleanNoteId));
+      if (!contextStillCurrent()) return false;
       graphState.aiAnalysis = result;
       const route = graphRelationWorkflowController?.applyAiConnectRoute?.({
         noteId: cleanNoteId,
@@ -227,12 +275,15 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       if (candidates.length && !firstTargetId) void refineGraphPotentialRelationsForNote(cleanNoteId, candidates, { directoryId });
       return true;
     } catch (error) {
+      if (!contextStillCurrent()) return false;
       graphState.aiAnalysisError = String(error?.message || error);
       setStatus(`AI 找连接失败：${graphState.aiAnalysisError}`, "warn");
       return false;
     } finally {
-      graphState.aiAnalysisLoading = false;
-      renderGraphPanel();
+      if (graphState.aiConnectRequestSerial === requestSerial) {
+        graphState.aiAnalysisLoading = false;
+        renderGraphPanel();
+      }
     }
   }
   return { refineGraphPotentialRelationCandidate, refineGraphPotentialRelationsForNote, runGraphAiConnectForNote };

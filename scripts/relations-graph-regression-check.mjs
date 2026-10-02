@@ -7,6 +7,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 
 export const RELATIONS_GRAPH_UNIT_TEST_FILES = [
+  "tests/unit/web-permanent-note-workspace-controller.test.mjs",
+  "tests/unit/web-graph-followup-controller-context.test.mjs",
+  "tests/unit/web-graph-relation-composer-entry.test.mjs",
+  "tests/unit/web-relation-snapshot.test.mjs",
+  "tests/unit/web-relation-composer-context.test.mjs",
+  "tests/unit/web-relation-network-refresh.test.mjs",
+  "tests/unit/web-relation-composer-source.test.mjs",
+  "tests/unit/web-relation-graph-refresh.test.mjs",
+  "tests/unit/web-graph-ai-connect-runtime-controller.test.mjs",
+  "tests/unit/web-graph-ai-candidates.test.mjs",
+  "tests/unit/web-relation-workspace-shared.test.mjs",
+  "tests/unit/web-graph-canvas-event-router.test.mjs",
+  "tests/unit/web-graph-canvas-help-hint-controller.test.mjs",
   "tests/unit/web-relation-entry-route.test.mjs",
   "tests/unit/web-graph-relation-state-query.test.mjs",
   "tests/unit/web-relation-save-transaction.test.mjs",
@@ -31,6 +44,19 @@ export const RELATIONS_GRAPH_UNIT_TEST_FILES = [
 export const RELATIONS_GRAPH_BROWSER_GROUPS = [
   "relations-graph-closeout",
   "permanent-relation-workspace"
+];
+
+export const RELATIONS_GRAPH_BROWSER_TEST_FILES = [
+  "tests/e2e/prototype-relation-edit-safety.test.mjs",
+  "tests/e2e/prototype-relation-graph-sync.test.mjs",
+  "tests/e2e/prototype-relation-save-context.test.mjs",
+  "tests/e2e/prototype-graph-ai-relation-flow.test.mjs",
+  "tests/e2e/prototype-relation-vault-isolation.test.mjs",
+  "tests/e2e/prototype-relation-snapshot-refresh.test.mjs",
+  "tests/e2e/prototype-relation-recommendation-eligibility.test.mjs",
+  "tests/e2e/prototype-graph-navigation-input.test.mjs",
+  "tests/e2e/prototype-graph-relation-adjustment.test.mjs",
+  "tests/e2e/prototype-graph-followup-context.test.mjs"
 ];
 
 function runNode(args, env = {}) {
@@ -58,6 +84,7 @@ function runUnit() {
 
 function runBrowser() {
   console.log("== relations graph browser acceptance ==");
+  runNode(["--test", "--test-concurrency=1", ...RELATIONS_GRAPH_BROWSER_TEST_FILES], { RUN_BROWSER_E2E: "1" });
   runNode(["./scripts/browser-e2e-check.mjs", ...RELATIONS_GRAPH_BROWSER_GROUPS]);
 }
 
@@ -66,6 +93,8 @@ function printList() {
   for (const file of RELATIONS_GRAPH_UNIT_TEST_FILES) console.log(`- ${file}`);
   console.log("\nRelations graph browser acceptance groups:");
   for (const group of RELATIONS_GRAPH_BROWSER_GROUPS) console.log(`- ${group}`);
+  console.log("\nRelations graph browser acceptance files:");
+  for (const file of RELATIONS_GRAPH_BROWSER_TEST_FILES) console.log(`- ${file}`);
 }
 
 function runCli(args = process.argv.slice(2)) {

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const testFile = "./tests/e2e/prototype-browser.test.mjs";
 
@@ -108,7 +109,7 @@ const groups = [
     description: "Permanent-note relation workspace flows for manual search, AI recommendation, pre-save refresh, continuity, and note switching.",
     tests: [
       "prototype permanent relation workspace saves manually, refreshes before save, and resets on note switch",
-      "prototype permanent relation workspace saves an AI recommended relation in place",
+      "prototype permanent relation workspace saves a searched relation in place",
       "prototype right sidebar relation entry saves through overlay and appears in graph"
     ]
   },
@@ -153,6 +154,15 @@ if (missing.length) {
 
 let passed = 0;
 const total = selectedGroups.reduce((sum, group) => sum + group.tests.length, 0);
+const testSource = readFileSync(testFile, "utf8");
+for (const group of selectedGroups) {
+  for (const testName of group.tests) {
+    if (!testSource.includes(`test(${JSON.stringify(testName)},`)) {
+      console.error(`Browser E2E test is missing in ${testFile}: ${testName}`);
+      process.exit(1);
+    }
+  }
+}
 
 for (const group of selectedGroups) {
   console.log(`\n## Browser E2E group: ${group.name}`);

@@ -1,3 +1,5 @@
+import { escapeHtml } from "./editor-render-utils.js";
+
 export function renderGraphNodeSelectionPanel({ selection: normalized = null, isolatedNotes = [], nodeMap = new Map(), edges = [] } = {}, deps = {}) {
   const {
     graphRelationStatusCountsAsNetworkEdge = () => false,
@@ -50,6 +52,6 @@ export function renderGraphNodeSelectionPanel({ selection: normalized = null, is
     body: `
       ${relationDetails}
       ${candidatePanel}`,
-    actions: ""
+    actions: `<button class="mini-btn" type="button" data-open-note="${escapeHtml(normalized.nodeId)}">打开笔记</button>`
   });
 }

@@ -84,6 +84,14 @@ export function graphMergeRelationCandidatesForDisplay(aiCandidates = [], localC
   const allAiCandidates = Array.isArray(aiCandidates) ? aiCandidates : [];
   const usableAiCandidates = allAiCandidates.filter((candidate) => graphCandidateCanSaveRelation(candidate));
   const blockedPairs = blockedPairKeys instanceof Set || Array.isArray(blockedPairKeys) ? Array.from(blockedPairKeys) : [];
+  const seenAiPairs = new Set(blockedPairs);
+  const uniqueAiCandidates = usableAiCandidates.filter((candidate) => {
+    const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
+    const key = graphCandidateUndirectedPairKey(candidate);
+    if (!key || sourceNoteId === targetNoteId || seenAiPairs.has(key)) return false;
+    seenAiPairs.add(key);
+    return true;
+  });
   const seenPairs = new Set([
     ...blockedPairs,
     ...allAiCandidates
@@ -91,11 +99,12 @@ export function graphMergeRelationCandidatesForDisplay(aiCandidates = [], localC
       .filter(Boolean)
   ]);
   return [
-    ...usableAiCandidates.map((candidate) => ({ ...candidate, candidateSource: "ai" })),
+    ...uniqueAiCandidates.map((candidate) => ({ ...candidate, candidateSource: "ai" })),
     ...(Array.isArray(localCandidates) ? localCandidates : [])
       .filter((candidate) => {
+        const { sourceNoteId, targetNoteId } = graphCandidateEndpointIds(candidate);
         const key = graphCandidateUndirectedPairKey(candidate);
-        if (seenPairs.has(key)) return false;
+        if (!key || sourceNoteId === targetNoteId || seenPairs.has(key)) return false;
         seenPairs.add(key);
         return true;
       })
