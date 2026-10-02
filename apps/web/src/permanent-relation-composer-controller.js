@@ -4,7 +4,6 @@ import { completeSmartNotesDemoSavedRelation } from "./smart-notes-demo-practice
 import { wikilinkTokenForNote } from "./editor-link-picker.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
 import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
-import { beginRelationSnapshotRead, rememberRelationSnapshot } from "./relation-snapshot.js";
 import {
   normalizeRelationDraft,
   relationDraftCanSave,
@@ -290,13 +289,9 @@ export class PermanentRelationComposerController {
       if (!vaultStillCurrent()) return;
       await refreshGraphAfterRelationMutation(host, { returnTo: state.entryRoute?.returnTo });
       if (!vaultStillCurrent()) return;
-      const savedReadStillCurrent = beginRelationSnapshotRead(host, sourceNote.id);
-      const savedRelations = await fetchNoteRelations(sourceNote.id).catch(() => null);
-      if (savedRelations && sourceStillActive() && savedReadStillCurrent()) {
-        host.currentSemanticRelations = savedRelations;
-        rememberRelationSnapshot(host, sourceNote.id, savedRelations);
-        host.semanticRelationsState = "loaded";
-      }
+      // Refresh owns both the snapshot and its loaded/error UI, even when the
+      // composer has closed. A read failure does not undo the committed save.
+      if (sourceStillActive()) await host.refreshSemanticRelations?.(sourceNote.id, host.relationsRequestSerial);
       if (!draftStillCurrent()) return;
       if (sourceStillActive()) {
         host.renderPreview?.();

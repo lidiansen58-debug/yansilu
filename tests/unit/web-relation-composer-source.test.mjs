@@ -5,6 +5,80 @@ import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { currentRelationSnapshot } from "../../apps/web/src/relation-snapshot.js";
 import { PermanentNoteSidebarController } from "../../apps/web/src/permanent-note-sidebar-controller.js";
 
+for (const scenario of ["closed-failure", "open-failure", "closed-success", "superseded-failure"]) {
+  test(`committed save settles sidebar display independently of the composer: ${scenario}`, async t => {
+    const originalFetch = globalThis.fetch, originalFormData = globalThis.FormData;
+    let releaseSidebar, releaseSavedRead, savedReadStarted;
+    const heldSidebar = new Promise(resolve => { releaseSidebar = resolve; });
+    const heldSavedRead = new Promise(resolve => { releaseSavedRead = resolve; });
+    const started = new Promise(resolve => { savedReadStarted = resolve; });
+    t.after(() => { releaseSidebar(); releaseSavedRead(); globalThis.fetch = originalFetch; globalThis.FormData = originalFormData; });
+    let reads = 0, writes = 0, savedResult = null, displayedState = "loading";
+    const stored = [];
+    const response = item => new Response(JSON.stringify({ item }), { status: 200 });
+    globalThis.FormData = class {
+      get(key) { return { relationType: "supports", rationale: "A concrete reason", insightQuestion: "" }[key]; }
+    };
+    globalThis.fetch = async (_url, options = {}) => {
+      if (options.method === "POST") {
+        writes++;
+        const link = { id: "saved", fromNoteId: "source", ...JSON.parse(options.body) };
+        stored.push(link);
+        return response(link);
+      }
+      const snapshot = structuredClone({ outgoingLinks: stored, backlinks: [] });
+      const i = ++reads;
+      if (i === 1) await heldSidebar;
+      if (i === 3) {
+        savedReadStarted(); await heldSavedRead;
+        if (scenario !== "closed-success") throw new Error("saved snapshot read unavailable");
+      }
+      return response(snapshot);
+    };
+    const source = { id: "source" };
+    const section = { getAttribute: () => source.id, outerHTML: "loading" };
+    const host = {
+      state: { module: "explorer", notes: [source, { id: "target" }] },
+      permanentRelationWorkspaceState: { open: true, noteId: source.id, sourceNoteId: source.id,
+        relationComposerSessionId: "one", selectedTargetNoteId: "target", relationType: "supports", rationale: "A concrete reason" },
+      currentSemanticRelations: null, semanticRelationsState: "loading", relationsRequestSerial: 1,
+      activeNote: () => source, activeTab: () => null, isActiveNoteId: id => id === source.id, vaultScope: () => "vault",
+      syncPermanentRelationWorkspaceOverlay() {}, syncRelationNetworkConnected() {}, async refreshRelationNetworkStatuses() {},
+      applyRelationNetworkStatusesFromRelations() {}, renderPreview() {}, setRelationFollowupSuggestion() {}, renderAll() {},
+      refreshSemanticRelations: EditorPane.prototype.refreshSemanticRelations,
+      shouldPreserveRelationSection: () => false,
+      renderCurrentRelationSection(_id, options) { displayedState = options.relationState; return displayedState; },
+      els: { result: { querySelector: () => section } },
+      permanentSidebarController: () => ({ commitSavedRelationWorkspaceResult(result) { savedResult = result; } })
+    };
+    const sidebar = host.refreshSemanticRelations(source.id, 1);
+    const save = new PermanentRelationComposerController(host).submit({});
+    await started;
+    if (scenario !== "open-failure") new PermanentNoteSidebarController(host).closeRelationWorkspace();
+    if (scenario === "superseded-failure") await host.refreshSemanticRelations(source.id, 1);
+    releaseSavedRead();
+    await save;
+    releaseSidebar();
+    await sidebar;
+    const expectedState = scenario.endsWith("success") || scenario === "superseded-failure" ? "loaded" : "error";
+    assert.equal(writes, 1);
+    assert.equal(host.semanticRelationsState, expectedState);
+    assert.equal(displayedState, expectedState);
+    assert.equal(section.outerHTML, expectedState);
+    if (scenario === "open-failure") {
+      assert.ok(savedResult);
+      assert.match(savedResult.successMessage, /关联已保存/);
+    } else assert.equal(host.permanentRelationWorkspaceState.open, false);
+    // Recover through the ordinary sidebar read, without saving a second time.
+    await host.refreshSemanticRelations(source.id, 1);
+    assert.equal(host.semanticRelationsState, "loaded");
+    assert.equal(displayedState, "loaded");
+    assert.deepEqual(host.currentSemanticRelations.outgoingLinks, stored);
+    assert.deepEqual(currentRelationSnapshot(host, source.id).outgoingLinks, stored);
+    assert.equal(writes, 1);
+  });
+}
+
 for (const outcome of ["cancel", "fail", "cancel-fail"]) {
   for (const sidebarFirst of [false, true]) {
     test(`initial sidebar load completes across preflight ${outcome}, sidebar finishes ${sidebarFirst ? "first" : "last"}`, async t => {
@@ -95,6 +169,7 @@ for (const scenario of ["save-save", "sidebar-save", "save-sidebar", "sidebar-er
       syncPermanentRelationWorkspaceOverlay() {}, syncRelationNetworkConnected() {}, async refreshRelationNetworkStatuses() {},
       renderPreview() {}, setRelationFollowupSuggestion() {}, renderAll() {},
       applyRelationNetworkStatusesFromRelations() {}, els: {},
+      refreshSemanticRelations: EditorPane.prototype.refreshSemanticRelations,
       permanentSidebarController: () => ({ commitSavedRelationWorkspaceResult() {} })
     };
     const controller = new PermanentRelationComposerController(host);
