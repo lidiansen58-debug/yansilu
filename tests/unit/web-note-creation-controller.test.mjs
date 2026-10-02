@@ -31,11 +31,9 @@ test("a refreshed creation controller reads the original ID without another POST
     fetchNote: async noteId => { assert.equal(noteId, created.id); return found; } };
   const first = fixture(dependencies);
   assert.equal((await first.create()).error.code, "creation_pending");
+  found = created;
   const refreshed = fixture({ ...dependencies, createId: () => "new-id-must-not-be-used" });
   refreshed.state.selectedFolderId = "another-folder";
-  assert.equal((await refreshed.create()).error.code, "creation_pending");
-  assert.ok(refreshed.state.pendingNoteCreation);
-  found = created;
   assert.equal((await refreshed.create()).note.id, created.id);
   assert.equal(posts, 1);
   assert.equal(storage.records.size, 0);
@@ -122,7 +120,23 @@ test("hung creation returns feedback and subsequent clicks only recheck", async 
   assert.equal(first, duplicate);
   assert.match((await first).error.message, /创建结果尚未确认/);
   assert.match((await f.create()).error.message, /创建结果尚未确认/);
-  assert.equal(posts, 1); assert.equal(reads, 2); assert.deepEqual(f.opened, []);
+  assert.equal(posts, 2); assert.equal(reads, 3); assert.deepEqual(f.opened, []);
+});
+
+test("a confirmed-missing creation retries its original ID and payload", async () => {
+  const requests = [];
+  const f = fixture({ createNote: async input => {
+    requests.push(input);
+    if (requests.length === 1) throw Object.assign(new Error("response lost"), { code: "request_timeout" });
+    return created;
+  }, fetchNote: async () => { throw Object.assign(new Error("missing"), { code: "NOTE_NOT_FOUND" }); } });
+  assert.equal((await f.create()).error.code, "creation_pending");
+  const result = await f.create();
+  assert.equal(result.note.id, created.id);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[0], requests[1]);
+  assert.equal(requests[1].clientCreationId, id);
+  assert.deepEqual(f.opened, [created.id]);
 });
 
 test("lost creation response is recovered by ID without a second POST", async () => {

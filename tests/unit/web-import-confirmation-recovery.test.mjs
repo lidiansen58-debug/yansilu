@@ -52,7 +52,7 @@ test("a lost response is recovered once and later clicks never post again", asyn
   assert.equal(reads, 1);
 });
 
-for (const state of ["confirming", "preview", "missing", "failed", "cancelled"]) {
+for (const state of ["confirming", "missing", "failed", "cancelled"]) {
   test(`${state} cannot become a fake success or resubmit`, async () => {
     let writes = 0;
     const confirm = createImportConfirmationRecovery({ write: async () => { writes++; throw timeout(); },
@@ -62,6 +62,19 @@ for (const state of ["confirming", "preview", "missing", "failed", "cancelled"])
     assert.equal(writes, 1);
   });
 }
+
+test("a server preview clears the submitted marker and permits a safe retry", async () => {
+  const values = new Map();
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+  let writes = 0;
+  const confirm = createImportConfirmationRecovery({ getStorage: () => storage,
+    write: async () => { if (++writes === 1) throw timeout(); return { ...receipt, result }; },
+    read: async () => ({ importRecordId: "imp", status: "preview" }) });
+  await assert.rejects(confirm("imp", {}), { code: "IMPORT_CONFIRM_RETRYABLE" });
+  assert.equal(values.size, 0);
+  assert.equal((await confirm("imp", {})).status, "completed");
+  assert.equal(writes, 2);
+});
 
 test("concurrent confirmation shares one promise and bounded hung writes only recheck", async () => {
   let writes = 0, found = null;

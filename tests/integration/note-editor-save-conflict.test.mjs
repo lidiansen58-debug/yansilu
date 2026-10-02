@@ -3,9 +3,36 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { initVault, createNoteInDirectory, updateNoteContent } from "../../packages/domain/src/index.mjs";
+import { initVault, createNoteInDirectory, getNoteById, updateNoteContent } from "../../packages/domain/src/index.mjs";
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { handleSaveNoteStateChange } from "../../apps/web/src/app-shell-save-note-state-actions.js";
+import { saveEditorNoteWithRecovery } from "../../apps/web/src/editor-save-recovery.js";
+
+test("unknown save receipt retries with a fresh operation but cannot overwrite a prior completed write", async t => {
+  const vault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-note-save-unknown-"));
+  t.after(() => fs.rm(vault, { recursive: true, force: true }));
+  await initVault(vault);
+  const original = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "Note", body: "# Note\n\nBASE" });
+  const values = new Map();
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+  let operation = 0, calls = 0;
+  const deps = { getVaultPath: () => vault, getStorage: () => storage, createSaveOperationId: () => `operation-${++operation}`,
+    checkNoteSave: async () => ({ state: "unknown" }),
+    updateNote: async (id, payload) => {
+      calls++;
+      const saved = await updateNoteContent(vault, id, payload);
+      if (calls === 1) throw Object.assign(new Error("response lost"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+      return saved;
+    }
+  };
+  const payload = body => ({ title: "Note", body, expectedBody: original.body, expectedRevision: original.fileRevision });
+  await assert.rejects(saveEditorNoteWithRecovery(deps, original.id, payload("# Note\n\nFIRST SAVE")), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+  await assert.rejects(saveEditorNoteWithRecovery(deps, original.id, payload("# Note\n\nLATEST INPUT")), { code: "NOTE_SAVE_CONFLICT" });
+  const current = await getNoteById(vault, original.id);
+  assert.equal(current.body.trimEnd(), "# Note\n\nFIRST SAVE");
+  assert.equal(calls, 2);
+  assert.equal(values.size, 0);
+});
 
 for (const metadataOnly of [false, true]) for (const automatic of [false, true]) test(`${automatic ? "automatic" : "manual"} editor save preserves external ${metadataOnly ? "metadata" : "body"} changes and stops conflict autosave`, async t => {
   const vault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-note-editor-conflict-"));

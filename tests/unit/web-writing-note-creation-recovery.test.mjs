@@ -46,6 +46,26 @@ test("refresh restores the original creation ID and submitted text without posti
   assert.equal(storage.records.size, 0);
 });
 
+test("confirmed-missing writing creation retries the stored payload with the same ID", async () => {
+  const storage = memoryStorage();
+  const requests = [];
+  const deps = { recoveryStorage: storage, getVaultPath: () => "vault-A", createNoteId: () => id,
+    createNote: async input => {
+      requests.push(input);
+      if (requests.length === 1) throw Object.assign(new Error("Lost response"), { code: "request_timeout" });
+      return note;
+    }, fetchNote: async () => { throw Object.assign(new Error("missing"), { code: "NOTE_NOT_FOUND" }); } };
+  await assert.rejects(createWritingNoteWithRecovery({}, deps, payload, "project/chapter"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+  const recovered = await createWritingNoteWithRecovery({}, deps, { ...payload, body: "Newer prose" }, "project/chapter");
+  assert.equal(recovered.note.id, note.id);
+  assert.equal(recovered.submittedBody, payload.body);
+  assert.equal(recovered.recovered, true);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[0], requests[1]);
+  assert.equal(requests[1].clientCreationId, id);
+  assert.equal(storage.records.size, 0);
+});
+
 test("storage failure prevents a creation that could not be recovered after refresh", async () => {
   const deps = { getVaultPath: () => "vault-A", createNoteId: () => id,
     recoveryStorage: { getItem: () => null, setItem: () => { throw new Error("Quota"); } },
@@ -64,7 +84,7 @@ test("pending creation storage is isolated by vault and writing context", async 
   assert.equal(posts, 3);
   assert.equal(storage.records.size, 3);
   await assert.rejects(createWritingNoteWithRecovery({}, { ...base, getVaultPath: () => "A" }, payload, "article"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
-  assert.equal(posts, 3);
+  assert.equal(posts, 4);
 });
 
 test("a corrupt stored operation never allows a replacement creation", async () => {
@@ -105,7 +125,7 @@ for (const result of [null, { ...note, id: "wrong" }, { ...note, directoryId: "o
     let writes = 0;
     const deps = { createNoteId: () => id, createNote: async () => { writes++; return result; }, fetchNote: async () => result };
     for (let n = 0; n < 2; n++) await assert.rejects(createWritingNoteWithRecovery(holder, deps, payload, "article"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
-    assert.equal(writes, 1);
+    assert.equal(writes, result === null ? 2 : 1);
   });
 }
 

@@ -212,19 +212,19 @@ test("uncertain first article creation rechecks one ID and preserves newer input
   await handleWritingSaveDraftClick(deps);
   assert.equal(writingState.draftSaveState, "error");
   await handleWritingSaveDraftClick(deps);
-  assert.equal(creates, 1);
+  assert.equal(creates, 2);
   editor.value += "\nNewer input";
   recordWritingDraftInput(deps, editor.value);
   found = saved;
   await handleWritingSaveDraftClick(deps);
-  assert.equal(creates, 1);
-  assert.equal(reads, 3);
+  assert.equal(creates, 2);
+  assert.equal(reads, 4);
   assert.equal(writingState.project.draft_note_id, saved.id);
   assert.equal(writingState.draftSaveState, "dirty");
   assert.match(editor.value, /Newer input/);
   assert.doesNotMatch(writingState.project.draft_note.body, /Newer input/);
   await handleWritingSaveDraftClick(deps);
-  assert.equal(creates, 1);
+  assert.equal(creates, 2);
   assert.equal(writingState.draftSaveState, "saved");
 });
 

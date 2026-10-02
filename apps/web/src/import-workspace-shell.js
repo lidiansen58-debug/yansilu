@@ -1,4 +1,4 @@
-import { persistImportWorkspace, restoreImportWorkspace } from "./import-workspace-recovery.js";
+import { createImportWorkspaceRecovery } from "./import-workspace-recovery.js";
 
 export function normalizeImportWorkspaceTab(tab = "import") {
   return String(tab || "").trim().toLowerCase() === "export" ? "export" : "import";
@@ -20,29 +20,7 @@ export function createImportWorkspaceShellController({
   directoryPathLabel = (directoryId) => directoryId,
   mountExportCardIntoImportShell = () => {}
 } = {}) {
-  let loadedVault = "", restoredValues = null;
-  function restore() {
-    const vault = getVaultPath();
-    if (!vault || vault === loadedVault) return null;
-    if (loadedVault) {
-      importState.importRecordId = "";
-      importState.lastPreview = null;
-      importState.lastResultPayload = null;
-      importState.lastExportResultPayload = null;
-      importState.operationResultVisible = false;
-      importState.selectionImportRecordId = "";
-      importState.selectedCandidateIds = new Set();
-    }
-    loadedVault = vault;
-    try { restoredValues = restoreImportWorkspace(getStorage(), vault, importState); }
-    catch { setStatus("本机导入恢复记录无法读取，请重新核对预览。", "warn"); restoredValues = null; }
-    return restoredValues || { importRecordId: "", path: "", payload: "", options: "", directoryId: "dir_original_default" };
-  }
-  function checkpoint(values) {
-    if (!getVaultPath()) return;
-    try { persistImportWorkspace(getStorage(), getVaultPath(), importState, values); }
-    catch { setStatus("导入页面的本机恢复记录保存失败，请勿刷新页面。", "warn"); }
-  }
+  const recovery = createImportWorkspaceRecovery({ getVaultPath, getStorage, importState, setStatus });
   function currentToolbarValues() {
     return {
       connector: String(getElement("importConnector")?.value || "obsidian").trim(),
@@ -57,7 +35,7 @@ export function createImportWorkspaceShellController({
   function renderToolbar() {
     const el = getElement("importToolbarMount");
     if (!el) return;
-    const values = restore() || currentToolbarValues();
+    const values = recovery.restore() || currentToolbarValues();
     importState.directoryId = preferredImportDirectoryId(values.directoryId);
     const preview = activeImportPreviewContext();
     const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === values.importRecordId);
@@ -79,7 +57,7 @@ export function createImportWorkspaceShellController({
       })),
       confirmButton
     });
-    checkpoint(values);
+    recovery.checkpoint(values);
   }
 
   function syncTabs() {
@@ -103,7 +81,7 @@ export function createImportWorkspaceShellController({
   function renderPage() {
     const el = getElement("importPageMount");
     if (!el) return;
-    const toolbar = restore() || currentToolbarValues();
+    const toolbar = recovery.restore() || currentToolbarValues();
     el.innerHTML = renderImportPageMount({
       toolbar,
       activeTab: importState.activeTab,
@@ -129,7 +107,7 @@ export function createImportWorkspaceShellController({
   }
 
   return {
-    checkpoint: () => checkpoint(currentToolbarValues()),
+    checkpoint: () => recovery.checkpoint(currentToolbarValues()),
     currentToolbarValues,
     normalizeTab: normalizeImportWorkspaceTab,
     renderPage,

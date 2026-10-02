@@ -2,6 +2,7 @@ import path from "node:path";
 import { getNoteById } from "../../domain/src/index.mjs";
 import { getWritingProject } from "../../writing-engine/src/writing-engine.mjs";
 import { rewriteVaultAssetLinks } from "../../domain/src/markdown-asset-links.mjs";
+import { parseWikilinks } from "../../markdown-engine/src/markdown-importer.mjs";
 import { exportArticle } from "./article-export.mjs";
 
 function invalid(message) {
@@ -53,6 +54,7 @@ export async function buildBookExport({ vaultPath, projectId, expectedBookStruct
       while (lines.length && !lines[0].trim()) lines.shift();
       if (!lines.join("\n").trim()) throw invalid(`“${chapter.title}”仅有标题，请先写入正文并保存。`);
       const body = rewriteVaultAssetLinks(lines.join("\n"), sourcePath, fileName);
+      const bodySourceIds = new Set(parseWikilinks(body).map(link => link.target));
       output.push(`### ${heading(chapter.title)}\n\n${body}\n`);
       const sourceIds = [...new Set([...(chapter.evidence_note_ids || []), ...(chapter.sections || []).flatMap(section => section.evidence_note_ids || [])])];
       const titles = [];
@@ -61,8 +63,7 @@ export async function buildBookExport({ vaultPath, projectId, expectedBookStruct
           try { sourceCache.set(id, await getNoteById(vaultPath, id)); }
           catch (error) { throw invalid(`“${chapter.title}”参考笔记无法读取：${String(error?.message || error)}`); }
         }
-        const link = `[[${sourceCache.get(id).title}]]`;
-        if (!body.includes(link)) titles.push(link);
+        if (!bodySourceIds.has(id)) titles.push(`[[${id}|${sourceCache.get(id).title}]]`);
       }
       if (titles.length) output.push(`参考笔记：${titles.join("、")}\n`);
     }

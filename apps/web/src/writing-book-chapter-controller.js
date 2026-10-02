@@ -63,8 +63,10 @@ export async function selectWritingDraftTarget(deps, chapterId = "") {
       markdown = note.body;
       fileRevision = note.fileRevision;
     } else {
-      const titles = [...new Set((chapter.evidence_note_ids || []).map((noteId) => state.notes?.find((note) => note.id === noteId)?.title).filter(Boolean))];
-      markdown = `# ${chapter.title}\n\n${titles.length ? `参考笔记：${titles.map((title) => `[[${title}]]`).join("、")}\n\n` : ""}`;
+      const sources = [...new Set(chapter.evidence_note_ids || [])]
+        .map((noteId) => state.notes?.find((note) => note.id === noteId))
+        .filter((note) => note?.id && note.title);
+      markdown = `# ${chapter.title}\n\n${sources.length ? `参考笔记：${sources.map((note) => `[[${note.id}|${note.title}]]`).join("、")}\n\n` : ""}`;
     }
     if (!stillCurrent()) return;
     assertWritingDraftCanLeave(writingState);

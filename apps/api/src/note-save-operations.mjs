@@ -29,6 +29,7 @@ export function createNoteSaveOperations({ now = Date.now, limit = 64, ttlMs = 1
       } catch (error) {
         record.state = "failed";
         record.code = error?.code || "NOTE_UPDATE_INVALID";
+        record.message = String(error?.message || error);
         record.finishedAt = now();
         journal?.write(operationId, record);
         throw error;
@@ -44,7 +45,7 @@ export function createNoteSaveOperations({ now = Date.now, limit = 64, ttlMs = 1
       if (record.noteId !== noteId || record.vaultPath !== vaultPath) throw invalid("NOTE_SAVE_VAULT_CHANGED", "保存对应的笔记库已变化，不能确认本次结果。");
       if (!active && record.state === "pending") return { state: "unknown" };
       // Cache expiry must not invalidate a durable receipt; the API checks the current file hash.
-      return { state: record.state, fileRevision: record.fileRevision, code: record.code };
+      return { state: record.state, fileRevision: record.fileRevision, code: record.code, message: record.message };
     }
   };
 }

@@ -123,7 +123,7 @@ function startApi(port, vaultPath) {
   });
 }
 
-test("writing first creation recovers the actual file after a lost response without reposting", async t => {
+test("writing first creation retries its stable ID after a lost response without changing the created file", async t => {
   const vaultPath = await makeTempDir("yansilu-api-writing-create-recovery-");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -137,9 +137,12 @@ test("writing first creation recovers the actual file after a lost response with
       createNote: async payload => {
         writes++;
         const result = await postJson(baseUrl, "/api/v1/notes", payload);
-        assert.equal(result.status, 201);
-        saved = result.json.item;
-        throw Object.assign(new Error("response lost"), { code: "request_timeout" });
+        if (result.status === 201) {
+          saved = result.json.item;
+          throw Object.assign(new Error("response lost"), { code: "request_timeout" });
+        }
+        assert.equal(result.json.error.code, "NOTE_ID_EXISTS");
+        throw Object.assign(new Error(result.json.error.message), { code: result.json.error.code });
       }, fetchNote: async noteId => available ? (await getJson(baseUrl, `/api/v1/notes/${noteId}`)).json.item : null
     };
     const payload = { directoryId: "dir_original_default", title: kind, body: `# ${kind}\n\nREAL-${kind}` };
@@ -149,7 +152,7 @@ test("writing first creation recovers the actual file after a lost response with
     const before = await fs.readFile(file, "utf8");
     available = true;
     const recovered = await createWritingNoteWithRecovery(holder, deps, { ...payload, body: "NEWER-INPUT" }, kind);
-    assert.equal(writes, 1);
+    assert.equal(writes, 2);
     assert.equal(recovered.note.id, `note_${id}`);
     assert.equal(recovered.note.fileRevision, saved.fileRevision);
     assert.equal(recovered.submittedBody, payload.body);

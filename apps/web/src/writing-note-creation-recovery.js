@@ -1,9 +1,10 @@
 import { withMoveDeadline } from "./note-move-recovery.js";
 import { writingCreationStorage } from "./writing-creation-storage.js";
 
-const uncertain = cause => Object.assign(new Error("创建结果尚未确认，输入仍保留。再次保存只会核查原笔记，不会重复创建；请检查本地服务。"), {
+const uncertain = cause => Object.assign(new Error("创建结果尚未确认，输入仍保留。再次保存会先核查原笔记；确认原编号不存在后才会用同一编号重试。"), {
   code: "NOTE_SAVE_RESULT_UNCERTAIN", cause
 });
+const retryableCreateErrors = new Set(["api_unavailable", "request_timeout", "NOTE_ID_EXISTS", "NOTE_SAVE_RESULT_UNCERTAIN"]);
 const randomId = () => {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -18,14 +19,17 @@ export async function createWritingNoteWithRecovery(holder, deps, payload, conte
   const vaultPath = deps.getVaultPath?.() || "";
   const storage = writingCreationStorage(deps, vaultPath, contextId);
   let pending = holder.pendingNoteCreation;
+  let retryConfirmedMissing = Boolean(pending);
   if (pending && (pending.scope !== scope || pending.vaultPath !== vaultPath || pending.contextId !== contextId)) {
     pending = null;
+    retryConfirmedMissing = false;
   }
   if (!pending) {
     const restored = storage?.read();
     if (restored) {
       pending = { ...restored, scope };
       holder.pendingNoteCreation = pending;
+      retryConfirmedMissing = true;
     }
   }
   const clear = () => {
@@ -52,16 +56,45 @@ export async function createWritingNoteWithRecovery(holder, deps, payload, conte
       }
     }
   }
-  try {
-    const note = await withMoveDeadline(() => deps.fetchNote(`note_${pending.id}`, {
-      timeoutMs: deps.creationVerifyTimeoutMs ?? 5000
-    }), deps.creationVerifyTimeoutMs ?? 5000);
-    if (!matches(note)) throw uncertain();
+  const readCreatedNote = async () => {
+    try {
+      const note = await withMoveDeadline(() => deps.fetchNote(`note_${pending.id}`, {
+        timeoutMs: deps.creationVerifyTimeoutMs ?? 5000
+      }), deps.creationVerifyTimeoutMs ?? 5000);
+      if (note == null) return null;
+      if (!matches(note)) throw uncertain();
+      return note;
+    } catch (error) {
+      if (error?.code === "NOTE_NOT_FOUND") return null;
+      throw uncertain(error);
+    }
+  };
+  let note = await readCreatedNote();
+  if (note) {
     clear();
     return { note, submittedBody: pending.payload.body, recovered: true };
-  } catch (error) {
-    throw uncertain(error);
   }
+  if (!retryConfirmedMissing) throw uncertain();
+  try {
+    const created = await withMoveDeadline(() => deps.createNote({ ...pending.payload, clientCreationId: pending.id,
+      ...(vaultPath ? { expectedVaultPath: vaultPath } : {}) }), deps.creationTimeoutMs ?? 15000);
+    if (matches(created)) {
+      clear();
+      return { note: created, submittedBody: pending.payload.body, recovered: true };
+    }
+  } catch (error) {
+    if (!retryableCreateErrors.has(error?.code)) {
+      storage?.clear();
+      clear();
+      throw error;
+    }
+  }
+  note = await readCreatedNote();
+  if (note) {
+    clear();
+    return { note, submittedBody: pending.payload.body, recovered: true };
+  }
+  throw uncertain();
 }
 
 export function acknowledgeWritingNoteBinding(deps, contextId, noteId) {

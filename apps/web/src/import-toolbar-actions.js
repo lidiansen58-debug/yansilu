@@ -104,7 +104,7 @@ export function createImportToolbarActions({
       }
       return result;
     } catch (error) {
-      const unconfirmed = ["IMPORT_CONFIRM_UNCERTAIN", "IMPORT_CONFIRM_PENDING"].includes(error?.code);
+      const unconfirmed = ["IMPORT_CONFIRM_UNCERTAIN", "IMPORT_CONFIRM_PENDING", "IMPORT_CONFIRM_RETRYABLE"].includes(error?.code);
       showImportResult?.({
         stage: unconfirmed ? "confirm_pending" : "confirm_error",
         importRecordId,

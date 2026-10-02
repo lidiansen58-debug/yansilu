@@ -375,7 +375,9 @@ export function resultStatusLabel(tone) {
 }
 
 export function resultBrief(payload = {}, tone = resultTone(payload)) {
-  if (payload.stage === "confirm_pending") return "尚未确认最终结果，请先核查这次导入。";
+  if (payload.stage === "confirm_pending") return payload.code === "IMPORT_CONFIRM_RETRYABLE"
+    ? "服务端确认尚未开始写入，可以再次点击确认安全重试。"
+    : "尚未确认最终结果，请先核查这次导入。";
   const stage = String(payload.stage || "").trim();
   if (tone === "bad") return "这一步没有完成，请先处理下面的问题。";
   if (stage === "preview" && previewCandidateTotal(payload) === 0) {

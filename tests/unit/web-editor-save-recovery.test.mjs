@@ -65,6 +65,61 @@ test("storage quota failure prevents saving and explicit prewrite conflict clear
   assert.equal(f.records.size, 0);
 });
 
+test("known prewrite failure receipts clear the recovery marker and allow corrected input", async () => {
+  const f = fixture();
+  let operation = 0, writes = 0;
+  const deps = { ...f.deps,
+    createSaveOperationId: () => `operation-${++operation}`,
+    updateNote: async (_id, payload) => {
+      writes++;
+      if (writes === 1) throw Object.assign(new Error("response lost"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+      return { ...note, body: payload.body };
+    }
+  };
+  await assert.rejects(saveEditorNoteWithRecovery(deps, "n", { body: "blocked input" }), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+  f.result({ state: "failed", code: "PERMANENT_ORIGINALITY_BLOCKED", message: "Please rewrite in your own words." });
+  await assert.rejects(saveEditorNoteWithRecovery(deps, "n", { body: "corrected input" }), {
+    code: "PERMANENT_ORIGINALITY_BLOCKED", message: "Please rewrite in your own words."
+  });
+  assert.equal(f.records.size, 0);
+  assert.equal((await saveEditorNoteWithRecovery(deps, "n", { body: "corrected input" })).body, "corrected input");
+  assert.equal(writes, 2);
+});
+
+test("unknown receipt retries once with the current compare-and-swap baseline", async () => {
+  const f = fixture();
+  let sequence = 0;
+  const writes = [];
+  const deps = { ...f.deps,
+    createSaveOperationId: () => `operation-${++sequence}`,
+    updateNote: async (_id, payload, options) => {
+      writes.push({ payload, operationId: options.operationId });
+      if (writes.length === 1) throw Object.assign(new Error("lost"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+      return { ...note, body: payload.body };
+    }
+  };
+  const payload = { body: "Submitted", expectedBody: "Base", expectedRevision: "b".repeat(64) };
+  await assert.rejects(saveEditorNoteWithRecovery(deps, "n", payload), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+  assert.equal(writes.length, 1);
+  f.result({ state: "unknown" });
+  const saved = await saveEditorNoteWithRecovery(deps, "n", { ...payload, body: "Latest input" });
+  assert.equal(saved.body, "Latest input");
+  assert.equal(writes.length, 2);
+  assert.deepEqual(writes.map(item => item.operationId), ["operation-1", "operation-2"]);
+  assert.equal(writes[1].payload.expectedBody, "Base");
+  assert.equal(writes[1].payload.expectedRevision, "b".repeat(64));
+  assert.equal(f.records.size, 0);
+});
+
+test("unknown receipt without a full-file revision baseline stays blocked safely", async () => {
+  const f = fixture();
+  await assert.rejects(saveEditorNoteWithRecovery(f.deps, "n", { body: note.body }), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+  f.result({ state: "unknown" });
+  await assert.rejects(saveEditorNoteWithRecovery(f.deps, "n", { body: "NEWER", expectedBody: "OLD" }), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+  assert.equal(f.writes(), 1);
+  assert.equal(f.records.size, 1);
+});
+
 test("a switch during receipt verification cannot return old data to the new vault", async () => {
   const f = fixture();
   await assert.rejects(saveEditorNoteWithRecovery(f.deps, "n", { body: note.body }));

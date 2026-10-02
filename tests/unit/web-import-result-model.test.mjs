@@ -59,6 +59,7 @@ test("import result model derives plain-language briefs", () => {
 test("unconfirmed import never suggests continuing or duplicates its error code", () => {
   const payload = { stage: "confirm_pending", code: "IMPORT_CONFIRM_UNCERTAIN", message: "Check again" };
   assert.equal(resultBrief(payload), "尚未确认最终结果，请先核查这次导入。");
+  assert.equal(resultBrief({ ...payload, code: "IMPORT_CONFIRM_RETRYABLE" }), "服务端确认尚未开始写入，可以再次点击确认安全重试。");
   assert.deepEqual(warningItems(payload), []);
 });
 

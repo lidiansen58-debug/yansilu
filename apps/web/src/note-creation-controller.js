@@ -29,13 +29,14 @@ export function createNoteCreationController({ state, folderById, findUntitledPl
     op.body = initialBodyForFolder(op.folderId);
     op.journal?.write(op);
     op.posted = true;
-    const created = await createNote({ directoryId: op.folderId, body: op.body, clientCreationId: op.id,
-      ...(op.vaultPath ? { expectedVaultPath: op.vaultPath } : {}) });
+    const created = await createNotePayload(op);
     if (created?.id !== `note_${op.id}` || !created.directoryId || typeof created.body !== "string") {
       throw Object.assign(new Error("本地服务没有返回匹配的创建结果"), { code: "api_unavailable" });
     }
     return { created };
   };
+  const createNotePayload = op => createNote({ directoryId: op.folderId, body: op.body, clientCreationId: op.id,
+    ...(op.vaultPath ? { expectedVaultPath: op.vaultPath } : {}) });
   const finish = (op, result) => {
     assertCurrent(op);
     op.journal?.clear(op.id);
@@ -50,7 +51,7 @@ export function createNoteCreationController({ state, folderById, findUntitledPl
       preferPlainEditor: op.options.preferPlainEditor === true });
     return { note, remote: result.remote !== false, reused: Boolean(result.reused), cleanedCount: 0 };
   };
-  const reconcile = async op => {
+  const reconcile = async (op, retryConfirmedMissing = false) => {
     assertCurrent(op);
     if (op.result && !op.needsVerification) return finish(op, op.result);
     if (op.error && (!op.posted || ["VAULT_CHANGED", "desktop_api_unavailable"].includes(op.error.code))) {
@@ -69,10 +70,26 @@ export function createNoteCreationController({ state, folderById, findUntitledPl
           return finish(op, { created });
         }
         confirmedMissing = created == null;
-      } catch { /* A missing response does not prove that creation failed. */ }
+      } catch (error) {
+        if (error?.code === "NOTE_NOT_FOUND") confirmedMissing = true;
+      }
     }
     assertCurrent(op);
     if (op.error && !uncertain(op.error) && confirmedMissing) { op.journal?.clear(op.id); release(op); pending = null; return failure(op.error); }
+    if (confirmedMissing && retryConfirmedMissing) {
+      try {
+        const created = await withMoveDeadline(() => createNotePayload(op), timeoutMs);
+        assertCurrent(op);
+        if (created?.id === `note_${op.id}` && created.directoryId && typeof created.body === "string") {
+          return finish(op, { created });
+        }
+        op.error = Object.assign(new Error("本地服务没有返回匹配的创建结果"), { code: "api_unavailable" });
+      } catch (error) {
+        op.error = error;
+      }
+      op.needsVerification = true;
+      return reconcile(op);
+    }
     return failure(Object.assign(new Error("创建结果尚未确认。再次点击新建会核查同一条笔记，不会重复创建；请检查本地服务。"), { code: "creation_pending" }));
   };
   const run = async options => {
@@ -87,7 +104,7 @@ export function createNoteCreationController({ state, folderById, findUntitledPl
         state.pendingNoteCreation = pending;
       }
     }
-    if (pending) { pending.needsVerification = true; return reconcile(pending); }
+    if (pending) { pending.needsVerification = true; return reconcile(pending, true); }
     const op = { scope: scope(), controller: new AbortController(), vaultPath: getVaultPath(), folderId: state.selectedFolderId, options: { ...options }, id: createId() };
     op.journal = noteCreationStorage(getStorage(), op.vaultPath);
     pending = op;

@@ -20,3 +20,32 @@ export function persistImportWorkspace(storage, vault, state, values) {
   storage?.setItem(storageKey(vault), JSON.stringify({ values, preview: state.lastPreview,
     selectedIds: [...(state.selectedCandidateIds || [])] }));
 }
+
+export function createImportWorkspaceRecovery({ getVaultPath = () => "", getStorage = () => null,
+  importState = {}, setStatus = () => {} } = {}) {
+  let loadedVault = "", restoredValues = null;
+  function restore() {
+    const vault = getVaultPath();
+    if (!vault || vault === loadedVault) return null;
+    if (loadedVault) {
+      importState.importRecordId = "";
+      importState.lastPreview = null;
+      importState.lastResultPayload = null;
+      importState.lastExportResultPayload = null;
+      importState.operationResultVisible = false;
+      importState.selectionImportRecordId = "";
+      importState.selectedCandidateIds = new Set();
+    }
+    loadedVault = vault;
+    try { restoredValues = restoreImportWorkspace(getStorage(), vault, importState); }
+    catch { setStatus("本机导入恢复记录无法读取，请重新核对预览。", "warn"); restoredValues = null; }
+    return restoredValues || { importRecordId: "", path: "", payload: "", options: "", directoryId: "dir_original_default" };
+  }
+  function checkpoint(values) {
+    const vault = getVaultPath();
+    if (!vault) return;
+    try { persistImportWorkspace(getStorage(), vault, importState, values); }
+    catch { setStatus("导入页面的本机恢复记录保存失败，请勿刷新页面。", "warn"); }
+  }
+  return { restore, checkpoint };
+}

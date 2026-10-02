@@ -14,7 +14,7 @@ async function fixture() {
   const source = await createNoteInDirectory(vaultPath, { directoryId: "dir_original_default", title: "真实来源", body: "# 真实来源\n\nSOURCE" });
   const notes = [];
   for (let index = 1; index <= 3; index++) notes.push(await createNoteInDirectory(vaultPath, {
-    directoryId: "dir_original_default", title: `Chapter ${index}`, body: `# Chapter ${index}\n\nUNIQUE-BODY-${index}\n\n[[真实来源]]\n\n    indented code  \n\nEnd\n`
+    directoryId: "dir_original_default", title: `Chapter ${index}`, body: `# Chapter ${index}\n\nUNIQUE-BODY-${index}\n\n[[${source.id}|真实来源]]\n\n    indented code  \n\nEnd\n`
   }));
   await createNoteInDirectory(vaultPath, { directoryId: "dir_original_default", title: "Unrelated", body: "OTHER-PROJECT-PROSE" });
   const project = await createWritingProject(vaultPath, { title: "三章书稿", basketNoteIds: [source.id], bookStructure: { schema_version: 1,
@@ -36,7 +36,8 @@ test("book export combines real saved chapters in directory order without mixing
   assert.ok(body.indexOf("UNIQUE-BODY-2") < body.indexOf("UNIQUE-BODY-1"));
   assert.match(body, /^# 三章书稿/);
   assert.match(body, /### Chapter 3/);
-  assert.match(body, /\[\[真实来源\]\]/);
+  assert.match(body, new RegExp(`\\[\\[${s.source.id}\\|真实来源\\]\\]`));
+  assert.doesNotMatch(body, /参考笔记：/);
   assert.match(body, /    indented code  \n/);
   assert.doesNotMatch(body, /OTHER-PROJECT-PROSE|draft_note_id/);
   assert.deepEqual(await Promise.all(s.notes.map(note => fs.readFile(path.join(s.vaultPath, note.markdownPath), "utf8"))), snapshots);
@@ -85,6 +86,17 @@ test("targets inside the vault are refused and absent body source citations use 
   const s = await fixture();
   await updateNoteById(s.vaultPath, s.notes[0].id, { body: "Text without generated citations" });
   const output = await buildBookExport(s);
-  assert.match(output.markdown, /参考笔记：\[\[真实来源\]\]/);
+  assert.ok(output.markdown.includes(`参考笔记：[[${s.source.id}|真实来源]]`));
   await assert.rejects(exportBook({ ...s, targetPath: path.join(s.vaultPath, "output") }), /笔记库之外/);
+});
+
+test("generated evidence links stay unambiguous when source titles are duplicated", async () => {
+  const s = await fixture();
+  const duplicate = await createNoteInDirectory(s.vaultPath, { directoryId: "dir_original_default", title: s.source.title, body: "# 真实来源\n\nOTHER SOURCE" });
+  const structure = structuredClone(s.expectedBookStructure);
+  structure.parts[0].chapters[0].evidence_note_ids = [s.source.id, duplicate.id];
+  const updated = await updateWritingProjectBookStructure(s.vaultPath, s.projectId, { bookStructure: structure });
+  await updateNoteById(s.vaultPath, s.notes[0].id, { body: "No source links here" });
+  const output = await buildBookExport({ ...s, expectedBookStructure: updated.book_structure });
+  assert.ok(output.markdown.includes(`参考笔记：[[${s.source.id}|真实来源]]、[[${duplicate.id}|真实来源]]`));
 });

@@ -3,6 +3,7 @@ import { withMoveDeadline } from "./note-move-recovery.js";
 const unknown = cause => Object.assign(new Error("导入结果尚未确认。再次确认只会核查原记录，不会重复导入；请检查本地服务。"), {
   code: "IMPORT_CONFIRM_UNCERTAIN", cause
 });
+const recoveryKey = id => `yansilu:import-confirm:v1:${encodeURIComponent(id)}`;
 const validResult = value => Array.isArray(value?.createdFiles) && ["sources", "literatureNotes", "permanentNotes"]
   .every(key => Number.isInteger(value?.created?.[key]) && value.created[key] >= 0);
 const completed = (value, id) => value?.importRecordId === id && value.status === "completed" && validResult(value.result);
@@ -20,6 +21,7 @@ export function createImportConfirmationRecovery({ write, read, getStorage = () 
       return entry.result;
     }
     if (record.status === "confirming") throw Object.assign(new Error("仍在导入。再次确认只会核查进度，不会重复提交。"), { code: "IMPORT_CONFIRM_PENDING" });
+    if (record.status === "preview") throw Object.assign(new Error("服务端确认尚未开始写入；再次点击确认可以安全重试。"), { code: "IMPORT_CONFIRM_RETRYABLE" });
     if (record.status === "interrupted") {
       const files = record.recoveryResult?.files || [];
       const summary = record.recoveryResult?.checkpointAvailable
@@ -46,7 +48,7 @@ export function createImportConfirmationRecovery({ write, read, getStorage = () 
       if (records.size >= limit) return Promise.reject(unknown());
       try {
         storage = getStorage();
-        key = `yansilu:import-confirm:v1:${encodeURIComponent(id)}`;
+        key = recoveryKey(id);
         const marker = storage?.getItem(key);
         if (marker !== null && marker !== undefined && marker !== "submitted") throw new Error("Invalid recovery marker");
         first = marker !== "submitted";
@@ -71,7 +73,19 @@ export function createImportConfirmationRecovery({ write, read, getStorage = () 
           }
         }
       }
-      return verify(id, entry);
+      try { return await verify(id, entry); }
+      catch (error) {
+        if (error?.code === "IMPORT_CONFIRM_RETRYABLE") {
+          try { (storage || getStorage())?.removeItem(key || recoveryKey(id)); }
+          catch (cause) {
+            throw Object.assign(new Error("服务端确认尚未开始写入，但本机恢复标记无法清除；请检查本地存储后重试。"), {
+              code: "IMPORT_RECOVERY_STORAGE_FAILED", cause
+            });
+          }
+          records.delete(id);
+        }
+        throw error;
+      }
     }).finally(() => { entry.promise = null; });
     return entry.promise;
   };

@@ -108,7 +108,7 @@ test("damaged chapter recovery record does not commit a partial selection", asyn
 test("chapter selection, separate saving and return preserve the article and real references", async () => {
   const s = setup();
   await selectWritingDraftTarget(s.deps, "first");
-  assert.match(s.editor.value, /\[\[Real source\]\]/);
+  assert.match(s.editor.value, /\[\[source\|Real source\]\]/);
   s.editor.value += "My first chapter";
   recordWritingDraftInput(s.deps, s.editor.value);
   assert.throws(() => assertWritingDraftCanLeave(s.writingState), /章节还有未保存/);
@@ -122,6 +122,15 @@ test("chapter selection, separate saving and return preserve the article and rea
   assert.match(s.editor.value, /Saved chapter-second/);
   await selectWritingDraftTarget(s.deps, "");
   assert.equal(s.editor.value, "# Article\n\nKeep article prose");
+});
+
+test("new chapter seed preserves IDs when evidence notes share a title", async () => {
+  const s = setup();
+  s.state.notes.push({ id: "source-duplicate", title: "Real source" });
+  s.writingState.project.book_structure.parts[0].chapters[0].evidence_note_ids = ["source", "source-duplicate"];
+  await selectWritingDraftTarget(s.deps, "first");
+  assert.match(s.editor.value, /\[\[source\|Real source\]\]/);
+  assert.match(s.editor.value, /\[\[source-duplicate\|Real source\]\]/);
 });
 
 test("article unsaved input blocks entering a chapter", async () => {
@@ -147,20 +156,20 @@ test("uncertain first chapter creation only rechecks and keeps later prose", asy
   await handleWritingSaveDraftClick(s.deps);
   assert.equal(s.writingState.bookChapter.saveState, "error");
   await handleWritingSaveDraftClick(s.deps);
-  assert.equal(creates, 1);
+  assert.equal(creates, 2);
   s.editor.value += "\nLater chapter prose";
   recordWritingDraftInput(s.deps, s.editor.value);
   found = saved;
   await handleWritingSaveDraftClick(s.deps);
-  assert.equal(creates, 1);
-  assert.equal(reads, 3);
+  assert.equal(creates, 2);
+  assert.equal(reads, 4);
   assert.equal(s.writingState.bookChapter.noteId, saved.id);
   assert.equal(s.writingState.bookChapter.saveState, "dirty");
   assert.match(s.editor.value, /Later chapter prose/);
   assert.doesNotMatch(s.writingState.bookChapter.savedBody, /Later chapter prose/);
   await handleWritingSaveDraftClick(s.deps);
   assert.equal(s.writingState.bookChapter.saveState, "saved");
-  assert.equal(creates, 1);
+  assert.equal(creates, 2);
 });
 
 test("creation readback cannot replace chapter input with externally changed prose", async () => {
