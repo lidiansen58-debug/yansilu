@@ -142,6 +142,8 @@ test("note creation actions record original notes and update the source note mar
     title: "Source",
     savedTitle: "Source",
     dirty: false,
+    savedFileRevision: undefined,
+    saveConflict: false,
     saveUiState: { mode: "saved", message: "当前文件：已自动同步" }
   });
   assert.deepEqual(calls.filter((call) => call[0] === "activate" || call[0] === "open"), [

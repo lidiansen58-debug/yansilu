@@ -17,6 +17,75 @@ async function append(page, text) {
 }
 
 for (const kind of ["fleeting", "literature"]) {
+  for (const scenario of ["switch-note", "external-conflict"]) {
+    test(`${kind} promotion respects current navigation and external edits: ${scenario}`, async t => {
+      if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+      const pw = await optionalPlaywright(t);
+      if (!pw) return;
+      const stack = await startPrototypeStack(t, pw);
+      if (!stack) return;
+      const { page, apiBase } = stack;
+      const body = kind === "literature" ? composeLiteratureWorkspace({ title: "阅读材料",
+        originalText: "需要检验理解。", paraphrase: "离开原文表达能检验理解。", supportsJudgment: "用回忆检验理解。",
+        citation: { authors: "作者甲", year: "2024", sourceTitle: "学习方法", locator: "第 12 页" } }) : "# 随手记录\n\n保留当前想法。";
+      const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: `dir_${kind}_default`, body })).json.item;
+      const other = (await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_fleeting_default", body: "# 另一条笔记\n\n继续编辑这里。" })).json.item;
+      await open(page, source.id);
+      let release, entered, sourceWrites = 0;
+      const gate = new Promise(resolve => { release = resolve; });
+      const started = new Promise(resolve => { entered = resolve; });
+      t.after(() => release());
+      const endpoint = scenario === "switch-note" ? "**/api/v1/notes" : `**/api/v1/notes/${source.id}`;
+      const method = scenario === "switch-note" ? "POST" : "PUT";
+      await page.route(endpoint, async route => {
+        if (route.request().method() !== method) return route.continue();
+        sourceWrites++;
+        entered(); await gate;
+        return route.continue();
+      });
+      await page.locator("#btnRecordPermanent").click();
+      await page.locator("#permanentNoteCreate").click();
+      await started;
+      let externalBody;
+      if (scenario === "switch-note") {
+        await open(page, other.id);
+        await append(page, "\n新笔记里的输入不能被打断。");
+      } else {
+        externalBody = `${source.body}\n\n外部程序新增的材料。`;
+        const response = await fetch(`${apiBase}/api/v1/notes/${source.id}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: source.title, body: externalBody, status: "draft", expectedRevision: source.fileRevision })
+        });
+        assert.equal(response.status, 200);
+      }
+      release();
+      await page.waitForFunction(() => !window.__prototypeEditor.savingPromise);
+      const tab = await page.evaluate(id => window.__prototypeState.tabs.find(tab => tab.noteId === id), source.id);
+      const permanentId = await page.evaluate(id => window.__prototypeState.notes.find(note => note.id === id).generatedOriginalNoteId, source.id);
+      assert.ok(permanentId);
+      const permanent = (await fetchJson(apiBase, `/api/v1/notes/${permanentId}`)).json.item;
+      assert.match(permanent.body, new RegExp(`\\[\\[${source.id}\\|`));
+      if (scenario === "switch-note") {
+        assert.equal(await page.evaluate(() => window.__prototypeEditor.activeNote().id), other.id);
+        assert.match(await page.evaluate(() => window.__prototypeEditor.getEditorValue()), /新笔记里的输入不能被打断/);
+      } else {
+        assert.equal(tab.saveConflict, true);
+        assert.equal(tab.saveUiState.mode, "conflict");
+        assert.equal(tab.dirty, true);
+        const saved = (await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item;
+        assert.equal(saved.body.trim(), externalBody.trim());
+        assert.doesNotMatch(saved.body, /generated-original=/);
+        assert.match(tab.body, /generated-original=/);
+        assert.equal(sourceWrites, 1);
+        const draft = await page.evaluate(id => JSON.parse(localStorage.getItem(`yansilu:draft:${id}`)), source.id);
+        assert.equal(draft.savedFileRevision, source.fileRevision);
+        assert.equal(draft.body, tab.body);
+      }
+    });
+  }
+}
+
+for (const kind of ["fleeting", "literature"]) {
   for (const outcome of ["success", "failure", "missing-result"]) {
     test(`${kind} promotion retains current edits and source links: ${outcome}`, async t => {
       if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
@@ -73,7 +142,8 @@ for (const kind of ["fleeting", "literature"]) {
         if (outcome === "success") assert.match(saved.body, /创建期间的新想法/);
         else {
           assert.equal(saved.body, source.body);
-          assert.equal(tab.saveUiState.mode, "error");
+          assert.equal(tab.saveUiState.mode, outcome === "missing-result" ? "uncertain" : "error");
+          if (outcome === "missing-result") assert.equal(tab.saveConflict, true);
           assert.match(await page.locator("#statusText").textContent(), /来源笔记标记保存失败/);
         }
         const permanent = (await fetchJson(apiBase, `/api/v1/notes/${permanentId}`)).json.item;
