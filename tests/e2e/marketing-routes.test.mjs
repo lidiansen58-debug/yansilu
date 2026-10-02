@@ -98,6 +98,22 @@ test("marketing routes expose static marketing pages", async (t) => {
       assert.match(html, /v2-final-cta/);
       assert.doesNotMatch(html, /v2-workflow-rail/);
       assert.doesNotMatch(html, />连接<\/span>/);
+      assert.match(html, /正文链接和外部关联共同进入图谱/);
+      assert.match(html, /默认不修改原 Vault，可导回 Markdown/);
+      assert.match(html, /章节可编辑和调整顺序/);
+      assert.match(html, /复制正文或导出文章、整稿/);
+      assert.match(html, /建议可能遗漏或出错/);
+      assert.match(html, /不用 AI 也能完成整理和写作/);
+      assert.doesNotMatch(html, /我真正理解|组织复杂文章与书稿|所有建议都能修改或拒绝/);
+    }
+    if (route === "/about") {
+      assert.match(html, /保留依据和反例/);
+      assert.match(html, /不是一键生成的保证/);
+      assert.doesNotMatch(html, /真正原创的文章和书籍/);
+    }
+    if (route === "/download") {
+      assert.match(html, /需自行配置模型服务/);
+      assert.match(html, /不用 AI 也能整理笔记和写作/);
     }
     if (route === "/demo") {
       assert.match(html, /\/demo\/zettelkasten/);
