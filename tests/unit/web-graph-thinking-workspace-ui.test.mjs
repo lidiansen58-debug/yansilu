@@ -21,7 +21,7 @@ test("graph empty question chip stays actionable and opens the scan surface", ()
 
   assert.match(match[1], /const empty = !total;/);
   assert.match(match[1], /graph-question-chip\$\{open \? " is-open" : ""\}\$\{empty \? " is-empty" : ""\}/);
-  assert.match(match[1], /aria-label="\$\{empty \? "鎵撳紑鍙拷闂骞惰繍琛屽浘璋辨壂鎻? : "鎵撳紑鍙拷闂"\}"/);
+  assert.match(match[1], /aria-label="\$\{empty \? "\u6253\u5f00\u53ef\u8ffd\u95ee\u5904\u5e76\u8fd0\u884c\u56fe\u8c31\u626b\u63cf" : "\u6253\u5f00\u53ef\u8ffd\u95ee\u5904"\}"/);
   assert.doesNotMatch(match[1], /\sdisabled\b/, "empty state should not disable the thinking entry");
 });
 
@@ -66,15 +66,15 @@ test("graph edges use softer asymmetric curves and slimmer arrow markers", () =>
   const source = readPrototypeApp();
   const html = readPrototypeHtml();
 
-  assert.match(source, /const curveMagnitude = Math\.min\(38, Math\.max\(10, length \* 0\.085\)\);/);
+  assert.match(source, /const curveMagnitude = Math\.min\(42, Math\.max\(12, length \* 0\.09 \* curveBoost\)\);/);
   assert.match(source, /const driftSeed = \(\(graphHash\(`\$\{edge\.fromNoteId\}:\$\{edge\.toNoteId\}:\$\{edge\.relationType\}:drift`\) % 9\) - 4\) \/ 4;/);
   assert.match(source, /const control1X = startX \+ dx \* 0\.28 \+ controlOffsetX - unitX \* forwardDrift;/);
   assert.match(source, /const control2X = startX \+ dx \* 0\.72 \+ controlOffsetX \+ unitX \* forwardDrift;/);
-  assert.match(source, /markerWidth="10" markerHeight="10" refX="8" refY="5"/);
-  assert.match(source, /<path d="M 2 2\.4 L 8 5 L 2 7\.6" fill="none" stroke="\$\{escapeHtml\(color\)\}" stroke-width="1\.35"/);
-  assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: 1\.35;[\s\S]*opacity: 0\.52;[\s\S]*marker-end: var\(--graph-edge-marker, none\);/);
-  assert.match(html, /\.graph-map-edge-underlay \{[\s\S]*stroke-width: 5\.2;[\s\S]*opacity: 0\.24;/);
-  assert.match(html, /\.graph-map-edge-group:hover \.graph-map-edge,[\s\S]*stroke-width: 2\.3;/);
+  assert.match(source, /markerWidth="5\.2" markerHeight="5\.2" refX="4\.45" refY="2\.6"/);
+  assert.match(source, /<path d="M 0\.9 1\.05 L 4\.45 2\.6 L 0\.9 4\.15" fill="none" stroke="\$\{escapeHtml\(color\)\}" stroke-opacity="0\.68" stroke-width="0\.76"/);
+  assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: 0\.38;[\s\S]*opacity: 0\.38;[\s\S]*marker-end: var\(--graph-edge-marker, none\);/);
+  assert.match(html, /\.graph-map-edge-underlay \{[\s\S]*stroke-width: 1\.02;[\s\S]*opacity: 0\.09;/);
+  assert.match(html, /\.graph-map-edge-group:hover \.graph-map-edge,[\s\S]*stroke-width: 0\.92;/);
 });
 
 test("graph isolated notes become visible selectable orbit nodes", () => {
