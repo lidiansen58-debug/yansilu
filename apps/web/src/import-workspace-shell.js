@@ -1,3 +1,5 @@
+import { createImportWorkspaceRecovery } from "./import-workspace-recovery.js";
+
 export function normalizeImportWorkspaceTab(tab = "import") {
   return String(tab || "").trim().toLowerCase() === "export" ? "export" : "import";
 }
@@ -5,6 +7,9 @@ export function normalizeImportWorkspaceTab(tab = "import") {
 export function createImportWorkspaceShellController({
   getElement = () => null,
   importState = {},
+  getVaultPath = () => "",
+  getStorage = () => null,
+  setStatus = () => {},
   renderImportPageMount,
   renderImportToolbarMount,
   preferredImportDirectoryId = (value) => value,
@@ -15,6 +20,7 @@ export function createImportWorkspaceShellController({
   directoryPathLabel = (directoryId) => directoryId,
   mountExportCardIntoImportShell = () => {}
 } = {}) {
+  const recovery = createImportWorkspaceRecovery({ getVaultPath, getStorage, importState, setStatus });
   function currentToolbarValues() {
     return {
       connector: String(getElement("importConnector")?.value || "obsidian").trim(),
@@ -29,7 +35,7 @@ export function createImportWorkspaceShellController({
   function renderToolbar() {
     const el = getElement("importToolbarMount");
     if (!el) return;
-    const values = currentToolbarValues();
+    const values = recovery.restore() || currentToolbarValues();
     importState.directoryId = preferredImportDirectoryId(values.directoryId);
     const preview = activeImportPreviewContext();
     const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === values.importRecordId);
@@ -51,6 +57,7 @@ export function createImportWorkspaceShellController({
       })),
       confirmButton
     });
+    recovery.checkpoint(values);
   }
 
   function syncTabs() {
@@ -74,9 +81,14 @@ export function createImportWorkspaceShellController({
   function renderPage() {
     const el = getElement("importPageMount");
     if (!el) return;
+    const toolbar = recovery.restore() || currentToolbarValues();
     el.innerHTML = renderImportPageMount({
-      toolbar: currentToolbarValues(),
+      toolbar,
       activeTab: importState.activeTab,
+      resultVisible: importState.operationResultVisible === true,
+      resultMode: importState.operationResultMode,
+      exportResult: importState.lastExportResultPayload
+        ? { data: importState.lastExportResultPayload, raw: JSON.stringify(importState.lastExportResultPayload, null, 2) } : null,
       result: importState.lastResultPayload
         ? {
             data: importState.lastResultPayload,
@@ -84,6 +96,7 @@ export function createImportWorkspaceShellController({
           }
         : null
     });
+    renderToolbar();
     mountExportCardIntoImportShell();
     syncTabs();
   }
@@ -94,6 +107,7 @@ export function createImportWorkspaceShellController({
   }
 
   return {
+    checkpoint: () => recovery.checkpoint(currentToolbarValues()),
     currentToolbarValues,
     normalizeTab: normalizeImportWorkspaceTab,
     renderPage,

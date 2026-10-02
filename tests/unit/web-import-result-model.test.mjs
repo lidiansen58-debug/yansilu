@@ -11,6 +11,22 @@ import {
   warningItems
 } from "../../apps/web/src/import-result-model.js";
 
+test("interrupted imports show verified, changed, missing and unconfirmed items distinctly", () => {
+  const payload = { stage: "record", importRecord: { status: "interrupted", recoveryResult: {
+    checkpointAvailable: true, pending: { noteId: "pending-note" }, files: [
+      { status: "verified", relativePath: "notes/one.md" },
+      { status: "changed", relativePath: "notes/two.md" },
+      { status: "missing", relativePath: "notes/three.md" }
+    ]
+  } } };
+  const warnings = warningItems(payload);
+  assert.ok(warnings.some(item => item.message.includes("内容已核对：notes/one.md")));
+  assert.ok(warnings.some(item => item.message.includes("内容已变化：notes/two.md")));
+  assert.ok(warnings.some(item => item.message.includes("文件已缺失：notes/three.md")));
+  assert.ok(warnings.some(item => item.message.includes("结果未确认：pending-note")));
+  assert.doesNotMatch(resultStatusLabel(payload), /^已导入$/);
+});
+
 test("import result model derives simplified preview title tone metrics subtitle", () => {
   const payload = {
     stage: "preview",
@@ -38,6 +54,13 @@ test("import result model derives plain-language briefs", () => {
   assert.equal(resultBrief({ stage: "preview" }, "ok"), "检查可导入内容，确认后再导入。");
   assert.equal(resultBrief({ stage: "export_markdown" }, "ok"), "导出文件已经写到目标目录。");
   assert.equal(resultBrief({ stage: "preview_error" }, "bad"), "这一步没有完成，请先处理下面的问题。");
+});
+
+test("unconfirmed import never suggests continuing or duplicates its error code", () => {
+  const payload = { stage: "confirm_pending", code: "IMPORT_CONFIRM_UNCERTAIN", message: "Check again" };
+  assert.equal(resultBrief(payload), "尚未确认最终结果，请先核查这次导入。");
+  assert.equal(resultBrief({ ...payload, code: "IMPORT_CONFIRM_RETRYABLE" }), "服务端确认尚未开始写入，可以再次点击确认安全重试。");
+  assert.deepEqual(warningItems(payload), []);
 });
 
 test("import result model derives warnings and actions from originality and skipped files", () => {

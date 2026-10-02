@@ -51,6 +51,7 @@ export function mapNoteItem(item, {
     noteType,
     status: item.status || "draft",
     markdownPath: item.markdownPath || "",
+    fileRevision: item.fileRevision,
     linkAliases: Array.isArray(item.linkAliases) ? item.linkAliases : [],
     body,
     originalityStatus: item.originalityStatus || item.originality_status || "",

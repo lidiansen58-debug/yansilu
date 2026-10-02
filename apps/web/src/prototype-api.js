@@ -1,4 +1,6 @@
 import { aiSuggestionFromCanonical } from "./ai-suggestions-model.js";
+import { saveNoteWithReadback } from "./note-save-readback.js";
+import { createImportConfirmationRecovery } from "./import-confirmation-recovery.js";
 import {
   apiBaseFromDesktopServiceStatus,
   desktopServiceStatusMessage,
@@ -984,14 +986,24 @@ export async function deleteNoteRelation(relationId) {
   return request(`/api/v1/relations/${encodeURIComponent(relationId)}`, { method: "DELETE" });
 }
 
-export async function updateNote(noteId, payload) {
+export async function checkNoteSave(noteId, operationId, options = {}) {
+  const query = new URLSearchParams({ operationId });
+  if (options.expectedVaultPath) query.set("expectedVaultPath", options.expectedVaultPath);
+  return (await request(`/api/v1/notes/${encodeURIComponent(noteId)}/save-status?${query}`, { timeoutMs: 5000, cache: "no-store" })).item;
+}
+
+export async function updateNote(noteId, payload, options = {}) {
   if (!noteId) throw new Error("noteId is required");
-  const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload || {})
+  const operationId = options.operationId || (typeof crypto.randomUUID === "function" ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join(""));
+  const route = `/api/v1/notes/${encodeURIComponent(noteId)}`;
+  return saveNoteWithReadback({ noteId, payload, operationId,
+    write: async body => (await request(route, {
+      method: "PUT", timeoutMs: 15000,
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    })).item,
+    check: id => checkNoteSave(noteId, id, { expectedVaultPath: payload?.expectedVaultPath })
   });
-  return json.item || null;
 }
 
 export async function checkNoteMove(noteId, operationId, options = {}) {
@@ -1073,20 +1085,37 @@ export async function previewImport({ connector, payload, options } = {}) {
   });
 }
 
-export async function confirmImport(importRecordId, payload = {}) {
-  if (!importRecordId) throw new Error("importRecordId is required");
-  return request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/confirm`, {
+const recoverImportConfirmation = createImportConfirmationRecovery({
+  getStorage: () => typeof window === "undefined" ? null : window.localStorage,
+  write: (importRecordId, payload) => request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/confirm`, {
     method: "POST",
+    timeoutMs: 30000,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       confirm: true,
       ...payload
     })
-  });
+  }),
+  read: async importRecordId => (await request(`/api/v1/imports/${encodeURIComponent(importRecordId)}`, {
+    timeoutMs: 5000, cache: "no-store"
+  })).importRecord
+});
+
+export function confirmImport(importRecordId, payload = {}) {
+  if (!importRecordId) return Promise.reject(new Error("importRecordId is required"));
+  return recoverImportConfirmation(importRecordId, payload);
 }
 
 export async function exportWritingArticle(payload) {
   return request("/api/v1/exports/article", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...LOCAL_RUNTIME_CONTROL_HEADERS },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function exportWritingBook(payload) {
+  return request("/api/v1/exports/book", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...LOCAL_RUNTIME_CONTROL_HEADERS },
     body: JSON.stringify(payload)
@@ -1258,7 +1287,7 @@ export async function updateDraftNoteVersionNote(draftVersionId, versionNote = "
   return json.item || null;
 }
 
-export async function bindWritingDraftNote(writingProjectId, draftNoteId, sourceScaffoldId = "", versionNote = "") {
+export async function bindWritingDraftNote(writingProjectId, draftNoteId, sourceScaffoldId = "", versionNote = "", options = {}) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   const cleanDraftNoteId = String(draftNoteId || "").trim();
   const cleanSourceScaffoldId = String(sourceScaffoldId || "").trim();
@@ -1270,6 +1299,7 @@ export async function bindWritingDraftNote(writingProjectId, draftNoteId, source
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       draftNoteId: cleanDraftNoteId,
+      ...(options.expectedVaultPath ? { expectedVaultPath: options.expectedVaultPath } : {}),
       ...(cleanSourceScaffoldId ? { sourceScaffoldId: cleanSourceScaffoldId } : {}),
       ...(cleanVersionNote ? { versionNote: cleanVersionNote } : {})
     })

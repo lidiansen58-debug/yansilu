@@ -3530,6 +3530,9 @@
       min-height: 0;
       max-height: none;
     }
+    .import-result-modal .import-result[hidden] {
+      display: none;
+    }
     .import-history {
       margin-top: 10px;
       border: 1px solid #e2e8f0;
@@ -12202,6 +12205,27 @@
     }
     .writing-theme-detail-panel {
       display: none;
+    }
+    .writing-draft-target-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .writing-draft-target-row select {
+      flex: 1 1 220px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .writing-chapter-tools {
+      display: flex;
+      gap: 4px;
+      flex: 0 0 auto;
+    }
+    .writing-chapter-tools button {
+      width: 32px;
+      height: 32px;
+      padding: 0;
     }
     .writing-draft-editor {
       min-height: min(58vh, 560px);

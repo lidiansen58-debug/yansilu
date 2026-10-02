@@ -37,6 +37,8 @@ export function buildAppShellNoteStateChangeDeps(host = {}) {
     titleFromSeedText = (_text, fallback = "") => fallback,
     typeFromFolder = () => "",
     updateNote = async () => null,
+    getVaultPath,
+    checkNoteSave,
     withGeneratedOriginalMarker = (body) => body,
     withGeneratedOriginalReference = (body) => body
   } = host;
@@ -92,6 +94,8 @@ export function buildAppShellNoteStateChangeDeps(host = {}) {
     },
     saveNote: {
       state,
+      getVaultPath,
+      checkNoteSave,
       editor,
       saveAiSuggestion,
       replaceFirstMarkdownTitle,

@@ -153,7 +153,9 @@ export function publicImportRecord(record) {
     options: record.options || {},
     failureResult: record.failureResult || null,
     confirmResult: record.confirmResult || null,
-    rollbackResult: record.rollbackResult || null
+    rollbackResult: record.rollbackResult || null,
+    recoveryResult: record.recoveryResult || null,
+    recoveryMessage: record.recoveryMessage || ""
   };
 }
 

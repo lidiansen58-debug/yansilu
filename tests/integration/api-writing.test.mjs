@@ -8,6 +8,10 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { syncWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
+import { saveNoteWithReadback } from "../../apps/web/src/note-save-readback.js";
+import { createNoteCreationController } from "../../apps/web/src/note-creation-controller.js";
+import { createWritingNoteWithRecovery } from "../../apps/web/src/writing-note-creation-recovery.js";
+import { saveEditorNoteWithRecovery } from "../../apps/web/src/editor-save-recovery.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -118,6 +122,344 @@ function startApi(port, vaultPath) {
     stdio: ["ignore", "pipe", "pipe"]
   });
 }
+
+test("writing first creation retries its stable ID after a lost response without changing the created file", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-writing-create-recovery-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  for (const [kind, id] of [["article", "11111111-1234-4234-8234-123456789abc"], ["chapter", "22222222-1234-4234-8234-123456789abc"]]) {
+    const holder = {};
+    let writes = 0, saved, available = false;
+    const deps = { getVaultPath: () => vaultPath, createNoteId: () => id,
+      createNote: async payload => {
+        writes++;
+        const result = await postJson(baseUrl, "/api/v1/notes", payload);
+        if (result.status === 201) {
+          saved = result.json.item;
+          throw Object.assign(new Error("response lost"), { code: "request_timeout" });
+        }
+        assert.equal(result.json.error.code, "NOTE_ID_EXISTS");
+        throw Object.assign(new Error(result.json.error.message), { code: result.json.error.code });
+      }, fetchNote: async noteId => available ? (await getJson(baseUrl, `/api/v1/notes/${noteId}`)).json.item : null
+    };
+    const payload = { directoryId: "dir_original_default", title: kind, body: `# ${kind}\n\nREAL-${kind}` };
+    await assert.rejects(createWritingNoteWithRecovery(holder, deps, payload, kind), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+    await assert.rejects(createWritingNoteWithRecovery(holder, deps, payload, kind), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+    const file = path.join(vaultPath, saved.markdownPath);
+    const before = await fs.readFile(file, "utf8");
+    available = true;
+    const recovered = await createWritingNoteWithRecovery(holder, deps, { ...payload, body: "NEWER-INPUT" }, kind);
+    assert.equal(writes, 2);
+    assert.equal(recovered.note.id, `note_${id}`);
+    assert.equal(recovered.note.fileRevision, saved.fileRevision);
+    assert.equal(recovered.submittedBody, payload.body);
+    assert.equal(recovered.recovered, true);
+    assert.equal(await fs.readFile(file, "utf8"), before);
+  }
+});
+
+test("lost creation response is recovered by stable ID without another POST", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-create-readback-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const id = "12345678-1234-4234-8234-123456789abc";
+  const state = { notes: [], tabs: [], selectedFolderId: "dir_original_default" };
+  let posts = 0;
+  const opened = [];
+  const create = createNoteCreationController({ state, folderById: () => ({}),
+    findUntitledPlaceholder: async () => null, isLocalOnlyNote: () => false,
+    initialBodyForFolder: () => "# Recovery\n\nREAL-CREATED-CONTENT", mapNoteItem: note => note,
+    ensureEditableNoteBody: body => body, getVaultPath: () => vaultPath, createId: () => id,
+    createNote: async payload => {
+      posts++;
+      const response = await postJson(baseUrl, "/api/v1/notes", payload);
+      assert.equal(response.status, 201);
+      throw Object.assign(new Error("response lost"), { code: "request_timeout" });
+    },
+    fetchNote: async noteId => (await getJson(baseUrl, `/api/v1/notes/${noteId}`)).json.item,
+    openNoteById: noteId => opened.push(noteId), openStandaloneEditorWindow: () => assert.fail("unexpected window")
+  });
+  const result = await create({ reuseUntitled: false });
+  assert.equal(result.note.id, `note_${id}`);
+  assert.equal(posts, 1);
+  assert.deepEqual(opened, [`note_${id}`]);
+  const file = path.join(vaultPath, result.note.markdownPath);
+  const original = await fs.readFile(file, "utf8");
+  const replay = await postJson(baseUrl, "/api/v1/notes", { clientCreationId: id, directoryId: "dir_original_default", body: "DO-NOT-OVERWRITE" });
+  assert.equal(replay.status, 400);
+  assert.equal(replay.json.error.code, "NOTE_ID_EXISTS");
+  assert.equal(await fs.readFile(file, "utf8"), original);
+});
+
+test("an incomplete create request cannot create in a vault switched while its body is read", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-create-scope-");
+  const otherVault = await makeTempDir("yansilu-api-create-other-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  let pending;
+  const response = new Promise((resolve, reject) => {
+    pending = http.request(`${baseUrl}/api/v1/notes`, { method: "POST", headers: { "Content-Type": "application/json" } }, res => {
+      let data = "";
+      res.on("data", chunk => { data += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(data) }));
+    });
+    pending.on("error", reject);
+    pending.write('{"directoryId":');
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+  const id = "87654321-1234-4234-8234-123456789abc";
+  pending.end(`"dir_original_default","clientCreationId":"${id}","body":"SHOULD-NOT-BE-CREATED"}`);
+  const denied = await response;
+  assert.equal(denied.status, 409);
+  assert.equal(denied.json.error.code, "VAULT_CHANGED");
+  assert.equal((await getJson(baseUrl, `/api/v1/notes/note_${id}`)).status, 404);
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath });
+  assert.equal((await getJson(baseUrl, `/api/v1/notes/note_${id}`)).status, 404);
+});
+
+for (const [method, suffix] of [["PATCH", "book-structure"], ["POST", "draft-note"]]) {
+  test(`writing ${suffix} rejects an incomplete request across a vault switch`, async t => {
+    const vaultPath = await makeTempDir("yansilu-writing-scope-old-");
+    const otherVault = await makeTempDir("yansilu-writing-scope-new-");
+    const port = await findFreePort();
+    const baseUrl = `http://127.0.0.1:${port}`;
+    const child = startApi(port, vaultPath);
+    t.after(() => child.kill());
+    await waitForHealth(baseUrl);
+    assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+    const note = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Target draft\n\nUNCHANGED" })).json.item;
+    const projectResponse = await postJson(baseUrl, "/api/v1/writing-projects", { title: "Target project", basketNoteIds: [note.id] });
+    assert.equal(projectResponse.status, 201, JSON.stringify(projectResponse.json));
+    const project = projectResponse.json.item;
+    const projectRoute = `/api/v1/writing-projects/${project.id}`;
+    const payload = suffix === "draft-note" ? { draftNoteId: note.id }
+      : { bookStructure: { parts: [{ id: "late", title: "DO NOT WRITE", chapters: [] }] } };
+    const file = path.join(otherVault, note.markdownPath);
+    const originalFile = await fs.readFile(file, "utf8");
+    await postJson(baseUrl, "/api/v1/vault", { vaultPath });
+    let pending;
+    const response = new Promise((resolve, reject) => {
+      pending = http.request(`${baseUrl}${projectRoute}/${suffix}`, { method, headers: { "Content-Type": "application/json" } }, res => {
+        let text = "";
+        res.on("data", chunk => { text += chunk; });
+        res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
+      });
+      pending.on("error", reject);
+      pending.write("{");
+    });
+    t.after(() => pending.destroy());
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+    pending.end(JSON.stringify(payload).slice(1));
+    const denied = await response;
+    assert.equal(denied.status, 409);
+    assert.equal(denied.json.error.code, "VAULT_CHANGED");
+    const stale = await fetch(`${baseUrl}${projectRoute}/${suffix}`, { method, headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, expectedVaultPath: vaultPath }) });
+    assert.equal(stale.status, 409);
+    assert.equal((await stale.json()).error.code, "VAULT_CHANGED");
+    assert.deepEqual((await getJson(baseUrl, projectRoute)).json.item, project);
+    assert.equal(await fs.readFile(file, "utf8"), originalFile);
+  });
+}
+
+test("lost save response is recovered from its operation receipt without rewriting", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-save-readback-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const created = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Readback\n\nBASE" })).json.item;
+  let writes = 0;
+  const route = `/api/v1/notes/${created.id}`;
+  const payload = { expectedBody: created.body, expectedRevision: created.fileRevision, body: "# Readback\n\nSAVED-WITH-LOST-RESPONSE" };
+  const saved = await saveNoteWithReadback({ noteId: created.id, payload, operationId: "readback-operation-1",
+    write: async body => {
+      writes++;
+      const response = await fetch(`${baseUrl}${route}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      assert.equal(response.status, 200);
+      await response.json();
+      throw Object.assign(new Error("response lost"), { code: "request_timeout" });
+    },
+    check: async id => (await getJson(baseUrl, `${route}/save-status?operationId=${id}`)).json.item
+  });
+  assert.equal(writes, 1);
+  assert.match(saved.body, /SAVED-WITH-LOST-RESPONSE/);
+  assert.equal(saved.fileRevision, (await getJson(baseUrl, route)).json.item.fileRevision);
+  const file = path.join(vaultPath, saved.markdownPath);
+  await fs.writeFile(file, (await fs.readFile(file, "utf8")).replace("SAVED-WITH-LOST-RESPONSE", "EXTERNAL-AFTER-SAVE"), "utf8");
+  assert.equal((await getJson(baseUrl, `${route}/save-status?operationId=readback-operation-1`)).json.item.state, "changed");
+});
+
+test("fresh editor recovery after API restart reads the original save without overwriting newer input", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-editor-refresh-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let child = startApi(port, vaultPath);
+  const stop = async () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    const exited = new Promise(resolve => child.once("exit", resolve));
+    child.kill(); await exited;
+  };
+  t.after(stop);
+  await waitForHealth(baseUrl);
+  const created = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Editor\n\nBASE" })).json.item;
+  const route = `/api/v1/notes/${created.id}`;
+  const records = new Map();
+  const storage = { getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value), removeItem: key => records.delete(key) };
+  let writes = 0, blocked = true;
+  const deps = { getVaultPath: () => vaultPath, getStorage: () => storage, createSaveOperationId: () => "editor-refresh-operation-1",
+    updateNote: async (_id, payload, options) => {
+      writes++;
+      const response = await fetch(`${baseUrl}${route}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, operationId: options.operationId }) });
+      assert.equal(response.status, 200);
+      await response.json();
+      throw Object.assign(new Error("response lost"), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+    },
+    checkNoteSave: async (_id, op, options) => {
+      if (blocked) throw new Error("read blocked");
+      return (await getJson(baseUrl, `${route}/save-status?${new URLSearchParams({ operationId: op, expectedVaultPath: options.expectedVaultPath })}`)).json.item;
+    }
+  };
+  await assert.rejects(saveEditorNoteWithRecovery(deps, created.id, { body: "# Editor\n\nSUBMITTED", expectedBody: created.body, expectedRevision: created.fileRevision }), { code: "NOTE_SAVE_RESULT_UNCERTAIN" });
+  const saved = (await getJson(baseUrl, route)).json.item;
+  const file = path.join(vaultPath, saved.markdownPath);
+  const bytes = await fs.readFile(file), modified = (await fs.stat(file)).mtimeMs;
+  await stop(); child = startApi(port, vaultPath); await waitForHealth(baseUrl);
+  blocked = false;
+  const recovered = await saveEditorNoteWithRecovery({ ...deps }, created.id, { body: "# Editor\n\nNEWER INPUT", expectedBody: created.body });
+  assert.match(recovered.body, /SUBMITTED/);
+  assert.equal(recovered.recoveredSave, true);
+  assert.equal(writes, 1);
+  assert.equal(records.size, 0);
+  assert.deepEqual(await fs.readFile(file), bytes);
+  assert.equal((await fs.stat(file)).mtimeMs, modified);
+  const wrongVault = path.join(vaultPath, "another-vault");
+  const denied = await fetch(`${baseUrl}${route}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: "WRONG VAULT", expectedVaultPath: wrongVault }) });
+  assert.equal(denied.status, 409);
+  assert.equal((await denied.json()).error.code, "NOTE_SAVE_VAULT_CHANGED");
+  assert.equal((await getJson(baseUrl, `${route}/save-status?${new URLSearchParams({ operationId: "editor-refresh-operation-1", expectedVaultPath: wrongVault })}`)).status, 409);
+  assert.deepEqual(await fs.readFile(file), bytes);
+});
+
+test("save receipt survives an actual API restart without permitting replay", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-save-restart-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let child = startApi(port, vaultPath);
+  const stop = async () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    const exited = new Promise(resolve => child.once("exit", resolve));
+    child.kill();
+    await exited;
+  };
+  t.after(stop);
+  await waitForHealth(baseUrl);
+  const created = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Restart\n\nBASE" })).json.item;
+  const route = `/api/v1/notes/${created.id}`;
+  const payload = { operationId: "restart-save-operation-1", expectedBody: created.body,
+    expectedRevision: created.fileRevision, body: "# Restart\n\nCONFIRMED" };
+  const put = () => fetch(`${baseUrl}${route}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const savedResponse = await put();
+  assert.equal(savedResponse.status, 200);
+  const saved = (await savedResponse.json()).item;
+  const filename = path.join(vaultPath, saved.markdownPath);
+  const before = await fs.readFile(filename);
+  await stop();
+  child = startApi(port, vaultPath);
+  await waitForHealth(baseUrl);
+  const receipt = await getJson(baseUrl, `${route}/save-status?operationId=${payload.operationId}`);
+  assert.equal(receipt.status, 200);
+  assert.equal(receipt.json.item.state, "completed");
+  assert.equal(receipt.json.item.note.fileRevision, saved.fileRevision);
+  const replay = await put();
+  assert.equal((await replay.json()).error.code, "NOTE_SAVE_OPERATION_REUSED");
+  assert.deepEqual(await fs.readFile(filename), before);
+  await fs.writeFile(filename, before.toString("utf8").replace("CONFIRMED", "EXTERNAL"), "utf8");
+  assert.equal((await getJson(baseUrl, `${route}/save-status?operationId=${payload.operationId}`)).json.item.state, "changed");
+});
+
+test("note save API preserves newer disk text when a stale client supplies its baseline", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-save-conflict-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const created = await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Conflict\n\nBASE" });
+  assert.equal(created.status, 201);
+  const note = created.json.item;
+  const save = async body => {
+    const response = await fetch(`${baseUrl}/api/v1/notes/${note.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return { status: response.status, json: await response.json() };
+  };
+  assert.equal((await save({ expectedBody: note.body, body: "# Conflict\n\nNEWER" })).status, 200);
+  const filename = path.join(vaultPath, note.markdownPath);
+  const disk = await fs.readFile(filename, "utf8");
+  const rejected = await save({ expectedBody: note.body, body: "# Conflict\n\nSTALE" });
+  assert.notEqual(rejected.status, 200);
+  assert.match(JSON.stringify(rejected.json), /NOTE_SAVE_CONFLICT/);
+  assert.equal(await fs.readFile(filename, "utf8"), disk);
+  const current = (await getJson(baseUrl, `/api/v1/notes/${note.id}`)).json.item;
+  assert.match(current.fileRevision, /^[a-f0-9]{64}$/);
+  const metadataEdit = disk.replace("status: draft", "status: active");
+  assert.notEqual(metadataEdit, disk);
+  await fs.writeFile(filename, metadataEdit, "utf8");
+  const metadataRejected = await save({ expectedBody: current.body, expectedRevision: current.fileRevision, body: current.body, status: "draft" });
+  assert.notEqual(metadataRejected.status, 200);
+  assert.match(JSON.stringify(metadataRejected.json), /NOTE_SAVE_CONFLICT/);
+  assert.equal(await fs.readFile(filename, "utf8"), metadataEdit);
+});
+
+test("an incomplete save request cannot write into a vault switched while its body is read", async t => {
+  const vaultPath = await makeTempDir("yansilu-api-save-scope-");
+  const otherVault = await makeTempDir("yansilu-api-save-other-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const create = () => postJson(baseUrl, "/api/v1/notes", { id: "shared-note", directoryId: "dir_original_default", body: "# Scope\n\nUNCHANGED" });
+  const first = await create();
+  assert.equal(first.status, 201);
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+  const second = await create();
+  assert.equal(second.status, 201);
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath })).status, 200);
+  const files = [path.join(vaultPath, first.json.item.markdownPath), path.join(otherVault, second.json.item.markdownPath)];
+  const before = [];
+  for (const file of files) before.push(await fs.readFile(file, "utf8"));
+  let pending;
+  const response = new Promise((resolve, reject) => {
+    pending = http.request(`${baseUrl}/api/v1/notes/${first.json.item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" } }, res => {
+      let data = "";
+      res.on("data", chunk => { data += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(data) }));
+    });
+    pending.on("error", reject);
+    pending.write('{"body":');
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+  pending.end('"SHOULD-NOT-BE-WRITTEN"}');
+  const denied = await response;
+  assert.equal(denied.status, 409);
+  assert.match(JSON.stringify(denied.json), /NOTE_SAVE_VAULT_CHANGED/);
+  for (let index = 0; index < files.length; index++) assert.equal(await fs.readFile(files[index], "utf8"), before[index]);
+});
 
 test("book chapters preserve separate Markdown drafts through legacy updates, reorder and project sync", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-book-chapters-");

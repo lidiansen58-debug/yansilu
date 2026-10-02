@@ -120,7 +120,7 @@ for (const failing of [false, true]) test(`viewpoint save ${failing ? "failure k
 for (const failing of [false, true]) test(`draft save ${failing ? "failure keeps" : "success advances"} the pending task`, async () => {
   const state = { notes: [] }, editor = { value: "# 示例\n\n用户写的新段落" };
   beginSmartNotesDemoPractice(state, { key: "write-from-notes", projectId: "project", baseline: "# 示例\n\n原正文" });
-  const writingState = { project: { id: "project", draft_note_id: "draft" }, scaffold: { id: "outline" }, scaffoldMarkdown: "真实提纲" };
+  const writingState = { project: { id: "project", draft_note_id: "draft", draft_note: { id: "draft", body: "# 示例\n\n原正文" } }, scaffold: { id: "outline" }, scaffoldMarkdown: "真实提纲" };
   await handleWritingSaveDraftClick({ state, writingState, $: (id) => id === "writingDraftEditor" ? editor : null,
     writingDraftBody: () => editor.value, writingDraftTitle: () => "示例", updateNote: async (id, payload) => { if (failing) throw new Error("模拟失败"); return { id, ...payload }; }
   });

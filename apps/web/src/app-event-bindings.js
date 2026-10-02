@@ -26,8 +26,11 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
   } = deps;
   const mount = $("importPageMount");
   if (!mount) return [];
+  // Settings can replace the mount; keep delegation on its stable document.
+  const eventRoot = mount.ownerDocument || mount;
 
   const clickHandler = (event) => {
+    if (eventRoot !== mount && !event.target?.closest?.("#importPageMount")) return;
     if (event.target?.closest?.("#btnCloseImportOperationResult") || event.target?.id === "importOperationResultModal") {
       hideImportOperationResultModal();
       return;
@@ -111,6 +114,7 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
   };
 
   const changeHandler = (event) => {
+    if (eventRoot !== mount && !event.target?.closest?.("#importPageMount")) return;
     const checkbox = event.target?.closest?.(".candidate-checkbox");
     if (checkbox) {
       const candidateId = String(checkbox.getAttribute("data-candidate-id") || "").trim();
@@ -179,8 +183,8 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
     }
   }
 
-  mount.addEventListener("click", clickHandler);
-  mount.addEventListener("change", changeHandler);
+  eventRoot.addEventListener("click", clickHandler);
+  eventRoot.addEventListener("change", changeHandler);
   return [
     { target: "importPageMount", eventName: "click", installed: true },
     { target: "importPageMount", eventName: "change", installed: true }

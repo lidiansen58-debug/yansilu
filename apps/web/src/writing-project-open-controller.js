@@ -1,4 +1,5 @@
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
+import { readWritingInput } from "./writing-input-recovery.js";
 
 export function createWritingProjectOpenController(depsProvider = () => ({})) {
   async function open(projectId) {
@@ -16,6 +17,7 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
     const vaultPath = getVaultPath(), vaultScope = state.noteMoveVaultScope, module = state.module;
     const context = () => JSON.stringify([writingState.project?.id, writingState.project?.draft_note_id,
       writingState.scaffold?.id, writingState.selectedThemeIndexId, writingState.draftMarkdown,
+      writingState.bookChapter?.id, writingState.bookChapter?.markdown, writingState.bookChapter?.saveState,
       parseWritingBasketIds(), getWritingFormSnapshot()]);
     const before = context();
     const isCurrent = () => writingState.projectOpenRevision === revision
@@ -59,6 +61,8 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
       ]);
       if (!isCurrent()) return null;
       assertWritingDraftCanLeave(writingState);
+      const recovered = project.scaffold_id
+        ? readWritingInput(deps, JSON.stringify(["article", id, project.scaffold_id])) : null;
       // Commit only after essential reads succeed and this is still the selected request.
       resetWritingStrongModelState();
       writingState.project = draft ? { ...project, draft_note: draft } : project;
@@ -66,6 +70,17 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
       writingState.scaffoldMarkdown = scaffold?.export?.markdown || scaffold?.item?.markdown || "";
       writingState.draftMarkdown = draft?.body ?? "";
       writingState.draftSaveState = "idle";
+      if (recovered) {
+        writingState.draftMarkdown = recovered.markdown;
+        writingState.draftSaveState = "dirty";
+        if (project.draft_note_id) writingState.project.draft_note = {
+          ...(draft || {}), id: project.draft_note_id,
+          body: recovered.noteId === project.draft_note_id ? recovered.savedBody : undefined,
+          fileRevision: recovered.noteId === project.draft_note_id ? recovered.savedFileRevision : undefined
+        };
+      }
+      writingState.bookChapter = null;
+      writingState.chapterOpenRevision = Number(writingState.chapterOpenRevision || 0) + 1;
       writingState.pendingDraftBinding = null;
       writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : [];
       writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : [];
@@ -79,6 +94,7 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
       populateWritingFormFromProject(writingState.project);
       committed = true;
       renderWritingPanel();
+      if (recovered) setStatus("已恢复本机未保存的文章内容，请核对后保存。", "warn", { notify: true, force: true });
       if (warnings.length) setStatus(`主题已打开；${warnings.join("；")}。可稍后刷新。`, "warn", { notify: true, force: true, holdMs: 8000 });
       return writingState.project;
     } catch (error) {

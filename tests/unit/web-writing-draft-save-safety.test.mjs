@@ -14,7 +14,7 @@ function setup() {
   const editor = { value: "# Article\n\nFirst text" };
   const button = { textContent: "保存草稿", disabled: false };
   const writingState = {
-    project: { id: "project-a", draft_note_id: "draft-a" },
+    project: { id: "project-a", draft_note_id: "draft-a", draft_note: { id: "draft-a", body: "# Article\n\nSaved text" } },
     scaffold: { id: "outline-a" }, scaffoldMarkdown: "Outline",
     selectedThemeIndexId: "theme-a", draftMarkdown: editor.value, draftSaveState: "dirty"
   };
@@ -33,6 +33,55 @@ function setup() {
   };
   return { deps, editor, button, writingState, state, messages };
 }
+
+test("fresh article controller rechecks a lost save and retains later input without another write", async () => {
+  const records = new Map();
+  const storage = { getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value), removeItem: key => records.delete(key) };
+  const revision = "a".repeat(64);
+  let writes = 0, saved;
+  const first = setup();
+  Object.assign(first.deps, {
+    getVaultPath: () => "vault", getStorage: () => storage,
+    createSaveOperationId: () => "article-save-operation",
+    updateNote: async (id, payload) => { writes++; saved = { id, ...payload, fileRevision: revision }; throw new Error("Lost response"); },
+    checkNoteSave: async () => { throw new Error("Offline"); }
+  });
+  await handleWritingSaveDraftClick(first.deps);
+  assert.equal(first.writingState.draftSaveState, "error");
+  const refreshed = setup();
+  refreshed.editor.value = refreshed.writingState.draftMarkdown = "Later article input";
+  Object.assign(refreshed.deps, {
+    getVaultPath: () => "vault", getStorage: () => storage,
+    updateNote: async () => { writes++; throw new Error("Must not write"); },
+    checkNoteSave: async (id, operationId, options) => {
+      assert.equal(id, "draft-a");
+      assert.equal(operationId, "article-save-operation");
+      assert.equal(options.expectedVaultPath, "vault");
+      return { state: "completed", note: saved, fileRevision: revision };
+    }
+  });
+  await handleWritingSaveDraftClick(refreshed.deps);
+  assert.equal(writes, 1);
+  assert.equal(refreshed.editor.value, "Later article input");
+  assert.equal(refreshed.writingState.draftSaveState, "dirty");
+  assert.equal(refreshed.writingState.project.draft_note.body, saved.body);
+  assert.equal(records.size, 0);
+});
+
+test("failed local input checkpoint retains visible text and blocks the remote save", async () => {
+  const s = setup();
+  s.deps.getVaultPath = () => "vault";
+  s.deps.recoveryStorage = { setItem: () => { throw new Error("Storage full"); } };
+  let writes = 0;
+  s.deps.updateNote = async () => { writes++; };
+  recordWritingDraftInput(s.deps, "My retained input");
+  s.editor.value = "My retained input";
+  assert.match(s.messages.at(-1).message, /请勿刷新/);
+  await handleWritingSaveDraftClick(s.deps);
+  assert.equal(writes, 0);
+  assert.equal(s.writingState.draftMarkdown, "My retained input");
+  assert.equal(s.writingState.draftSaveState, "error");
+});
 
 test("slow save preserves newer text and leaves it explicitly unsaved", async () => {
   const { deps, editor, writingState, state, button } = setup();
@@ -122,22 +171,79 @@ test("cleared input remains empty instead of falling back to saved text", () => 
   }
 });
 
-test("first draft binding failure retries the same created note", async () => {
-  const { deps, writingState } = setup();
+test("first draft binding failure retries binding without saving newer input", async () => {
+  const { deps, writingState, editor } = setup();
   writingState.project.draft_note_id = null;
   let creates = 0, binds = 0;
-  deps.createNote = async payload => { creates++; return { id: "new-draft", ...payload }; };
-  deps.bindWritingDraftNote = async (projectId, noteId) => {
-    assert.equal(noteId, "new-draft");
+  deps.getVaultPath = () => "vault";
+  deps.createNoteId = () => "12345678-1234-4234-8234-123456789abc";
+  deps.createNote = async payload => { creates++; return { id: `note_${payload.clientCreationId}`, ...payload }; };
+  deps.bindWritingDraftNote = async (projectId, noteId, _scaffold, _version, options) => {
+    assert.equal(options.expectedVaultPath, "vault");
+    assert.equal(noteId, "note_12345678-1234-4234-8234-123456789abc");
     if (++binds === 1) throw new Error("Binding unavailable");
     return { id: projectId, draft_note_id: noteId };
   };
   await handleWritingSaveDraftClick(deps);
   assert.equal(writingState.draftSaveState, "error");
+  editor.value += "\nNewer unbound input";
+  recordWritingDraftInput(deps, editor.value);
+  deps.updateNote = async () => { assert.fail("binding recovery must not update the file"); };
   await handleWritingSaveDraftClick(deps);
   assert.equal(creates, 1);
   assert.equal(binds, 2);
+  assert.equal(writingState.draftSaveState, "dirty");
+  assert.match(editor.value, /Newer unbound input/);
+  assert.doesNotMatch(writingState.project.draft_note.body, /Newer unbound input/);
+});
+
+test("uncertain first article creation rechecks one ID and preserves newer input", async () => {
+  const { deps, writingState, editor } = setup();
+  writingState.project.draft_note_id = null;
+  let creates = 0, reads = 0, found = null, saved;
+  deps.createNoteId = () => "12345678-1234-4234-8234-123456789abc";
+  deps.createNote = async payload => {
+    creates++;
+    saved = { id: `note_${payload.clientCreationId}`, ...payload };
+    throw Object.assign(new Error("lost response"), { code: "request_timeout" });
+  };
+  deps.fetchNote = async id => { reads++; assert.equal(id, saved.id); return found; };
+  deps.bindWritingDraftNote = async (id, noteId) => ({ id, draft_note_id: noteId });
+  await handleWritingSaveDraftClick(deps);
+  assert.equal(writingState.draftSaveState, "error");
+  await handleWritingSaveDraftClick(deps);
+  assert.equal(creates, 2);
+  editor.value += "\nNewer input";
+  recordWritingDraftInput(deps, editor.value);
+  found = saved;
+  await handleWritingSaveDraftClick(deps);
+  assert.equal(creates, 2);
+  assert.equal(reads, 4);
+  assert.equal(writingState.project.draft_note_id, saved.id);
+  assert.equal(writingState.draftSaveState, "dirty");
+  assert.match(editor.value, /Newer input/);
+  assert.doesNotMatch(writingState.project.draft_note.body, /Newer input/);
+  await handleWritingSaveDraftClick(deps);
+  assert.equal(creates, 2);
   assert.equal(writingState.draftSaveState, "saved");
+});
+
+test("creation readback cannot replace article input with externally changed prose", async () => {
+  const { deps, writingState, editor } = setup();
+  writingState.project.draft_note_id = null;
+  const input = editor.value;
+  let saved;
+  deps.createNoteId = () => "12345678-1234-4234-8234-123456789abc";
+  deps.createNote = async payload => {
+    saved = { id: `note_${payload.clientCreationId}`, ...payload, body: "# Article\n\nExternal prose" };
+    throw Object.assign(new Error("lost response"), { code: "request_timeout" });
+  };
+  deps.fetchNote = async () => saved;
+  deps.bindWritingDraftNote = async (id, noteId) => ({ id, draft_note_id: noteId });
+  await handleWritingSaveDraftClick(deps);
+  assert.equal(editor.value, input);
+  assert.equal(writingState.draftSaveState, "dirty");
+  assert.equal(writingState.project.draft_note.body, saved.body);
 });
 
 test("version-list failure does not falsely mark saved text as failed", async () => {

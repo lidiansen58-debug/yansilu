@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
 import { listMarkdownFiles } from "./vault.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
@@ -12,9 +12,11 @@ import { originalityGuard } from "../../originality-guard/src/index.mjs";
 import { searchNoteContent } from "./note-content-search.mjs";
 import { parseWikilinks, wikilinkTargets } from "../../markdown-engine/src/markdown-importer.mjs";
 import { prepareNoteMoveFiles } from "./note-move-files.mjs";
+import { withNoteSaveLock } from "./note-save-lock.mjs";
 import { findLinkAliasRows, linkAliasMatchesReference, readLinkAliases, renamedLinkAliases, syncLinkAliases } from "./note-link-aliases.mjs";
 
 const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
+const fileRevision = markdown => createHash("sha256").update(markdown, "utf8").digest("hex");
 
 function isQuickWikilinkAssociationMarker(value) {
   return String(value || "").trim() === QUICK_WIKILINK_ASSOCIATION_MARKER;
@@ -973,6 +975,7 @@ async function mapNoteRowsWithThinkingStatus(vaultPath, db, rows = []) {
     return attachNoteThinkingStatus({
       ...note,
       body: item.parsed.body,
+      fileRevision: fileRevision(item.markdown),
       ...(permanentMeta
         ? {
             thesis: permanentMeta.thesis,
@@ -1839,6 +1842,7 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
       markdownPath: relPath,
       body: normalized.markdownBody,
       markdown,
+      fileRevision: fileRevision(markdown),
       ...(noteType === "permanent"
         ? {
             thesis: permanentMeta.thesis,
@@ -2767,6 +2771,7 @@ export async function getNoteById(vaultPath, noteId) {
       ...mapNoteRow(effectiveRow, db),
       body: parsed.body,
       markdown: resolved.markdown,
+      fileRevision: fileRevision(resolved.markdown),
       ...(permanentMeta
         ? {
             thesis: permanentMeta.thesis,
@@ -3182,6 +3187,10 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(noteId || "").trim();
   if (!id) throw new Error("noteId is required");
+  return withNoteSaveLock(vaultPath, id, () => updateNoteContentLocked(vaultPath, id, input));
+}
+
+async function updateNoteContentLocked(vaultPath, id, input) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
@@ -3202,6 +3211,22 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
     const currentMarkdownPath = resolved.fullPath;
     const currentMarkdown = resolved.markdown;
     const currentParsed = resolved.parsed || parseMarkdownWithFrontmatter(currentMarkdown);
+    if (input.expectedRevision !== undefined) {
+      if (typeof input.expectedRevision !== "string" || !/^[a-f0-9]{64}$/.test(input.expectedRevision)) {
+        throw noteValidationError("NOTE_SAVE_BASE_INVALID", "文件版本无效，请保留修改并重新打开笔记核对。");
+      }
+      if (input.expectedRevision !== fileRevision(currentMarkdown)) {
+        throw noteValidationError("NOTE_SAVE_CONFLICT", "笔记正文或信息已在其他地方修改，本次未覆盖。请保留当前修改并重新核对。", { noteId: id });
+      }
+    }
+    if (input.expectedBody !== undefined) {
+      if (typeof input.expectedBody !== "string") {
+        throw noteValidationError("NOTE_SAVE_BASE_INVALID", "保存基线无效，请重新打开笔记后再保存。");
+      }
+      if (input.expectedBody !== currentParsed.body) {
+        throw noteValidationError("NOTE_SAVE_CONFLICT", "笔记已被其他窗口或外部程序修改。当前修改未覆盖磁盘，请保留编辑内容并重新核对。", { noteId: id });
+      }
+    }
     const preservedFrontmatter = currentParsed.frontmatter && typeof currentParsed.frontmatter === "object" ? { ...currentParsed.frontmatter } : {};
     const requestedStatus = String(input.status || effectiveRow.status || "draft");
     const normalized = normalizeMarkdown(
@@ -3290,6 +3315,9 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       excludePath: currentMarkdownPath
     });
     const hasRenamedFile = path.resolve(nextMarkdownPath) !== path.resolve(currentMarkdownPath);
+    if (await fs.readFile(currentMarkdownPath, "utf8") !== currentMarkdown) {
+      throw noteValidationError("NOTE_SAVE_CONFLICT", "保存校验期间笔记已变化，本次未覆盖。请保留当前修改并重新核对。", { noteId: id });
+    }
     let activeMarkdownPath = currentMarkdownPath;
     try {
       if (hasRenamedFile) {
@@ -3357,6 +3385,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       ...mapNoteRow(refreshed, db),
       body: normalized.markdownBody,
       markdown,
+      fileRevision: fileRevision(markdown),
       ...(effectiveRow.note_type === "permanent"
         ? {
             thesis: permanentMeta.thesis,

@@ -4,8 +4,11 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 import net from "node:net";
+import http from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { createImportConfirmationRecovery } from "../../apps/web/src/import-confirmation-recovery.js";
+import { createImportRecordJournal } from "../../apps/api/src/import-record-journal.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -75,6 +78,139 @@ async function stopApi(child) {
   child.kill();
   await new Promise((resolve) => child.once("exit", resolve));
 }
+
+test("completed import survives an actual API restart and cannot be imported again", async t => {
+  const vaultPath = await makeTempDir("yansilu-import-restart-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let child = startApi(port, vaultPath);
+  t.after(() => stopApi(child));
+  await waitForHealth(baseUrl);
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "obsidian", payload: { path: path.join(FIXTURES_ROOT, "markdown-basic") }, options: {}
+  });
+  assert.equal(preview.status, 200);
+  const id = preview.json.importRecordId;
+  const confirmed = await postJson(baseUrl, `/api/v1/imports/${id}/confirm`, { confirm: true, overrideOriginality: true });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.json));
+  const before = (await getJson(baseUrl, `/api/v1/imports/${id}`)).json.importRecord;
+  const files = await Promise.all(before.confirmResult.createdFiles.map(item => fs.readFile(path.join(vaultPath, item.path))));
+  await stopApi(child);
+  child = startApi(port, vaultPath);
+  await waitForHealth(baseUrl);
+  const restored = (await getJson(baseUrl, `/api/v1/imports/${id}`)).json.importRecord;
+  assert.equal(restored.status, "completed");
+  assert.deepEqual(restored.confirmResult, before.confirmResult);
+  const duplicate = await postJson(baseUrl, `/api/v1/imports/${id}/confirm`, { confirm: true });
+  assert.equal(duplicate.json.error.code, "IMPORT_STATUS_INVALID");
+  for (let i = 0; i < files.length; i++) assert.deepEqual(await fs.readFile(path.join(vaultPath, before.confirmResult.createdFiles[i].path)), files[i]);
+});
+
+test("an interrupted import journal cannot execute confirmation after API restart", async t => {
+  const vaultPath = await makeTempDir("yansilu-import-interrupted-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let child = startApi(port, vaultPath);
+  t.after(() => stopApi(child));
+  await waitForHealth(baseUrl);
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "obsidian", payload: { path: path.join(FIXTURES_ROOT, "markdown-basic") }, options: {}
+  });
+  assert.equal(preview.status, 200);
+  const id = preview.json.importRecordId;
+  await stopApi(child);
+  const journal = createImportRecordJournal();
+  const record = await journal.read(vaultPath, id);
+  await journal.write({ ...record, state: "confirming" });
+  child = startApi(port, vaultPath);
+  await waitForHealth(baseUrl);
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${id}/confirm`, { confirm: true });
+  assert.equal(confirm.json.error.code, "IMPORT_STATUS_INVALID");
+  const restored = (await getJson(baseUrl, `/api/v1/imports/${id}`)).json.importRecord;
+  assert.equal(restored.status, "interrupted");
+  const files = await fs.readdir(path.join(vaultPath, "notes"), { recursive: true });
+  assert.deepEqual(files.filter(name => name.endsWith(".md")), []);
+});
+
+test("lost import confirmation response is recovered from the real record without importing again", async t => {
+  const vaultPath = await makeTempDir("yansilu-import-confirm-readback-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => stopApi(child));
+  await waitForHealth(baseUrl);
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "obsidian", payload: { path: path.join(FIXTURES_ROOT, "obsidian-realistic-vault") }, options: {}
+  });
+  assert.equal(preview.status, 200);
+  const id = preview.json.importRecordId;
+  let writes = 0, available = false;
+  const confirm = createImportConfirmationRecovery({
+    write: async (recordId, payload) => {
+      writes++;
+      const response = await postJson(baseUrl, `/api/v1/imports/${recordId}/confirm`, { confirm: true, ...payload });
+      assert.equal(response.status, 200);
+      throw Object.assign(new Error("response lost after import completed"), { code: "request_timeout" });
+    },
+    read: async recordId => available ? (await getJson(baseUrl, `/api/v1/imports/${recordId}`)).json.importRecord : null
+  });
+  await assert.rejects(confirm(id, { overrideOriginality: true }), { code: "IMPORT_CONFIRM_UNCERTAIN" });
+  await assert.rejects(confirm(id, {}), { code: "IMPORT_CONFIRM_UNCERTAIN" });
+  const record = (await getJson(baseUrl, `/api/v1/imports/${id}`)).json.importRecord;
+  assert.equal(record.status, "completed");
+  const before = [];
+  for (const item of record.confirmResult.createdFiles) before.push(await fs.readFile(path.join(vaultPath, item.path)));
+  assert.ok(before.length > 0);
+  available = true;
+  const recovered = await confirm(id, { selectedCandidateIds: [] });
+  assert.equal(recovered.status, "completed");
+  assert.deepEqual(recovered.result, record.confirmResult);
+  assert.equal((await confirm(id, {})).status, "completed");
+  assert.equal(writes, 1);
+  for (let index = 0; index < before.length; index++) {
+    assert.deepEqual(await fs.readFile(path.join(vaultPath, record.confirmResult.createdFiles[index].path)), before[index]);
+  }
+});
+
+test("an import confirmation cannot follow a vault switch while its body is still arriving", async t => {
+  const originalVault = await makeTempDir("yansilu-import-request-scope-");
+  const otherVault = await makeTempDir("yansilu-import-request-other-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, originalVault);
+  t.after(() => stopApi(child));
+  await waitForHealth(baseUrl);
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "obsidian", payload: { path: path.join(FIXTURES_ROOT, "obsidian-realistic-vault") }, options: {}
+  });
+  assert.equal(preview.status, 200);
+  const id = preview.json.importRecordId;
+  let pending;
+  const response = new Promise((resolve, reject) => {
+    pending = http.request(`${baseUrl}/api/v1/imports/${id}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" } }, res => {
+      let data = "";
+      res.on("data", chunk => { data += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(data) }));
+    });
+    pending.on("error", reject);
+    pending.write('{"confirm":');
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+  pending.end('true,"overrideOriginality":true}');
+  const denied = await response;
+  assert.equal(denied.status, 409);
+  assert.equal(denied.json.error.code, "IMPORT_VAULT_CHANGED");
+  const stale = await postJson(baseUrl, `/api/v1/imports/${id}/confirm`, { confirm: true, overrideOriginality: true });
+  assert.equal(stale.status, 404);
+  assert.equal(stale.json.error.code, "IMPORT_RECORD_NOT_FOUND");
+  assert.equal((await getJson(baseUrl, `/api/v1/imports/${id}`)).status, 404);
+  const sampleId = preview.json.samples.sourceIds[0];
+  assert.equal((await getJson(baseUrl, `/api/v1/notes/${sampleId}`)).status, 404);
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath: originalVault });
+  assert.equal((await getJson(baseUrl, `/api/v1/notes/${sampleId}`)).status, 404);
+});
 
 test("API import confirm can write only selected candidates from an Obsidian vault", async () => {
   const vaultPath = await makeTempDir("yansilu-api-vault-selected-");

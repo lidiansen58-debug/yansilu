@@ -17,6 +17,7 @@ export function createEditorDraftPayload(tab, authorshipState = {}, updatedAt = 
     body: tab?.body,
     savedTitle: tab?.savedTitle,
     savedBody: tab?.savedBody,
+    savedFileRevision: tab?.savedFileRevision,
     authorshipClaim: authorshipState?.claim,
     authorshipConfirmed: authorshipState?.confirmed,
     authorshipConfirmedBody: authorshipState?.confirmedBody,

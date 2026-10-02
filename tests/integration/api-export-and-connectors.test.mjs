@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { initVault, createNoteInDirectory } from "../../packages/domain/src/index.mjs";
+import { createWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -103,6 +105,29 @@ async function stopApi(child) {
   child.kill();
   await new Promise((resolve) => child.once("exit", resolve));
 }
+
+test("book export API validates local control, vault and directory then exports the saved project", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-book-vault-");
+  const targetPath = await makeTempDir("yansilu-api-book-target-");
+  await initVault(vaultPath);
+  const note = await createNoteInDirectory(vaultPath, { directoryId: "dir_original_default", title: "章节", body: "# 章节\n\nSAVED-BOOK-PROSE" });
+  const project = await createWritingProject(vaultPath, { title: "书稿", basketNoteIds: [note.id], bookStructure: { parts: [{ id: "p", chapters: [{ id: "c", title: "章节", draft_note_id: note.id }] }] } });
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+  try {
+    await waitForHealth(baseUrl);
+    const body = { expectedVaultPath: vaultPath, targetPath, projectId: project.id, expectedBookStructure: project.book_structure, markdown: "FORGED-UNRELATED-BODY" };
+    assert.equal((await postJson(baseUrl, "/api/v1/exports/book", body)).response.status, 403);
+    const send = (payload, origin) => fetch(`${baseUrl}/api/v1/exports/book`, { method: "POST", headers: { "Content-Type": "application/json", "X-Yansilu-Local-Runtime-Control": "1", ...(origin ? { Origin: origin } : {}) }, body: JSON.stringify(payload) });
+    assert.equal((await send(body, "https://example.com")).status, 403);
+    assert.equal((await send({ ...body, expectedVaultPath: path.join(vaultPath, "other") })).status, 409);
+    assert.equal((await send({ ...body, expectedBookStructure: { parts: [] } })).status, 400);
+    const response = await send(body); assert.equal(response.status, 200);
+    const result = await response.json(); assert.equal(result.chapterCount, 1);
+    const output = await fs.readFile(result.bookPath, "utf8");
+    assert.match(output, /SAVED-BOOK-PROSE/); assert.doesNotMatch(output, /FORGED-UNRELATED-BODY/);
+  } finally { await stopApi(api); }
+});
 
 test("POST /api/v1/exports/markdown exports a permanent-note directory and persists export record", async () => {
   const vaultPath = await makeTempDir("yansilu-api-export-vault-");

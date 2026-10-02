@@ -25,7 +25,8 @@ test("editor autosave draft payload preserves persisted fields", () => {
       title: "Current title",
       body: "# Current title\n\nBody",
       savedTitle: "Saved title",
-      savedBody: "# Saved title\n\nOld body"
+      savedBody: "# Saved title\n\nOld body",
+      savedFileRevision: "a".repeat(64)
     },
     {
       claim: "Original claim",
@@ -41,6 +42,7 @@ test("editor autosave draft payload preserves persisted fields", () => {
     body: "# Current title\n\nBody",
     savedTitle: "Saved title",
     savedBody: "# Saved title\n\nOld body",
+    savedFileRevision: "a".repeat(64),
     authorshipClaim: "Original claim",
     authorshipConfirmed: true,
     authorshipConfirmedBody: "# Current title\n\nBody",

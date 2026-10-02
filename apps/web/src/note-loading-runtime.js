@@ -8,6 +8,7 @@ export function applyFetchedNoteBodyForRuntime(note = {}, full = {}, deps = {}) 
   note.title = full.title || note.title;
   note.status = full.status || note.status;
   note.markdownPath = full.markdownPath || note.markdownPath;
+  note.fileRevision = full.fileRevision;
   note.originalityStatus = full.originalityStatus || note.originalityStatus;
   note.originalitySimilarity = normalizeOptionalNumber(full.originalitySimilarity ?? note.originalitySimilarity);
   note.authorship = normalizeAuthorshipItem(full.authorship) || note.authorship;
@@ -59,6 +60,7 @@ export async function ensureNoteBodyLoadedForRuntime(noteId, deps = {}) {
       tab.body = note.body;
       tab.title = note.title;
       tab.savedBody = note.body;
+      tab.savedFileRevision = note.fileRevision;
       tab.savedTitle = note.title;
       tab.dirty = false;
       editor.syncTabMetadataFromNote?.(note.id);

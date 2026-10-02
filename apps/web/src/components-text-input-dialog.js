@@ -7,7 +7,8 @@ function escapeHtmlValue(value = "") {
     .replace(/'/g, "&#39;");
 }
 
-function fallbackPrompt({ title = "请输入", value = "" } = {}) {
+function fallbackPrompt({ title = "请输入", value = "", note = "", confirmOnly = false } = {}) {
+  if (confirmOnly) return Promise.resolve(typeof window !== "undefined" && window.confirm?.(`${title}\n${note}`) ? "confirmed" : "");
   if (typeof window === "undefined" || typeof window.prompt !== "function") return Promise.resolve("");
   return Promise.resolve(window.prompt(title, value) || "");
 }
@@ -20,6 +21,7 @@ export function createTextInputDialog({
 
   let activeResolve = null;
   let previousFocus = null;
+  let confirmOnly = false;
   const root = documentRef.createElement("div");
   root.className = "modal-mask text-input-modal hidden";
   root.setAttribute("role", "dialog");
@@ -48,6 +50,7 @@ export function createTextInputDialog({
   const labelEl = root.querySelector("[data-text-input-label]");
   const inputEl = root.querySelector("[data-text-input-field]");
   const errorEl = root.querySelector("[data-text-input-error]");
+  const confirmEl = root.querySelector("[data-text-input-confirm]");
 
   function close(value = "") {
     root.classList.add("hidden");
@@ -63,6 +66,7 @@ export function createTextInputDialog({
   }
 
   function submit() {
+    if (confirmOnly) { close("confirmed"); return; }
     const value = String(inputEl?.value || "").trim();
     if (!value) {
       if (errorEl) {
@@ -86,6 +90,7 @@ export function createTextInputDialog({
       close("");
     }
     if (event.key === "Enter") {
+      if (confirmOnly && event.target !== confirmEl) return;
       event.preventDefault();
       submit();
     }
@@ -95,13 +100,18 @@ export function createTextInputDialog({
     title = "重命名",
     note = "输入新名称。",
     label = "名称",
-    value = ""
+    value = "",
+    confirmOnly: confirmation = false,
+    confirmLabel = "保存"
   } = {}) {
     if (activeResolve) close("");
+    confirmOnly = confirmation;
     previousFocus = documentRef.activeElement;
     if (titleEl) titleEl.textContent = title;
     if (noteEl) noteEl.textContent = note;
     if (labelEl) labelEl.textContent = label;
+    if (labelEl?.parentElement) labelEl.parentElement.hidden = confirmOnly;
+    if (confirmEl) confirmEl.textContent = confirmLabel;
     if (inputEl) {
       inputEl.value = String(value || "");
       inputEl.setAttribute("aria-label", label);
@@ -112,8 +122,8 @@ export function createTextInputDialog({
     }
     root.classList.remove("hidden");
     globalThis.setTimeout?.(() => {
-      inputEl?.focus();
-      inputEl?.select();
+      if (confirmOnly) confirmEl?.focus();
+      else { inputEl?.focus(); inputEl?.select(); }
     }, 0);
     return new Promise((resolve) => {
       activeResolve = resolve;

@@ -60,7 +60,7 @@ async function registerImportCatalogNote(vaultPath, candidate, noteType, writeRe
 
 function createService(vaultPath, importRecords = new Map(), overrides = {}) {
   return createImportExportService({
-    getVaultPath: () => vaultPath,
+    getVaultPath: overrides.getVaultPath || (() => vaultPath),
     getCwd: () => REPO_ROOT,
     importRecords,
     initVault: overrides.initVault || initVault,
@@ -68,8 +68,8 @@ function createService(vaultPath, importRecords = new Map(), overrides = {}) {
     writeLiteratureNoteIfAbsent: overrides.writeLiteratureNoteIfAbsent || writeLiteratureNoteIfAbsent,
     writePermanentNoteIfAbsent: overrides.writePermanentNoteIfAbsent || writePermanentNoteIfAbsent,
     deleteNoteById: overrides.deleteNoteById || deleteNoteById,
-    registerImportCatalogNote: (candidate, noteType, writeResult, directoryId) =>
-      (overrides.registerImportCatalogNote || registerImportCatalogNote)(vaultPath, candidate, noteType, writeResult, directoryId)
+    registerImportCatalogNote: (candidate, noteType, writeResult, directoryId, targetVaultPath = vaultPath) =>
+      (overrides.registerImportCatalogNote || registerImportCatalogNote)(targetVaultPath, candidate, noteType, writeResult, directoryId)
   });
 }
 
@@ -92,6 +92,144 @@ test("buildSelectedImportCandidates returns subset counts and preserves requeste
   });
   assert.deepEqual(result.candidates.sources.map((item) => item.id), ["src_2"]);
   assert.deepEqual(result.candidates.permanent.map((item) => item.id), ["pn_1"]);
+});
+
+test("concurrent confirmations enter the writer only once and expose confirming state", async () => {
+  const vaultPath = await makeTempDir("yansilu-import-concurrent-");
+  const importRoot = await makeTempDir("yansilu-import-concurrent-source-");
+  await fs.writeFile(path.join(importRoot, "one.md"), "# One\n\nUnique input", "utf8");
+  let release, entered, writes = 0, hold = false;
+  const enteredPromise = new Promise(resolve => { entered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const service = createService(vaultPath, new Map(), {
+    initVault: async root => { if (hold) { entered(); await gate; } return initVault(root); },
+    writeSourceIfAbsent: async (...args) => { writes++; return writeSourceIfAbsent(...args); },
+    writeLiteratureNoteIfAbsent: async (...args) => { writes++; return writeLiteratureNoteIfAbsent(...args); }
+  });
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+  hold = true;
+  const first = service.confirmImport(record, { confirm: true }, "first");
+  await enteredPromise;
+  try {
+    assert.equal((await service.getImportRecord(preview.importRecordId)).state, "confirming");
+    await assert.rejects(service.confirmImport(record, { confirm: true }, "second"), { code: "IMPORT_CONFIRM_PENDING" });
+    assert.equal(writes, 0);
+  } finally { release(); }
+  const result = await first;
+  assert.equal(result.status, "completed");
+  assert.equal(writes, 2);
+  await assert.rejects(service.confirmImport(record, { confirm: true }, "third"), { code: "IMPORT_STATUS_INVALID" });
+  assert.equal(writes, 2);
+});
+
+test("confirmation validation failure releases the guard for corrected input", async () => {
+  const vaultPath = await makeTempDir("yansilu-import-validation-");
+  const importRoot = await makeTempDir("yansilu-import-validation-source-");
+  await fs.writeFile(path.join(importRoot, "one.md"), "# One\n\nInput", "utf8");
+  const service = createService(vaultPath);
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+  await assert.rejects(service.confirmImport(record, {}, "invalid"), { code: "IMPORT_CONFIRM_REQUIRED" });
+  assert.equal(record.state, "preview");
+  assert.equal((await service.confirmImport(record, { confirm: true }, "corrected")).status, "completed");
+});
+
+for (const fail of [false, true]) test(`switching vault during import keeps ${fail ? "cleanup" : "all writes and receipts"} in the original vault`, async () => {
+  const originalVault = await makeTempDir("yansilu-import-fixed-vault-");
+  const otherVault = await makeTempDir("yansilu-import-fixed-other-");
+  await initVault(otherVault);
+  const sentinel = await createNoteInDirectory(otherVault, { directoryId: "dir_original_default", title: "Keep", body: "# Keep\n\nOTHER-VAULT-SENTINEL" });
+  const sentinelPath = path.join(otherVault, sentinel.markdownPath);
+  const sentinelBytes = await fs.readFile(sentinelPath);
+  let active = originalVault;
+  const registeredRoots = [], deletedRoots = [];
+  const service = createService(originalVault, new Map(), {
+    getVaultPath: () => active,
+    writeSourceIfAbsent: async (root, ...args) => {
+      assert.equal(root, originalVault);
+      const result = await writeSourceIfAbsent(root, ...args);
+      active = otherVault;
+      return result;
+    },
+    writeLiteratureNoteIfAbsent: async (root, ...args) => {
+      assert.equal(root, originalVault);
+      if (fail) throw new Error("Injected literature write failure");
+      return writeLiteratureNoteIfAbsent(root, ...args);
+    },
+    registerImportCatalogNote: async (root, ...args) => {
+      registeredRoots.push(root);
+      return registerImportCatalogNote(root, ...args);
+    },
+    deleteNoteById: async (root, id) => { deletedRoots.push(root); return deleteNoteById(root, id); }
+  });
+  const preview = await service.createPreview("obsidian", { path: path.join(FIXTURES_ROOT, "obsidian-realistic-vault") }, {}, "preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+  if (fail) {
+    await assert.rejects(service.confirmImport(record, { confirm: true, overrideOriginality: true }, "confirm"), /Injected literature/);
+    assert.equal(record.state, "failed");
+    assert.ok(deletedRoots.length > 0);
+    assert.ok(deletedRoots.every(root => root === originalVault));
+    assert.equal((await listNoteCatalogEntriesByType(originalVault, "source")).length, 0);
+  } else {
+    const result = await service.confirmImport(record, { confirm: true, overrideOriginality: true }, "confirm");
+    assert.equal(result.status, "completed");
+    assert.ok(result.result.createdFiles.some(item => item.noteType === "asset"));
+    for (const item of result.result.createdFiles) {
+      assert.ok((await fs.readFile(path.join(originalVault, item.path))).length > 0);
+      await assert.rejects(fs.access(path.join(otherVault, item.path)), { code: "ENOENT" });
+    }
+  }
+  assert.ok(registeredRoots.length > 0);
+  assert.ok(registeredRoots.every(root => root === originalVault));
+  assert.deepEqual(await fs.readFile(sentinelPath), sentinelBytes);
+  assert.equal((await listNoteCatalogEntriesByType(otherVault, "literature")).length, 0);
+  assert.equal((await listNoteCatalogEntriesByType(otherVault, "permanent")).length, 1);
+  assert.equal(await service.getImportRecord(preview.importRecordId), null);
+  assert.equal((await service.getImportRecordList()).total, 0);
+  active = originalVault;
+  assert.equal(await service.getImportRecord(preview.importRecordId), record);
+  assert.equal((await service.getImportRecordList()).total, 1);
+});
+
+test("a preview from another vault cannot be confirmed after switching", async () => {
+  const originalVault = await makeTempDir("yansilu-import-preview-scope-");
+  const otherVault = await makeTempDir("yansilu-import-preview-other-");
+  let active = originalVault, writes = 0;
+  const service = createService(originalVault, new Map(), { getVaultPath: () => active,
+    writeSourceIfAbsent: async () => { writes++; assert.fail("Must not write"); } });
+  const preview = await service.createPreview("obsidian", { path: path.join(FIXTURES_ROOT, "obsidian-realistic-vault") }, {}, "preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+  active = otherVault;
+  await assert.rejects(service.confirmImport(record, { confirm: true }, "confirm"), { code: "IMPORT_VAULT_CHANGED" });
+  assert.equal(record.state, "preview");
+  assert.equal(writes, 0);
+});
+
+test("failure while assembling the final receipt cannot reopen a written import for replay", async t => {
+  const vaultPath = await makeTempDir("yansilu-import-receipt-failure-");
+  const importRoot = await makeTempDir("yansilu-import-receipt-source-");
+  await fs.writeFile(path.join(importRoot, "one.md"), "# One\n\nInput", "utf8");
+  let writes = 0;
+  const service = createService(vaultPath, new Map(), {
+    writeSourceIfAbsent: async (...args) => { writes++; return writeSourceIfAbsent(...args); },
+    writeLiteratureNoteIfAbsent: async (...args) => { writes++; return writeLiteratureNoteIfAbsent(...args); }
+  });
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+  const originalRead = fs.readFile;
+  t.after(() => { fs.readFile = originalRead; });
+  fs.readFile = async (filename, options) => {
+    if (writes === 2 && options === undefined && String(filename).startsWith(vaultPath)) {
+      throw Object.assign(new Error("Cannot read final import receipt"), { code: "EIO" });
+    }
+    return originalRead(filename, options);
+  };
+  await assert.rejects(service.confirmImport(record, { confirm: true }, "confirm"), { code: "EIO" });
+  assert.equal(record.state, "failed");
+  assert.equal(record.failureResult.code, "EIO");
+  await assert.rejects(service.confirmImport(record, { confirm: true }, "replay"), { code: "IMPORT_STATUS_INVALID" });
+  assert.equal(writes, 2);
 });
 
 test("createPreview only accepts obsidian and keeps records in memory", async () => {

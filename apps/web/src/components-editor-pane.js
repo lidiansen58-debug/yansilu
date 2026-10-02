@@ -355,16 +355,21 @@ export class EditorPane {
   async autoSaveTabById(tabId, trigger = "idle") {
     const tab = this.state.tabs.find((t) => t.id === tabId) || null;
     if (!tab?.dirty) return true;
+    if (tab.saveConflict || tab.saveUiState?.mode === "conflict") return false;
     if (this.savingPromise) return false;
     const note = this.state.notes.find((n) => n.id === tab.noteId) || null;
     if (!note) return false;
 
     const bodySnapshot = String(tab.body || "");
+    const expectedBody = tab.savedBody;
+    const expectedRevision = tab.savedFileRevision;
     const titleSnapshot = titleFromBody(bodySnapshot);
     const statusSnapshot = String(note.status || "draft").trim() || "draft";
     const savingTabId = tab.id;
     const savingTabIsActive = () => this.state.activeTabId === savingTabId;
     const setSavingTabUiState = (mode, message = "") => {
+      if (mode === "conflict" || mode === "uncertain") tab.saveConflict = true;
+      if (mode === "saved") tab.saveConflict = false;
       tab.saveUiState = { mode, message };
       if (savingTabIsActive()) this.renderSaveHint();
     };
@@ -384,6 +389,8 @@ export class EditorPane {
 
       const saved = await this.onStateChange("save-note", {
         noteId: note.id,
+        expectedBody,
+        expectedRevision,
         title: titleSnapshot,
         body: bodySnapshot,
         status: statusSnapshot,
@@ -405,14 +412,18 @@ export class EditorPane {
         return false;
       }
 
-      tab.savedBody = bodySnapshot;
-      tab.savedTitle = titleSnapshot;
+      const savedBody = typeof saved?.body === "string" ? saved.body : bodySnapshot;
+      const savedTitle = saved?.title || titleSnapshot;
+      tab.savedBody = savedBody;
+      tab.savedFileRevision = saved?.fileRevision;
+      tab.savedTitle = savedTitle;
+      tab.saveConflict = false;
       this.syncPlaceholderTitleArmed(tab);
       const liveBodyAtCompletion = savingTabIsActive() ? this.getEditorValue() : tab.body;
-      const liveMatchesSaved = normalizedBodyTextForDirtyCheck(liveBodyAtCompletion) === normalizedBodyTextForDirtyCheck(bodySnapshot);
+      const liveMatchesSaved = normalizedBodyTextForDirtyCheck(liveBodyAtCompletion) === normalizedBodyTextForDirtyCheck(savedBody);
       if (
         !liveMatchesSaved &&
-        (this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
+        (saved?.recoveredSave === true || this.tabBodyChangedSinceSnapshot(tab, bodySnapshot) ||
         this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot))
       ) {
         tab.body = liveBodyAtCompletion;
@@ -427,7 +438,8 @@ export class EditorPane {
         }
         return true;
       }
-      tab.title = titleSnapshot;
+      tab.body = savedBody;
+      tab.title = savedTitle;
       tab.dirty = false;
       this.clearDraft(tab.noteId);
       setSavingTabUiState("saved", "当前文件：已自动同步");
@@ -7370,12 +7382,16 @@ export class EditorPane {
     const savingNoteId = note.id;
     const savingTabIsActive = () => this.state.activeTabId === savingTabId;
     const setSavingTabUiState = (mode, message = "") => {
+      if (mode === "conflict" || mode === "uncertain") tab.saveConflict = true;
+      if (mode === "saved") tab.saveConflict = false;
       tab.saveUiState = { mode, message };
       if (savingTabIsActive()) this.renderSaveHint();
     };
     const markLiteratureComplete = options?.markLiteratureComplete === true;
     const skipOriginalityCheck = options?.skipOriginalityCheck === true;
     const editorBodySnapshot = String(tab.body || "");
+    const expectedBody = tab.savedBody;
+    const expectedRevision = tab.savedFileRevision;
 
     note.body = tab.body;
     note.noteType = typeFromFolder(this.state, note.folderId);
@@ -7451,6 +7467,8 @@ export class EditorPane {
     this.renderRelated();
     const saved = await this.onStateChange("save-note", {
       noteId: savingNoteId,
+      expectedBody,
+      expectedRevision,
       title: titleSnapshot,
       body: bodySnapshot,
       status: nextStatus,
@@ -7490,10 +7508,13 @@ export class EditorPane {
     const changedSinceSaveStarted =
       !liveMatchesSaved &&
       // Formatting performed by this save is not a new user edit.
+      (saved?.recoveredSave === true || (
       this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, editorBodySnapshot) &&
-      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot);
+      this.tabBodyChangedSinceSnapshot({ body: liveBodyAtCompletion }, bodySnapshot)));
     tab.savedBody = savedBody;
+    tab.savedFileRevision = saved?.fileRevision;
     tab.savedTitle = savedTitle;
+    tab.saveConflict = false;
     this.syncPlaceholderTitleArmed(tab);
     if (changedSinceSaveStarted) {
       tab.body = liveBodyAtCompletion;

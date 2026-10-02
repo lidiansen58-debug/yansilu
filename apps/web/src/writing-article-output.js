@@ -29,19 +29,21 @@ export function installWritingArticleOutputEvents({ $ = () => null, depsProvider
     const deps = depsProvider();
     const { writingState = {}, state = {}, copyTextToClipboard, exportWritingArticle, pickExportDirectory, getVaultPath = () => "", setStatus = () => {} } = deps;
     const projectId = writingState.project?.id || "";
+    const chapterId = writingState.bookChapter?.id || "";
     const demoPending = state.smartNotesDemoPendingSteps?.["practice-export"];
     const vaultScopeKey = state.vaultScopeKey;
     const module = state.module;
     const vaultPath = getVaultPath();
     const stillCurrent = () => {
       const current = depsProvider();
-      return (current.writingState?.project?.id || "") === projectId && current.state?.vaultScopeKey === vaultScopeKey && current.state?.module === module && (current.getVaultPath?.() || "") === vaultPath;
+      return (current.writingState?.project?.id || "") === projectId && (current.writingState?.bookChapter?.id || "") === chapterId && current.state?.vaultScopeKey === vaultScopeKey && current.state?.module === module && (current.getVaultPath?.() || "") === vaultPath;
     };
     const buttons = [$("btnWritingCopyArticle"), $("btnWritingExportArticle")].filter(Boolean);
     const previous = buttons.map((button) => button.disabled);
     pending = true;
     buttons.forEach((button) => { button.disabled = true; });
     try {
+      if (writingState.bookChapter?.projectId === projectId && writingState.bookChapter) throw new Error("请先切回文章正文，或使用导出整稿。");
       const editor = $("writingDraftEditor");
       const markdown = typeof editor?.value === "string" ? editor.value : String(writingState.draftMarkdown ?? "");
       if (!writingState.project?.draft_note_id && writingState.draftSaveState !== "dirty" && !writingState.draftMarkdown) {

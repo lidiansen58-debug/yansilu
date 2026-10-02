@@ -60,7 +60,7 @@ import { applyMovedNoteToClientState } from "./note-move-client-state.js";
 import { installGlobalNoteSearch } from "./global-note-search.js";
 import { createSearchNoteOpener } from "./search-note-opener.js";
 import { createNoteCreationController } from "./note-creation-controller.js";
-import { checkNoteMove } from "./prototype-api.js";
+import { checkNoteMove, checkNoteSave } from "./prototype-api.js";
 import { createNoteRuntimeController } from "./note-runtime-controller.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxWorkspaceEvents, renderAiInboxWorkspaceView } from "./ai-inbox-workspace.js";
@@ -160,6 +160,8 @@ import { hideWritingTopicPicker } from "./writing-sidebar-actions.js";
 import { writingDraftContent, writingDraftMarkdown } from "./writing-workbench-model.js";
 import { originalDraftBodyFromSource as buildOriginalDraftBodyFromSource } from "./source-permanent-note-template.js";
 import { installWritingArticleOutputEvents } from "./writing-article-output.js";
+import { installWritingBookOutputEvents } from "./writing-book-output.js";
+import { exportWritingBook } from "./prototype-api.js";
 import { buildWritingOutlineOutput } from "./writing-outline-output.js";
 import { configureSmartNotesDemoProgress, smartNotesDemoCompletedStepsForState } from "./smart-notes-demo-practice-progress.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
@@ -1826,6 +1828,7 @@ function compactValue(value) {
 }
 
 const importResultRuntime = createImportResultRuntime({
+  checkpointImportWorkspace: () => importWorkspaceShellController.checkpoint(),
   $,
   activateModule,
   addWritingBasketIds,
@@ -1873,6 +1876,9 @@ const importResultRuntime = createImportResultRuntime({
 });
 
 const importWorkspaceShellController = createImportWorkspaceShellController({
+  getVaultPath: currentVaultPath,
+  getStorage: () => window.localStorage,
+  setStatus,
   getElement: $,
   importState,
   renderImportPageMount,
@@ -3597,6 +3603,8 @@ function resetWritingProjectContext({ title = "", goal = "", audience = "", tone
   writingState.scaffoldMarkdown = "";
   writingState.draftMarkdown = "";
   writingState.draftSaveState = "idle";
+  writingState.bookChapter = null;
+  writingState.chapterOpenRevision = Number(writingState.chapterOpenRevision || 0) + 1;
   writingState.scaffoldVersions = [];
   writingState.draftVersions = [];
   writingState.pendingDraftBinding = null;
@@ -5666,6 +5674,8 @@ const appShellStateChangeDeps = createAppShellStateChangePrototypeDepsProvider((
     noteMainPathWritingContinuationEntry,
     notePersistenceFieldsForSave,
     noteSaveFailureFeedback,
+    getVaultPath: currentVaultPath,
+    checkNoteSave,
     normalizeAiInboxFilters,
     normalizeAuthorshipItem,
     normalizeOptionalNumber,
@@ -6157,6 +6167,11 @@ installWritingProjectHistoryEventHandlers({
   })
 });
 
+installWritingBookOutputEvents({
+  $,
+  depsProvider: () => ({ writingState, state, renderWritingPanel, exportWritingBook, pickExportDirectory: desktopCommands.browseDirectory, getVaultPath: currentVaultPath, setStatus })
+});
+
 installWritingArticleOutputEvents({
   $,
   depsProvider: () => ({ writingState, state, renderAll, copyTextToClipboard, exportWritingArticle, pickExportDirectory: desktopCommands.browseDirectory, getVaultPath: currentVaultPath, setStatus })
@@ -6191,13 +6206,18 @@ installWritingDraftActionEventHandlers({
     writingDraftTitle,
     writingDraftBody,
     getVaultPath: currentVaultPath,
+    fetchNote,
+    fetchWritingProject,
+    updateWritingProjectBookStructure,
     listProjectDraftVersions,
+    requestTextInput,
     parseWritingBasketIds,
     setWritingBasketIds,
     uniqueStrings,
     createNote,
     updateNote,
     bindWritingDraftNote,
+    checkNoteSave,
     mapNoteItem,
     openWritingDraftNoteById,
     renderAll,

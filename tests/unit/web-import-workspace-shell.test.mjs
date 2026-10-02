@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { persistImportWorkspace } from "../../apps/web/src/import-workspace-recovery.js";
 import {
   createImportWorkspaceShellController,
   normalizeImportWorkspaceTab
@@ -98,11 +99,53 @@ function createHarness(overrides = {}) {
   return { controller, elements, importState, calls, importButton, exportButton };
 }
 
+test("a refreshed import shell restores record, preview and selected candidates", () => {
+  const records = new Map();
+  const storage = { getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value) };
+  const state = { lastPreview: { importRecordId: "imp_saved", candidatePreview: { items: [] } }, selectedCandidateIds: new Set(["chosen"]) };
+  persistImportWorkspace(storage, "vault-A", state, { importRecordId: "imp_saved", path: "E:/original", directoryId: "dir_original_default" });
+  const s = createHarness({ getVaultPath: () => "vault-A", getStorage: () => storage });
+  s.controller.renderPage();
+  assert.equal(s.calls.page[0].toolbar.importRecordId, "imp_saved");
+  assert.equal(s.calls.page[0].toolbar.path, "E:/original");
+  assert.equal(s.importState.lastPreview.importRecordId, "imp_saved");
+  assert.deepEqual([...s.importState.selectedCandidateIds], ["chosen"]);
+  assert.equal(s.importState.lastResultPayload.stage, "preview");
+});
+
+test("switching vaults cannot reuse the previous import record or path", () => {
+  let vault = "A";
+  const s = createHarness({ getVaultPath: () => vault });
+  s.controller.renderPage();
+  s.importState.lastPreview = { importRecordId: "imp_old" };
+  s.importState.importRecordId = "imp_old";
+  vault = "B";
+  s.controller.renderPage();
+  assert.equal(s.calls.page.at(-1).toolbar.importRecordId, "");
+  assert.equal(s.calls.page.at(-1).toolbar.path, "");
+  assert.equal(s.importState.lastPreview, null);
+});
+
 test("normalizeImportWorkspaceTab keeps import/export as the only tabs", () => {
   assert.equal(normalizeImportWorkspaceTab("export"), "export");
   assert.equal(normalizeImportWorkspaceTab(" EXPORT "), "export");
   assert.equal(normalizeImportWorkspaceTab("other"), "import");
   assert.equal(normalizeImportWorkspaceTab(""), "import");
+});
+
+test("page redraw preserves an open result but never reopens an explicitly closed result", () => {
+  const s = createHarness();
+  s.importState.operationResultVisible = true;
+  s.importState.operationResultMode = "export";
+  s.importState.lastExportResultPayload = { stage: "export_markdown", targetPath: "E:/export" };
+  s.controller.renderPage();
+  s.controller.renderPage();
+  assert.equal(s.calls.page.at(-1).resultVisible, true);
+  assert.equal(s.calls.page.at(-1).resultMode, "export");
+  assert.equal(s.calls.page.at(-1).exportResult.data.targetPath, "E:/export");
+  s.importState.operationResultVisible = false;
+  s.controller.renderPage();
+  assert.equal(s.calls.page.at(-1).resultVisible, false);
 });
 
 test("import workspace shell reads toolbar values and renders confirm state", () => {
@@ -139,6 +182,8 @@ test("import workspace shell renders page result and syncs export tab", () => {
 
   assert.equal(elements.importPageMount.innerHTML, `<main data-active="export"></main>`);
   assert.equal(calls.mountedExport, 1);
+  assert.equal(calls.toolbar.length, 1);
+  assert.deepEqual(calls.toolbar[0].confirmButton, { disabled: false, label: "2/3" });
   assert.deepEqual(calls.page[0].result, {
     data: { status: "completed" },
     raw: JSON.stringify({ status: "completed" }, null, 2)

@@ -56,6 +56,8 @@ test("app shell state-change prototype host deps keeps shell collaborators in on
     "noteMainPathWritingContinuationEntry",
     "notePersistenceFieldsForSave",
     "noteSaveFailureFeedback",
+    "getVaultPath",
+    "checkNoteSave",
     "normalizeAiInboxFilters",
     "normalizeAuthorshipItem",
     "normalizeOptionalNumber",
