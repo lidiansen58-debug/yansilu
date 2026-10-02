@@ -135,3 +135,66 @@ test("promotion links keep their identity when titles are duplicated and other l
     { id: "permanent", title: "Duplicate" }, { id: "other", title: "Duplicate" }
   ]), link);
 });
+
+test("promotion saves against the source baseline and acknowledges the new file revision", async () => {
+  const f = fixture();
+  f.source.fileRevision = f.tab.savedFileRevision = "a".repeat(64);
+  f.tab.body += "\nUnsaved source edit";
+  f.deps.updateNote = async (_id, patch) => {
+    assert.equal(patch.expectedBody, f.tab.savedBody);
+    assert.equal(patch.expectedRevision, "a".repeat(64));
+    return { ...f.source, ...patch, fileRevision: "b".repeat(64) };
+  };
+  await promote(f.payload, f.deps);
+  assert.equal(f.tab.savedFileRevision, "b".repeat(64));
+  assert.equal(f.tab.savedBody, f.source.body);
+  assert.equal(f.tab.dirty, false);
+});
+
+for (const stage of ["creation", "source-save"]) {
+  test(`promotion completion preserves a different active note after switching during ${stage}`, async () => {
+    const f = fixture(), held = deferred(), entered = deferred();
+    let opens = 0, moduleChanges = 0;
+    f.state.module = "explorer";
+    f.deps.openNoteById = () => { opens++; };
+    f.deps.activateModule = () => { moduleChanges++; };
+    if (stage === "creation") f.deps.createNote = async payload => {
+      entered.resolve(); await held.promise;
+      return { id: "permanent", title: "Permanent", body: payload.body };
+    };
+    else f.deps.updateNote = async (_id, patch) => {
+      entered.resolve(); await held.promise;
+      return { ...f.source, ...patch };
+    };
+    const pending = promote(f.payload, f.deps);
+    await entered.promise;
+    const other = { id: "tab-other", noteId: "other", body: "# Keep editing here", dirty: true };
+    f.state.tabs.push(other);
+    f.state.activeTabId = other.id;
+    held.resolve();
+    const result = await pending;
+    assert.equal(result.id, "permanent");
+    assert.equal(opens, 0);
+    assert.equal(moduleChanges, 0);
+    assert.equal(f.state.activeTabId, other.id);
+    assert.equal(other.body, "# Keep editing here");
+    assert.match(f.tab.body, /generated-original=permanent/);
+    assert.doesNotMatch(f.messages.at(-1).message, /已生成并打开/);
+  });
+}
+
+for (const code of ["NOTE_SAVE_CONFLICT", "NOTE_SAVE_RESULT_UNCERTAIN"]) {
+  test(`source promotion retains a paused recovery draft for ${code}`, async () => {
+    const f = fixture();
+    const oldBody = f.tab.savedBody;
+    f.tab.savedFileRevision = "a".repeat(64);
+    f.deps.updateNote = async () => { throw Object.assign(new Error("Check the source file"), { code }); };
+    assert.equal((await promote(f.payload, f.deps)).id, "permanent");
+    assert.equal(f.tab.savedBody, oldBody);
+    assert.equal(f.tab.savedFileRevision, "a".repeat(64));
+    assert.equal(f.tab.saveConflict, true);
+    assert.equal(f.tab.saveUiState.mode, code === "NOTE_SAVE_CONFLICT" ? "conflict" : "uncertain");
+    assert.equal(f.tab.dirty, true);
+    assert.match(f.drafts.at(-1), /generated-original=permanent/);
+  });
+}
