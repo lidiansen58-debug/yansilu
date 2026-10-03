@@ -14,6 +14,7 @@ import {
   uniqueStrings
 } from "./prototype-collection-utils.js";
 import { createContextualAiActionController } from "./contextual-ai-action-controller.js";
+import { aiErrorMessage } from "./ai-error-message.js";
 
 function isRemoteAiRuntimeMode(mode = "") {
   return ["remote", "cloud_only", "cloud"].includes(String(mode || "").toLowerCase());
@@ -40,18 +41,22 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
   const contextualAiController = createContextualAiActionController({
     onChange: (actionState) => {
       const deps = runtimeDeps();
-      if (deps.writingState) deps.writingState.contextualAiActionState = actionState;
+      const context = actionState.returnContext;
+      if (context?.projectId && context.projectId !== deps.writingState?.project?.id) return;
+      if (context?.requestRevision != null && context.requestRevision !== deps.writingState?.strongModelRevision) return;
+      if (deps.writingState) deps.writingState.contextualAiActionState = { ...actionState };
       deps.renderWritingPanel?.();
     },
     onIgnore: async ({ status } = {}) => {
       const deps = runtimeDeps();
       if (deps.writingState) {
+        deps.writingState.strongModelRevision = (deps.writingState.strongModelRevision || 0) + 1;
         deps.writingState.strongModelResult = null;
         deps.writingState.strongModelError = "";
         deps.writingState.strongModelLoading = false;
       }
-      deps.setStatus?.(status === "needs_remote_confirmation" ? "已取消检查。" : "已关闭检查结果。", "ok");
-      return { clear: true };
+      deps.setStatus?.(["needs_remote_confirmation", "checking", "running"].includes(status) ? "已取消检查。" : "已关闭检查结果。", "ok");
+      return { clear: true, message: ["needs_remote_confirmation", "checking", "running"].includes(status) ? "已取消检查。" : "" };
     },
     ensureAvailable: async ({ context }) => {
       const deps = runtimeDeps();
@@ -232,6 +237,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       setStatus = () => {},
       writingState = {}
     } = runtimeDeps();
+    if (writingState.strongModelLoading) return;
     const noteIds = parseWritingBasketIds();
     const preflightPlan = writingStrongModelAnalysisPlan({
       noteIds,
@@ -249,6 +255,7 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
     const actionPlan = writingStrongModelAnalysisPlan({
       noteIds,
       project: writingState.project,
+      scaffold: writingState.scaffold,
       form: {
         goal: formValue(selectById, "writingGoal"),
         audience: formValue(selectById, "writingAudience")
@@ -260,26 +267,41 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       ? aiFeatureRequestOptions({ actionId: "check_outline", remoteConfirmed: options.remoteConfirmed === true })
       : defaultAiRequestOptions(aiRuntimeMode);
     const analysisRequest = { ...actionPlan.request, ...requestOptions };
-    const requestRevision = writingState.strongModelRevision + 1;
+    const projectId = writingState.project?.id;
+    const requestRevision = (writingState.strongModelRevision || 0) + 1;
+    const isCurrentRequest = () => writingState.strongModelRevision === requestRevision && writingState.project?.id === projectId;
     writingState.strongModelRevision = requestRevision;
     writingState.strongModelLoading = true;
-    writingState.strongModelResult = null;
     writingState.strongModelError = "";
     renderWritingPanel();
     try {
       const contextualState = await contextualAiController.run(
         "check_outline",
-        { noteIds, remoteConfirmed: options.remoteConfirmed === true, returnContext: { view: "writing", projectId: writingState.project?.id || "" } },
-        () => analyzeWritingWithStrongModel(analysisRequest)
+        { noteIds, cancellable: true, noteTitles: Object.fromEntries(noteIds.map((id) => [id, runtimeDeps().writingKnownNoteById?.(id)?.title || id])),
+          remoteConfirmed: options.remoteConfirmed === true, returnContext: { view: "writing", projectId, requestRevision } },
+        async ({ signal }) => {
+          try {
+            const response = await analyzeWritingWithStrongModel(analysisRequest, { signal });
+            if (!response || typeof response !== "object") throw new Error("AI 未返回写作检查结果，请重试。");
+            const currentOutline = writingStrongModelAnalysisPlan({ noteIds, project: writingState.project, scaffold: writingState.scaffold }).request?.currentOutline;
+            if (JSON.stringify(currentOutline) !== JSON.stringify(analysisRequest.currentOutline)) {
+              return { ...response, summary: "提纲已改变，以下建议基于检查前的版本。需要时请重新检查。" };
+            }
+            return response;
+          } catch (error) {
+            throw new Error(aiErrorMessage(error));
+          }
+        }
       );
       if (contextualState.status === "needs_setup" || contextualState.status === "needs_remote_confirmation") return;
       if (contextualState.status === "failed") throw new Error(contextualState.error || "写作检查失败");
       const result = contextualState.result?.raw || null;
-      if (writingState.strongModelRevision !== requestRevision) return;
+      if (!isCurrentRequest()) return;
+      if (!result || typeof result !== "object") throw new Error("AI 未返回写作检查结果，请重试。");
       writingState.strongModelResult = result;
       setStatus("写作检查已完成，请确认结果后再修改提纲", "ok");
     } catch (error) {
-      if (writingState.strongModelRevision !== requestRevision) return;
+      if (!isCurrentRequest()) return;
       writingState.strongModelError = String(error?.message || error);
       setStatus(`检查提纲失败：${writingState.strongModelError}`, "warn");
     } finally {

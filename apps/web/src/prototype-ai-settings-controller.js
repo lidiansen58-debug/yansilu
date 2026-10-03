@@ -10,8 +10,8 @@ export const OLLAMA_MODEL_RECOMMENDATIONS = [
   {
     name: "qwen2.5:7b",
     label: "轻量",
-    note: "快、省资源，适合快速摘要和低成本推荐筛选。",
-    role: "轻量快速",
+    note: "用于短文本摘要和候选筛选；复杂判断仍需核对。",
+    role: "轻量模型",
     resource: "资源占用较低",
     sizeHint: "约 4-5GB",
     downloadCommand: "ollama pull qwen2.5:7b"
@@ -19,17 +19,17 @@ export const OLLAMA_MODEL_RECOMMENDATIONS = [
   {
     name: "qwen3:8b",
     label: "推荐",
-    note: "适合观点提纯、潜在关联和 AI 建议，质量与速度更均衡。",
+    note: "用于观点整理和关联建议；仅用 CPU 运行可能较慢。",
     role: "默认推荐",
-    resource: "质量与速度均衡",
+    resource: "资源需求中等",
     sizeHint: "约 5-6GB",
     downloadCommand: "ollama pull qwen3:8b"
   },
   {
     name: "qwen3.5:9b",
-    label: "高质量",
-    note: "适合深度分析和复杂材料整理，响应会更慢。",
-    role: "高质量较慢",
+    label: "较大",
+    note: "用于复杂材料整理；模型更大不保证诊断更准确。",
+    role: "较大模型",
     resource: "更占资源",
     sizeHint: "约 6-7GB",
     downloadCommand: "ollama pull qwen3.5:9b"

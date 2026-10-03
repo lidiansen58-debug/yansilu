@@ -4,6 +4,18 @@ import assert from "node:assert/strict";
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { createInitialState } from "../../apps/web/src/prototype-store.js";
 
+test("pending relation recommendation retains focus after AI settings", async () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = { notes: [{ id: "pn_pending" }] };
+  pane.isActiveNoteId = () => true;
+  let resumed;
+  pane.runPermanentNoteAnalysis = async options => { resumed = options; };
+  pane.rememberPendingContextualAiAction("note_analysis", { noteId: "pn_pending", analysisFocus: "relations" });
+  assert.equal(await pane.resumePendingContextualAiAction(), true);
+  assert.deepEqual(resumed, { analysisFocus: "relations" });
+  assert.equal(pane.pendingContextualAiAction, null);
+});
+
 function createClassList() {
   const classes = new Set();
   return {
@@ -101,11 +113,11 @@ test("editor shows a single create-permanent action for source notes even when n
 
   pane.renderRecordPermanentButton();
 
-  assert.equal(distillSourceAi.disabled, true);
-  assert.equal(distillSourceAi.classList.contains("hidden"), true);
-  assert.equal(distillSourceAi.dataset.sourceNoteId, "");
-  assert.equal(distillSourceAi.title, "创建永久笔记");
-  assert.equal(distillSourceAi["aria-label"], "创建永久笔记");
+  assert.equal(distillSourceAi.disabled, false);
+  assert.equal(distillSourceAi.classList.contains("hidden"), false);
+  assert.equal(distillSourceAi.dataset.sourceNoteId, "fn_missing");
+  assert.equal(distillSourceAi.title, "AI 帮我提炼");
+  assert.equal(distillSourceAi["aria-label"], "AI 帮我提炼");
   assert.equal(button.classList.contains("hidden"), false);
   assert.equal(button.disabled, false);
   assert.equal(button.dataset.sourceNoteId, "fn_missing");
@@ -197,6 +209,38 @@ test("source-note distill resumes after AI settings become ready", async () => {
   assert.equal(pane.sourceDistillAiState.status, "awaiting_confirmation");
 });
 
+test("resuming AI restores the note workspace even when its editor tab remains active", async () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = { notes: [{ id: "source" }], module: "settings" };
+  pane.pendingContextualAiAction = { actionId: "distill_material", noteId: "source" };
+  pane.isActiveNoteId = () => true;
+  const calls = [];
+  pane.onOpenNote = async id => { calls.push(["open", id]); pane.state.module = "fleeting"; return true; };
+  pane.runSourceDistillAction = async () => { calls.push(["run", pane.state.module]); };
+  assert.equal(await pane.resumePendingContextualAiAction(), true);
+  assert.deepEqual(calls, [["open", "source"], ["run", "fleeting"]]);
+});
+
+for (const change of ["replacement", "vault-switch"]) {
+  test(`pending AI resume discards old navigation after ${change}`, async () => {
+    const pane = Object.create(EditorPane.prototype);
+    pane.state = { notes: [{ id: "source" }], module: "settings", noteMoveVaultScope: "vault-a" };
+    const oldPending = { actionId: "distill_material", noteId: "source" };
+    pane.pendingContextualAiAction = oldPending;
+    let finishOpen;
+    pane.isActiveNoteId = () => true;
+    pane.onOpenNote = () => new Promise(resolve => { finishOpen = resolve; });
+    pane.runSourceDistillAction = async () => assert.fail("stale navigation cannot run AI");
+    const resumed = pane.resumePendingContextualAiAction();
+    const replacement = { actionId: "note_analysis", noteId: "other" };
+    if (change === "replacement") pane.pendingContextualAiAction = replacement;
+    else pane.state.noteMoveVaultScope = "vault-b";
+    finishOpen(true);
+    assert.equal(await resumed, false);
+    assert.equal(pane.pendingContextualAiAction, change === "replacement" ? replacement : null);
+  });
+}
+
 test("source-note distill action renders an editable draft after AI is ready", async () => {
   const state = createInitialState();
   const pane = Object.create(EditorPane.prototype);
@@ -268,6 +312,63 @@ test("source-note distill action asks before sending remote content", async () =
 
   assert.deepEqual(calls.map((call) => call[1]), ["ensure-ai-ready-for-feature"]);
   assert.equal(pane.sourceDistillAiState.status, "needs_remote_confirmation");
+});
+
+test("source AI discards a result when the material changed during generation", async () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = createInitialState();
+  pane.els = {};
+  pane.activeNote = () => ({ id: "fn_changed", title: "材料" });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  let body = "原材料";
+  pane.getEditorValue = () => body;
+  pane.clearPendingContextualAiAction = () => {};
+  pane.onStateChange = async reason => {
+    if (reason === "ensure-ai-ready-for-feature") return { ready: true };
+    body = "修改后的材料";
+    return { kind: "draft", draft: { title: "旧草稿" } };
+  };
+  await pane.runSourceDistillAction();
+  assert.equal(pane.sourceDistillAiState.status, "failed");
+  assert.equal(pane.sourceDistillAiState.result, null);
+  assert.match(pane.sourceDistillAiState.error, /来源材料已修改/);
+});
+
+test("source AI readiness errors become retryable failures", async () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = createInitialState();
+  pane.els = {};
+  pane.activeNote = () => ({ id: "fn_ready_error" });
+  pane.isOriginalRecordableSource = () => true;
+  pane.getEditorValue = () => "材料";
+  pane.onStateChange = async () => { throw new Error("服务不可用"); };
+  assert.equal(await pane.runSourceDistillAction(), false);
+  assert.equal(pane.sourceDistillAiState.status, "failed");
+  assert.match(pane.sourceDistillAiState.error, /服务不可用/);
+});
+
+test("source AI draft omits an empty pending questions heading", () => {
+  const pane = Object.create(EditorPane.prototype);
+  assert.doesNotMatch(pane.permanentDraftBodyFromSourceDistill({ title: "观点", coreArgument: "判断", content: "说明", questions: "" }), /待确认问题/);
+});
+
+test("source AI late results after changing notes do not leave a running state", async () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = createInitialState(); pane.els = {};
+  let id = "fn_old";
+  pane.activeNote = () => ({ id });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "材料";
+  pane.clearPendingContextualAiAction = () => {};
+  pane.onStateChange = async reason => {
+    if (reason === "ensure-ai-ready-for-feature") return { ready: true };
+    id = "fn_other";
+    return { kind: "draft", draft: { title: "旧结果" } };
+  };
+  assert.equal(await pane.runSourceDistillAction(), false);
+  assert.equal(pane.sourceDistillAiState, null);
 });
 
 test("source-note distill draft creates a permanent note only after adoption", async () => {
@@ -348,12 +449,88 @@ test("source-note distill draft does not mark adopted when note creation fails",
   };
 
   const result = await pane.createPermanentNoteFromSourceDistill([
-    { index: 0, field: "title", value: "标题" }
+    { index: 0, field: "title", value: "修改后的标题" }
   ]);
 
   assert.equal(result, false);
-  assert.equal(pane.sourceDistillAiState.status, "failed");
-  assert.match(pane.sourceDistillAiState.error, /创建失败/);
+  assert.equal(pane.sourceDistillAiState.status, "awaiting_confirmation");
+  assert.equal(pane.sourceDistillAiState.result.draft.title, "修改后的标题");
+  assert.match(pane.sourceDistillAiState.error, /草稿已保留/);
+});
+
+function adoptionRaceFixture() {
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = createInitialState();
+  pane.els = {};
+  pane.activeNote = () => ({ id: "source", title: "Source" });
+  pane.isOriginalRecordableSource = () => true;
+  pane.resolvedNoteType = () => "fleeting";
+  pane.getEditorValue = () => "Source body";
+  pane.onStatus = () => {};
+  pane.sourceDistillAiState = {
+    noteId: "source", status: "awaiting_confirmation",
+    result: { kind: "draft", draft: { title: "Draft", content: "Confirmed text" } }
+  };
+  let choose;
+  pane.pickPermanentDirectoryForNote = () => new Promise(resolve => { choose = resolve; });
+  const calls = [];
+  pane.onStateChange = async (reason, payload) => { calls.push({ reason, payload }); return true; };
+  return { pane, calls, choose: value => choose(value) };
+}
+
+test("closing an AI draft during directory selection prevents its adoption", async () => {
+  const { pane, calls, choose } = adoptionRaceFixture();
+  const pending = pane.createPermanentNoteFromSourceDistill();
+  pane.setSourceDistillAiState(null);
+  choose("permanent-directory");
+  assert.equal(await pending, false);
+  assert.equal(calls.length, 0);
+  assert.equal(pane.sourceDistillAiState, null);
+});
+
+test("a replacement AI draft is not saved or marked adopted by an old directory selection", async () => {
+  const { pane, calls, choose } = adoptionRaceFixture();
+  const pending = pane.createPermanentNoteFromSourceDistill();
+  const replacement = { noteId: "source", status: "running", result: null };
+  pane.setSourceDistillAiState(replacement);
+  const current = pane.sourceDistillAiState;
+  choose("permanent-directory");
+  assert.equal(await pending, false);
+  assert.equal(calls.length, 0);
+  assert.equal(pane.sourceDistillAiState, current);
+  assert.equal(current.status, "running");
+});
+
+test("an in-flight creation does not overwrite a newer AI state on completion", async () => {
+  const { pane, choose } = adoptionRaceFixture();
+  let finish;
+  pane.onStateChange = () => new Promise(resolve => { finish = resolve; });
+  const pending = pane.createPermanentNoteFromSourceDistill();
+  choose("permanent-directory");
+  await Promise.resolve();
+  pane.setSourceDistillAiState({ noteId: "other", status: "running", result: null });
+  const current = pane.sourceDistillAiState;
+  finish(true);
+  assert.equal(await pending, true);
+  assert.equal(pane.sourceDistillAiState, current);
+  assert.equal(current.status, "running");
+});
+
+test("failed AI adoption releases its lock and retries the retained edited draft", async () => {
+  const { pane, choose } = adoptionRaceFixture();
+  pane.onStateChange = async () => false;
+  const first = pane.createPermanentNoteFromSourceDistill([{ field: "content", value: "Edited text" }]);
+  choose("permanent-directory");
+  assert.equal(await first, false);
+  assert.equal(pane.sourceDistillAdopting, false);
+  assert.equal(pane.sourceDistillAiState.result.draft.content, "Edited text");
+  let saved;
+  pane.onStateChange = async (reason, payload) => { saved = payload; return true; };
+  const retry = pane.createPermanentNoteFromSourceDistill();
+  choose("permanent-directory");
+  assert.equal(await retry, true);
+  assert.match(saved.draftBody, /Edited text/);
+  assert.equal(pane.sourceDistillAiState.status, "adopted");
 });
 
 test("editor keeps related-panel access and inline insert for permanent notes in the plain editor", () => {

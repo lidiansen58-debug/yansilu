@@ -46,7 +46,7 @@ function compactObject(values = {}) {
   );
 }
 
-function artifactSuggestion(artifact = {}) {
+function artifactSuggestion(artifact = {}, options = {}) {
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   const payloadLines = [
     payload.text,
@@ -57,9 +57,18 @@ function artifactSuggestion(artifact = {}) {
     Array.isArray(payload.gaps) ? `缺口：${payload.gaps.join("；")}` : "",
     payload.gap ? `缺口：${payload.gap}` : ""
   ].map(cleanText).filter(Boolean);
-  const text = cleanText(artifact.body) || cleanText(artifact.summary) || payloadLines.join("\n");
+  const writingCheck = options.actionId === "check_outline";
+  const sourceIds = payload.sourceNoteIds || payload.relatedNoteIds || artifact.sources?.noteIds || [];
+  const sourceNames = sourceIds.map((id) => options.context?.noteTitles?.[id] || id);
+  const text = writingCheck
+    ? [...new Set(payloadLines.length ? payloadLines : [cleanText(artifact.body) || cleanText(artifact.summary)])].filter(Boolean).join("\n") +
+      (sourceNames.length ? `\n相关笔记：${sourceNames.join("、")}` : "")
+    : cleanText(artifact.body) || cleanText(artifact.summary) || payloadLines.join("\n");
+  const defaultTitle = { WritingMove: "写作建议", OutlineDraft: "提纲建议", SourceGap: "待补证据" }[artifact.type];
+  const title = writingCheck && defaultTitle && /^(Writing move:|Writing source gap|\d+ reviewable sections)/i.test(cleanText(artifact.title))
+    ? defaultTitle : cleanText(artifact.title) || (writingCheck ? defaultTitle : cleanText(artifact.type)) || "建议";
   return {
-    title: cleanText(artifact.title) || cleanText(artifact.type) || "建议",
+    title,
     text,
     editable: true,
     value: text
@@ -193,15 +202,16 @@ export function normalizeContextualAiResult(result = {}, options = {}) {
   const source = result && typeof result === "object" ? result : { value: result };
   const kind = String(options.kind || source.kind || "result");
   const artifacts = resultArtifacts(source);
+  const suggestionLimit = options.actionId === "check_outline" ? 5 : 3;
   const suggestions = kind !== "recommendations" && Array.isArray(source.suggestions)
-    ? source.suggestions.slice(0, 3).map((item) => ({
+    ? source.suggestions.slice(0, suggestionLimit).map((item) => ({
         title: String(item?.title || "").trim(),
         text: String(item?.text || item?.reason || item?.content || "").trim(),
         editable: item?.editable !== false,
         value: item?.value ?? item?.content ?? ""
       }))
     : artifacts.length && kind !== "recommendations"
-      ? artifacts.slice(0, 3).map(artifactSuggestion)
+      ? artifacts.slice(0, suggestionLimit).map((artifact) => artifactSuggestion(artifact, options))
     : [];
   const recommendations = Array.isArray(source.recommendations)
     ? source.recommendations.map((item) => normalizeRecommendation(item, options)).filter(Boolean).slice(0, 5)

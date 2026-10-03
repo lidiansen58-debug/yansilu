@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { installSettingsAiEventBindings } from "../../apps/web/src/settings-ai-event-bindings.js";
+import { remoteAiConfigurationConsented } from "../../apps/web/src/remote-ai-consent.js";
 
 function createHarness() {
   const listeners = new Map();
@@ -55,6 +56,7 @@ function createHarness() {
     "settingsAiAutoPrepareLocal",
     "settingsAiAdvancedModelRef",
     "settingsAiSecretRef",
+    "settingsAiRemoteConsent",
     "settingsAiRemoteRuntimeModel",
     "settingsAiProviderEndpointUrl",
     "settingsAiTestPrompt",
@@ -93,6 +95,208 @@ function createHarness() {
     }
   };
 }
+
+test("remote field changes revoke page consent, including replacing a key under the same secret reference", async () => {
+  const harness = createHarness();
+  const settingsState = { ai: { providerEndpointUrl: "https://example.test/v1", remoteRuntimeModel: "model", remoteApiKey: "synthetic-one", secretRef: "local:settings-remote-api-key" } };
+  const provider = "openai_compatible_gateway";
+  installSettingsAiEventBindings({ $: harness.$, documentRef: harness.documentRef, settingsState, currentAiProviderId: () => provider });
+  const consent = harness.listeners.get("settingsAiRemoteConsent:change");
+  for (const [field, value] of [["settingsAiSecretRef", "synthetic-two"], ["settingsAiProviderEndpointUrl", "https://other.test/v1"], ["settingsAiRemoteRuntimeModel", "other-model"]]) {
+    consent({ target: { checked: true } });
+    assert.equal(remoteAiConfigurationConsented(settingsState.ai, provider), true);
+    await harness.listeners.get(`${field}:input`)({ target: { value } });
+    assert.equal(remoteAiConfigurationConsented(settingsState.ai, provider), false);
+  }
+});
+
+for (const [entry, value] of [
+  ["settingsAiRuntimeMode:change", "off"],
+  ["settingsAiHybridToggle:click", ""],
+  ["settingsAiUserMode:change", "Deep"],
+  ["settingsAiModelPack:change", "Privacy First"],
+  ["settingsAiLocalModel:change", "qwen3:8b"],
+  ["settingsAiAdvancedModelRef:blur", "other-model"],
+  ["settingsAiRuntimeToggle:click", ""]
+]) {
+  test(`changing AI settings aborts the running test before its late reply: ${entry}`, async () => {
+    const harness = createHarness();
+    const settingsState = { ai: { localModel: "qwen2.5:7b", localRuntimeStatus: "available" } };
+    harness.elements.get("settingsAiTestPrompt").value = "hello";
+    let signal;
+    let finish;
+    let resumed = 0;
+    installSettingsAiEventBindings({
+      $: harness.$, documentRef: harness.documentRef, settingsState,
+      currentAiProviderId: () => "ollama_local_gateway",
+      runAiTestChat: async (_payload, options) => {
+        signal = options.signal;
+        return new Promise(resolve => { finish = resolve; });
+      },
+      onAiSettingsReady: () => { resumed++; }
+    });
+    const pending = harness.listeners.get("btnAiTestChatRun:click")();
+    await new Promise(resolve => setImmediate(resolve));
+    await harness.listeners.get(entry)({ target: { value } });
+    assert.equal(signal.aborted, true);
+    assert.equal(settingsState.ai.testRunning, false);
+    finish({ output: { content: "late success" } });
+    await pending;
+    assert.notEqual(settingsState.ai.testStatus, "success");
+    assert.equal(resumed, 0);
+  });
+}
+
+test("closing the test dialog aborts transport and rejects a late successful reply", async () => {
+  const harness = createHarness();
+  const settingsState = { ai: { localModel: "qwen2.5:7b" } };
+  harness.elements.get("settingsAiTestPrompt").value = "hello";
+  let signal;
+  let finish;
+  let resumed = 0;
+  let closed = 0;
+  installSettingsAiEventBindings({
+    $: harness.$, documentRef: harness.documentRef, settingsState,
+    currentAiProviderId: () => "ollama_local_gateway",
+    runAiTestChat: async (payload, options) => {
+      signal = options.signal;
+      return new Promise(resolve => { finish = resolve; });
+    },
+    closeSettingsAiDialogs: () => { closed++; },
+    onAiSettingsReady: () => { resumed++; }
+  });
+  const pending = harness.listeners.get("btnAiTestChatRun:click")();
+  await new Promise(resolve => setImmediate(resolve));
+  harness.listeners.get("document:keydown")({ key: "Escape" });
+  assert.equal(signal.aborted, true);
+  assert.equal(settingsState.ai.testRunning, false);
+  assert.equal(settingsState.ai.testStatus, "cancelled");
+  assert.equal(closed, 1);
+  finish({ output: { content: "late success" } });
+  await pending;
+  assert.equal(settingsState.ai.testStatus, "cancelled");
+  assert.equal(resumed, 0);
+});
+
+for (const [attribute, value] of [
+  ["data-settings-ai-select-local-model", "qwen3:8b"],
+  ["data-settings-ai-quick-setup", "remote"],
+  ["data-settings-ai-primary-action", "off"]
+]) {
+  test(`delegated AI setup cancels a running test: ${attribute}`, async () => {
+    const harness = createHarness();
+    const settingsState = { ai: { localModel: "qwen2.5:7b" } };
+    harness.elements.get("settingsAiTestPrompt").value = "hello";
+    let signal;
+    let finish;
+    installSettingsAiEventBindings({
+      $: harness.$, documentRef: harness.documentRef, settingsState,
+      currentAiProviderId: () => "ollama_local_gateway",
+      runAiTestChat: async (_payload, options) => {
+        signal = options.signal;
+        return new Promise(resolve => { finish = resolve; });
+      }
+    });
+    const pending = harness.listeners.get("btnAiTestChatRun:click")();
+    await new Promise(resolve => setImmediate(resolve));
+    await harness.listeners.get("settingsCardAiSettings:click")({
+      target: harness.target({ [`[${attribute}]`]: harness.attrNode({ [attribute]: value }) })
+    });
+    assert.equal(signal.aborted, true);
+    finish({ output: { content: "late success" } });
+    await pending;
+    assert.notEqual(settingsState.ai.testStatus, "success");
+    assert.equal(settingsState.ai.testRunning, false);
+  });
+}
+
+test("local test completes before resuming work and resume failures do not invalidate it", async () => {
+  const harness = createHarness();
+  const settingsState = { ai: { localModel: "qwen2.5:7b" } };
+  const statuses = [];
+  let resumed = false;
+  harness.elements.get("settingsAiTestPrompt").value = "hello";
+  installSettingsAiEventBindings({
+    $: harness.$, documentRef: harness.documentRef, settingsState,
+    currentAiProviderId: () => "ollama_local_gateway",
+    runAiTestChat: async () => ({ output: { content: "ok" } }),
+    onAiSettingsReady: async () => {
+      resumed = true;
+      assert.equal(settingsState.ai.testRunning, false);
+      assert.equal(settingsState.ai.testStatus, "success");
+      throw new Error("resume failure");
+    },
+    setStatus: (message, tone) => statuses.push({ message, tone })
+  });
+  await harness.listeners.get("btnAiTestChatRun:click")({});
+  assert.equal(resumed, true);
+  assert.equal(settingsState.ai.testStatus, "success");
+  assert.equal(settingsState.ai.testOutput, "ok");
+  assert.deepEqual(statuses.at(-1), { message: "AI 测试已通过，但继续处理失败：resume failure", tone: "warn" });
+});
+
+for (const reply of [{ status: "succeeded", output: {} }, { status: "failed", output: { content: "cached" } }]) {
+  test(`an unusable test reply does not unlock AI or resume work: ${reply.status}`, async () => {
+    const harness = createHarness();
+    const settingsState = { ai: { localModel: "qwen2.5:7b" } };
+    let resumed = false;
+    harness.elements.get("settingsAiTestPrompt").value = "hello";
+    installSettingsAiEventBindings({
+      $: harness.$, documentRef: harness.documentRef, settingsState,
+      currentAiProviderId: () => "ollama_local_gateway",
+      runAiTestChat: async () => reply,
+      onAiSettingsReady: async () => { resumed = true; }
+    });
+    await harness.listeners.get("btnAiTestChatRun:click")({});
+    assert.equal(settingsState.ai.testStatus, "failed");
+    assert.equal(settingsState.ai.testRunning, false);
+    assert.equal(resumed, false);
+  });
+}
+
+for (const field of ["providerEndpointUrl", "remoteApiKey", "localModel"]) {
+  test(`a test reply cannot certify configuration changed during the request: ${field}`, async () => {
+    const harness = createHarness();
+    const settingsState = { ai: { providerEndpointUrl: "https://old.test/v1", remoteApiKey: "synthetic-old", localModel: "qwen3:8b" } };
+    let finish;
+    let resumed = false;
+    harness.elements.get("settingsAiTestPrompt").value = "hello";
+    installSettingsAiEventBindings({
+      $: harness.$, documentRef: harness.documentRef, settingsState,
+      currentAiProviderId: () => field === "localModel" ? "ollama_local_gateway" : "openai_compatible_gateway",
+      runAiTestChat: () => new Promise(resolve => { finish = resolve; }),
+      onAiSettingsReady: async () => { resumed = true; }
+    });
+    const running = harness.listeners.get("btnAiTestChatRun:click")({});
+    settingsState.ai[field] = "changed";
+    finish({ output: { content: "old reply" } });
+    await running;
+    assert.notEqual(settingsState.ai.testStatus, "success");
+    assert.notEqual(settingsState.ai.testOutput, "old reply");
+    assert.equal(settingsState.ai.testRunning, false);
+    assert.equal(resumed, false);
+  });
+}
+
+test("an older test failure cannot replace a newer successful reply", async () => {
+  const harness = createHarness();
+  const settingsState = { ai: {} };
+  const pending = [];
+  harness.elements.get("settingsAiTestPrompt").value = "hello";
+  installSettingsAiEventBindings({
+    $: harness.$, documentRef: harness.documentRef, settingsState,
+    currentAiProviderId: () => "openai_compatible_gateway",
+    runAiTestChat: () => new Promise((resolve, reject) => pending.push({ resolve, reject }))
+  });
+  const old = harness.listeners.get("btnAiTestChatRun:click")({});
+  const current = harness.listeners.get("btnAiTestChatRun:click")({});
+  pending[1].resolve({ output: { content: "new reply" } });
+  await current;
+  pending[0].reject(new Error("old failure"));
+  await old;
+  assert.equal(settingsState.ai.testStatus, "success");
+  assert.equal(settingsState.ai.testOutput, "new reply");
+});
 
 test("settings AI event bindings route core field changes and delegated actions", async () => {
   const harness = createHarness();

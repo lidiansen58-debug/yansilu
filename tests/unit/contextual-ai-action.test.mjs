@@ -15,6 +15,47 @@ import {
   renderContextualAiResultPanel
 } from "../../apps/web/src/contextual-ai-result-panel.js";
 
+test("cancelling a running check aborts transport and ignores late results", async () => {
+  let finish;
+  let signal;
+  let started;
+  const ready = new Promise(resolve => { started = resolve; });
+  const controller = createContextualAiActionController({ onIgnore: () => ({ clear: true }) });
+  const pending = controller.run("check_outline", { cancellable: true }, options => {
+    signal = options.signal;
+    started();
+    return new Promise(resolve => { finish = resolve; });
+  });
+  await ready;
+  assert.match(renderContextualAiResultPanel(controller.stateFor("check_outline")), /data-contextual-ai-ignore>取消/);
+  await controller.ignore("check_outline");
+  assert.equal(signal.aborted, true);
+  finish({ suggestions: [{ text: "Late result" }] });
+  await pending;
+  assert.equal(controller.stateFor("check_outline").status, "idle");
+  assert.equal(controller.stateFor("check_outline").result, null);
+});
+
+test("closing an older result cannot clear a check started while close is pending", async () => {
+  let finishClose;
+  let finishRun;
+  const controller = createContextualAiActionController({
+    ensureAvailable: async () => ({ ready: true, mode: "local" }),
+    onIgnore: () => new Promise(resolve => { finishClose = resolve; })
+  });
+  await controller.run("check_outline", {}, async () => ({ suggestions: [] }));
+  const closing = controller.ignore("check_outline");
+  const pending = controller.run("check_outline", { cancellable: true }, () => new Promise(resolve => { finishRun = resolve; }));
+  await new Promise(resolve => setImmediate(resolve));
+  finishClose({ clear: true });
+  await closing;
+  assert.equal(controller.stateFor("check_outline").status, "running");
+  finishRun({ suggestions: [{ title: "new check", text: "new result" }] });
+  await pending;
+  assert.equal(controller.stateFor("check_outline").status, "awaiting_confirmation");
+  assert.equal(controller.stateFor("check_outline").result.suggestions[0].title, "new check");
+});
+
 test("未配置 AI 时保留原上下文并进入启用状态", async () => {
   let enableRequest;
   const controller = createContextualAiActionController({
@@ -26,6 +67,25 @@ test("未配置 AI 时保留原上下文并进入启用状态", async () => {
 
   assert.equal(state.status, CONTEXTUAL_AI_ACTION_STATUS.needs_setup);
   assert.deepEqual(enableRequest.returnContext, { projectId: "p-1", view: "writing" });
+});
+
+test("availability failure becomes a retryable error instead of staying in checking", async () => {
+  let attempts = 0;
+  let calls = 0;
+  const controller = createContextualAiActionController({
+    ensureAvailable: async () => {
+      if (++attempts === 1) throw new Error("本地服务暂时无法连接");
+      return { ready: true, mode: "local" };
+    }
+  });
+  const runner = async () => { calls++; return { suggestions: [] }; };
+  await controller.run("check_outline", { cancellable: true }, runner);
+  assert.equal(controller.stateFor("check_outline").status, "failed");
+  assert.match(controller.stateFor("check_outline").error, /无法连接/);
+  assert.equal(calls, 0);
+  await controller.run("check_outline", { cancellable: true }, runner);
+  assert.equal(controller.stateFor("check_outline").status, "awaiting_confirmation");
+  assert.equal(calls, 1);
 });
 
 test("AI 结果不会在运行时自动写入", async () => {
@@ -62,7 +122,7 @@ test("远程 AI 首次发送内容前必须确认", async () => {
   assert.equal(runCount, 0);
 });
 
-test("远程 AI 同一动作确认后不会重复确认", async () => {
+test("远程 AI 授权只适用于当次请求", async () => {
   let confirmCount = 0;
   let runCount = 0;
   const controller = createContextualAiActionController({
@@ -82,8 +142,31 @@ test("远程 AI 同一动作确认后不会重复确认", async () => {
     return {};
   });
 
-  assert.equal(confirmCount, 1);
+  assert.equal(confirmCount, 2);
   assert.equal(runCount, 2);
+});
+
+test("replacement aborts the previous request and clears stale results on failure", async () => {
+  let finish;
+  let oldSignal;
+  let started;
+  const ready = new Promise(resolve => { started = resolve; });
+  const controller = createContextualAiActionController();
+  await controller.run("check_outline", {}, async () => ({ suggestions: [{ text: "Old" }] }));
+  const old = controller.run("check_outline", { cancellable: true }, ({ signal }) => {
+    oldSignal = signal;
+    started();
+    return new Promise(resolve => { finish = resolve; });
+  });
+  await ready;
+  assert.equal(controller.stateFor("check_outline").result, null);
+  await controller.run("check_outline", { cancellable: true }, async () => { throw new Error("New failure"); });
+  assert.equal(oldSignal.aborted, true);
+  finish({ suggestions: [{ text: "Late" }] });
+  await old;
+  assert.equal(controller.stateFor("check_outline").status, "failed");
+  assert.equal(controller.stateFor("check_outline").result, null);
+  assert.equal(controller.stateFor("check_outline").error, "New failure");
 });
 
 test("结果最多保留三条建议并明确禁止自动写入", () => {
@@ -115,6 +198,23 @@ test("写作分析 artifacts 会转为可见检查建议", () => {
   assert.match(result.suggestions[1].value, /提纲/);
   assert.match(result.suggestions[2].value, /需要一个案例/);
   assert.doesNotMatch(result.suggestions[2].value, /find_supporting_note/);
+});
+
+test("outline checks retain source gaps and show source titles in Chinese", () => {
+  const result = normalizeContextualAiResult({ result: { artifacts: [
+    { type: "WritingMove", title: "Writing move: caveat", body: "Caveat", payload: { text: "Caveat", whyItMatters: "Reason", sourceNoteIds: ["n1"] } },
+    { type: "WritingMove", title: "Writing move: example", payload: { text: "Example", sourceNoteIds: ["n1"] } },
+    { type: "OutlineDraft", title: "Article", payload: { sections: ["Opening"], sourceNoteIds: ["n1"] } },
+    { type: "SourceGap", title: "Writing source gap", body: "Claim", payload: { claim: "Claim", gap: "Missing evidence", relatedNoteIds: ["n1"] } },
+    { type: "SourceGap", title: "Writing source gap", payload: { gap: "Missing example", relatedNoteIds: ["n1"] } }
+  ] } }, { actionId: "check_outline", kind: "suggestions", context: { noteTitles: { n1: "Real note title" } } });
+  assert.equal(result.suggestions.length, 5);
+  assert.equal(result.suggestions[0].title, "写作建议");
+  assert.equal(result.suggestions[3].title, "待补证据");
+  assert.match(result.suggestions[0].text, /Reason/);
+  assert.match(result.suggestions[3].text, /Missing evidence/);
+  assert.ok(result.suggestions.every(item => item.text.includes("相关笔记：Real note title")));
+  assert.equal(result.autoWrite, false);
 });
 
 test("推荐关联 artifacts 会转为只读推荐", () => {

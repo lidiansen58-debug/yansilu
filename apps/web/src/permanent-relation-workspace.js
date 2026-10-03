@@ -146,13 +146,14 @@ function renderAiTargets({ state = {}, aiCandidates = [], relations = null, deps
           <strong>推荐失败</strong>
           <p>${escapeHtml(state.error || "可以改用搜索笔记。")}</p>
           <div class="semantic-relation-actions">
+            <button class="mini-btn" type="button" data-permanent-relation-action="recommend">重试</button>
             <button class="mini-btn" type="button" data-permanent-relation-mode="manual">搜索笔记</button>
           </div>
         </div>
       </section>
     `;
   }
-  if (!candidates.length && (state.notice || (Array.isArray(aiCandidates) && aiCandidates.length))) {
+  if (!candidates.length && !state.aiLoading && (state.notice || (Array.isArray(aiCandidates) && aiCandidates.length))) {
     return `
       <section class="permanent-relation-picker">
         <div class="permanent-relation-empty" aria-live="polite">
@@ -173,7 +174,7 @@ function renderAiTargets({ state = {}, aiCandidates = [], relations = null, deps
             <strong>正在准备推荐</strong>
             <span class="permanent-relation-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           </div>
-          <p>正在分析当前笔记，可能需要等一下。没有可用推荐时，可以改用搜索笔记。</p>
+          <p>${escapeHtml(state.notice || "正在分析当前笔记，可能需要等一下。没有可用推荐时，可以改用搜索笔记。")}</p>
           <div class="semantic-relation-actions">
             <button class="mini-btn" type="button" data-permanent-relation-mode="manual">搜索笔记</button>
           </div>

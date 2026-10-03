@@ -168,6 +168,11 @@ async function request(pathname, options = {}) {
     response = await fetch(url, fetchOptions);
   } catch (error) {
     if (timeoutId) globalThis.clearTimeout(timeoutId);
+    if (externalSignal?.aborted) {
+      const cancelled = new Error("Request cancelled.");
+      cancelled.code = "request_cancelled";
+      throw cancelled;
+    }
     if ((controller?.signal?.aborted || externalSignal?.aborted) && String(error?.name || "") === "AbortError") {
       const timeoutError = new Error(`Request timed out after ${timeoutMs}ms`);
       timeoutError.code = "request_timeout";
@@ -399,11 +404,12 @@ export async function previewAiRoute(payload = {}) {
   return json.item || null;
 }
 
-export async function runAiTestChat(payload = {}) {
+export async function runAiTestChat(payload = {}, options = {}) {
   const json = await request("/api/v1/ai/test-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload || {})
+    body: JSON.stringify(payload || {}),
+    signal: options.signal
   });
   return json.item || null;
 }
@@ -580,22 +586,24 @@ export async function summarizeAiInboxItem(artifactId, payload = {}) {
   return json.item || null;
 }
 
-export async function analyzeWritingWithStrongModel(payload = {}) {
+export async function analyzeWritingWithStrongModel(payload = {}, options = {}) {
   const json = await request("/api/v1/writing/ai-analysis", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload || {})
+    body: JSON.stringify(payload || {}),
+    signal: options.signal
   });
   return json.item || null;
 }
 
-export async function analyzePermanentNote(noteId, payload = {}) {
+export async function analyzePermanentNote(noteId, payload = {}, options = {}) {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) throw new Error("noteId is required");
   const json = await request(`/api/v1/notes/${encodeURIComponent(cleanNoteId)}/ai-analysis`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload || {})
+    body: JSON.stringify(payload || {}),
+    signal: options.signal
   });
   return json.item || null;
 }

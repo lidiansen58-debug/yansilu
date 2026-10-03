@@ -176,7 +176,7 @@ export function routeEditorRelationClick(host, event) {
         ? host.permanentRelationWorkspaceAiCandidates(noteId)
         : [];
       if (opened && route.mode === "ai" && !candidates.length && typeof host.runPermanentNoteAnalysis === "function") {
-        void host.runPermanentNoteAnalysis();
+        void host.runPermanentNoteAnalysis({ analysisFocus: "relations" });
       }
       return true;
     }
@@ -195,11 +195,8 @@ export function routeEditorRelationClick(host, event) {
         mode: "ai",
         selectedTargetNoteId: ""
       }));
-      const candidates = typeof host.permanentRelationWorkspaceAiCandidates === "function"
-        ? host.permanentRelationWorkspaceAiCandidates(noteId)
-        : [];
-      if (!candidates.length && typeof host.runPermanentNoteAnalysis === "function") {
-        void host.runPermanentNoteAnalysis();
+      if (typeof host.runPermanentNoteAnalysis === "function") {
+        void host.runPermanentNoteAnalysis({ analysisFocus: "relations" });
       }
       return true;
     }

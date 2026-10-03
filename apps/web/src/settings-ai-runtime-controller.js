@@ -44,6 +44,8 @@ function clearAiChatTestResult(aiState = {}) {
 
 export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
+  let routePreviewRevision = 0;
+  let healthCheckRevision = 0;
 
   function aiSettingsPayload() {
     const {
@@ -438,18 +440,29 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       renderSettingsPanel = () => {},
       settingsState = {}
     } = runtimeDeps();
+    const revision = ++routePreviewRevision;
+    const aiState = settingsState.ai;
+    const payload = aiSettingsPayload();
+    const signature = JSON.stringify(payload);
+    const ownsRequest = () => revision === routePreviewRevision && runtimeDeps().settingsState?.ai === aiState;
+    const isCurrent = () => ownsRequest() && JSON.stringify(aiSettingsPayload()) === signature;
     settingsState.ai.routePreviewLoading = true;
     settingsState.ai.routePreviewError = "";
     if (options.render !== false) renderSettingsPanel();
     try {
-      settingsState.ai.routePreview = await previewAiRoute(aiSettingsPayload());
+      const preview = await previewAiRoute(payload);
+      if (!isCurrent()) return null;
+      settingsState.ai.routePreview = preview;
       applyActiveAiProviderConfigToState();
     } catch (error) {
+      if (!isCurrent()) return null;
       settingsState.ai.routePreview = null;
       settingsState.ai.routePreviewError = String(error?.message || error);
     } finally {
-      settingsState.ai.routePreviewLoading = false;
-      if (options.render !== false) renderSettingsPanel();
+      if (ownsRequest()) {
+        settingsState.ai.routePreviewLoading = false;
+        if (options.render !== false) renderSettingsPanel();
+      }
     }
     return settingsState.ai.routePreview;
   }
@@ -508,6 +521,13 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       settingsState = {},
       upsertAiProviderConfig = () => {}
     } = runtimeDeps();
+    const revision = ++healthCheckRevision;
+    const aiState = settingsState.ai;
+    const signatureForState = () => JSON.stringify([currentAiProviderId(), aiState?.providerEndpointUrl,
+      aiState?.providerHealthEndpointUrl, aiState?.remoteRuntimeModel, aiState?.secretRef, aiState?.remoteApiKey]);
+    let signature = signatureForState();
+    const ownsRequest = () => revision === healthCheckRevision && runtimeDeps().settingsState?.ai === aiState;
+    const isCurrent = () => ownsRequest() && signatureForState() === signature;
     const providerId = currentAiProviderId();
     const healthPlan = providerHealthCheckPlan({
       providerId,
@@ -527,11 +547,15 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
     renderSettingsPanel();
     try {
       const saved = await saveAiProviderConfig(aiProviderConfigPayload());
+      if (!isCurrent()) return false;
       upsertAiProviderConfig(saved);
       resetAiProviderDraftTouched();
       applyActiveAiProviderConfigToState();
+      signature = signatureForState();
       await refreshAiRoutePreview({ render: false });
+      if (!isCurrent()) return false;
       const result = await checkAiProviderHealth(healthPlan.providerId, healthPlan.request);
+      if (!isCurrent()) return false;
       settingsState.ai.providerHealthResult = result;
       settingsState.ai.providerHealthProviderId = String(providerId || "").trim();
       settingsState.ai.providerHealthEndpointUrlSnapshot = String(settingsState.ai.providerEndpointUrl || "").trim();
@@ -543,13 +567,16 @@ export function createSettingsAiRuntimeController(depsProvider = () => ({})) {
       setStatus(`AI 服务 ${healthStatus.label}`, healthStatus.healthy ? "ok" : "warn");
       return true;
     } catch (error) {
+      if (!isCurrent()) return false;
       settingsState.ai.providerHealthResult = null;
       settingsState.ai.providerConfigError = String(error?.message || error);
       setStatus(`AI 服务连接测试失败：${settingsState.ai.providerConfigError}`, "bad");
       return false;
     } finally {
-      settingsState.ai.providerHealthChecking = false;
-      renderSettingsPanel();
+      if (ownsRequest()) {
+        settingsState.ai.providerHealthChecking = false;
+        renderSettingsPanel();
+      }
     }
   }
 

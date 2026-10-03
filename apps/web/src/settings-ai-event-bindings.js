@@ -2,6 +2,9 @@ import {
   displayOpenAiCompatibleBaseUrl,
   remoteApiKeySecretRef
 } from "./ai-settings-remote-config-model.js";
+import { aiTestReply } from "./ai-test-result.js";
+import { aiErrorMessage } from "./ai-error-message.js";
+import { setRemoteAiConfigurationConsent } from "./remote-ai-consent.js";
 import {
   isRemoteAiProvider,
   remoteConnectionReadyForProvider
@@ -39,8 +42,30 @@ export function installSettingsAiEventBindings(deps = {}) {
     confirmRemoteAiUse = () => true,
     onAiSettingsReady = async () => {}
   } = deps;
+  let testRevision = 0;
+  let testController = null;
+
+  function cancelRunningTest() {
+    if (!testController) return;
+    testController.abort();
+    testController = null;
+    testRevision++;
+    settingsState.ai.testRunning = false;
+    settingsState.ai.testStatus = "cancelled";
+    settingsState.ai.testMeta = "已取消测试";
+    settingsState.ai.testOutput = "测试已取消，可以重新测试。";
+    persistAiSettingsToStorage();
+    renderSettingsPanel();
+  }
+
+  function closeAiDialogs() {
+    cancelRunningTest();
+    closeSettingsAiDialogs();
+  }
 
   function clearAiTestResultForSettingsChange() {
+    cancelRunningTest();
+    settingsState.ai.remoteConsentScope = "";
     settingsState.ai.testMeta = "";
     settingsState.ai.testOutput = "";
     settingsState.ai.testStatus = "";
@@ -57,15 +82,23 @@ export function installSettingsAiEventBindings(deps = {}) {
   }
 
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
+  cancelRunningTest();
   await applyAiRuntimeModeChange(event?.target?.value || "auto");
 });
 
+$("settingsAiRemoteConsent")?.addEventListener("change", (event) => {
+  setRemoteAiConfigurationConsent(settingsState.ai, currentAiProviderId(), event?.target?.checked === true);
+  renderSettingsPanel();
+});
+
 $("settingsAiHybridToggle")?.addEventListener("click", async () => {
+  cancelRunningTest();
   const current = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   await applyAiRuntimeModeChange(current === "hybrid" ? "auto" : "hybrid");
 });
 
 $("settingsAiUserMode")?.addEventListener("change", (event) => {
+  cancelRunningTest();
   const next = String(event?.target?.value || "Auto").trim() || "Auto";
   settingsState.ai.userMode = next;
   persistAiSettingsToStorage();
@@ -76,11 +109,13 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
 });
 
 $("settingsAiModelPack")?.addEventListener("change", (event) => {
+  cancelRunningTest();
   const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
   applyAiModelPackChange(next, { source: "settings" });
 });
 
 $("settingsAiLocalModel")?.addEventListener("change", async (event) => {
+  cancelRunningTest();
   await selectInstalledLocalModelFromUi(event?.target?.value || "");
 });
 
@@ -98,6 +133,7 @@ $("settingsAiAutoPrepareLocal")?.addEventListener("change", (event) => {
 
 $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   const next = String(event?.target?.value || "").trim();
+  if (next !== String(settingsState.ai.advancedModelRef || "").trim()) cancelRunningTest();
   settingsState.ai.advancedModelRef = next;
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
@@ -212,6 +248,25 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   }
   const providerId = currentAiProviderId();
   const isRemote = isRemoteAiProvider(providerId);
+  cancelRunningTest();
+  const controller = new AbortController();
+  testController = controller;
+  const revision = ++testRevision;
+  const aiState = settingsState.ai;
+  const configurationSignature = () => JSON.stringify([
+    currentAiProviderId(), aiSettingsPayload(), aiState.localModel,
+    aiState.providerEndpointUrl, aiState.remoteRuntimeModel, aiState.secretRef, aiState.remoteApiKey
+  ]);
+  const signature = configurationSignature();
+  const ownsRequest = () => revision === testRevision && settingsState.ai === aiState;
+  const isCurrent = () => ownsRequest() && configurationSignature() === signature;
+  const invalidateCurrentTest = () => {
+    if (!ownsRequest()) return;
+    aiState.testStatus = "blocked";
+    aiState.testMeta = "配置已更改，请重新测试";
+    aiState.testOutput = "请重新测试当前配置。";
+    setStatus("配置已更改，旧测试结果不再有效。请重新测试。", "warn");
+  };
   settingsState.ai.testRunning = true;
   settingsState.ai.testMeta = "测试中，请稍等";
   settingsState.ai.testOutput = "正在等待 AI 回复，可能需要一点时间。请先停留在这里查看测试结果。";
@@ -235,21 +290,32 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
       ...(advancedSettings.modelRef ? { modelRef: advancedSettings.modelRef } : {}),
       modelTier: "standard",
       privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
-    });
+    }, { signal: controller.signal });
+    if (!isCurrent()) return invalidateCurrentTest();
     settingsState.ai.testMeta = `${result?.providerId || "服务"} / ${result?.modelRef || "模型"} (${result?.status || "未检测"})`;
-    settingsState.ai.testOutput = String(result?.output?.content || "").trim() || JSON.stringify(result?.output?.json || result || {}, null, 2);
+    settingsState.ai.testOutput = aiTestReply(result);
     settingsState.ai.testStatus = "success";
     setStatus("AI 试运行已完成", "ok");
-    if (!isRemote) await onAiSettingsReady({ source: "test" });
   } catch (error) {
+    if (!isCurrent()) return invalidateCurrentTest();
     settingsState.ai.testMeta = "运行失败";
-    settingsState.ai.testOutput = String(error?.message || error);
+    settingsState.ai.testOutput = aiErrorMessage(error);
     settingsState.ai.testStatus = "failed";
     setStatus(`AI 试运行失败：${settingsState.ai.testOutput}`, "bad");
   } finally {
-    settingsState.ai.testRunning = false;
-    persistAiSettingsToStorage();
-    renderSettingsPanel();
+    if (testController === controller) testController = null;
+    if (ownsRequest()) {
+      settingsState.ai.testRunning = false;
+      persistAiSettingsToStorage();
+      renderSettingsPanel();
+    }
+  }
+  if (isCurrent() && !isRemote && settingsState.ai.testStatus === "success") {
+    try {
+      await onAiSettingsReady({ source: "test" });
+    } catch (error) {
+      setStatus(`AI 测试已通过，但继续处理失败：${String(error?.message || error)}`, "warn");
+    }
   }
 });
 
@@ -291,7 +357,7 @@ $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
     return;
   }
   if (isRemote && !remoteKeyCleared && confirmRemoteAiUse() === false) {
-    setStatus("已取消启用远程 AI。", "warn");
+    setStatus("请先勾选允许向此服务发送所选内容。", "warn");
     return;
   }
   const saved = await syncAiProviderConfigToApi();
@@ -306,7 +372,7 @@ $("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
     return;
   }
   if (confirmRemoteAiUse() === false) {
-    setStatus("已取消测试远程 AI。", "warn");
+    setStatus("请先勾选允许向此服务发送所选内容。", "warn");
     return;
   }
   await checkCurrentAiProviderHealth();
@@ -328,6 +394,7 @@ $("settingsAiDetectOllama")?.addEventListener("click", async () => {
 });
 
 $("settingsAiRuntimeToggle")?.addEventListener("click", async () => {
+  cancelRunningTest();
   if (settingsState.ai.localRuntimeStatus === "available") await stopOllamaRuntimeFromUi();
   else {
     await startOllamaRuntimeFromUi();
@@ -343,6 +410,7 @@ $("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
 $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
   const selectLocalModelButton = event.target.closest("[data-settings-ai-select-local-model]");
   if (selectLocalModelButton) {
+    cancelRunningTest();
     await selectInstalledLocalModelFromUi(selectLocalModelButton.getAttribute("data-settings-ai-select-local-model"));
     await onAiSettingsReady({ source: "local-model" });
     return;
@@ -373,12 +441,14 @@ $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
   }
   const quickSetupButton = event.target.closest("[data-settings-ai-quick-setup]");
   if (quickSetupButton) {
+    cancelRunningTest();
     await applySettingsAiQuickSetup(quickSetupButton.getAttribute("data-settings-ai-quick-setup"));
     return;
   }
   const primaryActionButton = event.target.closest("[data-settings-ai-primary-action]");
   if (primaryActionButton) {
     const action = primaryActionButton.getAttribute("data-settings-ai-primary-action");
+    if (["local", "remote", "off", "choose-local-model"].includes(action)) cancelRunningTest();
     if (action === "local") await applySettingsAiQuickSetup("local");
     else if (action === "remote") await applySettingsAiQuickSetup("remote");
     else if (action === "off") await applyAiRuntimeModeChange("off");
@@ -421,15 +491,15 @@ $("settingsCardAiSettings")?.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.closest("[data-settings-ai-dialog-close]")) {
-    closeSettingsAiDialogs();
+    closeAiDialogs();
     return;
   }
   const popover = event.target.closest(".settings-ai-popover");
-  if (popover && event.target === popover) closeSettingsAiDialogs();
+  if (popover && event.target === popover) closeAiDialogs();
 });
 
 documentRef?.addEventListener?.("keydown", (event) => {
-  if (event.key === "Escape") closeSettingsAiDialogs();
+  if (event.key === "Escape") closeAiDialogs();
 });
 
 

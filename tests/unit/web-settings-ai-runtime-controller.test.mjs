@@ -5,6 +5,45 @@ import {
   createSettingsAiRuntimeController
 } from "../../apps/web/src/settings-ai-runtime-controller.js";
 
+test("an older AI route response cannot replace a newer route preview", async () => {
+  const pending = [];
+  const settingsState = { ai: {} };
+  let model = "old";
+  const controller = createSettingsAiRuntimeController(() => ({
+    settingsState, aiSettingsPayload: () => ({ model }),
+    previewAiRoute: () => new Promise(resolve => pending.push(resolve))
+  }));
+  const old = controller.refreshAiRoutePreview();
+  model = "new";
+  const current = controller.refreshAiRoutePreview();
+  pending[1]({ model: "new" });
+  await current;
+  pending[0]({ model: "old" });
+  await old;
+  assert.deepEqual(settingsState.ai.routePreview, { model: "new" });
+});
+
+test("provider health results cannot certify settings edited during the request", async () => {
+  const settingsState = { ai: { providerEndpointUrl: "https://old.test/v1", providerHealthEndpointUrl: "https://old.test/health", remoteRuntimeModel: "old" } };
+  let finish, ready;
+  const started = new Promise(resolve => { ready = resolve; });
+  const messages = [];
+  const controller = createSettingsAiRuntimeController(() => ({
+    settingsState, currentAiProviderId: () => "openai_compatible_gateway",
+    saveAiProviderConfig: async () => ({}),
+    checkAiProviderHealth: () => { ready(); return new Promise(resolve => { finish = resolve; }); },
+    setStatus: message => messages.push(message)
+  }));
+  const checking = controller.checkCurrentAiProviderHealth();
+  await started;
+  settingsState.ai.providerEndpointUrl = "https://new.test/v1";
+  settingsState.ai.remoteRuntimeModel = "new";
+  finish({ record: { status: "healthy" } });
+  await checking;
+  assert.equal(settingsState.ai.providerHealthResult, undefined);
+  assert.equal(messages.includes("AI 服务 连接正常"), false);
+});
+
 test("settings AI runtime controller builds payload from injected state", () => {
   const controller = createSettingsAiRuntimeController(() => ({
     installedLocalModelReady: () => true,

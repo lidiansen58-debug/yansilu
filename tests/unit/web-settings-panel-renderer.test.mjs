@@ -87,7 +87,7 @@ test("settings panel renderer syncs vault, feedback, inputs, and child renders",
   assert.equal(get("settingsFeedbackBadge").textContent, "邮件反馈");
   assert.equal(get("settingsFeedbackDetail").textContent, "会打开邮件，并填入版本 1.2.3、系统、当前页面和所在模块。");
   assert.equal(get("settingsAiAdvancedModelRef").value, "openai:gpt-test");
-  assert.equal(get("settingsAiSecretRef").value, "AI_KEY");
+  assert.equal(get("settingsAiSecretRef").value, "");
   assert.equal(get("settingsAiTestPrompt").value, "ping");
   assert.equal(get("btnAiTestChatRun").textContent, "测试 AI");
   assert.equal(get("settingsAiTestChatMeta").textContent, "测试成功");
@@ -121,6 +121,21 @@ test("settings AI input sync preserves current values when already aligned", () 
 
   assert.equal(get("settingsAiUserMode").value, "Auto");
   assert.equal(get("settingsAiModelPack").value, "Research");
+});
+
+test("generic settings input sync never assigns the secret reference to the API Key input", () => {
+  const key = { value: "synthetic-key", selectionStart: 0, selectionEnd: 13 };
+  let assignments = 0;
+  let value = key.value;
+  Object.defineProperty(key, "value", { get: () => value, set: next => { assignments++; value = next; } });
+  syncSettingsAiInputs({
+    $: id => id === "settingsAiSecretRef" ? key : null,
+    settingsState: { ai: { secretRef: "local:settings-remote-api-key" } }
+  });
+  assert.equal(assignments, 0);
+  assert.equal(key.value, "synthetic-key");
+  assert.equal(key.selectionStart, 0);
+  assert.equal(key.selectionEnd, 13);
 });
 
 test("settings AI test panel blocks run and shows reason", () => {

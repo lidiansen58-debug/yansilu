@@ -77,6 +77,11 @@ function firstSentence(text = "", maxLength = 120) {
   return sentence.length > maxLength ? `${sentence.slice(0, maxLength - 1).trim()}…` : sentence;
 }
 
+function modelExcerpt(text = "", maxLength = 1200) {
+  const compact = compactText(text);
+  return compact.length > maxLength ? `${compact.slice(0, maxLength - 1).trim()}…` : compact;
+}
+
 function textForAnalysis(note = {}) {
   return compactText(
     [
@@ -787,13 +792,13 @@ export function buildPermanentNoteLocalModelRequest(input = {}, baseAnalysis = n
     noteId: note.noteId,
     title: note.title,
     thesis: note.thesis,
-    excerpt: firstSentence(note.body || note.title, 320),
+    excerpt: modelExcerpt(note.body || note.title, 320),
     tags: note.tags
   }));
   const literatureNotes = normalized.literatureNotes.slice(0, 8).map((note) => ({
     noteId: cleanText(note.noteId || note.id || note.source_id),
     title: note.title || note.source_id || note.id,
-    excerpt: firstSentence(note.body || note.quote_text || note.title, 320),
+    excerpt: modelExcerpt(note.body || note.quote_text || note.title, 320),
     source: note.source || note.source_id || null,
     locator: note.locator || ""
   }));
@@ -806,7 +811,9 @@ export function buildPermanentNoteLocalModelRequest(input = {}, baseAnalysis = n
       "Do not claim a relation, topic, or field is confirmed.",
       "Return candidate viewpoints only; do not make the final conclusion for the user.",
       "Bind every suggestion to concrete note evidence anchors.",
-      "Prefer concise Chinese output when the note is Chinese."
+      "Prefer concise Chinese output when the note is Chinese.",
+      "Use brief phrases: at most 3 relations, 2 topics, and 3 warnings; omit unsupported candidates with empty arrays.",
+      "Keep the draft to one short paragraph. Do not repeat the source note or these instructions."
     ],
     requiredOutputShape: {
       candidateViewpoint: {
@@ -850,21 +857,37 @@ export function buildPermanentNoteLocalModelRequest(input = {}, baseAnalysis = n
       threeLineSummary: normalized.note.threeLineSummary,
       boundaryOrCounterpoint: normalized.note.boundaryOrCounterpoint,
       tags: normalized.note.tags,
-      body: firstSentence(normalized.note.body || normalized.note.title, 1200)
+      body: modelExcerpt(normalized.note.body || normalized.note.title, 1200)
     },
     relatedNotes,
     literatureNotes,
     localRuleBaseline: {
-      distillation: analysis.distillation,
-      originality: analysis.originality,
-      principleChecks: analysis.principleChecks,
-      relationCandidates: analysis.relationCandidates,
-      topicCandidates: analysis.topicCandidates,
-      recommendedActions: analysis.recommendedActions
+      suggestedThesis: modelExcerpt(analysis.distillation?.suggestedThesis, 320),
+      warnings: (analysis.principleChecks || []).filter(item => item.status === "warning").slice(0, 3).map(item => item.checkId),
+      relationCandidates: (analysis.relationCandidates || []).slice(0, 3).map(item => ({
+        toNoteId: item.toNoteId, relationType: item.relationType, confidence: item.confidence
+      })),
+      topicCandidates: (analysis.topicCandidates || []).slice(0, 2).map(item => ({ title: item.title }))
     }
   };
 
+  const relationsOnly = normalized.options.analysisFocus === "relations";
+  if (relationsOnly) {
+    payload.task = "permanent_note_relation_recommendation";
+    payload.instructions = [
+      "Only return JSON containing relationCandidates. Never generate drafts, viewpoints, topics or warnings.",
+      "Only use toNoteId values from relatedNotes. Return at most 3 candidates, or an empty array when unsupported.",
+      "Choose one best relation per target note. Use contrasts only for genuinely opposing claims, not different perspectives.",
+      "Explain each relation with concrete evidence from both notes; prefer concise Chinese for Chinese notes.",
+      "All candidates require human review. Never confirm or mutate notes."
+    ];
+    payload.requiredOutputShape = { relationCandidates: payload.requiredOutputShape.relationCandidates };
+    delete payload.literatureNotes;
+    delete payload.localRuleBaseline;
+  }
+
   return {
+    ...(relationsOnly ? { analysisFocus: "relations", candidateNoteIds: relatedNotes.map(note => note.noteId) } : {}),
     requestType: "permanent_note_local_model_analysis",
     privacy: {
       mode: "local_only",
@@ -883,14 +906,14 @@ export function buildPermanentNoteLocalModelRequest(input = {}, baseAnalysis = n
       },
       {
         role: "user",
-        content: JSON.stringify(payload, null, 2)
+        content: JSON.stringify(payload)
       }
     ],
     responseContract: payload.requiredOutputShape,
     canAutoConfirm: false,
     executionDefaults: {
       timeoutMs: DEFAULT_VIEWPOINT_DISTILLATION_TIMEOUT_MS,
-      numPredict: DEFAULT_VIEWPOINT_DISTILLATION_NUM_PREDICT
+      numPredict: relationsOnly ? 400 : DEFAULT_VIEWPOINT_DISTILLATION_NUM_PREDICT
     },
     fallbackAnalysis: analysis
   };
@@ -935,6 +958,9 @@ function normalizePermanentNoteModelOutput(response = {}, request = {}, context 
   let parseError = null;
   try {
     parsed = extractJsonObject(response?.content ?? response?.text ?? response?.output ?? response);
+    if (request.analysisFocus === "relations" && !Array.isArray(parsed.relationCandidates || parsed.relation_candidates)) {
+      throw new Error("relationCandidates array is required");
+    }
   } catch (error) {
     parseError = error;
     parsed = {};
@@ -960,6 +986,7 @@ function normalizePermanentNoteModelOutput(response = {}, request = {}, context 
     .map((candidate) => {
       const toNoteId = cleanText(candidate.toNoteId || candidate.to_note_id || candidate.noteId || candidate.note_id);
       if (!toNoteId || toNoteId === noteId) return null;
+      if (request.analysisFocus === "relations" && !(request.candidateNoteIds || []).includes(toNoteId)) return null;
       return {
         fromNoteId: noteId,
         toNoteId,
@@ -1046,6 +1073,26 @@ export function mergePermanentNoteLocalModelResponse(request = {}, response = {}
   const fallbackAnalysis = request?.fallbackAnalysis || null;
   const modelOutput = normalizePermanentNoteModelOutput(response, request, context);
   const base = fallbackAnalysis || analyzePermanentNoteLocally({ noteId: modelOutput.noteId, title: "" });
+  if (request.analysisFocus === "relations") {
+    const relationCandidates = mergeBy(
+      [...(modelOutput.parseError ? (base.relationCandidates || []).filter(item => (request.candidateNoteIds || []).includes(item.toNoteId)) : modelOutput.relationCandidates)]
+        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0)),
+      item => item.toNoteId
+    ).slice(0, 3);
+    const analysis = {
+      ...base,
+      analysisFocus: "relations",
+      analysisMode: "local_model_assisted",
+      relationCandidates,
+      candidateViewpoint: null,
+      topicCandidates: [],
+      modelParseError: modelOutput.parseError,
+      provenance: { contentOrigin: modelOutput.parseError ? "system_rule" : "local_model", modelUsed: true, cloudModelUsed: false, canAutoConfirm: false }
+    };
+    return { analysis, modelOutput, reviewItems: buildPermanentNoteAnalysisReviewItems(analysis, {
+      ...context, origin: modelOutput.parseError ? "system_rule" : "local_model", model: request.model || context.model
+    }) };
+  }
   const reasons = [...(base.distillation?.reasons || [])];
   if (modelOutput.distilledViewpoint.thesis) reasons.push("local_model_thesis_suggestion");
   if (modelOutput.distilledViewpoint.threeLineSummary.length) reasons.push("local_model_three_line_summary_suggestion");
@@ -1376,12 +1423,13 @@ export function buildPermanentNoteAnalysisReviewItems(analysis = {}, context = {
     throw error;
   }
 
-  const suggestions = distillationSuggestions(analysis, context);
+  const relationsOnly = analysis.analysisFocus === "relations";
+  const suggestions = relationsOnly ? [] : distillationSuggestions(analysis, context);
   const artifacts = [
     ...suggestions.map((suggestion) => distillationSuggestionArtifact(analysis, suggestion, context)),
     ...(analysis.relationCandidates || []).map((candidate) => relationArtifact(candidate, context)),
-    originalityArtifact(analysis, context),
-    ...(analysis.principleChecks || [])
+    ...(relationsOnly ? [] : [originalityArtifact(analysis, context)]),
+    ...(relationsOnly ? [] : analysis.principleChecks || [])
       .filter((check) => check.status !== "pass")
       .map((check) => principleArtifact(analysis, check, context)),
     ...(analysis.topicCandidates || []).map((topic) => topicArtifact(analysis, topic, context))

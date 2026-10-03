@@ -1,3 +1,5 @@
+import { aiErrorMessage } from "./ai-error-message.js";
+
 export async function handleGraphAssociateNoteStateChange(payload = {}, deps = {}) {
   const {
     state = {},
@@ -101,12 +103,16 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
       feature: "note_analysis",
       openSettings: payload.openSettingsOnMissingAi !== false
     });
-    if (localAiReady?.ready === false) return false;
+    if (localAiReady?.ready === false || payload.signal?.aborted) return false;
     setStatus("正在运行本地永久笔记 AI 分析...", "warn");
     const result = await analyzePermanentNote(noteId, {
       relatedNoteIds: Array.isArray(payload.relatedNoteIds) ? payload.relatedNoteIds : [],
-      persistArtifacts: payload.persistArtifacts !== false
-    });
+      persistArtifacts: payload.persistArtifacts !== false,
+      executeLocalModel: true,
+      fallbackOnProviderFailure: false,
+      ...(payload.analysisFocus === "relations" ? { options: { analysisFocus: "relations" } } : {})
+    }, { signal: payload.signal });
+    if (payload.signal?.aborted) return false;
     const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
     let systemMessage = null;
     if (artifactCount > 0 && payload.openInbox !== false) {
@@ -124,7 +130,9 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
       aiInboxState.selectedArtifactId = "";
       openSystemMessages({ latestOnly: true });
     }
+    const modelParseError = Boolean(result?.analysis?.modelParseError);
     setStatus(
+      modelParseError ? "模型返回内容无法解析，当前仅保留规则匹配候选，请人工检查或重试。" :
       artifactCount
         ? payload.openInbox === false
           ? `已生成 ${artifactCount} 条待审 AI 建议，可在当前笔记里处理`
@@ -132,11 +140,13 @@ export async function handleRunNoteAiAnalysisStateChange(payload = {}, deps = {}
             ? `已生成 ${artifactCount} 条待审 AI 建议，已放入系统消息`
             : `已生成 ${artifactCount} 条待审 AI 建议，可在当前笔记里处理`
         : "本地 AI 分析完成，暂时没有新的待审核建议",
-      artifactCount ? "ok" : "warn"
+      modelParseError ? "warn" : artifactCount ? "ok" : "warn"
     );
     return result || true;
   } catch (error) {
-    setStatus(`永久笔记 AI 分析失败：${String(error?.message || error)}`, "bad");
+    if (payload.signal?.aborted) return false;
+    setStatus(`永久笔记 AI 分析失败：${aiErrorMessage(error)}`, "bad");
+    if (payload.throwOnFailure === true) throw error;
     return false;
   }
 }

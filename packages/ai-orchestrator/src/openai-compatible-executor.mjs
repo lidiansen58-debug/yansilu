@@ -122,7 +122,7 @@ function providerRequestId(response) {
 }
 
 export function createOpenAiCompatibleExecutor(options = {}) {
-  return async function executeOpenAiCompatibleRequest(compatibleRequest = {}) {
+  return async function executeOpenAiCompatibleRequest(compatibleRequest = {}, request = {}) {
     if (options.networkEnabled !== true && options.network_enabled !== true) {
       const error = new Error("OpenAI-compatible network execution is disabled.");
       error.status = 0;
@@ -139,8 +139,47 @@ export function createOpenAiCompatibleExecutor(options = {}) {
     }
 
     const fetchRequest = await buildOpenAiCompatibleFetchRequest(compatibleRequest, options);
-    const response = await fetchImpl(fetchRequest.url, fetchRequest.init);
-    const json = await responseJson(response);
+    const requestedTimeout = Number(compatibleRequest.metadata?.timeoutMs ?? options.timeoutMs ?? options.timeout_ms ?? 120000);
+    const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+      ? Math.min(requestedTimeout, 600000) : 120000;
+    const controller = new AbortController();
+    const externalSignal = request.signal;
+    let onAbort;
+    const cancellation = new Promise((_, reject) => {
+      onAbort = () => {
+        const error = new Error("AI request cancelled.");
+        error.name = "AbortError";
+        error.code = "cancelled";
+        reject(error);
+        controller.abort(error);
+      };
+      if (externalSignal?.aborted) onAbort();
+      else externalSignal?.addEventListener("abort", onAbort, { once: true });
+    });
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        const error = new Error("AI request timed out. Retry or use a lighter model.");
+        error.status = 408;
+        error.code = "timeout";
+        reject(error);
+        controller.abort(error);
+      }, timeoutMs);
+    });
+    let response, json;
+    try {
+      ({ response, json } = await Promise.race([
+        (async () => {
+          const response = await fetchImpl(fetchRequest.url, { ...fetchRequest.init, signal: controller.signal });
+          return { response, json: await responseJson(response) };
+        })(),
+        deadline,
+        cancellation
+      ]));
+    } finally {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", onAbort);
+    }
 
     if (!response.ok) {
       const error = new Error(cleanText(json.error?.message || json.message) || "Provider request failed.");

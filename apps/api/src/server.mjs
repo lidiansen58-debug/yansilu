@@ -1,8 +1,10 @@
 import http from "node:http";
+import { createRequestAbortScope } from "./request-abort-scope.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
+import { execFileQuiet } from "./quiet-command-probe.mjs";
 import { createNoteMoveOperations } from "./note-move-operations.mjs";
 import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
@@ -930,38 +932,6 @@ async function resolveOllamaCommand() {
     }
   }
   return { command: "ollama", checked, source: "path" };
-}
-
-function execFileQuiet(command, args = [], options = {}) {
-  return new Promise((resolve) => {
-    const child = execFile(
-      command,
-      args,
-      { windowsHide: true, timeout: Math.max(0, Number(options.timeoutMs || 0) || 0) },
-      (error, stdout, stderr) => {
-        resolve({
-          command,
-          args,
-          ok: !error,
-          code: error?.code ?? 0,
-          signal: cleanText(error?.signal),
-          message: cleanText(error?.message || stderr || stdout || ""),
-          stdout: cleanText(stdout),
-          stderr: cleanText(stderr)
-        });
-      }
-    );
-    child.once("error", (error) => {
-      resolve({
-        command,
-        args,
-        ok: false,
-        code: error?.code ?? "ERROR",
-        signal: "",
-        message: cleanText(error?.message || error)
-      });
-    });
-  });
 }
 
 async function detectOllamaInstallation() {
@@ -3905,11 +3875,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/ai/test-chat") {
+      const abortScope = createRequestAbortScope(req, res);
       let runtime = null;
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
-        const localAiSecrets = await upsertLocalAiSecrets(body);
+        // Test overrides stay request-local until the user explicitly saves.
+        const localAiSecrets = await readLocalAiSecrets();
+        for (const ref of normalizeSecretRefList(body.deleteSecrets || body.delete_secrets)) delete localAiSecrets[ref];
+        Object.assign(localAiSecrets, normalizeSecretMap(body.secrets || body.secretValues || body.secret_values));
         const store = await aiPreferencesStore();
         const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" }) || {};
         const baseSettingsInput = preferencesToSettingsInput(prefs);
@@ -4024,6 +3998,7 @@ const server = http.createServer(async (req, res) => {
         if (!prompt) return sendJson(res, 400, err("AI_TEST_PROMPT_REQUIRED", "prompt is required", rid));
 
         const response = await providerAdapter.complete({
+          signal: abortScope.signal,
           requestId: `${rid}_test_chat`,
           agentRunId: rid,
           purpose: "test_chat",
@@ -4061,6 +4036,7 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_TEST_CHAT_FAILED", String(error?.message || error), rid, error?.details));
       } finally {
+        abortScope.dispose();
         if (runtime && typeof runtime.close === "function") runtime.close();
       }
     }
@@ -5661,6 +5637,7 @@ const server = http.createServer(async (req, res) => {
 
     const noteAiAnalysisId = parseNoteAiAnalysisPath(url.pathname);
     if (req.method === "POST" && noteAiAnalysisId) {
+      const abortScope = createRequestAbortScope(req, res);
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
@@ -5744,12 +5721,14 @@ const server = http.createServer(async (req, res) => {
           try {
             result = await runPermanentNoteLocalModelAnalysis(localModelRequest, providerExecution.providerAdapter, {
               ...analysisContext,
+              signal: abortScope.signal,
               model: localModelRequest.model
             });
             modelExecution = modelExecutionSummary(result.providerResponse, {
               modelRoute: providerExecution.modelRoute
             });
           } catch (error) {
+            abortScope.signal.throwIfAborted();
             if (body.fallbackOnProviderFailure === false || body.fallback_on_provider_failure === false) throw error;
             result = analyzePermanentNoteForReview(analysisInput, analysisContext);
             modelExecution = modelExecutionFailure(error, {
@@ -5774,6 +5753,7 @@ const server = http.createServer(async (req, res) => {
         );
         const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
         const suggestionStore = persistSuggestions ? await aiSuggestionStore() : null;
+        abortScope.signal.throwIfAborted();
         const storedSuggestions = persistSuggestions
           ? (Array.isArray(reviewItems.suggestions) ? reviewItems.suggestions : []).map((suggestion) =>
               suggestionStore.create(
@@ -5814,6 +5794,8 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         const status = error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
         return sendJson(res, status, err(error?.code || "NOTE_AI_ANALYSIS_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        abortScope.dispose();
       }
     }
 
@@ -6401,6 +6383,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/writing/ai-analysis") {
+      const abortScope = createRequestAbortScope(req, res);
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
@@ -6425,6 +6408,7 @@ const server = http.createServer(async (req, res) => {
           : null;
         const explicitRemoteModel = cleanText(body.model || body.remoteModel || body.remote_model);
         const requestContext = {
+          signal: abortScope.signal,
           agentRunId: `run_writing_analysis_${rid}`,
           contextPackId: `ctx_writing_analysis_${rid}`,
           artifactIdSalt: rid,
@@ -6458,6 +6442,7 @@ const server = http.createServer(async (req, res) => {
                 return executionResult;
               })
             : null;
+        abortScope.signal.throwIfAborted();
         const persistArtifacts = Boolean(result) && body.persistArtifacts !== false && body.persist_artifacts !== false;
         const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
         const storedArtifacts = persistArtifacts ? artifactStore.createMany(result.artifacts) : [];
@@ -6479,6 +6464,8 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         const status = error?.code === "WRITING_REMOTE_MODEL_CONFIRMATION_REQUIRED" ? 403 : 400;
         return sendJson(res, status, err(error?.code || "WRITING_AI_ANALYSIS_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        abortScope.dispose();
       }
     }
 

@@ -496,6 +496,22 @@ test("permanent relation workspace tells the user when AI finds no recommendatio
   assert.doesNotMatch(html, /permanent-relation-loading-dots/);
 });
 
+test("delayed AI notice still renders as waiting and errors expose retry", () => {
+  const base = { note, notes: [note, target], aiCandidates: [], deps };
+  const waiting = renderPermanentRelationWorkspace({ ...base, state: {
+    open: true, mode: "ai", aiLoading: true, notice: "AI 仍在分析，请稍候。"
+  } });
+  assert.match(waiting, /正在准备推荐/);
+  assert.match(waiting, /AI 仍在分析/);
+  assert.doesNotMatch(waiting, /暂时没有推荐/);
+  const failed = renderPermanentRelationWorkspace({ ...base, state: {
+    open: true, mode: "ai", error: "模型超时"
+  } });
+  assert.match(failed, /模型超时/);
+  assert.match(failed, /data-permanent-relation-action="recommend">重试/);
+  assert.doesNotMatch(prototypeCss, /\.permanent-relation-empty p\s*\{\s*display:\s*none/);
+});
+
 
 test("AI relation candidates normalize target, type and rationale for the workspace", () => {
   const candidates = normalizePermanentRelationAiCandidates(

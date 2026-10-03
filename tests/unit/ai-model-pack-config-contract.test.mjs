@@ -111,7 +111,7 @@ test("built-in model packs compile into a valid config bundle", () => {
   assert.equal(minicpmRemoteProvider.runtime_model_map["minicpm_remote_gateway:standard"], "minicpm");
 });
 
-test("local model catalog declares qwen3 8b default capability assumptions", () => {
+test("local model catalog describes purposes and resource limits without promising quality", () => {
   const defaultProfile = LOCAL_AI_MODEL_TIERS.find((model) => model.tier === "default");
   const tierNames = LOCAL_AI_MODEL_TIERS.map((model) => model.name);
 
@@ -123,10 +123,11 @@ test("local model catalog declares qwen3 8b default capability assumptions", () 
     LOCAL_AI_MODEL_TIERS.map((model) => model.downloadCommand),
     ["ollama pull qwen2.5:7b", "ollama pull qwen3:8b", "ollama pull qwen3.5:9b"]
   );
-  assert.ok(defaultProfile.capabilityTags.includes("适合观点提纯"));
-  assert.ok(defaultProfile.capabilityTags.includes("适合潜在关联"));
-  assert.ok(defaultProfile.capabilityTags.includes("JSON 输出较稳定"));
-  assert.ok(defaultProfile.capabilityTags.includes("速度中等"));
+  assert.ok(defaultProfile.capabilityTags.includes("观点整理"));
+  assert.ok(defaultProfile.capabilityTags.includes("关联候选"));
+  assert.ok(defaultProfile.capabilityTags.includes("结果需核对"));
+  assert.ok(defaultProfile.capabilityTags.includes("CPU 运行可能较慢"));
+  assert.doesNotMatch(JSON.stringify(LOCAL_AI_MODEL_TIERS), /质量与速度均衡|JSON 输出较稳定|"label":"高质量"/);
 });
 
 test("model pack config rejects unsupported provider auth modes", () => {

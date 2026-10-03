@@ -6,6 +6,35 @@ import {
   mergeWritingStrongModelResponse
 } from "../../packages/ai-orchestrator/src/index.mjs";
 
+test("writing response rejects invalid shape and invented source references", () => {
+  const request = buildWritingStrongModelRequest({ privacyMode: "local_only", notes: [{ noteId: "n1", body: "Evidence" }] });
+  for (const content of ["null", "[]", "{}", '{"writingMoves":{}}', '{"writingMoves":[null]}', '{"writingMoves":[{"text":"Claim","sourceNoteIds":"n1"}]}']) {
+    assert.throws(() => mergeWritingStrongModelResponse(request, { content }), /格式不正确/);
+  }
+  for (const response of [
+    { writingMoves: [{ text: "Claim", sourceNoteIds: ["invented"] }] },
+    { outlineDrafts: [{ sections: ["Section"], sourceNoteIds: ["invented"] }] },
+    { sourceGaps: [{ claim: "Claim", gap: "Missing evidence", relatedNoteIds: ["invented"] }] }
+  ]) assert.throws(() => mergeWritingStrongModelResponse(request, response), /未提供的笔记/);
+  assert.throws(() => mergeWritingStrongModelResponse(request, { writingMoves: [{ text: "Claim", sourceNoteIds: ["n1"], source_note_ids: ["invented"] }] }), /未提供的笔记/);
+  assert.throws(() => mergeWritingStrongModelResponse(request, { writingMoves: [{}] }), /缺少必要内容/);
+  assert.throws(() => mergeWritingStrongModelResponse(request, { writingMoves: [{ text: "Unsourced claim" }] }), /缺少来源笔记/);
+  assert.equal(mergeWritingStrongModelResponse(request, { writingMoves: [] }).summary.artifactCount, 0);
+});
+
+test("writing request sends the actual outline and prohibits invented evidence", () => {
+  const currentOutline = { title: "Article", sections: [{ heading: "My edited heading", purpose: "My edited point", sourceNoteIds: ["n1"] }], openQuestions: ["Missing case"] };
+  const request = buildWritingStrongModelRequest({ privacyMode: "local_only", currentOutline, notes: [{ noteId: "n1", body: "Evidence" }] });
+  const payload = JSON.parse(request.messages[1].content);
+  assert.deepEqual(payload.currentOutline, { ...currentOutline, sections: currentOutline.sections.map((section, index) => ({ sectionNumber: index + 1, ...section })) });
+  assert.equal(request.executionDefaults.temperature, 0);
+  assert.match(payload.instructions.join("\n"), /Check the currentOutline as written/);
+  assert.match(payload.instructions.join("\n"), /Do not invent examples, facts, or evidence/);
+  assert.equal(payload.task, "writing_outline_check");
+  assert.deepEqual(Object.keys(request.responseContract), ["checks"]);
+  assert.equal(request.analysisFocus, "outline_check");
+});
+
 test("writing strong-model request requires explicit user confirmation", () => {
   assert.throws(
     () =>
@@ -63,8 +92,11 @@ test("writing analysis request allows local-only execution without remote confir
   assert.equal(request.privacy.mode, "local_only");
   assert.equal(request.privacy.cloudModelAllowed, false);
   assert.equal(request.privacy.userConfirmed, false);
+  assert.equal(request.executionDefaults.maxOutputTokens, 700);
   const payload = JSON.parse(request.messages[1].content);
   assert.equal(payload.privacyMode, "local_only");
+  assert.equal(request.messages[1].content, JSON.stringify(payload));
+  assert.match(payload.instructions.join("\n"), /Never invent note ids/);
 });
 
 test("writing strong-model response becomes pending review artifacts only", () => {

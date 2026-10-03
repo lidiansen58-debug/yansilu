@@ -1,5 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { initVault, createNoteInDirectory, getNoteById, updateNoteContent } from "../../packages/domain/src/index.mjs";
 import { handleRecordOriginalFromNoteStateChange as promote } from "../../apps/web/src/app-shell-state-note-creation-actions.js";
 import { withGeneratedOriginalMarker, withGeneratedOriginalReference } from "../../apps/web/src/note-persistence-policy.js";
 import { recordEditorSourceAsPermanent } from "../../apps/web/src/source-note-editor-promotion.js";
@@ -29,6 +33,102 @@ function fixture() {
   };
   return { source, tab, state, deps, drafts, messages, created, persisted, payload: { sourceNoteId: source.id, sourceBody: body } };
 }
+
+test("AI promotion passes provenance to creation without marking manual drafts", async () => {
+  const ai = fixture();
+  await promote({ ...ai.payload, draftBody: "# AI 草稿\n\n待确认判断。", authorshipAiAssisted: true }, ai.deps);
+  assert.equal(ai.created[0].authorshipAiAssisted, true);
+  const manual = fixture();
+  await promote(manual.payload, manual.deps);
+  assert.equal(manual.created[0].authorshipAiAssisted, undefined);
+});
+
+test("source marker save uses the persisted baseline, not the unsaved source draft", async () => {
+  const f = fixture();
+  const baseline = f.tab.savedBody;
+  f.tab.savedFileRevision = "a".repeat(64);
+  f.tab.body += "\n\nUnsaved edits.";
+  f.tab.dirty = true;
+  await promote(f.payload, f.deps);
+  assert.equal(f.persisted[0].expectedBody, baseline);
+  assert.equal(f.persisted[0].expectedRevision, "a".repeat(64));
+  assert.match(f.persisted[0].body, /Unsaved edits/);
+});
+
+test("successful source marker persistence refreshes the editor file revision", async () => {
+  const f = fixture();
+  f.tab.savedFileRevision = "a".repeat(64);
+  f.deps.updateNote = async (_id, patch) => ({ ...f.source, ...patch, fileRevision: "b".repeat(64) });
+  await promote(f.payload, f.deps);
+  assert.equal(f.tab.savedFileRevision, "b".repeat(64));
+  assert.equal(f.tab.dirty, false);
+});
+
+test("an empty source file revision is not silently dropped from guarded persistence", async () => {
+  const f = fixture();
+  f.tab.savedFileRevision = "";
+  f.deps.updateNote = async (_id, patch) => {
+    assert.equal(patch.expectedRevision, "");
+    throw Object.assign(new Error("Invalid file revision"), { code: "NOTE_SAVE_BASE_INVALID" });
+  };
+  assert.equal((await promote(f.payload, f.deps)).id, "permanent");
+  assert.equal(f.tab.dirty, true);
+  assert.match(f.messages.at(-1).message, /Invalid file revision/);
+});
+
+test("source marker conflict preserves the baseline and created permanent note", async () => {
+  const f = fixture();
+  const baseline = f.tab.savedBody;
+  const revision = "a".repeat(64);
+  f.tab.savedFileRevision = revision;
+  f.deps.updateNote = async (_id, patch) => {
+    assert.equal(patch.expectedBody, baseline);
+    assert.equal(patch.expectedRevision, revision);
+    throw Object.assign(new Error("Source changed externally"), { code: "NOTE_SAVE_CONFLICT" });
+  };
+  const result = await promote(f.payload, f.deps);
+  assert.equal(result.id, "permanent");
+  assert.equal(f.tab.savedBody, baseline);
+  assert.equal(f.tab.savedFileRevision, revision);
+  assert.equal(f.tab.dirty, true);
+  assert.match(f.tab.body, /generated-original=permanent/);
+  assert.equal(f.drafts.at(-1), f.tab.body);
+  assert.match(f.messages.at(-1).message, /Source changed externally/);
+});
+
+test("real vault source promotion cannot overwrite a concurrent source edit", async t => {
+  const vault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-promotion-guard-"));
+  t.after(async () => {
+    assert.equal(path.dirname(vault), path.resolve(os.tmpdir()));
+    await fs.rm(vault, { recursive: true, force: true });
+  });
+  await initVault(vault);
+  const persistedSource = await createNoteInDirectory(vault, {
+    directoryId: "dir_fleeting_default", title: "Source", body: "# Source\n\nOriginal material."
+  });
+  const f = fixture();
+  Object.assign(f.source, persistedSource);
+  Object.assign(f.tab, { noteId: persistedSource.id, body: persistedSource.body, savedBody: persistedSource.body,
+    title: persistedSource.title, savedTitle: persistedSource.title, savedFileRevision: persistedSource.fileRevision });
+  f.payload.sourceNoteId = persistedSource.id;
+  f.payload.sourceBody = persistedSource.body;
+  let externalBytes;
+  f.deps.createNote = async payload => {
+    const created = await createNoteInDirectory(vault, payload);
+    await updateNoteContent(vault, persistedSource.id, { body: "# Source\n\nChanged outside the editor." });
+    externalBytes = await fs.readFile(path.join(vault, persistedSource.markdownPath), "utf8");
+    return created;
+  };
+  f.deps.updateNote = (id, patch) => updateNoteContent(vault, id, patch);
+  const created = await promote(f.payload, f.deps);
+  assert.ok(created.id);
+  assert.equal((await getNoteById(vault, created.id)).id, created.id);
+  assert.equal(await fs.readFile(path.join(vault, persistedSource.markdownPath), "utf8"), externalBytes);
+  assert.equal(f.tab.savedFileRevision, persistedSource.fileRevision);
+  assert.equal(f.tab.dirty, true);
+  assert.match(f.tab.body, /generated-original=/);
+  assert.equal(f.messages.at(-1).tone, "warn");
+});
 
 for (const result of ["failure", "null", "empty", "wrong-id"]) {
   test(`promotion retains an unsaved source draft after marker save: ${result}`, async () => {

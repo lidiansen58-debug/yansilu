@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
+test("writing AI results stay in the visible outline pane, not the hidden workbench", () => {
+  const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
+  const resultIndex = html.indexOf('id="writingStrongModelSummary"');
+  assert.ok(resultIndex > html.indexOf('id="writingScaffoldPanel"'));
+  assert.ok(resultIndex < html.indexOf('id="writingScaffoldPreview"'));
+  assert.ok(resultIndex < html.indexOf('class="writing-hidden-workbench"'));
+  assert.equal((html.match(/id="writingStrongModelSummary"/g) || []).length, 1);
+});
+
 test("writing workbench keeps actions in the writing pane and the main task one-column", () => {
   const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
   const css = fs.readFileSync("apps/web/src/prototype.css", "utf8");

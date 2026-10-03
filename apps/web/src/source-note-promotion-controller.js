@@ -97,7 +97,8 @@ async function recordOriginalFromNote(payload = {}, deps = {}) {
     const created = await createNote({
       directoryId,
       status: "draft",
-      body
+      body,
+      ...(payload.authorshipAiAssisted === true ? { authorshipAiAssisted: true } : {})
     });
     if (!isCurrent()) return false;
     if (!created?.id) throw new Error("创建永久笔记失败：本地服务未返回创建结果");
@@ -115,8 +116,9 @@ async function recordOriginalFromNote(payload = {}, deps = {}) {
       const nextSourceTitle = /^#\s/.test(nextSourceBody) ? titleFromBody(nextSourceBody) : sourceTitle;
       let updatedSource = null;
       try {
-        const expectedBody = sourceTab()?.savedBody ?? sourceNote.body;
-        const expectedRevision = sourceTab()?.savedFileRevision ?? sourceNote.fileRevision;
+        const sourceSaveTab = sourceTab();
+        const expectedBody = typeof sourceSaveTab?.savedBody === "string" ? sourceSaveTab.savedBody : sourceNote.body;
+        const expectedRevision = sourceSaveTab?.savedFileRevision ?? sourceNote.fileRevision;
         updatedSource = await updateNote(sourceNote.id, {
           ...(typeof expectedBody === "string" ? { expectedBody } : {}),
           ...(expectedRevision !== undefined ? { expectedRevision } : {}),

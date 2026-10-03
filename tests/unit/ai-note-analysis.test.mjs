@@ -23,6 +23,66 @@ function check(result, checkId) {
   return result.principleChecks.find((item) => item.checkId === checkId);
 }
 
+function relationRequest() {
+  return buildPermanentNoteLocalModelRequest({
+    note: { noteId: "source", title: "Explain to learn", body: "Explaining a concept exposes gaps in understanding." },
+    relatedNotes: [{ noteId: "target", title: "Recall to learn", body: "Recall exposes gaps in understanding." }],
+    options: { analysisFocus: "relations" }
+  });
+}
+
+test("relation-only requests omit unrelated tasks and bound generation", () => {
+  const request = relationRequest();
+  const payload = JSON.parse(request.messages[1].content);
+  assert.deepEqual(Object.keys(request.responseContract), ["relationCandidates"]);
+  assert.equal(payload.localRuleBaseline, undefined);
+  assert.equal(payload.literatureNotes, undefined);
+  assert.deepEqual(request.candidateNoteIds, ["target"]);
+  assert.equal(request.executionDefaults.numPredict, 400);
+});
+
+test("relation-only results reject invented IDs and ignore unsolicited drafts", () => {
+  const result = mergePermanentNoteLocalModelResponse(relationRequest(), {
+    relationCandidates: [
+      { toNoteId: "target", relationType: "supports", rationale: "Both expose gaps.", confidence: 0.8 },
+      { toNoteId: "invented", relationType: "supports" },
+      { toNoteId: "source", relationType: "supports" }
+    ],
+    candidateViewpoint: { coreViewpoint: "Unrequested", permanentNoteDraft: "Unrequested" },
+    topicCandidates: [{ title: "Unrequested" }]
+  });
+  assert.deepEqual(result.analysis.relationCandidates.map(item => item.toNoteId), ["target"]);
+  assert.equal(result.analysis.candidateViewpoint, null);
+  assert.deepEqual(result.analysis.topicCandidates, []);
+  assert.deepEqual(result.reviewItems.suggestions, []);
+  assert.equal(result.reviewItems.artifacts.length, 1);
+  assert.equal(result.reviewItems.artifacts[0].type, "LinkSuggestion");
+  assert.equal(result.reviewItems.summary.canAutoConfirm, false);
+});
+
+test("relation-only empty model results do not regain rule candidates", () => {
+  const request = relationRequest();
+  request.fallbackAnalysis.relationCandidates = [{ fromNoteId: "source", toNoteId: "target", relationType: "supports" }];
+  const result = mergePermanentNoteLocalModelResponse(request, { relationCandidates: [] });
+  assert.deepEqual(result.analysis.relationCandidates, []);
+  assert.deepEqual(result.reviewItems.artifacts, []);
+});
+
+test("relation-only results retain one best suggestion per target", () => {
+  const result = mergePermanentNoteLocalModelResponse(relationRequest(), { relationCandidates: [
+    { toNoteId: "target", relationType: "contrasts", confidence: 0.4 },
+    { toNoteId: "target", relationType: "supports", confidence: 0.8 }
+  ] });
+  assert.equal(result.analysis.relationCandidates.length, 1);
+  assert.equal(result.analysis.relationCandidates[0].relationType, "supports");
+});
+
+test("relation-only wrong JSON shape is explicitly marked as malformed", () => {
+  const result = mergePermanentNoteLocalModelResponse(relationRequest(), { candidateViewpoint: {} });
+  assert.equal(result.analysis.modelParseError.code, "LOCAL_MODEL_JSON_PARSE_FAILED");
+  assert.equal(result.analysis.provenance.contentOrigin, "system_rule");
+});
+
 test("local permanent note analysis flags notes that still look like raw material", () => {
   const result = analyzePermanentNoteLocally({
     noteId: "pn_material",
@@ -264,6 +324,26 @@ test("local model request builder defaults permanent note distillation to qwen3 
   assert.equal(request.responseContract.candidateViewpoint.coreViewpoint, "string");
   assert.deepEqual(request.responseContract.candidateViewpoint.evidenceAnchors, ["string"]);
   assert.match(request.messages[1].content, /candidate viewpoints only/);
+});
+
+test("model context retains evidence and counterexamples after the opening sentence", () => {
+  const request = buildPermanentNoteLocalModelRequest({
+    noteId: "pn_evidence", title: "Review a claim",
+    body: "这是一条关于重复练习提高效果的初步判断。\n\n## 依据\n观察显示第二次实践比第一次更有效。\n\n## 反例\n没有反馈的重复练习未必提高效果。",
+    relatedNotes: [{ noteId: "pn_related", title: "Feedback", body: "有意识且持续的重复练习可能提升熟练度。反馈是改进的必要条件。" }]
+  });
+  const payload = JSON.parse(request.messages[1].content);
+  assert.match(payload.note.body, /没有反馈/);
+  assert.match(payload.relatedNotes[0].excerpt, /必要条件/);
+});
+
+test("model context remains bounded and does not repeat full rule diagnostics", () => {
+  const request = buildPermanentNoteLocalModelRequest({ noteId: "pn_long", title: "Long", body: "Evidence. ".repeat(1000) });
+  const payload = JSON.parse(request.messages[1].content);
+  assert.ok(payload.note.body.length <= 1200);
+  assert.equal(payload.localRuleBaseline.originality, undefined);
+  assert.equal(request.messages[1].content.includes('\n  "'), false);
+  assert.match(request.messages[1].content, /at most 3 relations/);
 });
 
 test("local model request builder keeps permanent note analysis local-only and review-only", () => {

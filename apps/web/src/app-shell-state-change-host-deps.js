@@ -22,6 +22,7 @@ export function buildAppShellStateChangePrototypeHostDeps(host = {}) {
     descendantDirectoryIds: host.descendantDirectoryIds,
     editor: host.editor,
     ensureAiReadyForFeature: host.ensureAiReadyForFeature,
+    runSourceDistillAi: host.runSourceDistillAi,
     ensureNoteBodyLoaded: host.ensureNoteBodyLoaded,
     expandGraphBrowserTree: host.expandGraphBrowserTree,
     ensureLocalAiReadyForFeature: host.ensureLocalAiReadyForFeature,

@@ -100,8 +100,7 @@ export function syncSettingsAiInputs({ $ = () => null, settingsState = {} } = {}
   const inputValues = [
     ["settingsAiUserMode", String(ai.userMode || "Auto").trim() || "Auto"],
     ["settingsAiModelPack", String(ai.modelPack || "Starter Auto").trim() || "Starter Auto"],
-    ["settingsAiAdvancedModelRef", String(ai.advancedModelRef || "").trim()],
-    ["settingsAiSecretRef", String(ai.secretRef || "").trim()]
+    ["settingsAiAdvancedModelRef", String(ai.advancedModelRef || "").trim()]
   ];
   inputValues.forEach(([id, stored]) => {
     const input = $(id);

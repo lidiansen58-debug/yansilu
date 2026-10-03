@@ -98,7 +98,7 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
                 还要注意什么？
                 <textarea name="boundaryOrCounterpoint" rows="3" placeholder="这条判断在哪些情况下不成立？">${escapeHtml(boundaryOrCounterpoint)}</textarea>
               </label>
-              ${options.aiWorkspaceHtml ? `<div class="note-distillation-ai-assist">${options.aiWorkspaceHtml}</div>` : ""}
+              ${options.aiWorkspaceHtml ? `<div class="note-distillation-ai-assist" data-note-embedded-ai-workspace data-note-id="${escapeHtml(note?.id || "")}">${options.aiWorkspaceHtml}</div>` : ""}
             </div>
           </details>
           <div class="semantic-relation-actions">
