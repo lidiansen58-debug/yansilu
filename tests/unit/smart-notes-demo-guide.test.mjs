@@ -1,10 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { withShortSmartNotesPractice } from "../../scripts/smart-notes-short-practice.mjs";
+import { SMART_NOTES_SHORT_PRACTICE_STEPS, smartNotesDemoActionLabel } from "../../apps/web/src/beginner-onboarding-flow.js";
+import { beginSmartNotesDemoPractice, completeSmartNotesDemoSavedJudgment } from "../../apps/web/src/smart-notes-demo-practice-progress.js";
 
 function loadDemo() {
   return JSON.parse(fs.readFileSync("tests/fixtures/demo-smart-notes-product-thinking/demo.json", "utf8"));
 }
+
+test("current short practice names six saved outcomes and only links existing notes", () => {
+  const demo = withShortSmartNotesPractice(loadDemo());
+  const guide = demo.guide_notes.find(note => note.id === "GUIDE-SHORT-PRACTICE");
+  const titles = new Set(Object.values(demo).filter(Array.isArray).flat().map(note => note?.title).filter(Boolean));
+  assert.equal([...guide.body.matchAll(/^\d\. /gm)].length, 6);
+  for (const action of ["保存当前观点", "保存草稿", "导出文章 .md", "已有提纲或草稿"]) assert.ok(guide.body.includes(action));
+  assert.match(guide.body, /不需要 AI/);
+  assert.match(guide.body, /正文链接和手动关联同样进入网络/);
+  assert.match(guide.body, /示例观点不代表你的判断/);
+  for (const match of guide.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) assert.ok(titles.has(match[1]), `missing ${match[1]}`);
+  const writingGuide = demo.guide_notes.find(note => note.id === "GUIDE-INDEX-TO-WRITING");
+  for (const label of ["继续提纲", "继续草稿", "继续写"]) assert.ok(writingGuide.body.includes(`“${label}”`));
+  assert.doesNotMatch(writingGuide.body, /继续提纲\/草稿/);
+  assert.match(writingGuide.body, /已保存整稿/);
+  assert.match(writingGuide.body, /点“开始写”选择这组素材，再点“生成提纲”/);
+});
+
+test("short practice instructs registered entry buttons rather than direct note links", () => {
+  const guide = withShortSmartNotesPractice(loadDemo()).guide_notes.find(note => note.id === "GUIDE-SHORT-PRACTICE");
+  assert.match(guide.body, /每一步都从上方练习按钮进入/);
+  assert.match(guide.body, /正文链接只用于阅读参考/);
+  for (const step of SMART_NOTES_SHORT_PRACTICE_STEPS) assert.ok(guide.body.includes(`“${smartNotesDemoActionLabel(step)}”`));
+  assert.doesNotMatch(guide.body, /打开\[\[我的观点/);
+  const state = {};
+  const step = SMART_NOTES_SHORT_PRACTICE_STEPS[0];
+  const saved = { id: step.targetNoteId, thesis: "用自己的话解释才会暴露理解缺口", distillationStatus: "confirmed" };
+  assert.equal(completeSmartNotesDemoSavedJudgment(state, saved, undefined), false);
+  const pending = beginSmartNotesDemoPractice(state, { key: step.key, noteId: step.targetNoteId, baseline: "" });
+  assert.equal(completeSmartNotesDemoSavedJudgment(state, saved, pending), true);
+});
 
 test("Smart Notes demo guide gives a beginner title-based path", () => {
   const demo = loadDemo();
