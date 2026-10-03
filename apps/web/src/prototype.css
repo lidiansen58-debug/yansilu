@@ -14486,8 +14486,7 @@
       font-weight: 550;
       line-height: 1.65;
     }
-    .permanent-relation-candidate p,
-    .permanent-relation-empty p {
+    .permanent-relation-candidate p {
       display: none;
     }
     .permanent-relation-source-status {

@@ -90,6 +90,15 @@ function rawSourceGaps(result = {}) {
 }
 
 export function buildSourceNoteDistillDraftFromAiResult(result = {}, input = {}) {
+  const sourceDraft = result?.result?.sourceDistillDraft || result?.sourceDistillDraft;
+  if (sourceDraft) {
+    if (!["title", "coreArgument", "content"].every(key => typeof sourceDraft[key] === "string" && sourceDraft[key].trim())) return null;
+    return { kind: "draft", title: "帮我提炼", draft: {
+      title: sourceDraft.title, coreArgument: sourceDraft.coreArgument,
+      content: [sourceDraft.content, sourceDraft.evidenceQuote ? `依据原文：${sourceDraft.evidenceQuote}` : ""].filter(Boolean).join("\n\n"),
+      questions: sourceDraft.questions || ""
+    }, autoWrite: false, requiresConfirmation: true, modelUsed: true };
+  }
   const artifacts = sourceNoteArtifacts(result);
   const writingMoves = artifacts.filter((artifact) => String(artifact?.type || "") === "WritingMove");
   const outlineDrafts = artifacts.filter((artifact) => String(artifact?.type || "") === "OutlineDraft");
@@ -108,7 +117,7 @@ export function buildSourceNoteDistillDraftFromAiResult(result = {}, input = {})
     sourceGaps.map(artifactText).filter(Boolean).join("\n") ||
     rawGaps.map((gap) => cleanText(gap.gap || gap.claim || gap.summary)).filter(Boolean).join("\n");
 
-  if (!coreArgument && !outlineText && !gapText) return null;
+  if (!coreArgument) return null;
   const fallback = buildSourceNoteDistillDraft(input);
   const generatedContent = [
     outlineText,
@@ -120,7 +129,7 @@ export function buildSourceNoteDistillDraftFromAiResult(result = {}, input = {})
     title: "帮我提炼",
     draft: {
       title: cleanText(outlineDrafts[0]?.title || rawOutlines[0]?.title) || fallback.draft.title,
-      coreArgument: coreArgument || fallback.draft.coreArgument,
+      coreArgument,
       content: generatedContent || fallback.draft.content,
       questions: gapText || fallback.draft.questions
     },

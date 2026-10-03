@@ -153,6 +153,34 @@ test("permanent relation open action keeps sidebar route context", () => {
   assert.equal(opened[0].noteId, "note-current");
 });
 
+test("opening AI relations requests only relation analysis", () => {
+  const calls = [];
+  const action = attrElement({ "data-permanent-relation-action": "open", "data-permanent-relation-mode": "ai" });
+  const target = elementWithClosest({ "[data-permanent-relation-action]": action });
+  const host = {
+    activeNote: () => ({ id: "current" }),
+    openPermanentRelationWorkspace: () => true,
+    permanentRelationWorkspaceAiCandidates: () => [],
+    runPermanentNoteAnalysis: options => calls.push(options)
+  };
+  assert.equal(routeEditorRelationClick(host, eventFor(target)), true);
+  assert.deepEqual(calls, [{ analysisFocus: "relations" }]);
+});
+
+test("explicit recommendation retry runs even when an old candidate is cached", () => {
+  const calls = [];
+  const action = attrElement({ "data-permanent-relation-action": "recommend" });
+  const target = elementWithClosest({ "[data-permanent-relation-action]": action });
+  const host = {
+    permanentRelationWorkspaceState: { noteId: "current", mode: "ai", error: "timeout" },
+    patchPermanentRelationWorkspaceState: () => {},
+    permanentRelationWorkspaceAiCandidates: () => [{ targetNoteId: "old" }],
+    runPermanentNoteAnalysis: options => calls.push(options)
+  };
+  assert.equal(routeEditorRelationClick(host, eventFor(target)), true);
+  assert.deepEqual(calls, [{ analysisFocus: "relations" }]);
+});
+
 test("relation type choice updates the permanent relation workspace", () => {
   const calls = [];
   const choice = attrElement({

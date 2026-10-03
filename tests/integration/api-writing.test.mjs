@@ -6,6 +6,8 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { createSqliteArtifactStore } from "../../packages/ai-orchestrator/src/sqlite-artifact-store.mjs";
 import { fileURLToPath } from "node:url";
 import { syncWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
 import { saveNoteWithReadback } from "../../apps/web/src/note-save-readback.js";
@@ -122,6 +124,51 @@ function startApi(port, vaultPath) {
     stdio: ["ignore", "pipe", "pipe"]
   });
 }
+
+for (const focus of ["writing", "source_distill", "note_analysis", "test_chat"]) test(`${focus} AI cancellation closes provider transport, persists nothing and permits retry`, { timeout: 10000 }, async t => {
+  const vaultPath = await makeTempDir("yansilu-writing-cancel-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const note = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Test\n\nReal evidence." })).json.item;
+  let started;
+  let disconnected;
+  const ready = new Promise(resolve => { started = resolve; });
+  const closed = new Promise(resolve => { disconnected = resolve; });
+  let calls = 0;
+  const provider = http.createServer(async (req, res) => {
+    await readRequestJson(req);
+    calls++;
+    if (calls === 1) { res.on("close", disconnected); started(); return; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    const result = focus === "source_distill"
+      ? { draft: { title: "Evidence", coreArgument: "Use evidence", content: "Explain the evidence", questions: "", sourceNoteIds: [note.id], evidenceQuote: "Real evidence." } }
+      : { writingMoves: [{ text: "Use the real evidence", sourceNoteIds: [note.id] }] };
+    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(result) } }] }));
+  });
+  await new Promise(resolve => provider.listen(0, "127.0.0.1", resolve));
+  t.after(async () => { provider.closeAllConnections(); await new Promise(resolve => provider.close(resolve)); });
+  const payload = { privacyMode: "local_only", executeModel: true, executeLocalModel: focus === "note_analysis", fallbackOnProviderFailure: false, providerPreset: "local_private_gateway", authMode: "local_no_key",
+    endpointUrl: `http://127.0.0.1:${provider.address().port}/v1/chat/completions`, model: "test-local", noteIds: [note.id], persistArtifacts: focus !== "source_distill",
+    ...(focus === "source_distill" ? { analysisFocus: focus } : {}), ...(focus === "test_chat" ? { prompt: "Synthetic connection test" } : {}) };
+  const controller = new AbortController();
+  const route = focus === "test_chat" ? "/api/v1/ai/test-chat" : focus === "note_analysis" ? `/api/v1/notes/${note.id}/ai-analysis` : "/api/v1/writing/ai-analysis";
+  const pending = fetch(`${baseUrl}${route}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: controller.signal });
+  const outcome = pending.catch(error => error);
+  await ready;
+  controller.abort();
+  assert.equal((await outcome).name, "AbortError");
+  await closed;
+  const store = await createSqliteArtifactStore({ vaultPath });
+  t.after(() => store.close());
+  assert.equal(store.countArtifacts(), 0);
+  const retry = await postJson(baseUrl, route, payload);
+  assert.equal(retry.status, 200, JSON.stringify(retry.json));
+  if (focus !== "note_analysis") assert.equal(store.countArtifacts(), ["source_distill", "test_chat"].includes(focus) ? 0 : 1);
+  assert.equal(calls, 2);
+});
 
 test("writing first creation retries its stable ID after a lost response without changing the created file", async t => {
   const vaultPath = await makeTempDir("yansilu-api-writing-create-recovery-");
@@ -583,6 +630,7 @@ test("writing AI analysis API requires confirmation and stores review-only remot
   const prepared = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
     userConfirmedRemoteModel: true,
     writingGoal: "Prepare a source-grounded outline.",
+    currentOutline: { title: "Edited article", sections: [{ heading: "Actual edited heading", purpose: "Actual edited point", sourceNoteIds: [note.json.item.id] }], openQuestions: ["Need an example"] },
     noteIds: [note.json.item.id],
     model: "gpt-strong",
     persistArtifacts: false
@@ -690,6 +738,47 @@ test("writing AI analysis API requires confirmation and stores review-only remot
   assert.ok(executed.json.item.result.artifacts.every((item) => item.status === "pending_review"));
   assert.equal(remoteProvider.requests.length, 1);
   assert.equal(remoteProvider.requests[0].body.model, "local-strong-model");
+  const outlineProvider = await startJsonProvider({ checks: [{
+    kind: "contradiction", sectionNumbers: [1], problem: "The section removes the review boundary.", action: "Keep review before adoption.",
+    sourceNoteIds: [note.json.item.id], evidenceQuote: "AI writing support should expose source note ids and remain reviewable."
+  }] });
+  t.after(() => outlineProvider.server.close());
+  const checked = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    privacyMode: "local_only", executeModel: true, providerPreset: "local_private_gateway", authMode: "local_no_key",
+    endpointUrl: `${outlineProvider.baseUrl}/v1/chat/completions`, model: "local-strong-model", noteIds: [note.json.item.id],
+    writingGoal: "Check the edited outline", persistArtifacts: false,
+    currentOutline: { title: "Edited article", sections: [{ heading: "Actual edited heading", purpose: "Actual edited point", sourceNoteIds: [note.json.item.id] }], openQuestions: ["Need an example"] }
+  });
+  assert.equal(checked.status, 200, JSON.stringify(checked.json));
+  assert.equal(checked.json.item.result.summary.outlineDraftCount, 0);
+  assert.equal(checked.json.item.result.artifacts[0].status, "pending_review");
+  assert.match(checked.json.item.result.artifacts[0].payload.whyItMatters, /依据原文/);
+  const providerPayload = JSON.parse(outlineProvider.requests[0].body.messages[1].content);
+  assert.equal(providerPayload.task, "writing_outline_check");
+  assert.equal(providerPayload.currentOutline.sections[0].heading, "Actual edited heading");
+  assert.equal(providerPayload.currentOutline.sections[0].purpose, "Actual edited point");
+  assert.deepEqual(providerPayload.currentOutline.sections[0].sourceNoteIds, [note.json.item.id]);
+
+  const sourceDraft = { title: "AI support needs a review boundary", coreArgument: "AI support should preserve the user's decision to accept a claim.",
+    content: "Expose source references and review suggestions before adopting them.", questions: "How can review stay lightweight?",
+    sourceNoteIds: [note.json.item.id], evidenceQuote: "AI writing support should expose source note ids and remain reviewable." };
+  const sourceProvider = await startJsonProvider({ draft: sourceDraft });
+  t.after(() => sourceProvider.server.close());
+  const sourceInput = { privacyMode: "local_only", analysisFocus: "source_distill", executeModel: true,
+    providerPreset: "local_private_gateway", authMode: "local_no_key", endpointUrl: `${sourceProvider.baseUrl}/v1/chat/completions`,
+    model: "local-strong-model", noteIds: [note.json.item.id], writingGoal: "Form one editable viewpoint", persistArtifacts: false };
+  const distilled = await postJson(baseUrl, "/api/v1/writing/ai-analysis", sourceInput);
+  assert.equal(distilled.status, 200, JSON.stringify(distilled.json));
+  assert.deepEqual(distilled.json.item.result.sourceDistillDraft, sourceDraft);
+  assert.equal(distilled.json.item.result.artifactsPersisted, false);
+  assert.deepEqual(distilled.json.item.result.storedArtifactIds, []);
+  assert.equal(distilled.json.item.result.provenance.canAutoConfirm, false);
+  assert.equal(JSON.parse(sourceProvider.requests[0].body.messages[1].content).task, "source_note_distillation");
+  const badDraft = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    ...sourceInput, modelResponse: { draft: { ...sourceDraft, evidenceQuote: "An invented quotation" } }
+  });
+  assert.equal(badDraft.status, 400);
+  assert.match(badDraft.json.error.message, /依据不在来源材料/);
 
   const storedRemoteConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
     providerId: "openai_compatible_gateway",

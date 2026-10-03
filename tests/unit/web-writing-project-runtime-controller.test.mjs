@@ -9,6 +9,117 @@ function form(fields = {}) {
   return (id) => ({ value: fields[id] || "" });
 }
 
+test("writing cancel aborts the request and immediately permits retry without late feedback", async () => {
+  let signal;
+  let finish;
+  let started;
+  const ready = new Promise(resolve => { started = resolve; });
+  const statuses = [];
+  const writingState = { project: { id: "p1" }, strongModelRevision: 0 };
+  const controller = createWritingProjectRuntimeController(() => ({ writingState,
+    parseWritingBasketIds: () => ["n1"], setStatus: (...args) => statuses.push(args),
+    analyzeWritingWithStrongModel: (_request, options) => { signal = options.signal; started(); return new Promise(resolve => { finish = resolve; }); }
+  }));
+  const pending = controller.prepareWritingStrongModelAnalysis();
+  await ready;
+  await controller.contextualAiController.ignore("check_outline");
+  assert.equal(signal.aborted, true);
+  assert.equal(writingState.strongModelLoading, false);
+  assert.match(statuses.at(-1)[0], /已取消检查/);
+  finish({ suggestions: [{ text: "Late" }] });
+  await pending;
+  assert.equal(writingState.strongModelResult, null);
+  assert.equal(writingState.strongModelError, "");
+  assert.equal(statuses.some(args => args[0].includes("已完成")), false);
+});
+
+test("writing AI ignores late results after switching projects", async () => {
+  let finish;
+  let started;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const statuses = [];
+  const writingState = { project: { id: "p1" }, strongModelRevision: 0 };
+  const controller = createWritingProjectRuntimeController(() => ({
+    writingState,
+    parseWritingBasketIds: () => ["n1"],
+    setStatus: (...args) => statuses.push(args),
+    analyzeWritingWithStrongModel: () => { started(); return new Promise((resolve) => { finish = resolve; }); }
+  }));
+  const pending = controller.prepareWritingStrongModelAnalysis();
+  await ready;
+  writingState.project = { id: "p2", outline: "User's new outline" };
+  writingState.strongModelResult = { project: "p2" };
+  const actionState = writingState.contextualAiActionState;
+  finish({ suggestions: [{ text: "Old project suggestion" }] });
+  await pending;
+  assert.deepEqual(writingState.strongModelResult, { project: "p2" });
+  assert.equal(writingState.project.outline, "User's new outline");
+  assert.equal(writingState.contextualAiActionState, actionState);
+  assert.equal(actionState.status, "running");
+  assert.equal(writingState.strongModelLoading, false);
+  assert.equal(statuses.length, 0);
+});
+
+test("writing AI blocks duplicate requests and preserves previous suggestions on failure", async () => {
+  let fail;
+  let calls = 0;
+  let started;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const previous = { suggestions: [{ text: "Previous suggestion" }] };
+  const writingState = { project: { id: "p1", outline: "User outline" }, strongModelResult: previous };
+  const controller = createWritingProjectRuntimeController(() => ({
+    writingState,
+    parseWritingBasketIds: () => ["n1"],
+    analyzeWritingWithStrongModel: () => { calls++; started(); return new Promise((resolve, reject) => { fail = reject; }); }
+  }));
+  const pending = controller.prepareWritingStrongModelAnalysis();
+  await ready;
+  await controller.prepareWritingStrongModelAnalysis();
+  writingState.project.outline = "Edited while waiting";
+  fail(new Error("Provider unavailable"));
+  await pending;
+  assert.equal(calls, 1);
+  assert.equal(writingState.strongModelResult, previous);
+  assert.equal(writingState.project.outline, "Edited while waiting");
+  assert.match(writingState.strongModelError, /Provider unavailable/);
+  assert.equal(writingState.strongModelLoading, false);
+});
+
+test("writing check sends an outline snapshot and labels suggestions if editing continues", async () => {
+  let finish;
+  let seenRequest;
+  let started;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const writingState = { project: { id: "p1", title: "Article" }, scaffold: { sections: [{ heading: "Initial heading", purpose: "Initial point", evidence_note_ids: ["n1"] }] } };
+  const controller = createWritingProjectRuntimeController(() => ({
+    writingState, parseWritingBasketIds: () => ["n1"], writingKnownNoteById: () => ({ title: "Source title" }),
+    analyzeWritingWithStrongModel: request => { seenRequest = request; started(); return new Promise(resolve => { finish = resolve; }); }
+  }));
+  const pending = controller.prepareWritingStrongModelAnalysis();
+  await ready;
+  writingState.scaffold.sections[0].heading = "Edited while waiting";
+  finish({ result: { artifacts: [{ type: "WritingMove", payload: { text: "Review", sourceNoteIds: ["n1"] } }] } });
+  await pending;
+  assert.equal(seenRequest.currentOutline.sections[0].heading, "Initial heading");
+  assert.equal(writingState.scaffold.sections[0].heading, "Edited while waiting");
+  assert.match(writingState.contextualAiActionState.result.summary, /检查前的版本/);
+  assert.match(writingState.contextualAiActionState.result.suggestions[0].text, /Source title/);
+});
+
+test("writing AI does not report success for a missing result", async () => {
+  const statuses = [];
+  const writingState = { project: { id: "p1" } };
+  const controller = createWritingProjectRuntimeController(() => ({
+    writingState,
+    parseWritingBasketIds: () => ["n1"],
+    analyzeWritingWithStrongModel: async () => null,
+    setStatus: (...args) => statuses.push(args)
+  }));
+  await controller.prepareWritingStrongModelAnalysis();
+  assert.match(writingState.strongModelError, /未返回/);
+  assert.equal(statuses.some((entry) => entry[1] === "ok"), false);
+});
+
 test("writing project runtime controller blocks current basket project without title", async () => {
   const statuses = [];
   const controller = createWritingProjectRuntimeController(() => ({

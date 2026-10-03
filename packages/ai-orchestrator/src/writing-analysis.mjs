@@ -1,4 +1,6 @@
 import { normalizeArtifact } from "./artifacts.mjs";
+import { normalizeOutlineCheckResponse, outlineCheckContract, outlineCheckInstructions } from "./writing-outline-check.mjs";
+import { normalizeSourceDistillationResponse, sourceDistillationContract, sourceDistillationInstructions } from "./source-note-distillation.mjs";
 
 function cleanText(value) {
   return String(value || "").replace(/\r\n/g, "\n").trim();
@@ -114,9 +116,12 @@ export function buildWritingStrongModelRequest(input = {}, context = {}) {
     instructions: [
       "Only return JSON.",
       "Use the selected notes as source material.",
+      "Do not invent examples, facts, or evidence. Put unsupported ideas and required examples in sourceGaps, not writingMoves.",
       "Do not write final prose for the user.",
       "Return reviewable writing support only.",
-      "Keep source note ids visible in every item."
+      "Keep source note ids visible in every item. Never invent note ids.",
+      "Reply in the language of the writing goal. Keep each text field brief; no commentary outside JSON.",
+      "Return at most 2 writing moves, 1 outline with 3-5 sections, and 2 source gaps. Use empty arrays when no grounded suggestion is available."
     ],
     requiredOutputShape: {
       writingMoves: [
@@ -152,6 +157,16 @@ export function buildWritingStrongModelRequest(input = {}, context = {}) {
       audience: cleanText(input.audience),
       format: cleanText(input.format || input.outputFormat || input.output_format)
     },
+    ...(input.currentOutline ? { currentOutline: {
+      title: cleanText(input.currentOutline.title),
+      sections: (Array.isArray(input.currentOutline.sections) ? input.currentOutline.sections : []).map((section, index) => ({
+        sectionNumber: index + 1,
+        heading: cleanText(section.heading),
+        purpose: cleanText(section.purpose),
+        sourceNoteIds: stringItems(section.sourceNoteIds)
+      })),
+      openQuestions: stringItems(input.currentOutline.openQuestions)
+    } } : {}),
     notes: notes.map((note) => ({
       noteId: note.noteId,
       title: note.title,
@@ -163,9 +178,29 @@ export function buildWritingStrongModelRequest(input = {}, context = {}) {
     })),
     acceptedArtifactIds: stringItems(input.acceptedArtifactIds || input.accepted_artifact_ids)
   };
+  if (payload.currentOutline) {
+    payload.task = "writing_outline_check";
+    payload.instructions = outlineCheckInstructions();
+    payload.requiredOutputShape = outlineCheckContract();
+  } else if (input.analysisFocus === "source_distill") {
+    if (notes.length !== 1 || !notes[0].body) throw new Error("请提供一条有正文的来源笔记再提炼观点。");
+    payload.task = "source_note_distillation";
+    payload.instructions = sourceDistillationInstructions();
+    payload.requiredOutputShape = sourceDistillationContract();
+  }
 
   return {
     requestType: "writing_strong_model_analysis",
+    ...(payload.task === "source_note_distillation" ? { analysisFocus: "source_distill",
+      sourceDistillContext: { sourceExcerpts: Object.fromEntries(payload.notes.map(note => [note.noteId, note.excerpt])) }
+    } : {}),
+    ...(payload.currentOutline ? {
+      analysisFocus: "outline_check",
+      outlineCheckContext: {
+        sections: payload.currentOutline.sections,
+        sourceExcerpts: Object.fromEntries(payload.notes.map((note) => [note.noteId, note.excerpt]))
+      }
+    } : {}),
     privacy: {
       mode: privacyMode,
       cloudModelAllowed: !localOnly,
@@ -181,14 +216,19 @@ export function buildWritingStrongModelRequest(input = {}, context = {}) {
     messages: [
       {
         role: "system",
-        content: "You help prepare source-grounded writing support. Never mutate notes, confirm claims, or write final prose."
+        content: payload.currentOutline
+          ? "你是审慎的提纲检查员，只检查 currentOutline.sections 的标题和要点，notes 只是核对依据，不是待检查章节。没有确定错误就返回 {\"checks\":[]}。不同方法、总览与展开不是重复。例如：第一节概述运动和作息能改善睡眠，第二节说明运动方法，第三节说明作息方法，三节应保留，不报重复。不可拿 notes 的原句充当章节原句。只输出 JSON，不改写文章。"
+          : payload.task === "source_note_distillation"
+            ? "你帮助用户从来源材料形成一条可编辑、未确认的观点草稿。不得编造，也不得把草稿当成用户已认可的观点。只返回约定的 JSON，不输出文章目录或操作建议。"
+            : "You help prepare source-grounded writing support. Never mutate notes, confirm claims, or write final prose."
       },
       {
         role: "user",
-        content: JSON.stringify(payload, null, 2)
+        content: JSON.stringify(payload)
       }
     ],
     responseContract: payload.requiredOutputShape,
+    executionDefaults: { maxOutputTokens: localOnly ? 700 : 1200, ...(payload.currentOutline ? { temperature: 0 } : {}) },
     canAutoConfirm: false,
     sourceNoteIds: notes.map((note) => note.noteId)
   };
@@ -296,7 +336,13 @@ function sourceGapArtifact(gap = {}, index = 0, request = {}, context = {}) {
 export function mergeWritingStrongModelResponse(request = {}, response = {}, context = {}) {
   const privacyMode = cleanText(context.privacyMode || context.privacy_mode || context.privacy?.mode || request.privacy?.mode) || "remote_after_confirmation";
   const localOnly = privacyMode === "local_only";
-  const parsed = extractJsonObject(response?.content ?? response?.text ?? response?.output ?? response);
+  const originalParsed = extractJsonObject(response?.content ?? response?.text ?? response?.output ?? response);
+  const parsed = request.analysisFocus === "outline_check" ? normalizeOutlineCheckResponse(request, originalParsed)
+    : request.analysisFocus === "source_distill" ? normalizeSourceDistillationResponse(request, originalParsed) : originalParsed;
+  const fields = ["writingMoves", "writing_moves", "outlineDrafts", "outline_drafts", "sourceGaps", "source_gaps"];
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !fields.some((key) => Array.isArray(parsed[key])) || fields.some((key) => parsed[key] !== undefined && !Array.isArray(parsed[key]))) {
+    throw new Error("AI 写作检查结果格式不正确，请重试。");
+  }
   const writingMoves = Array.isArray(parsed.writingMoves || parsed.writing_moves)
     ? parsed.writingMoves || parsed.writing_moves
     : [];
@@ -306,11 +352,27 @@ export function mergeWritingStrongModelResponse(request = {}, response = {}, con
   const sourceGaps = Array.isArray(parsed.sourceGaps || parsed.source_gaps)
     ? parsed.sourceGaps || parsed.source_gaps
     : [];
+  const allowedSourceIds = new Set(request.sourceNoteIds || []);
+  for (const item of [...writingMoves, ...outlineDrafts, ...sourceGaps]) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("AI 写作检查结果格式不正确，请重试。");
+    for (const key of ["sourceNoteIds", "source_note_ids", "relatedNoteIds", "related_note_ids"]) {
+      if (item[key] !== undefined && !Array.isArray(item[key])) throw new Error("AI 写作检查结果格式不正确，请重试。");
+      if (stringItems(item[key]).some((id) => !allowedSourceIds.has(id))) {
+        throw new Error("AI 引用了未提供的笔记，检查结果未采用，请重试。");
+      }
+    }
+  }
   const artifacts = [
     ...writingMoves.map((item, index) => writingMoveArtifact(item, index, request, context)),
     ...outlineDrafts.map((item, index) => outlineArtifact(item, index, request, context)),
     ...sourceGaps.map((item, index) => sourceGapArtifact(item, index, request, context))
   ].filter(Boolean);
+  if (artifacts.length !== writingMoves.length + outlineDrafts.length + sourceGaps.length) {
+    throw new Error("AI 写作检查结果缺少必要内容，请重试。");
+  }
+  if (request.analysisFocus !== "outline_check" && artifacts.some((artifact) => ["WritingMove", "OutlineDraft"].includes(artifact.type) && !artifact.sources.noteIds.length)) {
+    throw new Error("AI 写作建议缺少来源笔记，结果未采用，请重试。");
+  }
 
   return {
     analysisMode: localOnly ? "local_model_writing" : "remote_strong_model_writing",
@@ -322,13 +384,17 @@ export function mergeWritingStrongModelResponse(request = {}, response = {}, con
       canAutoConfirm: false
     },
     artifacts,
+    ...(request.analysisFocus === "source_distill" ? { sourceDistillDraft: parsed.draft } : {}),
     summary: {
+      ...(request.analysisFocus === "outline_check" ? { message: artifacts.length
+        ? `发现 ${artifacts.length} 处待核对的问题。`
+        : "这次检查未发现明确问题。" } : {}),
       artifactCount: artifacts.length,
       writingMoveCount: artifacts.filter((item) => item.type === "WritingMove").length,
       outlineDraftCount: artifacts.filter((item) => item.type === "OutlineDraft").length,
       sourceGapCount: artifacts.filter((item) => item.type === "SourceGap").length,
       canAutoConfirm: false
     },
-    raw: parsed
+    raw: originalParsed
   };
 }

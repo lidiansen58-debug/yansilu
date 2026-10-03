@@ -6,8 +6,8 @@ export const LOCAL_AI_MODEL_TIERS = [
     tier: "lightweight",
     name: "qwen2.5:7b",
     label: "轻量",
-    scenario: "快、省资源",
-    note: "适合快速摘要、低成本候选筛选和日常轻量任务。",
+    scenario: "短文本摘要、候选筛选",
+    note: "资源需求较低；复杂判断仍需核对。",
     sizeHint: "约 4-5GB",
     downloadCommand: "ollama pull qwen2.5:7b"
   },
@@ -16,22 +16,22 @@ export const LOCAL_AI_MODEL_TIERS = [
     name: DEFAULT_LOCAL_AI_MODEL,
     label: "推荐",
     scenario: "观点提纯、潜在关联、AI 建议",
-    note: "适合作为本地默认推理模型，兼顾质量和速度。",
+    note: "用于观点整理和关联建议；仅用 CPU 运行可能较慢。",
     sizeHint: "约 5-6GB",
     capabilityTags: [
-      "适合观点提纯",
-      "适合潜在关联",
-      "JSON 输出较稳定",
-      "速度中等"
+      "观点整理",
+      "关联候选",
+      "结果需核对",
+      "CPU 运行可能较慢"
     ],
     downloadCommand: DEFAULT_LOCAL_AI_MODEL_DOWNLOAD_COMMAND
   },
   {
     tier: "high_quality",
     name: "qwen3.5:9b",
-    label: "高质量",
-    scenario: "深度分析",
-    note: "适合更慢但更细致的深度分析和复杂材料整理。",
+    label: "较大",
+    scenario: "复杂材料整理",
+    note: "资源需求较高；模型更大不保证诊断更准确。",
     sizeHint: "约 6-7GB",
     downloadCommand: "ollama pull qwen3.5:9b"
   }

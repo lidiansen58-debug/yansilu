@@ -218,7 +218,7 @@ test("graph state actions run note AI analysis and open system messages for revi
   assert.equal(aiInboxState.detail, null);
   assert.equal(aiInboxState.selectedArtifactId, "");
   assert.deepEqual(calls, [
-    ["analyze", "n1", { relatedNoteIds: ["n2"], persistArtifacts: true }],
+    ["analyze", "n1", { relatedNoteIds: ["n2"], persistArtifacts: true, executeLocalModel: true, fallbackOnProviderFailure: false }],
     ["message-payload", "Note One", resultPayload],
     ["add-message", { id: "message-1" }, { interrupt: true }],
     ["open-system", { latestOnly: true }]
@@ -243,7 +243,7 @@ test("graph state actions keep AI artifacts in the current note when inbox openi
   });
 
   assert.deepEqual(calls, [
-    ["analyze", { relatedNoteIds: [], persistArtifacts: false }]
+    ["analyze", { relatedNoteIds: [], persistArtifacts: false, executeLocalModel: true, fallbackOnProviderFailure: false }]
   ]);
   assert.deepEqual(status.calls.at(-1), { message: "已生成 1 条待审 AI 建议，可在当前笔记里处理", tone: "ok" });
 });
@@ -265,4 +265,31 @@ test("graph state actions report no AI artifacts and analysis failures", async (
   });
   assert.equal(failed, false);
   assert.deepEqual(status.calls.at(-1), { message: "永久笔记 AI 分析失败：boom", tone: "bad" });
+});
+
+test("note analysis labels malformed model output as rule candidates rather than AI success", async () => {
+  const status = statusRecorder();
+  await handleRunNoteAiAnalysisStateChange({ noteId: "n1", openInbox: false }, {
+    analyzePermanentNote: async () => ({ analysis: { modelParseError: "invalid JSON" }, reviewItems: { artifacts: [{ id: "a1" }] } }),
+    setStatus: status.setStatus
+  });
+  assert.deepEqual(status.calls.at(-1), {
+    message: "模型返回内容无法解析，当前仅保留规则匹配候选，请人工检查或重试。", tone: "warn"
+  });
+});
+
+test("relation recommendation forwards its narrow focus to the API", async () => {
+  let submitted;
+  await handleRunNoteAiAnalysisStateChange({ noteId: "n1", analysisFocus: "relations", openInbox: false }, {
+    analyzePermanentNote: async (_noteId, payload) => { submitted = payload; return { reviewItems: {} }; }
+  });
+  assert.deepEqual(submitted.options, { analysisFocus: "relations" });
+  assert.equal(submitted.executeLocalModel, true);
+});
+
+test("editor callers can receive the original AI failure instead of an empty result", async () => {
+  const error = new Error("Local model timed out");
+  await assert.rejects(handleRunNoteAiAnalysisStateChange({ noteId: "n1", throwOnFailure: true }, {
+    analyzePermanentNote: async () => { throw error; }
+  }), thrown => thrown === error);
 });

@@ -159,6 +159,33 @@ test("settings AI local recommendations show selected installed and download act
   assert.match(html, /data-settings-ai-copy-command="ollama pull llama3.2"/);
 });
 
+test("local connection badge follows the selected model test and runtime availability", () => {
+  const { get } = elementMap();
+  const ai = { localRuntimeStatus: "available", localModel: "qwen2.5:7b", testModel: "qwen2.5:7b", testStatus: "success" };
+  const render = () => renderAiProviderConfigControlsForRuntime({ $: get, settingsState: { ai }, currentAiProviderId: () => "ollama_local_gateway" });
+  render();
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "测试成功");
+  ai.localModel = "qwen3:8b";
+  render();
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "待测试");
+  ai.testRunning = true;
+  render();
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "测试中");
+  ai.testRunning = false;
+  ai.testStatus = "failed";
+  render();
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "需检查");
+  ai.testStatus = "cancelled";
+  render();
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "已取消测试");
+  ai.localRuntimeStatus = "unavailable";
+  render();
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "本地服务不可用");
+  ai.runtimeMode = "off";
+  render();
+  assert.equal(get("settingsAiProviderConfigBadge").textContent, "已停用");
+});
+
 test("settings AI provider controls separate connection health from successful AI test", () => {
   const { get } = elementMap();
 

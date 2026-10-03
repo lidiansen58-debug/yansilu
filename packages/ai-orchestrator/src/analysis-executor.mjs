@@ -36,6 +36,8 @@ function executionSettingsFor(request = {}, context = {}) {
   const tokenLimit = firstFiniteNumber(
     executionDefaults.numPredict,
     executionDefaults.num_predict,
+    executionDefaults.maxOutputTokens,
+    executionDefaults.max_output_tokens,
     context.numPredict,
     context.num_predict
   );
@@ -65,6 +67,7 @@ async function executeAnalysisRequest(request = {}, adapter = {}, context = {}) 
     assertProviderAllowedForContext(adapter.descriptor, { privacy: { mode: privacyMode } });
   }
   const providerResponse = await adapter.complete({
+    signal: context.signal,
     requestId: cleanText(context.requestId || context.request_id),
     agentRunId: cleanText(context.agentRunId || context.agent_run_id),
     purpose: cleanText(context.purpose) || request.requestType || "ai_analysis",
@@ -86,6 +89,7 @@ async function executeAnalysisRequest(request = {}, adapter = {}, context = {}) 
     const error = new Error(providerResponse.error?.message || "analysis model execution failed");
     error.code = "AI_ANALYSIS_EXECUTOR_PROVIDER_FAILED";
     error.providerResponse = providerResponse;
+    error.details = { providerErrorType: providerResponse.error?.error_type || "unknown" };
     throw error;
   }
   return providerResponse;

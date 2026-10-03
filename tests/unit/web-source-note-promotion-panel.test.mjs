@@ -91,3 +91,11 @@ test("source note promotion state keeps incomplete literature from looking ready
   assert.equal(state.statusLabel, "未准备好");
   assert.equal(state.guidance, "先补出处和转述。");
 });
+
+test("failed source AI offers retry inside the result panel", () => {
+  const html = renderSourceNotePromotionPanel({
+    note: { id: "fn_retry", title: "材料" }, noteType: "fleeting",
+    aiActionState: { actionId: "distill_material", status: "failed", error: "生成失败" }
+  });
+  assert.match(html, /data-source-note-action="distill-ai"[\s\S]*>重试提炼</);
+});

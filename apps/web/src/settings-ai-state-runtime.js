@@ -26,8 +26,8 @@ export function createSettingsAiStateRuntime(deps = {}) {
     if (!config) {
       const endpointUrl = defaultProviderEndpointUrl(providerId);
       const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl);
-      if (endpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
-      if (healthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+      if (!draftTouched.providerEndpointUrl && !settingsState.ai.providerEndpointUrl && endpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
+      if (!draftTouched.providerHealthEndpointUrl && !settingsState.ai.providerHealthEndpointUrl && healthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
       if (!isRemoteConfigurableProviderId(providerId)) settingsState.ai.remoteRuntimeModel = "";
       return;
     }
@@ -95,7 +95,9 @@ export function createSettingsAiStateRuntime(deps = {}) {
     if (result.health && String(result.health.status || "").trim() !== "unknown") {
       settingsState.ai.providerHealthResult = { record: result.health };
     }
-    const model = String(result.model || "").trim();
+    const selectedModel = String(settingsState.ai.localModel || "").trim();
+    const preserveSelection = !result.enabled?.preferences && modelNameExistsInList(selectedModel, settingsState.ai.localRuntimeModels);
+    const model = preserveSelection ? selectedModel : String(result.model || "").trim();
     if (model && modelNameExistsInList(model, settingsState.ai.localRuntimeModels)) {
       settingsState.ai.localModel = model;
       applyOllamaLocalModelDefaults();

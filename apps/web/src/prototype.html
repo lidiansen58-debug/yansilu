@@ -552,6 +552,7 @@
                         <button class="mini-btn primary" id="btnWritingStartDraft" type="button" data-writing-tab-jump="draft">开始写草稿</button>
                       </div>
                     </div>
+                    <div id="writingStrongModelSummary" aria-live="polite" hidden></div>
                     <div class="writing-preview writing-outline-editor" id="writingScaffoldPreview">
                       <div class="writing-empty">生成提纲后这里会显示章节结构。</div>
                     </div>
@@ -615,7 +616,6 @@
                 <textarea id="writingVersionNote"></textarea>
                 <button class="mini-btn" id="btnWritingCreateProject" type="button">确定可写主题</button>
                 <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">检查提纲</button>
-                <div id="writingStrongModelSummary"></div>
                 <div id="writingStrongModelRequestDetail"></div>
                 <div id="writingBeginnerMainline"></div>
                 <button class="mini-btn" id="btnWritingLocalBookIdeas" type="button">本地生成 3 个书稿方向</button>
@@ -895,13 +895,18 @@
                             </div>
                             <div class="settings-ai-task-card" aria-label="AI 当前状态">
                               <div class="settings-ai-task-meta">
-                                <span class="settings-ai-mode-label">当前模式</span>
-                                <span id="settingsAiTopMode">未启用</span>
+                                <label class="settings-ai-mode-label" for="settingsAiRuntimeMode">AI 模式</label>
+                                <select id="settingsAiRuntimeMode">
+                                  <option value="auto">自动（优先本地）</option>
+                                  <option value="local_only">本地 AI</option>
+                                  <option value="cloud_only">远程 AI</option>
+                                  <option value="off">不使用 AI</option>
+                                </select>
+                                <span id="settingsAiTopMode" class="hidden">未启用</span>
                               </div>
                               <div class="settings-ai-task-actions">
                                 <button class="mini-btn primary" id="settingsAiTopAction" type="button" data-settings-ai-primary-action="local">配置本地 AI</button>
                                 <button class="mini-btn is-subtle hidden" id="settingsAiSecondaryAction" type="button" data-settings-ai-primary-action="">重新检测</button>
-                                <button class="mini-btn is-subtle" id="settingsAiOffAction" type="button" data-settings-ai-primary-action="off">停用 AI</button>
                               </div>
                               <div class="settings-ai-inline-note" id="settingsAiTopHint">默认推荐本地 AI。</div>
                             </div>
@@ -952,6 +957,10 @@
                                 <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：gpt-4.1-mini 或 deepseek-chat" />
                               </div>
                               <div class="settings-ai-privacy-notice">启用远程 AI 后，相关内容将发送至此服务。</div>
+                              <label class="settings-ai-toggle-row">
+                                <input id="settingsAiRemoteConsent" type="checkbox" />
+                                <span>允许将所选内容发送到此服务</span>
+                              </label>
                               <div class="settings-ai-actions">
                                 <div class="settings-ai-actions-secondary">
                                   <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
@@ -971,6 +980,7 @@
                                   <div class="settings-ai-field">
                                     <label>测试状态</label>
                                     <span class="settings-stat-badge muted" id="settingsAiLabBadge">未测试</span>
+                                    <button class="mini-btn" type="button" data-settings-ai-dialog-open="test">重新测试</button>
                                   </div>
                                   <div class="settings-ai-field">
                                     <label>连接状态</label>

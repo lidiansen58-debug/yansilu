@@ -22,6 +22,10 @@ function readRepoFile(...segments) {
 test("embedded note AI workspace renders clear loading, error, and empty states", () => {
   assert.match(renderNoteEmbeddedAiWorkspace({ loading: true }), /正在让 AI 帮你看这条笔记/);
   assert.match(renderNoteEmbeddedAiWorkspace({ error: "fetch failed" }), /AI帮看失败：fetch failed/);
+  const failed = renderNoteEmbeddedAiWorkspace({ error: "<failed>" });
+  assert.match(failed, /data-note-ai-analysis>重试 AI帮看/);
+  assert.match(failed, /&lt;failed&gt;/);
+  assert.doesNotMatch(failed, /<failed>/);
 
   const empty = renderNoteEmbeddedAiWorkspace({ items: [] });
   assert.match(empty, /还没有 AI 建议/);
@@ -75,6 +79,16 @@ test("embedded note AI workspace only exposes confirm after a suggestion is edit
   assert.match(html, /data-note-ai-suggestion-action="confirmed"/);
   assert.match(html, />\s*确认建议\s*<\/button>/);
   assert.match(html, /data-note-ai-suggestion-action="confirmed"[\s\S]*disabled/);
+});
+
+test("note AI suggestions show task labels rather than internal schema names", () => {
+  const html = renderNoteEmbeddedAiWorkspace({ items: [
+    { id: "known", scope: "permanent_note_distillation", status: "suggested", target: { field: "thesis" }, content: { thesis: "A judgement" } },
+    { id: "unknown", scope: "internal_scope_v2", status: "suggested", target: { field: "internal_field_v2" }, content: "Review me" }
+  ] });
+  assert.match(html, /观点整理/);
+  assert.match(html, /笔记建议/);
+  assert.doesNotMatch(html, /permanent_note_distillation|internal_scope_v2|internal_field_v2/);
 });
 
 test("embedded note AI workspace derives reviewed content from note fields", () => {
@@ -132,6 +146,7 @@ test("note AI assist lives inside the distillation pane, not the editor toolbar"
   assert.match(workspaceViewSource, /data-deferred-workspace/);
   assert.match(distillationViewSource, /note-distillation-ai-assist/);
   assert.match(distillationViewSource, /options\.aiWorkspaceHtml/);
+  assert.match(distillationViewSource, /class="note-distillation-ai-assist" data-note-embedded-ai-workspace data-note-id=/);
   assert.match(distillationControllerSource, /aiWorkspaceHtml: host\.renderNoteEmbeddedAiWorkspaceForNote\(note\?\.id \|\| ""\)/);
 
   const sectionStart = editorSource.indexOf("  renderPermanentNoteRelationAssistSection(note, overview = {}) {");
@@ -146,7 +161,7 @@ test("note AI assist lives inside the distillation pane, not the editor toolbar"
   assert.doesNotMatch(editorSource, /renderPermanentNoteAiAnalysisSection/);
   assert.doesNotMatch(editorSource, /data-note-ai-analysis-open-inbox/);
 
-  const analysisStart = editorSource.indexOf("  async runPermanentNoteAnalysis() {");
+  const analysisStart = editorSource.indexOf("  async runPermanentNoteAnalysis(options = {}) {");
   const analysisEnd = editorSource.indexOf("  legacyPermanentNoteMainPathSummary", analysisStart);
   assert.doesNotMatch(editorSource, /ensureContextualAiToolbarButtons/);
   assert.doesNotMatch(editorSource, /button\.id = "btnCheckNoteAi"/);
@@ -156,19 +171,21 @@ test("note AI assist lives inside the distillation pane, not the editor toolbar"
   assert.ok(analysisStart >= 0 && analysisEnd > analysisStart, "expected runPermanentNoteAnalysis() to exist");
   const analysisSource = editorSource.slice(analysisStart, analysisEnd);
 
-  assert.match(analysisSource, /ensure-ai-ready-for-feature/);
+  const requestSource = readRepoFile("apps/web/src/note-analysis-request.js");
+  assert.match(analysisSource, /await prepareNoteAnalysisRequest\(this, request\)/);
+  assert.match(requestSource, /ensure-ai-ready-for-feature/);
   assert.match(analysisSource, /this\.setInspectorVisible\(true\)/);
   assert.match(analysisSource, /this\.activatePermanentWorkspaceTab\("viewpoint"\)/);
   assert.match(analysisSource, /this\.renderRelated\(\)/);
   assert.match(analysisSource, /正在让 AI 帮你看这条笔记，结果可能需要等一下。/);
-  assert.match(analysisSource, /feature: "note_analysis"/);
-  assert.match(analysisSource, /this\.rememberPendingContextualAiAction\("note_analysis", \{ noteId \}\)/);
+  assert.match(requestSource, /feature: "note_analysis"/);
+  assert.match(analysisSource, /this\.rememberPendingContextualAiAction\("note_analysis", \{ noteId, .*analysisFocus: "relations"/);
   assert.match(analysisSource, /this\.closePermanentRelationWorkspace\(\)/);
   assert.match(analysisSource, /openInbox: false/);
   assert.match(analysisSource, /this\.noteAiAnalysisByNoteId\.set\(noteId, result\)/);
   assert.match(analysisSource, /if \(!this\.isActiveNoteId\(noteId\)\) return/);
   assert.match(analysisSource, /permanentRelationAiRecommendationTimer/);
-  assert.match(analysisSource, /暂时还没有找到可推荐的关联/);
+  assert.match(analysisSource, /AI 仍在分析，请稍候/);
   assert.match(analysisSource, /这条笔记暂时没有可推荐的关联/);
   assert.doesNotMatch(analysisSource, /this\.activatePermanentWorkspaceTab\("relations"\)/);
   assert.match(analysisSource, /this\.refreshPermanentWorkspaceSnapshot\(note, tab, overview\)/);
@@ -189,7 +206,8 @@ test("note AI assist lives inside the distillation pane, not the editor toolbar"
   const applyEnd = editorSource.indexOf("  jumpToInspectorSection", applyStart);
   assert.ok(applyStart >= 0 && applyEnd > applyStart, "expected applyNoteAiSuggestionAction() to exist");
   const applySource = editorSource.slice(applyStart, applyEnd);
-  assert.match(applySource, /await this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
+  assert.match(applySource, /const refresh = this\.refreshNoteAiSuggestions\(noteId, \{ preserveActionFeedback: true \}\)/);
+  assert.match(applySource, /await refresh/);
   assert.match(applySource, /this\.renderEmbeddedAiWorkspaceMount\(noteId\)/);
   assert.doesNotMatch(applySource, /this\.renderRelated\(\)/);
 

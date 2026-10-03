@@ -92,7 +92,7 @@ export function findVaultAssetLinks(markdownBody, noteMarkdownPath) {
   const body = String(markdownBody || "");
   const matches = new Set();
   const codeRanges = markdownCodeRanges(body);
-  body.replace(/(!?\[[^\]]*?\]\()(<[^>]+>|[^)]+)(\))/g, (fullMatch, _prefix, rawTarget, _suffix, index) => {
+  body.replace(/(!?\[[^\]]*?\]\()(<[^>]*>|[^)]+)(\))/g, (fullMatch, _prefix, rawTarget, _suffix, index) => {
     if (isLiteralAssetReference(body, codeRanges, fullMatch, index)) return fullMatch;
     const assetPath = resolveVaultAssetPath(rawTarget, noteMarkdownPath);
     if (assetPath) matches.add(assetPath);

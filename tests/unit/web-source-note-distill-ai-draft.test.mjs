@@ -47,6 +47,9 @@ test("source note distill draft uses AI writing analysis artifacts when availabl
 
 test("source note distill draft returns null when AI analysis has no usable content", () => {
   assert.equal(buildSourceNoteDistillDraftFromAiResult({ result: { artifacts: [] } }, { sourceTitle: "材料" }), null);
+  assert.equal(buildSourceNoteDistillDraftFromAiResult({ result: { artifacts: [
+    { type: "SourceGap", body: "缺少反例" }, { type: "OutlineDraft", body: "问题、证据、边界" }
+  ] } }, { sourceTitle: "材料" }), null);
   assert.equal(buildSourceNoteDistillDraft({ sourceTitle: "材料" }).draft.title, "材料");
 });
 
@@ -71,7 +74,7 @@ test("source note distill draft does not copy full source body when AI returns n
   assert.ok(draft.draft.content.length < sourceBody.length);
 });
 
-test("prototype source distill runner calls writing AI analysis before fallback draft", () => {
+test("prototype source distill runner rejects empty model output without a template fallback", () => {
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
   const start = source.indexOf("async function runSourceDistillAi");
   const end = source.indexOf("function shouldGuideLocalAiSetupForFeature", start);
@@ -79,7 +82,8 @@ test("prototype source distill runner calls writing AI analysis before fallback 
 
   assert.match(body, /analyzeWritingWithStrongModel\(/);
   assert.match(body, /buildSourceNoteDistillDraftFromAiResult\(analysis, payload\)/);
-  assert.doesNotMatch(body, /^\s*return buildSourceNoteDistillDraft\(payload\);/m);
+  assert.doesNotMatch(body, /buildSourceNoteDistillDraft\(payload\)/);
+  assert.match(body, /if \(!draft\) throw new Error/);
 });
 
 test("prototype AI feature policy prefers local unless remote is explicitly enabled", () => {

@@ -124,6 +124,7 @@ export function buildOpenAiCompatibleRequest(request = {}, options = {}) {
       requestId: cleanText(request.requestId || request.request_id),
       agentRunId: cleanText(request.agentRunId || request.agent_run_id),
       purpose: cleanText(request.purpose),
+      timeoutMs: request.settings?.timeoutMs ?? request.settings?.timeout_ms,
       providerId: descriptor.providerId,
       modelRef: logicalModelRef,
       runtimeModelRef: mappedModelRef,

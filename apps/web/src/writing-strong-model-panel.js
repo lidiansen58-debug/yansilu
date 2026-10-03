@@ -16,6 +16,12 @@ export function renderWritingStrongModelSummaryDom({
     strongModelButton.textContent = panelState.strongModelButtonState.text;
   }
   if (strongModelSummary) {
+    strongModelSummary.hidden = !(writingState.strongModelLoading || writingState.strongModelError || writingState.strongModelResult ||
+      (contextualAiState?.actionId === "check_outline" && (contextualAiState.status !== "idle" || contextualAiState.message)));
+    if (contextualAiState?.actionId === "check_outline" && contextualAiState.status === "idle" && contextualAiState.message) {
+      strongModelSummary.textContent = contextualAiState.message;
+      return strongModelBasketIds;
+    }
     if (contextualAiState?.actionId === "check_outline" && contextualAiState.status !== "idle") {
       strongModelSummary.innerHTML = renderContextualAiResultPanel(contextualAiState);
       return strongModelBasketIds;

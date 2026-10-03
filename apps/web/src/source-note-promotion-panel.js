@@ -68,7 +68,8 @@ export function renderSourceNotePromotionPanel(input = {}) {
   const state = sourceNotePromotionState(input);
   if (!state) return "";
   const aiResult = input.aiActionState ? renderContextualAiResultPanel(input.aiActionState) : "";
-  const showActions = !aiResult;
+  const canRetryAi = input.aiActionState?.status === "failed" || input.aiActionState?.cancelled === true;
+  const showActions = !aiResult || canRetryAi;
 
   const resultRows = state.hasGenerated
     ? `
@@ -126,6 +127,7 @@ export function renderSourceNotePromotionPanel(input = {}) {
           : ""
       }
       ${showActions ? `<div class="source-promotion-actions">
+        ${canRetryAi ? '<button class="mini-btn" type="button" data-source-note-action="distill-ai">重试提炼</button>' : ""}
         ${
           state.hasGenerated
             ? `<button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(state.generated.id)}">${escapeHtml(state.primaryActionLabel)}</button>`

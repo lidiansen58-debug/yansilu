@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const help = await readFile(new URL("../../apps/web/src/help/quick-start.html", import.meta.url), "utf8");
 const writing = await readFile(new URL("../../apps/web/src/prototype.html", import.meta.url), "utf8");
@@ -31,3 +33,14 @@ test("local help requires no network resources or scripts", () => {
   assert.doesNotMatch(help, /<(?:script|iframe|link)\b|(?:src|href)\s*=\s*["'](?:https?:)?\/\//i);
   assert.match(help, /mailto:lidiansen58@gmail\.com/);
 });
+
+for (const name of ["tauri.conf.json", "tauri.conf.no-updater-artifacts.json"]) {
+  test(`desktop ${name} includes the standalone help resource`, async () => {
+    const configUrl = new URL(`../../apps/desktop/src-tauri/${name}`, import.meta.url);
+    const config = JSON.parse(await readFile(configUrl, "utf8"));
+    const entry = Object.entries(config.bundle.resources).find(([, destination]) => destination === "help/");
+    assert.ok(entry, "desktop bundle must include the help directory");
+    const resourcePath = path.resolve(path.dirname(fileURLToPath(configUrl)), entry[0], "quick-start.html");
+    assert.equal(await readFile(resourcePath, "utf8"), help);
+  });
+}

@@ -30,7 +30,7 @@ function fieldLabel(field = "") {
   if (normalized === "boundary_or_counterpoint") return "边界 / 反证";
   if (normalized === "relation_rationale") return "关系理由";
   if (normalized === "writing_move") return "写作动作";
-  return normalized || "对象级建议";
+  return "笔记建议";
 }
 
 function scopeLabel(scope = "") {
@@ -38,7 +38,8 @@ function scopeLabel(scope = "") {
   if (normalized === "note_field") return "字段建议";
   if (normalized === "note") return "整条笔记";
   if (normalized === "relation") return "关系建议";
-  return normalized || "AI 建议";
+  if (normalized === "permanent_note_distillation") return "观点整理";
+  return "AI 建议";
 }
 
 function suggestionPreview(content, field = "") {
@@ -87,7 +88,11 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
     return `<div class="related-empty">正在让 AI 帮你看这条笔记…</div>`;
   }
   if (state.error) {
-    return `<div class="related-empty bad">AI帮看失败：${escapeHtml(state.error)}</div>`;
+    return `<div class="related-empty bad">AI帮看失败：${escapeHtml(state.error)}
+      <div class="semantic-relation-actions">
+        <button class="mini-btn primary" type="button" data-note-ai-analysis>重试 AI帮看</button>
+      </div>
+    </div>`;
   }
   if (!items.length) {
     return `

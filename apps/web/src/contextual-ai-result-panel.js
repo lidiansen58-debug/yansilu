@@ -105,7 +105,7 @@ export function renderContextualAiResultPanel(state = {}) {
   const label = meta?.label || "AI 建议";
   const actionAttr = `data-contextual-ai-action-id="${escapeHtml(state.actionId || "")}"`;
   if (state.status === CONTEXTUAL_AI_ACTION_STATUS.checking || state.status === CONTEXTUAL_AI_ACTION_STATUS.running) {
-    return `<section class="contextual-ai-result" ${actionAttr} aria-live="polite"><strong>${escapeHtml(label)}</strong><p>正在处理…</p></section>`;
+    return `<section class="contextual-ai-result" ${actionAttr} aria-live="polite"><strong>${escapeHtml(label)}</strong><p>正在处理…</p>${state.cancellable ? '<button class="mini-btn" type="button" data-contextual-ai-ignore>取消</button>' : ""}</section>`;
   }
   if (state.status === CONTEXTUAL_AI_ACTION_STATUS.needs_setup) {
     return `<section class="contextual-ai-result" ${actionAttr}><strong>需要启用 AI</strong><p>完成启用后会回到当前页面。</p></section>`;
@@ -120,6 +120,7 @@ export function renderContextualAiResultPanel(state = {}) {
     return `<section class="contextual-ai-result" ${actionAttr}><strong>已采用</strong><p>内容已交回当前页面。</p></section>`;
   }
   if (state.status === CONTEXTUAL_AI_ACTION_STATUS.ignored) {
+    if (state.cancelled) return `<section class="contextual-ai-result" ${actionAttr} role="status"><strong>已取消</strong><p>原笔记未修改。</p></section>`;
     return `<section class="contextual-ai-result" ${actionAttr}><strong>${state.actionId === "recommend_relation" ? "已关闭" : "已忽略"}</strong></section>`;
   }
   if (!state.result) return "";
@@ -128,7 +129,7 @@ export function renderContextualAiResultPanel(state = {}) {
   const rows = resultItems.map((item, index) => `
     <div class="contextual-ai-result-row" data-contextual-ai-index="${index}">
       ${item.title ? `<strong>${escapeHtml(item.title)}</strong>` : ""}
-      ${item.editable !== false && !forceReadonly ? `<textarea rows="3" data-contextual-ai-value="${index}" data-contextual-ai-field="${escapeHtml(item.key || "")}">${escapeHtml(item.value || item.text)}</textarea>` : `<p>${escapeHtml(item.text || item.value)}</p>`}
+      ${item.editable !== false && !forceReadonly ? `<textarea rows="3" aria-label="${escapeHtml(item.title || "内容")}" data-contextual-ai-value="${index}" data-contextual-ai-field="${escapeHtml(item.key || "")}">${escapeHtml(item.value || item.text)}</textarea>` : `<p>${escapeHtml(item.text || item.value)}</p>`}
     </div>`).join("");
   const isRecommendationResult = state.result.kind === "recommendations";
   const summaryOnly = resultItems.length === 1 && resultItems[0]?.title === "结果" && resultItems[0]?.value === state.result.summary;
@@ -140,6 +141,7 @@ export function renderContextualAiResultPanel(state = {}) {
   return `<section class="contextual-ai-result" data-contextual-ai-result ${actionAttr}>
     ${state.result.title ? `<h3>${escapeHtml(state.result.title)}</h3>` : `<h3>${escapeHtml(label)}</h3>`}
     ${state.result.summary ? `<p>${escapeHtml(state.result.summary)}</p>` : ""}
+    ${state.error ? `<p role="status">${escapeHtml(state.error)}</p>` : ""}
     ${summaryOnly ? "" : rows || `<p>没有生成可用建议。</p>`}
     <div class="contextual-ai-result-actions">
       ${actionButtons}

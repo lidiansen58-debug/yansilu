@@ -70,8 +70,10 @@ import { createSaveAiSuggestionWorkflowRoutes } from "./save-ai-suggestion-workf
 import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorkspace, bindAiSuggestionsWorkspaceEvents, normalizeVisibleSuggestionFilters, renderAiSuggestionsWorkspaceView } from "./ai-suggestions-workspace.js";
 import { createAiSuggestionsWorkspaceHostDeps } from "./ai-suggestions-host-deps.js";
 import { applyAiRuntimeModeChangeForRuntime } from "./ai-runtime-mode-controller.js";
+import { remoteAiConfigurationConsented } from "./remote-ai-consent.js";
 import { aiInboxActionLabel, aiArtifactFromCanonical, aiInboxItemFromCanonical, normalizeAiInboxFilters } from "./ai-inbox-model.js";
 import { createSettingsAiStateRuntime } from "./settings-ai-state-runtime.js";
+import { createAiSettingsRefreshGuard, refreshAiSettingsReadback } from "./ai-settings-refresh-guard.js";
 import { aiInboxFiltersForSystemMessage, globalPendingAiInboxFilters, markSystemMessageRead, normalizeSystemMessage, noteAnalysisSystemMessageForResult, scheduledTaskSystemMessageForArtifacts, systemMessageSubjectText, upsertSystemMessageList } from "./prototype-system-messages.js";
 import { systemMessageActionRoute } from "./system-message-route-model.js";
 import { createSystemMessagesShellController } from "./system-messages-shell.js";
@@ -206,7 +208,6 @@ import { localAiPreviewOptionsForAction, ollamaStopRuntimeUiOutcome } from "./ai
 import { activateLocalAiSetupSelection } from "./local-ai-setup-activation.js";
 import { createLocalAiSetupController } from "./local-ai-setup-controller.js";
 import {
-  buildSourceNoteDistillDraft,
   buildSourceNoteDistillDraftFromAiResult
 } from "./source-note-distill-ai-draft.js";
 import { isLocalAdvancedModelRefForSettings } from "./settings-ai-runtime-actions.js";
@@ -1585,6 +1586,7 @@ async function runSourceDistillAi(payload = {}) {
     userConfirmedRemoteModel: !localProvider,
     executeModel: true,
     persistArtifacts: false,
+    analysisFocus: "source_distill",
     projectId: `source_distill_${String(payload.sourceNoteId || payload.noteId || "note").trim() || "note"}`,
     writingGoal: "把当前材料提炼成一条可编辑的永久笔记草稿。",
     audience: "自己",
@@ -1596,8 +1598,10 @@ async function runSourceDistillAi(payload = {}) {
       body: String(payload.sourceBody || "").trim()
     }],
     ...requestOptions
-  });
-  return buildSourceNoteDistillDraftFromAiResult(analysis, payload) || buildSourceNoteDistillDraft(payload);
+  }, { signal: payload.signal });
+  const draft = buildSourceNoteDistillDraftFromAiResult(analysis, payload);
+  if (!draft) throw new Error("AI 没有生成可用观点，原笔记未修改。请补充材料后重试，或手动写下自己的判断。");
+  return draft;
 }
 
 function shouldGuideLocalAiSetupForFeature() {
@@ -3858,8 +3862,7 @@ async function applySettingsAiQuickSetup(kind = "") {
 }
 
 function confirmRemoteAiUse() {
-  if (typeof window?.confirm !== "function") return true;
-  return window.confirm("远程 AI 会把相关内容发送到你填写的服务。确认继续吗？");
+  return remoteAiConfigurationConsented(settingsState.ai, currentAiProviderId());
 }
 
 async function autoPrepareLocalAiOnStartup() {
@@ -4849,16 +4852,19 @@ const {
 } = writingPanelController;
 
 async function refreshVaultSettings() {
+  const aiRefresh = createAiSettingsRefreshGuard(() => settingsState.ai);
   try {
     settingsState.vault = await fetchVaultInfo();
     loadNoteTemplateSettingsFromStorage();
-    const prefs = await fetchAiPreferences().catch(() => null);
-    applyAiPreferencesToSettingsState(prefs, { applyProviderConfig: false });
-    persistAiSettingsToStorage();
-    settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
-    applyActiveAiProviderConfigToState();
-    persistAiSettingsToStorage();
-    if (isAiLocalFlowActive({
+    await refreshAiSettingsReadback({
+      aiRefresh, settingsState,
+      fetchPreferences: fetchAiPreferences,
+      applyPreferences: prefs => applyAiPreferencesToSettingsState(prefs, { applyProviderConfig: false }),
+      fetchProviderConfigs: fetchAiProviderConfigs,
+      applyProviderConfig: applyActiveAiProviderConfigToState,
+      persist: persistAiSettingsToStorage
+    });
+    if (aiRefresh.isCurrent() && isAiLocalFlowActive({
       runtimeMode: settingsState.ai.runtimeMode,
       modelPack: settingsState.ai.modelPack,
       providerId: currentAiProviderId()
@@ -5982,6 +5988,9 @@ async function applyAiRuntimeModeChange(nextMode = "auto") {
 
 async function resumePendingAiSettingsAction(...args) {
   if (await writingProjectRuntimeController.resumePendingContextualAiAction(...args)) return true;
+  if (editor.pendingContextualAiAction?.noteId && state.module === "settings") {
+    activateModule("explorer");
+  }
   return editor.resumePendingContextualAiAction?.(...args) || false;
 }
 

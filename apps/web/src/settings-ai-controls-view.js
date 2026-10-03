@@ -1,4 +1,5 @@
 import { renderAiLocalModelRecommendationsForRuntime } from "./settings-ai-local-model-recommendations-view.js";
+import { remoteAiConfigurationConsented } from "./remote-ai-consent.js";
 import {
   remoteConnectionReadyForProvider,
   remoteHealthBelongsToAiConfig,
@@ -188,6 +189,11 @@ export function renderAiProviderConfigControlsForRuntime(deps = {}) {
   const ai = settingsState.ai || {};
   const providerId = currentAiProviderId();
   const remoteConfigurable = isRemoteConfigurableProviderId(providerId);
+  const remoteConsent = $("settingsAiRemoteConsent");
+  if (remoteConsent) {
+    remoteConsent.checked = remoteAiConfigurationConsented(ai, providerId);
+    remoteConsent.disabled = !remoteConfigurable || ai.providerConfigSaving || ai.providerHealthChecking;
+  }
   const remoteModelInput = $("settingsAiRemoteRuntimeModel");
   if (remoteModelInput) {
     const stored = String(ai.remoteRuntimeModel || "").trim();
@@ -211,6 +217,17 @@ function syncInput(input, value) {
 function renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiProviderConfig, remoteRuntimeModelFromMap }) {
   const badge = $("settingsAiProviderConfigBadge");
   if (!badge) return;
+  if (["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId)) {
+    const model = String(ai.localModel || "").trim();
+    const tested = ai.testStatus === "success" && Boolean(model) && String(ai.testModel || "").trim() === model;
+    const available = ai.localRuntimeStatus === "available";
+    const off = ai.runtimeMode === "off";
+    const failed = ["failed", "blocked"].includes(ai.testStatus);
+    badge.classList.toggle("ok", !off && available && tested);
+    badge.classList.toggle("warn", !off && (!available || failed));
+    badge.textContent = off ? "已停用" : ai.testRunning ? "测试中" : !available ? "本地服务不可用" : tested ? "测试成功" : failed ? "需检查" : ai.testStatus === "cancelled" ? "已取消测试" : "待测试";
+    return;
+  }
   const config = activeAiProviderConfig();
   const healthRecord = ai.providerHealthResult?.record || null;
   const draftTouched = ai.providerDraftTouched || {};

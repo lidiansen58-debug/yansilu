@@ -23,6 +23,15 @@ test("permanent note local model executor blocks non-local adapters for local-on
   );
 });
 
+test("provider failure preserves only its public error category in API details", async () => {
+  const request = buildPermanentNoteLocalModelRequest({ noteId: "error_note", title: "Error" });
+  const adapter = { complete: async () => ({ status: "failed", error: { error_type: "timeout", message: "deadline", secret: "must not leak" } }) };
+  await assert.rejects(runPermanentNoteLocalModelAnalysis(request, adapter), error => {
+    assert.deepEqual(error.details, { providerErrorType: "timeout" });
+    return error.code === "AI_ANALYSIS_EXECUTOR_PROVIDER_FAILED";
+  });
+});
+
 test("permanent note local model executor runs local adapter and returns review items", async () => {
   const request = buildPermanentNoteLocalModelRequest({
     noteId: "pn_local_executor",
@@ -126,8 +135,8 @@ test("writing strong model executor requires confirmed request and normalizes ar
   assert.equal(adapter.callCount, 1);
   assert.equal(adapter.lastRequest.policy.privacyMode, "remote_after_confirmation");
   assert.equal(adapter.lastRequest.policy.allowCloud, true);
-  assert.equal(adapter.lastRequest.settings.maxOutputTokens, undefined);
-  assert.equal(adapter.lastRequest.settings.num_predict, undefined);
+  assert.equal(adapter.lastRequest.settings.maxOutputTokens, 1200);
+  assert.equal(adapter.lastRequest.settings.num_predict, 1200);
   assert.equal(result.providerResponse.status, "succeeded");
   assert.equal(result.analysisMode, "remote_strong_model_writing");
   assert.equal(result.summary.canAutoConfirm, false);

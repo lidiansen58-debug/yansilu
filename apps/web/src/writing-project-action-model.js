@@ -1,5 +1,6 @@
 import { uniqueStrings } from "./prototype-collection-utils.js";
 import { deriveWritingProjectIntent, deriveWritingProjectTakeaway } from "./prototype-note-state-helpers.js";
+import { normalizeWritingOutlineSections } from "./writing-workbench-model.js";
 
 export function writingProjectFormInput({
   title = "",
@@ -82,6 +83,7 @@ export function writingStrongModelAnalysisPlan({
   noteIds = [],
   project = null,
   form = {},
+  scaffold = null,
   confirmed = true
 } = {}) {
   const cleanNoteIds = uniqueStrings(noteIds);
@@ -106,6 +108,15 @@ export function writingStrongModelAnalysisPlan({
       writingGoal: input.goal,
       audience: input.audience,
       noteIds: cleanNoteIds,
+      ...(scaffold ? { currentOutline: {
+        title: String(project.title || "").trim(),
+        sections: normalizeWritingOutlineSections(scaffold).map((section) => ({
+          heading: section.heading,
+          purpose: section.purpose,
+          sourceNoteIds: [...section.evidence_note_ids]
+        })),
+        openQuestions: uniqueStrings(scaffold.open_questions)
+      } } : {}),
       persistArtifacts: true
     }
   };

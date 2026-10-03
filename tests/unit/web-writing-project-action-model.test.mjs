@@ -117,6 +117,14 @@ test("writing strong model analysis plan separates preflight from request payloa
   });
 });
 
+test("writing check snapshots edited headings, points and source IDs", () => {
+  const scaffold = { sections: [{ heading: "Edited heading", purpose: "Edited point", evidence_note_ids: ["n1"] }], open_questions: ["Open issue"] };
+  const plan = writingStrongModelAnalysisPlan({ noteIds: ["n1"], project: { id: "p1", title: "Article" }, scaffold });
+  scaffold.sections[0].heading = "Later heading";
+  scaffold.sections[0].evidence_note_ids.push("n2");
+  assert.deepEqual(plan.request.currentOutline, { title: "Article", sections: [{ heading: "Edited heading", purpose: "Edited point", sourceNoteIds: ["n1"] }], openQuestions: ["Open issue"] });
+});
+
 test("writing strong model result meta reads model and artifact count", () => {
   assert.deepEqual(writingStrongModelResultMeta({
     request: { model: { model: "gpt-x" } },
