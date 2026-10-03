@@ -214,6 +214,8 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
       saveButton.title = validation.ok ? "" : validation.message;
       saveButton.dataset.tip = saveButton.title;
     }
+    const headerSave = $("moduleHeaderActions")?.querySelector?.(`[data-settings-template-kind="${cleanKind}"] [data-settings-template-action="save"]`);
+    if (headerSave) { headerSave.disabled = !validation.ok; headerSave.title = validation.ok ? "" : validation.message; }
   }
 
   function renderNoteTemplateSettingsCard(kind = "") {

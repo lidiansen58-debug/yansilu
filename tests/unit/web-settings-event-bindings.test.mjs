@@ -134,6 +134,17 @@ test("settings event bindings route section, item, and template actions", () => 
   ]);
 });
 
+test("header preview preserves the selected literature template instead of changing settings section", () => {
+  const harness = createHarness();
+  harness.elements.set("moduleHeaderActions", { dataset: {}, addEventListener(type, listener) { harness.listeners.set(`moduleHeaderActions:${type}`, listener); } });
+  installSettingsEventBindings({ $: harness.$, state: { module: "settings" }, settingsState: { ai: {}, update: {} },
+    setSettingsSection: (...args) => harness.calls.push(["section", ...args]),
+    openNoteTemplatePreview: kind => harness.calls.push(["preview", kind]) });
+  const button = { dataset: { settingsTemplateAction: "preview" }, closest: () => ({ dataset: { settingsTemplateKind: "literature" } }) };
+  harness.listeners.get("moduleHeaderActions:click")({ target: { closest: () => button } });
+  assert.deepEqual(harness.calls, [["preview", "literature"]]);
+});
+
 test("settings demo import button shows progress while import is running", async () => {
   const harness = createHarness();
   let finishImport = null;

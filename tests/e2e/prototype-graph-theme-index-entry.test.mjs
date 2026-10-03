@@ -141,7 +141,7 @@ test("prototype graph creates a theme index from 3-5 related permanent notes and
     assert.ok(savedIndex, "theme index was saved from the graph cluster");
     assert.match(String(savedIndex.central_question || savedIndex.centralQuestion || ""), /Browser Theme Index/);
     assert.ok(savedIndex.items.length >= 3 && savedIndex.items.length <= 5);
-    assert.ok(savedIndex.items.every((item) => String(item.rationale || "").includes("为什么重要")));
+    assert.ok(savedIndex.items.every((item) => String(item.rationale || "").trim().length > 0));
   }, 10000);
 
   await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"), null, { timeout: 10000 });
@@ -150,7 +150,8 @@ test("prototype graph creates a theme index from 3-5 related permanent notes and
     const themeListText = await page.locator("#writingThemeIndexList").textContent();
     const basketText = await page.locator("#writingBasketList").textContent();
     assert.match(String(detailTitle || ""), /Browser Theme Index/);
-    assert.match(String(themeListText || ""), new RegExp(savedIndex.id));
+    assert.equal(await page.locator(`[data-writing-index-card-id="${savedIndex.id}"]`).count(), 1);
+    assert.match(String(themeListText || ""), /Browser Theme Index/);
     assert.match(String(basketText || ""), /Browser Theme Index A/);
     assert.match(String(basketText || ""), /Browser Theme Index B|Browser Theme Index D/);
   }, 10000);

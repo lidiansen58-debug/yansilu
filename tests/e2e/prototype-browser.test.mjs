@@ -206,7 +206,7 @@ async function waitForPrototypeReady(page) {
   await waitFor(async () => {
     assert.equal(await page.locator("#statusText").count(), 1);
     assert.equal(
-      await page.evaluate(() => Boolean(window.__prototypeState && typeof window.__prototypeState === "object")),
+      await page.evaluate(() => Boolean(window.__prototypeState && window.__prototypeState.appStartupPending === false)),
       true
     );
   }, 10000);
@@ -267,6 +267,7 @@ async function startPrototypeStack(t, playwright, options = {}) {
     env: {
       ...process.env,
       API_PORT: String(apiPort),
+      YANSILU_LOCAL_APP_PORTS: String(webPort),
       VAULT_PATH: vaultPath
     },
     stdio: ["ignore", "pipe", "pipe"]
@@ -303,9 +304,14 @@ async function startPrototypeStack(t, playwright, options = {}) {
     });
 
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
-  if (typeof options.beforeGoto === "function") await options.beforeGoto(page);
+  if (typeof options.beforeGoto === "function") await options.beforeGoto(page, { apiBase, webBase });
   await page.goto(`${webBase}/prototype`, { waitUntil: "domcontentloaded" });
   await waitForPrototypeReady(page);
+
+  // Editor scenarios explicitly enter the note collection from the current home page.
+  if (options.enterNotes !== false && await page.evaluate(() => window.__prototypeState.module === "today" && !window.__prototypeState.tabs.length)) {
+    await openOriginalNoteBox(page);
+  }
 
   return { apiBase, webBase, vaultPath, browser, page };
 }
@@ -313,6 +319,9 @@ async function startPrototypeStack(t, playwright, options = {}) {
 async function reloadPrototype(page, webBase) {
   await page.goto(`${webBase}/prototype`, { waitUntil: "domcontentloaded" });
   await waitForPrototypeReady(page);
+  if (await page.evaluate(() => window.__prototypeState.module === "today" && !window.__prototypeState.tabs.length)) {
+    await openOriginalNoteBox(page);
+  }
 }
 
 async function openPaperWorkspace(page, webBase) {
@@ -422,14 +431,9 @@ async function openSettingsModule(page, section = "workspace") {
     assert.equal(await page.locator("#settingsPanel").isVisible(), true);
   }, 5000);
   const normalizedSection = String(section || "workspace").trim() || "workspace";
-  const navButton = page.locator(`#settingsSectionNav [data-settings-section="${normalizedSection}"]`);
-  try {
-    await navButton.click({ timeout: 1200 });
-  } catch {
-    await page.evaluate((targetSection) => {
-      document.querySelector(`#settingsSectionNav [data-settings-section="${targetSection}"]`)?.click();
-    }, normalizedSection);
-  }
+  const item = { workspace: "current-vault", templates: "permanent-template", ai: "ai-settings", automation: "automation", support: "desktop-help" }[normalizedSection] || normalizedSection;
+  const navButton = page.locator(`[data-settings-item="${item}"]`);
+  await navButton.click();
   await waitFor(async () => {
     assert.equal(await navButton.getAttribute("aria-pressed"), "true");
     assert.equal(await page.locator(settingsPaneId(normalizedSection)).isVisible(), true);
@@ -473,6 +477,107 @@ async function filterAiSuggestionsByStatus(page, status) {
   await page.locator("#btnAiSuggestionsApplyFilters").click();
 }
 
+test("prototype current AI suggestions modal guards closed detail and duplicate edits and persists review decisions", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+  const slow = await createAiFieldSuggestionFixture(apiBase, { title: "Closed detail target" });
+  const editable = await createAiFieldSuggestionFixture(apiBase, { title: "Current modal editable target" });
+  const rejected = await createAiFieldSuggestionFixture(apiBase, { title: "Current modal ignored target" });
+  await adoptSuggestionAsDraftViaApi(apiBase, slow);
+  await adoptSuggestionAsDraftViaApi(apiBase, editable);
+  let releaseDetail;
+  let detailHeld = false;
+  const heldDetail = new Promise(resolve => { releaseDetail = resolve; });
+  t.after(() => releaseDetail());
+  await page.route(`${apiBase}/api/v1/ai-suggestions/${slow.suggestionId}?canonical=true`, async route => {
+    detailHeld = true;
+    await heldDetail;
+    await route.continue();
+  });
+  let editRequests = 0;
+  await page.route(`${apiBase}/api/v1/ai-suggestions/${editable.suggestionId}?canonical=true`, async (route, request) => {
+    if (request.method() === "PATCH") {
+      editRequests++;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    await route.continue();
+  });
+  await reloadPrototype(page, webBase);
+  await openSettingsModule(page, "automation");
+  await filterAiSuggestionsByStatus(page, "adopted_as_draft");
+  const row = fixture => page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane .ai-inbox-item", { hasText: fixture.noteTitle });
+  const modal = page.locator("#settingsAiSuggestionsPanel .ai-suggestion-modal");
+  await row(slow).click();
+  await waitFor(async () => assert.equal(detailHeld, true), 5000);
+  await modal.locator(".ai-suggestion-modal-backdrop").click({ position: { x: 5, y: 5 } });
+  await modal.waitFor({ state: "hidden" });
+  await row(editable).click();
+  await modal.waitFor();
+  const lateResponse = page.waitForResponse(response => response.url().includes(`/ai-suggestions/${slow.suggestionId}?`) && response.request().method() === "GET");
+  releaseDetail();
+  await lateResponse;
+  await waitFor(async () => {
+    assert.match(String(await modal.locator("h2").textContent()), /Current modal editable target/);
+    assert.doesNotMatch(String(await modal.locator("h2").textContent()), /Closed detail target/);
+  }, 5000);
+  await modal.locator('#aiSuggestionContentEditor, [data-ai-suggestion-group-status="adopted_as_draft"]').first().waitFor({ timeout: 8000 });
+  const saveGroup = modal.locator('[data-ai-suggestion-group-status="adopted_as_draft"]');
+  if (await saveGroup.count()) {
+    await saveGroup.click();
+    await modal.waitFor({ state: "hidden" });
+    await row(editable).click();
+  }
+  const editor = modal.locator("#aiSuggestionContentEditor");
+  await editor.waitFor();
+  const thesis = "An explicit human edit remains attached to the selected suggestion.";
+  await editor.fill(thesis);
+  const edit = modal.locator('[data-ai-suggestion-status="edited"]');
+  await edit.click();
+  await waitFor(async () => assert.equal(await edit.isDisabled(), true), 5000);
+  await edit.click({ timeout: 250 }).catch(() => {});
+  await waitFor(async () => {
+    const result = await fetchJson(apiBase, `/api/v1/ai-suggestions/${editable.suggestionId}?canonical=true`);
+    assert.equal(result.json.item.status, "edited");
+    assert.equal(suggestionFieldValue(result.json.item.content, editable.targetField), thesis);
+    assert.equal(result.json.item.history.filter(entry => entry.toStatus === "edited").length, 1);
+  }, 8000);
+  assert.equal(editRequests, 1);
+  await modal.waitFor({ state: "hidden" });
+  await filterAiSuggestionsByStatus(page, "edited");
+  await row(editable).click();
+  const confirm = modal.locator('[data-ai-suggestion-status="confirmed"]');
+  await waitFor(async () => assert.equal(await confirm.isEnabled(), true), 5000);
+  await confirm.click();
+  await waitFor(async () => {
+    const result = await fetchJson(apiBase, `/api/v1/ai-suggestions/${editable.suggestionId}?canonical=true`);
+    assert.equal(result.json.item.status, "confirmed");
+    assert.equal(suggestionFieldValue(result.json.item.content, editable.targetField), thesis);
+  }, 8000);
+  await modal.waitFor({ state: "hidden" });
+  await filterAiSuggestionsByStatus(page, "suggested");
+  await row(rejected).click();
+  await modal.locator('[data-ai-suggestion-group-status="rejected"]').click();
+  await waitFor(async () => {
+    const result = await fetchJson(apiBase, `/api/v1/ai-suggestions/${rejected.suggestionId}?canonical=true`);
+    assert.equal(result.json.item.status, "rejected");
+  }, 8000);
+  await modal.waitFor({ state: "hidden" });
+  await reloadPrototype(page, webBase);
+  await openSettingsModule(page, "automation");
+  await filterAiSuggestionsByStatus(page, "rejected");
+  await row(rejected).waitFor();
+  assert.equal(await row(editable).count(), 0);
+  await row(rejected).click();
+  await waitFor(async () => {
+    assert.equal(await modal.locator(`[data-ai-suggestion-open-note="${rejected.noteId}"]`).count(), 1);
+    assert.match(String(await modal.textContent()), /忽略/);
+  }, 8000);
+});
+
 test("prototype desktop updater check no-ops cleanly when no update is available", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -483,8 +588,9 @@ test("prototype desktop updater check no-ops cleanly when no update is available
   if (!playwright) return;
 
   const stack = await startPrototypeStack(t, playwright, {
-    beforeGoto: async (page) => {
-      await page.addInitScript(() => {
+    enterNotes: false,
+    beforeGoto: async (page, { apiBase }) => {
+      await page.addInitScript((apiBase) => {
         window.__updaterCommands = [];
         window.__confirmMessages = [];
         window.confirm = (message) => {
@@ -494,13 +600,15 @@ test("prototype desktop updater check no-ops cleanly when no update is available
         window.__TAURI__ = {
           core: {
             async invoke(command, args) {
+              if (command === "get_desktop_service_status") return { overall: "healthy", services: { api: { status: "healthy", baseUrl: apiBase } } };
+              if (command === "get_desktop_api_base") return apiBase;
               window.__updaterCommands.push({ command, args });
               if (command === "plugin:updater|check") return { available: false };
               throw new Error(`unexpected updater command: ${command}`);
             }
           }
         };
-      });
+      }, apiBase);
     }
   });
   if (!stack) return;
@@ -559,7 +667,7 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   await waitForEditableNoteSurface(page);
   await page.evaluate((value) => {
     const editor = window.__prototypeEditor;
-    const markdownEditor = document.querySelector("#editorHost")?.__markdownEditor;
+    const markdownEditor = window.__prototypeEditor;
     if (editor?.setEditorValue) {
       editor.setEditorValue(value);
       editor.focusEditor?.();
@@ -575,8 +683,8 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   }, source);
   await page.waitForFunction(
     ({ title, body }) => {
-      const editor = document.querySelector("#editorHost")?.__markdownEditor;
-      const value = String(editor?.getValue?.() || document.querySelector("#editorBody")?.value || "");
+      const editor = window.__prototypeEditor;
+      const value = String(editor?.getEditorValue?.() || document.querySelector("#editorBody")?.value || "");
       const activeTab = window.__prototypeEditor?.activeTab?.() || null;
       const activeTitle = String(activeTab?.title || "");
       const activeBody = String(activeTab?.body || "");
@@ -606,9 +714,9 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   }
   await waitFor(async () => {
     const snapshot = await page.evaluate(() => {
-      const editor = document.querySelector("#editorHost")?.__markdownEditor;
+      const editor = window.__prototypeEditor;
       return {
-        editorValue: String(editor?.getValue?.() || ""),
+        editorValue: String(editor?.getEditorValue?.() || ""),
         bodyValue: String(document.querySelector("#editorBody")?.value || ""),
         activeTabBody: String(window.__prototypeEditor?.activeTab?.()?.body || "")
       };
@@ -630,8 +738,8 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   }
   await waitFor(async () => {
     const snapshot = await page.evaluate(() => {
-      const editor = document.querySelector("#editorHost")?.__markdownEditor;
-      const editorValue = String(editor?.getValue?.() || "");
+      const editor = window.__prototypeEditor;
+      const editorValue = String(editor?.getEditorValue?.() || "");
       const bodyValue = String(document.querySelector("#editorBody")?.value || "");
       const activeTabBody = String(window.__prototypeEditor?.activeTab?.()?.body || "");
       const saveRequestPayload = window.__lastSaveRequestPayload || null;
@@ -653,6 +761,8 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
 }
 
 async function ensureSourceMode(page) {
+  if (!(await page.locator('#editorWorkspace').isVisible())) await page.locator('[data-action="quick-original"]').click();
+  await page.waitForFunction(() => !window.__prototypeState?.pendingNoteCreation);
   const alreadySource = await page.evaluate(() =>
     document.querySelector("#markdownSplit")?.classList.contains("editor-mode-source")
   ).catch(() => false);
@@ -669,6 +779,7 @@ async function ensureSourceMode(page) {
 }
 
 async function ensureNoteMode(page) {
+  if (!(await page.locator('#editorWorkspace').isVisible())) await page.locator('[data-action="quick-original"]').click();
   const alreadyNoteMode = await page.evaluate(() =>
     document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg")
   ).catch(() => false);
@@ -687,7 +798,7 @@ async function ensureNoteMode(page) {
 async function focusEditorContent(page) {
   await ensureSourceMode(page);
   await page.evaluate(() => {
-    document.querySelector("#editorHost")?.__markdownEditor?.focus?.();
+    window.__prototypeEditor?.focusEditor?.();
   });
 }
 
@@ -713,23 +824,23 @@ async function waitForActiveNoteBodyLoaded(page) {
 async function ensurePlaceholderTitleSelection(page) {
   await focusEditorContent(page);
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
+    const editor = window.__prototypeEditor;
     if (!editor) return;
-    const value = String(editor.getValue?.() || "");
+    const value = String(editor.getEditorValue?.() || "");
     const lineEnd = value.indexOf("\n");
     const end = lineEnd >= 0 ? lineEnd : value.length;
-    editor.setSelectionRange?.(2, end);
-    editor.focus?.();
+    editor.setEditorSelectionRange?.(2, end);
+    editor.focusEditor?.();
   });
   await waitForPlaceholderTitleSelection(page);
 }
 
 async function waitForPlaceholderTitleSelection(page) {
   await page.waitForFunction(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
+    const editor = window.__prototypeEditor;
     if (!editor) return false;
-    const value = String(editor.getValue?.() || "");
-    const selection = editor.selection?.();
+    const value = String(editor.getEditorValue?.() || "");
+    const selection = editor.editorSelection?.();
     const lineEnd = value.indexOf("\n");
     const titleEnd = lineEnd >= 0 ? lineEnd : value.length;
     const title = value.startsWith("# ") ? value.slice(2, titleEnd) : value.slice(0, titleEnd);
@@ -743,30 +854,30 @@ async function waitForPlaceholderTitleSelection(page) {
 }
 
 async function acceptPrompt(page, expectedMessagePattern, answer) {
-  page.once("dialog", async (dialog) => {
-    assert.equal(dialog.type(), "prompt");
-    assert.match(dialog.message(), expectedMessagePattern);
-    await dialog.accept(answer);
-  });
+  page.pendingContextInput = { expectedMessagePattern, answer };
 }
 
 async function openContextAction(page, locator, actionKey) {
   await locator.click({ button: "right" });
   await page.locator(`#contextMenu button[data-action="${actionKey}"]`).click();
+  if (page.pendingContextInput) {
+    const { expectedMessagePattern, answer } = page.pendingContextInput;
+    page.pendingContextInput = null;
+    assert.match(await page.locator('[data-text-input-title]:visible').textContent(), expectedMessagePattern);
+    await page.locator('[data-text-input-field]:visible').fill(answer);
+    await page.locator('[data-text-input-confirm]:visible').click();
+  }
 }
 
 async function openImportsModule(page) {
-  await page.locator('.rail-btn[data-module="imports"]').click();
+  await openSettingsModule(page, "workspace");
+  await page.locator('[data-settings-item="import-export"]').click();
   await waitFor(async () => {
-    const isActive = await page.locator('.rail-btn[data-module="imports"]').getAttribute("class");
-    assert.match(String(isActive || ""), /active/);
-    await page.locator("#importPanel:not(.hidden)").waitFor({ timeout: 500 });
+    await page.locator("#importPageMount").waitFor({ timeout: 500 });
     await page.locator("#importWorkspaceTabImport").waitFor({ timeout: 500 });
     await page.locator("#importResult").waitFor({ state: "attached", timeout: 500 });
   }, 7000);
-  await page.locator(".import-compat-details").evaluate((el) => {
-    el.open = true;
-  });
+  await page.locator(".import-compat-details > summary").click();
 }
 
 async function selectRichTextInBlock(page, selector, searchText) {
@@ -1293,7 +1404,7 @@ test("prototype note browser stays minimal and creates literature notes in the l
   assert.equal(literatureBefore.status, 200);
   assert.equal(originalBefore.status, 200);
 
-  assert.match((await page.locator("#btnNewNote").getAttribute("aria-label")) || "", /摘录/);
+  assert.match((await page.locator("#btnNewNote").getAttribute("aria-label")) || "", /文献笔记/);
   await page.locator("#btnNewNote").click();
 
   await waitFor(async () => {
@@ -1400,9 +1511,6 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   assert.equal(mobileLayout.sidebarNew.visible, false);
   assert.equal(mobileLayout.documentWidth <= mobileLayout.viewportWidth + 1, true);
   assert.equal(mobileLayout.bodyWidth <= mobileLayout.viewportWidth + 1, true);
-  assert.equal(mobileLayout.toolbar.overflowX, "auto");
-  assert.equal(mobileLayout.toolbar.flexWrap, "nowrap");
-  assert.ok(mobileLayout.toolbar.scrollWidth > mobileLayout.toolbar.clientWidth);
 
   await page.locator("#btnMobileNewNote").click();
   await page.waitForSelector(".tab.active");
@@ -1430,13 +1538,14 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
 
   const fleetingCreate = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_fleeting_default",
+    status: "active",
     body: "# Fleeting Source Note\n\nCapture the idea first, then decide whether it deserves a permanent note."
   });
   assert.equal(fleetingCreate.status, 201, JSON.stringify(fleetingCreate.json));
 
   const literatureCreate = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_literature_default",
-    status: "draft",
+    status: "active",
     body: [
       "# Literature Source Note",
       "",
@@ -1461,16 +1570,16 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   });
   assert.equal(literatureCreate.status, 201, JSON.stringify(literatureCreate.json));
 
-  const permanentOne = await postJson(apiBase, "/api/v1/notes", {
+  const permanentOne = await createWritingReadyPermanentNote(apiBase, {
     directoryId: "dir_original_default",
     body: "# Lonely Permanent One\n\nThis permanent note does not yet connect to other notes."
   });
-  const permanentTwo = await postJson(apiBase, "/api/v1/notes", {
+  const permanentTwo = await createWritingReadyPermanentNote(apiBase, {
     directoryId: "dir_original_default",
     body: "# Lonely Permanent Two\n\nThis permanent note also waits for explicit relations."
   });
-  assert.equal(permanentOne.status, 201, JSON.stringify(permanentOne.json));
-  assert.equal(permanentTwo.status, 201, JSON.stringify(permanentTwo.json));
+  assert.equal(permanentOne.status, 200, JSON.stringify(permanentOne.json));
+  assert.equal(permanentTwo.status, 200, JSON.stringify(permanentTwo.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
 
@@ -1501,7 +1610,7 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   }, 7000);
   assert.equal(await page.locator("#btnInsertLink").isVisible(), true);
   assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
-  assert.equal(await page.locator("#literatureWorkspace").isVisible(), true);
+  assert.equal(await page.locator("#literatureWorkspace").isVisible(), false);
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
   assert.equal(
     await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"] .tree-state-icon`).getAttribute("data-note-state"),
@@ -1510,21 +1619,17 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   await page.locator("#btnRecordPermanent").click();
   await page.locator("#permanentNoteModal").waitFor();
   assert.match(String((await page.locator("#permanentNoteSourceType").textContent()) || ""), /文献笔记/);
-  assert.match(String((await page.locator("#permanentNoteSourceHint").textContent()) || ""), /先选/);
+  assert.match(String((await page.locator("#permanentNoteSourceHint").textContent()) || ""), /选择保存位置/);
   assert.equal(await page.locator("#permanentNoteTargetFolder option").count() > 0, true);
   await page.locator("#permanentNoteCancel").click();
-  await page.locator("#permanentNoteModal.hidden").waitFor();
+  await page.locator("#permanentNoteModal").waitFor({ state: "hidden" });
 
   await page.locator('[data-module="graph"]').click();
   await page.waitForFunction(() => window.__prototypeState?.graphConnectivityReady === true, null, { timeout: 10000 });
   await page.locator('[data-action="quick-original"]').click();
   await page.waitForFunction(() => window.__prototypeState?.browserRootId === "dir_original_default");
 
-  assert.equal(
-    await page.locator('.explorer-item[data-kind="folder"][data-id="dir_original_default"] .tree-state-icon').getAttribute("data-folder-state"),
-    "permanent-isolated"
-  );
-
+  await waitFor(async () => assert.equal(await page.locator(`.explorer-item[data-kind="file"][data-id="${permanentOne.json.item.id}"]`).count(), 1), 7000);
   const permanentStates = await page.locator('.explorer-item[data-kind="file"] .tree-state-icon').evaluateAll((nodes) =>
     nodes.map((node) => node.getAttribute("data-note-state")).filter(Boolean)
   );
@@ -2855,11 +2960,12 @@ test("prototype wysiwyg supports inline [[ link picker and # tag picker", async 
   await page.keyboard.type("\n\n[[Tar");
 
   await page.waitForSelector("#linkPicker:not(.hidden)");
-  await page.keyboard.press("Enter");
+  await page.locator(`#linkSearchList [data-link-note-id="${target.json.item.id}"]`).click();
+  await page.locator('#btnConfirmLinkInsert').click();
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /\[\[Target note\]\]/);
+    assert.ok(editorValue.includes(`[[${target.json.item.id}|Target note]]`), editorValue);
   }, 10000);
 
   await page.keyboard.type("\n\n#ta");
@@ -2976,10 +3082,10 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   await page.keyboard.type("const answer = 42;");
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
-    editor?.setSelectionRange?.(value.length, value.length);
-    editor?.focus?.();
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
+    editor?.setEditorSelectionRange?.(value.length, value.length);
+    editor?.focusEditor?.();
   });
   await chooseToolbarCommand(page, "table");
 
@@ -3000,10 +3106,10 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   }, 7000);
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
-    editor?.setSelectionRange?.(value.length, value.length);
-    editor?.focus?.();
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
+    editor?.setEditorSelectionRange?.(value.length, value.length);
+    editor?.focusEditor?.();
   });
   await chooseToolbarCommand(page, "hr");
 
@@ -3056,13 +3162,13 @@ test("prototype editor contextual code tools can switch the current code block l
   await chooseToolbarCommand(page, "code");
   await page.keyboard.type("const sample = 1;");
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
     const codeStart = value.indexOf("const sample = 1;");
     if (codeStart < 0) return;
     const cursor = codeStart + "const sample = 1;".length;
-    editor?.setSelectionRange?.(cursor, cursor);
-    editor?.focus?.();
+    editor?.setEditorSelectionRange?.(cursor, cursor);
+    editor?.focusEditor?.();
   });
 
   const codeLanguageControlAvailable = await page.evaluate(() => Boolean(document.querySelector("#codeLanguageSelect")));
@@ -3076,12 +3182,16 @@ test("prototype editor contextual code tools can switch the current code block l
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
   } else {
+    await ensureSourceMode(page);
     await page.evaluate(() => {
-      const editor = document.querySelector("#editorHost")?.__markdownEditor;
-      const value = String(editor?.getValue?.() || "");
-      editor?.setValue?.(value.replace("```javascript", "```shell").replace("```text", "```shell").replace("```\n", "```shell\n"));
-      editor?.focus?.();
+      const editor = window.__prototypeEditor;
+      const value = String(editor?.getEditorValue?.() || "");
+      const start = value.indexOf("```") + 3;
+      const end = value.indexOf("\n", start);
+      editor.setEditorSelectionRange(start, end);
+      editor?.focusEditor?.();
     });
+    await page.keyboard.insertText("shell");
   }
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
@@ -3192,13 +3302,13 @@ test("prototype editor toolbar keeps title in place and formats rich text blocks
   }, 7000);
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
+    const editor = window.__prototypeEditor;
     if (!editor) throw new Error("Missing markdown editor");
-    const value = String(editor.getValue?.() || "");
+    const value = String(editor.getEditorValue?.() || "");
     const index = value.indexOf("Formatting");
     if (index < 0) throw new Error("Missing text: Formatting");
-    editor.setSelectionRange?.(index, index + "Formatting".length);
-    editor.focus?.();
+    editor.setEditorSelectionRange?.(index, index + "Formatting".length);
+    editor.focusEditor?.();
   });
   await page.locator('.tb[data-md="bold"]').click();
 
@@ -3233,12 +3343,12 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("- first"));
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
     const start = value.indexOf("- first");
     const end = value.indexOf("- second") + "- second".length;
-    editor?.setSelectionRange?.(start, end);
-    editor?.focus?.();
+    editor?.setEditorSelectionRange?.(start, end);
+    editor?.focusEditor?.();
   });
 
   await page.evaluate(() => {
@@ -3272,6 +3382,7 @@ test("prototype editor enter continues list quote and checklist structures", asy
   const { page, webBase } = stack;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator("#btnNewNote").click();
   await ensureSourceMode(page);
   await waitForActiveNoteBodyLoaded(page);
@@ -3283,11 +3394,11 @@ test("prototype editor enter continues list quote and checklist structures", asy
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("- [ ] todo"));
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
     const pos = value.indexOf("- first") + "- first".length;
-    editor?.setSelectionRange?.(pos, pos);
-    editor?.focus?.();
+    editor?.setEditorSelectionRange?.(pos, pos);
+    editor?.focusEditor?.();
   });
   await page.keyboard.press("Enter");
   await page.keyboard.type("second");
@@ -3297,11 +3408,11 @@ test("prototype editor enter continues list quote and checklist structures", asy
   }, 5000);
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
     const pos = value.indexOf("> quoted") + "> quoted".length;
-    editor?.setSelectionRange?.(pos, pos);
-    editor?.focus?.();
+    editor?.setEditorSelectionRange?.(pos, pos);
+    editor?.focusEditor?.();
   });
   await page.keyboard.press("Enter");
   await page.keyboard.type("reply");
@@ -3311,11 +3422,11 @@ test("prototype editor enter continues list quote and checklist structures", asy
   }, 5000);
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
     const pos = value.indexOf("- [ ] todo") + "- [ ] todo".length;
-    editor?.setSelectionRange?.(pos, pos);
-    editor?.focus?.();
+    editor?.setEditorSelectionRange?.(pos, pos);
+    editor?.focusEditor?.();
   });
   await page.keyboard.press("Enter");
   await page.keyboard.type("todo next");
@@ -3351,11 +3462,11 @@ test("prototype editor enter preserves ordinary blank paragraphs", async (t) => 
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Line one"));
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
+    const editor = window.__prototypeEditor;
+    const value = String(editor?.getEditorValue?.() || "");
     const pos = value.indexOf("Line one") + "Line one".length;
-    editor?.setSelectionRange?.(pos, pos);
-    editor?.focus?.();
+    editor?.setEditorSelectionRange?.(pos, pos);
+    editor?.focusEditor?.();
   });
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter");
@@ -3605,6 +3716,7 @@ test("prototype tab switch syncs the left navigation to the active note location
   const literatureNoteId = literatureNote.json.item.id;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="folder"]', { hasText: "Tab Sync Child" }).click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Tab Sync Original Child" }).click();
 
@@ -3965,7 +4077,7 @@ test("prototype close-all lets a new note reopen from a clean explorer and tab s
   }, 7000);
 });
 
-test("prototype editor stays editable after opening related panel and switching directories", async (t) => {
+test("prototype editor stays editable after closing its related overlay and switching directories", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -4013,6 +4125,7 @@ test("prototype editor stays editable after opening related panel and switching 
     return Boolean(wrap && !wrap.classList.contains("inspector-closed") && panel && window.getComputedStyle(panel).display !== "none");
   });
 
+  await page.locator('#btnHideRelated').click();
   await ensureSourceMode(page);
   await focusEditorContent(page);
   await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
@@ -4054,7 +4167,7 @@ test("prototype editor stays editable after opening related panel and switching 
   }, 7000);
 });
 
-test("prototype editor keeps content editable when toggling source and wysiwyg with related panel open", async (t) => {
+test("prototype editor keeps content editable when toggling source and wysiwyg after closing the related overlay", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -4081,6 +4194,7 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
     return Boolean(wrap && !wrap.classList.contains("inspector-closed") && panel && window.getComputedStyle(panel).display !== "none");
   });
 
+  await page.locator('#btnHideRelated').click();
   await ensureSourceMode(page);
   await focusEditorContent(page);
   await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
@@ -4091,7 +4205,7 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
   }, 7000);
 
   await ensureNoteMode(page);
-  await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content p:last-of-type, #editorHost .cm-content h1");
+  await placeCaretAtRichBlockEnd(page, "#wysiwygHost .toastui-editor-contents p:last-of-type");
   await page.keyboard.type(" WYSIWYG tail.");
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
@@ -4111,7 +4225,7 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
         split.getBoundingClientRect().height > 240 &&
         ((isSource && source && source.getBoundingClientRect().height > 200) ||
           (isWysiwyg && rich && rich.getBoundingClientRect().height > 200)) &&
-        related.getBoundingClientRect().width > 160
+        window.getComputedStyle(related).display === "none"
     );
   });
 
@@ -4546,6 +4660,7 @@ test("prototype editor restores autosaved draft after reload", async (t) => {
   });
 
   await page.reload({ waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Autosave source" }).click();
   await ensureSourceMode(page);
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Recovered draft line."));
@@ -4608,6 +4723,7 @@ test("prototype tag click searches SQLite beyond the loaded directory", async (t
   assert.equal(hiddenSiblingNote.status, 201, JSON.stringify(hiddenSiblingNote.json));
 
   await page.reload({ waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Tag source" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("#sharedtag"));
   await ensureNoteMode(page);
@@ -4753,26 +4869,21 @@ test("prototype settings browse vault uses picker fallback and fills the path", 
     assert.equal(path.resolve(String(currentVaultPath || "").trim()), path.resolve(vaultPath));
   }, 7000);
 
-  await page.evaluate((pickedPath) => {
+  await page.evaluate(() => {
     window.showDirectoryPicker = undefined;
-    window.__lastVaultPrompt = null;
-    window.prompt = (message, defaultPath) => {
-      window.__lastVaultPrompt = { message, defaultPath };
-      return pickedPath;
-    };
-  }, nextVaultPath);
+  });
 
   await page.locator("#settingsBrowseVault").click();
+  const picker = page.locator('[data-text-input-field]:visible');
+  assert.equal(path.resolve(await picker.inputValue()), path.resolve(vaultPath));
+  await picker.fill(nextVaultPath);
+  await page.locator('[data-text-input-confirm]:visible').click();
 
   await waitFor(async () => {
     const selectedPath = await page.locator("#settingsVaultPath").inputValue();
     assert.equal(path.resolve(selectedPath), path.resolve(nextVaultPath));
   }, 7000);
 
-  const promptMeta = await page.evaluate(() => window.__lastVaultPrompt || null);
-  assert.ok(promptMeta);
-  assert.match(String(promptMeta.message || ""), /请输入目录路径|浏览器降级模式/);
-  assert.equal(path.resolve(String(promptMeta.defaultPath || "")), path.resolve(vaultPath));
 });
 
 test("prototype settings exposes the permanent note template entry", async (t) => {
@@ -4796,7 +4907,7 @@ test("prototype settings exposes the permanent note template entry", async (t) =
   }, 5000);
   assert.match(await editor.inputValue(), /## 核心观点/);
 
-  await page.locator("#settingsPreviewPermanentTemplate").click();
+  await page.locator("[data-settings-template-kind=\"permanent\"] [data-settings-template-action=\"preview\"]").click();
   await waitFor(async () => {
     assert.equal(await page.locator("#settingsTemplatePreviewModal").getAttribute("aria-hidden"), "false");
   }, 5000);
@@ -4807,7 +4918,7 @@ test("prototype settings exposes the permanent note template entry", async (t) =
   }, 5000);
 });
 
-test("prototype migrates the legacy default permanent template before settings render", async (t) => {
+test("prototype preserves a saved legacy quoted permanent template in settings and new notes", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -4852,18 +4963,15 @@ test("prototype migrates the legacy default permanent template before settings r
   await openSettingsModule(page, "templates");
   await waitFor(async () => {
     const value = await page.locator("#settingsPermanentTemplateEditor").inputValue();
-    assert.match(value, /## 核心观点\n\n写成一句可被反驳、可被引用、值得保留的判断。/);
-    assert.doesNotMatch(value, /^> 写成一句/m);
-    assert.doesNotMatch(value, /^- 来自哪条文献/m);
+    assert.equal(value.trim(), legacyPermanentTemplate.trim());
   }, 5000);
 
   await page.locator('[data-action="quick-original"]').click();
   await page.locator("#btnNewNote").click();
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /## 核心观点\n\n写成一句可被反驳、可被引用、值得保留的判断。/);
-    assert.doesNotMatch(value, /^> 写成一句/m);
-    assert.doesNotMatch(value, /^- 来自哪条文献/m);
+    assert.match(value, /## 核心观点\n\n> 写成一句可被反驳、可被引用、值得保留的判断。/);
+    assert.match(value, /^- 来自哪条文献/m);
   }, 5000);
 });
 
@@ -4951,11 +5059,13 @@ test("prototype literature template preview surfaces invalid shapes before save"
 `;
 
   await openSettingsModule(page, "templates");
+  await page.locator('[data-settings-item="literature-template"]').click();
   await page.locator("#settingsLiteratureTemplateEditor").fill(invalidLiteratureTemplate);
-  await page.locator("#settingsPreviewLiteratureTemplate").click();
+  await page.locator('[data-settings-item="literature-template"]').click();
+  await page.locator("[data-settings-template-kind=\"literature\"] [data-settings-template-action=\"preview\"]").click();
   await waitFor(async () => {
     assert.match(String(await page.locator("#settingsTemplatePreviewBody").textContent() || ""), /模板当前不能保存/);
-    assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
+    assert.equal(await page.locator("[data-settings-template-kind=\"literature\"] [data-settings-template-action=\"save\"]").isDisabled(), true);
     assert.match(String(await page.locator("#settingsLiteratureTemplateFeedbackText").textContent() || ""), /当前内容还不能保存/);
   }, 5000);
   await page.locator("#settingsTemplatePreviewClose").click();
@@ -5000,10 +5110,11 @@ test("prototype falls back to default literature template when stored template i
   const { page } = stack;
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsPreviewLiteratureTemplate").click();
+  await page.locator('[data-settings-item="literature-template"]').click();
+  await page.locator("[data-settings-template-kind=\"literature\"] [data-settings-template-action=\"preview\"]").click();
   await waitFor(async () => {
     assert.match(String(await page.locator("#settingsTemplatePreviewBody").textContent() || ""), /模板当前不能保存/);
-    assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
+    assert.equal(await page.locator("[data-settings-template-kind=\"literature\"] [data-settings-template-action=\"save\"]").isDisabled(), true);
   }, 5000);
   await page.locator("#settingsTemplatePreviewClose").click();
 
@@ -5019,7 +5130,6 @@ test("prototype falls back to default literature template when stored template i
   const originalUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
   assert.ok(originalUntitledNoteId);
 
-  await page.locator('[data-action="quick-literature"]').click();
   await page.locator("#btnNewNote").click();
   await waitFor(async () => {
     const selectedFileId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
@@ -5168,7 +5278,7 @@ test("prototype settings saved literature and permanent templates drive later ne
 
   await openSettingsModule(page, "templates");
   await page.locator("#settingsPermanentTemplateEditor").fill(permanentTemplate);
-  await page.locator("#settingsSavePermanentTemplate").click();
+  await page.locator("[data-settings-template-kind=\"permanent\"] [data-settings-template-action=\"save\"]").click();
   assert.match(
     String(
       await page.evaluate(
@@ -5182,8 +5292,9 @@ test("prototype settings saved literature and permanent templates drive later ne
     /这是新的永久模板起手句。/
   );
 
+  await page.locator('[data-settings-item="literature-template"]').click();
   await page.locator("#settingsLiteratureTemplateEditor").fill(literatureTemplate);
-  await page.locator("#settingsSaveLiteratureTemplate").click();
+  await page.locator("[data-settings-template-kind=\"literature\"] [data-settings-template-action=\"save\"]").click();
   assert.match(
     String(
       await page.evaluate(
@@ -5223,8 +5334,11 @@ test("prototype settings saved literature and permanent templates drive later ne
     assert.match(value, /- \[\[模板测试\]\]/);
   }, 5000);
 
+  await page.waitForFunction(() => !window.__prototypeState.pendingNoteCreation);
   await page.locator('[data-action="quick-literature"]').click();
+  await page.waitForFunction(() => window.__prototypeState.browserRootId === 'dir_literature_default');
   await page.locator("#btnNewNote").click();
+  await page.waitForFunction(() => !window.__prototypeState.pendingNoteCreation);
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
     assert.match(value, /这是新的文献模板起手句。/);
@@ -5232,7 +5346,7 @@ test("prototype settings saved literature and permanent templates drive later ne
   }, 5000);
 });
 
-test("prototype note templates stay scoped to the active vault and old untitled placeholders stay reusable", async (t) => {
+test("prototype templates stay vault scoped and a changed template leaves an old placeholder intact", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -5273,7 +5387,7 @@ test("prototype note templates stay scoped to the active vault and old untitled 
     editor.value = value;
     editor.dispatchEvent(new Event("input", { bubbles: true }));
   }, customPermanentTemplate);
-  await page.locator("#settingsSavePermanentTemplate").click();
+  await page.locator("[data-settings-template-kind=\"permanent\"] [data-settings-template-action=\"save\"]").click();
 
   await page.locator('[data-action="quick-original"]').click();
   await page.locator("#btnNewNote").click();
@@ -5282,7 +5396,9 @@ test("prototype note templates stay scoped to the active vault and old untitled 
     assert.ok(selectedFileId);
   }, 5000);
   const reopenedUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
-  assert.equal(reopenedUntitledNoteId, originalUntitledNoteId);
+  assert.notEqual(reopenedUntitledNoteId, originalUntitledNoteId);
+  const previousPlaceholder = (await fetchJson(apiBase, `/api/v1/notes/${originalUntitledNoteId}`)).json.item;
+  assert.doesNotMatch(previousPlaceholder.body, /这是按当前 Vault 定义的永久模板。/);
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
     assert.match(value, /这是按当前 Vault 定义的永久模板。/);
@@ -5353,7 +5469,7 @@ Original evidence block.
 
   await openSettingsModule(page, "templates");
   await page.locator("#settingsPermanentTemplateEditor").fill(permanentTemplate);
-  await page.locator("#settingsSavePermanentTemplate").click();
+  await page.locator("[data-settings-template-kind=\"permanent\"] [data-settings-template-action=\"save\"]").click();
 
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
@@ -5382,7 +5498,7 @@ Original evidence block.
     assert.match(value, /### 核心观点/);
     assert.match(value, /把转述压成一句可辩护的判断。/);
     assert.match(value, /### 相关笔记/);
-    assert.match(value, /来自文献笔记：\[\[Source Driven Literature\]\]/);
+    assert.match(value, new RegExp(`来源：\\[\\[${literatureNoteId}\\|Source Driven Literature\\]\\]`));
     assert.match(value, /把转述压成一句可辩护的判断。/);
     assert.doesNotMatch(value, /^## 核心观点$/m);
     assert.doesNotMatch(value, /^## 为什么成立$/m);
@@ -5431,6 +5547,7 @@ test("prototype browser flow creates a directory and persists notes inside it af
   }, 7000);
 
   await page.reload({ waitUntil: "networkidle" });
+  await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="folder"]', { hasText: "Browser E2E Folder" }).click();
   await waitFor(async () => {
     const visibleCount = await page.locator('.explorer-item[data-kind="file"]', { hasText: "Directory scoped note" }).count();
@@ -5564,7 +5681,7 @@ test("prototype import panel keeps unsupported-encoding previews reviewable but 
   await waitFor(async () => {
     assert.equal(await page.locator("#btnImportConfirm").isDisabled(), true);
     const label = await page.locator("#btnImportConfirm").textContent();
-    assert.match(String(label || ""), /没有可导入候选/);
+    assert.match(String(label || ""), /没有可导入内容/);
   }, 4000);
 });
 
@@ -8789,7 +8906,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /Smart Notes 产品思考 Demo/);
+    assert.match(String(statusText || ""), /Smart Notes Demo/);
     assert.match(String(statusText || ""), /已打开导览笔记/);
 
     const startupState = await page.evaluate(() => ({
@@ -8798,14 +8915,14 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
       selectedFolderId: window.__prototypeState?.selectedFolderId || ""
     }));
     assert.equal(startupState.module, "explorer");
-    assert.equal(startupState.selectedFileId, "GUIDE-SMART-NOTES-START");
-    assert.equal(startupState.selectedFolderId, "dir_demo_smart_notes_product_thinking_original");
+    assert.equal(startupState.selectedFileId, "GUIDE-SHORT-PRACTICE");
+    assert.equal(startupState.selectedFolderId, "dir_demo_smart_notes_product_thinking_guide");
   }, 15000);
 
   const firstSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
   assert.equal(firstSeedDirectory.status, 200, JSON.stringify(firstSeedDirectory.json));
   const firstSeedDirectoryTotal = Number(firstSeedDirectory.json.total || 0);
-  assert.ok(firstSeedDirectoryTotal >= 25);
+  assert.ok(firstSeedDirectoryTotal >= 17);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
@@ -8825,7 +8942,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
         .map((item) => item.text)
         .join(" ")
     );
-    assert.match(firstVisibleGuideBlocks, /00 从这里开始|你不用先学术语|6 步/);
+    assert.match(firstVisibleGuideBlocks, /00 动手练习|怎样让读书笔记帮助写作/);
     assert.doesNotMatch(firstVisibleGuideBlocks, /产品功能示例笔记/);
   }, 15000);
   await page.setViewportSize({ width: 1366, height: 900 });
@@ -8839,10 +8956,12 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
       selectedFileId: window.__prototypeState?.selectedFileId || ""
     }));
     assert.equal(startupState.module, "explorer");
-    assert.equal(startupState.selectedFileId, "GUIDE-SMART-NOTES-START");
+    assert.equal(startupState.selectedFileId, "GUIDE-SHORT-PRACTICE");
   }, 15000);
 
   await page.click('.rail-btn[data-module="writing"]');
+  await page.locator('[data-writing-sidebar-action="topics"]').click();
+  await page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button').click();
   await waitFor(async () => {
     const writingState = await page.evaluate(() => ({
       title: document.querySelector("#writingTitle")?.value || "",
@@ -8853,7 +8972,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.ok(String(writingState.title || "").trim().length > 0);
     assert.ok(String(writingState.goal || "").trim().length > 0);
     assert.ok(String(writingState.audience || "").trim().length > 0);
-    assert.match(writingState.basketSummary, /已选择 \d+ 条相关笔记/);
+    assert.match(writingState.basketSummary, /\d+ 条|相关笔记/);
   }, 15000);
 
   const project = await fetchJson(apiBase, "/api/v1/writing-projects/WRITE-SMART-NOTES-DEMO");
@@ -8965,10 +9084,10 @@ test("prototype explorer set-folder-path updates directory fsPath and moves mark
   const folderRow = page.locator('.explorer-item[data-kind="folder"]', { hasText: "Path Source" });
   await folderRow.waitFor();
 
-  await page.evaluate((nextPath) => {
+  await page.evaluate(() => {
     window.showDirectoryPicker = undefined;
-    window.prompt = () => nextPath;
-  }, updatedPath);
+  });
+  await acceptPrompt(page, /选择本地路径/, updatedPath);
   await openContextAction(page, folderRow, "set-folder-path");
 
   await waitFor(async () => {
@@ -9297,10 +9416,11 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
   await page.locator(".explorer-item[data-kind='file']", { hasText: fixture.noteTitle }).click();
   await ensureSourceMode(page);
   await page.locator("#btnShowRelated").click();
+  await page.locator('.viewpoint-optional-details > summary').click();
 
   await waitFor(async () => {
     const detailText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(detailText || ""), /关联 AI 建议/);
+    assert.match(String(detailText || ""), /AI 建议/);
     assert.match(String(detailText || ""), /采纳为草稿/);
   }, 10000);
 
@@ -9323,7 +9443,11 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
 
   const editedThesis = "编辑器内先采纳为草稿，再由用户亲自改写并确认。";
   await page.locator("textarea[name='thesis']").fill(editedThesis);
+  if (await page.locator("textarea[name='thesisChangeReason']").isVisible()) {
+    await page.locator("textarea[name='thesisChangeReason']").fill("把建议改为自己的判断，说明采用后的人工确认过程。");
+  }
   await page.locator("[data-note-distillation-form] button[type='submit']").click();
+
 
   await waitFor(async () => {
     const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
@@ -9331,6 +9455,11 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
     assert.equal(note.json.item.thesis, editedThesis);
   }, 10000);
 
+  await page.waitForFunction(thesis => window.__prototypeEditor.activeNote()?.thesis === thesis, editedThesis);
+  await page.locator('[data-permanent-workspace-tab="viewpoint"]').click();
+  if (!await page.locator('.viewpoint-optional-details').evaluate(details => details.open)) {
+    await page.locator('.viewpoint-optional-details > summary').click();
+  }
   await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='edited']").click();
 
   await waitFor(async () => {

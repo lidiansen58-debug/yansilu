@@ -568,7 +568,7 @@ test("writing theme index installer wires refresh save and list clicks through l
     })
   });
 
-  assert.equal(registrations.length, 5);
+  assert.equal(registrations.length, 6);
   assert.equal(registrations.every((item) => item.installed), true);
 
   await handlers.get("btnWritingRefreshThemeIndexes:click")();
@@ -633,7 +633,7 @@ test("writing theme index list handler uses index cards and continuation routes"
     })
   }, deps);
 
-  assert.deepEqual(calls[0], ["use", "idx1", { replaceBasket: false, resetContext: false, source: "writing_theme_index_list" }]);
+  assert.deepEqual(calls[0], ["use", "idx1", { replaceBasket: true, resetContext: true, source: "writing_theme_index_list" }]);
   assert.deepEqual(calls[2], ["continue", "p1", { openDraft: true, statusMessage: "resume" }]);
 });
 

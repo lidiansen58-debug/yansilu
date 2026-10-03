@@ -125,7 +125,7 @@ export async function optionalPlaywright(t) {
   }
 }
 
-export async function startPrototypeStack(t, playwright) {
+export async function startPrototypeStack(t, playwright, { apiEnv = {} } = {}) {
   const vaultPath = await makeTempDir("yansilu-browser-e2e-vault-");
   const apiPort = await findFreePort();
   const webPort = await findFreePort();
@@ -136,7 +136,9 @@ export async function startPrototypeStack(t, playwright) {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
+      ...apiEnv,
       API_PORT: String(apiPort),
+      YANSILU_LOCAL_APP_PORTS: String(webPort),
       VAULT_PATH: vaultPath
     },
     stdio: ["ignore", "pipe", "pipe"]

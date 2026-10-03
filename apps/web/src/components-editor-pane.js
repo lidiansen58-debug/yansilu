@@ -5618,7 +5618,7 @@ export class EditorPane {
         if (!isCurrent()) return;
         const refreshed = await fetchNote(noteId);
         if (!isCurrent()) return;
-        if (refreshed) Object.assign(note, refreshed);
+        if (refreshed) this.permanentNoteDistillation().applyAdoptedNote(note, refreshed);
       } else {
         const payload = {
           canonical: true,

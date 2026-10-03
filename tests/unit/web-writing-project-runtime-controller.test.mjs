@@ -149,7 +149,7 @@ test("writing project runtime controller creates a project from the current bask
       calls.push(["create", payload]);
       return { id: "p1", title: payload.title, basket_note_ids: payload.basketNoteIds };
     },
-    currentWritingBookStructure: (input) => ({ noteCount: input.notes.length }),
+    currentWritingBookStructure: () => { throw new Error("Article creation must not adopt suggested chapters"); },
     loadWritingDraftVersions: async () => calls.push(["drafts"]),
     loadWritingProjectsList: async () => calls.push(["projects"]),
     loadWritingScaffoldVersions: async () => calls.push(["scaffolds"]),
@@ -168,7 +168,7 @@ test("writing project runtime controller creates a project from the current bask
   assert.equal(writingState.project, project);
   assert.deepEqual(calls[0][1].basketNoteIds, ["n1", "n2"]);
   assert.deepEqual(calls[0][1].relatedIndexIds, ["idx1"]);
-  assert.deepEqual(calls[0][1].bookStructure, { noteCount: 2 });
+  assert.deepEqual(calls[0][1].bookStructure, { schema_version: 1, parts: [] });
   assert.ok(calls.some((call) => call[0] === "result" && call[2] === "p1"));
   assert.deepEqual(calls.at(-1), ["status", "可写主题已确定：p1", "ok"]);
 });

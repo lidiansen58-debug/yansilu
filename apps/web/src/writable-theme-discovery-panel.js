@@ -1,3 +1,5 @@
+import { writableThemeDiscoveryDraftView } from "./writable-theme-discovery-draft.js";
+
 function cleanText(value = "") {
   return String(value || "").trim();
 }
@@ -95,5 +97,5 @@ export function renderWritableThemeDiscoveryPanelDom(deps = {}) {
   if (!suggestions.length) {
     return `<div class="writing-empty">还没有可写主题建议。先让 3 条以上永久笔记共享关系、标签或相近问题，再刷新建议。</div>`;
   }
-  return suggestions.map((suggestion) => renderSuggestionCard(suggestion, escapeHtml)).join("");
+  return suggestions.map((suggestion) => renderSuggestionCard(writableThemeDiscoveryDraftView(suggestion), escapeHtml)).join("");
 }

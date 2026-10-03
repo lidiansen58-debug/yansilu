@@ -224,13 +224,15 @@ test("startup route opener auto-opens demo then explicit note then fallback note
   assert.equal(demo.route, "demo");
   assert.deepEqual(demoCalls, [["demo", true, true], "render"]);
 
-  const state = { notes: [{ id: "n1", folderId: "f1" }] };
+  const state = { module: "today", notes: [{ id: "n1", folderId: "f1" }] };
   const note = await openInitialStartupRouteForRuntime({
     windowRef: { location: { search: "?note=n1" } },
     state,
     rootBoxIdFromFolder: () => "root",
+    activateModule: (module) => { state.module = module; },
     openNoteById: (id) => {
       assert.equal(id, "n1");
+      assert.equal(state.module, "explorer", "explicit routes must show the editor before opening the tab");
       return true;
     }
   });

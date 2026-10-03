@@ -17,7 +17,7 @@ function shell({ className = "", title = "", meta = "", task = null, body = "", 
   return `<aside class="${className}" data-title="${escapeHtml(title)}" data-meta="${escapeHtml(meta)}" data-task="${escapeHtml(task?.status || "")}" data-role="${escapeHtml(roleLabel)}">${body}${actions}</aside>`;
 }
 
-test("graph node selection panel keeps only relation workspace and candidates", () => {
+test("graph node selection panel keeps relation workspace, candidates and note navigation", () => {
   const nodeMap = new Map([
     ["note-a", { id: "note-a", title: "Note A", noteType: "permanent", degree: 1 }],
     ["note-b", { id: "note-b", title: "Note B", noteType: "permanent" }]
@@ -49,7 +49,7 @@ test("graph node selection panel keeps only relation workspace and candidates", 
   assert.doesNotMatch(html, /data-node-insight/);
   assert.match(html, /data-relation-workspace/);
   assert.match(html, /data-ai-candidates/);
-  assert.doesNotMatch(html, /data-open-note="note-a"/);
+  assert.match(html, /data-open-note="note-a"/);
   assert.doesNotMatch(html, /data-graph-ai-connect-note="note-a" disabled/);
   assert.doesNotMatch(html, /data-graph-open-relation-form data-graph-relation-source="note-a"/);
   assert.doesNotMatch(html, /data-graph-create-theme-index/);
@@ -124,7 +124,8 @@ test("graph edge selection panel keeps relation adjustment and open-note actions
   assert.match(html, /data-graph-relation-id="rel-1"/);
   assert.match(html, /data-graph-target-note="target"/);
   assert.match(html, /data-graph-relation-type="supports"/);
-  assert.match(html, /data-graph-open-relation-form data-graph-relation-source="source"/);
+  assert.match(html, /data-graph-open-relation-form[^>]*data-graph-relation-source="source"/);
+  assert.match(html, /data-graph-open-relation-form[^>]*data-graph-rationale-draft="Source supports target\."/);
   assert.match(html, /data-edge-metrics/);
   assert.match(html, /data-open-note="source"/);
 });

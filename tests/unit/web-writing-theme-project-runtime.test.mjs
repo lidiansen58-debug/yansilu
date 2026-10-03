@@ -17,7 +17,7 @@ function harness(selectedThemeIndexId) {
       writingState.selectedThemeIndexId = id;
       return { indexCard: { id, title: fields.writingTitle.value }, noteIds: ["note-1"] };
     },
-    currentWritingBookStructure: () => ({}), writingKnownNoteById: () => ({ id: "note-1", title: "真实来源" }),
+    currentWritingBookStructure: () => { throw new Error("Theme articles must not adopt suggested book chapters"); }, writingKnownNoteById: () => ({ id: "note-1", title: "真实来源" }),
     deriveWritingProjectIntent: ({ goal }) => goal, deriveWritingProjectTakeaway: () => "读者收获",
     createWritingProject: async (payload) => { payloads.push(payload); return { id: "project-1", ...payload }; },
     syncWritingLocalBookIdeasFromProject: () => {}, populateWritingFormFromProject: () => {}, showWritingResult: () => {},
@@ -34,6 +34,7 @@ test("first outline project keeps the current theme's manually edited form befor
   assert.equal(payloads[0].audience, "自己的读者");
   assert.equal(payloads[0].tone, "");
   assert.deepEqual(payloads[0].relatedIndexIds, ["theme-1"]);
+  assert.deepEqual(payloads[0].bookStructure, { schema_version: 1, parts: [] });
 });
 
 test("creating from a different theme never carries the previous theme's edited form", async () => {

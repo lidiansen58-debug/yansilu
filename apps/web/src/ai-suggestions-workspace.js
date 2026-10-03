@@ -1,5 +1,6 @@
 import { renderAiSuggestionsPanel } from "./ai-suggestions-panel.js";
 import { normalizeAiSuggestionFilters } from "./ai-suggestions-model.js";
+import { renderWithAiSuggestionEditorDrafts } from "./ai-suggestion-editor-draft.js";
 
 export function normalizeVisibleSuggestionFilters(filters = {}) {
   return normalizeAiSuggestionFilters({
@@ -48,7 +49,7 @@ export function renderAiSuggestionsWorkspaceView({ mount, state, notes = [], ren
   if (!mount) return false;
   const visibleFilters = normalizeVisibleSuggestionFilters(state?.suggestionFilters || {});
   if (state) state.suggestionFilters = visibleFilters;
-  mount.innerHTML = renderPanel({
+  renderWithAiSuggestionEditorDrafts(mount, renderPanel({
     items: enrichAiSuggestionsWithNoteTitles(state?.suggestions, notes),
     total: state?.suggestionsTotal,
     filters: visibleFilters,
@@ -66,7 +67,7 @@ export function renderAiSuggestionsWorkspaceView({ mount, state, notes = [], ren
     actionError: state?.suggestionActionError,
     error: state?.suggestionsError,
     compact: true
-  });
+  }));
   return true;
 }
 
@@ -166,6 +167,8 @@ export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {
   }
 
   if (target.closest("[data-ai-suggestion-close]")) {
+    settingsAiState.suggestionDetailRequestToken = Number(settingsAiState.suggestionDetailRequestToken || 0) + 1;
+    settingsAiState.suggestionDetailLoading = false;
     settingsAiState.selectedSuggestionId = "";
     settingsAiState.suggestionDetail = null;
     settingsAiState.suggestionDetailSuggestionId = "";

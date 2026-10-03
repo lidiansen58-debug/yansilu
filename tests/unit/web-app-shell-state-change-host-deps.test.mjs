@@ -32,6 +32,7 @@ test("app shell state-change prototype host deps keeps shell collaborators in on
     "descendantDirectoryIds",
     "editor",
     "ensureAiReadyForFeature",
+    "runSourceDistillAi",
     "ensureNoteBodyLoaded",
     "expandGraphBrowserTree",
     "ensureLocalAiReadyForFeature",

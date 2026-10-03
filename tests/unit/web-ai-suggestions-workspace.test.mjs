@@ -231,6 +231,8 @@ test("AI suggestions workspace routes filter, list, action, and open-note clicks
 test("AI suggestions workspace closes the suggestion modal", async () => {
   const calls = [];
   const settingsAiState = {
+    suggestionDetailRequestToken: 7,
+    suggestionDetailLoading: true,
     selectedSuggestionId: "suggestion_1",
     suggestionDetail: { item: { id: "suggestion_1" } },
     suggestionDetailSuggestionId: "suggestion_1",
@@ -252,6 +254,8 @@ test("AI suggestions workspace closes the suggestion modal", async () => {
   assert.equal(settingsAiState.suggestionDetail, null);
   assert.equal(settingsAiState.suggestionDetailSuggestionId, "");
   assert.equal(settingsAiState.suggestionActionNotice, "");
+  assert.equal(settingsAiState.suggestionDetailLoading, false);
+  assert.equal(settingsAiState.suggestionDetailRequestToken, 8);
   assert.deepEqual(calls, ["render"]);
 });
 

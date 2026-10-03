@@ -537,6 +537,13 @@ test("book chapters preserve separate Markdown drafts through legacy updates, re
   const legacyStructure = { schema_version: 1, parts: [{ id: "part_main", chapters: sources.map((id, index) => ({
     id: `chapter_${index + 1}`, title: `Chapter ${index + 1}`, evidence_note_ids: [id]
   })) }] };
+  const article = await postJson(baseUrl, "/api/v1/writing-projects", {
+    title: "Article with an explicitly empty chapter directory", basketNoteIds: sources,
+    bookStructure: { schema_version: 1, parts: [] }
+  });
+  assert.equal(article.status, 201, JSON.stringify(article.json));
+  assert.deepEqual(article.json.item.book_structure.parts, []);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/writing-projects/${article.json.item.id}`)).json.item.book_structure.parts, []);
   const created = await postJson(baseUrl, "/api/v1/writing-projects", {
     title: "A three-chapter book", basketNoteIds: sources, bookStructure: legacyStructure
   });

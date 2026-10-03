@@ -39,7 +39,7 @@ test("empty start routes demo import with confirmation and the existing-notes im
   }), true);
   assert.equal(await routeAppShellStateChange("seed-smart-notes-demo", { source: "empty-start" }, {
     confirm: (message) => {
-      calls.push(["confirm", /Smart Notes Demo/.test(message)]);
+      calls.push(["confirm", /导入示例/.test(message) && /你的修改会保留/.test(message)]);
       return true;
     },
     importSmartNotesDemo: async (payload) => {

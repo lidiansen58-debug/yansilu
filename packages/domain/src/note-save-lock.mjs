@@ -1,9 +1,10 @@
-import fs from "node:fs/promises";
+import { realpathSync } from "node:fs";
 
 const pending = new Map();
 
 export async function withNoteSaveLock(vaultPath, noteId, action) {
-  const realVault = await fs.realpath(vaultPath);
+  // Resolve before yielding so concurrent callers enter the queue in call order.
+  const realVault = realpathSync(vaultPath);
   const key = JSON.stringify([process.platform === "win32" ? realVault.toLowerCase() : realVault, noteId]);
   const previous = pending.get(key) || Promise.resolve();
   const current = previous.catch(() => {}).then(action);

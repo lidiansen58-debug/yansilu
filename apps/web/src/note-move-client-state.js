@@ -10,6 +10,7 @@ export function applyMovedNoteToClientState(state, noteId, directoryId, moved, {
     if (Object.hasOwn(moved || {}, key)) note[key] = moved[key];
   }
   if (moved?.status) note.status = moved.status;
+  if (typeof moved?.fileRevision === "string") note.fileRevision = moved.fileRevision;
   if (typeof moved?.body === "string") {
     note.body = moved.body;
     note.bodyLoaded = true;
@@ -17,6 +18,7 @@ export function applyMovedNoteToClientState(state, noteId, directoryId, moved, {
       if (tab.noteId !== note.id || tab.dirty) continue;
       tab.body = moved.body;
       tab.savedBody = moved.body;
+      if (typeof moved?.fileRevision === "string") tab.savedFileRevision = moved.fileRevision;
     }
   }
   note.markdownPath = moved?.markdownPath || note.markdownPath;

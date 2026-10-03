@@ -173,7 +173,8 @@ import { installWritingRelatedPanelEvents } from "./writing-related-notes-panel.
 import { installWritingSidebarActionEvents } from "./writing-sidebar-actions.js";
 import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
 import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
-import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, createWritingBasketSession, removeWritingBasketIdForRuntime } from "./writing-basket-state.js";
+import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, removeWritingBasketIdForRuntime } from "./writing-basket-state.js";
+import { createWritingBasketSession } from "./writing-basket-session.js";
 import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "./writing-entry-route-model.js";
 import { clearWritingFocusedCandidateScopeForRuntime, clearWritingSourceIndexIdsForRuntime, clearWritingThemeRelationCountsForRuntime, resetWritingStrongModelStateForRuntime, setWritingFocusedCandidateScopeForRuntime, setWritingSourceIndexIdsForRuntime } from "./writing-session-state.js";
 import { sameUniqueStringSetForRuntime, selectedWritingThemeIndexForRuntime, setSelectedWritingThemeIndexForRuntime, writingThemeIndexByIdForRuntime, writingThemeIndexScopeDirectoryIdForRuntime, writingThemeIndexNoteIdsForRuntime } from "./writing-theme-state.js";
@@ -4146,6 +4147,9 @@ const writingBasketSession = createWritingBasketSession({
     clearWritingFocusedCandidateScope();
     writingState.projects = [];
     writingState.themeIndexes = [];
+    writingState.themeDiscoverySuggestions = [];
+    writingState.ignoredThemeDiscoverySuggestionKeys = [];
+    writingState.themeDiscoveryLoading = false;
     writingState.relationCounts = {};
     writingState.relationCountErrors = {};
     writingState.loadingProjects = false;
@@ -6052,7 +6056,7 @@ installDirtyTabsBeforeUnloadEventBindings({
 installWritingPanelBasketEventHandlers({
   $,
   depsProvider: () => ({
-    state, editor, mapNoteItem, activateModule,
+    state, editor, mapNoteItem, activateModule, getVaultPath: currentVaultPath,
     writingState,
     writingNoteEligibility,
     continueWritingEntry,
@@ -6106,6 +6110,7 @@ installWritingSidebarActionEvents({
 installWritingThemeIndexEventHandlers({
   $,
   depsProvider: () => ({
+    writingState,
     loadWritingThemeIndexes,
     refreshWritableThemeDiscoverySuggestions,
     saveWritingBasketAsThemeIndex,
@@ -6553,6 +6558,7 @@ function appStartupDeps() {
     confirm: window.confirm.bind(window),
     importSmartNotesProductThinkingDemo,
     preferredLocalFallbackNote,
+    fetchNote, mapNoteItem,
     openNoteById,
     openStartupUntitledNote,
     updateController,

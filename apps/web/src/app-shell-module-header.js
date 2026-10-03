@@ -47,7 +47,7 @@ export function renderModuleWorkspaceHeaderForRuntime({
       ? `
         <div class="module-template-actions" data-settings-template-kind="${escapeHtml(templateKind)}">
           <button class="mini-btn" type="button" data-settings-template-action="preview">预览</button>
-          <button class="mini-btn primary" type="button" data-settings-template-action="save">保存</button>
+          <button class="mini-btn primary" type="button" data-settings-template-action="save"${settingsHeader.templateSaveDisabled ? " disabled" : ""} title="${escapeHtml(settingsHeader.templateSaveTitle || "")}">保存</button>
           <button class="mini-btn is-subtle" type="button" data-settings-template-action="reset">恢复默认</button>
         </div>
       `

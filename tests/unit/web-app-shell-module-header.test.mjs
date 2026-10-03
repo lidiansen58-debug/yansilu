@@ -31,6 +31,13 @@ function headerElements() {
   };
 }
 
+test("template header keeps an invalid template save unavailable with its reason", () => {
+  const elements = headerElements();
+  renderModuleWorkspaceHeaderForRuntime({ state: { module: "settings" }, elements,
+    settingsHeader: { templateKind: "literature", templateSaveDisabled: true, templateSaveTitle: "缺少转述" } });
+  assert.match(elements.moduleHeaderActions.innerHTML, /data-settings-template-action="save" disabled title="缺少转述"/);
+});
+
 test("module header renders shell-only empty actions for explorer settings graph imports backup ai inbox today and writing", () => {
   for (const [module, expectedTitle, expectedSummary] of [
     ["explorer", "", ""],

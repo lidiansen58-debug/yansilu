@@ -1315,6 +1315,17 @@ test("notes API rewrites relative asset links when moving a note between directo
   assert.match(beforeMoveBody, /assets\/files\//);
   assert.match(fetched.json.item.body, markdownDestinationPattern(expectedLink));
   assert.ok(!fetched.json.item.body.includes(upload.json.item.markdownLinkPath));
+  assert.equal(moved.json.item.fileRevision, fetched.json.item.fileRevision);
+  assert.equal(moved.json.item.body, fetched.json.item.body);
+  const continued = await putJson(baseUrl, `/api/v1/notes/${note.json.item.id}`, {
+    body: `${moved.json.item.body}\nContinued after moving.`,
+    expectedBody: moved.json.item.body, expectedRevision: moved.json.item.fileRevision
+  });
+  assert.equal(continued.status, 200, JSON.stringify(continued.json));
+  const repeated = await postJson(baseUrl, `/api/v1/notes/${note.json.item.id}/move`, { directoryId: targetDir.json.item.id });
+  assert.equal(repeated.status, 200, JSON.stringify(repeated.json));
+  assert.equal(repeated.json.item.body, continued.json.item.body);
+  assert.equal(repeated.json.item.fileRevision, continued.json.item.fileRevision);
 });
 
 test("notes API handles Chinese and space-containing vault paths with image and file assets", async (t) => {

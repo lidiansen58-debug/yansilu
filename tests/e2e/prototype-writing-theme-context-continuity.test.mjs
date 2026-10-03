@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, fetchJson, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 async function createWritingReadyPermanentNote(baseUrl, payload = {}) {
   const authorship = payload.authorship || { user_confirmed: true, ai_assisted: false };
@@ -33,7 +33,7 @@ async function createWritingReadyPermanentNote(baseUrl, payload = {}) {
   return updated;
 }
 
-test("prototype writing theme selection keeps current project continuity when switching between themes with the same notes", async (t) => {
+test("prototype writing keeps distinct themes with the same notes isolated and resumes each existing outline", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -111,36 +111,37 @@ test("prototype writing theme selection keeps current project continuity when sw
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
+  const topicA = page.locator('#writingThemeIndexList [data-writing-index-card-id]', { hasText: "Theme Continuity Index A" });
+  await topicA.locator('button').click();
+  await page.locator('#writingTitle:visible').waitFor();
+  assert.equal(await page.locator('#writingTitle').inputValue(), "Theme Continuity Index A");
+  await page.locator('#btnWritingCreateScaffold').click();
+  await page.locator('#writingScaffoldPanel:visible').waitFor();
+  const first = (await fetchJson(apiBase, '/api/v1/writing-projects?limit=20')).json.items;
+  assert.equal(first.length, 1);
+  assert.ok(first[0].scaffold_id);
 
-  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme Continuity Index A" }).click();
-  await page.waitForFunction(() => {
-    const button = document.querySelector('[data-writing-theme-action="create-project"]');
-    return Boolean(button) && button.disabled === false;
-  }, null, { timeout: 10000 });
-
-  await page.click('[data-writing-theme-action="create-project"]');
-
+  await page.locator('[data-writing-sidebar-action="topics"]').click();
+  const topicB = page.locator('#writingThemeIndexList [data-writing-index-card-id]', { hasText: "Theme Continuity Index B" });
+  await topicB.locator('[data-writing-index-action="use"]').click();
+  await page.locator('#writingTitle:visible').waitFor();
+  assert.equal(await page.locator('#writingTitle').inputValue(), "Theme Continuity Index B");
+  await page.locator('#btnWritingCreateScaffold').click();
+  await page.locator('#writingScaffoldPanel:visible').waitFor();
+  let after;
   await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从主题确定可写主题：wp_/);
-  }, 10000);
-
-  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme Continuity Index B" }).click();
-
-  await waitFor(async () => {
-    const titleValue = await page.locator("#writingThemeDetailTitle").inputValue();
-    const actionButton = page.locator('[data-writing-theme-action="resume-project"], [data-writing-theme-action="resume-scaffold"], [data-writing-theme-action="open-draft"], [data-writing-theme-action="create-project"]');
-    const createLabel = await actionButton.textContent();
-    const disabled = await actionButton.isDisabled();
-    assert.equal(disabled, false);
-    assert.match(String(titleValue || ""), /Theme Continuity Index B/);
-    assert.match(String(createLabel || ""), /继续这个主题/);
-  }, 10000);
-
-  await page.click('[data-writing-theme-action="resume-project"], [data-writing-theme-action="resume-scaffold"], [data-writing-theme-action="open-draft"], [data-writing-theme-action="create-project"]');
-
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从(?:主题|可写主题)继续(?:这个主题)?：wp_/);
-  }, 10000);
+    after = (await fetchJson(apiBase, '/api/v1/writing-projects?limit=20')).json.items;
+    assert.equal(after.length, 2);
+    assert.ok(after.find(project => project.id !== first[0].id)?.scaffold_id);
+  });
+  const original = after.find(project => project.id === first[0].id);
+  const second = after.find(project => project.id !== first[0].id);
+  assert.equal(original.scaffold_id, first[0].scaffold_id);
+  assert.deepEqual(original.related_index_ids, [themeA.json.item.id]);
+  assert.deepEqual(second.related_index_ids, [themeB.json.item.id]);
+  await page.locator('[data-writing-sidebar-action="topics"]').click();
+  await topicA.locator('[data-writing-index-action="resume-scaffold"]').click();
+  await page.locator('#writingScaffoldPanel:visible').waitFor();
+  assert.equal(await page.locator('#writingTitle').inputValue(), first[0].title);
+  assert.equal((await fetchJson(apiBase, '/api/v1/writing-projects?limit=20')).json.items.length, 2);
 });

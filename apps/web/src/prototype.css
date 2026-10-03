@@ -9208,7 +9208,7 @@
     .graph-map-panel.is-expanded {
       position: fixed;
       inset: 18px;
-      z-index: 80;
+      z-index: 1800;
       border-radius: 18px;
       box-shadow: 0 28px 60px rgba(17, 24, 39, 0.24);
     }

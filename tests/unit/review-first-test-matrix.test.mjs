@@ -138,7 +138,7 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/e2e/ai-review-flow-inline-errors.test.mjs",
     snippets: [
-      'test("AI inbox inline error blocks invalid reviewed JSON submit without PATCH"'
+      'test("AI inbox returns final editing to the note and blocks a viewpoint change without a reason"'
     ]
   },
   {

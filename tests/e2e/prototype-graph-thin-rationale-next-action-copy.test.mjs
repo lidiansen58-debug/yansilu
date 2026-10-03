@@ -113,6 +113,7 @@ test("prototype graph next-action keeps thin-rationale slices in relation-streng
   });
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {

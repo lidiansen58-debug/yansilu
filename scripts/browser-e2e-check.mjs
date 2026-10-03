@@ -44,8 +44,8 @@ const groups = [
       "prototype editor enter preserves ordinary blank paragraphs in wysiwyg",
       "prototype editor shows dirty state and supports Ctrl/Cmd+S sync",
       "prototype editor keeps long-form dirty drafts and save state isolated per tab",
-      "prototype editor stays editable after opening related panel and switching directories",
-      "prototype editor keeps content editable when toggling source and wysiwyg with related panel open",
+      "prototype editor stays editable after closing its related overlay and switching directories",
+      "prototype editor keeps content editable when toggling source and wysiwyg after closing the related overlay",
       "prototype editor confirms before closing or switching away from dirty note",
       "prototype editor restores autosaved draft after reload"
     ]

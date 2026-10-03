@@ -107,6 +107,7 @@ test("prototype graph focus keeps full relation workbench while canvas relation 
   assert.equal(supportsRelation.status, 201, JSON.stringify(supportsRelation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 

@@ -114,7 +114,7 @@ export function aiFallbackPolicyForRuntimeMode(runtimeMode = "auto") {
 export function aiDefaultsForRuntimeMode(runtimeMode = "auto") {
   const mode = normalizeAiRuntimeMode(runtimeMode);
   if (mode === "local_only") return { modelPack: "Privacy First", userMode: "Local / Private" };
-  if (mode === "cloud_only") return { modelPack: "Starter Auto", userMode: "Balanced" };
+  if (mode === "cloud_only") return { modelPack: "Global Optimized", userMode: "Balanced" };
   if (mode === "hybrid") return { modelPack: "Starter Auto", userMode: "Auto" };
   return { modelPack: "Starter Auto", userMode: "Auto" };
 }

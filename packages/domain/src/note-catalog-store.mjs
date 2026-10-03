@@ -3438,13 +3438,13 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
       .get(targetDirectoryId);
     if (!targetDir) throw new Error(`directoryId not found: ${targetDirectoryId}`);
 
-    if (effectiveRow.directory_id === targetDirectoryId) {
-      return mapNoteRow({ ...effectiveRow, directory_id: targetDirectoryId }, db);
-    }
-
     const oldAbsPath = resolved.fullPath;
     const originalMarkdown = await fs.readFile(oldAbsPath, "utf8");
     const parsed = parseMarkdownWithFrontmatter(originalMarkdown);
+    if (effectiveRow.directory_id === targetDirectoryId) {
+      return { ...mapNoteRow({ ...effectiveRow, directory_id: targetDirectoryId }, db),
+        body: parsed.body, fileRevision: fileRevision(originalMarkdown) };
+    }
     const targetType = resolveNoteTypeFromDirectory(db, targetDirectoryId);
     const typeChanged = targetType !== effectiveRow.note_type;
     let permanentMeta = null;
@@ -3467,6 +3467,7 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
     const relPath = path.relative(path.resolve(vaultPath), newAbsPath).replaceAll("\\", "/");
     const now = new Date().toISOString();
     let movedBody = parsed.body;
+    let movedMarkdown = originalMarkdown;
     const files = await prepareNoteMoveFiles(oldAbsPath, newAbsPath, stagedPath =>
       rewriteAssetLinksInMarkdownFile(stagedPath, effectiveRow.markdown_path, relPath, now,
         typeChanged ? { note_type: targetType, status: nextStatus,
@@ -3478,7 +3479,8 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
       db.exec("BEGIN IMMEDIATE;");
       transactionOpen = true;
       await files.publish();
-      movedBody = parseMarkdownWithFrontmatter(await fs.readFile(newAbsPath, "utf8")).body;
+      movedMarkdown = await fs.readFile(newAbsPath, "utf8");
+      movedBody = parseMarkdownWithFrontmatter(movedMarkdown).body;
       await files.assertUnchanged();
       db.prepare("UPDATE notes SET markdown_path = ?, note_type = ?, status = ?, updated_at = ? WHERE id = ?")
         .run(relPath, targetType, nextStatus, now, id);
@@ -3511,7 +3513,7 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
          LIMIT 1`
       )
       .get(id);
-    return attachNoteThinkingStatus({ ...mapNoteRow(refreshed, db), body: movedBody,
+    return attachNoteThinkingStatus({ ...mapNoteRow(refreshed, db), body: movedBody, fileRevision: fileRevision(movedMarkdown),
       ...(targetType === "permanent" ? { ...permanentMetadataFromFrontmatter({
         ...parsed.frontmatter,
         ...(permanentMeta ? { originality_status: permanentMeta.originalityStatus,

@@ -546,9 +546,7 @@ export async function createWritingProject(vaultPath, input = {}) {
   };
   const providedBookStructure = input.bookStructure !== undefined ? input.bookStructure : input.book_structure;
   const normalizedProvidedBookStructure = providedBookStructure === undefined ? null : normalizeBookStructure(providedBookStructure);
-  const bookStructure = normalizedProvidedBookStructure?.parts?.length
-    ? normalizedProvidedBookStructure
-    : buildDefaultBookStructure(project, basketNotes);
+  const bookStructure = normalizedProvidedBookStructure ?? buildDefaultBookStructure(project, basketNotes);
   await validateBookChapterDrafts(vaultPath, bookStructure);
 
   const DatabaseSync = await loadDatabaseSync();

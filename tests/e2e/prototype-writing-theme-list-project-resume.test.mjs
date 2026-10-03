@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, fetchJson, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 async function createWritingReadyPermanentNote(baseUrl, payload = {}) {
   const authorship = payload.authorship || { user_confirmed: true, ai_assisted: false };
@@ -96,30 +96,26 @@ test("prototype theme index list shows and uses a direct resume-project action w
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme List Resume Index" }).click();
-  await page.waitForFunction(() => {
-    const button = document.querySelector('[data-writing-theme-action="create-project"]');
-    return Boolean(button) && button.disabled === false;
-  }, null, { timeout: 10000 });
-  await page.click('[data-writing-theme-action="create-project"]');
+  const topicA = page.locator('#writingThemeIndexList [data-writing-index-card-id]', { hasText: "Theme List Resume Index" });
+  await topicA.locator('button').click();
+  await page.locator('#writingTitle:visible').waitFor();
+  assert.equal(await page.locator('#writingTitle').inputValue(), "Theme List Resume Index");
+  await page.locator('#btnWritingCreateScaffold').click();
+  await page.locator('#writingScaffoldPanel:visible').waitFor();
+  const first = (await fetchJson(apiBase, '/api/v1/writing-projects?limit=20')).json.items;
+  assert.equal(first.length, 1);
+  assert.ok(first[0].scaffold_id);
 
+  await page.locator('[data-writing-sidebar-action="topics"]').click();
+  const topicB = page.locator('#writingThemeIndexList [data-writing-index-card-id]', { hasText: "Theme List Resume Index" });
   await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从主题确定可写主题：wp_/);
-  }, 10000);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-
-  await waitFor(async () => {
-    const cardText = await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme List Resume Index" }).textContent();
-    assert.match(String(cardText || ""), /当前主题：wp_/);
-    assert.match(String(cardText || ""), /继续这个主题/);
-  }, 10000);
-
-  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme List Resume Index" }).locator('[data-writing-index-action="resume-project"]').click();
-
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从(?:主题索引|可写主题)继续(?:这个主题)?：wp_/);
-  }, 10000);
+    assert.equal(await topicB.locator('[data-writing-index-action="resume-scaffold"]').isVisible(), true);
+  });
+  await topicB.locator('[data-writing-index-action="resume-scaffold"]').click();
+  await page.locator('#writingScaffoldPanel:visible').waitFor();
+  assert.equal(await page.locator('#writingTitle').inputValue(), first[0].title);
+  const after = (await fetchJson(apiBase, '/api/v1/writing-projects?limit=20')).json.items;
+  assert.equal(after.length, 1);
+  assert.equal(after[0].id, first[0].id);
+  assert.equal(after[0].scaffold_id, first[0].scaffold_id);
 });
