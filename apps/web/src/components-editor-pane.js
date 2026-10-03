@@ -4585,7 +4585,19 @@ export class EditorPane {
     this.sourceDistillAiState.result = { ...this.sourceDistillAiState.result, draft };
     const adoptionState = this.sourceDistillAiState;
     const scope = this.state.noteMoveVaultScope;
-    const isCurrent = () => this.sourceDistillAiState === adoptionState && this.state.noteMoveVaultScope === scope;
+    const sourceBodySnapshot = adoptionState.sourceBodySnapshot;
+    const isCurrentState = () => this.sourceDistillAiState === adoptionState && this.state.noteMoveVaultScope === scope;
+    const sourceIsUnchanged = () => typeof sourceBodySnapshot === "string" && this.getEditorValue() === sourceBodySnapshot;
+    const markDraftStale = () => {
+      const message = "来源材料已修改，这份草稿基于旧版本；请重新提炼后再创建。";
+      if (isCurrentState()) {
+        this.setSourceDistillAiState({ ...adoptionState, status: CONTEXTUAL_AI_ACTION_STATUS.awaiting_confirmation, error: message });
+        this.onStatus(message, "warn");
+      }
+      return false;
+    };
+    if (!sourceIsUnchanged()) return markDraftStale();
+    const isCurrent = () => isCurrentState() && sourceIsUnchanged();
     this.sourceDistillAdopting = true;
     let created;
     try {
@@ -4599,7 +4611,15 @@ export class EditorPane {
     } finally {
       this.sourceDistillAdopting = false;
     }
-    if (!isCurrent()) return Boolean(created);
+    if (!isCurrentState()) return Boolean(created);
+    if (created) {
+      this.setSourceDistillAiState({
+        ...adoptionState,
+        status: CONTEXTUAL_AI_ACTION_STATUS.adopted
+      });
+      return true;
+    }
+    if (!sourceIsUnchanged()) return markDraftStale();
     if (!created) {
       this.setSourceDistillAiState({
         ...(this.sourceDistillAiState || {}),
@@ -4608,11 +4628,7 @@ export class EditorPane {
       });
       return false;
     }
-    this.setSourceDistillAiState({
-      ...(this.sourceDistillAiState || {}),
-      status: CONTEXTUAL_AI_ACTION_STATUS.adopted
-    });
-    return true;
+    return false;
   }
 
   async runSourceDistillAction(options = {}) {
@@ -4680,6 +4696,7 @@ export class EditorPane {
         noteId: note.id,
         status: CONTEXTUAL_AI_ACTION_STATUS.awaiting_confirmation,
         result,
+        sourceBodySnapshot: sourceBody,
         error: "",
         returnContext: { view: "editor", noteId: note.id }
       });

@@ -141,6 +141,7 @@ test("source-note distill action checks AI readiness before creating a permanent
   pane.isOriginalRecordableSource = () => true;
   pane.resolvedNoteType = () => "fleeting";
   pane.getEditorValue = () => "材料正文";
+  pane.onStatus = () => {};
   pane.pickPermanentDirectoryForNote = async () => "dir_original_default";
   pane.onStatus = (...args) => calls.push(["status", ...args]);
   pane.onStateChange = async (reason, payload) => {
@@ -281,6 +282,7 @@ test("source-note distill action renders an editable draft after AI is ready", a
   assert.deepEqual(calls.map((call) => call[1]), ["ensure-ai-ready-for-feature", "run-source-distill-ai"]);
   assert.equal(calls.at(-1)[2].sourceNoteId, "fn_ai_ready");
   assert.equal(pane.sourceDistillAiState.status, "awaiting_confirmation");
+  assert.equal(pane.sourceDistillAiState.sourceBodySnapshot, "材料正文");
   assert.equal(pane.sourceDistillAiState.result.draft.title, "材料笔记");
   assert.equal(calls.some((call) => call[1] === "record-original-from-note"), false);
 });
@@ -396,6 +398,7 @@ test("source-note distill draft creates a permanent note only after adoption", a
     actionId: "distill_material",
     noteId: "fn_ai_adopt",
     status: "awaiting_confirmation",
+    sourceBodySnapshot: "材料正文",
     result: {
       kind: "draft",
       draft: {
@@ -433,12 +436,14 @@ test("source-note distill draft does not mark adopted when note creation fails",
   pane.isOriginalRecordableSource = () => true;
   pane.resolvedNoteType = () => "fleeting";
   pane.getEditorValue = () => "材料正文";
+  pane.onStatus = () => {};
   pane.pickPermanentDirectoryForNote = async () => "dir_original_default";
   pane.onStateChange = async () => false;
   pane.sourceDistillAiState = {
     actionId: "distill_material",
     noteId: "fn_ai_fail",
     status: "awaiting_confirmation",
+    sourceBodySnapshot: "材料正文",
     result: {
       kind: "draft",
       draft: {
@@ -465,18 +470,55 @@ function adoptionRaceFixture() {
   pane.activeNote = () => ({ id: "source", title: "Source" });
   pane.isOriginalRecordableSource = () => true;
   pane.resolvedNoteType = () => "fleeting";
-  pane.getEditorValue = () => "Source body";
+  let sourceBody = "Source body";
+  pane.getEditorValue = () => sourceBody;
   pane.onStatus = () => {};
   pane.sourceDistillAiState = {
     noteId: "source", status: "awaiting_confirmation",
+    sourceBodySnapshot: "Source body",
     result: { kind: "draft", draft: { title: "Draft", content: "Confirmed text" } }
   };
   let choose;
   pane.pickPermanentDirectoryForNote = () => new Promise(resolve => { choose = resolve; });
   const calls = [];
   pane.onStateChange = async (reason, payload) => { calls.push({ reason, payload }); return true; };
-  return { pane, calls, choose: value => choose(value) };
+  return { pane, calls, choose: value => choose(value), editSource: value => { sourceBody = value; } };
 }
+
+test("a source edit after AI distillation makes its draft stale before adoption", async () => {
+  const { pane, calls, editSource } = adoptionRaceFixture();
+  editSource("Updated source body");
+
+  assert.equal(await pane.createPermanentNoteFromSourceDistill(), false);
+  assert.equal(calls.length, 0);
+  assert.equal(pane.sourceDistillAiState.status, "awaiting_confirmation");
+  assert.match(pane.sourceDistillAiState.error, /基于旧版本/);
+});
+
+test("a source edit while choosing a directory blocks stale AI draft creation", async () => {
+  const { pane, calls, choose, editSource } = adoptionRaceFixture();
+  const pending = pane.createPermanentNoteFromSourceDistill();
+  editSource("Updated source body");
+  choose("permanent-directory");
+
+  assert.equal(await pending, false);
+  assert.equal(calls.length, 0);
+  assert.equal(pane.sourceDistillAiState.status, "awaiting_confirmation");
+  assert.match(pane.sourceDistillAiState.error, /基于旧版本/);
+});
+
+test("successful adoption stays adopted when promotion adds its source marker", async () => {
+  const { pane, choose, editSource } = adoptionRaceFixture();
+  pane.onStateChange = async () => {
+    editSource("Source body\n\n[[generated permanent note]]");
+    return true;
+  };
+  const pending = pane.createPermanentNoteFromSourceDistill();
+  choose("permanent-directory");
+
+  assert.equal(await pending, true);
+  assert.equal(pane.sourceDistillAiState.status, "adopted");
+});
 
 test("closing an AI draft during directory selection prevents its adoption", async () => {
   const { pane, calls, choose } = adoptionRaceFixture();
