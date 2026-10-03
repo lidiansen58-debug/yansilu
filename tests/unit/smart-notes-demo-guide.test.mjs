@@ -1,10 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { withShortSmartNotesPractice } from "../../scripts/smart-notes-short-practice.mjs";
 
 function loadDemo() {
   return JSON.parse(fs.readFileSync("tests/fixtures/demo-smart-notes-product-thinking/demo.json", "utf8"));
 }
+
+test("current short practice names six saved outcomes and only links existing notes", () => {
+  const demo = withShortSmartNotesPractice(loadDemo());
+  const guide = demo.guide_notes.find(note => note.id === "GUIDE-SHORT-PRACTICE");
+  const titles = new Set(Object.values(demo).filter(Array.isArray).flat().map(note => note?.title).filter(Boolean));
+  assert.equal([...guide.body.matchAll(/^\d\. /gm)].length, 6);
+  for (const action of ["保存当前观点", "保存草稿", "导出文章 .md", "已有提纲或草稿"]) assert.ok(guide.body.includes(action));
+  assert.match(guide.body, /不需要 AI/);
+  assert.match(guide.body, /正文链接和手动关联同样进入网络/);
+  assert.match(guide.body, /示例观点不代表你的判断/);
+  for (const match of guide.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) assert.ok(titles.has(match[1]), `missing ${match[1]}`);
+  const writingGuide = demo.guide_notes.find(note => note.id === "GUIDE-INDEX-TO-WRITING");
+  for (const label of ["继续提纲", "继续草稿", "继续写"]) assert.ok(writingGuide.body.includes(`“${label}”`));
+  assert.doesNotMatch(writingGuide.body, /继续提纲\/草稿/);
+  assert.match(writingGuide.body, /已保存整稿/);
+});
 
 test("Smart Notes demo guide gives a beginner title-based path", () => {
   const demo = loadDemo();
