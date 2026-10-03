@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { withShortSmartNotesPractice } from "../../scripts/smart-notes-short-practice.mjs";
+import { SMART_NOTES_SHORT_PRACTICE_STEPS, smartNotesDemoActionLabel } from "../../apps/web/src/beginner-onboarding-flow.js";
+import { beginSmartNotesDemoPractice, completeSmartNotesDemoSavedJudgment } from "../../apps/web/src/smart-notes-demo-practice-progress.js";
 
 function loadDemo() {
   return JSON.parse(fs.readFileSync("tests/fixtures/demo-smart-notes-product-thinking/demo.json", "utf8"));
@@ -21,6 +23,21 @@ test("current short practice names six saved outcomes and only links existing no
   for (const label of ["继续提纲", "继续草稿", "继续写"]) assert.ok(writingGuide.body.includes(`“${label}”`));
   assert.doesNotMatch(writingGuide.body, /继续提纲\/草稿/);
   assert.match(writingGuide.body, /已保存整稿/);
+  assert.match(writingGuide.body, /点“开始写”选择这组素材，再点“生成提纲”/);
+});
+
+test("short practice instructs registered entry buttons rather than direct note links", () => {
+  const guide = withShortSmartNotesPractice(loadDemo()).guide_notes.find(note => note.id === "GUIDE-SHORT-PRACTICE");
+  assert.match(guide.body, /每一步都从上方练习按钮进入/);
+  assert.match(guide.body, /正文链接只用于阅读参考/);
+  for (const step of SMART_NOTES_SHORT_PRACTICE_STEPS) assert.ok(guide.body.includes(`“${smartNotesDemoActionLabel(step)}”`));
+  assert.doesNotMatch(guide.body, /打开\[\[我的观点/);
+  const state = {};
+  const step = SMART_NOTES_SHORT_PRACTICE_STEPS[0];
+  const saved = { id: step.targetNoteId, thesis: "用自己的话解释才会暴露理解缺口", distillationStatus: "confirmed" };
+  assert.equal(completeSmartNotesDemoSavedJudgment(state, saved, undefined), false);
+  const pending = beginSmartNotesDemoPractice(state, { key: step.key, noteId: step.targetNoteId, baseline: "" });
+  assert.equal(completeSmartNotesDemoSavedJudgment(state, saved, pending), true);
 });
 
 test("Smart Notes demo guide gives a beginner title-based path", () => {
