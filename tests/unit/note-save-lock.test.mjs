@@ -38,3 +38,18 @@ test("a pending note does not block another note or another vault", async t => {
   release();
   await first;
 });
+
+test("canonical vault aliases retain save call order while resolving the queue", async t => {
+  const root = await vault(t);
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const events = [];
+    await Promise.all([
+      withNoteSaveLock(root, "ordered", async () => {
+        events.push("first");
+        await new Promise(resolve => setImmediate(resolve));
+      }),
+      withNoteSaveLock(`${root}${path.sep}.`, "ordered", () => events.push("second"))
+    ]);
+    assert.deepEqual(events, ["first", "second"]);
+  }
+});

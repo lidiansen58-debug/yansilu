@@ -38,6 +38,7 @@ import {
 import {
   renderWritableThemeDiscoveryPanelDom
 } from "./writable-theme-discovery-panel.js";
+import { captureWritableThemeDiscoveryDrafts } from "./writable-theme-discovery-draft.js";
 import {
   updateWritingRelatedNoteCounters
 } from "./writing-related-notes-panel.js";
@@ -267,6 +268,7 @@ export function renderWritingPanelDom(deps = {}) {
     }
   }
   if (themeDiscoverySuggestions) {
+    captureWritableThemeDiscoveryDrafts(themeDiscoverySuggestions, writingState);
     const discoverySuggestions = Array.isArray(writingState.themeDiscoverySuggestions) ? writingState.themeDiscoverySuggestions : [];
     const showDiscoverySuggestions = Boolean(writingState.themeDiscoveryLoading || discoverySuggestions.length);
     themeDiscoverySuggestions.hidden = !showDiscoverySuggestions;

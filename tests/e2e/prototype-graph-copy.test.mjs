@@ -39,6 +39,7 @@ test("prototype graph interpretation uses 写作中心 wording", async (t) => {
   assert.equal(sourceNote.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 

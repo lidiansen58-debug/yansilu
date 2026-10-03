@@ -1,4 +1,5 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
+import { recordWritableThemeDiscoveryInput } from "./writable-theme-discovery-draft.js";
 import { recordWritingDraftInput } from "./writing-draft-save-controller.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import { selectWritingDraftTarget, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
@@ -98,6 +99,7 @@ export function installWritingThemeIndexEventHandlers(options = {}) {
   add("writingThemeDiscoverySuggestions", "click", async (event) => {
     await handleWritingThemeDiscoveryClick(event, deps());
   });
+  add("writingThemeDiscoverySuggestions", "input", event => recordWritableThemeDiscoveryInput(event, deps().writingState));
 
   return registrations;
 }
@@ -1091,8 +1093,8 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
     const resetButton = setButtonPending(button, true, "正在选择...");
     try {
       const { indexCard, noteIds, addedCount } = await useThemeIndexAsWritingEntry(indexId, {
-        replaceBasket: false,
-        resetContext: false,
+        replaceBasket: true,
+        resetContext: true,
         source: "writing_theme_index_list"
       });
       setStatus(
@@ -1294,7 +1296,11 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
     if (feedback) feedback.textContent = "正在检查笔记...";
     try {
       const prepare = deps.prepareWritingNote || (id => prepareWritingEntryNote(id, deps));
-      if (!await prepare(noteId)) { if (feedback) feedback.textContent = "已取消，笔记未加入写作。"; return; }
+      if (!await prepare(noteId)) {
+        if (feedback) feedback.textContent = "已取消，笔记未加入写作。";
+        if (preparationIsCurrent()) setStatus("已取消，笔记未加入写作。", "ok", { notify: true });
+        return;
+      }
       if (!preparationIsCurrent()) throw new Error("写作主题已切换或笔记库已改变，本次未自动加入。请在目标主题重新操作。");
       action = "add";
     } catch (error) {

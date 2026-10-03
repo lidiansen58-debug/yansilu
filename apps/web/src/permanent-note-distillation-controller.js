@@ -87,6 +87,17 @@ export class PermanentNoteDistillationController {
     });
   }
 
+  applyAdoptedNote(note, refreshed) {
+    Object.assign(note, refreshed);
+    const prefill = this.currentPrefill(note.id);
+    if (prefill.viewpointDraft) {
+      this.setPrefill(note.id, { ...prefill, viewpointDraft: {
+        ...prefill.viewpointDraft, originalThesis: permanentNoteViewpointBaseline(note)
+      } });
+    }
+    this.host.refreshPermanentWorkspaceSnapshot(note, this.host.activeTab());
+  }
+
   showTemplateMergeChoice(picker, button) {
     const host = this.host;
     const choiceBox = picker?.querySelector?.("[data-distillation-template-merge-choice]");

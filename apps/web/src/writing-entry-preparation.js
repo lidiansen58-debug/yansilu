@@ -20,10 +20,11 @@ export function renderWritingEntryPreparation(note, { escapeHtml, isWritingEligi
 
 export async function prepareWritingEntryNote(noteId, deps) {
   const { state, editor, mapNoteItem, confirm = message => window.confirm(message),
-    read = fetchNote, check = checkOriginality, update = updateNote } = deps;
+    read = fetchNote, check = checkOriginality, update = updateNote, getVaultPath = () => "" } = deps;
   const scope = state.noteMoveVaultScope ||= {};
+  const vaultPath = getVaultPath();
   const assertCurrent = () => {
-    if (state.noteMoveVaultScope !== scope || state.noteMoveVaultSwitching || state.noteMoveVaultUncertain || state.unresolvedNoteMove) {
+    if (getVaultPath() !== vaultPath || state.noteMoveVaultScope !== scope || state.noteMoveVaultSwitching || state.noteMoveVaultUncertain || state.unresolvedNoteMove) {
       throw new Error("笔记库或移动状态已改变，请完成当前操作后重试。");
     }
     if ((state.tabs || []).some(tab => tab.noteId === noteId && tab.dirty)) {
@@ -52,6 +53,9 @@ export async function prepareWritingEntryNote(noteId, deps) {
   assertCurrent();
   if (latest.body !== note.body || latest.updatedAt !== note.updatedAt) throw new Error("笔记在检查期间发生了变化，请重新确认。");
   const updated = await update(noteId, {
+    expectedBody: latest.body,
+    ...(latest.fileRevision ? { expectedRevision: latest.fileRevision } : {}),
+    ...(vaultPath ? { expectedVaultPath: vaultPath } : {}),
     status: "active", originalityStatus: evaluation.status, originalitySimilarity: evaluation.similarity,
     authorship: { ...latest.authorship, user_confirmed: true }
   });

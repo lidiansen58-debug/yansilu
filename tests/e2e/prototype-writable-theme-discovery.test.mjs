@@ -64,6 +64,10 @@ test("prototype writing center discovers a writable theme suggestion and saves i
   await suggestion.locator('[data-theme-discovery-field="title"]').fill("User Confirmed Discovery Theme");
   await suggestion.locator('[data-theme-discovery-field="centralQuestion"]').fill("Why must writable theme discovery stay confirm-first?");
   await suggestion.locator('[data-theme-discovery-field="membershipReason"]').fill("These notes all describe why automatic discovery should remain an editable suggestion.");
+  await suggestion.locator('[data-theme-discovery-field="item-rationale"]').first().fill("The first note provides evidence for this human-confirmed theme.");
+  await page.locator('.rail-btn[data-module="settings"]').click();
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  assert.equal(await suggestion.locator('[data-theme-discovery-field="title"]').inputValue(), "User Confirmed Discovery Theme");
   await suggestion.locator('[data-theme-discovery-action="save"]').click();
 
   let savedIndex = null;
@@ -71,9 +75,10 @@ test("prototype writing center discovers a writable theme suggestion and saves i
     const list = await fetchJson(apiBase, "/api/v1/index-cards?indexType=topic&limit=20");
     assert.equal(list.status, 200, JSON.stringify(list.json));
     savedIndex = list.json.items.find((item) => item.title === "User Confirmed Discovery Theme");
-    assert.ok(savedIndex);
+    assert.ok(savedIndex, await page.locator("#statusText").textContent());
     assert.equal(savedIndex.central_question || savedIndex.centralQuestion, "Why must writable theme discovery stay confirm-first?");
     assert.ok((savedIndex.items || []).length >= 3);
+    assert.ok(savedIndex.items.some(item => item.rationale === "The first note provides evidence for this human-confirmed theme."));
   }, 10000);
 
   await waitFor(async () => {

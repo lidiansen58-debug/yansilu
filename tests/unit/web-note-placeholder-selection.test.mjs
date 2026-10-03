@@ -23,7 +23,7 @@ function fixture({ body = template, bodyLoaded = true, tab, fetchNote } = {}) {
   const runtime = createNotePlaceholderRuntime(() => deps);
   const create = createNoteCreationController({ ...deps, findUntitledPlaceholder: runtime.findUntitledPlaceholder,
     folderById: () => ({}), openNoteById: () => {}, createId: () => "new",
-    createNote: async input => { creates++; return { ...input, id: "new", title, bodyLoaded: true }; } });
+    createNote: async input => { creates++; return { ...input, id: `note_${input.clientCreationId}`, title, bodyLoaded: true }; } });
   return { state, original, runtime, create, creates: () => creates, setTemplate: body => { currentTemplate = body; } };
 }
 
@@ -55,7 +55,7 @@ test("a stale clean tab cannot hide nonempty fetched content", async () => {
     fetchNote: async () => ({ id: "old", folderId: "f", title, body: fullBody }) });
   const result = await f.create();
   assert.equal(result.reused, false);
-  assert.equal(result.note.id, "new");
+  assert.equal(result.note.id, "note_new");
   assert.equal(f.creates(), 1);
 });
 

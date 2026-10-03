@@ -1,6 +1,7 @@
 import {
   runConfirmedSmartNotesDemoImport
 } from "./smart-notes-demo-import-flow.js";
+import { openExplicitStartupNoteRoute } from "./startup-explicit-note-route.js";
 import {
   SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID,
   smartNotesDemoExistingFolder,
@@ -30,7 +31,6 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
   const startupParams = new URLSearchParams(windowRef?.location?.search || "");
   const startupDemo = String(startupParams.get("demo") || "").trim().toLowerCase();
   const explicitNoteId = startupParams.get("note") || "";
-  const initialNote = explicitNoteId ? state.notes?.find((note) => note.id === explicitNoteId) : null;
   const shouldSkipAutoOpen = () => getStartupAutoOpenSuppressed() === true || Boolean(state.activeTabId || state.selectedFileId);
   const openedDemo =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
@@ -44,12 +44,8 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     renderAll();
     return { route: "demo", startupDemo };
   }
-  if (initialNote) {
-    state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
-    state.selectedFolderId = initialNote.folderId;
-    openNoteById(explicitNoteId);
-    return { route: "note", noteId: explicitNoteId };
-  }
+  const explicitRoute = await openExplicitStartupNoteRoute(explicitNoteId, deps);
+  if (explicitRoute) return explicitRoute;
   if (!usingLocalFallbackData) {
     const demoFolder = smartNotesDemoExistingFolder(state.folders);
     if (demoFolder?.id) {

@@ -4,12 +4,12 @@ import assert from "node:assert/strict";
 import {
   addWritingBasketIdsForRuntime,
   clearWritingBasketForRuntime,
-  createWritingBasketSession,
   parseWritingBasketIdsForRuntime,
   removeWritingBasketIdForRuntime,
   setWritingBasketIdsForRuntime,
   writingBasketIdsFromRaw
 } from "../../apps/web/src/writing-basket-state.js";
+import { createWritingBasketSession } from "../../apps/web/src/writing-basket-session.js";
 
 function sessionFixture() {
   const saved = new Map();

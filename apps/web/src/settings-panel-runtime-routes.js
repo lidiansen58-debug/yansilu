@@ -152,7 +152,11 @@ export function createSettingsPanelRuntimeRoutes(depsProvider = () => ({})) {
   }
 
   function settingsModuleHeaderCopy() {
-    return computeSettingsModuleHeaderCopy({ settingsState: deps().settingsState });
+    const current = deps();
+    const header = computeSettingsModuleHeaderCopy({ settingsState: current.settingsState });
+    const kind = header.templateKind;
+    const saveButton = kind ? current.$?.(`settingsSave${kind === "literature" ? "Literature" : "Permanent"}Template`) : null;
+    return { ...header, templateSaveDisabled: Boolean(saveButton?.disabled), templateSaveTitle: saveButton?.title || "" };
   }
 
   function setSettingsSection(sectionId = "", options = {}) {

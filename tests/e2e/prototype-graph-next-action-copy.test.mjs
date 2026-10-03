@@ -112,6 +112,7 @@ test("prototype graph next-action note describes carrying the current slice into
   });
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {

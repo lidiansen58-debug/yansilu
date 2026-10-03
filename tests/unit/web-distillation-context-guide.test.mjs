@@ -53,7 +53,8 @@ test("permanent-note distillation renders only the compact editing form", () => 
   assert.doesNotMatch(html, /inspector-section-head-compact/);
   assert.doesNotMatch(html, /data-note-distillation-readiness/);
   assert.doesNotMatch(html, /data-permanent-note-readiness-card/);
-  assert.doesNotMatch(html, /data-note-embedded-ai-workspace/);
+  assert.match(html, /<details class="viewpoint-optional-details">[\s\S]*data-note-embedded-ai-workspace[\s\S]*<\/details>/);
+  assert.doesNotMatch(html, /<details class="viewpoint-optional-details"[^>]*\bopen\b/);
   assert.doesNotMatch(html, /data-note-distillation-quality/);
   assert.doesNotMatch(html, /distillation-path-strip/);
   assert.doesNotMatch(html, /证据 \/ 来源/);

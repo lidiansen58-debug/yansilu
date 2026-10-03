@@ -114,6 +114,7 @@ test("prototype graph next-action keeps sparse three-note slices in relation-bui
   });
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {

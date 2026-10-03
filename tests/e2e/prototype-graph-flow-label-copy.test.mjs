@@ -47,6 +47,7 @@ test("prototype graph flow relation label uses 进入草稿 wording", async (t) 
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 

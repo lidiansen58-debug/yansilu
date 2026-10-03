@@ -41,6 +41,31 @@ function distillationForm(values = {}) {
   };
 }
 
+test("adopting an AI draft refreshes its viewpoint baseline and preserves a human draft", () => {
+  const note = { id: "pn1", thesis: "Before" };
+  const tab = { noteId: note.id };
+  let refreshed = 0;
+  const controller = new PermanentNoteDistillationController({
+    readTemplateVariantPreference: () => "", templateVariantPreferenceMeta: () => ({ key: "", label: "" }),
+    activeTab: () => tab,
+    refreshPermanentWorkspaceSnapshot: (item, activeTab) => {
+      assert.equal(item, note);
+      assert.equal(activeTab, tab);
+      refreshed += 1;
+    }
+  });
+  controller.setPrefill(note.id, { viewpointDraft: {
+    thesis: "My pending judgment", originalThesis: "Before", boundaryOrCounterpoint: "My boundary"
+  } });
+  controller.applyAdoptedNote(note, { thesis: "Adopted suggestion" });
+  const draft = controller.currentPrefill(note.id).viewpointDraft;
+  assert.equal(note.thesis, "Adopted suggestion");
+  assert.equal(draft.originalThesis, "Adopted suggestion");
+  assert.equal(draft.thesis, "My pending judgment");
+  assert.equal(draft.boundaryOrCounterpoint, "My boundary");
+  assert.equal(refreshed, 1);
+});
+
 test("distillation model normalizes empty and remembered prefill state", () => {
   assert.deepEqual(currentPermanentNoteDistillationPrefill(null, "pn1"), emptyPermanentNoteDistillationPrefill("pn1"));
 

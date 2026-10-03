@@ -89,9 +89,9 @@ async function optionalPlaywright(t) {
 
 async function waitForPrototypeReady(page) {
   await waitFor(async () => {
-    assert.equal(await page.locator("#statusText").isVisible(), true);
+    assert.equal(await page.locator("#statusText").count(), 1);
     assert.equal(
-      await page.evaluate(() => Boolean(window.__prototypeState && typeof window.__prototypeState === "object")),
+      await page.evaluate(() => Boolean(window.__prototypeState && window.__prototypeState.appStartupPending === false)),
       true
     );
   }, 10000);
@@ -197,7 +197,8 @@ async function adoptSuggestionAsDraftViaApi(baseUrl, fixture) {
 }
 
 async function openAiInboxModule(page) {
-  await page.locator('.rail-btn[data-module="aiInbox"]').click();
+  await page.locator("#systemMessagesButton").click();
+  await page.locator("#btnSystemMessageOpenAiInbox").click();
   await waitFor(async () => {
     assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "aiInbox");
     assert.equal(await page.locator("#aiInboxPanel").isVisible(), true);
@@ -242,7 +243,7 @@ async function filterAiSuggestionsByTarget(page, targetId) {
   await page.locator("#btnAiSuggestionsApplyFilters").click();
 }
 
-test("AI inbox inline error blocks invalid reviewed JSON submit without PATCH", async (t) => {
+test("AI inbox returns final editing to the note and blocks a viewpoint change without a reason", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -276,19 +277,16 @@ test("AI inbox inline error blocks invalid reviewed JSON submit without PATCH", 
   await reviewedItem.waitFor();
   await reviewedItem.click();
 
-  await waitFor(async () => {
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft/);
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill("{not valid json}");
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]').click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /must be valid JSON/i);
-  }, 8000);
+  assert.equal(await page.locator("#aiInboxSuggestionContentEditor").count(), 0);
+  await page.locator(`#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-open-note="${fixture.noteId}"]`).click();
+  await page.waitForFunction(noteId => window.__prototypeState?.tabs.find(tab => tab.id === window.__prototypeState.activeTabId)?.noteId === noteId, fixture.noteId);
+  if (!await page.locator('#relatedPanel').isVisible()) await page.locator('#btnShowRelated').click();
+  await page.locator('[data-permanent-workspace-tab="viewpoint"]').click();
+  await page.locator("textarea[name='thesis']").fill("The user changed the adopted judgment and must explain why.");
+  const reason = page.locator("textarea[name='thesisChangeReason']");
+  await reason.waitFor({ state: "visible" });
+  await page.locator("[data-note-distillation-form] button[type='submit']").click();
+  assert.equal(await reason.evaluate(input => input.validity.valueMissing), true);
 
   assert.equal(patchCount, 0);
   const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);

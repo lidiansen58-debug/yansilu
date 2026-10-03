@@ -16,11 +16,6 @@ for (const outcome of ["success", "failure", "missing-result"]) {
     await page.locator("#btnToggleSearch").click();
     await page.locator(`[data-search-note="${note.id}"]`).click();
     if (!(await page.locator("#editorHost .cm-content").isVisible())) await page.locator("#btnModeToggle").click();
-    await page.locator("#editorHost .cm-content:visible").click();
-    await page.keyboard.press("Control+End");
-    await page.keyboard.insertText("\n\n保存失败时也要保留这句话。");
-    await page.waitForFunction(() => window.__prototypeEditor.activeTab()?.dirty);
-    const expected = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
     let release, requested = false;
     const held = new Promise(resolve => { release = resolve; });
     const endpoint = `**/api/v1/notes/${note.id}`;
@@ -34,6 +29,11 @@ for (const outcome of ["success", "failure", "missing-result"]) {
         : { status: 200, json: { item: null } });
     });
     try {
+      await page.locator("#editorHost .cm-content:visible").click();
+      await page.keyboard.press("Control+End");
+      await page.keyboard.insertText("\n\n保存失败时也要保留这句话。");
+      await page.waitForFunction(() => window.__prototypeEditor.activeTab()?.dirty);
+      const expected = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
       await page.keyboard.press("Control+s");
       await waitFor(() => assert.equal(requested, true));
       assert.doesNotMatch(await page.locator("#statusText").textContent(), /当前修改已同步|已同步到 Markdown/);
@@ -43,7 +43,8 @@ for (const outcome of ["success", "failure", "missing-result"]) {
       await page.waitForFunction(() => !window.__prototypeEditor.savingPromise);
       if (outcome !== "success") {
         assert.equal(await page.evaluate(() => window.__prototypeEditor.activeTab().dirty), true);
-        assert.equal(await page.evaluate(() => window.__prototypeEditor.activeTab().saveUiState.mode), "error");
+        // A server failure or missing write result cannot prove that no disk write happened.
+        assert.equal(await page.evaluate(() => window.__prototypeEditor.activeTab().saveUiState.mode), "uncertain");
         const draft = await page.evaluate(id => JSON.parse(localStorage.getItem(`yansilu:draft:${id}`)), note.id);
         assert.equal(draft.body.trimEnd(), expected.trimEnd());
         assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body, note.body);

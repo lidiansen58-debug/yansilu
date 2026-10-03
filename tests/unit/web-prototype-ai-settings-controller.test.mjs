@@ -33,6 +33,10 @@ test("prototype AI settings helpers keep provider defaults and runtime policies 
     modelPack: "Privacy First",
     userMode: "Local / Private"
   });
+  assert.deepEqual(aiDefaultsForRuntimeMode("cloud_only"), {
+    modelPack: "Global Optimized",
+    userMode: "Balanced"
+  });
 });
 
 test("prototype AI settings helpers select only built-in Ollama catalog models", () => {

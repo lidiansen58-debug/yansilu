@@ -83,7 +83,6 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
     const {
       $: selectById = () => null,
       createWritingProject = async () => null,
-      currentWritingBookStructure = () => null,
       loadWritingDraftVersions = async () => {},
       loadWritingProjectsList = async () => {},
       loadWritingScaffoldVersions = async () => {},
@@ -92,7 +91,6 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       setStatus = () => {},
       showWritingResult = () => {},
       syncWritingLocalBookIdeasFromProject = () => {},
-      writingKnownNoteById = () => null,
       writingState = {}
     } = runtimeDeps();
     const form = writingProjectFormInput({
@@ -122,11 +120,9 @@ export function createWritingProjectRuntimeController(depsProvider = () => ({}))
       return null;
     }
     try {
-      const bookStructure = currentWritingBookStructure({
-        notes: basketNoteIds.map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId }),
-        includeLocalIdeas: true
-      });
-      const project = await createWritingProject({ ...actionPlan.payload, bookStructure });
+      // Article themes start with an empty chapter directory. Suggested book
+      // designs become persisted chapters only through an explicit book action.
+      const project = await createWritingProject({ ...actionPlan.payload, bookStructure: { schema_version: 1, parts: [] } });
       writingState.project = project;
       syncWritingLocalBookIdeasFromProject(project);
       writingState.scaffold = null;

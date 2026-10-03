@@ -19,12 +19,13 @@ test("UX feedback: an unconfirmed permanent note can be confirmed and added to w
   await page.locator("#btnToggleSearch").click();
   await page.locator(`[data-search-note="${note.id}"]`).click();
   await page.locator('[data-module="writing"]').click();
-  await page.getByRole("button", { name: "相关笔记 0", exact: true }).click();
+  await page.locator('[data-writing-sidebar-action="related"]').click();
+  await page.locator('#writingCandidateDetails > summary').click();
   const prepare = page.getByRole("button", { name: "确认并加入相关笔记", exact: true });
   await prepare.waitFor();
   page.once("dialog", dialog => dialog.dismiss());
   await prepare.click();
-  await waitFor(async () => assert.match(await page.locator("[data-writing-preparation-status]").innerText(), /已取消/));
+  await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /已取消/));
   assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.authorship.user_confirmed, false);
   page.once("dialog", dialog => dialog.accept());
   await prepare.click();
@@ -34,6 +35,40 @@ test("UX feedback: an unconfirmed permanent note can be confirmed and added to w
   assert.equal(saved.authorship.user_confirmed, true);
   assert.equal(saved.body, note.body);
   assert.equal(await page.locator(`#writingBasketList article[data-writing-note-id="${note.id}"]`).isVisible(), true);
+});
+
+test("UX feedback: writing confirmation rejects an external edit before its metadata write", async t => {
+  const stack = await setup(t);
+  if (!stack) return;
+  const { page, apiBase } = stack;
+  const note = (await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: "# A checked judgment\n\n## 核心观点\nReopening saved content verifies that it is durable."
+  })).json.item;
+  await page.locator("#btnToggleSearch").click();
+  await page.locator(`[data-search-note="${note.id}"]`).click();
+  await page.locator('[data-module="writing"]').click();
+  await page.locator('[data-writing-sidebar-action="related"]').click();
+  await page.locator('#writingCandidateDetails > summary').click();
+  const changedBody = "# An external judgment\n\n## 核心观点\nA changed file requires a fresh human confirmation.";
+  let intercepted = 0;
+  await page.route(`**/api/v1/notes/${note.id}`, async route => {
+    if (route.request().method() !== "PUT") return route.continue();
+    intercepted += 1;
+    const external = await putJson(apiBase, `/api/v1/notes/${note.id}`, { body: changedBody });
+    assert.equal(external.status, 200);
+    await route.continue();
+  });
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "确认并加入相关笔记", exact: true }).click();
+  await waitFor(async () => {
+    assert.equal(intercepted, 1);
+    assert.match(await page.locator("#statusText").textContent(), /其他地方修改|发生了变化|本次未覆盖/);
+  });
+  const saved = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
+  assert.equal(saved.body, `${changedBody}\n`);
+  assert.equal(saved.authorship.user_confirmed, false);
+  assert.equal(saved.status, "draft");
+  assert.equal(await page.locator(`#writingBasketList article[data-writing-note-id="${note.id}"] [data-writing-action="remove"]`).count(), 0);
 });
 
 test("UX feedback: new-note verifies loaded blank content against disk", async t => {
@@ -416,7 +451,7 @@ test("UX feedback: create persists a file and failure preserves the previous not
   await page.locator("#btnNewNote").click();
   await waitFor(async () => {
     assert.equal(await page.locator("#statusBar").isVisible(), true);
-    assert.match(await page.locator("#statusText").innerText(), /未能创建笔记/);
+    assert.match(await page.locator("#statusText").innerText(), /创建结果尚未确认/);
     assert.equal(await page.locator(".tab").count(), before);
   });
   await page.screenshot({ path: path.join(os.tmpdir(), "yansilu-ux-create-error.png") });
@@ -679,7 +714,8 @@ for (const fail of [false, true]) {
     await page.keyboard.type("Editing works again.");
     const saved = page.waitForResponse(response => response.request().method() === "PUT" && response.url().includes(`/api/v1/notes/${id}`));
     await page.keyboard.press("Control+s");
-    assert.equal((await saved).status(), 200);
+    const saveResponse = await saved;
+    assert.equal(saveResponse.status(), 200, await saveResponse.text());
     const current = (await fetchJson(apiBase, `/api/v1/notes/${id}`)).json.item;
     assert.match(current.body, /Editing works again/);
     assert.doesNotMatch(current.body, /Must not enter/);
