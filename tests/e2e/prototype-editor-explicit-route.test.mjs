@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 for (const kind of ["original", "fleeting", "literature"]) {
@@ -53,4 +54,89 @@ test("an unavailable explicit note shows the editor with an error and does not o
   assert.equal(await page.evaluate(() => window.__prototypeState.selectedFileId), null);
   const notes = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(notes.json.total, 1);
+});
+
+async function holdExplicitStartupNoteRead(t, page, noteId) {
+  let release, captured;
+  const gate = new Promise(resolve => { release = resolve; });
+  const capturedPromise = new Promise(resolve => { captured = resolve; });
+  let held = false;
+  await page.route(`**/api/v1/notes/${noteId}`, async route => {
+    if (held || route.request().method() !== "GET") return route.continue();
+    held = true;
+    const response = await route.fetch();
+    captured();
+    await gate;
+    await route.fulfill({ response });
+  });
+  t.after(release);
+  return { capturedPromise, release };
+}
+
+test("late explicit startup note reads cannot reappear after a real vault switch", { timeout: 30000 }, async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
+  if (!stack) return;
+  const { page, apiBase, webBase, vaultPath } = stack;
+  const note = (await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_fleeting_default", body: "# Old vault private note\n\nOnly belongs to vault A."
+  })).json.item;
+  const held = await holdExplicitStartupNoteRead(t, page, note.id);
+  try {
+    await page.goto(`${webBase}/prototype?note=${note.id}`, { waitUntil: "domcontentloaded" });
+    await held.capturedPromise;
+    await page.locator('.rail-btn[data-module="settings"]').click();
+    await page.locator('[data-settings-item="current-vault"]').click();
+    const target = path.join(vaultPath, "startup-vault-b");
+    await page.locator("#settingsVaultPath").fill(target);
+    await page.locator("#settingsSwitchVault").click();
+    await waitFor(async () => assert.equal((await fetchJson(apiBase, "/api/v1/vault")).json.item.vaultPath, target));
+    await page.locator("[data-vault-switch-recovery]").waitFor({ state: "detached" });
+    const before = await page.evaluate(() => ({
+      module: window.__prototypeState.module,
+      selected: window.__prototypeState.selectedFileId,
+      folder: window.__prototypeState.selectedFolderId
+    }));
+    held.release();
+    await page.waitForLoadState("networkidle");
+    const after = await page.evaluate(id => ({
+      module: window.__prototypeState.module,
+      selected: window.__prototypeState.selectedFileId,
+      folder: window.__prototypeState.selectedFolderId,
+      status: document.querySelector("#statusText").textContent,
+      leaked: window.__prototypeState.notes.some(note => note.id === id),
+      tabs: window.__prototypeState.tabs.length
+    }), note.id);
+    assert.equal(after.leaked, false);
+    assert.equal(after.tabs, 0);
+    assert.deepEqual({ module: after.module, selected: after.selected, folder: after.folder }, before);
+    assert.doesNotMatch(after.status, /无法打开笔记|笔记已不存在/);
+    assert.equal((await fetchJson(apiBase, "/api/v1/vault")).json.item.vaultPath, target);
+  } finally { held.release(); }
+});
+
+test("explicit startup hydration and concurrent directory loading render a note only once", { timeout: 30000 }, async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
+  if (!stack) return;
+  const { page, apiBase, webBase } = stack;
+  const note = (await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_fleeting_default", body: "# Same vault note\n\nOne catalog row."
+  })).json.item;
+  const held = await holdExplicitStartupNoteRead(t, page, note.id);
+  try {
+    await page.goto(`${webBase}/prototype?note=${note.id}`, { waitUntil: "domcontentloaded" });
+    await held.capturedPromise;
+    await page.locator('[data-action="quick-fleeting"]').click();
+    await page.waitForFunction(id => window.__prototypeState.notes.some(note => note.id === id), note.id);
+    held.release();
+    await page.waitForLoadState("networkidle");
+    assert.equal(await page.evaluate(id => window.__prototypeState.notes.filter(note => note.id === id).length, note.id), 1);
+    assert.equal(await page.locator(`.explorer-item[data-id="${note.id}"]`).count(), 1);
+    assert.equal(await page.evaluate(() => window.__prototypeEditor.activeNote()?.id), note.id);
+  } finally { held.release(); }
 });
