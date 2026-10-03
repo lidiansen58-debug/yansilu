@@ -8,6 +8,8 @@ const ISSUE_LABELS = Object.freeze({
 
 const text = (value) => String(value || "").trim();
 const quoteText = (value) => text(value).replace(/\s+/g, " ");
+const sectionEvidenceText = (section = {}) => [text(section.heading), text(section.purpose)].filter(Boolean).join(" — ");
+const repeatedClaimForSection = (section = {}) => quoteText(section.purpose || section.heading);
 
 export function outlineCheckContract() {
   return { checks: [{
@@ -18,7 +20,7 @@ export function outlineCheckContract() {
     sourceNoteIds: ["provided note id; empty for structural issues"],
     evidenceQuote: "verbatim excerpt for contradictions; otherwise empty",
     repeatedClaim: "same complete claim made by both sections; only for repetition",
-    sectionEvidence: [{ sectionNumber: 1, quote: "short exact heading/purpose excerpt; only for repetition" }]
+    sectionEvidence: [{ sectionNumber: 1, quote: "entire exact heading and purpose; only for repetition" }]
   }] };
 }
 
@@ -28,7 +30,7 @@ export function outlineCheckInstructions() {
     "First check for contradictions with the supplied notes and repeated sections; then check transitions and missing evidence.",
     "Use 1-based sectionNumbers to locate each issue in the supplied section array. Repetition must cite at least two sections.",
     "Repetition means the same claim or step is needlessly made twice, not merely the same subject or shared keywords. Related claims, principle versus method, complementary methods, objections and replies are NOT repetition.",
-    "For repetition, state the shared complete proposition in repeatedClaim and copy a short exact heading or purpose excerpt from EACH cited section into sectionEvidence. If the sections make different claims, do not suggest merging them.",
+    "For repetition, report only when the complete purpose is identical across all cited sections (or the full heading when a purpose is empty). Copy each cited section's entire heading and purpose into sectionEvidence, not a short excerpt. repeatedClaim must exactly match that shared purpose or heading. If only the topic is shared, or the purposes differ, do not report repetition.",
     "重复不是主题相同：解释概念与检验记忆、定义与应用、支持与反驳，可以各自成节。只有重复同一判断或同一步骤且没有新增作用时才报重复。不要为凑建议数量挑毛病。",
     "总览/引入与正文展开、正文与结尾回顾，作用不同，不算重复。例：开头说明要改善睡眠，正文分别介绍运动和作息，不报重复；两个正文小节都只说同一项运动改善睡眠，才可能重复。",
     "Prioritize precision. Only report definite faults, not optional improvements. Compare the role AND claim of each section before reporting repetition. Introducing the scope versus explaining a method is not duplication.",
@@ -65,13 +67,17 @@ export function normalizeOutlineCheckResponse(request, parsed) {
     if (check.kind === "repetition") {
       if (typeof check.repeatedClaim !== "string" || !text(check.repeatedClaim) || !Array.isArray(check.sectionEvidence) ||
         check.sectionEvidence.length !== numbers.length) fail("AI 未提供章节重复的具体依据，结果未采用，请重试。");
+      const repeatedClaim = quoteText(check.repeatedClaim);
+      if (numbers.some(number => repeatedClaim !== repeatedClaimForSection(sections[number - 1]))) {
+        fail("AI 的重复判断没有与每个章节的完整要点一致，结果未采用，请重试。");
+      }
       const cited = new Set();
       for (const evidence of check.sectionEvidence) {
         const number = evidence?.sectionNumber;
         const excerpt = typeof evidence?.quote === "string" ? quoteText(evidence.quote) : "";
         const section = sections[number - 1];
         if (!numbers.includes(number) || cited.has(number) || !excerpt || !section ||
-          ![section.heading, section.purpose].some(value => quoteText(value).includes(excerpt))) {
+          excerpt !== quoteText(sectionEvidenceText(section))) {
           fail("AI 的重复依据不在对应章节中，结果未采用，请重试。");
         }
         cited.add(number);

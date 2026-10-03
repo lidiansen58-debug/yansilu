@@ -32,13 +32,33 @@ test("outline checks retain located diagnostics, verified quotes and missing evi
   assert.deepEqual(result.raw, response);
 });
 
-test("repetition needs exact evidence from every cited section, not topic labels", () => {
+test("repetition needs an identical complete purpose or heading and full section evidence", () => {
   for (const change of [
     { repeatedClaim: "" }, { sectionEvidence: [] },
     { sectionEvidence: [{ sectionNumber: 2, quote: "Explain" }, { sectionNumber: 2, quote: "Explain" }] },
     { sectionEvidence: [{ sectionNumber: 2, quote: "Explain" }, { sectionNumber: 3, quote: "Invented" }] },
+    { repeatedClaim: "Explain why", sectionEvidence: [{ sectionNumber: 2, quote: "Explain" }, { sectionNumber: 3, quote: "Explain" }] },
     { sectionEvidence: [{ sectionNumber: 2, quote: "Explain" }, { sectionNumber: 1, quote: "Only memorize" }] }
   ]) assert.throws(() => mergeWritingStrongModelResponse(request(), { checks: [{ ...repetition, ...change }] }));
+});
+
+test("shared topics in complementary sections cannot pass as repeated claims", () => {
+  const outlineRequest = buildWritingStrongModelRequest({ privacyMode: "local_only",
+    currentOutline: { sections: [
+      { heading: "Exercise and sleep", purpose: "Explain how exercise can improve sleep." },
+      { heading: "Routine and sleep", purpose: "Explain how a regular bedtime can improve sleep." }
+    ] }, notes: [{ noteId: "n1", body: "Exercise and a regular bedtime can both improve sleep." }]
+  });
+  const complementary = {
+    kind: "repetition", sectionNumbers: [1, 2], problem: "These sections repeat", action: "Combine them",
+    sourceNoteIds: [], evidenceQuote: "", repeatedClaim: "improve sleep",
+    sectionEvidence: [
+      { sectionNumber: 1, quote: "Exercise and sleep — Explain how exercise can improve sleep." },
+      { sectionNumber: 2, quote: "Routine and sleep — Explain how a regular bedtime can improve sleep." }
+    ]
+  };
+  assert.throws(() => mergeWritingStrongModelResponse(outlineRequest, { checks: [complementary] }), /完整要点一致/);
+  assert.equal(mergeWritingStrongModelResponse(outlineRequest, { checks: [] }).artifacts.length, 0);
 });
 
 test("source-free structural checks may omit empty source IDs, but supplied IDs remain strict", () => {
