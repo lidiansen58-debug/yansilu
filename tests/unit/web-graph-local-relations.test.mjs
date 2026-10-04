@@ -28,7 +28,9 @@ test("graph local relation candidates rank shared tags and exclude existing edge
     ["title", { id: "title", title: "AI graph note", tags: [] }],
     ["literature", { id: "literature", title: "AI graph literature", noteType: "literature", tags: ["AI", "Graph"] }],
     ["fleeting", { id: "fleeting", title: "AI graph fleeting", noteType: "fleeting", tags: ["AI", "Graph"] }],
-    ["connected", { id: "connected", title: "AI graph connected", tags: ["AI"] }]
+    ["connected", { id: "connected", title: "AI graph connected", tags: ["AI"] }],
+    ["other-one", { id: "other-one", title: "甲乙", tags: [] }],
+    ["other-two", { id: "other-two", title: "丙丁", tags: [] }]
   ]);
 
   const candidates = graphLocalRelationCandidatesForNote(
@@ -46,8 +48,41 @@ test("graph local relation candidates rank shared tags and exclude existing edge
   );
 
   assert.deepEqual(candidates.map((candidate) => candidate.targetNoteId), ["shared", "title"]);
-  assert.equal(candidates[0].relationType, "same_topic");
+  assert.equal(candidates[0].relationType, "associated_with");
   assert.match(candidates[0].evidenceText, /#AI/);
+  assert.equal(candidates[0].rationaleDraft, "");
+});
+
+test("library-wide tags alone do not recommend unrelated notes", () => {
+  const nodeMap = new Map([
+    ["source", { id: "source", title: "甲乙丙", tags: ["永久笔记", "Smart", "证据"] }],
+    ["topic", { id: "topic", title: "丁戊己", tags: ["永久笔记", "Smart", "证据"] }],
+    ["unrelated", { id: "unrelated", title: "庚辛壬", tags: ["永久笔记", "Smart"] }],
+    ["other", { id: "other", title: "子丑寅", tags: ["永久笔记", "Smart"] }]
+  ]);
+  const items = graphLocalRelationCandidatesForNote("source", { nodeMap });
+  assert.deepEqual(items.map(item => item.targetNoteId), ["topic"]);
+  assert.equal(items[0].evidenceText, "共同标签：#证据");
+  assert.equal(items[0].rationaleDraft, "");
+  assert.equal(items[0].insightQuestionDraft, "");
+});
+
+test("similar titles remain a reading suggestion, not a declared same-topic relation", () => {
+  const items = graphLocalRelationCandidatesForNote("a", { nodeMap: new Map([
+    ["a", { id: "a", title: "Graph AI", tags: [] }],
+    ["b", { id: "b", title: "AI Graph", tags: [] }]
+  ]) });
+  assert.equal(items[0].relationType, "associated_with");
+  assert.match(items[0].evidenceText, /需对照内容/);
+  assert.equal(items[0].rationaleDraft, "");
+});
+
+test("note classification tags are never evidence of a shared topic", () => {
+  const items = graphLocalRelationCandidatesForNote("a", { nodeMap: new Map([
+    ["a", { id: "a", title: "甲乙丙", tags: ["永久笔记"] }],
+    ["b", { id: "b", title: "丁戊己", tags: ["永久笔记"] }]
+  ]) });
+  assert.deepEqual(items, []);
 });
 
 test("graph manual relation targets include permanent-like notes and exclude connected targets", () => {

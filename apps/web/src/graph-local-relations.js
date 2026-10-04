@@ -33,6 +33,8 @@ function graphPermanentLikeNote(note = {}) {
   return !noteType || noteType === "permanent" || noteType === "original";
 }
 
+const NOTE_CLASSIFICATION_TAGS = new Set(["permanent", "original", "永久笔记", "原创笔记"]);
+
 export function graphLocalRelationCandidatesForNote(
   noteId = "",
   { nodeMap = new Map(), edges = [], limit = 5 } = {},
@@ -50,6 +52,14 @@ export function graphLocalRelationCandidatesForNote(
   const sourceTags = noteTags(source);
   const sourceTagSet = new Set(sourceTags);
   const sourceTitle = String(source.title || cleanNoteId).trim() || cleanNoteId;
+  const permanentNotes = [...nodeMap.values()].filter(graphPermanentLikeNote);
+  const tagFrequency = new Map();
+  for (const note of permanentNotes) {
+    for (const tag of new Set(noteTags(note))) tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
+  }
+  // Tags used by most notes describe the library, not a specific shared topic.
+  const isSpecificTag = (tag) => !NOTE_CLASSIFICATION_TAGS.has(String(tag).toLowerCase()) &&
+    (permanentNotes.length < 4 || (tagFrequency.get(tag) || 0) / permanentNotes.length < 0.6);
   return [...nodeMap.values()]
     .filter((candidate) => {
       const targetId = String(candidate?.id || "").trim();
@@ -59,15 +69,16 @@ export function graphLocalRelationCandidatesForNote(
       const targetId = String(candidate?.id || "").trim();
       const targetTitle = String(candidate?.title || targetId).trim() || targetId;
       const targetTags = noteTags(candidate);
-      const sharedTags = targetTags.filter((tag) => sourceTagSet.has(tag));
+      const sharedTags = targetTags.filter((tag) => sourceTagSet.has(tag) && isSpecificTag(tag));
       const titleOverlap = graphTitleCharacterOverlap(sourceTitle, targetTitle);
+      if (!sharedTags.length && titleOverlap < 0.62) return null;
       const score = sharedTags.length * 3 + titleOverlap * 2;
       if (score < 0.62) return null;
-      const relationType = sharedTags.length ? "same_topic" : "associated_with";
+      const relationType = "associated_with";
       const relationLabel = relationTypeLabel(relationType);
       const reasonParts = [
         sharedTags.length ? `共同标签：${sharedTags.slice(0, 3).map((tag) => `#${tag}`).join("、")}` : "",
-        titleOverlap >= 0.62 ? "标题概念接近" : ""
+        titleOverlap >= 0.62 ? "标题用词相近，需对照内容" : ""
       ].filter(Boolean);
       return {
         sourceNoteId: cleanNoteId,
@@ -78,8 +89,8 @@ export function graphLocalRelationCandidatesForNote(
         relationLabel,
         confidence: Math.min(0.92, 0.38 + score / 8),
         evidenceText: reasonParts.join("；") || "标题或标签出现相近主题。",
-        rationaleDraft: `“${sourceTitle}”和“${targetTitle}”出现相近的标题、标签或判断主题，可以先建立${relationLabel}；保存后再根据写作需要补充更精确的支持、限定或反方说明。`,
-        insightQuestionDraft: `这条${relationLabel}能帮助我如何理解“${sourceTitle}”在当前主题网络中的位置？`
+        rationaleDraft: "",
+        insightQuestionDraft: ""
       };
     })
     .filter(Boolean)

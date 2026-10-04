@@ -52,6 +52,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     openGraphSelection = noop,
     openGraphNodeSelectionFromElement = noop,
     openNoteById = noop,
+    openNoteForReading = openNoteById,
     syncGraphIsolatedAiCandidateForm = noop,
     graphIsolatedFormError = noop,
     applyGraphRelationTypeFilterInteraction = () => ({ label: "" }),
@@ -91,7 +92,11 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
   function openGraphNoteFromElement(row = null, { stayInGraph = false } = {}) {
     const noteId = String(row?.dataset?.openNote || "").trim();
     if (!noteId) return false;
-    openNoteById(noteId);
+    const opened = stayInGraph ? openNoteById(noteId) : openNoteForReading(noteId);
+    if (opened === false) {
+      setStatus("无法打开这条笔记，请刷新笔记列表后重试。", "warn");
+      return false;
+    }
     if (stayInGraph && appState.module === "graph") {
       renderGraphPanel();
       setStatus("已切换为这条永久笔记的关系视图", "ok");
@@ -134,7 +139,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const selectionPanelOpenNote = relationSaveAction ? null : event.target.closest(".graph-selection-panel [data-open-note]");
     if (selectionPanelOpenNote) {
       consumeGraphClick();
-      openGraphNoteFromElement(selectionPanelOpenNote, { stayInGraph: true });
+      openGraphNoteFromElement(selectionPanelOpenNote);
       return;
     }
     const isolatedWorkflowTab = event.target.closest("[data-graph-isolated-tab]");
@@ -600,7 +605,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     }
     const row = event.target.closest("[data-open-note]");
     if (!row) return;
-    openGraphNoteFromElement(row, { stayInGraph: true });
+    openGraphNoteFromElement(row, { stayInGraph: !row.closest?.(".graph-selection-panel") });
   });
 
   documentRef?.addEventListener?.("click", (event) => {
@@ -660,7 +665,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     if (!row.closest?.(".graph-selection-panel, .graph-focus-context-panel, [data-graph-workbench-panel]")) return;
     event.preventDefault();
     event.stopPropagation();
-    openGraphNoteFromElement(row, { stayInGraph: true });
+    openGraphNoteFromElement(row, { stayInGraph: !row.closest?.(".graph-selection-panel") });
   }, true);
 
   function handleGraphHoverIntent(event) {

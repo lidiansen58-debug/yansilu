@@ -278,6 +278,50 @@ test("graph canvas event router consumes click workflow actions before generic n
   assert.deepEqual(calls, [["prevent"], ["stop-immediate"], ["stop"], ["save-candidate", candidateButton]]);
 });
 
+test("explicit selection reading opens the body instead of refocusing the graph", async () => {
+  const graphCanvas = createGraphCanvas();
+  const calls = [];
+  const row = elementWithAttrs({}, { dataset: { openNote: "target" } });
+  bindGraphCanvasEvents(graphCanvas, {
+    appState: { module: "graph" },
+    openNoteById: (id) => calls.push(["focus", id]),
+    openNoteForReading: (id) => calls.push(["read", id]),
+    renderGraphPanel: () => calls.push(["render"]),
+    setStatus: (message, level) => calls.push(["status", level, message])
+  });
+  await graphCanvas.listeners.get("click")[0].handler({
+    target: targetWithClosest({ ".graph-selection-panel [data-open-note]": row }),
+    preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {}
+  });
+  assert.equal(calls[0][0], "read");
+  assert.equal(calls[0][1], "target");
+  assert.equal(calls.some(([action]) => action === "focus" || action === "render"), false);
+});
+
+test("detached selection reading uses the same route and never reports a missing note opened", async () => {
+  const graphCanvas = createGraphCanvas();
+  const calls = [];
+  const row = elementWithAttrs({}, {
+    dataset: { openNote: "missing" },
+    closest: () => ({})
+  });
+  bindGraphCanvasEvents(graphCanvas, {
+    documentRef: graphCanvas.ownerDocument,
+    openNoteById: () => calls.push(["focus"]),
+    openNoteForReading: (id) => { calls.push(["read", id]); return false; },
+    setStatus: (message, level) => calls.push(["status", level, message])
+  });
+  for (const listener of graphCanvas.ownerDocument.listeners.get("click") || []) {
+    await listener.handler({
+      target: targetWithClosest({ "[data-open-note]": row }),
+      preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {}
+    });
+  }
+  assert.deepEqual(calls[0], ["read", "missing"]);
+  assert.equal(calls.some(([action]) => action === "focus"), false);
+  assert.equal(calls.find(([action]) => action === "status")[1], "warn");
+});
+
 test("graph canvas event router focuses graph AI review in the workbench", async () => {
   const graphCanvas = createGraphCanvas();
   const graphState = { workbenchPanelOpen: false, workbenchPanelTab: "clues", thinkingPanelVisible: false, thinkingPanelOpen: false, thinkingFilter: "theme" };
@@ -480,13 +524,13 @@ test("graph canvas event router switches bridge and argument lenses inside relat
 test("graph canvas event router switches graph task views with matching detail panels", async () => {
   const cases = [
     ["structure", "all", "insight", false, "clues", true, ""],
-    ["relations", "all", "bridge", false, "clues", true, "organize"],
-    ["themes", "index", "insight", false, "questions", true, "theme"]
+    ["relations", "all", "bridge", true, "clues", true, "organize"],
+    ["themes", "index", "insight", true, "questions", true, "theme"]
   ];
 
   for (const [view, relationType, lens, panelOpen, panelTab, navigatorHidden, thinkingFilter] of cases) {
     const graphCanvas = createGraphCanvas();
-    const graphState = { filters: { relationType: "all" }, readingLens: "argument", workbenchPanelOpen: false };
+    const graphState = { filters: { relationType: "all" }, readingLens: "argument", workbenchPanelOpen: false, selection: { kind: "edge", edgeKey: "old" } };
     const calls = [];
     const taskButton = elementWithAttrs({ "data-graph-task-view": view });
 
@@ -517,6 +561,7 @@ test("graph canvas event router switches graph task views with matching detail p
     assert.equal(graphState.readingLens, lens);
     assert.equal(graphState.workbenchPanelOpen, panelOpen);
     assert.equal(graphState.workbenchPanelTab, panelTab);
+    assert.equal(graphState.selection, null);
     assert.equal(graphState.researchNavigatorHidden, navigatorHidden);
     assert.equal(graphState.thinkingFilter, thinkingFilter);
     assert.deepEqual(calls.map((call) => call[0]), ["render", "raf", "center", "status"]);

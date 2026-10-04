@@ -4,13 +4,13 @@ function graphMapModeHint(relationType = "meaningful", readingLensKey = "insight
   if (relationKey === "index") {
     return {
       label: "找主题",
-      text: "亮起来的是最值得继续整理的一组笔记。"
+      text: "从已有关系找材料，由你确认它们是否在回答同一个问题。"
     };
   }
   if (lensKey === "bridge") {
     return {
       label: "找缺口",
-      text: "亮起来的是还没连好、可能缺关系的地方。"
+      text: "检查未关联笔记和已有关系；只保留有意义的关联。"
     };
   }
   return {
@@ -41,13 +41,9 @@ export function buildGraphVisualMapHeadContent({
     focusContextCollapsed = false
   } = runtimeState;
   const modeHint = graphMapModeHint(relationType, readingLens.key);
-  const gapMode = !filterActive && relationType !== "index" && readingLens.key === "bridge";
   const themeMode = !filterActive && relationType === "index";
-  const gapAction = gapMode
-    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="gap">检查缺口</button>`
-    : "";
   const themeAction = themeMode
-    ? `<button class="mini-btn primary" type="button" data-run-graph-ai-analysis="theme">发现主题</button>`
+    ? `<button class="mini-btn" type="button" data-run-graph-ai-analysis="theme">AI 找主题</button>`
     : "";
   return filterActive
     ? `
@@ -73,7 +69,6 @@ export function buildGraphVisualMapHeadContent({
       <div class="graph-map-primary-row">
         ${renderGraphViewModeSwitcher(relationType, readingLens.key)}
         <div class="graph-map-primary-actions">
-          ${gapAction}
           ${themeAction}
           ${compactRelationFilterMarkup}
         </div>

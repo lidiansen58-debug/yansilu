@@ -18,7 +18,7 @@ function nextRelationComposerSessionId(host) {
 export function permanentRelationWorkspaceFocusSelector({
   selectedTargetNoteId = ""
 } = {}) {
-  if (selectedTargetNoteId) return '[data-permanent-relation-field="rationale"]';
+  if (selectedTargetNoteId) return '[data-relation-pair-preview]';
   return "[data-permanent-relation-target-search]";
 }
 
@@ -30,7 +30,7 @@ export class PermanentNoteSidebarController {
   openRelationWorkspace(options = {}) {
     const host = this.host;
     const requestedNoteId = String(options.noteId || options.sourceNoteId || "").trim();
-    const note = (requestedNoteId ? host.state?.notes?.find?.((item) => item?.id === requestedNoteId) : null) || host.activeNote();
+    const note = requestedNoteId ? host.state?.notes?.find?.((item) => item?.id === requestedNoteId) : host.activeNote();
     if (!note?.id) return false;
     const entryRoute = relationEntryRouteForPermanentWorkspace(note.id, options);
     const overlayOnly = entryRoute.returnTo === "graph" || entryRoute.source === RELATION_ENTRY_SOURCES.GRAPH_NODE || entryRoute.source === RELATION_ENTRY_SOURCES.GRAPH_ISOLATED || entryRoute.source === RELATION_ENTRY_SOURCES.TOOLBAR_RELATION;
@@ -60,6 +60,7 @@ export class PermanentNoteSidebarController {
       entryRoute
     });
     host.syncPermanentRelationWorkspaceOverlay();
+    void host.permanentRelationComposer?.().loadPairPreview?.();
     const focusWorkspace = () => {
       host.permanentRelationWorkspaceElement()?.querySelector?.(permanentRelationWorkspaceFocusSelector({
         selectedTargetNoteId

@@ -1,3 +1,5 @@
+import { renderGraphBridgeSelectionPanelView } from "./graph-bridge-selection-panel.js";
+
 export function createGraphSelectionResidualView(deps = {}) {
   const {
     GRAPH_CONFIRMABLE_RELATION_TYPES,
@@ -110,6 +112,7 @@ export function createGraphSelectionResidualView(deps = {}) {
     graphRelationQualityLabel,
     graphRelationReviewReasonLabel,
     graphBridgeSelectionKey,
+    resolveGraphBridgeSelection,
     graphCandidateCanSaveRelation,
     graphCandidateEndpointIds,
     graphCandidateTouchesNodeScope,
@@ -156,41 +159,11 @@ function renderGraphIsolatedCompletePanel({ selection = null, isolatedNotes = []
   });
 }
 
-function renderGraphBridgeSelectionPanel({ selection = null, bridgeGaps = [], nodeMap = new Map() } = {}) {
+function renderGraphBridgeSelectionPanel({ selection = null, bridgeGaps = [], nodeMap = new Map(), edges = [] } = {}) {
   const bridge = resolveGraphBridgeSelection(selection, bridgeGaps, [...nodeMap.values()]);
   if (!bridge) return "";
-  const noteId = bridge.noteId;
-  const targetNoteId = bridge.targetNoteId;
-  const targetTitle = bridge.targetTitle || (targetNoteId ? graphNodeTitle(nodeMap, targetNoteId, targetNoteId) : "");
-  const item = bridge.item || {};
-  const gapTypeLabel = bridge.gapType === "disconnected_cluster" ? "断开的主题群" : "缺少连接";
-  const detail = String(item?.suggestedAction || item?.rationale || "这条笔记可能需要一条中间判断，才能回到当前结构。").trim();
-  const prompts = [
-    targetTitle ? `它和「${targetTitle}」之间缺的是证据、限定、反方，还是一个中间概念？` : "它应当保持独立，还是只是缺少一条能说明理由的连接？",
-    "如果补上这条连接，图谱会产生新的论证路径，还是只是多一条导航线？",
-    "这条连接应该写成概念过渡、方法相似，还是问题延伸？"
-  ];
-  return renderGraphSelectionShell({
-    className: "is-bridge",
-    ariaLabel: "缺少连接判断详情",
-    kicker: "缺少连接",
-    title: bridge.title,
-    meta: targetTitle ? `建议连接到 ${targetTitle}` : "等待判断连接方向",
-    closeLabel: "收起缺少连接判断",
-    roleLabel: gapTypeLabel,
-    roleDetail: detail,
-    body: `
-      <div class="graph-selection-metrics" aria-label="桥接两端">
-        ${renderGraphSelectionMetrics([
-          { label: "源笔记", value: bridge.title },
-          { label: "目标", value: targetTitle || "待寻找" },
-          { label: "状态", value: "推荐，未确认" }
-        ])}
-      </div>
-      ${renderGraphPromptDetails("缺少什么连接（可选）", prompts)}`,
-    actions: `
-      <button class="graph-selection-action is-primary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(noteId)}"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges"${noteId ? "" : " disabled"}>在这里建立关系</button>
-      <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(noteId)}"${noteId ? "" : " disabled"}>打开源笔记</button>`
+  return renderGraphBridgeSelectionPanelView({ bridge, nodeMap, edges }, {
+    renderGraphSelectionShell, graphFullNoteById, graphEdgeSelectionKey
   });
 }
 
@@ -274,6 +247,9 @@ const {
 
 
   return {
+    renderGraphIsolatedSelectionPanel,
+    renderGraphIsolatedCompletePanel,
+    renderGraphBridgeSelectionPanel,
     graphUniqueClusterMeta,
     graphClusterResearchMeta,
     renderGraphClusterSelectionPanel,

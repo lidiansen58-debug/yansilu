@@ -638,7 +638,7 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
   assert.doesNotMatch(panel, /data-graph-workbench-tab="clues"/);
   assert.doesNotMatch(panel, /data-graph-workbench-tab="questions"/);
   assert.match(panel, /data-graph-workbench-close/);
-  assert.match(panel, /graph-workbench-note-list/);
+  assert.match(panel, /当前没有待检查的关系/);
   assert.doesNotMatch(panel, /孤立待处理/);
   assert.doesNotMatch(panel, /关系列表/);
   assert.doesNotMatch(panel, /data-open-note="n1"/);
@@ -879,7 +879,7 @@ test("graph workbench prioritizes Chinese clue and question actions", async () =
     bridgeGaps: [{ id: "gap-1", noteIds: ["n1"], targetNoteIds: ["n2"], suggestedAction: "补一条中间判断" }]
   }, graphThinkingModelTestDeps());
 
-  assert.equal(bridgeItems.find((item) => item.id === "bridge-gap-1")?.detail, "补一条中间判断");
+  assert.match(bridgeItems.find((item) => item.id === "bridge-gap-1")?.detail, /分处两组不代表必须关联/);
   assert.ok(panelStateBuilderSource.includes("const scopedActionNodeIds = graphNodeIdsInScope(scopedAllNodes);"));
   assert.ok(panelStateBuilderSource.includes("const scopedReviewQueue = graphReviewQueueInNodeScope(graphState.reviewQueue, scopedActionNodeIds);"));
   assert.ok(panelStateBuilderSource.includes("const scopedNetworkEdges = allGraphEdges.filter((edge) => graphRelationTouchesNodeScope(edge, scopedActionNodeIds));"));
@@ -948,7 +948,7 @@ test("graph clusters are selectable research objects with their own summary pane
   assert.match(clusterGlow, /role="button"/);
   assert.match(clusterGlow, /aria-label="View cluster summary: Alpha"/);
   assert.match(graphCanvasEventRouterSource, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
-  assert.match(clusterSelectionPanelSource, /kicker: "主题"/);
+  assert.match(clusterSelectionPanelSource, /kicker: "笔记组"/);
   assert.match(clusterSelectionPanelSource, /roleLabel: meta\.label/);
   assert.match(clusterSelectionPanelSource, /补主题关系/);
 
@@ -974,7 +974,9 @@ test("graph research details cover nodes and relation gravity lines with next ac
   assert.doesNotMatch(nodeSelectionPanelSource, /手动关联/);
   assert.doesNotMatch(nodeSelectionPanelSource, /data-graph-create-theme-index/);
   assert.match(edgeSelectionPanelSource, /kicker: "关系"/);
-  assert.match(edgeSelectionPanelSource, /roleLabel: review\.label/);
+  assert.match(edgeSelectionPanelSource, /renderRelationPairPreview/);
+  assert.match(edgeSelectionPanelSource, /<summary>更多检查<\/summary>/);
+  assert.doesNotMatch(edgeSelectionPanelSource, /roleLabel: review\.label/);
   assert.match(edgeSelectionPanelSource, /renderGraphPromptDetails\("思考提示", prompts\)/);
   assert.match(edgeSelectionPanelSource, /data-graph-relation-adjustment/);
 
@@ -1024,7 +1026,7 @@ test("graph thinking tasks ignore stale AI isolated and relation candidates afte
   const panelStateBuilderSource = readGraphPanelStateBuilder();
   const thinkingItems = moduleBuildGraphThinkingItemsForGraph({
     nodes: [{ id: "scope-a", title: "Scope A" }, { id: "scope-b", title: "Scope B" }],
-    edges: [{ fromNoteId: "scope-a", toNoteId: "scope-b", status: "accepted" }],
+    edges: [{ fromNoteId: "scope-a", toNoteId: "scope-b", status: "accepted", rationale: "Scope A supports Scope B with an example." }],
     isolatedNotes: [],
     aiAnalysis: {
       analysis: {
@@ -1300,7 +1302,7 @@ test("isolated graph notes can request AI-assisted relation candidates and save 
   assert.match(source, /async function saveGraphConfirmedRelation\(\{/);
   assert.match(source, /return graphRelationSaveController\.saveConfirmedRelation\(\{ noteId, targetNoteId, relationType, rationale, insightQuestion, button \}\);/);
   assert.match(saveControllerSource, /if \(!rationaleIsActionable\(cleanRationale\)\) \{/);
-  assert.match(saveControllerSource, /const rationale = rationaleIsActionable\(rationaleDraft\) \? rationaleDraft : "";/);
+  assert.doesNotMatch(saveControllerSource, /return saveConfirmedRelation\(\{ noteId, targetNoteId, relationType, rationale/);
   assert.match(saveControllerSource, /openRelationComposerFromGraphAction\(button\);/);
   assert.doesNotMatch(saveControllerSource, /openRelationFormInSelection\(button\);/);
   assert.match(saveControllerSource, /const transaction = await saveRelationTransaction\(\{/);
@@ -1915,7 +1917,7 @@ test("graph node selection keeps the node popup focused on the next action", () 
   assert.match(nodeSelectionPanelSource, /task: null/);
   assert.match(nodeSelectionPanelSource, /data-open-note="\$\{escapeHtml\(normalized\.nodeId\)\}"/);
   assert.doesNotMatch(nodeSelectionPanelSource, /把它连到一条相关笔记/);
-  assert.doesNotMatch(nodeSelectionPanelSource, /data-graph-open-relation-form/);
+  assert.match(nodeSelectionPanelSource, /data-graph-open-relation-form/);
   assert.doesNotMatch(nodeSelectionPanelSource, /const insight = graphNodeInsightMeta\(node, directEdges, \{ nodeMap, edges \}\);/);
   assert.doesNotMatch(nodeSelectionPanelSource, /renderGraphNodeInsightPanel\(insight\)/);
   assert.match(nodeSelectionPanelSource, /\$\{relationDetails\}[\s\S]*\$\{candidatePanel\}/);
@@ -1943,11 +1945,11 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(workspaceSource, /data-graph-create-theme-index/);
   assert.match(workspaceSource, /function renderGraphThemeIndexWorkspace\(noteIds = \[\], \{ title = "可写主题推荐", relationCount = 0, tone = "", deps = \{\} \} = \{\}\) \{/);
   assert.match(graphRouteSource, /async function createGraphThemeIndexFromNoteIds\(noteIds = \[\], \{ title = "", source = "graph-theme-index" \} = \{\}\) \{/);
-  assert.match(graphRouteSource, /buildThemeIndexCreatePayload\(\{/);
+  assert.match(graphRouteSource, /buildGraphThemeConfirmedPayload\(\{/);
   assert.match(graphRouteSource, /noteById: \(id\) => writingNoteById\(id\) \|\| writingKnownNoteById\(id\)/);
-  assert.match(graphRouteSource, /const writingEligibleIds = eligibleIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
-  assert.match(graphRouteSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*continueWritingEntry\(writingEligibleIds,/);
-  assert.match(graphRouteSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: eligibleIds\.join\(","\)/);
+  assert.match(graphRouteSource, /const writingEligibleIds = selectedIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
+  assert.match(graphRouteSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*useThemeIndexAsWritingEntry\(card.id,/);
+  assert.match(graphRouteSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: selectedIds\.join\(","\)/);
   assert.match(readGraphCanvasEventRouter(), /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
   assert.match(appShellSource, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);
   assert.match(systemMessageWorkflowSource, /focus === "writing"/);

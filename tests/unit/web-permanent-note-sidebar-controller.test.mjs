@@ -47,7 +47,7 @@ function host(overrides = {}) {
 }
 
 test("permanent note sidebar controller chooses stable focus targets", () => {
-  assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "note-b", mode: "manual" }), '[data-permanent-relation-field="rationale"]');
+  assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "note-b", mode: "manual" }), '[data-relation-pair-preview]');
   assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "manual" }), "[data-permanent-relation-target-search]");
   assert.equal(permanentRelationWorkspaceFocusSelector({ selectedTargetNoteId: "", mode: "ai" }), "[data-permanent-relation-target-search]");
 });
@@ -193,6 +193,7 @@ test("relation workspace overlay renders the draft source note instead of the ac
     permanentRelationWorkspaceDeps: () => ({})
   });
 
+  pane.permanentRelationComposerController = new PermanentRelationComposerController(pane);
   const html = pane.renderPermanentRelationWorkspaceOverlay();
 
   assert.match(html, /data-note-id="note-a"/);

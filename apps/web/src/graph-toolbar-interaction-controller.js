@@ -50,7 +50,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
       label: "找缺口",
       relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
       lens: "bridge",
-      workbenchPanelOpen: false,
+      workbenchPanelOpen: true,
       workbenchPanelTab: "clues",
       researchNavigatorHidden: true,
       thinkingFilter: "organize"
@@ -60,7 +60,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
       label: "找主题",
       relationType: "index",
       lens: "insight",
-      workbenchPanelOpen: false,
+      workbenchPanelOpen: true,
       workbenchPanelTab: "questions",
       researchNavigatorHidden: true,
       thinkingFilter: "theme"
@@ -72,6 +72,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
   graphState.readingLens = meta.lens;
   graphState.workbenchPanelOpen = meta.workbenchPanelOpen;
   graphState.workbenchPanelTab = meta.workbenchPanelTab;
+  graphState.selection = null;
   graphState.researchNavigatorHidden = meta.researchNavigatorHidden;
   graphState.researchNavigatorTouched = true;
   graphState.thinkingFilter = meta.thinkingFilter;

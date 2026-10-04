@@ -4,7 +4,10 @@ import {
 
 export function renderWritingNoteCardDom(deps = {}, note, { selected = false, action = "add", actionLabel = "加入相关笔记", usageText = "" } = {}) {
   const { escapeHtml, renderThinkingStatusBadge, writingNoteMeta, writingNoteExcerpt } = deps;
-  const thinkingBadge = renderThinkingStatusBadge(note?.thinkingStatus, "thinking-status-badge writing-thinking-status");
+  const thinkingStatus = selected && note?.thinkingStatus?.status === "ready_for_index"
+    ? { status: "selected_for_writing", label: "已选材料", nextAction: "整理提纲", severity: "ready" }
+    : note?.thinkingStatus;
+  const thinkingBadge = renderThinkingStatusBadge(thinkingStatus, "thinking-status-badge writing-thinking-status");
   const excerpt = String(writingNoteExcerpt(note) || "").trim();
   return `
     <article class="writing-note-card ${selected ? "selected" : ""}" data-writing-note-id="${escapeHtml(note.id)}">

@@ -1,0 +1,32 @@
+.relation-pair-preview {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border-bottom: 1px solid var(--line, #d7dfdc);
+  padding-bottom: 14px;
+}
+
+.relation-pair-note strong,
+.relation-pair-direction {
+  overflow-wrap: anywhere;
+}
+
+.permanent-relation-panel .permanent-relation-type-card {
+  min-height: 64px;
+  gap: 4px;
+  padding: 8px 10px;
+}
+
+.relation-pair-note p {
+  margin: 5px 0 0;
+  color: var(--muted, #617076);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.relation-pair-direction {
+  color: var(--ink, #182126);
+  font-size: 12px;
+  line-height: 1.5;
+}

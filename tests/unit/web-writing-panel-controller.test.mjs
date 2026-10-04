@@ -584,6 +584,16 @@ test("writing note card omits an empty summary", () => {
   assert.doesNotMatch(html, /还没有正文摘要/);
 });
 
+test("selected writing material does not ask to join a theme again, while real confirmation warnings remain", () => {
+  const deps = { escapeHtml, writingNoteMeta: () => "", writingNoteExcerpt: () => "",
+    renderThinkingStatusBadge: status => status?.label || "" };
+  const ready = { id: "a", title: "A", thinkingStatus: { status: "ready_for_index", label: "待加入主题" } };
+  assert.match(renderWritingNoteCardDom(deps, ready, { selected: true }), /已选材料/);
+  assert.doesNotMatch(renderWritingNoteCardDom(deps, ready, { selected: true }), /待加入主题/);
+  assert.match(renderWritingNoteCardDom(deps, ready), /待加入主题/);
+  assert.match(renderWritingNoteCardDom(deps, { ...ready, thinkingStatus: { status: "needs_confirmation", label: "待确认" } }, { selected: true }), /待确认/);
+});
+
 test("writing panel controller renders writing project card through workspace view deps", () => {
   const html = renderWritingProjectCardDom({
     renderThinkingStatusBadge: () => "<b>project-status</b>",

@@ -16,7 +16,6 @@ export function renderGraphClusterSelectionPanelView({ selection = null, cluster
     escapeHtml = (value = "") => String(value ?? ""),
     renderGraphSelectionShell = () => "",
     renderGraphSelectionMetrics = () => "",
-    renderGraphThemeIndexWorkspace = () => "",
     renderGraphPromptDetails = () => ""
   } = deps;
 
@@ -39,11 +38,11 @@ export function renderGraphClusterSelectionPanelView({ selection = null, cluster
 
   return renderGraphSelectionShell({
     className: "is-cluster",
-    ariaLabel: "主题详情",
-    kicker: "主题",
+    ariaLabel: "笔记组详情",
+    kicker: "笔记组",
     title,
     meta: `${meta.memberIds.length} 条笔记 · ${meta.memberEdges.length} 条组内关系`,
-    closeLabel: "关闭主题详情",
+    closeLabel: "关闭笔记组详情",
     roleLabel: meta.label,
     roleDetail: meta.detail,
     body: `
@@ -59,9 +58,8 @@ export function renderGraphClusterSelectionPanelView({ selection = null, cluster
         <small>下一步判断</small>
         <p>${escapeHtml(meta.next)}</p>
       </section>
-      ${renderGraphThemeIndexWorkspace(meta.memberIds, { title, relationCount: meta.memberEdges.length, tone: meta.tone })}
-      <section class="graph-theme-notes" aria-label="主题关键笔记">
-        <strong>关键笔记</strong>
+      <section class="graph-theme-notes" aria-label="组内笔记">
+        <strong>组内笔记</strong>
         ${coreNotes
           .map(
             (note) => `
@@ -75,8 +73,8 @@ export function renderGraphClusterSelectionPanelView({ selection = null, cluster
       </section>
       ${renderGraphPromptDetails("思考提示", prompts)}`,
     actions: `
-      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(meta.memberIds.join(","))}" data-graph-theme-title="${escapeHtml(title)}"${meta.memberIds.length >= 3 ? "" : " disabled"}>保存为可写主题</button>
+      <button class="graph-selection-action is-primary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(meta.memberIds.join(","))}" data-graph-theme-title="${escapeHtml(title)}"${meta.memberIds.length >= 3 ? "" : " disabled"}>整理主题</button>
       <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>补主题关系</button>
-      <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开关键笔记</button>`
+      <button class="graph-selection-action is-quiet" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>阅读首条笔记</button>`
   });
 }

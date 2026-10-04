@@ -26,3 +26,14 @@ test("graph read failures do not reject a persisted relation mutation", async ()
   assert.equal(await refreshGraphAfterRelationMutation({ state: { module: "graph" }, refreshDirectoryGraph: async () => { throw new Error("offline"); } }), false);
   assert.equal(await refreshGraphAfterRelationMutation({ state: { module: "graph" } }), false);
 });
+
+test("saved relation reveal carries a live composer guard instead of an unconditional navigation", async () => {
+  let current = true, received;
+  const host = { state: { module: "graph" }, refreshDirectoryGraph: async options => { received = options; return true; } };
+  const relation = { id: "saved" };
+  await refreshGraphAfterRelationMutation(host, { savedRelation: relation, canRevealSavedRelation: () => current });
+  assert.equal(received.savedRelation, relation);
+  assert.equal(received.canRevealSavedRelation(), true);
+  current = false;
+  assert.equal(received.canRevealSavedRelation(), false);
+});

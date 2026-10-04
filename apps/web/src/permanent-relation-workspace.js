@@ -1,5 +1,6 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { relationWorkspaceAvailableTargetCandidates } from "./relation-workspace-shared.js";
+import { renderRelationPairPreview } from "./relation-pair-preview.js";
 import {
   noteTypeText,
   COMMON_RELATION_CHOICES,
@@ -32,6 +33,13 @@ function noteMeta(note = {}, deps = {}) {
 }
 
 const PERMANENT_RELATION_WORKSPACE_TYPES = RELATION_CREATE_TYPES.filter((type) => type !== "appears_in_draft");
+const PAIR_RELATION_DESCRIPTIONS = {
+  associated_with: "两条笔记有关，暂不判断具体关系。",
+  supports: "上方笔记为下方观点提供证据或理由。",
+  contradicts: "上方笔记对下方观点提出反例或不同判断。",
+  qualifies: "上方笔记说明下方观点的适用条件。",
+  example_of: "上方笔记是下方观点的一个例子。"
+};
 
 function relationWorkspaceTypeOptions(selected = "associated_with") {
   const active = cleanText(selected).toLowerCase() || "associated_with";
@@ -45,7 +53,7 @@ function renderCommonRelationChoices(selected = "associated_with") {
   const commonActive = COMMON_RELATION_CHOICES.some((choice) => choice.type === active);
   return `
     <section class="permanent-relation-type-choice" aria-label="选择关系">
-      <span>这条笔记对当前观点有什么影响？</span>
+      <span>这两条笔记是什么关系？</span>
       <div class="permanent-relation-type-choice-grid">
         ${COMMON_RELATION_CHOICES.map((choice) => `
           <button
@@ -55,7 +63,7 @@ function renderCommonRelationChoices(selected = "associated_with") {
             aria-pressed="${choice.type === active ? "true" : "false"}"
           >
             <strong>${escapeHtml(choice.title)}</strong>
-            <small>${escapeHtml(choice.note)}</small>
+            <small>${escapeHtml(PAIR_RELATION_DESCRIPTIONS[choice.type] || choice.note)}</small>
           </button>
         `).join("")}
       </div>
@@ -67,18 +75,6 @@ function renderCommonRelationChoices(selected = "associated_with") {
         </label>
       </details>
     </section>
-  `;
-}
-
-function renderSelectedTargetSummary(target = null, deps = {}) {
-  if (!target) return "";
-  const meta = noteMeta(target, deps);
-  return `
-    <div class="permanent-relation-selected-target" data-permanent-relation-selected-target>
-      <span>已选择</span>
-      <strong>${escapeHtml(target.title || target.id)}</strong>
-      ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
-    </div>
   `;
 }
 
@@ -126,8 +122,8 @@ function renderSavedResult(state = {}) {
       <strong>${escapeHtml(resultTitle)}</strong>
       <p>${escapeHtml(`${relationTypeLabel(result.relationType)}：${result.targetTitle || result.targetNoteId}`)}</p>
       <div class="semantic-relation-actions">
-        <button class="mini-btn primary" type="button" data-permanent-relation-action="continue">继续</button>
-        <button class="mini-btn" type="button" data-permanent-relation-action="complete">完成</button>
+        <button class="mini-btn primary" type="button" data-permanent-relation-action="complete">完成</button>
+        <button class="mini-btn" type="button" data-permanent-relation-action="continue">继续关联</button>
       </div>
     </section>
   `;
@@ -232,11 +228,13 @@ export function renderPermanentRelationWorkspace({
   const existing = selectedTarget ? permanentRelationWorkspaceExistingLink(relations, note.id, selectedTarget.id, workspaceState.editingRelationId) : null;
   const isEditingExisting = Boolean(existing || workspaceState.editingRelationId);
   const relationTypeValue = workspaceState.relationType || existing?.relationType || existing?.relation_type || selectedTarget?.candidate?.relationType || "associated_with";
-  const rationaleValue = workspaceState.rationale || existing?.rationale || "";
+  const rawRationale = workspaceState.rationale || existing?.rationale || "";
+  const rationaleValue = rawRationale === "markdown_wikilink" ? "" : rawRationale;
   const canSave = permanentRelationWorkspaceCanSave({ state: workspaceState, relations, allowExistingUpdate: true });
   const softBlockedReasons = new Set(["missing_rationale"]);
   if (!relations) softBlockedReasons.add("missing_relation");
-  const saveDisabled = workspaceState.saveState === "saving" || (!canSave.ok && !softBlockedReasons.has(canSave.reason));
+  const pairBlocked = ["loading", "error"].includes(workspaceState.pairPreviewState);
+  const saveDisabled = pairBlocked || workspaceState.saveState === "saving" || (!canSave.ok && !softBlockedReasons.has(canSave.reason));
   const hasManualQuery = Boolean(cleanText(workspaceState.manualQuery));
   const showingAiTargets = workspaceState.mode === "ai" && !selectedTarget;
   return `
@@ -249,18 +247,23 @@ export function renderPermanentRelationWorkspace({
           <button class="mini-btn is-ghost" type="button" data-permanent-relation-action="close">关闭</button>
         </header>
         <div class="permanent-relation-body ${isEditingExisting ? "is-editing-existing" : ""}">
+          ${workspaceState.result
+            ? `${renderRelationPairPreview({ note, target: selectedTarget, existing, relationType: relationTypeValue })}${renderSavedResult(workspaceState)}`
+            : `
           ${
             isEditingExisting
               ? ""
               : showingAiTargets
                 ? renderAiTargets({ state: workspaceState, aiCandidates, relations, deps: { ...deps, notes } })
-                : `<section class="permanent-relation-picker">
+                : selectedTarget
+                  ? `<button class="mini-btn is-ghost" type="button" data-permanent-relation-mode="manual">重选笔记</button>`
+                  : `<section class="permanent-relation-picker">
                   <div class="semantic-relation-actions">
                     <button class="mini-btn" type="button" data-permanent-relation-action="recommend">AI推荐</button>
                   </div>
                   <div class="permanent-relation-search">
-                    <label>目标笔记</label>
-                    <input type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="${selectedTarget ? "已选择目标笔记" : "输入关键词，选择要关联的永久笔记"}" autocomplete="off" ${selectedTarget ? "" : "autofocus"} />
+                    <label for="permanentRelationTargetSearch">关联到哪条笔记？</label>
+                    <input id="permanentRelationTargetSearch" type="search" data-permanent-relation-target-search value="${escapeHtml(workspaceState.manualQuery)}" placeholder="输入关键词，选择要关联的永久笔记" autocomplete="off" autofocus />
                     <div class="permanent-relation-dropdown" data-permanent-relation-manual-results${selectedTarget || !hasManualQuery ? " hidden" : ""}>
                       ${
                         selectedTarget
@@ -271,14 +274,16 @@ export function renderPermanentRelationWorkspace({
                       }
                     </div>
                   </div>
-                  ${renderSelectedTargetSummary(selectedTarget, deps)}
                 </section>`
           }
-          <form class="permanent-relation-confirm ${isEditingExisting ? "is-editing-existing" : ""}" data-permanent-relation-form ${showingAiTargets ? "hidden" : ""}>
+          <form class="permanent-relation-confirm ${isEditingExisting ? "is-editing-existing" : ""}" data-permanent-relation-form ${showingAiTargets || (!selectedTarget && !isEditingExisting) ? "hidden" : ""}>
+            ${renderRelationPairPreview({ note, target: selectedTarget, existing, relationType: relationTypeValue })}
+            ${workspaceState.pairPreviewState === "loading" ? `<div class="permanent-relation-notice" role="status">正在读取双方笔记...</div>` : ""}
+            ${workspaceState.pairPreviewState === "error" ? `<div class="semantic-relation-form-error" role="alert">${escapeHtml(workspaceState.pairPreviewError)} <button class="mini-btn" type="button" data-permanent-relation-preview-retry>重试读取</button></div>` : ""}
             ${renderCommonRelationChoices(relationTypeValue)}
             <label>
               <span>为什么？</span>
-              <textarea name="rationale" data-permanent-relation-field="rationale" required placeholder="用一句话说明它怎样影响了当前观点。">${escapeHtml(rationaleValue)}</textarea>
+              <textarea name="rationale" data-permanent-relation-field="rationale" required placeholder="用一句话说明两条笔记为什么有这个关系。">${escapeHtml(rationaleValue)}</textarea>
             </label>
             <input type="hidden" name="insightQuestion" data-permanent-relation-field="insightQuestion" value="${escapeHtml(workspaceState.insightQuestion)}">
             ${workspaceState.error ? `<div class="semantic-relation-form-error">${escapeHtml(workspaceState.error)}</div>` : ""}
@@ -291,8 +296,8 @@ export function renderPermanentRelationWorkspace({
                   : ""
               }
             </div>
-            ${renderSavedResult(workspaceState)}
           </form>
+          `}
         </div>
       </div>
     </div>

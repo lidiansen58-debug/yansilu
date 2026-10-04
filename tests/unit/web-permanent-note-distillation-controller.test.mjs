@@ -315,6 +315,8 @@ test("distillation controller confirms authorship after a confirmed save", async
   assert.equal(calls[0][1].commitViewpointChange, true);
   assert.deepEqual(calls[0][1].viewpointChangeSourceNoteIds, ["source-1"]);
   assert.deepEqual(calls.slice(-3), [["thinking"], ["workspace-reset", "pn1"], ["related"]]);
+  assert.equal(controller.associationFollowup.current(note, "").thesis, "Thesis");
+  assert.match(controller.renderSection(note), /观点已保存|data-note-association-next="associate"/);
 });
 
 test("distillation controller leaves note and writing status alone when save fails", async () => {
@@ -347,6 +349,23 @@ test("distillation controller leaves note and writing status alone when save fai
 
   assert.equal(note.thesis, undefined);
   assert.deepEqual(calls, [["save-note-distillation"]]);
+  assert.equal(controller.associationFollowup.current(note, ""), null);
+});
+
+test("a vault switch with the same active note ID cannot offer an old save result", async () => {
+  const note = { id: "pn1", thesis: "Old", noteType: "permanent" };
+  let scope = "vault-a";
+  let renders = 0;
+  const controller = new PermanentNoteDistillationController({
+    activeNote: () => note, resolvedNoteType: () => "permanent", vaultScope: () => scope,
+    autoSaveActiveNote: async () => true, isActiveNoteId: () => true,
+    onStateChange: async () => { scope = "vault-b"; return true; },
+    renderThinkingStatus: () => { renders++; }, renderRelated: () => { renders++; }
+  });
+  await controller.handleForm(distillationForm({ thesis: "New", originalThesis: "Old", thesisChangeReason: "Evidence", distillationStatus: "confirmed" }));
+  assert.equal(note.thesis, "Old");
+  assert.equal(renders, 0);
+  assert.equal(controller.associationFollowup.current(note, "vault-b"), null);
 });
 
 test("distillation controller refreshes the editor after confirming into the body", async () => {

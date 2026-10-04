@@ -39,6 +39,8 @@ export function defaultPermanentRelationWorkspaceState(noteId = "") {
     manualQuery: "",
     manualTargets: [],
     searchState: "idle",
+    pairPreviewState: "",
+    pairPreviewError: "",
     saveState: "idle",
     error: "",
     notice: "",
@@ -228,6 +230,7 @@ export function permanentRelationWorkspaceSelectedTarget({
     noteType: cleanText(knownNote?.noteType || manualTarget?.noteType || ""),
     folderId: cleanText(knownNote?.folderId || manualTarget?.folderId || ""),
     body: cleanText(knownNote?.body || manualTarget?.body || ""),
+    bodyLoaded: knownNote?.bodyLoaded ?? manualTarget?.bodyLoaded,
     thesis: cleanText(knownNote?.thesis || manualTarget?.thesis || ""),
     candidate: aiCandidate
   };

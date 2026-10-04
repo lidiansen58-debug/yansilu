@@ -92,7 +92,7 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   assert.ok(distillationStart >= 0 && distillationEnd > distillationStart, "expected distillation handleForm() to exist");
   const distillationSource = distillationController.slice(distillationStart, distillationEnd);
   assert.match(distillationSource, /const noteId = String\(note\?\.id \|\| ""\)\.trim\(\)/);
-  assert.match(distillationSource, /if \(!host\.isActiveNoteId\(noteId\)\) return/);
+  assert.match(distillationSource, /if \(!host\.isActiveNoteId\(noteId\) \|\| this\.draftScope\(\) !== scope\) return/);
 
   const createStart = semanticRelationsController.indexOf("  async handleCreateForm(form) {");
   const createEnd = semanticRelationsController.indexOf("  async promoteInlineDraft", createStart);
@@ -125,7 +125,9 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   assert.match(relationComposerController, /const sourceStillActive = \(\) => vaultStillCurrent\(\) && host\.isActiveNoteId\?\.\(sourceNote\.id\) === true/);
   assert.match(relationComposerController, /const submitSessionId = cleanText\(state\.relationComposerSessionId \|\| stateSessionId\(host\)\)/);
   assert.match(relationComposerController, /stateSessionId\(host\) === submitSessionId/);
-  assert.match(relationComposerController, /const currentRelations = sourceIsActive \? host\.currentSemanticRelations : null/);
+  assert.match(relationComposerController, /const currentRelations = this\.currentRelations\(\)/);
+  assert.match(relationComposerController, /host\.isActiveNoteId\?\.\(noteId\) \? host\.currentSemanticRelations \|\| null : null/);
+  assert.match(relationComposerController, /snapshot\.sessionId === stateSessionId\(host\) && snapshot\.vault === host\.vaultScope\?\.\(\)/);
   assert.match(relationComposerController, /const latestRelations = await fetchNoteRelations\(sourceNote\.id\);\s*if \(!draftStillCurrent\(\)\) return;/);
   assert.match(relationComposerController, /if \(sourceStillActive\(\)\) await host\.refreshSemanticRelations\?\.\(sourceNote\.id, host\.relationsRequestSerial\);\s*if \(!draftStillCurrent\(\)\) return;/);
   assert.match(relationComposerController, /const linkInserted = await this\.insertLinkIfRequested\(state\);\s*if \(!draftStillCurrent\(\)\) return;/);

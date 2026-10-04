@@ -54,17 +54,18 @@ test("graph cluster selection panel renders cluster summary actions and core not
     }
   });
 
-  assert.match(html, /<theme-workspace><\/theme-workspace>/);
+  assert.doesNotMatch(html, /<theme-workspace>|关键笔记/);
   assert.match(html, /data-open-note="n1"/);
   assert.match(html, /data-graph-create-theme-index/);
   assert.match(html, /data-graph-theme-note-ids="n1,n2,n3"/);
+  assert.equal((html.match(/data-graph-create-theme-index/g) || []).length, 1);
+  assert.match(html, />整理主题<\/button>/);
   assert.match(html, /data-graph-open-relation-form data-graph-relation-source="n1"/);
   assert.deepEqual(calls, [
     ["normalize", 1, 1, 1],
     ["unique", 1],
     ["meta", "c1", true, 1],
     ["metrics", "笔记|组内关系|外部连接|反方/边界"],
-    ["theme", "n1,n2,n3", "Theme A", 2, "testing"],
     ["prompts", "思考提示", 3],
     ["shell", "is-cluster", "Theme A", "Testing"]
   ]);

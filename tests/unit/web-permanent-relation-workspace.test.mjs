@@ -117,15 +117,16 @@ test("permanent relation workspace renders a large relation-only flow", () => {
   assert.match(html, /data-permanent-relation-workspace/);
   assert.match(html, />关联</);
   assert.match(html, /目标笔记/);
-  assert.match(html, /已选择/);
-  assert.match(html, /这条笔记对当前观点有什么影响？/);
+  assert.match(html, /关联的两条笔记/);
+  assert.match(html, /这两条笔记是什么关系？/);
   assert.match(html, /支持这个观点/);
   assert.match(html, /提出不同看法/);
   assert.match(html, /补充适用条件/);
   assert.match(html, /提供一个例子/);
   assert.match(html, /更多关系/);
   assert.match(html, /为什么？/);
-  assert.match(html, /placeholder="用一句话说明它怎样影响了当前观点。"/);
+  assert.match(html, /placeholder="用一句话说明两条笔记为什么有这个关系。"/);
+  assert.match(html, /上方笔记为下方观点提供证据或理由/);
   assert.match(html, />关联</);
   assert.doesNotMatch(html, /role="tablist"/);
   assert.doesNotMatch(html, /data-permanent-relation-target-preview-slot/);
@@ -138,6 +139,27 @@ test("permanent relation workspace renders a large relation-only flow", () => {
   assert.doesNotMatch(html, /准备写作/);
   assert.doesNotMatch(html, /进入草稿/);
   assert.doesNotMatch(html, /appears_in_draft/);
+  assert.match(html, /关系整理只处理笔记之间为什么要连接/);
+  assert.match(html, /好的连接要写清关系类型和理由/);
+});
+
+test("manual relation entry hides confirmation until a target is selected", () => {
+  const html = renderPermanentRelationWorkspace({ note, state: { open: true, mode: "manual" }, deps });
+  assert.match(html, /data-permanent-relation-form hidden/);
+  assert.match(html, /关联到哪条笔记/);
+  const selected = renderPermanentRelationWorkspace({ note, notes: [note, target], state: {
+    open: true, mode: "manual", selectedTargetNoteId: target.id
+  }, deps });
+  assert.doesNotMatch(selected, /data-permanent-relation-form hidden/);
+  assert.doesNotMatch(selected, /data-permanent-relation-target-search|data-permanent-relation-action="recommend"/);
+  assert.match(selected, /重选笔记/);
+});
+
+test("body-link internal rationale is never prefilled as user explanation", () => {
+  const html = renderPermanentRelationWorkspace({ note, notes: [note, target], state: {
+    open: true, selectedTargetNoteId: target.id, editingRelationId: "body", rationale: "markdown_wikilink"
+  }, relations: { outgoingLinks: [{ id: "body", fromNoteId: note.id, toNoteId: target.id, rationale: "markdown_wikilink" }] }, deps });
+  assert.doesNotMatch(html, /markdown_wikilink/);
 });
 
 test("permanent relation workspace blocks duplicate relation saves", () => {
@@ -233,7 +255,7 @@ test("permanent relation workspace keeps saved-relation counts out of the focuse
     deps
   });
 
-  assert.match(html, /目标笔记/);
+  assert.match(html, /关联到哪条笔记/);
   assert.match(html, /为什么？/);
   assert.doesNotMatch(html, /permanent-relation-source-status/);
   assert.doesNotMatch(html, />1 条已保存关系</);
@@ -357,6 +379,8 @@ test("permanent relation workspace labels updated relation results clearly", () 
 
   assert.match(html, /关系已更新/);
   assert.doesNotMatch(html, /关系已存在，已复用/);
+  assert.doesNotMatch(html, /type="submit"|data-permanent-relation-target-search|data-permanent-relation-field="rationale"/);
+  assert.match(html, /class="mini-btn primary"[^>]*data-permanent-relation-action="complete"/);
 });
 
 test("permanent relation workspace renders manual candidates as a title-only dropdown", () => {

@@ -122,7 +122,7 @@ export function renderGraphSelectionByKind(context = {}, renderers = {}) {
     return panelRenderers.renderIsolatedCompletePanel({ selection: normalized, isolatedNotes, nodeMap, edges }) || renderIsolatedCompleteFallbackClean(normalized);
   }
   if (kind === "bridge") {
-    return panelRenderers.renderBridgePanel({ selection: normalized, bridgeGaps, nodeMap });
+    return panelRenderers.renderBridgePanel({ selection: normalized, bridgeGaps, nodeMap, edges });
   }
   if (kind === "node") {
     return panelRenderers.renderNodePanel({ selection: normalized, isolatedNotes, nodeMap, edges });

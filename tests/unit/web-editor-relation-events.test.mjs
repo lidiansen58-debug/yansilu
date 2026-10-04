@@ -41,6 +41,28 @@ function attrElement(attrs = {}, extra = {}) {
   };
 }
 
+test("saved judgment next-step routes its note and token once through the distillation controller", () => {
+  const calls = [];
+  const button = attrElement({ "data-note-association-next": "skip", "data-note-id": "p1", "data-association-next-token": "next-1" });
+  const host = { permanentNoteDistillation: () => ({ handleAssociationNext: (...args) => calls.push(args) }) };
+  assert.equal(routeEditorRelationClick(host, eventFor(elementWithClosest({ "[data-note-association-next]": button }))), true);
+  assert.deepEqual(calls, [["skip", "p1", "next-1"]]);
+});
+
+test("reselecting a note clears the previous pair's type and explanation", () => {
+  let next;
+  const mode = attrElement({ "data-permanent-relation-mode": "manual" });
+  const host = { permanentRelationWorkspaceState: { selectedTargetNoteId: "old", editingRelationId: "old-relation",
+    relationType: "supports", rationale: "Only true for the old target", insightQuestion: "Old question" },
+    patchPermanentRelationWorkspaceState: state => { next = state; } };
+  assert.equal(routeEditorRelationClick(host, eventFor(elementWithClosest({ "[data-permanent-relation-mode]": mode }))), true);
+  assert.equal(next.selectedTargetNoteId, "");
+  assert.equal(next.editingRelationId, "");
+  assert.equal(next.relationType, "associated_with");
+  assert.equal(next.rationale, "");
+  assert.equal(next.insightQuestion, "");
+});
+
 test("relation submit route handles create forms once", () => {
   const calls = [];
   const form = {

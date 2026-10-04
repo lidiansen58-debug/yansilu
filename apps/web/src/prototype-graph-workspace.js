@@ -25,7 +25,7 @@ export function graphThemeCandidateNoteIdsForNode(noteId = "", directEdges = [],
     ...(Array.isArray(directEdges) ? directEdges.map((edge) => graphOtherRelationEndpoint(edge, cleanNoteId)) : []),
     ...(Array.isArray(aiCandidates) ? aiCandidates.map((candidate) => candidate.counterpartNoteId || candidate.targetNoteId) : [])
   ];
-  return uniqueStrings(relatedIds).slice(0, 10);
+  return uniqueStrings(relatedIds);
 }
 
 export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new Map(), edges = [], title = "关联整理", deps = {} } = {}) {
@@ -45,15 +45,25 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
   });
   const counts = relationGroupCounts(directEdges);
   const themeNoteIds = graphThemeCandidateNoteIdsForNode(cleanNoteId, directEdges, []);
-  const sourceTitle = nodeTitle(nodeMap, cleanNoteId, "当前笔记");
-  const relationCards = directEdges.slice(0, 4);
+  const relationCards = directEdges.map((edge) => {
+    const edgeKey = edgeSelectionKey(edge);
+    const targetId = graphOtherRelationEndpoint(edge, cleanNoteId);
+    const targetTitle = nodeTitle(nodeMap, targetId, targetId || "关联笔记");
+    const relationType = String(edge?.relationType || "associated_with").trim().toLowerCase();
+    const rationale = String(edge?.rationale || "").trim();
+    return `
+      <button class="graph-relation-workspace-card" type="button" data-graph-select-edge="${escapeHtml(edgeKey)}" data-graph-select-edge-id="${escapeHtml(String(edge?.id || "").trim())}" data-graph-select-edge-from="${escapeHtml(String(edge?.fromNoteId || "").trim())}" data-graph-select-edge-to="${escapeHtml(String(edge?.toNoteId || "").trim())}" data-graph-select-edge-type="${escapeHtml(relationType)}">
+        <span>${escapeHtml(relationTypeLabel(relationType))}</span>
+        <strong>${escapeHtml(targetTitle)}</strong>
+        <small>${escapeHtml(rationale === "markdown_wikilink" ? "正文关联：打开来源笔记查看上下文。" : rationale || "还没有关系说明。")}</small>
+      </button>`;
+  });
   const themeTitle = suggestThemeIndexTitle(themeNoteIds);
   return `
     <section class="graph-relation-workspace" aria-label="已保存的关系">
       <div class="graph-relation-workspace-head">
         <div>
           <strong>${escapeHtml(title)}</strong>
-          <span>这里只显示已经保存到图谱的关联。新的推荐关系在上方确认后才会进入这里。</span>
         </div>
         <small>${escapeHtml(String(directEdges.length))} 条关联</small>
       </div>
@@ -61,22 +71,8 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
         relationCards.length
           ? `<section class="graph-relation-workspace-list" aria-label="现有关联">
               <strong>已保存关系</strong>
-              ${relationCards
-                .map((edge) => {
-                  const edgeKey = edgeSelectionKey(edge);
-                  const targetId = graphOtherRelationEndpoint(edge, cleanNoteId);
-                  const targetTitle = nodeTitle(nodeMap, targetId, targetId || "关联笔记");
-                  const relationType = String(edge?.relationType || "associated_with").trim().toLowerCase();
-                  const rationale = String(edge?.rationale || "").trim();
-                  return `
-                    <button class="graph-relation-workspace-card" type="button" data-graph-select-edge="${escapeHtml(edgeKey)}" data-graph-select-edge-id="${escapeHtml(String(edge?.id || "").trim())}" data-graph-select-edge-from="${escapeHtml(String(edge?.fromNoteId || "").trim())}" data-graph-select-edge-to="${escapeHtml(String(edge?.toNoteId || "").trim())}" data-graph-select-edge-type="${escapeHtml(relationType)}">
-                      <span>${escapeHtml(relationTypeLabel(relationType))}</span>
-                      <strong>${escapeHtml(targetTitle)}</strong>
-                      <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "还需要补一句为什么相关。")}</small>
-                    </button>
-                  `;
-                })
-                .join("")}
+              ${relationCards.slice(0, 4).join("")}
+              ${relationCards.length > 4 ? `<details class="graph-selection-details"><summary>其余 ${relationCards.length - 4} 条关系</summary>${relationCards.slice(4).join("")}</details>` : ""}
             </section>`
           : `<section class="graph-relation-workspace-empty">
               <strong>还没有关联</strong>
@@ -96,10 +92,10 @@ export function renderGraphRelationWorkspaceForNote(noteId = "", { nodeMap = new
       </details>
       <section class="graph-theme-index-workspace" aria-label="主题整理">
         <div>
-          <strong>保存为可写主题</strong>
-          <p>${escapeHtml(themeNoteIds.length >= 3 ? `把“${sourceTitle}”和相邻 ${themeNoteIds.length - 1} 条笔记整理成可写主题：先写主题问题、关键永久笔记、每条为什么重要和下一步可以写什么。` : "先至少保存两条相关关系，再考虑整理成可写主题。")}</p>
+          <strong>整理成一个主题</strong>
+          <p>${escapeHtml(themeNoteIds.length >= 3 ? `从这 ${themeNoteIds.length} 条笔记中选择材料，确认它们共同回答的问题。` : "至少选择 3 条相关笔记，再整理主题。")}</p>
         </div>
-        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${themeNoteIds.length >= 3 ? "" : " disabled"}>保存为可写主题</button>
+        <button class="graph-selection-action is-secondary" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(themeNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(themeTitle)}"${themeNoteIds.length >= 3 ? "" : " disabled"}>整理主题</button>
       </section>
     </section>
   `;
@@ -113,10 +109,10 @@ export function renderGraphThemeIndexWorkspace(noteIds = [], { title = "可写�
   return `
     <section class="graph-theme-index-workspace is-${escapeHtml(String(tone || "candidate").trim() || "candidate")}" aria-label="主题整理">
       <div>
-        <strong>保存为可写主题</strong>
-        <p>${escapeHtml(canCreate ? `这会把 ${cleanNoteIds.length} 条相关笔记收成可写主题；保存主题问题、关键永久笔记、每条为什么重要和下一步可以写什么。` : "先至少凑齐 3 条相关永久笔记，再整理成可写主题。")}</p>
+        <strong>整理成一个主题</strong>
+        <p>${escapeHtml(canCreate ? `这 ${cleanNoteIds.length} 条笔记可能属于同一个主题。先确认问题和材料，再保存。` : "至少选择 3 条相关笔记，再整理主题。")}</p>
       </div>
-      <button class="graph-selection-action is-primary is-theme" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(cleanNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(cleanTitle)}"${canCreate ? "" : " disabled"}>保存为可写主题</button>
+      <button class="graph-selection-action is-primary is-theme" type="button" data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(cleanNoteIds.join(","))}" data-graph-theme-title="${escapeHtml(cleanTitle)}"${canCreate ? "" : " disabled"}>整理主题</button>
     </section>
   `;
 }
