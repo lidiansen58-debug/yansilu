@@ -11010,13 +11010,19 @@
       .graph-map-head {
         display: grid;
       }
-      .graph-map-primary-row {
+      .module-workspace.graph-mode .graph-panel > div {
+        min-width: 0;
+      }
+      .module-workspace.graph-mode .graph-map-primary-row {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         justify-content: stretch;
       }
-      .graph-map-primary-actions {
+      .module-workspace.graph-mode .graph-map-primary-actions {
         margin-left: 0;
         flex: 1 1 auto;
+        min-width: 0;
+        flex-wrap: wrap;
       }
       .graph-reading-lens-row {
         display: grid;

@@ -27,8 +27,21 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
   const relationLabel = graphRelationTypeLabel(relationType);
   const group = graphRelationGroupMeta(relationType);
   const rationale = String(edge?.rationale || "").trim();
-  const review = graphEdgeReviewMeta(edge);
-  const adjustment = graphEdgeAdjustmentPlan(edge);
+  const isBodyLink = rationale === "markdown_wikilink";
+  const rationaleDraft = isBodyLink ? "" : rationale;
+  const review = isBodyLink ? {
+    tone: "neutral",
+    label: "正文关联",
+    detail: "这条关联来自笔记正文中的链接，与手动关联一样进入知识网络。",
+    prompt: "正文中的上下文是否已经说明两条笔记为什么相关？"
+  } : graphEdgeReviewMeta(edge);
+  const adjustmentPlan = graphEdgeAdjustmentPlan(edge);
+  const adjustment = isBodyLink ? {
+    ...adjustmentPlan,
+    label: "可以继续完善",
+    detail: "已有链接无需重复建立。需要进一步表达关系时，可以补充说明或选择类型。",
+    cards: adjustmentPlan.cards.map((card) => ({ ...card, active: false }))
+  } : adjustmentPlan;
   const actionMeta = graphFocusCardActionMeta(edge, focusContextMode);
   const relationId = String(edge?.id || "").trim();
   const selectedAdjustmentKey = relationId ? String(relationAdjustmentFocusById?.[relationId] || "").trim().toLowerCase() : "";
@@ -52,7 +65,7 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
     body: `
       <div class="graph-selection-reason">
         <small>关系理由</small>
-        <p>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "还没有写清这条关系为什么成立。")}</p>
+        <p>${escapeHtml(isBodyLink ? "关联上下文保留在来源笔记正文中。" : rationale || "还没有写清这条关系为什么成立。")}</p>
       </div>
       <section class="graph-relation-adjustment" aria-label="关系处理建议">
         <div class="graph-relation-adjustment-head">
@@ -92,6 +105,6 @@ export function renderGraphEdgeSelectionPanel({ selection: normalized = null, no
     actions: `
       <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(sourceId)}">打开来源笔记</button>
       <button class="graph-selection-action is-secondary" type="button" data-open-note="${escapeHtml(targetId)}">打开目标笔记</button>
-      <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-rationale-draft="${escapeHtml(rationale)}" data-graph-insight-question-draft="${escapeHtml(String(edge?.insightQuestion || edge?.insight_question || ""))}" data-graph-relation-source="${escapeHtml(sourceId)}" data-graph-relation-adjustment="strengthen"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${sourceId && targetId ? "" : " disabled"}>${escapeHtml(actionMeta.label || "调整关系")}</button>`
+      <button class="graph-selection-action is-secondary" type="button" data-graph-open-relation-form data-graph-rationale-draft="${escapeHtml(rationaleDraft)}" data-graph-insight-question-draft="${escapeHtml(String(edge?.insightQuestion || edge?.insight_question || ""))}" data-graph-relation-source="${escapeHtml(sourceId)}" data-graph-relation-adjustment="strengthen"${relationId ? ` data-graph-relation-id="${escapeHtml(relationId)}"` : ""}${targetId ? ` data-graph-target-note="${escapeHtml(targetId)}"` : ""}${relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}${sourceId && targetId ? "" : " disabled"}>${escapeHtml(actionMeta.label || "调整关系")}</button>`
   });
 }

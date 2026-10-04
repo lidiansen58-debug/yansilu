@@ -76,3 +76,12 @@ test("graph panel focused toolbar renders only for focused graph slices", () => 
   assert.match(markup, /<filter><\/filter>/);
   assert.deepEqual(calls, [[2, "supports", false, { supports: 2 }]]);
 });
+
+test("relation filters do not activate focused-note navigation", () => {
+  for (const effectiveRelationType of ["associated_with", "supports", "index"]) {
+    assert.equal(buildGraphPanelVisualMapProps(panelState({ effectiveRelationType })).filterActive, false);
+  }
+  for (const effectiveRelationType of ["all", "meaningful"]) {
+    assert.equal(buildGraphPanelVisualMapProps(panelState({ effectiveRelationType })).filterActive, false);
+  }
+});

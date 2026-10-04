@@ -102,10 +102,22 @@ test("graph visual geometry decides edge render visibility from zoom and density
   assert.equal(graphEdgeShouldRender({ zoomKey: "detail" }, deps), true);
   assert.equal(graphEdgeShouldRender({ filterActive: true }, deps), true);
   assert.equal(graphEdgeShouldRender({ relationType: "tagged", selected: true }, deps), true);
-  assert.equal(graphEdgeShouldRender({ relationType: "tagged", inSelectedNodeNeighborhood: true }, deps), false);
+  assert.equal(graphEdgeShouldRender({ relationType: "tagged", denseMode: true, inSelectedNodeNeighborhood: true }, deps), true);
   assert.equal(graphEdgeShouldRender({ denseMode: true, intercluster: true, connectsFocus: true }, deps), true);
   assert.equal(graphEdgeShouldRender({ denseMode: true, connectsFocus: true }, deps), false);
   assert.equal(graphEdgeShouldRender({ lensPriority: true }, deps), true);
+});
+
+test("small graphs retain every body and manual edge at overview zoom", () => {
+  for (const visualKey of ["neutral", "support", "conflict", "index"]) {
+    assert.equal(graphEdgeShouldRender({ zoomKey: "fit", visualKey, fitVisible: false, denseMode: false }), true);
+  }
+});
+
+test("explicit relation filters show every match without changing navigation scope", () => {
+  for (const relationType of ["associated_with", "supports", "index"]) {
+    assert.equal(graphEdgeShouldRender({ relationType, denseMode: true, fitVisible: false, filterActive: false }), true);
+  }
 });
 
 test("graph visual geometry builds theme boundary metadata around member nodes", () => {

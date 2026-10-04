@@ -17,6 +17,22 @@ function shell({ className = "", title = "", meta = "", task = null, body = "", 
   return `<aside class="${className}" data-title="${escapeHtml(title)}" data-meta="${escapeHtml(meta)}" data-task="${escapeHtml(task?.status || "")}" data-role="${escapeHtml(roleLabel)}">${body}${actions}</aside>`;
 }
 
+test("body links are valid associations rather than missing-reason removal candidates", () => {
+  const html = renderGraphEdgeSelectionPanel({
+    selection: { kind: "edge", edgeKey: "body-link" },
+    edges: [{ id: "body-link", fromNoteId: "a", toNoteId: "b", relationType: "associated_with", rationale: "markdown_wikilink" }]
+  }, {
+    escapeHtml,
+    graphEdgeReviewMeta: () => ({ tone: "review", label: "缺关系说明" }),
+    graphEdgeAdjustmentPlan: () => ({ label: "可能降级或删除", detail: "weak", cards: [{ key: "remove", active: true }] }),
+    renderGraphSelectionShell: shell
+  });
+  assert.match(html, /data-role="正文关联"/);
+  assert.match(html, /关联上下文保留在来源笔记正文中/);
+  assert.match(html, /已有链接无需重复建立/);
+  assert.doesNotMatch(html, /缺关系说明|可能降级或删除|markdown_wikilink|is-active/);
+});
+
 test("graph node selection panel keeps relation workspace, candidates and note navigation", () => {
   const nodeMap = new Map([
     ["note-a", { id: "note-a", title: "Note A", noteType: "permanent", degree: 1 }],
