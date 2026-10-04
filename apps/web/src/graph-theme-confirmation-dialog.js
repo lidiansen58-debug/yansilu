@@ -1,24 +1,25 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { graphNotePreviewTextForLocalRelation } from "./graph-local-relations.js";
 
-export function renderGraphThemeConfirmation({ notes = [] } = {}) {
+export function renderGraphThemeConfirmation({ notes = [], draft = null, saveError = "" } = {}) {
+  const selectedIds = draft ? new Set(draft.noteIds || []) : null;
   return `<div class="modal graph-theme-confirmation">
     <h2 id="graphThemeConfirmationTitle">整理成一个主题</h2>
     <form data-graph-theme-confirmation-form>
       <label for="graphThemeQuestion">这些笔记共同回答什么问题？</label>
-      <textarea id="graphThemeQuestion" name="question" rows="2" required></textarea>
+      <textarea id="graphThemeQuestion" name="question" rows="2" required>${escapeHtml(draft?.centralQuestion || "")}</textarea>
       <div class="graph-theme-confirmation-notes">
         ${notes.map(note => `<label class="graph-theme-confirmation-note">
-          <input type="checkbox" name="noteId" value="${escapeHtml(note.id)}" checked />
+          <input type="checkbox" name="noteId" value="${escapeHtml(note.id)}"${!selectedIds || selectedIds.has(note.id) ? " checked" : ""} />
           <span><strong>${escapeHtml(note.title || note.id)}</strong><small>${escapeHtml(graphNotePreviewTextForLocalRelation(note))}</small></span>
         </label>`).join("")}
       </div>
-      <details><summary>主题名称与笔记用途</summary>
+      <details${draft ? " open" : ""}><summary>主题名称与笔记用途</summary>
         <label for="graphThemeName">主题名称</label>
-        <input id="graphThemeName" name="title" placeholder="不填写则使用上方问题" />
-        ${notes.map(note => `<label>${escapeHtml(note.title || note.id)}<input name="role:${escapeHtml(note.id)}" placeholder="这条笔记有什么用？（选填）" /></label>`).join("")}
+        <input id="graphThemeName" name="title" value="${escapeHtml(draft?.title || "")}" placeholder="不填写则使用上方问题" />
+        ${notes.map(note => `<label>${escapeHtml(note.title || note.id)}<input name="role:${escapeHtml(note.id)}" value="${escapeHtml(draft?.roles?.[note.id] || "")}" placeholder="这条笔记有什么用？（选填）" /></label>`).join("")}
       </details>
-      <p role="alert" data-graph-theme-confirmation-error hidden></p>
+      <p role="alert" data-graph-theme-confirmation-error${saveError ? "" : " hidden"}>${escapeHtml(saveError)}</p>
       <div class="modal-foot">
         <button class="mini-btn" type="button" data-graph-theme-confirmation-cancel>取消</button>
         <button class="mini-btn primary" type="submit">确认主题并继续</button>
@@ -73,8 +74,8 @@ export function createGraphThemeConfirmationDialog({ documentRef = globalThis.do
           error.textContent = question ? "请保留至少 3 条相关笔记。" : "请写下这个主题要回答的问题。";
           return;
         }
-        const roles = Object.fromEntries(noteIds.map(id => [id, form.elements.namedItem(`role:${id}`)?.value.trim() || ""]));
-        close({ centralQuestion: question, title: form.elements.title.value.trim() || question, noteIds, roles });
+        const roles = Object.fromEntries(options.notes.map(note => [note.id, form.elements.namedItem(`role:${note.id}`)?.value.trim() || ""]));
+        close({ centralQuestion: question, title: form.elements.title.value.trim(), noteIds, roles });
       });
       currentRoot.querySelector("textarea").focus();
     });

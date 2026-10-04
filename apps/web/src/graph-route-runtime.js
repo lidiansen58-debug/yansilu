@@ -159,6 +159,8 @@ export function createGraphRouteRuntime(deps = {}) {
   }
 
   let themeCreationInFlight = null;
+  let themeConfirmationRecovery = null;
+  const sameThemeContext = (left, right) => left.length === right.length && left.every((value, index) => value === right[index]);
   async function createGraphThemeIndexFromNoteIds(noteIds = [], { title = "", source = "graph-theme-index" } = {}) {
     if (themeCreationInFlight) return themeCreationInFlight;
     themeCreationInFlight = performThemeCreation(noteIds, { title, source });
@@ -168,11 +170,12 @@ export function createGraphRouteRuntime(deps = {}) {
 
   async function performThemeCreation(noteIds, { title, source }) {
     const context = graphThemeContextKey();
-    const stillCurrent = () => {
-      const current = graphThemeContextKey();
-      return context.length === current.length && context.every((value, index) => value === current[index]);
-    };
+    const stillCurrent = () => sameThemeContext(context, graphThemeContextKey());
     const requestedIds = uniqueStrings(noteIds);
+    const materialKey = JSON.stringify([...requestedIds].sort());
+    if (themeConfirmationRecovery && (!sameThemeContext(themeConfirmationRecovery.context, context) || themeConfirmationRecovery.materialKey !== materialKey)) {
+      themeConfirmationRecovery = null;
+    }
     if (requestedIds.length < THEME_INDEX_MIN_NOTE_COUNT) {
       setStatus(`至少需要 ${THEME_INDEX_MIN_NOTE_COUNT} 条相关永久笔记，才适合整理成可写主题`, "warn");
       return null;
@@ -186,9 +189,14 @@ export function createGraphRouteRuntime(deps = {}) {
     }
     const suggestedTitle = String(title || suggestedThemeIndexTitle(eligibleIds)).trim();
     const confirmation = await requestGraphThemeConfirmation({
-      notes: eligibleIds.map(id => writingNoteById(id) || writingKnownNoteById(id)), title: suggestedTitle
+      notes: eligibleIds.map(id => writingNoteById(id) || writingKnownNoteById(id)), title: suggestedTitle,
+      draft: themeConfirmationRecovery?.draft || null,
+      saveError: themeConfirmationRecovery?.error || ""
     });
-    if (!confirmation || !stillCurrent()) return null;
+    if (!confirmation || !stillCurrent()) {
+      themeConfirmationRecovery = null;
+      return null;
+    }
     const selectedIds = uniqueStrings(confirmation.noteIds || []).filter(id => eligibleIds.includes(id) && isGraphThemeIndexEligibleNote(writingKnownNoteById(id)));
     if (selectedIds.length < THEME_INDEX_MIN_NOTE_COUNT || !String(confirmation.centralQuestion || "").trim()) {
       setStatus("请确认主题问题，并保留至少 3 条相关永久笔记。", "warn");
@@ -196,13 +204,24 @@ export function createGraphRouteRuntime(deps = {}) {
     }
     const writingEligibleIds = selectedIds.filter((id) => isWritingEligibleNote(writingKnownNoteById(id)));
     const cleanTitle = String(confirmation.title || confirmation.centralQuestion).trim();
-    const card = await createIndexCard(buildGraphThemeConfirmedPayload({
-      directoryId: writingThemeIndexScopeDirectoryId(),
-      confirmation: { ...confirmation, title: cleanTitle, noteIds: selectedIds },
-      edges: graphState.item?.edges || [],
-      noteById: (id) => writingNoteById(id) || writingKnownNoteById(id)
-    }));
-    if (!card?.id) throw new Error("主题笔记创建失败");
+    let card;
+    try {
+      card = await createIndexCard(buildGraphThemeConfirmedPayload({
+        directoryId: writingThemeIndexScopeDirectoryId(),
+        confirmation: { ...confirmation, title: cleanTitle, noteIds: selectedIds },
+        edges: graphState.item?.edges || [],
+        noteById: (id) => writingNoteById(id) || writingKnownNoteById(id)
+      }));
+      if (!card?.id) throw new Error("主题笔记创建失败");
+    } catch (error) {
+      themeConfirmationRecovery = stillCurrent() ? {
+        context, materialKey,
+        draft: { ...confirmation, noteIds: [...confirmation.noteIds], roles: { ...confirmation.roles } },
+        error: `保存失败：${String(error?.message || error)}。请重试。`
+      } : null;
+      throw error;
+    }
+    themeConfirmationRecovery = null;
     if (!stillCurrent()) return card;
     upsertWritingThemeIndex(card);
     if (writingEligibleIds.length >= 2) {
@@ -259,11 +278,12 @@ export function createGraphRouteRuntime(deps = {}) {
       return null;
     }
     const previousDisabled = Boolean(button?.disabled);
+    const context = graphThemeContextKey();
     if (button) button.disabled = true;
     try {
       return await createGraphThemeIndexFromNoteIds(noteIds, { title, source: "graph-theme-index" });
     } catch (error) {
-      setStatus(`保存可写主题失败：${String(error?.message || error)}`, "bad");
+      if (sameThemeContext(context, graphThemeContextKey())) setStatus(`保存可写主题失败：${String(error?.message || error)}。再次打开可继续填写并重试。`, "bad");
       return null;
     } finally {
       if (button) button.disabled = previousDisabled;

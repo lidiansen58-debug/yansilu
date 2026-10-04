@@ -20,6 +20,91 @@ function themeHarness(overrides = {}) {
   return { runtime, saved };
 }
 
+const recoveryDraft = { title: "我的主题", centralQuestion: "我的问题？", noteIds: ["a", "b", "c"], roles: { a: "支持材料", d: "暂不选择的用途" } };
+
+test("theme save failure restores the full confirmation draft, then success clears it", async () => {
+  const offered = [], payloads = [];
+  let writes = 0;
+  const { runtime } = themeHarness({
+    requestGraphThemeConfirmation: async options => { offered.push(options); return structuredClone(recoveryDraft); },
+    createIndexCard: async payload => {
+      payloads.push(payload);
+      if (++writes === 1) throw new Error("503 unavailable");
+      return { id: "card" };
+    }
+  });
+  await assert.rejects(runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]), /503/);
+  await runtime.createGraphThemeIndexFromNoteIds(["d", "c", "b", "a"]);
+  assert.deepEqual(offered[1].draft, recoveryDraft);
+  assert.match(offered[1].saveError, /503/);
+  assert.deepEqual(payloads[1].noteIds, ["a", "b", "c"]);
+  assert.equal(payloads[1].items[0].rationale, "支持材料");
+  await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  assert.equal(offered[2].draft, null);
+  assert.equal(offered[2].saveError, "");
+});
+
+for (const change of ["vault", "graph-scope", "materials", "cancel"]) {
+  test(`failed theme confirmation is not restored after ${change}`, async () => {
+    const offered = [];
+    let context = ["vault-a", "scope-a"], cancel = false;
+    const { runtime } = themeHarness({
+      graphThemeContextKey: () => context,
+      requestGraphThemeConfirmation: async options => { offered.push(options); return cancel ? null : structuredClone(recoveryDraft); },
+      createIndexCard: async () => { throw new Error("503 unavailable"); }
+    });
+    const ids = ["a", "b", "c", "d"];
+    await assert.rejects(runtime.createGraphThemeIndexFromNoteIds(ids), /503/);
+    if (change === "cancel") {
+      cancel = true;
+      assert.equal(await runtime.createGraphThemeIndexFromNoteIds(ids), null);
+      cancel = false;
+    }
+    if (change === "vault") context = ["vault-b", "scope-a"];
+    if (change === "graph-scope") context = ["vault-a", "scope-b"];
+    await assert.rejects(runtime.createGraphThemeIndexFromNoteIds(change === "materials" ? ["a", "b", "c"] : ids), /503/);
+    assert.equal(offered.at(-1).draft, null);
+    assert.equal(offered.at(-1).saveError, "");
+  });
+}
+
+test("a late save failure after vault switch cannot restore or report the old draft", async () => {
+  const offered = [], statuses = [];
+  let vault = "vault-a", rejectSave, started;
+  const saving = new Promise(resolve => { started = resolve; });
+  const { runtime } = themeHarness({
+    graphThemeContextKey: () => [vault],
+    graphDataList: () => ["a", "b", "c", "d"],
+    setStatus: message => statuses.push(message),
+    requestGraphThemeConfirmation: async options => { offered.push(options); return structuredClone(recoveryDraft); },
+    createIndexCard: () => { started(); return new Promise((_, reject) => { rejectSave = reject; }); }
+  });
+  const failed = runtime.createGraphThemeIndexFromButton({ disabled: false, getAttribute: () => "主题" });
+  await saving;
+  vault = "vault-b";
+  rejectSave(new Error("old vault 503"));
+  assert.equal(await failed, null);
+  assert.deepEqual(statuses, []);
+  const next = runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  await saving;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(offered[1].draft, null);
+  rejectSave(new Error("new vault 503"));
+  await assert.rejects(next, /new vault/);
+});
+
+test("a saved theme whose writing handoff fails does not remain a creation retry draft", async () => {
+  const offered = [];
+  const { runtime } = themeHarness({
+    isWritingEligibleNote: () => true,
+    requestGraphThemeConfirmation: async options => { offered.push(options); return structuredClone(recoveryDraft); },
+    useThemeIndexAsWritingEntry: async () => { throw new Error("草稿尚未保存"); }
+  });
+  await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  assert.equal(offered[1].draft, null);
+});
+
 test("cancelling theme confirmation creates nothing", async () => {
   const { runtime, saved } = themeHarness({ requestGraphThemeConfirmation: async () => null });
   assert.equal(await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"]), null);
