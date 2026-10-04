@@ -69,7 +69,9 @@ test("duplicate entry shares one request; late scaffold after switching vault is
 
 test("desktop runtime includes the new data dependency and judgment entry exposes the form", async () => {
   const prepare = await fs.readFile(new URL("../../scripts/prepare-desktop-api-runtime.mjs", import.meta.url), "utf8");
-  assert.match(prepare, /\["seed-smart-notes-product-thinking.mjs", "smart-notes-short-practice.mjs"\]/);
+  for (const dependency of ["seed-smart-notes-product-thinking.mjs", "smart-notes-short-practice.mjs", "smart-notes-demo-draft-initialization.mjs"]) {
+    assert.ok(prepare.includes(`"${dependency}"`), `desktop runtime must include ${dependency}`);
+  }
   const app = await fs.readFile(new URL("../../apps/web/src/prototype-app.js", import.meta.url), "utf8");
   assert.match(app, /if \(options.focusDistillation\) \{\s*state.inspectorVisible = true;\s*editor\?\.setInspectorVisible\?\.\(true\);\s*editor\?\.activatePermanentWorkspaceTab\?\.\("viewpoint"\)/);
 });
