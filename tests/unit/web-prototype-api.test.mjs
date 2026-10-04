@@ -785,16 +785,19 @@ test("prototype API refines potential relations through the public endpoint", as
 
   try {
     const api = await importPrototypeApi("potential-relation-refine", { __API_BASE__: "http://127.0.0.1:3999" });
+    const controller = new AbortController();
     const result = await api.refinePotentialRelationCandidate({
       directoryId: "dir_original_default",
       focusNoteId: "a",
       candidate: { id: "prc_1", sourceNoteId: "a", targetNoteId: "b" },
       timeoutMs: 60000
-    });
+    }, { signal: controller.signal });
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/graph/potential-relations/refine");
     assert.equal(calls[0].options.method, "POST");
+    controller.abort();
+    assert.equal(calls[0].options.signal.aborted, true);
     assert.deepEqual(JSON.parse(calls[0].options.body), {
       directoryId: "dir_original_default",
       focusNoteId: "a",

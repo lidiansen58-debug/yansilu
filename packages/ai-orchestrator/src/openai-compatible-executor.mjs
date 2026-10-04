@@ -138,7 +138,16 @@ export function createOpenAiCompatibleExecutor(options = {}) {
       throw error;
     }
 
+    const throwIfCancelled = () => {
+      if (!request.signal?.aborted) return;
+      const error = new Error("AI request cancelled.");
+      error.name = "AbortError";
+      error.code = "cancelled";
+      throw error;
+    };
+    throwIfCancelled();
     const fetchRequest = await buildOpenAiCompatibleFetchRequest(compatibleRequest, options);
+    throwIfCancelled();
     const requestedTimeout = Number(compatibleRequest.metadata?.timeoutMs ?? options.timeoutMs ?? options.timeout_ms ?? 120000);
     const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
       ? Math.min(requestedTimeout, 600000) : 120000;

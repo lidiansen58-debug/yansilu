@@ -5323,6 +5323,7 @@ const graphPanelRuntimeDeps = createGraphPanelPrototypeRuntimeDepsProvider(() =>
 }));
 
 function renderGraphPanel() {
+  graphAiConnectRuntimeController.cancelStaleRefinements();
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");

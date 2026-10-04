@@ -4,6 +4,13 @@ import { graphCandidateEndpointIds } from "./graph-relation-state-query.js";
 export function createGraphAiConnectRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
   const refinementRequests = new Map();
+  function cancelStaleRefinements() {
+    for (const [key, request] of refinementRequests) {
+      if (request.contextStillCurrent()) continue;
+      refinementRequests.delete(key);
+      request.controller.abort();
+    }
+  }
   const contextGuard = ({ includeAnalysis = false } = {}) => {
     const deps = runtimeDeps();
     const item = deps.graphState?.item;
@@ -96,10 +103,10 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
     const requestKey = JSON.stringify([cleanNoteId, sourceNoteId, targetNoteId,
       candidate.id || candidate.candidateId || candidate.candidate_id || "",
       String(candidate.relationType || candidate.relation_type || "").trim().toLowerCase()]);
-    const request = {};
+    refinementRequests.get(requestKey)?.controller.abort();
+    const request = { controller: new AbortController(), contextStillCurrent: contextGuard({ includeAnalysis: true }) };
     refinementRequests.set(requestKey, request);
-    const contextStillCurrent = contextGuard({ includeAnalysis: true });
-    const requestStillCurrent = () => contextStillCurrent() && refinementRequests.get(requestKey) === request;
+    const requestStillCurrent = () => request.contextStillCurrent() && refinementRequests.get(requestKey) === request;
     const staleResult = () => ({ ok: false, needsConfirmation: false, merged: false, stale: true });
     try {
       const refined = await refinePotentialRelationCandidate({
@@ -110,7 +117,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
         candidate,
         timeoutMs: 60000,
         ...(confirmationApproved ? { confirmationApproved: true, confirmBudget: true } : {})
-      });
+      }, { signal: request.controller.signal });
       if (!requestStillCurrent()) return staleResult();
       const merged = Boolean(refined && mergePotentialRelationCandidateIntoGraphAnalysis(refined));
       if (merged) renderGraphPanel();
@@ -286,5 +293,5 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       }
     }
   }
-  return { refineGraphPotentialRelationCandidate, refineGraphPotentialRelationsForNote, runGraphAiConnectForNote };
+  return { cancelStaleRefinements, refineGraphPotentialRelationCandidate, refineGraphPotentialRelationsForNote, runGraphAiConnectForNote };
 }

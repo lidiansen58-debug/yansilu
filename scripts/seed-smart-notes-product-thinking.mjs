@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { withShortSmartNotesPractice } from "./smart-notes-short-practice.mjs";
+import { beginDemoDraftInitialization, finishDemoDraftInitialization } from "./smart-notes-demo-draft-initialization.mjs";
 
 import {
   createDirectory,
@@ -426,6 +427,7 @@ async function upsertWritingProjectAndScaffold(vaultPath, fixture, counters) {
       counters.preservedWritingProjects += 1;
     } catch (error) {
       if (error?.message !== `writingProjectId not found: ${projectId}`) throw error;
+      await beginDemoDraftInitialization(vaultPath, projectId, cleanText(project.draftNoteId));
       writingProject = await createWritingProject(vaultPath, {
         id: projectId,
         title,
@@ -463,6 +465,7 @@ async function upsertWritingProjectAndScaffold(vaultPath, fixture, counters) {
       counters.createdDraftScaffolds += 1;
     }
 
+    await finishDemoDraftInitialization(vaultPath, projectId, cleanText(project.draftNoteId), scaffoldId);
     results.push({ writingProjectId: writingProject.id, scaffoldId });
   }
 
