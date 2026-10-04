@@ -449,6 +449,7 @@ export function potentialRelationCacheKey(candidate = {}, options = {}) {
     cleanText(options.privacyMode || candidate.privacyMode || candidate.privacy_mode),
     cleanText(options.userMode || candidate.userMode || candidate.user_mode),
     cleanText(options.modelName || candidate.modelName || DEFAULT_POTENTIAL_RELATION_MODEL),
+    JSON.stringify([cleanText(options.endpointUrl), cleanText(options.runtimeModelName)]),
     promptSemanticKey,
     options.confirmationApproved === true || options.confirmBudget === true ? "confirmed_budget" : "awaiting_budget"
   ].join(":");
@@ -556,6 +557,8 @@ export async function refinePotentialRelationCandidateWithLocalAi(candidate = {}
   const cacheKey = potentialRelationCacheKey(candidate, {
     modelName,
     providerId: options.providerId,
+    endpointUrl: options.endpointUrl,
+    runtimeModelName: options.runtimeModelName,
     privacyMode: options.privacyMode,
     userMode: options.userMode,
     confirmationApproved: options.confirmationApproved,

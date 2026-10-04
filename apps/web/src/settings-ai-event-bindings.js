@@ -366,7 +366,7 @@ $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
 
 $("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
   const healthEndpoint = String(settingsState.ai.providerHealthEndpointUrl || "").trim();
-  if (!healthEndpoint) {
+  if (isRemoteAiProvider(currentAiProviderId()) || !healthEndpoint) {
     openSettingsAiDialog("test");
     setStatus("用一句不含敏感内容的话测试远程 AI。", "warn");
     return;

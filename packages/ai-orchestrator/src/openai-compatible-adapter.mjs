@@ -1,6 +1,7 @@
 import { normalizeModelResponse, normalizeProviderDescriptor } from "./provider-adapter.mjs";
 import { createOpenAiCompatibleExecutor } from "./openai-compatible-executor.mjs";
 import { getProviderPreset } from "./provider-presets.mjs";
+import { applyOpenAiCompatibleRequestProfile } from "./openai-compatible-request-profile.mjs";
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -108,9 +109,11 @@ export function buildOpenAiCompatibleRequest(request = {}, options = {}) {
   if (tools.length) body.tools = tools;
   if (tools.length && request.toolChoice) body.tool_choice = request.toolChoice;
   if (format) body.response_format = format;
+  const endpointUrl = cleanText(options.endpointUrl || options.endpoint_url || descriptor.endpointUrl) || "https://api.openai-compatible.invalid/v1/chat/completions";
+  applyOpenAiCompatibleRequestProfile(body, { endpointUrl, purpose: request.purpose, output: request.output, localExecution: descriptor.localExecution });
 
   return {
-    endpointUrl: cleanText(options.endpointUrl || options.endpoint_url || descriptor.endpointUrl) || "https://api.openai-compatible.invalid/v1/chat/completions",
+    endpointUrl,
     method: "POST",
     auth: {
       authMode: cleanText(options.authMode || options.auth_mode || descriptor.authMode),
@@ -124,7 +127,7 @@ export function buildOpenAiCompatibleRequest(request = {}, options = {}) {
       requestId: cleanText(request.requestId || request.request_id),
       agentRunId: cleanText(request.agentRunId || request.agent_run_id),
       purpose: cleanText(request.purpose),
-      timeoutMs: request.settings?.timeoutMs ?? request.settings?.timeout_ms,
+      timeoutMs: request.settings?.timeoutMs ?? request.settings?.timeout_ms ?? (request.purpose === "test_chat" && !descriptor.localExecution ? 30000 : undefined),
       providerId: descriptor.providerId,
       modelRef: logicalModelRef,
       runtimeModelRef: mappedModelRef,
@@ -157,7 +160,7 @@ export function normalizeOpenAiCompatibleError(error = {}) {
   } else if (status >= 500 || code === "provider_unavailable") {
     errorType = "provider_unavailable";
     retryable = true;
-  } else if (status === 400 || code === "validation_error") {
+  } else if ([400, 422].includes(status) || code === "validation_error") {
     errorType = "validation_error";
   } else if (code === "content_policy" || code === "content_filter") {
     errorType = "content_policy";
@@ -194,24 +197,47 @@ function normalizeToolCalls(toolCalls = []) {
   }));
 }
 
+function completionError(finishReason) {
+  switch (finishReason) {
+    case "length": return { error_type: "output_incomplete", error_code: "output_token_limit",
+      message: "AI output reached its token limit. Reduce the input or use a model with a larger output budget.", retryable: false };
+    case "content_filter": return { error_type: "content_policy", error_code: "content_filter",
+      message: "The AI provider filtered this response. Review the input before trying again.", retryable: false };
+    case "insufficient_system_resource": return { error_type: "provider_unavailable", error_code: "insufficient_system_resource",
+      message: "The AI provider interrupted generation due to insufficient resources. Try again later.", retryable: true };
+    case "aborted": return { error_type: "generation_interrupted", error_code: "provider_generation_interrupted",
+      message: "The AI provider interrupted generation. Try again later.", retryable: true };
+    default: return null;
+  }
+}
+
 export function normalizeOpenAiCompatibleResponse(raw = {}, request = {}, descriptorInput = {}) {
+  raw = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   const descriptor = normalizeProviderDescriptor(
     descriptorInput.providerId || descriptorInput.provider_id ? descriptorInput : getProviderPreset("openai_compatible_gateway")
   );
   const choice = raw.choices?.[0] || {};
   const message = choice.message || {};
-  const content = String(message.content ?? raw.output_text ?? "");
+  const contentValue = message.content ?? raw.output_text;
+  const content = typeof contentValue === "string" ? contentValue : "";
   const toolCalls = normalizeToolCalls(message.tool_calls || raw.tool_calls || []);
   const parsedJson = parseJsonContent(content);
+  const usableTools = request.purpose !== "test_chat" && toolCalls.some(call => call.name);
+  const error = completionError(choice.finish_reason) ||
+    (raw.error || (!cleanText(content) && !usableTools) ? {
+      error_type: "invalid_response", error_code: "invalid_provider_response",
+      message: "AI provider returned no usable reply. Check the API endpoint and response format, or try again later.", retryable: false
+    } : null);
 
   return normalizeModelResponse(
     {
       requestId: raw.id || request.requestId,
       agentRunId: request.agentRunId,
-      status: "succeeded",
+      status: error ? "failed" : "succeeded",
       providerId: descriptor.providerId,
       modelRef: request.modelRef,
-      output: {
+      error,
+      output: error ? { type: "text", content: "", json: null, toolCalls: [] } : {
         type: parsedJson ? "json" : toolCalls.length ? "tool_calls" : "text",
         content,
         json: parsedJson,

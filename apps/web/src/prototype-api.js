@@ -822,12 +822,13 @@ export async function analyzeDirectoryGraph(directoryId, payload = {}) {
   return json.item || null;
 }
 
-export async function refinePotentialRelationCandidate(payload = {}) {
+export async function refinePotentialRelationCandidate(payload = {}, options = {}) {
   const json = await request("/api/v1/graph/potential-relations/refine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload || {}),
-    timeoutMs: payload?.timeoutMs ?? payload?.timeout_ms
+    timeoutMs: payload?.timeoutMs ?? payload?.timeout_ms,
+    signal: options.signal
   });
   return json.item || null;
 }

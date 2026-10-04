@@ -12,6 +12,66 @@ import { createSqliteArtifactStore } from "../../packages/ai-orchestrator/src/in
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 
+for (const phase of ["headers", "body"]) {
+  test(`cancelled compatible relation refinement closes upstream during ${phase} and permits a clean retry`, { timeout: 10000 }, async (t) => {
+    const vaultPath = await makeTempDir("yansilu-refine-cancel-");
+    let markReady;
+    let markClosed;
+    const ready = new Promise((resolve) => { markReady = resolve; });
+    const closed = new Promise((resolve) => { markClosed = resolve; });
+    let calls = 0;
+    const provider = http.createServer(async (req, res) => {
+      await readRequestJson(req);
+      calls += 1;
+      if (calls === 1) {
+        res.once("close", markClosed);
+        if (phase === "body") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.write('{"choices":[');
+        }
+        markReady();
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        decision: "accept", relationType: "supports", confidence: 0.8,
+        rationale: "Retry evidence", evidenceA: "A", evidenceB: "B", reviewQuestion: "Q"
+      }) } }] }));
+    });
+    await new Promise((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    t.after(() => { provider.closeAllConnections(); provider.close(); });
+    const port = await findFreePort();
+    const baseUrl = `http://127.0.0.1:${port}`;
+    const child = startApi(port, vaultPath);
+    t.after(() => child.kill());
+    await waitForHealth(baseUrl);
+    const payload = buildLocalRefineBody(`http://127.0.0.1:${provider.address().port}`);
+    const controller = new AbortController();
+    const pending = fetch(`${baseUrl}/api/v1/graph/potential-relations/refine`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload), signal: controller.signal
+    });
+    const cancelled = assert.rejects(pending, { name: "AbortError" });
+    await ready;
+    controller.abort();
+    await cancelled;
+    let timer;
+    try {
+      await Promise.race([closed, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Cancelled upstream remained open")), 1000);
+      })]);
+    } finally { clearTimeout(timer); }
+    const inbox = await (await fetch(`${baseUrl}/api/v1/ai/inbox?view=all&limit=50`)).json();
+    assert.equal(inbox.total, 0, JSON.stringify(inbox));
+    const retry = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", payload);
+    assert.equal(retry.status, 200, JSON.stringify(retry.json));
+    assert.equal(retry.json.metrics.cacheHit, false);
+    assert.equal(retry.json.item.aiRelationType, "supports");
+    assert.equal(calls, 2);
+    assert.equal(retry.json.reviewItems.storedArtifactIds.length, 1);
+  });
+}
+
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
@@ -57,7 +117,7 @@ async function readRequestJson(req) {
   return text ? JSON.parse(text) : {};
 }
 
-async function startJsonProvider(output) {
+async function startJsonProvider(output, options = {}) {
   const requests = [];
   const server = http.createServer(async (req, res) => {
     if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
@@ -71,7 +131,7 @@ async function startJsonProvider(output) {
     res.end(
       JSON.stringify({
         id: "chatcmpl_potential_relation_refine_test",
-        choices: [{ message: { role: "assistant", content: JSON.stringify(output) } }],
+        choices: [{ finish_reason: options.finishReason || "stop", message: { role: "assistant", content: JSON.stringify(output) } }],
         usage: { prompt_tokens: 33, completion_tokens: 41, total_tokens: 74 }
       })
     );
@@ -421,6 +481,69 @@ test("potential relation scan keeps noteId focus when request also supplies opti
   );
 });
 
+test("compatible relation provider transport closes when its task deadline expires", { timeout: 10000 }, async t => {
+  const vaultPath = await makeTempDir("yansilu-relation-provider-deadline-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  let closed = false;
+  const provider = http.createServer(async (req, res) => {
+    await readRequestJson(req);
+    res.on("close", () => { closed = true; });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.flushHeaders();
+    res.write('{"pending":');
+  });
+  await new Promise(resolve => provider.listen(0, "127.0.0.1", resolve));
+  t.after(async () => { provider.closeAllConnections(); await new Promise(resolve => provider.close(resolve)); });
+  await waitForHealth(baseUrl);
+  const response = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", {
+    ...buildLocalRefineBody(`http://127.0.0.1:${provider.address().port}`),
+    confirmationApproved: true, confirmBudget: true, persistArtifacts: false, timeoutMs: 100
+  });
+  assert.equal(response.status, 200, JSON.stringify(response.json));
+  assert.ok(response.json.item.aiError);
+  const deadline = Date.now() + 1000;
+  while (!closed && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(closed, true, "the upstream response must close instead of continuing for the default 120 seconds");
+});
+
+test("relation cache invalidates when the same gateway changes address or runtime model", async t => {
+  const vaultPath = await makeTempDir("yansilu-relation-gateway-cache-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  const firstProvider = await startJsonProvider({ decision: "accept", relationType: "supports", confidence: 0.8, rationale: "First service" });
+  const secondProvider = await startJsonProvider({ decision: "uncertain", relationType: "same_topic", confidence: 0.4, rationale: "Second service" });
+  t.after(() => firstProvider.server.close());
+  t.after(() => secondProvider.server.close());
+  await waitForHealth(baseUrl);
+  const refine = (provider, model) => postJson(baseUrl, "/api/v1/graph/potential-relations/refine", {
+    ...buildLocalRefineBody(provider.baseUrl),
+    runtimeModelMap: { "local_private_gateway:local_private": model },
+    confirmationApproved: true, confirmBudget: true, persistArtifacts: false
+  });
+  const first = await refine(firstProvider, "runtime-a");
+  assert.equal(first.status, 200, JSON.stringify(first.json));
+  assert.equal(first.json.item.aiRelationType, "supports");
+  const cached = await refine(firstProvider, "runtime-a");
+  assert.equal(cached.json.metrics.cacheHit, true);
+  assert.equal(firstProvider.requests.length, 1);
+  const switched = await refine(secondProvider, "runtime-a");
+  assert.equal(switched.json.metrics.cacheHit, false);
+  assert.equal(switched.json.item.aiRelationType, "same_topic");
+  assert.equal(secondProvider.requests.length, 1);
+  const changedModel = await refine(secondProvider, "runtime-b");
+  assert.equal(changedModel.json.metrics.cacheHit, false);
+  assert.equal(secondProvider.requests.length, 2);
+  assert.equal(secondProvider.requests[1].body.model, "runtime-b");
+  const cachedNewModel = await refine(secondProvider, "runtime-b");
+  assert.equal(cachedNewModel.json.metrics.cacheHit, true);
+  assert.equal(secondProvider.requests.length, 2);
+});
+
 test("potential relation refine returns confirmation-needed state before remote execution", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-potential-relations-vault-");
   const port = await findFreePort();
@@ -439,6 +562,38 @@ test("potential relation refine returns confirmation-needed state before remote 
   assert.equal(response.json.item.aiNeedsConfirmation, true);
   assert.equal(response.json.metrics.providerId, "openai_compatible_gateway");
   assert.equal(response.json.metrics.modelRef, "openai_compatible_gateway:local_private");
+});
+
+test("truncated relation output preserves the rule candidate without caching AI output and permits retry", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-refine-truncated-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  const options = { finishReason: "length" };
+  const provider = await startJsonProvider({ decision: "accept", relationType: "supports", confidence: 0.9,
+    rationale: "Complete-looking but truncated", evidenceA: "A", evidenceB: "B" }, options);
+  t.after(() => { provider.server.closeAllConnections(); provider.server.close(); });
+  await waitForHealth(baseUrl);
+  const body = buildLocalRefineBody(provider.baseUrl);
+  const limited = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", body);
+  assert.equal(limited.status, 200, JSON.stringify(limited.json));
+  assert.equal(limited.json.item.aiDecision, null);
+  assert.equal(limited.json.item.aiFallbackMode, "rule_candidate_preserved");
+  assert.notEqual(limited.json.item.aiRationale, "Complete-looking but truncated");
+  const artifactStore = await createSqliteArtifactStore({ vaultPath });
+  t.after(() => artifactStore.close());
+  for (const id of limited.json.reviewItems.storedArtifactIds) {
+    assert.equal(JSON.stringify(artifactStore.getArtifact(id)).includes("Complete-looking but truncated"), false);
+  }
+  assert.equal(provider.requests.length, 1);
+  options.finishReason = "stop";
+  const retry = await postJson(baseUrl, "/api/v1/graph/potential-relations/refine", body);
+  assert.equal(retry.status, 200, JSON.stringify(retry.json));
+  assert.equal(retry.json.item.aiDecision, "accept");
+  assert.equal(retry.json.metrics.cacheHit, false);
+  assert.equal(provider.requests.length, 2);
+  assert.equal(retry.json.reviewItems.storedArtifactIds.length, 1);
 });
 
 test("potential relation refine executes with current provider settings after confirmation", async (t) => {

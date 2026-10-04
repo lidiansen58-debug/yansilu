@@ -45,5 +45,6 @@ export function remoteHealthMatchesAiConfig(ai = {}, providerId = "") {
 
 export function remoteConnectionReadyForProvider(ai = {}, providerId = "") {
   if (remoteTestFailedForAiConfig(ai, providerId)) return false;
-  return remoteTestMatchesAiConfig(ai, providerId) || remoteHealthMatchesAiConfig(ai, providerId);
+  // A successful GET health check cannot verify credentials, model access or inference.
+  return remoteTestMatchesAiConfig(ai, providerId);
 }

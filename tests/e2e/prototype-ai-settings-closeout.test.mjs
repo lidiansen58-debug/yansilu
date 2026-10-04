@@ -23,15 +23,24 @@ test("current AI settings test before saving, reload config and cancel a pending
   }
   execFileSync(openssl, ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key,
     "-out", cert, "-days", "1", "-subj", "/CN=localhost", "-addext", "subjectAltName=IP:127.0.0.1,DNS:localhost"], { stdio: "ignore" });
-  let calls = 0, hold = false, heldResponse = null;
+  let calls = 0, insufficientBalance = true, hold = false, heldResponse = null;
+  let invalidReply = true;
   const provider = https.createServer({ key: await fs.readFile(key), cert: await fs.readFile(cert) }, async (req, res) => {
     let raw = "";
     for await (const chunk of req) raw += chunk;
     calls++;
     assert.equal(req.headers.authorization, "Bearer synthetic-ui-key");
-    assert.equal(JSON.parse(raw).model, "synthetic-ui-model");
+    assert.equal(JSON.parse(raw).model, "deepseek-flash");
+    assert.equal(JSON.parse(raw).max_tokens, 256);
+    assert.equal(req.url, "/chat/completions");
+    if (insufficientBalance) {
+      res.writeHead(402, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "insufficient_balance", message: "Insufficient Balance" } }));
+      return;
+    }
     if (hold) { heldResponse = res; return; }
     res.setHeader("content-type", "application/json");
+    if (invalidReply) { res.end("{}"); return; }
     res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Synthetic UI connection ready" } }] }));
   });
   provider.listen(0, "127.0.0.1");
@@ -40,7 +49,7 @@ test("current AI settings test before saving, reload config and cancel a pending
   const stack = await startPrototypeStack(t, pw, { apiEnv: { NODE_EXTRA_CA_CERTS: cert } });
   if (!stack) return;
   const { page, apiBase, webBase, vaultPath } = stack;
-  const base = `https://127.0.0.1:${provider.address().port}/v1`;
+  const base = `https://127.0.0.1:${provider.address().port}`;
   const openAi = async () => {
     await page.locator('.rail-btn[data-module="settings"]').click();
     await page.locator('[data-settings-item="ai-settings"]').click();
@@ -50,13 +59,21 @@ test("current AI settings test before saving, reload config and cancel a pending
   await page.locator('#settingsAiRemoteSection > summary').click();
   await page.locator('#settingsAiProviderEndpointUrl').fill(base);
   await page.locator('#settingsAiSecretRef').fill("synthetic-ui-key");
-  await page.locator('#settingsAiRemoteRuntimeModel').fill("synthetic-ui-model");
+  await page.locator('#settingsAiRemoteRuntimeModel').fill("deepseek-flash");
   await page.locator('#settingsAiRemoteConsent').check();
   assert.equal(await page.locator('#settingsAiSaveProviderConfig').isDisabled(), true);
   await page.locator('#settingsAiCheckProviderHealth').click();
   await page.locator('#settingsAiTestDialog').waitFor({ state: "visible" });
   assert.equal(calls, 0, "save before a connection test must not call the provider");
   await page.locator('#settingsAiTestPrompt').fill("Synthetic connection test only");
+  await page.locator('#btnAiTestChatRun').click();
+  await waitFor(async () => assert.match(await page.locator('#settingsAiTestChatOutput').innerText(), /余额不足/), 10000);
+  assert.equal(await page.locator('#settingsAiSaveProviderConfig').isDisabled(), true);
+  insufficientBalance = false;
+  await page.locator('#btnAiTestChatRun').click();
+  await waitFor(async () => assert.match(await page.locator('#settingsAiTestChatOutput').innerText(), /未返回有效回复/), 10000);
+  assert.equal(await page.locator('#settingsAiSaveProviderConfig').isDisabled(), true, "HTTP 200 with an empty reply must not enable saving");
+  invalidReply = false;
   await page.locator('#btnAiTestChatRun').click();
   await waitFor(async () => assert.match(await page.locator('#settingsAiTestChatOutput').innerText(), /Synthetic UI connection ready/), 10000);
   let secrets;
@@ -71,7 +88,7 @@ test("current AI settings test before saving, reload config and cancel a pending
   await openAi();
   if (!(await page.locator('#settingsAiRemoteSection').evaluate(node => node.open))) await page.locator('#settingsAiRemoteSection > summary').click();
   assert.equal(normalizeOpenAiCompatibleBaseUrl(await page.locator('#settingsAiProviderEndpointUrl').inputValue()), `${base}/chat/completions`);
-  assert.equal(await page.locator('#settingsAiRemoteRuntimeModel').inputValue(), "synthetic-ui-model");
+  assert.equal(await page.locator('#settingsAiRemoteRuntimeModel').inputValue(), "deepseek-flash");
   await page.locator('#settingsAiRemoteConsent').check();
   hold = true;
   await page.locator('#settingsAiCheckProviderHealth').click();
