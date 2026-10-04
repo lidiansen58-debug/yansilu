@@ -1,3 +1,5 @@
+import { SMART_NOTES_MANUAL_ID, smartNotesDemoManual } from "./smart-notes-demo-manual.mjs";
+
 const SOURCE_ID = "SRC-SMART-NOTES";
 
 const permanentDefinitions = [
@@ -201,6 +203,10 @@ function permanentNote([id, title, cluster, thesis, product, boundary, links]) {
 function literatureNote([id, title, paraphrase, candidates, status]) {
   const permanentById = new Map(permanentDefinitions.map((item) => [item[0], item[1]]));
   const availableCandidates = candidates.filter((candidate) => CORE_PERMANENT_IDS.has(candidate));
+  const excerpt = id === "LN-WRITING-AS-DAILY-PRACTICE" ? "writing one smart note at a time." : "";
+  const excerptBody = excerpt
+    ? `## 文摘（作者网站书籍介绍，非书中页码）\n> ${excerpt}\n\n来源：[Sönke Ahrens — Take Smart Notes](https://www.soenkeahrens.de/en/takesmartnotes)。这里提醒我，每次写一条笔记也可以逐步积累思考。下面的转述是产品实践中的理解，并非原文翻译。`
+    : "## 材料性质\n下面是原创方法转述，不是原书引文；没有原文的材料不伪装成文摘。";
   return {
     id,
     note_type: "literature",
@@ -211,9 +217,9 @@ function literatureNote([id, title, paraphrase, candidates, status]) {
     paraphrase_text: paraphrase,
     my_takeaway: `这段材料提醒我：${paraphrase}`,
     candidate_permanent_notes: availableCandidates,
-    quote_text: "只保留方法主题和原创转述，不复刻原文。",
+    quote_text: excerpt,
     questions: ["这条材料能支撑哪一个我愿意承担的判断？"],
-    body: `# ${title}\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n## 我的转述\n${paraphrase}\n\n## 可转换为永久笔记\n${availableCandidates.map((candidate) => `- [[${permanentById.get(candidate)}]]`).join("\n")}\n\n## 状态\n${status === "converted" ? "已转换，可继续检查关联。" : "待处理：先确认理解，再决定是否转换。"}`,
+    body: `# ${title}\n\n## 来源\n[[《卡片笔记写作法》方法边界]]\n\n${excerptBody}\n\n## 我的转述\n${paraphrase}\n\n## 可转换为永久笔记\n${availableCandidates.map((candidate) => `- [[${permanentById.get(candidate)}]]`).join("\n")}\n\n## 状态\n${status === "converted" ? "已转换，可继续检查关联。" : "待处理：先确认理解，再决定是否转换。"}`,
     conversion_decision: { status, conversion_reason: status === "converted" ? "已经形成永久笔记。" : "等待用户确认。", key_note_id: availableCandidates[0] || "" }
   };
 }
@@ -452,6 +458,7 @@ function writingProject() {
   ].map(([title, noteIds], index) => ({ sectionId: `sec-${index + 1}`, title, goal: `用关键笔记说清“${title}”。`, noteTraceIds: noteIds, literatureTraceIds: [], keyNoteTraceIds: noteIds.slice(0, 1), openQuestion: "还需要补一个更具体的使用例子吗？", gap: "避免抽象术语，落到用户动作。", counterpoint: "这一步能否继续简化？" }));
   return {
     id: "WRITE-SMART-NOTES-DEMO",
+    draftNoteId: SMART_NOTES_MANUAL_ID,
     title: "怎样把已有笔记变成清晰观点和写作结构",
     goal: "用真实 Demo 笔记展示：先形成自己的判断，再通过关系和主题进入可追溯的写作结构。",
     intent: "解释核心方法和当前产品，不写宣传稿。",
@@ -510,6 +517,7 @@ export function buildSmartNotesDemoFixture() {
     { id: "ESSAY-SMART-NOTES-DEMO", note_type: "final_essay", title: "示例文章：把已有笔记变成写作结构", writing_project_id: writingProjectMain.id, body: "# 示例文章：把已有笔记变成写作结构\n\n研思录先把已有材料加工成用户愿意承担的判断，再用 [[关系理由比连线本身更重要]] 说明这些判断如何互相支撑，最后通过 [[写作中心应该从已确认判断生成提纲]] 组织成可追溯提纲。" }
   ];
   const guide_notes = guideNotes();
+  final_essays.push(smartNotesDemoManual());
   const guideLinkTargets = {
     "GUIDE-TODAY-NEXT-STEP": "PERM-FLEETING-NOTE-IS-CAPTURE",
     "GUIDE-INDEX-TO-WRITING": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
@@ -538,7 +546,7 @@ export function buildSmartNotesDemoFixture() {
       use_boundary: "Demo 只保留方法观念和原创转述，不复刻原文，也不替代阅读原书。",
       reading_purpose: "把卡片笔记写作法变成研思录里能直接体验的流程。",
       tags: ["卡片笔记", "Smart Notes Demo"],
-      body: "# 《卡片笔记写作法》方法边界\n\n本 Demo 用自己的话整理方法，只用于演示研思录当前功能。"
+      body: "# 《卡片笔记写作法》方法边界\n\n作者：Sönke Ahrens。英文书名：How to Take Smart Notes。\n\n[作者网站书籍介绍](https://www.soenkeahrens.de/en/takesmartnotes)。Demo 有一条来自这个公开介绍的短文摘，明确标注网站来源，不冒充书中页码。其余材料是原创方法转述和研思录的实践解释。\n\n本 Demo 用自己的话整理方法，只用于演示研思录当前功能。软件中的字段、关系选项和操作顺序属于产品设计，并非原书固定规则。"
     }],
     fleeting_notes: fleetingDefinitions.filter(([id]) => CORE_FLEETING_IDS.has(id)).map(fleetingNote),
     literature_notes: literatureDefinitions.filter(([id]) => CORE_LITERATURE_IDS.has(id)).map(literatureNote),
