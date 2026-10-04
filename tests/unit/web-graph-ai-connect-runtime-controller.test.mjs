@@ -4,6 +4,33 @@ import test from "node:test";
 import { createGraphAiConnectRuntimeController } from "../../apps/web/src/graph-ai-connect-runtime-controller.js";
 
 for (const change of ["selection", "graph", "analysis", "directory", "module"]) {
+  test(`candidate refinement aborts after ${change} changes without presenting an error`, async () => {
+    const graphState = { item: {}, aiAnalysis: {}, selection: { kind: "node", nodeId: "a" } };
+    const state = { module: "graph" };
+    let directory = "original", signal;
+    const calls = [];
+    const controller = createGraphAiConnectRuntimeController(() => ({ graphState, state,
+      graphScopeDirectoryId: () => directory,
+      refinePotentialRelationCandidate: (_payload, options) => {
+        signal = options.signal;
+        return new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true }));
+      },
+      mergePotentialRelationCandidateIntoGraphAnalysis: () => calls.push("merge"),
+      renderGraphPanel: () => calls.push("render"), setStatus: () => calls.push("status") }));
+    const running = controller.refineGraphPotentialRelationCandidate("a", { targetNoteId: "b" });
+    controller.cancelStaleRefinements();
+    assert.equal(signal.aborted, false);
+    if (change === "selection") graphState.selection = { kind: "node", nodeId: "b" };
+    if (change === "graph") graphState.item = {};
+    if (change === "analysis") graphState.aiAnalysis = {};
+    if (change === "directory") directory = "other";
+    if (change === "module") state.module = "notes";
+    controller.cancelStaleRefinements();
+    assert.equal(signal.aborted, true);
+    assert.equal((await running).stale, true);
+    assert.deepEqual(calls, []);
+    controller.cancelStaleRefinements();
+  });
   for (const fail of [false, true]) {
     test(`candidate refinement ignores ${fail ? "failure" : "success"} after ${change} changes`, async () => {
       const graphState = { item: {}, aiAnalysis: {}, selection: { kind: "node", nodeId: "a" } };
@@ -34,12 +61,16 @@ test("a newer refinement for the same candidate owns its result", async () => {
   let release;
   const held = new Promise(done => { release = done; });
   const merged = [];
-  let count = 0;
+  let count = 0, oldSignal;
   const controller = createGraphAiConnectRuntimeController(() => ({
-    refinePotentialRelationCandidate: () => ++count === 1 ? held : Promise.resolve({ aiRationale: "new" }),
+    refinePotentialRelationCandidate: (_payload, options) => {
+      if (++count === 1) { oldSignal = options.signal; return held; }
+      return Promise.resolve({ aiRationale: "new" });
+    },
     mergePotentialRelationCandidateIntoGraphAnalysis: candidate => { merged.push(candidate.aiRationale); return true; } }));
   const old = controller.refineGraphPotentialRelationCandidate("a", { targetNoteId: "b" });
   assert.equal((await controller.refineGraphPotentialRelationCandidate("a", { target_note_id: "b" })).ok, true);
+  assert.equal(oldSignal.aborted, true);
   release({ aiRationale: "old" });
   assert.equal((await old).stale, true);
   assert.deepEqual(merged, ["new"]);

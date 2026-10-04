@@ -247,7 +247,7 @@ function renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiPr
   const failedTest = remoteTestFailedForAiConfig(ai, providerId);
   const platformManaged = providerId === "platform_managed_openai";
   const disabled = config && String(config.status || "").trim() === "disabled";
-  const ok = !failedTest && (tested || healthy || platformManaged);
+  const ok = !failedTest && (tested || platformManaged);
   const warn = failedTest || disabled || (!ok && (!healthy || !configReady));
   badge.classList.toggle("ok", ok && !disabled);
   badge.classList.toggle("warn", warn);

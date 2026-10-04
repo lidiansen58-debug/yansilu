@@ -2,6 +2,33 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { installSettingsAiEventBindings } from "../../apps/web/src/settings-ai-event-bindings.js";
 import { remoteAiConfigurationConsented } from "../../apps/web/src/remote-ai-consent.js";
+import { remoteConnectionReadyForProvider } from "../../apps/web/src/settings-ai-remote-readiness.js";
+
+test("remote connection testing uses inference even with a configured health endpoint", async () => {
+  const harness = createHarness();
+  installSettingsAiEventBindings({
+    $: harness.$,
+    settingsState: { ai: { providerHealthEndpointUrl: "https://api.deepseek.com/health" } },
+    currentAiProviderId: () => "openai_compatible_gateway",
+    openSettingsAiDialog: kind => harness.calls.push(["dialog", kind]),
+    checkCurrentAiProviderHealth: async () => harness.calls.push(["health"])
+  });
+  await harness.listeners.get("settingsAiCheckProviderHealth:click")({});
+  assert.deepEqual(harness.calls, [["dialog", "test"]]);
+});
+
+test("current remote health success cannot unlock saving without a model reply", () => {
+  const ai = {
+    providerEndpointUrl: "https://api.deepseek.com", remoteRuntimeModel: "deepseek-flash", secretRef: "local:key",
+    providerHealthEndpointUrl: "https://api.deepseek.com/health",
+    providerHealthResult: { record: { status: "healthy" } },
+    providerHealthProviderId: "openai_compatible_gateway",
+    providerHealthEndpointUrlSnapshot: "https://api.deepseek.com",
+    providerHealthCheckEndpointUrlSnapshot: "https://api.deepseek.com/health",
+    providerHealthRemoteModel: "deepseek-flash", providerHealthSecretRef: "local:key"
+  };
+  assert.equal(remoteConnectionReadyForProvider(ai, "openai_compatible_gateway"), false);
+});
 
 function createHarness() {
   const listeners = new Map();
@@ -552,7 +579,11 @@ test("settings AI event bindings require remote test and privacy confirmation be
       providerHealthCheckEndpointUrlSnapshot: "",
       providerHealthRemoteModel: "gpt-test",
       providerHealthSecretRef: "sk-test",
-      testStatus: ""
+      testStatus: "success",
+      testProviderId: "openai_compatible_gateway",
+      testEndpointUrl: "https://api.example/v1/chat/completions",
+      testRemoteModel: "gpt-test",
+      testSecretRef: "sk-test"
     }
   };
   installSettingsAiEventBindings({
@@ -624,7 +655,11 @@ test("settings AI event bindings require remote test and privacy confirmation be
       providerHealthCheckEndpointUrlSnapshot: "",
       providerHealthRemoteModel: "gpt-test",
       providerHealthSecretRef: "sk-test",
-      testStatus: ""
+      testStatus: "success",
+      testProviderId: "openai_compatible_gateway",
+      testEndpointUrl: "https://api.example/v1/chat/completions",
+      testRemoteModel: "gpt-test",
+      testSecretRef: "sk-test"
     }
   };
   installSettingsAiEventBindings({
@@ -711,7 +746,11 @@ test("settings AI event bindings only resumes remote contextual actions after sa
       providerHealthCheckEndpointUrlSnapshot: "",
       providerHealthRemoteModel: "gpt-test",
       providerHealthSecretRef: "sk-test",
-      testStatus: ""
+      testStatus: "success",
+      testProviderId: "openai_compatible_gateway",
+      testEndpointUrl: "https://api.example/v1/chat/completions",
+      testRemoteModel: "gpt-test",
+      testSecretRef: "sk-test"
     }
   };
   installSettingsAiEventBindings({
@@ -878,7 +917,11 @@ test("settings AI event bindings treats platform online AI as remote for resume 
       providerHealthCheckEndpointUrlSnapshot: "",
       providerHealthRemoteModel: "",
       providerHealthSecretRef: "",
-      testStatus: ""
+      testStatus: "success",
+      testProviderId: "platform_managed_openai",
+      testEndpointUrl: "",
+      testRemoteModel: "",
+      testSecretRef: ""
     }
   };
   installSettingsAiEventBindings({

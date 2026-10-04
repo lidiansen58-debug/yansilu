@@ -92,7 +92,7 @@ test("settings AI experience view keeps empty remote setup on remote path", () =
   assert.equal(get("settingsAiSecondaryAction").dataset.settingsAiPrimaryAction, "local");
 });
 
-test("settings AI experience view treats current remote health success as ready", () => {
+test("settings AI experience view requires inference even after current remote health success", () => {
   const { get } = elementMap();
 
   renderAiSettingsExperienceForRuntime(baseDeps(get, {
@@ -111,11 +111,11 @@ test("settings AI experience view treats current remote health success as ready"
     providerHealthSecretRef: "sk-test"
   }));
 
-  assert.equal(get("settingsAiTopStatus").textContent, "已就绪");
-  assert.equal(get("settingsAiTopAction").textContent, "已完成");
-  assert.equal(get("settingsAiTopAction").dataset.settingsAiPrimaryAction, "done");
-  assert.equal(get("settingsAiSetupTitle").textContent, "远程 AI 已就绪");
-  assert.equal(get("settingsAiLabBadge").textContent, "测试成功");
+  assert.notEqual(get("settingsAiTopStatus").textContent, "已就绪");
+  assert.notEqual(get("settingsAiTopAction").textContent, "已完成");
+  assert.notEqual(get("settingsAiTopAction").dataset.settingsAiPrimaryAction, "done");
+  assert.notEqual(get("settingsAiSetupTitle").textContent, "远程 AI 已就绪");
+  assert.notEqual(get("settingsAiLabBadge").textContent, "测试成功");
 });
 
 test("settings AI experience view hides pause action when AI is already off", () => {

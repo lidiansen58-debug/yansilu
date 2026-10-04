@@ -4973,6 +4973,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/graph/potential-relations/refine") {
+      const abortScope = createRequestAbortScope(req, res);
       try {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
@@ -5018,11 +5019,14 @@ const server = http.createServer(async (req, res) => {
         const modelName = providerExecution
           ? cleanText(providerExecution.modelRoute?.modelRef) || DEFAULT_POTENTIAL_RELATION_MODEL
           : assertAllowedOllamaCatalogModel(body.modelName || body.model_name || body.model || DEFAULT_POTENTIAL_RELATION_MODEL);
+        abortScope.signal.throwIfAborted();
         const item = await refinePotentialRelationCandidateWithLocalAi(candidate, {
           fingerprints: scan.fingerprints,
           cache: potentialRelationAiCache,
           modelName,
           providerId: providerExecution?.providerDescriptor?.providerId || "ollama_direct",
+          endpointUrl: providerExecution?.providerDescriptor?.endpointUrl || OLLAMA_BASE_URL,
+          runtimeModelName: providerExecution?.providerDescriptor?.runtimeModelMap?.[modelName] || modelName,
           privacyMode: providerExecution?.modelRoute?.privacyMode || cleanText(body.privacyMode || body.privacy_mode) || "local_only",
           userMode: providerExecution?.modelRoute?.userMode || cleanText(body.userMode || body.user_mode) || "Local / Private",
           timeoutMs,
@@ -5042,6 +5046,7 @@ const server = http.createServer(async (req, res) => {
                   requestId: `${rid}_potential_relation_refine`,
                   agentRunId: rid,
                   purpose: "potential_relation_refine",
+                  signal: abortScope.signal,
                   providerDescriptor: providerExecution.providerDescriptor,
                   modelRoute: providerExecution.modelRoute,
                   modelRef: providerExecution.modelRoute.modelRef,
@@ -5052,6 +5057,7 @@ const server = http.createServer(async (req, res) => {
                   tools: [],
                   output: { mode: "text" },
                   settings: {
+                    timeoutMs: options.timeoutMs,
                     stream: false,
                     temperature: options.temperature,
                     num_predict: options.numPredict,
@@ -5071,8 +5077,10 @@ const server = http.createServer(async (req, res) => {
               }
             : (prompt, options) => callOllamaGenerate(prompt, { ...options, timeoutMs })
         });
+        abortScope.signal.throwIfAborted();
         const persistArtifacts = body.persistArtifacts !== false && body.persist_artifacts !== false;
         const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
+        abortScope.signal.throwIfAborted();
         const artifactContext = graphArtifactExecutionContext({
           body,
           notes,
@@ -5112,6 +5120,8 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "POTENTIAL_RELATION_REFINE_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        abortScope.dispose();
       }
     }
 

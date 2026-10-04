@@ -11,6 +11,37 @@ function readServer() {
   return fs.readFileSync(SERVER_SOURCE, "utf8");
 }
 
+for (const cancel of [false, true]) {
+  test(`relation persistence ${cancel ? "stops on cancellation" : "succeeds"} after asynchronous store initialization`, async () => {
+    const source = readServer();
+    const endpoint = source.indexOf('url.pathname === "/api/v1/graph/potential-relations/refine"');
+    const start = source.indexOf("        abortScope.signal.throwIfAborted();\n        const persistArtifacts", endpoint);
+    const end = source.indexOf("        return sendJson(res, 200,", start);
+    assert.ok(start > endpoint && end > start, "expected actual relation persistence block");
+    // Execute the endpoint's real persistence block with a controlled asynchronous store.
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    const execute = new AsyncFunction("deps", `const { body, abortScope, aiArtifactStore, graphArtifactExecutionContext,
+      notes, rid, providerExecution, modelName, item, persistArtifactsIdempotently, graphReviewArtifactsForCandidate } = deps;
+      ${source.slice(start, end)}\nreturn storedArtifacts;`);
+    const controller = new AbortController();
+    let release, entered;
+    const held = new Promise(resolve => { release = resolve; });
+    const ready = new Promise(resolve => { entered = resolve; });
+    let writes = 0;
+    const running = execute({ body: {}, abortScope: { signal: controller.signal },
+      aiArtifactStore: async () => { entered(); return await held; },
+      graphArtifactExecutionContext: () => ({}), notes: [], rid: "test", providerExecution: null,
+      modelName: "test", item: {}, graphReviewArtifactsForCandidate: () => [{ id: "review" }],
+      persistArtifactsIdempotently: () => { writes++; return [{ id: "review" }]; } });
+    await ready;
+    if (cancel) controller.abort();
+    release({});
+    if (cancel) await assert.rejects(running, { name: "AbortError" });
+    else assert.deepEqual(await running, [{ id: "review" }]);
+    assert.equal(writes, cancel ? 0 : 1);
+  });
+}
+
 test("potential relation refine follows current AI provider settings by default", () => {
   const source = readServer();
   const start = source.indexOf('url.pathname === "/api/v1/graph/potential-relations/refine"');
