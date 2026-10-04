@@ -79,9 +79,17 @@ export function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), ed
     return (fromInside || toInside) && fromInside !== toInside;
   });
   const counts = graphRelationGroupCountsForResearch(memberEdges, deps);
+  const degreeById = new Map();
+  for (const edge of [...memberEdges, ...externalEdges]) {
+    const endpoints = new Set([String(edge?.fromNoteId || "").trim(), String(edge?.toNoteId || "").trim()]);
+    for (const id of endpoints) {
+      if (memberSet.has(id)) degreeById.set(id, (degreeById.get(id) || 0) + 1);
+    }
+  }
   const coreNotes = memberIds
     .map((id) => nodeMap.get(id))
     .filter(Boolean)
+    .map((note) => ({ ...note, degree: degreeById.get(String(note.id || "").trim()) || 0 }))
     .sort((left, right) => Number(right?.degree || 0) - Number(left?.degree || 0) || String(left?.title || "").localeCompare(String(right?.title || ""), "zh-Hans-CN"));
   let tone = "early";
   let label = "还不稳定";

@@ -176,6 +176,8 @@ export function graphEdgeShouldRender(options = {}, deps = {}) {
   const graphViewModeForRelationType = deps.graphViewModeForRelationType || (() => "meaningful");
   if (zoomKey !== "fit") return true;
   if (filterActive) return true;
+  if (relationType && !["all", "meaningful"].includes(relationType)) return true;
+  if (!denseMode) return true;
   if (graphViewModeForRelationType(relationType) === "structure" || visualKey === "index") {
     return fitVisible || lensPriority || selected || inSelectedTheme || inSelectedBridge;
   }
