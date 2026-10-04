@@ -24,7 +24,7 @@
 
 ## 当前证据
 
-- 分支：`feat/graph-value-flow-20261004`，基于 `90794880`，本目标改动尚未提交或推送。
+- 开发分支：`feat/graph-value-flow-20261004`，初始基于 `90794880`；提交与 main 同步结果见下方收口记录。
 - 真实浏览器验收使用 `.tmp/graph-acceptance-20261004/vault`，不覆盖用户库；本轮另保存两条测试主题。
 - 截图：`test-results/graph-value-flow-20261004/open-note-body.jpg`、`theme-confirmation.jpg`、`theme-writing-handoff.jpg`。
 - 后端核对：主题问题与选择的四条材料、用户写的用途和实际组内关系理由均已持久化；没有未选笔记，也没有把正文关联理由标记当作实际说明。
@@ -70,8 +70,17 @@
 - 切库：浏览器切至 `.tmp/graph-value-empty-20261004/vault` 后图谱 0 关系、相关笔记 0，无旧关系选择或表单；随后恢复原隔离验收库。并发迟到读取和陈旧提交另有行为测试。切库期间浏览器控制超时后重建临时标签页，未覆盖恢复草稿或实际用户库。
 - 新截图还包括 `relation-save-failure.jpg`、`relation-save-recovered.jpg`、`relation-duplicate-confirmation.jpg`、`empty-vault-graph.jpg`，路径均为 `test-results/graph-value-flow-20261004/`。
 - 最终测试集合：`web*.test.mjs` 中 graph/permanent/relation/distillation/writing/theme-index 相关文件，1176/1176 通过、0 跳过；覆盖新增正文读取与 UI 重试、陈旧响应、去重确认、主题确认/取消、交接失败、写作材料及可跳过的关联下一步。
-- 未打包、未调用付费 AI、未提交或推送。运行产物与实际 Vault 不进入源码提交。
+- 开发验收阶段未打包、未调用付费 AI、未提交或推送。运行产物与实际 Vault 不进入源码提交。
 - 清理已完成：API3094、代理3095、web5194 全部停止并核对无监听；临时标签页已关闭、视口已恢复。`git diff --check` 无空白错误，只有既有两处 CRLF 规范化提示。
+
+## 提交收口
+
+- 用户已授权提交本轮源码、测试和验收文档，同步 main 后推送并创建 PR；未授权打包或合并 PR。
+- 实现提交 `2ff3aaad`：38 个源码文件、27 个测试文件、1 份验收文档，共 66 个文件；截图、测试库、数据库和历史运行产物均未提交。
+- 已抓取并无冲突合入 `origin/main` 的 `24964449`，合并提交 `cb97633b`；保留 PR #216、#217、#218 中图谱、Demo 手册和远程 AI 的更新。
+- 合并后定向回归：web graph/permanent/relation/distillation/writing/theme-index/prototype-api/short-demo/ai-error 相关测试 1230/1230 通过，0 跳过。
+- 补充交叉验证：Demo 导入和恢复、远程关联处理、DeepSeek 请求适配及关联路由共 65/65 通过，0 跳过。远程执行使用本地模拟供应商，不调用付费 API。
+- 相对 main 的 diff 空白检查通过，未解决冲突列表为空，测试进程已结束。本段之后不再增加功能。
 
 ## 不变量
 
