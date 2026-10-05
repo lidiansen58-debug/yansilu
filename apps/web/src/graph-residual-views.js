@@ -1949,6 +1949,7 @@ const {
   focusGraphRelationAdjustmentInPlace
 } = graphIsolatedWorkspaceRuntime;
 const graphSelectionResidualView = createGraphSelectionResidualView(graphResidualRuntimeDeps({
+  resolveGraphBridgeSelection,
   graphRelationStatusCountsAsNetworkEdge,
   graphNodeNeedsRelationWorkflow,
   graphNodeRoleMeta,
@@ -2179,6 +2180,7 @@ function openGraphSelection(selection = null) {
   graphState.selection = selection;
   graphState.focusContextCollapsed = false;
   graphState.thinkingPanelOpen = false;
+  graphState.workbenchPanelOpen = false;
   resetGraphHoverState();
   renderGraphPanel();
 }

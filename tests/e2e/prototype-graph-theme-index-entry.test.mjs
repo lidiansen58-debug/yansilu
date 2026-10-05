@@ -34,6 +34,55 @@ function graphEdge(from = {}, to = {}, index = 1) {
   };
 }
 
+test("mixed eligible theme materials remain saved without entering writing", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
+  if (!stack) return;
+  const { page, apiBase, webBase } = stack;
+  const notes = [];
+  for (const title of ["写作材料甲", "写作材料乙"]) {
+    notes.push((await createWritingReadyPermanentNote(apiBase, {
+      title, body: `# ${title}\n\n共同问题的已确认判断。\n\n边界：相似主题并不自动构成支持关系。`,
+      thesis: "知识关联需要保留真实理由才能用于写作。",
+      threeLineSummary: ["知识关联需要保留真实理由才能用于写作。", "已有关系保存证据。", "写作应当检查判断的边界。"],
+      boundaryOrCounterpoint: "相似主题并不自动构成支持关系。"
+    })).json.item);
+  }
+  const draft = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: "# 未确认材料\n\n仍在整理的判断。"
+  });
+  assert.equal(draft.status, 201);
+  notes.push(draft.json.item);
+  for (const target of notes.slice(1)) {
+    assert.equal((await postJson(apiBase, `/api/v1/notes/${notes[0].id}/relations`, {
+      toNoteId: target.id, relationType: "supports", rationale: "共同讨论知识关联的理由。"
+    })).status, 201);
+  }
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.waitForFunction(() => window.__prototypeState.graphConnectivityReady);
+  const previousBasket = await page.locator("#writingBasketNoteIds").inputValue();
+  const node = page.locator(`.graph-map-node[data-node-id="${notes[0].id}"]`);
+  await node.focus();
+  await node.press("Enter");
+  await page.locator(".graph-selection-panel [data-graph-create-theme-index]").click();
+  const question = "知识关联怎样成为可靠的写作材料？";
+  await page.locator("#graphThemeQuestion").fill(question);
+  await page.locator('[data-graph-theme-confirmation-form] button[type="submit"]').click();
+  await waitFor(async () => {
+    assert.match(await page.locator("#statusText").textContent(), /已保存.*1 条材料.*作者或原创确认/);
+    assert.equal(await page.evaluate(() => window.__prototypeState.module), "graph");
+    assert.equal(await page.locator("#writingBasketNoteIds").inputValue(), previousBasket);
+    const list = await fetchJson(apiBase, "/api/v1/index-cards?indexType=topic&limit=20");
+    assert.equal(list.status, 200);
+    const card = list.json.items.find(item => item.central_question === question);
+    assert.ok(card);
+    assert.deepEqual([...card.item_note_ids].sort(), notes.map(note => note.id).sort());
+  });
+});
+
 test("prototype graph creates a theme index from 3-5 related permanent notes and opens writing center", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -122,12 +171,13 @@ test("prototype graph creates a theme index from 3-5 related permanent notes and
     assert.ok(await page.locator(".graph-selection-panel.is-node").isVisible());
     assert.ok((await page.locator(".graph-selection-panel.is-node [data-graph-create-theme-index]:not([disabled])").count()) >= 1);
   }, 5000);
-  await page.locator(".graph-selection-panel.is-node details.graph-selection-details summary").first().click();
   await waitFor(async () => {
     assert.ok((await page.locator(".graph-selection-panel.is-node [data-graph-create-theme-index]:not([disabled]):visible").count()) >= 1);
   }, 5000);
 
   await page.locator(".graph-selection-panel.is-node [data-graph-create-theme-index]:not([disabled]):visible").first().click();
+  await page.locator("#graphThemeQuestion").fill("How should Browser Theme Index relations support writing?");
+  await page.locator('[data-graph-theme-confirmation-form] button[type="submit"]').click();
 
   let savedIndex = null;
   await waitFor(async () => {

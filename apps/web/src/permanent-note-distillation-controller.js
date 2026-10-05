@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { PermanentNoteAssociationFollowup, renderPermanentNoteAssociationFollowup } from "./permanent-note-association-followup.js";
 import {
   applyPermanentNoteDistillationToNote,
   currentPermanentNoteDistillationPrefill,
@@ -19,6 +20,7 @@ export class PermanentNoteDistillationController {
     this.prefillState = emptyPermanentNoteDistillationPrefill("");
     this.viewpointDraftByNoteId = new Map();
     this.currentDraftScope = this.draftScope();
+    this.associationFollowup = new PermanentNoteAssociationFollowup();
   }
 
   draftScope() {
@@ -31,11 +33,13 @@ export class PermanentNoteDistillationController {
     this.viewpointDraftByNoteId.clear();
     this.prefillState = emptyPermanentNoteDistillationPrefill("");
     this.currentDraftScope = nextScope;
+    this.associationFollowup.syncScope(nextScope);
   }
 
   clearDrafts() {
     this.viewpointDraftByNoteId.clear();
     this.prefillState = emptyPermanentNoteDistillationPrefill("");
+    this.associationFollowup.clear();
   }
 
   setPrefill(noteId = "", options = {}) {
@@ -73,6 +77,10 @@ export class PermanentNoteDistillationController {
 
   renderSection(note) {
     const host = this.host;
+    const followup = this.associationFollowup.current(note, this.draftScope());
+    if (followup && !this.currentPrefill(note?.id || "").viewpointDraft) {
+      return renderPermanentNoteAssociationFollowup(note, followup);
+    }
     return renderPermanentNoteDistillationSectionView(note, {
       noteType: host.resolvedNoteType(note),
       explicitRelationCount: host.currentExplicitRelationCount(),
@@ -85,6 +93,31 @@ export class PermanentNoteDistillationController {
       ),
       aiWorkspaceHtml: host.renderNoteEmbeddedAiWorkspaceForNote(note?.id || "")
     });
+  }
+
+  handleAssociationNext(action = "", noteId = "", token = "") {
+    const host = this.host;
+    const note = host.activeNote();
+    const entry = this.associationFollowup.current(note, this.draftScope());
+    if (!note || note.id !== noteId || !entry || entry.token !== token) return false;
+    if (action === "associate") {
+      const opened = host.openPermanentRelationWorkspace?.({ noteId, mode: "manual" });
+      if (opened !== true) {
+        host.onStatus?.("关联表单没有打开，观点已保存，可以重试。", "warn");
+        return false;
+      }
+      this.associationFollowup.dismiss(note, this.draftScope(), token);
+      host.renderRelated();
+      return true;
+    }
+    if (action !== "skip" && action !== "edit") return false;
+    this.associationFollowup.dismiss(note, this.draftScope(), token);
+    host.renderRelated();
+    if (action === "skip") host.setInspectorVisible?.(false);
+    else host.jumpToInspectorSection?.("[data-note-distillation-section]", {
+      focus: true, focusSelector: '[data-note-distillation-form] textarea[name="thesis"]'
+    });
+    return true;
   }
 
   applyAdoptedNote(note, refreshed) {
@@ -250,6 +283,7 @@ export class PermanentNoteDistillationController {
     const host = this.host;
     const note = host.activeNote();
     const noteId = String(note?.id || "").trim();
+    const scope = this.draftScope();
     if (!noteId) return;
     const noteType = host.resolvedNoteType(note);
     if (noteType !== "permanent" && noteType !== "original") {
@@ -269,7 +303,7 @@ export class PermanentNoteDistillationController {
     }
     const savedEditor = await host.autoSaveActiveNote("distillation");
     if (savedEditor === false) return;
-    if (!host.isActiveNoteId(noteId)) return;
+    if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
     const saved = await host.onStateChange("save-note-distillation", {
       noteId,
       thesis: values.thesis,
@@ -283,13 +317,14 @@ export class PermanentNoteDistillationController {
       authorship: values.distillationStatus === "confirmed" ? { user_confirmed: true, ai_assisted: false } : undefined
     });
     if (!saved) return;
-    if (!host.isActiveNoteId(noteId)) return;
+    if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
     applyPermanentNoteDistillationToNote(note, values, {
       confirmAuthorship: values.distillationStatus === "confirmed"
     });
     this.setPrefill(noteId, { boundaryDraft: "", viewpointDraft: null });
     host.renderThinkingStatus();
     host.permanentNoteWorkspace?.().reset(noteId);
+    if (this.associationFollowup.offer(note, scope)) host.permanentNoteWorkspace?.().activateTab?.("viewpoint");
     host.renderRelated();
   }
 
@@ -297,6 +332,7 @@ export class PermanentNoteDistillationController {
     const host = this.host;
     const note = host.activeNote();
     const noteId = String(note?.id || "").trim();
+    const scope = this.draftScope();
     if (!noteId) return;
     const noteType = host.resolvedNoteType(note);
     if (noteType !== "permanent" && noteType !== "original") {
@@ -317,7 +353,7 @@ export class PermanentNoteDistillationController {
       }
       const savedEditor = await host.autoSaveActiveNote("distillation-confirm");
       if (savedEditor === false) return;
-      if (!host.isActiveNoteId(noteId)) return;
+      if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
       const saved = await host.onStateChange("save-note-distillation", {
         noteId,
         thesis: values.thesis,
@@ -330,7 +366,7 @@ export class PermanentNoteDistillationController {
         distillationStatus: "draft"
       });
       if (!saved) return;
-      if (!host.isActiveNoteId(noteId)) return;
+      if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
       applyPermanentNoteDistillationToNote(note, {
         ...values,
         distillationStatus: ""
@@ -339,14 +375,16 @@ export class PermanentNoteDistillationController {
     }
     const confirmed = await host.onStateChange("confirm-note-distillation", { noteId });
     if (!confirmed) return;
-    if (!host.isActiveNoteId(noteId)) return;
+    if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
     if (confirmed && typeof confirmed === "object" && typeof confirmed.body === "string") {
       host.fillEditorFromTab?.();
     }
     note.distillationStatus = "confirmed";
     note.authorship = { ...(note.authorship || {}), user_confirmed: true };
     host.renderThinkingStatus();
-    host.setInspectorVisible?.(false);
+    const offered = this.associationFollowup.offer(note, scope);
+    if (offered) host.permanentNoteWorkspace?.().activateTab?.("viewpoint");
+    host.setInspectorVisible?.(offered);
     host.revealActiveTabBodyAtStart?.();
     host.renderRelated();
   }

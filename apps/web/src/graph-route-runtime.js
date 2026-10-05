@@ -1,4 +1,5 @@
-import { buildThemeIndexCreatePayload, THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
+import { THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
+import { buildGraphThemeConfirmedPayload } from "./graph-theme-confirmed-payload.js";
 
 export function createGraphRouteRuntime(deps = {}) {
   const {
@@ -11,19 +12,19 @@ export function createGraphRouteRuntime(deps = {}) {
     graphRelationSaveController,
     graphScopeDirectoryId,
     graphState,
+    requestGraphThemeConfirmation = async () => null,
+    graphThemeContextKey = () => [],
     ensureLocalAiReadyForFeature = async () => ({ ready: true }),
     isDirectoryUnderOriginalRoot,
     isWritingEligibleNote,
     localAiPreviewOptionsForAction,
     localOllamaSetupActive,
-    normalizeWritingProjectTitleSeed,
     ollamaBootstrapStatusText,
     openWritingModule = async () => {},
     previewOllamaLocalAiBootstrapFromUi,
     refineGraphPotentialRelationCandidate,
     renderGraphPanel,
     setStatus,
-    setWritingSourceIndexIds,
     suggestedThemeIndexTitle,
     uniqueStrings,
     ensureNotesLoaded,
@@ -31,7 +32,7 @@ export function createGraphRouteRuntime(deps = {}) {
     writingNoteById,
     writingThemeIndexScopeDirectoryId,
     upsertWritingThemeIndex,
-    continueWritingEntry
+    useThemeIndexAsWritingEntry
   } = deps;
 
   async function runGraphAiAnalysis() {
@@ -157,63 +158,117 @@ export function createGraphRouteRuntime(deps = {}) {
     return noteType === "permanent" || isDirectoryUnderOriginalRoot(note.folderId);
   }
 
+  let themeCreationInFlight = null;
+  let themeConfirmationRecovery = null;
+  const sameThemeContext = (left, right) => left.length === right.length && left.every((value, index) => value === right[index]);
   async function createGraphThemeIndexFromNoteIds(noteIds = [], { title = "", source = "graph-theme-index" } = {}) {
+    if (themeCreationInFlight) return themeCreationInFlight;
+    themeCreationInFlight = performThemeCreation(noteIds, { title, source });
+    try { return await themeCreationInFlight; }
+    finally { themeCreationInFlight = null; }
+  }
+
+  async function performThemeCreation(noteIds, { title, source }) {
+    const context = graphThemeContextKey();
+    const stillCurrent = () => sameThemeContext(context, graphThemeContextKey());
     const requestedIds = uniqueStrings(noteIds);
+    const materialKey = JSON.stringify([...requestedIds].sort());
+    if (themeConfirmationRecovery && (!sameThemeContext(themeConfirmationRecovery.context, context) || themeConfirmationRecovery.materialKey !== materialKey)) {
+      themeConfirmationRecovery = null;
+    }
     if (requestedIds.length < THEME_INDEX_MIN_NOTE_COUNT) {
       setStatus(`至少需要 ${THEME_INDEX_MIN_NOTE_COUNT} 条相关永久笔记，才适合整理成可写主题`, "warn");
       return null;
     }
     await ensureNotesLoaded(requestedIds, { force: true });
+    if (!stillCurrent()) return null;
     const eligibleIds = requestedIds.filter((id) => isGraphThemeIndexEligibleNote(writingKnownNoteById(id)));
     if (eligibleIds.length < THEME_INDEX_MIN_NOTE_COUNT) {
       setStatus(`这组笔记里可用于可写主题的永久笔记不足 ${THEME_INDEX_MIN_NOTE_COUNT} 条`, "warn");
       return null;
     }
-    const writingEligibleIds = eligibleIds.filter((id) => isWritingEligibleNote(writingKnownNoteById(id)));
-    const cleanTitle = String(title || suggestedThemeIndexTitle(eligibleIds)).trim() || suggestedThemeIndexTitle(eligibleIds);
-    const card = await createIndexCard(buildThemeIndexCreatePayload({
-      directoryId: writingThemeIndexScopeDirectoryId(),
-      noteIds: eligibleIds,
-      title: cleanTitle,
-      relationCount: Number(graphState.item?.edges?.length || 0),
-      noteById: (id) => writingNoteById(id) || writingKnownNoteById(id)
-    }));
-    if (!card?.id) throw new Error("主题笔记创建失败");
-    upsertWritingThemeIndex(card);
-    if (writingEligibleIds.length >= 2) {
-      setWritingSourceIndexIds([card.id]);
-      continueWritingEntry(writingEligibleIds, {
-        title: normalizeWritingProjectTitleSeed(cleanTitle),
-        source,
-        sourceIndexIds: [card.id]
-      });
-      await openWritingModule({
-        statusMessage: `已从可写主题打开写作：${cleanTitle}`,
-        preserveFocusedCandidateScope: true,
-        entryReason: "从图谱可写主题继续写作",
-        entrySourceLabel: "可写主题"
-      });
+    const suggestedTitle = String(title || suggestedThemeIndexTitle(eligibleIds)).trim();
+    const confirmation = await requestGraphThemeConfirmation({
+      notes: eligibleIds.map(id => writingNoteById(id) || writingKnownNoteById(id)), title: suggestedTitle,
+      draft: themeConfirmationRecovery?.draft || null,
+      saveError: themeConfirmationRecovery?.error || ""
+    });
+    if (!confirmation || !stillCurrent()) {
+      themeConfirmationRecovery = null;
+      return null;
     }
-    const canEnterWriting = writingEligibleIds.length >= 2;
+    const selectedIds = uniqueStrings(confirmation.noteIds || []).filter(id => eligibleIds.includes(id) && isGraphThemeIndexEligibleNote(writingKnownNoteById(id)));
+    if (selectedIds.length < THEME_INDEX_MIN_NOTE_COUNT || !String(confirmation.centralQuestion || "").trim()) {
+      setStatus("请确认主题问题，并保留至少 3 条相关永久笔记。", "warn");
+      return null;
+    }
+    const writingEligibleIds = selectedIds.filter((id) => isWritingEligibleNote(writingKnownNoteById(id)));
+    const canEnterWriting = writingEligibleIds.length === selectedIds.length;
+    const cleanTitle = String(confirmation.title || confirmation.centralQuestion).trim();
+    let card;
+    try {
+      card = await createIndexCard(buildGraphThemeConfirmedPayload({
+        directoryId: writingThemeIndexScopeDirectoryId(),
+        confirmation: { ...confirmation, title: cleanTitle, noteIds: selectedIds },
+        edges: graphState.item?.edges || [],
+        noteById: (id) => writingNoteById(id) || writingKnownNoteById(id)
+      }));
+      if (!card?.id) throw new Error("主题笔记创建失败");
+    } catch (error) {
+      themeConfirmationRecovery = stillCurrent() ? {
+        context, materialKey,
+        draft: { ...confirmation, noteIds: [...confirmation.noteIds], roles: { ...confirmation.roles } },
+        error: `保存失败：${String(error?.message || error)}。请重试。`
+      } : null;
+      throw error;
+    }
+    themeConfirmationRecovery = null;
+    if (!stillCurrent()) return card;
+    upsertWritingThemeIndex(card);
+    if (canEnterWriting) {
+      try {
+        await useThemeIndexAsWritingEntry(card.id, {
+          replaceBasket: true,
+          resetContext: true,
+          source,
+          assertCurrent: () => {
+            if (!stillCurrent()) throw new Error("笔记库或图谱范围已切换，请从主题库继续。主题已保存。");
+          }
+        });
+        if (!stillCurrent()) return card;
+        await openWritingModule({
+          statusMessage: `已从可写主题打开写作：${cleanTitle}`,
+          preserveFocusedCandidateScope: true,
+          entryReason: "从图谱可写主题继续写作",
+          entrySourceLabel: "可写主题"
+        });
+      } catch (error) {
+        if (stillCurrent()) setStatus(`主题“${cleanTitle}”已保存，但打开写作失败：${String(error?.message || error)}。请从主题库继续。`, "bad");
+        return card;
+      }
+    }
     addSystemMessage({
       id: `graph-theme-index:${card.id}:${Date.now()}`,
       type: "system",
       title: "已保存可写主题",
       body: canEnterWriting
-        ? `“${cleanTitle}”已收纳 ${eligibleIds.length} 条关键永久笔记，并写入主题问题、每条为什么重要和下一步可以写什么。`
-        : `“${cleanTitle}”已包含 ${eligibleIds.length} 条关键永久笔记。先补作者确认或状态，再进入写作会更稳。`,
+        ? `“${cleanTitle}”已收纳 ${selectedIds.length} 条笔记，并保留你确认的问题和已有关系。`
+        : `“${cleanTitle}”已包含 ${selectedIds.length} 条笔记。还有 ${selectedIds.length - writingEligibleIds.length} 条材料需完成作者或原创确认，再继续写作。`,
       action: "open-writing",
       actionLabel: "继续整理主题",
-      noteId: eligibleIds[0],
-      sourceNoteId: eligibleIds[0],
+      noteId: selectedIds[0],
+      sourceNoteId: selectedIds[0],
       workflowRoute: {
         focus: "writing",
         source,
         indexCardId: card.id,
-        basketNoteIds: eligibleIds.join(",")
+        basketNoteIds: selectedIds.join(",")
       }
     });
-    setStatus(`已保存可写主题：${cleanTitle}`, "ok", { priority: 3, holdMs: 4200 });
+    setStatus(canEnterWriting
+      ? `已保存可写主题：${cleanTitle}`
+      : `主题“${cleanTitle}”已保存。还有 ${selectedIds.length - writingEligibleIds.length} 条材料需完成作者或原创确认，再继续写作。`,
+    canEnterWriting ? "ok" : "warn", { priority: 3, holdMs: 4200 });
     renderGraphPanel();
     return card;
   }
@@ -226,11 +281,12 @@ export function createGraphRouteRuntime(deps = {}) {
       return null;
     }
     const previousDisabled = Boolean(button?.disabled);
+    const context = graphThemeContextKey();
     if (button) button.disabled = true;
     try {
       return await createGraphThemeIndexFromNoteIds(noteIds, { title, source: "graph-theme-index" });
     } catch (error) {
-      setStatus(`保存可写主题失败：${String(error?.message || error)}`, "bad");
+      if (sameThemeContext(context, graphThemeContextKey())) setStatus(`保存可写主题失败：${String(error?.message || error)}。再次打开可继续填写并重试。`, "bad");
       return null;
     } finally {
       if (button) button.disabled = previousDisabled;

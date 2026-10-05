@@ -1,0 +1,29 @@
+.note-association-followup {
+  gap: 12px;
+}
+
+.note-association-followup .note-association-saved-thesis,
+.note-association-followup .note-association-next-question {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink, #182126);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.note-association-followup .note-association-next-question {
+  color: var(--muted, #617076);
+}
+
+.note-association-followup .semantic-relation-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.note-association-followup > .is-ghost {
+  justify-self: start;
+}

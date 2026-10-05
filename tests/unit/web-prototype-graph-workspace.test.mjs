@@ -72,6 +72,24 @@ test("graph relation workspace reuses shared relation edge helpers", async () =>
   assert.match(source, /relationWorkspaceDirectEdges\(cleanNoteId, edges/);
 });
 
+test("saved body associations point to their context without being called missing reasons", () => {
+  const html = renderGraphRelationWorkspaceForNote("a", { deps,
+    edges: [{ id: "body", fromNoteId: "a", toNoteId: "b", rationale: "markdown_wikilink" }] });
+  assert.match(html, /正文关联：打开来源笔记查看上下文/);
+  assert.doesNotMatch(html, /markdown_wikilink|还需要补一句/);
+});
+
+test("all saved relations remain accessible while the initial list stays compact", () => {
+  const edges = Array.from({ length: 7 }, (_, index) => ({
+    id: `edge-${index}`, fromNoteId: "a", toNoteId: `b-${index}`, relationType: "supports"
+  }));
+  const html = renderGraphRelationWorkspaceForNote("a", { deps, edges });
+  assert.equal((html.match(/data-graph-select-edge-id=/g) || []).length, 7);
+  assert.match(html, /<summary>其余 3 条关系<\/summary>/);
+  assert.ok(html.indexOf('data-graph-select-edge-id="edge-4"') > html.indexOf("其余 3 条关系"));
+  assert.doesNotMatch(html, /<details[^>]+open><summary>其余/);
+});
+
 test("graph theme workspace disables creation until enough note ids exist", () => {
   const disabled = renderGraphThemeIndexWorkspace(["a", "b"], { deps });
   const enabled = renderGraphThemeIndexWorkspace(["a", "b", "c"], { deps, tone: "ready" });

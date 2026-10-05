@@ -1,3 +1,5 @@
+import { graphLocalThemeGroups } from "./graph-local-theme-groups.js";
+
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -252,6 +254,23 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
     });
   };
 
+  graphLocalThemeGroups({ nodes, edges }).forEach((group) => {
+    const title = String(group.anchor.title || group.anchor.id);
+    addItem({
+      id: `local-theme-${group.anchor.id}`,
+      priority: 86,
+      view: "theme",
+      tone: "theme",
+      title,
+      meta: `${group.noteIds.length} 条笔记 · ${group.edges.length} 条已保存关系`,
+      detail: group.notes.filter((note) => note.id !== group.anchor.id).map((note) => note.title || note.id).join("、"),
+      question: "这些相关笔记，能否围绕一个问题写作？由你确认问题和材料。",
+      actionLabel: "整理材料",
+      actionAttrs: `data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(group.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(title)}"`,
+      highlightNodeIds: group.noteIds
+    });
+  });
+
   graphRankThemeCandidates(analysis?.topicCandidates, { nodeMap, edges }).slice(0, 4).forEach(({ topic, originalIndex, quality }, index) => {
     const noteIds = Array.isArray(topic?.noteIds) ? topic.noteIds.filter(Boolean) : [];
     const topicKey = graphThemeSelectionKey(topic, originalIndex);
@@ -271,11 +290,14 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
     });
   });
 
-  (Array.isArray(bridgeGaps) ? bridgeGaps : []).filter((gap) => Array.isArray(gap?.noteIds) && gap.noteIds.length).slice(0, 5).forEach((gap, index) => {
+  (Array.isArray(bridgeGaps) ? bridgeGaps : []).filter((gap) => Array.isArray(gap?.noteIds) && scopedNodeMap.has(String(gap.noteIds[0] || "").trim()))
+    .filter((gap) => !gap?.targetNoteIds?.[0] || nodeMap.has(String(gap.targetNoteIds[0]).trim()))
+    .filter((gap) => gap?.targetNoteIds?.[0] || !currentIsolatedIds.has(String(gap.noteIds[0] || "").trim()))
+    .slice(0, 5).forEach((gap, index) => {
     const sourceNoteId = String(gap?.noteIds?.[0] || "").trim();
-    const sourceTitle = String(gap?.noteTitles?.[0] || graphThinkingNoteTitle(nodeMap, sourceNoteId, "当前笔记")).trim() || "当前笔记";
+    const sourceTitle = graphThinkingNoteTitle(nodeMap, sourceNoteId, "当前笔记");
     const targetNoteId = String(gap?.targetNoteIds?.[0] || "").trim();
-    const targetTitle = String(gap?.targetNoteTitles?.[0] || graphThinkingNoteTitle(nodeMap, targetNoteId, "")).trim();
+    const targetTitle = graphThinkingNoteTitle(nodeMap, targetNoteId, "");
     const gapType = String(gap?.gapType || "bridge_gap").trim().toLowerCase();
     const bridgeKey = graphBridgeSelectionKey(gap, index);
     addItem({
@@ -283,23 +305,35 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       priority: 84 - index,
       view: "organize",
       tone: "bridge",
-      kicker: gapType === "disconnected_cluster" ? "断开的主题群" : "缺少连接",
+      kicker: gapType === "disconnected_cluster" ? "分开的笔记组" : "可对照笔记",
       title: sourceTitle,
-      meta: targetTitle ? `建议连接到「${targetTitle}」` : "待关联笔记",
-      detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale, "这条笔记可能需要一条中间判断，才能回到当前结构。"),
-      question: targetTitle ? `它和「${targetTitle}」之间缺的是证据、限定、反驳，还是一个中间概念？` : "它应当保持独立，还是只是缺少一条能说明理由的连接？",
-      actionLabel: "判断连接",
+      meta: targetTitle ? `对照「${targetTitle}」` : "查看是否有相关观点",
+      detail: targetTitle
+        ? existingRelationPairKeys.has(graphRelationPairKey(sourceNoteId, targetNoteId))
+          ? "两条笔记已有关系；可以阅读内容，检查是否需要补充。"
+          : "两条笔记尚无直接关系；分处两组不代表必须关联，先对照内容。"
+        : "图谱中尚未找到明确目标；可以寻找相关观点，也可以保持独立。",
+      question: targetTitle ? `它和「${targetTitle}」是否确实互相说明？` : "是否存在值得保留的关联？",
+      actionLabel: "对照笔记",
       actionAttrs: `data-graph-select-bridge="${escapeHtml(bridgeKey)}" data-graph-bridge-note="${escapeHtml(sourceNoteId)}"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""}`,
       highlightNodeIds: [sourceNoteId, targetNoteId]
     });
   });
 
-  (Array.isArray(reviewQueue?.items) ? reviewQueue.items : []).slice(0, 5).forEach((item, index) => {
+  const reviewItems = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
+  const missingReasons = (Array.isArray(edges) ? edges : []).filter((edge) =>
+    nodeMap.has(String(edge?.fromNoteId || "")) && nodeMap.has(String(edge?.toNoteId || "")) &&
+    !String(edge?.rationale || "").trim() &&
+    String(edge?.createdBy || edge?.source || "") !== "markdown_wikilink" &&
+    !reviewItems.some((item) => item.id && item.id === edge.id)
+  );
+  [...reviewItems, ...missingReasons].slice(0, 5).forEach((item, index) => {
     const source = item.source || {};
     const target = item.target || {};
-    const sourceTitle = source.title || graphThinkingNoteTitle(nodeMap, item.fromNoteId, "源笔记");
-    const targetTitle = target.title || graphThinkingNoteTitle(nodeMap, item.toNoteId, "目标笔记");
+    const sourceTitle = graphThinkingNoteTitle(nodeMap, item.fromNoteId || source.id, source.title || "源笔记");
+    const targetTitle = graphThinkingNoteTitle(nodeMap, item.toNoteId || target.id, target.title || "目标笔记");
     const rationale = String(item.rationale || "").trim();
+    const isBodyLink = rationale === "markdown_wikilink" || String(item.createdBy || item.source || "") === "markdown_wikilink";
     const edgeTarget = {
       id: item.id,
       fromNoteId: item.fromNoteId || source.id || "",
@@ -314,10 +348,10 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       tone: "review",
       kicker: "关系待确认",
       title: `${sourceTitle} -> ${targetTitle}`,
-      meta: `${graphRelationReviewReasonLabel(item.reviewReason)}  ·  ${graphRelationQualityLabel(item.rationaleQualityLevel)}`,
-      detail: rationale && rationale !== "markdown_wikilink" ? rationale : "这条关系还没有写清为什么成立。",
-      question: "如果删掉这条线，损失的是论证结构，还是只是少了一个导航链接？",
-      actionLabel: "确认关系",
+      meta: isBodyLink ? "正文关联 · 上下文在来源笔记中" : !rationale ? "关系记录未填写单独说明" : graphRelationTypeLabel(item.relationType),
+      detail: isBodyLink ? "阅读来源正文，检查两条笔记怎样互相说明；已有链接无需重复建立。" : rationale || "可以对照两条笔记补充理由；没有单独说明不代表关系不成立。",
+      question: "对照两条笔记，是否需要补充理由或调整方向？",
+      actionLabel: "查看关系",
       actionAttrs: graphSelectEdgeActionAttrs(edgeTarget),
       highlightNodeIds: [edgeTarget.fromNoteId, edgeTarget.toNoteId],
       highlightEdge: edgeTarget
@@ -369,8 +403,9 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
     });
   });
 
-  (Array.isArray(analysis?.isolatedNotes) ? analysis.isolatedNotes : [])
-    .filter((note) => currentIsolatedIds.has(graphNoteIdFromIsolatedItem(note)))
+  (Array.isArray(isolatedNotes) ? isolatedNotes : [])
+    .filter((note) => currentIsolatedIds.has(graphNoteIdFromIsolatedItem(note)) && scopedNodeMap.has(graphNoteIdFromIsolatedItem(note)))
+    .filter((note) => !(Array.isArray(edges) ? edges : []).some((edge) => edge.fromNoteId === graphNoteIdFromIsolatedItem(note) || edge.toNoteId === graphNoteIdFromIsolatedItem(note)))
     .filter((note) => !graphNoteHasSavedIsolationDisposition(graphFullNoteById(graphNoteIdFromIsolatedItem(note), nodeMap) || note))
     .slice(0, 5).forEach((note, index) => {
       const noteId = String(note?.noteId || note?.id || "").trim();
@@ -381,10 +416,10 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
         view: "organize",
         tone: "isolated",
         kicker: "待关联笔记",
-        title: String(note?.title || graphThinkingNoteTitle(nodeMap, noteId, "待关联笔记")).trim() || "待关联笔记",
-        meta: "暂未进入主题群",
-        detail: String(note?.thesis || "判断它应当补接到现有主题，还是先留在暂存。").trim(),
-        question: "它暂时游离，是因为真的独特，还是因为还没有写出为什么相关？",
+        title: graphThinkingNoteTitle(nodeMap, noteId, "待关联笔记"),
+        meta: "当前范围内没有已保存的关系",
+        detail: String(graphFullNoteById(noteId, nodeMap)?.thesis || note?.thesis || "可查找相关观点，也可以保持独立。").trim(),
+        question: "有没有另一条笔记能支持、反驳或补充这个观点？没有就保持独立。",
         actionLabel: "整理",
         actionAttrs: `data-graph-select-isolated="${escapeHtml(isolatedKey)}" data-graph-isolated-note="${escapeHtml(noteId)}"`,
         highlightNodeIds: [noteId]

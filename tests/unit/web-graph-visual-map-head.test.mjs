@@ -32,7 +32,8 @@ test("graph visual map head renders task toolbar, queue, and density slots witho
   assert.match(html, /graph-map-mode-hint/);
   assert.match(html, /找主题/);
   assert.match(html, /data-run-graph-ai-analysis="theme"/);
-  assert.match(html, />发现主题<\/button>/);
+  assert.match(html, />AI 找主题<\/button>/);
+  assert.doesNotMatch(html, /class="mini-btn primary"/);
   assert.match(html, /<mode>index:bridge<\/mode>/);
   assert.match(html, /<filter><\/filter>/);
   assert.doesNotMatch(html, /<lens>/);
@@ -41,7 +42,7 @@ test("graph visual map head renders task toolbar, queue, and density slots witho
   assert.match(html, /graph-density-hint/);
 });
 
-test("graph visual map head marks gap action as gap mode", () => {
+test("gap mode does not require another click or an AI scan", () => {
   const html = buildGraphVisualMapHeadContent({
     relationType: "meaningful",
     runtimeState: {
@@ -51,8 +52,8 @@ test("graph visual map head marks gap action as gap mode", () => {
     renderGraphViewModeSwitcher: () => ""
   });
 
-  assert.match(html, /data-run-graph-ai-analysis="gap"/);
-  assert.match(html, />检查缺口<\/button>/);
+  assert.doesNotMatch(html, /data-run-graph-ai-analysis="gap"|>检查缺口<\/button>/);
+  assert.match(html, /检查未关联笔记和已有关系/);
 });
 
 test("graph visual map head renders focused note depth controls in filter mode", () => {

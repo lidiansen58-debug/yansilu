@@ -59,6 +59,16 @@ export function routeEditorRelationClick(host, event) {
   const target = eventTarget(event);
   if (!target) return false;
 
+  const associationNext = target.closest("[data-note-association-next]");
+  if (associationNext) {
+    host.permanentNoteDistillation?.().handleAssociationNext(
+      associationNext.getAttribute("data-note-association-next"),
+      associationNext.getAttribute("data-note-id"),
+      associationNext.getAttribute("data-association-next-token")
+    );
+    return true;
+  }
+
   const relationTemplateMergeAction = target.closest("[data-relation-template-merge-action]");
   if (relationTemplateMergeAction) {
     host.commitRelationTemplateVariant(
@@ -80,7 +90,9 @@ export function routeEditorRelationClick(host, event) {
     host.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
       ...host.permanentRelationWorkspaceState,
       mode,
-      selectedTargetNoteId: mode === "manual" ? "" : host.permanentRelationWorkspaceState.selectedTargetNoteId
+      pairPreviewState: "", pairPreviewError: "",
+      selectedTargetNoteId: mode === "manual" ? "" : host.permanentRelationWorkspaceState.selectedTargetNoteId,
+      ...(mode === "manual" ? { editingRelationId: "", relationType: "associated_with", rationale: "", insightQuestion: "" } : {})
     }));
     return true;
   }
@@ -88,6 +100,11 @@ export function routeEditorRelationClick(host, event) {
   const permanentRelationManualTarget = target.closest("[data-permanent-relation-manual-target]");
   if (permanentRelationManualTarget) {
     host.choosePermanentRelationManualTarget(permanentRelationManualTarget.getAttribute("data-permanent-relation-manual-target"));
+    return true;
+  }
+
+  if (target.closest("[data-permanent-relation-preview-retry]")) {
+    void host.permanentRelationComposer().loadPairPreview();
     return true;
   }
 
@@ -99,6 +116,7 @@ export function routeEditorRelationClick(host, event) {
       ...host.permanentRelationWorkspaceState,
       mode: "ai",
       selectedTargetNoteId: targetNoteId,
+      pairPreviewState: "", pairPreviewError: "",
       relationType: cleanId(permanentRelationAiTarget.getAttribute("data-relation-type")).toLowerCase() || "associated_with",
       rationale: cleanId(permanentRelationAiTarget.getAttribute("data-relation-rationale-draft")),
       insightQuestion: cleanId(permanentRelationAiTarget.getAttribute("data-relation-insight-question-draft")),
@@ -193,6 +211,7 @@ export function routeEditorRelationClick(host, event) {
       host.patchPermanentRelationWorkspaceState(resetPermanentRelationWorkspaceResult({
         ...host.permanentRelationWorkspaceState,
         mode: "ai",
+        pairPreviewState: "", pairPreviewError: "",
         selectedTargetNoteId: ""
       }));
       if (typeof host.runPermanentNoteAnalysis === "function") {

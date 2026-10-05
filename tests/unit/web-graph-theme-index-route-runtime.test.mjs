@@ -3,6 +3,181 @@ import assert from "node:assert/strict";
 
 import { createGraphRouteRuntime } from "../../apps/web/src/graph-route-runtime.js";
 
+function themeHarness(overrides = {}) {
+  const saved = [];
+  const notes = new Map(["a", "b", "c", "d"].map(id => [id, { id, title: id, noteType: "permanent" }]));
+  const runtime = createGraphRouteRuntime({
+    graphState: { item: { edges: [] } }, uniqueStrings: ids => [...new Set(ids)],
+    ensureNotesLoaded: async () => {}, isDirectoryUnderOriginalRoot: () => false,
+    writingKnownNoteById: id => notes.get(id), writingNoteById: id => notes.get(id),
+    suggestedThemeIndexTitle: () => "候选", writingThemeIndexScopeDirectoryId: () => "dir",
+    isWritingEligibleNote: () => false,
+    requestGraphThemeConfirmation: async () => ({ title: "主题", centralQuestion: "问题？", noteIds: ["a", "b", "c"] }),
+    createIndexCard: async payload => { saved.push(payload); return { id: "card" }; },
+    upsertWritingThemeIndex() {}, addSystemMessage() {}, setStatus() {}, renderGraphPanel() {},
+    ...overrides
+  });
+  return { runtime, saved };
+}
+
+const recoveryDraft = { title: "我的主题", centralQuestion: "我的问题？", noteIds: ["a", "b", "c"], roles: { a: "支持材料", d: "暂不选择的用途" } };
+
+test("theme save failure restores the full confirmation draft, then success clears it", async () => {
+  const offered = [], payloads = [];
+  let writes = 0;
+  const { runtime } = themeHarness({
+    requestGraphThemeConfirmation: async options => { offered.push(options); return structuredClone(recoveryDraft); },
+    createIndexCard: async payload => {
+      payloads.push(payload);
+      if (++writes === 1) throw new Error("503 unavailable");
+      return { id: "card" };
+    }
+  });
+  await assert.rejects(runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]), /503/);
+  await runtime.createGraphThemeIndexFromNoteIds(["d", "c", "b", "a"]);
+  assert.deepEqual(offered[1].draft, recoveryDraft);
+  assert.match(offered[1].saveError, /503/);
+  assert.deepEqual(payloads[1].noteIds, ["a", "b", "c"]);
+  assert.equal(payloads[1].items[0].rationale, "支持材料");
+  await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  assert.equal(offered[2].draft, null);
+  assert.equal(offered[2].saveError, "");
+});
+
+for (const change of ["vault", "graph-scope", "materials", "cancel"]) {
+  test(`failed theme confirmation is not restored after ${change}`, async () => {
+    const offered = [];
+    let context = ["vault-a", "scope-a"], cancel = false;
+    const { runtime } = themeHarness({
+      graphThemeContextKey: () => context,
+      requestGraphThemeConfirmation: async options => { offered.push(options); return cancel ? null : structuredClone(recoveryDraft); },
+      createIndexCard: async () => { throw new Error("503 unavailable"); }
+    });
+    const ids = ["a", "b", "c", "d"];
+    await assert.rejects(runtime.createGraphThemeIndexFromNoteIds(ids), /503/);
+    if (change === "cancel") {
+      cancel = true;
+      assert.equal(await runtime.createGraphThemeIndexFromNoteIds(ids), null);
+      cancel = false;
+    }
+    if (change === "vault") context = ["vault-b", "scope-a"];
+    if (change === "graph-scope") context = ["vault-a", "scope-b"];
+    await assert.rejects(runtime.createGraphThemeIndexFromNoteIds(change === "materials" ? ["a", "b", "c"] : ids), /503/);
+    assert.equal(offered.at(-1).draft, null);
+    assert.equal(offered.at(-1).saveError, "");
+  });
+}
+
+test("a late save failure after vault switch cannot restore or report the old draft", async () => {
+  const offered = [], statuses = [];
+  let vault = "vault-a", rejectSave, started;
+  const saving = new Promise(resolve => { started = resolve; });
+  const { runtime } = themeHarness({
+    graphThemeContextKey: () => [vault],
+    graphDataList: () => ["a", "b", "c", "d"],
+    setStatus: message => statuses.push(message),
+    requestGraphThemeConfirmation: async options => { offered.push(options); return structuredClone(recoveryDraft); },
+    createIndexCard: () => { started(); return new Promise((_, reject) => { rejectSave = reject; }); }
+  });
+  const failed = runtime.createGraphThemeIndexFromButton({ disabled: false, getAttribute: () => "主题" });
+  await saving;
+  vault = "vault-b";
+  rejectSave(new Error("old vault 503"));
+  assert.equal(await failed, null);
+  assert.deepEqual(statuses, []);
+  const next = runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  await saving;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(offered[1].draft, null);
+  rejectSave(new Error("new vault 503"));
+  await assert.rejects(next, /new vault/);
+});
+
+test("a saved theme whose writing handoff fails does not remain a creation retry draft", async () => {
+  const offered = [];
+  const { runtime } = themeHarness({
+    isWritingEligibleNote: () => true,
+    requestGraphThemeConfirmation: async options => { offered.push(options); return structuredClone(recoveryDraft); },
+    useThemeIndexAsWritingEntry: async () => { throw new Error("草稿尚未保存"); }
+  });
+  await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  assert.equal(offered[1].draft, null);
+});
+
+test("cancelling theme confirmation creates nothing", async () => {
+  const { runtime, saved } = themeHarness({ requestGraphThemeConfirmation: async () => null });
+  assert.equal(await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"]), null);
+  assert.equal(saved.length, 0);
+});
+
+test("a vault or graph scope switch during confirmation cannot save stale materials", async () => {
+  let vault = "vault-a";
+  const { runtime, saved } = themeHarness({
+    graphThemeContextKey: () => [vault],
+    requestGraphThemeConfirmation: async () => {
+      vault = "vault-b";
+      return { title: "主题", centralQuestion: "问题？", noteIds: ["a", "b", "c"] };
+    }
+  });
+  assert.equal(await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"]), null);
+  assert.equal(saved.length, 0);
+});
+
+test("theme creation uses only confirmed note membership and excludes ids not offered", async () => {
+  const { runtime, saved } = themeHarness({ requestGraphThemeConfirmation: async () => ({
+    title: "主题", centralQuestion: "问题？", noteIds: ["a", "b", "c", "outside"]
+  }) });
+  await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c", "d"]);
+  assert.deepEqual(saved[0].noteIds, ["a", "b", "c"]);
+});
+
+test("duplicate theme actions share a single confirmation and save", async () => {
+  let resolveConfirmation;
+  let confirmations = 0;
+  const deferred = new Promise(resolve => { resolveConfirmation = resolve; });
+  const { runtime, saved } = themeHarness({ requestGraphThemeConfirmation: () => { confirmations++; return deferred; } });
+  const first = runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"]);
+  const second = runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"]);
+  await Promise.resolve();
+  resolveConfirmation({ title: "主题", centralQuestion: "问题？", noteIds: ["a", "b", "c"] });
+  await Promise.all([first, second]);
+  assert.equal(confirmations, 1);
+  assert.equal(saved.length, 1);
+});
+
+test("a writing handoff failure reports the saved theme rather than inviting another creation", async () => {
+  const statuses = [];
+  const { runtime, saved } = themeHarness({
+    isWritingEligibleNote: () => true,
+    useThemeIndexAsWritingEntry: async () => { throw new Error("草稿尚未保存"); },
+    setStatus: message => statuses.push(message)
+  });
+  assert.equal((await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"])).id, "card");
+  assert.equal(saved.length, 1);
+  assert.match(statuses.at(-1), /已保存.*草稿尚未保存.*主题库继续/);
+});
+
+test("mixed eligible materials save the complete theme without replacing the writing basket", async () => {
+  const statuses = [], messages = [];
+  let handoffs = 0, writingOpens = 0;
+  const { runtime, saved } = themeHarness({
+    isWritingEligibleNote: note => note.id !== "c",
+    useThemeIndexAsWritingEntry: async () => { handoffs++; },
+    openWritingModule: async () => { writingOpens++; },
+    addSystemMessage: message => messages.push(message),
+    setStatus: (...args) => statuses.push(args)
+  });
+  const card = await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"]);
+  assert.equal(card.id, "card");
+  assert.deepEqual(saved[0].noteIds, ["a", "b", "c"]);
+  assert.equal(handoffs, 0);
+  assert.equal(writingOpens, 0);
+  assert.match(statuses.at(-1)[0], /已保存.*1 条材料.*作者或原创确认/);
+  assert.equal(statuses.at(-1)[1], "warn");
+  assert.match(messages[0].body, /1 条材料.*作者或原创确认/);
+});
+
 test("graph route runtime blocks graph AI analysis behind default local setup guide", async () => {
   const calls = [];
   const runtime = createGraphRouteRuntime({
@@ -44,6 +219,10 @@ test("graph route runtime saves a first-class theme index and transfers writing 
       return { id: "idx-1", title: payload.title, item_note_ids: payload.noteIds, items: payload.items };
     },
     graphState: { item: { edges: [{ id: "e1" }, { id: "e2" }] } },
+    requestGraphThemeConfirmation: async ({ notes }) => ({
+      title: "关系如何变成写作入口", centralQuestion: "关系如何帮助写作？",
+      noteIds: notes.map(note => note.id), roles: { n1: "说明关系理由的作用" }
+    }),
     graphDataList: () => [],
     graphScopeDirectoryId: () => "dir-original",
     ensureLocalAiReadyForFeature: async () => {
@@ -63,7 +242,7 @@ test("graph route runtime saves a first-class theme index and transfers writing 
     writingNoteById: (id) => notes.get(id),
     writingThemeIndexScopeDirectoryId: () => "dir-theme",
     upsertWritingThemeIndex: (card) => calls.push(["upsert", card.id]),
-    continueWritingEntry: (ids, options) => calls.push(["writing", ids, options]),
+    useThemeIndexAsWritingEntry: async (id, options) => calls.push(["use-theme", id, options]),
     openWritingModule: async (options) => calls.push(["open-writing", options])
   });
 
@@ -76,16 +255,17 @@ test("graph route runtime saves a first-class theme index and transfers writing 
   assert.equal(localAiReadyChecked, false);
   assert.equal(savedPayload.directoryId, "dir-theme");
   assert.equal(savedPayload.indexType, "topic");
-  assert.match(savedPayload.centralQuestion, /关系如何变成写作入口/);
-  assert.match(savedPayload.threeLineSummary[2], /下一步建议/);
+  assert.equal(savedPayload.centralQuestion, "关系如何帮助写作？");
+  assert.match(savedPayload.threeLineSummary[2], /整理提纲/);
   assert.deepEqual(savedPayload.noteIds, ["n1", "n2", "n3"]);
-  assert.ok(savedPayload.items.every((item) => /关键判断|说明作用/.test(item.rationale)));
-  assert.deepEqual(calls.find((call) => call[0] === "source-index"), ["source-index", ["idx-1"]]);
-  assert.deepEqual(calls.find((call) => call[0] === "writing"), [
-    "writing",
-    ["n1", "n2", "n3"],
-    { title: "关系如何变成写作入口 主题", source: "test-graph", sourceIndexIds: ["idx-1"] }
-  ]);
+  assert.equal(savedPayload.items[0].rationale, "说明关系理由的作用");
+  assert.equal(savedPayload.items[1].rationale, "");
+  const handoff = calls.find((call) => call[0] === "use-theme");
+  assert.equal(handoff[1], "idx-1");
+  assert.equal(handoff[2].replaceBasket, true);
+  assert.equal(handoff[2].resetContext, true);
+  assert.equal(handoff[2].source, "test-graph");
+  assert.equal(typeof handoff[2].assertCurrent, "function");
   assert.deepEqual(calls.find((call) => call[0] === "open-writing"), [
     "open-writing",
     {

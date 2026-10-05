@@ -3823,7 +3823,7 @@ export class EditorPane {
   renderPermanentRelationWorkspaceOverlay(note = this.permanentRelationWorkspaceSourceNote()) {
     if (!note?.id) return "";
     const state = normalizePermanentRelationWorkspaceState(this.permanentRelationWorkspaceState, note.id);
-    const relations = this.isActiveNoteId(note.id) ? this.currentSemanticRelations : null;
+    const relations = this.permanentRelationComposer().currentRelations();
     return renderPermanentRelationComposer({
       note,
       state,
@@ -3866,6 +3866,9 @@ export class EditorPane {
     });
     results.innerHTML = html;
     results.hidden = !html.trim();
+    const form = this.permanentRelationWorkspaceElement()?.querySelector?.("[data-permanent-relation-form]");
+    if (form) form.hidden = this.permanentRelationWorkspaceState.mode === "ai" ||
+      !(this.permanentRelationWorkspaceState.selectedTargetNoteId || this.permanentRelationWorkspaceState.editingRelationId);
     return true;
   }
 

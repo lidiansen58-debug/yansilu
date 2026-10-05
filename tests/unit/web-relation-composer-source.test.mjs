@@ -5,6 +5,49 @@ import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { currentRelationSnapshot } from "../../apps/web/src/relation-snapshot.js";
 import { PermanentNoteSidebarController } from "../../apps/web/src/permanent-note-sidebar-controller.js";
 
+test("changing a more-specific relation type updates the visible pair direction without rebuilding the input", () => {
+  const label = { textContent: "相关" };
+  const host = { permanentRelationWorkspaceState: { noteId: "source", sourceNoteId: "source" },
+    state: { notes: [{ id: "source" }] },
+    permanentRelationWorkspaceElement: () => ({ querySelector: selector => selector === "[data-relation-pair-type]" ? label : null }) };
+  new PermanentRelationComposerController(host).updateField("relationType", "bridges");
+  assert.equal(label.textContent, "桥接");
+  assert.equal(host.permanentRelationWorkspaceState.relationType, "bridges");
+});
+
+test("a graph-only duplicate requires explicit editing confirmation and preserves the incoming direction", async t => {
+  const previousFetch = globalThis.fetch, previousFormData = globalThis.FormData;
+  t.after(() => { globalThis.fetch = previousFetch; globalThis.FormData = previousFormData; });
+  let writes = 0;
+  const relation = { id: "existing", fromNoteId: "target", toNoteId: "source", relationType: "supports", status: "confirmed" };
+  globalThis.FormData = class { get(key) { return { relationType: "supports", rationale: "A new concrete reason", insightQuestion: "" }[key]; } };
+  globalThis.fetch = async (_url, options = {}) => {
+    if (options.method === "PATCH") { writes++; return new Response(JSON.stringify({ item: relation })); }
+    return new Response(JSON.stringify({ item: { outgoingLinks: [], backlinks: [relation] } }));
+  };
+  const host = { state: { module: "graph", notes: [{ id: "source" }, { id: "target" }] },
+    permanentRelationWorkspaceState: { open: true, sourceNoteId: "source", noteId: "source", relationComposerSessionId: "session",
+      selectedTargetNoteId: "target", relationType: "supports", rationale: "A new concrete reason" },
+    currentSemanticRelations: null, isActiveNoteId: () => false, vaultScope: () => "vault",
+    syncPermanentRelationWorkspaceOverlay() {}, renderAll() {},
+    permanentSidebarController: () => ({ commitSavedRelationWorkspaceResult() {} }) };
+  const controller = new PermanentRelationComposerController(host);
+  await controller.submit({});
+  assert.equal(writes, 0);
+  assert.equal(host.permanentRelationWorkspaceState.editingRelationId, "existing");
+  assert.match(host.permanentRelationWorkspaceState.notice, /已有关联/);
+  assert.equal(host.permanentRelationWorkspaceState.rationale, "A new concrete reason");
+  assert.equal(controller.currentRelations().backlinks[0].fromNoteId, "target");
+  host.permanentRelationWorkspaceState.relationComposerSessionId = "other-session";
+  assert.equal(controller.currentRelations(), null);
+  host.permanentRelationWorkspaceState.relationComposerSessionId = "session";
+  host.vaultScope = () => "other-vault";
+  assert.equal(controller.currentRelations(), null);
+  host.vaultScope = () => "vault";
+  await controller.submit({});
+  assert.equal(writes, 1);
+});
+
 for (const scenario of ["closed-failure", "open-failure", "closed-success", "superseded-failure"]) {
   test(`committed save settles sidebar display independently of the composer: ${scenario}`, async t => {
     const originalFetch = globalThis.fetch, originalFormData = globalThis.FormData;
@@ -232,6 +275,38 @@ test("a missing explicit relation source does not fall back to a different activ
   assert.equal(controller.sourceNote(), null);
   host.permanentRelationWorkspaceState = {};
   assert.equal(controller.sourceNote(), active);
+});
+
+test("a fresh composer snapshot takes precedence over an empty active-editor cache", () => {
+  const host = { permanentRelationWorkspaceState: { sourceNoteId: "source", relationComposerSessionId: "session" },
+    currentSemanticRelations: { outgoingLinks: [], backlinks: [] }, isActiveNoteId: () => true, vaultScope: () => "vault" };
+  const controller = new PermanentRelationComposerController(host);
+  const relations = { outgoingLinks: [], backlinks: [{ id: "incoming", fromNoteId: "target", toNoteId: "source" }] };
+  controller.relationSnapshot = { noteId: "source", sessionId: "session", vault: "vault", relations };
+  assert.equal(controller.currentRelations(), relations);
+});
+
+test("a changed saved relation identity requires confirmation instead of updating an unseen replacement", async t => {
+  const previousFetch = globalThis.fetch, previousFormData = globalThis.FormData;
+  t.after(() => { globalThis.fetch = previousFetch; globalThis.FormData = previousFormData; });
+  const old = { id: "old", fromNoteId: "source", toNoteId: "target", relationType: "supports" };
+  const replacement = { id: "replacement", fromNoteId: "target", toNoteId: "source", relationType: "contradicts" };
+  let writes = 0;
+  globalThis.FormData = class { get(key) { return { relationType: "supports", rationale: "My reason", insightQuestion: "" }[key]; } };
+  globalThis.fetch = async (_url, options = {}) => {
+    if (options.method === "PATCH" || options.method === "POST") writes++;
+    return new Response(JSON.stringify({ item: { outgoingLinks: [], backlinks: [replacement] } }));
+  };
+  const host = { state: { notes: [{ id: "source" }, { id: "target" }] },
+    permanentRelationWorkspaceState: { open: true, sourceNoteId: "source", noteId: "source", relationComposerSessionId: "session",
+      selectedTargetNoteId: "target", relationType: "supports", rationale: "My reason" },
+    currentSemanticRelations: { outgoingLinks: [old], backlinks: [] }, isActiveNoteId: () => true, vaultScope: () => "vault",
+    syncPermanentRelationWorkspaceOverlay() {} };
+  const controller = new PermanentRelationComposerController(host);
+  await controller.submit({});
+  assert.equal(writes, 0);
+  assert.equal(host.permanentRelationWorkspaceState.editingRelationId, "replacement");
+  assert.equal(controller.currentRelations().backlinks[0].fromNoteId, "target");
 });
 
 for (const fail of [false, true]) {

@@ -1,0 +1,19 @@
+.graph-theme-confirmation {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 20px;
+}
+.graph-theme-confirmation h2 { font-size: 20px; margin: 0 0 16px; }
+.graph-theme-confirmation form, .graph-theme-confirmation details, .graph-theme-confirmation-notes { display: grid; gap: 12px; }
+.graph-theme-confirmation label { display: grid; gap: 6px; overflow-wrap: anywhere; }
+.graph-theme-confirmation input:not([type="checkbox"]), .graph-theme-confirmation textarea { width: 100%; box-sizing: border-box; }
+.graph-theme-confirmation textarea { min-height: 72px; height: 72px; }
+.graph-theme-confirmation-notes { max-height: min(380px, 40dvh); overflow: auto; padding-right: 4px; }
+.graph-theme-confirmation details { max-height: 30dvh; overflow: auto; }
+.graph-theme-confirmation-note { grid-template-columns: 18px minmax(0, 1fr); align-items: start; border-bottom: 1px solid var(--line); padding: 8px 0; }
+.graph-theme-confirmation-note input { margin: 3px 0; }
+.graph-theme-confirmation-note span { display: grid; gap: 4px; }
+.graph-theme-confirmation-note small { color: var(--muted); line-height: 1.6; }
+.graph-theme-confirmation [role="alert"] { color: var(--danger, #b42318); }
+.graph-theme-confirmation .modal-foot { padding: 12px 0 0; }

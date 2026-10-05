@@ -145,24 +145,13 @@ export function createGraphRelationSaveController({
     const noteId = String(button?.getAttribute?.("data-open-note") || "").trim();
     const targetNoteId = String(button?.getAttribute?.("data-graph-target-note") || "").trim();
     const relationType = String(button?.getAttribute?.("data-graph-relation-type") || "associated_with").trim().toLowerCase() || "associated_with";
-    const rationaleDraft = String(button?.getAttribute?.("data-graph-rationale-draft") || "").trim();
-    const insightQuestionDraft = String(button?.getAttribute?.("data-graph-insight-question-draft") || "").trim();
     if (!noteId || !targetNoteId) return false;
     if (!confirmableRelationTypes.has(relationType) || relationType === "no_relation") {
       setStatus("这条可选关系不能保存为关联，请重新选择一条能说明理由的关联。", "warn");
       return false;
     }
-    const nodeMap = graphNodeMapForState(graphState);
-    const sourceTitle = titleForNote(nodeMap, noteId);
-    const targetTitle = titleForNote(nodeMap, targetNoteId);
-    const relationLabel = relationTypeLabel(relationType);
-    const rationale = rationaleIsActionable(rationaleDraft) ? rationaleDraft : "";
-    if (!rationale) {
-      openRelationComposerFromGraphAction(button);
-      setStatus(`请先补一句“${sourceTitle}”和“${targetTitle}”为什么能建立${relationLabel}`, "warn");
-      return false;
-    }
-    return saveConfirmedRelation({ noteId, targetNoteId, relationType, rationale, insightQuestion: insightQuestionDraft, button });
+    openRelationComposerFromGraphAction(button);
+    return false;
   };
 
   const saveAiCandidateRelation = async (button = null) => saveCandidateRelation(button);

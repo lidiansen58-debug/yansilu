@@ -36,7 +36,7 @@ export function renderGraphNodeSelectionPanel({ selection: normalized = null, is
   });
   const relationDetails = directEdges.length && relationWorkspace
     ? `
-      <details class="graph-selection-details">
+      <details class="graph-selection-details" open>
         <summary>已保存关系 ${directEdges.length}</summary>
         ${relationWorkspace}
       </details>`
@@ -52,6 +52,7 @@ export function renderGraphNodeSelectionPanel({ selection: normalized = null, is
     body: `
       ${relationDetails}
       ${candidatePanel}`,
-    actions: `<button class="mini-btn" type="button" data-open-note="${escapeHtml(normalized.nodeId)}">打开笔记</button>`
+    actions: `<button class="mini-btn" type="button" data-open-note="${escapeHtml(normalized.nodeId)}">打开笔记</button>
+      <button class="mini-btn" type="button" data-graph-open-relation-form data-graph-relation-source="${escapeHtml(normalized.nodeId)}">关联其他笔记</button>`
   });
 }

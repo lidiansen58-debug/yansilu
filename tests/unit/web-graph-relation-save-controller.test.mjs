@@ -272,9 +272,20 @@ test("graph relation save controller opens the shared composer when a candidate 
   const saved = await controller.saveCandidateRelation(button);
 
   assert.equal(saved, false);
-  assert.deepEqual(calls.map((call) => call[0]), ["composer", "status"]);
+  assert.deepEqual(calls.map((call) => call[0]), ["composer"]);
   assert.equal(calls[0][1], true);
-  assert.equal(calls[1][2], "warn");
+});
+
+test("a recommendation with a complete rationale still requires explicit composer confirmation", async () => {
+  const calls = [];
+  const button = createButton({ "data-open-note": "source", "data-graph-target-note": "target",
+    "data-graph-relation-type": "supports", "data-graph-rationale-draft": "Concrete suggested evidence for this relationship." });
+  const controller = baseController({
+    createNoteRelation: async () => { calls.push("write"); },
+    openRelationComposerFromGraphAction: target => { assert.equal(target, button); calls.push("composer"); }
+  });
+  assert.equal(await controller.saveAiCandidateRelation(button), false);
+  assert.deepEqual(calls, ["composer"]);
 });
 
 test("graph relation save controller records existing relations and closes the isolated flow", async () => {

@@ -112,6 +112,8 @@ import { graphFullNoteByIdFromSources, graphIsolatedPreviewTargetForNote, graphL
 import { renderGraphIsolatedJoinNetworkFlowHtml } from "./graph-isolated-relation-workspace.js";
 import { renderGraphIsolatedNextStepActionsHtml } from "./graph-isolated-next-step.js";
 import { graphThemeCandidateNoteIdsForNode as computeGraphThemeCandidateNoteIdsForNode, renderGraphRelationWorkspaceForNote as renderGraphRelationWorkspaceMarkup, renderGraphThemeIndexWorkspace as renderGraphThemeIndexWorkspaceMarkup } from "./prototype-graph-workspace.js";
+import { captureGraphReadingReturnContext, restoreGraphReadingReturnContext } from "./graph-reading-return-context.js";
+import { createGraphThemeConfirmationDialog } from "./graph-theme-confirmation-dialog.js";
 import { renderGraphResearchNavigatorEntryView, renderGraphThinkingItemsView, renderGraphThinkingPanelContentView, renderGraphThinkingPanelView, renderGraphThinkingReviewNoteView, renderGraphWorkbenchEntryPillsView, renderGraphWorkbenchPanelView, renderGraphWorkbenchPriorityQueueView } from "./graph-workbench-panel.js";
 import { graphRelationQualityLabel, graphRelationReviewReasonLabel, renderGraphUtilityDrawerView, renderRelationReviewQueueSectionView } from "./graph-review-surface-view.js";
 import { applyGraphEmptyCloseInteraction, applyGraphSectionOpenState, applyGraphThinkingFilterInteraction, applyGraphThinkingHideInteraction, applyGraphThinkingToggleInteraction, applyGraphThinkingVisibilityInteraction, applyGraphUtilityDrawerCloseInteraction, applyGraphUtilityDrawerOpenState, applyGraphUtilityVisibilityInteraction, applyGraphWorkbenchCloseInteraction, applyGraphWorkbenchEntryInteraction, applyGraphWorkbenchTabInteraction } from "./graph-workspace-interaction-controller.js";
@@ -134,6 +136,7 @@ import { createGraphResidualViews } from "./graph-residual-views.js";
 import { graphFilterOptionsForRuntime } from "./graph-filter-options-view.js";
 import { renderGraphMapPreviewView } from "./graph-map-preview-view.js";
 import { refreshDirectoryGraphForRuntime } from "./graph-refresh-controller.js";
+import { revealSavedGraphRelation } from "./graph-saved-relation-reveal.js";
 import { createGraphRouteRuntime } from "./graph-route-runtime.js";
 import { createGraphVisualMapController } from "./graph-visual-map-controller.js";
 import { createGraphVisualMapPrototypeDepsProvider } from "./graph-visual-map-host-deps.js";
@@ -3894,12 +3897,15 @@ function activateModule(moduleName) {
     return;
   }
   if (normalizedModule === "graph") {
+    const returningFromReading = restoreGraphReadingReturnContext(graphState, state, currentVaultPath());
     state.browserRootId = "dir_original_default";
     if (!isDirectoryUnderOriginalRoot(state.selectedFolderId)) {
       state.selectedFolderId = "dir_original_default";
     }
-    state.selectedFileId = null;
-    prepareGraphEntryPresentationState();
+    if (!returningFromReading) {
+      state.selectedFileId = null;
+      prepareGraphEntryPresentationState();
+    }
   }
   state.module = normalizedModule;
   if (normalizedModule === "graph") expandGraphBrowserTree();
@@ -5335,7 +5341,8 @@ function renderGraphPanel() {
   }, graphPanelRuntimeDeps());
 }
 
-async function refreshDirectoryGraph() {
+async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelation = () => true } = {}) {
+  const revealScope = graphScopeDirectoryId();
   const refreshed = await refreshDirectoryGraphForRuntime({
     graphState,
     graphScopeDirectoryId,
@@ -5350,11 +5357,16 @@ async function refreshDirectoryGraph() {
     renderGraphPanel,
     renderAll
   });
+  if (refreshed && savedRelation && state.module === "graph" && revealScope === graphScopeDirectoryId() && canRevealSavedRelation()) {
+    revealSavedGraphRelation(graphState, savedRelation, { setRelationTypeFilter: setGraphRelationTypeFilter, renderGraphPanel });
+  }
   window.requestAnimationFrame(() => centerGraphViewportIfZoomed());
   return refreshed;
 }
 
 const graphRouteRuntime = createGraphRouteRuntime({
+  requestGraphThemeConfirmation: createGraphThemeConfirmationDialog({ documentRef: document }),
+  graphThemeContextKey: () => [currentVaultPath(), state.noteMoveVaultScope, graphScopeDirectoryId(), state.module],
   addSystemMessage,
   analyzeDirectoryGraph,
   createIndexCard,
@@ -5384,7 +5396,7 @@ const graphRouteRuntime = createGraphRouteRuntime({
   writingNoteById,
   writingThemeIndexScopeDirectoryId,
   upsertWritingThemeIndex,
-  continueWritingEntry
+  useThemeIndexAsWritingEntry
 });
 const {
   runGraphAiAnalysis,
@@ -6340,6 +6352,12 @@ bindGraphCanvasEvents($("graphPanel"), {
   openGraphFollowupNote,
   openGraphSelection,
   openGraphNodeSelectionFromElement,
+  openNoteForReading: (noteId) => {
+    if (!state.notes.some((note) => note.id === noteId)) return false;
+    captureGraphReadingReturnContext(graphState, state, currentVaultPath(), noteId);
+    activateModule("explorer");
+    return openNoteById(noteId, { preferTitleSelection: false });
+  },
   openNoteById: (noteId) => { const opened = openNoteById(noteId, { preferTitleSelection: false }); state.module = "graph"; renderGraphPanel(); return opened; },
   syncGraphIsolatedAiCandidateForm,
   graphIsolatedFormError,

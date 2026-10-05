@@ -112,7 +112,7 @@ export function renderGraphViewModeSwitcher(relationType = "meaningful", activeL
     {
       key: "relations",
       label: "找缺口",
-      title: "看还没连好、可能缺关系的地方。",
+      title: "检查未关联笔记和已有关系。",
       attr: `data-graph-task-view="relations"`
     },
     {

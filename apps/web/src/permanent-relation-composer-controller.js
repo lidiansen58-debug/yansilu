@@ -46,6 +46,50 @@ export class PermanentRelationComposerController {
     return stateSourceNote(this.host);
   }
 
+  currentRelations() {
+    const host = this.host;
+    const noteId = stateSourceNoteId(host);
+    const snapshot = this.relationSnapshot;
+    if (snapshot?.noteId === noteId && snapshot.sessionId === stateSessionId(host) && snapshot.vault === host.vaultScope?.()) return snapshot.relations;
+    return host.isActiveNoteId?.(noteId) ? host.currentSemanticRelations || null : null;
+  }
+
+  async loadPairPreview() {
+    const host = this.host;
+    const state = host.permanentRelationWorkspaceState;
+    if (!state?.open || !state.selectedTargetNoteId || !host.fetchNoteForResolution) return false;
+    const sourceId = stateSourceNoteId(host), targetId = state.selectedTargetNoteId;
+    const session = stateSessionId(host), vault = host.vaultScope?.();
+    const missingIds = [sourceId, targetId].filter((id) => {
+      const note = host.state?.notes?.find((note) => note.id === id);
+      return !note || note.bodyLoaded === false || (!note.thesis && typeof note.body !== "string");
+    });
+    if (!missingIds.length || state.pairPreviewState === "loading") return false;
+    const serial = this.pairPreviewSerial = (this.pairPreviewSerial || 0) + 1;
+    const stillCurrent = () => host.permanentRelationWorkspaceState?.open &&
+      this.pairPreviewSerial === serial &&
+      stateSourceNoteId(host) === sourceId && stateSessionId(host) === session &&
+      host.permanentRelationWorkspaceState.selectedTargetNoteId === targetId && host.vaultScope?.() === vault;
+    host.permanentRelationWorkspaceState = { ...state, pairPreviewState: "loading", pairPreviewError: "" };
+    host.syncPermanentRelationWorkspaceOverlay();
+    try {
+      const notes = await Promise.all(missingIds.map((id) => host.fetchNoteForResolution(id)));
+      if (!stillCurrent()) return false;
+      if (notes.some((note, index) => !note || note.id !== missingIds[index] || typeof note.body !== "string")) {
+        throw new Error("未能读取完整笔记，请重试或重新选择。");
+      }
+      host.upsertApiNotes(notes);
+      host.permanentRelationWorkspaceState = { ...host.permanentRelationWorkspaceState, pairPreviewState: "ready", pairPreviewError: "" };
+      host.syncPermanentRelationWorkspaceOverlay();
+      return true;
+    } catch (error) {
+      if (!stillCurrent()) return false;
+      host.permanentRelationWorkspaceState = { ...host.permanentRelationWorkspaceState, pairPreviewState: "error", pairPreviewError: `读取笔记失败：${String(error?.message || error)}` };
+      host.syncPermanentRelationWorkspaceOverlay();
+      return false;
+    }
+  }
+
   patchState(patch = {}) {
     const host = this.host;
     const sourceNote = this.sourceNote();
@@ -55,6 +99,7 @@ export class PermanentRelationComposerController {
       ...patch
     }, sourceNoteId);
     host.syncPermanentRelationWorkspaceOverlay();
+    void this.loadPairPreview();
   }
 
   chooseManualTarget(targetNoteId = "") {
@@ -72,10 +117,12 @@ export class PermanentRelationComposerController {
       mode: "manual",
       selectedTargetNoteId: targetId,
       editingRelationId: "",
+      pairPreviewState: "", pairPreviewError: "",
       relationType: host.permanentRelationWorkspaceState.relationType || "associated_with",
       rationale: host.permanentRelationWorkspaceState.rationale || "",
       dirty: true
     }));
+    host.permanentRelationWorkspaceElement?.()?.querySelector?.("[data-relation-pair-preview]")?.focus?.();
   }
 
   async refreshManualSearch(query = "") {
@@ -99,6 +146,7 @@ export class PermanentRelationComposerController {
       searchState: cleanQuery ? "loading" : "idle",
       selectedTargetNoteId: cleanQuery ? "" : host.permanentRelationWorkspaceState.selectedTargetNoteId,
       editingRelationId: cleanQuery ? "" : host.permanentRelationWorkspaceState.editingRelationId,
+      pairPreviewState: "", pairPreviewError: "",
       error: "",
       notice: "",
       dirty: cleanQuery ? true : host.permanentRelationWorkspaceState.dirty === true
@@ -153,6 +201,7 @@ export class PermanentRelationComposerController {
     host.permanentRelationWorkspaceState = normalizeRelationDraft({
       ...host.permanentRelationWorkspaceState,
       manualQuery: query, selectedTargetNoteId: "", editingRelationId: "",
+      pairPreviewState: "", pairPreviewError: "",
       manualTargets: [], searchState: query.trim() ? "loading" : "idle"
     }, this.sourceNote()?.id || stateSourceNoteId(host));
     host.permanentRelationSearchSerial += 1;
@@ -175,6 +224,10 @@ export class PermanentRelationComposerController {
       [key]: cleanText(value),
       dirty: true
     }), this.sourceNote()?.id || host.permanentRelationWorkspaceState.noteId || "");
+    if (key === "relationType") {
+      const label = host.permanentRelationWorkspaceElement?.()?.querySelector?.("[data-relation-pair-type]");
+      if (label) label.textContent = relationTypeLabel(value);
+    }
   }
 
   async insertLinkIfRequested(state = {}) {
@@ -204,6 +257,7 @@ export class PermanentRelationComposerController {
     const host = this.host;
     const sourceNote = this.sourceNote();
     if (!sourceNote?.id) return;
+    if (host.permanentRelationWorkspaceState.saveState === "saving" || ["loading", "error"].includes(host.permanentRelationWorkspaceState.pairPreviewState)) return;
     const data = new FormData(form);
     const state = normalizeRelationDraft({
       ...host.permanentRelationWorkspaceState,
@@ -221,7 +275,7 @@ export class PermanentRelationComposerController {
       vaultStillCurrent() &&
       stateSourceNoteId(host) === sourceNote.id &&
       stateSessionId(host) === submitSessionId;
-    const currentRelations = sourceIsActive ? host.currentSemanticRelations : null;
+    const currentRelations = this.currentRelations();
     const validation = relationDraftCanSave({
       state,
       relations: currentRelations,
@@ -251,6 +305,13 @@ export class PermanentRelationComposerController {
       }
       const target = host.state.notes.find((item) => item.id === state.selectedTargetNoteId) || null;
       const existingRelationId = latestValidation.existing?.id || latestValidation.existing?.relationId || "";
+      const displayedRelationId = validation.existing?.id || validation.existing?.relationId || "";
+      if (existingRelationId && !state.editingRelationId && displayedRelationId !== existingRelationId) {
+        this.relationSnapshot = { noteId: sourceNote.id, sessionId: submitSessionId, vault: submitVaultScope, relations: latestRelations };
+        this.patchState({ ...state, editingRelationId: existingRelationId, saveState: "idle",
+          notice: "这两条笔记已有关联。确认方向、类型和理由后，再保存修改。" });
+        return;
+      }
       const relationPayload = {
         relationType: state.relationType,
         rationale: state.rationale,
@@ -287,7 +348,11 @@ export class PermanentRelationComposerController {
       host.syncRelationNetworkConnected?.(sourceNote.id, state.selectedTargetNoteId);
       await host.refreshRelationNetworkStatuses?.(sourceNote.id, state.selectedTargetNoteId);
       if (!vaultStillCurrent()) return;
-      await refreshGraphAfterRelationMutation(host, { returnTo: state.entryRoute?.returnTo });
+      await refreshGraphAfterRelationMutation(host, {
+        returnTo: state.entryRoute?.returnTo,
+        savedRelation: relation,
+        canRevealSavedRelation: draftStillCurrent
+      });
       if (!vaultStillCurrent()) return;
       // Refresh owns both the snapshot and its loaded/error UI, even when the
       // composer has closed. A read failure does not undo the committed save.
