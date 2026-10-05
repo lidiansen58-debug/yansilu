@@ -68,7 +68,7 @@ jobs:
 
       - name: Prepare desktop API runtime
         if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
-        run: node ./scripts/prepare-desktop-api-runtime.mjs
+        run: npm run prepare:desktop:runtime
 
       - name: Desktop bundle preflight
         if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
@@ -150,7 +150,7 @@ jobs:
           fi
 
       - name: Prepare desktop API runtime
-        run: node ./scripts/prepare-desktop-api-runtime.mjs
+        run: npm run prepare:desktop:runtime
 
       - name: Desktop preflight
         run: npm run build:desktop:check

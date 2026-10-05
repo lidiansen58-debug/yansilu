@@ -13,7 +13,7 @@ for (const [workflow, expectedChecks] of [
       if (!/^      - name: (?:Desktop (?:bundle )?preflight|Release readiness MVP check)\r?\n/.test(steps[index])) continue;
       checks++;
       assert.match(steps[index - 1], /^      - name: Prepare desktop API runtime\r?\n/);
-      assert.match(steps[index - 1], /run: node \.\/scripts\/prepare-desktop-api-runtime\.mjs/);
+      assert.match(steps[index - 1], /run: npm run prepare:desktop:runtime/);
       if (steps[index].includes("needs.detect-desktop-surface.outputs.full_bundle_required")) {
         assert.match(steps[index - 1], /if: needs\.detect-desktop-surface\.outputs\.full_bundle_required == 'true'/);
       }
@@ -21,6 +21,11 @@ for (const [workflow, expectedChecks] of [
     assert.equal(checks, expectedChecks);
   });
 }
+
+test("runtime preparation uses npm to supply the current CLI location", () => {
+  const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+  assert.equal(pkg.scripts["prepare:desktop:runtime"], "node ./scripts/prepare-desktop-api-runtime.mjs");
+});
 
 test("PR bundles require successful preflight while manual dispatch remains available", () => {
   const source = fs.readFileSync(new URL("../../.github/workflows/desktop-bundles.yml", import.meta.url), "utf8");

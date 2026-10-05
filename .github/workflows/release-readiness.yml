@@ -43,7 +43,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Prepare desktop API runtime
-        run: node ./scripts/prepare-desktop-api-runtime.mjs
+        run: npm run prepare:desktop:runtime
 
       - name: Release readiness MVP check
         run: npm run mvp:check
@@ -109,7 +109,7 @@ jobs:
         run: npm ci
 
       - name: Prepare desktop API runtime
-        run: node ./scripts/prepare-desktop-api-runtime.mjs
+        run: npm run prepare:desktop:runtime
 
       - name: Desktop preflight
         run: npm run build:desktop:check
