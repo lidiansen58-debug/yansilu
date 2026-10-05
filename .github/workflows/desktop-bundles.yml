@@ -66,6 +66,10 @@ jobs:
             librsvg2-dev \
             patchelf
 
+      - name: Prepare desktop API runtime
+        if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
+        run: npm run prepare:desktop:runtime
+
       - name: Desktop bundle preflight
         if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
         run: npm run build:desktop:check
@@ -78,7 +82,7 @@ jobs:
     needs:
       - detect-desktop-surface
       - preflight
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.detect-desktop-surface.outputs.full_bundle_required == 'true')
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.detect-desktop-surface.outputs.full_bundle_required == 'true') && (github.event_name == 'workflow_dispatch' || needs.preflight.result == 'success')
     strategy:
       fail-fast: false
       matrix:
@@ -144,6 +148,9 @@ jobs:
             echo "::error::TAURI_SIGNING_PRIVATE_KEY_PASSWORD is required for signed updater artifacts."
             exit 1
           fi
+
+      - name: Prepare desktop API runtime
+        run: npm run prepare:desktop:runtime
 
       - name: Desktop preflight
         run: npm run build:desktop:check

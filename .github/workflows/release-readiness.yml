@@ -42,6 +42,9 @@ jobs:
         if: inputs.run_full_browser_e2e
         run: npx playwright install --with-deps chromium
 
+      - name: Prepare desktop API runtime
+        run: npm run prepare:desktop:runtime
+
       - name: Release readiness MVP check
         run: npm run mvp:check
 
@@ -104,6 +107,9 @@ jobs:
 
       - name: Install npm dependencies
         run: npm ci
+
+      - name: Prepare desktop API runtime
+        run: npm run prepare:desktop:runtime
 
       - name: Desktop preflight
         run: npm run build:desktop:check

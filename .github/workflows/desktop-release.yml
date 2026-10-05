@@ -133,6 +133,9 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare desktop API runtime
+        run: npm run prepare:desktop:runtime
+
       - name: Desktop preflight
         run: npm run build:desktop:check
 

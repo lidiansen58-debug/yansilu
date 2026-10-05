@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { commandVersion, hasCommand, withCargoBin } from "./rust-env.mjs";
+import { commandVersion, hasCommand, runCargoCheck, withCargoBin } from "./rust-env.mjs";
 
 const REPO_ROOT = process.cwd();
 const DESKTOP_ROOT = path.resolve(REPO_ROOT, "apps", "desktop", "src-tauri");
@@ -31,19 +30,6 @@ function pngDimensions(filePath) {
   return {
     width: data.readUInt32BE(16),
     height: data.readUInt32BE(20)
-  };
-}
-
-function runCargoCheck(env) {
-  const result = spawnSync("cargo", ["check"], {
-    cwd: DESKTOP_ROOT,
-    env,
-    encoding: "utf8",
-    shell: false
-  });
-  return {
-    ok: result.status === 0,
-    detail: String(result.stdout || result.stderr || "").trim()
   };
 }
 
@@ -133,11 +119,11 @@ if (pngExists) {
 }
 
 if (cargoOk && rustcOk) {
-  const cargoCheck = runCargoCheck(env);
+  const cargoCheck = runCargoCheck(DESKTOP_ROOT, env);
   logResult(
     "cargo check",
     cargoCheck.ok,
-    cargoCheck.ok ? "passed" : cargoCheck.detail.split(/\r?\n/).slice(-1)[0] || "failed"
+    cargoCheck.ok ? "passed" : cargoCheck.detail || "failed without compiler diagnostics"
   );
   overallOk &&= cargoCheck.ok;
 }
