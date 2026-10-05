@@ -49,24 +49,52 @@ function lipoArchitectures(filePath) {
   return parseLipoArchitectures(result.stdout);
 }
 
-export function verifyMacosBundleArchitecture({ appPath, expectedArchitecture }) {
+export function parseLibnodeDependencies(output) {
+  return [...new Set(String(output || "").split(/\r?\n/u).flatMap(line => {
+    const dependency = line.match(/^\s+(.+?)\s+\(/u)?.[1];
+    const name = dependency ? path.posix.basename(dependency) : "";
+    return /^libnode(?:\.\d+)*\.dylib$/u.test(name) ? [name] : [];
+  }))];
+}
+
+function nodeDependencies(filePath) {
+  const result = spawnSync("otool", ["-L", filePath], { encoding: "utf8", shell: false });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`Could not inspect Node dependencies for ${filePath}: ${result.stderr || result.stdout}`.trim());
+  }
+  return parseLibnodeDependencies(result.stdout);
+}
+
+export function verifyMacosBundleArchitecture({
+  appPath, expectedArchitecture,
+  inspectArchitectures = lipoArchitectures,
+  inspectNodeDependencies = nodeDependencies
+}) {
   const app = path.resolve(appPath);
   const runtimeDir = path.join(app, "Contents", "Resources", "desktop-api-runtime");
   const files = [
     path.join(app, "Contents", "MacOS", "yansilu-desktop"),
     path.join(runtimeDir, "node", "node")
   ];
+  for (const filePath of files) {
+    if (!fs.existsSync(filePath)) throw new Error(`Required macOS bundle file is missing: ${filePath}`);
+  }
   const libraryDir = path.join(runtimeDir, "lib");
-  const libnode = fs.readdirSync(libraryDir)
-    .find((name) => /^libnode(?:\.\d+)*\.dylib$/u.test(name));
-  if (!libnode) throw new Error(`Bundled libnode dylib was not found in ${libraryDir}.`);
-  files.push(path.join(libraryDir, libnode));
+  const libnodes = fs.existsSync(libraryDir) ? fs.readdirSync(libraryDir)
+    .filter(name => /^libnode(?:\.\d+)*\.dylib$/u.test(name)) : [];
+  for (const dependency of inspectNodeDependencies(files[1])) {
+    if (!libnodes.includes(dependency)) {
+      throw new Error(`Required bundled Node dependency is missing: ${dependency} in ${libraryDir}.`);
+    }
+  }
+  files.push(...libnodes.map(name => path.join(libraryDir, name)));
 
   for (const filePath of files) {
     if (!fs.existsSync(filePath)) throw new Error(`Required macOS bundle file is missing: ${filePath}`);
     assertExpectedArchitecture({
       filePath,
-      architectures: lipoArchitectures(filePath),
+      architectures: inspectArchitectures(filePath),
       expectedArchitecture
     });
   }

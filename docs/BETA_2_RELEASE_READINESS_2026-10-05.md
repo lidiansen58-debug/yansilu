@@ -52,7 +52,9 @@ git diff --check
 
 PR #220 的干净环境预检暴露了历史构建顺序问题：Tauri 配置引用 `desktop-api-runtime`，但工作流在生成运行时之前执行 `cargo check`，报错 `resource path desktop-api-runtime doesn't exist`。旧预检还只输出最后一行警告，掩盖了实际原因。
 
-已保留完整 Cargo 诊断并锁定依赖；PR 构建、发布检查和正式发布入口统一在预检前通过 `npm run prepare:desktop:runtime` 运行现有准备脚本，使 npm 正确传入 CLI 位置，避免直接用 Node 调用时找不到 npm。PR 构建须等待预检成功，手动构建入口仍可用。定向回归 18/18 通过，三个工作流 YAML 语法通过，本机 Windows `cargo check --locked` 和完整桌面预检通过。跨平台结果以 PR 最终 CI 为准；CI 构建资产仍不是经过实机验收、签名公证和升级演练的正式发布包。
+已保留完整 Cargo 诊断并锁定依赖；PR 构建、发布检查和正式发布入口统一在预检前通过 `npm run prepare:desktop:runtime` 运行现有准备脚本，使 npm 正确传入 CLI 位置，避免直接用 Node 调用时找不到 npm。PR 构建须等待预检成功，手动构建入口仍可用。
+
+Mac 构建进一步发现旧校验强制要求独立 `libnode.dylib`，误拦截不依赖此文件的 Node。现改为通过 `otool` 检查实际依赖：静态 Node 可通过，动态 Node 仍必须携带相应库并满足芯片架构要求；Universal 准备支持两端静态运行时，拒绝不匹配的动态库。相关定向回归 26/26 通过，三个工作流 YAML 语法通过，本机 Windows `cargo check --locked` 和完整桌面预检通过。跨平台结果以 PR 最终 CI 为准；CI 构建资产仍不是经过实机验收、签名公证和升级演练的正式发布包。
 
 ## 发布规则
 

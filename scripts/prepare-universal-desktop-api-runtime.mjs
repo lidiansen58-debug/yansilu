@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { universalLibnodeName } from "./macos-runtime-layout.mjs";
 
 const repoRoot = process.cwd();
 const tauriRoot = path.join(repoRoot, "apps", "desktop", "src-tauri");
@@ -21,10 +22,6 @@ function run(command, args, options = {}) {
 
 function copyDir(source, target) {
   fs.cpSync(source, target, { recursive: true, force: true });
-}
-
-function findLibnode(directory) {
-  return fs.readdirSync(directory).find((name) => /^libnode(?:\.\d+)*\.dylib$/u.test(name));
 }
 
 function combineMachOBinaries(armPath, intelPath, destination) {
@@ -69,18 +66,20 @@ try {
   const intelLibraryDir = path.join(intelNodeRoot, "lib");
   const armNode = path.join(armRuntimeRoot, "node", "node");
   const armLibraryDir = path.join(armRuntimeRoot, "lib");
-  const libnodeName = findLibnode(armLibraryDir);
-  if (!libnodeName || !fs.existsSync(path.join(intelLibraryDir, libnodeName))) {
-    throw new Error("The ARM and Intel Node distributions do not provide matching libnode dylibs.");
-  }
+  const libnodeName = universalLibnodeName(
+    fs.existsSync(armLibraryDir) ? fs.readdirSync(armLibraryDir) : [],
+    fs.existsSync(intelLibraryDir) ? fs.readdirSync(intelLibraryDir) : []
+  );
 
   copyDir(armRuntimeRoot, runtimeRoot);
   combineMachOBinaries(armNode, intelNode, path.join(runtimeRoot, "node", "node"));
-  combineMachOBinaries(
-    path.join(armLibraryDir, libnodeName),
-    path.join(intelLibraryDir, libnodeName),
-    path.join(runtimeRoot, "lib", libnodeName)
-  );
+  if (libnodeName) {
+    combineMachOBinaries(
+      path.join(armLibraryDir, libnodeName),
+      path.join(intelLibraryDir, libnodeName),
+      path.join(runtimeRoot, "lib", libnodeName)
+    );
+  }
 
   const nativeAddons = findNativeAddons(path.join(runtimeRoot, "node_modules"));
   if (nativeAddons.length) {
