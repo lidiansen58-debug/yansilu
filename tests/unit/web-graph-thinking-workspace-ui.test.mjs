@@ -1948,7 +1948,7 @@ test("graph relation workspace combines AI candidates, manual relation managemen
   assert.match(graphRouteSource, /buildGraphThemeConfirmedPayload\(\{/);
   assert.match(graphRouteSource, /noteById: \(id\) => writingNoteById\(id\) \|\| writingKnownNoteById\(id\)/);
   assert.match(graphRouteSource, /const writingEligibleIds = selectedIds\.filter\(\(id\) => isWritingEligibleNote\(writingKnownNoteById\(id\)\)\);/);
-  assert.match(graphRouteSource, /if \(writingEligibleIds\.length >= 2\) \{[\s\S]*useThemeIndexAsWritingEntry\(card.id,/);
+  assert.match(graphRouteSource, /useThemeIndexAsWritingEntry\(card.id,/);
   assert.match(graphRouteSource, /workflowRoute: \{[\s\S]*focus: "writing"[\s\S]*indexCardId: card\.id[\s\S]*basketNoteIds: selectedIds\.join\(","\)/);
   assert.match(readGraphCanvasEventRouter(), /const graphThemeIndexButton = event\.target\.closest\("\[data-graph-create-theme-index\]"\);/);
   assert.match(appShellSource, /createThemeIndexFromNoteIds: createGraphThemeIndexFromNoteIds/);

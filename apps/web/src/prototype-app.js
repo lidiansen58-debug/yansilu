@@ -3902,8 +3902,10 @@ function activateModule(moduleName) {
     if (!isDirectoryUnderOriginalRoot(state.selectedFolderId)) {
       state.selectedFolderId = "dir_original_default";
     }
-    state.selectedFileId = null;
-    if (!returningFromReading) prepareGraphEntryPresentationState();
+    if (!returningFromReading) {
+      state.selectedFileId = null;
+      prepareGraphEntryPresentationState();
+    }
   }
   state.module = normalizedModule;
   if (normalizedModule === "graph") expandGraphBrowserTree();

@@ -158,6 +158,26 @@ test("a writing handoff failure reports the saved theme rather than inviting ano
   assert.match(statuses.at(-1), /已保存.*草稿尚未保存.*主题库继续/);
 });
 
+test("mixed eligible materials save the complete theme without replacing the writing basket", async () => {
+  const statuses = [], messages = [];
+  let handoffs = 0, writingOpens = 0;
+  const { runtime, saved } = themeHarness({
+    isWritingEligibleNote: note => note.id !== "c",
+    useThemeIndexAsWritingEntry: async () => { handoffs++; },
+    openWritingModule: async () => { writingOpens++; },
+    addSystemMessage: message => messages.push(message),
+    setStatus: (...args) => statuses.push(args)
+  });
+  const card = await runtime.createGraphThemeIndexFromNoteIds(["a", "b", "c"]);
+  assert.equal(card.id, "card");
+  assert.deepEqual(saved[0].noteIds, ["a", "b", "c"]);
+  assert.equal(handoffs, 0);
+  assert.equal(writingOpens, 0);
+  assert.match(statuses.at(-1)[0], /已保存.*1 条材料.*作者或原创确认/);
+  assert.equal(statuses.at(-1)[1], "warn");
+  assert.match(messages[0].body, /1 条材料.*作者或原创确认/);
+});
+
 test("graph route runtime blocks graph AI analysis behind default local setup guide", async () => {
   const calls = [];
   const runtime = createGraphRouteRuntime({

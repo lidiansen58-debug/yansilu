@@ -3,6 +3,44 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, createWritingReadyPermanentNote, waitFor } from "./prototype-copy-test-helpers.mjs";
 
+test("reading an endpoint returns to the original focused graph", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
+  if (!stack) return;
+  const { page, apiBase, webBase } = stack;
+  const notes = [];
+  for (const title of ["中心笔记", "关联观点", "独立中心", "独立关联"]) {
+    const result = await postJson(apiBase, "/api/v1/notes", {
+      directoryId: "dir_original_default", body: `# ${title}\n\n${title}的实际正文。`
+    });
+    assert.equal(result.status, 201);
+    notes.push(result.json.item);
+  }
+  for (const [source, target] of [[0, 1], [2, 3]]) {
+    assert.equal((await postJson(apiBase, `/api/v1/notes/${notes[source].id}/relations`, {
+      toNoteId: notes[target].id, relationType: "supports", rationale: "这个观点提供了具体依据。"
+    })).status, 201);
+  }
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.waitForFunction(() => window.__prototypeState.graphConnectivityReady);
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${notes[0].id}"]`).click();
+  await waitFor(async () => assert.equal(await page.locator(`.graph-map-node[data-node-id="${notes[2].id}"]`).count(), 0));
+  const edge = page.locator(`.graph-map-edge-group[data-edge-from="${notes[0].id}"][data-edge-to="${notes[1].id}"]`);
+  await edge.focus();
+  await edge.press("Enter");
+  await page.locator(`.graph-selection-panel [data-open-note="${notes[1].id}"]`).click();
+  await page.waitForFunction(id => window.__prototypeState.module === "explorer" && window.__prototypeState.selectedFileId === id, notes[1].id);
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await waitFor(async () => {
+    assert.equal(await page.evaluate(() => window.__prototypeState.selectedFileId), notes[0].id);
+    assert.equal(await page.locator(`.graph-map-node[data-node-id="${notes[2].id}"]`).count(), 0);
+    assert.ok(await page.locator(".graph-selection-panel.is-edge").isVisible());
+  });
+});
+
 for (const input of ["keyboard", "touch"]) {
   test(`graph filters and endpoint navigation work with ${input}`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
@@ -56,7 +94,7 @@ for (const input of ["keyboard", "touch"]) {
     await activate(panel.locator(`[data-open-note="${target.id}"]`));
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, target.id);
     await activate(page.locator('.rail-btn[data-module="graph"]'));
-    await activate(edge);
+    assert.ok(await panel.isVisible());
     await activate(panel.locator(`[data-open-note="${source.id}"]`));
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
@@ -106,9 +144,10 @@ test(`graph directory scope saves the selected network as a theme${writingReady 
   }
   assert.equal(await page.locator(`.graph-map-node[data-node-id="${outside.id}"]`).count(), 0);
   await page.locator(`.graph-map-node[data-node-id="${source.id}"]`).click();
-  await page.locator(".graph-selection-panel > .graph-selection-body > details > summary").click();
   const theme = page.locator('[data-graph-create-theme-index]:not([disabled]):visible').first();
   await theme.click();
+  await page.locator("#graphThemeQuestion").fill("关联的理由怎样帮助写作？");
+  await page.locator('[data-graph-theme-confirmation-form] button[type="submit"]').click();
   await waitFor(async () => {
     const indexes = await fetchJson(apiBase, `/api/v1/index-cards?directoryId=${parent.id}&includeDescendants=true&indexType=topic&limit=12`);
     assert.equal(indexes.status, 200);

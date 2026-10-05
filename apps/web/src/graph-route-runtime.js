@@ -203,6 +203,7 @@ export function createGraphRouteRuntime(deps = {}) {
       return null;
     }
     const writingEligibleIds = selectedIds.filter((id) => isWritingEligibleNote(writingKnownNoteById(id)));
+    const canEnterWriting = writingEligibleIds.length === selectedIds.length;
     const cleanTitle = String(confirmation.title || confirmation.centralQuestion).trim();
     let card;
     try {
@@ -224,7 +225,7 @@ export function createGraphRouteRuntime(deps = {}) {
     themeConfirmationRecovery = null;
     if (!stillCurrent()) return card;
     upsertWritingThemeIndex(card);
-    if (writingEligibleIds.length >= 2) {
+    if (canEnterWriting) {
       try {
         await useThemeIndexAsWritingEntry(card.id, {
           replaceBasket: true,
@@ -246,14 +247,13 @@ export function createGraphRouteRuntime(deps = {}) {
         return card;
       }
     }
-    const canEnterWriting = writingEligibleIds.length >= 2;
     addSystemMessage({
       id: `graph-theme-index:${card.id}:${Date.now()}`,
       type: "system",
       title: "已保存可写主题",
       body: canEnterWriting
         ? `“${cleanTitle}”已收纳 ${selectedIds.length} 条笔记，并保留你确认的问题和已有关系。`
-        : `“${cleanTitle}”已包含 ${selectedIds.length} 条笔记。确认笔记中的判断后再继续写作。`,
+        : `“${cleanTitle}”已包含 ${selectedIds.length} 条笔记。还有 ${selectedIds.length - writingEligibleIds.length} 条材料需完成作者或原创确认，再继续写作。`,
       action: "open-writing",
       actionLabel: "继续整理主题",
       noteId: selectedIds[0],
@@ -265,7 +265,10 @@ export function createGraphRouteRuntime(deps = {}) {
         basketNoteIds: selectedIds.join(",")
       }
     });
-    setStatus(`已保存可写主题：${cleanTitle}`, "ok", { priority: 3, holdMs: 4200 });
+    setStatus(canEnterWriting
+      ? `已保存可写主题：${cleanTitle}`
+      : `主题“${cleanTitle}”已保存。还有 ${selectedIds.length - writingEligibleIds.length} 条材料需完成作者或原创确认，再继续写作。`,
+    canEnterWriting ? "ok" : "warn", { priority: 3, holdMs: 4200 });
     renderGraphPanel();
     return card;
   }
