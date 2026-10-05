@@ -3,6 +3,20 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+export function runCargoCheck(cwd, env = process.env, run = spawnSync) {
+  const result = run("cargo", ["check", "--locked"], {
+    cwd,
+    env,
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+    shell: false
+  });
+  const detail = [result.stdout, result.stderr, result.error?.message,
+    result.signal ? `Terminated by ${result.signal}` : ""]
+    .filter(Boolean).map(value => String(value).trim()).filter(Boolean).join("\n");
+  return { ok: result.status === 0 && !result.error, detail };
+}
+
 export function hasCommand(command, env = process.env) {
   const candidates =
     process.platform === "win32" ? [`${command}.exe`, `${command}.cmd`, command] : [command];
