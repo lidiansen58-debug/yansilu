@@ -495,6 +495,32 @@ fn desktop_vault_recovery_path(app_data_dir: &PathBuf) -> PathBuf {
     app_data_dir.join("api-vault-recovery.json")
 }
 
+fn validate_recovery_vault(vault: &Path) -> Result<(), String> {
+    let validate = || -> Result<(), String> {
+        if !fs::metadata(vault).map_err(|error| error.to_string())?.is_dir() {
+            return Err("Vault path is not a directory.".to_string());
+        }
+        let marker = fs::File::open(vault.join(".yansilu").join("vault.json"))
+            .map_err(|error| error.to_string())?;
+        let mut body = Vec::new();
+        marker.take(64 * 1024 + 1).read_to_end(&mut body)
+            .map_err(|error| error.to_string())?;
+        if body.len() > 64 * 1024 {
+            return Err("Vault marker is too large.".to_string());
+        }
+        let value: serde_json::Value = serde_json::from_slice(&body)
+            .map_err(|error| error.to_string())?;
+        if value["version"] != 1 {
+            return Err("Vault marker version is invalid.".to_string());
+        }
+        Ok(())
+    };
+    validate().map_err(|error| format!(
+        "笔记库不可用，未创建新库。请确认磁盘已连接且原目录未移动，再重新打开研思录。路径：{}。诊断：{error}",
+        vault.display()
+    ))
+}
+
 fn restore_desktop_vault_selection(config: &mut DesktopApiConfig) -> Result<(), String> {
     let filename = desktop_vault_recovery_path(&config.app_data_dir);
     let file = match fs::File::open(&filename) {
@@ -512,7 +538,9 @@ fn restore_desktop_vault_selection(config: &mut DesktopApiConfig) -> Result<(), 
         || !vault.as_ref().map(|path| path.is_absolute()).unwrap_or(false) {
         return Err("Invalid desktop Vault recovery record; refusing to reopen a different Vault.".to_string());
     }
-    config.vault_path = vault.unwrap();
+    let vault = vault.unwrap();
+    validate_recovery_vault(&vault)?;
+    config.vault_path = vault;
     Ok(())
 }
 
@@ -522,7 +550,6 @@ fn desktop_api_config(app: &tauri::App) -> Result<DesktopApiConfig, String> {
         .app_data_dir()
         .map_err(|error| format!("Cannot resolve app data directory: {error}"))?;
     let vault_path = app_data_dir.join("vault");
-    let _ = fs::create_dir_all(&vault_path);
     let _ = fs::create_dir_all(&app_data_dir);
     Ok(DesktopApiConfig {
         app_data_dir,
@@ -935,6 +962,8 @@ mod startup_tests {
         fs::create_dir_all(&directory).unwrap();
         let original = directory.join("original");
         let selected = directory.join("selected");
+        fs::create_dir_all(selected.join(".yansilu")).unwrap();
+        fs::write(selected.join(".yansilu").join("vault.json"), r#"{"version":1}"#).unwrap();
         let filename = desktop_vault_recovery_path(&directory);
         let mut config = DesktopApiConfig { app_data_dir: directory, vault_path: original.clone(), runtime_dir: None };
         restore_desktop_vault_selection(&mut config).unwrap();
@@ -966,6 +995,55 @@ mod startup_tests {
         assert!(!api_json_is_reusable(&health, &vault, &directory.join("other-instance")));
         health["ready"] = serde_json::json!(false);
         assert!(!api_json_is_reusable(&health, &vault, &directory));
+    }
+
+    #[test]
+    fn recovery_rejects_missing_or_invalid_vault_without_creating_it() {
+        let directory = std::env::temp_dir().join(format!("yansilu-recovery-unavailable-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir_all(&directory).unwrap();
+        let original = directory.join("original");
+        let selected = directory.join("selected");
+        let filename = desktop_vault_recovery_path(&directory);
+        fs::write(&filename, serde_json::json!({"app": "yansilu", "version": 1, "vaultPath": selected}).to_string()).unwrap();
+        let mut config = DesktopApiConfig { app_data_dir: directory.clone(), vault_path: original.clone(), runtime_dir: None };
+        let error = restore_desktop_vault_selection(&mut config).unwrap_err();
+        assert!(error.contains("未创建新库"));
+        assert!(!selected.exists());
+        assert_eq!(config.vault_path, original);
+        fs::create_dir_all(selected.join(".yansilu")).unwrap();
+        assert!(restore_desktop_vault_selection(&mut config).is_err());
+        let marker = selected.join(".yansilu").join("vault.json");
+        for body in ["not JSON".to_string(), r#"{"version":2}"#.to_string(), " ".repeat(64 * 1024 + 1)] {
+            fs::write(&marker, &body).unwrap();
+            assert!(restore_desktop_vault_selection(&mut config).is_err());
+            assert_eq!(config.vault_path, original);
+            assert_eq!(fs::read_to_string(&marker).unwrap(), body);
+        }
+        fs::write(&marker, r#"{"version":1}"#).unwrap();
+        restore_desktop_vault_selection(&mut config).unwrap();
+        assert_eq!(config.vault_path, selected);
+        fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn supervisor_blocks_unavailable_recovery_before_spawning_api() {
+        let directory = std::env::temp_dir().join(format!("yansilu-recovery-blocked-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir_all(&directory).unwrap();
+        let selected = directory.join("unmounted-vault");
+        fs::write(desktop_vault_recovery_path(&directory), serde_json::json!({"app": "yansilu", "version": 1, "vaultPath": selected}).to_string()).unwrap();
+        let config = DesktopApiConfig { app_data_dir: directory.clone(), vault_path: directory.join("default-vault"), runtime_dir: None };
+        let child = Arc::new(Mutex::new(None));
+        let status = Arc::new(Mutex::new(default_service_status()));
+        supervise_desktop_api(config, Arc::clone(&child), Arc::clone(&status), Arc::new(AtomicBool::new(false)));
+        let snapshot = status.lock().unwrap();
+        assert_eq!(snapshot["services"]["api"]["status"], "blocked");
+        assert!(snapshot["services"]["api"]["lastError"].as_str().unwrap().contains("未创建新库"));
+        assert_eq!(snapshot["services"]["api"]["restartCount"], 0);
+        assert_eq!(snapshot["services"]["api"]["baseUrl"], "");
+        assert!(child.lock().unwrap().is_none());
+        assert!(!selected.exists());
+        assert!(!directory.join("default-vault").exists());
+        fs::remove_dir_all(&directory).unwrap();
     }
 }
 
