@@ -220,11 +220,18 @@ fn comparable_vault_path(path: &str) -> String {
     }
 }
 
-fn api_health_matches_vault(port: u16, vault_path: &PathBuf) -> bool {
+fn api_health_matches_vault(port: u16, vault_path: &PathBuf, app_data_dir: &PathBuf) -> bool {
     let Some(json) = api_health_json(port) else {
         return false;
     };
-    api_json_is_ready(&json, vault_path)
+    api_json_is_reusable(&json, vault_path, app_data_dir)
+}
+
+fn api_json_is_reusable(json: &serde_json::Value, vault_path: &PathBuf, app_data_dir: &PathBuf) -> bool {
+    api_json_is_ready(json, vault_path)
+        && json.get("desktopVaultRecoveryPath").and_then(|value| value.as_str())
+            .map(|value| comparable_vault_path(value) == comparable_vault_path(&desktop_vault_recovery_path(app_data_dir).to_string_lossy()))
+            .unwrap_or(false)
 }
 
 fn api_json_is_ready(json: &serde_json::Value, vault_path: &PathBuf) -> bool {
@@ -307,13 +314,13 @@ fn resolve_desktop_api_port(app_data_dir: &PathBuf, vault_path: &PathBuf) -> Opt
         if api_port_is_available(port) {
             return Some(port);
         }
-        if api_health_matches_vault(port, vault_path) {
+        if api_health_matches_vault(port, vault_path, app_data_dir) {
             return Some(port);
         }
         if api_health_is_yansilu(port) {
             append_desktop_api_log(
                 app_data_dir,
-                &format!("Yansilu desktop API port {port} belongs to another vault; trying another port."),
+                &format!("Yansilu desktop API port {port} has a different Vault or recovery context; trying another port."),
             );
             continue;
         }
@@ -484,6 +491,31 @@ struct DesktopApiLaunch {
     managed: bool,
 }
 
+fn desktop_vault_recovery_path(app_data_dir: &PathBuf) -> PathBuf {
+    app_data_dir.join("api-vault-recovery.json")
+}
+
+fn restore_desktop_vault_selection(config: &mut DesktopApiConfig) -> Result<(), String> {
+    let filename = desktop_vault_recovery_path(&config.app_data_dir);
+    let file = match fs::File::open(&filename) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(format!("Cannot read desktop Vault recovery record: {error}")),
+    };
+    let mut body = Vec::new();
+    file.take(64 * 1024 + 1).read_to_end(&mut body)
+        .map_err(|error| format!("Cannot read desktop Vault recovery record: {error}"))?;
+    let record: serde_json::Value = serde_json::from_slice(&body)
+        .map_err(|error| format!("Invalid desktop Vault recovery record: {error}"))?;
+    let vault = record.get("vaultPath").and_then(|value| value.as_str()).map(PathBuf::from);
+    if body.len() > 64 * 1024 || record["app"] != "yansilu" || record["version"] != 1
+        || !vault.as_ref().map(|path| path.is_absolute()).unwrap_or(false) {
+        return Err("Invalid desktop Vault recovery record; refusing to reopen a different Vault.".to_string());
+    }
+    config.vault_path = vault.unwrap();
+    Ok(())
+}
+
 fn desktop_api_config(app: &tauri::App) -> Result<DesktopApiConfig, String> {
     let app_data_dir = app
         .path()
@@ -512,7 +544,7 @@ fn spawn_desktop_api(
         .ok_or_else(|| "No available API port between 3000 and 3020.".to_string())?;
     append_desktop_api_log(&config.app_data_dir, &format!("API startup port-selected port={api_port} elapsedMs={}", started.elapsed().as_millis()));
     let base_url = format!("http://127.0.0.1:{api_port}");
-    if api_port_is_open(api_port) && api_health_matches_vault(api_port, &config.vault_path) {
+    if api_port_is_open(api_port) && api_health_matches_vault(api_port, &config.vault_path, &config.app_data_dir) {
         return Ok(DesktopApiLaunch {
             base_url,
             pid: api_health_json(api_port).and_then(|json| json.get("pid").and_then(|value| value.as_u64()).map(|value| value as u32)),
@@ -563,6 +595,7 @@ fn spawn_desktop_api(
         .env("API_PORT", api_port.to_string())
         .env("WEB_PORT", "5173")
         .env("VAULT_PATH", &config.vault_path)
+        .env("YANSILU_DESKTOP_VAULT_RECOVERY_PATH", desktop_vault_recovery_path(&config.app_data_dir))
         .env("YANSILU_DESKTOP_API", "1")
         .env_remove("NODE_OPTIONS");
 
@@ -613,6 +646,7 @@ mod startup_tests {
         shutdown: Arc<AtomicBool>,
         child: Arc<Mutex<Option<Child>>>,
         status: Arc<Mutex<serde_json::Value>>,
+        recovery_path: PathBuf,
         worker: Option<thread::JoinHandle<()>>,
     }
 
@@ -623,6 +657,7 @@ mod startup_tests {
             let directory = std::env::temp_dir().join(format!("yansilu-native-{label}-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
             let vault = directory.join("vault");
             fs::create_dir_all(&vault).unwrap();
+            let recovery_path = desktop_vault_recovery_path(&directory);
             let config = DesktopApiConfig { app_data_dir: directory, vault_path: vault, runtime_dir: Some(runtime) };
             let shutdown = Arc::new(AtomicBool::new(false));
             let child = Arc::new(Mutex::new(None));
@@ -633,7 +668,7 @@ mod startup_tests {
                 let status = Arc::clone(&status);
                 thread::spawn(move || supervise_desktop_api(config, child, status, shutdown))
             };
-            Self { shutdown, child, status, worker: Some(worker) }
+            Self { shutdown, child, status, recovery_path, worker: Some(worker) }
         }
 
         fn wait_for_healthy(&self, previous_pid: Option<u64>) -> serde_json::Value {
@@ -708,11 +743,31 @@ mod startup_tests {
         assert_eq!(recovered["vaultPath"], selected_vault.to_string_lossy().as_ref());
         let recovered_port: u16 = recovered["baseUrl"].as_str().unwrap().rsplit(':').next().unwrap().parse().unwrap();
         assert_eq!(api_health_json(recovered_port).unwrap()["vaultPath"], selected_vault.to_string_lossy().as_ref());
+        let immediate_vault = selected_vault.join("immediate-switch");
+        // Hold the process gate so the supervisor observes exit before another health read.
+        let mut process_guard = fixture.child.lock().unwrap();
+        let response = reqwest::blocking::Client::builder().no_proxy().timeout(Duration::from_secs(5)).build().unwrap()
+            .post(format!("http://127.0.0.1:{recovered_port}/api/v1/vault"))
+            .header("Content-Type", "application/json")
+            .body(serde_json::json!({"vaultPath": immediate_vault}).to_string())
+            .send().unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let record: serde_json::Value = serde_json::from_slice(&fs::read(&fixture.recovery_path).unwrap()).unwrap();
+        assert_eq!(record["vaultPath"], immediate_vault.to_string_lossy().as_ref());
+        assert_eq!(fixture.status.lock().unwrap()["services"]["api"]["vaultPath"], selected_vault.to_string_lossy().as_ref(), "Kill before the next health check has observed the switch");
+        process_guard.as_mut().unwrap().kill().unwrap();
+        drop(process_guard);
+        let immediately_recovered = fixture.wait_for_healthy(recovered["pid"].as_u64());
+        assert_eq!(immediately_recovered["restartCount"], 2);
+        assert_eq!(immediately_recovered["vaultPath"], immediate_vault.to_string_lossy().as_ref());
+        let final_port: u16 = immediately_recovered["baseUrl"].as_str().unwrap().rsplit(':').next().unwrap().parse().unwrap();
+        assert_eq!(api_health_json(final_port).unwrap()["vaultPath"], immediate_vault.to_string_lossy().as_ref());
         let child = Arc::clone(&fixture.child);
         drop(fixture);
         assert!(child.lock().unwrap().is_none());
         assert!(api_port_is_available(port));
         assert!(api_port_is_available(recovered_port));
+        assert!(api_port_is_available(final_port));
 
         let startup_fixture = RunningApiFixture::start("cancel-startup");
         let deadline = Instant::now();
@@ -873,6 +928,45 @@ mod startup_tests {
         health["vaultPath"] = serde_json::json!("");
         assert!(api_json_runtime_vault(&health, Some(42)).is_none());
     }
+
+    #[test]
+    fn recovery_record_restores_selected_vault_and_rejects_invalid_records() {
+        let directory = std::env::temp_dir().join(format!("yansilu-recovery-record-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir_all(&directory).unwrap();
+        let original = directory.join("original");
+        let selected = directory.join("selected");
+        let filename = desktop_vault_recovery_path(&directory);
+        let mut config = DesktopApiConfig { app_data_dir: directory, vault_path: original.clone(), runtime_dir: None };
+        restore_desktop_vault_selection(&mut config).unwrap();
+        assert_eq!(config.vault_path, original);
+        fs::write(&filename, serde_json::json!({"app": "yansilu", "version": 1, "vaultPath": selected}).to_string()).unwrap();
+        restore_desktop_vault_selection(&mut config).unwrap();
+        assert_eq!(config.vault_path, selected);
+        for value in [
+            "not JSON".to_string(),
+            serde_json::json!({"app": "other", "version": 1, "vaultPath": original}).to_string(),
+            serde_json::json!({"app": "yansilu", "version": 2, "vaultPath": original}).to_string(),
+            serde_json::json!({"app": "yansilu", "version": 1, "vaultPath": "relative"}).to_string(),
+            " ".repeat(64 * 1024 + 1),
+        ] {
+            fs::write(&filename, value).unwrap();
+            assert!(restore_desktop_vault_selection(&mut config).is_err());
+            assert_eq!(config.vault_path, selected, "Never silently fall back to the previous Vault");
+        }
+    }
+
+    #[test]
+    fn reuse_requires_the_same_desktop_recovery_context() {
+        let directory = std::env::temp_dir().join("yansilu-reuse-context");
+        let vault = directory.join("vault");
+        let mut health = serde_json::json!({"app": "yansilu", "service": "api", "ok": true, "ready": true, "vaultPath": vault});
+        assert!(!api_json_is_reusable(&health, &vault, &directory));
+        health["desktopVaultRecoveryPath"] = serde_json::json!(desktop_vault_recovery_path(&directory));
+        assert!(api_json_is_reusable(&health, &vault, &directory));
+        assert!(!api_json_is_reusable(&health, &vault, &directory.join("other-instance")));
+        health["ready"] = serde_json::json!(false);
+        assert!(!api_json_is_reusable(&health, &vault, &directory));
+    }
 }
 
 fn stop_desktop_api(api_child: &Arc<Mutex<Option<Child>>>) {
@@ -915,6 +1009,14 @@ fn supervise_desktop_api(
     let backoffs = [0_u64, 1_000, 3_000, 10_000, 30_000];
     loop {
         if shutdown.load(Ordering::SeqCst) { break; }
+        if let Err(error) = restore_desktop_vault_selection(&mut config) {
+            append_desktop_api_log(&config.app_data_dir, &error);
+            update_service_status(&service_status, serde_json::json!({
+                "status": "blocked", "lastError": error, "nextRetryMs": 0,
+                "baseUrl": "", "pid": null
+            }), "blocked");
+            break;
+        }
         if consecutive_failures >= API_MAX_RESTARTS {
             update_service_status(
                 &service_status,

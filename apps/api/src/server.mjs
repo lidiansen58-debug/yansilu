@@ -9,6 +9,7 @@ import { createNoteMoveOperations } from "./note-move-operations.mjs";
 import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
 import { createImportRecordJournal } from "./import-record-journal.mjs";
+import { createDesktopVaultRecovery } from "./desktop-vault-recovery.mjs";
 import { exportArticle, exportBook } from "../../../packages/export-engine/src/index.mjs";
 
 const noteMoveOperations = createNoteMoveOperations();
@@ -181,6 +182,7 @@ const MAX_OLLAMA_GENERATE_TIMEOUT_MS = 180000;
 const managedOllamaProcessIds = new Set();
 const APP_UPDATE_CHANNEL = String(process.env.YANSILU_UPDATE_CHANNEL || "beta").trim() || "beta";
 let VAULT_PATH = DEFAULT_VAULT_PATH;
+const desktopVaultRecovery = createDesktopVaultRecovery(process.env.YANSILU_DESKTOP_VAULT_RECOVERY_PATH);
 let AI_SECRET_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "ai-secrets.json");
 let aiPreferencesStorePromise = null;
 let aiProviderConfigStorePromise = null;
@@ -211,6 +213,7 @@ async function apiHealthPayload() {
     pid: process.pid,
     port: PORT,
     vaultPath: VAULT_PATH,
+    desktopVaultRecoveryPath: desktopVaultRecovery.recoveryPath || undefined,
     ready: apiReady && readiness.ready,
     readiness,
     timestamp: new Date().toISOString(),
@@ -3477,6 +3480,8 @@ const server = http.createServer(async (req, res) => {
       const nextVaultPath = path.resolve(nextVaultPathRaw);
       try {
         const layout = await initVault(nextVaultPath);
+        // Commit recovery before acknowledging the switch; no await between record and active Vault.
+        desktopVaultRecovery.commit(layout.vaultPath);
         VAULT_PATH = layout.vaultPath;
         AI_SECRET_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "ai-secrets.json");
         importRecords.clear();

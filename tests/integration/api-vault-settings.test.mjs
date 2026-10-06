@@ -170,6 +170,7 @@ async function postJson(baseUrl, pathname, body, options = {}) {
 
 test("vault API initializes default vault and can switch active vault path", async (t) => {
   const defaultVaultPath = await makeTempDir("yansilu-default-vault-");
+  const recoveryPath = path.join(defaultVaultPath, "desktop-vault-recovery.json");
   const nextVaultPath = path.join(await makeTempDir("yansilu-selected-vault-parent-"), "selected-vault");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -179,7 +180,8 @@ test("vault API initializes default vault and can switch active vault path", asy
     env: {
       ...process.env,
       API_PORT: String(port),
-      VAULT_PATH: defaultVaultPath
+      VAULT_PATH: defaultVaultPath,
+      YANSILU_DESKTOP_VAULT_RECOVERY_PATH: recoveryPath
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -197,15 +199,38 @@ test("vault API initializes default vault and can switch active vault path", asy
   assert.equal(switched.status, 200, JSON.stringify(switched.json));
   assert.equal(path.resolve(switched.json.item.vaultPath), path.resolve(nextVaultPath));
   assert.equal(switched.json.item.initialized, true);
+  assert.equal(JSON.parse(await fs.readFile(recoveryPath, "utf8")).vaultPath, nextVaultPath);
   await fs.access(path.join(nextVaultPath, ".yansilu", "vault.json"));
 
   const health = await getJson(baseUrl, "/health");
   assert.equal(health.status, 200);
   assert.equal(path.resolve(health.json.vaultPath), path.resolve(nextVaultPath));
+  assert.equal(health.json.desktopVaultRecoveryPath, recoveryPath);
 
   const directories = await getJson(baseUrl, "/api/v1/directories");
   assert.equal(directories.status, 200);
   assert.ok(directories.json.items.some((item) => item.id === "dir_original_default"));
+});
+
+test("vault switch rejects failed desktop recovery persistence without changing active vault", async t => {
+  const vaultPath = await makeTempDir("yansilu-recovery-rejected-");
+  const blockedParent = path.join(vaultPath, "not-a-directory");
+  await fs.writeFile(blockedParent, "retained", "utf8");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: { ...process.env, API_PORT: String(port), VAULT_PATH: vaultPath,
+      YANSILU_DESKTOP_VAULT_RECOVERY_PATH: path.join(blockedParent, "recovery.json") },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const result = await postJson(baseUrl, "/api/v1/vault", { vaultPath: path.join(vaultPath, "target") });
+  assert.equal(result.status, 400);
+  assert.equal(result.json.error.code, "VAULT_SWITCH_FAILED");
+  assert.equal((await getJson(baseUrl, "/api/v1/vault")).json.item.vaultPath, vaultPath);
+  assert.equal(await fs.readFile(blockedParent, "utf8"), "retained");
 });
 
 test("AI preferences API previews the effective model route", async (t) => {
