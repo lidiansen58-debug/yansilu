@@ -233,6 +233,18 @@ fn api_json_is_ready(json: &serde_json::Value, vault_path: &PathBuf) -> bool {
         && json.get("ready").and_then(|value| value.as_bool()) == Some(true)
 }
 
+fn api_json_runtime_vault(json: &serde_json::Value, pid: Option<u32>) -> Option<PathBuf> {
+    if json.get("app").and_then(|value| value.as_str()) != Some("yansilu")
+        || json.get("service").and_then(|value| value.as_str()) != Some("api")
+        || pid.is_none()
+        || json.get("pid").and_then(|value| value.as_u64()) != pid.map(u64::from)
+    {
+        return None;
+    }
+    let vault = PathBuf::from(json.get("vaultPath")?.as_str()?);
+    vault.is_absolute().then_some(vault)
+}
+
 fn api_json_matches_vault(json: &serde_json::Value, vault_path: &PathBuf) -> bool {
     if json.get("app").and_then(|value| value.as_str()) != Some("yansilu")
         || json.get("service").and_then(|value| value.as_str()) != Some("api")
@@ -669,13 +681,33 @@ mod startup_tests {
         drop(other_vault);
         assert!(api_port_is_available(other_port));
         assert_eq!(api_health_json(port).unwrap()["pid"], api["pid"]);
+        let selected_vault = std::env::temp_dir().join(format!("yansilu-native-switched-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        let response = reqwest::blocking::Client::builder().no_proxy().timeout(Duration::from_secs(5)).build().unwrap()
+            .post(format!("http://127.0.0.1:{port}/api/v1/vault"))
+            .header("Content-Type", "application/json")
+            .body(serde_json::json!({"vaultPath": selected_vault}).to_string())
+            .send().unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let deadline = Instant::now();
+        while fixture.status.lock().unwrap()["services"]["api"]["vaultPath"] != selected_vault.to_string_lossy().as_ref()
+            && deadline.elapsed() < Duration::from_secs(5) {
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(fixture.status.lock().unwrap()["services"]["api"]["vaultPath"], selected_vault.to_string_lossy().as_ref());
+        thread::sleep(Duration::from_secs(7));
+        let switched = fixture.status.lock().unwrap()["services"]["api"].clone();
+        assert_eq!(switched["pid"], api["pid"]);
+        assert_eq!(switched["restartCount"], 0);
+        assert_eq!(switched["status"], "healthy");
         {
             let mut child = fixture.child.lock().unwrap();
             child.as_mut().unwrap().kill().unwrap();
         }
         let recovered = fixture.wait_for_healthy(api["pid"].as_u64());
         assert_eq!(recovered["restartCount"], 1);
+        assert_eq!(recovered["vaultPath"], selected_vault.to_string_lossy().as_ref());
         let recovered_port: u16 = recovered["baseUrl"].as_str().unwrap().rsplit(':').next().unwrap().parse().unwrap();
+        assert_eq!(api_health_json(recovered_port).unwrap()["vaultPath"], selected_vault.to_string_lossy().as_ref());
         let child = Arc::clone(&fixture.child);
         drop(fixture);
         assert!(child.lock().unwrap().is_none());
@@ -825,6 +857,22 @@ mod startup_tests {
         health["ok"] = serde_json::json!(false);
         assert!(!api_json_is_ready(&health, &vault));
     }
+
+    #[test]
+    fn runtime_vault_changes_require_the_same_api_process() {
+        let vault = std::env::temp_dir().join("yansilu-runtime-vault");
+        let mut health = serde_json::json!({"app": "yansilu", "service": "api", "pid": 42, "vaultPath": vault});
+        assert_eq!(api_json_runtime_vault(&health, Some(42)), Some(vault));
+        assert!(api_json_runtime_vault(&health, Some(43)).is_none());
+        assert!(api_json_runtime_vault(&health, None).is_none());
+        health["app"] = serde_json::json!("other-app");
+        assert!(api_json_runtime_vault(&health, Some(42)).is_none());
+        health["app"] = serde_json::json!("yansilu");
+        health["vaultPath"] = serde_json::json!("relative-vault");
+        assert!(api_json_runtime_vault(&health, Some(42)).is_none());
+        health["vaultPath"] = serde_json::json!("");
+        assert!(api_json_runtime_vault(&health, Some(42)).is_none());
+    }
 }
 
 fn stop_desktop_api(api_child: &Arc<Mutex<Option<Child>>>) {
@@ -846,7 +894,7 @@ fn wait_unless_shutdown(shutdown: &AtomicBool, duration: Duration) -> bool {
 }
 
 fn supervise_desktop_api(
-    config: DesktopApiConfig,
+    mut config: DesktopApiConfig,
     api_child: Arc<Mutex<Option<Child>>>,
     service_status: Arc<Mutex<serde_json::Value>>,
     shutdown: Arc<AtomicBool>,
@@ -967,6 +1015,14 @@ fn supervise_desktop_api(
                         break;
                     }
                     let healthy = api_health_json(port).map(|json| {
+                        // The same API can switch Vaults; retain its latest path for recovery.
+                        let Some(vault) = api_json_runtime_vault(&json, launch.pid) else { return false; };
+                        if config.vault_path != vault {
+                            config.vault_path = vault;
+                            update_service_status(&service_status, serde_json::json!({
+                                "vaultPath": config.vault_path.to_string_lossy()
+                            }), "healthy");
+                        }
                         api_json_is_ready(&json, &config.vault_path)
                     }).unwrap_or(false);
                     if shutdown.load(Ordering::SeqCst) { return; }

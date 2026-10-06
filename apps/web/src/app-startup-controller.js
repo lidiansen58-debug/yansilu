@@ -97,6 +97,7 @@ export async function bootstrapAppForRuntime(deps = {}) {
   renderImportToolbar();
   bindImportWorkspaceEvents({ ...deps, importToolbarActions });
   let connecting = null;
+  let updateScheduled = false;
   const connect = async () => {
     state.appStartupPending = true;
     state.appStartupError = "";
@@ -109,6 +110,7 @@ export async function bootstrapAppForRuntime(deps = {}) {
         state.appStartupError = connection.error?.serviceStatus?.startupWaitTimedOut
           ? "本地服务准备超时，请重新连接。"
           : String(connection.error?.message || "本地服务尚未就绪，请重新连接。");
+        activateModule("today");
         renderAll();
         return false;
       }
@@ -117,6 +119,13 @@ export async function bootstrapAppForRuntime(deps = {}) {
         ...deps,
         usingLocalFallbackData: getUsingLocalFallbackData()
       });
+      if (updateController && !updateScheduled) {
+        updateScheduled = true;
+        setTimeout(async () => {
+          await updateController.refreshAppVersionInfo();
+          await updateController.runAppUpdateCheck({ manual: false });
+        }, 1200);
+      }
       return true;
     } catch (error) {
       state.appStartupPending = false;
@@ -132,11 +141,5 @@ export async function bootstrapAppForRuntime(deps = {}) {
     if (!connecting) connecting = connect().finally(() => { connecting = null; });
     return connecting;
   };
-  if (!await state.retryStartupConnection()) return;
-  if (updateController) {
-    setTimeout(async () => {
-      await updateController.refreshAppVersionInfo();
-      await updateController.runAppUpdateCheck({ manual: false });
-    }, 1200);
-  }
+  await state.retryStartupConnection();
 }

@@ -208,6 +208,21 @@ function renderTodayNotice(message = "") {
 }
 
 export function renderTodayOrganizingPanel(state = {}) {
+  if (!state.isEmptyLibrary && (state.startupPending || state.startupError)) {
+    return `
+      <div class="today-organizing-shell is-startup">
+        <section class="today-empty-home" aria-label="笔记库连接">
+          <div class="today-empty-home-copy">
+            <h3>${state.startupPending ? "正在准备笔记库" : "暂时无法读取笔记库"}</h3>
+          </div>
+          <div class="today-empty-home-actions">
+            <button class="mini-btn primary" type="button" data-today-action="retry-startup"${state.startupPending ? ` disabled aria-busy="true"` : ""}>${state.startupPending ? "正在准备..." : "重新连接"}</button>
+            <small data-today-entry-status role="status">${state.startupPending ? "正在准备本地笔记库..." : escape(state.startupError)}</small>
+          </div>
+        </section>
+      </div>
+    `;
+  }
   const actions = buildTodayActions(state);
   const recommended = primaryAction(actions);
   if (state.isEmptyLibrary) {

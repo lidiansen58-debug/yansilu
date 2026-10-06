@@ -730,6 +730,21 @@ test("today organizing events route main actions to existing workflows", async (
   assert.ok(calls.some((call) => call[0] === "theme" && call[1] === "idx_1"));
 });
 
+test("partially loaded notes still show startup error and one recovery action", () => {
+  const state = buildTodayOrganizingState({ notes: [{ id: "n1", title: "Loaded", noteType: "permanent" }] });
+  assert.equal(state.isEmptyLibrary, false);
+  const failed = renderTodayOrganizingPanel({ ...state, startupError: "second directory unavailable <error>" });
+  assert.match(failed, /data-today-action="retry-startup"/);
+  assert.match(failed, /second directory unavailable &lt;error&gt;/);
+  assert.equal((failed.match(/data-today-action=/g) || []).length, 1);
+  assert.doesNotMatch(failed, /推荐下一步/);
+  const pending = renderTodayOrganizingPanel({ ...state, startupPending: true });
+  assert.match(pending, /disabled aria-busy="true"/);
+  const connected = renderTodayOrganizingPanel(state);
+  assert.doesNotMatch(connected, /retry-startup|is-startup/);
+  assert.match(connected, /推荐下一步/);
+});
+
 test("today organizing first-run actions create a record or open import", async () => {
   const handlers = new Map();
   const calls = [];

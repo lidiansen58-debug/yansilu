@@ -40,14 +40,16 @@
   background: rgba(255, 255, 255, 0.9);
 }
 
-.today-organizing-shell.is-empty {
+.today-organizing-shell.is-empty,
+.today-organizing-shell.is-startup {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 48px 24px;
 }
 
-.module-stage > #todayOrganizingPanel:has(.today-organizing-shell.is-empty) {
+.module-stage > #todayOrganizingPanel:has(.today-organizing-shell.is-empty),
+.module-stage > #todayOrganizingPanel:has(.today-organizing-shell.is-startup) {
   border: 0;
   background: transparent;
   box-shadow: none;

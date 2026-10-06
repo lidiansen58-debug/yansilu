@@ -43,6 +43,48 @@ test("reconnecting reuses existing bindings and coalesces repeated clicks", asyn
   assert.equal(state.appStartupPending, false);
 });
 
+test("failed startup reveals home even when partial notes or another module exist", async () => {
+  const state = { module: "explorer", notes: [{ id: "loaded" }] };
+  await bootstrapAppForRuntime({
+    state,
+    initializeAppRoute: async () => ({ connected: false, error: new Error("second directory unavailable") }),
+    activateModule: module => { state.module = module; }
+  });
+  assert.equal(state.module, "today");
+  assert.equal(state.notes.length, 1);
+  assert.equal(state.appStartupError, "second directory unavailable");
+});
+
+test("first successful connection schedules updates once, including after retry", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  for (const initiallyFailed of [false, true]) {
+    const state = {};
+    let attempts = 0;
+    const calls = [];
+    await bootstrapAppForRuntime({
+      state,
+      initializeAppRoute: async () => ({ connected: !(initiallyFailed && ++attempts === 1) }),
+      updateController: {
+        refreshAppVersionInfo: async () => { calls.push("version"); },
+        runAppUpdateCheck: async options => { calls.push(["update", options.manual]); }
+      }
+    });
+    t.mock.timers.tick(1200);
+    await new Promise(resolve => setImmediate(resolve));
+    if (initiallyFailed) {
+      assert.deepEqual(calls, []);
+      assert.equal(await state.retryStartupConnection(), true);
+      t.mock.timers.tick(1200);
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.deepEqual(calls, ["version", ["update", false]]);
+    await state.retryStartupConnection();
+    t.mock.timers.tick(1200);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls.length, 2);
+  }
+});
+
 test("startup controller wires import toolbar events then initializes route and startup note", async () => {
   const calls = [];
   let fallback = false;
