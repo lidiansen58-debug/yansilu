@@ -626,6 +626,7 @@ const editorPaneStateMethods = {
   },
 
   setInspectorVisible(nextVisible) {
+    if (!nextVisible) this.permanentNoteWorkspaceController?.invalidateResultRequests();
     this.state.inspectorVisible = Boolean(nextVisible);
     this.renderInspectorVisibility();
   },
@@ -633,7 +634,10 @@ const editorPaneStateMethods = {
   toggleInspector(forceValue = null) {
     const nextVisible = typeof forceValue === "boolean" ? forceValue : !this.state.inspectorVisible;
     this.setInspectorVisible(nextVisible);
-    if (nextVisible) this.renderRelated();
+    if (nextVisible) {
+      this.renderRelated();
+      this.permanentNoteWorkspace?.().focusWorkspace?.();
+    } else this.els.showRelated?.focus?.();
   },
 
   setFocusMode(enabled) {

@@ -100,16 +100,9 @@ export function renderDistillationPanelView(input = {}, deps = {}) {
         </div>
         <button class="mini-btn primary" type="button" ${primaryActionAttrs}>${escapeHtml(model.primaryActionLabel)}</button>
       </section>
-      <section class="distillation-overview">
-        <div><span>待提纯</span><strong>${model.activeCount}</strong></div>
-        <div><span>已确认观点</span><strong>${model.counts.confirmed || 0}</strong></div>
-        <div><span>可进入写作中心</span><strong>${model.writingReadyCount}</strong></div>
-        <div><span>缺口提醒</span><strong>${model.gapChips.length}</strong></div>
-      </section>
       <section class="distillation-card">
         <div class="distillation-card-head">
           <div>
-            <div class="import-card-kicker">Queue</div>
             <strong>观点整理待处理</strong>
           </div>
           <button class="mini-btn is-ghost" id="btnDistillationRefresh" type="button">刷新</button>

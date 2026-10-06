@@ -3,6 +3,7 @@ import { relationFollowupSuggestionForDraft, relationTypeLabel } from "./editor-
 import { wikilinkTokenForNote } from "./editor-link-picker.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
 import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
+import { captureWorkspaceFocus, restoreWorkspaceFocus } from "./note-workspace-focus.js";
 import {
   normalizeRelationDraft,
   relationDraftCanSave,
@@ -39,6 +40,12 @@ export class PermanentRelationComposerController {
 
   sourceNote() {
     return stateSourceNote(this.host);
+  }
+
+  replaceOverlay(existing, html) {
+    const focused = captureWorkspaceFocus(existing);
+    existing.outerHTML = html;
+    restoreWorkspaceFocus(this.host.permanentRelationWorkspaceElement(), focused);
   }
 
   currentRelations() {

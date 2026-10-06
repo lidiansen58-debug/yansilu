@@ -302,8 +302,7 @@ export class EditorSemanticRelationsView {
       <button
         class="semantic-relation-tab ${isActive ? "is-active" : ""}"
         type="button"
-        role="tab"
-        aria-selected="${isActive ? "true" : "false"}"
+        aria-pressed="${isActive ? "true" : "false"}"
         data-relation-action="switch-tab"
         data-relation-tab="${escapeHtml(key)}"
       >
@@ -320,9 +319,11 @@ export class EditorSemanticRelationsView {
     const actions = kind === "external"
       ? row.links.map(({ link: item, direction }) => `
         <div class="semantic-relation-card-actions">
-          <span>${direction === "incoming" ? "对方 → 当前" : "当前 → 对方"} · ${escapeHtml(relationTypeLabel(item.relationType))}</span>
-          <button class="mini-btn is-ghost" type="button" data-relation-action="open-edit" data-relation-id="${escapeHtml(item?.id || "")}">编辑</button>
-          <button class="mini-btn is-ghost" type="button" data-relation-action="delete" data-relation-id="${escapeHtml(item?.id || "")}">取消外部关联</button>
+          <div class="relation-summary-context">
+            <span>${direction === "incoming" ? "对方 → 当前" : "当前 → 对方"} · ${escapeHtml(relationTypeLabel(item.relationType))}</span>
+            ${item.rationale ? `<p>${escapeHtml(item.rationale)}</p>` : ""}
+          </div>
+          <button class="mini-btn is-ghost" type="button" aria-label="编辑${escapeHtml(endpoint.title || "笔记")}的${direction === "incoming" ? "入向" : "出向"}关联" data-relation-action="open-edit" data-relation-id="${escapeHtml(item?.id || "")}">编辑</button>
         </div>
       `).join("")
       : `<button class="mini-btn is-ghost" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">打开</button>`;
@@ -364,11 +365,11 @@ export class EditorSemanticRelationsView {
         <div class="inspector-section-head">
           <div class="inspector-section-title">关联</div>
           <div class="semantic-relation-head-actions">
-            <button class="mini-btn primary" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">${escapeHtml(this.relationAiButtonLabel(noteId))}</button>
-            <button class="mini-btn semantic-relation-add-btn" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="manual" data-relation-entry-note="${escapeHtml(noteId)}">搜索笔记</button>
+            <button class="mini-btn primary semantic-relation-add-btn" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="manual" data-relation-entry-note="${escapeHtml(noteId)}">搜索笔记</button>
+            <button class="mini-btn is-ghost" type="button" data-permanent-relation-action="open" data-permanent-relation-mode="ai" data-relation-entry-note="${escapeHtml(noteId)}">${escapeHtml(this.relationAiButtonLabel(noteId))}</button>
           </div>
         </div>
-        <div class="semantic-relation-tabs" role="tablist" aria-label="关联类型">
+        <div class="semantic-relation-tabs" role="group" aria-label="关联类型">
           ${this.renderRelationTabButton("external", "外部关联", externalRows.length, activeTab)}
           ${this.renderRelationTabButton("body", "正文链接", bodyRows.length, activeTab)}
         </div>

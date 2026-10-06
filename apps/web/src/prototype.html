@@ -20,6 +20,7 @@
   </script>
   <link rel="stylesheet" href="./prototype.css" />
   <link rel="stylesheet" href="./global-note-search.css" />
+  <link rel="stylesheet" href="./note-core-flow.css" />
 </head>
 <body>
   <a class="skip-link" href="#editorWorkspace">跳到正文</a>
@@ -341,15 +342,6 @@
                 </button>
               </div>
             </section>
-          </div>
-          <div class="panel inspector-panel" id="relatedPanel">
-            <div class="panel-head">
-              <div>
-                <div class="panel-title">打磨笔记</div>
-              </div>
-              <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起打磨笔记" data-tip="收起打磨笔记" aria-label="收起打磨笔记">收起</button>
-            </div>
-            <div id="resultArea">打开永久笔记后可打磨笔记。</div>
           </div>
         </div>
       </div>
@@ -1329,6 +1321,13 @@
     </main>
   </div>
   <div id="contextMenu" class="ctx-menu hidden"></div>
+  <div class="panel inspector-panel hidden" id="relatedPanel" role="dialog" aria-modal="true" aria-labelledby="notePolishTitle">
+    <div class="panel-head">
+      <div><div class="panel-title" id="notePolishTitle">打磨笔记</div></div>
+      <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起打磨笔记" data-tip="收起打磨笔记" aria-label="收起打磨笔记">收起</button>
+    </div>
+    <div id="resultArea">打开永久笔记后可打磨笔记。</div>
+  </div>
   <div id="systemMessageModal" class="modal-mask system-message-modal hidden" role="dialog" aria-modal="true" aria-labelledby="systemMessageModalTitle" aria-describedby="systemMessageModalNote">
     <div class="modal">
       <div class="modal-head" id="systemMessageModalTitle">系统消息与 AI 建议</div>

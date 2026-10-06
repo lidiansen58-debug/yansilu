@@ -61,13 +61,10 @@ export class PermanentNoteSidebarController {
     });
     host.syncPermanentRelationWorkspaceOverlay();
     void host.permanentRelationComposer?.().loadPairPreview?.();
-    const focusWorkspace = () => {
-      host.permanentRelationWorkspaceElement()?.querySelector?.(permanentRelationWorkspaceFocusSelector({
-        selectedTargetNoteId
-      }))?.focus?.();
-    };
-    window.setTimeout(focusWorkspace, 40);
-    window.setTimeout(focusWorkspace, 250);
+    // The overlay is mounted synchronously; focus once before the user interacts.
+    host.permanentRelationWorkspaceElement()?.querySelector?.(permanentRelationWorkspaceFocusSelector({
+      selectedTargetNoteId
+    }))?.focus?.();
     return true;
   }
 

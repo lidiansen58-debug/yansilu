@@ -87,32 +87,11 @@ export function renderSourceNotePromotionPanel(input = {}) {
     <section class="inspector-section source-promotion-panel" data-source-note-flow-section data-note-id="${escapeHtml(state.noteId)}" data-source-promotion-status="${escapeHtml(state.status)}">
       <div class="source-promotion-head">
         <div>
-          <div class="source-promotion-eyebrow">生成永久笔记</div>
           <div class="source-promotion-title">${escapeHtml(state.headline)}</div>
         </div>
         <span class="inspector-chip ${state.hasGenerated ? "is-success" : state.readyForOriginal ? "is-warning" : ""}">${escapeHtml(state.statusLabel)}</span>
       </div>
       <p class="source-promotion-copy">${escapeHtml(state.guidance)}</p>
-      <div class="source-promotion-state-grid">
-        <div>
-          <span>当前材料</span>
-          <strong>${escapeHtml(state.kindLabel)}</strong>
-        </div>
-        <div>
-          <span>生成状态</span>
-          <strong>${escapeHtml(state.statusLabel)}</strong>
-        </div>
-        ${
-          state.canUpdate
-            ? `
-              <div>
-                <span>后续动作</span>
-                <strong>可更新</strong>
-              </div>
-            `
-            : ""
-        }
-      </div>
       ${resultRows}
       ${aiResult}
       ${

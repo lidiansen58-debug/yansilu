@@ -38,11 +38,11 @@ test("local help requires no network resources or scripts", () => {
 });
 
 test("local help follows current practice, author confirmation and theme continuation", () => {
-  for (const label of ["保存当前观点", "这次为什么改变", "怎么形成的", "继续提纲", "继续草稿", "继续写", "标记已编辑", "测试连接", "保存远程设置"]) {
+  for (const label of ["保存当前观点", "这次为什么改变", "形成过程", "笔记关联", "继续提纲", "继续草稿", "继续写", "标记已编辑", "测试连接", "保存远程设置"]) {
     assert.ok(help.includes(label), `missing current help action: ${label}`);
   }
   assert.match(help, /正文链接和手动保存的关联同样进入知识网络/);
-  assert.match(help, /只有实际保存和导出才算完成/);
+  assert.match(help, /没有额外步骤、进度或解锁要求/);
   assert.match(help, /采用 AI 草稿不等于确认自己的观点/);
   assert.match(help, /测试成功只表示连接可用/);
   assert.match(help, /真实本地模型质量和延迟仍待改进/);

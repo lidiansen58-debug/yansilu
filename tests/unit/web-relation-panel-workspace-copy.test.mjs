@@ -36,7 +36,7 @@ test("relation and viewpoint polish entry stay separated", async () => {
   const relationComposerController = await readFile(permanentRelationComposerControllerPath, "utf8");
   const workspaceControllerSource = await readFile(workspaceControllerPath, "utf8");
 
-  assert.match(shell, /<div class="panel-title">打磨笔记<\/div>/);
+  assert.match(shell, /<div class="panel-title" id="notePolishTitle">打磨笔记<\/div>/);
   assert.match(shell, /aria-label="打磨笔记"/);
   assert.match(source, /renderPermanentRelationWorkspace/);
   assert.match(source, /renderPermanentNoteRelationAssistSectionView\(\{/);
@@ -194,12 +194,14 @@ test("relation workspace separates body links and external relations with user-f
   assert.match(html, /semantic-relation-add-btn[^>]*data-permanent-relation-mode="manual"[^>]*>搜索笔记<\/button>/);
   assert.match(html, /外部关联/);
   assert.match(html, /正文链接/);
-  assert.match(html, /取消外部关联/);
+  assert.doesNotMatch(html, /取消外部关联/);
+  assert.match(html, /目标笔记支持当前判断。/);
+  assert.match(html, /来源笔记限定当前判断。/);
   assert.match(html, />打开<\/button>/);
   assert.doesNotMatch(html, /正文链接可以补充为关联|补充为关联/);
   assert.doesNotMatch(html, /正式关系|正式关联|升级为正式|删除/);
   assert.doesNotMatch(html, /正文链接<\/span>\s*<span class="related-item-badge">相关<\/span>/);
-  assert.equal((html.match(/目标笔记/g) || []).length, 2);
+  assert.equal((html.match(/data-preview-note="target"/g) || []).length, 3);
 });
 
 test("relation button count matches relation workspace tab counts", () => {
